@@ -1,17 +1,23 @@
 namespace CSharpToJava.Core.ThreadStaticRewrite;
 
 /// <summary>
-/// How an inline initializer of a [ThreadStatic] field is materialized.
-/// M1 implements <see cref="EveryThread"/> only; <see cref="FirstThreadFaithful"/>
-/// (cctor injection) is reserved for M2.
+/// How an inline initializer of a [ThreadStatic] field is materialized
+/// (design §2/§2.1).
 /// </summary>
 public enum ThreadStaticInitializerPolicy
 {
-    /// <summary><c>new ThreadLocal&lt;T&gt;(() => INIT)</c>: every thread gets the initial value.</summary>
-    EveryThread,
-
-    /// <summary>M2: initialize only on the first thread (CLR-faithful), via injected cctor assignments.</summary>
+    /// <summary>
+    /// CLR-faithful default (design §2 decision table / §2.1): the holder is
+    /// constructed parameterless and the initializer is moved into the static
+    /// constructor, so only the first thread to touch the type observes it.
+    /// </summary>
     FirstThreadFaithful,
+
+    /// <summary>
+    /// Explicit opt-in: <c>new ThreadLocal&lt;T&gt;(() =&gt; INIT)</c> gives every
+    /// thread the initial value; deviates from official [ThreadStatic] semantics.
+    /// </summary>
+    EveryThread,
 }
 
 /// <summary>How field accesses inside expression-tree lambdas (<c>Expression&lt;...&gt;</c>) are handled.</summary>
@@ -27,8 +33,13 @@ public enum ThreadStaticExpressionTreePolicy
 /// <summary>Options for the thread-static (C09) preprocessing pass.</summary>
 public sealed record ThreadStaticOptions
 {
-    /// <summary>Inline initializer materialization policy. M1 implements EveryThread only.</summary>
-    public ThreadStaticInitializerPolicy InitializerPolicy { get; init; } = ThreadStaticInitializerPolicy.EveryThread;
+    /// <summary>
+    /// Inline initializer materialization policy. Defaults to
+    /// <see cref="ThreadStaticInitializerPolicy.FirstThreadFaithful"/> (official
+    /// CLR semantics, design §2 decision table / §2.1); EveryThread is an
+    /// explicit opt-in only.
+    /// </summary>
+    public ThreadStaticInitializerPolicy InitializerPolicy { get; init; } = ThreadStaticInitializerPolicy.FirstThreadFaithful;
 
     /// <summary>Warnings (skipped plans, residuals) become errors.</summary>
     public bool Strict { get; init; }

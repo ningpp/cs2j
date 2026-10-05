@@ -159,7 +159,10 @@ public class ThreadStaticRewriteTests
                 static int Get() => f;
             }
             """;
-        var result = RunOne(source);
+        var result = RunOne(source, new ThreadStaticOptions
+        {
+            InitializerPolicy = ThreadStaticInitializerPolicy.EveryThread,
+        });
         Assert.True(result.Changed);
         Assert.Contains(
             "= new global::System.Threading.ThreadLocal<int>(() => Compute() + 1);",
@@ -621,18 +624,26 @@ public class ThreadStaticRewriteTests
 
     // ---- TS-5: struct value types ----
 
+    // ---- TS-5: mutable struct statement-level temp lifting ----
+
+    private const string MutableStructSource = """
+        using System;
+
+        struct S
+        {
+            public int X;
+            public int Y;
+
+            public void Mut() { }
+
+            public int Inc() => 1;
+        }
+        """;
+
     [Fact]
-    public void MutableStruct_MemberMutation_SkippedWith1203()
+    public void MutableStruct_AllMutationShapes_AreTempLiftedWithWriteback()
     {
-        var source = """
-            using System;
-
-            struct S
-            {
-                public int X;
-
-                public void Mut() { }
-            }
+        var source = MutableStructSource + """
 
             class C
             {
@@ -642,7 +653,154 @@ public class ThreadStaticRewriteTests
                 {
                     s.X = 1;
                     s.Mut();
-                    var v = s;
+                    s.X += 1;
+                    s.X++;
+                    ++s.X;
+                }
+            }
+            """;
+        var result = RunOne(source);
+        Assert.True(result.Changed);
+        Assert.Contains("var __cs2j_ts_s = s.Value;", result.OutputCode);
+        Assert.Contains("__cs2j_ts_s.X = 1;", result.OutputCode);
+        Assert.Contains("__cs2j_ts_s.Mut();", result.OutputCode);
+        Assert.Contains("__cs2j_ts_s.X += 1;", result.OutputCode);
+        Assert.Contains("__cs2j_ts_s.X++;", result.OutputCode);
+        Assert.Contains("++__cs2j_ts_s.X;", result.OutputCode);
+        Assert.Equal(5, result.OutputCode.Split("s.Value = __cs2j_ts_s;").Length - 1);
+        Assert.Equal(5, result.Statistics.StructTempLifts);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void MutableStruct_AllSitesInAnchor_ExecuteOnTheTemp()
+    {
+        var source = MutableStructSource + """
+
+            class C
+            {
+                [ThreadStatic] static S s;
+
+                static void M(int z)
+                {
+                    s.X = z + s.Y;
+                }
+            }
+            """;
+        var result = RunOne(source);
+        Assert.True(result.Changed);
+        Assert.Contains("__cs2j_ts_s.X = z + __cs2j_ts_s.Y;", result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void MutableStruct_EmbeddedStatementAnchor_IsWrappedInBlock()
+    {
+        var source = MutableStructSource + """
+
+            class C
+            {
+                [ThreadStatic] static S s;
+
+                static void M(bool b)
+                {
+                    if (b)
+                        s.Mut();
+                }
+            }
+            """;
+        var result = RunOne(source);
+        Assert.True(result.Changed);
+        Assert.Contains("if (b)", result.OutputCode);
+        Assert.Contains("__cs2j_ts_s.Mut();", result.OutputCode);
+        Assert.Equal(1, result.Statistics.StructTempLifts);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void MutableStruct_TempNameCollision_GetsNumericSuffix()
+    {
+        var source = MutableStructSource + """
+
+            class C
+            {
+                [ThreadStatic] static S s;
+
+                static int M()
+                {
+                    var __cs2j_ts_s = 0;
+                    s.X = 1;
+                    return __cs2j_ts_s;
+                }
+            }
+            """;
+        var result = RunOne(source);
+        Assert.True(result.Changed);
+        Assert.Contains("var __cs2j_ts_s_2 = s.Value;", result.OutputCode);
+        Assert.Contains("__cs2j_ts_s_2.X = 1;", result.OutputCode);
+        Assert.Contains("s.Value = __cs2j_ts_s_2;", result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Theory]
+    [InlineData("                var x = s.Inc();\r\n")]
+    [InlineData("                Take(s.Inc());\r\n")]
+    [InlineData("                var q = new[] { 1 }.Where(n => s.Inc() == n).ToList();\r\n")]
+    public void MutableStruct_NonLiftableContext_SkippedWith1203_BytesUntouched(string statement)
+    {
+        var source = MutableStructSource + """
+
+            using System.Collections.Generic;
+            using System.Linq;
+
+            class C
+            {
+                [ThreadStatic] static S s;
+
+                static void Take(int x) { }
+
+                static void M()
+                {
+            """ + "\r\n" + statement + """
+                }
+            }
+            """;
+        var result = RunOne(source);
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == ThreadStaticCodes.StructMutationNotLiftable);
+    }
+
+    [Fact]
+    public void MutableStruct_FieldInitializerContext_SkippedWith1203_BytesUntouched()
+    {
+        var source = MutableStructSource + """
+
+            class C
+            {
+                [ThreadStatic] static S s;
+
+                static int z = s.Inc();
+            }
+            """;
+        var result = RunOne(source);
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == ThreadStaticCodes.StructMutationNotLiftable);
+    }
+
+    [Fact]
+    public void MutableStruct_AttributeArgumentContext_SkippedWith1203_BytesUntouched()
+    {
+        var source = MutableStructSource + """
+
+            class C
+            {
+                [ThreadStatic] static S s;
+
+                [Obsolete(s.Inc().ToString())]
+                static void M()
+                {
                 }
             }
             """;
@@ -687,10 +845,191 @@ public class ThreadStaticRewriteTests
         AssertCompiles(result.OutputCode);
     }
 
-    // ---- residual gate (M1 minimal) ----
+    // ---- TS-1 / TS-10: FirstThreadFaithful (default): cctor injection ----
 
     [Fact]
-    public void ResidualScan_CountsRemainingAttributes()
+    public void FirstThreadFaithful_NoCctor_SynthesizesCctorWithAssignmentAndParameterlessHolder()
+    {
+        var source = """
+            using System;
+
+            class C
+            {
+                [ThreadStatic] static int f = Compute() + 1;
+
+                static int Compute() => 41;
+
+                static int Get() => f;
+            }
+            """;
+        var result = RunOne(source);
+        Assert.True(result.Changed);
+        Assert.Contains(
+            "static readonly global::System.Threading.ThreadLocal<int> f = new global::System.Threading.ThreadLocal<int>();",
+            result.OutputCode);
+        Assert.DoesNotContain("ThreadLocal<int>(() =>", result.OutputCode);
+        Assert.Contains("static C()", result.OutputCode);
+        Assert.Contains("f.Value = Compute() + 1;", result.OutputCode);
+        Assert.Contains("static int Get() => f.Value;", result.OutputCode);
+        Assert.Contains(result.Diagnostics,
+            d => d.Code == ThreadStaticCodes.InitializerNormalized
+                && d.Message.Contains("FirstThreadFaithful"));
+        Assert.Equal(1, result.Statistics.InitializersNormalized);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void FirstThreadFaithful_ExistingCctor_AssignmentPrependedToBody()
+    {
+        var source = """
+            using System;
+
+            class C
+            {
+                [ThreadStatic] static int f = Compute() + 1;
+
+                static int Compute() => 41;
+
+                static C()
+                {
+                    Other();
+                }
+
+                static void Other() { }
+            }
+            """;
+        var result = RunOne(source);
+        Assert.True(result.Changed);
+        var injectedIndex = result.OutputCode.IndexOf("f.Value = Compute() + 1;", StringComparison.Ordinal);
+        var otherIndex = result.OutputCode.IndexOf("Other();", StringComparison.Ordinal);
+        Assert.True(injectedIndex >= 0);
+        Assert.True(otherIndex >= 0);
+        Assert.True(injectedIndex < otherIndex);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void FirstThreadFaithful_MultipleDeclarations_AssignmentsFollowGlobalFieldOrder()
+    {
+        var source = """
+            using System;
+
+            class C
+            {
+                [ThreadStatic] static int first = 1;
+                [ThreadStatic] static int second = 2;
+
+                static int Get() => first + second;
+            }
+            """;
+        var result = RunOne(source);
+        Assert.True(result.Changed);
+        var firstIndex = result.OutputCode.IndexOf("first.Value = 1;", StringComparison.Ordinal);
+        var secondIndex = result.OutputCode.IndexOf("second.Value = 2;", StringComparison.Ordinal);
+        Assert.True(firstIndex >= 0 && secondIndex >= 0 && firstIndex < secondIndex);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void FirstThreadFaithful_MultiVariableSplit_EachFieldGetsCctorAssignment()
+    {
+        var source = """
+            using System;
+
+            class C
+            {
+                [ThreadStatic] static int a = 1, b = 2;
+            }
+            """;
+        var result = RunOne(source);
+        Assert.True(result.Changed);
+        Assert.Contains(
+            "ThreadLocal<int> a = new global::System.Threading.ThreadLocal<int>();",
+            result.OutputCode);
+        Assert.Contains(
+            "ThreadLocal<int> b = new global::System.Threading.ThreadLocal<int>();",
+            result.OutputCode);
+        var aIndex = result.OutputCode.IndexOf("a.Value = 1;", StringComparison.Ordinal);
+        var bIndex = result.OutputCode.IndexOf("b.Value = 2;", StringComparison.Ordinal);
+        Assert.True(aIndex >= 0 && bIndex >= 0 && aIndex < bIndex);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void FirstThreadFaithful_SiteInsideInitializer_IsRewrittenInCctor()
+    {
+        var source = """
+            using System;
+
+            class C
+            {
+                [ThreadStatic] static int seed = 40;
+                [ThreadStatic] static int derived = seed + 2;
+            }
+            """;
+        var result = RunOne(source);
+        Assert.True(result.Changed);
+        Assert.Contains("derived.Value = seed.Value + 2;", result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    // ---- TS-13: iterator ----
+
+    [Fact]
+    public void IteratorBody_SiteIsRewritten()
+    {
+        var source = """
+            using System;
+            using System.Collections.Generic;
+
+            class C
+            {
+                [ThreadStatic] static int f;
+
+                static IEnumerable<int> It()
+                {
+                    yield return f;
+                    f++;
+                    yield break;
+                }
+            }
+            """;
+        var result = RunOne(source);
+        Assert.True(result.Changed);
+        Assert.Contains("yield return f.Value;", result.OutputCode);
+        Assert.Contains("f.Value++;", result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    // ---- TS-14: user-owned ThreadLocal<T> is invisible to the pass ----
+
+    [Fact]
+    public void UserOwnedThreadLocal_ZeroChangesZeroDiagnostics()
+    {
+        var source = """
+            using System;
+            using System.Threading;
+
+            class C
+            {
+                static readonly ThreadLocal<int> t = new(() => 5);
+
+                static int Get() => t.Value;
+
+                static void Set(int v) => t.Value = v;
+            }
+            """;
+        var result = RunOne(source);
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(0, result.Statistics.FieldsDetected);
+    }
+
+    // ---- residual gate (reconciliation) ----
+
+    [Fact]
+    public void ResidualScan_ActivePlanAttributeIsUnowned_ThenZeroAfterRewrite()
     {
         var source = """
             using System;
@@ -706,7 +1045,9 @@ public class ThreadStaticRewriteTests
         preprocessor.Analyze(new ThreadStaticOptions());
 
         var before = preprocessor.ResidualScan(compilation);
-        Assert.Equal(1, before.Count);
+        Assert.Equal(1, before.Total);
+        Assert.Equal(0, before.Owned.Count);
+        Assert.Equal(1, before.Unowned.Count);
 
         var result = preprocessor.RewriteFile(compilation.GetSemanticModel(compilation.SyntaxTrees[0]));
         var rewrittenTree = CSharpSyntaxTree.ParseText(
@@ -719,6 +1060,48 @@ public class ThreadStaticRewriteTests
             References,
             CompilationOptions);
         var after = preprocessor.ResidualScan(rewrittenCompilation);
-        Assert.Equal(0, after.Count);
+        Assert.Equal(0, after.Total);
+        Assert.False(after.HasUnowned);
+    }
+
+    [Fact]
+    public void ResidualScan_SkippedPlanAttribute_IsOwnedAndDoesNotRaise1220()
+    {
+        var source = """
+            using System;
+
+            class C
+            {
+                [ThreadStatic] int instanceField;
+            }
+            """;
+        var compilation = Compile(("Test.cs", source));
+        var preprocessor = new ThreadStaticPreprocessor();
+        preprocessor.BindCompilation(compilation);
+        preprocessor.Analyze(new ThreadStaticOptions());
+
+        var report = preprocessor.ResidualScan(compilation);
+        Assert.Equal(1, report.Total);
+        Assert.Equal(1, report.Owned.Count);
+        Assert.Equal(0, report.Unowned.Count);
+        Assert.Equal(ThreadStaticCodes.UnsupportedAttributePosition, report.Owned[0].OwnerCode);
+    }
+
+    [Fact]
+    public void ResidualScan_AttributeWithoutAnyPlan_IsUnowned()
+    {
+        var source = """
+            using System;
+
+            class C
+            {
+                [ThreadStatic] static int f;
+            }
+            """;
+        var compilation = Compile(("Test.cs", source));
+        var report = ThreadStaticResidualScanner.Scan(compilation, Array.Empty<ThreadStaticFieldPlan>());
+        Assert.Equal(1, report.Total);
+        Assert.Equal(1, report.Unowned.Count);
+        Assert.Null(report.Unowned[0].OwnerPlanId);
     }
 }

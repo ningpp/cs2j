@@ -1,15 +1,19 @@
+using System.Text;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ThreadStaticRewrite;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Text;
 
 namespace CSharpToJava.CLI.Preprocessing.Adapters;
 
 /// <summary>
-/// Adapter for the thread-static (C09) pass: whole-tree Bind+Analyze once,
-/// per-file rewrite, and the post-rewrite residual gate that reconciles
-/// remaining [ThreadStatic] attributes against the skipped plan set
-/// (design §4.2/§5.1). Mirrors GenericDeepenPassAdapter's lifecycle.
+/// Adapter for the thread-static (C09) pass. Drives its own whole-tree
+/// iteration like RecordReadOnlyPassAdapter: each round replays the originals,
+/// runs the Core rollback loop (rewrite → recompile → attribute new errors →
+/// exclude one plan or CS2J1200 whole-run rollback), then reconciles residual
+/// [ThreadStatic] attributes against the final plan set (CS2J1220 gate).
+/// Tree preparation and restore reuse the runner stage helpers.
 /// </summary>
 internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
 {
@@ -22,9 +26,9 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
     private readonly bool _verifyBuild;
     private readonly bool _verifyTests;
 
-    private readonly ThreadStaticPreprocessor _preprocessor = new();
     private readonly List<ThreadStaticDiagnostic> _diagnostics = new();
-    private readonly ThreadStaticStatistics _statistics = new();
+    private ThreadStaticStatistics _statistics = new();
+    private PassTreeContext? _currentTree;
 
     public ThreadStaticPassAdapter(
         ThreadStaticOptions options,
@@ -53,107 +57,160 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
     public ThreadStaticStatistics Statistics => _statistics;
     public IReadOnlyList<ThreadStaticDiagnostic> Diagnostics => _diagnostics;
 
-    public override Task CompilationReadyAsync(CSharpCompilation compilation)
+    public override async Task ExecuteAsync(PassExecutionContext context)
     {
-        _preprocessor.BindCompilation(compilation);
-        _preprocessor.Analyze(_options);
-        return Task.CompletedTask;
-    }
+        var tree = context.Tree;
+        _currentTree = tree;
+        var intermediateRoot = tree.IntermediateRoot;
+        var sourceRoot = tree.SourceRoot;
 
-    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
-    {
-        var result = _preprocessor.RewriteFile(context.SemanticModel!);
-        _statistics.Merge(result.Statistics);
-        foreach (var diagnostic in result.Diagnostics)
+        var sourceFiles = tree.CsFiles
+            .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)
+            .Select(file => (
+                Source: file,
+                Dest: Path.Combine(intermediateRoot, Path.GetRelativePath(sourceRoot, file))))
+            .ToList();
+
+        // Seed the intermediate tree with the pristine .cs sources...
+        foreach (var pair in sourceFiles)
         {
-            _diagnostics.Add(diagnostic with { FilePath = context.RelativePath });
+            Directory.CreateDirectory(Path.GetDirectoryName(pair.Dest)!);
+            File.Copy(pair.Source, pair.Dest, overwrite: true);
         }
 
-        if (_verbose)
+        // ...and carry the non-.cs assets (csproj, Directory.Build.*, ...) the
+        // same way RecordReadOnlyPassAdapter does; .sln stays with preparation.
+        foreach (var asset in tree.SourceFiles)
         {
-            Console.WriteLine($"[thread-static] {(result.Changed ? "transformed" : "clean (copy)")}: {context.RelativePath}");
-        }
-
-        return Task.FromResult(result.Changed
-            ? new PassFileRewrite { OutputCode = result.OutputCode, Changed = true }
-            : (PassFileRewrite?)null);
-    }
-
-    public override Task AfterFilesAsync(PassTreeContext tree)
-    {
-        RunResidualScan(tree);
-        return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Post-rewrite gate (design §4.2 step 4 / §7.4): recompile the
-    /// intermediate tree, count the remaining ThreadStaticAttribute instances
-    /// and reconcile them against the inactive plans. Every skipped plan
-    /// (CS2J1201/1202/1203/1204/1205/1290) leaves its declaration untouched,
-    /// so exactly one attribute per skipped field is expected to remain.
-    /// Attributes beyond that registered skip set mean the rewrite dropped a
-    /// field; each such residual is reported CS2J1220 (Warning, Error under
-    /// --strict).
-    /// </summary>
-    private void RunResidualScan(PassTreeContext tree)
-    {
-        var parseOptions = CreateParseOptions(tree);
-        var trees = new List<SyntaxTree>();
-        foreach (var file in Directory.EnumerateFiles(tree.IntermediateRoot, "*.cs", SearchOption.AllDirectories))
-        {
-            var normalized = file.Replace('\\', '/');
-            if (normalized.Contains("/obj/", StringComparison.OrdinalIgnoreCase)
-                || normalized.Contains("/bin/", StringComparison.OrdinalIgnoreCase))
+            if (asset.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                || asset.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(file), parseOptions, path: file));
+            var assetDest = Path.Combine(
+                intermediateRoot, Path.GetRelativePath(sourceRoot, asset));
+            Directory.CreateDirectory(Path.GetDirectoryName(assetDest)!);
+            File.Copy(asset, assetDest, overwrite: true);
         }
 
-        if (trees.Count == 0)
-        {
-            return;
-        }
+        // Baseline error set keyed on the original contents (dest paths).
+        var baselineErrors = BuildErrorSet(
+            sourceFiles.Select(p => (p.Dest, Content: File.ReadAllText(p.Source))));
 
-        var compilation = CSharpCompilation.Create(
-            CompilationName,
-            trees, GetMetadataReferences(), CreateCompilationOptions());
-
-        var (residualCount, locations) = _preprocessor.ResidualScan(compilation);
-        _statistics.ResidualThreadStaticAttributes = residualCount;
-
-        var expectedResidual = _preprocessor.Plans.Count(plan => !plan.Active);
-        var unexpected = residualCount - expectedResidual;
-        if (unexpected <= 0)
-        {
-            return;
-        }
-
-        var severity = _options.Strict
-            ? ThreadStaticSeverity.Error
-            : ThreadStaticSeverity.Warning;
-
-        var orderedLocations = locations
-            .OrderBy(location => location.SourceTree?.FilePath, StringComparer.Ordinal)
-            .ThenBy(location => location.SourceSpan.Start)
+        var runnerInputs = sourceFiles
+            .Select(p => new ThreadStaticSourceFile(p.Dest, File.ReadAllText(p.Source)))
             .ToList();
 
-        // The scanner cannot attribute residuals to plans on its own; list all
-        // residual sites (deterministic order) in the aggregated message.
-        var siteList = string.Join("; ", orderedLocations.Select(location =>
-        {
-            var lineSpan = location.GetLineSpan();
-            return $"{lineSpan.Path}({lineSpan.StartLinePosition.Line + 1})";
-        }));
+        var result = ThreadStaticRollbackRunner.Run(
+            runnerInputs,
+            _options,
+            BuildCompilationFromTexts,
+            (baseline, candidate) => DiffNewErrors(baselineErrors, candidate));
 
-        _diagnostics.Add(new ThreadStaticDiagnostic(
-            severity,
-            ThreadStaticRule.Residual,
-            ThreadStaticCodes.ResidualFound,
-            $"{unexpected} residual [ThreadStatic] attribute(s) remain after thread-static with no matching skipped plan "
-                + $"(expected {expectedResidual} registered skip(s), found {residualCount}); the rewrite did not cover them. Sites: {siteList}",
-            tree.IntermediateRoot));
+        // Persist the final outputs; unchanged files are byte copies of the originals.
+        foreach (var file in result.Files)
+        {
+            var pair = sourceFiles.First(p =>
+                string.Equals(p.Dest, file.Path, StringComparison.OrdinalIgnoreCase));
+            if (!file.Changed)
+            {
+                File.Copy(pair.Source, pair.Dest, overwrite: true);
+            }
+            else
+            {
+                File.WriteAllText(pair.Dest, file.Output,
+                    FileStartsWithBom(pair.Source) ? new UTF8Encoding(true) : new UTF8Encoding(false));
+            }
+
+            if (_verbose)
+            {
+                Console.WriteLine(
+                    $"[thread-static] {(file.Changed ? "transformed" : "clean (copy)")}: "
+                    + Path.GetRelativePath(sourceRoot, pair.Source));
+            }
+        }
+
+        _statistics = result.Statistics;
+        _diagnostics.AddRange(result.Diagnostics.Select(RelativizeDiagnostic));
+
+        // Post-rewrite residual reconciliation only makes sense when the run was accepted:
+        // after a whole-run rollback every field is back in its original form by design.
+        if (result.Success)
+        {
+            RunResidualScan(result);
+        }
+
+        context.Success = result.Success;
+
+        var restoreExitCode = context.Restore();
+        if (restoreExitCode != 0)
+        {
+            context.Success = false;
+        }
+
+        var verified = await context.VerifyBuildAndTestsAsync();
+        if (!verified)
+        {
+            context.Success = false;
+        }
+    }
+
+    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+        => throw new NotSupportedException("ThreadStaticPassAdapter drives the file loop itself.");
+
+    /// <summary>
+    /// Residual gate (design §4.2 step 5 / §7.4): residual attributes owned by an
+    /// inactive plan (CS2J1201/1202/1203/1204/1205/1290) are expected and only
+    /// surface as verbose info; unowned residual attributes mean the rewrite
+    /// dropped a field and are reported CS2J1220 (Warning, Error under --strict).
+    /// </summary>
+    private void RunResidualScan(ThreadStaticRollbackResult result)
+    {
+        var compilation = BuildCompilationFromTexts(
+            result.Files.Select(f => new ThreadStaticSourceFile(f.Path, f.Output)).ToList());
+        var report = ThreadStaticResidualScanner.Scan(compilation, result.FinalPlans);
+
+        _statistics.ResidualThreadStaticAttributes = report.Total;
+        _statistics.OwnedResidualAttributes = report.Owned.Count;
+        _statistics.UnownedResidualAttributes = report.Unowned.Count;
+
+        if (_verbose && report.Owned.Count > 0)
+        {
+            foreach (var residual in report.Owned)
+            {
+                var lineSpan = residual.Location.GetLineSpan();
+                _diagnostics.Add(new ThreadStaticDiagnostic(
+                    ThreadStaticSeverity.Info,
+                    ThreadStaticRule.Residual,
+                    residual.OwnerCode ?? ThreadStaticCodes.ResidualFound,
+                    $"[ThreadStatic] attribute retained for skipped plan {residual.OwnerCode} on "
+                        + $"'{residual.FieldDisplayName}'.",
+                    lineSpan.Path,
+                    lineSpan.StartLinePosition.Line + 1,
+                    residual.OwnerPlanId));
+            }
+        }
+
+        if (report.Unowned.Count > 0)
+        {
+            var severity = _options.Strict
+                ? ThreadStaticSeverity.Error
+                : ThreadStaticSeverity.Warning;
+            foreach (var residual in report.Unowned)
+            {
+                var lineSpan = residual.Location.GetLineSpan();
+                _diagnostics.Add(new ThreadStaticDiagnostic(
+                    severity,
+                    ThreadStaticRule.Residual,
+                    ThreadStaticCodes.ResidualFound,
+                    $"Residual [ThreadStatic] attribute on '{residual.FieldDisplayName}' has no matching "
+                        + "skipped field plan; the rewrite did not cover this field.",
+                    lineSpan.Path,
+                    lineSpan.StartLinePosition.Line + 1,
+                    null));
+            }
+        }
     }
 
     public override void OnRestoreFailed(int exitCode, string restoreTarget)
@@ -168,7 +225,8 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
             ThreadStaticSeverity.Error,
             ThreadStaticRule.Infrastructure,
             ThreadStaticCodes.RestoreOrBuildFailed,
-            $"dotnet build failed with exit code {exitCode} after thread-static preprocessing; the rewrite produced code that does not compile."));
+            "dotnet build failed with exit code " + exitCode
+                + " after thread-static preprocessing; the rewrite produced code that does not compile."));
 
     public override void OnTestsFailed(int exitCode)
         => _diagnostics.Add(new ThreadStaticDiagnostic(
@@ -187,4 +245,91 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
             .Where(d => d.Severity != ThreadStaticSeverity.Info || verbose)
             .Select(d => d.ToString())
             .ToList();
+
+    // ---- in-memory compilation + error diffing (Core rollback loop callbacks) ----
+
+    private CSharpCompilation BuildCompilationFromTexts(IReadOnlyList<ThreadStaticSourceFile> files)
+    {
+        var parseOptions = CreateParseOptions(_currentTree!);
+        var trees = new List<SyntaxTree>(files.Count);
+        foreach (var file in files)
+        {
+            trees.Add(CSharpSyntaxTree.ParseText(file.Content, parseOptions, path: file.Path));
+        }
+
+        return CSharpCompilation.Create(
+            CompilationName,
+            trees,
+            GetMetadataReferences(),
+            CreateCompilationOptions());
+    }
+
+    private HashSet<(string File, string Id, string Message)> BuildErrorSet(
+        IEnumerable<(string Path, string Content)> files)
+    {
+        var compilation = BuildCompilationFromTexts(
+            files.Select(f => new ThreadStaticSourceFile(f.Path, f.Content)).ToList());
+        return new HashSet<(string, string, string)>(
+            compilation.GetDiagnostics()
+                .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)
+                .Select(d => (
+                    Normalize(d.Location.SourceTree!.FilePath),
+                    d.Descriptor.Id,
+                    d.GetMessage())));
+    }
+
+    private IReadOnlyList<ThreadStaticCompileError> DiffNewErrors(
+        HashSet<(string File, string Id, string Message)> baseline,
+        IReadOnlyList<ThreadStaticRewrittenFile> candidate)
+    {
+        var compilation = BuildCompilationFromTexts(
+            candidate.Select(f => new ThreadStaticSourceFile(f.Path, f.Output)).ToList());
+        var result = new List<ThreadStaticCompileError>();
+        foreach (var diagnostic in compilation.GetDiagnostics())
+        {
+            if (diagnostic.Severity != DiagnosticSeverity.Error
+                || diagnostic.Location.SourceTree is not { } tree)
+            {
+                continue;
+            }
+
+            var filePath = tree.FilePath;
+            if (baseline.Contains((Normalize(filePath), diagnostic.Descriptor.Id, diagnostic.GetMessage())))
+            {
+                continue;
+            }
+
+            var position = diagnostic.Location.GetLineSpan().StartLinePosition;
+            result.Add(new ThreadStaticCompileError(
+                filePath,
+                diagnostic.Location.SourceSpan,
+                diagnostic.Descriptor.Id,
+                diagnostic.GetMessage(),
+                position.Line + 1,
+                position.Character + 1));
+        }
+
+        return result
+            .OrderBy(e => e.FilePath, StringComparer.Ordinal)
+            .ThenBy(e => e.Line)
+            .ThenBy(e => e.Column)
+            .ToList();
+    }
+
+    private string Normalize(string path) => path.Replace('\\', '/');
+
+    private ThreadStaticDiagnostic RelativizeDiagnostic(ThreadStaticDiagnostic diagnostic)
+    {
+        if (string.IsNullOrEmpty(diagnostic.FilePath) || _currentTree == null) return diagnostic;
+        var relative = Path.GetRelativePath(_currentTree.IntermediateRoot, diagnostic.FilePath);
+        return diagnostic with { FilePath = relative.Replace('\\', '/') };
+    }
+
+    private static bool FileStartsWithBom(string path)
+    {
+        using var stream = File.OpenRead(path);
+        Span<byte> prefix = stackalloc byte[3];
+        var read = stream.Read(prefix);
+        return read >= 3 && prefix[0] == 0xEF && prefix[1] == 0xBB && prefix[2] == 0xBF;
+    }
 }

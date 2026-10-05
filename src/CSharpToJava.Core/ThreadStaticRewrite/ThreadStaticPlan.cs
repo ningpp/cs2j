@@ -31,6 +31,14 @@ public sealed class ReferenceSite
     public TextSpan Span { get; }
 
     public int SpanStart => Span.Start;
+
+    /// <summary>
+    /// TS-5 only: span of the statement-level anchor expression statement the
+    /// struct mutation is lifted into. Null for non-StructMutation sites and for
+    /// non-liftable mutations (a non-liftable mutation deactivates the whole plan,
+    /// so active plans always carry an anchor here).
+    /// </summary>
+    public TextSpan? LiftAnchorSpan { get; set; }
 }
 
 /// <summary>
@@ -60,11 +68,22 @@ public sealed class ThreadStaticFieldPlan : IComparable<ThreadStaticFieldPlan>
     /// <summary>Stable identifier used by ExcludePlans (overrides/rollback ownership).</summary>
     public string Id => Field.ToDisplayString();
 
-    /// <summary>True when the changed span in <paramref name="file"/> belongs to this field's declaration or one of its sites.</summary>
+    /// <summary>
+    /// True when the changed span in <paramref name="file"/> belongs to this
+    /// field's declaration or one of its sites. Sibling declarators of a shared
+    /// multi-variable field declaration are distinguished so that a touch inside
+    /// declarator 'a' is not attributed to the plan of declarator 'b'.
+    /// </summary>
     public bool OwnsTouch(string file, TextSpan span)
     {
         if (file == Declaration.SyntaxTree.FilePath && Declaration.Span.Contains(span))
         {
+            foreach (var other in Declaration.Declaration.Variables)
+            {
+                if (other == Declarator) continue;
+                if (other.Span.Contains(span)) return false;
+            }
+
             return true;
         }
 

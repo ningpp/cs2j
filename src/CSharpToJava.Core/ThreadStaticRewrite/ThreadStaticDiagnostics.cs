@@ -15,6 +15,7 @@ public enum ThreadStaticRule
     GenericContainer,
     Instance,
     Residual,
+    Rollback,
     Infrastructure,
 }
 
@@ -24,7 +25,8 @@ public sealed record ThreadStaticDiagnostic(
     string Code,
     string Message,
     string? FilePath = null,
-    int? Line = null)
+    int? Line = null,
+    string? PlanId = null)
 {
     public override string ToString()
     {
@@ -38,7 +40,7 @@ public sealed record ThreadStaticDiagnostic(
     }
 }
 
-/// <summary>CS2J12xx diagnostic codes for the thread-static pass (spec §6).</summary>
+/// <summary>CS2J12xx diagnostic codes for the thread-static pass (spec §6; codes are append-only).</summary>
 public static class ThreadStaticCodes
 {
     public const string WholeTreeRollback = "CS2J1200";
@@ -47,6 +49,14 @@ public static class ThreadStaticCodes
     public const string StructMutationNotLiftable = "CS2J1203";
     public const string GenericContainerUnsupported = "CS2J1204";
     public const string ExpressionTreeSite = "CS2J1205";
+
+    /// <summary>
+    /// One field plan was excluded after the post-rewrite recompile attributed a
+    /// new error to it; the plan was replayed from the original sources (M2).
+    /// Appended to the §6 table (codes are append-only).
+    /// </summary>
+    public const string PlanRolledBack = "CS2J1206";
+
     public const string ResidualFound = "CS2J1220";
     public const string RestoreOrBuildFailed = "CS2J1230";
     public const string TestsFailed = "CS2J1231";

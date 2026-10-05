@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 using CSharpToJava.Core.Analysis;
 
 namespace CSharpToJava.Core.ThreadStaticRewrite;
@@ -198,7 +199,6 @@ internal sealed class ThreadStaticAnalyzer
     private void ClassifySite(SemanticModel model, Candidate candidate, ExpressionSyntax access)
     {
         var filePath = access.SyntaxTree.FilePath;
-        var site = new ReferenceSite(access, ThreadStaticSiteKind.Read, filePath, access.Span);
 
         // nameof(f) / nameof(C.f): the name is a string argument, not a variable access.
         if (IsNameofArgument(access))
@@ -206,8 +206,8 @@ internal sealed class ThreadStaticAnalyzer
             return;
         }
 
-        var underlyingKind = ClassifyLValue(model, candidate, access);
-        site = new ReferenceSite(access, underlyingKind, filePath, access.Span);
+        var (underlyingKind, liftAnchor) = ClassifyLValue(candidate, access);
+        var site = new ReferenceSite(access, underlyingKind, filePath, access.Span);
         candidate.Sites.Add(site);
 
         if (IsInsideExpressionTree(model, access))
@@ -224,33 +224,49 @@ internal sealed class ThreadStaticAnalyzer
         {
             candidate.FailedSites.Add((site, ThreadStaticCodes.InfeasibleSite, ThreadStaticRule.Dynamic));
         }
+
+        if (underlyingKind == ThreadStaticSiteKind.StructMutation)
+        {
+            if (liftAnchor != null)
+            {
+                site.LiftAnchorSpan = liftAnchor.Span;
+            }
+            else
+            {
+                candidate.FailedSites.Add((
+                    site,
+                    ThreadStaticCodes.StructMutationNotLiftable,
+                    ThreadStaticRule.StructMutation));
+            }
+        }
     }
 
-    private ThreadStaticSiteKind ClassifyLValue(
-        SemanticModel model, Candidate candidate, ExpressionSyntax access)
+    private (ThreadStaticSiteKind Kind, ExpressionStatementSyntax? LiftAnchor) ClassifyLValue(
+        Candidate candidate, ExpressionSyntax access)
     {
         var lvalueTarget = UnwrapParenthesizedUp(access);
 
         if (lvalueTarget.Parent is AssignmentExpressionSyntax assignment && assignment.Left == lvalueTarget)
         {
-            return assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            return (assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
                 ? ThreadStaticSiteKind.Write
-                : ThreadStaticSiteKind.Compound;
+                : ThreadStaticSiteKind.Compound, null);
         }
 
         if (IsIncDecOperand(lvalueTarget))
         {
-            return ThreadStaticSiteKind.Increment;
+            return (ThreadStaticSiteKind.Increment, null);
         }
 
-        // Mutable struct member mutation needs statement-level temp lifting (TS-5, M2):
-        // f.X = e / f.X++ / f.X += e / f.Mut() — classify and let finalization skip with CS2J1203.
-        if (IsMutableValueType(candidate.Field.Type) && IsStructMemberMutation(access))
+        // Mutable struct member mutation (TS-5): when statement-level temp lifting
+        // is feasible the site carries its lift anchor; otherwise CS2J1203 skips the plan.
+        if (IsMutableValueType(candidate.Field.Type)
+            && TryDetectMutableStructMutation(access, out var liftAnchor))
         {
-            return ThreadStaticSiteKind.StructMutation;
+            return (ThreadStaticSiteKind.StructMutation, liftAnchor);
         }
 
-        return ThreadStaticSiteKind.Read;
+        return (ThreadStaticSiteKind.Read, null);
     }
 
     private static bool IsIncDecOperand(SyntaxNode target)
@@ -269,37 +285,116 @@ internal sealed class ThreadStaticAnalyzer
                 || postfix.IsKind(SyntaxKind.PostDecrementExpression));
     }
 
+    /// <summary>
+    /// A struct type is mutable when it is a value type without the readonly modifier
+    /// (<see cref="ITypeSymbol.IsReadOnly"/> covers the <c>readonly struct</c> form;
+    /// TS-5 leaves its read sites on plain <c>.Value</c> with no write-back).
+    /// </summary>
     private static bool IsMutableValueType(ITypeSymbol type)
         => type.IsValueType && !type.IsReadOnly;
 
-    /// <summary>Walks the member-access chain f.X(.Y...) and reports mutation-shaped endpoints.</summary>
-    private static bool IsStructMemberMutation(ExpressionSyntax access)
+    /// <summary>
+    /// Walks the receiver chain <c>f.X(.Y...)</c> looking for a mutation-shaped use
+    /// (member assignment, ++/--, method receiver). When one exists, climbs outward
+    /// to find the statement-level anchor that TS-5 lifts into; returns null anchor
+    /// when the mutation sits in a non-liftable context (initializer, attribute
+    /// argument, query clause, argument/embedded expression such as <c>var x=f.Mut()</c>).
+    /// </summary>
+    private static bool TryDetectMutableStructMutation(
+        ExpressionSyntax access,
+        out ExpressionStatementSyntax? anchor)
     {
-        var node = access;
-        while (node.Parent is MemberAccessExpressionSyntax member && member.Expression == node)
+        anchor = null;
+        SyntaxNode node = UnwrapParenthesizedUp(access);
+
+        SyntaxNode? mutation = null;
+        while (true)
         {
-            node = member;
-            var target = UnwrapParenthesizedUp(node);
-            var parent = target.Parent;
+            var current = (ExpressionSyntax)UnwrapParenthesizedUp(node);
+            var parent = current.Parent;
 
-            if (parent is AssignmentExpressionSyntax assignment && assignment.Left == target)
+            if (parent is AssignmentExpressionSyntax assignment && assignment.Left == current)
             {
-                return true;
+                mutation = assignment;
+                break;
             }
 
-            if (IsIncDecOperand(target))
+            if (IsIncDecOperand(current))
             {
-                return true;
+                mutation = parent!;
+                break;
             }
 
-            // Method receiver: cannot prove the method does not mutate, M2 would temp-lift + write back.
-            if (parent is InvocationExpressionSyntax invocation && invocation.Expression == target)
+            // Method receiver: cannot prove the method does not mutate, so TS-5
+            // temp-lifts and writes back unconditionally.
+            if (parent is InvocationExpressionSyntax invocation && invocation.Expression == current)
             {
-                return true;
+                mutation = invocation;
+                break;
             }
+
+            if (parent is MemberAccessExpressionSyntax nextMember && nextMember.Expression == current)
+            {
+                node = nextMember;
+                continue;
+            }
+
+            break;
         }
 
-        return false;
+        if (mutation == null)
+        {
+            return false;
+        }
+
+        anchor = FindLiftAnchor(mutation);
+        return true;
+    }
+
+    /// <summary>
+    /// Climbs from the mutation expression outward. Only receiver-chain positions
+    /// (member access / invocation result) and parentheses may be crossed; the
+    /// first expression statement encountered is the lift anchor. Anything else
+    /// (argument list, initializer, attribute, query, lambda body, ...) is a
+    /// non-liftable context.
+    /// </summary>
+    private static ExpressionStatementSyntax? FindLiftAnchor(SyntaxNode mutation)
+    {
+        var current = mutation;
+        while (true)
+        {
+            var parent = current.Parent;
+            if (parent == null) return null;
+
+            if (parent is ExpressionStatementSyntax expressionStatement
+                && expressionStatement.Expression == current)
+            {
+                return expressionStatement;
+            }
+
+            if (parent is ParenthesizedExpressionSyntax parenthesized
+                && parenthesized.Expression == current)
+            {
+                current = parenthesized;
+                continue;
+            }
+
+            if (parent is MemberAccessExpressionSyntax outerMember
+                && outerMember.Expression == current)
+            {
+                current = outerMember;
+                continue;
+            }
+
+            if (parent is InvocationExpressionSyntax outerInvocation
+                && outerInvocation.Expression == current)
+            {
+                current = outerInvocation;
+                continue;
+            }
+
+            return null;
+        }
     }
 
     private static SyntaxNode UnwrapParenthesizedUp(SyntaxNode node)
@@ -424,39 +519,29 @@ internal sealed class ThreadStaticAnalyzer
             return plan;
         }
 
-        // Site-level gates by precedence: ref/out > dynamic > expression tree > struct mutation.
+        // Site-level gates by precedence: ref/dynamic out > expression tree > struct liftability.
         var failed = candidate.FailedSites
             .OrderBy(f => f.Site.FilePath, StringComparer.Ordinal)
             .ThenBy(f => f.Site.SpanStart)
             .ToList();
 
-        string? failCode = null;
-        string? failReason = null;
-        var precedence = new (string Code, int Rank)[]
-        {
-            (ThreadStaticCodes.InfeasibleSite, 0),
-            (ThreadStaticCodes.ExpressionTreeSite, 1),
-            (ThreadStaticCodes.StructMutationNotLiftable, 2),
-        };
-
-        // Struct mutation sites are recorded through site classification.
-        if (sites.Any(s => s.Kind == ThreadStaticSiteKind.StructMutation)
-            && !failed.Any(f => f.Code is ThreadStaticCodes.InfeasibleSite or ThreadStaticCodes.ExpressionTreeSite))
-        {
-            failed.Add((sites.First(s => s.Kind == ThreadStaticSiteKind.StructMutation),
-                ThreadStaticCodes.StructMutationNotLiftable, ThreadStaticRule.StructMutation));
-        }
-
         if (failed.Count > 0)
         {
+            var precedence = new (string Code, int Rank)[]
+            {
+                (ThreadStaticCodes.InfeasibleSite, 0),
+                (ThreadStaticCodes.ExpressionTreeSite, 1),
+                (ThreadStaticCodes.StructMutationNotLiftable, 2),
+            };
+
             var ordered = failed
                 .OrderBy(f => precedence.FirstOrDefault(p => p.Code == f.Code).Rank)
                 .ThenBy(f => f.Site.FilePath, StringComparer.Ordinal)
                 .ThenBy(f => f.Site.SpanStart)
                 .ToList();
             var first = ordered[0];
-            failCode = first.Code;
-            failReason = failCode switch
+            var failCode = first.Code;
+            var failReason = failCode switch
             {
                 ThreadStaticCodes.InfeasibleSite when first.Rule == ThreadStaticRule.RefOut =>
                     $"[ThreadStatic] field '{candidate.Field.Name}' is passed by reference (ref/out/&/fixed); "
@@ -466,8 +551,10 @@ internal sealed class ThreadStaticAnalyzer
                 ThreadStaticCodes.ExpressionTreeSite =>
                     $"[ThreadStatic] field '{candidate.Field.Name}' is read or written inside an expression-tree lambda; rewriting would change the expression tree shape, the field is not rewritten.",
                 ThreadStaticCodes.StructMutationNotLiftable =>
-                    $"[ThreadStatic] field '{candidate.Field.Name}' has a mutable value type and is mutated through a member "
-                    + "(member assignment / method receiver) that requires temp lifting (TS-5, M2); the field is not rewritten.",
+                    $"[ThreadStatic] field '{candidate.Field.Name}' has a mutable value type and a member mutation "
+                    + "(member assignment, compound assignment, ++/-- or method receiver) sits in a context that "
+                    + "cannot be statement-level temp-lifted (another field's initializer, an attribute argument, "
+                    + "a query clause, or an embedded expression such as an argument or 'var x = f.Mut()'); the field is not rewritten.",
                 _ => $"[ThreadStatic] field '{candidate.Field.Name}' has an infeasible site; the field is not rewritten.",
             };
             Deactivate(plan, failCode, failReason);
@@ -491,7 +578,8 @@ internal sealed class ThreadStaticAnalyzer
             var (filePath, line) = DiagnosticAnchor(plan, candidate);
             var rule = RuleForCode(plan.FailCode!, candidate);
             _diagnostics.Add(new ThreadStaticDiagnostic(
-                SeverityForSkip(plan.FailCode!), rule, plan.FailCode!, plan.FailReason!, filePath, line));
+                SeverityForSkip(plan.FailCode!), rule, plan.FailCode!, plan.FailReason!,
+                filePath, line, plan.Id));
             return;
         }
 
@@ -501,23 +589,32 @@ internal sealed class ThreadStaticAnalyzer
         var writes = candidate.Sites.Count(s => s.Kind == ThreadStaticSiteKind.Write);
         var compounds = candidate.Sites.Count(s => s.Kind == ThreadStaticSiteKind.Compound);
         var increments = candidate.Sites.Count(s => s.Kind == ThreadStaticSiteKind.Increment);
+        var structMutations = candidate.Sites.Count(s => s.Kind == ThreadStaticSiteKind.StructMutation);
         var declFile = plan.Declaration.SyntaxTree.FilePath;
         var declLine = plan.Declaration.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
 
         _diagnostics.Add(new ThreadStaticDiagnostic(
             ThreadStaticSeverity.Info, ThreadStaticRule.Declaration, ThreadStaticCodes.FieldRewritten,
             $"[ThreadStatic] field '{plan.Field.ToDisplayString()}' rewritten: declaration plus "
-            + $"{reads} read site(s), {writes} write site(s), {compounds} compound site(s), {increments} increment site(s).",
-            declFile, declLine));
+            + $"{reads} read site(s), {writes} write site(s), {compounds} compound site(s), "
+            + $"{increments} increment site(s), {structMutations} struct mutation site(s).",
+            declFile, declLine, plan.Id));
 
-        if (plan.InitializerKind == ThreadStaticInitializerKind.Inline
-            && _options.InitializerPolicy == ThreadStaticInitializerPolicy.EveryThread)
+        if (plan.InitializerKind == ThreadStaticInitializerKind.Inline)
         {
+            var (code, message) = _options.InitializerPolicy == ThreadStaticInitializerPolicy.EveryThread
+                ? (ThreadStaticCodes.InitializerNormalized,
+                    $"Inline initializer of [ThreadStatic] field '{plan.Field.Name}' normalized to a per-thread "
+                    + "ThreadLocal<T> first-access factory (EveryThread policy, explicit opt-in); CLR "
+                    + "first-thread-only semantics are not preserved.")
+                : (ThreadStaticCodes.InitializerNormalized,
+                    $"Inline initializer of [ThreadStatic] field '{plan.Field.Name}' moved into the static "
+                    + "constructor (FirstThreadFaithful policy, the CLR-faithful default): only the first thread "
+                    + "to run the static constructor observes the initial value, every other thread observes "
+                    + "default(T).");
             _diagnostics.Add(new ThreadStaticDiagnostic(
-                ThreadStaticSeverity.Info, ThreadStaticRule.Declaration, ThreadStaticCodes.InitializerNormalized,
-                $"Inline initializer of [ThreadStatic] field '{plan.Field.Name}' normalized to a per-thread "
-                + "ThreadLocal<T> first-access factory (EveryThread policy); CLR first-thread-only semantics are not preserved.",
-                declFile, declLine));
+                ThreadStaticSeverity.Info, ThreadStaticRule.Declaration, code, message,
+                declFile, declLine, plan.Id));
         }
     }
 
@@ -532,7 +629,8 @@ internal sealed class ThreadStaticAnalyzer
         }
 
         var failure = candidate.FailedSites.FirstOrDefault(f => f.Code == plan.FailCode);
-        var anchorSite = failure.Site ?? candidate.Sites.FirstOrDefault(s => s.Kind == ThreadStaticSiteKind.StructMutation);
+        var anchorSite = failure.Site
+            ?? candidate.Sites.FirstOrDefault(s => s.Kind == ThreadStaticSiteKind.StructMutation);
         if (anchorSite != null)
         {
             return (anchorSite.FilePath,
