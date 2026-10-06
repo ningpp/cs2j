@@ -4,10 +4,10 @@ namespace CSharpToJava.ProjectTests;
 
 /// <summary>
 /// End-to-end CLI coverage for the C10 attribute-normalize pass:
-/// catalog listing with default-off status, opt-in via --enable-pass,
-/// explicit --pass selection, --disable-pass conflict, the loose-directory
-/// self-containment gate (CS2J1390), and the --strict escalation matrix
-/// (CS2J1302 warning -> error).
+/// catalog listing with default-on status (flipped 2026-10-06 after the
+/// §8 gates), opt-out via --disable-pass, explicit --pass selection,
+/// enable/disable conflict, the loose-directory self-containment gate
+/// (CS2J1390), and the --strict escalation matrix (CS2J1302 warning -> error).
 /// </summary>
 public class AttributeNormalizeCLITests
 {
@@ -86,35 +86,66 @@ public class AttributeNormalizeCLITests
     // ───────────────────────── list-passes ─────────────────────────
 
     [Fact]
-    public async Task ListPasses_ShowsAttributeNormalize_Implemented_DefaultOff_WithC10Catalog()
+    public async Task ListPasses_ShowsAttributeNormalize_Implemented_DefaultOn_WithC10Catalog()
     {
         var (exit, stdout, _) = await RunCliAsync("preprocess", "--list-passes");
 
         Assert.Equal(0, exit);
         var line = stdout.Split('\n').First(l => l.Contains("attribute-normalize"));
         Assert.Contains("Implemented", line);
-        Assert.Contains(" off ", line);
-        Assert.DoesNotContain(" on ", line);
+        Assert.Contains(" on ", line);
+        Assert.DoesNotContain(" off ", line);
         Assert.Contains("rules=C10", line);
     }
 
-    // ───────────────────────── default off / opt-in ─────────────────────────
+    // ───────────────────────── default on / opt-out ─────────────────────────
 
     [Fact]
-    public async Task DefaultChain_DoesNotCreate_AttributeNormalizeIntermediate()
+    public async Task DefaultChain_Creates_AttributeNormalizeIntermediate()
     {
         var sourceDir = CreateWorkspace(("Lib.csproj", ProjectFile), ("Class1.cs", SelfContainedProjectSource));
         var destDir = Path.Combine(sourceDir, "out");
 
         try
         {
-            var (exit, _, stderr) = await RunCliAsync(
+            var (exit, stdout, stderr) = await RunCliAsync(
                 "preprocess", "-s", sourceDir, "-d", destDir);
 
-            Assert.True(exit == 0, $"default chain failed:\n{stderr}");
+            Assert.True(exit == 0, $"default chain failed:\n{stderr}\n{stdout}");
+            var intermediate = Path.Combine(destDir, ".cs2j-attribute-normalize-src");
+            Assert.True(Directory.Exists(intermediate),
+                "attribute-normalize flipped default-on (2026-10-06) and must run in the default chain");
+
+            var rewritten = await File.ReadAllTextAsync(
+                Path.Combine(intermediate, "Class1.cs"));
+            Assert.DoesNotContain("CallerMemberName", rewritten);
+            Assert.Contains("\"Go\"", rewritten);
+            Assert.Contains("attribute-normalize:", stdout);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task DisablePass_OptsOutOf_AttributeNormalizeIntermediate()
+    {
+        // 独立工作区：与默认链用例分开，避免上一轮预处理支撑文件残留导致
+        // extension-methods 支撑类重复定义（CS0101/CS0111）。
+        var sourceDir = CreateWorkspace(("Lib.csproj", ProjectFile), ("Class1.cs", SelfContainedProjectSource));
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, _, stderr) = await RunCliAsync(
+                "preprocess", "--disable-pass", "attribute-normalize",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.True(exit == 0, $"--disable-pass run failed:\n{stderr}");
             Assert.False(Directory.Exists(
                 Path.Combine(destDir, ".cs2j-attribute-normalize-src")),
-                "attribute-normalize is opt-in and must not run in the default chain");
+                "--disable-pass attribute-normalize must keep the pass out of the chain");
         }
         finally
         {

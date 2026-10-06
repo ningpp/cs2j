@@ -83,14 +83,14 @@ public sealed class GenericDeepenRegistryTests
     }
 
     [Fact]
-    public void AttributeNormalize_IsImplemented_AnchoredAndDefaultOff()
+    public void AttributeNormalize_IsImplemented_AnchoredAndDefaultOn()
     {
         var descriptor = PassCatalog.ImplementedById(PassIds.AttributeNormalize);
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
         Assert.Equal("C10", descriptor.CatalogItems);
         Assert.Equal(".cs2j-attribute-normalize-src", descriptor.IntermediateDirectoryName);
         Assert.Equal(PassStage.Declarative, descriptor.Stage);
-        Assert.False(descriptor.DefaultEnabled);
+        Assert.True(descriptor.DefaultEnabled);
         Assert.Equal(new[] { PassIds.GenericDeepen, PassIds.MakeReadonly }, descriptor.RunAfterIds);
         Assert.Equal(PassSupportLibrary.None, descriptor.SupportLibrary);
         Assert.True(descriptor.NeedsSemanticModel);

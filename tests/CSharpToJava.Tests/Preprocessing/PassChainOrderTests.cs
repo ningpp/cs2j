@@ -12,8 +12,8 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// Locks the registered pass sequence to the historical ConvertProject chain.
 /// The fifteen hand-written blocks were replaced by the registry-driven loop, so
 /// the topological sort must keep producing this exact order. Every implemented
-/// pass is default-on (all-preprocessors-default-on policy) except five
-/// deliberate opt-outs: C10 attribute-normalize (§8 gates), C25
+/// pass is default-on (all-preprocessors-default-on policy) except four
+/// deliberate opt-outs: C25
 /// dynamic-desugar (audit-first), C26 linq-channel (observe-only
 /// gate period), plus the 2026-10-06 P0 rollbacks C20 partial-merge (M3
 /// member-level collapse pending) and C04 iterator-lowering (M2/M3 pending);
@@ -66,11 +66,11 @@ public sealed class PassChainOrderTests
         PassIds.ArrayMethod,
         PassIds.IndexRange,
         PassIds.MakeReadonly,
-        // C10 attribute-normalize is Implemented but default-OFF (opt-in):
-        // it slots immediately after make-readonly (anchors generic-deepen +
-        // make-readonly, declared right after make-readonly so the Kahn
-        // tiebreak pins the slot), before struct-value-semantics (design
-        // §3.1/§3.2). It stays out of EnabledByDefault below.
+        // C10 attribute-normalize flipped to DEFAULT-ON on 2026-10-06 after
+        // the §8 gates (design §13). It slots immediately after make-readonly
+        // (anchors generic-deepen + make-readonly, declared right after
+        // make-readonly so the Kahn tiebreak pins the slot), before
+        // struct-value-semantics (design §3.1/§3.2).
         PassIds.AttributeNormalize,
         PassIds.StructValueSemantics,
         PassStubCatalog.Ids.UnsafeFfm,
@@ -119,15 +119,13 @@ public sealed class PassChainOrderTests
 
     // All-preprocessors-default-on policy: every implemented pass is
     // default-enabled; --disable-pass / legacy --no-xxx flags opt out.
-    // Default-on policy exceptions — five deliberate opt-outs:
-    // C10 attribute-normalize (opt-in),
+    // Default-on policy exceptions — four deliberate opt-outs:
     // C25 dynamic-desugar (audit-first, §8 corpus gate), C26 linq-channel
     // (observe-only gate period), and the 2026-10-06 P0 rollbacks C20
     // partial-merge (M3 member-level collapse + profile pending) and C04
     // iterator-lowering (M2/M3 pending).
     private static readonly string[] EnabledByDefault = LockedChain
-        .Where(id => id != PassIds.AttributeNormalize
-            && id != PassStubCatalog.Ids.DynamicDesugar
+        .Where(id => id != PassStubCatalog.Ids.DynamicDesugar
             && id != PassStubCatalog.Ids.LinqChannel
             && id != PassStubCatalog.Ids.PartialMerge
             && id != PassStubCatalog.Ids.IteratorLowering)
@@ -202,7 +200,7 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
-    public void AttributeNormalize_slots_after_make_readonly_precedes_member_desugar_but_stays_default_off()
+    public void AttributeNormalize_slots_after_make_readonly_precedes_member_desugar_and_is_default_on()
     {
         var registry = PassCatalog.BuildRegistry();
 
@@ -212,7 +210,7 @@ public sealed class PassChainOrderTests
             pass => pass.Id == PassIds.AttributeNormalize && pass.Status == PassStatus.Stub);
         var descriptor = PassCatalog.ImplementedById(PassIds.AttributeNormalize);
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
-        Assert.False(descriptor.DefaultEnabled);
+        Assert.True(descriptor.DefaultEnabled);
 
         var ordered = registry.Ordered
             .Where(pass => pass.Status == PassStatus.Implemented).ToList();
@@ -233,18 +231,18 @@ public sealed class PassChainOrderTests
         Assert.True(attributeNormalize < javaKeywords,
             "attribute-normalize must precede java-keywords");
 
-        // Default plan keeps the pass out (opt-in).
+        // Default plan runs the pass (flipped 2026-10-06 after the §8 gates).
         var baseline = PassPlanResolver.Resolve(registry);
         Assert.True(baseline.IsValid);
-        Assert.DoesNotContain(
+        Assert.Contains(
             baseline.Enabled, pass => pass.Id == PassIds.AttributeNormalize);
 
-        // --enable-pass opts in and the pass enters the locked chain.
-        var enabled = PassPlanResolver.Resolve(
-            registry, enablePassIds: new[] { PassIds.AttributeNormalize });
-        Assert.True(enabled.IsValid);
-        Assert.Contains(
-            enabled.Enabled, pass => pass.Id == PassIds.AttributeNormalize);
+        // --disable-pass opts out while the rest of the locked chain stays.
+        var disabled = PassPlanResolver.Resolve(
+            registry, disablePassIds: new[] { PassIds.AttributeNormalize });
+        Assert.True(disabled.IsValid);
+        Assert.DoesNotContain(
+            disabled.Enabled, pass => pass.Id == PassIds.AttributeNormalize);
 
         // Enabling and disabling the same id in one request is a CS2J9002 conflict.
         var conflict = PassPlanResolver.Resolve(
@@ -762,7 +760,8 @@ public sealed class PassChainOrderTests
         // C18 async-normalize/default-on, C26 linq-channel/default-off,
         // C20 partial-merge/default-off, C04 iterator-lowering/default-off,
         // C09 thread-static/default-on (flipped 2026-10-06; still no legacy
-        // flag), C10 attribute-normalize/default-off)
+        // flag), C10 attribute-normalize/default-on (flipped 2026-10-06;
+        // still no legacy flag))
         // are reachable solely through their descriptor default plus --enable-pass/--pass
         // (C04 additionally carries a legacy toggle whose default follows the descriptor).
         Assert.Equal(

@@ -401,7 +401,12 @@ internal static class PassCatalog
             ".cs2j-attribute-normalize-src",
             PassStage.Declarative,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            // C10 flipped to DEFAULT-ON on 2026-10-06 after the six §8 gates
+            // (design §13): fixture + sdk intermediate-tree Release build and
+            // tests green, strict sdk triage at zero CS2J1310/1320/1321/1322,
+            // platform diagnostics proven identical, JSON converter output
+            // byte-identical on/off. --disable-pass attribute-normalize opts out.
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.GenericDeepen, PassIds.MakeReadonly },
             needsSemanticModel: true,
             verifyBuildByDefault: true,

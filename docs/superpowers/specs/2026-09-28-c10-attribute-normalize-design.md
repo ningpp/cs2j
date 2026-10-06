@@ -392,3 +392,29 @@ git worktree add .worktrees/preproc-c10-attribute-normalize -b feature/preproc-c
 ```
 
 实施约束（交实施 worktree，不在本文档执行）：仅在上述 worktree 内改码；不创建额外 worktree；按 §9 里程碑逐提交；默认关先行，过 §8 门槛才翻默认开；转换器/compat/E08 代码改动（§5.4）留后续 PR。
+
+## 13. 实施校注与 §8 门槛证据（2026-10-06，Windows / net10.0.300 / JDK 28-ea）
+
+实施落在 `dev-3.x-26100507` 分支（未另开 worktree），提交序列：M1 主体（历史提交）→ `8c5fd267`（M2 盘点扩充 + 未绑定别名 + 工厂修复）→ `8a4e55b8`（门 4 双跑锁定）→ 默认翻转提交。
+
+### 13.1 M2 盘点决策（门 3 triage 结论）
+
+sdk 语料（`D:\csharp-sdk` 部分检出：json / regular-expressions / uri / xml-tiny，预处理编译只带 TPA + ProjectReference、不带 NuGet 引用）暴露的分类缺口及处置：
+
+- **未绑定属性新增 `Unresolved` 状态 + AN004（Info-only）**：NuGet 元数据缺失导致符号不可绑定时，短名先查「分类表唯一条目别名表」（去/留 Attribute 后缀两形态），命中则按规范名分类；歧义短名（JsonIgnore/JsonConverter/JsonExtensionData 同属 STJ 与 Newtonsoft）不别名；其余记 Unresolved，只刷 AN004 Info，不刷 CS2J1320、不参与 strict 升级。初始轮 10612 个 CS2J1320 绝大多数因此为误报（xUnit 裸短名），最终轮 Unresolved=112 全部 Info。
+- **产品分类表新增真名条目**：StructLayout/FieldOffset（Interop，归 C06）；EnumMember、Xml 族 7 个 BridgeGap（含 XmlNamespaceDeclarations）；Newtonsoft JsonExtensionData BridgeGap（与 STJ 同名 Bridged 条目互为歧义）；DebuggerTypeProxy + 步进隐藏四件套（StepThrough/Hidden/NonUserCode/StepperBoundary）调试元数据透传；CLSCompliant/EditorBrowsable 透传；System.Diagnostics.CodeAnalysis.* 命名空间整体 Compiler 透传；DebuggerDisplay 改判 InventoriedPassthrough；xUnit 生态补 SkippableFact/Trait/Collection/DataDiscoverer 等。
+- **工厂加载 bug 修复**：[AttributeNormalizeOptionsFactory](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/AttributeNormalizeOptionsFactory.cs) 原用默认（大小写敏感）System.Text.Json 反序列化 overrides，帮助文本承诺的 camelCase 键（keepAttributes 等）静默落空；已加 `PropertyNameCaseInsensitive = true` 并补工厂单测。
+- **triage 台账不随产品发布**：sdk 台账全是 sdk 仓库 vendor 命名空间（`dotnet.xml.serialization.*`、`dotnet.text.json.Serialization.*` 源拷贝、测试类私有嵌套标记属性、sdk vendor 版 xUnit 基建），不具备产品通用性，不入产品 config；真实 BCL 名全部进入产品分类表。两个真 BridgeGap——`System.Runtime.Serialization.EnumMemberAttribute` 与 `Newtonsoft.Json.JsonExtensionDataAttribute`——在 sdk 语料经台账 keep 显式接受，产品补桥列入 §5.4 后续 PR（与既有 Newtonsoft JsonProperty/JsonIgnore/JsonObject、DataMember 同一路由）。
+
+### 13.2 §8 六门证据
+
+1. **中间树正确性**：fixture `AttributeNormalizeProjectTests` 3 Facts 全绿（适配器自验 Release build + 改写 App 的 .NET 运行时断言 + JSON 往返）。sdk 预处理树（21 工程）`dotnet build -c Release` **0 错误 / 1140 个产出 dll**；原始基线同 sln 同样 **0 错误**（1750 分析器警告；中间树因未拷贝 Directory.Build.props 分析器配置仅 16 个 NU 警告，错误口径一致、零新增）。sdk 预处理树 `dotnet test -c Release --no-build` **全部通过 0 失败**：dotnet.text.json.Tests **9859 通过 / 7 跳过**、dotnet.text.regularexpressions.Tests **7514 / 12 跳过**、dotnet.xml.ConvertTests 3850、dotnet.xml.XPath* 各 1513、dotnet.xml.DocumentTests 537、read-content-as 667、Uri 三件套 609+49+28、dotnet.xml.SerializerTests 4。
+2. **Caller 残余闸门**：sdk 全量 `1 caller plan applied, sites filled (expr=2487), 0 skipped, 0 residual`；strict 模式可过（门 3）。
+3. **注解盘点可运维**：strict + 台账最终轮摘要 `inventory 10919 attribute occurrence(s) (0 bridge gap(s), 0 unknown, 112 unresolved), 0 residual`，**CS2J1310/1320/1321/1322 全零、退出码 0**；112 个 Unresolved 只刷 AN004 Info（NuGet 元数据不可得，按设计不要求 triage）。初始轮 27 CS2J1310 + 743 unknown（修复别名与工厂后口径）逐条溯源（BCL 真名入表、vendor 名入台账、5 个测试类私有嵌套 `*ConverterAttribute`/`LowerCaseEnumAttribute` 入 ignore）。
+4. **全仓不回归 + JSON/注解双跑**：既有 JSON/注解转换器回归族（DataContractSerializerCompatibilityTests、JsonSerializer* 4 件、JsonByteSpanPointerValueTask、ICustomAttributeProviderMapping、ExpectedException/TestTimeout 映射）**10/10 绿**。新增永久锁定 [JsonAnnotationProject_ConverterOutput_Identical_WithPassOn_And_Off](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/AttributeNormalizeProjectTests.cs#L238-L334)：BCL JSON/DataContract/Xml/Debugger 注解项目在 pass off 直转 与 pass on（真实适配器预处理后）再转，Java **逐字节一致**，并断言中间 C# 零改动、FilesTransformed=0、CS2J1310 盘点照常。设计 §7.3 点名的四个回归类中三个（ReflectionAttributeCompatTests、SystemTextJsonDeserializeTypeReferenceTests、JsonNumberHandlingAnnotationProjectTests）在本分支实测为零 [Fact] 空壳，其意图不变量由上述双跑测试承载；待 §5.4 补桥 PR 时再按 Java 半区行为补实测试。
+5. **平台边界零干扰**：[AttributeNormalizePlatformZeroInterferenceTests](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/AttributeNormalizePlatformZeroInterferenceTests.cs) 2 Facts 全绿（CS2J3001/3101/3102/3201-3203 开关前后逐条一致，NativeMethods.cs 现状行为冻结）。
+6. **文档**：本 §13 校注定稿；转换器后续 PR 清单（§5.4：E08 豁免退役；Newtonsoft JsonProperty/JsonIgnore/JsonObject/JsonConverter/JsonExtensionData、DataContract DataMember(Name/EmitDefaultValue)、EnumMember(Value)、Xml 族 7 注解的成员级物化补桥；Q1/Q2/M2+ 项不变）。
+
+### 13.3 默认翻转
+
+六门齐备后 `PassCatalog` attribute-normalize 描述符翻 `defaultEnabled: true`（见翻转提交），opt-out 为 `--disable-pass attribute-normalize`；注册表拓扑测试与 CLI 测试同步更新。
