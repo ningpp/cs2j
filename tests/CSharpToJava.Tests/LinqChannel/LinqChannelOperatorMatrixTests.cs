@@ -48,15 +48,18 @@ namespace CSharpToJava.Tests.LinqChannel;
 /// GroupBy → GroupByProceduralRewriteTests; foreach rewrap →
 /// ForeachSource* + LinqChainRefactoringTests.
 ///
-/// Known E16 rule gaps (observed while building this matrix, NOT M2 scope):
+/// Known E16 rule gaps (observed while building this matrix; M4 resolution
+/// recorded 2026-10-06):
 /// the whole OrderBy/OrderByDescending/ThenBy/ThenByDescending family is
 /// recognized for observability but excluded from procedural lowering
 /// (Rules.cs rewrite-set "/*OrderBy*/") — both paths skip and leave the chain
-/// untouched; GroupBy with an elementSelector makes TryRewrite return null and
-/// the unguarded .WithLeadingTrivia at LinqRewriter.cs L458 throws NRE on BOTH
-/// paths equally; the GroupBy procedural form is a Dictionary-shaped
-/// intermediate for the Java emitter and is not standalone-compilable C#.
-/// Queryable-only operators and ToLookup are outside the supported set (M3).
+/// untouched; GroupBy used to make TryRewrite return null on the
+/// elementSelector overload (unguarded NRE — fixed M4 to a clean
+/// UnsupportedOverload skip) while its key-only Dictionary form is not
+/// standalone-compilable C#, so the M4 channel freezes Enumerable GroupBy
+/// chains wholesale instead of lowering them (see
+/// LinqChannelGroupByM4Tests); Queryable-only operators and ToLookup stay
+/// outside the supported set.
 /// </summary>
 public sealed class LinqChannelOperatorMatrixTests
 {
@@ -289,14 +292,12 @@ public sealed class LinqChannelOperatorMatrixTests
             public static class M { public static List<int> F(IEnumerable<int> s)
                 => s.OrderByDescending(x => x).ToList(); }
             """, expectRewrite: false);
-        // GroupBy lowers to a Dictionary-backed helper: the C# form is an
-        // intermediate aimed at the Java emitter (legacy GroupByProceduralRewriteTests
-        // pins the shape via 'var'), not standalone-compilable C#, so this row
-        // opts out of the recompile assertion (recompile: false).
-        yield return Row("GroupBy", """
-            using System.Linq;
-            public static class M { public static void F(int[] s) { var groups = s.Where(n => n > 0).GroupBy(n => n % 2); } }
-            """, recompile: false);
+        // GroupBy is deliberately absent from this dual-path matrix as of M4:
+        // the two paths intentionally DIVERGE for GroupBy (embedded E16 keeps
+        // lowering key-only to the non-recompilable Dictionary helper; the
+        // build-verified channel freezes every Enumerable GroupBy chain and
+        // leaves LINQ for Java's streaming groupingBy path). The divergence is
+        // pinned by LinqChannelGroupByM4Tests below.
 
         // ---- set operators / concat / zip ----
         yield return Row("Concat", """
@@ -484,6 +485,103 @@ public sealed class LinqChannelOperatorMatrixTests
     private static object[] Row(string label, string source,
         bool expectRewrite = true, bool recompile = true)
         => new object[] { label, source.Trim(), expectRewrite, recompile };
+}
+
+/// <summary>
+/// M4 (2026-10-06) GroupBy decision: the build-verified channel freezes
+/// Enumerable GroupBy chains instead of reproducing E16's Java-bound
+/// Dictionary lowering, so the intermediate tree stays compilable and the
+/// Java converter takes the streaming Collectors.groupingBy path. The
+/// embedded E16 behavior is pinned here too — it stays untouched until the
+/// M4 project-path retirement (design §5.4).
+/// </summary>
+public sealed class LinqChannelGroupByM4Tests
+{
+    [Fact]
+    public void KeyOnlyGroupBy_ChannelFreezesWholesale_AndOutputRecompiles()
+    {
+        const string source = """
+            using System.Linq;
+            public static class M
+            {
+                public static void F(int[] s)
+                {
+                    var groups = s.Where(n => n > 0).GroupBy(n => n % 2);
+                }
+            }
+            """;
+
+        var result = LinqChannelDualPathHarness.RunBothPaths(source);
+
+        // Embedded E16 keeps its historical key-only Dictionary lowering.
+        Assert.True(result.Channel.RewriteChanged == false);
+        Assert.Contains("GroupBy", result.PostDesugarRoot.ToFullString());
+        Assert.DoesNotContain("_ProceduralLinq", result.ChannelText);
+
+        var stats = result.Channel.Statistics;
+        Assert.Equal(1, stats.GroupByChainsPreserved);
+        Assert.Equal(0, stats.EnumerableChainsExpanded);
+        Assert.Equal(0, stats.QueryableChainsPreserved);
+        var preserved = Assert.Single(stats.PreservedChains);
+        Assert.Equal("PreserveGroupBy", preserved.Route);
+        Assert.Contains("GroupBy", preserved.Operators);
+
+        // The preserved output is the original (compilable) LINQ form.
+        LinqChannelDualPathHarness.AssertOutputCompiles(
+            result.Channel.RewrittenRoot.ToFullString());
+    }
+
+    [Fact]
+    public void ElementSelectorGroupBy_ChannelFreezes_EmbeddedRecordsCleanSkip()
+    {
+        const string source = """
+            using System.Linq;
+            public static class M
+            {
+                public static void F(int[] s)
+                {
+                    var groups = s.GroupBy(n => n % 2, n => n);
+                }
+            }
+            """;
+
+        var result = LinqChannelDualPathHarness.RunBothPaths(source);
+
+        // Channel: frozen, untouched, compilable.
+        Assert.False(result.Channel.RewriteChanged);
+        Assert.Equal(1, result.Channel.Statistics.GroupByChainsPreserved);
+        Assert.Equal(0, result.Channel.Statistics.EnumerableChainsExpanded);
+        LinqChannelDualPathHarness.AssertOutputCompiles(
+            result.Channel.RewrittenRoot.ToFullString());
+
+        // Embedded E16: M4 replaced the escaping NRE with a structured skip.
+        var skip = Assert.Single(result.EmbeddedStatistics.SkippedChains);
+        Assert.Equal(LinqSkipReason.UnsupportedOverload, skip.Reason);
+        Assert.Equal("GroupBy", skip.MethodName);
+    }
+
+    [Fact]
+    public void QueryableGroupBy_StaysInQueryableBucket_NotTheM4Bucket()
+    {
+        const string source = """
+            using System.Linq;
+            public static class M
+            {
+                public static void F(IQueryable<int> q)
+                {
+                    var groups = q.GroupBy(n => n % 2);
+                }
+            }
+            """;
+
+        var result = LinqChannelDualPathHarness.RunBothPaths(source);
+
+        Assert.False(result.Channel.RewriteChanged);
+        Assert.Equal(0, result.Channel.Statistics.GroupByChainsPreserved);
+        Assert.Equal(1, result.Channel.Statistics.QueryableChainsPreserved);
+        LinqChannelDualPathHarness.AssertOutputCompiles(
+            result.Channel.RewrittenRoot.ToFullString());
+    }
 }
 
 /// <summary>

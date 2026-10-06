@@ -414,6 +414,7 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
            $"({_statistics.Rewrite.RewrittenMethodCount} methods), " +
            $"{_statistics.QueryableChainsPreserved} queryable chains preserved, " +
            $"{_statistics.ExpressionArgumentSites} expression-arg sites, " +
+           $"{_statistics.GroupByChainsPreserved} groupby chains preserved, " +
            $"{_statistics.AmbiguousChains} ambiguous, " +
            $"{_statistics.Rewrite.SkippedChains.Count} skipped, " +
            $"{_desugaredQueryCount} queries desugared";

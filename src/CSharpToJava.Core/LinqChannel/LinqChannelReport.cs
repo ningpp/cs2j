@@ -65,6 +65,9 @@ public sealed class LinqChannelReport
 
         [JsonPropertyName("expressionTreeUnprovableSites")]
         public int ExpressionTreeUnprovableSites { get; init; }
+
+        [JsonPropertyName("groupByChainsPreserved")]
+        public int GroupByChainsPreserved { get; init; }
     }
 
     public sealed record SkippedChainEntry(
@@ -96,6 +99,7 @@ public sealed class LinqChannelReport
                 ProviderCustomCalls = statistics.ProviderCustomCalls,
                 ExpressionQuotedChainsPreserved = statistics.ExpressionQuotedChainsPreserved,
                 ExpressionTreeUnprovableSites = statistics.ExpressionTreeUnprovableSites,
+                GroupByChainsPreserved = statistics.GroupByChainsPreserved,
             },
             SkippedChains = rewrite.SkippedChains
                 .Select(s => new SkippedChainEntry(s.Reason.ToString(), s.LineNumber, s.MethodName, s.Message))

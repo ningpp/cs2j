@@ -463,7 +463,24 @@ namespace CSharpToJava.Core.LinqRewrite
                     }
 
 
-                    var result = TryRewrite(chain.First().MethodName, collection, semanticReturnType, chain, node)
+                    var rewritten = TryRewrite(chain.First().MethodName, collection, semanticReturnType, chain, node);
+                    if (rewritten == null)
+                    {
+                        // M4 (C26): TryRewrite recognized the chain but no rule
+                        // lowered it (today: GroupBy with an elementSelector —
+                        // Rules.cs only implements the key-only terminal). The
+                        // previous code dereferenced the null at
+                        // .WithLeadingTrivia below and an NRE escaped the
+                        // embedded pass's narrow catch. Record the normal skip
+                        // shape instead and leave the chain untouched.
+                        Statistics.SkippedChains.Add(new LinqSkipInfo(
+                            LinqSkipReason.UnsupportedOverload, chainLineNumber,
+                            memberAccess.Name.Identifier.ValueText,
+                            "No procedural rule for this overload (e.g. GroupBy with an elementSelector)"));
+                        return null;
+                    }
+
+                    var result = rewritten
                         .WithLeadingTrivia(((CSharpSyntaxNode)containingForEach ?? node).GetLeadingTrivia())
                         .WithTrailingTrivia(((CSharpSyntaxNode)containingForEach ?? node).GetTrailingTrivia());
 

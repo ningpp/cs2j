@@ -145,6 +145,19 @@ public sealed class LinqChannelRewriter
                 continue;
             }
 
+            // M4: Enumerable GroupBy chains (any overload) are frozen even
+            // though they are otherwise expandable — E16's key-only GroupBy
+            // shape does not recompile standalone (CS0266) and elementSelector
+            // has no rule, so a build-verified intermediate must keep them as
+            // LINQ (Java streaming Collectors.groupingBy path).
+            if (chain.Decision.Route == LinqChainRoute.Expandable
+                && ContainsEnumerableGroupBy(chain))
+            {
+                statistics.GroupByChainsPreserved++;
+                AddPreservedChain(statistics, plan.FilePath, chain, "PreserveGroupBy");
+                continue;
+            }
+
             switch (chain.Decision.Route)
             {
                 case LinqChainRoute.Expandable:
@@ -193,6 +206,19 @@ public sealed class LinqChannelRewriter
             outerDecision.HostDisplay,
             operators));
     }
+
+    /// <summary>
+    /// M4: true when any node of the chain binds to
+    /// <c>System.Linq.Enumerable.GroupBy</c> (the key-only and
+    /// key+elementSelector overloads). Queryable GroupBy is already frozen via
+    /// the ordinary route decision and must not be counted in the M4 bucket.
+    /// </summary>
+    private static bool ContainsEnumerableGroupBy(LinqChannelPlan.ChainEntry chain)
+        => chain.Decision.Nodes.Any(static node =>
+            node.Kind == LinqRouteKind.Enumerable
+            && node.BoundMethod is { Name: "GroupBy", ContainingType: { } containingType }
+            && containingType.Name == "Enumerable"
+            && containingType.ContainingNamespace?.ToDisplayString() == "System.Linq");
 
     private static LinqChannelDiagnostic MixedInfo(string? filePath, LinqChannelPlan.ChainEntry chain)
     {
@@ -323,6 +349,23 @@ public sealed class LinqChannelRewriter
             {
                 freezeSet.Add(invocation);
                 ReportIfUnprovable(invocation);
+            }
+
+            // (c) M4: Enumerable GroupBy chains are frozen wholesale. E16's
+            // key-only lowering is a Dictionary-shaped Java-bound intermediate
+            // that does not recompile standalone (CS0266), and the
+            // elementSelector overload has no rule at all; since this channel
+            // build-verifies its intermediate tree these chains must keep
+            // their LINQ form (Java takes the streaming groupingBy path).
+            foreach (var chain in plan.Chains)
+            {
+                if (ContainsEnumerableGroupBy(chain))
+                {
+                    foreach (var groupByNode in chain.Nodes)
+                    {
+                        freezeSet.Add(groupByNode);
+                    }
+                }
             }
 
             _freezeSet = freezeSet;

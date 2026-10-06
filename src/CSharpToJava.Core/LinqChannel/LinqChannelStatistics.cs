@@ -61,6 +61,19 @@ public sealed class LinqChannelStatistics
     public int ExpressionTreeUnprovableSites { get; set; }
 
     /// <summary>
+    /// M4: otherwise-expandable Enumerable chains containing a
+    /// <c>System.Linq.Enumerable.GroupBy</c> node (any overload). The E16
+    /// key-only lowering emits a Dictionary-shaped helper whose declared
+    /// signature stays <c>IEnumerable&lt;IGrouping&lt;,&gt;&gt;</c> — it is a
+    /// Java-bound intermediate that does not recompile standalone (CS0266),
+    /// and the elementSelector overload has no rule at all. The channel
+    /// verifies intermediate builds, so it freezes these chains wholesale:
+    /// the LINQ stays intact and the Java converter takes its streaming
+    /// <c>Collectors.groupingBy</c> path (behavior-equivalent; design M4 校注).
+    /// </summary>
+    public int GroupByChainsPreserved { get; set; }
+
+    /// <summary>
     /// M3 §7.10: findings raised by the AfterFiles residual scan (LC0040):
     /// preserved-stream mismatches and out-of-place procedural helpers.
     /// </summary>
@@ -81,6 +94,7 @@ public sealed class LinqChannelStatistics
         ProviderCustomCalls += other.ProviderCustomCalls;
         ExpressionQuotedChainsPreserved += other.ExpressionQuotedChainsPreserved;
         ExpressionTreeUnprovableSites += other.ExpressionTreeUnprovableSites;
+        GroupByChainsPreserved += other.GroupByChainsPreserved;
         ResidualFindings += other.ResidualFindings;
         PreservedChains.AddRange(other.PreservedChains);
     }
