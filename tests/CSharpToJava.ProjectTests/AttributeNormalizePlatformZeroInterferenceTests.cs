@@ -8,11 +8,11 @@ namespace CSharpToJava.ProjectTests;
 
 /// <summary>
 /// C10 M3 「平台边界零干扰」证据：同一份含互操作/平台注解的最小项目，分别在
-/// 默认链（attribute-normalize 关）与 --enable-pass attribute-normalize 下运行，
-/// 随后对两个最终树用转换器同一批边界 analyzer（CS2J3001/3101/3102/3201/3202/3203）
-/// 重放，按 (码, 相对文件, 行, 消息) 归一化后逐条一致；C10 开启不新增任何
-/// CS2J13xx，AN003 Info 仅 verbose 可见且只引用主管辖码；DllImport 声明所在
-/// 文件逐字节保留。
+/// --disable-pass attribute-normalize 链与默认链（2026-10-06 翻转后 C10 默认开）
+/// 下运行，随后对两个最终树用转换器同一批边界 analyzer
+/// （CS2J3001/3101/3102/3201/3202/3203）重放，按 (码, 相对文件, 行, 消息)
+/// 归一化后逐条一致；C10 开启不新增任何 CS2J13xx，AN003 Info 仅 verbose 可见
+/// 且只引用主管辖码；DllImport 声明所在文件逐字节保留。
 ///
 /// 现状基线（以实际管线为准，测试不改变现状）：C06 unsafe-ffm 在默认链中开启，
 /// 对 extern/DllImport 发 UF060 Error，链在 unsafe-ffm 后中止，因此两种模式的
@@ -130,43 +130,44 @@ public class AttributeNormalizePlatformZeroInterferenceTests
     }
 
     [Fact]
-    public async Task DefaultChain_And_C10EnabledChain_Emit_Identical_PlatformBoundarySignals_And_Preserve_Bytes()
+    public async Task DefaultChain_And_C10DisabledChain_Emit_Identical_PlatformBoundarySignals_And_Preserve_Bytes()
     {
         var sourceDir = CreateWorkspace();
         // 输出必须放在源目录之外：第二跑会把第一跑的输出树当源文件枚举。
         var runId = Guid.NewGuid().ToString("N");
-        var baselineDest = Path.Combine(Path.GetTempPath(), $"cs2j-an-zero-{runId}-default");
-        var enabledDest = Path.Combine(Path.GetTempPath(), $"cs2j-an-zero-{runId}-enabled");
+        var disabledDest = Path.Combine(Path.GetTempPath(), $"cs2j-an-zero-{runId}-disabled");
+        var defaultDest = Path.Combine(Path.GetTempPath(), $"cs2j-an-zero-{runId}-default");
 
         try
         {
-            // ── 模式 1：默认链（attribute-normalize 关） ──
-            var (baselineExit, _, baselineStderr) = await RunCliAsync(
-                "preprocess", "-s", sourceDir, "-d", baselineDest);
-            Assert.True(baselineExit == 1,
-                $"baseline should abort at C06 UF060; stderr:\n{baselineStderr}");
+            // ── 模式 1：默认链显式摘除 C10（attribute-normalize 关） ──
+            var (disabledExit, _, disabledStderr) = await RunCliAsync(
+                "preprocess", "--disable-pass", "attribute-normalize",
+                "-s", sourceDir, "-d", disabledDest);
+            Assert.True(disabledExit == 1,
+                $"disabled run should abort at C06 UF060; stderr:\n{disabledStderr}");
 
-            // ── 模式 2：默认链 + --enable-pass attribute-normalize（非 verbose） ──
-            var (enabledExit, _, enabledStderr) = await RunCliAsync(
-                "preprocess", "--enable-pass", "attribute-normalize",
-                "-s", sourceDir, "-d", enabledDest);
-            Assert.True(enabledExit == 1,
-                $"enabled run should abort at C06 UF060; stderr:\n{enabledStderr}");
+            // ── 模式 2：默认链（C10 自 2026-10-06 起默认开，非 verbose） ──
+            var (defaultExit, _, defaultStderr) = await RunCliAsync(
+                "preprocess",
+                "-s", sourceDir, "-d", defaultDest);
+            Assert.True(defaultExit == 1,
+                $"default run should abort at C06 UF060; stderr:\n{defaultStderr}");
 
-            // C10 已实际插入链中。
+            // C10 仅存在于默认链。
             Assert.True(Directory.Exists(Path.Combine(
-                enabledDest, ".cs2j-attribute-normalize-src")));
+                defaultDest, ".cs2j-attribute-normalize-src")));
             Assert.False(Directory.Exists(Path.Combine(
-                baselineDest, ".cs2j-attribute-normalize-src")));
+                disabledDest, ".cs2j-attribute-normalize-src")));
 
             // 非 verbose：C10 不发射 AN003，也不发射任何 CS2J13xx。
-            Assert.DoesNotContain("AN003", enabledStderr);
-            Assert.DoesNotContain("CS2J13", enabledStderr);
-            Assert.DoesNotContain("CS2J13", baselineStderr);
+            Assert.DoesNotContain("AN003", defaultStderr);
+            Assert.DoesNotContain("CS2J13", defaultStderr);
+            Assert.DoesNotContain("CS2J13", disabledStderr);
 
             // 两种模式都在 C06 中止，最终树为 unsafe-ffm。
-            var baselineTree = Path.Combine(baselineDest, ".cs2j-unsafe-ffm-src");
-            var enabledTree = Path.Combine(enabledDest, ".cs2j-unsafe-ffm-src");
+            var baselineTree = Path.Combine(disabledDest, ".cs2j-unsafe-ffm-src");
+            var enabledTree = Path.Combine(defaultDest, ".cs2j-unsafe-ffm-src");
             Assert.True(Directory.Exists(baselineTree));
             Assert.True(Directory.Exists(enabledTree));
 
@@ -199,7 +200,7 @@ public class AttributeNormalizePlatformZeroInterferenceTests
             Assert.Equal(baselineHashes, enabledHashes);
 
             // C10 的中间树相对源输入同样逐字节保留（DllImport 声明区间即整文件）。
-            var c10Tree = Path.Combine(enabledDest, ".cs2j-attribute-normalize-src");
+            var c10Tree = Path.Combine(defaultDest, ".cs2j-attribute-normalize-src");
             foreach (var file in new[] { "NativeMethods.cs", "PlatformGuards.cs", "MarshalSite.cs" })
             {
                 Assert.Equal(
@@ -215,8 +216,8 @@ public class AttributeNormalizePlatformZeroInterferenceTests
         finally
         {
             Directory.Delete(sourceDir, recursive: true);
-            Directory.Delete(baselineDest, recursive: true);
-            Directory.Delete(enabledDest, recursive: true);
+            Directory.Delete(disabledDest, recursive: true);
+            Directory.Delete(defaultDest, recursive: true);
         }
     }
 
