@@ -8,8 +8,8 @@ using CSharpToJava.Core.StructValueSemantics;
 namespace CSharpToJava.Tests.Preprocessing;
 
 /// <summary>
-/// Registry contract for the C09 thread-static M1 stub→Implemented flip
-/// (design §3.1/§7.5): Implemented but default-off, descriptor shape,
+/// Registry contract for C09 thread-static (design §3.1/§7.5): Implemented
+/// and default-on since the 2026-10-06 §8 gate flip; descriptor shape,
 /// generic → thread-static → generic-deepen slot lock and resolver behavior.
 /// </summary>
 public sealed class ThreadStaticRegistryTests
@@ -30,7 +30,7 @@ public sealed class ThreadStaticRegistryTests
     };
 
     [Fact]
-    public void ThreadStatic_Is_Implemented_DefaultOff_WithC09CatalogItems()
+    public void ThreadStatic_Is_Implemented_DefaultOn_WithC09CatalogItems()
     {
         var registry = PassCatalog.BuildRegistry();
 
@@ -43,7 +43,7 @@ public sealed class ThreadStaticRegistryTests
 
         var descriptor = PassCatalog.ImplementedById(PassIds.ThreadStatic);
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
-        Assert.False(descriptor.DefaultEnabled);
+        Assert.True(descriptor.DefaultEnabled);
         Assert.Equal(".cs2j-thread-static-src", descriptor.IntermediateDirectoryName);
         Assert.Equal(PassStage.Declarative, descriptor.Stage);
         Assert.Equal(new[] { PassIds.Generic }, descriptor.RunAfterIds);
@@ -58,14 +58,14 @@ public sealed class ThreadStaticRegistryTests
     }
 
     [Fact]
-    public void ThreadStatic_IsAbsentFromDefaultPlan_ButEnableAndDisableResolve()
+    public void ThreadStatic_IsInDefaultPlan_DisableOptsOut_AndExplicitEnableResolves()
     {
         var registry = PassCatalog.BuildRegistry();
 
-        // Default-off: absent from the default plan.
+        // Default-on since 2026-10-06: present in the default plan.
         var baseline = PassPlanResolver.Resolve(registry);
         Assert.True(baseline.IsValid);
-        Assert.DoesNotContain(baseline.Enabled, pass => pass.Id == PassIds.ThreadStatic);
+        Assert.Contains(baseline.Enabled, pass => pass.Id == PassIds.ThreadStatic);
 
         // Explicit disable against the baseline stays valid and omits it.
         var disabled = PassPlanResolver.Resolve(

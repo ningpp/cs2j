@@ -355,11 +355,13 @@ public sealed class ThreadStaticProjectTests
     }
 
     // ------------------------------------------------------------------
-    // Default off: without the explicit enable id the pass never runs.
+    // All-disabled: with every pass toggled off the pass never runs
+    // (after the 2026-10-06 default-on flip this no longer reflects the
+    // default chain; it locks the explicit all-off opt-out behavior).
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task ThreadStaticOff_ByDefault_ChainProducesNoIntermediateTree()
+    public async Task ThreadStaticOff_AllDisabledChain_ProducesNoIntermediateTree()
     {
         var workDir = CopyFixtureToTemp();
         var sourceSln = Path.Combine(workDir, "SampleThreadStaticSolution.sln");
@@ -373,7 +375,7 @@ public sealed class ThreadStaticProjectTests
             Assert.True(result.Success, "all-disabled chain must succeed");
             Assert.DoesNotContain(IntermediateDir, result.ExecutedIntermediateDirectoryNames);
             Assert.False(Directory.Exists(Path.Combine(outputRoot, IntermediateDir)),
-                "the pass is default-off: no intermediate tree may be produced");
+                "an all-disabled chain may not produce the thread-static tree");
         }
         finally
         {

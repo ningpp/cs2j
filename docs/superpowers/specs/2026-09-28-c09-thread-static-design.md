@@ -365,3 +365,35 @@ git worktree add .worktrees/preproc-c09-thread-static -b feature/preproc-c09-thr
 ```
 
 实施约束（交实施 worktree，不在本文档执行）：仅在上述 worktree 内改码；按 §9 里程碑逐提交；默认关先行，过 §8 门槛才翻默认开；转换器代码改动（§1.3 删除清单、§5.4 Java 半区映射）留后续 PR。
+
+## 13. 实施校注（2026-10-06，M2 收尾 / Java 半区 / 默认翻转）
+
+本节为实施完成后的事实回填，与正文冲突处以本节为准。M1+M2 预处理 core 在本校注前已落地（`ThreadStaticRewriteTests` 42 例、`SampleThreadStaticSolution` fixture、`ThreadStaticProjectTests`/`ThreadStaticCLITests`）。2026-10-06 补齐 Java 半区并通过 §8 六门后，描述符翻为 `defaultEnabled: true`（第一批提交 `0a17d7e9`：Java 半区实现；行尾归一 `8244778d`；翻转与门证据见本批后续提交）。
+
+### 13.1 §5.4 Java 半区逐项核实结果（对原设想的偏差）
+
+原 §5.4 设想映射到 `java.lang.ThreadLocal` + `withInitial(Supplier)` 静态工厂；实施时改为 compat 承载类型，理由是实例构造 + bean 访问器与既有转换器管道同构，且需要承载 `IsValueCreated`/`Dispose` 语义，规避罕见的「对象创建表达式 → 静态工厂调用」kind 变换：
+
+1. **类型映射**：`System.Threading.ThreadLocal<T>` → `io.github.ningpp.compat.Cs2jThreadLocal<T>`（[TypeMappings.json](file:///d:/code/cs2j/config/TypeMappings.json) 新增条目），非 `java.lang.ThreadLocal`。[Cs2jThreadLocal](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Cs2jThreadLocal.java) `extends ThreadLocal<T>`，JUnit5 5/5 全绿。
+2. **Value 属性**：不登记方法映射，走转换器默认 bean 派生 `getValue()`/`setValue()`。为此在 [JavaNaming.IsBeanAccessorStyleName](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/JavaNaming.cs) 增加门控：仅 bean 风格（get/set/is + 大写）的方法映射在属性读写点消费；字段型映射（如 `Array.Length→length`、`Count→size`）仍留给既有 lowering 管道（无差别消费曾导致 ArrayStaticInvocationTests 回归）。
+3. **构造形态（替代 withInitial）**：值类型无参 holder 的默认值合成放在 [ObjectCreationTransformer](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs)——`new ThreadLocal<T>()` 且 T 为非 Nullable 值类型时产出 `new Cs2jThreadLocal<T>(() -> default(T))`（int→0、struct→`new Vec()`）；引用类型保持无参（null 即正确默认）。放转换器而非预处理器的原因：预处理器产物保持规范 C#（`default(T)` 在 C# 两边恒等），转换器一处同时覆盖预处理产物与用户直写的 `new ThreadLocal<值类型>()`（曾在预处理器加默认工厂导致 5 个 golden 失败，已回退）。
+4. **Dispose / IsValueCreated / Values**：`Dispose()→dispose()`（委托 `remove()`）；`IsValueCreated→isValueCreated()`（per-thread `ThreadLocal<Boolean>` 跟踪槽，get/set/remove 覆写）；`Values` 与 `trackAllValues=true` 构造显式抛 `UnsupportedOperationException`（Java 无对应语义，显式不支持而非静默错值）。
+5. **旧内联臂删除登记**：[FieldTransformer](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L51-L147) 的 `[ThreadStatic]` 内联特例（L57、L126-147）经结构证明在 C09 改写产物上**不可达**——谓词 [ConversionContext.IsThreadStaticFieldDeclaration](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionContext.cs#L434-L443) 仅在「static + 仍带 ThreadStaticAttribute」时为真：改写后 holder 已无 attribute，CS2J1201 skip 点为实例字段（非 static）。唯一残余可达面是 **CS2J1204 泛型容器登记 skip 点**（attribute 保留、v1 不支持；strict 下为 Error 阻断转换，非 strict 下落旧臂是已知 M2+ 组合形范畴，交 C02）。旧臂按 §1.3 删除清单留后续 PR（与完成审计台账「双轨债」行对齐）。
+
+附带转换器修复（属性 ++/-- 与表达式体方法是 holder 站点的必要消费支撑）：
+
+- [UnaryExpressionTransformer](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/UnaryExpressionTransformer.cs)：属性上的 `++`/`--` 对内置有符号数值类型（int/long/float/double 及 sbyte/short/char 带窄化 cast）经临时量安全降级为 `getXxx()`/`setXxx(tmp±1)`；枚举/decimal/unsigned/Nullable/自定义运算符/字段风格映射保持 fail-fast。
+- [MethodTransformer.BuildBody](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs)：表达式体方法若产生 pending pre-statements，排空展开为块体（此前被静默丢弃，曾导致 javac 找不到降级临时量）。
+
+### 13.2 §8 六门证据（2026-10-06，Windows / net10.0.300 / JDK 28-ea）
+
+1. **中间树正确性（fixture）**：`preprocess --pass thread-static` 对 `tests/SampleThreadStaticSolution` 的中间树 `dotnet build -c Release` 零错误；`dotnet test -c Release` 8/8（含 7 个多线程行为文件）；ProjectTests 内 `ThreadStaticProjectTests` 4 Facts、`ThreadStaticCLITests` 5 Facts 全绿（默认链现在产出中间树，`--disable-pass thread-static` 可关）。
+2. **残余闸门**：fixture 输出仅 `SkipControls.cs` 保留 2 个 attribute，恰为登记 skip（CS2J1201 实例字段 + CS2J1204 泛型容器），其余文件零残余（`ThreadStaticProjectTests.Statistics_ReconcileGroundTruth_ResidualGateHasOnlyOwnedSkips_Zero1220` 锁定）；sdk 零残余（见下）。
+3. **全仓不回归**：`CSharpToJavaConverter.slnx` Release build **0 错误**；三个测试工程 Release 全量结果——CSharpToJava.Tests **3415 通过 / 0 失败 / 3 跳过**；CSharpToJava.ConversionTests **676 通过 / 4 失败 / 0 跳过**；CSharpToJava.ProjectTests **1843 通过 / 0 失败 / 20 跳过（25m15s）**。ConversionTests 的 4 个红灯全部位于 `AsyncStreamsConversionTests`（AsyncIteratorProducer_PreprocessedThenConverted…、ExpandedAwaitForeach_*、AwaitForeachSource_*、ExpandedAwaitUsing_*），断言缺 `.moveNextAsync().join()` / `.resource.disposeAsync().join()`，属 P0 既有红账（C18/C38）：在 P0 基线 commit `f0c0305a` 的临时 worktree（`.worktrees/_p0-baseline-check`）跑同 4 测试得到同样 4 红；且 `git diff f0c0305a --stat -- src config tests/CSharpToJava.ConversionTests` 显示 C09 改动落在 src/config 9 个文件、ConversionTests 零改动，门规"既有红灯数量不增加"满足。
+4. **Java 半区就绪**：compat `mvn test` 5/5；[ThreadStaticJavaHalfTests](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/ThreadStaticJavaHalfTests.cs) 经真实预处理器 + 完整转换链后用 javac+java 跑多线程 harness，覆盖四种 holder 形态（int 无参 → `() -> 0`、用户直写工厂 42、String 引用类型无参、struct Vec → `() -> new Vec()`），断言主线程/工作线程副本隔离与 dispose 后工厂重跑，全绿。
+5. **诊断可运维（sdk M0 测量 + triage）**：`D:\csharp-sdk` 全仓 `ThreadStatic` 命中字段 **1**（[xml-tiny StringBuilderCache.t_cachedInstance](file:///D:/csharp-sdk/xml-tiny/src/System/IO/StringBuilderCache.cs#L9-L10)：非泛型静态类、`StringBuilder?` 引用类型、无初始化器，读写点 1 读 2 写；被引用率 100%、泛型容器占比 0、初始化器占比 0、skip 率 0%）。全仓预处理结果：`1 transformed, 1295 clean, 1 fields rewritten, 0 skipped, 0 residual`，零 Warning/Error，无待 triage 项；受影响工程处理树 `dotnet build -c Release` 与原始基线**完全一致**（均 2 警告/0 错误）。全 sdk Release build/test 因与本 pass 无关的既有 TPA-only 基线损坏（见 C26 M0 记录）不具可比性，按「受影响工程零新增失败」记账。
+6. **文档**：本 §13 校注定稿（plan 文档不再单立，M1/M2 实施记录并入此节）；FieldTransformer 旧臂删除与 CS2J1204 组合形（C09×C02 M2+）已登记后续 PR。
+
+### 13.3 默认翻转
+
+[PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L287-L309) thread-static 描述符 `defaultEnabled: true`；[PassChainOrderTests](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs) 锁序数组槽位不变（generic → thread-static → generic-deepen），仅移出默认关排除集；CLI/注册表测试同步翻转。无 convert-project 旧版开关（`BuildLegacyToggles` 不含本 pass），退出路径统一为 `--disable-pass thread-static`。

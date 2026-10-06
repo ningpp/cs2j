@@ -4,10 +4,10 @@ namespace CSharpToJava.ProjectTests;
 
 /// <summary>
 /// End-to-end CLI coverage for the thread-static pass (C09, design §7.5):
-/// --list-passes shows it Implemented but default-off; the default chain does
-/// not create its intermediate tree; --pass runs it alone and rewrites;
-/// --enable-pass chains it after generic; --disable-pass keeps it off;
-/// the conversion fingerprint carries the pass:thread-static token.
+/// --list-passes shows it Implemented and default-on (flipped 2026-10-06);
+/// the default chain now creates its intermediate tree; --pass runs it alone
+/// and rewrites; --enable-pass chains it after generic; --disable-pass keeps
+/// it off; the conversion fingerprint carries the pass:thread-static token.
 /// These tests execute the Debug CLI dll.
 /// </summary>
 [Collection("ThreadStaticSerial")]
@@ -123,14 +123,14 @@ public class ThreadStaticCLITests
             .ToArray()!;
 
     [Fact]
-    public async Task ListPasses_ShowsThreadStatic_ImplementedAndDefaultOff()
+    public async Task ListPasses_ShowsThreadStatic_ImplementedAndDefaultOn()
     {
         var (exit, stdout, _) = await RunCliAsync("preprocess", "--list-passes");
 
         Assert.Equal(0, exit);
         var line = stdout.Split('\n').First(l => l.Contains("thread-static"));
         Assert.Contains("Implemented", line);
-        Assert.Contains(" off ", line);
+        Assert.Contains(" on ", line);
         Assert.DoesNotContain("Stub", line);
     }
 
@@ -172,26 +172,50 @@ public class ThreadStaticCLITests
     }
 
     [Fact]
-    public async Task DefaultChain_ProducesNoThreadStaticTree()
+    public async Task DefaultChain_ProducesThreadStaticTree_AndDisablePassOptsOut()
     {
         var sourceDir = CreateTempWorkspace();
         var destDir = Path.Combine(sourceDir, "out");
 
         try
         {
-            var (exit, _, stderr) = await RunCliAsync(
+            var (exit, stdout, stderr) = await RunCliAsync(
                 "preprocess",
                 "--no-verify-build", "--no-verify-tests",
                 "-s", Path.Combine(sourceDir, SolutionName), "-d", destDir);
 
             Assert.True(exit == 0,
                 $"default preprocess chain failed (exit {exit}).\nstderr: {stderr}");
-            Assert.False(Directory.Exists(Path.Combine(destDir, IntermediateDir)),
-                "thread-static is default-off: the default chain must not create its intermediate tree");
+            Assert.True(Directory.Exists(Path.Combine(destDir, IntermediateDir)),
+                "thread-static is default-on: the default chain must create its intermediate tree");
+            var rewritten = await File.ReadAllTextAsync(RewrittenClassFile(destDir));
+            Assert.Contains("global::System.Threading.ThreadLocal<int> _hits", rewritten);
+            Assert.Contains("thread-static:", stdout);
         }
         finally
         {
             Directory.Delete(sourceDir, recursive: true);
+        }
+
+        // --disable-pass is the supported opt-out. A fresh workspace is used:
+        // support files emitted by earlier passes are workspace-local.
+        var optOutWorkspace = CreateTempWorkspace();
+        try
+        {
+            var optOutDir = Path.Combine(optOutWorkspace, "out-off");
+            var (offExit, _, offStderr) = await RunCliAsync(
+                "preprocess",
+                "--disable-pass", "thread-static",
+                "--no-verify-build", "--no-verify-tests",
+                "-s", Path.Combine(optOutWorkspace, SolutionName), "-d", optOutDir);
+            Assert.True(offExit == 0,
+                $"disabled chain failed (exit {offExit}).\nstderr: {offStderr}");
+            Assert.False(Directory.Exists(Path.Combine(optOutDir, IntermediateDir)),
+                "--disable-pass thread-static must suppress the intermediate tree");
+        }
+        finally
+        {
+            Directory.Delete(optOutWorkspace, recursive: true);
         }
     }
 
@@ -256,14 +280,14 @@ public class ThreadStaticCLITests
     }
 
     [Fact]
-    public void ConversionFingerprint_IncludesThreadStaticPassToken_DefaultOff()
+    public void ConversionFingerprint_IncludesThreadStaticPassToken_DefaultOn()
     {
         var tokens = CSharpToJava.CLI.Program.GetProjectConversionOptionTokens(
             new CSharpToJava.CLI.ConvertProjectOptions());
 
         // Every registered pass contributes one token in registry order; the
-        // default-off C09 token must be present and pinned to False.
-        Assert.Contains("pass:thread-static=False", tokens);
+        // default-on C09 token must be present and pinned to True.
+        Assert.Contains("pass:thread-static=True", tokens);
         Assert.Single(tokens, t => t.StartsWith("pass:thread-static=", StringComparison.Ordinal));
     }
 }

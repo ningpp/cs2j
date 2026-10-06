@@ -290,11 +290,12 @@ internal static class PassCatalog
             Adapters.ThreadStaticPassAdapter.IntermediateDirectoryName,
             PassStage.Declarative,
             PassStatus.Implemented,
-            // C09 M1 ships DEFAULT-OFF even though every other pass in this
-            // baseline is default-on: design §3.1/§12 keeps it opt-in until
-            // the §8 gates (fixture + sdk build/test, residual gate, and the
-            // Java-half ThreadLocal mappings) pass; --enable-pass opts in.
-            defaultEnabled: false,
+            // C09 flipped to DEFAULT-ON on 2026-10-06 after the §8 gates:
+            // fixture Release build/test green, sdk corpus = 1 hit rewritten
+            // with 0 skip / 0 residual, zero repo regression, and the Java
+            // half consumes the holders via Cs2jThreadLocal (design §9 M2
+            // 校注). --disable-pass thread-static opts out.
+            defaultEnabled: true,
             // Physically inserted between generic and generic-deepen: both
             // anchor generic only, so the Kahn declaration-order tiebreak
             // locks the slot generic -> thread-static -> generic-deepen

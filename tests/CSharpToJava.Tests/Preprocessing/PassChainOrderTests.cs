@@ -12,9 +12,9 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// Locks the registered pass sequence to the historical ConvertProject chain.
 /// The fifteen hand-written blocks were replaced by the registry-driven loop, so
 /// the topological sort must keep producing this exact order. Every implemented
-/// pass is default-on (all-preprocessors-default-on policy) except six
-/// deliberate opt-outs: C09 thread-static and C10 attribute-normalize (§8
-/// gates), C25 dynamic-desugar (audit-first), C26 linq-channel (observe-only
+/// pass is default-on (all-preprocessors-default-on policy) except five
+/// deliberate opt-outs: C10 attribute-normalize (§8 gates), C25
+/// dynamic-desugar (audit-first), C26 linq-channel (observe-only
 /// gate period), plus the 2026-10-06 P0 rollbacks C20 partial-merge (M3
 /// member-level collapse pending) and C04 iterator-lowering (M2/M3 pending);
 /// the legacy flags survive as --no-xxx negations and --disable-pass remains
@@ -51,10 +51,10 @@ public sealed class PassChainOrderTests
         PassIds.Unsigned,
         PassStubCatalog.Ids.NumericBoundary,
         PassIds.Generic,
-        // C09 thread-static flipped to Implemented but stays DEFAULT-OFF
-        // (design §3.1/§12: the §8 gates must pass before default-on). It is
-        // physically declared between generic and generic-deepen — both anchor
-        // generic only — so the Kahn declaration-order tiebreak locks this
+        // C09 thread-static flipped to DEFAULT-ON on 2026-10-06 after the
+        // §8 gates (design §9 M2 校注). It remains physically declared between
+        // generic and generic-deepen — both anchor generic only — so the Kahn
+        // declaration-order tiebreak locks this
         // slot: generic -> thread-static -> generic-deepen.
         PassIds.ThreadStatic,
         PassIds.GenericDeepen,
@@ -119,15 +119,14 @@ public sealed class PassChainOrderTests
 
     // All-preprocessors-default-on policy: every implemented pass is
     // default-enabled; --disable-pass / legacy --no-xxx flags opt out.
-    // Default-on policy exceptions — six deliberate opt-outs:
-    // C09 thread-static (§3.1/§8 gates), C10 attribute-normalize (opt-in),
+    // Default-on policy exceptions — five deliberate opt-outs:
+    // C10 attribute-normalize (opt-in),
     // C25 dynamic-desugar (audit-first, §8 corpus gate), C26 linq-channel
     // (observe-only gate period), and the 2026-10-06 P0 rollbacks C20
     // partial-merge (M3 member-level collapse + profile pending) and C04
     // iterator-lowering (M2/M3 pending).
     private static readonly string[] EnabledByDefault = LockedChain
-        .Where(id => id != PassIds.ThreadStatic
-            && id != PassIds.AttributeNormalize
+        .Where(id => id != PassIds.AttributeNormalize
             && id != PassStubCatalog.Ids.DynamicDesugar
             && id != PassStubCatalog.Ids.LinqChannel
             && id != PassStubCatalog.Ids.PartialMerge
@@ -762,7 +761,8 @@ public sealed class PassChainOrderTests
         // C25 dynamic-desugar, C30 closed-metadata, C21 anonymous-type-lift,
         // C18 async-normalize/default-on, C26 linq-channel/default-off,
         // C20 partial-merge/default-off, C04 iterator-lowering/default-off,
-        // C09 thread-static/default-off, C10 attribute-normalize/default-off)
+        // C09 thread-static/default-on (flipped 2026-10-06; still no legacy
+        // flag), C10 attribute-normalize/default-off)
         // are reachable solely through their descriptor default plus --enable-pass/--pass
         // (C04 additionally carries a legacy toggle whose default follows the descriptor).
         Assert.Equal(
@@ -905,21 +905,21 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
-    public void ThreadStatic_is_default_off_and_absent_from_the_default_plan_and_legacy_toggles()
+    public void ThreadStatic_is_default_on_in_the_default_plan_but_has_no_legacy_toggle()
     {
         var registry = PassCatalog.BuildRegistry();
 
-        // Default-off (design §3.1/§12; flips only after the §8 gates): the
-        // descriptor exists as Implemented but the baseline plan omits it.
+        // Default-on since the 2026-10-06 §8 gate flip (design §9 M2 校注):
+        // the baseline plan includes it at its locked slot.
         var baseline = PassPlanResolver.Resolve(registry);
         Assert.True(baseline.IsValid);
-        Assert.DoesNotContain(baseline.Enabled, pass => pass.Id == PassIds.ThreadStatic);
+        Assert.Contains(baseline.Enabled, pass => pass.Id == PassIds.ThreadStatic);
 
         // No convert-project legacy toggle exists for C09.
         var toggles = PassChainFactory.BuildLegacyToggles(new ConvertProjectOptions());
         Assert.DoesNotContain(toggles.Keys, id => id == PassIds.ThreadStatic);
 
-        // Explicit disable against the baseline stays valid and still omits it.
+        // Explicit disable against the baseline stays valid and omits it.
         var disabled = PassPlanResolver.Resolve(
             registry,
             disablePassIds: new[] { PassIds.ThreadStatic });
