@@ -177,7 +177,6 @@ public class Phase2PassPipelineTests
         Assert.Equal(
             new[]
             {
-                "ProjectLinqDesugarPass",
                 "ProjectCompilationCheckPass",
                 "ProjectUnsupportedDomainCheckPass",
                 "ProjectPlatformBoundaryCheckPass",
@@ -192,7 +191,7 @@ public class Phase2PassPipelineTests
     }
 
     [Fact]
-    public async Task ProjectConversionPipeline_RewritesLinqBeforeEmit_WhenStreamApiDisabled()
+    public async Task ProjectConversionPipeline_MapsLinqViaJavaEmit_WithoutEmbeddedProceduralPass()
     {
         var options = CreateOptions();
         options.PreferStreamApi = false;
@@ -208,11 +207,16 @@ public class Phase2PassPipelineTests
         });
 
         var primaryResult = Assert.Single(results, result => result.FileName == "Sample.java");
-        Assert.True(primaryResult.Success);
-        Assert.Contains("ProjectLinqDesugarPass", primaryResult.PassMetrics.Select(metric => metric.Name));
+        Assert.True(primaryResult.Success, primaryResult.GeneratedCode);
+        // C26 M4-c：项目路径不再有内嵌 LINQ 过程化 pass（原 ProjectLinqDesugarPass
+        // 已摘除，过程化改写统一由 linq-channel 预处理通道承担）；通道不在场时，
+        // LINQ 由 Java 发射期映射直接落地（Any → anyMatch）。
+        Assert.DoesNotContain("ProjectLinqDesugarPass", primaryResult.PassMetrics.Select(metric => metric.Name));
         Assert.NotEmpty(pipeline.LastPassMetrics);
-        Assert.True(Assert.Single(primaryResult.PassMetrics, metric => metric.Name == "ProjectLinqDesugarPass").RewriteCount > 0);
-        Assert.DoesNotContain(".stream()", primaryResult.GeneratedCode);
+        Assert.DoesNotContain(
+            primaryResult.Diagnostics,
+            diagnostic => diagnostic.Severity == CoreDiagnosticSeverity.Error);
+        Assert.Contains("anyMatch", primaryResult.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -375,12 +379,12 @@ public class Phase2PassPipelineTests
             Assert.Equal(sequentialSummary[index].Diagnostics, parallelSummary[index].Diagnostics);
         }
 
-        var linqMetric = Assert.Single(parallelPipeline.LastPassMetrics, metric => metric.Name == "ProjectLinqDesugarPass");
-        Assert.True(linqMetric.RewriteCount > 0);
+        // C26 M4-c：项目路径 LINQ pass 已摘除，确定性比对不再包含 LINQ 指标；
+        // 顺序/并行两种模式仍须产出逐字节一致的结果与诊断。
     }
 
     [Fact]
-    public void ProjectLinqDesugarPass_NoLinq_DoesNotRebuildStateOrDropExtensionMethodIndex()
+    public void ProjectStateRebuildHelper_PreservesExtensionMethodIndexWhenNoLinq()
     {
         var options = CreateOptions();
         options.PreferStreamApi = false;
@@ -406,13 +410,8 @@ public class Phase2PassPipelineTests
         Assert.True(index.Count > 0);
         state.Library.ExtensionMethodIndex = index;
 
-        var pass = new ProjectLinqDesugarPass();
-        pass.Execute(state);
-
-        Assert.Equal(0, pass.RewriteCount);
-        Assert.NotNull(pass.LinqStatistics);
-        Assert.Equal(0, pass.LinqStatistics!.DesugaredQueryCount);
-        Assert.Equal(0, pass.LinqStatistics.RewrittenChainCount);
+        // C26 M4-c：项目路径 LINQ pass 已摘除；不存在 LINQ 时本来就不会触发
+        // 编译重建，编译/Library/扩展方法索引保持原样（原 NoLinq 事实的延续）。
         Assert.Same(originalCompilation, state.Compilation);
         Assert.Same(originalLibrary, state.Library);
         Assert.Same(index, state.Library.ExtensionMethodIndex);
@@ -420,7 +419,7 @@ public class Phase2PassPipelineTests
     }
 
     [Fact]
-    public void ProjectLinqDesugarPass_RewritePreservesExtensionMethodIndexForProjectCheck()
+    public void ProjectStateRebuildHelper_RebuildKeepsExtensionMethodIndexForProjectCheck()
     {
         var options = CreateOptions();
         options.PreferStreamApi = false;
@@ -461,13 +460,17 @@ public class Phase2PassPipelineTests
             unrelatedIndex);
 
         var originalLibrary = state.Library;
-        var pass = new ProjectLinqDesugarPass();
-        pass.Execute(state);
 
-        Assert.True(pass.RewriteCount > 0);
+        // C26 M4-c：原 ProjectLinqDesugarPass 已摘除；这里直接驱动保留下来的
+        // 编译重建 helper（现由 ProjectJavaPatternRewritePass 等整体改写
+        // SyntaxTree 的项目 pass 调用），验证重建后扩展方法索引原样保留、
+        // ProjectCompilation 同步、TypeGroups 重建。
+        ProjectStateRebuildHelper.RebuildAfterCompilationChange(state);
+
         Assert.NotSame(originalLibrary, state.Library);
         Assert.Same(unrelatedIndex, state.Library.ExtensionMethodIndex);
-        Assert.NotNull(state.Context.PreDesugarCompilation);
+        Assert.Same(state.Compilation, state.Context.ProjectCompilation);
+        Assert.NotNull(state.TypeGroups);
 
         new ProjectExtensionMethodCheckPass().Execute(state);
 

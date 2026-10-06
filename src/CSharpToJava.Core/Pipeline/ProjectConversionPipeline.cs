@@ -257,15 +257,14 @@ public class ProjectConversionPipeline
         }
     }
 
-    public LinqRewrite.LinqRewriteStatistics? LastLinqStatistics { get; private set; }
-
-    private IReadOnlyList<ICs2jPass<ProjectPassState>> CreateProjectPasses(out ProjectLinqDesugarPass linqPass)
+    // C26 M4-c / 设计 §5.4：项目路径不再内嵌 LINQ 过程化改写 pass
+    // （原 ProjectLinqDesugarPass 已摘除，LINQ 改写统一走 linq-channel
+    // 预处理通道），故此处不再登记 LINQ pass、也无 LastLinqStatistics；
+    // 单文件路径的统计仍由 ConversionResult.LinqStatistics 暴露。
+    private IReadOnlyList<ICs2jPass<ProjectPassState>> CreateProjectPasses()
     {
-        linqPass = new ProjectLinqDesugarPass();
-
         return new ICs2jPass<ProjectPassState>[]
         {
-            linqPass,
             new ProjectCompilationCheckPass(),
             new ProjectUnsupportedDomainCheckPass(),
             new ProjectPlatformBoundaryCheckPass(),
@@ -336,9 +335,8 @@ public class ProjectConversionPipeline
 
         try
         {
-            Cs2jPassExecutor.Execute(passState, context, CreateProjectPasses(out var linqPass), passMetrics);
+            Cs2jPassExecutor.Execute(passState, context, CreateProjectPasses(), passMetrics);
             LastPassMetrics = passMetrics.ToList();
-            LastLinqStatistics = linqPass.LinqStatistics;
             if (passState.Results.Count == 0 && context.Diagnostics.Messages.Any(m => m.Severity == Context.DiagnosticSeverity.Error))
             {
                 passState.Results.Add(new ConversionResult

@@ -182,7 +182,7 @@ class Sample {
     }
 
     [Fact]
-    public async Task ProjectPipeline_QuerySyntax_ProducesProceduralCode_WhenStreamApiDisabled()
+    public async Task ProjectPipeline_QuerySyntax_MapsViaJavaStream_WithoutEmbeddedProceduralPass()
     {
         var results = await new ProjectConversionPipeline(ProceduralOptions()).ConvertProjectAsync(new[]
         {
@@ -202,35 +202,22 @@ class Sample {
 
         var primaryResult = Assert.Single(results, r => r.FileName == "Sample.java");
 
+        // C26 M4-c：项目路径内嵌 LINQ 过程化 pass 已摘除（过程化改写归
+        // linq-channel）；通道不在场时，query 表达式由 Java 发射期
+        // QueryExpressionTransformer 落到 Stream API，转换成功、无错误诊断。
         Assert.True(primaryResult.Success, primaryResult.GeneratedCode);
-        Assert.DoesNotContain(".stream()", primaryResult.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("for (", primaryResult.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            primaryResult.Diagnostics,
+            d => d.Severity == CSharpToJava.Core.Context.DiagnosticSeverity.Error);
+        Assert.Contains(".stream()", primaryResult.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains(".filter(", primaryResult.GeneratedCode, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task ProjectLinqDesugarPass_CountsDesugaredQueriesAndRewrittenChains()
-    {
-        var options = ProceduralOptions();
-        var pipeline = new ProjectConversionPipeline(options);
-        await pipeline.ConvertProjectAsync(new[]
-        {
-            new SourceFile
-            {
-                FilePath = "Sample.cs",
-                Content = @"
-using System.Collections.Generic;
-using System.Linq;
-class Sample {
-    bool A(List<int> v) { return (from x in v where x > 0 select x).Any(); }
-    bool B(List<int> v) { return (from x in v where x > 1 select x).Any(); }
-}",
-            }
-        });
-
-        var linqMetric = Assert.Single(pipeline.LastPassMetrics, m => m.Name == "ProjectLinqDesugarPass");
-        // 2 query expressions desugared (Phase 1) + 2 .Any() chains converted to loops (Phase 2) = 4
-        Assert.Equal(4, linqMetric.RewriteCount);
-    }
+    // C26 M4-c：原 ProjectLinqDesugarPass_CountsDesugaredQueriesAndRewrittenChains
+    // 随项目路径嵌入式 LINQ pass 一并删除——query 脱糖 + 链改写计数改由
+    // linq-channel 通道报告（desugaredQueryCount/rewrittenChainCount）承载，
+    // 等价端到端事实见 CSharpToJava.ProjectTests 的 LinqChannel*ProjectTests；
+    // 单文件嵌入式行为仍由本文件其余用例覆盖（SingleFileLinqDesugarPass 保留）。
 
     [Fact]
     public void QuerySyntax_ComplexCase_Let_FallsBackToQueryExpressionTransformer()

@@ -517,8 +517,12 @@ public class Program
             var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
             await WriteCanarySummarySnapshot(opts.Destination, opts.Source, results, passProfileSnapshot, outputSession);
             WriteInputFingerprintSnapshot(opts.Destination, manualInputFingerprintSnapshot, outputSession);
+            // M4-c：手工目录兜底同为项目路径，LINQ 统计只来自 linq-channel
+            // 中间根 schema v2 报告；通道被禁用时 TryWriteChannelLinqReport
+            // 返回 false（项目路径已无嵌入式 E16，故不再有回退报告文件）。
             if (opts.LinqReport)
-                WriteLinqReport(opts.Destination, pipeline.LastLinqStatistics, outputSession);
+                TryWriteChannelLinqReport(
+                    opts.Destination, opts.EnabledPassIntermediateDirectoryNames, outputSession);
             await outputSession.SaveAsync();
 
             Console.WriteLine();
@@ -576,7 +580,6 @@ public class Program
         var convertedModuleCount = 1;
         var canaryResults = new List<ConversionResult>();
         var passProfileEntries = new List<PassProfileEntry>();
-        CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics? workspaceLinqStatistics = null;
 
         // Sort projects topologically so that dependencies (which may register
         // default factory methods) are converted before the projects that depend on them.
@@ -657,7 +660,6 @@ public class Program
                 project.FilePath,
                 project.ProjectReferences,
                 project.IsTestProject);
-            MergeLinqStatistics(ref workspaceLinqStatistics, pipeline.LastLinqStatistics);
             canaryResults.AddRange(results);
             AddProjectPassProfileEntry(passProfileEntries, pipeline.LastPassMetrics, results, project.Name, moduleName);
 
@@ -760,13 +762,12 @@ public class Program
         var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
         WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
-        if (opts.LinqReport
-            && !TryWriteChannelLinqReport(
-                opts.Destination, opts.EnabledPassIntermediateDirectoryNames, outputSession))
-        {
-            // 通道不在场（--disable-pass linq-channel）：回退嵌入式 E16 统计报告。
-            WriteLinqReport(opts.Destination, workspaceLinqStatistics, outputSession);
-        }
+        // M4-c：项目路径 LINQ 统计只来自 linq-channel schema v2 报告；
+        // 通道被禁用时项目路径已无嵌入式 E16，TryWriteChannelLinqReport 返回
+        // false、不产出报告文件。
+        if (opts.LinqReport)
+            TryWriteChannelLinqReport(
+                opts.Destination, opts.EnabledPassIntermediateDirectoryNames, outputSession);
         await outputSession.SaveAsync();
 
         Console.WriteLine();
@@ -801,7 +802,6 @@ public class Program
         var modulePlans = new List<JavaModulePlan>();
         var canaryResults = new List<ConversionResult>();
         var passProfileEntries = new List<PassProfileEntry>();
-        CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics? projectGraphLinqStatistics = null;
 
         var pipeline = new ConversionPipeline();
 
@@ -856,7 +856,6 @@ public class Program
                     assignment.Project.ProjectFilePath,
                     assignment.Project.ProjectReferences,
                     assignment.Project.Kind == ProjectKind.Test);
-                MergeLinqStatistics(ref projectGraphLinqStatistics, pipeline.LastLinqStatistics);
                 canaryResults.AddRange(results);
                 moduleResults.AddRange(results.Where(result => !string.IsNullOrEmpty(result.GeneratedCode)));
                 AddProjectPassProfileEntry(passProfileEntries, pipeline.LastProjectPassMetrics, results, assignment.Project.Name, module.Name);
@@ -949,13 +948,12 @@ public class Program
         var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
         WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
-        if (opts.LinqReport
-            && !TryWriteChannelLinqReport(
-                opts.Destination, opts.EnabledPassIntermediateDirectoryNames, outputSession))
-        {
-            // 通道不在场（--disable-pass linq-channel）：回退嵌入式 E16 统计报告。
-            WriteLinqReport(opts.Destination, projectGraphLinqStatistics, outputSession);
-        }
+        // M4-c：项目路径 LINQ 统计只来自 linq-channel schema v2 报告；
+        // 通道被禁用时项目路径已无嵌入式 E16，TryWriteChannelLinqReport 返回
+        // false、不产出报告文件。
+        if (opts.LinqReport)
+            TryWriteChannelLinqReport(
+                opts.Destination, opts.EnabledPassIntermediateDirectoryNames, outputSession);
         await outputSession.SaveAsync();
 
         Console.WriteLine();
@@ -1508,73 +1506,6 @@ public class Program
             json,
             OutputIncrementalEntryKind.Report);
         return true;
-    }
-
-    private static void WriteLinqReport(
-        string destinationRoot,
-        CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics? stats,
-        OutputIncrementalWriteSession outputSession)
-    {
-        if (stats == null)
-        {
-            return;
-        }
-
-        var report = new System.Text.Json.Nodes.JsonObject
-        {
-            ["desugaredQueryCount"] = stats.DesugaredQueryCount,
-            ["rewrittenChainCount"] = stats.RewrittenChainCount,
-            ["rewrittenMethodCount"] = stats.RewrittenMethodCount,
-            ["skippedChainCount"] = stats.SkippedChains.Count,
-        };
-
-        if (stats.SkippedChains.Count > 0)
-        {
-            var skippedArray = new System.Text.Json.Nodes.JsonArray();
-            foreach (var skip in stats.SkippedChains)
-            {
-                skippedArray.Add(new System.Text.Json.Nodes.JsonObject
-                {
-                    ["reason"] = skip.Reason.ToString(),
-                    ["line"] = skip.LineNumber,
-                    ["method"] = skip.MethodName,
-                    ["message"] = skip.Message,
-                });
-            }
-            report["skippedChains"] = skippedArray;
-        }
-
-        var uncovered = stats.GetUncoveredOperatorsByFrequency();
-        if (uncovered.Count > 0)
-        {
-            var uncoveredArray = new System.Text.Json.Nodes.JsonArray();
-            foreach (var kv in uncovered)
-            {
-                uncoveredArray.Add(new System.Text.Json.Nodes.JsonObject
-                {
-                    ["operator"] = kv.Key,
-                    ["occurrences"] = kv.Value,
-                });
-            }
-            report["uncoveredOperators"] = uncoveredArray;
-        }
-
-        var json = report.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-        var reportPath = Path.Combine(destinationRoot, "cs2j-linq-report.json");
-        outputSession.WriteTextFile(reportPath, json, OutputIncrementalEntryKind.Report);
-    }
-
-    private static void MergeLinqStatistics(
-        ref CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics? aggregated,
-        CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics? incoming)
-    {
-        if (incoming == null)
-        {
-            return;
-        }
-
-        aggregated ??= new CSharpToJava.Core.LinqRewrite.LinqRewriteStatistics();
-        aggregated.MergeFrom(incoming);
     }
 
     private static bool TryReusePreviousProjectOutputs(

@@ -99,7 +99,8 @@ public class ConversionPipeline
     private readonly List<Java.JavaSyntaxRewriter> _irRewriters = new();
 
     public IReadOnlyList<Cs2jPassMetric> LastProjectPassMetrics { get; private set; } = Array.Empty<Cs2jPassMetric>();
-    public LinqRewrite.LinqRewriteStatistics? LastLinqStatistics { get; private set; }
+    // C26 M4-c：项目路径嵌入式 LINQ 改写已摘除，统计改由 linq-channel 中间根
+    // 报告（schemaVersion 2）承载；单文件统计仍在 ConversionResult.LinqStatistics。
     public GotoEliminator.GotoEliminatorStatistics? LastGotoStatistics { get; private set; }
 
     public ConversionPipeline()
@@ -370,7 +371,6 @@ public class ConversionPipeline
             projectReferences,
             isTestProject);
         LastProjectPassMetrics = pipeline.LastPassMetrics.ToList();
-        LastLinqStatistics = pipeline.LastLinqStatistics;
         return results;
     }
 

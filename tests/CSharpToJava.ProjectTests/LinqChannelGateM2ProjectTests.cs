@@ -22,10 +22,10 @@ namespace CSharpToJava.ProjectTests;
 /// outer subtree freeze) and passes Release build verification;</item>
 /// <item>the convert-project CLI report wiring end to end (M4-c): with the
 /// channel on, --linq-report copies the schema v2 channel report to the
-/// target root as cs2j-linq-report.json (the embedded E16 stats are null,
-/// but the file is still produced from channel data); with the kill switch
-/// (--disable-pass linq-channel) the embedded E16 pass writes its own
-/// report exactly as before C26.</item>
+/// target root as cs2j-linq-report.json; with the kill switch
+/// (--disable-pass linq-channel) the embedded project-path E16 pass is gone,
+/// so no report is written and LINQ is mapped at Java emit (conversion still
+/// succeeds).</item>
 /// </list>
 /// The M2 observe-only companion test was removed in M3: the
 /// <c>EnableQueryableGate</c> off-switch no longer exists; the ungated E16
@@ -108,7 +108,7 @@ public sealed class LinqChannelGateM2ProjectTests
     }
 
     [Fact]
-    public async Task ConvertProject_ChannelRun_EmitsSchemaV2TargetReport_AndKillSwitchWritesEmbeddedOne()
+    public async Task ConvertProject_ChannelRun_EmitsSchemaV2TargetReport_AndKillSwitchSkipsReport()
     {
         var cli = LocateCli();
         var tempRoot = Path.Combine(Path.GetTempPath(),
@@ -180,10 +180,12 @@ public sealed class LinqChannelGateM2ProjectTests
                 Directory.EnumerateFiles(channelDest, "*.java", SearchOption.AllDirectories).Any(),
                 "Java conversion output must still be produced from the channel intermediate tree");
 
-            // ---- plain run: M4 (2026-10-06) flipped the channel default-on,
-            // so the historical "no channel" path needs the kill switch;
-            // E16 then runs inside the conversion and writes its report
-            // exactly as before C26.
+            // ---- kill-switch run: M4-c removed the embedded project-path E16
+            // pass, so --disable-pass linq-channel now means "no procedural LINQ
+            // preprocessing at all" (LINQ is mapped at Java emit, e.g. streams).
+            // Conversion still succeeds, but there is neither a channel
+            // intermediate tree nor any cs2j-linq-report.json (there is no
+            // instrumentation on the project path without the channel).
             var (plainExit, plainOut, plainErr) = await RunCliAsync(cli,
                 "convert-project", "-s", sourceDir, "-d", plainDest,
                 "--disable-pass", PassId,
@@ -191,20 +193,14 @@ public sealed class LinqChannelGateM2ProjectTests
                 "--no-verify-build", "--no-verify-tests");
             Assert.True(plainExit == 0,
                 $"convert-project without channel failed ({plainExit}).\nstderr: {plainErr}\nstdout tail: {Tail(plainOut)}");
-            var embeddedReport = Path.Combine(plainDest, EmbeddedReportFileName);
-            Assert.True(File.Exists(embeddedReport),
-                "without the channel, the embedded E16 pass must write its report as before");
-            using var doc2 = JsonDocument.Parse(await File.ReadAllTextAsync(embeddedReport));
-            // The embedded pass demonstrably ran over the LINQ source: the
-            // exact rewrite-vs-skip split in the MSBuild pipeline is a
-            // pre-existing E16 behavior (some shapes stream-fallback), so the
-            // contract pinned here is stats presence, which the suppressed run
-            // cannot produce (stats are null when the pass early-returns).
-            var linqActivity =
-                doc2.RootElement.GetProperty("rewrittenChainCount").GetInt32()
-                + doc2.RootElement.GetProperty("skippedChainCount").GetInt32();
-            Assert.True(linqActivity >= 1,
-                "the embedded E16 report must show LINQ chain activity without the channel");
+            Assert.False(Directory.Exists(Path.Combine(plainDest, IntermediateDirName)),
+                "with the channel disabled, no linq-channel intermediate tree is materialized");
+            Assert.False(File.Exists(Path.Combine(plainDest, EmbeddedReportFileName)),
+                "M4-c: the embedded project-path E16 pass is removed; with the channel " +
+                "disabled there is no LINQ instrumentation, so no report file is written");
+            Assert.True(
+                Directory.EnumerateFiles(plainDest, "*.java", SearchOption.AllDirectories).Any(),
+                "Java conversion output must still be produced (LINQ mapped at Java emit)");
         }
         finally
         {

@@ -139,127 +139,15 @@ public sealed class ProjectPassState
 
 internal sealed record ProjectSyntaxTreeDiagnosticsResult(string FilePath, IReadOnlyList<DiagnosticMessage> Diagnostics);
 
-internal sealed class ProjectLinqRewriteResult
+// C26 M4-c / 设计 §5.4：项目路径嵌入式 LINQ 改写 pass（ProjectLinqDesugarPass）
+// 已摘除——LINQ 过程化改写统一由 linq-channel 预处理通道承担（CLI convert-project
+// 默认链），下游转换不再内嵌两阶段 desugar+rewrite。单文件路径仍由
+// SingleFileLinqDesugarPass 保留 E16（设计 §5.5/Q4）。本 helper 从原 pass 保留：
+// 其它改写 C# 中间树的项目 pass（如 ProjectJavaPatternRewritePass）在整体替换
+// SyntaxTree 后仍需用同一逻辑重建 Library/TypeGroups/ProjectCompilation。
+internal static class ProjectStateRebuildHelper
 {
-    public required SyntaxTree SyntaxTree { get; init; }
-    public required IReadOnlyList<string> Warnings { get; init; }
-    public required int RewriteCount { get; init; }
-    public required bool Changed { get; init; }
-    public LinqRewriteStatistics? Statistics { get; init; }
-}
-
-public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jPassMetricSource
-{
-    public string Name => nameof(ProjectLinqDesugarPass);
-    public Cs2jPassStage Stage => Cs2jPassStage.Desugar;
-    public int RewriteCount { get; private set; }
-    public LinqRewriteStatistics? LinqStatistics { get; private set; }
-
-    public void Execute(ProjectPassState state)
-    {
-        RewriteCount = 0;
-        LinqStatistics = null;
-        state.Context.PreDesugarCompilation = null;
-
-        var runLinqRewrite = state.Context.Options.EnableLinqRewrite && !state.Context.Options.EffectivePreferStreamApi;
-        if (!runLinqRewrite)
-        {
-            return;
-        }
-
-        var originalTrees = state.Compilation.SyntaxTrees.ToList();
-
-        // Phase 1: Desugar LINQ query expressions (from..in..where..select) to
-        // method-call chains (Where/Select/OrderBy/GroupBy).
-        // This is purely syntactic - no semantic model required.
-        var desugarChanged = false;
-        int totalDesugared = 0;
-        if (runLinqRewrite)
-        {
-            var desugarResults = ProjectPassParallelism.RunDeterministic(
-                originalTrees,
-                state.Context.Options.EnableParallelProjectPasses,
-                syntaxTree => DesugarSyntaxTree(syntaxTree));
-
-            totalDesugared = desugarResults.Sum(r => r.RewriteCount);
-            desugarChanged = desugarResults.Any(r => r.Changed);
-            RewriteCount += totalDesugared;
-
-            foreach (var warning in desugarResults.SelectMany(result => result.Warnings))
-            {
-                state.Context.Diagnostics.Warning(warning);
-            }
-
-            if (desugarChanged)
-            {
-                // Rebuild the compilation with the desugared trees so that the
-                // LinqRewriter in Phase 2 can resolve the desugared method calls.
-                state.Compilation = ReplaceChangedSyntaxTrees(state.Compilation, originalTrees, desugarResults);
-            }
-        }
-
-        // Phase 2: Rewrite LINQ method-call chains -> procedural loops.
-        var preRewriteCompilation = state.Compilation;
-        var rewriteInputTrees = preRewriteCompilation.SyntaxTrees.ToList();
-        var aggregatedStats = new LinqRewriteStatistics();
-        aggregatedStats.DesugaredQueryCount = totalDesugared;
-        var rewriteChanged = false;
-        if (runLinqRewrite)
-        {
-            var rewriteResults = ProjectPassParallelism.RunDeterministic(
-                rewriteInputTrees,
-                state.Context.Options.EnableParallelProjectPasses,
-                syntaxTree => RewriteSyntaxTree(state, syntaxTree));
-
-            foreach (var rewriteResult in rewriteResults)
-            {
-                RewriteCount += rewriteResult.RewriteCount;
-                foreach (var warning in rewriteResult.Warnings)
-                {
-                    state.Context.Diagnostics.Warning(warning);
-                }
-                if (rewriteResult.Statistics != null)
-                    aggregatedStats.MergeFrom(rewriteResult.Statistics);
-            }
-            LinqStatistics = aggregatedStats;
-
-            rewriteChanged = rewriteResults.Any(r => r.Changed);
-            if (rewriteChanged)
-            {
-                // Save the compilation from immediately before the final procedural
-                // LINQ rewrite replacement. Downstream transforms can use it as a
-                // semantic fallback for syntax nodes that still point at pre-rewrite trees.
-                state.Context.PreDesugarCompilation = preRewriteCompilation;
-                state.Compilation = ReplaceChangedSyntaxTrees(preRewriteCompilation, rewriteInputTrees, rewriteResults);
-            }
-        }
-
-        if (!desugarChanged && !rewriteChanged)
-        {
-            return;
-        }
-
-        RebuildProjectStateAfterCompilationChange(state);
-    }
-
-    private static CSharpCompilation ReplaceChangedSyntaxTrees(
-        CSharpCompilation compilation,
-        IReadOnlyList<SyntaxTree> originalTrees,
-        IReadOnlyList<ProjectLinqRewriteResult> rewriteResults)
-    {
-        var newCompilation = compilation;
-        for (int i = 0; i < originalTrees.Count; i++)
-        {
-            if (rewriteResults[i].Changed)
-            {
-                newCompilation = newCompilation.ReplaceSyntaxTree(originalTrees[i], rewriteResults[i].SyntaxTree);
-            }
-        }
-
-        return newCompilation;
-    }
-
-    internal static void RebuildProjectStateAfterCompilationChange(ProjectPassState state)
+    internal static void RebuildAfterCompilationChange(ProjectPassState state)
     {
         var originalLibrary = state.Library;
         var primaryProject = state.Library.Projects.FirstOrDefault();
@@ -281,119 +169,6 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
         // LinqRewriter already replaced in the new trees.
         var partialMerger = new PartialTypeMerger(state.Context.Diagnostics);
         state.TypeGroups = partialMerger.FindAndGroupTypes(state.Compilation);
-    }
-
-    private static ProjectLinqRewriteResult DesugarSyntaxTree(SyntaxTree syntaxTree)
-    {
-        if (ProjectPassState.IsSyntheticFilePath(syntaxTree.FilePath))
-        {
-            return new ProjectLinqRewriteResult
-            {
-                SyntaxTree = syntaxTree,
-                Warnings = [],
-                RewriteCount = 0,
-                Changed = false,
-            };
-        }
-
-        try
-        {
-            var desugarer = new LinqQueryDesugarer();
-            var originalRoot = syntaxTree.GetRoot();
-            var desugaredRoot = desugarer.Visit(originalRoot);
-            var changed = desugarer.DesugaredCount > 0 && desugaredRoot is CompilationUnitSyntax;
-            var desugaredTree = changed && desugaredRoot is CompilationUnitSyntax desugaredCompUnit
-                ? syntaxTree.WithRootAndOptions(desugaredCompUnit, syntaxTree.Options)
-                : syntaxTree;
-
-            return new ProjectLinqRewriteResult
-            {
-                SyntaxTree = desugaredTree,
-                Warnings = [],
-                RewriteCount = desugarer.DesugaredCount,
-                Changed = changed,
-            };
-        }
-        catch (Exception ex)
-        {
-            return new ProjectLinqRewriteResult
-            {
-                SyntaxTree = syntaxTree,
-                Warnings = [$"LINQ query desugar skipped in '{Path.GetFileName(syntaxTree.FilePath)}': {ex.Message}"],
-                RewriteCount = 0,
-                Changed = false,
-            };
-        }
-    }
-
-    private static ProjectLinqRewriteResult RewriteSyntaxTree(ProjectPassState state, SyntaxTree syntaxTree)
-    {
-        if (ProjectPassState.IsSyntheticFilePath(syntaxTree.FilePath))
-        {
-            return new ProjectLinqRewriteResult
-            {
-                SyntaxTree = syntaxTree,
-                Warnings = [],
-                RewriteCount = 0,
-                Changed = false,
-            };
-        }
-
-        try
-        {
-            var semanticModel = state.Compilation.GetSemanticModel(syntaxTree);
-            var originalRoot = syntaxTree.GetRoot();
-            SyntaxNode? rewrittenRoot;
-            IReadOnlyList<string> warnings;
-            int rewriteCount;
-            LinqRewriteStatistics? statistics;
-            // LINQ chain rewriting -> procedural loops (LinqRewriter).
-            var rewriter = new LinqRewriter(semanticModel, state.Context.Options);
-            rewrittenRoot = rewriter.Visit(originalRoot);
-            warnings = rewriter.SkippedLinqChains
-                .Select(skipped => $"LINQ rewrite skipped in '{Path.GetFileName(syntaxTree.FilePath)}': {skipped}")
-                .ToList();
-            rewriteCount = rewriter.RewrittenLinqQueries;
-            statistics = rewriter.Statistics;
-            var changed = false;
-            SyntaxTree rewrittenTree;
-            if (rewrittenRoot is CompilationUnitSyntax rewrittenCompilationUnit)
-            {
-                // Preserve the original syntax tree reference when the rewriter made no
-                // changes.  This is critical: downstream passes (ClassTransformer etc.)
-                // call GetSemanticModelForTree with the *original* tree reference, and
-                // Roslyn's GetSemanticModel only works when the tree is in the compilation.
-                // If we blindly wrap with WithRootAndOptions we create a new tree object
-                // that the original reference won't match.
-                changed = !ReferenceEquals(rewrittenCompilationUnit, originalRoot);
-                rewrittenTree = changed
-                    ? syntaxTree.WithRootAndOptions(rewrittenCompilationUnit, syntaxTree.Options)
-                    : syntaxTree;
-            }
-            else
-            {
-                rewrittenTree = syntaxTree;
-            }
-
-            return new ProjectLinqRewriteResult
-            {
-                SyntaxTree = rewrittenTree,
-                Warnings = warnings,
-                RewriteCount = rewriteCount,
-                Changed = changed,
-                Statistics = statistics,
-            };
-        }
-        catch (Exception ex)
-        {
-            return new ProjectLinqRewriteResult
-            {
-                SyntaxTree = syntaxTree,
-                Warnings = [$"LINQ rewrite skipped in '{Path.GetFileName(syntaxTree.FilePath)}': {ex.Message}"],
-                RewriteCount = 0,
-                Changed = false,
-            };
-        }
     }
 }
 
@@ -594,7 +369,7 @@ public sealed class ProjectJavaPatternRewritePass : ICs2jPass<ProjectPassState>
         {
             state.Compilation = state.Compilation.ReplaceSyntaxTree(oldTree, newTree);
         }
-        ProjectLinqDesugarPass.RebuildProjectStateAfterCompilationChange(state);
+        ProjectStateRebuildHelper.RebuildAfterCompilationChange(state);
     }
 }
 

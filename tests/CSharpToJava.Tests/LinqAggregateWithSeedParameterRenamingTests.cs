@@ -96,7 +96,7 @@ public class MyClass
     }
 
     [Fact]
-    public async Task ProjectAggregateWithSeed_ErrorStringSeedSpecialType_UsesStringSeedParameter()
+    public async Task AggregateWithSeed_ErrorStringSeedSpecialType_NamesStringSeedInRewrittenHelper()
     {
         var sourcePath = Path.Combine(Path.GetTempPath(), "LinearSystemSolver.cs");
         var syntaxTree = CSharpSyntaxTree.ParseText("""
@@ -129,32 +129,22 @@ namespace Microsoft.Msagl.Core.Layout.ProximityOverlapRemoval.ConjugateGradient
         Assert.IsAssignableFrom<IErrorTypeSymbol>(seedType.Type);
         Assert.Equal(SpecialType.System_String, seedType.Type?.SpecialType);
 
-        var pipeline = new ProjectConversionPipeline(CreateProjectOptions());
-        var results = await pipeline.ConvertProjectAsync(
-            compilation,
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { sourcePath },
-            "AutomaticGraphLayout");
+        // C26 M4-c：项目路径内嵌 pass 已摘除，但该回归守护的逻辑全部位于保留的
+        // LinqRewriter（linq-channel 与单文件路径共用）。即使编译没有任何
+        // 元数据引用（seed 表达式是 IErrorTypeSymbol 但 SpecialType=String），
+        // 抽出的过程化 helper 的 seed 形参仍必须推断为 string，而非 object。
+        var rewriter = new LinqRewriter(semanticModel, CreateProjectOptions());
+        var rewritten = rewriter.Visit(root)!.NormalizeWhitespace().ToFullString();
 
-        var result = Assert.Single(results, item => item.FileName == "LinearSystemSolver.java");
-        var java = result.GeneratedCode;
-
-        Assert.True(result.Success, java);
-        Assert.True(java.Contains("String test_ProceduralLinq", StringComparison.Ordinal), java);
-        Assert.True(java.Contains("String _seed", StringComparison.Ordinal), java);
-        Assert.DoesNotContain("? _seed", java, StringComparison.Ordinal);
-        Assert.DoesNotContain("Optional<Object> test_ProceduralLinq", java, StringComparison.Ordinal);
+        Assert.Contains("Test_ProceduralLinq1", rewritten, StringComparison.Ordinal);
+        Assert.Contains("string _seed", rewritten, StringComparison.Ordinal);
+        Assert.DoesNotContain("object _seed", rewritten, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task ProjectAggregateWithSeed_MSTestConditionalAccessSeedKeepsStringHelperType()
+    public void AggregateWithSeed_MSTestConditionalAccessSeedKeepsStringHelperType()
     {
-        var pipeline = new ProjectConversionPipeline(CreateProjectOptions());
-        var results = await pipeline.ConvertProjectAsync(new[]
-        {
-            new SourceFile
-            {
-                FilePath = "Sample.cs",
-                Content = @"
+        const string source = @"
 using System;
 using System.IO;
 using System.Linq;
@@ -172,16 +162,16 @@ public class MyClass
         }
         return parts.Aggregate(baseDirectory, Path.Combine);
     }
-}",
-            },
-        });
-
-        var result = Assert.Single(results, item => item.FileName == "MyClass.java");
+}";
+        // C26 M4-c：项目路径内嵌 pass 已摘除；该回归守护的 LinqRewriter seed 类型
+        // 推断在保留的单文件过程化路径（同一 LinqRewriter）上验证：条件访问
+        // seed 的 helper 返回类型与 _seed 形参都必须是 String，不得退化为 Object。
+        var result = ConvertProcedural(source);
         var java = result.GeneratedCode;
 
         Assert.True(result.Success, java);
-        Assert.True(java.Contains("String build_ProceduralLinq1", StringComparison.Ordinal), java);
-        Assert.Contains("String _seed", java);
+        Assert.Contains("String build_ProceduralLinq1", java, StringComparison.Ordinal);
+        Assert.Contains("String _seed", java, StringComparison.Ordinal);
         Assert.DoesNotContain("Object build_ProceduralLinq1", java, StringComparison.Ordinal);
         Assert.DoesNotContain("Object _seed", java, StringComparison.Ordinal);
     }
