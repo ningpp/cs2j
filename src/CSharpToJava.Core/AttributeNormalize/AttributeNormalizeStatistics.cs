@@ -28,6 +28,13 @@ public sealed class AttributeNormalizeStatistics
 
     public int BridgeGaps { get; set; }
     public int UnknownAttributes { get; set; }
+
+    /// <summary>
+    /// 属性类型在预处理编译中不可绑定、且未命中唯一短名别名的使用点数
+    /// （只刷 AN004 Info，不参与 CS2J1320 triage）。
+    /// </summary>
+    public int UnresolvedAttributes { get; set; }
+
     public int PlatformAttributesInventoried { get; set; }
 
     // ----- 回退 -----

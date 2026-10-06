@@ -1089,10 +1089,14 @@ public class AttributeNormalizeTests
             new[] { new TestFile("obj/test.AssemblyInfo.cs", source) });
 
         Assert.Single(round.Inventory.Occurrences);
-        Assert.Equal(BridgeStatus.Unknown, round.Inventory.Occurrences[0].Status);
+        // CLSCompliant 自 §8 门 3 triage 起为显式 Compiler/InventoriedPassthrough 条目。
+        Assert.Equal(
+            BridgeStatus.InventoriedPassthrough,
+            round.Inventory.Occurrences[0].Status);
         Assert.DoesNotContain(round.Diagnostics, d =>
             d.Code == AttributeNormalizeDiagnosticCode.CS2J1320
-            || d.Code == AttributeNormalizeDiagnosticCode.CS2J1310);
+            || d.Code == AttributeNormalizeDiagnosticCode.CS2J1310
+            || d.Code == AttributeNormalizeDiagnosticCode.AN004);
     }
 
     [Fact]
@@ -1494,5 +1498,299 @@ public class AttributeNormalizeTests
         Assert.Equal(AttributeFamily.Interop, occurrence.Family);
         Assert.Equal(BridgeStatus.GovernedElsewhere, occurrence.Status);
         Assert.Equal("C06", occurrence.OwnerPass);
+    }
+
+    // =====================================================================
+    // AN-U4：未绑定属性（预处理编译缺 NuGet 引用）短名别名/Unresolved（§8 门 3）
+    // =====================================================================
+
+    [Fact]
+    public void Unbound_Fact_ShortName_Aliases_To_Tests_Passthrough_And_Emits_No_Warning()
+    {
+        // [Fact] 无定义、无 xUnit 引用 → 符号不可绑定，经短名别名命中分类表。
+        var source = """
+            public sealed class C {
+                [Fact]
+                public void M() { }
+            }
+            """;
+
+        var round = RunSingle(source, new AttributeNormalizeOptions { Strict = true });
+
+        var occurrence = Find(round, "Xunit.FactAttribute");
+        Assert.NotNull(occurrence);
+        Assert.Equal(AttributeFamily.Tests, occurrence!.Family);
+        Assert.Equal(BridgeStatus.InventoriedPassthrough, occurrence.Status);
+        Assert.DoesNotContain(round.Diagnostics, d =>
+            d.Code == AttributeNormalizeDiagnosticCode.CS2J1320
+            || d.Code == AttributeNormalizeDiagnosticCode.AN004);
+        Assert.DoesNotContain(round.Diagnostics, d =>
+            d.Severity == AttributeNormalizeSeverity.Error);
+    }
+
+    [Fact]
+    public void Unbound_Ambiguous_JsonIgnore_Is_Unresolved_Info_Only_Even_Under_Strict()
+    {
+        // JsonIgnore 短名同时属于 STJ（Bridged）与 Newtonsoft（BridgeGap）→ 歧义不别名。
+        var source = """
+            public sealed class C {
+                [JsonIgnore] public int P { get; set; }
+            }
+            """;
+
+        var round = RunSingle(source, new AttributeNormalizeOptions { Strict = true });
+
+        var occurrence = Find(round, "JsonIgnore");
+        Assert.NotNull(occurrence);
+        Assert.Equal(BridgeStatus.Unresolved, occurrence!.Status);
+        Assert.Equal(0, round.Statistics.UnknownAttributes);
+        Assert.True(round.Statistics.UnresolvedAttributes >= 1);
+        Assert.DoesNotContain(round.Diagnostics, d =>
+            d.Code == AttributeNormalizeDiagnosticCode.CS2J1320);
+        var info = Assert.Single(round.Diagnostics,
+            d => d.Code == AttributeNormalizeDiagnosticCode.AN004);
+        Assert.Equal(AttributeNormalizeSeverity.Info, info.Severity);
+        Assert.DoesNotContain(round.Diagnostics, d =>
+            d.Severity == AttributeNormalizeSeverity.Error);
+    }
+
+    [Fact]
+    public void Unbound_Newtonsoft_JsonProperty_Unique_Alias_Emits_CS2J1310()
+    {
+        // JsonProperty 短名只对应 Newtonsoft 条目 → 别名后按 BridgeGap 诚实暴露。
+        var source = """
+            public sealed class Dto {
+                [JsonProperty("alt")] public string? Name { get; set; }
+            }
+            """;
+
+        var round = RunSingle(source);
+
+        var occurrence = Find(round, "Newtonsoft.Json.JsonPropertyAttribute");
+        Assert.NotNull(occurrence);
+        Assert.Equal(AttributeFamily.JsonNewtonsoft, occurrence!.Family);
+        Assert.Equal(BridgeStatus.BridgeGap, occurrence.Status);
+        Assert.Contains(round.Diagnostics,
+            d => d.Code == AttributeNormalizeDiagnosticCode.CS2J1310);
+        Assert.DoesNotContain(round.Diagnostics, d =>
+            d.Code == AttributeNormalizeDiagnosticCode.CS2J1320);
+    }
+
+    [Fact]
+    public void Unresolved_ShortName_Keep_Override_Classifies_As_Passthrough()
+    {
+        var source = """
+            public sealed class C {
+                [MyThing] public int P { get; set; }
+            }
+            """;
+
+        var options = new AttributeNormalizeOptions
+        {
+            KeepAttributes = new HashSet<string>(StringComparer.Ordinal) { "MyThing" },
+        };
+
+        var round = RunSingle(source, options);
+
+        var occurrence = Find(round, "MyThing");
+        Assert.NotNull(occurrence);
+        Assert.Equal(BridgeStatus.InventoriedPassthrough, occurrence!.Status);
+        Assert.DoesNotContain(round.Diagnostics, d =>
+            d.Code == AttributeNormalizeDiagnosticCode.CS2J1320
+            || d.Code == AttributeNormalizeDiagnosticCode.AN004);
+    }
+
+    [Fact]
+    public void Bound_CodeAnalysis_Namespace_Attributes_Are_Compiler_Passthrough()
+    {
+        var source = """
+            using System.Diagnostics.CodeAnalysis;
+            public sealed class C {
+                [DoesNotReturn]
+                public void Fail() { throw null; }
+                public bool TryGet([NotNullWhen(true)] out string? value) { value = ""; return true; }
+            }
+            """;
+
+        var round = RunSingle(source);
+
+        Assert.All(
+            round.Inventory.Occurrences
+                .Where(o => o.AttributeMetadataName.StartsWith(
+                    "System.Diagnostics.CodeAnalysis.", StringComparison.Ordinal)),
+            o =>
+            {
+                Assert.Equal(AttributeFamily.Compiler, o.Family);
+                Assert.Equal(BridgeStatus.InventoriedPassthrough, o.Status);
+            });
+        Assert.DoesNotContain(round.Diagnostics, d =>
+            d.Code == AttributeNormalizeDiagnosticCode.CS2J1320);
+    }
+
+    [Fact]
+    public void Bound_StructLayout_And_FieldOffset_Are_Interop_Governed()
+    {
+        var source = """
+            using System.Runtime.InteropServices;
+            [StructLayout(LayoutKind.Sequential)]
+            public struct S {
+                [FieldOffset(0)] public int X;
+            }
+            """;
+
+        var round = RunSingle(source);
+
+        AssertInteropGoverned(Find(round, "System.Runtime.InteropServices.StructLayoutAttribute")!);
+        AssertInteropGoverned(Find(round, "System.Runtime.InteropServices.FieldOffsetAttribute")!);
+        Assert.DoesNotContain(round.Diagnostics, d =>
+            d.Code == AttributeNormalizeDiagnosticCode.CS2J1320);
+    }
+
+    [Fact]
+    public void Bound_EnumMember_Is_DataContract_BridgeGap()
+    {
+        var source = """
+            using System.Runtime.Serialization;
+            public enum Color {
+                [EnumMember(Value = "R")] Red,
+            }
+            """;
+
+        var round = RunSingle(source);
+
+        var occurrence = Find(round, "System.Runtime.Serialization.EnumMemberAttribute");
+        Assert.NotNull(occurrence);
+        Assert.Equal(AttributeFamily.DataContract, occurrence!.Family);
+        Assert.Equal(BridgeStatus.BridgeGap, occurrence.Status);
+        Assert.Contains(round.Diagnostics,
+            d => d.Code == AttributeNormalizeDiagnosticCode.CS2J1310);
+    }
+
+    [Fact]
+    public void Bound_ClsCompliant_And_EditorBrowsable_Are_Passthrough()
+    {
+        var source = """
+            using System.ComponentModel;
+            [assembly: System.CLSCompliant(true)]
+            public sealed class C {
+                [EditorBrowsable(EditorBrowsableState.Never)]
+                public void Hidden() { }
+            }
+            """;
+
+        var round = RunSingle(source);
+
+        Assert.Equal(
+            BridgeStatus.InventoriedPassthrough,
+            Find(round, "System.CLSCompliantAttribute")!.Status);
+        Assert.Equal(
+            BridgeStatus.InventoriedPassthrough,
+            Find(round, "System.ComponentModel.EditorBrowsableAttribute")!.Status);
+        Assert.DoesNotContain(round.Diagnostics, d =>
+            d.Code == AttributeNormalizeDiagnosticCode.CS2J1320);
+    }
+
+    [Fact]
+    public void Bound_Debugger_Metadata_Attributes_Are_Passthrough()
+    {
+        var source = """
+            using System.Diagnostics;
+            [DebuggerTypeProxy(typeof(Proxy))]
+            [DebuggerStepThrough]
+            public sealed class C {
+                [DebuggerHidden] public int X;
+            }
+            internal sealed class Proxy { public Proxy(C c) { } }
+            """;
+
+        var round = RunSingle(source);
+
+        Assert.Equal(
+            BridgeStatus.InventoriedPassthrough,
+            Find(round, "System.Diagnostics.DebuggerTypeProxyAttribute")!.Status);
+        Assert.Equal(
+            AttributeFamily.Debugger,
+            Find(round, "System.Diagnostics.DebuggerStepThroughAttribute")!.Family);
+        Assert.Equal(
+            BridgeStatus.InventoriedPassthrough,
+            Find(round, "System.Diagnostics.DebuggerHiddenAttribute")!.Status);
+        Assert.DoesNotContain(round.Diagnostics, d =>
+            d.Code == AttributeNormalizeDiagnosticCode.CS2J1320);
+    }
+
+    [Fact]
+    public void Bound_XmlNamespaceDeclarations_Is_BridgeGap()
+    {
+        var source = """
+            public sealed class C {
+                [System.Xml.Serialization.XmlNamespaceDeclarations]
+                private System.Xml.Serialization.XmlSerializerNamespaces? _namespaces;
+            }
+            """;
+
+        var round = RunSingle(source);
+
+        Assert.Equal(
+            BridgeStatus.BridgeGap,
+            Find(round, "System.Xml.Serialization.XmlNamespaceDeclarationsAttribute")!.Status);
+        Assert.Contains(round.Diagnostics,
+            d => d.Code == AttributeNormalizeDiagnosticCode.CS2J1310);
+    }
+
+    [Fact]
+    public void Unbound_JsonExtensionData_ShortName_Is_Ambiguous_Unresolved_Info_Only()
+    {
+        // STJ 与 Newtonsoft 都有 JsonExtensionDataAttribute（前者 Bridged、
+        // 后者 BridgeGap），未绑定时短名歧义 → Unresolved，只刷 AN004 Info。
+        var source = """
+            using System.Collections.Generic;
+            public sealed class Dto {
+                [JsonExtensionData] public Dictionary<string, object>? Extra { get; set; }
+            }
+            """;
+
+        var round = RunSingle(source, new AttributeNormalizeOptions { Strict = true });
+
+        var occurrence = Find(round, "JsonExtensionData");
+        Assert.NotNull(occurrence);
+        Assert.Equal(BridgeStatus.Unresolved, occurrence!.Status);
+        Assert.Contains(round.Diagnostics, d =>
+            d.Code == AttributeNormalizeDiagnosticCode.AN004);
+        Assert.DoesNotContain(round.Diagnostics, d =>
+            d.Code == AttributeNormalizeDiagnosticCode.CS2J1320
+            || d.Code == AttributeNormalizeDiagnosticCode.CS2J1310);
+    }
+
+    [Fact]
+    public void OptionsFactory_Loads_CamelCase_Overrides_Json_And_Strict_Flag()
+    {
+        // 回归：CLI 帮助承诺 camelCase 键；早期实现用默认（大小写敏感）
+        // System.Text.Json 反序列化，keep/ignore 集合静默为空（§8 门 3 发现）。
+        var dir = Path.Combine(Path.GetTempPath(), "c10-opts-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, "AttributeNormalizeOverrides.json");
+        File.WriteAllText(path, """
+            {
+              "keepAttributes": ["X.KeepMeAttribute"],
+              "ignoreAttributes": ["X.DropMeAttribute"],
+              "callerFilePathPolicy": "Empty"
+            }
+            """);
+
+        try
+        {
+            var options = CSharpToJava.CLI.Preprocessing.AttributeNormalizeOptionsFactory.Build(
+                path, strict: true, reportInfo: false);
+
+            Assert.True(options.Strict);
+            Assert.False(options.ReportInfo);
+            Assert.Equal(CallerFilePathPolicy.Empty, options.CallerFilePathPolicy);
+            Assert.Contains("X.KeepMeAttribute", options.KeepAttributes);
+            Assert.Contains("X.DropMeAttribute", options.IgnoreAttributes);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 }

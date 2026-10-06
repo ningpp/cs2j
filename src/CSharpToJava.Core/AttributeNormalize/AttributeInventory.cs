@@ -30,6 +30,15 @@ public enum BridgeStatus
     GovernedElsewhere,
     Unknown,
     Ignored,
+
+    /// <summary>
+    /// 属性类型在预处理编译中无法绑定（典型：来自 NuGet 包而预处理编译只带
+    /// TPA + ProjectReference 引用），且语法短名无法在分类表中唯一别名。
+    /// 与 <see cref="Unknown"/> 的区别：Unknown 是「工具看得见符号、用户必须
+    /// triage」；Unresolved 是「编译输入不完整、无人能 triage」，只记 AN004
+    /// Info（verbose），不刷 CS2J1320、不参与 strict 升级。
+    /// </summary>
+    Unresolved,
 }
 
 /// <summary>

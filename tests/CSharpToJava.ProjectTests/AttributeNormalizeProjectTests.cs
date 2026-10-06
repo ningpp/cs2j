@@ -177,25 +177,27 @@ public class AttributeNormalizeProjectTests
             var stats = adapter.Statistics;
 
             // Family buckets: 9 caller, 4 STJ (3 bridged + 1 field-level gap),
-            // 2 Newtonsoft (gaps), 1 custom (unknown), 1 interop.
+            // 3 Newtonsoft (gaps), 1 custom (unknown), 1 interop.
             Assert.Equal(9, CountFamily(stats, AttributeFamily.CallerInfo));
             Assert.Equal(4, CountFamily(stats, AttributeFamily.JsonSystemTextJson));
-            Assert.Equal(2, CountFamily(stats, AttributeFamily.JsonNewtonsoft));
+            Assert.Equal(3, CountFamily(stats, AttributeFamily.JsonNewtonsoft));
             Assert.Equal(1, CountFamily(stats, AttributeFamily.Custom));
             Assert.Equal(1, CountFamily(stats, AttributeFamily.Interop));
 
-            // STJ field-level JsonIgnore (1) + both Newtonsoft annotations (2).
-            Assert.Equal(3, stats.BridgeGaps);
+            // STJ field-level JsonIgnore (1) + all three Newtonsoft annotations (3).
+            Assert.Equal(4, stats.BridgeGaps);
             Assert.Equal(1, stats.UnknownAttributes);
 
             var cs1310 = adapter.Diagnostics
                 .Where(d => d.Code == AttributeNormalizeDiagnosticCode.CS2J1310)
                 .ToList();
-            Assert.Equal(3, cs1310.Count);
+            Assert.Equal(4, cs1310.Count);
             Assert.Contains(cs1310, d =>
                 d.Message.Contains("Newtonsoft.Json.JsonPropertyAttribute"));
             Assert.Contains(cs1310, d =>
                 d.Message.Contains("Newtonsoft.Json.JsonIgnoreAttribute"));
+            Assert.Contains(cs1310, d =>
+                d.Message.Contains("Newtonsoft.Json.JsonExtensionDataAttribute"));
             // Field-level STJ occurrence: target is the private field.
             var stjFieldGap = Assert.Single(cs1310.Where(d =>
                 d.Message.Contains("System.Text.Json.Serialization.JsonIgnoreAttribute")));

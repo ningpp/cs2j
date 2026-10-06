@@ -135,6 +135,10 @@ internal static class KnownAttributeCatalog
         = "System.Runtime.InteropServices.UnmanagedCallersOnlyAttribute";
     public const string GeneratedComInterfaceAttribute
         = "System.Runtime.InteropServices.Marshalling.GeneratedComInterfaceAttribute";
+    public const string StructLayoutAttribute
+        = "System.Runtime.InteropServices.StructLayoutAttribute";
+    public const string FieldOffsetAttribute
+        = "System.Runtime.InteropServices.FieldOffsetAttribute";
 
     // ----- OS guard（C42） -----
     public const string SupportedOSPlatformAttribute
@@ -321,6 +325,18 @@ internal static class KnownAttributeCatalog
                     "java/csharptojava-compat/src/main/java/io/github/ningpp/compat/DefaultContractResolver.java",
                 },
                 "Newtonsoft contract serializer exists but type-level JsonObject is not emitted"),
+            // JsonExtensionData 把未知 JSON 键/值摊到成员（字典/IDictionary），转换器
+            // 无成员级物化分支（§8 门 3 sdk 语料 ReferenceHandlerTests.Deserialize.cs
+            // L1467 命中）→ BridgeGap；STJ 同名条目已有 compat 物化，二者不可混用别名。
+            [NsNewtonsoft + "JsonExtensionDataAttribute"] = Entry(
+                AttributeFamily.JsonNewtonsoft, BridgeStatus.BridgeGap, null,
+                Array.Empty<ReadArgument>(), new HashSet<AttributeTarget>(),
+                new[]
+                {
+                    "grep Newtonsoft JsonExtensionData src/: no member-level spillover consumption branch",
+                    "java/csharptojava-compat/src/main/java/io/github/ningpp/compat/DefaultContractResolver.java",
+                },
+                "Newtonsoft contract serializer exists but extension-data spillover is not emitted"),
 
             // ===== DataContract：BridgeGap（Name/EmitDefaultValue 无读取分支） =====
             [NsDataContract + "DataContractAttribute"] = Entry(
@@ -350,6 +366,16 @@ internal static class KnownAttributeCatalog
                     "java/csharptojava-compat/src/main/java/io/github/ningpp/compat/DataContractSerializer.java",
                 },
                 "DataContractSerializer exists but IgnoreDataMember is not emitted"),
+            // EnumMember(Value=...) 按名契约同 DataMember：转换器无成员级读取分支 → BridgeGap。
+            [NsDataContract + "EnumMemberAttribute"] = Entry(
+                AttributeFamily.DataContract, BridgeStatus.BridgeGap, null,
+                Array.Empty<ReadArgument>(), new HashSet<AttributeTarget>(),
+                new[]
+                {
+                    "grep EnumMemberAttribute src/: no member-level consumption branch (Value unread)",
+                    "java/csharptojava-compat/src/main/java/io/github/ningpp/compat/DataContractSerializer.java",
+                },
+                "DataContractSerializer exists but EnumMember(Value=) is not emitted"),
 
             // ===== XmlSerialization：Bridged，逐参数核对（PropertyTransformer.cs:L142-L153） =====
             [NsXml + "XmlAttributeAttribute"] = Entry(
@@ -371,6 +397,18 @@ internal static class KnownAttributeCatalog
                 Pos(new ReadArgument("elementName", ArgValueKind.Always, Positional: true)),
                 PropertyOnly,
                 new[] { "src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs:L151" }),
+            // 其余 XmlSerializer 注解转换器无消费分支：按名/形态契约会静默丢失 → BridgeGap
+            // （PropertyTransformer.cs:L148-L151 仅消费上述四个；§8 门 3 triage 登记）。
+            [NsXml + "XmlElementAttribute"] = XmlGapEntry("element name/order contract"),
+            [NsXml + "XmlRootAttribute"] = XmlGapEntry("type-level root element name contract"),
+            [NsXml + "XmlTextAttribute"] = XmlGapEntry("xml text content contract"),
+            [NsXml + "XmlEnumAttribute"] = XmlGapEntry("enum member wire name contract"),
+            [NsXml + "XmlAnyAttributeAttribute"] = XmlGapEntry("catch-all attribute contract"),
+            [NsXml + "XmlAnyElementAttribute"] = XmlGapEntry("catch-all element contract"),
+            // XmlNamespaceDeclarations 把 xmlns 声明摊到 XmlSerializerNamespaces 成员，
+            // PropertyTransformer 无消费分支（§8 门 3 xml-tiny XmlSchemaObject.cs L67
+            // 命中的是源拷贝名，真名一并登记）→ BridgeGap。
+            [NsXml + "XmlNamespaceDeclarationsAttribute"] = XmlGapEntry("xml namespace declarations spillover contract"),
 
             // ===== Debugger：部分 Bridged =====
             // PropertyTransformer.cs:L163-L164：ctor state(int)，仅属性消费。
@@ -383,16 +421,23 @@ internal static class KnownAttributeCatalog
                     "src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs:L163-L164",
                     "java/csharptojava-compat/src/main/java/io/github/ningpp/compat/DebuggerBrowsable.java",
                 }),
-            // compat 有 DebuggerDisplay 壳；转换器无消费分支 → BridgeGap。
+            // DebuggerDisplay 仅调试器显示用、无任何运行时语义（IDE/调试元数据），
+            // 按 InventoriedPassthrough 盘点；compat 的 DebuggerDisplay 壳不构成语义契约。
             ["System.Diagnostics.DebuggerDisplayAttribute"] = Entry(
-                AttributeFamily.Debugger, BridgeStatus.BridgeGap, null,
+                AttributeFamily.Debugger, BridgeStatus.InventoriedPassthrough, null,
                 Array.Empty<ReadArgument>(), new HashSet<AttributeTarget>(),
                 new[]
                 {
-                    "grep DebuggerDisplayAttribute src/: no converter consumption branch",
-                    "java/csharptojava-compat/src/main/java/io/github/ningpp/compat/DebuggerDisplay.java",
-                },
-                "DebuggerDisplay shell exists in compat but its arguments are not emitted"),
+                    "debugger-only metadata; no runtime semantics; compat shell io/github/ningpp/compat/DebuggerDisplay.java is informational",
+                }),
+            // 其余 System.Diagnostics 调试器元数据全部无运行时语义：DebuggerTypeProxy
+            // （代理展示类型，§8 门 3 regex 语料 3 命中）、步进隐藏四件套
+            // （StepThrough/Hidden/NonUserCode/StepperBoundary），统一盘点透传。
+            ["System.Diagnostics.DebuggerTypeProxyAttribute"] = DebuggerPassthroughEntry(),
+            ["System.Diagnostics.DebuggerStepThroughAttribute"] = DebuggerPassthroughEntry(),
+            ["System.Diagnostics.DebuggerHiddenAttribute"] = DebuggerPassthroughEntry(),
+            ["System.Diagnostics.DebuggerNonUserCodeAttribute"] = DebuggerPassthroughEntry(),
+            ["System.Diagnostics.DebuggerStepperBoundaryAttribute"] = DebuggerPassthroughEntry(),
 
             // ===== Compiler/BCL：InventoriedPassthrough =====
             ["System.ObsoleteAttribute"] = Entry(
@@ -422,6 +467,15 @@ internal static class KnownAttributeCatalog
                 AttributeFamily.Compiler, BridgeStatus.InventoriedPassthrough, null,
                 Array.Empty<ReadArgument>(), new HashSet<AttributeTarget>(),
                 new[] { "compiler-consumed attribute; no converter consumption" }),
+            // 纯元数据/分析契约：无运行时语义，转换器不消费。
+            ["System.CLSCompliantAttribute"] = Entry(
+                AttributeFamily.Compiler, BridgeStatus.InventoriedPassthrough, null,
+                Array.Empty<ReadArgument>(), new HashSet<AttributeTarget>(),
+                new[] { "CLS compliance is compile-time metadata only; no converter consumption" }),
+            ["System.ComponentModel.EditorBrowsableAttribute"] = Entry(
+                AttributeFamily.Compiler, BridgeStatus.InventoriedPassthrough, null,
+                Array.Empty<ReadArgument>(), new HashSet<AttributeTarget>(),
+                new[] { "IDE browse state is design-time metadata only; no converter consumption" }),
 
             // ===== Tests：InventoriedPassthrough（测试项目内不告警） =====
             // xUnit
@@ -445,6 +499,14 @@ internal static class KnownAttributeCatalog
             [NsMstest + "DataRowAttribute"] = TestsEntry(),
             [NsMstest + "TestInitializeAttribute"] = TestsEntry(),
             [NsMstest + "TestCleanupAttribute"] = TestsEntry(),
+            // xUnit 生态（NuGet 包属性；预处理编译不带 NuGet 引用时经短名别名命中）
+            [NsXunit + "SkippableFactAttribute"] = TestsEntry(),
+            [NsXunit + "SkippableTheoryAttribute"] = TestsEntry(),
+            [NsXunit + "TraitAttribute"] = TestsEntry(),
+            [NsXunit + "CollectionAttribute"] = TestsEntry(),
+            [NsXunit + "CollectionDefinitionAttribute"] = TestsEntry(),
+            [NsXunit + "CollectionBehaviorAttribute"] = TestsEntry(),
+            ["Xunit.Sdk.DataDiscovererAttribute"] = TestsEntry(),
 
             // ===== Interop/Platform：GovernedElsewhere（C06/C42） =====
             [DllImportAttribute] = Governed(AttributeFamily.Interop, "C06"),
@@ -453,6 +515,9 @@ internal static class KnownAttributeCatalog
             [MarshalAsAttribute] = Governed(AttributeFamily.Interop, "C06"),
             [UnmanagedCallersOnlyAttribute] = Governed(AttributeFamily.Interop, "C06"),
             [GeneratedComInterfaceAttribute] = Governed(AttributeFamily.Interop, "C06"),
+            // 布局互操作：语义归 C06（CS2J3201 域），本 pass 只盘点透传。
+            [StructLayoutAttribute] = Governed(AttributeFamily.Interop, "C06"),
+            [FieldOffsetAttribute] = Governed(AttributeFamily.Interop, "C06"),
 
             [SupportedOSPlatformAttribute] = Governed(AttributeFamily.Platform, "C42"),
             [UnsupportedOSPlatformAttribute] = Governed(AttributeFamily.Platform, "C42"),
@@ -471,6 +536,23 @@ internal static class KnownAttributeCatalog
             Array.Empty<ReadArgument>(), new HashSet<AttributeTarget>(),
             new[] { "test framework annotation (xUnit/NUnit/MSTest); not warned inside test projects" });
 
+    private static CatalogEntry DebuggerPassthroughEntry()
+        => Entry(
+            AttributeFamily.Debugger, BridgeStatus.InventoriedPassthrough, null,
+            Array.Empty<ReadArgument>(), new HashSet<AttributeTarget>(),
+            new[] { "debugger-only metadata; no runtime semantics" });
+
+    private static CatalogEntry XmlGapEntry(string contract)
+        => Entry(
+            AttributeFamily.XmlSerialization, BridgeStatus.BridgeGap, null,
+            Array.Empty<ReadArgument>(), new HashSet<AttributeTarget>(),
+            new[]
+            {
+                "src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs:L148-L151 only consumes "
+                + "XmlAttribute/XmlIgnore/XmlArray/XmlArrayItem",
+            },
+            $"XmlSerializer {contract} is not emitted to the Java side");
+
     private static CatalogEntry Governed(AttributeFamily family, string ownerPass)
         => Entry(
             family, BridgeStatus.GovernedElsewhere, ownerPass,
@@ -478,9 +560,13 @@ internal static class KnownAttributeCatalog
             new[] { $"governed by {ownerPass}" });
 
     /// <summary>
-    /// 按符号身份分类一个 attribute；attributeType 不可解析时退回语法名 → Custom。
-    /// overrides（ignore/keep）优先于内置表；System.Runtime.CompilerServices 命名空间内
-    /// 非 Caller 属性归 Compiler/InventoriedPassthrough（design §4.4）。
+    /// 按符号身份分类一个 attribute；attributeType 不可解析时：
+    /// 先按语法短名查「未绑定别名表」（分类表条目的短名唯一映射，覆盖 NuGet
+    /// 引用缺失场景），命中歧义或无别名则归 <see cref="BridgeStatus.Unresolved"/>。
+    /// overrides（ignore/keep）对绑定名与别名规范名同时生效。
+    /// System.Runtime.CompilerServices 命名空间内非 Caller 属性、
+    /// System.Diagnostics.CodeAnalysis 命名空间全部属性（纯分析契约）
+    /// 归 Compiler/InventoriedPassthrough（design §4.4）。
     /// </summary>
     public static CatalogClassification Classify(
         INamedTypeSymbol? attributeType,
@@ -508,11 +594,114 @@ internal static class KnownAttributeCatalog
                     metadataName, AttributeFamily.Compiler, BridgeStatus.InventoriedPassthrough, null, null);
             }
 
+            // System.Diagnostics.CodeAnalysis 命名空间全部为分析器/可空契约元数据，
+            // 无运行时语义、转换器永不消费（NotNullWhen/DoesNotReturn/SuppressMessage 等）。
+            if (metadataName.StartsWith(
+                    "System.Diagnostics.CodeAnalysis.", StringComparison.Ordinal)
+                && metadataName.EndsWith("Attribute", StringComparison.Ordinal))
+            {
+                return new CatalogClassification(
+                    metadataName, AttributeFamily.Compiler, BridgeStatus.InventoriedPassthrough, null, null);
+            }
+
             return new CatalogClassification(metadataName, AttributeFamily.Custom, BridgeStatus.Unknown, null, null);
         }
 
+        // ----- 属性类型未绑定（预处理编译缺 NuGet/程序集引用） -----
         var syntaxName = syntax != null ? NormalizeSyntaxName(syntax) : "<unresolved>";
-        return new CatalogClassification(syntaxName, AttributeFamily.Custom, BridgeStatus.Unknown, null, null);
+
+        if (TryResolveUnboundAlias(syntaxName, out var canonicalName, out var aliasEntry))
+        {
+            if (options.IgnoreAttributes.Contains(canonicalName!))
+                return new CatalogClassification(canonicalName!, AttributeFamily.Other, BridgeStatus.Ignored, null, null);
+            if (options.KeepAttributes.Contains(canonicalName!))
+                return new CatalogClassification(canonicalName!, AttributeFamily.Other, BridgeStatus.InventoriedPassthrough, null, null);
+            return new CatalogClassification(
+                canonicalName!, aliasEntry!.Family, aliasEntry.Status, aliasEntry.OwnerPass, aliasEntry);
+        }
+
+        if (options.IgnoreAttributes.Contains(syntaxName))
+            return new CatalogClassification(syntaxName, AttributeFamily.Other, BridgeStatus.Ignored, null, null);
+        if (options.KeepAttributes.Contains(syntaxName))
+            return new CatalogClassification(syntaxName, AttributeFamily.Other, BridgeStatus.InventoriedPassthrough, null, null);
+
+        return new CatalogClassification(syntaxName, AttributeFamily.Custom, BridgeStatus.Unresolved, null, null);
+    }
+
+    /// <summary>
+    /// 未绑定属性语法短名 → 分类表唯一条目别名表。键为分类表键的最右标识符
+    /// 去掉/保留 <c>Attribute</c> 后缀两种形态；同一短名对应多个条目时
+    /// （如 JsonIgnore 同时属于 STJ 与 Newtonsoft）记为歧义，不参与别名。
+    /// 延迟构造一次；值为 null 表示歧义键。
+    /// </summary>
+    private static readonly Lazy<Dictionary<string, CatalogEntry?>> UnboundShortNameAliases
+        = new(BuildUnboundShortNameAliases);
+
+    private static Dictionary<string, CatalogEntry?> BuildUnboundShortNameAliases()
+    {
+        var map = new Dictionary<string, CatalogEntry?>(StringComparer.Ordinal);
+        var origins = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var kv in Entries)
+        {
+            var metadataName = kv.Key;
+            var dot = metadataName.LastIndexOf('.');
+            var shortName = dot >= 0 ? metadataName[(dot + 1)..] : metadataName;
+            AddAlias(shortName, metadataName, kv.Value);
+
+            if (shortName.EndsWith("Attribute", StringComparison.Ordinal)
+                && shortName.Length > "Attribute".Length)
+            {
+                AddAlias(shortName[..^"Attribute".Length], metadataName, kv.Value);
+            }
+        }
+
+        void AddAlias(string key, string origin, CatalogEntry value)
+        {
+            if (origins.TryGetValue(key, out var existingOrigin)
+                && existingOrigin != origin)
+            {
+                map[key] = null; // 歧义：不别名（如 JsonIgnore/JsonConverter）
+                return;
+            }
+
+            origins[key] = origin;
+            map.TryAdd(key, value);
+        }
+
+        return map;
+    }
+
+    /// <summary>
+    /// 语法短名解析未绑定别名：唯一命中返回规范名与条目；歧义（同短名多条目）
+    /// 或无别名返回 false。
+    /// </summary>
+    private static bool TryResolveUnboundAlias(
+        string syntaxName,
+        out string? canonicalName,
+        out CatalogEntry? entry)
+    {
+        canonicalName = null;
+        entry = null;
+        if (!UnboundShortNameAliases.Value.TryGetValue(syntaxName, out var candidate)
+            || candidate == null)
+        {
+            return false;
+        }
+
+        // 反查规范名：短名 → 条目对象 → 条目键（条目共享时取任一同对象键）。
+        foreach (var kv in Entries)
+        {
+            if (ReferenceEquals(kv.Value, candidate))
+            {
+                canonicalName = kv.Key;
+                break;
+            }
+        }
+
+        if (canonicalName == null) return false;
+        entry = candidate;
+        return true;
     }
 
     /// <summary>按元数据名查内置条目（诊断消息拼证据指针用）。</summary>

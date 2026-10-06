@@ -28,6 +28,7 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
     private int _inventoryTotal;
     private int _bridgeGapCount;
     private int _unknownCount;
+    private int _unresolvedCount;
 
     public AttributeNormalizePassAdapter(
         AttributeNormalizeOptions options,
@@ -282,6 +283,7 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
             _inventoryTotal = inventory.Occurrences.Count;
             _bridgeGapCount = inventory.CountByStatus(BridgeStatus.BridgeGap);
             _unknownCount = inventory.CountByStatus(BridgeStatus.Unknown);
+            _unresolvedCount = inventory.CountByStatus(BridgeStatus.Unresolved);
         }
 
         // CS2J1390 self-containment warnings (emitted once; permanent Warning).
@@ -359,7 +361,8 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
                $"line={CountSite(sites, CallerInfoKind.CallerLineNumber)}, " +
                $"expr={CountSite(sites, CallerInfoKind.CallerArgumentExpression)}), " +
                $"inventory {_inventoryTotal} attribute occurrence(s) " +
-               $"({_bridgeGapCount} bridge gap(s), {_unknownCount} unknown), " +
+               $"({_bridgeGapCount} bridge gap(s), {_unknownCount} unknown, " +
+               $"{_unresolvedCount} unresolved), " +
                $"{_statistics.PlansRolledBack} plan(s) rolled back, " +
                $"{_statistics.ResidualCount} residual(s)";
     }

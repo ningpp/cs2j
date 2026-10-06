@@ -58,6 +58,13 @@ public static class AttributeNormalizeDiagnosticCode
 
     /// <summary>平台/互操作 attribute 已盘点（Info，仅 verbose）。</summary>
     public const string AN003 = "AN003";
+
+    /// <summary>
+    /// attribute 类型在预处理编译中无法绑定（引用元数据缺失，常见于
+    /// NuGet 包属性），短名别名也未唯一命中分类表：仅盘点不计 triage
+    /// （Info，仅 verbose；不刷 CS2J1320、不参与 strict 升级）。
+    /// </summary>
+    public const string AN004 = "AN004";
 }
 
 /// <summary>

@@ -292,6 +292,7 @@ public sealed class AttributeNormalizePreprocessor
 
         statistics.BridgeGaps = _inventory.CountByStatus(BridgeStatus.BridgeGap);
         statistics.UnknownAttributes = _inventory.CountByStatus(BridgeStatus.Unknown);
+        statistics.UnresolvedAttributes = _inventory.CountByStatus(BridgeStatus.Unresolved);
         statistics.PlatformAttributesInventoried =
             _inventory.CountByFamily(AttributeFamily.Platform)
             + _inventory.CountByFamily(AttributeFamily.Interop);
@@ -346,6 +347,7 @@ public sealed class AttributeNormalizePreprocessor
             }
 
             // AN-U1 未知自定义 → CS2J1320（strict Error；AN-U3 AssemblyInfo 不刷）。
+            // Unresolved（符号在预处理编译中不可绑定）不在此列：改刷 AN004 Info。
             if (occurrence.Status == BridgeStatus.Unknown && !inAssemblyInfo)
             {
                 var severity = _options.Strict
@@ -362,6 +364,25 @@ public sealed class AttributeNormalizePreprocessor
                     severity,
                     AttributeNormalizeDiagnosticCode.CS2J1320,
                     message,
+                    file,
+                    lineSpan.Line + 1,
+                    lineSpan.Character + 1));
+            }
+
+            // AN004：属性类型无法绑定（预处理编译缺引用，常见于 NuGet 包属性），
+            // 短名别名也未唯一命中：仅 Info（verbose）盘点，不要求 triage、不升级。
+            if (occurrence.Status == BridgeStatus.Unresolved
+                && !inAssemblyInfo
+                && _options.ReportInfo)
+            {
+                var target = occurrence.TargetSymbol?.ToDisplayString() ?? "?";
+                diagnostics.Add(new AttributeNormalizeDiagnostic(
+                    AttributeNormalizeSeverity.Info,
+                    AttributeNormalizeDiagnosticCode.AN004,
+                    $"attribute '{occurrence.AttributeMetadataName}' on '{target}' could not be bound " +
+                    "in the preprocessing compilation (referenced assembly metadata unavailable); " +
+                    "recorded as unresolved and excluded from CS2J1320 triage; use overrides " +
+                    "(ignoreAttributes/keepAttributes) to classify it explicitly.",
                     file,
                     lineSpan.Line + 1,
                     lineSpan.Character + 1));

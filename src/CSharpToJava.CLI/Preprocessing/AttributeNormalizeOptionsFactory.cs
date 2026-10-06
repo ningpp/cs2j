@@ -30,7 +30,13 @@ internal static class AttributeNormalizeOptionsFactory
         {
             try
             {
-                var parsed = JsonSerializer.Deserialize<OverrideSet>(File.ReadAllText(path))
+                // CLI 帮助文本承诺 camelCase 键（keepAttributes/ignoreAttributes/
+                // skipTypes/callerFilePathPolicy），反序列化必须大小写不敏感。
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                };
+                var parsed = JsonSerializer.Deserialize<OverrideSet>(File.ReadAllText(path), jsonOptions)
                     ?? new OverrideSet();
                 if (parsed.KeepAttributes != null) keepAttributes.UnionWith(parsed.KeepAttributes);
                 if (parsed.IgnoreAttributes != null) ignoreAttributes.UnionWith(parsed.IgnoreAttributes);
