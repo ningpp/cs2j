@@ -415,7 +415,6 @@ public class Phase2PassPipelineTests
         Assert.Same(originalCompilation, state.Compilation);
         Assert.Same(originalLibrary, state.Library);
         Assert.Same(index, state.Library.ExtensionMethodIndex);
-        Assert.Null(state.Context.PreDesugarCompilation);
     }
 
     [Fact]

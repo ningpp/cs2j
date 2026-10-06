@@ -505,13 +505,6 @@ public class ConversionContext
     }
 
     /// <summary>
-    /// Saved compilation from immediately before the final procedural LINQ rewrite
-    /// replacement. Used as a fallback when a syntax node still points at a tree
-    /// that is no longer in the current ProjectCompilation.
-    /// </summary>
-    public CSharpCompilation? PreDesugarCompilation { get; set; }
-
-    /// <summary>
     /// True when the method overrides a base-class slot or implements an interface
     /// member. Such methods must keep the base slot's Java erasure signature —
     /// synthetic leading Class&lt;T&gt; parameters would break the override check.
@@ -1028,13 +1021,11 @@ public class ConversionContext
             if (ProjectCompilation.ContainsSyntaxTree(syntaxTree))
                 return ProjectCompilation.GetSemanticModel(syntaxTree);
 
-            if (PreDesugarCompilation != null && PreDesugarCompilation.ContainsSyntaxTree(syntaxTree))
-                return PreDesugarCompilation.GetSemanticModel(syntaxTree);
-
-            // The LINQ desugar pass may replace syntax trees, creating new tree objects
-            // for the same file. The node's SyntaxTree reference points to the old tree
-            // object, but the compilation now contains a new tree object for the same file.
-            // Try to find the matching tree by file path.
+            // 项目级 tree-local pass（如 JavaPattern 整体替换）会为同一文件生成新的
+            // 语法树对象：节点持有的 SyntaxTree 引用可能指向旧对象，而编译已换为新
+            // 对象。按文件路径在当前 ProjectCompilation 中找回匹配树。
+            // （C26 M4-c：项目路径嵌入式 LINQ 改写 pass 已摘除，不再存在 pre-desugar
+            //   旧编译，原 PreDesugarCompilation 回退随之删除。）
             var filePath = syntaxTree.FilePath;
             if (!string.IsNullOrEmpty(filePath))
             {
@@ -1042,15 +1033,6 @@ public class ConversionContext
                 {
                     if (tree.FilePath == filePath)
                         return ProjectCompilation.GetSemanticModel(tree);
-                }
-            }
-
-            if (PreDesugarCompilation != null && !string.IsNullOrEmpty(filePath))
-            {
-                foreach (var tree in PreDesugarCompilation.SyntaxTrees)
-                {
-                    if (tree.FilePath == filePath)
-                        return PreDesugarCompilation.GetSemanticModel(tree);
                 }
             }
 
@@ -1073,19 +1055,6 @@ public class ConversionContext
                 if (tree.FilePath == nodeTree.FilePath)
                 {
                     var treeModel = ProjectCompilation.GetSemanticModel(tree);
-                    if (treeModel != null)
-                        return treeModel;
-                }
-            }
-        }
-
-        if (PreDesugarCompilation != null)
-        {
-            foreach (var tree in PreDesugarCompilation.SyntaxTrees)
-            {
-                if (tree.FilePath == nodeTree.FilePath)
-                {
-                    var treeModel = PreDesugarCompilation.GetSemanticModel(tree);
                     if (treeModel != null)
                         return treeModel;
                 }
