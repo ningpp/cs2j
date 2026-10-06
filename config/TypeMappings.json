@@ -4133,6 +4133,13 @@
             ]
         },
         {
+            "csharp": "System.Threading.CancellationTokenRegistration",
+            "java": "CancellationTokenRegistration",
+            "imports": [
+                "io.github.ningpp.compat.CancellationTokenRegistration"
+            ]
+        },
+        {
             "csharp": "System.MathF",
             "java": "Math",
             "imports": []
@@ -4478,6 +4485,27 @@
             "java": "Interlocked",
             "imports": [
                 "io.github.ningpp.compat.Interlocked"
+            ]
+        },
+        {
+            "csharp": "System.Threading.Monitor",
+            "java": "Monitor",
+            "imports": [
+                "io.github.ningpp.compat.Monitor"
+            ]
+        },
+        {
+            "csharp": "System.Threading.Volatile",
+            "java": "Volatile",
+            "imports": [
+                "io.github.ningpp.compat.Volatile"
+            ]
+        },
+        {
+            "csharp": "System.Threading.Lock",
+            "java": "Lock",
+            "imports": [
+                "io.github.ningpp.compat.Lock"
             ]
         },
         {
@@ -6857,7 +6885,7 @@
         {
             "type": "System.Threading.Tasks.Task",
             "method": "Delay",
-            "javaMethod": "delayedExecutor"
+            "javaMethod": "AsyncTasks.delay"
         },
         {
             "type": "System.Threading.Tasks.Task",
@@ -6868,11 +6896,6 @@
             "type": "System.Threading.Tasks.Task",
             "method": "FromResult",
             "javaMethod": "completedFuture"
-        },
-        {
-            "type": "System.Threading.Tasks.Task`1",
-            "method": "Delay",
-            "javaMethod": "delayedExecutor"
         },
         {
             "type": "System.Collections.Generic.IAsyncEnumerable`1",
@@ -6908,6 +6931,41 @@
             "type": "System.Threading.CancellationToken",
             "method": "None",
             "javaMethod": "getNone"
+        },
+        {
+            "type": "System.Threading.CancellationToken",
+            "method": "Register",
+            "javaMethod": "register"
+        },
+        {
+            "type": "System.Threading.CancellationToken",
+            "method": "get_IsCancellationRequested",
+            "javaMethod": "isCancellationRequested"
+        },
+        {
+            "type": "System.Threading.CancellationToken",
+            "method": "IsCancellationRequested",
+            "javaMethod": "isCancellationRequested"
+        },
+        {
+            "type": "System.Threading.CancellationTokenSource",
+            "method": "Cancel",
+            "javaMethod": "cancel"
+        },
+        {
+            "type": "System.Threading.CancellationTokenSource",
+            "method": "CancelAfter",
+            "javaMethod": "cancelAfter"
+        },
+        {
+            "type": "System.Threading.CancellationTokenSource",
+            "method": "get_IsCancellationRequested",
+            "javaMethod": "isCancellationRequested"
+        },
+        {
+            "type": "System.Threading.CancellationTokenSource",
+            "method": "IsCancellationRequested",
+            "javaMethod": "isCancellationRequested"
         },
         {
             "type": "System.Math",
@@ -8326,6 +8384,102 @@
             "javaMethod": "decrement",
             "imports": [
                 "io.github.ningpp.compat.Interlocked"
+            ]
+        },
+        {
+            "type": "System.Threading.Monitor",
+            "method": "Enter",
+            "javaMethod": "enter",
+            "imports": [
+                "io.github.ningpp.compat.Monitor"
+            ]
+        },
+        {
+            "type": "System.Threading.Monitor",
+            "method": "Exit",
+            "javaMethod": "exit",
+            "imports": [
+                "io.github.ningpp.compat.Monitor"
+            ]
+        },
+        {
+            "type": "System.Threading.Monitor",
+            "method": "TryEnter",
+            "javaMethod": "tryEnter",
+            "imports": [
+                "io.github.ningpp.compat.Monitor"
+            ]
+        },
+        {
+            "type": "System.Threading.Monitor",
+            "method": "Wait",
+            "javaMethod": "wait",
+            "imports": [
+                "io.github.ningpp.compat.Monitor"
+            ]
+        },
+        {
+            "type": "System.Threading.Monitor",
+            "method": "Pulse",
+            "javaMethod": "pulse",
+            "imports": [
+                "io.github.ningpp.compat.Monitor"
+            ]
+        },
+        {
+            "type": "System.Threading.Monitor",
+            "method": "PulseAll",
+            "javaMethod": "pulseAll",
+            "imports": [
+                "io.github.ningpp.compat.Monitor"
+            ]
+        },
+        {
+            "type": "System.Threading.Monitor",
+            "method": "IsEntered",
+            "javaMethod": "isEntered",
+            "imports": [
+                "io.github.ningpp.compat.Monitor"
+            ]
+        },
+        {
+            "type": "System.Threading.Volatile",
+            "method": "Read",
+            "javaMethod": "read",
+            "imports": [
+                "io.github.ningpp.compat.Volatile"
+            ]
+        },
+        {
+            "type": "System.Threading.Volatile",
+            "method": "Write",
+            "javaMethod": "write",
+            "imports": [
+                "io.github.ningpp.compat.Volatile"
+            ]
+        },
+        {
+            "type": "System.Threading.Lock",
+            "method": "Enter",
+            "javaMethod": "enter",
+            "imports": [
+                "io.github.ningpp.compat.Lock"
+            ]
+        },
+        {
+            "type": "System.Threading.Lock",
+            "method": "Exit",
+            "javaMethod": "exit",
+            "imports": [
+                "io.github.ningpp.compat.Lock"
+            ]
+        },
+        {
+            "type": "System.Threading.Lock",
+            "method": "TryEnter",
+            "javaMethod": "tryEnter",
+            "imports": [
+                "io.github.ningpp.compat.Lock"
             ]
         },
         {

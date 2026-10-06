@@ -82,7 +82,7 @@ public class ExtensionMethodSupportLibrarySerialProjectTests
         }
     }
 
-    [Theory(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 17.78s（最慢用例 ref-out-in；3 个用例一并跳过）")]
+    [SlowE2ETheory(17.78)]
     [MemberData(nameof(Cases))]
     public async Task SupportPassThenExtensionMethods_ChainIsGreen(SerialCase testCase)
     {

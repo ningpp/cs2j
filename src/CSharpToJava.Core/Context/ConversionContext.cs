@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Analysis;
+using CSharpToJava.Core.AsyncNormalize;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.PartialType;
@@ -614,7 +615,13 @@ public class ConversionContext
     public void EnterMethod(IMethodSymbol? method)
     {
         _methodStack.Push(method);
-        IsInAsyncContext = false;
+        // async Task/Task<T>/ValueTask(T) 方法的 Java 形态是 CompletableFuture 返回：
+        // return 包 completedFuture（见 StatementTransformer.TransformReturnStatement）。
+        // async void 不置位（async-normalize 已由 CS2J1803 拒绝）。注意：这是阻塞式
+        // 轻量桥（await=AsyncAwait.join），不是状态机调度——异常契约与返回类型诚实，
+        // 挂起语义不做承诺（c18 设计 §4.8 重量形态裁决不做）。
+        IsInAsyncContext = method is { IsAsync: true }
+            && AsyncShapeClassifier.IsTaskLike(method.ReturnType);
         ReturnsCSharpGenericIterable = false;
         var readOnlyParams = method?.Parameters
             .Where(p => StructCloneHelper.IsRefParamEffectivelyReadOnlyInHierarchy(p, SemanticModel?.Compilation))

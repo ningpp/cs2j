@@ -359,14 +359,15 @@ public class ControlFlowTransformer : IIRExpressionTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
         var expr = facade.Transform(node.Expression, context);
-        // Map C# await → CompletableFuture.join()
-        // CompletableFuture.join() returns Object; cast to the expected type
-        // so that assignments like `int i = await DeserializeAsync<int>(...)`
-        // produce `int i = (int) ...join()` instead of an incompatible Object.
-        // Skip the cast when await is used as a standalone statement (void context)
-        // — casting a statement expression produces "not a statement" errors.
+        // Map C# await → AsyncAwait.join(CompletableFuture): the bridge blocks like join()
+        // but unwraps CompletionException so callers see the original exception (C# await
+        // never surfaces a wrapper). Cast to the expected type so assignments like
+        // `int i = await DeserializeAsync<int>(...)` produce `(int) AsyncAwait.join(...)`
+        // instead of an incompatible Object. Skip the cast when await is a standalone
+        // statement (void context) — casting a statement expression is not a statement.
+        context.AddImport("io.github.ningpp.compat.AsyncAwait");
         if (node.Parent is ExpressionStatementSyntax)
-            return $"{expr}.join()";
+            return $"AsyncAwait.join({expr})";
         var awaitType = context.GetTypeInfo(node).Type;
         if (awaitType != null)
         {
@@ -391,10 +392,10 @@ public class ControlFlowTransformer : IIRExpressionTransformer
                     "Character" => "char",
                     _ => javaType
                 };
-                return $"({castType}) ({expr}.join())";
+                return $"({castType}) AsyncAwait.join({expr})";
             }
         }
-        return $"{expr}.join()";
+        return $"AsyncAwait.join({expr})";
     }
 
     private string TransformThrowExpression(ThrowExpressionSyntax node, ConversionContext context)

@@ -377,7 +377,7 @@ public class StructValueSemanticsProjectTests
     /// 幂等：对已改写中间树再跑一次，零站点改写、产物与输入逐字节一致
     /// （既有 Clone()/拷贝构造被识别为 SV010 复用）。
     /// </summary>
-    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 11.88s")]
+    [SlowE2EFact(11.88)]
     public async Task RewrittenTree_Is_Idempotent_OnSecondRun()
     {
         var fixture = FixtureDir;

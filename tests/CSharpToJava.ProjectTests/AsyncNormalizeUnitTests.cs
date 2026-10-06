@@ -572,6 +572,78 @@ class C {
         AssertOutputParsesClean(result.OutputCode);
     }
 
+    // ── 13. unsafe 上下文 await（CS2J1809 基线优先）；ref struct/ref local 跨 await
+    //       在 C# 13+ 已合法（Roslyn 5 不发 CS4007/CS9217），转换器不得制造假诊断。 ──
+
+    [Fact]
+    public void UnsafeAwait_BaselineReportsCS4004_NoDefensive1809()
+    {
+        const string src = @"
+using System.Threading.Tasks;
+class C {
+    public async Task M(Task t) {
+        unsafe {
+            await t;
+        }
+    }
+}";
+        var model = ParseWithSemantics(src);
+
+        Assert.Contains(model.Compilation.GetDiagnostics(), d => d.Id == "CS4004");
+
+        var result = new AsyncNormalizePreprocessor().Preprocess(src, model, new AsyncNormalizeOptions());
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == AsyncNormalizeDiagnosticCode.CS2J1809);
+    }
+
+    [Fact]
+    public void RefStructAcrossAwait_LegalSinceCSharp13_ZeroDiagnostics()
+    {
+        // 探针证据：Roslyn 5 对 CSharp13..Latest 不发 CS4007（旧版本由声明面
+        // CS8936/CS9058/CS9202 拦截）。转换器不增设 CS2J1806 镜像。
+        const string src = @"
+using System;
+using System.Threading.Tasks;
+class C {
+    public async Task M(Task t) {
+        Span<int> s = stackalloc int[4];
+        await t;
+        s[0] = 1;
+    }
+}";
+        var model = ParseWithSemantics(src);
+
+        Assert.DoesNotContain(model.Compilation.GetDiagnostics(),
+            d => d.Severity == DiagnosticSeverity.Error);
+
+        var result = new AsyncNormalizePreprocessor().Preprocess(src, model, new AsyncNormalizeOptions());
+
+        Assert.Equal(0, result.Diagnostics.Count);
+    }
+
+    [Fact]
+    public void RefLocalAcrossAwait_LegalSinceCSharp13_ZeroDiagnostics()
+    {
+        const string src = @"
+using System.Threading.Tasks;
+class C {
+    public async Task M(Task t) {
+        int x = 1;
+        ref int r = ref x;
+        await t;
+        r = 2;
+    }
+}";
+        var model = ParseWithSemantics(src);
+
+        Assert.DoesNotContain(model.Compilation.GetDiagnostics(),
+            d => d.Severity == DiagnosticSeverity.Error);
+
+        var result = new AsyncNormalizePreprocessor().Preprocess(src, model, new AsyncNormalizeOptions());
+
+        Assert.Equal(0, result.Diagnostics.Count);
+    }
+
     // ── Helpers ──
 
     private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest);

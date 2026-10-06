@@ -14,6 +14,10 @@ internal static class AsyncTypeResolver
     public const string ConfiguredCancelableMetadataName =
         "System.Runtime.CompilerServices.ConfiguredCancelableAsyncEnumerable`1";
 
+    /// <summary>IAsyncDisposable.ConfigureAwait(bool) 的产物（模式型 DisposeAsync 结构体）。</summary>
+    public const string ConfiguredAsyncDisposableMetadataName =
+        "System.Runtime.CompilerServices.ConfiguredAsyncDisposable";
+
     /// <summary>BCL 异步枚举扩展方法的宿主类（WithCancellation / ConfigureAwait 均在此）。</summary>
     public const string TaskAsyncEnumerableExtensionsMetadataName =
         "System.Threading.Tasks.TaskAsyncEnumerableExtensions";
@@ -188,6 +192,24 @@ internal static class AsyncTypeResolver
             return false;
         var definition = named.OriginalDefinition;
         return definition.MetadataName == "ConfiguredCancelableAsyncEnumerable`1"
+            && definition.ContainingNamespace?.ToDisplayString() == "System.Runtime.CompilerServices";
+    }
+
+    /// <summary>
+    /// 类型是否为 <c>System.Runtime.CompilerServices.ConfiguredAsyncDisposable</c>
+    /// （<c>IAsyncDisposable.ConfigureAwait(bool)</c> 的产物）。该结构体只提供模式型
+    /// <c>DisposeAsync</c>、不实现 <c>IAsyncDisposable</c>；它不是用户自定义鸭子型，
+    /// 不允许用 CS2J1842 的"显式实现接口"建议误导，单独归 CS2J1847。
+    /// </summary>
+    public static bool IsConfiguredAsyncDisposable(ITypeSymbol? type)
+    {
+        if (type is null)
+            return false;
+        var unwrapped = UnwrapNullable(type);
+        if (unwrapped is not INamedTypeSymbol named)
+            return false;
+        var definition = named.OriginalDefinition;
+        return definition.MetadataName == "ConfiguredAsyncDisposable"
             && definition.ContainingNamespace?.ToDisplayString() == "System.Runtime.CompilerServices";
     }
 

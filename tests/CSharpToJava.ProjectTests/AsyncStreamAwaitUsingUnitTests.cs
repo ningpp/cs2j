@@ -633,6 +633,50 @@ class C
         AssertOutputParsesClean(result.OutputCode);
     }
 
+    // ── 18. BCL ConfiguredAsyncDisposable（CS2J1847）：资源位与类型使用点各一发，
+    //         不得误归鸭子型 1842（"显式实现接口"建议对 BCL 结构体是误导）。 ──
+
+    [Fact]
+    public void Group18a_ConfiguredAsyncDisposableResource_1847Error_NoRewrite_Not1842()
+    {
+        var src = TypesPreamble + @"
+    public async Task M(IAsyncDisposable d)
+    {
+        await using var c = System.Threading.Tasks.TaskAsyncEnumerableExtensions
+            .ConfigureAwait(d, false);
+        Console.WriteLine(""x"");
+    }
+" + TypesSuffix;
+
+        var result = Run(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Severity == AsyncNormalizeSeverity.Error
+            && d.Code == AsyncNormalizeDiagnosticCode.CS2J1847
+            && d.Message.Contains("ConfiguredAsyncDisposable"));
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Code == AsyncNormalizeDiagnosticCode.CS2J1842);
+        Assert.Equal(1, result.Statistics.FilesDirtyNoRewrite);
+    }
+
+    [Fact]
+    public void Group18b_ConfiguredAsyncDisposableTypeSite_ReturnType_1847Rejected()
+    {
+        var src = TypesPreamble + @"
+    public System.Runtime.CompilerServices.ConfiguredAsyncDisposable Make(IAsyncDisposable d)
+        => System.Threading.Tasks.TaskAsyncEnumerableExtensions.ConfigureAwait(d, false);
+" + TypesSuffix;
+
+        var result = Run(src);
+
+        Assert.Contains(result.Diagnostics, d =>
+            d.Severity == AsyncNormalizeSeverity.Error
+            && d.Code == AsyncNormalizeDiagnosticCode.CS2J1847);
+        Assert.True(result.Statistics.AsyncTypeSitesRejected >= 1);
+    }
+
     // ── Helpers ──
 
     private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest);

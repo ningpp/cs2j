@@ -287,6 +287,7 @@ internal static class AsyncStreamAnalyzer
 
         var receiverType = model.GetTypeInfo(chain.Receiver).Type
             ?? model.GetTypeInfo(chain.Receiver).ConvertedType;
+
         var shape = AsyncTypeResolver.GetAsyncStreamStreamShape(
             receiverType, asyncEnumerableInterface, asyncEnumeratorInterface);
 
@@ -606,6 +607,20 @@ internal static class AsyncStreamAnalyzer
                 continue;
             }
 
+            // ①-b BCL ConfiguredAsyncDisposable（IAsyncDisposable.ConfigureAwait(bool)）：
+            // 不是用户鸭子型，不能给"显式实现接口"的错误建议，单独 CS2J1847。
+            if (AsyncTypeResolver.IsConfiguredAsyncDisposable(resourceType))
+            {
+                siteRejected = true;
+                diagnostics.Add(DiagnosticAt(
+                    AsyncNormalizeDiagnosticCode.CS2J1847, candidate,
+                    "'await using' resource is a BCL 'ConfiguredAsyncDisposable' produced by " +
+                    "'IAsyncDisposable.ConfigureAwait(bool)'; unwrapping the configured-disposable " +
+                    "shape is not supported in v1 (Java has no SynchronizationContext to " +
+                    "configure). Drop the '.ConfigureAwait(...)' call on the resource expression."));
+                continue;
+            }
+
             // ② 接口资源：选项关 → CS2J1841；双实现 → Info 一次，仍绑 DisposeAsync（D8）。
             if (AsyncTypeResolver.IsAsyncDisposable(resourceType, asyncDisposableInterface))
             {
@@ -755,6 +770,19 @@ internal static class AsyncStreamAnalyzer
                     $"use site ('{type.ToDisplayString()}') is not supported in v1; stripping the " +
                     "configured/cancelable wrapper changes the static type. Apply " +
                     "'WithCancellation'/'ConfigureAwait' at the 'await foreach' site instead."));
+                return;
+            }
+
+            if (AsyncTypeResolver.IsConfiguredAsyncDisposable(type))
+            {
+                rejectedLocal++;
+                diagnostics.Add(DiagnosticAt(
+                    AsyncNormalizeDiagnosticCode.CS2J1847, siteSyntax,
+                    $"Strongly-typed 'System.Runtime.CompilerServices.ConfiguredAsyncDisposable' " +
+                    $"use site ('{type.ToDisplayString()}') is not supported in v1; the result of " +
+                    "'IAsyncDisposable.ConfigureAwait(bool)' is a pattern-based struct that cannot " +
+                    "be mapped to 'System.IAsyncDisposable'. Drop '.ConfigureAwait(...)' and keep " +
+                    "the IAsyncDisposable-typed value."));
                 return;
             }
 

@@ -1231,8 +1231,10 @@ internal sealed class MonitorRewriteAnalyzer
             ConcurrencySeverity.Info,
             ConcurrencyRule.CN9,
             ConcurrencyDiagnosticCodes.VolatileStaticApi,
-            "System.Threading.Volatile static API site has no Java mapping yet (the " +
-            "VarHandle bridge is a later milestone); counted only, not rewritten.",
+            "System.Threading.Volatile static API site maps to the compat " +
+            "io.github.ningpp.compat.Volatile VarHandle bridge (acquire/release over " +
+            "the generated ref holder); pointer/unsafe overloads remain unsupported — " +
+            "counted, not rewritten.",
             filePath,
             lineSpan.Line + 1,
             lineSpan.Character + 1));

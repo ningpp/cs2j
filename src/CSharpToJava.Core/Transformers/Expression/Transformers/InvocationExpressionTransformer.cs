@@ -593,6 +593,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             ["StringHelper"] = "io.github.ningpp.compat.StringHelper",
             ["MathHelper"] = "io.github.ningpp.compat.MathHelper",
             ["MemoryExtensions"] = "io.github.ningpp.compat.MemoryExtensions",
+            ["AsyncTasks"] = "io.github.ningpp.compat.AsyncTasks",
         };
 
     /// <summary>

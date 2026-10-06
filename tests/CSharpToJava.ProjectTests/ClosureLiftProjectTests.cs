@@ -55,7 +55,7 @@ public sealed class ClosureLiftProjectTests
         });
     }
 
-    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 13.29s")]
+    [SlowE2EFact(13.29)]
     public async Task Fixture_LiftsCaptures_IntermediateTreeBuildsAndRuntimeTestsPass()
     {
         var outputRoot = Path.Combine(Path.GetTempPath(),

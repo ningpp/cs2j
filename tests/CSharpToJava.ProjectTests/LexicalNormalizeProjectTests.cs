@@ -50,7 +50,7 @@ public sealed class LexicalNormalizeProjectTests
         });
     }
 
-    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 11.42s")]
+    [SlowE2EFact(11.42)]
     public async Task Fixture_StripsLineDirectives_AndIntermediateTreeVerifies()
     {
         var outputRoot = Path.Combine(FixtureDir, ".test-output-lexical-normalize");
@@ -150,7 +150,7 @@ public sealed class LexicalNormalizeProjectTests
         }
     }
 
-    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 11.84s")]
+    [SlowE2EFact(11.84)]
     public async Task Fixture_LiteralSamples_Normalized_InterpolationKept_AndTreeVerifies()
     {
         var outputRoot = Path.Combine(Path.GetTempPath(),

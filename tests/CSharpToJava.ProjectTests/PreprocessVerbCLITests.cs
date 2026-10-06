@@ -88,7 +88,10 @@ public class PreprocessVerbCLITests
         Assert.Contains("eliminate-goto", stdout);
         Assert.Contains("java-keywords", stdout);
         Assert.Contains("closure-lift", stdout);
-        Assert.Contains("Stub", stdout);
+        // PassStubCatalog.Stubs 已为空（最后一个 Stub dynamic-desugar 随 C25 M1 翻
+        // Implemented）；列表不再可能出现 Stub 状态，改断言"全部 Implemented"。
+        Assert.DoesNotContain("Stub", stdout);
+        Assert.Contains("Implemented", stdout);
         Assert.Contains("off", stdout);
         Assert.Contains("on", stdout);
         // C34 (decimal-ops) is co-located with the numeric-boundary pass; the
@@ -122,32 +125,9 @@ public class PreprocessVerbCLITests
         }
     }
 
-    [Fact]
-    public async Task EnabledStub_FailsWith_CS2J9001_AndCreatesNoDirectories()
-    {
-        var sourceDir = CreateTempWorkspace("Lib.csproj", "public class C { }");
-        var destDir = Path.Combine(sourceDir, "out");
-
-        try
-        {
-            // C18 flipped async-normalize and C26 M1 flipped linq-channel
-            // to Implemented; dynamic-desugar is the remaining ControlFlow/
-            // Abi stub this generic check targets.
-            var (exit, _, stderr) = await RunCliAsync(
-                "preprocess", "--pass", "dynamic-desugar",
-                "-s", sourceDir, "-d", destDir);
-
-            Assert.Equal(1, exit);
-            Assert.Contains("CS2J9001", stderr);
-            Assert.Contains("dynamic-desugar", stderr);
-            Assert.False(Directory.Exists(destDir),
-                "an enabled stub must be rejected before any output directory is created");
-        }
-        finally
-        {
-            Directory.Delete(sourceDir, recursive: true);
-        }
-    }
+    // 注：EnabledStub_FailsWith_CS2J9001 样本测试已随最后一个 Stub（dynamic-desugar，
+    // C25 M1）翻 Implemented 而移除——PassStubCatalog.Stubs 为空，CS2J9001 机制保留，
+    // 再有 Stub 注册时补回同样本（与 CSharpToJava.Tests/PassStubCatalogTests 同步）。
 
     [Fact]
     public async Task PatternDesugarPass_LowersStatementSidePatterns_ThroughTheCli()
@@ -440,7 +420,7 @@ public class Runner
         Assert.DoesNotContain(" off ", line);
     }
 
-    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 120.20s")]
+    [SlowE2EFact(120.20)]
     public async Task DefaultChain_Creates_StructValueSemantics_IntermediateTree_AndDisablePass_SuppressesIt()
     {
         var sourceDir = CreateTempWorkspace("Lib.csproj", """
@@ -545,7 +525,7 @@ public static class Runner
         Assert.DoesNotContain(" off ", line);
     }
 
-    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 152.34s")]
+    [SlowE2EFact(152.34)]
     public async Task DefaultChain_Creates_UnsafeFfm_IntermediateTree_AndDisablePass_SuppressesIt()
     {
         var sourceDir = CreateTempWorkspace("Lib.csproj", """

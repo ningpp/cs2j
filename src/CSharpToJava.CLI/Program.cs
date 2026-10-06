@@ -248,6 +248,15 @@ public class Program
                     new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions
                 {
                     ReportInfo = opts.Verbose,
+                    // C43 P0 rollback (2026-10-06): literal normalization is
+                    // opt-in on the convert path too (--ln-normalize-literals);
+                    // C28 #line/audit work stays default-on. Until opted in,
+                    // the converter's inline raw/u8/verbatim paths are
+                    // authoritative, exactly as the C43 design §8 requires.
+                    NormalizeRawLiterals = opts.LnNormalizeLiterals && !opts.LnNoRaw,
+                    NormalizeUtf8Literals = opts.LnNormalizeLiterals && !opts.LnNoU8,
+                    NormalizeVerbatimLiterals = opts.LnNormalizeLiterals && !opts.LnNoVerbatim,
+                    NormalizeEscEscapes = opts.LnNormalizeLiterals && !opts.LnNoEsc,
                 },
                 EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions
                 {
@@ -3948,16 +3957,28 @@ public class Program
                     Strict = opts.LocalFunctionStrict,
                     ReportInfo = opts.Verbose,
                 },
+                // C43 P0 rollback (2026-10-06) 的两副面孔：
+                //  1) 默认链（用户未显式 --pass lexical-normalize）：四条字面量规则
+                //     opt-in（--ln-normalize-literals），C28 的 #line/file-scoped 工作不受影响；
+                //  2) 用户显式 --pass lexical-normalize：选该 pass 的意图本身即字面量归一
+                //     的授权（既有 CLI 契约，见 LexicalNormalizeCLITests），四规则默认开。
+                // ln-no-* 在两种形态下都只做细化关闭。
                 LexicalNormalizeOptionsFactory = () =>
-                    new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions
                 {
-                    ReportInfo = opts.Verbose,
-                    NormalizeFileScopedNamespaces = opts.LnNormalizeFileScoped,
-                    ExternAliasSeverity = opts.LnExternAliasSeverityEffective,
-                    NormalizeRawLiterals = !opts.LnNoRaw,
-                    NormalizeUtf8Literals = !opts.LnNoU8,
-                    NormalizeVerbatimLiterals = !opts.LnNoVerbatim,
-                    NormalizeEscEscapes = !opts.LnNoEsc,
+                    var lnLiteralsActive = opts.LnNormalizeLiterals
+                        || (opts.Passes?.Contains(
+                                PassStubCatalog.Ids.LexicalNormalize,
+                                StringComparer.Ordinal) ?? false);
+                    return new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions
+                    {
+                        ReportInfo = opts.Verbose,
+                        NormalizeFileScopedNamespaces = opts.LnNormalizeFileScoped,
+                        ExternAliasSeverity = opts.LnExternAliasSeverityEffective,
+                        NormalizeRawLiterals = lnLiteralsActive && !opts.LnNoRaw,
+                        NormalizeUtf8Literals = lnLiteralsActive && !opts.LnNoU8,
+                        NormalizeVerbatimLiterals = lnLiteralsActive && !opts.LnNoVerbatim,
+                        NormalizeEscEscapes = lnLiteralsActive && !opts.LnNoEsc,
+                    };
                 },
                 EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions
                 {
@@ -5185,6 +5206,10 @@ class PreprocessVerbOptions
         HelpText = "lexical-normalize: rewrite file-scoped namespaces into block namespaces (LN-7)")]
     public bool LnNormalizeFileScoped { get; set; }
 
+    [Option("ln-normalize-literals", Default = false,
+        HelpText = "lexical-normalize C43: opt in to raw/u8/verbatim/\\e literal normalization (LL-1/LL-2/LL-3/LL-6); ships default-off per the C43 design §8 gate — the converter's own inline literal paths stay authoritative until the sdk profile lands")]
+    public bool LnNormalizeLiterals { get; set; }
+
     [Option("ln-extern-alias-severity", Default = "Error",
         HelpText = "lexical-normalize: severity for extern alias sites, one of Error|Warning|Info (LN-4)")]
     public string LnExternAliasSeverity { get; set; } = "Error";
@@ -5194,19 +5219,19 @@ class PreprocessVerbOptions
             LnExternAliasSeverity, ignoreCase: true);
 
     [Option("ln-no-raw", Default = false,
-        HelpText = "lexical-normalize: disable raw string literal normalization (LL-1)")]
+        HelpText = "lexical-normalize: refine --ln-normalize-literals — disable raw string literal normalization (LL-1)")]
     public bool LnNoRaw { get; set; }
 
     [Option("ln-no-u8", Default = false,
-        HelpText = "lexical-normalize: disable u8 literal expansion to byte[] (LL-2)")]
+        HelpText = "lexical-normalize: refine --ln-normalize-literals — disable u8 literal expansion to byte[] (LL-2)")]
     public bool LnNoU8 { get; set; }
 
     [Option("ln-no-verbatim", Default = false,
-        HelpText = "lexical-normalize: disable verbatim string normalization (LL-3)")]
+        HelpText = "lexical-normalize: refine --ln-normalize-literals — disable verbatim string normalization (LL-3)")]
     public bool LnNoVerbatim { get; set; }
 
     [Option("ln-no-esc", Default = false,
-        HelpText = "lexical-normalize: disable \\e to \\u001B rewrite in regular strings/chars (LL-6)")]
+        HelpText = "lexical-normalize: refine --ln-normalize-literals — disable \\e to \\u001B rewrite in regular strings/chars (LL-6)")]
     public bool LnNoEsc { get; set; }
 
     public bool LocalFunctionStrict => !NoLocalFunctionStrict;
@@ -5648,8 +5673,28 @@ class ConvertProjectOptions
     public bool NoArrayMethod { get; set; }
 
     [Option("no-iterator-lowering", Default = false,
-        HelpText = "Disable the default iterator-lowering preprocessing step (yield state machine)")]
+        HelpText = "Explicit kill switch for the iterator-lowering pass (C04); the pass ships default-off pending M2/M3 (try-finally/using/lock lowering) — opt in with --enable-pass iterator-lowering")]
     public bool NoIteratorLowering { get; set; }
+
+    [Option("ln-normalize-literals", Default = false,
+        HelpText = "lexical-normalize C43: opt in to raw/u8/verbatim/\\e literal normalization; default-off per the C43 design §8 gate (converter inline paths stay authoritative)")]
+    public bool LnNormalizeLiterals { get; set; }
+
+    [Option("ln-no-raw", Default = false,
+        HelpText = "lexical-normalize: refine --ln-normalize-literals — disable raw string normalization (LL-1)")]
+    public bool LnNoRaw { get; set; }
+
+    [Option("ln-no-u8", Default = false,
+        HelpText = "lexical-normalize: refine --ln-normalize-literals — disable u8 literal expansion (LL-2)")]
+    public bool LnNoU8 { get; set; }
+
+    [Option("ln-no-verbatim", Default = false,
+        HelpText = "lexical-normalize: refine --ln-normalize-literals — disable verbatim string normalization (LL-3)")]
+    public bool LnNoVerbatim { get; set; }
+
+    [Option("ln-no-esc", Default = false,
+        HelpText = "lexical-normalize: refine --ln-normalize-literals — disable \\e to \\u001B rewrite (LL-6)")]
+    public bool LnNoEsc { get; set; }
 
     [Option("enable-pass", Required = false, Separator = ',',
         HelpText = "Enable a preprocess pass by id, overriding defaults and legacy flags (repeatable or comma-separated; use the 'preprocess --list-passes' verb for ids)")]

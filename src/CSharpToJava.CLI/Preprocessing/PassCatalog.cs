@@ -64,7 +64,7 @@ internal static class PassCatalog
             needsSemanticModel: false,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Strip #line directives, audit #error/extern-alias/global-using forms and optionally normalize file-scoped namespaces; pure-syntax idempotent; normalize raw/u8/verbatim/\\e literals to regular C# lexical forms.",
+            description: "Strip #line directives, audit #error/extern-alias/global-using forms and optionally normalize file-scoped namespaces (--ln-normalize-file-scoped); C43 raw/u8/verbatim/\\e literal normalization is opt-in via --ln-normalize-literals (P0 rule-level default-off, C43 design §8 sdk profile gate).",
             catalogItems: "C28, C43"),
         new(
             PassStubCatalog.Ids.PartialMerge,
@@ -72,7 +72,12 @@ internal static class PassCatalog
             ".cs2j-partial-merge-src",
             PassStage.Lexical,
             PassStatus.Implemented,
-            defaultEnabled: true,
+            // P0 rollback (2026-10-06): DEFAULT-OFF again. The design rules the
+            // pass long-term opt-in until M3 (C#13 member-level partial pairing
+            // collapse) and the sdk dual-equivalence profile land; v1 only keeps
+            // member-level duplicates and the all-on policy flip (3147e093)
+            // predated those gates. --enable-pass partial-merge opts in.
+            defaultEnabled: false,
             runAfterIds: new[] { PassIds.Conditional, PassStubCatalog.Ids.LexicalNormalize },
             needsSemanticModel: true,
             verifyBuildByDefault: true,
@@ -447,11 +452,17 @@ internal static class PassCatalog
             ".cs2j-iterator-lowering-src",
             PassStage.StateMachine,
             PassStatus.Implemented,
-            defaultEnabled: true,
+            // P0 rollback (2026-10-06): DEFAULT-OFF. Only M1 is implemented
+            // (analyzer plus the CS2J0402 residual gate); lowering iterators
+            // inside try-finally (M2) and using/lock (M3, also hosts C44 G3)
+            // is not, so default-on silently routed those methods to the legacy
+            // path with unclear semantics. Opt in with
+            // --enable-pass iterator-lowering; flip back on when M2/M3 land.
+            defaultEnabled: false,
             runAfterIds: new[] { PassIds.MakeReadonly, PassStubCatalog.Ids.ClosureLift },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Lower C# iterator methods into explicit state machine classes.",
+            description: "M1: analyze C# iterator methods and lower the supported subset into explicit state machine classes; try-finally/using/lock shapes stay residual CS2J0402 pending M2/M3.",
             catalogItems: "C04"),
         new(
             PassStubCatalog.Ids.AsyncNormalize,
@@ -567,7 +578,9 @@ internal static class PassCatalog
             needsSemanticModel: true,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Normalize explicit Monitor enter/try-enter/wait/pulse calls into canonical lock-based C# forms; lock/volatile direct mapping untouched.",
+            description: "Normalize explicit Monitor enter/try-enter/wait/pulse calls into canonical lock-based C# forms; " +
+                         "Java half landed: honest intrinsic compat Monitor bridge (TryEnter explicitly unsupported, CS2J2911), " +
+                         "compat Volatile VarHandle bridge, and System.Threading.Lock 分型 (enter/try/finally instead of synchronized).",
             catalogItems: "C29"),
         new(
             PassStubCatalog.Ids.EqualityConcat,

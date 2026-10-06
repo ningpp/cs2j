@@ -282,7 +282,7 @@ public class ForeachSourceC40ProjectTests
         }
     }
 
-    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 29.95s")]
+    [SlowE2EFact(29.95)]
     public async Task M3_Fixture_RefForeachSites_AreLoweredAndChainIntoRefOutIn()
     {
         // Each CLI-style invocation gets its own private fixture copy: the

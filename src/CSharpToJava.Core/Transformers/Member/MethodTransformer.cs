@@ -65,7 +65,19 @@ public class MethodTransformer : IMemberTransformer
             ReturnType = MapReturnType(fn.ReturnType, ctx)
         };
         BuildSignature(method, fn.TypeParameterList, fn.ConstraintClauses, fn.ParameterList, ctx);
-        BuildBody(method, fn.Body, fn.ExpressionBody, ctx);
+
+        // 提升的局部函数是独立 Java 方法：按自身符号重算 async 上下文，转换完恢复外层值。
+        var previousAsyncContext = ctx.IsInAsyncContext;
+        ctx.IsInAsyncContext = sym is { IsAsync: true }
+            && AsyncNormalize.AsyncShapeClassifier.IsTaskLike(sym.ReturnType);
+        try
+        {
+            BuildBody(method, fn.Body, fn.ExpressionBody, ctx);
+        }
+        finally
+        {
+            ctx.IsInAsyncContext = previousAsyncContext;
+        }
         return method;
     }
 
@@ -113,10 +125,58 @@ public class MethodTransformer : IMemberTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
         if (body != null)
+        {
             jm.StructuredBody = new Transformers.Statement.StatementTransformer().TransformBlockToStructuredBody(body, ctx);
+            AppendAsyncTrailingReturn(jm, body, ctx);
+        }
         else if (arrow?.Expression is ThrowExpressionSyntax thrown)
+        {
             jm.Body = $"throw {facade.Transform(thrown.Expression, ctx)};";
-        else if (arrow != null) { jm.Body = facade.Transform(arrow.Expression, ctx); jm.IsBodyExpression = true; }
+        }
+        else if (arrow != null)
+        {
+            var expr = facade.Transform(arrow.Expression, ctx);
+            // async Task/Task<T> 表达式体：返回类型是 CompletableFuture，需包 completedFuture。
+            if (ctx.IsInAsyncContext)
+            {
+                ctx.AddImport("java.util.concurrent.CompletableFuture");
+                expr = $"CompletableFuture.completedFuture({expr})";
+            }
+            jm.Body = expr;
+            jm.IsBodyExpression = true;
+        }
+    }
+
+    /// <summary>
+    /// async Task/Task&lt;T&gt;/ValueTask(T) 方法端点可达时（C# 允许 async Task 方法省略
+    /// 尾 return），Java 返回类型已是 CompletableFuture，必须补
+    /// <c>return CompletableFuture.completedFuture(null);</c>，否则输出不可编译。
+    /// 端点不可达（每个路径已 return/throw）时不补——Java 对不可达语句是编译错误。
+    /// 可达性以 Roslyn 控制流分析为准，不做文本猜测。
+    /// </summary>
+    private static void AppendAsyncTrailingReturn(
+        JavaMethodDeclaration jm, BlockSyntax body, ConversionContext ctx)
+    {
+        if (!ctx.IsInAsyncContext || ctx.SemanticModel == null || jm.StructuredBody == null)
+            return;
+
+        bool endPointReachable;
+        try
+        {
+            endPointReachable = ctx.SemanticModel.AnalyzeControlFlow(body).EndPointIsReachable;
+        }
+        catch (ArgumentException)
+        {
+            // 语义模型与树不匹配（预处理边界）时保守不补。
+            return;
+        }
+        if (!endPointReachable)
+            return;
+
+        ctx.AddImport("java.util.concurrent.CompletableFuture");
+        jm.StructuredBody.Statements.Add(
+            new Transformers.Statement.JavaStatementNode(
+                "return CompletableFuture.completedFuture(null);"));
     }
 
     private static string GetJavaMethodName(string name, IMethodSymbol? sym, ConversionContext ctx)

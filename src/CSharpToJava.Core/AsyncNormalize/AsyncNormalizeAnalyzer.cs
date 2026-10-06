@@ -21,6 +21,7 @@ internal static class AsyncNormalizeAnalyzer
         var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
 
         var baselineLockErrors = CollectBaselineLockErrors(model);
+        var baselineUnsafeAwaitErrors = CollectBaselineUnsafeAwaitErrors(model);
         var baselineAllErrors = options.LiftAsyncLambdas
             ? CollectBaselineErrors(model)
             : new List<(SyntaxTree Tree, TextSpan Span)>();
@@ -156,6 +157,29 @@ internal static class AsyncNormalizeAnalyzer
                 "await inside a lock statement (defensive mirror of CS1996; the baseline " +
                 "compiler error takes precedence when already reported)."));
         }
+
+        // ⑤b unsafe/fixed 体内 await：基线 CS4004 优先，基线漏报才防御镜像 CS2J1809
+        // （设计 §4.6 CS2J1805 条目原注：unsafe/fixed 编号 M0 回填；M0 探针确认
+        // unsafe 块 / fixed / stackalloc 不安全上下文中的 await 一律 CS4004）。
+        foreach (var awaitExpression in root.DescendantNodes().OfType<AwaitExpressionSyntax>())
+        {
+            if (!awaitExpression.Ancestors()
+                    .Any(a => a is UnsafeStatementSyntax or FixedStatementSyntax))
+                continue;
+            if (BaselineContains(baselineUnsafeAwaitErrors, model.SyntaxTree, awaitExpression.Span))
+                continue;
+
+            diagnostics.Add(DiagnosticAt(
+                AsyncNormalizeDiagnosticCode.CS2J1809, awaitExpression,
+                "await inside an unsafe/fixed context (defensive mirror of CS4004; the " +
+                "baseline compiler error takes precedence when already reported). Pinning/" +
+                "pointer state cannot survive suspension."));
+        }
+
+        // ⑤c ref struct/ref local 跨 await 不设镜像（探针 2026-10-06 裁决，见审计记录）：
+        // Roslyn 5（转换器内置编译器）全语言版本均不发 CS4007/CS9217——C# 13 起 ref struct
+        // 局部跨 await 合法（旧语言版本由声明面 CS8936/CS9058/CS9202 拦截）。基线无洞，
+        // 且阻塞式 await 下 ref struct 局部在 Java 侧就是普通局部，无能力缺口，不制造假诊断。
 
         // ⑥ async lambda / 残余 async 局部函数 / async 匿名方法（D3/D4，1b）
         var plans = new List<LambdaLiftPlan>();
@@ -863,6 +887,23 @@ internal static class AsyncNormalizeAnalyzer
         {
             if (diagnostic.Severity != DiagnosticSeverity.Error) continue;
             if (diagnostic.Descriptor.Id != "CS1996") continue;
+            if (diagnostic.Location.SourceTree is not { } sourceTree) continue;
+            result.Add((sourceTree, diagnostic.Location.SourceSpan));
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// 不安全上下文 await 的基线错误 CS4004 快照（CS2J1809 基线优先用）。
+    /// 注意：CS4007/CS9217 曾在此列，探针证明 Roslyn 5 已不再发出（C# 13 合法化），移除。
+    /// </summary>
+    private static List<(SyntaxTree Tree, TextSpan Span)> CollectBaselineUnsafeAwaitErrors(SemanticModel model)
+    {
+        var result = new List<(SyntaxTree, TextSpan)>();
+        foreach (var diagnostic in model.Compilation.GetDiagnostics())
+        {
+            if (diagnostic.Severity != DiagnosticSeverity.Error) continue;
+            if (diagnostic.Descriptor.Id != "CS4004") continue;
             if (diagnostic.Location.SourceTree is not { } sourceTree) continue;
             result.Add((sourceTree, diagnostic.Location.SourceSpan));
         }

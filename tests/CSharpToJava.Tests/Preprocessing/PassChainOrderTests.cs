@@ -12,10 +12,13 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// Locks the registered pass sequence to the historical ConvertProject chain.
 /// The fifteen hand-written blocks were replaced by the registry-driven loop, so
 /// the topological sort must keep producing this exact order. Every implemented
-/// pass is default-on (all-preprocessors-default-on policy) except C09
-/// thread-static, which ships default-off until the design §8 gates pass; the
-/// legacy flags survive as --no-xxx negations and --disable-pass remains the
-/// opt-out.
+/// pass is default-on (all-preprocessors-default-on policy) except six
+/// deliberate opt-outs: C09 thread-static and C10 attribute-normalize (§8
+/// gates), C25 dynamic-desugar (audit-first), C26 linq-channel (observe-only
+/// gate period), plus the 2026-10-06 P0 rollbacks C20 partial-merge (M3
+/// member-level collapse pending) and C04 iterator-lowering (M2/M3 pending);
+/// the legacy flags survive as --no-xxx negations and --disable-pass remains
+/// the opt-out.
 /// </summary>
 public sealed class PassChainOrderTests
 {
@@ -23,6 +26,9 @@ public sealed class PassChainOrderTests
     [
         PassIds.Conditional,
         PassStubCatalog.Ids.LexicalNormalize,
+        // C20 partial-merge: DEFAULT-OFF again after the 2026-10-06 P0 rollback
+        // (M3 member-level pairing collapse + sdk dual-equivalence pending);
+        // excluded from EnabledByDefault below.
         PassStubCatalog.Ids.PartialMerge,
         PassIds.LocalFunctionLift,
         PassIds.NullCoalesce,
@@ -69,6 +75,10 @@ public sealed class PassChainOrderTests
         PassIds.StructValueSemantics,
         PassStubCatalog.Ids.UnsafeFfm,
         PassStubCatalog.Ids.ClosureLift,
+        // C04 iterator-lowering: Implemented but DEFAULT-OFF again after the
+        // 2026-10-06 P0 rollback (M1 only; try-finally/using/lock lowering
+        // M2/M3 pending). Stays in the locked topological sequence but is
+        // excluded from EnabledByDefault below.
         PassStubCatalog.Ids.IteratorLowering,
         // C18 async-normalize is Implemented and default-on under the
         // all-preprocessors-default-on policy; anchors make-readonly +
@@ -109,15 +119,19 @@ public sealed class PassChainOrderTests
 
     // All-preprocessors-default-on policy: every implemented pass is
     // default-enabled; --disable-pass / legacy --no-xxx flags opt out.
-    // Default-on policy exceptions — all four deliberate opt-outs:
+    // Default-on policy exceptions — six deliberate opt-outs:
     // C09 thread-static (§3.1/§8 gates), C10 attribute-normalize (opt-in),
     // C25 dynamic-desugar (audit-first, §8 corpus gate), C26 linq-channel
-    // (observe-only gate period).
+    // (observe-only gate period), and the 2026-10-06 P0 rollbacks C20
+    // partial-merge (M3 member-level collapse + profile pending) and C04
+    // iterator-lowering (M2/M3 pending).
     private static readonly string[] EnabledByDefault = LockedChain
         .Where(id => id != PassIds.ThreadStatic
             && id != PassIds.AttributeNormalize
             && id != PassStubCatalog.Ids.DynamicDesugar
-            && id != PassStubCatalog.Ids.LinqChannel)
+            && id != PassStubCatalog.Ids.LinqChannel
+            && id != PassStubCatalog.Ids.PartialMerge
+            && id != PassStubCatalog.Ids.IteratorLowering)
         .ToArray();
 
     [Fact]
@@ -608,6 +622,8 @@ public sealed class PassChainOrderTests
         Assert.True(byId[PassIds.VarianceAudit].DefaultEnabled);
         Assert.Equal("C03, C37", byId[PassIds.PatternDesugar].CatalogItems);
         Assert.Equal("C04", byId[PassStubCatalog.Ids.IteratorLowering].CatalogItems);
+        // P0 rollback (2026-10-06): default-off until M2/M3 land.
+        Assert.False(byId[PassStubCatalog.Ids.IteratorLowering].DefaultEnabled);
         Assert.Equal("C15, C34, C17, C22", byId[PassStubCatalog.Ids.NumericBoundary].CatalogItems);
         Assert.Equal("C07", byId[PassIds.StructValueSemantics].CatalogItems);
         Assert.Equal("C05", byId[PassIds.EnumDeclaration].CatalogItems);
@@ -619,7 +635,8 @@ public sealed class PassChainOrderTests
         Assert.Equal("C23, C24, C35, C36, C51", byId[PassStubCatalog.Ids.ExpressionDesugar].CatalogItems);
         Assert.Equal("C30", byId[PassIds.ClosedMetadata].CatalogItems);
         Assert.Equal("C20", byId[PassStubCatalog.Ids.PartialMerge].CatalogItems);
-        Assert.True(byId[PassStubCatalog.Ids.PartialMerge].DefaultEnabled);
+        // P0 rollback (2026-10-06): default-off pending M3 pairing collapse.
+        Assert.False(byId[PassStubCatalog.Ids.PartialMerge].DefaultEnabled);
         Assert.Equal("C32, C45", byId[PassStubCatalog.Ids.ClosureLift].CatalogItems);
         Assert.True(byId[PassStubCatalog.Ids.ClosureLift].DefaultEnabled);
         Assert.Equal("C29", byId[PassStubCatalog.Ids.ConcurrencyNormalize].CatalogItems);
@@ -742,21 +759,12 @@ public sealed class PassChainOrderTests
         // Legacy flags only exist for the historical implemented passes; stubs and
         // newly flipped registry passes (e.g. generic-deepen, unsafe-ffm,
         // C36 expression-desugar, C29 concurrency-normalize, C42 platform-isolation,
-<<<<<<< HEAD
-<<<<<<< HEAD
-        // C30 closed-metadata, C21 anonymous-type-lift, C18 async-normalize/default-on,
-        // C09 thread-static/default-off)
-        // are reachable solely through their descriptor default plus --enable-pass/--pass.
-=======
         // C25 dynamic-desugar, C30 closed-metadata, C21 anonymous-type-lift,
-        // C18 async-normalize/default-on) are reachable solely through their
-        // descriptor default plus --enable-pass/--pass.
->>>>>>> 0c37665c (feat(c25): register dynamic-desugar with audit-mode adapter (default-off))
-=======
-        // C30 closed-metadata, C21 anonymous-type-lift, C18 async-normalize/default-on,
-        // C26 linq-channel/default-off) are reachable solely through their
-        // descriptor default plus --enable-pass/--pass.
->>>>>>> 922f6dcb (feat(c26): flip linq-channel registry stub to implemented with two-phase CLI adapter)
+        // C18 async-normalize/default-on, C26 linq-channel/default-off,
+        // C20 partial-merge/default-off, C04 iterator-lowering/default-off,
+        // C09 thread-static/default-off, C10 attribute-normalize/default-off)
+        // are reachable solely through their descriptor default plus --enable-pass/--pass
+        // (C04 additionally carries a legacy toggle whose default follows the descriptor).
         Assert.Equal(
             LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar
                 && id != PassIds.EnumDeclaration
@@ -774,11 +782,8 @@ public sealed class PassChainOrderTests
                 && id != PassIds.ClosedMetadata
                 && id != PassIds.AnonymousTypeLift
                 && id != PassStubCatalog.Ids.AsyncNormalize
-<<<<<<< HEAD
-                && id != PassIds.AttributeNormalize)
-=======
+                && id != PassIds.AttributeNormalize
                 && id != PassStubCatalog.Ids.LinqChannel)
->>>>>>> 922f6dcb (feat(c26): flip linq-channel registry stub to implemented with two-phase CLI adapter)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }
@@ -900,7 +905,6 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
-<<<<<<< HEAD
     public void ThreadStatic_is_default_off_and_absent_from_the_default_plan_and_legacy_toggles()
     {
         var registry = PassCatalog.BuildRegistry();
@@ -946,7 +950,27 @@ public sealed class PassChainOrderTests
         // Slot lock: generic -> thread-static -> generic-deepen (all three
         // anchor generic; declaration order breaks the tie per design §3.1).
         var slotted = PassPlanResolver.Resolve(
-=======
+            registry,
+            allOff,
+            enablePassIds: new[]
+            {
+                PassIds.Generic,
+                PassIds.ThreadStatic,
+                PassIds.GenericDeepen,
+            });
+
+        Assert.True(slotted.IsValid);
+        Assert.Equal(
+            new[]
+            {
+                PassIds.Generic,
+                PassIds.ThreadStatic,
+                PassIds.GenericDeepen,
+            },
+            slotted.Enabled.Select(pass => pass.Id).ToArray());
+    }
+
+    [Fact]
     public void LinqChannel_is_implemented_default_off_with_three_anchors_and_no_stub_remains()
     {
         var registry = PassCatalog.BuildRegistry();
@@ -1029,27 +1053,10 @@ public sealed class PassChainOrderTests
         // stays disabled in this isolated selection, so declaration order
         // breaks the tie exactly as in the full locked chain).
         var plan = PassPlanResolver.Resolve(
->>>>>>> 922f6dcb (feat(c26): flip linq-channel registry stub to implemented with two-phase CLI adapter)
             registry,
             allOff,
             enablePassIds: new[]
             {
-<<<<<<< HEAD
-                PassIds.Generic,
-                PassIds.ThreadStatic,
-                PassIds.GenericDeepen,
-            });
-
-        Assert.True(slotted.IsValid);
-        Assert.Equal(
-            new[]
-            {
-                PassIds.Generic,
-                PassIds.ThreadStatic,
-                PassIds.GenericDeepen,
-            },
-            slotted.Enabled.Select(pass => pass.Id).ToArray());
-=======
                 PassIds.MemberDesugar,
                 PassStubCatalog.Ids.LinqChannel,
                 PassStubCatalog.Ids.ConcurrencyNormalize,
@@ -1064,6 +1071,5 @@ public sealed class PassChainOrderTests
                 PassStubCatalog.Ids.ConcurrencyNormalize,
             },
             plan.Enabled.Select(pass => pass.Id).ToArray());
->>>>>>> 922f6dcb (feat(c26): flip linq-channel registry stub to implemented with two-phase CLI adapter)
     }
 }

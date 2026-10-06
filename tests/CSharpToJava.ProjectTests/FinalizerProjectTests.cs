@@ -83,7 +83,7 @@ public class FinalizerProjectTests
 
     // ---- A 档（默认 Policy=Reject）：全保留 + 5200 + critical 5205，零 sidecar ----
 
-    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 48.68s")]
+    [SlowE2EFact(48.68)]
     public async Task TierA_Reject_AllFinalizersRetained_Reported_NoSidecar()
     {
         var solutionPath = Path.Combine(FixtureDir, "SampleMemberDesugarSolution.sln");

@@ -65,7 +65,7 @@ public class RecordReadOnlyProjectTests
         }
     }
 
-    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 36.27s")]
+    [SlowE2EFact(36.27)]
     public async Task Solution_RecordClasses_RewrittenAndIntermediateBuilds()
     {
         var solutionPath = Path.Combine(FixtureDir, "SampleRecordSolution.sln");

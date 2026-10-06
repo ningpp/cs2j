@@ -125,60 +125,7 @@ public sealed class PassStubCatalogTests
         Assert.Equal(PassStatus.Implemented, entry.Status);
     }
 
-    [Fact]
-    public void Enabling_a_stub_resolves_to_an_enabled_plan_entry()
-    {
-        var plan = PassPlanResolver.Resolve(
-            PassCatalog.BuildRegistry(),
-            legacyToggles: PassChainFactory.BuildAllDisabledToggles(PassCatalog.BuildRegistry()),
-            enablePassIds: new[] { PassStubCatalog.Ids.DynamicDesugar });
-
-        Assert.True(plan.IsValid);
-        var enabled = Assert.Single(plan.Enabled);
-        Assert.Equal(PassStubCatalog.Ids.DynamicDesugar, enabled.Id);
-        Assert.Equal(PassStatus.Stub, enabled.Status);
-    }
-
-    [Fact]
-    public async Task Running_an_enabled_stub_fails_with_CS2J9001_and_creates_no_directories()
-    {
-        var destinationRoot = Path.Combine(Path.GetTempPath(), "cs2j-stub-test-" + Guid.NewGuid().ToString("N"));
-        var originalError = Console.Error;
-        string captured;
-        try
-        {
-            using var errorWriter = new StringWriter();
-            Console.SetError(errorWriter);
-
-            var result = await CliPreprocessChain.RunAsync(new CliChainRequest
-            {
-                SourcePath = Path.Combine(Path.GetTempPath(), "cs2j-stub-test-source-does-not-exist"),
-                DestinationRoot = destinationRoot,
-                MakerOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
-                RecordReadOnlyOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
-                JavaKeywordOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
-                MemberDesugarOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
-                StructValueSemanticsOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
-                VarianceAuditOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
-                EnumDeclarationOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
-                LexicalNormalizeOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
-                EqualityConcatOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
-                UnsafeFfmOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
-                ExpressionDesugarOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
-                LegacyToggles = PassChainFactory.BuildAllDisabledToggles(PassCatalog.BuildRegistry()),
-                EnablePassIds = new[] { PassStubCatalog.Ids.DynamicDesugar },
-            });
-
-            captured = errorWriter.ToString();
-            Assert.False(result.Success);
-        }
-        finally
-        {
-            Console.SetError(originalError);
-        }
-
-        Assert.Contains(PreprocessDiagnosticCodes.StubNotImplemented, captured);
-        Assert.Contains(PassStubCatalog.Ids.DynamicDesugar, captured);
-        Assert.False(Directory.Exists(destinationRoot), "an enabled stub must not create any output directory");
-    }
+    // 注：最后一个 Stub 样本 DynamicDesugar（C25 M1）翻为 Implemented 后，
+    // PassStubCatalog.Stubs 已为空——"启用 Stub → CS2J9001"的两个样本测试随之移除
+    // （机制 CliPreprocessChain/CS2J9001 保留；再有 Stub 注册时补同样本）。
 }

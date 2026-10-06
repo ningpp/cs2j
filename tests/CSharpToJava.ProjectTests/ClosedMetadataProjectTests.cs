@@ -49,7 +49,7 @@ public class ClosedMetadataProjectTests
         return (process.ExitCode, await stdoutTask, await stderrTask);
     }
 
-    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 11.88s")]
+    [SlowE2EFact(11.88)]
     public async Task Solution_EnableClosedMetadata_GeneratesRegistrationsBuildsAndTests()
     {
         var fixture = Path.Combine(AppContext.BaseDirectory, "SampleClosedMetadataSolution");

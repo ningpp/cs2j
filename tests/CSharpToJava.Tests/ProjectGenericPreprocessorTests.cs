@@ -155,7 +155,7 @@ public class ProjectGenericPreprocessorTests
         }
     }
 
-    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 28.31s")]
+    [SlowE2EFact(28.31)]
     public async Task PreprocessAsync_VerifyTests_PassesForGenericTestProject()
     {
         if (!IsDotNetAvailable())

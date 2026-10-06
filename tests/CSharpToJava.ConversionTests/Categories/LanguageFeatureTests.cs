@@ -16,6 +16,26 @@ public class LanguageFeatureTests : ConversionTestBase
     }
 
     [Fact]
+    public void LockStatement_OnSystemThreadingLock_UsesEnterExitGuardedBlock()
+    {
+        // C29 lock 分型：System.Threading.Lock 不能发 synchronized（锁错监视器），
+        // 必须发 enter(); try/finally exit();。
+        var result = Convert(
+            "using System.Threading; class C { private readonly Lock l = new Lock(); public void M() { lock (l) { var x = 1; } } }");
+        AssertConversion(result,
+            "import io.github.ningpp.compat.Lock;",
+            "private Lock l = new Lock();",
+            "_cs2jLock",
+            ".enter();",
+            "try {",
+            "finally {",
+            ".exit();",
+            "var x = 1;");
+        AssertJavaDoesNotContain(result, "synchronized (",
+            "lock on System.Threading.Lock must not compile to an intrinsic synchronized block");
+    }
+
+    [Fact]
     public void NameOf_ConvertsToLiteral()
     {
         var result = Convert("class C { public int X; public string N() => nameof(X); }");

@@ -289,6 +289,21 @@ public partial class StatementTransformer
         var body = stmt.Statement is BlockSyntax block
             ? $"{{\n        {TransformBlock(block, context)}\n    }}"
             : $"{{ {new StatementTransformer().Transform(stmt.Statement, context)} }}";
+
+        // C29 lock 分型：System.Threading.Lock（.NET 9 专用锁对象）不能发成
+        // synchronized(expr)——那锁的是 wrapper 实例的 intrinsic monitor，与其
+        // Enter/Exit 委托的 ReentrantLock 是两把锁；改发 enter(); try/finally exit();。
+        if (context.GetTypeInfo(stmt.Expression).Type is INamedTypeSymbol lockType
+            && lockType.OriginalDefinition.ToDisplayString() == "System.Threading.Lock")
+        {
+            var javaLockType = context.MapType(lockType);
+            var lockLocal = context.GenerateSyntheticName("_cs2jLock");
+            return new JavaStatementNode(
+                $"{{\n    {javaLockType} {lockLocal} = {expression};\n"
+                + $"    {lockLocal}.enter();\n"
+                + $"    try {body} finally {{\n        {lockLocal}.exit();\n    }}\n}}");
+        }
+
         return new JavaStatementNode($"synchronized ({expression}) {body}");
     }
 

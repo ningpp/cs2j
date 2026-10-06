@@ -57,7 +57,7 @@ public class ForeachSourceProjectTests
         });
     }
 
-    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 37.62s")]
+    [SlowE2EFact(37.62)]
     public async Task Fixture_WrapsStringSites_AndIntermediateTreeBuildsAndTestsClean()
     {
         var outputRoot = Path.Combine(FixtureDir, ".test-output-foreach-source");
