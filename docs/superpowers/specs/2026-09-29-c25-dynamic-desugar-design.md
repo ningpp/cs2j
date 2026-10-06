@@ -510,11 +510,17 @@ git worktree add .worktrees/preproc-c25-dynamic-desugar -b feature/preproc-c25-d
 
 ### 14.3 配套改动
 
-- 链序断言 [PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs)：排除集去掉 dynamic-desugar（默认关例外四→三：linq-channel/partial-merge/iterator-lowering），LockedChain 注释、legacy toggle 注释、list-passes 与描述符事实改为 audit 默认开。
+- 链序断言 [PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs)：排除集去掉 dynamic-desugar（C25 翻转时默认关例外四→三：linq-channel/partial-merge/iterator-lowering；**同日 C26 M4-b 再翻 linq-channel 默认开后，默认关例外收敛为二：partial-merge/iterator-lowering**），LockedChain 注释、legacy toggle 注释、list-passes 与描述符事实改为 audit 默认开。
 - [PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs) / [ProjectPreprocessorsConsistentTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ProjectPreprocessorsConsistentTests.cs) 描述符默认值断言翻转。
 - [DynamicDesugarCLITests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/DynamicDesugarCLITests.cs)：`--list-passes` 默认 on；新增「默认链跑 audit 写报告」「`--disable-pass` 摘除」两事实（独立临时工作区，全链探针不能含 dynamic——numeric-boundary 既有 CS2J5362 与本 pass 无关）；原「默认关不建树」改名「显式单选他 pass 不建树」。
 - [DynamicDesugarSolutionProjectTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/DynamicDesugarSolutionProjectTests.cs) 同名用例同步改名；Rewrite/Strict/报告钉数等 M1-M3 事实不动。
 
 ### 14.4 最终 Release 回填
 
-（收尾统一回归后补填：slnx Release build 错误数、Tests/ConversionTests/ProjectTests 通过/失败/跳过，红灯须仅限既有 AsyncStreams 4 红等基线项。）
+**2026-10-06 终态 Release 统一回归（本分支 P1 四件 C09/C10/C25/C26 全部落地后，SDK 10.0.300）：**
+
+- `dotnet build CSharpToJavaConverter.slnx -c Release`：**0 错误**（成功生成）。
+- Tests（CSharpToJava.Tests）Release：**3432 passed / 0 failed / 3 skipped（总计 3435，2m02s）**。
+- ConversionTests Release：**676 passed / 4 failed / 0 skipped（总计 680，14s）**；4 红全部是基线既有的 AsyncStreams P0（`AsyncStreamsConversionTests.AsyncIteratorProducer_*`、`AwaitForeachSource_*`、`ExpandedAwaitForeach_*`、`ExpandedAwaitUsing_*`，缺 `.moveNextAsync().join()`/`.disposeAsync().join()`），Debug/Release 一致、红灯集未扩大。
+- ProjectTests Release：**1848 passed / 0 failed / 20 skipped（总计 1868，35m38s）**；20 skip 均为分级闸门慢 E2E 默认态；含 C25 家族（DynamicDesugarCLITests/DynamicDesugarSolutionProjectTests）与 C26 LinqChannel 族全部通过。
+- 口径核对：红灯仅限既有 AsyncStreams 4 项基线，**无新增回归**；audit 模式只发 Warning 不阻断（默认链无 `--no-local-function-strict` 时 dynamic audit 不产生 Error）。

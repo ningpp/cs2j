@@ -12,7 +12,7 @@
 
 1. **台账整体过时约一天，但偏差方向相反**：台账标的 17 个 ❌ 中，**14 个在 10-04 午后至 10-05 的三波"默认全开"政策翻转中已落地**；真正零产品代码的只有 **C41**；**C44 按设计裁决永不单独立项**；**C52 是伞条目、机制大部分为空**。
 2. **台账标的 35 个 ✅ 全部确有产品代码**，但"已实现"分三个层次：.NET 改写深度、Java 半区可信度、项目级端到端保护。至少 7 个条目属于"**默认开但 Java 半区说谎或零运行时保护**"，风险最高的是 **C04（仅 M1 即默认开）、C29（Monitor 壳恒返回 true）、C47（仅有的 2 个 Java E2E 全部 Skip）、C18/C38（Java 侧四笔红账）、C30（注册文件有人写、没人消费）**。
-3. 当前注册表共 **42 个 pass 全部 `Implemented`**，[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) 已无任何 stub（仅剩注释）；**默认关仅 4 个**：C09 thread-static、C10 attribute-normalize、C25 dynamic-desugar、C26 linq-channel。
+3. 当前注册表共 **42 个 pass 全部 `Implemented`**，[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) 已无任何 stub（仅剩注释）。**（2026-10-06 P1 回写）** 原「默认关 4 个」（C09 thread-static、C10 attribute-normalize、C25 dynamic-desugar、C26 linq-channel）经 P1 四件开门决策后**已全部翻默认开**；当前默认关为 **2 个 P0 回退项**——**C20 partial-merge**（[PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L75-L80)，M3 成员级配对塌缩未达）与 **C04 iterator-lowering**（[L461-L467](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L461-L467)，仅 M1、try-finally/using/lock 内降低未做），均可 `--enable-pass` 临时开。
 4. **项目级端到端闸门目前大面积挂起**：10-04 的提交 `c49753bc` 起，22 个端到端测试带 `[Fact(Skip="TODO: 临时跳过端到端慢测试（排查根因中）")]`，覆盖 17 个测试文件。规则逻辑仍有隔离单测覆盖，但"转换+构建+运行 Java"的全链路保护当前不完整。
 5. **整个波次尚未合入 dev-3.x**：当前分支领先本地 `dev-3.x` **241** 个提交（可 fast-forward），领先 `origin/dev-3.x` **639** 个提交（远端停在 09-16）。台账"已 commit 到 dev-3.x"一列的实际含义是"已提交到 dev-3.x 集成分支 `dev-3.x-26100507`"，不是已合入主干。
 6. 后续工作按风险排为 **P0 止血 → P1 四个默认关 pass 的开门决策 → P2 Java 半区还债 → P3 .NET 半区里程碑补完 → P4 旧转换器退役 → P5 新构造（C41/C52）与画像基线**，详见第 7 节。
@@ -33,17 +33,19 @@
 
 局限：本次未重跑全量 `dotnet test`（全量串行约 11–20 分钟且当前含 22 个 Skip）；运行时基线引用 C26 M3 记录（Tests 3245 通过 / ProjectTests 1807 / ConversionTests 679，0 失败）。构建本报告时 Release 配置重新编译通过。
 
+> **2026-10-06 P1 终态 Release 全量回归（本局限已解除）**：slnx Release build **0 错误**；Tests Release **3432 通过 / 0 失败 / 3 跳过**；ConversionTests Release **676 通过 / 4 失败**（4 红全为基线既有 AsyncStreams P0，Debug/Release 一致，红灯集未扩大）；ProjectTests Release **1848 通过 / 0 失败 / 20 跳过（总计 1868，35m38s；较本报告的 1842/20/1862 净增 6，来自 C09/C10/C25/C26 P1 新增端到端事实）**。即 P1 四件开门决策落地后无新增红灯。
+
 ---
 
 ## 2. 当前真实 pass 链（CLI 实测的锁定执行序）
 
-`preprocess --list-passes` 输出（行序即 `RunAfterIds` + 声明序经 Kahn 排序后的执行序，被顺序测试钉死）。共 42 个 pass，4 个默认关（**加粗**）：
+`preprocess --list-passes` 输出（行序即 `RunAfterIds` + 声明序经 Kahn 排序后的执行序，被顺序测试钉死）。共 42 个 pass；**2026-10-06 P1 回写**：默认关 4→0（原 C09/C10/C25/C26 全翻默认开），同期 P0 止血把 C20/C04 回退默认关，故现 **2 个默认关（加粗）**：
 
 | # | pass id | stage | 默认 | 规则编号（catalogItems） |
 |---|---|---|---|---|
 | 1 | conditional | Lexical | on | E01 |
 | 2 | lexical-normalize | Lexical | on | C28, C43 |
-| 3 | partial-merge | Lexical | on | C20 |
+| 3 | **partial-merge** | Lexical | **off**（2026-10-06 P0 回退） | C20 |
 | 4 | local-function-lift | Declarative | on | E02 |
 | 5 | null-coalesce | Expression | on | E03 |
 | 6 | expression-desugar | Expression | on | C23, C24, C35, C36, C51 |
@@ -60,7 +62,7 @@
 | 17 | unsigned | Abi | on | E09 |
 | 18 | numeric-boundary | Expression | on | C15, C34, C17, C22 |
 | 19 | generic | Abi | on | E10 |
-| 20 | **thread-static** | Declarative | **off** | C09 |
+| 20 | thread-static | Declarative | on（2026-10-06 P1 翻） | C09 |
 | 21 | generic-deepen | Abi | on | C02 |
 | 22 | closed-metadata | Abi | on | C30 |
 | 23 | variance-audit | Declarative | on | C33 |
@@ -68,20 +70,20 @@
 | 25 | array-method | Expression | on | E12 |
 | 26 | index-range | Expression | on | C31 |
 | 27 | make-readonly | Declarative | on | E13 |
-| 28 | **attribute-normalize** | Declarative | **off** | C10 |
+| 28 | attribute-normalize | Declarative | on（2026-10-06 P1 翻） | C10 |
 | 29 | struct-value-semantics | Declarative | on | C07 |
 | 30 | unsafe-ffm | Abi | on | C06 |
 | 31 | closure-lift | StateMachine | on | C32, C45 |
-| 32 | iterator-lowering | StateMachine | on | C04 |
+| 32 | **iterator-lowering** | StateMachine | **off**（2026-10-06 P0 回退） | C04 |
 | 33 | async-normalize | StateMachine | on | C18, C38（C44 subtopic） |
 | 34 | extension-methods | Expression | on | C19, C49 |
 | 35 | eliminate-goto | ControlFlow | on | E14 |
 | 36 | member-desugar | Declarative | on | C11–C14, C39, C46, C50, C27 |
-| 37 | **linq-channel** | ControlFlow | **off** | C26 |
+| 37 | linq-channel | ControlFlow | on（2026-10-06 P1 翻，M4） | C26 |
 | 38 | concurrency-normalize | Declarative | on | C29 |
 | 39 | equality-concat | Expression | on | C47 |
 | 40 | platform-isolation | Abi | on | C42 |
-| 41 | **dynamic-desugar** | Abi | **off** | C25 |
+| 41 | dynamic-desugar | Abi | on（2026-10-06 P1 翻） | C25 |
 | 42 | java-keywords | FinalNaming | on | C08（E17） |
 
 编号映射要点：**52 个编号 ≠ 52 个 pass**。C03/C37、C16/C40、C18/C38、C19/C49、C23/C24/C35/C36/C51、C28/C43、C32/C45、C15/C34/C17/C22、C11–C14/C39/C46/C50/C27 均共享 pass；**C44 无 pass（分治裁决）、C48 无独立 pass（strip-default 内规则）、C52 是伞条目（非 pass）、C41 当前无 pass（零实现）**。
@@ -97,13 +99,13 @@
 | C01 | ref-out-in | ✅ | 已完成 | on | 全里程碑 | M5：sdk 全量比对、旧码下线（双轨） |
 | C02 | generic-deepen | ✅ | 已落地 | on | M0–M3 | M4 sdk 计数门未做；旧转换器双轨 |
 | C03 | pattern-desugar | ✅ | 已完成 | on | 全部 | 无实质挂账 |
-| C04 | iterator-lowering | ✅ | **名不副实（最高风险之一）** | on | **仅 M1** | try-finally/using/lock 内 yield 一律 residual **CS2J0402**（M2/M3/M4 未做）；无项目级 fixture（SampleIteratorSolution 不存在）；Java 半区零；测试仅空占位 |
+| C04 | iterator-lowering | ✅ | **名不副实（最高风险之一）；2026-10-06 P0 已回退默认关** | **off**（P0-3 回退） | **仅 M1** | try-finally/using/lock 内 yield 一律 residual **CS2J0402**（M2/M3/M4 未做）；无项目级 fixture（SampleIteratorSolution 不存在）；Java 半区零；测试仅空占位；`--enable-pass iterator-lowering` 可临时开 |
 | C05 | enum-declaration | ✅ | 已落地 | on | M1–M4 | M5 sdk/M6 未做；Java 半区 4 个 javac 问题（primitive `_value.getHashCode()` 等） |
 | C06 | unsafe-ffm | ✅ | 深度比台账/注册表文案更好 | on | **M0–M4 全落地**（105 单测） | 注册表描述仍写 "C06 M0"（文案陈旧）；**Java FFM 发射通道零代码**、白名单 facade 未被消费、extern 默认 UF060 拒绝（后者为设计内安全姿态） |
 | C07 | struct-value-semantics | ✅ | 已落地 | on | M1–M5 | M6：StructCloneHelper 退役、Java 半区收尾 |
 | C08 | java-keywords | ✅ | 已完成 | on | 全部 | — |
-| C09 | thread-static | ❌ | **已 Implemented，默认关** | **off** | M1+M2 core | **Java 半区零**（TypeMappings 无 ThreadLocal）；§8 sdk 语料门未做；选项 `FirstThreadFaithful` |
-| C10 | attribute-normalize | ❌ | **已 Implemented，默认关** | **off** | Caller* 四族真改写（54 单测） | JSON/P/Invoke **仅盘点不改写**（CS2J1310/1320/1321/1322、AN003）；overrides 无文件化；§8 门未做 |
+| C09 | thread-static | ❌ | **已 Implemented，2026-10-06 P1 翻默认开** | on（P1-2） | M1+M2 core + **Java ThreadLocal 半区补齐 + sdk 语料门** | 已具备 javac e2e 与语料门证据；`[ThreadStatic]` 初始化器语义差异已在门证据说明；选项 `FirstThreadFaithful` |
+| C10 | attribute-normalize | ❌ | **已 Implemented，2026-10-06 P1 翻默认开** | on（P1） | Caller* 四族真改写（54 单测）+ catalog/别名/Unresolved/工厂修复 + 门 1–5 | JSON/P/Invoke 仍为诊断盘点（CS2J1310/1320/1321/1322、AN003）；overrides 文件化为后续 |
 | C11 | member-desugar / indexer | ✅ | 已完成 | on | 全部 | — |
 | C12 | member-desugar / property | ✅ | 已完成 | on | 全部 | — |
 | C13 | member-desugar / event | ✅ | 已完成 | on | 全部 | — |
@@ -113,13 +115,13 @@
 | C17 | numeric-boundary / increment | ✅ | 已落地 | on | M0–M2 | **M3 未做** |
 | C18 | async-normalize | ❌ | **已落地且默认开（红账多）** | on | 轻量 M1 + M2 await-using + M3 await-foreach + M4 联合异步迭代器（23 文件/6421 行） | Java 四笔红账（见 §5）；CS2J1806/1809/1847/1848 未实现；描述文本陈旧；重量形态②经设计裁决不做 |
 | C19 | extension-methods | ✅ | 已落地 | on | M1–M4（七锚 RunAfter） | **M5 旧臂未退役**：CS2J_EXT001 仍在 [ProjectPasses.cs:813](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L813)；ExtensionMethodIndex 未退役；外部 host 48 unmapped |
-| C20 | partial-merge | ✅ | **v1 双份保留，违设计建议默认开** | on | M1–M2 | **M3 成员级 partial 配对塌缩未做**（C#13 成员级 partial 仅双份保留）；设计书明确建议"长期默认关"，被政策翻转；旧 PartialType 未退役 |
+| C20 | partial-merge | ✅ | **v1 双份保留；2026-10-06 P0 已回退默认关（合设计建议）** | **off**（P0 回退） | M1–M2 | **M3 成员级 partial 配对塌缩未做**（C#13 成员级 partial 仅双份保留）；`3147e093` 的默认开已于 2026-10-06 回退；旧 PartialType 未退役 |
 | C21 | anonymous-type-lift | ❌ | **已 Implemented 且默认开** | on | M1–M4 | M5 旧转换器未退役：[ObjectCreationTransformer.cs:83](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs#L83) 仍发 `Map.of(...)` |
 | C22 | numeric-boundary / nullable-value | ✅ | 已落地 | on | M0–M3 | **M4 未做**；仅 1 个条件执行的 javac harness；仓内无批量扫描入口 |
 | C23 | expression-desugar / interpolation | ✅ | 已落地 | on（`--interpolation-expand` 默认 true） | 主体完成 | M4 handler 画像未做；表达式树中的插值不重写 |
 | C24 | expression-desugar / initializer | ✅ | 已完成 | on | 全部 | M4 sdk 挂起 |
-| C25 | dynamic-desugar | ❌ | **已 Implemented，默认关（设计明令不随 all-on）** | **off** | M1 审计 + M2 P1 子集改写 | M3 挂起；§8 语料门未做 |
-| C26 | linq-channel | ❌ | **已 Implemented，唯一结构性默认关** | **off** | M0–M3：IQueryable 三门强制、82 算子矩阵、EF/SDK 复扫 | **M4 未做**：默认翻转、E16 旧 LINQ 臂摘除、**Java Queryable 提供方零代码**（仍 IQueryable→Stream）、GroupBy 遗留 |
+| C25 | dynamic-desugar | ❌ | **已 Implemented，2026-10-06 P1 翻默认开（audit 门）** | on（P1-4） | M1 审计 + M2 P1 子集改写 + 五门证据 | 原「不随 all-on」由独立 audit 门承接；M3 全量仍挂起 |
+| C26 | linq-channel | ❌ | **已 Implemented，2026-10-06 P1 翻默认开，M4 全量落地** | on（P1-1） | M0–M4：IQueryable 三门强制、82 算子矩阵、EF/SDK 复扫、**M4 默认翻转 + E16 项目路径摘除 + 报告 schema v2 + GroupBy 收尾** | **Java Queryable 提供方仍零代码**（IQueryable→Stream，已立 M4-d 项：EF10 Q13/Expr10、sdk 362 全 Enumerable、EF5 Q12；通道已冻结 Queryable 站点防误展开）；LC0040 3 文件为既有定点门遗留（非回归，详见 C26 设计书 M4-c 校注） |
 | C27 | member-desugar / records | ✅ | 已落地 | on（`--enable-records-rule`） | 主体完成 | M4 未做 |
 | C28 | lexical-normalize / directives | ✅ | 已落地 | on | M1–M2 | file-scoped 归一仍 opt-in（`--ln-normalize-file-scoped`）；M3 画像未做；**门槛未达即被翻转** |
 | C29 | concurrency-normalize | ❌ | **已落地且默认开（Java 半区说谎）** | on | .NET 侧改写完成 | [Monitor.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Monitor.java#L37-L77) `tryEnter(obj,timeout)` **恒返回 true**、`enter` 空体；无 Volatile.java；TypeMappings 无 Monitor；**`System.Threading.Lock` 零覆盖** |
@@ -155,12 +157,12 @@
 
 | ID | 当前默认 | 落地范围 | 与"完成"的差距 |
 |---|---|---|---|
-| C09 | 关 | M1+M2 改写 core 完成 | Java 半区零、§8 语料门未做（**有意保持关**） |
-| C10 | 关 | Caller* 四族真改写，54 单测 | JSON/P/Invoke 仅诊断盘点；§8 门未做（**有意保持关**） |
+| C09 | 开（2026-10-06 P1 翻） | M1+M2 改写 core 完成 + Java ThreadLocal 半区 + sdk 门 | P1-2 已开门（原「有意保持关」解除） |
+| C10 | 开（2026-10-06 P1 翻） | Caller* 四族真改写，54 单测 + catalog/别名/Unresolved/工厂修复 | JSON/P/Invoke 仍仅诊断盘点；门 1–5 已过 |
 | C18 | 开 | M1–M4 异步归一全套（6421 行） | Java 四笔红账、4 个诊断未实现 |
 | C21 | 开 | M1–M4 匿名类型提升 | 旧 `Map.of` 臂未退役 |
-| C25 | 关 | M1 审计 + M2 P1 子集 | M3、§8 门（**设计明令不随 all-on**） |
-| C26 | 关 | M0–M3（三门强制 + 82 算子矩阵） | M4：翻转、E16 摘除、Java Queryable 提供方 |
+| C25 | 开（2026-10-06 P1 翻） | M1 审计 + M2 P1 子集 + 五门证据 | 由独立 audit 门承接「不随 all-on」；M3 全量仍挂起 |
+| C26 | 开（2026-10-06 P1 翻，M4 全量） | M0–M4（三门强制 + 82 算子矩阵 + E16 项目路径摘除 + schema v2 + GroupBy） | 仅剩 Java Queryable 提供方（M4-d 已立项划界）、LC0040 3 文件既有遗留 |
 | C29 | 开 | .NET 侧锁/信号量归一 | Java 半区恒真壳 + Lock 零覆盖 |
 | C35 | 开 | M1–M5 null 条件改写 | — |
 | C38 | 开 | await-using/await-foreach/联合异步迭代器 | 同 C18 |
@@ -194,7 +196,7 @@
 
 1. **端到端闸门挂起**：提交 `c49753bc`（10-04 13:18，"临时跳过 ProjectTests Top10"，后累积到 22 个）为压缩串行耗时（19m33s→11m18s）将 17 个文件中的慢 E2E 全部 Skip，理由均为"排查根因中"。覆盖 C47×2、C16×3、C28/C43×2、C20、C30、C36、C45、C19、C39、C40、C07、C33、E10、E14×2、preprocess verb×2、E11。当前绿测试主要证明"隔离单测逻辑正确"，不证明全链路。
 2. **集成债**：241 个提交未合入本地 dev-3.x、639 个未推 origin；合并前应先过第 7 节 P0。
-3. **双轨债（M5 族）**：C19（CS2J_EXT001/ExtensionMethodIndex）、C21（Map.of 臂）、C45（旧 holder/LambdaTransformer，126 测试+18 fixture）、C07（StructCloneHelper）、C09（ThreadStaticTransformer）、C26（E16 LINQ）、C16/C31/C02/C01 旧臂均在。新旧路径长期并存会让"默认开"的实际覆盖率打折。
+3. **双轨债（M5 族）**：C19（CS2J_EXT001/ExtensionMethodIndex）、C21（Map.of 臂）、C45（旧 holder/LambdaTransformer，126 测试+18 fixture）、C07（StructCloneHelper）、C09（ThreadStaticTransformer）、~~C26（E16 LINQ）~~、C16/C31/C02/C01 旧臂均在。新旧路径长期并存会让"默认开"的实际覆盖率打折。**（2026-10-06 回写）C26 项目路径嵌入式 E16 已在 M4-c 物理摘除**（单文件 `SingleFileLinqDesugarPass` 按 §5.5/Q4 设计保留，不算双轨）；C09 P1-2 已开门，其旧 ThreadStaticTransformer 臂退役随之解除阻塞（见 P4）。
 4. **画像债**：catalog §5.1 债务 C 要求的 sdk / EF Core / .NET10 源码画像几乎全未做——仅 C16 留有完整 sdk 扫描+双端对比记录；C22 §13.5 自陈仓内无批量扫描入口。多数 pass 的"默认开门"缺少语料频率与残差率证据。
 5. **文案债**：PassCatalog 中 C06 描述停在 "M0"、C18/C30 描述与实现不符；部分设计书 §13 状态行陈旧（C34/C17/C29）；桌面台账与 catalog 均已过期——本报告产出后建议以注册表 + 本报告为准。
 
@@ -217,12 +219,14 @@
 
 ### P1｜四个默认关 pass 的开门/长期关闭决策
 
-| 序 | 事项 | 开门门槛 |
-|---|---|---|
-| P1-1 | **C26 M4**：默认翻转 + 摘除 E16 旧 LINQ 臂 + GroupBy 收尾；**Java Queryable 提供方单独立项**（当前 IQueryable 仍→Stream，不解决则转换结果在远端求值场景不成立） | EF Core 语料复扫残差率达标；Java 提供方有最小可运行子集 |
-| P1-2 | **C09 §8**：补 Java ThreadLocal 半区（含 `[ThreadStatic]` 初始化器语义差异说明），跑 sdk 语料门 | javac e2e + 语料频率/残差报告 |
-| P1-3 | **C10 §8**：决定 JSON 序列化成员名/P-Invoke  marshaling 是进 M2（显式注册/改写）还是长期保持"诊断盘点"姿态；补 overrides 文件化 | 决策落文档；若开门则 JSON M2 完成 |
-| P1-4 | **C25**：完成 M3 与 §8 动态语料门；在此之前保持默认关（尊重设计明令） | 语料门报告 + 风险白名单 |
+> **2026-10-06 回写：P1 四件已全部完成并翻默认开**（在本分支逐件提交，未 push）。逐件结果见表内「回写」。
+
+| 序 | 事项 | 开门门槛 | 2026-10-06 回写 |
+|---|---|---|---|
+| P1-1 | **C26 M4**：默认翻转 + 摘除 E16 旧 LINQ 臂 + GroupBy 收尾；**Java Queryable 提供方单独立项**（当前 IQueryable 仍→Stream，不解决则转换结果在远端求值场景不成立） | EF Core 语料复扫残差率达标；Java 提供方有最小可运行子集 | **完成并翻默认开**（M4-a GroupBy、M4-b 翻转+插值串修复、M4-c 摘 E16 项目路径+schema v2+死选项+LC0040 处置、M4-d Java Queryable 立项材料）；Java 提供方按 M4-d **另立 spec 不顺带做**，通道已冻结 Queryable 站点防误展开 |
+| P1-2 | **C09 §8**：补 Java ThreadLocal 半区（含 `[ThreadStatic]` 初始化器语义差异说明），跑 sdk 语料门 | javac e2e + 语料频率/残差报告 | **完成并翻默认开**：Java ThreadLocal 半区 + 初始化器语义差异说明 + sdk 语料门证据齐备（三批提交） |
+| P1-3 | **C10 §8**：决定 JSON 序列化成员名/P-Invoke  marshaling 是进 M2（显式注册/改写）还是长期保持"诊断盘点"姿态；补 overrides 文件化 | 决策落文档；若开门则 JSON M2 完成 | **翻默认开**（catalog/别名/Unresolved/工厂修复 + 门 1–5）；**决策：JSON/P/Invoke 长期保持诊断盘点姿态**（CS2J1310/1320/1321/1322），不进 M2 改写；overrides 文件化留后续 |
+| P1-4 | **C25**：完成 M3 与 §8 动态语料门；在此之前保持默认关（尊重设计明令） | 语料门报告 + 风险白名单 | **翻默认开**：以独立 audit 门承接「不随 all-on」约束 + 五门证据；M3 全量动态改写仍挂起（门保护下不静默错译） |
 
 ### P2｜Java 半区还债（默认开 pass 的正确性闭环）
 
@@ -250,8 +254,8 @@
 1. **C45** 旧 holder/LambdaTransformer（126 测试 + 18 fixture 是最大双轨面）
 2. **C21** ObjectCreationTransformer 的 `Map.of` 臂（[L83](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs#L83)）
 3. **C19/C49** ExtensionMethodIndex 旧臂与 CS2J_EXT001（[ProjectPasses.cs:813](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L813)），先消化外部 host 的 48 个 unmapped
-4. **C26** E16 LINQ 旧臂（依赖 P1-1）
-5. **C07** StructCloneHelper、**C09** ThreadStaticTransformer（依赖 P1-2 开门）、**C16/C31/C02/C01** 各自旧臂
+4. ~~**C26** E16 LINQ 旧臂（依赖 P1-1）~~ **（2026-10-06 M4-c 已摘除项目路径臂）**：`ProjectLinqDesugarPass` 及 `LastLinqStatistics`/`PreDesugarCompilation` 下游全删，报告切通道 schema v2；**单文件嵌入式 `SingleFileLinqDesugarPass` 按 §5.5/Q4 有意保留**（单文件无中间目录契约），不在退役范围
+5. **C07** StructCloneHelper、**C09** ThreadStaticTransformer（P1-2 已开门，**阻塞已解除、可启动退役**）、**C16/C31/C02/C01** 各自旧臂
 
 ### P5｜新构造与长期基线
 
