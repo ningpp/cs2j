@@ -5365,10 +5365,10 @@ class ConvertOptions
     [Option("no-linq-rewrite", Default = false, HelpText = "Don't pre-process LINQ to procedural code (single-file embedded pass)")]
     public bool NoLinqRewrite { get; set; }
 
-    [Option("prefer-stream-api", Default = false, SetName = "linq-strategy", HelpText = "Prefer Java Stream API for LINQ conversion (default for Java 28)")]
+    [Option("prefer-stream-api", Default = false, SetName = "linq-strategy", HelpText = "Compatibility no-op (C26 M4): LINQ output is canonical; this flag no longer changes the result")]
     public bool PreferStreamApiFlag { get; set; }
 
-    [Option("prefer-procedural", Default = false, SetName = "linq-strategy", HelpText = "Prefer procedural loops for LINQ conversion")]
+    [Option("prefer-procedural", Default = false, SetName = "linq-strategy", HelpText = "Compatibility no-op (C26 M4): single-file always uses the embedded procedural LINQ pass; this flag no longer changes the result")]
     public bool PreferProceduralFlag { get; set; }
 
     [Option("no-parallel-project-passes", Default = false, HelpText = "Disable parallel execution for safe project-level tree-local passes")]
@@ -5383,7 +5383,11 @@ class ConvertOptions
     public bool EnableLinqRewrite => !NoLinqRewrite;
     public bool EnableParallelProjectPasses => !NoParallelProjectPasses;
 
-    /// <summary>Resolve PreferStreamApi: explicit flags override, otherwise null (version-based default).</summary>
+    /// <summary>
+    /// C26 M4（D8）：LINQ 策略已规范化，<see cref="ConversionOptions.PreferStreamApi"/>
+    /// 在 Core 侧恒为死开关（EffectivePreferStreamApi 恒 false）。该属性仅为命令行
+    /// 兼容保留（两个 flag 仍被接受但无效果），不再表达版本化默认。
+    /// </summary>
     public bool? PreferStreamApi => PreferStreamApiFlag ? true : PreferProceduralFlag ? false : null;
 }
 
@@ -5426,10 +5430,10 @@ class ConvertProjectOptions
     [Option("no-linq-rewrite", Default = false, HelpText = "Disable the linq-channel preprocessing pass (equivalent to --disable-pass linq-channel)")]
     public bool NoLinqRewrite { get; set; }
 
-    [Option("prefer-stream-api", Default = false, SetName = "linq-strategy", HelpText = "Prefer Java Stream API for LINQ conversion (default for Java 28)")]
+    [Option("prefer-stream-api", Default = false, SetName = "linq-strategy", HelpText = "Compatibility no-op (C26 M4): project LINQ is handled by the linq-channel pass; this flag no longer changes the result")]
     public bool PreferStreamApiFlag { get; set; }
 
-    [Option("prefer-procedural", Default = false, SetName = "linq-strategy", HelpText = "Prefer procedural loops for LINQ conversion")]
+    [Option("prefer-procedural", Default = false, SetName = "linq-strategy", HelpText = "Compatibility no-op (C26 M4): project LINQ is handled by the linq-channel pass; this flag no longer changes the result")]
     public bool PreferProceduralFlag { get; set; }
 
     [Option("maven-group-id", Default = "io.github.ningpp", HelpText = "Maven groupId")]
@@ -5749,7 +5753,10 @@ class ConvertProjectOptions
         HelpText = "Path to Cs2jDynamicAudit.json (relative paths resolve from the working directory); the manifest is source-controlled at the source root, so when this option is unset <source-root>/Cs2jDynamicAudit.json is used if present")]
     public string? DynamicAuditManifest { get; set; }
 
-    /// <summary>Resolve PreferStreamApi: explicit flags override, otherwise null (version-based default).</summary>
+    /// <summary>
+    /// C26 M4（D8）：LINQ 策略已规范化（项目路径=linq-channel），该值在 Core 侧为
+    /// 死开关，仅为命令行兼容保留；两个 prefer-* flag 仍被接受但无效果。
+    /// </summary>
     public bool? PreferStreamApi => PreferStreamApiFlag ? true : PreferProceduralFlag ? false : null;
 
     internal IReadOnlyList<JavaDependency>? ParsedExtraDependencies { get; set; }

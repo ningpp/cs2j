@@ -54,17 +54,17 @@ public class ConversionOptions
     public bool EnableLinqRewrite { get; set; } = true;
 
     /// <summary>
-    /// When true, LINQ chains are converted to Java Stream API calls (.stream().filter().map()...)
-    /// instead of procedural loops via LinqRewriter. Default: true for Java 28.
-    /// When set explicitly, overrides the version-based default.
+    /// C26 M4（D8）后为兼容性死开关：LINQ 输出策略已规范化——项目路径由
+    /// linq-channel 预处理通道决定（Enumerable 展开为过程化、Queryable/表达式
+    /// 冻结），单文件路径恒走嵌入式过程化 LinqRewriter，其余 LINQ 形态由 Java
+    /// 发射期映射落地。保留该可空属性仅为了不破坏既有调用方/CLI 传参；赋值不再
+    /// 改变结果。
     /// </summary>
     public bool? PreferStreamApi { get; set; }
 
     /// <summary>
-    /// Resolved value: uses explicit setting if provided, otherwise defaults to Stream API for Java 28.
-    /// </summary>
-    /// <summary>
-    /// Always use LINQ desugarer (procedural conversion). Stream API mode is disabled.
+    /// 恒为 false：过程化 LINQ 改写（单文件嵌入式 pass、linq-channel）始终启用，
+    /// 不存在「优先 Stream API」的旧分叉。参见 <see cref="PreferStreamApi"/>。
     /// </summary>
     public bool EffectivePreferStreamApi => false;
 
