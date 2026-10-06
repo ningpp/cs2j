@@ -179,6 +179,38 @@ public class EnumDeclarationRewriterUnitTests
     }
 
     [Fact]
+    public void FlagsEnum_ToString_PrintsNamesInAscendingBitOrder_RuntimeMatchesDotNet()
+    {
+        // Regression: the synthesizer used StringBuilder.Append while walking
+        // members in descending bit order, emitting "Z, X". .NET
+        // InternalFlagsFormat consumes descending but prints ascending
+        // ("X, Z"); the fix prepends each matched member.
+        var src = """
+            using System;
+            [Flags] enum F { None = 0, X = 1, Y = 2, Z = 4 }
+            class C { static void M() { F f = Enum.Parse<F>("X, Z"); Console.WriteLine(F.X | F.Z | f); } }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed);
+        AssertOutputCompiles(code);
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+        // Descending consumption with prepend: Z insert must precede X insert.
+        int zInsert = code.IndexOf("\"Z\" + \", \"", StringComparison.Ordinal);
+        int xInsert = code.IndexOf("\"X\" + \", \"", StringComparison.Ordinal);
+        Assert.True(zInsert >= 0 && xInsert >= 0, "both prepend inserts expected");
+        Assert.True(zInsert < xInsert, "Z (bit 4) consumed and inserted before X (bit 1)");
+
+        var asm = EmitAssembly(code, "ed-emit-flags-order-" + Guid.NewGuid().ToString("N"));
+        var type = asm.GetType("F")!;
+        var combo = type.GetMethod("Parse", new[] { typeof(string) })!
+            .Invoke(null, new object[] { "X, Z" });
+        var printed = (string)type.GetMethod("ToString", Type.EmptyTypes)!
+            .Invoke(combo, null)!;
+        Assert.Equal("X, Z", printed);
+    }
+
+    [Fact]
     public void ExplicitValueEnum_NormalizesWithoutFlags()
     {
         var src = """

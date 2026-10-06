@@ -121,6 +121,11 @@ internal static class SemanticKindClassifier
             case IDynamicInvocationOperation:
                 return New(EqualityConcatKind.Dynamic, operation: operation);
 
+            case ICoalesceOperation:
+                // ?? 不是相等/拼接站点（候选词过滤已排除，直接调用分类器时
+                // 同样归为预定义形态，透传不改写）。
+                return New(EqualityConcatKind.PredefinedOther, operation: operation);
+
             case IInvalidOperation:
                 // IInvalidOperation always carries compiler diagnostics (e.g.
                 // CS0019 for tuple == null); rely on them and do not invent a
@@ -197,6 +202,14 @@ internal static class SemanticKindClassifier
     {
         if (method == null)
         {
+            // 条件逻辑 &&/|| 没有可绑定的 operator method，但属于预定义运算，
+            // 不归本 pass（外层短路节点本应在候选词过滤处透传，这里保证直接
+            // 调用分类器时也不会误报 Unknown）。
+            if (operatorKind is BinaryOperatorKind.ConditionalAnd
+                or BinaryOperatorKind.ConditionalOr)
+            {
+                return EqualityConcatKind.PredefinedOther;
+            }
             return EqualityConcatKind.Unknown;
         }
 

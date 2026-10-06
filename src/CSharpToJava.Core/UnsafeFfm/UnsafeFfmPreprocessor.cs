@@ -603,6 +603,26 @@ public sealed class UnsafeFfmPreprocessor
     }
 
     /// <summary>
+    /// 取声明直接所属命名空间名（含 file-scoped 与块形式）；全局命名空间返回 null。
+    /// 用于识别 C01 释放的 Cs2jByRef 支撑库（holder 随预构建 Java compat 发布，
+    /// 不受用户 ref struct 残差门约束）。
+    /// </summary>
+    private static string? EnclosingNamespace(SyntaxNode node)
+    {
+        for (var current = node.Parent; current != null; current = current.Parent)
+        {
+            switch (current)
+            {
+                case FileScopedNamespaceDeclarationSyntax fs:
+                    return fs.Name.ToString();
+                case NamespaceDeclarationSyntax ns:
+                    return ns.Name.ToString();
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
     /// M4 residual 闸门（D14 扩展）：
     /// <list type="bullet">
     /// <item>ref struct 声明残留（struct modifiers 带 RefKeyword，语法明确）；</item>
@@ -621,7 +641,8 @@ public sealed class UnsafeFfmPreprocessor
         out string reason)
     {
         if (newRoot.DescendantNodes().OfType<StructDeclarationSyntax>()
-            .Any(s => s.Modifiers.Any(SyntaxKind.RefKeyword)))
+            .Any(s => s.Modifiers.Any(SyntaxKind.RefKeyword)
+                      && EnclosingNamespace(s) != "Cs2jByRef"))
         {
             reason = "the rewritten tree still contains a ref struct declaration";
             return true;

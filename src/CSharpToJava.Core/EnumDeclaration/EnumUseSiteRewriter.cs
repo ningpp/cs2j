@@ -12,8 +12,15 @@ namespace CSharpToJava.Core.EnumDeclaration;
 /// </summary>
 internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
 {
+    /// <summary>挂在“需要临时变量的判定表达式”上的标记种类（不写入文本，仅供后置插入）。</summary>
+    internal const string TempMarkerKind = "Cs2jEnumSwitchTemp";
+
     private readonly SemanticModel _model;
     private readonly Dictionary<INamedTypeSymbol, EnumDeclarationPlan> _active;
+    private readonly List<HoistedTempRequest> _pendingTemps = new();
+    // 本次改写已发行的临时变量名。LookupSymbols 只看得到原始树，看不到尚未写回的
+    // 合成声明；同作用域两个 switch/is 站点若都选 __cs2jEv 会产生 CS0128 重复局部。
+    private readonly HashSet<string> _issuedTempNames = new();
 
     public EnumUseSiteRewriter(SemanticModel model, IEnumerable<EnumDeclarationPlan> activePlans)
     {
@@ -22,6 +29,12 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
         foreach (var p in activePlans)
             if (p.Feasible && p.Names != null) _active[p.Symbol] = p;
     }
+
+    /// <summary>
+    /// 本次 Visit 收集到的“值判定临时变量”请求；整树 Visit 结束后由
+    /// <see cref="ApplyHoistedTemps"/> 统一把声明插入各自的语句锚点前。
+    /// </summary>
+    public IReadOnlyList<HoistedTempRequest> PendingTemps => _pendingTemps;
 
     // ── 基础工具 ──
 
@@ -223,8 +236,11 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
 
         var gov = visited.Expression.ToFullString().Trim();
         var tmp = UniqueTemp(node, "__cs2jEv");
+        var govNullable = IsNullableReceiver(node.Expression);
         var tempDecl = ParseStatement(
-            $"{U(plan)}? {tmp} = {gov}?.{plan.Names!.GetValue}();");
+            $"{(govNullable ? U(plan) + "?" : U(plan))} {tmp} = "
+            + (govNullable ? $"{gov}?.{plan.Names!.GetValue}();"
+                           : $"{gov}.{plan.Names!.GetValue}();"));
 
         var stmts = new List<StatementSyntax> { Annotate(tempDecl) };
         IfStatementSyntax? chain = null;
@@ -319,9 +335,117 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
         for (var i = 0; ; i++)
         {
             var candidate = i == 0 ? name : name + i.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            if (_model.LookupSymbols(pos, name: candidate).Length == 0) return candidate;
+            if (_model.LookupSymbols(pos, name: candidate).Length == 0
+                && _issuedTempNames.Add(candidate)) return candidate;
         }
     }
+
+    /// <summary>原树接收者是否为 Nullable(E)（决定值访问是 . 还是 ?.）。</summary>
+    private bool IsNullableReceiver(ExpressionSyntax receiver)
+        => _model.GetTypeInfo(receiver).Type is INamedTypeSymbol nt
+           && nt.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T;
+
+    /// <summary>
+    /// 找可承载“只求值一次”临时变量声明的锚点：最近语句或表达式体成员。
+    /// lambda/匿名方法/查询表达式边界内不可外提（会改变求值时机），返回 null
+    /// （退化为内联，字段/属性初始化器等同理）。
+    /// </summary>
+    private static SyntaxNode? FindHoistAnchor(SyntaxNode node)
+    {
+        var current = node.Parent;
+        while (current != null)
+        {
+            if (current is StatementSyntax or ArrowExpressionClauseSyntax)
+                return current;
+            if (current is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax
+                or QueryExpressionSyntax)
+                return null;
+            current = current.Parent;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// 为 switch/is 判定准备值表达式文本。命中语句锚点时登记一次临时变量
+    /// （<see cref="PendingTemps"/>）并返回变量名；无锚点时返回内联的
+    /// <c>(recv.GetValue())</c>/<c>(recv?.GetValue())</c>。
+    /// </summary>
+    private string PrepareValueText(
+        ExpressionSyntax originalReceiver, string receiverText,
+        EnumDeclarationPlan plan, out SyntaxAnnotation? marker)
+    {
+        marker = null;
+        var isNullable = IsNullableReceiver(originalReceiver);
+        var accessor = isNullable
+            ? $"{receiverText}?.{plan.Names!.GetValue}()"
+            : $"{receiverText}.{plan.Names!.GetValue}()";
+
+        if (FindHoistAnchor(originalReceiver) == null)
+            return $"({accessor})";
+
+        var name = UniqueTemp(originalReceiver, "__cs2jEv");
+        marker = new SyntaxAnnotation(TempMarkerKind, name);
+        _pendingTemps.Add(new HoistedTempRequest(
+            marker, name, isNullable ? U(plan) + "?" : U(plan), accessor));
+        return name;
+    }
+
+    /// <summary>
+    /// 后置 Pass：把 <see cref="PendingTemps"/> 中的临时变量声明插入各自锚点前
+    /// （复用 IndexRange 的单次求值提升机制：块前插入、嵌入式语句包块、
+    /// 表达式体成员展开为块体）。标记仅用于定位，不写入源文本。
+    /// </summary>
+    internal static CompilationUnitSyntax ApplyHoistedTemps(
+        CompilationUnitSyntax root, IReadOnlyList<HoistedTempRequest> requests)
+    {
+        if (requests.Count == 0) return root;
+
+        var anchorEdits = new Dictionary<SyntaxNode, SyntaxNode>();
+        var infoByAnnotation = new Dictionary<SyntaxAnnotation, (SyntaxNode Anchor, string Declaration)>();
+
+        foreach (var request in requests)
+        {
+            var marked = root.GetAnnotatedNodes(request.Marker).FirstOrDefault();
+            if (marked == null) continue;
+
+            var anchor = marked.Parent;
+            while (anchor != null
+                   && anchor is not (StatementSyntax or ArrowExpressionClauseSyntax))
+            {
+                anchor = anchor.Parent;
+            }
+            if (anchor == null) continue;
+
+            var anchorAnnotation = new SyntaxAnnotation();
+            var annotatedAnchor = anchor.WithAdditionalAnnotations(anchorAnnotation);
+            anchorEdits[anchor] = annotatedAnchor;
+            infoByAnnotation[anchorAnnotation] = (
+                annotatedAnchor,
+                $"{request.Type} {request.Name} = {request.Initializer};");
+        }
+
+        if (anchorEdits.Count == 0) return root;
+
+        var current = root.ReplaceNodes(anchorEdits.Keys, (oldNode, _) => anchorEdits[oldNode]);
+
+        var pending = new List<IndexRange.TempLifter.PendingTemp>();
+        var anchorAnnotations = new Dictionary<SyntaxNode, SyntaxAnnotation>();
+        var order = 0;
+        foreach (var (annotation, (_, declarationText)) in infoByAnnotation)
+        {
+            var anchor = current.GetAnnotatedNodes(annotation).FirstOrDefault();
+            if (anchor == null) continue;
+            anchorAnnotations[anchor] = annotation;
+            pending.Add(new IndexRange.TempLifter.PendingTemp(
+                ParseStatement(declarationText), anchor, order++));
+        }
+
+        return IndexRange.TempLifter.Apply(current, pending, anchorAnnotations);
+    }
+
+    /// <summary>switch/is 判定临时变量请求（声明由后置 Pass 插入）。</summary>
+    internal sealed record HoistedTempRequest(
+        SyntaxAnnotation Marker, string Name, string Type, string Initializer);
 
     // ── 4) switch 表达式降级为条件链 ──
 
@@ -332,7 +456,9 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
         var visited = (SwitchExpressionSyntax)base.VisitSwitchExpression(node)!;
         if (plan == null) return visited;
 
-        var gov = $"({visited.GoverningExpression.ToFullString().Trim()}?.{plan.Names!.GetValue}())";
+        var govText = visited.GoverningExpression.ToFullString().Trim();
+        var govValue = PrepareValueText(
+            node.GoverningExpression, govText, plan, out var tempMarker);
         ExpressionSyntax? fallback = null;
         for (var i = visited.Arms.Count - 1; i >= 0; i--)
         {
@@ -342,7 +468,7 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
                 fallback = arm.Expression;
                 continue;
             }
-            var pred = PatternPredicate(arm.Pattern, plan, gov);
+            var pred = PatternPredicate(arm.Pattern, plan, govValue);
             if (arm.WhenClause != null)
                 pred = BinaryExpression(SyntaxKind.LogicalAndExpression,
                     Paren(pred), Paren(arm.WhenClause.Condition.WithoutTrivia()));
@@ -352,7 +478,9 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
                 Paren(arm.Expression.WithoutTrivia()), Paren(innerFallback));
         }
 
-        return Annotate(Paren(fallback ?? ParseExpression("default")));
+        var result = Paren(fallback ?? ParseExpression("default"));
+        if (tempMarker != null) result = result.WithAdditionalAnnotations(tempMarker);
+        return Annotate(result);
     }
 
     /// <summary>
@@ -405,8 +533,11 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
         if (plan == null) return visited;
 
         var recv = visited.Expression.ToFullString().Trim();
-        var valueExpression = $"({recv}?.{plan.Names!.GetValue}())";
-        return Annotate(Paren(IsPatternPredicate(visited.Pattern, plan, recv, valueExpression)));
+        var valueExpression = PrepareValueText(
+            node.Expression, recv, plan, out var tempMarker);
+        var result = Paren(IsPatternPredicate(visited.Pattern, plan, recv, valueExpression));
+        if (tempMarker != null) result = result.WithAdditionalAnnotations(tempMarker);
+        return Annotate(result);
     }
 
     private ExpressionSyntax IsPatternPredicate(
@@ -467,8 +598,13 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
             if (member == null) return isVisited;
             var lit = LiteralFor(isPlan, member.ConstantValue);
             var isLeft = isVisited.Left.ToFullString().Trim();
-            return Annotate(ParseExpression(
-                $"(({isLeft}?.{isPlan.Names!.GetValue}()) == {lit})"));
+            var valueText = PrepareValueText(
+                node.Left, isLeft, isPlan, out var isTempMarker);
+            var isResult = Annotate(ParseExpression(
+                $"({valueText} == {lit})"));
+            if (isTempMarker != null)
+                isResult = isResult.WithAdditionalAnnotations(isTempMarker);
+            return isResult;
         }
 
         if (kind is SyntaxKind.BitwiseAndExpression

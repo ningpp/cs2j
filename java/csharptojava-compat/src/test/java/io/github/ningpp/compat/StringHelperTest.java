@@ -726,6 +726,62 @@ class StringHelperTest {
         assertEquals("Value=30, Formatted=3.14", result);
     }
 
+    // ---- formatCs Xn/Dn minimum width (C# zero padding) and enum backing values ----
+
+    @Test
+    void formatCs_hexWidth2_zeroPads() {
+        assertEquals("05", StringHelper.formatCs(java.util.Locale.ROOT, "{0:X2}", 5));
+        assertEquals("ff", StringHelper.formatCs(java.util.Locale.ROOT, "{0:x2}", 255));
+    }
+
+    @Test
+    void formatCs_hexWidth_doesNotTruncateLargerValues() {
+        // printf minimum width only pads; C# X2 of 255 is still "FF".
+        assertEquals("FF", StringHelper.formatCs(java.util.Locale.ROOT, "{0:X2}", 255));
+    }
+
+    @Test
+    void formatCs_hexWidth4_onLong() {
+        assertEquals("0194", StringHelper.formatCs(java.util.Locale.ROOT, "{0:X4}", 404L));
+    }
+
+    @Test
+    void formatCs_decimalWidth2_zeroPads() {
+        assertEquals("03", StringHelper.formatCs(java.util.Locale.ROOT, "{0:D2}", 3));
+        assertEquals("123", StringHelper.formatCs(java.util.Locale.ROOT, "{0:D2}", 123));
+    }
+
+    @Test
+    void formatCs_numericEnumBackingValue_usedForNumericSpecifiers() {
+        // cs2j normalized enums expose a numeric getValue(); {0:X2} on such an
+        // enum instance must print the backing number, while {0} keeps the name.
+        Cs2jEnumStub red = new Cs2jEnumStub("Red", 5);
+        assertEquals("05", StringHelper.formatCs(java.util.Locale.ROOT, "{0:X2}", red));
+        assertEquals("Red", StringHelper.formatCs(java.util.Locale.ROOT, "{0}", red));
+        Cs2jEnumStub notFound = new Cs2jEnumStub("NotFound", 404L);
+        assertEquals("0194", StringHelper.formatCs(java.util.Locale.ROOT, "{0:X4}", notFound));
+    }
+
+    /** Minimal stand-in for a cs2j normalized enum class (numeric getValue()). */
+    static final class Cs2jEnumStub {
+        private final String name;
+        private final Number value;
+
+        Cs2jEnumStub(String name, Number value) {
+            this.name = name;
+            this.value = value;
+        }
+
+        public int getValue() {
+            return value.intValue();
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
+    }
+
     // ---- newString (C# String(char, int) constructor) ----
 
     @Test

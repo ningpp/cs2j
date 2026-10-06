@@ -1270,12 +1270,17 @@ public class StringHelper {
                 // Parse C# format specifier
                 String spec = specifier.trim().toLowerCase();
                 if (spec.startsWith("x")) {
-                    // Hexadecimal format: {0:x} -> %1$x, {0:X} -> %1$X
+                    // Hexadecimal format: {0:X2} -> %1$02X. C# Xn zero-pads to a
+                    // minimum width of n digits; printf needs the '0' flag + width.
                     boolean upper = specifier.trim().startsWith("X");
-                    javaFormat = "%" + index + "$" + (upper ? "X" : "x");
+                    String width = spec.length() > 1 && spec.substring(1).matches("\\d+")
+                        ? "0" + spec.substring(1) : "";
+                    javaFormat = "%" + index + "$" + width + (upper ? "X" : "x");
                 } else if (spec.startsWith("d")) {
-                    // Decimal format: {0:d} -> %1$d
-                    javaFormat = "%" + index + "$d";
+                    // Decimal format: {0:D2} -> %1$02d (zero-padded minimum width).
+                    String width = spec.length() > 1 && spec.substring(1).matches("\\d+")
+                        ? "0" + spec.substring(1) : "";
+                    javaFormat = "%" + index + "$" + width + "d";
                 } else if (spec.startsWith("f")) {
                     // Fixed-point format: {0:F5} -> %1$.5f, {0:F} -> %1$.2f
                     // C# F without precision defaults to 2 decimal places.
@@ -1302,13 +1307,76 @@ public class StringHelper {
         }
         // Convert Short args to unsigned int values to preserve C# ushort semantics.
         // In C#, ushort is unsigned (0-65535), but Java Short is signed (-32768 to 32767).
-        // Without this conversion, (short)-1 would format as "ffffffff" instead of "ffff".
+        // Without this conversion, (short)-1 would format as "ffff" instead of "ffff".
         for (int i = 0; i < args.length; i++) {
             if (args[i] instanceof Short s) {
                 args[i] = s.intValue() & 0xFFFF;
             }
         }
+        // C# formats an enum argument with a numeric specifier (e.g. "{0:X2}") using its
+        // underlying integral value. cs2j emits enum declarations as sealed classes exposing
+        // getValue(); such arguments are not Numbers for printf, so numeric conversion slots
+        // are coerced via a cached getValue() lookup. %s slots keep the enum name (toString()).
+        java.util.regex.Matcher numericSlot = NUMERIC_POSITIONAL_SPEC.matcher(converted);
+        while (numericSlot.find()) {
+            int position = java.lang.Integer.parseInt(numericSlot.group(1));
+            int index = position - 1;
+            if (index >= 0 && index < args.length) {
+                args[index] = coerceNumericEnumValue(args[index]);
+            }
+        }
         return csFormat(l, converted, args);
+    }
+
+    /**
+     * Positional printf specs using a numeric conversion (d, x, X, o, f, e, g, a …).
+     * formatCs only emits positional forms ({@code %1$X}); non-positional specs are
+     * user-supplied Java formats and are left untouched.
+     */
+    private static final java.util.regex.Pattern NUMERIC_POSITIONAL_SPEC =
+        java.util.regex.Pattern.compile("%(\\d+)\\$[-#+ 0,(]*(?:\\d+)?(?:\\.\\d+)?[doxXeEgGfFaA]");
+
+    private static final java.util.Map<Class<?>, java.lang.reflect.Method> ENUM_VALUE_ACCESSORS =
+        new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Returns the numeric backing value of a cs2j-generated enum-class instance
+     * (sealed class with a zero-argument {@code getValue()} returning a primitive/Number),
+     * caching the accessor per class. Non-enum arguments pass through unchanged.
+     */
+    private static Object coerceNumericEnumValue(Object arg) {
+        if (arg == null || arg instanceof Number || arg instanceof Character) {
+            return arg;
+        }
+
+        Class<?> clazz = arg.getClass();
+        java.lang.reflect.Method accessor = ENUM_VALUE_ACCESSORS.computeIfAbsent(clazz, c -> {
+            try {
+                java.lang.reflect.Method m = c.getMethod("getValue");
+                Class<?> rt = m.getReturnType();
+                // Enum backing fields erode to Java primitives (int/long/short/byte) as
+                // well as their boxed forms; both are printf-numeric.
+                boolean boxedNumber = Number.class.isAssignableFrom(rt);
+                boolean primitiveNumber = rt.isPrimitive()
+                    && rt != void.class && rt != boolean.class;
+                if (m.getParameterCount() == 0 && (boxedNumber || primitiveNumber)) {
+                    return m;
+                }
+            } catch (NoSuchMethodException ignored) {
+                // Not a cs2j enum class.
+            }
+            return null;
+        });
+
+        if (accessor != null) {
+            try {
+                return accessor.invoke(arg);
+            } catch (Exception ignored) {
+                // Fall through and let printf report the conversion problem.
+            }
+        }
+
+        return arg;
     }
 
     private static void appendConcatValue(StringBuilder builder, Object value) {

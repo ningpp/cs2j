@@ -340,7 +340,8 @@ internal static class EnumDeclarationSynthesizer
                 $"{{ return {(zeroName != null ? SymbolDisplay.FormatLiteral(zeroName, true) : "\"0\"")}; }}");
             sb.AppendLine("        ulong rest = (ulong)" + bf + ";");
             sb.AppendLine("        System.Text.StringBuilder sb = new System.Text.StringBuilder();");
-            // .NET flags 名按位值降序分解（声明顺序通常即数值序，按数值降序与运行时一致）。
+            // .NET InternalFlagsFormat：按位值降序消耗（确保复合成员先于其子位被命中），
+            // 每命中一个成员就前插其名称，最终输出即与运行时一致的位值升序 "A, B"。
             foreach (var m in plan.Members.Where(m => m.Bits != 0)
                          .GroupBy(m => m.Bits).Select(g => g.First())
                          .OrderByDescending(m => m.Bits))
@@ -348,7 +349,7 @@ internal static class EnumDeclarationSynthesizer
                 var bits = m.Bits.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 var nameLit = SymbolDisplay.FormatLiteral(m.Name, true);
                 sb.AppendLine($"        if ((rest & {bits}UL) == {bits}UL) " +
-                    $"{{ if (sb.Length > 0) {{ sb.Append(\", \"); }} sb.Append({nameLit}); " +
+                    $"{{ sb.Insert(0, sb.Length > 0 ? {nameLit} + \", \" : {nameLit}); " +
                     "rest &= ~" + bits + "UL; }");
             }
             sb.AppendLine("        if (rest != 0UL || sb.Length == 0) { return \"\" + " + bf + "; }");

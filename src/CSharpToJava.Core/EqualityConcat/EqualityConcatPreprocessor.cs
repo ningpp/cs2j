@@ -177,10 +177,16 @@ public sealed class EqualityConcatPreprocessor
             var visited = (BinaryExpressionSyntax)base.VisitBinaryExpression(node)!;
             RememberVisited(node, visited);
 
+            // 候选词过滤必须在分类之前对“有无语义模型”一视同仁：&&/|| 是条件逻辑
+            // 运算符（没有可绑定的 operator method）、?? 是 CoalesceOperation，
+            // 其余算术/位运算符也不归本 pass；内层 ==/!=/+ 已由 base.Visit 独立
+            // 访问并改写，外层短路节点直接透传即可（修复短路式比较被误判
+            // CS2J0470 Unknown 的问题）。
+            if (!IsCandidateToken(node.OperatorToken.Kind()))
+                return visited;
+
             if (_model == null)
             {
-                if (!IsCandidateToken(node.OperatorToken.Kind()))
-                    return visited;
                 EmitSite(node, new EqualityConcatDiagnostic(
                     EqualityConcatSeverity.Error,
                     EqualityConcatDiagnosticCode.CS2J0470,

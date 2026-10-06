@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.ClosedMetadata;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.LinqRewrite;
 using CSharpToJava.Core.PartialType;
@@ -383,6 +384,16 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
     /// </summary>
     private const string TestUiCultureShimFileName = "Cs2jTestUiCultureShim.cs";
 
+    /// <summary>
+    /// C30 generates <c>_Cs2jClosedTypes.&lt;Project&gt;.cs</c> registration files. Until the
+    /// C30 M4 consumer linker rewrites typeof sites to consume the registry, the generated
+    /// bootstrap class is dead code on the Java side, and its Dictionary/ContainsKey/Add body
+    /// does not survive the project text visitor (java.util.Dictionary is abstract). Skip its
+    /// Java emission; the file stays in the C# intermediate tree and its residual gate intact.
+    /// </summary>
+    private const string ClosedTypesRegistrationFilePrefix =
+        ClosedMetadataRegistrationGenerator.GeneratedFileStem + ".";
+
     private readonly IReadOnlyList<Java.JavaSyntaxRewriter> _irRewriters;
 
     public ProjectTypeEmitPass(IReadOnlyList<Java.JavaSyntaxRewriter> irRewriters)
@@ -412,6 +423,14 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
             // The culture shim has no Java equivalent — see TestUiCultureShimFileName.
             if (candidatePaths.Any(path =>
                     path.EndsWith(TestUiCultureShimFileName, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            // C30 M3 generated registration file — Java consumption lands with M4.
+            if (candidatePaths.Any(path =>
+                    Path.GetFileName(path).StartsWith(
+                        ClosedTypesRegistrationFilePrefix, StringComparison.OrdinalIgnoreCase)))
             {
                 continue;
             }

@@ -148,6 +148,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
 
                 var receiver = TransformReceiverToIR(memberAccess.Expression, context);
+                var receiverText = receiver.ToInlineString();
+                var argumentText = string.Join(", ", arguments.Select(a => a.ToInlineString()));
+
+                // Semantic precision overrides before the arity-based method mapping.
+                if (TryRenderStringComparisonEquals(invocation, memberAccess, receiverText, argumentText, context, out var equalsCall))
+                {
+                    return new JavaRawExpression(equalsCall);
+                }
+
+                if (TryRenderStringCharSplit(invocation, memberAccess, receiverText, context, out var splitCall))
+                {
+                    return new JavaRawExpression(splitCall);
+                }
+
                 var (mappedName, isStatic) =
                     TryResolveMappedName(invocation, memberAccess.Name.Identifier.Text, context);
 
@@ -156,11 +170,29 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 if (mappedName != null)
                 {
                     ApplyMappedName(call, mappedName, isStatic, receiver);
+                    foreach (var argument in arguments)
+                        call.Arguments.Add(argument);
+                    return call;
                 }
-                else
+
+                var methodSymbol = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+
+                // Primitive instance calls: Java primitives cannot be dereferenced.
+                if (methodSymbol != null
+                    && TryRenderPrimitiveInstanceCall(
+                        methodSymbol, memberAccess.Expression, receiverText, originalName, context, out var primInstanceCall))
                 {
-                    call.MethodName = ToCamelCase(memberAccess.Name.Identifier.Text);
+                    return new JavaRawExpression(primInstanceCall);
                 }
+
+                // Static calls on explicitly type-mapped receivers (Cs2jUnsigned.UnsignedMath.*).
+                if (isStatic && methodSymbol != null
+                    && TryRenderMappedStaticTypeReceiver(methodSymbol, originalName, argumentText, context, out var mappedStaticCall))
+                {
+                    return new JavaRawExpression(mappedStaticCall);
+                }
+
+                call.MethodName = WellKnownMethodName(memberAccess.Name.Identifier.Text);
 
                 foreach (var argument in arguments)
                     call.Arguments.Add(argument);
@@ -209,11 +241,28 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var originalName = memberAccess.Name.Identifier.Text;
 
                 // C# primitive type qualifier — Java forbids using a primitive keyword as a
-                // type name, so double.IsNaN(x) must become Double.isNaN(x).
+                // type name, so double.IsNaN(x) must become Double.isNaN(x). The unsigned
+                // pass rewrites ulong.TryParse to System.UInt64.TryParse (qualified name),
+                // so special types written as qualified names are recognized here too.
                 if (TryRenderPrimitiveStaticCall(memberAccess, originalName, context, arguments, out var primCall))
                     return primCall;
 
                 var receiver = TransformReceiver(memberAccess.Expression, context);
+
+                // Semantic precision overrides run BEFORE the arity-based method mapping:
+                // string.Equals(other, StringComparison) shares arity with the static
+                // object.Equals pair and would otherwise be swallowed by Objects.equals.
+                if (TryRenderStringComparisonEquals(node, memberAccess, receiver, arguments, context, out var equalsCall))
+                {
+                    return equalsCall;
+                }
+
+                // string.Split(',') / Split(',', ';') → StringHelper.split(s, new char[]{...})
+                if (TryRenderStringCharSplit(node, memberAccess, receiver, context, out var splitCall))
+                {
+                    return splitCall;
+                }
+
                 var (mappedName, isStatic) = TryResolveMappedName(node, originalName, context);
 
                 if (mappedName != null)
@@ -221,7 +270,26 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return RenderMappedCall(mappedName, isStatic, receiver, arguments);
                 }
 
-                return $"{receiver}.{AccessorOrCamelName(originalName)}({arguments})";
+                // Primitive instance calls: Java primitives cannot be dereferenced.
+                // _value.GetHashCode() (long/int/...) → Long.hashCode(_value).
+                if (context.GetSymbolInfo(node).Symbol is IMethodSymbol memberMethod
+                    && TryRenderPrimitiveInstanceCall(
+                        memberMethod, memberAccess.Expression, receiver, originalName, context, out var primInstanceCall))
+                {
+                    return primInstanceCall;
+                }
+
+                // Static calls whose receiver type has an explicit type mapping but whose
+                // method has no method mapping (e.g. Cs2jUnsigned.UnsignedMath.AndUInt64):
+                // the type mapping only fires at type-reference positions, so expression
+                // positions must honor it here — UnsignedMath.andUInt64(...) + import.
+                if (isStatic && context.GetSymbolInfo(node).Symbol is IMethodSymbol staticMethod
+                    && TryRenderMappedStaticTypeReceiver(staticMethod, originalName, arguments, context, out var mappedStaticCall))
+                {
+                    return mappedStaticCall;
+                }
+
+                return $"{receiver}.{WellKnownMethodName(originalName)}({arguments})";
             }
 
             // CallMethod(arg1, arg2) → callMethod(arg1, arg2)
@@ -321,14 +389,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // resolve through the System.Object method-mapping entries (Objects.equals /
         // ObjectHelper.referenceEquals); the generic primitive path would render non-existent
         // static Object.equals/referenceEquals methods instead.
-        if (memberAccess.Expression is not PredefinedTypeSyntax primTypeSyntax
-            || primTypeSyntax.Keyword.Text == "string"
-            || primTypeSyntax.Keyword.Text == "object")
+        var keyword = TryGetPrimitiveKeyword(memberAccess.Expression, context);
+        if (keyword is null or "string" or "object")
         {
             return false;
         }
-
-        var keyword = primTypeSyntax.Keyword.Text;
         var argumentCount = memberAccess.Parent is InvocationExpressionSyntax invocation
             ? invocation.ArgumentList.Arguments.Count
             : 0;
@@ -399,7 +464,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // byte maps to Java int, but Parse lives on Byte (Byte.parseByte).
         var boxedReceiver = keyword == "byte" && originalMethodName == "Parse"
             ? "Byte"
-            : primTypeSyntax.Keyword.Text switch
+            : keyword switch
             {
                 "bool" => "Boolean",
                 "int" => "Integer",
@@ -410,12 +475,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 "char" => "Character",
                 "short" => "Short",
                 "byte" => "Integer",
+                "sbyte" => "Byte",
                 "uint" => "Integer",
                 "ulong" => "Long",
                 "ushort" => "Short",
                 "string" => "String",
                 "object" => "Object",
-                _ => primTypeSyntax.Keyword.Text
+                _ => keyword
             };
         var mappedMethod = MapPrimitiveStaticMethodName(keyword, originalMethodName);
 
@@ -431,6 +497,250 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             ? $"new String({boxedReceiver}.{mappedMethod}({arguments}))"
             : $"{boxedReceiver}.{mappedMethod}({arguments})";
         return true;
+    }
+
+    /// <summary>
+    /// Resolves the primitive keyword of a static type qualifier: a C# predefined
+    /// keyword (<c>ulong</c>) or a qualified special type name (<c>System.UInt64</c>,
+    /// emitted by the unsigned pass). Returns null for non-primitive type qualifiers.
+    /// </summary>
+    private static string? TryGetPrimitiveKeyword(ExpressionSyntax expression, ConversionContext context)
+    {
+        if (expression is PredefinedTypeSyntax predefined)
+        {
+            return predefined.Keyword.Text;
+        }
+
+        if (context.SemanticModel != null
+            && context.GetSymbolInfo(expression).Symbol is INamedTypeSymbol namedType)
+        {
+            return namedType.SpecialType switch
+            {
+                SpecialType.System_Boolean => "bool",
+                SpecialType.System_Byte => "byte",
+                SpecialType.System_SByte => "sbyte",
+                SpecialType.System_Int16 => "short",
+                SpecialType.System_UInt16 => "ushort",
+                SpecialType.System_Char => "char",
+                SpecialType.System_Int32 => "int",
+                SpecialType.System_UInt32 => "uint",
+                SpecialType.System_Int64 => "long",
+                SpecialType.System_UInt64 => "ulong",
+                SpecialType.System_Single => "float",
+                SpecialType.System_Double => "double",
+                SpecialType.System_Decimal => "decimal",
+                _ => null
+            };
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Java boxed type name for a primitive receiver, matching the converter's
+    /// primitive erasure (C# <c>byte</c> → Java <c>int</c> → Integer, C# <c>sbyte</c>
+    /// → Java byte → Byte; <c>ushort</c> → Short). Null for non-primitive types.
+    /// </summary>
+    private static string? TryGetBoxedPrimitiveName(ITypeSymbol? type) => type?.SpecialType switch
+    {
+        SpecialType.System_Boolean => "Boolean",
+        SpecialType.System_Byte => "Integer",
+        SpecialType.System_SByte => "Byte",
+        SpecialType.System_Int16 => "Short",
+        SpecialType.System_UInt16 => "Short",
+        SpecialType.System_Char => "Character",
+        SpecialType.System_Int32 => "Integer",
+        SpecialType.System_UInt32 => "Integer",
+        SpecialType.System_Int64 => "Long",
+        SpecialType.System_UInt64 => "Long",
+        SpecialType.System_Single => "Float",
+        SpecialType.System_Double => "Double",
+        _ => null
+    };
+
+    /// <summary>
+    /// Instance calls on primitive receivers cannot dereference in Java:
+    /// <c>long v; v.GetHashCode()</c> → <c>Long.hashCode(v)</c>,
+    /// <c>v.ToString()</c> → <c>Long.toString(v)</c>.
+    /// </summary>
+    private static bool TryRenderPrimitiveInstanceCall(
+        IMethodSymbol method,
+        ExpressionSyntax receiverExpression,
+        string receiver,
+        string originalMethodName,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+
+        if (method.IsStatic)
+        {
+            return false;
+        }
+
+        var boxed = TryGetBoxedPrimitiveName(context.GetTypeInfo(receiverExpression).Type);
+        if (boxed == null)
+        {
+            return false;
+        }
+
+        if (originalMethodName == "GetHashCode")
+        {
+            rendered = $"{boxed}.hashCode({receiver})";
+            return true;
+        }
+
+        if (originalMethodName == "ToString" && method.Parameters.Length == 0)
+        {
+            rendered = $"{boxed}.toString({receiver})";
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// <c>s.Equals(other, StringComparison.OrdinalIgnoreCase)</c> and the static
+    /// <c>string.Equals(a, b, comparison)</c> → <c>StringHelper.equals(...)</c>.
+    /// The arity-only method mapping cannot tell the 2-parameter instance overload
+    /// (string, StringComparison) apart from the 2-parameter static object.Equals
+    /// shape, so the parameter type is resolved semantically here.
+    /// </summary>
+    private static bool TryRenderStringComparisonEquals(
+        InvocationExpressionSyntax invocation,
+        MemberAccessExpressionSyntax memberAccess,
+        string receiver,
+        string arguments,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+
+        if (context.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+            || method.ContainingType.SpecialType != SpecialType.System_String
+            || memberAccess.Name.Identifier.Text != "Equals"
+            || !method.Parameters.Any(p => p.Type.ToDisplayString() == "System.StringComparison"))
+        {
+            return false;
+        }
+
+        context.AddImport("io.github.ningpp.compat.StringHelper");
+        rendered = method.IsStatic
+            ? $"StringHelper.equals({arguments})"
+            : (string.IsNullOrEmpty(arguments)
+                ? $"StringHelper.equals({receiver})"
+                : $"StringHelper.equals({receiver}, {arguments})");
+        return true;
+    }
+
+    /// <summary>
+    /// <c>s.Split(',')</c>/<c>s.Split(',', ';')</c> (char or params char[] overloads) →
+    /// <c>StringHelper.split(s, new char[]{...})</c>. Java's String.split takes a regex
+    /// String, so a char literal argument must not pass through the default mapping.
+    /// Only the all-char-argument overloads are handled here; char[] variables and
+    /// StringSplitOptions keep their existing conversion.
+    /// </summary>
+    private static bool TryRenderStringCharSplit(
+        InvocationExpressionSyntax invocation,
+        MemberAccessExpressionSyntax memberAccess,
+        string receiver,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+
+        var args = invocation.ArgumentList.Arguments;
+        if (context.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+            || memberAccess.Name.Identifier.Text != "Split"
+            || method.ContainingType.SpecialType != SpecialType.System_String
+            || args.Count == 0
+            || context.SemanticModel == null)
+        {
+            return false;
+        }
+
+        var charArgs = new List<string>();
+        foreach (var arg in args)
+        {
+            if (context.GetTypeInfo(arg.Expression).Type?.SpecialType != SpecialType.System_Char)
+            {
+                return false;
+            }
+
+            charArgs.Add(ExpressionTransformerFacade.Instance.Transform(arg.Expression, context));
+        }
+
+        context.AddImport("io.github.ningpp.compat.StringHelper");
+        rendered = $"StringHelper.split({receiver}, new char[]{{{string.Join(", ", charArgs)}}})";
+        return true;
+    }
+
+    /// <summary>
+    /// Static calls whose containing type has an explicit TypeMappings.json type
+    /// mapping but whose method has no method-mapping entry: type mappings only fire
+    /// at type-reference positions, so expression-position receivers must be rewritten
+    /// here (<c>Cs2jUnsigned.UnsignedMath.AndUInt64(a, b)</c> →
+    /// <c>UnsignedMath.andUInt64(a, b)</c> + the mapped import).
+    /// </summary>
+    private static bool TryRenderMappedStaticTypeReceiver(
+        IMethodSymbol method,
+        string originalMethodName,
+        string arguments,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+
+        if (!method.IsStatic || method.ContainingType is not INamedTypeSymbol containingType)
+        {
+            return false;
+        }
+
+        var display = containingType.ToDisplayString();
+        var fqn = $"{containingType.ContainingNamespace}.{containingType.Name}";
+
+        string? mappedType = null;
+        var configKey = context.TypeMappings.HasTypeMapping(display) ? display
+            : context.TypeMappings.HasTypeMapping(fqn) ? fqn
+            : null;
+        if (configKey == null)
+        {
+            return false;
+        }
+
+        mappedType = context.TypeMappings.MapType(configKey);
+        foreach (var import in context.TypeMappings.GetRequiredImports(configKey))
+        {
+            context.AddImport(import);
+        }
+
+        rendered = $"{mappedType}.{WellKnownMethodName(originalMethodName)}({arguments})";
+        return true;
+    }
+
+    /// <summary>
+    /// Well-known C# → Java instance method renames shared with the declaration side
+    /// (MethodTransformer.JavaName) and the null-conditional binder
+    /// (ExpressionTransformerFacade): GetHashCode → hashCode, GetType → getClass,
+    /// GetEnumerator → iterator, Dispose → close, ToLower/Invariant → toLowerCase,
+    /// ToUpper/Invariant → toUpperCase. Everything else gets get_/set_ stripping
+    /// (member-desugar accessors) followed by ordinary camel-casing.
+    /// </summary>
+    private static string WellKnownMethodName(string name)
+    {
+        var renamed = name switch
+        {
+            "GetHashCode" => "hashCode",
+            "GetEnumerator" => "iterator",
+            "GetType" => "getClass",
+            "Dispose" => "close",
+            "ToLower" or "ToLowerInvariant" => "toLowerCase",
+            "ToUpper" or "ToUpperInvariant" => "toUpperCase",
+            _ when name.StartsWith("get_") || name.StartsWith("set_")
+                => char.ToUpperInvariant(name[4]) + name[5..],
+            _ => name.Length > 0 ? char.ToLowerInvariant(name[0]) + name[1..] : name
+        };
+        return ConversionContext.EscapeJavaKeyword(renamed);
     }
 
     /// <summary>

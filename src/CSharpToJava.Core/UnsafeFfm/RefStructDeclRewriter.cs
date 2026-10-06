@@ -49,6 +49,11 @@ internal sealed class RefStructDeclRewriter : CSharpSyntaxRewriter
         var symbol = original == null ? null : _model.GetDeclaredSymbol(original);
         if (symbol is not { IsRefLikeType: true }) return visited;
         if (IsWhitelistedSpan(symbol)) return visited;
+        // C01 释放的 ref-out-in 支撑库（Cs2jByRef.RefStructByRef/ScopedByRef/
+        // ReadOnlyScopedByRef）是有意随预构建 Java compat 发布的 holder，
+        // TypeMappings 已逐个映射到 io.github.ningpp.compat.*，不是用户 ref struct。
+        if (symbol.ContainingNamespace?.ToDisplayString() == "Cs2jByRef")
+            return visited;
 
         AddError(
             $"ref struct '{symbol.Name}' is a stack-only, non-boxable type; Java has no equivalent " +

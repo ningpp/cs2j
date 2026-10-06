@@ -79,9 +79,13 @@ public sealed class EnumDeclarationPreprocessor
         }
 
         // 使用点改写（跳过 enum 声明子树），再整体替换声明。
-        var afterUseSites = (CompilationUnitSyntax)new EnumUseSiteRewriter(
+        var useSiteRewriter = new EnumUseSiteRewriter(
             semanticModel, _analysis.Plans
-                .Where(p => p.Feasible && !_excludedPlanIds.Contains(p.Id))).Visit(root)!;
+                .Where(p => p.Feasible && !_excludedPlanIds.Contains(p.Id)));
+        var afterUseSitesNoTemps = (CompilationUnitSyntax)useSiteRewriter.Visit(root)!;
+        // switch/is 判定登记的单次求值临时变量在此统一插入声明锚点。
+        var afterUseSites = EnumUseSiteRewriter.ApplyHoistedTemps(
+            afterUseSitesNoTemps, useSiteRewriter.PendingTemps);
         var declarationRewriter = new EnumDeclarationRewriter(activePlans);
         var newRoot = (CompilationUnitSyntax)declarationRewriter
             .RewriteFileTree(afterUseSites, filePath)!;

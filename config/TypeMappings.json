@@ -6487,7 +6487,7 @@
         {
             "type": "System.String",
             "method": "Format",
-            "javaMethod": "format"
+            "javaMethod": "StringHelper.formatCs"
         },
         {
             "type": "System.String",
