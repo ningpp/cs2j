@@ -110,7 +110,8 @@ class ByRefTest {
         ByRef<Integer> a = ByRef.create(span, 0);
         a.setValue(10);
         assertEquals(10, span.get(0).intValue());
-        span.set(1, 20);
+        // span-side write to the aliased element (0) is visible through the proxy
+        span.set(0, 20);
         assertEquals(20, a.getValue() == null ? null : a.getValue().intValue());
 
         // two proxies on the same span element stay aliased
