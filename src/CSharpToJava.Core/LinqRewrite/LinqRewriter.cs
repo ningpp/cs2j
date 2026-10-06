@@ -1467,8 +1467,10 @@ namespace CSharpToJava.Core.LinqRewrite
                         }).Concat(postLoopStatements).Concat(epilogue)))
                         .WithStatic(currentMethodIsStatic)
                         .WithTypeParameterList(currentMethodTypeParameters)
-                        .WithConstraintClauses(currentMethodConstraintClauses)
-                        .NormalizeWhitespace();
+                        .WithConstraintClauses(currentMethodConstraintClauses);
+            // C26 M4: SafeNormalizeWhitespace —— 不能直接 NormalizeWhitespace，
+            // 否则方法体内（来自用户 lambda 的）插值字符串会被 Roslyn 规范化器改写。
+            coreFunction = (MethodDeclarationSyntax)SafeNormalizeWhitespace(coreFunction);
             methodsToAddToCurrentType.Add(Tuple.Create(currentType, coreFunction));
 
             // CSharpDictionary already implements CSharpGenericIterable<CSharpKeyValuePair<K,V>>,
@@ -1646,10 +1648,59 @@ namespace CSharpToJava.Core.LinqRewrite
                 var withMethods = changed is ClassDeclarationSyntax ? (TypeDeclarationSyntax)((ClassDeclarationSyntax)changed).AddMembers(newmembers) : ((StructDeclarationSyntax)changed).AddMembers(newmembers);
                 methodsToAddToCurrentType.RemoveAll(x => x.Item1 == currentType);
                 currentType = old;
-                return withMethods.NormalizeWhitespace();
+                return SafeNormalizeWhitespace(withMethods);
             }
             currentType = old;
             return changed;
+        }
+
+        /// <summary>
+        /// Roslyn 的 <see cref="SyntaxNode.NormalizeWhitespace"/> 会破坏插值字符串：
+        /// verbatim 插值串首段文本以转义引号（""）开头时会被插入一个前导空格，
+        /// 普通插值串含转义引号时甚至会被拆碎成非法令牌，属于 Roslyn 规范化器的
+        /// 已知怪癖（最小复现：<c>@$"""{x}"""</c> 经 NormalizeWhitespace 后变成
+        /// <c>@$" ""{x}"""</c>）。LINQ 改写会规范化包含用户既有方法与 lambda 片段
+        /// 的整个类型声明，因此在规范化前用占位标识符把最外层插值串整体保护起来，
+        /// 规范化后再原样还原（保留规范化在该位置产生的空白 trivia）。
+        /// </summary>
+        private static SyntaxNode SafeNormalizeWhitespace(SyntaxNode node)
+        {
+            // 只保护最外层插值串；嵌套插值串随外层一起置换。
+            var interpolations = node.DescendantNodesAndSelf()
+                .OfType<InterpolatedStringExpressionSyntax>()
+                .Where(n => n.Parent is not InterpolatedStringExpressionSyntax)
+                .ToList();
+            if (interpolations.Count == 0)
+            {
+                return node.NormalizeWhitespace();
+            }
+
+            var nameByOriginal = new Dictionary<InterpolatedStringExpressionSyntax, string>(ReferenceEqualityComparer.Instance);
+            var originalByName = new Dictionary<string, InterpolatedStringExpressionSyntax>(StringComparer.Ordinal);
+            for (int i = 0; i < interpolations.Count; i++)
+            {
+                string placeholder = "__cs2j_interp_" + i + "__";
+                nameByOriginal.Add(interpolations[i], placeholder);
+                originalByName.Add(placeholder, interpolations[i]);
+            }
+
+            var protectedNode = node.ReplaceNodes(interpolations, (original, _) =>
+                SyntaxFactory.IdentifierName(nameByOriginal[original]));
+
+            var normalized = protectedNode.NormalizeWhitespace();
+
+            var placeholders = normalized.DescendantNodes()
+                .OfType<IdentifierNameSyntax>()
+                .Where(id => originalByName.ContainsKey(id.Identifier.Text))
+                .ToList();
+
+            return normalized.ReplaceNodes(placeholders, (id, _) =>
+            {
+                var original = originalByName[id.Identifier.Text];
+                return original
+                    .WithLeadingTrivia(id.GetLeadingTrivia())
+                    .WithTrailingTrivia(id.GetTrailingTrivia());
+            });
         }
 
         public override SyntaxNode VisitForEachStatement(ForEachStatementSyntax node)
@@ -1727,8 +1778,9 @@ namespace CSharpToJava.Core.LinqRewrite
                                 .WithBody(body as BlockSyntax ?? (body is StatementSyntax ? SyntaxFactory.Block((StatementSyntax)body) : SyntaxFactory.Block(SyntaxFactory.ReturnStatement((ExpressionSyntax)body))))
                                 .WithStatic(currentMethodIsStatic)
                                 .WithTypeParameterList(currentMethodTypeParameters)
-                                .WithConstraintClauses(currentMethodConstraintClauses)
-                                .NormalizeWhitespace();
+                                .WithConstraintClauses(currentMethodConstraintClauses);
+                // C26 M4：插值串安全规范化，理由同 SafeNormalizeWhitespace 注释。
+                method = (MethodDeclarationSyntax)SafeNormalizeWhitespace(method);
 
                 methodsToAddToCurrentType.Add(Tuple.Create(currentType, method));
 
