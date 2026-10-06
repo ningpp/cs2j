@@ -760,8 +760,13 @@ public class Program
         var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
         WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
-        if (opts.LinqReport)
+        if (opts.LinqReport
+            && !TryWriteChannelLinqReport(
+                opts.Destination, opts.EnabledPassIntermediateDirectoryNames, outputSession))
+        {
+            // 通道不在场（--disable-pass linq-channel）：回退嵌入式 E16 统计报告。
             WriteLinqReport(opts.Destination, workspaceLinqStatistics, outputSession);
+        }
         await outputSession.SaveAsync();
 
         Console.WriteLine();
@@ -944,8 +949,13 @@ public class Program
         var passProfileSnapshot = await WritePassProfileSnapshot(opts.Destination, passProfileEntries, outputSession);
         await WriteCanarySummarySnapshot(opts.Destination, opts.Source, canaryResults, passProfileSnapshot, outputSession);
         WriteInputFingerprintSnapshot(opts.Destination, inputFingerprintSnapshot, outputSession);
-        if (opts.LinqReport)
+        if (opts.LinqReport
+            && !TryWriteChannelLinqReport(
+                opts.Destination, opts.EnabledPassIntermediateDirectoryNames, outputSession))
+        {
+            // 通道不在场（--disable-pass linq-channel）：回退嵌入式 E16 统计报告。
             WriteLinqReport(opts.Destination, projectGraphLinqStatistics, outputSession);
+        }
         await outputSession.SaveAsync();
 
         Console.WriteLine();
@@ -1461,6 +1471,43 @@ public class Program
         var serializer = new InputFingerprintSnapshotJsonSerializer();
         var snapshotPath = Path.Combine(destinationRoot, InputFingerprintSnapshot.FileName);
         outputSession.WriteTextFile(snapshotPath, serializer.Serialize(snapshot), OutputIncrementalEntryKind.InputFingerprint);
+    }
+
+    /// <summary>
+    /// C26 M4-c / 设计 §5.2：linq-channel 翻默认开后，convert-project 的 LINQ
+    /// 统计只来自通道中间根的 schema v2 报告（下游嵌入式 E16 已被 §5.3 抑制）。
+    /// 通道在场时把其中间报告原样复制为目标根 <c>cs2j-linq-report.json</c>
+    /// （schemaVersion 2 是旧字段的超集，老消费者按旧字段读取不碎）；通道不在场
+    /// （<c>--disable-pass linq-channel</c>）时返回 false，由调用方回退到
+    /// 嵌入式 E16 统计写法（kill-switch 语义，与 C26 之前逐字节一致）。
+    /// </summary>
+    private static bool TryWriteChannelLinqReport(
+        string destinationRoot,
+        IReadOnlySet<string>? executedIntermediateDirectoryNames,
+        OutputIncrementalWriteSession outputSession)
+    {
+        if (executedIntermediateDirectoryNames is null
+            || !executedIntermediateDirectoryNames.Contains(
+                CSharpToJava.CLI.Preprocessing.Adapters.LinqChannelPassAdapter.IntermediateDirectoryName))
+        {
+            return false;
+        }
+
+        var channelReportPath = Path.Combine(
+            destinationRoot,
+            CSharpToJava.CLI.Preprocessing.Adapters.LinqChannelPassAdapter.IntermediateDirectoryName,
+            CSharpToJava.CLI.Preprocessing.Adapters.LinqChannelPassAdapter.ReportFileName);
+        if (!File.Exists(channelReportPath))
+        {
+            return false;
+        }
+
+        var json = File.ReadAllText(channelReportPath);
+        outputSession.WriteTextFile(
+            Path.Combine(destinationRoot, "cs2j-linq-report.json"),
+            json,
+            OutputIncrementalEntryKind.Report);
+        return true;
     }
 
     private static void WriteLinqReport(

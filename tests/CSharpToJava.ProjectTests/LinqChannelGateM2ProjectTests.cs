@@ -20,9 +20,12 @@ namespace CSharpToJava.ProjectTests;
 /// Enumerable chain nested inside a Queryable operator's quoted lambda:
 /// the chain is frozen verbatim (M3: by the quoted-region gate, not just the
 /// outer subtree freeze) and passes Release build verification;</item>
-/// <item>the convert-project CLI double-run wiring end to end: with
-/// --enable-pass linq-channel the Java conversion emits no embedded
-/// cs2j-linq-report.json (E16 stats null), without the channel it does.</item>
+/// <item>the convert-project CLI report wiring end to end (M4-c): with the
+/// channel on, --linq-report copies the schema v2 channel report to the
+/// target root as cs2j-linq-report.json (the embedded E16 stats are null,
+/// but the file is still produced from channel data); with the kill switch
+/// (--disable-pass linq-channel) the embedded E16 pass writes its own
+/// report exactly as before C26.</item>
 /// </list>
 /// The M2 observe-only companion test was removed in M3: the
 /// <c>EnableQueryableGate</c> off-switch no longer exists; the ungated E16
@@ -105,7 +108,7 @@ public sealed class LinqChannelGateM2ProjectTests
     }
 
     [Fact]
-    public async Task ConvertProject_ChannelDoubleRun_SuppressesEmbeddedReport_AndWithoutChannelWritesIt()
+    public async Task ConvertProject_ChannelRun_EmitsSchemaV2TargetReport_AndKillSwitchWritesEmbeddedOne()
     {
         var cli = LocateCli();
         var tempRoot = Path.Combine(Path.GetTempPath(),
@@ -150,7 +153,8 @@ public sealed class LinqChannelGateM2ProjectTests
                 "the channel intermediate tree must be materialized under the destination root");
             var channelReport = Path.Combine(channelIntermediate, ChannelReportFileName);
             Assert.True(File.Exists(channelReport), "channel report missing in intermediate tree");
-            using (var doc = JsonDocument.Parse(await File.ReadAllTextAsync(channelReport)))
+            var channelReportJson = await File.ReadAllTextAsync(channelReport);
+            using (var doc = JsonDocument.Parse(channelReportJson))
             {
                 Assert.Equal(2, doc.RootElement.GetProperty("schemaVersion").GetInt32());
                 Assert.True(
@@ -159,9 +163,19 @@ public sealed class LinqChannelGateM2ProjectTests
                     "the Enumerable chain must be expanded by the channel pass");
             }
 
-            Assert.False(File.Exists(Path.Combine(channelDest, EmbeddedReportFileName)),
-                "§5.3: when the channel ran, embedded E16 rewrite is suppressed, " +
-                "so no cs2j-linq-report.json may be written by the Java conversion");
+            // M4-c (§5.2): the embedded E16 rewriter is still suppressed (its
+            // stats are null), but --linq-report now surfaces the channel's
+            // schema v2 report at the target root under the historical file
+            // name, byte-for-byte identical to the intermediate channel report.
+            var targetReport = Path.Combine(channelDest, EmbeddedReportFileName);
+            Assert.True(File.Exists(targetReport),
+                "M4-c: with the channel on, --linq-report must emit the schema v2 " +
+                "channel report at the target root as cs2j-linq-report.json");
+            Assert.Equal(channelReportJson, await File.ReadAllTextAsync(targetReport));
+            using (var targetDoc = JsonDocument.Parse(await File.ReadAllTextAsync(targetReport)))
+            {
+                Assert.Equal(2, targetDoc.RootElement.GetProperty("schemaVersion").GetInt32());
+            }
             Assert.True(
                 Directory.EnumerateFiles(channelDest, "*.java", SearchOption.AllDirectories).Any(),
                 "Java conversion output must still be produced from the channel intermediate tree");
