@@ -80,11 +80,23 @@ public class Box
 }
 """;
 
+    // 全默认链探针：不能含 dynamic——numeric-boundary 既有 pass 对
+    // 「动态绑定 decimal 运算」发 CS2J5362 Error，与 C25 audit 无关。
+    // 链在否只看 .cs2j-dynamic-desugar-src 与报告是否生成。
+    private const string CleanChainProbeSource = """
+namespace DynamicSample;
+
+public class Box
+{
+    public static int Answer(int a, int b) => a + b;
+}
+""";
+
     private static string ReportPath(string destDir)
         => Path.Combine(destDir, ".cs2j-dynamic-desugar-src", "dynamic-audit-report.json");
 
     [Fact]
-    public async Task ListPasses_ShowsDynamicDesugarImplemented_DefaultOff()
+    public async Task ListPasses_ShowsDynamicDesugarImplemented_AuditDefaultOn()
     {
         var (exit, stdout, _) = await RunCliAsync("preprocess", "--list-passes");
 
@@ -95,9 +107,9 @@ public class Box
             stdout.Split('\n'),
             row => row.TrimStart().StartsWith("dynamic-desugar", StringComparison.Ordinal));
         Assert.Contains("Implemented", line);
-        // Default column renders "off" padded to width; it must not render on.
-        Assert.Contains("off", line);
-        Assert.DoesNotContain(" on ", line);
+        // Default column renders "on" padded to width; it must not render off.
+        Assert.Contains(" on ", line);
+        Assert.DoesNotContain(" off ", line);
         Assert.Contains("eliminate-goto", line);
         Assert.Contains("C25", line);
     }
@@ -154,14 +166,15 @@ public class Box
     }
 
     [Fact]
-    public async Task DefaultOff_DoesNotCreateTheIntermediateTree()
+    public async Task ExplicitOtherPassSelection_DoesNotCreateTheDynamicTree()
     {
         var sourceDir = CreateTempWorkspace("Lib.csproj", ProbeSource);
         var destDir = Path.Combine(sourceDir, "out");
 
         try
         {
-            // A different pass selected explicitly: dynamic-desugar stays off.
+            // A different pass selected explicitly: dynamic-desugar is not in
+            // that one-pass plan even though audit is default-on in the chain.
             var (exit, _, stderr) = await RunCliAsync(
                 "preprocess", "--pass", "conditional",
                 "-s", sourceDir, "-d", destDir);
@@ -170,6 +183,63 @@ public class Box
             Assert.Equal(string.Empty, stderr);
             Assert.False(Directory.Exists(
                 Path.Combine(destDir, ".cs2j-dynamic-desugar-src")));
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task DefaultChain_RunsAudit_AndWritesReport()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", CleanChainProbeSource);
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, stdout, stderr) = await RunCliAsync(
+                "preprocess",
+                "--no-verify-build", "--no-verify-tests",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.True(exit == 0, $"default chain failed:\n{stderr}\n{stdout}");
+            Assert.True(Directory.Exists(
+                Path.Combine(destDir, ".cs2j-dynamic-desugar-src")),
+                "dynamic-desugar audit flipped default-on (2026-10-06) and must run in the default chain");
+            Assert.True(File.Exists(ReportPath(destDir)), "audit report must be written");
+            Assert.Contains("mode=Audit", stdout);
+
+            // Audit never rewrites sources.
+            var copied = await File.ReadAllTextAsync(
+                Path.Combine(destDir, ".cs2j-dynamic-desugar-src", "Class1.cs"));
+            Assert.Equal(await File.ReadAllTextAsync(Path.Combine(sourceDir, "Class1.cs")), copied);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task DisablePass_OptsOutOfAudit()
+    {
+        // 独立工作区：与默认链用例分开，避免上一轮预处理支撑文件残留导致
+        // extension-methods 支撑类重复定义（CS0101/CS0111）。
+        var sourceDir = CreateTempWorkspace("Lib.csproj", CleanChainProbeSource);
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, _, stderr) = await RunCliAsync(
+                "preprocess", "--disable-pass", "dynamic-desugar",
+                "--no-verify-build", "--no-verify-tests",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.True(exit == 0, $"--disable-pass run failed:\n{stderr}");
+            Assert.False(Directory.Exists(
+                Path.Combine(destDir, ".cs2j-dynamic-desugar-src")),
+                "--disable-pass dynamic-desugar must keep audit out of the chain");
         }
         finally
         {

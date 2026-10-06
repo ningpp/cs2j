@@ -628,12 +628,14 @@ internal static class PassCatalog
             ".cs2j-dynamic-desugar-src",
             PassStage.Abi,
             PassStatus.Implemented,
-            // C25 stays default-off long-term (design §3.2 D1): Audit may go
-            // default-on only after the §8 corpus gate, and Rewrite stays
-            // long-term opt-in (it would turn today's silent dynamic->Object
-            // projects red). --enable-pass dynamic-desugar opts in; do NOT
-            // follow the all-preprocessors-default-on policy here.
-            defaultEnabled: false,
+            // C25 AUDIT flipped to DEFAULT-ON on 2026-10-06 after the §8 audit
+            // gates (design §8/§13): audit only copies the tree + emits a
+            // byte-stable report and never rewrites, so the default chain
+            // gains zero behavioral output change (fixture/sdk verified).
+            // REWRITE stays long-term opt-in via --dynamic-mode Rewrite
+            // (gates 6-9 remain open); --disable-pass dynamic-desugar opts
+            // out of audit entirely.
+            defaultEnabled: true,
             // Late ABI-tail pass like platform-isolation: anchors
             // eliminate-goto only. Declared immediately after
             // platform-isolation so the Kahn declaration-order tiebreak

@@ -44,10 +44,11 @@ public sealed class PassStubCatalogTests
     {
         var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.DynamicDesugar);
 
-        // C25 M1 flips the stub to Implemented, but unlike C42 it stays
-        // default-off long-term (design §3.2/§8).
+        // C25 M1 flipped the stub to Implemented; AUDIT was flipped
+        // default-on 2026-10-06 after the §8 audit gates (Rewrite stays
+        // opt-in via --dynamic-mode Rewrite).
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
-        Assert.False(descriptor.DefaultEnabled);
+        Assert.True(descriptor.DefaultEnabled);
         Assert.Equal(".cs2j-dynamic-desugar-src", descriptor.IntermediateDirectoryName);
         Assert.Equal("C25", descriptor.CatalogItems);
         Assert.DoesNotContain(Stubs, stub => stub.Id == PassStubCatalog.Ids.DynamicDesugar);

@@ -12,13 +12,13 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// Locks the registered pass sequence to the historical ConvertProject chain.
 /// The fifteen hand-written blocks were replaced by the registry-driven loop, so
 /// the topological sort must keep producing this exact order. Every implemented
-/// pass is default-on (all-preprocessors-default-on policy) except four
-/// deliberate opt-outs: C25
-/// dynamic-desugar (audit-first), C26 linq-channel (observe-only
+/// pass is default-on (all-preprocessors-default-on policy) except three
+/// deliberate opt-outs: C26 linq-channel (observe-only
 /// gate period), plus the 2026-10-06 P0 rollbacks C20 partial-merge (M3
 /// member-level collapse pending) and C04 iterator-lowering (M2/M3 pending);
 /// the legacy flags survive as --no-xxx negations and --disable-pass remains
-/// the opt-out.
+/// the opt-out. C25 dynamic-desugar AUDIT joined the default chain on
+/// 2026-10-06 (Rewrite stays opt-in via --dynamic-mode Rewrite).
 /// </summary>
 public sealed class PassChainOrderTests
 {
@@ -108,9 +108,8 @@ public sealed class PassChainOrderTests
         // C42 platform-isolation is Implemented; it anchors eliminate-goto and
         // stays before java-keywords (§3.3).
         PassStubCatalog.Ids.PlatformIsolation,
-        // C25 dynamic-desugar is Implemented but default-OFF long-term
-        // (design §3.2/§8), so it is in the locked topological sequence but
-        // excluded from EnabledByDefault below. Declared right after
+        // C25 dynamic-desugar AUDIT flipped to DEFAULT-ON on 2026-10-06
+        // (design §8 audit gates); Rewrite stays opt-in. Declared right after
         // platform-isolation so the Kahn tiebreak locks the tail slot
         // platform-isolation -> dynamic-desugar -> java-keywords.
         PassStubCatalog.Ids.DynamicDesugar,
@@ -119,14 +118,12 @@ public sealed class PassChainOrderTests
 
     // All-preprocessors-default-on policy: every implemented pass is
     // default-enabled; --disable-pass / legacy --no-xxx flags opt out.
-    // Default-on policy exceptions — four deliberate opt-outs:
-    // C25 dynamic-desugar (audit-first, §8 corpus gate), C26 linq-channel
-    // (observe-only gate period), and the 2026-10-06 P0 rollbacks C20
-    // partial-merge (M3 member-level collapse + profile pending) and C04
-    // iterator-lowering (M2/M3 pending).
+    // Default-on policy exceptions — three deliberate opt-outs:
+    // C26 linq-channel (observe-only gate period), and the 2026-10-06 P0
+    // rollbacks C20 partial-merge (M3 member-level collapse + profile
+    // pending) and C04 iterator-lowering (M2/M3 pending).
     private static readonly string[] EnabledByDefault = LockedChain
-        .Where(id => id != PassStubCatalog.Ids.DynamicDesugar
-            && id != PassStubCatalog.Ids.LinqChannel
+        .Where(id => id != PassStubCatalog.Ids.LinqChannel
             && id != PassStubCatalog.Ids.PartialMerge
             && id != PassStubCatalog.Ids.IteratorLowering)
         .ToArray();
@@ -461,7 +458,7 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
-    public void DynamicDesugar_is_Implemented_default_off_and_not_a_stub()
+    public void DynamicDesugar_is_Implemented_audit_default_on_and_not_a_stub()
     {
         var registry = PassCatalog.BuildRegistry();
 
@@ -474,7 +471,7 @@ public sealed class PassChainOrderTests
 
         var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.DynamicDesugar);
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
-        Assert.False(descriptor.DefaultEnabled);
+        Assert.True(descriptor.DefaultEnabled);
         Assert.Equal(".cs2j-dynamic-desugar-src", descriptor.IntermediateDirectoryName);
         Assert.Equal(PassStage.Abi, descriptor.Stage);
         Assert.Equal(new[] { PassIds.EliminateGoto }, descriptor.RunAfterIds);
@@ -484,11 +481,18 @@ public sealed class PassChainOrderTests
         Assert.True(descriptor.VerifyTestsByDefault);
         Assert.Equal("C25", descriptor.CatalogItems);
 
-        // Default-off: absent from the default plan.
+        // Audit flipped default-on (2026-10-06): present in the default plan;
+        // --disable-pass removes it while the rest of the chain stays intact.
         var plan = PassPlanResolver.Resolve(registry);
         Assert.True(plan.IsValid);
-        Assert.DoesNotContain(
+        Assert.Contains(
             plan.Enabled, pass => pass.Id == PassStubCatalog.Ids.DynamicDesugar);
+
+        var optedOut = PassPlanResolver.Resolve(
+            registry, disablePassIds: new[] { PassStubCatalog.Ids.DynamicDesugar });
+        Assert.True(optedOut.IsValid);
+        Assert.DoesNotContain(
+            optedOut.Enabled, pass => pass.Id == PassStubCatalog.Ids.DynamicDesugar);
     }
 
     [Fact]
@@ -539,7 +543,7 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
-    public void ListPasses_shows_dynamic_desugar_implemented_default_off_with_C25_rule()
+    public void ListPasses_shows_dynamic_desugar_implemented_audit_default_on_with_C25_rule()
     {
         var lines = PassListFormatter.BuildLines(PassCatalog.BuildRegistry());
 
@@ -547,8 +551,8 @@ public sealed class PassChainOrderTests
             row.TrimStart().StartsWith(
                 PassStubCatalog.Ids.DynamicDesugar, StringComparison.Ordinal));
         Assert.Contains("Implemented", line);
-        Assert.Contains("off", line);
-        Assert.DoesNotContain(" on ", line);
+        Assert.Contains(" on ", line);
+        Assert.DoesNotContain(" off ", line);
         Assert.Contains(PassIds.EliminateGoto, line);
         Assert.Contains("rules=C25", line);
     }
@@ -756,7 +760,8 @@ public sealed class PassChainOrderTests
         // Legacy flags only exist for the historical implemented passes; stubs and
         // newly flipped registry passes (e.g. generic-deepen, unsafe-ffm,
         // C36 expression-desugar, C29 concurrency-normalize, C42 platform-isolation,
-        // C25 dynamic-desugar, C30 closed-metadata, C21 anonymous-type-lift,
+        // C25 dynamic-desugar/audit-default-on (flipped 2026-10-06; still no
+        // legacy flag), C30 closed-metadata, C21 anonymous-type-lift,
         // C18 async-normalize/default-on, C26 linq-channel/default-off,
         // C20 partial-merge/default-off, C04 iterator-lowering/default-off,
         // C09 thread-static/default-on (flipped 2026-10-06; still no legacy

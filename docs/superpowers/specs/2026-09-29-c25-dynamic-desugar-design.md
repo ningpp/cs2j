@@ -471,3 +471,50 @@ git worktree add .worktrees/preproc-c25-dynamic-desugar -b feature/preproc-c25-d
 5. **catalog 自身状态滞后**：catalog E17（[L261-L269](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L261-L269)）/C08（[L378-L387](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L378-L387)）仍写「缺失/设计待实施」，实际 java-keywords 已 Implemented；C11-C14 对应 catalog 条目状态同样可能滞后。属 catalog 文档维护问题，本次按授权只改本 spec，不替 catalog 改状态，提请 catalog 维护者统一刷新。
 6. **D15「与 C21 同口径」无实现先例**：C21 目前仍是 stub，单文件模式不支持的具体做法应对照已实现的 IteratorLowering/PatternDesugar 适配器，而非 C21 设计稿。
 7. **ExpressionTreeFacts 方法面**：现仅 lambda 谓词；若后续多 pass 需要「任意节点是否位于表达式树内」，是否把「祖先 lambda + 谓词」提升为该类的第二个公共方法（而非各 pass 自走祖先），在首个消费方出现时决定。
+
+---
+
+## 14. 实施校注与 §8 audit 五门证据（2026-10-06 翻转）
+
+### 14.1 决策
+
+**Audit 模式翻为默认开；Rewrite 保持长期 opt-in。** audit 只做整树复制 + Warning/Info 诊断 + JSON 报告，不改写任何源文件（fixture/语料均验证中间树逐字节等于输入），进默认链对产物零行为变化；rewrite 门 6-9 未满足（EF Core 动态面未补扫、转换器静默路径退役未评审），继续仅由 `--dynamic-mode Rewrite` 显式到达。翻转点 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) C25 描述符 `defaultEnabled: true`（2026-10-06）；`--disable-pass dynamic-desugar` 可整体摘除 audit。
+
+### 14.2 §8 audit 五门证据（先跑后填，不杜撰）
+
+**门 2（csharp-sdk 样本补扫，2026-10-06，Debug dll，工作区 `%TEMP%\c25-gate\out1`，21 工程树，exit 0，28.4s）**：
+
+- 汇总行 `18 site(s) (0 proven, 0 unprovable, 0 manifest-suppressed), 0 residual; mode=Audit`；stderr 18 条 DS Warning、**0 error**。
+- 报告 `dynamic-audit-report.json`：扫描 4 个命中文件、**18 站点全部 kind=jsonDynamic/code=DS017**，其余 12 kind 全 0；声明分类 0、可证 0、不可证 0、residual 0。
+- 分布（人审逐处事实正确，抽 JsonDocumentTests L128/L557、CustomConverterTests.Object L517、TrimmingTests ICollection L17）：
+
+  | 文件 | 站点 | 形状 |
+  |---|---:|---|
+  | json/tests/JsonDocumentTests.cs | 6 | `Newtonsoft.Json.Linq.JToken` 动态接收 |
+  | json/tests/JsonTestHelper.cs | 1 | JToken 动态接收 |
+  | json/tests/Serialization/CustomConverterTests/CustomConverterTests.Object.cs | 10 | `JsonConvert.DeserializeObject<object>(...)`（L517-622） |
+  | json/tests/TrimmingTests/Collections/ICollection.cs | 1 | STJ `JsonSerializer.Deserialize(json, typeof(ICollection<>))`（L17，boundSymbol 空，走未解析引用保守配方） |
+
+  噪声量：每站点一行 Warning，不重复刷屏，真实大仓可接受。
+
+**门 3（复制耗时 / 字节稳定，out2、out2b 两轮独立输出目录）**：两轮各 28.4s/28.3s；两份报告 SHA256 **完全一致** `DE76762F2A58A3E5C43F352EE5510BB3A2B3E5F692B1E7BEF75BE8CA4B3D7D44`；audit 不 restore/verify，额外成本仅一次 clean 树复制（R8 实测可接受）。同目录指纹复用沿用各 pass 共享的 preserve spine，指纹键含 pass 名与选项，翻转不改该机制。
+
+**门 4（DS010 误报抽检）**：样本 **0 个 DS010**（无可证/不可证声明分类站点），无需抽检；保守拒绝路径在本语料未触发，无假阳记账项。
+
+**门 5（DS017/018/019 人工结论与统一配方）**：18 站点全 DS017，消息配方统一（JToken/DeserializeObject/STJ 三形各有固定「人工评估、不等价改写」文案，未解析引用的 STJ 站点按 R11 标注「未解析引用，请人工确认」）；**无 DS018/DS019，无 unknown 兜底**。
+
+**门 1（三工程 build/test，红灯不扩大）**：
+
+- Debug 全量（翻转后，2026-10-06）：Tests **3429 passed / 0 failed / 3 skipped**；C25 家族 ProjectTests 10/10（DynamicDesugarCLITests 5 含新增默认链 audit/摘除两事实、DynamicDesugarSolutionProjectTests 5）。
+- Release 全量（最终统一回归）：见本节末「最终 Release 回填」（收尾提交补填；口径：Tests/ConversionTests/ProjectTests 红灯集不扩大，audit 只发 Warning 不阻断）。
+
+### 14.3 配套改动
+
+- 链序断言 [PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs)：排除集去掉 dynamic-desugar（默认关例外四→三：linq-channel/partial-merge/iterator-lowering），LockedChain 注释、legacy toggle 注释、list-passes 与描述符事实改为 audit 默认开。
+- [PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs) / [ProjectPreprocessorsConsistentTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ProjectPreprocessorsConsistentTests.cs) 描述符默认值断言翻转。
+- [DynamicDesugarCLITests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/DynamicDesugarCLITests.cs)：`--list-passes` 默认 on；新增「默认链跑 audit 写报告」「`--disable-pass` 摘除」两事实（独立临时工作区，全链探针不能含 dynamic——numeric-boundary 既有 CS2J5362 与本 pass 无关）；原「默认关不建树」改名「显式单选他 pass 不建树」。
+- [DynamicDesugarSolutionProjectTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/DynamicDesugarSolutionProjectTests.cs) 同名用例同步改名；Rewrite/Strict/报告钉数等 M1-M3 事实不动。
+
+### 14.4 最终 Release 回填
+
+（收尾统一回归后补填：slnx Release build 错误数、Tests/ConversionTests/ProjectTests 通过/失败/跳过，红灯须仅限既有 AsyncStreams 4 红等基线项。）

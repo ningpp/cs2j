@@ -113,8 +113,10 @@ public class DynamicDesugarSolutionProjectTests
     // ---------- §7.2 断言矩阵 ----------
 
     [Fact]
-    public async Task PassDefaultOff_OutputsBytesUntouched_AndNoDynamicIntermediateTree()
+    public async Task OtherPassExplicitlySelected_OutputsBytesUntouched_AndNoDynamicIntermediateTree()
     {
+        // Audit flipped default-on for the CHAIN (2026-10-06); explicit
+        // single-pass selection still runs only that pass, so no dynamic tree.
         var destDir = TempDir("cs2j-dd-off-");
         try
         {

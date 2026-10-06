@@ -247,15 +247,16 @@ public class ProjectPreprocessorsConsistentTests
 
             // dynamic-desugar (C25)：无门面类（设计决定），目录常量挂注册表
             // 描述符；M1 纯审计（dynamic-audit-report.json + 具名 DS0xx 诊断，
-            // 零改写），默认长期关（design §3.2 D1/§8 语料门槛），经
-            // --enable-pass dynamic-desugar 开启；链尾 ABI 槽位 RunAfter=
-            // eliminate-goto（先于 java-keywords）；需要语义模型；无支撑库；
-            // 描述符 verify 双开为 M2 Rewrite 预留，M1 适配器内强制关 verify。
+            // 零改写），AUDIT 于 2026-10-06 通过 §8 语料门后翻为默认开
+            // （--disable-pass dynamic-desugar 可摘除），REWRITE 仍长期 opt-in
+            // （--dynamic-mode Rewrite，门 6-9 未满足）；链尾 ABI 槽位
+            // RunAfter=eliminate-goto（先于 java-keywords）；需要语义模型；
+            // 无支撑库；描述符 verify 双开为 Rewrite 预留，Audit 适配器内关 verify。
             var dynamicDescriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.DynamicDesugar);
             Assert.Equal(".cs2j-dynamic-desugar-src",
                 dynamicDescriptor.IntermediateDirectoryName);
             Assert.Equal(PassStatus.Implemented, dynamicDescriptor.Status);
-            Assert.False(dynamicDescriptor.DefaultEnabled);
+            Assert.True(dynamicDescriptor.DefaultEnabled);
             Assert.Equal(PassStage.Abi, dynamicDescriptor.Stage);
             Assert.Equal(new[] { PassIds.EliminateGoto }, dynamicDescriptor.RunAfterIds);
             Assert.Equal(PassSupportLibrary.None, dynamicDescriptor.SupportLibrary);
