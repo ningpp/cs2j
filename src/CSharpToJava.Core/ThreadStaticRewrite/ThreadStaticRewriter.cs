@@ -525,11 +525,20 @@ internal sealed class ThreadStaticRewriter : CSharpSyntaxRewriter
         // EveryThread opt-in with an inline initializer: e is evaluated per thread
         // on first access. Everything else (FirstThreadFaithful, or no initializer)
         // uses the parameterless holder; faithful initializers move into the cctor.
-        var holderInitializer = !faithful && initializer != null
-            ? SyntaxFactory.ParseExpression(
-                "new global::System.Threading.ThreadLocal<" + typeText + ">(() => " + initializer + ")")
-            : SyntaxFactory.ParseExpression(
+        // 注：值类型无参 holder 的 Java 侧默认值（default(T) vs null）由转换器在
+        // 对象创建点补每线程默认工厂解决（见 ObjectCreationTransformer），预处理
+        // 产物保持规范 C# 形态，C# 语义两边恒等。
+        ExpressionSyntax holderInitializer;
+        if (!faithful && initializer != null)
+        {
+            holderInitializer = SyntaxFactory.ParseExpression(
+                "new global::System.Threading.ThreadLocal<" + typeText + ">(() => " + initializer + ")");
+        }
+        else
+        {
+            holderInitializer = SyntaxFactory.ParseExpression(
                 "new global::System.Threading.ThreadLocal<" + typeText + ">()");
+        }
 
         var newDeclarator = SyntaxFactory.VariableDeclarator(
                 SyntaxFactory.Identifier(visitedDeclarator.Identifier.ValueText))

@@ -72,6 +72,19 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return nullableMember;
             }
 
+            // Honor TypeMappings property→method renames (e.g.
+            // ThreadLocal<T>.IsValueCreated → isValueCreated()); the C09
+            // ThreadLocal compat surface uses bean-style accessors that do not
+            // follow the default getXxx derivation). Field-style renames
+            // (length/size) must NOT be consumed here: they stay getXxx and the
+            // lowering pipeline turns them into field access.
+            var mappedProperty = context.TypeMappings.MapMethod(
+                property.ContainingType.ToDisplayString(), property.Name);
+            if (JavaNaming.IsBeanAccessorStyleName(mappedProperty))
+            {
+                return $"{receiver}.{mappedProperty}()";
+            }
+
             return $"{receiver}.get{member.Substring(0, 1).ToUpperInvariant()}{member.Substring(1)}()";
         }
 

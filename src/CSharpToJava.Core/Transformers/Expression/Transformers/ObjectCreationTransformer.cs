@@ -68,6 +68,23 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     }
     private static string EmitNew(string name, ArgumentListSyntax? al, INamedTypeSymbol? type, ConversionContext c)
     {
+        // C09 Java 半区：C# 的 new ThreadLocal<T>() 首访返回 default(T)（值类型为
+        // 0/false/默认 struct），而 java.lang.ThreadLocal 首访恒为 null，值类型
+        // 拆箱即 NPE。无参构造非 Nullable 值类型 T 时，补一个每线程默认值工厂
+        // （C# 侧 () => default(T) 与无参 holder 语义恒等）。引用类型与 Nullable<T>
+        // 的默认本就是 null，保持无参构造。预处理产物与用户直写的 ThreadLocal 同走此路。
+        if (al is null or { Arguments.Count: 0 }
+            && type is { IsValueType: false, TypeArguments.Length: 1 } named
+            && named.OriginalDefinition.MetadataName == "ThreadLocal`1"
+            && named.ContainingNamespace?.ToDisplayString() == "System.Threading"
+            && named.TypeArguments[0] is { } held
+            && held.IsValueType
+            && held is not INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T })
+        {
+            var defaultValue = TypeOperationTransformer.GetDefaultValueForType(c.MapType(held), held, c);
+            return $"new {name}(() -> {defaultValue})";
+        }
+
         var args = ArgumentTransformer.TransformArgumentList(al, c, ExpressionTransformerFacade.Instance);
         return $"new {name}({args})";
     }

@@ -3890,6 +3890,13 @@
             ]
         },
         {
+            "csharp": "System.Threading.ThreadLocal`1",
+            "java": "Cs2jThreadLocal",
+            "imports": [
+                "io.github.ningpp.compat.Cs2jThreadLocal"
+            ]
+        },
+        {
             "csharp": "System.IProgress`1",
             "java": "Consumer",
             "imports": [
@@ -8560,6 +8567,21 @@
             "imports": [
                 "io.github.ningpp.compat.TypeHelper"
             ]
+        },
+        {
+            "type": "System.Threading.ThreadLocal`1",
+            "method": "Dispose",
+            "javaMethod": "dispose"
+        },
+        {
+            "type": "System.Threading.ThreadLocal`1",
+            "method": "IsValueCreated",
+            "javaMethod": "isValueCreated"
+        },
+        {
+            "type": "System.Threading.ThreadLocal`1",
+            "method": "Values",
+            "javaMethod": "getValues"
         }
     ],
     "namespaceMappings": [

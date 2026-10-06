@@ -85,14 +85,25 @@ public class AssignmentTransformer : IIRExpressionTransformer
         var name = char.ToUpperInvariant(p.Name[0]) + p.Name[1..];
         var right = f.Transform(a.Right, c);
 
+        // TypeMappings may rename the property's accessor pair (see
+        // IdentifierExpressionTransformer.TransformMemberAccess for the read
+        // side); only bean-style method names apply here — field-style renames
+        // (length/size) are consumed by the lowering pipeline instead.
+        var mappedPropertyName = JavaNaming.IsBeanAccessorStyleName(
+                c.TypeMappings.MapMethod(p.ContainingType.ToDisplayString(), p.Name))
+            ? c.TypeMappings.MapMethod(p.ContainingType.ToDisplayString(), p.Name)
+            : null;
+        var getterName = mappedPropertyName ?? ("get" + name);
+        var setterName = mappedPropertyName ?? ("set" + name);
+
         if (op == "=" && p.SetMethod == null)
         {
             var field = JavaNaming.GetAutoPropertyBackingFieldName(p);
             return $"{(receiver.Length == 0 ? "this." : receiver)}{field} = {right}";
         }
         if (op == "=")
-            return $"{receiver}set{name}({right})";
-        return $"{receiver}set{name}({receiver}get{name}() {op[..^1]} {right})";
+            return $"{receiver}{setterName}({right})";
+        return $"{receiver}{setterName}({receiver}{getterName}() {op[..^1]} {right})";
     }
 
     // ── Indexer ─────────────────────────────────────────────────────────────

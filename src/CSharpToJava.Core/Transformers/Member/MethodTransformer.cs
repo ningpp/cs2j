@@ -142,8 +142,28 @@ public class MethodTransformer : IMemberTransformer
                 ctx.AddImport("java.util.concurrent.CompletableFuture");
                 expr = $"CompletableFuture.completedFuture({expr})";
             }
-            jm.Body = expr;
-            jm.IsBodyExpression = true;
+
+            // 表达式转换可能排出前置语句（如属性 ++/-- 降级出的临时量、as 表达式
+            // 提升）。表达式体没有语句锚点，必须在此展开为块体，否则前置语句会被
+            // 静默丢弃而只留下引用未定义临时量的 return（对齐 PropertyTransformer
+            // getter 表达式体的既有处理）。
+            if (ctx.HasPendingPreStatements)
+            {
+                var lines = ctx.DrainPreStatements()
+                    .Select(s => s.TrimEnd(';') + ";")
+                    .ToList();
+                var tail = jm.ReturnType == "void"
+                    ? $"{expr.TrimEnd(';')};"
+                    : $"return {expr.TrimEnd(';')};";
+                lines.Add(tail);
+                jm.Body = string.Join("\n", lines);
+                jm.IsBodyExpression = false;
+            }
+            else
+            {
+                jm.Body = expr;
+                jm.IsBodyExpression = true;
+            }
         }
     }
 

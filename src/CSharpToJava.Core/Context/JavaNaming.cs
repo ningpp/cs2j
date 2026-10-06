@@ -30,6 +30,27 @@ public static class JavaNaming
     }
 
     /// <summary>
+    /// TypeMappings 的方法重命名表同时承载两类属性映射：属性→Java 方法（bean 风格
+    /// getX/setX/isX，如 ThreadLocal.IsValueCreated→isValueCreated）与属性→字段
+    /// （如 Array.Length→length、ICollection.Count→size，后者由 lower 阶段以无括号
+    /// 成员访问消费）。只有 bean 风格名才能在属性读写点直接当作方法调用。
+    /// </summary>
+    public static bool IsBeanAccessorStyleName(string? mappedName)
+    {
+        if (string.IsNullOrEmpty(mappedName)) return false;
+        foreach (var prefix in new[] { "get", "set", "is" })
+        {
+            if (mappedName.Length > prefix.Length
+                && mappedName.StartsWith(prefix, StringComparison.Ordinal)
+                && char.IsUpper(mappedName[prefix.Length]))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
     /// True when the property hides a base-class property with a Java-incompatible
     /// return type (C# `new`, no covariant override possible). Java forbids two
     /// same-name methods with unrelated return types in a hierarchy, so the derived
