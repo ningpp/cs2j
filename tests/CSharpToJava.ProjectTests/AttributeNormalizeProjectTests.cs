@@ -3,6 +3,8 @@ using System.Text.RegularExpressions;
 using CSharpToJava.CLI.Preprocessing;
 using CSharpToJava.CLI.Preprocessing.Adapters;
 using CSharpToJava.Core.AttributeNormalize;
+using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Pipeline;
 
 namespace CSharpToJava.ProjectTests;
 
@@ -227,6 +229,107 @@ public class AttributeNormalizeProjectTests
         {
             if (Directory.Exists(workDir))
                 Directory.Delete(workDir, recursive: true);
+        }
+    }
+
+    // §8 门 4：JSON/序列化注解在 pass 开关双跑下转换器结果必须一致。
+    // pass 对这些属性只盘点、树零改动，因此同一份 C#（原始树 vs 预处理树）
+    // 经 ConversionPipeline 产出的 Java 必须逐字节相同。
+    [Fact]
+    public async Task JsonAnnotationProject_ConverterOutput_Identical_WithPassOn_And_Off()
+    {
+        const string projectFile =
+            """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+            </Project>
+            """;
+        const string source = """
+            using System.Diagnostics;
+            using System.Runtime.Serialization;
+            using System.Text.Json.Serialization;
+            using System.Xml.Serialization;
+
+            [DebuggerDisplay("Id={Id}")]
+            [DataContract]
+            public sealed class AnnotationDto
+            {
+                [JsonPropertyName("id")]
+                [DataMember(Name = "id")]
+                [XmlElement("id")]
+                public int Id { get; set; }
+
+                [JsonPropertyName("name")]
+                public string? Name { get; set; }
+
+                [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+                public string? Secret { get; set; }
+
+                [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+                public int Code { get; set; }
+
+                [IgnoreDataMember]
+                [XmlIgnore]
+                public int Internal { get; set; }
+            }
+            """;
+
+        var workDir = Path.Combine(Path.GetTempPath(),
+            "cs2j-an-gate4-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workDir);
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(workDir, "Gate4.csproj"), projectFile);
+            await File.WriteAllTextAsync(Path.Combine(workDir, "Dtos.cs"), source);
+
+            // ── Off：直接转换原始 C# ──
+            var offResult = new ConversionPipeline().Convert(new ConversionRequest
+            {
+                SourceCode = source,
+                FileName = "Dtos.cs",
+                Options = new ConversionOptions(),
+            });
+            Assert.True(offResult.Success,
+                string.Join("\n", offResult.Diagnostics.Select(d => d.ToString())));
+
+            // ── On：真实适配器跑预处理（默认 loose；JSON/注解只盘点） ──
+            var destination = Path.Combine(workDir, "out");
+            var adapter = CreateAdapter();
+            var run = await ProjectPassRunner.RunAsync(adapter, new ProjectPassRunRequest
+            {
+                SourcePath = Path.Combine(workDir, "Gate4.csproj"),
+                DestinationRoot = destination,
+                Force = true,
+            });
+            Assert.True(run.Success, string.Join("\n",
+                adapter.Diagnostics
+                    .Where(d => d.Severity == AttributeNormalizeSeverity.Error)
+                    .Select(d => d.ToMsBuildString())));
+            Assert.Equal(0, adapter.Statistics.FilesTransformed);
+            Assert.Contains(adapter.Diagnostics, d =>
+                d.Code == AttributeNormalizeDiagnosticCode.CS2J1310);
+
+            var rewritten = await File.ReadAllTextAsync(
+                Path.Combine(run.IntermediateRoot, "Dtos.cs"));
+            Assert.Equal(source, rewritten);
+
+            // ── On 树再转换：Java 必须与 off 完全一致 ──
+            var onResult = new ConversionPipeline().Convert(new ConversionRequest
+            {
+                SourceCode = rewritten,
+                FileName = "Dtos.cs",
+                Options = new ConversionOptions(),
+            });
+            Assert.True(onResult.Success,
+                string.Join("\n", onResult.Diagnostics.Select(d => d.ToString())));
+            Assert.Equal(offResult.GeneratedCode, onResult.GeneratedCode);
+        }
+        finally
+        {
+            Directory.Delete(workDir, recursive: true);
         }
     }
 
