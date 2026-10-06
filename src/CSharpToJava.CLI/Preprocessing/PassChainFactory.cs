@@ -140,8 +140,9 @@ internal sealed class PassChainConfiguration
     /// <summary>
     /// Invoked only when linq-channel is enabled (keeps construction lazy).
     /// Optional so existing chain-configuration constructors stay
-    /// source-compatible (platform-isolation precedent); C26 M1 is
-    /// default-off and reached solely through --enable-pass linq-channel.
+    /// source-compatible (platform-isolation precedent); C26 M4 flipped the
+    /// descriptor default-on (2026-10-06) and --no-linq-rewrite maps to
+    /// --disable-pass linq-channel.
     /// </summary>
     public Func<LinqChannelOptions> LinqChannelOptionsFactory { get; init; } =
         static () => new LinqChannelOptions();
@@ -224,6 +225,12 @@ internal static class PassChainFactory
             // C47 equality-concat defaults ON in the open gate;
             // disable explicitly with --no-equality-concat / --disable-pass.
             [PassStubCatalog.Ids.EqualityConcat] = opts.EqualityConcatEffective,
+            // C26 M4 (2026-10-06): linq-channel flipped default-on; the legacy
+            // --no-linq-rewrite kill switch maps to the registry toggle
+            // (--enable-pass/--disable-pass still win at the resolver).
+            [PassStubCatalog.Ids.LinqChannel] =
+                PassCatalog.ImplementedById(PassStubCatalog.Ids.LinqChannel).DefaultEnabled
+                && opts.EnableLinqRewrite,
         };
 
     /// <summary>

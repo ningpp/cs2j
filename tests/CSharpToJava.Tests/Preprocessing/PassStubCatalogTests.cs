@@ -87,7 +87,7 @@ public sealed class PassStubCatalogTests
         var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.LinqChannel);
 
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
-        Assert.False(descriptor.DefaultEnabled, "C26 M1 ships default-off (observe-only gate period)");
+        Assert.True(descriptor.DefaultEnabled, "C26 M4 flipped linq-channel default-on (2026-10-06)");
         Assert.Equal(PassStage.ControlFlow, descriptor.Stage);
         Assert.Equal(".cs2j-linq-channel-src", descriptor.IntermediateDirectoryName);
         Assert.Equal("C26", descriptor.CatalogItems);
@@ -108,14 +108,16 @@ public sealed class PassStubCatalogTests
     }
 
     [Fact]
-    public void LinqChannel_IsAbsentFromTheDefaultPlan_AndPlansAsImplementedWhenEnabled()
+    public void LinqChannel_IsInTheDefaultPlan_AndPlansAsImplementedWhenExplicitlySelected()
     {
         var registry = PassCatalog.BuildRegistry();
 
+        // M4 (2026-10-06): default-on — the baseline plan contains the channel.
         var baseline = PassPlanResolver.Resolve(registry);
         Assert.True(baseline.IsValid);
-        Assert.DoesNotContain(baseline.Enabled, pass => pass.Id == PassStubCatalog.Ids.LinqChannel);
+        Assert.Contains(baseline.Enabled, pass => pass.Id == PassStubCatalog.Ids.LinqChannel);
 
+        // Standalone --pass selection still plans the single id as Implemented.
         var enabled = PassPlanResolver.Resolve(
             registry,
             PassChainFactory.BuildAllDisabledToggles(registry),

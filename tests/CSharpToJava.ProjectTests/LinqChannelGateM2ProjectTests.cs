@@ -166,10 +166,13 @@ public sealed class LinqChannelGateM2ProjectTests
                 Directory.EnumerateFiles(channelDest, "*.java", SearchOption.AllDirectories).Any(),
                 "Java conversion output must still be produced from the channel intermediate tree");
 
-            // ---- plain run: no channel, E16 runs inside the conversion and
-            // writes its report exactly as before C26.
+            // ---- plain run: M4 (2026-10-06) flipped the channel default-on,
+            // so the historical "no channel" path needs the kill switch;
+            // E16 then runs inside the conversion and writes its report
+            // exactly as before C26.
             var (plainExit, plainOut, plainErr) = await RunCliAsync(cli,
                 "convert-project", "-s", sourceDir, "-d", plainDest,
+                "--disable-pass", PassId,
                 "--linq-report",
                 "--no-verify-build", "--no-verify-tests");
             Assert.True(plainExit == 0,

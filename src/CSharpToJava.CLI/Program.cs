@@ -5384,7 +5384,7 @@ class ConvertOptions
     [Option('v', "verbose", Default = false, HelpText = "Show diagnostic messages")]
     public bool Verbose { get; set; }
 
-    [Option("no-linq-rewrite", Default = false, HelpText = "Don't pre-process LINQ to procedural code")]
+    [Option("no-linq-rewrite", Default = false, HelpText = "Don't pre-process LINQ to procedural code (single-file embedded pass)")]
     public bool NoLinqRewrite { get; set; }
 
     [Option("prefer-stream-api", Default = false, SetName = "linq-strategy", HelpText = "Prefer Java Stream API for LINQ conversion (default for Java 28)")]
@@ -5445,7 +5445,7 @@ class ConvertProjectOptions
     [Option('v', "verbose", Default = false, HelpText = "Show detailed progress")]
     public bool Verbose { get; set; }
 
-    [Option("no-linq-rewrite", Default = false, HelpText = "Don't pre-process LINQ to procedural code")]
+    [Option("no-linq-rewrite", Default = false, HelpText = "Disable the linq-channel preprocessing pass (equivalent to --disable-pass linq-channel)")]
     public bool NoLinqRewrite { get; set; }
 
     [Option("prefer-stream-api", Default = false, SetName = "linq-strategy", HelpText = "Prefer Java Stream API for LINQ conversion (default for Java 28)")]

@@ -546,10 +546,12 @@ internal static class PassCatalog
             ".cs2j-linq-channel-src",
             PassStage.ControlFlow,
             PassStatus.Implemented,
-            // C26 M1 ships default-off: the M1 gate is observe-only and the
-            // channel is reached via --enable-pass linq-channel; the
-            // all-on policy flips it on once M3 closes the acceptance gate.
-            defaultEnabled: false,
+            // C26 M4 (2026-10-06): flipped default-on after the §8 gates
+            // (three-way routing 100% pinned, EF/SDK rescans LC0010=0 on
+            // healthy compiles, dual-run suppression wired, M4 GroupBy
+            // closeout keeps the build-verified intermediate compilable).
+            // --no-linq-rewrite maps to --disable-pass linq-channel.
+            defaultEnabled: true,
             // member-desugar / extension-methods / anonymous-type-lift output
             // is what the channel consumes; eliminate-goto is the historical
             // control-flow predecessor. Declared directly after member-desugar

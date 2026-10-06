@@ -12,12 +12,13 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// Locks the registered pass sequence to the historical ConvertProject chain.
 /// The fifteen hand-written blocks were replaced by the registry-driven loop, so
 /// the topological sort must keep producing this exact order. Every implemented
-/// pass is default-on (all-preprocessors-default-on policy) except three
-/// deliberate opt-outs: C26 linq-channel (observe-only
-/// gate period), plus the 2026-10-06 P0 rollbacks C20 partial-merge (M3
+/// pass is default-on (all-preprocessors-default-on policy) except two
+/// deliberate opt-outs: the 2026-10-06 P0 rollbacks C20 partial-merge (M3
 /// member-level collapse pending) and C04 iterator-lowering (M2/M3 pending);
 /// the legacy flags survive as --no-xxx negations and --disable-pass remains
-/// the opt-out. C25 dynamic-desugar AUDIT joined the default chain on
+/// the opt-out. C26 linq-channel joined the default chain on 2026-10-06
+/// after the M4 §8 gates (--no-linq-rewrite maps to --disable-pass
+/// linq-channel). C25 dynamic-desugar AUDIT joined the default chain on
 /// 2026-10-06 (Rewrite stays opt-in via --dynamic-mode Rewrite).
 /// </summary>
 public sealed class PassChainOrderTests
@@ -95,11 +96,11 @@ public sealed class PassChainOrderTests
         // implemented 区后，它与只依赖 tuple 的 equality-concat 在 Kahn
         // 声明序破平中先后对调（两者无相互依赖；三工程回归全绿即行为无外溢）。
         PassIds.MemberDesugar,
-        // C26 M1 flips linq-channel to Implemented (default-off): anchors
-        // extension-methods + anonymous-type-lift + eliminate-goto and is
-        // declared directly after member-desugar, so the Kahn declaration
-        // tiebreak pins the slot member-desugar -> linq-channel ->
-        // concurrency-normalize.
+        // C26 linq-channel: Implemented and flipped default-on at M4
+        // (2026-10-06, after the §8 gates). Anchors extension-methods +
+        // anonymous-type-lift + eliminate-goto and is declared directly after
+        // member-desugar, so the Kahn declaration tiebreak pins the slot
+        // member-desugar -> linq-channel -> concurrency-normalize.
         PassStubCatalog.Ids.LinqChannel,
         // C29 翻转：描述符置于 member-desugar 之后，
         // 与 equality-concat 互无 RunAfter 约束，相对次序由注册表声明序锁定。
@@ -118,13 +119,11 @@ public sealed class PassChainOrderTests
 
     // All-preprocessors-default-on policy: every implemented pass is
     // default-enabled; --disable-pass / legacy --no-xxx flags opt out.
-    // Default-on policy exceptions — three deliberate opt-outs:
-    // C26 linq-channel (observe-only gate period), and the 2026-10-06 P0
-    // rollbacks C20 partial-merge (M3 member-level collapse + profile
-    // pending) and C04 iterator-lowering (M2/M3 pending).
+    // Default-on policy exceptions — two deliberate opt-outs: the
+    // 2026-10-06 P0 rollbacks C20 partial-merge (M3 member-level collapse +
+    // profile pending) and C04 iterator-lowering (M2/M3 pending).
     private static readonly string[] EnabledByDefault = LockedChain
-        .Where(id => id != PassStubCatalog.Ids.LinqChannel
-            && id != PassStubCatalog.Ids.PartialMerge
+        .Where(id => id != PassStubCatalog.Ids.PartialMerge
             && id != PassStubCatalog.Ids.IteratorLowering)
         .ToArray();
 
@@ -752,6 +751,18 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
+    public void NoLinqRewrite_legacy_kill_switch_maps_to_the_linq_channel_toggle()
+    {
+        // C26 M4: --no-linq-rewrite is the legacy negation for linq-channel.
+        var byDefault = PassChainFactory.BuildLegacyToggles(new ConvertProjectOptions());
+        Assert.True(byDefault[PassStubCatalog.Ids.LinqChannel]);
+
+        var disabled = PassChainFactory.BuildLegacyToggles(
+            new ConvertProjectOptions { NoLinqRewrite = true });
+        Assert.False(disabled[PassStubCatalog.Ids.LinqChannel]);
+    }
+
+    [Fact]
     public void BuildLegacyToggles_covers_every_registered_pass()
     {
         var options = new ConvertProjectOptions();
@@ -762,13 +773,14 @@ public sealed class PassChainOrderTests
         // C36 expression-desugar, C29 concurrency-normalize, C42 platform-isolation,
         // C25 dynamic-desugar/audit-default-on (flipped 2026-10-06; still no
         // legacy flag), C30 closed-metadata, C21 anonymous-type-lift,
-        // C18 async-normalize/default-on, C26 linq-channel/default-off,
+        // C18 async-normalize/default-on,
         // C20 partial-merge/default-off, C04 iterator-lowering/default-off,
         // C09 thread-static/default-on (flipped 2026-10-06; still no legacy
         // flag), C10 attribute-normalize/default-on (flipped 2026-10-06;
         // still no legacy flag))
         // are reachable solely through their descriptor default plus --enable-pass/--pass
-        // (C04 additionally carries a legacy toggle whose default follows the descriptor).
+        // (C04 additionally carries a legacy toggle whose default follows the descriptor;
+        // C26 linq-channel flipped 2026-10-06 and carries the --no-linq-rewrite toggle).
         Assert.Equal(
             LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar
                 && id != PassIds.EnumDeclaration
@@ -786,8 +798,7 @@ public sealed class PassChainOrderTests
                 && id != PassIds.ClosedMetadata
                 && id != PassIds.AnonymousTypeLift
                 && id != PassStubCatalog.Ids.AsyncNormalize
-                && id != PassIds.AttributeNormalize
-                && id != PassStubCatalog.Ids.LinqChannel)
+                && id != PassIds.AttributeNormalize)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }
@@ -975,7 +986,7 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
-    public void LinqChannel_is_implemented_default_off_with_three_anchors_and_no_stub_remains()
+    public void LinqChannel_is_implemented_default_on_with_three_anchors_and_no_stub_remains()
     {
         var registry = PassCatalog.BuildRegistry();
 
@@ -988,7 +999,7 @@ public sealed class PassChainOrderTests
 
         var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.LinqChannel);
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
-        Assert.False(descriptor.DefaultEnabled);
+        Assert.True(descriptor.DefaultEnabled);
         Assert.Equal(".cs2j-linq-channel-src", descriptor.IntermediateDirectoryName);
         Assert.Equal(PassStage.ControlFlow, descriptor.Stage);
         Assert.Equal(
@@ -1005,21 +1016,18 @@ public sealed class PassChainOrderTests
         Assert.True(descriptor.VerifyTestsByDefault);
         Assert.Equal("C26", descriptor.CatalogItems);
 
-        // Default-off: absent from the default plan.
+        // M4 (2026-10-06): default-on — present in the default plan.
         var baseline = PassPlanResolver.Resolve(registry);
         Assert.True(baseline.IsValid);
-        Assert.DoesNotContain(baseline.Enabled, pass => pass.Id == PassStubCatalog.Ids.LinqChannel);
+        Assert.Contains(baseline.Enabled, pass => pass.Id == PassStubCatalog.Ids.LinqChannel);
 
-        // Explicit opt-in with every toggle off plans it as Implemented
-        // (never CS2J9001).
-        var enabled = PassPlanResolver.Resolve(
+        // Explicit opt-out with every toggle off still refuses to plan it
+        // (the --disable-pass linq-channel / --no-linq-rewrite path).
+        var disabled = PassPlanResolver.Resolve(
             registry,
-            PassChainFactory.BuildAllDisabledToggles(registry),
-            enablePassIds: new[] { PassStubCatalog.Ids.LinqChannel });
-        Assert.True(enabled.IsValid);
-        var entry = Assert.Single(enabled.Enabled);
-        Assert.Equal(PassStubCatalog.Ids.LinqChannel, entry.Id);
-        Assert.Equal(PassStatus.Implemented, entry.Status);
+            PassChainFactory.BuildAllDisabledToggles(registry));
+        Assert.True(disabled.IsValid);
+        Assert.DoesNotContain(disabled.Enabled, pass => pass.Id == PassStubCatalog.Ids.LinqChannel);
 
         // The concrete adapter exists for the flipped descriptor.
         var adapter = PassChainFactory.CreateAdapter(

@@ -176,7 +176,7 @@ public sealed class LinqChannelPassProjectTests
     }
 
     [Fact]
-    public async Task DefaultOffChain_DoesNotTouchTree_AndReturnsInputPath()
+    public async Task AllDisabledToggles_DoNotPlanTheChannel_StandaloneSelectionOnly()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), "cs2j-c26-off-" + Guid.NewGuid().ToString("N"));
         var sourceDir = Path.Combine(tempRoot, "src");
@@ -196,9 +196,10 @@ public sealed class LinqChannelPassProjectTests
                 "    <ImplicitUsings>enable</ImplicitUsings>\n" +
                 "  </PropertyGroup>\n</Project>\n");
 
-            // All-default chain without explicit selection: the plan is
-            // empty (all-default-off legacy toggles, linq-channel descriptor
-            // default-off), so no tree must be materialized.
+            // The standalone verb's all-false toggle map means: nothing runs
+            // unless explicitly selected with --pass. This stays true after
+            // the M4 default-on flip (which is driven by the descriptor plus
+            // the convert-project legacy map, not by BuildAllDisabledToggles).
             var result = await RunChainAsync(projectPath, outputDir, enablePassIds: null);
 
             Assert.True(
@@ -208,7 +209,7 @@ public sealed class LinqChannelPassProjectTests
             Assert.Equal(Path.GetFullPath(projectPath), Path.GetFullPath(result.FinalSourcePath));
             Assert.False(
                 Directory.Exists(Path.Combine(outputDir, IntermediateDirName)),
-                "default-off run must not materialize the c26 intermediate tree");
+                "all-toggles-off standalone construction must not materialize the c26 tree");
         }
         finally
         {

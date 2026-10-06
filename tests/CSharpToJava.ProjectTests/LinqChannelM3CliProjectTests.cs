@@ -11,12 +11,12 @@ using CSharpToJava.Core.RecordReadOnly;
 namespace CSharpToJava.ProjectTests;
 
 /// <summary>
-/// M3 CLI/end-to-end gates for the C26 linq-channel pass (design §7.11):
-/// catalog listing (Implemented, default-off), explicit/opt-in/opt-out
-/// reachability, verify-build failure exit code, strict LC0012 escalation to a
-/// non-zero exit, and the LC0011 whole-file rollback path driven through the
-/// real <see cref="CliPreprocessChain"/> via the adapter's test-only fault
-/// seam.
+/// M3/M4 CLI/end-to-end gates for the C26 linq-channel pass (design §7.11):
+/// catalog listing (Implemented, default-on after the M4 flip), default-chain
+/// reachability plus the conflicting enable/disable rejection, verify-build
+/// failure exit code, strict LC0012 escalation to a non-zero exit, and the
+/// LC0011 whole-file rollback path driven through the real
+/// <see cref="CliPreprocessChain"/> via the adapter's test-only fault seam.
 /// </summary>
 public sealed class LinqChannelM3CliProjectTests
 {
@@ -84,17 +84,22 @@ public sealed class LinqChannelM3CliProjectTests
     // ---- catalog / reachability ----------------------------------------------
 
     [Fact]
-    public async Task ListPasses_ShowsLinqChannel_Implemented_AndDefaultOff()
+    public async Task ListPasses_ShowsLinqChannel_Implemented_AndDefaultOn()
     {
         var (exit, stdout, _) = await RunCliAsync("preprocess", "--list-passes");
 
         Assert.Equal(0, exit);
+        // Match the id at row start: neighbors' run-after column can also
+        // reference linq-channel.
         var line = Assert.Single(
-            stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-                .Where(l => l.Contains("linq-channel", StringComparison.Ordinal)));
+            stdout.Split('\n'),
+            l => l.TrimStart().StartsWith("linq-channel", StringComparison.Ordinal));
         Assert.Contains("Implemented", line);
-        Assert.Contains("off", line, StringComparison.OrdinalIgnoreCase);
+        // Default column renders "on" padded to width; it must not render off.
+        Assert.Contains(" on ", line);
+        Assert.DoesNotContain(" off ", line);
         Assert.DoesNotContain("Stub", line);
+        Assert.Contains("C26", line);
     }
 
     [Fact]
@@ -129,22 +134,24 @@ public sealed class LinqChannelM3CliProjectTests
     }
 
     [Fact]
-    public async Task EnablePass_AddsChannelToDefaultChain_AndConflictingToggleRejected()
+    public async Task DefaultChain_RunsChannel_AndConflictingToggleRejected()
     {
         var dir = CreateProject("Sample.csproj", "public static class C { public static int F(int x) => x + 1; }");
-        var outEnabled = Path.Combine(dir, "out-on");
+        var outDefault = Path.Combine(dir, "out-default");
         var outConflict = Path.Combine(dir, "out-conflict");
         try
         {
-            var (enableExit, _, enableErr) = await RunCliAsync(
-                "preprocess", "--enable-pass", PassId,
+            // M4 (2026-10-06): linq-channel is in the default chain — no
+            // explicit --enable-pass needed for the tree to materialize.
+            var (defaultExit, _, defaultErr) = await RunCliAsync(
+                "preprocess",
                 "-s", Path.Combine(dir, "Sample.csproj"),
-                "-d", outEnabled,
+                "-d", outDefault,
                 "--no-verify-build", "--no-verify-tests");
-            Assert.True(enableExit == 0, enableErr);
+            Assert.True(defaultExit == 0, defaultErr);
             Assert.True(
-                Directory.Exists(Path.Combine(outEnabled, IntermediateDirName)),
-                "--enable-pass linq-channel must materialize the channel tree");
+                Directory.Exists(Path.Combine(outDefault, IntermediateDirName)),
+                "the default chain must materialize the linq-channel tree");
 
             // Enabling and disabling the same id is a plan error (CS2J9002)
             // rejected before any output directory is created.
@@ -156,6 +163,37 @@ public sealed class LinqChannelM3CliProjectTests
             Assert.Equal(1, conflictExit);
             Assert.Contains("CS2J9002", conflictErr);
             Assert.False(Directory.Exists(outConflict));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task DisablePass_OptsOutOfTheChannel()
+    {
+        var dir = CreateProject("Sample.csproj", """
+            using System.Linq;
+            public static class Tools
+            {
+                public static int[] Evens(int[] src)
+                    => src.Where(x => x % 2 == 0).Select(x => x * 2).ToArray();
+            }
+            """);
+        var outDir = Path.Combine(dir, "out");
+        try
+        {
+            var (exit, _, stderr) = await RunCliAsync(
+                "preprocess", "--disable-pass", PassId,
+                "-s", Path.Combine(dir, "Sample.csproj"),
+                "-d", outDir,
+                "--no-verify-build", "--no-verify-tests");
+
+            Assert.True(exit == 0, stderr);
+            Assert.False(
+                Directory.Exists(Path.Combine(outDir, IntermediateDirName)),
+                "--disable-pass linq-channel must keep the channel out of the chain");
         }
         finally
         {
