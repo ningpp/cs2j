@@ -103,15 +103,65 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             }
         }
 
+        // Unboxing: a reference-typed (or boxed/Nullable/dynamic) operand cast to
+        // a primitive must become a cast to the boxed wrapper; Java then unboxes
+        // via assignment/binary context. Dropping the cast entirely, as the
+        // primitive-to-primitive branch below does, yields `int x = objectExpr`,
+        // which does not compile (e.g. non-generic IEnumerator foreach lowering
+        // emits `int item = (int)enumerator.Current`).
+        if (srcSym is not null && sym is not null
+            && IsPrimitiveSpecialType(sym.SpecialType)
+            && IsBoxedOrReferenceSource(srcSym))
+        {
+            return $"({BoxedWrapperName(sym.SpecialType)})({e})";
+        }
+
         return sym?.SpecialType switch
         {
             SpecialType.System_Int32 => e,
-            SpecialType.System_Byte => $"{e} & 0xFF",                                   // unsigned narrowing → mask
+            SpecialType.System_Byte => $"({e} & 0xFF)",                                   // unsigned narrowing → mask
             SpecialType.System_UInt16 => $"(((int)({e})) & 0xFFFF)",
             SpecialType.System_UInt32 => $"(int)(({e}) & 0xFFFFFFFFL)",
             _ => $"({Map(n.Type, c)})({e})"
         };
     }
+
+    private static bool IsPrimitiveSpecialType(SpecialType special)
+        => special is SpecialType.System_Boolean
+            or SpecialType.System_Int32
+            or SpecialType.System_Int64
+            or SpecialType.System_Int16
+            or SpecialType.System_SByte
+            or SpecialType.System_Byte
+            or SpecialType.System_Char
+            or SpecialType.System_Single
+            or SpecialType.System_Double;
+
+    /// <summary>
+    /// A cast source whose Java representation is a reference (needs a wrapper
+    /// cast before unboxing): reference types, boxed value types, Nullable
+    /// wrappers, and dynamic.
+    /// </summary>
+    private static bool IsBoxedOrReferenceSource(ITypeSymbol source)
+        => source.IsReferenceType
+            || source.TypeKind == TypeKind.Dynamic
+            || (source is INamedTypeSymbol named
+                && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T);
+
+    private static string BoxedWrapperName(SpecialType special)
+        => special switch
+        {
+            SpecialType.System_Boolean => "Boolean",
+            SpecialType.System_Int32 => "Integer",
+            SpecialType.System_Int64 => "Long",
+            SpecialType.System_Int16 => "Short",
+            SpecialType.System_SByte => "Byte",
+            SpecialType.System_Byte => "Byte",
+            SpecialType.System_Char => "Character",
+            SpecialType.System_Single => "Float",
+            SpecialType.System_Double => "Double",
+            _ => "Object"
+        };
 
     /// <summary>
     /// Numeric sources whose rendered Java primitive converts losslessly through

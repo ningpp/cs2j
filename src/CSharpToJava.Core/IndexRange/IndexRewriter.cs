@@ -99,8 +99,22 @@ internal static class IndexRewriter
 
     private static ExpressionSyntax Subtract(
         ExpressionSyntax left, ExpressionSyntax right)
-        => IndexRangeSyntaxFacts.TryFoldSubtract(left, right)
-           ?? BinaryExpression(SyntaxKind.SubtractExpression, left, right);
+    {
+        var folded = IndexRangeSyntaxFacts.TryFoldSubtract(left, right);
+        if (folded != null)
+        {
+            return folded;
+        }
+
+        // 右操作数为复合算术表达式时加括号：len - (i + 1) 不能发射成
+        // len - i + 1（hat 索引 a[^(i+1)] 的语义是 len-(i+1)）。
+        if (right is BinaryExpressionSyntax or ParenthesizedExpressionSyntax)
+        {
+            right = Microsoft.CodeAnalysis.CSharp.SyntaxFactory.ParenthesizedExpression(right);
+        }
+
+        return BinaryExpression(SyntaxKind.SubtractExpression, left, right);
+    }
 
     private static MemberAccessExpressionSyntax SimpleMemberAccess(
         ExpressionSyntax expression, string memberName)

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.Java;
 
@@ -47,8 +48,78 @@ public class JavaCompilationUnit : JavaSyntaxNode
                 && (i.Name.StartsWith("java.") || i.Name.StartsWith("javax.")))
                 .Select(i => i.Name));
 
+        // BCL 运行时通配（dotnet.System.Collections(.Generic) 等）与 java.util.*
+        // 同时存在且文件体用到同名类型（List/ArrayList/...）时，Java 规定两个按需
+        // 导入中的同名类型对简单名构成歧义（javac: reference to List is
+        // ambiguous）。BCL 映射面优先：撤掉 java.util.* 通配，改为按文件体内实际
+        // 出现的 java.util 类型名补发单类型导入（单类型导入优先于按需导入）。
+        var typesText = string.Join(Environment.NewLine,
+            TypeDeclarations.Select(t => t.ToString(indentation)));
+        var suppressJavaUtilWildcard = Imports.Any(i =>
+            i.IsWildcard && !i.IsStatic
+            && i.Name.StartsWith("dotnet.System.Collections", StringComparison.Ordinal));
+        var explicitJavaUtilNames = new HashSet<string>();
+        var explicitDotnetCollectionNames = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (suppressJavaUtilWildcard)
+        {
+            foreach (Match match in Regex.Matches(
+                         typesText, @"(?<![\p{L}\p{N}_\.])[A-Z][A-Za-z0-9_]*"))
+            {
+                // dotnet 集合通配包提供的同名类型必须留给 BCL 面（由门/运行时
+                // stub 提供具体实现），不能再单导入 java.util 的同名抽象类型。
+                if (KnownJavaUtilTypes.Contains(match.Value)
+                    && !DotnetCollectionSimpleNames.Contains(match.Value))
+                {
+                    explicitJavaUtilNames.Add(match.Value);
+                }
+            }
+
+            // 已有显式导入或本文件声明了同名类型时不补发。
+            explicitJavaUtilNames.RemoveWhere(name =>
+                Imports.Any(i => !i.IsWildcard
+                    && i.Name.EndsWith("." + name, StringComparison.Ordinal)));
+            explicitJavaUtilNames.RemoveWhere(name =>
+                Regex.IsMatch(typesText,
+                    $@"(class|interface|enum|record)\s+{Regex.Escape(name)}\b"));
+
+            // dotnet.System.Collections 与 dotnet.System.Collections.Generic 两个
+            // 按需导入里的同名接口（IEnumerator/IEnumerable/...）对简单名构成歧义。
+            // 带类型实参的引用（IEnumerator<T>）取泛型面；裸引用取非泛型面，用单
+            // 类型导入压过按需导入。两种形式同文件并存时不猜测，留给 javac 暴露。
+            var hasNonGenericCollectionsWildcard = Imports.Any(i =>
+                i.IsWildcard && !i.IsStatic
+                && i.Name == "dotnet.System.Collections");
+            var hasGenericCollectionsWildcard = Imports.Any(i =>
+                i.IsWildcard && !i.IsStatic
+                && i.Name == "dotnet.System.Collections.Generic");
+            if (hasNonGenericCollectionsWildcard && hasGenericCollectionsWildcard)
+            {
+                foreach (var name in GenericAndNonGenericCollectionInterfaceNames)
+                {
+                    var genericUse = Regex.IsMatch(typesText,
+                        $@"(?<![\p{{L}}\p{{N}}_\.]){Regex.Escape(name)}\s*<");
+                    var rawUse = Regex.IsMatch(typesText,
+                        $@"(?<![\p{{L}}\p{{N}}_\.]){Regex.Escape(name)}(?![\p{{L}}\p{{N}}_<])");
+                    var alreadyExplicit = Imports.Any(i => !i.IsWildcard
+                        && i.Name.EndsWith("." + name, StringComparison.Ordinal));
+                    if (alreadyExplicit || genericUse == rawUse)
+                        continue;
+                    explicitDotnetCollectionNames[name] = genericUse
+                        ? "dotnet.System.Collections.Generic." + name
+                        : "dotnet.System.Collections." + name;
+                }
+            }
+        }
+
         foreach (var import in Imports)
         {
+            if (suppressJavaUtilWildcard
+                && import.IsWildcard && !import.IsStatic
+                && import.Name == "java.util")
+            {
+                continue;
+            }
+
             // Skip explicit (non-wildcard) JDK imports whose package is already covered by a JDK wildcard
             if (!import.IsWildcard && !import.IsStatic)
             {
@@ -59,18 +130,69 @@ public class JavaCompilationUnit : JavaSyntaxNode
             sb.AppendLine(import.ToCodeString(indentation));
         }
 
+        foreach (var name in explicitJavaUtilNames.OrderBy(n => n, StringComparer.Ordinal))
+        {
+            sb.AppendLine($"import java.util.{name};");
+        }
+
+        foreach (var fullName in explicitDotnetCollectionNames.Values
+                     .OrderBy(n => n, StringComparer.Ordinal))
+        {
+            sb.AppendLine($"import {fullName};");
+        }
+
         if (Imports.Count > 0)
         {
             sb.AppendLine();
         }
 
-        foreach (var type in TypeDeclarations)
-        {
-            sb.AppendLine(type.ToString(indentation));
-        }
+        sb.Append(typesText);
 
         return sb.ToString();
     }
+
+    /// <summary>
+    /// 常用 java.util 公共类型目录：当 java.util.* 通配被 dotnet 集合面压制时，
+    /// 按文件体内出现的简单名补发单类型导入。
+    /// </summary>
+    private static readonly HashSet<string> KnownJavaUtilTypes = new(StringComparer.Ordinal)
+    {
+        "ArrayDeque", "ArrayList", "Arrays", "BitSet", "Calendar", "Collection",
+        "Collections", "Comparator", "Currency", "Date", "Deque", "Dictionary",
+        "DoubleSummaryStatistics", "EnumMap", "EnumSet", "EventListener",
+        "EventObject", "Formattable", "Formatter", "GregorianCalendar",
+        "HashMap", "HashSet", "Hashtable", "IdentityHashMap", "IntSummaryStatistics",
+        "Iterator", "LinkedHashMap", "LinkedHashSet", "LinkedList", "List",
+        "ListIterator", "LongSummaryStatistics", "Map", "NavigableMap",
+        "NavigableSet", "Objects", "Optional", "OptionalDouble", "OptionalInt",
+        "OptionalLong", "PriorityQueue", "Properties", "PropertyPermission",
+        "Queue", "Random", "Scanner", "Set", "SimpleTimeZone", "SortedMap",
+        "SortedSet", "Spliterator", "Stack", "StringJoiner", "StringTokenizer",
+        "Timer", "TimerTask", "TimeZone", "TreeMap", "TreeSet", "UUID", "Vector",
+        "WeakHashMap",
+    };
+
+    /// <summary>
+    /// 简单名同时存在于 dotnet.System.Collections(.Generic) BCL 面与 java.util
+    /// 的类型。dotnet 集合通配在作用域内时，这些名字必须解析到 BCL 面
+    /// （List<T> 是可 new 的具体类型等），不补发 java.util 单类型导入。
+    /// </summary>
+    private static readonly HashSet<string> DotnetCollectionSimpleNames = new(StringComparer.Ordinal)
+    {
+        "ArrayList", "BitArray", "Collection", "Dictionary", "HashSet",
+        "IComparer", "ICollection", "IDictionary", "IEnumerable",
+        "IEnumerator", "IEqualityComparer", "IList", "LinkedList", "List",
+        "Queue", "ReadOnlyCollection", "SortedList", "Stack",
+    };
+
+    /// <summary>
+    /// 同时存在于泛型与非泛型 dotnet 集合命名空间的接口简单名。
+    /// </summary>
+    private static readonly string[] GenericAndNonGenericCollectionInterfaceNames =
+    {
+        "ICollection", "IComparer", "IDictionary", "IEnumerable",
+        "IEnumerator", "IEqualityComparer", "IList",
+    };
 }
 
 /// <summary>

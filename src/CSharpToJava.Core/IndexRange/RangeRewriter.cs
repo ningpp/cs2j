@@ -222,8 +222,23 @@ internal static class RangeRewriter
 
     private static ExpressionSyntax Subtract(
         ExpressionSyntax left, ExpressionSyntax right)
-        => IndexRangeSyntaxFacts.TryFoldSubtract(left, right)
-           ?? BinaryExpression(SyntaxKind.SubtractExpression, left, right);
+    {
+        var folded = IndexRangeSyntaxFacts.TryFoldSubtract(left, right);
+        if (folded != null)
+        {
+            return folded;
+        }
+
+        // 右操作数本身是复合算术表达式时必须加括号：减法左结合，否则
+        // count = (len-1) - (len-2) 会被发射成 len-1-len-2（=-3），
+        // 双 hat 边界（a[^2..^1]）与 hat-left 开区间（a[^2..]）全部算错。
+        if (right is BinaryExpressionSyntax or ParenthesizedExpressionSyntax)
+        {
+            right = ParenthesizedExpression(right);
+        }
+
+        return BinaryExpression(SyntaxKind.SubtractExpression, left, right);
+    }
 
     private static MemberAccessExpressionSyntax SimpleMemberAccess(
         ExpressionSyntax expression, string memberName)

@@ -26,10 +26,34 @@ internal sealed class MethodMigrator
     public MethodDeclarationSyntax Migrate(MethodDeclarationSyntax method)
     {
         var body = method.Body;
-        if (body == null) return method;
-
         var isVoid = method.ReturnType is PredefinedTypeSyntax pts &&
                      pts.Keyword.IsKind(SyntaxKind.VoidKeyword);
+
+        // Expression-bodied mutating methods (e.g. enumerator MoveNext):
+        //   public bool MoveNext() => ++_current <= _limit;
+        // must be materialized into a block body before migration, otherwise the
+        // struct below is made readonly while the mutation site is left untouched,
+        // producing CS0191 against a readonly field after the pipeline verifies.
+        if (body == null)
+        {
+            if (method.ExpressionBody is not { } arrow)
+            {
+                return method;
+            }
+
+            StatementSyntax single = isVoid
+                ? SyntaxFactory.ExpressionStatement(arrow.Expression)
+                    .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed)
+                : SyntaxFactory.ReturnStatement(arrow.Expression)
+                    .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
+            body = SyntaxFactory.Block(single)
+                .WithLeadingTrivia(arrow.GetLeadingTrivia());
+            method = method
+                .WithExpressionBody(null)
+                .WithBody(body)
+                .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
+        }
+
         var returnsThis = body.DescendantNodes().OfType<ReturnStatementSyntax>()
             .Any(r => r.Expression is ThisExpressionSyntax);
         var isOtherReturn = !isVoid && !returnsThis;
@@ -95,8 +119,8 @@ internal sealed class MethodMigrator
                 .WithType(_structType)
                 .AddModifiers(SyntaxFactory.Token(SyntaxKind.OutKeyword).WithTrailingTrivia(SyntaxFactory.Space));
 
-            // Insert `newStatus = result;` before each return statement
-            newBody = (BlockSyntax)new InsertOutAssignmentRewriter().Visit(newBody)!;
+            // Insert `newStatus = result;` after each return value is evaluated.
+            newBody = (BlockSyntax)new InsertOutAssignmentRewriter(method.ReturnType).Visit(newBody)!;
 
             // The out parameter is required and must not appear after any optional
             // parameters (CS1737). Insert it before the first optional parameter.
@@ -396,34 +420,64 @@ internal sealed class MethodMigrator
         }
     }
 
-    /// <summary>Inserts `newStatus = result;` before each return statement for OtherReturnToOut.</summary>
-    private sealed class InsertOutAssignmentRewriter : CSharpSyntaxRewriter
+    /// <summary>
+    /// Wraps a value-returning site so the out status is committed AFTER the
+    /// return value has been fully evaluated:
+    /// <code>
+    /// { var __cs2jOutRet_N = expr; newStatus = result; return __cs2jOutRet_N; }
+    /// </code>
+    /// The temporary MUST be taken before the out assignment: later passes
+    /// (CS0192 readonly-field With-hoisting) lift mutations nested in
+    /// <paramref name="expr"/> into statements immediately before the temp
+    /// declaration, so the observable order becomes
+    /// mutate → evaluate → commit → return. Emitting
+    /// <c>newStatus = result; return expr;</c> instead lets the hoisted
+    /// mutations land AFTER the commit (they reassign the local only), so the
+    /// caller keeps the pre-mutation state and loops forever.
+    /// </summary>
+    internal sealed class InsertOutAssignmentRewriter : CSharpSyntaxRewriter
     {
+        private readonly TypeSyntax _returnType;
+        private int _returnCounter;
+
+        public InsertOutAssignmentRewriter(TypeSyntax returnType)
+        {
+            _returnType = returnType;
+        }
+
         public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
         {
             // Skip returns inside lambdas / local functions / query expressions: the
             // method's out parameter is not capturable there (CS1628).
-            if (node.Ancestors().Any(a =>
+            if (node.Expression == null
+                || node.Ancestors().Any(a =>
                     a is AnonymousFunctionExpressionSyntax || a is LocalFunctionStatementSyntax))
             {
                 return base.VisitReturnStatement(node);
             }
 
-            // Wrap EVERY return in a block that assigns the out parameter first:
-            //   { newStatus = result; return X; }
-            // This covers top-level returns, returns inside nested blocks
-            // (if/for/while bodies), and returns in switch sections, so the out
-            // parameter is definitely assigned on every exit path (CS0177).
-            var assignment = SyntaxFactory.ExpressionStatement(
-                SyntaxFactory.AssignmentExpression(
-                    SyntaxKind.SimpleAssignmentExpression,
-                    SyntaxFactory.IdentifierName("newStatus"),
-                    SyntaxFactory.IdentifierName("result")))
+            var index = _returnCounter + 1;
+            _returnCounter = index;
+            var tempName = "__cs2jOutRet_" + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            var tempDecl = SyntaxFactory.LocalDeclarationStatement(
+                    SyntaxFactory.VariableDeclaration(_returnType.WithoutTrivia())
+                        .WithVariables(SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.VariableDeclarator(tempName)
+                                .WithInitializer(SyntaxFactory.EqualsValueClause(node.Expression)))))
                 .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
 
-            return SyntaxFactory.Block(
-                    assignment,
-                    node.WithLeadingTrivia(SyntaxFactory.Whitespace("            ")))
+            var assignment = SyntaxFactory.ExpressionStatement(
+                    SyntaxFactory.AssignmentExpression(
+                        SyntaxKind.SimpleAssignmentExpression,
+                        SyntaxFactory.IdentifierName("newStatus"),
+                        SyntaxFactory.IdentifierName("result")))
+                .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
+
+            var returnTemp = SyntaxFactory.ReturnStatement(SyntaxFactory.IdentifierName(tempName))
+                .WithLeadingTrivia(SyntaxFactory.Whitespace("            "));
+
+            return SyntaxFactory.Block(tempDecl, assignment, returnTemp)
                 .WithLeadingTrivia(node.GetLeadingTrivia());
         }
     }

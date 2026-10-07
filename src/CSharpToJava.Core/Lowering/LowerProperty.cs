@@ -102,6 +102,19 @@ public class LowerProperty : ILoweringPass
             };
         }
 
+        // C# string.Length -> java.lang.String.length() (NOT getLength()).
+        if (propSymbol?.ContainingType?.SpecialType == SpecialType.System_String
+            && prop.PropertyName == "Length")
+        {
+            return new IrInvocationExpression
+            {
+                Target = loweredTarget,
+                MethodName = "length",
+                Symbol = prop.Symbol,
+                JavaType = prop.JavaType,
+            };
+        }
+
         // Check TypeMappings for a configured method name (e.g. Count → size)
         var mappedMethod = TryMapPropertyName(propSymbol, prop.PropertyName);
         if (mappedMethod != prop.PropertyName)

@@ -180,6 +180,15 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                             return $"{objExpr}.{mapped}";
                         return $"{objExpr}.{mapped}()";
                     }
+
+                    // System.String.Length -> String.length(): the JSON table key is
+                    // "System.String" but ToDisplayString() emits the keyword "string",
+                    // so table lookup misses and the default would emit getLength().
+                    if (prop.ContainingType?.SpecialType == SpecialType.System_String
+                        && prop.Name == "Length")
+                    {
+                        return $"{objExpr}.length()";
+                    }
                 }
                 // Fallback: when the semantic model can't resolve the member binding symbol
                 // (e.g., in LINQ-rewritten code where synthesized syntax nodes lack symbol info),
@@ -362,6 +371,12 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                     }
 
                     var memberGetter = "get" + char.ToUpperInvariant(rawName[0]) + rawName[1..];
+                    // C# string.Length -> Java String.length() (never getLength()).
+                    if (memberProp.ContainingType?.SpecialType == SpecialType.System_String
+                        && rawName == "Length")
+                    {
+                        memberGetter = "length";
+                    }
                     return $"{accessTarget}.{memberGetter}()";
                 }
 

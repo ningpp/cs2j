@@ -67,6 +67,37 @@ public partial class ArgumentTransformer
             : CoerceArgumentType(arg, result, parameter, context);
     }
 
+    /// <summary>
+    /// Full argument-list text for an invocation, honoring ref/out holder
+    /// wrapping (including pending pre/post statements registered on the
+    /// context). Used by the invocation IR path, which otherwise transforms
+    /// <see cref="ArgumentSyntax.Expression"/> directly and would silently drop
+    /// the ref/out semantics.
+    /// </summary>
+    public static string TransformInvocationArguments(
+        InvocationExpressionSyntax invocation, ConversionContext context)
+    {
+        var method = (context.GetSymbolInfo(invocation).Symbol as IMethodSymbol)
+                     ?? (context.GetSymbolInfo(invocation).CandidateSymbols.FirstOrDefault() as IMethodSymbol);
+        return TransformArgumentList(invocation.ArgumentList, context,
+            ExpressionTransformerFacade.Instance, methodSymbol: method);
+    }
+
+    /// <summary>
+    /// True when the invocation passes (or, per the resolved symbol, should
+    /// pass) any argument by ref/out — the IR path must then route through
+    /// <see cref="TransformInvocationArguments"/> instead of bare expression
+    /// transforms.
+    /// </summary>
+    public static bool HasByRefArguments(InvocationExpressionSyntax invocation, IMethodSymbol? method)
+    {
+        if (invocation.ArgumentList.Arguments.Any(a =>
+                a.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
+                || a.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)))
+            return true;
+        return method?.Parameters.Any(p => p.RefKind is RefKind.Out or RefKind.Ref) == true;
+    }
+
     private static IParameterSymbol? GetParameter(ImmutableArray<IParameterSymbol>? parameters, int index)
     {
         if (!parameters.HasValue)

@@ -126,9 +126,38 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         var facade = ExpressionTransformerFacade.Instance;
-        var arguments = invocation.ArgumentList.Arguments
-            .Select(a => facade.TransformToIR(a.Expression, context))
-            .ToList();
+        var invocationMethod = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        // Holder expansion anchors pending statements on the enclosing statement;
+        // inside a lambda body there is no such anchor (a dedicated preprocessor
+        // owns that lowering), so the byref rewrite stays off there.
+        var canExpandByRefHolders = !IsWithinLambda(invocation);
+        List<JavaExpression> arguments;
+        if (canExpandByRefHolders && ArgumentTransformer.HasByRefArguments(invocation, invocationMethod))
+        {
+            // ref/out args require holder allocation + read-back (pending
+            // statements rendered by the enclosing statement transformer).
+            arguments = new List<JavaExpression>
+            {
+                new JavaRawExpression(ArgumentTransformer.TransformInvocationArguments(invocation, context))
+            };
+        }
+        else
+        {
+            arguments = invocation.ArgumentList.Arguments
+                .Select(a => facade.TransformToIR(a.Expression, context))
+                .ToList();
+        }
+
+        // C# string.Substring(startIndex, length) vs Java substring(beginIndex,
+        // endIndex): the second argument has different semantics. Rewrite length
+        // into startIndex + length so range lowering (s[a..b] → Substring(a, b-a))
+        // keeps its C# meaning on the Java side.
+        if (arguments.Count == 2 && IsStringSubstringRange(invocationMethod))
+        {
+            var startText = arguments[0].ToInlineString();
+            var lengthText = arguments[1].ToInlineString();
+            arguments[1] = new JavaRawExpression($"({startText}) + ({lengthText})");
+        }
 
         switch (invocation.Expression)
         {
@@ -147,7 +176,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return new JavaRawExpression(primCall);
                 }
 
-                var receiver = TransformReceiverToIR(memberAccess.Expression, context);
+                // ((IDisposable)e).Dispose() (emitted by foreach lowering for
+                // explicit-interface struct Dispose) maps to a cast to
+                // AutoCloseable, whose close() throws Exception. The generated
+                // class publicly overrides close() with no checked exception, so
+                // the cast is both unnecessary and fatal under javac — unwrap it.
+                var receiver = TransformReceiverToIR(
+                    UnwrapExplicitDisposeCast(memberAccess, context), context);
                 var receiverText = receiver.ToInlineString();
                 var argumentText = string.Join(", ", arguments.Select(a => a.ToInlineString()));
 
@@ -230,8 +265,28 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         var facade = ExpressionTransformerFacade.Instance;
-        var arguments = string.Join(", ",
-            node.ArgumentList.Arguments.Select(a => facade.Transform(a.Expression, context)));
+        string arguments;
+        if (!IsWithinLambda(node)
+            && ArgumentTransformer.HasByRefArguments(node,
+                context.GetSymbolInfo(node).Symbol as IMethodSymbol))
+        {
+            arguments = ArgumentTransformer.TransformInvocationArguments(node, context);
+        }
+        else
+        {
+            var argList = node.ArgumentList.Arguments
+                .Select(a => facade.Transform(a.Expression, context))
+                .ToList();
+            // See the matching rewrite in TransformToIR: C# Substring(start, length)
+            // maps to Java substring(start, start + length).
+            if (argList.Count == 2
+                && context.GetSymbolInfo(node).Symbol is IMethodSymbol substringMethod
+                && IsStringSubstringRange(substringMethod))
+            {
+                argList[1] = $"({argList[0]}) + ({argList[1]})";
+            }
+            arguments = string.Join(", ", argList);
+        }
 
         switch (node.Expression)
         {
@@ -247,7 +302,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 if (TryRenderPrimitiveStaticCall(memberAccess, originalName, context, arguments, out var primCall))
                     return primCall;
 
-                var receiver = TransformReceiver(memberAccess.Expression, context);
+                var receiver = TransformReceiver(
+                    UnwrapExplicitDisposeCast(memberAccess, context), context);
 
                 // Semantic precision overrides run BEFORE the arity-based method mapping:
                 // string.Equals(other, StringComparison) shares arity with the static
@@ -307,6 +363,60 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return $"{facade.Transform(node.Expression, context)}({arguments})";
         }
     }
+
+    /// <summary>
+    /// For <c>((IDisposable)e).Dispose()</c> returns <c>e</c>; otherwise the
+    /// original receiver. See the call-site comment: foreach lowering casts to
+    /// reach explicit-interface Dispose, but the Java mapping (AutoCloseable
+    /// cast + close()) introduces a checked-exception error on a receiver that
+    /// already publicly overrides close().
+    /// </summary>
+    private static ExpressionSyntax UnwrapExplicitDisposeCast(
+        MemberAccessExpressionSyntax memberAccess, ConversionContext context)
+    {
+        var receiverExpr = memberAccess.Expression;
+        while (receiverExpr is ParenthesizedExpressionSyntax parens)
+            receiverExpr = parens.Expression;
+        if (memberAccess.Name.Identifier.Text == "Dispose"
+            && receiverExpr is CastExpressionSyntax cast
+            && IsDisposableCastType(cast, context))
+        {
+            return cast.Expression;
+        }
+        return memberAccess.Expression;
+    }
+
+    private static bool IsDisposableCastType(CastExpressionSyntax cast, ConversionContext context)
+    {
+        if (context.SemanticModel != null
+            && context.GetTypeInfo(cast.Type).Type?.SpecialType == SpecialType.System_IDisposable)
+        {
+            return true;
+        }
+
+        // Post-rewrite trees may not resolve in the active semantic model; fall
+        // back to the canonical spellings emitted by foreach lowering.
+        var text = cast.Type.ToString();
+        return text is "System.IDisposable" or "global::System.IDisposable" or "IDisposable";
+    }
+
+    /// <summary>
+    /// True for <c>string.Substring(int startIndex, int length)</c>, whose second
+    /// parameter is a *length* in C# but an *end index* in Java.
+    /// </summary>
+    private static bool IsStringSubstringRange(IMethodSymbol? method)
+        => method is { Name: "Substring", Parameters.Length: 2 }
+           && method.ContainingType.SpecialType == SpecialType.System_String
+           && method.Parameters[0].Type.SpecialType == SpecialType.System_Int32
+           && method.Parameters[1].Type.SpecialType == SpecialType.System_Int32;
+
+    /// <summary>
+    /// True when the node is lexically inside a lambda/anonymous-method body,
+    /// where ref/out holder expansion cannot anchor its pending statements.
+    /// </summary>
+    private static bool IsWithinLambda(SyntaxNode node)
+        => node.Ancestors().Any(a => a is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax);
+
 
     /// <summary>
     /// Renders an invocation receiver as Java source, erasing type arguments when the

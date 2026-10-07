@@ -267,7 +267,10 @@ public class ElementAccessTransformer : IIRExpressionTransformer
                     && exprType is IArrayTypeSymbol arrayType
                     && arrayType.ElementType.SpecialType == SpecialType.System_Byte)
                 {
-                    access = $"{access} & 0xFF";
+                    // Parenthesized: the mask sits inside binary expressions such
+                    // as `expected[i] != actual[i]`, where the bare form would be
+                    // parsed as `a & (0xFF != b) & 0xFF`.
+                    access = $"({access} & 0xFF)";
                 }
                 return access;
             }

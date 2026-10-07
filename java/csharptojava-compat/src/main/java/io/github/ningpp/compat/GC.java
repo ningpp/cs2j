@@ -69,6 +69,22 @@ public final class GC {
     }
 
     /**
+     * Keeps the reference alive until this point (mirrors {@code GC.KeepAlive}).
+     * The JIT can no longer reclaim {@code obj} before this call; the empty
+     * synchronized block forces a black-box use of the reference.
+     *
+     * @param obj the reference to keep alive (including boxed primitives)
+     */
+    public static void keepAlive(Object obj) {
+        synchronized (GC.class) {
+            // Black-box use: the argument must remain live up to here.
+            if (obj == GC.class) {
+                throw new AssertionError("unreachable identity");
+            }
+        }
+    }
+
+    /**
      * Returns the generation number of the target object.
      * In this compat implementation, always returns 0 since Java
      * does not expose object generation the same way .NET does.

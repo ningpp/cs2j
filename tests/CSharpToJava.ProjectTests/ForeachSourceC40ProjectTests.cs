@@ -205,39 +205,47 @@ public class ForeachSourceC40ProjectTests
             var duck = await File.ReadAllTextAsync(duckFile);
 
             // Stateful struct, no IDisposable: bare unboxed while, no finally.
+            // Site 10 in this file (counter is zero-based).
             var stateful = MethodBody(duck, "CollectStatefulStruct");
-            Assert.Contains("var __cs2jFaSrc10 = duck;", stateful);
-            Assert.Contains("while (__cs2jFaE10.MoveNext())", stateful);
+            Assert.Contains("var __cs2jFaSrc9 = duck;", stateful);
+            Assert.Contains("while (__cs2jFaE9.MoveNext())", stateful);
             Assert.DoesNotContain("finally", stateful);
             Assert.DoesNotContain("IDisposable", stateful);
 
             // Explicit-interface struct Dispose: boxed interface cast in
-            // finally (CS2J5455 shape).
+            // finally (CS2J5455 shape). Sites 12 and 13.
             var explicitStruct = MethodBody(duck, "CollectExplicitDisposeStruct");
             Assert.Contains("finally", explicitStruct);
             Assert.Contains(
-                "((global::System.IDisposable)__cs2jFaE12).Dispose();",
+                "((global::System.IDisposable)__cs2jFaE11).Dispose();",
                 explicitStruct);
             // The pattern method is private (explicit impl): never called direct.
-            Assert.DoesNotContain("__cs2jFaE12.Dispose();", explicitStruct);
+            Assert.DoesNotContain("__cs2jFaE11.Dispose();", explicitStruct);
 
             var explicitBreak = MethodBody(duck, "BreakExplicitDisposeStruct");
             Assert.Contains(
-                "((global::System.IDisposable)__cs2jFaE13).Dispose();",
+                "((global::System.IDisposable)__cs2jFaE12).Dispose();",
                 explicitBreak);
 
-            // Ref struct pattern Dispose: direct pattern call, no cast, box-free.
-            var refStructNormal = MethodBody(duck, "RefStructPatternDisposeNormalCount");
+            // Ref struct pattern Dispose fixtures live in the Tests project
+            // (they cannot share the Java half of the gate): direct pattern
+            // call, no cast, box-free. Numbering restarts per file.
+            var testsDir = Path.Combine(outputRoot, IntermediateDir, "SampleForeachSourceTests");
+            var refStructFile = Path.Combine(testsDir, "RefStructEnumeratorDuck.cs");
+            Assert.True(File.Exists(refStructFile), $"missing lowered file: {refStructFile}");
+            var refStructText = await File.ReadAllTextAsync(refStructFile);
+
+            var refStructNormal = MethodBody(refStructText, "RefStructPatternDisposeNormalCount");
             Assert.Contains("finally", refStructNormal);
-            Assert.Contains("__cs2jFaE14.Dispose();", refStructNormal);
+            Assert.Contains("__cs2jFaE.Dispose();", refStructNormal);
             Assert.DoesNotContain("IDisposable", refStructNormal);
 
-            var refStructThrow = MethodBody(duck, "RefStructPatternDisposeThrowCount");
-            Assert.Contains("__cs2jFaE16.Dispose();", refStructThrow);
+            var refStructThrow = MethodBody(refStructText, "RefStructPatternDisposeThrowCount");
+            Assert.Contains("__cs2jFaE2.Dispose();", refStructThrow);
             Assert.DoesNotContain("IDisposable", refStructThrow);
 
-            // ---- FA-5 Span index loops in the new fixture file ----
-            var spanFile = Path.Combine(libDir, "SpanIndexLoopSamples.cs");
+            // ---- FA-5 Span index loops (also in the Tests project) ----
+            var spanFile = Path.Combine(testsDir, "SpanIndexLoopSamples.cs");
             Assert.True(File.Exists(spanFile), $"missing lowered file: {spanFile}");
             var span = await File.ReadAllTextAsync(spanFile);
 
@@ -301,7 +309,7 @@ public class ForeachSourceC40ProjectTests
 
             var libFile = Path.Combine(
                 singleRoot, ".test-output-foreach-source-c40-m3",
-                IntermediateDir, "SampleForeachSourceLib", "RefCollections.cs");
+                IntermediateDir, "SampleForeachSourceTests", "RefCollections.cs");
             Assert.True(File.Exists(libFile), $"missing lowered file: {libFile}");
             var text = await File.ReadAllTextAsync(libFile);
 
@@ -359,7 +367,7 @@ public class ForeachSourceC40ProjectTests
 
             var chainedFile = Path.Combine(
                 chainRoot, RefOutInIntermediateDir,
-                "SampleForeachSourceLib", "RefCollections.cs");
+                "SampleForeachSourceTests", "RefCollections.cs");
             Assert.True(File.Exists(chainedFile), $"missing chained file: {chainedFile}");
             var chained = await File.ReadAllTextAsync(chainedFile);
 

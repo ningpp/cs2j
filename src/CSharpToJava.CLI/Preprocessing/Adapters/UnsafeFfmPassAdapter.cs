@@ -1,3 +1,5 @@
+using System.IO;
+using System.Linq;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.UnsafeFfm;
 using Microsoft.CodeAnalysis.CSharp;
@@ -33,6 +35,7 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
     private readonly UnsafeFfmPreprocessor _preprocessor;
     private readonly List<UnsafeFfmDiagnostic> _diagnostics = new();
     private readonly UnsafeFfmStatistics _statistics = new();
+    private HashSet<string>? _testProjectDirectories;
 
     public UnsafeFfmPassAdapter(
         UnsafeFfmOptions options,
@@ -74,9 +77,22 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
             context.SourceCode, context.SemanticModel!);
         MergeStatistics(result.Statistics);
 
+        var inTestProject = IsInTestProject(context.SourceFilePath);
         foreach (var diagnostic in result.Diagnostics)
         {
-            _diagnostics.Add(diagnostic with { FilePath = context.RelativePath });
+            var effective = diagnostic;
+
+            // UF050 拒绝的是「无法翻译成 Java 的用户 ref struct 声明」。测试工程
+            // 不是 Java 转换输入（链只对生产工程产出 Java；测试工程是 .NET 运行
+            // 时预言机，ref struct foreach  lowering 恰恰要靠它在 C# 侧验证），
+            // 因此测试工程内的 UF050 降级为警告，源文件仍原样通过 C# verify。
+            if (inTestProject
+                && diagnostic is { Severity: UnsafeFfmSeverity.Error, Code: UnsafeFfmDiagnosticCode.UF050 })
+            {
+                effective = diagnostic with { Severity = UnsafeFfmSeverity.Warning };
+            }
+
+            _diagnostics.Add(effective with { FilePath = context.RelativePath });
         }
 
         if (_verbose)
@@ -89,6 +105,50 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
             ? new PassFileRewrite { OutputCode = result.OutputCode, Changed = true, PreserveBom = true }
             : (PassFileRewrite?)null);
     }
+
+    /// <summary>
+    /// 记录测试工程目录：UF050（ref struct 拒绝）只对会产出 Java 的生产工程是
+    /// 硬门；测试工程是 .NET 侧的行为预言机，其声明保留原样并降级为警告。
+    /// </summary>
+    public override Task OnTreePreparedAsync(PassTreeContext tree)
+    {
+        if (tree.ProjectGraph is { } graph)
+        {
+            _testProjectDirectories = graph.ProjectsInTopologicalOrder
+                .Where(p => p.Kind == ProjectKind.Test)
+                .Select(p => NormalizeDirectory(p.ProjectDirectory))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private bool IsInTestProject(string sourceFilePath)
+    {
+        if (_testProjectDirectories is not { Count: > 0 } roots)
+        {
+            return false;
+        }
+
+        var directory = NormalizeDirectory(Path.GetDirectoryName(sourceFilePath));
+        var current = new DirectoryInfo(directory);
+        while (current != null)
+        {
+            if (roots.Contains(NormalizeDirectory(current.FullName)))
+            {
+                return true;
+            }
+
+            current = current.Parent;
+        }
+
+        return false;
+    }
+
+    private static string NormalizeDirectory(string? path)
+        => path == null
+            ? string.Empty
+            : Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
     public override Task AfterFilesAsync(PassTreeContext tree)
         // 无支撑库释放、无 csproj 注入（support=None）；标准 spine 已完成全部落盘。

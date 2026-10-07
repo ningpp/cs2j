@@ -1,4 +1,4 @@
-﻿﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -206,6 +206,100 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
     /// Uses the semantic model when available; otherwise falls back to arity analysis,
     /// rewriting only when every overload of that name/arity was migrated.
     /// </summary>
+    private int _loopConditionCounter;
+
+    /// <summary>
+    /// Out-migrated calls injected into a while condition (e.g. the foreach
+    /// pattern <c>while (e.MoveNext())</c> rewritten to <c>while (e.MoveNext(out e))</c>)
+    /// cannot be converted to Java directly: the Java pipeline only accepts
+    /// ref/out read-backs in statement positions. Restructure to a checked loop:
+    /// <code>
+    /// while (C') B  →  while (true) { bool __cs2jCondN = C'; if (!__cs2jCondN) break; B }
+    /// </code>
+    /// User <c>continue</c> inside B jumps to the top and therefore re-evaluates
+    /// the condition, preserving the original loop semantics.
+    /// </summary>
+    public override SyntaxNode? VisitWhileStatement(WhileStatementSyntax node)
+    {
+        var visited = (WhileStatementSyntax)base.VisitWhileStatement(node)!;
+        if (!ConditionHasOutArg(visited.Condition))
+            return visited;
+
+        var condName = "__cs2jCond" + _loopConditionCounter++;
+        var newBody = SyntaxFactory.Block(
+            BuildConditionCheckStatements(visited.Condition, condName)
+                .Concat(new[] { WrapStatement(visited.Statement) })
+                .ToArray());
+        return SyntaxFactory.WhileStatement(
+            SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression), newBody);
+    }
+
+    /// <summary>
+    /// do/while counterpart. <c>do B while (C')</c> becomes a bool flag plus
+    /// <c>while (true)</c> loop where the condition is only tested after the
+    /// first body pass, and a user <c>continue</c> in B re-tests the condition.
+    /// </summary>
+    public override SyntaxNode? VisitDoStatement(DoStatementSyntax node)
+    {
+        var visited = (DoStatementSyntax)base.VisitDoStatement(node)!;
+        if (!ConditionHasOutArg(visited.Condition))
+            return visited;
+
+        var firstName = "__cs2jFirst" + _loopConditionCounter;
+        var condName = "__cs2jCond" + _loopConditionCounter;
+        _loopConditionCounter++;
+
+        var declareFirst = BoolDeclaration(firstName,
+            SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression));
+
+        var condCheck = SyntaxFactory.Block(
+            BuildConditionCheckStatements(visited.Condition, condName).ToArray());
+        var skipOnFirst = SyntaxFactory.IfStatement(
+            SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression,
+                SyntaxFactory.IdentifierName(firstName)),
+            condCheck);
+        var clearFirst = SyntaxFactory.ExpressionStatement(
+            SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+                SyntaxFactory.IdentifierName(firstName),
+                SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression)));
+
+        var loopBody = SyntaxFactory.Block(skipOnFirst, clearFirst, WrapStatement(visited.Statement));
+        var loop = SyntaxFactory.WhileStatement(
+            SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression),
+            loopBody);
+        return SyntaxFactory.Block(declareFirst, loop);
+    }
+
+    private static StatementSyntax WrapStatement(StatementSyntax statement)
+        => statement as BlockSyntax ?? SyntaxFactory.Block(statement);
+
+    private static bool ConditionHasOutArg(ExpressionSyntax condition) =>
+        condition.DescendantNodesAndSelf()
+            .OfType<ArgumentSyntax>()
+            .Any(a => a.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
+                      || a.RefKindKeyword.IsKind(SyntaxKind.RefKeyword));
+
+    private static List<StatementSyntax> BuildConditionCheckStatements(
+        ExpressionSyntax condition, string condName) =>
+        new()
+        {
+            BoolDeclaration(condName, condition.WithoutTrivia()),
+            SyntaxFactory.IfStatement(
+                SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression,
+                    SyntaxFactory.IdentifierName(condName)),
+                SyntaxFactory.BreakStatement())
+        };
+
+    private static LocalDeclarationStatementSyntax BoolDeclaration(string name, ExpressionSyntax value) =>
+        SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(
+                    SyntaxFactory.PredefinedType(
+                        SyntaxFactory.Token(SyntaxKind.BoolKeyword)
+                            .WithTrailingTrivia(SyntaxFactory.Space)))
+                .WithVariables(SyntaxFactory.SingletonSeparatedList(
+                    SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(name))
+                        .WithInitializer(SyntaxFactory.EqualsValueClause(value)))));
+
     private bool IsMigratedCallTarget(InvocationExpressionSyntax invocation, string methodName, string structName)
     {
         // Semantic resolution (works for nodes that still live in the modeled tree).

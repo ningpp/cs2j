@@ -464,13 +464,23 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         if (node.Parent is NameEqualsSyntax or NameColonSyntax)
             return base.VisitIdentifierName(node);
 
+        // 成员访问的「名称槽」（a.Property 中的 Property）由
+        // VisitMemberAccessExpression 统一改写；但隐式 this 属性作接收者时
+        // （Property.ToCharArray() 中的 Property）外层访问不是被规划属性、
+        // 访问层不会兜底，此处必须照常改写，否则声明已去属性化而读站点残留，
+        // 整树验证报 CS0103。
+        if (node.Parent is MemberAccessExpressionSyntax parentAccess
+            && parentAccess.Name == node)
+        {
+            return base.VisitIdentifierName(node);
+        }
+
         if (!_candidateNames.Contains(node.Identifier.ValueText))
             return base.VisitIdentifierName(node);
 
         if (TryGetPlan(node, out var plan)
             && !IsDirectAssignmentLeft(node)
             && node.Parent is not InitializerExpressionSyntax
-            && node.Parent is not MemberAccessExpressionSyntax // 接收者由访问层处理
             && !IsInsideDeconstructionLeft(node))
         {
             if (IsMethodGroupContext(node))
@@ -771,6 +781,14 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
     private static IdentifierNameSyntax Ident(string name)
         => SyntaxFactory.IdentifierName(name);
 
+    /// <summary>实例后备字段访问：显式 this.field，规避与形参/局部变量重名。</summary>
+    private static MemberAccessExpressionSyntax ThisField(string fieldName)
+        => SyntaxFactory.MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression,
+            SyntaxFactory.ThisExpression(),
+            SyntaxFactory.Token(SyntaxKind.DotToken),
+            SyntaxFactory.IdentifierName(fieldName));
+
     private static LiteralExpressionSyntax One()
         => SyntaxFactory.LiteralExpression(
             SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(1));
@@ -904,8 +922,11 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
     {
         var store = left switch
         {
+            // 仅实例构造器直写会走到 IdentifierName 臂（见 IsConstructorFieldWrite）；
+            // 显式 this. 限定避免字段名与构造器形参/局部变量重名时自赋值
+            // （get-only 自动属性 Limit 的后备字段 limit vs 形参 limit）。
             IdentifierNameSyntax => SyntaxFactory.AssignmentExpression(
-                SyntaxKind.SimpleAssignmentExpression, Ident(fieldName), value),
+                SyntaxKind.SimpleAssignmentExpression, ThisField(fieldName), value),
             MemberAccessExpressionSyntax ma => SyntaxFactory.AssignmentExpression(
                 SyntaxKind.SimpleAssignmentExpression,
                 SyntaxFactory.MemberAccessExpression(

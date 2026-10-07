@@ -116,7 +116,7 @@ public class EnumeratorDuckTests
     [Fact]
     public void LambdaCapturedInBody_SeesItsOwnIterationValue()
     {
-        var values = EnumeratorDuckSamples.CaptureActions(new PlainDuck());
+        var values = DotNetOnlySamples.CaptureActions(new PlainDuck());
 
         Assert.Equal(new[] { 1, 2, 3 }, values);
     }
@@ -165,14 +165,14 @@ public class EnumeratorDuckTests
     public void RefStructPatternDispose_NormalCompletion_CalledOnceWithoutBoxing()
     {
         Assert.Equal(1,
-            EnumeratorDuckSamples.RefStructPatternDisposeNormalCount(3));
+            RefStructDuckSamples.RefStructPatternDisposeNormalCount(3));
     }
 
     [Fact]
     public void RefStructPatternDispose_Break_CalledOnceWithPrefixSeen()
     {
         var (disposeCount, seen) =
-            EnumeratorDuckSamples.RefStructPatternDisposeBreakCount(5, stopAt: 3);
+            RefStructDuckSamples.RefStructPatternDisposeBreakCount(5, stopAt: 3);
 
         Assert.Equal(1, disposeCount);
         Assert.Equal(new[] { 1, 2, 3 }, seen);
@@ -182,6 +182,6 @@ public class EnumeratorDuckTests
     public void RefStructPatternDispose_BodyException_CalledOnce()
     {
         Assert.Equal(1,
-            EnumeratorDuckSamples.RefStructPatternDisposeThrowCount(4));
+            RefStructDuckSamples.RefStructPatternDisposeThrowCount(4));
     }
 }

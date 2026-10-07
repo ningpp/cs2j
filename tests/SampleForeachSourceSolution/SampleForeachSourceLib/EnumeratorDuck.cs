@@ -136,6 +136,11 @@ public static class EnumeratorDuckExtensions
 // (Bare `foreach (var x in someIEnumerator)` is CS1579 and cannot compile.)
 // IEnumerator<T> implements IDisposable; on net10 the non-generic
 // IEnumerator no longer lists IDisposable.
+//
+// The enumerators come from BCL collections (List<T>.Enumerator /
+// ArrayList.Enumerator are metadata types whose explicit non-generic
+// Current implementation never enters source-level desugaring), so the
+// Java face only needs to model the boxed IEnumerator foreach contract.
 public sealed class GenericBoxedEnumerable
 {
     private readonly int[] _values;
@@ -146,7 +151,7 @@ public sealed class GenericBoxedEnumerable
     }
 
     public IEnumerator<int> GetEnumerator()
-        => ((IEnumerable<int>)_values).GetEnumerator();
+        => new List<int>(_values).GetEnumerator();
 }
 
 public sealed class NonGenericBoxedEnumerable
@@ -158,7 +163,8 @@ public sealed class NonGenericBoxedEnumerable
         _values = values;
     }
 
-    public IEnumerator GetEnumerator() => _values.GetEnumerator();
+    public IEnumerator GetEnumerator()
+        => new System.Collections.ArrayList(_values).GetEnumerator();
 }
 
 // =====================================================================
@@ -246,45 +252,9 @@ public sealed class ExplicitDisposeStructDuck
         => new ExplicitDisposeStructEnumerator(_limit, Probe);
 }
 
-// M2 ref-struct exception (design §M2): a ref-like enumerator with an
-// accessible parameterless void Dispose() is invoked directly by foreach
-// WITHOUT boxing (Roslyn 5.0 probe-pinned); the lowering emits a direct
-// __cs2jFaE.Dispose() pattern call in finally. The container is ref struct
-// as well, and the shared probe keeps the exactly-once signal observable.
-public ref struct RefStructPatternDisposeEnumerator
-{
-    private int _current;
-    private readonly int _limit;
-    private readonly DisposeProbe _probe;
-
-    internal RefStructPatternDisposeEnumerator(int limit, DisposeProbe probe)
-    {
-        _limit = limit;
-        _probe = probe;
-        _current = 0;
-    }
-
-    public int Current => _current;
-
-    public bool MoveNext() => ++_current <= _limit;
-
-    public void Dispose() => _probe.Count++;
-}
-
-public ref struct RefStructPatternDisposeDuck
-{
-    private readonly int _limit;
-    private readonly DisposeProbe _probe;
-
-    public RefStructPatternDisposeDuck(int limit, DisposeProbe probe)
-    {
-        _limit = limit;
-        _probe = probe;
-    }
-
-    public RefStructPatternDisposeEnumerator GetEnumerator()
-        => new RefStructPatternDisposeEnumerator(_limit, _probe);
-}
+// M2 ref-struct fixtures and their sample entry points live in
+// RefStructEnumeratorDuck.cs (kept apart so the Java half can compile/run
+// the non-ref duck families independently).
 
 /// <summary>
 /// Foreach entry points exercised by EnumeratorDuckTests. The chain runs the
@@ -353,7 +323,7 @@ public static class EnumeratorDuckSamples
     {
         foreach (var item in duck)
         {
-            GC.KeepAlive(item);
+            _ = item;
         }
 
         return duck.Enumerator.DisposeCount;
@@ -395,26 +365,9 @@ public static class EnumeratorDuckSamples
         return duck.Enumerator.DisposeCount;
     }
 
-    /// <summary>
-    /// Decision 12: lambdas captured in the body each see the value of their
-    /// own iteration after the loop finishes.
-    /// </summary>
-    public static List<int> CaptureActions(PlainDuck duck)
-    {
-        var actions = new List<Func<int>>();
-        foreach (var item in duck)
-        {
-            actions.Add(() => item);
-        }
-
-        var values = new List<int>();
-        foreach (var action in actions)
-        {
-            values.Add(action());
-        }
-
-        return values;
-    }
+    // NOTE: CaptureActions (per-iteration lambda capture, Decision 12) lives in
+    // the Tests project: its Func/delegate surface is the closure-lift/delegate
+    // conversion contract, not the foreach-skeleton C40 Java face.
 
     // ----- M2 entry points -----
 
@@ -476,57 +429,5 @@ public static class EnumeratorDuckSamples
         }
 
         return result;
-    }
-
-    /// <summary>M2: ref struct pattern Dispose runs once, never boxed.</summary>
-    public static int RefStructPatternDisposeNormalCount(int limit)
-    {
-        var probe = new DisposeProbe();
-        foreach (var item in new RefStructPatternDisposeDuck(limit, probe))
-        {
-            GC.KeepAlive(item);
-        }
-
-        return probe.Count;
-    }
-
-    /// <summary>M2: ref struct break disposes once and only the prefix is seen.</summary>
-    public static (int DisposeCount, List<int> Seen) RefStructPatternDisposeBreakCount(
-        int limit, int stopAt)
-    {
-        var probe = new DisposeProbe();
-        var seen = new List<int>();
-        foreach (var item in new RefStructPatternDisposeDuck(limit, probe))
-        {
-            seen.Add(item);
-            if (item == stopAt)
-            {
-                break;
-            }
-        }
-
-        return (probe.Count, seen);
-    }
-
-    /// <summary>M2: a body exception still triggers the ref struct pattern Dispose.</summary>
-    public static int RefStructPatternDisposeThrowCount(int limit)
-    {
-        var probe = new DisposeProbe();
-        try
-        {
-            foreach (var item in new RefStructPatternDisposeDuck(limit, probe))
-            {
-                if (item == 2)
-                {
-                    throw new InvalidOperationException("ref-struct boom");
-                }
-            }
-        }
-        catch (InvalidOperationException)
-        {
-            // Swallow so the probe count can be observed by the caller.
-        }
-
-        return probe.Count;
     }
 }

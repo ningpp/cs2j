@@ -40,10 +40,32 @@ public class MethodTransformer : IMemberTransformer
             ReturnType = MapReturnType(m.ReturnType, ctx),
             LeadingComment = ctx.GetDeclarationComments(m, sym).ToCombinedComment()
         };
+
+        // C# explicit interface implementations (e.g. `void IDisposable.Dispose()`)
+        // are private by declaration, but the emitted class implements the mapped
+        // Java interface (AutoCloseable etc.), where the method MUST be public —
+        // javac rejects a package-private override of an interface method.
+        if (sym is { ExplicitInterfaceImplementations.Length: > 0 }
+            && !m.Modifiers.Any(t => t.IsKind(SyntaxKind.PublicKeyword)
+                                     || t.IsKind(SyntaxKind.PrivateKeyword)
+                                     || t.IsKind(SyntaxKind.ProtectedKeyword)
+                                     || t.IsKind(SyntaxKind.InternalKeyword)))
+        {
+            method.Modifiers |= JavaModifiers.Public;
+        }
         if (m.Modifiers.Any(t => t.IsKind(SyntaxKind.AsyncKeyword))) method.IsAsync = true;
 
         BuildSignature(method, m.TypeParameterList, m.ConstraintClauses, m.ParameterList, ctx);
         BuildBody(method, m.Body, m.ExpressionBody, ctx);
+
+        // C# 程序入口 Main：JVM 只能从 `public static void main(String[])` 启动。
+        // `private static void Main()` 必须提升为 public、补齐 String[] args；
+        // `static int Main(...)` 降级为 private mainCore + void main 包一层
+        // System.exit，保留进程退出码语义。
+        JavaSyntaxNode? entryWrapper = null;
+        if (IsCompilationEntryPoint(sym, ctx))
+            entryWrapper = NormalizeEntryPoint(method, sym);
+
         if (sym != null) ctx.RegisterMethodDeclaration(sym, method);
 
         // 局部函数提升为类级 private 方法（Java 无局部函数），嵌套函数迭代排空
@@ -58,8 +80,11 @@ public class MethodTransformer : IMemberTransformer
         }
 
         ctx.LeaveMethod();
-        return extras.Count > 0
-            ? new JavaMemberCollection(new[] { method }.Concat(extras).ToList())
+        var members = new List<JavaSyntaxNode> { method };
+        if (entryWrapper != null) members.Add(entryWrapper);
+        members.AddRange(extras);
+        return members.Count > 1
+            ? new JavaMemberCollection(members)
             : method;
     }
 
@@ -100,7 +125,89 @@ public class MethodTransformer : IMemberTransformer
             ? char.ToLowerInvariant(name[0]) + name[1..] : name);
     }
 
-    /// <summary>类内方法转换后的 Java 名集合，供提升的局部函数避名。</summary>
+    /// <summary>
+    /// 判断方法是否是当前编译（程序）的入口点。C# 允许库内存在同名普通
+    /// <c>Main</c>，只有 <see cref="CSharpCompilation.GetEntryPoint"/> 命中的
+    /// 方法才按 JVM 入口规范化，避免改动其他 Main 方法的签名/可见性。
+    /// </summary>
+    private static bool IsCompilationEntryPoint(IMethodSymbol? sym, ConversionContext ctx)
+    {
+        if (sym is not { IsStatic: true, Name: "Main", MethodKind: MethodKind.Ordinary })
+            return false;
+        if (sym.Parameters.Length is not (0 or 1))
+            return false;
+        if (sym.Parameters.Length == 1
+            && (sym.Parameters[0].Type is not IArrayTypeSymbol stringArray
+                || stringArray.ElementType.SpecialType != SpecialType.System_String))
+        {
+            return false;
+        }
+
+        var compilation = ctx.ProjectCompilation ?? ctx.SemanticModel?.Compilation;
+        if (compilation == null)
+            return IsCanonicalMainShape(sym);
+
+        IMethodSymbol? entry;
+        try
+        {
+            entry = compilation.GetEntryPoint(default);
+        }
+        catch (Exception)
+        {
+            // 多入口/无入口等情况下 GetEntryPoint 会抛错，下面走形状判定。
+            entry = null;
+        }
+
+        if (entry != null)
+            return SymbolEqualityComparer.Default.Equals(entry, sym);
+
+        // 部分合并/临时编译往往以 Dll OutputKind 构建，GetEntryPoint 不可用。
+        // 可执行输出直接信任经典 Main 形状；其余输出也按 C# 约定兜底——
+        // static Main()/Main(string[])/int Main 是 C# 保留的入口签名。
+        return IsCanonicalMainShape(sym);
+    }
+
+    private static bool IsCanonicalMainShape(IMethodSymbol sym)
+        => sym.ReturnsVoid
+           || sym.ReturnType.SpecialType == SpecialType.System_Int32;
+
+    /// <summary>
+    /// 把 C# 入口方法规范化成 JVM 入口形状。void 入口就地改名为 public
+    /// main 并补 String[] 参数；int 入口保留为 private mainCore（同样补
+    /// args 形参），另返回一个 void main 包装方法经 System.exit 透传退出码。
+    /// </summary>
+    private static JavaSyntaxNode? NormalizeEntryPoint(JavaMethodDeclaration method, IMethodSymbol sym)
+    {
+        var hasArgs = method.Parameters.Count == 1;
+        if (!hasArgs)
+            method.Parameters.Add(new JavaParameter("String[]", "args"));
+
+        method.Modifiers &= ~(JavaModifiers.Private | JavaModifiers.Protected);
+        method.Modifiers |= JavaModifiers.Public | JavaModifiers.Static;
+
+        if (sym.ReturnsVoid)
+        {
+            method.Name = "main";
+            return null;
+        }
+
+        // int Main(...): 原方法体保持不变地留在 mainCore，main 仅做退出码桥接。
+        method.Name = "mainCore";
+        method.Modifiers &= ~JavaModifiers.Public;
+        method.Modifiers |= JavaModifiers.Private;
+
+        var wrapper = new JavaMethodDeclaration
+        {
+            Name = "main",
+            Modifiers = JavaModifiers.Public | JavaModifiers.Static,
+            ReturnType = "void",
+            Body = "System.exit(mainCore(args));",
+        };
+        wrapper.Parameters.Add(new JavaParameter("String[]", "args"));
+        return wrapper;
+    }
+
+
     internal static HashSet<string> GetClassMethodJavaNames(INamedTypeSymbol type, ConversionContext ctx)
     {
         var names = new HashSet<string>(StringComparer.Ordinal);

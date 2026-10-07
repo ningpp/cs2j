@@ -100,6 +100,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return $"{receiver}.length";
             }
 
+            // C# string.Length -> java.lang.String.length(). Keyed on the semantic
+            // special type: ToDisplayString() spells System.String as the keyword
+            // "string", which misses the "System.String" rows in TypeMappings.json.
+            if (property.Name == "Length"
+                && property.ContainingType?.SpecialType == SpecialType.System_String)
+            {
+                return $"{receiver}.length()";
+            }
+
             // Honor TypeMappings property→method renames (e.g.
             // ThreadLocal<T>.IsValueCreated → isValueCreated()); the C09
             // ThreadLocal compat surface uses bean-style accessors that do not

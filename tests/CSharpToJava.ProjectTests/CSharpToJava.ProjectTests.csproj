@@ -159,6 +159,17 @@
       <Link>SampleForeachSourceSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Include SampleIndexRangeSolution (C31) as content; bin/obj excluded. -->
+    <Content Include="..\SampleIndexRangeSolution\**\*.*"
+              Exclude="..\SampleIndexRangeSolution\**\bin\**;..\SampleIndexRangeSolution\**\obj\**">
+      <Link>SampleIndexRangeSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- C31/C40 javac gate runtime stubs (dotnet.System.Collections*). -->
+    <Content Include="JavaGateRuntime\**\*.java">
+      <Link>JavaGateRuntime\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

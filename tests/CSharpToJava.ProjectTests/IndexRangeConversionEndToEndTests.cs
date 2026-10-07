@@ -4,6 +4,11 @@ using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 using CSharpToJava.Core.Workspace;
+using CSharpToJava.Core.EnumDeclaration;
+using CSharpToJava.Core.JavaKeywords;
+using CSharpToJava.Core.MemberDesugar;
+using CSharpToJava.Core.ReadOnlyStructMaker;
+using CSharpToJava.Core.RecordReadOnly;
 
 namespace CSharpToJava.ProjectTests;
 
@@ -12,6 +17,8 @@ namespace CSharpToJava.ProjectTests;
 /// the main C#->Java pipeline converts the desugared calls through the
 /// existing type/method mapping path. Pins the lowercase ArrayHelper.slice
 /// mapping (no explicit member entry: PascalToCamelCase + compat lookup).
+/// The sln fixture (<c>SampleIndexRangeSolution</c>) additionally has a slow
+/// javac+JVM run gate (<see cref="IndexRangeJavaE2EProjectTests"/>).
 /// </summary>
 public class IndexRangeConversionEndToEndTests
 {
