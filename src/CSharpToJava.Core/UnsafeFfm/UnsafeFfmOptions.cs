@@ -12,8 +12,10 @@ namespace CSharpToJava.Core.UnsafeFfm;
 /// （UF050）、R9 ref struct using 归一（UF055）、InlineArray 盘点
 /// （UF051）——ref struct 段是 pass 基座，与 R1 同级语义，无独立开关；
 /// R8 extern 互操作显式拒绝（UF060/UF070）随 EnableExtern 开启。
-/// M4 裁决：白名单 facade 归一与 Java FFM 发射通道作为独立 opt-in
-/// 子段后续交付，故当前不消费 ExternWhitelistPath、一切 extern 默认拒绝。
+/// M4 裁决：白名单 facade 归一作为独立 opt-in 子段交付——
+/// <see cref="Whitelist"/> 非 null 时，命中的 extern 归一为受控
+/// [Cs2j.Generation.InteropFacade] 声明（C# 半区响亮 stub、Java 半区
+/// FFM 发射通道消费）；其余 extern 仍默认 UF060。
 /// </summary>
 public sealed class UnsafeFfmOptions
 {
@@ -34,8 +36,16 @@ public sealed class UnsafeFfmOptions
     public bool EnableExtern { get; init; } = true;
 
     /// <summary>
-    /// M4 白名单 opt-in 子段（后续交付）：extern FFM 白名单配置路径。
-    /// 当前 pass 不消费此值（null = 无白名单，extern 全部 UF060）。
+    /// M4 白名单 opt-in 子段（已交付）：extern FFM 白名单。null（默认）=
+    /// 无白名单，extern 全部 UF060；非 null 时命中条目归一为受控 interop
+    /// facade（InteropFacade 标记 + 响亮 stub 体），由 Java 半区 FFM 发射
+    /// 通道消费。由 CLI <c>--extern-whitelist &lt;path&gt;</c> 加载。
+    /// </summary>
+    public ExternWhitelist? Whitelist { get; init; }
+
+    /// <summary>
+    /// 白名单文件路径（诊断/日志用途）：实际消费的是 <see cref="Whitelist"/>，
+    /// 由适配器在装配期加载并注入。
     /// </summary>
     public string? ExternWhitelistPath { get; init; }
 

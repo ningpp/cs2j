@@ -348,8 +348,10 @@ public class ClassTransformer : ITypeTransformer
                 if (IsExternLike(md))
                     throw new NotSupportedException(
                         $"CS2J normalization required: extern/DllImport method '{md.Identifier.Text}' must be lowered by a preprocessor before Java conversion.");
-                foreach (var jm in MethodResults(factory.CreateMethodTransformer().Transform(md, context)))
-                    AddMethodIfNotDuplicateInternal(javaClass, jm);
+                // 走通用 Add 分发：普通方法返回 JavaMethodDeclaration；C06 R8
+                // FFM facade 返回 JavaMemberCollection（MethodHandle 字段 +
+                // invokeExact 包装方法），两者都必须保留。
+                Add(factory.CreateMethodTransformer().Transform(md, context));
                 break;
             case DestructorDeclarationSyntax dtor:
                 // FN-9（C39）：终结器 ~T() 在 Java 无对应构造，必须先由 member-desugar
@@ -389,13 +391,6 @@ public class ClassTransformer : ITypeTransformer
                 AddEventMembers(javaClass, new EventFieldTransformer().TransformExplicitEvent(ed, context));
                 break;
         }
-    }
-
-    private static IEnumerable<JavaMethodDeclaration> MethodResults(JavaSyntaxNode? result)
-    {
-        if (result is JavaMethodDeclaration j) yield return j;
-        else if (result is JavaMemberCollection c)
-            foreach (var m in c.Members.OfType<JavaMethodDeclaration>()) yield return m;
     }
 
     private static bool IsExternLike(MethodDeclarationSyntax md) =>

@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.Analysis;
 using CSharpToJava.Core.ClosedMetadata;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.LinqRewrite;
@@ -414,6 +415,15 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
 
         foreach (var typeGroup in state.TypeGroups)
         {
+            // C06 R8 FFM opt-in: the InteropFacadeAttribute support type is injected
+            // into the C# intermediate tree purely as a marker for MethodTransformer.
+            // It must not be converted to a Java class (its method-bearing user type
+            // still reads the attribute via GetAttributes during member conversion).
+            if (typeGroup.TypeSymbol.ToDisplayString() == InteropBoundaryFacts.InteropFacadeMarker)
+            {
+                continue;
+            }
+
             var candidatePaths = CollectCandidatePaths(typeGroup);
             if (candidatePaths.Any(path => state.BlockedFilePaths.Contains(ProjectPassState.NormalizeFilePath(path))))
             {

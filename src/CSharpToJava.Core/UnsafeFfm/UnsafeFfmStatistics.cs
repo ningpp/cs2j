@@ -179,6 +179,12 @@ public sealed class UnsafeFfmStatistics
     /// <summary>UF060 拒绝数（extern/DllImport/LibraryImport 非白名单）。</summary>
     public int Uf060Rejections { get; set; }
 
+    /// <summary>UF061 拒绝数（白名单命中但封送布局不可证明：bool/ref/struct 等）。</summary>
+    public int Uf061Rejections { get; set; }
+
+    /// <summary>R8 opt-in 白名单归一数：extern 方法 → InteropFacade 受控声明。</summary>
+    public int FfmFacadesEmitted { get; set; }
+
     /// <summary>UF070 拒绝数（Marshal/NativeLibrary/SafeHandle/HandleRef 站点）。</summary>
     public int Uf070Rejections { get; set; }
 

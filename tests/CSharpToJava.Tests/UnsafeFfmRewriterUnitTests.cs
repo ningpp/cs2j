@@ -2611,4 +2611,415 @@ public class UnsafeFfmRewriterUnitTests
         Assert.Equal(3, result.Statistics.Uf070Rejections);
         Assert.Equal(3, result.Diagnostics.Count(d => d.Code == UnsafeFfmDiagnosticCode.UF070));
     }
+
+    // ==================================================================
+    // M4 / R8 opt-in 子段：FFM 白名单 facade 归一
+    // ==================================================================
+
+    private const string BeepWhitelistJson = """
+        {
+          "entries": [
+            { "method": "C.Beep", "library": "kernel32", "entryPoint": "Beep" },
+            { "method": "C.FormatMsg", "library": "kernel32", "entryPoint": "FormatMessageW", "stringEncoding": "utf16" },
+            { "method": "C.DefaultName", "library": "kernel32" }
+          ]
+        }
+        """;
+
+    private static UnsafeFfmOptions WhitelistOptions(string json) => new()
+    {
+        Whitelist = ExternWhitelist.Parse(json),
+    };
+
+    [Fact]
+    public void M4_WhitelistedDllImport_NormalizedToInteropFacade_AndCompiles()
+    {
+        var src = """
+            using System.Runtime.InteropServices;
+            class C
+            {
+                [DllImport("kernel32")]
+                public static extern int Beep(int frequency, int duration);
+            }
+            """;
+
+        var result = Rewrite(src, WhitelistOptions(BeepWhitelistJson));
+
+        Assert.True(result.Changed);
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == UnsafeFfmSeverity.Error));
+        Assert.DoesNotContain("extern", result.OutputCode);
+        Assert.DoesNotContain("DllImport", result.OutputCode);
+        Assert.Contains("global::Cs2j.Generation.InteropFacade(\"kernel32\", \"Beep\")",
+            result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("PlatformNotSupportedException", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("namespace Cs2j.Generation", result.OutputCode, StringComparison.Ordinal);
+        Assert.Equal(1, result.Statistics.FfmFacadesEmitted);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M4_WhitelistedLibraryImport_PartialStripped_FacadeEmitted()
+    {
+        var src = """
+            using System.Runtime.InteropServices;
+            partial class C
+            {
+                [LibraryImport("kernel32", EntryPoint = "Beep")]
+                public static partial int Beep(int a, int b);
+            }
+            """;
+
+        var result = Rewrite(src, WhitelistOptions(BeepWhitelistJson));
+
+        Assert.True(result.Changed);
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == UnsafeFfmSeverity.Error));
+        Assert.DoesNotContain("partial int Beep", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("InteropFacade(\"kernel32\", \"Beep\")", result.OutputCode, StringComparison.Ordinal);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M4_WhitelistLoaded_ButMethodNotListed_StillUF060()
+    {
+        var src = """
+            using System.Runtime.InteropServices;
+            class C
+            {
+                [DllImport("x")]
+                public static extern int Other(int a);
+            }
+            """;
+
+        var result = Rewrite(src, WhitelistOptions(BeepWhitelistJson));
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF060);
+        Assert.Equal(0, result.Statistics.FfmFacadesEmitted);
+    }
+
+    [Fact]
+    public void M4_Whitelisted_StringParameter_Utf16NamedArgument()
+    {
+        var src = """
+            using System;
+            using System.Runtime.InteropServices;
+            class C
+            {
+                [DllImport("kernel32")]
+                public static extern int FormatMsg(int flags, string text);
+            }
+            """;
+
+        var result = Rewrite(src, WhitelistOptions(BeepWhitelistJson));
+
+        Assert.True(result.Changed);
+        Assert.Contains("FormatMessageW", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("StringEncoding = \"utf16\"", result.OutputCode, StringComparison.Ordinal);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M4_Whitelisted_MissingEntryPoint_DefaultsToCSharpMethodName()
+    {
+        var src = """
+            using System.Runtime.InteropServices;
+            class C
+            {
+                [DllImport("kernel32")]
+                public static extern int DefaultName(int a);
+            }
+            """;
+
+        var result = Rewrite(src, WhitelistOptions(BeepWhitelistJson));
+
+        Assert.True(result.Changed);
+        Assert.Contains("InteropFacade(\"kernel32\", \"DefaultName\")",
+            result.OutputCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void M4_Whitelisted_BoolParameter_UF061_WidthAmbiguity()
+    {
+        var src = """
+            using System.Runtime.InteropServices;
+            class C
+            {
+                [DllImport("x")]
+                public static extern int Beep(int a, bool b);
+            }
+            """;
+
+        var result = Rewrite(src, WhitelistOptions("""
+            { "entries": [ { "method": "C.Beep", "library": "x" } ] }
+            """));
+
+        Assert.False(result.Changed);
+        var diag = Assert.Single(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF061);
+        Assert.Contains("bool", diag.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, result.Statistics.Uf061Rejections);
+    }
+
+    [Fact]
+    public void M4_Whitelisted_RefParameter_UF061()
+    {
+        var src = """
+            using System.Runtime.InteropServices;
+            class C
+            {
+                [DllImport("x")]
+                public static extern int M(ref int a);
+            }
+            """;
+
+        var result = Rewrite(src, WhitelistOptions("""
+            { "entries": [ { "method": "C.M", "library": "x" } ] }
+            """));
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF061);
+    }
+
+    [Fact]
+    public void M4_Whitelisted_StructParameterAndStringReturn_UF061()
+    {
+        var src = """
+            using System;
+            using System.Runtime.InteropServices;
+            struct Point { public int X; public int Y; }
+            class C
+            {
+                [DllImport("x")]
+                public static extern void Take(Point p);
+                [DllImport("y")]
+                public static extern string Ret(int a);
+            }
+            """;
+
+        var result = Rewrite(src, WhitelistOptions("""
+            { "entries": [
+                { "method": "C.Take", "library": "x" },
+                { "method": "C.Ret", "library": "y" }
+            ] }
+            """));
+
+        Assert.False(result.Changed);
+        Assert.Equal(2, result.Diagnostics.Count(d => d.Code == UnsafeFfmDiagnosticCode.UF061));
+    }
+
+    [Fact]
+    public void M4_WhitelistFacade_Idempotent_SecondRunClean()
+    {
+        var src = """
+            using System.Runtime.InteropServices;
+            class C
+            {
+                [DllImport("kernel32")]
+                public static extern int Beep(int a, int b);
+            }
+            """;
+        var options = WhitelistOptions(BeepWhitelistJson);
+
+        var first = Rewrite(src, options);
+        Assert.True(first.Changed);
+
+        // 二次跑：facade 不再 extern-like，支撑类型已存在 → Changed=false、无诊断。
+        var second = Rewrite(first.OutputCode, options);
+        Assert.False(second.Changed);
+        Assert.Empty(second.Diagnostics);
+    }
+
+    [Fact]
+    public void M4_TwoFacadesInOneUnit_SupportTypeEmittedOnce()
+    {
+        var src = """
+            using System.Runtime.InteropServices;
+            class C
+            {
+                [DllImport("kernel32")]
+                public static extern int Beep(int a, int b);
+                [DllImport("kernel32")]
+                public static extern void DefaultName(int a);
+            }
+            """;
+
+        var result = Rewrite(src, WhitelistOptions(BeepWhitelistJson));
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.FfmFacadesEmitted);
+        Assert.Equal(1, CountOccurrences(result.OutputCode, "class InteropFacadeAttribute"));
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M4_FacadeAcrossFiles_SameAssembly_SupportTypeEmittedOnce()
+    {
+        // 模拟项目管线：共享 compilation、共享 preprocessor 实例，逐文件改写。
+        var src1 = """
+            using System.Runtime.InteropServices;
+            class C1
+            {
+                [DllImport("kernel32")]
+                public static extern int Beep(int a, int b);
+            }
+            """;
+        var src2 = """
+            using System.Runtime.InteropServices;
+            class C2
+            {
+                [DllImport("kernel32")]
+                public static extern void DefaultName(int a);
+            }
+            """;
+        var json = """
+            { "entries": [
+                { "method": "C1.Beep", "library": "kernel32" },
+                { "method": "C2.DefaultName", "library": "kernel32" }
+            ] }
+            """;
+
+        var tree1 = CSharpSyntaxTree.ParseText(src1, ParseOptions);
+        var tree2 = CSharpSyntaxTree.ParseText(src2, ParseOptions);
+        var compilation = CSharpCompilation.Create("uffm-multi",
+            new[] { tree1, tree2 }, GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var preprocessor = new UnsafeFfmPreprocessor(WhitelistOptions(json));
+
+        var r1 = preprocessor.RewriteFile(src1, compilation.GetSemanticModel(tree1));
+        var r2 = preprocessor.RewriteFile(src2, compilation.GetSemanticModel(tree2));
+
+        Assert.True(r1.Changed);
+        Assert.True(r2.Changed);
+        Assert.Equal(1, CountOccurrences(r1.OutputCode, "namespace Cs2j.Generation"));
+        Assert.DoesNotContain("namespace Cs2j.Generation", r2.OutputCode, StringComparison.Ordinal);
+
+        // 两文件合在一起可编译（支撑类型只存在于文件 1）。
+        var combined = CSharpSyntaxTree.ParseText(r1.OutputCode, ParseOptions);
+        var combined2 = CSharpSyntaxTree.ParseText(r2.OutputCode, ParseOptions);
+        var verify = CSharpCompilation.Create("uffm-multi-verify",
+            new[] { combined, combined2 }, GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var errors = verify.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0, string.Join("\n", errors));
+    }
+
+    [Fact]
+    public void M4_FacadeAcrossFiles_FirstFileRollsBack_SecondStillGetsSupport()
+    {
+        // 文件1：一个可归一 facade + 一个 UF070 → 整文回滚，支撑占位必须释放；
+        // 文件2：正常 facade → 仍应注入支撑类型。
+        var src1 = """
+            using System.Runtime.InteropServices;
+            class C1
+            {
+                [DllImport("kernel32")]
+                public static extern int Beep(int a, int b);
+                static void Bad()
+                {
+                    System.Console.WriteLine(Marshal.SizeOf<long>());
+                }
+            }
+            """;
+        var src2 = """
+            using System.Runtime.InteropServices;
+            class C2
+            {
+                [DllImport("kernel32")]
+                public static extern void DefaultName(int a);
+            }
+            """;
+        var json = """
+            { "entries": [
+                { "method": "C1.Beep", "library": "kernel32" },
+                { "method": "C2.DefaultName", "library": "kernel32" }
+            ] }
+            """;
+
+        var tree1 = CSharpSyntaxTree.ParseText(src1, ParseOptions);
+        var tree2 = CSharpSyntaxTree.ParseText(src2, ParseOptions);
+        var compilation = CSharpCompilation.Create("uffm-rollback",
+            new[] { tree1, tree2 }, GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var preprocessor = new UnsafeFfmPreprocessor(WhitelistOptions(json));
+
+        var r1 = preprocessor.RewriteFile(src1, compilation.GetSemanticModel(tree1));
+        var r2 = preprocessor.RewriteFile(src2, compilation.GetSemanticModel(tree2));
+
+        Assert.False(r1.Changed);
+        Assert.Contains(r1.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF070);
+        Assert.Equal(0, r1.Statistics.FfmFacadesEmitted);
+
+        Assert.True(r2.Changed);
+        Assert.Equal(1, r2.Statistics.FfmFacadesEmitted);
+        Assert.Contains("namespace Cs2j.Generation", r2.OutputCode, StringComparison.Ordinal);
+        AssertOutputCompiles(r2.OutputCode);
+    }
+
+    [Fact]
+    public void M4_WhitelistJson_DuplicateKey_Throws()
+    {
+        const string json = """
+            { "entries": [
+                { "method": "C.M", "library": "a" },
+                { "method": "C.M", "library": "b" }
+            ] }
+            """;
+
+        Assert.Throws<System.Text.Json.JsonException>(() => ExternWhitelist.Parse(json));
+    }
+
+    [Fact]
+    public void M4_WhitelistJson_MissingLibrary_Throws()
+    {
+        const string json = """{ "entries": [ { "method": "C.M" } ] }""";
+
+        Assert.Throws<System.Text.Json.JsonException>(() => ExternWhitelist.Parse(json));
+    }
+
+    [Fact]
+    public void M4_FileScopedNamespace_FlipsToBlockScoped_AndCompiles()
+    {
+        // 文件级 namespace 与注入的块级支撑 namespace 不能混用（CS8955）：
+        // 注入必须把宿主单元机械翻转为块级 namespace。
+        var src = """
+            using System.Runtime.InteropServices;
+            namespace My.App;
+
+            internal static class Native
+            {
+                [DllImport("kernel32")]
+                public static extern int Beep(int a, int b);
+
+                [DllImport("kernel32", EntryPoint = "FormatMessageW", CharSet = CharSet.Unicode)]
+                public static extern int FormatMsg(int flags, string text);
+            }
+            """;
+
+        var result = Rewrite(src, WhitelistOptions("""
+            { "entries": [
+                { "method": "My.App.Native.Beep", "library": "kernel32", "entryPoint": "Beep" },
+                { "method": "My.App.Native.FormatMsg", "library": "kernel32", "entryPoint": "FormatMessageW", "stringEncoding": "utf16" }
+            ] }
+            """));
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.FfmFacadesEmitted);
+        // 文件级声明必须消失；宿主与支撑都以块级 namespace 存在。
+        Assert.DoesNotContain("namespace My.App;", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("namespace My.App", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("namespace Cs2j.Generation", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("StringEncoding = \"utf16\"", result.OutputCode, StringComparison.Ordinal);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+        return count;
+    }
 }

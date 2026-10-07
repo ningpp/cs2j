@@ -457,6 +457,13 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
     {
+        // 特性命名实参 (Foo = x) / 调用命名实参 (foo: x) 左侧的标识符不是属性
+        // 读站点：它绑定到特性字段/属性或方法参数，绝不能改写为 get_ 调用——
+        // 替换会把 NameEquals 的 Name 槽塞成 InvocationExpression，默认
+        // VisitNameEquals 的无条件强转随即抛 InvalidCastException。
+        if (node.Parent is NameEqualsSyntax or NameColonSyntax)
+            return base.VisitIdentifierName(node);
+
         if (!_candidateNames.Contains(node.Identifier.ValueText))
             return base.VisitIdentifierName(node);
 

@@ -19,14 +19,21 @@ namespace CSharpToJava.Core.UnsafeFfm;
 /// R4 <see cref="StackAllocRewriter"/> 在 R3 之后合批并做 stackalloc 段
 /// residual 自检；M3 起 EnablePointer 时 R5 签名白名单 → R6
 /// <see cref="PointerExprRewriter"/> 表达式索引化；M4 起 EnableExtern 时
-/// R8 <see cref="ExternInteropRewriter"/> 诊断 extern/互操作站点
-/// （UF060/UF070）；末端 D14 residual 闸门按段扩展。
+/// R8 <see cref="ExternInteropRewriter"/> 处理 extern 互操作边界
+/// （UF060/UF070，opt-in 白名单命中时归一 InteropFacade）；末端 D14 residual 闸门按段扩展。
 /// 拒绝优先：任一 Error 即文件 <see cref="UnsafeFfmResult.Changed"/>=false、
 /// 原文保留；输出可被自身二次安全驱动（幂等）。
 /// </summary>
 public sealed class UnsafeFfmPreprocessor
 {
     private readonly UnsafeFfmOptions _options;
+
+    /// <summary>
+    /// R8 白名单归一跨文件状态：已注入 InteropFacade 支撑标记类型的
+    /// 程序集集合（一个 RewriteFile 序列内同一程序集只注入一次）。
+    /// </summary>
+    private readonly HashSet<string> _facadeSupportEmittedAssemblies =
+        new(StringComparer.Ordinal);
 
     public UnsafeFfmPreprocessor(UnsafeFfmOptions? options = null)
     {
@@ -300,14 +307,17 @@ public sealed class UnsafeFfmPreprocessor
             }
         }
 
-        // R8 extern 互操作显式拒绝（M4，EnableExtern）：extern-like 方法
-        // UF060；Marshal/NativeLibrary/SafeHandle/HandleRef 站点 UF070。
-        // 白名单 facade 归一时段未到，本规则只诊断不改写。
+        // R8 extern 互操作边界（M4，EnableExtern）：白名单未加载/未命中 →
+        // UF060；命中但布局不可证明 → UF061；命中且可证明 → 归一为
+        // InteropFacade 受控声明（C# 响亮 stub，Java FFM 通道消费）；
+        // Marshal/NativeLibrary/SafeHandle/HandleRef 站点 UF070。
+        ExternInteropRewriter? externRewriter = null;
         if (_options.EnableExtern)
         {
             var externResolver = new OriginalSyntaxResolver(root, newRoot);
-            var externRewriter = new ExternInteropRewriter(
-                semanticModel, statistics, externResolver);
+            externRewriter = new ExternInteropRewriter(
+                semanticModel, statistics, externResolver,
+                _options.Whitelist, _facadeSupportEmittedAssemblies);
             newRoot = (CompilationUnitSyntax)externRewriter.Visit(newRoot)!;
             foreach (var diagnostic in externRewriter.Diagnostics)
             {
@@ -316,8 +326,20 @@ public sealed class UnsafeFfmPreprocessor
 
             if (externRewriter.HasErrors)
             {
-                return Rollback(sourceCode, statistics, diagnostics);
+                return RollbackExtern(sourceCode, statistics, diagnostics, externRewriter);
             }
+        }
+
+        // R8 之后的任何整文回滚都必须释放本单元已登记的跨文件支撑占位与
+        // facade 计数，否则同程序集后续成功文件会漏注入 marker。
+        UnsafeFfmResult RollbackAfterExtern()
+        {
+            if (externRewriter != null)
+            {
+                externRewriter.RollbackSupportEmission();
+                statistics.FfmFacadesEmitted -= externRewriter.FacadePlansCount;
+            }
+            return Rollback(sourceCode, statistics, diagnostics);
         }
 
         // D14 residual 闸门 M4 扩展（pass 开启即扫）：ref struct 声明与
@@ -334,13 +356,13 @@ public sealed class UnsafeFfmPreprocessor
                 "M4 residual gate: " + m4Reason +
                 " (internal rule gap); the original file was preserved.",
                 filePath, 0, 0));
-            return Rollback(sourceCode, statistics, diagnostics);
+            return RollbackAfterExtern();
         }
 
         if (newRoot.IsEquivalentTo(root))
         {
             statistics.FilesSkippedClean++;
-            return Rollback(sourceCode, statistics, diagnostics);
+            return RollbackAfterExtern();
         }
 
         var outputCode = FormatAndValidate(newRoot);
@@ -353,7 +375,7 @@ public sealed class UnsafeFfmPreprocessor
                 "unsafe-ffm rewrite failed local parse validation; the original file was preserved " +
                 "pending whole-tree build/test verification.",
                 filePath, 0, 0));
-            return Rollback(sourceCode, statistics, diagnostics);
+            return RollbackAfterExtern();
         }
 
         statistics.FilesTransformed++;
@@ -695,6 +717,21 @@ public sealed class UnsafeFfmPreprocessor
             Statistics = statistics,
             Diagnostics = diagnostics,
         };
+
+    /// <summary>
+    /// R8 extern rewriter 自身报错时的回滚：除原文保留外，释放该单元已
+    /// 登记的跨文件支撑类型占位并扣减 facade 计数。
+    /// </summary>
+    private static UnsafeFfmResult RollbackExtern(
+        string sourceCode,
+        UnsafeFfmStatistics statistics,
+        IReadOnlyList<UnsafeFfmDiagnostic> diagnostics,
+        ExternInteropRewriter externRewriter)
+    {
+        externRewriter.RollbackSupportEmission();
+        statistics.FfmFacadesEmitted -= externRewriter.FacadePlansCount;
+        return Rollback(sourceCode, statistics, diagnostics);
+    }
 
     /// <summary>整树格式化 → 原文候选，每个候选重新解析零 Error 才返回。</summary>
     private static string? FormatAndValidate(CompilationUnitSyntax root)

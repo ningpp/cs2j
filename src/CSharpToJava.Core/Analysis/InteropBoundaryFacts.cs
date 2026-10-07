@@ -14,8 +14,8 @@ namespace CSharpToJava.Core.Analysis;
 /// [DllImport]/[LibraryImport] 特性（ISymbol 判定）；</item>
 /// <item><see cref="HasInteropAttribute"/>：符号是否带 DllImport/LibraryImport；</item>
 /// <item><see cref="IsNormalizedInteropFacade"/>：识别 C06 R8 白名单归一后的
-/// 受控 facade 声明/调用——facade 归一随「独立 opt-in 子段」在 M4 之后交付，
-/// 当前恒返回 false，故 CS2J3201/CS2J3203 行为不变；</item>
+/// 受控 facade 声明/调用（方法带 <see cref="InteropFacadeMarker"/> 标记；
+/// 仅在 unsafe-ffm 启用且配置 --extern-whitelist 时产物存在）；</item>
 /// <item><see cref="IsPlatformIsolationGenerated(SyntaxTree)"/> /
 /// <see cref="IsPlatformIsolationGenerated(SyntaxNode)"/>：识别 C42 生成的
 /// 标记文件/成员——C42 Stub/Facade 产物时代未到，当前恒返回 false；</item>
@@ -70,14 +70,37 @@ internal static class InteropBoundaryFacts
     }
 
     /// <summary>
-    /// 是否 C06 R8 归一后的受控 interop facade 声明/调用。facade 时代未到：
-    /// 恒 false（供 C42 三 analyzer 在「对应 pass 已启用」编译中抑制重复
-    /// 诊断的占位契约）。
+    /// 是否 C06 R8 归一后的受控 interop facade 声明/调用：方法声明或调用
+    /// 站点的目标方法带 <see cref="InteropFacadeMarker"/> 标记（unsafe-ffm
+    /// 白名单 opt-in 子段产物）。供 C42/C10 analyzer 抑制对已归一节点的
+    /// 重复平台边界诊断。
     /// </summary>
     public static bool IsNormalizedInteropFacade(SemanticModel model, SyntaxNode node)
     {
-        _ = model;
-        _ = node;
+        if (model == null || node == null) return false;
+
+        IMethodSymbol? method = node switch
+        {
+            MethodDeclarationSyntax declaration => model.GetDeclaredSymbol(declaration),
+            InvocationExpressionSyntax invocation => model.GetSymbolInfo(invocation).Symbol as IMethodSymbol,
+            IdentifierNameSyntax identifier => model.GetSymbolInfo(identifier).Symbol as IMethodSymbol,
+            _ => null,
+        };
+
+        return method != null && IsNormalizedInteropFacadeMethod(method);
+    }
+
+    /// <summary>方法符号是否带 C06 R8 InteropFacade 标记。</summary>
+    public static bool IsNormalizedInteropFacadeMethod(IMethodSymbol method)
+    {
+        foreach (var attribute in method.GetAttributes())
+        {
+            if (attribute.AttributeClass?.ToDisplayString() == InteropFacadeMarker)
+            {
+                return true;
+            }
+        }
+
         return false;
     }
 

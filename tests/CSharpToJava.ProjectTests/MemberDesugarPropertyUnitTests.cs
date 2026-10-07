@@ -73,6 +73,44 @@ public class MemberDesugarPropertyUnitTests
     private static string Normalize(string code)
         => new string(code.Where(ch => !char.IsWhiteSpace(ch)).ToArray());
 
+    // C06 回归：特性命名实参 (Mode = "z") 左侧标识符绑定到特性类自身被
+    // 去糖的属性时，PropertyUseSiteRewriter 不得把它改写成 get_Mode()——
+    // 那会把 NameEquals 的 Name 槽塞成 InvocationExpression，默认
+    // VisitNameEquals 强转即抛 InvalidCastException。
+    [Fact]
+    public void PropertyUseSite_AttributeNamedArgument_IsNotRewrittenToGetter()
+    {
+        var src = """
+            using System;
+
+            [AttributeUsage(AttributeTargets.Method)]
+            internal sealed class MarkerAttribute : Attribute
+            {
+                public string Mode { get; set; } = "x";
+            }
+
+            internal class C
+            {
+                [Marker(Mode = "z")]
+                public void Work()
+                {
+                }
+            }
+            """;
+
+        var rewritten = Rewrite(src);
+        var output = rewritten.OutputCode;
+        var diags = rewritten.Diagnostics;
+
+        // 命名实参必须原样保留，绝不能出现 get_Mode() 形态的特性参数。
+        Assert.Contains("Mode = \"z\"", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("Mode = get_", output, StringComparison.Ordinal);
+
+        // 特性类属性去糖后命名实参无合法落点：残差诊断必须上报（管线层
+        // 据此拦截，绝不静默放行坏码），而不是 InvalidCastException 崩树。
+        Assert.True(diags.Count > 0, "expected residual diagnostics for attribute property with named-argument use.");
+    }
+
     private static void AssertContains(string output, string expected)
         => Assert.True(Normalize(output).Contains(Normalize(expected).Trim(),
             StringComparison.Ordinal),

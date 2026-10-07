@@ -21,6 +21,18 @@ public class MethodTransformer : IMemberTransformer
         var sym = ctx.GetDeclaredSymbol(m) as IMethodSymbol;
         ctx.EnterMethod(sym);
 
+        // C06 R8 opt-in FFM 白名单通道：unsafe-ffm 预处理把命中的
+        // [DllImport]/[LibraryImport] extern 归一为带
+        // [Cs2j.Generation.InteropFacade] 标记的响亮 C# stub；项目管线
+        // 在此发射 MethodHandle 字段 + invokeExact 方法体（v1 ABI 子集：
+        // 基元 + 只读 string）。
+        if (TryGetInteropFacade(sym, out var library, out var entryPoint, out var stringEncoding))
+        {
+            var facade = BuildFfmFacade(m, sym!, library!, entryPoint!, stringEncoding, ctx);
+            ctx.LeaveMethod();
+            return facade;
+        }
+
         var method = new JavaMethodDeclaration
         {
             Name = GetJavaMethodName(m.Identifier.Text, sym, ctx),
@@ -207,6 +219,205 @@ public class MethodTransformer : IMemberTransformer
             ? ctx.TypeMappings.MapMethod(sym.ContainingType.ToDisplayString(), name) : null;
         return !string.IsNullOrEmpty(mapped) ? mapped : JavaName(name);
     }
+
+    // ================== C06 R8 FFM 白名单 facade（opt-in） ==================
+
+    private const string FfmFacadeAttributeName =
+        "Cs2j.Generation.InteropFacadeAttribute";
+
+    /// <summary>
+    /// 方法是否带 unsafe-ffm 发射的 InteropFacade 标记；返回白名单
+    /// library/entryPoint 与字符串编码（utf8/utf16）。
+    /// </summary>
+    private static bool TryGetInteropFacade(
+        IMethodSymbol? sym,
+        out string? library,
+        out string? entryPoint,
+        out string stringEncoding)
+    {
+        library = null;
+        entryPoint = null;
+        stringEncoding = "utf8";
+
+        var attr = sym?.GetAttributes().FirstOrDefault(a =>
+            a.AttributeClass?.ToDisplayString() == FfmFacadeAttributeName);
+        if (attr == null) return false;
+
+        if (attr.ConstructorArguments.Length < 2
+            || attr.ConstructorArguments[0].Value is not string lib
+            || attr.ConstructorArguments[1].Value is not string ep)
+        {
+            return false;
+        }
+
+        library = lib;
+        entryPoint = ep;
+        foreach (var named in attr.NamedArguments)
+        {
+            if (named.Key == "StringEncoding" && named.Value.Value is string enc)
+                stringEncoding = enc;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 发射 FFM facade：<c>private static final MethodHandle</c> 绑定字段 +
+    /// invokeExact 包装方法。形参/返回的 Java 声明类型沿用项目常规映射
+    /// （byte/ushort→int 等），ABI 边界在方法体内显式窄化到 ValueLayout
+    /// 载体类型，保证调用点类型兼容且 invokeExact 签名精确。
+    /// </summary>
+    private static JavaMemberCollection BuildFfmFacade(
+        MethodDeclarationSyntax m,
+        IMethodSymbol sym,
+        string library,
+        string entryPoint,
+        string stringEncoding,
+        ConversionContext ctx)
+    {
+        var javaName = GetJavaMethodName(m.Identifier.Text, sym, ctx);
+        // 同名重载（含同 arity）也必须得到不同字段：追加参数类型签名。
+        var signature = string.Join("_", sym.Parameters.Select(FfmParameterTag));
+        var handleName = "__cs2jFfm_" + m.Identifier.Text + "_" + sym.Parameters.Length
+            + (signature.Length > 0 ? "_" + signature : "");
+        var utf16 = stringEncoding == "utf16";
+
+        var paramLayouts = new List<string>();
+        var javaParameters = new List<JavaParameter>();
+        var invokeArguments = new List<string>();
+        var preStatements = new List<string>();
+        var hasString = false;
+
+        foreach (var parameter in sym.Parameters)
+        {
+            var declaredType = ctx.MapType(parameter.Type);
+            javaParameters.Add(new JavaParameter(
+                declaredType, ConversionContext.EscapeJavaKeyword(parameter.Name)));
+
+            if (parameter.Type.SpecialType == SpecialType.System_String)
+            {
+                hasString = true;
+                paramLayouts.Add("ValueLayout.ADDRESS");
+                var segmentName = "__cs2jSeg_" + parameter.Name;
+                preStatements.Add(
+                    $"MemorySegment {segmentName} = FfmImports.{(utf16 ? "utf16" : "utf8")}({parameter.Name});");
+                invokeArguments.Add(segmentName);
+            }
+            else
+            {
+                paramLayouts.Add(FfmAbiLayout(parameter.Type));
+                invokeArguments.Add(FfmNarrowArgument(parameter.Type, parameter.Name));
+            }
+        }
+
+        var isVoid = sym.ReturnType.SpecialType == SpecialType.System_Void;
+        var descriptor = isVoid
+            ? "FunctionDescriptor.ofVoid(" + string.Join(", ", paramLayouts) + ")"
+            : paramLayouts.Count == 0
+                ? "FunctionDescriptor.of(" + FfmAbiLayout(sym.ReturnType) + ")"
+                : "FunctionDescriptor.of(" + FfmAbiLayout(sym.ReturnType) + ", "
+                    + string.Join(", ", paramLayouts) + ")";
+
+        var field = new JavaFieldDeclaration
+        {
+            Modifiers = JavaModifiers.Private | JavaModifiers.Static | JavaModifiers.Final,
+            Type = "MethodHandle",
+            Name = handleName,
+            Initializer = $"FfmImports.bind(\"{EscapeJavaString(library)}\", " +
+                          $"\"{EscapeJavaString(entryPoint)}\", {descriptor})",
+        };
+
+        var invoke = $"{handleName}.invokeExact({string.Join(", ", invokeArguments)})";
+        var bodyLines = new List<string>(preStatements)
+        {
+            "try",
+            "{",
+        };
+        if (isVoid)
+        {
+            bodyLines.Add(invoke + ";");
+        }
+        else
+        {
+            // invokeExact 必须显式窄化到布局载体；载体与声明类型不同时
+            // （byte/char→int）由 Java 隐式拓宽回方法返回类型。
+            bodyLines.Add($"return ({FfmCarrierJavaType(sym.ReturnType)}) {invoke};");
+        }
+
+        bodyLines.AddRange(new[]
+        {
+            "} catch (RuntimeException | Error e) {",
+            "    throw e;",
+            "} catch (Throwable t) {",
+            "    throw new RuntimeException(t);",
+            "}",
+        });
+
+        var method = new JavaMethodDeclaration
+        {
+            Name = javaName,
+            Modifiers = ConvertModifiers(m.Modifiers),
+            ReturnType = isVoid ? "void" : ctx.MapType(sym.ReturnType),
+            Body = string.Join("\n", bodyLines),
+        };
+        method.Parameters.AddRange(javaParameters);
+
+        ctx.AddImport("io.github.ningpp.compat.FfmImports");
+        ctx.AddImport("java.lang.invoke.MethodHandle");
+        ctx.AddImport("java.lang.foreign.FunctionDescriptor");
+        ctx.AddImport("java.lang.foreign.ValueLayout");
+        if (hasString) ctx.AddImport("java.lang.foreign.MemorySegment");
+
+        ctx.RegisterMethodDeclaration(sym, method);
+
+        return new JavaMemberCollection(new List<JavaSyntaxNode> { field, method });
+    }
+
+    /// <summary>ABI 布局（D10：char=UTF-16 双字节；bool v1 已在 C# 侧 UF061 拒绝）。</summary>
+    private static string FfmAbiLayout(ITypeSymbol type) => type.SpecialType switch
+    {
+        SpecialType.System_Byte or SpecialType.System_SByte => "ValueLayout.JAVA_BYTE",
+        SpecialType.System_Int16 => "ValueLayout.JAVA_SHORT",
+        SpecialType.System_UInt16 or SpecialType.System_Char => "ValueLayout.JAVA_CHAR",
+        SpecialType.System_Int32 or SpecialType.System_UInt32 => "ValueLayout.JAVA_INT",
+        SpecialType.System_Int64 or SpecialType.System_UInt64 => "ValueLayout.JAVA_LONG",
+        SpecialType.System_Single => "ValueLayout.JAVA_FLOAT",
+        SpecialType.System_Double => "ValueLayout.JAVA_DOUBLE",
+        _ => "ValueLayout.JAVA_INT",
+    };
+
+    /// <summary>布局载体的 Java 类型（invokeExact 实参/返回转换目标）。</summary>
+    private static string FfmCarrierJavaType(ITypeSymbol type) => type.SpecialType switch
+    {
+        SpecialType.System_Byte or SpecialType.System_SByte => "byte",
+        SpecialType.System_Int16 => "short",
+        SpecialType.System_UInt16 or SpecialType.System_Char => "char",
+        SpecialType.System_Int32 or SpecialType.System_UInt32 => "int",
+        SpecialType.System_Int64 or SpecialType.System_UInt64 => "long",
+        SpecialType.System_Single => "float",
+        SpecialType.System_Double => "double",
+        _ => "int",
+    };
+
+    /// <summary>
+    /// 实参进入 invokeExact 前的窄化：项目常规映射把 C# byte/ushort 声明为
+    /// Java int，而 JAVA_BYTE/JAVA_CHAR 的载体分别是 byte/char。
+    /// </summary>
+    private static string FfmNarrowArgument(ITypeSymbol type, string argumentName) => type.SpecialType switch
+    {
+        SpecialType.System_Byte => $"(byte) {argumentName}",
+        SpecialType.System_UInt16 => $"(char) {argumentName}",
+        _ => argumentName,
+    };
+
+    /// <summary>MethodHandle 字段名参数标签：string 用固定标签，其余用 SpecialType 序号。</summary>
+    private static string FfmParameterTag(IParameterSymbol parameter) =>
+        parameter.Type.SpecialType == SpecialType.System_String
+            ? "str"
+            : ((int)parameter.Type.SpecialType).ToString();
+
+    private static string EscapeJavaString(string value) =>
+        value.Replace("\\", "\\\\").Replace("\"", "\\\"");
 
     private static string MapReturnType(TypeSyntax returnType, ConversionContext ctx)
     {

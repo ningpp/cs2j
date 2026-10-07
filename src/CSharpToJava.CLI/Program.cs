@@ -262,10 +262,8 @@ public class Program
                 {
                     Strict = opts.LocalFunctionStrict,
                 },
-                UnsafeFfmOptionsFactory = () => new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions
-                {
-                    Strict = opts.LocalFunctionStrict,
-                },
+                UnsafeFfmOptionsFactory = () => BuildUnsafeFfmOptions(
+                    opts.LocalFunctionStrict, opts.ExternWhitelistPath),
                 ExpressionDesugarOptionsFactory = () => new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions
                 {
                     CollectionExpr = new CSharpToJava.Core.ExpressionDesugar.CollectionExpr.CollectionExprOptions
@@ -3278,6 +3276,24 @@ public class Program
     /// to the current directory or the repo root, so both project conversions share
     /// the same converter code while only the configured types are forced.
     /// </summary>
+    private static CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions BuildUnsafeFfmOptions(
+        bool strict, string? externWhitelistPath)
+    {
+        CSharpToJava.Core.UnsafeFfm.ExternWhitelist? whitelist = null;
+        if (!string.IsNullOrWhiteSpace(externWhitelistPath))
+        {
+            whitelist = CSharpToJava.Core.UnsafeFfm.ExternWhitelist.LoadFromFile(
+                Path.GetFullPath(externWhitelistPath));
+        }
+
+        return new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions
+        {
+            Strict = strict,
+            Whitelist = whitelist,
+            ExternWhitelistPath = externWhitelistPath,
+        };
+    }
+
     private static IReadOnlySet<string> LoadReadOnlyForceOverrides(string? explicitPath)
     {
         var path = explicitPath;
@@ -3962,10 +3978,8 @@ public class Program
                 {
                     Strict = opts.LocalFunctionStrict,
                 },
-                UnsafeFfmOptionsFactory = () => new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions
-                {
-                    Strict = opts.LocalFunctionStrict,
-                },
+                UnsafeFfmOptionsFactory = () => BuildUnsafeFfmOptions(
+                    opts.LocalFunctionStrict, opts.ExternWhitelistPath),
                 ExpressionDesugarOptionsFactory = () => new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions
                 {
                     CollectionExpr = new CSharpToJava.Core.ExpressionDesugar.CollectionExpr.CollectionExprOptions
@@ -5014,6 +5028,11 @@ class PreprocessVerbOptions
         HelpText = "Disable a pass id (repeatable or comma-separated)")]
     public IEnumerable<string>? DisablePasses { get; set; }
 
+    [Option("extern-whitelist", Required = false,
+        HelpText = "unsafe-ffm (C06) opt-in: path to the FFM extern whitelist JSON; whitelisted " +
+                   "[DllImport]/[LibraryImport] methods are lowered to FFM facades, all other extern stays UF060")]
+    public string? ExternWhitelistPath { get; set; }
+
     [Option("list-passes", Default = false, HelpText = "List registered preprocess passes with status and defaults, then exit")]
     public bool ListPasses { get; set; }
 
@@ -5685,6 +5704,11 @@ class ConvertProjectOptions
     [Option("disable-pass", Required = false, Separator = ',',
         HelpText = "Disable a preprocess pass by id, overriding defaults and legacy flags (repeatable or comma-separated; use the 'preprocess --list-passes' verb for ids)")]
     public IEnumerable<string>? DisablePasses { get; set; }
+
+    [Option("extern-whitelist", Required = false,
+        HelpText = "unsafe-ffm (C06) opt-in: path to the FFM extern whitelist JSON; whitelisted " +
+                   "[DllImport]/[LibraryImport] methods are lowered to FFM facades, all other extern stays UF060")]
+    public string? ExternWhitelistPath { get; set; }
 
     public bool UseRecords => !NoRecords;
     public bool GenerateJavaDoc => !NoJavaDoc;

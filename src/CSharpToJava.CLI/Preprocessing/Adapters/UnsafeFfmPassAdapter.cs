@@ -15,8 +15,11 @@ namespace CSharpToJava.CLI.Preprocessing.Adapters;
 /// indexization, M4 R8 extern/interop site rejection UF060/UF070), and the
 /// runner restores and verifies build/tests. There is no support library to
 /// release (PassSupportLibrary.None) and no csproj injection; AfterFiles needs
-/// no extra work. The FFM whitelist facade and Java FFM emission channel are a
-/// later independent opt-in sub-segment; ExternWhitelistPath is not consumed.
+/// no extra work. The R8 FFM whitelist is an opt-in sub-segment fed through
+/// UnsafeFfmOptions.Whitelist (CLI --extern-whitelist): whitelisted extern
+/// methods are normalized in-file to [Cs2j.Generation.InteropFacade] stubs
+/// (the marker support type is emitted into the same intermediate tree),
+/// which the Java half lowers to java.lang.foreign MethodHandle calls.
 /// </summary>
 internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
 {
@@ -143,9 +146,12 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
            $"{_statistics.Rejections} rejection(s) (UF020={_statistics.Uf020Rejections}, " +
            $"UF021={_statistics.Uf021Rejections}, UF022={_statistics.Uf022Rejections}, " +
            $"UF030={_statistics.Uf030Rejections}, UF031={_statistics.Uf031Rejections}, " +
-           $"UF040={_statistics.Uf040Rejections}, UF050={_statistics.Uf050Rejections}, " +
+           $"UF040={_statistics.Uf040Rejections}, " +
+           $"UF050={_statistics.Uf050Rejections}, " +
            $"UF051={_statistics.Uf051Rejections}, UF055={_statistics.Uf055Rejections}, " +
-           $"UF060={_statistics.Uf060Rejections}, UF070={_statistics.Uf070Rejections}), " +
+           $"UF060={_statistics.Uf060Rejections}, UF061={_statistics.Uf061Rejections}, " +
+           $"UF070={_statistics.Uf070Rejections}), " +
+           $"{_statistics.FfmFacadesEmitted} FFM facade(s), " +
            $"{_statistics.FilesTransformed} file(s)";
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
@@ -193,6 +199,8 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
         _statistics.Uf051Rejections += source.Uf051Rejections;
         _statistics.Uf055Rejections += source.Uf055Rejections;
         _statistics.Uf060Rejections += source.Uf060Rejections;
+        _statistics.Uf061Rejections += source.Uf061Rejections;
+        _statistics.FfmFacadesEmitted += source.FfmFacadesEmitted;
         _statistics.Uf070Rejections += source.Uf070Rejections;
         _statistics.SpanUsingNoOps += source.SpanUsingNoOps;
     }
