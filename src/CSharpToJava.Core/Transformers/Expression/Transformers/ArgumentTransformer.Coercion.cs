@@ -27,6 +27,16 @@ public partial class ArgumentTransformer
             return transformedExpr;
         }
 
+        // Bare method groups passed where a delegate/functional interface is
+        // expected lower to Java method references (Owner::method / this::method).
+        // The target delegate may be a constructed Func</> with method type
+        // parameters, so its TypeKind stays Delegate even though it is not a
+        // concrete named delegate.
+        if (TryEmitDelegateMethodReference(arg.Expression, targetParam, context, out var methodReference))
+        {
+            return methodReference;
+        }
+
         var argType = context.GetTypeInfo(arg.Expression).Type;
         var paramType = targetParam.Type;
         bool isFormatProvider = paramType is INamedTypeSymbol fmt
@@ -159,10 +169,67 @@ public partial class ArgumentTransformer
             return HolderTypeResolver.GetHolderInstantiationWithValue(holderType, transformedExpr);
         }
 
+        if (TryNarrowIntegralArgument(transformedExpr, paramType, argType, out var narrowed))
+            return narrowed;
+
         return argType.SpecialType == SpecialType.System_Byte
             && paramType.SpecialType == SpecialType.System_SByte
             ? $"(byte)({transformedExpr})"
             : transformedExpr;
+    }
+
+    /// <summary>
+    /// Numeric narrowing wraps required when binding an argument to a method
+    /// parameter (Java invocation context applies no narrowing constant
+    /// conversion): int→short/sbyte/char casts, and uint→int for unsigned
+    /// literals that are rendered with an L suffix. Returns null when no wrap
+    /// is needed.
+    /// </summary>
+    public static string? NarrowIntegralArgument(string transformedExpr, SpecialType param, SpecialType? arg)
+    {
+        if (arg is not { } argSpecial)
+            return null;
+        switch (param)
+        {
+            case SpecialType.System_Int16 when IsIntWidthForNarrowing(argSpecial):
+                return $"(short)({transformedExpr})";
+            case SpecialType.System_SByte when IsIntWidthForNarrowing(argSpecial):
+                return $"(byte)({transformedExpr})";
+            case SpecialType.System_Char when argSpecial != SpecialType.System_Char
+                && IsIntWidthForNarrowing(argSpecial):
+                return $"(char)({transformedExpr})";
+            case SpecialType.System_Int32 when argSpecial == SpecialType.System_UInt32:
+                return $"(int)({transformedExpr})";
+            // uint parameters lower to Java int; uint literals above int range
+            // render with an L suffix and need an int cast at the call site.
+            case SpecialType.System_UInt32 when argSpecial == SpecialType.System_UInt32:
+                return $"(int)({transformedExpr})";
+            default:
+                return null;
+        }
+    }
+
+    private static bool IsIntWidthForNarrowing(SpecialType special)
+        => special is SpecialType.System_Int32
+            or SpecialType.System_UInt16
+            or SpecialType.System_Byte
+            or SpecialType.System_SByte
+            or SpecialType.System_Char;
+
+    /// <summary>
+    /// Java method invocation contexts (unlike assignment contexts) do not apply
+    /// narrowing constant conversion, so int arguments bound to short/sbyte/char
+    /// parameters need an explicit cast. C# byte/ushort lower to Java int.
+    /// </summary>
+    private static bool TryNarrowIntegralArgument(
+        string transformedExpr,
+        ITypeSymbol paramType,
+        ITypeSymbol? argType,
+        out string narrowed)
+    {
+        var candidate = NarrowIntegralArgument(transformedExpr, paramType.SpecialType, argType?.SpecialType);
+        narrowed = candidate ?? "";
+        return candidate != null;
     }
 
     private static string CoerceNullArgument(
@@ -225,6 +292,36 @@ public partial class ArgumentTransformer
 
         return $"({javaFuncType}) {transformedExpr}";
     }
+
+    /// <summary>
+    /// Lowers a bare method group (identifier or member access) bound to a
+    /// delegate/SAM parameter to a Java method reference
+    /// (<c>Owner::method</c>/<c>this::method</c>). Shared by the coercion path
+    /// and the two direct invocation argument builders, which otherwise bypass
+    /// <see cref="CoerceArgumentType"/> and leave e.g. <c>run(Twice)</c>.
+    /// </summary>
+    public static bool TryEmitDelegateMethodReference(
+        ExpressionSyntax expression,
+        IParameterSymbol targetParam,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = "";
+        if (context.SemanticModel == null
+            || expression is not (IdentifierNameSyntax or MemberAccessExpressionSyntax)
+            || context.GetSymbolInfo(expression).Symbol is not IMethodSymbol methodGroup
+            || methodGroup.IsGenericMethod
+            || !IsDelegateLikeTarget(targetParam.Type))
+        {
+            return false;
+        }
+
+        rendered = ObjectCreationTransformer.EmitDelegateMethodReference(expression, methodGroup, context);
+        return true;
+    }
+
+    internal static bool IsDelegateLikeTarget(ITypeSymbol type)
+        => type.TypeKind == TypeKind.Delegate || IsSingleMethodInterface(type);
 
     private static bool IsIntegralEnumParameter(ITypeSymbol paramType, ITypeSymbol argType)
         => paramType.TypeKind == TypeKind.Enum

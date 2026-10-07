@@ -324,7 +324,39 @@ public class MethodTransformer : IMemberTransformer
             return char.ToUpper(name[4]) + name[5..];
         var mapped = sym?.ContainingType != null
             ? ctx.TypeMappings.MapMethod(sym.ContainingType.ToDisplayString(), name) : null;
+        if (string.IsNullOrEmpty(mapped))
+            mapped = TryMapImplicitInterfaceImplementation(name, sym, ctx);
         return !string.IsNullOrEmpty(mapped) ? mapped : JavaName(name);
+    }
+
+    /// <summary>
+    /// Implicit interface implementations keep the C# name even though the
+    /// mapped Java interface renames the method (e.g. a synthesized tuple struct
+    /// implementing <c>System.IEquatable&lt;T&gt;.Equals(T)</c> must declare
+    /// <c>equalsTo(T)</c> to satisfy the mapped compat interface).
+    /// </summary>
+    private static string? TryMapImplicitInterfaceImplementation(
+        string name, IMethodSymbol? sym, ConversionContext ctx)
+    {
+        if (sym?.ContainingType is not { } owner)
+            return null;
+        foreach (var iface in owner.AllInterfaces)
+        {
+            foreach (var interfaceMethod in iface.GetMembers(name).OfType<IMethodSymbol>())
+            {
+                if (owner.FindImplementationForInterfaceMember(interfaceMethod) is not IMethodSymbol impl)
+                    continue;
+                if (!SymbolEqualityComparer.Default.Equals(impl, sym)
+                    && !SymbolEqualityComparer.Default.Equals(impl.OriginalDefinition, sym.OriginalDefinition))
+                {
+                    continue;
+                }
+                var mapped = ctx.TypeMappings.MapMethod(iface.ToDisplayString(), name);
+                if (!string.IsNullOrEmpty(mapped) && !mapped.Contains('.'))
+                    return mapped;
+            }
+        }
+        return null;
     }
 
     // ================== C06 R8 FFM 白名单 facade（opt-in） ==================

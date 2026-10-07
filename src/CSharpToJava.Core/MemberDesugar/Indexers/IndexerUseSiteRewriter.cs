@@ -306,6 +306,32 @@ internal sealed class IndexerUseSiteRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
     {
+        // 索引器简单赋值作为返回值（numeric-boundary 前缀 ++ 消费形态，如
+        // `return (c[i] = c[i] + 1);`）：setter 返回 void，提升为
+        // `{ var __v = right; c.set_Item(i, __v); return __v; }`（IX-7 值上下文）。
+        if (node.Parent is BlockSyntax or SwitchSectionSyntax
+            && UnwrapParentheses(node.Expression) is AssignmentExpressionSyntax ia
+            && ia.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            && ia.Left is ElementAccessExpressionSyntax ea
+            && TryGetPlan(ea, out var writePlan)
+            && !writePlan.ReturnsByRef)
+        {
+            _stats.IndexerWriteSitesRewritten++;
+            var value = (ExpressionSyntax)Visit(ia.Right)!;
+            var temp = TempName("ival");
+            var tempIdent = Ident(temp);
+            var lifted = new List<StatementSyntax>
+            {
+                DeclVar(temp, value),
+                ExprStmt(BuildSetterInvocation(ea, writePlan, tempIdent)),
+                SyntaxFactory.ReturnStatement(tempIdent.WithLeadingTrivia(SyntaxFactory.Space)),
+            };
+            return Block(lifted)
+                .WithLeadingTrivia(node.GetLeadingTrivia())
+                .WithTrailingTrivia(node.GetTrailingTrivia())
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+
         if (node.Expression is ObjectCreationExpressionSyntax oc
             && node.Parent is BlockSyntax or SwitchSectionSyntax
             && LiftIndexerCreation(oc, out var stmts, out var result))
@@ -430,6 +456,13 @@ internal sealed class IndexerUseSiteRewriter : CSharpSyntaxRewriter
     private static bool IsDirectAssignmentTarget(SyntaxNode node)
         => (node.Parent is AssignmentExpressionSyntax a && ReferenceEquals(a.Left, node))
            || node.Parent is PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax;
+
+    private static ExpressionSyntax? UnwrapParentheses(ExpressionSyntax? expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax parenthesized)
+            expression = parenthesized.Expression;
+        return expression;
+    }
 
     // ---- 表达式构造 ----
 

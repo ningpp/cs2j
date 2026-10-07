@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Type;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -57,23 +58,42 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         var srcSym = c.GetTypeInfo(n.Expression).Type;
         if (sym is IPointerTypeSymbol) return e; // all pointers lower to MemorySegment
 
-        // Plain enum casts: (E)i -> E.values()[i], (int)e -> e.ordinal().
-        if (sym is INamedTypeSymbol targetEnum && targetEnum.TypeKind == TypeKind.Enum)
+        // Plain enum casts (including C# lifted Nullable<E> casts, which map to
+        // the same Java enum reference type). Ordinal enums: (E)i ->
+        // E.values()[i], (int)e -> e.ordinal(). Value enums (explicit values /
+        // non-int underlying): fromValue/getValue.
+        if (TryUnwrapNullableEnum(sym, out var targetEnum))
         {
+            // (E)null / (E?)null: the Java enum reference itself is nullable,
+            // so the bare null literal passes through unchanged.
+            if (n.Expression.IsKind(SyntaxKind.NullLiteralExpression))
+                return e;
             var target = Map(n.Type, c);
-            if (srcSym is INamedTypeSymbol sourceEnum && sourceEnum.TypeKind == TypeKind.Enum)
+            var richTarget = EnumTransformer.IsValueEnum(targetEnum);
+            var targetStorage = EnumTransformer.StorageTypeName(
+                targetEnum.EnumUnderlyingType?.SpecialType ?? SpecialType.System_Int32);
+            if (TryUnwrapNullableEnum(srcSym, out var sourceEnum))
             {
-                return SymbolEqualityComparer.Default.Equals(sourceEnum, targetEnum)
-                    ? e
-                    : $"{target}.values()[{e}.ordinal()]";
+                if (SymbolEqualityComparer.Default.Equals(sourceEnum, targetEnum))
+                    return e;
+                if (!richTarget)
+                    return $"{target}.values()[{e}.ordinal()]";
+                var sourceValue = EnumTransformer.IsValueEnum(sourceEnum)
+                    ? $"{e}.getValue()"
+                    : $"{e}.ordinal()";
+                return $"{target}.fromValue(({targetStorage}){sourceValue})";
             }
+            if (richTarget)
+                return $"{target}.fromValue(({targetStorage}){e})";
             var index = srcSym?.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64
                 ? $"(int)({e})"
                 : e;
             return $"{target}.values()[{index}]";
         }
-        if (srcSym?.TypeKind == TypeKind.Enum)
-            e = $"{e}.ordinal()";
+        if (TryUnwrapNullableEnum(srcSym, out var srcEnum))
+            e = EnumTransformer.IsValueEnum(srcEnum)
+                ? $"{e}.getValue()"
+                : $"{e}.ordinal()";
 
         // C# numeric-to-decimal conversions (C34 DC-9 operand promotion emits
         // them explicitly): Java has no primitive->reference cast, so they must
@@ -103,6 +123,20 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             }
         }
 
+        // Unboxing a Nullable<T> primitive: C# throws InvalidOperationException
+        // (mapped to IllegalStateException) on null rather than NPE. Route
+        // through the compat guard, then cast to the target primitive (covers
+        // narrowing such as (short)int?).
+        if (srcSym is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullableSource
+            && sym is not null && IsPrimitiveSpecialType(sym.SpecialType))
+        {
+            c.AddImport("io.github.ningpp.compat.Nullable");
+            var targetPrimitive = Map(n.Type, c);
+            return IsJavaPrimitive(targetPrimitive)
+                ? $"({targetPrimitive})(Nullable.value({e}))"
+                : $"Nullable.value({e})";
+        }
+
         // Unboxing: a reference-typed (or boxed/Nullable/dynamic) operand cast to
         // a primitive must become a cast to the boxed wrapper; Java then unboxes
         // via assignment/binary context. Dropping the cast entirely, as the
@@ -118,6 +152,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
 
         return sym?.SpecialType switch
         {
+            SpecialType.System_Int32 when NeedsExplicitIntCast(srcSym) => $"(int)({e})",
             SpecialType.System_Int32 => e,
             SpecialType.System_Byte => $"({e} & 0xFF)",                                   // unsigned narrowing → mask
             SpecialType.System_UInt16 => $"(((int)({e})) & 0xFFFF)",
@@ -125,6 +160,40 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             _ => $"({Map(n.Type, c)})({e})"
         };
     }
+
+    /// <summary>
+    /// Unwraps a type that is either an enum or a lifted <see cref="Nullable{T}"/>
+    /// whose underlying type is an enum. Both lower to the same Java enum
+    /// reference type, so casts between them are identity conversions.
+    /// </summary>
+    private static bool TryUnwrapNullableEnum(ITypeSymbol? type, out INamedTypeSymbol enumType)
+    {
+        if (type is INamedTypeSymbol named && named.TypeKind == TypeKind.Enum)
+        {
+            enumType = named;
+            return true;
+        }
+        if (type is INamedTypeSymbol nullable
+            && nullable.IsValueType
+            && nullable.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T
+            && nullable.TypeArguments is [INamedTypeSymbol { TypeKind: TypeKind.Enum } inner])
+        {
+            enumType = inner;
+            return true;
+        }
+        enumType = null!;
+        return false;
+    }
+
+    /// <summary>
+    /// Java requires an explicit narrowing cast for these → int conversions;
+    /// all other int casts (byte/short/char/int widening) are implicit.
+    /// </summary>
+    private static bool NeedsExplicitIntCast(ITypeSymbol? source)
+        => source?.SpecialType is SpecialType.System_Single
+            or SpecialType.System_Double
+            or SpecialType.System_Int64
+            or SpecialType.System_UInt64;
 
     private static bool IsPrimitiveSpecialType(SpecialType special)
         => special is SpecialType.System_Boolean
@@ -136,6 +205,10 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             or SpecialType.System_Char
             or SpecialType.System_Single
             or SpecialType.System_Double;
+
+    private static bool IsJavaPrimitive(string? name)
+        => name is "boolean" or "int" or "long" or "short" or "byte"
+            or "char" or "float" or "double";
 
     /// <summary>
     /// A cast source whose Java representation is a reference (needs a wrapper

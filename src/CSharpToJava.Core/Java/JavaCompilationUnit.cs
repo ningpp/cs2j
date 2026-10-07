@@ -111,6 +111,13 @@ public class JavaCompilationUnit : JavaSyntaxNode
             }
         }
 
+        // JDK wildcards that actually reach the output: the java.util wildcard is
+        // suppressed below in favor of dotnet collection on-demand imports, so an
+        // explicit java.util.SomeType import it would otherwise shadow must survive.
+        var emittedJdkWildcardPackages = new HashSet<string>(jdkWildcardPackages, StringComparer.Ordinal);
+        if (suppressJavaUtilWildcard)
+            emittedJdkWildcardPackages.Remove("java.util");
+
         foreach (var import in Imports)
         {
             if (suppressJavaUtilWildcard
@@ -120,11 +127,11 @@ public class JavaCompilationUnit : JavaSyntaxNode
                 continue;
             }
 
-            // Skip explicit (non-wildcard) JDK imports whose package is already covered by a JDK wildcard
+            // Skip explicit (non-wildcard) JDK imports whose package is covered by an EMITTED JDK wildcard
             if (!import.IsWildcard && !import.IsStatic)
             {
                 var lastDot = import.Name.LastIndexOf('.');
-                if (lastDot > 0 && jdkWildcardPackages.Contains(import.Name[..lastDot]))
+                if (lastDot > 0 && emittedJdkWildcardPackages.Contains(import.Name[..lastDot]))
                     continue;
             }
             sb.AppendLine(import.ToCodeString(indentation));

@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Comments;
@@ -493,7 +493,18 @@ public static class TypeGroupResolver
                 // because they map to compat runtime packages that actually exist.
                 if (ns.StartsWith("System.", StringComparison.Ordinal) || ns == "System")
                 {
-                    if (ns != "System" && context.TypeMappings.HasExplicitNamespaceMapping(ns))
+                    // These map to phantom packages (collections are covered by
+                    // java.util.* plus on-demand single-type imports; LINQ/Tasks
+                    // lower to streams/CompletableFuture). The single-file pipeline
+                    // suppresses the same set (MapUsingToJava).
+                    if (ns is "System"
+                        or "System.Collections.Generic"
+                        or "System.Linq"
+                        or "System.Threading.Tasks")
+                    {
+                        continue;
+                    }
+                    if (context.TypeMappings.HasExplicitNamespaceMapping(ns))
                     {
                         var systemMapped = context.NamespaceToPackage(ns);
                         if (!string.IsNullOrWhiteSpace(systemMapped))

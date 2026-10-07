@@ -26,6 +26,16 @@ public final class Decimal implements Comparable<Decimal> {
     public static final Decimal MAX_VALUE = new Decimal(MAX_BIG_DECIMAL, false);
     public static final Decimal MIN_VALUE = new Decimal(MIN_BIG_DECIMAL, false);
 
+    /**
+     * Allocates a 1D decimal array whose elements default to 0m, matching C#
+     * {@code new decimal[n]} (Java reference arrays start as null).
+     */
+    public static Decimal[] array(int length) {
+        Decimal[] result = new Decimal[length];
+        java.util.Arrays.fill(result, ZERO);
+        return result;
+    }
+
     private final BigDecimal value;
 
     public Decimal(int value) {
@@ -289,10 +299,25 @@ public final class Decimal implements Comparable<Decimal> {
         }
 
         try {
-            return checked(value.divide(divisor.value));
+            BigDecimal exact = value.divide(divisor.value);
+            if (exact.scale() <= MAX_SCALE) {
+                return checked(exact);
+            }
+            // Exact quotient needs more than 28 decimal places: clamp with
+            // bankers rounding like C#. A result that rounds to zero reports
+            // scale 0 in C# (1m/2e28m prints "0"), unlike BigDecimal zeros.
+            BigDecimal rounded = exact.setScale(MAX_SCALE, RoundingMode.HALF_EVEN);
+            if (rounded.signum() == 0) {
+                rounded = rounded.setScale(0);
+            }
+            return checked(rounded);
         } catch (ArithmeticException ex) {
-            // C# decimal division rounds to nearest, ties to even (bankers rounding).
-            return checked(value.divide(divisor.value, MAX_SCALE, RoundingMode.HALF_EVEN));
+            // Non-terminating exact quotient: round to 28 digits, ties to even.
+            BigDecimal divided = value.divide(divisor.value, MAX_SCALE, RoundingMode.HALF_EVEN);
+            if (divided.signum() == 0 && divided.scale() > 0) {
+                divided = divided.setScale(0);
+            }
+            return checked(divided);
         }
     }
 

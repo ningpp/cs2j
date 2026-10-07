@@ -481,7 +481,10 @@ public class NumericBoundaryNullableLiftOracleTests
             EnumArg(rewritten, null), EnumArg(rewritten, 1)));
         Assert.Null(Invoke(rewritten, EnumType, "NativeBitNot", (object?)null));
         Assert.Null(Invoke(rewritten, EnumType, "NativeEnumToInt", (object?)null));
-        Assert.Equal(3, result.Statistics.Nullable.NullableEnumBackstopSites);
+        // BitAnd/BitOr are the lifted backstop sites; BitNot is hand-explicit
+        // now (the raw ~ result is masked into the enum domain, which Java
+        // enums cannot exceed), so only 2 sites are rewritten.
+        Assert.Equal(2, result.Statistics.Nullable.NullableEnumBackstopSites);
     }
 
     private static object? EnumArg(Assembly assembly, int? value) =>
@@ -595,7 +598,9 @@ public class NumericBoundaryNullableLiftOracleTests
             }),
             ("NullableEnumBackstop.cs", s =>
             {
-                Assert.Equal(3, s.NullableEnumBackstopSites);
+                // BitNot is authored explicitly (raw ~ is masked into the Java
+                // enum domain); only the BitAnd/BitOr pairs are lifted sites.
+                Assert.Equal(2, s.NullableEnumBackstopSites);
                 Assert.Equal(1, s.LiftedConversions);
             }),
         };

@@ -312,6 +312,30 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
     {
+        // 属性简单赋值作为返回值（numeric-boundary 前缀 ++ 消费形态，如
+        // `return (X = X + 1);`）：setter 返回 void，必须提升为
+        // `{ var __v = right; set_X(__v); return __v; }`（PD-6 值上下文）。
+        if (node.Parent is BlockSyntax or SwitchSectionSyntax
+            && UnwrapParentheses(node.Expression) is AssignmentExpressionSyntax pa
+            && pa.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            && TryGetPlan(pa.Left, out var assignPlan))
+        {
+            _stats.WriteSitesRewritten++;
+            var value = (ExpressionSyntax)Visit(pa.Right)!;
+            var temp = TempName("pval");
+            var tempIdent = Ident(temp);
+            var lifted = new List<StatementSyntax>
+            {
+                DeclVar(temp, value),
+                SyntaxFactory.ExpressionStatement(BuildSetterCall(pa.Left, assignPlan, tempIdent)),
+                SyntaxFactory.ReturnStatement(tempIdent.WithLeadingTrivia(SyntaxFactory.Space)),
+            };
+            return Block(lifted)
+                .WithLeadingTrivia(node.GetLeadingTrivia())
+                .WithTrailingTrivia(node.GetTrailingTrivia())
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+
         if (node.Expression is ObjectCreationExpressionSyntax oc
             && (node.Parent is BlockSyntax || node.Parent is SwitchSectionSyntax)
             && LiftCreation(oc, out var stmts, out var result))
@@ -732,6 +756,13 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
 
     private static bool IsDirectAssignmentLeft(SyntaxNode node)
         => node.Parent is AssignmentExpressionSyntax a && ReferenceEquals(a.Left, node);
+
+    private static ExpressionSyntax? UnwrapParentheses(ExpressionSyntax? expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax parenthesized)
+            expression = parenthesized.Expression;
+        return expression;
+    }
 
     private static bool IsInsideDeconstructionLeft(ExpressionSyntax node)
         => node.Ancestors().OfType<TupleExpressionSyntax>()

@@ -7,6 +7,7 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
+using CSharpToJava.Core.Transformers.Type;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -144,7 +145,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         else
         {
             arguments = invocation.ArgumentList.Arguments
-                .Select(a => facade.TransformToIR(a.Expression, context))
+                .Select<ArgumentSyntax, JavaExpression>((a, index) =>
+                {
+                    var text = facade.TransformToIR(a.Expression, context).ToInlineString();
+                    text = ApplyIntegralNarrowing(text, a.Expression, invocationMethod, index, context);
+                    return new JavaRawExpression(text);
+                })
                 .ToList();
         }
 
@@ -158,6 +164,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var lengthText = arguments[1].ToInlineString();
             arguments[1] = new JavaRawExpression($"({startText}) + ({lengthText})");
         }
+
+        // Implicit delegate invocation `d(args)` (no explicit `.Invoke`) —
+        // common for delegate-typed parameters inside generic methods, where no
+        // earlier C# pass materializes the Invoke member.
+        var irArgumentText = string.Join(", ", arguments.Select(a => a.ToInlineString()));
+        if (TryRenderImplicitDelegateInvoke(invocation, invocationMethod, irArgumentText, context, out var irDelegateCall))
+            return new JavaRawExpression(irDelegateCall);
+        if (TryRenderEqualityComparerCall(invocationMethod, irArgumentText, context, out var irComparerCall))
+            return new JavaRawExpression(irComparerCall);
+        if (TryRenderTypeReflectionCall(invocation, invocationMethod, irArgumentText, context, out var irTypeCall))
+            return new JavaRawExpression(irTypeCall);
 
         switch (invocation.Expression)
         {
@@ -249,10 +266,155 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return call;
             }
 
+            // GenericMethod<T>(arg) → genericMethod(arg): Java erases method
+            // type arguments at the call site.
+            case GenericNameSyntax genericMethod:
+            {
+                var (mappedName, _) =
+                    TryResolveMappedName(invocation, genericMethod.Identifier.Text, context);
+
+                var call = new JavaMethodCallExpression
+                {
+                    MethodName = mappedName ?? ToCamelCase(genericMethod.Identifier.Text)
+                };
+                foreach (var argument in arguments)
+                    call.Arguments.Add(argument);
+                return call;
+            }
+
             // Other invocation shapes are not part of the minimal supported set.
             default:
                 return new JavaRawExpression(Transform(invocation, context));
         }
+    }
+
+    /// <summary>
+    /// Lowers <c>EqualityComparer&lt;T&gt;.Default.Equals(a, b)</c> /
+    /// <c>.GetHashCode(x)</c> (emitted by the tuple-struct preprocessor) to
+    /// null-safe <c>java.util.Objects</c> helpers.
+    /// </summary>
+    private static bool TryRenderEqualityComparerCall(
+        IMethodSymbol? methodSymbol,
+        string argumentText,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = "";
+        if (methodSymbol?.ContainingType?.OriginalDefinition is not { } owner)
+            return false;
+        if (owner.ToDisplayString() is not "System.Collections.Generic.EqualityComparer<T>")
+            return false;
+
+        switch (methodSymbol.Name)
+        {
+            case "Equals" when methodSymbol.Parameters.Length == 2:
+                context.AddImport("java.util.Objects");
+                rendered = $"Objects.equals({argumentText})";
+                return true;
+            case "GetHashCode" when methodSymbol.Parameters.Length == 1:
+                context.AddImport("java.util.Objects");
+                rendered = $"Objects.hashCode({argumentText})";
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Wraps a transformed argument in an integral narrowing cast when the
+    /// target parameter requires it (short/sbyte/char/int-from-uint). The
+    /// argument-list coercion path is bypassed by direct invocation
+    /// transforms, so narrowing must be applied here.
+    /// </summary>
+    private static string ApplyIntegralNarrowing(
+        string transformed,
+        ExpressionSyntax argumentExpression,
+        IMethodSymbol? method,
+        int index,
+        ConversionContext context)
+    {
+        var parameters = method?.Parameters;
+        IParameterSymbol? parameter = null;
+        if (parameters is { Length: > 0 })
+        {
+            parameter = index < parameters.Value.Length
+                ? parameters.Value[index]
+                : parameters.Value[^1].IsParams ? parameters.Value[^1] : null;
+        }
+        if (parameter == null)
+            return transformed;
+
+        // These direct argument builders bypass CoerceArgumentType, so the
+        // method-group → ::method-reference lowering must be repeated here
+        // (Run(Twice) → run(Sample::twice)).
+        if (ArgumentTransformer.TryEmitDelegateMethodReference(
+                argumentExpression, parameter, context, out var methodReference))
+        {
+            return methodReference;
+        }
+
+        var argSpecial = context.GetTypeInfo(argumentExpression).Type?.SpecialType;
+        return ArgumentTransformer.NarrowIntegralArgument(
+                   transformed, parameter.Type.SpecialType, argSpecial)
+               ?? transformed;
+    }
+
+    /// <summary>
+    /// Maps <see cref="Type"/> instance reflection calls whose Java
+    /// <c>java.lang.Class</c> counterpart uses a different method name:
+    /// <c>type.IsInstanceOfType(o)</c> → <c>type.isInstance(o)</c>.
+    /// </summary>
+    private static bool TryRenderTypeReflectionCall(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol? methodSymbol,
+        string argumentText,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = "";
+        if (methodSymbol is not { Name: "IsInstanceOfType", Parameters.Length: 1 }
+            || methodSymbol.ContainingType?.ToDisplayString() != "System.Type"
+            || invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+        {
+            return false;
+        }
+
+        var receiver = ExpressionTransformerFacade.Instance.Transform(memberAccess.Expression, context);
+        rendered = $"{receiver}.isInstance({argumentText})";
+        return true;
+    }
+
+    /// <summary>
+    /// Lowers an implicit delegate invocation (<c>d(args)</c>, whose symbol is
+    /// <see cref="MethodKind.DelegateInvoke"/>) to the Java SAM call
+    /// (<c>d.apply/accept/run/get(...)</c>). Explicit <c>d.Invoke(...)</c> is
+    /// handled by the regular member-access mapping and stays untouched.
+    /// </summary>
+    private static bool TryRenderImplicitDelegateInvoke(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol? methodSymbol,
+        string argumentText,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+        if (methodSymbol is not { MethodKind: MethodKind.DelegateInvoke })
+            return false;
+        if (invocation.Expression is MemberAccessExpressionSyntax
+            {
+                Name: IdentifierNameSyntax invokedName
+            } && invokedName.Identifier.Text == "Invoke")
+        {
+            return false;
+        }
+        if (invocation.Expression is not (IdentifierNameSyntax or MemberAccessExpressionSyntax))
+            return false;
+
+        var sam = DelegateTransformer.InferSamMethodName(
+            methodSymbol.ReturnsVoid, methodSymbol.Parameters.Length);
+        var receiver = ExpressionTransformerFacade.Instance.Transform(invocation.Expression, context);
+        rendered = $"{receiver}.{sam}({argumentText})";
+        return true;
     }
 
     private string TransformInvocation(InvocationExpressionSyntax node, ConversionContext context)
@@ -275,7 +437,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         else
         {
             var argList = node.ArgumentList.Arguments
-                .Select(a => facade.Transform(a.Expression, context))
+                .Select((a, index) =>
+                {
+                    var text = facade.Transform(a.Expression, context);
+                    return ApplyIntegralNarrowing(
+                        text, a.Expression, context.GetSymbolInfo(node).Symbol as IMethodSymbol, index, context);
+                })
                 .ToList();
             // See the matching rewrite in TransformToIR: C# Substring(start, length)
             // maps to Java substring(start, start + length).
@@ -286,6 +453,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 argList[1] = $"({argList[0]}) + ({argList[1]})";
             }
             arguments = string.Join(", ", argList);
+        }
+
+        // Implicit delegate invocation `d(args)` (no explicit `.Invoke`).
+        if (TryRenderImplicitDelegateInvoke(
+                node, context.GetSymbolInfo(node).Symbol as IMethodSymbol, arguments, context, out var delegateCall))
+        {
+            return delegateCall;
+        }
+        if (TryRenderEqualityComparerCall(
+                context.GetSymbolInfo(node).Symbol as IMethodSymbol, arguments, context, out var comparerCall))
+        {
+            return comparerCall;
+        }
+        if (TryRenderTypeReflectionCall(
+                node, context.GetSymbolInfo(node).Symbol as IMethodSymbol, arguments, context, out var typeCall))
+        {
+            return typeCall;
         }
 
         switch (node.Expression)
@@ -352,6 +536,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             case IdentifierNameSyntax identifier:
             {
                 var originalName = identifier.Identifier.Text;
+                var (mappedName, _) = TryResolveMappedName(node, originalName, context);
+
+                var methodName = mappedName ?? AccessorOrCamelName(originalName);
+                return $"{methodName}({arguments})";
+            }
+
+            // GenericMethod<T>(arg) → genericMethod(arg): Java erases method
+            // type arguments at the call site.
+            case GenericNameSyntax genericMethod:
+            {
+                var originalName = genericMethod.Identifier.Text;
                 var (mappedName, _) = TryResolveMappedName(node, originalName, context);
 
                 var methodName = mappedName ?? AccessorOrCamelName(originalName);

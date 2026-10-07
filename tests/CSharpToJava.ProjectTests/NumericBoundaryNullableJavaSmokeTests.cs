@@ -42,6 +42,11 @@ public class NumericBoundaryNullableJavaSmokeTests
         }
         """;
 
+    private static string CompatClasses =>
+        Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+            "java", "csharptojava-compat", "target", "classes"));
+
     private static string ConfigPath
     {
         get
@@ -115,14 +120,16 @@ public class NumericBoundaryNullableJavaSmokeTests
         var code = result.GeneratedCode;
 
         // The explicitized HasValue guards survive the Java translation as
-        // reference null checks; .Value becomes a guarded primitive unbox (or
-        // the bare reference for enum receivers).
+        // reference null checks; .Value and lifted unbox sites route through
+        // Nullable.value(...) so a null operand throws the same
+        // IllegalStateException C# maps InvalidOperationException to (never a
+        // raw NullPointerException from implicit unboxing).
         Assert.Contains("(a != null)", code);
-        Assert.Contains("a.intValue() + b.intValue()", code);
-        Assert.Contains("a.intValue() >= b.intValue()", code);
-        Assert.Contains("a.intValue() == b.intValue()", code);
-        Assert.Contains("!a.booleanValue()", code);
-        Assert.Contains("a.booleanValue()", code);
+        Assert.Contains("Nullable.value(a) + Nullable.value(b)", code);
+        Assert.Contains("Nullable.value(a) >= Nullable.value(b)", code);
+        Assert.Contains("Nullable.value(a) == Nullable.value(b)", code);
+        Assert.Contains("!Nullable.value(a)", code);
+        Assert.Contains("Nullable.value(a)", code);
         Assert.Contains(".ordinal()", code);
         Assert.Equal(0, CountOccurrences(code, "GetValueOrDefault"));
         Assert.DoesNotContain("getHasValue", code);
@@ -131,7 +138,7 @@ public class NumericBoundaryNullableJavaSmokeTests
         Assert.DoesNotContain("=>", code);
 
         // No implicit unboxing arithmetic or reference equality on the boxed
-        // wrappers: operands must pass through the primitive unbox accessors.
+        // wrappers: operands must pass through the explicit Nullable guard.
         Assert.DoesNotContain("a + b", code);
         Assert.DoesNotContain("a >= b", code);
         Assert.DoesNotContain("a == b", code);
@@ -142,6 +149,9 @@ public class NumericBoundaryNullableJavaSmokeTests
         if (TryLocateJavaTool("javac", out var javac)
             && TryLocateJavaTool("java", out var java))
         {
+            Assert.True(Directory.Exists(CompatClasses),
+                "compat target/classes missing; build csharptojava-compat first: " + CompatClasses);
+
             var (compileExit, compileOutput, workDir) = CompileJava(javac, code);
             try
             {
@@ -247,7 +257,10 @@ public class NumericBoundaryNullableJavaSmokeTests
         var psi = new ProcessStartInfo
         {
             FileName = javac,
-            Arguments = $"-d \"{workDir}\" "
+            // Compat artifacts are JDK 28 preview class files; --release 28 +
+            // --enable-preview are required to read them, and the compat
+            // classes (Nullable guards) must be on the compile classpath.
+            Arguments = $"--enable-preview --release 28 -cp \"{CompatClasses}\" -d \"{workDir}\" "
                 + $"\"{Path.Combine(packageDir, "C22JavaSmoke.java")}\" "
                 + $"\"{Path.Combine(packageDir, "C22JavaSmokeHarness.java")}\"",
             RedirectStandardOutput = true,
@@ -268,7 +281,9 @@ public class NumericBoundaryNullableJavaSmokeTests
         var psi = new ProcessStartInfo
         {
             FileName = java,
-            Arguments = "-cp . C22Smoke.C22JavaSmokeHarness",
+            Arguments = "--enable-preview -cp \""
+                + workDir + Path.PathSeparator + CompatClasses
+                + "\" C22Smoke.C22JavaSmokeHarness",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,

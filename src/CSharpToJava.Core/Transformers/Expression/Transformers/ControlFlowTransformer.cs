@@ -166,6 +166,27 @@ public class ControlFlowTransformer : IIRExpressionTransformer
             }
         }
 
+        // A C# ternary typed T? (e.g. bool? with branches `true` and `null`)
+        // lowers to a Java ternary whose branches are the primitive type and
+        // its boxed wrapper. Java then types the whole ternary as the
+        // primitive and unboxes the null branch → NPE at runtime. Force the
+        // non-null branch to the boxed wrapper so both arms are references.
+        if (context.SemanticModel != null)
+        {
+            var nullableType = (context.GetTypeInfo(node).ConvertedType ?? context.GetTypeInfo(node).Type)
+                as INamedTypeSymbol;
+            if (nullableType?.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T
+                && nullableType.TypeArguments is [var nullableUnderlying])
+            {
+                var wrapper = PrimitiveWrapperName(context.MapType(nullableUnderlying));
+                if (wrapper != null)
+                {
+                    trueExpr = BoxNullableTernaryBranch(node.WhenTrue, trueExpr, wrapper, context);
+                    falseExpr = BoxNullableTernaryBranch(node.WhenFalse, falseExpr, wrapper, context);
+                }
+            }
+        }
+
         // Java's conditional expression requires both branches to have compatible types.
         // If either branch generated branch-scoped pre-statements (e.g. object
         // initializer extraction), the ternary must be converted to an if-else
@@ -260,6 +281,43 @@ public class ControlFlowTransformer : IIRExpressionTransformer
 
         return expr;
     }
+
+    /// <summary>
+    /// Wraps a T? ternary branch in the boxed wrapper when the branch is a
+    /// non-nullable primitive (e.g. <c>(Boolean)(true)</c>), keeping both
+    /// ternary arms reference-typed. Null / already-boxed branches are left
+    /// untouched.
+    /// </summary>
+    private static string BoxNullableTernaryBranch(
+        ExpressionSyntax branchNode,
+        string branchExpr,
+        string wrapper,
+        ConversionContext context)
+    {
+        var branchType = context.GetTypeInfo(branchNode).Type;
+        if (branchType is not { IsValueType: true })
+            return branchExpr;
+        if (branchType is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T })
+            return branchExpr;
+        if (PrimitiveWrapperName(context.MapType(branchType)) == null)
+            return branchExpr;
+        if (branchExpr.StartsWith($"({wrapper})", StringComparison.Ordinal))
+            return branchExpr;
+        return $"({wrapper})({branchExpr})";
+    }
+
+    private static string? PrimitiveWrapperName(string? javaPrimitive) => javaPrimitive switch
+    {
+        "boolean" => "Boolean",
+        "int" => "Integer",
+        "long" => "Long",
+        "short" => "Short",
+        "byte" => "Byte",
+        "char" => "Character",
+        "float" => "Float",
+        "double" => "Double",
+        _ => null
+    };
 
     /// <summary>
     /// If a conditional-expression branch is an integral literal while the conditional's

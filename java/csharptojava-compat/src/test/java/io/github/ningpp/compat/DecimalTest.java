@@ -119,6 +119,12 @@ class DecimalTest {
         assertEquals("0.0000000000000000000000000002",
             Decimal.parse("0.0000000000000000000000000003")
                 .divide(Decimal.parse("2")).toStringPlain());
+        // Sentinel from the numeric-boundary oracle: the rounded-to-zero
+        // quotient reports scale 0 ("0"), not 28 trailing zeros.
+        assertEquals("0", Decimal.ONE.divide(
+            Decimal.parse("20000000000000000000000000000")).toString());
+        // An exact zero quotient keeps the dividend's trailing-zero scale.
+        assertEquals("0.0", Decimal.parse("0.0").divide(Decimal.ONE).toString());
     }
 
     @Test

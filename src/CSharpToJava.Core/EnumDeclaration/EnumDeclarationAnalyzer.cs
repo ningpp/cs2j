@@ -295,7 +295,8 @@ internal sealed class EnumDeclarationAnalyzer
             if (plan.InfeasibleSites.All(s => s.Location != loc))
                 plan.InfeasibleSites.Add(new EnumInfeasibleSite(loc, reason));
             // 任一不可表示站点 → 整 plan 回滚为真 enum（ED020）；ED010/ED090 已预置码时保留。
-            if (plan.Outcome == EnumPlanOutcome.Converted)
+            // Deferred（让位给 numeric-boundary）遇到真正不可表示站点时升级为 Infeasible。
+            if (plan.Outcome != EnumPlanOutcome.Infeasible)
             {
                 plan.Outcome = EnumPlanOutcome.Infeasible;
                 plan.FailCode = EnumDeclarationDiagnosticCode.ED020;
@@ -303,6 +304,20 @@ internal sealed class EnumDeclarationAnalyzer
                 plan.FailLocation = loc;
             }
             Touch(plan, node);
+        }
+
+        /// <summary>
+        /// ++/--、enum +/- 与复合赋值站点：保真 enum 且不发 ED020——链中更晚的
+        /// numeric-boundary 族（C15/C17）会把这些站点降为底层域 cast。
+        /// </summary>
+        private static void Defer(EnumDeclarationPlan plan, SyntaxNode node, string reason)
+        {
+            if (plan.Outcome == EnumPlanOutcome.Converted)
+            {
+                plan.Outcome = EnumPlanOutcome.Deferred;
+                plan.FailReason = reason;
+                plan.FailLocation = node.GetLocation();
+            }
         }
 
         private static bool IsInAttributeArgument(SyntaxNode node)
@@ -329,6 +344,22 @@ internal sealed class EnumDeclarationAnalyzer
             {
                 Infeasible(targetPlan, node,
                     "dynamic to enum cast cannot be rewritten to a static FromValue call.");
+                return;
+            }
+
+            // (U?)e：E? → 底层数值族的可空提升转换（如 (int?)nullableEnum）。
+            // class 形态满足不了 Nullable<T> 的 struct 约束；该站点由链中更晚的
+            // numeric-boundary C22 lifted 转换规则显式化 → 静默保真 enum。
+            if (source is INamedTypeSymbol liftedSource
+                && liftedSource.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T
+                && liftedSource.TypeArguments[0] is INamedTypeSymbol { TypeKind: TypeKind.Enum } liftedSourceEnum
+                && target is INamedTypeSymbol liftedTarget
+                && liftedTarget.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T
+                && IsEnumUnderlyingNumeric(liftedTarget.TypeArguments[0].SpecialType)
+                && FeasiblePlan(liftedSourceEnum) is { } liftedEnumPlan)
+            {
+                Defer(liftedEnumPlan, node,
+                    "lifted nullable enum-to-numeric cast lowered later by numeric-boundary.");
                 return;
             }
 
@@ -849,6 +880,36 @@ internal sealed class EnumDeclarationAnalyzer
                 return;
             }
 
+            // E +/- E、E +/- n、n +/- E 在真 enum 上合法，但 enum-like class
+            // 形态没有这些运算符（C# 的 enum ++/--/算术由链中更晚的
+            // numeric-boundary 族降低为底层域 cast）→ ED020 保 enum。
+            // 字符串拼接（另一操作数为 string）由 use-site rewriter 的
+            // AddExpression 路径收口，不在此列。
+            if (node.IsKind(SyntaxKind.AddExpression)
+                || node.IsKind(SyntaxKind.SubtractExpression))
+            {
+                var leftType = _model.GetTypeInfo(node.Left);
+                var rightType = _model.GetTypeInfo(node.Right);
+                var isStringConcat = leftType.ConvertedType?.SpecialType == SpecialType.System_String
+                    || rightType.ConvertedType?.SpecialType == SpecialType.System_String
+                    || leftType.Type?.SpecialType == SpecialType.System_String
+                    || rightType.Type?.SpecialType == SpecialType.System_String;
+                if (!isStringConcat)
+                {
+                    var arithmeticPlan = FeasiblePlan(leftType.Type)
+                        ?? FeasiblePlan(leftType.ConvertedType)
+                        ?? FeasiblePlan(rightType.Type)
+                        ?? FeasiblePlan(rightType.ConvertedType);
+                    if (arithmeticPlan != null)
+                    {
+                        Defer(arithmeticPlan, node,
+                            "enum +/- arithmetic lowered later by numeric-boundary.");
+                    }
+                }
+
+                return;
+            }
+
             if (!node.IsKind(SyntaxKind.LogicalAndExpression)
                 && !node.IsKind(SyntaxKind.LogicalOrExpression)
                 && node.Kind() is not (SyntaxKind.EqualsExpression
@@ -878,6 +939,83 @@ internal sealed class EnumDeclarationAnalyzer
                     plan.Demand(EnumOptionalMembers.CompareTo);
                 }
                 Touch(plan, node);
+            }
+        }
+
+        public override void VisitPrefixUnaryExpression(PrefixUnaryExpressionSyntax node)
+        {
+            base.VisitPrefixUnaryExpression(node);
+            if (node.IsKind(SyntaxKind.PreIncrementExpression)
+                || node.IsKind(SyntaxKind.PreDecrementExpression))
+            {
+                MarkEnumMutationDeferred(node.Operand, node,
+                    "prefix ++/-- on an enum has no equivalent on the generated enum-like class.");
+            }
+        }
+
+        public override void VisitPostfixUnaryExpression(PostfixUnaryExpressionSyntax node)
+        {
+            base.VisitPostfixUnaryExpression(node);
+            if (node.IsKind(SyntaxKind.PostIncrementExpression)
+                || node.IsKind(SyntaxKind.PostDecrementExpression))
+            {
+                MarkEnumMutationDeferred(node.Operand, node,
+                    "postfix ++/-- on an enum has no equivalent on the generated enum-like class.");
+            }
+        }
+
+        public override void VisitAssignmentExpression(AssignmentExpressionSyntax node)
+        {
+            base.VisitAssignmentExpression(node);
+            if (node.IsKind(SyntaxKind.AddAssignmentExpression)
+                || node.IsKind(SyntaxKind.SubtractAssignmentExpression)
+                || node.IsKind(SyntaxKind.AndAssignmentExpression)
+                || node.IsKind(SyntaxKind.OrAssignmentExpression)
+                || node.IsKind(SyntaxKind.ExclusiveOrAssignmentExpression))
+            {
+                MarkEnumMutationDeferred(node.Left, node,
+                    "compound assignment on an enum has no equivalent on the generated enum-like class.");
+            }
+        }
+
+        // C# 枚举允许的底层数值族（用于判定 (U?)e 提升转换）。
+        private static bool IsEnumUnderlyingNumeric(SpecialType specialType) => specialType
+            is SpecialType.System_Byte
+            or SpecialType.System_SByte
+            or SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_Int32
+            or SpecialType.System_UInt32
+            or SpecialType.System_Int64
+            or SpecialType.System_UInt64
+            or SpecialType.System_IntPtr
+            or SpecialType.System_UIntPtr
+            or SpecialType.System_Single
+            or SpecialType.System_Double
+            or SpecialType.System_Decimal
+            or SpecialType.System_Char;
+
+        /// <summary>
+        /// enum（含 E?）目标的 ++/-- 与复合赋值：保真 enum 但不发 ED020；
+        /// numeric-boundary 族（C15/C17）在链中更晚把这些站点降成底层域 cast。
+        /// </summary>
+        private void MarkEnumMutationDeferred(SyntaxNode site, SyntaxNode node, string reason)
+        {
+            var typeInfo = _model.GetTypeInfo(site);
+            var plan = FeasiblePlan(typeInfo.Type) ?? FeasiblePlan(typeInfo.ConvertedType);
+            if (plan == null
+                && typeInfo.Type is INamedTypeSymbol
+                {
+                    OriginalDefinition.SpecialType: SpecialType.System_Nullable_T,
+                } nullable
+                && nullable.TypeArguments[0] is INamedTypeSymbol inner)
+            {
+                plan = FeasiblePlan(inner);
+            }
+
+            if (plan != null)
+            {
+                Defer(plan, node, reason);
             }
         }
 

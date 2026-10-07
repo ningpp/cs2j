@@ -90,6 +90,7 @@ public sealed class EnumDeclarationStatistics
         + NullableSites + ConstDowngradeSites;
 
     public int PlansSkipped { get; set; }
+    public int PlansDeferred { get; set; }
     public int PlansRolledBack { get; set; }
     public int ResidualCount { get; set; }
 

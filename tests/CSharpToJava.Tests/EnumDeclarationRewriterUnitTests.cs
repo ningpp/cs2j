@@ -334,8 +334,10 @@ public class EnumDeclarationRewriterUnitTests
     }
 
     [Fact]
-    public void E04BitwisePass_ThenC05_ProducesCompilableClass()
+    public void E04BitwisePass_ThenC05_MutationSitesDeferAndKeepRealEnum()
     {
+        // P2-4：复合位赋值（&=）与 enum 算术站点不再判 ED020 回滚，而是静默
+        // Deferred —— 保真 enum，由链中更晚的 numeric-boundary 族降低站点。
         var src = """
             using System;
             [Flags] enum Color { None = 0, Red = 1, Green = 2, Blue = 4 }
@@ -362,7 +364,46 @@ public class EnumDeclarationRewriterUnitTests
         var diags = new List<EnumDeclarationDiagnostic>();
         var result = pp.RewriteFile(e04.OutputCode, c05Model, stats, diags);
 
+        Assert.False(result.Changed);
+        Assert.Contains("enum Color", result.OutputCode);
+        Assert.DoesNotContain("sealed class Color", result.OutputCode);
+        Assert.Equal(1, stats.PlansDeferred);
+        // 注意：E04 已把 |= 降为 (Color)((int)…&…)，而残留的 enum + enum
+        // 算术站点保留原样，等链中更晚的 numeric-boundary 族降低；此处只跑
+        // E04+C05，不做 C# 可编译断言（整链由 Java e2e 慢门兜底）。
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+    }
+
+    [Fact]
+    public void E04BitwisePass_ThenC05_PureBitwiseFlagsStillConvertsToClass()
+    {
+        var src = """
+            using System;
+            [Flags] enum Color { None = 0, Red = 1, Green = 2, Blue = 4 }
+            class C
+            {
+                static void M()
+                {
+                    Color c = Color.Red | Color.Blue;
+                    Color all = Color.Red | Color.Green | Color.Blue;
+                    bool h = c.HasFlag(Color.Red);
+                    Console.WriteLine((int)c + (int)all + (h ? 1 : 0));
+                }
+            }
+            """;
+
+        var e04Model = ParseWithSemantics(src);
+        var e04 = new EnumPreprocessor().Preprocess(src, e04Model, new EnumPreprocessorOptions());
+        Assert.True(e04.Changed);
+
+        var c05Model = ParseWithSemantics(e04.OutputCode);
+        var pp = new EnumDeclarationPreprocessor();
+        var stats = new EnumDeclarationStatistics();
+        var diags = new List<EnumDeclarationDiagnostic>();
+        var result = pp.RewriteFile(e04.OutputCode, c05Model, stats, diags);
+
         Assert.True(result.Changed);
+        Assert.Equal(0, stats.PlansDeferred);
         Assert.Contains("sealed class Color", result.OutputCode);
         Assert.Contains("FromValue", result.OutputCode);
         AssertOutputCompiles(result.OutputCode);

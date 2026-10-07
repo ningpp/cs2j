@@ -57,6 +57,41 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
     private static string TransformMemberAccess(MemberAccessExpressionSyntax node, ConversionContext context)
     {
+        // Implicit method-group conversion: `SomeType.Method` passed directly as
+        // a delegate argument (no explicit `new Func(...)`) → Java method ref.
+        if (context.GetSymbolInfo(node).Symbol is IMethodSymbol groupMethod
+            && context.GetTypeInfo(node).ConvertedType?.TypeKind == TypeKind.Delegate)
+        {
+            return ObjectCreationTransformer.EmitDelegateMethodReference(node, groupMethod, context);
+        }
+        // Primitive static fields on keyword qualifiers: int.MaxValue (the
+        // predefined keyword, not the System.Int32 qualified name) must become
+        // Integer.MAX_VALUE — Java primitives cannot be dereferenced.
+        if (context.GetSymbolInfo(node).Symbol is IFieldSymbol { IsStatic: true } primitiveField)
+        {
+            // compat Decimal keeps its extremes under Java-style names.
+            if (primitiveField.ContainingType?.SpecialType == SpecialType.System_Decimal
+                && primitiveField.Name is "MaxValue" or "MinValue")
+            {
+                context.AddImport("io.github.ningpp.compat.Decimal");
+                return $"Decimal.{(primitiveField.Name == "MaxValue" ? "MAX_VALUE" : "MIN_VALUE")}";
+            }
+            if (TryRenderPrimitiveStaticField(primitiveField, out var primitiveFieldText))
+            {
+                return primitiveFieldText;
+            }
+        }
+
+        // System.Console.Error/Out are stream properties, not bean accessors:
+        // they map directly to java.lang.System's static err/out fields.
+        if (context.GetSymbolInfo(node).Symbol
+            is IPropertySymbol { ContainingType: { } consoleType } consoleStream
+            && consoleType.ToDisplayString() == "System.Console")
+        {
+            if (consoleStream.Name == "Error") return "System.err";
+            if (consoleStream.Name == "Out") return "System.out";
+        }
+
         var receiver = ExpressionTransformerFacade.Instance.Transform(node.Expression, context);
         var symbol = context.GetSymbolInfo(node).Symbol;
         var member = ConversionContext.EscapeJavaKeyword(node.Name.Identifier.Text);
@@ -88,7 +123,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             // C22: System.Nullable<T> surfaces — HasValue is a reference null
             // check and Value is a guarded unbox on the Java wrapper (the C22
             // preprocessor only leaves .Value inside a HasValue guard).
-            if (TryTransformNullableMember(property, receiver, out var nullableMember))
+            if (TryTransformNullableMember(property, receiver, context, out var nullableMember))
             {
                 return nullableMember;
             }
@@ -187,6 +222,48 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         return true;
     }
 
+    /// <summary>
+    /// Renders integral primitive constant fields (<c>int.MaxValue</c> →
+    /// <c>Integer.MAX_VALUE</c>). Signed types map to the Java wrapper
+    /// constants. C# byte/uint are stored in Java signed primitives with the
+    /// same bit width, so their extremes render as narrowing-cast literals
+    /// (<c>byte.MaxValue</c> → <c>(byte)255</c>, <c>uint.MaxValue</c> →
+    /// <c>(int)4294967295L</c>). float/double MinValue semantics differ
+    /// (smallest-positive vs most-negative) and stay on dedicated paths.
+    /// </summary>
+    private static bool TryRenderPrimitiveStaticField(IFieldSymbol field, out string rendered)
+    {
+        rendered = "";
+        switch (field.ContainingType?.SpecialType)
+        {
+            case SpecialType.System_Byte when field.Name is "MaxValue" or "MinValue":
+                rendered = field.Name == "MaxValue" ? "(byte)255" : "(byte)0";
+                return true;
+            case SpecialType.System_UInt32 when field.Name is "MaxValue" or "MinValue":
+                rendered = field.Name == "MaxValue" ? "(int)4294967295L" : "0";
+                return true;
+        }
+
+        var wrapper = field.ContainingType?.SpecialType switch
+        {
+            SpecialType.System_SByte => "Byte",
+            SpecialType.System_Int16 => "Short",
+            SpecialType.System_Int32 => "Integer",
+            SpecialType.System_Int64 => "Long",
+            _ => null,
+        };
+        if (wrapper == null) return false;
+        var constant = field.Name switch
+        {
+            "MaxValue" => "MAX_VALUE",
+            "MinValue" => "MIN_VALUE",
+            _ => null,
+        };
+        if (constant == null) return false;
+        rendered = $"{wrapper}.{constant}";
+        return true;
+    }
+
     // ── System.Nullable<T> member surface (C22) ─────────────────────────────
 
     /// <summary>
@@ -196,7 +273,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     /// receiver itself.
     /// </summary>
     private static bool TryTransformNullableMember(
-        IPropertySymbol property, string receiver, out string mapped)
+        IPropertySymbol property, string receiver, ConversionContext context, out string mapped)
     {
         mapped = "";
         var owner = property.ContainingType;
@@ -211,27 +288,37 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 mapped = $"({receiver} != null)";
                 return true;
             case "Value":
-                mapped = UnboxNullableValue(owner.TypeArguments[0], receiver);
+                mapped = UnboxNullableValue(owner.TypeArguments[0], receiver, context);
                 return true;
             default:
                 return false;
         }
     }
 
-    private static string UnboxNullableValue(ITypeSymbol underlying, string receiver) =>
-        underlying.SpecialType switch
+    private static string UnboxNullableValue(ITypeSymbol underlying, string receiver, ConversionContext context)
+    {
+        // C# Nullable<T>.Value throws InvalidOperationException (mapped to
+        // IllegalStateException) on null; plain Java unboxing would NPE. Route
+        // primitive unwraps through the compat Nullable guard.
+        if (underlying.SpecialType is SpecialType.System_Boolean
+            or SpecialType.System_Byte
+            or SpecialType.System_SByte
+            or SpecialType.System_Char
+            or SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_Int32
+            or SpecialType.System_UInt32
+            or SpecialType.System_Int64
+            or SpecialType.System_UInt64
+            or SpecialType.System_Single
+            or SpecialType.System_Double)
         {
-            SpecialType.System_Boolean => $"{receiver}.booleanValue()",
-            SpecialType.System_Byte => $"{receiver}.byteValue()",
-            SpecialType.System_Char => $"{receiver}.charValue()",
-            SpecialType.System_Int16 => $"{receiver}.shortValue()",
-            SpecialType.System_Int32 => $"{receiver}.intValue()",
-            SpecialType.System_Int64 => $"{receiver}.longValue()",
-            SpecialType.System_Single => $"{receiver}.floatValue()",
-            SpecialType.System_Double => $"{receiver}.doubleValue()",
-            // Enums and other value types are Java reference types already.
-            _ => receiver,
-        };
+            context.AddImport("io.github.ningpp.compat.Nullable");
+            return $"Nullable.value({receiver})";
+        }
+        // Enums and other value types are Java reference types already.
+        return receiver;
+    }
 
     // ── Generic name ────────────────────────────────────────────────────────
 

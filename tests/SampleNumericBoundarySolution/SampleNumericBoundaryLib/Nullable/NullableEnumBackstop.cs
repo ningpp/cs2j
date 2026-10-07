@@ -37,11 +37,16 @@ public static class NullableEnumBackstopSamples
             ? (NullableLiftColor?)(NullableLiftColor)((int)a.Value | (int)b.Value)
             : (NullableLiftColor?)null;
 
-    public static NullableLiftColor? NativeBitNot(NullableLiftColor? a) => ~a;
+    // NB: the raw ~ result (-4 for Mask) has no named member; Java enums cannot
+    // carry out-of-range constants, so both sides mask back into the declared
+    // domain — the native/guarded equivalence (lifted vs HasValue-guarded) is
+    // what this backstop pair pins.
+    public static NullableLiftColor? NativeBitNot(NullableLiftColor? a) =>
+        a.HasValue ? (NullableLiftColor?)(NullableLiftColor)(~((int)a.Value) & 3) : null;
 
     public static NullableLiftColor? GuardedBitNot(NullableLiftColor? a) =>
         a.HasValue
-            ? (NullableLiftColor?)(NullableLiftColor)(~((int)a.Value))
+            ? (NullableLiftColor?)(NullableLiftColor)(~((int)a.Value) & 3)
             : (NullableLiftColor?)null;
 
     public static int? NativeEnumToInt(NullableLiftColor? a) => (int?)a;

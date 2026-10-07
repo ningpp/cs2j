@@ -68,6 +68,16 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     }
     private static string EmitNew(string name, ArgumentListSyntax? al, INamedTypeSymbol? type, ConversionContext c)
     {
+        // `new Runnable(methodGroup)` (closure-lift emits `new Action(LocalMethod)`):
+        // Java functional interfaces are satisfied by a method reference, not by
+        // construction — emit `Owner::method` and let target typing pick the shape.
+        if (type is { TypeKind: TypeKind.Delegate }
+            && al is { Arguments.Count: 1 }
+            && c.GetSymbolInfo(al.Arguments[0].Expression).Symbol is IMethodSymbol methodGroup)
+        {
+            return EmitDelegateMethodReference(al.Arguments[0].Expression, methodGroup, c);
+        }
+
         // C09 Java 半区：C# 的 new ThreadLocal<T>() 首访返回 default(T)（值类型为
         // 0/false/默认 struct），而 java.lang.ThreadLocal 首访恒为 null，值类型
         // 拆箱即 NPE。无参构造非 Nullable 值类型 T 时，补一个每线程默认值工厂
@@ -88,6 +98,34 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         var args = ArgumentTransformer.TransformArgumentList(al, c, ExpressionTransformerFacade.Instance);
         return $"new {name}({args})";
     }
+    /// <summary>
+    /// Renders a single-method-group delegate construction as a Java method
+    /// reference: local/static identifier → <c>Owner::camelName</c>, member
+    /// access → <c>receiver::camelName</c> (instance) or the mapped owner type.
+    /// </summary>
+    internal static string EmitDelegateMethodReference(
+        ExpressionSyntax groupExpression, IMethodSymbol methodGroup, ConversionContext c)
+    {
+        string owner;
+        if (groupExpression is MemberAccessExpressionSyntax memberAccess)
+        {
+            // Static method groups carry a type receiver (leave mapped), instance
+            // groups an expression receiver.
+            owner = ExpressionTransformerFacade.Instance.Transform(memberAccess.Expression, c);
+        }
+        else
+        {
+            owner = methodGroup.IsStatic
+                ? c.MapType(methodGroup.ContainingType)
+                : "this";
+        }
+
+        var methodName = methodGroup.Name.Length == 0
+            ? methodGroup.Name
+            : char.ToLowerInvariant(methodGroup.Name[0]) + methodGroup.Name[1..];
+        return $"{owner}::{methodName}";
+    }
+
     private static string NewAnonymous(AnonymousObjectCreationExpressionSyntax n, ConversionContext c)
     {
         c.AddImport("java.util.Map");
@@ -133,6 +171,15 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     private static string EmitArray(string elem, List<string> sizes, InitializerExpressionSyntax? init,
         ConversionContext c, bool typeParam = false)
     {
+        // C# decimal[] elements default to 0m; Java Decimal reference arrays
+        // start as null. Allocate through the compat factory which fills with
+        // Decimal.ZERO (only for sized 1D creation without an initializer).
+        if (init == null && elem == "Decimal" && sizes.Count == 1
+            && sizes[0] is { Length: > 0 } length)
+        {
+            c.AddImport("io.github.ningpp.compat.Decimal");
+            return $"Decimal.array({length})";
+        }
         var gen = elem.IndexOf('<');
         var sb = new StringBuilder();
         if (typeParam || gen > 0)

@@ -74,7 +74,7 @@ internal sealed partial class OperatorTrueFalseRewriter : CSharpSyntaxRewriter
     {
         var visited = (IfStatementSyntax?)base.VisitIfStatement(node);
         if (visited == null) return null;
-        return WrapIfBooleanSite(visited, visited.Condition,
+        return WrapIfBooleanSite(visited, node.Condition, visited.Condition,
             (stmt, newCondition) => stmt.WithCondition(newCondition));
     }
 
@@ -82,7 +82,7 @@ internal sealed partial class OperatorTrueFalseRewriter : CSharpSyntaxRewriter
     {
         var visited = (WhileStatementSyntax?)base.VisitWhileStatement(node);
         if (visited == null) return null;
-        return WrapIfBooleanSite(visited, visited.Condition,
+        return WrapIfBooleanSite(visited, node.Condition, visited.Condition,
             (stmt, newCondition) => stmt.WithCondition(newCondition));
     }
 
@@ -90,7 +90,7 @@ internal sealed partial class OperatorTrueFalseRewriter : CSharpSyntaxRewriter
     {
         var visited = (DoStatementSyntax?)base.VisitDoStatement(node);
         if (visited == null) return null;
-        return WrapIfBooleanSite(visited, visited.Condition,
+        return WrapIfBooleanSite(visited, node.Condition, visited.Condition,
             (stmt, newCondition) => stmt.WithCondition(newCondition));
     }
 
@@ -98,8 +98,8 @@ internal sealed partial class OperatorTrueFalseRewriter : CSharpSyntaxRewriter
     {
         var visited = (ForStatementSyntax?)base.VisitForStatement(node);
         if (visited == null) return null;
-        if (visited.Condition == null) return visited;
-        return WrapIfBooleanSite(visited, visited.Condition,
+        if (visited.Condition == null || node.Condition == null) return visited;
+        return WrapIfBooleanSite(visited, node.Condition, visited.Condition,
             (stmt, newCondition) => stmt.WithCondition(newCondition));
     }
 
@@ -109,7 +109,7 @@ internal sealed partial class OperatorTrueFalseRewriter : CSharpSyntaxRewriter
     {
         var visited = (ConditionalExpressionSyntax?)base.VisitConditionalExpression(node);
         if (visited == null) return null;
-        return WrapIfBooleanSite(visited, visited.Condition,
+        return WrapIfBooleanSite(visited, node.Condition, visited.Condition,
             (expr, newCondition) => expr.WithCondition(newCondition));
     }
 
@@ -119,8 +119,8 @@ internal sealed partial class OperatorTrueFalseRewriter : CSharpSyntaxRewriter
     {
         var visited = (WhenClauseSyntax?)base.VisitWhenClause(node);
         if (visited == null) return null;
-        if (visited.Condition == null) return visited;
-        return WrapIfBooleanSite(visited, visited.Condition,
+        if (visited.Condition == null || node.Condition == null) return visited;
+        return WrapIfBooleanSite(visited, node.Condition, visited.Condition,
             (clause, newCondition) => clause.WithCondition(newCondition));
     }
 
@@ -132,18 +132,20 @@ internal sealed partial class OperatorTrueFalseRewriter : CSharpSyntaxRewriter
     /// </summary>
     private TNode? WrapIfBooleanSite<TNode>(
         TNode visited,
-        ExpressionSyntax condition,
+        ExpressionSyntax semanticCondition,
+        ExpressionSyntax currentCondition,
         Func<TNode, ExpressionSyntax, TNode> withCondition)
         where TNode : SyntaxNode
     {
-        // 先递归处理条件表达式内部（已由 base.Visit 完成）
-        // 检查条件到 bool 的隐式转换是否绑定了 op_True
-        var opType = TryGetOperatorTypeForCondition(condition);
+        // 语义查询必须走原始（在树）节点：base.Visit 后代一旦被其他分支改写，
+        // visited 就是脱离语法树的新红根，对其调 SemanticModel 会抛
+        // "Syntax node is not within syntax tree"。
+        var opType = TryGetOperatorTypeForCondition(semanticCondition);
         if (opType == null) return visited;
 
         if (!_feasibleTypes.Contains(opType)) return visited;
 
-        var wrapped = WrapWithIsTrue(condition, opType);
+        var wrapped = WrapWithIsTrue(currentCondition, semanticCondition, opType);
         if (wrapped == null) return visited;
 
         var result = withCondition(visited, wrapped)
@@ -159,6 +161,13 @@ internal sealed partial class OperatorTrueFalseRewriter : CSharpSyntaxRewriter
     /// </summary>
     private INamedTypeSymbol? TryGetOperatorTypeForCondition(ExpressionSyntax condition)
     {
+        // 本改写器在 KeywordRenamingRewriter 之后运行：凡被前序改写触及的节点都
+        // 脱离原始模型树，对其调用 SemanticModel 会抛
+        // "Syntax node is not within syntax tree"。op_True 检测仅对在树节点进行；
+        // 脱离节点保守跳过包裹。
+        if (condition.SyntaxTree != _context.Model.SyntaxTree)
+            return null;
+
         var conversion = _context.Model.GetConversion(condition);
         if (conversion.IsUserDefined)
         {
@@ -186,12 +195,13 @@ internal sealed partial class OperatorTrueFalseRewriter : CSharpSyntaxRewriter
     /// </summary>
     private ExpressionSyntax? WrapWithIsTrue(
         ExpressionSyntax condition,
+        ExpressionSyntax semanticCondition,
         INamedTypeSymbol operatorType)
     {
-        // 获取类型限定名（尽量短）
+        // 获取类型限定名（尽量短）；定位位置用原始在树节点。
         var typeName = operatorType.ToMinimalDisplayString(
             _context.Model,
-            condition.SpanStart);
+            semanticCondition.SpanStart);
 
         // 构造 Type.IsTrue(condition) 调用
         var typeExpr = SyntaxFactory.ParseName(typeName);

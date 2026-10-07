@@ -10,6 +10,13 @@ internal enum EnumPlanOutcome
 
     /// <summary>ED010 常量缺失 / ED020 不可表示 / ED011 符号不全 / ED090 跨文件：保持真 enum。</summary>
     Infeasible,
+
+    /// <summary>
+    /// 保持真 enum 但非错误：使用点是 ++/--、enum +/- 或复合赋值，这些站点
+    /// 由链中更晚的 numeric-boundary 族（C15/C17）降低为底层域 cast，
+    /// enum-declaration 在此静默让位（不发 ED020）。
+    /// </summary>
+    Deferred,
 }
 
 /// <summary>按需生成的可选成员（D6）。</summary>

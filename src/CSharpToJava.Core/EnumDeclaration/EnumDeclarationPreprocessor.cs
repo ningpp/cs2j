@@ -142,6 +142,7 @@ public sealed class EnumDeclarationPreprocessor
         statistics.ExplicitCount = plans.Count(p => p is { HasExplicitValue: true, Feasible: true });
         statistics.DuplicateCount = plans.Count(p => p is { HasDuplicateValue: true, Feasible: true });
         statistics.PlansSkipped = plans.Count(p => !p.Feasible);
+        statistics.PlansDeferred = plans.Count(p => p.Outcome == EnumPlanOutcome.Deferred);
         foreach (var p in plans.Where(p => !p.Feasible && p.FailCode != null))
             statistics.SkippedByReason[p.FailCode.Value] =
                 statistics.SkippedByReason.GetValueOrDefault(p.FailCode.Value) + 1;
@@ -192,6 +193,21 @@ public sealed class EnumDeclarationPreprocessor
                         $"enum '{plan.EnumQualifiedName}' has {plan.ResidualE04Count} residual " +
                         "nullable-enum site(s) from the enum bitwise pass.",
                         file, line, col, plan.EnumQualifiedName));
+                }
+            }
+            else if (plan.Outcome == EnumPlanOutcome.Deferred)
+            {
+                // 静默让位：++/--/算术站点归链中更晚的 numeric-boundary 族，
+                // 不是错误；仅在 verbose（ReportInfo）时给一条可追踪信息。
+                if (_options.ReportInfo && plan.FailLocation != null)
+                {
+                    var span = plan.FailLocation.GetLineSpan().StartLinePosition;
+                    diagnostics.Add(new EnumDeclarationDiagnostic(
+                        EnumDeclarationSeverity.Info, EnumDeclarationDiagnosticCode.ED001,
+                        $"enum '{plan.EnumQualifiedName}' kept as a real enum: "
+                        + plan.FailReason,
+                        plan.FailLocation.SourceTree?.FilePath,
+                        span.Line + 1, span.Character + 1, plan.EnumQualifiedName));
                 }
             }
             else if (!plan.Feasible)

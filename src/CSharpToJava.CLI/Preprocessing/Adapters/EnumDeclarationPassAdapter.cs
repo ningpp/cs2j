@@ -374,6 +374,7 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
            $"(flags={_statistics.FlagsCount}, non-int={_statistics.NonIntCount}, " +
            $"explicit={_statistics.ExplicitCount}), {_statistics.FilesTransformed} file(s), " +
            $"{_statistics.PlansRolledBack} plan(s) rolled back, " +
+           $"{_statistics.PlansDeferred} kept real (numeric-boundary), " +
            $"{_statistics.ResidualCount} residual";
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
