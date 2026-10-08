@@ -26,26 +26,28 @@ namespace CSharpToJava.Core.ExpressionDesugar.NullConditional;
 internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
 {
     private readonly NullConditionalAnalysis _analysis;
-    private readonly HashSet<SyntaxNode> _preservedRoots = new();
-    private readonly Dictionary<SyntaxNode, SyntaxAnnotation> _replacementMarkers = new();
+    private readonly RuleSiteMarkers<ChainPlan> _markers;
+    private readonly IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> _anchorAnnotations;
+    private readonly IReadOnlyDictionary<ChainPlan, SyntaxAnnotation> _anchorReplacementsByPlan;
 
     public NullConditionalRewriter(
         NullConditionalAnalysis analysis,
-        SemanticModel model)
+        SemanticModel model,
+        RuleSiteMarkers<ChainPlan> markers,
+        IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> anchorAnnotations,
+        IReadOnlyDictionary<ChainPlan, SyntaxAnnotation> anchorReplacementsByPlan)
     {
         _analysis = analysis;
-
-        foreach (var plan in analysis.Plans)
-        {
-            if (plan.Outcome == ChainOutcome.Preserved)
-                _preservedRoots.Add(plan.RootOriginal);
-        }
+        _markers = markers;
+        _anchorAnnotations = anchorAnnotations;
+        _anchorReplacementsByPlan = anchorReplacementsByPlan;
     }
 
     public List<ExpressionDesugarTempLifter.PendingTemp> Pending { get; } = new();
 
-    /// <summary>Original anchor nodes -> family-lifter annotations.</summary>
-    public Dictionary<SyntaxNode, SyntaxAnnotation> AnchorAnnotations { get; } = new();
+    /// <summary>Original anchor nodes -> family-lifter annotations (pre-stamped).</summary>
+    public IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> AnchorAnnotations
+        => _anchorAnnotations;
 
     /// <summary>Anchor statement replacements, applied inside this rule's Rewrite.</summary>
     public List<PendingAnchorReplacement> AnchorReplacements { get; } = new();
@@ -56,36 +58,30 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
     {
         var visited = (ConditionalAccessExpressionSyntax)base.VisitConditionalAccessExpression(node)!;
 
-        if (!_analysis.TryGetPlan(node, out var plan))
+        var plan = _markers.TryResolve(visited)
+            ?? (_analysis.TryGetPlan(node, out var originalPlan) ? originalPlan : null);
+        if (plan == null)
             return visited;
 
         if (plan.Outcome == ChainOutcome.Preserved)
-            return visited;
+        {
+            // Pair the residual gate directly (the site marker is how the
+            // plan was resolved after earlier rules refreshed node identity).
+            return visited.WithAdditionalAnnotations(
+                ExpressionDesugarSyntaxFacts.ExplainedAnnotation);
+        }
 
         // C51 assignment terminals render through the Assignment sub-rule
         // (NA-1...NA-7); read-side terminals keep the flow below.
         if (plan.Terminal.Kind == ChainTerminalKind.Assign)
-            return RenderAssignment(node, visited, plan);
+            return RenderAssignment(visited, plan);
 
-        // Walk the visited dependent chain: original CA -> visited CA.
-        var visitedCaByOriginal = new Dictionary<
-            ConditionalAccessExpressionSyntax, ConditionalAccessExpressionSyntax>();
-        var currentOriginal = node;
-        var currentVisited = visited;
-        ExpressionSyntax terminalVisited;
-        while (true)
-        {
-            visitedCaByOriginal[currentOriginal] = currentVisited;
-            if (currentVisited.WhenNotNull is ConditionalAccessExpressionSyntax innerVisited)
-            {
-                currentOriginal = (ConditionalAccessExpressionSyntax)currentOriginal.WhenNotNull;
-                currentVisited = innerVisited;
-                continue;
-            }
-
-            terminalVisited = currentVisited.WhenNotNull;
-            break;
-        }
+        // Walk the visited dependent chain. Keys MUST be the analysis-time
+        // original CA nodes (plan.Segments[k].Ca): after the family stamping
+        // pass every tree instance is fresh, so Visit's `node` never equals
+        // the plan's original nodes. The visited CA skeleton still mirrors the
+        // analyzed chain 1:1 (earlier rules only rewrite inside expressions).
+        var visitedCaByOriginal = MapVisitedChain(plan, visited, out var terminalVisited);
 
         switch (plan.Shape)
         {
@@ -150,6 +146,34 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
+    /// Maps each analyzed segment's ORIGINAL CA node to its counterpart in the
+    /// visited (post-earlier-rules) tree, descending the visited CA skeleton,
+    /// and returns the innermost terminal expression. Keying on analysis nodes
+    /// is required because the family stamping pass refreshes every instance.
+    /// </summary>
+    private static Dictionary<
+        ConditionalAccessExpressionSyntax, ConditionalAccessExpressionSyntax>
+        MapVisitedChain(
+            ChainPlan plan,
+            ConditionalAccessExpressionSyntax visitedOuter,
+            out ExpressionSyntax terminalVisited)
+    {
+        var map = new Dictionary<
+            ConditionalAccessExpressionSyntax, ConditionalAccessExpressionSyntax>();
+        var current = visitedOuter;
+        var count = plan.Segments.Count;
+        for (var k = 0; k < count; k++)
+        {
+            map[plan.Segments[k].Ca] = current;
+            if (k < count - 1)
+                current = (ConditionalAccessExpressionSyntax)current.WhenNotNull;
+        }
+
+        terminalVisited = current.WhenNotNull;
+        return map;
+    }
+
+    /// <summary>
     /// C51 rendering for one lowered assignment-terminal plan (design §4.2/
     /// §4.3): value contexts become null ternaries containing the assignment
     /// in the true branch (NA-5, zero result temp); statement contexts become
@@ -158,30 +182,14 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
     /// nodes never leave the guarded/true-branch subtree.
     /// </summary>
     private SyntaxNode RenderAssignment(
-        ConditionalAccessExpressionSyntax node,
         ConditionalAccessExpressionSyntax visited,
         ChainPlan plan)
     {
-        // Walk the visited dependent chain: original CA -> visited CA.
-        var visitedCaByOriginal = new Dictionary<
-            ConditionalAccessExpressionSyntax, ConditionalAccessExpressionSyntax>();
-        var currentOriginal = node;
-        var currentVisited = visited;
-        AssignmentExpressionSyntax terminalAssignment;
-        while (true)
-        {
-            visitedCaByOriginal[currentOriginal] = currentVisited;
-            if (currentVisited.WhenNotNull is ConditionalAccessExpressionSyntax innerVisited)
-            {
-                currentOriginal =
-                    (ConditionalAccessExpressionSyntax)currentOriginal.WhenNotNull;
-                currentVisited = innerVisited; continue;
-            }
-
-            terminalAssignment =
-                (AssignmentExpressionSyntax)currentVisited.WhenNotNull;
-            break;
-        }
+        // Keys come from plan.Segments (analysis originals); see the read-side
+        // walk above for why Visit's `node` instances cannot be used as keys.
+        var visitedCaByOriginal = MapVisitedChain(
+            plan, visited, out var terminalVisitedExpr);
+        var terminalAssignment = (AssignmentExpressionSyntax)terminalVisitedExpr;
 
         if (plan.IsCoalesceAssignment)
             return RenderCoalesceAssignment(
@@ -407,12 +415,9 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
         if (anchor == null)
             return;
 
+        // The anchor's family-lift annotation was pre-stamped in the plan.
         Pending.Add(new ExpressionDesugarTempLifter.PendingTemp(
             new[] { statement }, anchor, plan.RootOriginal.SpanStart));
-
-        if (!AnchorAnnotations.ContainsKey(anchor))
-            AnchorAnnotations[anchor] = new SyntaxAnnotation(
-                ExpressionDesugarTempLifter.AnchorAnnotationKind);
     }
 
     private void RegisterAnchorReplacement(
@@ -424,7 +429,7 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
         // have anchored pending temps to this same statement. The splice
         // removes the anchor node, so carry the family anchor annotation
         // onto the first replacement statement to keep insertion working.
-        if (AnchorAnnotations.TryGetValue(anchor, out var anchorAnnotation))
+        if (_anchorAnnotations.TryGetValue(anchor, out var anchorAnnotation))
         {
             var copied = new List<StatementSyntax>(statements.Count)
             {
@@ -435,36 +440,8 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
             statements = copied;
         }
 
-        var marker = new SyntaxAnnotation("ed-nc-anchor-replacement");
+        var marker = _anchorReplacementsByPlan[plan];
         AnchorReplacements.Add(new PendingAnchorReplacement(
             anchor, marker, statements));
-        _replacementMarkers[anchor] = marker;
-    }
-
-    /// <summary>
-    /// Attaches explained annotations to preserved roots, family anchor
-    /// annotations and replacement markers to anchor statements (same
-    /// discipline as the C24/C36 rewriters) so they survive the rewrites.
-    /// </summary>
-    public override SyntaxNode? Visit(SyntaxNode? node)
-    {
-        var result = base.Visit(node);
-
-        if (node != null && result != null)
-        {
-            if (_preservedRoots.Contains(node))
-            {
-                result = result.WithAdditionalAnnotations(
-                    ExpressionDesugarSyntaxFacts.ExplainedAnnotation);
-            }
-
-            if (AnchorAnnotations.TryGetValue(node, out var anchorAnnotation))
-                result = result.WithAdditionalAnnotations(anchorAnnotation);
-
-            if (_replacementMarkers.TryGetValue(node, out var replacementMarker))
-                result = result.WithAdditionalAnnotations(replacementMarker);
-        }
-
-        return result;
     }
 }

@@ -535,8 +535,12 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
     /// </summary>
     private sealed class CollectionExprRulePlan : ExpressionDesugarRulePlan
     {
+        private const string MarkerKind = "ed-coll-site";
+
         private readonly RuleAnalysisContext _context;
         private readonly IReadOnlyDictionary<CollectionExpressionSyntax, CollectionExprPlan> _plans;
+        private readonly RuleSiteMarkers<CollectionExprPlan> _markers = new(MarkerKind);
+        private readonly Dictionary<SyntaxNode, SyntaxAnnotation> _anchorAnnotations = new();
         private CollectionExprRewriter? _rewriter;
 
         public CollectionExprRulePlan(
@@ -545,11 +549,41 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
         {
             _context = context;
             _plans = plans;
+            // C36 runs last: earlier rules refresh node instances, so sites
+            // and statement-lift anchors resolve through stable markers.
+            foreach (var plan in plans.Values)
+            {
+                _markers.Add(plan.Node, plan);
+
+                if (plan.Outcome == CollectionExprOutcome.StatementSequence
+                    && ExpressionDesugarTempLifter.FindAnchor(plan.Node) is { } anchor)
+                {
+                    _anchorAnnotations[anchor] = new SyntaxAnnotation(
+                        ExpressionDesugarTempLifter.AnchorAnnotationKind);
+                }
+            }
+        }
+
+        public override void ContributeStamps(
+            Dictionary<SyntaxNode, List<SyntaxAnnotation>> stamps)
+        {
+            _markers.ContributeTo(stamps);
+            foreach (var pair in _anchorAnnotations)
+            {
+                if (!stamps.TryGetValue(pair.Key, out var list))
+                {
+                    list = new List<SyntaxAnnotation>();
+                    stamps[pair.Key] = list;
+                }
+
+                list.Add(pair.Value);
+            }
         }
 
         public override CompilationUnitSyntax Rewrite(CompilationUnitSyntax root)
         {
-            _rewriter = new CollectionExprRewriter(_context, _plans);
+            _rewriter = new CollectionExprRewriter(
+                _context, _plans, _markers, _anchorAnnotations);
             return (CompilationUnitSyntax)_rewriter.Visit(root)!;
         }
 
@@ -558,8 +592,8 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
                ?? Array.Empty<ExpressionDesugarTempLifter.PendingTemp>();
 
         public override IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> AnchorAnnotations
-            => _rewriter?.AnchorAnnotations
-               ?? new Dictionary<SyntaxNode, SyntaxAnnotation>();
+            => (IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation>?)_rewriter?.AnchorAnnotations
+               ?? _anchorAnnotations;
 
         public override int RewriteCount => _rewriter?.RewriteCount ?? 0;
 

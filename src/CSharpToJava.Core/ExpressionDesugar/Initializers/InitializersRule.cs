@@ -7,27 +7,13 @@ namespace CSharpToJava.Core.ExpressionDesugar.Initializers;
 /// <summary>
 /// C24 object/collection-initializer rule (fixed family order: second, after
 /// Interpolations(C23) and before NullConditional(C35)/CollectionExpr(C36)).
-///
-/// <para>
-/// Rollout gate (design §9 "M0–M4 全程族 pass DefaultEnabled=false", plan §0-1
-/// "默认关"): the rule stays inert unless the host opts in by providing the
-/// <see cref="ExpressionDesugarOptions.Initializers"/> subsection. The
-/// expression-desugar pass itself is default-on, so an always-active C24 would
-/// immediately rewrite/repair-reject the object initializers of every default
-/// chain project (e.g. init-only members without member-desugar, CS2J0531).
-/// With the subsection absent the rule reproduces its M0 behaviour exactly:
-/// initializer syntax is still recognized as dirty but left byte-identical.
-/// </para>
-///
-/// Analyze runs the IOperation-driven classification
-/// (<see cref="InitializerBindingAnalyzer"/>) producing per-site plans,
-/// diagnostics and pre-allocated temp names; Rewrite runs one bottom-up
-/// <see cref="InitializerRewriter"/> that hands statement sequences to the
-/// family TempLifter. Strict Error diagnostics (0531/0533/0535) abort the whole
-/// file atomically in the family entry; non-strict downgrades them to Warnings
-/// and the affected sites are preserved while siblings rewrite. M2 shapes and
-/// M2-only contexts are preserved silently (design §3 M1 scope); the residual
-/// gate lands in M3.
+/// Plans are semantic and keyed to the ORIGINAL analysis tree; because an
+/// earlier in-family rewrite (C23) refreshes node identity for every
+/// traversed sibling, plan sites/owners/arg-lists/anchors carry stable
+/// <see cref="SyntaxAnnotation"/> markers stamped before Pass 2
+/// (C23↔C24 coexistence; the C36 face keeps its whole-file deferral).
+/// Rollout gate: inert unless the host provides
+/// <see cref="ExpressionDesugarOptions.Initializers"/>.
 /// </summary>
 internal sealed class InitializersRule : IExpressionDesugarRule
 {
@@ -65,17 +51,26 @@ internal sealed class InitializersRule : IExpressionDesugarRule
     {
         private readonly RuleAnalysisContext _context;
         private readonly InitializerAnalysis _analysis;
+        private readonly InitializerStableMarkers? _markers;
         private InitializerRewriter? _rewriter;
 
         public InitializersRulePlan(RuleAnalysisContext context, InitializerAnalysis analysis)
         {
             _context = context;
             _analysis = analysis;
+            // Always built: the rewriter runs even when every plan is deferred
+            // (it simply rewrites nothing); the markers stay empty then.
+            _markers = InitializerStableMarkers.Build(analysis);
         }
+
+        public override void ContributeStamps(
+            Dictionary<SyntaxNode, List<SyntaxAnnotation>> stamps)
+            => _markers?.ContributeTo(stamps);
 
         public override CompilationUnitSyntax Rewrite(CompilationUnitSyntax root)
         {
-            _rewriter = new InitializerRewriter(_analysis, _context.SemanticModel!);
+            _rewriter = new InitializerRewriter(
+                _analysis, _context.SemanticModel!, _markers!);
             return (CompilationUnitSyntax)_rewriter.Visit(root)!;
         }
 
@@ -85,6 +80,7 @@ internal sealed class InitializersRule : IExpressionDesugarRule
 
         public override IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> AnchorAnnotations
             => _rewriter?.AnchorAnnotations
+               ?? _markers?.AnchorAnnotations
                ?? new Dictionary<SyntaxNode, SyntaxAnnotation>();
 
         public override int RewriteCount => _rewriter?.RewriteCount ?? 0;

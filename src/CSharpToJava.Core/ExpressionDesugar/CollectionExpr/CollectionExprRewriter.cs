@@ -20,20 +20,27 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
 {
     private readonly RuleAnalysisContext _context;
     private readonly IReadOnlyDictionary<CollectionExpressionSyntax, CollectionExprPlan> _plans;
+    private readonly RuleSiteMarkers<CollectionExprPlan> _markers;
+    private readonly IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> _anchorAnnotations;
 
     public CollectionExprRewriter(
         RuleAnalysisContext context,
-        IReadOnlyDictionary<CollectionExpressionSyntax, CollectionExprPlan> plans)
+        IReadOnlyDictionary<CollectionExpressionSyntax, CollectionExprPlan> plans,
+        RuleSiteMarkers<CollectionExprPlan> markers,
+        IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> anchorAnnotations)
     {
         _context = context;
         _plans = plans;
+        _markers = markers;
+        _anchorAnnotations = anchorAnnotations;
     }
 
     /// <summary>Statement sequences collected for the family TempLifter.</summary>
     public List<ExpressionDesugarTempLifter.PendingTemp> Pending { get; } = new();
 
     /// <summary>Anchor node -> annotation map consumed by TempLifter.Apply.</summary>
-    public Dictionary<SyntaxNode, SyntaxAnnotation> AnchorAnnotations { get; } = new();
+    public IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> AnchorAnnotations
+        => _anchorAnnotations;
 
     /// <summary>Number of sites actually rewritten (drives the family dirty gate).</summary>
     public int RewriteCount { get; private set; }
@@ -42,7 +49,11 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
     {
         var visited = (CollectionExpressionSyntax)base.VisitCollectionExpression(node)!;
 
-        if (!_plans.TryGetValue(node, out var plan))
+        // Stable marker first (earlier rules refresh node instances); identity
+        // lookup stays as a defensive fallback.
+        var plan = _markers.TryResolve(visited)
+            ?? (_plans.TryGetValue(node, out var originalPlan) ? originalPlan : null);
+        if (plan == null)
             return visited;
 
         var stats = _context.Statistics.CollectionExpr;
@@ -132,12 +143,6 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
         Pending.Add(new ExpressionDesugarTempLifter.PendingTemp(
             emission.Statements, anchor, plan.LiftOrder));
 
-        if (!AnchorAnnotations.ContainsKey(anchor))
-        {
-            AnchorAnnotations[anchor] =
-                new SyntaxAnnotation(ExpressionDesugarTempLifter.AnchorAnnotationKind);
-        }
-
         foreach (var expansion in emission.Expansions)
         {
             switch (expansion)
@@ -158,22 +163,5 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
         stats.TempsLifted++;
         RewriteCount++;
         return emission.Reference;
-    }
-
-    /// <summary>
-    /// Keeps anchor nodes locatable after their descendants are rewritten
-    /// (same attachment discipline as the C47 rewriter).
-    /// </summary>
-    public override SyntaxNode? Visit(SyntaxNode? node)
-    {
-        var result = base.Visit(node);
-        if (node != null
-            && result != null
-            && AnchorAnnotations.TryGetValue(node, out var annotation))
-        {
-            result = result.WithAdditionalAnnotations(annotation);
-        }
-
-        return result;
     }
 }

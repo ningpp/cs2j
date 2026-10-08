@@ -40,8 +40,12 @@ public sealed class RefOutInRewriter
         var rewriter = new RefOutInSyntaxRewriter(semanticModel, annotator, stats, diagnostics);
         var newRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
 
-        // Inject using Cs2jByRef if needed
-        if (rewriter.UsedHolder)
+        // Inject using Cs2jByRef only when the output actually references an
+        // unqualified support type. Merely stripping `in`/`scoped` modifiers
+        // changes the signature but emits no Cs2jByRef type, so the eager
+        // UsedHolder flag alone must not force the using (CS0246 in projects
+        // that never receive the support library).
+        if (rewriter.UsedHolder && UsesUnqualifiedByRefType(newRoot))
         {
             newRoot = InjectUsing(newRoot);
         }
@@ -74,6 +78,40 @@ public sealed class RefOutInRewriter
             || t.IsKind(SyntaxKind.OutKeyword)
             || t.IsKind(SyntaxKind.InKeyword)
             || t.IsKind(SyntaxKind.ScopedKeyword));
+    }
+
+    private static readonly string[] UnqualifiedByRefTypeNames =
+    {
+        "ByRef",
+        "ReadOnlyByRef",
+        "ScopedByRef",
+        "ReadOnlyScopedByRef",
+        "RefStructByRef",
+    };
+
+    /// <summary>
+    /// True when the tree references a Cs2jByRef support type by its simple
+    /// name (i.e. it needs <c>using Cs2jByRef;</c>). Fully qualified
+    /// <c>Cs2jByRef.X</c> usages and plain <c>in</c>-stripped signatures do
+    /// not require the directive.
+    /// </summary>
+    internal static bool UsesUnqualifiedByRefType(CompilationUnitSyntax root)
+    {
+        foreach (var name in root.DescendantNodes().OfType<GenericNameSyntax>())
+        {
+            if (!UnqualifiedByRefTypeNames.Contains(name.Identifier.Text))
+                continue;
+
+            if (name.Parent is MemberAccessExpressionSyntax memberAccess
+                && memberAccess.Name == name)
+            {
+                continue; // qualified (e.g. Cs2jByRef.ByRef<int>)
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     private static CompilationUnitSyntax InjectUsing(CompilationUnitSyntax root)

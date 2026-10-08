@@ -373,8 +373,11 @@ internal sealed class InterpolationRule : IExpressionDesugarRule
     /// </summary>
     private sealed class InterpolationRulePlan : ExpressionDesugarRulePlan
     {
+        private const string MarkerKind = "ed-interp-site";
+
         private readonly RuleAnalysisContext _context;
         private readonly IReadOnlyDictionary<InterpolatedStringExpressionSyntax, InterpolationPlan> _plans;
+        private readonly RuleSiteMarkers<InterpolationPlan> _markers = new(MarkerKind);
         private InterpolationRewriter? _rewriter;
 
         public InterpolationRulePlan(
@@ -383,11 +386,19 @@ internal sealed class InterpolationRule : IExpressionDesugarRule
         {
             _context = context;
             _plans = plans;
+            // C23 runs first, but the family-wide stamping walk still refreshes
+            // every node instance, so sites are resolved via stable markers.
+            foreach (var pair in plans)
+                _markers.Add(pair.Key, pair.Value);
         }
+
+        public override void ContributeStamps(
+            Dictionary<SyntaxNode, List<SyntaxAnnotation>> stamps)
+            => _markers.ContributeTo(stamps);
 
         public override CompilationUnitSyntax Rewrite(CompilationUnitSyntax root)
         {
-            _rewriter = new InterpolationRewriter(_plans);
+            _rewriter = new InterpolationRewriter(_plans, _markers);
             return (CompilationUnitSyntax)_rewriter.Visit(root)!;
         }
 

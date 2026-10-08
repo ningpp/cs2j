@@ -270,6 +270,21 @@ internal static class ReadOnlyStructPassEngine
             }
         }
 
+        // Detect L3-converted structs (DataContainer) BEFORE the WithXxx scan: a
+        // hand-written functional method (e.g. `WithRetries`) on a struct that is
+        // otherwise a full data container must not claim only that one property's
+        // writes — the constructor reconstruction covers ALL properties uniformly.
+        var l3Eligible = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (_, tree) in outputTrees)
+        {
+            foreach (var structDecl in tree.GetRoot()
+                         .DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
+            {
+                if (TryGetL3DataContainerInfo(structDecl, out _, out _))
+                    l3Eligible.Add(structDecl.Identifier.Text);
+            }
+        }
+
         // Also detect L5-migrated structs: those with WithXxx() methods for property setters.
         // L5 migration converts public property setters to WithXxx() methods and removes setters.
         // Object initializers and external assignments using those setters must be updated.
@@ -283,6 +298,12 @@ internal static class ReadOnlyStructPassEngine
             foreach (var structDecl in root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
             {
                 var structName = structDecl.Identifier.Text;
+
+                // L3 data containers are handled by constructor reconstruction
+                // regardless of any (possibly hand-written) WithXxx helper.
+                if (l3Eligible.Contains(structName))
+                    continue;
+
                 var withMethodProps = structDecl.Members
                     .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>()
                     .Where(m => m.Identifier.Text.StartsWith("With", StringComparison.Ordinal)
@@ -324,14 +345,14 @@ internal static class ReadOnlyStructPassEngine
             }
         }
 
-        // Also detect L3-converted structs (DataContainer): structs with get-only properties
-        // and a constructor whose parameters match all property names. These structs need object
-        // initializers (new S { Prop = v }) converted to constructor calls (new S(prop: v)),
-        // and external writes (x.Prop = v) reconstructed through the constructor.
-        // Reads stay as property access (like L5) since there are no getXxx() methods.
-        // For each L3 struct we record its non-underscore get-only properties (the public
-        // surface) and the generated constructor's parameter names, so writes can be
-        // rewritten to `x = new S(p1: x.P1, ..., pj: v)`.
+        // Register L3-converted structs (DataContainer): structs with get-only properties
+        // and a constructor whose parameters match all property names. These structs need
+        // object initializers (new S { Prop = v }) converted to constructor calls
+        // (new S(prop: v)), and external writes (x.Prop = v) reconstructed through the
+        // constructor. Reads stay as property access (like L5) since there are no
+        // getXxx() methods. For each L3 struct we record its non-underscore get-only
+        // properties (the public surface) and the generated constructor's parameter
+        // names, so writes become `x = new S(p1: x.P1, ..., pj: v)`.
         var l3Structs = new Dictionary<string, (HashSet<string> Props, List<string> CtorParams)>(StringComparer.Ordinal);
         foreach (var (_, tree) in outputTrees)
         {
@@ -342,52 +363,13 @@ internal static class ReadOnlyStructPassEngine
                 if (publicFieldStructs.ContainsKey(structName))
                     continue;
 
-                // Get-only properties: { get; } auto-properties AND custom getter
-                // bodies (get => _backing / get { return _backing; }). Both were made
-                // get-only by the L3 conversion and their storage is assignable
-                // through the generated constructor, so object initializers must map
-                // them to named constructor arguments. Expression-bodied properties
-                // (IsContinuation => ...) have no accessor list and are excluded —
-                // they are computed read-only and can never appear in an initializer.
-                // Field-converted storage properties (_maxDepth { get; }) keep the
-                // field's leading underscore; they are excluded from the public
-                // surface but covered by the constructor parameters.
-                var getOnlyProps = structDecl.Members
-                    .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax>()
-                    .Where(p => p.AccessorList?.Accessors.Count == 1
-                                && p.AccessorList.Accessors[0].IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.GetAccessorDeclaration))
-                    .Select(p => p.Identifier.Text)
-                    .ToHashSet();
-
-                if (getOnlyProps.Count == 0)
+                if (!TryGetL3DataContainerInfo(structDecl, out var publicProps, out var ctorParams))
                     continue;
 
-                // Check if there's a constructor with parameters matching ALL property names
-                // (case-insensitive with leading underscores stripped: property "MaxDepth"
-                // matches parameter "maxDepth").
-                var matchingCtor = structDecl.Members
-                    .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.ConstructorDeclarationSyntax>()
-                    .FirstOrDefault(c =>
-                    {
-                        var paramNames = c.ParameterList.Parameters
-                            .Select(p => p.Identifier.Text.TrimStart('_'))
-                            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-                        return getOnlyProps.All(prop => paramNames.Contains(prop.TrimStart('_')));
-                    });
-
-                if (matchingCtor != null)
-                {
-                    var publicProps = getOnlyProps
-                        .Where(p => !p.StartsWith("_", StringComparison.Ordinal))
-                        .ToHashSet(StringComparer.Ordinal);
-                    var ctorParams = matchingCtor.ParameterList.Parameters
-                        .Select(p => p.Identifier.Text)
-                        .ToList();
-                    publicFieldStructs[structName] = publicProps;
-                    l5StructNames.Add(structName);
-                    l3Structs[structName] = (publicProps, ctorParams);
-                    RegisterQualified(structName, structDecl);
-                }
+                publicFieldStructs[structName] = publicProps;
+                l5StructNames.Add(structName);
+                l3Structs[structName] = (publicProps, ctorParams);
+                RegisterQualified(structName, structDecl);
             }
         }
 
@@ -415,6 +397,57 @@ internal static class ReadOnlyStructPassEngine
                 await File.WriteAllTextAsync(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
             }
         }
+    }
+
+    /// <summary>
+    /// Detects an L3-converted DataContainer struct: one or more get-only
+    /// properties plus a constructor whose parameters cover EVERY get-only
+    /// property (case-insensitive, leading underscores stripped). Returns the
+    /// public (non-underscore) property surface and the constructor parameter
+    /// names in declaration order.
+    /// </summary>
+    private static bool TryGetL3DataContainerInfo(
+        Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax structDecl,
+        out HashSet<string> publicProps,
+        out List<string> ctorParams)
+    {
+        publicProps = new HashSet<string>(StringComparer.Ordinal);
+        ctorParams = new List<string>();
+
+        // Get-only properties: { get; } auto-properties AND custom getter
+        // bodies (get => _backing / get { return _backing; }). Both were made
+        // get-only by the L3 conversion and their storage is assignable through
+        // the generated constructor, so writes map to named constructor
+        // arguments. Expression-bodied properties (IsContinuation => ...) have
+        // no accessor list and are excluded — they are computed read-only.
+        var getOnlyProps = structDecl.Members
+            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax>()
+            .Where(p => p.AccessorList?.Accessors.Count == 1
+                        && p.AccessorList.Accessors[0].IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.GetAccessorDeclaration))
+            .Select(p => p.Identifier.Text)
+            .ToHashSet(StringComparer.Ordinal);
+        if (getOnlyProps.Count == 0)
+            return false;
+
+        var matchingCtor = structDecl.Members
+            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.ConstructorDeclarationSyntax>()
+            .FirstOrDefault(c =>
+            {
+                var paramNames = c.ParameterList.Parameters
+                    .Select(p => p.Identifier.Text.TrimStart('_'))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                return getOnlyProps.All(prop => paramNames.Contains(prop.TrimStart('_')));
+            });
+        if (matchingCtor == null)
+            return false;
+
+        publicProps = getOnlyProps
+            .Where(p => !p.StartsWith("_", StringComparison.Ordinal))
+            .ToHashSet(StringComparer.Ordinal);
+        ctorParams = matchingCtor.ParameterList.Parameters
+            .Select(p => p.Identifier.Text)
+            .ToList();
+        return true;
     }
 
     /// <summary>

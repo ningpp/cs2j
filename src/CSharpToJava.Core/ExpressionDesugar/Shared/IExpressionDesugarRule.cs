@@ -60,6 +60,24 @@ internal abstract class ExpressionDesugarRulePlan
     /// </summary>
     public abstract CompilationUnitSyntax Rewrite(CompilationUnitSyntax root);
 
+    /// <summary>
+    /// Optional stable-marker contribution applied to the shared root in ONE
+    /// family-wide stamping pass BEFORE the first rule's <see cref="Rewrite"/>
+    /// runs. Rules whose plans are keyed by original node references attach
+    /// <see cref="SyntaxAnnotation"/> markers here: once two or more sites are
+    /// rewritten anywhere in the tree Roslyn hands every traversed sibling a
+    /// fresh node instance, so identity-keyed lookups across rules miss while
+    /// annotations survive every subsequent rewrite.
+    /// </summary>
+    /// <param name="stamps">
+    /// Original key node -> annotations to attach; multiple rules may target
+    /// the same node. The family applies all contributions in a single walk.
+    /// </param>
+    public virtual void ContributeStamps(
+        Dictionary<SyntaxNode, List<SyntaxAnnotation>> stamps)
+    {
+    }
+
     /// <summary>Statement sequences collected during <see cref="Rewrite"/>.</summary>
     public abstract IReadOnlyList<ExpressionDesugarTempLifter.PendingTemp> PendingTemps { get; }
 

@@ -97,8 +97,10 @@ public class StructValueSemanticsProjectTests
             Assert.Equal(4, adapter.Statistics.ShimsGenerated);
             Assert.Equal(1, adapter.Statistics.StructsReusedClone);
             Assert.Equal(1, adapter.Statistics.PlansSkipped); // Counter（SV051）
-            Assert.True(adapter.Statistics.SitesRewritten >= 30,
-                $"expected >=30 rewritten sites, got {adapter.Statistics.SitesRewritten}");
+            // is-pattern 声明局部是普通可写局部（拆箱已产生独立副本），不进只读
+            // 槽、不提升防御副本——较旧基线少 1 站点。
+            Assert.True(adapter.Statistics.SitesRewritten >= 29,
+                $"expected >=29 rewritten sites, got {adapter.Statistics.SitesRewritten}");
 
             // SV051（Warning）与 SV011/SV012（Info）残余类型均有显式诊断。
             Assert.Contains(adapter.Diagnostics, d =>
@@ -144,7 +146,9 @@ public class StructValueSemanticsProjectTests
             AssertContainsNormalized(shapes,
                 "public Reusable Clone() => new Reusable { V = V };");
 
-            // Counter（SV051）不生成 shim；Residuals.cs 与原文逐字节一致。
+            // Counter（SV051）不生成 shim；Lib/Residuals.cs（SV012/SV051）与原文
+            // 逐字节一致。SV011 的 ref struct StackBuf 按 UF050 残余契约放在测试
+            // 工程（测试工程是 .NET 行为预言机、不产出 Java）。
             var residualsOut = Path.Combine(root, "SampleStructValueSemanticsLib", "Residuals.cs");
             var residualsSrc = Path.Combine(fixture, "SampleStructValueSemanticsLib", "Residuals.cs");
             Assert.True(

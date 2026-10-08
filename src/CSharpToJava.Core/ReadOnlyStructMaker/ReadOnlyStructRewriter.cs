@@ -1,4 +1,4 @@
-﻿﻿﻿﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -64,6 +64,12 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             ConversionLevel.MethodMigrate => ApplyMethodMigrate(node, result),
             _ => node
         };
+
+        // Functional "with" idiom:  var copy = this; copy.M = v; return copy;
+        // Such methods are non-mutating (the write targets a local copy) but the
+        // get-only state members make the temporary assignment uncompilable once
+        // the struct is readonly; rebuild them as constructor-based returns.
+        rewritten = FunctionalWithMethodRewriter.Normalize(rewritten);
 
         return base.VisitStructDeclaration(rewritten);
     }
@@ -523,7 +529,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
     /// For example, if constructor has: X = xCoordinate; Y = yCoordinate;
     /// Returns: { "xCoordinate": "X", "yCoordinate": "Y" }
     /// </summary>
-    private static Dictionary<string, string> ExtractConstructorParamToFieldMap(
+    internal static Dictionary<string, string> ExtractConstructorParamToFieldMap(
         ConstructorDeclarationSyntax? ctor)
     {
         var map = new Dictionary<string, string>();
@@ -1856,4 +1862,222 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
     }
 
     #endregion
+}
+
+/// <summary>
+/// Rewrites functional "with" methods that build a modified copy through a
+/// local temporary:
+/// <code>
+/// public S WithX(int x)
+/// {
+///     var copy = this;
+///     copy.X = x;
+///     copy.Y = y;
+///     return copy;
+/// }
+/// </code>
+/// into a constructor-based return so the method compiles once the struct is
+/// readonly (its state members are get-only):
+/// <code>
+/// public S WithX(int x) { return new S(x: x, y: this.Y); }
+/// </code>
+/// Only the exact idiom above is recognized; any other shape is left
+/// untouched (and surfaces as a build error/residual if it is not readonly-safe).
+/// </summary>
+internal sealed class FunctionalWithMethodRewriter : CSharpSyntaxRewriter
+{
+    private readonly string _structName;
+    private readonly ConstructorDeclarationSyntax _ctor;
+    private readonly Dictionary<string, string> _parameterToMember;
+
+    private FunctionalWithMethodRewriter(
+        string structName,
+        ConstructorDeclarationSyntax ctor,
+        Dictionary<string, string> parameterToMember)
+    {
+        _structName = structName;
+        _ctor = ctor;
+        _parameterToMember = parameterToMember;
+    }
+
+    /// <summary>
+    /// Picks the constructor whose body covers the most state members
+    /// (parameter → member assignments) and normalizes matching methods.
+    /// Returns the node unchanged when no such constructor exists.
+    /// </summary>
+    public static StructDeclarationSyntax Normalize(StructDeclarationSyntax node)
+    {
+        var best = node.Members
+            .OfType<ConstructorDeclarationSyntax>()
+            .Select(c => (ctor: c,
+                map: ReadOnlyStructRewriter.ExtractConstructorParamToFieldMap(c)))
+            .Where(x => x.map.Count > 0)
+            .OrderByDescending(x => x.map.Values.Distinct(StringComparer.Ordinal).Count())
+            .FirstOrDefault();
+        if (best.ctor == null)
+            return node;
+
+        var rewriter = new FunctionalWithMethodRewriter(
+            node.Identifier.Text, best.ctor, best.map);
+        return (StructDeclarationSyntax)rewriter.Visit(node)!;
+    }
+
+    public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
+    {
+        var visited = (MethodDeclarationSyntax)base.VisitMethodDeclaration(node)!;
+        return TryRewrite(visited) ?? visited;
+    }
+
+    private MethodDeclarationSyntax? TryRewrite(MethodDeclarationSyntax method)
+    {
+        if (method.Body is not { } body || method.ExpressionBody != null)
+            return null;
+        if (!ReturnsStruct(method.ReturnType))
+            return null;
+
+        var statements = body.Statements;
+        if (statements.Count < 3)
+            return null;
+
+        // First statement: var/<type> id = this;
+        if (statements[0] is not LocalDeclarationStatementSyntax local
+            || local.Declaration.Variables.Count != 1
+            || local.UsingKeyword.IsKind(SyntaxKind.UsingKeyword))
+        {
+            return null;
+        }
+
+        var variable = local.Declaration.Variables[0];
+        var id = variable.Identifier.Text;
+        var initialValue = variable.Initializer?.Value;
+        initialValue = initialValue is ParenthesizedExpressionSyntax parenthesized
+            ? parenthesized.Expression
+            : initialValue;
+        if (initialValue is not ThisExpressionSyntax)
+            return null;
+
+        // Last statement: return id;
+        if (statements[^1] is not ReturnStatementSyntax
+            {
+                Expression: IdentifierNameSyntax returned,
+            } || returned.Identifier.Text != id)
+        {
+            return null;
+        }
+
+        // Middle statements: simple member assignments to the copy local.
+        var updates = new Dictionary<string, ExpressionSyntax>(StringComparer.Ordinal);
+        for (var i = 1; i < statements.Count - 1; i++)
+        {
+            if (statements[i] is not ExpressionStatementSyntax
+                {
+                    Expression: AssignmentExpressionSyntax
+                    {
+                        RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
+                    } assignment,
+                })
+            {
+                return null;
+            }
+
+            if (assignment.Left is not MemberAccessExpressionSyntax
+                {
+                    Expression: IdentifierNameSyntax receiver,
+                    Name: IdentifierNameSyntax member,
+                } || receiver.Identifier.Text != id)
+            {
+                return null;
+            }
+
+            // No member may be assigned more than once, and the copy local may
+            // not be read on the right-hand side (copy-state after earlier
+            // updates cannot be expressed via this.Member reads).
+            if (!updates.TryAdd(member.Identifier.Text, assignment.Right))
+                return null;
+            if (assignment.Right.DescendantNodesAndSelf()
+                .OfType<IdentifierNameSyntax>()
+                .Any(name => name.Identifier.Text == id))
+            {
+                return null;
+            }
+        }
+
+        // Every updated member must be backed by a constructor parameter.
+        foreach (var memberName in updates.Keys)
+        {
+            if (!_parameterToMember.Values.Contains(memberName))
+                return null;
+        }
+
+        var arguments = new List<ArgumentSyntax>();
+        foreach (var parameter in _ctor.ParameterList.Parameters)
+        {
+            var parameterName = parameter.Identifier.Text;
+            ExpressionSyntax value;
+            if (parameterName == "__cs2jTag")
+            {
+                value = SyntaxFactory.LiteralExpression(
+                    SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0));
+            }
+            else
+            {
+                if (!_parameterToMember.TryGetValue(parameterName, out var memberName))
+                    return null;
+
+                value = updates.TryGetValue(memberName, out var updated)
+                    ? updated
+                    : SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.ThisExpression(),
+                        SyntaxFactory.IdentifierName(memberName));
+            }
+
+            arguments.Add(SyntaxFactory.Argument(value)
+                .WithNameColon(SyntaxFactory.NameColon(
+                    SyntaxFactory.IdentifierName(parameterName))));
+        }
+
+        var creation = SyntaxFactory.ObjectCreationExpression(
+            SyntaxFactory.Token(SyntaxKind.NewKeyword),
+            BuildStructType(method),
+            SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments)),
+            initializer: null);
+
+        var returnStatement = SyntaxFactory.ReturnStatement(creation)
+            .WithLeadingTrivia(SyntaxFactory.Whitespace("        "))
+            .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed);
+
+        return method
+            .WithExpressionBody(null)
+            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None))
+            .WithBody(SyntaxFactory.Block(returnStatement));
+    }
+
+    private bool ReturnsStruct(TypeSyntax returnType)
+    {
+        var nameText = returnType switch
+        {
+            IdentifierNameSyntax id => id.Identifier.Text,
+            GenericNameSyntax generic => generic.Identifier.Text,
+            QualifiedNameSyntax qualified => qualified.Right.Identifier.Text,
+            _ => null,
+        };
+        return nameText == _structName;
+    }
+
+    private TypeSyntax BuildStructType(MethodDeclarationSyntax method)
+    {
+        // Generic struct: mirror the type parameter list of the enclosing declaration.
+        var enclosing = method.Ancestors().OfType<StructDeclarationSyntax>().FirstOrDefault();
+        if (enclosing?.TypeParameterList is { } typeParameters && typeParameters.Parameters.Count > 0)
+        {
+            return SyntaxFactory.GenericName(
+                SyntaxFactory.Identifier(_structName),
+                SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(
+                    typeParameters.Parameters.Select(p =>
+                        (TypeSyntax)SyntaxFactory.IdentifierName(p.Identifier.Text)))));
+        }
+
+        return SyntaxFactory.IdentifierName(_structName);
+    }
 }

@@ -5,15 +5,18 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.Core.ReadOnlyStructMaker;
 
 /// <summary>
-/// Minimal statement-level rewriter for external writes to target readonly structs:
+/// Statement-level rewriter for external writes to target readonly structs:
 ///   obj.Field = v   -> obj = obj.WithField(v)
 ///   obj.Field op= v -> obj = obj.WithField(obj.Field op v)
 ///   obj.Field++ / -- (statement level) -> obj = obj.WithField(obj.Field +/- 1)
+/// For L3 (DataContainer) structs the write is instead reconstructed through
+/// their full constructor:
+///   obj.Prop = v    -> obj = new S(p1: obj.P1, ..., p: v, ...)
 /// All other nodes are returned unchanged. Target confirmation is semantic.
 /// Anything more complex (tuple assignments, chained assignments, embedded
 /// assignment values, unary mutations nested in expressions, object initializers,
-/// read getter rewrites, L3 reconstruction, casts) is not handled here and must
-/// be normalized by earlier preprocessing passes.
+/// read getter rewrites, casts) is not handled here and must be normalized by
+/// earlier preprocessing passes.
 /// </summary>
 public sealed class AssignmentRewriter : CSharpSyntaxRewriter
 {
@@ -22,6 +25,7 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     private readonly SemanticModel? _semanticModel;
     private readonly Dictionary<string, string> _variableTypes = new();
     private readonly Dictionary<string, HashSet<string>> _qualifiedNames = new(StringComparer.Ordinal);
+    private readonly IReadOnlyDictionary<string, (HashSet<string> Props, List<string> CtorParams)> _l3Structs;
 
     public AssignmentRewriter(
         Dictionary<string, HashSet<string>> structFields,
@@ -33,14 +37,16 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     {
         _structFields = structFields;
         _semanticModel = semanticModel;
+        _l3Structs = l3Structs
+            ?? new Dictionary<string, (HashSet<string> Props, List<string> CtorParams)>();
         if (qualifiedNames != null)
         {
             foreach (var kvp in qualifiedNames)
                 _qualifiedNames[kvp.Key] = new HashSet<string>(kvp.Value, StringComparer.Ordinal);
         }
-        // propertyAccessStructs / withChainStructs / l3Structs are accepted for
-        // source compatibility with existing call sites; the minimal rewrite shape
-        // assumes every target struct exposes WithXxx(...) methods and property reads.
+        // propertyAccessStructs / withChainStructs are accepted for source
+        // compatibility with existing call sites; L3 structs additionally expose
+        // their full constructor as the reconstruction target.
         foreach (var fields in structFields.Values)
         foreach (var field in fields)
             _targetFieldNames.Add(field);
@@ -138,7 +144,7 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
                 return base.VisitAssignmentExpression(node);
         }
 
-        return BuildWriteAssignment(receiver, fieldNameText, newValue, node);
+        return BuildWriteAssignment(structName, receiver, fieldNameText, newValue, node);
     }
 
     public override SyntaxNode? VisitPrefixUnaryExpression(PrefixUnaryExpressionSyntax node)
@@ -202,13 +208,88 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             readAccess,
             SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(1)));
 
-        return BuildWriteAssignment(receiver, fieldNameText, newValue, original);
+        return BuildWriteAssignment(structName, receiver, fieldNameText, newValue, original);
+    }
+
+    /// <summary>
+    /// Dispatches the write to the L3 constructor reconstruction when the target
+    /// is a DataContainer struct, otherwise to the WithXxx chain shape.
+    /// </summary>
+    private AssignmentExpressionSyntax BuildWriteAssignment(
+        string structName, ExpressionSyntax receiver, string memberName,
+        ExpressionSyntax value, SyntaxNode triviaFrom)
+        => _l3Structs.ContainsKey(structName)
+            ? BuildL3ConstructorAssignment(structName, receiver, memberName, value, triviaFrom)
+            : BuildWithWriteAssignment(receiver, memberName, value, triviaFrom);
+
+    /// <summary>
+    /// receiver.Member = value  ->  receiver = new S(p1: receiver.P1, ..., pm: value, ...)
+    /// Every constructor parameter maps to its state property (case-insensitive,
+    /// underscores stripped); the written member carries the new value and all
+    /// other members are copied from the receiver. Non-state parameters
+    /// (e.g. the <c>__cs2jTag</c> discriminator) receive <c>0</c>.
+    /// </summary>
+    private AssignmentExpressionSyntax BuildL3ConstructorAssignment(
+        string structName, ExpressionSyntax receiver, string memberName,
+        ExpressionSyntax value, SyntaxNode triviaFrom)
+    {
+        var arguments = new List<ArgumentSyntax>();
+        var (_, ctorParams) = _l3Structs[structName];
+        foreach (var parameterName in ctorParams)
+        {
+            ExpressionSyntax argumentValue;
+            var mappedProperty = GetL3PropertyForParameter(structName, parameterName);
+            if (mappedProperty == null)
+            {
+                argumentValue = SyntaxFactory.LiteralExpression(
+                    SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0));
+            }
+            else if (mappedProperty == memberName)
+            {
+                argumentValue = value;
+            }
+            else
+            {
+                argumentValue = SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    receiver.WithoutTrivia(),
+                    SyntaxFactory.IdentifierName(mappedProperty));
+            }
+
+            arguments.Add(SyntaxFactory.Argument(argumentValue)
+                .WithNameColon(SyntaxFactory.NameColon(
+                    SyntaxFactory.IdentifierName(parameterName))));
+        }
+
+        // The cross-file call-site passes do not run the whitespace formatter, so
+        // the keyword needs explicit trailing trivia: `newS()` lexes as a single
+        // identifier, while `new S()` is an object creation.
+        var newKeyword = SyntaxFactory.Token(SyntaxKind.NewKeyword)
+            .WithTrailingTrivia(SyntaxFactory.Space);
+        var creation = SyntaxFactory.ObjectCreationExpression(
+            newKeyword,
+            SyntaxFactory.IdentifierName(structName),
+            SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments)),
+            initializer: null);
+
+        return SyntaxFactory.AssignmentExpression(
+            SyntaxKind.SimpleAssignmentExpression,
+            receiver.WithoutTrivia(),
+            creation).WithTriviaFrom(triviaFrom);
+    }
+
+    private string? GetL3PropertyForParameter(string structName, string parameterName)
+    {
+        var props = _l3Structs[structName].Props;
+        var normalizedParameter = parameterName.TrimStart('_');
+        return props.FirstOrDefault(p =>
+            string.Equals(p.TrimStart('_'), normalizedParameter, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
     /// receiver.Member = value  ->  receiver = receiver.WithMember(value)
     /// </summary>
-    private static AssignmentExpressionSyntax BuildWriteAssignment(
+    private static AssignmentExpressionSyntax BuildWithWriteAssignment(
         ExpressionSyntax receiver, string memberName, ExpressionSyntax value, SyntaxNode triviaFrom)
     {
         var withCall = SyntaxFactory.InvocationExpression(

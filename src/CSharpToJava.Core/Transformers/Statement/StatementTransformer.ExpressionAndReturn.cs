@@ -227,9 +227,15 @@ public partial class StatementTransformer
             expr = $"CSharpGenericIterable.from({expr}.entrySet())";
         }
 
-        var selfClone = stmt.Expression is ThisExpressionSyntax
-            && ctx.CurrentMethod is { Name: "Clone", Parameters.Length: 0, IsStatic: false };
-        if (!ctx.SuppressReturnClone && !selfClone)
+        // Clone() 自身的返回站点不能再补防御性 clone：该方法的契约就是产出一个
+        // 独立新值（预处理生成的 clone shim 体内是新构造/组装好的局部）。若表达式
+        // 的静态类型就是当前类型，追加 .clone() 会变成 clone() 自调用（无限递归），
+        // 对其它类型（如字段包装器返回成员 struct）仍照常补克隆。
+        var selfCloneMethod = ctx.CurrentMethod is { Name: "Clone", Parameters.Length: 0, IsStatic: false }
+            && ctx.CurrentEnclosingRoslynType is INamedTypeSymbol enclosingType
+            && SymbolEqualityComparer.Default.Equals(
+                ctx.GetTypeInfo(stmt.Expression).Type, enclosingType);
+        if (!ctx.SuppressReturnClone && !selfCloneMethod)
             expr = StructCloneHelper.CloneStructValueIfNeeded(stmt.Expression, expr,
                 ctx.GetTypeInfo(stmt.Expression).Type, ctx);
 

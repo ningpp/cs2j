@@ -1002,7 +1002,7 @@ public class StructValueSemanticsUnitTests
     }
 
     [Fact]
-    public void Rewrite_IsPatternUnbox_BindingMutatedAsDefensiveReceiver()
+    public void Rewrite_IsPatternUnbox_BindingIsWritableLocal_MutatedInPlace()
     {
         var run = Analyze("""
             namespace Lib;
@@ -1022,9 +1022,11 @@ public class StructValueSemanticsUnitTests
 
         var output = run.Output;
         AssertOutputCompiles(output);
-        Assert.Contains("var __cs2jVc0 = p.Clone();", output);
-        Assert.Contains("__cs2jVc0.Move(1);", output);
-        Assert.Equal(1, run.Statistics.DefensiveReceiverSites);
+        // is-pattern 声明局部是普通可写局部（拆箱本身已产生独立副本），变异
+        // 必须就地生效；它不是 foreach 迭代变量那种只读槽，不提升防御副本。
+        Assert.Contains("if (o is Point p) { p.Move(1); }", output.Replace("\r\n", "\n"));
+        Assert.DoesNotContain("p.Clone()", output);
+        Assert.Equal(0, run.Statistics.DefensiveReceiverSites);
     }
 
     [Fact]

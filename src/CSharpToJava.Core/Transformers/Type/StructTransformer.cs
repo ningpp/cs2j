@@ -92,6 +92,22 @@ public class StructTransformer : ITypeTransformer
         // 处理成员。
         context.EnterType(javaClass);
 
+        // C# 结构（含 C# 10 显式参数化构造器）始终隐式拥有公共无参构造器（字段全零）。
+        // Java 一旦声明任何显式实例构造器就不再合成默认构造器：struct 字段默认值填充
+        // （FieldTransformer 对 struct 字段发 `new T()`）与预处理生成的零参 new 站点
+        // 都会失配。故当用户声明了显式有参实例构造器、却没有显式无参构造器时，补一个
+        // 空体公共无参构造器（字段/内联初始化器随 Java 实例初始化机制照常执行）。
+        // 没有任何显式实例构造器的 struct 直接复用 Java 隐式默认构造器，不生成冗余 ctor。
+        if (NeedsImplicitParameterlessConstructor(structDecl, structSymbol))
+        {
+            javaClass.Constructors.Add(new JavaConstructorDeclaration
+            {
+                ClassName = javaClass.Name,
+                Modifiers = JavaModifiers.Public,
+                StructuredBody = new JavaMethodBody(),
+            });
+        }
+
         // 预注册嵌套枚举，使方法体中对其的前向引用可以拿到枚举信息。
         foreach (var member in EnumerateMembers(structDecl, originalNodes, context))
             if (member is EnumDeclarationSyntax nestedEnum)
@@ -107,6 +123,31 @@ public class StructTransformer : ITypeTransformer
 
         context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         return javaClass;
+    }
+
+    /// <summary>
+    /// 是否需要为该 struct 补一个映射 C# 隐式公共无参构造器的 Java ctor：
+    /// 用户声明了显式有参实例构造器（Java 因而不再合成默认 ctor），且没有
+    /// 显式无参实例构造器。优先以语义符号判定（覆盖合并 partial），无符号
+    /// 时退回语法扫描。
+    /// </summary>
+    private static bool NeedsImplicitParameterlessConstructor(
+        StructDeclarationSyntax structDecl, INamedTypeSymbol? structSymbol)
+    {
+        if (structSymbol != null)
+        {
+            var declared = structSymbol.InstanceConstructors
+                .Where(c => !c.IsStatic && !c.IsImplicitlyDeclared)
+                .ToList();
+            return declared.Count > 0 && declared.All(c => c.Parameters.Length > 0);
+        }
+
+        var declaredCtors = structDecl.Members
+            .OfType<ConstructorDeclarationSyntax>()
+            .Where(c => !c.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)))
+            .ToList();
+        return declaredCtors.Count > 0
+               && declaredCtors.All(c => c.ParameterList.Parameters.Count > 0);
     }
 
     private static void AddInterfaces(JavaClassDeclaration javaClass, INamedTypeSymbol? structSymbol,

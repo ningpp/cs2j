@@ -587,6 +587,51 @@ public class InitializerDesugarUnitTests
         => result.Diagnostics.Any(d => d.Code == code && d.Severity == severity);
 
     [Fact]
+    public void M6_InterpolationCoexistence_InitializerSitesStillLower()
+    {
+        const string source = """
+            public static class Program
+            {
+                public static void Main()
+                {
+                    var settings = new BuildSettings { Name = "app", Retries = 1 };
+                    var reusable = new Reusable { V = 11 };
+                    System.Console.WriteLine($"{settings.Retries},{reusable.V}");
+                    System.Console.WriteLine($"{settings.Retries}");
+                }
+            }
+
+            public struct BuildSettings
+            {
+                public string Name { get; set; }
+                public int Retries { get; set; }
+            }
+            public struct Reusable { public int V; }
+            """;
+
+        var result = Preprocess(source, new ExpressionDesugarOptions
+        {
+            Initializers = new InitializerOptions(),
+            Interpolations = new CSharpToJava.Core.ExpressionDesugar.Interpolations.InterpolationOptions
+            {
+                Enabled = true,
+                FoldConstants = true,
+                KeepFormattableString = true,
+            },
+        });
+
+        var diags = string.Join("\n",
+            result.Diagnostics.Select(d => $"{d.Severity} {d.Code}: {d.Message}"));
+        Assert.True(result.Changed, "DIAGS:\n" + diags + "\nOUT:\n" + result.OutputCode);
+        Assert.DoesNotContain("CS2J0545", diags);
+        Assert.DoesNotContain("CS2J0516", diags);
+        Assert.Contains("__ed_", result.OutputCode);
+        Assert.DoesNotContain("new BuildSettings {", result.OutputCode);
+        Assert.DoesNotContain("new Reusable {", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
     public void M0_CleanFile_Unchanged_AndCountedAsSkippedClean()
     {
         const string source = "public class C { void M() { int x = 1; } }\n";

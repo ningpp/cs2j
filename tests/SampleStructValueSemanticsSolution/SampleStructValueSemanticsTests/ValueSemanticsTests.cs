@@ -89,3 +89,21 @@ public class ValueSemanticsTests
         Assert.Equal(2, poly.Vertices[0].Y);
     }
 }
+
+/// <summary>
+/// ref struct：SV011 Info，交由 C01/C06 处理。该类型 Java 不可表示（UF050：
+/// stack-only、不可装箱），按 unsafe-ffm 的残余契约放在测试工程——测试工程是
+/// .NET 侧行为预言机、不产出 Java，其内的 UF050 降级为 Warning，源文件原样
+/// 通过 C# verify（生产工程中的用户 ref struct 仍是硬门错误）。
+/// </summary>
+public ref struct StackBuf
+{
+    public Span<byte> Bytes;
+
+    public StackBuf(Span<byte> bytes)
+    {
+        Bytes = bytes;
+    }
+
+    public int Length => Bytes.Length;
+}

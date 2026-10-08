@@ -211,6 +211,14 @@ internal sealed class StructAnalyzer
             return new(ConversionLevel.Skip, StructPattern.AlreadyReadonly, false,
                 "partial struct (skipped)", name);
 
+        // L0: instance field-like events. The compiler-generated backing field
+        // is mutable instance state, so readonly structs cannot contain them
+        // (CS8342). Such structs are infeasible as-is (SV051 residual).
+        if (syntax.Members.OfType<EventFieldDeclarationSyntax>()
+            .Any(e => !e.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))))
+            return new(ConversionLevel.Skip, StructPattern.MutableMethodsNonMigratable, false,
+                "instance field-like event(s) (CS8342: not allowed in readonly struct, skipped)", name);
+
         // L0: opt-out attribute
         if (HasOptOutAttribute(symbol))
             return new(ConversionLevel.Skip, StructPattern.AlreadyReadonly, false,
@@ -675,16 +683,31 @@ internal sealed class StructAnalyzer
     }
 
     internal bool IsMutating(MethodDeclarationSyntax method)
+        => IsMutatingCore(method, new HashSet<ISymbol>(SymbolEqualityComparer.Default));
+
+    private bool IsMutatingCore(MethodDeclarationSyntax method, HashSet<ISymbol> activeChain)
     {
         // Get the containing type so we only detect mutations to THIS struct's fields,
         // not to local variables' fields (e.g. localPoint.X += 1 is NOT mutating).
         var methodSymbol = _model.GetDeclaredSymbol(method);
         var containingType = methodSymbol?.ContainingType;
         if (containingType == null) return false;
+        // 按调用路径派生的闭环集合：兄弟调用分支各自携带祖先链但互不污染，
+        // 菱形调用图（A→B→D 与 A→C→D）里 D 仍能被每条路径独立判定。
+        if (methodSymbol != null && activeChain.Contains(methodSymbol.OriginalDefinition))
+            return false; // 递归调用闭环：不再沿此路径判定变异
+        var chain = new HashSet<ISymbol>(activeChain, SymbolEqualityComparer.Default)
+            { methodSymbol!.OriginalDefinition };
 
-        // A method is mutating if it assigns to instance fields/properties of the containing type
+        // A method is mutating if it assigns to instance fields/properties of
+        // the containing type THROUGH `this` (implicit or explicit). Writes
+        // whose receiver is a local/parameter copy (the functional
+        // `var copy = this; copy.X = v; return copy;` idiom) do not mutate the
+        // receiver instance and must not force method migration.
         var hasAssignment = method.DescendantNodes().OfType<AssignmentExpressionSyntax>().Any(a =>
         {
+            if (a.Kind() != SyntaxKind.SimpleAssignmentExpression) return false;
+            if (!IsThisStateTarget(a.Left)) return false;
             var targetSymbol = _model.GetSymbolInfo(a.Left).Symbol;
             if (targetSymbol is IFieldSymbol { IsStatic: false } f)
                 return SymbolEqualityComparer.Default.Equals(f.ContainingType, containingType);
@@ -701,6 +724,7 @@ internal sealed class StructAnalyzer
         {
             if (u.Kind() is not (SyntaxKind.PostIncrementExpression or SyntaxKind.PostDecrementExpression))
                 return false;
+            if (!IsThisStateTarget(u.Operand)) return false;
             var s = _model.GetSymbolInfo(u.Operand).Symbol;
             if (s is IFieldSymbol { IsStatic: false } f)
                 return SymbolEqualityComparer.Default.Equals(f.ContainingType, containingType);
@@ -711,6 +735,7 @@ internal sealed class StructAnalyzer
         {
             if (u.Kind() is not (SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression))
                 return false;
+            if (!IsThisStateTarget(u.Operand)) return false;
             var s = _model.GetSymbolInfo(u.Operand).Symbol;
             if (s is IFieldSymbol { IsStatic: false } f)
                 return SymbolEqualityComparer.Default.Equals(f.ContainingType, containingType);
@@ -723,6 +748,7 @@ internal sealed class StructAnalyzer
         var hasCompoundAssignment = method.DescendantNodes().OfType<AssignmentExpressionSyntax>().Any(a =>
         {
             if (a.Kind() == SyntaxKind.SimpleAssignmentExpression) return false;
+            if (!IsThisStateTarget(a.Left)) return false;
             var targetSymbol = _model.GetSymbolInfo(a.Left).Symbol;
             if (targetSymbol is IFieldSymbol { IsStatic: false } f)
                 return SymbolEqualityComparer.Default.Equals(f.ContainingType, containingType);
@@ -739,6 +765,7 @@ internal sealed class StructAnalyzer
             if (!a.RefKindKeyword.IsKind(SyntaxKind.RefKeyword) &&
                 !a.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
                 return false;
+            if (!IsThisStateTarget(a.Expression)) return false;
             var targetSymbol = _model.GetSymbolInfo(a.Expression).Symbol;
             if (targetSymbol is IFieldSymbol { IsStatic: false } f)
                 return SymbolEqualityComparer.Default.Equals(f.ContainingType, containingType);
@@ -747,7 +774,83 @@ internal sealed class StructAnalyzer
             return false;
         });
 
-        return hasAssignment || hasUnaryMutation || hasCompoundAssignment || hasRefOutFieldMutation;
+        // 在 this 状态字段上调用非 readonly 的 struct 实例方法（如
+        // `Start.Translate(dx, dy);`）：readonly 化后字段变 readonly，C# 会对接收者
+        // 做防御性副本，变异静默丢失（readonly struct 直接改写语义）。被调方在同树
+        // 有源码时递归判定其是否真的变异自身状态（Peek 等查询方法不算），跨树/外部
+        // 不可见体保守判变异——该 struct 交给 C07 clone 兜底，不做 readonly 改写。
+        var hasMutatingCallOnThisStateField =
+            method.DescendantNodes().OfType<InvocationExpressionSyntax>().Any(invocation =>
+                IsMutatingCallOnThisState(invocation, methodSymbol!, chain));
+
+        return hasAssignment || hasUnaryMutation || hasCompoundAssignment || hasRefOutFieldMutation
+            || hasMutatingCallOnThisStateField;
+    }
+
+    private bool IsMutatingCallOnThisState(
+        InvocationExpressionSyntax invocation, IMethodSymbol caller, HashSet<ISymbol> activeChain)
+    {
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+            return false;
+        if (!IsThisStateTarget(memberAccess.Expression))
+            return false;
+
+        var callee = _model.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        if (callee is not { IsStatic: false, IsReadOnly: false }
+            || callee.MethodKind != MethodKind.Ordinary)
+            return false;
+        if (callee.ContainingType?.TypeKind != TypeKind.Struct)
+            return false;
+        if (SymbolEqualityComparer.Default.Equals(
+                callee.OriginalDefinition, caller.OriginalDefinition))
+            return false; // 同方法递归，由 activeChain 之外的常规路径处理
+        if (activeChain.Contains(callee.OriginalDefinition))
+            return false;
+
+        var calleeReference = callee.DeclaringSyntaxReferences
+            .FirstOrDefault(r => r.SyntaxTree == invocation.SyntaxTree);
+        if (calleeReference?.GetSyntax() is not MethodDeclarationSyntax calleeSyntax)
+            return true; // 外部/跨树不可见体：保守判变异
+
+        return IsMutatingCore(calleeSyntax, activeChain);
+    }
+
+    /// <summary>
+    /// True when the assignment/argument expression denotes state reached
+    /// through the current instance: an implicit-this identifier
+    /// (<c>X = v</c>) or an explicit <c>this.X</c> chain. Writes through
+    /// locals/parameters (<c>copy.X = v</c>) are not receiver-state mutations.
+    /// </summary>
+    private static bool IsThisStateTarget(ExpressionSyntax target)
+    {
+        // Implicit this (bare field/property identifier).
+        if (target is IdentifierNameSyntax)
+            return true;
+
+        if (target is not MemberAccessExpressionSyntax memberAccess)
+            return false;
+
+        var receiver = memberAccess.Expression;
+        while (true)
+        {
+            switch (receiver)
+            {
+                case ThisExpressionSyntax:
+                    return true;
+                case MemberAccessExpressionSyntax ma:
+                    receiver = ma.Expression;
+                    continue;
+                case ElementAccessExpressionSyntax ea:
+                    receiver = ea.Expression;
+                    continue;
+                case ParenthesizedExpressionSyntax pe:
+                    receiver = pe.Expression;
+                    continue;
+                default:
+                    // Local/parameter/other receiver — a copy, not this state.
+                    return false;
+            }
+        }
     }
     private static bool AllFieldsOnlyAssignedInCtor(IReadOnlyList<IFieldSymbol> fields, StructDeclarationSyntax syntax)
     {
@@ -966,6 +1069,27 @@ internal sealed class StructAnalyzer
         // Check override methods too — some override ToString/Equals and modify state.
         if (HasThisAssignment(syntax))
             return "method assigns to 'this'";
+
+        // Mutating (non-readonly) struct instance method invoked on an own field:
+        // `Start.Translate(dx, dy);`. The functional migration only carries direct
+        // assignments/compounds on `copy` into the rebuilt struct — nested-field
+        // method mutations have no write-back shape, so the migrated body would
+        // silently drop them. Keep the struct mutable and let the C07 clone pass
+        // preserve the semantics.
+        foreach (var member in syntax.Members.OfType<MethodDeclarationSyntax>())
+        {
+            if (member.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))) continue;
+            foreach (var invocation in member.DescendantNodes().OfType<InvocationExpressionSyntax>())
+            {
+                if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess) continue;
+                if (!IsThisStateTarget(memberAccess.Expression)) continue;
+                if (_model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol callee
+                    || callee.IsStatic || callee.IsReadOnly)
+                    continue;
+                if (callee.ContainingType?.TypeKind != TypeKind.Struct) continue;
+                return "mutating struct method invoked on an own field (nested field mutation cannot be migrated)";
+            }
+        }
 
         return null;
     }

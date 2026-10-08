@@ -22,10 +22,6 @@ internal sealed class StructValueSemanticsSiteEnumerator
     /// <summary>VS-5c 拆箱 cast 节点：同锚点的 VS-1/2 站点让位。</summary>
     private readonly HashSet<SyntaxNode> _priorityAnchors = new();
 
-    /// <summary>VS-5c：<c>o is S x</c> 声明模式绑定的局部——拆箱副本，按只读槽处理。</summary>
-    private readonly HashSet<ISymbol> _unboxPatternLocals =
-        new(SymbolEqualityComparer.Default);
-
     /// <summary>plan × 接口定义 → 接口是否含命中变异闭包的成员（缓存）。</summary>
     private readonly Dictionary<(ClonePlan Plan, INamedTypeSymbol Interface), bool> _mutatingInterfaceCache =
         new(new PlanInterfaceComparer());
@@ -48,11 +44,9 @@ internal sealed class StructValueSemanticsSiteEnumerator
             var model = _compilation.GetSemanticModel(tree);
             var allNodes = root.DescendantNodes().ToList();
 
-            // pass 1：VS-5 cast（(object)s / (IFoo)s / (S)o）+ is-pattern 拆箱局部
+            // pass 1：VS-5 cast（(object)s / (IFoo)s / (S)o）。
             foreach (var node in allNodes.OfType<CastExpressionSyntax>())
                 VisitCast(node, model);
-            foreach (var pattern in allNodes.OfType<DeclarationPatternSyntax>())
-                VisitDeclarationPattern(pattern, model);
 
             // pass 2：其余值流站点
             foreach (var node in allNodes)
@@ -403,30 +397,6 @@ internal sealed class StructValueSemanticsSiteEnumerator
         return model.GetSymbolInfo(invocation).Symbol is IMethodSymbol method && !method.IsStatic;
     }
 
-    // VS-5c：o is S x —— x 绑定拆箱副本；标记局部为只读槽（其变异调用由 VS-3 提升，
-    // 其流出副本由 VS-1/2 常规站点包裹）。
-    private void VisitDeclarationPattern(DeclarationPatternSyntax pattern, SemanticModel model)
-    {
-        if (!_options_InsertAtBoxingSites()) return;
-        if (IsInsideExpressionTree(pattern, model)) return;
-
-        var inputType = pattern.Parent is IsPatternExpressionSyntax isPattern
-            ? model.GetTypeInfo(isPattern.Expression).Type
-            : null;
-        // 仅拆箱路径（源为 object/ValueType/接口）；裸类型模式 s is S（同类型转换）不产生副本差异。
-        var patternType = model.GetTypeInfo(pattern.Type).Type;
-        if (patternType == null) return;
-        var isUnboxing = inputType != null
-            && (IsObjectLike(inputType) || inputType.TypeKind == TypeKind.Interface);
-        if (!isUnboxing || ActivePlanForType(patternType) == null) return;
-
-        if (pattern.Designation is SingleVariableDesignationSyntax designation
-            && model.GetDeclaredSymbol(designation) is ILocalSymbol local)
-        {
-            _unboxPatternLocals.Add(local);
-        }
-    }
-
     /// <summary>
     /// 按目标类型分类值到 object/dynamic/接口的转换站点；返回 false 时调用方按 VS-1/2 普通值站点处理。
     /// </summary>
@@ -532,9 +502,10 @@ internal sealed class StructValueSemanticsSiteEnumerator
             case IPropertySymbol property when !property.IsIndexer:
                 return property.SetMethod is { IsInitOnly: false } && !property.ReturnsByRefReadonly;
             case ILocalSymbol local when local.RefKind == RefKind.None:
-                // foreach 迭代变量与 is-pattern 拆箱绑定都是只读副本槽。
-                return !IsForEachVariable(local, current)
-                    && !_unboxPatternLocals.Contains(local);
+                // foreach 迭代变量是只读副本槽（C# 禁止赋值，变异不回写源元素）；
+                // is-pattern 声明变量是普通可写局部（拆箱已产生独立副本，对其变异
+                // 必须就地生效，见 VS-3 基线第 6 行），按普通局部直改处理。
+                return !IsForEachVariable(local, current);
         }
 
         if (current is ElementAccessExpressionSyntax elementAccess)

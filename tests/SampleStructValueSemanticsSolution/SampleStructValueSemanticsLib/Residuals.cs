@@ -28,16 +28,3 @@ public readonly struct ImmutableView
 
     public int Value => V;
 }
-
-/// <summary>ref struct：SV011 Info，交由 C01/C06 处理。</summary>
-public ref struct StackBuf
-{
-    public Span<byte> Bytes;
-
-    public StackBuf(Span<byte> bytes)
-    {
-        Bytes = bytes;
-    }
-
-    public int Length => Bytes.Length;
-}

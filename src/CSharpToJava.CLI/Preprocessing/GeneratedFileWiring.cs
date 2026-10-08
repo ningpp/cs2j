@@ -54,15 +54,32 @@ internal static class GeneratedFileWiring
         }
 
         var relativeInclude = Path.GetRelativePath(projectDirectory, sharedFilePath);
-        root.Add(
-            new XText(Environment.NewLine + "  "),
-            new XElement(
+        var normalizedRelativeInclude = relativeInclude.Replace('\\', '/');
+
+        // csproj-entry 布局下项目目录就是中间树根，生成文件落在项目目录内，
+        // SDK 默认 glob 会自动 Compile 它；随后的显式 Include 即触发
+        // NETSDK1022 重复项。sln 布局下相对路径以 `..` 开头（文件在项目目录
+        // 外），默认 glob 不覆盖，无需 Remove。
+        var needsGlobSuppression = !normalizedRelativeInclude
+            .StartsWith("../", StringComparison.Ordinal);
+
+        var content = new List<object> { new XText(Environment.NewLine + "  ") };
+        if (needsGlobSuppression)
+        {
+            content.Add(new XElement(
                 "ItemGroup",
-                new XElement(
-                    "Compile",
-                    new XAttribute("Include", relativeInclude),
-                    new XAttribute("Link", fileName))),
-            new XText(Environment.NewLine));
+                new XElement("Compile", new XAttribute("Remove", relativeInclude))));
+            content.Add(new XText(Environment.NewLine + "  "));
+        }
+
+        content.Add(new XElement(
+            "ItemGroup",
+            new XElement(
+                "Compile",
+                new XAttribute("Include", relativeInclude),
+                new XAttribute("Link", fileName))));
+        content.Add(new XText(Environment.NewLine));
+        root.Add(content.ToArray());
 
         document.Save(projectFilePath, SaveOptions.DisableFormatting);
     }

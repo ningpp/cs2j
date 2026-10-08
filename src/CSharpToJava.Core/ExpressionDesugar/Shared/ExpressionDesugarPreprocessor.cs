@@ -116,6 +116,16 @@ public sealed class ExpressionDesugarPreprocessor
         var allAnnotations = new Dictionary<SyntaxNode, SyntaxAnnotation>();
         var rewriteCount = 0;
 
+        // Stable-key rules stamp their node markers on the shared tree in ONE
+        // pass before any rewrite. The walk itself refreshes node instances
+        // (unavoidable once ≥2 nodes change), but the markers survive every
+        // later rewrite, which is what the per-rule rewriters resolve against.
+        var stamps = new Dictionary<SyntaxNode, List<SyntaxAnnotation>>();
+        foreach (var plan in plans)
+            plan.ContributeStamps(stamps);
+        if (stamps.Count > 0)
+            currentRoot = StableMarkerStamper.Apply(currentRoot, stamps);
+
         foreach (var plan in plans)
         {
             currentRoot = plan.Rewrite(currentRoot);

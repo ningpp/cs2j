@@ -49,8 +49,20 @@ internal sealed class NullConditionalRule : IExpressionDesugarRule
     /// <summary>Analyze product: owns plans and drives the bottom-up rewrite.</summary>
     private sealed class NullConditionalRulePlan : ExpressionDesugarRulePlan
     {
+        private const string MarkerKind = "ed-nullcond-site";
+
         private readonly RuleAnalysisContext _context;
         private readonly NullConditionalAnalysis _analysis;
+        private readonly RuleSiteMarkers<ChainPlan> _markers = new(MarkerKind);
+
+        /// <summary>Original anchor -> family-lift annotation (pre-stamped).</summary>
+        private readonly Dictionary<SyntaxNode, SyntaxAnnotation> _anchorAnnotations = new();
+
+        /// <summary>
+        /// Plans that splice their anchor statement -> per-plan replacement
+        /// marker (pre-stamped on the original anchor).
+        /// </summary>
+        private readonly Dictionary<ChainPlan, SyntaxAnnotation> _anchorReplacementsByPlan = new();
         private NullConditionalRewriter? _rewriter;
 
         public NullConditionalRulePlan(
@@ -59,12 +71,60 @@ internal sealed class NullConditionalRule : IExpressionDesugarRule
         {
             _context = context;
             _analysis = analysis;
+            // C35 runs third: earlier rules (C23/C24) refresh node instances,
+            // so chain roots and anchors resolve through stable markers.
+            foreach (var plan in analysis.Plans)
+            {
+                _markers.Add(plan.RootOriginal, plan);
+
+                if (plan.Anchor is not { } anchor)
+                    continue;
+
+                // Every anchored plan may register TempLifter pending temps.
+                if (!_anchorAnnotations.ContainsKey(anchor))
+                {
+                    _anchorAnnotations[anchor] = new SyntaxAnnotation(
+                        ExpressionDesugarTempLifter.AnchorAnnotationKind);
+                }
+
+                if (plan.Shape is NullConditionalLoweringShape.StatementIf
+                    or NullConditionalLoweringShape.GuardedBlock)
+                {
+                    _anchorReplacementsByPlan[plan] =
+                        new SyntaxAnnotation("ed-nc-anchor-replacement");
+                }
+            }
+        }
+
+        public override void ContributeStamps(
+            Dictionary<SyntaxNode, List<SyntaxAnnotation>> stamps)
+        {
+            _markers.ContributeTo(stamps);
+            foreach (var pair in _anchorAnnotations)
+                AddStamp(stamps, pair.Key, pair.Value);
+            foreach (var pair in _anchorReplacementsByPlan)
+                AddStamp(stamps, pair.Key.Anchor!, pair.Value);
+        }
+
+        private static void AddStamp(
+            Dictionary<SyntaxNode, List<SyntaxAnnotation>> stamps,
+            SyntaxNode node,
+            SyntaxAnnotation annotation)
+        {
+            if (!stamps.TryGetValue(node, out var list))
+            {
+                list = new List<SyntaxAnnotation>();
+                stamps[node] = list;
+            }
+
+            list.Add(annotation);
         }
 
         public override CompilationUnitSyntax Rewrite(CompilationUnitSyntax root)
         {
             _rewriter = new NullConditionalRewriter(
-                _analysis, _context.SemanticModel!);
+                _analysis, _context.SemanticModel!, _markers,
+                _anchorAnnotations, _anchorReplacementsByPlan);
             var visited = (CompilationUnitSyntax)_rewriter.Visit(root)!;
 
             // Replace whole anchor statements for void/guarded-block shapes
@@ -78,8 +138,8 @@ internal sealed class NullConditionalRule : IExpressionDesugarRule
                ?? Array.Empty<ExpressionDesugarTempLifter.PendingTemp>();
 
         public override IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> AnchorAnnotations
-            => _rewriter?.AnchorAnnotations
-               ?? new Dictionary<SyntaxNode, SyntaxAnnotation>();
+            => (IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation>?)_rewriter?.AnchorAnnotations
+               ?? _anchorAnnotations;
 
         public override int RewriteCount => _rewriter?.RewriteCount ?? 0;
 

@@ -19,11 +19,14 @@ namespace CSharpToJava.Core.ExpressionDesugar.Interpolations;
 internal sealed class InterpolationRewriter : CSharpSyntaxRewriter
 {
     private readonly IReadOnlyDictionary<InterpolatedStringExpressionSyntax, InterpolationPlan> _plans;
+    private readonly RuleSiteMarkers<InterpolationPlan> _markers;
 
     public InterpolationRewriter(
-        IReadOnlyDictionary<InterpolatedStringExpressionSyntax, InterpolationPlan> plans)
+        IReadOnlyDictionary<InterpolatedStringExpressionSyntax, InterpolationPlan> plans,
+        RuleSiteMarkers<InterpolationPlan> markers)
     {
         _plans = plans;
+        _markers = markers;
     }
 
     /// <summary>Number of sites actually rewritten (Fold/Concat/Format; drives the dirty gate).</summary>
@@ -35,7 +38,12 @@ internal sealed class InterpolationRewriter : CSharpSyntaxRewriter
         var visited = (InterpolatedStringExpressionSyntax)
             base.VisitInterpolatedStringExpression(node)!;
 
-        if (!_plans.TryGetValue(node, out var plan))
+        // Stable marker first: the pre-Pass-2 stamping walk (and any earlier
+        // in-family rewrite) refreshes node instances, so original identity
+        // misses. Identity lookup stays as a defensive fallback.
+        var plan = _markers.TryResolve(visited)
+            ?? (_plans.TryGetValue(node, out var originalPlan) ? originalPlan : null);
+        if (plan == null)
             return visited;
 
         switch (plan.Path)

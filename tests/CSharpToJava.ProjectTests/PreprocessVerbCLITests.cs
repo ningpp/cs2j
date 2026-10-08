@@ -440,9 +440,16 @@ public static class Calc
 
             Assert.Equal(0, exit);
             Assert.True(Directory.Exists(destDir), stderr);
-            Assert.True(
-                Directory.Exists(Path.Combine(destDir, ".cs2j-struct-value-semantics-src")),
+            var svsTreeCreated = Directory.Exists(
+                Path.Combine(destDir, ".cs2j-struct-value-semantics-src"));
+            Assert.True(svsTreeCreated,
                 "struct-value-semantics is default-on and must run in the default chain");
+
+            // 第二条链的目标是源根下的另一个嵌套目录；若保留第一条链的 out，
+            // 后续 pass 的源文件枚举会把 out 内已注入的 Cs2jPrelude 等当作源
+            // 文件拷进新中间树，dotnet build 即 CS0101 重复定义。第一条链的
+            // 断言已在上面取证，删除其输出保持第二条链源树干净。
+            Directory.Delete(destDir, recursive: true);
 
             var disabledDest = Path.Combine(sourceDir, "out-off");
             var (offExit, _, offStderr) = await RunCliAsync(
@@ -548,6 +555,10 @@ public static class Calc
             Assert.True(
                 Directory.Exists(Path.Combine(destDir, ".cs2j-unsafe-ffm-src")),
                 "unsafe-ffm is default-on and must run in the default chain");
+
+            // 同 DefaultChain_Creates_StructValueSemantics：首链嵌套输出会污染
+            // 第二条链的源枚举（注入的支撑工程被重复 glob），取证后删除。
+            Directory.Delete(destDir, recursive: true);
 
             var disabledDest = Path.Combine(sourceDir, "out-off");
             var (offExit, _, offStderr) = await RunCliAsync(

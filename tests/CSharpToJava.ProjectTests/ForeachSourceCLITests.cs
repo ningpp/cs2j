@@ -115,6 +115,10 @@ public class ForeachSourceCLITests
             Assert.Contains("s.ToCharArray()", rewritten);
             Assert.Contains("foreach-source:", stdout);
 
+            // 第二条链与首链输出同处源根下；保留 out 会让注入的支撑工程文件
+            // 被源枚举带入新中间树并被默认 glob 重复编译（NETSDK1022）。
+            Directory.Delete(destDir, recursive: true);
+
             // The universal kill switch suppresses it again.
             var disabledDest = Path.Combine(sourceDir, "out-off");
             var (offExit, _, offStderr) = await RunCliAsync(
