@@ -52,6 +52,18 @@ internal sealed class PropertyRule : IMemberDesugarRule
                     continue;
                 }
 
+                // 显式实现“元数据接口”（BCL/外部程序集，或不参与本次编译的项目）
+                // 的属性不能展开成 get_X/set_X 显式方法：接口本体不经过本 pass 降形，
+                // C# 中方法不能显式实现属性访问器（CS0683），例如状态机对
+                // System.Collections.IEnumerator.Current 的显式实现。
+                // 保留原属性，使用点也不改写；源内用户接口的显式实现随接口一起降形。
+                if (PropertyFacts.IsExplicitInterfaceImplementation(prop)
+                    && prop.ExplicitInterfaceImplementations.All(
+                        implemented => implemented.DeclaringSyntaxReferences.Length == 0))
+                {
+                    continue;
+                }
+
                 var gate = DeclarationGate(decl, prop, model, options, out var fieldKeyword);
                 if (gate != null)
                 {

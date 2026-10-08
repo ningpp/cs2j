@@ -73,6 +73,8 @@ public sealed class IteratorLoweringPreprocessor
         stats.YieldBreakSites = analyzerResult.Plans.Count(p => p.HasYieldBreak);
         stats.HoistedParameters = analyzerResult.Plans.Sum(p => p.Parameters.Count);
         stats.HoistedLocals = analyzerResult.Plans.Sum(p => p.HoistedLocals.Count);
+        stats.HoistedEnumerators = analyzerResult.Plans.Sum(p => p.HoistedEnumerators.Count);
+        stats.FinallyRegions = analyzerResult.Plans.Sum(p => p.Regions.Count);
         stats.SkippedUnsupported = analyzerResult.Diagnostics.Count;
 
         // Residual gate: count remaining yield statements in output

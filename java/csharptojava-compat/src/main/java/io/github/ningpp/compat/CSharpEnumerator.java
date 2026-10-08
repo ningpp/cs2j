@@ -19,6 +19,16 @@ public interface CSharpEnumerator {
         throw new UnsupportedOperationException("Reset is not supported");
     }
 
+    /**
+     * Mirrors the C# {@code IDisposable.Dispose()} pattern available on every
+     * enumerator (e.g. {@code ((IDisposable)e).Dispose()} emitted by foreach /
+     * iterator lowering). Java collection-backed enumerators have nothing to
+     * release, so the default is a no-op; state-machine enumerators override it
+     * to run protected finally regions.
+     */
+    default void close() {
+    }
+
     final class IteratorBackedCSharpEnumerator implements CSharpEnumerator {
         private final Iterator<?> iterator;
         private Object current;

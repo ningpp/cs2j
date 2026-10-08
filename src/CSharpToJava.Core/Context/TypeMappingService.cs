@@ -865,6 +865,18 @@ public class TypeMappingService
             }
         }
 
+        // List<T>.Enumerator (a C# value-type enumerator) → CSharpGenericEnumerator<T>.
+        // CSharpList.iterator() returns exactly this type, so MoveNext/Current/Dispose
+        // call sites emitted by iterator lowering bind directly.
+        if (outerOriginal == "System.Collections.Generic.List<T>"
+            && name == "Enumerator"
+            && outerType.TypeArguments.Length == 1)
+        {
+            var elemType = MapTypeForGeneric(outerType.TypeArguments[0], referenceContext);
+            AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");
+            return $"CSharpGenericEnumerator<{elemType}>";
+        }
+
         // When referencing a nested type from within the same enclosing type
         // OR from within the nested type itself, use the simple name to avoid
         // Java raw type issues (e.g., "LowLevelDictionary.Entry" is a raw type
@@ -1294,6 +1306,26 @@ public class TypeMappingService
         => typeSymbol.Locations.Any(static loc => loc.IsInSource);
 
     public void AddImportsForTypePublic(string csharpType) => AddImportsForType(csharpType);
+
+    /// <summary>
+    /// True for framework nested types that are mapped through built-in special
+    /// cases in <see cref="TryMapNestedType"/> rather than TypeMappings.json keys
+    /// (currently <c>System.Collections.Generic.List&lt;T&gt;.Enumerator</c>
+    /// → <c>CSharpGenericEnumerator&lt;T&gt;</c>). Post-mapping qualification
+    /// passes must treat them as configured mappings so the compat import they
+    /// register is not interpreted as a colliding import.
+    /// </summary>
+    public static bool HasBuiltInNestedTypeMapping(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol is INamedTypeSymbol { ContainingType: { } outer } nested
+            && nested.Name == "Enumerator"
+            && outer.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.List<T>")
+        {
+            return true;
+        }
+
+        return false;
+    }
 
     private void AddImport(string typeName)
     {

@@ -354,6 +354,21 @@ public class MethodConversionState
     public string GetEffectiveLocalJavaName(ISymbol? symbol, string fallbackName)
         => TryGetLocalRename(symbol, out var renamed) ? renamed : fallbackName;
 
+    // ─── Catch variable stack (empty `throw;` resolution) ──────────
+
+    private readonly Stack<string> _catchVariableNames = new();
+
+    /// <summary>Registers the Java variable name of the catch clause currently being transformed.</summary>
+    public void PushCatchVariable(string javaName) => _catchVariableNames.Push(javaName);
+
+    public void PopCatchVariable()
+    {
+        if (_catchVariableNames.Count > 0) _catchVariableNames.Pop();
+    }
+
+    /// <summary>Java name of the innermost catch parameter, for C# empty throw statements (<c>throw;</c>).</summary>
+    public string? CurrentCatchVariable => _catchVariableNames.Count > 0 ? _catchVariableNames.Peek() : null;
+
     // ─── Label Registry ────────────────────────────────────────────
 
     public LabelRegistry Labels { get; } = new();

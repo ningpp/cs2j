@@ -53,6 +53,44 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
     public override bool DeleteBuildOutputsAfterRestore => true;
     public override string CompilationName => "cs2j-closed-metadata-preprocess";
 
+    /// <summary>
+    /// ImplicitUsings=enable projects rely on SDK-generated GlobalUsings.g.cs;
+    /// the spine compilation parses sources directly, so without synthesis the
+    /// collector binds names differently from the real build (e.g. an unqualified
+    /// <c>IEnumerable&lt;int&gt;</c> can bind to the non-generic
+    /// <c>System.Collections.IEnumerable</c> and poison the generated
+    /// registration file). Mirrors PartialMergePassAdapter.
+    /// </summary>
+    public override IReadOnlyList<SyntaxTree> CreateAdditionalSyntaxTrees(PassTreeContext tree)
+    {
+        var globalUsings = new StringBuilder();
+        foreach (var projectFile in tree.Layout.ProjectFiles
+                     .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
+        {
+            var intermediateProjectFile = Path.Combine(
+                tree.IntermediateRoot, Path.GetRelativePath(tree.Layout.SourceRoot, projectFile));
+            var projectUsings = ImplicitGlobalUsings.BuildForProject(
+                intermediateProjectFile, tree.IntermediateRoot);
+            if (projectUsings != null)
+            {
+                globalUsings.AppendLine(projectUsings);
+            }
+        }
+
+        if (globalUsings.Length == 0)
+        {
+            return Array.Empty<SyntaxTree>();
+        }
+
+        return new[]
+        {
+            CSharpSyntaxTree.ParseText(
+                globalUsings.ToString(),
+                new CSharpParseOptions(LanguageVersion.Latest),
+                path: "__cs2j_global_usings.g.cs"),
+        };
+    }
+
     public ClosedMetadataStatistics Statistics => _statistics;
     public IReadOnlyList<ClosedMetadataDiagnostic> Diagnostics => _diagnostics;
 

@@ -954,6 +954,10 @@ public class ConversionContext
             && TypeMappings.FindConfigKeyBySimpleName(typeSymbol.Name) is not null)
             return true;
 
+        // Built-in nested-type special cases (List<T>.Enumerator → CSharpGenericEnumerator<T>)
+        if (TypeMappingService.HasBuiltInNestedTypeMapping(typeSymbol))
+            return true;
+
         if (typeSymbol is INamedTypeSymbol namedType && namedType.TypeArguments.Length > 0)
         {
             var ns = namedType.ContainingNamespace?.ToDisplayString();

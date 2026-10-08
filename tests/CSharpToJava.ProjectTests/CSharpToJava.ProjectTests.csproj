@@ -273,6 +273,12 @@
       <Link>SampleStructValueSemanticsSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Include SampleIteratorSolution (C04 M2) as content; bin/obj excluded. -->
+    <Content Include="..\SampleIteratorSolution\**\*.*"
+              Exclude="..\SampleIteratorSolution\**\bin\**;..\SampleIteratorSolution\**\obj\**">
+      <Link>SampleIteratorSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

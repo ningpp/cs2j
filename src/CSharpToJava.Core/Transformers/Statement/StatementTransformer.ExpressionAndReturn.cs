@@ -89,9 +89,23 @@ public partial class StatementTransformer
             .OfType<CatchClauseSyntax>().FirstOrDefault();
         if (catchVar == null)
             return new JavaStatementNode("throw; /* TODO: rethrow outside catch - manual conversion required */");
-        var name = catchVar.Declaration.Identifier.ValueText;
+        // Resolve through the same naming path the catch clause transformer used:
+        // a declared identifier may have been renamed, and an identifier-less
+        // catch (`catch (Exception) { throw; }`) received a synthetic name.
+        var rawName = catchVar.Declaration?.Identifier.ValueText;
+        string? name;
+        if (!string.IsNullOrWhiteSpace(rawName))
+        {
+            var catchSymbol = ctx.GetDeclaredSymbol(catchVar.Declaration!);
+            name = ctx.MethodState.GetEffectiveLocalJavaName(
+                catchSymbol, ConversionContext.EscapeJavaKeyword(rawName.Trim()));
+        }
+        else
+        {
+            name = ctx.MethodState.CurrentCatchVariable;
+        }
         if (string.IsNullOrWhiteSpace(name)) name = "_ex";
-        return new JavaStatementNode($"throw {ConversionContext.EscapeJavaKeyword(name.Trim())};");
+        return new JavaStatementNode($"throw {name};");
     }
 
     private JavaSyntaxNode TransformReturnStatement(ReturnStatementSyntax stmt, ConversionContext ctx)

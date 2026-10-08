@@ -181,6 +181,41 @@
             ]
         },
         {
+            "csharp": "System.Collections.Generic.IEnumerable`1",
+            "java": "CSharpGenericIterable",
+            "imports": [
+                "io.github.ningpp.compat.CSharpGenericIterable"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.IEnumerator`1",
+            "java": "CSharpGenericEnumerator",
+            "imports": [
+                "io.github.ningpp.compat.CSharpGenericEnumerator"
+            ]
+        },
+        {
+            "csharp": "System.Collections.IEnumerable",
+            "java": "CSharpGenericIterable<Object>",
+            "imports": [
+                "io.github.ningpp.compat.CSharpGenericIterable"
+            ]
+        },
+        {
+            "csharp": "System.Collections.IEnumerator",
+            "java": "CSharpGenericEnumerator<Object>",
+            "imports": [
+                "io.github.ningpp.compat.CSharpGenericEnumerator"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.List`1",
+            "java": "CSharpList",
+            "imports": [
+                "io.github.ningpp.compat.CSharpList"
+            ]
+        },
+        {
             "csharp": "System.IAsyncDisposable",
             "java": "AsyncDisposable",
             "imports": [

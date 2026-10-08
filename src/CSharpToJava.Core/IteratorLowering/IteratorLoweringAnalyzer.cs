@@ -7,14 +7,14 @@ namespace CSharpToJava.Core.IteratorLowering;
 
 /// <summary>
 /// Discovers iterator members in a compilation, validates them against the
-/// M1 support matrix, and produces a <see cref="StateMachinePlan"/> for each
+/// M2 support matrix, and produces a <see cref="MethodLoweringInfo"/> for each
 /// lowerable member. Unsupported forms get a skip diagnostic.
 /// </summary>
-internal sealed class IteratorLoweringAnalyzer
+internal static class IteratorLoweringAnalyzer
 {
     public static AnalyzerResult Analyze(SemanticModel semanticModel, IteratorLoweringOptions options)
     {
-        var plans = new List<StateMachinePlan>();
+        var infos = new List<MethodLoweringInfo>();
         var diagnostics = new List<IteratorLoweringDiagnostic>();
         var skipMemberKeys = new HashSet<string>(StringComparer.Ordinal);
 
@@ -35,7 +35,7 @@ internal sealed class IteratorLoweringAnalyzer
                 continue;
 
             // Check return type: IEnumerable<T>, IEnumerator<T>, IEnumerable, IEnumerator
-            var (elementType, isEnumerable, isIEnumerator, _) = ResolveReturnType(symbol.ReturnType);
+            var elementType = ResolveElementType(symbol.ReturnType);
             if (elementType == null)
             {
                 AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0401,
@@ -44,101 +44,57 @@ internal sealed class IteratorLoweringAnalyzer
                 continue;
             }
 
-            // M1 legality checks
-            if (!CheckLegality(method, diagnostics))
+            // Legality checks (M2: try-finally with yield is now supported)
+            if (!CheckLegality(method, semanticModel, diagnostics))
             {
                 skipMemberKeys.Add(GetMemberKey(method));
                 continue;
             }
-
-            // Build the plan
-            var cfgInfo = CfgBuilder.Analyze(method, semanticModel);
 
             // Collect existing nested type names for collision avoidance
             var usedNames = new HashSet<string>(StringComparer.Ordinal);
             var declaringType = method.Parent as TypeDeclarationSyntax;
             if (declaringType != null)
             {
-                foreach (var member in declaringType.Members)
+                foreach (var nested in declaringType.Members.OfType<BaseTypeDeclarationSyntax>())
                 {
-                    if (member is ClassDeclarationSyntax cls)
-                        usedNames.Add(cls.Identifier.ValueText);
+                    usedNames.Add(nested.Identifier.ValueText);
                 }
             }
 
             var className = IteratorLoweringNaming.GetStateMachineClassName(
                 method.Identifier.ValueText, memberIndex, usedNames);
 
-            var declaringTypeName = declaringType?.Identifier.ValueText ?? "global";
-
-            // Parameters
-            var paramFields = new List<CaptureField>();
-            foreach (var param in method.ParameterList.Parameters)
-            {
-                if (cfgInfo.HoistedParameterNames.Contains(param.Identifier.ValueText))
-                {
-                    var paramType = param.Type?.ToString() ?? "object";
-                    paramFields.Add(new CaptureField(
-                        param.Identifier.ValueText,
-                        paramType,
-                        IteratorLoweringNaming.GetCaptureFieldName(param.Identifier.ValueText)));
-                }
-            }
-
-            // Hoisted locals
-            var localFields = new List<CaptureField>();
-            foreach (var localName in cfgInfo.HoistedLocalNames)
-            {
-                var localType = ResolveLocalType(method, localName, semanticModel) ?? "object";
-                localFields.Add(new CaptureField(
-                    localName,
-                    localType,
-                    IteratorLoweringNaming.GetLocalFieldName(localName)));
-            }
-
-            plans.Add(new StateMachinePlan(
-                MemberName: method.Identifier.ValueText,
-                StateMachineClassName: className,
-                ElementType: elementType,
-                IsIEnumerableReturn: isEnumerable,
-                IsIEnumeratorReturn: isIEnumerator,
-                IsGenericMethod: method.TypeParameterList?.Parameters.Count > 0,
-                DeclaringTypeName: declaringTypeName,
-                IsStatic: method.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)),
-                Parameters: paramFields,
-                HoistedLocals: localFields,
-                YieldReturnCount: cfgInfo.YieldReturnCount,
-                HasYieldBreak: cfgInfo.HasYieldBreak));
+            var info = IteratorBodyAnalysis.Analyze(method, symbol, semanticModel, className);
+            infos.Add(info);
 
             memberIndex++;
         }
 
-        return new AnalyzerResult(plans, diagnostics, skipMemberKeys);
+        return new AnalyzerResult(
+            infos.Select(i => i.Plan).ToList(),
+            infos,
+            diagnostics,
+            skipMemberKeys);
     }
 
-    private static (string? elementType, bool isEnumerable, bool isIEnumerator, bool isNonGeneric)
-        ResolveReturnType(ITypeSymbol returnType)
+    private static string? ResolveElementType(ITypeSymbol returnType)
     {
-        if (returnType is not INamedTypeSymbol named) return (null, false, false, false);
+        if (returnType is not INamedTypeSymbol named) return null;
 
-        var fullName = named.OriginalDefinition.ToDisplayString();
-
-        return fullName switch
+        return named.OriginalDefinition.ToDisplayString() switch
         {
-            "System.Collections.Generic.IEnumerable<T>" =>
-                (named.TypeArguments[0].ToDisplayString(), true, false, false),
-            "System.Collections.Generic.IEnumerator<T>" =>
-                (named.TypeArguments[0].ToDisplayString(), false, true, false),
-            "System.Collections.IEnumerable" =>
-                ("object", true, false, true),
-            "System.Collections.IEnumerator" =>
-                ("object", false, true, true),
-            _ => (null, false, false, false)
+            "System.Collections.Generic.IEnumerable<T>" => named.TypeArguments[0].ToDisplayString(),
+            "System.Collections.Generic.IEnumerator<T>" => named.TypeArguments[0].ToDisplayString(),
+            "System.Collections.IEnumerable" => "object",
+            "System.Collections.IEnumerator" => "object",
+            _ => null
         };
     }
 
     private static bool CheckLegality(
         MethodDeclarationSyntax method,
+        SemanticModel semanticModel,
         List<IteratorLoweringDiagnostic> diagnostics)
     {
         var body = method.Body!;
@@ -157,51 +113,105 @@ internal sealed class IteratorLoweringAnalyzer
             }
         }
 
-        // try-with-catch containing yield -> CS2J0402 (CS1626 mirror)
-        // try-finally containing yield -> CS2J0402 (CS1625 mirror + M1 unsupported)
         foreach (var tryStmt in body.DescendantNodes().OfType<TryStatementSyntax>())
         {
-            if (tryStmt.Catches.Count > 0 && ContainsYield(tryStmt))
+            // try-with-catch: yield anywhere in the try block or its catches is
+            // illegal C# (CS1626/CS1631). Defensive mirror.
+            if (tryStmt.Catches.Count > 0 && ContainsYield(tryStmt.Block)
+                || tryStmt.Catches.Any(c => ContainsYield(c)))
             {
                 AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has yield inside try-with-catch (CS1626 mirror).");
+                    $"Iterator method '{method.Identifier.Text}' has yield inside try-with-catch (CS1626/CS1631 mirror).");
                 ok = false;
             }
+            // yield inside finally -> CS1625 mirror
             if (tryStmt.Finally != null && ContainsYield(tryStmt.Finally))
             {
                 AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has yield inside finally (CS1625 mirror / M1 unsupported).");
+                    $"Iterator method '{method.Identifier.Text}' has yield inside finally (CS1625 mirror).");
                 ok = false;
             }
-            // M1: try-finally (no catch) containing yield in the try block -> also unsupported
-            if (tryStmt.Finally != null && ContainsYield(tryStmt.Block))
-            {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has yield inside try-finally (M1 unsupported, planned for M2).");
-                ok = false;
-            }
+            // try-finally (no catch) with yield in the try block: M2 supported.
         }
 
-        // using statement containing yield -> CS2J0402 (M1 unsupported)
+        // using statement containing yield -> M3
         foreach (var usingStmt in body.DescendantNodes().OfType<UsingStatementSyntax>())
         {
             if (ContainsYield(usingStmt))
             {
                 AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has yield inside using (M1 unsupported, planned for M3).");
+                    $"Iterator method '{method.Identifier.Text}' has yield inside using (planned for M3).");
                 ok = false;
             }
         }
 
-        // lock statement containing yield -> CS2J0402 (M1 unsupported)
+        // lock statement containing yield -> M3
         foreach (var lockStmt in body.DescendantNodes().OfType<LockStatementSyntax>())
         {
             if (ContainsYield(lockStmt))
             {
                 AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has yield inside lock (M1 unsupported, planned for M3).");
+                    $"Iterator method '{method.Identifier.Text}' has yield inside lock (planned for M3).");
                 ok = false;
             }
+        }
+
+        // Deconstruction foreach (foreach (var (a,b) in ...)) containing yield
+        foreach (var feVar in body.DescendantNodes().OfType<ForEachVariableStatementSyntax>())
+        {
+            if (ContainsYield(feVar))
+            {
+                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{method.Identifier.Text}' has yield inside a deconstruction foreach (M2 unsupported).");
+                ok = false;
+            }
+        }
+
+        // foreach over a ref-struct enumerator with yield -> CS4007 mirror
+        foreach (var fe in body.DescendantNodes().OfType<ForEachStatementSyntax>())
+        {
+            if (!ContainsYield(fe)) continue;
+            var feInfo = semanticModel.GetForEachStatementInfo(fe);
+            var enumType = feInfo.GetEnumeratorMethod?.ReturnType;
+            if (enumType is { IsRefLikeType: true })
+            {
+                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0403,
+                    $"Iterator method '{method.Identifier.Text}': foreach enumerator '{enumType.Name}' is a ref struct and cannot be hoisted across a yield boundary (CS4007 mirror).");
+                ok = false;
+            }
+        }
+
+        // checked/unchecked/fixed 块内含 yield -> M2 不支持（展平会丢失 checked 上下文）
+        foreach (var node in body.DescendantNodes()
+                     .Where(n => n.IsKind(SyntaxKind.CheckedStatement)
+                         || n.IsKind(SyntaxKind.UnsafeStatement)
+                         || n.IsKind(SyntaxKind.FixedStatement)))
+        {
+            if (ContainsYield(node))
+            {
+                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{method.Identifier.Text}' has yield inside a(n) {node.Kind()} block (M2 unsupported).");
+                ok = false;
+            }
+        }
+
+        // switch section containing yield -> M2 不支持（M4 残余形态盘点再评估）
+        foreach (var switchStmt in body.DescendantNodes().OfType<SwitchStatementSyntax>())
+        {
+            if (ContainsYield(switchStmt))
+            {
+                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{method.Identifier.Text}' has yield inside a switch section (M2 unsupported).");
+                ok = false;
+            }
+        }
+
+        // 裸 return（迭代器内只允许 yield return / yield break）
+        if (body.DescendantNodes().OfType<ReturnStatementSyntax>().Any())
+        {
+            AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
+                $"Iterator method '{method.Identifier.Text}' has a plain return statement (use yield break).");
+            ok = false;
         }
 
         // User goto/label inside body -> CS2J0406
@@ -209,7 +219,7 @@ internal sealed class IteratorLoweringAnalyzer
             || body.DescendantNodes().OfType<LabeledStatementSyntax>().Any())
         {
             AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0406,
-                $"Iterator method '{method.Identifier.Text}' has user goto/label (v1 unsupported).");
+                $"Iterator method '{method.Identifier.Text}' has user goto/label (unsupported).");
             ok = false;
         }
 
@@ -227,51 +237,6 @@ internal sealed class IteratorLoweringAnalyzer
     private static bool ContainsYield(SyntaxNode node)
         => node.DescendantNodes().Any(n => n.IsKind(SyntaxKind.YieldReturnStatement)
             || n.IsKind(SyntaxKind.YieldBreakStatement));
-
-    private static string? ResolveLocalType(
-        MethodDeclarationSyntax method,
-        string localName,
-        SemanticModel model)
-    {
-        foreach (var localDecl in method.Body!.DescendantNodes()
-            .OfType<LocalDeclarationStatementSyntax>())
-        {
-            var varDecl = localDecl.Declaration.Variables
-                .FirstOrDefault(v => v.Identifier.ValueText == localName);
-            if (varDecl != null)
-            {
-                var symbol = model.GetDeclaredSymbol(varDecl);
-                if (symbol is ILocalSymbol localSym)
-                    return localSym.Type?.ToDisplayString();
-            }
-        }
-
-        foreach (var forStmt in method.Body!.DescendantNodes().OfType<ForStatementSyntax>())
-        {
-            if (forStmt.Declaration != null)
-            {
-                var varDecl = forStmt.Declaration.Variables
-                    .FirstOrDefault(v => v.Identifier.ValueText == localName);
-                if (varDecl != null)
-                {
-                    var symbol = model.GetDeclaredSymbol(varDecl);
-                    if (symbol is ILocalSymbol localSym2)
-                        return localSym2.Type?.ToDisplayString();
-                }
-            }
-        }
-
-        foreach (var foreachStmt in method.Body!.DescendantNodes().OfType<ForEachStatementSyntax>())
-        {
-            if (foreachStmt.Identifier.ValueText == localName)
-            {
-                var info = model.GetForEachStatementInfo(foreachStmt);
-                return info.ElementType?.ToDisplayString();
-            }
-        }
-
-        return null;
-    }
 
     private static void AddSkipDiagnostic(
         List<IteratorLoweringDiagnostic> diagnostics,
@@ -294,5 +259,6 @@ internal sealed class IteratorLoweringAnalyzer
 
 internal sealed record AnalyzerResult(
     IReadOnlyList<StateMachinePlan> Plans,
+    IReadOnlyList<MethodLoweringInfo> Infos,
     IReadOnlyList<IteratorLoweringDiagnostic> Diagnostics,
     IReadOnlySet<string> SkipMemberKeys);

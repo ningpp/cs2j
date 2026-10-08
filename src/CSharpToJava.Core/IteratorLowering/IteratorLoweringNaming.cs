@@ -8,10 +8,12 @@ internal static class IteratorLoweringNaming
 {
     public const string StateField = "_cs2jState";
     public const string CurrentField = "_cs2jCurrent";
+    public const string ActiveRegionField = "_cs2jActiveRegion";
     public const string InitialThreadIdField = "_cs2jInitialThreadId";
     public const string ThisField = "_cs2jThis";
     private const string CaptureFieldPrefix = "_cs2jCap_";
     private const string LocalFieldPrefix = "_cs2jLoc_";
+    private const string EnumeratorFieldPrefix = "_cs2jEnum_";
     private const string ResumeLabelPrefix = "_cs2jResume_";
     private const string StateMachineClassPrefix = "Cs2jIterator_";
 
@@ -24,6 +26,8 @@ internal static class IteratorLoweringNaming
     public static string GetCaptureFieldName(string originalName) => CaptureFieldPrefix + originalName;
 
     public static string GetLocalFieldName(string originalName) => LocalFieldPrefix + originalName;
+
+    public static string GetEnumeratorFieldName(int index) => $"{EnumeratorFieldPrefix}{index}";
 
     public static string GetResumeLabel(int state) => $"{ResumeLabelPrefix}{state}";
 

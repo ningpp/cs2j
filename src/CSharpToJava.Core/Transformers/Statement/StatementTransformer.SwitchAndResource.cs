@@ -174,9 +174,21 @@ public partial class StatementTransformer
             };
 
             context.MethodState.PushScope();
-            var catchStatements = TransformStatementsToIR(catchClause.Block.Statements, context);
+            // Register the catch variable so an empty `throw;` inside the block
+            // resolves to the exact Java name (synthetic for identifier-less C#
+            // catches such as `catch (Exception) { throw; }`).
+            context.MethodState.PushCatchVariable(varName);
+            List<JavaStatement> catchStmts;
+            try
+            {
+                catchStmts = TransformStatementsToIR(catchClause.Block.Statements, context);
+            }
+            finally
+            {
+                context.MethodState.PopCatchVariable();
+            }
             context.MethodState.PopScope();
-            foreach (var s in catchStatements)
+            foreach (var s in catchStmts)
                 catchClauseIR.Body.Statements.Add(s);
 
             result.CatchClauses.Add(catchClauseIR);

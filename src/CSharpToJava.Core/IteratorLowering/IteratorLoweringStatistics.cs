@@ -16,5 +16,7 @@ public sealed class IteratorLoweringStatistics
     public int YieldBreakSites;
     public int HoistedParameters;
     public int HoistedLocals;
+    public int HoistedEnumerators;
+    public int FinallyRegions;
     public int SkippedUnsupported;
 }

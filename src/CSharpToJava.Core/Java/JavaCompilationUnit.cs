@@ -127,6 +127,19 @@ public class JavaCompilationUnit : JavaSyntaxNode
                 continue;
             }
 
+            // Drop on-demand imports for dotnet.* BCL stub packages when the file
+            // body contains no fully-qualified reference into that package. Modern
+            // javac rejects wildcard imports of non-existent packages, and once all
+            // types from the corresponding C# namespace have explicit compat
+            // mappings (e.g. System.Collections.* → CSharpGenericIterable/...), the
+            // wildcard is pure residue of the translated `using` directive.
+            if (import.IsWildcard && !import.IsStatic
+                && import.Name.StartsWith("dotnet.", StringComparison.Ordinal)
+                && !typesText.Contains(import.Name + ".", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             // Skip explicit (non-wildcard) JDK imports whose package is covered by an EMITTED JDK wildcard
             if (!import.IsWildcard && !import.IsStatic)
             {

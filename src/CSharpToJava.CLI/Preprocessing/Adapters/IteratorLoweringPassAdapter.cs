@@ -114,6 +114,8 @@ internal sealed class IteratorLoweringPassAdapter : ProjectPassAdapter
            $"{_statistics.YieldReturnSites} yield-return, " +
            $"{_statistics.YieldBreakSites} yield-break, " +
            $"{_statistics.HoistedParameters + _statistics.HoistedLocals} hoisted, " +
+           $"{_statistics.HoistedEnumerators} enumerator(s), " +
+           $"{_statistics.FinallyRegions} protected region(s), " +
            $"{_statistics.SkippedUnsupported} skipped, " +
            $"{_statistics.ResidualCount} residual";
 
@@ -138,6 +140,8 @@ internal sealed class IteratorLoweringPassAdapter : ProjectPassAdapter
         _statistics.YieldBreakSites += source.YieldBreakSites;
         _statistics.HoistedParameters += source.HoistedParameters;
         _statistics.HoistedLocals += source.HoistedLocals;
+        _statistics.HoistedEnumerators += source.HoistedEnumerators;
+        _statistics.FinallyRegions += source.FinallyRegions;
         _statistics.SkippedUnsupported += source.SkippedUnsupported;
         _statistics.ResidualCount += source.ResidualCount;
     }

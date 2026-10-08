@@ -135,11 +135,17 @@ public class ClassTransformer : ITypeTransformer
             }
 
             // symbol.Interfaces 只包含该类直接声明实现的接口。
+            // Dedup by Java erasure simple name: C# frequently lists both the generic
+            // and non-generic flavours of an interface (e.g. IEnumerable<T> + IEnumerable),
+            // which map to CSharpGenericIterable<T> + CSharpGenericIterable<Object> —
+            // illegal in Java ("cannot be implemented with different type arguments").
+            // Declaration order wins; the generic variant is declared first by
+            // iterator lowering so it is the one retained.
             var seen = new HashSet<string>(StringComparer.Ordinal);
             foreach (var iface in symbol.Interfaces)
             {
                 var mapped = context.MapTypeForDeclarationHeader(iface);
-                if (mapped == "__suppress__" || !seen.Add(mapped)) continue;
+                if (mapped == "__suppress__" || !seen.Add(InterfaceErasureKey(mapped))) continue;
                 javaClass.ImplementedTypes.Add(WildcardToObjectTypeArg(mapped));
             }
 
@@ -162,10 +168,24 @@ public class ClassTransformer : ITypeTransformer
             else if (resolved.TypeKind == TypeKind.Interface)
             {
                 var mapped = WildcardToObjectTypeArg(context.MapTypeForDeclarationHeader(resolved));
-                if (!javaClass.ImplementedTypes.Contains(mapped))
+                if (!javaClass.ImplementedTypes.Any(t => InterfaceErasureKey(t) == InterfaceErasureKey(mapped)))
                     javaClass.ImplementedTypes.Add(mapped);
             }
         }
+    }
+
+    /// <summary>
+    /// Erasure-style dedup key for an implemented interface reference:
+    /// the simple type name without generic arguments
+    /// (e.g. <c>CSharpGenericIterable&lt;Integer&gt;</c> → <c>CSharpGenericIterable</c>).
+    /// </summary>
+    private static string InterfaceErasureKey(string mappedType)
+    {
+        var body = mappedType;
+        var lt = body.IndexOf('<');
+        if (lt >= 0) body = body[..lt];
+        var dot = body.LastIndexOf('.');
+        return dot >= 0 ? body[(dot + 1)..] : body;
     }
 
     // ── 类型参数与约束 ──────────────────────────────────────────────────────────

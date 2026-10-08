@@ -1,4 +1,7 @@
+using System.Collections;
+using System.Reflection;
 using CSharpToJava.Core.IteratorLowering;
+using CSharpToJava.Core.IteratorLowering.ControlFlow;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -25,6 +28,8 @@ public partial class IteratorLoweringUnitTests
         Assert.Equal(0, stats.FilesScanned);
         Assert.Equal(0, stats.FilesTransformed);
         Assert.Equal(0, stats.IteratorMembersLowered);
+        Assert.Equal(0, stats.HoistedEnumerators);
+        Assert.Equal(0, stats.FinallyRegions);
         Assert.Equal(0, stats.ResidualCount);
     }
 
@@ -53,14 +58,16 @@ public partial class IteratorLoweringUnitTests
         Assert.Equal("_cs2jCurrent", IteratorLoweringNaming.CurrentField);
         Assert.Equal("_cs2jInitialThreadId", IteratorLoweringNaming.InitialThreadIdField);
         Assert.Equal("_cs2jThis", IteratorLoweringNaming.ThisField);
+        Assert.Equal("_cs2jActiveRegion", IteratorLoweringNaming.ActiveRegionField);
         Assert.Equal("_cs2jCap_count", IteratorLoweringNaming.GetCaptureFieldName("count"));
         Assert.Equal("_cs2jLoc_i", IteratorLoweringNaming.GetLocalFieldName("i"));
+        Assert.Equal("_cs2jEnum_0", IteratorLoweringNaming.GetEnumeratorFieldName(0));
     }
 
     [Fact]
     public void Naming_ResumeLabel_IsPrefixed()
     {
-        Assert.Equal("_cs2jResume_0", IteratorLoweringNaming.GetResumeLabel(0));
+        Assert.Equal("_cs2jResume_1", IteratorLoweringNaming.GetResumeLabel(1));
         Assert.Equal("_cs2jResume_3", IteratorLoweringNaming.GetResumeLabel(3));
     }
 
@@ -73,22 +80,27 @@ public partial class IteratorLoweringUnitTests
         Assert.Contains("Cs2jIterator_Foo_02", used);
     }
 
-    // ── Task 3: StateMachinePlan ──
+    // ── Task 3: StateMachinePlan / RegionPlan ──
 
     [Fact]
     public void StateMachinePlan_Stores_BasicFields()
     {
+        var region = new RegionPlan(0, null, RegionKind.UserFinally, 1, 2, null);
         var plan = new StateMachinePlan(
             MemberName: "GetTokens",
             StateMachineClassName: "Cs2jIterator_GetTokens_0",
             ElementType: "string",
             IsIEnumerableReturn: true,
             IsIEnumeratorReturn: false,
+            IsNonGenericReturn: false,
             IsGenericMethod: false,
             DeclaringTypeName: "Writer",
+            ThisCaptureType: "Writer",
             IsStatic: false,
             Parameters: new[] { new CaptureField("count", "int", "_cs2jCap_count") },
             HoistedLocals: new[] { new CaptureField("i", "int", "_cs2jLoc_i") },
+            HoistedEnumerators: Array.Empty<CaptureField>(),
+            Regions: new[] { region },
             YieldReturnCount: 1,
             HasYieldBreak: false);
 
@@ -99,7 +111,20 @@ public partial class IteratorLoweringUnitTests
         Assert.False(plan.IsIEnumeratorReturn);
         Assert.Single(plan.Parameters);
         Assert.Single(plan.HoistedLocals);
+        Assert.Single(plan.Regions);
         Assert.Equal(1, plan.YieldReturnCount);
+    }
+
+    [Fact]
+    public void RegionPlan_ContainsState_FollowsInclusiveRange()
+    {
+        var region = new RegionPlan(2, 0, RegionKind.UserFinally, 3, 5, null);
+        Assert.False(region.ContainsState(2));
+        Assert.True(region.ContainsState(3));
+        Assert.True(region.ContainsState(5));
+        Assert.False(region.ContainsState(6));
+        Assert.Equal(0, region.ParentId!.Value);
+        Assert.Equal(RegionKind.UserFinally, region.Kind);
     }
 
     [Fact]
@@ -111,10 +136,10 @@ public partial class IteratorLoweringUnitTests
         Assert.Equal("_cs2jCap_count", cf.FieldName);
     }
 
-    // ── Task 4: CfgBuilder ──
+    // ── Task 4: IteratorBodyAnalysis ──
 
     [Fact]
-    public void CfgBuilder_AssignsSequentialStates_ToYieldReturns()
+    public void BodyAnalysis_AssignsSequentialStates_ToYieldReturns()
     {
         var src = @"
 using System.Collections.Generic;
@@ -125,20 +150,16 @@ class C {
         yield return 3;
     }
 }";
-        var model = ParseWithSemantics(src);
-        var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
-        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().First();
-        var info = CSharpToJava.Core.IteratorLowering.ControlFlow.CfgBuilder.Analyze(method, model);
+        var info = AnalyzeBody(src);
 
-        Assert.Equal(3, info.YieldReturnCount);
-        Assert.Equal(3, info.ResumeStates.Count);
-        Assert.Equal(1, info.ResumeStates[0]);
-        Assert.Equal(2, info.ResumeStates[1]);
-        Assert.Equal(3, info.ResumeStates[2]);
+        Assert.Equal(3, info.YieldReturns.Count);
+        Assert.Equal(3, info.Plan.YieldReturnCount);
+        Assert.Equal(new[] { 1, 2, 3 },
+            info.YieldReturns.Select((_, i) => i + 1).ToArray());
     }
 
     [Fact]
-    public void CfgBuilder_DetectsYieldBreak()
+    public void BodyAnalysis_DetectsYieldBreak()
     {
         var src = @"
 using System.Collections.Generic;
@@ -148,17 +169,14 @@ class C {
         yield return 1;
     }
 }";
-        var model = ParseWithSemantics(src);
-        var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
-        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().First();
-        var info = CSharpToJava.Core.IteratorLowering.ControlFlow.CfgBuilder.Analyze(method, model);
+        var info = AnalyzeBody(src);
 
-        Assert.True(info.HasYieldBreak);
-        Assert.Equal(1, info.YieldReturnCount);
+        Assert.True(info.Plan.HasYieldBreak);
+        Assert.Equal(1, info.Plan.YieldReturnCount);
     }
 
     [Fact]
-    public void CfgBuilder_HoistsLoopVariable_WhenYieldIsInsideLoop()
+    public void BodyAnalysis_HoistsLoopVariable_AndParameter_WhenYieldIsInsideLoop()
     {
         var src = @"
 using System.Collections.Generic;
@@ -168,16 +186,77 @@ class C {
             yield return i;
     }
 }";
-        var model = ParseWithSemantics(src);
-        var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
-        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().First();
-        var info = CSharpToJava.Core.IteratorLowering.ControlFlow.CfgBuilder.Analyze(method, model);
+        var info = AnalyzeBody(src);
 
-        Assert.Contains(info.HoistedLocalNames, n => n == "i");
-        Assert.Contains(info.HoistedParameterNames, n => n == "count");
+        Assert.Contains(info.Plan.HoistedLocals, f => f.OriginalName == "i");
+        Assert.Contains(info.Plan.Parameters, f => f.OriginalName == "count");
     }
 
-    // ── Task 5: Analyzer ──
+    [Fact]
+    public void BodyAnalysis_ListForeach_HoistsStructEnumerator_AndBuildsDisposeRegion()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M(List<int> xs) {
+        foreach (var x in xs)
+            yield return x;
+    }
+}";
+        var info = AnalyzeBody(src);
+        var feInfo = Assert.Single(info.Foreaches).Value;
+
+        Assert.False(feInfo.IsArray);
+        Assert.True(feInfo.IsDisposable);
+        Assert.True(feInfo.IsEnumeratorValueType);
+        Assert.NotNull(feInfo.Region);
+        Assert.Equal(RegionKind.ForeachDispose, feInfo.Region!.Kind);
+        Assert.Single(info.Plan.HoistedEnumerators);
+        Assert.Contains(info.Plan.Regions, r => r.Kind == RegionKind.ForeachDispose);
+    }
+
+    [Fact]
+    public void BodyAnalysis_ArrayForeach_HasNoDisposeRegion()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M(int[] xs) {
+        foreach (var x in xs)
+            yield return x;
+    }
+}";
+        var info = AnalyzeBody(src);
+        var feInfo = Assert.Single(info.Foreaches).Value;
+
+        Assert.True(feInfo.IsArray);
+        Assert.Null(feInfo.Region);
+        Assert.Empty(info.Plan.Regions);
+    }
+
+    [Fact]
+    public void BodyAnalysis_NestedTryFinally_BuildsParentChain()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M() {
+        try {
+            yield return 1;
+            try { yield return 2; } finally { }
+        } finally { }
+    }
+}";
+        var info = AnalyzeBody(src);
+        var regions = info.Plan.Regions;
+
+        Assert.Equal(2, regions.Count);
+        var outer = Assert.Single(regions, r => r.FirstState == 1);
+        var inner = Assert.Single(regions, r => r.FirstState == 2);
+        Assert.Equal(outer.Id, inner.ParentId!.Value);
+    }
+
+    // ── Task 5: Analyzer gates ──
 
     [Fact]
     public void Analyzer_FindsIteratorMethod_ReturningIEnumerable()
@@ -255,7 +334,47 @@ class C {
         Assert.True(result.Plans[0].IsGenericMethod);
     }
 
-    // ── Task 6: Rewriter ──
+    [Theory]
+    [InlineData("switch (x) { case 1: yield return 1; break; }", "int x")]
+    [InlineData("if (x == 0) return; yield return 1;", "int x")]
+    [InlineData("checked { yield return x; }", "int x")]
+    [InlineData("using (var d = new System.IO.StringWriter()) { yield return 1; }", "")]
+    [InlineData("lock (new object()) { yield return 1; }", "")]
+    public void Analyzer_Rejects_UnsupportedM2Constructs(string bodySnippet, string parameters)
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M(" + parameters + @") {
+        " + bodySnippet + @"
+    }
+}";
+        var model = ParseWithSemantics(src);
+        var result = IteratorLoweringAnalyzer.Analyze(model, new IteratorLoweringOptions());
+
+        Assert.Empty(result.Plans);
+        Assert.Contains(result.Diagnostics, d => d.Severity == IteratorLoweringSeverity.Error
+            && d.Code == IteratorLoweringDiagnosticCode.CS2J0402);
+    }
+
+    [Fact]
+    public void Analyzer_TryFinallyWithYield_IsAccepted()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M() {
+        try { yield return 1; } finally { }
+    }
+}";
+        var model = ParseWithSemantics(src);
+        var result = IteratorLoweringAnalyzer.Analyze(model, new IteratorLoweringOptions());
+
+        Assert.Single(result.Plans);
+        Assert.Single(result.Plans[0].Regions);
+    }
+
+    // ── Task 6: Rewriter structural checks ──
 
     [Fact]
     public void Rewriter_SimpleYieldReturn_ProducesStateMachine()
@@ -265,7 +384,7 @@ using System.Collections.Generic;
 class C {
     IEnumerable<int> M() { yield return 42; }
 }";
-        var (output, stats, diags) = Rewrite(src);
+        var (output, stats, _) = Rewrite(src);
 
         Assert.Equal(1, stats.IteratorMembersLowered);
         Assert.Contains("Cs2jIterator_M_0", output);
@@ -289,8 +408,8 @@ class C {
 }";
         var (output, _, _) = Rewrite(src);
 
-        Assert.Contains("_cs2jResume_0", output);
         Assert.Contains("_cs2jResume_1", output);
+        Assert.Contains("_cs2jResume_2", output);
         Assert.DoesNotContain("yield return", output);
     }
 
@@ -312,7 +431,7 @@ class C {
     }
 
     [Fact]
-    public void Rewriter_ForLoop_PreservesLoopStructure()
+    public void Rewriter_ForLoop_HoistsLocalsAndParameters()
     {
         var src = @"
 using System.Collections.Generic;
@@ -327,6 +446,35 @@ class C {
         Assert.Contains("_cs2jLoc_i", output);
         Assert.Contains("_cs2jCap_count", output);
         Assert.DoesNotContain("yield return", output);
+    }
+
+    [Fact]
+    public void Rewriter_ProtectedRegion_DeclaresActiveRegion_Field()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M() {
+        try { yield return 1; } finally { }
+    }
+}";
+        var (output, stats, _) = Rewrite(src);
+
+        Assert.Contains("_cs2jActiveRegion", output);
+        Assert.Equal(1, stats.FinallyRegions);
+    }
+
+    [Fact]
+    public void Rewriter_NoProtectedRegion_OmitsActiveRegionField()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M() { yield return 1; }
+}";
+        var (output, _, _) = Rewrite(src);
+
+        Assert.DoesNotContain("_cs2jActiveRegion", output);
     }
 
     [Fact]
@@ -428,6 +576,526 @@ class C {
         Assert.Contains(result.Diagnostics, d => d.Severity == IteratorLoweringSeverity.Warning);
     }
 
+    // ── Task 8: 发射产物零编译诊断（无 warning 的干净形态） ──
+
+    [Fact]
+    public void Emit_SimpleIterator_HasZeroCompileDiagnostics()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M() {
+        yield return 1;
+        yield return 2;
+    }
+}";
+        var (output, _, _) = Rewrite(src);
+        AssertOutputCompilesZeroDiagnostics(output);
+    }
+
+    [Fact]
+    public void Emit_ProtectedRegionIterator_HasZeroCompileDiagnostics()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M() {
+        try {
+            yield return 1;
+            yield return 2;
+        } finally { }
+    }
+}";
+        var (output, _, _) = Rewrite(src);
+        AssertOutputCompilesZeroDiagnostics(output);
+    }
+
+    // ── Task 9: 运行时语义（M2 核心验收） ──
+
+    [Fact]
+    public void Runtime_SimpleSequence()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M() {
+        yield return 1;
+        yield return 2;
+        yield return 3;
+    }
+}";
+        var (values, _) = EnumerateFully(LoadRewritten(code), "M");
+        Assert.Equal(new object[] { 1, 2, 3 }, values);
+    }
+
+    [Fact]
+    public void Runtime_ForLoop_WithParameter()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(int n) {
+        for (int i = 0; i < n; i++)
+            yield return i * i;
+    }
+}";
+        var (values, _) = EnumerateFully(LoadRewritten(code), "M", 4);
+        Assert.Equal(new object[] { 0, 1, 4, 9 }, values);
+    }
+
+    [Fact]
+    public void Runtime_WhileAndDoLoops()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> WhileM(int n) {
+        int i = 0;
+        while (i < n) { yield return i; i++; }
+    }
+    public IEnumerable<int> DoM(int n) {
+        int i = 0;
+        do { yield return i; i++; } while (i < n);
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        Assert.Equal(new object[] { 0, 1, 2 }, EnumerateFully(asm, c, "WhileM", 3).values);
+        Assert.Equal(new object[] { 0, 1, 2 }, EnumerateFully(asm, c, "DoM", 3).values);
+    }
+
+    [Fact]
+    public void Runtime_ListForeach_StructEnumerator()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(List<int> xs) {
+        foreach (var x in xs)
+            yield return x + 1;
+    }
+}";
+        var (values, _) = EnumerateFully(LoadRewritten(code), "M",
+            new List<int> { 10, 20, 30 });
+        Assert.Equal(new object[] { 11, 21, 31 }, values);
+    }
+
+    [Fact]
+    public void Runtime_ArrayForeach()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(int[] xs) {
+        foreach (var x in xs)
+            yield return x;
+    }
+}";
+        var (values, _) = EnumerateFully(LoadRewritten(code), "M",
+            new[] { 7, 8, 9 });
+        Assert.Equal(new object[] { 7, 8, 9 }, values);
+    }
+
+    [Fact]
+    public void Runtime_ParameterAndThisCapture()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public int Base = 100;
+    public int Scale = 3;
+    public IEnumerable<int> M(int add) {
+        yield return Base + add;
+        yield return Scale + add;
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        var (values, _) = EnumerateFully(asm, c, "M", 5);
+        Assert.Equal(new object[] { 105, 8 }, values);
+    }
+
+    [Fact]
+    public void Runtime_GenericMethod()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<T> M<T>(T a, T b) {
+        yield return a;
+        yield return b;
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        var result = Invoke(asm, c, "M", new[] { typeof(int) }, 4, 5);
+        var values = ToList((IEnumerable)result);
+        Assert.Equal(new object[] { 4, 5 }, values);
+    }
+
+    [Fact]
+    public void Runtime_NonGenericIEnumerable()
+    {
+        var code = @"
+using System.Collections;
+class C {
+    public IEnumerable M() {
+        yield return 1;
+        yield return ""two"";
+    }
+}";
+        var (values, _) = EnumerateFully(LoadRewritten(code), "M");
+        Assert.Equal(new object[] { 1, "two" }, values);
+    }
+
+    [Fact]
+    public void Runtime_IEnumeratorReturn_IsDirectlyEnumerable()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerator<int> M(int start) {
+        yield return start;
+        yield return start + 1;
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        var enumerator = (IEnumerator)Invoke(asm, c, "M", null, 40)!;
+        var values = new List<object?>();
+        while (enumerator.MoveNext()) values.Add(enumerator.Current);
+        ((IDisposable)enumerator).Dispose();
+        Assert.Equal(new object[] { 40, 41 }, values);
+    }
+
+    [Fact]
+    public void Runtime_FinallyRunsExactlyOnce_OnCompletion()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public int FinallyCount;
+    public IEnumerable<int> M() {
+        try {
+            yield return 1;
+            yield return 2;
+        } finally { FinallyCount++; }
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        var (values, disposable) = EnumerateFully(asm, c, "M");
+        Assert.Equal(new object[] { 1, 2 }, values);
+        Assert.Equal(1, GetField(c, "FinallyCount"));
+        disposable.Dispose();
+        Assert.Equal(1, GetField(c, "FinallyCount"));
+    }
+
+    [Fact]
+    public void Runtime_FinallyRunsExactlyOnce_OnEarlyDispose()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public int FinallyCount;
+    public IEnumerable<int> M() {
+        try {
+            yield return 1;
+            yield return 2;
+            yield return 3;
+        } finally { FinallyCount++; }
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        var enumerator = ((IEnumerable)Invoke(asm, c, "M")!).GetEnumerator();
+        Assert.True(enumerator.MoveNext());
+        Assert.Equal(1, enumerator.Current);
+        Assert.True(enumerator.MoveNext());
+        Assert.Equal(0, GetField(c, "FinallyCount"));
+
+        ((IDisposable)enumerator).Dispose();
+        Assert.Equal(1, GetField(c, "FinallyCount"));
+        // 重复 Dispose 幂等；之后 MoveNext 立即终止。
+        ((IDisposable)enumerator).Dispose();
+        Assert.Equal(1, GetField(c, "FinallyCount"));
+        Assert.False(enumerator.MoveNext());
+    }
+
+    [Fact]
+    public void Runtime_FinallyNotRun_WhenDisposedBeforeFirstMoveNext()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public int FinallyCount;
+    public IEnumerable<int> M() {
+        try { yield return 1; } finally { FinallyCount++; }
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        var enumerator = ((IEnumerable)Invoke(asm, c, "M")!).GetEnumerator();
+        ((IDisposable)enumerator).Dispose();
+        Assert.Equal(0, GetField(c, "FinallyCount"));
+        Assert.False(enumerator.MoveNext());
+    }
+
+    [Fact]
+    public void Runtime_YieldBreakInTry_FinallyExactlyOnce()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public int FinallyCount;
+    public IEnumerable<int> M() {
+        try {
+            yield return 1;
+            yield break;
+        } finally { FinallyCount++; }
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        var (values, _) = EnumerateFully(asm, c, "M");
+        Assert.Equal(new object[] { 1 }, values);
+        Assert.Equal(1, GetField(c, "FinallyCount"));
+    }
+
+    [Fact]
+    public void Runtime_BreakOutOfForeachInsideTry()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public int FinallyCount;
+    public IEnumerable<int> M(List<int> xs) {
+        try {
+            foreach (var x in xs) {
+                if (x == 3) break;
+                yield return x;
+            }
+        } finally { FinallyCount++; }
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        var (values, _) = EnumerateFully(asm, c, "M",
+            new List<int> { 1, 2, 3, 4 });
+        Assert.Equal(new object[] { 1, 2 }, values);
+        Assert.Equal(1, GetField(c, "FinallyCount"));
+    }
+
+    [Fact]
+    public void Runtime_ContinueInsideForeach_DoesNotDisposeEnumeratorEarly()
+    {
+        var code = @"
+using System.Collections;
+using System.Collections.Generic;
+class C {
+    public TrackedEnumerable Items = new TrackedEnumerable(1, 2, 3, 4, 5);
+    public int InnerFinally;
+    public IEnumerable<int> M() {
+        foreach (var x in Items) {
+            try {
+                if (x % 2 == 0) continue;
+                yield return x;
+            } finally { InnerFinally++; }
+        }
+    }
+}
+" + TrackedEnumerableSource;
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        var (values, _) = EnumerateFully(asm, c, "M");
+        Assert.Equal(new object[] { 1, 3, 5 }, values);
+        // 每次 continue 都执行内层 finally（2 次）+ 正常产出退出（3 次）。
+        Assert.Equal(5, GetField(c, "InnerFinally"));
+        // 枚举器仅在整个 foreach 结束时释放一次。
+        var items = GetField(c, "Items");
+        Assert.Equal(1, GetField(items!, "DisposeCount"));
+    }
+
+    [Fact]
+    public void Runtime_BreakCrossesUserFinallyAndForeachRegion()
+    {
+        var code = @"
+using System.Collections;
+using System.Collections.Generic;
+class C {
+    public TrackedEnumerable Items = new TrackedEnumerable(1, 2, 3, 4, 5);
+    public int InnerFinally;
+    public IEnumerable<int> M() {
+        foreach (var x in Items) {
+            try {
+                if (x == 4) break;
+                yield return x;
+            } finally { InnerFinally++; }
+        }
+    }
+}
+" + TrackedEnumerableSource;
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        var (values, _) = EnumerateFully(asm, c, "M");
+        Assert.Equal(new object[] { 1, 2, 3 }, values);
+        Assert.Equal(4, GetField(c, "InnerFinally"));
+        var items = GetField(c, "Items");
+        Assert.Equal(1, GetField(items!, "DisposeCount"));
+    }
+
+    [Fact]
+    public void Runtime_NestedFinally_AllThreeExitPaths()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public int Outer;
+    public int Inner;
+    public IEnumerable<int> M(int stop) {
+        try {
+            yield return 1;
+            try {
+                yield return 2;
+                if (stop == 1) yield break;
+                yield return 3;
+            } finally { Inner++; }
+            yield return 4;
+        } finally { Outer++; }
+    }
+}";
+        var asm = LoadRewritten(code);
+
+        // 路径 1：正常枚举完。
+        var c1 = NewC(asm);
+        var (v1, _) = EnumerateFully(asm, c1, "M", 0);
+        Assert.Equal(new object[] { 1, 2, 3, 4 }, v1);
+        Assert.Equal(1, GetField(c1, "Inner"));
+        Assert.Equal(1, GetField(c1, "Outer"));
+
+        // 路径 2：内层 yield break，内外各一次。
+        var c2 = NewC(asm);
+        var (v2, _) = EnumerateFully(asm, c2, "M", 1);
+        Assert.Equal(new object[] { 1, 2 }, v2);
+        Assert.Equal(1, GetField(c2, "Inner"));
+        Assert.Equal(1, GetField(c2, "Outer"));
+
+        // 路径 3：挂起在内层区域时提前 Dispose，内外各一次。
+        var c3 = NewC(asm);
+        var en3 = ((IEnumerable)Invoke(asm, c3, "M", null, 1)!).GetEnumerator();
+        en3.MoveNext();
+        en3.MoveNext();
+        ((IDisposable)en3).Dispose();
+        Assert.Equal(1, GetField(c3, "Inner"));
+        Assert.Equal(1, GetField(c3, "Outer"));
+
+        // 路径 4：挂起在外层区域（内层尚未进入）时提前 Dispose，仅外层。
+        var c4 = NewC(asm);
+        var en4 = ((IEnumerable)Invoke(asm, c4, "M", null, 0)!).GetEnumerator();
+        en4.MoveNext();
+        ((IDisposable)en4).Dispose();
+        Assert.Equal(0, GetField(c4, "Inner"));
+        Assert.Equal(1, GetField(c4, "Outer"));
+    }
+
+    [Fact]
+    public void Runtime_ForeachInsideTry_NormalAndEarlyDispose()
+    {
+        var code = @"
+using System.Collections;
+using System.Collections.Generic;
+class C {
+    public TrackedEnumerable Items = new TrackedEnumerable(1, 2, 3, 4);
+    public int FinallyCount;
+    public IEnumerable<int> M() {
+        try {
+            foreach (var x in Items)
+                yield return x;
+        } finally { FinallyCount++; }
+    }
+}
+" + TrackedEnumerableSource;
+        var asm = LoadRewritten(code);
+
+        var c1 = NewC(asm);
+        var (v1, _) = EnumerateFully(asm, c1, "M");
+        Assert.Equal(new object[] { 1, 2, 3, 4 }, v1);
+        Assert.Equal(1, GetField(c1, "FinallyCount"));
+        Assert.Equal(1, GetField(GetField(c1, "Items")!, "DisposeCount"));
+
+        var c2 = NewC(asm);
+        var en2 = ((IEnumerable)Invoke(asm, c2, "M")!).GetEnumerator();
+        en2.MoveNext();
+        en2.MoveNext();
+        ((IDisposable)en2).Dispose();
+        Assert.Equal(1, GetField(c2, "FinallyCount"));
+        Assert.Equal(1, GetField(GetField(c2, "Items")!, "DisposeCount"));
+    }
+
+    [Fact]
+    public void Runtime_ExceptionInBody_RunsOnce_AndKillsEnumerator()
+    {
+        var code = @"
+using System;
+using System.Collections.Generic;
+class C {
+    public int FinallyCount;
+    public IEnumerable<int> M() {
+        try {
+            yield return 1;
+            throw new InvalidOperationException(""boom"");
+        } finally { FinallyCount++; }
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        var en = ((IEnumerable)Invoke(asm, c, "M")!).GetEnumerator();
+        Assert.True(en.MoveNext());
+        Assert.Equal(1, en.Current);
+        // 第二次 MoveNext 经接口调用直接抛出用户异常（catch 补跑 finally 后裸 throw）。
+        Assert.Throws<InvalidOperationException>(() => en.MoveNext());
+        Assert.Equal(1, GetField(c, "FinallyCount"));
+        // 异常后枚举器死亡；Dispose 不重复执行 finally。
+        Assert.False(en.MoveNext());
+        ((IDisposable)en).Dispose();
+        Assert.Equal(1, GetField(c, "FinallyCount"));
+    }
+
+    [Fact]
+    public void Runtime_RepeatEnumeration_NoSharedState()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public int FinallyRuns;
+    public IEnumerable<int> M() {
+        try {
+            yield return 1;
+            yield return 2;
+        } finally { FinallyRuns++; }
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        var e1 = ((IEnumerable)Invoke(asm, c, "M")!).GetEnumerator();
+        var e2 = ((IEnumerable)Invoke(asm, c, "M")!).GetEnumerator();
+
+        // 交错推进：两个枚举器互不共享状态。
+        var collected = new List<object?>();
+        Assert.True(e1.MoveNext());
+        collected.Add(e1.Current);
+        Assert.True(e2.MoveNext());
+        collected.Add(e2.Current);
+        Assert.True(e1.MoveNext());
+        collected.Add(e1.Current);
+        Assert.True(e2.MoveNext());
+        collected.Add(e2.Current);
+        Assert.Equal(new object[] { 1, 1, 2, 2 }, collected);
+        Assert.False(e1.MoveNext());
+        Assert.False(e2.MoveNext());
+        Assert.Equal(2, GetField(c, "FinallyRuns"));
+    }
+
     // ── Task 10: Determinism ──
 
     [Fact]
@@ -460,7 +1128,7 @@ class C {
         Assert.Contains("Cs2jIterator_M_02", output);
     }
 
-    // ── Helpers ──
+    // ── Helpers: parsing / analysis / rewriting ──
 
     private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest);
 
@@ -468,7 +1136,7 @@ class C {
     {
         var tree = CSharpSyntaxTree.ParseText(src, ParseOptions);
         var compilation = CSharpCompilation.Create(
-            "il-test",
+            "il-test-" + Guid.NewGuid().ToString("N"),
             new[] { tree },
             GetReferences(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
@@ -487,6 +1155,15 @@ class C {
             yield break;
         }
         yield return MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
+    }
+
+    private static MethodLoweringInfo AnalyzeBody(string src)
+    {
+        var model = ParseWithSemantics(src);
+        var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
+        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().First();
+        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
+        return IteratorBodyAnalysis.Analyze(method, symbol, model, "Cs2jIterator_M_0");
     }
 
     internal static (string Output, IteratorLoweringStatistics Stats,
@@ -508,8 +1185,117 @@ class C {
             YieldBreakSites = analyzerResult.Plans.Count(p => p.HasYieldBreak),
             HoistedParameters = analyzerResult.Plans.Sum(p => p.Parameters.Count),
             HoistedLocals = analyzerResult.Plans.Sum(p => p.HoistedLocals.Count),
+            HoistedEnumerators = analyzerResult.Plans.Sum(p => p.HoistedEnumerators.Count),
+            FinallyRegions = analyzerResult.Plans.Sum(p => p.Regions.Count),
             SkippedUnsupported = analyzerResult.Diagnostics.Count,
         };
         return (output, stats, analyzerResult.Diagnostics.ToList());
     }
+
+    private static void AssertOutputCompilesZeroDiagnostics(string code)
+    {
+        var tree = CSharpSyntaxTree.ParseText(code, ParseOptions);
+        var compilation = CSharpCompilation.Create(
+            "il-probe-" + Guid.NewGuid().ToString("N"),
+            new[] { tree },
+            GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var diagnostics = compilation.GetDiagnostics()
+            .Where(d => d.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning)
+            .ToList();
+        Assert.True(diagnostics.Count == 0, "rewritten output has compile diagnostics: " +
+            string.Join("; ", diagnostics.Select(e => e.ToString())));
+    }
+
+    // ── Helpers: 反射运行 ──
+
+    private const string TrackedEnumerableSource = @"
+public sealed class TrackedEnumerable : IEnumerable<int>
+{
+    public int DisposeCount;
+    private readonly int[] _data;
+    public TrackedEnumerable(params int[] data) { _data = data; }
+    public IEnumerator<int> GetEnumerator() { return new E(this, _data); }
+    IEnumerator IEnumerable.GetEnumerator() { return GetEnumerator(); }
+    private sealed class E : IEnumerator<int>
+    {
+        private readonly TrackedEnumerable _owner;
+        private readonly int[] _data;
+        private int _index = -1;
+        public E(TrackedEnumerable owner, int[] data) { _owner = owner; _data = data; }
+        public int Current => _data[_index];
+        object IEnumerator.Current => Current;
+        public bool MoveNext() { ++_index; return _index < _data.Length; }
+        public void Reset() { throw new NotSupportedException(); }
+        public void Dispose() { _owner.DisposeCount++; }
+    }
+}";
+
+    private static Assembly LoadRewritten(string src)
+    {
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        var tree = CSharpSyntaxTree.ParseText(output, ParseOptions);
+        var parseErrors = tree.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(parseErrors.Count == 0, "rewritten output has parse errors: " +
+            string.Join("; ", parseErrors));
+        var compilation = CSharpCompilation.Create(
+            "il-asm-" + Guid.NewGuid().ToString("N"),
+            new[] { tree },
+            GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        using var pe = new MemoryStream();
+        var emit = compilation.Emit(pe);
+        Assert.True(emit.Success, "emit failed: " +
+            string.Join("; ", emit.Diagnostics
+                .Where(d => d.Severity == DiagnosticSeverity.Error)
+                .Select(d => d.ToString())));
+        return Assembly.Load(pe.ToArray());
+    }
+
+    private static object NewC(Assembly asm)
+        => Activator.CreateInstance(asm.GetType("C")!)!;
+
+    private static object? Invoke(
+        Assembly asm, object target, string method, Type[]? genericArgs = null, params object?[] args)
+    {
+        var mi = asm.GetType("C")!.GetMethod(method)!;
+        if (genericArgs != null)
+        {
+            mi = mi.MakeGenericMethod(genericArgs);
+        }
+        return mi.Invoke(target, args);
+    }
+
+    private static (List<object?> values, IDisposable disposable) EnumerateFully(
+        Assembly asm, string method, params object?[] args)
+        => EnumerateFully(asm, NewC(asm), method, args);
+
+    private static (List<object?> values, IDisposable disposable) EnumerateFully(
+        Assembly asm, object c, string method, params object?[] args)
+    {
+        var result = Invoke(asm, c, method, null, args)!;
+        var enumerator = ((IEnumerable)result).GetEnumerator();
+        var values = ToList(enumerator);
+        return (values, (IDisposable)enumerator);
+    }
+
+    private static List<object?> ToList(IEnumerator enumerator)
+    {
+        var values = new List<object?>();
+        while (enumerator.MoveNext())
+        {
+            values.Add(enumerator.Current);
+        }
+        return values;
+    }
+
+    private static List<object?> ToList(IEnumerable enumerable)
+        => ToList(enumerable.GetEnumerator());
+
+    private static object? GetField(object obj, string name)
+        => obj.GetType().GetField(name,
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!
+            .GetValue(obj);
 }

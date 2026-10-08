@@ -11,7 +11,8 @@ public sealed record CaptureField(
 
 /// <summary>
 /// Complete lowering plan for one iterator member: field layout, state count,
-/// generated names. Produced by the analyzer, consumed by the rewriter.
+/// protected regions, generated names. Produced by the analyzer, consumed by
+/// the rewriter.
 /// </summary>
 public sealed record StateMachinePlan(
     string MemberName,
@@ -19,10 +20,14 @@ public sealed record StateMachinePlan(
     string ElementType,
     bool IsIEnumerableReturn,
     bool IsIEnumeratorReturn,
+    bool IsNonGenericReturn,
     bool IsGenericMethod,
     string DeclaringTypeName,
+    string ThisCaptureType,
     bool IsStatic,
     IReadOnlyList<CaptureField> Parameters,
     IReadOnlyList<CaptureField> HoistedLocals,
+    IReadOnlyList<CaptureField> HoistedEnumerators,
+    IReadOnlyList<ControlFlow.RegionPlan> Regions,
     int YieldReturnCount,
     bool HasYieldBreak);
