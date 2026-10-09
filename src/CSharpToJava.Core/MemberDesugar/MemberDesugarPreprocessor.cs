@@ -480,14 +480,34 @@ public sealed partial class MemberDesugarPreprocessor
         var node = tree.GetRoot().FindNode(diagnostic.Location.SourceSpan);
         var typeName = node.AncestorsAndSelf().OfType<BaseTypeDeclarationSyntax>()
             .FirstOrDefault()?.Identifier.Text;
-        var memberName = node.AncestorsAndSelf().OfType<MemberDeclarationSyntax>()
-            .FirstOrDefault()?.GetNameString();
+        var memberNames = new List<string?>
+        {
+            node.AncestorsAndSelf().OfType<MemberDeclarationSyntax>()
+                .FirstOrDefault()?.GetNameString()
+        };
+
+        // CS0082 报点常落在 get/set/add/remove 访问器槽位（GetNameString 对
+        // AccessorDeclaration 返回 null）；镜像碰撞场景下锚点文件本轮保留原属性，
+        // 必须补登记所属属性/事件的声明名，OwnsTouch 内部再匹配 get_X/set_X 槽位名。
+        if (node.AncestorsAndSelf().OfType<BasePropertyDeclarationSyntax>().FirstOrDefault()
+            is { } propertyLike)
+        {
+            switch (propertyLike)
+            {
+                case PropertyDeclarationSyntax p:
+                    memberNames.Add(p.Identifier.Text);
+                    break;
+                case EventDeclarationSyntax e:
+                    memberNames.Add(e.Identifier.Text);
+                    break;
+            }
+        }
 
         var owners = new HashSet<string>(StringComparer.Ordinal);
         foreach (var plan in _plans)
         {
             if (!plan.TouchedFiles.Contains(tree.FilePath)) continue;
-            if (plan.OwnsTouch(tree.FilePath, typeName, memberName))
+            if (memberNames.Any(n => plan.OwnsTouch(tree.FilePath, typeName, n)))
                 owners.Add(plan.Id);
         }
         if (owners.Count == 0) return false;
