@@ -449,18 +449,13 @@ public sealed class GenericDeepenAnalyzer
         => identifier.Parent is ArgumentSyntax { Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax { Expression: IdentifierNameSyntax invoked } } }
             && invoked.Identifier.ValueText == "nameof";
 
+    /// <summary>
+    /// Shared forbidden-zone predicate (catalog §4 risk 8): also covers lambdas
+    /// quoted via an Expression&lt;&gt; parameter and nested Func lambdas inside
+    /// a quoted lambda, not just directly-converted Expression lambdas.
+    /// </summary>
     private static bool IsWithinExpressionTree(SemanticModel model, SyntaxNode node)
-    {
-        foreach (var ancestor in node.Ancestors().OfType<LambdaExpressionSyntax>())
-        {
-            if (CSharpToJava.Core.Analysis.ExpressionTreeFacts.IsExpressionTreeLambda(model, ancestor))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+        => CSharpToJava.Core.Analysis.ExpressionTreeFacts.IsInsideQuotedExpressionLambda(model, node);
 
     private (UsageClassification Classification, IReadOnlyList<string> TypeArgs) ClassifyUsage(
         IdentifierNameSyntax identifier,
