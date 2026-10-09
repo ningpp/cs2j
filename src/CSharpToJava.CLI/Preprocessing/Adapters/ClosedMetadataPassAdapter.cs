@@ -13,7 +13,8 @@ namespace CSharpToJava.CLI.Preprocessing.Adapters;
 /// bootstrap) distributed like the generic-deepen holders, and the residual gate
 /// runs. M4b: per-file rewrites insert the idempotent CM-LINK bootstrap guards at D8
 /// serializer entry statements; files without a servable site stay a clean
-/// byte-level copy.
+/// byte-level copy. M4c: the gate recompiles the intermediate tree and enforces
+/// §5.4 rules 1/3/4/6, with explicit skip/force overrides (--closed-metadata-overrides).
 /// </summary>
 internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
 {
@@ -29,6 +30,7 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
     private readonly ClosedMetadataPreprocessor _preprocessor = new();
     private readonly List<ClosedMetadataDiagnostic> _diagnostics = new();
     private readonly ClosedMetadataStatistics _statistics = new();
+    private ClosedMetadataOverrides? _overrides;
 
     public ClosedMetadataPassAdapter(
         ClosedMetadataOptions options,
@@ -113,6 +115,8 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
                 "symbol shapes); enable both passes or disable closed-metadata."));
             return Task.CompletedTask;
         }
+
+        LoadOverrides();
 
         _preprocessor.BindCompilation(compilation);
         _preprocessor.HolderNameResolver = ResolveHolderName;
@@ -213,7 +217,7 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
     public override Task AfterFilesAsync(PassTreeContext tree)
     {
         DistributeRegistrationFiles(tree);
-        RunResidualGate();
+        RunResidualGate(tree);
         return Task.CompletedTask;
     }
 
@@ -309,22 +313,82 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
         }
     }
 
-    /// <summary>M3 minimal residual gate: duplicate/conflicting registration keys in the generated files (§5.4 rules 2/5).</summary>
-    private void RunResidualGate()
+    /// <summary>
+    /// §5.4 gate: rules 2/5 content scan of the generated registration files plus
+    /// rules 1/3/4/6 over a recompilation of the whole rewritten intermediate tree
+    /// (same parse/reference/options shape as the spine compilation).
+    /// </summary>
+    private void RunResidualGate(PassTreeContext tree)
     {
         var files = _preprocessor.GeneratedFileSpecs;
-        if (files.Count == 0)
+        if (files.Count > 0)
+        {
+            MergeResidual(_preprocessor.ResidualScan(files));
+        }
+
+        var parseOptions = CreateParseOptions(tree);
+        var rewrittenTrees = new List<Microsoft.CodeAnalysis.SyntaxTree>();
+        foreach (var file in Directory.EnumerateFiles(tree.IntermediateRoot, "*.cs", SearchOption.AllDirectories))
+        {
+            var normalized = file.Replace('\\', '/');
+            if (normalized.Contains("/obj/", StringComparison.OrdinalIgnoreCase)
+                || normalized.Contains("/bin/", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            rewrittenTrees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(file), parseOptions, path: file));
+        }
+
+        if (rewrittenTrees.Count == 0)
         {
             return;
         }
 
-        var residual = _preprocessor.ResidualScan(files);
+        var compilation = CSharpCompilation.Create(
+            CompilationName + "-residual",
+            rewrittenTrees, GetMetadataReferences(), CreateCompilationOptions());
+        MergeResidual(_preprocessor.ResidualScan(compilation, _overrides));
+    }
+
+    private void MergeResidual(ClosedMetadataResidualResult residual)
+    {
         foreach (var (rule, count) in residual.Counts)
         {
-            _statistics.ResidualsByRule[rule] = count;
+            _statistics.ResidualsByRule.TryGetValue(rule, out var existing);
+            _statistics.ResidualsByRule[rule] = existing + count;
         }
 
         _diagnostics.AddRange(residual.Diagnostics);
+    }
+
+    /// <summary>Loads the explicit skip/force overrides JSON (design §6.3); a bad file warns and runs without overrides.</summary>
+    private void LoadOverrides()
+    {
+        if (string.IsNullOrEmpty(_options.OverridesPath))
+        {
+            return;
+        }
+
+        try
+        {
+            _overrides = ClosedMetadataOverrides.Load(_options.OverridesPath);
+            if (_verbose)
+            {
+                Console.WriteLine(
+                    $"[closed-metadata] overrides loaded: {_overrides.SkipEntries.Count} skip, " +
+                    $"{_overrides.ForceEntries.Count} force entries");
+            }
+        }
+        catch (Exception ex) when (ex is ClosedMetadataOverridesException or IOException or System.Text.Json.JsonException)
+        {
+            _diagnostics.Add(new ClosedMetadataDiagnostic(
+                ClosedMetadataSeverity.Warning,
+                ClosedMetadataRule.Residual,
+                ClosedMetadataCodes.ResidualFound,
+                $"Failed to load closed-metadata overrides from {_options.OverridesPath}: {ex.Message}; " +
+                "running the residual gate without overrides."));
+        }
     }
 
     public override void OnRestoreFailed(int exitCode, string restoreTarget)

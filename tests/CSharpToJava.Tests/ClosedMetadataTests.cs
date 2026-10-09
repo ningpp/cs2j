@@ -147,6 +147,8 @@ public class ClosedMetadataTests
             public class JsonSerializer {
                 public static string Serialize<T>(T value) => "";
                 public static T Deserialize<T>(string json) => default!;
+                public static string Serialize(object value, System.Type type) => "";
+                public static object? Deserialize(string json, System.Type type) => null;
             }
             public class JsonSerializerOptions {
                 public T GetTypeInfo<T>() => default!;
@@ -779,6 +781,353 @@ public class ClosedMetadataTests
 
         Assert.NotNull(result);
         Assert.Contains("global::__Cs2jClosedTypes_P.__cs2j_register_closed_types();", result!.OutputCode);
+    }
+
+    // ---- residual gate M4c: rewritten-tree rules 1/3/4/6 ----
+
+    private static readonly MetadataReference[] ResidualReferences =
+    {
+        MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(List<>).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(System.Linq.Expressions.Expression<>).Assembly.Location),
+    };
+
+    private static ClosedMetadataResidualResult ScanRewritten(
+        IReadOnlyList<(string Path, string Source)> files,
+        Func<string, string?>? resolver = null,
+        ClosedMetadataOptions? options = null,
+        ClosedMetadataOverrides? overrides = null)
+    {
+        var trees = files.Select(file => CSharpSyntaxTree.ParseText(file.Source, path: file.Path)).ToArray();
+        var compilation = CSharpCompilation.Create("cm-residual",
+            trees, ResidualReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var preprocessor = new ClosedMetadataPreprocessor();
+        preprocessor.BindCompilation(compilation);
+        preprocessor.HolderNameResolver = resolver
+            ?? (path => path.EndsWith("Lib.cs", StringComparison.Ordinal)
+                ? ClosedMetadataRegistrationGenerator.HolderTypeName("Lib")
+                : ClosedMetadataRegistrationGenerator.HolderTypeName("App"));
+        preprocessor.Analyze(options ?? new ClosedMetadataOptions());
+        return preprocessor.ResidualScan(compilation, overrides);
+    }
+
+    private static int RuleCount(ClosedMetadataResidualResult result, string rule)
+        => result.Counts.TryGetValue(rule, out var count) ? count : 0;
+
+    private const string GuardedApp = """
+        using LibNs;
+        using System.Text.Json;
+        namespace AppNs {
+            public class Runner {
+                public string? Run() {
+                    global::__Cs2jClosedTypes_Lib.__cs2j_register_closed_types();
+                    return JsonSerializer.Deserialize<Dto>("");
+                }
+            }
+        }
+        """;
+
+    private const string UnguardedApp = """
+        using LibNs;
+        using System.Text.Json;
+        namespace AppNs {
+            public class Runner {
+                public string? Run() {
+                    return JsonSerializer.Deserialize<Dto>("");
+                }
+            }
+        }
+        """;
+
+    private static readonly (string, string)[] GuardedAppSet =
+        [("Stj.cs", StjFakes), ("Lib.cs", LinkLibSource), ("Stub.cs", LibHolderStub), ("App.cs", GuardedApp)];
+
+    private static readonly (string, string)[] UnguardedAppSet =
+        [("Stj.cs", StjFakes), ("Lib.cs", LinkLibSource), ("App.cs", UnguardedApp)];
+
+    [Fact]
+    public void ResidualRule4_GuardedEntry_HasNoFindings()
+    {
+        var residual = ScanRewritten(GuardedAppSet);
+
+        Assert.Empty(residual.Diagnostics);
+        Assert.Empty(residual.Counts);
+    }
+
+    [Fact]
+    public void ResidualRule4_MissingGuard_IsWarning_AndStrictIsError()
+    {
+        var residual = ScanRewritten(UnguardedAppSet);
+
+        Assert.Equal(1, RuleCount(residual, ClosedMetadataResidualScanner.UnguardedEntryRule));
+        Assert.Contains(residual.Diagnostics, d =>
+            d.Code == ClosedMetadataCodes.ResidualFound
+            && d.Severity == ClosedMetadataSeverity.Warning);
+
+        var strict = ScanRewritten(UnguardedAppSet, options: new ClosedMetadataOptions { Strict = true });
+        Assert.Contains(strict.Diagnostics, d =>
+            d.Code == ClosedMetadataCodes.ResidualFound
+            && d.Severity == ClosedMetadataSeverity.Error);
+    }
+
+    [Fact]
+    public void ResidualRule4_ExpressionBodiedEntry_IsFinding()
+    {
+        var app = """
+            using LibNs;
+            using System.Text.Json;
+            namespace AppNs {
+                public class Runner { public string? Run() => JsonSerializer.Deserialize<Dto>(""); }
+            }
+            """;
+        var residual = ScanRewritten([("Stj.cs", StjFakes), ("Lib.cs", LinkLibSource), ("App.cs", app)]);
+
+        Assert.Equal(1, RuleCount(residual, ClosedMetadataResidualScanner.UnguardedEntryRule));
+    }
+
+    [Fact]
+    public void ResidualRule4_UnreachableFrameworkHolder_IsFinding()
+    {
+        // Lib owns the List<int> record; the App consumer has no project reference,
+        // so the linker cannot guard it — the gate must still report it.
+        var lib = """
+            using System.Collections.Generic;
+            namespace LibNs { public class LibDto { public List<int> Items = new(); } }
+            """;
+        var app = """
+            using System.Collections.Generic;
+            using System.Text.Json;
+            namespace AppNs {
+                public class Runner { public void Run() { JsonSerializer.Serialize(new List<int>()); } }
+            }
+            """;
+        var residual = ScanRewritten(
+            [("Stj.cs", StjFakes), ("Lib.cs", lib), ("App.cs", app)],
+            resolver: path => path.EndsWith("Lib.cs", StringComparison.Ordinal)
+                ? ClosedMetadataRegistrationGenerator.HolderTypeName("Lib")
+                : null);
+
+        Assert.Equal(1, RuleCount(residual, ClosedMetadataResidualScanner.UnguardedEntryRule));
+    }
+
+    [Fact]
+    public void ResidualRule3_BareTypeOfClosedConstruction_IsFinding()
+    {
+        var source = """
+            using System.Collections.Generic;
+            public class C { public object M() => typeof(List<List<short>>); }
+            """;
+        var residual = ScanRewritten([("App.cs", source)]);
+
+        Assert.Equal(1, RuleCount(residual, ClosedMetadataResidualScanner.BareTypeOfPassthroughRule));
+    }
+
+    [Fact]
+    public void ResidualRule3_InsideGeneratedRegistrationFile_IsExcluded()
+    {
+        var source = """
+            using System.Collections.Generic;
+            internal static class X {
+                static object M() => typeof(List<int>);
+            }
+            """;
+        var residual = ScanRewritten([("_Cs2jClosedTypes.App.cs", source)]);
+
+        Assert.Equal(0, RuleCount(residual, ClosedMetadataResidualScanner.BareTypeOfPassthroughRule));
+    }
+
+    [Fact]
+    public void ResidualRule3_JsonSerializablePayload_IsExcluded()
+    {
+        var source = """
+            using System.Collections.Generic;
+            using System.Text.Json.Serialization;
+            """ + StjFakes + """
+            public class C {
+                [JsonSerializable(typeof(List<List<short>>))]
+                public int Marker;
+            }
+            """;
+        var residual = ScanRewritten([("App.cs", source)]);
+
+        Assert.Equal(0, RuleCount(residual, ClosedMetadataResidualScanner.BareTypeOfPassthroughRule));
+    }
+
+    [Fact]
+    public void ResidualRule1_NonGenericTypeOverload_IsFinding_AdjacentGuardClearsIt()
+    {
+        var unguarded = """
+            using System;
+            using System.Collections.Generic;
+            using System.Text.Json;
+            """ + StjFakes + """
+            public class Runner {
+                public void Run() {
+                    var s = JsonSerializer.Serialize(new object(), typeof(List<int>));
+                }
+            }
+            """;
+        var residual = ScanRewritten([("App.cs", unguarded)]);
+
+        Assert.Equal(1, RuleCount(residual, ClosedMetadataResidualScanner.ErasedTypeConsumptionRule));
+        // The bare typeof node is independently reported on rule 3.
+        Assert.Equal(1, RuleCount(residual, ClosedMetadataResidualScanner.BareTypeOfPassthroughRule));
+
+        var guarded = """
+            using System;
+            using System.Collections.Generic;
+            using System.Text.Json;
+            """ + StjFakes + """
+            public static class __Cs2jClosedTypes_App {
+                public static void __cs2j_register_closed_types() { }
+            }
+            public class Runner {
+                public void Run() {
+                    global::__Cs2jClosedTypes_App.__cs2j_register_closed_types();
+                    var s = JsonSerializer.Serialize(new object(), typeof(List<int>));
+                }
+            }
+            """;
+        var guardedResidual = ScanRewritten([("App.cs", guarded)]);
+
+        Assert.Equal(0, RuleCount(guardedResidual, ClosedMetadataResidualScanner.ErasedTypeConsumptionRule));
+        Assert.Equal(1, RuleCount(guardedResidual, ClosedMetadataResidualScanner.BareTypeOfPassthroughRule));
+    }
+
+    [Fact]
+    public void ResidualRule6_GuardInsideExpressionTreeLambda_IsFinding()
+    {
+        var source = """
+            using System;
+            using System.Linq.Expressions;
+            public static class __Cs2jClosedTypes_App {
+                public static void __cs2j_register_closed_types() { }
+            }
+            public class Runner {
+                public void Run() {
+                    Expression<Action> guarded = () => {
+                        global::__Cs2jClosedTypes_App.__cs2j_register_closed_types();
+                    };
+                }
+            }
+            """;
+        var residual = ScanRewritten([("App.cs", source)]);
+
+        Assert.Equal(1, RuleCount(residual, ClosedMetadataResidualScanner.ForbiddenZoneRewriteRule));
+    }
+
+    [Fact]
+    public void ResidualRule6_GuardInsideOrdinaryDelegateLambda_IsClean()
+    {
+        var source = """
+            using System;
+            public static class __Cs2jClosedTypes_App {
+                public static void __cs2j_register_closed_types() { }
+            }
+            public class Runner {
+                public void Run() {
+                    Action guarded = () => {
+                        global::__Cs2jClosedTypes_App.__cs2j_register_closed_types();
+                    };
+                }
+            }
+            """;
+        var residual = ScanRewritten([("App.cs", source)]);
+
+        Assert.Equal(0, RuleCount(residual, ClosedMetadataResidualScanner.ForbiddenZoneRewriteRule));
+    }
+
+    [Fact]
+    public void ResidualRule6_GuardInsideSourceGenContext_IsFinding()
+    {
+        var source = """
+            using System.Text.Json.Serialization;
+            """ + StjFakes + """
+            public static class __Cs2jClosedTypes_App {
+                public static void __cs2j_register_closed_types() { }
+            }
+            public sealed class MyContext : JsonSerializerContext {
+                public void Run() {
+                    global::__Cs2jClosedTypes_App.__cs2j_register_closed_types();
+                }
+            }
+            """;
+        var residual = ScanRewritten([("App.cs", source)]);
+
+        Assert.Equal(1, RuleCount(residual, ClosedMetadataResidualScanner.ForbiddenZoneRewriteRule));
+    }
+
+    [Fact]
+    public void ResidualOverrides_SkipMember_SuppressesWithCLO001Info()
+    {
+        var overrides = new ClosedMetadataOverrides(skip: ["AppNs.Runner.Run"]);
+        var residual = ScanRewritten(UnguardedAppSet, overrides: overrides);
+
+        Assert.Equal(0, RuleCount(residual, ClosedMetadataResidualScanner.UnguardedEntryRule));
+        var info = Assert.Single(residual.Diagnostics);
+        Assert.Equal(ClosedMetadataCodes.Info, info.Code);
+        Assert.Equal(ClosedMetadataSeverity.Info, info.Severity);
+        Assert.Contains("skipped by override", info.Message);
+        Assert.Contains("AppNs.Runner.Run", info.Message);
+    }
+
+    [Fact]
+    public void ResidualOverrides_ForceType_SuppressesWithForceTrace_AndLoadsFromJson()
+    {
+        var overrides = new ClosedMetadataOverrides(force: ["LibNs.Dto"]);
+        var residual = ScanRewritten(UnguardedAppSet, overrides: overrides);
+
+        Assert.Equal(0, RuleCount(residual, ClosedMetadataResidualScanner.UnguardedEntryRule));
+        Assert.Contains(residual.Diagnostics, d =>
+            d.Code == ClosedMetadataCodes.Info && d.Message.Contains("force override"));
+
+        var dir = Path.Combine(Path.GetTempPath(), "cs2j-cm-overrides-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var path = Path.Combine(dir, "cm-overrides.json");
+            File.WriteAllText(path, """
+                {
+                    "skip": ["System.Collections.Generic.List<>"],
+                    "force": ["global::LibNs.Dto"]
+                }
+                """);
+            var loaded = ClosedMetadataOverrides.Load(path);
+            Assert.Contains("System.Collections.Generic.List<>", loaded.SkipEntries);
+            Assert.Contains("LibNs.Dto", loaded.ForceEntries);
+
+            var bareTypeOf = """
+                using System.Collections.Generic;
+                public class C { public object M() => typeof(List<List<short>>); }
+                """;
+            var suppressed = ScanRewritten(
+                [("App.cs", bareTypeOf)],
+                overrides: loaded);
+            Assert.Equal(0, RuleCount(suppressed, ClosedMetadataResidualScanner.BareTypeOfPassthroughRule));
+            Assert.Contains(suppressed.Diagnostics, d => d.Code == ClosedMetadataCodes.Info);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ResidualOverrides_MalformedJson_Throws()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "cs2j-cm-overrides-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var path = Path.Combine(dir, "bad.json");
+            File.WriteAllText(path, """{ "skip": "not-an-array" }""");
+            Assert.Throws<ClosedMetadataOverridesException>(() => ClosedMetadataOverrides.Load(path));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 
     // ---- clean copy contract ----

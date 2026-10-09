@@ -170,6 +170,9 @@ internal sealed class PassChainConfiguration
     /// <summary>M4: path to the extension-methods host overrides JSON (null = none).</summary>
     public string? ExtensionOverridesPath { get; init; }
 
+    /// <summary>M4c: path to the closed-metadata residual-gate overrides JSON (null = none).</summary>
+    public string? ClosedMetadataOverridesPath { get; init; }
+
     /// <summary>
     /// C49 M2: factory for extension-block materialization policy. Null
     /// (default) keeps the classic CS2J1206 gate bit-for-bit unchanged; the
@@ -422,7 +425,11 @@ internal static class PassChainFactory
                 config.CompatNamespacePrefixes),
 
             PassIds.ClosedMetadata => new ClosedMetadataPassAdapter(
-                new ClosedMetadataOptions { EnabledPassIds = config.EnabledPassIds },
+                new ClosedMetadataOptions
+                {
+                    EnabledPassIds = config.EnabledPassIds,
+                    OverridesPath = config.ClosedMetadataOverridesPath,
+                },
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,

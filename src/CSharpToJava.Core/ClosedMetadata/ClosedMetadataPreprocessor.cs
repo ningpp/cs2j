@@ -7,12 +7,13 @@ namespace CSharpToJava.Core.ClosedMetadata;
 /// once, analyze the closed-type registration plan, rewrite file trees, expose
 /// generated files and the residual gate (design §5.3 three-phase data flow).
 ///
-/// M3 scope: the CM-ENUM collector fills the registration record set, the
-/// registration generator emits one <c>_Cs2jClosedTypes.&lt;ProjectName&gt;.cs</c> per
-/// owning project (A1 declaration-driven bootstrap, D6) and the residual gate covers
-/// the minimal M3 rules. M4b adds the CM-LINK consumer linker: when a holder-name
-/// resolver is wired (CLI adapter), <see cref="RewriteFile"/> inserts idempotent
-/// bootstrap guards at D8 serializer entry sites; with no resolver every file stays a
+/// The CM-ENUM collector fills the registration record set, the registration
+/// generator emits one <c>_Cs2jClosedTypes.&lt;ProjectName&gt;.cs</c> per owning
+/// project (A1 declaration-driven bootstrap, D6), the CM-LINK consumer linker
+/// inserts idempotent bootstrap guards at D8 serializer entry statements (M4b),
+/// and the residual gate covers all six §5.4 rules (M3 content rules 2/5 plus
+/// the M4c rewritten-tree rules 1/3/4/6). With no holder-name resolver wired,
+/// <see cref="RewriteFile"/> and the tree gate are inert and every file stays a
 /// clean byte-level copy.
 /// </summary>
 public sealed class ClosedMetadataPreprocessor
@@ -87,11 +88,11 @@ public sealed class ClosedMetadataPreprocessor
     public IReadOnlyList<ClosedMetadataGeneratedFile> GeneratedFileSpecs => _generatedFiles;
 
     /// <summary>
-    /// Post-rewrite residual gate keyed by rule (design §5.4). M3 minimal scope:
+    /// Content gate over the generated registration files (design §5.4 rules 2/5):
     /// duplicate registration statements inside a generated file and
-    /// duplicate/conflicting normalized keys across generated files; findings carry
-    /// CS2J1220 (strict Error, otherwise Warning). The remaining rules ship with the
-    /// M4 gate.
+    /// duplicate/conflicting normalized keys across generated files. Findings carry
+    /// CS2J1220 (strict Error, otherwise Warning). The tree-shape rules 1/3/4/6 live
+    /// in <see cref="ResidualScan(Compilation, ClosedMetadataOverrides?)"/>.
     /// </summary>
     public ClosedMetadataResidualResult ResidualScan(IReadOnlyList<ClosedMetadataGeneratedFile> files)
     {
@@ -147,6 +148,30 @@ public sealed class ClosedMetadataPreprocessor
         }
 
         return new ClosedMetadataResidualResult(counts, diagnostics);
+    }
+
+    /// <summary>
+    /// Post-rewrite tree gate over the recompiled intermediate tree (design §5.4
+    /// rules 1/3/4/6, M4c): erased-Type serializer consumption, bare
+    /// <c>typeof(闭型)</c> passthrough, unguarded consumer entries and guard leaks
+    /// into expression-tree/source-gen zones. Requires the holder-name resolver
+    /// wired for CM-LINK; without one the gate has no ownership map and reports
+    /// nothing. Explicit skip/force overrides suppress findings with a CLO001 trace.
+    /// </summary>
+    public ClosedMetadataResidualResult ResidualScan(
+        Compilation rewritten,
+        ClosedMetadataOverrides? overrides = null)
+    {
+        ArgumentNullException.ThrowIfNull(rewritten);
+        if (HolderNameResolver is null)
+        {
+            return new ClosedMetadataResidualResult(
+                new Dictionary<string, int>(StringComparer.Ordinal),
+                Array.Empty<ClosedMetadataDiagnostic>());
+        }
+
+        return ClosedMetadataResidualScanner.Scan(
+            rewritten, _analysis, HolderNameResolver, _options, overrides);
     }
 
     private static string? ExtractRegistrationKey(string line)

@@ -48,4 +48,32 @@ public class RuntimeBehaviorTests
         Assert.NotNull(back);
         Assert.Equal(new[] { "x", "y" }, back!.Items);
     }
+
+    [Fact]
+    public void ConsumerSurfaceShapes_EmbeddedIfAndSwitch_RoundTrips()
+    {
+        // M4c surface: serializer entries in an embedded if-body (CM-LINK wraps it
+        // in its own block) and inside a switch-expression arm (nearest statement is
+        // the local declaration) must each get an adjacent guard and stay runtime-correct.
+        NestedListDto? dto = null;
+        if (dto is null)
+        {
+            dto = JsonSerializer.Deserialize<NestedListDto>(
+                JsonSerializer.Serialize(new NestedListDto { Matrix = { new() { 9 } } }));
+        }
+
+        Assert.NotNull(dto);
+        Assert.Equal((short)9, dto!.Matrix[0][0]);
+
+        var kind = 1;
+        var json = kind switch
+        {
+            1 => JsonSerializer.Serialize(new SharedClosureDtoB { Values = { new() { 5 } } }),
+            _ => "{}",
+        };
+        var back = JsonSerializer.Deserialize<SharedClosureDtoA>(json);
+
+        Assert.NotNull(back);
+        Assert.Equal((short)5, back!.Values[0][0]);
+    }
 }

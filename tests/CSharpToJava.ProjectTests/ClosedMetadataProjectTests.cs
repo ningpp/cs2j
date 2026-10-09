@@ -126,11 +126,17 @@ public class ClosedMetadataProjectTests
 
             var behaviorTestsText = await File.ReadAllTextAsync(
                 Path.Combine(closedRoot, "SampleClosedMetadataTests", "RuntimeBehaviorTests.cs"));
-            // Three facts × two serializer statements each.
-            Assert.Equal(6, CountOccurrences(behaviorTestsText, libGuard));
+            // Three facts × two serializer statements each, plus the M4c surface
+            // fact: embedded-if nested pair (1 statement) + switch-arm + follow-up
+            // Deserialize = 3 statements → 9 guards.
+            Assert.Equal(9, CountOccurrences(behaviorTestsText, libGuard));
 
             // The bootstrap itself is idempotent: lock double-check flag in the holder.
             Assert.Contains("private static bool __cs2j_bootstrapped;", libRegistrationText);
+
+            // M4c §5.4 gate: the rewritten intermediate tree reports zero residuals
+            // (rules 1/3/4/6 recompiled gate alongside the rules 2/5 content gate).
+            Assert.Contains("0 residuals", stdout);
         }
         finally
         {

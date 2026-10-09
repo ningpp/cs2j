@@ -479,6 +479,14 @@ CatalogItems                = "C30"
 > - **适配器**：resolver 由文件路径向上找最近 `*.csproj`（目录级缓存）映射 holder；`RewriteFileAsync` 正式接线（此前恒 null 字节复制），统计 `ConsumerSitesLinked` 进汇总行。
 > - **口径订正**：catalog 实证 closed-metadata 自 M2' 起即 `defaultEnabled: true`（随 generic-deepen 同批锁定链启用），此前 M4a 注记"default-off"措辞有误，已订正；§9 门槛评审因此在 M4d 按"已默认开"口径复盘而非翻转评审。
 > - 证据：闭元相关测试 38/38（M4b 新增 8 个 CM-LINK 单测含改写后独立编译）；Core Debug 全量 3496 通过 / 3 既有跳过 / 0 失败；fixture E2E 1/1（Program.cs 4 条、RuntimeBehaviorTests.cs 6 条守卫，中间树 Release verify build + 3 运行时测全绿，App/Tests 仍无注册文件）；slnx Release build 0 错误。residual 扩展/overrides（M4c）、并发压测/门槛评审（M4d）随后续提交。
+>
+> **落地注记（2026-10-09，M4c residual 闸门扩展 + overrides 已落地）**
+>
+> - **§5.4 规则 1/3/4/6 全部落地**（2/5 为 M3 既有注册文件内容扫描）：新增 `ClosedMetadataResidualScanner` 对**重写后整树重编译**扫描——①`erased-type-consumption`：非泛型 `Type` 擦除重载（`Serialize(object,Type)`/`Deserialize(string,Type)`）以裸 `typeof(闭型)` 实参消费、紧邻语句无守卫（无注册可达）；③`bare-typeof-passthrough`：注册文件（按 `_Cs2jClosedTypes.` 叶名排除）之外的裸 `typeof(闭型)`，CM-SRCGEN 的 `[JsonSerializable]` 载荷与上下文类型内 typeof 双闸排除（归 CS2J1204）；④`unguarded-consumer-entry`：可服务泛型入口缺紧邻守卫（含 M4b 明确跳过的表达式体/初始化器无语句锚点、跨项目不可达框架 holder——闸门**有意不过滤可达性**，不可达站点正是要盘点并经 skip/force 分流的对象）；⑥`rewrite-forbidden-zone`：守卫出现在 `Expression<TDelegate>` lambda 或 JsonSerializerContext 派生类型内（结构性自检，恒应为 0）。发现一律 CS2J1220（strict Error，否则 Warning），按规则聚合并附前 3 个 `文件:行`。
+> - **守卫判定与 M4b 严格同构**：holder 可达性数学抽为共享 `ClosedMetadataGuardResolver`（linker 与 scanner 共用，规则 4 仅 `requireReachable:false` 一点差异）；紧邻守卫 = 同一语句列表内向回连续守卫语句、覆盖全部所需 holder（嵌入式语句已被 M4b 包块，天然落表）。
+> - **overrides（§6.3）**：`ClosedMetadataOverrides.Load` 解析 `{"skip":[...],"force":[...]}`（UTF-8 JSON，条目仅接受限定类型/成员名；类型支持构造形式精确名与开放泛型 `Namespace.Type<>`/无尖括号两写，成员支持 `类型.Member` 短式与完整签名显示）；skip = 移出 A1 服务面、force = 声明带外注册（A1 二者都只抑制闸门并留 CLO001 Info，force 不解除 CS2J1210）；坏文件告警后按无 overrides 继续。CLI 经 `--closed-metadata-overrides` 全链接入（两个入口 options → CliPreprocessChain → PassChainConfiguration → ClosedMetadataOptions.OverridesPath）。
+> - **适配器**：`AfterFiles` 先跑 2/5 内容闸门，再枚举中间树 `*.cs`（排除 obj/bin）按 spine 同形 parse/refs/options 重编译跑 1/3/4/6；汇总行 residual 计数为全部六规则之和。
+> - 证据：`ClosedMetadataTests` 44/44（M4c 新增 14 测覆盖四规则正/负形、strict 升级、skip/force CLO001、JSON 加载与坏文件）；Core Debug 全量 3510 通过 / 3 既有跳过 / 0 失败；fixture E2E 1/1（新增嵌入式 if + switch-arm 消费面 fact，RuntimeBehaviorTests.cs 6→9 条守卫、汇总 16 consumer sites linked、**0 residuals**，中间树 Release verify build + 4 运行时测全绿）；slnx Release build 0 错误。并发压测/门槛评审（M4d）随后续提交。
 
 ### 10.1 M1 下游核实清单（强制门的具体动作）
 

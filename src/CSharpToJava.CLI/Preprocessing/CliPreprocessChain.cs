@@ -149,6 +149,9 @@ internal sealed class CliChainRequest
     /// <summary>M4: extension-methods host overrides JSON path (null = none).</summary>
     public string? ExtensionOverridesPath { get; init; }
 
+    /// <summary>M4c: closed-metadata residual-gate overrides JSON path (null = none).</summary>
+    public string? ClosedMetadataOverridesPath { get; init; }
+
     /// <summary>
     /// C49 M2: extension-block materialization policy factory (null =
     /// classic CS2J1206 behavior). Both CLI entry points supply it from
@@ -286,6 +289,7 @@ internal static class CliPreprocessChain
             ExtensionExternalHostMapper = extensionExternalHostMapper,
             ExtensionMethodStrict = request.ExtensionMethodStrict,
             ExtensionOverridesPath = request.ExtensionOverridesPath,
+            ClosedMetadataOverridesPath = request.ClosedMetadataOverridesPath,
             ExtensionBlockOptionsFactory = request.ExtensionBlockOptionsFactory,
         };
 

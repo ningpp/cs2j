@@ -44,18 +44,9 @@ public sealed class ClosedMetadataConsumptionLinker
         _analysis = analysis;
         _holderNameByPath = holderNameByPath;
         _selfHolderName = selfHolderName;
-
-        foreach (var record in analysis.ClosedTypes)
-        {
-            var holder = holderNameByPath(record.DeclaringFilePath);
-            if (holder is null)
-            {
-                continue;
-            }
-
-            _holderNames.Add(holder);
-            _holderByRecordKey.TryAdd(record.Key.SortText, holder);
-        }
+        _holderByRecordKey = ClosedMetadataGuardResolver.BuildHolderByRecordKey(
+            analysis, holderNameByPath, out var holderNames);
+        _holderNames = holderNames;
     }
 
     /// <summary>
@@ -132,87 +123,8 @@ public sealed class ClosedMetadataConsumptionLinker
     }
 
     private SortedSet<string> ResolveHolderNames(ImmutableArray<ITypeSymbol> typeArguments)
-    {
-        var holders = new SortedSet<string>(StringComparer.Ordinal);
-        foreach (var typeArgument in typeArguments)
-        {
-            foreach (var type in EnumerateTypeClosure(typeArgument))
-            {
-                if (type is not INamedTypeSymbol named)
-                {
-                    continue;
-                }
-
-                if (named.IsGenericType && !named.IsDefinition)
-                {
-                    if (ClosedTypeKey.Create(named) is { } key
-                        && _holderByRecordKey.TryGetValue(key.SortText, out var holder)
-                        && IsReachableHolder(holder, named))
-                    {
-                        holders.Add(holder);
-                    }
-
-                    continue;
-                }
-
-                if (!named.IsGenericType)
-                {
-                    // Non-generic user DTO: its member closures are registered in its
-                    // declaring project; framework types have no source location.
-                    var sourcePath = named.Locations
-                        .FirstOrDefault(location => location.IsInSource)?.SourceTree?.FilePath;
-                    if (sourcePath is not null
-                        && _holderNameByPath(sourcePath) is { } ownerHolder
-                        && _holderNames.Contains(ownerHolder))
-                    {
-                        holders.Add(ownerHolder);
-                    }
-                }
-            }
-        }
-
-        return holders;
-    }
-
-    /// <summary>
-    /// A framework-construction record may be owned by an unrelated project (its
-    /// first ENUM-1 site); cross-references are only guaranteed for user-declared
-    /// types or for the consumer's own holder.
-    /// </summary>
-    private bool IsReachableHolder(string holder, INamedTypeSymbol constructedType)
-    {
-        if (holder == _selfHolderName)
-        {
-            return true;
-        }
-
-        return constructedType.Locations.Any(location => location.IsInSource);
-    }
-
-    private static IEnumerable<ITypeSymbol> EnumerateTypeClosure(ITypeSymbol type)
-    {
-        yield return type;
-        switch (type)
-        {
-            case IArrayTypeSymbol array:
-                foreach (var nested in EnumerateTypeClosure(array.ElementType))
-                {
-                    yield return nested;
-                }
-
-                break;
-            case INamedTypeSymbol { IsDefinition: false } named:
-                foreach (var argument in named.TypeArguments)
-                {
-                    foreach (var nested in EnumerateTypeClosure(argument))
-                    {
-                        yield return nested;
-                    }
-                }
-
-                break;
-        }
-    }
+        => ClosedMetadataGuardResolver.ResolveHolderNames(
+            typeArguments, _holderByRecordKey, _holderNames, _selfHolderName, _holderNameByPath);
 
     private static bool IsTypeParameter(ITypeSymbol type) => type is ITypeParameterSymbol;
 

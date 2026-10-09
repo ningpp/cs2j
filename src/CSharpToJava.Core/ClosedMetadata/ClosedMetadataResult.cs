@@ -36,9 +36,11 @@ public sealed record ClosedMetadataAnalysis
 }
 
 /// <summary>
-/// Minimal M3 residual gate product (design §5.4 rules 2/5 only — duplicate/conflicting
-/// normalized keys and duplicate registration statements inside generated files; the
-/// remaining rules land with the M4 gate).
+/// Residual gate product (design §5.4): per-rule finding counts plus the gate
+/// diagnostics. The content gate covers rules 2/5 (duplicate/conflicting keys in
+/// generated registration files); the rewritten-tree gate covers rules 1/3/4/6
+/// (erased-Type consumption, bare typeof passthrough, unguarded entries, guard
+/// leaks). CLO001 override traces are Info-severity diagnostics.
 /// </summary>
 public sealed record ClosedMetadataResidualResult(
     IReadOnlyDictionary<string, int> Counts,

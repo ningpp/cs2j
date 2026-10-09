@@ -287,7 +287,8 @@ public sealed class ClosedMetadataCollector
         return containing == JsonSerializerOptionsFullName && method.Name == "GetTypeInfo";
     }
 
-    private static bool IsSourceGenContext(INamedTypeSymbol type)
+    /// <summary>Whether the type derives (at any depth) from JsonSerializerContext (CM-SRCGEN).</summary>
+    internal static bool IsSourceGenContext(INamedTypeSymbol type)
     {
         var current = type.BaseType;
         while (current is not null)
@@ -352,7 +353,7 @@ public sealed class ClosedMetadataCollector
             location?.GetLineSpan().StartLinePosition.Line + 1));
     }
 
-    private static bool IsJsonSerializableAttributeName(string name)
+    internal static bool IsJsonSerializableAttributeName(string name)
         => name is "JsonSerializable" or "JsonSerializableAttribute"
             || name.EndsWith(".JsonSerializable", StringComparison.Ordinal)
             || name.EndsWith(".JsonSerializableAttribute", StringComparison.Ordinal);
@@ -479,7 +480,8 @@ public sealed class ClosedMetadataCollector
         _ => false,
     };
 
-    private static bool ContainsGenericConstruction(ITypeSymbol type) => type switch
+    /// <summary>True when the type mentions a closed generic construction anywhere (e.g. List&lt;short&gt;[], but not string[]).</summary>
+    internal static bool ContainsGenericConstruction(ITypeSymbol type) => type switch
     {
         INamedTypeSymbol named => named.IsGenericType && !named.IsDefinition,
         IArrayTypeSymbol array => ContainsGenericConstruction(array.ElementType),
