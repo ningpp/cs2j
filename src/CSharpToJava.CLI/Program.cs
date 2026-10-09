@@ -316,6 +316,7 @@ public class Program
                 ParamsCollections = paramsCollectionsOptions,
                 ExtensionMappingConfigPath = opts.MappingConfig,
                 ExtensionMethodStrict = opts.ExtensionMethodStrict,
+                PartialMergeAssumeNoGenerated = opts.PartialMergeAssumeNoGenerated,
                 ExtensionOverridesPath = opts.ExtensionOverridesPath,
                 ClosedMetadataOverridesPath = opts.ClosedMetadataOverridesPath,
                 // C49: materialization is default-on; --no-materialize-
@@ -4032,6 +4033,7 @@ public class Program
                 EnableDecimalOps = opts.DecimalOpsEffective,
                 ExtensionMappingConfigPath = opts.MappingConfig,
                 ExtensionMethodStrict = opts.ExtensionMethodStrict,
+                PartialMergeAssumeNoGenerated = opts.PartialMergeAssumeNoGenerated,
                 ExtensionOverridesPath = opts.ExtensionOverridesPath,
                 ClosedMetadataOverridesPath = opts.ClosedMetadataOverridesPath,
                 // C49: materialization is default-on; --no-materialize-
@@ -5168,6 +5170,10 @@ class PreprocessVerbOptions
         HelpText = "extension-methods pass (C19): escalate CS2J1201-1207/1210/1220 warnings to errors (default off; M4)")]
     public bool ExtensionMethodStrict { get; set; }
 
+    [Option("partial-merge-assume-no-generated", Default = false,
+        HelpText = "partial-merge pass (C20) M3: assume no source generator implements declaration-only classic partial methods; remove those declarations together with their block-level call sites (default off)")]
+    public bool PartialMergeAssumeNoGenerated { get; set; }
+
     [Option("strict", Default = false,
         HelpText = "attribute-normalize pass (C10): escalate CS2J1301-1304/1322 warnings to errors (default off)")]
     public bool AttributeNormalizeStrict { get; set; }
@@ -5661,6 +5667,10 @@ class ConvertProjectOptions
     [Option("extension-methods-strict", Default = false,
         HelpText = "extension-methods pass (C19): escalate CS2J1201-1207/1210/1220 warnings to errors (default off; M4)")]
     public bool ExtensionMethodStrict { get; set; }
+
+    [Option("partial-merge-assume-no-generated", Default = false,
+        HelpText = "partial-merge pass (C20) M3: assume no source generator implements declaration-only classic partial methods; remove those declarations together with their block-level call sites (default off)")]
+    public bool PartialMergeAssumeNoGenerated { get; set; }
 
     [Option("extension-methods-overrides", Required = false,
         HelpText = "Path to extension-methods host overrides JSON: {\"hosts\":{\"Full.Host\":\"skip|force\"},\"additionalLinqHosts\":[...]} (C19 M4)")]

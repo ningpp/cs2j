@@ -167,6 +167,13 @@ internal sealed class PassChainConfiguration
     /// </summary>
     public bool ExtensionMethodStrict { get; init; }
 
+    /// <summary>
+    /// C20 M3: opt-in generator-absence assumption. When true, declaration-only
+    /// classic partial methods and their block-level call sites may be removed.
+    /// Default false keeps the pre-M3 v1 behavior (design §4.5/§9 M3).
+    /// </summary>
+    public bool PartialMergeAssumeNoGenerated { get; init; }
+
     /// <summary>M4: path to the extension-methods host overrides JSON (null = none).</summary>
     public string? ExtensionOverridesPath { get; init; }
 
@@ -491,7 +498,10 @@ internal static class PassChainFactory
                 config.VerifyTests),
 
             PassStubCatalog.Ids.PartialMerge => new PartialMergePassAdapter(
-                new PartialMergeOptions(),
+                new PartialMergeOptions
+                {
+                    AssumeNoGeneratedPartial = config.PartialMergeAssumeNoGenerated,
+                },
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,

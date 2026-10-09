@@ -24,6 +24,9 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
 
     private readonly List<PartialMergeDiagnostic> _diagnostics = new();
 
+    private PartialMergePlan? _acceptedPlan;
+    private PartialMergePlan? _lastPlan;
+
     public PartialMergePassAdapter(
         PartialMergeOptions options,
         bool verbose,
@@ -101,8 +104,6 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
 
         var preprocessor = new PartialMergePreprocessor(_options);
         var excludedGroups = new HashSet<string>(StringComparer.Ordinal);
-        PartialMergePlan? acceptedPlan = null;
-        PartialMergePlan? lastPlan = null;
         var success = true;
         const int maxIterations = 1024;
 
@@ -113,7 +114,7 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
 
             var analysisCompilation = context.BuildStandardCompilation();
             var plan = preprocessor.Analyze(analysisCompilation, tree.SourceRoot);
-            lastPlan = plan;
+            _lastPlan = plan;
             foreach (var group in plan.Groups
                          .Where(g => excludedGroups.Contains(g.TypeFullName)))
             {
@@ -154,7 +155,7 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
 
             if (newErrors.Count == 0)
             {
-                acceptedPlan = plan;
+                _acceptedPlan = plan;
                 break;
             }
 
@@ -218,19 +219,19 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
 
         // Surface analyzer diagnostics from the final round exactly once; Info
         // lines (CS2J2017) only appear in verbose output.
-        if (lastPlan != null)
+        if (_lastPlan != null)
         {
-            foreach (var diagnostic in lastPlan.Diagnostics)
+            foreach (var diagnostic in _lastPlan.Diagnostics)
             {
                 _diagnostics.Add(diagnostic);
             }
         }
 
         // 7. Residual gate: multi-part types must be whitelisted (rollback/skip).
-        if (acceptedPlan != null && success)
+        if (_acceptedPlan != null && success)
         {
             var finalTree = BuildIntermediateCompilation(tree);
-            foreach (var residual in preprocessor.CheckResidual(finalTree, acceptedPlan))
+            foreach (var residual in preprocessor.CheckResidual(finalTree, _acceptedPlan))
             {
                 _diagnostics.Add(residual);
             }
@@ -271,7 +272,30 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             $"dotnet test failed with exit code {exitCode} after partial-merge."));
 
     public override string? BuildChainSummaryLine()
-        => "partial-merge: see verbose diagnostics";
+    {
+        var plan = _acceptedPlan ?? _lastPlan;
+        if (plan is null)
+        {
+            return "partial-merge: see verbose diagnostics";
+        }
+
+        var s = plan.Statistics;
+        var summary = "partial-merge: " + s.GroupsMerged + " group(s) merged, " +
+            s.MembersCollapsed + " partial member pair(s) collapsed";
+        if (s.PartialDeclarationsRemoved > 0 || s.PartialCallSitesRemoved > 0)
+        {
+            summary += "; AssumeNoGeneratedPartial removed " +
+                s.PartialDeclarationsRemoved + " declaration(s) and " +
+                s.PartialCallSitesRemoved + " call site(s)";
+        }
+
+        if (s.GroupsRolledBack > 0)
+        {
+            summary += "; " + s.GroupsRolledBack + " group(s) rolled back";
+        }
+
+        return summary;
+    }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
         => _diagnostics
