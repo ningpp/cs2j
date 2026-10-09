@@ -4,9 +4,9 @@ using System.Text.Json;
 namespace CSharpToJava.ProjectTests;
 
 /// <summary>
-/// End-to-end CLI coverage for the C42 platform-isolation pass M1 Report mode:
-/// report JSON emission, summary line, strict behavior, default-off zero change
-/// and the loud failure of unimplemented modes.
+/// End-to-end CLI coverage for the C42 platform-isolation pass: report JSON
+/// emission, summary line, strict behavior, default-off zero change, the
+/// Reject/Stub apply modes and the M3 Facade mode (port + seam + slot).
 /// </summary>
 public class PlatformIsolationCLITests
 {
@@ -222,21 +222,54 @@ public static class OsInfo
     }
 
     [Fact]
-    public async Task FacadeMode_FailsLoudlyWithM3Message()
+    public async Task FacadeMode_GeneratesPortSeamAndSlot_AndRestoredTreeBuilds()
     {
-        var sourceDir = CreateTempWorkspace("Lib.csproj", ProbeSource);
+        const string facadeSource = """
+            namespace PlatformSample;
+
+            public class RegistryWrapper
+            {
+                public void Work(Microsoft.Win32.RegistryKey key)
+                {
+                    System.Console.WriteLine(key);
+                }
+            }
+            """;
+        var sourceDir = CreateTempWorkspace("Lib.csproj", facadeSource);
         var destDir = Path.Combine(sourceDir, "out");
+        var configPath = Path.Combine(sourceDir, "Cs2jPlatformIsolation.json");
+        await File.WriteAllTextAsync(configPath, "{\"policies\":{\"PlatformType\":\"facade\"}}");
 
         try
         {
             var (exit, stdout, stderr) = await RunCliAsync(
                 "preprocess", "--pass", "platform-isolation", "--platform-mode", "Facade",
+                "--platform-config", configPath, "--no-verify-tests",
                 "-s", sourceDir, "-d", destDir);
 
-            Assert.Equal(1, exit);
             var output = stdout + stderr;
-            Assert.Contains("Facade", output);
-            Assert.Contains("not implemented", output);
+            Assert.True(exit == 0, output);
+
+            var intermediateRoot = Path.Combine(destDir, ".cs2j-platform-isolation-src");
+            var rewritten = await File.ReadAllTextAsync(Path.Combine(intermediateRoot, "Class1.cs"));
+            Assert.Contains("partial class RegistryWrapper", rewritten);
+            Assert.Contains("Cs2jRequiredPort.Work(key)", rewritten);
+            Assert.DoesNotContain("Microsoft.Win32", rewritten);
+
+            // 端口接口 + 用户槽位按 generated/<ns>/ 相对子路径落入项目目录，
+            // 随中间树一起参与 restore-build（exit 0 即证明缝/端口/槽位可编译）。
+            Assert.True(File.Exists(Path.Combine(
+                intermediateRoot, "generated", "PlatformSample", "IRegistryWrapperPort.g.cs")));
+            Assert.True(File.Exists(Path.Combine(
+                intermediateRoot, "generated", "PlatformSample", "RegistryWrapper.PortSlot.g.cs")));
+
+            Assert.Contains("mode=Facade", output);
+            Assert.Contains("facade=1", output);
+            Assert.Contains("PI020", output);
+
+            using var document = JsonDocument.Parse(File.ReadAllBytes(ReportPath(destDir)));
+            var site = Assert.Single(document.RootElement.GetProperty("sites").EnumerateArray());
+            Assert.Equal("facade", site.GetProperty("action").GetString());
         }
         finally
         {
