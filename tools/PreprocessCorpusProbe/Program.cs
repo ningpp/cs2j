@@ -162,6 +162,10 @@ internal static class Program
             row.Files = build.Trees.Count;
             row.MissingCompileItems = build.MissingCompileItems;
 
+            // Whole-compilation families (member-desugar) share one analyzer across
+            // the project's files and flush totals/diagnostics after the file loop.
+            var session = profile.CreateSession();
+
             foreach (var tree in build.Trees)
             {
                 SemanticModel model;
@@ -195,7 +199,9 @@ internal static class Program
                 FileOutcome outcome;
                 try
                 {
-                    outcome = profile.RunFile(source, model, tree.FilePath);
+                    outcome = session != null
+                        ? session.Process(source, model, tree.FilePath)
+                        : profile.RunFile(source, model, tree.FilePath);
                 }
                 catch (Exception ex)
                 {
@@ -216,6 +222,8 @@ internal static class Program
                 if (outcome.Changed)
                     row.FilesTransformed++;
             }
+
+            session?.Flush(row, run, build.Unit);
         }
 
         Finalize(run);

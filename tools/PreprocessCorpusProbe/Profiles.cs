@@ -10,6 +10,9 @@ using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
 using CSharpToJava.Core.ExpressionDesugar.Interpolations;
 using CSharpToJava.Core.ForeachSource;
 using CSharpToJava.Core.LexicalNormalize;
+using CSharpToJava.Core.MemberDesugar;
+using CSharpToJava.Core.MemberDesugar.Properties;
+using CSharpToJava.Core.MemberDesugar.Records;
 using CSharpToJava.Core.NumericBoundary;
 using Microsoft.CodeAnalysis;
 
@@ -31,7 +34,19 @@ internal abstract class ProbeProfile
 
     public abstract FileOutcome RunFile(string source, SemanticModel model, string filePath);
 
+    /// <summary>Stateful families (whole-compilation plans) open one session per
+    /// msbuild project; null keeps the stateless per-file <see cref="RunFile"/> path.</summary>
+    public virtual IProjectSession? CreateSession() => null;
+
     public virtual Dictionary<string, long> FinalizeMetrics(Dictionary<string, long> metrics) => metrics;
+}
+
+/// <summary>Per-project stateful driver: one shared analyzer across the project's
+/// files, totals/diagnostics flushed once after the file loop.</summary>
+internal interface IProjectSession
+{
+    FileOutcome Process(string source, SemanticModel model, string filePath);
+    void Flush(ProjectRow row, ProbeRun run, string unit);
 }
 
 internal static class MetricExtractor
@@ -292,5 +307,72 @@ internal sealed class ForeachSourceProfile : ProbeProfile
             MetricExtractor.Flatten(result.Statistics),
             FamilyDiagnostics.Read(result.Diagnostics, result),
             result.Changed);
+    }
+}
+
+// ── member-desugar in-process ANALYSIS (C27 records/with + C50 field) ────────
+
+internal sealed class MemberDesugarInProcProfile : ProbeProfile
+{
+    public override string Id => "c27-c50-ip";
+    public override string Family => "C27/C50";
+    public override string Description =>
+        "member-desugar IN-PROC analysis over msbuild Compile items: records/with (C27) + "
+        + "field keyword (C50), non-strict; analysis counts only (no CLI whole-tree accept/rollback loop)";
+    public override bool InProcess => true;
+
+    public override FileOutcome RunFile(string source, SemanticModel model, string filePath)
+        => throw new NotSupportedException("member-desugar profile runs through CreateSession().");
+
+    public override IProjectSession CreateSession()
+    {
+        var options = new MemberDesugarOptions
+        {
+            Strict = false,
+            Records = new RecordOptions { Enabled = true },
+            FieldKeyword = new FieldKeywordOptions { Enabled = true },
+        };
+        return new MemberDesugarSession(options);
+    }
+}
+
+internal sealed class MemberDesugarSession : IProjectSession
+{
+    private readonly MemberDesugarPreprocessor _preprocessor;
+    private readonly MemberDesugarStatistics _stats = new();
+    private readonly List<MemberDesugarDiagnostic> _diagnostics = new();
+
+    public MemberDesugarSession(MemberDesugarOptions options)
+        => _preprocessor = new MemberDesugarPreprocessor(options);
+
+    public FileOutcome Process(string source, SemanticModel model, string filePath)
+    {
+        var result = _preprocessor.RewriteFile(source, model, _stats, _diagnostics);
+        return new FileOutcome(new Dictionary<string, long>(), new List<Diag>(), result.Changed);
+    }
+
+    public void Flush(ProjectRow row, ProbeRun run, string unit)
+    {
+        foreach (var (key, value) in MetricExtractor.Flatten(_stats))
+            row.Metrics[key] = row.Metrics.GetValueOrDefault(key) + value;
+
+        // SkippedByReason is keyed by the diagnostic enum (not string); surface it
+        // explicitly so the reflection flattener does not drop it.
+        foreach (var pair in _stats.SkippedByReason)
+        {
+            var key = "SkippedByReason." + pair.Key;
+            row.Metrics[key] = row.Metrics.GetValueOrDefault(key) + pair.Value;
+        }
+
+        foreach (var d in _diagnostics)
+        {
+            run.Diagnostic(
+                "CS2J" + (int)d.Code,
+                d.Severity.ToString(),
+                d.Message,
+                unit,
+                d.FilePath == null ? "" : Path.GetFileName(d.FilePath),
+                d.Line);
+        }
     }
 }

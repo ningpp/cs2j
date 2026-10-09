@@ -16,6 +16,7 @@ internal static class ProbeReport
         new LexicalNormalizeProfile(literals: false, fileScoped: true),
         new LexicalNormalizeProfile(literals: true, fileScoped: false),
         new ForeachSourceProfile(),
+        new MemberDesugarInProcProfile(),
         new MemberDesugarCliProfile(),
     };
 
