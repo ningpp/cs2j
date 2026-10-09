@@ -210,8 +210,8 @@ PartialMergePreprocessor.cs     # 对外门面：Analyze 一次 + RewriteFile �
 ### 4.6 Options / Statistics / Diagnostic
 
 - Options：`Strict`（残余多部件/无法归属新错即失败，默认 true）、`AssumeNoGeneratedPartial`（M3，默认 false）。
-- Statistics：通用 `FilesScanned/FilesTransformed/FilesSkippedClean/FilesDirtyNoRewrite/ResidualCount` + `TypesScanned/GroupsMerged/PartsRemoved/MembersCollapsed/GroupsRolledBack/Conflicts/SkippedBaseline/SkippedTopLevel`。
-- 诊断码：CS2J2001（组回滚，Warning）、CS2J2002（无法归属/整轮回滚，Error）、CS2J2010（基类冲突，防御）、CS2J2011（类型参数表不一致，防御）、CS2J2012（修饰符/访问性冲突，防御）、CS2J2013（合并非配对重复成员致新错）、CS2J2014（特性 AllowMultiple 冲突，防御）、CS2J2015（扩展 partial 成员缺实现，防御）、CS2J2016（record 参数表等不受支持形态，组跳过）、CS2J2017（检测到 analyzer/源生成器引用，Info，仅 verbose）、CS2J2018（residual 闸门：成功路径残余多部件，Strict 下 Error）、CS2J2030/2031（restore/build/test 失败映射，同各适配器惯例）。
+- Statistics：通用 `FilesScanned/FilesTransformed/FilesSkippedClean/FilesDirtyNoRewrite/ResidualCount` + `TypesScanned/GroupsMerged/PartsRemoved/MembersCollapsed/GroupsRolledBack/Conflicts/SkippedBaseline/SkippedTopLevel`，M3 增补 `PartialDeclarationsRemoved/PartialCallSitesRemoved`（仅 opt-in，见 §14.4）。
+- 诊断码：CS2J2001（组回滚，Warning）、CS2J2002（无法归属/整轮回滚，Error）、CS2J2010（基类冲突，防御）、CS2J2011（类型参数表不一致，防御）、CS2J2012（修饰符/访问性冲突，防御）、CS2J2013（合并非配对重复成员致新错）、CS2J2014（特性 AllowMultiple 冲突，防御）、CS2J2015（扩展 partial 成员缺实现，防御）、CS2J2016（record 参数表等不受支持形态，组跳过）、CS2J2017（检测到 analyzer/源生成器引用，Info，仅 verbose）、CS2J2018（residual 闸门：成功路径残余多部件，Strict 下 Error）、CS2J2019（M3 opt-in 下经典 partial 调用点不可安全移除，Warning，见 §14.4）、CS2J2030/2031（restore/build/test 失败映射，同各适配器惯例）。
 
 ---
 
@@ -317,7 +317,7 @@ PartialMergePreprocessor.cs     # 对外门面：Analyze 一次 + RewriteFile �
 |---|---|---|
 | **M1 类型合并最小闭环** | PartialMerge 骨架（Options/Statistics/Diagnostic/Plan）、PartCollector 符号分组与主部件规则、class/struct/interface/record 合并节点构造（成员拼接、修饰符/基类/特性/约束、保留 partial）、非主节点摘除与溯源注释、自定义 ExecuteAsync（复制→分析→改写→restore/verify，先不做回滚重放）、Stub→Implemented 翻转（默认关） | §7.1 组 1-3、12-13 通过；fixture 骨架 .NET 半区 build 绿；禁用路径零行为差异 |
 | **M2 回滚/冲突/文档 + 完整闸门** | 基线快照、recompile-diff、组级/整轮回滚重放、CS2J20xx 全量诊断、XML 合并、global using/Latest 解析、residual 闸门、fixture 两半区 | §7.1 组 6-11、14-15 全绿；CS2J2001/2002/2018 用例齐；fixture Release build+test 双绿；sdk partial 命中率清单成文 |
-| **M3 partial 方法/成员塌缩（可选增强）** | PartialMemberMerge 源内定义+实现配对塌缩、`AssumeNoGeneratedPartial` opt-in 下经典声明与调用移除、C#13 成员覆盖复核 | §7.1 组 4-5 全绿；调用点移除专项；转换器侧 PartialType 退役的前置评审（不在本里程碑删代码） |
+| **M3 partial 方法/成员塌缩（可选增强）** | PartialMemberMerge 源内定义+实现配对塌缩、`AssumeNoGeneratedPartial` opt-in 下经典声明与调用移除、C#13 成员覆盖复核 | §7.1 组 4-5 全绿；调用点移除专项；转换器侧 PartialType 退役的前置评审（不在本里程碑删代码；评审结论见 §14.6，实施记录见 §14，2026-10-09） |
 | **M4 默认化决策** | §8 五项门槛逐条结论 | 决策记录：继续 opt-in / 随统一引擎默认开，二选一留痕 |
 
 ---
@@ -379,5 +379,84 @@ PartialMergePreprocessor.cs     # 对外门面：Analyze 一次 + RewriteFile �
 2. **base 选择**：worktree 从 `953293b9` 还是当前 HEAD `2d25700e` 切出？后者已含 member-desugar/pattern-desugar 翻转与更新的 LockedChain，翻转补丁更小；前者与本稿写作时证据一致但注册表热文件已冲突。倾向 rebase 到新 HEAD，留实施者定。【2026-10-02：**失效**——禁止 worktree（§12）】
 3. **catalog L561 括注歧义**：六次补全行把「实现**可选**」挂在「C#9 扩展 partial 方法（非 void/out/修饰符）」后；按 C# 官方语义，实现可选的是经典 void 形态，扩展形态实现强制。本稿 §4.5/D4 按官方语义写；catalog 文件不在本次可改范围，需 catalog 维护者另行订正该括注。
 4. **主部件路径口径**：InterfaceRippler 先例用完整路径 + `OrdinalIgnoreCase`（[L491-496](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/InterfaceRippler.cs#L491-L496)），本设计拟用相对源根路径 + 序数比较。Windows 下仅大小写差异的目录名并存属于畸形工程，是否完全沿用 OrdinalIgnoreCase 口径在 M1 单测定稿。
-5. **C#13 配对符号 API**：partial 构造器/事件/属性/索引器在当前 Roslyn 版本上的定义性/实现性配对判据（方法有 `PartialDefinitionPart/PartialImplementationPart`，其他成员种类的等价 API 名称）未在本仓找到既有用法；§4.5 规则 3-6 的实现判据以 M2 前 net10/Latest 探针实测为准，不可解析形态 CS2J2016 跳过。
+5. **C#13 配对符号 API**：partial 构造器/事件/属性/索引器在当前 Roslyn 版本上的定义性/实现性配对判据（方法有 `PartialDefinitionPart/PartialImplementationPart`，其他成员种类的等价 API 名称）未在本仓找到既有用法；§4.5 规则 3-6 的实现判据以 M2 前 net10/Latest 探针实测为准，不可解析形态 CS2J2016 跳过。【2026-10-09 M3：**已实证锁定**，见 §14.2】
 6. **`PassStage.Lexical` 枚举注释**（"pure syntax, no semantic model"）与本 pass 语义实现长期共存是否应改注释/细化枚举，留给统一引擎（catalog §5.4）批次处理，本特性不动 Core 枚举文案。
+
+---
+
+## 14. M3 实施记录（2026-10-09，worktree `feature/p3-c20-partial-member-m3`，基线 `7afe0ea5`）
+
+> 本节为 M3（§9 第三行）落地后的实证回写。Roslyn API/错误码均经 net10.0 + Roslyn 5.0.0（`LanguageVersion.Latest`）临时探针实测（探针位于 `%TEMP%\cs2jprobe`，不入库）；xUnit 用例只编译不实跑（本里程碑纪律禁用 `dotnet test`），关键 Roslyn 边界一律以探针实跑为准。
+
+### 14.1 提交序列与改动面
+
+| 提交 | 内容 |
+|---|---|
+| `b9a1d2f6` | `feat(c20): M3 partial 成员配对塌缩`——符号配对、塌缩重建、member-only 路径、统计桶 |
+| `67a2f4bd` | `feat(c20): M3 CLI opt-in 开关与统计摘要`——选项全链路透传、链摘要消费新桶 |
+| `df45319d` | `fix(c20): M3 成员文档行区间相交与单行摘要提取` |
+| `a964354c` | `test(c20): M3 组4-5 与调用点移除专项用例` |
+| `50678bfc` | `test(c20): M3 SamplePartial fixture 成员配对样本与行为用例` |
+
+改动面严格限定在 `src/CSharpToJava.Core/PartialMerge/`、C20 CLI 适配器/options 接线（Program.cs 两个入口选项与装配、CliPreprocessChain.cs、PassChainFactory.cs 仅增配置字段、PartialMergePassAdapter.cs）、C20 单测与 SamplePartial* fixture、本文档。PassCatalog/PassStubCatalog 默认开关与链序、Program.cs 默认值（false）均未改动；转换器旧臂代码零改动（见 §14.6）。
+
+### 14.2 探针实证：配对符号 API 与基线错误码（对应开放问题 5）
+
+配对一律走 SemanticModel 符号，禁止文本键。实测：
+
+1. `IMethodSymbol.IsPartialDefinition` 与 `PartialDefinitionPart`/`PartialImplementationPart` 同时覆盖经典方法、扩展方法与**构造器**（`MethodKind.Constructor`，无独立判据名）；property/indexer/event 的**访问器**也是 `IMethodSymbol`，访问器特性按 kind（get/set/add/remove）分别配对合并。
+2. property 与 indexer 均为 `IPropertySymbol`（indexer 带参数表），提供同款 `PartialDefinitionPart`/`PartialImplementationPart`/`IsPartialDefinition`。
+3. event 为 `IEventSymbol` 同款 API；**字段式定义事件**没有声明级成员符号，须对 `EventFieldDeclarationSyntax` 内每个 `VariableDeclaratorSyntax` 调 `GetDeclaredSymbol` 取 `IEventSymbol`。
+4. 配对桶键统一 `SymbolEqualityComparer.Default`；任一侧取符号失败（基线脏等）不强行配对，落 §6 既有防线。
+
+实测基线错误码：
+
+| 形态 | 编译器诊断 |
+|---|---|
+| 现代 partial 方法（非 void/带访问修饰符等）源内缺实现 | CS8795 |
+| partial property / indexer 源内缺实现 | CS9248 |
+| partial event / constructor 源内缺实现 | CS9275 |
+| 构造器**定义性**声明带 `: base()`/`: this()` 初始化器 | 基线错误（初始化器只允许出现在实现性声明） |
+| 塌缩后重复特性（AllowMultiple=false）等冲突 | CS0579 等，由 §6 recompile-diff 兜底 |
+
+**入组前提实证**：上述缺实现诊断只在类型存在 ≥2 个部件时由编译器发出——单部件类型不进入 partial 成员分组。故缺实现类单测必须双部件构造；单部件现代形态缺实现既不报错也不配对，默认路径不进组（保持 v1），opt-in 时仅经典声明式形态进入 member-only 流程（§14.4），其余现代无实现形态发既有 CS2J2015（防御 Warning；干净双部件树上一般先被基线 skip 截获）。class 双部件各带主构造器参数表走基线 skip；record 双部件各带参数表发 CS2J2016（SkipUnsupportedShape，M2 既有闸门）。
+
+### 14.3 两个实现陷阱（实证）
+
+1. **嫁接（grafting）后身份失配 → 调用点剥离必须用 SyntaxAnnotation**：`WithMembers` 复用其他语法树节点时 green 节点共享、red 包装为新实例；以引用相等或（tree, span）键登记的待删语句在嫁接后树上全部失配（现象：声明已删而块内 `Hook();` 残留，候选树 CS0103）。对策：嫁接**前**在原始实现节点上盖注解 `_cs2j_partial_call_site`（CallSiteAnnotator 仅对 BlockSyntax 直接子级 ExpressionStatement 盖），塌缩重建复用同一 green body 时注解随附，最终 CallSiteStatementStripper 按 `HasAnnotation` 摘除；注解必须先于成员重建。
+2. **record 值相等陷阱**：`TypeGroupPlan` 是 record，`Dictionary<TypeGroupPlan, …>` 默认取合成值相等/哈希；PrepareGroup 后置 `IsMemberOnlyRewrite=true` 改变哈希值，致后续 ForGroup 落桶失败（单部件 member-only 产物零变化的根因；多部件组不改标志而侥幸命中）。组计划字典必须显式使用 `ReferenceEqualityComparer.Instance`。
+
+### 14.4 AssumeNoGeneratedPartial 语义、member-only 路径与 CS2J2019
+
+- 选项 `PartialMergeOptions.AssumeNoGeneratedPartial`，**默认 false**（= v1：源内无实现经典声明保留、调用点零改动）；CLI 开关 `--partial-merge-assume-no-generated`，经 CliChainRequest → PassChainConfiguration 透传（PassChainFactory 仅增字段，未动默认开关与链序）。
+- 开启后：① 仅移除源内无实现的**经典**（隐式 private、void、无 out、无 abstract/virtual/override/sealed/new/extern/unsafe/访问修饰符）partial 方法声明；② 调用点经 SemanticModel 全树符号匹配，**仅**当调用是 `BlockSyntax` 直接子级 `ExpressionStatementSyntax`、且语句表达式就是该 invocation 时整句摘除；③ 任一调用不满足该外形（expression-bodied 成员/属性/lambda、初始化器、嵌入语句、实参或更大表达式的组成部分等），对该方法**整体放弃移除**：对首个不可移除点发 **CS2J2019（PartialCallSiteNotRemovable，Warning，带文件/行/列/类型全名）**，声明与全部调用原样保留、两个移除统计桶零增长、零编辑（禁止半成品）。
+- **单部件 partial 类型**仅在 opt-in 下成组，走 member-only 改写：`Primary.Declaration.WithMembers(...)`（无溯源横幅、不动修饰符/基类/usings），只发 ReplaceTypeEdit，不发 RemoveTypeEdit/InsertUsingsEdit；member-only 组**不计** GroupsMerged/PartsRemoved。源内配对塌缩（含嵌套 partial 类型的成员配对）在多部件与单部件两路径行为一致。
+- 新统计桶：`MembersCollapsed`（源内定义+实现配对数）、`PartialDeclarationsRemoved`、`PartialCallSitesRemoved`，随 plan.Statistics 进入适配器链摘要行。
+
+### 14.5 成员种类矩阵与塌缩产物
+
+| 种类 | 定义外形 | 实现外形 | 配对符号 | 塌缩结果 |
+|---|---|---|---|---|
+| 经典方法（实例/静态；ref 合法、out 非法） | `partial void M(…);` | 带体 | IMethodSymbol | 源内成对→塌缩；无实现默认保留，opt-in 走 §14.4 |
+| 现代方法（C#9：返回值/访问修饰符/泛型约束） | `public partial T M<T>(…);` | 带体/表达式体 | IMethodSymbol | 塌缩；缺实现 CS8795 → 基线 skip |
+| property（含访问器分侧特性） | `public partial int P { get; }` | 带 get/set 体 | IPropertySymbol（访问器 IMethodSymbol） | 塌缩；访问器特性按 get/set kind 合并；缺实现 CS9248 |
+| indexer | `public partial int this[int i] { get; }` | 带访问器体 | IPropertySymbol | 同 property；缺实现 CS9248 |
+| event | 字段式 `public partial event Action E;` | 显式 add/remove | IEventSymbol（字段式经 VariableDeclarator 取符号） | 以 add/remove 实现为存活成员；缺实现 CS9275 |
+| 构造器 | `public partial C(int x);`（无初始化器、分号结束） | 带构造器体 | IMethodSymbol（Constructor） | 塌缩；`: this()/:base()` 初始化器只随实现保留；定义带初始化器为基线错误；缺实现 CS9275 |
+
+塌缩产物统一规则：单成员、实现体为准；摘除成员级 `partial` 令牌（**类型级 partial 令牌保留**，沿用 M1 契约）；修饰符取两侧并集后经 MemberModifierOrder 规范化；特性实现侧优先、定义侧追加（AllowMultiple 冲突交基线/diff）；XML doc 经 PartialDocCommentMerger.BuildMemberLeadingTrivia——实现侧文档为准，定义侧文档包入 `<remarks><para source="…">`（source 取定义部件相对源根路径）；嵌套 partial 类型成员配对同样适用。
+
+### 14.6 转换器侧 PartialType 退役前置评审（M3 结论：评审通过，本里程碑不删代码）
+
+按 §9 M3 出口完成前置评审：
+
+1. **不删代码**：`PartialType/`、`PartialMethodMerger`、`PartialTypeMergeStore`、`TypeGroupResolver`、四个 `TransformMerged` 与直连入口 `ConvertProjectWithPartialMergeAsync`（含其对照测试，风险 10）本里程碑全部原样保留；转换器侧特判（GenericDeepen、RecordReadOnly 族）不动。
+2. **退役准入证据（登记，M3 不取证）**：① sdk/真实工程规模下成功路径残余多部件 = 0（M2 residual 闸门 CS2J2018 与统计已就位）；② 成员级残余 = 0：塌缩路径二跑零编辑、opt-in 路径 CS2J2019 为 0 或每例均有人工处置；③ §8 五门槛与 §9 M4 默认化决策完成。M3 证据仅覆盖内联单测编译与 SamplePartial fixture（§14.7），不构成 sdk 规模取证。
+3. **混合形态待退役 PR 补测**：M3 产物为「类型仍带 partial 令牌、成员已单份」，转换器旧 PartialType 臂从未在该输入形态实测；退役 PR 必须补 §7.3 双向回归（禁用/启用各跑一遍现有 partial 测试），并同批处置直连入口与对照测试，不留双轨窗口（§13 拍板④）。
+4. **退役为独立 PR**，不与 M3 同批，顺序晚于默认化决策。
+
+### 14.7 验证记录
+
+- 每块结束 `dotnet build CSharpToJavaConverter.slnx -c Release` 均 exit 0（含新增 xUnit 用例编译；遵守禁用 `dotnet test` 纪律，未实跑测试）。
+- §7.1 组 4-5 用例齐：经典/静态经典/现代泛型方法配对、property 访问器特性合并、indexer、字段式事件定义对 add/remove 实现、构造器配对与初始化器归属、各类缺实现/双主构 skip 形态；另补调用点移除专项（opt-in 多部件、单部件 member-only 二跑零编辑、expression-bodied 与 λ 触发 CS2J2019 且零计数零编辑）、嵌套 partial 类型成员配对、成员级 XML doc/特性与 PartialDocCommentMerger 共处、塌缩路径 residual 闸门与二跑幂等。
+- fixture 冒烟探针（SamplePartialLib 10 文件合成整树）：默认路径基线/候选均零错误，collapsed=10、groups=9，产物二跑零编辑；opt-in 路径候选零错误，移除声明 1、移除调用 1，目标声明与调用文本均消失。
