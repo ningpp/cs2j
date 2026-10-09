@@ -349,3 +349,75 @@ git worktree add .worktrees/preproc-c27-c50-record-with-field-keyword -b feature
 3. **接缝形态**：FK 归一以 PropertyRule 内前置 normalizer 钩子落地，还是以 `Kind=Property, Order=1` 的内部子规则落地？倾向前者（不新增规则发现面），由 C11 锚点实现时按其管线形状定。
 4. **接口静态属性 field**：若 M0 FK-P3 证实 C#14 允许接口静态 field-backed 属性（接口可含静态字段），v1 是否收编？倾向先 CS2J5127 跳过、按扫描命中再议。
 5. **CS2J5122 处置与码位**：退役还是重定义为 residual 闸门码、CS2J5125-5128 建议号是否被锚点采纳，以 C11 统一登记为准并回填本设计。
+
+---
+
+## 13. M3 画像实施记录（2026-10-09）
+
+> 工具与口径与 C27 §13 完全一致（`tools/PreprocessCorpusProbe` 画像 id `c27-c50-ip`，提交 `013ab5e8`；in-proc public API、msbuild `-getItem:Compile` 干净编译项、non-strict、`Records.Enabled=true`+`FieldKeyword.Enabled=true`；子集开关生产默认核实仍为 false）。同一次扫描同时服务两族计数，因此语料规模表、CLI 5100 残余与 driver-error 定性直接**沿用 C27 §13.1/§13.5/§13.6 作为证据**，本节只落 C50 需要的数据与裁决。原始报表（gitignored）：`probe-out/profiles/c27c50-{sdk,ef,yaml,runtime}/c27-c50-ip.{json,md}`。
+
+### 13.1 field 关键字命中矩阵（全部实测）
+
+| 桶 | csharp-sdk | EF Core（6 工程子集，2 不可用） | YamlDotNet |
+|---|---:|---:|---:|
+| csproj（不可用）/编译项 | 21（0）/1457 | 6（2）/2141 | 8（5）/17 |
+| FieldKeywordProperties（CS2J5125 Info） | 0 | **60** | 0 |
+| FieldKeywordAutoAccessorsExpanded | 0 | 5 | 0 |
+| FieldReferencesRewritten | 0 | 86 | 0 |
+| FieldTargetAttributesMigrated | 0 | 98 | 0 |
+| FieldInitializersMoved | 0 | 0 | 0 |
+| FieldKeywordResidualTokens（FK-9） | 0 | 0 | 0 |
+| CS2J5126 安全网 / 5127 不收编容器 / 5128 特性失败 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+| CS2J5122（声明跳过/residual 双角色，见 13.4） | 0 | 0 | 0 |
+| SkippedByReason field 专属键 | 无 | 无 | 无 |
+
+EF 分项目实测分布（属性/自动访问器展开/field 引用重写/`[field:]` 特性迁移）：
+
+| 工程（可用 4 个中的 3 个有命中） | props | auto | refs | attrs |
+|---|---:|---:|---:|---:|
+| src/EFCore/EFCore.csproj（1119 编译项） | 54 | 5 | 80 | 90 |
+| src/EFCore.Relational/EFCore.Relational.csproj（793 项） | 3 | 0 | 3 | 4 |
+| src/EFCore.SqlServer/EFCore.SqlServer.csproj（206 项） | 3 | 0 | 3 | 4 |
+| EFCore.Abstractions（23 项） | 0 | 0 | 0 | 0 |
+
+60 个 field-backed 属性产出 98 个迁移到合成字段的目标符特性、86 处访问器体内 `field` 引用重写、5 个自动访问器对（`{ get; set; }`→`{ get => field; set => field = value; }` 形态），**零 residual token、零安全网跳过、零容器拒收、零特性迁移失败、零初始化器迁移**（FieldInitializersMoved=0，命中集内无带初始化器的半实现属性）。
+
+### 13.2 零命中语料定性（§8 门槛 4 输入）
+
+- **csharp-sdk 四库（1457 项）与 YamlDotNet 有效 17 项全部 0 命中**：这两个语料本身不含 C# 14 `field` 上下文关键字的半实现属性（代码风格/语言版本事实），**不是规则漏检**——同一二进制、同一选项的 EF 轮拿到 60 命中，证明 FK-1~FK-9 管线在盘有效。
+- **runtime Collections/Text 数据未取得**：`D:\runtime-10.0.12` 全仓 `artifacts\obj` project.assets.json 数为 0，4 个采样产品工程（System.Text.Json、System.Collections.Immutable、Microsoft.Extensions.DependencyInjection、Microsoft.Extensions.Caching.Memory）全部 MSB4057；restore 会写入只读语料而未执行。附裁决 2「Collections/Text 高频库使用密集则同批默认开」的**直接证据面本轮无法测量**（C27 §13.6 已完整声明）。
+- YamlDotNet 主库等 5 工程未 restore/无目标，零结论不外推到整库。
+
+### 13.3 C11 §5.3 Java 半区消费确认（§8 门槛 5）
+
+field 归一只发生在声明侧：产物为**普通显式私有字段**（命名走与 auto 属性后备字段相同的 BackingFieldNaming/JavaNaming 契约）+ **未变的 get_X/set_X 访问器** + FK-7 迁移后的**普通字段目标特性**。对照 [C11 §5.3](file:///d:/code/cs2j/.worktrees/p3-profiles/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L237-L245) 五项：
+
+1. `get_/set_` 剥前缀旧特例与派生 `getX/setX`：field 产物与 auto 属性去糖产物**逐字同形**，无新形态；
+2. PropertyTransformer 对去糖树不可达：同 C11，field 归一不改变该结论；
+3. 序列化/数据契约注解路由：Java 侧注解桥面对的就是「后备字段 + 字段目标特性」，FK-7 已把 98 个 `[field:]` 目标符特性在 C# 侧落位（零 CS2J5128），**无新增 Java 消费面**；
+4. 显式接口/new/DIM 三类形态：field 在这些容器内不收编（CS2J5127，本轮零命中），不产生需 Java 侧处理的新形态；
+5. 布尔 `isX`：field 不引入新的布尔命名契约。
+
+结论：**C11 §5.3 消费清单对 field 产物零新增项**，门槛 5 的评审确认面成立（消费义务不增；C11 转换器消费 PR 仍是共同前置）。
+
+### 13.4 CS2J5122 锚点登记与 CatalogItems
+
+- 附裁决 5「重定义为 residual 闸门码、不退役」已按此落地并核实：C50 子集开启时 5122 为 FK-9 residual 诊断（[PropertyUseSiteRewriter.cs:215](file:///d:/code/cs2j/.worktrees/p3-profiles/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyUseSiteRewriter.cs#L215)，配 `FieldKeywordResidualTokens` 统计，strict 升 Error）；子集关闭时仍承担 C11 v1 声明级跳过（[PropertyRule.cs:377](file:///d:/code/cs2j/.worktrees/p3-profiles/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyRule.cs#L377)，零执行零 diff）。三语料开启轮 **5122=0、residual=0**。
+- CatalogItems 已含 C50：[PassCatalog.cs:549](file:///d:/code/cs2j/.worktrees/p3-profiles/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L549) 现值 `"C11, C12, C13, C14, C39, C46, C50, C27"`（早前提交追加，本轮未改 CLI 热文件）。
+- 实现占用码位与本设计一致：5122（双角色）+ 5125 Normalized / 5126 SafetyNet / 5127 UnsupportedContainer / 5128 AttributeFailed；本轮仅 5125 有计数（60）。
+
+### 13.5 §8 门槛对照与拍板（M3）
+
+| 门槛 | 状态 |
+|---|---|
+| 1 Roslyn ≥4.14（C#14 GA 绑定） | 已满足：5.0.0（§12 前置现状），EF 60 真实命中即 GA 绑定可用的实测证据 |
+| 2 FK-P0~P3 限制集定案、单测/fixture | M0-M2 已落（既有提交），本轮语料 5126/5127/5128 全 0 与限制集结论一致 |
+| 3 零回退/回滚有归属、residual 闸门 | 三语料 residual=0；field 面无回退；族级 CLI 回滚两条 5100 与本规则无关（C27 §13.5） |
+| 4 .NET 10 目标扫描计数 | 可测面：sdk 0 / EF 60（54 集中 EFCore 主工程）/ Yaml 0；**runtime 高频库未取得**（13.2） |
+| 5 C11 §5.3 消费确认 | 零新增项（13.3） |
+
+**拍板（M3）**：技术就绪面成立（真实 C#14 产品代码 60 属性 / 98 特性迁移零失败、安全网零误伤、residual 为 0），但附裁决 2 的默认开频率前提——「Collections/Text 高频库实测密集」——其直接证据面（runtime）本轮无法取得，可测语料呈「sdk 全零、EF 仅单一产品集中」形态。**`rules.fieldKeyword` 维持默认 false，M3 不翻默认**；翻默认动作进入族级评审，与 C11 §5.3 转换器消费 PR、runtime restore 后复跑（同一 `c27-c50-ip` 命令）绑定，本设计不承诺时间表。
+
+### 13.6 族级残余指针（不重复定性）
+
+CLI 两条 CS2J5100（json TrimmingTests 镜像目录枚举合并；YamlDotNet OrderedDictionary 元数据接口索引器 + 重载签名不辨）与 1 个 C11 使用点 driver-error（EF InversePropertyAttributeConvention.cs，PropertyUseSiteRewriter.cs:409 InvalidCastException）定性、计数与复现证据见 C27 §13.5 及汇总报告；三者均与 field 归一无关——EF 轮 60 个 field 属性自身全部成功归一，driver-error 文件不属于 field 命中集。
