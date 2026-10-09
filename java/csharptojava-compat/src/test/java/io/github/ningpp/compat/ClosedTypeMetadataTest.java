@@ -7,9 +7,14 @@ import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -396,5 +401,139 @@ class ClosedTypeMetadataTest {
             "an explicit null argument does not form a closure key");
         assertNull(TypeHelper.resolveClosedType(Integer.class),
             "an unregistered bare class stays unresolved");
+    }
+
+    @Test
+    void registerClosedType_concurrentStress_keepsFirstWinsAndNeverTouchesThreadLocals() throws Exception {
+        TypeHelper.clearClosedTypes();
+        TypeHelper.clearThreadRegistrations();
+
+        // Anchors are published first, single-threaded: a storm of equal registrations
+        // from the workers must never replace them.
+        Type[] anchors = buildStressAnchors();
+        for (Type anchor : anchors) {
+            TypeHelper.registerClosedType(anchor);
+        }
+        // Closures whose very first publication happens under contention.
+        Type nestedShort = closed(CSharpList.class, Short.class);
+
+        int threads = 8;
+        int rounds = 200;
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        CountDownLatch ready = new CountDownLatch(threads);
+        CountDownLatch start = new CountDownLatch(1);
+        // key -> first resolved instance; every later resolution must return the same one.
+        ConcurrentHashMap<Object, Type> firstResolved = new ConcurrentHashMap<>();
+        List<Future<?>> futures = new ArrayList<>();
+        try {
+            for (int t = 0; t < threads; t++) {
+                futures.add(pool.submit(() -> {
+                    ready.countDown();
+                    start.await();
+                    for (int round = 0; round < rounds; round++) {
+                        // Fresh EQUAL instances every round: heavy putIfAbsent contention on
+                        // every existing key, plus first-publication races on two new keys.
+                        Type[] rebuilt = buildStressAnchors();
+                        for (Type candidate : rebuilt) {
+                            TypeHelper.registerClosedType(candidate);
+                        }
+                        TypeHelper.registerClosedType(closed(CSharpList.class, Long.class));
+                        TypeHelper.registerClosedType(
+                            closed(CSharpGenericIList.class, String.class));
+
+                        assertSame(anchors[0],
+                            TypeHelper.resolveClosedType(CSharpList.class, Integer.class));
+                        assertSame(anchors[1],
+                            TypeHelper.resolveClosedType(CSharpList.class, String.class));
+                        assertSame(anchors[2],
+                            TypeHelper.resolveClosedType(CSharpList.class, Short.class));
+                        assertSame(anchors[3],
+                            TypeHelper.resolveClosedType(CSharpList.class, nestedShort));
+                        assertSame(anchors[4],
+                            TypeHelper.resolveClosedType(
+                                CSharpDictionary.class, String.class, Integer.class));
+                        assertSame(anchors[5],
+                            TypeHelper.resolveClosedType(
+                                CSharpDictionary.class, String.class, nestedShort));
+
+                        recordResolution(firstResolved,
+                            TypeHelper.resolveClosedType(CSharpList.class, Long.class),
+                            closed(CSharpList.class, Long.class));
+                        recordResolution(firstResolved,
+                            TypeHelper.resolveClosedType(CSharpGenericIList.class, String.class),
+                            closed(CSharpGenericIList.class, String.class));
+
+                        if (round % 25 == 0) {
+                            assertNoThreadLocalTouchOnThisThread();
+                        }
+                    }
+                    assertNoThreadLocalTouchOnThisThread();
+                    return null;
+                }));
+            }
+            ready.await();
+            start.countDown();
+            for (Future<?> future : futures) {
+                future.get();
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        // Exactly the six anchors plus the two worker-published closures, nothing lost
+        // and nothing duplicated under contention.
+        java.lang.reflect.Field tableField = TypeHelper.class.getDeclaredField("_closedTypes");
+        tableField.setAccessible(true);
+        Map<?, ?> table = (Map<?, ?>) tableField.get(null);
+        assertEquals(8, table.size(), "every distinct closure registered exactly once");
+
+        for (Type anchor : anchors) {
+            assertSame(anchor, table.get(TypeHelper.closedCacheKey(anchor)),
+                "anchor must survive the concurrent equal-registration storm");
+        }
+        assertNotNull(TypeHelper.resolveClosedType(CSharpList.class, Long.class));
+        assertNotNull(TypeHelper.resolveClosedType(CSharpGenericIList.class, String.class));
+        assertEquals(2, firstResolved.size(), "both contended closures resolved consistently");
+        assertNoThreadLocalTouchOnThisThread();
+    }
+
+    private static Type[] buildStressAnchors() {
+        return new Type[] {
+            closed(CSharpList.class, Integer.class),
+            closed(CSharpList.class, String.class),
+            closed(CSharpList.class, Short.class),
+            closed(CSharpList.class, closed(CSharpList.class, Short.class)),
+            closed(CSharpDictionary.class, String.class, Integer.class),
+            closed(CSharpDictionary.class, String.class,
+                closed(CSharpList.class, Short.class)),
+        };
+    }
+
+    private static void recordResolution(ConcurrentHashMap<Object, Type> firstResolved,
+                                         Type resolved, Type query) {
+        assertNotNull(resolved, "contended first-publication must eventually resolve");
+        Type previous = firstResolved.putIfAbsent(TypeHelper.closedCacheKey(query), resolved);
+        if (previous != null) {
+            assertSame(previous, resolved,
+                "resolution of one key must stay identical across threads");
+        }
+    }
+
+    private static void assertNoThreadLocalTouchOnThisThread() throws Exception {
+        for (String field : List.of("TYPE_ARGUMENTS", "CONSUMED_ARGUMENTS", "MEMBER_ARGUMENTS",
+                "WRAPPER_LAYER_TAKEN", "CALLSITE_ARGUMENTS")) {
+            Field f = TypeHelper.class.getDeclaredField(field);
+            f.setAccessible(true);
+            Map<?, ?> map = ((ThreadLocal<Map<?, ?>>) f.get(null)).get();
+            assertTrue(map.isEmpty(), field + " must stay empty on a worker thread");
+        }
+        Field subtypes = TypeHelper.class.getDeclaredField("CONCRETE_SUBTYPES");
+        subtypes.setAccessible(true);
+        assertTrue(((java.util.List<?>) ((ThreadLocal<?>) subtypes.get(null)).get()).isEmpty(),
+            "CONCRETE_SUBTYPES must stay empty on a worker thread");
+        Field depth = TypeHelper.class.getDeclaredField("REGISTRATION_DEPTH");
+        depth.setAccessible(true);
+        assertEquals(0, ((int[]) ((ThreadLocal<?>) depth.get(null)).get())[0],
+            "REGISTRATION_DEPTH must stay at zero on a worker thread");
     }
 }

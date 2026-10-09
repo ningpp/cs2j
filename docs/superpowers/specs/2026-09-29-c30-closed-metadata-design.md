@@ -487,6 +487,22 @@ CatalogItems                = "C30"
 > - **overrides（§6.3）**：`ClosedMetadataOverrides.Load` 解析 `{"skip":[...],"force":[...]}`（UTF-8 JSON，条目仅接受限定类型/成员名；类型支持构造形式精确名与开放泛型 `Namespace.Type<>`/无尖括号两写，成员支持 `类型.Member` 短式与完整签名显示）；skip = 移出 A1 服务面、force = 声明带外注册（A1 二者都只抑制闸门并留 CLO001 Info，force 不解除 CS2J1210）；坏文件告警后按无 overrides 继续。CLI 经 `--closed-metadata-overrides` 全链接入（两个入口 options → CliPreprocessChain → PassChainConfiguration → ClosedMetadataOptions.OverridesPath）。
 > - **适配器**：`AfterFiles` 先跑 2/5 内容闸门，再枚举中间树 `*.cs`（排除 obj/bin）按 spine 同形 parse/refs/options 重编译跑 1/3/4/6；汇总行 residual 计数为全部六规则之和。
 > - 证据：`ClosedMetadataTests` 44/44（M4c 新增 14 测覆盖四规则正/负形、strict 升级、skip/force CLO001、JSON 加载与坏文件）；Core Debug 全量 3510 通过 / 3 既有跳过 / 0 失败；fixture E2E 1/1（新增嵌入式 if + switch-arm 消费面 fact，RuntimeBehaviorTests.cs 6→9 条守卫、汇总 16 consumer sites linked、**0 residuals**，中间树 Release verify build + 4 运行时测全绿）；slnx Release build 0 错误。并发压测/门槛评审（M4d）随后续提交。
+>
+> **落地注记（2026-10-09，M4d compat 并发压测 + §9 门槛"已默认开"复盘，C30 M4 收口）**
+>
+> - **并发压测**：`ClosedTypeMetadataTest.registerClosedType_concurrentStress_keepsFirstWinsAndNeverTouchesThreadLocals`——8 线程经双 CountDownLatch 同时起跑 × 200 轮：6 个锚定闭型（含 `List<List<short>>`、`Dictionary<String,List<short>>` 嵌套层）每轮重建**结构相等的新实例**风暴式重复注册制造 putIfAbsent 争用，另有 2 个闭型在工作线程下首发竞争；轮内并发 resolve。断言：①锚定实例始终获胜（跨 1600 注册轮次 `assertSame` 不被等值后注册替换）；②竞争首发闭型跨线程解析结果同一（共享 firstResolved 表 putIfAbsent 比对）；③汇合后 `_closedTypes` 恰好 8 键、无丢失无重复。
+> - **零 ThreadLocal 直接证据（§9 第 4 条）**：工作线程视角每 25 轮及汇合时反射断言 7 张 ThreadLocal（TYPE_ARGUMENTS/CONSUMED_ARGUMENTS/MEMBER_ARGUMENTS/WRAPPER_LAYER_TAKEN/CALLSITE_ARGUMENTS 五 map、CONCRETE_SUBTYPES list、REGISTRATION_DEPTH int[1]）全程空集合/0。compat 生产代码**零改动**——D3 的进程级 ConcurrentHashMap + closedCacheKey 结构键设计在争用下一次成立。
+> - **§9 门槛逐条复盘（已默认开口径：catalog 实证本 pass 自 M2' 起随 generic-deepen 同批链 default-enabled，本评为事后核对而非翻转评审）**：
+>   1. **时序前提——满足**：C02 generic-deepen 默认开且过其 §8 门槛；CS2J1205 链位校验 M2' 起强制。
+>   2. **中间树正确性——满足（fixture 维度）**：fixture E2E `ClosedMetadataProjectTests` 全绿（中间树 Release verify build + 4 运行时测）；sdk 快照维度沿用既有挂账（5 处与本 pass 无关的 pass 破损）。M4d 仅改 compat 测试文件、零 .NET 生产改动，.NET 画像与 M4c 提交时完全一致。
+>   3. **三半区证据——两绿一挂账**：.NET 半区 Core Debug 全量 3513/3513、ProjectTests 全量见下证据行；compat 半区 ClosedTypeMetadataTest 24/24、全量 1657/0；**下游半区（dotnet-text-json，§8.3）本机不可达，沿用 M1 强制门遗留挂账——不阻塞本仓默认开口径，但列为 M5 启动前置**。
+>   4. **零 ThreadLocal——满足**：见上，8 线程并发直接证据。
+>   5. **residual 闸门——满足**：§5.4 六规则全部在役（M3 内容扫描规则 2/5 + M4c 重编译扫描规则 1/3/4/6）；fixture 真实汇总 `0 residuals`；CS2J1201/1204/1210 白名单站点全部 triage 有主，skip/force overrides 为带外分流出口。
+>   6. **转换器协同（D2）——最小 STJ 面已端到端证实**：fixture 4 个 JVM 运行时测全绿，意味着生成 Java 中闭型 typeof 树已构造为 `java.lang.reflect.Type` 并注册/解析成功；通用反射面与 FieldTransformer fail-fast 盘点未做，随 M5/A2 立档。
+>   7. **文档——满足（本仓部分）**：本设计 M4a–M4d 注记齐备；compat `registerClosedType/resolveClosedType/clearClosedTypes` javadoc 已在 M3 冻结；下游对接说明待下游环境可达时补（挂账）。
+>   8. **性能基准（§11 风险 3）——未达标，显式挂账**：本次并发压测仅证正确性，未产出吞吐回退/缓存命中率/启动注册开销数字。sdk 规模测量需先恢复 sdk 快照（5 处无关破损）后在同一基线进行；若大程序反馈启动回退，按 §9 预案改首次消费懒注册并重测。
+> - **结论**：正确性门槛（1/2/4/5/6/7）全部满足，pass 维持默认开；两项环境性挂账（下游半区回归、sdk 基线性能基准）显式记账、不回滚开关。M5（A2 动态闭型调用点内联 token 原型、旧 ThreadLocal API 逐级退役）待挂账环境具备后启动。
+> - 证据：JDK 28-ea `mvn -Dtest=ClosedTypeMetadataTest test` 24/24；`mvn test` 全量 1657 通过 / 0 失败 / BUILD SUCCESS；Core 全量 trx `cs2j-m4d-core-all.trx`（3513/3513）；ProjectTests 全量 trx `cs2j-m4d-proj-all.trx`（结果见提交说明）；本次改动仅 compat 一个测试文件（+import 与 1 个并发压测），无生产代码改动。
 
 ### 10.1 M1 下游核实清单（强制门的具体动作）
 

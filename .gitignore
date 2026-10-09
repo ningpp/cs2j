@@ -113,3 +113,6 @@ probe-out/
 snapshots/
 probe/
 triage-*.json
+
+.tmp-*/
+.tmp_*/
