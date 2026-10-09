@@ -288,9 +288,39 @@ public sealed class GenericDeepenAnalyzer
             Catches = _catches,
             StaticFields = _staticFields,
             StaticMethods = _staticMethods,
-            Diagnostics = _diagnostics,
+            Diagnostics = EscalateDiagnostics(_diagnostics, _options),
             Statistics = _analysisStats,
         };
+    }
+
+    /// <summary>
+    /// Strict escalation (spec §6): every Warning becomes Error; the expression-tree
+    /// CS2J1110 trace is Info→Warning under Skip policy (Warning→Error under the
+    /// Error policy). GD001 Info details stay Info.
+    /// </summary>
+    private static List<GenericDeepenDiagnostic> EscalateDiagnostics(
+        List<GenericDeepenDiagnostic> diagnostics,
+        GenericDeepenOptions options)
+    {
+        if (!options.Strict)
+        {
+            return diagnostics;
+        }
+
+        var escalated = new List<GenericDeepenDiagnostic>(diagnostics.Count);
+        foreach (var diagnostic in diagnostics)
+        {
+            var severity = diagnostic.Severity switch
+            {
+                GenericDeepenSeverity.Warning => GenericDeepenSeverity.Error,
+                GenericDeepenSeverity.Info when diagnostic.Code == GenericDeepenCodes.ExpressionTreeSite =>
+                    GenericDeepenSeverity.Warning,
+                _ => diagnostic.Severity,
+            };
+            escalated.Add(severity == diagnostic.Severity ? diagnostic : diagnostic with { Severity = severity });
+        }
+
+        return escalated;
     }
 
     // ---- GD-FIELD: static generic fields ----

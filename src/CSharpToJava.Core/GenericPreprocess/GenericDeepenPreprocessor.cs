@@ -139,6 +139,49 @@ public sealed class GenericDeepenPreprocessor
         diagnostics.AddRange(_analysis.Diagnostics.Where(d => d.FilePath == filePath));
     }
 
+    /// <summary>
+    /// Runs the §4.5 residual gate against the rewritten, recompiled tree set.
+    /// Overrides are loaded from <see cref="GenericDeepenOptions.OverridesPath"/>;
+    /// a malformed/unreadable file degrades to a CS2J1120 Warning and runs the gate
+    /// without overrides (same convention as the closed-metadata gate).
+    /// </summary>
+    public GenericDeepenResidualReport ResidualScan(Compilation rewritten)
+    {
+        if (!_options.RunResidualScan)
+        {
+            return GenericDeepenResidualReport.Empty;
+        }
+
+        GenericDeepenOverrides? overrides = null;
+        var loadDiagnostics = new List<GenericDeepenDiagnostic>();
+        if (!string.IsNullOrEmpty(_options.OverridesPath))
+        {
+            try
+            {
+                overrides = GenericDeepenOverrides.Load(_options.OverridesPath);
+            }
+            catch (Exception ex) when (ex is GenericDeepenOverridesException or IOException or System.Text.Json.JsonException)
+            {
+                loadDiagnostics.Add(new GenericDeepenDiagnostic(
+                    GenericDeepenSeverity.Warning, GenericDeepenRule.Residual, GenericDeepenCodes.ResidualFound,
+                    $"Failed to load generic-deepen overrides from {_options.OverridesPath}: {ex.Message}; "
+                    + "running the residual gate without overrides.",
+                    _options.OverridesPath));
+            }
+        }
+
+        var report = GenericDeepenResidualScanner.Scan(rewritten, _analysis, _options, overrides);
+        if (loadDiagnostics.Count == 0)
+        {
+            return report;
+        }
+
+        return report with
+        {
+            Diagnostics = loadDiagnostics.Concat(report.Diagnostics).ToList(),
+        };
+    }
+
     private static string TryFormat(SyntaxNode root)
     {
         try

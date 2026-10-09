@@ -104,14 +104,15 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
     private ExpressionSyntax BuildFieldAccess(StaticFieldUsagePlan usage)
     {
         _stats.StaticFieldAccessesRewritten++;
-        return SyntaxFactory.ParseExpression($"{HolderReference(usage.Plan)}__cs2j_get_{usage.Plan.FieldName}<{TypeArgs(usage)}>({Tokens(usage)})");
+        return SyntaxFactory.ParseExpression(
+            $"{HolderReference(usage.Plan)}{GenericDeepenSyntaxFacts.HolderGetAccessorPrefix}{usage.Plan.FieldName}<{TypeArgs(usage)}>({Tokens(usage)})");
     }
 
     private ExpressionSyntax BuildFieldSetter(StaticFieldUsagePlan usage, ExpressionSyntax right)
     {
         _stats.StaticFieldAccessesRewritten++;
         return SyntaxFactory.ParseExpression(
-            $"{HolderReference(usage.Plan)}__cs2j_set_{usage.Plan.FieldName}<{TypeArgs(usage)}>({Tokens(usage)}, {right})");
+            $"{HolderReference(usage.Plan)}{GenericDeepenSyntaxFacts.HolderSetAccessorPrefix}{usage.Plan.FieldName}<{TypeArgs(usage)}>({Tokens(usage)}, {right})");
     }
 
     private static string HolderReference(StaticFieldPlan plan)
