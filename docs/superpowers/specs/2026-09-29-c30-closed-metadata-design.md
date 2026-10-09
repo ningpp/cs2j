@@ -462,7 +462,7 @@ CatalogItems                = "C30"
 | M4（路线 A） | ConsumptionLinker 消费面接线（D8 一期六点）+ residual 闸门 + strict/overrides + nullable/数组/元组规则补齐 + 并发压测；下游半区回归 | 候选默认开评审 |
 | M5（路线 A） | 过 §9 门槛翻默认开；A2 调用点内联 token 原型（动态闭型）立档；登记转换器侧后续 PR 与 compat 旧 ThreadLocal API 退役顺序（仿 0922 §4 逐级退役，每级全量回归） | 默认开 |
 
-> **落地注记（2026-10-09，M4 拆分为 M4a…M4d）——M4a 枚举器扩展已落地（default-off 不变）**
+> **落地注记（2026-10-09，M4 拆分为 M4a…M4d）——M4a 枚举器扩展已落地（pass 自 M2' 起 catalog default-enabled，经 generic-deepen 同批链启用）**
 >
 > - **CM-ENUM-3 实际口径（对 §3.4 预登记的收敛）**：只枚举语义模型直接绑定的 `JsonSerializer.Serialize/SerializeAsync/Deserialize/DeserializeAsync<T>` 与 `JsonSerializerOptions.GetTypeInfo<T>` 调用点，注册其**泛型实参本身及递归嵌套层**（`VisitSiteType` 既有递归）；非泛型（运行时 `Type` 实参）形态天然动态、不枚举。**未实现** §3.4 预登记的"经调用图闭包传播到具体实参（复用 GD-NEST 不动点）"——当前调用点符号已给出最终构造类型，传播无额外收益；若 M4c fixture 出现需跨方法推断的真实缺口再单独立项。含未绑定类型参数的调用点报 CS2J1210。
 > - **CM-ENUM-4 实际口径（对 §3.4 预登记的收敛）**：枚举每个源类型的 `BaseType`（跳过 System.Object）与 `Interfaces` 中的闭型构造及嵌套层。`JsonConverter<T>` 族经基类构造本身捕获；§3.4 预登记的"override/接口实现成员签名族内传播"由 CM-ENUM-1 成员遍历 + 全局键去重自然覆盖（成员只在声明类型上枚举一次），不另建族工作表。
@@ -470,6 +470,15 @@ CatalogItems                = "C30"
 > - **D6 所有权细化**：注册文件归属取闭型自身的源声明位置（`INamedTypeSymbol.Locations`，internal 可见性下只有声明项目能编译 `typeof(X<...>)`）；框架/元数据类型无源位置时回退发现站点文件。fixture 中 `Bag<string>` 经 App/Tests 调用点发现仍归 Lib。
 > - **统计修正**：`Registered = 去重后记录数`，`Deduplicated = 站点命中数 - 记录数`（M3 口径混同）。
 > - 证据：闭元相关测试 30/30（含 9 个 M4a 新测）；Core Debug 全量 3488 通过 / 3 既有跳过 / 0 失败；fixture E2E `ClosedMetadataProjectTests` 1/1（中间树 verify build + verify tests 全绿）。消费守卫/重写接线（M4b）、residual 扩展/overrides（M4c）、并发压测/门槛评审（M4d）随后续提交。
+>
+> **落地注记（2026-10-09，M4b ConsumptionLinker 消费守卫已落地）**
+>
+> - **CM-LINK 口径（一期 D8）**：消费面 = `JsonSerializer` 四方法 + `JsonSerializerOptions.GetTypeInfo`（与 CM-ENUM-3 共用同一谓词 `ClosedMetadataCollector.IsSerializerEntry`，杜绝枚举/接线漂移）。每个具体泛型实参调用点在其**最近语句**前插入 `global::__Cs2jClosedTypes_<Owner>.__cs2j_register_closed_types();`；同语句多个调用（嵌套 `Deserialize(Serialize(...))`）合并为一条守卫；block/switch/top-level 列表原地展开，嵌入式语句位（if/while/for 体等）包成新块。
+> - **可达性自限（保证中间树必编译）**：用户声明类型（非泛型 DTO / 用户闭型构造）→ 守卫指向其声明项目 holder（调用点能写出该类型即必有项目引用）；框架闭型（如 `List<int>`，记录可能被无引用关系的他项目 ENUM-1 先占）→ 仅当指向消费者自身 holder 时插入；不可达站点与无语句形态（表达式体成员、字段/属性初始化器、ctor 初始化器）不插入，留 M4c residual §5.4 规则 4 盘点。
+> - **holder 形态变更**：`internal` → `public`（跨程序集守卫调用，D6 经项目引用触达）；类名经项目名净化（`[^A-Za-z0-9_]→_`，前导数字补 `_`），linker 与 generator 共用 `HolderTypeName`；bootstrap 加 `__cs2j_bootstrapped` 加锁双检，重复/并发入口注册序列至多执行一次。
+> - **适配器**：resolver 由文件路径向上找最近 `*.csproj`（目录级缓存）映射 holder；`RewriteFileAsync` 正式接线（此前恒 null 字节复制），统计 `ConsumerSitesLinked` 进汇总行。
+> - **口径订正**：catalog 实证 closed-metadata 自 M2' 起即 `defaultEnabled: true`（随 generic-deepen 同批锁定链启用），此前 M4a 注记"default-off"措辞有误，已订正；§9 门槛评审因此在 M4d 按"已默认开"口径复盘而非翻转评审。
+> - 证据：闭元相关测试 38/38（M4b 新增 8 个 CM-LINK 单测含改写后独立编译）；Core Debug 全量 3496 通过 / 3 既有跳过 / 0 失败；fixture E2E 1/1（Program.cs 4 条、RuntimeBehaviorTests.cs 6 条守卫，中间树 Release verify build + 3 运行时测全绿，App/Tests 仍无注册文件）；slnx Release build 0 错误。residual 扩展/overrides（M4c）、并发压测/门槛评审（M4d）随后续提交。
 
 ### 10.1 M1 下游核实清单（强制门的具体动作）
 

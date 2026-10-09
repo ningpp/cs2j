@@ -7,11 +7,13 @@ using Microsoft.CodeAnalysis.CSharp;
 namespace CSharpToJava.CLI.Preprocessing.Adapters;
 
 /// <summary>
-/// Adapter for the closed-metadata (C30) pass. M3 (design §10): the collector fills
-/// the closed-type record set, the registration generator emits one
+/// Adapter for the closed-metadata (C30) pass. The collector fills the closed-type
+/// record set, the registration generator emits one
 /// <c>_Cs2jClosedTypes.&lt;ProjectName&gt;.cs</c> per owning project (A1 declaration-driven
-/// bootstrap) distributed like the generic-deepen holders, and the minimal residual
-/// gate runs. Per-file rewrites stay a clean byte-level copy (consumer linking is M4).
+/// bootstrap) distributed like the generic-deepen holders, and the residual gate
+/// runs. M4b: per-file rewrites insert the idempotent CM-LINK bootstrap guards at D8
+/// serializer entry statements; files without a servable site stay a clean
+/// byte-level copy.
 /// </summary>
 internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
 {
@@ -113,6 +115,7 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
         }
 
         _preprocessor.BindCompilation(compilation);
+        _preprocessor.HolderNameResolver = ResolveHolderName;
         _preprocessor.Analyze(_options);
         _statistics.Merge(_preprocessor.Analysis.Statistics);
         if (_verbose)
@@ -127,14 +130,84 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
 
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
     {
-        // M3: zero rewrites — the runner performs the clean byte-level copy for every
-        // file (BOM and line endings preserved verbatim). Consumer linking is M4.
-        if (_verbose)
+        if (context.SemanticModel is null)
         {
-            Console.WriteLine($"[closed-metadata] clean (copy): {context.RelativePath}");
+            if (_verbose)
+            {
+                Console.WriteLine($"[closed-metadata] clean (copy): {context.RelativePath}");
+            }
+
+            return Task.FromResult<PassFileRewrite?>(null);
         }
 
-        return Task.FromResult<PassFileRewrite?>(null);
+        // CM-LINK (M4b): insert the idempotent bootstrap guards in front of D8
+        // serializer entry statements; files without a servable site stay a clean
+        // byte-level copy (BOM and line endings preserved verbatim).
+        var selfHolderName = ResolveHolderName(context.SourceFilePath);
+        var result = _preprocessor.RewriteFile(context.SemanticModel, selfHolderName);
+        if (result is null || !result.Changed)
+        {
+            if (_verbose)
+            {
+                Console.WriteLine($"[closed-metadata] clean (copy): {context.RelativePath}");
+            }
+
+            return Task.FromResult<PassFileRewrite?>(null);
+        }
+
+        _statistics.Merge(result.Statistics);
+        foreach (var diagnostic in result.Diagnostics)
+        {
+            _diagnostics.Add(diagnostic with { FilePath = context.RelativePath });
+        }
+
+        if (_verbose)
+        {
+            Console.WriteLine(
+                $"[closed-metadata] linked {result.Statistics.ConsumerSitesLinked} consumer site(s): {context.RelativePath}");
+        }
+
+        return Task.FromResult<PassFileRewrite?>(new PassFileRewrite { OutputCode = result.OutputCode, Changed = true });
+    }
+
+    /// <summary>
+    /// Maps a source file to its owning project's generated holder type name by
+    /// walking up to the nearest <c>*.csproj</c>. The spine compilation parses source
+    /// trees from the source root, so record ownership paths resolve directly there;
+    /// the source and intermediate trees share the same project directory layout.
+    /// Unmapped paths (no project on disk) resolve to null and simply stay unguarded.
+    /// </summary>
+    private readonly Dictionary<string, string?> _holderByDirectory = new(StringComparer.OrdinalIgnoreCase);
+
+    private string? ResolveHolderName(string? filePath)
+    {
+        if (string.IsNullOrEmpty(filePath))
+        {
+            return null;
+        }
+
+        var directory = Path.GetDirectoryName(Path.GetFullPath(filePath));
+        while (directory is not null)
+        {
+            if (_holderByDirectory.TryGetValue(directory, out var cached))
+            {
+                return cached;
+            }
+
+            var projectFile = Directory.EnumerateFiles(directory, "*.csproj").FirstOrDefault();
+            if (projectFile is not null)
+            {
+                var holder = ClosedMetadataRegistrationGenerator.HolderTypeName(
+                    Path.GetFileNameWithoutExtension(projectFile));
+                _holderByDirectory[directory] = holder;
+                return holder;
+            }
+
+            _holderByDirectory[directory] = null;
+            directory = Path.GetDirectoryName(directory);
+        }
+
+        return null;
     }
 
     public override Task AfterFilesAsync(PassTreeContext tree)

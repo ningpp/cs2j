@@ -7,11 +7,13 @@ namespace CSharpToJava.Core.ClosedMetadata;
 /// once, analyze the closed-type registration plan, rewrite file trees, expose
 /// generated files and the residual gate (design §5.3 three-phase data flow).
 ///
-/// M3 scope (design §10): the CM-ENUM collector fills the registration record set,
-/// the registration generator emits one <c>_Cs2jClosedTypes.&lt;ProjectName&gt;.cs</c> per
+/// M3 scope: the CM-ENUM collector fills the registration record set, the
+/// registration generator emits one <c>_Cs2jClosedTypes.&lt;ProjectName&gt;.cs</c> per
 /// owning project (A1 declaration-driven bootstrap, D6) and the residual gate covers
-/// the minimal M3 rules. Per-file rewrites stay a clean byte copy (null result) — the
-/// consumer linker and the typeof-site rewrites land with M4.
+/// the minimal M3 rules. M4b adds the CM-LINK consumer linker: when a holder-name
+/// resolver is wired (CLI adapter), <see cref="RewriteFile"/> inserts idempotent
+/// bootstrap guards at D8 serializer entry sites; with no resolver every file stays a
+/// clean byte-level copy.
 /// </summary>
 public sealed class ClosedMetadataPreprocessor
 {
@@ -21,6 +23,12 @@ public sealed class ClosedMetadataPreprocessor
     private IReadOnlyList<ClosedMetadataGeneratedFile> _generatedFiles = Array.Empty<ClosedMetadataGeneratedFile>();
 
     public ClosedMetadataAnalysis Analysis => _analysis;
+
+    /// <summary>
+    /// Maps a record ownership file to its project's holder type name (CM-LINK).
+    /// When unset, <see cref="RewriteFile"/> performs no consumer linking.
+    /// </summary>
+    public Func<string, string?>? HolderNameResolver { get; set; }
 
     public void BindCompilation(Compilation compilation) => _compilation = compilation;
 
@@ -35,14 +43,24 @@ public sealed class ClosedMetadataPreprocessor
     }
 
     /// <summary>
-    /// Rewrite the syntax tree backing <paramref name="model"/>. M3: always returns null
-    /// so the runner keeps the file as a clean byte-level copy (consumer-side rewrites
-    /// are M4 work).
+    /// Rewrite the syntax tree backing <paramref name="model"/> by inserting bootstrap
+    /// guards in front of D8 serializer entry statements (CM-LINK, M4b). Returns null
+    /// when the file is a clean copy (no resolver wired, no servable consumer site, or
+    /// an empty registration set). <paramref name="selfHolderName"/> is the rewritten
+    /// file's own project holder (null when it cannot be determined); framework-only
+    /// closures are self-guarded rather than cross-referenced without a guaranteed
+    /// project reference.
     /// </summary>
-    public ClosedMetadataFileResult? RewriteFile(SemanticModel model)
+    public ClosedMetadataFileResult? RewriteFile(SemanticModel model, string? selfHolderName = null)
     {
         ArgumentNullException.ThrowIfNull(_compilation);
-        return null;
+        if (HolderNameResolver is null || _analysis.ClosedTypes.Count == 0)
+        {
+            return null;
+        }
+
+        var linker = new ClosedMetadataConsumptionLinker(_analysis, HolderNameResolver, selfHolderName);
+        return linker.LinkFile(model);
     }
 
     /// <summary>

@@ -111,6 +111,26 @@ public class ClosedMetadataProjectTests
             var libCsprojText = await File.ReadAllTextAsync(Path.Combine(
                 closedRoot, "SampleClosedMetadataLib", "SampleClosedMetadataLib.csproj"));
             Assert.Contains("_Cs2jClosedTypes.SampleClosedMetadataLib.cs", libCsprojText);
+
+            // CM-LINK (M4b): D8 serializer entry statements in the consumer projects
+            // invoke the Lib holder's idempotent bootstrap before the call. The App
+            // owns no records and still gets no registration file — it reaches the
+            // holder through its project reference (holder is public).
+            const string libGuard =
+                "global::__Cs2jClosedTypes_SampleClosedMetadataLib.__cs2j_register_closed_types();";
+            var programText = await File.ReadAllTextAsync(
+                Path.Combine(closedRoot, "SampleClosedMetadataApp", "Program.cs"));
+            // Four serializer call statements (the two nested Deserialize(Serialize(...))
+            // expressions share one enclosing statement → one guard each).
+            Assert.Equal(4, CountOccurrences(programText, libGuard));
+
+            var behaviorTestsText = await File.ReadAllTextAsync(
+                Path.Combine(closedRoot, "SampleClosedMetadataTests", "RuntimeBehaviorTests.cs"));
+            // Three facts × two serializer statements each.
+            Assert.Equal(6, CountOccurrences(behaviorTestsText, libGuard));
+
+            // The bootstrap itself is idempotent: lock double-check flag in the holder.
+            Assert.Contains("private static bool __cs2j_bootstrapped;", libRegistrationText);
         }
         finally
         {

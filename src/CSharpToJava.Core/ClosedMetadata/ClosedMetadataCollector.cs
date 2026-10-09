@@ -271,7 +271,12 @@ public sealed class ClosedMetadataCollector
         }
     }
 
-    private static bool IsSerializerEntry(IMethodSymbol method)
+    /// <summary>
+    /// D8 phase-1 consumer surface: the JsonSerializer static entry family plus
+    /// JsonSerializerOptions.GetTypeInfo. Shared by CM-ENUM-3 (enumeration) and the
+    /// CM-LINK consumer linker (guard insertion) so the two never drift apart.
+    /// </summary>
+    internal static bool IsSerializerEntry(IMethodSymbol method)
     {
         var containing = method.ContainingType?.ToDisplayString();
         if (containing == JsonSerializerFullName)

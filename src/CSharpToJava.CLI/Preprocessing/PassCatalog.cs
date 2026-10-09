@@ -325,18 +325,18 @@ internal static class PassCatalog
             Adapters.ClosedMetadataPassAdapter.IntermediateDirectoryName,
             PassStage.Abi,
             PassStatus.Implemented,
-            // C30 M2' skeleton: no-op by design (analyze produces an empty
-            // registration plan, every file stays a byte copy); the collector/
-            // generator land in M3. Default-enabled per the all-on policy.
-            // Declared before variance-audit so the Kahn declaration-order
-            // tiebreak keeps the locked slot generic-deepen -> closed-metadata.
+            // C30 route A: M2' skeleton → M3 collector/generator/distribution →
+            // M4a CM-ENUM-3/4 + CM-SRCGEN → M4b CM-LINK bootstrap guards at D8
+            // serializer entry sites (default-on; hard chain on generic-deepen,
+            // CS2J1205). Declared before variance-audit so the Kahn declaration-
+            // order tiebreak keeps the locked slot generic-deepen -> closed-metadata.
             defaultEnabled: true,
             runAfterIds: new[] { PassIds.GenericDeepen },
             supportLibrary: PassSupportLibrary.None,
             needsSemanticModel: true,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Register closed generic types as explicit System.Type construction trees consumed by the Java reflection side (M2' skeleton: zero rewrites pending the M3 collector/generator).",
+            description: "Register closed generic types as explicit System.Type construction trees consumed by the Java reflection side, and link idempotent bootstrap guards at System.Text.Json serializer entry call sites.",
             catalogItems: "C30"),
         new(
             PassIds.VarianceAudit,
