@@ -93,5 +93,30 @@ internal static class Program
         Console.WriteLine("repeat-final:" + repeated.GuardFinally);
 
         WriteObjects("mixed", source.Mixed());
+
+        // C04 M3：using 块/声明/嵌套 LIFO，提前 Dispose 恰好一次。
+        var usingFull = new CountingResource();
+        var usingFullSource = new SequenceSource();
+        WriteInts("usingfull", usingFullSource.UsingBlock(usingFull));
+        Console.WriteLine("usingfull-disp:" + usingFull.DisposeCount);
+
+        var usingEarly = new CountingResource();
+        var usingEarlySource = new SequenceSource();
+        var usingEarlyEnum = usingEarlySource.UsingBlock(usingEarly).GetEnumerator();
+        usingEarlyEnum.MoveNext();
+        ((IDisposable)usingEarlyEnum).Dispose();
+        Console.WriteLine("usingearly-disp:" + usingEarly.DisposeCount);
+
+        var usingDecl = new CountingResource();
+        var usingDeclSource = new SequenceSource();
+        WriteInts("usingdecl", usingDeclSource.UsingDeclaration(usingDecl));
+
+        var lifoLog = new List<string>();
+        var lifoSource = new SequenceSource();
+        WriteInts("usinglifo", lifoSource.UsingLifo(lifoLog));
+        Console.WriteLine("usinglifo-order:" + string.Concat(lifoLog));
+
+        // lock 内 yield：单线程输出序列正确（持锁时序由库测试断言）。
+        WriteInts("locked", new SequenceSource().Locked(new object()));
     }
 }

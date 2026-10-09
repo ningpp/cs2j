@@ -31,6 +31,68 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
     }
 
     /**
+     * C# {@code new List<T>(T[] values)}: a C# array implements {@code IEnumerable<T>},
+     * so the collection-constructor overload accepts it; a Java reference array is not
+     * a {@link Collection}, so it needs its own constructor.
+     */
+    public CSharpList(T[] values) {
+        super(Math.max(values.length, 0));
+        Collections.addAll(this, values);
+    }
+
+    // C# `new List<int>(int[])` and friends: primitive arrays implement IEnumerable<T>
+    // on the CLR but Java primitive arrays implement neither Collection nor Iterable,
+    // so each primitive domain needs an explicit boxing constructor.
+
+    @SuppressWarnings("unchecked")
+    public CSharpList(int[] values) {
+        super(Math.max(values.length, 0));
+        for (int value : values) add((T) Integer.valueOf(value));
+    }
+
+    @SuppressWarnings("unchecked")
+    public CSharpList(long[] values) {
+        super(Math.max(values.length, 0));
+        for (long value : values) add((T) Long.valueOf(value));
+    }
+
+    @SuppressWarnings("unchecked")
+    public CSharpList(short[] values) {
+        super(Math.max(values.length, 0));
+        for (short value : values) add((T) Short.valueOf(value));
+    }
+
+    @SuppressWarnings("unchecked")
+    public CSharpList(byte[] values) {
+        super(Math.max(values.length, 0));
+        for (byte value : values) add((T) Byte.valueOf(value));
+    }
+
+    @SuppressWarnings("unchecked")
+    public CSharpList(char[] values) {
+        super(Math.max(values.length, 0));
+        for (char value : values) add((T) Character.valueOf(value));
+    }
+
+    @SuppressWarnings("unchecked")
+    public CSharpList(float[] values) {
+        super(Math.max(values.length, 0));
+        for (float value : values) add((T) Float.valueOf(value));
+    }
+
+    @SuppressWarnings("unchecked")
+    public CSharpList(double[] values) {
+        super(Math.max(values.length, 0));
+        for (double value : values) add((T) Double.valueOf(value));
+    }
+
+    @SuppressWarnings("unchecked")
+    public CSharpList(boolean[] values) {
+        super(Math.max(values.length, 0));
+        for (boolean value : values) add((T) Boolean.valueOf(value));
+    }
+
+    /**
      * C# List&lt;T&gt;[index] throws ArgumentOutOfRangeException on out-of-bounds
      * access, whereas Java's ArrayList.get(index) throws IndexOutOfBoundsException.
      * Override to preserve the C# exception type so tests expecting

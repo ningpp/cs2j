@@ -24,6 +24,11 @@ public class CSharpArrayList implements CSharpIList, Cloneable {
     public CSharpArrayList() { this.list = new ArrayList<>(); }
     public CSharpArrayList(int capacity) { this.list = new ArrayList<>(capacity); }
     public CSharpArrayList(Collection<?> c) { this.list = new ArrayList<>(c); }
+    /** C# {@code new ArrayList(object[])}: a C# array is IEnumerable; Java arrays are not Collection. */
+    public CSharpArrayList(Object[] values) {
+        this.list = new ArrayList<>(Math.max(values.length, 0));
+        Collections.addAll(this.list, values);
+    }
     public CSharpArrayList(CSharpCollection c) {
         this.list = new ArrayList<>();
         var en = c.iterator();

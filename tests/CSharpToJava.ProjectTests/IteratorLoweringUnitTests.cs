@@ -1128,6 +1128,368 @@ class C {
         Assert.Contains("Cs2jIterator_M_02", output);
     }
 
+    // ── Task 6 (M3): using 归一（语句/声明/多资源/pattern/值类型/null） ──
+
+    private const string M3ResourceTypes = @"
+public sealed class CountingDisposable : System.IDisposable
+{
+    public int DisposeCount;
+    public void Dispose() { DisposeCount++; }
+}
+
+public sealed class OrderEntry
+{
+    public System.Collections.Generic.List<string> Log;
+    private readonly string _name;
+    public OrderEntry(string name, System.Collections.Generic.List<string> log) { _name = name; Log = log; }
+    public void Dispose() { Log.Add(_name); }
+}
+
+public sealed class PatternResource
+{
+    public int DisposeCount;
+    public void Dispose() { DisposeCount++; }
+}
+
+public struct StructResource : System.IDisposable
+{
+    public static int DisposeCount;
+    public void Dispose() { DisposeCount++; }
+}
+";
+
+    [Fact]
+    public void M3_UsingStatement_HasZeroCompileDiagnostics_AndTracksRegion()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(CountingDisposable r) {
+        using (r) {
+            yield return 1;
+            yield return 2;
+        }
+    }
+}" + M3ResourceTypes;
+        var (output, stats, diags) = Rewrite(src);
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        AssertOutputCompilesZeroDiagnostics(output);
+        Assert.Equal(1, stats.UsingRegionsNormalized);
+        Assert.Equal(1, stats.UsingResourcesHoisted);
+        // using 已归一：输出树不再含 using/yield 令牌，释放走 IDisposable.Dispose，
+        // 迭代器被状态机化（非原生 yield 假绿）。
+        Assert.DoesNotContain("using (", output);
+        Assert.DoesNotContain("yield", output);
+        Assert.Contains("Cs2jIterator", output);
+        Assert.Contains("System.IDisposable", output);
+        Assert.Contains(".Dispose()", output);
+    }
+
+    [Fact]
+    public void M3_UsingStatement_DisposesExactlyOnce_OnFullEnumeration()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(CountingDisposable r) {
+        using (r) {
+            yield return 1;
+            yield return 2;
+        }
+    }
+}" + M3ResourceTypes;
+        var asm = LoadRewritten(src);
+        var c = NewC(asm);
+        var resourceType = asm.GetType("CountingDisposable")!;
+        var resource = Activator.CreateInstance(resourceType)!;
+        var (values, disposable) = EnumerateFully(asm, c, "M", resource);
+        Assert.Equal(new object[] { 1, 2 }, values);
+        Assert.Equal(1, (int)resourceType.GetField("DisposeCount")!.GetValue(resource)!);
+        disposable.Dispose();
+        Assert.Equal(1, (int)resourceType.GetField("DisposeCount")!.GetValue(resource)!);
+    }
+
+    [Fact]
+    public void M3_UsingStatement_EarlyDispose_RunsFinallyExactlyOnce()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(CountingDisposable r) {
+        using (r) {
+            yield return 1;
+            yield return 2;
+            yield return 3;
+        }
+    }
+}" + M3ResourceTypes;
+        var asm = LoadRewritten(src);
+        var c = NewC(asm);
+        var resourceType = asm.GetType("CountingDisposable")!;
+        var resource = Activator.CreateInstance(resourceType)!;
+        var enumerator = ((IEnumerable)Invoke(asm, c, "M", null, resource)!).GetEnumerator();
+        Assert.True(enumerator.MoveNext());
+        Assert.Equal(0, (int)resourceType.GetField("DisposeCount")!.GetValue(resource)!);
+        ((IDisposable)enumerator).Dispose();
+        Assert.Equal(1, (int)resourceType.GetField("DisposeCount")!.GetValue(resource)!);
+        ((IDisposable)enumerator).Dispose();
+        Assert.Equal(1, (int)resourceType.GetField("DisposeCount")!.GetValue(resource)!);
+    }
+
+    [Fact]
+    public void M3_UsingDeclaration_ExtendsToBlockEnd_AndDisposes()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(CountingDisposable r) {
+        using var resource = r;
+        yield return 1;
+        yield return 2;
+    }
+}" + M3ResourceTypes;
+        var (output, stats, diags) = Rewrite(src);
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        AssertOutputCompilesZeroDiagnostics(output);
+        Assert.Equal(1, stats.UsingRegionsNormalized);
+
+        var asm = LoadRewritten(src);
+        var c = NewC(asm);
+        var resourceType = asm.GetType("CountingDisposable")!;
+        var resource = Activator.CreateInstance(resourceType)!;
+        var (_, disposable) = EnumerateFully(asm, c, "M", resource);
+        Assert.Equal(1, (int)resourceType.GetField("DisposeCount")!.GetValue(resource)!);
+        disposable.Dispose();
+        Assert.Equal(1, (int)resourceType.GetField("DisposeCount")!.GetValue(resource)!);
+    }
+
+    [Fact]
+    public void M3_NestedUsing_DisposesInLifoOrder()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(List<string> log) {
+        using (new OrderEntry(""a"", log)) {
+            using (new OrderEntry(""b"", log)) {
+                yield return 1;
+            }
+        }
+    }
+}" + M3ResourceTypes;
+        // 表达式资源（new）被提为合成临时变量。
+        var (output, stats, diags) = Rewrite(src);
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        AssertOutputCompilesZeroDiagnostics(output);
+        Assert.Equal(2, stats.UsingRegionsNormalized);
+        Assert.Equal(2, stats.UsingResourcesHoisted);
+
+        var asm = LoadRewritten(src);
+        var c = NewC(asm);
+        var log = new List<string>();
+        EnumerateFully(asm, c, "M", log);
+        Assert.Equal(new[] { "b", "a" }, log.ToArray());
+    }
+
+    [Fact]
+    public void M3_NullResource_DoesNotThrow()
+    {
+        var src = @"
+using System;
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M() {
+        using (default(IDisposable)) {
+            yield return 1;
+        }
+        yield return 2;
+    }
+}";
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        AssertOutputCompilesZeroDiagnostics(output);
+        var (values, _) = EnumerateFully(LoadRewritten(src), "M");
+        Assert.Equal(new object[] { 1, 2 }, values);
+    }
+
+    [Fact]
+    public void M3_PatternBasedDispose_ClassWithoutInterface_CallsDirectly()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(PatternResource r) {
+        using (r) {
+            yield return 1;
+        }
+    }
+}" + M3ResourceTypes;
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        AssertOutputCompilesZeroDiagnostics(output);
+        // pattern 路径不应强转 IDisposable，但保留 null 守卫。
+        Assert.DoesNotContain("((System.IDisposable)", output);
+        Assert.Contains("r.Dispose()", output);
+
+        var asm = LoadRewritten(src);
+        var c = NewC(asm);
+        var resourceType = asm.GetType("PatternResource")!;
+        var resource = Activator.CreateInstance(resourceType)!;
+        EnumerateFully(asm, c, "M", resource);
+        Assert.Equal(1, (int)resourceType.GetField("DisposeCount")!.GetValue(resource)!);
+    }
+
+    [Fact]
+    public void M3_ValueTypeResource_DisposesWithoutNullGuard()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M() {
+        using (var r = new StructResource()) {
+            yield return 1;
+        }
+    }
+}" + M3ResourceTypes;
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        AssertOutputCompilesZeroDiagnostics(output);
+        // 值类型：无 null 守卫、直接 Dispose（constrained，不装箱）。
+        Assert.DoesNotContain("!= null", output);
+        Assert.DoesNotContain("(System.IDisposable)", output);
+
+        var asm = LoadRewritten(src);
+        var staticCount = asm.GetType("StructResource")!
+            .GetField("DisposeCount", BindingFlags.Public | BindingFlags.Static)!;
+        Assert.Equal(0, (int)staticCount.GetValue(null)!);
+        EnumerateFully(asm, "M");
+        Assert.Equal(1, (int)staticCount.GetValue(null)!);
+    }
+
+    // ── Task 7 (M3): lock 内 yield（.NET 半区 Monitor 时序） ──
+
+    [Fact]
+    public void M3_LockStatement_EmitsCanonicalMonitorForm_AndCompiles()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(object gate) {
+        lock (gate) {
+            yield return 1;
+            yield return 2;
+        }
+    }
+}";
+        var (output, stats, diags) = Rewrite(src);
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        AssertOutputCompilesZeroDiagnostics(output);
+        Assert.Equal(1, stats.LocksNormalized);
+        Assert.Contains("System.Threading.Monitor.Enter", output);
+        Assert.Contains("System.Threading.Monitor.Exit", output);
+        Assert.DoesNotContain("yield", output);
+        Assert.Contains("Cs2jIterator", output);
+    }
+
+    [Fact]
+    public void M3_Lock_HeldAcrossYields_AndReleasedOnCompletion()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(object gate) {
+        lock (gate) {
+            yield return 1;
+            yield return 2;
+        }
+    }
+}";
+        var asm = LoadRewritten(src);
+        var c = NewC(asm);
+        var gate = new object();
+        var enumerator = ((IEnumerable)Invoke(asm, c, "M", null, gate)!).GetEnumerator();
+
+        Assert.True(enumerator.MoveNext());
+        // Monitor 是递归锁：同线程 TryEnter 永远成功，必须跨线程观测，
+        // 并用同线程 IsEntered 佐证锁确实被状态机持有。
+        Assert.True(System.Threading.Monitor.IsEntered(gate));
+        Assert.False(TryEnterFromOtherThread(gate));
+        Assert.True(enumerator.MoveNext());
+        Assert.True(System.Threading.Monitor.IsEntered(gate));
+        Assert.False(TryEnterFromOtherThread(gate));
+        Assert.False(enumerator.MoveNext());
+        Assert.False(System.Threading.Monitor.IsEntered(gate));
+        Assert.True(TryEnterFromOtherThread(gate, 100));
+    }
+
+    [Fact]
+    public void M3_Lock_ReleasedOnEarlyDispose()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(object gate) {
+        lock (gate) {
+            yield return 1;
+            yield return 2;
+        }
+    }
+}";
+        var asm = LoadRewritten(src);
+        var c = NewC(asm);
+        var gate = new object();
+        var enumerator = ((IEnumerable)Invoke(asm, c, "M", null, gate)!).GetEnumerator();
+
+        Assert.True(enumerator.MoveNext());
+        Assert.True(System.Threading.Monitor.IsEntered(gate));
+        Assert.False(TryEnterFromOtherThread(gate));
+        ((IDisposable)enumerator).Dispose();
+        Assert.False(System.Threading.Monitor.IsEntered(gate));
+        Assert.True(TryEnterFromOtherThread(gate, 100));
+    }
+
+    private static bool TryEnterFromOtherThread(object gate, int timeoutMs = 0)
+    {
+        var completed = new ManualResetEventSlim(false);
+        var result = false;
+        var thread = new Thread(() =>
+        {
+            var entered = false;
+            try
+            {
+                entered = System.Threading.Monitor.TryEnter(gate, timeoutMs);
+                result = entered;
+            }
+            finally
+            {
+                if (entered) System.Threading.Monitor.Exit(gate);
+                completed.Set();
+            }
+        });
+        thread.Start();
+        completed.Wait(5000);
+        return result;
+    }
+
+    [Fact]
+    public void M3_RefStructUsingResource_IsRejected_WithCS2J0403_AndNotRewritten()
+    {
+        var src = @"
+using System.Collections.Generic;
+ref struct Box { public void Dispose() { } }
+class C {
+    public IEnumerable<int> M() {
+        using (var b = new Box()) {
+            yield return 1;
+        }
+    }
+}";
+        var model = ParseWithSemantics(src);
+        var result = new IteratorLoweringPreprocessor().Preprocess(src, model, new IteratorLoweringOptions());
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == IteratorLoweringDiagnosticCode.CS2J0403);
+    }
+
     // ── Helpers: parsing / analysis / rewriting ──
 
     private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest);
@@ -1169,11 +1531,31 @@ class C {
     internal static (string Output, IteratorLoweringStatistics Stats,
         List<IteratorLoweringDiagnostic> Diags) Rewrite(string src)
     {
-        var model = ParseWithSemantics(src);
+        var originalModel = ParseWithSemantics(src);
+        var originalRoot = (CompilationUnitSyntax)originalModel.SyntaxTree.GetRoot();
+
+        var normalizer = new IteratorResourceNormalizer(originalModel);
+        var normalizedRoot = normalizer.Normalize(originalRoot);
+        var model = originalModel;
+        var rewriteRoot = normalizedRoot;
+        if (normalizer.UsingRegionsNormalized > 0 || normalizer.LocksNormalized > 0)
+        {
+            var normalizedTree = CSharpSyntaxTree.Create(
+                normalizedRoot,
+                (CSharpParseOptions?)originalRoot.SyntaxTree.Options,
+                originalRoot.SyntaxTree.FilePath,
+                System.Text.Encoding.UTF8);
+            var replacement = ((CSharpCompilation)originalModel.Compilation)
+                .ReplaceSyntaxTree(originalModel.SyntaxTree, normalizedTree);
+            model = replacement.GetSemanticModel(normalizedTree);
+            // CSharpSyntaxTree.Create clones the root: Analyzer/Rewriter node
+            // identity must share the tree's own root instance.
+            rewriteRoot = normalizedTree.GetCompilationUnitRoot();
+        }
+
         var analyzerResult = IteratorLoweringAnalyzer.Analyze(model, new IteratorLoweringOptions());
         var rewriter = new IteratorStateMachineRewriter(model, analyzerResult);
-        var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
-        var newRoot = rewriter.Rewrite(root);
+        var newRoot = rewriter.Rewrite(rewriteRoot);
         using var workspace = new AdhocWorkspace();
         var formatted = Formatter.Format(newRoot, workspace);
         var output = formatted.ToFullString();
@@ -1187,6 +1569,9 @@ class C {
             HoistedLocals = analyzerResult.Plans.Sum(p => p.HoistedLocals.Count),
             HoistedEnumerators = analyzerResult.Plans.Sum(p => p.HoistedEnumerators.Count),
             FinallyRegions = analyzerResult.Plans.Sum(p => p.Regions.Count),
+            UsingRegionsNormalized = normalizer.UsingRegionsNormalized,
+            UsingResourcesHoisted = normalizer.UsingResourcesHoisted,
+            LocksNormalized = normalizer.LocksNormalized,
             SkippedUnsupported = analyzerResult.Diagnostics.Count,
         };
         return (output, stats, analyzerResult.Diagnostics.ToList());

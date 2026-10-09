@@ -216,6 +216,13 @@
             ]
         },
         {
+            "csharp": "System.Collections.ArrayList",
+            "java": "CSharpArrayList",
+            "imports": [
+                "io.github.ningpp.compat.CSharpArrayList"
+            ]
+        },
+        {
             "csharp": "System.IAsyncDisposable",
             "java": "AsyncDisposable",
             "imports": [

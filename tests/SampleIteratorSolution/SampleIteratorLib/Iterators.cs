@@ -106,4 +106,69 @@ public sealed class SequenceSource
         yield return 1;
         yield return "two";
     }
+
+    // ── C04 M3：using 语句/声明 + lock 跨 yield ──
+
+    public IEnumerable<int> UsingBlock(CountingResource resource)
+    {
+        using (resource)
+        {
+            yield return 11;
+            yield return 22;
+        }
+    }
+
+    public IEnumerable<int> UsingDeclaration(CountingResource resource)
+    {
+        using var held = resource;
+        yield return 33;
+        yield return 44;
+    }
+
+    public IEnumerable<int> UsingLifo(List<string> log)
+    {
+        using (new OrderResource("a", log))
+        using (new OrderResource("b", log))
+        {
+            yield return 55;
+        }
+    }
+
+    public IEnumerable<int> Locked(object gate)
+    {
+        lock (gate)
+        {
+            yield return 71;
+            yield return 72;
+        }
+    }
+}
+
+/// <summary>M3：记录 Dispose 次数的引用类型资源（null 守卫路径）。</summary>
+public sealed class CountingResource : IDisposable
+{
+    public int DisposeCount;
+
+    public void Dispose()
+    {
+        DisposeCount++;
+    }
+}
+
+/// <summary>M3：记录释放顺序的资源，用于断言嵌套 using 的 LIFO 时序。</summary>
+public sealed class OrderResource : IDisposable
+{
+    private readonly string _name;
+    private readonly List<string> _log;
+
+    public OrderResource(string name, List<string> log)
+    {
+        _name = name;
+        _log = log;
+    }
+
+    public void Dispose()
+    {
+        _log.Add(_name);
+    }
 }

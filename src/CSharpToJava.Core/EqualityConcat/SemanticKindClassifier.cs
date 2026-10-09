@@ -210,6 +210,25 @@ internal static class SemanticKindClassifier
             {
                 return EqualityConcatKind.PredefinedOther;
             }
+
+            // 类型兜底：pass 的绑定编译使用 TPA 手工引用集，与真实 SDK 编译并
+            // 不严格一致（重载解析可能因引用残缺而失败，连带 IBinaryOperation
+            // 的 OperatorMethod 与 GetSymbolInfo 双双为 null）。对 Add 站点，
+            // 操作数/结果类型仍足以定性：
+            //  - 任一操作数或结果为 string -> 字符串拼接（C# 的 string + X 恒为
+            //    拼接，包括 string + char/值类型装箱）；
+            //  - 其余 Add（数值/位/委托合并等）本就不归本 pass，按预定义运算
+            //    透传，不应误报 CS2J0470 阻断整链。
+            // 相等站点（==/!=）不在此兜底：身份/值相等的区分必须依赖符号，
+            // 维持 Unknown 让人工介入。
+            if (operatorKind == BinaryOperatorKind.Add
+                && node is BinaryExpressionSyntax addBinary)
+            {
+                return IsStringConcatByType(addBinary, model)
+                    ? EqualityConcatKind.StringConcat
+                    : EqualityConcatKind.PredefinedOther;
+            }
+
             return EqualityConcatKind.Unknown;
         }
 
@@ -307,6 +326,24 @@ internal static class SemanticKindClassifier
         SyntaxNode node,
         SemanticModel model)
         => operatorMethod ?? (model.GetSymbolInfo(node).Symbol as IMethodSymbol);
+
+    /// <summary>
+    /// Type-only string-concat test for the symbol-less Add fallback
+    /// (see <see cref="ClassifyByMethod"/>). A string operand is conclusive:
+    /// every predefined <c>string + X</c> / <c>X + string</c> addition is a
+    /// concatenation; the result type SpecialType is consulted as a last signal
+    /// when operand binding itself failed.
+    /// </summary>
+    private static bool IsStringConcatByType(BinaryExpressionSyntax node, SemanticModel model)
+    {
+        if (model.GetTypeInfo(node.Left).Type?.SpecialType == SpecialType.System_String
+            || model.GetTypeInfo(node.Right).Type?.SpecialType == SpecialType.System_String)
+        {
+            return true;
+        }
+
+        return model.GetTypeInfo(node).Type?.SpecialType == SpecialType.System_String;
+    }
 
     /// <summary>
     /// A delegate-equality containing type is either a specific delegate type

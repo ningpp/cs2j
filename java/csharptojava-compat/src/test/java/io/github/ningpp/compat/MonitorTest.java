@@ -27,15 +27,76 @@ class MonitorTest {
     }
 
     @Test
-    void enterWithHolderRequiresHeldMonitorAndSetsTaken() {
+    void holderPatternAcquiresPooledLockAcrossIndependentCalls() {
+        // Models a lowered iterator: enter happens in one MoveNext() invocation and
+        // exit in a later one — an intrinsic monitor could not span that gap.
         Object lock = new Object();
         BoolHolder holder = new BoolHolder();
-        assertThrows(SynchronizationLockException.class, () -> Monitor.enter(lock, holder));
-        assertFalse(holder.value);
-        synchronized (lock) {
-            Monitor.enter(lock, holder);
-            assertTrue(holder.value);
-        }
+
+        Monitor.enter(lock, holder);
+        assertTrue(holder.value, "lockTaken is set only after acquisition");
+        assertTrue(Monitor.isEntered(lock));
+        Monitor.exit(lock);
+        assertFalse(Monitor.isEntered(lock));
+    }
+
+    @Test
+    void holderPatternIsReentrantOnTheSameThread() {
+        Object lock = new Object();
+        BoolHolder outer = new BoolHolder();
+        BoolHolder inner = new BoolHolder();
+
+        Monitor.enter(lock, outer);
+        Monitor.enter(lock, inner);
+        assertTrue(Monitor.isEntered(lock));
+        Monitor.exit(lock);
+        assertTrue(Monitor.isEntered(lock), "one exit must not release the reentrant outer enter");
+        Monitor.exit(lock);
+        assertFalse(Monitor.isEntered(lock));
+    }
+
+    @Test
+    void holderPatternRejectsUnbalancedExit() {
+        Object lock = new Object();
+        assertThrows(SynchronizationLockException.class, () -> Monitor.exit(lock));
+    }
+
+    @Test
+    void holderPatternNullArgumentsAreRejected() {
+        assertThrows(NullPointerException.class,
+            () -> Monitor.enter(null, new BoolHolder()));
+        assertThrows(NullPointerException.class,
+            () -> Monitor.enter(new Object(), null));
+    }
+
+    @Test
+    void pooledLockIsExclusiveAcrossThreads() throws Exception {
+        Object lock = new Object();
+        BoolHolder holder = new BoolHolder();
+        AtomicBoolean enteredCriticalSection = new AtomicBoolean(false);
+        AtomicBoolean leftCriticalSection = new AtomicBoolean(false);
+
+        Monitor.enter(lock, holder);
+        Thread other = new Thread(() -> {
+            BoolHolder its = new BoolHolder();
+            Monitor.enter(lock, its);
+            enteredCriticalSection.set(true);
+            try {
+                assertTrue(Monitor.isEntered(lock), "isEntered is true on the owning thread");
+            } finally {
+                Monitor.exit(lock);
+                leftCriticalSection.set(true);
+            }
+        }, "monitor-test-pooled");
+        other.start();
+
+        Thread.sleep(100);
+        assertTrue(other.isAlive(), "pooled enter must block while the lock is held");
+        assertFalse(enteredCriticalSection.get(), "peer must not run the critical section yet");
+        Monitor.exit(lock);
+        other.join(5_000);
+        assertFalse(other.isAlive(), "peer must complete once the pooled lock is released");
+        assertTrue(leftCriticalSection.get());
     }
 
     @Test

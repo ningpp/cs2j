@@ -34,6 +34,16 @@ class CSharpArrayListTest {
     }
 
     @Test
+    void objectArrayConstructor_copiesElements() {
+        // C# `new ArrayList(object[])` — a C# array is IEnumerable.
+        CSharpArrayList list = new CSharpArrayList(new Object[] {"a", 1, null});
+        assertEquals(3, list.getCount());
+        assertEquals("a", list.get(0));
+        assertEquals(1, list.get(1));
+        assertNull(list.get(2));
+    }
+
+    @Test
     void csharpCollectionConstructor_copiesElements() {
         CSharpCollection collection = new CSharpCollection() {
             @Override public int size() { return 3; }

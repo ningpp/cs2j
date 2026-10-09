@@ -31,13 +31,6 @@ public class ForeachSourceJavaE2EProjectTests
     private static string DeployedFixture =>
         Path.Combine(AppContext.BaseDirectory, FixtureName);
 
-    private static IReadOnlyList<string> GateRuntimeFiles =>
-        Directory.Exists(Path.Combine(AppContext.BaseDirectory, "JavaGateRuntime"))
-            ? Directory.GetFiles(
-                Path.Combine(AppContext.BaseDirectory, "JavaGateRuntime"),
-                "*.java", SearchOption.AllDirectories)
-            : Array.Empty<string>();
-
     private static ConversionOptions Options => new()
     {
         TypeMappingConfigPath = Path.Combine(
@@ -127,7 +120,7 @@ public class ForeachSourceJavaE2EProjectTests
             File.WriteAllText(harnessFile, HarnessSource);
 
             var classesDir = JavaE2EHarness.Compile(workRoot, entries,
-                GateRuntimeFiles.Append(harnessFile).ToList());
+                new[] { harnessFile }.ToList());
 
             var run = JavaE2EHarness.RunMain(classesDir, "SampleForeachSourceLib.C40Harness");
             Assert.True(run.ExitCode == 0,
@@ -205,7 +198,7 @@ public class ForeachSourceJavaE2EProjectTests
     private const string HarnessSource = """
         package SampleForeachSourceLib;
 
-        import dotnet.System.Collections.Generic.List;
+        import io.github.ningpp.compat.CSharpList;
 
         public final class C40Harness {
             public static void main(String[] args) {
@@ -238,7 +231,7 @@ public class ForeachSourceJavaE2EProjectTests
                     EnumeratorDuckSamples.normalCompletionDisposeCount(duck) == 1);
 
                 FlaggedDuck breakDuck = new FlaggedDuck(3);
-                List<Integer> seen = new List<Integer>();
+                CSharpList<Integer> seen = new CSharpList<Integer>();
                 check("break disposes once", EnumeratorDuckSamples.breakAfterFirst(breakDuck, seen) == 1);
                 expectInts(seen, new int[] {1}, "break sees first only");
 
@@ -253,7 +246,7 @@ public class ForeachSourceJavaE2EProjectTests
                 check("dispose runs before body exception", throwDuck.Enumerator().DisposeCount == 1);
 
                 FlaggedDuck continueDuck = new FlaggedDuck(3);
-                List<Integer> midCounts = new List<Integer>();
+                CSharpList<Integer> midCounts = new CSharpList<Integer>();
                 check("continue final dispose once",
                     EnumeratorDuckSamples.continueObservations(continueDuck, midCounts) == 1);
                 expectInts(midCounts, new int[] {0, 0, 0}, "no mid-loop dispose on continue");
@@ -285,7 +278,7 @@ public class ForeachSourceJavaE2EProjectTests
                 expectChars(ForeachStringSamples.explicitChar("a"), new char[] {'a'}, "explicitChar");
                 expectInts(ForeachStringSamples.codeUnits("A\u20AC"), new int[] {65, 8364}, "codeUnits");
 
-                List<Object> boxed = ForeachStringSamples.boxedChars("ab");
+                CSharpList<Object> boxed = ForeachStringSamples.boxedChars("ab");
                 check("boxedChars size", boxed.size() == 2);
                 check("boxedChars[0]", Character.valueOf('a').equals(boxed.get(0)));
                 check("boxedChars[1]", Character.valueOf('b').equals(boxed.get(1)));
@@ -293,7 +286,7 @@ public class ForeachSourceJavaE2EProjectTests
                 expectChars(ForeachStringSamples.nested(new String[] {"ab", "c"}),
                     new char[] {'a', 'b', 'c'}, "nested");
 
-                List<Character> charList = new List<Character>();
+                CSharpList<Character> charList = new CSharpList<Character>();
                 charList.add('x');
                 charList.add('y');
                 expectChars(ForeachStringSamples.nonStringSites(charList, new char[] {'p', 'q'}),
@@ -321,7 +314,7 @@ public class ForeachSourceJavaE2EProjectTests
                 throw new AssertionError(name + ": expected NullPointerException");
             }
 
-            private static void expectInts(List<Integer> actual, int[] expected, String name) {
+            private static void expectInts(CSharpList<Integer> actual, int[] expected, String name) {
                 check(name + " size " + actual.size() + " vs " + expected.length,
                     actual.size() == expected.length);
                 for (int i = 0; i < expected.length; i++) {
@@ -330,7 +323,7 @@ public class ForeachSourceJavaE2EProjectTests
                 }
             }
 
-            private static void expectChars(List<Character> actual, char[] expected, String name) {
+            private static void expectChars(CSharpList<Character> actual, char[] expected, String name) {
                 check(name + " size " + actual.size() + " vs " + expected.length,
                     actual.size() == expected.length);
                 for (int i = 0; i < expected.length; i++) {

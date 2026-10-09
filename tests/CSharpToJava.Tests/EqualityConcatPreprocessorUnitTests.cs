@@ -572,6 +572,24 @@ public class EqualityConcatPreprocessorUnitTests
         Assert.Equal(0, s.ResidualCount);
     }
 
+    [Fact]
+    public void EC3_Add_With_Failed_Operand_Binding_Uses_Type_Fallback_Not_Unknown()
+    {
+        // TPA 手工引用集可能让重载解析失败（IBinaryOperation.OperatorMethod 与
+        // GetSymbolInfo 双双为 null）。Add 站点必须按操作数类型兜底：
+        // string 侧 -> 拼接改写；纯算术 -> 预定义透传；均不得发 CS2J0470。
+        var src = """
+            class C {
+                string ConcatSite(Unknown log) => "order:" + log;
+                int ArithmeticSite(Unknown x) => 1 + x;
+            }
+            """;
+        var result = Preprocess(src);
+        Assert.DoesNotContain(result.Diagnostics,
+            d => d.Code == EqualityConcatDiagnosticCode.CS2J0470);
+        Assert.Contains("string.Concat(\"order:\", log)", result.OutputCode);
+    }
+
     private static int CountOccurrences(string text, string value)
     {
         var count = 0;

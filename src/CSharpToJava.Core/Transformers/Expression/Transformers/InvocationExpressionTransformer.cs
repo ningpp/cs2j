@@ -214,6 +214,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return new JavaRawExpression(splitCall);
                 }
 
+                var methodSymbol = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+
                 var (mappedName, isStatic) =
                     TryResolveMappedName(invocation, memberAccess.Name.Identifier.Text, context);
 
@@ -222,12 +224,27 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 if (mappedName != null)
                 {
                     ApplyMappedName(call, mappedName, isStatic, receiver);
+
+                    // Static calls written with a fully-qualified C# receiver
+                    // (System.Threading.Monitor.enter, System.Threading.Interlocked.decrement, …)
+                    // keep their FQN receiver text after the method-name-only mapping
+                    // (ApplyMappedName does not touch the target), which is uncompilable
+                    // Java. Collapse the receiver to the mapped type's simple name; the
+                    // type mapping contributes the required compat import. Simple-name
+                    // receivers ("Monitor.enter") already render to the same identifier,
+                    // so this is a no-op for them.
+                    if (isStatic
+                        && !mappedName.Contains('.')
+                        && methodSymbol != null
+                        && TryGetMappedTypeSimpleName(methodSymbol, context, out var mappedReceiver))
+                    {
+                        call.Target = mappedReceiver;
+                    }
+
                     foreach (var argument in arguments)
                         call.Arguments.Add(argument);
                     return call;
                 }
-
-                var methodSymbol = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
 
                 // Primitive instance calls: Java primitives cannot be dereferenced.
                 if (methodSymbol != null
@@ -507,6 +524,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
                 if (mappedName != null)
                 {
+                    // Same FQN static-receiver collapse as the IR path:
+                    // System.Threading.Monitor.enter(…) keeps its qualified C# receiver
+                    // after a method-name-only mapping, which is uncompilable Java.
+                    if (isStatic
+                        && !mappedName.Contains('.')
+                        && context.GetSymbolInfo(node).Symbol is IMethodSymbol mappedMethod
+                        && TryGetMappedTypeSimpleName(mappedMethod, context, out var mappedReceiverExpr))
+                    {
+                        receiver = mappedReceiverExpr.ToInlineString();
+                    }
+
                     return RenderMappedCall(mappedName, isStatic, receiver, arguments);
                 }
 
@@ -1020,6 +1048,58 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         rendered = $"{mappedType}.{WellKnownMethodName(originalMethodName)}({arguments})";
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves a static method's containing type through the explicit
+    /// TypeMappings.json type table and returns the receiver to render.
+    /// Fully-qualified mapped types are emitted inline (no import needed);
+    /// simple mapped names become an identifier and pull the mapping's imports.
+    /// Returns false when no explicit type mapping exists (plain simple-name
+    /// fallback must keep the caller's existing receiver rendering).
+    /// </summary>
+    private static bool TryGetMappedTypeSimpleName(
+        IMethodSymbol method,
+        ConversionContext context,
+        out JavaExpression receiver)
+    {
+        receiver = null!;
+
+        if (!method.IsStatic || method.ContainingType is not INamedTypeSymbol containingType)
+        {
+            return false;
+        }
+
+        var display = containingType.ToDisplayString();
+        var fqn = $"{containingType.ContainingNamespace}.{containingType.Name}";
+
+        var configKey = context.TypeMappings.HasTypeMapping(display) ? display
+            : context.TypeMappings.HasTypeMapping(fqn) ? fqn
+            : null;
+        if (configKey == null)
+        {
+            return false;
+        }
+
+        var mappedType = context.TypeMappings.MapType(configKey);
+        if (string.IsNullOrEmpty(mappedType))
+        {
+            return false;
+        }
+
+        if (mappedType.Contains('.'))
+        {
+            receiver = new JavaRawExpression(mappedType);
+            return true;
+        }
+
+        foreach (var import in context.TypeMappings.GetRequiredImports(configKey))
+        {
+            context.AddImport(import);
+        }
+
+        receiver = new JavaIdentifierExpression { Name = mappedType };
         return true;
     }
 

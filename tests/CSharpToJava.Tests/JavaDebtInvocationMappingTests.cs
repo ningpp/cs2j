@@ -174,6 +174,48 @@ class P
         Assert.Contains("import io.github.ningpp.compat.StringComparison;", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void FullyQualifiedStaticReceiver_WithMethodMapping_CollapsesToMappedSimpleName()
+    {
+        // Regression: System.Threading.Monitor.Enter/Exit are lowered to text with a
+        // fully-qualified C# receiver; the method-name mapping alone used to leave the
+        // receiver untouched, emitting uncompilable Java ("System.Threading.Monitor.enter").
+        var code = Convert("""
+class P
+{
+    void M(object gate)
+    {
+        bool taken = false;
+        System.Threading.Monitor.Enter(gate, ref taken);
+        try { }
+        finally { if (taken) System.Threading.Monitor.Exit(gate); }
+    }
+}
+""").GeneratedCode;
+
+        Assert.Contains("Monitor.enter(gate,", code, StringComparison.Ordinal);
+        Assert.Contains("Monitor.exit(gate)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Threading.Monitor", code, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.Monitor;", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FullyQualifiedStaticReceiver_Interlocked_CollapsesToMappedSimpleName()
+    {
+        // Same collapse for the non-ref static helpers (exercises the text path
+        // independently of the byref-holder argument rewrite).
+        var code = Convert("""
+class P
+{
+    int M(ref int counter) => System.Threading.Interlocked.Increment(ref counter);
+}
+""").GeneratedCode;
+
+        Assert.Contains("Interlocked.increment(", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Threading.Interlocked", code, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.Interlocked;", code, StringComparison.Ordinal);
+    }
+
     private static int CountOccurrences(string text, string needle)
     {
         int count = 0;

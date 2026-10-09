@@ -45,7 +45,14 @@ public class IteratorJavaE2EProjectTests
         "early:1:0\n" +
         "interleave:2,2:0\n" +
         "repeat-final:2\n" +
-        "mixed:1,two";
+        "mixed:1,two\n" +
+        "usingfull:11,22\n" +
+        "usingfull-disp:1\n" +
+        "usingearly-disp:1\n" +
+        "usingdecl:33,44\n" +
+        "usinglifo:55\n" +
+        "usinglifo-order:ba\n" +
+        "locked:71,72";
 
     private static string DeployedFixture =>
         Path.Combine(AppContext.BaseDirectory, FixtureName);

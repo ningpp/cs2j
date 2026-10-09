@@ -36,8 +36,43 @@ public sealed class IteratorLoweringPreprocessor
             return new IteratorLoweringFileResult(sourceCode, false, diagnostics, stats);
         }
 
+        // M3 (C44 G3): normalize using statements/declarations and lock statements
+        // inside iterator bodies to try/finally before state machine analysis.
+        // The rewrite binds against the original semantic model; afterwards the
+        // tree is replaced inside a cloned compilation so Analyzer/Rewriter run
+        // against a model whose spans match the normalized syntax.
+        var normalizer = new IteratorResourceNormalizer(semanticModel);
+        var normalizedRoot = normalizer.Normalize(root);
+        var activeModel = semanticModel;
+        var normalized = normalizer.Diagnostics.Count > 0
+            || normalizer.UsingRegionsNormalized > 0
+            || normalizer.LocksNormalized > 0;
+        if (normalized)
+        {
+            foreach (var diag in normalizer.Diagnostics)
+            {
+                var severity = diag.Severity;
+                if (!options.Strict && severity == IteratorLoweringSeverity.Error)
+                    severity = IteratorLoweringSeverity.Warning;
+                diagnostics.Add(diag with { Severity = severity });
+            }
+
+            var normalizedTree = CSharpSyntaxTree.Create(
+                normalizedRoot,
+                (CSharpParseOptions?)root.SyntaxTree.Options,
+                root.SyntaxTree.FilePath,
+                System.Text.Encoding.UTF8);
+            var replacementCompilation = ((CSharpCompilation)semanticModel.Compilation)
+                .ReplaceSyntaxTree(semanticModel.SyntaxTree, normalizedTree);
+            activeModel = replacementCompilation.GetSemanticModel(normalizedTree);
+            // CSharpSyntaxTree.Create clones the root, so all downstream node
+            // identity (Analyzer plans -> Rewriter dictionary keys) must come
+            // from the tree's own root, never from the detached normalizedRoot.
+            root = normalizedTree.GetCompilationUnitRoot();
+        }
+
         // Analyze
-        var analyzerResult = IteratorLoweringAnalyzer.Analyze(semanticModel, options);
+        var analyzerResult = IteratorLoweringAnalyzer.Analyze(activeModel, options);
 
         // Merge diagnostics with severity adjustment
         foreach (var diag in analyzerResult.Diagnostics)
@@ -57,7 +92,7 @@ public sealed class IteratorLoweringPreprocessor
         }
 
         // Rewrite
-        var rewriter = new IteratorStateMachineRewriter(semanticModel, analyzerResult);
+        var rewriter = new IteratorStateMachineRewriter(activeModel, analyzerResult);
         var newRoot = rewriter.Rewrite(root);
 
         // Format
@@ -76,6 +111,9 @@ public sealed class IteratorLoweringPreprocessor
         stats.HoistedEnumerators = analyzerResult.Plans.Sum(p => p.HoistedEnumerators.Count);
         stats.FinallyRegions = analyzerResult.Plans.Sum(p => p.Regions.Count);
         stats.SkippedUnsupported = analyzerResult.Diagnostics.Count;
+        stats.UsingRegionsNormalized = normalizer.UsingRegionsNormalized;
+        stats.UsingResourcesHoisted = normalizer.UsingResourcesHoisted;
+        stats.LocksNormalized = normalizer.LocksNormalized;
 
         // Residual gate: count remaining yield statements in output
         var outputRoot = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(code).GetRoot();

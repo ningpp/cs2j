@@ -116,6 +116,8 @@ internal sealed class IteratorLoweringPassAdapter : ProjectPassAdapter
            $"{_statistics.HoistedParameters + _statistics.HoistedLocals} hoisted, " +
            $"{_statistics.HoistedEnumerators} enumerator(s), " +
            $"{_statistics.FinallyRegions} protected region(s), " +
+           $"{_statistics.UsingRegionsNormalized} using region(s), " +
+           $"{_statistics.LocksNormalized} lock(s), " +
            $"{_statistics.SkippedUnsupported} skipped, " +
            $"{_statistics.ResidualCount} residual";
 
@@ -142,6 +144,9 @@ internal sealed class IteratorLoweringPassAdapter : ProjectPassAdapter
         _statistics.HoistedLocals += source.HoistedLocals;
         _statistics.HoistedEnumerators += source.HoistedEnumerators;
         _statistics.FinallyRegions += source.FinallyRegions;
+        _statistics.UsingRegionsNormalized += source.UsingRegionsNormalized;
+        _statistics.UsingResourcesHoisted += source.UsingResourcesHoisted;
+        _statistics.LocksNormalized += source.LocksNormalized;
         _statistics.SkippedUnsupported += source.SkippedUnsupported;
         _statistics.ResidualCount += source.ResidualCount;
     }

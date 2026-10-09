@@ -30,6 +30,50 @@ class CSharpListTest {
         assertEquals(3, list.getCount());
     }
 
+    @Test
+    void referenceArrayConstructor_boxesCSharpListOfTFromArray() {
+        // C# `new List<string>(string[])` — arrays are IEnumerable<T> on the CLR.
+        CSharpList<String> list = new CSharpList<>(new String[] {"a", "b", "c"});
+        assertEquals(3, list.getCount());
+        assertEquals("a", list.get(0));
+        assertEquals("c", list.get(2));
+    }
+
+    @Test
+    void primitiveArrayConstructorsBoxElements() {
+        // Mirrors C# `new List<int>(int[])` and the other primitive domains.
+        CSharpList<Integer> ints = new CSharpList<>(new int[] {1, 2, 3});
+        assertEquals(3, ints.getCount());
+        assertEquals(Integer.valueOf(2), ints.get(1));
+
+        CSharpList<Long> longs = new CSharpList<>(new long[] {4L, 5L});
+        assertEquals(Long.valueOf(4L), longs.get(0));
+
+        CSharpList<Short> shorts = new CSharpList<>(new short[] {6});
+        assertEquals(Short.valueOf((short) 6), shorts.get(0));
+
+        CSharpList<Byte> bytes = new CSharpList<>(new byte[] {7});
+        assertEquals(Byte.valueOf((byte) 7), bytes.get(0));
+
+        CSharpList<Character> chars = new CSharpList<>(new char[] {'a', 'z'});
+        assertEquals(Character.valueOf('z'), chars.get(1));
+
+        CSharpList<Float> floats = new CSharpList<>(new float[] {1.5f});
+        assertEquals(Float.valueOf(1.5f), floats.get(0));
+
+        CSharpList<Double> doubles = new CSharpList<>(new double[] {2.5d});
+        assertEquals(Double.valueOf(2.5d), doubles.get(0));
+
+        CSharpList<Boolean> bools = new CSharpList<>(new boolean[] {true, false});
+        assertEquals(Boolean.FALSE, bools.get(1));
+    }
+
+    @Test
+    void emptyPrimitiveArrayConstructorCreatesEmptyList() {
+        assertEquals(0, new CSharpList<>(new int[0]).getCount());
+        assertEquals(0, new CSharpList<>(new String[0]).getCount());
+    }
+
     // ---- Add / Get / Set ----
 
     @Test

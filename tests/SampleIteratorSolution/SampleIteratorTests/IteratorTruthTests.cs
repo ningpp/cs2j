@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Threading;
 using SampleIteratorLib;
 using Xunit;
 
@@ -185,5 +186,71 @@ public sealed class IteratorTruthTests
             values.Add(v);
         }
         Assert.Equal(new object?[] { 1, "two" }, values);
+    }
+
+    // ── C04 M3：using 语句/声明/嵌套 LIFO/提前 Dispose ──
+
+    [Fact]
+    public void T15_UsingBlock_FullEnumeration_DisposesExactlyOnce()
+    {
+        var resource = new CountingResource();
+        var source = new SequenceSource();
+        Assert.Equal(new[] { 11, 22 }, ToList(source.UsingBlock(resource)));
+        Assert.Equal(1, resource.DisposeCount);
+    }
+
+    [Fact]
+    public void T16_UsingBlock_EarlyDisposeHalfWay_DisposesOnce_Idempotent()
+    {
+        var resource = new CountingResource();
+        var enumerator = new SequenceSource().UsingBlock(resource).GetEnumerator();
+        Assert.True(enumerator.MoveNext());
+        Assert.Equal(0, resource.DisposeCount);
+        ((IDisposable)enumerator).Dispose();
+        Assert.Equal(1, resource.DisposeCount);
+        ((IDisposable)enumerator).Dispose();
+        Assert.Equal(1, resource.DisposeCount);
+        Assert.False(enumerator.MoveNext());
+    }
+
+    [Fact]
+    public void T17_UsingDeclaration_DisposesAtBlockEnd()
+    {
+        var resource = new CountingResource();
+        Assert.Equal(new[] { 33, 44 },
+            ToList(new SequenceSource().UsingDeclaration(resource)));
+        Assert.Equal(1, resource.DisposeCount);
+    }
+
+    [Fact]
+    public void T18_NestedUsing_DisposesLifo()
+    {
+        var log = new List<string>();
+        Assert.Equal(new[] { 55 }, ToList(new SequenceSource().UsingLifo(log)));
+        Assert.Equal(new[] { "b", "a" }, log);
+    }
+
+    [Fact]
+    public void T19_Lock_HeldAcrossYields_ReleasedOnCompletion()
+    {
+        var gate = new object();
+        var enumerator = new SequenceSource().Locked(gate).GetEnumerator();
+        Assert.True(enumerator.MoveNext());
+        Assert.True(Monitor.IsEntered(gate));
+        Assert.True(enumerator.MoveNext());
+        Assert.True(Monitor.IsEntered(gate));
+        Assert.False(enumerator.MoveNext());
+        Assert.False(Monitor.IsEntered(gate));
+    }
+
+    [Fact]
+    public void T20_Lock_ReleasedOnEarlyDispose()
+    {
+        var gate = new object();
+        var enumerator = new SequenceSource().Locked(gate).GetEnumerator();
+        Assert.True(enumerator.MoveNext());
+        Assert.True(Monitor.IsEntered(gate));
+        ((IDisposable)enumerator).Dispose();
+        Assert.False(Monitor.IsEntered(gate));
     }
 }

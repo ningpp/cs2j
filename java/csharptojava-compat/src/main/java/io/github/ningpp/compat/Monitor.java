@@ -1,24 +1,45 @@
 package io.github.ningpp.compat;
 
+import java.util.Collections;
+import java.util.Map;
+import java.util.WeakHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+
 /**
  * Compat bridge for {@code System.Threading.Monitor}.
  *
- * <p>C29 诚实化（设计 §5.4 路线 (a) intrinsic 桥）后的契约：</p>
+ * <p>Two lock disciplines coexist in this bridge:</p>
  * <ul>
- *   <li>{@code lock (obj)} 语句由转换器直接发为 Java {@code synchronized (obj)}
- *       块，不经过本桥；因此 {@link #enter(Object)}/{@link #exit(Object)} 只承接
- *       C29 无法配对改写而残留的显式调用（CS2J2910 挂账站点）。这些方法<b>不获取
- *       任何锁</b>——Java intrinsic monitor 无法由普通方法调用获取——而是校验
- *       调用线程确已持有该对象的 intrinsic 监视器（即调用点位于
- *       {@code synchronized (obj)} 内），违例立即 fail-fast，绝不静默空跑。</li>
- *   <li>{@code TryEnter} 全部重载：Java intrinsic 监视器不存在 tryLock，
- *       桥接层禁止恒真桩（CS2J2911），一律抛 {@link UnsupportedOperationException}
- *       显式拒绝；{@code lockTaken} out 形参保持调用方初始化的 {@code false}。</li>
- *   <li>{@link #wait}/{@link #pulse}/{@link #pulseAll} 委托
- *       {@link Object#wait(long)}/{@link Object#notify()}/{@link Object#notifyAll()}，
- *       仅在 {@code synchronized (obj)} 内合法（与 C# Monitor 的归属要求一致）。
- *       {@code wait} 的 bool 返回值按设计 §10-1 为近似值：Java 无法区分超时与
- *       通知唤醒，按 5ms 计时容差分类，耗时达到超时窗口即返回 false。</li>
+ *   <li><b>Intrinsic mode (C29 诚实化, 设计 §5.4 路线 (a)).</b> {@code lock (obj)}
+ *       statements are emitted directly as Java {@code synchronized (obj)} blocks and
+ *       never pass through this bridge. The single-argument {@link #enter(Object)} /
+ *       {@link #exit(Object)} pair only serves explicit C29 residual calls (CS2J2910
+ *       sites that could not be pair-rewritten): they acquire nothing — Java intrinsic
+ *       monitors cannot be acquired by an ordinary method call — and instead fail fast
+ *       unless the current thread already holds the object's intrinsic monitor inside a
+ *       surrounding {@code synchronized (obj)} block.</li>
+ *   <li><b>Pooled-lock mode (iterator lockTaken pattern).</b> The canonical C# pattern
+ *       {@code bool taken=false; Monitor.Enter(obj, ref taken); try { … } finally {
+ *       if (taken) Monitor.Exit(obj); }} — emitted by the iterator-lowering pass for
+ *       {@code lock} bodies that cross {@code yield} points — cannot use an intrinsic
+ *       monitor, because an intrinsic lock acquired in one {@code MoveNext()} call is
+ *       not retained across the next call. {@link #enter(Object, BoolHolder)} therefore
+ *       acquires a per-object {@link ReentrantLock} from a weak-keyed pool, and
+ *       {@link #exit(Object)} releases it. The pooled lock is reentrant and thread-bound
+ *       exactly like {@code System.Threading.Monitor}: cross-thread release and
+ *       release-without-enter throw {@link SynchronizationLockException}, matching the
+ *       CLR behaviour. The {@code lockTaken} flag is set only after successful
+ *       acquisition, preserving the exception-safety contract of the C# pattern.</li>
+ *   <li>{@code TryEnter} overloads: Java intrinsic monitors have no tryLock and the
+ *       iterator pass never emits them; CS2J2911 forbids always-succeed stubs, so they
+ *       unconditionally throw {@link UnsupportedOperationException} and leave
+ *       {@code lockTaken} at its caller-initialized {@code false}.</li>
+ *   <li>{@link #wait}/{@link #pulse}/{@link #pulseAll} delegate to
+ *       {@link Object#wait(long)}/{@link Object#notify()}/{@link Object#notifyAll()} and
+ *       therefore require the intrinsic monitor (mixing them with a pooled-lock region
+ *       is a CS2J2910 residual shape and fails fast). {@code wait}'s boolean result is
+ *       the documented §10-1 approximation: Java cannot distinguish timeout from
+ *       notification, so a wake within a 5ms slack of the timeout window reports false.</li>
  * </ul>
  */
 public final class Monitor {
@@ -28,40 +49,63 @@ public final class Monitor {
     /** Tolerance for classifying timeout wakes vs pulse wakes (§10-1 approximation). */
     private static final long TIMER_SLACK_NANOS = 5_000_000L;
 
+    /**
+     * Per-object reentrant locks backing the lockTaken-pattern Enter/Exit pair.
+     * Weak keys let lock objects be collected once users drop them; the map (not the
+     * values) keeps keys reachable, and pooled {@link ReentrantLock} instances never
+     * reference their key, so there is no strong-reference retention cycle. All map
+     * access goes through the synchronized-map wrapper; {@code computeIfAbsent} runs
+     * under the map monitor but never under a pooled lock, so there is no lock-ordering
+     * hazard.
+     */
+    private static final Map<Object, ReentrantLock> POOLED_LOCKS =
+            Collections.synchronizedMap(new WeakHashMap<>());
+
     private Monitor() {
     }
 
     /**
-     * Residual {@code Monitor.Enter(obj)} site (CS2J2910). The intrinsic lock must
-     * already be held by a surrounding {@code synchronized (obj)} block emitted by
-     * the converter; this method only verifies that precondition — it never acquires.
+     * Residual single-argument {@code Monitor.Enter(obj)} site (CS2J2910). The
+     * intrinsic lock must already be held by a surrounding {@code synchronized (obj)}
+     * block emitted by the converter; this method only verifies that precondition —
+     * it never acquires.
      */
     public static void enter(Object obj) {
         requireLockObject(obj);
-        requireHoldsLock(obj, "Monitor.enter");
+        requireHoldsIntrinsicLock(obj, "Monitor.enter");
     }
 
     /**
-     * Residual {@code Monitor.Enter(obj, ref lockTaken)} site (CS2J2910). Same
-     * precondition as {@link #enter(Object)}; {@code lockTaken} is set to true only
-     * after the precondition is verified.
+     * Canonical lockTaken-pattern enter. Acquires the per-object pooled
+     * {@link ReentrantLock} (reentrant, thread-bound — cross-{@code MoveNext()} safe
+     * inside lowered iterators) and sets {@code lockTaken.value = true} only after
+     * acquisition has completed, so a failure during acquisition leaves the finally
+     * guard at false exactly as the CLR contract requires.
      */
     public static void enter(Object obj, BoolHolder lockTaken) {
         requireLockObject(obj);
-        requireHoldsLock(obj, "Monitor.enter");
-        if (lockTaken != null) {
-            lockTaken.value = true;
+        if (lockTaken == null) {
+            throw new NullPointerException("lockTaken");
         }
+        pooledLockFor(obj).lock();
+        lockTaken.value = true;
     }
 
     /**
-     * Residual {@code Monitor.Exit(obj)} site (CS2J2910). Verifies the intrinsic
-     * monitor is held by the current thread; it never releases anything itself —
-     * release happens structurally when the caller's {@code synchronized} block ends.
+     * Releases the lock most recently entered for {@code obj} by this thread: if the
+     * per-object pooled lock exists and is held by the current thread (lockTaken
+     * pattern), it is unlocked; otherwise this is a C29 residual intrinsic-mode site
+     * and the intrinsic-monitor precondition is verified. Releasing without a matching
+     * enter throws {@link SynchronizationLockException} on both paths, mirroring the CLR.
      */
     public static void exit(Object obj) {
         requireLockObject(obj);
-        requireHoldsLock(obj, "Monitor.exit");
+        ReentrantLock pooled = POOLED_LOCKS.get(obj);
+        if (pooled != null && pooled.isHeldByCurrentThread()) {
+            pooled.unlock();
+            return;
+        }
+        requireHoldsIntrinsicLock(obj, "Monitor.exit");
     }
 
     /**
@@ -106,7 +150,8 @@ public final class Monitor {
 
     public static boolean isEntered(Object obj) {
         requireLockObject(obj);
-        return Thread.holdsLock(obj);
+        ReentrantLock pooled = POOLED_LOCKS.get(obj);
+        return (pooled != null && pooled.isHeldByCurrentThread()) || Thread.holdsLock(obj);
     }
 
     /**
@@ -137,19 +182,19 @@ public final class Monitor {
 
     public static void pulse(Object obj) {
         requireLockObject(obj);
-        requireHoldsLock(obj, "Monitor.pulse");
+        requireHoldsIntrinsicLock(obj, "Monitor.pulse");
         obj.notify();
     }
 
     public static void pulseAll(Object obj) {
         requireLockObject(obj);
-        requireHoldsLock(obj, "Monitor.pulseAll");
+        requireHoldsIntrinsicLock(obj, "Monitor.pulseAll");
         obj.notifyAll();
     }
 
     private static boolean wait(Object obj, long timeoutMillis) {
         requireLockObject(obj);
-        requireHoldsLock(obj, "Monitor.wait");
+        requireHoldsIntrinsicLock(obj, "Monitor.wait");
         long startNanos = System.nanoTime();
         try {
             obj.wait(timeoutMillis);
@@ -181,13 +226,22 @@ public final class Monitor {
         return millisecondsTimeout;
     }
 
+    /**
+     * Returns the pooled reentrant lock for {@code obj}, creating one on first use.
+     * Runs (briefly) under the synchronized map's monitor; the mapping function only
+     * constructs a fresh {@link ReentrantLock} and never re-enters any pooled lock.
+     */
+    private static ReentrantLock pooledLockFor(Object obj) {
+        return POOLED_LOCKS.computeIfAbsent(obj, key -> new ReentrantLock());
+    }
+
     private static void requireLockObject(Object obj) {
         if (obj == null) {
             throw new NullPointerException("obj");
         }
     }
 
-    private static void requireHoldsLock(Object obj, String site) {
+    private static void requireHoldsIntrinsicLock(Object obj, String site) {
         if (!Thread.holdsLock(obj)) {
             throw new SynchronizationLockException(
                 site + " reached the Java compat bridge without the current thread "

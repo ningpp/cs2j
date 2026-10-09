@@ -165,11 +165,6 @@
       <Link>SampleIndexRangeSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <!-- C31/C40 javac gate runtime stubs (dotnet.System.Collections*). -->
-    <Content Include="JavaGateRuntime\**\*.java">
-      <Link>JavaGateRuntime\%(RecursiveDir)%(Filename)%(Extension)</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
   </ItemGroup>
 
   <ItemGroup>

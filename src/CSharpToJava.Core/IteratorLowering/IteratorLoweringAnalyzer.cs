@@ -134,24 +134,66 @@ internal static class IteratorLoweringAnalyzer
             // try-finally (no catch) with yield in the try block: M2 supported.
         }
 
-        // using statement containing yield -> M3
+        // M3: using statements/declarations and lock statements are normalized
+        // to try/finally by IteratorResourceNormalizer before analysis. Anything
+        // left here is a form the normalizer deliberately keeps:
+        //   - await using -> belongs to C38 async streams (CS2J0402)
+        //   - ref struct resource -> cannot cross a yield boundary (CS2J0403)
+        //   - a residual lock statement is a defensive CS2J0402 (should be unreachable)
         foreach (var usingStmt in body.DescendantNodes().OfType<UsingStatementSyntax>())
         {
-            if (ContainsYield(usingStmt))
+            if (!ContainsYield(usingStmt)) continue;
+            if (usingStmt.AwaitKeyword.RawKind != 0)
             {
                 AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has yield inside using (planned for M3).");
+                    $"Iterator method '{method.Identifier.Text}' has await using (owned by async streams, C38).");
+                ok = false;
+            }
+            else if (UsingResourceIsRefLike(usingStmt, semanticModel))
+            {
+                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0403,
+                    $"Iterator method '{method.Identifier.Text}' has a ref struct using resource that cannot be hoisted across a yield boundary.");
+                ok = false;
+            }
+            else
+            {
+                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{method.Identifier.Text}' has a residual using statement after normalization.");
                 ok = false;
             }
         }
 
-        // lock statement containing yield -> M3
+        foreach (var usingDecl in body.DescendantNodes().OfType<LocalDeclarationStatementSyntax>())
+        {
+            if (usingDecl.UsingKeyword.RawKind == 0 || !ContainsYield(usingDecl)) continue;
+            if (usingDecl.AwaitKeyword.RawKind != 0)
+            {
+                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{method.Identifier.Text}' has an await using declaration (owned by async streams, C38).");
+                ok = false;
+            }
+            else if (usingDecl.Declaration.Variables
+                .Select(v => semanticModel.GetDeclaredSymbol(v) is ILocalSymbol local ? local.Type : null)
+                .Any(t => t is { IsRefLikeType: true }))
+            {
+                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0403,
+                    $"Iterator method '{method.Identifier.Text}' has a ref struct using declaration that cannot be hoisted across a yield boundary.");
+                ok = false;
+            }
+            else
+            {
+                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{method.Identifier.Text}' has a residual using declaration after normalization.");
+                ok = false;
+            }
+        }
+
         foreach (var lockStmt in body.DescendantNodes().OfType<LockStatementSyntax>())
         {
             if (ContainsYield(lockStmt))
             {
                 AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has yield inside lock (planned for M3).");
+                    $"Iterator method '{method.Identifier.Text}' has a residual lock statement after normalization.");
                 ok = false;
             }
         }
@@ -237,6 +279,26 @@ internal static class IteratorLoweringAnalyzer
     private static bool ContainsYield(SyntaxNode node)
         => node.DescendantNodes().Any(n => n.IsKind(SyntaxKind.YieldReturnStatement)
             || n.IsKind(SyntaxKind.YieldBreakStatement));
+
+    private static bool UsingResourceIsRefLike(UsingStatementSyntax usingStmt, SemanticModel semanticModel)
+    {
+        if (usingStmt.Declaration != null)
+        {
+            foreach (var variable in usingStmt.Declaration.Variables)
+            {
+                if (semanticModel.GetDeclaredSymbol(variable) is ILocalSymbol { Type.IsRefLikeType: true })
+                    return true;
+            }
+            return false;
+        }
+        if (usingStmt.Expression != null)
+        {
+            var type = semanticModel.GetTypeInfo(usingStmt.Expression).ConvertedType
+                ?? semanticModel.GetTypeInfo(usingStmt.Expression).Type;
+            return type is { IsRefLikeType: true };
+        }
+        return false;
+    }
 
     private static void AddSkipDiagnostic(
         List<IteratorLoweringDiagnostic> diagnostics,

@@ -19,4 +19,9 @@ public sealed class IteratorLoweringStatistics
     public int HoistedEnumerators;
     public int FinallyRegions;
     public int SkippedUnsupported;
+
+    // M3 (C44 G3): using/lock normalization inside iterator bodies
+    public int UsingRegionsNormalized;
+    public int UsingResourcesHoisted;
+    public int LocksNormalized;
 }
