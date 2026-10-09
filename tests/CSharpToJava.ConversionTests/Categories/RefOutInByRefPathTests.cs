@@ -202,7 +202,7 @@ public class Calc
         AssertJavaContains(result, ".moveNext()", "duck MoveNext");
         AssertJavaContains(result, ".getCurrent()", "duck Current");
         AssertJavaContains(result, "finally", "Dispose try/finally");
-        AssertJavaContains(result, ".dispose()", "duck Dispose");
+        AssertJavaContains(result, ".close()", "duck Dispose normalized to AutoCloseable.close in finally");
     }
 
     [Fact]

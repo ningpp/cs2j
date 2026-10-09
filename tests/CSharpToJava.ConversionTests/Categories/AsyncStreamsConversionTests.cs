@@ -109,16 +109,16 @@ class C
         // same pre-existing behavior as System.Console) but the mapped member
         // name still lands on getNone() in both forms.
         AssertJavaContains(result, ".getNone()");
-        AssertJavaContains(result, ".moveNextAsync().join()");
+        AssertJavaContains(result, ".moveNextAsync())");
         AssertJavaContains(result, ".getCurrent()");
-        AssertJavaContains(result, ".disposeAsync().join()");
+        AssertJavaContains(result, ".disposeAsync())");
 
-        // While condition: boxed Boolean from join() unboxed to primitive
-        // boolean by the converter's existing join-unbox table.
+        // While condition: the boxed Boolean result of AsyncAwait.join(...) is
+        // unboxed to primitive boolean by the converter's join-unbox table.
         AssertJavaContains(result, "while (");
         Assert.True(
-            result.GeneratedCode.Contains("(boolean)") && result.GeneratedCode.Contains(".join())"),
-            "while condition must unbox the boxed Boolean join result to primitive boolean.\n"
+            result.GeneratedCode.Contains("(boolean)") && result.GeneratedCode.Contains("AsyncAwait.join("),
+            "while condition must unbox the boxed Boolean AsyncAwait.join result to primitive boolean.\n"
             + "--- Generated ---\n" + result.GeneratedCode);
 
         // No C# surface names survive.
@@ -143,7 +143,7 @@ class C
         AssertJavaContains(result, "import io.github.ningpp.compat.AsyncDisposable;");
         AssertJavaContains(result, "AsyncDisposable resource");
         AssertJavaContains(result, "finally {");
-        AssertJavaContains(result, "resource.disposeAsync().join();");
+        AssertJavaContains(result, "AsyncAwait.join(resource.disposeAsync());");
 
         AssertJavaDoesNotContain(result, "IAsyncDisposable");
         AssertJavaDoesNotContain(result, "DisposeAsync");
@@ -210,9 +210,9 @@ class C
         AssertSuccess(result);
         AssertNoCSharpResidue(result);
         AssertJavaContains(result, ".getAsyncEnumerator(");
-        AssertJavaContains(result, ".moveNextAsync().join()");
+        AssertJavaContains(result, ".moveNextAsync())");
         AssertJavaContains(result, ".getCurrent()");
-        AssertJavaContains(result, ".disposeAsync().join()");
+        AssertJavaContains(result, ".disposeAsync())");
         AssertJavaContains(result, "AsyncEnumerator<Integer>");
         AssertJavaDoesNotContain(result, "ConfigureAwait");
         AssertJavaDoesNotContain(result, "configureAwait");
@@ -301,8 +301,8 @@ class C
         AssertJavaContains(result, ".moveNextAsync()");
         AssertJavaContains(result, ".getCurrent()");
         AssertJavaContains(result, ".disposeAsync()");
-        AssertJavaContains(result, ".moveNextAsync().join()");
-        AssertJavaContains(result, ".disposeAsync().join()");
+        AssertJavaContains(result, ".moveNextAsync())");
+        AssertJavaContains(result, ".disposeAsync())");
         AssertJavaContains(result, ".getNone()");
 
         AssertJavaDoesNotContain(result, "yield");

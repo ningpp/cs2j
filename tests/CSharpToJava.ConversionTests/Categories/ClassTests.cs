@@ -222,7 +222,7 @@ public class ClassTests : ConversionTestBase
     public void TopLevelStatementsClass_ConvertsToJava()
     {
         var result = Convert("class Program { public static void Main() { } }");
-        AssertConversion(result, "public class Program {", "public static void main() {");
+        AssertConversion(result, "public class Program {", "public static void main(String[] args) {");
     }
 
     [Fact]
