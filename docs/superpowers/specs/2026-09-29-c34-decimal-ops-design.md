@@ -369,4 +369,47 @@ git worktree add .worktrees/preproc-c34-decimal-ops -b feature/preproc-c34-decim
 2. **最终 Java 形态与转换器消费 PR 范围**：BCL 静态调用自然落 compat 静态别名（`Decimal.add(a,b)`，现成可编译），而红测试契约是实例形态（`a.add(b)`）；消费 PR 是否在默认开前合入、静态/实例是否二选一统一、参数位 `Decimal.valueOf` 包装补齐范围，需与转换器 owner 定死；红测试 [DecimalMappingTests.cs:71-210](file:///d:/code/cs2j/tests/CSharpToJava.Tests/DecimalMappingTests.cs#L71-L210) 的翻绿时点随之确定。
 3. **比较落点**：补 compat 静态 `compare`（推荐，统一静态形状）还是 C# 侧发 `a.CompareTo(b)` 实例形态（零 compat 改动但 .NET 半区装箱）——M0 二选一。
 4. **复杂目标复合赋值 v1 覆盖面**：DC-11 全量单次求值提升（推荐，lifter 可复用）还是 v1 仅简单目标 + CS2J5365 显式拒绝，由 sdk 属性/索引器 decimal 复合命中率决定。
-5. **文化面排期**：`ToString("F2")`/Parse 文化维持盘点透传（推荐）还是随本规则收口，取决于 sdk 格式串命中率与文化正确性要求。
+5. **文化面排期**：`ToString("F2")`/Parse 文化维持盘点透传（推荐）还是随本规则收口，取决于 sdk 格式串命中率。
+
+---
+
+## 13. M3 画像实施记录（2026-10-09）
+
+> 工具 `tools/PreprocessCorpusProbe`（7e8d9076），画像 id `c17-c22-c34`（numeric-boundary 三规则同驱，in-proc，非 strict；msbuild Compile 项口径，链接源重复计入）。报表：`probe-out/profiles/c17-c22-c34.{json,md}`、`probe-out/efcore/c17-c22-c34.md`、`probe-out/yaml/c17-c22-c34.md`。语料规模与不可用项（sdk 21/0/1457、EF 6（2）/2141、Yaml 8（5）/17）同 C17 §13.1。
+
+### 13.1 真 decimal 运算符站点
+
+| 桶 | sdk | EF Core | Yaml |
+|---|---:|---:|---:|
+| BinarySites（add/sub/mul） | **7**（1/2/4） | 0 | 0 |
+| ComparisonSites（Eq/Rel） | **168**（131/37，全部 xml-tiny/src） | 0 | 0 |
+| CompoundSites（simple/complex） | **19**（17/2，xml-tiny/src） | 0 | 0 |
+| UnarySites（UnaryNegate） | **12**（xml-tiny/src 2、XmlReader/ReadContentAs 测试 10） | 0 | 0 |
+| CastPromotionSites | **11**（xml-tiny/src 9、json/tests 2） | 0 | 0 |
+| Temps（receiver） | 2 | 0 | 0 |
+| decimal 自增交叉（C17 CS2J5334） | 1（xml-tiny/src `ContentValidator.cs`） | 0 | 0 |
+| ResidualDecimalOperators | **0** | 0 | 0 |
+
+真站点合计 **207**（sdk，含交叉 1），EF Core/Yaml **零真站点**。站点地理高度集中：比较 168 与复合 18/19、二元 7 全在 `xml-tiny/src/dotnet-xml.csproj`（521 编译项）；UnaryNegate 10 在 XmlReader ReadContentAs 测试。
+
+### 13.2 DeferredByReason=1378/2517 的语义澄清（非真站点）
+
+| 延迟桶 | sdk | EF Core | 语义 |
+|---|---:|---:|---|
+| user-operator | 1367 | 1908 | **表达式树形状计数，不是 decimal 真运算符站点**：Analyzer 对语义绑定到用户自定义运算符的形状（含 `op_Equality/op_Implicit` 等非算术形状）统一计 deferred；分布 xml-tiny/src 1050、json/src 108、json/tests 77、uri/src 17、EF EFCore 1220/Relational 479/SqlServer 207（EF 表达式树重灾，与其 5353=122 同族不同形状） |
+| lifted | 11 | 609 | Nullable<decimal> 提升形状，归 C22 守卫域，本规则只收内层裸算；EF 323/186/100 的项目分布与 C22 §14.2 同源 |
+
+结论：M3 策划阶段若按 TotalDeferred 估工会严重高估（1378/2517 均不产生 compat `Decimal.*` 调用面）；真实消费规模以 13.1 的 207 为准。
+
+### 13.3 E09 包装域与 checked 组合（M3 子项据数关闭）
+
+- `ToDecimalUInt32PromotionSites`/`ToDecimalUInt64PromotionSites`：sdk **0/0**、EF **0/0**——E09 包装类型转 decimal 的提升在三语料零命中，该 M3 子项**无工可做，记录关闭**；CS2J5366 哨兵保留。
+- checked/unchecked（C15 域同画像计数，sdk）：CheckedBinary 42、CheckedConversion 28、CheckedUnary 1、CheckedNonIntegerShellsStripped 38；UncheckedBlocksUnwrapped 17、UncheckedExpressionsStripped 49；ConstantsMaterialized 91、HelpersByDomain Int32 65/Int64 18/UInt64 18。其中 **checked decimal 真站点为 0**（checked 桶全部落在 int/long 域），EF 仅 unchecked 1/1；C34×C15 checked decimal 交叉面在三语料为空，联调义务以既有 fixture 为准。
+- ConstantsDowngraded=0、ResidualChecked/UncheckedNodes=0。
+
+### 13.4 转换器消费 PR 范围书（§8 门槛 4 的书面输入）
+
+- **消费规模**：207 个真站点，地理集中于 xml-tiny；消费面 = 裁决 2/3 的 compat 静态形状 `Decimal.add/sub/mul`、`Decimal.compare(a,b)==0` 比较、negate 与参数位 `Decimal.valueOf` 包装；零实例/静态双轨。
+- **红测试**：[DecimalMappingTests.cs:71-210](file:///d:/code/cs2j/tests/CSharpToJava.Tests/DecimalMappingTests.cs#L71-L210) 随消费 PR 翻绿。
+- **硬前提（不在本画像批实现）**：compat `divide` 回落 HALF_UP→HALF_EVEN（裁决 1）与双半区预言机对拍（§7.4，scale equals/28 位舍入）仍是默认开前置；本批语料中除法站点为 0，对拍义务不因此免除。
+- **门槛状态**：§8-5（sdk 扫描、分桶、5361/5362/5363/5365 逐条定性）由本节满足——三语料 5361/5362/5363/5365/5367/5368 **全部零命中**（含复杂目标复合 DC-11：sdk 19 复合全部已提升、零 5365）；默认开仍待 §8-2/3/4（compat 齐备、双半区对拍、消费 PR 合入），不随本批翻转。
