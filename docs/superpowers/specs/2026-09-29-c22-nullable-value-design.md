@@ -525,3 +525,44 @@ M2 的 `ScanResiduals` 依赖 `model.GetOperation(syntaxNode)` 逐语法节点�
 2. **`?.GOV` malformed 防御**：扫描器穿透已保证不漏枚举；是否对 CS10xx 错误输入提前短路属 M4 输质评审项（当前双态行为正确：strict=false 保留产物+Warning，strict=true 回滚）。
 3. **转换器侧退役 PR**：附录裁决 4 的 `Objects.equals`/null 字面量特判与 C47④ 内联臂退役，随 M4 族级消费 PR 一次完成；`TryTransformNullableMember` 的 identifier-only 范围是否扩到限定成员访问同批评审（§13.4）。
 4. **sdk 全量扫描**：§8 门槛 4 + 5352-5357 DeferredByReason 命中率报表（§13.5）。
+
+---
+
+## 14. M4 画像实施记录（2026-10-09）
+
+> 工具 `tools/PreprocessCorpusProbe`（7e8d9076），画像 id `c17-c22-c34`（in-proc，非 strict；Error 降 Warning 全量统计）。报表：`probe-out/profiles/c17-c22-c34.{json,md}`、`probe-out/efcore/c17-c22-c34.md`、`probe-out/yaml/c17-c22-c34.md`。语料规模与不可用项同 C17 §13.1（sdk 21/0/1457、EF 6（2）/2141、Yaml 8（5）/17）。
+
+### 14.1 lifted 站点总桶与分桶
+
+| 桶 | sdk | EF Core | Yaml |
+|---|---:|---:|---:|
+| LiftedEqualitySites（null 字面 / 单侧 / 双侧可空） | 27（20 / 7 / 0） | 334（176 / 147 / 11） | 0 |
+| LiftedConversions / UnwrapConversions | 8 / 0 | 32 / 5 | 0 |
+| LiftedRelationalSites | 1 | 18 | 0 |
+| LiftedBoolLogic（Not） | 0 | 9（Not 9） | 0 |
+| LiftedIncrementSites（compound） | 0 | 1（compound 1） | 0 |
+| GetValueOrDefaultSites | 1 | 0 | 0 |
+| TempsLifted（left / right） | 9（7 / 2） | 70（69 / 1） | 0 |
+| LiftedBinary/Unary/EnumBackstop/GuardedCheckedInner | 0 | 0 | 0 |
+
+EF 集中面：EFCore 223 相等站点（null-lit 126/one 96/both 1）+ BoolLogicNot 9 + lifted increment 1；Relational 69（40/21/8）；SqlServer 42。sdk 集中面：json/src 18、json/tests 3、xml/src 2、regex 2。
+
+### 14.2 DeferredByReason 与逐条人工定性
+
+| 码 | sdk | EF Core | 定性 |
+|---|---:|---:|---|
+| CS2J5353 user-defined-operator | 51（xml/src 26、json/tests 25） | 122（Relational 58、EFCore 55、SqlServer 9） | **真·语义屏障，非过保守**：lifted 站点绑定 Nullable<T> 上的用户自定义运算符（消息原文「guarded operator-call target form waits for C14 member-desugar」），样例 `JsonDocumentTests.cs:130 (string)obj["message"]`、`RelationalEntityTypeExtensions.cs:1417 StoreObjectIdentifier.Create(...) == ...`。收编前置是 member-desugar（C14）默认开——该 pass 已实现且开关 Default=true，本批 173 条随其默认开评审后重扫，不进入 C22 本族工作量 |
+| CS2J5355 unliftable-context | 11（json/src 7、regex src+tests 4） | 562（EFCore 285、Relational 166、SqlServer 111） | **真残余**：不稳定操作数落在无锚点/条件/短路/初始化器上下文（样例 `IEnumerableConverterFactoryHelpers.cs:279 stackType?.IsAssignableFrom(type) == true`、`RelationalCSharpRuntimeAnnotationCodeGenerator.cs:1756 sequence.MinValue != null`）。与 C17 5339 同族的语句线性化前置，单独立项前保持 |
+| CS2J5357 residual built-in lifted | 2（json/tests `NumberHandlingTests.cs`，2,2,25,25 四元组） | 4（SqlServer 3、Relational 1，样例 `RelationalIndexExtensions.cs` `(property.Name, tablesMappedToProperty)`） | valid residual：用户作用域内幸存的内建 lifted 形状（§13.3 隐式 lifted 转换同族），NL-8 从「仅显式 cast」扩到声明符/实参/return 隐式转换三位置的 **M4 候选工作项**，strict 下仍按闸门失败 |
+| CS2J5352 dynamic / 5354 expression-tree / 5356 special-numeric | 0 / 0 / 0 | 0 / 0 / 0 | 三语料零命中 |
+
+### 14.3 开放问题据数拍板
+
+1. **裁决 1（NullableHelper）维持不建**：sdk 37 个 lifted 站点中 9 个带临时（24%）、EF 394 个可改写站点中 70 个带临时（18%），内联守卫已在生产规模全部表达，无「内联无法表达」证据；helper 的 >5% 临时消灭收益不构成推翻零库依赖决策的理由，且 PassSupportLibrary 接线成本不变。**维持纯内联**。
+2. **裁决 3（异常类型 NPE 近似）维持**：本画像为静态站点计数，不产生 catch 面新证据；`.Value` 拆箱 NPE 与 `InvalidOperationException` 的差异继续登记在 compat 异常语义统一批次（与 C44 addSuppressed 同批），本族不动作。
+3. **裁决 4（Objects.equals 特判退役）**：本次按纪律**不删转换器代码**；退役范围书 = `IdentifierExpressionTransformer.TryTransformNullableMember` 之外的 `Objects.equals`/null 字面量特判臂与 C47④ 内联臂，随族级消费 PR 在默认开同里程碑一次退役（硬门，不留双轨），红测试清单随该 PR 建立。
+4. **§8 门槛 4 状态：本次满足**（三语料分桶 + 5353/5355/5357 逐条定性，无过保守误报项）；默认开仍随 C15 族级评审 + 上条消费 PR，不单行翻转。
+
+### 14.4 YamlDotNet
+
+17 个有效编译项零 lifted 站点、零诊断（48 个 foreach passthrough 属 C40 计数），无新增信息。
