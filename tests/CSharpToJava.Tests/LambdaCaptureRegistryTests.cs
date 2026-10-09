@@ -33,63 +33,6 @@ public class LambdaCaptureRegistryTests
         Assert.IsAssignableFrom<IIRExpressionTransformer>(LambdaTransformer.Instance);
     }
 
-    // ── CaptureInfo record ─────────────────────────────────────────
-
-    [Fact]
-    public void CaptureInfo_HasCorrectProperties()
-    {
-        var info = new MethodConversionState.CaptureInfo("x", "int", true);
-        Assert.Equal("x", info.VarName);
-        Assert.Equal("int", info.JavaType);
-        Assert.True(info.IsMutable);
-    }
-
-    [Fact]
-    public void CaptureInfo_EqualityByValue()
-    {
-        var a = new MethodConversionState.CaptureInfo("x", "int", true);
-        var b = new MethodConversionState.CaptureInfo("x", "int", true);
-        Assert.Equal(a, b);
-    }
-
-    // ── MethodConversionState registry ─────────────────────────────
-
-    [Fact]
-    public void RegisterLambdaCaptures_ThenTryGet_ReturnsCaptures()
-    {
-        var state = new MethodConversionState();
-        var captures = new List<MethodConversionState.CaptureInfo>
-        {
-            new("x", "int", true),
-            new("y", "String", false)
-        };
-        state.RegisterLambdaCaptures("lambda1", captures);
-
-        Assert.True(state.TryGetLambdaCaptures("lambda1", out var result));
-        Assert.Equal(2, result.Count);
-        Assert.Equal("x", result[0].VarName);
-        Assert.Equal("y", result[1].VarName);
-    }
-
-    [Fact]
-    public void TryGetLambdaCaptures_UnknownKey_ReturnsFalse()
-    {
-        var state = new MethodConversionState();
-        Assert.False(state.TryGetLambdaCaptures("unknown", out _));
-    }
-
-    [Fact]
-    public void Reset_ClearsLambdaCaptureRegistry()
-    {
-        var state = new MethodConversionState();
-        state.RegisterLambdaCaptures("key", new List<MethodConversionState.CaptureInfo>
-        {
-            new("x", "int", true)
-        });
-        state.Reset();
-        Assert.False(state.TryGetLambdaCaptures("key", out _));
-    }
-
     // ── End-to-end mutated capture ─────────────────────────────────
 
     [Fact]

@@ -16,10 +16,6 @@ namespace CSharpToJava.Core.Transformers.Statement;
 /// </summary>
 public partial class StatementTransformer : IStatementTransformer
 {
-    // Lambda-capture holder statements for method parameters (no declaration statement
-    // inside the body to attach them to). Emitted at the start of the method body.
-    private readonly List<string> _pendingParameterHolderStatements = new();
-
     public JavaSyntaxNode Transform(StatementSyntax node, ConversionContext context)
     {
         return node.Kind() switch
@@ -65,29 +61,6 @@ public partial class StatementTransformer : IStatementTransformer
     {
         if (block == null) return "{}";
 
-        // Pre-scan for lambda capture analysis at method body level (scope depth 0).
-        // This identifies variables captured by lambdas that are externally reassigned,
-        // so we can create holder declarations right after variable declarations.
-        if (context.MethodState.ScopeDepth == 0 && !context.MethodState.LambdaCapturePreScanDone)
-        {
-            PreScanLambdaCaptures(block, context);
-            context.MethodState.LambdaCapturePreScanDone = true;
-
-            // Parameters have no declaration statement inside the body, so emit their
-            // lambda-capture holders at the very start of the method body (before any
-            // reassignment) and activate the mappings so subsequent references —
-            // including the reassignments themselves — read/write the holder element.
-            foreach (var holder in context.MethodState.GetPendingParameterLambdaCaptureHolders())
-            {
-                var javaParamName = ConversionContext.EscapeJavaKeyword(holder.VarName);
-                var holderStatement = holder.JavaType.Contains('<')
-                    ? $"{holder.JavaType}[] {holder.HolderName} = ({holder.JavaType}[]) new Object[] {{ {javaParamName} }}"
-                    : $"{holder.JavaType}[] {holder.HolderName} = new {holder.JavaType}[] {{ {javaParamName} }}";
-                context.MethodState.ActivateLambdaCaptureHolder(holder.VarName, holder.DeclaringSyntax);
-                _pendingParameterHolderStatements.Add(holderStatement);
-            }
-        }
-
         if (context.MethodState.ScopeDepth == 0)
         {
             PrescanLocalFunctions(block, context);
@@ -96,11 +69,6 @@ public partial class StatementTransformer : IStatementTransformer
         context.MethodState.PushScope();
         var statements = TransformStatements(block.Statements, context);
         context.MethodState.PopScope();
-        if (_pendingParameterHolderStatements.Count > 0)
-        {
-            statements = _pendingParameterHolderStatements.Concat(statements).ToList();
-            _pendingParameterHolderStatements.Clear();
-        }
         return string.Join("\n        ", statements);
     }
 
@@ -120,27 +88,6 @@ public partial class StatementTransformer : IStatementTransformer
     {
         var body = new Java.JavaMethodBody();
         if (block == null) return body;
-
-        // Pre-scan for lambda capture analysis at method body level (scope depth 0).
-        if (context.MethodState.ScopeDepth == 0 && !context.MethodState.LambdaCapturePreScanDone)
-        {
-            PreScanLambdaCaptures(block, context);
-            context.MethodState.LambdaCapturePreScanDone = true;
-
-            // Parameters have no declaration statement inside the body, so emit their
-            // lambda-capture holders at the very start of the method body (before any
-            // reassignment) and activate the mappings so subsequent references —
-            // including the reassignments themselves — read/write the holder element.
-            foreach (var holder in context.MethodState.GetPendingParameterLambdaCaptureHolders())
-            {
-                var javaParamName = ConversionContext.EscapeJavaKeyword(holder.VarName);
-                var holderStatement = holder.JavaType.Contains('<')
-                    ? $"{holder.JavaType}[] {holder.HolderName} = ({holder.JavaType}[]) new Object[] {{ {javaParamName} }}"
-                    : $"{holder.JavaType}[] {holder.HolderName} = new {holder.JavaType}[] {{ {javaParamName} }}";
-                context.MethodState.ActivateLambdaCaptureHolder(holder.VarName, holder.DeclaringSyntax);
-                body.Statements.Add(new Java.JavaRawStatement(holderStatement + ";"));
-            }
-        }
 
         if (context.MethodState.ScopeDepth == 0)
         {

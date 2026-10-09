@@ -1,11 +1,16 @@
+using CSharpToJava.Core.ClosureLift;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// Tests that local variables captured by lambdas and externally reassigned
-/// are wrapped in array holders to satisfy Java's effectively-final constraint.
+/// Tests for lambda capture lowering.
+/// M5 (C45) retired the converter's own holder pre-scan: externally
+/// reassigned captured variables are now lowered exclusively by the
+/// closure-lift preprocessor (display classes), so those cases run
+/// through the preprocess → convert chain. Read-only captures never
+/// needed a holder and keep converting directly.
 /// </summary>
 public class LambdaExternalReassignmentTests
 {
@@ -28,12 +33,14 @@ class T {
     }
 
     /// <summary>
-    /// Variable mutated INSIDE lambda (existing GetMutatedCaptures path) still works.
+    /// Variable mutated INSIDE lambda: while the converter still owns the
+    /// residual array-holder fallback (removed in the next M5 step), the
+    /// closure-lift chain lowers it to a display class field.
     /// </summary>
     [Fact]
-    public void CapturedVariable_MutatedInsideLambda_ExistingPathWorks()
+    public void CapturedVariable_MutatedInsideLambda_ChainLiftsToDisplayClass()
     {
-        var result = Convert(@"
+        var result = ConvertAfterClosureLift(@"
 using System;
 class T {
     void M() {
@@ -43,18 +50,19 @@ class T {
     }
 }");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("_count", result.GeneratedCode);
-        Assert.Contains("[0]", result.GeneratedCode);
+        Assert.Contains("Cs2jDisplayClass", result.GeneratedCode);
+        Assert.Contains("_cs2jCap_count", result.GeneratedCode);
+        Assert.DoesNotContain("int[] _count", result.GeneratedCode);
     }
 
     /// <summary>
-    /// Variable both externally reassigned AND internally mutated.
-    /// The holder should be created once (by pre-scan), not duplicated.
+    /// Variable both externally reassigned AND internally mutated:
+    /// a single display class owns the shared mutable slot.
     /// </summary>
     [Fact]
-    public void CapturedVariable_BothExternalAndInternalMutation_SingleHolder()
+    public void CapturedVariable_BothExternalAndInternalMutation_SingleDisplayClass()
     {
-        var result = Convert(@"
+        var result = ConvertAfterClosureLift(@"
 using System;
 class T {
     void M() {
@@ -64,8 +72,8 @@ class T {
     }
 }");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var holderCount = CountOccurrences(result.GeneratedCode, "int[] _count");
-        Assert.Equal(1, holderCount);
+        Assert.Equal(1, CountOccurrences(result.GeneratedCode, "class Cs2jDisplayClass"));
+        Assert.DoesNotContain("int[] _count", result.GeneratedCode);
     }
 
     /// <summary>
@@ -88,12 +96,13 @@ class T {
     }
 
     /// <summary>
-    /// Multiple captured variables, only some are externally reassigned.
+    /// Multiple captured variables, only some are externally reassigned:
+    /// only the reassigned one becomes a display class field.
     /// </summary>
     [Fact]
-    public void MultipleCaptures_OnlyReassignedGetHolders()
+    public void MultipleCaptures_OnlyReassignedGetLifted()
     {
-        var result = Convert(@"
+        var result = ConvertAfterClosureLift(@"
 using System;
 class T {
     void M() {
@@ -104,17 +113,23 @@ class T {
     }
 }");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("int[] _x", result.GeneratedCode);
+        // Display-class consolidation (design D3) shares one class across all
+        // captures, read-only ones included; the retired behavior was emitting
+        // an array holder only for the reassigned variable.
+        Assert.Equal(1, CountOccurrences(result.GeneratedCode, "class Cs2jDisplayClass"));
+        Assert.Contains("_cs2jCap_x", result.GeneratedCode);
+        Assert.DoesNotContain("int[] _x", result.GeneratedCode);
         Assert.DoesNotContain("int[] _y", result.GeneratedCode);
     }
 
     /// <summary>
-    /// Multiple lambdas capturing the same externally-reassigned variable — single holder.
+    /// Multiple lambdas capturing the same externally-reassigned variable
+    /// share one display class.
     /// </summary>
     [Fact]
-    public void MultipleLambdas_CaptureSameReassignedVariable_SingleHolder()
+    public void MultipleLambdas_CaptureSameReassignedVariable_SingleDisplayClass()
     {
-        var result = Convert(@"
+        var result = ConvertAfterClosureLift(@"
 using System;
 class T {
     void M() {
@@ -125,17 +140,17 @@ class T {
     }
 }");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var holderCount = CountOccurrences(result.GeneratedCode, "int[] _x");
-        Assert.Equal(1, holderCount);
+        Assert.Equal(1, CountOccurrences(result.GeneratedCode, "class Cs2jDisplayClass"));
+        Assert.DoesNotContain("int[] _x", result.GeneratedCode);
     }
 
     /// <summary>
-    /// Post-increment operator on captured variable is detected as external reassignment.
+    /// Post-increment operator on a captured variable is detected as an external write.
     /// </summary>
     [Fact]
-    public void CapturedVariable_PostIncrement_ProducesHolder()
+    public void CapturedVariable_PostIncrement_LiftedToDisplayClass()
     {
-        var result = Convert(@"
+        var result = ConvertAfterClosureLift(@"
 using System;
 class T {
     void M() {
@@ -145,7 +160,8 @@ class T {
     }
 }");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("int[] _x", result.GeneratedCode);
+        Assert.Contains("_cs2jCap_x", result.GeneratedCode);
+        Assert.DoesNotContain("int[] _x", result.GeneratedCode);
     }
 
     private static ConversionResult Convert(string sourceCode)
@@ -154,6 +170,24 @@ class T {
         return pipeline.Convert(new ConversionRequest
         {
             SourceCode = sourceCode,
+            FileName = "Test.cs",
+            Options = new ConversionOptions(),
+        });
+    }
+
+    /// <summary>
+    /// Runs the closure-lift preprocessor (the M5 single source of truth
+    /// for mutable captures) and then converts the rewritten C# to Java.
+    /// </summary>
+    private static ConversionResult ConvertAfterClosureLift(string sourceCode)
+    {
+        var lift = new ClosureLiftPreprocessor().Preprocess(sourceCode);
+        Assert.True(lift.Changed, string.Join("\n", lift.Diagnostics.Select(d => d.ToString())));
+
+        var pipeline = new ConversionPipeline();
+        return pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = lift.OutputCode,
             FileName = "Test.cs",
             Options = new ConversionOptions(),
         });

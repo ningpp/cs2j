@@ -37,7 +37,6 @@ public partial class StatementTransformer
     {
         var exprTransformer = ExpressionTransformerFacade.Instance;
 
-        var holderPreStatements = new List<string>();
         var initializers = "";
         if (stmt.Declaration != null)
         {
@@ -49,23 +48,9 @@ public partial class StatementTransformer
             var vars = new List<string>();
             foreach (var variable in stmt.Declaration.Variables)
             {
-                var origName = variable.Identifier.Text;
                 var initExpr = variable.Initializer != null
                     ? exprTransformer.Transform(variable.Initializer.Value, context)
                     : null;
-
-                // Lambda capture holders for for-loop variables (capture rewriting is kept):
-                // the holder is emitted before the loop and the loop variable itself is dropped.
-                if (context.MethodState.HasPendingLambdaCaptureHolder(origName)
-                    && context.MethodState.TryGetPendingLambdaCaptureHolder(origName, variable, out var capType, out var holderName))
-                {
-                    var holderInit = initExpr ?? GetJavaDefaultForType(capType);
-                    holderPreStatements.Add(capType.Contains('<')
-                        ? $"{capType}[] {holderName} = ({capType}[]) new Object[] {{ {holderInit} }}"
-                        : $"{capType}[] {holderName} = new {capType}[] {{ {holderInit} }}");
-                    context.MethodState.ActivateLambdaCaptureHolder(origName, variable);
-                    continue;
-                }
 
                 var forVarName = context.MethodState.GetEffectiveLocalJavaName(
                     context.GetDeclaredSymbol(variable), variable.Identifier.ToString());
@@ -88,9 +73,7 @@ public partial class StatementTransformer
         var pendingPre = context.HasPendingPreStatements ? context.DrainPreStatements() : new List<string>();
         RejectConditionPostStatements(context, "for");
 
-        var preamble = string.Concat(
-            holderPreStatements.Select(s => s + ";\n"))
-            + string.Concat(pendingPre.Select(s => s.TrimEnd(';') + ";\n"));
+        var preamble = string.Concat(pendingPre.Select(s => s.TrimEnd(';') + ";\n"));
 
         var body = TransformLoopBody(stmt.Statement, bodyPostInjection: null, context);
         return new JavaStatementNode($"{preamble}for ({initializers}; {condition}; {incrementors}) {body}");
@@ -139,44 +122,15 @@ public partial class StatementTransformer
                 "CS2J normalization required: ref/out arguments producing read-backs in a foreach expression must be lowered by a preprocessor before Java conversion.");
         }
 
-        // Captured foreach variable: copy into a holder at the top of the loop body.
-        string? holderPrefix = null;
-        if (context.MethodState.HasPendingLambdaCaptureHolder(stmt.Identifier.Text)
-            && context.MethodState.TryGetPendingLambdaCaptureHolder(stmt.Identifier.Text, stmt, out var capType, out var holderName))
-        {
-            holderPrefix = capType.Contains('<')
-                ? $"{capType}[] {holderName} = ({capType}[]) new Object[] {{ {identifier} }};"
-                : $"{capType}[] {holderName} = new {capType}[] {{ {identifier} }};";
-            context.MethodState.ActivateLambdaCaptureHolder(stmt.Identifier.Text, stmt);
-        }
-
-        var body = TransformLoopBody(stmt.Statement, holderPrefix, context);
+        // Captured foreach variable lowering (display class or per-iteration
+        // holder) is owned by the closure-lift preprocessor; nothing to inject here.
+        var body = TransformLoopBody(stmt.Statement, bodyPostInjection: null, context);
         return new JavaStatementNode($"{preamble}for ({javaType} {identifier} : {expression}) {body}");
     }
 
     private JavaSyntaxNode TransformForEachVariableStatement(ForEachVariableStatementSyntax stmt, ConversionContext context)
         => throw new NotSupportedException(
             "CS2J normalization required: deconstructing foreach must be lowered by a preprocessor before Java conversion.");
-
-    /// <summary>
-    /// Default literal for holder initialization when a captured for/local variable
-    /// has no initializer in source.
-    /// </summary>
-    private static string GetJavaDefaultForType(string javaType)
-    {
-        return javaType switch
-        {
-            "int" => "0",
-            "long" => "0L",
-            "short" => "(short)0",
-            "byte" => "(byte)0",
-            "boolean" => "false",
-            "char" => "'\\u0000'",
-            "float" => "0.0f",
-            "double" => "0.0",
-            _ => "null"
-        };
-    }
 
     private static string BoxJavaType(string t)
         => t switch

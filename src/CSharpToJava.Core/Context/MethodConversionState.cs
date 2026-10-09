@@ -282,38 +282,7 @@ public class MethodConversionState
     /// </summary>
     public Dictionary<string, string> QueryLetAliases { get; set; } = new();
 
-    // ─── Lambda Capture Registry ────────────────────────────────────
-
-    /// <summary>
-    /// Information about a variable captured by a lambda expression.
-    /// </summary>
-    public record CaptureInfo(string VarName, string JavaType, bool IsMutable);
-
-    private readonly Dictionary<string, List<CaptureInfo>> _lambdaCaptureRegistry = new();
-
-    /// <summary>
-    /// Register captured variables for a lambda identified by <paramref name="lambdaKey"/>.
-    /// </summary>
-    public void RegisterLambdaCaptures(string lambdaKey, List<CaptureInfo> captures)
-    {
-        _lambdaCaptureRegistry[lambdaKey] = captures;
-    }
-
-    /// <summary>
-    /// Try to retrieve previously registered capture info for a lambda.
-    /// </summary>
-    public bool TryGetLambdaCaptures(string lambdaKey, out List<CaptureInfo> captures)
-    {
-        return _lambdaCaptureRegistry.TryGetValue(lambdaKey, out captures!);
-    }
-
     // ─── Lambda Capture Holder (Effectively Final) ────────────────
-
-    /// <summary>
-    /// Whether the lambda capture pre-scan has been performed for the current method.
-    /// Set to true after <c>PreScanLambdaCaptures</c> runs to avoid redundant scanning.
-    /// </summary>
-    public bool LambdaCapturePreScanDone { get; set; }
 
     // ─── Renamed Locals (Lambda Shadowing) ────────────────────────
 
@@ -412,92 +381,13 @@ public class MethodConversionState
     }
 
     /// <summary>
-    /// Pending holders: registered during pre-scan for variables that are captured by lambdas
-    /// and externally reassigned. The holder declaration will be emitted right after the
-    /// variable's own declaration, then the mapping is promoted to active.
-    /// Stored as a list so that multiple locals with the same name in different scopes can each
-    /// have their own holder. Each entry records the declaring syntax so activation can match
-    /// the exact local variable and not just the name.
-    /// </summary>
-    private readonly List<PendingLambdaCaptureHolder> _pendingLambdaCaptureHolders = new();
-
-    public record PendingLambdaCaptureHolder(string VarName, string JavaType, string HolderName, SyntaxNode DeclaringSyntax);
-
-    /// <summary>
-    /// Active holders: after the holder declaration is emitted, the mapping is promoted here.
-    /// <see cref="IdentifierExpressionTransformer"/> checks this to replace variable references
-    /// with holder element access (<c>_varName[0]</c>).
-    /// Organized as a stack of scopes so that shadowed locals in nested blocks do not reuse
-    /// a holder belonging to an outer scope. The innermost scope is at the end of the list.
+    /// Active holders: holder mappings registered directly by the lambda
+    /// expression transformer for captured variables mutated inside a lambda.
+    /// <see cref="IdentifierExpressionTransformer"/> historically replaced
+    /// variable references with holder element access; organized as a stack of
+    /// scopes so shadowed locals in nested blocks do not reuse an outer holder.
     /// </summary>
     private readonly List<Dictionary<string, string>> _activeLambdaCaptureHolderFrames = new();
-
-    /// <summary>
-    /// Register a variable that needs a lambda capture holder due to external reassignment.
-    /// Called during the pre-scan phase (before statement processing).
-    /// </summary>
-    public void RegisterPendingLambdaCaptureHolder(string varName, string javaType, SyntaxNode declaringSyntax)
-    {
-        var escaped = JavaNaming.EscapeJavaKeyword(varName);
-        var holderName = $"_{escaped}";
-        _pendingLambdaCaptureHolders.Add(new PendingLambdaCaptureHolder(varName, javaType, holderName, declaringSyntax));
-    }
-
-    /// <summary>
-    /// Check whether a variable has a pending (not yet declared) lambda capture holder.
-    /// </summary>
-    public bool HasPendingLambdaCaptureHolder(string varName)
-        => _pendingLambdaCaptureHolders.Any(h => h.VarName == varName);
-
-    /// <summary>
-    /// Get all pending lambda capture holders declared by method parameters. These are
-    /// emitted at the start of the method body (there is no parameter declaration
-    /// statement inside the body to attach them to).
-    /// </summary>
-    public IReadOnlyList<PendingLambdaCaptureHolder> GetPendingParameterLambdaCaptureHolders()
-        => _pendingLambdaCaptureHolders
-            .Where(h => h.DeclaringSyntax is Microsoft.CodeAnalysis.CSharp.Syntax.ParameterSyntax)
-            .ToList();
-
-    /// <summary>
-    /// Try to get the pending holder info for a specific variable declaration.
-    /// </summary>
-    public bool TryGetPendingLambdaCaptureHolder(string varName, SyntaxNode declaringSyntax, out string javaType, out string holderName)
-    {
-        foreach (var holder in _pendingLambdaCaptureHolders)
-        {
-            if (holder.VarName == varName && holder.DeclaringSyntax == declaringSyntax)
-            {
-                javaType = holder.JavaType;
-                holderName = holder.HolderName;
-                return true;
-            }
-        }
-
-        javaType = string.Empty;
-        holderName = string.Empty;
-        return false;
-    }
-
-    /// <summary>
-    /// Activate a pending holder: move it from pending to active.
-    /// Called after the holder declaration is emitted (right after the variable declaration).
-    /// Once active, <see cref="TryGetActiveLambdaCaptureHolder"/> returns true and
-    /// <see cref="IdentifierExpressionTransformer"/> will replace references.
-    /// </summary>
-    public void ActivateLambdaCaptureHolder(string varName, SyntaxNode declaringSyntax)
-    {
-        for (int i = 0; i < _pendingLambdaCaptureHolders.Count; i++)
-        {
-            if (_pendingLambdaCaptureHolders[i].VarName == varName &&
-                _pendingLambdaCaptureHolders[i].DeclaringSyntax == declaringSyntax)
-            {
-                GetCurrentLambdaCaptureHolderFrame()[varName] = _pendingLambdaCaptureHolders[i].HolderName;
-                _pendingLambdaCaptureHolders.RemoveAt(i);
-                return;
-            }
-        }
-    }
 
     /// <summary>
     /// Check whether a variable has an active (declared) lambda capture holder in the
@@ -543,23 +433,6 @@ public class MethodConversionState
     /// </summary>
     public bool HasActiveLambdaCaptureHolder(string varName)
     {
-        for (int i = _activeLambdaCaptureHolderFrames.Count - 1; i >= 0; i--)
-        {
-            if (_activeLambdaCaptureHolderFrames[i].ContainsKey(varName))
-                return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Check whether a variable has either a pending or active lambda capture holder.
-    /// </summary>
-    public bool HasLambdaCaptureHolder(string varName)
-    {
-        if (_pendingLambdaCaptureHolders.Any(h => h.VarName == varName))
-            return true;
-
         for (int i = _activeLambdaCaptureHolderFrames.Count - 1; i >= 0; i--)
         {
             if (_activeLambdaCaptureHolderFrames[i].ContainsKey(varName))
@@ -716,11 +589,8 @@ public class MethodConversionState
         _readOnlyRefStructParams.Clear();
         _shortCircuitDepth = 0;
         _shortCircuitDeferredSideEffects.Clear();
-        _lambdaCaptureRegistry.Clear();
-        _pendingLambdaCaptureHolders.Clear();
         _activeLambdaCaptureHolderFrames.Clear();
         _renamedLocals.Clear();
-        LambdaCapturePreScanDone = false;
         _hoistedLocalFunctions.Clear();
         _nonHoistedLocalFunctions.Clear();
         // Captures/defaults of one method's local functions must not leak into

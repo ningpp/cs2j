@@ -40,7 +40,6 @@ public partial class StatementTransformer
         var isFinal = stmt.Modifiers.Any(m => m.IsKind(SyntaxKind.ConstKeyword) || m.IsKind(SyntaxKind.ReadOnlyKeyword));
 
         var exprTransformer = ExpressionTransformerFacade.Instance;
-        var holderStatements = new List<string>();
         var plainDeclarators = new List<string>();
         JavaExpression? singleInitializerIR = null;
         string? singleResolvedInitType = null;
@@ -61,22 +60,6 @@ public partial class StatementTransformer
             var initExprText = variable.Initializer != null
                 ? exprTransformer.Transform(variable.Initializer.Value, context)
                 : null;
-
-            // A lambda-captured, externally reassigned local is rewritten to a
-            // one-element holder array; emit the holder declaration in place of
-            // the ordinary local declaration.
-            var origName = variable.Identifier.Text;
-            if (context.MethodState.HasPendingLambdaCaptureHolder(origName)
-                && context.MethodState.TryGetPendingLambdaCaptureHolder(origName, variable, out var capType, out var holderName))
-            {
-                var holderInit = initExprText ?? GetJavaDefaultForType(capType);
-                var holderStatement = capType.Contains('<')
-                    ? $"{capType}[] {holderName} = ({capType}[]) new Object[] {{ {holderInit} }}"
-                    : $"{capType}[] {holderName} = new {capType}[] {{ {holderInit} }}";
-                holderStatements.Add(holderStatement);
-                context.MethodState.ActivateLambdaCaptureHolder(origName, variable);
-                continue;
-            }
 
             plainDeclarators.Add(initExprText != null ? $"{name} = {initExprText}" : name);
 
@@ -99,7 +82,7 @@ public partial class StatementTransformer
         var postStatements = context.HasPendingPostStatements ? context.DrainPostStatements() : new List<string>();
 
         // Fast path: one plain declarator, no surrounding statements → structured IR.
-        if (holderStatements.Count == 0 && plainDeclarators.Count == 1
+        if (plainDeclarators.Count == 1
             && preStatements.Count == 0 && postStatements.Count == 0)
         {
             return new JavaVariableDeclarationStatement
@@ -119,8 +102,6 @@ public partial class StatementTransformer
         var emitted = new List<JavaSyntaxNode>();
         foreach (var pre in preStatements)
             emitted.Add(new JavaStatementNode(pre.TrimEnd(';') + ";"));
-        foreach (var holder in holderStatements)
-            emitted.Add(new JavaStatementNode(holder + ";"));
         if (plainDeclarators.Count > 0)
         {
             var finalKeyword = isFinal ? "final " : "";

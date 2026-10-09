@@ -73,43 +73,6 @@ public class PhaseAArchitectureTests
     }
 
     // ═══════════════════════════════════════════════════════════
-    // L1.4 Lambda Capture Registry
-    // ═══════════════════════════════════════════════════════════
-
-    [Fact]
-    public void CaptureRegistry_RegisterAndRetrieve()
-    {
-        var state = new MethodConversionState();
-        var captures = new List<MethodConversionState.CaptureInfo>
-        {
-            new("x", "int", true),
-            new("name", "String", false),
-        };
-        state.RegisterLambdaCaptures("lambda_1", captures);
-
-        Assert.True(state.TryGetLambdaCaptures("lambda_1", out var retrieved));
-        Assert.Equal(2, retrieved.Count);
-        Assert.Equal("x", retrieved[0].VarName);
-        Assert.True(retrieved[0].IsMutable);
-    }
-
-    [Fact]
-    public void CaptureRegistry_UnknownKey_ReturnsFalse()
-    {
-        var state = new MethodConversionState();
-        Assert.False(state.TryGetLambdaCaptures("nonexistent", out _));
-    }
-
-    [Fact]
-    public void CaptureRegistry_ClearedOnReset()
-    {
-        var state = new MethodConversionState();
-        state.RegisterLambdaCaptures("lambda_1", new List<MethodConversionState.CaptureInfo>());
-        state.Reset();
-        Assert.False(state.TryGetLambdaCaptures("lambda_1", out _));
-    }
-
-    // ═══════════════════════════════════════════════════════════
     // L2.1 IR Node Extensions
     // ═══════════════════════════════════════════════════════════
 
