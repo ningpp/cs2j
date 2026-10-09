@@ -502,3 +502,56 @@ git worktree add .worktrees/preproc-c23-interpolation -b feature/preproc-c23-int
 - **Q3 Concat 等价白名单的边界**：当前以「基元/enum/已知 BCL 文化等价类型」为白名单、其余 `IFormattable` 一律升 Format。白名单是否收紧为「仅基元 + string」（更保守、Format 更多）或放宽到「所有非显式接口实现类型」（更激进），影响性能形态与画像中 Format/Concat 比例，由 M2 实测数据评审。
 - **Q4 表达式树内插值是否在 M4 收编**：C# 编译器在表达式树中本就把插值降为 `string.Format("{0}", x)` 调用节点；将树上插值显式化为该规范形理论上不改变树形状（相对编译器原生 lowering），但需先证明与 Roslyn 生成形态逐节点一致。M1–M3 维持跳过（0515）。
 - **Q5 默认开与 Java 侧大 transformer 下掉的节奏**：是否要求「下掉 [StringExpressionTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs) 插值分支」作为翻默认开的同 PR 硬前提，还是默认开后保留一个版本的双轨（直连入口安全网）再删。倾向前者由独立 PR 完成、后者作为翻默认开前提（§8 第 6 条），需评审确认风险敞口。
+
+---
+
+## 14. M4 实施记录：csharp-sdk 画像评审与 Q1/Q2/Q4 拍板（2026-10-09）
+
+### 14.1 语料与口径
+
+- **语料**：`D:\csharp-sdk`（只读训练集快照，2026-10-09 本机副本；json / regular-expressions / uri / xml-tiny 四个子仓），枚举 **21 个 csproj、1457 个编译项**，0 项目不可用；msbuild `-getItem:Compile` + `-target:ResolveAssemblyReferences -getItem:ReferencePath` 求值，GlobalUsings.g.cs 双布局（obj/ 与 Arcade artifacts/obj）均计入。
+- **入口**：`tools/PreprocessCorpusProbe`（本批新增，profile `c23`），进程内逐文件驱动 `ExpressionDesugarPreprocessor`，**仅开 Interpolations 子节**（C24/C35 子节 null、C36 默认不触发），非 strict（Error 降 Warning 以取得全部命中）。
+- 计数按**编译项**累加：同一物理源被多个 csproj 以链接（Compile Include 共享）编译会重复计入（uri 四个测试工程链接同一批 src 文件，numeric 画像可见四份同值指标；C23 的插值站点仅 uri/FunctionalTests 有 6 站，重复影响有限）。站点数与设计 §8-5 预估「约 650」口径不同：650 是设计期估算；CLI 沿 P2P 图驱动且 C24 strict 门会整文件原子中止（smoke：426 站、handler 61），**以本节规则隔离的 482 为 M4 基线数**。
+- 报表（gitignored，不入库）：`probe-out/profiles/c23.{json,md}`；统一证据索引见 `docs/superpowers/reports/2026-10-09-p3-profile-evidence.md`。
+
+### 14.2 插值站点五路分布（482 站）
+
+| 归宿 | 码 | 计数（修复前→修复后） | 说明 |
+|---|---|---:|---|
+| IE-CONCAT | CS2J0501 | 314 → **340** | 含装箱字符串收编后新增的 26 站 |
+| IE-FORMAT | CS2J0502 | 10 → **12** | 其中 format 子句 9（→11）、IFormattable 升级 5（不变）、对齐子句 **0**；收编新增 2 站（`:X2` 格式子句） |
+| IE-FOLD | CS2J0503 | 38 | 全常量折叠 |
+| 自定义 handler 保留 | CS2J0510 | **92** | 逐条 triage 见 §14.3 |
+| 绑定不可分类保留 | CS2J0512 | 28 → **0** | 见 §14.4 最小收编 |
+| 表达式树跳过 | CS2J0515 | **0** | sdk 无命中 |
+| FormattableString 保留 | CS2J0511 | 0 | |
+| residual（未解释插值） | — | **0** | 修复后 482 站全部有展开或显式保留诊断，满足 §8 第 2 条 |
+
+UnsignedHoleWraps=2；ResidualInterpolationCount=0；79 文件改写。
+
+### 14.3 CS2J0510 逐条 triage（92 站，仅 2 种 BCL handler）
+
+| handler 类型 | src | tests | 合计 | 人工定性 |
+|---|---:|---:|---:|---|
+| `System.Text.StringBuilder.AppendInterpolatedStringHandler` | 10 | 44 | **54** | 逐段 `Append`/`AppendFormatted`（CurrentCulture），**存在可证明等价终态**：`sb.Append(string.Format(composite, holes))`（对齐/格式/culture 与 IE-FORMAT 同路径）；tests 占 81%，生产面仅 10 站。按 Q1 裁决不进本 pass，**登记为独立后续立项候选**（编号建议 C23-X1），默认开不依赖它 |
+| `System.Diagnostics.Debug.AssertInterpolatedStringHandler` | 31 | 7 | **38** | 条件求值 handler：仅断言失败且 DEBUG 定义时才逐洞求值，Release/通过断言时**零求值**。Concat/Format 化会伪造求值次数与文本构造，**无安全仿真**；永久 Error/Keep 二选一，不立项 |
+| 合计 | 41 | 51 | **92** | 无第三方 handler；设计期点名的 Microsoft.Extensions.Logging / System.Text.Json writer handler 在本语料 **0 命中** |
+
+### 14.4 过保守诊断最小收编：装箱字符串站点（CS2J0512 28→0）
+
+28 站全部是「自然类型 string、转换目标 System.Object」的装箱上下文：`new object[] { $"…" }`（xUnit MemberData 行，JsonGuidTestData/Array.ReadTests/Utf8JsonReaderTests）、`SR.Format(resource, $"…")` 的 `params object[]` 实参（ThrowHelper、xml ReflectionXmlSerializationReader/Writer）。该形态 C# 语义为普通插值→string 后隐式装箱，**handler 按参数类型绑定、不可能经 object 槽位命中**，展开与 DefaultString 等价（装箱留在外层转换）。
+
+- 修复（仅 1 处判定，位于族自有目录）：`HandlerBindingAnalyzer.Classify` 在 DefaultString 判定后增加 `ConvertedType=System.Object（排除 dynamic）且自然 Type=string` 分支，归 DefaultString。
+- 前后计数（同口径重跑）：CS2J0512 **28→0**；CS2J0501 314→340、CS2J0502 10→12（26+2=28，全部去向可解释）；改写文件 79 站外无回归；residual 保持 0。
+- 新增 xUnit 4 条（仅编译验证，未跑测试，遵守本批纪律）：object[] 元素 / params object[] 实参 / object 局部均走 Concat 且产物可编译；`dynamic` 洞仍落 CS2J0512 Warning 保留。
+- 其余 IConvertible 等接口装箱面本语料 0 命中，不预先扩面。
+
+### 14.5 Q1/Q2/Q4 据数拍板
+
+- **Q1（自定义 handler 白名单）**：**维持原裁决——永久 strict Error / 非 strict Keep 二选一，不做受控仿真白名单**。画像数据消除了原假设风险：sdk 内无任何第三方/日志/JSON-writer handler，仅 2 个 BCL handler；其中 Debug.Assert（38）属不可仿真的条件求值，StringBuilder（54，src 仅 10）虽有等价终态但按裁决走**独立立项（C23-X1 候选）**，不进本 pass、不作为默认开前提。
+- **Q2（Java 半区 formatCs 路由）**：维持原裁决（独立转换器 PR 为翻默认开硬前提）。画像补充：IE-FORMAT 仅 12/482 站（2.5%），**对齐子句 sdk 0 命中**，格式子句 11、IFormattable 升级 5——PR 规模预期小，但文化/null 语义项不减；结论不变。
+- **Q4（表达式树内插值收编）**：sdk 命中 **0**（CS2J0515=0），无对象可做 Roslyn lowering 逐节点一致性证明。**M4 不启动收编、不做证明**；0515 跳过路径保留，翻默认开时按 §8 登记为显式已知限制（sdk 命中 0）；未来画像出现命中再按原裁决补证明。
+
+### 14.6 §8 门槛状态与遗留
+
+已满足：第 2 条（零未解释插值 + CS2J0510 逐条评审，本节）；第 5 条（sdk 画像试跑与五路分布，本节）。仍未满足、**DefaultEnabled 继续保持 false**：Q2 formatCs 转换器 PR、Q5 [StringExpressionTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs) 旧臂独立退役 PR、§8 第 1/3 条 Java 半区 e2e 与 build/test 全绿（本批纪律禁止跑测试，未取得）。C23-X1（StringBuilder handler 等价改写）列为后续候选，不阻塞。
