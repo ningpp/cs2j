@@ -876,6 +876,34 @@ public class GenDerived<T> : GenBase where T : class
         Assert.Equal(output, second);
     }
 
+    // 语料回归（csharp-sdk json tests，2026-10-09 member-desugar 全量画像）：
+    // 待改名字段的初始化器内含命中改名表的成员访问时，base.VisitFieldDeclaration
+    // 会产出离树 VariableDeclarator；旧代码对其 GetDeclaredSymbol 抛
+    // "Syntax node is not within syntax tree"。符号查询必须走访问前节点。
+    [Fact]
+    public void Nh4_NewField_InitializerBindsRenamedMember_DoesNotQueryDetachedNode()
+    {
+        const string src = """
+            public class Base2 { public int Val = 1; }
+            public class Helper : Base2 { public new int Val = 2; }
+            public class Base { public int F = 1; }
+            public class Derived : Base
+            {
+                public new int F = new Helper().Val;
+            }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        AssertContains(output, "public int F_cs2jNew = new Helper().Val_cs2jNew;");
+        Assert.Equal(2, stats.SignatureHideRenamed);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
     [Fact]
     public void Nh2_NewVirtual_NewSlotChainRenamed_ForM4a()
     {

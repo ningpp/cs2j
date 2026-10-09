@@ -465,18 +465,36 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitConditionalAccessExpression(ConditionalAccessExpressionSyntax node)
     {
         // a?.X → a?.get_X()
-        if (node.WhenNotNull is MemberBindingExpressionSyntax binding
-            && TryGetPlan(binding, out var plan))
-        {
-            var recv = (ExpressionSyntax)Visit(node.Expression)!;
-            var invoked = Invoke(SyntaxFactory.MemberBindingExpression(
+        PropertyPlan? tailPlan = null;
+        var tailPlanned = node.WhenNotNull is MemberBindingExpressionSyntax tail
+            && TryGetPlan(tail, out tailPlan);
+        // 链式 a?.X?.Y：内层 ConditionalAccess.Expression 是裸 MemberBinding。
+        // 其 Name 槽只能放 SimpleName，基类 VisitMemberBindingExpression 会把
+        // Visit(Name) 的结果无条件强转——下放给 VisitIdentifierName 换成
+        // Invocation 必抛 InvalidCastException，故中间槽必须在本层整体替换。
+        PropertyPlan? headPlan = null;
+        var headPlanned = node.Expression is MemberBindingExpressionSyntax head
+            && TryGetPlan(head, out headPlan);
+
+        if (!tailPlanned && !headPlanned)
+            return base.VisitConditionalAccessExpression(node);
+
+        var receiver = headPlanned
+            ? Invoke(SyntaxFactory.MemberBindingExpression(
                 SyntaxFactory.Token(SyntaxKind.DotToken),
-                SyntaxFactory.IdentifierName(plan.GetterMethodName)));
-            _stats.ReadSitesRewritten++;
-            return SyntaxFactory.ConditionalAccessExpression(recv, invoked)
-                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
-        }
-        return base.VisitConditionalAccessExpression(node);
+                SyntaxFactory.IdentifierName(headPlan!.GetterMethodName)))
+            : (ExpressionSyntax)Visit(node.Expression)!;
+
+        var whenNotNull = tailPlanned
+            ? Invoke(SyntaxFactory.MemberBindingExpression(
+                SyntaxFactory.Token(SyntaxKind.DotToken),
+                SyntaxFactory.IdentifierName(tailPlan!.GetterMethodName)))
+            : (ExpressionSyntax)Visit(node.WhenNotNull)!;
+
+        if (headPlanned) _stats.ReadSitesRewritten++;
+        if (tailPlanned) _stats.ReadSitesRewritten++;
+        return SyntaxFactory.ConditionalAccessExpression(receiver, whenNotNull)
+            .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
     }
 
     public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
@@ -552,14 +570,27 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         var kept = init.Expressions
             .Where(e => e is not AssignmentExpressionSyntax a || !TryGetPlan(a.Left, out _))
             .ToList();
-        var keptCreation = oc.WithInitializer(kept.Count > 0
-            ? SyntaxFactory.InitializerExpression(
-                SyntaxKind.ObjectInitializerExpression, SyntaxFactory.SeparatedList(kept))
-            : null);
+        // PD-8：只在仍属于语法树的原始节点上做 Visit（TryGetPlan 的语义查询要求
+        // 节点在树内，离树克隆会抛 "Syntax node is not within syntax tree"）；
+        // 离树的 new 表达式用已访问的部件组装，绝不整体 Visit 克隆。
+        var visitedKept = kept
+            .Select(e => (ExpressionSyntax)Visit(e)!)
+            .ToList();
+        var visitedArgs = oc.ArgumentList is { } argList
+            ? argList.WithArguments(SyntaxFactory.SeparatedList(
+                argList.Arguments.Select(a => (ArgumentSyntax)Visit(a)!)))
+            : null;
+        var keptCreation = oc
+            .WithArgumentList(visitedArgs)
+            .WithInitializer(visitedKept.Count > 0
+                ? SyntaxFactory.InitializerExpression(
+                    SyntaxKind.ObjectInitializerExpression,
+                    SyntaxFactory.SeparatedList(visitedKept))
+                : null);
         // `new C { .. }` 去掉初始化器后必须补空参数表，否则 `new C` 不是合法表达式。
-        if (kept.Count == 0 && keptCreation.ArgumentList == null)
+        if (visitedKept.Count == 0 && keptCreation.ArgumentList == null)
             keptCreation = keptCreation.WithArgumentList(SyntaxFactory.ArgumentList());
-        stmts.Add(DeclVar(temp, (ExpressionSyntax)Visit(keptCreation)!));
+        stmts.Add(DeclVar(temp, keptCreation));
 
         var tempIdent = Ident(temp);
         foreach (var a in assigns)

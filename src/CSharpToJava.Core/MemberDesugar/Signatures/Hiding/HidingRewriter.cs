@@ -76,13 +76,20 @@ internal sealed class HidingRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitFieldDeclaration(FieldDeclarationSyntax node)
     {
         var visited = (FieldDeclarationSyntax)base.VisitFieldDeclaration(node)!;
+        // 符号查询一律走访问前的原始节点：初始化器内的改名站点会让 base.Visit
+        // 产出离树的 VariableDeclarator 克隆，对其 GetDeclaredSymbol 抛
+        // "Syntax node is not within syntax tree"（与 VisitMethodDeclaration
+        // 查询原始 node 同纪律，两列表按索引一一对应）。
+        var originalVariables = node.Declaration.Variables;
         var variables = new List<VariableDeclaratorSyntax>(visited.Declaration.Variables.Count);
         var renamed = false;
-        foreach (var variable in visited.Declaration.Variables)
+        for (var i = 0; i < visited.Declaration.Variables.Count; i++)
         {
+            var variable = visited.Declaration.Variables[i];
+            var original = originalVariables[i];
             var countIt = false;
             var replacement = variable;
-            if (_model.GetDeclaredSymbol(variable) is { } declared
+            if (_model.GetDeclaredSymbol(original) is { } declared
                 && _rename.TryGetValue(NhPlan.SiteKey(declared), out var newName))
             {
                 replacement = variable.WithIdentifier(IdentifierWithTrivia(variable.Identifier, newName));
