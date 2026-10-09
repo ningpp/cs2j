@@ -122,4 +122,101 @@ public class MemberDesugarProjectTests
         }
     }
 
+    /// <summary>
+    /// 画像暴露（2026-10-09，csharp-sdk json TrimmingTests）：CLI 树准备按目录枚举收集
+    /// .cs，不读 msbuild Compile 项。EnableDefaultCompileItems=false 的项目里，不参与
+    /// 真实编译的同源镜像文件（每个文件本应独立成程序）被合入同一个 Roslyn 编译；
+    /// 属性去糖后镜像类型两侧的 get_X 撞 CS0082，锚点落在已回退 plan 保留的属性侧，
+    /// 严格归属失败 → 旧行为 CS2J5100 全树回滚，连真实参与编译文件的有效改写也被吞掉。
+    /// 新行为：新错误仅能锚定已排除 plan 时接受本轮；真实 breakage 仍由 msbuild 验证兜底。
+    /// </summary>
+    [Fact]
+    public async Task Phantom_Mirror_Types_Outside_CompileItems_Do_Not_Trigger_WholeTree_Rollback()
+    {
+        var srcDir = Path.Combine(Path.GetTempPath(),
+            "cs2j-md-mirror-" + Guid.NewGuid().ToString("N"));
+        var projectDir = Path.Combine(srcDir, "MirrorProj");
+        Directory.CreateDirectory(projectDir);
+        var outputDir = Path.Combine(srcDir, "out");
+        try
+        {
+            File.WriteAllText(Path.Combine(projectDir, "MirrorProj.csproj"),
+                """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <Nullable>enable</Nullable>
+                    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <Compile Include="Real.cs" />
+                  </ItemGroup>
+                </Project>
+                """);
+            File.WriteAllText(Path.Combine(projectDir, "Real.cs"),
+                """
+                namespace MirrorProj;
+
+                public class Real
+                {
+                    public int Value { get; set; }
+                }
+                """);
+            // 两个镜像文件：不被 csproj 编译，但会被 CLI 目录枚举合入同一 Roslyn 编译。
+            var mirrorA =
+                """
+                namespace MirrorHarness;
+
+                internal class Program
+                {
+                    static int Main() => 0;
+                }
+
+                internal class ClassWithDay
+                {
+                    public int Day { get; set; }
+                }
+                """;
+            File.WriteAllText(Path.Combine(projectDir, "Phantom1.cs"), mirrorA);
+            File.WriteAllText(Path.Combine(projectDir, "Phantom2.cs"), mirrorA);
+
+            var adapter = new MemberDesugarPassAdapter(
+                new MemberDesugarOptions(), verbose: false,
+                filterUnsupportedProjects: false, compatNamespacePrefixes: null);
+            var run = await ProjectPassRunner.RunAsync(adapter, new ProjectPassRunRequest
+            {
+                SourcePath = Path.Combine(projectDir, "MirrorProj.csproj"),
+                DestinationRoot = outputDir,
+                Force = true,
+            });
+
+            Assert.True(run.Success, string.Join("\n",
+                adapter.Diagnostics.Where(d => d.Severity == MemberDesugarSeverity.Error)
+                    .Select(d => d.ToMsBuildString())));
+            Assert.DoesNotContain(adapter.Diagnostics,
+                d => d.Code == MemberDesugarDiagnosticCode.WholeTreeRollback);
+
+            // 真实参与编译文件上的有效属性改写不得被镜像碰撞连带回滚。
+            var realOutput = File.ReadAllText(Path.Combine(run.IntermediateRoot, "Real.cs"));
+            AssertContainsNormalized(realOutput, "int get_Value()");
+            AssertDoesNotContainNormalized(realOutput, "public int Value { get; set; }");
+        }
+        finally
+        {
+            Directory.Delete(srcDir, recursive: true);
+        }
+    }
+
+    /// <summary>摘要行所有段必须完成插值（2026-10-09 修复 operators/residual 段漏 $ 前缀）。</summary>
+    [Fact]
+    public void Chain_Summary_Line_Has_No_Uninterpolated_Placeholders()
+    {
+        var adapter = new MemberDesugarPassAdapter(
+            new MemberDesugarOptions(), verbose: false,
+            filterUnsupportedProjects: false, compatNamespacePrefixes: null);
+        var line = adapter.BuildChainSummaryLine();
+        Assert.DoesNotContain("{", line);
+        Assert.DoesNotContain("}", line);
+    }
+
 }

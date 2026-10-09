@@ -383,5 +383,67 @@ git worktree add .worktrees/preproc-c36-collection-expr -b feature/preproc-c36-c
 1. **CollectionBuilder 类型的收编范围与白名单**：M2 按 IOperation 通用发射 builder 工厂调用，还是先做画像驱动白名单（`ImmutableArray<T>` 等 BCL 高频类型）？通用路径对字典 builder（`ReadOnlySpan<KeyValuePair<K,V>>`）与自定义形参形态的覆盖度需 M0 探针数据；v1 0580 拒绝期间用 sdk 命中率定优先级。
 2. **spread 语句化对字段/属性初始化器的策略**：长期是否同 C24 Q1 做构造函数迁移（退役 0583 主类），还是提供「`[..a, x]` → `a.Append(x).ToArray()` 式零临时 BCL 改写面」（依赖 LINQ/扩展方法，可能引入与 C19 的交互）；倾向前者，需命中率支撑。
 3. **static abstract 的 companion 终态**：显式拒绝是 v1 结论，但 sdk json-codegen 已结构性使用——companion 模式（伴随类 + 单态化/泛型特化分派）的可行性、与 C02 generic-deepen 的分工、是否作为独立 catalog 条目立项，需 EF Core/sdk 画像量化后单独立项，不在 C36 内承诺。
-4. **C24 Add 助手复用的可见性演进**：C36 是 `Initializers/` internal 助手的首个外部消费者；若 C35 也需要语句化，是否按 C24 Q4 把公共发射/上下文 lowering 只增提取到 `Shared/`，建议 M1 后按三家实际需求评审，不提前抽象。
+4. **C24 Add 助手复用的可见性演进**：C36 是 `Initializers/` internal 助手的首个外部消费者；若 C35 也需要语句化，是否按 C24 Q4 把公共发射/下限定公共发射/ lowering 只增提取到 `Shared/`，建议 M1 后按三家实际需求评审，不提前抽象。
 5. **数组目标含 spread 的构造形态**：List+`ToArray()` 会多一次 List 分配；是否对「全 spread 且源全为数组」等可证形态发 `a.Concat(b).ToArray()`（引 System.Linq）或手写 `Array.Resize`/`CopyTo` 拼接以减少分配——倾向统一 List 形态优先（分配密度不在等价性范围、且避免 LINQ 依赖与 C19 顺序耦合），画像有性能证据再议。
+
+---
+
+## 13. M3 画像实施记录（2026-10-09）
+
+> 工具：`tools/PreprocessCorpusProbe`（提交 `7e8d9076`），profile=`c36`（in-proc，expression-desugar 全族规则集，**非 strict**：Error 降 Warning 全计；编译项按 msbuild `-getItem:Compile` 累加，共享链接源在各 csproj 重复计入）。报表（gitignored）：`probe-out/profiles/c36.{json,md}`、`probe-out/efcore/c36.{json,md}`、`probe-out/yaml/c36.{json,md}`。语料只读，未改一字。
+
+### 13.1 语料版本与规模
+
+| 语料 | 路径 | csproj（不可用） | 编译项 .cs | 改写文件 |
+|---|---|---:|---:|---:|
+| csharp-sdk 训练集 | `D:\csharp-sdk` | 21（0） | 1457 | 0 |
+| EF Core 10.0.12 代表子集 | `D:\efcore-10.0.12` | 6（2） | 2141 | 323 |
+| YamlDotNet 18.0.0 | `D:\YamlDotNet-18.0.0` | 8（5） | 17 | 0 |
+
+EF Core 两个不可用项与本规则无关、如实登记：`EFCore.Sqlite.Core`（NETSDK1004：Arcade 布局缺 `artifacts/obj/EFCore.Sqlite.Core/project.assets.json`，未 restore）、`Microsoft.Data.Sqlite.Core`（MSB4057：项目无 `ResolveAssemblyReferences` 目标）；可用 4 项 = EFCore（1119 文件/改写 124）、EFCore.Relational（793/137）、EFCore.SqlServer（206/62）、EFCore.Abstractions（23/0）。
+
+### 13.2 sdk：零站点结论
+
+csharp-sdk 1457 编译项内 **CollectionSites=0**：ByTarget 六桶（Array/Interface/MutableConcrete/Span/CollectionBuilder/Unknown）全 0，Empty/Nested/Spread/SpanArray/InterfaceConstruct/MutableConstruct 全 0；防线 Guard（static-abstract 声明/调用、generic attribute 声明/应用、scoped 参数/局部）全 0；SkippedByReason 全码 0；AfterFiles residual（ResidualCollectionCount/ResidualCount）= 0，无诊断。即 C36 在该训练集上**无工作负载**（sdk 各项目多目标多 TFMs 但语言版本/代码风格未采用集合表达式），M3 门槛 §8-5 的 sdk 面以"零命中、零残余"通过。227 文件 FilesDirtyNoRewrite 为族内兄弟规则（interpolation/initializer/null-conditional 统计槽）与行尾/BOM 检测所致，无 C36 改写，不构成站点。
+
+YamlDotNet 17 可用文件同口径全 0（0 站点/0 残余/0 诊断）。
+
+### 13.3 EF Core：2053 站点分桶（C36 的真实负载证据）
+
+| 指标 | 计数 | | 指标 | 计数 |
+|---|---:|---|---|---:|
+| CollectionSites | **2053** | | EmptySites `[]` | 542 |
+| ByTargetArray | 1195 | | NestedSites | 45 |
+| ByTargetInterface | 499 | | InterfaceConstructSites | 496 |
+| ByTargetMutableConcrete | 346 | | MutableConstructSites | 346 |
+| ByTargetUnknown | 13 | | StatementLiftedSites / TempsLifted | 21 / 21 |
+| ByTargetSpan / Builder | 0 / 0 | | SpreadElements | 30 |
+| SpreadAddRange | 21 | | SpreadEnumerableForeach | 2 |
+| SkippedSpreadElements | 7 | | SkippedByReason 合计 | **21** |
+
+分项目站点：EFCore 951（Relational 侧 Dictionary/接口密集）、SqlServer 557（Array 406 主导）、Relational 545、Abstractions 0。323 文件改写、1332 干净、486 FilesDirtyNoRewrite（兄弟规则槽/行尾），编译错误 0（非 strict 画像，未跑 verify build）。
+
+**SkippedByReason 逐条人工定性（每条均核对源码位置，PROBE_SAMPLE_CAP=400 全量站点）：**
+
+| 码 | 数 | 站点（全部 21 个） | 定性 |
+|---|---:|---|---|
+| CS2J0581 | 11 | Relational：TableBase.cs:133、RelationalParameterProcessor.cs:233、SqlNullabilityProcessor.cs:60、StructuralTypeProjectionExpression.cs:42/:67、ModificationCommand.cs:261；EFCore：DbContext.cs:297/:323、Model.cs:858、QueryFilterCollection.cs:110、NavigationExpandingExpressionVisitor.cs:57 | **真·表外形态，非过保守**：目标为 `Dictionary<ITypeBase,bool>` 等"接口/抽象元素类型 + 接口视图"组合，§2.2 规范具体类表不覆盖（R6 设计即"表外显式 0581，禁止兜底 List.of"）。M2 扩表候选，需按 IOperation 实形补字典接口族映射，v1 保持跳过 |
+| CS2J0583 | 7 | Relational：SqlNullabilityProcessor.cs:289；EFCore：SnapshotFactoryFactory.cs:89、RuntimeTypeBase.cs:600/:629/:660/:702、NavigationExpandingExpressionVisitor.cs:1815 | **真·语义屏障**：spread 位于 `?:` 分支或 `??` 右操作数；语句预提升会求值未命中分支（消息原文），无法保语义。与裁决 2 一致——主类随 C24 构造函数迁移能力退役，v1 不硬做 |
+| CS2J0571 | 2 | EFCore：InternalForeignKeyBuilder.cs:1394/:1395 | **防御镜像正确**：ConvertedType 为 error type，基线 C# 在该处报 CS9176；站点原样保留，非分析器过保守 |
+| CS2J0587 | 1 | EFCore：EntityTypeConfigurationAttribute.cs:14 | **真·Java 不可表达**：`EntityTypeConfigurationAttribute<TConfiguration,TEntity>` 泛型 attribute 声明（GuardGenericAttributeDeclarations=1 与之对应）；Java 注解不可带类型参数。按裁决 3/C10 归远期规范化（companion/擦除特化），C36 v1 显式诊断指路，应用站点随声明一起挡下 |
+
+其余防线码实测：**CS2J0585=0、CS2J0586=0、CS2J0580（CollectionBuilder）=0、CS2J0582=0、CS2J0576=0、CS2J0588=0**。EF Core 10 不使用 static abstract 接口成员与 CollectionBuilder，裁决 3 companion 条目在本语料**无新增需求证据**（sdk json-codegen 的结构性使用仍以设计期 grep 证据为准，本条不因零命中注销）。
+
+**AfterFiles residual = 0**：ResidualCollectionCount=0、ResidualCount=0——输出树无"无 skip 配对的集合表达式/spread 残留"，0589 闸门在两语料全绿。21 个跳过站点全部带码归属，满足 §7.5「已展开或显式跳过」二分校验。
+
+### 13.4 §8-3 Java 半区（只记录，不实施转换器）
+
+本里程碑不改转换器一行；画像仅证明 C# 半区工作量与残余结构，Java 半区核查结论登记如下，留独立消费 PR：
+
+1. **负载面**：EF Core 323 文件、2053 站点去糖后，转换器需消费的新增形态 = 数组初始化器（1195）、`new List<T>(){…}`/Add 序列（346 可变 + 496 接口构造）、AddRange（21）、span/Enumerable foreach Add（2+0）、`[]` 空集合（542）、嵌套（45）、ToArray 收尾与 21 处语句提升临时——均为现有 C# 普通语法面，不要求新 Java 语言特性；S1 风险面（List.of 不可变）在去糖树不存在。
+2. **窄规则臂**：表达式层窄规则（ExpressionTransformerRegistry L135-L151）在预处理输入上的不可达核实与 0581/0583/0587 站点的转换器行为（应被 fail-fast/人工隔离挡住）属消费 PR 验证项，本次不执行。
+3. **21 个跳过站点**不经转换器（站点保留原集合表达式语法），消费 PR 需确认直连管道对这些 EF Core 站点仍响亮失败而非静默直译。
+
+### 13.5 门槛状态
+
+§8 第 5 项（画像试跑 + 逐条定性 + static abstract 量化）数据面完成；sdk 零站点、EF Core 2053 站点/21 残余全定性/0589 零残余。第 1/2/3/4/6 项（三工程 test、.NET 双跑、Java 半区 e2e、E09 byte 四象限、默认开评审）不属本次画像里程碑，状态不变；pass 维持默认关，不翻任何开关。

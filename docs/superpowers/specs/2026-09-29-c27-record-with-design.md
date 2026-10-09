@@ -445,3 +445,79 @@ git worktree add .worktrees/preproc-c27-c50-record-with-field-keyword -b feature
 
 6. **Properties 三处闸门归属挂点的认领方式（待与 C11 维护者协调）**：CS2J5123/5124 退役要求把 record/struct 位置属性从 Properties 规则改由 Records 规则认领，但三处闸门挂点都在共享文件 [PropertyRule.cs L64-L69](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyRule.cs#L64-L69)、[L257-L259](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyRule.cs#L257-L259)、[L287-L293](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyRule.cs#L287-L293) 内，与 C27「独占 `MemberDesugar/Records/` 目录」原则冲突。候选：① Properties 三处加 kind 查询钩子（最小共享面，推荐）；② 站点互斥表从 RecordRule 反向回调；③ 直接在共享文件加 `kind == Record` 分支（最脏）。M0 需与 C11 维护者拍板挂点形式并锁定接口；在拍板前 C27 不擅自改共享文件。
 7. **CatalogItems 补登（实施期机械动作，非设计阻塞）**：member-desugar [PassCatalog.cs L241](file:///d:/code/cs2j/src/CSharpToJava.Core/Passes/PassCatalog.cs#L241-L241) 现仅登记 `"C11"`（C12-C14 已实现但均未追加，属族内既有欠账）；C27 合入时应把 `C27` 追加进同一字符串，是否顺带补 C12-C14 由族 owner 决定。
+
+---
+
+## 13. M4 画像实施记录（2026-09-29 拍板口径，2026-10-09 数据落盘）
+
+> 工具：`tools/PreprocessCorpusProbe`（画像 id `c27-c50-ip`，提交 `013ab5e8`；in-proc 仅调 public API `MemberDesugarPreprocessor.RewriteFile`，逐 msbuild 工程一个 session 共享分析器，按 `-getItem:Compile` 干净编译项分析，**无 CLI 目录枚举合并、无整树 accept/rollback 循环**——CLI 口径下接受/回滚会把族摘要冲成全 0，无法取得诚实 plan/skip 计数，故画像必须走 in-proc，详见 13.5）。口径：non-strict（Warning/Error 全计）、`Records.Enabled=true` + `FieldKeyword.Enabled=true`（子集开关实测默认仍为 false，见 13.4）；共享链接源在各 csproj 下重复计入；所有计数为实测值，无估计。原始报表（gitignored）：`probe-out/profiles/c27c50-sdk/c27-c50-ip.{json,md}`、`probe-out/profiles/c27c50-ef/c27-c50-ip.{json,md}`、`probe-out/profiles/c27c50-yaml/c27-c50-ip.{json,md}`、`probe-out/profiles/c27c50-runtime/c27-c50-ip.{json,md}`。
+
+### 13.1 语料版本与规模
+
+| 语料 | 版本/路径 | csproj（不可用） | 编译项 | 改写文件（全族并集） |
+|---|---|---:|---:|---:|
+| csharp-sdk | `D:\csharp-sdk` 四库（json/uri/xml-tiny/regular-expressions） | 21（0） | 1457 | 792 |
+| EF Core | `D:\efcore-10.0.12` 代表子集 6 csproj（与 C17 §13.1 同口径，全路径过滤） | 6（2） | 2141 | 1458 |
+| YamlDotNet | `D:\YamlDotNet-18.0.0` | 8（5） | 17 | 10 |
+| runtime | `D:\runtime-10.0.12` 4 个代表性产品工程采样 | 4（4） | 0 | 数据未取得（见 13.6） |
+
+不可用原因与 C17 §13.1 完全同形（环境项，与规则无关）：EF 侧 EFCore.Sqlite.Core **NETSDK1004**（artifacts/obj 缺 project.assets.json）、Microsoft.Data.Sqlite.Core **MSB4057**（无 ResolveAssemblyReferences 目标）；YamlDotNet 5 项同为未 restore/无目标（含主库 YamlDotNet.csproj MSB4057），有效编译项仅来自 YamlDotNet.Analyzers.StaticGenerator（13）与两个 AoTCompileTest 工程（2+2）。
+
+### 13.2 Records/with 命中矩阵（全部实测）
+
+| 桶 | sdk | EF Core | YamlDotNet |
+|---|---:|---:|---:|
+| RecordPlans | 0 | 9（其中 RecordClassPlans=4） | 0 |
+| PositionalRecordsReshaped | 0 | 0 | 0 |
+| CloneFactoriesSynthesized | 0 | 0 | 0 |
+| WithSitesTotal / Class / Struct / Empty | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 |
+| PropertyAssignments / FieldAssignments / TemporariesPromoted | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+| ResidualWithCount（FK/WR residual） | 0 | 0 | 0 |
+| InitAccessorsWidened（C11 面，CS2J5120） | 15 | 260 | 0 |
+| RequiredConstraintsDropped（CS2J5215） | 0 | 0 | 0 |
+| CS2J5123 PositionalRecordProperty（C11 让位 Records 挂点） | 4（json-tests） | 41（EFCore 21/Relational 14/SqlServer 6） | 0 |
+
+产品语料自然形态下**没有任何一个树内 record 的 with 站点进入可改写态**：EF 虽建了 9 个 record plan（4 个 record class），但全部 with 使用的接收者/上下文落在 13.3 的既有闸门；E11（with 的主要生产方）不在这三语料内。sdk 侧本族 5212-5230 段诊断零命中——报表里 sdk 的 CS2J5200×2/5202×2/5206×2 经核对是 **C39 终结器**命中（FinalizerRejected/FinalizerDisposePattern/FinalizerGcLifecycleSite；实现码位上 C39 占 5200-5211，C27 实际占 5212-5230，与本文 §6 提案段错位 12，以 `MemberDesugarModels.cs` 枚举登记为准，此处勘误）。
+
+### 13.3 CS2J5220-5228 with 跳过逐条人工定性（§8 门槛 4）
+
+EF 合计 105 条 with 相关命中（5124 配套挂点计入），全部人工定性为设计既定闸门，**无一条「语义可行却被分析器过保守跳过」**：
+
+| 码 | 计数（分布） | 逐条定性 |
+|---|---:|---|
+| CS2J5222 MetadataRecordReceiver | 40（Relational 39/SqlServer 1） | 接收者为引用元数据里声明的 record（样例 `CSharpRuntimeAnnotationCodeGeneratorParameters`，声明在 EFCore.Design 程序集），树内无法补发克隆工厂——§决策 4/诊断表既定 v1 形态，真残余；终态需跨程序集克隆策略，归 M4+ |
+| CS2J5228 NonRecordClassWith | 25（Relational 21/SqlServer 4） | 元数据 **record struct** 接收者（`CoreTypeMappingParameters`/`TypeMappingInfo`），树外声明且无 set_X 访问器可调；与 5222 同类，真残余 |
+| CS2J5223 NonLiftableWithContext | 22（全在 EFCore） | 全部位于 `ExpressionTreeFuncletizer.PathNode` 的字段/属性初始化器等无语句锚点上下文，临时提升无安全发射点——§6 表既定不可行（对应开放问题 CS2J5223），真残余 |
+| CS2J5220 PositionalReshapeGate | 11（EFCore 7/Relational 4） | **readonly struct 非空 with**：克隆局部仍是只读值类型的只读成员（CS8340/CS8341），set_X/字段直写无合法发射面（`RecordClaimIndex.cs:444-451`）；样例 `ColumnValueSetter`、`RelationalTypeMappingInfo`；空 with 纯值拷贝不受限（本轮零空 with 命中）。语言事实闸门，非过保守 |
+| CS2J5124 WithSite（C11↔C27 配套挂点） | 7（EFCore 4/Relational 3） | with 初始化器引用的属性属于 5222/5228 无法补工厂的 record（样例 `ElementTypeMapping`、`TypeMapping`），C11 属性 plan 据此原子保留；是上三类的**配套原子性诊断**，不是独立缺口 |
+
+未命中码：5221（树外派生风险）、5224（嵌套初始化器）、5225（匿名类型）、5226（表达式树 with）、5227（dynamic）、5230（residual 零 with 闸门）三语料均 **0**。`SkippedByReason` 实测键与诊断一一对应（PositionalReshapeGate 11/MetadataRecordReceiver 40/NonLiftableWithContext 22/NonRecordClassWith 25/WithSite 7）；ResidualWithCount=0 且无 5230，§7.5「输出残留 with 必须有诊断归属」在全部已测语料满足。
+
+### 13.4 §5.4 Java 半区核查（只核查，不改转换器）
+
+2026-10-09 对主干转换器源码逐项核查（本特性不实施 Java 改动）：
+
+1. **复制构造 Java 发射（硬门禁）：未实施**。[RecordTransformer.cs:223-246](file:///d:/code/cs2j/.worktrees/p3-profiles/src/CSharpToJava.Core/Transformers/Type/RecordTransformer.cs#L223-L246) 仍只为 record 发一个主构造（含 `super(...)`），全文件无 `protected R(R original)` 及 `: base(original)` 链发射。
+2. 克隆工厂识别：`Transformers/` 全目录 grep 无 `Cs2jWithClone` 特判（普通方法经 MethodTransformer 发射的假设成立但无端到端验证），阻塞于第 1 项。
+3. **with 旧路径不可达（硬门禁）：未满足**。[ControlFlowTransformer.cs:54](file:///d:/code/cs2j/.worktrees/p3-profiles/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L54) 仍分派 `TransformWithExpression`（[L633](file:///d:/code/cs2j/.worktrees/p3-profiles/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L633)，旧「new + clone + setter」臂），直连红灯路径仍可达；旧臂删除是后续独立 PR。
+4. reshape 后 record 形态路由、5. required/SetsRequiredMembers 注解清扫（`Transformers/` 零 `SetsRequiredMembers` 引用；本轮 RequiredConstraintsDropped=0）、6. 浅拷贝双端测试：均未做端到端核查/落地，随第 1 项的转换器消费 PR 完成。
+
+**拍板（M4）**：§8 门槛 3 的两个硬门禁（§5.4-1 复制构造发射、§5.4-3 旧 with 路径不可达）当前不满足；§8 门槛 4 的三语料 with 分桶+逐条定性由 13.2/13.3 满足，但产品语料零可改写站点意味着 Java 侧即便补齐也缺真实链路样本（样本只能来自 E11 fixture）。**`rules.records` 维持默认 false（不抢跑口径不变，`RecordOptions` 默认值核实仍 false）；本次不翻默认、不改转换器一行**。CatalogItems 机械动作已由早前提交完成：[PassCatalog.cs:549](file:///d:/code/cs2j/.worktrees/p3-profiles/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L549) 现值 `"C11, C12, C13, C14, C39, C46, C50, C27"`。
+
+### 13.5 CLI 整树口径两条 CS2J5100 残余（登记后续，M4 不改 CLI 树准备/不改转换器）
+
+画像取证同时闭环了 CLI 路径的两个 5100（证据日志在 gitignored `probe-out/profiles/cli/`）：
+
+1. **镜像被目录枚举合入同一编译（CLI 树准备口径，后续项）**：`repro-json2` 重跑 trace 显示 json `tests/TrimmingTests`（`EnableDefaultCompileItems=false`，本应每文件独立成程序）的镜像类型 `ClassWithDay` 同见于 EnumConverterTest.cs:21 与 JsonConverterAttributeTest.cs:23，被 `ProjectPreprocessSource` 按目录递归枚举合入同一 Roslyn 编译，属性去糖两侧 `get_Day` 撞 CS0082，叠加缺引用级联（newErrors iter0 1688→iter2 1243，其中可归属单 plan 回退 5101 计 220）；最终残余 **1×CS2J5100** [JsonConverterAttributeTest.cs(26,32) CS0082 `ClassWithDay.get_Day`]。提交 `f40cee3c` 已做族内**最小收编**：CS0082 报点落在 get/set 访问器槽位、`GetNameString()` 对 AccessorDeclaration 返回 null 时补登记所属属性/事件声明名（既有 xUnit `Phantom_Mirror_Types_Outside_CompileItems_Do_Not_Trigger_WholeTree_Rollback` 覆盖）；剩余 5100 的根因是 CLI 编译项口径（应对齐 msbuild Compile 项而非目录枚举），按任务纪律**不在本族大改 CLI**，登记为后续工作项。trace 临时埋点已全部移除（`src/` 零 `CS2J_MD_TRACE`），适配器已还原至已提交版，测试/正常路径不吐 trace；带 trace 的旧日志仅作为历史证据留在 gitignored 目录。
+2. **YamlDotNet `OrderedDictionary<TKey,TValue>`（真实 pass 缺口，与树合并无关）**：`single-yaml` 单产品工程重跑仍 1×CS2J5100（CS0470：去糖出的普通方法 `get_Item(TKey)` 不能实现元数据接口访问器 `IDictionary<TKey,TValue>.this[TKey].get`，伴 CS0535）+ 41×CS2J5101 + 1×CS2J5103；正确去糖需显式接口实现，且重载索引器 `this[TKey]`/`this[int]` 同产 `get_Item`、当前 `IndexerPlan.OwnsTouch` 不辨签名致归属命中 2 plan 而放弃。该轮 262 文件 transformed 但族摘要被回滚冲成全 0——这正是 13.1 工具段所述 in-proc 画像必要性的直接证据。两项修复（显式接口实现发射 + 签名敏感 plan 归属）超 M4 最小范围，登记后续项。
+
+画像还暴露 1 个 C11 面分析器缺陷（非本族、本轮不修）：EF `src/EFCore/Metadata/Conventions/InversePropertyAttributeConvention.cs` 触发 `PropertyUseSiteRewriter.VisitPostfixUnaryExpression`（[PropertyUseSiteRewriter.cs:409](file:///d:/code/cs2j/.worktrees/p3-profiles/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyUseSiteRewriter.cs#L409)）`InvalidCastException`（null 条件绑定 + 后缀形态：InvocationExpressionSyntax 强转 SimpleNameSyntax），probe 按文件记 driverErrors=1、该文件跳过改写；登记为 C11 后续缺陷，复现命令与完整堆栈见汇总报告。
+
+### 13.6 未取得数据声明
+
+- **runtime-10.0.12 全部不可得**：全仓 `artifacts\obj` 下 project.assets.json 数为 **0**；采样 System.Text.Json、System.Collections.Immutable、Microsoft.Extensions.DependencyInjection、Microsoft.Extensions.Caching.Memory 4 个产品工程全部 MSB4057（无 ResolveAssemblyReferences 目标；restore 会写入只读语料，纪律禁止）。record/with 在 runtime Collections/Text 等高频产品库的真实频率本轮无法测量，列入下一评审周期复跑项（需在允许写入的环境 restore 后执行同一画像命令）。
+- YamlDotNet 主库等 5 工程未 restore/无目标，17 有效编译项集中在 analyzer/AoT 三工程；其 0 record/0 with 不代表整个库使用面。
+
+### 13.7 M4 结论
+
+§8 第 4 项（语料 triage）在可测语料上闭环：with 命中 105 条全部为设计已知闸门、residual 闸门为 0、过保守项为 0；§8 第 3 项（Java 半区）硬门禁未达标。C27 继续随族 **opt-in（rules.records 默认 false）**；后续路线固定为：① §5.4-1/5.4-3 转换器消费 PR（另开）；② CLI Compile 项口径修复后复跑 CLI 全树画像；③ runtime restore 后补 Collections/Text 扫描；④ 5221/5224-5227 在更多语料复跑时持续观测（本轮 0 命中不降低闸门）。

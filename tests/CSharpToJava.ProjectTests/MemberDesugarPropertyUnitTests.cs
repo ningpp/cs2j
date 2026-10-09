@@ -111,6 +111,166 @@ public class MemberDesugarPropertyUnitTests
         Assert.True(diags.Count > 0, "expected residual diagnostics for attribute property with named-argument use.");
     }
 
+    // 语料回归（csharp-sdk json: WriteStack.cs:207 / ReadStack.cs:325，
+    // 2026-10-09 member-desugar 全量画像）：链式 null 条件访问
+    // `o.Info?.MemberInfo?.Name` 的中间 MemberBinding 是被规划属性时，旧实现
+    // 只改写尾槽并对内层 ConditionalAccess 走 base，base 访问裸 binding 的
+    // Name 槽时 VisitIdentifierName 返回 InvocationExpression，触发
+    // InvalidCastException（回退轮重解析必崩，首轮还会留下
+    // `?.JsonParameterInfo?.get_X()` 形态的坏码）。
+    [Fact]
+    public void ChainedNullConditional_IntermediateProperty_BothSlotsRewritten()
+    {
+        var src = """
+            internal sealed class Leaf { public string Name { get; set; } = ""; }
+            internal sealed class Middle { public Leaf MemberInfo { get; set; } }
+            internal sealed class Outer
+            {
+                public Middle Info { get; set; }
+                public string? Get(Outer o) => o.Info?.MemberInfo?.Name;
+            }
+            """;
+
+        var (outCode, stats, diags) = Rewrite(src);
+
+        AssertContains(outCode, "o.get_Info()?.get_MemberInfo()?.get_Name()");
+        Assert.DoesNotContain("?.MemberInfo?.", outCode, StringComparison.Ordinal);
+        Assert.True(stats.ReadSitesRewritten >= 3);
+        Assert.True(diags.All(d => d.Severity != MemberDesugarSeverity.Error),
+            "unexpected error diagnostics: " + string.Join(";", diags));
+        AssertOutputCompiles(outCode);
+    }
+
+    // 尾槽是方法调用（a?.P?.M()）：中间属性槽同样必须提升，尾槽原样保留。
+    [Fact]
+    public void ChainedNullConditional_IntermediateProperty_TailMethodPreserved()
+    {
+        var src = """
+            internal sealed class Middle { public int Value { get; set; } }
+            internal sealed class Outer
+            {
+                public Middle Info { get; set; }
+                public string? Get(Outer o) => o.Info?.ToString();
+                public int? TailMethod(Outer o) => o.Info?.Value?.CompareTo(0);
+            }
+            """;
+
+        var (outCode, _, _) = Rewrite(src);
+
+        AssertContains(outCode, "o.get_Info()?.ToString()");
+        AssertContains(outCode, "o.get_Info()?.get_Value()?.CompareTo(0)");
+        AssertOutputCompiles(outCode);
+    }
+
+    // 旧路径回归：单段 a?.X（接收者/头部不是被规划属性）仍只改写尾槽。
+    [Fact]
+    public void NullConditional_FieldHead_PropertyTail_StillRewritesTail()
+    {
+        var src = """
+            internal sealed class Leaf { public string Name { get; set; } = ""; }
+            internal sealed class C
+            {
+                public Leaf Field;
+                public string? Get() => Field?.Name;
+            }
+            """;
+
+        var (outCode, _, _) = Rewrite(src);
+
+        AssertContains(outCode, "Field?.get_Name()");
+        AssertOutputCompiles(outCode);
+    }
+
+    // 崩溃现场形态：局部函数内、嵌套两段链式条件访问初始化局部变量。
+    [Fact]
+    public void ChainedNullConditional_InsideLocalFunction_RewritesAndCompiles()
+    {
+        var src = """
+            using System;
+
+            internal sealed class Leaf { public string Name { get; set; } = ""; }
+            internal sealed class Middle { public Leaf MemberInfo { get; set; } }
+            internal sealed class Outer
+            {
+                public Middle Info { get; set; }
+
+                public string? Get(Outer o)
+                {
+                    Func<string?> local = () => o.Info?.MemberInfo?.Name;
+                    return local();
+                }
+            }
+            """;
+
+        var (outCode, stats, _) = Rewrite(src);
+
+        AssertContains(outCode, "o.get_Info()?.get_MemberInfo()?.get_Name()");
+        Assert.True(stats.ReadSitesRewritten >= 3);
+        AssertOutputCompiles(outCode);
+    }
+
+    // 语料回归（csharp-sdk json，2026-10-09 member-desugar 全量画像）：
+    // PD-8 对象初始化器提升把 new 表达式离树克隆后整体 Visit，克隆内标识符
+    // 触发 TryGetPlan 的 GetSymbolInfo 时抛 "Syntax node is not within syntax
+    // tree"。构造实参/保留初始化项必须先在原树节点上完成 Visit 再组装。
+    [Fact]
+    public void InitializerLift_PropertyReadInCtorArgument_VisitedBeforeDetach()
+    {
+        var src = """
+            internal sealed class D
+            {
+                public D(object tag) { }
+                public int Y { get; set; }
+            }
+
+            internal sealed class C
+            {
+                public object Prop { get; set; }
+                public void M()
+                {
+                    var d = new D(Prop) { Y = 1 };
+                }
+            }
+            """;
+
+        var (outCode, _, diags) = Rewrite(src);
+
+        AssertContains(outCode, "new D(get_Prop())");
+        AssertContains(outCode, "set_Y(1)");
+        Assert.True(diags.All(d => d.Severity != MemberDesugarSeverity.Error),
+            "unexpected error diagnostics: " + string.Join(";", diags));
+        AssertOutputCompiles(outCode);
+    }
+
+    // 嵌套提升路径：外层属性赋值的右值是待提升 new，其构造实参引用被规划属性。
+    [Fact]
+    public void InitializerLift_NestedCreationPropertyInCtorArgument_VisitedBeforeDetach()
+    {
+        var src = """
+            internal sealed class D
+            {
+                public D(object tag) { }
+                public int Y { get; set; }
+            }
+
+            internal sealed class C
+            {
+                public object Prop { get; set; }
+                public D D { get; set; }
+                public void M()
+                {
+                    var x = new C { D = new D(Prop) { Y = 1 } };
+                }
+            }
+            """;
+
+        var (outCode, stats, _) = Rewrite(src);
+
+        AssertContains(outCode, "new D(get_Prop())");
+        Assert.True(stats.InitializersRewritten >= 2);
+        AssertOutputCompiles(outCode);
+    }
+
     private static void AssertContains(string output, string expected)
         => Assert.True(Normalize(output).Contains(Normalize(expected).Trim(),
             StringComparison.Ordinal),

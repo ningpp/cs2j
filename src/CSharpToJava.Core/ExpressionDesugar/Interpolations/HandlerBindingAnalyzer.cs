@@ -112,6 +112,24 @@ internal static class HandlerBindingAnalyzer
                 null);
         }
 
+        // ---- Boxed string binding (natural string -> System.Object) ----
+        // An interpolation in an object slot (object local/field, object[]
+        // element, params object[] argument, SR.Format(resource, $"..."))
+        // undergoes the ordinary interpolation->string conversion followed by
+        // an implicit boxing conversion; handlers bind by parameter TYPE and
+        // can never reach an object slot, so expansion semantics are identical
+        // to DefaultString — the boxing stays on the enclosing conversion.
+        // dynamic is excluded: its natural Type is dynamic, never string.
+        if (convertedType is { SpecialType: SpecialType.System_Object, TypeKind: not TypeKind.Dynamic }
+            && typeInfo.Type is { SpecialType: SpecialType.System_String })
+        {
+            return new HandlerBinding(
+                InterpolationBindingKind.DefaultString,
+                convertedType,
+                null,
+                null);
+        }
+
         // ---- Undecidable (error type / missing metadata) ----
         return HandlerBinding.Unknown(convertedType);
     }

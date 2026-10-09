@@ -508,3 +508,44 @@ git worktree add .worktrees/preproc-c16-foreach-complete -b feature/preproc-c16-
 2. `preprocess --pass` 单选模式下 `--no-verify-build/--no-verify-tests` 未生效（全 pass 通用的既有接线问题，非 C16 独有）。
 3. 转换器三个既存直译缺口（13.1 末）。
 4. 裁决 4 的扩展方法 Deconstruct 编译级 reduction：sdk 命中为 0，按裁决排在 C19 后；CS2J5421 保留。
+
+---
+
+## 14. 回归画像实施记录（2026-10-09）
+
+> 方法：`tools/PreprocessCorpusProbe`（提交 `7e8d9076`）`foreach-source` in-proc 画像；msbuild `-getItem:Compile` 求值参与编译项 + `-getItem:ReferencePath` 程序集引用，Roslyn 5.0.0 进程内驱动。非 strict 口径：Error 降 Warning 统计全部命中、编译项按项目累加（共享链接源在多项目重复计入）；in-proc 画像不跑 msbuild verify，§13.3 的错误集对比结论继续有效、本节不重做。msbuild 求值未显式指定 Configuration，**默认 Debug**（`DefineConstants` 含 `DEBUG`）。报表：[probe-out/profiles/c16-c40.md](file:///d:/code/cs2j/.worktrees/p3-profiles/probe-out/profiles/c16-c40.md)、[probe-out/efcore/c16-c40.md](file:///d:/code/cs2j/.worktrees/p3-profiles/probe-out/efcore/c16-c40.md)、[probe-out/yaml/c16-c40.md](file:///d:/code/cs2j/.worktrees/p3-profiles/probe-out/yaml/c16-c40.md)（gitignored）。
+
+### 14.1 三语料规模与 C16 计数
+
+| 语料 | 项目（不可用） | 编译项文件 | 改写文件 | string foreach 包裹（CS2J5410） | passthrough |
+|---|---:|---:|---:|---:|---:|
+| csharp-sdk | 21（0） | 1457 | 10 | **3** | 886 |
+| EF Core 代表子集 | 6（2：NETSDK1004/MSB4057） | 2141 | 2 | **1** | 1516 |
+| YamlDotNet 18.0.0 | 8（5） | 17 | 0 | **0** | 48 |
+
+sdk 三个 string 站点全部包裹、零误伤、零 string 残余：
+
+1. `xml-tiny\tests\XmlDocument\XmlNodeTests\NormalizeTests.cs:16`（§13.2 已登记）；
+2. `uri\tests\FunctionalTests\UriRelativeResolutionTest.cs:720`（§13.2 已登记）；
+3. **`regular-expressions\src\System\Text\RegularExpressions\RegexBoyerMoore.cs:48` `foreach (char c in pattern)`——新口径新增站**。该点位于 `#if DEBUG` 诊断分支内：§13.2 的 1301 文件/2 站点为 Release 配置树（`DEBUG` 未定义），本次 msbuild 默认 Debug 求值（`DEBUG` 已定义），差异纯属编译条件口径，非包裹行为变化；站点形态同为简单字符枚举（逐字符比对），包裹安全。
+
+EF 唯一站点：[ExpressionTreeFuncletizer.cs:2169](file:///D:/efcore-10.0.12/src/EFCore/Query/Internal/ExpressionTreeFuncletizer.cs#L2169) `foreach (var c in parameterName)`（参数名安全字符校验，`char.IsLetterOrDigit` 逐字符），已包裹；EFCore.csproj 另 1 个改写文件为 C40 的 span 站点（§见 C40 画像节）。
+
+### 14.2 残余与族外站点定性
+
+| 诊断 | sdk | EF | Yaml | 定性 |
+|---|---:|---:|---:|---|
+| CS2J5420（tuple 解构 foreach 残余） | 1 | 30 | 0 | **族外依赖**：FS-2 有意不实现的 ValueTuple 解构降级（归 E06 tuple 族），本 pass 仅留哨兵并原样保留节点。sdk 单点 = [CollectionTests.Dictionary.cs:1052](file:///D:/csharp-sdk/json/tests/Serialization/CollectionTests/CollectionTests.Dictionary.cs#L1052) `foreach ((Type dictionaryType, string testJson) in NestedDictionaryTypeData())`，测试代码、语言可降但依赖 E06 先落地；EF 30（EFCore 16/Relational 14）同形态，**非 language-infeasible、非本族过保守**。 |
+| CS2J5422（KeyValuePair 解构残余） | 0 | 104 | 0 | **族外依赖**：归 E07 foreach-deconstruction（链序上应在 C16 前降形）；Relational 53/EFCore 49/SqlServer 2，样例 `AnnotationCodeGenerator.cs:1008`。本 pass 透传哨兵符合预期。 |
+| CS2J5442（await foreach） | 0 | 7 | 0 | **归 C38 async-normalize**：7 点全在 EFCore，样例 [EntityFrameworkQueryableExtensions.cs:2310](file:///D:/efcore-10.0.12/src/EFCore/Extensions/EntityFrameworkQueryableExtensions.cs#L2310) `WithCancellation(...).ConfigureAwait(false)`；Info 级、节点原样保留。 |
+| CS2J5460（span 索引降级） | 0 | 1 | 0 | C40 FA-5 已降级（见 C40 画像节），非 C16 残余。 |
+| CS2J5410 外的 string 残余（5411 等） | 0 | 0 | 0 | 无。 |
+| ref/dynamic/direct-enumerator 等其他残余 | 0 | 0 | 0 | RefForeach/RefReadonly/RefIndexLoop/DynamicForeach/DirectEnumerator/ExtensionGetEnumerator/Unresolved 三语料全 0。 |
+
+另：sdk `dotnet-xml.managedbaselib-tests.csproj` 在 probe 合成编译内有 352 个既存编译错误（引用程序集不完整），该项目 FilesTransformed=0、无任何 C16/C40 命中，与 §13.3 的语料既存问题登记一致，非画像引入。
+
+### 14.3 结论（门槛维持）
+
+- C16 自身职责（string foreach 包裹）三语料 **4/4 站点全部包裹、零残余零误伤**；两次画像计数差异（1301/2 → 1457/3）已完全解释为「msbuild Compile 求值口径 + Debug 条件编译」，无行为回归。
+- 新增可见站点全部属上游（E06/E07）或平行族（C38/C40）职责，哨兵级别与链序设计一致；无 language-infeasible 命中。
+- §8 默认开门槛状态不变：默认开单行翻转仍待 §13.4-6 的人工评审项（README/ROADMAP/plan 定稿）；本节满足评审前全量计数复核义务。

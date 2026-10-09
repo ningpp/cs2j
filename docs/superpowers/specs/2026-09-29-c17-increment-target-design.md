@@ -428,3 +428,54 @@ git worktree add .worktrees/preproc-c17-increment-target -b feature/preproc-c17-
 4. **规则开关粒度**：`EnableIncrementTargets` 默认 true（规则随 pass，本设计推荐）还是独立 `--` 开关/overrides 节支持按目标种类 skip？后者会形成族内多套事实标准，建议仅保留 kill-switch 不暴露 CLI。
 5. **链序终局**：2026-09-29 按注册表 Kahn 拓扑手工推演，两 pass 同启时实际序已是 **member-desugar → numeric-boundary**（同 catalog §3.1/§3.3 建议序；推演依据见 §3.3，**待运行时/链序测试复核**）。待拍板：①是否在 member-desugar 或 numeric-boundary 翻转时加显式 RunAfter 边固化该序，还是继续依赖声明序 tiebreak（本规则两种序都兼容，零改动）；②foundation plan Stub 表声明序（NB L92 先于 MD L95）与实际序的背离是否需要回填说明。建议在 member-desugar 默认开翻转评审用两序等价论证（§3.3）+ sdk 残余命中率拍板。
 6. **C# 14 用户定义复合赋值的工具链前提（2026-09-29 新增）**：决策 21 要求 Analyzer 经 SemanticModel（`ICompoundAssignmentOperation`）识别显式用户复合运算符绑定。仓库当前 Roslyn 版本对 C# 14 的语言支持程度、以及 `ICompoundAssignmentOperation` 在用户复合绑定下暴露的符号/转换形态，**未在本次核对中证实，待 C17 实现期核实**；若该版本不支持，Analyzer 的查询义务降级为「保守显式失败 + 诊断指路 C14」。
+
+---
+
+## 13. M3 画像实施记录（2026-10-09）
+
+> 工具：`tools/PreprocessCorpusProbe`（提交 7e8d9076），画像 id `c17-c22-c34`（numeric-boundary 单 pass 内三规则同驱，in-proc SemanticModel；非 strict，Error 降 Warning 统计全部命中；编译项按 msbuild `-getItem:Compile` 求值，共享链接源在各 csproj 下重复计入）。原始报表：`probe-out/profiles/c17-c22-c34.{json,md}`（sdk）、`probe-out/efcore/c17-c22-c34.md`、`probe-out/yaml/c17-c22-c34.md`（gitignored）。
+
+### 13.1 语料版本与规模
+
+| 语料 | 版本/路径 | csproj（不可用） | 编译项 | 改写文件（三规则并集） |
+|---|---|---:|---:|---:|
+| csharp-sdk | `D:\csharp-sdk` 四库（json/uri/xml-tiny/regular-expressions） | 21（0） | 1457 | 123 |
+| EF Core | `D:\efcore-10.0.12` 代表子集 6 csproj | 6（2） | 2141 | 43 |
+| YamlDotNet | `D:\YamlDotNet-18.0.0` | 8（5） | 17 | 0 |
+
+EF Core 不可用 2 项原文：EFCore.Sqlite.Core **NETSDK1004**（artifacts/obj 缺 project.assets.json）、Microsoft.Data.Sqlite.Core **MSB4057**（无 ResolveAssemblyReferences 目标）；YamlDotNet 5 不可用同为未 restore/无目标工程。均为环境项，与规则无关。
+
+### 13.2 sdk 命中矩阵（IncrementTargets.TotalSites=436）
+
+| 桶 | 计数 | 备注 |
+|---|---:|---|
+| PropertySites | 429 | 其中 PostfixLifted 381（oldValue 临时 381、receiver 7）、PostfixStandalone 53 |
+| IndexerSites | 0 | sdk 零索引器自增 |
+| EventSites / CustomOperatorSites / RefAliasSites | 0 / 0 / 0 | EnumCast/EnumFromValue 亦 0 |
+| PrefixInlineSites | 1 | xml-tiny/src |
+| DecimalSites | 1 | xml-tiny/src `ContentValidator.cs`，CS2J5334 Info×1，展开为 `old ± 1m`（C34 已合入，Info 口径与裁决 2 一致） |
+| SpecialArrayElementSites | 1 | xml-tiny/src（indexArg 临时 1） |
+| UnsignedResidualSites / UnsignedMathCallSites | 5 / 4 | xml-tiny/src 4 + json/src 1；无符号 math 调用形态残余按约指路 E09 |
+| CS2J5339 no-anchor | **100** | 见 13.3 逐条定性 |
+| CS2J5330 / 5331 Info | 48 / 32 | 展开/临时提升计数行 |
+
+项目集中面：json/src 384 站点（380 lifted + 4 standalone，383 property）、xml-tiny/src 21（standalone 18、prefix 1、decimal 1、special-array 1、unsigned 4/3）、uri 四链接每 csproj 24×CS2J5339（同一 uri/src 链接源，去重后为 24 站点×链接计入 96）、xml Common 两测试工程各 10 standalone。
+
+### 13.3 CS2J5339=100 逐条定性（开放问题 3 的拍板输入）
+
+| 分布 | 计数 | 定性 |
+|---|---:|---|
+| uri/src 经 4 个 csproj 链接（src 本体 + Unit/Functional/ExtendedFunctional 三测试工程） | 24×4=96 | **真·无锚点值消费后缀**，非过保守：uri 源内静态/实例属性在条件、查询或无语句锚点表达式位的 `x++`，v1 不具备安全单次求值提升点；样例集中在 `System.Uri*` 干路文件 |
+| regular-expressions/tests | 2 | 样例 `Regex.Cache.Tests.cs:120` `Regex.CacheSize++`（测试代码内静态属性值消费），同上真残余 |
+| xml-tiny/src | 2 | xml 干路同形属性自增，真残余 |
+
+结论：100 条全部为语义真实的锚点缺失，**无一条分析器过保守**；uri 的 96 系链接源重复计数，独立站点为 24+2+2=**28 个**（占 1457 编译项约 1.9%；按原始计数 100）。按开放问题裁决 3「sdk 出现真实命中即立项」——立项前置条件**已满足**，本次据数拍板：**条件提取/语句求值序列线性化在 M4 后单独立项（排期紧随族级默认开评审），v1 CS2J5339 形态在该工作项落地前保持不变**；ref 形参 PostInc helper 路线维持否决（不引 C01 依赖）。EF Core 侧 5339 仅 2 条（`RelationalShapedQueryCompilingExpressionVisitor…ClientMethods.cs:1095` `++i`，conditional reason），同为真残余，不改变结论。
+
+### 13.4 EF Core / YamlDotNet 对照
+
+- **EF Core：18 站点**——Property 12、Indexer 6（全部 PostfixStandalone，indexArg 临时 6）；无 lifted、无 unsigned/decimal/event。索引器自增集中在 `Multigraph` 等拓扑/字典干路（CS2J5330 Info 7、5331 Info 3）。
+- **YamlDotNet：0 站点、0 诊断**（17 个有效编译项）。
+
+### 13.5 转换器消费核对与门槛状态
+
+C17 产物全部是普通 C# 语句形态（`old`/`receiver`/`indexArg` 临时 + 显式读改写 + 后缀求值），属性/索引器方法化由链序先序的 C11/C12 承担，**转换器侧无新增消费面**；§8 门槛 4 的「目标种类×上下文命中矩阵 + DeferredByReason 实测清单 + 每条 Error 人工定性」由本节满足（5333 enum/5335 nullable/5338 custom-op/5340 ref-alias 命中均为 0，5334 decimal=1 已 Info 移交 C34，5339 见 13.3）。C14 命名契约（裁决 1）现状未变：custom-operator 自增零命中，CS2J5338 无压力但维持。默认开随 C15 族级总门槛单行翻转，本族不持有独立开关。

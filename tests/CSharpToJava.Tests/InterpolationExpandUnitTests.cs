@@ -1315,6 +1315,97 @@ public class InterpolationExpandUnitTests
     }
 
     // ------------------------------------------------------------------
+    // Boxed string sites (natural string -> System.Object): the ordinary
+    // interpolation->string conversion plus implicit boxing; no handler can
+    // bind through an object slot. M4 sdk profile found all 28 CS2J0512
+    // sites in exactly these shapes (object[] elements / params object[]).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void BoxedString_ObjectArrayElement_ExpandsViaConcat()
+    {
+        const string source = """
+            public static class C
+            {
+                public static object[] M(int x) => new object[] { $"a{x}", "b" };
+            }
+            """;
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.Contains("string.Concat(\"a\", x)", Normalize(result.OutputCode));
+        Assert.Equal(1, result.Statistics.Interpolations.ConcatExpansions);
+        Assert.Equal(0, result.Statistics.Interpolations.SkippedByReason
+            .GetValueOrDefault(InterpolationDiagnosticCodes.CS2J0512));
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == InterpolationDiagnosticCodes.CS2J0512);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void BoxedString_ParamsObjectArgument_ExpandsViaConcat()
+    {
+        const string source = """
+            public static class C
+            {
+                public static string Format(string template, params object[] args) => template;
+                public static string M(int code) => Format("err: {0}", $"0x{code:X2}");
+            }
+            """;
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.Contains("string.Concat(", Normalize(result.OutputCode));
+        Assert.Equal(1, result.Statistics.Interpolations.ConcatExpansions);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == InterpolationDiagnosticCodes.CS2J0512);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void BoxedString_ObjectLocal_ExpandsViaConcat()
+    {
+        const string source = """
+            public static class C
+            {
+                public static object M(int x)
+                {
+                    object o = $"v{x}";
+                    return o;
+                }
+            }
+            """;
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.Contains("string.Concat(\"v\", x)", Normalize(result.OutputCode));
+        Assert.Equal(1, result.Statistics.Interpolations.ConcatExpansions);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void DynamicHole_Stays0512_Preserved()
+    {
+        const string source = """
+            public static class C
+            {
+                public static string M(dynamic d) => $"a{d}";
+            }
+            """;
+        var options = new InterpolationOptions { Enabled = true, Strict = false };
+
+        var result = Preprocess(source, options);
+
+        var diagnostic = result.Diagnostics
+            .Single(d => d.Code == InterpolationDiagnosticCodes.CS2J0512);
+        Assert.Equal(ExpressionDesugarSeverity.Warning, diagnostic.Severity);
+        Assert.Contains("$\"a{d}\"", Normalize(result.OutputCode));
+        Assert.Equal(1, result.Statistics.Interpolations.SkippedByReason
+            .GetValueOrDefault(InterpolationDiagnosticCodes.CS2J0512));
+    }
+
+    // ------------------------------------------------------------------
     // CS2J0511 / CS2J0515 — explicit runtime shapes.
     // ------------------------------------------------------------------
 

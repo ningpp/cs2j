@@ -462,6 +462,60 @@ public sealed partial class MemberDesugarPreprocessor
         return false;
     }
 
+    /// <summary>
+    /// 宽松归属（画像暴露，2026-10-09）：严格归属失败后调用。返回 true 表示该错误
+    /// 位置在 plan 权属规则下仅能归属于【已排除】plan——本轮无可回退的活动 plan
+    /// 能消除它。典型场景：CLI 整树编译把不属于任何 msbuild Compile 项的同源文件
+    /// 合入同一 Roslyn 编译（每文件独立成程序的 TrimmingTests 镜像），已回退 plan
+    /// 保留的属性仍隐式保留 get_X 槽位，与他文件产物撞 CS0082；锚点落在本轮未改写
+    /// 文件，因此不能走 rewrittenByFile 门。真实编译是否受损由尾部 msbuild 验证兜底。
+    /// </summary>
+    internal bool TryAttributeDiagnosticBlockedByExcluded(
+        Diagnostic diagnostic,
+        out string excludedPlanId)
+    {
+        excludedPlanId = string.Empty;
+        if (_plans == null || diagnostic.Location.SourceTree is not { } tree) return false;
+
+        var node = tree.GetRoot().FindNode(diagnostic.Location.SourceSpan);
+        var typeName = node.AncestorsAndSelf().OfType<BaseTypeDeclarationSyntax>()
+            .FirstOrDefault()?.Identifier.Text;
+        var memberNames = new List<string?>
+        {
+            node.AncestorsAndSelf().OfType<MemberDeclarationSyntax>()
+                .FirstOrDefault()?.GetNameString()
+        };
+
+        // CS0082 报点常落在 get/set/add/remove 访问器槽位（GetNameString 对
+        // AccessorDeclaration 返回 null）；镜像碰撞场景下锚点文件本轮保留原属性，
+        // 必须补登记所属属性/事件的声明名，OwnsTouch 内部再匹配 get_X/set_X 槽位名。
+        if (node.AncestorsAndSelf().OfType<BasePropertyDeclarationSyntax>().FirstOrDefault()
+            is { } propertyLike)
+        {
+            switch (propertyLike)
+            {
+                case PropertyDeclarationSyntax p:
+                    memberNames.Add(p.Identifier.Text);
+                    break;
+                case EventDeclarationSyntax e:
+                    memberNames.Add(e.Identifier.Text);
+                    break;
+            }
+        }
+
+        var owners = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var plan in _plans)
+        {
+            if (!plan.TouchedFiles.Contains(tree.FilePath)) continue;
+            if (memberNames.Any(n => plan.OwnsTouch(tree.FilePath, typeName, n)))
+                owners.Add(plan.Id);
+        }
+        if (owners.Count == 0) return false;
+        if (owners.Any(id => !_excludedPlanIds.Contains(id))) return false;
+        excludedPlanId = owners.OrderBy(id => id, StringComparer.Ordinal).First();
+        return true;
+    }
+
     /// <summary>属性 pass 产出新树后，索引器 pass 需要绑定新节点的 SemanticModel：
     /// <summary>重解析改写文本并换树取新模型；返回新树根，后续 pass 必须访问新树
     /// 节点（SemanticModel 只能绑定自身语法树的节点）。改写产物可能缺词法空白

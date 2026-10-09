@@ -475,3 +475,38 @@ git -C .worktrees/preproc-c40-foreach-source merge --no-ff 28ae4594
 9. **Java 环境限制（本机不可运行 javac/maven）**：Java 半区仅做文本断言；`EqualityConcatProjectTests` 因本机缺 io.github.ningpp.compat 包为既有环境白名单红灯，与本改动无关。
 10. **验收计数（Release，Roslyn 5.0.0）**：sln 构建 0 error；CSharpToJava.Tests 2256 通过/5 白名单失败（2 unsigned-token enum、2 CSharpXmlCompileRegression、1 SystemPrivateXmlRuntimeResource）；CSharpToJava.ProjectTests 805 通过/1 白名单失败（EqualityConcat）；CSharpToJava.ConversionTests **675/0**；foreach/RefOut/preprocessing 过滤 Tests 352、ProjectTests 99 全绿；C40 Core 单测 59/59、fixture 运行时 35/35、C40 project 3/3（foreach-source verify build+test 与两 pass 链 verify build+test 双绿）。
 11. **§8 sdk 训练集扫描**：属评审期活动，M3 不执行；默认开翻转随锚点评审。
+
+---
+
+## 附：C40 三语料画像证据（2026-10-09）
+
+> 方法：`tools/PreprocessCorpusProbe`（提交 `7e8d9076`）`foreach-source` in-proc 画像，与 C16 §14 同次扫描、同口径（msbuild Compile/ReferencePath 求值、Roslyn 5.0.0、非 strict、Error 降 Warning 全计数、编译项按项目累加、msbuild 默认 Debug 配置；in-proc 不跑 msbuild verify）。报表：[probe-out/profiles/c16-c40.md](file:///d:/code/cs2j/.worktrees/p3-profiles/probe-out/profiles/c16-c40.md)、[probe-out/efcore/c16-c40.md](file:///d:/code/cs2j/.worktrees/p3-profiles/probe-out/efcore/c16-c40.md)、[probe-out/yaml/c16-c40.md](file:///d:/code/cs2j/.worktrees/p3-profiles/probe-out/yaml/c16-c40.md)（gitignored）。本节对应原 M3 第 11 条挂起的「§8 sdk 训练集扫描」评审期活动，并扩到 EF Core/YamlDotNet 两语料。
+
+### 1. C40 自有桶计数
+
+| 指标 | sdk（21 项目/1457 文件） | EF 子集（6 项目，2 不可用/2141 文件） | YamlDotNet（8 项目，5 不可用/17 文件） |
+|---|---:|---:|---:|
+| 鸭子枚举器降级 CS2J5450（DuckEnumeratorSitesLowered / NoDisposeSites） | **10**（xml-tiny 7、json 2、regex 1；10 点均无 Dispose） | 0 | 0 |
+| 值类型枚举器具体化 CS2J5453（StructEnumeratorSites） | **3**（json Utf8JsonReader.cs:579 等 2、regex 1；为 5450 站点中枚举器为 struct 的子集） | 0 | 0 |
+| span 索引降级 CS2J5460（SpanIndexLoopSites） | 0 | **1**（[SqlServerVectorTypeMapping.cs:143](file:///D:/efcore-10.0.12/src/EFCore.SqlServer/Storage/Internal/SqlServerVectorTypeMapping.cs#L143)，缓存源 + Length/this[int]） | 0 |
+| ref foreach / ref-readonly / ref 索引（RefForeach/RefReadonly/RefIndexLoop，5480-5495 闸门） | 0 | 0 | 0 |
+| 装箱 struct Dispose CS2J5455（DisposeBoxedStructSites） | 0 | 0 | 0 |
+| pattern Dispose 直调（DisposePatternCallSites） | 0 | 0 | 0 |
+| 直接枚举器 / 扩展 GetEnumerator / dynamic（5452/5456 等） | 0 | 0 | 0 |
+| C40 残余（ResidualEnumerator/ResidualRef/Unresolved） | **0** | **0** | **0** |
+| 透传 foreach 站点（SitesPassedThrough） | 886 | 1516 | 48 |
+
+### 2. 命中站点人工定性
+
+- **sdk 10 个鸭子枚举器（5450 Info）全部为「pattern GetEnumerator + 无 Dispose」降级**：7 个在 xml-tiny/src、2 个在 json/src（含 [Utf8JsonReader.cs:579](file:///D:/csharp-sdk/json/src/System/Text/Json/Reader/Utf8JsonReader.cs#L579)）、1 个在 regex/src；其中 3 个枚举器为值类型（5453 Info），按 M1/M2 探针结论保留 `var` 具体类型、不装箱，且枚举器不实现 IDisposable 故不生成 finally（NoDisposeSites=10 与 Duck 数相等，互相印证）。无一分支落入「pattern Dispose 直调」或「装箱 Dispose」（两桶=0），与 M2 探针的 dispose 充要条件表在真实语料上完全一致。
+- **EF 1 个 span 站点（5460 Info）**：SqlServer 向量类型映射中对 span-like 源的索引循环降级（FA-5：缓存源、Length + int 索引器），属已实现降级，非残余。
+- **5455/5480-5495/5452/5456 三语料全零**：M3 FR-1/FR-4 防御闸门（数组 ref foreach、多维数组、by-value 索引器、dynamic、直接枚举器、lambda 捕获阻塞）在真实语料零命中——防御保留但无实战站点；不存在 language-infeasible 命中。
+
+### 3. 族外哨兵（非 C40 残余，详见 C16 §14.2）
+
+EF 画像同时暴露 5422×104（KeyValuePair 解构，归 E07）、5420×30（ValueTuple 解构，归 E06）、5442×7（await foreach，归 C38）；sdk 仅 5420×1（json tests 元组解构测试）。foreach-source 对这些节点按链序约定只发哨兵不改写，计数与 C16 §14 同源，不在 C40 收口范围。
+
+### 4. 结论
+
+- C40 三语料 **自有职责零残余**：10 鸭子 + 3 struct + 1 span 共 14 个真实降级站点全部按 M1/M2 探针形态表处理，零新增编译错误（probe 合成编译错误均为语料既存、命中文件无关）。
+- pass 维持 **opt-in（defaultEnabled=false）**：本节补齐 M3 第 11 条挂起的训练集扫描证据；默认开翻转仍随锚点评审（含 C01 联动的 Java 半区环境验证限制，见 M3 证据第 9 条）。

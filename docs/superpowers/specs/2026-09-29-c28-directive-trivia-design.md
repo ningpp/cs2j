@@ -409,3 +409,37 @@ MSBuild 格式：`文件(行,列): warning/error CS2J55xx: [LN-x] 描述`。
 1. **catalog C28 证据行勘误待回写**：[preprocessor-catalog.md C28 段](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L650-L662) 的证据行（L656）写「E01 已剥 `#pragma`/`#nullable`/`#region`(可选)」，与代码不符——`ConditionalDirectiveStripper.IsRemovedDirective` 对 `#pragma warning`/`#pragma checksum`/`#nullable`（及 `#line`/`#error`/`#warning`/`#reference`/`#load`/shebang）显式 `=> false` 保留（[ConditionalDirectiveStripper.cs:75-88](file:///d:/code/cs2j/src/CSharpToJava.Core/ConditionalDirectiveStrip/ConditionalDirectiveStripper.cs#L75-L88)），仅 `#define/#undef/#if/#else/#elif/#endif` 默认剥、`#region` 随开关。本设计已按代码真值订正（§1.2/§1.5）。**处置（2026-10-02）**：catalog 勘误不属 C28 实施提交（避免与 C28 代码耦合），挂为独立小提交，实施期可顺手完成但不阻塞里程碑。
 2. **active `#pragma warning disable/restore` 与本 pass 诊断的交互**：LN 阶段保留下来的激活态 `#pragma warning` 会作用于后续编译；v1 本 pass 不碰这些指令（剥离面只含 `#line`），CS2J55xx 由 pass 自身产出、不经编译器警告管线（[PreprocessDiagnosticCodes.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PreprocessDiagnosticCodes.cs) 现存 CS2J9001/9002），理论上互不干扰。**处置（2026-10-02）**：仍由实施期 fixture 给运行证据——SampleLexicalNormalizeSolution 含一个 `#pragma warning disable CS0105` 文件，验证中间树 verify build 行为与诊断计数；本项保持开放至 M2，不进默认开门槛。
 3. **convert-project 专属正向开关的取舍 —— 已拍板（2026-10-02）**：**取先例路线**：不新增 ConvertProjectOptions 属性、BuildLegacyToggles 不增行；opt-in 唯一入口为通用 `--enable-pass lexical-normalize`（enum-declaration/C36 expression-desugar 先例，2026-10-02 时该路线已成为新翻转 pass 的事实标准）。本设计正文所有与此冲突的旧表述已在本次校订中更正（§3.4-3/4/6、§5.3、§7.5）；PassChainOrderTests 豁免名单加入本 id。关闭本开放项。
+
+---
+
+## 14. M3 画像实施记录（2026-10-09）
+
+> 工具：`tools/PreprocessCorpusProbe`（提交 `7e8d9076`），profile=`c28`（另跑 `c28-file-scoped` 开启 LN-7 的对照画像）；in-proc 驱动 `LexicalNormalizePreprocessor`，**非 strict** 规则隔离口径（不串 E01/C43，编译项按 msbuild `-getItem:Compile` 累加，共享链接源在各 csproj 重复计入）。报表（gitignored）：`probe-out/profiles/c28{,-file-scoped}.{json,md}`、`probe-out/efcore/c28.{json,md}`、`probe-out/yaml/c28.{json,md}`。语料只读，未改一字。
+
+### 14.1 语料规模与总桶
+
+| 语料 | csproj（不可用） | .cs | ExternAlias 指令/限定站点 | `#line` | `#error` | file-scoped | global using（plain/static/alias/重复） | CS2J5512 |
+|---|---:|---:|---|---:|---:|---:|---|---:|
+| csharp-sdk | 21（0） | 1457 | 0 / 0 | 0 | 0 | 0（LN-7 开：0） | 173 / 0 / 0 / 0 | 915 |
+| EF Core 子集 | 6（2） | 2141 | 0 / 0 | 0 | 0 | 0 | 102 / 14 / 0 / 0 | 276 |
+| YamlDotNet | 8（5） | 17 | 0 / 0 | 0 | 0 | 0 | 7 / 0 / 0 / 0 | 3 |
+
+三语料的 extern alias 指令、`X::` 限定站点、`#line`、`#error` 命中**全部为 0**；ResidualCount=0。EF Core 两个不可用项为 Arcade 缺 assets（NETSDK1004）与无 `ResolveAssemblyReferences` 目标（MSB4057），与本规则无关。
+
+### 14.2 CS2J5512（915/276/3）定性：链序哨兵，非 language-infeasible
+
+规则隔离画像不串 E01 conditional pass，残留 `#if/#elif` 条件指令按设计发 CS2J5512「residual conditional directive; the 'conditional' pass must run before lexical-normalize」。全部站点均为该链序哨兵，**无一条是 C28 自身不可行**：sdk 分布 = xml-tiny/src 581、json/src 161、regular-expressions/src 125、json/tests 12、xml-tiny 测试（XmlDocument 6 + XPath 三套链接各 6）24、uri 四链接各 3 计 12；EF Core = EFCore 249、Relational 24、SqlServer 3；YamlDotNet = StaticGenerator 的 TypeFactoryGenerator.cs:274 共 3。正式链 `conditional → lexical-normalize`（RunAfter 锁死）下这批指令由 E01 先剥，5512 在生产链不可达。sdk 另有 114 个 FilesDirtyNoRewrite（条件指令文件经文本检测标脏但 LN 不改写）。
+
+### 14.3 extern alias 裁决 1 据数收口：M3 不实现 LN 小规则
+
+三语料（外加 `D:\runtime-10.0.12` 全树 grep）实测：sdk/efcore/yaml 的 extern alias 指令与 `::` 限定站点**全 0**；runtime 仅 6 文件出现 extern alias，其中唯一"真双程序集冲突"生产样例为 `TensorPrimitives.Single.netstandard.cs:4`（同一类型名的两个程序集真歧义），按裁决 1 归 **C42 平台边界族**。"单程序集别名"（可由 `X::`→`global::` 小规则收编的形态）在全部语料**零样例**——没有实现对象，本次 M3 **不新增该 LN 规则、不写产品代码**；CS2J5520 维持现状（Error 档，真双程序集走 C42），待未来语料出现单程序集别名样例时再按裁决 1 立项。设计 §8-4/风险 2 预期的"sdk 20+ extern alias 命中"在实测语料上不成立，以本节计数为准。
+
+### 14.4 其余分桶结论
+
+1. **file-scoped namespace**：sdk 默认画像与 LN-7 开启画像均为 **0**，EF Core、YamlDotNet 亦 0——这些库源风格统一为块级 namespace。裁决 4（LN-7 永久 opt-in、不进默认开门禁）再获零命中支持，本次不翻。
+2. **global using**：sdk 173 条全为 plain（json 36+20、regex 30+42、uri/xml 测试若干的链接累计），EF Core 102 plain + 14 static（Relational 4、EFCore 10），Yaml 7 plain；**0 alias、0 重复**——LN-4/5/6（using 审计/去重）在三语料无改写工作负载，仅审计计数；global using 项目级长期形态（裁决 2）与现况匹配。
+3. **sdk 4 个 transformed 单元查明为行尾归一**：uri 的 `System/IriHelper.cs`（源含 370 CRLF + 1 孤立 LF 的混合行尾）被规范化为全 CRLF，该文件链接入 4 个 uri csproj 故计 4 单元；经直接 CLI 实跑 + git diff 核实，全部 C28 语义计数槽为 0、无指令改写（同次 CLI 实跑的 8 个 verbatim 归一属 C43，见 c43 §13）。
+
+### 14.5 门槛状态与结论
+
+§8-4 分桶报表与逐条定性完成：零 extern alias、零 `#line`/`#error`、零 file-scoped、global using 全 plain、5512 全为链序哨兵。M3 不翻 `defaultEnabled`；第 1/2/3/5/6 项（test/fixture/Java 等价对照/基线不退化/文档评审）不属本次画像里程碑，维持既有状态。下评审周期按 §8 复跑第 4/5 项即可，语料扩到 runtime 全量时补 extern alias 复核。

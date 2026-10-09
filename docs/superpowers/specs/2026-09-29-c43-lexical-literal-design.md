@@ -355,3 +355,31 @@ src\CSharpToJava.Core\LexicalNormalize\
 3. **孤立代理项 u8 语义**：`"\uD800"u8` 是编译器报错还是 UTF-8 替换字节（EF BF BD）？决定 D5 口径与该夹具形态；sdk 画像是否存在此类站点待 §8-3 报表。
 4. **超长 u8 的产物形态**：大 blob（如内嵌 PE/JSON 常量）发 `new byte[]{…上千元素…}` 的 verify 编译开销与源码可读性是否需要阈值策略（例如超阈值改发射独立静态字段数组）——该备选会引入成员声明，直接撞 §5.3 判据，默认不做，待 sdk 长度分布数据。
 5. **`\e` 归属（C43 vs C52）**：catalog L778 与 L1199 口径冲突；因 LL 工厂路径可自然吸收，倾向在 C52 伞条目审计时顺手归入本 pass 新增一条 LL-6（零算法），需 catalog 维护者确认后更新两处行号引用。
+
+---
+
+## 13. M3 画像实施记录（2026-10-09）
+
+> 工具：`tools/PreprocessCorpusProbe`（提交 `7e8d9076`），profile=`c43`（in-proc，`LexicalNormalizeOptions` 四字面量规则全开、**非 strict**；编译项按 msbuild `-getItem:Compile` 累加，共享链接源在各 csproj 重复计入）。报表（gitignored）：`probe-out/profiles/c43.{json,md}`、`probe-out/efcore/c43.{json,md}`、`probe-out/yaml/c43.{json,md}`。语料只读，未改一字。
+
+### 13.1 语料规模与字面量分桶
+
+| 语料 | csproj（不可用） | .cs（改写文件） | verbatim 归一（5573 文件数） | raw 单行/多行 | u8（字节数） | `\e` | 插值跳过 普通/verbatim/raw（5574 文件数） | residual/保真回退 |
+|---|---:|---:|---|---|---:|---:|---|---|
+| csharp-sdk | 21（0） | 1457（284） | **10569**（280） | 0 / 0 | 0（0） | 0 | 326 / 53 / 0（72） | 0 / 0 |
+| EF Core 子集 | 6（2） | 2141（13） | 32（12） | 0 / **12** | 0（0） | 0 | 476 / 4 / 7（140） | 0 / 0 |
+| YamlDotNet | 8（5） | 17（1） | 1（1） | 0 / 0 | 0（0） | 0 | 78 / 1 / 0（7） | 0 / 0 |
+
+保真回退 CS2J5580（raw/verbatim/`\e` 值校验）/CS2J5581（u8 字节校验）/CS2J5583（孤立代理项）三语料**零命中**；residual 闸门 CS2J5582 零命中（LiteralResidualCount=0）——所有归一一次通过 ValueText 值守恒校验。EF Core 不可用 2 项（NETSDK1004/MSB4057）为工程环境问题，与本规则无关。
+
+### 13.2 分桶观察与人工核对
+
+1. **verbatim 是唯一规模化工作负载**：sdk 10569 个 `@"..."` 被归一为常规字符串（280 文件），集中在测试代码——json-tests 2690（101 文件）、regex-tests 2666（19）、xml XPath 三套链接各 1507（各 38 文件，链接重复累计）、uri FunctionalTests 273（11 文件）；生产库极轻（json/src 4、xml/src 254、uri/src 8）。EF Core 32 个/12 文件，YamlDotNet 1 个（Core7AoTCompileTest 的 Program.cs）。经 uri/src 直接 CLI 实跑 + git diff 抽查：`@"\\"`→`"\\\\"`、`@"%\#"`→`"%\\#"` 等均为 ValueText 等价转写。
+2. **raw 字符串字面量**：sdk 训练集与 YamlDotNet **0 命中**（单行、多行皆 0）；EF Core **12 个多行 raw 全部位于 EFCore.SqlServer**（T-SQL 文本），单行为 0。§8-3 旧文预期的"sdk 1345 处 raw"在本次画像口径的 `D:\csharp-sdk` 四库训练集上不成立——该数字当来自更广的全 runtime 调查，**以本次实测为准**，不据旧估计数下结论。
+3. **u8 与 `\e` 三语料全 0**：Utf8LiteralsExpanded/Utf8BytesEmitted=0、EscEscapesNormalized=0。无 blob 长度分布样本，裁决 4 的超长 u8 阈值策略无数据可拍，维持"内联单形态、阈值备选不做"。孤立代理项 u8 站点 0，CS2J5583 启用条件未被触发。
+4. **插值跳过（LL-4，设计即 Info 非告警）**：sdk 326 普通插值 + 53 verbatim 插值、EF Core 476+4+7、Yaml 78+1——这些插值节点外层零改写、交 C23 处理，与 C23 §14 sdk 插值站点画像（482 站点、handler/concat/format 分桶）同口径互见；raw 插值仅 EF Core 7 个，sdk 0。
+5. 三 profile 的 CS2J5512（sdk 915/EF 276/Yaml 3）为共享统计槽带出的 **C28 链序哨兵**（条件指令须 E01 先剥），定性见 c28 §14.2，与 C43 字面量规则无关。
+
+### 13.3 §8 门槛状态与结论
+
+第 3 项（sdk 分桶报表 + 零保真回退 + LL-4 与 C23 输入面一致）数据面完成，**零 residual、零保真失败**。驱动成立性（第 1 项：统一引擎合批或版本无关中间树消费者）本次未获新证据，保持不成立；C43 **不单独翻转、不随本次画像翻 C28 默认开关**。第 2/4/5/6 项（三工程 test、两档 TargetJavaVersion 等价对照、基线不退化、双向核对）不属本次画像里程碑。raw 负载的真实位置已测得（EF Core SqlServer 12 处 T-SQL），下评审周期复跑时优先把语料扩到含 raw 的工程集以补多行/CRLF/缩进闭列实测分布。

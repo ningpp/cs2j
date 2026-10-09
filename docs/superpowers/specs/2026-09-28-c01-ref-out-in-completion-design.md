@@ -432,3 +432,44 @@ M1/M2 只动 C# 侧即可独立交付价值（把「C# 闭环不成立」先修�
 - 旧 Java 路径：[HolderTypeResolver.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/HolderTypeResolver.cs)、[ArgumentTransformer.Ref.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.Ref.cs)
 - 旧/新 holder：[ObjectHolder.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/ObjectHolder.java)、[ByRef.cs](file:///d:/code/cs2j/src/Cs2jRefOutIn/ByRef.cs)
 - 实测：2026-09-28 release verb 跑 SampleRefOutInV2Solution → CS8149/CS0103/CS1615/CS1061/CS8805（§1.1）
+
+---
+
+## 附：M5 ROI 旧码下线评估（2026-10-09，仅评估文档，不删码）
+
+> 对应 §9 M5「ROIxxx 旧码下线、旧 holder 路径删除评估（独立 PR，默认不在 C01 内）——出口标准：仅评估文档」。本次只做静态盘点与 ROI 结论，**不删除任何生产/测试/compat 代码**，不翻默认开关。盘点基线 = 本分支 HEAD（含至 M4 close-out `48331c9c` 的全部 C01 实现）。
+
+### 1. 盘点对象与规模（2026-10-09 实测）
+
+**旧 holder 路径（拟下线对象）**：
+
+| 资产 | 位置 | 规模 |
+|---|---|---:|
+| holder 类型解析 | [HolderTypeResolver.cs](file:///d:/code/cs2j/.worktrees/p3-profiles/src/CSharpToJava.Core/Transformers/HolderTypeResolver.cs) | 85 行，4 个公共 API（GetHolderType / GetHolderInstantiation / GetHolderInstantiationWithValue / IsHolderType） |
+| ref/out 参数提升数据流 | [ArgumentTransformer.Ref.cs](file:///d:/code/cs2j/.worktrees/p3-profiles/src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.Ref.cs) | 341 行（pre/post 提升、明确赋值） |
+| 生产调用点 | 5 个转换器文件 23 处直接调用：[MethodTransformer.cs:578](file:///d:/code/cs2j/.worktrees/p3-profiles/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L578)（签名 holder 化）、[DelegateTransformer.cs:193](file:///d:/code/cs2j/.worktrees/p3-profiles/src/CSharpToJava.Core/Transformers/Type/DelegateTransformer.cs#L193) 与 `[Obsolete]` 包装 L245-247、ExpressionTransformerRegistry.cs:92-93、ArgumentTransformer.Ref.cs 内多点、[ArgumentTransformer.Coercion.cs:168-169](file:///d:/code/cs2j/.worktrees/p3-profiles/src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.Coercion.cs#L168) | 23 处 |
+| 关联消费方 | JavaNaming.cs（4 处）、Java/JavaStatement.cs（3）、StructCloneHelper.cs（3）、StatementTransformer.ExpressionAndReturn.cs（2）；全 src 文本引用合计 11 文件 88 处（含实验性 Lowering/LowerRefOut.cs 4 处，非生产路径） | 6 文件 |
+| compat 旧 holder | IntHolder/LongHolder/DoubleHolder/FloatHolder/BoolHolder/CharHolder/ShortHolder/ByteHolder（public `value` 字段，IntHolder 非 final 余 final）+ ObjectHolder&lt;T&gt; | **9 类 × 8 行 = 72 行，无共同抽象层** |
+
+**新 ByRef 体系（保留对象，已在默认开链路上）**：compat Java 侧 ByRef.java 137 行 + ReadOnlyByRef.java 44 + RefStructByRef.java 22 = **203 行**；C# 支撑 src/Cs2jRefOutIn ByRef.cs 126 + RefStructByRef.cs 26 = **152 行**（支撑库不参与用户代码转译）；TypeMappings J1-J4 映射在册。
+
+**测试面**：引用旧 holder 名的测试 **27 文件**（含 RefOutInComprehensiveTests 26 直连用例、RefOutInProjectTests 旧断言、HolderTypeResolverTests 专项）；引用 ByRef/ScopedByRef/ReadOnlyByRef/RefStructByRef 的 **14 文件**；3 文件同时断言两条路径（RefOutInProjectTests、RefOutInByRefPathTests、RefOutInComprehensiveTests）——M4 时刻意保留的双轨分流测试，不是迁移遗漏。
+
+**诊断码说明**：ROI099-102 是新 pass 适配器的 verify 标签（重解析/restore/build/test 失败，[RefOutInDiagnosticCodes.cs](file:///d:/code/cs2j/.worktrees/p3-profiles/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInDiagnosticCodes.cs)），ROI001 是外部契约锁定 Info；**均非旧 holder 路径标识，删旧码不涉及这些码**。
+
+### 2. 旧路径仍在承担的职责（不能直接删除的原因）
+
+1. **直连 pipeline 兜底**：不经 preprocess 动词的嵌入式转换（SingleFilePasses/ProjectPasses 通道）不产生 ByRef，转换器遇到 ref/out 形参仍只能发射 holder；27 个测试文件中的直连断言锁定此行为。删除旧码的前置是架构决策「直连 pipeline 强制先跑 ref-out-in」或转换器为残留形态直接映射 ByRef——两者均超出 C01 范围。
+2. **CD3 外部/锁定契约**：外部接口实现、外部虚链 override、DllImport/LibraryImport extern 的签名按设计保留 ref/out/in（ROI001 Info）；这些保留签名经转换器时的 Java 落地形态目前就是 holder。
+3. **J6 防二次包装不变量**：ByRefPath 与 LegacyHolderPath 的分流测试保证同一表达式不会被 holder→ByRef 双重包装；删除旧路径需先证明残余闸门（§8-6）使生产输入零落入旧分流。
+4. 旧路径历史 churn 低（HolderTypeResolver 仅「抽取 + FQN 修复」2 次提交，ArgumentTransformer.Ref.cs 1 次），维护成本很小；双轨共存的命名/映射分流已在 M3 定死。
+
+### 3. ROI 结论与建议
+
+- **本批（及 C01 锚点 PR）不建议下线**：可删账面 ≈ 426 行 C#（Resolver+Ref.cs）+ 72 行 compat（9 类）+ 23 处生产调用点改写 + 6 个消费文件清理 + 27 个测试文件迁移；而旧路径仍同时承担「直连 pipeline」与「CD3 锁定签名」两条真实落地通道，删除是**架构级改动**而非清理，收益（~500 行稳定低 churn 代码）不抵回归面。
+- **建议的下线前置（登记独立工单，全部满足后另开 PR 再评估）**：
+  1. 直连 pipeline 强制先经 ref-out-in（或转换器对残留 ref/out 直映 ByRef 并补 Java 侧外部契约语义）；
+  2. §8-3 与 §8-6 在 sdk 全量上复核：内部声明零残留、旧 holder 分流命中为零（J6 证据从 fixture 升级到语料级）；
+  3. M5 另一半挂起项——csharp-sdk 两个 sln「新增失败为零、通过项目数不降」全量基线比对（本画像批禁跑 dotnet test，未取得该数据；catalog §0.2/状态行仍记 M5 挂起）；
+  4. 27 个旧 holder 测试文件按 §7.4 同口径完成迁移/删除决策后，再删 compat 9 类与 Resolver/Ref.cs。
+- 在前置 1-4 落地前，维持 CD6 决策原文：旧路径**不删除、不弱化**，作为残留外部/锁定形态与直连 pipeline 的安全网。本节即 M5「仅评估文档」出口物，不改变任何代码与门槛状态。
