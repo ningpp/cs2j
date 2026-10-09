@@ -8,6 +8,7 @@ namespace CSharpToJava.Core.GenericPreprocess;
 internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
 {
     private readonly Dictionary<SyntaxNode, TokenAnchorPlan> _anchorsByNode;
+    private readonly Dictionary<SyntaxNode, ClosureAnchorPlan> _closuresByNode;
     private readonly Dictionary<SyntaxNode, TypeParamPatternPlan> _patternsByNode;
     private readonly Dictionary<SyntaxNode, CatchTypeParamPlan> _catchesByNode;
     private readonly HashSet<SyntaxNode> _fieldDeclRemovals;
@@ -16,10 +17,11 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<SyntaxNode, StaticMethodCallSitePlan> _staticCallSites;
     private readonly GenericDeepenStatistics _stats;
     private readonly List<GenericDeepenDiagnostic> _diagnostics;
-    private readonly string _filePath;
+    private readonly SemanticModel _model;
 
     public GenericDeepenRewriter(
         Dictionary<SyntaxNode, TokenAnchorPlan> anchorsByNode,
+        Dictionary<SyntaxNode, ClosureAnchorPlan> closuresByNode,
         Dictionary<SyntaxNode, TypeParamPatternPlan> patternsByNode,
         Dictionary<SyntaxNode, CatchTypeParamPlan> catchesByNode,
         HashSet<SyntaxNode> fieldDeclRemovals,
@@ -28,9 +30,10 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         Dictionary<SyntaxNode, StaticMethodCallSitePlan> staticCallSites,
         GenericDeepenStatistics stats,
         List<GenericDeepenDiagnostic> diagnostics,
-        string filePath)
+        SemanticModel model)
     {
         _anchorsByNode = anchorsByNode;
+        _closuresByNode = closuresByNode;
         _patternsByNode = patternsByNode;
         _catchesByNode = catchesByNode;
         _fieldDeclRemovals = fieldDeclRemovals;
@@ -39,7 +42,7 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         _staticCallSites = staticCallSites;
         _stats = stats;
         _diagnostics = diagnostics;
-        _filePath = filePath;
+        _model = model;
     }
 
     public override SyntaxNode? VisitFieldDeclaration(FieldDeclarationSyntax node)
@@ -215,7 +218,7 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
             return visited;
         }
 
-        var toInsert = AnchorsToInsert(visited, plan);
+        var toInsert = AnchorsToInsert(node, visited, plan);
         if (toInsert.Count == 0)
         {
             return visited;
@@ -250,6 +253,113 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         return visited.WithExpression(expression);
     }
 
+    // ---- GD-NEST: anchors inside lambdas / anonymous methods / local functions ----
+
+    public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node)
+    {
+        var visited = (ParenthesizedLambdaExpressionSyntax)base.VisitParenthesizedLambdaExpression(node)!;
+        return _closuresByNode.TryGetValue(node, out var plan)
+            ? ApplyLambdaAnchors(visited, node, plan, visited.Block, visited.ExpressionBody)
+            : visited;
+    }
+
+    public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node)
+    {
+        var visited = (SimpleLambdaExpressionSyntax)base.VisitSimpleLambdaExpression(node)!;
+        return _closuresByNode.TryGetValue(node, out var plan)
+            ? ApplyLambdaAnchors(visited, node, plan, visited.Block, visited.ExpressionBody)
+            : visited;
+    }
+
+    public override SyntaxNode? VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node)
+    {
+        var visited = (AnonymousMethodExpressionSyntax)base.VisitAnonymousMethodExpression(node)!;
+        if (!_closuresByNode.TryGetValue(node, out var plan) || visited.Block == null)
+        {
+            return visited;
+        }
+
+        var anchors = BuildAnchorStatements(node, visited.Block, plan.Params);
+        return anchors.Count == 0 ? visited : visited.WithBlock(visited.Block.WithStatements(
+            visited.Block.Statements.InsertRange(0, anchors)));
+    }
+
+    public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node)
+    {
+        var visited = (LocalFunctionStatementSyntax)base.VisitLocalFunctionStatement(node)!;
+        if (!_closuresByNode.TryGetValue(node, out var plan))
+        {
+            return visited;
+        }
+
+        if (visited.Body != null)
+        {
+            var bodyAnchors = BuildAnchorStatements(node, visited.Body, plan.Params);
+            return bodyAnchors.Count == 0 ? visited : visited.WithBody(
+                visited.Body.WithStatements(visited.Body.Statements.InsertRange(0, bodyAnchors)));
+        }
+
+        if (visited.ExpressionBody is not { } expressionBody)
+        {
+            return visited;
+        }
+
+        var statement = WrapExpressionStatement(expressionBody.Expression, LocalFunctionReturnsVoid(visited));
+        var block = SyntaxFactory.Block(new SyntaxList<StatementSyntax>(statement));
+        var exprAnchors = BuildAnchorStatements(node, block, plan.Params);
+        block = block.WithStatements(block.Statements.InsertRange(0, exprAnchors));
+        return visited
+            .WithBody(block)
+            .WithExpressionBody(null)
+            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
+    }
+
+    /// <summary>Inserts anchors into a visited lambda, wrapping an expression body into a block when needed.</summary>
+    private SyntaxNode ApplyLambdaAnchors(
+        LambdaExpressionSyntax visited,
+        LambdaExpressionSyntax original,
+        ClosureAnchorPlan plan,
+        BlockSyntax? block,
+        ExpressionSyntax? expressionBody)
+    {
+        if (block != null)
+        {
+            var blockAnchors = BuildAnchorStatements(original, block, plan.Params);
+            if (blockAnchors.Count == 0)
+            {
+                return visited;
+            }
+
+            return visited.WithBody(block.WithStatements(block.Statements.InsertRange(0, blockAnchors)));
+        }
+
+        if (expressionBody == null)
+        {
+            return visited;
+        }
+
+        // The analyzer only plans expression lambdas whose converted delegate is known.
+        var returnsVoid = (_model.GetTypeInfo(original).ConvertedType as INamedTypeSymbol)
+            ?.DelegateInvokeMethod?.ReturnsVoid ?? true;
+        var statement = WrapExpressionStatement(expressionBody, returnsVoid);
+        var wrapped = SyntaxFactory.Block(new SyntaxList<StatementSyntax>(statement));
+        var wrappedAnchors = BuildAnchorStatements(original, wrapped, plan.Params);
+        wrapped = wrapped.WithStatements(wrapped.Statements.InsertRange(0, wrappedAnchors));
+        return visited.WithBody(wrapped);
+    }
+
+    private static bool LocalFunctionReturnsVoid(LocalFunctionStatementSyntax localFunction)
+        => localFunction.ReturnType is PredefinedTypeSyntax predefined
+            && predefined.Keyword.IsKind(SyntaxKind.VoidKeyword);
+
+    private static StatementSyntax WrapExpressionStatement(ExpressionSyntax expression, bool returnsVoid)
+        => returnsVoid
+            ? SyntaxFactory.ExpressionStatement(expression, SyntaxFactory.Token(SyntaxKind.SemicolonToken))
+            : SyntaxFactory.ReturnStatement(
+                SyntaxFactory.Token(SyntaxKind.ReturnKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+                expression,
+                SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+
     /// <summary>
     /// Steals the type-parameter list and constraint clauses from a scratch declaration —
     /// avoids hand-building clause trivia.
@@ -278,14 +388,32 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         return updated;
     }
 
-    private List<StatementSyntax> AnchorsToInsert(MethodDeclarationSyntax method, TokenAnchorPlan plan)
+    /// <summary>
+    /// Collision names come from the ORIGINAL node: inner closures are rewritten
+    /// first, so reading names off the visited node would see the anchors we just
+    /// injected there and force spurious suffixes on the outer scopes.
+    /// </summary>
+    private List<StatementSyntax> AnchorsToInsert(
+        SyntaxNode original,
+        MethodDeclarationSyntax method,
+        TokenAnchorPlan plan)
+        => BuildAnchorStatements(original, method.Body!, plan.Params);
+
+    /// <summary>
+    /// Anchor statements for one scope (method entry or closure body): reconciles
+    /// E10/C02 anchors already present, then emits one strong-typed
+    /// <c>global::System.Type __cs2j_token_&lt;T&gt; = typeof(T);</c> per remaining parameter.
+    /// </summary>
+    private List<StatementSyntax> BuildAnchorStatements(
+        SyntaxNode scopeNode,
+        BlockSyntax body,
+        IReadOnlyList<GenericDeepenParamRef> planParams)
     {
         var result = new List<StatementSyntax>();
-        var body = method.Body!;
         var existing = ExistingAnchorParameterNames(body);
-        var usedNames = CollectIdentifierNames(method);
+        var usedNames = CollectIdentifierNames(scopeNode);
 
-        foreach (var param in plan.Params)
+        foreach (var param in planParams)
         {
             if (existing.Contains(param.Name))
             {
@@ -324,10 +452,10 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         return names;
     }
 
-    private static HashSet<string> CollectIdentifierNames(MethodDeclarationSyntax method)
+    private static HashSet<string> CollectIdentifierNames(SyntaxNode scopeNode)
     {
         var names = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var token in method.DescendantTokens().Where(t => t.IsKind(SyntaxKind.IdentifierToken)))
+        foreach (var token in scopeNode.DescendantTokens().Where(t => t.IsKind(SyntaxKind.IdentifierToken)))
         {
             names.Add(token.ValueText);
         }

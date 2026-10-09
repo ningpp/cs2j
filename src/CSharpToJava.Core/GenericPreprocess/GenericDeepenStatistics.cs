@@ -48,9 +48,11 @@ public sealed class GenericDeepenStatistics
 
     public string SummaryLine()
         => $"generic-deepen: {FilesTransformed} transformed, {FilesSkippedClean} clean " +
-           $"({TokenAnchorsInserted} anchors, {TypeParamPatternsRewritten} patterns, " +
+           $"({TokenAnchorsInserted} anchors, {NestedPropagations} nested propagations, " +
+           $"{TypeParamPatternsRewritten} patterns, " +
            $"{CatchTypeParamsRewritten} catches, {StaticMethodsRewritten} static methods, " +
            $"{StaticFieldAccessesRewritten} field accesses, {CallSitesUpdated} call sites, " +
+           $"{ExpressionTreeSitesSkipped} expression-tree skips, {PlansSkipped} plans skipped, " +
            $"{ResidualsByRule.Values.Sum()} residuals)";
 
     private static void MergeCounters(Dictionary<string, int> target, Dictionary<string, int> source)

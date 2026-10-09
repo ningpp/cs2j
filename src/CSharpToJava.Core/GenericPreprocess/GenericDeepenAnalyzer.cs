@@ -38,6 +38,19 @@ public sealed class StaticMethodCallSitePlan
     public required IReadOnlyList<string> TypeArgumentTexts { get; init; }
 }
 
+/// <summary>
+/// Token anchor inside a nested closure (lambda/anonymous method/local function):
+/// GD-NEST requires every layer on the chain between a token-need site and the
+/// type parameter's declaring scope to carry its own <c>System.Type</c> anchor,
+/// because the Java side lowers each closure into its own method/display class.
+/// </summary>
+public sealed class ClosureAnchorPlan
+{
+    public required SyntaxNode Closure { get; init; }
+    public required IReadOnlyList<GenericDeepenParamRef> Params { get; init; }
+    public string FilePath => Closure.SyntaxTree!.FilePath;
+}
+
 /// <summary>Static method referencing enclosing class type parameters, hoisted into a generic method (GD-STATIC).</summary>
 public sealed class StaticMethodPlan
 {
@@ -54,6 +67,7 @@ public sealed class StaticMethodPlan
 public sealed class GenericDeepenAnalysis
 {
     public required IReadOnlyList<TokenAnchorPlan> Anchors { get; init; }
+    public required IReadOnlyList<ClosureAnchorPlan> ClosureAnchors { get; init; }
     public required IReadOnlyList<TypeParamPatternPlan> Patterns { get; init; }
     public required IReadOnlyList<CatchTypeParamPlan> Catches { get; init; }
     public required IReadOnlyList<StaticFieldPlan> StaticFields { get; init; }
@@ -64,6 +78,7 @@ public sealed class GenericDeepenAnalysis
     public static GenericDeepenAnalysis Empty { get; } = new()
     {
         Anchors = Array.Empty<TokenAnchorPlan>(),
+        ClosureAnchors = Array.Empty<ClosureAnchorPlan>(),
         Patterns = Array.Empty<TypeParamPatternPlan>(),
         Catches = Array.Empty<CatchTypeParamPlan>(),
         StaticFields = Array.Empty<StaticFieldPlan>(),
@@ -142,11 +157,23 @@ public sealed class GenericDeepenAnalyzer
     private readonly Dictionary<IMethodSymbol, List<IMethodSymbol>> _families =
         new(SymbolEqualityComparer.Default);
 
+    /// <summary>GD-NEST: anchor needs keyed by the closure syntax node (lambda/anonymous method/local function).</summary>
+    private readonly Dictionary<SyntaxNode, SortedSet<GenericDeepenParamRef>> _closureNeeds =
+        new();
+
+    /// <summary>Local-function syntax node that declares a type parameter (null for method/class-declared parameters).</summary>
+    private readonly Dictionary<ITypeParameterSymbol, LocalFunctionStatementSyntax?> _closureOwners =
+        new(SymbolEqualityComparer.Default);
+
     private readonly List<TypeParamPatternPlan> _patterns = new();
     private readonly List<CatchTypeParamPlan> _catches = new();
     private int _patternTempCounter;
 
-    private readonly record struct ForwardEdge(IMethodSymbol Callee, int CalleeParamOrdinal, GenericDeepenParamRef CallerParam);
+    private readonly record struct ForwardEdge(
+        IMethodSymbol Callee,
+        int CalleeParamOrdinal,
+        GenericDeepenParamRef CallerParam,
+        InvocationExpressionSyntax Invocation);
 
     private sealed class ParamRefComparer : IComparer<GenericDeepenParamRef>
     {
@@ -154,6 +181,24 @@ public sealed class GenericDeepenAnalyzer
 
         public int Compare(GenericDeepenParamRef? x, GenericDeepenParamRef? y)
             => (x ?? throw new ArgumentNullException(nameof(x))).CompareTo(y);
+    }
+
+    /// <summary>
+    /// Closure layers can simultaneously carry parameters that are distinct by name
+    /// but share a (kind, ordinal) slot — e.g. method <c>F&lt;T&gt;</c>'s T #0 and nested
+    /// local function <c>A&lt;U&gt;</c>'s U #0 inside one closure set. Method-level
+    /// family sync intentionally identifies parameters by (kind, ordinal) alone;
+    /// closure plans must not collapse same-ordinal differently-named parameters.
+    /// </summary>
+    private sealed class NamedParamRefComparer : IComparer<GenericDeepenParamRef>
+    {
+        public static readonly NamedParamRefComparer Instance = new();
+
+        public int Compare(GenericDeepenParamRef? x, GenericDeepenParamRef? y)
+        {
+            var baseCompare = ParamRefComparer.Instance.Compare(x, y);
+            return baseCompare != 0 ? baseCompare : string.CompareOrdinal(x!.Name, y!.Name);
+        }
     }
 
     public GenericDeepenAnalyzer(Compilation compilation, GenericDeepenOptions options)
@@ -213,6 +258,21 @@ public sealed class GenericDeepenAnalyzer
         anchors.Sort((a, b) => string.CompareOrdinal(a.FilePath, b.FilePath) != 0
             ? string.CompareOrdinal(a.FilePath, b.FilePath)
             : a.Declaration.SpanStart.CompareTo(b.Declaration.SpanStart));
+
+        var closureAnchors = new List<ClosureAnchorPlan>();
+        foreach (var (closure, needs) in _closureNeeds)
+        {
+            if (needs.Count == 0) continue;
+            closureAnchors.Add(new ClosureAnchorPlan
+            {
+                Closure = closure,
+                Params = needs.ToList(),
+            });
+        }
+
+        closureAnchors.Sort((a, b) => string.CompareOrdinal(a.FilePath, b.FilePath) != 0
+            ? string.CompareOrdinal(a.FilePath, b.FilePath)
+            : a.Closure.SpanStart.CompareTo(b.Closure.SpanStart));
         _patterns.Sort((a, b) => string.CompareOrdinal(a.If.SyntaxTree.FilePath, b.If.SyntaxTree.FilePath) != 0
             ? string.CompareOrdinal(a.If.SyntaxTree.FilePath, b.If.SyntaxTree.FilePath)
             : a.If.SpanStart.CompareTo(b.If.SpanStart));
@@ -223,12 +283,13 @@ public sealed class GenericDeepenAnalyzer
         return new GenericDeepenAnalysis
         {
             Anchors = anchors,
+            ClosureAnchors = closureAnchors,
             Patterns = _patterns,
             Catches = _catches,
             StaticFields = _staticFields,
             StaticMethods = _staticMethods,
             Diagnostics = _diagnostics,
-            Statistics = new GenericDeepenStatistics(),
+            Statistics = _analysisStats,
         };
     }
 
@@ -958,7 +1019,7 @@ public sealed class GenericDeepenAnalyzer
     {
         var needs = new SortedSet<GenericDeepenParamRef>(ParamRefComparer.Instance);
         var visible = CollectVisibleParams(method);
-        if (visible.Count == 0 || declaration.Body == null && declaration.ExpressionBody == null)
+        if (declaration.Body == null && declaration.ExpressionBody == null)
         {
             return needs;
         }
@@ -969,21 +1030,26 @@ public sealed class GenericDeepenAnalyzer
             switch (node)
             {
                 case TypeOfExpressionSyntax typeOf:
-                    AddIfVisible(model, typeOf.Type, visible, needs);
+                    if (ResolveTypeParameter(model, typeOf.Type, visible, declaration) is { } typeofRef)
+                    {
+                        RegisterTokenSite(method, declaration, model, typeOf, typeofRef.Symbol, typeofRef.Ref, needs);
+                    }
+
                     break;
                 case BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.IsExpression)
                                                        || binary.IsKind(SyntaxKind.AsExpression):
-                    if (binary.Right is TypeSyntax rightType)
+                    if (binary.Right is TypeSyntax rightType
+                        && ResolveTypeParameter(model, rightType, visible, declaration) is { } binaryRef)
                     {
-                        AddIfVisible(model, rightType, visible, needs);
+                        RegisterTokenSite(method, declaration, model, binary, binaryRef.Symbol, binaryRef.Ref, needs);
                     }
 
                     break;
                 case IsPatternExpressionSyntax pattern:
-                    CollectPattern(pattern, declaration, model, visible, needs);
+                    CollectPattern(method, declaration, pattern, model, visible, needs);
                     break;
                 case CatchClauseSyntax catchClause:
-                    CollectCatch(catchClause, declaration, model, visible, needs);
+                    CollectCatch(method, declaration, catchClause, model, visible, needs);
                     break;
             }
         }
@@ -991,20 +1057,214 @@ public sealed class GenericDeepenAnalyzer
         return needs;
     }
 
-    private void CollectPattern(
-        IsPatternExpressionSyntax pattern,
+    /// <summary>
+    /// Resolves a type syntax used at a token site to its type parameter. Besides the
+    /// method/class type parameters in <paramref name="visible"/>, accepts a type
+    /// parameter owned by a local function declared inside <paramref name="declaration"/>
+    /// (GD-NEST: such a parameter is anchored at its own local-function layer only).
+    /// </summary>
+    private (ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)? ResolveTypeParameter(
+        SemanticModel model,
+        TypeSyntax type,
+        List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> visible,
+        MethodDeclarationSyntax declaration)
+    {
+        var syntax = type;
+        if (syntax is NullableTypeSyntax nullable) syntax = nullable.ElementType;
+        if (syntax is ArrayTypeSyntax array) syntax = array.ElementType;
+        if (syntax is not IdentifierNameSyntax identifier) return null;
+        if (model.GetSymbolInfo(identifier).Symbol is not ITypeParameterSymbol tp) return null;
+
+        var match = visible.FirstOrDefault(v => SymbolEqualityComparer.Default.Equals(v.Symbol, tp));
+        if (match.Ref != null)
+        {
+            return (tp, match.Ref);
+        }
+
+        var ownerClosure = DeclaringClosure(tp);
+        if (ownerClosure != null && declaration.Span.Contains(ownerClosure.SpanStart))
+        {
+            return (tp, new GenericDeepenParamRef(GenericDeepenParamKind.MethodTypeParameter, tp.Ordinal, tp.Name));
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Registers a token-need <paramref name="paramRef"/> (symbol <paramref name="tp"/>)
+    /// used at <paramref name="site"/>: the declaring scope gets its method/closure
+    /// anchor and every closure layer between the site and that scope gets one too
+    /// (GD-NEST). Sites inside quoted expression-tree lambdas belong to GD-EXPRTREE
+    /// (no rewrite inside the tree, method-level anchors stay outside it).
+    /// </summary>
+    private void RegisterTokenSite(
+        IMethodSymbol method,
         MethodDeclarationSyntax declaration,
         SemanticModel model,
-        List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> visible,
-        ISet<GenericDeepenParamRef> needs)
+        SyntaxNode site,
+        ITypeParameterSymbol tp,
+        GenericDeepenParamRef paramRef,
+        SortedSet<GenericDeepenParamRef> methodNeeds)
     {
-        if (!_options.RewriteIsAsPatterns
-            || pattern.Pattern is not DeclarationPatternSyntax declarationPattern
-            || declarationPattern.Type is not IdentifierNameSyntax typeIdentifier
-            || model.GetSymbolInfo(typeIdentifier).Symbol is not ITypeParameterSymbol tp)
+        if (CSharpToJava.Core.Analysis.ExpressionTreeFacts.IsInsideQuotedExpressionLambda(model, site))
+        {
+            ReportExpressionTreeSite(model, site);
+            return;
+        }
+
+        var ownerClosure = DeclaringClosure(tp);
+
+        // Class/method-declared parameters anchor the method itself; a parameter
+        // declared by a local function is not even in scope at method level.
+        if (ownerClosure == null)
+        {
+            methodNeeds.Add(paramRef);
+        }
+
+        if (!_options.PropagateNestedTokens)
         {
             return;
         }
+
+        foreach (var closure in ClosureChain(site, declaration, ownerClosure))
+        {
+            if (!IsClosureAnchorInsertable(closure, model))
+            {
+                _diagnostics.Add(new GenericDeepenDiagnostic(
+                    GenericDeepenSeverity.Warning, GenericDeepenRule.Nested, GenericDeepenCodes.UndecidableSite,
+                    $"Token anchor for type parameter '{paramRef.Name}' cannot be placed in the enclosing " +
+                    $"closure (expression-bodied lambda without a resolvable delegate shape, or dynamic/unbound conversion); " +
+                    $"the closure at {closure.GetLocation().GetLineSpan().StartLinePosition.Line + 1} is left without an anchor.",
+                    declaration.SyntaxTree.FilePath,
+                    site.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                continue;
+            }
+
+            if (!_closureNeeds.TryGetValue(closure, out var set))
+            {
+                set = new SortedSet<GenericDeepenParamRef>(NamedParamRefComparer.Instance);
+                _closureNeeds[closure] = set;
+            }
+
+            if (set.Add(paramRef))
+            {
+                // Fires only once per (closure layer, parameter) across every site.
+                _analysisStats.NestedPropagations++;
+            }
+        }
+    }
+
+    private readonly GenericDeepenStatistics _analysisStats = new();
+
+    /// <summary>
+    /// Closure syntax layers (innermost first) between <paramref name="site"/> and
+    /// <paramref name="declaration"/>, stopping AT the local function that declares
+    /// the parameter (layers above it cannot name it).
+    /// </summary>
+    private static List<SyntaxNode> ClosureChain(
+        SyntaxNode site,
+        MethodDeclarationSyntax declaration,
+        LocalFunctionStatementSyntax? ownerClosure)
+    {
+        var chain = new List<SyntaxNode>();
+        foreach (var ancestor in site.Ancestors())
+        {
+            if (ancestor == declaration) break;
+            if (ancestor is not (LambdaExpressionSyntax or AnonymousMethodExpressionSyntax or LocalFunctionStatementSyntax))
+            {
+                continue;
+            }
+
+            chain.Add(ancestor);
+            if (ownerClosure is not null && ancestor == ownerClosure) break;
+        }
+
+        return chain;
+    }
+
+    /// <summary>The local function declaring <paramref name="tp"/>, or null when the owner is the method/type.</summary>
+    private LocalFunctionStatementSyntax? DeclaringClosure(ITypeParameterSymbol tp)
+    {
+        if (_closureOwners.TryGetValue(tp, out var cached))
+        {
+            return cached;
+        }
+
+        LocalFunctionStatementSyntax? owner = null;
+        if (tp.DeclaringSyntaxReferences is { Length: > 0 } references
+            && references[0].GetSyntax() is { } syntax
+            && syntax.Parent?.Parent is LocalFunctionStatementSyntax localFunction)
+        {
+            owner = localFunction;
+        }
+
+        _closureOwners[tp] = owner;
+        return owner;
+    }
+
+    /// <summary>
+    /// A closure can host anchor statements when it already has a block body, or
+    /// when its expression body can deterministically be wrapped (local function
+    /// with a spelled return type, or a lambda bound to a known delegate).
+    /// </summary>
+    private static bool IsClosureAnchorInsertable(SyntaxNode closure, SemanticModel model)
+    {
+        switch (closure)
+        {
+            case AnonymousMethodExpressionSyntax:
+                return true;
+            case LocalFunctionStatementSyntax { Body: not null }:
+                return true;
+            case LocalFunctionStatementSyntax localFunction:
+                return localFunction.ReturnType is PredefinedTypeSyntax predefined
+                    && predefined.Keyword.IsKind(SyntaxKind.VoidKeyword)
+                    || localFunction.ReturnType is not null;
+            case LambdaExpressionSyntax { Block: not null }:
+                return true;
+            case LambdaExpressionSyntax lambda:
+                // Expression-bodied lambda: wrapping needs the delegate's return-ness.
+                // A dynamic/unbound conversion gives no INamedTypeSymbol here.
+                if (model.GetTypeInfo(lambda).ConvertedType is not INamedTypeSymbol converted)
+                {
+                    return false;
+                }
+
+                return converted.DelegateInvokeMethod != null;
+            default:
+                return false;
+        }
+    }
+
+    private void ReportExpressionTreeSite(SemanticModel model, SyntaxNode site)
+    {
+        var severity = _options.ExpressionTreePolicy == GenericDeepenExpressionTreePolicy.Error
+            ? GenericDeepenSeverity.Warning
+            : GenericDeepenSeverity.Info;
+        _diagnostics.Add(new GenericDeepenDiagnostic(
+            severity, GenericDeepenRule.Nested, GenericDeepenCodes.ExpressionTreeSite,
+            $"Generic token site '{site.ToString().Trim()}' is inside a quoted expression-tree lambda; " +
+            "the tree node is not rewritten and no anchor is inserted inside the lambda (GD-EXPRTREE).",
+            site.SyntaxTree?.FilePath,
+            site.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+        _analysisStats.ExpressionTreeSitesSkipped++;
+    }
+
+    private void CollectPattern(
+        IMethodSymbol method,
+        MethodDeclarationSyntax declaration,
+        IsPatternExpressionSyntax pattern,
+        SemanticModel model,
+        List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> visible,
+        SortedSet<GenericDeepenParamRef> needs)
+    {
+        if (!_options.RewriteIsAsPatterns
+            || pattern.Pattern is not DeclarationPatternSyntax declarationPattern
+            || ResolveTypeParameter(model, declarationPattern.Type, visible, declaration) is not { } resolved)
+        {
+            return;
+        }
+
+        var tp = resolved.Symbol;
 
         string variableName;
         bool isDiscard;
@@ -1022,11 +1282,8 @@ public sealed class GenericDeepenAnalyzer
                 return;
         }
 
-        var match = visible.FirstOrDefault(v => SymbolEqualityComparer.Default.Equals(v.Symbol, tp));
-        if (match.Ref == null) return;
-
-        // Token need so the method entry gets an anchor.
-        needs.Add(match.Ref);
+        // Token need so the declaring scope and every closure layer get anchors.
+        RegisterTokenSite(method, declaration, model, pattern, tp, resolved.Ref, needs);
 
         IfStatementSyntax? conditionOwner = pattern.Parent as IfStatementSyntax;
         var liftable = conditionOwner != null
@@ -1055,7 +1312,7 @@ public sealed class GenericDeepenAnalyzer
         {
             Pattern = pattern,
             If = conditionOwner!,
-            Param = match.Ref,
+            Param = resolved.Ref,
             VariableName = variableName,
             TempName = $"__cs2j_pat{_patternTempCounter++}",
             IsDiscard = isDiscard,
@@ -1063,29 +1320,27 @@ public sealed class GenericDeepenAnalyzer
     }
 
     private void CollectCatch(
-        CatchClauseSyntax clause,
+        IMethodSymbol method,
         MethodDeclarationSyntax declaration,
+        CatchClauseSyntax clause,
         SemanticModel model,
         List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> visible,
-        ISet<GenericDeepenParamRef> needs)
+        SortedSet<GenericDeepenParamRef> needs)
     {
         if (!_options.RewriteCatchTypeParam
-            || clause.Declaration?.Type is not IdentifierNameSyntax identifier
-            || model.GetSymbolInfo(identifier).Symbol is not ITypeParameterSymbol tp)
+            || clause.Declaration?.Type is not { } catchType
+            || ResolveTypeParameter(model, catchType, visible, declaration) is not { } catchResolved)
         {
             return;
         }
 
-        var match = visible.FirstOrDefault(v => SymbolEqualityComparer.Default.Equals(v.Symbol, tp));
-        if (match.Ref == null) return;
-
-        needs.Add(match.Ref);
+        RegisterTokenSite(method, declaration, model, clause, catchResolved.Symbol, catchResolved.Ref, needs);
 
         if (clause.Filter != null)
         {
             _diagnostics.Add(new GenericDeepenDiagnostic(
                 GenericDeepenSeverity.Warning, GenericDeepenRule.Catch, GenericDeepenCodes.CatchLoweringPreconditionFailed,
-                $"catch over type parameter '{identifier.Identifier.ValueText}' with a filter cannot be lowered automatically; rewrite manually.",
+                $"catch over type parameter '{catchType.ToString()}' with a filter cannot be lowered automatically; rewrite manually.",
                 declaration.SyntaxTree.FilePath,
                 clause.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
             return;
@@ -1094,30 +1349,12 @@ public sealed class GenericDeepenAnalyzer
         _catches.Add(new CatchTypeParamPlan
         {
             Clause = clause,
-            Param = match.Ref,
+            Param = catchResolved.Ref,
             VariableName = string.IsNullOrEmpty(clause.Declaration?.Identifier.ValueText)
                 ? null
                 : clause.Declaration.Identifier.ValueText,
             ExceptionVariableName = $"__cs2j_e{_catches.Count}",
         });
-    }
-
-    private static void AddIfVisible(
-        SemanticModel model, TypeSyntax type,
-        List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> visible,
-        ISet<GenericDeepenParamRef> needs)
-    {
-        var syntax = type;
-        if (syntax is NullableTypeSyntax nullable) syntax = nullable.ElementType;
-        if (syntax is ArrayTypeSyntax array) syntax = array.ElementType;
-        if (syntax is not IdentifierNameSyntax identifier) return;
-        var symbol = model.GetSymbolInfo(identifier).Symbol as ITypeParameterSymbol;
-        if (symbol == null) return;
-        var match = visible.FirstOrDefault(v => SymbolEqualityComparer.Default.Equals(v.Symbol, symbol));
-        if (match.Ref != null)
-        {
-            needs.Add(match.Ref);
-        }
     }
 
     private static List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> CollectVisibleParams(IMethodSymbol method)
@@ -1157,7 +1394,10 @@ public sealed class GenericDeepenAnalyzer
             return;
         }
 
-        var caller = model.GetEnclosingSymbol(invocation.SpanStart) as IMethodSymbol;
+        // Inside a lambda/local function GetEnclosingSymbol returns the anonymous
+        // function/local-function symbol; the forwarding edge belongs to the method
+        // that owns them (the chain closures get their own GD-NEST anchors).
+        var caller = ResolveEnclosingSourceMethod(invocation, model);
         if (caller == null || !_methodDecls.ContainsKey(caller.OriginalDefinition)) return;
 
         var visible = CollectVisibleParams(caller);
@@ -1172,8 +1412,15 @@ public sealed class GenericDeepenAnalyzer
                 _forwardEdges[caller.OriginalDefinition] = edges;
             }
 
-            edges.Add(new ForwardEdge(callee.OriginalDefinition, i, match.Ref));
+            edges.Add(new ForwardEdge(callee.OriginalDefinition, i, match.Ref, invocation));
         }
+    }
+
+    /// <summary>The ordinary source method enclosing <paramref name="node"/> (crossing lambda/local-function boundaries).</summary>
+    private IMethodSymbol? ResolveEnclosingSourceMethod(SyntaxNode node, SemanticModel model)
+    {
+        var declaration = node.AncestorsAndSelf().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+        return declaration == null ? null : model.GetDeclaredSymbol(declaration);
     }
 
     // ---- phase 2: families (override chains + interface implementations) ----
@@ -1342,11 +1589,64 @@ public sealed class GenericDeepenAnalyzer
                     {
                         changed = true;
                     }
+
+                    // GD-NEST: a forwarding call inside a lambda/local function also
+                    // anchors every closure layer between the call and the method.
+                    PropagateEdgeIntoClosures(caller, edge);
                 }
             }
         }
         while (changed);
     }
+
+    private void PropagateEdgeIntoClosures(IMethodSymbol caller, ForwardEdge edge)
+    {
+        var invocation = edge.Invocation;
+        if (!_methodDecls.TryGetValue(caller, out var declaration))
+        {
+            return;
+        }
+
+        var model = _compilation.GetSemanticModel(invocation.SyntaxTree);
+        if (CSharpToJava.Core.Analysis.ExpressionTreeFacts.IsInsideQuotedExpressionLambda(model, invocation))
+        {
+            // The call node belongs to a quoted tree; only the method-level anchor
+            // (added above, outside the lambda) may serve it — trace and move on.
+            if (_reportedTreeEdges.Add(invocation.SpanStart))
+            {
+                ReportExpressionTreeSite(model, invocation);
+            }
+
+            return;
+        }
+
+        foreach (var closure in ClosureChain(invocation, declaration, null))
+        {
+            if (!IsClosureAnchorInsertable(closure, model))
+            {
+                _diagnostics.Add(new GenericDeepenDiagnostic(
+                    GenericDeepenSeverity.Warning, GenericDeepenRule.Nested, GenericDeepenCodes.UndecidableSite,
+                    $"Forwarded token for type parameter '{edge.CallerParam.Name}' cannot place an anchor in the enclosing " +
+                    "closure (expression-bodied lambda without a resolvable delegate shape, or dynamic/unbound conversion).",
+                    invocation.SyntaxTree.FilePath,
+                    invocation.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                continue;
+            }
+
+            if (!_closureNeeds.TryGetValue(closure, out var set))
+            {
+                set = new SortedSet<GenericDeepenParamRef>(NamedParamRefComparer.Instance);
+                _closureNeeds[closure] = set;
+            }
+
+            if (set.Add(edge.CallerParam))
+            {
+                _analysisStats.NestedPropagations++;
+            }
+        }
+    }
+
+    private readonly HashSet<int> _reportedTreeEdges = new();
 
     private static bool HasKindOrdinal(IEnumerable<GenericDeepenParamRef> needs, GenericDeepenParamKind kind, int ordinal)
         => needs.Any(n => n.Kind == kind && n.Ordinal == ordinal);

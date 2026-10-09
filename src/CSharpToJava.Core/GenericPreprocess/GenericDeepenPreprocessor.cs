@@ -35,6 +35,7 @@ public sealed class GenericDeepenPreprocessor
         };
         var diagnostics = new List<GenericDeepenDiagnostic>();
         var anchorsByNode = new Dictionary<SyntaxNode, TokenAnchorPlan>();
+        var closuresByNode = new Dictionary<SyntaxNode, ClosureAnchorPlan>();
         var patternsByNode = new Dictionary<SyntaxNode, TypeParamPatternPlan>();
         var catchesByNode = new Dictionary<SyntaxNode, CatchTypeParamPlan>();
         var fieldDeclRemovals = new HashSet<SyntaxNode>();
@@ -44,6 +45,14 @@ public sealed class GenericDeepenPreprocessor
             if (plan.Declaration.SyntaxTree == model.SyntaxTree)
             {
                 anchorsByNode[plan.Declaration] = plan;
+            }
+        }
+
+        foreach (var plan in _analysis.ClosureAnchors)
+        {
+            if (plan.Closure.SyntaxTree == model.SyntaxTree)
+            {
+                closuresByNode[plan.Closure] = plan;
             }
         }
 
@@ -97,7 +106,8 @@ public sealed class GenericDeepenPreprocessor
             }
         }
 
-        if (anchorsByNode.Count == 0 && patternsByNode.Count == 0 && catchesByNode.Count == 0
+        if (anchorsByNode.Count == 0 && closuresByNode.Count == 0
+            && patternsByNode.Count == 0 && catchesByNode.Count == 0
             && fieldDeclRemovals.Count == 0 && fieldUsages.Count == 0
             && staticMethodsByNode.Count == 0 && staticCallSites.Count == 0)
         {
@@ -108,8 +118,8 @@ public sealed class GenericDeepenPreprocessor
 
         var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
         var rewriter = new GenericDeepenRewriter(
-            anchorsByNode, patternsByNode, catchesByNode, fieldDeclRemovals, fieldUsages,
-            staticMethodsByNode, staticCallSites, stats, diagnostics, model.SyntaxTree.FilePath);
+            anchorsByNode, closuresByNode, patternsByNode, catchesByNode, fieldDeclRemovals, fieldUsages,
+            staticMethodsByNode, staticCallSites, stats, diagnostics, model);
         var newRoot = rewriter.Visit(root);
         AppendAnalysisDiagnostics(diagnostics, model);
         if (newRoot == root)

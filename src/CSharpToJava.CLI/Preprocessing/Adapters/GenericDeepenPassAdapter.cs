@@ -56,7 +56,11 @@ internal sealed class GenericDeepenPassAdapter : ProjectPassAdapter
     public override Task CompilationReadyAsync(CSharpCompilation compilation)
     {
         _preprocessor.BindCompilation(compilation);
-        _preprocessor.Analyze(_options);
+        var analysis = _preprocessor.Analyze(_options);
+        // Analysis-phase counters exist once per tree (nested-closure propagations,
+        // expression-tree skips, plan skips); the per-file rewrites add the rest.
+        // Diagnostics are delivered per file via RewriteFileAsync (by relative path).
+        _statistics.Merge(analysis.Statistics);
         return Task.CompletedTask;
     }
 
