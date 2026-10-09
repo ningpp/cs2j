@@ -56,6 +56,13 @@ public sealed record PartialMergeStatistics
     public required int Conflicts { get; init; }
     public required int SkippedBaseline { get; init; }
     public required int SkippedTopLevel { get; init; }
+
+    /// <summary>M3: classic declaration-only partial methods removed under AssumeNoGeneratedPartial.</summary>
+    public required int PartialDeclarationsRemoved { get; init; }
+
+    /// <summary>M3: call statements stripped for the removed classic partial methods.</summary>
+    public required int PartialCallSitesRemoved { get; init; }
+
     public required IReadOnlyDictionary<string, int> ErrorsByCode { get; init; }
 }
 
@@ -75,6 +82,8 @@ internal sealed class MutablePartialMergeStats
     public int Conflicts;
     public int SkippedBaseline;
     public int SkippedTopLevel;
+    public int PartialDeclarationsRemoved;
+    public int PartialCallSitesRemoved;
 
     private readonly Dictionary<string, int> _errorsByCode = new(StringComparer.Ordinal);
 
@@ -96,6 +105,8 @@ internal sealed class MutablePartialMergeStats
         Conflicts = Conflicts,
         SkippedBaseline = SkippedBaseline,
         SkippedTopLevel = SkippedTopLevel,
+        PartialDeclarationsRemoved = PartialDeclarationsRemoved,
+        PartialCallSitesRemoved = PartialCallSitesRemoved,
         ErrorsByCode = new Dictionary<string, int>(_errorsByCode, StringComparer.Ordinal),
     };
 }
@@ -114,6 +125,10 @@ internal static class PartialMergeCodes
     public const string UnsupportedShape = "CS2J2016";
     public const string AnalyzerSeen = "CS2J2017";
     public const string Residual = "CS2J2018";
+
+    /// <summary>M3: classic partial method could not be removed safely under AssumeNoGeneratedPartial.</summary>
+    public const string PartialCallSiteNotRemovable = "CS2J2019";
+
     public const string BuildFailed = "CS2J2030";
     public const string TestsFailed = "CS2J2031";
 }

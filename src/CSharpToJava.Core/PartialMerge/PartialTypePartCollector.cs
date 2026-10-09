@@ -12,16 +12,20 @@ namespace CSharpToJava.Core.PartialMerge;
 /// </summary>
 internal static class PartialTypePartCollector
 {
-    public static (List<TypeGroupPlan> Groups, int TopLevelSkipped) Collect(
+    public static (List<TypeGroupPlan> MultiPartGroups, List<TypeGroupPlan> SinglePartTypes,
+            int TopLevelSkipped, int TypesScanned)
+        Collect(
         CSharpCompilation compilation,
         string sourceRoot)
     {
         var groups = new List<TypeGroupPlan>();
+        var singles = new List<TypeGroupPlan>();
         var topLevelSkipped = 0;
+        var typesScanned = 0;
 
         VisitNamespace(compilation.GlobalNamespace);
 
-        return (groups, topLevelSkipped);
+        return (groups, singles, topLevelSkipped, typesScanned);
 
         void VisitNamespace(INamespaceSymbol namespaceSymbol)
         {
@@ -58,8 +62,35 @@ internal static class PartialTypePartCollector
                     && !reference.SyntaxTree.FilePath.Contains("__cs2j", StringComparison.Ordinal))
                 .ToList();
 
-            if (sourceReferences.Count < 2)
+            if (sourceReferences.Count == 0)
             {
+                return;
+            }
+
+            typesScanned++;
+
+            if (sourceReferences.Count == 1)
+            {
+                // M3: a single-part type is only rewritten when AssumeNoGeneratedPartial
+                // removes a classic declaration; the analyzer decides whether to keep it.
+                var reference = sourceReferences[0];
+                var singleNode = (TypeDeclarationSyntax)reference.GetSyntax();
+                singles.Add(new TypeGroupPlan
+                {
+                    TypeFullName = type.ToDisplayString(),
+                    Symbol = type,
+                    Parts =
+                    [
+                        new TypePartInfo
+                        {
+                            Declaration = singleNode,
+                            SourceFilePath = reference.SyntaxTree.FilePath,
+                            RelativePath = Path.GetRelativePath(sourceRoot, reference.SyntaxTree.FilePath)
+                                .Replace('\\', '/'),
+                            Ordinal = 0,
+                        },
+                    ],
+                });
                 return;
             }
 

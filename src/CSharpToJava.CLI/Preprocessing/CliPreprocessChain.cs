@@ -146,6 +146,9 @@ internal sealed class CliChainRequest
     /// <summary>M4: C19-dedicated strict (default false; Warning codes stay warnings).</summary>
     public bool ExtensionMethodStrict { get; init; }
 
+    /// <summary>C20 M3: generator-absence assumption for classic partial methods (default false).</summary>
+    public bool PartialMergeAssumeNoGenerated { get; init; }
+
     /// <summary>M4: extension-methods host overrides JSON path (null = none).</summary>
     public string? ExtensionOverridesPath { get; init; }
 
@@ -288,6 +291,7 @@ internal static class CliPreprocessChain
             ParamsCollections = request.ParamsCollections,
             ExtensionExternalHostMapper = extensionExternalHostMapper,
             ExtensionMethodStrict = request.ExtensionMethodStrict,
+            PartialMergeAssumeNoGenerated = request.PartialMergeAssumeNoGenerated,
             ExtensionOverridesPath = request.ExtensionOverridesPath,
             ClosedMetadataOverridesPath = request.ClosedMetadataOverridesPath,
             ExtensionBlockOptionsFactory = request.ExtensionBlockOptionsFactory,

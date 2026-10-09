@@ -30,6 +30,12 @@ internal sealed record TypeGroupPlan
     public bool SkipUnsupportedShape { get; set; }
     public bool RolledBack { get; set; }
 
+    /// <summary>
+    /// M3: single-part type rewritten only to drop a classic partial declaration
+    /// under AssumeNoGeneratedPartial. No banner/usings/part-removal semantics apply.
+    /// </summary>
+    public bool IsMemberOnlyRewrite { get; set; }
+
     public IEnumerable<string> TouchedFiles =>
         Parts.Select(part => part.SourceFilePath).Distinct(StringComparer.OrdinalIgnoreCase);
 }
@@ -70,6 +76,7 @@ internal sealed record PartialMergePlan
     public required IReadOnlyList<TypeGroupPlan> Groups { get; init; }
     public required ILookup<string, FileEdit> EditsByFile { get; init; }
     public required IReadOnlyList<PartialMergeDiagnostic> Diagnostics { get; init; }
+    public required PartialMergeStatistics Statistics { get; init; }
 
     public IEnumerable<TypeGroupPlan> ActiveGroups =>
         Groups.Where(g => !g.SkipBaseline && !g.SkipUnsupportedShape && !g.RolledBack);

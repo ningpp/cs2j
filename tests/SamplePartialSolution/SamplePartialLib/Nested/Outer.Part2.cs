@@ -5,6 +5,19 @@ public partial class Outer
 {
     public partial class Inner
     {
+        private int _hookCount;
+
+        partial void InnerHook()
+        {
+            _hookCount++;
+        }
+
         public int B() => 2;
+
+        public int C()
+        {
+            InnerHook();
+            return _hookCount + 2;
+        }
     }
 }

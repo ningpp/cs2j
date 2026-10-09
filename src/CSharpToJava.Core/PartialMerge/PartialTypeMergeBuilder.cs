@@ -31,12 +31,15 @@ internal static class PartialTypeMergeBuilder
         SyntaxKind.PartialKeyword,
     ];
 
-    public static TypeDeclarationSyntax Build(CSharpCompilation compilation, TypeGroupPlan group)
+    public static TypeDeclarationSyntax Build(
+        CSharpCompilation compilation,
+        TypeGroupPlan group,
+        PartialMemberCollapse? collapse = null)
     {
         var primary = group.Primary.Declaration;
 
         var merged = primary
-            .WithMembers(SyntaxFactory.List(PartialMemberMerge.CollectMembers(group)))
+            .WithMembers(SyntaxFactory.List(PartialMemberMerge.CollectMembers(group, collapse)))
             .WithModifiers(BuildMergedModifiers(group))
             .WithBaseList(BuildMergedBaseList(compilation, group))
             .WithAttributeLists(BuildMergedAttributes(group))

@@ -8,7 +8,8 @@ namespace CSharpToJava.ProjectTests;
 /// <summary>
 /// Unit matrix (design §7.1): inline syntax trees → CSharpCompilation →
 /// Analyze/RewriteFile text assertions; candidate trees must compile with zero
-/// errors. M1: groups 1-3, 12-13; M2: groups 6-11, 14-15.
+/// errors. M1: groups 1-3, 12-13; M2: groups 6-11, 14-15; M3: groups 4-5 plus
+/// the AssumeNoGeneratedPartial call-site / idempotency / residual cases.
 /// </summary>
 public sealed class PartialMergeUnitTests
 {
@@ -28,6 +29,34 @@ public sealed class PartialMergeUnitTests
             new CSharpCompilationOptions(outputKind, allowUnsafe: true));
         var plan = new PartialMergePreprocessor().Analyze(compilation, Root, mutators);
         return (compilation, plan);
+    }
+
+    /// <summary>M3: options-bearing variant (AssumeNoGeneratedPartial / Strict).</summary>
+    private static (CSharpCompilation Compilation, PartialMergePlan Plan) BuildPlanWith(
+        PartialMergeOptions options,
+        params (string Path, string Source)[] files)
+    {
+        var trees = files.Select(f => CSharpSyntaxTree.ParseText(
+            f.Source, new CSharpParseOptions(LanguageVersion.Latest), path: Path.Combine(Root, f.Path)));
+        var compilation = CSharpCompilation.Create(
+            "partial-merge-tests", trees,
+            GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var plan = new PartialMergePreprocessor(options).Analyze(compilation, Root);
+        return (compilation, plan);
+    }
+
+    /// <summary>M3: re-run the preprocessor over already-rewritten outputs (fixpoint check).</summary>
+    private static PartialMergePlan Replan(
+        PartialMergeOptions options,
+        List<(string Path, string Source)> outputs)
+    {
+        var trees = outputs.Select(o => CSharpSyntaxTree.ParseText(
+            o.Source, new CSharpParseOptions(LanguageVersion.Latest), path: o.Path));
+        var compilation = CSharpCompilation.Create(
+            "partial-merge-rerun", trees, GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        return new PartialMergePreprocessor(options).Analyze(compilation, Root);
     }
 
     [Fact]
@@ -486,6 +515,512 @@ public sealed class PartialMergeUnitTests
         Assert.Equal("System.Console.WriteLine(0);", outputs[0].Source);
         var candidate = Recompile(outputs, OutputKind.ConsoleApplication);
         Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    // ---- M3 Group 4: classic vs extended partial methods ----
+
+    [Fact]
+    public void Group4_Classic_Pair_Collapses_To_Implementation_And_Drops_Partial_Token()
+    {
+        var (compilation, plan) = BuildPlanWith(
+            new PartialMergeOptions(),
+            ("Methods/C.Part1.cs",
+                "namespace Demo; public partial class C { partial void Hook(); public void Run(){ Hook(); } }"),
+            ("Methods/C.Part2.cs",
+                "namespace Demo; public partial class C { partial void Hook() { System.Console.WriteLine(1); } }"));
+
+        var group = Assert.Single(plan.Groups);
+        Assert.Equal(1, plan.Statistics.MembersCollapsed);
+
+        var mergedText = group.MergedDeclaration!.ToFullString();
+        Assert.DoesNotContain("partial void Hook", mergedText);
+        Assert.Contains("void Hook()", mergedText);
+        Assert.Contains("WriteLine(1)", mergedText);
+        // The call site keeps binding to the same name: zero text change there.
+        Assert.Contains("Hook();", mergedText);
+        // Type-level partial token is intentionally retained (generator safety).
+        Assert.Contains("partial class C", mergedText);
+
+        var hookMembers = group.MergedDeclaration.Members
+            .Count(m => m.ToString().Contains("Hook("));
+        Assert.Equal(1, hookMembers);
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void Group4_Static_Classic_And_Modern_Generic_Pairs_Collapse()
+    {
+        var (compilation, plan) = BuildPlanWith(
+            new PartialMergeOptions(),
+            ("a.cs", """
+                namespace Demo;
+                public partial class C
+                {
+                    static partial void S();
+                    public partial T Pick<T>(T a, T b);
+                    public void Drive() { S(); var x = Pick(1, 2); }
+                }
+                """),
+            ("b.cs", """
+                namespace Demo;
+                public partial class C
+                {
+                    static partial void S() { }
+                    public partial T Pick<T>(T a, T b) => a;
+                }
+                """));
+
+        var mergedText = Assert.Single(plan.Groups).MergedDeclaration!.ToFullString();
+        Assert.Equal(2, plan.Statistics.MembersCollapsed);
+        Assert.Contains("static void S()", mergedText);
+        Assert.DoesNotContain("partial T Pick", mergedText);
+        Assert.Contains("public T Pick<T>(T a, T b) => a;", mergedText);
+        Assert.Contains("S();", mergedText);
+        Assert.Contains("Pick(1, 2)", mergedText);
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void Group4_Classic_Declaration_Only_Is_Kept_By_Default()
+    {
+        var (compilation, plan) = BuildPlanWith(
+            new PartialMergeOptions(),
+            ("Methods/C.Part1.cs",
+                "namespace Demo; public partial class C { partial void Hook(); public void Run(){ Hook(); } }"),
+            ("Methods/C.Part2.cs",
+                "namespace Demo; public partial class C { public void Other(){} }"));
+
+        var mergedText = Assert.Single(plan.Groups).MergedDeclaration!.ToFullString();
+        Assert.Equal(0, plan.Statistics.MembersCollapsed);
+        Assert.Equal(0, plan.Statistics.PartialDeclarationsRemoved);
+        Assert.Contains("partial void Hook();", mergedText);
+        Assert.Contains("Hook();", mergedText);
+
+        // A no-implementation classic partial is legal C# (calls elide), so the
+        // candidate compiles — v1 behavior, no PartialMethodMerger-style drop.
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void Group4_Extended_Method_Missing_Implementation_Baseline_Skips_Group()
+    {
+        var (_, plan) = BuildPlanWith(
+            new PartialMergeOptions(),
+            ("a.cs", "namespace Demo; public partial class C { public partial int Modern(int x); }"),
+            ("b.cs", "namespace Demo; public partial class C { }"));
+
+        var group = Assert.Single(plan.Groups);
+        Assert.True(group.SkipBaseline);
+        Assert.Null(group.MergedDeclaration);
+        Assert.Empty(plan.EditsByFile.SelectMany(g => g));
+        // The pass must not compete with the compiler (CS8795) with its own code.
+        Assert.DoesNotContain(plan.Diagnostics, d => d.Code == PartialMergeCodes.ExtendedPartialMissingImpl);
+    }
+
+    // ---- M3 Group 5: C#13 properties / indexers / events / constructors ----
+
+    [Fact]
+    public void Group5_Property_Pair_Collapses_And_Accessor_Attributes_Combine()
+    {
+        var (compilation, plan) = BuildPlanWith(
+            new PartialMergeOptions(),
+            ("attrs.cs",
+                "namespace Demo; public class AttrAAttribute : System.Attribute {} " +
+                "public class AttrBAttribute : System.Attribute {} " +
+                "public class AttrCAttribute : System.Attribute {} " +
+                "public class AttrDAttribute : System.Attribute {}"),
+            ("Alpha/C.Part1.cs", """
+                namespace Demo;
+                public partial class C
+                {
+                    private int _p;
+                    public partial int P { [AttrA] get; [AttrC] private set; }
+                }
+                """),
+            ("Beta/C.Part2.cs", """
+                namespace Demo;
+                public partial class C
+                {
+                    public partial int P
+                    {
+                        [AttrB] get => _p;
+                        [AttrD] private set { _p = value; }
+                    }
+                }
+                """));
+
+        var group = Assert.Single(plan.Groups);
+        Assert.Equal(1, plan.Statistics.MembersCollapsed);
+        var mergedText = group.MergedDeclaration!.ToFullString();
+        Assert.DoesNotContain("partial int P", mergedText);
+
+        // Implementation-side accessor attribute first, definition-side appended,
+        // matched per accessor kind (get vs set) independently.
+        var getIndex = mergedText.IndexOf("get => _p;", StringComparison.Ordinal);
+        var setIndex = mergedText.IndexOf("private set", StringComparison.Ordinal);
+        Assert.True(getIndex >= 0 && setIndex >= 0);
+        Assert.True(mergedText.LastIndexOf("[AttrB]", getIndex, StringComparison.Ordinal) >= 0);
+        Assert.True(mergedText.LastIndexOf("[AttrA]", getIndex, StringComparison.Ordinal) >= 0);
+        Assert.True(mergedText.LastIndexOf("[AttrB]", getIndex, StringComparison.Ordinal)
+            < mergedText.LastIndexOf("[AttrA]", getIndex, StringComparison.Ordinal));
+        Assert.True(mergedText.LastIndexOf("[AttrD]", setIndex, StringComparison.Ordinal) >= 0);
+        Assert.True(mergedText.LastIndexOf("[AttrC]", setIndex, StringComparison.Ordinal) >= 0);
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void Group5_Indexer_Pair_Collapses()
+    {
+        var (compilation, plan) = BuildPlanWith(
+            new PartialMergeOptions(),
+            ("a.cs", "namespace Demo; public partial class C { public partial int this[int i] { get; } }"),
+            ("b.cs", """
+                namespace Demo;
+                public partial class C
+                {
+                    private int[] _arr = new int[3];
+                    public partial int this[int i] { get => _arr[i]; }
+                }
+                """));
+
+        var mergedText = Assert.Single(plan.Groups).MergedDeclaration!.ToFullString();
+        Assert.Equal(1, plan.Statistics.MembersCollapsed);
+        Assert.DoesNotContain("partial int this", mergedText);
+        Assert.Contains("public int this[int i] { get => _arr[i]; }", mergedText);
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void Group5_Event_FieldDefinition_And_AddRemove_Implementation_Collapses()
+    {
+        var (compilation, plan) = BuildPlanWith(
+            new PartialMergeOptions(),
+            ("a.cs", "namespace Demo; public partial class C { public partial event System.Action? Changed; }"),
+            ("b.cs", """
+                namespace Demo;
+                public partial class C
+                {
+                    private System.Action? _changed;
+                    public partial event System.Action? Changed
+                    {
+                        add => _changed += value;
+                        remove => _changed -= value;
+                    }
+                }
+                """));
+
+        var mergedText = Assert.Single(plan.Groups).MergedDeclaration!.ToFullString();
+        Assert.Equal(1, plan.Statistics.MembersCollapsed);
+        Assert.DoesNotContain("partial event", mergedText);
+        Assert.Contains("public event System.Action? Changed", mergedText);
+        Assert.Contains("add => _changed += value;", mergedText);
+        Assert.Contains("remove => _changed -= value;", mergedText);
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void Group5_Constructor_Pair_Collapses_And_Initializer_Stays_On_Implementation()
+    {
+        var (compilation, plan) = BuildPlanWith(
+            new PartialMergeOptions(),
+            ("base.cs", "namespace Demo; public class Base { protected Base() {} }"),
+            ("Alpha/C.Part1.cs",
+                "namespace Demo; public partial class C : Base { private int _id; public partial C(int id); }"),
+            ("Beta/C.Part2.cs", """
+                namespace Demo;
+                public partial class C : Base
+                {
+                    public partial C(int id) : base() { _id = id; }
+                    public C() : this(0) { }
+                }
+                """));
+
+        var group = Assert.Single(plan.Groups);
+        Assert.Equal(1, plan.Statistics.MembersCollapsed);
+        var mergedText = group.MergedDeclaration!.ToFullString();
+        Assert.DoesNotContain("partial C(int", mergedText);
+        Assert.Contains("public C(int id) : base()", mergedText);
+        // The ordinary (non-partial) ctor survives untouched.
+        Assert.Contains("public C() : this(0)", mergedText);
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void Group5_Constructor_Definition_With_Initializer_Is_Baseline_Skipped()
+    {
+        var (_, plan) = BuildPlanWith(
+            new PartialMergeOptions(),
+            ("base.cs", "namespace Demo; public class Base { protected Base() {} }"),
+            ("a.cs", "namespace Demo; public partial class C : Base { public partial C(int id) : base(); }"),
+            ("b.cs", "namespace Demo; public partial class C : Base { public partial C(int id) { } }"));
+
+        var group = Assert.Single(plan.Groups);
+        Assert.True(group.SkipBaseline);
+        Assert.Null(group.MergedDeclaration);
+        Assert.Empty(plan.EditsByFile.SelectMany(g => g));
+    }
+
+    [Fact]
+    public void Group5_Primary_Constructor_On_Two_Parts_Is_Baseline_Skipped()
+    {
+        var (_, classPlan) = BuildPlanWith(
+            new PartialMergeOptions(),
+            ("c1.cs", "namespace Demo; public partial class C(int x) { public int X => x; }"),
+            ("c2.cs", "namespace Demo; public partial class C(int x) { }"));
+
+        var classGroup = Assert.Single(classPlan.Groups);
+        Assert.True(classGroup.SkipBaseline);
+        Assert.Null(classGroup.MergedDeclaration);
+        Assert.Empty(classPlan.EditsByFile.SelectMany(g => g));
+
+        // Record primary-constructor parameter lists on two parts: explicit
+        // unsupported-shape diagnostic (CS2J2016), not a silent skip.
+        var (_, recordPlan) = BuildPlanWith(
+            new PartialMergeOptions(),
+            ("r1.cs", "namespace Demo; public partial record R(int a);"),
+            ("r2.cs", "namespace Demo; public partial record R(int a) { }"));
+
+        var recordGroup = Assert.Single(recordPlan.Groups);
+        Assert.True(recordGroup.SkipUnsupportedShape);
+        Assert.Null(recordGroup.MergedDeclaration);
+        Assert.Contains(recordPlan.Diagnostics,
+            d => d.Code == PartialMergeCodes.UnsupportedShape
+                && d.Severity == PartialMergeSeverity.Error);
+    }
+
+    // ---- M3: nested partial type member pairing ----
+
+    [Fact]
+    public void M3_Nested_Partial_Type_Member_Pairs_Collapse()
+    {
+        var (compilation, plan) = BuildPlanWith(
+            new PartialMergeOptions(),
+            ("Alpha/O.Part1.cs",
+                "namespace Demo; public partial class O { public partial class I { partial void H(); } }"),
+            ("Beta/O.Part2.cs",
+                "namespace Demo; public partial class O { public partial class I { partial void H(){} public void R(){ H(); } } }"));
+
+        Assert.Contains(plan.Groups, g => g.TypeFullName == "Demo.O.I");
+        var outputs = ApplyAll(plan, compilation);
+        var allText = string.Join("\n", outputs.Select(o => o.Source));
+
+        // The nested implementation survives once; the definition part is gone.
+        Assert.Single(System.Linq.Enumerable.Where(
+            allText.Split('\n'), line => line.Contains("void H")));
+        Assert.DoesNotContain("partial void H();", allText);
+        Assert.Contains("H();", allText);
+
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    // ---- M3: member-level doc/attribute merge (D6) ----
+
+    [Fact]
+    public void M3_Collapsed_Member_Merges_Docs_And_Attributes()
+    {
+        var (compilation, plan) = BuildPlanWith(
+            new PartialMergeOptions(),
+            ("attrs.cs", "namespace Demo; public class AttrAAttribute : System.Attribute {} public class AttrBAttribute : System.Attribute {}"),
+            ("Alpha/C.Part1.cs", """
+                namespace Demo;
+                public partial class C
+                {
+                    /// <summary>definition doc</summary>
+                    [AttrA]
+                    public partial int M();
+                }
+                """),
+            ("Beta/C.Part2.cs", """
+                namespace Demo;
+                public partial class C
+                {
+                    /// <summary>implementation doc</summary>
+                    [AttrB]
+                    public partial int M() => 1;
+                }
+                """));
+
+        var mergedText = Assert.Single(plan.Groups).MergedDeclaration!.ToFullString();
+
+        var idxImplDoc = mergedText.IndexOf("implementation doc", StringComparison.Ordinal);
+        var idxRemarks = mergedText.IndexOf("/// <remarks>", StringComparison.Ordinal);
+        var idxSource = mergedText.IndexOf("para source=\"Alpha/C.Part1.cs\"", StringComparison.Ordinal);
+        var idxDefDoc = mergedText.IndexOf("definition doc", StringComparison.Ordinal);
+        var idxMember = mergedText.IndexOf("public int M()", StringComparison.Ordinal);
+
+        Assert.True(idxImplDoc >= 0);
+        Assert.True(idxImplDoc < idxRemarks);
+        Assert.True(idxRemarks < idxSource);
+        Assert.True(idxSource < idxDefDoc);
+        Assert.True(idxDefDoc < idxMember);
+
+        // Implementation-side attribute first.
+        Assert.True(mergedText.IndexOf("[AttrB]", StringComparison.Ordinal)
+            < mergedText.IndexOf("[AttrA]", StringComparison.Ordinal));
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    // ---- M3: AssumeNoGeneratedPartial call-site removal special cases ----
+
+    [Fact]
+    public void M3_OptIn_MultiPart_Removes_Declaration_And_Block_Call_Sites()
+    {
+        var (compilation, plan) = BuildPlanWith(
+            new PartialMergeOptions { AssumeNoGeneratedPartial = true },
+            ("a.cs", "namespace Demo; public partial class C { partial void Hook(); public void R(){ Hook(); Hook(); } }"),
+            ("b.cs", "namespace Demo; public partial class C { public void X(){} }"));
+
+        var group = Assert.Single(plan.Groups);
+        Assert.False(group.IsMemberOnlyRewrite);
+        Assert.Equal(1, plan.Statistics.PartialDeclarationsRemoved);
+        Assert.Equal(2, plan.Statistics.PartialCallSitesRemoved);
+        Assert.Equal(1, plan.Statistics.GroupsMerged);
+
+        var outputs = ApplyAll(plan, compilation);
+        var allText = string.Join("\n", outputs.Select(o => o.Source));
+        Assert.DoesNotContain("partial void Hook", allText);
+        Assert.DoesNotContain("Hook();", allText);
+        Assert.Contains("public void R(){ }", allText);
+
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void M3_OptIn_SinglePart_MemberOnly_Rewrite_And_Second_Run_Zero_Edits()
+    {
+        var options = new PartialMergeOptions { AssumeNoGeneratedPartial = true };
+        var (compilation, plan) = BuildPlanWith(
+            options,
+            ("a.cs", "namespace Demo; public partial class C { partial void Hook(); public void R(){ Hook(); } }"));
+
+        var group = Assert.Single(plan.Groups);
+        Assert.True(group.IsMemberOnlyRewrite);
+        Assert.Equal(0, plan.Statistics.GroupsMerged);
+        Assert.Equal(1, plan.Statistics.PartialDeclarationsRemoved);
+        Assert.Equal(1, plan.Statistics.PartialCallSitesRemoved);
+
+        var edits = plan.EditsByFile.SelectMany(g => g).ToList();
+        var edit = Assert.Single(edits);
+        Assert.IsType<ReplaceTypeEdit>(edit);
+        // Member-only rewrites never emit part-removal or using edits.
+        Assert.All(edits, e => Assert.IsType<ReplaceTypeEdit>(e));
+
+        var outputs = ApplyAll(plan, compilation);
+        var allText = string.Join("\n", outputs.Select(o => o.Source));
+        Assert.DoesNotContain("partial void Hook", allText);
+        Assert.Contains("public void R(){ }", allText);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var secondPlan = Replan(options, outputs);
+        Assert.Empty(secondPlan.EditsByFile.SelectMany(g => g));
+        Assert.Equal(0, secondPlan.Statistics.PartialDeclarationsRemoved);
+    }
+
+    [Fact]
+    public void M3_Expression_Bodied_Call_Site_Emits_CS2J2019_And_Keeps_Everything()
+    {
+        var (compilation, plan) = BuildPlanWith(
+            new PartialMergeOptions { AssumeNoGeneratedPartial = true },
+            ("a.cs", "namespace Demo; public partial class C { partial void Hook(); public void R() => Hook(); }"));
+
+        var diagnostic = Assert.Single(plan.Diagnostics
+            .Where(d => d.Code == PartialMergeCodes.PartialCallSiteNotRemovable));
+        Assert.Equal(PartialMergeSeverity.Warning, diagnostic.Severity);
+        Assert.EndsWith("a.cs", diagnostic.FilePath, StringComparison.OrdinalIgnoreCase);
+        Assert.True(diagnostic.Line > 0);
+        Assert.True(diagnostic.Column > 0);
+        Assert.Equal(0, plan.Statistics.PartialDeclarationsRemoved);
+        Assert.Equal(0, plan.Statistics.PartialCallSitesRemoved);
+        Assert.Empty(plan.EditsByFile.SelectMany(g => g));
+
+        var outputs = ApplyAll(plan, compilation);
+        var allText = string.Join("\n", outputs.Select(o => o.Source));
+        Assert.Contains("partial void Hook();", allText);
+        Assert.Contains("R() => Hook();", allText);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void M3_Call_Inside_Lambda_Aborts_Whole_Method_Removal()
+    {
+        var (compilation, plan) = BuildPlanWith(
+            new PartialMergeOptions { AssumeNoGeneratedPartial = true },
+            ("a.cs", "using System; namespace Demo; public partial class C { partial void Hook(); public void R(){ Hook(); Action a = () => Hook(); a(); } }"));
+
+        Assert.Contains(plan.Diagnostics,
+            d => d.Code == PartialMergeCodes.PartialCallSiteNotRemovable);
+        Assert.Equal(0, plan.Statistics.PartialDeclarationsRemoved);
+        Assert.Equal(0, plan.Statistics.PartialCallSitesRemoved);
+        Assert.Empty(plan.EditsByFile.SelectMany(g => g));
+
+        // The block-level statement survives together with the declaration:
+        // no half-finished products.
+        var outputs = ApplyAll(plan, compilation);
+        var allText = string.Join("\n", outputs.Select(o => o.Source));
+        Assert.Contains("partial void Hook();", allText);
+        Assert.Contains("() => Hook()", allText);
+    }
+
+    // ---- M3: collapse-path idempotency and residual ----
+
+    [Fact]
+    public void M3_Collapse_Path_Second_Run_Has_Zero_Edits()
+    {
+        var options = new PartialMergeOptions();
+        var (compilation, plan) = BuildPlanWith(
+            options,
+            ("Methods/C.Part1.cs",
+                "namespace Demo; public partial class C { partial void Hook(); public void Run(){ Hook(); } }"),
+            ("Methods/C.Part2.cs",
+                "namespace Demo; public partial class C { partial void Hook() { } }"));
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var secondPlan = Replan(options, outputs);
+        Assert.Empty(secondPlan.EditsByFile.SelectMany(g => g));
+        Assert.Equal(0, secondPlan.Statistics.MembersCollapsed);
+    }
+
+    [Fact]
+    public void M3_Collapsed_Candidate_Has_No_Residual_MultiPart_Types()
+    {
+        var (compilation, plan) = BuildPlanWith(
+            new PartialMergeOptions(),
+            ("a.cs", "namespace Demo; public partial class C { partial void Hook(); }"),
+            ("b.cs", "namespace Demo; public partial class C { partial void Hook() { } public void X(){} }"));
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(new PartialMergePreprocessor().CheckResidual(candidate, plan));
     }
 
     // ---- injection mutators (test-only) ----
