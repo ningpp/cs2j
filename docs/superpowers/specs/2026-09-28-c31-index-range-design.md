@@ -290,7 +290,7 @@ opt-in 落地后翻 `DefaultEnabled=true` 的全部条件：
 | M3 string/Span 特化 | `Substring` 三变体/恒等、Span/Memory/ArraySegment `Slice` 视图分派、`..` 拷贝 vs 恒等语义、Java 半区 e2e、四象限组合、副作用行为测试补齐、CLI/链序/一致性测试、Release 全绿 | ~400 行 + fixture |
 | M4 自定义模式 + 默认开 | IOperation 模式识别收编自定义 int 索引器/Slice（含扩展方法）；评估独立 Index/Range 局部值配对降级（或保持 IR120，依 Q2 评审）；`?[]` 与 C35 联合策略；sdk 画像试跑与 IR120 清单评审；满足 §8 后翻默认开 | ~400 行/扫描 |
 
-M1–M3 已落地并随「已落地 pass 默认开」方针直接 `DefaultEnabled=true`；M4（自定义模式）未实施。每个里程碑自身须 Release build/test 全绿，不留半残中间树。
+M1–M3 已落地并随「已落地 pass 默认开」方针直接 `DefaultEnabled=true`；M4（自定义模式）已落地，校注见 §13。每个里程碑自身须 Release build/test 全绿，不留半残中间树。
 
 ## 10. 风险
 
@@ -339,3 +339,37 @@ git worktree add .worktrees/preproc-c31-index-range -b feature/preproc-c31-index
 - **Q3 共享临时提升基建的落点时点**：TempLifter 首期放 `IndexRange/` 内、接口冻结后随 expression-desugar 上收；是否在 M1 即直接落 `Core/Preprocessing/Expressions/`（提前建共享目录、并把 NullCoalesce lifter 一并迁移），影响 M1 的改动半径与回归面。
 - **Q4 默认开启是否以 Java 半区 e2e 齐备为硬前提**：§8 第 3 条当前要求 compat `slice` + string/Span 运行时全绿才翻默认开；若希望更早默认开，可退而以「.NET 半区全绿 + Java 半区仅数组/字符串两组」为门槛，Span 组保持 opt-in——需评审确认风险敞口。
 - **Q5 `?[^n]`/`?[..]` 的处置强度**：M1–M3 直接 IR130 失败是否会卡住真实代码（C35 尚未落地）；备选在 C31 内提供「接收者临时 + null 条件三元」有限收编（提前实现 C35 的一小块），代价是两族接口耦合提前，需与 C35 未来设计对齐。
+
+## 13. M4 落地校注（2026-10-09）
+
+### 13.1 实现形态（只认绑定符号，不认名字文本）
+
+- 新增 `IndexRange/PatternDiscovery.cs`：对站点位置合成 `(r).Length`/`.Count`、`(r)[0]`、`(r).Slice(0,0)`、`Ext.Slice((r),0,0)` 并经 `SemanticModel.GetSpeculativeSymbolInfo` 跑完整重载/可访问性绑定；任一成员不可绑定即保持 null，调用方继续显式 IR1xx，绝不按名字猜。`Slice` 识别要求尾部参数全 int（同 arity 的其他重载不会误判）。
+- `ReceiverKindAnalyzer` 新增三类绑定：IIR（`IImplicitIndexerReferenceOperation`，含自定义 int 模式与只读视图）、显式 `this[System.Index]`、显式 `this[System.Range]`（取绑定的 `Slice(int,int)`）；调用点 `AnalyzeRangeInvocation` 覆盖实例/reduced 扩展（`b.Slice(range)`）与**静态扩展形式**（`Ext.Slice(b, range)`）。探针实证：静态形式 `GetSymbolInfo` 返回 `MethodKind.Ordinary + IsStatic`、`GetAttributes()` 无 `ExtensionAttribute`，必须以 `IMethodSymbol.IsExtensionMethod` 属性判定。
+- 编译器在 int/Index 双索引器并存时优先绑定显式 `this[Index]`：M4 对该显式绑定再经 PatternDiscovery 降回 int 模式；只有 Index 索引器（无 int 索引器或无 Length）→ IR120。显式 `this[Range]` 无绑定 `Slice(int,int)` → IR120；`Slice(Range)` 调用点无 int 兄弟重载或缺 Length（hat 边界）→ IR120。
+- 探针实证：扩展 `Slice` **不参与** `[]` 模式（只在显式调用位可达）；`a.AsSpan()[..]`、`ArraySegment<T>`、`List<T>.Slice`（.NET 10）、只读视图均经 IIR 或绑定 `Slice(int,int)` 收编。
+- 参数位：索引器 `this[Index]/this[Range]` 参数豁免；方法的 Range 参数仅当所在方法存在 `(int,int)` 兄弟重载时豁免（模式表面签名）；独立 `Index` 局部/参数/字段维持 IR120（见 13.2）。
+- xUnit 18 例（含 Q2 三例钉死、幂等）；fixture 新增 `CustomPatternProbes.cs` 五类型（int 模式/双索引器/显式 Range 索引器/只读泛型视图/扩展 Slice 双形式）与使用面 `CustomPatternOps`，中间树 xUnit `M4CustomPatterns_RewrittenViaBoundSymbols` 守 .NET 语义。默认链全绿：index-range 报告 2 transformed / 5 clean / 6 hat / 21 slice / 0 temps / 0 standalone / 0 residual。
+
+### 13.2 Q2 裁决：独立 Index/Range 一等值维持 IR120（不实现配对降级）
+
+探针实证 `Index i = ^1; a[i]` 在 IOperation 层是普通 `IArrayElementReferenceOperation` + `ILocalReferenceOperation`（类型 System.Index），不存在任何可挂接的模式操作；配对降级必须新做**同方法定义-使用数据流分析**（别名、多次使用、复合边界、单次求值保证），属独立小型数据流通道。同时 `System.Index`/`System.Range` 在 `config/TypeMappings.json` 无映射：convprobe 实证当前转换器对含 `this[Index]`/`Slice(Range)` 签名的类型返回 success 却发射未解析的 Java 名（`get(Index i)`/`slice(Range r)`，既存静默风险），引入一等降级还须同步新增 compat 类型与映射。13.3 画像显示真实语料对一等值需求为 **0**，成本/收益不成立。裁决：维持 IR120，三例单测钉死（`M4_Q2_IndexLocal_PairedUse_StaysIR120`、`M4_Q2_RangeLocal_StaysIR120`、`M4_Q2_IndexParameterUse_StaysIR120`）；重启条件 = 画像出现「独立 Index/Range 局部配对元素访问」非零样本。
+
+### 13.3 sdk 语料画像（只读 `D:\csharp-sdk`；探针与完整输出在 `.tmp_c31/sdkprobe/`，不入库）
+
+方法学两层：层 1 对全部源文件做语法解析分类（Roslyn 5.0.0，latest 语言版本，字符串/注释内的 `^`/`..` 天然排除）；层 2 按 21 个 csproj 的显式 Compile/ProjectReference/全局 Using/常量组 BCL 编译，对每个 SemanticModel 跑真实 `IndexRangePreprocessor`。
+
+- 规模：磁盘 1377 个 `.cs`（含 obj/bin 生成物）；**源文件 1296**，其中 1 个为 trimming 负例故意语法错（`json/tests/TrimmingTests/Collections/ICollection.cs` 的 `typeof(ICollection>)`）。
+- **`^`/`..` 站点共 3 个，全部是元素访问位 hat（`x[^1]`），0 个 range 表达式、0 个调用实参位、0 个独立值；0 个 System.Index/System.Range 一等声明**（参数/局部/字段/属性/返回值；语法与语义两轮计数一致）。
+- 三个站点：`regular-expressions/src/System/Text/RegularExpressions/RegexCharClass.cs:998,1011`（`set[^1]`，int[]）、`RegexNode.cs:991`（`node.Str[^1]`，string）——全部数组/字符串内建模式。
+- 层 2：regex src 工程 **baseline 0 错误**，2 文件改写、hat-element 3、诊断全零（IR110/IR120/IR130/IR140 均 0）、0 临时；json/uri/xml src 各 8 错误仅来自 `Uri.Windows.cs`/`Uri.Unix.cs` 操作系统分部文件被临时合并（真实构建按 OS 择一），与 index/range 无关；tests 工程因语料只读不 restore（缺 xunit/Newtonsoft 程序集）作尽力绑定，仅重复上述 3 站点，无新形态。
+- 文本交叉核对：全语料 13 处 `Range` 标识符 = `Enumerable.Range`（12）+ json 测试内部泛型类 `Range<T>`（1 处声明）；`.Slice(` 调用存在但实参全为 `(int,int)`/`(int)`/`SequencePosition`，无 Range 实参。
+- 结论：M4 自定义模式在画像语料零命中属预期（BCL 裁剪代码风格），M4 覆盖面由 fixture 与 18 单测的合成形态守门；R11 残余形态（仅 Index 索引器/仅 Range 索引器/Slice(Range) 无 int 重载/缺 Length）继续显式 IR120。
+
+### 13.4 与 C35（expression-desugar）的联合口径（Q5 校注）
+
+C35 已默认开且链位（expression-desugar，index-range 之前）：`a?[^1]` 先由 C35 `ReplaceRootBinding` 去糖为含 `a[^1]` 的 null 条件三元，再由 C31 接力降级为 int 索引——全链无需 C31 内建 null 条件形态（Q5 备选方案废弃）。隔离单跑 C31 时 `?[]` 仍保持 IR130 指路口径不变（单测钉死）。联合用例：fixture `SliceOps.LastOrNull(int[]? a) => a?[^1]`（App/Program 经局部变量承接以避开后续 nullable-lift 站点的 CS2J5355）+ `M4_C35Joint_NullConditionalHatThenC31`。
+
+### 13.5 fixture Java 半区排除
+
+`System.Index`/`System.Range` 无 Java 映射（13.2），`CustomPatternProbes.cs` 的探针类型保留 C# 模式表面（`this[Index]`/`this[Range]`/`Slice(Range)`），其 .NET 运行时语义由中间树 xUnit 守门；Java E2E 慢门在 `IndexRangeJavaE2EProjectTests` 按文件名排除该文件（已附注释）。待转换器补齐 Index/Range 映射后应同时移除该排除并复核 convprobe 暴露的「success 但发射未解析 Java 名」静默风险。
