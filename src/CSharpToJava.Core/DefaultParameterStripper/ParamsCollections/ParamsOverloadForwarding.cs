@@ -24,10 +24,12 @@ internal sealed record ParamsOverloadContext(
 /// (anchored by existing E08 tests; the compiler lowers it to the same
 /// Array.Empty singleton). Non-array kinds take the adjudication-5 shapes:
 /// K2/K5 → <c>global::System.Array.Empty&lt;T&gt;()</c>, K4 →
-/// <c>new C&lt;T&gt;()</c>, K3 builder and unsupported types cannot be filled
-/// safely — the forwarding argument is omitted (the slot stays omittable
-/// because the declaration keeps its params modifier) and the matching skip
-/// diagnostic is emitted.
+/// <c>new C&lt;T&gt;()</c>, K3 → <c>B.Create(new T[]{})</c> (M2 PC-9, Emit
+/// policy; the factory resolves symbolically with no fed elements). Under the
+/// Error gray-release policy — and for genuinely unbindable factories — the
+/// forwarding argument is omitted (the slot stays omittable because the
+/// declaration keeps its params modifier) and the matching skip diagnostic is
+/// emitted (CS2J0607 / CS2J0605 residual).
 /// </summary>
 internal static class ParamsOverloadForwarding
 {
@@ -83,8 +85,46 @@ internal static class ParamsOverloadForwarding
 
         if (classification.Kind == ParamsParamKind.Builder)
         {
-            var builderType = classification.BuilderInfo?.BuilderType.ToDisplayString() ?? "<unknown>";
-            var factoryName = classification.BuilderInfo?.FactoryMethodName ?? "<unknown>";
+            return BuildBuilderEmptySlot(parameter, model, context, classification);
+        }
+
+        var emptyShapeDescription = classification.EmptyState == ParamsEmptyStateShape.ArrayEmpty
+            ? "System.Array.Empty<T>()"
+            : $"new {classification.CanonicalConcreteType?.ToDisplayString() ?? "?"}()";
+        var emptyExpression = CollectionConstructionEmitter.EmitEmpty(classification);
+
+        context.Diagnostics.Add(ParamsDiagnostics.Create(
+            ParamsDiagnostics.OverloadEmptySlotFilled,
+            string.Format(
+                ParamsDiagnostics.OverloadEmptySlotFilledMessage,
+                parameter.Identifier.Text,
+                emptyShapeDescription),
+            context.Options.Strict));
+
+        return emptyExpression;
+    }
+
+    /// <summary>
+    /// K3 empty-slot dispatch (M2 PC-9): under the Error gray-release policy
+    /// the historical CS2J0607 block applies; under Emit the factory is
+    /// resolved symbolically (no fed elements — same gate as the declaration
+    /// decision) and the slot fills with <c>B.Create(new T[]{})</c> paired
+    /// with a CS2J0613 info. An unbindable factory reports the CS2J0605
+    /// residual and the slot stays omitted.
+    /// </summary>
+    private static ExpressionSyntax? BuildBuilderEmptySlot(
+        ParameterSyntax parameter,
+        SemanticModel model,
+        ParamsOverloadContext context,
+        ParamsTargetClassification classification)
+    {
+        var builderType = classification.BuilderInfo?.BuilderType.ToDisplayString() ?? "<unknown>";
+        var factoryName = classification.BuilderInfo?.FactoryMethodName ?? "<unknown>";
+
+        if (context.Options.Builder == CollectionBuilderPolicy.Error
+            || classification.BuilderInfo == null
+            || classification.ParameterType is not INamedTypeSymbol targetType)
+        {
             context.Diagnostics.Add(ParamsDiagnostics.Create(
                 ParamsDiagnostics.CollectionBuilderBlocked,
                 string.Format(
@@ -95,16 +135,34 @@ internal static class ParamsOverloadForwarding
             return null;
         }
 
+        var resolved = ParamsCollectionBinding.ResolveFactory(
+            model.Compilation, targetType, classification.BuilderInfo,
+            Array.Empty<ITypeSymbol?>());
+        if (resolved == null)
+        {
+            context.Diagnostics.Add(ParamsDiagnostics.Create(
+                ParamsDiagnostics.CollectionExpanded,
+                string.Format(
+                    ParamsDiagnostics.CollectionBuilderUnresolvedMessage,
+                    classification.ParameterType.ToDisplayString(), builderType, factoryName),
+                context.Options.Strict));
+            context.Statistics.RecordSkipped(ParamsDiagnostics.CollectionExpanded);
+            return null;
+        }
+
+        var builderExpression = CollectionConstructionEmitter.EmitBuilderFactory(
+            resolved.Value.Factory, resolved.Value.ElementType,
+            Array.Empty<ExpressionSyntax>());
+
+        context.Statistics.BuilderFactorySites++;
         context.Diagnostics.Add(ParamsDiagnostics.Create(
             ParamsDiagnostics.OverloadEmptySlotFilled,
             string.Format(
                 ParamsDiagnostics.OverloadEmptySlotFilledMessage,
                 parameter.Identifier.Text,
-                classification.EmptyState == ParamsEmptyStateShape.ArrayEmpty
-                    ? "System.Array.Empty<T>()"
-                    : $"new {classification.CanonicalConcreteType?.ToDisplayString() ?? "?"}()"),
+                builderExpression.ToString()),
             context.Options.Strict));
 
-        return CollectionConstructionEmitter.EmitEmpty(classification);
+        return builderExpression;
     }
 }

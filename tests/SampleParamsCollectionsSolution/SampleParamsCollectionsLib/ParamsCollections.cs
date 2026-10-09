@@ -1,5 +1,7 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace SampleParamsCollectionsLib;
@@ -101,4 +103,127 @@ public static class ParamsLib
 
     /// <summary>Form-B identity probe: the callee mutates the caller's list.</summary>
     public static void MutateBatch(params List<int> items) => items.Add(99);
+
+    // ------------------------------------------------------------------
+    // K3 (M2, PC-9) — [CollectionBuilder]-backed params collections:
+    // custom factory, generic arity, ReadOnlySpan<KeyValuePair<,>> factory.
+    // Under the Emit policy the strip pass rewrites comma sites to
+    // <Builder>.Create(new T[]{…}) and empty sites to <Builder>.Create(new T[]{});
+    // the very same calls compile natively on the unprocessed source.
+    // ------------------------------------------------------------------
+
+    public static ParamsBag? LastBag;
+
+    public static int BagCount(params ParamsBag bag)
+    {
+        LastBag = bag;
+        return bag.Count;
+    }
+
+    /// <summary>PC-7 forwarding overload: the empty params slot is filled with the builder empty state.</summary>
+    public static int BagForwarded() => BagCount();
+
+    public static int ImmCount<T>(params ParamsImm<T> items) => items.Count;
+
+    public static int MapCount(params ParamsMap map) => map.Count;
+
+    // D7 generic tiers: List / ReadOnlySpan / builder-backed across the
+    // int / struct / reference element tiers.
+    public static int TierList<T>(params List<T> items) => items.Count;
+
+    public static int TierSpan<T>(params ReadOnlySpan<T> items) => items.Length;
+
+    public static int TierImm<T>(params ParamsImm<T> items) => items.Count;
+}
+
+/// <summary>Struct tier probe for the generic int/struct/reference matrix.</summary>
+public struct TierPoint
+{
+    public int X { get; set; }
+    public int Y { get; set; }
+}
+
+[CollectionBuilder(typeof(ParamsBagBuilder), "Create")]
+public sealed class ParamsBag : IEnumerable<int>
+{
+    private readonly int[] _items;
+
+    public ParamsBag(int[] items)
+    {
+        _items = items;
+    }
+
+    public int Count => _items.Length;
+    public int this[int index] => _items[index];
+
+    public IEnumerator<int> GetEnumerator()
+    {
+        foreach (var i in _items)
+        {
+            yield return i;
+        }
+    }
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+}
+
+public static class ParamsBagBuilder
+{
+    public static ParamsBag Create(ReadOnlySpan<int> items) => new(items.ToArray());
+}
+
+[CollectionBuilder(typeof(ParamsImmBuilder), "Create")]
+public sealed class ParamsImm<T> : IEnumerable<T>
+{
+    private readonly T[] _items;
+
+    public ParamsImm(T[] items)
+    {
+        _items = items;
+    }
+
+    public int Count => _items.Length;
+
+    public IEnumerator<T> GetEnumerator()
+    {
+        foreach (var i in _items)
+        {
+            yield return i;
+        }
+    }
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+}
+
+public static class ParamsImmBuilder
+{
+    public static ParamsImm<T> Create<T>(ReadOnlySpan<T> items) => new(items.ToArray());
+}
+
+[CollectionBuilder(typeof(ParamsMapBuilder), "Create")]
+public sealed class ParamsMap : IEnumerable<KeyValuePair<string, int>>
+{
+    private readonly KeyValuePair<string, int>[] _entries;
+
+    public ParamsMap(KeyValuePair<string, int>[] entries)
+    {
+        _entries = entries;
+    }
+
+    public int Count => _entries.Length;
+
+    public IEnumerator<KeyValuePair<string, int>> GetEnumerator()
+    {
+        foreach (var entry in _entries)
+        {
+            yield return entry;
+        }
+    }
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+}
+
+public static class ParamsMapBuilder
+{
+    public static ParamsMap Create(ReadOnlySpan<KeyValuePair<string, int>> entries) => new(entries.ToArray());
 }

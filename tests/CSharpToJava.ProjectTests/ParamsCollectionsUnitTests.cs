@@ -36,8 +36,10 @@ public class ParamsCollectionsUnitTests
     private static ParamsCollectionsOptions RuleOn(
         bool expandArrays = false,
         bool strict = true,
-        ParamsCollectionsScope scope = ParamsCollectionsScope.All)
-        => new(Enabled: true, Strict: strict, Scope: scope, ExpandArrayCallSites: expandArrays);
+        ParamsCollectionsScope scope = ParamsCollectionsScope.All,
+        CollectionBuilderPolicy builderPolicy = CollectionBuilderPolicy.Error)
+        => new(Enabled: true, Strict: strict, Scope: scope,
+            ExpandArrayCallSites: expandArrays, Builder: builderPolicy);
 
     private sealed record RunOutcome(
         DefaultParameterStripperResult Result,
@@ -1092,5 +1094,783 @@ public class ParamsCollectionsUnitTests
         Assert.Equal(src, result.OutputCode);
         Assert.NotNull(stats);
         Assert.Empty(stats!.ParamsSites);
+    }
+
+    // ------------------------------------------------------------------
+    // M2 · 6. K3 [CollectionBuilder] factory emission (Builder=Emit):
+    //    custom builder, generic arity, ReadOnlySpan<KeyValuePair<K,V>>,
+    //    empty state, form B, E08 forwarding overload empty slot.
+    // ------------------------------------------------------------------
+
+    private const string K3EmitSource = """
+        using System;
+        using System.Collections;
+        using System.Collections.Generic;
+        using System.Runtime.CompilerServices;
+
+        [CollectionBuilder(typeof(BagBuilder), "Create")]
+        public sealed class Bag : IEnumerable<int>
+        {
+            private readonly int[] _items;
+            public Bag(int[] items) { _items = items; }
+            public IEnumerator<int> GetEnumerator()
+            {
+                foreach (var i in _items) { yield return i; }
+            }
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        public static class BagBuilder
+        {
+            public static Bag Create(ReadOnlySpan<int> items) => new Bag(items.ToArray());
+        }
+
+        [CollectionBuilder(typeof(ImmBuilder), "Create")]
+        public sealed class Imm<T> : IEnumerable<T>
+        {
+            private readonly T[] _items;
+            public Imm(T[] items) { _items = items; }
+            public IEnumerator<T> GetEnumerator()
+            {
+                foreach (var i in _items) { yield return i; }
+            }
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        public static class ImmBuilder
+        {
+            public static Imm<T> Create<T>(ReadOnlySpan<T> items) => new Imm<T>(items.ToArray());
+        }
+
+        [CollectionBuilder(typeof(MapBuilder), "Create")]
+        public sealed class Map : IEnumerable<KeyValuePair<string, int>>
+        {
+            private readonly KeyValuePair<string, int>[] _entries;
+            public Map(KeyValuePair<string, int>[] entries) { _entries = entries; }
+            public IEnumerator<KeyValuePair<string, int>> GetEnumerator()
+            {
+                foreach (var e in _entries) { yield return e; }
+            }
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        public static class MapBuilder
+        {
+            public static Map Create(ReadOnlySpan<KeyValuePair<string, int>> entries)
+                => new Map(entries.ToArray());
+        }
+
+        public static class K3Lib
+        {
+            public static void UseBag(params Bag bag) { }
+            public static void UseImm<T>(params Imm<T> items) { }
+            public static void UseMap(params Map map) { }
+            public static int BagDefault(int seed = 0, params Bag bag) => seed;
+        }
+
+        public static class K3Caller
+        {
+            public static void Run()
+            {
+                K3Lib.UseBag(1, 2, 3);
+                K3Lib.UseBag();
+                var bag = new Bag(new int[] { 5 });
+                K3Lib.UseBag(bag);
+
+                K3Lib.UseImm<int>(1, 2);
+                K3Lib.UseImm<string>("a", "b");
+                K3Lib.UseImm<string>();
+
+                K3Lib.UseMap(new KeyValuePair<string, int>("a", 1));
+                K3Lib.UseMap();
+                var map = new Map(new KeyValuePair<string, int>[0]);
+                K3Lib.UseMap(map);
+
+                K3Lib.BagDefault();
+            }
+        }
+        """;
+
+    [Fact]
+    public void K3_Emit_FactoryMatrix_CustomGenericArityKeyValuePair_EmptyAndFormB()
+    {
+        AssertInputCompiles(K3EmitSource);
+        var (result, stats) = Run(K3EmitSource, RuleOn(builderPolicy: CollectionBuilderPolicy.Emit));
+
+        var output = result.OutputCode;
+
+        // Custom builder: compiler-bound ConstructMethod → B.Create(new T[]{…}).
+        AssertContainsFlat("K3Lib.UseBag(global::BagBuilder.Create(new int[]{1, 2, 3}))", output);
+        // Empty state: the same factory with an empty array (probe §13).
+        AssertContainsFlat("K3Lib.UseBag(global::BagBuilder.Create(new int[]{}))", output);
+        // Form B: single Bag argument passes through with identity preserved.
+        AssertContainsFlat("K3Lib.UseBag(bag);", output);
+
+        // Generic arity: factory type arguments rendered explicitly.
+        AssertContainsFlat(
+            "K3Lib.UseImm<int>(global::ImmBuilder.Create<int>(new int[]{1, 2}))", output);
+        AssertContainsFlat(
+            "K3Lib.UseImm<string>(global::ImmBuilder.Create<string>(new string[]{\"a\", \"b\"}))", output);
+        AssertContainsFlat(
+            "K3Lib.UseImm<string>(global::ImmBuilder.Create<string>(new string[]{}))", output);
+
+        // ReadOnlySpan<KeyValuePair<K,V>> parameter factory.
+        AssertContainsFlat(
+            "K3Lib.UseMap(global::MapBuilder.Create(new global::System.Collections.Generic.KeyValuePair<string,int>[]{new KeyValuePair<string, int>(\"a\", 1)}))",
+            output);
+        AssertContainsFlat(
+            "K3Lib.UseMap(global::MapBuilder.Create(new global::System.Collections.Generic.KeyValuePair<string,int>[]{}))",
+            output);
+        AssertContainsFlat("K3Lib.UseMap(map);", output);
+
+        // Declarations materialized (params modifier stripped, 0607 retired here).
+        AssertDoesNotContainFlat("params Bag", output);
+        AssertDoesNotContainFlat("params Imm<T>", output);
+        AssertDoesNotContainFlat("params Map", output);
+        Assert.Empty(Diags(result, ParamsDiagnostics.CollectionBuilderBlocked));
+
+        // E08 forwarding overload fills the builder empty slot (PC-7 + PC-9).
+        AssertContainsFlat(
+            "public static int BagDefault() { return BagDefault(0, global::BagBuilder.Create(new int[]{})); }",
+            output);
+
+        AssertRecompiles(output);
+        AssertIdempotent(output, RuleOn(builderPolicy: CollectionBuilderPolicy.Emit));
+
+        Assert.NotNull(stats);
+        Assert.Equal(4, stats!.ParamsSites["Builder"]);
+        Assert.Equal(4, stats.ParamsDeclarationsMaterialized);
+        Assert.Equal(4, stats.ParamsCallSitesExpanded);
+        // UseBag/UseImm/UseMap empty calls plus the BagDefault() in-place
+        // completion (its empty params segment is filled at the call site;
+        // the generated forwarding overload is counted separately below).
+        Assert.Equal(4, stats.ParamsCallSitesEmpty);
+        Assert.Equal(2, stats.ParamsCallSitesPassthrough);
+        // 4 expanded + 4 empty call-site factories + 1 forwarding-overload factory.
+        Assert.Equal(9, stats.BuilderFactorySites);
+        Assert.Equal(0, stats.BuilderSitesBlocked);
+        Assert.Equal(1, Diags(result, ParamsDiagnostics.OverloadEmptySlotFilled).Count);
+        Assert.All(Diags(result, ParamsDiagnostics.CollectionExpanded),
+            d => Assert.Equal(DefaultParameterStripSeverity.Info, d.Severity));
+    }
+
+    [Fact]
+    public void K3_Emit_DeclarationsAndCalls_RecompileAndIdempotent_OnProjectLikeShape()
+    {
+        // Belt-and-braces: the matrix output recompiles and a second run is a
+        // strict no-op even when mixed declarations live in one compilation.
+        AssertInputCompiles(K3EmitSource);
+        var first = Run(K3EmitSource, RuleOn(builderPolicy: CollectionBuilderPolicy.Emit));
+        Assert.True(first.Result.Changed);
+        AssertRecompiles(first.Result.OutputCode);
+        AssertIdempotent(first.Result.OutputCode, RuleOn(builderPolicy: CollectionBuilderPolicy.Emit));
+    }
+
+    [Fact]
+    public void K3_Emit_ScopeGate_StillApplies_BuilderExcludedByNonBuilderScope()
+    {
+        const string src = """
+            using System;
+            using System.Collections;
+            using System.Collections.Generic;
+            using System.Runtime.CompilerServices;
+
+            [CollectionBuilder(typeof(SBagBuilder), "Create")]
+            public sealed class SBag : IEnumerable<int>
+            {
+                private readonly int[] _items;
+                public SBag(int[] items) { _items = items; }
+                public IEnumerator<int> GetEnumerator() { foreach (var i in _items) yield return i; }
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+            public static class SBagBuilder
+            {
+                public static SBag Create(ReadOnlySpan<int> items) => new SBag(items.ToArray());
+            }
+            public static class ScopeBuilderLib
+            {
+                public static void Use(params SBag bag) { }
+                public static int Total(params List<int> items) => items.Count;
+                public static void Run()
+                {
+                    ScopeBuilderLib.Use(1, 2);
+                    ScopeBuilderLib.Total(1, 2);
+                }
+            }
+            """;
+
+        AssertInputCompiles(src);
+        // MutableCollection scope admits K4 but excludes K3 even under Emit.
+        var (result, stats) = Run(src, RuleOn(
+            builderPolicy: CollectionBuilderPolicy.Emit,
+            scope: ParamsCollectionsScope.MutableCollection));
+
+        var output = result.OutputCode;
+        AssertContainsFlat("public static void Use(params SBag bag)", output);
+        AssertContainsFlat("ScopeBuilderLib.Use(1, 2);", output);
+        AssertContainsFlat("public static int Total(List<int> items)", output);
+        AssertContainsFlat(
+            "ScopeBuilderLib.Total(new global::System.Collections.Generic.List<int>(){1, 2})", output);
+        var diag = SingleDiag(result, ParamsDiagnostics.UnsupportedType);
+        Assert.NotNull(diag);
+        Assert.Contains("excluded by the current scope", diag!.Message);
+        Assert.Equal(1, stats!.SkippedByReason[ParamsDiagnostics.UnsupportedType]);
+        Assert.Equal(0, stats.BuilderFactorySites);
+        AssertRecompiles(output);
+    }
+
+    [Fact]
+    public void K3_UnbindableResidual_IsDefensiveOnly_MalformedBuildersRejectedByCompiler()
+    {
+        // Probe §13: on every COMPILABLE K3 site the compiler's ConstructMethod
+        // is present (empty form included), so the CS2J0605 residual path is
+        // unreachable from legal input. Builder shapes our symbol resolution
+        // cannot accept are themselves baseline errors (CS9187 family) — pin.
+        const string arrayShapeFactory = """
+            using System;
+            using System.Collections;
+            using System.Runtime.CompilerServices;
+
+            [CollectionBuilder(typeof(ArrBagBuilder), "Create")]
+            public sealed class ArrBag : IEnumerable
+            {
+                public IEnumerator GetEnumerator() => null!;
+            }
+            public static class ArrBagBuilder
+            {
+                public static ArrBag Create(int[] items) => new ArrBag();
+            }
+            public static class ArrBagUse
+            {
+                public static void Use(params ArrBag bag) { }
+            }
+            """;
+
+        var (clean, diagnostics) = TryCompile(arrayShapeFactory);
+        Assert.False(clean, "a T[] (non-ReadOnlySpan) builder factory must be rejected (CS9187)");
+        Assert.Contains("CS9187", diagnostics);
+    }
+
+    // ------------------------------------------------------------------
+    // M2 · K4 real Add binding (PC-3): fluent Add, overloaded Add,
+    //    Dictionary<K,V> two-argument Add baseline rejection, stat bucket.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void K4_M2_FluentAndOverloadedAdd_BoundNotGuessed_InitializerStat()
+    {
+        const string src = """
+            using System;
+            using System.Collections;
+            using System.Collections.Generic;
+
+            public sealed class FluentBag : IEnumerable<int>
+            {
+                private readonly List<int> _items = new();
+                public FluentBag Add(int item) { _items.Add(item); return this; }
+                public int Count => _items.Count;
+                public IEnumerator<int> GetEnumerator() => _items.GetEnumerator();
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+
+            public sealed class OverloadBag : IEnumerable<long>
+            {
+                private readonly List<long> _items = new();
+                public void Add(object item) { }
+                public void Add(long item) => _items.Add(item);
+                public IEnumerator<long> GetEnumerator() => _items.GetEnumerator();
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+
+            public static class M2K4Lib
+            {
+                public static int FluentCount(params FluentBag bag) => bag.Count;
+                public static int OverloadCount(params OverloadBag bag) => 0;
+                public static void Run()
+                {
+                    M2K4Lib.FluentCount(1, 2);
+                    M2K4Lib.FluentCount();
+                    M2K4Lib.OverloadCount(1, 2);
+                }
+            }
+            """;
+
+        AssertInputCompiles(src);
+        var (result, stats) = Run(src, RuleOn());
+
+        var output = result.OutputCode;
+        // Fluent (non-void returning) Add still binds as the initializer Add.
+        AssertContainsFlat("M2K4Lib.FluentCount(new global::FluentBag(){1, 2})", output);
+        AssertContainsFlat("M2K4Lib.FluentCount(new global::FluentBag())", output);
+        // int elements convert to the bound Add(long) overload.
+        AssertContainsFlat("M2K4Lib.OverloadCount(new global::OverloadBag(){1, 2})", output);
+
+        AssertRecompiles(output);
+        AssertIdempotent(output, RuleOn());
+
+        Assert.NotNull(stats);
+        // Two expanded K4 sites (the empty site does not bind an Add).
+        Assert.Equal(2, stats!.InitializerAddBoundSites);
+    }
+
+    [Fact]
+    public void K4_M2_DictionaryTwoArgAdd_RejectedByCompiler_CS9215()
+    {
+        // Probe §13: params Dictionary<K,V> draws baseline CS9215 — its only Add
+        // candidate takes two arguments, which can never satisfy the pattern.
+        const string src = """
+            using System.Collections.Generic;
+
+            public static class DictParams
+            {
+                public static void Use(params Dictionary<string, int> map) { }
+            }
+            """;
+
+        var (clean, diagnostics) = TryCompile(src);
+        Assert.False(clean, "params Dictionary<K,V> must be rejected (CS9215)");
+        Assert.Contains("CS9215", diagnostics);
+    }
+
+    // ------------------------------------------------------------------
+    // M2 · D7 generic three tiers: T = int / struct / reference type,
+    //    across K4 / K2 / K3 parameter shapes.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void GenericThreeTiers_IntStructReference_AllShapesEmitted()
+    {
+        const string src = """
+            using System;
+            using System.Collections;
+            using System.Collections.Generic;
+            using System.Runtime.CompilerServices;
+
+            public struct Point { public int X; public int Y; }
+
+            [CollectionBuilder(typeof(GBagBuilder), "Create")]
+            public sealed class GBag<T> : IEnumerable<T>
+            {
+                private readonly T[] _items;
+                public GBag(T[] items) { _items = items; }
+                public IEnumerator<T> GetEnumerator() { foreach (var i in _items) yield return i; }
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+            public static class GBagBuilder
+            {
+                public static GBag<T> Create<T>(ReadOnlySpan<T> items) => new GBag<T>(items.ToArray());
+            }
+
+            public static class GenLib
+            {
+                public static int ListTier<T>(params List<T> items) => items.Count;
+                public static int SpanTier<T>(params ReadOnlySpan<T> items) => items.Length;
+                public static int BuilderTier<T>(params GBag<T> items) => 0;
+
+                public static void Run()
+                {
+                    var p1 = new Point { X = 1, Y = 2 };
+                    var p2 = new Point { X = 3, Y = 4 };
+
+                    GenLib.ListTier(1, 2);
+                    GenLib.ListTier(p1, p2);
+                    GenLib.ListTier("a", "b");
+
+                    GenLib.SpanTier(1, 2);
+                    GenLib.SpanTier(p1, p2);
+                    GenLib.SpanTier("a", "b");
+
+                    GenLib.BuilderTier(1, 2);
+                    GenLib.BuilderTier(p1, p2);
+                    GenLib.BuilderTier("a", "b");
+                }
+            }
+            """;
+
+        AssertInputCompiles(src);
+        var (result, stats) = Run(src, RuleOn(builderPolicy: CollectionBuilderPolicy.Emit));
+
+        var output = result.OutputCode;
+        AssertContainsFlat("GenLib.ListTier(new global::System.Collections.Generic.List<int>(){1, 2})", output);
+        AssertContainsFlat("GenLib.ListTier(new global::System.Collections.Generic.List<global::Point>(){p1, p2})", output);
+        AssertContainsFlat("GenLib.ListTier(new global::System.Collections.Generic.List<string>(){\"a\", \"b\"})", output);
+
+        AssertContainsFlat("GenLib.SpanTier(new int[]{1, 2})", output);
+        AssertContainsFlat("GenLib.SpanTier(new global::Point[]{p1, p2})", output);
+        AssertContainsFlat("GenLib.SpanTier(new string[]{\"a\", \"b\"})", output);
+
+        AssertContainsFlat("GenLib.BuilderTier(global::GBagBuilder.Create<int>(new int[]{1, 2}))", output);
+        AssertContainsFlat("GenLib.BuilderTier(global::GBagBuilder.Create<global::Point>(new global::Point[]{p1, p2}))", output);
+        AssertContainsFlat("GenLib.BuilderTier(global::GBagBuilder.Create<string>(new string[]{\"a\", \"b\"}))", output);
+
+        AssertRecompiles(output);
+        AssertIdempotent(output, RuleOn(builderPolicy: CollectionBuilderPolicy.Emit));
+
+        Assert.NotNull(stats);
+        Assert.Equal(1, stats!.ParamsSites["Initializable"]);
+        Assert.Equal(1, stats.ParamsSites["Span"]);
+        Assert.Equal(1, stats.ParamsSites["Builder"]);
+        Assert.Equal(9, stats.ParamsCallSitesExpanded);
+        Assert.Equal(3, stats.BuilderFactorySites);
+    }
+
+    // ------------------------------------------------------------------
+    // M2 · 10. Collection-expression coexistence with C36 (four quadrants)
+    //    and the CS2J0611 nested-expansion edge.
+    // ------------------------------------------------------------------
+
+    private const string C36CoexistSource = """
+        using System;
+        using System.Collections.Generic;
+
+        public static class C36Lib
+        {
+            public static void Groups(params int[][] groups) { }
+            public static int Flat(params int[] values) => values.Length;
+            public static int Cols(params List<int> items) => items.Count;
+
+            public static void RunRaw()
+            {
+                C36Lib.Groups([1, 2], [3]);
+                C36Lib.Flat([1, 2]);
+                C36Lib.Cols([1, 2]);
+                C36Lib.Cols(1, 2);
+            }
+        }
+        """;
+
+    [Fact]
+    public void C36Coexist_RawCollectionExprs_PassthroughOr0611_NeverDoubleWrapped()
+    {
+        AssertInputCompiles(C36CoexistSource);
+        var (result, stats) = Run(C36CoexistSource, RuleOn(expandArrays: true));
+
+        var output = result.OutputCode;
+        // Nested collection expressions in a SYNTHESIZED segment → 0611, kept.
+        AssertContainsFlat("C36Lib.Groups([1, 2], [3]);", output);
+        // A single collection expression is form B (Explicit) — passthrough.
+        AssertContainsFlat("C36Lib.Flat([1, 2]);", output);
+        AssertContainsFlat("C36Lib.Cols([1, 2]);", output);
+        // The ordinary comma site is still wrapped exactly once.
+        AssertContainsFlat(
+            "C36Lib.Cols(new global::System.Collections.Generic.List<int>(){1, 2})", output);
+
+        var nested = SingleDiag(result, ParamsDiagnostics.NestedCollectionExpression);
+        Assert.NotNull(nested);
+        Assert.Equal(DefaultParameterStripSeverity.Warning, nested!.Severity);
+        Assert.Contains("C36", nested.Message);
+        Assert.Equal(1, stats!.SkippedByReason[ParamsDiagnostics.NestedCollectionExpression]);
+        AssertRecompiles(output);
+    }
+
+    [Fact]
+    public void C36Coexist_RuleOff_RawCollectionExprs_ByteIdentical()
+    {
+        AssertInputCompiles(C36CoexistSource);
+        var (result, stats) = Run(C36CoexistSource, paramsOptions: null);
+
+        Assert.False(result.Changed);
+        Assert.Equal(C36CoexistSource, result.OutputCode);
+        Assert.Null(stats);
+    }
+
+    [Fact]
+    public void C36Coexist_PreDesugaredC36Output_SingleArgPassthrough_NestedWrappedOnce()
+    {
+        // Simulates the tree AFTER C36 collection-expression desugaring:
+        // collection expressions are now ordinary new[]{…} expressions.
+        const string desugared = """
+            using System;
+            using System.Collections.Generic;
+
+            public static class C36After
+            {
+                public static void Groups(params int[][] groups) { }
+                public static int Flat(params int[] values) => values.Length;
+                public static int Cols(params List<int> items) => items.Count;
+
+                public static void RunAfter()
+                {
+                    C36LibMarker.Mark();
+                    C36After.Groups(new[] { 1, 2 }, new[] { 3 });
+                    C36After.Flat(new[] { 1, 2 });
+                    C36After.Cols(new List<int>(){1, 2});
+                    C36After.Cols(1, 2);
+                }
+            }
+
+            public static class C36LibMarker { public static void Mark() { } }
+            """;
+
+        AssertInputCompiles(desugared);
+        var (result, stats) = Run(desugared, RuleOn(expandArrays: true));
+
+        var output = result.OutputCode;
+        // No double wrapping: single pre-desugared arguments stay passthrough.
+        AssertContainsFlat("C36After.Flat(new[] { 1, 2 });", output);
+        AssertContainsFlat("C36After.Cols(new List<int>(){1, 2});", output);
+        AssertDoesNotContainFlat("List<int>(){new global::System.Collections.Generic.List<int>(){", output);
+        // Post-C36 nested expansion wraps once into the jagged array.
+        AssertContainsFlat(
+            "C36After.Groups(new int[][]{new[] { 1, 2 }, new[] { 3 }})", output);
+        Assert.Empty(Diags(result, ParamsDiagnostics.NestedCollectionExpression));
+
+        AssertRecompiles(output);
+        AssertIdempotent(output, RuleOn(expandArrays: true));
+        Assert.Equal(0, stats!.SkippedByReason.GetValueOrDefault(ParamsDiagnostics.NestedCollectionExpression));
+    }
+
+    // ------------------------------------------------------------------
+    // M2 · 11. Overload resolution (D1): the compiler's TargetMethod is
+    //    the only truth; new-hiding tiers; metadata target → CS2J0602.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void OverloadResolution_NonParamsWinsSingleCall_ParamsWinsExpansion()
+    {
+        const string src = """
+            public static class OverLib
+            {
+                public static string M(int x) => "int";
+                public static string M(params int[] xs) => "params";
+
+                public static void Run()
+                {
+                    OverLib.M(1);
+                    OverLib.M(1, 2);
+                }
+            }
+            """;
+
+        AssertInputCompiles(src);
+        var (result, _) = Run(src, RuleOn(expandArrays: true));
+
+        var output = result.OutputCode;
+        // Single-arg call binds the M(int) overload — never touched.
+        AssertContainsFlat("OverLib.M(1);", output);
+        // Two-arg call binds the params overload — wrapped.
+        AssertContainsFlat("OverLib.M(new int[]{1, 2})", output);
+        AssertRecompiles(output);
+    }
+
+    [Fact]
+    public void OverloadResolution_CharFaceExpansion_BindsParamsRosChar_ButV1KeepsIt()
+    {
+        // Probe §13: S('a','b') DOES bind the params ReadOnlySpan<char>
+        // overload (the string overload loses on char arguments). C48 v1
+        // excludes the char face (C52 boundary) — declaration and site kept.
+        const string src = """
+            using System;
+
+            public static class CharOver
+            {
+                public static string S(string x) => "string";
+                public static string S(params ReadOnlySpan<char> xs) => "params-char";
+
+                public static void Run()
+                {
+                    CharOver.S("x");
+                    CharOver.S('a', 'b');
+                }
+            }
+            """;
+
+        AssertInputCompiles(src);
+        var (result, stats) = Run(src, RuleOn());
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        var diag = SingleDiag(result, ParamsDiagnostics.UnsupportedType);
+        Assert.NotNull(diag);
+        Assert.Contains("ReadOnlySpan<char>", diag!.Message);
+        Assert.Equal(1, stats!.SkippedByReason[ParamsDiagnostics.UnsupportedType]);
+    }
+
+    [Fact]
+    public void OverloadResolution_NewHidingThreeLevels_EachReferenceBindsItsSlot()
+    {
+        const string src = """
+            using System.Collections.Generic;
+
+            public class NewA
+            {
+                public virtual string Pick(params IEnumerable<int> xs) => "A";
+            }
+            public class NewB : NewA
+            {
+                public new virtual string Pick(params IEnumerable<int> xs) => "B";
+            }
+            public class NewC : NewB
+            {
+                public override string Pick(params IEnumerable<int> xs) => "C";
+            }
+
+            public static class NewUse
+            {
+                public static void Run()
+                {
+                    NewA a = new NewC();
+                    NewB b = new NewC();
+                    NewC c = new NewC();
+                    a.Pick(1);
+                    b.Pick(1);
+                    c.Pick(1);
+                }
+            }
+            """;
+
+        AssertInputCompiles(src);
+        var (result, stats) = Run(src, RuleOn());
+
+        var output = result.OutputCode;
+        // Each reference type binds its own slot (probe §13); all three
+        // virtual families are independently complete and materialized.
+        AssertContainsFlat(
+            "a.Pick(new global::System.Collections.Generic.List<int>(){1})", output);
+        AssertContainsFlat(
+            "b.Pick(new global::System.Collections.Generic.List<int>(){1})", output);
+        AssertContainsFlat(
+            "c.Pick(new global::System.Collections.Generic.List<int>(){1})", output);
+        AssertDoesNotContainFlat("params IEnumerable<int>", output);
+
+        AssertRecompiles(output);
+        AssertIdempotent(output, RuleOn());
+        Assert.Equal(3, stats!.ParamsDeclarationsMaterialized);
+        Assert.Equal(3, stats.ParamsCallSitesExpanded);
+    }
+
+    [Fact]
+    public void OverloadResolution_MetadataParamsCollectionTarget_NoPlan_0602NoGuessing()
+    {
+        // 5+ ints force the metadata params ReadOnlySpan<int> overload of
+        // ImmutableArray.Create (the 1..3-arg fixed overloads would win below 5).
+        const string src = """
+            using System.Collections.Immutable;
+
+            public static class MetaUse
+            {
+                public static void Run()
+                {
+                    ImmutableArray.Create<int>(1, 2, 3, 4, 5);
+                }
+            }
+            """;
+
+        AssertInputCompiles(src);
+        var (result, stats) = Run(src, RuleOn());
+
+        // No source declaration → no plan; site kept, nothing guessed.
+        AssertContainsFlat("ImmutableArray.Create<int>(1, 2, 3, 4, 5);", result.OutputCode);
+        var diag = SingleDiag(result, ParamsDiagnostics.SymbolResolutionFailed);
+        Assert.NotNull(diag);
+        Assert.Contains("ImmutableArray.Create", diag!.Message);
+        Assert.Equal(1, stats!.SkippedByReason[ParamsDiagnostics.SymbolResolutionFailed]);
+        AssertRecompiles(result.OutputCode);
+    }
+
+    // ------------------------------------------------------------------
+    // M2 · 13. Declaration kinds: delegate invoke, local function, record
+    //    primary constructor (record uses a K3 builder — needs Emit).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void DeclarationKinds_Delegate_LocalFunction_RecordPrimaryCtor_AllRewritten()
+    {
+        const string src = """
+            using System;
+            using System.Collections;
+            using System.Collections.Generic;
+            using System.Collections.Immutable;
+            using System.Runtime.CompilerServices;
+
+            public delegate string Del(params IEnumerable<int> a);
+
+            public record Rec(string Name, params ImmutableArray<int> Values);
+
+            public static class KindUse
+            {
+                public static void Run()
+                {
+                    Del d = x => string.Join(",", x);
+                    d(1, 2);
+                    d();
+
+                    var r = new Rec("n", 1, 2);
+                    var e = new Rec("e");
+                    var arr = ImmutableArray.Create<int>(9);
+                    var q = new Rec("q", arr);
+
+                    Local(7, 8);
+                    Local();
+
+                    static void Local(params ReadOnlySpan<int> xs) { }
+                }
+            }
+            """;
+
+        AssertInputCompiles(src);
+        var (result, stats) = Run(src, RuleOn(builderPolicy: CollectionBuilderPolicy.Emit));
+
+        var output = result.OutputCode;
+        // Delegate invoke — expansion and empty form.
+        AssertContainsFlat(
+            "d(new global::System.Collections.Generic.List<int>(){1, 2})", output);
+        AssertContainsFlat("d(global::System.Array.Empty<int>())", output);
+        // Record primary ctor — K3 ImmutableArray factory (ConstructMethod-bound).
+        AssertContainsFlat(
+            "new Rec(\"n\", global::System.Collections.Immutable.ImmutableArray.Create<int>(new int[]{1, 2}))",
+            output);
+        AssertContainsFlat(
+            "new Rec(\"e\", global::System.Collections.Immutable.ImmutableArray.Create<int>(new int[]{}))",
+            output);
+        // Form B for the record too.
+        AssertContainsFlat("new Rec(\"q\", arr)", output);
+        // Local function — span shape.
+        AssertContainsFlat("Local(new int[]{7, 8});", output);
+        AssertContainsFlat("Local(global::System.Array.Empty<int>());", output);
+        AssertDoesNotContainFlat("params ", output);
+
+        AssertRecompiles(output);
+        AssertIdempotent(output, RuleOn(builderPolicy: CollectionBuilderPolicy.Emit));
+
+        Assert.NotNull(stats);
+        // delegate + record ctor (Builder) + local function (Span).
+        Assert.Equal(1, stats!.ParamsSites["Interface"]);
+        Assert.Equal(1, stats.ParamsSites["Builder"]);
+        Assert.Equal(1, stats.ParamsSites["Span"]);
+        Assert.Equal(3, stats.ParamsDeclarationsMaterialized);
+        // Record ctor expansion + empty form (form B 'arr' is passthrough).
+        Assert.Equal(2, stats.BuilderFactorySites);
+    }
+
+    // ------------------------------------------------------------------
+    // M2 · 14. Defensive: expression-tree expansion of a non-array params
+    //    collection is baseline CS9226 (unreachable from compilable input).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Defensive_ExpressionTree_NonArrayParamsCollection_CS9226()
+    {
+        const string src = """
+            using System;
+            using System.Collections.Generic;
+            using System.Linq.Expressions;
+
+            public static class ExprTree
+            {
+                public static int Cols(params List<int> xs) => xs.Count;
+                public static int Ros(params ReadOnlySpan<int> xs) => xs.Length;
+
+                public static void Run()
+                {
+                    Expression<Action> a = () => Cols(1, 2);
+                    Expression<Action> b = () => Ros(1, 2);
+                }
+            }
+            """;
+
+        var (clean, diagnostics) = TryCompile(src);
+        Assert.False(clean, "expression trees cannot expand non-array params collections");
+        Assert.Contains("CS9226", diagnostics);
     }
 }

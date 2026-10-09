@@ -164,4 +164,71 @@ public class ParamsBehaviorTests
         Assert.Equal("1,2,3", ParamsLib.JoinAll(1, 2, 3));
         Assert.Equal("a,b", ParamsLib.JoinAll("a", "b"));
     }
+
+    // ------------------------------------------------------------------
+    // K3 (M2): builder-backed params collections — expansion, empty state
+    // (fresh builder result per call), form B identity, PC-7 forwarded
+    // empty slot, generic arity and the KeyValuePair span factory.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Builder_CustomFactory_ExpansionAndEmpty()
+    {
+        Assert.Equal(3, ParamsLib.BagCount(1, 2, 3));
+        Assert.Equal(0, ParamsLib.BagCount());
+
+        var first = ParamsLib.LastBag;
+        ParamsLib.BagCount();
+        Assert.NotNull(first);
+        Assert.False(ReferenceEquals(first, ParamsLib.LastBag),
+            "empty builder-backed call must build a fresh instance per call");
+
+        // The forwarded overload fills the empty params slot with the same
+        // builder empty state.
+        Assert.Equal(0, ParamsLib.BagForwarded());
+    }
+
+    [Fact]
+    public void Builder_FormB_KeepsCallerReference()
+    {
+        var bag = new ParamsBag(new[] { 9 });
+        Assert.Equal(1, ParamsLib.BagCount(bag));
+        Assert.Same(bag, ParamsLib.LastBag);
+    }
+
+    [Fact]
+    public void Builder_GenericArity_IntAndReference()
+    {
+        Assert.Equal(2, ParamsLib.ImmCount<int>(1, 2));
+        Assert.Equal(2, ParamsLib.ImmCount<string>("a", "b"));
+        Assert.Equal(0, ParamsLib.ImmCount<int>());
+    }
+
+    [Fact]
+    public void Builder_KeyValuePairSpanFactory()
+    {
+        Assert.Equal(2, ParamsLib.MapCount(
+            new KeyValuePair<string, int>("a", 1),
+            new KeyValuePair<string, int>("b", 2)));
+        Assert.Equal(0, ParamsLib.MapCount());
+
+        var map = new ParamsMap(new[] { new KeyValuePair<string, int>("k", 7) });
+        Assert.Equal(1, ParamsLib.MapCount(map));
+    }
+
+    [Fact]
+    public void GenericTiers_IntStructReference_AllShapes()
+    {
+        Assert.Equal(3, ParamsLib.TierList(1, 2, 3));
+        Assert.Equal(2, ParamsLib.TierList(new TierPoint { X = 1 }, new TierPoint { X = 2 }));
+        Assert.Equal(2, ParamsLib.TierList("x", "y"));
+
+        Assert.Equal(3, ParamsLib.TierSpan(1, 2, 3));
+        Assert.Equal(1, ParamsLib.TierSpan(new TierPoint { X = 9 }));
+        Assert.Equal(2, ParamsLib.TierSpan("p", "q"));
+
+        Assert.Equal(3, ParamsLib.TierImm<int>(1, 2, 3));
+        Assert.Equal(1, ParamsLib.TierImm(new TierPoint { X = 5 }));
+        Assert.Equal(2, ParamsLib.TierImm<string>("m", "n"));
+    }
 }

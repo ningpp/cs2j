@@ -13,3 +13,5 @@ var greeting = Service.Greet();       // omit name
 var greeting2 = Service.Greet("Alice");
 
 var named = new Service("my-service");
+
+ParamsUsage.Run();

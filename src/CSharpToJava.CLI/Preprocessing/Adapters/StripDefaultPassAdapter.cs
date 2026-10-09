@@ -181,12 +181,22 @@ internal sealed class StripDefaultPassAdapter : ProjectPassAdapter
         paramsStats.ParamsSites.TryGetValue("Interface", out var iface);
         var skipped = paramsStats.SkippedByReason.Values.Sum();
 
-        return line +
+        line +=
             $"; params: {decl} decl (span {span}/builder {builder}/init {init}/iface {iface}), " +
             $"calls expanded {paramsStats.ParamsCallSitesExpanded}/empty {paramsStats.ParamsCallSitesEmpty}/" +
             $"passthrough {paramsStats.ParamsCallSitesPassthrough}, " +
             $"materialized {paramsStats.ParamsDeclarationsMaterialized}, " +
             $"skipped {skipped}, residual {paramsStats.ResidualCount}";
+
+        // C48 M2: appended only when the K3/K4 real-binding counters moved
+        // (design §13 M2 record) so pre-M2 summary output stays byte-identical.
+        if (paramsStats.BuilderFactorySites > 0 || paramsStats.InitializerAddBoundSites > 0)
+        {
+            line += $", K3 factories {paramsStats.BuilderFactorySites}, " +
+                    $"K4 add-bound {paramsStats.InitializerAddBoundSites}";
+        }
+
+        return line;
     }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
