@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <!--
+      P3 reusable corpus profiling probe (M3/M4 sdk evidence entry point).
+      NOT part of CSharpToJavaConverter.slnx. Drives the production Core
+      preprocessors in-process over msbuild-evaluated compile items (same
+      pipeline as tools/LinqRouteProbe), or shells out to the CLI for
+      whole-tree passes (member-desugar). Read-only corpora are never modified.
+    -->
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CSharpToJava.Core\CSharpToJava.Core.csproj" />
+  </ItemGroup>
+
+</Project>
