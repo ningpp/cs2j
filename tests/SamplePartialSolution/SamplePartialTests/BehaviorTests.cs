@@ -87,6 +87,50 @@ public sealed class BehaviorTests
         Assert.Equal(2, inner.B());
     }
 
+    [Fact]
+    public void Outer_Inner_Classic_Partial_Pair_Binds()
+    {
+        // M3: classic partial pair inside a nested partial type.
+        Assert.Equal(3, new Outer.Inner().C());
+    }
+
+    [Fact]
+    public void ClassicPartial_Save_Runs_With_Or_Without_Generated_Implementation()
+    {
+        // Declaration-only classic partial: call elides normally; under the
+        // M3 opt-in assumption the declaration and call are removed — Save()
+        // must run identically either way.
+        new ClassicPartial().Save();
+    }
+
+    [Fact]
+    public void PartialIndexer_Defining_And_Implementation()
+    {
+        var sample = new PartialIndexer();
+        Assert.Equal(3, sample.Length);
+        Assert.Equal(10, sample[0]);
+        Assert.Equal(20, sample[1]);
+        Assert.Equal(30, sample[2]);
+    }
+
+    [Fact]
+    public void PartialMethodPairs_Classic_Static_Generic_Resolve()
+    {
+        var pairs = new PartialMethodPairs();
+        pairs.Save();
+        Assert.Equal("saved", pairs.LastMessage);
+        Assert.Equal(1, pairs.Version);
+        Assert.Equal(42, PartialMethodPairs.Mark(21));
+        Assert.Equal(4, pairs.Pick(3, 4));
+        Assert.Equal("b", pairs.Pick("b", "a"));
+    }
+
+    [Fact]
+    public void PartialMemberDocs_Definition_And_Implementation()
+    {
+        Assert.Equal(42, new PartialMemberDocs().Compute(41));
+    }
+
     private sealed class InMemoryRepository : IRepository
     {
         public Customer? Find(int id) => new(id);
