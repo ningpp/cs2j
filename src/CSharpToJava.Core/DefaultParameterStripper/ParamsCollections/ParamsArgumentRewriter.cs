@@ -275,17 +275,75 @@ internal sealed class ParamsArgumentRewriter
             return null;
         }
 
-        // 6. Emit.
+        // 5c. CS2J0611 edge (M2 probe §13): a SYNTHESIZED expansion segment
+        //     (ParamArray/ParamCollection — a single Explicit collection
+        //     argument is form B and already passed through above) whose
+        //     element is itself a collection expression or spread, e.g.
+        //     Groups([1,2],[3]) on params int[][]. C36 owns collection-
+        //     expression lowering and must run first (after it the elements
+        //     are ordinary new[]{…} expressions); wrapping here would
+        //     double-process. The site is kept comma-form with a directional
+        //     diagnostic. A bare `..x` argument is baseline-illegal in C# 13
+        //     (parses as Range, CS0029) — unreachable on compilable input.
+        if (expansionSegment.Count > 0)
+        {
+            var nestedElement = expansionSegment.FirstOrDefault(a =>
+                a.Expression.DescendantNodesAndSelf()
+                    .Any(n => n is CollectionExpressionSyntax or SpreadElementSyntax));
+            if (nestedElement != null)
+            {
+                _diagnostics.Add(ParamsDiagnostics.Create(
+                    ParamsDiagnostics.NestedCollectionExpression,
+                    string.Format(
+                        ParamsDiagnostics.NestedCollectionExpressionMessage,
+                        siteNode.ToString(), nestedElement.Expression.ToString()),
+                    _options.Strict));
+                _plans.Statistics.RecordSkipped(ParamsDiagnostics.NestedCollectionExpression);
+                return null;
+            }
+        }
+
+        // 6. Emit. K3 builders need the bound factory symbol (M2 PC-9):
+        //    the compiler's own ConstructMethod first (probe §13 — present on
+        //    every compilable K3 site including the empty form, generic arity
+        //    and ReadOnlySpan<KeyValuePair<K,V>>), then the symbol-driven C36
+        //    analyzer with this site's actually-fed element types. Both fail →
+        //    the CS2J0605 residual (never a guessed factory).
+        (IMethodSymbol Factory, ITypeSymbol ElementType)? builderFactory = null;
+        if (classification.Kind == ParamsParamKind.Builder)
+        {
+            builderFactory = ResolveBuilderFactory(classification, paramsParameter, paramsArgument, expansionSegment);
+            if (builderFactory == null)
+            {
+                var builderType = classification.BuilderInfo?.BuilderType.ToDisplayString() ?? "<unknown>";
+                var factoryName = classification.BuilderInfo?.FactoryMethodName ?? "<unknown>";
+                _diagnostics.Add(ParamsDiagnostics.Create(
+                    ParamsDiagnostics.CollectionExpanded,
+                    string.Format(ParamsDiagnostics.CollectionBuilderUnresolvedMessage,
+                        classification.ParameterType.ToDisplayString(), builderType, factoryName),
+                    _options.Strict));
+                _plans.Statistics.RecordSkipped(ParamsDiagnostics.CollectionExpanded);
+                return null;
+            }
+        }
+
         ExpressionSyntax replacement;
         if (expansionSegment.Count == 0)
         {
-            replacement = CollectionConstructionEmitter.EmitEmpty(classification);
+            replacement = classification.Kind == ParamsParamKind.Builder && builderFactory != null
+                ? CollectionConstructionEmitter.EmitBuilderFactory(
+                    builderFactory.Value.Factory, builderFactory.Value.ElementType,
+                    Array.Empty<ExpressionSyntax>())
+                : CollectionConstructionEmitter.EmitEmpty(classification);
             _plans.Statistics.ParamsCallSitesEmpty++;
         }
         else
         {
             var elements = expansionSegment.Select(a => a.Expression).ToList();
-            replacement = CollectionConstructionEmitter.EmitExpansion(classification, elements);
+            replacement = classification.Kind == ParamsParamKind.Builder && builderFactory != null
+                ? CollectionConstructionEmitter.EmitBuilderFactory(
+                    builderFactory.Value.Factory, builderFactory.Value.ElementType, elements)
+                : CollectionConstructionEmitter.EmitExpansion(classification, elements);
             _plans.Statistics.ParamsCallSitesExpanded++;
         }
 
@@ -301,6 +359,18 @@ internal sealed class ParamsArgumentRewriter
                     string.Format(
                         "params type '{0}' expansion is emitted as an explicit array (implicit T[] conversion; C06 owns the final Span shape)",
                         classification.ParameterType.ToDisplayString()),
+                    _options.Strict));
+                break;
+            case ParamsParamKind.Builder:
+                // M2 PC-9: B.Create(new T[]{…}) from the compiler-bound /
+                // symbol-resolved factory (0607 retired on this path).
+                _plans.Statistics.BuilderFactorySites++;
+                _diagnostics.Add(ParamsDiagnostics.Create(
+                    ParamsDiagnostics.CollectionExpanded,
+                    string.Format(
+                        "params expansion of '{0}' is emitted through builder factory '{1}'",
+                        classification.ParameterType.ToDisplayString(),
+                        replacement.ToString()),
                     _options.Strict));
                 break;
             case ParamsParamKind.Interface or ParamsParamKind.Initializable:
@@ -347,6 +417,58 @@ internal sealed class ParamsArgumentRewriter
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Resolves the K3 builder factory for one params call site (M2 PC-9).
+    /// Primary source: the compiler's own answer —
+    /// <see cref="ICollectionExpressionOperation.ConstructMethod"/> on the
+    /// synthesized params value (probe §13: bound on the empty form too, with
+    /// generic arity already constructed). Fallback: the symbol-driven C36
+    /// CE-10 analyzer fed with this segment's actually-converted element
+    /// types. Returns null only when both paths fail (CS2J0605 residual).
+    /// </summary>
+    private (IMethodSymbol Factory, ITypeSymbol ElementType)? ResolveBuilderFactory(
+        ParamsTargetClassification classification,
+        IParameterSymbol paramsParameter,
+        IArgumentOperation? paramsArgument,
+        SeparatedSyntaxList<ArgumentSyntax> expansionSegment)
+    {
+        if (paramsArgument?.Value is ICollectionExpressionOperation collectionExpression)
+        {
+            var accepted = ParamsCollectionBinding.AcceptConstructFactory(
+                collectionExpression.ConstructMethod);
+            if (accepted != null)
+            {
+                return accepted;
+            }
+        }
+
+        if (classification.BuilderInfo == null
+            || paramsParameter.Type is not INamedTypeSymbol targetType)
+        {
+            return null;
+        }
+
+        var elementFedTypes = expansionSegment
+            .Select(argument =>
+            {
+                try
+                {
+                    var typeInfo = _model.GetTypeInfo(argument.Expression);
+                    return typeInfo.ConvertedType ?? typeInfo.Type;
+                }
+                catch (ArgumentException)
+                {
+                    // Segment node from a tree this model does not own — the
+                    // C36 analyzer treats a null fed type as "no constraint".
+                    return (ITypeSymbol?)null;
+                }
+            })
+            .ToList();
+
+        return ParamsCollectionBinding.ResolveFactory(
+            _model.Compilation, targetType, classification.BuilderInfo, elementFedTypes);
     }
 
     // ------------------------------------------------------------------

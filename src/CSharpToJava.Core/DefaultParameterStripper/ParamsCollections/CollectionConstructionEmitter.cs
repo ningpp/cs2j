@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
 
 namespace CSharpToJava.Core.DefaultParameterStripper.ParamsCollections;
 
@@ -57,12 +58,29 @@ internal static class CollectionConstructionEmitter
     /// <summary>
     /// Form C (empty argument list): the compiler-shaped empty collection per
     /// adjudication 5 — <c>global::System.Array.Empty&lt;T&gt;()</c> for
-    /// ArrayEmpty kinds, <c>new C&lt;T&gt;()</c> for NewInstance kinds.
+    /// ArrayEmpty kinds, <c>new C&lt;T&gt;()</c> for NewInstance kinds. K3
+    /// builder kinds go through <see cref="EmitBuilderFactory"/> (the empty
+    /// shape is <c>B.Create(new T[]{})</c>).
     /// </summary>
     public static ExpressionSyntax EmitEmpty(ParamsTargetClassification classification)
         => classification.EmptyState == ParamsEmptyStateShape.ArrayEmpty
             ? ArrayEmpty(classification.ElementType!)
             : NewInstance(classification.CanonicalConcreteType!);
+
+    /// <summary>
+    /// K3 (M2 PC-9): <c>global::B.Create&lt;...&gt;(new TElem[]{ e1, e2 })</c>;
+    /// an empty site passes an empty element list and emits
+    /// <c>global::B.Create&lt;...&gt;(new TElem[]{})</c> (probe §13: the
+    /// compiler binds the same factory for the empty form). The factory symbol
+    /// is either the compiler-bound <c>ConstructMethod</c> or the shared C36
+    /// CE-10 analyzer result, so generic arity is already constructed and
+    /// rendered explicitly (e.g. <c>Imm.Create&lt;string&gt;(…)</c>).
+    /// </summary>
+    public static ExpressionSyntax EmitBuilderFactory(
+        IMethodSymbol factory,
+        ITypeSymbol elementType,
+        IReadOnlyList<ExpressionSyntax> elements)
+        => CollectionExprEmitter.BuildBuilderFactory(factory, elementType, elements);
 
     /// <summary><c>global::System.Array.Empty&lt;T&gt;()</c>.</summary>
     public static ExpressionSyntax ArrayEmpty(ITypeSymbol elementType)

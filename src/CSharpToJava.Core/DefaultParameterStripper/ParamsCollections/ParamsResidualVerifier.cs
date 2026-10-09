@@ -36,10 +36,13 @@ internal static class ParamsResidualKey
 /// <summary>
 /// C48 residual gate (T17, PC-10): re-scans the rewritten output tree and
 /// asserts every surviving non-array <c>params</c> modifier is paired with an
-/// explicit skip decision (CS2J0601/0602/0606/0607/0608/0610/0612 families —
-/// unsupported types, unresolvable plans, broken initializer patterns, builder
-/// blocks, ref-struct elements, slot conflicts, incomplete virtual families,
-/// scope/char-face exclusions, xUnit test methods). Unpaired residuals emit
+/// explicit skip decision (CS2J0601/0602/0605/0606/0607/0608/0610/0611/0612
+/// families — unsupported types, unresolvable plans, M2 unbindable builder
+/// factories, broken initializer patterns, gray-release builder blocks,
+/// ref-struct elements, slot conflicts, nested collection expressions,
+/// incomplete virtual families, scope/char-face exclusions, xUnit test
+/// methods). Pairing itself is key-based through the materializer's tolerated
+/// set; the codes document why each key was kept. Unpaired residuals emit
 /// CS2J0619 (Error in strict mode).
 ///
 /// Classic array params (strategy A) are legal residuals — Java maps them

@@ -160,7 +160,7 @@ internal sealed class ParamsSignatureCollector
         var classification = ParamsTargetClassifier.Classify(lastParameter.Type, compilation);
         result.Statistics.RecordSite(classification.Kind);
 
-        var strategy = DecideStrategy(classification, symbol, options, result);
+        var strategy = DecideStrategy(classification, symbol, compilation, options, result);
 
         result.AddDeclaration(new ParamsDeclPlan(
             declaration,
@@ -177,16 +177,19 @@ internal sealed class ParamsSignatureCollector
 
     /// <summary>
     /// Decides the declaration-side strategy. K1 arrays keep the params
-    /// modifier (strategy A). Everything that cannot — or must not, in v1 — be
-    /// materialized also keeps the modifier, with its skip diagnostic emitted
-    /// here exactly once per declaration: unsupported types (0601),
-    /// [CollectionBuilder] types (0607), ref-struct elements (0608), scope
+    /// modifier (strategy A). Everything that cannot — or must not, under the
+    /// active policy — be materialized also keeps the modifier, with its skip
+    /// diagnostic emitted here exactly once per declaration: unsupported types
+    /// (0601), [CollectionBuilder] types (0607 under the Error gray-release
+    /// policy; the M2 Emit path resolves the factory symbolically and only the
+    /// unbindable residual reports CS2J0605), ref-struct elements (0608), scope
     /// exclusions (0601) and the ReadOnlySpan&lt;char&gt; char face (0601,
     /// C52 boundary). Call sites of these declarations stay untouched.
     /// </summary>
     private static ParamsDeclStrategy DecideStrategy(
         ParamsTargetClassification classification,
         IMethodSymbol symbol,
+        Compilation compilation,
         ParamsCollectionsOptions options,
         ParamsCollectionsResult result)
     {
@@ -205,16 +208,18 @@ internal sealed class ParamsSignatureCollector
             return ParamsDeclStrategy.KeepParams;
         }
 
-        if (classification.Kind == ParamsParamKind.Builder)
+        if (classification.Kind == ParamsParamKind.Builder
+            && options.Builder == CollectionBuilderPolicy.Error)
         {
-            // v1 blocks every builder site (adjudication 4: the K3 emission
-            // path follows C36 CE-10 in M2).
-            var builderType = classification.BuilderInfo?.BuilderType.ToDisplayString() ?? "<unknown>";
-            var factoryName = classification.BuilderInfo?.FactoryMethodName ?? "<unknown>";
+            // Gray-release Error policy (CLI default, Program.cs): v1 blocks
+            // every builder site (adjudication 4). The M2 Emit path below is
+            // opted in only by library callers passing Builder=Emit.
+            var builderTypeBlocked = classification.BuilderInfo?.BuilderType.ToDisplayString() ?? "<unknown>";
+            var factoryNameBlocked = classification.BuilderInfo?.FactoryMethodName ?? "<unknown>";
             result.Diagnostics.Add(ParamsDiagnostics.Create(
                 ParamsDiagnostics.CollectionBuilderBlocked,
                 string.Format(ParamsDiagnostics.CollectionBuilderBlockedMessage,
-                    classification.ParameterType.ToDisplayString(), builderType, factoryName),
+                    classification.ParameterType.ToDisplayString(), builderTypeBlocked, factoryNameBlocked),
                 options.Strict));
             result.Statistics.RecordSkipped(ParamsDiagnostics.CollectionBuilderBlocked);
             result.Statistics.BuilderSitesBlocked++;
@@ -242,6 +247,31 @@ internal sealed class ParamsSignatureCollector
                 options.Strict));
             result.Statistics.RecordSkipped(ParamsDiagnostics.UnsupportedType);
             return ParamsDeclStrategy.KeepParams;
+        }
+
+        if (classification.Kind == ParamsParamKind.Builder)
+        {
+            // M2 PC-9 (Emit policy): resolve the factory once at declaration
+            // time with no fed elements (vacuous element check; arity and
+            // return conversion still verified). Call sites additionally
+            // consume the compiler's own ConstructMethod. Only a genuinely
+            // unbindable factory keeps the declaration (CS2J0605 residual).
+            if (classification.BuilderInfo == null
+                || classification.ParameterType is not INamedTypeSymbol builderTargetType
+                || ParamsCollectionBinding.ResolveFactory(
+                    compilation, builderTargetType, classification.BuilderInfo,
+                    Array.Empty<ITypeSymbol?>()) == null)
+            {
+                var builderType = classification.BuilderInfo?.BuilderType.ToDisplayString() ?? "<unknown>";
+                var factoryName = classification.BuilderInfo?.FactoryMethodName ?? "<unknown>";
+                result.Diagnostics.Add(ParamsDiagnostics.Create(
+                    ParamsDiagnostics.CollectionExpanded,
+                    string.Format(ParamsDiagnostics.CollectionBuilderUnresolvedMessage,
+                        classification.ParameterType.ToDisplayString(), builderType, factoryName),
+                    options.Strict));
+                result.Statistics.RecordSkipped(ParamsDiagnostics.CollectionExpanded);
+                return ParamsDeclStrategy.KeepParams;
+            }
         }
 
         return ParamsDeclStrategy.Materialize;
