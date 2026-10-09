@@ -162,6 +162,7 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
 
             // 归属新增错误 → 唯一 plan。
             var plansToRollback = new HashSet<string>(StringComparer.Ordinal);
+            var blockedByExcludedCount = 0;
             foreach (var error in newErrors)
             {
                 if (preprocessor.TryAttributeDiagnostic(error, rewrittenByFile, out var planId)
@@ -169,11 +170,30 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                     && !plansToRollback.Contains(planId))
                 {
                     plansToRollback.Add(planId);
+                    continue;
+                }
+
+                // 严格归属失败（含锚点落在本轮未改写文件）：若位置仅归属于已排除
+                // plan，则任何进一步回退都无法消除该错误——它来自宽松整树合并编译
+                // 的镜像碰撞；真实 breakage 仍由尾部 msbuild build/test 验证拦截。
+                if (preprocessor.TryAttributeDiagnosticBlockedByExcluded(error, out var blockedId)
+                    && excluded.Contains(blockedId))
+                {
+                    blockedByExcludedCount++;
                 }
             }
 
             if (plansToRollback.Count == 0)
             {
+                if (blockedByExcludedCount == newErrors.Count)
+                {
+                    // 全部新错误仅锚定于已回退 plan：接受本轮（避免镜像碰撞导致
+                    // 全树有效改写被连带回退的过保守行为，画像 2026-10-09）。
+                    acceptedStats = passStats;
+                    acceptedDiagnostics = passDiagnostics;
+                    break;
+                }
+
                 // 无法归属单一 plan → 回退本次运行全部改动（CS2J5100）。
                 foreach (var pair in sourceFiles)
                     File.Copy(pair.Source, pair.Dest, overwrite: true);
@@ -317,17 +337,17 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                $"{_statistics.EventNameofLiteralized} nameof), " +
                $"{_statistics.PlansSkipped} skipped, " +
                $"{_statistics.PlansRolledBack} rolled back, " +
-               "#{residual} residual, {indexerResidual} indexer residual, {residualEvent} event residual" +
-               " | operators: {_statistics.OperatorsPlanned} planned, " +
-               "{_statistics.OperatorBinarySitesRewritten} binary/" +
-               "{_statistics.OperatorUnarySitesRewritten} unary/" +
-               "{_statistics.OperatorCompoundSitesRewritten} compound/" +
-               "{_statistics.OperatorConversionSitesRewritten} conversion site(s), " +
-               "{_statistics.OperatorLiftedSitesExpanded} lifted, " +
-               "{_statistics.GateOperatorsRetained} gate-retained, " +
-               "{_statistics.IncrementDecrementDeferred} deferred(++/--), " +
-               "{_statistics.MetadataOperatorSitesUntouched} metadata-only, " +
-               "{residualOp} operator-residual" +
+               $"{residual} residual, {indexerResidual} indexer residual, {residualEvent} event residual" +
+               $" | operators: {_statistics.OperatorsPlanned} planned, " +
+               $"{_statistics.OperatorBinarySitesRewritten} binary/" +
+               $"{_statistics.OperatorUnarySitesRewritten} unary/" +
+               $"{_statistics.OperatorCompoundSitesRewritten} compound/" +
+               $"{_statistics.OperatorConversionSitesRewritten} conversion site(s), " +
+               $"{_statistics.OperatorLiftedSitesExpanded} lifted, " +
+               $"{_statistics.GateOperatorsRetained} gate-retained, " +
+               $"{_statistics.IncrementDecrementDeferred} deferred(++/--), " +
+               $"{_statistics.MetadataOperatorSitesUntouched} metadata-only, " +
+               $"{residualOp} operator-residual" +
                // C39（M2，设计 §5.3）：finalizers 段追加在末尾，不破坏既有字段。
                $" | finalizers: {_statistics.FinalizersDetected} detected " +
                $"(empty {_statistics.FinalizerEmpty}/dispose-pattern {_statistics.FinalizerDisposePattern}/" +

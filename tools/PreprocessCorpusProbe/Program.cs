@@ -311,11 +311,18 @@ internal static class CliDriver
         using var process = Process.Start(psi)!;
         var stdoutTask = process.StandardOutput.ReadToEndAsync();
         var stderrTask = process.StandardError.ReadToEndAsync();
-        process.WaitForExit(600_000);
+        // Whole-tree member-desugar over a large P2P graph can exceed the default
+        // 10-minute budget (multi-stage per-file reparse + whole-tree fallback
+        // iterations); triage runs may raise it via PROBE_CLI_TIMEOUT_MS.
+        var timeoutMs = 600_000;
+        var timeoutEnv = Environment.GetEnvironmentVariable("PROBE_CLI_TIMEOUT_MS");
+        if (!string.IsNullOrWhiteSpace(timeoutEnv) && int.TryParse(timeoutEnv, out var configured))
+            timeoutMs = configured;
+        process.WaitForExit(timeoutMs);
         if (!process.HasExited)
         {
             process.Kill(entireProcessTree: true);
-            throw new InvalidOperationException("CLI profile run timed out (600s)");
+            throw new InvalidOperationException($"CLI profile run timed out ({timeoutMs / 1000}s)");
         }
 
         var stdout = stdoutTask.Result;
