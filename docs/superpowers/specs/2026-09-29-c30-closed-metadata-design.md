@@ -495,14 +495,14 @@ CatalogItems                = "C30"
 > - **§9 门槛逐条复盘（已默认开口径：catalog 实证本 pass 自 M2' 起随 generic-deepen 同批链 default-enabled，本评为事后核对而非翻转评审）**：
 >   1. **时序前提——满足**：C02 generic-deepen 默认开且过其 §8 门槛；CS2J1205 链位校验 M2' 起强制。
 >   2. **中间树正确性——满足（fixture 维度）**：fixture E2E `ClosedMetadataProjectTests` 全绿（中间树 Release verify build + 4 运行时测）；sdk 快照维度沿用既有挂账（5 处与本 pass 无关的 pass 破损）。M4d 仅改 compat 测试文件、零 .NET 生产改动，.NET 画像与 M4c 提交时完全一致。
->   3. **三半区证据——两绿一挂账**：.NET 半区 Core Debug 全量 3513/3513、ProjectTests 全量见下证据行；compat 半区 ClosedTypeMetadataTest 24/24、全量 1657/0；**下游半区（dotnet-text-json，§8.3）本机不可达，沿用 M1 强制门遗留挂账——不阻塞本仓默认开口径，但列为 M5 启动前置**。
+>   3. **三半区证据——两绿一挂账**：.NET 半区 Core Debug 全量 3513/3513；ProjectTests 全量 1945 中闭元 fixture 绿、唯一红测为 C20 partial-merge（default-off）× init 的既有 CS2J0531 拓扑债（与本 pass 无关，M4d 零 .NET 改动画像同 M4c）；compat 半区 ClosedTypeMetadataTest 24/24、全量 1657/0；**下游半区（dotnet-text-json，§8.3）本机不可达，沿用 M1 强制门遗留挂账——不阻塞本仓默认开口径，但列为 M5 启动前置**。
 >   4. **零 ThreadLocal——满足**：见上，8 线程并发直接证据。
 >   5. **residual 闸门——满足**：§5.4 六规则全部在役（M3 内容扫描规则 2/5 + M4c 重编译扫描规则 1/3/4/6）；fixture 真实汇总 `0 residuals`；CS2J1201/1204/1210 白名单站点全部 triage 有主，skip/force overrides 为带外分流出口。
 >   6. **转换器协同（D2）——最小 STJ 面已端到端证实**：fixture 4 个 JVM 运行时测全绿，意味着生成 Java 中闭型 typeof 树已构造为 `java.lang.reflect.Type` 并注册/解析成功；通用反射面与 FieldTransformer fail-fast 盘点未做，随 M5/A2 立档。
 >   7. **文档——满足（本仓部分）**：本设计 M4a–M4d 注记齐备；compat `registerClosedType/resolveClosedType/clearClosedTypes` javadoc 已在 M3 冻结；下游对接说明待下游环境可达时补（挂账）。
 >   8. **性能基准（§11 风险 3）——未达标，显式挂账**：本次并发压测仅证正确性，未产出吞吐回退/缓存命中率/启动注册开销数字。sdk 规模测量需先恢复 sdk 快照（5 处无关破损）后在同一基线进行；若大程序反馈启动回退，按 §9 预案改首次消费懒注册并重测。
 > - **结论**：正确性门槛（1/2/4/5/6/7）全部满足，pass 维持默认开；两项环境性挂账（下游半区回归、sdk 基线性能基准）显式记账、不回滚开关。M5（A2 动态闭型调用点内联 token 原型、旧 ThreadLocal API 逐级退役）待挂账环境具备后启动。
-> - 证据：JDK 28-ea `mvn -Dtest=ClosedTypeMetadataTest test` 24/24；`mvn test` 全量 1657 通过 / 0 失败 / BUILD SUCCESS；Core 全量 trx `cs2j-m4d-core-all.trx`（3513/3513）；ProjectTests 全量 trx `cs2j-m4d-proj-all.trx`（结果见提交说明）；本次改动仅 compat 一个测试文件（+import 与 1 个并发压测），无生产代码改动。
+> - 证据：JDK 28-ea `mvn -Dtest=ClosedTypeMetadataTest test` 24/24；`mvn test` 全量 1657 通过 / 0 失败 / BUILD SUCCESS；Core 全量 trx `cs2j-m4d-core-all.trx`（3513/3513）；ProjectTests 全量 trx `cs2j-m4d-proj-all.trx`（1938/1945，首轮 7 红中 5 个为 agent 进程 `JAVA_HOME=jdk-25` 污染致 javac 不支持 release 28、1 个为长跑文件锁偶发——带 JDK28 重跑 trx `cs2j-m4d-proj-rerun.trx` 中该 6 项全绿，13 项 12 过；唯一剩余红测 PartialMergeCLI 为 C20 default-off 既有 CS2J0531 init×partial-merge 拓扑债，`ClosedMetadataProjectTests` 全量轮本身即 Passed）；本次改动仅 compat 一个测试文件（+import 与 1 个并发压测）+ 本文档注记，无生产代码改动。
 
 ### 10.1 M1 下游核实清单（强制门的具体动作）
 
