@@ -351,6 +351,8 @@ private sealed class Cs2jIterator_GetTokens_0
 | **M3 using / lock** | using 归一（含 pattern-based、using declaration）、资源字段与区域 finally、lock Monitor 形态专项 | §7.1 第 6-7 组全绿；CS2J0402 非法组合用例齐 |
 | **M4 ref/unsafe/残余形态 + 默认化评估** | 不跨边界 ref struct/ref local/unsafe 保留策略、struct 迭代器 this 捕获语义、CS2J0404/0405/0406 形态盘点（决定哪些随 closure-lift 前置）、sdk 基线 + EF Core 画像、默认开门槛评审 | §8 五项结论成文；默认关→开或继续 opt-in 的决策记录 |
 
+> **落地进展（2026-10-09，M4b）**：§8 五门槛评审完成，结论见 [2026-10-09-c04-m4b-gate-report.md](2026-10-09-c04-m4b-gate-report.md)——门槛 1-2 达成、3-5 未达成，**descriptor 维持 default-off**。M4b 同时交付：裸 `return;`→`yield break` 归一（删除过严 CS2J0402 闸门）、限定成员访问右名/`nameof` 误改写修复（sdk 画像真实崩溃）、嵌套例程 yield 归属共享判定（分析器/资源归一器/return 归一器三处统一）。sdk 四子集画像：1387 文档、2887 yield 站点与 catalog 基线吻合、66 成员降级，6 个被拒成员共 244 站点全分类（CS2J0404×2/217、CS2J0405×2/18、访问器迭代器×2 文件/9；residual 闸门口径 242，另 2 站点随文件 plans=0 早退、仅以 CS2J0405 可见）、0 crashes。
+>
 > **落地进展（2026-09-30 核实）**：b784b47f 交付 **M1 范围**——Analyzer（成员发现/合法性闸门/捕获活性分析）、CFG 与状态编号、直线/分支/循环形态状态机发射、单类线程守卫与克隆构造、字段提升、residual 闸门、适配器、stub→Implemented（默认关）、Core 单测（IteratorLoweringUnitTests）与链序测试（PassChainOrderTests）。**M2（try/finally 两半区原型）、M3（using/lock）、M4（§8 默认化五门槛）与 §7.2 SampleIteratorSolution 项目级 fixture 未做**，是默认翻转前的全部挂起项。
 
 ## 10. 风险

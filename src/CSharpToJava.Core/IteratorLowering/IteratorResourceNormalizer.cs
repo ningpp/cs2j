@@ -50,9 +50,10 @@ internal sealed class IteratorResourceNormalizer : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
+        // Only yields OWNED by this method count; yields inside nested local
+        // functions/lambdas don't make the outer method an iterator.
         var containsYield = node.Body != null
-            && node.Body.DescendantNodes().Any(n =>
-                n.IsKind(YieldReturnStatement) || n.IsKind(YieldBreakStatement));
+            && IteratorLoweringAnalyzer.MethodOwnsYield(node.Body);
         var previous = _inIteratorBody;
         _inIteratorBody = containsYield;
         try

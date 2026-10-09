@@ -28,10 +28,12 @@ internal static class IteratorLoweringAnalyzer
             var symbol = semanticModel.GetDeclaredSymbol(method);
             if (symbol == null) continue;
 
-            // Must have a body with yield statements
+            // Must have a body that itself owns yield statements. Yields inside
+            // nested routines (local functions/lambdas) do NOT make the outer
+            // method an iterator — e.g. a regular method may return the result
+            // of invoking an iterator local function.
             if (method.Body == null) continue;
-            if (!method.Body.DescendantNodes().Any(n => n.IsKind(SyntaxKind.YieldReturnStatement)
-                || n.IsKind(SyntaxKind.YieldBreakStatement)))
+            if (!MethodOwnsYield(method.Body))
                 continue;
 
             // Check return type: IEnumerable<T>, IEnumerator<T>, IEnumerable, IEnumerator
@@ -305,13 +307,10 @@ internal static class IteratorLoweringAnalyzer
             ok = false;
         }
 
-        // 裸 return（迭代器内只允许 yield return / yield break）
-        if (body.DescendantNodes().OfType<ReturnStatementSyntax>().Any())
-        {
-            AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                $"Iterator method '{method.Identifier.Text}' has a plain return statement (use yield break).");
-            ok = false;
-        }
+        // M4b：迭代器内裸 `return;` 合法（C# 语义等价 yield break），由
+        // IteratorLoweringPreprocessor 的 BareReturnToYieldBreakRewriter
+        // 在分析前统一归一为 yield break，此处不再设闸。`return <expr>;`
+        // 在迭代器块内本就是 CS1622 编译错误，不会进入预处理。
 
         // M4：含 yield 的 switch 中，case 标签绑定模式变量（case int x:）
         // v1 不支持——模式绑定局部未纳入提升表，展平后无法保证其跨 section
@@ -401,6 +400,20 @@ internal static class IteratorLoweringAnalyzer
 
     private static string GetMemberKey(MethodDeclarationSyntax method)
         => method.Identifier.ValueText + "_" + method.SpanStart;
+
+    /// <summary>
+    /// Whether the method body itself (not any nested local function/lambda/
+    /// anonymous method) contains a yield statement. Nested routines own their
+    /// own yields and must not be attributed to the enclosing method.
+    /// </summary>
+    internal static bool MethodOwnsYield(BlockSyntax body)
+        => body.DescendantNodes(n => n is not
+                (LocalFunctionStatementSyntax
+                or ParenthesizedLambdaExpressionSyntax
+                or SimpleLambdaExpressionSyntax
+                or AnonymousMethodExpressionSyntax))
+            .Any(n => n.IsKind(SyntaxKind.YieldReturnStatement)
+                || n.IsKind(SyntaxKind.YieldBreakStatement));
 }
 
 internal sealed record AnalyzerResult(

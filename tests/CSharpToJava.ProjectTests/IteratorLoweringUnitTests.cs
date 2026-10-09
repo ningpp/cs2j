@@ -336,7 +336,8 @@ class C {
     }
 
     [Theory]
-    [InlineData("if (x == 0) return; yield return 1;", "int x")]
+    // M4b: bare `return;` inside an iterator is legal C# and normalized to
+    // yield break by the preprocessor, so it is no longer rejected here.
     [InlineData("checked { yield return x; }", "int x")]
     [InlineData("using (var d = new System.IO.StringWriter()) { yield return 1; }", "")]
     [InlineData("lock (new object()) { yield return 1; }", "")]
@@ -1866,6 +1867,144 @@ struct C {
         Assert.Equal(0, GetField(c, "Calls"));
     }
 
+    [Fact]
+    public void M4b_BareReturn_InIterator_LowersAndEndsEnumeration()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(int stop) {
+        for (int i = 0; i < 10; i++) {
+            if (i == stop) return;
+            yield return i;
+        }
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        // 裸 return; 等价 yield break：立即结束枚举（不产出 stop）。
+        Assert.Equal(new object[] { 0, 1, 2 }, EnumerateFully(asm, c, "M", 3).values);
+        Assert.Equal(new object[] { 0, 1, 2, 3, 4 }, EnumerateFully(asm, c, "M", 5).values);
+        // 不触发时遍历完整。
+        Assert.Equal(new object[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 },
+            EnumerateFully(asm, c, "M", 100).values);
+    }
+
+    [Fact]
+    public void M4b_BareReturn_InsideTryRegion_StillRunsFinally()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public int Fin;
+    public IEnumerable<int> M(int stop) {
+        try {
+            for (int i = 0; i < 10; i++) {
+                if (i == stop) return;
+                yield return i;
+            }
+        } finally { Fin++; }
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        Assert.Equal(new object[] { 0, 1 }, EnumerateFully(asm, c, "M", 2).values);
+        // 归一为 yield break 后走区域清理链：finally 恰好一次。
+        Assert.Equal(1, GetField(c, "Fin"));
+    }
+
+    [Fact]
+    public void M4b_QualifiedInstanceMemberAccess_RightmostNameNotRewritten()
+    {
+        // csharp-sdk M4b 画像：x.Foo 右侧的 Foo 与裸 Foo 解析到同一拥有者
+        // 实例成员；旧代码把它改写成 _cs2jThis.Foo，既改目标又在默认
+        // VisitMemberAccessExpression 里触发 SimpleNameSyntax 转换崩溃。
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public int Value;
+    public IEnumerable<int> M(C other) {
+        if (other.Value > 0) yield return other.Value;
+        yield return Value;
+    }
+}";
+        var asm = LoadRewritten(code);
+        var other = NewC(asm);
+        SetField(other, "Value", 5);
+        var self = NewC(asm);
+        SetField(self, "Value", 7);
+        Assert.Equal(new object[] { 5, 7 }, EnumerateFully(asm, self, "M", other).values);
+    }
+
+    [Fact]
+    public void M4b_NonIteratorOuter_WithIteratorLocalFunction_KeepsBareReturn()
+    {
+        // 外层方法自身不含 yield，仅嵌套了一个迭代器局部函数：外层裸
+        // return; 不得被误归一为 yield break（否则 CS1631）。
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public int M(int stop) {
+        IEnumerable<int> It() {
+            yield return 1;
+            yield return 2;
+        }
+        if (stop == 0) return 0;
+        int sum = 0;
+        foreach (var x in It()) sum += x;
+        return stop + sum;
+    }
+}";
+        var (output, stats, _) = Rewrite(code);
+        Assert.Equal(0, stats.IteratorMembersLowered);
+        Assert.Contains("return 0;", output);
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        var m = asm.GetType("C")!.GetMethod("M")!;
+        Assert.Equal(0, m.Invoke(c, new object[] { 0 }));
+        Assert.Equal(8, m.Invoke(c, new object[] { 5 }));
+    }
+
+    [Fact]
+    public void M4b_BareReturn_InCtorAndEventAccessor_AlongsideIterator_IsUntouched()
+    {
+        // 同一文件里有迭代器方法（通过脏检查），但构造函数与事件 add
+        // 访问器中的裸 return; 属于它们自己的例程，不得归一为 yield break
+        // （否则 CS1631，输出无法编译）。
+        var code = @"
+using System;
+using System.Collections.Generic;
+class C {
+    public int Adds;
+    public bool Blocked;
+    public C(int stop) {
+        if (stop == 0) return;
+        Blocked = true;
+    }
+    public event Action E {
+        add { if (Blocked) return; Adds++; }
+        remove { }
+    }
+    public IEnumerable<int> M() {
+        yield return 1;
+        yield return 2;
+    }
+}";
+        var (output, _, _) = Rewrite(code);
+        // 两处裸 return 原样保留。
+        Assert.Contains("if (stop == 0) return;", output);
+        Assert.Contains("if (Blocked) return;", output);
+        var asm = LoadRewritten(code);
+        var open = Activator.CreateInstance(asm.GetType("C")!, 0);
+        var blocked = Activator.CreateInstance(asm.GetType("C")!, 1);
+        var ev = asm.GetType("C")!.GetEvent("E")!;
+        var handler = new Action(() => { });
+        ev.AddEventHandler(open, handler);
+        ev.AddEventHandler(blocked, handler);
+        Assert.Equal(1, GetField(open, "Adds"));
+        Assert.Equal(0, GetField(blocked, "Adds"));
+    }
+
     // ── Helpers: parsing / analysis / rewriting ──
 
     private static string Flat(string s) => Regex.Replace(s, @"\s+", " ");
@@ -1914,9 +2053,16 @@ struct C {
 
         var normalizer = new IteratorResourceNormalizer(originalModel);
         var normalizedRoot = normalizer.Normalize(originalRoot);
+        // M4b: mirror the production pipeline — bare `return;` in iterators is
+        // normalized to yield break after the model-bound resource normalization.
+        var bareReturnRewriter = new BareReturnToYieldBreakRewriter();
+        normalizedRoot = (CompilationUnitSyntax)bareReturnRewriter.Visit(normalizedRoot)!;
         var model = originalModel;
         var rewriteRoot = normalizedRoot;
-        if (normalizer.UsingRegionsNormalized > 0 || normalizer.LocksNormalized > 0)
+        if (bareReturnRewriter.Changed
+            || normalizer.UsingRegionsNormalized > 0
+            || normalizer.LocksNormalized > 0
+            || normalizer.Diagnostics.Count > 0)
         {
             var normalizedTree = CSharpSyntaxTree.Create(
                 normalizedRoot,
@@ -2061,4 +2207,9 @@ public sealed class TrackedEnumerable : IEnumerable<int>
         => obj.GetType().GetField(name,
                 BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!
             .GetValue(obj);
+
+    private static void SetField(object obj, string name, object? value)
+        => obj.GetType().GetField(name,
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(obj, value);
 }

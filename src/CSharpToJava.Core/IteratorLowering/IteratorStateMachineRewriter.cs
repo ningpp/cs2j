@@ -681,7 +681,16 @@ internal sealed class IteratorStateMachineRewriter
                 }
             }
 
-            if (!_plan.IsStatic && IsBareOriginalInstanceMember(symbol))
+            // Only BARE references (`Foo`) become `_cs2jThis.Foo`. The rightmost
+            // name of an explicitly qualified access (`receiver.Foo`,
+            // `receiver?.Foo`) resolves to the same member symbol but must stay
+            // untouched: rewriting it both changes the target and violates the
+            // SimpleNameSyntax child shape the default member-access visitor
+            // casts to (hit on real csharp-sdk iterators, M4b profile).
+            if (!_plan.IsStatic
+                && !IsInsideNameof(node)
+                && !IsQualifiedMemberName(node)
+                && IsBareOriginalInstanceMember(symbol))
             {
                 return MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
                     IdentifierName(IteratorLoweringNaming.ThisField),
@@ -694,7 +703,10 @@ internal sealed class IteratorStateMachineRewriter
         public override SyntaxNode? VisitGenericName(GenericNameSyntax node)
         {
             var symbol = _semanticModel.GetSymbolInfo(node).Symbol;
-            if (!_plan.IsStatic && IsBareOriginalInstanceMember(symbol))
+            if (!_plan.IsStatic
+                && !IsInsideNameof(node)
+                && !IsQualifiedMemberName(node)
+                && IsBareOriginalInstanceMember(symbol))
             {
                 var visited = (GenericNameSyntax)base.VisitGenericName(node)!;
                 return MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
@@ -703,6 +715,20 @@ internal sealed class IteratorStateMachineRewriter
             }
             return base.VisitGenericName(node);
         }
+
+        /// <summary>
+        /// True when the simple name is the rightmost name of an explicit
+        /// member access (<c>a.Foo</c>) or conditional member binding
+        /// (<c>a?.Foo</c>) — such names keep their own receiver and must not
+        /// be rewritten to the captured <c>_cs2jThis</c>.
+        /// </summary>
+        private static bool IsQualifiedMemberName(SimpleNameSyntax node)
+            => node.Parent switch
+            {
+                MemberAccessExpressionSyntax ma => ma.Name == node,
+                MemberBindingExpressionSyntax mb => mb.Name == node,
+                _ => false,
+            };
 
         public override SyntaxNode? VisitThisExpression(ThisExpressionSyntax node)
             => _plan.IsStatic

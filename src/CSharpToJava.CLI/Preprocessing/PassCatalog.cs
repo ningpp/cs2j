@@ -460,13 +460,17 @@ internal static class PassCatalog
             PassStatus.Implemented,
             // DEFAULT-OFF (opt-in via --enable-pass iterator-lowering).
             // M1 analyzer/state machine core, M2 try-finally protected regions,
-            // M3 using/lock normalization, and M4a restricted locals
+            // M3 using/lock normalization, M4a restricted locals
             // (ref struct/ref local/pointer non-crossing yields stay real
             // locals; crossing shapes are CS2J0403), CS9238/CS9239 mirrors,
             // yield-bearing switch flattening, struct-iterator by-value this,
-            // and residual lambda CS2J0405/local-function CS2J0404 defensive
-            // gates are implemented. Default-on awaits the M4b gate review
-            // (sdk subset profiling, Release three-project green, residual=0).
+            // residual lambda CS2J0405/local-function CS2J0404 defensive
+            // gates, and M4b bare `return;` normalization plus qualified
+            // member-access guards. M4b §8 gate review (see
+            // docs/superpowers/specs/2026-10-09-c04-m4b-gate-report.md):
+            // gates 1-2 met, gates 3-5 open (sdk full-chain blocked by
+            // unrelated snapshot breakage, EF Core profile unavailable,
+            // observation window pending) — stays opt-in.
             defaultEnabled: false,
             runAfterIds: new[] { PassIds.MakeReadonly, PassStubCatalog.Ids.ClosureLift },
             verifyBuildByDefault: true,

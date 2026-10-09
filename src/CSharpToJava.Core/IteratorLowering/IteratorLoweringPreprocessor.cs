@@ -43,8 +43,20 @@ public sealed class IteratorLoweringPreprocessor
         // against a model whose spans match the normalized syntax.
         var normalizer = new IteratorResourceNormalizer(semanticModel);
         var normalizedRoot = normalizer.Normalize(root);
+
+        // M4b: bare `return;` is legal C# inside an iterator block and has the
+        // same end-of-enumeration semantics as `yield break` (including finally
+        // cleanup). Normalize it to yield break on yielding methods so all
+        // downstream stages handle a single statement form. Purely syntactic
+        // (no model binding), so it runs after the model-bound resource
+        // normalization; nested routines (local functions/lambdas) are not
+        // descended into.
+        var bareReturnRewriter = new BareReturnToYieldBreakRewriter();
+        normalizedRoot = (CompilationUnitSyntax)bareReturnRewriter.Visit(normalizedRoot)!;
+
         var activeModel = semanticModel;
-        var normalized = normalizer.Diagnostics.Count > 0
+        var normalized = bareReturnRewriter.Changed
+            || normalizer.Diagnostics.Count > 0
             || normalizer.UsingRegionsNormalized > 0
             || normalizer.LocksNormalized > 0;
         if (normalized)
@@ -139,3 +151,72 @@ public sealed record IteratorLoweringFileResult(
     bool Changed,
     IReadOnlyList<IteratorLoweringDiagnostic> Diagnostics,
     IteratorLoweringStatistics Statistics);
+
+/// <summary>
+/// M4b: rewrites bare <c>return;</c> statements inside yielding method bodies
+/// into <c>yield break;</c>. In C# a value-less return inside an iterator block
+/// is legal and means "end the enumeration", identical to yield break. Only the
+/// enclosing method iterator is rewritten; nested routines (local functions,
+/// lambdas, anonymous methods) own their own return statements and are skipped.
+/// </summary>
+internal sealed class BareReturnToYieldBreakRewriter : CSharpSyntaxRewriter
+{
+    public bool Changed { get; private set; }
+
+    /// <summary>
+    /// true only while traversing the body of a method that itself is an
+    /// iterator. Without this gate the default traversal would also reach bare
+    /// returns inside constructors/event accessors/finalizers that happen to
+    /// live in the same (yield-containing) file and wrongly turn them into
+    /// yield break (CS1631).
+    /// </summary>
+    private bool _inIteratorMethod;
+
+    public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
+    {
+        if (node.Body == null || !MethodContainsYield(node.Body))
+        {
+            // Not an iterator: keep the subtree untouched, which also prevents
+            // returns inside nested local functions/lambdas from being touched.
+            return node;
+        }
+
+        var previous = _inIteratorMethod;
+        _inIteratorMethod = true;
+        try
+        {
+            var rewrittenBody = (BlockSyntax)Visit(node.Body)!;
+            return node.WithBody(rewrittenBody);
+        }
+        finally
+        {
+            _inIteratorMethod = previous;
+        }
+    }
+
+    public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node) => node;
+
+    public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node) => node;
+
+    public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node) => node;
+
+    public override SyntaxNode? VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node) => node;
+
+    public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
+    {
+        if (_inIteratorMethod && node.Expression == null)
+        {
+            Changed = true;
+            return SyntaxFactory.YieldStatement(SyntaxKind.YieldBreakStatement);
+        }
+
+        return node;
+    }
+
+    private static bool MethodContainsYield(BlockSyntax body)
+        // Only yields owned by THIS method body qualify (shared prune rule with
+        // the analyzer), otherwise a non-iterator outer method that merely
+        // contains an iterator local function would get its bare `return;`
+        // rewritten to `yield break` (CS1631).
+        => IteratorLoweringAnalyzer.MethodOwnsYield(body);
+}
