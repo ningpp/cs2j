@@ -25,7 +25,173 @@ internal static class RangeRewriter
         IndexRangeStatistics stats,
         List<IndexRangeDiagnostic> diagnostics)
     {
-        var receiverPure = IndexRangeSyntaxFacts.IsPure(visited.Expression);
+        var needsLength = RangeNeedsLength(range);
+        if (needsLength && info.LengthProperty == null
+            && info.Kind is ReceiverKind.Custom)
+        {
+            diagnostics.Add(UnresolvedRangeDiagnostic(info));
+            return null;
+        }
+
+        var plan = PlanRange(
+            visited.Expression, range, info.LengthProperty,
+            anchor, names, pending, stats);
+
+        switch (info.Kind)
+        {
+            case ReceiverKind.SzArray:
+                stats.RangeSliceSites++;
+                stats.ArrayHelperCalls++;
+                return ArrayHelperSlice(plan.Receiver, plan.Offset, plan.Count);
+
+            case ReceiverKind.String:
+                stats.RangeSliceSites++;
+                if (plan.FullRange)
+                    return plan.Receiver;
+
+                stats.StringSpecializations++;
+                return range.RightOperand == null
+                    ? InstanceCall(plan.Receiver, "Substring", plan.Offset)
+                    : InstanceCall(plan.Receiver, "Substring", plan.Offset, plan.Count);
+
+            case ReceiverKind.Span:
+            case ReceiverKind.Memory:
+                stats.RangeSliceSites++;
+                return plan.FullRange
+                    ? plan.Receiver
+                    : InstanceCall(plan.Receiver, "Slice", plan.Offset, plan.Count);
+
+            case ReceiverKind.ArraySegment:
+                stats.RangeSliceSites++;
+                var segmentMethod =
+                    (info.SliceSymbol as IMethodSymbol)?.Name ?? "Slice";
+                return InstanceCall(
+                    plan.Receiver, segmentMethod, plan.Offset, plan.Count);
+
+            default:
+                switch (info.SliceSymbol)
+                {
+                    case IMethodSymbol method:
+                        stats.RangeSliceSites++;
+                        return EmitBoundSliceCall(
+                            method, plan.Receiver, plan.Offset, plan.Count);
+
+                    case IPropertySymbol property:
+                        diagnostics.Add(new IndexRangeDiagnostic(
+                            "IR120",
+                            IndexRangeSeverity.Error,
+                            "Range expression is bound to a custom Range indexer " +
+                            $"'{property.ContainingType.ToDisplayString()}.this[Range]' " +
+                            "and no int-based Slice(int, int) member is bound on " +
+                            "the receiver; rewrite the call site manually to " +
+                            "explicit int offset/count calls."));
+                        return null;
+
+                    default:
+                        diagnostics.Add(new IndexRangeDiagnostic(
+                            "IR110",
+                            IndexRangeSeverity.Error,
+                            "Range slice member could not be resolved to an " +
+                            "int-based Slice(int, int) member; cannot rewrite."));
+                        return null;
+                }
+        }
+    }
+
+    /// <summary>
+    /// M4: rewrites an explicit <c>receiver.Method(a..b)</c> invocation bound
+    /// to a single-Range-argument method into the resolved two-int overload
+    /// (instance or extension static form).
+    /// </summary>
+    internal static ExpressionSyntax? RewriteRangeInvocation(
+        RangeInvocationInfo site,
+        SyntaxNode anchor,
+        TempNameAllocator names,
+        List<TempLifter.PendingTemp> pending,
+        IndexRangeStatistics stats,
+        List<IndexRangeDiagnostic> diagnostics)
+    {
+        if (site.Status != RangeInvocationStatus.Rewritable
+            || site.IntOverload == null)
+        {
+            diagnostics.Add(new IndexRangeDiagnostic(
+                "IR120",
+                IndexRangeSeverity.Error,
+                "The range-argument method has no bound int-based " +
+                "(int, int) overload; rewrite the call site manually to " +
+                "explicit int offset/count values."));
+            return null;
+        }
+
+        if (RangeNeedsLength(site.Range) && site.LengthProperty == null)
+        {
+            diagnostics.Add(new IndexRangeDiagnostic(
+                "IR120",
+                IndexRangeSeverity.Error,
+                "The range uses a from-end ('^') or open boundary but no " +
+                "Length/Count member is bound on the receiver; rewrite the " +
+                "call site manually to explicit int offset/count values."));
+            return null;
+        }
+
+        var plan = PlanRange(
+            site.Receiver, site.Range, site.LengthProperty,
+            anchor, names, pending, stats);
+
+        stats.RangeSliceSites++;
+        stats.RangeInvocationSites++;
+        return EmitBoundSliceCall(
+            site.IntOverload, plan.Receiver, plan.Offset, plan.Count);
+    }
+
+    internal static bool RangeNeedsLength(RangeExpressionSyntax range)
+        => range.LeftOperand == null
+           || range.RightOperand == null
+           || range.LeftOperand.RawKind == IndexRangeSyntaxFacts.IndexExpressionKind
+           || range.RightOperand.RawKind == IndexRangeSyntaxFacts.IndexExpressionKind;
+
+    private static IndexRangeDiagnostic UnresolvedRangeDiagnostic(ReceiverInfo info)
+        => new(
+            "IR120",
+            IndexRangeSeverity.Error,
+            "The range site is bound to a custom System.Index/System.Range " +
+            "member but its int pattern is incomplete (no bound Length/Count " +
+            "and int indexer/Slice(int, int) members); rewrite the call site " +
+            "manually to explicit int offset/count calls.");
+
+    private static InvocationExpressionSyntax EmitBoundSliceCall(
+        IMethodSymbol method,
+        ExpressionSyntax receiver,
+        ExpressionSyntax offset,
+        ExpressionSyntax count)
+    {
+        if (method.MethodKind == MethodKind.ReducedExtension
+            && method.ReducedFrom != null)
+        {
+            return ExtensionCall(method.ReducedFrom, receiver, offset, count);
+        }
+
+        if (method.IsExtensionMethod)
+            return ExtensionCall(method, receiver, offset, count);
+
+        return InstanceCall(receiver, method.Name, offset, count);
+    }
+
+    /// <summary>
+    /// Shared (offset, count) planning: lifts the receiver and impure
+    /// boundary operands into single-evaluation temps and reads the length
+    /// member once, in the compiler's evaluation order.
+    /// </summary>
+    private static RangePlan PlanRange(
+        ExpressionSyntax originalReceiver,
+        RangeExpressionSyntax range,
+        IPropertySymbol? lengthProperty,
+        SyntaxNode anchor,
+        TempNameAllocator names,
+        List<TempLifter.PendingTemp> pending,
+        IndexRangeStatistics stats)
+    {
+        var receiverPure = IndexRangeSyntaxFacts.IsPure(originalReceiver);
 
         var order = 0;
         string? receiverName = null;
@@ -33,23 +199,24 @@ internal static class RangeRewriter
         ExpressionSyntax receiverExpression;
         if (receiverPure)
         {
-            receiverExpression = visited.Expression;
+            receiverExpression = originalReceiver;
         }
         else
         {
             receiverName = names.Allocate("r");
             pending.Add(new TempLifter.PendingTemp(
-                TempLifter.DeclareVar(receiverName, visited.Expression),
+                TempLifter.DeclareVar(receiverName, originalReceiver),
                 anchor, order++));
+            stats.ReceiverTempsLifted++;
             receiverExpression = IdentifierName(receiverName);
         }
 
         // Length is read once: inline when the receiver is pure, otherwise a
         // temp declared after the boundary operands (evaluation order).
         string? lengthName = receiverPure ? null : names.Allocate("l");
+        var lengthMember = lengthProperty?.Name ?? "Length";
         var lengthExpression = lengthName == null
-            ? (ExpressionSyntax)SimpleMemberAccess(
-                receiverExpression, info.LengthMemberName)
+            ? (ExpressionSyntax)SimpleMemberAccess(receiverExpression, lengthMember)
             : IdentifierName(lengthName);
 
         ExpressionSyntax ResolveBound(ExpressionSyntax? operand, bool isLeft)
@@ -91,7 +258,7 @@ internal static class RangeRewriter
             pending.Add(new TempLifter.PendingTemp(
                 TempLifter.DeclareInt(
                     lengthName,
-                    SimpleMemberAccess(receiverExpression, info.LengthMemberName)),
+                    SimpleMemberAccess(receiverExpression, lengthMember)),
                 anchor, order++));
             stats.LengthTempReads++;
         }
@@ -101,81 +268,14 @@ internal static class RangeRewriter
 
         var count = Subtract(end, offset);
         var fullRange = range.LeftOperand == null && range.RightOperand == null;
-
-        switch (info.Kind)
-        {
-            case ReceiverKind.SzArray:
-                stats.RangeSliceSites++;
-                stats.ArrayHelperCalls++;
-                return ArrayHelperSlice(receiverExpression, offset, count);
-
-            case ReceiverKind.String:
-                stats.RangeSliceSites++;
-                if (fullRange)
-                    return receiverExpression;
-
-                stats.StringSpecializations++;
-                return range.RightOperand == null
-                    ? InstanceCall(receiverExpression, "Substring", offset)
-                    : InstanceCall(receiverExpression, "Substring", offset, count);
-
-            case ReceiverKind.Span:
-            case ReceiverKind.Memory:
-                stats.RangeSliceSites++;
-                return fullRange
-                    ? receiverExpression
-                    : InstanceCall(receiverExpression, "Slice", offset, count);
-
-            case ReceiverKind.ArraySegment:
-                stats.RangeSliceSites++;
-                var segmentMethod =
-                    (info.SliceSymbol as IMethodSymbol)?.Name ?? "Slice";
-                return InstanceCall(
-                    receiverExpression, segmentMethod, offset, count);
-
-            default:
-                switch (info.SliceSymbol)
-                {
-                    case IMethodSymbol method:
-                        stats.RangeSliceSites++;
-                        if (method.MethodKind == MethodKind.ReducedExtension
-                            && method.ReducedFrom != null)
-                        {
-                            return ExtensionCall(
-                                method.ReducedFrom,
-                                receiverExpression, offset, count);
-                        }
-
-                        if (IsExtensionMethod(method))
-                        {
-                            return ExtensionCall(
-                                method, receiverExpression, offset, count);
-                        }
-
-                        return InstanceCall(
-                            receiverExpression, method.Name, offset, count);
-
-                    case IPropertySymbol property:
-                        diagnostics.Add(new IndexRangeDiagnostic(
-                            "IR120",
-                            IndexRangeSeverity.Error,
-                            "Range expression is bound to a custom Range indexer " +
-                            $"'{property.ContainingType.ToDisplayString()}.this[Range]'; " +
-                            "only int-based Slice(int, int) patterns are supported " +
-                            "in this milestone. Rewrite the call site manually to " +
-                            "an explicit int offset/count call."));
-                        return null;
-
-                    default:
-                        diagnostics.Add(new IndexRangeDiagnostic(
-                            "IR110",
-                            IndexRangeSeverity.Error,
-                            "Range slice member could not be resolved to an " +
-                            "int-based Slice(int, int) member; cannot rewrite."));
-                        return null;
-                }
-        }
+        return new RangePlan(receiverExpression, offset, count, fullRange);
     }
+
+    private sealed record RangePlan(
+        ExpressionSyntax Receiver,
+        ExpressionSyntax Offset,
+        ExpressionSyntax Count,
+        bool FullRange);
 
     private static InvocationExpressionSyntax ArrayHelperSlice(
         ExpressionSyntax receiver, ExpressionSyntax offset, ExpressionSyntax count)
@@ -192,13 +292,6 @@ internal static class RangeRewriter
         => InvocationExpression(
             SimpleMemberAccess(target, methodName),
             ArgumentList(args));
-
-    private static bool IsExtensionMethod(IMethodSymbol method)
-        => method.IsStatic
-           && method.GetAttributes().Any(a =>
-               a.AttributeClass != null
-               && a.AttributeClass.ToDisplayString()
-                   == "System.Runtime.CompilerServices.ExtensionAttribute");
 
     private static InvocationExpressionSyntax ExtensionCall(
         IMethodSymbol symbol,

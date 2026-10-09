@@ -97,6 +97,12 @@ public class IndexRangeJavaE2EProjectTests
 
             var entries = converted
                 .Where(c => !string.IsNullOrEmpty(c.FileName))
+                // C31 M4: CustomPatternProbes keeps this[System.Index]/
+                // this[System.Range]/Slice(Range) members which have no Java
+                // half yet (design Q2/§13: no System.Index/Range mapping);
+                // its .NET semantics are gated by SampleIndexRangeTests on the
+                // intermediate tree. Nothing else in the fixture references it.
+                .Where(c => !c.FileName!.Contains("CustomPatternProbes"))
                 .Select(c => (c.FileName!, c.GeneratedCode))
                 .ToList();
 

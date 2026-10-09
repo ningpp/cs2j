@@ -117,8 +117,58 @@ internal sealed class IndexRangeSyntaxRewriter : Microsoft.CodeAnalysis.CSharp.C
                 visited, positions, IndexRangeSyntaxFacts.CoveredAnnotation);
         }
 
+        // M4: the compiler bound the site to an explicit user-defined
+        // this[System.Index]/this[System.Range] indexer (dual indexers prefer
+        // the explicit member over the pattern downgrade). Rewrite only when
+        // the int pattern members are semantically discoverable.
+        if (info.BindingStyle == ReceiverBinding.ExplicitIndex
+            || info.BindingStyle == ReceiverBinding.ExplicitRange)
+        {
+            var siteArgument = visited.ArgumentList.Arguments[position].Expression;
+            var missing = info.BindingStyle == ReceiverBinding.ExplicitIndex
+                ? info.IntIndexer == null || info.LengthProperty == null
+                : info.IntSlice == null
+                  || (siteArgument is RangeExpressionSyntax explicitRange
+                      && RangeRewriter.RangeNeedsLength(explicitRange)
+                      && info.LengthProperty == null);
+
+            if (missing)
+            {
+                var memberText = info.BindingStyle == ReceiverBinding.ExplicitIndex
+                    ? "this[System.Index]"
+                    : "this[System.Range]";
+                Emit(new IndexRangeDiagnostic(
+                    "IR120",
+                    IndexRangeSeverity.Error,
+                    $"The site is bound to explicit {memberText} and no " +
+                    "complete int pattern (Length/Count + this[int] / " +
+                    "Slice(int, int)) is bound on the receiver; rewrite the " +
+                    "call site manually to explicit int expressions."));
+                _stats.AddSkip("IR120");
+                return AnnotateArguments(
+                    visited, positions, IndexRangeSyntaxFacts.CoveredAnnotation);
+            }
+        }
+
         var anchor = TempLifter.FindAnchor(node);
         var argument = visited.ArgumentList.Arguments[position].Expression;
+
+        // Custom receiver kinds may only be rewritten against a bound
+        // Length/Count symbol; the "Length" fallback is reserved for the
+        // built-in array/string kinds (R3: never guess members by name).
+        if (info.Kind == ReceiverKind.Custom
+            && info.LengthProperty == null
+            && argument.RawKind == IndexRangeSyntaxFacts.IndexExpressionKind)
+        {
+            Emit(new IndexRangeDiagnostic(
+                "IR110",
+                IndexRangeSeverity.Error,
+                "No Length/Count member was bound for the custom receiver; " +
+                "cannot lower the from-end ('^') index without guessing."));
+            _stats.AddSkip("IR110");
+            return AnnotateArguments(
+                visited, positions, IndexRangeSyntaxFacts.CoveredAnnotation);
+        }
 
         bool allPure;
         if (argument.RawKind == IndexRangeSyntaxFacts.IndexExpressionKind
@@ -210,6 +260,94 @@ internal sealed class IndexRangeSyntaxRewriter : Microsoft.CodeAnalysis.CSharp.C
         return rewrittenSite;
     }
 
+    public override Microsoft.CodeAnalysis.SyntaxNode? VisitInvocationExpression(
+        InvocationExpressionSyntax node)
+    {
+        var visited = (InvocationExpressionSyntax)base
+            .VisitInvocationExpression(node)!;
+
+        if (_model == null)
+            return visited;
+
+        var analysis = ReceiverKindAnalyzer.AnalyzeRangeInvocation(node, _model);
+        if (analysis.Status == RangeInvocationStatus.NotApplicable)
+            return visited;
+
+        var rangeArgumentIndex = IndexOfRangeArgument(visited);
+        if (rangeArgumentIndex < 0)
+            return visited;
+
+        if (analysis.Status == RangeInvocationStatus.NoIntOverload
+            || (RangeRewriter.RangeNeedsLength(analysis.Range)
+                && analysis.LengthProperty == null))
+        {
+            Emit(new IndexRangeDiagnostic(
+                "IR120",
+                IndexRangeSeverity.Error,
+                $"'{node}' binds to a single-System.Range-argument method " +
+                "without a bound int-based (int, int) overload/Length member; " +
+                "rewrite the call site manually to explicit int offset/count " +
+                "values."));
+            _stats.AddSkip("IR120");
+            return AnnotateInvocationRange(visited, rangeArgumentIndex);
+        }
+
+        // Use the post-visit receiver/range so nested rewrites (e.g. a hat
+        // inside the receiver) are preserved. The static extension form has
+        // two arguments (receiver, range); the reduced/instance form has one.
+        var staticExtensionForm = visited.ArgumentList.Arguments.Count == 2;
+        var effectiveReceiver = staticExtensionForm
+            ? visited.ArgumentList.Arguments[0].Expression
+            : ((MemberAccessExpressionSyntax)visited.Expression).Expression;
+        var effectiveRange = (RangeExpressionSyntax)visited.ArgumentList
+            .Arguments[rangeArgumentIndex].Expression;
+        var effectiveSite = analysis with
+        {
+            Receiver = effectiveReceiver,
+            Range = effectiveRange,
+        };
+
+        var allPure = IndexRangeSyntaxFacts.IsPure(effectiveReceiver)
+                      && SidePure(effectiveRange.LeftOperand)
+                      && SidePure(effectiveRange.RightOperand);
+
+        var anchor = TempLifter.FindAnchor(node);
+        if (anchor == null)
+        {
+            if (!allPure)
+            {
+                string reason = "";
+                var inNoTempContext = IndexRangeSyntaxFacts.IsNoTempContext(
+                    node, _model, out reason);
+                Emit(new IndexRangeDiagnostic(
+                    "IR130",
+                    IndexRangeSeverity.Error,
+                    (inNoTempContext ? $"{reason} " : "")
+                    + "cannot host temp declarations; only constant/simple " +
+                    "(zero-temp) range-argument calls are allowed here."));
+                _stats.AddSkip("IR130");
+                return AnnotateInvocationRange(visited, rangeArgumentIndex);
+            }
+
+            var inlineReplacement = RangeRewriter.RewriteRangeInvocation(
+                effectiveSite, null!, _names, Pending, _stats, _diagnostics);
+            if (inlineReplacement == null)
+                return AnnotateInvocationRange(visited, rangeArgumentIndex);
+
+            _rewriteCount++;
+            return inlineReplacement;
+        }
+
+        var replacement2 = RangeRewriter.RewriteRangeInvocation(
+            effectiveSite, anchor, _names, Pending, _stats, _diagnostics);
+        if (replacement2 == null)
+            return AnnotateInvocationRange(visited, rangeArgumentIndex);
+
+        _rewriteCount++;
+        RegisterAnchor(anchor);
+        return replacement2;
+    }
+
     public override Microsoft.CodeAnalysis.SyntaxNode? VisitElementBindingExpression(
         ElementBindingExpressionSyntax node)
     {
@@ -244,6 +382,11 @@ internal sealed class IndexRangeSyntaxRewriter : Microsoft.CodeAnalysis.CSharp.C
         if (IsElementAccessArgument(node))
             return visited;
 
+        // M4: a hat operand of a range fed to a single-Range method invocation
+        // is handled together with that invocation (VisitInvocationExpression).
+        if (IsRangeInvocationOwned(node))
+            return visited;
+
         // C36 owns ranges/hats inside a collection-expression spread ([..]).
         if (IsSpreadOwned(node))
             return visited.WithAdditionalAnnotations(
@@ -267,6 +410,11 @@ internal sealed class IndexRangeSyntaxRewriter : Microsoft.CodeAnalysis.CSharp.C
         var visited = (RangeExpressionSyntax)base.VisitRangeExpression(node)!;
 
         if (IsElementAccessArgument(node))
+            return visited;
+
+        // M4: a range argument of a single-Range method invocation is owned
+        // by VisitInvocationExpression (rewrite or its own IR120).
+        if (IsRangeInvocationOwned(node))
             return visited;
 
         // C36 owns ranges inside a collection-expression spread ([..]).
@@ -321,21 +469,66 @@ internal sealed class IndexRangeSyntaxRewriter : Microsoft.CodeAnalysis.CSharp.C
     {
         var visited = (ParameterSyntax)base.VisitParameter(node)!;
 
-        if (_model != null
-            && node.Type != null
-            && ReceiverKindAnalyzer.IsIndexOrRangeType(
+        if (_model == null
+            || node.Type == null
+            || !ReceiverKindAnalyzer.IsIndexOrRangeType(
                 _model.GetTypeInfo(node.Type).Type))
         {
-            Emit(new IndexRangeDiagnostic(
-                "IR120",
-                IndexRangeSeverity.Error,
-                $"System.Index/System.Range parameter '{node.Identifier.Text}' " +
-                "is not supported; replace it with explicit int offset/count " +
-                "parameters."));
-            _stats.AddSkip("IR120");
+            return visited;
         }
 
+        // M4: this[System.Index]/this[System.Range] indexer parameters are the
+        // explicit-indexer surface consumed by the pattern downgrade; the
+        // member signature itself is kept (calls are rewritten to the int
+        // indexer/Slice members).
+        if (node.Parent is BracketedParameterListSyntax
+            {
+                Parent: IndexerDeclarationSyntax
+            })
+        {
+            return visited;
+        }
+
+        // M4: a Range-tail method parameter is exempt when an int (int, int)
+        // sibling overload exists — every range call site is lowered to it.
+        if (node.Type != null
+            && ReceiverKindAnalyzer.IsSystemRange(
+                _model.GetTypeInfo(node.Type).Type)
+            && FindParameterOwnerSymbol(node) is IMethodSymbol owner
+            && ReceiverKindAnalyzer.HasIntSiblingOverload(owner))
+        {
+            return visited;
+        }
+
+        Emit(new IndexRangeDiagnostic(
+            "IR120",
+            IndexRangeSeverity.Error,
+            $"System.Index/System.Range parameter '{node.Identifier.Text}' " +
+            "is not supported; replace it with explicit int offset/count " +
+            "parameters."));
+        _stats.AddSkip("IR120");
+
         return visited;
+    }
+
+    private IMethodSymbol? FindParameterOwnerSymbol(ParameterSyntax node)
+    {
+        if (_model == null)
+            return null;
+
+        SyntaxNode? current = node.Parent;
+        while (current != null)
+        {
+            if (current is MethodDeclarationSyntax
+                or LocalFunctionStatementSyntax)
+            {
+                return _model.GetDeclaredSymbol(current) as IMethodSymbol;
+            }
+
+            current = current.Parent;
+        }
+
+        return null;
     }
 
     public override Microsoft.CodeAnalysis.SyntaxNode? VisitMethodDeclaration(
@@ -425,6 +618,56 @@ internal sealed class IndexRangeSyntaxRewriter : Microsoft.CodeAnalysis.CSharp.C
             current = range;
 
         return current.Parent is SpreadElementSyntax;
+    }
+
+    /// <summary>
+    /// True when the node is a range (or a hat inside a range operand) passed
+    /// to a single-System.Range-parameter invocation owned by this pass.
+    /// </summary>
+    private bool IsRangeInvocationOwned(Microsoft.CodeAnalysis.SyntaxNode node)
+    {
+        if (_model == null)
+            return false;
+
+        var current = node;
+        if (current.Parent is RangeExpressionSyntax outerRange)
+            current = outerRange;
+
+        return current is RangeExpressionSyntax range
+               && ReceiverKindAnalyzer.IsRangeInvocationArgument(range, _model);
+    }
+
+    private static int IndexOfRangeArgument(InvocationExpressionSyntax invocation)
+    {
+        for (var i = 0; i < invocation.ArgumentList.Arguments.Count; i++)
+        {
+            if (invocation.ArgumentList.Arguments[i].Expression
+                is RangeExpressionSyntax)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// Marks the range argument (including hat nodes nested in its operands)
+    /// as diagnostic-covered so the residual gate does not recount it.
+    /// </summary>
+    private static InvocationExpressionSyntax AnnotateInvocationRange(
+        InvocationExpressionSyntax invocation, int argumentIndex)
+    {
+        var argumentExpression = invocation.ArgumentList
+            .Arguments[argumentIndex].Expression;
+        var targets = argumentExpression
+            .DescendantNodesAndSelf()
+            .Where(IndexRangeSyntaxFacts.IsIndexOrRangeNode)
+            .ToList();
+        return invocation.ReplaceNodes(
+            targets,
+            (_, rewritten) => rewritten.WithAdditionalAnnotations(
+                IndexRangeSyntaxFacts.CoveredAnnotation));
     }
 
     private static List<int> FindIndexRangeArguments(

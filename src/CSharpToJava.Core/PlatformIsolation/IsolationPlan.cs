@@ -176,12 +176,12 @@ public static class IsolationPlanner
             _ => "unresolved",
         };
 
-    /// <summary>动作 → PI 严重级（Reject/Facade 未实现为 Error；其余 Info）。</summary>
+    /// <summary>动作 → PI 严重级（Reject 为 Error；M3 起 Facade 已落地，为 Info；其余 Info）。</summary>
     internal static DiagnosticSeverity SeverityFor(PlatformIsolationAction action)
         => action switch
         {
             PlatformIsolationAction.Reject => DiagnosticSeverity.Error,
-            PlatformIsolationAction.Facade => DiagnosticSeverity.Error,
+            PlatformIsolationAction.Facade => DiagnosticSeverity.Info,
             _ => DiagnosticSeverity.Info,
         };
 }

@@ -250,4 +250,395 @@ public class IndexRangeRewriterUnitTests
         Assert.False(second.Changed);
         Assert.Equal(first.OutputCode, second.OutputCode);
     }
+
+    // ------------------------------------------------------------------
+    // M4: custom indexer/Slice patterns (bound symbols, never name text).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void M4_Hat_CustomIntPattern_UsesBoundLength()
+    {
+        const string source = """
+            namespace Lib
+            {
+                public class Vec
+                {
+                    public int Length => 0;
+                    public int this[int i] => 0;
+                }
+                public class S { public int M(Vec v) => v[^1]; }
+            }
+            """;
+        var result = Run(source);
+        Assert.True(result.Changed);
+        Assert.Contains("v[v.Length - 1]", result.OutputCode);
+        Assert.Equal(1, result.Statistics.HatElementSites);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
+    public void M4_Hat_DualIndexer_DowngradesToIntPattern()
+    {
+        const string source = """
+            using System;
+            namespace Lib
+            {
+                public class Dual
+                {
+                    public int Length => 0;
+                    public int this[int i] => 0;
+                    public int this[Index i] => 0;
+                }
+                public class S { public int M(Dual b) => b[^1]; }
+            }
+            """;
+        var result = Run(source);
+        Assert.True(result.Changed);
+        Assert.Contains("b[b.Length - 1]", result.OutputCode);
+        // The this[Index] member signature is consumed by the downgrade and
+        // must not itself produce a parameter IR120.
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
+    public void M4_Hat_IndexOnlyIndexer_IR120()
+    {
+        const string source = """
+            using System;
+            namespace Lib
+            {
+                public class IdxOnly { public int this[Index i] => 0; }
+                public class S { public int M(IdxOnly b) => b[^1]; }
+            }
+            """;
+        var result = Run(source);
+        Assert.False(result.Changed);
+            Assert.Contains(result.Diagnostics, d => d.Code == "IR120");
+    }
+
+    [Fact]
+    public void M4_Range_CustomPattern_BoundCountAndSlice()
+    {
+        const string source = """
+            using System;
+            namespace Lib
+            {
+                public readonly struct ReadOnlyView<T>
+                {
+                    public int Count => 0;
+                    public T this[int i] => default!;
+                    public ReadOnlyView<T> Slice(int off, int count) => default;
+                }
+                public class S
+                {
+                    public static ReadOnlyView<int> M(ReadOnlyView<int> v)
+                        => v[1..^1];
+                }
+            }
+            """;
+        var result = Run(source);
+        Assert.True(result.Changed);
+        Assert.Contains("v.Slice(1, v.Count - 2)", result.OutputCode);
+        Assert.Equal(1, result.Statistics.RangeSliceSites);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
+    public void M4_Range_ExplicitRangeIndexer_WithIntSlice_Rewritten()
+    {
+        const string source = """
+            using System;
+            namespace Lib
+            {
+                public class RBox
+                {
+                    public int Length => 0;
+                    public int this[int i] => 0;
+                    public int[] this[Range r] => System.Array.Empty<int>();
+                    public int[] Slice(int off, int count)
+                        => System.Array.Empty<int>();
+                }
+                public class S { public static int[] M(RBox b) => b[1..^1]; }
+            }
+            """;
+        var result = Run(source);
+        Assert.True(result.Changed);
+        Assert.Contains("b.Slice(1, b.Length - 2)", result.OutputCode);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
+    public void M4_Range_RangeOnlyIndexer_IR120()
+    {
+        const string source = """
+            using System;
+            namespace Lib
+            {
+                public class ROnly { public int[] this[Range r] => System.Array.Empty<int>(); }
+                public class S { public static int[] M(ROnly b) => b[1..2]; }
+            }
+            """;
+        var result = Run(source);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == "IR120");
+    }
+
+    [Fact]
+    public void M4_RangeInvocation_Instance_BoundIntOverload()
+    {
+        const string source = """
+            using System;
+            namespace Lib
+            {
+                public class Box
+                {
+                    public int Length => 0;
+                    public int this[int i] => 0;
+                    public Box Slice(Range r) => this;
+                    public Box Slice(int off, int count) => this;
+                }
+                public class S { public static Box M(Box b) => b.Slice(1..^1); }
+            }
+            """;
+        var result = Run(source);
+        Assert.True(result.Changed);
+        Assert.Contains("b.Slice(1, b.Length - 2)", result.OutputCode);
+        Assert.Equal(1, result.Statistics.RangeInvocationSites);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
+    public void M4_RangeInvocation_FullOpen_EmitsZeroLengthCall()
+    {
+        const string source = """
+            using System;
+            namespace Lib
+            {
+                public class Box
+                {
+                    public int Length => 0;
+                    public int this[int i] => 0;
+                    public Box Slice(Range r) => this;
+                    public Box Slice(int off, int count) => this;
+                }
+                public class S { public static Box M(Box b) => b.Slice(..); }
+            }
+            """;
+        var result = Run(source);
+        Assert.True(result.Changed);
+        Assert.Contains("b.Slice(0, b.Length)", result.OutputCode);
+    }
+
+    [Fact]
+    public void M4_RangeInvocation_ExtensionReducedForm_StaticEmission()
+    {
+        const string source = """
+            using System;
+            namespace Lib
+            {
+                public class Box { public int Length => 0; public int this[int i] => 0; }
+                public static class BoxExt
+                {
+                    public static Box Slice(this Box b, Range r) => b;
+                    public static Box Slice(this Box b, int off, int count) => b;
+                }
+                public class S { public static Box M(Box b) => b.Slice(1..^1); }
+            }
+            """;
+        var result = Run(source);
+        Assert.True(result.Changed);
+        Assert.Contains(
+            "Lib.BoxExt.Slice(b, 1, b.Length - 2)",
+            result.OutputCode);
+        Assert.Equal(1, result.Statistics.RangeInvocationSites);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
+    public void M4_RangeInvocation_ExtensionStaticForm_StaticEmission()
+    {
+        const string source = """
+            using System;
+            namespace Lib
+            {
+                public class Box { public int Length => 0; public int this[int i] => 0; }
+                public static class BoxExt
+                {
+                    public static Box Slice(this Box b, Range r) => b;
+                    public static Box Slice(this Box b, int off, int count) => b;
+                }
+                public class S
+                {
+                    public static Box M(Box b) => BoxExt.Slice(b, 1..^1);
+                }
+            }
+            """;
+        var result = Run(source);
+        Assert.True(result.Changed);
+        Assert.Contains(
+            "Lib.BoxExt.Slice(b, 1, b.Length - 2)",
+            result.OutputCode);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
+    public void M4_RangeInvocation_NoIntOverload_IR120()
+    {
+        const string source = """
+            using System;
+            namespace Lib
+            {
+                public class Box
+                {
+                    public int Length => 0;
+                    public int this[int i] => 0;
+                    public Box Slice(Range r) => this;
+                }
+                public class S { public static Box M(Box b) => b.Slice(1..2); }
+            }
+            """;
+        var result = Run(source);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == "IR120");
+    }
+
+    [Fact]
+    public void M4_AsSpanChain_RangeElement_LiftsReceiverAndLength()
+    {
+        const string source = """
+            using System;
+            public class S { public static Span<int> M(int[] a) => a.AsSpan()[1..^1]; }
+            """;
+        var result = Run(source);
+        Assert.True(result.Changed);
+        Assert.Contains("var __ir_r1 = a.AsSpan();", result.OutputCode);
+        Assert.Contains("int __ir_l2 = __ir_r1.Length;", result.OutputCode);
+        Assert.Contains("__ir_r1.Slice(1, __ir_l2 - 2)", result.OutputCode);
+    }
+
+    [Fact]
+    public void M4_Hat_DualIndexer_ImpureReceiver_SingleEvaluationTemps()
+    {
+        const string source = """
+            using System;
+            namespace Lib
+            {
+                public class Dual
+                {
+                    public int Length => 0;
+                    public int this[int i] => 0;
+                    public int this[Index i] => 0;
+                    public static Dual Make() => new();
+                }
+                public class S
+                {
+                    static int F() => 1;
+                    public static int M() => Dual.Make()[^F()];
+                }
+            }
+            """;
+        var result = Run(source);
+        Assert.True(result.Changed);
+        Assert.Contains("var __ir_r1 = Dual.Make();", result.OutputCode);
+        Assert.Contains("var __ir_n2 = F();", result.OutputCode);
+        Assert.Contains("int __ir_l3 = __ir_r1.Length;", result.OutputCode);
+        Assert.Contains("__ir_r1[__ir_l3 - __ir_n2]", result.OutputCode);
+    }
+
+    // ------------------------------------------------------------------
+    // M4 Q2 decision: standalone Index/Range locals stay IR120 (pinned).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void M4_Q2_IndexLocal_PairedUse_StaysIR120()
+    {
+        const string source = """
+            using System;
+            public class S
+            {
+                public static int M(int[] a)
+                {
+                    Index i = ^1;
+                    return a[i];
+                }
+            }
+            """;
+        var result = Run(source);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == "IR120");
+    }
+
+    [Fact]
+    public void M4_Q2_RangeLocal_StaysIR120()
+    {
+        const string source = """
+            using System;
+            public class S
+            {
+                public static void M(int[] a)
+                {
+                    Range r = 1..2;
+                    var x = r;
+                }
+            }
+            """;
+        var result = Run(source);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == "IR120");
+    }
+
+    [Fact]
+    public void M4_Q2_IndexParameterUse_StaysIR120()
+    {
+        const string source = """
+            using System;
+            public class S { public static int M(int[] a, Index i) => a[i]; }
+            """;
+        var result = Run(source);
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == "IR120");
+    }
+
+    // ------------------------------------------------------------------
+    // M4/C35: after NullConditionalDesugar the C31 pass takes over the
+    // ordinary element access inside the emitted ternary; C31 itself is
+    // never changed (the ?[ face still reports IR130).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void M4_C35DesugaredShape_HatIsRewrittenByC31()
+    {
+        const string source = """
+            public class S { public static int? M(int[] a) => a != null ? a[^1] : null; }
+            """;
+        var result = Run(source);
+        Assert.True(result.Changed);
+        Assert.Contains("a[a.Length - 1]", result.OutputCode);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
+    public void M4_CustomPattern_Idempotent_SecondRunIsClean()
+    {
+        const string source = """
+            using System;
+            namespace Lib
+            {
+                public class Box
+                {
+                    public int Length => 0;
+                    public int this[int i] => 0;
+                    public Box Slice(Range r) => this;
+                    public Box Slice(int off, int count) => this;
+                }
+                public class S { public static Box M(Box b) => b.Slice(1..^1); }
+            }
+            """;
+        var first = Run(source);
+        Assert.True(first.Changed);
+
+        var second = Run(first.OutputCode);
+        Assert.False(second.Changed);
+        Assert.Equal(first.OutputCode, second.OutputCode);
+    }
 }

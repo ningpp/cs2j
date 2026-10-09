@@ -356,9 +356,10 @@ public static class StubGenerator
 
     /// <summary>
     /// D5 签名移植：平台类型（9 类型前缀 / 8 成员前缀）→ 可移植句柄 <c>object</c>；
-    /// 记录每处变更。禁止保留平台类型参数。
+    /// 记录每处变更。禁止保留平台类型参数。M3 起供 FacadeGenerator 复用
+    /// （端口成员同一套 D5 规则，单一事实源）。
     /// </summary>
-    private static MemberDeclarationSyntax PortSignature(
+    internal static MemberDeclarationSyntax PortSignature(
         MemberDeclarationSyntax member,
         SemanticModel model,
         List<string> signatureChanges)

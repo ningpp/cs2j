@@ -1,3 +1,4 @@
+using SampleIndexRangeLib;
 using Xunit;
 
 namespace SampleIndexRangeTests;
@@ -41,5 +42,29 @@ public sealed class SliceOpsTests
         Assert.Equal(new[] { 'b', 'c' }, SampleIndexRangeLib.SliceOps.CharMiddle(new[] { 'a', 'b', 'c', 'd' }));
         Assert.Equal(new[] { true, false }, SampleIndexRangeLib.SliceOps.BoolMiddle(new[] { false, true, false, true }));
         Assert.Equal(new[] { "x" }, SampleIndexRangeLib.SliceOps.RefMiddle(new[] { "w", "x", "y" }));
+    }
+
+    [Fact]
+    public void M4CustomPatterns_RewrittenViaBoundSymbols()
+    {
+        Assert.Equal(3, CustomPatternOps.PatternLast(new PatternVec(1, 2, 3)));
+        Assert.Equal(6, CustomPatternOps.DualLast(new DualIndexerVec(4, 5, 6)));
+        Assert.Equal(
+            new[] { 1, 2, 3 },
+            CustomPatternOps.ExplicitRangeMiddle(new RangeSliceBox(0, 1, 2, 3, 4)));
+        Assert.Equal(
+            new[] { 1, 2, 3 },
+            CustomPatternOps.ViewMiddle(
+                new ReadOnlyListView<int>(new[] { 0, 1, 2, 3, 4 })));
+        Assert.Equal(
+            new[] { 1, 2, 3 },
+            CustomPatternOps.ExtSliceMiddle(new ExtSliceBox(0, 1, 2, 3, 4)));
+    }
+
+    [Fact]
+    public void M4_C35Joint_NullConditionalHatThenC31()
+    {
+        Assert.Equal(8, SliceOps.LastOrNull(new[] { 7, 8 }));
+        Assert.Null(SliceOps.LastOrNull(null));
     }
 }

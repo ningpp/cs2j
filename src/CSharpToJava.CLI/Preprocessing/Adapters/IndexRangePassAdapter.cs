@@ -218,6 +218,7 @@ internal sealed class IndexRangePassAdapter : ProjectPassAdapter
         _statistics.FilesDirtyNoRewrite += source.FilesDirtyNoRewrite;
         _statistics.HatElementSites += source.HatElementSites;
         _statistics.RangeSliceSites += source.RangeSliceSites;
+        _statistics.RangeInvocationSites += source.RangeInvocationSites;
         _statistics.StandaloneIndexSites += source.StandaloneIndexSites;
         _statistics.StandaloneRangeSites += source.StandaloneRangeSites;
         _statistics.ReceiverTempsLifted += source.ReceiverTempsLifted;

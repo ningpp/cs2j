@@ -107,7 +107,10 @@ public sealed class PassChainOrderTests
         PassStubCatalog.Ids.ConcurrencyNormalize,
         PassStubCatalog.Ids.EqualityConcat,
         // C42 platform-isolation is Implemented; it anchors eliminate-goto and
-        // stays before java-keywords (§3.3).
+        // stays before java-keywords (§3.3). M3 adds a RunAfter edge on
+        // unsafe-ffm (already locked earlier at slot 77): the edge is consistent
+        // with this sequence, so the Kahn result is unchanged and the cycle
+        // guard below still proves acyclicity (附录裁决2).
         PassStubCatalog.Ids.PlatformIsolation,
         // C25 dynamic-desugar AUDIT flipped to DEFAULT-ON on 2026-10-06
         // (design §8 audit gates); Rewrite stays opt-in. Declared right after

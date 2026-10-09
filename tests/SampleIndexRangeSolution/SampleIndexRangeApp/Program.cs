@@ -32,6 +32,12 @@ internal static class Program
         EqStr("abc", SliceOps.StrHead("abcd"));
         EqStr("cd", SliceOps.StrFromEnd("abcd"));
 
+        // C35+C31 联合：a?[^1] 经 NullConditionalDesugar 后由 index-range 接力。
+        int? last = SliceOps.LastOrNull(new[] { 7, 8 });
+        EqInt(8, last!.Value);
+        int? none = SliceOps.LastOrNull(null);
+        if (none != null) Fail("null-conditional", "expected null");
+
         Console.WriteLine("ALL OK");
     }
 

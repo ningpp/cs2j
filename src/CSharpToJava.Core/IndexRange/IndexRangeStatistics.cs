@@ -16,6 +16,12 @@ public sealed class IndexRangeStatistics
     /// <summary>x[a..b] slice sites rewritten (all receiver kinds).</summary>
     public int RangeSliceSites;
 
+    /// <summary>
+    /// Explicit receiver.Method(a..b) sites rewritten to the bound int
+    /// (int, int) overload (M4 custom Slice, incl. extension methods).
+    /// </summary>
+    public int RangeInvocationSites;
+
     /// <summary>Standalone ^n sites (reported, never rewritten).</summary>
     public int StandaloneIndexSites;
 
