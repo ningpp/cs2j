@@ -10,6 +10,12 @@ public static class GenericDeepenSyntaxFacts
     public const string E10SentinelPrefix = "__cs2j_typeof_";
     public const string HolderPrefix = "__Cs2jGenericHolder_";
     public const string GeneratedFileStem = "_Cs2jGenericHolders";
+    public const string HolderGetAccessorPrefix = "__cs2j_get_";
+    public const string HolderSetAccessorPrefix = "__cs2j_set_";
+
+    public static bool IsHolderAccessorName(string name)
+        => name.StartsWith(HolderGetAccessorPrefix, StringComparison.Ordinal)
+            || name.StartsWith(HolderSetAccessorPrefix, StringComparison.Ordinal);
 
     public static string AnchorVariableName(string typeParamName) => AnchorPrefix + typeParamName;
 

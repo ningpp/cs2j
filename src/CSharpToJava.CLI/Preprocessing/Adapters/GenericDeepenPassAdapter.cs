@@ -56,7 +56,11 @@ internal sealed class GenericDeepenPassAdapter : ProjectPassAdapter
     public override Task CompilationReadyAsync(CSharpCompilation compilation)
     {
         _preprocessor.BindCompilation(compilation);
-        _preprocessor.Analyze(_options);
+        var analysis = _preprocessor.Analyze(_options);
+        // Analysis-phase counters exist once per tree (nested-closure propagations,
+        // expression-tree skips, plan skips); the per-file rewrites add the rest.
+        // Diagnostics are delivered per file via RewriteFileAsync (by relative path).
+        _statistics.Merge(analysis.Statistics);
         return Task.CompletedTask;
     }
 
@@ -116,16 +120,18 @@ internal sealed class GenericDeepenPassAdapter : ProjectPassAdapter
         var compilation = CSharpCompilation.Create(
             CompilationName ?? "cs2j-generic-deepen-residual",
             trees, GetMetadataReferences(), CreateCompilationOptions());
-        foreach (var (rule, count) in GenericDeepenResidualScanner.Scan(compilation))
+        var report = _preprocessor.ResidualScan(compilation);
+        foreach (var (rule, count) in report.Counts)
         {
             _statistics.ResidualsByRule.TryGetValue(rule, out var existing);
             _statistics.ResidualsByRule[rule] = existing + count;
-            _diagnostics.Add(new GenericDeepenDiagnostic(
-                _options.Strict ? GenericDeepenSeverity.Error : GenericDeepenSeverity.Warning,
-                GenericDeepenRule.Residual,
-                GenericDeepenCodes.ResidualFound,
-                $"{count} residual site(s) of rule '{rule}' remain after generic-deepen; the rewrite did not cover them (spec §4.5).",
-                tree.IntermediateRoot));
+        }
+
+        foreach (var diagnostic in report.Diagnostics)
+        {
+            _diagnostics.Add(diagnostic.FilePath == null
+                ? diagnostic with { FilePath = tree.IntermediateRoot }
+                : diagnostic);
         }
     }
 

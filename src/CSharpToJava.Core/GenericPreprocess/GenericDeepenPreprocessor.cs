@@ -35,6 +35,7 @@ public sealed class GenericDeepenPreprocessor
         };
         var diagnostics = new List<GenericDeepenDiagnostic>();
         var anchorsByNode = new Dictionary<SyntaxNode, TokenAnchorPlan>();
+        var closuresByNode = new Dictionary<SyntaxNode, ClosureAnchorPlan>();
         var patternsByNode = new Dictionary<SyntaxNode, TypeParamPatternPlan>();
         var catchesByNode = new Dictionary<SyntaxNode, CatchTypeParamPlan>();
         var fieldDeclRemovals = new HashSet<SyntaxNode>();
@@ -44,6 +45,14 @@ public sealed class GenericDeepenPreprocessor
             if (plan.Declaration.SyntaxTree == model.SyntaxTree)
             {
                 anchorsByNode[plan.Declaration] = plan;
+            }
+        }
+
+        foreach (var plan in _analysis.ClosureAnchors)
+        {
+            if (plan.Closure.SyntaxTree == model.SyntaxTree)
+            {
+                closuresByNode[plan.Closure] = plan;
             }
         }
 
@@ -97,7 +106,8 @@ public sealed class GenericDeepenPreprocessor
             }
         }
 
-        if (anchorsByNode.Count == 0 && patternsByNode.Count == 0 && catchesByNode.Count == 0
+        if (anchorsByNode.Count == 0 && closuresByNode.Count == 0
+            && patternsByNode.Count == 0 && catchesByNode.Count == 0
             && fieldDeclRemovals.Count == 0 && fieldUsages.Count == 0
             && staticMethodsByNode.Count == 0 && staticCallSites.Count == 0)
         {
@@ -108,8 +118,8 @@ public sealed class GenericDeepenPreprocessor
 
         var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
         var rewriter = new GenericDeepenRewriter(
-            anchorsByNode, patternsByNode, catchesByNode, fieldDeclRemovals, fieldUsages,
-            staticMethodsByNode, staticCallSites, stats, diagnostics, model.SyntaxTree.FilePath);
+            anchorsByNode, closuresByNode, patternsByNode, catchesByNode, fieldDeclRemovals, fieldUsages,
+            staticMethodsByNode, staticCallSites, stats, diagnostics, model);
         var newRoot = rewriter.Visit(root);
         AppendAnalysisDiagnostics(diagnostics, model);
         if (newRoot == root)
@@ -127,6 +137,49 @@ public sealed class GenericDeepenPreprocessor
     {
         var filePath = model.SyntaxTree.FilePath;
         diagnostics.AddRange(_analysis.Diagnostics.Where(d => d.FilePath == filePath));
+    }
+
+    /// <summary>
+    /// Runs the §4.5 residual gate against the rewritten, recompiled tree set.
+    /// Overrides are loaded from <see cref="GenericDeepenOptions.OverridesPath"/>;
+    /// a malformed/unreadable file degrades to a CS2J1120 Warning and runs the gate
+    /// without overrides (same convention as the closed-metadata gate).
+    /// </summary>
+    public GenericDeepenResidualReport ResidualScan(Compilation rewritten)
+    {
+        if (!_options.RunResidualScan)
+        {
+            return GenericDeepenResidualReport.Empty;
+        }
+
+        GenericDeepenOverrides? overrides = null;
+        var loadDiagnostics = new List<GenericDeepenDiagnostic>();
+        if (!string.IsNullOrEmpty(_options.OverridesPath))
+        {
+            try
+            {
+                overrides = GenericDeepenOverrides.Load(_options.OverridesPath);
+            }
+            catch (Exception ex) when (ex is GenericDeepenOverridesException or IOException or System.Text.Json.JsonException)
+            {
+                loadDiagnostics.Add(new GenericDeepenDiagnostic(
+                    GenericDeepenSeverity.Warning, GenericDeepenRule.Residual, GenericDeepenCodes.ResidualFound,
+                    $"Failed to load generic-deepen overrides from {_options.OverridesPath}: {ex.Message}; "
+                    + "running the residual gate without overrides.",
+                    _options.OverridesPath));
+            }
+        }
+
+        var report = GenericDeepenResidualScanner.Scan(rewritten, _analysis, _options, overrides);
+        if (loadDiagnostics.Count == 0)
+        {
+            return report;
+        }
+
+        return report with
+        {
+            Diagnostics = loadDiagnostics.Concat(report.Diagnostics).ToList(),
+        };
     }
 
     private static string TryFormat(SyntaxNode root)

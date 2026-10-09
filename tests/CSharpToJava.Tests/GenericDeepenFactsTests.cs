@@ -1,5 +1,6 @@
 using CSharpToJava.Core.Analysis;
 using CSharpToJava.Core.GenericPreprocess;
+using CSharpToJava.Core.JavaKeywords;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -40,6 +41,66 @@ public class GenericDeepenFactsTests
         var (model, lambda) = BindLambda(
             "using System; class C { void M() { Func<int,bool> f = x => x > 1; } }");
         Assert.False(ExpressionTreeFacts.IsExpressionTreeLambda(model, lambda));
+    }
+
+    [Fact]
+    public void ExpressionTreeFacts_NestedFuncLambdaInsideQuotedLambda_IsContained()
+    {
+        // The inner Func lambda is not itself Expression-converted, but it is a
+        // node of the quoted tree: lexical containment must classify it (M4).
+        var tree = CSharpSyntaxTree.ParseText(
+            "using System; using System.Linq.Expressions; class C { " +
+            "Expression<Func<Func<object,bool>>> M<T>() where T : class => () => x => x is T; }");
+        var compilation = CSharpCompilation.Create("gd-facts-nested",
+            new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Func<>).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(System.Linq.Expressions.Expression).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var lambdas = tree.GetRoot().DescendantNodes().OfType<LambdaExpressionSyntax>().ToList();
+        Assert.Equal(2, lambdas.Count);
+        Assert.False(ExpressionTreeFacts.IsExpressionTreeLambda(model, lambdas[0]));
+        Assert.True(ExpressionTreeFacts.IsInsideQuotedExpressionLambda(model, lambdas[0]));
+        Assert.True(ExpressionTreeFacts.FindEnclosingQuotedLambda(model, lambdas[0]) is not null);
+    }
+
+    [Fact]
+    public void ExpressionTreeFacts_ArgumentSiteConvertingToExpression_IsContained()
+    {
+        var tree = CSharpSyntaxTree.ParseText(
+            "using System; using System.Linq.Expressions; static class Q { " +
+            "static void Where(Expression<Func<int,bool>> p) { } " +
+            "void M() { Where(x => x > 1); } }");
+        var compilation = CSharpCompilation.Create("gd-facts-arg",
+            new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Func<>).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(System.Linq.Expressions.Expression).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var lambda = tree.GetRoot().DescendantNodes().OfType<LambdaExpressionSyntax>().First();
+        Assert.True(ExpressionTreeFacts.LambdaArgumentSiteConvertsToExpression(model, lambda));
+        Assert.True(ExpressionTreeFacts.IsInsideQuotedExpressionLambda(model, lambda));
+    }
+
+    [Fact]
+    public void JavaKeywords_DelegatesToSharedExpressionTreeFacts()
+    {
+        // C08 side of the shared-predicate extraction: behavior must stay identical.
+        var (model, lambda) = BindLambda(
+            "using System; using System.Linq.Expressions; class C { void M() { Expression<Func<int,bool>> e = x => x > 1; } }");
+        Assert.True(JavaKeywordSyntaxFacts.IsExpressionTreeLambda(model, lambda));
+
+        var (model2, lambda2) = BindLambda(
+            "using System; class C { void M() { Func<int,bool> f = x => x > 1; } }");
+        Assert.False(JavaKeywordSyntaxFacts.IsExpressionTreeLambda(model2, lambda2));
     }
 
     [Fact]
