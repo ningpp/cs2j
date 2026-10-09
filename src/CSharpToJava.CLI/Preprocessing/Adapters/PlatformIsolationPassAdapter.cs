@@ -14,12 +14,14 @@ namespace CSharpToJava.CLI.Preprocessing.Adapters;
 /// one of four modes:
 /// <list type="bullet">
 /// <item><b>Report</b> (default): byte-copy + <c>platform-isolation-report.json</c>, no verify;</item>
-/// <item><b>Reject</b>: no source change; every Reject/Facade site emits PI030 Error
+/// <item><b>Reject</b>: no source change; every Reject site emits PI030 Error
 /// (original CS2J3xxx code + identity + suggestion) → the chain fails, exit != 0;</item>
 /// <item><b>Stub</b>: whole-tree apply via Core (probe redirect / PNSE stubs / guard strip),
 /// generated files distributed under <c>generated/</c>, intermediate-tree build/test
 /// verification dual-on (gated by the global <c>--no-verify-*</c>);</item>
-/// <item><b>Facade</b>: explicit "M3 not implemented" failure (never silently degrades).</item>
+/// <item><b>Facade</b> (M3): two-phase whole-tree apply — Stub channel first, then
+/// <c>FacadeGenerator</c> emits port interfaces + partial seams + user slots
+/// (no port implementation; PI020 Info), same verification dual-on as Stub.</item>
 /// </list>
 /// "拒绝优先、不交付部分改写"(§3.5): any PI040/PI031 Error makes the whole run fail
 /// (<see cref="HasErrors"/>), so no partial-isolation tree is delivered.
@@ -47,7 +49,6 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
     private PlatformIsolationReportBuildResult? _report;
     private PlatformIsolationReport? _outputReport;
     private PlatformIsolationApplyResult? _applyResult;
-    private bool _modeUnsupported;
 
     public PlatformIsolationPassAdapter(
         PlatformIsolationOptions options,
@@ -103,18 +104,6 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
         _preprocessor.BindCompilation(
             compilation, _options, isTestProject, _compatNamespacePrefixes);
 
-        if (_options.Mode == PlatformIsolationMode.Facade)
-        {
-            // 禁止静默降级：Facade 端口生成属 C42 M3。
-            _modeUnsupported = true;
-            _diagnostics.Add(new ChainDiagnostic(
-                "error",
-                PreprocessDiagnosticCodes.StubNotImplemented,
-                "platform-isolation Facade mode is not implemented until C42 M3; " +
-                "use Stub or Reject."));
-            return Task.CompletedTask;
-        }
-
         _inventory = _preprocessor.BuildInventory();
         _report = _preprocessor.BuildReport();
         _outputReport = RelativizeReport(_report.Report);
@@ -126,7 +115,8 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
         }
         else
         {
-            // Reject / Stub：整树一次 apply，动作码 + residual 闸门由 Core 产出。
+            // Reject / Stub / Facade：整树一次 apply（Facade 在 Core 内走两遍组合），
+            // 动作码 + residual 闸门由 Core 产出。
             _applyResult = _preprocessor.RewriteAll();
             foreach (var diagnostic in _applyResult.Diagnostics)
             {
@@ -240,15 +230,10 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
             $"dotnet test failed with exit code {exitCode} after platform-isolation preprocessing."));
 
     public override bool HasErrors =>
-        _modeUnsupported || _diagnostics.Any(d => d.Level == "error");
+        _diagnostics.Any(d => d.Level == "error");
 
     public override string? BuildChainSummaryLine()
     {
-        if (_modeUnsupported)
-        {
-            return $"platform-isolation: mode '{_options.Mode}' not implemented (M3)";
-        }
-
         if (_report is null)
         {
             return null;
@@ -280,30 +265,31 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
         PassTreeContext tree,
         IReadOnlyList<GeneratedFile> generatedFiles)
     {
+        var projectDirectories = EnumerateProjectDirectories(tree.IntermediateRoot).ToList();
+
         foreach (var generated in generatedFiles)
         {
-            var destination = Path.Combine(
-                tree.IntermediateRoot,
-                generated.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+            var relativePath = generated.RelativePath.Replace('/', Path.DirectorySeparatorChar);
+
+            // Tree-root copy stays for audit (§3.4).
+            var destination = Path.Combine(tree.IntermediateRoot, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             await File.WriteAllTextAsync(
                 destination, generated.Content,
                 new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
-            // The probe shim must live INSIDE each project directory, otherwise the
-            // project's default Compile glob never sees it and the redirected call
-            // sites fail to compile. The tree-root copy above stays for audit (§3.4).
-            if (generated.RelativePath.EndsWith(StubGenerator.ProbeShimFileName, StringComparison.Ordinal))
+            // Every generated artifact must also live INSIDE each project directory,
+            // otherwise the project's default Compile glob never sees it: the probe
+            // shim backs redirected call sites that may live in any project, and M3
+            // facade ports/slots (generated/&lt;ns&gt;/...) are distributed preserving
+            // their relative subpath.
+            foreach (var projectDirectory in projectDirectories)
             {
-                foreach (var projectDirectory in EnumerateProjectDirectories(tree.IntermediateRoot))
-                {
-                    var projectCopy = Path.Combine(
-                        projectDirectory, "generated", StubGenerator.ProbeShimFileName);
-                    Directory.CreateDirectory(Path.GetDirectoryName(projectCopy)!);
-                    await File.WriteAllTextAsync(
-                        projectCopy, generated.Content,
-                        new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-                }
+                var projectCopy = Path.Combine(projectDirectory, relativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(projectCopy)!);
+                await File.WriteAllTextAsync(
+                    projectCopy, generated.Content,
+                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
             }
         }
     }

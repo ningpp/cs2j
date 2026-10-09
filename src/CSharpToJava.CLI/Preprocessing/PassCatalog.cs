@@ -619,17 +619,20 @@ internal static class PassCatalog
             PassStage.Abi,
             PassStatus.Implemented,
             defaultEnabled: true,
-            // M1/M2 anchor eliminate-goto only (M3 adds unsafe-ffm, §3.2).
+            // M3 adds unsafe-ffm: C42 consumes C06 normalized interop facades
+            // (InteropFacade marker / whitelist predicate), so it must run after
+            // unsafe-ffm; the locked chain already orders it there (§3.2/附录裁决2).
             // Declaration order here keeps platform -> concurrency -> dynamic
             // (the late stubs) and stays before java-keywords.
-            runAfterIds: new[] { PassIds.EliminateGoto },
+            runAfterIds: new[] { PassIds.EliminateGoto, PassStubCatalog.Ids.UnsafeFfm },
             needsSemanticModel: true,
             // The adapter closes verification in Report mode (M1); the dual-on
             // default applies to the M2 Stub/Facade apply modes (§3.1).
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
             description: "Audit platform / interop boundaries into a machine-readable inventory and report " +
-                         "before Java conversion (C42 M1: Report mode only; no source rewrite).",
+                         "before Java conversion (default Report; --platform-mode opts into Reject/Stub/Facade " +
+                         "apply modes, M2/M3).",
             catalogItems: "C42"),
         new(
             PassStubCatalog.Ids.DynamicDesugar,

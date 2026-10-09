@@ -1,3 +1,4 @@
+using CSharpToJava.Core.Analysis;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 using Microsoft.CodeAnalysis;
@@ -173,9 +174,18 @@ internal static class BoundaryInventoryBuilder
 
             // 原生互操作。M2：NativeMethods.cs 文件豁免不再伪装成跳过，登记为
             // Exemption=NativeMethods 的 Reject 站点（D8/§7.4 不允许文件名逃生口）。
+            // M3：C06 unsafe-ffm 已归一并带 InteropFacade 标记的声明，其 3201/3203
+            // 与 UF060/UF070 重复报，按共享谓词抑制（设计 §4.5；只读消费 C06 谓词）。
             var isNativeMethods = BoundaryAnalysisHelpers.IsPInvokeContainerFile(filePath);
             foreach (var diagnostic in NativeInteropAnalyzer.AnalyzeSyntaxTree(syntaxTree, semanticModel))
             {
+                if (diagnostic.Code is "CS2J3201" or "CS2J3203"
+                    && semanticModel != null
+                    && IsOnNormalizedInteropFacade(root, semanticModel, diagnostic))
+                {
+                    continue;
+                }
+
                 var family = diagnostic.Code switch
                 {
                     "CS2J3201" => BoundaryFamily.NativeAttribute,
@@ -265,6 +275,35 @@ internal static class BoundaryInventoryBuilder
 
         var node = root.FindNode(span, getInnermostNodeForTie: true);
         return node?.Kind().ToString() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// 3201/3203 站点是否落在 C06 已归一的受控 interop facade 上（M3 抑制）。
+    /// 3203 的位置是方法标识符、3201 的位置是特性节点：先按节点直接判（谓词认
+    /// 方法声明/调用/标识符），再上卷到包含它的方法声明，用方法符号上的
+    /// InteropFacade 标记终判（谓词同源 C06 InteropBoundaryFacts，不改 C06）。
+    /// </summary>
+    private static bool IsOnNormalizedInteropFacade(
+        SyntaxNode root,
+        SemanticModel semanticModel,
+        DiagnosticMessage diagnostic)
+    {
+        var span = diagnostic.Location?.SourceSpan;
+        if (span is not { IsEmpty: false } sourceSpan || sourceSpan.End > root.FullSpan.End)
+        {
+            return false;
+        }
+
+        var node = root.FindNode(sourceSpan, getInnermostNodeForTie: true);
+        if (InteropBoundaryFacts.IsNormalizedInteropFacade(semanticModel, node))
+        {
+            return true;
+        }
+
+        var method = node.AncestorsAndSelf().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+        return method != null
+               && semanticModel.GetDeclaredSymbol(method) is { } methodSymbol
+               && InteropBoundaryFacts.IsNormalizedInteropFacadeMethod(methodSymbol);
     }
 
     /// <summary>从冻结消息原文取单引号内身份串。</summary>
