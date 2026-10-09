@@ -118,5 +118,11 @@ internal static class Program
 
         // lock 内 yield：单线程输出序列正确（持锁时序由库测试断言）。
         WriteInts("locked", new SequenceSource().Locked(new object()));
+
+        // C04 M4：含 yield 的 switch（多 section/default、循环内空 section 贯穿）。
+        WriteInts("switch1", new SequenceSource().SwitchMap(1));
+        WriteInts("switch2", new SequenceSource().SwitchMap(2));
+        WriteInts("switchd", new SequenceSource().SwitchMap(7));
+        WriteInts("switchloop", new SequenceSource().SwitchInLoop(new[] { 0, 1, 2, 3 }));
     }
 }

@@ -233,12 +233,16 @@ internal static class IteratorBodyAnalysis
                 Region: null);
         }
 
-        // ── 4. 局部提升：全部局部提升为字段。
+        // ── 4. 局部提升：常规局部全部提升为字段。
         // MoveNext 体被扁平化为单层 goto 控制流，标签间跳转可能跨越原局部作用域，
         // 因此不做活性裁剪（foreach 迭代变量已在上方登记）。
+        // M4 例外：ref struct/ref local/指针局部永远不能成为 class 字段
+        // （CS4007/CS9217 族）；不跨 yield 边界的保留为 MoveNext 真局部
+        // （analyzer 已保证跨边界成员整体 skip，此处再不济也不发射非法字段）。
         foreach (var (symbol, _, _) in declaredLocals)
         {
             if (hoisted.ContainsKey(symbol)) continue;
+            if (IteratorLocalEscaping.IsRestricted(symbol)) continue;
             AddField(
                 symbol,
                 symbol.Name,

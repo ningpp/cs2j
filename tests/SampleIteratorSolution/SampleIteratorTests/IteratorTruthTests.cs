@@ -11,8 +11,9 @@ namespace SampleIteratorTests;
 /// ② 正常枚举完 finally 恰好一次；
 /// ③ 重复枚举互不共享状态。
 /// 另覆盖 List&lt;T&gt;/数组 foreach、嵌套 finally 三路径、提前结束迭代、
-/// foreach-in-try、非泛型 IEnumerable。这些测试同时在原始树与 iterator-lowering
-/// 中间树上运行——状态机改写必须保持全部 C# 语义。
+/// foreach-in-try、非泛型 IEnumerable，以及 M4 含 yield 的 switch
+/// （多 section/default、循环内 switch、空 section 贯穿）。这些测试同时在
+/// 原始树与 iterator-lowering 中间树上运行——状态机改写必须保持全部 C# 语义。
 /// </summary>
 public sealed class IteratorTruthTests
 {
@@ -252,5 +253,24 @@ public sealed class IteratorTruthTests
         Assert.True(Monitor.IsEntered(gate));
         ((IDisposable)enumerator).Dispose();
         Assert.False(Monitor.IsEntered(gate));
+    }
+
+    // ── C04 M4：含 yield 的 switch 展平后保持分支语义 ──
+
+    [Fact]
+    public void T21_SwitchMap_DispatchesBySection()
+    {
+        var source = new SequenceSource();
+        Assert.Equal(new[] { 10 }, ToList(source.SwitchMap(1)));
+        Assert.Equal(new[] { 20, 21 }, ToList(source.SwitchMap(2)));
+        Assert.Equal(new[] { 99 }, ToList(source.SwitchMap(7)));
+    }
+
+    [Fact]
+    public void T22_SwitchInLoop_EmptySectionFallthrough_AndDefault()
+    {
+        var source = new SequenceSource();
+        Assert.Equal(new[] { 0, 100, -2, -3 },
+            ToList(source.SwitchInLoop(new[] { 0, 1, 2, 3 })));
     }
 }

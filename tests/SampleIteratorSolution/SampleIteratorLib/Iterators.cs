@@ -7,7 +7,7 @@ namespace SampleIteratorLib;
 /// C04 M2 迭代器样例集：覆盖 for/while 风格循环、List&lt;T&gt;（值类型枚举器）、
 /// 数组 foreach、try/finally 保护区域、嵌套 finally、提前结束迭代、
 /// foreach-in-try 与非泛型 IEnumerable。计数器字段供 App/Tests 观察
-/// finally 执行次数契约。
+/// finally 执行次数契约。M3 增加 using/lock；M4 增加含 yield 的 switch。
 /// </summary>
 public sealed class SequenceSource
 {
@@ -140,6 +140,43 @@ public sealed class SequenceSource
         {
             yield return 71;
             yield return 72;
+        }
+    }
+
+    // ── C04 M4：含 yield 的 switch（展平为转发 switch + 顶层 section 标签） ──
+
+    public IEnumerable<int> SwitchMap(int k)
+    {
+        switch (k)
+        {
+            case 1:
+                yield return 10;
+                break;
+            case 2:
+                yield return 20;
+                yield return 21;
+                break;
+            default:
+                yield return 99;
+                break;
+        }
+    }
+
+    // 循环内 switch：空 section 贯穿（0/1 同分支），default 另走。
+    public IEnumerable<int> SwitchInLoop(int[] values)
+    {
+        foreach (var v in values)
+        {
+            switch (v)
+            {
+                case 0:
+                case 1:
+                    yield return v * 100;
+                    break;
+                default:
+                    yield return -v;
+                    break;
+            }
         }
     }
 }

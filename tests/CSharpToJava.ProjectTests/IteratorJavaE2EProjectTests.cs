@@ -16,9 +16,11 @@ namespace CSharpToJava.ProjectTests;
 /// 改写 SampleIteratorSolution（App + Lib），yield 迭代器被显式状态机 + goto
 /// CFG 取代，随后 eliminate-goto 把 goto 重写为结构化循环；生产工程再转换为
 /// Java，用 JDK 28 javac + compat target/classes 真实编译并启动 App main，
-/// JVM 输出必须与 .NET 真身预言机（xUnit T01–T14 同一组行为）逐字一致。
+/// JVM 输出必须与 .NET 真身预言机（xUnit T01–T22 同一组行为）逐字一致。
 /// 覆盖：for/List&lt;T&gt;/数组 foreach、try-finally 保护区域、嵌套 finally、
-/// yield break、提前 Dispose 时序、重复枚举状态隔离、非泛型 IEnumerable。
+/// yield break、提前 Dispose 时序、重复枚举状态隔离、非泛型 IEnumerable、
+/// M3 using/lock，以及 M4 含 yield 的 switch（转发 switch 经 eliminate-goto
+/// 结构化后转 Java，分支/空 section 贯穿语义逐字对拍）。
 /// 测试工程是 .NET 行为预言机、不产出 Java，慢门同样只转换生产工程。
 /// 快速门默认 Skip，慢门 CS2J_RUN_SLOW_E2E=1 执行。
 /// </summary>
@@ -52,7 +54,11 @@ public class IteratorJavaE2EProjectTests
         "usingdecl:33,44\n" +
         "usinglifo:55\n" +
         "usinglifo-order:ba\n" +
-        "locked:71,72";
+        "locked:71,72\n" +
+        "switch1:10\n" +
+        "switch2:20,21\n" +
+        "switchd:99\n" +
+        "switchloop:0,100,-2,-3";
 
     private static string DeployedFixture =>
         Path.Combine(AppContext.BaseDirectory, FixtureName);

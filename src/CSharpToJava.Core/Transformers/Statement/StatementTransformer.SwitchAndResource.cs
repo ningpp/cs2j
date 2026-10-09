@@ -117,6 +117,21 @@ public partial class StatementTransformer
                     && ifStmt.Else != null
                     && StatementAlwaysTerminatesSwitchSection(ifStmt.Statement)
                     && StatementAlwaysTerminatesSwitchSection(ifStmt.Else.Statement);
+            case SyntaxKind.SwitchStatement:
+                // A switch that can never complete normally: it covers every
+                // input (has a default label) and every section ends in a
+                // control-transfer statement. Both C# and javac apply this
+                // reachability rule; appending a `break;` after such a switch
+                // makes javac report an unreachable statement. This shape is
+                // emitted by iterator-lowering's forwarding switches inside
+                // the eliminate-goto state dispatch. Conservative on
+                // purpose: anything short of this keeps the trailing break.
+                return stmt is SwitchStatementSyntax nestedSwitch
+                    && nestedSwitch.Sections.Count > 0
+                    && nestedSwitch.Sections.Any(s => s.Labels.Any(l => l.IsKind(SyntaxKind.DefaultSwitchLabel)))
+                    && nestedSwitch.Sections.All(s =>
+                        s.Statements.Count > 0
+                        && StatementAlwaysTerminatesSwitchSection(s.Statements.Last()));
             default:
                 return false;
         }

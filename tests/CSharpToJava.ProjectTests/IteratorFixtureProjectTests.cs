@@ -17,21 +17,22 @@ using Xunit;
 namespace CSharpToJava.ProjectTests;
 
 /// <summary>
-/// C04 M2/M3 项目级 .NET 半区闸门（设计 §7.1 第 5 组）：以
+/// C04 M2/M3/M4 项目级 .NET 半区闸门（设计 §7.1 第 5 组）：以
 /// <c>--enable-pass iterator-lowering</c> 驱动默认预处理链改写
-/// SampleIteratorSolution（Lib + App + xUnit T01–T20 真身预言机）。
+/// SampleIteratorSolution（Lib + App + xUnit T01–T22 真身预言机）。
 /// 中间树必须：零 yield 残余、生成 Cs2jIterator_ 状态机类、dotnet build 通过，
-/// 且 20 个行为测试在改写后的树上 20/20 通过——覆盖枚举到一半 Dispose 的
+/// 且 22 个行为测试在改写后的树上 22/22 通过——覆盖枚举到一半 Dispose 的
 /// finally 恰好一次、正常枚举完一次、重复枚举状态隔离、嵌套 finally 三路径、
 /// yield break、List&lt;T&gt;/数组 foreach、foreach-in-try、非泛型 IEnumerable，
-/// 以及 M3 的 using 块/声明/嵌套 LIFO 释放与跨 yield 的 lock 持有/释放。
+/// M3 的 using 块/声明/嵌套 LIFO 释放与跨 yield 的 lock 持有/释放，
+/// 以及 M4 含 yield 的 switch（多 section/default、循环内、空 section 贯穿）。
 /// </summary>
 [Collection("SampleIteratorSolution")]
 public class IteratorFixtureProjectTests
 {
     private const string PassId = "iterator-lowering";
     private const string IntermediateDir = ".cs2j-iterator-lowering-src";
-    private const int TruthTestCount = 20;
+    private const int TruthTestCount = 22;
 
     private static string FixtureDir =>
         Path.Combine(AppContext.BaseDirectory, "SampleIteratorSolution");
@@ -59,7 +60,7 @@ public class IteratorFixtureProjectTests
             Strict = false,
             VerifyBuild = true,
             // 链尾 lexical-normalize 闸门会跑一次 fixture 测试；下面的显式 trx
-            // 运行再把 20/20 计数钉死。
+            // 运行再把 22/22 计数钉死。
             VerifyTests = true,
         });
 
@@ -178,7 +179,7 @@ public class IteratorFixtureProjectTests
         }
     }
 
-    // ── 基线：原始树上 T01–T20 全绿 ──
+    // ── 基线：原始树上 T01–T22 全绿 ──
 
     [Fact]
     public async Task Baseline_OriginalFixture_AllTruthTestsPassOnUnprocessedSource()
@@ -212,7 +213,7 @@ public class IteratorFixtureProjectTests
         }
     }
 
-    // ── 核心：开启 pass 后中间树 build + T01–T20 全绿 ──
+    // ── 核心：开启 pass 后中间树 build + T01–T22 全绿 ──
 
     [Fact]
     public async Task IteratorLoweringOn_LoweredTreeBuilds_AndAllTruthTestsMatchNetTruth()

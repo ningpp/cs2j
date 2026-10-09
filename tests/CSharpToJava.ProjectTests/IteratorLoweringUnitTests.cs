@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using CSharpToJava.Core.IteratorLowering;
 using CSharpToJava.Core.IteratorLowering.ControlFlow;
 using Microsoft.CodeAnalysis;
@@ -335,7 +336,6 @@ class C {
     }
 
     [Theory]
-    [InlineData("switch (x) { case 1: yield return 1; break; }", "int x")]
     [InlineData("if (x == 0) return; yield return 1;", "int x")]
     [InlineData("checked { yield return x; }", "int x")]
     [InlineData("using (var d = new System.IO.StringWriter()) { yield return 1; }", "")]
@@ -1490,7 +1490,385 @@ class C {
         Assert.Contains(result.Diagnostics, d => d.Code == IteratorLoweringDiagnosticCode.CS2J0403);
     }
 
+    // ── M4a：受限局部（ref struct/ref local/指针）保留策略 ──
+
+    [Fact]
+    public void M4_SpanLocal_DoesNotCrossYield_IsKeptAsRealLocal_NotAField()
+    {
+        var src = @"
+using System;
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M(int[] xs) {
+        Span<int> span = xs.AsSpan();
+        var first = span[0];
+        yield return first;
+    }
+}";
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        AssertOutputCompilesZeroDiagnostics(output);
+        // Span 保留为 MoveNext 真局部（不是状态机 class 字段）。
+        Assert.Contains("Span<int> span = _cs2jCap_xs.AsSpan();", Flat(output));
+        Assert.DoesNotContain("_cs2jLoc_span", output);
+        // 同体内的常规局部仍提升。
+        Assert.Contains("_cs2jLoc_first", output);
+    }
+
+    [Fact]
+    public void M4_RefLocal_DoesNotCrossYield_IsKeptAsRealLocal()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M(int[] xs) {
+        ref int r = ref xs[0];
+        var v = r;
+        yield return v;
+    }
+}";
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        AssertOutputCompilesZeroDiagnostics(output);
+        Assert.Contains("ref int r = ref _cs2jCap_xs[0];", Flat(output));
+        Assert.DoesNotContain("_cs2jLoc_r", output);
+    }
+
+    [Fact]
+    public void M4_SpanLocal_AliveAcrossYield_IsRejected_CS2J0403()
+    {
+        var src = @"
+using System;
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M(int[] xs) {
+        Span<int> span = xs.AsSpan();
+        yield return 0;
+        var v = span[0];
+        yield return v;
+    }
+}";
+        var model = ParseWithSemantics(src);
+        var result = new IteratorLoweringPreprocessor().Preprocess(src, model, new IteratorLoweringOptions());
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == IteratorLoweringDiagnosticCode.CS2J0403);
+    }
+
+    [Fact]
+    public void M4_SpanLocal_ReadInsideLaterYield_AfterEarlierSuspension_IsRejected()
+    {
+        var src = @"
+using System;
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M(int[] xs) {
+        Span<int> span = xs.AsSpan();
+        yield return span[0];
+        yield return span[1];
+    }
+}";
+        var model = ParseWithSemantics(src);
+        var result = new IteratorLoweringPreprocessor().Preprocess(src, model, new IteratorLoweringOptions());
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == IteratorLoweringDiagnosticCode.CS2J0403);
+    }
+
+    [Fact]
+    public void M4_SpanLocal_CreatedInsideLoopBody_EachIteration_CompilesAndRuns()
+    {
+        var src = @"
+using System;
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(int[] xs) {
+        for (var i = 0; i < xs.Length; i++) {
+            Span<int> span = xs.AsSpan(i, 1);
+            yield return span[0];
+        }
+    }
+}";
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        AssertOutputCompilesZeroDiagnostics(output);
+        Assert.DoesNotContain("_cs2jLoc_span", output);
+        var (values, _) = EnumerateFully(LoadRewritten(src), "M", new[] { 5, 6 });
+        Assert.Equal(new object[] { 5, 6 }, values);
+    }
+
+    [Fact]
+    public void M4_AddressOfLocal_IsAlwaysRejected_CS2J0403()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    static unsafe System.Collections.Generic.IEnumerable<int> M(int[] xs) {
+        int v = 1;
+        int* p = &v;
+        yield return v + *p;
+    }
+}";
+        var model = ParseWithSemantics(src);
+        var result = new IteratorLoweringPreprocessor().Preprocess(src, model, new IteratorLoweringOptions());
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == IteratorLoweringDiagnosticCode.CS2J0403);
+    }
+
+    [Fact]
+    public void M4_YieldInsideUnsafeBlock_IsRejected_CS2J0403()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    static unsafe System.Collections.Generic.IEnumerable<int> M() {
+        unsafe { yield return 1; }
+    }
+}";
+        var model = ParseWithSemantics(src);
+        var result = new IteratorLoweringPreprocessor().Preprocess(src, model, new IteratorLoweringOptions());
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == IteratorLoweringDiagnosticCode.CS2J0403);
+    }
+
+    [Fact]
+    public void M4_YieldFreeUnsafeFixedBlock_PassesThrough_AndRuns()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    public static unsafe IEnumerable<int> M(int[] xs) {
+        unsafe {
+            fixed (int* q = xs) {
+                *q += 1;
+            }
+        }
+        yield return xs[0];
+    }
+}";
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        AssertOutputCompilesZeroDiagnostics(output);
+        var (values, _) = EnumerateFully(LoadRewritten(src), "M", new[] { 41 });
+        Assert.Equal(new object[] { 42 }, values);
+    }
+
+    // ── M4a：含 yield 的 switch 展平 ──
+
+    [Fact]
+    public void M4_SwitchWithYield_FlattensToDispatchAndLabels_AndCompiles()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M(int k) {
+        switch (k) {
+            case 1: yield return 10; break;
+            case 2: yield return 20; yield return 21; break;
+            default: yield return 99; break;
+        }
+    }
+}";
+        var (output, stats, diags) = Rewrite(src);
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        Assert.Equal(1, stats.IteratorMembersLowered);
+        AssertOutputCompilesZeroDiagnostics(output);
+        Assert.DoesNotContain("yield", output);
+        // 保留只做转发的 switch；参数 k 已提升为字段。
+        Assert.Contains("switch (_cs2jCap_k)", Flat(output));
+    }
+
+    [Fact]
+    public void M4_SwitchWithYield_RuntimeDispatch_AllSections()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(int k) {
+        switch (k) {
+            case 1:
+                yield return 10;
+                break;
+            case 2:
+                yield return 20;
+                yield return 21;
+                break;
+            default:
+                yield return 99;
+                break;
+        }
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        Assert.Equal(new object[] { 10 }, EnumerateFully(asm, c, "M", 1).values);
+        Assert.Equal(new object[] { 20, 21 }, EnumerateFully(asm, c, "M", 2).values);
+        Assert.Equal(new object[] { 99 }, EnumerateFully(asm, c, "M", 7).values);
+    }
+
+    [Fact]
+    public void M4_Switch_EmptySectionFallthrough_AndSwitchInsideLoop()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(int[] xs) {
+        foreach (var v in xs) {
+            switch (v) {
+                case 0:
+                case 1:
+                    yield return v * 100;
+                    break;
+                default:
+                    yield return -v;
+                    break;
+            }
+        }
+    }
+}";
+        var asm = LoadRewritten(code);
+        var (values, _) = EnumerateFully(asm, "M", (object)new[] { 0, 1, 2, 3 });
+        Assert.Equal(new object[] { 0, 100, -2, -3 }, values);
+    }
+
+    [Fact]
+    public void M4_SwitchBreak_InsideTry_FinallyRunsOnce()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public int Fin;
+    public IEnumerable<int> M(int k) {
+        try {
+            switch (k) {
+                case 1: yield return 1; break;
+                default: yield return 2; break;
+            }
+        } finally { Fin++; }
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        var (values, _) = EnumerateFully(asm, c, "M", 5);
+        Assert.Equal(new object[] { 2 }, values);
+        // break 只跳出 switch，不跨 finally 区域；finally 在整段结束时一次。
+        Assert.Equal(1, GetField(c, "Fin"));
+    }
+
+    [Fact]
+    public void M4_SwitchBindingPatternVariable_WithYield_IsRejected_CS2J0402()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M(object x) {
+        switch (x) {
+            case int y:
+                yield return y;
+                break;
+        }
+    }
+}";
+        var model = ParseWithSemantics(src);
+        var result = new IteratorLoweringPreprocessor().Preprocess(src, model, new IteratorLoweringOptions());
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == IteratorLoweringDiagnosticCode.CS2J0402);
+    }
+
+    [Fact]
+    public void M4_SwitchSection_WithOutVarInBody_FlattensAndRuns()
+    {
+        var code = @"
+using System;
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(int k, string s) {
+        switch (k) {
+            case 1:
+                if (int.TryParse(s, out var n))
+                    yield return n;
+                else
+                    yield return -1;
+                break;
+            default:
+                yield return 0;
+                break;
+        }
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        Assert.Equal(new object[] { 7 }, EnumerateFully(asm, c, "M", 1, "7").values);
+        Assert.Equal(new object[] { -1 }, EnumerateFully(asm, c, "M", 1, "x").values);
+        Assert.Equal(new object[] { 0 }, EnumerateFully(asm, c, "M", 9, "7").values);
+    }
+
+    [Fact]
+    public void M4_GotoCase_WithYield_IsRejected_CS2J0406()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M(int x) {
+        switch (x) {
+            case 1:
+                yield return 1;
+                goto case 2;
+            case 2:
+                yield return 2;
+                break;
+        }
+    }
+}";
+        var model = ParseWithSemantics(src);
+        var result = new IteratorLoweringPreprocessor().Preprocess(src, model, new IteratorLoweringOptions());
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == IteratorLoweringDiagnosticCode.CS2J0406);
+    }
+
+    // ── M4a：残留 lambda 防御网 + struct this 按值捕获 ──
+
+    [Fact]
+    public void M4_ResidualLambda_IsRejected_CS2J0405()
+    {
+        var src = @"
+using System;
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M() {
+        Func<int> f = () => 1;
+        yield return f();
+    }
+}";
+        var model = ParseWithSemantics(src);
+        var result = new IteratorLoweringPreprocessor().Preprocess(src, model, new IteratorLoweringOptions());
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == IteratorLoweringDiagnosticCode.CS2J0405);
+    }
+
+    [Fact]
+    public void M4_StructIterator_CapturesThisByValue_OuterStructUntouched()
+    {
+        var code = @"
+using System.Collections.Generic;
+struct C {
+    public int Calls;
+    public IEnumerable<int> M() {
+        Calls++;
+        yield return Calls;
+        Calls++;
+        yield return Calls;
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        var (values, _) = EnumerateFully(asm, c, "M");
+        // 状态机持 this 的值拷贝：序列 1,2 落在拷贝上，外层结构体保持 0。
+        Assert.Equal(new object[] { 1, 2 }, values);
+        Assert.Equal(0, GetField(c, "Calls"));
+    }
+
     // ── Helpers: parsing / analysis / rewriting ──
+
+    private static string Flat(string s) => Regex.Replace(s, @"\s+", " ");
 
     private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest);
 

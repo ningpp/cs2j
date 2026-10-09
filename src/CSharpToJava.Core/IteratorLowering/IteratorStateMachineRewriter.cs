@@ -116,8 +116,15 @@ internal sealed class IteratorStateMachineRewriter
         }
         if (!plan.IsStatic)
         {
-            fields.Add(Field(ParseTypeName(plan.ThisCaptureType), IteratorLoweringNaming.ThisField,
-                Token(SyntaxKind.ReadOnlyKeyword)));
+            // M4：struct 迭代器按值捕获 this（Roslyn 状态机语义：外层结构体不被
+            // 改动）。值类型捕获字段必须可变——readonly 值类型字段上的变异会落在
+            // 编译器引入的临时拷贝上；引用类型保持 readonly。
+            var ownerIsValueType = _semanticModel.GetDeclaredSymbol(method)?
+                .ContainingType.IsValueType == true;
+            fields.Add(ownerIsValueType
+                ? Field(ParseTypeName(plan.ThisCaptureType), IteratorLoweringNaming.ThisField)
+                : Field(ParseTypeName(plan.ThisCaptureType), IteratorLoweringNaming.ThisField,
+                    Token(SyntaxKind.ReadOnlyKeyword)));
         }
         foreach (var f in plan.Parameters)
             fields.Add(Field(ParseTypeName(f.Type), f.FieldName));
@@ -705,11 +712,18 @@ internal sealed class IteratorStateMachineRewriter
         public override SyntaxNode? VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
         {
             var replacements = new List<StatementSyntax>();
+            var keptDeclarators = new List<VariableDeclaratorSyntax>();
             foreach (var variable in node.Declaration.Variables)
             {
-                if (_semanticModel.GetDeclaredSymbol(variable) is not { } local
-                    || !_info.HoistedSymbols.TryGetValue(local, out var field))
+                if (_semanticModel.GetDeclaredSymbol(variable) is not { } local)
                 {
+                    continue;
+                }
+                if (!_info.HoistedSymbols.TryGetValue(local, out var field))
+                {
+                    // M4: 未提升局部（不跨 yield 的 ref struct/ref/指针局部）
+                    // 保留为真局部声明。
+                    keptDeclarators.Add((VariableDeclaratorSyntax)Visit(variable)!);
                     continue;
                 }
                 if (variable.Initializer != null)
@@ -719,6 +733,12 @@ internal sealed class IteratorStateMachineRewriter
                         AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
                             IdentifierName(field.FieldName), initializer)));
                 }
+            }
+            if (keptDeclarators.Count > 0)
+            {
+                replacements.Insert(0, LocalDeclarationStatement(
+                    VariableDeclaration(node.Declaration.Type,
+                        SeparatedList(keptDeclarators))));
             }
             return Block(replacements).WithAdditionalAnnotations(WrapperAnnotation);
         }
@@ -731,20 +751,32 @@ internal sealed class IteratorStateMachineRewriter
             }
 
             var hoistedInit = new List<StatementSyntax>();
+            var keptDeclarators = new List<VariableDeclaratorSyntax>();
             foreach (var variable in node.Declaration.Variables)
             {
                 if (_semanticModel.GetDeclaredSymbol(variable) is { } local
-                    && _info.HoistedSymbols.TryGetValue(local, out var field)
-                    && variable.Initializer != null)
+                    && _info.HoistedSymbols.TryGetValue(local, out var field))
                 {
-                    var initializer = (ExpressionSyntax)Visit(variable.Initializer.Value)!;
-                    hoistedInit.Add(ExpressionStatement(
-                        AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
-                            IdentifierName(field.FieldName), initializer)));
+                    if (variable.Initializer != null)
+                    {
+                        var initializer = (ExpressionSyntax)Visit(variable.Initializer.Value)!;
+                        hoistedInit.Add(ExpressionStatement(
+                            AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
+                                IdentifierName(field.FieldName), initializer)));
+                    }
+                }
+                else
+                {
+                    // M4: 未提升的 for 头局部保留在 for 声明中（含 yield 的循环里
+                    // 这类局部若为受限类型已被 analyzer 判跨边界拒绝）。
+                    keptDeclarators.Add((VariableDeclaratorSyntax)Visit(variable)!);
                 }
             }
 
-            var newFor = node.WithDeclaration(null)
+            var newFor = node
+                .WithDeclaration(keptDeclarators.Count > 0
+                    ? VariableDeclaration(node.Declaration.Type, SeparatedList(keptDeclarators))
+                    : null)
                 .WithCondition((ExpressionSyntax?)Visit(node.Condition))
                 .WithInitializers(SeparatedList(node.Initializers.Select(i => (ExpressionSyntax)Visit(i)!)))
                 .WithIncrementors(SeparatedList(node.Incrementors.Select(i => (ExpressionSyntax)Visit(i)!)))
@@ -817,6 +849,9 @@ internal sealed class IteratorStateMachineRewriter
     {
         private abstract record Frame;
         private sealed record LoopFrame(string BeginLabel, string EndLabel) : Frame;
+        // M4: 含 yield 的 switch 被展平为"转发 switch + 顶层 section 标签"，
+        // break 解析到 EndLabel。
+        private sealed record SwitchFrame(string EndLabel) : Frame;
         // ForeachDispose 区域记录其所属循环的 begin 标签：continue 回到该循环时
         // 枚举器跨迭代存活，不能作为跨越区域被释放。
         private sealed record RegionFrame(RegionPlan Region, string? OwningLoopBeginLabel = null) : Frame;
@@ -906,11 +941,16 @@ internal sealed class IteratorStateMachineRewriter
                     return;
 
                 case BreakStatementSyntax:
-                    EmitLoopEdge(continueTarget: false);
+                    EmitBreakEdge();
                     return;
 
                 case ContinueStatementSyntax:
-                    EmitLoopEdge(continueTarget: true);
+                    EmitContinueEdge();
+                    return;
+
+                case SwitchStatementSyntax switchStmt
+                    when IteratorBodyAnalysis.ContainsYieldReturn(switchStmt):
+                    FlattenSwitch(switchStmt);
                     return;
 
                 case IfStatementSyntax ifStatement:
@@ -947,7 +987,8 @@ internal sealed class IteratorStateMachineRewriter
                     return;
 
                 default:
-                    // 不含 yield 的透传构造（无 yield try/catch、switch 等已由闸门保证）。
+                    // 不含 yield 的透传构造（无 yield try/catch、switch、checked、
+                    // unsafe/fixed 块等）：整段在同一状态段内顺序执行，原样搬运。
                     _out.Add(Ts(node));
                     return;
             }
@@ -984,8 +1025,39 @@ internal sealed class IteratorStateMachineRewriter
         private StatementSyntax BuildNestedCleanupChain(IReadOnlyList<RegionPlan> innerToOuter)
             => IteratorStateMachineRewriter.BuildNestedCleanupChain(innerToOuter, _info, _token);
 
-        private void EmitLoopEdge(bool continueTarget)
+        private void EmitBreakEdge()
         {
+            // break 的目标是最近的循环或 switch（M4 SwitchFrame）。
+            var targetIndex = -1;
+            for (var i = _stack.Count - 1; i >= 0; i--)
+            {
+                if (_stack[i] is LoopFrame or SwitchFrame) { targetIndex = i; break; }
+            }
+            if (targetIndex < 0)
+            {
+                // 非法用户代码（break 不在循环/switch 内），透传让编译器报错。
+                _out.Add(BreakStatement());
+                return;
+            }
+
+            var targetLabel = _stack[targetIndex] switch
+            {
+                LoopFrame loop => loop.EndLabel,
+                SwitchFrame sw => sw.EndLabel,
+                _ => throw new InvalidOperationException(),
+            };
+            var crossed = _stack.Skip(targetIndex + 1)
+                .OfType<RegionFrame>()
+                .Reverse()
+                .Select(f => f.Region)
+                .ToList(); // 内层 → 外层
+            EmitRegionExit(crossed);
+            _out.Add(Goto(targetLabel));
+        }
+
+        private void EmitContinueEdge()
+        {
+            // continue 只认循环（switch 不截获 continue）。
             var loopIndex = -1;
             for (var i = _stack.Count - 1; i >= 0; i--)
             {
@@ -993,8 +1065,8 @@ internal sealed class IteratorStateMachineRewriter
             }
             if (loopIndex < 0)
             {
-                // 非法用户代码（break/continue 不在循环内），透传让编译器报错。
-                _out.Add(continueTarget ? ContinueStatement() : BreakStatement());
+                // 非法用户代码（continue 不在循环内），透传让编译器报错。
+                _out.Add(ContinueStatement());
                 return;
             }
 
@@ -1003,32 +1075,73 @@ internal sealed class IteratorStateMachineRewriter
                 .OfType<RegionFrame>()
                 .Reverse()
                 .ToList(); // 内层 → 外层
-            if (continueTarget)
+            // 目标循环自身的 ForeachDispose 区域（枚举器在整个循环期间存活）
+            // 及其外层帧不在 continue 清理范围内：只清理严格位于其内侧的区域。
+            var ownIndex = -1;
+            for (var i = 0; i < crossedFrames.Count; i++)
             {
-                // 目标循环自身的 ForeachDispose 区域（枚举器在整个循环期间存活）
-                // 及其外层帧不在 continue 清理范围内：只清理严格位于其内侧的区域。
-                var ownIndex = -1;
-                for (var i = 0; i < crossedFrames.Count; i++)
+                if (crossedFrames[i].OwningLoopBeginLabel == loop.BeginLabel)
                 {
-                    if (crossedFrames[i].OwningLoopBeginLabel == loop.BeginLabel)
-                    {
-                        ownIndex = i;
-                        break;
-                    }
-                }
-                if (ownIndex >= 0)
-                {
-                    crossedFrames = crossedFrames.Take(ownIndex).ToList();
+                    ownIndex = i;
+                    break;
                 }
             }
-            var crossed = crossedFrames.Select(f => f.Region).ToList();
-            if (crossed.Count > 0)
+            if (ownIndex >= 0)
             {
-                var remaining = crossed[^1].ParentId ?? -1;
-                EmitActive(remaining);
-                _out.Add(BuildNestedCleanupChain(crossed));
+                crossedFrames = crossedFrames.Take(ownIndex).ToList();
             }
-            _out.Add(Goto(continueTarget ? loop.BeginLabel : loop.EndLabel));
+            EmitRegionExit(crossedFrames.Select(f => f.Region).ToList());
+            _out.Add(Goto(loop.BeginLabel));
+        }
+
+        private void EmitRegionExit(IReadOnlyList<RegionPlan> innerToOuter)
+        {
+            if (innerToOuter.Count == 0) return;
+            var remaining = innerToOuter[^1].ParentId ?? -1;
+            EmitActive(remaining);
+            _out.Add(BuildNestedCleanupChain(innerToOuter));
+        }
+
+        /// <summary>
+        /// M4：含 yield 的 switch 展平。保留一个只做转发的 switch
+        /// （每个 section goto 唯一顶层标签），section 体在标签之间展平，
+        /// 使其中的 yield 挂起协议与 resume 标签都位于 MoveNext 顶层作用域
+        /// （C# 禁止 goto 跳入嵌套块）。空 section 的标签自然贯穿到下一标签。
+        /// break 由 <see cref="EmitBreakEdge"/> 解析到 EndLabel；goto case/default
+        /// 属 CS2J0406 拒绝列，不会到达这里。
+        /// </summary>
+        private void FlattenSwitch(SwitchStatementSyntax node)
+        {
+            var endLabel = NewLabel();
+            var dispatchSections = new List<SwitchSectionSyntax>();
+            var sectionEntries = new List<(string Label, SwitchSectionSyntax Section)>();
+            foreach (var section in node.Sections)
+            {
+                var entryLabel = NewLabel();
+                sectionEntries.Add((entryLabel, section));
+                // 标签（含 when 过滤表达式）经记号重写：其中引用的提升参数/局部
+                // 必须改为状态机字段。声明模式变量的形态已被 analyzer 拒绝。
+                var visitedLabels = section.Labels
+                    .Select(l => (SwitchLabelSyntax)_token.Visit(l)!)
+                    .ToList();
+                dispatchSections.Add(SwitchSection(
+                    List(visitedLabels),
+                    SingletonList<StatementSyntax>(Goto(entryLabel))));
+            }
+
+            _out.Add(SwitchStatement(Tx(node.Expression), List(dispatchSections)));
+
+            _stack.Add(new SwitchFrame(endLabel));
+            foreach (var (label, section) in sectionEntries)
+            {
+                EmitLabel(label);
+                foreach (var statement in section.Statements)
+                {
+                    FlattenStatement(statement);
+                }
+            }
+            _stack.RemoveAt(_stack.Count - 1);
+            EmitLabel(endLabel);
         }
 
         private void FlattenIf(IfStatementSyntax node)

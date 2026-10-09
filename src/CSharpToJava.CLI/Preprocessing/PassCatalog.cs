@@ -458,17 +458,20 @@ internal static class PassCatalog
             ".cs2j-iterator-lowering-src",
             PassStage.StateMachine,
             PassStatus.Implemented,
-            // P0 rollback (2026-10-06): DEFAULT-OFF. Only M1 is implemented
-            // (analyzer plus the CS2J0402 residual gate); lowering iterators
-            // inside try-finally (M2) and using/lock (M3, also hosts C44 G3)
-            // is not, so default-on silently routed those methods to the legacy
-            // path with unclear semantics. Opt in with
-            // --enable-pass iterator-lowering; flip back on when M2/M3 land.
+            // DEFAULT-OFF (opt-in via --enable-pass iterator-lowering).
+            // M1 analyzer/state machine core, M2 try-finally protected regions,
+            // M3 using/lock normalization, and M4a restricted locals
+            // (ref struct/ref local/pointer non-crossing yields stay real
+            // locals; crossing shapes are CS2J0403), CS9238/CS9239 mirrors,
+            // yield-bearing switch flattening, struct-iterator by-value this,
+            // and residual lambda CS2J0405/local-function CS2J0404 defensive
+            // gates are implemented. Default-on awaits the M4b gate review
+            // (sdk subset profiling, Release three-project green, residual=0).
             defaultEnabled: false,
             runAfterIds: new[] { PassIds.MakeReadonly, PassStubCatalog.Ids.ClosureLift },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "M1: analyze C# iterator methods and lower the supported subset into explicit state machine classes; try-finally/using/lock shapes stay residual CS2J0402 pending M2/M3.",
+            description: "Analyze C# iterator methods and lower the supported subset into explicit state machine classes (M1); try-finally protected regions with full Dispose/yield-break cleanup chains (M2); using statement/declaration and lock normalization (M3); non-crossing ref struct/ref local/pointer locals kept as MoveNext locals, yield-bearing switch flattening and struct-iterator by-value this capture (M4). Unsupported forms skip with CS2J0402/CS2J0403/CS2J0404/CS2J0405/CS2J0406 diagnostics.",
             catalogItems: "C04"),
         new(
             PassStubCatalog.Ids.AsyncNormalize,
