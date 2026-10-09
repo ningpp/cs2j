@@ -344,8 +344,7 @@ public sealed class GenericDeepenAnalyzer
             {
                 if (!field.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))) continue;
 
-                var declarator = field.Declaration.Variables.SingleOrDefault();
-                if (declarator == null)
+                if (field.Declaration.Variables.Count != 1)
                 {
                     _diagnostics.Add(new GenericDeepenDiagnostic(
                         GenericDeepenSeverity.Warning, GenericDeepenRule.StaticField, GenericDeepenCodes.StaticFieldNotRewritable,
@@ -354,6 +353,8 @@ public sealed class GenericDeepenAnalyzer
                         tree.FilePath, field.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
                     continue;
                 }
+
+                var declarator = field.Declaration.Variables[0];
 
                 if (field.AttributeLists.SelectMany(l => l.Attributes)
                     .Any(a => a.Name.ToString() is "ThreadStatic" or "ThreadStaticAttribute"
@@ -1574,24 +1575,45 @@ public sealed class GenericDeepenAnalyzer
 
                     foreach (var need in union)
                     {
-                        if (need.Kind == GenericDeepenParamKind.MethodTypeParameter && need.Ordinal >= arity)
+                        GenericDeepenParamRef? mapped;
+                        if (need.Kind == GenericDeepenParamKind.MethodTypeParameter)
                         {
-                            var gapKey = $"{root.ToDisplayString()}|{need.Kind}#{need.Ordinal}";
-                            if (_reportedFamilyGaps.Add(gapKey))
+                            if (need.Ordinal >= arity)
                             {
-                                _diagnostics.Add(new GenericDeepenDiagnostic(
-                                    GenericDeepenSeverity.Warning, GenericDeepenRule.Anchor,
-                                    GenericDeepenCodes.StaticFamilyNotClosable,
-                                    $"Override/interface family of '{root.ToDisplayString()}' needs a token for method type parameter #{need.Ordinal} " +
-                                    "but member '" + member.ToDisplayString() + "' has fewer type parameters; family sync skipped for that parameter.",
-                                    member.Locations.FirstOrDefault()?.SourceTree?.FilePath,
-                                    member.Locations.FirstOrDefault()?.GetLineSpan().StartLinePosition.Line + 1));
+                                var gapKey = $"{root.ToDisplayString()}|{need.Kind}#{need.Ordinal}";
+                                if (_reportedFamilyGaps.Add(gapKey))
+                                {
+                                    _diagnostics.Add(new GenericDeepenDiagnostic(
+                                        GenericDeepenSeverity.Warning, GenericDeepenRule.Anchor,
+                                        GenericDeepenCodes.StaticFamilyNotClosable,
+                                        $"Override/interface family of '{root.ToDisplayString()}' needs a token for method type parameter #{need.Ordinal} "
+                                        + "but member '" + member.ToDisplayString() + "' has fewer type parameters; family sync skipped for that parameter.",
+                                        member.Locations.FirstOrDefault()?.SourceTree?.FilePath,
+                                        member.Locations.FirstOrDefault()?.GetLineSpan().StartLinePosition.Line + 1));
+                                }
+
+                                continue;
                             }
 
-                            continue;
+                            // Re-name in case siblings declared the ordinal differently.
+                            mapped = new GenericDeepenParamRef(
+                                GenericDeepenParamKind.MethodTypeParameter,
+                                need.Ordinal,
+                                member.TypeParameters[need.Ordinal].Name);
+                        }
+                        else
+                        {
+                            // Class type parameter: only siblings whose base/interface
+                            // construction keeps it open carry an anchor; a closed
+                            // sibling (UriConverter : JsonConverter<Uri>) needs nothing.
+                            mapped = MapClassNeedToMember(root, member, need.Ordinal);
+                            if (mapped == null)
+                            {
+                                continue;
+                            }
                         }
 
-                        if (current.Add(need))
+                        if (current.Add(mapped!))
                         {
                             changed = true;
                         }
@@ -1680,6 +1702,76 @@ public sealed class GenericDeepenAnalyzer
 
     private static bool HasKindOrdinal(IEnumerable<GenericDeepenParamRef> needs, GenericDeepenParamKind kind, int ordinal)
         => needs.Any(n => n.Kind == kind && n.Ordinal == ordinal);
+
+    /// <summary>
+    /// Maps a class type-parameter need of the family root's declaring type onto
+    /// the frame of <paramref name="member"/>'s declaring type. Returns null when
+    /// the sibling closes that parameter (e.g. <c>UriConverter : JsonConverter&lt;Uri&gt;</c>)
+    /// — such a sibling carries no open token and must not be anchored.
+    /// </summary>
+    private static GenericDeepenParamRef? MapClassNeedToMember(IMethodSymbol root, IMethodSymbol member, int rootOrdinal)
+    {
+        var rootType = root.ContainingType?.OriginalDefinition;
+        var memberType = member.ContainingType?.OriginalDefinition;
+        if (rootType == null || memberType == null)
+        {
+            return null;
+        }
+
+        ITypeSymbol? substituted = null;
+        if (SymbolEqualityComparer.Default.Equals(memberType, rootType))
+        {
+            substituted = memberType.TypeParameters.Length > rootOrdinal
+                ? memberType.TypeParameters[rootOrdinal]
+                : null;
+        }
+        else
+        {
+            for (var baseType = memberType.BaseType; baseType != null; baseType = baseType.BaseType)
+            {
+                if (SymbolEqualityComparer.Default.Equals(baseType.OriginalDefinition, rootType))
+                {
+                    substituted = rootOrdinal < baseType.TypeArguments.Length
+                        ? baseType.TypeArguments[rootOrdinal]
+                        : null;
+                    break;
+                }
+            }
+
+            if (substituted == null && rootType.TypeKind == TypeKind.Interface)
+            {
+                foreach (var iface in memberType.AllInterfaces)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(iface.OriginalDefinition, rootType)
+                        && rootOrdinal < iface.TypeArguments.Length)
+                    {
+                        substituted = iface.TypeArguments[rootOrdinal];
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (substituted is not ITypeParameterSymbol siblingTp)
+        {
+            // Concrete closure (Uri, int, …) or an otherwise non-parameter argument.
+            return null;
+        }
+
+        // Only parameters declared by the sibling's own type chain are anchorable
+        // at this member; method/enclosing-method parameters never appear here.
+        var owner = siblingTp.DeclaringType?.OriginalDefinition;
+        for (var t = memberType; t != null; t = t.ContainingType?.OriginalDefinition)
+        {
+            if (SymbolEqualityComparer.Default.Equals(t, owner))
+            {
+                return new GenericDeepenParamRef(
+                    GenericDeepenParamKind.ClassTypeParameter, siblingTp.Ordinal, siblingTp.Name);
+            }
+        }
+
+        return null;
+    }
 
     private void AddNeed(IMethodSymbol method, GenericDeepenParamRef need)
     {

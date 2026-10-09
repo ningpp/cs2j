@@ -49,6 +49,7 @@ public static class GenericDeepenResidualScanner
             ScanBareFieldReferences(model, root, plannedFieldNames, findings);
         }
 
+        ScanForwardNeedChain(rewritten, findings);
         ScanFamilyConsistency(rewritten, findings);
         return BuildReport(findings, options, overrides);
     }
@@ -114,7 +115,6 @@ public static class GenericDeepenResidualScanner
             var anchored = CollectAnchoredParameterNames(scope);
 
             var directSites = new HashSet<string>(StringComparer.Ordinal);
-            var forwarded = new HashSet<string>(StringComparer.Ordinal);
             foreach (var node in scope.DescendantNodes())
             {
                 switch (node)
@@ -139,14 +139,6 @@ public static class GenericDeepenResidualScanner
                         }
 
                         break;
-                    case InvocationExpressionSyntax invocation when !IsHolderAccessorInvocation(invocation)
-                            && !CSharpToJava.Core.Analysis.ExpressionTreeFacts.IsInsideQuotedExpressionLambda(model, invocation):
-                        foreach (var name in ForwardedTypeParameterNames(model, invocation))
-                        {
-                            forwarded.Add(name);
-                        }
-
-                        break;
                 }
             }
 
@@ -157,16 +149,6 @@ public static class GenericDeepenResidualScanner
                     findings.Add(new Finding(
                         "method-without-anchor", method, symbol, symbol.ContainingType,
                         $"method '{symbol.ToDisplayString()}' uses a token for type parameter '{name}' but no anchor is visible in the method"));
-                }
-            }
-
-            foreach (var name in forwarded)
-            {
-                if (!directSites.Contains(name) && !anchored.Contains(name))
-                {
-                    findings.Add(new Finding(
-                        "forward-only-without-anchor", method, symbol, symbol.ContainingType,
-                        $"method '{symbol.ToDisplayString()}' only forwards type parameter '{name}' to a generic callee but carries no anchor"));
                 }
             }
         }
@@ -216,31 +198,249 @@ public static class GenericDeepenResidualScanner
             _ => false,
         };
 
-    private static IEnumerable<string> ForwardedTypeParameterNames(SemanticModel model, InvocationExpressionSyntax invocation)
+    // ---- rule 4: a forwarded type parameter needs an anchor only when the callee
+    // chain actually ends at a runtime token site (typeof/is/as/catch/pattern).
+    // Forwards to external methods (BCL) or to callees without a token need are
+    // legal C# and never residual. Need is propagated backwards through the
+    // source-level generic call graph to a fixed point. ----
+
+    private sealed class ForwardGroup
     {
-        switch (invocation.Expression)
+        public required IMethodSymbol Symbol { get; init; }
+        public readonly List<MethodDeclarationSyntax> Declarations = new();
+        public readonly HashSet<int> DirectNeed = new();
+        public readonly HashSet<string> AnchoredNames = new(StringComparer.Ordinal);
+        public readonly List<(int CallerOrdinal, IMethodSymbol Callee, int CalleeOrdinal)> Edges = new();
+    }
+
+    private static void ScanForwardNeedChain(Compilation compilation, List<Finding> findings)
+    {
+        var treeSet = new HashSet<SyntaxTree>(compilation.SyntaxTrees);
+        var groups = new Dictionary<IMethodSymbol, ForwardGroup>(SymbolEqualityComparer.Default);
+
+        foreach (var tree in compilation.SyntaxTrees)
         {
-            case GenericNameSyntax genericName:
-                foreach (var argument in genericName.TypeArgumentList.Arguments)
+            if (tree.FilePath.Replace('\\', '/')
+                .Contains(GenericDeepenSyntaxFacts.GeneratedFileStem, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var model = compilation.GetSemanticModel(tree);
+            foreach (var method in tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
+            {
+                if (model.GetDeclaredSymbol(method) is not IMethodSymbol bound) continue;
+                if (method.Body == null && method.ExpressionBody == null) continue;
+
+                var symbol = bound.OriginalDefinition;
+                if (!groups.TryGetValue(symbol, out var group))
                 {
-                    if (ResolveTypeParameterName(model, argument) is { } name)
-                    {
-                        yield return name;
-                    }
+                    group = new ForwardGroup { Symbol = symbol };
+                    groups[symbol] = group;
                 }
 
-                break;
-            case MemberAccessExpressionSyntax { Name: GenericNameSyntax memberGeneric }:
-                foreach (var argument in memberGeneric.TypeArgumentList.Arguments)
+                group.Declarations.Add(method);
+                var scope = (SyntaxNode?)method.Body ?? method.ExpressionBody!;
+                foreach (var name in CollectAnchoredParameterNames(scope))
                 {
-                    if (ResolveTypeParameterName(model, argument) is { } name)
-                    {
-                        yield return name;
-                    }
+                    group.AnchoredNames.Add(name);
                 }
 
-                break;
+                CollectDirectNeeds(model, scope, bound, group.DirectNeed);
+                foreach (var invocation in scope.DescendantNodes().OfType<InvocationExpressionSyntax>())
+                {
+                    if (IsHolderAccessorInvocation(invocation)
+                        || CSharpToJava.Core.Analysis.ExpressionTreeFacts
+                            .IsInsideQuotedExpressionLambda(model, invocation))
+                    {
+                        continue;
+                    }
+
+                    foreach (var edge in ResolveForwardEdges(model, invocation, bound, treeSet))
+                    {
+                        group.Edges.Add(edge);
+                    }
+                }
+            }
         }
+
+        // Fixed point: need(caller, i) |= need(callee, j) across every forward edge.
+        // Cycles with no direct site converge to "no need".
+        var need = new Dictionary<IMethodSymbol, HashSet<int>>(SymbolEqualityComparer.Default);
+        foreach (var (key, value) in groups)
+        {
+            need[key] = new HashSet<int>(value.DirectNeed);
+        }
+        var changed = true;
+        var guard = groups.Count + 1;
+        while (changed && guard-- > 0)
+        {
+            changed = false;
+            foreach (var (symbol, group) in groups)
+            {
+                var set = need[symbol];
+                foreach (var (callerOrdinal, callee, calleeOrdinal) in group.Edges)
+                {
+                    if (need.TryGetValue(callee.OriginalDefinition, out var calleeNeed)
+                        && calleeNeed.Contains(calleeOrdinal)
+                        && set.Add(callerOrdinal))
+                    {
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        foreach (var (symbol, group) in groups)
+        {
+            foreach (var ordinal in need[symbol])
+            {
+                if (group.DirectNeed.Contains(ordinal)) continue;
+                if (ordinal >= symbol.TypeParameters.Length) continue;
+                var name = symbol.TypeParameters[ordinal].Name;
+                if (group.AnchoredNames.Contains(name)) continue;
+
+                var declaration = group.Declarations[0];
+                findings.Add(new Finding(
+                    "forward-only-without-anchor", declaration, symbol, symbol.ContainingType,
+                    $"method '{symbol.ToDisplayString()}' forwards type parameter '{name}' to a callee chain "
+                    + "that needs its runtime token but carries no anchor"));
+            }
+        }
+    }
+
+    private static void CollectDirectNeeds(
+        SemanticModel model, SyntaxNode scope, IMethodSymbol owner, HashSet<int> ordinals)
+    {
+        foreach (var node in scope.DescendantNodes())
+        {
+            switch (node)
+            {
+                case TypeOfExpressionSyntax typeOf when !IsHolderTokenArgument(typeOf)
+                        && !CSharpToJava.Core.Analysis.ExpressionTreeFacts.IsInsideQuotedExpressionLambda(model, node):
+                    if (OwnTypeParameter(model, typeOf.Type, owner) is { } byTypeOf)
+                    {
+                        ordinals.Add(byTypeOf.Ordinal);
+                    }
+
+                    break;
+                case BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.IsExpression)
+                        || binary.IsKind(SyntaxKind.AsExpression):
+                    if (binary.Right is TypeSyntax binaryType
+                        && !CSharpToJava.Core.Analysis.ExpressionTreeFacts.IsInsideQuotedExpressionLambda(model, node)
+                        && OwnTypeParameter(model, binaryType, owner) is { } byBinary)
+                    {
+                        ordinals.Add(byBinary.Ordinal);
+                    }
+
+                    break;
+                case CatchDeclarationSyntax catchDeclaration:
+                    if (OwnTypeParameter(model, catchDeclaration.Type, owner) is { } byCatch)
+                    {
+                        ordinals.Add(byCatch.Ordinal);
+                    }
+
+                    break;
+                case DeclarationPatternSyntax declarationPattern:
+                    if (OwnTypeParameter(model, declarationPattern.Type, owner) is { } byPattern)
+                    {
+                        ordinals.Add(byPattern.Ordinal);
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    private static IEnumerable<(int CallerOrdinal, IMethodSymbol Callee, int CalleeOrdinal)> ResolveForwardEdges(
+        SemanticModel model,
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol caller,
+        HashSet<SyntaxTree> compilationTrees)
+    {
+        if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol boundCallee)
+        {
+            yield break;
+        }
+
+        var callee = boundCallee.OriginalDefinition;
+        if (!callee.DeclaringSyntaxReferences.Any(r =>
+                r.SyntaxTree != null && compilationTrees.Contains(r.SyntaxTree)))
+        {
+            // External callee (BCL/another assembly): its token story is not ours;
+            // forwarding to it never requires an anchor here.
+            yield break;
+        }
+
+        // Explicit type arguments: M<T, U>(...) / x.M<U>(...). An empty argument
+        // list means inference, which is handled below.
+        TypeArgumentListSyntax? explicitArgs = invocation.Expression switch
+        {
+            GenericNameSyntax g => g.TypeArgumentList,
+            MemberAccessExpressionSyntax { Name: GenericNameSyntax mg } => mg.TypeArgumentList,
+            _ => null,
+        };
+
+        if (explicitArgs is { Arguments.Count: > 0 })
+        {
+            for (var i = 0; i < explicitArgs.Arguments.Count && i < callee.TypeParameters.Length; i++)
+            {
+                if (OwnTypeParameter(model, explicitArgs.Arguments[i], caller) is { } callerTp)
+                {
+                    yield return (callerTp.Ordinal, callee, callee.TypeParameters[i].Ordinal);
+                }
+            }
+
+            yield break;
+        }
+
+        // Inferred type arguments: map each positional argument's type onto the
+        // bound callee's declared parameter (reduced extension symbols already
+        // drop the `this` parameter).
+        var arguments = invocation.ArgumentList.Arguments;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (model.GetTypeInfo(arguments[i].Expression).Type is not ITypeParameterSymbol callerTp) continue;
+            if (!SymbolEqualityComparer.Default.Equals(
+                    callerTp.DeclaringMethod?.OriginalDefinition,
+                    caller.OriginalDefinition))
+            {
+                // Type parameter of a nested local function/other owner, not of the method.
+                continue;
+            }
+
+            ITypeSymbol? parameterType = null;
+            if (i < boundCallee.Parameters.Length)
+            {
+                parameterType = boundCallee.Parameters[i].Type;
+            }
+            else if (boundCallee.Parameters.Length > 0
+                && boundCallee.Parameters[^1].IsParamsArray)
+            {
+                parameterType = (boundCallee.Parameters[^1].Type as IArrayTypeSymbol)?.ElementType;
+            }
+
+            if (parameterType is ITypeParameterSymbol calleeTp
+                && SymbolEqualityComparer.Default.Equals(
+                    calleeTp.DeclaringMethod?.OriginalDefinition, callee))
+            {
+                yield return (callerTp.Ordinal, callee, calleeTp.Ordinal);
+            }
+        }
+    }
+
+    /// <summary>Resolves <paramref name="type"/> to one of <paramref name="owner"/>'s own type parameters.</summary>
+    private static ITypeParameterSymbol? OwnTypeParameter(
+        SemanticModel model, TypeSyntax? type, IMethodSymbol owner)
+    {
+        var syntax = type;
+        if (syntax is NullableTypeSyntax nullable) syntax = nullable.ElementType;
+        if (syntax is ArrayTypeSyntax array) syntax = array.ElementType;
+        if (syntax is not IdentifierNameSyntax identifier) return null;
+        if (model.GetSymbolInfo(identifier).Symbol is not ITypeParameterSymbol tp) return null;
+        return SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod?.OriginalDefinition, owner.OriginalDefinition)
+            ? tp
+            : null;
     }
 
     // ---- rule 5: structural self-check inside quoted expression trees ----
