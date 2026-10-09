@@ -84,6 +84,8 @@ public class ParamsCollectionsProjectTests
             "params ReadOnlySpan<", "params Span<", "params List<", "params HashSet<",
             "params IEnumerable<", "params IReadOnlyCollection<", "params IReadOnlyList<",
             "params ICollection<", "params IList<",
+            // M2 K3: the fixture's [CollectionBuilder]-backed types must materialize too.
+            "params ParamsBag", "params ParamsImm", "params ParamsMap",
         };
 
         foreach (var file in Directory.EnumerateFiles(intermediateRoot, "*.cs", SearchOption.AllDirectories))
@@ -127,8 +129,13 @@ public class ParamsCollectionsProjectTests
         var outputRoot = Path.Combine(FixtureDir, ".test-output-params-on");
         try
         {
+            // M2: the fixture contains K3 [CollectionBuilder] APIs, so the gate
+            // runs the normal Emit path (factories emitted); the gray Error
+            // policy (CS2J0607) stays CLI-default and is covered at unit level.
             var result = await RunStripDefaultWithRetryAsync(
-                slnPath, outputRoot, new ParamsCollectionsOptions(Enabled: true), verify: true);
+                slnPath, outputRoot,
+                new ParamsCollectionsOptions(Enabled: true, Builder: CollectionBuilderPolicy.Emit),
+                verify: true);
 
             Assert.True(result.Success,
                 "strip-default with params-collections enabled failed (see chain diagnostics)");
@@ -151,6 +158,16 @@ public class ParamsCollectionsProjectTests
             // K1 declarations keep their params modifier (strategy A).
             Assert.Contains("params int[] values", lib, StringComparison.Ordinal);
             Assert.Contains("params T[] items", lib, StringComparison.Ordinal);
+
+            // M2 K3: builder-backed declarations lose the modifier; the PC-7
+            // forwarding overload fills its empty slot with the factory empty state.
+            AssertContainsFlat("public static int BagCount(ParamsBag bag)", lib);
+            AssertContainsFlat("public static int ImmCount<T>(ParamsImm<T> items)", lib);
+            AssertContainsFlat("public static int MapCount(ParamsMap map)", lib);
+            AssertContainsFlat("public static int TierImm<T>(ParamsImm<T> items)", lib);
+            AssertContainsFlat(
+                "public static int BagForwarded() => BagCount(global::SampleParamsCollectionsLib.ParamsBagBuilder.Create(new int[]{}))",
+                lib);
 
             // Hierarchy file: the whole virtual slot family is materialized,
             // including the base ctor chain initializer rewrite.
@@ -186,6 +203,38 @@ public class ParamsCollectionsProjectTests
             // Form B passthroughs are untouched.
             AssertContainsFlat("ParamsLib.MutateBatch(list)", behaviorTests);
             AssertContainsFlat("ParamsLib.ZeroFirst(buffer)", behaviorTests);
+
+            // M2 K3: comma sites become <Builder>.Create(new T[]{…}), empty
+            // sites the same factory with new T[]{}; generic arity and the
+            // KeyValuePair span factory are rendered explicitly.
+            AssertContainsFlat(
+                "ParamsLib.BagCount(global::SampleParamsCollectionsLib.ParamsBagBuilder.Create(new int[]{1, 2, 3}))",
+                behaviorTests);
+            AssertContainsFlat(
+                "ParamsLib.BagCount(global::SampleParamsCollectionsLib.ParamsBagBuilder.Create(new int[]{}))",
+                behaviorTests);
+            AssertContainsFlat("ParamsLib.BagCount(bag)", behaviorTests);
+            AssertContainsFlat(
+                "global::SampleParamsCollectionsLib.ParamsImmBuilder.Create<int>(new int[]{1, 2})",
+                behaviorTests);
+            AssertContainsFlat(
+                "global::SampleParamsCollectionsLib.ParamsImmBuilder.Create<string>(new string[]{\"a\", \"b\"})",
+                behaviorTests);
+            AssertContainsFlat(
+                "global::SampleParamsCollectionsLib.ParamsMapBuilder.Create(new global::System.Collections.Generic.KeyValuePair<string, int>[]{new KeyValuePair<string, int>(\"a\", 1), new KeyValuePair<string, int>(\"b\", 2)})",
+                behaviorTests);
+            // Generic three tiers: K4 List / K2 span / K3 factory across
+            // int / struct / reference element types.
+            AssertContainsFlat(
+                "ParamsLib.TierList(new global::System.Collections.Generic.List<int>(){1, 2, 3})",
+                behaviorTests);
+            AssertContainsFlat("ParamsLib.TierSpan(new int[]{1, 2, 3})", behaviorTests);
+            AssertContainsFlat(
+                "global::SampleParamsCollectionsLib.ParamsImmBuilder.Create<int>(new int[]{1, 2, 3})",
+                behaviorTests);
+            AssertContainsFlat(
+                "global::SampleParamsCollectionsLib.ParamsImmBuilder.Create<global::SampleParamsCollectionsLib.TierPoint>",
+                behaviorTests);
 
             // Residual gate: zero non-array params modifiers anywhere.
             AssertNoNonArrayParamsResidual(intermediate);
