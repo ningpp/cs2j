@@ -145,9 +145,11 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
     }
 
     /// <summary>
-    /// Registration-file ownership = declaring project (design D6): the project that
-    /// compiles the file containing the discovery site gets the registration file;
-    /// every other usage reaches the closed types through project references.
+    /// Registration-file ownership = declaring project (design D6): the record's
+    /// ownership file is the closed type's own source declaration (or the discovery
+    /// site for framework types), so the project compiling that file gets the
+    /// registration file; every other usage reaches the closed types through project
+    /// references.
     /// </summary>
     private void DistributeRegistrationFiles(PassTreeContext tree)
     {

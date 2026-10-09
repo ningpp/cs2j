@@ -142,6 +142,227 @@ public class ClosedMetadataTests
         Assert.All(analysis.ClosedTypes, r => Assert.Equal(ClosedMetadataCollector.ExplicitTypeOfRule, r.SourceRule));
     }
 
+    private const string StjFakes = """
+        namespace System.Text.Json {
+            public class JsonSerializer {
+                public static string Serialize<T>(T value) => "";
+                public static T Deserialize<T>(string json) => default!;
+            }
+            public class JsonSerializerOptions {
+                public T GetTypeInfo<T>() => default!;
+            }
+        }
+        namespace System.Text.Json.Serialization {
+            public class JsonConverter<T> {
+                public virtual T Read() => default!;
+                public virtual void Write(T value) { }
+            }
+            public abstract class JsonSerializerContext { }
+            [System.AttributeUsage(System.AttributeTargets.All, AllowMultiple = true)]
+            public sealed class JsonSerializableAttribute : System.Attribute {
+                public JsonSerializableAttribute(System.Type type) { }
+            }
+        }
+        """;
+
+    // ---- CM-ENUM-3: serializer entry call sites ----
+
+    [Fact]
+    public void SerializerCallSite_RegistersConcreteTypeArgumentAndLayers()
+    {
+        var (analysis, _) = RunDetailed("""
+            using System.Collections.Generic;
+            using System.Text.Json;
+            """ + StjFakes + """
+            public class C {
+                public void Run(string json) =>
+                    JsonSerializer.Serialize(new Dictionary<string, List<int>>());
+                public void Back(string json) =>
+                    JsonSerializer.Deserialize<Dictionary<string, List<int>>>(json);
+            }
+            """);
+
+        Assert.Contains(analysis.ClosedTypes, r =>
+            r.SourceRule == ClosedMetadataCollector.SerializerCallSitesRule
+            && r.TypeText == "global::System.Collections.Generic.Dictionary<string, global::System.Collections.Generic.List<int>>");
+        Assert.Contains(analysis.ClosedTypes, r =>
+            r.SourceRule == ClosedMetadataCollector.SerializerCallSitesRule
+            && r.TypeText == "global::System.Collections.Generic.List<int>");
+        // The two call sites share the same closure: one record (deduplicated by key).
+        Assert.Equal(1, analysis.ClosedTypes.Count(r =>
+            r.TypeText == "global::System.Collections.Generic.Dictionary<string, global::System.Collections.Generic.List<int>>"));
+    }
+
+    [Fact]
+    public void SerializerCallSite_GetTypeInfoOnOptions_IsEnumerated()
+    {
+        var (analysis, _) = RunDetailed("""
+            using System.Collections.Generic;
+            using System.Text.Json;
+            """ + StjFakes + """
+            public class C {
+                public void Run(JsonSerializerOptions options) => options.GetTypeInfo<List<short>>();
+            }
+            """);
+
+        Assert.Contains(analysis.ClosedTypes, r =>
+            r.SourceRule == ClosedMetadataCollector.SerializerCallSitesRule
+            && r.TypeText == "global::System.Collections.Generic.List<short>");
+    }
+
+    [Fact]
+    public void SerializerCallSite_OfUserGeneric_OwnershipFollowsTypeDeclaration()
+    {
+        // D6: a user closed construction discovered through a call site (CM-ENUM-3) is
+        // owned by the project declaring the type — not the call-site project — so the
+        // emitted typeof(Bag<string>) lands where the type is visible even if internal.
+        var stjTree = CSharpSyntaxTree.ParseText(StjFakes, path: "Stj.cs");
+        var libTree = CSharpSyntaxTree.ParseText("""
+            namespace LibNs { public class Bag<T> { public T Item = default!; } }
+            """, path: "Lib.cs");
+        var appTree = CSharpSyntaxTree.ParseText("""
+            using LibNs;
+            using System.Text.Json;
+            namespace AppNs {
+                public class Runner {
+                    public void Run() => JsonSerializer.Serialize(new Bag<string>());
+                }
+            }
+            """, path: "App.cs");
+        var compilation = CSharpCompilation.Create("cm-owner",
+            new[] { stjTree, libTree, appTree }, References,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var preprocessor = new ClosedMetadataPreprocessor();
+        preprocessor.BindCompilation(compilation);
+        preprocessor.Analyze(new ClosedMetadataOptions());
+
+        var bag = Assert.Single(preprocessor.Analysis.ClosedTypes.Where(r => r.TypeText.Contains("Bag<string>")));
+        Assert.Equal(ClosedMetadataCollector.SerializerCallSitesRule, bag.SourceRule);
+        Assert.EndsWith("Lib.cs", bag.DeclaringFilePath);
+    }
+
+    [Fact]
+    public void SerializerCallSite_UnboundTypeArgument_ReportsCS2J1210()
+    {
+        var (analysis, _) = RunDetailed("""
+            using System.Text.Json;
+            """ + StjFakes + """
+            public class C {
+                public T Run<T>(string json) => JsonSerializer.Deserialize<T>(json);
+            }
+            """);
+
+        Assert.Empty(analysis.ClosedTypes);
+        Assert.Contains(analysis.Diagnostics, d => d.Code == ClosedMetadataCodes.DynamicClosedTypeSite);
+    }
+
+    [Fact]
+    public void RegisteredStatistic_MatchesDeduplicatedRecordCount()
+    {
+        var (analysis, _) = RunDetailed("""
+            using System.Collections.Generic;
+            using System.Text.Json;
+            """ + StjFakes + """
+            public class C {
+                public List<short> A() => JsonSerializer.Deserialize<List<short>>("")!;
+                public List<short> B() => JsonSerializer.Deserialize<List<short>>("")!;
+            }
+            """);
+
+        Assert.Single(analysis.ClosedTypes);
+        Assert.Equal(1, analysis.Statistics.Registered);
+    }
+
+    // ---- CM-ENUM-4: base/interface family signatures ----
+
+    [Fact]
+    public void FamilyBaseList_ClosedTypeArgumentInBase_IsEnumerated()
+    {
+        // No re-declared members: the closure only reaches the family through the
+        // base-type construction (CM-ENUM-4), so ENUM-1 cannot have seen it first.
+        var (analysis, _) = RunDetailed("""
+            using System.Collections.Generic;
+            using System.Text.Json.Serialization;
+            """ + StjFakes + """
+            public class Dto<T> { public List<T> Items = new(); }
+            public sealed class SpecialDto : Dto<List<short>> { }
+            public sealed class MyConverter : JsonConverter<Dto<List<short>>> { }
+            """);
+
+        Assert.Contains(analysis.ClosedTypes, r =>
+            r.SourceRule == ClosedMetadataCollector.SignatureSitesRule
+            && r.TypeText.Contains("Dto<"));
+        Assert.Contains(analysis.ClosedTypes, r =>
+            r.SourceRule == ClosedMetadataCollector.SignatureSitesRule
+            && r.TypeText == "global::System.Collections.Generic.List<short>");
+    }
+
+    // ---- CM-SRCGEN: source-generation / AOT exclusion ----
+
+    [Fact]
+    public void JsonSerializerContextDerivedType_ReportsCS2J1204_AndRegistersNothing()
+    {
+        var (analysis, _) = RunDetailed("""
+            using System.Collections.Generic;
+            using System.Text.Json.Serialization;
+            """ + StjFakes + """
+            public sealed class MyContext : JsonSerializerContext
+            {
+                public List<int> AotOnly;
+                public List<List<short>> NestedAot;
+            }
+            """);
+
+        Assert.Empty(analysis.ClosedTypes);
+        Assert.Contains(analysis.Diagnostics, d =>
+            d.Code == ClosedMetadataCodes.SourceGeneratedContext
+            && d.Severity == ClosedMetadataSeverity.Warning);
+    }
+
+    [Fact]
+    public void JsonSerializableAttribute_TypeOfPayload_IsNotRegistered()
+    {
+        var (analysis, _) = RunDetailed("""
+            using System.Collections.Generic;
+            using System.Text.Json.Serialization;
+            """ + StjFakes + """
+            public class NormalDto
+            {
+                [JsonSerializable(typeof(List<List<short>>))]
+                public int Marker;
+            }
+            """);
+
+        Assert.Empty(analysis.ClosedTypes);
+        Assert.Contains(analysis.Diagnostics, d =>
+            d.Code == ClosedMetadataCodes.SourceGeneratedContext);
+    }
+
+    [Fact]
+    public void SourceGenRulesCanBeDisabledIndependently()
+    {
+        var options = new ClosedMetadataOptions
+        {
+            RegisterDeclaredClosedTypes = true,
+            RegisterSerializerCallSites = false,
+            RegisterSignatureSites = false,
+            RegisterExplicitTypeOfSites = false,
+        };
+        var (analysis, _) = RunDetailed("""
+            using System.Collections.Generic;
+            using System.Text.Json;
+            """ + StjFakes + """
+            public class C {
+                public List<short> Member;
+                public List<short> Call() => JsonSerializer.Deserialize<List<short>>("")!;
+            }
+            """, options);
+
+        Assert.Single(analysis.ClosedTypes);
+        Assert.All(analysis.ClosedTypes, r =>
+            Assert.Equal(ClosedMetadataCollector.DeclaredSitesRule, r.SourceRule));
+    }
+
     // ---- CM-DYN: dynamic sites ----
 
     [Fact]

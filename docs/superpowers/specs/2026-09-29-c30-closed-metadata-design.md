@@ -462,6 +462,15 @@ CatalogItems                = "C30"
 | M4（路线 A） | ConsumptionLinker 消费面接线（D8 一期六点）+ residual 闸门 + strict/overrides + nullable/数组/元组规则补齐 + 并发压测；下游半区回归 | 候选默认开评审 |
 | M5（路线 A） | 过 §9 门槛翻默认开；A2 调用点内联 token 原型（动态闭型）立档；登记转换器侧后续 PR 与 compat 旧 ThreadLocal API 退役顺序（仿 0922 §4 逐级退役，每级全量回归） | 默认开 |
 
+> **落地注记（2026-10-09，M4 拆分为 M4a…M4d）——M4a 枚举器扩展已落地（default-off 不变）**
+>
+> - **CM-ENUM-3 实际口径（对 §3.4 预登记的收敛）**：只枚举语义模型直接绑定的 `JsonSerializer.Serialize/SerializeAsync/Deserialize/DeserializeAsync<T>` 与 `JsonSerializerOptions.GetTypeInfo<T>` 调用点，注册其**泛型实参本身及递归嵌套层**（`VisitSiteType` 既有递归）；非泛型（运行时 `Type` 实参）形态天然动态、不枚举。**未实现** §3.4 预登记的"经调用图闭包传播到具体实参（复用 GD-NEST 不动点）"——当前调用点符号已给出最终构造类型，传播无额外收益；若 M4c fixture 出现需跨方法推断的真实缺口再单独立项。含未绑定类型参数的调用点报 CS2J1210。
+> - **CM-ENUM-4 实际口径（对 §3.4 预登记的收敛）**：枚举每个源类型的 `BaseType`（跳过 System.Object）与 `Interfaces` 中的闭型构造及嵌套层。`JsonConverter<T>` 族经基类构造本身捕获；§3.4 预登记的"override/接口实现成员签名族内传播"由 CM-ENUM-1 成员遍历 + 全局键去重自然覆盖（成员只在声明类型上枚举一次），不另建族工作表。
+> - **CM-SRCGEN**：`JsonSerializerContext` 派生类型整型早返回、成员不枚举、嵌套不遍历，每型一条 CS2J1204；成员上的 `[JsonSerializable(typeof(...))]` 报 CS2J1204 且 CM-ENUM-2 跳过该 typeof 载荷（特性祖先判定 + 源生成上下文类型内 typeof 双闸）。
+> - **D6 所有权细化**：注册文件归属取闭型自身的源声明位置（`INamedTypeSymbol.Locations`，internal 可见性下只有声明项目能编译 `typeof(X<...>)`）；框架/元数据类型无源位置时回退发现站点文件。fixture 中 `Bag<string>` 经 App/Tests 调用点发现仍归 Lib。
+> - **统计修正**：`Registered = 去重后记录数`，`Deduplicated = 站点命中数 - 记录数`（M3 口径混同）。
+> - 证据：闭元相关测试 30/30（含 9 个 M4a 新测）；Core Debug 全量 3488 通过 / 3 既有跳过 / 0 失败；fixture E2E `ClosedMetadataProjectTests` 1/1（中间树 verify build + verify tests 全绿）。消费守卫/重写接线（M4b）、residual 扩展/overrides（M4c）、并发压测/门槛评审（M4d）随后续提交。
+
 ### 10.1 M1 下游核实清单（强制门的具体动作）
 
 在可访问下游 dotnet-text-json 仓（及其生成物）的环境中逐项核实，结论回填本文档 §2.3 末行并附提交/路径证据：
