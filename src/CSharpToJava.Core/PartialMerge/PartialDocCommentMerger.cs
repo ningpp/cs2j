@@ -157,12 +157,36 @@ internal static class PartialDocCommentMerger
     {
         // Content after '///' (XML only); summary wrappers of secondary parts are
         // dropped — their text is nested under the primary's remarks instead.
+        // A single-line '<summary>text</summary>' keeps its INNER text: dropping
+        // the whole line would silently discard the secondary doc verbatim.
         return ExtractRawDocCommentLines(declaration)
             .Select(line => line.StartsWith("///") ? line[3..].TrimStart() : line.Trim())
-            .Where(line =>
-                !line.StartsWith("<summary", StringComparison.OrdinalIgnoreCase)
-                && !line.StartsWith("</summary", StringComparison.OrdinalIgnoreCase))
+            .SelectMany(StripSummaryWrapper)
             .ToList();
+
+        static IEnumerable<string> StripSummaryWrapper(string line)
+        {
+            if (line.StartsWith("<summary", StringComparison.OrdinalIgnoreCase)
+                && line.EndsWith("</summary>", StringComparison.OrdinalIgnoreCase))
+            {
+                var openEnd = line.IndexOf('>') + 1;
+                var inner = line[openEnd..^"</summary>".Length].Trim();
+                if (inner.Length > 0)
+                {
+                    yield return inner;
+                }
+
+                yield break;
+            }
+
+            if (line.StartsWith("<summary", StringComparison.OrdinalIgnoreCase)
+                || line.Equals("</summary>", StringComparison.OrdinalIgnoreCase))
+            {
+                yield break;
+            }
+
+            yield return line;
+        }
     }
 
     private static List<string> ExtractRawDocCommentLines(SyntaxNode declaration)
@@ -175,10 +199,17 @@ internal static class PartialDocCommentMerger
             return [];
         }
 
+        var spanStart = trivia.Min(t => t.FullSpan.Start);
+        var spanEnd = trivia.Max(t => t.FullSpan.End);
+
         return declaration.SyntaxTree.GetText()
             .Lines
             // Structured trivia Span excludes the '///' marker; FullSpan covers it.
-            .Where(line => trivia.Any(t => t.FullSpan.Contains(line.Span.Start)))
+            // Match by line/trivia INTERSECTION, not line-start containment:
+            // member docs are indented, so a doc line starts inside the leading
+            // whitespace that precedes the trivia FullSpan (type-level docs at
+            // column 0 hid this until M3 member merge).
+            .Where(line => line.Span.Start < spanEnd && line.Span.End > spanStart)
             .Select(line => line.ToString().Trim())
             .ToList();
     }
