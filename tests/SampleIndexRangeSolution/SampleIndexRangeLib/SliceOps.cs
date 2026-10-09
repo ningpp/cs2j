@@ -58,4 +58,11 @@ public static class SliceOps
     public static string StrHead(string s) => s[..3];
 
     public static string StrFromEnd(string s) => s[^2..];
+
+    /// <summary>
+    /// C35+C31 联合站点：<c>a?[^1]</c> 先由 NullConditionalDesugar 去糖为
+    /// 含普通元素访问的三元，index-range 链位在后接力降级（隔离跑 C31
+    /// 时保持 IR130 指路）。
+    /// </summary>
+    public static int? LastOrNull(int[]? a) => a?[^1];
 }
