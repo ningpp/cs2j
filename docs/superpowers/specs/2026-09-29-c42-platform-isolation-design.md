@@ -421,3 +421,49 @@ git worktree add .worktrees/preproc-c42-platform-isolation -b feature/preproc-c4
 4. **CheckPass 安全网**：三个 CheckPass 注册点（ConversionPipeline/ProjectConversionPipeline）**永不因本通道删除或绕过**——本通道只加隔离与报告，不削弱既有编译基线闸门。
 5. **extern 纪律**：**extern 方法永不发桩**（不生成空壳/throw 占位冒充实现）；无 Java 终态的 ABI 面只走显式诊断 + 白名单/标记体系指路，PNSE 等既有转换器代偿的退役/外仓是独立 PR，不在 M1 触碰。
 6. **extern alias 分流（与 C28 对齐）**：真双程序集同名冲突的 extern alias 场景归本通道**显式拒转**；单程序集别名（`X::` 限缩）归 C28 M3 规则转写 `global::`，两家不重叠诊断。
+
+---
+
+## 13. M3 落地校注（2026-10-09）
+
+> 对应分支 `feature/p3-c31-m4-c42-m3`，基线 `7afe0ea5`。本节只记录与前 12 章的实现偏差与落点裁决，原策略表（§2.1）、形态（§4.3）、共享谓词（§4.5）、里程碑（§9）不变。
+
+### 13.1 Facade 三件套（`FacadeGenerator`，§4.3 落地）
+
+| 产物 | 路径 | 内容 | 红线 |
+|---|---|---|---|
+| 端口接口 | `generated/<ns>/I<Name>Port.g.cs` | `internal interface`；成员签名复用 `StubGenerator.PortSignature`（M3 起 internal 单一事实源），平台身份→`object`，每条变更进 PI020 消息 | 只含可移植签名，不含任何类型引用平台面 |
+| 原类型缝 | 原文件原地改写 | 加 `partial`；被隔离成员体整体替换为 `=> Cs2jRequiredPort.M(...)` 委托；缝三件：`private I<Name>Port? _cs2jPort;`、`I<Name>Port Cs2jRequiredPort`（未供给先回调 hook，仍 null 即抛 `System.PlatformNotSupportedException`）、`partial void ConfigureCs2jPort(ref I<Name>Port? port);` | hook 为**无实现经典 partial**（不可带访问修饰符，未补实现时调用由编译器擦除），故声明不带 `private` |
+| 用户槽位 | `generated/<ns>/<Name>.PortSlot.g.cs` | 仅 partial 空壳 + 填写指引注释（剥离注释/`#` 后恰为 `partial class/struct/record` 壳三行） | **D8/R2：绝不生成任何端口实现**，单测以逐行断言固化 |
+
+序列化前经 `Formatter.Format` 整树规整：partial 修饰符、箭头表达式体、注入缝成员均为无 trivia 解析产物，不格式化会产生 `partialclass` 粘连（PI040）。
+
+**M3 不可抽取面（保留身份交 PI031 显式裁决，不静默跳过）**：泛型类型、接口类型、泛型方法、ref/out/in 参数、实例类型的静态成员、abstract/partial 方法、构造器、索引器、事件、字段仅做 D5 类型移植不进端口接口。单文件直调（`RewriteFile`）以单树 compilation 尽力处理（D10 限制，文档/注释明示），整树批处理走两遍组合。
+
+### 13.2 两遍组合（`PlatformIsolationPreprocessor.RewriteAll`）
+
+1. **Phase A**：全部文件过 Stub 通道（Facade 模式下探针重定向/guard 擦除同样在此收敛；StubGenerator 只认 ProbeRedirect/ThrowStub/StripAttribute，Facade 动作原样保留）；Reject 发 PI030、Suppressed 发 PI060。
+2. 以 Phase A 产物（含已登记 probe shim）`BuildOutputCompilation` 组中间编译。
+3. **Phase B**：Facade 动作按文件分组，逐文件调 `FacadeGenerator.Rewrite`——**原模型**取绑定 compilation（站点 span 权威），**当前模型**取中间编译（按 `ISymbol.ToDisplayString()` 重定位类型与成员，不依赖 span）；生成文件经 `RegisterGeneratedFiles` 按 RelativePath 去重登记；facade 诊断只从 Phase B 返回元组进总表，不双重计数。
+4. 三候选语法校验失败→PI040 Error、**原文保留**；residual 双扫最终树，PI031 对 `generated/`/`.g.cs` 路径豁免。
+
+`IsolationPlan.SeverityFor` 的 Facade 严重级由预留 Error 改 **Info**（PI020 台账语义，与 ProbeRedirect 同级）。
+
+### 13.3 C06 联动（不改 C06，只读消费）
+
+- 描述符 RunAfter 由 `{eliminate-goto}` 扩为 `{eliminate-goto, unsafe-ffm}`。unsafe-ffm 在 LockedChain 第 77 位、platform-isolation 第 111 位：新边与锁序方向一致，Kahn 结果序列不变、天然无环；`PassChainOrderTests` 的 LockedChain 序列不动，仅注释说明该边（拓扑断言继续守无环）。
+- 3201/3203 重复报抑制落 `BoundaryInventoryBuilder`：对两码站点按 Location.SourceSpan 找节点，先直判 `InteropBoundaryFacts.IsNormalizedInteropFacade(model, node)`，再让特性/标识符节点上卷 `AncestorsAndSelf().OfType<MethodDeclarationSyntax>()`，以方法符号上的 `Cs2j.Generation.InteropFacadeAttribute` 标记终判（覆盖归一后残留在方法/参数上的 `[MarshalAs]` 等 6 特性）。命中即不入清单；非白名单 extern（如 bool 返回的 Beep，UF061 拒）照常登记并 Reject。
+- 互操作族在计划层锁 Reject（policy 只可降不可升，§4.7-5），FacadeGenerator 另设 D8 纵深防御跳过非 PlatformType 动作。
+
+### 13.4 接线与分发（CLI）
+
+- 删除 adapter 的 Facade「not implemented until M3」硬错误分支与 `_modeUnsupported` 状态：Facade 与 Stub 同走 `RewriteAll`，verify build/tests 双开口径不变（`ModeUsesVerify` 早已含 Facade）。
+- `DistributeGeneratedFilesAsync` 由「仅 probe shim 平铺」泛化为**全部**生成文件按相对子路径（`generated/<ns>/...`）写入树底稿（审计）并复制进**每个** project 目录（默认 Compile glob 要求文件在项目目录内）。
+
+### 13.5 验证
+
+- Core 单测（`PlatformIsolationApplyTests`）新增 4 例：Facade 三件套+输出树编译+槽位零实现逐行断言+PI020 Info；二次运行幂等（0 站点/0 生成/0 诊断）；泛型方法不可抽取→PI031 且原文不动；C06 归一（含参数 `[MarshalAs]` 残留）3201/3203 零站点而 Beep 仍 PI030。
+- 项目测试：`FacadeMode_FailsLoudlyWithM3Message` 改为 `FacadeMode_GeneratesPortSeamAndSlot_AndRestoredTreeBuilds`（真实 restore-build exit 0 即缝/端口/槽位联编证据）；联合 fixture `NativeMethods.cs` 加白名单可收编例 `uint GetTickCount()`（kernel32，无参基元返回），与 bool Beep 成对。
+- 实现期以临时控制台探针（引用 Core，非测试工程，验证后已删除）对三场景 + 幂等做了运行时取证；xUnit 全量执行按纪律交主控统一跑。
+- 默认开关不变：pass 仍 Implemented+默认 on；Mode 默认 Report（Facade 须 `--platform-mode Facade` 且配置 `policies.PlatformType=facade` opt-in）。
+
