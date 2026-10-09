@@ -32,8 +32,14 @@ public sealed class ParamsStatistics
     /// <summary>K2 Span sites whose expansion was emitted as an array (0604).</summary>
     public int SpanAsArraySites;
 
-    /// <summary>K3 builder sites blocked with CS2J0607 (v1 policy).</summary>
+    /// <summary>K3 builder sites blocked with CS2J0607 (M2: only the residual unbindable path).</summary>
     public int BuilderSitesBlocked;
+
+    /// <summary>M2 K3 sites emitted through the IOperation-bound builder factory (B.Create(new T[]{…})).</summary>
+    public int BuilderFactorySites;
+
+    /// <summary>M2 K4 sites whose instance Add was resolved through real compiler/symbol binding (PC-3).</summary>
+    public int InitializerAddBoundSites;
 
     /// <summary>Skip counters keyed by the CS2J06xx diagnostic code that caused the skip.</summary>
     public Dictionary<string, int> SkippedByReason { get; } = new(StringComparer.Ordinal);
@@ -69,6 +75,8 @@ public sealed class ParamsStatistics
         ArrayCallSitesExpanded += other.ArrayCallSitesExpanded;
         SpanAsArraySites += other.SpanAsArraySites;
         BuilderSitesBlocked += other.BuilderSitesBlocked;
+        BuilderFactorySites += other.BuilderFactorySites;
+        InitializerAddBoundSites += other.InitializerAddBoundSites;
 
         foreach (var (key, count) in other.SkippedByReason)
         {

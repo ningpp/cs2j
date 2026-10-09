@@ -226,8 +226,12 @@ internal sealed class ParamsArgumentRewriter
         }
 
         // 4. Classify the params target from the call-site (constructed) type
-        //    symbol so generic slots carry their concrete element type.
-        var classification = ParamsTargetClassifier.Classify(paramsParameter.Type, _model.Compilation);
+        //    symbol so generic slots carry their concrete element type. The
+        //    site position lets the M2 K4 gate bind the real Add symbol via a
+        //    speculative collection initializer at this exact location.
+        var bindingSite = SafeBindingSite(siteNode);
+        var classification = ParamsTargetClassifier.Classify(
+            paramsParameter.Type, _model.Compilation, bindingSite);
 
         // 5. Gates: K1 is D8-gated (T9); non-array kinds must belong to a
         //    materialize-strategy plan collected from the declaring file.
@@ -256,6 +260,18 @@ internal sealed class ParamsArgumentRewriter
             // Declaration kept (unsupported / builder / scope / char face):
             // its skip diagnostic was emitted once at collect time; call sites
             // stay in the comma form for the same reason.
+            return null;
+        }
+
+        // 5b. Site-level defensive skip: the call-site classification proved
+        //     the shape cannot be emitted (M2: K4 Add unbindable at this site).
+        if (classification.SkipReason is string siteSkipReason)
+        {
+            _diagnostics.Add(ParamsDiagnostics.Create(
+                siteSkipReason,
+                ParamsDiagnostics.BuildSkipMessage(classification, target.ToDisplayString()),
+                _options.Strict));
+            _plans.Statistics.RecordSkipped(siteSkipReason);
             return null;
         }
 
@@ -288,6 +304,16 @@ internal sealed class ParamsArgumentRewriter
                     _options.Strict));
                 break;
             case ParamsParamKind.Interface or ParamsParamKind.Initializable:
+                if (classification.Kind == ParamsParamKind.Initializable
+                    && classification.ResolvedAddMethod != null
+                    && expansionSegment.Count > 0)
+                {
+                    // M2 PC-3: every expanded K4 site was bound to a real Add
+                    // symbol (compiler-bound speculative probe or symbolic
+                    // collection-pattern rule) — no add/put guessing.
+                    _plans.Statistics.InitializerAddBoundSites++;
+                }
+
                 _diagnostics.Add(ParamsDiagnostics.Create(
                     ParamsDiagnostics.CollectionExpanded,
                     string.Format(
@@ -299,6 +325,28 @@ internal sealed class ParamsArgumentRewriter
         }
 
         return BuildRewrittenArgumentList(argumentList, expansionStart, target, paramsSlotIndex, replacement);
+    }
+
+    /// <summary>
+    /// Builds the M2 semantic binding site for classifier-level Add binding,
+    /// or null when the site node does not belong to the model's tree (the
+    /// classifier then uses the symbolic collection-pattern fallback).
+    /// </summary>
+    private ParamsBindingSite? SafeBindingSite(SyntaxNode siteNode)
+    {
+        try
+        {
+            if (siteNode.SyntaxTree != _model.SyntaxTree)
+            {
+                return null;
+            }
+
+            return new ParamsBindingSite(_model, siteNode.SpanStart);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
     }
 
     // ------------------------------------------------------------------

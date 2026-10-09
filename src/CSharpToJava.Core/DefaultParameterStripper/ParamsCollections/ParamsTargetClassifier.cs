@@ -35,7 +35,10 @@ public static class ParamsTargetClassifier
         "System.Collections.Generic.IList`1",
     };
 
-    public static ParamsTargetClassification Classify(ITypeSymbol parameterType, Compilation compilation)
+    public static ParamsTargetClassification Classify(
+        ITypeSymbol parameterType,
+        Compilation compilation,
+        ParamsBindingSite? bindingSite = null)
     {
         if (parameterType.TypeKind == TypeKind.Error)
         {
@@ -78,11 +81,14 @@ public static class ParamsTargetClassifier
         var builderInfo = ReadCollectionBuilder(named, compilation);
         if (builderInfo != null)
         {
+            // K3 (M2 PC-9): empty state is the bound factory called with an
+            // empty array, B.Create(new T[]{}); the factory symbol itself is
+            // resolved per call site from the IOperation (ConstructMethod).
             return new ParamsTargetClassification(
                 ParamsParamKind.Builder, named,
                 TryGetEnumerableElementType(named, compilation),
                 CanonicalConcreteType: null, BuilderInfo: builderInfo,
-                ParamsEmptyStateShape.NewInstance);
+                ParamsEmptyStateShape.BuilderFactory);
         }
 
         if (IsLegalParamsInterface(named, compilation, out var interfaceElement))
@@ -97,7 +103,7 @@ public static class ParamsTargetClassifier
                 ParamsEmptyStateShape.ArrayEmpty);
         }
 
-        return ClassifyInitializable(named, compilation);
+        return ClassifyInitializable(named, compilation, bindingSite);
     }
 
     // ------------------------------------------------------------------
@@ -204,7 +210,8 @@ public static class ParamsTargetClassifier
 
     private static ParamsTargetClassification ClassifyInitializable(
         INamedTypeSymbol type,
-        Compilation compilation)
+        Compilation compilation,
+        ParamsBindingSite? bindingSite)
     {
         var elementType = TryGetEnumerableElementType(type, compilation);
         if (elementType == null)
@@ -212,9 +219,25 @@ public static class ParamsTargetClassifier
             return Unsupported(type, ParamsDiagnostics.UnsupportedType);
         }
 
-        // Conservative visibility check; the M2 emitter switches to IOperation
-        // Add binding (same discipline as C24: never guess add/put).
-        if (!HasAccessibleParameterlessConstructor(type) || !HasAccessibleInstanceAdd(type))
+        // M2 (PC-3): the parameterless ctor and the instance Add are both
+        // resolved through real semantic binding — the Add via a speculative
+        // compiler-bound collection initializer at the site when a body is
+        // available, otherwise via the symbolic collection-pattern rule
+        // (ParamsCollectionBinding; same discipline as C24/C36: never guess
+        // add/put). Dictionary<K,V>'s two-argument Add and extension-only
+        // types fail here (baseline CS9215/CS9227; defensive 0606).
+        if (!HasAccessibleParameterlessConstructor(type, compilation.Assembly))
+        {
+            return new ParamsTargetClassification(
+                ParamsParamKind.Unsupported, type, elementType,
+                CanonicalConcreteType: null, BuilderInfo: null,
+                ParamsEmptyStateShape.NewInstance,
+                SkipReason: ParamsDiagnostics.InitializerPatternBroken);
+        }
+
+        var addMethod = ParamsCollectionBinding.TryBindInitializerAdd(
+            type, elementType, compilation, bindingSite);
+        if (addMethod == null)
         {
             return new ParamsTargetClassification(
                 ParamsParamKind.Unsupported, type, elementType,
@@ -226,7 +249,8 @@ public static class ParamsTargetClassifier
         return new ParamsTargetClassification(
             ParamsParamKind.Initializable, type, elementType,
             CanonicalConcreteType: type, BuilderInfo: null,
-            ParamsEmptyStateShape.NewInstance);
+            ParamsEmptyStateShape.NewInstance,
+            ResolvedAddMethod: addMethod);
     }
 
     /// <summary>
@@ -255,44 +279,22 @@ public static class ParamsTargetClassifier
         return null;
     }
 
-    /// <summary>Conservative accessibility: same-compilation visibility is enough (public/internal/protected-internal).</summary>
-    private static bool IsAccessible(Accessibility accessibility)
-        => accessibility is Accessibility.Public
-            or Accessibility.Internal
-            or Accessibility.ProtectedOrInternal;
-
-    private static bool HasAccessibleParameterlessConstructor(INamedTypeSymbol type)
+    private static bool HasAccessibleParameterlessConstructor(
+        INamedTypeSymbol type,
+        IAssemblySymbol currentAssembly)
     {
         if (type.IsValueType)
         {
             // Structs have an implicit always-accessible default constructor
             // unless one is declared explicitly.
             var declared = type.InstanceConstructors.FirstOrDefault(c => c.Parameters.Length == 0);
-            return declared == null || IsAccessible(declared.DeclaredAccessibility);
+            return declared == null
+                || ParamsCollectionBinding.IsAccessible(declared, currentAssembly);
         }
 
         return type.InstanceConstructors.Any(c =>
-            c.Parameters.Length == 0 && IsAccessible(c.DeclaredAccessibility));
-    }
-
-    private static bool HasAccessibleInstanceAdd(INamedTypeSymbol type)
-    {
-        foreach (var member in type.GetMembers("Add"))
-        {
-            if (member is not IMethodSymbol method
-                || method.IsStatic
-                || method.MethodKind != MethodKind.Ordinary)
-            {
-                continue;
-            }
-
-            if (IsAccessible(method.DeclaredAccessibility) && method.Parameters.Length >= 1)
-            {
-                return true;
-            }
-        }
-
-        return false;
+            c.Parameters.Length == 0
+            && ParamsCollectionBinding.IsAccessible(c, currentAssembly));
     }
 
     // ------------------------------------------------------------------

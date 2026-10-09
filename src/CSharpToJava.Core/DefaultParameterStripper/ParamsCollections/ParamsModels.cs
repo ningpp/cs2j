@@ -43,8 +43,11 @@ public enum ParamsEmptyStateShape
     /// <summary>Emit System.Array.Empty&lt;T&gt;() (K1/K2/K5 — same shape as the compiler lowering).</summary>
     ArrayEmpty,
 
-    /// <summary>Emit a new instance, e.g. new List&lt;T&gt;() (K4; K3 factory shape is decided in M2).</summary>
+    /// <summary>Emit a new instance, e.g. new List&lt;T&gt;() (K4).</summary>
     NewInstance,
+
+    /// <summary>Emit the bound builder factory with an empty array: <c>B.Create(new T[]{})</c> (K3, M2 PC-9).</summary>
+    BuilderFactory,
 }
 
 /// <summary>Declaration-side strategy (design §2.3): A keeps the params modifier (arrays only), B strips it.</summary>
@@ -105,8 +108,9 @@ public sealed record CollectionBuilderInfo(
 /// List&lt;T&gt; for K5; null for array/span/builder kinds.
 /// </param>
 /// <param name="BuilderInfo">Builder type + factory name for K3; otherwise null.</param>
-/// <param name="EmptyState">Empty-call-site shape (M0 adjudication 5).</param>
+/// <param name="EmptyState">Empty-call-site shape (M0 adjudication 5; K3 = BuilderFactory in M2).</param>
 /// <param name="SkipReason">CS2J06xx code explaining an Unsupported kind; null for supported kinds.</param>
+/// <param name="ResolvedAddMethod">M2: the compiler/symbol-resolved instance Add for K4 (null on other kinds / when unbindable).</param>
 public sealed record ParamsTargetClassification(
     ParamsParamKind Kind,
     ITypeSymbol ParameterType,
@@ -114,7 +118,8 @@ public sealed record ParamsTargetClassification(
     INamedTypeSymbol? CanonicalConcreteType,
     CollectionBuilderInfo? BuilderInfo,
     ParamsEmptyStateShape EmptyState,
-    string? SkipReason = null);
+    string? SkipReason = null,
+    IMethodSymbol? ResolvedAddMethod = null);
 
 /// <summary>
 /// Per-call-site plan produced by the params argument rewriter (T7/T8). The
