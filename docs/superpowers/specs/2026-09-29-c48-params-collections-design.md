@@ -415,5 +415,47 @@ git worktree add .worktrees/preproc-c48-params-collections -b feature/preproc-c4
 1. **D8 经典 `params T[]` 逗号调用点的默认面貌**：v1 保持逗号（Java varargs 直透）还是随本规则默认全部显式化？倾向前者（K1 声明保留、Java 半区天然正确、噪声最小），但需 .NET 10 BCL 画像评估「非数组 params 占比」与 Java 侧清理 P1/P2 路径后的统一口径；M3 凭命中率与 §8-7 核查结论拍板。
 2. **K2 Span 终态形态与版本边界**：v1 `new T[]{}` 隐式转换已可编译，是否需要 v2 的显式 `AsSpan`（或等 C06 的 Span 支撑终态统一收口）？C#14 隐式 Span 转换（C52）对 `ReadOnlySpan<char>` 重载决议的影响在 4.12 探针下确认后，决定 char 面是 v1 排除还是直接收编。
 3. **策略 B 的元数据与跨声明一致性**：是否为剥离后的参数补发 `ParamCollectionAttribute`（保反射可见性，构造签名待探针）？override/interface/partial 整族物化若遇部分符号不可解析（0612）应 fail-fast 还是跳过整族？倾向 fail-fast（半剥离比不剥离更危险），需大仓夹具验证误报率。
-4. **C24/C36 助手复用时机与可见性**：M1 自带最小发射（零临时、无语句化需求，复制面小）先行，还是等 C24/C36 合入后开工以直接复用 `TargetTypeResolver`/Add 助手？倾向 M1 不阻塞（K1/K2/K5 不依赖语句化），M2 与 C24 Add 绑定时合并；K3 builder 节奏完全跟 C36 CE-10 对齐。
+4. **C24/C36 助手复用时机**：M1 自带最小发射（零临时、无语句化需求）先行，还是等 C24/C36 合入后开工以直接复用 `TargetTypeResolver`/Add 助手？倾向 M1 不阻塞（K1/K2/K5 不依赖语句化），M2 与 C24 Add 绑定时合并；K3 builder 节奏完全跟 C36 CE-10 对齐。
 5. **空实参的单例同一性**：空数组发 `new T[]{}` 还是 `Array.Empty<T>()`、空接口集合发 `new List<T>()` 还是尝试编译器空态单例——需 M0 探针确认 4.12 编译器对 `M()` 合成 ParamArray/ParamCollection 的实际 lowering（是否复用缓存），以「与编译器同形、ReferenceEquals 可观察行为一致」为裁决标准。
+
+---
+
+## 13. M2 实施记录（2026-10-09，worktree `feature/p3-c48-params-collections-m2`）
+
+> 范围：PC-3（K4 Add 实绑定）、PC-9（K3 builder 工厂发射/0607 退役/0605 残余）、PC-7 转发空槽 builder 分派、CS2J0611 边缘结论、泛型三档、C36 共处四象限、§7.1 单测 6/10/11/13/14 与 §7.2 fixture。基线 dev-3.x `7afe0ea5`；提交：`07c3b00c`（K4）→ `4eee142e`（K3/空槽/0611）→ `c241da22`（单测）→ `1dd3f5a1`/`f5622294`（fixture/项目门）。Roslyn 实际版本为 **5.0.0**（.NET 10），非 M0 设想的 4.12。
+
+### 13.1 K3 工厂双源解析（权威顺序实证）
+
+1. **首选 IOperation**：`(paramsArgument.Value as ICollectionExpressionOperation)?.ConstructMethod` 在以下形态全部返回**已构造的工厂方法符号**：自定义 `B.Create(ReadOnlySpan<int>)`、泛型 `B.Create<T>(ReadOnlySpan<T>)`（推断/显式类型参数字点均构造）、`ReadOnlySpan<KeyValuePair<string,int>>` 字典形工厂、record 主构造函数的 `ImmutableArray<T>` 形参、以及**空态 `M()`/空集合表达式**（空态也有 ConstructMethod，直接给出无参语义工厂，不回落）。
+2. **回落 C36**：声明闸门与 PC-7 转发空槽没有调用点 IOperation，以空 `elementFedTypes` 调 `CollectionBuilderAnalyzer.TryResolveFactory`（同程序集 internal，只读复用）；调用点 ConstructMethod 缺失时以 `GetTypeInfo(...).ConvertedType ?? .Type` 收集 fed types 再解析。两源皆败才发 **CS2J0605 Info**（`CollectionBuilderUnresolvedMessage`，含 builder 类型/工厂名），站点保留并由 materializer tolerated key 配对，strict 不致失败、不触 0619。
+3. 发射统一委托 C36 `CollectionExprEmitter.BuildBuilderFactory`：`global::Builder.Create<显式类型参数>(new TElem[]{…})`，空态 `Create(new TElem[]{})`；receiver/类型参数全部 `FullyQualifiedFormat`，无 using 依赖。
+
+### 13.2 K4 Add 实绑定（PC-3）
+
+- 探针经 `SemanticModel.TryGetSpeculativeSemanticModelForMethodBody` + `GetCollectionInitializerSymbolInfo` 取得 collection initializer 的真实 Add 符号，证实支持 **fluent Add（返回非 void）** 与 **重载 Add（int 元素绑到 Add(long)）**；统计新增 `InitializerAddBoundSites`。Dictionary 双参 Add 不能作 params：基线 **CS9215**；扩展方法 Add 基线 **CS9227**——两类均被编译器挡在源外，本规则不猜，单测以 `AssertInputCompiles` 反向钉住。
+
+### 13.3 CS2J0611 可达性结论
+
+- 可达形态：合成 ParamArray/ParamCollection **展开段元素**出现 `CollectionExpressionSyntax`/`SpreadElementSyntax`（如 `Groups([1,2], [3])`，多包一层时基线 CS1503，正确夹具为 `Groups(new[]{1,2}, new[]{3})`）。命中即 strict=Warning/否则 Info，站点保留。
+- **裸 spread 实参不可达**：`M(..x)`、`M(1,..new[]{2},3)` 在 C#13 均被解析为 `Range`/Index 表达式，基线 **CS0029**；因此 0611 只需防嵌套 collection expression。形态 B 单集合实参（含 `[1,2]`）是 `ArgumentKind.Explicit`，永远直传不判 0611；C36 去糖产物（`new[]{…}`/`new List<int>(){…}`）站点只包一次，四象限单测钉住不双包。
+
+### 13.4 基线错误码与重载决议钉行为（探针实证，均有单测）
+
+- 工厂形参非法（`T[]` 而非 `ReadOnlySpan<X>`）：**CS9187**；表达式树 lambda 内含非数组 params 集合展开：**CS9226**（Span 元素另加 **CS8640**）。
+- `M(int)` vs `M(params int[])`：单参前者胜、多参后者胜；`S('a','b')` 绑 `params ReadOnlySpan<char>`（char face 仍走 v1 0601 排除，Scope 门保留）；new 隐藏三级按引用静态类型分派；`ImmutableArray.Create<int>(…)` 1–3 参走固定重载，**5+ 实参**才逼出 params ROS 重载——无声明计划时 0602 不猜测。
+
+### 13.5 灰度退役边界
+
+- **CS2J0607 码保留、正常路径退役**：仅 `CollectionBuilderPolicy.Error`（CLI 默认，Program.cs 硬编码不改）的声明/转发路径产生（strict=Error）；Emit 为库/M2 正常路径，成功发工厂、失败统一 0605。项目门 `ParamsOn_*` 随 K3 fixture 切入 **Emit + VerifyBuild/VerifyTests**；Error 档行为由 Core 单测覆盖，不另建项目门。
+- PC-7 转发空槽按 Kind 分派：K1/K2/K5 `Array.Empty<T>()`、K4 `new C<T>()`、K3 工厂空态；0613 Info 保留。
+
+### 13.6 统计/摘要、fixture 与测试
+
+- `ParamsStatistics` 新桶（Block 1 已加）：`BuilderFactorySites`、`InitializerAddBoundSites`，Merge 已合；`StripDefaultPassAdapter.BuildChainSummaryLine` **追加式**在两桶非零时续接 `, K3 factories <n>, K4 add-bound <n>`，规则关或桶为零时摘要逐字节不变。
+- fixture：① `tests/SampleStripDefaultSolution/` 新增 **Params\* 前缀**三源（不建新 sln）：`ParamsBag/ParamsImm<T>/ParamsMap` 三 builder + `ParamsPoint` + K2/K3/K4/K5/E08/泛型三档 API、abstract/interface/override/显式接口/params ctor 链（SeedSum=16）、App 侧运行时断言（基线 build 0 错、`dotnet run` 全过）；② `SampleParamsCollectionsSolution` 补同套 builder/TierPoint/`BagForwarded` 转发重载与 5 个行为事实；项目门断言中间树工厂发射（含全局限定 receiver、泛型 arity、KVP span、三档）与残余标记，临时探针实跑链 **SUCCESS + VerifyBuild 通过**（未跑 `dotnet test`，留主控统一执行）。
+- §7.1 单测 6/10/11/13/14 已补齐（factory 矩阵/泛型三档/K4 实绑定/C36 四象限/决议钉行为/表达式树 CS9226/声明种类等，见 `ParamsCollectionsUnitTests.cs`）。
+
+### 13.7 遗留风险
+
+- `dotnet test` 全程未由本里程碑执行（纪律），行为等价以基线 `dotnet run` + 探针 VerifyBuild + 重编译/幂等单测保证，测试事实全绿待主控跑批确认。
+- M3 仍需画像白名单评审（R9：自定义 Create 缓存/拷贝语义），Emit 当前对任意可绑定 `[CollectionBuilder]` 一视同仁。
