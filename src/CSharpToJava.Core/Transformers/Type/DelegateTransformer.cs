@@ -237,12 +237,4 @@ public class DelegateTransformer : IDelegateTransformer
         if (node.ConstraintClauses.Count == 0) return;
         ClassTransformer.ApplyTypeParameterConstraints(node.ConstraintClauses, javaInterface.TypeParameters, context);
     }
-
-    /// <summary>
-    /// Converts a Java type to its corresponding holder class name for ref/out parameters.
-    /// Delegates to <see cref="HolderTypeResolver.GetHolderType"/> — kept for backward compatibility.
-    /// </summary>
-    [System.Obsolete("Use HolderTypeResolver.GetHolderType() directly.")]
-    internal static string GetHolderType(string javaType)
-        => HolderTypeResolver.GetHolderType(javaType);
 }
