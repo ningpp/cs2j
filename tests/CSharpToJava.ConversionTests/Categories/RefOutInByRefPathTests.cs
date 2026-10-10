@@ -1,3 +1,4 @@
+using CSharpToJava.Core.ClosureLift;
 using CSharpToJava.Core.ForeachSource;
 using CSharpToJava.Core.Pipeline;
 using CSharpToJava.Core.RefOutInPreprocessor;
@@ -30,7 +31,7 @@ public class RefOutInByRefPathTests : ConversionTestBase
         return Path.Combine(dir.FullName, relative);
     }
 
-    private static ConversionResult ConvertRewritten(string userSource)
+    private static ConversionResult ConvertRewritten(string userSource, bool closureLift = false)
     {
         var tree = CSharpSyntaxTree.ParseText(userSource);
         var compilation = CSharpCompilation.Create("refout-pre",
@@ -51,6 +52,20 @@ public class RefOutInByRefPathTests : ConversionTestBase
         // released Cs2jRefOutIn project does, while all using directives stay
         // legal at the top of the combined file.
         var combined = "using System;\n" + result.OutputCode + "\n" + ByRefNamespaceBody;
+
+        // Production convert-project order (C45 M5): ref-out-in emits ByRef
+        // accessor proxies whose setter lambda mutably captures the aliased
+        // local; closure-lift, anchored right after ref-out-in, must lift that
+        // capture into a display class before the direct Java converter runs.
+        if (closureLift)
+        {
+            var lift = new ClosureLiftPreprocessor().Preprocess(combined);
+            Assert.True(lift.Changed,
+                "expected closure-lift to lift the ByRef accessor captures\n" +
+                string.Join("\n", lift.Diagnostics.Select(d => d.ToString())));
+            combined = lift.OutputCode;
+        }
+
         var converted = Convert(combined);
         if (!converted.Success)
         {
@@ -221,6 +236,10 @@ public class Calc
     [Fact]
     public void InternalRefCall_ProducesJavaByRefLambda()
     {
+        // C45 M5: the setter lambda emitted by ref-out-in (v => x = v) mutably
+        // captures the local, so closure-lift runs next (production order) and
+        // moves x onto a display class; the converter binds the accessor pair
+        // to the display class methods as ByRef.create(getter, setter).
         var result = ConvertRewritten(@"
 public class Calc
 {
@@ -230,11 +249,12 @@ public class Calc
         int x = 1;
         Bump(ref x);
     }
-}");
+}", closureLift: true);
         AssertSuccess(result);
         AssertJavaContains(result, "ByRef.create(", "factory call");
-        AssertJavaContains(result, "() -> x", "getter lambda");
-        AssertJavaContains(result, "v -> x = v", "setter lambda");
+        AssertJavaContains(result, "::lambda_0", "getter accessor bound to the display class");
+        AssertJavaContains(result, "::lambda_1", "setter accessor bound to the display class");
+        AssertJavaContains(result, "_cs2jCap_x = v", "setter writes through the lifted capture");
         AssertJavaContains(result, "v.getValue()", "body slot read");
         AssertJavaDoesNotContain(result, "IntHolder");
         AssertJavaDoesNotContain(result, "ObjectHolder");
