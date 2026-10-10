@@ -399,50 +399,6 @@ public class ConversionContext
         => ConversionContext.IsOverrideOrImplementation(method);
 
     /// <summary>
-    /// Tracks fields marked with [ThreadStatic] so that reads/writes can be
-    /// rewritten to ThreadLocal.get()/set() calls. Keyed by
-    /// containingType.ToDisplayString()|fieldName (fully-qualified so same-named
-    /// types in different namespaces do not collide).
-    /// </summary>
-    private readonly HashSet<string> _threadStaticFields = new();
-
-    public void RegisterThreadStaticField(string containingTypeKey, string fieldName)
-    {
-        _threadStaticFields.Add($"{containingTypeKey}|{fieldName}");
-    }
-
-    public bool IsThreadStaticField(string containingTypeKey, string fieldName)
-    {
-        return _threadStaticFields.Contains($"{containingTypeKey}|{fieldName}");
-    }
-
-    /// <summary>
-    /// Checks whether a field symbol refers to a [ThreadStatic] field.
-    /// </summary>
-    public bool IsThreadStaticField(IFieldSymbol fieldSymbol)
-    {
-        var typeName = fieldSymbol.ContainingType?.ToDisplayString() ?? "";
-        return IsThreadStaticField(typeName, fieldSymbol.Name);
-    }
-
-    /// <summary>
-    /// Shared detection logic for [ThreadStatic] on a static field declaration.
-    /// Used by FieldTransformer (per-variable registration when the declaration is
-    /// converted) and by ClassTransformer's pre-scan (so methods that appear BEFORE
-    /// the field declaration in source order still see the registration).
-    /// </summary>
-    public static bool IsThreadStaticFieldDeclaration(
-        Microsoft.CodeAnalysis.CSharp.Syntax.FieldDeclarationSyntax fieldDecl,
-        IFieldSymbol? firstVariableSymbol)
-    {
-        if (!fieldDecl.Modifiers.Any(m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.StaticKeyword)))
-            return false;
-        return firstVariableSymbol?.GetAttributes().Any(a =>
-            a.AttributeClass?.ToDisplayString() is "System.ThreadStaticAttribute"
-                or "ThreadStaticAttribute" or "ThreadStatic") == true;
-    }
-
-    /// <summary>
     /// Returns the Java class literal for a concrete type symbol at a call site.
     /// E.g., for C# int → "int.class", for ValueType → "ValueType.class".
     /// Type parameters cannot use T.class in Java. The main C#→Java pipeline must

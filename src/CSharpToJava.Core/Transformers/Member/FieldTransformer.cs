@@ -48,13 +48,20 @@ public class FieldTransformer : IMemberTransformer
             : null;
         var sharedComment = context.GetDeclarationComments(fieldDecl, fieldSymbol).ToCombinedComment();
 
-        // Detect [ThreadStatic] attribute on static fields.
-        // C# [ThreadStatic] makes each thread get its own independent copy of the field.
-        // Java has no direct equivalent — we convert to ThreadLocal<T> and rewrite
-        // reads to .get() / writes to .set() in IdentifierExpressionTransformer and
-        // AssignmentTransformer. (ClassTransformer pre-registers these fields before
-        // any member body is converted, so declaration order does not matter.)
-        bool isThreadStatic = ConversionContext.IsThreadStaticFieldDeclaration(fieldDecl, fieldSymbol);
+        // C09 M5: a static [ThreadStatic] field must already have been lowered to
+        // an explicit System.Threading.ThreadLocal<T> holder (reads/writes rewritten
+        // to .Value) by the thread-static preprocessor, which is default-on in the
+        // CLI preprocess chain. The converter no longer recognizes the attribute
+        // itself; reaching this branch means the field was converted without
+        // preprocessing. Instance fields are CLR-no-op for [ThreadStatic] and keep
+        // passing through (the attribute is governed by attribute normalization).
+        if (IsStaticThreadStaticField(fieldDecl, fieldSymbol))
+        {
+            throw new NotSupportedException(
+                "CS2J normalization required: [ThreadStatic] static field(s) '"
+                + string.Join(", ", fieldDecl.Declaration.Variables.Select(v => v.Identifier.Text))
+                + "' must be lowered to a ThreadLocal<T> holder by the thread-static preprocessor before Java conversion.");
+        }
 
         // Handle const/readonly modifiers
         if (fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ConstKeyword)))
@@ -120,31 +127,12 @@ public class FieldTransformer : IMemberTransformer
 
         foreach (var variable in fieldDecl.Declaration.Variables)
         {
-            // For [ThreadStatic] fields, register the field so that reads/writes
-            // are rewritten to ThreadLocal.get()/set(), and change the declared
-            // type to ThreadLocal<T> with a default initializer.
-            if (isThreadStatic && fieldSymbol != null)
-            {
-                context.RegisterThreadStaticField(
-                    fieldSymbol.ContainingType?.ToDisplayString() ?? "",
-                    variable.Identifier.Text);
-                context.AddImport("java.lang.ThreadLocal");
-            }
-
-            var fieldJavaType = isThreadStatic
-                ? $"ThreadLocal<{(typeInfo.Type != null ? context.MapTypeBoxed(typeInfo.Type) : javaType)}>"
-                : javaType;
             var javaField = new JavaFieldDeclaration
             {
-                Type = fieldJavaType,
+                Type = javaType,
                 Name = ConversionContext.EscapeJavaKeyword(variable.Identifier.Text),
                 Modifiers = modifiers
             };
-            if (isThreadStatic && variable.Initializer == null)
-            {
-                // ThreadLocal<T> defaults to null-per-thread, matching C# [ThreadStatic] semantics.
-                javaField.Initializer = "new ThreadLocal<>()";
-            }
             if (!commentAssigned)
             {
                 javaField.LeadingComment = sharedComment;
@@ -339,16 +327,6 @@ public class FieldTransformer : IMemberTransformer
                     if (arrayType != null)
                         javaField.Initializer = ObjectCreationTransformer.WrapArrayForCollectionArg(javaField.Initializer, arrayType, context);
                 }
-
-                // [ThreadStatic] field WITH initializer: the holder itself must be
-                // initialized, not the per-thread value. Wrap the value expression in
-                // ThreadLocal.withInitial(() -> value) so every thread starts from it
-                // (C# only initializes the first thread to run the type initializer;
-                // withInitial is the closest sane Java semantics).
-                if (isThreadStatic && javaField.Initializer != null)
-                {
-                    javaField.Initializer = $"ThreadLocal.withInitial(() -> {javaField.Initializer})";
-                }
             }
 
             // Issue 5: suggest AtomicReference for volatile fields of non-primitive types.
@@ -450,6 +428,21 @@ public class FieldTransformer : IMemberTransformer
             || text.Contains("IList", StringComparison.Ordinal)
             || text.Contains("IReadOnlyCollection", StringComparison.Ordinal)
             || text.Contains("IReadOnlyList", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// True for a static field declaration carrying [ThreadStatic]. Symbol
+    /// identity via attributes (the source syntax may use short/aliased names);
+    /// instance fields return false (the CLR ignores [ThreadStatic] on them).
+    /// </summary>
+    private static bool IsStaticThreadStaticField(FieldDeclarationSyntax fieldDecl, IFieldSymbol? fieldSymbol)
+    {
+        if (!fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)))
+            return false;
+
+        return fieldSymbol?.GetAttributes().Any(a =>
+            a.AttributeClass?.ToDisplayString() is "System.ThreadStaticAttribute"
+                or "ThreadStaticAttribute" or "ThreadStatic") == true;
     }
 
     /// <summary>
