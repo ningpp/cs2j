@@ -30,7 +30,6 @@ public sealed class GenericPreprocessStatistics
     public int TypeOfExpressionsSeen;
     public int IsTypeParamSeen;
     public int AsTypeParamSeen;
-    public int ForwardedTypeParamsInserted;
 }
 
 public sealed record GenericPreprocessResult(

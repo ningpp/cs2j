@@ -1,7 +1,5 @@
 using CSharpToJava.Core.GenericPreprocess;
 using CSharpToJava.Core.Preprocessing;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using CoreGenericPreprocessOptions = CSharpToJava.Core.GenericPreprocess.GenericPreprocessOptions;
 
 namespace CSharpToJava.CLI.Preprocessing.Adapters;
@@ -46,16 +44,6 @@ internal sealed class GenericPassAdapter : ProjectPassAdapter
 
     public GenericPreprocessStatistics Statistics => _statistics;
     public IReadOnlyList<GenericPreprocessDiagnostic> Diagnostics => _diagnostics;
-
-    public override Task CompilationReadyAsync(CSharpCompilation compilation)
-    {
-        if (_options.SyncTypeOfForOverrideSiblings)
-        {
-            _preprocessor.PrescanOverrideSiblings(compilation);
-        }
-
-        return Task.CompletedTask;
-    }
 
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
     {
