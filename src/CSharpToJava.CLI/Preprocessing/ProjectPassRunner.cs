@@ -149,14 +149,6 @@ internal static class ProjectPassRunner
                 projectGraph, adapter.Verbose, adapter.CompatNamespacePrefixes, layout.SourceRoot)
             : new SupportedProjectFiltering.ExclusionInfo();
 
-        if (!inPlace)
-        {
-            await ProjectPreprocessSource.CopyProjectFilesAsync(
-                layout, sourceRoot, intermediateRoot, exclusionInfo);
-            ProjectPreprocessSource.CopyAncestorMsBuildDirectoryFiles(
-                sourceRoot, intermediateRoot, adapter.LogPrefix, adapter.Verbose);
-        }
-
         var sourceFiles = ProjectPreprocessSource.EnumerateSourceFiles(
                 sourceRoot, intermediateRoot, destinationRoot)
             .Where(file => !SupportedProjectFiltering.IsUnderExcludedProject(file, exclusionInfo))
@@ -165,7 +157,7 @@ internal static class ProjectPassRunner
             .Where(file => file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        return new PassTreeContext
+        var tree = new PassTreeContext
         {
             Layout = layout,
             SourceRoot = sourceRoot,
@@ -178,6 +170,55 @@ internal static class ProjectPassRunner
             InPlace = inPlace,
             Snapshot = new InPlaceSourceSnapshot(inPlace),
         };
+
+        // Strict syntax gate: a project file containing parse errors must abort
+        // the load immediately instead of flowing into the tolerant Roslyn
+        // compilation/rewrite pipeline. Runs before the intermediate tree is
+        // populated so a rejected load leaves no copied sources behind.
+        ValidateSyntaxOrThrow(adapter, tree);
+
+        if (!inPlace)
+        {
+            await ProjectPreprocessSource.CopyProjectFilesAsync(
+                layout, sourceRoot, intermediateRoot, exclusionInfo);
+            ProjectPreprocessSource.CopyAncestorMsBuildDirectoryFiles(
+                sourceRoot, intermediateRoot, adapter.LogPrefix, adapter.Verbose);
+        }
+
+        return tree;
+    }
+
+    /// <summary>
+    /// Pre-parses every project .cs file with the adapter's parse options and
+    /// throws <see cref="ProjectSyntaxException"/> on the first Error-level
+    /// parse diagnostic. SyntaxTree diagnostics are parser-only; semantic
+    /// diagnostics and warnings are intentionally not gated here.
+    /// </summary>
+    private static void ValidateSyntaxOrThrow(ProjectPassAdapter adapter, PassTreeContext tree)
+    {
+        var parseOptions = adapter.CreateParseOptions(tree);
+        foreach (var csFile in tree.CsFiles)
+        {
+            var sourceCode = File.ReadAllText(csFile);
+            var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode, parseOptions, path: csFile);
+            var error = syntaxTree.GetDiagnostics()
+                .FirstOrDefault(d => d.Severity == DiagnosticSeverity.Error);
+            if (error == null)
+            {
+                continue;
+            }
+
+            var position = error.Location.IsInSource
+                ? error.Location.GetLineSpan().StartLinePosition
+                : new Microsoft.CodeAnalysis.Text.LinePosition(0, 0);
+            throw new ProjectSyntaxException(
+                adapter.LogPrefix,
+                csFile,
+                position.Line + 1,
+                position.Character + 1,
+                error.Descriptor.Id,
+                error.GetMessage());
+        }
     }
 
     // ---- stage 2: whole-tree parse + compile ----
@@ -578,5 +619,22 @@ internal static class ProjectPassRunner
         Span<byte> prefix = stackalloc byte[3];
         var read = stream.Read(prefix);
         return read >= 3 && prefix[0] == 0xEF && prefix[1] == 0xBB && prefix[2] == 0xBF;
+    }
+}
+
+/// <summary>Raised when a project .cs source file contains syntax errors during load.</summary>
+internal sealed class ProjectSyntaxException : Exception
+{
+    public ProjectSyntaxException(
+        string logPrefix,
+        string filePath,
+        int line,
+        int column,
+        string diagnosticId,
+        string diagnosticMessage)
+        : base(
+            $"{logPrefix} failed to load project: syntax error in source file.\n" +
+            $"{filePath}({line},{column}): error {diagnosticId}: {diagnosticMessage}")
+    {
     }
 }
