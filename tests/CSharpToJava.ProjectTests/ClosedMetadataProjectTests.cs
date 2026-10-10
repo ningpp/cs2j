@@ -144,6 +144,49 @@ public class ClosedMetadataProjectTests
         }
     }
 
+    [SlowE2EFact(300)]
+    public async Task RefOutInSolution_DefaultChain_RegistrationNeverTargetsInjectedSupportProject()
+    {
+        // Regression: closed constructions declared by the injected Cs2jRefOutIn
+        // support library (e.g. ByRef<Color>) used to be owned by the support
+        // project itself. The generated registration then named user types
+        // (SampleRefOutInLib.Color) inside Cs2jRefOutIn, which cannot reference
+        // user projects, so the closed-metadata verification build failed with
+        // CS0400. Ownership must instead fall back to the discovery-site user
+        // project (D6 framework branch).
+        var fixture = Path.Combine(AppContext.BaseDirectory, "SampleRefOutInSolution");
+        Assert.True(Directory.Exists(fixture),
+            "SampleRefOutInSolution must be copied to the test output directory");
+        var solutionPath = Path.Combine(fixture, "SampleRefOutIn.sln");
+        var workDir = Path.Combine(Path.GetTempPath(),
+            "cs2j-cm-roi-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workDir);
+        var destination = Path.Combine(workDir, "out");
+
+        try
+        {
+            var (exit, stdout, stderr) = await RunCliAsync(
+                "preprocess", "-s", solutionPath, "-d", destination);
+
+            Assert.True(exit == 0,
+                $"default-chain preprocess failed (exit {exit}).\nstderr: {stderr}\nstdout tail: {stdout[^Math.Min(2500, stdout.Length)..]}");
+
+            var closedRoot = Path.Combine(destination, ".cs2j-closed-metadata-src");
+            Assert.True(Directory.Exists(closedRoot), "closed-metadata intermediate tree must exist");
+
+            // The discovery-site user project owns the registration …
+            Assert.True(File.Exists(Path.Combine(closedRoot, "_Cs2jClosedTypes.SampleRefOutInLib.cs")),
+                "the ByRef<...> closures must be registered in the discovery-site user project");
+            // … and the symbol-source support project never receives one.
+            Assert.False(File.Exists(Path.Combine(closedRoot, "_Cs2jClosedTypes.Cs2jRefOutIn.cs")),
+                "the injected Cs2jRefOutIn support project must not receive a closed-type registration file");
+        }
+        finally
+        {
+            Directory.Delete(workDir, recursive: true);
+        }
+    }
+
     private static int CountOccurrences(string text, string value)
     {
         var count = 0;

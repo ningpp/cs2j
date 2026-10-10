@@ -54,4 +54,15 @@ public sealed record ClosedMetadataOptions
     /// plan-aware-options pattern as numeric-boundary.
     /// </summary>
     public IReadOnlySet<string>? EnabledPassIds { get; init; }
+
+    /// <summary>
+    /// Optional predicate marking source files that belong to injected cs2j
+    /// support libraries (symbol-source-only projects that never convert to
+    /// Java). Closed constructions declared in such files follow the framework
+    /// branch of the D6 ownership rule — registration ownership falls back to
+    /// the discovery-site project — because the support projects cannot
+    /// reference user projects and a <c>typeof(...)</c> registration naming
+    /// user types cannot compile there.
+    /// </summary>
+    public Func<string, bool>? IsInfrastructureSource { get; init; }
 }

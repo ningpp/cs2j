@@ -32,6 +32,14 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
     private readonly ClosedMetadataStatistics _statistics = new();
     private ClosedMetadataOverrides? _overrides;
 
+    /// <summary>
+    /// Directories (absolute, source-tree rooted — the spine compilation parses
+    /// source-rooted paths) of injected cs2j support library projects present in
+    /// the current tree. Closed constructions declared there are owned like
+    /// framework closures (discovery-site project).
+    /// </summary>
+    private IReadOnlyList<string> _infrastructureDirectories = Array.Empty<string>();
+
     public ClosedMetadataPassAdapter(
         ClosedMetadataOptions options,
         bool verbose,
@@ -50,6 +58,45 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
 
     public override PassDescriptor Descriptor => PassCatalog.ImplementedById(PassIds.ClosedMetadata);
     public override bool Verbose => _verbose;
+
+    public override Task OnTreePreparedAsync(PassTreeContext tree)
+    {
+        _infrastructureDirectories = tree.Layout.ProjectFiles
+            .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
+                && IsInjectedSupportLibraryProject(file))
+            .Select(file => Path.GetFullPath(Path.IsPathRooted(file)
+                ? file
+                : Path.Combine(tree.SourceRoot, file)))
+            .Select(projectPath => Path.GetDirectoryName(projectPath)!)
+            .ToList();
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Injected support projects can only exist under their reserved csproj
+    /// names (their injecting passes reject same-named user projects up front),
+    /// so filename recognition is sufficient regardless of which passes ran.
+    /// </summary>
+    private static bool IsInjectedSupportLibraryProject(string projectFilePath) =>
+        Cs2jRefOutInProject.IsCs2jRefOutInProject(projectFilePath)
+        || Cs2jArrayProject.IsCs2jArrayProject(projectFilePath)
+        || Cs2jUnsignedMathProject.IsCs2jUnsignedMathProject(projectFilePath)
+        || Cs2jPreludeProject.IsCs2jPreludeProject(projectFilePath);
+
+    private bool IsInfrastructureSource(string sourceFilePath)
+    {
+        if (_infrastructureDirectories.Count == 0)
+        {
+            return false;
+        }
+
+        var fullPath = Path.GetFullPath(sourceFilePath);
+        return _infrastructureDirectories.Any(directory =>
+            fullPath.StartsWith(directory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            || fullPath.StartsWith(directory + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+    }
+
     public override bool FilterUnsupportedProjects => _filterUnsupportedProjects;
     public override IReadOnlyCollection<string>? CompatNamespacePrefixes => _compatNamespacePrefixes;
     public override bool VerifyBuild => _verifyBuild;
@@ -120,7 +167,12 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
 
         _preprocessor.BindCompilation(compilation);
         _preprocessor.HolderNameResolver = ResolveHolderName;
-        _preprocessor.Analyze(_options);
+        _preprocessor.Analyze(_options with
+        {
+            IsInfrastructureSource = _infrastructureDirectories.Count == 0
+                ? null
+                : IsInfrastructureSource,
+        });
         _statistics.Merge(_preprocessor.Analysis.Statistics);
         if (_verbose)
         {

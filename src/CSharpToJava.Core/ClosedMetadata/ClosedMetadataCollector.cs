@@ -450,14 +450,31 @@ public sealed class ClosedMetadataCollector
     /// there even when the type is internal to that project, and call-site projects
     /// (CM-ENUM-3) reach the registration through their project references. Framework
     /// and other metadata types have no source declaration, so ownership falls back to
-    /// the discovery-site file.
+    /// the discovery-site file. Injected cs2j support libraries are source-backed but
+    /// behave like framework metadata for ownership: they never convert to Java and
+    /// cannot reference user projects, so a construction declared there is owned by
+    /// its (user-side) discovery site instead.
     /// </summary>
-    private static string OwnershipFilePath(ITypeSymbol type, Location? siteLocation)
+    private string OwnershipFilePath(ITypeSymbol type, Location? siteLocation)
     {
         var typeSourcePath = (type as INamedTypeSymbol)?
             .Locations.FirstOrDefault(location => location.IsInSource)?.SourceTree?.FilePath;
-        return typeSourcePath ?? siteLocation?.SourceTree?.FilePath ?? string.Empty;
+        if (typeSourcePath is not null && !IsInfrastructure(typeSourcePath))
+        {
+            return typeSourcePath;
+        }
+
+        var sitePath = siteLocation?.SourceTree?.FilePath;
+        if (sitePath is not null && !IsInfrastructure(sitePath))
+        {
+            return sitePath;
+        }
+
+        return string.Empty;
     }
+
+    private bool IsInfrastructure(string sourceFilePath)
+        => _options.IsInfrastructureSource?.Invoke(sourceFilePath) ?? false;
 
     private void ReportDynamicSite(ITypeSymbol type, string siteName, Location? siteLocation)
     {

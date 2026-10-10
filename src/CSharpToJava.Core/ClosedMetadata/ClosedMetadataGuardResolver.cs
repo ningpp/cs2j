@@ -8,9 +8,11 @@ namespace CSharpToJava.Core.ClosedMetadata;
 /// M4c residual scanner must agree exactly on which holders serve a serializer
 /// entry, so a site the linker could guard is never later reported as
 /// unguarded (or vice versa). A holder is reachable from a consumer project when
-/// it is that project's own holder, or the closed construction is declared in
-/// source (naming the type already requires the declaring project reference);
-/// framework closures owned by an unrelated project stay unreachable.
+/// it is that project's own holder, or the holder lives in the project that
+/// declares the closed construction in source (naming the type already requires
+/// the declaring project reference); framework closures and constructions
+/// declared in injected support libraries but owned by a discovery project stay
+/// unreachable outside their owning project.
 /// </summary>
 internal static class ClosedMetadataGuardResolver
 {
@@ -59,7 +61,8 @@ internal static class ClosedMetadataGuardResolver
                 {
                     if (ClosedTypeKey.Create(named) is { } key
                         && holderByRecordKey.TryGetValue(key.SortText, out var holder)
-                        && (!requireReachable || IsReachableHolder(holder, selfHolderName, named)))
+                        && (!requireReachable
+                            || IsReachableHolder(holder, selfHolderName, named, holderNameByPath)))
                     {
                         holders.Add(holder);
                     }
@@ -88,17 +91,28 @@ internal static class ClosedMetadataGuardResolver
 
     /// <summary>
     /// A framework-construction record may be owned by an unrelated project (its
-    /// first ENUM-1 site); cross-references are only guaranteed for user-declared
-    /// types or for the consumer's own holder.
+    /// first ENUM-1 site); cross-references are only guaranteed for the consumer's
+    /// own holder, or when the holder lives in the project that declares the
+    /// construction (naming the type already forces a project reference to it).
+    /// A record whose ownership was remapped to a discovery project — framework
+    /// types or injected support-library declarations — therefore stays
+    /// self-reachable only: the discovery project need not be referenced by
+    /// other consumers.
     /// </summary>
-    public static bool IsReachableHolder(string holder, string? selfHolderName, INamedTypeSymbol constructedType)
+    public static bool IsReachableHolder(
+        string holder,
+        string? selfHolderName,
+        INamedTypeSymbol constructedType,
+        Func<string, string?> holderNameByPath)
     {
         if (holder == selfHolderName)
         {
             return true;
         }
 
-        return constructedType.Locations.Any(location => location.IsInSource);
+        return constructedType.Locations.Any(location =>
+            location.IsInSource
+            && holderNameByPath(location.SourceTree!.FilePath) == holder);
     }
 
     public static IEnumerable<ITypeSymbol> EnumerateTypeClosure(ITypeSymbol type)
