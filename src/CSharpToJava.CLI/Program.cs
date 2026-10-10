@@ -1645,8 +1645,8 @@ public class Program
 
     /// <summary>
     /// Build the C42 platform-isolation options from the CLI flags. Report mode
-    /// is the M1 default; <c>--platform-report-only</c> forces it. Non-Report
-    /// modes are parsed here and rejected by the adapter until M2/M3.
+    /// is the default; <c>--platform-report-only</c> forces it. Reject/Stub/Facade
+    /// apply modes are parsed and driven by the platform-isolation adapter.
     /// </summary>
     private static CSharpToJava.Core.PlatformIsolation.PlatformIsolationOptions BuildPlatformIsolationOptions(
         bool reportOnly,
@@ -5119,7 +5119,7 @@ class PreprocessVerbOptions
     public bool PlatformReportOnly { get; set; }
 
     [Option("platform-mode", Default = "Report",
-        HelpText = "C42 platform-isolation mode: Report|Reject|Stub|Facade (Reject/Stub/Facade fail until M2/M3)")]
+        HelpText = "C42 platform-isolation mode: Report|Reject|Stub|Facade")]
     public string PlatformMode { get; set; } = "Report";
 
     [Option("platform-strict", Default = false,
@@ -5770,7 +5770,7 @@ class ConvertProjectOptions
     public bool PlatformReportOnly { get; set; }
 
     [Option("platform-mode", Default = "Report",
-        HelpText = "C42 platform-isolation mode: Report|Reject|Stub|Facade (Reject/Stub/Facade fail until M2/M3)")]
+        HelpText = "C42 platform-isolation mode: Report|Reject|Stub|Facade")]
     public string PlatformMode { get; set; } = "Report";
 
     [Option("platform-strict", Default = false,

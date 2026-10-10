@@ -42,16 +42,21 @@ internal static class PartialTypePartCollector
 
         void VisitType(INamedTypeSymbol type)
         {
-            foreach (var nestedType in type.GetTypeMembers())
-            {
-                VisitType(nestedType);
-            }
-
-            // Top-level statements synthesize an implicit Program class; skip it (D8).
-            if (type.IsImplicitClass)
+            // Top-level statements synthesize an implicit Program container
+            // (D8). IsImplicitClass is the historical marker, but across Roslyn
+            // versions the synthesized class may report IsImplicitClass=false;
+            // the authoritative shape is a DeclaringSyntaxReference whose node
+            // is the CompilationUnit itself (a real type always has a
+            // TypeDeclarationSyntax node).
+            if (type.IsImplicitClass || HasCompilationUnitDeclaration(type))
             {
                 topLevelSkipped++;
                 return;
+            }
+
+            foreach (var nestedType in type.GetTypeMembers())
+            {
+                VisitType(nestedType);
             }
 
             // Only real source trees under the source root participate; the
@@ -125,5 +130,23 @@ internal static class PartialTypePartCollector
                 Parts = orderedParts,
             });
         }
+    }
+
+    /// <summary>
+    /// True when any declaring syntax reference of <paramref name="type"/>
+    /// resolves to the compilation unit itself (the synthesized top-level
+    /// statements Program container) rather than a type declaration node.
+    /// </summary>
+    private static bool HasCompilationUnitDeclaration(INamedTypeSymbol type)
+    {
+        foreach (var reference in type.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is CompilationUnitSyntax)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

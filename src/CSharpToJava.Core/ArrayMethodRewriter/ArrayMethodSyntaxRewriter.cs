@@ -505,7 +505,7 @@ internal sealed class ArrayMethodSyntaxRewriter : CSharpSyntaxRewriter
         string name;
         do
         {
-            name = "__cs2j_row" + suffix;
+            name = ArrayRewriteAnnotations.RowVariablePrefix + suffix;
             suffix++;
         }
         while (takenNames.Contains(name));

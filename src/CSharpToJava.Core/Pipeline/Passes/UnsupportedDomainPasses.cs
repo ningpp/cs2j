@@ -162,6 +162,17 @@ internal static class PlatformBoundaryAnalyzer
 
         foreach (var typeSyntax in root.DescendantNodes().OfType<TypeSyntax>())
         {
+            // Every IdentifierName IS-A TypeSyntax in the Roslyn hierarchy, and
+            // a qualified name nests one TypeSyntax per dot segment. Report each
+            // platform/native TYPE occurrence exactly once: the outermost
+            // qualified/alias-qualified node only, and never an identifier used
+            // in expression position (a use of a platform-typed value is not a
+            // type site and must not be counted per occurrence).
+            if (!BoundaryAnalysisHelpers.IsTypeSyntaxSite(typeSyntax, semanticModel))
+            {
+                continue;
+            }
+
             if (!BoundaryAnalysisHelpers.TryResolveTypeIdentity(typeSyntax, semanticModel, out var identity))
             {
                 continue;
@@ -280,6 +291,17 @@ internal static class NativeInteropAnalyzer
 
         foreach (var typeSyntax in root.DescendantNodes().OfType<TypeSyntax>())
         {
+            // Every IdentifierName IS-A TypeSyntax in the Roslyn hierarchy, and
+            // a qualified name nests one TypeSyntax per dot segment. Report each
+            // platform/native TYPE occurrence exactly once: the outermost
+            // qualified/alias-qualified node only, and never an identifier used
+            // in expression position (a use of a platform-typed value is not a
+            // type site and must not be counted per occurrence).
+            if (!BoundaryAnalysisHelpers.IsTypeSyntaxSite(typeSyntax, semanticModel))
+            {
+                continue;
+            }
+
             if (!BoundaryAnalysisHelpers.TryResolveTypeIdentity(typeSyntax, semanticModel, out var identity))
             {
                 continue;
@@ -352,6 +374,36 @@ internal static class BoundaryAnalysisHelpers
     // the platform-isolation inventory keep their existing call sites.
     public static bool MatchesAnyPrefix(string value, IEnumerable<string> prefixes)
         => BoundaryTables.MatchesAnyPrefix(value, prefixes);
+
+    /// <summary>
+    /// True when <paramref name="typeSyntax"/> is a real type-syntax site
+    /// (declaration, cast/is/as, typeof, generic argument, …) rather than a
+    /// nested qualified/alias-qualified name segment or an identifier consumed
+    /// as an expression value. Every IdentifierName IS-A TypeSyntax in the
+    /// Roslyn hierarchy, so without this guard a platform TYPE occurrence is
+    /// reported once per dot segment and every use of a platform-typed
+    /// parameter/local/field is miscounted as a type site.
+    /// </summary>
+    public static bool IsTypeSyntaxSite(TypeSyntax typeSyntax, SemanticModel? semanticModel)
+    {
+        // Report a dotted/alias-qualified name only at its outermost node.
+        if (typeSyntax.Parent is QualifiedNameSyntax or AliasQualifiedNameSyntax)
+        {
+            return false;
+        }
+
+        if (semanticModel != null)
+        {
+            var symbol = semanticModel.GetSymbolInfo(typeSyntax).Symbol;
+            if (symbol != null && symbol is not ITypeSymbol && symbol.Kind != SymbolKind.Alias)
+            {
+                // local/parameter/field/property/event/method-group usage, etc.
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     public static string NormalizeAttributeName(string name)
         => BoundaryTables.NormalizeAttributeName(name);

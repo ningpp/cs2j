@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.ArrayMethodRewriter;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.ForeachSource;
 using CSharpToJava.Core.Java;
@@ -96,6 +97,16 @@ public partial class StatementTransformer
         var identifier = context.MethodState.GetEffectiveLocalJavaName(
             context.GetDeclaredSymbol(stmt), ConversionContext.EscapeJavaKeyword(stmt.Identifier.Text));
 
+        // array-method 预处理把多维数组 foreach 摊平为嵌套增强 for
+        // （int[,] → Java int[][]）：合成外行变量 __cs2j_rowN 在 C# 语义里
+        // 绑定到元素类型 int，但在 Java 端必须是行数组类型（元素 + rank-1 个
+        // []）。中间树经文本往返，行变量名是唯一持久识别信号。
+        if (ArrayRewriteAnnotations.IsRowVariableName(stmt.Identifier.Text)
+            && context.GetTypeInfo(stmt.Expression).Type is IArrayTypeSymbol { Rank: > 1 } rowCollection)
+        {
+            javaType = BuildFlattenedRowJavaType(rowCollection, context);
+        }
+
         var expression = exprTransformer.Transform(stmt.Expression, context);
 
         var expressionType = context.GetTypeInfo(stmt.Expression).Type;
@@ -113,6 +124,7 @@ public partial class StatementTransformer
         // emitting an enhanced-for that javac would reject.
         if (expressionType is { } nonNullExpressionType
             and not IArrayTypeSymbol
+            && !IsFlattenedInnerRowLoop(stmt)
             && context.SemanticModel is { } foreachModel
             && !ForeachSourceAnalyzer.ImplementsIEnumerable(nonNullExpressionType, foreachModel.Compilation))
         {
@@ -144,6 +156,41 @@ public partial class StatementTransformer
     private JavaSyntaxNode TransformForEachVariableStatement(ForEachVariableStatementSyntax stmt, ConversionContext context)
         => throw new NotSupportedException(
             "CS2J normalization required: deconstructing foreach must be lowered by a preprocessor before Java conversion.");
+
+    /// <summary>
+    /// True for the synthesized inner loop of an array-method flatten:
+    /// <c>foreach (var x in __cs2j_rowN)</c> nested directly inside the outer
+    /// <c>foreach (var __cs2j_rowN in …)</c>. C# binds the row to the scalar
+    /// element type (int), so the non-Iterable fail-fast must not fire on it.
+    /// </summary>
+    private static bool IsFlattenedInnerRowLoop(ForEachStatementSyntax stmt)
+    {
+        if (stmt.Expression is not IdentifierNameSyntax rowId
+            || !ArrayRewriteAnnotations.IsRowVariableName(rowId.Identifier.Text))
+        {
+            return false;
+        }
+
+        return (stmt.Parent as BlockSyntax)?.Parent is ForEachStatementSyntax outer
+               && outer.Identifier.Text == rowId.Identifier.Text;
+    }
+
+    /// <summary>
+    /// Java type of a synthesized multidim-array row variable: the mapped
+    /// element type followed by <c>rank-1</c> array brackets
+    /// (int[,] row → <c>int[]</c>, int[,,] row → <c>int[][]</c>).
+    /// </summary>
+    private static string BuildFlattenedRowJavaType(
+        IArrayTypeSymbol multiDimCollection, ConversionContext context)
+    {
+        var brackets = string.Empty;
+        for (var i = 1; i < multiDimCollection.Rank; i++)
+        {
+            brackets += "[]";
+        }
+
+        return context.MapType(multiDimCollection.ElementType) + brackets;
+    }
 
     private static string BoxJavaType(string t)
         => t switch

@@ -257,7 +257,12 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
         => _diagnostics
-            .Where(d => d.Level != "info" || verbose)
+            // Per-site apply records (PI010/011/012/020) are the rewrite audit
+            // trail and show by default, mirroring PI001 in Report mode; only the
+            // PI070 report-path detail stays verbose-only.
+            .Where(d => d.Level != "info"
+                        || verbose
+                        || d.Code != PlatformIsolationDiagnosticCodes.ReportWritten)
             .Select(d => d.ToMsBuildString())
             .ToList();
 

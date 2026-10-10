@@ -463,6 +463,9 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
     }
 
     public override SyntaxNode? VisitConditionalAccessExpression(ConditionalAccessExpressionSyntax node)
+        => RewriteConditionalAccess(node);
+
+    private SyntaxNode? RewriteConditionalAccess(ConditionalAccessExpressionSyntax node)
     {
         // a?.X → a?.get_X()
         PropertyPlan? tailPlan = null;
@@ -473,16 +476,40 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         // Visit(Name) 的结果无条件强转——下放给 VisitIdentifierName 换成
         // Invocation 必抛 InvalidCastException，故中间槽必须在本层整体替换。
         PropertyPlan? headPlan = null;
-        var headPlanned = node.Expression is MemberBindingExpressionSyntax head
-            && TryGetPlan(head, out headPlan);
+        var head = node.Expression as MemberBindingExpressionSyntax;
+        var headPlanned = head != null && TryGetPlan(head, out headPlan);
 
         if (!tailPlanned && !headPlanned)
             return base.VisitConditionalAccessExpression(node);
 
-        var receiver = headPlanned
+        var headGetter = headPlanned
             ? Invoke(SyntaxFactory.MemberBindingExpression(
                 SyntaxFactory.Token(SyntaxKind.DotToken),
                 SyntaxFactory.IdentifierName(headPlan!.GetterMethodName)))
+            : null;
+
+        // CS0023 折叠：链式 a?.X?.rest 的中间槽 X 是「非空值类型」属性时，
+        // 去糖后的 get_X() 返回不可空 struct，其后再挂 ?. 非法（且多余——
+        // 外层首个 ?. 已短路整条尾链）。把本层降为普通点接尾链并入外层：
+        // a?.get_X()?.rest → a?.get_X().rest。引用类型/可空值类型槽保留 ?.。
+        if (headPlanned && BindingTypeIsNonNullableValue(head!))
+        {
+            var tailForMerge = tailPlanned
+                ? Invoke(SyntaxFactory.MemberBindingExpression(
+                    SyntaxFactory.Token(SyntaxKind.DotToken),
+                    SyntaxFactory.IdentifierName(tailPlan!.GetterMethodName)))
+                : (ExpressionSyntax)Visit(node.WhenNotNull)!;
+            var dotted = AppendBindingAsDotted(headGetter!, tailForMerge);
+            if (dotted != null)
+            {
+                _stats.ReadSitesRewritten++;
+                if (tailPlanned) _stats.ReadSitesRewritten++;
+                return dotted.WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+            }
+        }
+
+        var receiver = headPlanned
+            ? headGetter!
             : (ExpressionSyntax)Visit(node.Expression)!;
 
         var whenNotNull = tailPlanned
@@ -495,6 +522,44 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         if (tailPlanned) _stats.ReadSitesRewritten++;
         return SyntaxFactory.ConditionalAccessExpression(receiver, whenNotNull)
             .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+    }
+
+    /// <summary>MemberBinding 槽绑定的成员类型是否为非空值类型（原始模型）。</summary>
+    private bool BindingTypeIsNonNullableValue(MemberBindingExpressionSyntax binding)
+    {
+        var type = _model.GetTypeInfo(binding).Type;
+        return type is { IsValueType: true } t
+               && t.NullableAnnotation != NullableAnnotation.Annotated;
+    }
+
+    /// <summary>
+    /// 把外层 ?. 的绑定槽以普通点接方式挂到内层尾表达式：
+    /// .Name → tail.Name；.M(args) → tail.M(args)；[args] → tail[args]。
+    /// 无法识别的形态返回 null（调用方保留原 ?.)。
+    /// </summary>
+    private static ExpressionSyntax? AppendBindingAsDotted(
+        ExpressionSyntax innerTail, ExpressionSyntax outerWhenNotNull)
+    {
+        switch (outerWhenNotNull)
+        {
+            case MemberBindingExpressionSyntax binding:
+                return SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression, innerTail,
+                    SyntaxFactory.Token(SyntaxKind.DotToken), binding.Name);
+
+            case InvocationExpressionSyntax invocation
+                when invocation.Expression is MemberBindingExpressionSyntax invokedBinding:
+                return invocation.WithExpression(SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression, innerTail,
+                    SyntaxFactory.Token(SyntaxKind.DotToken), invokedBinding.Name));
+
+            case ElementBindingExpressionSyntax elementBinding:
+                return SyntaxFactory.ElementAccessExpression(
+                    innerTail, elementBinding.ArgumentList);
+
+            default:
+                return null;
+        }
     }
 
     public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
