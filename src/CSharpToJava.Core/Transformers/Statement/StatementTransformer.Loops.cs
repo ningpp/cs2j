@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.ForeachSource;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression;
 
@@ -103,10 +104,22 @@ public partial class StatementTransformer
             throw new NotSupportedException(
                 "CS2J normalization required: foreach over a string must be lowered (e.g. toCharArray()) by a preprocessor before Java conversion.");
         }
-        if (expressionType is not (IArrayTypeSymbol or null))
+        // C16 M5: after the foreach-source preprocessor (default-on in the CLI
+        // chain) a surviving foreach iterates a Java array or an Iterable source
+        // only — strings, spans/index loops, custom (pattern) enumerators,
+        // deconstruction and ref foreach are all lowered in the intermediate
+        // tree. A source that is neither an array nor IEnumerable therefore
+        // reached the converter without preprocessing; fail fast instead of
+        // emitting an enhanced-for that javac would reject.
+        if (expressionType is { } nonNullExpressionType
+            and not IArrayTypeSymbol
+            && context.SemanticModel is { } foreachModel
+            && !ForeachSourceAnalyzer.ImplementsIEnumerable(nonNullExpressionType, foreachModel.Compilation))
         {
-            // Only arrays and Iterable types support Java enhanced-for directly.
-            // The compat type mapping is expected to make C# collection types Iterable.
+            throw new NotSupportedException(
+                "CS2J normalization required: foreach over non-Iterable source '"
+                + nonNullExpressionType.ToDisplayString()
+                + "' must be lowered (enumerator adapter, index loop, ...) by the foreach-source preprocessor before Java conversion.");
         }
 
         var preamble = "";

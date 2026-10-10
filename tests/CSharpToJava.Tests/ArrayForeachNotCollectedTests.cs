@@ -158,6 +158,36 @@ class Sample
     /// an array with the same variable name. Regression test for the specific
     /// pattern in the issue report.
     /// </summary>
+    [Fact]
+    public void CustomPatternEnumerator_Foreach_DirectConversion_FailsFast_RequiresPreprocessor()
+    {
+        // C16 M5: a duck-typed enumerator source (no IEnumerable) must be lowered
+        // by the foreach-source preprocessor (enumerator adapter / while loop);
+        // the converter only emits enhanced-for for arrays and Iterable sources.
+        var result = Convert(@"
+using System.Collections;
+class Bag
+{
+    public Enumerator GetEnumerator() => new Enumerator();
+    public struct Enumerator
+    {
+        public int Current => 0;
+        public bool MoveNext() => false;
+    }
+}
+class Sample
+{
+    void Test(Bag bag)
+    {
+        foreach (var item in bag) { }
+    }
+}");
+
+        Assert.False(result.Success);
+        var message = string.Join("\n", result.Diagnostics.Select(d => d.Message));
+        Assert.Contains("CS2J normalization required", message, StringComparison.Ordinal);
+        Assert.Contains("foreach-source preprocessor", message, StringComparison.Ordinal);
+    }
 
     private static ConversionResult Convert(string csharpCode)
     {
