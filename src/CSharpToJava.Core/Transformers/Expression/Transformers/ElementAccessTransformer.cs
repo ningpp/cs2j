@@ -218,26 +218,22 @@ public class ElementAccessTransformer : IIRExpressionTransformer
                 return $"{expr}.get({groupIndex})";
             }
 
-            // Fix 2 companion: handle arr[lo..hi] range slicing directly here so the result
-            // is not double-wrapped by the general [idx] path below.
-            if (arg.IsKind(SyntaxKind.RangeExpression) && arg is RangeExpressionSyntax range)
+            // C31 M5: range slicing (arr[lo..hi]) and from-end indexing (arr[^n])
+            // are lowered by the index-range preprocessor (default-on in the CLI
+            // chain) to ArrayHelper.slice(...) / length-based int indices. The
+            // legacy direct arms double-evaluated side-effecting receivers and
+            // emitted shapes javac rejects; reaching them means the source was
+            // converted without preprocessing.
+            if (arg.IsKind(SyntaxKind.RangeExpression))
             {
-                var lo = range.LeftOperand != null ? facade.Transform(range.LeftOperand, context) : "0";
-                var hi = range.RightOperand != null ? facade.Transform(range.RightOperand, context)
-                    : isArray ? $"{expr}.length" : $"{expr}.size()";
-                context.AddImport("java.util.Arrays");
-                return $"Arrays.copyOfRange({expr}, {lo}, {hi})";
+                throw new NotSupportedException(
+                    "CS2J normalization required: range slicing ('..') must be lowered by the index-range preprocessor before Java conversion.");
             }
 
-            if (arg.IsKind(SyntaxKind.IndexExpression) && arg is PrefixUnaryExpressionSyntax fromEnd)
+            if (arg.IsKind(SyntaxKind.IndexExpression))
             {
-                // C# ^n (index from end)
-                var operand = facade.Transform(fromEnd.Operand, context);
-                if (isArray)
-                    return $"{expr}[{expr}.length - {operand}]";
-                if (isString)
-                    return $"{expr}.charAt({expr}.length() - {operand})";
-                return $"{expr}.get({expr}.size() - {operand})";
+                throw new NotSupportedException(
+                    "CS2J normalization required: from-end index ('^') must be lowered by the index-range preprocessor before Java conversion.");
             }
 
             var idx = facade.Transform(arg, context);
@@ -300,10 +296,11 @@ public class ElementAccessTransformer : IIRExpressionTransformer
 
     private string TransformFromEndIndex(PrefixUnaryExpressionSyntax node, ConversionContext context)
     {
-        // ^n as standalone expression — no direct Java equivalent; emit a comment only
-        var facade = ExpressionTransformerFacade.Instance;
-        var operand = facade.Transform(node.Operand, context);
-        return $"/* C# from-end index ^{operand} — requires array name to resolve */";
+        // C31 M5: a standalone ^n (outside an element-access argument) has no
+        // lowered form in the converter. The index-range preprocessor reports
+        // these as IR120 / pairs them with their use site.
+        throw new NotSupportedException(
+            "CS2J normalization required: standalone from-end index ('^') must be lowered by the index-range preprocessor before Java conversion.");
     }
 
     private static bool IsAssignmentTarget(ExpressionSyntax node)

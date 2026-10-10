@@ -696,17 +696,13 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         }
     }
 
-    // Fix 2: range expression — emit Arrays.copyOfRange for the standalone case.
-    // The common arr[lo..hi] case is handled earlier in ElementAccessTransformer.
+    // C31 M5: standalone range expressions are lowered (or rejected with IR120)
+    // by the index-range preprocessor. The old arm emitted placeholder comments
+    // that could never compile.
     private string TransformRangeExpression(RangeExpressionSyntax node, ConversionContext context)
     {
-        if (node.LeftOperand == null && node.RightOperand == null)
-            return "/* full range */";
-        var facade = ExpressionTransformerFacade.Instance;
-        string lo = node.LeftOperand != null ? facade.Transform(node.LeftOperand, context) : "0";
-        string hi = node.RightOperand != null ? facade.Transform(node.RightOperand, context) : "/* length */";
-        context.AddImport("java.util.Arrays");
-        return $"Arrays.copyOfRange(/* array */, {lo}, {hi})";
+        throw new NotSupportedException(
+            "CS2J normalization required: standalone range expression ('..') must be lowered by the index-range preprocessor before Java conversion.");
     }
 
     private static string ToRuntimeTypeForInstanceOf(string mappedType)

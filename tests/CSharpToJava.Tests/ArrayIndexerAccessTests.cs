@@ -86,6 +86,55 @@ class Test
         Assert.DoesNotContain("parts.get(0)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void RangeSlice_DirectConversion_FailsFast_RequiresIndexRangePreprocessor()
+    {
+        var result = Convert("""
+class Test
+{
+    int[] M(int[] arr) => arr[1..3];
+}
+""");
+
+        Assert.False(result.Success);
+        var message = string.Join("\n", result.Diagnostics.Select(d => d.Message));
+        Assert.Contains("CS2J normalization required", message, StringComparison.Ordinal);
+        Assert.Contains("index-range preprocessor", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FromEndIndex_DirectConversion_FailsFast_RequiresIndexRangePreprocessor()
+    {
+        var result = Convert("""
+class Test
+{
+    int M(int[] arr) => arr[^1];
+}
+""");
+
+        Assert.False(result.Success);
+        var message = string.Join("\n", result.Diagnostics.Select(d => d.Message));
+        Assert.Contains("CS2J normalization required", message, StringComparison.Ordinal);
+        Assert.Contains("index-range preprocessor", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StandaloneRange_DirectConversion_FailsFast_RequiresIndexRangePreprocessor()
+    {
+        var result = Convert("""
+using System;
+class Test
+{
+    Range M() => 1..3;
+}
+""");
+
+        Assert.False(result.Success);
+        var message = string.Join("\n", result.Diagnostics.Select(d => d.Message));
+        Assert.Contains("CS2J normalization required", message, StringComparison.Ordinal);
+        Assert.Contains("index-range preprocessor", message, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
