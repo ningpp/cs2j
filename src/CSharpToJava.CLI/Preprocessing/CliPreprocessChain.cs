@@ -28,6 +28,14 @@ internal sealed class CliChainRequest
     public required string SourcePath { get; init; }
     public required string DestinationRoot { get; init; }
     public bool Force { get; init; } = true;
+
+    /// <summary>
+    /// When true all passes share one physical
+    /// <see cref="ProjectPassRunner.UnifiedIntermediateDirectoryName"/> tree and
+    /// rewrite it in place, instead of producing one full tree copy per pass.
+    /// </summary>
+    public bool UseUnifiedIntermediateDirectory { get; init; }
+
     public bool Verbose { get; init; }
     public bool FilterUnsupportedProjects { get; init; } = true;
     public IReadOnlyCollection<string>? CompatNamespacePrefixes { get; init; }
@@ -235,6 +243,15 @@ internal static class CliPreprocessChain
             .Select(pass => pass.IntermediateDirectoryName)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        // In unified mode the physical tree is the shared directory; keep the
+        // logical per-pass names too (the linq-channel double-run suppression
+        // keys off them) and add the physical name so destination cleanup
+        // preserves it.
+        if (request.UseUnifiedIntermediateDirectory)
+        {
+            executedIntermediateDirectoryNames.Add(ProjectPassRunner.UnifiedIntermediateDirectoryName);
+        }
+
         var executedSupportLibraries = plan.Enabled
             .Where(pass => pass.SupportLibrary != PassSupportLibrary.None)
             .Select(pass => pass.SupportLibrary)
@@ -327,6 +344,7 @@ internal static class CliPreprocessChain
                     SourcePath = sourcePath,
                     DestinationRoot = request.DestinationRoot,
                     Force = request.Force,
+                    UseUnifiedIntermediateDirectory = request.UseUnifiedIntermediateDirectory,
                 });
 
             var preludeLine = adapter.BuildChainVerbosePrelude(

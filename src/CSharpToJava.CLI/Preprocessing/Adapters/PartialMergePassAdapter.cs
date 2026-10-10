@@ -206,7 +206,7 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
                 {
                     var destination = Path.Combine(
                         tree.IntermediateRoot, Path.GetRelativePath(tree.SourceRoot, touched));
-                    File.Copy(touched, destination, overwrite: true);
+                    tree.ResetScratchFile(touched, destination);
                 }
             }
 
@@ -376,7 +376,7 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             var relativePath = Path.GetRelativePath(tree.SourceRoot, csFile);
             var destination = Path.Combine(tree.IntermediateRoot, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            File.Copy(csFile, destination, overwrite: true);
+            tree.ResetScratchFile(csFile, destination);
         }
 
         foreach (var asset in tree.SourceFiles)
@@ -391,7 +391,7 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             var relativePath = Path.GetRelativePath(tree.SourceRoot, asset);
             var destination = Path.Combine(tree.IntermediateRoot, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            File.Copy(asset, destination, overwrite: true);
+            tree.ResetScratchFile(asset, destination);
         }
     }
 }

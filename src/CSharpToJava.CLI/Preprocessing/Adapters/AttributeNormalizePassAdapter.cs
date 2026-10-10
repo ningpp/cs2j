@@ -73,7 +73,7 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
         foreach (var pair in sourceFiles)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(pair.Dest)!);
-            File.Copy(pair.Source, pair.Dest, overwrite: true);
+            tree.ResetScratchFile(pair.Source, pair.Dest);
         }
 
         // Preserve non-.cs assets (csproj, Directory.Build.*, ...); same rationale
@@ -89,7 +89,7 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
             var assetDest = Path.Combine(
                 intermediateRoot, Path.GetRelativePath(sourceRoot, asset));
             Directory.CreateDirectory(Path.GetDirectoryName(assetDest)!);
-            File.Copy(asset, assetDest, overwrite: true);
+            tree.ResetScratchFile(asset, assetDest);
         }
 
         // Loose-directory ("single-file") mode: no project graph resolved.
@@ -115,7 +115,7 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
         {
             // Each round starts from the original copies to keep rewriting idempotent.
             foreach (var pair in sourceFiles)
-                File.Copy(pair.Source, pair.Dest, overwrite: true);
+                tree.ResetScratchFile(pair.Source, pair.Dest);
 
             var passStats = new AttributeNormalizeStatistics();
             var passDiagnostics = new List<AttributeNormalizeDiagnostic>();
@@ -212,7 +212,7 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
                 // New error cannot be attributed to a single plan → whole-tree
                 // rollback (CS2J1300, non-degradable Error).
                 foreach (var pair in sourceFiles)
-                    File.Copy(pair.Source, pair.Dest, overwrite: true);
+                    tree.ResetScratchFile(pair.Source, pair.Dest);
                 var first = newErrors[0];
                 var span = first.Location.GetLineSpan().StartLinePosition;
                 _diagnostics.Add(new AttributeNormalizeDiagnostic(
@@ -257,14 +257,14 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
                     var full = Path.GetFullPath(touched);
                     var pair = sourceFiles.FirstOrDefault(p =>
                         string.Equals(p.Dest, full, StringComparison.OrdinalIgnoreCase));
-                    if (pair.Source != null) File.Copy(pair.Source, pair.Dest, overwrite: true);
+                    if (pair.Source != null) tree.ResetScratchFile(pair.Source, pair.Dest);
                 }
             }
 
             if (iteration == maxIterations - 1)
             {
                 foreach (var pair in sourceFiles)
-                    File.Copy(pair.Source, pair.Dest, overwrite: true);
+                    tree.ResetScratchFile(pair.Source, pair.Dest);
                 success = false;
             }
         }

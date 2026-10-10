@@ -112,6 +112,13 @@ internal static class ProjectPreprocessSource
         var skipOutputRoot = fullOutputRoot != null
                              && IsSameOrDescendantPath(fullOutputRoot, fullSourceRoot)
                              && !string.Equals(fullOutputRoot, fullSourceRoot, StringComparison.OrdinalIgnoreCase);
+        // The intermediate tree is excluded from enumeration only when it lives
+        // strictly INSIDE the source tree (first pass copying into a destination
+        // below the source). In unified-directory chains later passes enumerate
+        // the intermediate tree itself in place (source root == destination root),
+        // so it must not be skipped.
+        var skipDestinationRoot = IsSameOrDescendantPath(fullDestinationRoot, fullSourceRoot)
+                                  && !string.Equals(fullDestinationRoot, fullSourceRoot, StringComparison.OrdinalIgnoreCase);
 
         var pending = new Stack<string>();
         pending.Push(fullSourceRoot);
@@ -119,7 +126,7 @@ internal static class ProjectPreprocessSource
         while (pending.Count > 0)
         {
             var currentDirectory = pending.Pop();
-            if (IsSameOrDescendantPath(currentDirectory, fullDestinationRoot)
+            if ((skipDestinationRoot && IsSameOrDescendantPath(currentDirectory, fullDestinationRoot))
                 || (skipOutputRoot && fullOutputRoot != null && IsSameOrDescendantPath(currentDirectory, fullOutputRoot)))
             {
                 continue;
@@ -137,7 +144,7 @@ internal static class ProjectPreprocessSource
                     continue;
                 }
 
-                if (IsSameOrDescendantPath(subDirectory, fullDestinationRoot)
+                if ((skipDestinationRoot && IsSameOrDescendantPath(subDirectory, fullDestinationRoot))
                     || (skipOutputRoot && fullOutputRoot != null && IsSameOrDescendantPath(subDirectory, fullOutputRoot)))
                 {
                     continue;

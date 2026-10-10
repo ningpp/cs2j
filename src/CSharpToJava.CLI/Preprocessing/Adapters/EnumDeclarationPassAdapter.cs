@@ -78,7 +78,7 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
         foreach (var pair in sourceFiles)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(pair.Dest)!);
-            File.Copy(pair.Source, pair.Dest, overwrite: true);
+            tree.ResetScratchFile(pair.Source, pair.Dest);
         }
 
         foreach (var asset in tree.SourceFiles)
@@ -92,7 +92,7 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
             var assetDest = Path.Combine(
                 intermediateRoot, Path.GetRelativePath(sourceRoot, asset));
             Directory.CreateDirectory(Path.GetDirectoryName(assetDest)!);
-            File.Copy(asset, assetDest, overwrite: true);
+            tree.ResetScratchFile(asset, assetDest);
         }
 
         var baselineErrors = BuildErrorSet(
@@ -110,7 +110,7 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
         for (var iteration = 0; iteration < maxIterations; iteration++)
         {
             foreach (var pair in sourceFiles)
-                File.Copy(pair.Source, pair.Dest, overwrite: true);
+                tree.ResetScratchFile(pair.Source, pair.Dest);
 
             var passStats = new EnumDeclarationStatistics();
             var passDiagnostics = new List<EnumDeclarationDiagnostic>();
@@ -182,7 +182,7 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
             if (plansToRollback.Count == 0)
             {
                 foreach (var pair in sourceFiles)
-                    File.Copy(pair.Source, pair.Dest, overwrite: true);
+                    tree.ResetScratchFile(pair.Source, pair.Dest);
                 var first = newErrors[0];
                 var span = first.Location.GetLineSpan().StartLinePosition;
                 _diagnostics.Add(new EnumDeclarationDiagnostic(
@@ -221,14 +221,14 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
                     var full = Path.GetFullPath(touched);
                     var pair = sourceFiles.FirstOrDefault(p =>
                         string.Equals(p.Dest, full, StringComparison.OrdinalIgnoreCase));
-                    if (pair.Source != null) File.Copy(pair.Source, pair.Dest, overwrite: true);
+                    if (pair.Source != null) tree.ResetScratchFile(pair.Source, pair.Dest);
                 }
             }
 
             if (iteration == maxIterations - 1)
             {
                 foreach (var pair in sourceFiles)
-                    File.Copy(pair.Source, pair.Dest, overwrite: true);
+                    tree.ResetScratchFile(pair.Source, pair.Dest);
                 success = false;
             }
         }

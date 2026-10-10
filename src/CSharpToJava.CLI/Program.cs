@@ -203,6 +203,7 @@ public class Program
                 SourcePath = opts.Source,
                 DestinationRoot = opts.Destination,
                 Force = opts.Force,
+                UseUnifiedIntermediateDirectory = opts.UnifiedPreprocessedSrc,
                 Verbose = opts.Verbose,
                 FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
                 CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
@@ -3912,6 +3913,7 @@ public class Program
                 SourcePath = opts.Source,
                 DestinationRoot = opts.Destination,
                 Force = true,
+                UseUnifiedIntermediateDirectory = opts.UnifiedPreprocessedSrc,
                 Verbose = opts.Verbose,
                 FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
                 CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
@@ -5046,6 +5048,12 @@ class PreprocessVerbOptions
     [Option('d', "destination", Required = false, HelpText = "Destination directory path")]
     public string? Destination { get; set; }
 
+    [Option("unified-preprocessed-src", Default = false,
+        HelpText = "Run every preprocess pass inside one shared '.cs2j-preprocessed-src' directory " +
+                   "(each pass rewrites the tree in place) instead of one full source-tree copy per pass; " +
+                   "saves disk space on large solutions")]
+    public bool UnifiedPreprocessedSrc { get; set; }
+
     [Option('m', "mapping", Required = false, HelpText = "Path to type mapping configuration file (compat namespace prefixes)")]
     public string? MappingConfig { get; set; }
 
@@ -5442,6 +5450,12 @@ class ConvertProjectOptions
 
     [Option('f', "force", Default = true, HelpText = "Overwrite existing files")]
     public bool Force { get; set; }
+
+    [Option("unified-preprocessed-src", Default = false,
+        HelpText = "Run every preprocess pass inside one shared '.cs2j-preprocessed-src' directory " +
+                   "(each pass rewrites the tree in place) instead of one full source-tree copy per pass; " +
+                   "saves disk space on large solutions")]
+    public bool UnifiedPreprocessedSrc { get; set; }
 
     [Option("no-cache", Default = true, HelpText = "Disable fingerprint-based caching of previous outputs")]
     public bool NoCache { get; set; }

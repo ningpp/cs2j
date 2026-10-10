@@ -75,7 +75,7 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
         foreach (var pair in sourceFiles)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(pair.Dest)!);
-            File.Copy(pair.Source, pair.Dest, overwrite: true);
+            tree.ResetScratchFile(pair.Source, pair.Dest);
         }
 
         // ...and carry the non-.cs assets (csproj, Directory.Build.*, ...) the
@@ -91,7 +91,7 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
             var assetDest = Path.Combine(
                 intermediateRoot, Path.GetRelativePath(sourceRoot, asset));
             Directory.CreateDirectory(Path.GetDirectoryName(assetDest)!);
-            File.Copy(asset, assetDest, overwrite: true);
+            tree.ResetScratchFile(asset, assetDest);
         }
 
         // Baseline error set keyed on the original contents (dest paths).
@@ -115,7 +115,7 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
                 string.Equals(p.Dest, file.Path, StringComparison.OrdinalIgnoreCase));
             if (!file.Changed)
             {
-                File.Copy(pair.Source, pair.Dest, overwrite: true);
+                tree.ResetScratchFile(pair.Source, pair.Dest);
             }
             else
             {

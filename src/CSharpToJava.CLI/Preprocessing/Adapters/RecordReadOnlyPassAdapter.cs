@@ -62,7 +62,7 @@ internal sealed class RecordReadOnlyPassAdapter : ProjectPassAdapter
         foreach (var pair in sourceFiles)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(pair.Dest)!);
-            File.Copy(pair.Source, pair.Dest, overwrite: true);
+            tree.ResetScratchFile(pair.Source, pair.Dest);
         }
 
         // Preserve non-.cs assets (csproj, Directory.Build.*, ...). Tree preparation
@@ -80,7 +80,7 @@ internal sealed class RecordReadOnlyPassAdapter : ProjectPassAdapter
             var assetDest = Path.Combine(
                 intermediateRoot, Path.GetRelativePath(sourceRoot, asset));
             Directory.CreateDirectory(Path.GetDirectoryName(assetDest)!);
-            File.Copy(asset, assetDest, overwrite: true);
+            tree.ResetScratchFile(asset, assetDest);
         }
 
         // 基线错误集：用原始内容、但 path 取中间树路径，保证键可直接比对。
@@ -99,7 +99,7 @@ internal sealed class RecordReadOnlyPassAdapter : ProjectPassAdapter
         {
             // 每轮从原始副本出发：避免对已改写文件二次驱动造成幂等问题。
             foreach (var pair in sourceFiles)
-                File.Copy(pair.Source, pair.Dest, overwrite: true);
+                tree.ResetScratchFile(pair.Source, pair.Dest);
 
             var passStats = new RecordReadOnlyStatistics();
             var passDiagnostics = new List<RecordReadOnlyDiagnostic>();
@@ -170,7 +170,7 @@ internal sealed class RecordReadOnlyPassAdapter : ProjectPassAdapter
             {
                 // 无法归属单一 record → 回退本次运行全部改动（RR030）。
                 foreach (var pair in sourceFiles)
-                    File.Copy(pair.Source, pair.Dest, overwrite: true);
+                    tree.ResetScratchFile(pair.Source, pair.Dest);
                 var first = newErrors[0];
                 var span = first.Location.GetLineSpan().StartLinePosition;
                 _diagnostics.Add(new RecordReadOnlyDiagnostic(
@@ -212,7 +212,7 @@ internal sealed class RecordReadOnlyPassAdapter : ProjectPassAdapter
                     var full = Path.GetFullPath(touched);
                     var pair = sourceFiles.FirstOrDefault(p =>
                         string.Equals(p.Dest, full, StringComparison.OrdinalIgnoreCase));
-                    if (pair.Source != null) File.Copy(pair.Source, pair.Dest, overwrite: true);
+                    if (pair.Source != null) tree.ResetScratchFile(pair.Source, pair.Dest);
                 }
             }
 
@@ -220,7 +220,7 @@ internal sealed class RecordReadOnlyPassAdapter : ProjectPassAdapter
             if (iteration == maxIterations - 1)
             {
                 foreach (var pair in sourceFiles)
-                    File.Copy(pair.Source, pair.Dest, overwrite: true);
+                    tree.ResetScratchFile(pair.Source, pair.Dest);
                 success = false;
             }
         }

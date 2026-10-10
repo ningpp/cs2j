@@ -93,13 +93,13 @@ internal sealed class MakeReadonlyPassAdapter : ProjectPassAdapter
                     continue;
                 }
 
-                File.Copy(sourceFile, destinationFile, overwrite: true);
+                tree.ResetScratchFile(sourceFile, destinationFile);
                 continue;
             }
 
             if (!syntaxTrees.TryGetValue(sourceFile, out var parsedTree))
             {
-                File.Copy(sourceFile, destinationFile, overwrite: true);
+                tree.ResetScratchFile(sourceFile, destinationFile);
                 continue;
             }
 
@@ -131,7 +131,7 @@ internal sealed class MakeReadonlyPassAdapter : ProjectPassAdapter
 
             if (!result.Changed)
             {
-                File.Copy(sourceFile, destinationFile, overwrite: true);
+                tree.ResetScratchFile(sourceFile, destinationFile);
             }
             else
             {

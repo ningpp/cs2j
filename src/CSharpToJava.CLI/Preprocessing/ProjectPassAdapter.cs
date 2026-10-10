@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -12,6 +13,15 @@ internal sealed class ProjectPassRunRequest
     public required string SourcePath { get; init; }
     public required string DestinationRoot { get; init; }
     public bool Force { get; init; } = true;
+
+    /// <summary>
+    /// When true every pass uses the shared <see cref="ProjectPassRunner.UnifiedIntermediateDirectoryName"/>
+    /// directory instead of its own per-pass intermediate directory. The first
+    /// pass copies the source tree in; later passes detect that their source root
+    /// already IS the unified tree and rewrite it in place, avoiding one full
+    /// tree copy per pass.
+    /// </summary>
+    public bool UseUnifiedIntermediateDirectory { get; init; }
 }
 
 /// <summary>
@@ -68,6 +78,110 @@ internal sealed class PassTreeContext
     public required SupportedProjectFiltering.ExclusionInfo Exclusion { get; init; }
     public required IReadOnlyList<string> SourceFiles { get; init; }
     public required IReadOnlyList<string> CsFiles { get; init; }
+
+    /// <summary>
+    /// True when <see cref="SourceRoot"/> and <see cref="IntermediateRoot"/> are
+    /// the same directory (a later pass in a unified-directory chain rewriting
+    /// the tree in place).
+    /// </summary>
+    public required bool InPlace { get; init; }
+
+    /// <summary>
+    /// Pristine per-file state used to seed/replay/roll back scratch files when
+    /// there is no separate source-tree copy. Always present; a disabled
+    /// snapshot behaves as a plain <see cref="File.Copy"/>.
+    /// </summary>
+    public required InPlaceSourceSnapshot Snapshot { get; init; }
+
+    /// <summary>
+    /// Seed or reset a scratch file from its source-tree original. Separate-tree
+    /// chains perform a byte copy; in-place (unified) chains leave the file
+    /// untouched on first contact (capturing its pre-pass bytes) and afterwards
+    /// restore those bytes, so multi-phase replay/rollback passes behave exactly
+    /// as they do against a fresh tree copy.
+    /// </summary>
+    public void ResetScratchFile(string sourceFilePath, string destinationFilePath)
+        => Snapshot.Reset(sourceFilePath, destinationFilePath);
+}
+
+/// <summary>
+/// Captures the pre-pass bytes of files inside an in-place (unified)
+/// intermediate tree. Multi-phase passes normally reset scratch files by
+/// copying them from a separate pristine source tree; when source and
+/// destination are the same directory, the pristine bytes live here instead.
+/// The store is thread-safe (linq-channel drives its stage 1 in parallel).
+/// </summary>
+internal sealed class InPlaceSourceSnapshot
+{
+    private readonly ConcurrentDictionary<string, byte[]>? _bytes;
+
+    public InPlaceSourceSnapshot(bool enabled)
+    {
+        _bytes = enabled ? new ConcurrentDictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase) : null;
+    }
+
+    /// <summary>True when the pass is rewriting its source tree in place.</summary>
+    public bool Enabled => _bytes != null;
+
+    /// <summary>
+    /// Capture the current (still pristine) bytes of a file before any pass
+    /// writes to it. No-op once captured or when disabled.
+    /// </summary>
+    public void Capture(string sourceFilePath)
+    {
+        if (_bytes == null)
+        {
+            return;
+        }
+
+        var fullSource = Path.GetFullPath(sourceFilePath);
+        _bytes.GetOrAdd(fullSource, static path => File.ReadAllBytes(path));
+    }
+
+    /// <summary>
+    /// Reset a scratch destination to its source file's pre-pass state.
+    /// Separate trees: byte copy. In-place tree: capture-and-leave on first
+    /// contact, byte-exact restore on every later contact.
+    /// </summary>
+    public void Reset(string sourceFilePath, string destinationFilePath)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationFilePath)!);
+
+        var fullSource = Path.GetFullPath(sourceFilePath);
+        var fullDestination = Path.GetFullPath(destinationFilePath);
+        var samePath = string.Equals(
+            fullSource, fullDestination, StringComparison.OrdinalIgnoreCase);
+
+        if (_bytes == null)
+        {
+            File.Copy(sourceFilePath, destinationFilePath, overwrite: true);
+            return;
+        }
+
+        if (_bytes.TryGetValue(fullSource, out var pristine))
+        {
+            // Captured earlier in this pass: replay/roll back to the pre-pass bytes.
+            File.WriteAllBytes(fullDestination, pristine);
+            return;
+        }
+
+        // First contact: the file is still in its pre-pass state. Capture it;
+        // when source and destination are the same file there is nothing to do,
+        // otherwise materialize the pristine bytes at the destination.
+        pristine = File.ReadAllBytes(fullSource);
+        if (_bytes.TryAdd(fullSource, pristine))
+        {
+            if (!samePath)
+            {
+                File.WriteAllBytes(fullDestination, pristine);
+            }
+        }
+        else
+        {
+            // Lost a capture race to another thread: restore the winner's bytes.
+            File.WriteAllBytes(fullDestination, _bytes[fullSource]);
+        }
+    }
 }
 
 /// <summary>

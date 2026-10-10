@@ -15,6 +15,14 @@ namespace CSharpToJava.CLI.Preprocessing;
 /// </summary>
 internal static class ProjectPassRunner
 {
+    /// <summary>
+    /// Shared intermediate directory used by every pass when
+    /// <see cref="ProjectPassRunRequest.UseUnifiedIntermediateDirectory"/> is set.
+    /// Passes rewrite this single tree in place instead of producing one full
+    /// tree copy per pass.
+    /// </summary>
+    public const string UnifiedIntermediateDirectoryName = ".cs2j-preprocessed-src";
+
     /// <summary>Run a fully implemented pass adapter over a project tree.</summary>
     public static async Task<ProjectPassRunResult> RunAsync(
         ProjectPassAdapter adapter,
@@ -58,7 +66,7 @@ internal static class ProjectPassRunner
     {
         var layout = ProjectPreprocessSource.ResolveLayout(request.SourcePath);
         var intermediateRoot = Path.Combine(
-            Path.GetFullPath(request.DestinationRoot), descriptor.IntermediateDirectoryName);
+            Path.GetFullPath(request.DestinationRoot), ResolveIntermediateDirectoryName(request, descriptor));
         return new ProjectPassRunResult
         {
             OriginalSourcePath = layout.EntryPath,
@@ -76,27 +84,63 @@ internal static class ProjectPassRunner
 
     // ---- stage 1: tree preparation ----
 
+    /// <summary>
+    /// Physical intermediate directory name for a run: the shared unified
+    /// directory when the request opted in, otherwise the pass' own name.
+    /// </summary>
+    public static string ResolveIntermediateDirectoryName(
+        ProjectPassRunRequest request,
+        PassDescriptor descriptor)
+        => request.UseUnifiedIntermediateDirectory
+            ? UnifiedIntermediateDirectoryName
+            : descriptor.IntermediateDirectoryName;
+
+    /// <summary>
+    /// True when the pass input tree already IS the intermediate tree: a later
+    /// pass in a unified-directory chain must rewrite in place instead of
+    /// deleting/copying the tree.
+    /// </summary>
+    private static bool IsInPlaceTree(string sourceRoot, string intermediateRoot)
+        => string.Equals(
+            Path.GetFullPath(sourceRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            Path.GetFullPath(intermediateRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase);
+
     public static async Task<PassTreeContext> PrepareTreeAsync(
         ProjectPassAdapter adapter,
         ProjectPassRunRequest request)
     {
         var layout = ProjectPreprocessSource.ResolveLayout(request.SourcePath);
         var destinationRoot = Path.GetFullPath(request.DestinationRoot);
-        var intermediateRoot = Path.Combine(destinationRoot, adapter.Descriptor.IntermediateDirectoryName);
+        var intermediateRoot = Path.Combine(
+            destinationRoot, ResolveIntermediateDirectoryName(request, adapter.Descriptor));
 
-        if (Directory.Exists(intermediateRoot))
+        // In a unified chain the 2nd+ pass reads from and writes to the same
+        // tree it prepared on the first pass: never delete or re-copy it.
+        var inPlace = IsInPlaceTree(layout.SourceRoot, intermediateRoot);
+
+        if (!inPlace)
         {
-            if (!request.Force)
+            if (Directory.Exists(intermediateRoot))
             {
-                throw new InvalidOperationException(
-                    $"{adapter.Descriptor.DisplayName} preprocess source directory already exists: " +
-                    $"{intermediateRoot}. Use --force to overwrite.");
+                if (!request.Force)
+                {
+                    throw new InvalidOperationException(
+                        $"{adapter.Descriptor.DisplayName} preprocess source directory already exists: " +
+                        $"{intermediateRoot}. Use --force to overwrite.");
+                }
+
+                Directory.Delete(intermediateRoot, recursive: true);
             }
 
-            Directory.Delete(intermediateRoot, recursive: true);
+            Directory.CreateDirectory(intermediateRoot);
         }
-
-        Directory.CreateDirectory(intermediateRoot);
+        else if (!Directory.Exists(intermediateRoot))
+        {
+            throw new DirectoryNotFoundException(
+                $"{adapter.Descriptor.DisplayName} unified preprocess source directory is missing: " +
+                intermediateRoot);
+        }
 
         var sourceRoot = layout.SourceRoot;
         var projectGraph = ProjectPreprocessSource.TryLoadProjectGraph(layout, adapter.Verbose);
@@ -105,10 +149,13 @@ internal static class ProjectPassRunner
                 projectGraph, adapter.Verbose, adapter.CompatNamespacePrefixes, layout.SourceRoot)
             : new SupportedProjectFiltering.ExclusionInfo();
 
-        await ProjectPreprocessSource.CopyProjectFilesAsync(
-            layout, sourceRoot, intermediateRoot, exclusionInfo);
-        ProjectPreprocessSource.CopyAncestorMsBuildDirectoryFiles(
-            sourceRoot, intermediateRoot, adapter.LogPrefix, adapter.Verbose);
+        if (!inPlace)
+        {
+            await ProjectPreprocessSource.CopyProjectFilesAsync(
+                layout, sourceRoot, intermediateRoot, exclusionInfo);
+            ProjectPreprocessSource.CopyAncestorMsBuildDirectoryFiles(
+                sourceRoot, intermediateRoot, adapter.LogPrefix, adapter.Verbose);
+        }
 
         var sourceFiles = ProjectPreprocessSource.EnumerateSourceFiles(
                 sourceRoot, intermediateRoot, destinationRoot)
@@ -128,6 +175,8 @@ internal static class ProjectPassRunner
             Exclusion = exclusionInfo,
             SourceFiles = sourceFiles,
             CsFiles = csFiles,
+            InPlace = inPlace,
+            Snapshot = new InPlaceSourceSnapshot(inPlace),
         };
     }
 
@@ -186,12 +235,25 @@ internal static class ProjectPassRunner
                     continue;
                 }
 
-                File.Copy(sourceFile, destinationFile, overwrite: true);
+                // In a unified-directory chain the tree is rewritten in place,
+                // so source and destination are the same file.
+                if (!string.Equals(
+                        Path.GetFullPath(sourceFile),
+                        Path.GetFullPath(destinationFile),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    File.Copy(sourceFile, destinationFile, overwrite: true);
+                }
+
                 continue;
             }
 
             SyntaxTree? syntaxTree = compilation?.SyntaxTrees.FirstOrDefault(tree =>
                 string.Equals(tree.FilePath, sourceFile, StringComparison.OrdinalIgnoreCase));
+
+            // Capture pristine bytes before any rewrite so in-place chains can
+            // roll a file back after the fact (e.g. extension-methods build gate).
+            tree.Snapshot.Capture(sourceFile);
 
             var sourceCode = await File.ReadAllTextAsync(sourceFile);
             var fileContext = new PassFileContext
@@ -208,7 +270,16 @@ internal static class ProjectPassRunner
             var rewrite = await adapter.RewriteFileAsync(fileContext);
             if (rewrite is not { Changed: true })
             {
-                File.Copy(sourceFile, destinationFile, overwrite: true);
+                // Unchanged file: copy it over unless the pass is rewriting the
+                // tree in place (unified directory), where paths are identical.
+                if (!string.Equals(
+                        Path.GetFullPath(sourceFile),
+                        Path.GetFullPath(destinationFile),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    File.Copy(sourceFile, destinationFile, overwrite: true);
+                }
+
                 continue;
             }
 
@@ -254,6 +325,15 @@ internal static class ProjectPassRunner
     public static void CopyVerbatim(PassTreeContext tree, string sourceFilePath, string relativePath)
     {
         var destinationFile = Path.Combine(tree.IntermediateRoot, relativePath);
+        if (string.Equals(
+                Path.GetFullPath(sourceFilePath),
+                Path.GetFullPath(destinationFile),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            // In-place unified tree: the file is already where it needs to be.
+            return;
+        }
+
         Directory.CreateDirectory(Path.GetDirectoryName(destinationFile)!);
         File.Copy(sourceFilePath, destinationFile, overwrite: true);
     }

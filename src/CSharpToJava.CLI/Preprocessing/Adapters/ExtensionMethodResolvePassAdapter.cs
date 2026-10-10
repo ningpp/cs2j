@@ -393,7 +393,7 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         {
             var relative = Path.GetRelativePath(tree.IntermediateRoot, dest);
             var source = Path.Combine(tree.SourceRoot, relative);
-            File.Copy(source, dest, overwrite: true);
+            tree.ResetScratchFile(source, dest);
             reverted.Add(dest);
 
             Console.WriteLine(

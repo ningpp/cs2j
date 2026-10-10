@@ -113,7 +113,15 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
             var assetDest = Path.Combine(
                 intermediateRoot, Path.GetRelativePath(sourceRoot, asset));
             Directory.CreateDirectory(Path.GetDirectoryName(assetDest)!);
-            File.Copy(asset, assetDest, overwrite: true);
+            tree.ResetScratchFile(asset, assetDest);
+        }
+
+        // In unified in-place chains stage 1 rewrites files directly; prime the
+        // pristine snapshot before any write so the LC0011 rollback restores the
+        // true pre-pass bytes (stage 1 is first-contact for unchanged files only).
+        foreach (var pair in pairs)
+        {
+            tree.Snapshot.Capture(pair.Source);
         }
 
         var parseOptions = CreateParseOptions(tree);
@@ -142,7 +150,7 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
             }
             else
             {
-                File.Copy(source, dest, overwrite: true);
+                tree.ResetScratchFile(source, dest);
             }
         });
 
@@ -206,7 +214,7 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
                 // source bytes (discarding even stage-1 desugaring for it) so
                 // the intermediate tree stays compilable, record the Error and
                 // fail the pass; other files are still processed in this run.
-                File.Copy(source, dest, overwrite: true);
+                tree.ResetScratchFile(source, dest);
                 lock (_diagnostics)
                 {
                     _diagnostics.Add(ex.ToDiagnostic());
