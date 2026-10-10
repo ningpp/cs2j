@@ -49,7 +49,7 @@ public sealed class ConvertProjectGotoIntegrationTests
         }
     }
 
-    [Fact]
+    [SlowE2EFact(45.1)]
     public async Task ConvertProject_NoEliminateGoto_SkipsNoGotoSourceProject()
     {
         var tempRoot = CreateTempDirectory();

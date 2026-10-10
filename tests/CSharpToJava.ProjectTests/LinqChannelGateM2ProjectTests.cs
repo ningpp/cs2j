@@ -107,7 +107,7 @@ public sealed class LinqChannelGateM2ProjectTests
         }
     }
 
-    [Fact]
+    [SlowE2EFact(106.6)]
     public async Task ConvertProject_ChannelRun_EmitsSchemaV2TargetReport_AndKillSwitchSkipsReport()
     {
         var cli = LocateCli();

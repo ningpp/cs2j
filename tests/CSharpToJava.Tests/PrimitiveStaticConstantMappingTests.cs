@@ -92,7 +92,7 @@ public class Sample
         Assert.DoesNotContain("return double.NaN;", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    [Fact]
+    [SlowE2EFact(5.5)]
     public async Task MsbuildProjectStructGetter_BoxedDoubleNaN_UsesJavaWrapperConstant()
     {
         SolutionLoader.EnsureMSBuildRegistered();

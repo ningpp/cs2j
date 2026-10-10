@@ -2520,7 +2520,7 @@ public class UnsafeFfmRewriterUnitTests
         Assert.Contains("ref", blocker);
     }
 
-    [Fact]
+    [SlowE2EFact(8.5)]
     public void M4_LayoutSkeleton_CleanMethod_NoBlocker()
     {
         var method = GetMethodSymbol(

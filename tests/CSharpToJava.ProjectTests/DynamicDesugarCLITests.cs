@@ -190,7 +190,7 @@ public class Box
         }
     }
 
-    [Fact]
+    [SlowE2EFact(43.2)]
     public async Task DefaultChain_RunsAudit_AndWritesReport()
     {
         var sourceDir = CreateTempWorkspace("Lib.csproj", CleanChainProbeSource);
@@ -221,7 +221,7 @@ public class Box
         }
     }
 
-    [Fact]
+    [SlowE2EFact(43.1)]
     public async Task DisablePass_OptsOutOfAudit()
     {
         // 独立工作区：与默认链用例分开，避免上一轮预处理支撑文件残留导致

@@ -158,7 +158,7 @@ public class IteratorFixtureProjectTests
 
     // ── 默认关闭：不显式 enable 时不产出中间树 ──
 
-    [Fact]
+    [SlowE2EFact(326.3)]
     public async Task IteratorLowering_OffByDefault_ChainProducesNoIntermediateTree()
     {
         var workDir = Path.Combine(Path.GetTempPath(),
@@ -215,7 +215,7 @@ public class IteratorFixtureProjectTests
 
     // ── 核心：开启 pass 后中间树 build + T01–T22 全绿 ──
 
-    [Fact]
+    [SlowE2EFact(245.6)]
     public async Task IteratorLoweringOn_LoweredTreeBuilds_AndAllTruthTestsMatchNetTruth()
     {
         var workDir = Path.Combine(Path.GetTempPath(),

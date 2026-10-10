@@ -106,7 +106,7 @@ public class RefOutInByRefPathTests : ConversionTestBase
         return converted;
     }
 
-    [Fact]
+    [SlowE2EFact(7.9)]
     public void M3_RefForeach_SpanChain_MapsToByRefSpanFactory()
     {
         var result = ConvertForeachRewritten(@"

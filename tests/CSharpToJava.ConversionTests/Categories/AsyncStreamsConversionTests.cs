@@ -150,7 +150,7 @@ class C
         AssertJavaDoesNotContain(result, "configureAwait");
     }
 
-    [Fact]
+    [SlowE2EFact(6.9)]
     public void AwaitForeachSource_PreprocessedThenConverted_EndToEndBridgeText()
     {
         const string source = @"

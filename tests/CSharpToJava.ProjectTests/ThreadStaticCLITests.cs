@@ -171,7 +171,7 @@ public class ThreadStaticCLITests
         }
     }
 
-    [Fact]
+    [SlowE2EFact(87.6)]
     public async Task DefaultChain_ProducesThreadStaticTree_AndDisablePassOptsOut()
     {
         var sourceDir = CreateTempWorkspace();
@@ -219,7 +219,7 @@ public class ThreadStaticCLITests
         }
     }
 
-    [Fact]
+    [SlowE2EFact(45.9)]
     public async Task EnablePass_ChainsAfterGeneric_ProducesRewrittenThreadStaticTree()
     {
         var sourceDir = CreateTempWorkspace();
@@ -255,7 +255,7 @@ public class ThreadStaticCLITests
         }
     }
 
-    [Fact]
+    [SlowE2EFact(43.4)]
     public async Task DisablePass_KeepsThreadStaticTreeAbsent()
     {
         var sourceDir = CreateTempWorkspace();

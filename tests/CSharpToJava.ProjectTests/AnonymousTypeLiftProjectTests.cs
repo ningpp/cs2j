@@ -63,7 +63,7 @@ public class AnonymousTypeLiftProjectTests
         });
     }
 
-    [Fact]
+    [SlowE2EFact(11.0)]
     public async Task EnabledChain_LiftsAcrossProjects_VerifiesBuildAndTests_AndIsIdempotent()
     {
         var outputRoot1 = Path.Combine(FixtureDir, ".test-output-anon-1");

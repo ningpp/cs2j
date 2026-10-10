@@ -100,7 +100,7 @@ public class AttributeNormalizeCLITests
 
     // ───────────────────────── default on / opt-out ─────────────────────────
 
-    [Fact]
+    [SlowE2EFact(171.9)]
     public async Task DefaultChain_Creates_AttributeNormalizeIntermediate()
     {
         var sourceDir = CreateWorkspace(("Lib.csproj", ProjectFile), ("Class1.cs", SelfContainedProjectSource));
@@ -128,7 +128,7 @@ public class AttributeNormalizeCLITests
         }
     }
 
-    [Fact]
+    [SlowE2EFact(159.7)]
     public async Task DisablePass_OptsOutOf_AttributeNormalizeIntermediate()
     {
         // 独立工作区：与默认链用例分开，避免上一轮预处理支撑文件残留导致
@@ -153,7 +153,7 @@ public class AttributeNormalizeCLITests
         }
     }
 
-    [Fact]
+    [SlowE2EFact(83.8)]
     public async Task EnablePass_AddsAttributeNormalize_ToDefaultChain()
     {
         var sourceDir = CreateWorkspace(("Lib.csproj", ProjectFile), ("Class1.cs", SelfContainedProjectSource));

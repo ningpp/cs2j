@@ -129,7 +129,7 @@ public class AttributeNormalizePlatformZeroInterferenceTests
         return dir;
     }
 
-    [Fact]
+    [SlowE2EFact(97.3)]
     public async Task DefaultChain_And_C10DisabledChain_Emit_Identical_PlatformBoundarySignals_And_Preserve_Bytes()
     {
         var sourceDir = CreateWorkspace();

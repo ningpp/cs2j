@@ -133,7 +133,7 @@ public sealed class LinqChannelM3CliProjectTests
         }
     }
 
-    [Fact]
+    [SlowE2EFact(50.9)]
     public async Task DefaultChain_RunsChannel_AndConflictingToggleRejected()
     {
         var dir = CreateProject("Sample.csproj", "public static class C { public static int F(int x) => x + 1; }");
@@ -170,7 +170,7 @@ public sealed class LinqChannelM3CliProjectTests
         }
     }
 
-    [Fact]
+    [SlowE2EFact(53.0)]
     public async Task DisablePass_OptsOutOfTheChannel()
     {
         var dir = CreateProject("Sample.csproj", """

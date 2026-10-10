@@ -48,7 +48,7 @@ public class GenericDeepenProjectTests
         return (process.ExitCode, await stdoutTask, await stderrTask);
     }
 
-    [Fact]
+    [SlowE2EFact(11.3)]
     public async Task Solution_EnableGenericDeepen_RewritesBuildsAndTests()
     {
         var fixture = Path.Combine(AppContext.BaseDirectory, "SampleGenericDeepenSolution");

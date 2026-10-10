@@ -6,7 +6,7 @@ public sealed class UnifiedPreprocessedSrcTests
 {
     private const string UnifiedDirectoryName = ".cs2j-preprocessed-src";
 
-    [Fact]
+    [SlowE2EFact(7.0)]
     public async Task Preprocess_UnifiedFlag_AllPassesShareOneDirectoryAndRewriteInPlace()
     {
         var tempRoot = CreateTempDirectory();
@@ -53,7 +53,7 @@ public sealed class UnifiedPreprocessedSrcTests
         }
     }
 
-    [Fact]
+    [SlowE2EFact(26.9)]
     public async Task ConvertProject_UnifiedFlag_UsesSingleIntermediateDirectory()
     {
         var tempRoot = CreateTempDirectory();
@@ -91,7 +91,7 @@ public sealed class UnifiedPreprocessedSrcTests
         }
     }
 
-    [Fact]
+    [SlowE2EFact(10.1)]
     public async Task ConvertProject_WithoutUnifiedFlag_KeepsPerPassDirectories()
     {
         var tempRoot = CreateTempDirectory();
