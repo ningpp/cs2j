@@ -295,16 +295,6 @@ public class ProjectConversionPipeline
         // Some auto-generated sources (e.g. XSD.exe output) use global:: to fully
         // qualify type names. The qualifier has no meaning in Java.
         compilation = StripGlobalAliasQualifier(compilation);
-        // Phase 1: In multi-project mode, RewriteExtensionMethods (instance promotion)
-        // is incompatible — it would require back-patching already-emitted projects.
-        // Force-disable and emit a warning so callers get a clear signal.
-        if (!library.IsSingleProject && context.Options.RewriteExtensionMethods)
-        {
-            context.Diagnostics.Warning(
-                "RewriteExtensionMethods is not supported in multi-project mode and has been disabled. "
-                + "Extension methods will be kept as static host methods with static call-site lowering.");
-            context.Options.RewriteExtensionMethods = false;
-        }
 
         var passMetrics = new List<Cs2jPassMetric>();
         var passState = new ProjectPassState

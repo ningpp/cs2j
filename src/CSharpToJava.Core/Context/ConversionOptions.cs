@@ -69,12 +69,6 @@ public class ConversionOptions
     public bool EffectivePreferStreamApi => false;
 
     /// <summary>
-    /// When enabled, extension methods on known types are promoted to instance methods on those types,
-    /// and the receiver ('this') parameter is stripped from the Java method signature.
-    /// </summary>
-    public bool RewriteExtensionMethods { get; set; } = false;
-
-    /// <summary>
     /// Optional signal to import the published csharptojava-compat runtime package into generated files.
     /// The package itself is fixed by the runtime artifact, not by the generated project's Maven groupId.
     /// </summary>

@@ -32,10 +32,6 @@ public static class StringExtensions
         Assert.Contains("static String repeat(String s, int count)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// RewriteExtensionMethods option should strip receiver parameter when enabled (single-project mode).
-    /// </summary>
-
     private static ConversionResult Convert(string csharpCode)
     {
         var pipeline = new ConversionPipeline();
