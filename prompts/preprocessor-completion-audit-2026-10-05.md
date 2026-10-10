@@ -251,11 +251,13 @@
 
 每退役一项 = 删除旧臂 + 删除/改写对应旧 ProjectTests/fixture + 画像无回退：
 
-1. **C45** 旧 holder/LambdaTransformer（126 测试 + 18 fixture 是最大双轨面）
-2. **C21** ObjectCreationTransformer 的 `Map.of` 臂（[L83](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs#L83)）
-3. **C19/C49** ExtensionMethodIndex 旧臂与 CS2J_EXT001（[ProjectPasses.cs:813](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L813)），先消化外部 host 的 48 个 unmapped
+1. ~~**C45** 旧 holder/LambdaTransformer（126 测试 + 18 fixture 是最大双轨面）~~ **（2026-10 已退役，226226e5/99bac1b2）**
+2. ~~**C21** ObjectCreationTransformer 的 `Map.of` 臂~~ **（2026-10 已退役为 fail-fast，5b4eb653；原 [L83](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs) 现位于 L129-139）**
+3. ~~**C19/C49** ExtensionMethodIndex 旧臂与 CS2J_EXT001，先消化外部 host 的 48 个 unmapped~~ **（2026-10 已整类删除，0a910136/b70200d6；外部 host 告警由预处理期 CS2J1203 接管）**
 4. ~~**C26** E16 LINQ 旧臂（依赖 P1-1）~~ **（2026-10-06 M4-c 已摘除项目路径臂）**：`ProjectLinqDesugarPass` 及 `LastLinqStatistics`/`PreDesugarCompilation` 下游全删，报告切通道 schema v2；**单文件嵌入式 `SingleFileLinqDesugarPass` 按 §5.5/Q4 有意保留**（单文件无中间目录契约），不在退役范围
-5. **C07** StructCloneHelper、**C09** ThreadStaticTransformer（P1-2 已开门，**阻塞已解除、可启动退役**）、**C16/C31/C02/C01** 各自旧臂
+5. ~~**C09** ThreadStaticTransformer（f234760b）~~、~~**C16** foreach 直翻臂（653fbfb6）~~、~~**C31** Index/Range 直映臂（52e741c2）~~、~~**C02** E10 `__cs2j_typeof_` 哨兵与 override 同步旧轨（e43423f6；FieldTransformer 静态泛型字段 fail-fast 早已于 4b736217 落地）~~ **均已退役**。
+   - **C01 旧 holder 臂裁决保留（52b7de85 仅删零调用垫片）**：CD1/CD3 保留的外部 BCL/extern/override 锁定签名在中间树合法残留，compat 库自身暴露 `tryParse`/`tryGetValue`/`tryTake`/`resize` 等 holder 形参，旧臂是活合同兜底；`RefOutInPostVerifier` 已接线（CS2J3305）。整体退役仍挂 sdk 全量门与 Java 半区验证。
+   - **C07 StructCloneHelper 继续阻塞**：SV040-043 的 overrides.skip 具名逃生口（SV020）有意回退该代偿，且 §8 门槛 5 的 Java 半区 double-clone 去重核对未做；解除前不退役。
 
 ### P5｜新构造与长期基线
 

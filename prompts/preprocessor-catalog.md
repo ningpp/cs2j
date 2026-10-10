@@ -42,7 +42,7 @@
 
 ### 0.2 未接入但已存在/已设计：1 个
 
-- **E15 RefOutInPreprocessor —— 已接入统一链（catalog id `ref-out-in`，catalogItems C01，默认开）**：第八次更新已核实，Core 9 文件（`src/CSharpToJava.Core/RefOutInPreprocessor/`）经 CLI 适配器 `RefOutInPassAdapter` 接入，配套 Cs2jRefOutIn 支撑库注入与项目级测试齐备；M5（sdk 全量比对、旧码下线）仍挂起。
+- **E15 RefOutInPreprocessor —— 已接入统一链（catalog id `ref-out-in`，catalogItems C01，默认开）**：第八次更新已核实，Core 9 文件（`src/CSharpToJava.Core/RefOutInPreprocessor/`）经 CLI 适配器 `RefOutInPassAdapter` 接入，配套 Cs2jRefOutIn 支撑库注入与项目级测试齐备。M5 旧码下线经 2026-10-10 复核裁决**保留**：旧 holder 路径是 CD1/CD3 外部/锁定签名残留的活合同兜底（非不可达双轨），仅删除零调用垫片（52b7de85）；sdk 全量比对门仍挂起。
 - **E16 LinqRewrite / LinqQueryDesugarer —— 已实现但属"嵌入式通道"**：它本身是 `CSharpSyntaxRewriter`，但运行在主转换 pass 内部（`ProjectPasses.cs:164,301,351`、`SingleFilePasses.cs:40,64,82`），没有独立 verb、没有中间目录与 build/test 验证。规模极大（`LinqRewriter.Rules.cs` 2156 行、`LinqRewriter.cs` 1624 行）。
 - ~~**E17 JavaKeywords —— 设计已确认，完全未实施**~~：**2026-09-30 第十次更新核实已完整落地**，见 §0.1 E17 行；Core 目录 `src/CSharpToJava.Core/JavaKeywords/`（7 文件）、设计文档状态行已加完成态记录。
 
@@ -192,8 +192,8 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 | 字段 | 内容 |
 |------|------|
 | 分类 | 1.1 类型系统（泛型） |
-| 目标模式（已做） | `default(T)` → `default` 字面量（歧义处包 `(object)`）；`new T()` → `Activator.CreateInstance<T>()`；`new T[n]` → `(T[])Array.CreateInstance(typeof(T), n)`；并为泛型 override 兄弟方法注入 `__cs2j_typeof_T` 哨兵以统一 Class token 注入 |
-| 证据 | 类注释即覆盖清单：`GenericPreprocess/GenericPreprocessor.cs:8-24`（L18 明写「typeof(T) / is T / as T 暂不降级（仅统计）」）；override 同步 `GenericPreprocessor.cs:69-100`；接线 `Program.cs:514-551`；prompt `prompts/generic-preprocess-prompt.md:5-19` |
+| 目标模式（已做） | `default(T)` → `default` 字面量（歧义处包 `(object)`）；`new T()` → `Activator.CreateInstance<T>()`；`new T[n]` → `(T[])Array.CreateInstance(typeof(T), n)`。~~泛型 override 兄弟 `__cs2j_typeof_T` 哨兵~~ **已随 C02 M5 退役（e43423f6，2026-10-10）：族同步/前向锚点由 generic-deepen 的 GD-ANCHOR-2/3 基于符号表承担** |
+| 证据 | 类注释即覆盖清单：`GenericPreprocess/GenericPreprocessor.cs`（typeof(T) / is T / as T 仅统计）；接线 `CLI/Preprocessing/Adapters/GenericPassAdapter.cs`；prompt `prompts/generic-preprocess-prompt.md:5-19` |
 | 缺口 | 见 **C02**（`typeof(T)/is/as T`、泛型静态字段、closed metadata） |
 | 状态 | 部分实现，默认开 |
 | 验证 | `GenericPreprocessTests.cs`、`ProjectGenericPreprocessorTests.cs`、`GenericNewConstraintInliningTests.cs`、`DefaultValueProjectTests.cs` |
@@ -1021,10 +1021,10 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 ### 3.1 建议顺序（仅排序，不含实现设计）
 
 0. **（观察项，先于一切语义 pass）** E01 之后可插入 **C43+C28 词法批**（raw string/u8/verbatim/namespace/using 归一）——纯语法、幂等、只 parse 一次；现状转换器已内联吸收，仅在统一引擎（§5.4）落地或需要版本无关中间树时实施。
-1. ~~**C01 RefOutIn 接线收尾**~~ **已完成（2026-09-28/29，止于 48331c9c）**：在链默认开；M5 sdk 全量比对与 ROI 旧码下线为挂起后续。
+1. ~~**C01 RefOutIn 接线收尾**~~ **已完成（2026-09-28/29，止于 48331c9c）**：在链默认开。M5 旧码下线经 2026-10-10 复核裁决：旧 holder 臂（HolderTypeResolver/ArgumentTransformer.Ref/MethodTransformer 签名 holder 化）是 CD1 外部 BCL 调用点与 CD3 锁定/extern 签名的**活合同兜底**（compat 自身暴露 holder 形参），不具备整体 fail-fast 退役条件，保留；仅删零调用垫片（52b7de85）。sdk 全量比对门仍挂。
 2. ~~**C03 控制流去糖 + C37 模式表达式去糖**~~ **已完成（同批，止于 15d534a1）**：pattern-desugar Implemented 默认关，语句/表达式两侧共用归约器，SamplePatternSolution 守门齐备；默认翻转待评审。
 3. **C31 Index/Range 归一**（P1，机械、消灭「静默错误输出」；挂 E12 支撑库范式）。
-4. ~~**C02 Generic 深化**~~ **已完成（止于 ecc1376e）**：generic-deepen Implemented 默认关（typeof(T)/is-as T/静态字段 holder/residual 闸门/E2E）；M4 默认开启评审与 sdk 计数门挂起，C30 下游核实门仍独立挂起。
+4. ~~**C02 Generic 深化**~~ **已完成（止于 ecc1376e，2026-09-30 已翻默认开；M4 残余规则 2026-10-09 落地）**：generic-deepen Implemented 默认开（typeof(T)/is-as T/静态字段 holder/residual 闸门/E2E）。M5 转换器侧清单：b) FieldTransformer 静态泛型字段 fail-fast 已于 4b736217 落地；c) E10 `__cs2j_typeof_` 哨兵与 override 同步已于 2026-10-10 退役（e43423f6）；a) L2 显式 `System.Type` 尾参原型、d) CrossProjectGenericClassTokenTests 既有失败仍挂。C30 下游核实门独立挂起。
 5. **C05 enum 声明归一**（P1，扩 E04；与 C03 同批验证 enum switch）。
 6. **C07 struct 值语义补全**（P1，扩 E13，回收 StructCloneHelper）。
 7. ~~**C04 yield 迭代器降级**~~ **已完成（自包含形态，2026-09-29 止于 b784b47f）**：iterator-lowering Implemented 默认关（RunAfter 锚 make-readonly；Core 9 文件 + 适配器 + 单测/顺序锁）；§7.2 项目级 fixture 与 §8 默认开启五门槛（try/finally 两半区原型、sdk 2887 站点基线、EF Core 画像）仍挂起；CS2J0405 体内 lambda 捕获形态仍以 C32+C45 为前置，故原「前置依赖」对**全量形态**继续成立。
