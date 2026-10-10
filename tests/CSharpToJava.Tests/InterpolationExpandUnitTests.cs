@@ -1345,11 +1345,14 @@ public class InterpolationExpandUnitTests
     [Fact]
     public void BoxedString_ParamsObjectArgument_ExpandsViaConcat()
     {
+        // The interpolation lands in a params object[] slot (boxing). It has no
+        // alignment/format clause, so the boxed-string binding expands it via
+        // string.Concat (a format clause would instead route to string.Format).
         const string source = """
             public static class C
             {
                 public static string Format(string template, params object[] args) => template;
-                public static string M(int code) => Format("err: {0}", $"0x{code:X2}");
+                public static string M(int code) => Format("err: {0}", $"0x{code}");
             }
             """;
 
@@ -1385,8 +1388,12 @@ public class InterpolationExpandUnitTests
     }
 
     [Fact]
-    public void DynamicHole_Stays0512_Preserved()
+    public void DynamicHole_ExpandsViaConcat()
     {
+        // A dynamic hole does not make the site unbindable: the interpolation's
+        // converted type is still System.String, so it expands to string.Concat
+        // (the hole keeps dynamic dispatch, mirroring the C# lowering). No
+        // CS2J0512 residual, output compiles.
         const string source = """
             public static class C
             {
@@ -1397,12 +1404,11 @@ public class InterpolationExpandUnitTests
 
         var result = Preprocess(source, options);
 
-        var diagnostic = result.Diagnostics
-            .Single(d => d.Code == InterpolationDiagnosticCodes.CS2J0512);
-        Assert.Equal(ExpressionDesugarSeverity.Warning, diagnostic.Severity);
-        Assert.Contains("$\"a{d}\"", Normalize(result.OutputCode));
-        Assert.Equal(1, result.Statistics.Interpolations.SkippedByReason
-            .GetValueOrDefault(InterpolationDiagnosticCodes.CS2J0512));
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.Contains("string.Concat(\"a\", d)", Normalize(result.OutputCode));
+        Assert.Equal(1, result.Statistics.Interpolations.ConcatExpansions);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == InterpolationDiagnosticCodes.CS2J0512);
+        AssertOutputCompiles(result.OutputCode);
     }
 
     // ------------------------------------------------------------------

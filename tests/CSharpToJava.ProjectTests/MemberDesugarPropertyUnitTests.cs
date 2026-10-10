@@ -141,7 +141,9 @@ public class MemberDesugarPropertyUnitTests
         AssertOutputCompiles(outCode);
     }
 
-    // 尾槽是方法调用（a?.P?.M()）：中间属性槽同样必须提升，尾槽原样保留。
+    // 尾槽是方法调用（a?.P?.M()）：中间属性槽同样必须提升；尾槽为非空值类型
+    // 属性时，get_Value() 返回不可空 struct，其后的 ?. 属于 CS0023 非法形态，
+    // 必须折叠为普通点接（首个 ?. 已短路整条尾链，语义等价）。
     [Fact]
     public void ChainedNullConditional_IntermediateProperty_TailMethodPreserved()
     {
@@ -158,7 +160,7 @@ public class MemberDesugarPropertyUnitTests
         var (outCode, _, _) = Rewrite(src);
 
         AssertContains(outCode, "o.get_Info()?.ToString()");
-        AssertContains(outCode, "o.get_Info()?.get_Value()?.CompareTo(0)");
+        AssertContains(outCode, "o.get_Info()?.get_Value().CompareTo(0)");
         AssertOutputCompiles(outCode);
     }
 

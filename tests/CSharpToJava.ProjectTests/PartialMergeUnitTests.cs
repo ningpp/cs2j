@@ -541,8 +541,12 @@ public sealed class PartialMergeUnitTests
         // Type-level partial token is intentionally retained (generator safety).
         Assert.Contains("partial class C", mergedText);
 
+        // Exactly one Hook member survives (declaration+implementation collapsed);
+        // count by member name so the Hook() call inside Run() is not mistaken
+        // for a second member.
         var hookMembers = group.MergedDeclaration.Members
-            .Count(m => m.ToString().Contains("Hook("));
+            .OfType<MethodDeclarationSyntax>()
+            .Count(m => m.Identifier.Text == "Hook");
         Assert.Equal(1, hookMembers);
 
         var outputs = ApplyAll(plan, compilation);

@@ -63,9 +63,18 @@ public class GenericDeepenFactsTests
         var model = compilation.GetSemanticModel(tree);
         var lambdas = tree.GetRoot().DescendantNodes().OfType<LambdaExpressionSyntax>().ToList();
         Assert.Equal(2, lambdas.Count);
-        Assert.False(ExpressionTreeFacts.IsExpressionTreeLambda(model, lambdas[0]));
-        Assert.True(ExpressionTreeFacts.IsInsideQuotedExpressionLambda(model, lambdas[0]));
-        Assert.True(ExpressionTreeFacts.FindEnclosingQuotedLambda(model, lambdas[0]) is not null);
+
+        // The outer lambda is itself the quoted Expression<> root.
+        var outer = lambdas[0];
+        var inner = lambdas[1];
+        Assert.True(ExpressionTreeFacts.IsExpressionTreeLambda(model, outer));
+
+        // The inner Func lambda is not itself Expression-converted (its
+        // converted type is Func<...>), but it is a node of the quoted tree:
+        // lexical containment must classify it (M4).
+        Assert.False(ExpressionTreeFacts.IsExpressionTreeLambda(model, inner));
+        Assert.True(ExpressionTreeFacts.IsInsideQuotedExpressionLambda(model, inner));
+        Assert.Same(outer, ExpressionTreeFacts.FindEnclosingQuotedLambda(model, inner));
     }
 
     [Fact]
