@@ -301,7 +301,7 @@ internal sealed class ExtensionCallBinder
                     ExtensionMethodCodes.ExternalHostNoMapping,
                     $"External metadata extension host '{hostDisplayName}' has no Java landing in TypeMappings; "
                     + $"call site '{invocation.ToString()}' is still rewritten to an explicit static call, "
-                    + "but the downstream Java conversion has no mapped target (CS2J_EXT001 successor at preprocess time).",
+                    + "and the downstream Java conversion has no mapped target for the host.",
                     invocation.GetLocation());
             }
 

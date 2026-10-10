@@ -181,7 +181,6 @@ public class Phase2PassPipelineTests
                 "ProjectUnsupportedDomainCheckPass",
                 "ProjectPlatformBoundaryCheckPass",
                 "ProjectNativeInteropCheckPass",
-                "ProjectExtensionMethodCheckPass",
                 "ProjectJavaPatternRewritePass",
                 "ProjectPartialTypeNormalizationPass",
                 "ProjectTypeEmitPass",
@@ -384,58 +383,10 @@ public class Phase2PassPipelineTests
     }
 
     [Fact]
-    public void ProjectStateRebuildHelper_PreservesExtensionMethodIndexWhenNoLinq()
+    public void ProjectStateRebuildHelper_RebuildsLibraryAndTypeGroupsAfterCompilationChange()
     {
         var options = CreateOptions();
         options.PreferStreamApi = false;
-
-        var state = CreateProjectPassState(
-            "Extensions.cs",
-            """
-            public static class StringExtensions
-            {
-                public static string Tag(this string value) { return value; }
-            }
-            public class Consumer
-            {
-                string Test(string value) { return value.Tag(); }
-            }
-            """,
-            options);
-
-        var originalCompilation = state.Compilation;
-        var originalLibrary = state.Library;
-        var index = new ExtensionMethodIndex();
-        ExtensionMethodIndex.ScanCompilation(index, state.Compilation, "TestProject", state.Context.NamespaceToPackage);
-        Assert.True(index.Count > 0);
-        state.Library.ExtensionMethodIndex = index;
-
-        // C26 M4-c：项目路径 LINQ pass 已摘除；不存在 LINQ 时本来就不会触发
-        // 编译重建，编译/Library/扩展方法索引保持原样（原 NoLinq 事实的延续）。
-        Assert.Same(originalCompilation, state.Compilation);
-        Assert.Same(originalLibrary, state.Library);
-        Assert.Same(index, state.Library.ExtensionMethodIndex);
-    }
-
-    [Fact]
-    public void ProjectStateRebuildHelper_RebuildKeepsExtensionMethodIndexForProjectCheck()
-    {
-        var options = CreateOptions();
-        options.PreferStreamApi = false;
-
-        var unrelatedIndex = new ExtensionMethodIndex();
-        unrelatedIndex.Add(new ExtensionMethodDescriptor
-        {
-            DocumentationCommentId = "M:OtherProject.OtherExtensions.NotThis(System.String)",
-            DeclaringProjectName = "OtherProject",
-            DeclaringTypeFullName = "OtherProject.OtherExtensions",
-            MethodName = "NotThis",
-            ReceiverTypeFullName = "string",
-            GenericArity = 0,
-            JavaPackage = "otherproject",
-            JavaHostClassName = "OtherExtensions",
-            JavaMethodName = "notThis",
-        });
 
         var state = CreateProjectPassState(
             "Sample.cs",
@@ -455,27 +406,18 @@ public class Phase2PassPipelineTests
                 }
             }
             """,
-            options,
-            unrelatedIndex);
+            options);
 
         var originalLibrary = state.Library;
 
-        // C26 M4-c：原 ProjectLinqDesugarPass 已摘除；这里直接驱动保留下来的
-        // 编译重建 helper（现由 ProjectJavaPatternRewritePass 等整体改写
-        // SyntaxTree 的项目 pass 调用），验证重建后扩展方法索引原样保留、
-        // ProjectCompilation 同步、TypeGroups 重建。
+        // 编译重建 helper 供 ProjectJavaPatternRewritePass 等整体改写
+        // SyntaxTree 的项目 pass 使用：重建后 Library 换为新 compilation
+        // 的库、ProjectCompilation 同步、TypeGroups 按新树重建。
         ProjectStateRebuildHelper.RebuildAfterCompilationChange(state);
 
         Assert.NotSame(originalLibrary, state.Library);
-        Assert.Same(unrelatedIndex, state.Library.ExtensionMethodIndex);
         Assert.Same(state.Compilation, state.Context.ProjectCompilation);
         Assert.NotNull(state.TypeGroups);
-
-        new ProjectExtensionMethodCheckPass().Execute(state);
-
-        Assert.Contains(
-            state.Context.Diagnostics.Messages,
-            diagnostic => diagnostic.Code == "CS2J_EXT001" && diagnostic.Category == "ExtensionMethod");
     }
 
     private static ConversionOptions CreateOptions()
@@ -489,8 +431,7 @@ public class Phase2PassPipelineTests
     private static ProjectPassState CreateProjectPassState(
         string filePath,
         string content,
-        ConversionOptions options,
-        ExtensionMethodIndex? extensionMethodIndex = null)
+        ConversionOptions options)
     {
         var context = new ConversionContext(options, new TypeMappingRegistry(options.TypeMappingConfigPath));
         var sourceFiles = new[]
@@ -505,10 +446,6 @@ public class Phase2PassPipelineTests
         Assert.NotNull(compilation);
 
         var library = Cs2jLibraryFactory.CreateFromSourceFiles(sourceFiles, compilation!);
-        if (extensionMethodIndex != null)
-        {
-            library.ExtensionMethodIndex = extensionMethodIndex;
-        }
 
         return new ProjectPassState
         {

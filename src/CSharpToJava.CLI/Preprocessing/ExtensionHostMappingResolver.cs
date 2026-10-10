@@ -12,8 +12,7 @@ namespace CSharpToJava.CLI.Preprocessing;
 ///
 /// A host is <see cref="ExternalHostMappingKind.Mapped"/> when the host type
 /// itself has a type mapping or at least one of its extension methods has a
-/// method mapping — the same lookup surface the converter's CS2J_EXT001 check
-/// uses (<see cref="TypeMappingRegistry.MapMethod(string,string)"/>).
+/// method mapping (<see cref="TypeMappingRegistry.MapMethod(string,string)"/>).
 ///
 /// If the mapping configuration cannot be loaded, the conservative grader
 /// returns <see cref="ExternalHostMappingKind.Unknown"/> for every host: the
@@ -48,7 +47,6 @@ internal static class ExtensionHostMappingResolver
                 return ExternalHostMappingKind.Mapped;
             }
 
-            // Mirror the converter's ProjectExtensionMethodCheckPass lookup:
             // MapMethod(type, methodName) on the extension methods the host
             // declares (reduced/ordinary static forms both report IsExtensionMethod).
             foreach (var member in host.GetMembers())

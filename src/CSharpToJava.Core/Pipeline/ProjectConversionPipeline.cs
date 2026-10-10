@@ -269,7 +269,6 @@ public class ProjectConversionPipeline
             new ProjectUnsupportedDomainCheckPass(),
             new ProjectPlatformBoundaryCheckPass(),
             new ProjectNativeInteropCheckPass(),
-            new ProjectExtensionMethodCheckPass(),
             new ProjectJavaPatternRewritePass(),
             new ProjectPartialTypeNormalizationPass(),
             new ProjectTypeEmitPass(_irRewriters),
@@ -315,23 +314,6 @@ public class ProjectConversionPipeline
             Compilation = compilation,
             EmitFilePaths = emitFilePaths,
         };
-
-        // Phase 2: Build extension method index if not already populated.
-        // In single-project mode, scan the current compilation.
-        // In multi-project mode, the caller (CLI) should pre-populate library.ExtensionMethodIndex.
-        if (library.ExtensionMethodIndex.Count == 0)
-        {
-            var index = new ExtensionMethodIndex();
-            foreach (var project in library.Projects)
-            {
-                ExtensionMethodIndex.ScanCompilation(
-                    index,
-                    project.Compilation,
-                    project.Name,
-                    context.NamespaceToPackage);
-            }
-            library.ExtensionMethodIndex = index;
-        }
 
         try
         {

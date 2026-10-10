@@ -71,7 +71,7 @@ public static class ExtensionMethodCodes
     /// <summary>Extension-like sugar unbound (None/OverloadResolutionFailure/incomplete references); site unchanged.</summary>
     public const string Unbound = "CS2J1202";
 
-    /// <summary>Metadata host without a Java landing mapping (CS2J_EXT001 successor at preprocess time).</summary>
+    /// <summary>Metadata host without a Java landing mapping.</summary>
     public const string ExternalHostNoMapping = "CS2J1203";
 
     /// <summary>Defensive: ref/in modifier cannot be proven semantically compatible with the argument.</summary>

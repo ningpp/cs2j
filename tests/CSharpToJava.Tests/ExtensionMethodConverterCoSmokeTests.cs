@@ -17,9 +17,7 @@ namespace CSharpToJava.Tests;
 /// Observed and locked for M5 default-on review:
 /// - the converter consumes explicitized sites as ordinary static calls in
 ///   every scenario (Success, host-qualified Java invocation present);
-/// - explicitized sites never produce CS2J_EXT001: that converter warning
-///   keys on reduced extension symbols, so explicitness retires it — CS2J1203
-///   is the preprocess-time counterpart for unmapped external hosts.
+/// - unmapped external hosts are reported preprocess-time as CS2J1203.
 ///
 /// Known converter-side gap (M5 list, NOT a C19 regression): the host is
 /// emitted as a dotted name chain (e.g. SampleLib.Collections.Host.method)
@@ -111,7 +109,7 @@ public class ExtensionMethodConverterCoSmokeTests
 
     [Theory]
     [MemberData(nameof(Scenarios))]
-    public void C19ExplicitizedSite_ConsumedAsStaticCall_NoExt001(
+    public void C19ExplicitizedSite_ConsumedAsStaticCall(
         string name, int expectedRewrites, string source, string expectedJavaFragment)
     {
         var tree = (CSharpSyntaxTree)CSharpSyntaxTree.ParseText(
@@ -142,8 +140,6 @@ public class ExtensionMethodConverterCoSmokeTests
         Assert.True(explicitResult.Success,
             $"{name}: converter must accept the C19 output: "
             + string.Join("\n", explicitResult.Diagnostics));
-        Assert.DoesNotContain(explicitResult.Diagnostics,
-            d => d.ToString().Contains("CS2J_EXT001", StringComparison.Ordinal));
         Assert.Contains(expectedJavaFragment,
             string.Concat((explicitResult.GeneratedCode ?? "").Where(c => !char.IsWhiteSpace(c))),
             StringComparison.Ordinal);
