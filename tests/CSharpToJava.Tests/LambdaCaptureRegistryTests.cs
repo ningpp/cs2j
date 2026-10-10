@@ -36,9 +36,11 @@ public class LambdaCaptureRegistryTests
     // ── End-to-end mutated capture ─────────────────────────────────
 
     [Fact]
-    public void MutatedCapture_ProducesArrayHolder()
+    public void MutatedCapture_FailsFastWithoutClosureLift()
     {
-        var result = ConvertCode(@"
+        // C45 M5: residual mutable capture on the direct pipeline is rejected;
+        // lowering belongs to the closure-lift preprocessor (display class).
+        var result = ConvertResult(@"
 using System;
 class T {
     void M() {
@@ -47,9 +49,10 @@ class T {
         act();
     }
 }");
-        // Mutated capture should produce array holder: int[] _count = { count };
-        Assert.Contains("_count", result);
-        Assert.Contains("[0]", result);
+        Assert.False(result.Success);
+        var message = string.Join(" | ", result.Diagnostics.Select(d => d.Message));
+        Assert.Contains("CS2J normalization required", message);
+        Assert.Contains("closure-lift", message);
     }
 
     [Fact]
@@ -121,12 +124,11 @@ class Builder {
     }
 
     [Fact]
-    public void LambdaWithRefParam_MutatedCaptureUsesHolderInLambda()
+    public void LambdaWithRefArg_MutatedCapture_FailsFastWithoutClosureLift()
     {
-        // When a variable is passed as ref inside a lambda AND is reassigned outside the lambda,
-        // the lambda body should use _index[0] instead of the raw 'index' variable,
-        // because Java requires lambda-captured variables to be effectively final.
-        var result = ConvertCode(@"
+        // C45 M5: passing a captured local as ref/out inside the lambda is a
+        // mutable capture; direct conversion is rejected pending closure-lift.
+        var result = ConvertResult(@"
 using System;
 class T {
     void M() {
@@ -137,11 +139,20 @@ class T {
     }
     void SomeMethod(ref int i) { }
 }");
-        // index inside the lambda should be replaced with _index[0]
-        // to satisfy Java's effectively-final requirement
-        Assert.Contains("_index", result);
-        // The lambda body should NOT reference raw 'index' directly
-        // (it should use _index[0] instead)
-        Assert.DoesNotContain("IntHolder _indexRef = new IntHolder(index)", result);
+        Assert.False(result.Success);
+        var message = string.Join(" | ", result.Diagnostics.Select(d => d.Message));
+        Assert.Contains("CS2J normalization required", message);
+        Assert.Contains("closure-lift", message);
+    }
+
+    private static ConversionResult ConvertResult(string code)
+    {
+        var pipeline = new ConversionPipeline();
+        return pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = code,
+            FileName = "Test.cs",
+            Options = new ConversionOptions(),
+        });
     }
 }

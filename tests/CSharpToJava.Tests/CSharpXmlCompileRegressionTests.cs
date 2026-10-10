@@ -648,8 +648,11 @@ public class RTree {
     }
 
     [Fact]
-    public void BooleanLambdaCapture_Mutated_UsesPrimitiveArrayHolder()
+    public void BooleanLambdaCapture_Mutated_FailsFastWithoutClosureLift()
     {
+        // C45 M5: the converter no longer emits single-element array holders.
+        // A lambda mutating a capture must go through closure-lift (display
+        // class); the direct pipeline rejects it with normalization guidance.
         var result = Convert("""
             using System;
 
@@ -664,9 +667,11 @@ public class RTree {
             }
             """);
 
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("boolean[] _isReferenced = new boolean[] { isReferenced }", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("(boolean[]) new Object[]", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.False(result.Success);
+        var message = string.Join("\n", result.Diagnostics);
+        Assert.Contains("CS2J normalization required", message, StringComparison.Ordinal);
+        Assert.Contains("closure-lift", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("boolean[] _isReferenced", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static string FindRepoRoot()

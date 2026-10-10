@@ -1,6 +1,17 @@
 using CSharpToJava.CLI;
+using CSharpToJava.CLI.Preprocessing;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.EnumDeclaration;
+using CSharpToJava.Core.EqualityConcat;
+using CSharpToJava.Core.ExpressionDesugar;
+using CSharpToJava.Core.JavaKeywords;
+using CSharpToJava.Core.LexicalNormalize;
+using CSharpToJava.Core.MemberDesugar;
 using CSharpToJava.Core.Pipeline;
+using CSharpToJava.Core.ReadOnlyStructMaker;
+using CSharpToJava.Core.RecordReadOnly;
+using CSharpToJava.Core.StructValueSemantics;
+using CSharpToJava.Core.UnsafeFfm;
 using CSharpToJava.Core.Workspace;
 using Xunit;
 
@@ -42,7 +53,13 @@ public class RefOutInProjectTests
 
     /// <summary>
     /// §7.4 migration ①: preprocessed-then-converted output asserts the new
-    /// ByRef hierarchy (J1) instead of the legacy holders.
+    /// ByRef hierarchy (J1) instead of the legacy holders. The production
+    /// convert-project chain runs closure-lift (default-on, anchored after
+    /// ref-out-in): ref-out-in emits ByRef accessor proxies
+    /// (<c>() =&gt; x, v =&gt; x = v</c>) whose setter lambdas mutably capture the
+    /// local, and closure-lift then lifts those captures into display classes.
+    /// The direct Java converter no longer carries the legacy array-holder arm,
+    /// so both passes must run before direct conversion (C45 M5 retirement).
     /// </summary>
     [Fact]
     public async Task PreprocessedSolution_FullConversion_ProducesByRefHierarchy()
@@ -54,22 +71,33 @@ public class RefOutInProjectTests
         var outputDir = Path.Combine(Path.GetTempPath(), "cs2j-refoutin-migr-" + Guid.NewGuid().ToString("N")[..8]);
         try
         {
-            var preprocess = await ProjectRefOutInPreprocessor.PreprocessAsync(
-                new ProjectRefOutInPreprocessRequest
-                {
-                    SourcePath = slnPath,
-                    DestinationRoot = outputDir,
-                    Verbose = false,
-                    VerifyBuild = true,
-                    VerifyTests = true,
-                });
-            Assert.True(preprocess.Success, string.Join("\n", preprocess.Diagnostics));
+            var registry = PassCatalog.BuildRegistry();
+            var chain = await CliPreprocessChain.RunAsync(new CliChainRequest
+            {
+                SourcePath = slnPath,
+                DestinationRoot = outputDir,
+                MakerOptionsFactory = () => new ReadOnlyStructMakerOptions(),
+                RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
+                MemberDesugarOptionsFactory = () => new MemberDesugarOptions(),
+                EnumDeclarationOptionsFactory = () => new EnumDeclarationOptions(),
+                EqualityConcatOptionsFactory = () => new EqualityConcatOptions(),
+                UnsafeFfmOptionsFactory = () => new UnsafeFfmOptions(),
+                ExpressionDesugarOptionsFactory = () => new ExpressionDesugarOptions(),
+                StructValueSemanticsOptionsFactory = () => new StructValueSemanticsOptions(),
+                JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
+                LexicalNormalizeOptionsFactory = () => new LexicalNormalizeOptions(),
+                LegacyToggles = PassChainFactory.BuildAllDisabledToggles(registry),
+                EnablePassIds = new[] { "ref-out-in", "closure-lift" },
+                VerifyBuild = true,
+                VerifyTests = true,
+            });
+            Assert.True(chain.Success, "ref-out-in + closure-lift chain failed (see chain diagnostics)");
 
-            var preprocessedSln = preprocess.PreprocessedSourcePath;
-            Assert.True(File.Exists(preprocessedSln), $"preprocessed sln missing: {preprocessedSln}");
+            var liftedSln = Path.Combine(outputDir, ".cs2j-closure-lift-src", "SampleRefOutIn.sln");
+            Assert.True(File.Exists(liftedSln), $"closure-lift sln missing: {liftedSln}");
 
             using var loader = new SolutionLoader();
-            var projects = await loader.OpenSolutionAsync(preprocessedSln);
+            var projects = await loader.OpenSolutionAsync(liftedSln);
             Assert.NotEmpty(projects);
 
             var pipeline = new ConversionPipeline();

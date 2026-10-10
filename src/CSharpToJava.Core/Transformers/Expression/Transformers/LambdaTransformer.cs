@@ -11,10 +11,11 @@ namespace CSharpToJava.Core.Transformers.Expression;
 
 /// <summary>
 /// Direct lambda mapping: C# lambdas become Java lambdas. Kept machinery:
-/// (1) capture-holder rewriting for captured variables mutated inside the lambda;
-/// (2) shadow renames (Java forbids lambda parameter/local names shadowing enclosing names).
-/// Everything else (async, delegate {}, ref/out parameters, stream materialization,
-/// implicit coercions) must be lowered by a preprocessor.
+/// shadow renames (Java forbids lambda parameter/local names shadowing
+/// enclosing names). Everything else — capture mutation, async, delegate {},
+/// ref/out parameters, stream materialization, implicit coercions — must be
+/// lowered by a preprocessor; a residual mutable capture is a fail-fast
+/// "theoretically unreachable" guard because closure-lift owns that lowering.
 /// </summary>
 [TransformerRegistration]
 public class LambdaTransformer : IIRExpressionTransformer
@@ -63,22 +64,13 @@ public class LambdaTransformer : IIRExpressionTransformer
             .ToList();
         var paramStr = FormatLambdaParameterList(javaParams);
 
-        // Captured locals mutated inside the lambda need single-element array holders.
-        var mutatedCaptures = GetMutatedCaptures(node, context);
-        foreach (var (capName, capType) in mutatedCaptures)
-        {
-            if (context.MethodState.HasActiveLambdaCaptureHolder(capName))
-                continue;
-
-            var holderDecl = capType.Contains('<')
-                ? $"@SuppressWarnings(\"unchecked\") {capType}[] _{capName} = ({capType}[]) new Object[] {{ {capName} }};"
-                : $"{capType}[] _{capName} = new {capType}[] {{ {capName} }};";
-            context.AddPreStatement(holderDecl);
-            context.MethodState.RegisterActiveLambdaCaptureHolder(capName, $"_{capName}");
-        }
+        // Residual mutable captures must have been lifted to a display class by
+        // the closure-lift preprocessor. Reaching here (e.g. direct pipeline use)
+        // is a hard error instead of silently emitting array holders.
+        EnsureNoMutableCaptures(node, context);
 
         if (node.Block != null)
-            return BuildBlockBodyLambda(node, paramStr, parameters, paramRenames, mutatedCaptures, context);
+            return BuildBlockBodyLambda(node, paramStr, parameters, paramRenames, context);
 
         if (node.ExpressionBody != null)
             return BuildExpressionBodyLambda(node, paramStr, paramRenames, context);
@@ -148,7 +140,6 @@ public class LambdaTransformer : IIRExpressionTransformer
         string paramStr,
         IEnumerable<ParameterSyntax> parameters,
         Dictionary<string, string> paramRenames,
-        IReadOnlyList<(string Name, string JavaType)> mutatedCaptures,
         ConversionContext context)
     {
         // Java also forbids body locals shadowing visible enclosing names.
@@ -166,10 +157,8 @@ public class LambdaTransformer : IIRExpressionTransformer
         foreach (var ps in savedPre) context.AddPreStatement(ps);
         foreach (var ps in savedPost) context.AddPostStatement(ps);
 
-        // Raw statement strings bypass IdentifierExpressionTransformer, so replace
-        // mutated capture names and renamed parameters textually.
-        foreach (var (capName, _) in mutatedCaptures)
-            body = Regex.Replace(body, $@"\b{Regex.Escape(capName)}\b", $"_{capName}[0]");
+        // Raw statement strings bypass IdentifierExpressionTransformer, so apply
+        // the parameter shadow renames textually.
         foreach (var (oldName, newName) in paramRenames)
             body = Regex.Replace(body, $@"\b{Regex.Escape(oldName)}\b", newName);
 
@@ -226,20 +215,21 @@ public class LambdaTransformer : IIRExpressionTransformer
     };
 
     /// <summary>
-    /// Local variables from enclosing scopes that are mutated inside the lambda body.
-    /// Java requires captured variables to be effectively final; mutated ones are
-    /// wrapped in a single-element array holder.
+    /// Fail-fast guard (C45 M5 "theoretically unreachable" line): a lambda that
+    /// mutates an outer local/parameter (assignment, ++/--, or ref/out argument)
+    /// must have been lifted into a display class by the closure-lift preprocessor.
+    /// Java lambdas require effectively-final captures, so converting it inline
+    /// would be wrong; reject it with normalization guidance.
     /// </summary>
-    private static IReadOnlyList<(string Name, string JavaType)> GetMutatedCaptures(
-        LambdaExpressionSyntax lambda, ConversionContext context)
+    private static void EnsureNoMutableCaptures(LambdaExpressionSyntax lambda, ConversionContext context)
     {
-        var result = new List<(string, string)>();
-        if (context.SemanticModel == null) return result;
+        if (context.SemanticModel == null) return;
 
         var paramNames = new HashSet<string>(GetLambdaParameters(lambda).Select(p => p.Identifier.Text));
         SyntaxNode? body = lambda.Block ?? (SyntaxNode?)lambda.ExpressionBody;
-        if (body == null) return result;
+        if (body == null) return;
 
+        var mutated = new List<string>();
         var seen = new HashSet<string>();
         foreach (var node in body.DescendantNodesAndSelf())
         {
@@ -266,11 +256,17 @@ public class LambdaTransformer : IIRExpressionTransformer
                 && local.Locations.FirstOrDefault() is { } declLocation
                 && !lambda.Span.Contains(declLocation.SourceSpan))
             {
-                result.Add((name, context.MapType(local.Type)));
+                mutated.Add(name);
             }
         }
 
-        return result;
+        if (mutated.Count > 0)
+        {
+            throw new NotSupportedException(
+                "CS2J normalization required: lambda mutates captured variable(s) '"
+                + string.Join(", ", mutated)
+                + "'; the closure-lift preprocessor must lift the lambda to a display class before Java conversion.");
+        }
     }
 
     // ---- Shadow rename support -------------------------------------------------

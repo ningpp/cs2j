@@ -136,8 +136,6 @@ public partial class ArgumentTransformer
         var holderType = HolderTypeResolver.GetHolderType(javaType);
 
         var writeBack = varName;
-        if (context.MethodState.TryGetActiveLambdaCaptureHolder(varName, out var captureHolder))
-            writeBack = $"{captureHolder}[0]";
 
         bool seed = isOut
             ? resolved && IsLocalAssignedBeforeUse(ident, context, strict: true)
