@@ -1,5 +1,5 @@
-using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
+using CSharpToJava.Tests.Infrastructure;
 
 namespace CSharpToJava.Tests;
 
@@ -10,13 +10,17 @@ namespace CSharpToJava.Tests;
 /// Root cause: TransformForEachStatement resolved the variable type via
 /// MapType BEFORE transforming the collection expression. The anonymous
 /// type record was not yet synthesized, so MapType fell back to Object.
+///
+/// C21 M5: the converter no longer lowers anonymous creations to Map.of; the
+/// source now goes through anonymous-type-lift (as in the convert-project
+/// chain) before direct conversion, so the LINQ arm projects named types.
 /// </summary>
 public class ForeachAnonymousTypeTests
 {
     [Fact]
     public void ForeachOverLinqSelectAnonymousType_ShouldNotBeObject()
     {
-        var result = Convert(@"
+        var result = AnonymousTypeLiftConverter.Convert(@"
 using System.Collections.Generic;
 using System.Linq;
 
@@ -48,7 +52,7 @@ class PathFinder
     [Fact]
     public void ForeachOverMethodChainSelectAnonymousType_ShouldNotBeObject()
     {
-        var result = Convert(@"
+        var result = AnonymousTypeLiftConverter.Convert(@"
 using System.Collections.Generic;
 using System.Linq;
 
@@ -71,19 +75,5 @@ class Processor
 
         // The foreach variable must NOT be typed as Object
         Assert.DoesNotContain("Object x", code, StringComparison.Ordinal);
-    }
-
-    private static ConversionResult Convert(string sourceCode, bool enableLinqRewrite = true)
-    {
-        var pipeline = new ConversionPipeline();
-        return pipeline.Convert(new ConversionRequest
-        {
-            SourceCode = sourceCode,
-            FileName = "Test.cs",
-            Options = new ConversionOptions
-            {
-                EnableLinqRewrite = enableLinqRewrite,
-            },
-        });
     }
 }

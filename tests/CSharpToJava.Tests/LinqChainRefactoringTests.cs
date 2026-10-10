@@ -1,5 +1,6 @@
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
+using CSharpToJava.Tests.Infrastructure;
 
 namespace CSharpToJava.Tests;
 
@@ -96,7 +97,9 @@ class C {
     [Fact]
     public void DifferentAnonymousTypes_GetDifferentRecordNames()
     {
-        var result = Convert(@"
+        // C21 M5: anonymous projections are lowered to distinct named shapes by
+        // anonymous-type-lift before conversion (chain order parity).
+        var result = AnonymousTypeLiftConverter.Convert(@"
 using System.Linq;
 class C {
     void M() {
@@ -104,7 +107,7 @@ class C {
         var r1 = a.Select(x => new { Num = x, Str = x.ToString() }).ToList();
         var r2 = a.Select(x => new { Sum = x + 1, Count = 1 }).ToList();
     }
-}");
+}", fileName: "Sample.cs");
         Assert.True(result.Success, result.GeneratedCode);
         // LINQ desugarer converts chains to procedural methods
         Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);

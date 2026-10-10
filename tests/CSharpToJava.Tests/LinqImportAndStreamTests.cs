@@ -1,5 +1,6 @@
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
+using CSharpToJava.Tests.Infrastructure;
 
 namespace CSharpToJava.Tests;
 
@@ -15,7 +16,9 @@ public class LinqImportAndStreamTests
     [Fact]
     public void QuerySyntax_Join_AddsObjectsImport()
     {
-        var result = Convert(@"
+        // C21 M5: the joined projection is an anonymous type; lower it through
+        // anonymous-type-lift before the direct conversion (chain order parity).
+        var result = AnonymousTypeLiftConverter.Convert(@"
 using System.Collections.Generic;
 using System.Linq;
 class Sample {
@@ -26,7 +29,7 @@ class Sample {
                  join y in b on x equals y
                  select new { x, y }).ToList();
     }
-}");
+}", fileName: "Sample.cs");
         Assert.True(result.Success, result.GeneratedCode);
         // LINQ desugarer now always on
         Assert.True(result.Success, result.GeneratedCode);

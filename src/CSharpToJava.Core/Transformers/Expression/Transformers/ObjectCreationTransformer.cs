@@ -128,14 +128,14 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
     private static string NewAnonymous(AnonymousObjectCreationExpressionSyntax n, ConversionContext c)
     {
-        c.AddImport("java.util.Map");
-        var pairs = n.Initializers.Select((m, i) =>
-        {
-            var key = m.NameEquals?.Name.Identifier.Text
-                ?? (m.Expression as MemberAccessExpressionSyntax)?.Name.Identifier.Text ?? $"_field{i}";
-            return $"\"{ConversionContext.EscapeJavaKeyword(key)}\", {ExpressionTransformerFacade.Instance.Transform(m.Expression, c)}";
-        });
-        return $"Map.of({string.Join(", ", pairs)})";
+        // C21 M5: anonymous object creation is lowered to a named type by the
+        // anonymous-type-lift preprocessor (default-on in the convert-project
+        // chain) before Java conversion. The legacy Map.of(...) arm is retired;
+        // a residual anonymous creation on the direct pipeline is a hard error
+        // instead of an untyped heterogeneous map that drops shape/equality.
+        throw new NotSupportedException(
+            "CS2J normalization required: anonymous object creation 'new { ... }' must be lifted to a named type " +
+            "by the anonymous-type-lift preprocessor before Java conversion.");
     }
     private string NewArray(ArrayCreationExpressionSyntax n, ConversionContext c)
     {

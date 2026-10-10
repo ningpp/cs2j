@@ -1,5 +1,4 @@
-using CSharpToJava.Core.Context;
-using CSharpToJava.Core.Pipeline;
+using CSharpToJava.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -19,7 +18,9 @@ public class QueryFromDowncastTests
     [Fact]
     public void FromClause_WithExplicitDowncast_WrapsWithDoubleCast()
     {
-        var r = Convert(@"
+        // C21 M5: the from/from select projects an anonymous pair; run
+        // anonymous-type-lift before direct conversion (chain order parity).
+        var r = AnonymousTypeLiftConverter.Convert(@"
 using System.Collections.Generic;
 using System.Linq;
 
@@ -43,16 +44,5 @@ class Test
         var code = r.GeneratedCode ?? "";
         // Should have for-each loops (procedural), not stream operations
         Assert.Contains("for (", code);
-    }
-
-    private static ConversionResult Convert(string sourceCode)
-    {
-        var pipeline = new ConversionPipeline();
-        return pipeline.Convert(new ConversionRequest
-        {
-            SourceCode = sourceCode,
-            FileName = "Test.cs",
-            Options = new ConversionOptions(),
-        });
     }
 }
