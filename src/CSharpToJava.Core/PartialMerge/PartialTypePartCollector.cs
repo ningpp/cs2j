@@ -61,10 +61,20 @@ internal static class PartialTypePartCollector
 
             // Only real source trees under the source root participate; the
             // synthesized global-usings tree (synthetic path) is excluded.
+            //
+            // Partial merge only ever unites TypeDeclarationSyntax parts
+            // (class/struct/interface/record). Enums and delegates declare
+            // through EnumDeclarationSyntax/DelegateDeclarationSyntax — both
+            // are BaseTypeDeclarationSyntax, not TypeDeclarationSyntax — and
+            // neither can be partial in C#. The node-kind filter here is the
+            // authoritative guard: the parts below are stored and cast as
+            // TypeDeclarationSyntax throughout the analyzer/merge pipeline.
             var sourceReferences = type.DeclaringSyntaxReferences
                 .Where(reference =>
                     reference.SyntaxTree.FilePath.StartsWith(sourceRoot, StringComparison.OrdinalIgnoreCase)
                     && !reference.SyntaxTree.FilePath.Contains("__cs2j", StringComparison.Ordinal))
+                .Select(reference => (Reference: reference, Node: reference.GetSyntax() as TypeDeclarationSyntax))
+                .Where(part => part.Node is not null)
                 .ToList();
 
             if (sourceReferences.Count == 0)
@@ -78,8 +88,7 @@ internal static class PartialTypePartCollector
             {
                 // M3: a single-part type is only rewritten when AssumeNoGeneratedPartial
                 // removes a classic declaration; the analyzer decides whether to keep it.
-                var reference = sourceReferences[0];
-                var singleNode = (TypeDeclarationSyntax)reference.GetSyntax();
+                var (reference, singleNode) = sourceReferences[0];
                 singles.Add(new TypeGroupPlan
                 {
                     TypeFullName = type.ToDisplayString(),
@@ -88,7 +97,7 @@ internal static class PartialTypePartCollector
                     [
                         new TypePartInfo
                         {
-                            Declaration = singleNode,
+                            Declaration = singleNode!,
                             SourceFilePath = reference.SyntaxTree.FilePath,
                             RelativePath = Path.GetRelativePath(sourceRoot, reference.SyntaxTree.FilePath)
                                 .Replace('\\', '/'),
@@ -101,12 +110,12 @@ internal static class PartialTypePartCollector
 
             // D1 two-key determinism: relative path ordinal asc, then span.Start asc.
             var orderedParts = sourceReferences
-                .Select(reference =>
+                .Select(part =>
                 {
-                    var node = (TypeDeclarationSyntax)reference.GetSyntax();
+                    var reference = part.Reference;
                     return new
                     {
-                        Node = node,
+                        Node = part.Node!,
                         FilePath = reference.SyntaxTree.FilePath,
                         RelativePath = Path.GetRelativePath(sourceRoot, reference.SyntaxTree.FilePath)
                             .Replace('\\', '/'),

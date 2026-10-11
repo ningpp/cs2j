@@ -1027,6 +1027,83 @@ public sealed class PartialMergeUnitTests
         Assert.Empty(new PartialMergePreprocessor().CheckResidual(candidate, plan));
     }
 
+    // ---- Regression: enums/delegates are not TypeDeclarationSyntax parts ----
+    //
+    // INamedTypeSymbol walks every named type; EnumDeclarationSyntax and
+    // DelegateDeclarationSyntax derive from BaseTypeDeclarationSyntax, not
+    // TypeDeclarationSyntax. The collector used to cast GetSyntax() blindly,
+    // throwing InvalidCastException on the first single-part enum/delegate.
+
+    [Fact]
+    public void Regression_TopLevel_Enum_And_Delegate_Neither_Cast_Nor_Grouped()
+    {
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("enums.cs",
+                "namespace Demo { public enum Color { Red, Green, Blue } " +
+                "public delegate void Handler(int x); }"),
+            ("Alpha/C.Part1.cs", "namespace Demo; public partial class C { public void A(){} }"),
+            ("Beta/C.Part2.cs", "namespace Demo; public partial class C { public void B(){} }"));
+
+        // Only the partial class is grouped; the enum and delegate create no
+        // group and no file edits.
+        var group = Assert.Single(plan.Groups);
+        Assert.Equal("Demo.C", group.TypeFullName);
+        Assert.DoesNotContain(plan.Groups, g => g.TypeFullName == "Demo.Color");
+        Assert.DoesNotContain(plan.Groups, g => g.TypeFullName == "Demo.Handler");
+
+        // The enum/delegate file is byte-stable (no edits target it).
+        var outputs = ApplyAll(plan, compilation);
+        var enumFile = Assert.Single(outputs.Where(o => o.Path == Path.Combine(Root, "enums.cs")));
+        Assert.Contains("public enum Color { Red, Green, Blue }", enumFile.Source);
+        Assert.Contains("public delegate void Handler(int x)", enumFile.Source);
+
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void Regression_Nested_Enum_And_Delegate_Inside_Partial_Class_Are_Preserved()
+    {
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("Alpha/C.Part1.cs",
+                "namespace Demo; public partial class C { public enum Kind { Off, On } " +
+                "public delegate void Notify(); public void A(){} }"),
+            ("Beta/C.Part2.cs", "namespace Demo; public partial class C { public void B(){} }"));
+
+        var group = Assert.Single(plan.Groups);
+        Assert.Equal("Demo.C", group.TypeFullName);
+        var mergedText = group.MergedDeclaration!.ToFullString();
+        Assert.Contains("enum Kind", mergedText);
+        Assert.Contains("delegate void Notify()", mergedText);
+        Assert.Contains("A()", mergedText);
+        Assert.Contains("B()", mergedText);
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void Regression_Enum_Delegate_Only_Source_Survives_MemberOnly_Analysis_Path()
+    {
+        // AssumeNoGeneratedPartial probes single-part types for removable
+        // classic members; enums/delegates must not reach that pipeline.
+        var (compilation, plan) = BuildPlanWith(
+            new PartialMergeOptions { AssumeNoGeneratedPartial = true },
+            ("enums.cs",
+                "namespace Demo { public enum Color { Red, Green, Blue } " +
+                "public delegate void Handler(int x); }"));
+
+        Assert.Empty(plan.Groups);
+        Assert.Empty(plan.EditsByFile.SelectMany(g => g));
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
     // ---- injection mutators (test-only) ----
 
     private static void InjectDuplicateA(TypeGroupPlan group)
