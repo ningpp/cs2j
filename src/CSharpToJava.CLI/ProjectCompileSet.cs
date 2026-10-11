@@ -11,14 +11,19 @@ namespace CSharpToJava.CLI;
 internal static class ProjectCompileSet
 {
     /// <summary>
-    /// 列出中间树中该项目编译的源文件（绝对路径，位于中间树内）。
+    /// 列出项目编译的源文件（绝对路径）。<paramref name="root"/> 界定
+    /// Directory.Build.props/targets 的向上查找边界：中间树调用传中间树根，
+    /// 源码树调用传源码根。<paramref name="includeDefaultItems"/> 为 false 时只解析
+    /// 显式 <c>&lt;Compile Include&gt;</c> 项——目录覆盖判定已包含 SDK 默认 glob
+    /// （项目目录下全部 .cs），无需重复枚举。
     /// 解析不了的项目返回 null，调用方应保守处理。
     /// </summary>
     internal static HashSet<string>? ComputeCompiledFiles(
-        string intermediateProjectPath,
-        string intermediateRoot)
+        string projectPath,
+        string root,
+        bool includeDefaultItems = true)
     {
-        if (!File.Exists(intermediateProjectPath))
+        if (!File.Exists(projectPath))
         {
             return null;
         }
@@ -26,32 +31,32 @@ internal static class ProjectCompileSet
         XDocument document;
         try
         {
-            document = XDocument.Load(intermediateProjectPath, LoadOptions.None);
+            document = XDocument.Load(projectPath, LoadOptions.None);
         }
         catch (Exception)
         {
             return null;
         }
 
-        var root = document.Root;
-        if (root == null || !root.Name.LocalName.Equals("Project", StringComparison.OrdinalIgnoreCase))
+        var projectRootElement = document.Root;
+        if (projectRootElement == null || !projectRootElement.Name.LocalName.Equals("Project", StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }
 
-        var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(intermediateProjectPath))!;
+        var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(projectPath))!;
         var properties = MSBuildPropertyReader.Read(
-            projectDirectory, intermediateRoot, root);
+            projectDirectory, root, projectRootElement);
 
-        var isSdkProject = root.Attribute("Sdk") != null
-            || root.Elements().Any(e => e.Name.LocalName == "Sdk");
+        var isSdkProject = projectRootElement.Attribute("Sdk") != null
+            || projectRootElement.Elements().Any(e => e.Name.LocalName == "Sdk");
         var defaultCompileItems = !IsFalse(properties.GetValueOrDefault("EnableDefaultCompileItems"))
             && !IsFalse(properties.GetValueOrDefault("EnableDefaultItems"));
 
         var included = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var removed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var element in root.Descendants())
+        foreach (var element in projectRootElement.Descendants())
         {
             var name = element.Name.LocalName;
             if (name is not ("Compile" or "ProjectReference"))
@@ -86,7 +91,7 @@ internal static class ProjectCompileSet
         }
 
         // SDK 默认 glob：项目目录下的所有 .cs（排除 bin/obj 与显式 Remove）。
-        if (isSdkProject && defaultCompileItems)
+        if (includeDefaultItems && isSdkProject && defaultCompileItems)
         {
             foreach (var file in EnumerateSourceFiles(projectDirectory))
             {
@@ -265,9 +270,12 @@ internal static class ProjectCompileSet
 }
 
 /// <summary>
-/// SDK 隐式 global using 支持：项目的 <c>ImplicitUsings</c> 为 enable 时，SDK 会生成
-/// <c>GlobalUsings.g.cs</c>，预处理器的一次性编译必须等价补上，否则 <c>Type</c>、
-/// <c>Task</c> 这类依赖隐式 using 的名字会解析失败（元组元素类型会退化成 object）。
+/// SDK global using 支持：项目的 <c>ImplicitUsings</c> 为 enable 时，SDK 会生成
+/// <c>GlobalUsings.g.cs</c>；项目也可以用 <c>&lt;Using Include="…" /&gt;</c>
+/// （含 <c>Static</c>/<c>Alias</c>/<c>Remove</c>）显式声明 global using。
+/// 预处理器的一次性编译必须等价补上，否则 <c>Type</c>、<c>Task</c>、
+/// <c>StringBuilder</c> 这类依赖隐式/项目级 using 的名字会解析失败（残留的
+/// ?? 无法判定左值类型、元组元素类型退化成 object 等）。
 /// </summary>
 internal static class ImplicitGlobalUsings
 {
@@ -282,6 +290,8 @@ internal static class ImplicitGlobalUsings
         "System.Threading",
         "System.Threading.Tasks",
     };
+
+    private readonly record struct UsingEntry(string Name, bool IsStatic, string? Alias);
 
     internal static string? BuildForProject(string intermediateProjectPath, string intermediateRoot)
     {
@@ -306,24 +316,113 @@ internal static class ImplicitGlobalUsings
             return null;
         }
 
-        var properties = MSBuildPropertyReader.Read(
-            Path.GetDirectoryName(Path.GetFullPath(intermediateProjectPath))!, intermediateRoot, root);
-        if (!string.Equals(
+        var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(intermediateProjectPath))!;
+        var properties = MSBuildPropertyReader.Read(projectDirectory, intermediateRoot, root);
+
+        // <Using Remove="X" /> —— 可同时移除 SDK 默认 using 与显式 Using 项。
+        var removed = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var element in root.Descendants().Where(e => e.Name.LocalName == "Using"))
+        {
+            var remove = (string?)element.Attribute("Remove");
+            if (string.IsNullOrWhiteSpace(remove))
+            {
+                continue;
+            }
+
+            var expanded = MSBuildPropertyReader.Expand(remove!, properties, projectDirectory).Trim();
+            if (expanded.Length > 0)
+            {
+                removed.Add(NormalizeName(expanded));
+            }
+        }
+
+        var entries = new List<UsingEntry>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        void AddEntry(string name, bool isStatic, string? alias)
+        {
+            name = NormalizeName(name);
+            if (name.Length == 0 || removed.Contains(name))
+            {
+                return;
+            }
+
+            alias = string.IsNullOrWhiteSpace(alias) ? null : alias.Trim();
+            var key = $"{(alias != null ? alias + "=" : "")}{(isStatic ? "static " : "")}{name}";
+            if (seen.Add(key))
+            {
+                entries.Add(new UsingEntry(name, isStatic, alias));
+            }
+        }
+
+        if (string.Equals(
                 properties.GetValueOrDefault("ImplicitUsings")?.Trim(),
                 "enable",
                 StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var ns in DefaultNamespaces)
+            {
+                AddEntry(ns, isStatic: false, alias: null);
+            }
+        }
+
+        // 项目文件内显式声明的 <Using Include="…" Static="true" Alias="…" />。
+        foreach (var element in root.Descendants().Where(e => e.Name.LocalName == "Using"))
+        {
+            var include = (string?)element.Attribute("Include");
+            if (string.IsNullOrWhiteSpace(include))
+            {
+                continue;
+            }
+
+            var name = MSBuildPropertyReader.Expand(include!, properties, projectDirectory).Trim();
+            var isStatic = string.Equals(
+                (string?)element.Attribute("Static"), "true", StringComparison.OrdinalIgnoreCase);
+            var alias = (string?)element.Attribute("Alias");
+            AddEntry(name, isStatic, alias);
+        }
+
+        if (entries.Count == 0)
         {
             return null;
         }
 
         var builder = new System.Text.StringBuilder();
-        builder.AppendLine("// <auto-generated> Implicit global usings mirrored from ImplicitUsings=enable </auto-generated>");
-        foreach (var ns in DefaultNamespaces)
+        builder.AppendLine("// <auto-generated> Global usings mirrored from ImplicitUsings and <Using> items </auto-generated>");
+        foreach (var entry in entries)
         {
-            builder.Append("global using global::").Append(ns).AppendLine(";");
+            if (entry.Alias != null)
+            {
+                builder.Append("global using ")
+                    .Append(entry.Alias)
+                    .Append(" = ")
+                    .Append(entry.IsStatic ? "static " : "")
+                    .Append("global::").Append(entry.Name).AppendLine(";");
+            }
+            else if (entry.IsStatic)
+            {
+                builder.Append("global using static global::").Append(entry.Name).AppendLine(";");
+            }
+            else
+            {
+                builder.Append("global using global::").Append(entry.Name).AppendLine(";");
+            }
         }
 
         return builder.ToString();
+    }
+
+    /// <summary>去掉名称两端空白和已有的 <c>global::</c> 前缀，便于去重/Remove 匹配。</summary>
+    private static string NormalizeName(string name)
+    {
+        var trimmed = name.Trim();
+        const string globalPrefix = "global::";
+        if (trimmed.StartsWith(globalPrefix, StringComparison.Ordinal))
+        {
+            trimmed = trimmed[globalPrefix.Length..];
+        }
+
+        return trimmed;
     }
 }
 

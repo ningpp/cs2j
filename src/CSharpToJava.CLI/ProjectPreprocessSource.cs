@@ -103,15 +103,26 @@ internal static class ProjectPreprocessSource
 
     /// <summary>
     /// Scopes an enumerated whole-tree file set down to the files that belong
-    /// to the loaded solution/project graph: files inside a non-excluded
-    /// project directory, plus the layout entry files themselves (the .sln /
-    /// .csproj). Unrelated trees that merely sit below the common source root
+    /// to the loaded solution/project graph:
+    /// <list type="bullet">
+    /// <item>files inside a non-excluded project directory,</item>
+    /// <item>the layout entry files themselves (the .sln / .csproj), and</item>
+    /// <item>files pulled into a graph project by explicit
+    /// <c>&lt;Compile Include="…"&gt;</c> items even when they live OUTSIDE the
+    /// project directory (shared source linked via <c>..\Common\</c> whose
+    /// directory contains no project of its own). Such files must be copied to
+    /// the intermediate tree, otherwise the verification build fails with
+    /// CS2001 (source file not found).</item>
+    /// </list>
+    /// Unrelated trees that merely sit below the common source root
     /// (foreign repositories, sibling solutions not referenced by the entry)
     /// are dropped, so they never reach the per-file compilers — compiling
     /// such files with the pass' own reference set fails type resolution and
-    /// trips the strict gates even though they are not part of the conversion.
+    /// spurious residual errors abort the run. A file explicitly compiled by a
+    /// non-excluded graph project is kept even if it physically resides under
+    /// an excluded project directory.
     /// With no graph (plain directory conversion) the whole tree stays in
-    /// scope.
+    /// scope apart from excluded-project directories.
     /// </summary>
     internal static List<string> FilterToGraphMembers(
         IEnumerable<string> files,
@@ -119,24 +130,61 @@ internal static class ProjectPreprocessSource
         ProjectPreprocessSourceLayout layout,
         SupportedProjectFiltering.ExclusionInfo exclusionInfo)
     {
+        var fullFiles = files.Select(Path.GetFullPath).ToList();
+
         if (projectGraph == null)
         {
-            return files.ToList();
+            return fullFiles
+                .Where(full => !SupportedProjectFiltering.IsUnderExcludedProject(full, exclusionInfo))
+                .ToList();
         }
 
-        var includedDirectories = projectGraph.ProjectsInTopologicalOrder
+        var includedProjects = projectGraph.ProjectsInTopologicalOrder
             .Where(p => !SupportedProjectFiltering.IsUnderExcludedProject(p.ProjectFilePath, exclusionInfo))
+            .ToList();
+        var includedDirectories = includedProjects
             .Select(p => p.ProjectDirectory)
             .ToList();
         var layoutFiles = layout.ProjectFiles
             .Select(Path.GetFullPath)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        return files
-            .Select(Path.GetFullPath)
+        // Explicit <Compile Include> items of every retained project, resolved
+        // against the source tree. Only explicit items are requested: SDK
+        // default globs are inside the project directory and are already
+        // covered by includedDirectories.
+        var explicitlyCompiled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var project in includedProjects)
+        {
+            var compiled = ProjectCompileSet.ComputeCompiledFiles(
+                project.ProjectFilePath, layout.SourceRoot, includeDefaultItems: false);
+            if (compiled == null)
+            {
+                continue;
+            }
+
+            foreach (var compiledFile in compiled)
+            {
+                explicitlyCompiled.Add(Path.GetFullPath(compiledFile));
+            }
+        }
+
+        return fullFiles
             .Where(full =>
-                layoutFiles.Contains(full)
-                       || SupportedProjectFiltering.IsUnderAnyDirectory(full, includedDirectories))
+            {
+                if (explicitlyCompiled.Contains(full))
+                {
+                    return true;
+                }
+
+                if (SupportedProjectFiltering.IsUnderExcludedProject(full, exclusionInfo))
+                {
+                    return false;
+                }
+
+                return layoutFiles.Contains(full)
+                       || SupportedProjectFiltering.IsUnderAnyDirectory(full, includedDirectories);
+            })
             .ToList();
     }
 

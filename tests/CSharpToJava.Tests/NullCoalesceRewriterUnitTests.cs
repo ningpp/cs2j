@@ -26,6 +26,62 @@ public class NullCoalesceRewriterUnitTests
     }
 
     /// <summary>
+    /// Regression for RegexCharClass.cs in the SDK corpus: the ?? left
+    /// operand's type (StringBuilder) is reachable only through a project-level
+    /// global using (<c>&lt;Using Include="System.Text"/&gt;</c> realized as
+    /// GlobalUsings.g.cs). The pass' merged compilation must include the
+    /// synthesized global-usings tree, otherwise the left type does not
+    /// resolve and the operator is left residual.
+    /// </summary>
+    [Fact]
+    public void Coalesce_LeftType_Reachable_Only_Via_GlobalUsing_Is_Rewritten()
+    {
+        var source = """
+            namespace Demo;
+
+            internal sealed class CharClass
+            {
+                private StringBuilder? _categories;
+
+                public int Length()
+                {
+                    return _categories?.Length ?? 0;
+                }
+            }
+            """;
+
+        var sourceTree = CSharpSyntaxTree.ParseText(source);
+        var globalUsingsTree = CSharpSyntaxTree.ParseText(
+            "global using global::System.Text;",
+            new CSharpParseOptions(LanguageVersion.Latest),
+            path: "__cs2j_global_usings.g.cs");
+
+        var runtimeDir = System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location)!;
+        var references = new List<MetadataReference>(CompileReferences)
+        {
+            MetadataReference.CreateFromFile(System.IO.Path.Combine(runtimeDir, "System.Runtime.dll")),
+        };
+
+        var compilation = CSharpCompilation.Create(
+            "null-coalesce-test",
+            new[] { sourceTree, globalUsingsTree },
+            references,
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                allowUnsafe: true,
+                nullableContextOptions: NullableContextOptions.Enable));
+        var model = compilation.GetSemanticModel(sourceTree);
+
+        var result = new NullCoalesceRewriter().Preprocess(source, model);
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("??", result.OutputCode);
+        Assert.DoesNotContain(
+            result.Diagnostics,
+            d => d.Message.Contains("Cannot resolve type", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
     /// Compiles rewritten output and returns error-level diagnostics. Every
     /// regression below asserts the rewrite is not only shaped right but also
     /// produces valid C# — the old anchor-by-identity lifter silently emitted

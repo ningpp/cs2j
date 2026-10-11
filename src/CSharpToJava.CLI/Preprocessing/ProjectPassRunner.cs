@@ -149,9 +149,11 @@ internal static class ProjectPassRunner
                 projectGraph, adapter.Verbose, adapter.CompatNamespacePrefixes, layout.SourceRoot)
             : new SupportedProjectFiltering.ExclusionInfo();
 
+        // Exclusion of unsupported projects and graph membership (including
+        // shared source linked via explicit <Compile Include>) are resolved
+        // together in FilterToGraphMembers.
         var sourceFiles = ProjectPreprocessSource.EnumerateSourceFiles(
                 sourceRoot, intermediateRoot, destinationRoot)
-            .Where(file => !SupportedProjectFiltering.IsUnderExcludedProject(file, exclusionInfo))
             .ToList();
         // Keep only files that belong to a project of the loaded entry graph
         // (plus the entry files themselves). Without this, unrelated source

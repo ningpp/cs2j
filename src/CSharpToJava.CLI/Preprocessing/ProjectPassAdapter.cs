@@ -299,9 +299,47 @@ internal abstract class ProjectPassAdapter
 
     public virtual string CompilationName => Descriptor.Id + "-preprocess";
 
-    /// <summary>Extra syntax trees (e.g. synthesized global usings) added to compilation only.</summary>
+    /// <summary>
+    /// Extra syntax trees (e.g. synthesized global usings) added to the
+    /// whole-tree analysis compilation. A real build realizes
+    /// <c>ImplicitUsings=enable</c> and <c>&lt;Using Include="…"/&gt;</c>
+    /// items as SDK-generated GlobalUsings.g.cs files per project; the merged
+    /// pass compilation has none, so every semantic pass must see the union
+    /// across graph projects. Defaulting it here (instead of re-implementing
+    /// the synthesis per adapter) guarantees a pass cannot silently miss a
+    /// namespace — e.g. System.Text in the regex project, whose csproj
+    /// declares its whole using set through <c>&lt;Using&gt;</c> items — and
+    /// leave unbound residual operators/initializers behind.
+    /// </summary>
     public virtual IReadOnlyList<SyntaxTree> CreateAdditionalSyntaxTrees(PassTreeContext tree)
-        => Array.Empty<SyntaxTree>();
+    {
+        var globalUsings = new System.Text.StringBuilder();
+        foreach (var projectFile in tree.Layout.ProjectFiles
+                     .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
+        {
+            var intermediateProjectFile = Path.Combine(
+                tree.IntermediateRoot, Path.GetRelativePath(tree.Layout.SourceRoot, projectFile));
+            var projectUsings = ImplicitGlobalUsings.BuildForProject(
+                intermediateProjectFile, tree.IntermediateRoot);
+            if (projectUsings != null)
+            {
+                globalUsings.AppendLine(projectUsings);
+            }
+        }
+
+        if (globalUsings.Length == 0)
+        {
+            return Array.Empty<SyntaxTree>();
+        }
+
+        return new[]
+        {
+            CSharpSyntaxTree.ParseText(
+                globalUsings.ToString(),
+                new CSharpParseOptions(LanguageVersion.Latest),
+                path: "__cs2j_global_usings.g.cs"),
+        };
+    }
 
     // ---- hooks ----
 
