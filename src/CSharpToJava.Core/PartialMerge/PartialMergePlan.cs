@@ -31,6 +31,14 @@ internal sealed record TypeGroupPlan
     public bool RolledBack { get; set; }
 
     /// <summary>
+    /// Nested group enclosed by an inactive (skipped/rolled-back) containing
+    /// group. A nested group emits no file edits itself — its merged node only
+    /// ever rides a merged containing declaration — so it cannot be merged this
+    /// run and must not count as active or trip the residual gate.
+    /// </summary>
+    public bool SkipEnclosingInactive { get; set; }
+
+    /// <summary>
     /// M3: single-part type rewritten only to drop a classic partial declaration
     /// under AssumeNoGeneratedPartial. No banner/usings/part-removal semantics apply.
     /// </summary>
@@ -79,5 +87,6 @@ internal sealed record PartialMergePlan
     public required PartialMergeStatistics Statistics { get; init; }
 
     public IEnumerable<TypeGroupPlan> ActiveGroups =>
-        Groups.Where(g => !g.SkipBaseline && !g.SkipUnsupportedShape && !g.RolledBack);
+        Groups.Where(g => !g.SkipBaseline && !g.SkipUnsupportedShape
+            && !g.RolledBack && !g.SkipEnclosingInactive);
 }

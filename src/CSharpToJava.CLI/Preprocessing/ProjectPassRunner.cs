@@ -153,6 +153,13 @@ internal static class ProjectPassRunner
                 sourceRoot, intermediateRoot, destinationRoot)
             .Where(file => !SupportedProjectFiltering.IsUnderExcludedProject(file, exclusionInfo))
             .ToList();
+        // Keep only files that belong to a project of the loaded entry graph
+        // (plus the entry files themselves). Without this, unrelated source
+        // trees sharing the source root (e.g. a sibling repo not referenced by
+        // the .sln) are compiled with the pass' basic metadata set and fail
+        // type resolution, surfacing as spurious strict-gate errors.
+        sourceFiles = ProjectPreprocessSource.FilterToGraphMembers(
+            sourceFiles, projectGraph, layout, exclusionInfo);
         var csFiles = sourceFiles
             .Where(file => file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
             .ToList();

@@ -38,8 +38,17 @@ internal static class PartialTypeMergeBuilder
     {
         var primary = group.Primary.Declaration;
 
+        // Per-part trailing directives ride the last surviving member of each
+        // part; the primary's own window is stripped from the reused close brace
+        // so directives survive exactly once (no CS1027/CS1038 orphans).
+        var collected = PartialMemberMerge.CollectMergedMembers(group, collapse);
+        var (_, primaryKeptBraceTrivia) =
+            PartialMemberMerge.ExtractTrailingDirectiveWindow(primary.CloseBraceToken);
+        var closeBraceLeading = SyntaxFactory.TriviaList(collected.PendingCloseBraceTrivia)
+            .AddRange(primaryKeptBraceTrivia);
+
         var merged = primary
-            .WithMembers(SyntaxFactory.List(PartialMemberMerge.CollectMembers(group, collapse)))
+            .WithMembers(SyntaxFactory.List(collected.Members))
             .WithModifiers(BuildMergedModifiers(group))
             .WithBaseList(BuildMergedBaseList(compilation, group))
             .WithAttributeLists(BuildMergedAttributes(group))
@@ -51,9 +60,7 @@ internal static class PartialTypeMergeBuilder
                 ? SyntaxFactory.Token(SyntaxKind.OpenBraceToken)
                     .WithLeadingTrivia(SyntaxFactory.Space)
                 : primary.OpenBraceToken)
-            .WithCloseBraceToken(primary.CloseBraceToken.Kind() != SyntaxKind.CloseBraceToken
-                ? SyntaxFactory.Token(SyntaxKind.CloseBraceToken)
-                : primary.CloseBraceToken)
+            .WithCloseBraceToken(BuildCloseBrace(primary, closeBraceLeading))
             .WithSemicolonToken(default);
 
         // Documentation first (D6 deterministic XML merge), then the provenance
@@ -68,6 +75,11 @@ internal static class PartialTypeMergeBuilder
                 .Add(banner)
                 .Add(SyntaxFactory.CarriageReturnLineFeed));
     }
+
+    private static SyntaxToken BuildCloseBrace(TypeDeclarationSyntax primary, SyntaxTriviaList leading)
+        => primary.CloseBraceToken.Kind() == SyntaxKind.CloseBraceToken
+            ? primary.CloseBraceToken.WithLeadingTrivia(leading)
+            : SyntaxFactory.Token(SyntaxKind.CloseBraceToken).WithLeadingTrivia(leading);
 
     private static SyntaxTokenList BuildMergedModifiers(TypeGroupPlan group)
     {

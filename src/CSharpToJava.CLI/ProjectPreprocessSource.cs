@@ -101,6 +101,45 @@ internal static class ProjectPreprocessSource
         throw new FileNotFoundException("Source path not found.", fullSourcePath);
     }
 
+    /// <summary>
+    /// Scopes an enumerated whole-tree file set down to the files that belong
+    /// to the loaded solution/project graph: files inside a non-excluded
+    /// project directory, plus the layout entry files themselves (the .sln /
+    /// .csproj). Unrelated trees that merely sit below the common source root
+    /// (foreign repositories, sibling solutions not referenced by the entry)
+    /// are dropped, so they never reach the per-file compilers — compiling
+    /// such files with the pass' own reference set fails type resolution and
+    /// trips the strict gates even though they are not part of the conversion.
+    /// With no graph (plain directory conversion) the whole tree stays in
+    /// scope.
+    /// </summary>
+    internal static List<string> FilterToGraphMembers(
+        IEnumerable<string> files,
+        ProjectGraph? projectGraph,
+        ProjectPreprocessSourceLayout layout,
+        SupportedProjectFiltering.ExclusionInfo exclusionInfo)
+    {
+        if (projectGraph == null)
+        {
+            return files.ToList();
+        }
+
+        var includedDirectories = projectGraph.ProjectsInTopologicalOrder
+            .Where(p => !SupportedProjectFiltering.IsUnderExcludedProject(p.ProjectFilePath, exclusionInfo))
+            .Select(p => p.ProjectDirectory)
+            .ToList();
+        var layoutFiles = layout.ProjectFiles
+            .Select(Path.GetFullPath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return files
+            .Select(Path.GetFullPath)
+            .Where(full =>
+                layoutFiles.Contains(full)
+                       || SupportedProjectFiltering.IsUnderAnyDirectory(full, includedDirectories))
+            .ToList();
+    }
+
     internal static IEnumerable<string> EnumerateSourceFiles(
         string sourceRoot,
         string destinationRoot,

@@ -115,6 +115,7 @@ internal sealed class NullCoalescePassAdapter : ProjectPassAdapter
            $"{_statistics.NullCoalescingRewritten} ?? rewritten, " +
            $"{_statistics.NullCoalescingAssignRewritten} ??= rewritten, " +
            $"{_statistics.TempVariablesGenerated} temp vars, " +
+           $"{_statistics.ExpressionBodiesExpanded} arrow bodies expanded, " +
            $"{_statistics.ResidualCount} residual";
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
@@ -150,6 +151,7 @@ internal sealed class NullCoalescePassAdapter : ProjectPassAdapter
         _statistics.TempVariablesGenerated += source.TempVariablesGenerated;
         _statistics.NestedRewrites += source.NestedRewrites;
         _statistics.SkippedUnsupported += source.SkippedUnsupported;
+        _statistics.ExpressionBodiesExpanded += source.ExpressionBodiesExpanded;
         _statistics.ResidualCount += source.ResidualCount;
     }
 }

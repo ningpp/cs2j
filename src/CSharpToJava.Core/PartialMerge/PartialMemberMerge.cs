@@ -16,6 +16,11 @@ namespace CSharpToJava.Core.PartialMerge;
 /// </summary>
 internal static class PartialMemberMerge
 {
+    /// <summary>
+    /// Member-only (M3) collection: declaration stays byte-stable apart from
+    /// dropped/collapsed members. No brace trivia moves, so directive balance is
+    /// untouched.
+    /// </summary>
     public static IEnumerable<MemberDeclarationSyntax> CollectMembers(
         TypeGroupPlan group,
         PartialMemberCollapse? collapse)
@@ -24,46 +29,224 @@ internal static class PartialMemberMerge
 
         foreach (var part in group.Parts)
         {
-            foreach (var member in part.Declaration.Members)
+            foreach (var member in EmitPartMembers(group, part, plan, collapse))
             {
-                // Nested partial types that are themselves groups are replaced by
-                // their merged node (lookup supplied by the analyzer, depth-first).
-                if (NestedOverrides.TryGetValue(member.ToFullString().Trim(), out var nested))
-                {
-                    // Non-primary part of a nested group: the merged node is emitted
-                    // once at the nested primary's slot; this member disappears.
-                    if (nested.Remove)
-                    {
-                        continue;
-                    }
+                yield return member;
+            }
+        }
+    }
 
-                    yield return nested.Merged;
+    /// <summary>
+    /// Full multi-part merge collection: members are gathered per part AND each
+    /// part's trailing body directives (the <c>#endif</c>/<c>#endregion</c>
+    /// attached to that part's close-brace leading trivia) are relocated onto the
+    /// part's last surviving member. Without this, merging discards the close
+    /// brace of every non-primary part and strands the opener on the member it
+    /// decorated (CS1027/CS1038 in the candidate). Directives of a part whose
+    /// members all disappear are handed back for the merged close brace.
+    /// </summary>
+    public static MergedMemberCollection CollectMergedMembers(
+        TypeGroupPlan group,
+        PartialMemberCollapse? collapse)
+    {
+        var plan = collapse?.ForGroup(group);
+        var members = new List<MemberDeclarationSyntax>();
+        var pending = new List<SyntaxTrivia>();
+
+        // The declaration reuses the primary's open brace; its trailing trivia
+        // (normally a newline) is the context the first member renders against.
+        var previousTrailing = group.Primary.Declaration.OpenBraceToken.TrailingTrivia;
+
+        foreach (var part in group.Parts)
+        {
+            var (window, _) = ExtractTrailingDirectiveWindow(part.Declaration.CloseBraceToken);
+            var emitted = EmitPartMembers(group, part, plan, collapse).ToList();
+
+            if (emitted.Count > 0)
+            {
+                if (pending.Count > 0)
+                {
+                    emitted[0] = emitted[0].WithLeadingTrivia(
+                        SyntaxFactory.TriviaList(pending)
+                            .AddRange(emitted[0].GetLeadingTrivia()));
+                    pending.Clear();
+                }
+
+                if (window.Count > 0)
+                {
+                    var last = emitted.Count - 1;
+                    emitted[last] = emitted[last].WithTrailingTrivia(
+                        emitted[last].GetTrailingTrivia().AddRange(window));
+                }
+            }
+            else if (window.Count > 0)
+            {
+                // No member anchors this part's directives (they ride the merged
+                // close brace). The line break that normally precedes them was the
+                // empty part's open-brace trailing trivia, which is discarded.
+                if (LeadsWithUnanchoredDirective(SyntaxFactory.TriviaList(window))
+                    && !EndsWithEndOfLine(previousTrailing))
+                {
+                    pending.Add(SyntaxFactory.CarriageReturnLineFeed);
+                }
+
+                pending.AddRange(window);
+            }
+
+            // A leading directive must sit at the first non-whitespace position
+            // of a line. Its preceding newline used to be supplied by the part's
+            // (discarded) open brace or by an earlier member; when the rendered
+            // context lacks one, synthesize it instead of gluing the directive
+            // onto the previous token (CS1040/CS1028).
+            for (var i = 0; i < emitted.Count; i++)
+            {
+                var member = emitted[i];
+                if (LeadsWithUnanchoredDirective(member.GetLeadingTrivia())
+                    && !EndsWithEndOfLine(previousTrailing))
+                {
+                    member = member.WithLeadingTrivia(
+                        SyntaxFactory.TriviaList(SyntaxFactory.CarriageReturnLineFeed)
+                            .AddRange(member.GetLeadingTrivia()));
+                    emitted[i] = member;
+                }
+
+                previousTrailing = member.GetTrailingTrivia();
+            }
+
+            members.AddRange(emitted);
+        }
+
+        return new MergedMemberCollection(members, pending);
+    }
+
+    private static bool EndsWithEndOfLine(SyntaxTriviaList trivia)
+        => trivia.Count > 0 && trivia[^1].IsKind(SyntaxKind.EndOfLineTrivia);
+
+    /// <summary>
+    /// True when the trivia starts (after whitespace at most) with a preprocessor
+    /// directive but carries no end-of-line before it, so rendering it in a new
+    /// context would leave the directive mid-line.
+    /// </summary>
+    private static bool LeadsWithUnanchoredDirective(SyntaxTriviaList trivia)
+    {
+        foreach (var item in trivia)
+        {
+            if (item.IsKind(SyntaxKind.EndOfLineTrivia))
+            {
+                return false;
+            }
+
+            if (item.IsDirective)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<MemberDeclarationSyntax> EmitPartMembers(
+        TypeGroupPlan group,
+        TypePartInfo part,
+        GroupCollapsePlan? plan,
+        PartialMemberCollapse? collapse)
+    {
+        foreach (var member in part.Declaration.Members)
+        {
+            // Nested partial types that are themselves groups are replaced by
+            // their merged node (lookup supplied by the analyzer, depth-first).
+            if (NestedOverrides.TryGetValue(member.ToFullString().Trim(), out var nested))
+            {
+                // Non-primary part of a nested group: the merged node is emitted
+                // once at the nested primary's slot; this member disappears.
+                if (nested.Remove)
+                {
                     continue;
                 }
 
-                if (plan != null)
-                {
-                    // M3: definition side of a source pair (or a removed classic
-                    // declaration under AssumeNoGeneratedPartial) disappears.
-                    if (plan.DroppedMembers.Contains(member))
-                    {
-                        continue;
-                    }
+                yield return nested.Merged;
+                continue;
+            }
 
-                    // M3: implementation side survives as the rebuilt single
-                    // member. The ORIGINAL implementation is annotated BEFORE the
-                    // rebuild so call-site annotations ride shared green nodes
-                    // into the collapsed member.
-                    if (plan.ImplementationToDefinition.TryGetValue(member, out var definition))
-                    {
-                        yield return collapse.BuildCollapsedMemberFor(group, member, definition);
-                        continue;
-                    }
+            if (plan != null)
+            {
+                // M3: definition side of a source pair (or a removed classic
+                // declaration under AssumeNoGeneratedPartial) disappears.
+                if (plan.DroppedMembers.Contains(member))
+                {
+                    continue;
                 }
 
-                yield return collapse is null ? member : collapse.AnnotateRemovedCallSites(member);
+                // M3: implementation side survives as the rebuilt single
+                // member. The ORIGINAL implementation is annotated BEFORE the
+                // rebuild so call-site annotations ride shared green nodes
+                // into the collapsed member.
+                if (plan.ImplementationToDefinition.TryGetValue(member, out var definition))
+                {
+                    yield return collapse!.BuildCollapsedMemberFor(group, member, definition);
+                    continue;
+                }
+            }
+
+            yield return collapse is null ? member : collapse.AnnotateRemovedCallSites(member);
+        }
+    }
+
+    /// <summary>
+    /// Extracts the span of leading trivia of a part's close brace that consists
+    /// of directives (#if/#endif, #region/#endregion, …) plus the trivia between
+    /// the outermost ones and the line break immediately before the first one
+    /// (the directive must re-start at column zero when relocated). Remaining
+    /// whitespace stays with the brace. Returns the relocatable window and the
+    /// trivia that must remain on the brace.
+    /// </summary>
+    public static (IReadOnlyList<SyntaxTrivia> Window, SyntaxTriviaList Kept)
+        ExtractTrailingDirectiveWindow(SyntaxToken closeBrace)
+    {
+        var leading = closeBrace.LeadingTrivia;
+        var first = -1;
+        var last = -1;
+        for (var i = 0; i < leading.Count; i++)
+        {
+            if (!leading[i].IsDirective)
+            {
+                continue;
+            }
+
+            first = first < 0 ? i : first;
+            last = i;
+        }
+
+        if (first < 0)
+        {
+            return (Array.Empty<SyntaxTrivia>(), leading);
+        }
+
+        // Pull the whitespace/end-of-line run directly before the first directive
+        // into the window: it is the newline the directive needs to lead a line.
+        var start = first;
+        while (start > 0
+               && (leading[start - 1].IsKind(SyntaxKind.WhitespaceTrivia)
+                   || leading[start - 1].IsKind(SyntaxKind.EndOfLineTrivia)))
+        {
+            start--;
+        }
+
+        var window = new List<SyntaxTrivia>(last - start + 1);
+        var kept = new List<SyntaxTrivia>(leading.Count - (last - start + 1));
+        for (var i = 0; i < leading.Count; i++)
+        {
+            if (i >= start && i <= last)
+            {
+                window.Add(leading[i]);
+            }
+            else
+            {
+                kept.Add(leading[i]);
             }
         }
+
+        return (window, SyntaxFactory.TriviaList(kept));
     }
 
     /// <summary>
@@ -77,9 +260,18 @@ internal static class PartialMemberMerge
 
 /// <summary>
 /// What to do with a member that is a part of a nested partial group.
-/// Remove marks the non-primary parts (merged node is emitted at the primary slot).
+/// Remove marks the non-primary parts (merged node is emitted at the nested primary's slot).
 /// </summary>
 internal sealed record NestedOverride(TypeDeclarationSyntax Merged, bool Remove);
+
+/// <summary>
+/// Output of <see cref="PartialMemberMerge.CollectMergedMembers"/>: the merged
+/// member list and directive windows from parts that contributed no surviving
+/// member (they must decorate the merged declaration's close brace).
+/// </summary>
+internal sealed record MergedMemberCollection(
+    IReadOnlyList<MemberDeclarationSyntax> Members,
+    IReadOnlyList<SyntaxTrivia> PendingCloseBraceTrivia);
 
 /// <summary>Per-group M3 decisions consumed while collecting members.</summary>
 internal sealed class GroupCollapsePlan

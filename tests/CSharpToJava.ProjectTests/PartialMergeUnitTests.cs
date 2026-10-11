@@ -172,6 +172,407 @@ public sealed class PartialMergeUnitTests
         Assert.Contains("partial class C", mergedFile.Source);
     }
 
+    // ---- Regression: trailing body directives at part close braces ----
+
+    [Fact]
+    public void Group14_NonPrimary_Part_Trailing_Conditional_Directives_Stay_Balanced()
+    {
+        // JsonWriterHelper.Escaping.cs shape: a #if group ends at the non-primary
+        // part's close brace (#endif is brace-leading trivia). The brace is
+        // discarded by the merge; the directive window must ride the part's last
+        // surviving member instead of orphaning #if (CS1027).
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("Alpha/C.cs", "namespace Demo; public partial class C { public void A() {} }"),
+            ("Beta/C2.cs",
+                "namespace Demo;\npublic partial class C\n{\n    public void B() {}\n" +
+                "#if EXTRA\n    private void D() {}\n#endif\n}\n"));
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var mergedText = string.Join("\n", outputs.Select(o => o.Source));
+        Assert.Equal(1, CountOccurrences(mergedText, "#if"));
+        Assert.Equal(1, CountOccurrences(mergedText, "#endif"));
+    }
+
+    [Fact]
+    public void Group14_NonPrimary_Part_Trailing_Region_Directives_Stay_Balanced()
+    {
+        // TestData.g.cs shape: #region rides the first member while #endregion is
+        // the part's close-brace trivia. Merge must relocate #endregion too
+        // (CS1038 "#endregion directive expected").
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("Alpha/C.cs", "namespace Demo; public partial class C { public void A() {} }"),
+            ("Beta/C2.cs",
+                "namespace Demo;\npublic partial class C\n{\n#region Block\n    public void B() {}\n#endregion\n}\n"));
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var mergedText = string.Join("\n", outputs.Select(o => o.Source));
+        Assert.Equal(1, CountOccurrences(mergedText, "#region Block"));
+        Assert.Equal(1, CountOccurrences(mergedText, "#endregion"));
+    }
+
+    [Fact]
+    public void Group14_Primary_Part_Trailing_Directives_Are_Not_Duplicated()
+    {
+        // The primary's close brace is reused by the merged declaration; its
+        // directive window moves to the last member, so stripping the brace must
+        // not emit the same #if/#endif twice.
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("Alpha/C.cs",
+                "namespace Demo;\npublic partial class C\n{\n    public void A() {}\n" +
+                "#if EXTRA\n    private void D() {}\n#endif\n}\n"),
+            ("Beta/C2.cs", "namespace Demo; public partial class C { public void B() {} }"));
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var mergedText = string.Join("\n", outputs.Select(o => o.Source));
+        Assert.Equal(1, CountOccurrences(mergedText, "#if"));
+        Assert.Equal(1, CountOccurrences(mergedText, "#endif"));
+    }
+
+    [Fact]
+    public void Group14_Directive_Only_Part_Body_Directives_Ride_Merged_Close_Brace()
+    {
+        // A part whose only body content is a balanced directive pair contributes
+        // no member; the window must be kept (merged close brace), not dropped.
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("Alpha/C.cs", "namespace Demo; public partial class C { public void A() {} }"),
+            ("Beta/C2.cs",
+                "namespace Demo;\npublic partial class C\n{\n#if EXTRA\n#endif\n}\n"));
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var mergedText = string.Join("\n", outputs.Select(o => o.Source));
+        Assert.Equal(1, CountOccurrences(mergedText, "#if"));
+        Assert.Equal(1, CountOccurrences(mergedText, "#endif"));
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+
+        return count;
+    }
+
+    // ---- Regression: nested groups enclosed by inactive containing groups ----
+
+    [Fact]
+    public void Group15_Nested_Group_Under_Baseline_Skipped_Container_Is_Blocked_And_Not_Residual()
+    {
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("a1.cs", "namespace Demo; public partial class A { void X(){ ZzzMissing(); } }"),
+            ("a2.cs", "namespace Demo; public partial class A { public partial class N { void P(){} } }"),
+            ("a3.cs", "namespace Demo; public partial class A { public partial class N { void Q(){} } }"));
+
+        var container = plan.Groups.Single(g => g.TypeFullName == "Demo.A");
+        var nested = plan.Groups.Single(g => g.TypeFullName == "Demo.A.N");
+        Assert.True(container.SkipBaseline);
+        Assert.True(nested.SkipEnclosingInactive);
+        Assert.Null(nested.MergedDeclaration);
+        Assert.DoesNotContain(plan.ActiveGroups, g => g.TypeFullName == "Demo.A.N");
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        var residual = new PartialMergePreprocessor().CheckResidual(candidate, plan);
+        Assert.DoesNotContain(residual, d => d.TypeFullName == "Demo.A.N");
+    }
+
+    [Fact]
+    public void Group15_Nested_Group_Under_Rolled_Back_Container_Is_Whitelisted_At_Gate()
+    {
+        // Adapter replay shape: Analyze succeeds, then the containing group is
+        // excluded for the replay. The gate must whitelist the nested group even
+        // if the RolledBack flag only reached the container post-Analyze.
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("a1.cs", "namespace Demo; public partial class A { void X(){} }"),
+            ("a2.cs", "namespace Demo; public partial class A { public partial class N { void P(){} } }"),
+            ("a3.cs", "namespace Demo; public partial class A { public partial class N { void Q(){} } }"));
+
+        var container = plan.Groups.Single(g => g.TypeFullName == "Demo.A");
+        var nested = plan.Groups.Single(g => g.TypeFullName == "Demo.A.N");
+        container.RolledBack = true;
+
+        var blocked = PartialMergePreprocessor.EnclosedByInactiveGroup(plan.Groups);
+        Assert.Contains(blocked, g => g.TypeFullName == "Demo.A.N");
+
+        // Simulate the adapter propagation used on replay rounds.
+        foreach (var group in blocked)
+        {
+            group.RolledBack = true;
+        }
+
+        Assert.DoesNotContain(plan.ActiveGroups, g => g.TypeFullName == "Demo.A.N");
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(new PartialMergePreprocessor().CheckResidual(candidate, plan)
+            .Where(d => d.TypeFullName is "Demo.A" or "Demo.A.N"));
+    }
+
+    [Fact]
+    public void Group15_Inactivity_Propagates_Through_Arbitrary_Nesting_Depth()
+    {
+        // A (baseline error) > B (nested partial) > C (nested partial): neither B
+        // nor C can be emitted when A is skipped.
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("a1.cs",
+                "namespace Demo; public partial class A { void X(){ ZzzMissing(); } " +
+                "public partial class B { public partial class C { void U(){} } } }"),
+            ("a2.cs",
+                "namespace Demo; public partial class A { public partial class B { void V(){} " +
+                "public partial class C { void W(){} } } }"));
+
+        var names = plan.Groups.ToDictionary(g => g.TypeFullName);
+        Assert.True(names["Demo.A"].SkipBaseline);
+        Assert.True(names["Demo.A.B"].SkipEnclosingInactive);
+        Assert.True(names["Demo.A.B.C"].SkipEnclosingInactive);
+        Assert.Null(names["Demo.A.B"].MergedDeclaration);
+        Assert.Null(names["Demo.A.B.C"].MergedDeclaration);
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(new PartialMergePreprocessor().CheckResidual(candidate, plan));
+    }
+
+    [Fact]
+    public void Group15_Active_Container_Still_Merges_Nested_Group()
+    {
+        // The containment block must NOT fire when the container is active.
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("a1.cs", "namespace Demo; public partial class A { void X(){} }"),
+            ("a2.cs", "namespace Demo; public partial class A { public partial class N { void P(){} } }"),
+            ("a3.cs", "namespace Demo; public partial class A { public partial class N { void Q(){} } }"));
+
+        var nested = plan.Groups.Single(g => g.TypeFullName == "Demo.A.N");
+        Assert.False(nested.SkipEnclosingInactive);
+        Assert.Contains(plan.ActiveGroups, g => g.TypeFullName == "Demo.A.N");
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Empty(new PartialMergePreprocessor().CheckResidual(candidate, plan));
+    }
+
+    // ---- Group 16: namespace-scoped using migration ----
+
+    [Fact]
+    public void Group16_Namespace_Block_Using_From_NonPrimary_Part_Migrates_Inside_Namespace()
+    {
+        // XmlDownloadManager / XmlDownloadManagerAsync shape: the non-primary
+        // part declares 'using System.Threading.Tasks;' INSIDE the namespace
+        // block; merging its Task-returning member into the primary used to
+        // produce CS0246 because compilation-unit-only collection dropped it.
+        var primary =
+            "namespace Demo { public partial class Downloader { public int Ready() => 1; } }";
+        var part =
+            "namespace Demo { using System.Threading.Tasks; " +
+            "public partial class Downloader { internal Task<int> GetAsync() => Task.FromResult(2); } }";
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("Alpha/Downloader.cs", primary), ("Beta/Downloader.Async.cs", part));
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var merged = outputs.Single(o => o.Source.Contains("cs2j-partial-merge: merged")).Source;
+        var nsIndex = merged.IndexOf("namespace Demo", StringComparison.Ordinal);
+        var usingIndex = merged.IndexOf("using System.Threading.Tasks;", StringComparison.Ordinal);
+        Assert.True(usingIndex > nsIndex);
+        // The directive stays INSIDE the namespace block, not hoisted globally.
+        Assert.Equal(1, CountOccurrences(merged, "using System.Threading.Tasks;"));
+    }
+
+    [Fact]
+    public void Group16_CompilationUnit_Using_From_Part_Migrates_To_Global_Scope()
+    {
+        var primary =
+            "namespace Demo { public partial class C { public int A() => 1; } }";
+        var part =
+            "using System.Collections.Generic; " +
+            "namespace Demo { public partial class C { public List<int> B() => new List<int>(); } }";
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("Alpha/C.cs", primary), ("Beta/C.Extra.cs", part));
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var merged = outputs.Single(o => o.Source.Contains("cs2j-partial-merge: merged")).Source;
+        var nsIndex = merged.IndexOf("namespace Demo", StringComparison.Ordinal);
+        var usingIndex = merged.IndexOf("using System.Collections.Generic;", StringComparison.Ordinal);
+        Assert.True(usingIndex >= 0 && usingIndex < nsIndex);
+    }
+
+    [Fact]
+    public void Group16_Namespace_Using_Present_In_Primary_Is_Not_Duplicated()
+    {
+        var primary =
+            "namespace Demo { using System.Threading.Tasks; " +
+            "public partial class C { public Task<int> A() => Task.FromResult(1); } }";
+        var part =
+            "namespace Demo { using System.Threading.Tasks; " +
+            "public partial class C { public Task<int> B() => Task.FromResult(2); } }";
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("Alpha/C.cs", primary), ("Beta/C.Extra.cs", part));
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        // The directive already visible in the primary must not be inserted a
+        // second time into the merged file (the removed non-primary part file
+        // keeps its own copy of the directive text — that is expected).
+        var merged = outputs.Single(o => o.Source.Contains("cs2j-partial-merge: merged")).Source;
+        Assert.Equal(1, CountOccurrences(merged, "using System.Threading.Tasks;"));
+    }
+
+    [Fact]
+    public void Group16_Using_In_Outer_Part_Namespace_Lands_In_Primary_Innermost_Namespace()
+    {
+        // Part nests namespaces (namespace Demo { using ...; namespace Sub {...} })
+        // while the primary uses one dotted block namespace. The outer-scope
+        // directive is visible to the part type and lands in the primary's
+        // innermost namespace where the merged member now lives.
+        var primary =
+            "namespace Demo.Sub { public partial class C { public int A() => 0; } }";
+        var part =
+            "namespace Demo { using System.Threading.Tasks; namespace Sub { " +
+            "public partial class C { public Task<int> B() => Task.FromResult(1); } } }";
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("Alpha/C.cs", primary), ("Beta/C.Extra.cs", part));
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var merged = outputs.Single(o => o.Source.Contains("cs2j-partial-merge: merged")).Source;
+        Assert.Contains("using System.Threading.Tasks;", merged);
+        // The merged file keeps a single namespace declaration; the directive
+        // was inserted into it, not before it.
+        var nsIndex = merged.IndexOf("namespace Demo.Sub", StringComparison.Ordinal);
+        var usingIndex = merged.IndexOf("using System.Threading.Tasks;", StringComparison.Ordinal);
+        Assert.True(usingIndex > nsIndex);
+    }
+
+    [Fact]
+    public void Group16_FileScoped_Primary_Receives_Namespace_Using_After_Semicolon()
+    {
+        var primary =
+            "namespace Demo; public partial class C { public int A() => 0; }";
+        var part =
+            "namespace Demo { using System.Threading.Tasks; " +
+            "public partial class C { public Task<int> B() => Task.FromResult(1); } }";
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("Alpha/C.cs", primary), ("Beta/C.Extra.cs", part));
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var merged = outputs.Single(o => o.Source.Contains("cs2j-partial-merge: merged")).Source;
+        var semiIndex = merged.IndexOf("namespace Demo;", StringComparison.Ordinal);
+        var usingIndex = merged.IndexOf("using System.Threading.Tasks;", StringComparison.Ordinal);
+        Assert.True(semiIndex >= 0 && usingIndex > semiIndex);
+    }
+
+    [Fact]
+    public void Group16_Mixed_Global_And_Namespace_Part_Usings_Go_To_Matching_Scopes()
+    {
+        var primary =
+            "namespace Demo { public partial class C { public int A() => 0; } }";
+        var part =
+            "using System.Collections.Generic; " +
+            "namespace Demo { using System.Threading.Tasks; " +
+            "public partial class C { " +
+            "public List<int> B() => new List<int>(); " +
+            "public Task<int> D() => Task.FromResult(1); } }";
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("Alpha/C.cs", primary), ("Beta/C.Extra.cs", part));
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var merged = outputs.Single(o => o.Source.Contains("cs2j-partial-merge: merged")).Source;
+        var nsIndex = merged.IndexOf("namespace Demo", StringComparison.Ordinal);
+        var globalUsing = merged.IndexOf("using System.Collections.Generic;", StringComparison.Ordinal);
+        var nsUsing = merged.IndexOf("using System.Threading.Tasks;", StringComparison.Ordinal);
+        Assert.True(globalUsing >= 0 && globalUsing < nsIndex);
+        Assert.True(nsUsing > nsIndex);
+    }
+
+    [Fact]
+    public void Group16_Two_Parts_Distinct_Namespace_Usings_Both_Migrate_And_Compile()
+    {
+        var primary =
+            "namespace Demo { public partial class C { public int A() => 0; } }";
+        var part1 =
+            "namespace Demo { using System.Threading.Tasks; " +
+            "public partial class C { public Task<int> B() => Task.FromResult(1); } }";
+        var part2 =
+            "namespace Demo { using System.Collections.Generic; " +
+            "public partial class C { public List<int> D() => new List<int>(); } }";
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("Alpha/C.cs", primary), ("Beta/C.B.cs", part1), ("Gamma/C.D.cs", part2));
+
+        var outputs = ApplyAll(plan, compilation);
+        var candidate = Recompile(outputs);
+        Assert.Empty(candidate.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var merged = string.Join("\n", outputs.Select(o => o.Source));
+        Assert.Contains("using System.Threading.Tasks;", merged);
+        Assert.Contains("using System.Collections.Generic;", merged);
+    }
+
+    [Fact]
+    public void Group16_Namespace_Using_Migration_Is_Idempotent_On_Second_Run()
+    {
+        var primary =
+            "namespace Demo { public partial class C { public int A() => 0; } }";
+        var part =
+            "namespace Demo { using System.Threading.Tasks; " +
+            "public partial class C { public Task<int> B() => Task.FromResult(1); } }";
+        var (compilation, plan) = BuildPlan(
+            null, OutputKind.DynamicallyLinkedLibrary,
+            ("Alpha/C.cs", primary), ("Beta/C.Extra.cs", part));
+
+        var outputs = ApplyAll(plan, compilation);
+        var secondPlan = Replan(new PartialMergeOptions(), outputs);
+
+        // After merge the type is single-part: no replace/remove and no new
+        // using insertion either (the directive is already in the file).
+        Assert.Empty(secondPlan.EditsByFile.SelectMany(g => g));
+    }
+
     // ---- Group 6: modifier union semantics and ordering ----
 
     [Fact]

@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 
 namespace CSharpToJava.Core.PartialMerge;
 
@@ -71,11 +72,20 @@ internal sealed class PartialMergeAnalyzer
             }
         }
 
+        // Nested groups whose containing group is already inactive cannot be
+        // merged (their merged node only rides a merged container): flag them so
+        // they are neither built nor counted active. Re-run after M3 single-part
+        // units join below.
+        foreach (var blocked in PartialMergePreprocessor.EnclosedByInactiveGroup(units))
+        {
+            blocked.SkipEnclosingInactive = true;
+        }
+
         // M3 pairing decisions for every active multi-part group. Done before any
         // node is built and (under the opt-in flag) before call-site finalization,
         // which must see the complete candidate set exactly once.
         var activeMultiGroups = multiGroups
-            .Where(g => !g.SkipBaseline && !g.SkipUnsupportedShape)
+            .Where(g => !g.SkipBaseline && !g.SkipUnsupportedShape && !g.SkipEnclosingInactive)
             .ToList();
         foreach (var group in activeMultiGroups)
         {
@@ -125,6 +135,14 @@ internal sealed class PartialMergeAnalyzer
                 ? singleTypes.Count(g => g.SkipBaseline)
                 : 0);
 
+        // Second pass now that M3 member-only single-part units have joined: a
+        // single-part container that is baseline-skipped blocks its nested
+        // multi-part groups too.
+        foreach (var blocked in PartialMergePreprocessor.EnclosedByInactiveGroup(units))
+        {
+            blocked.SkipEnclosingInactive = true;
+        }
+
         // Static lookup is per-analysis; reset so successive runs in one process
         // never see a previous tree's aliases.
         PartialMemberMerge.NestedOverrides.Clear();
@@ -134,7 +152,7 @@ internal sealed class PartialMergeAnalyzer
         // replace the nested part members. Switch to annotation keys if real
         // fixtures produce text-key collisions.
         foreach (var group in units
-                     .Where(g => !g.SkipBaseline && !g.SkipUnsupportedShape)
+                     .Where(g => !g.SkipBaseline && !g.SkipUnsupportedShape && !g.SkipEnclosingInactive)
                      .OrderByDescending(g => g.TypeFullName.Count(c => c == '.')))
         {
             TypeDeclarationSyntax merged;
@@ -222,9 +240,16 @@ internal sealed class PartialMergeAnalyzer
         // member bodies resolve through directives the primary file may lack.
         // Accumulate every built group's parts per primary file (nested groups
         // included — their parts may contribute directives) and emit one
-        // zero-length insertion. Explicit global/static/alias forms are
-        // preserved verbatim. Member-only rewrites are single-part and never add
-        // directives their primary file lacks.
+        // zero-length insertion PER SCOPE: compilation-unit directives land at
+        // compilation-unit scope, while directives declared inside a namespace
+        // block (or after a file-scoped namespace) land inside the matching
+        // namespace declaration of the primary. Keeping the original scope
+        // matters for textual placement (a file-scoped namespace has no block
+        // after it where a global insertion would belong) and avoids widening a
+        // directive's binding scope beyond what the part file granted.
+        // Explicit global/static/alias forms are preserved verbatim.
+        // Member-only rewrites are single-part and never add directives their
+        // primary file lacks.
         foreach (var primaryFile in units
                      .Where(g => g.MergedDeclaration is not null && !g.IsMemberOnlyRewrite)
                      .GroupBy(g => g.Primary.SourceFilePath, StringComparer.OrdinalIgnoreCase))
@@ -233,10 +258,45 @@ internal sealed class PartialMergeAnalyzer
             var primaryUnit = primaryFile.First().Primary.Declaration
                 .FirstAncestorOrSelf<CompilationUnitSyntax>()!;
 
-            var existing = new HashSet<string>(
+            // Compilation-unit scope: directives already present plus every
+            // directive scheduled into the global bucket while scanning parts.
+            var globalSeen = new HashSet<string>(
                 primaryUnit.Usings.Select(UsingKey), StringComparer.Ordinal);
-            var missing = new List<UsingDirectiveSyntax>();
+            var globalMissing = new List<UsingDirectiveSyntax>();
 
+            // Namespace scope: one bucket per namespace declaration enclosing a
+            // primary declaration (a primary file may hold several namespaces).
+            var nsBuckets = new Dictionary<BaseNamespaceDeclarationSyntax, NamespaceUsingBucket>();
+            foreach (var group in primaryFile)
+            {
+                var primaryNs = group.Primary.Declaration
+                    .FirstAncestorOrSelf<BaseNamespaceDeclarationSyntax>();
+                if (primaryNs is null || nsBuckets.ContainsKey(primaryNs))
+                {
+                    continue;
+                }
+
+                // Visible at the primary declaration: compilation-unit usings
+                // plus the usings of every enclosing namespace declaration.
+                var visible = new HashSet<string>(
+                    primaryUnit.Usings.Select(UsingKey), StringComparer.Ordinal);
+                for (var ns = primaryNs; ns is not null; ns = EnclosingNamespace(ns))
+                {
+                    foreach (var directive in ns.Usings)
+                    {
+                        visible.Add(UsingKey(directive));
+                    }
+                }
+
+                nsBuckets[primaryNs] = new NamespaceUsingBucket
+                {
+                    Seen = visible,
+                    Missing = new List<UsingDirectiveSyntax>(),
+                    SpanOwner = group.Primary.Declaration.FullSpan,
+                };
+            }
+
+            // Pass 1: compilation-unit-level directives from every part.
             foreach (var group in primaryFile)
             {
                 foreach (var part in group.Parts)
@@ -244,46 +304,117 @@ internal sealed class PartialMergeAnalyzer
                     var unit = part.Declaration.FirstAncestorOrSelf<CompilationUnitSyntax>()!;
                     foreach (var directive in unit.Usings)
                     {
-                        if (existing.Add(UsingKey(directive)))
+                        if (globalSeen.Add(UsingKey(directive)))
                         {
-                            missing.Add(directive);
+                            globalMissing.Add(directive);
                         }
                     }
                 }
             }
 
-            if (missing.Count == 0)
+            // Pass 2: namespace-scoped directives (block namespaces and
+            // usings following a file-scoped namespace). Directives from outer
+            // namespace declarations of the part land in the primary's
+            // innermost namespace — visibility is preserved for the merged
+            // type regardless of dotted-vs-nested namespace shape.
+            foreach (var group in primaryFile)
             {
-                continue;
+                var primaryNs = group.Primary.Declaration
+                    .FirstAncestorOrSelf<BaseNamespaceDeclarationSyntax>();
+                if (primaryNs is null || !nsBuckets.TryGetValue(primaryNs, out var bucket))
+                {
+                    continue;
+                }
+
+                foreach (var part in group.Parts)
+                {
+                    for (var ns = part.Declaration.FirstAncestorOrSelf<BaseNamespaceDeclarationSyntax>();
+                         ns is not null;
+                         ns = EnclosingNamespace(ns))
+                    {
+                        foreach (var directive in ns.Usings)
+                        {
+                            var key = UsingKey(directive);
+                            if (globalSeen.Contains(key) || !bucket.Seen.Add(key))
+                            {
+                                continue;
+                            }
+
+                            bucket.Missing.Add(directive);
+                        }
+                    }
+                }
             }
 
-            var lines = string.Concat(missing.Select(directive =>
-                directive.WithoutTrivia().ToFullString().TrimEnd() + "\r\n"));
+            if (globalMissing.Count > 0)
+            {
+                var lines = string.Concat(globalMissing.Select(directive =>
+                    directive.WithoutTrivia().ToFullString().TrimEnd() + "\r\n"));
 
-            SyntaxNode? anchor = (SyntaxNode?)primaryUnit.Usings.LastOrDefault()
-                ?? primaryUnit.Externs.LastOrDefault();
-            int insertionPosition;
-            string prefix;
-            if (anchor is not null)
-            {
-                // Immediately after the last existing directive, start a new line.
-                insertionPosition = anchor.Span.End;
-                prefix = "\r\n";
-            }
-            else
-            {
-                // No directives at all: insert before the first member (namespace).
-                insertionPosition = primaryUnit.Members.First().FullSpan.Start;
-                prefix = string.Empty;
+                SyntaxNode? anchor = (SyntaxNode?)primaryUnit.Usings.LastOrDefault()
+                    ?? primaryUnit.Externs.LastOrDefault();
+                int insertionPosition;
+                string prefix;
+                if (anchor is not null)
+                {
+                    // Immediately after the last existing directive, start a new line.
+                    insertionPosition = anchor.Span.End;
+                    prefix = "\r\n";
+                }
+                else
+                {
+                    // No directives at all: insert before the first member (namespace).
+                    insertionPosition = primaryUnit.Members.First().FullSpan.Start;
+                    prefix = string.Empty;
+                }
+
+                edits.Add(new InsertUsingsEdit
+                {
+                    FilePath = filePath,
+                    Span = primaryFile.First().Primary.Declaration.FullSpan,
+                    InsertionPosition = insertionPosition,
+                    UsingsText = prefix + lines,
+                });
             }
 
-            edits.Add(new InsertUsingsEdit
+            foreach (var (nsSyntax, bucket) in nsBuckets)
             {
-                FilePath = filePath,
-                Span = primaryFile.First().Primary.Declaration.FullSpan,
-                InsertionPosition = insertionPosition,
-                UsingsText = prefix + lines,
-            });
+                if (bucket.Missing.Count == 0)
+                {
+                    continue;
+                }
+
+                var lines = string.Concat(bucket.Missing.Select(directive =>
+                    directive.WithoutTrivia().ToFullString().TrimEnd() + "\r\n"));
+
+                var anchor = nsSyntax.Usings.LastOrDefault();
+                int insertionPosition;
+                if (anchor is not null)
+                {
+                    insertionPosition = anchor.Span.End;
+                }
+                else
+                {
+                    insertionPosition = nsSyntax switch
+                    {
+                        NamespaceDeclarationSyntax block => block.OpenBraceToken.Span.End,
+                        FileScopedNamespaceDeclarationSyntax fileScoped =>
+                            fileScoped.SemicolonToken.Span.End,
+                        _ => nsSyntax.Span.End,
+                    };
+                }
+
+                edits.Add(new InsertUsingsEdit
+                {
+                    FilePath = filePath,
+                    Span = bucket.SpanOwner,
+                    InsertionPosition = insertionPosition,
+                    // Own leading newline in both shapes: the token at the
+                    // insertion point ('{' or ';' / preceding directive) does
+                    // not own the newline of the trivia that follows it.
+                    UsingsText = "\r\n" + lines,
+                });
+            }
         }
 
         // CS2J2017: heuristic analyzer/source-generator reference detection
@@ -320,6 +451,10 @@ internal sealed class PartialMergeAnalyzer
         };
     }
 
+    private static BaseNamespaceDeclarationSyntax? EnclosingNamespace(
+        BaseNamespaceDeclarationSyntax ns)
+        => ns.Parent?.FirstAncestorOrSelf<BaseNamespaceDeclarationSyntax>();
+
     private static string UsingKey(UsingDirectiveSyntax directive)
     {
         var kind = (directive.GlobalKeyword != default ? "g" : string.Empty)
@@ -342,5 +477,19 @@ internal sealed class PartialMergeAnalyzer
         {
             yield return file;
         }
+    }
+
+    /// <summary>
+    /// Accumulated namespace-scoped using migration for one primary-file
+    /// namespace declaration: Seen = directive keys already visible at the
+    /// primary declaration position, Missing = part directives to insert.
+    /// SpanOwner attributes the zero-length edit to an active primary part for
+    /// the adapter's rollback edit filter.
+    /// </summary>
+    private sealed class NamespaceUsingBucket
+    {
+        public required HashSet<string> Seen { get; init; }
+        public required List<UsingDirectiveSyntax> Missing { get; init; }
+        public required TextSpan SpanOwner { get; init; }
     }
 }

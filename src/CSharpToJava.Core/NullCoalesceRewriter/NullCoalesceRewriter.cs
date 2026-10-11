@@ -32,18 +32,45 @@ public sealed class NullCoalesceRewriter
             return new NullCoalesceResult(sourceCode, false, diagnostics, stats);
         }
 
-        // Pass 1: rewrite expressions, collect temp declarations
-        var rewriter = new NullCoalesceSyntaxRewriter(
-            semanticModel, options, stats, diagnostics);
-        var pass1Root = (CompilationUnitSyntax)rewriter.Visit(root)!;
+        // Expression-bodied ('=>') members provide no statement slot for the
+        // hoisted guards. Expand only the arrow bodies that actually contain a
+        // ?? / ??= into equivalent block bodies ('{ return e; }' / '{ e; }'),
+        // then rebind the semantic model to the expanded tree. Field/property
+        // initializers have no host block and intentionally stay residual.
+        var workingRoot = root;
+        var workingModel = semanticModel;
+        var expander = new ExpressionBodyExpander(semanticModel);
+        if (expander.Visit(root) is CompilationUnitSyntax expandedRoot && expander.Expansions > 0)
+        {
+            workingRoot = expandedRoot;
+            stats.ExpressionBodiesExpanded = expander.Expansions;
+            if (semanticModel != null)
+            {
+                var originalTree = semanticModel.SyntaxTree;
+                var expandedTree = CSharpSyntaxTree.Create(
+                    expandedRoot,
+                    (CSharpParseOptions?)originalTree.Options,
+                    originalTree.FilePath);
+                var reboundCompilation = semanticModel.Compilation.ReplaceSyntaxTree(
+                    originalTree, expandedTree);
+                // Re-fetch the root FROM the attached tree so every node the
+                // rewriter walks belongs to the tree the semantic model is
+                // bound to (model lookups require node/tree identity).
+                workingRoot = expandedTree.GetCompilationUnitRoot();
+                workingModel = reboundCompilation.GetSemanticModel(expandedTree);
+            }
+        }
 
-        // Pass 2: lift temp declarations to before their anchor statements
-        var lifter = new NullCoalesceStatementLifter(rewriter.PendingDeclarations);
-        var pass2Root = (CompilationUnitSyntax)lifter.Visit(pass1Root)!;
+        // Single-pass rewrite: expressions are rewritten bottom-up while
+        // VisitBlock hoists the guard statements registered by each statement
+        // directly before that (rewritten) statement.
+        var rewriter = new NullCoalesceSyntaxRewriter(
+            workingModel, options, stats, diagnostics);
+        var rewrittenRoot = (CompilationUnitSyntax)rewriter.Visit(workingRoot)!;
 
         // Format
         using var workspace = new AdhocWorkspace();
-        var formatted = Formatter.Format(pass2Root, workspace);
+        var formatted = Formatter.Format(rewrittenRoot, workspace);
         var code = formatted.ToFullString();
 
         stats.FilesTransformed = 1;

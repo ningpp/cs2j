@@ -5,10 +5,13 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.Core.NullCoalesceRewriter;
 
 /// <summary>
-/// Two-pass CSharpSyntaxRewriter. Pass 1 (this class) rewrites ?? and ??=
-/// bottom-up, collecting temp-variable declarations. Pass 2
-/// (NullCoalesceStatementLifter) inserts the collected declarations
-/// before their anchor statements.
+/// Single-pass CSharpSyntaxRewriter. Expressions are rewritten bottom-up;
+/// VisitBlock inserts every guard statement (temp declaration for ?? or the
+/// 'if (lhs == null) lhs = rhs;' guard for value-context ??=) registered
+/// while visiting a statement directly before that rewritten statement.
+/// '??=' used in a statement position is turned into an if-statement; used in
+/// a value position it is hoisted plus replaced by the lvalue, or lowered to
+/// an inline ternary when no statement slot exists.
 /// </summary>
 internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
 {
@@ -17,17 +20,64 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
     private readonly List<NullCoalesceDiagnostic> _diagnostics;
     private readonly NullCoalesceOptions _options;
 
-    // Pending temp-variable declarations collected during Pass 1.
-    // Each entry: (declaration statement, anchor statement to insert before, order)
-    internal List<PendingDeclaration> PendingDeclarations { get; } = new();
+    // Guard statements (temp declarations and if-guards) collected while a
+    // statement subtree is being visited. VisitBlock drains the guards created
+    // by each statement directly before the rewritten statement, so insertion
+    // never depends on post-rewrite node identity. Guards produced inside a
+    // nested block visit are marked consumed so outer blocks do not insert
+    // them a second time.
+    internal List<PendingGuard> PendingGuards { get; } = new();
 
     private int _tempCounter;
     private int _nestedDepth;
 
-    internal sealed record PendingDeclaration(
-        StatementSyntax Declaration,
-        StatementSyntax AnchorStatement,
-        int Order);
+    internal sealed class PendingGuard
+    {
+        public PendingGuard(StatementSyntax statement) => Statement = statement;
+        public StatementSyntax Statement { get; }
+        public bool Consumed { get; set; }
+    }
+
+    public override SyntaxNode? VisitBlock(BlockSyntax node)
+        => node.WithStatements(SyntaxFactory.List(RewriteStatementList(node.Statements)));
+
+    public override SyntaxNode? VisitSwitchSection(SwitchSectionSyntax node)
+        => node.WithStatements(SyntaxFactory.List(RewriteStatementList(node.Statements)));
+
+    /// <summary>
+    /// Visits each statement in order and splices in the guards it produced.
+    /// Shared by block bodies and switch sections (the two plain statement
+    /// containers); block-bodied lambdas/local functions are separate blocks
+    /// and consume their own guards.
+    /// </summary>
+    private List<StatementSyntax> RewriteStatementList(SyntaxList<StatementSyntax> statements)
+    {
+        var newStatements = new List<StatementSyntax>();
+        foreach (var stmt in statements)
+        {
+            var pendingCountBeforeVisit = PendingGuards.Count;
+            var visited = (StatementSyntax?)Visit(stmt) ?? stmt;
+
+            // Drain every guard registered while visiting THIS statement.
+            // Guards registered inside a nested block/section are already
+            // consumed by that container's own visit and skipped here.
+            for (var i = pendingCountBeforeVisit; i < PendingGuards.Count; i++)
+            {
+                var guard = PendingGuards[i];
+                if (guard.Consumed)
+                {
+                    continue;
+                }
+
+                guard.Consumed = true;
+                newStatements.Add(guard.Statement);
+            }
+
+            newStatements.Add(visited);
+        }
+
+        return newStatements;
+    }
 
     public NullCoalesceSyntaxRewriter(
         SemanticModel? semanticModel,
@@ -85,26 +135,35 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
                         SyntaxFactory.EqualsValueClause(left)))));
 
         // Build: (___tN != null) ? ___tN : <right>
+        // When the left operand is a nullable VALUE type (T?), the temp is T?
+        // and the conditional's true branch must read ___tN.Value: C# types the
+        // whole conditional as T? while the branch is just ___tN (CS0266 when
+        // the original expression's type is the underlying T). Nullable
+        // reference types need no such unwrap.
         var tempRef = SyntaxFactory.IdentifierName(tempName);
+        ExpressionSyntax trueBranch = tempRef;
+        if (typeSymbol is INamedTypeSymbol named
+            && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+        {
+            trueBranch = SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                tempRef.WithoutTrivia(),
+                SyntaxFactory.IdentifierName("Value"));
+        }
+
         var rewritten = SyntaxFactory.ParenthesizedExpression(
             SyntaxFactory.ConditionalExpression(
                 SyntaxFactory.BinaryExpression(
                     SyntaxKind.NotEqualsExpression,
                     tempRef,
                     SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
-                tempRef,
+                trueBranch,
                 right));
 
-        // Find anchor statement (nearest enclosing statement)
-        var anchor = FindAnchorStatement(node);
-
-        if (anchor != null)
+        // A statement slot is required to hoist the temp declaration (a field
+        // initializer or expression-bodied member provides none).
+        if (FindAnchorStatement(node) == null)
         {
-            PendingDeclarations.Add(new PendingDeclaration(tempDecl, anchor, PendingDeclarations.Count));
-        }
-        else
-        {
-            // Cannot insert declaration (e.g. field initializer, lambda expression body)
             _diagnostics.Add(new NullCoalesceDiagnostic(
                 NullCoalesceSeverity.Warning,
                 $"Cannot insert temp variable declaration for ?? expression; skipping rewrite."));
@@ -112,6 +171,7 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
             return node;
         }
 
+        PendingGuards.Add(new PendingGuard(tempDecl));
         _stats.NullCoalescingRewritten++;
         _stats.TempVariablesGenerated++;
         return rewritten;
@@ -135,13 +195,16 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
         if (!node.IsKind(SyntaxKind.CoalesceAssignmentExpression))
             return base.VisitAssignmentExpression(node);
 
+        // A statement-form 'lhs ??= rhs;' is intercepted in
+        // VisitExpressionStatement. Reaching here means the '??=' is used in a
+        // VALUE context (argument, arrow body, initializer, operand, ...): the
+        // result must stay an expression and the conditional assignment has to
+        // be hoisted to (or expressed without) a statement slot.
+
         // Guard (C51 hard prerequisite, design §3.5/A4): a '??=' whose left
         // is a MemberBinding/ElementBinding lives inside a ConditionalAccess
-        // (e.g. a?.b ??= c). Rewriting it here would return an IfStatement
-        // into an expression slot with a bare binding left — an uncompilable
-        // tree. The C51 assignment rule owns that lowering; keep the node as
-        // is. Binding nodes cannot occur outside a CA, so the shape test is
-        // exact (no ancestor walk required).
+        // (e.g. a?.b ??= c). Rewriting it here would emit a bare binding left
+        // — an uncompilable tree. The C51 assignment rule owns that lowering.
         if (node.Left is MemberBindingExpressionSyntax
             or ElementBindingExpressionSyntax)
         {
@@ -149,33 +212,32 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
             return node;
         }
 
-        // Process right side first (may contain nested ??)
+        // Process right side first (may contain nested ?? / ??=)
         var visitedRight = (ExpressionSyntax?)Visit(node.Right);
         var right = visitedRight ?? node.Right;
         var left = node.Left;
 
-        // Check if left is a simple identifier (local variable / parameter)
         if (left is IdentifierNameSyntax identifier)
         {
-            // Simple identifier: no temp variable needed
-            // Rewrite: a ??= expr  →  if (a == null) { a = expr; }
-            var ifStmt = SyntaxFactory.IfStatement(
-                SyntaxFactory.BinaryExpression(
-                    SyntaxKind.EqualsExpression,
-                    identifier,
-                    SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
-                SyntaxFactory.Block(
-                    SyntaxFactory.ExpressionStatement(
-                        SyntaxFactory.AssignmentExpression(
-                            SyntaxKind.SimpleAssignmentExpression,
-                            identifier,
-                            right))));
-
             _stats.NullCoalescingAssignRewritten++;
-            return ifStmt;
+
+            // Statement slot available: hoist the conditional assignment before
+            // the enclosing statement and replace the expression with the
+            // identifier, which holds the post-assignment result.
+            if (FindAnchorStatement(node) is not null)
+            {
+                PendingGuards.Add(new PendingGuard(BuildIfAssignsNull(identifier, right)));
+                return identifier;
+            }
+
+            // No statement slot (expression-bodied member / field initializer):
+            // keep the value semantics inline as a ternary —
+            // (id == null ? (id = rhs) : id)
+            return SyntaxFactory.ParenthesizedExpression(BuildInlineTernary(identifier, right));
         }
 
-        // Member access / indexer: left may have side effects — use temp variable
+        // Member access / indexer lvalue: resolving its type lets the rewrite
+        // skip unbound nodes instead of producing broken output.
         var typeSymbol = _semanticModel?.GetTypeInfo(left).Type;
         if (typeSymbol == null || typeSymbol is IErrorTypeSymbol)
         {
@@ -186,132 +248,91 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
             return node;
         }
 
-        var tempName = GenerateTempName();
-
-        // Build: var ___tN = <left>;
-        var tempDecl = SyntaxFactory.LocalDeclarationStatement(
-            SyntaxFactory.VariableDeclaration(
-                SyntaxFactory.IdentifierName("var"),
-                SyntaxFactory.SingletonSeparatedList(
-                    SyntaxFactory.VariableDeclarator(
-                        SyntaxFactory.Identifier(tempName),
-                        null,
-                        SyntaxFactory.EqualsValueClause(left)))));
-
-        // Build: if (___tN == null) { <left> = <right>; }
-        var ifStmt2 = SyntaxFactory.IfStatement(
-            SyntaxFactory.BinaryExpression(
-                SyntaxKind.EqualsExpression,
-                SyntaxFactory.IdentifierName(tempName),
-                SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
-            SyntaxFactory.Block(
-                SyntaxFactory.ExpressionStatement(
-                    SyntaxFactory.AssignmentExpression(
-                        SyntaxKind.SimpleAssignmentExpression,
-                        left,
-                        right))));
-
-        // The IfStatement replaces the ExpressionStatement containing the ??=.
-        // The temp variable declaration needs to be inserted before the anchor.
-        var anchor = FindAnchorStatement(node);
-        if (anchor != null)
+        if (FindAnchorStatement(node) is not null)
         {
-            PendingDeclarations.Add(new PendingDeclaration(tempDecl, anchor, PendingDeclarations.Count));
-        }
-        else
-        {
-            _diagnostics.Add(new NullCoalesceDiagnostic(
-                NullCoalesceSeverity.Warning,
-                $"Cannot insert temp variable declaration for ??= expression; skipping rewrite."));
-            _stats.SkippedUnsupported++;
-            return node;
+            // Hoist the guard and read the (possibly freshly assigned) lvalue.
+            // The receiver/index expressions are evaluated like in the
+            // statement form of the pass.
+            _stats.NullCoalescingAssignRewritten++;
+            PendingGuards.Add(new PendingGuard(BuildIfAssignsNull(left, right)));
+            return left;
         }
 
-        _stats.NullCoalescingAssignRewritten++;
-        _stats.TempVariablesGenerated++;
-        return ifStmt2;
+        // Side-effecting lvalue in a statement-free expression context cannot
+        // be lowered inline without changing evaluation semantics; keep it for
+        // the residual gate instead of emitting invalid code.
+        _diagnostics.Add(new NullCoalesceDiagnostic(
+            NullCoalesceSeverity.Warning,
+            $"Cannot hoist member/indexer ??= without a statement slot; skipping rewrite."));
+        _stats.SkippedUnsupported++;
+        return node;
     }
 
     /// <summary>
-    /// Rewrites a ??= statement (ExpressionStatement containing CoalesceAssignmentExpression)
-    /// into an IfStatement. For simple identifiers: if (a == null) { a = expr; }
-    /// For member/indexer: temp var + if (___tN == null) { left = expr; }
+    /// Rewrites the statement form 'lhs ??= rhs;' into the guard statement
+    /// 'if (lhs == null) { lhs = rhs; }'. Value-context occurrences never
+    /// reach here (see VisitAssignmentExpression).
     /// </summary>
     private SyntaxNode RewriteCoalesceAssignStatement(
         ExpressionStatementSyntax exprStmt,
         AssignmentExpressionSyntax assign)
     {
-        // Process right side first (may contain nested ??)
+        // Process right side first (may contain nested ?? / ??=)
         var visitedRight = (ExpressionSyntax?)Visit(assign.Right);
         var right = visitedRight ?? assign.Right;
         var left = assign.Left;
 
-        // Check if left is a simple identifier (local variable / parameter)
-        if (left is IdentifierNameSyntax identifier)
+        if (left is not IdentifierNameSyntax)
         {
-            // Simple identifier: no temp variable needed
-            // Rewrite: a ??= expr  →  if (a == null) { a = expr; }
-            var ifStmt = SyntaxFactory.IfStatement(
-                SyntaxFactory.BinaryExpression(
-                    SyntaxKind.EqualsExpression,
-                    identifier,
-                    SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
-                SyntaxFactory.Block(
-                    SyntaxFactory.ExpressionStatement(
-                        SyntaxFactory.AssignmentExpression(
-                            SyntaxKind.SimpleAssignmentExpression,
-                            identifier,
-                            right))));
-
-            _stats.NullCoalescingAssignRewritten++;
-            return ifStmt;
+            var typeSymbol = _semanticModel?.GetTypeInfo(left).Type;
+            if (typeSymbol == null || typeSymbol is IErrorTypeSymbol)
+            {
+                _diagnostics.Add(new NullCoalesceDiagnostic(
+                    NullCoalesceSeverity.Warning,
+                    $"Cannot resolve type of left operand in ??= expression; skipping rewrite."));
+                _stats.SkippedUnsupported++;
+                return exprStmt;
+            }
         }
 
-        // Member access / indexer: left may have side effects — use temp variable
-        var typeSymbol = _semanticModel?.GetTypeInfo(left).Type;
-        if (typeSymbol == null || typeSymbol is IErrorTypeSymbol)
-        {
-            _diagnostics.Add(new NullCoalesceDiagnostic(
-                NullCoalesceSeverity.Warning,
-                $"Cannot resolve type of left operand in ??= expression; skipping rewrite."));
-            _stats.SkippedUnsupported++;
-            return exprStmt;
-        }
+        _stats.NullCoalescingAssignRewritten++;
+        return BuildIfAssignsNull(left, right);
+    }
 
-        var tempName = GenerateTempName();
-
-        // Build: var ___tN = <left>;
-        var tempDecl = SyntaxFactory.LocalDeclarationStatement(
-            SyntaxFactory.VariableDeclaration(
-                SyntaxFactory.IdentifierName("var"),
-                SyntaxFactory.SingletonSeparatedList(
-                    SyntaxFactory.VariableDeclarator(
-                        SyntaxFactory.Identifier(tempName),
-                        null,
-                        SyntaxFactory.EqualsValueClause(left)))));
-
-        // Build: if (___tN == null) { <left> = <right>; }
-        var ifStmt2 = SyntaxFactory.IfStatement(
+    /// <summary>Builds 'if (lhs == null) { lhs = rhs; }'.</summary>
+    private static IfStatementSyntax BuildIfAssignsNull(ExpressionSyntax lhs, ExpressionSyntax rhs)
+        => SyntaxFactory.IfStatement(
             SyntaxFactory.BinaryExpression(
                 SyntaxKind.EqualsExpression,
-                SyntaxFactory.IdentifierName(tempName),
+                lhs.WithoutTrivia(),
                 SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
             SyntaxFactory.Block(
                 SyntaxFactory.ExpressionStatement(
                     SyntaxFactory.AssignmentExpression(
                         SyntaxKind.SimpleAssignmentExpression,
-                        left,
-                        right))));
+                        lhs.WithoutTrivia(),
+                        rhs))));
 
-        // The temp variable declaration needs to be inserted before this ExpressionStatement.
-        // The ExpressionStatement is the anchor.
-        PendingDeclarations.Add(new PendingDeclaration(
-            tempDecl, exprStmt, PendingDeclarations.Count));
-
-        _stats.NullCoalescingAssignRewritten++;
-        _stats.TempVariablesGenerated++;
-        return ifStmt2;
-    }
+    /// <summary>
+    /// Builds 'lhs == null ? (lhs = rhs) : lhs' — the value-yielding inline
+    /// form of 'lhs ??= rhs' for statement-free expression contexts. Each lhs
+    /// occurrence is a fresh clone since a syntax node cannot be parented
+    /// twice; the Formatter pass normalizes spacing afterwards.
+    /// </summary>
+    private static ConditionalExpressionSyntax BuildInlineTernary(
+        ExpressionSyntax lhs,
+        ExpressionSyntax rhs)
+        => SyntaxFactory.ConditionalExpression(
+            SyntaxFactory.BinaryExpression(
+                SyntaxKind.EqualsExpression,
+                lhs.WithoutTrivia(),
+                SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
+            SyntaxFactory.ParenthesizedExpression(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    lhs.WithoutTrivia(),
+                    rhs)),
+            lhs.WithoutTrivia());
 
     private string GenerateTempName()
     {
@@ -320,16 +341,31 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
-    /// Walks up the parent chain to find the nearest enclosing StatementSyntax.
-    /// Returns null if no statement ancestor exists (e.g. field initializer).
+    /// Walks up the parent chain to find the nearest enclosing StatementSyntax
+    /// that can host a hoisted guard. Returns null when no such slot exists:
+    /// expression-bodied members/initializers, or an expression-bodied
+    /// lambda/local-function boundary (hoisting into the enclosing method
+    /// would change WHEN the guarded code executes). A block-bodied lambda or
+    /// local function still resolves to its own inner statement, which is
+    /// found before the boundary node on the way up.
     /// </summary>
-    private StatementSyntax? FindAnchorStatement(SyntaxNode node)
+    private static StatementSyntax? FindAnchorStatement(SyntaxNode node)
     {
         SyntaxNode? current = node.Parent;
         while (current != null)
         {
+            if (current is LambdaExpressionSyntax
+                or AnonymousMethodExpressionSyntax
+                or LocalFunctionStatementSyntax)
+            {
+                return null;
+            }
+
             if (current is StatementSyntax stmt)
+            {
                 return stmt;
+            }
+
             current = current.Parent;
         }
         return null;

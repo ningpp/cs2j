@@ -121,6 +121,17 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
                 group.RolledBack = true;
             }
 
+            // Rollback propagates down the containing chain: a nested group emits
+            // no file edits and its merged node only rides a merged container, so
+            // it is rolled back by its container's restore and must not stay
+            // active (otherwise it breaks error attribution and the residual
+            // gate). Exclude it for future replay rounds as well.
+            foreach (var blocked in PartialMergePreprocessor.EnclosedByInactiveGroup(plan.Groups))
+            {
+                blocked.RolledBack = true;
+                excludedGroups.Add(blocked.TypeFullName);
+            }
+
             // 3. Per-file rewrites; filter at edit granularity (part spans), so a
             // file shared by an active and a rolled-back group only replays the
             // active edits. Files with no active edit are already copied.
@@ -311,7 +322,30 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             return [];
         }
 
+        // Only groups that actually emit file-level edits can introduce errors:
+        // nested groups write nothing themselves — their merged text rides the
+        // containing group's replacement, so attributing to them double-counts
+        // the single containing group and forces spurious whole-tree rollbacks.
+        var planSymbols = new HashSet<INamedTypeSymbol>(
+            plan.Groups.Select(g => g.Symbol), SymbolEqualityComparer.Default);
+
+        static bool EmitsFileEdits(TypeGroupPlan group, HashSet<INamedTypeSymbol> planSymbols)
+        {
+            for (var containing = group.Symbol.ContainingType;
+                 containing is not null;
+                 containing = containing.ContainingType)
+            {
+                if (planSymbols.Contains(containing))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         return plan.ActiveGroups
+            .Where(group => EmitsFileEdits(group, planSymbols))
             .Where(group => group.TouchedFiles
                 .Any(touched => string.Equals(touched, file, StringComparison.OrdinalIgnoreCase)))
             .ToList();
