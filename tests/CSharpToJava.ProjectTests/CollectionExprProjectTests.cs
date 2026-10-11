@@ -53,23 +53,7 @@ public class CollectionExprProjectTests
     private static string GuardFixtureDir =>
         Path.Combine(AppContext.BaseDirectory, "SampleExpressionDesugarGuardSolution");
 
-    private static string CliPath
-    {
-        get
-        {
-            var dir = AppContext.BaseDirectory;
-            while (dir is not null)
-            {
-                var candidate = Path.Combine(
-                    dir, "src", "CSharpToJava.CLI", "bin", "Debug", "net10.0",
-                    "CSharpToJava.CLI.dll");
-                if (File.Exists(candidate)) return candidate;
-                dir = Path.GetDirectoryName(dir);
-            }
-
-            throw new FileNotFoundException("Could not locate CSharpToJava.CLI.dll from test output directory.");
-        }
-    }
+    private static string CliPath => TestCliPaths.LocateCli();
 
     private static async Task<(int ExitCode, string Output)> RunCliAsync(params string[] args)
     {
