@@ -609,14 +609,19 @@ internal static class PassChainFactory
 
             // C36 expression-desugar has no convert-project legacy toggle; the
             // descriptor default (on) drives it and --disable-pass opts out
-            // (enum-declaration precedent).
+            // (enum-declaration precedent). member-desugar co-runs in the
+            // default chain and rescues preserved init-only initializer sites
+            // (widens init→set + PD-8 lifting), so the C24 rule downgrades
+            // init-only CS2J0531 to a Warning in that chain composition.
             PassStubCatalog.Ids.ExpressionDesugar => new ExpressionDesugarPassAdapter(
                 config.ExpressionDesugarOptionsFactory(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,
                 config.VerifyBuild,
-                config.VerifyTests),
+                config.VerifyTests,
+                memberDesugarChainAvailable:
+                    config.EnabledPassIds?.Contains(PassIds.MemberDesugar) == true),
 
             // C42 platform-isolation has no convert-project legacy toggle; the
             // descriptor default (off) drives it and --enable-pass opts in.

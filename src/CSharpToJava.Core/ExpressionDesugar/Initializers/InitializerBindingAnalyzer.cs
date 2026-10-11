@@ -702,7 +702,8 @@ internal static class InitializerBindingAnalyzer
     {
         var setMethod = (member as IPropertySymbol)?.SetMethod;
         string reason;
-        if (setMethod is { IsInitOnly: true })
+        var initOnly = setMethod is { IsInitOnly: true };
+        if (initOnly)
             reason = "init-only accessor";
         else if (setMethod == null)
             reason = "no set accessor";
@@ -713,13 +714,25 @@ internal static class InitializerBindingAnalyzer
         else
             reason = "not writable";
 
+        // Chain-aware downgrade: when member-desugar (C11/C27) runs later in
+        // the same chain it widens init-only accessors to ordinary set methods
+        // and lifts the preserved object initializer to setter calls (PD-8),
+        // so an init-only site is merely Warning/preserved. Every other
+        // non-writable form stays a strict Error (no later pass rescues it).
+        ExpressionDesugarSeverity? severityOverride =
+            initOnly
+            && (context.Options.Initializers ?? InitializerOptions.Default).MemberDesugarChainAvailable
+                ? ExpressionDesugarSeverity.Warning
+                : null;
+
         Report(context, InitializerDiagnosticCodes.CS2J0531,
             string.Format(
                 InitializerDiagnostics.MemberNotWritableMessage,
                 member.Name,
                 member.ContainingType?.ToDisplayString() ?? "?",
                 reason),
-            plan.Node);
+            plan.Node,
+            severityOverride);
         return InitializerDiagnosticCodes.CS2J0531;
     }
 
@@ -1012,11 +1025,13 @@ internal static class InitializerBindingAnalyzer
     }
 
     private static void Report(
-        RuleAnalysisContext context, string code, string message, SyntaxNode node)
+        RuleAnalysisContext context, string code, string message, SyntaxNode node,
+        ExpressionDesugarSeverity? severityOverride = null)
     {
         var strict = (context.Options.Initializers ?? InitializerOptions.Default).Strict;
         context.Statistics.Initializers.AddSkip(code);
         context.Report(
-            InitializerDiagnostics.ResolveSeverity(code, strict), code, message, node);
+            severityOverride ?? InitializerDiagnostics.ResolveSeverity(code, strict),
+            code, message, node);
     }
 }

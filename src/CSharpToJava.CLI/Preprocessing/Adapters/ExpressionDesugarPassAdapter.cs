@@ -58,9 +58,29 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
         bool filterUnsupportedProjects,
         IReadOnlyCollection<string>? compatNamespacePrefixes,
         bool verifyBuild,
-        bool verifyTests)
+        bool verifyTests,
+        bool memberDesugarChainAvailable = false)
     {
-        _options = options;
+        // When member-desugar (C11/C27) runs later in the chain it widens
+        // init-only accessors to set methods and lifts preserved object
+        // initializers (PD-8); tell the C24 rule so init-only CS2J0531 sites
+        // downgrade to Warnings instead of failing the chain strictly.
+        _options = memberDesugarChainAvailable && options.Initializers is { } initializers
+            ? new ExpressionDesugarOptions
+            {
+                Interpolations = options.Interpolations,
+                CollectionExpr = options.CollectionExpr,
+                Initializers = new InitializerOptions
+                {
+                    Strict = initializers.Strict,
+                    Scope = initializers.Scope,
+                    RewriteInExpressionTrees = initializers.RewriteInExpressionTrees,
+                    Unsupported = initializers.Unsupported,
+                    MemberDesugarChainAvailable = true,
+                },
+                NullConditional = options.NullConditional,
+            }
+            : options;
         _verbose = verbose;
         _filterUnsupportedProjects = filterUnsupportedProjects;
         _compatNamespacePrefixes = compatNamespacePrefixes;

@@ -48,6 +48,18 @@ public sealed class InitializerOptions
     public InitializerUnsupportedPolicy Unsupported { get; init; } =
         InitializerUnsupportedPolicy.Error;
 
+    /// <summary>
+    /// Chain-composition flag: true when the member-desugar pass (C11/C27)
+    /// runs later in the same preprocess chain. It widens init-only
+    /// accessors to ordinary set methods and lifts object initializers to
+    /// setter calls (PD-8), so an init-only assignment left in place by
+    /// this rule (CS2J0531) is reported as a Warning/preserved site rather
+    /// than a strict Error. Other non-writable forms (no setter, static,
+    /// readonly field) stay Errors — member-desugar cannot rescue those.
+    /// Default false preserves the standalone strict behavior.
+    /// </summary>
+    public bool MemberDesugarChainAvailable { get; init; }
+
     /// <summary>Default options instance.</summary>
     public static InitializerOptions Default { get; } = new();
 }

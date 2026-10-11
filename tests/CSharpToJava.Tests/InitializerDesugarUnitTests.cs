@@ -1173,6 +1173,84 @@ public class InitializerDesugarUnitTests
     }
 
     [Fact]
+    public void M1_InitOnlyProperty_MemberDesugarChainAvailable_DowngradesToWarning_AndSiblingsRewrite()
+    {
+        // Chain composition (default convert-project chain): member-desugar
+        // (C11/C27) runs AFTER expression-desugar, widens init->set and lifts
+        // the preserved initializer (PD-8). The init-only site is therefore a
+        // preserved Warning even under strict, not an Error, and writable
+        // sibling sites still get lowered in the same file.
+        const string source = """
+            public class InitOnly { public int P { get; init; } }
+            public class Dto { public int A { get; set; } }
+            public static class C
+            {
+                public static void M()
+                {
+                    var a = new InitOnly { P = 1 };
+                    var b = new Dto { A = 2 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source, new ExpressionDesugarOptions
+        {
+            Initializers = new InitializerOptions
+            {
+                Strict = true,
+                MemberDesugarChainAvailable = true,
+            },
+        });
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0531, ExpressionDesugarSeverity.Warning));
+        Assert.False(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0531, ExpressionDesugarSeverity.Error));
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("new InitOnly { P = 1 }", normalized);
+        Assert.Contains("var __ed_0 = new Dto(); __ed_0.A = 2; var b = __ed_0;", normalized);
+    }
+
+    [Fact]
+    public void M1_ReadonlyField_MemberDesugarChainAvailable_StaysStrictError()
+    {
+        // Only init-only accessors are rescued by member-desugar; a readonly
+        // field initializer (baseline CS0191) stays a strict Error and the
+        // file is atomically preserved even when the chain flag is on.
+        const string source = """
+            public class ReadOnlyDto
+            {
+                public readonly int F;
+                public ReadOnlyDto(int f) { F = f; }
+            }
+            public static class C
+            {
+                public static void M()
+                {
+                    var a = new ReadOnlyDto(0) { F = 1 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source, new ExpressionDesugarOptions
+        {
+            Initializers = new InitializerOptions
+            {
+                Strict = true,
+                MemberDesugarChainAvailable = true,
+            },
+        });
+
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0531, ExpressionDesugarSeverity.Error));
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+    }
+
+    [Fact]
     public void M1_ReadonlyField_CS2J0531()
     {
         const string source = """
