@@ -222,10 +222,10 @@ internal static class PassChainFactory
             [PassIds.IndexRange] = true,
             [PassIds.MakeReadonly] = opts.MakeReadOnly,
             [PassIds.StructValueSemantics] = opts.StructValueSemantics,
-            // C04 P0 rollback: the legacy flag follows the registry default
-            // (DEFAULT-OFF until M2/M3 land) instead of being forced on. The
-            // --no-iterator-lowering kill switch stays authoritative and
-            // --enable-pass iterator-lowering still overrides via EnablePassIds.
+            // Iterator-lowering follows the registry default (default-on under
+            // the all-preprocessors-default-on policy). The --no-iterator-lowering
+            // kill switch opts out and --enable-pass/--disable-pass win at the
+            // resolver.
             [PassStubCatalog.Ids.IteratorLowering] =
                 PassCatalog.ImplementedById(PassStubCatalog.Ids.IteratorLowering).DefaultEnabled
                 && opts.IteratorLowering,

@@ -5708,7 +5708,7 @@ class ConvertProjectOptions
     public bool NoArrayMethod { get; set; }
 
     [Option("no-iterator-lowering", Default = false,
-        HelpText = "Explicit kill switch for the iterator-lowering pass (C04 M1-M4a: state machines, try-finally/using/lock, non-crossing ref struct/ref/pointer locals, yield-bearing switch); the pass ships default-off pending the M4b gate review — opt in with --enable-pass iterator-lowering")]
+        HelpText = "Explicit kill switch for the iterator-lowering pass (C04 M1-M4a: state machines, try-finally/using/lock, non-crossing ref struct/ref/pointer locals, yield-bearing switch); the pass ships default-on — opt out with --no-iterator-lowering or --disable-pass iterator-lowering")]
     public bool NoIteratorLowering { get; set; }
 
     [Option("ln-normalize-literals", Default = false,

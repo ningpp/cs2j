@@ -3,11 +3,11 @@ using System.Diagnostics;
 namespace CSharpToJava.ProjectTests;
 
 /// <summary>
-/// C20 CLI end-to-end (design §7.3): the catalog marks partial-merge as
-/// opt-in again after the 2026-10-06 P0 rollback (M3 member-level pairing
-/// collapse pending); --enable-pass schedules it within the chain; the
-/// standalone `preprocess --pass partial-merge` selection runs exactly that
-/// pass. Both executions leave the .cs2j-partial-merge-src intermediate tree.
+/// C20 CLI end-to-end (design §7.3): partial-merge flipped to default-on
+/// on 2026-10-11 under the all-preprocessors-default-on policy;
+/// --disable-pass opts out; the standalone `preprocess --pass partial-merge`
+/// selection runs exactly that pass. Both executions leave the
+/// .cs2j-partial-merge-src intermediate tree.
 /// </summary>
 [Collection("SamplePartialSolution")]
 public sealed class PartialMergeCLITests
@@ -47,7 +47,7 @@ public sealed class PartialMergeCLITests
     }
 
     [Fact]
-    public void Default_Plan_Lists_PartialMerge_As_OptIn()
+    public void Default_Plan_Lists_PartialMerge_As_DefaultOn()
     {
         var (exitCode, output) = RunCli("preprocess", "--list-passes");
         Assert.Equal(0, exitCode);
@@ -56,7 +56,7 @@ public sealed class PartialMergeCLITests
         // run-after column and would also contain the substring.
         var line = Assert.Single(output.Split('\n')
             .Where(line => line.TrimStart().StartsWith("partial-merge ", StringComparison.Ordinal)));
-        Assert.Contains(" off ", line, StringComparison.Ordinal);
+        Assert.Contains(" on ", line, StringComparison.Ordinal);
     }
 
     [SlowE2EFact(184.70)]

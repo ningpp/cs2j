@@ -156,22 +156,22 @@ public class IteratorFixtureProjectTests
         return (counters, failedNames);
     }
 
-    // ── 默认关闭：不显式 enable 时不产出中间树 ──
+    // ── 默认开启：不显式 enable 时也产出中间树 ──
 
     [SlowE2EFact(326.3)]
-    public async Task IteratorLowering_OffByDefault_ChainProducesNoIntermediateTree()
+    public async Task IteratorLowering_OnByDefault_ChainProducesIntermediateTree()
     {
         var workDir = Path.Combine(Path.GetTempPath(),
-            "cs2j-c04-off-" + Guid.NewGuid().ToString("N"));
+            "cs2j-c04-default-" + Guid.NewGuid().ToString("N"));
         var outputRoot = Path.Combine(workDir, "out");
         try
         {
             var result = await RunChainAsync(FixtureSlnPath, outputRoot, false);
 
-            Assert.True(result.Success, "default chain must succeed without the opt-in pass");
-            Assert.DoesNotContain(IntermediateDir, result.ExecutedIntermediateDirectoryNames);
-            Assert.False(Directory.Exists(Path.Combine(outputRoot, IntermediateDir)),
-                "iterator-lowering is default-off: no intermediate tree may be produced");
+            Assert.True(result.Success, "default chain must succeed with iterator-lowering default-on");
+            Assert.Contains(IntermediateDir, result.ExecutedIntermediateDirectoryNames);
+            Assert.True(Directory.Exists(Path.Combine(outputRoot, IntermediateDir)),
+                "iterator-lowering is default-on: intermediate tree must be produced");
         }
         finally
         {

@@ -72,12 +72,9 @@ internal static class PassCatalog
             ".cs2j-partial-merge-src",
             PassStage.Lexical,
             PassStatus.Implemented,
-            // P0 rollback (2026-10-06): DEFAULT-OFF again. The design rules the
-            // pass long-term opt-in until M3 (C#13 member-level partial pairing
-            // collapse) and the sdk dual-equivalence profile land; v1 only keeps
-            // member-level duplicates and the all-on policy flip (3147e093)
-            // predated those gates. --enable-pass partial-merge opts in.
-            defaultEnabled: false,
+            // Flipped to DEFAULT-ON under the all-preprocessors-default-on policy;
+            // --disable-pass partial-merge opts out.
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.Conditional, PassStubCatalog.Ids.LexicalNormalize },
             needsSemanticModel: true,
             verifyBuildByDefault: true,
@@ -458,20 +455,18 @@ internal static class PassCatalog
             ".cs2j-iterator-lowering-src",
             PassStage.StateMachine,
             PassStatus.Implemented,
-            // DEFAULT-OFF (opt-in via --enable-pass iterator-lowering).
-            // M1 analyzer/state machine core, M2 try-finally protected regions,
-            // M3 using/lock normalization, M4a restricted locals
+            // Flipped to DEFAULT-ON under the all-preprocessors-default-on
+            // policy; --disable-pass iterator-lowering opts out. The pass
+            // covers M1 analyzer/state machine core, M2 try-finally protected
+            // regions, M3 using/lock normalization, M4a restricted locals
             // (ref struct/ref local/pointer non-crossing yields stay real
             // locals; crossing shapes are CS2J0403), CS9238/CS9239 mirrors,
             // yield-bearing switch flattening, struct-iterator by-value this,
             // residual lambda CS2J0405/local-function CS2J0404 defensive
             // gates, and M4b bare `return;` normalization plus qualified
-            // member-access guards. M4b §8 gate review (see
-            // docs/superpowers/specs/2026-10-09-c04-m4b-gate-report.md):
-            // gates 1-2 met, gates 3-5 open (sdk full-chain blocked by
-            // unrelated snapshot breakage, EF Core profile unavailable,
-            // observation window pending) — stays opt-in.
-            defaultEnabled: false,
+            // member-access guards. Unsupported forms skip with
+            // CS2J0402/CS2J0403/CS2J0404/CS2J0405/CS2J0406 diagnostics.
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.MakeReadonly, PassStubCatalog.Ids.ClosureLift },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,

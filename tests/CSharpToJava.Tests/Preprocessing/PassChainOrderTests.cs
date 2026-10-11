@@ -12,9 +12,8 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// Locks the registered pass sequence to the historical ConvertProject chain.
 /// The fifteen hand-written blocks were replaced by the registry-driven loop, so
 /// the topological sort must keep producing this exact order. Every implemented
-/// pass is default-on (all-preprocessors-default-on policy) except two
-/// deliberate opt-outs: the 2026-10-06 P0 rollbacks C20 partial-merge (M3
-/// member-level collapse pending) and C04 iterator-lowering (M2/M3 pending);
+/// pass is default-on (all-preprocessors-default-on policy), including
+/// C20 partial-merge and C04 iterator-lowering (both flipped 2026-10-11);
 /// the legacy flags survive as --no-xxx negations and --disable-pass remains
 /// the opt-out. C26 linq-channel joined the default chain on 2026-10-06
 /// after the M4 §8 gates (--no-linq-rewrite maps to --disable-pass
@@ -27,9 +26,8 @@ public sealed class PassChainOrderTests
     [
         PassIds.Conditional,
         PassStubCatalog.Ids.LexicalNormalize,
-        // C20 partial-merge: DEFAULT-OFF again after the 2026-10-06 P0 rollback
-        // (M3 member-level pairing collapse + sdk dual-equivalence pending);
-        // excluded from EnabledByDefault below.
+        // C20 partial-merge flipped to DEFAULT-ON on 2026-10-11 under the
+        // all-preprocessors-default-on policy.
         PassStubCatalog.Ids.PartialMerge,
         PassIds.LocalFunctionLift,
         PassIds.NullCoalesce,
@@ -76,10 +74,8 @@ public sealed class PassChainOrderTests
         PassIds.StructValueSemantics,
         PassStubCatalog.Ids.UnsafeFfm,
         PassStubCatalog.Ids.ClosureLift,
-        // C04 iterator-lowering: Implemented but DEFAULT-OFF again after the
-        // 2026-10-06 P0 rollback (M1 only; try-finally/using/lock lowering
-        // M2/M3 pending). Stays in the locked topological sequence but is
-        // excluded from EnabledByDefault below.
+        // C04 iterator-lowering flipped to DEFAULT-ON on 2026-10-11 under the
+        // all-preprocessors-default-on policy.
         PassStubCatalog.Ids.IteratorLowering,
         // C18 async-normalize is Implemented and default-on under the
         // all-preprocessors-default-on policy; anchors make-readonly +
@@ -122,13 +118,7 @@ public sealed class PassChainOrderTests
 
     // All-preprocessors-default-on policy: every implemented pass is
     // default-enabled; --disable-pass / legacy --no-xxx flags opt out.
-    // Default-on policy exceptions — two deliberate opt-outs: the
-    // 2026-10-06 P0 rollbacks C20 partial-merge (M3 member-level collapse +
-    // profile pending) and C04 iterator-lowering (M2/M3 pending).
-    private static readonly string[] EnabledByDefault = LockedChain
-        .Where(id => id != PassStubCatalog.Ids.PartialMerge
-            && id != PassStubCatalog.Ids.IteratorLowering)
-        .ToArray();
+    private static readonly string[] EnabledByDefault = LockedChain;
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -625,8 +615,8 @@ public sealed class PassChainOrderTests
         Assert.True(byId[PassIds.VarianceAudit].DefaultEnabled);
         Assert.Equal("C03, C37", byId[PassIds.PatternDesugar].CatalogItems);
         Assert.Equal("C04", byId[PassStubCatalog.Ids.IteratorLowering].CatalogItems);
-        // P0 rollback (2026-10-06): default-off until M2/M3 land.
-        Assert.False(byId[PassStubCatalog.Ids.IteratorLowering].DefaultEnabled);
+        // Flipped default-on on 2026-10-11 under the all-on policy.
+        Assert.True(byId[PassStubCatalog.Ids.IteratorLowering].DefaultEnabled);
         Assert.Equal("C15, C34, C17, C22", byId[PassStubCatalog.Ids.NumericBoundary].CatalogItems);
         Assert.Equal("C07", byId[PassIds.StructValueSemantics].CatalogItems);
         Assert.Equal("C05", byId[PassIds.EnumDeclaration].CatalogItems);
@@ -638,8 +628,8 @@ public sealed class PassChainOrderTests
         Assert.Equal("C23, C24, C35, C36, C51", byId[PassStubCatalog.Ids.ExpressionDesugar].CatalogItems);
         Assert.Equal("C30", byId[PassIds.ClosedMetadata].CatalogItems);
         Assert.Equal("C20", byId[PassStubCatalog.Ids.PartialMerge].CatalogItems);
-        // P0 rollback (2026-10-06): default-off pending M3 pairing collapse.
-        Assert.False(byId[PassStubCatalog.Ids.PartialMerge].DefaultEnabled);
+        // Flipped default-on on 2026-10-11 under the all-on policy.
+        Assert.True(byId[PassStubCatalog.Ids.PartialMerge].DefaultEnabled);
         Assert.Equal("C32, C45", byId[PassStubCatalog.Ids.ClosureLift].CatalogItems);
         Assert.True(byId[PassStubCatalog.Ids.ClosureLift].DefaultEnabled);
         Assert.Equal("C29", byId[PassStubCatalog.Ids.ConcurrencyNormalize].CatalogItems);
@@ -777,7 +767,8 @@ public sealed class PassChainOrderTests
         // C25 dynamic-desugar/audit-default-on (flipped 2026-10-06; still no
         // legacy flag), C30 closed-metadata, C21 anonymous-type-lift,
         // C18 async-normalize/default-on,
-        // C20 partial-merge/default-off, C04 iterator-lowering/default-off,
+        // C20 partial-merge/default-on (flipped 2026-10-11; still no legacy
+        // flag), C04 iterator-lowering/default-on (flipped 2026-10-11),
         // C09 thread-static/default-on (flipped 2026-10-06; still no legacy
         // flag), C10 attribute-normalize/default-on (flipped 2026-10-06;
         // still no legacy flag))

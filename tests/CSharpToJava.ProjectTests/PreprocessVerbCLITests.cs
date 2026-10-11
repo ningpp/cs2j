@@ -76,8 +76,10 @@ public class PreprocessVerbCLITests
         // Implemented）；列表不再可能出现 Stub 状态，改断言"全部 Implemented"。
         Assert.DoesNotContain("Stub", stdout);
         Assert.Contains("Implemented", stdout);
-        Assert.Contains("off", stdout);
-        Assert.Contains("on", stdout);
+        // All-preprocessors-default-on policy (partial-merge and
+        // iterator-lowering flipped 2026-10-11): every registered pass is on.
+        Assert.DoesNotContain(" off ", stdout);
+        Assert.Contains(" on ", stdout);
         // C34 (decimal-ops) is co-located with the numeric-boundary pass; the
         // catalog inventory must surface it even though it ships default-off.
         // C17 (increment-targets) is a co-located family rule as well (M0 skeleton).
