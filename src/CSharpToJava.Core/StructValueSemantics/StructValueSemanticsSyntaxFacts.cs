@@ -15,11 +15,23 @@ internal static class StructValueSemanticsSyntaxFacts
     /// <summary>分析期站点锚点在改写树上的标注种类（每站点一个独立标注实例）。</summary>
     public const string SiteAnnotationKind = "Cs2jStructValueSemanticsSite";
 
+    /// <summary>SV040-d：需做 this 持有者改写的方法声明标注种类。</summary>
+    public const string ThisCaptureMethodAnnotationKind = "Cs2jStructValueSemanticsThisCaptureMethod";
+
+    /// <summary>SV040-d：方法体内需路由到持有者的 this/隐式 this 节点标注种类。</summary>
+    public const string ThisCaptureRouteAnnotationKind = "Cs2jStructValueSemanticsThisCaptureRoute";
+
     /// <summary>VS-1c 链式赋值提升的值临时变量前缀。</summary>
     public const string ChainedAssignTempPrefix = "__cs2jSc";
 
     /// <summary>VS-3 防御性接收者提升的副本临时变量前缀。</summary>
     public const string DefensiveCopyTempPrefix = "__cs2jVc";
+
+    /// <summary>
+    /// SV040-d 消解：struct 实例方法内逃逸匿名函数/局部函数捕获 this 时，方法级
+    /// this 持有者（copy-in/copy-out 的值副本）前缀。
+    /// </summary>
+    public const string ThisCopyTempPrefix = "__cs2jTc";
 
     /// <summary>生成的 Clone() 成员名。</summary>
     public const string CloneMethodName = "Clone";

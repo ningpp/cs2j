@@ -26,6 +26,12 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
     private int _chainedTempCounter;
     private int _defensiveTempCounter;
 
+    // SV040-d：方法标注 →（持有者名，是否出口回写，是否 void）；路由标注 → 持有者名。
+    private readonly Dictionary<SyntaxAnnotation, (string Holder, bool HasWrites, bool ReturnsVoid)>
+        _captureByMethodAnnotation = new();
+    private readonly Dictionary<SyntaxAnnotation, string> _holderByRouteAnnotation = new();
+    private int _thisCaptureCounter;
+
     public CloneInsertionRewriter(
         SemanticModel model,
         IReadOnlyList<ClonePlan> activePlans,
@@ -47,12 +53,25 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
-    /// 标注站点锚点 + 注入 shim，随后单点遍历改写。所有「插/不插」裁决在本方法内
-    /// 基于原始树与原 SemanticModel 一次定案，遍历时只做形态变换。
+    /// 标注站点锚点 + this 捕获方法/路由节点 + 注入 shim，随后单点遍历改写。
+    /// 所有「插/不插」「路由/不路由」裁决在本方法内基于原始树与原 SemanticModel
+    /// 一次定案，遍历时只做形态变换。
     /// </summary>
     public CompilationUnitSyntax Rewrite(CompilationUnitSyntax root)
     {
-        var annotations = new List<(SyntaxNode Node, SyntaxAnnotation Annotation, ValueCopySite Site)>();
+        // 同一原始节点可能既是 clone 站点又是 this 路由节点 → 按节点聚合多个标注。
+        var annotationsByNode =
+            new Dictionary<SyntaxNode, List<SyntaxAnnotation>>(ReferenceEqualityComparer.Instance);
+
+        void AddAnnotation(SyntaxNode node, SyntaxAnnotation annotation)
+        {
+            if (!annotationsByNode.TryGetValue(node, out var list))
+            {
+                list = new List<SyntaxAnnotation>();
+                annotationsByNode[node] = list;
+            }
+            list.Add(annotation);
+        }
 
         foreach (var plan in _activePlans)
         {
@@ -66,8 +85,10 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
                 var annotation = new SyntaxAnnotation(StructValueSemanticsSyntaxFacts.SiteAnnotationKind);
                 _siteByAnnotation[annotation] = site;
                 _applicableSites.Add(site);
-                annotations.Add((site.Anchor, annotation, site));
+                AddAnnotation(site.Anchor, annotation);
             }
+
+            AnnotateThisCaptures(plan, AddAnnotation);
         }
 
         // shim 注入点（主声明文件的类型声明）与站点锚点一次性标注/改写，
@@ -83,7 +104,7 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
                 shimDeclarations[declaration] = plan;
         }
 
-        var replaceableNodes = annotations.Select(a => a.Node)
+        var replaceableNodes = annotationsByNode.Keys
             .Concat(shimDeclarations.Keys.Cast<SyntaxNode>())
             .Distinct()
             .ToList();
@@ -100,17 +121,67 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
                         shimDeclarations[originalDeclaration]);
                 }
 
-                foreach (var item in annotations)
-                {
-                    if (item.Node == original)
-                        return partiallyRewritten.WithAdditionalAnnotations(item.Annotation);
-                }
+                if (annotationsByNode.TryGetValue(original, out var annotations))
+                    return partiallyRewritten.WithAdditionalAnnotations(annotations);
 
                 return partiallyRewritten;
             });
         }
 
         return (CompilationUnitSyntax)Visit(root)!;
+    }
+
+    /// <summary>
+    /// SV040-d：为本文件内需持有者改写的方法标注方法节点与方法体内全部 this 路由
+    /// 节点（显式 <c>this</c> 与绑定到本 struct 的隐式 this 简单名）。裁决全部在
+    /// 原始树 + 原模型上完成，与计划期 ThisCaptureFacts 口径一致。
+    /// </summary>
+    private void AnnotateThisCaptures(
+        ClonePlan plan,
+        Action<SyntaxNode, SyntaxAnnotation> addAnnotation)
+    {
+        foreach (var capture in plan.ThisCaptureRewrites)
+        {
+            foreach (var reference in capture.Method.DeclaringSyntaxReferences)
+            {
+                if (!string.Equals(reference.SyntaxTree.FilePath, _filePath,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                if (reference.GetSyntax() is not MethodDeclarationSyntax method) continue;
+
+                var scope = (SyntaxNode?)method.Body ?? method.ExpressionBody;
+                if (scope == null) continue;
+
+                var holder = StructValueSemanticsSyntaxFacts.ThisCopyTempPrefix
+                    + _thisCaptureCounter++.ToString();
+                var methodAnnotation =
+                    new SyntaxAnnotation(StructValueSemanticsSyntaxFacts.ThisCaptureMethodAnnotationKind);
+                _captureByMethodAnnotation[methodAnnotation] =
+                    (holder, capture.HasWrites, capture.Method.ReturnsVoid);
+                addAnnotation(method, methodAnnotation);
+
+                foreach (var descendant in scope.DescendantNodes())
+                {
+                    if (descendant is ThisExpressionSyntax)
+                    {
+                        var route = new SyntaxAnnotation(
+                            StructValueSemanticsSyntaxFacts.ThisCaptureRouteAnnotationKind);
+                        _holderByRouteAnnotation[route] = holder;
+                        addAnnotation(descendant, route);
+                    }
+                    else if (descendant is SimpleNameSyntax simple
+                        && ThisCaptureFacts.IsImplicitThisMember(simple, plan.Symbol, _model))
+                    {
+                        var route = new SyntaxAnnotation(
+                            StructValueSemanticsSyntaxFacts.ThisCaptureRouteAnnotationKind);
+                        _holderByRouteAnnotation[route] = holder;
+                        addAnnotation(descendant, route);
+                    }
+                }
+            }
+        }
     }
 
     // ── 站点适用性裁决（原始树 / 原模型；设计 §4.3 不插条件列） ──
@@ -230,6 +301,164 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
             return HoistDefensiveReceiver(site, expressionStatement);
 
         return visited;
+    }
+
+    // ── SV040-d：this 路由 + 方法级 copy-in/copy-out 持有者改写 ──
+
+    public override SyntaxNode? VisitThisExpression(ThisExpressionSyntax node)
+    {
+        var visited = base.VisitThisExpression(node);
+        if (visited is not ThisExpressionSyntax visitedThis) return visited;
+        if (!TryGetRouteHolder(node, out var holder)) return visitedThis;
+
+        // 保留原节点全部标注（可能同时是 clone 站点锚点），供外层 Visit 继续包裹。
+        var replacement = SyntaxFactory.IdentifierName(holder).WithTriviaFrom(visitedThis);
+        return visitedThis.CopyAnnotationsTo(replacement);
+    }
+
+    public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
+    {
+        var visited = (SimpleNameSyntax)base.VisitIdentifierName(node)!;
+        return RouteSimpleName(node, visited);
+    }
+
+    public override SyntaxNode? VisitGenericName(GenericNameSyntax node)
+    {
+        var visited = (SimpleNameSyntax)base.VisitGenericName(node)!;
+        return RouteSimpleName(node, visited);
+    }
+
+    private SyntaxNode RouteSimpleName(SimpleNameSyntax original, SimpleNameSyntax visited)
+    {
+        if (!TryGetRouteHolder(original, out var holder)) return visited;
+
+        var memberAccess = SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                SyntaxFactory.IdentifierName(holder),
+                visited.WithoutTrivia())
+            .WithTriviaFrom(visited);
+        return visited.CopyAnnotationsTo(memberAccess);
+    }
+
+    public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
+    {
+        var visited = (MethodDeclarationSyntax)base.VisitMethodDeclaration(node)!;
+
+        var methodAnnotation = node
+            .GetAnnotations(StructValueSemanticsSyntaxFacts.ThisCaptureMethodAnnotationKind)
+            .FirstOrDefault();
+        if (methodAnnotation == null
+            || !_captureByMethodAnnotation.TryGetValue(methodAnnotation, out var capture))
+        {
+            return visited;
+        }
+
+        var (holder, hasWrites, returnsVoid) = capture;
+        var holderDeclaration = CreateHolderDeclaration(holder);
+
+        BlockSyntax newBody;
+        if (visited.Body is { } body)
+        {
+            newBody = BuildHolderBody(
+                body.OpenBraceToken, body.CloseBraceToken,
+                holderDeclaration, body.Statements, holder, hasWrites);
+            visited = visited.WithBody(newBody)
+                .WithExpressionBody(null)
+                .WithSemicolonToken(default);
+        }
+        else if (visited.ExpressionBody is { } expressionBody)
+        {
+            StatementSyntax effectiveStatement = returnsVoid
+                ? SyntaxFactory.ExpressionStatement(expressionBody.Expression)
+                : SyntaxFactory.ReturnStatement(expressionBody.Expression);
+            newBody = BuildHolderBody(
+                SyntaxFactory.Token(SyntaxKind.OpenBraceToken),
+                SyntaxFactory.Token(SyntaxKind.CloseBraceToken),
+                holderDeclaration,
+                SyntaxFactory.SingletonList(effectiveStatement),
+                holder, hasWrites);
+            visited = visited.WithExpressionBody(null)
+                .WithBody(newBody)
+                .WithSemicolonToken(default);
+        }
+        else
+        {
+            return visited;
+        }
+
+        _statistics.ThisCaptureMethodsRewritten++;
+        if (!hasWrites) _statistics.ThisCaptureReadOnlyMethods++;
+
+        return visited.WithAdditionalAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation);
+    }
+
+    /// <summary><c>var holder = this;</c>（copy-in；持有者声明本身不插 clone）。</summary>
+    private static LocalDeclarationStatementSyntax CreateHolderDeclaration(string holder) =>
+        SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(
+                SyntaxFactory.IdentifierName("var"),
+                SyntaxFactory.SingletonSeparatedList(
+                    SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(holder))
+                        .WithInitializer(SyntaxFactory.EqualsValueClause(
+                            SyntaxFactory.ThisExpression())))));
+
+    /// <summary>
+    /// 组装方法新体：首部 <c>var holder = this;</c>；有写时原语句整体包
+    /// <c>try { ... } finally { this = holder; }</c>（copy-out 保证所有出口回写），
+    /// 纯读时不包 try/finally（只读快照语义等同 async/iterator 的按值快照）。
+    /// </summary>
+    private static BlockSyntax BuildHolderBody(
+        SyntaxToken openBrace,
+        SyntaxToken closeBrace,
+        LocalDeclarationStatementSyntax holderDeclaration,
+        SyntaxList<StatementSyntax> originalStatements,
+        string holder,
+        bool hasWrites)
+    {
+        var statements = SyntaxFactory.List<StatementSyntax>(
+            new[] { holderDeclaration.WithAdditionalAnnotations(
+                StructValueSemanticsSyntaxFacts.RewriteAnnotation) });
+
+        if (hasWrites)
+        {
+            var copyOut = SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    SyntaxFactory.ThisExpression(),
+                    SyntaxFactory.IdentifierName(holder)));
+            var tryFinally = SyntaxFactory.TryStatement(
+                SyntaxFactory.List<AttributeListSyntax>(),
+                SyntaxFactory.Token(SyntaxKind.TryKeyword),
+                SyntaxFactory.Block(originalStatements),
+                SyntaxFactory.List<CatchClauseSyntax>(),
+                SyntaxFactory.FinallyClause(
+                    SyntaxFactory.Token(SyntaxKind.FinallyKeyword),
+                    SyntaxFactory.Block(copyOut)));
+            statements = statements.Add(tryFinally
+                .WithAdditionalAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation));
+        }
+        else
+        {
+            statements = statements.AddRange(originalStatements);
+        }
+
+        return SyntaxFactory.Block(openBrace, statements, closeBrace)
+            .WithAdditionalAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation);
+    }
+
+    private bool TryGetRouteHolder(SyntaxNode node, out string holder)
+    {
+        foreach (var annotation in node.GetAnnotations(
+                     StructValueSemanticsSyntaxFacts.ThisCaptureRouteAnnotationKind))
+        {
+            if (_holderByRouteAnnotation.TryGetValue(annotation, out var name))
+            {
+                holder = name;
+                return true;
+            }
+        }
+        holder = string.Empty;
+        return false;
     }
 
     private void ReportCannotHoist(ValueCopySite site, string reason)

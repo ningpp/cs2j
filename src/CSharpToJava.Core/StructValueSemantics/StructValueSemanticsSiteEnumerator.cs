@@ -102,12 +102,15 @@ internal sealed class StructValueSemanticsSiteEnumerator
     private void VisitDeclarator(VariableDeclaratorSyntax declarator, SemanticModel model)
     {
         // 幂等：本 pass 上一轮提升的临时变量（链式共享右值 __cs2jSc / 防御接收者副本
-        // __cs2jVc）重放时不是新站点——链式临时故意持有未克隆的共享右值，各目标槽
-        // 已在展开语句中逐个 Clone；再对其初始化器插 clone 会产出 a.Clone() 的重复包裹。
+        // __cs2jVc / this 持有者 __cs2jTc）重放时不是新站点——链式临时故意持有未克隆
+        // 的共享右值，各目标槽已在展开语句中逐个 Clone；持有者按 copy-in 语义刻意持有
+        // 未克隆的 this 快照（出口统一回写）。再对其初始化器插 clone 会重复包裹。
         var declaratorName = declarator.Identifier.Text;
         if (declaratorName.StartsWith(StructValueSemanticsSyntaxFacts.ChainedAssignTempPrefix,
                 StringComparison.Ordinal)
             || declaratorName.StartsWith(StructValueSemanticsSyntaxFacts.DefensiveCopyTempPrefix,
+                StringComparison.Ordinal)
+            || declaratorName.StartsWith(StructValueSemanticsSyntaxFacts.ThisCopyTempPrefix,
                 StringComparison.Ordinal))
         {
             return;
@@ -155,6 +158,16 @@ internal sealed class StructValueSemanticsSiteEnumerator
         // 链式 a = b = e：内层 b = e 作为外层 RHS 时不单独建站点（由外层展开统管）。
         if (assignment.Parent is AssignmentExpressionSyntax outer && outer.Right == assignment)
             return;
+
+        // 幂等：SV040-d 生成的出口回写 this = __cs2jTcN（SV041 侧亦有同款豁免）：
+        // 持有者按 copy-out 语义整体回写，不得再对 RHS 插 Clone。
+        if (UnwrapParens(assignment.Left) is ThisExpressionSyntax
+            && UnwrapParens(assignment.Right) is IdentifierNameSyntax copyOut
+            && copyOut.Identifier.ValueText.StartsWith(
+                StructValueSemanticsSyntaxFacts.ThisCopyTempPrefix, StringComparison.Ordinal))
+        {
+            return;
+        }
 
         if (IsInsideExpressionTree(assignment, model)) return;
 
@@ -532,6 +545,13 @@ internal sealed class StructValueSemanticsSiteEnumerator
 
     private static bool ValueFlowIsFresh(ExpressionSyntax expression) =>
         ValueCopyFacts.IsFreshValue(expression);
+
+    private static ExpressionSyntax UnwrapParens(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax paren)
+            expression = paren.Expression;
+        return expression;
+    }
 
     private static bool IsArrayReceiver(ElementAccessExpressionSyntax elementAccess, SemanticModel model)
     {

@@ -1126,8 +1126,10 @@ public class StructValueSemanticsUnitTests
     }
 
     [Fact]
-    public void Escape_EscapingLambdaCapturingState_IsSV040()
+    public void Escape_EscapingLambdaCapturingState_IsRewrittenToThisHolder()
     {
+        // SV040-c/d 根因修复：CS1673 形态由方法级 this 持有者 copy-in/copy-out 消解，
+        // 不再判无解（设计 §11：C32/C45 已承接普通局部捕获）。
         var run = Analyze("""
             namespace Lib;
             public struct Box
@@ -1136,12 +1138,24 @@ public class StructValueSemanticsUnitTests
                 public void Arm() { System.Action a = () => X++; }
             }
             """);
-        AssertInfeasible(run, "Lib.Box", StructValueSemanticsDiagnosticCode.SV040);
+
+        var plan = Plan(run, "Lib.Box");
+        Assert.True(plan.IsActive);
+        Assert.Single(plan.ThisCaptureRewrites);
+        Assert.True(plan.ThisCaptureRewrites[0].HasWrites);
+        Assert.Equal(1, run.Statistics.ThisCaptureMethodsRewritten);
+        Assert.Contains("__cs2jTc0", run.Output);
+        Assert.Contains("this = __cs2jTc0", run.Output);
+        AssertOutputCompiles(run.Output);
+        Assert.DoesNotContain(run.Diagnostics, d =>
+            d.Severity == StructValueSemanticsSeverity.Error
+            && d.Code == StructValueSemanticsDiagnosticCode.SV040);
     }
 
     [Fact]
-    public void Escape_IteratorInstanceMethod_IsSV040()
+    public void Escape_IteratorInstanceMethod_PlansAndCompiles()
     {
+        // C# 迭代器状态机按值快照 this（C04 显式降级同为按值），不再是 SV040。
         var run = Analyze("""
             namespace Lib;
             public struct Box
@@ -1154,7 +1168,15 @@ public class StructValueSemanticsUnitTests
                 }
             }
             """);
-        AssertInfeasible(run, "Lib.Box", StructValueSemanticsDiagnosticCode.SV040);
+
+        var plan = Plan(run, "Lib.Box");
+        Assert.True(plan.IsActive);
+        Assert.Empty(plan.ThisCaptureRewrites);
+        AssertOutputCompiles(run.Output);
+        Assert.DoesNotContain("__cs2jTc", run.Output);
+        Assert.DoesNotContain(run.Diagnostics, d =>
+            d.Severity == StructValueSemanticsSeverity.Error
+            && d.Code == StructValueSemanticsDiagnosticCode.SV040);
     }
 
     [Fact]

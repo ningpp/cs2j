@@ -32,6 +32,22 @@ internal enum ClonePlanOutcome
 internal sealed record PlanTouch(string File, string? TypeName, string? MemberName);
 
 /// <summary>
+/// SV040-d 消解记录：struct 实例方法中存在直接捕获 this 的逃逸匿名函数/局部函数
+/// （CS1673 形态，含 ref-out-in 生成的 ByRef 访问器闭包），Phase 3 对该方法做
+/// 方法级 this 持有者改写（copy-in/copy-out 值副本）。
+/// </summary>
+/// <param name="Method">需改写的实例方法符号。</param>
+/// <param name="HasWrites">
+/// 方法体（含其匿名函数/局部函数）是否经 this 路由写入实例态；true 时改写需在
+/// 所有出口回写 <c>this = holder</c>（try/finally）。
+/// </param>
+/// <param name="Location">首个触发的捕获位置（诊断/测试用）。</param>
+internal sealed record ThisCaptureRewrite(
+    IMethodSymbol Method,
+    bool HasWrites,
+    Location Location);
+
+/// <summary>
 /// 值流站点分类（设计 §4.3 VS-x 全表）。M2 先枚举 VS-1/VS-2/VS-4 原始锚点，
 /// VS-3/VS-5 在 M4 补齐；新鲜值/只读实参等精化在 M3 经 ValueCopyFacts 完成。
 /// </summary>
@@ -132,6 +148,9 @@ internal sealed class ClonePlan
 
     /// <summary>全部值流站点（M2：VS-1/2/4 原始锚点；M4 补 VS-3/5）。</summary>
     public List<ValueCopySite> Sites { get; } = new();
+
+    /// <summary>SV040-d：需要做方法级 this 持有者改写的实例方法（分析期定型）。</summary>
+    public List<ThisCaptureRewrite> ThisCaptureRewrites { get; } = new();
 
     /// <summary>统计站点数（SV001 Info 措辞用）。</summary>
     public int SiteCount => Sites.Count;
