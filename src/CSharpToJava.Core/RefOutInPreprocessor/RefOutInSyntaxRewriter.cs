@@ -384,7 +384,17 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         var lifted = _lifter.SpliceExpression(node.ExpressionBody!.Expression, out var hoisted);
         var stmts = new List<StatementSyntax>();
         stmts.AddRange(hoisted);
-        stmts.Add(SyntaxFactory.ReturnStatement(InjectSlotValues(lifted)));
+        // A void expression body (`=> M(out x);`) must become an expression
+        // statement; wrapping the lifted call in `return` is CS0127.
+        if (node.ReturnType is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.VoidKeyword })
+        {
+            stmts.Add(SyntaxFactory.ExpressionStatement(InjectSlotValues(lifted)));
+        }
+        else
+        {
+            stmts.Add(SyntaxFactory.ReturnStatement(InjectSlotValues(lifted)));
+        }
+
         stmts.AddRange(_lifter.TakePendingReadbacks());
         UsedHolder = true;
         return node
