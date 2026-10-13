@@ -268,7 +268,7 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             .WithTrailingTrivia(SyntaxFactory.Space);
         var creation = SyntaxFactory.ObjectCreationExpression(
             newKeyword,
-            SyntaxFactory.IdentifierName(structName),
+            BuildReconstructedTypeSyntax(structName, receiver, triviaFrom),
             SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments)),
             initializer: null);
 
@@ -276,6 +276,78 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             SyntaxKind.SimpleAssignmentExpression,
             receiver.WithoutTrivia(),
             creation).WithTriviaFrom(triviaFrom);
+    }
+
+    /// <summary>
+    /// Type syntax for an L3 constructor reconstruction site. L3 structs may be
+    /// declared in another namespace than the write site (e.g. the generated
+    /// <c>global::Cs2jTuples.*</c> shapes), where the bare struct name does not
+    /// bind (CS0246). Emit a fully qualified <c>global::</c> name when the
+    /// struct's declaration container is not an enclosing lexical container of
+    /// the site; keep the simple name otherwise. A using directive that would
+    /// bring the name into scope is ignored — over-qualifying still compiles.
+    /// </summary>
+    private TypeSyntax BuildReconstructedTypeSyntax(
+        string structName, ExpressionSyntax receiver, SyntaxNode site)
+    {
+        if (_semanticModel != null)
+        {
+            try
+            {
+                if (_semanticModel.GetTypeInfo(receiver).Type is INamedTypeSymbol namedType
+                    && !IsDeclaredInEnclosingContainer(namedType, site))
+                {
+                    return SyntaxFactory.ParseTypeName(
+                        namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+                }
+            }
+            catch (ArgumentException)
+            {
+                // Synthesized node not present in the modeled tree — fall through
+                // to the simple name.
+            }
+        }
+
+        return SyntaxFactory.IdentifierName(structName);
+    }
+
+    /// <summary>
+    /// True when <paramref name="type"/> is declared in one of the lexical
+    /// containers enclosing <paramref name="site"/> (its namespace or an
+    /// enclosing type), in which case its simple name binds at the site.
+    /// </summary>
+    private static bool IsDeclaredInEnclosingContainer(INamedTypeSymbol type, SyntaxNode site)
+    {
+        var symbolParts = GetQualifiedTypeName(type)
+            .Split('.', StringSplitOptions.RemoveEmptyEntries);
+        var containerLength = symbolParts.Length - 1; // drop the type's own name
+        if (containerLength == 0)
+            return true; // global-namespace types are visible from every scope
+
+        var chain = new List<string>();
+        for (var node = site.Parent; node != null; node = node.Parent)
+        {
+            switch (node)
+            {
+                case TypeDeclarationSyntax t:
+                    chain.Add(t.Identifier.Text);
+                    break;
+                case BaseNamespaceDeclarationSyntax ns:
+                    chain.AddRange(ns.Name.ToString()
+                        .Split('.', StringSplitOptions.RemoveEmptyEntries));
+                    break;
+            }
+        }
+        chain.Reverse();
+
+        if (containerLength > chain.Count)
+            return false;
+        for (var i = 0; i < containerLength; i++)
+        {
+            if (!string.Equals(chain[i], symbolParts[i], StringComparison.Ordinal))
+                return false;
+        }
+        return true;
     }
 
     private string? GetL3PropertyForParameter(string structName, string parameterName)
