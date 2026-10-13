@@ -116,3 +116,6 @@ triage-*.json
 
 .tmp-*/
 .tmp_*/
+dumps/
+t-regex/
+t-xml/
