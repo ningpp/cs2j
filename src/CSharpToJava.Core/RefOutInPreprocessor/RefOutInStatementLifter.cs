@@ -43,7 +43,6 @@ internal sealed class RefOutInStatementLifter
     private readonly Dictionary<InvocationExpressionSyntax, IReadOnlyList<IMethodSymbol>?> _liftableCache =
         new(ReferenceEqualityComparer.Instance);
 
-
     public RefOutInStatementLifter(RefOutInSyntaxRewriter owner) => _owner = owner;
 
     // ── entry points ────────────────────────────────────────────────────────
@@ -77,6 +76,7 @@ internal sealed class RefOutInStatementLifter
     private List<StatementSyntax>? _savedRootOut;
     private Stack<List<StatementSyntax>>? _savedScope;
     private List<StatementSyntax>? _savedPendingReadbacks;
+    private int _fragmentLambdaDepth;
 
     internal void EnterFragmentLambdaVisit()
     {
@@ -87,6 +87,7 @@ internal sealed class RefOutInStatementLifter
         _out = _rootOut = new List<StatementSyntax>();
         _scope = new Stack<List<StatementSyntax>>();
         _pendingReadbacks = new List<StatementSyntax>();
+        _fragmentLambdaDepth++;
     }
 
     internal void LeaveFragmentLambdaVisit()
@@ -99,6 +100,7 @@ internal sealed class RefOutInStatementLifter
         _savedRootOut = null;
         _savedScope = null;
         _savedPendingReadbacks = null;
+        _fragmentLambdaDepth--;
     }
 
     /// <summary>Read-backs for void calls, to be flushed after the call statement.</summary>
@@ -112,8 +114,23 @@ internal sealed class RefOutInStatementLifter
     public bool ContainsLiftable(ExpressionSyntax expr)
     {
         if (expr == null) return false;
-        foreach (var inv in InvocationsOutsideLambdas(expr))
+
+        // Inside a fragment-lambda visit (a lambda body being rewritten), the
+        // owning lambda is the scan boundary itself — only NESTED lambdas/local
+        // functions are barriers; InvocationsOutsideLambdas would additionally
+        // treat the owner as a barrier and hide the body's own calls.
+        IEnumerable<InvocationExpressionSyntax> invocations = _fragmentLambdaDepth > 0
+            ? expr.DescendantNodesAndSelf(
+                    n => n is not AnonymousFunctionExpressionSyntax
+                         and not LocalFunctionStatementSyntax)
+                .OfType<InvocationExpressionSyntax>()
+            : InvocationsOutsideLambdas(expr);
+
+        foreach (var inv in invocations)
+        {
             if (IsLiftable(inv)) return true;
+        }
+
         return false;
     }
 

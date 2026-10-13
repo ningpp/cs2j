@@ -1407,13 +1407,15 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         _holderNameScopes.Push(new HashSet<string>());
         try
         {
+            SimpleLambdaExpressionSyntax newNode = node;
             if (holder)
             {
                 CurrentHolderNames.Add(node.Parameter.Identifier.Text);
-                var newParam = RewriteParameter(node.Parameter, sym!);
-                return base.VisitSimpleLambdaExpression(node.WithParameter(newParam));
+                newNode = (SimpleLambdaExpressionSyntax)node.WithParameter(RewriteParameter(node.Parameter, sym!));
             }
-            return base.VisitSimpleLambdaExpression(node);
+
+            newNode = (SimpleLambdaExpressionSyntax)LiftExpressionLambdaBody(newNode);
+            return base.VisitSimpleLambdaExpression(newNode);
         }
         finally { _holderNameScopes.Pop(); }
     }
@@ -1442,9 +1444,65 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             }
             var newNode = node.WithParameterList(node.ParameterList.WithParameters(
                 SyntaxFactory.SeparatedList(newParams)));
-            return base.VisitParenthesizedLambdaExpression(newNode);
+            var liftedBody = LiftExpressionLambdaBody(newNode);
+            return base.VisitParenthesizedLambdaExpression(
+                (ParenthesizedLambdaExpressionSyntax)liftedBody);
         }
         finally { _holderNameScopes.Pop(); }
+    }
+
+    /// <summary>
+    /// Expression-bodied lambdas (<c>() =&gt; Foo(ref x)</c>,
+    /// <c>(out int r) =&gt; TryBar(out r)</c>) have no statement for the
+    /// statement visitors to splice, so a liftable ref/out call in the body
+    /// expression survived verbatim and produced CS1615 at the rewritten
+    /// target. Convert such a body to a block body with the normal slot
+    /// hoisting (fragment isolation keeps the hoisted statements inside the
+    /// lambda), ending in <c>return</c> for non-void delegates.
+    /// </summary>
+    private AnonymousFunctionExpressionSyntax LiftExpressionLambdaBody(AnonymousFunctionExpressionSyntax node)
+    {
+        if (node.Body is not ExpressionSyntax body)
+        {
+            return node;
+        }
+
+        var returnsVoid = (_semanticModel.GetTypeInfo(node).ConvertedType as INamedTypeSymbol)
+            ?.DelegateInvokeMethod?.ReturnsVoid ?? false;
+
+        _lifter.EnterFragmentLambdaVisit();
+        try
+        {
+            // The liftability scan must run INSIDE fragment scope: reached via
+            // the plain base re-walk (outer statement had no hoist) the owning
+            // lambda would otherwise be treated as a barrier.
+            if (!_lifter.ContainsLiftable(body))
+            {
+                return node;
+            }
+
+            var remainder = _lifter.SpliceExpression(body, out var hoisted);
+            var pending = _lifter.TakePendingReadbacks();
+            var statements = new List<StatementSyntax>(hoisted);
+            var finalExpression = InjectSlotValues(remainder);
+            if (returnsVoid)
+            {
+                statements.Add(SyntaxFactory.ExpressionStatement(finalExpression));
+                statements.AddRange(pending);
+            }
+            else
+            {
+                statements.AddRange(pending);
+                statements.Add(SyntaxFactory.ReturnStatement(finalExpression));
+            }
+
+            var block = SyntaxFactory.Block(statements);
+            return node.WithBody(block);
+        }
+        finally
+        {
+            _lifter.LeaveFragmentLambdaVisit();
+        }
     }
 
     public override SyntaxNode? VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node)
