@@ -33,8 +33,8 @@ internal sealed class RefOutInStatementLifter
     private readonly RefOutInSyntaxRewriter _owner;
     private List<StatementSyntax> _out = new();
     private List<StatementSyntax> _rootOut = new();
-    private readonly Stack<List<StatementSyntax>> _scope = new();
-    private readonly List<StatementSyntax> _pendingReadbacks = new();
+    private Stack<List<StatementSyntax>> _scope = new();
+    private List<StatementSyntax> _pendingReadbacks = new();
 
     // Invocation liftability is a pure function of the (immutable) original
     // tree node + semantic model. Every statement used to re-resolve its
@@ -63,6 +63,44 @@ internal sealed class RefOutInStatementLifter
         return remainder;
     }
 
+    /// <summary>
+    /// Saves and resets the per-statement splice scratch state while the owner
+    /// rewrites a lambda retained inside a call being lifted. The owner's
+    /// statement visitors re-enter THIS lifter for every statement in the
+    /// lambda body (each calls <see cref="SpliceExpression"/>, which resets the
+    /// scratch lists); without isolation that reset would discard the outer
+    /// invocation's already-emitted slot declarations (CS0103 on
+    /// <c>__refN</c>). Fragments produced inside the lambda belong to the
+    /// lambda's own statement replacements and are discarded here on leave.
+    /// </summary>
+    private List<StatementSyntax>? _savedOut;
+    private List<StatementSyntax>? _savedRootOut;
+    private Stack<List<StatementSyntax>>? _savedScope;
+    private List<StatementSyntax>? _savedPendingReadbacks;
+
+    internal void EnterFragmentLambdaVisit()
+    {
+        _savedOut = _out;
+        _savedRootOut = _rootOut;
+        _savedScope = _scope;
+        _savedPendingReadbacks = _pendingReadbacks;
+        _out = _rootOut = new List<StatementSyntax>();
+        _scope = new Stack<List<StatementSyntax>>();
+        _pendingReadbacks = new List<StatementSyntax>();
+    }
+
+    internal void LeaveFragmentLambdaVisit()
+    {
+        _out = _savedOut!;
+        _rootOut = _savedRootOut!;
+        _scope = _savedScope!;
+        _pendingReadbacks = _savedPendingReadbacks!;
+        _savedOut = null;
+        _savedRootOut = null;
+        _savedScope = null;
+        _savedPendingReadbacks = null;
+    }
+
     /// <summary>Read-backs for void calls, to be flushed after the call statement.</summary>
     public List<StatementSyntax> TakePendingReadbacks()
     {
@@ -80,6 +118,21 @@ internal sealed class RefOutInStatementLifter
     }
 
     // ── expression splicing ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Splice a by-value (or in-dropped) argument expression and then run the
+    /// children splicer over the remainder once more. <see cref="Splice"/>
+    /// short-circuits subtrees that contain no liftable calls, so a top-level
+    /// delegate argument (e.g. <c>(ref S s, int m) => …</c>) is returned
+    /// untouched and its lambdas would bypass the C5 rewrite entirely; this
+    /// second pass converts them while they are still bound to the original
+    /// model.
+    /// </summary>
+    private ExpressionSyntax SpliceArgument(ExpressionSyntax expr)
+    {
+        var spliced = Splice(expr);
+        return (ExpressionSyntax)new ChildrenSplicer(this).Visit(spliced)!;
+    }
 
     private ExpressionSyntax Splice(ExpressionSyntax expr)
     {
@@ -185,21 +238,68 @@ internal sealed class RefOutInStatementLifter
 
     private ExpressionSyntax SpliceChildren(ExpressionSyntax expr)
     {
-        // Top-most descendants that contain liftables are spliced recursively;
-        // their own dispatch handles conditional positions inside them.
-        ExpressionSyntax? found = null;
-        foreach (var desc in expr.DescendantNodes())
+        // Common case: no liftable call anywhere below (cached bindings make
+        // this a single structural walk).
+        if (!ContainsLiftable(expr)) return expr;
+
+        // Single top-down linear pass (the old implementation scanned all
+        // descendants, replaced one outermost target and re-scanned the whole
+        // expression — O(L*n^2) per statement, which never terminated on the
+        // generated serializer methods). The walker hands each target node to
+        // the same dedicated Splice handlers, so evaluation order, scoped
+        // short-circuit hoists and read-backs are identical.
+        return (ExpressionSyntax)new ChildrenSplicer(this).Visit(expr)!;
+    }
+
+    /// <summary>
+    /// Top-down expression splicer: target nodes (liftable invocations and the
+    /// short-circuit/coalesce/conditional expressions enclosing one) are
+    /// handed to the owning lifter's handlers, which themselves drive their
+    /// own subtrees; plain nodes are descended in syntax order. Descent stops
+    /// at lambdas/local functions (their calls are never statement-lifted).
+    /// </summary>
+    private sealed class ChildrenSplicer : CSharpSyntaxRewriter
+    {
+        private readonly RefOutInStatementLifter _lifter;
+
+        public ChildrenSplicer(RefOutInStatementLifter lifter) => _lifter = lifter;
+
+        // Lambdas are never statement-lifted, but they still must go through
+        // the owner rewrite (C5): the enclosing statement is rebuilt from
+        // fragments and never traversed again, so a held `ref` delegate
+        // parameter would otherwise survive verbatim (CS1677) and captured
+        // outer holders would miss their .Value injection.
+        public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node)
+            => _lifter._owner.VisitLambdaFragment(node);
+        public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node)
+            => _lifter._owner.VisitLambdaFragment(node);
+        public override SyntaxNode? VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node)
+            => _lifter._owner.VisitLambdaFragment(node);
+
+        public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
+            => _lifter.IsLiftable(node)
+                ? _lifter.LiftInvocation(node)
+                : base.VisitInvocationExpression(node);
+
+        public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
         {
-            if (desc is not ExpressionSyntax candidate) continue;
-            if (candidate is not (InvocationExpressionSyntax or BinaryExpressionSyntax
-                or ConditionalExpressionSyntax)) continue;
-            if (!ContainsLiftable(candidate)) continue;
-            if (found == null || found.DescendantNodes().Contains(candidate))
-                found = candidate;
+            if (!_lifter.ContainsLiftable(node))
+                return base.VisitBinaryExpression(node);
+
+            return node.Kind() switch
+            {
+                SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression
+                    => _lifter.SpliceShortCircuit(node),
+                SyntaxKind.CoalesceExpression
+                    => _lifter.SpliceCoalesce(node),
+                _ => base.VisitBinaryExpression(node),
+            };
         }
-        if (found == null) return expr;
-        var replaced = expr.ReplaceNode(found, Splice(found));
-        return Splice(replaced);
+
+        public override SyntaxNode? VisitConditionalExpression(ConditionalExpressionSyntax node)
+            => _lifter.ContainsLiftable(node)
+                ? _lifter.SpliceConditional(node)
+                : base.VisitConditionalExpression(node);
     }
 
     // ── invocation lifting ──────────────────────────────────────────────────
@@ -221,13 +321,13 @@ internal sealed class RefOutInStatementLifter
             {
                 // CD8: kept-in methods keep the keyword; stripped methods drop it.
                 if (_owner.IsInKept(method, i)) { newArgs.Add(arg); continue; }
-                newArgs.Add(SyntaxFactory.Argument(_owner.InjectSlotValues(Splice(arg.Expression))));
+                newArgs.Add(SyntaxFactory.Argument(_owner.InjectSlotValues(SpliceArgument(arg.Expression))));
                 continue;
             }
             if (!arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
                 && !arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
             {
-                newArgs.Add(SyntaxFactory.Argument(_owner.InjectSlotValues(Splice(arg.Expression))));
+                newArgs.Add(SyntaxFactory.Argument(_owner.InjectSlotValues(SpliceArgument(arg.Expression))));
                 continue;
             }
 
@@ -258,7 +358,17 @@ internal sealed class RefOutInStatementLifter
         }
 
         var temp = Temp("__call");
-        _out.Add(ParseStmt($"var {temp} = {newInvocation};"));
+        // Build the declaration from syntax nodes instead of interpolating and
+        // re-parsing: newInvocation REUSES original argument nodes (including
+        // delegate lambdas), and a re-parse would detach them from the original
+        // syntax tree so the splicer's C5 lambda rewrite could no longer bind
+        // their parameters (the `ref` parameter survives → CS1677).
+        _out.Add(SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(
+                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier("var")),
+                SyntaxFactory.SingletonSeparatedList(
+                    SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(temp))
+                        .WithInitializer(SyntaxFactory.EqualsValueClause(newInvocation))))));
         _out.AddRange(readbacks);
         return Identifier(temp);
     }

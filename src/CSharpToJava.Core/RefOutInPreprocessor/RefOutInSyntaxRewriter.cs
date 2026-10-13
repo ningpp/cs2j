@@ -1320,7 +1320,35 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     // ── helpers ─────────────────────────────────────────────────────────────
 
     private static BlockSyntax HoistedBlock(IEnumerable<StatementSyntax> stmts) =>
-        SyntaxFactory.Block(stmts).WithAdditionalAnnotations(RefOutInStatementLifter.HoistedBlockAnnotation);
+        SyntaxFactory.Block(stmts)
+            .WithAdditionalAnnotations(RefOutInStatementLifter.HoistedBlockAnnotation);
+
+    /// <summary>
+    /// C5 entry for lambdas retained inside a lifted invocation: the lifter
+    /// rebuilds the enclosing statement from fragments and that replacement is
+    /// never traversed again, so every lambda the splicer meets must be run
+    /// through the normal rewrite HERE, while its node is still bound to the
+    /// ORIGINAL semantic model — a held <c>ref</c> parameter becomes
+    /// <c>ByRef&lt;T&gt;</c> and holder references inside the body become
+    /// <c>.Value</c>. Non-held lambdas merely receive the ordinary
+    /// holder-reference injection their normal traversal would have performed
+    /// (e.g. a captured outer holder). Nested lambdas are converted by the
+    /// ordinary descent inside Visit.
+    /// </summary>
+    internal SyntaxNode VisitLambdaFragment(AnonymousFunctionExpressionSyntax node)
+    {
+        // Isolate the lifter's per-statement scratch state: the owner visit
+        // below re-enters the lifter from the lambda's own body statements.
+        _lifter.EnterFragmentLambdaVisit();
+        try
+        {
+            return Visit(node)!;
+        }
+        finally
+        {
+            _lifter.LeaveFragmentLambdaVisit();
+        }
+    }
 
     // ── C5: lambda / local-function ref-out params ──────────────────────────
 
