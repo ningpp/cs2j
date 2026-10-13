@@ -123,14 +123,25 @@ internal sealed class RefOutInStatementLifter
         _out.Add(ParseStmt($"{typeName} {temp} = {left};"));
         PushScope();
         var rightValue = Splice(bin.Right);
-        _out.Add(ParseStmt($"{temp} = {rightValue};"));
+        _out.Add(BranchAssignment(temp, rightValue));
         var conditional = PopScope();
+
         _out.Add(SyntaxFactory.IfStatement(
             SyntaxFactory.BinaryExpression(SyntaxKind.EqualsExpression, Identifier(temp),
                 SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
             conditional));
         return Identifier(temp);
     }
+
+    /// <summary>
+    /// Statement for a hoisted conditional/coalesce branch result: a bare
+    /// <c>throw</c> expression cannot legally be the RHS of an assignment
+    /// (CS8115), so emit a throw statement for that branch.
+    /// </summary>
+    private static StatementSyntax BranchAssignment(string temp, ExpressionSyntax value)
+        => value is ThrowExpressionSyntax throwExpression
+            ? SyntaxFactory.ThrowStatement(throwExpression.Expression)
+            : ParseStmt($"{temp} = {value};");
 
     private ExpressionSyntax SpliceConditional(ConditionalExpressionSyntax cond)
     {
@@ -142,11 +153,11 @@ internal sealed class RefOutInStatementLifter
         _out.Add(ParseStmt($"{typeName} {temp} = {defaultLit};"));
 
         PushScope();
-        _out.Add(ParseStmt($"{temp} = {Splice(cond.WhenTrue)};"));
+        _out.Add(BranchAssignment(temp, Splice(cond.WhenTrue)));
         var trueBlock = PopScope();
 
         PushScope();
-        _out.Add(ParseStmt($"{temp} = {Splice(cond.WhenFalse)};"));
+        _out.Add(BranchAssignment(temp, Splice(cond.WhenFalse)));
         var falseBlock = PopScope();
 
         _out.Add(SyntaxFactory.IfStatement(condition, trueBlock, SyntaxFactory.ElseClause(falseBlock)));
