@@ -145,6 +145,18 @@ internal sealed class RefOutInStatementLifter
 
     private ExpressionSyntax SpliceConditional(ConditionalExpressionSyntax cond)
     {
+        // Mirror SpliceShortCircuit/SpliceCoalesce: statement-splitting a
+        // ternary is only legal (and necessary) when at least one liftable
+        // ref/out call lives in the condition or a branch. Otherwise the
+        // untouched expression must stay in place — hoisting it emits an
+        // untyped `object __cond` temp and breaks value-typed consumers
+        // (CS0266 object->bool at `bool x = __cond;`). SpliceChildren is a
+        // no-op walk for the lift-free case.
+        if (!ContainsLiftable(cond))
+        {
+            return SpliceChildren(cond);
+        }
+
         var condition = Splice(cond.Condition);
         var typeName = TypeNameOf(cond) ?? "object";
         var temp = Temp("__cond");
