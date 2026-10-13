@@ -91,8 +91,11 @@ public sealed class StructValueSemanticsStatistics
     /// <summary>VS-6：无初始化器的 struct 类型实例字段（仅登记供 W 系列审计，不插 clone）。</summary>
     public int UninitializedStructFields { get; set; }
 
-    /// <summary>SV040-d：经 this 持有者 copy-in/copy-out 改写的实例方法数（含写回）。</summary>
+    /// <summary>SV040-d/SV041：经 this 持有者 copy-in/copy-out 改写的实例方法数（含写回）。</summary>
     public int ThisCaptureMethodsRewritten { get; set; }
+
+    /// <summary>SV041：经字段式展开消解 this 整体赋值的成员数（构造函数/访问器/方法）。</summary>
+    public int ThisAssignmentMembersExpanded { get; set; }
 
     /// <summary>其中纯读捕获、仅提升持有者不做出口回写的方法数。</summary>
     public int ThisCaptureReadOnlyMethods { get; set; }

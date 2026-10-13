@@ -11,9 +11,10 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// ①同步 struct 实例方法内直接捕获 this 的 lambda/匿名方法/局部函数（CS1673 形态，
 /// 含 ref-out-in 风格 ByRef 访问器闭包）改写为方法级 this 持有者 copy-in/copy-out；
 /// ②async/iterator 实例方法由编译器状态机按值快照 this，不再判 SV040；
-/// ③真无解形态（表达式树捕获、async/iterator 内捕获闭包、base 访问、非方法成员、
-/// ref/out this、ref return、this 赋值、指针字段）保持显式失败；
-/// ④显式其它接收者（builder.AsSpan()）不误判；⑤改写幂等。
+/// ③真无解形态（表达式树捕获、async/iterator 内捕获闭包、base 访问+捕获闭包、
+/// 非方法成员内的捕获、ref/out this、ref return、指针字段）保持显式失败；
+/// ④this 整体赋值的方法持有者/字段式展开见 StructValueSemanticsThisAssignmentTests；
+/// ⑤显式其它接收者（builder.AsSpan()）不误判；⑥改写幂等。
 /// </summary>
 public class StructValueSemanticsThisCaptureTests
 {
@@ -581,8 +582,9 @@ public class StructValueSemanticsThisCaptureTests
     }
 
     [Fact]
-    public void ThisAssignment_StaysSV041()
+    public void ThisAssignment_InMethod_BecomesHolderCopyInCopyOut()
     {
+        // SV041 根因修复：普通实例方法整体赋值 this 走方法级持有者（与 SV040-d 同机制）。
         var run = Analyze("""
             namespace Lib;
             public struct Box
@@ -591,7 +593,20 @@ public class StructValueSemanticsThisCaptureTests
                 public void Reset() { this = default; }
             }
             """);
-        AssertInfeasible(run, StructValueSemanticsDiagnosticCode.SV041);
+
+        var plan = Plan(run);
+        Assert.True(plan.IsActive);
+        Assert.Single(plan.ThisCaptureRewrites);
+        Assert.True(plan.ThisCaptureRewrites[0].HasWrites);
+        Assert.Equal(1, run.Statistics.ThisCaptureMethodsRewritten);
+        var output = Normalized(run.Output);
+        Assert.Contains("var __cs2jTc0 = this;", output);
+        Assert.Contains("__cs2jTc0 = default;", output);
+        Assert.Contains("this = __cs2jTc0;", output);
+        AssertOutputCompiles(run.Output);
+        Assert.DoesNotContain(run.Diagnostics, d =>
+            d.Severity == StructValueSemanticsSeverity.Error
+            && d.Code == StructValueSemanticsDiagnosticCode.SV041);
     }
 
     [Fact]

@@ -216,6 +216,32 @@ internal static class CloneShimGenerator
     }
 
     /// <summary>
+    /// 逐字段复制成员清单（与拷贝构造口径一致）：显式实例字段给出字段名；自动属性
+    /// 后备字段给出属性名（构造函数内经属性赋值合法，get-only 亦然）；字段式事件后备/
+    /// fixed 缓冲区已在裁决期 Infeasible（SV051），此处不返回；其他合成字段忽略。
+    /// SV041 字段式展开复用本清单，保证 shim 拷贝构造与 this 赋值展开覆盖同一成员集。
+    /// </summary>
+    internal static IReadOnlyList<(string Name, bool IsAutoProperty)> EnumerateCopyMembers(
+        INamedTypeSymbol symbol)
+    {
+        var result = new List<(string, bool)>();
+        foreach (var field in symbol.GetMembers().OfType<IFieldSymbol>()
+                     .Where(f => !f.IsStatic && !f.IsConst)
+                     .OrderBy(f => f.Name, StringComparer.Ordinal))
+        {
+            if (field.IsFixedSizeBuffer || field.AssociatedSymbol is IEventSymbol) continue;
+            if (field.IsImplicitlyDeclared && field.AssociatedSymbol is IPropertySymbol property)
+            {
+                result.Add((property.Name, true));
+                continue;
+            }
+            if (field.IsImplicitlyDeclared) continue;
+            result.Add((field.Name, false));
+        }
+        return result;
+    }
+
+    /// <summary>
     /// 字段静态类型 ∈ 残余可变 struct 且其 plan 激活（Clone 成员必然可用）时递归深拷贝；
     /// 其余（基元/enum/string/引用/数组/readonly struct/跳过 plan）保持浅赋值（§4.4）。
     /// </summary>

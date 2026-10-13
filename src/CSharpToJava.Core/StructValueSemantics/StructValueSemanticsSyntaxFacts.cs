@@ -21,6 +21,15 @@ internal static class StructValueSemanticsSyntaxFacts
     /// <summary>SV040-d：方法体内需路由到持有者的 this/隐式 this 节点标注种类。</summary>
     public const string ThisCaptureRouteAnnotationKind = "Cs2jStructValueSemanticsThisCaptureRoute";
 
+    /// <summary>SV041：需做 this 整体赋值字段式展开的成员（构造函数/访问器/方法）标注种类。</summary>
+    public const string ThisAssignmentMemberAnnotationKind = "Cs2jStructValueSemanticsThisAssignmentMember";
+
+    /// <summary>
+    /// SV041 消解：构造函数/访问器/方法中 <c>this = expr</c> 字段式展开承接右值的
+    /// 局部临时变量前缀（所有权在展开块内转移给 this，块外即死）。
+    /// </summary>
+    public const string ThisAssignTempPrefix = "__cs2jTa";
+
     /// <summary>VS-1c 链式赋值提升的值临时变量前缀。</summary>
     public const string ChainedAssignTempPrefix = "__cs2jSc";
 

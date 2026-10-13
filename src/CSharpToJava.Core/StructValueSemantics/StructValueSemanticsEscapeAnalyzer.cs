@@ -6,11 +6,10 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.Core.StructValueSemantics;
 
 /// <summary>
-/// plan 期「语言无解」构造扫描（设计 §6 SV040/SV041/SV042），两轮：
+/// plan 期「语言无解」构造扫描（设计 §6 SV040/SV041/SV042），三轮：
 /// <list type="bullet">
-/// <item>硬构造（命中即 plan Infeasible）：SV041 结构体内 <c>this = expr</c>；
-/// SV040-a ref/out this（或可变实例字段外传）；SV040-b ref return this/可变字段；
-/// SV042 指针/ref struct/fixed/取址混叠。</item>
+/// <item>硬构造（命中即 plan Infeasible）：SV040-a ref/out this（或可变实例字段
+/// 外传）；SV040-b ref return this/可变字段；SV042 指针/ref struct/fixed/取址混叠。</item>
 /// <item>this 捕获消解（SV040-c/d 根因修复）：①async/迭代器「实例」方法由 C#
 /// 编译器状态机按值捕获 this（写不回外层，本就是语言语义；C04 显式降级同为按值、
 /// C18 轻量保留 await），不再判无解；②普通同步实例方法中直接捕获 this 的匿名函数
@@ -18,6 +17,17 @@ namespace CSharpToJava.Core.StructValueSemantics;
 /// this 持有者改写（copy-in/copy-out 值副本，Phase 3 落地）；仅当方法形态确实
 /// 无法保持值语义（async/迭代器内含此形态、表达式树内捕获、无方法体等）才保留
 /// SV040 显式失败。</item>
+/// <item>this 整体赋值消解（SV041 根因修复）：①普通实例方法（含 async/迭代器/
+/// 泛型/partial/表达式体）登记为方法级持有者改写——LHS <c>this</c> 路由为持有者，
+/// 出口 copy-out 回写调用者存储，天然覆盖表达式位置/链式/复合/循环/try 全形态；
+/// ②构造函数与属性/索引器/事件访问器不能走持有者（构造函数 this 起始未赋值，
+/// copy-in 触发 CS0185/CS0165），语句形态 <c>this = expr</c> 登记为字段式展开
+/// （承接 E13 ConstructorNormalizer 的既定模型：<c>var t = expr; this.f1 = t.f1;
+/// …</c>，构造函数内 readonly 字段/get-only 自动属性后备亦可写）；③含 base 访问
+/// 的方法不能改道持有者（base. 非虚调用必须落在真实接收者），无 readonly 实例字段
+/// 时同样走字段式展开。仅真正无保持形态（访问器含 readonly 字段、构造函数/访问器
+/// 内非语句位置/复合 this 赋值、base 方法遇非语句位置或 readonly 字段、静态/未知
+/// 成员）才保留 SV041 显式失败。</item>
 /// </list>
 /// 方向性取舍（设计 §10-3）：真·无法保持值语义宁可显式报错；假阳由精确接收者
 /// 分析消解（显式其它接收者 <c>builder.AsSpan()</c> 不构成 this 捕获）。
@@ -59,7 +69,8 @@ internal static class StructValueSemanticsEscapeAnalyzer
             }
         }
 
-        // 第一轮：硬构造（SV040-a/b、SV041、SV042），任一命中立即 Infeasible。
+        // 第一轮：硬构造（SV040-a/b、SV042），任一命中立即 Infeasible。
+        // SV041（this 整体赋值）改由第三轮语义改写消解，此处不再判死。
         foreach (var part in parts)
         {
             var model = compilation.GetSemanticModel(part.SyntaxTree);
@@ -76,6 +87,19 @@ internal static class StructValueSemanticsEscapeAnalyzer
         {
             var model = compilation.GetSemanticModel(part.SyntaxTree);
             if (TryPlanThisCaptures(part, symbol, model, plan,
+                    out var blockedCode, out var blockedReason, out var blockedLocation))
+            {
+                Mark(plan, blockedCode, blockedReason, blockedLocation);
+                return true;
+            }
+        }
+
+        // 第三轮：this 整体赋值登记持有者改写（方法）或字段式展开（ctor/访问器/base 方法）；
+        // 无保持形态的成员/位置仍显式 SV041。
+        foreach (var part in parts)
+        {
+            var model = compilation.GetSemanticModel(part.SyntaxTree);
+            if (TryPlanThisAssignments(part, symbol, model, plan,
                     out var blockedCode, out var blockedReason, out var blockedLocation))
             {
                 Mark(plan, blockedCode, blockedReason, blockedLocation);
@@ -113,23 +137,11 @@ internal static class StructValueSemanticsEscapeAnalyzer
 
         // 仅在该类型「直接成员」体内扫描（嵌套类型有自己的 this/plan）。
         bool IsInDirectMember(SyntaxNode node) =>
-            node.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault() == part;
+            StructValueSemanticsEscapeAnalyzer.IsInDirectMember(node, part);
 
         foreach (var node in part.DescendantNodes())
         {
             if (!IsInDirectMember(node)) continue;
-
-            // SV041：this = expr（本 pass 自己生成的出口回写 this = __cs2jTcN 除外：幂等）。
-            if (node is AssignmentExpressionSyntax assignment
-                && UnwrapParens(assignment.Left) is ThisExpressionSyntax
-                && !IsGeneratedCopyOut(assignment.Right))
-            {
-                code = StructValueSemanticsDiagnosticCode.SV041;
-                reason = "struct method assigns to 'this'; the defensive clone model cannot preserve " +
-                    "value semantics for whole-struct reassignment (add an explicit Clone() or skip the type).";
-                location = assignment.GetLocation();
-                return true;
-            }
 
             // SV040-a：M(ref this) / M(ref _mutableField) / M(out this)
             if (node is ArgumentSyntax { RefKindKeyword: var refKind } argument
@@ -329,6 +341,289 @@ internal static class StructValueSemanticsEscapeAnalyzer
         return false;
     }
 
+    /// <summary>
+    /// 扫描本部件直接成员中的整体 this 赋值（<c>this = expr</c> / 复合 / this++）：
+    /// 普通方法登记方法级持有者改写（与 SV040-d 同机制，LHS this 路由为持有者、
+    /// 出口 copy-out）；构造函数/访问器/含 base 访问的方法登记字段式展开；
+    /// 成员形态或位置确实无法保持值语义时返回 blocked=SV041 显式失败。
+    /// </summary>
+    private static bool TryPlanThisAssignments(
+        TypeDeclarationSyntax part,
+        INamedTypeSymbol symbol,
+        SemanticModel model,
+        ClonePlan plan,
+        out StructValueSemanticsDiagnosticCode blockedCode,
+        out string blockedReason,
+        out Location? blockedLocation)
+    {
+        blockedCode = default;
+        blockedReason = string.Empty;
+        blockedLocation = null;
+
+        var targetsByMember =
+            new Dictionary<SyntaxNode, List<SyntaxNode>>(ReferenceEqualityComparer.Instance);
+
+        foreach (var node in part.DescendantNodes())
+        {
+            if (!IsInDirectMember(node, part)) continue;
+            if (!IsWholeThisAssignmentTarget(node, out var assignment)) continue;
+            // 幂等：本 pass 生成的出口回写 this = __cs2jTcN 不是源生赋值。
+            if (assignment is not null && IsGeneratedCopyOut(assignment.Right)) continue;
+
+            // 直接词法成员：访问器优先（AccessorDeclarationSyntax 在新版 Roslyn 不再
+            // 是 MemberDeclarationSyntax 子类；属性/索引器/事件声明本身不是赋值的词法
+            // 容器），否则取父节点即本部件类型声明的方法/构造函数。嵌套类型成员已由
+            // IsInDirectMember 排除；局部函数是 StatementSyntax，会正确落到外层方法。
+            SyntaxNode? member = node.Ancestors()
+                .OfType<AccessorDeclarationSyntax>().FirstOrDefault();
+            member ??= node.Ancestors()
+                .FirstOrDefault(a => a.Parent == part
+                    && a is MethodDeclarationSyntax or ConstructorDeclarationSyntax);
+            if (member == null)
+            {
+                return BlockThisAssignment(out blockedCode, out blockedReason, out blockedLocation,
+                    "a whole-struct 'this' assignment appears outside a rewritable struct member " +
+                    "(constructor/accessor/instance method).",
+                    node.GetLocation());
+            }
+
+            if (!targetsByMember.TryGetValue(member, out var list))
+            {
+                list = new List<SyntaxNode>();
+                targetsByMember.Add(member, list);
+            }
+            list.Add(node);
+        }
+
+        foreach (var pair in targetsByMember)
+        {
+            var member = pair.Key;
+            var targets = pair.Value;
+            var firstLocation = targets[0].GetLocation();
+            var memberSymbol = model.GetDeclaredSymbol(member) as IMethodSymbol;
+            if (memberSymbol == null || memberSymbol.IsStatic)
+            {
+                // static 上下文出现 this 本就是 CS0026；显式失败，不静默改写。
+                return BlockThisAssignment(out blockedCode, out blockedReason, out blockedLocation,
+                    "a whole-struct 'this' assignment appears in a static or unbindable member; " +
+                    "no this holder or field expansion can be introduced.",
+                    firstLocation);
+            }
+
+            switch (member)
+            {
+                case MethodDeclarationSyntax method:
+                    if (PlanThisAssignmentMethod(method, symbol, targets, memberSymbol,
+                            firstLocation, plan))
+                    {
+                        continue;
+                    }
+                    return BlockThisAssignment(out blockedCode, out blockedReason, out blockedLocation,
+                        RefineMethodBlockReason(symbol, targets), firstLocation);
+
+                case ConstructorDeclarationSyntax:
+                    if (targets.All(IsSimpleStatementPosition))
+                    {
+                        AddExpansion(plan, memberSymbol, firstLocation, part);
+                        continue;
+                    }
+                    return BlockThisAssignment(out blockedCode, out blockedReason, out blockedLocation,
+                        "a struct constructor assigns to 'this' in a non-statement position (or via a " +
+                        "compound assignment/increment); only statement-form 'this = expr' can be " +
+                        "expanded field-by-field.",
+                        firstLocation);
+
+                case AccessorDeclarationSyntax:
+                    if (HasReadOnlyInstanceField(symbol))
+                    {
+                        return BlockThisAssignment(out blockedCode, out blockedReason, out blockedLocation,
+                            "a struct property/indexer/event accessor assigns to 'this' while the struct " +
+                            "declares a readonly instance field (or get-only auto-property); field-by-field " +
+                            "expansion cannot assign readonly members outside a constructor.",
+                            firstLocation);
+                    }
+                    if (targets.All(IsSimpleStatementPosition))
+                    {
+                        AddExpansion(plan, memberSymbol, firstLocation, part);
+                        continue;
+                    }
+                    return BlockThisAssignment(out blockedCode, out blockedReason, out blockedLocation,
+                        "a struct property/indexer/event accessor assigns to 'this' in a non-statement " +
+                        "position (or via a compound assignment/increment); only statement-form " +
+                        "'this = expr' can be expanded field-by-field.",
+                        firstLocation);
+
+                default:
+                    return BlockThisAssignment(out blockedCode, out blockedReason, out blockedLocation,
+                        "a whole-struct 'this' assignment appears in a member kind that supports neither " +
+                        "a this holder nor field-by-field expansion.",
+                        firstLocation);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 方法形态裁决：已登记 this 持有者（含 this 捕获闭包）则把整体赋值的写入并入
+    /// 持有者；无 base 访问直接登记持有者；有 base 访问且全部语句形态、无 readonly
+    /// 实例字段时走字段式展开。返回 false 表示该方法必须保留 SV041。
+    /// </summary>
+    private static bool PlanThisAssignmentMethod(
+        MethodDeclarationSyntax method,
+        INamedTypeSymbol symbol,
+        List<SyntaxNode> targets,
+        IMethodSymbol methodSymbol,
+        Location firstLocation,
+        ClonePlan plan)
+    {
+        var existing = plan.ThisCaptureRewrites
+            .FirstOrDefault(r => SymbolEqualityComparer.Default.Equals(r.Method, methodSymbol));
+        if (existing != null)
+        {
+            // 闭包持有者改写会把方法体内全部 this（含整体赋值 LHS）路由到持有者；
+            // 整体赋值本身即写入，确保出口 copy-out。
+            if (!existing.HasWrites)
+            {
+                plan.ThisCaptureRewrites.Remove(existing);
+                plan.ThisCaptureRewrites.Add(existing with { HasWrites = true });
+            }
+            return true;
+        }
+
+        var scope = (SyntaxNode?)method.Body ?? method.ExpressionBody;
+        if (scope == null) return false; // 无体 partial 签名：实现部件负责。
+
+        var hasBase = scope.DescendantNodes()
+            .OfType<BaseExpressionSyntax>().Any();
+
+        if (!hasBase)
+        {
+            plan.ThisCaptureRewrites.Add(
+                new ThisCaptureRewrite(methodSymbol, HasWrites: true, firstLocation));
+            plan.TouchedFiles.Add(method.SyntaxTree.FilePath);
+            return true;
+        }
+
+        if (targets.All(IsSimpleStatementPosition) && !HasReadOnlyInstanceField(symbol))
+        {
+            AddExpansion(plan, methodSymbol, firstLocation,
+                method.FirstAncestorOrSelf<TypeDeclarationSyntax>()!);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string RefineMethodBlockReason(INamedTypeSymbol symbol, List<SyntaxNode> targets)
+    {
+        if (HasReadOnlyInstanceField(symbol))
+        {
+            return "a struct instance method both assigns to 'this' and uses a 'base.' member; " +
+                "the this-holder rewrite would misroute the non-virtual base call, and field-by-field " +
+                "expansion cannot assign the struct's readonly instance field(s) outside a constructor.";
+        }
+        return "a struct instance method both assigns to 'this' (in a non-statement position or via a " +
+            "compound assignment/increment) and uses a 'base.' member; the this-holder rewrite would " +
+            "misroute the non-virtual base call, and only statement-form 'this = expr' can be expanded " +
+            "field-by-field.";
+    }
+
+    private static void AddExpansion(
+        ClonePlan plan,
+        IMethodSymbol memberSymbol,
+        Location location,
+        TypeDeclarationSyntax part)
+    {
+        if (plan.ThisAssignmentExpansions.Any(e =>
+                SymbolEqualityComparer.Default.Equals(e.Member, memberSymbol)))
+        {
+            return;
+        }
+        plan.ThisAssignmentExpansions.Add(new ThisAssignmentExpansion(memberSymbol, location));
+        plan.TouchedFiles.Add(part.SyntaxTree.FilePath);
+    }
+
+    private static bool BlockThisAssignment(
+        out StructValueSemanticsDiagnosticCode blockedCode,
+        out string blockedReason,
+        out Location? blockedLocation,
+        string reason,
+        Location? location)
+    {
+        blockedCode = StructValueSemanticsDiagnosticCode.SV041;
+        blockedReason = reason;
+        blockedLocation = location;
+        return true;
+    }
+
+    /// <summary>
+    /// 节点是否为整体 this 赋值目标：<c>this = …</c>/<c>(this) = …</c>（任意赋值运算）
+    /// 或 <c>this++</c>/<c>++this</c>；命中简单赋值时回传赋值表达式。
+    /// </summary>
+    private static bool IsWholeThisAssignmentTarget(
+        SyntaxNode node,
+        out AssignmentExpressionSyntax? assignment)
+    {
+        assignment = null;
+        if (node is AssignmentExpressionSyntax a
+            && UnwrapParens(a.Left) is ThisExpressionSyntax)
+        {
+            assignment = a;
+            return true;
+        }
+        ExpressionSyntax? unaryOperand = node switch
+        {
+            PrefixUnaryExpressionSyntax pre when pre.IsKind(SyntaxKind.PreIncrementExpression)
+                || pre.IsKind(SyntaxKind.PreDecrementExpression) => pre.Operand,
+            PostfixUnaryExpressionSyntax post when post.IsKind(SyntaxKind.PostIncrementExpression)
+                || post.IsKind(SyntaxKind.PostDecrementExpression) => post.Operand,
+            _ => null,
+        };
+        if (unaryOperand != null && UnwrapParens(unaryOperand) is ThisExpressionSyntax)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 整体 this 赋值是否为可字段式展开的语句形态：<c>this = expr;</c>（允许括号）
+    /// 或访问器/方法的表达式体 <c>=&gt; this = expr</c>；复合赋值/自增减/表达式位置不展。
+    /// </summary>
+    private static bool IsSimpleStatementPosition(SyntaxNode node)
+    {
+        if (node is not AssignmentExpressionSyntax
+                { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment)
+        {
+            return false;
+        }
+
+        var current = (SyntaxNode)assignment;
+        while (current.Parent is ParenthesizedExpressionSyntax)
+            current = current.Parent;
+
+        if (current.Parent is ExpressionStatementSyntax) return true;
+        if (current.Parent is ArrowExpressionClauseSyntax arrow
+            && arrow.Expression == current
+            && arrow.Parent is AccessorDeclarationSyntax or MethodDeclarationSyntax)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>struct 是否声明 readonly 实例字段（含 get-only/init-only 自动属性后备字段）。</summary>
+    private static bool HasReadOnlyInstanceField(INamedTypeSymbol symbol)
+    {
+        foreach (var field in symbol.GetMembers().OfType<IFieldSymbol>())
+        {
+            if (field.IsStatic || field.IsConst) continue;
+            if (field.IsReadOnly) return true;
+        }
+        return false;
+    }
+
     private static bool BlockThisCapture(
         out StructValueSemanticsDiagnosticCode blockedCode,
         out string blockedReason,
@@ -386,6 +681,10 @@ internal static class StructValueSemanticsEscapeAnalyzer
         }
         return false;
     }
+
+    /// <summary>节点是否位于该类型声明的「直接成员」体内（嵌套类型成员不属本 struct）。</summary>
+    private static bool IsInDirectMember(SyntaxNode node, TypeDeclarationSyntax part) =>
+        node.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault() == part;
 
     private static ExpressionSyntax UnwrapParens(ExpressionSyntax expression)
     {

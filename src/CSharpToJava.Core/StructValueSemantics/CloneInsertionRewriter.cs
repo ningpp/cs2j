@@ -32,6 +32,13 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<SyntaxAnnotation, string> _holderByRouteAnnotation = new();
     private int _thisCaptureCounter;
 
+    // SV041：成员标注 → 所属 plan（字段式展开）；展开上下文按成员访问嵌套压栈。
+    private readonly Dictionary<SyntaxAnnotation, ClonePlan> _expansionByMemberAnnotation = new();
+    private readonly Stack<ClonePlan> _activeExpansions = new();
+    private readonly Dictionary<ClonePlan, IReadOnlyList<(string Name, bool IsAutoProperty)>>
+        _copyMembersByPlan = new(ReferenceEqualityComparer.Instance);
+    private int _thisAssignmentTempCounter;
+
     public CloneInsertionRewriter(
         SemanticModel model,
         IReadOnlyList<ClonePlan> activePlans,
@@ -89,6 +96,7 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
             }
 
             AnnotateThisCaptures(plan, AddAnnotation);
+            AnnotateThisAssignments(plan, AddAnnotation);
         }
 
         // shim 注入点（主声明文件的类型声明）与站点锚点一次性标注/改写，
@@ -180,6 +188,41 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
                         addAnnotation(descendant, route);
                     }
                 }
+            }
+        }
+    }
+
+    /// <summary>
+    /// SV041：为本文件内需字段式展开的成员（构造函数/访问器/含 base 访问的方法）
+    /// 标注成员节点。裁决全部在计划期定型，此处只做语法引用解析与标注。
+    /// </summary>
+    private void AnnotateThisAssignments(
+        ClonePlan plan,
+        Action<SyntaxNode, SyntaxAnnotation> addAnnotation)
+    {
+        foreach (var expansion in plan.ThisAssignmentExpansions)
+        {
+            foreach (var reference in expansion.Member.DeclaringSyntaxReferences)
+            {
+                if (!string.Equals(reference.SyntaxTree.FilePath, _filePath,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                // AccessorDeclarationSyntax 在新版 Roslyn 不继承 MemberDeclarationSyntax，
+                // 故按语法节点接收，Visit 时再按具体类型分发。
+                var member = reference.GetSyntax();
+                if (member is not MethodDeclarationSyntax
+                    and not ConstructorDeclarationSyntax
+                    and not AccessorDeclarationSyntax)
+                {
+                    continue;
+                }
+
+                var annotation = new SyntaxAnnotation(
+                    StructValueSemanticsSyntaxFacts.ThisAssignmentMemberAnnotationKind);
+                _expansionByMemberAnnotation[annotation] = plan;
+                addAnnotation(member, annotation);
             }
         }
     }
@@ -294,6 +337,13 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
         var visited = base.VisitExpressionStatement(node);
         if (visited is not ExpressionStatementSyntax expressionStatement) return visited;
 
+        // SV041：展开成员内的语句形态 this = expr（右值已在 base 访问中完成 clone 包裹）。
+        if (_activeExpansions.Count > 0
+            && TryGetThisAssignment(expressionStatement.Expression, out var assignment))
+        {
+            return ExpandThisAssignment(assignment, expressionStatement);
+        }
+
         var site = FindApplicableSite(expressionStatement.Expression);
         if (site is { Kind: SiteKind.ChainedAssign })
             return HoistChainedAssignment(site, expressionStatement);
@@ -340,8 +390,65 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
         return visited.CopyAnnotationsTo(memberAccess);
     }
 
+    public override SyntaxNode? VisitConstructorDeclaration(ConstructorDeclarationSyntax node)
+    {
+        if (!TryGetExpansionPlan(node, out var plan))
+            return base.VisitConstructorDeclaration(node)!;
+
+        _activeExpansions.Push(plan);
+        var visited = (ConstructorDeclarationSyntax)base.VisitConstructorDeclaration(node)!;
+        _activeExpansions.Pop();
+
+        _statistics.ThisAssignmentMembersExpanded++;
+        return visited.WithAdditionalAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation);
+    }
+
+    public override SyntaxNode? VisitAccessorDeclaration(AccessorDeclarationSyntax node)
+    {
+        if (!TryGetExpansionPlan(node, out var plan))
+            return base.VisitAccessorDeclaration(node)!;
+
+        _activeExpansions.Push(plan);
+        var visited = (AccessorDeclarationSyntax)base.VisitAccessorDeclaration(node)!;
+        _activeExpansions.Pop();
+
+        // 表达式体访问器 set => this = expr; → 块体字段式展开。
+        if (visited.ExpressionBody is { } arrow
+            && TryGetThisAssignment(arrow.Expression, out var assignment))
+        {
+            var block = SyntaxFactory.Block(BuildExpansionStatements(plan, assignment));
+            visited = visited.WithExpressionBody(null)
+                .WithBody(block)
+                .WithSemicolonToken(default);
+        }
+
+        _statistics.ThisAssignmentMembersExpanded++;
+        return visited.WithAdditionalAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation);
+    }
+
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
+        // SV041 字段式展开（base 方法形态）；与持有者改写互斥（计划期保证）。
+        if (TryGetExpansionPlan(node, out var expansionPlan))
+        {
+            _activeExpansions.Push(expansionPlan);
+            var expanded = (MethodDeclarationSyntax)base.VisitMethodDeclaration(node)!;
+            _activeExpansions.Pop();
+
+            // 表达式体方法 => this = expr; → 块体字段式展开。
+            if (expanded.ExpressionBody is { } arrow
+                && TryGetThisAssignment(arrow.Expression, out var arrowAssignment))
+            {
+                var block = SyntaxFactory.Block(BuildExpansionStatements(expansionPlan, arrowAssignment));
+                expanded = expanded.WithExpressionBody(null)
+                    .WithBody(block)
+                    .WithSemicolonToken(default);
+            }
+
+            _statistics.ThisAssignmentMembersExpanded++;
+            return expanded.WithAdditionalAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation);
+        }
+
         var visited = (MethodDeclarationSyntax)base.VisitMethodDeclaration(node)!;
 
         var methodAnnotation = node
@@ -444,6 +551,116 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
 
         return SyntaxFactory.Block(openBrace, statements, closeBrace)
             .WithAdditionalAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation);
+    }
+
+    // ── SV041：this 整体赋值字段式展开（ctor/访问器/base 方法） ──
+
+    private bool TryGetExpansionPlan(SyntaxNode node, out ClonePlan plan)
+    {
+        foreach (var annotation in node.GetAnnotations(
+                     StructValueSemanticsSyntaxFacts.ThisAssignmentMemberAnnotationKind))
+        {
+            if (_expansionByMemberAnnotation.TryGetValue(annotation, out var found))
+            {
+                plan = found;
+                return true;
+            }
+        }
+        plan = null!;
+        return false;
+    }
+
+    /// <summary>表达式（剥括号后）是否为简单 <c>this = expr</c> 赋值。</summary>
+    private static bool TryGetThisAssignment(
+        ExpressionSyntax expression,
+        out AssignmentExpressionSyntax assignment)
+    {
+        if (UnwrapParens(expression) is AssignmentExpressionSyntax
+                { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } candidate
+            && UnwrapParens(candidate.Left) is ThisExpressionSyntax)
+        {
+            assignment = candidate;
+            return true;
+        }
+        assignment = null!;
+        return false;
+    }
+
+    private static ExpressionSyntax UnwrapParens(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax paren)
+            expression = paren.Expression;
+        return expression;
+    }
+
+    /// <summary>
+    /// 语句 <c>this = rhs;</c> →
+    /// <c>{ var __cs2jTaN = rhs; this.f1 = __cs2jTaN.f1; … }</c>。
+    /// 右值已按 VS-1b 等站点插 clone（非新鲜值），临时持有独立副本；逐字段浅赋值把
+    /// 所有权转移给 this（临时块外即死，不产生新别名）。
+    /// </summary>
+    private StatementSyntax ExpandThisAssignment(
+        AssignmentExpressionSyntax assignment,
+        ExpressionStatementSyntax statement)
+    {
+        var plan = _activeExpansions.Peek();
+        return SyntaxFactory.Block(BuildExpansionStatements(plan, assignment))
+            .WithLeadingTrivia(statement.GetLeadingTrivia())
+            .WithTrailingTrivia(statement.GetTrailingTrivia())
+            .WithAdditionalAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation);
+    }
+
+    private List<StatementSyntax> BuildExpansionStatements(
+        ClonePlan plan,
+        AssignmentExpressionSyntax assignment)
+    {
+        var tempName = StructValueSemanticsSyntaxFacts.ThisAssignTempPrefix
+            + _thisAssignmentTempCounter++.ToString();
+
+        // var t = default; 无法推断类型（CS8716），裸 default 字面量须显式目标类型。
+        var rhs = UnwrapParens(assignment.Right).IsKind(SyntaxKind.DefaultLiteralExpression)
+            ? SyntaxFactory.DefaultExpression(
+                SyntaxFactory.ParseTypeName(
+                    plan.Symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)))
+            : assignment.Right.WithoutTrivia();
+
+        var statements = new List<StatementSyntax>
+        {
+            SyntaxFactory.LocalDeclarationStatement(
+                SyntaxFactory.VariableDeclaration(
+                    SyntaxFactory.IdentifierName("var"),
+                    SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(tempName))
+                            .WithInitializer(SyntaxFactory.EqualsValueClause(rhs)))))
+        };
+
+        foreach (var (memberName, _) in GetCopyMembers(plan))
+        {
+            statements.Add(SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.ThisExpression(),
+                        SyntaxFactory.IdentifierName(memberName)),
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.IdentifierName(tempName),
+                        SyntaxFactory.IdentifierName(memberName))))
+                .WithAdditionalAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation));
+        }
+
+        return statements;
+    }
+
+    private IReadOnlyList<(string Name, bool IsAutoProperty)> GetCopyMembers(ClonePlan plan)
+    {
+        if (!_copyMembersByPlan.TryGetValue(plan, out var members))
+        {
+            members = CloneShimGenerator.EnumerateCopyMembers(plan.Symbol);
+            _copyMembersByPlan[plan] = members;
+        }
+        return members;
     }
 
     private bool TryGetRouteHolder(SyntaxNode node, out string holder)

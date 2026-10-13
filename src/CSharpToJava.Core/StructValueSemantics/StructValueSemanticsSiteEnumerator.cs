@@ -102,15 +102,18 @@ internal sealed class StructValueSemanticsSiteEnumerator
     private void VisitDeclarator(VariableDeclaratorSyntax declarator, SemanticModel model)
     {
         // 幂等：本 pass 上一轮提升的临时变量（链式共享右值 __cs2jSc / 防御接收者副本
-        // __cs2jVc / this 持有者 __cs2jTc）重放时不是新站点——链式临时故意持有未克隆
-        // 的共享右值，各目标槽已在展开语句中逐个 Clone；持有者按 copy-in 语义刻意持有
-        // 未克隆的 this 快照（出口统一回写）。再对其初始化器插 clone 会重复包裹。
+        // __cs2jVc / this 持有者 __cs2jTc / this 赋值展开临时 __cs2jTa）重放时不是新
+        // 站点——链式临时故意持有未克隆的共享右值，各目标槽已在展开语句中逐个 Clone；
+        // 持有者按 copy-in 语义刻意持有未克隆的 this 快照（出口统一回写）；this 赋值
+        // 展开临时在块内即死，字段所有权直接转移给 this。再对其初始化器插 clone 会重复。
         var declaratorName = declarator.Identifier.Text;
         if (declaratorName.StartsWith(StructValueSemanticsSyntaxFacts.ChainedAssignTempPrefix,
                 StringComparison.Ordinal)
             || declaratorName.StartsWith(StructValueSemanticsSyntaxFacts.DefensiveCopyTempPrefix,
                 StringComparison.Ordinal)
             || declaratorName.StartsWith(StructValueSemanticsSyntaxFacts.ThisCopyTempPrefix,
+                StringComparison.Ordinal)
+            || declaratorName.StartsWith(StructValueSemanticsSyntaxFacts.ThisAssignTempPrefix,
                 StringComparison.Ordinal))
         {
             return;
@@ -159,12 +162,21 @@ internal sealed class StructValueSemanticsSiteEnumerator
         if (assignment.Parent is AssignmentExpressionSyntax outer && outer.Right == assignment)
             return;
 
-        // 幂等：SV040-d 生成的出口回写 this = __cs2jTcN（SV041 侧亦有同款豁免）：
+        // 幂等：SV040-d 生成的出口回写 this = __cs2jTcN：
         // 持有者按 copy-out 语义整体回写，不得再对 RHS 插 Clone。
         if (UnwrapParens(assignment.Left) is ThisExpressionSyntax
             && UnwrapParens(assignment.Right) is IdentifierNameSyntax copyOut
             && copyOut.Identifier.ValueText.StartsWith(
                 StructValueSemanticsSyntaxFacts.ThisCopyTempPrefix, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        // 幂等：SV041 生成的字段式展开 this.f = __cs2jTaN.f（含自动属性形态）：
+        // 临时在展开块内即死，字段引用所有权已转移，不得再对 RHS 插 Clone。
+        if (UnwrapParens(assignment.Left) is MemberAccessExpressionSyntax
+                { Expression: ThisExpressionSyntax }
+            && RootsAtGeneratedThisAssignTemp(assignment.Right))
         {
             return;
         }
@@ -551,6 +563,22 @@ internal sealed class StructValueSemanticsSiteEnumerator
         while (expression is ParenthesizedExpressionSyntax paren)
             expression = paren.Expression;
         return expression;
+    }
+
+    /// <summary>
+    /// 表达式链（成员/元素访问）的根是否为本 pass 生成的 this 赋值展开临时
+    /// <c>__cs2jTaN</c>（幂等豁免字段式展开产物）。
+    /// </summary>
+    private static bool RootsAtGeneratedThisAssignTemp(ExpressionSyntax expression)
+    {
+        var root = UnwrapParens(expression);
+        while (root is MemberAccessExpressionSyntax memberAccess)
+            root = UnwrapParens(memberAccess.Expression);
+        while (root is ElementAccessExpressionSyntax elementAccess)
+            root = UnwrapParens(elementAccess.Expression);
+        return root is IdentifierNameSyntax identifier
+            && identifier.Identifier.ValueText.StartsWith(
+                StructValueSemanticsSyntaxFacts.ThisAssignTempPrefix, StringComparison.Ordinal);
     }
 
     private static bool IsArrayReceiver(ElementAccessExpressionSyntax elementAccess, SemanticModel model)

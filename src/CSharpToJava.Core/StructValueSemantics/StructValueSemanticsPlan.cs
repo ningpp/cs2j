@@ -48,6 +48,18 @@ internal sealed record ThisCaptureRewrite(
     Location Location);
 
 /// <summary>
+/// SV041 消解记录：构造函数 / 属性·索引器·事件访问器 / 含 base 访问的实例方法中的
+/// 整体 <c>this = expr</c>（语句形态）无法经持有者路由（构造函数 this 起始未赋值、
+/// readonly 字段只可在构造函数内赋值、base. 非虚调用不能改道持有者），Phase 3
+/// 将其逐字段展开：<c>var __cs2jTaN = expr; this.f1 = __cs2jTaN.f1; …</c>。
+/// </summary>
+/// <param name="Member">需展开的成员符号（构造函数/访问器/普通方法）。</param>
+/// <param name="Location">首个触发的赋值位置（诊断/测试用）。</param>
+internal sealed record ThisAssignmentExpansion(
+    IMethodSymbol Member,
+    Location Location);
+
+/// <summary>
 /// 值流站点分类（设计 §4.3 VS-x 全表）。M2 先枚举 VS-1/VS-2/VS-4 原始锚点，
 /// VS-3/VS-5 在 M4 补齐；新鲜值/只读实参等精化在 M3 经 ValueCopyFacts 完成。
 /// </summary>
@@ -151,6 +163,9 @@ internal sealed class ClonePlan
 
     /// <summary>SV040-d：需要做方法级 this 持有者改写的实例方法（分析期定型）。</summary>
     public List<ThisCaptureRewrite> ThisCaptureRewrites { get; } = new();
+
+    /// <summary>SV041：需要做 this 整体赋值字段式展开的成员（分析期定型）。</summary>
+    public List<ThisAssignmentExpansion> ThisAssignmentExpansions { get; } = new();
 
     /// <summary>统计站点数（SV001 Info 措辞用）。</summary>
     public int SiteCount => Sites.Count;

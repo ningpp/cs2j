@@ -75,6 +75,20 @@ internal static class ThisCaptureFacts
         if (name.Parent is NameColonSyntax) return false;
         // new { X } / new C { X = ... } / 匿名对象成员名不解析为接收者成员。
         if (name.Parent is NameEqualsSyntax) return false;
+        // 对象/with 初始化器的成员声明符（new C { M = ... } / x with { M = ... }）：
+        // 左侧名字绑定的是新对象（或克隆体）的成员，不是隐式 this；右值中的同名
+        // 引用仍按外层作用域解析，故只排声明符本身。
+        if (name.Parent is AssignmentExpressionSyntax
+                {
+                    Left: { } declarator,
+                    Parent: InitializerExpressionSyntax initializer,
+                }
+            && declarator == name
+            && (initializer.IsKind(SyntaxKind.ObjectInitializerExpression)
+                || initializer.IsKind(SyntaxKind.WithInitializerExpression)))
+        {
+            return false;
+        }
         // 特性实参只能是常量，不可能是实例态。
         if (name.Ancestors().OfType<AttributeSyntax>().Any()) return false;
         // nameof(X) 是纯语法引用，不构成捕获。
@@ -90,6 +104,9 @@ internal static class ThisCaptureFacts
         // 局部/参数/范围变量的 ContainingType 会沿 ContainingSymbol 链解析到本 struct，
         // 必须在类型归属判断前显式排除（它们经局部环境绑定，不经隐式 this）。
         if (member is ILocalSymbol or IParameterSymbol or IRangeVariableSymbol)
+            return false;
+        // 类型形参 T 的 ContainingType 同样是本 struct，但它是类型不是实例态成员。
+        if (member is ITypeParameterSymbol)
             return false;
 
         if (member is IMethodSymbol method

@@ -1180,8 +1180,11 @@ public class StructValueSemanticsUnitTests
     }
 
     [Fact]
-    public void Escape_ThisAssignment_IsSV041()
+    public void Escape_ThisAssignment_InMethod_BecomesHolderCopyInCopyOut()
     {
+        // SV041 根因修复：实例方法整体赋值 this 走方法级持有者 copy-in/copy-out
+        // （复用 SV040-d 机制），不再判 Infeasible；构造函数/访问器/base 方法与
+        // 无解形态由 CSharpToJava.Tests 的 StructValueSemanticsThisAssignmentTests 覆盖。
         var run = Analyze("""
             namespace Lib;
             public struct Box
@@ -1190,7 +1193,15 @@ public class StructValueSemanticsUnitTests
                 public void Reset() { this = default; }
             }
             """);
-        AssertInfeasible(run, "Lib.Box", StructValueSemanticsDiagnosticCode.SV041);
+        var plan = Plan(run, "Lib.Box");
+        Assert.True(plan.IsActive);
+        Assert.Single(plan.ThisCaptureRewrites);
+        AssertOutputCompiles(run.Output);
+        Assert.Contains("__cs2jTc0 = default;", run.Output);
+        Assert.Contains("this = __cs2jTc0;", run.Output);
+        Assert.DoesNotContain(run.Diagnostics, d =>
+            d.Severity == StructValueSemanticsSeverity.Error
+            && d.Code == StructValueSemanticsDiagnosticCode.SV041);
     }
 
     [Fact]
