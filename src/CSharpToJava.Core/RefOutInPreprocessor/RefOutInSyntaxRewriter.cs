@@ -50,6 +50,190 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         catch (ArgumentException) { return null; }
     }
 
+    /// <summary>
+    /// Resolve the set of internal methods a byref call may bind to. Normally
+    /// this is the unique <see cref="SymbolInfo.Symbol"/>; when overload
+    /// resolution FAILS over ARGUMENTS THE REWRITE DOES NOT TOUCH, every
+    /// reported candidate is still returned provided they agree on the byref
+    /// shape. The pass binds one model for the WHOLE solution graph, so
+    /// per-project source substitutions (e.g. test fakes that replace a
+    /// production type) make unrelated arguments ambiguous (CS0229) even though
+    /// each project compiles cleanly by itself; the ref/out arguments and
+    /// their parameter mapping stay unambiguous in that case, and leaving the
+    /// call untouched is what produces CS1615 against the lifted declaration.
+    /// </summary>
+    internal bool TryGetLiftMethods(
+        InvocationExpressionSyntax inv,
+        out IReadOnlyList<IMethodSymbol> methods)
+    {
+        methods = System.Array.Empty<IMethodSymbol>();
+
+        Microsoft.CodeAnalysis.SymbolInfo info;
+        try { info = _semanticModel.GetSymbolInfo(inv); }
+        catch (ArgumentException ex)
+        {
+            DumpLiftSkip(inv, "model-threw: " + ex.GetType().Name, info: null);
+            return false;
+        }
+
+        if (info.Symbol is IMethodSymbol single)
+        {
+            if (IsInternalCandidate(single))
+            {
+                methods = new[] { single };
+                return true;
+            }
+
+            DumpLiftSkip(inv, "single-not-internal: " + single.ToDisplayString(), info);
+            return false;
+        }
+
+        if (info.CandidateReason != CandidateReason.OverloadResolutionFailure
+            || info.CandidateSymbols.Length == 0)
+        {
+            DumpLiftSkip(inv, "reason=" + info.CandidateReason + " n=" + info.CandidateSymbols.Length, info);
+            return false;
+        }
+
+        var candidates = new List<IMethodSymbol>();
+        foreach (var candidate in info.CandidateSymbols)
+        {
+            if (candidate is not IMethodSymbol candidateMethod
+                || !IsInternalCandidate(candidateMethod))
+            {
+                DumpLiftSkip(inv, "candidate-not-internal: " + candidate?.ToDisplayString(), info);
+                return false;
+            }
+
+            candidates.Add(candidateMethod);
+        }
+
+        if (!RefArgumentShapeAgrees(inv, candidates))
+        {
+            DumpLiftSkip(inv, "shape-disagrees", info);
+            return false;
+        }
+
+        methods = candidates;
+        return true;
+    }
+
+    /// <summary>
+    /// Environment-gated diagnostics for ref/out call sites the lifter
+    /// refuses (CS2J_LIFT_DUMP=&lt;file&gt;). Temporary root-cause instrumentation
+    /// for residual CS1615 sites in the unified solution build.
+    /// </summary>
+    private static readonly string? LiftDumpPath =
+        System.Environment.GetEnvironmentVariable("CS2J_LIFT_DUMP");
+
+    private static readonly object LiftDumpGate = new();
+
+    private void DumpLiftSkip(
+        InvocationExpressionSyntax inv,
+        string why,
+        Microsoft.CodeAnalysis.SymbolInfo? info)
+    {
+        var hasByRefArgument = inv.ArgumentList.Arguments.Any(a =>
+            a.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
+            || a.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
+            || a.RefKindKeyword.IsKind(SyntaxKind.InKeyword));
+        if (LiftDumpPath is null || !hasByRefArgument)
+        {
+            return;
+        }
+
+        try
+        {
+            var span = inv.GetLocation().GetLineSpan();
+            var sb = new System.Text.StringBuilder();
+            sb.Append("SKIP ").Append(why).Append(" @ ")
+                .Append(span.Path).Append('(').Append(span.StartLinePosition.Line + 1)
+                .Append(',').Append(span.StartLinePosition.Character + 1).AppendLine(")");
+            sb.Append("  CALL: ").AppendLine(inv.ToString().Replace("\r", " ").Replace("\n", " "));
+            if (info is { } si)
+            {
+                sb.Append("  SYM: ").AppendLine(si.Symbol?.ToDisplayString() ?? "<null>");
+                foreach (var c in si.CandidateSymbols)
+                {
+                    if (c is IMethodSymbol m)
+                    {
+                        sb.Append("  CAND: ").AppendLine(m.ToDisplayString());
+                        sb.Append("    params: ").AppendLine(string.Join("; ",
+                            m.Parameters.Select(p => p.RefKind + " " + p.Type.ToDisplayString())));
+                    }
+                    else
+                    {
+                        sb.Append("  CAND(non-method): ").AppendLine(c?.ToDisplayString() ?? "<null>");
+                    }
+                }
+            }
+
+            lock (LiftDumpGate)
+            {
+                System.IO.File.AppendAllText(LiftDumpPath, sb.ToString());
+            }
+        }
+        catch
+        {
+            // diagnostics must never affect the pass
+        }
+    }
+
+    /// <summary>
+    /// True when every candidate exposes the same ref/out parameter
+    /// (RefKind and type) at every syntactically-byref argument position, all
+    /// candidates have matching arity/void-ness and use no named/in/params
+    /// arguments (which the fallback cannot map positionally).
+    /// </summary>
+    private static bool RefArgumentShapeAgrees(
+        InvocationExpressionSyntax inv,
+        IReadOnlyList<IMethodSymbol> candidates)
+    {
+        var arguments = inv.ArgumentList.Arguments;
+
+        var returnsVoid = candidates[0].ReturnsVoid;
+        foreach (var candidate in candidates)
+        {
+            if (candidate.ReturnsVoid != returnsVoid
+                || candidate.Parameters.Length != arguments.Count
+                || candidate.Parameters.Any(p => p.IsParams))
+            {
+                return false;
+            }
+        }
+
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            var argument = arguments[i];
+            var isRef = argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword);
+            var isOut = argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword);
+            if (!isRef && !isOut)
+            {
+                if (argument.RefKindKeyword.IsKind(SyntaxKind.InKeyword)
+                    || argument.NameColon != null)
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            var expectedKind = isOut ? RefKind.Out : RefKind.Ref;
+            var expectedType = candidates[0].Parameters[i].Type;
+            foreach (var candidate in candidates)
+            {
+                var parameter = candidate.Parameters[i];
+                if (parameter.RefKind != expectedKind
+                    || !SymbolEqualityComparer.Default.Equals(parameter.Type, expectedType))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
     internal ISymbol? GetSymbol(ExpressionSyntax e)
     {
         try { return _semanticModel.GetSymbolInfo(e).Symbol; }

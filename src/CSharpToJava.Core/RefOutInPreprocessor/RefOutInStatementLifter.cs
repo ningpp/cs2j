@@ -29,6 +29,14 @@ internal sealed class RefOutInStatementLifter
     private readonly Stack<List<StatementSyntax>> _scope = new();
     private readonly List<StatementSyntax> _pendingReadbacks = new();
 
+    // Invocation liftability is a pure function of the (immutable) original
+    // tree node + semantic model. Every statement used to re-resolve its
+    // invocations once per enclosing candidate (O(k^2) bindings per
+    // expression); cache per file so each invocation binds once.
+    private readonly Dictionary<InvocationExpressionSyntax, IReadOnlyList<IMethodSymbol>?> _liftableCache =
+        new(ReferenceEqualityComparer.Instance);
+
+
     public RefOutInStatementLifter(RefOutInSyntaxRewriter owner) => _owner = owner;
 
     // ── entry points ────────────────────────────────────────────────────────
@@ -168,7 +176,10 @@ internal sealed class RefOutInStatementLifter
 
     private ExpressionSyntax LiftInvocation(InvocationExpressionSyntax invocation)
     {
-        var method = _owner.ResolveInvocation(invocation)!;
+        TryGetLiftMethods(invocation, out var liftMethods);
+        // Representative candidate: byref parameter types/kinds and the return
+        // kind are identical across the list (validated in RefArgumentShapeAgrees).
+        var method = liftMethods[0];
         var readbacks = new List<StatementSyntax>();
         var newArgs = new List<ArgumentSyntax>();
         bool anyLifted = false;
@@ -385,15 +396,39 @@ internal sealed class RefOutInStatementLifter
     }
 
     private bool IsLiftable(InvocationExpressionSyntax inv)
+        => TryGetLiftMethods(inv, out _);
+
+    /// <summary>
+    /// Cached candidate resolution; a non-empty list means the call carries at
+    /// least one ref/out argument and every candidate will be rewritten.
+    /// </summary>
+    private bool TryGetLiftMethods(
+        InvocationExpressionSyntax inv,
+        out IReadOnlyList<IMethodSymbol> methods)
     {
-        var method = _owner.ResolveInvocation(inv);
-        if (method == null) return false;
-        if (!_owner.IsInternalCandidate(method)) return false;
-        foreach (var arg in inv.ArgumentList.Arguments)
-            if (arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
-                || arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
-                return true;
-        return false;
+        if (_liftableCache.TryGetValue(inv, out var cached))
+        {
+            methods = cached!;
+            return cached != null;
+        }
+
+        IReadOnlyList<IMethodSymbol>? resolved = null;
+        if (_owner.TryGetLiftMethods(inv, out var candidates))
+        {
+            foreach (var arg in inv.ArgumentList.Arguments)
+            {
+                if (arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
+                    || arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
+                {
+                    resolved = candidates;
+                    break;
+                }
+            }
+        }
+
+        _liftableCache[inv] = resolved;
+        methods = resolved!;
+        return resolved != null;
     }
 
     private void PushScope()
