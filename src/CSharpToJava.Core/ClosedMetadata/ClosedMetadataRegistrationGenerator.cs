@@ -1,4 +1,5 @@
 using System.Text;
+using Microsoft.CodeAnalysis;
 
 namespace CSharpToJava.Core.ClosedMetadata;
 
@@ -18,6 +19,8 @@ public static class ClosedMetadataRegistrationGenerator
     public const string BootstrapMethodName = "__cs2j_register_closed_types";
 
     public const string RegistryTypePrefix = "__Cs2jClosedTypes_";
+
+    private const string ResolveHelperName = "__cs2j_resolve";
 
     private const string RegisterCallPrefix = "__cs2j_register_closed(\"";
 
@@ -78,6 +81,30 @@ public static class ClosedMetadataRegistrationGenerator
         sb.AppendLine("        }");
         sb.AppendLine("    }");
         sb.AppendLine();
+        sb.AppendLine("    // The holder is emitted into the owning project, so a private/protected/");
+        sb.AppendLine("    // file-local nested type's runtime Type lives in THIS assembly and is");
+        sb.AppendLine("    // reachable by metadata name (Assembly.GetType bypasses C# accessibility).");
+        sb.AppendLine("    // Other assemblies are scanned as a fallback for metadata-only lookups.");
+        sb.AppendLine("    private static global::System.Type " + ResolveHelperName + "(string metadataName)");
+        sb.AppendLine("    {");
+        sb.AppendLine($"        var resolved = typeof({holderTypeName}).Assembly.GetType(metadataName, throwOnError: false);");
+        sb.AppendLine("        if (resolved != null)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            return resolved;");
+        sb.AppendLine("        }");
+        sb.AppendLine();
+        sb.AppendLine("        foreach (var assembly in global::System.AppDomain.CurrentDomain.GetAssemblies())");
+        sb.AppendLine("        {");
+        sb.AppendLine("            resolved = assembly.GetType(metadataName, throwOnError: false);");
+        sb.AppendLine("            if (resolved != null)");
+        sb.AppendLine("            {");
+        sb.AppendLine("                return resolved;");
+        sb.AppendLine("            }");
+        sb.AppendLine("        }");
+        sb.AppendLine();
+        sb.AppendLine("        throw new global::System.InvalidOperationException(\"cs2j closed-metadata: type not found: \" + metadataName);");
+        sb.AppendLine("    }");
+        sb.AppendLine();
         sb.AppendLine("    // Explicit bootstrap (D1/D6): invoked before the first serialization entry; Java has no <Module> initializer equivalent.");
         sb.AppendLine("    // Idempotent under repeated and concurrent entry (lock double-check, CM-LINK) — consumer sites call freely.");
         sb.AppendLine($"    public static void {BootstrapMethodName}()");
@@ -95,7 +122,13 @@ public static class ClosedMetadataRegistrationGenerator
         sb.AppendLine("            }");
         for (var i = 0; i < records.Count; i++)
         {
-            sb.AppendLine($"            global::System.Type __cs2j_closed_{i} = typeof({records[i].TypeText});");
+            // The holder is a top-level class, so private/protected/file-local
+            // nested types (and generic constructions over them) cannot be named
+            // in a typeof(...) expression (CS0122/CS0122-on-argument). Resolve
+            // those from the owning assembly by metadata name instead;
+            // registration semantics (key -> runtime Type) are identical.
+            var typeExpression = BuildTypeReferenceExpression(records[i]);
+            sb.AppendLine($"            global::System.Type __cs2j_closed_{i} = {typeExpression};");
             sb.AppendLine($"            {RegisterCallPrefix}{EscapeKeyText(records[i].Key.SortText)}\", __cs2j_closed_{i});");
         }
 
@@ -105,6 +138,162 @@ public static class ClosedMetadataRegistrationGenerator
         sb.AppendLine("    }");
         sb.AppendLine("}");
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// True when <paramref name="type"/> (and every nested container / generic
+    /// argument) is accessible from an unrelated top-level class compiled into
+    /// the SAME assembly: public, internal or protected-or-internal ("protected
+    /// internal"). Private, protected, private-protected and file-local types
+    /// are not nameable from the generated holder.
+    /// </summary>
+    private static bool IsNameableFromTopLevel(ITypeSymbol type)
+    {
+        switch (type)
+        {
+            case IArrayTypeSymbol array:
+                return IsNameableFromTopLevel(array.ElementType);
+            case IPointerTypeSymbol pointer:
+                return IsNameableFromTopLevel(pointer.PointedAtType);
+            case INamedTypeSymbol named:
+                for (var current = named; current != null; current = current.ContainingType)
+                {
+                    if (current.IsFileLocal)
+                    {
+                        return false;
+                    }
+
+                    if (current.DeclaredAccessibility is not
+                        (Accessibility.Public
+                         or Accessibility.Internal
+                         or Accessibility.ProtectedOrInternal))
+                    {
+                        return false;
+                    }
+                }
+
+                foreach (var argument in named.TypeArguments)
+                {
+                    if (!IsNameableFromTopLevel(argument))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            default:
+                return true;
+        }
+    }
+
+    /// <summary>
+    /// Expression yielding the runtime <see cref="Type"/> for a record:
+    /// <c>typeof(...)</c> when the shape is nameable from the top-level
+    /// holder, otherwise a metadata-name resolution against the holder's
+    /// own assembly (with <c>MakeGenericType</c>/<c>MakeArrayType</c>
+    /// reconstruction for shapes built over inaccessible types).
+    /// </summary>
+    private static string BuildTypeReferenceExpression(ClosedTypeRecord record)
+    {
+        return IsNameableFromTopLevel(record.Type)
+            ? $"typeof({record.TypeText})"
+            : BuildUnnameableTypeExpression(record.Type);
+    }
+
+    private static string BuildUnnameableTypeExpression(ITypeSymbol type)
+    {
+        switch (type)
+        {
+            case IArrayTypeSymbol array:
+            {
+                var element = BuildUnnameableTypeArgument(array.ElementType);
+                return array.Rank == 1
+                    ? $"{element}.MakeArrayType()"
+                    : $"{element}.MakeArrayType({array.Rank})";
+            }
+
+            case IPointerTypeSymbol pointer:
+                return $"{BuildUnnameableTypeArgument(pointer.PointedAtType)}.MakePointerType()";
+
+            case INamedTypeSymbol named:
+            {
+                var lookup = $"{ResolveHelperName}(\"{EscapeKeyText(OpenMetadataName(named))}\")";
+
+                // Reflection's MakeGenericType on a nested generic takes the
+                // whole outer-to-inner flattened argument chain.
+                var arguments = new List<ITypeSymbol>();
+                var chain = new List<INamedTypeSymbol>();
+                for (var current = named; current != null; current = current.ContainingType)
+                {
+                    chain.Add(current);
+                }
+
+                chain.Reverse();
+                foreach (var member in chain)
+                {
+                    var outerArgCount = member.ContainingType?.TypeArguments.Length ?? 0;
+                    arguments.AddRange(member.TypeArguments
+                        .Skip(outerArgCount)
+                        .Take(member.OriginalDefinition.TypeParameters.Length));
+                }
+
+                return arguments.Count == 0
+                    ? lookup
+                    : lookup + ".MakeGenericType("
+                        + string.Join(", ", arguments.Select(BuildUnnameableTypeArgument)) + ")";
+            }
+
+            default:
+                // A bare type parameter / other shape cannot be closed-keyed
+                // upstream; fall back to its display text (the real-build gate
+                // reports it rather than this generator guessing).
+                return $"typeof({type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)})";
+        }
+    }
+
+    /// <summary>
+    /// Generic argument (or array/pointer element) expression: nameable
+    /// shapes stay strongly-typed <c>typeof(...)</c> (cross-assembly
+    /// references compile normally); inaccessible ones resolve by metadata
+    /// name from the owning assembly.
+    /// </summary>
+    private static string BuildUnnameableTypeArgument(ITypeSymbol type)
+        => IsNameableFromTopLevel(type)
+            ? $"typeof({type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)})"
+            : BuildUnnameableTypeExpression(type);
+
+    /// <summary>
+    /// Open metadata name (no generic arguments) accepted by
+    /// <c>Assembly.GetType</c>, e.g. <c>Ns.Outer+Inner`1</c>.
+    /// </summary>
+    private static string OpenMetadataName(INamedTypeSymbol named)
+    {
+        var chain = new List<INamedTypeSymbol>();
+        for (var current = named; current != null; current = current.ContainingType)
+        {
+            chain.Add(current);
+        }
+
+        chain.Reverse();
+
+        var builder = new StringBuilder();
+        var @namespace = named.ContainingNamespace?.ToDisplayString();
+        if (!string.IsNullOrEmpty(@namespace))
+        {
+            builder.Append(@namespace).Append('.');
+        }
+
+        for (var i = 0; i < chain.Count; i++)
+        {
+            if (i > 0)
+            {
+                builder.Append('+');
+            }
+
+            builder.Append(chain[i].OriginalDefinition.MetadataName);
+        }
+
+        return builder.ToString();
     }
 
     private static string EscapeKeyText(string keyText)
