@@ -1205,8 +1205,11 @@ public class StructValueSemanticsUnitTests
     }
 
     [Fact]
-    public void Escape_PointerField_IsSV042()
+    public void Escape_PointerField_IsShallowCopied_NotRejected()
     {
+        // SV042-a 根因修复：指针实例字段持有地址值，struct 值拷贝逐位复制该地址，
+        // 拷贝构造 Ptr = other.Ptr 与 C# 值复制恒等（引用/数组字段同族浅拷贝），
+        // 不再判 Infeasible；成员体 fixed/stackalloc/取址仍报 SV042。
         var run = Analyze("""
             namespace Lib;
             public unsafe struct Box
@@ -1214,7 +1217,13 @@ public class StructValueSemanticsUnitTests
                 public int* Ptr;
             }
             """);
-        AssertInfeasible(run, "Lib.Box", StructValueSemanticsDiagnosticCode.SV042);
+        var plan = Plan(run, "Lib.Box");
+        Assert.True(plan.IsActive);
+        AssertOutputCompiles(run.Output);
+        Assert.Contains("Ptr = other.Ptr;", run.Output);
+        Assert.DoesNotContain(run.Diagnostics, d =>
+            d.Severity == StructValueSemanticsSeverity.Error
+            && d.Code == StructValueSemanticsDiagnosticCode.SV042);
     }
 
     [Fact]

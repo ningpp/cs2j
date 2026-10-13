@@ -9,7 +9,9 @@ namespace CSharpToJava.Core.StructValueSemantics;
 /// plan 期「语言无解」构造扫描（设计 §6 SV040/SV041/SV042），三轮：
 /// <list type="bullet">
 /// <item>硬构造（命中即 plan Infeasible）：SV040-a ref/out this（或可变实例字段
-/// 外传）；SV040-b ref return this/可变字段；SV042 指针/ref struct/fixed/取址混叠。</item>
+/// 外传）；SV040-b ref return this/可变字段；SV042 ref struct 实例字段、成员体
+/// fixed/stackalloc/取址/ref struct×本类型混叠。指针类型实例字段本身不判死
+/// （地址值随 struct 拷贝逐位复制，与浅拷贝引用/数组字段同族；见 Detect 注释）。</item>
 /// <item>this 捕获消解（SV040-c/d 根因修复）：①async/迭代器「实例」方法由 C#
 /// 编译器状态机按值捕获 this（写不回外层，本就是语言语义；C04 显式降级同为按值、
 /// C18 轻量保留 await），不再判无解；②普通同步实例方法中直接捕获 this 的匿名函数
@@ -47,18 +49,22 @@ internal static class StructValueSemanticsEscapeAnalyzer
             .ToList();
         if (parts.Count == 0) return false;
 
-        // SV042-a：指针类型 / ref struct 类型实例字段（符号面，一次判定）。
+        // SV042-a（ref struct 字段）：ref struct 类型实例字段（符号面，一次判定）。
+        // 合法 C# 中仅 ref struct 自身能声明此类字段，而 ref struct 已在残余集合
+        // 排除（SV011），此分支为非编译基线形态的保守兜底。
+        //
+        // 指针类型实例字段（byte*/char*/void*/T*…）不在此处判死：指针字段持有的是
+        // 一个地址「值」，C# 每次 struct 值拷贝本就逐位复制该地址——拷贝构造里
+        // this.p = other.p 与 C# struct 复制语义恒等（设计 §4.4：基元/引用/数组
+        // 字段同样浅拷贝，副本共享数组本体与引用目标）。目标内存经各副本别名共享
+        // 在改写前后完全一致（只读句柄如静态字符属性表如此，写穿亦同：C# 副本间
+        // 本就共享同一目标）。真正无法保持语义的是「由 struct 自身存储派生原生
+        // 存储身份」的成员体构造——fixed 固定、stackalloc、对 this/实例字段/本类型
+        // 局部取址、ref struct×本类型混叠——仍由第一轮硬构造扫描（SV042-b/c/d）
+        // 显式拒绝，不依赖字段是否为指针。
         foreach (var field in symbol.GetMembers().OfType<IFieldSymbol>())
         {
             if (field.IsStatic) continue;
-            if (field.Type is IPointerTypeSymbol)
-            {
-                Mark(plan, StructValueSemanticsDiagnosticCode.SV042,
-                    "struct declares a pointer-typed instance field; pointer aliasing crosses " +
-                    "the defensive clone boundary and cannot be rewritten safely.",
-                    field.Locations.FirstOrDefault(l => l.IsInSource));
-                return true;
-            }
             if (field.Type.IsRefLikeType)
             {
                 Mark(plan, StructValueSemanticsDiagnosticCode.SV042,

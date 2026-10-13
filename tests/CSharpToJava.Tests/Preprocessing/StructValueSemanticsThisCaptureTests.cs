@@ -12,7 +12,8 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// 含 ref-out-in 风格 ByRef 访问器闭包）改写为方法级 this 持有者 copy-in/copy-out；
 /// ②async/iterator 实例方法由编译器状态机按值快照 this，不再判 SV040；
 /// ③真无解形态（表达式树捕获、async/iterator 内捕获闭包、base 访问+捕获闭包、
-/// 非方法成员内的捕获、ref/out this、ref return、指针字段）保持显式失败；
+/// 非方法成员内的捕获、ref/out this、ref return）保持显式失败；指针字段本身
+/// 不再判 SV042（StructValueSemanticsPointerFieldTests 覆盖）；
 /// ④this 整体赋值的方法持有者/字段式展开见 StructValueSemanticsThisAssignmentTests；
 /// ⑤显式其它接收者（builder.AsSpan()）不误判；⑥改写幂等。
 /// </summary>
@@ -610,8 +611,12 @@ public class StructValueSemanticsThisCaptureTests
     }
 
     [Fact]
-    public void PointerField_StaysSV042()
+    public void PointerField_AloneIsPlannedWithShallowCopy()
     {
+        // SV042-a 根因修复：指针实例字段是地址值，struct 值拷贝逐位复制该地址，
+        // 拷贝构造 Ptr = other.Ptr 与 C# 值复制恒等（同引用/数组字段浅拷贝族）；
+        // 成员体 fixed/stackalloc/取址等真别名逃逸仍报 SV042，见
+        // StructValueSemanticsPointerFieldTests。
         var run = Analyze("""
             namespace Lib;
             public unsafe struct Box
@@ -619,7 +624,13 @@ public class StructValueSemanticsThisCaptureTests
                 public int* Ptr;
             }
             """);
-        AssertInfeasible(run, StructValueSemanticsDiagnosticCode.SV042);
+        var plan = Plan(run);
+        Assert.True(plan.IsActive);
+        Assert.Contains("Ptr = other.Ptr;", run.Output);
+        AssertOutputCompiles(run.Output);
+        Assert.DoesNotContain(run.Diagnostics, d =>
+            d.Severity == StructValueSemanticsSeverity.Error
+            && d.Code == StructValueSemanticsDiagnosticCode.SV042);
     }
 
     // ---------- 幂等：二次运行零 diff ----------
