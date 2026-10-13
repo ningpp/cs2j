@@ -65,99 +65,28 @@ internal static class NullableLiftLifter
             anchorGroups[newAnchor] = groupPlans;
         }
 
-        var parents = anchorGroups.Keys
-            .Select(anchor => anchor.Parent!)
-            .Distinct()
-            .ToList();
+        // Replace the anchor STATEMENTS directly: a container-based rewrite
+        // rebuilds an outer container from its ORIGINAL children and silently
+        // discards splices belonging to nested groups (the same nesting hazard
+        // the C17 IncrementTargetLifter hit). ReplaceNodes visits bottom-up, so
+        // the `updated` node already carries every nested group's result.
+        var anchors = anchorGroups.Keys.ToList();
 
-        return (CompilationUnitSyntax)root.ReplaceNodes(parents, (parent, _) =>
-        {
-            if (parent is BlockSyntax block)
-            {
-                return block.WithStatements(List(ExpandStatements(block.Statements, anchorGroups)));
-            }
-
-            if (parent is SwitchSectionSyntax section)
-            {
-                return section.WithStatements(List(ExpandStatements(section.Statements, anchorGroups)));
-            }
-
-            // Embedded statement slot (if/while/do/for/foreach/using/lock/
-            // fixed/else/labeled, or a GlobalStatementSyntax wrapping a
-            // top-level statement): exactly one anchor group, wrap the
-            // declarations plus the anchor in a bare block.
-            var (anchor, groupPlans) = anchorGroups.Single(pair => pair.Key.Parent == parent);
-            return parent.ReplaceNode(anchor, WrapInBlock(anchor, groupPlans));
-        });
-    }
-
-    private static IEnumerable<StatementSyntax> ExpandStatements(
-        SyntaxList<StatementSyntax> statements,
-        IReadOnlyDictionary<StatementSyntax, List<PendingNullableLift>> anchorGroups)
-    {
-        foreach (var statement in statements)
-        {
-            if (!anchorGroups.TryGetValue(statement, out var groupPlans))
-            {
-                yield return statement;
-                continue;
-            }
-
-            // A standalone postfix (`x++;`) is the whole statement: its
-            // placeholder statement is dropped and replaced by the spliced
-            // old-value declaration + write. Such a site's old-value
-            // initializer only reads the (simple) target, so no inner-site
-            // plan can share its anchor.
-            var consumesAnchor = groupPlans.Any(plan => plan.ConsumesAnchor);
-            if (consumesAnchor && groupPlans.Count != 1)
-            {
-                throw new InvalidOperationException(
-                    "C22 nullable-lift anchor-consuming postfix site must be the sole plan of its anchor");
-            }
-
-            // Consumed sites: declarations (inner sites first via Order —
-            // outer initializers read the inner temps) precede the anchor;
-            // NL-10 writes follow their site's declarations.
-            var leading = statement.GetLeadingTrivia();
-            var emittedAny = false;
-            foreach (var plan in groupPlans)
-            {
-                foreach (var hoisted in plan.Declarations)
-                {
-                    yield return emittedAny
-                        ? hoisted
-                        : hoisted.WithLeadingTrivia(leading);
-                    emittedAny = true;
-                }
-
-                if (plan.WriteStatements == null)
-                {
-                    continue;
-                }
-
-                foreach (var write in plan.WriteStatements)
-                {
-                    yield return emittedAny
-                        ? write
-                        : write.WithLeadingTrivia(leading);
-                    emittedAny = true;
-                }
-            }
-
-            if (consumesAnchor)
-            {
-                continue;
-            }
-
-            yield return statement.WithoutLeadingTrivia()
-                .WithLeadingTrivia(ElasticMarker);
-        }
+        return (CompilationUnitSyntax)root.ReplaceNodes(anchors, (original, updated) =>
+            WrapInBlock((StatementSyntax)updated, anchorGroups[original]));
     }
 
     private static BlockSyntax WrapInBlock(
         StatementSyntax anchor,
         IReadOnlyList<PendingNullableLift> groupPlans)
     {
+        var consumesAnchor = groupPlans.Any(plan => plan.ConsumesAnchor);
+        if (consumesAnchor && groupPlans.Count != 1)
+        {
+            throw new InvalidOperationException(
+                "C22 nullable-lift anchor-consuming postfix site must be the sole plan of its anchor");
+        }
+
         var sequence = new List<StatementSyntax>();
         foreach (var plan in groupPlans)
         {
@@ -168,9 +97,10 @@ internal static class NullableLiftLifter
             }
         }
 
-        // Standalone postfix in an embedded slot (e.g. `if (c) x++;`): the
-        // block carries only the spliced statements.
-        if (!groupPlans.Any(plan => plan.ConsumesAnchor))
+        // Standalone postfix (`x++;` is the whole statement, including in an
+        // embedded slot like `if (c) x++;`): the block carries only the
+        // spliced statements; otherwise the anchor follows them.
+        if (!consumesAnchor)
         {
             sequence.Add(anchor.WithoutLeadingTrivia());
         }

@@ -106,12 +106,18 @@ internal static class NullableLiftSyntaxFacts
     /// <summary>
     /// True when <paramref name="node"/> sits in a context C22 can lift within
     /// (no anonymous-function/local-function/query boundary, and the path to the
-    /// anchor crosses no conditional/coalescing/short-circuit arm or
-    /// interpolated string). Pure skeleton for M0; M1 adds anchor-existence and
-    /// ordering checks (mirrors <c>IncrementTargetSyntaxFacts.IsBlockedPath</c>).
+    /// anchor crosses no conditional/coalescing/short-circuit ARM or
+    /// interpolated string). A conditional's CONDITION slot and the LEFT slot
+    /// of <c>&amp;&amp;</c>/<c>||</c>/<c>??</c> are evaluated exactly once
+    /// whenever the enclosing expression is evaluated, so a site reached
+    /// through always-evaluated slots only keeps the anchor's execution
+    /// frequency and is liftable; value arms and short-circuit right operands
+    /// are not. Pure skeleton for M0; M1 adds anchor-existence and ordering
+    /// checks (mirrors <c>IncrementTargetSyntaxFacts.IsBlockedPath</c>).
     /// </summary>
     public static bool IsLiftableContext(SyntaxNode node, StatementSyntax anchor)
     {
+        var child = node;
         foreach (var ancestor in node.Ancestors()
                      .TakeWhile(ancestor => ancestor != anchor))
         {
@@ -122,16 +128,33 @@ internal static class NullableLiftSyntaxFacts
                 case Microsoft.CodeAnalysis.CSharp.Syntax.QueryExpressionSyntax:
                 case Microsoft.CodeAnalysis.CSharp.Syntax.InitializerExpressionSyntax:
                 case Microsoft.CodeAnalysis.CSharp.Syntax.ArrowExpressionClauseSyntax:
-                case Microsoft.CodeAnalysis.CSharp.Syntax.ConditionalExpressionSyntax:
                 case Microsoft.CodeAnalysis.CSharp.Syntax.SwitchExpressionSyntax:
                 case Microsoft.CodeAnalysis.CSharp.Syntax.InterpolationSyntax:
                     return false;
+                case Microsoft.CodeAnalysis.CSharp.Syntax.ConditionalExpressionSyntax conditional:
+                    // The condition is evaluated unconditionally; both value
+                    // arms are evaluated only on one branch.
+                    if (child != conditional.Condition)
+                    {
+                        return false;
+                    }
+
+                    break;
                 case Microsoft.CodeAnalysis.CSharp.Syntax.BinaryExpressionSyntax binary when binary.Kind() is
                     Microsoft.CodeAnalysis.CSharp.SyntaxKind.LogicalAndExpression
                     or Microsoft.CodeAnalysis.CSharp.SyntaxKind.LogicalOrExpression
                     or Microsoft.CodeAnalysis.CSharp.SyntaxKind.CoalesceExpression:
-                    return false;
+                    // The left operand is always evaluated; the right operand
+                    // is conditional (short-circuit / null-coalescing).
+                    if (child != binary.Left)
+                    {
+                        return false;
+                    }
+
+                    break;
             }
+
+            child = ancestor;
         }
 
         return true;

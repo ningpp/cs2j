@@ -1081,6 +1081,20 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             return null;
         }
 
+        // Anchor-free but single-evaluation-safe shape: the nullable side is
+        // an explicit `c ? (T?)a : (T?)null` conditional. The lifted
+        // comparison distributes INTO the arms, so the live value is read
+        // exactly once without a hoisted temporary:
+        //   (c ? (T?)a : (T?)null) == k  →  c ? a == k : false
+        //   (... != k)                   →  c ? a != k : true
+        //   relational                   →  c ? a <op> k : false
+        var distributed = TryDistributeNullableConditional(
+            original, visited, classification, operation, underlying);
+        if (distributed != null)
+        {
+            return FinalizeSite(original, distributed, hoist: null);
+        }
+
         var (leftOk, leftAccess) = PrepareOperand(
             original, original.Left, visited.Left, operation.LeftOperand,
             sideNullable: classification.LeftNullable, isLeft: true);
@@ -1142,6 +1156,145 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
         }
 
         return FinalizeSite(original, rewritten, _currentHoist);
+    }
+
+    /// <summary>
+    /// Anchor-free distribution for the one-sided lifted comparison whose
+    /// nullable operand is an explicit source conditional
+    /// <c>c ? (T?)v : (T?)null</c>. The lifted comparison is pushed INTO the
+    /// arms, reading the live value exactly once without any hoisted temp:
+    /// <code>
+    /// (c ? (T?)v : (T?)null) == k  →  (c ? v == k : false)
+    /// (c ? (T?)v : (T?)null) != k  →  (c ? v != k : true)
+    /// relational (&lt; &gt; &lt;= &gt;=)  →  (c ? v &lt;op&gt; k : false)
+    /// </code>
+    /// The other operand must be a stable reference: in the distributed form
+    /// it is read only on the live branch, the same conditional-read
+    /// discipline as the regular one-sided guard
+    /// (<c>a.HasValue &amp;&amp; a.Value == b</c> short-circuits b). Unstable
+    /// operands fall through to the hoist path instead. The conditional
+    /// subtree must be untouched by inner rewrites so its arm conversions can
+    /// be verified against this semantic model.
+    /// </summary>
+    private ExpressionSyntax? TryDistributeNullableConditional(
+        BinaryExpressionSyntax original,
+        BinaryExpressionSyntax visited,
+        LiftedBinaryClassification classification,
+        NBOp.IBinaryOperation operation,
+        ITypeSymbol underlying)
+    {
+        if (classification.Flavor is not
+            (LiftedBinaryFlavor.Equality or LiftedBinaryFlavor.Relational))
+        {
+            return null;
+        }
+
+        // One-sided only: exactly one T? position (raw `== null` comparisons
+        // never reach this method).
+        if (classification.LeftNullable == classification.RightNullable)
+        {
+            return null;
+        }
+
+        var nullableIsLeft = classification.LeftNullable;
+        var originalNullableSide = nullableIsLeft ? original.Left : original.Right;
+        var visitedNullableSide = nullableIsLeft ? visited.Left : visited.Right;
+        var originalOther = nullableIsLeft ? original.Right : original.Left;
+        var visitedOther = nullableIsLeft ? visited.Right : visited.Left;
+
+        if (visitedNullableSide != originalNullableSide)
+        {
+            return null;
+        }
+
+        if (NullableLiftSyntaxFacts.UnwrapParens(visitedNullableSide)
+            is not ConditionalExpressionSyntax conditional)
+        {
+            return null;
+        }
+
+        var liveValue = MatchNullableValueCast(conditional.WhenTrue, underlying);
+        if (liveValue == null || !IsNullArm(conditional.WhenFalse))
+        {
+            return null;
+        }
+
+        if (!_analyzer.IsStableReference(originalOther))
+        {
+            return null;
+        }
+
+        var isNotEquals = original.IsKind(SyntaxKind.NotEqualsExpression);
+        var nullArm = classification.Flavor == LiftedBinaryFlavor.Equality && isNotEquals
+            ? LiteralExpression(SyntaxKind.TrueLiteralExpression)
+            : LiteralExpression(SyntaxKind.FalseLiteralExpression);
+
+        var comparison = BinaryExpression(
+            original.Kind(),
+            liveValue,
+            Token(original.OperatorToken.Kind()),
+            visitedOther.WithoutTrivia());
+
+        var distributed = ParenthesizedExpression(ConditionalExpression(
+                conditional.Condition.WithoutTrivia(),
+                comparison,
+                nullArm)
+            .WithAdditionalAnnotations(NullableLiftSyntaxFacts.GuardAnnotation));
+
+        if (classification.Flavor == LiftedBinaryFlavor.Relational)
+        {
+            _stats.LiftedRelationalSites++;
+        }
+        else
+        {
+            _stats.LiftedEqualityOneSidedSites++;
+        }
+
+        return distributed;
+    }
+
+    /// <summary>
+    /// Matches a <c>(T?)v</c> cast arm: the cast must target
+    /// <c>Nullable&lt;<paramref name="underlying"/>&gt;</c> and <c>v</c> must
+    /// convert to exactly <paramref name="underlying"/>. Returns the bare
+    /// live expression <c>v</c> on success.
+    /// </summary>
+    private ExpressionSyntax? MatchNullableValueCast(
+        ExpressionSyntax arm, ITypeSymbol underlying)
+    {
+        if (NullableLiftSyntaxFacts.UnwrapParens(arm) is not CastExpressionSyntax cast)
+        {
+            return null;
+        }
+
+        if (!NullableLiftAnalyzer.TryUnwrapNullable(_model.GetTypeInfo(cast).Type, out var castUnderlying)
+            || !SymbolEqualityComparer.Default.Equals(castUnderlying, underlying))
+        {
+            return null;
+        }
+
+        var inner = NullableLiftSyntaxFacts.UnwrapParens(cast.Expression);
+        var innerConverted = _model.GetTypeInfo(inner).ConvertedType;
+        if (!SymbolEqualityComparer.Default.Equals(innerConverted, underlying))
+        {
+            return null;
+        }
+
+        return inner;
+    }
+
+    /// <summary>Matches a <c>null</c> or <c>(T?)null</c> conditional arm.</summary>
+    private static bool IsNullArm(ExpressionSyntax arm)
+    {
+        var expression = NullableLiftSyntaxFacts.UnwrapParens(arm);
+        if (expression.IsKind(SyntaxKind.NullLiteralExpression))
+        {
+            return true;
+        }
+
+        return expression is CastExpressionSyntax cast
+            && NullableLiftSyntaxFacts.UnwrapParens(cast.Expression)
+                .IsKind(SyntaxKind.NullLiteralExpression);
     }
 
     /// <summary>
@@ -1390,6 +1543,18 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
 
         if (classification.Quadrant == NullableConversionQuadrant.UserDefined)
         {
+            // Plain (non-lifted) user-defined conversion — neither side is
+            // Nullable<T>, so there is no lifted three-valued guard for C22 to
+            // explicitize. The cast stays source syntax for the later C14
+            // member-desugar pass (which lowers user-defined casts to the
+            // operator contract); touching it here would only duplicate that
+            // work. Genuinely lifted user conversions (S? → T?/T) keep the
+            // deferred CS2J5353 gate until C14 lands.
+            if (!classification.SourceNullable && !classification.TargetNullable)
+            {
+                return visited;
+            }
+
             ReportSiteError(node,
                 PreprocessDiagnosticCodes.NullableLiftUserDefinedOperator,
                 NullableLiftDiagnostics.ReasonUserDefinedOperator,

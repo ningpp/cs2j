@@ -87,6 +87,22 @@ internal enum Liftability
 
     /// <summary>Condition/query/lambda/initializer/attribute/?./…: v1 has no safe anchor (CS2J5339).</summary>
     NoAnchor,
+
+    /// <summary>
+    /// A discarded <c>++/--</c> that IS a for-statement incrementor: the write
+    /// moves to the end of the loop body (continue-free bodies only); its value
+    /// is never consumed.
+    /// </summary>
+    ForIncrementor,
+
+    /// <summary>
+    /// Postfix site inside a WHILE condition on an unblocked evaluation path:
+    /// the loop is restructured to
+    /// <c>while (true) { &lt;plans&gt;; if (!(C')) break; body; }</c> so the old
+    /// value is read and the write performed once per condition evaluation in
+    /// source order (continue naturally re-runs the plans and the test).
+    /// </summary>
+    WhileConditionPostfix,
 }
 
 /// <summary>
@@ -220,6 +236,109 @@ internal sealed class IncrementTargetAnalyzer
     /// node or operator kind.
     /// </summary>
     public IncrementTargetClassification? Classify(ExpressionSyntax unaryNode)
+    {
+        var classification = ClassifyInternal(unaryNode);
+        if (classification == null)
+        {
+            return null;
+        }
+
+        // Statement linearization (CS2J5339 eradication):
+        // ① a statement-free prefix is a purely local `(target = NEW)` rewrite
+        //    that splices no statements, so anchor/scope/foreign-effect gates do
+        //    not apply — it is exact inside conditions, arguments, lambdas and
+        //    other expression positions;
+        // ② a discarded ++/-- that IS a whole for-incrementor moves its single
+        //    write to the end of the loop body.
+        if (classification is { IsPrefix: true, Lift: Liftability.NoAnchor }
+            && IsStatementFreePrefixShape(classification))
+        {
+            return classification with { Lift = Liftability.InlinePrefix };
+        }
+
+        if (classification.Lift == Liftability.NoAnchor
+            && IsForIncrementorSite(unaryNode))
+        {
+            return classification with { Lift = Liftability.ForIncrementor };
+        }
+
+        // ③ a postfix inside a while condition linearizes the whole loop: the
+        //    read/write sequences run at the top of the restructured body and
+        //    the site yields its old value to C'. Safe only on an unblocked
+        //    evaluation path (no ternary arm, short-circuit/coalesce right side,
+        //    lambda, query, initializer, … between the site and the condition).
+        if (classification is { IsPrefix: false, Lift: Liftability.NoAnchor }
+            && IsWhileConditionSite(unaryNode))
+        {
+            return classification with { Lift = Liftability.WhileConditionPostfix };
+        }
+
+        return classification;
+    }
+
+    /// <summary>
+    /// True when a prefix site's expansion splices ZERO statements (no
+    /// receiver/index/alias temp, no old-value read): a local/parameter/field
+    /// target or a property reached through this/base/a bare identifier/static
+    /// owner. The inline <c>(target = NEW)</c> reads the getter once and writes
+    /// once in place, so it is exact in any expression position without an
+    /// anchor.
+    /// </summary>
+    public static bool IsStatementFreePrefixShape(IncrementTargetClassification classification)
+    {
+        if (!classification.IsPrefix)
+        {
+            return false;
+        }
+
+        switch (classification.Target)
+        {
+            case TargetKind.SimpleDirect:
+                return true;
+            case TargetKind.Property when classification.Operand is IdentifierNameSyntax:
+                return true;
+            case TargetKind.Property when classification.Operand is MemberAccessExpressionSyntax memberAccess
+                && memberAccess.Expression is ThisExpressionSyntax
+                    or BaseExpressionSyntax
+                    or IdentifierNameSyntax:
+                // Static owners and this/base/local/parameter/field receivers
+                // need no receiver temp (BuildReceiver emits an Identifier ref).
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// True when the unary node IS (parens allowed) a whole incrementor
+    /// expression of a for statement — its value is discarded and its write
+    /// can be linearized to the end of the loop body.
+    /// </summary>
+    private static bool IsForIncrementorSite(ExpressionSyntax unaryNode)
+    {
+        return unaryNode.Parent is ForStatementSyntax forStatement
+            && forStatement.Incrementors.Any(
+                incrementor => IncrementTargetSyntaxFacts.UnwrapParens(incrementor) == unaryNode);
+    }
+
+    /// <summary>
+    /// True when the postfix node sits inside a while statement's condition on
+    /// a path that evaluates on every condition test: the nearest statement is
+    /// the while, the node span is inside the condition span, and the path to
+    /// the anchor crosses no blocked construct (ternary arm, short-circuit/
+    /// coalesce right side, lambda/local function, query, initializer,
+    /// interpolation) and no function scope.
+    /// </summary>
+    private static bool IsWhileConditionSite(ExpressionSyntax unaryNode)
+    {
+        var anchor = IncrementTargetSyntaxFacts.FindAnchorStatement(unaryNode);
+        return anchor is WhileStatementSyntax whileStatement
+            && whileStatement.Condition.Span.Contains(unaryNode.Span)
+            && !IncrementTargetSyntaxFacts.IsBlockedPath(unaryNode, whileStatement)
+            && !CrossesFunctionScope(whileStatement);
+    }
+
+    private IncrementTargetClassification? ClassifyInternal(ExpressionSyntax unaryNode)
     {
         var kind = unaryNode.Kind();
         if (Array.IndexOf(IncrementKinds, kind) < 0)

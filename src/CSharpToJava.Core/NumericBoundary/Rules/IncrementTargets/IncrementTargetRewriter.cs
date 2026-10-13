@@ -25,6 +25,21 @@ internal sealed class IncrementHoistPlan
     /// <summary>True when the site is a standalone expression statement.</summary>
     public required bool Standalone { get; init; }
 
+    /// <summary>Start span of the original unary node (multi-site source ordering).</summary>
+    public required int SiteSpanStart { get; init; }
+
+    /// <summary>
+    /// The site is a postfix inside a WHILE condition: Pass2 restructures the
+    /// loop to <c>while (true) { &lt;plans&gt;; if (!(C')) break; body; }</c>.
+    /// </summary>
+    public required bool WhileCondition { get; init; }
+
+    /// <summary>
+    /// The site IS a for-incrementor: Pass2 removes the placeholder incrementor
+    /// and appends the write statements at the end of the loop body.
+    /// </summary>
+    public required bool ForIncrementor { get; init; }
+
     /// <summary>Hoisted declarations (and, for standalone sites, the write) in execution order.</summary>
     public required List<StatementSyntax> Statements { get; init; }
 }
@@ -214,6 +229,29 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
                 ReportRefAliasWarning(node);
             }
 
+            // Statement-free prefix lane: `(target = NEW)` splices no
+            // statements, so it is exact in any expression position and needs
+            // neither an anchor nor the same-anchor ordering gate.
+            if (classification.Lift == Liftability.InlinePrefix
+                && IncrementTargetAnalyzer.IsStatementFreePrefixShape(classification))
+            {
+                _accepted[node] = classification;
+                continue;
+            }
+
+            // For-incrementor lane: the discarded write moves to the body end.
+            if (classification.Lift == Liftability.ForIncrementor)
+            {
+                if (!IsForIncrementorRewritable(node))
+                {
+                    ReportNoAnchor(node, IncrementTargetDiagnostics.ReasonNoAnchor);
+                    continue;
+                }
+
+                _accepted[node] = classification;
+                continue;
+            }
+
             candidates.Add((node, classification));
         }
 
@@ -231,9 +269,10 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
             list.Add(candidate);
         }
 
-        foreach (var (_, sites) in groups)
+        foreach (var (anchor, sites) in groups)
         {
-            if (IsUnsafeSameAnchorGroup(sites, out var reason))
+            var safe = IsAnchorGroupRewritable(anchor, sites, out var reason);
+            if (!safe)
             {
                 foreach (var (node, _) in sites)
                 {
@@ -248,6 +287,107 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
                 _accepted[node] = classification;
             }
         }
+    }
+
+    /// <summary>
+    /// Multi-site materialization gate. Beyond the single-site decision-14
+    /// rules, two linearized shapes are accepted:
+    /// <list type="bullet">
+    /// <item>postfix sites in a WHILE condition (any count): the plans run at
+    /// the top of the restructured loop body, before the test, per iteration;</item>
+    /// <item>multiple value-consumed postfixes in one anchor: each old value is
+    /// read and written once in source order, so the only ordering hazard is a
+    /// disjoint side effect that a site textually follows.</item>
+    /// </list>
+    /// </summary>
+    private bool IsAnchorGroupRewritable(
+        StatementSyntax anchor,
+        List<(ExpressionSyntax Node, IncrementTargetClassification C)> sites,
+        out string reason)
+    {
+        reason = IncrementTargetDiagnostics.ReasonNoAnchor;
+
+        if (anchor is WhileStatementSyntax whileStatement)
+        {
+            var allConditionPostfixes = sites.All(s =>
+                s.C.Lift == Liftability.WhileConditionPostfix
+                && whileStatement.Condition.Span.Contains(s.Node.Span));
+            return allConditionPostfixes && IsMaterializationOrderSafe(anchor, sites);
+        }
+
+        if (sites.Count > 1)
+        {
+            var allPostfixes = sites.All(s => s.C.Lift == Liftability.LiftablePostfix);
+            return allPostfixes && IsMaterializationOrderSafe(anchor, sites);
+        }
+
+        return !IsUnsafeSameAnchorGroup(sites, out reason);
+    }
+
+    /// <summary>
+    /// Exact materialization ordering for multi-postfix/while-condition
+    /// groups. The hoisted read/write sequences all run at ONE splice point in
+    /// source order; that is exact iff no side-effect expression disjoint from
+    /// every owned site subtree is textually FOLLOWED by an owned site (its
+    /// write would otherwise move ahead of that effect).
+    /// </summary>
+    private bool IsMaterializationOrderSafe(
+        StatementSyntax anchor,
+        List<(ExpressionSyntax Node, IncrementTargetClassification C)> sites)
+    {
+        foreach (var candidate in anchor.DescendantNodes())
+        {
+            if (!IsPotentialEffect(candidate))
+            {
+                continue;
+            }
+
+            if (sites.Any(site => site.Node.Span.Contains(candidate.Span)))
+            {
+                continue;
+            }
+
+            if (sites.Any(site => site.Node.SpanStart >= candidate.Span.End))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// A for-incrementor site is rewritable when the loop body has no direct
+    /// <c>continue</c> (it would skip the write appended at body end) and no
+    /// SIBLING incrementor carries a side effect (it stays in the incrementor
+    /// list and would interleave wrongly with the moved writes).
+    /// </summary>
+    private bool IsForIncrementorRewritable(ExpressionSyntax node)
+    {
+        if (node.Parent is not ForStatementSyntax forStatement)
+        {
+            return false;
+        }
+
+        if (ForBodyContinueScanner.Scan(forStatement.Statement))
+        {
+            return false;
+        }
+
+        foreach (var incrementor in forStatement.Incrementors)
+        {
+            if (IncrementTargetSyntaxFacts.UnwrapParens(incrementor) == node)
+            {
+                continue;
+            }
+
+            if (incrementor.DescendantNodesAndSelf().Any(IsPotentialEffect))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -268,29 +408,18 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
     {
         reason = IncrementTargetDiagnostics.ReasonNoAnchor;
         var anchor = IncrementTargetSyntaxFacts.FindAnchorStatement(sites[0].Node)!;
-        var siteNodes = sites.Select(s => s.Node).ToList();
 
-        // ① Foreign side effects: potential-effect nodes that are DISJOINT from
-        // every owned site. Ancestor effects (the enclosing invocation F(...),
-        // an assignment LHS/RHS wrapper, the return statement) execute after
-        // the site's own read/write in C# evaluation order and stay in place,
-        // so hoisting does not reorder them; effects inside a site subtree are
-        // captured by its own hoist sequence. A disjoint sibling effect
-        // (F(G(), p.P++), p.P++ + Other(), …) could be observed in a different
-        // order once the writes move before the anchor → refuse (decision 14).
-        foreach (var candidate in anchor.DescendantNodes())
+        // ① Foreign side effects: only a disjoint effect that an owned site
+        // TEXTUALLY FOLLOWS is a hazard — its read/write materialization would
+        // move ahead of that effect. Effects after the site are harmless (the
+        // site's write already precedes them in C# evaluation order, e.g. the
+        // direct-map `j++` on the RHS of `dest[p.V++] = src[j++];`); ancestor
+        // effects (enclosing invocation/assignment) and effects inside a site
+        // subtree execute around/within the site as before (decision 14,
+        // directional refinement for the UriHelper copy loops).
+        if (!IsMaterializationOrderSafe(anchor, sites))
         {
-            if (!IsPotentialEffect(candidate))
-            {
-                continue;
-            }
-
-            var relatedToSite = siteNodes.Any(site =>
-                site.Span.Contains(candidate.Span) || candidate.Span.Contains(site.Span));
-            if (!relatedToSite)
-            {
-                return true;
-            }
+            return true;
         }
 
         var ordered = sites.OrderBy(s => s.Node.SpanStart).ToList();
@@ -427,7 +556,8 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
         var standalone = classification.Lift == Liftability.Standalone;
 
         ExpressionSyntax replacement;
-        if (classification.Lift == Liftability.LiftablePostfix)
+        if (classification.Lift is Liftability.LiftablePostfix
+            or Liftability.WhileConditionPostfix)
         {
             // var __o = READ; WRITE = CORE(__o); site → __o
             var oldName = _names.Old(site);
@@ -442,6 +572,23 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
 
             replacement = IdentifierName(oldName);
             _stats.PostfixLiftedSites++;
+        }
+        else if (classification.Lift == Liftability.ForIncrementor)
+        {
+            // Discarded incrementor: the single write statement moves to the
+            // end of the loop body (Pass2 removes this placeholder incrementor).
+            var read = descriptor.BuildAccess();
+            var core = IncrementTargetExpansion.BuildCore(
+                classification, operandType, read, decrement, _stats);
+            statements.Add(IncrementTargetSyntaxFacts.WriteStatement(
+                AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression, descriptor.BuildAccess(), core)));
+
+            replacement = IdentifierName(_names.Discard(site));
+            if (!classification.IsPrefix)
+            {
+                _stats.PostfixStandaloneSites++;
+            }
         }
         else
         {
@@ -477,6 +624,9 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
             Marker = marker,
             OriginalAnchor = anchor,
             Standalone = standalone,
+            SiteSpanStart = original.SpanStart,
+            WhileCondition = classification.Lift == Liftability.WhileConditionPostfix,
+            ForIncrementor = classification.Lift == Liftability.ForIncrementor,
             Statements = statements,
         });
 
@@ -1000,79 +1150,195 @@ internal static class IncrementTargetLifter
             anchorGroups[newAnchor] = groupPlans;
         }
 
-        var parents = anchorGroups.Keys
-            .Select(anchor => anchor.Parent!)
-            .Distinct()
+        // ONE bottom-up ReplaceNodes over two disjoint node kinds:
+        //   * ordinary anchor STATEMENTS (wrap/while/for paths), and
+        //   * the enclosing Block/SwitchSection of LocalDeclarationStatement
+        //     "escape" anchors, whose temps become sibling statements right
+        //     before the declaration.
+        // Replacing anchor statements directly (not their containers) is what
+        // keeps nested groups intact when group B's anchor lives inside group
+        // A's anchor subtree: ReplaceNodes visits bottom-up, so `updated`
+        // already carries every nested group's result (a stale-instance second
+        // ReplaceNodes pass silently no-ops and drops the inner splice —
+        // observed as a dangling `__cs2j_inc_dN;` placeholder,
+        // RegexNode.ReduceConcatenationWithAdjacentLoops, and as vanished
+        // index temps, ContentValidator.RangeCursors).
+        //
+        // A LocalDeclarationStatement anchor declares a name that later
+        // statements refer to (e.g. `decimal count = ++arr[i];` followed by
+        // `if (count == …)`): wrapping it in a bare block scopes the name out
+        // (operands then bind to the '?' error type and C34 reports CS2J5361),
+        // so its temps splice into the enclosing statement list instead.
+        var wrapAnchors = anchorGroups
+            .Where(kvp => !IsDeclarationEscapeGroup(kvp.Key, kvp.Value))
+            .Select(kvp => kvp.Key)
             .ToList();
 
-        return (CompilationUnitSyntax)root.ReplaceNodes(parents, (parent, _) =>
+        var escapeAnchors = anchorGroups
+            .Where(kvp => IsDeclarationEscapeGroup(kvp.Key, kvp.Value))
+            .ToList();
+
+        // container (old-tree instance) -> escape declarations in source order
+        var escapeByContainer =
+            new Dictionary<SyntaxNode, List<(StatementSyntax Decl, List<IncrementHoistPlan> Plans)>>();
+
+        var replacementNodes = new List<SyntaxNode>(wrapAnchors);
+        foreach (var (decl, groupPlans) in escapeAnchors)
         {
-            if (parent is BlockSyntax block)
+            var container = decl.Parent;
+            if (container is not BlockSyntax and not SwitchSectionSyntax)
             {
-                return block.WithStatements(List(ExpandStatements(block.Statements, anchorGroups)));
+                throw new InvalidOperationException(
+                    "C17 declaration-escape anchor sits outside a block or switch section statement list; anchor not found");
             }
 
-            if (parent is SwitchSectionSyntax section)
+            if (!escapeByContainer.TryGetValue(container, out var escapes))
             {
-                return section.WithStatements(List(ExpandStatements(section.Statements, anchorGroups)));
+                escapes = new List<(StatementSyntax, List<IncrementHoistPlan>)>();
+                escapeByContainer[container] = escapes;
+                replacementNodes.Add(container);
             }
 
-            // Embedded statement slot (if/while/do/for/foreach/using/lock/
-            // fixed/else/labeled/global statement): exactly one anchor group.
-            var (anchor, groupPlans) = anchorGroups.Single(pair => pair.Key.Parent == parent);
-            return parent.ReplaceNode(anchor, WrapInBlock(anchor, groupPlans, includeAnchor: true));
+            escapes.Add((decl, groupPlans));
+        }
+
+        foreach (var escapes in escapeByContainer.Values)
+        {
+            escapes.Sort((a, b) => a.Decl.SpanStart.CompareTo(b.Decl.SpanStart));
+        }
+
+        if (replacementNodes.Count == 0)
+        {
+            return root;
+        }
+
+        return (CompilationUnitSyntax)root.ReplaceNodes(replacementNodes, (original, updated) =>
+        {
+            if (escapeByContainer.TryGetValue(original, out var escapes))
+            {
+                return SpliceDeclarationsBefore(updated, original, escapes);
+            }
+
+            var groupPlans = anchorGroups[(StatementSyntax)original];
+            var anchor = (StatementSyntax)updated;
+
+            if (groupPlans[0].WhileCondition)
+            {
+                return TransformWhile((WhileStatementSyntax)anchor, groupPlans);
+            }
+
+            if (groupPlans[0].ForIncrementor)
+            {
+                return TransformFor((ForStatementSyntax)anchor, groupPlans);
+            }
+
+            // Standalone sites consume the whole statement; all other groups
+            // keep the anchor after the spliced plan statements, scoped in a
+            // bare block (temps are unique, so the extra scope is neutral).
+            var includeAnchor = !groupPlans.All(plan => plan.Standalone);
+            return WrapInBlock(anchor, groupPlans, includeAnchor);
         });
     }
 
-    private static IEnumerable<StatementSyntax> ExpandStatements(
-        SyntaxList<StatementSyntax> statements,
-        IReadOnlyDictionary<StatementSyntax, List<IncrementHoistPlan>> anchorGroups)
+    /// <summary>
+    /// True when the anchor is a local declaration that stays in the statement
+    /// list after splicing (its declared names are visible to later statements,
+    /// so the temps must be siblings of the declaration instead of wrapping it
+    /// in a nested block.
+    /// </summary>
+    private static bool IsDeclarationEscapeGroup(
+        StatementSyntax anchor, IReadOnlyList<IncrementHoistPlan> groupPlans)
     {
-        foreach (var statement in statements)
+        if (anchor is not LocalDeclarationStatementSyntax)
         {
-            if (!anchorGroups.TryGetValue(statement, out var groupPlans))
+            return false;
+        }
+
+        // All-standalone groups replace the whole statement; the declaration
+        // never survives, so the regular block path applies.
+        return !groupPlans.All(plan => plan.Standalone);
+    }
+
+    /// <summary>
+    /// Container callback for the single bottom-up ReplaceNodes: splice each
+    /// escape declaration group's temps into the (updated) block or switch
+    /// section's statement list, immediately before the declaration.
+    /// <para>
+    /// The declaration is located POSITIONALLY against the ORIGINAL container —
+    /// nested replacements (a sibling anchor wrap, a descendant container
+    /// splice) rebuild statement instances but never add/remove/reorder slots
+    /// at this level, so old and updated lists zip one-to-one by index even
+    /// though the declaration instance itself is new.
+    /// </para>
+    /// </summary>
+    private static SyntaxNode SpliceDeclarationsBefore(
+        SyntaxNode updated,
+        SyntaxNode original,
+        IReadOnlyList<(StatementSyntax Decl, List<IncrementHoistPlan> Plans)> escapes)
+    {
+        var oldStatements = original switch
+        {
+            BlockSyntax block => block.Statements,
+            SwitchSectionSyntax section => section.Statements,
+            _ => throw new InvalidOperationException(
+                "C17 declaration-escape container is neither a block nor a switch section"),
+        };
+        var newStatements = updated switch
+        {
+            BlockSyntax block => block.Statements,
+            SwitchSectionSyntax section => section.Statements,
+            _ => throw new InvalidOperationException(
+                "C17 declaration-escape container is neither a block nor a switch section"),
+        };
+
+        if (oldStatements.Count != newStatements.Count)
+        {
+            throw new InvalidOperationException(
+                "C17 declaration-escape splice lost positional alignment " +
+                $"({oldStatements.Count} old vs {newStatements.Count} updated statements)");
+        }
+
+        var plansByDecl = escapes.ToDictionary(item => item.Decl, item => item.Plans);
+        var result = new List<StatementSyntax>();
+
+        for (var i = 0; i < oldStatements.Count; i++)
+        {
+            var oldStatement = oldStatements[i];
+            var newStatement = newStatements[i];
+
+            if (!plansByDecl.TryGetValue(oldStatement, out var groupPlans))
             {
-                yield return statement;
+                result.Add(newStatement);
                 continue;
             }
 
-            if (groupPlans.All(plan => plan.Standalone))
-            {
-                // Standalone sites replace the whole statement; the bare block
-                // scopes the per-site temps (a group has a single standalone
-                // plan, possibly enclosing nested consumed sites).
-                var scoped = new List<StatementSyntax>();
-                foreach (var plan in groupPlans)
-                {
-                    scoped.AddRange(plan.Statements);
-                }
-
-                yield return Block(scoped)
-                    .WithLeadingTrivia(statement.GetLeadingTrivia())
-                    .WithAdditionalAnnotations(
-                        NB.RewriteAnnotation,
-                        new SyntaxAnnotation(IncrementTargetSyntaxFacts.RewriteAnnotationKind));
-                continue;
-            }
-
-            // Consumed sites: every plan sequence (receiver → args → old-read
-            // → write, in source/visit order) precedes the anchor statement.
-            var leading = statement.GetLeadingTrivia();
-            var emittedAny = false;
+            var leading = newStatement.GetLeadingTrivia();
+            var emitted = 0;
             foreach (var plan in groupPlans)
             {
                 foreach (var hoisted in plan.Statements)
                 {
-                    yield return emittedAny
-                        ? hoisted
-                        : hoisted.WithLeadingTrivia(leading);
-                    emittedAny = true;
+                    var annotated = hoisted.WithAdditionalAnnotations(
+                        NB.RewriteAnnotation,
+                        new SyntaxAnnotation(IncrementTargetSyntaxFacts.RewriteAnnotationKind));
+                    result.Add(emitted == 0
+                        ? annotated.WithLeadingTrivia(leading)
+                        : annotated);
+                    emitted++;
                 }
             }
 
-            yield return statement.WithoutLeadingTrivia()
-                .WithLeadingTrivia(ElasticMarker);
+            result.Add(emitted == 0
+                ? newStatement
+                : newStatement.WithoutLeadingTrivia());
         }
+
+        return updated switch
+        {
+            BlockSyntax block => block.WithStatements(SyntaxFactory.List(result)),
+            SwitchSectionSyntax section => section.WithStatements(SyntaxFactory.List(result)),
+            _ => updated,
+        };
     }
 
     private static BlockSyntax WrapInBlock(
@@ -1096,5 +1362,100 @@ internal static class IncrementTargetLifter
             .WithAdditionalAnnotations(
                 NB.RewriteAnnotation,
                 new SyntaxAnnotation(IncrementTargetSyntaxFacts.RewriteAnnotationKind));
+    }
+
+    /// <summary>
+    /// While-condition linearization:
+    /// <c>while (C) B</c> → <c>while (true) { plans; if (!(C')) break; B }</c>
+    /// where each plan (receiver/index temps → old read → write) runs once per
+    /// condition evaluation in source order. A <c>continue</c> in B naturally
+    /// re-enters at the plans and the retest; <c>break</c> leaves the loop
+    /// without a retest, as in the original.
+    /// </summary>
+    private static WhileStatementSyntax TransformWhile(
+        WhileStatementSyntax whileStatement,
+        IReadOnlyList<IncrementHoistPlan> groupPlans)
+    {
+        var leading = whileStatement.GetLeadingTrivia();
+        var sequence = new List<StatementSyntax>();
+        var emittedAny = false;
+        foreach (var plan in groupPlans)
+        {
+            foreach (var hoisted in plan.Statements)
+            {
+                sequence.Add(emittedAny
+                    ? hoisted
+                    : hoisted.WithLeadingTrivia(leading));
+                emittedAny = true;
+            }
+        }
+
+        var retest = IfStatement(
+            PrefixUnaryExpression(
+                SyntaxKind.LogicalNotExpression,
+                ParenthesizedExpression(whileStatement.Condition)),
+            BreakStatement());
+        sequence.Add(retest);
+        sequence.Add(whileStatement.Statement);
+
+        var inner = Block(sequence);
+        return WhileStatement(
+                LiteralExpression(SyntaxKind.TrueLiteralExpression),
+                inner)
+            .WithLeadingTrivia(emittedAny ? TriviaList(ElasticMarker) : leading)
+            .WithAdditionalAnnotations(
+                NB.RewriteAnnotation,
+                new SyntaxAnnotation(IncrementTargetSyntaxFacts.RewriteAnnotationKind));
+    }
+
+    /// <summary>
+    /// For-incrementor linearization: every marker-bearing incrementor of the
+    /// group is removed and its discarded write statement is appended at the
+    /// end of the loop body (the planner refused bodies with a direct
+    /// <c>continue</c> and effectful sibling incrementors).
+    /// </summary>
+    private static ForStatementSyntax TransformFor(
+        ForStatementSyntax forStatement,
+        IReadOnlyList<IncrementHoistPlan> groupPlans)
+    {
+        var markers = groupPlans.Select(plan => plan.Marker).ToHashSet();
+        var keptIncrementors = forStatement.Incrementors
+            .Where(incrementor => !incrementor
+                .DescendantNodesAndSelf()
+                .Any(node => markers.Any(node.HasAnnotation)))
+            .ToList();
+
+        var writes = groupPlans.SelectMany(plan => plan.Statements).ToList();
+        var result = forStatement
+            .WithIncrementors(SeparatedList(keptIncrementors))
+            .WithStatement(AppendToBody(forStatement.Statement, writes));
+
+        return result.WithAdditionalAnnotations(
+            NB.RewriteAnnotation,
+            new SyntaxAnnotation(IncrementTargetSyntaxFacts.RewriteAnnotationKind));
+    }
+
+    private static StatementSyntax AppendToBody(
+        StatementSyntax body,
+        IReadOnlyList<StatementSyntax> writes)
+    {
+        var annotations = new SyntaxAnnotation[]
+        {
+            NB.RewriteAnnotation,
+            new(IncrementTargetSyntaxFacts.RewriteAnnotationKind),
+        };
+
+        if (body is BlockSyntax block)
+        {
+            return block
+                .WithStatements(List(block.Statements.Concat(writes)))
+                .WithAdditionalAnnotations(annotations);
+        }
+
+        var sequence = new List<StatementSyntax> { body.WithoutLeadingTrivia() };
+        sequence.AddRange(writes);
+        return Block(sequence)
+            .WithLeadingTrivia(body.GetLeadingTrivia())
+            .WithAdditionalAnnotations(annotations);
     }
 }

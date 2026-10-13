@@ -42,11 +42,37 @@ internal sealed class NullableLiftRule : INumericBoundaryRule
             return new NumericBoundaryRuleResult(context.Root, MadeChanges: false);
         }
 
+        var originalRoot = context.Root;
+
+        // Expression-lambda statement linearization (decision 21): turn
+        // &&-predicate expression lambdas that contain lifted sites into
+        // statement lambdas with early-false guards, so the sites gain a
+        // return anchor inside the (now) block scope. Speculative: a residual
+        // CS2J5355 below still rolls the WHOLE file back, and the failure
+        // result returns the untouched original root.
+        var linearizedRoot = NullableLambdaLinearizer.Linearize(
+            context.Root, context.SemanticModel, out var linearized);
+        if (linearized)
+        {
+            var linearizedModel = context.RebindModel(linearizedRoot);
+            if (linearizedModel == null)
+            {
+                context.Diagnostics.Add(new NumericBoundaryDiagnostic(
+                    NumericBoundarySeverity.Error,
+                    PreprocessDiagnosticCodes.NumericBoundaryBuildFailed,
+                    "numeric-boundary rule 'nullable-lift' produced a tree that fails to reparse while " +
+                    "linearizing expression lambdas; the original file was preserved " +
+                    $"({PreprocessDiagnosticCodes.NumericBoundaryBuildFailed})."));
+                context.Stats.ErrorsByReason[PreprocessDiagnosticCodes.NumericBoundaryBuildFailed] = 1;
+                return new NumericBoundaryRuleResult(originalRoot, MadeChanges: false);
+            }
+        }
+
         var analyzer = new NullableLiftAnalyzer(
             context.SemanticModel, context.Options, context.GetSharedAnalyzer());
 
         // Pass 1: bottom-up guard expansion + temp collection over the
-        // ORIGINAL bound tree (errors are discovered during the visit).
+        // (possibly lambda-linearized) bound tree; errors surface during visit.
         var rewriter = new NullableLiftRewriter(
             context.SemanticModel,
             context.Options,
@@ -60,12 +86,14 @@ internal sealed class NullableLiftRule : INumericBoundaryRule
         // the file back to the original bytes via the Error diagnostic.
         if (rewriter.HasErrorDiagnostic)
         {
-            return new NumericBoundaryRuleResult(context.Root, MadeChanges: false);
+            return new NumericBoundaryRuleResult(originalRoot, MadeChanges: false);
         }
 
         if (!rewriter.MadeChanges)
         {
-            return new NumericBoundaryRuleResult(context.Root, MadeChanges: false);
+            // Lambda linearization without a guard expansion never happens
+            // (a candidate body always contains a rewritten lifted site).
+            return new NumericBoundaryRuleResult(originalRoot, MadeChanges: false);
         }
 
         // Pass 2: hoist single-evaluation temp declarations to anchors.
