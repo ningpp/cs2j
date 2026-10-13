@@ -38,8 +38,12 @@ internal static class Cs2jArraySupportLibrary
                     ArrayHelperSupportFiles.LibDirectoryName));
         }
 
+        // Layout projects and SourceFilePaths live in the source tree in
+        // legacy mode and inside the (equal) unified tree in unified mode, so
+        // the source root is the correct boundary for props evaluation.
         var hostProjectDirectories = ComputeHostProjectDirectories(
-            tree.Layout, tree.Exclusion, rewrittenSourceFiles, tree.ProjectGraph);
+            tree.Layout, tree.Exclusion, rewrittenSourceFiles, tree.ProjectGraph,
+            tree.SourceRoot);
 
         EnsureProjectReferences(
             tree.SourceRoot,
@@ -252,17 +256,27 @@ internal static class Cs2jArraySupportLibrary
             "or report the case so Cs2jArray can multi-target.");
     }
 
-    private static IReadOnlySet<string> ComputeHostProjectDirectories(
+    internal static IReadOnlySet<string> ComputeHostProjectDirectories(
         ProjectPreprocessSourceLayout layout,
         SupportedProjectFiltering.ExclusionInfo exclusionInfo,
         IReadOnlyList<string> rewrittenFiles,
-        ProjectGraph? projectGraph)
+        ProjectGraph? projectGraph,
+        string intermediateRoot)
     {
-        // projectGraph is unused; hosts are projects whose directories contain
-        // rewritten files (same semantics as the array-method adapter).
+        // A host is ANY project that compiles a rewritten file. Directory
+        // containment alone misses shared sources pulled in via explicit
+        // <Compile Include="..\..\src\X.cs" Link="…" /> (e.g. the uri test
+        // projects linking Common/ArrayBuilder.cs): the rewritten file lives
+        // under the production project's directory, so the test project never
+        // got the Cs2jArray reference and failed with CS0103 "Cs2jArray does
+        // not exist".
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (rewrittenFiles.Count == 0)
             return result;
+
+        var rewrittenFull = rewrittenFiles
+            .Select(file => Path.GetFullPath(file))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (var projectFile in layout.ProjectFiles
                      .Where(file =>
@@ -275,6 +289,21 @@ internal static class Cs2jArraySupportLibrary
             }
 
             var projectDirectory = Path.GetDirectoryName(projectFile)!;
+
+            var compiledSet = ProjectCompileSet.ComputeCompiledSet(
+                projectFile, intermediateRoot);
+            if (compiledSet != null)
+            {
+                if (compiledSet.Files.Any(file => rewrittenFull.Contains(file)))
+                {
+                    result.Add(projectDirectory);
+                }
+
+                continue;
+            }
+
+            // Unparseable project: fall back to the legacy directory-containment
+            // heuristic rather than silently skipping the support reference.
             if (rewrittenFiles.Any(file =>
                     ProjectPreprocessSource.IsSameOrDescendantPath(
                         file, projectDirectory)))
