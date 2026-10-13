@@ -1125,4 +1125,111 @@ public class NullCoalesceRewriterUnitTests
         Assert.Contains("Provider() ?? \"default\"", result.OutputCode);
         Assert.Empty(OutputCompileErrors(result.OutputCode));
     }
+
+    [Fact]
+    public void CoalesceAssign_ValueContext_Indexer_With_PostIncrement_Evaluates_Index_Once()
+    {
+        // RegexPrefixAnalyzer.ComputeMultipleCharClasses exact shape:
+        //   (classes[classPos++] ??= new RegexCharClass()).AddChar(ch);
+        // The target index expression 'classPos++' has a side effect and must be
+        // evaluated exactly once. The old lowering cloned the lvalue into the
+        // null test, the write-back and the value read -> classPos advanced by
+        // three per iteration (IndexOutOfRange/NRE + wrong prefix sets).
+        var src = """
+        class Box { public void Use() { } }
+        class C {
+            Box?[] classes = new Box?[3];
+            public int Run() {
+                int classPos = 0;
+                (classes[classPos++] ??= new Box()).Use();
+                return classPos;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("??", result.OutputCode);
+        // The post-increment survives exactly once (hoisted into an index temp).
+        Assert.Equal(1, CountOccurrences(result.OutputCode, "classPos++"));
+        Assert.Empty(OutputCompileErrors(result.OutputCode));
+        Assert.Equal(1, InvokeRun(result.OutputCode));
+    }
+
+    [Fact]
+    public void CoalesceAssign_Statement_Indexer_With_PostIncrement_Evaluates_Index_Once()
+    {
+        // Statement form 'a[i++] ??= x;' likewise evaluates the index once:
+        // once for the read/null test and the write goes to the SAME index.
+        var src = """
+        class Box { }
+        class C {
+            Box?[] classes = new Box?[3];
+            public int Run() {
+                int classPos = 0;
+                classes[classPos++] ??= new Box();
+                return classPos;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("??", result.OutputCode);
+        Assert.Equal(1, CountOccurrences(result.OutputCode, "classPos++"));
+        Assert.Empty(OutputCompileErrors(result.OutputCode));
+        Assert.Equal(1, InvokeRun(result.OutputCode));
+    }
+
+    [Fact]
+    public void CoalesceAssign_Pure_Indexer_Still_Emits_Direct_Guard_Without_Temps()
+    {
+        // Side-effect-free indexer targets keep the minimal clone lowering (no
+        // value/index temps) — only effectful targets are stabilized.
+        var src = """
+        class C {
+            void M(string?[] cache, int i, string val) {
+                cache[i] ??= val;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("if (cache[i] == null)", result.OutputCode);
+        Assert.DoesNotContain("___t", result.OutputCode);
+        Assert.Empty(OutputCompileErrors(result.OutputCode));
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+        return count;
+    }
+
+    private static int InvokeRun(string code)
+    {
+        var tree = CSharpSyntaxTree.ParseText(code);
+        var compilation = CSharpCompilation.Create(
+            "null-coalesce-run",
+            new[] { tree },
+            CompileReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        using var ms = new System.IO.MemoryStream();
+        var emit = compilation.Emit(ms);
+        Assert.True(emit.Success,
+            "lowered code failed to emit:\n" +
+            string.Join("\n", emit.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)) +
+            "\n---\n" + code);
+        var assembly = System.Reflection.Assembly.Load(ms.ToArray());
+        var type = assembly.GetType("C")!;
+        var instance = System.Activator.CreateInstance(type);
+        return (int)type.GetMethod("Run")!.Invoke(instance, null)!;
+    }
 }

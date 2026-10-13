@@ -1,6 +1,9 @@
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace CSharpToJava.Core.NullCoalesceRewriter;
 
@@ -250,10 +253,24 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
 
         if (FindAnchorStatement(node) is not null)
         {
+            _stats.NullCoalescingAssignRewritten++;
+
+            // A member/indexer lvalue whose evaluation has side effects (e.g.
+            // 'a[i++] ??= x' or 'Get().P ??= x') must evaluate its receiver and
+            // index arguments exactly once. The plain 'if (lhs == null) lhs = rhs'
+            // guard clones the lvalue and would run those side effects twice/three
+            // times, so materialize it into temps first.
+            if (LvalueMayHaveSideEffects(left))
+            {
+                var (value, guardStmts) = BuildStabilizedCoalesceAssign(left, right);
+                foreach (var guardStmt in guardStmts)
+                    PendingGuards.Add(new PendingGuard(guardStmt));
+                return value;
+            }
+
             // Hoist the guard and read the (possibly freshly assigned) lvalue.
             // The receiver/index expressions are evaluated like in the
             // statement form of the pass.
-            _stats.NullCoalescingAssignRewritten++;
             PendingGuards.Add(new PendingGuard(BuildIfAssignsNull(left, right)));
             return left;
         }
@@ -296,6 +313,16 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
         }
 
         _stats.NullCoalescingAssignRewritten++;
+
+        // Same single-evaluation requirement as the value form: a side-effecting
+        // member/indexer target (e.g. 'a[i++] ??= x;') must not be cloned into
+        // both the null test and the assignment.
+        if (left is not IdentifierNameSyntax && LvalueMayHaveSideEffects(left))
+        {
+            var (_, guardStmts) = BuildStabilizedCoalesceAssign(left, right);
+            return Block(guardStmts);
+        }
+
         return BuildIfAssignsNull(left, right);
     }
 
@@ -339,6 +366,139 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
         _tempCounter++;
         return $"___t{_tempCounter}";
     }
+
+    /// <summary>
+    /// True when evaluating the assignment target expression itself can run
+    /// observable side effects. C# evaluates the target of '??=' exactly once;
+    /// cloning such an lvalue into a null test plus a write-back (plus the
+    /// value-context read) would re-run those effects. Covers ++/-- operands,
+    /// invocations in the receiver/arguments, nested assignments and await.
+    /// </summary>
+    private static bool LvalueMayHaveSideEffects(ExpressionSyntax lvalue)
+    {
+        foreach (var node in lvalue.DescendantNodesAndSelf())
+        {
+            switch (node)
+            {
+                case PostfixUnaryExpressionSyntax p
+                    when p.IsKind(SyntaxKind.PostIncrementExpression)
+                        || p.IsKind(SyntaxKind.PostDecrementExpression):
+                case PrefixUnaryExpressionSyntax pre
+                    when pre.IsKind(SyntaxKind.PreIncrementExpression)
+                        || pre.IsKind(SyntaxKind.PreDecrementExpression):
+                case InvocationExpressionSyntax:
+                case AssignmentExpressionSyntax:
+                case AwaitExpressionSyntax:
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Lowers a side-effecting member/indexer 'lhs ??= rhs' while preserving the
+    /// C# single-evaluation rule. The receiver chain and every index argument are
+    /// materialized into temps, the current value is read once into another temp,
+    /// and only that temp/null test/write-back remains:
+    /// <code>
+    /// var __i = i++;                 // (each side-effecting sub-expression once)
+    /// var __v = a[__i];              // one read of the stable target
+    /// if (__v == null) { __v = rhs; a[__i] = __v; }
+    /// </code>
+    /// Returns the temp expression yielding the post-assignment value (for the
+    /// value-context replacement) and the ordered guard statements.
+    /// </summary>
+    private (ExpressionSyntax Value, List<StatementSyntax> Statements)
+        BuildStabilizedCoalesceAssign(ExpressionSyntax lvalue, ExpressionSyntax rhs)
+    {
+        var statements = new List<StatementSyntax>();
+        var stableTarget = StabilizeLvalue(lvalue, statements);
+
+        var valueName = GenerateTempName();
+        var valueRef = IdentifierName(valueName);
+        statements.Add(LocalVarDeclaration(valueName, stableTarget));
+
+        var writeBack = ExpressionStatement(AssignmentExpression(
+            SyntaxKind.SimpleAssignmentExpression,
+            stableTarget,
+            valueRef.WithoutTrivia()));
+        var assignRhs = ExpressionStatement(AssignmentExpression(
+            SyntaxKind.SimpleAssignmentExpression,
+            valueRef.WithoutTrivia(),
+            rhs));
+        statements.Add(IfStatement(
+            BinaryExpression(
+                SyntaxKind.EqualsExpression,
+                valueRef.WithoutTrivia(),
+                LiteralExpression(SyntaxKind.NullLiteralExpression)),
+            Block(assignRhs, writeBack)));
+
+        return (valueRef, statements);
+    }
+
+    /// <summary>
+    /// Rebuilds a member/indexer assignment target so it is free of side effects
+    /// (composed only of identifiers/temps), hoisting each effectful receiver or
+    /// index argument into its own temp declaration.
+    /// </summary>
+    private ExpressionSyntax StabilizeLvalue(
+        ExpressionSyntax lvalue, List<StatementSyntax> statements)
+    {
+        switch (lvalue)
+        {
+            case ElementAccessExpressionSyntax elementAccess:
+            {
+                var receiver = StabilizeSubExpression(elementAccess.Expression, statements);
+                var arguments = elementAccess.ArgumentList.Arguments
+                    .Select(argument => argument.RefKindKeyword.IsKind(SyntaxKind.None)
+                        ? argument.WithExpression(
+                            StabilizeSubExpression(argument.Expression, statements))
+                        : argument)
+                    .ToList();
+                return ElementAccessExpression(
+                    receiver,
+                    BracketedArgumentList(SeparatedList(arguments)));
+            }
+
+            case MemberAccessExpressionSyntax memberAccess:
+            {
+                var receiver = StabilizeSubExpression(memberAccess.Expression, statements);
+                return MemberAccessExpression(
+                    memberAccess.Kind(), receiver, memberAccess.Name.WithoutTrivia());
+            }
+
+            default:
+                return StabilizeSubExpression(lvalue, statements);
+        }
+    }
+
+    /// <summary>
+    /// Keeps side-effect-free references (locals/parameters/this/literals) as-is;
+    /// any other sub-expression is hoisted into a 'var __tN = expr;' temp so it
+    /// evaluates exactly once.
+    /// </summary>
+    private ExpressionSyntax StabilizeSubExpression(
+        ExpressionSyntax expression, List<StatementSyntax> statements)
+    {
+        if (expression is IdentifierNameSyntax
+            or LiteralExpressionSyntax
+            or ThisExpressionSyntax)
+        {
+            return expression.WithoutTrivia();
+        }
+
+        var name = GenerateTempName();
+        statements.Add(LocalVarDeclaration(name, expression.WithoutTrivia()));
+        return IdentifierName(name);
+    }
+
+    private static LocalDeclarationStatementSyntax LocalVarDeclaration(
+        string name, ExpressionSyntax initializer)
+        => LocalDeclarationStatement(
+            VariableDeclaration(
+                IdentifierName("var"),
+                SingletonSeparatedList(VariableDeclarator(
+                    Identifier(name), null, EqualsValueClause(initializer)))));
 
     /// <summary>
     /// Walks up the parent chain to find the nearest enclosing StatementSyntax
