@@ -8,7 +8,7 @@ namespace CSharpToJava.Core.TupleToStruct;
 
 /// <summary>
 /// C# 值元组消除预处理器。把源码中所有 tuple 语法（元组字面量、元组类型、
-/// 解构、ValueTuple 泛型/工厂）替换为对生成 readonly struct 的引用：
+/// 解构、ValueTuple 泛型/工厂）替换为对生成可变 struct 的引用：
 /// <list type="bullet">
 /// <item>元组类型/字面量 → global::Cs2jTuples.TupleXxx(...)；</item>
 /// <item>元素名访问 t.x → t.ItemN（8+ 元组经 Rest 链）；</item>
@@ -32,9 +32,16 @@ public sealed partial class TupleToStructPreprocessor
 
     /// <summary>生成 struct 集合文件内容；没有任何元组时返回 null。</summary>
     public string? GenerateStructFile()
-        => _registry.Shapes.Count == 0
+    {
+        // Shapes embedding private/protected types are never lowered and must
+        // not be emitted either (their field types are unnameable here → CS0122).
+        var emittable = _registry.Shapes
+            .Where(shape => shape.IsEmittableFromTopLevel)
+            .ToList();
+        return emittable.Count == 0
             ? null
-            : TupleStructFileContent.Generate(_registry.Shapes.ToList(), _options.NamespaceName);
+            : TupleStructFileContent.Generate(emittable, _options.NamespaceName);
+    }
 
     public IReadOnlyCollection<string> StructNames => _registry.Shapes.Select(s => s.Name).ToArray();
 
@@ -117,7 +124,13 @@ public sealed partial class TupleToStructPreprocessor
 
         var root = (CompilationUnitSyntax)semanticModel.SyntaxTree.GetRoot();
 
-        if (!IsTupleDirty(root))
+        // The syntax-only dirty check misses files that never spell tuple
+        // syntax themselves but consume tuples declared elsewhere through
+        // element access (named elements like arr[0].CharClass or plain ItemN).
+        // The declaration file gets its tuple types replaced while such a
+        // consumer file would be copied verbatim, leaving the old element name
+        // against the generated struct (CS1061). The semantic gate catches them.
+        if (!IsTupleDirty(root) && !HasTupleElementUse(semanticModel, root))
         {
             statistics.FilesSkippedClean++;
             return new TupleToStructFileResult { OutputCode = sourceCode, Changed = false };
@@ -186,6 +199,42 @@ public sealed partial class TupleToStructPreprocessor
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// 语义脏检查：文件自身不含 tuple 语法，但通过成员访问（具名元素 <c>arr[0].CharClass</c>
+    /// 或 <c>t.Item1</c>、条件访问 <c>t?.X</c>）消费在别处声明的元组元素时仍需改写。
+    /// 仅语法检查会让这种纯消费文件整体跳过，声明点换成生成 struct 后使用点残留旧名 → CS1061。
+    /// </summary>
+    internal static bool HasTupleElementUse(SemanticModel semanticModel, SyntaxNode root)
+    {
+        foreach (var node in root.DescendantNodes())
+        {
+            if (node is not (MemberAccessExpressionSyntax or MemberBindingExpressionSyntax))
+            {
+                continue;
+            }
+
+            if (IsTupleElementField(semanticModel.GetSymbolInfo(node).Symbol))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>符号是否为值元组的 ItemN 元素字段（具名元素在语义模型中仍绑到 ItemN）。</summary>
+    internal static bool IsTupleElementField(ISymbol? symbol)
+    {
+        if (symbol is not IFieldSymbol field
+            || field.ContainingType is not { IsTupleType: true })
+        {
+            return false;
+        }
+
+        var tupleField = field.CorrespondingTupleField ?? field;
+        return Regex.IsMatch(tupleField.Name, @"^Item(\d+)$");
     }
 
     internal static int CountResidualTupleSyntax(string code)
@@ -410,6 +459,29 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
 
         return shape;
     }
+
+    /// <summary>
+    /// Register and return the shape for <paramref name="tupleType"/> ONLY when it
+    /// can be hoisted to a generated top-level Cs2jTuples struct. Shapes embedding
+    /// a private/protected nested type (e.g. a tuple used only inside the class that
+    /// declares such a type) are invisible at the generated location; those sites
+    /// must keep native ValueTuple syntax. Returns null (warning once) for them.
+    /// </summary>
+    private TupleShape? GetEmittableShape(INamedTypeSymbol tupleType)
+    {
+        var shape = _registry.GetOrCreateShape(tupleType, _diagnostics);
+        if (shape.IsEmittableFromTopLevel)
+        {
+            return TrackShape(shape);
+        }
+
+        WarnOnce("shape-not-emittable:" + shape.Key,
+            "A tuple uses a private or protected type that is not accessible from " +
+            "the generated top-level tuple struct; the site was kept as a native " +
+            "System.ValueTuple.");
+        return null;
+    }
+
     private readonly Dictionary<string, IReadOnlyList<StatementSyntax>> _expansions = new();
     private readonly Dictionary<ISymbol?, (string Temp, IReadOnlyList<string> Path)> _identifierRemap =
         new(SymbolEqualityComparer.Default);
@@ -447,7 +519,13 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
     {
         if (GetTupleTypeSymbol(node) is { } symbol)
         {
-            var shape = TrackShape(_registry.GetOrCreateShape(symbol, _diagnostics));
+            // Shapes with inaccessible element types stay native; children may
+            // still contain independently emittable tuples, so visit normally.
+            if (GetEmittableShape(symbol) is not { } shape)
+            {
+                return base.VisitTupleType(node);
+            }
+
             _stats.TupleTypesReplaced++;
             MarkChanged();
             return ParseTypeNameInScope(shape, symbol)
@@ -468,7 +546,11 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
             && FindValueTupleLeaf(node) is { } leaf
             && GetTupleTypeSymbol(leaf) is { } symbol)
         {
-            var shape = TrackShape(_registry.GetOrCreateShape(symbol, _diagnostics));
+            if (GetEmittableShape(symbol) is not { } shape)
+            {
+                return base.VisitQualifiedName(node);
+            }
+
             _stats.TupleTypesReplaced++;
             MarkChanged();
             return ParseTypeNameInScope(shape, symbol)
@@ -508,7 +590,11 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
             && GetTupleTypeSymbol(node) is { } symbol)
         {
             // 显式 ValueTuple<...> 泛型写法（含 8+ 嵌套 TRest 形式）。
-            var shape = TrackShape(_registry.GetOrCreateShape(symbol, _diagnostics));
+            if (GetEmittableShape(symbol) is not { } shape)
+            {
+                return base.VisitGenericName(node);
+            }
+
             _stats.TupleTypesReplaced++;
             MarkChanged();
             return ParseTypeNameInScope(shape, symbol)
@@ -539,7 +625,11 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
             return base.VisitTupleExpression(node);
         }
 
-        var shape = TrackShape(_registry.GetOrCreateShape(symbol, _diagnostics));
+        if (GetEmittableShape(symbol) is not { } shape)
+        {
+            return base.VisitTupleExpression(node);
+        }
+
         var arguments = node.Arguments
             .Select(a => (ExpressionSyntax)Visit(a.Expression)!)
             .ToList();
@@ -567,7 +657,11 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
             && ns.ToDisplayString() == "System"
             && node.ArgumentList.Arguments.Count == tupleReturn.TupleElements.Length)
         {
-            var shape = TrackShape(_registry.GetOrCreateShape(tupleReturn, _diagnostics));
+            if (GetEmittableShape(tupleReturn) is not { } shape)
+            {
+                return base.VisitInvocationExpression(node);
+            }
+
             var arguments = node.ArgumentList.Arguments
                 .Select(a => (ExpressionSyntax)Visit(a.Expression)!)
                 .ToList();
@@ -585,6 +679,16 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitAttributeList(AttributeListSyntax node)
     {
         var updated = (AttributeListSyntax)base.VisitAttributeList(node)!;
+
+        // Native tuple signatures kept for inaccessible-element shapes still
+        // need their [TupleElementNames] so named element access keeps binding;
+        // stripping it would turn e.g. `result.CharRefEndPos` into CS1061.
+        if (updated.Attributes.Any(a => IsTupleElementNamesAttribute(a.Name))
+            && AttributeTargetHasDeniedTuple(node))
+        {
+            return updated;
+        }
+
         var kept = updated.Attributes
             .Where(a => !IsTupleElementNamesAttribute(a.Name))
             .ToArray();
@@ -607,6 +711,105 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
     {
         var text = name.ToString().Trim();
         return text.EndsWith("TupleElementNames", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// True when the declaration carrying a <c>[TupleElementNames]</c> list uses a
+    /// tuple shape that stays native (inaccessible elements). The attribute encodes
+    /// element names on the raw signature and must be retained together with it.
+    /// </summary>
+    private bool AttributeTargetHasDeniedTuple(AttributeListSyntax attributeList)
+    {
+        IEnumerable<ITypeSymbol> typeSymbols = attributeList.Parent switch
+        {
+            BaseMethodDeclarationSyntax m => MethodSignatureTypes(_model.GetDeclaredSymbol(m)),
+            LocalFunctionStatementSyntax l => MethodSignatureTypes(_model.GetDeclaredSymbol(l)),
+            DelegateDeclarationSyntax d => DelegateSignatureTypes(_model.GetDeclaredSymbol(d)),
+            ParameterSyntax p => new[] { _model.GetDeclaredSymbol(p)?.Type! },
+            PropertyDeclarationSyntax or IndexerDeclarationSyntax
+                => PropertySignatureTypes(_model.GetDeclaredSymbol((MemberDeclarationSyntax)attributeList.Parent!)),
+            _ => Array.Empty<ITypeSymbol>(),
+        };
+
+        return typeSymbols.Any(t => t != null && ContainsDeniedTupleShape(t));
+    }
+
+    private static IEnumerable<ITypeSymbol> MethodSignatureTypes(ISymbol? symbol)
+    {
+        if (symbol is not IMethodSymbol method)
+        {
+            yield break;
+        }
+
+        yield return method.ReturnType;
+        foreach (var parameter in method.Parameters)
+        {
+            yield return parameter.Type;
+        }
+    }
+
+    private static IEnumerable<ITypeSymbol> DelegateSignatureTypes(ISymbol? symbol)
+    {
+        if (symbol is INamedTypeSymbol { DelegateInvokeMethod: { } invoke })
+        {
+            yield return invoke.ReturnType;
+            foreach (var parameter in invoke.Parameters)
+            {
+                yield return parameter.Type;
+            }
+        }
+    }
+
+    private static IEnumerable<ITypeSymbol> PropertySignatureTypes(ISymbol? symbol)
+    {
+        switch (symbol)
+        {
+            case IPropertySymbol property:
+                yield return property.Type;
+                foreach (var parameter in property.Parameters)
+                {
+                    yield return parameter.Type;
+                }
+
+                break;
+            case IEventSymbol @event:
+                yield return @event.Type;
+                break;
+        }
+    }
+
+    /// <summary>Recursively locate a tuple type that cannot be emitted at top level.</summary>
+    private bool ContainsDeniedTupleShape(ITypeSymbol type)
+    {
+        switch (type)
+        {
+            case INamedTypeSymbol { IsTupleType: true } tuple:
+            {
+                if (!_registry.GetOrCreateShape(tuple, _diagnostics).IsEmittableFromTopLevel)
+                {
+                    return true;
+                }
+
+                foreach (var field in tuple.TupleElements)
+                {
+                    if (ContainsDeniedTupleShape(field.Type))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            case INamedTypeSymbol named:
+                return named.TypeArguments.Any(ContainsDeniedTupleShape);
+
+            case IArrayTypeSymbol array:
+                return ContainsDeniedTupleShape(array.ElementType);
+
+            default:
+                return false;
+        }
     }
 
     // ------------------------------------------------------------------
@@ -697,20 +900,24 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
         }
 
         if (symbol is not IFieldSymbol field
-            || field.ContainingType is not { IsTupleType: true } containingTuple)
+            || field.ContainingType is not { IsTupleType: true } containingTuple
+            || !TupleToStructPreprocessor.IsTupleElementField(symbol))
         {
             return null;
         }
 
         var tupleField = field.CorrespondingTupleField ?? field;
-        var match = Regex.Match(tupleField.Name, @"^Item(\d+)$");
-        if (!match.Success)
+        var ordinal = int.Parse(Regex.Match(tupleField.Name, @"^Item(\d+)$").Groups[1].Value);
+        // Shapes kept native (inaccessible elements) keep their original
+        // .ItemN / named-element access — the warning is emitted by the type
+        // site; here returning null silently preserves the access.
+        var shape = _registry.GetOrCreateShape(containingTuple, _diagnostics);
+        if (!shape.IsEmittableFromTopLevel)
         {
-            return null; // Rest / 其他字段：struct 自带同名成员，原样保留
+            return null;
         }
 
-        var ordinal = int.Parse(match.Groups[1].Value);
-        var shape = TrackShape(_registry.GetOrCreateShape(containingTuple, _diagnostics));
+        TrackShape(shape);
         var path = TupleModelAccess.ItemAccessPath(shape, ordinal);
         return path.Count > 0 ? path : null;
     }
@@ -809,7 +1016,11 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
                     return base.VisitCastExpression(node);
                 }
 
-                var shape = TrackShape(_registry.GetOrCreateShape(targetTuple, _diagnostics));
+                if (GetEmittableShape(targetTuple) is not { } shape)
+                {
+                    return base.VisitCastExpression(node);
+                }
+
                 var visitedOperand = (ExpressionSyntax)Visit(node.Expression)!;
                 _stats.CastsRewritten++;
                 MarkChanged();
@@ -985,7 +1196,11 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
             return null;
         }
 
-        var shape = TrackShape(_registry.GetOrCreateShape(target, _diagnostics));
+        if (GetEmittableShape(target) is not { } shape)
+        {
+            return null;
+        }
+
         var visited = (ExpressionSyntax)Visit(original)!;
         _stats.ImplicitConversionsRewritten++;
         return BuildStructCreationWithCasts(shape, target, visited)
@@ -1124,9 +1339,9 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
                     Designation: ParenthesizedVariableDesignationSyntax declarationDesignation,
                 },
             } declarationAssignment
-            && GetTupleTypeOfExpression(declarationAssignment.Right) is { } declaredTuple)
+            && GetTupleTypeOfExpression(declarationAssignment.Right) is { } declaredTuple
+            && GetEmittableShape(declaredTuple) is { } shape)
         {
-            var shape = TrackShape(_registry.GetOrCreateShape(declaredTuple, _diagnostics));
             var visitedValue = (ExpressionSyntax)Visit(declarationAssignment.Right)!;
             var statements = new List<StatementSyntax>();
             var temp = NextTemp();
@@ -1143,14 +1358,14 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
         {
             var tupleType = _model.GetTypeInfo(assignment).Type as INamedTypeSymbol
                 ?? _model.GetTypeInfo(assignment.Right).ConvertedType as INamedTypeSymbol;
-            if (tupleType is { IsTupleType: true })
+            if (tupleType is { IsTupleType: true }
+                && GetEmittableShape(tupleType) is { } assignmentShape)
             {
-                var shape = TrackShape(_registry.GetOrCreateShape(tupleType, _diagnostics));
                 var visitedRight = (ExpressionSyntax)Visit(assignment.Right)!;
                 var statements = new List<StatementSyntax>();
                 var temp = NextTemp();
                 statements.Add(LocalDecl(temp, visitedRight));
-                statements.AddRange(ExpandTupleExpressionTargets(shape, tupleLeft, temp));
+                statements.AddRange(ExpandTupleExpressionTargets(assignmentShape, tupleLeft, temp));
                 return FinishExpansion(node, statements);
             }
         }
@@ -1179,7 +1394,13 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
                 continue;
             }
 
-            var shape = TrackShape(_registry.GetOrCreateShape(tupleType, _diagnostics));
+            // Denied shapes keep native tuple syntax — including the pattern —
+            // so skip the lift for this occurrence.
+            if (GetEmittableShape(tupleType) is not { } shape)
+            {
+                continue;
+            }
+
             var temp = NextTemp();
             var visitedOperand = (ExpressionSyntax)Visit(isExpression.Expression)!;
             statements.Add(LocalDecl(temp, visitedOperand));
@@ -1275,9 +1496,9 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
                     Designation: ParenthesizedVariableDesignationSyntax designation,
                 },
             } initAssignment
-            && GetTupleTypeOfExpression(initAssignment.Right) is { } initTuple)
+            && GetTupleTypeOfExpression(initAssignment.Right) is { } initTuple
+            && GetEmittableShape(initTuple) is { } shape)
         {
-            var shape = TrackShape(_registry.GetOrCreateShape(initTuple, _diagnostics));
             var visitedValue = (ExpressionSyntax)Visit(initAssignment.Right)!;
             var preamble = new List<StatementSyntax>();
             var temp = NextTemp();
@@ -1312,12 +1533,12 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitForEachVariableStatement(ForEachVariableStatementSyntax node)
     {
         var elementType = _model.GetForEachStatementInfo(node).ElementType as INamedTypeSymbol;
-        if (elementType is not { IsTupleType: true })
+        if (elementType is not { IsTupleType: true }
+            || GetEmittableShape(elementType) is not { } shape)
         {
             return base.VisitForEachVariableStatement(node);
         }
 
-        var shape = TrackShape(_registry.GetOrCreateShape(elementType, _diagnostics));
         var temp = NextTemp();
         var declarations = new List<StatementSyntax>();
         StatementSyntax result;

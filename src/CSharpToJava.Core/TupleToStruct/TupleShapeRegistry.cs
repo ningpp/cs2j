@@ -62,6 +62,15 @@ internal sealed record TupleElementSpec
     /// generated as an internal struct, otherwise C# reports CS0052/CS0051.
     /// </summary>
     public bool IsPubliclyAccessible { get; init; } = true;
+
+    /// <summary>
+    /// False when the element type cannot be named even by an internal top-level
+    /// struct generated IN THE SAME ASSEMBLY (private/protected/private-protected
+    /// nested types). Such a shape must not be lowered at all — its sites keep
+    /// native ValueTuple syntax — otherwise the generated struct file fails with
+    /// CS0122 ("inaccessible due to its protection level").
+    /// </summary>
+    public bool IsEmittableFromTopLevel { get; init; } = true;
 }
 
 /// <summary>
@@ -96,6 +105,14 @@ internal sealed class TupleShape
     /// can be public. Otherwise the struct is generated as internal.
     /// </summary>
     public bool IsPubliclyAccessible { get; init; } = true;
+
+    /// <summary>
+    /// True when every element type (recursively) is at least internal to its
+    /// assembly, so a top-level internal struct generated there can legally name
+    /// it. False for shapes that embed a private/protected nested type; those
+    /// shapes are kept as native ValueTuple and produce no generated struct.
+    /// </summary>
+    public bool IsEmittableFromTopLevel { get; init; } = true;
 }
 
 /// <summary>
@@ -193,6 +210,8 @@ internal sealed partial class TupleShapeRegistry
 
         var publiclyAccessible = elements.All(e => e.IsPubliclyAccessible)
             && (tail?.IsPubliclyAccessible ?? true);
+        var emittableFromTopLevel = elements.All(e => e.IsEmittableFromTopLevel)
+            && (tail?.IsEmittableFromTopLevel ?? true);
         var shape = new TupleShape
         {
             Key = key,
@@ -203,6 +222,7 @@ internal sealed partial class TupleShapeRegistry
             Tail = tail,
             TailArgSlots = tailArgSlots,
             IsPubliclyAccessible = publiclyAccessible,
+            IsEmittableFromTopLevel = emittableFromTopLevel,
         };
         _shapesByKey.Add(key, shape);
         _ordered.Add(shape);
@@ -232,6 +252,7 @@ internal sealed partial class TupleShapeRegistry
                 NestedShape = nestedShape,
                 NestedArgSlots = argSlots,
                 IsPubliclyAccessible = nestedShape.IsPubliclyAccessible,
+                IsEmittableFromTopLevel = nestedShape.IsEmittableFromTopLevel,
             };
         }
 
@@ -242,6 +263,7 @@ internal sealed partial class TupleShapeRegistry
             MangledName = MangleType(elementType, slots),
             FieldDisplayTemplate = template,
             IsPubliclyAccessible = IsPubliclyAccessible(elementType),
+            IsEmittableFromTopLevel = IsEmittableFromTopLevel(elementType),
         };
     }
 
@@ -444,6 +466,92 @@ internal sealed partial class TupleShapeRegistry
                 return false;
         }
     }
+
+    /// <summary>
+    /// True when <paramref name="type"/> can be referenced by a top-level
+    /// (non-nested) type generated IN THE SAME ASSEMBLY as the tuple use site.
+    /// The generated tuple struct is a top-level internal type, so:
+    /// public/internal types and <c>protected internal</c> (assembly-wide) are
+    /// visible; <c>private</c>, <c>protected</c> and <c>private protected</c>
+    /// nested types are not, even from another internal type in the assembly.
+    /// Recurses into tuple elements, generic arguments and array element types.
+    /// Type parameters, dynamic, pointers/error types (materialized to object)
+    /// and anonymous types (also materialized to object) pass.
+    /// </summary>
+    internal static bool IsEmittableFromTopLevel(ITypeSymbol type)
+    {
+        switch (type)
+        {
+            case ITypeParameterSymbol:
+            case IDynamicTypeSymbol:
+            case IErrorTypeSymbol:
+            case IPointerTypeSymbol:
+            case IFunctionPointerTypeSymbol:
+                return true;
+
+            case IArrayTypeSymbol array:
+                return IsEmittableFromTopLevel(array.ElementType);
+
+            case INamedTypeSymbol named:
+            {
+                if (named.IsTupleType)
+                {
+                    foreach (var field in named.TupleElements)
+                    {
+                        if (!IsEmittableFromTopLevel(field.Type))
+                        {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                }
+
+                // 元素物化为 System.Object（见 BuildDisplayTemplate），其本身的
+                // 可访问性不影响生成字段。
+                if (named.IsAnonymousType)
+                {
+                    return true;
+                }
+
+                // 嵌套类型的有效可访问性是自身与各外层类型的最严值：链条上任一
+                // 层为 private/protected/private-protected，顶级 struct 就不可见。
+                for (var containing = named; containing != null; containing = containing.ContainingType)
+                {
+                    if (!VisibleAtAssemblyTopLevel(containing.DeclaredAccessibility))
+                    {
+                        return false;
+                    }
+                }
+
+                foreach (var argument in named.TypeArguments)
+                {
+                    if (!IsEmittableFromTopLevel(argument))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            default:
+                // BuildDisplayTemplate 会把不支持的种类物化为 System.Object。
+                return true;
+        }
+    }
+
+    /// <summary>
+    /// Accessibilities visible to a non-derived top-level type in the same
+    /// assembly: public, internal, <c>protected internal</c> (InternalOrProtected)
+    /// and NotApplicable (e.g. namespaces). private/protected/private-protected
+    /// fail.
+    /// </summary>
+    private static bool VisibleAtAssemblyTopLevel(Accessibility accessibility) =>
+        accessibility is Accessibility.Public
+            or Accessibility.Internal
+            or Accessibility.ProtectedOrInternal
+            or Accessibility.NotApplicable;
 
     /// <summary>
     /// 完整限定名文本：嵌套类型必须带外层类型链（例如 System.HexConverter.Casing）。
