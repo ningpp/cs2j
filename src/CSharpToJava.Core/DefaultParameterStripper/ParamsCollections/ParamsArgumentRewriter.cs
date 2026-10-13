@@ -245,9 +245,21 @@ internal sealed class ParamsArgumentRewriter
         }
         else if (!_plans.TryGetDeclaration(target, out var plan) || plan == null)
         {
-            // No collect-phase plan: the declaration side is not under C48
-            // control (metadata/BCL target, or an uncollected file) — keep the
-            // site and never guess (D1 discipline).
+            // A metadata/framework target (BCL string.Concat, Path.Combine, …
+            // declared with 'params ReadOnlySpan<T>') is never stripped — only
+            // source declarations are collected and planned. Its comma-form
+            // call remains a legal params expansion against the untouched
+            // metadata signature, so pass it through as info rather than
+            // treating the absent (impossible) plan as a resolution failure.
+            if (target.DeclaringSyntaxReferences.IsEmpty)
+            {
+                _plans.Statistics.ParamsCallSitesPassthrough++;
+                _plans.Statistics.RecordSkipped(ParamsDiagnostics.MetadataCollectionPassthrough);
+                return null;
+            }
+
+            // Source target without a collect-phase plan: an uncollected file
+            // or inconsistent graph — keep the site and never guess (D1).
             _diagnostics.Add(ParamsDiagnostics.Create(
                 ParamsDiagnostics.SymbolResolutionFailed,
                 string.Format(ParamsDiagnostics.SymbolResolutionFailedMessage, target.ToDisplayString()),

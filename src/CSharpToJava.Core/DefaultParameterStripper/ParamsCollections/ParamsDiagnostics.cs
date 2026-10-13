@@ -2,7 +2,7 @@ namespace CSharpToJava.Core.DefaultParameterStripper.ParamsCollections;
 
 /// <summary>
 /// Diagnostic codes CS2J0600–CS2J0619 for the C48 params-collections rules
-/// (design §6). CS2J0614–0618 are reserved for future declaration-kind
+/// (design §6). CS2J0615–0618 are reserved for future declaration-kind
 /// registrations. Messages follow the strip-default diagnostic channel
 /// (<see cref="CSharpToJava.Core.DefaultParameterStripper.DefaultParameterStripDiagnostic"/>);
 /// severity is resolved by <see cref="SeverityFor"/> per the design table:
@@ -56,8 +56,16 @@ public static class ParamsDiagnostics
     /// <summary>Info: forwarding-overload empty params slot filled with a non-array shape (PC-7).</summary>
     public const string OverloadEmptySlotFilled = "CS2J0613";
 
-    /// <summary>Reserved for future declaration-kind registrations (CS2J0614–CS2J0618).</summary>
-    public const string Reserved = "CS2J0614";
+    /// <summary>
+    /// Info: a call to a metadata/framework (non-source) params collection is
+    /// passed through unchanged. Such a declaration is never stripped (only
+    /// source declarations are planned), so the comma-form call stays legal and
+    /// no explicit collection needs to be synthesized.
+    /// </summary>
+    public const string MetadataCollectionPassthrough = "CS2J0614";
+
+    /// <summary>Reserved for future declaration-kind registrations (CS2J0615–CS2J0618).</summary>
+    public const string Reserved = "CS2J0615";
 
     /// <summary>Error (strict)/Warning: residual gate — non-array params modifier left without a skip pairing, or idempotency failure.</summary>
     public const string ResidualGate = "CS2J0619";
@@ -107,6 +115,10 @@ public static class ParamsDiagnostics
     public const string OverloadEmptySlotFilledMessage =
         "forwarding overload fills the empty params slot '{0}' with explicit shape '{1}'";
 
+    public const string MetadataCollectionPassthroughMessage =
+        "call site target '{0}' is a metadata/framework params collection that is never stripped; " +
+        "the comma-form call is kept unchanged";
+
     /// <summary>M2 CS2J0611: synthesized params expansion nesting a collection expression/spread (C36 must run first).</summary>
     public const string NestedCollectionExpressionMessage =
         "params expansion segment of call site '{0}' contains a collection expression/spread element ('{1}'); " +
@@ -150,7 +162,8 @@ public static class ParamsDiagnostics
             or SpanAsArray
             or CollectionExpanded
             or SingleCollectionPassthrough
-            or OverloadEmptySlotFilled;
+            or OverloadEmptySlotFilled
+            or MetadataCollectionPassthrough;
 
     /// <summary>
     /// Resolves the severity for a code: Info codes stay Info, CS2J0611 is
