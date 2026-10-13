@@ -1066,31 +1066,36 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         var preStmts = new List<StatementSyntax>();
         bool anyLift = false;
 
-        // declarations / initializers: hoist only (the while(true) form discards them)
+        // declarations / initializers: splice in evaluation order so hoist
+        // allocation/order matches the original for; the initializer statements
+        // themselves are rebuilt below (they run ONCE before the loop — dropping
+        // them lost `int i = 0` / `i = start`, CS0103/CS0165).
+        var declFragments = new List<(VariableDeclaratorSyntax Decl, ExpressionSyntax? LiftedInit,
+            List<StatementSyntax> Hoisted, List<StatementSyntax> Readbacks)>();
         if (node.Declaration != null)
         {
             foreach (var d in node.Declaration.Variables)
             {
-                if (d.Initializer == null) continue;
-                var liftedInit = _lifter.SpliceExpression(d.Initializer.Value, out var hInit);
-                if (hInit.Count > 0)
+                if (d.Initializer == null)
                 {
-                    anyLift = true;
-                    preStmts.AddRange(hInit);
-                    preStmts.AddRange(_lifter.TakePendingReadbacks());
+                    declFragments.Add((d, null, new List<StatementSyntax>(), new List<StatementSyntax>()));
+                    continue;
                 }
+                var liftedInit = _lifter.SpliceExpression(d.Initializer.Value, out var hInit);
+                var readbacks = _lifter.TakePendingReadbacks();
+                if (hInit.Count > 0) anyLift = true;
+                declFragments.Add((d, liftedInit, hInit, readbacks));
             }
         }
 
+        var initFragments = new List<(ExpressionSyntax LiftedInit,
+            List<StatementSyntax> Hoisted, List<StatementSyntax> Readbacks)>();
         foreach (var init in node.Initializers)
         {
             var liftedInit = _lifter.SpliceExpression(init, out var hInit);
-            if (hInit.Count > 0)
-            {
-                anyLift = true;
-                preStmts.AddRange(hInit);
-                preStmts.AddRange(_lifter.TakePendingReadbacks());
-            }
+            var readbacks = _lifter.TakePendingReadbacks();
+            if (hInit.Count > 0) anyLift = true;
+            initFragments.Add((liftedInit, hInit, readbacks));
         }
 
         // condition
@@ -1123,6 +1128,41 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             && ReferenceEquals(newCondition, node.Condition))
         {
             return base.VisitForStatement(node);
+        }
+
+        // Rebuild the initializer statements, in original order, before the
+        // loop. Lifting the declaration out of the loop header is the standard
+        // for→while lowering (same as the existing C17 anchor lifting); the
+        // variable names are unchanged.
+        if (node.Declaration != null)
+        {
+            var newDeclarators = new List<VariableDeclaratorSyntax>(declFragments.Count);
+            foreach (var (d, liftedInit, hoisted, readbacks) in declFragments)
+            {
+                preStmts.AddRange(hoisted);
+                preStmts.AddRange(readbacks);
+                if (liftedInit == null)
+                    newDeclarators.Add(d);   // uninitialized declarator keeps its declaration
+                else
+                    newDeclarators.Add(d.WithInitializer(
+                        SyntaxFactory.EqualsValueClause(InjectSlotValues(liftedInit))));
+            }
+            preStmts.Add(SyntaxFactory.LocalDeclarationStatement(
+                SyntaxFactory.VariableDeclaration(
+                    node.Declaration.Type, SyntaxFactory.SeparatedList(newDeclarators))));
+        }
+
+        foreach (var (liftedInit, hoisted, readbacks) in initFragments)
+        {
+            preStmts.AddRange(hoisted);
+            // A non-void lifted call is already materialized as `var __callN = …`
+            // among the hoisted statements — the bare temp would be CS0201.
+            if (!(liftedInit is IdentifierNameSyntax callTemp
+                && callTemp.Identifier.ValueText.StartsWith("__call", StringComparison.Ordinal)))
+            {
+                preStmts.Add(SyntaxFactory.ExpressionStatement(InjectSlotValues(liftedInit)));
+            }
+            preStmts.AddRange(readbacks);
         }
 
         // body + increments (custom while(true) reconstruction path)
