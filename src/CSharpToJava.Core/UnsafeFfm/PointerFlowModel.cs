@@ -37,6 +37,14 @@ internal sealed record PointerFlow(
 {
     /// <summary>来源是否可证（R6 可索引化）。</summary>
     public bool IsProvable => Kind != PointerSourceKind.Unknown;
+
+    /// <summary>
+    /// 偏移是否折叠到「同名/形参索引」变量自身（指针形参的配对 int 索引形参、
+    /// holder.Value copy-in 的 int shadow 局部、配对指针形参别名出的 int
+    /// cursor 局部）。为 true 时自增/复合赋值直接作用在 <see cref="OffsetText"/>
+    /// 指向的既有变量上，不再插入合成索引局部，也不做 lambda 捕获阻塞。
+    /// </summary>
+    public bool FoldsToOffset { get; init; }
 }
 
 /// <summary>

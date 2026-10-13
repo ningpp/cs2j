@@ -184,7 +184,27 @@ internal sealed class OriginalSyntaxResolver
         // R1 会剥掉 unsafe 修饰符：当前树与原始树在该 token 上必然不等价。
         // R9 会剥掉 ref struct using（LocalDeclarationStatement/UsingStatement
         // 的 UsingKeyword）：比较前对两侧统一归一。
-        return NormalizeForCompare(original).IsEquivalentTo(NormalizeForCompare(current));
+        var normalizedOriginal = NormalizeForCompare(original);
+        var normalizedCurrent = NormalizeForCompare(current);
+        if (normalizedOriginal.IsEquivalentTo(normalizedCurrent)) return true;
+
+        // R1 RemoveUnsafe 会把 unsafe token 的 trivia 并入相邻保留修饰符
+        // （探针实测方法同时带 method 级 unsafe 修饰时，保留修饰符尾部空白
+        // 翻倍："static "→"static  "）。IsEquivalentTo 对非弹性 trivia
+        // 敏感，绿结构全等仍判否；映射只用结构身份，去全部 trivia 后再比。
+        return StripTrivia(normalizedOriginal)
+            .IsEquivalentTo(StripTrivia(normalizedCurrent));
+    }
+
+    /// <summary>
+    /// 返回去掉全部前导/尾部 trivia 的等价节点（结构不变）。仅供
+    /// <see cref="EquivalentCore"/> 的 trivia 不敏感兜底比较使用。
+    /// </summary>
+    private static SyntaxNode StripTrivia(SyntaxNode node)
+    {
+        var tokens = node.DescendantTokens().ToList();
+        if (tokens.Count == 0) return node;
+        return node.ReplaceTokens(tokens, (_, token) => token.WithoutTrivia());
     }
 
     private static SyntaxNode NormalizeForCompare(SyntaxNode node)

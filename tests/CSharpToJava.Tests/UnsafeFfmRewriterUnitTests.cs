@@ -1424,6 +1424,9 @@ public class UnsafeFfmRewriterUnitTests
     [Fact]
     public void M3a_FixedOnRewrittenParameterWithOffset_OffsetPath()
     {
+        // 配对索引模型（信号④：fixed 块内指针算术根植形参）：方法整体配对为
+        // byte[] p + int pIndex，fixed 的偏移 p+2 表达为「同名 int 索引 =
+        // pIndex + 2」（paired-index 统一规则，取代旧的合成 offset 计数路径）。
         var src = """
             unsafe class C
             {
@@ -1442,7 +1445,9 @@ public class UnsafeFfmRewriterUnitTests
         Assert.True(result.Changed);
         Assert.False(result.HasErrors);
         Assert.DoesNotContain("fixed", result.OutputCode);
-        Assert.Equal(1, result.Statistics.FixedVariablesOffset);
+        Assert.Contains("static void M(byte[] p, int pIndex)", result.OutputCode);
+        Assert.Contains("int q = pIndex + 2;", result.OutputCode);
+        Assert.Contains("_q_array[q]", result.OutputCode);
         AssertOutputCompiles(result.OutputCode);
     }
 

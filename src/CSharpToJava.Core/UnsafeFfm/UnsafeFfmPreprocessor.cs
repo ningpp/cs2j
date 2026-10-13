@@ -131,6 +131,9 @@ public sealed class UnsafeFfmPreprocessor
         var flowModel = new PointerFlowModel();
         var pointerRewritten = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
         var loweredPointerSymbols = Array.Empty<ISymbol>();
+        IReadOnlyDictionary<ISymbol, (string ArrayName, bool ReadOnly)> loweredArrayMap =
+            new Dictionary<ISymbol, (string, bool)>(SymbolEqualityComparer.Default);
+        var pointerMethodCatalog = new PointerMethodCatalog(semanticModel.Compilation);
 
         if (_options.EnablePointer)
         {
@@ -140,7 +143,8 @@ public sealed class UnsafeFfmPreprocessor
                 new HashSet<IFieldSymbol>(SymbolEqualityComparer.Default),
                 flowModel,
                 statistics,
-                signatureResolver);
+                signatureResolver,
+                pointerMethodCatalog);
             newRoot = (CompilationUnitSyntax)signatureRewriter.Visit(newRoot)!;
             foreach (var diagnostic in signatureRewriter.Diagnostics)
             {
@@ -184,7 +188,9 @@ public sealed class UnsafeFfmPreprocessor
                 fieldRewriter.RewrittenFields,
                 pointerRewritten,
                 statistics,
-                statementResolver);
+                statementResolver,
+                pointerMethodCatalog,
+                flowModel);
             newRoot = (CompilationUnitSyntax)statementRewriter.Visit(newRoot)!;
             foreach (var diagnostic in statementRewriter.Diagnostics)
             {
@@ -197,6 +203,7 @@ public sealed class UnsafeFfmPreprocessor
             }
 
             loweredPointerSymbols = statementRewriter.LoweredSymbols.ToArray();
+            loweredArrayMap = statementRewriter.LoweredArrayMap;
 
             if (!_options.EnablePointer)
             {
@@ -263,6 +270,8 @@ public sealed class UnsafeFfmPreprocessor
                 semanticModel,
                 flowModel,
                 loweredPointerSymbols,
+                loweredArrayMap,
+                pointerMethodCatalog,
                 statistics,
                 exprResolver,
                 newRoot);

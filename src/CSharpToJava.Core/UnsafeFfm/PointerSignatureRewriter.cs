@@ -34,19 +34,25 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
     private readonly UnsafeFfmStatistics _statistics;
     private readonly OriginalSyntaxResolver _resolver;
     private readonly PointerFlowModel _flowModel;
+    private readonly PointerMethodCatalog _catalog;
+
+    /// <summary>当前正在访问体的配对方法计划（栈：支持嵌套局部函数）。</summary>
+    private readonly List<PairedMethodPlan> _pairedStack = new();
 
     public PointerSignatureRewriter(
         SemanticModel model,
         HashSet<IFieldSymbol> rewrittenFields,
         PointerFlowModel flowModel,
         UnsafeFfmStatistics statistics,
-        OriginalSyntaxResolver resolver)
+        OriginalSyntaxResolver resolver,
+        PointerMethodCatalog catalog)
     {
         _model = model;
         _rewrittenFields = rewrittenFields;
         _flowModel = flowModel;
         _statistics = statistics;
         _resolver = resolver;
+        _catalog = catalog;
     }
 
     /// <summary>已改写为数组的指针符号（形参+局部），供 R3 逃逸检查/Classify 使用。</summary>
@@ -70,6 +76,9 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
+        if (GetCurrentPlan(node) is { } paired)
+            return ApplyPairedMethod(node, paired);
+
         var parameters = node.ParameterList.Parameters;
         var parameterRewrites = PlanParameterRewrites(parameters, node.ParameterList);
         var returnPlan = PlanTypeRewrite(node.ReturnType);
@@ -81,6 +90,18 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node)
     {
+        if (GetCurrentPlan(node) is { } paired)
+        {
+            var local = (LocalFunctionStatementSyntax)VisitPairedBody(
+                paired, () => base.VisitLocalFunctionStatement(node)!);
+            var pairedUpdated = local.WithParameterList(
+                ApplyPairedParameters(local.ParameterList, paired));
+            var pairedResult = paired.ReturnsPointer
+                ? pairedUpdated.WithReturnType(PredefinedType(Token(SyntaxKind.IntKeyword)))
+                : pairedUpdated;
+            return _catalog.AnnotatePaired(pairedResult, paired.Method);
+        }
+
         var parameterRewrites = PlanParameterRewrites(
             node.ParameterList.Parameters, node.ParameterList);
         var returnPlan = PlanTypeRewrite(node.ReturnType);
@@ -94,6 +115,141 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
 
         return updated;
     }
+
+    /// <summary>
+    /// 取节点对应方法/局部函数符号的配对计划；非配对返回 null（走既有
+    /// array-only 路径）。
+    /// </summary>
+    private PairedMethodPlan? GetCurrentPlan(SyntaxNode node)
+    {
+        var original = _resolver.Resolve(node);
+        var symbol = original == null
+            ? null
+            : _model.GetDeclaredSymbol(original) as IMethodSymbol;
+        return symbol == null ? null : _catalog.GetPlan(symbol);
+    }
+
+    private MethodDeclarationSyntax ApplyPairedMethod(
+        MethodDeclarationSyntax node, PairedMethodPlan plan)
+    {
+        var visited = (MethodDeclarationSyntax)VisitPairedBody(
+            plan, () => base.VisitMethodDeclaration(node)!);
+        var updated = visited
+            .WithParameterList(ApplyPairedParameters(visited.ParameterList, plan));
+        var result = plan.ReturnsPointer
+            ? updated.WithReturnType(PredefinedType(Token(SyntaxKind.IntKeyword)))
+            : updated;
+        return _catalog.AnnotatePaired(result, plan.Method);
+    }
+
+    /// <summary>
+    /// 在压入配对计划、注册形参 flow 的前提下访问方法体。注册必须先于体访问：
+    /// shadow copy-in/形参别名局部要继承这些 flow。
+    /// </summary>
+    private SyntaxNode VisitPairedBody(
+        PairedMethodPlan plan,
+        Func<SyntaxNode> visit)
+    {
+        foreach (var parameter in plan.Parameters)
+        {
+            if (parameter.Symbol == null) continue;
+
+            if (parameter.Kind == PairedParamKind.PlainPointer)
+            {
+                RewrittenSymbols.Add(parameter.Symbol);
+                _statistics.PointerParametersRewritten++;
+                _flowModel.Register(parameter.Symbol, new PointerFlow(
+                    PointerSourceKind.ParamArray,
+                    parameter.ArrayName,
+                    parameter.IndexName)
+                {
+                    FoldsToOffset = true,
+                });
+            }
+            else if (parameter.Kind == PairedParamKind.HolderPointer)
+            {
+                RewrittenSymbols.Add(parameter.Symbol);
+            }
+        }
+
+        if (plan.ReturnsPointer)
+            _statistics.PointerReturnsRewritten++;
+
+        _pairedStack.Add(plan);
+        try
+        {
+            return visit();
+        }
+        finally
+        {
+            _pairedStack.RemoveAt(_pairedStack.Count - 1);
+        }
+    }
+
+    /// <summary>
+    /// 按配对计划重建形参表：指针形参 → 数组形参 + 紧随的 int 索引形参；
+    /// holder 指针形参 → ByRef&lt;int&gt; + 紧随的伴生 T[] 数组形参。
+    /// </summary>
+    private ParameterListSyntax ApplyPairedParameters(
+        ParameterListSyntax visitedList, PairedMethodPlan plan)
+    {
+        var result = new List<ParameterSyntax>();
+        for (var i = 0; i < plan.Parameters.Count; i++)
+        {
+            var parameterPlan = plan.Parameters[i];
+            var visitedParameter = visitedList.Parameters[i];
+
+            if (parameterPlan.Kind == PairedParamKind.None)
+            {
+                result.Add(visitedParameter);
+                continue;
+            }
+
+            var elementSyntax = parameterPlan.Kind == PairedParamKind.PlainPointer
+                ? ArrayElementTypeSyntax(visitedParameter)
+                : HolderPointerElementTypeSyntax(visitedParameter);
+
+            if (parameterPlan.Kind == PairedParamKind.PlainPointer)
+            {
+                result.Add(visitedParameter.WithType(BuildArrayTypeFromElement(elementSyntax)));
+                result.Add(Parameter(Identifier(parameterPlan.IndexName))
+                    .WithType(PredefinedType(Token(SyntaxKind.IntKeyword))));
+            }
+            else
+            {
+                result.Add(visitedParameter.WithType(RebuildHolderIntType(visitedParameter.Type)));
+                result.Add(Parameter(Identifier(parameterPlan.ArrayName))
+                    .WithType(BuildArrayTypeFromElement(elementSyntax)));
+            }
+        }
+
+        return visitedList.WithParameters(SeparatedList(result));
+    }
+
+    /// <summary>数组-only 路径形参语法上的指针元素（T* p 的 T）。</summary>
+    private static TypeSyntax ArrayElementTypeSyntax(ParameterSyntax parameter)
+        => ((PointerTypeSyntax)parameter.Type).ElementType;
+
+    /// <summary>holder 形参语法 ByRef&lt;T*&gt; 上的指针元素 T。</summary>
+    private static TypeSyntax HolderPointerElementTypeSyntax(ParameterSyntax parameter)
+    {
+        var generic = (GenericNameSyntax)parameter.Type;
+        return ((PointerTypeSyntax)generic.TypeArgumentList.Arguments[0]).ElementType;
+    }
+
+    private static GenericNameSyntax RebuildHolderIntType(TypeSyntax holderType)
+    {
+        var generic = (GenericNameSyntax)holderType;
+        return generic.WithTypeArgumentList(TypeArgumentList(
+            SingletonSeparatedList<TypeSyntax>(
+                PredefinedType(Token(SyntaxKind.IntKeyword)))));
+    }
+
+    private static ArrayTypeSyntax BuildArrayTypeFromElement(TypeSyntax element)
+        => ArrayType(element)
+            .WithRankSpecifiers(SingletonList(ArrayRankSpecifier(
+                SingletonSeparatedList<ExpressionSyntax>(OmittedArraySizeExpression()))));
+
 
     public override SyntaxNode? VisitOperatorDeclaration(OperatorDeclarationSyntax node)
     {
@@ -237,6 +393,14 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
         if (!IsPointerTypeSyntax(node.Declaration.Type))
             return base.VisitLocalDeclarationStatement(node);
 
+        // 配对方法体内的 holder shadow copy-in（T* s = h.Value）与指针形参
+        // 别名（T* q = p[/p±n]）：降级为 int 索引局部，flow 指向伴生/形参数组。
+        if (_pairedStack.Count > 0
+            && TryRewritePairedLocal(node, out var rewritten))
+        {
+            return rewritten;
+        }
+
         var currentPointer = (PointerTypeSyntax)node.Declaration.Type;
         var plans = new List<LocalRewritePlan?>();
         var allRewritable = true;
@@ -288,6 +452,166 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
     // ---- 改写计划 ----
 
     private sealed record LocalRewritePlan(ExpressionSyntax SourceExpression, ISymbol SourceSymbol);
+
+    /// <summary>
+    /// 配对方法体内的指针局部降级为「int 索引局部」：
+    /// <list type="bullet">
+    /// <item><c>T* s = h.Value</c>（holder shadow copy-in）→ <c>int s = h.Value</c>，
+    /// flow 数组=holder 伴生数组形参，偏移=s 自身（末尾 h.Value=s 回写不逃逸）；</item>
+    /// <item><c>T* q = p</c>/<c>T* q = p + n</c>（指针形参别名）→
+    /// <c>int q = pIndex</c>/<c>int q = pIndex + n</c>，flow 数组=形参数组。</item>
+    /// </list>
+    /// 其余形态（多变量声明、其它初值）返回 false 交既有路径。
+    /// </summary>
+    private bool TryRewritePairedLocal(
+        LocalDeclarationStatementSyntax node,
+        out StatementSyntax? rewritten)
+    {
+        rewritten = null;
+        var plan = _pairedStack[^1];
+
+        if (node.Declaration.Variables.Count != 1) return false;
+        var declarator = node.Declaration.Variables[0];
+        if (declarator.Initializer?.Value is not { } rawInitializer) return false;
+
+        var localSymbol = GetLocalSymbol(declarator);
+        if (localSymbol?.Type is not IPointerTypeSymbol) return false;
+
+        var initializer = UnwrapParenthesized(rawInitializer);
+        string? arrayName = null;
+        ExpressionSyntax? newInitializer = null;
+
+        // holder.Value copy-in。
+        if (initializer is MemberAccessExpressionSyntax memberAccess
+            && memberAccess.IsKind(SyntaxKind.SimpleMemberAccessExpression)
+            && memberAccess.Name.Identifier.ValueText == "Value"
+            && GetExpressionSymbol(memberAccess.Expression) is { } holderSymbol)
+        {
+            var holderPlan = plan.Parameters.FirstOrDefault(p =>
+                p.Kind == PairedParamKind.HolderPointer
+                && SymbolEqualityComparer.Default.Equals(p.Symbol, holderSymbol));
+            if (holderPlan != null)
+            {
+                arrayName = holderPlan.ArrayName;
+                newInitializer = initializer;
+            }
+        }
+
+        // 指针形参别名（标识符或 p±n 一元/二元算术）。
+        if (arrayName == null
+            && TryBuildPairedParamAlias(initializer, plan, out var aliasArray, out var aliasIndex))
+        {
+            arrayName = aliasArray;
+            newInitializer = aliasIndex;
+        }
+
+        if (arrayName == null || newInitializer == null || localSymbol == null)
+            return false;
+
+        var newDeclarator = declarator.WithInitializer(EqualsValueClause(newInitializer));
+        rewritten = node.WithDeclaration(node.Declaration
+            .WithType(PredefinedType(Token(SyntaxKind.IntKeyword)))
+            .WithVariables(SingletonSeparatedList(newDeclarator)));
+
+        RewrittenSymbols.Add(localSymbol);
+        _statistics.PointerLocalsRewritten++;
+        _flowModel.Register(localSymbol, new PointerFlow(
+            PointerSourceKind.ParamArray, arrayName, localSymbol.Name)
+        {
+            FoldsToOffset = true,
+        });
+        return true;
+    }
+
+    /// <summary>
+    /// 初值根植于配对游标（指针形参或其 FOLDS 局部/shadow）时，把初值翻译为
+    /// int 索引表达式：cursor→cursorIndex；cursor±n→cursorIndex±n（n+cursor
+    /// 同样支持）。
+    /// </summary>
+    private bool TryBuildPairedParamAlias(
+        ExpressionSyntax initializer,
+        PairedMethodPlan plan,
+        out string? arrayName,
+        out ExpressionSyntax? indexExpression)
+    {
+        arrayName = null;
+        indexExpression = null;
+
+        ExpressionSyntax pointerSide;
+        ExpressionSyntax? offsetSide = null;
+        var subtract = false;
+
+        if (initializer is IdentifierNameSyntax)
+        {
+            pointerSide = initializer;
+        }
+        else if (initializer is BinaryExpressionSyntax binary
+                 && (binary.IsKind(SyntaxKind.AddExpression)
+                     || binary.IsKind(SyntaxKind.SubtractExpression)))
+        {
+            var leftType = _model.GetTypeInfo(binary.Left).Type;
+            var rightType = _model.GetTypeInfo(binary.Right).Type;
+            if (leftType is IPointerTypeSymbol)
+            {
+                pointerSide = binary.Left;
+                offsetSide = binary.Right;
+                subtract = binary.IsKind(SyntaxKind.SubtractExpression);
+            }
+            else if (rightType is IPointerTypeSymbol
+                     && binary.IsKind(SyntaxKind.AddExpression))
+            {
+                pointerSide = binary.Right;
+                offsetSide = binary.Left;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else
+        {
+            return false;
+        }
+
+        var sourceSymbol = GetExpressionSymbol(pointerSide);
+        if (sourceSymbol == null) return false;
+
+        // 根为配对指针形参。
+        var paramPlan = plan.Parameters.FirstOrDefault(p =>
+            p.Kind == PairedParamKind.PlainPointer
+            && SymbolEqualityComparer.Default.Equals(p.Symbol, sourceSymbol));
+        if (paramPlan != null)
+        {
+            arrayName = paramPlan.ArrayName;
+            var baseIndex = IdentifierName(paramPlan.IndexName);
+            indexExpression = offsetSide == null
+                ? baseIndex
+                : AddOffset(baseIndex, offsetSide, subtract);
+            return true;
+        }
+
+        // 根为同一配对方法体内已降级的 FOLDS 局部（链式游标别名/shadow）。
+        if (_flowModel.TryGet(sourceSymbol, out var inherited)
+            && inherited.FoldsToOffset)
+        {
+            arrayName = inherited.ArrayExpressionText;
+            var baseIndex = IdentifierName(inherited.OffsetText);
+            indexExpression = offsetSide == null
+                ? baseIndex
+                : AddOffset(baseIndex, offsetSide, subtract);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static ExpressionSyntax AddOffset(
+        ExpressionSyntax baseIndex, ExpressionSyntax offset, bool subtract)
+        => subtract
+            ? BinaryExpression(SyntaxKind.SubtractExpression,
+                ParenthesizedExpression(baseIndex), ParenthesizedExpression(offset))
+            : BinaryExpression(SyntaxKind.AddExpression,
+                ParenthesizedExpression(baseIndex), ParenthesizedExpression(offset));
 
     private List<TypeSyntaxRewrite?> PlanParameterRewrites(
         SeparatedSyntaxList<ParameterSyntax> parameters,

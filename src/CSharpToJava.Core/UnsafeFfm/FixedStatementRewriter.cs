@@ -41,23 +41,53 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
     private readonly HashSet<ISymbol> _pointerRewritten;
     private readonly UnsafeFfmStatistics _statistics;
     private readonly OriginalSyntaxResolver _resolver;
+    private readonly PointerMethodCatalog _catalog;
+    private readonly PointerFlowModel _flowModel;
 
     private readonly Dictionary<ISymbol, PtrInfo> _infos = new();
     private readonly HashSet<string> _generatedNames = new();
     private readonly Dictionary<SyntaxNode, HashSet<string>> _scopeNameCache = new();
+
+    /// <summary>当前访问子树所属的配对方法计划栈（返回/赋值逃逸门放行用）。</summary>
+    private readonly List<PairedMethodPlan> _pairedStack = new();
 
     public FixedStatementRewriter(
         SemanticModel model,
         HashSet<IFieldSymbol> rewrittenFields,
         HashSet<ISymbol> pointerRewritten,
         UnsafeFfmStatistics statistics,
-        OriginalSyntaxResolver resolver)
+        OriginalSyntaxResolver resolver,
+        PointerMethodCatalog catalog,
+        PointerFlowModel flowModel)
     {
         _model = model;
         _rewrittenFields = rewrittenFields;
         _pointerRewritten = pointerRewritten;
         _statistics = statistics;
         _resolver = resolver;
+        _catalog = catalog;
+        _flowModel = flowModel;
+    }
+
+    /// <summary>
+    /// R3 已降级指针符号 → 其数组名/只读标记（解析成功的 fixed/别名局部）。
+    /// 供 R6 在跨域表达式（配对形参与 fixed 索引混算）中把这些 int 索引
+    /// 重新还原为「数组 + 索引」对。
+    /// </summary>
+    public IReadOnlyDictionary<ISymbol, (string ArrayName, bool ReadOnly)> LoweredArrayMap
+    {
+        get
+        {
+            var map = new Dictionary<ISymbol, (string, bool)>(
+                SymbolEqualityComparer.Default);
+            foreach (var (symbol, info) in _infos)
+            {
+                if (info.Resolved && info.ArrayName.Length > 0)
+                    map[symbol] = (info.ArrayName, info.ReadOnlyString);
+            }
+
+            return map;
+        }
     }
 
     public List<UnsafeFfmDiagnostic> Diagnostics { get; } = new();
@@ -70,6 +100,83 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
     /// 被转换的指针局部）。R6 据此把这些符号的体内使用识别为 int，不误判为指针。
     /// </summary>
     public IReadOnlyCollection<ISymbol> LoweredSymbols => _infos.Keys;
+
+    // ---- 配对方法域：返回/赋值逃逸门按配对约定放行 ----
+
+    public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
+    {
+        var plan = GetCurrentPlan(node);
+        if (plan == null) return base.VisitMethodDeclaration(node);
+
+        _pairedStack.Add(plan);
+        try
+        {
+            return base.VisitMethodDeclaration(node);
+        }
+        finally
+        {
+            _pairedStack.RemoveAt(_pairedStack.Count - 1);
+        }
+    }
+
+    public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node)
+    {
+        var plan = GetCurrentPlan(node);
+        if (plan == null) return base.VisitLocalFunctionStatement(node);
+
+        _pairedStack.Add(plan);
+        try
+        {
+            return base.VisitLocalFunctionStatement(node);
+        }
+        finally
+        {
+            _pairedStack.RemoveAt(_pairedStack.Count - 1);
+        }
+    }
+
+    private PairedMethodPlan? GetCurrentPlan(SyntaxNode node)
+    {
+        // R5 配对签名改写后声明节点与原始树不再等价：优先读 R5 挂的 SymbolKey 注解。
+        if (_catalog.TryGetPlanFromAnnotations(node) is { } annotatedPlan)
+            return annotatedPlan;
+
+        var original = _resolver.Resolve(node);
+        var symbol = original == null
+            ? null
+            : _model.GetDeclaredSymbol(original) as IMethodSymbol;
+        return symbol == null ? null : _catalog.GetPlan(symbol);
+    }
+
+    private bool IsPairedPointerReturnInvocation(ExpressionSyntax expression)
+    {
+        // 不限定包含方法是否配对：调用点可在非配对方法的 fixed 块内
+        //（q = Entity(q) 形态），可证性来自 LHS 已是降级 int 索引局部。
+        if (expression is not InvocationExpressionSyntax invocation) return false;
+
+        var original = _resolver.Resolve(invocation);
+        if (original is not InvocationExpressionSyntax originalInvocation) return false;
+
+        var info = _model.GetSymbolInfo(originalInvocation);
+        foreach (var candidate in EnumerateSymbols(info))
+        {
+            if (_catalog.GetPlan(candidate) is { ReturnsPointer: true })
+                return true;
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<IMethodSymbol> EnumerateSymbols(SymbolInfo info)
+    {
+        if (info.Symbol is IMethodSymbol direct)
+            yield return direct;
+        foreach (var candidate in info.CandidateSymbols)
+        {
+            if (candidate is IMethodSymbol method)
+                yield return method;
+        }
+    }
 
     // ---- fixed 节点 ----
 
@@ -573,7 +680,8 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
             if (isMutation
                 && GetIdentifierSymbol(mutationInner) is { } mutatedSymbol
-                && _pointerRewritten.Contains(mutatedSymbol))
+                && (_pointerRewritten.Contains(mutatedSymbol)
+                    || IsTrackedResolved(mutatedSymbol)))
             {
                 return node;
             }
@@ -729,6 +837,13 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                     info.ArrayName = sourceArray;
                     info.Resolved = true;
                 }
+                else if (IsPairedPointerReturnInvocation(rhs))
+                {
+                    // 配对指针返回方法调用：结果按配对约定是同源 int 索引，
+                    // 实参展开/调用重建全部归 R6；R3 不前置 UF020。
+                    var pairedLeft = (ExpressionSyntax)Visit(node.Left)!;
+                    return node.Update(pairedLeft, node.OperatorToken, node.Right);
+                }
                 else
                 {
                     AddError(
@@ -785,6 +900,14 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
             // R5 已改写为数组的标识符返回：数组返回是正常托管返回。
             if (GetIdentifierSymbol(expression) is { } rewrittenReturn
                 && _pointerRewritten.Contains(rewrittenReturn))
+            {
+                return base.VisitReturnStatement(node);
+            }
+
+            // 配对方法：指针返回按约定归一为 int 索引返回（形参索引、tracked
+            // 索引表达式或配对调用结果），具体重建归 R6。
+            if (_pairedStack.Count > 0
+                && TypeInfoFor(node.Expression).Type is IPointerTypeSymbol)
             {
                 return base.VisitReturnStatement(node);
             }
@@ -886,6 +1009,9 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
             return base.VisitLocalDeclarationStatement(node);
         }
 
+        // 块内指针局部统一降级为「int 索引局部，原名沿用」（设计：tracked
+        // 指针 p 在 fixed 块内由数组局部 _p_array + 同名 int 索引承载）。
+        // 元素类型仅用于 null 初值时合成伴生数组局部。
         TypeSyntax elementTypeSyntax = node.Declaration.Type is PointerTypeSyntax pointer
             ? pointer.ElementType
             : ParseTypeName(
@@ -952,7 +1078,7 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
         StatementSyntax newStatement = node
             .WithDeclaration(node.Declaration
-                .WithType(elementTypeSyntax)
+                .WithType(PredefinedType(Token(SyntaxKind.IntKeyword)))
                 .WithVariables(SeparatedList(newDeclarators)));
 
         if (extraStatements.Count > 0)
@@ -967,20 +1093,54 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node)
     {
+        // ByRef<T*>.Create 访问器 lambda（getter/setter）：捕获的游标在配对
+        // 约定下随 holder 降级为 int 索引捕获，不是指针逃逸，整子树跳过。
+        if (IsHolderAccessorArgument(node)) return node;
         CheckLambdaCapture(node);
         return base.VisitSimpleLambdaExpression(node);
     }
 
     public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node)
     {
+        if (IsHolderAccessorArgument(node)) return node;
         CheckLambdaCapture(node);
         return base.VisitParenthesizedLambdaExpression(node);
     }
 
     public override SyntaxNode? VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node)
     {
+        if (IsHolderAccessorArgument(node)) return node;
         CheckLambdaCapture(node);
         return base.VisitAnonymousMethodExpression(node);
+    }
+
+    /// <summary>
+    /// lambda 是否直接作为 <c>ByRef&lt;T*&gt;.Create(...)</c> 的参数（双访问器
+    /// 形态）。显式泛型在旧模型可能落在 CandidateSymbols（WrongArity），故
+    /// 同时按调用表达式的返回类型是否为指针 holder 判定。
+    /// </summary>
+    private bool IsHolderAccessorArgument(SyntaxNode lambda)
+    {
+        if (lambda.Parent is not ArgumentSyntax argument
+            || argument.Parent is not ArgumentListSyntax argumentList
+            || argumentList.Parent is not InvocationExpressionSyntax invocation)
+        {
+            return false;
+        }
+
+        var original = _resolver.Resolve(invocation);
+        if (original is InvocationExpressionSyntax originalInvocation)
+        {
+            var info = _model.GetSymbolInfo(originalInvocation);
+            foreach (var method in EnumerateSymbols(info))
+            {
+                if (PointerMethodCatalog.IsHolderCreateSymbol(method))
+                    return true;
+            }
+        }
+
+        return TypeInfoFor(invocation).Type is INamedTypeSymbol invokedType
+               && PointerMethodCatalog.IsByRefHolder(invokedType, out _);
     }
 
     private void CheckLambdaCapture(SyntaxNode node)
@@ -1001,6 +1161,11 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
     }
 
     // ---- 指针对（数组 + 索引）解析 ----
+
+    private bool IsTrackedResolved(ISymbol? symbol)
+        => symbol != null
+           && _infos.TryGetValue(symbol, out var tracked)
+           && tracked.Resolved;
 
     private bool TryResolvePointer(
         ExpressionSyntax raw,
@@ -1023,6 +1188,17 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                 arrayName = info.ArrayName;
                 indexExpression = e;
                 readOnly = info.ReadOnlyString;
+                return true;
+            }
+
+            // R5 配对域：指针形参/shadow/形参别名已折叠为「数组 + 同名 int
+            // 索引变量」，其标识符在当前树仍是旧指针文本，按 flow 解析。
+            if (symbol != null
+                && _flowModel.TryGet(symbol, out var foldsFlow)
+                && foldsFlow is { IsProvable: true, FoldsToOffset: true })
+            {
+                arrayName = foldsFlow.ArrayExpressionText;
+                indexExpression = ParseExpression(foldsFlow.OffsetText);
                 return true;
             }
 
