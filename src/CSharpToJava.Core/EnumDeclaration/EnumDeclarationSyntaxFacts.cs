@@ -156,6 +156,25 @@ internal static class EnumDeclarationSyntaxFacts
             ? Convert.ToUInt64(boxed, CultureInfo.InvariantCulture)
             : unchecked((ulong)Convert.ToInt64(boxed, CultureInfo.InvariantCulture));
 
+    /// <summary>
+    /// 装箱的整型字面量值是否为 0：C# 隐式常量表达式转换允许值为 0 的整型常量
+    /// 出现在任何 enum 类型位置（字段初始化 <c>E Flags = 0;</c>、三元分支、
+    /// return、比较等），enum 归一为 class 后该转换消失，必须改写为默认实例。
+    /// </summary>
+    public static bool IsZeroIntegralLiteral(object? value)
+        => value switch
+        {
+            int i => i == 0,
+            long l => l == 0,
+            uint ui => ui == 0,
+            ulong ul => ul == 0,
+            short s => s == 0,
+            ushort us => us == 0,
+            byte b => b == 0,
+            sbyte sb => sb == 0,
+            _ => false,
+        };
+
     // ── System.Enum 静态 API 分类（D8） ──
 
     public static readonly HashSet<string> EnumStaticMethods = new(StringComparer.Ordinal)

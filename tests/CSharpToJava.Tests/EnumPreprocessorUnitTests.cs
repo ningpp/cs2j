@@ -473,8 +473,12 @@ public class EnumPreprocessorUnitTests
     }
 
     [Fact]
-    public void Enum_Member_Initializer_Rewritten()
+    public void Enum_Member_Initializer_Is_Preserved()
     {
+        // Enum member initializers bind member references as the enum's
+        // underlying integer type, so A | B is integer arithmetic by spec.
+        // Rewriting it produces invalid nested E | int code; it must be
+        // preserved byte-for-byte instead.
         var src = """
         enum E {
             A = 1,
@@ -483,11 +487,9 @@ public class EnumPreprocessorUnitTests
         }
         """;
         var result = Preprocess(src);
-        Assert.True(result.Changed);
-        // In enum member initializers, references are unqualified (A, not E.A)
-        Assert.Contains("(int)A", result.OutputCode);
-        Assert.Contains("(int)B", result.OutputCode);
-        Assert.Contains("(E)", result.OutputCode);
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Equal(0, result.Statistics.ResidualCount);
     }
 
     [Fact]
@@ -548,5 +550,280 @@ public class EnumPreprocessorUnitTests
         Assert.True(result.Changed);
         Assert.True(result.Statistics.HasFlagRewritten >= 1);
         Assert.True(result.Statistics.CompoundAssignRewritten >= 1);
+    }
+
+    // ── CS2J enum residual gate root-cause regressions ──
+
+    private static string Squish(string code)
+        => System.Text.RegularExpressions.Regex.Replace(code, @"\s+", " ");
+
+    private static string CompileErrors(string code)
+    {
+        var tree = CSharpSyntaxTree.ParseText(code);
+        var compilation = CSharpCompilation.Create("enum-output-test",
+            new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        return string.Join("\n", compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void Enum_Member_Initializer_Bitwise_Binds_As_Underlying_And_Is_Preserved()
+    {
+        // Inside an enum declaration member initializers bind to the
+        // underlying integer operators; rewriting them nests (E) casts back
+        // under bitwise operators and yields invalid E | int code (CS0019).
+        var src = """
+        [System.Flags]
+        enum E
+        {
+            None = 0,
+            A = 1,
+            B = 2,
+            C = A | B,
+            D = A & ~B
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Equal(0, result.Statistics.ResidualCount);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void Enum_Member_Initializer_And_Method_Code_Mix_Only_Method_Code_Rewrites()
+    {
+        var src = """
+        [System.Flags]
+        enum E
+        {
+            None = 0,
+            A = 1,
+            B = 2,
+            C = A | B,
+            D = A & ~B,
+            All = A | B | C
+        }
+        class C
+        {
+            E M() => E.A | E.B;
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        var code = Squish(result.OutputCode);
+
+        // Enum initializer expressions survive verbatim.
+        Assert.Contains("C = A | B", code);
+        Assert.Contains("D = A & ~B", code);
+        Assert.Contains("All = A | B | C", code);
+        // Method code is lowered as before.
+        Assert.Contains("((E)((int)E.A | (int)E.B))", code);
+        Assert.Equal(0, result.Statistics.ResidualCount);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void Compound_Assignment_To_Property_With_Deterministic_Receiver_Is_Expanded()
+    {
+        var src = """
+        enum E { A = 1, B = 2 }
+        class Settings { public E Flags { get; set; } }
+        class C
+        {
+            void M(Settings settings, E other)
+            {
+                settings.Flags |= other;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        var code = Squish(result.OutputCode);
+        Assert.Contains(
+            "settings.Flags = ((E)((int)settings.Flags | (int)other))", code);
+        Assert.DoesNotContain("|=", code);
+        Assert.Equal(0, result.Statistics.ResidualCount);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void Compound_Assignment_To_Array_Element_With_Pure_Index_Is_Expanded()
+    {
+        // Mirrors s_charTypeTable[c] |= CurrentCharType in the BCL corpus.
+        var src = """
+        enum E { A = 1, B = 2 }
+        class C
+        {
+            private static readonly E[] s_table = new E[4];
+            void M(int c)
+            {
+                s_table[c] |= E.A;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        var code = Squish(result.OutputCode);
+        Assert.Contains(
+            "s_table[c] = ((E)((int)(s_table[c]) | (int)E.A))", code);
+        Assert.DoesNotContain("|=", code);
+        Assert.Equal(0, result.Statistics.ResidualCount);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void Compound_Assignment_To_Property_With_Method_Receiver_Stays_Skipped()
+    {
+        // Duplicating a method-call receiver would re-invoke it; correct
+        // lowering requires statement temp lifting, so keep the warning
+        // instead of silently emitting an expansion.
+        var src = """
+        enum E { A = 1, B = 2 }
+        class Holder { public E P { get; set; } }
+        class C
+        {
+            static Holder Make() => new Holder();
+            void M()
+            {
+                Make().P |= E.A;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Contains(
+            result.Diagnostics,
+            d => d.Severity == EnumPreprocessorSeverity.Warning
+                 && d.Message.Contains("not a stable reference"));
+    }
+
+    [Fact]
+    public void Compound_Assignment_To_Array_Element_With_SideEffecting_Index_Stays_Skipped()
+    {
+        var src = """
+        enum E { A = 1, B = 2 }
+        class C
+        {
+            private static readonly E[] s_table = new E[4];
+            private static int Next() => 0;
+            void M()
+            {
+                s_table[Next()] |= E.A;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Contains(
+            result.Diagnostics,
+            d => d.Severity == EnumPreprocessorSeverity.Warning
+                 && d.Message.Contains("not a stable reference"));
+    }
+
+    [Fact]
+    public void Enum_Bitwise_Inside_Invocation_Receiver_Chain_Is_Rewritten()
+    {
+        // Mirrors new Regex(pattern, options | compiled).IsMatch(input):
+        // the non-HasFlag invocation path used to drop the receiver chain
+        // entirely, leaving the enum bitwise node residual.
+        var src = """
+        enum E { A = 1, B = 2 }
+        class Box
+        {
+            public Box(E e) { }
+            public bool Run() => true;
+        }
+        class C
+        {
+            bool M(E a, E b) => new Box(a | b).Run();
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        var code = Squish(result.OutputCode);
+        Assert.Contains("new Box(((E)((int)a | (int)b)))", code);
+        Assert.Equal(0, result.Statistics.ResidualCount);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void Nested_Enum_Bitwise_Cross_Namespace_Cast_Is_Enclosing_Qualified()
+    {
+        // Mirrors XPathDocument.LoadFlags (nested in System.Xml.XPath)
+        // consumed from MS.Internal.Xml.Cache: the inserted (E) cast used to
+        // carry only the metadata name "LoadFlags", which fails to bind at
+        // the sibling use site (CS0246) and poisons the downstream
+        // enum-declaration semantic model so the cast is never lowered.
+        var src = """
+        namespace N1
+        {
+            internal class Outer
+            {
+                [System.Flags]
+                internal enum LoadFlags { None = 0, A = 1, B = 2, C = 4 }
+            }
+        }
+        namespace N2
+        {
+            using N1;
+            internal class User
+            {
+                bool M(Outer.LoadFlags flags)
+                {
+                    bool a = (flags & Outer.LoadFlags.A) != 0;
+                    Outer.LoadFlags b = flags | Outer.LoadFlags.B;
+                    Outer.LoadFlags c = flags & ~Outer.LoadFlags.A;
+                    flags |= Outer.LoadFlags.C;
+                    return a;
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("(Outer.LoadFlags)", result.OutputCode);
+        Assert.DoesNotContain("(LoadFlags)", result.OutputCode);
+        Assert.Equal(0, result.Statistics.ResidualCount);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void Nested_Nullable_Enum_Lifted_Bitwise_Cross_Namespace_Cast_Is_Qualified()
+    {
+        // The nullable-lifted ternary emits two (E?) casts; they must carry
+        // the enclosing type chain as well.
+        var src = """
+        namespace N1
+        {
+            internal class Outer
+            {
+                [System.Flags]
+                internal enum LoadFlags { None = 0, A = 1, B = 2 }
+            }
+        }
+        namespace N2
+        {
+            using N1;
+            internal class User
+            {
+                Outer.LoadFlags? M(Outer.LoadFlags? x)
+                    => x | Outer.LoadFlags.B;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("(Outer.LoadFlags?)", result.OutputCode);
+        Assert.DoesNotContain("(LoadFlags?)", result.OutputCode);
+        Assert.Empty(CompileErrors(result.OutputCode));
     }
 }

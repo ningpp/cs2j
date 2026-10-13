@@ -53,17 +53,18 @@ public sealed class EnumPreprocessor
         stats.FilesTransformed = 1;
 
         // Post-check: semantic-level residual enum ops
-        var residualCount = CountResidualEnumOps(code, semanticModel, root);
-        stats.ResidualCount = residualCount;
+        var residuals = CountResidualEnumOps(code, semanticModel, root);
+        stats.ResidualCount = residuals.Count;
 
-        if (residualCount > 0)
+        if (residuals.Count > 0)
         {
             var severity = options.Strict
                 ? EnumPreprocessorSeverity.Error
                 : EnumPreprocessorSeverity.Warning;
+            var sites = string.Join("; ", residuals.Take(12));
             diagnostics.Add(new EnumPreprocessorDiagnostic(
                 severity,
-                $"{residualCount} residual enum bitwise/HasFlag node(s) after preprocessing."));
+                $"{residuals.Count} residual enum bitwise/HasFlag node(s) after preprocessing. First site(s): {sites}"));
         }
 
         return new EnumPreprocessorResult(code, true, diagnostics, stats);
@@ -98,17 +99,19 @@ public sealed class EnumPreprocessor
     }
 
     /// <summary>
-    /// Post-check: count residual enum bitwise/HasFlag nodes in the output.
+    /// Post-check: enumerate residual enum bitwise/HasFlag nodes in the output.
     /// Uses semantic analysis on the rewritten tree to distinguish enum
-    /// operations from int operations.
+    /// operations from int operations. Each entry carries the output-line
+    /// location and a trimmed snippet so strict-gate failures are actionable.
     /// </summary>
-    private static int CountResidualEnumOps(
+    private static List<string> CountResidualEnumOps(
         string code,
         SemanticModel? originalModel,
         CompilationUnitSyntax originalRoot)
     {
+        var residuals = new List<string>();
         if (originalModel == null)
-            return 0;
+            return residuals;
 
         // Parse the output and create a new compilation to get a semantic model
         var newTree = CSharpSyntaxTree.ParseText(code, path: "enum-output.cs");
@@ -117,7 +120,16 @@ public sealed class EnumPreprocessor
         var newModel = newCompilation.GetSemanticModel(newTree);
         var newRoot = (CompilationUnitSyntax)newTree.GetRoot();
 
-        int count = 0;
+        static string Describe(SyntaxNode node, SemanticModel model, string kind)
+        {
+            var lineSpan = node.SyntaxTree.GetLineSpan(node.Span);
+            var text = node.ToString().Replace('\n', ' ').Replace('\r', ' ');
+            while (text.Contains("  "))
+                text = text.Replace("  ", " ");
+            if (text.Length > 100)
+                text = text[..100] + "...";
+            return $"(line {lineSpan.StartLinePosition.Line + 1}, {kind}) {text.Trim()}";
+        }
 
         foreach (var node in newRoot.DescendantNodes())
         {
@@ -126,10 +138,11 @@ public sealed class EnumPreprocessor
                     || b.IsKind(SyntaxKind.BitwiseAndExpression)
                     || b.IsKind(SyntaxKind.ExclusiveOrExpression)))
             {
-                var leftType = newModel.GetTypeInfo(b.Left).Type;
-                var rightType = newModel.GetTypeInfo(b.Right).Type;
-                if (IsEnumType(leftType) || IsEnumType(rightType))
-                    count++;
+                // The node's OWN type identifies the chosen operator: inside
+                // enum member initializers the operands look enum-typed while
+                // the selected operator is the underlying integer one.
+                if (IsEnumType(newModel.GetTypeInfo(b).Type))
+                    residuals.Add(Describe(b, newModel, "binary"));
             }
             else if (node is AssignmentExpressionSyntax a
                 && (a.IsKind(SyntaxKind.OrAssignmentExpression)
@@ -138,14 +151,13 @@ public sealed class EnumPreprocessor
             {
                 var leftType = newModel.GetTypeInfo(a.Left).Type;
                 if (IsEnumType(leftType))
-                    count++;
+                    residuals.Add(Describe(a, newModel, "compound"));
             }
             else if (node is PrefixUnaryExpressionSyntax p
                 && p.IsKind(SyntaxKind.BitwiseNotExpression))
             {
-                var operandType = newModel.GetTypeInfo(p.Operand).Type;
-                if (IsEnumType(operandType))
-                    count++;
+                if (IsEnumType(newModel.GetTypeInfo(p).Type))
+                    residuals.Add(Describe(p, newModel, "~"));
             }
             else if (node is InvocationExpressionSyntax i && IsHasFlagCall(i))
             {
@@ -153,12 +165,12 @@ public sealed class EnumPreprocessor
                 {
                     var receiverType = newModel.GetTypeInfo(ma.Expression).Type;
                     if (IsEnumType(receiverType))
-                        count++;
+                        residuals.Add(Describe(i, newModel, "HasFlag"));
                 }
             }
         }
 
-        return count;
+        return residuals;
     }
 
     private static bool IsEnumType(ITypeSymbol? type)

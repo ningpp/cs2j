@@ -121,6 +121,27 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
             preprocessor.BindCompilation(compilation);
             preprocessor.ExcludePlans(excluded);
 
+            // 跨枚举成员初值耦合：保持真 enum 的枚举 D（被排除/不可行/无计划），
+            // 其成员初值引用了 S 的成员时，S 本轮必须一起回滚，否则 S.M 变成
+            // static readonly 字段，D 的常量初值编译失败（CS0029，且无法归因，
+            // 表现为 ED030）。传递闭包由 Core 不动点计算。
+            var forcedRollbacks = preprocessor.ComputeForcedRollbacks(excluded);
+            foreach (var planId in forcedRollbacks)
+            {
+                excluded.Add(planId);
+                var forcedPlan = preprocessor.Plans.First(p => p.Id == planId);
+                var (forcedFile, forcedLine, forcedCol) = forcedPlan.PrimaryLocation();
+                rollbackDiagnostics.Add(new EnumDeclarationDiagnostic(
+                    EnumDeclarationSeverity.Warning,
+                    EnumDeclarationDiagnosticCode.ED031,
+                    "another enum that remains a real enum has member initializers " +
+                    "referencing members of this enum; this plan was rolled back together " +
+                    "with it so those initializers stay compile-time constants, and the " +
+                    "enum remains a real enum.",
+                    forcedFile, forcedLine, forcedCol, forcedPlan.EnumQualifiedName));
+            }
+            if (forcedRollbacks.Count > 0) preprocessor.ExcludePlans(excluded);
+
             var rewrittenByFile = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var pair in sourceFiles)
             {

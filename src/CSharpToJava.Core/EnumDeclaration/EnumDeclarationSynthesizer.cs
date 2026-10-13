@@ -39,6 +39,7 @@ internal static class EnumDeclarationSynthesizer
         var hex = Take("__Hex");
         var pt = Take("__ParseToken");
         var tpt = Take("__TryParseToken");
+        var na = Take("__Cs2jNewArray");
         var names = new EnumSynthesizedNames
         {
             BackingField = bf,
@@ -48,6 +49,7 @@ internal static class EnumDeclarationSynthesizer
             HexHelper = hex,
             ParseTokenHelper = pt,
             TryParseTokenHelper = tpt,
+            NewArray1D = na,
         };
         string Opt(EnumOptionalMembers kind, string preferred)
         {
@@ -82,6 +84,21 @@ internal static class EnumDeclarationSynthesizer
         }
         sb.AppendLine();
         sb.AppendLine($"    public static {E} {fv}({U} value) {{ return new {E}(value); }}");
+        sb.AppendLine();
+
+        // 一维零填充数组工厂：原生 new E[n] 元素默认零成员；类化后元素默认 null，
+        // 复合读改写（table[i] |= flag）首次访问会 NRE。用 DEFAULT 单例填满。
+        // 倒序 while 填充，避免在合成代码里出现“= 0;”之类易与用户态零字面量
+        // 残留检测混淆的文本。
+        sb.AppendLine($"    public static {E}[] {na}(int length) {{");
+        sb.AppendLine($"        {E}[] array = new {E}[length];");
+        sb.AppendLine("        int index = length;");
+        sb.AppendLine("        while (index > 0) {");
+        sb.AppendLine("            index -= 1;");
+        sb.AppendLine($"            array[index] = {dn};");
+        sb.AppendLine("        }");
+        sb.AppendLine("        return array;");
+        sb.AppendLine("    }");
         sb.AppendLine();
 
         // ── 核心：Equals 族（值相等，Dictionary 键语义） ──

@@ -262,7 +262,7 @@ public class EnumDeclarationRewriterUnitTests
         var (code, changed, stats, diags) = Rewrite(src);
         Assert.False(changed);
         Assert.Contains("enum Color", code);
-        Assert.Contains(diags, d => d.Severity == EnumDeclarationSeverity.Error
+        Assert.Contains(diags, d => d.Severity == EnumDeclarationSeverity.Warning
             && d.Code == EnumDeclarationDiagnosticCode.ED020);
     }
 
@@ -719,7 +719,7 @@ public class EnumDeclarationRewriterUnitTests
         Assert.False(changed);
         Assert.Contains("enum Kick", code);
         var ed020 = Assert.Single(diags, d => d.Code == EnumDeclarationDiagnosticCode.ED020);
-        Assert.Equal(EnumDeclarationSeverity.Error, ed020.Severity);
+        Assert.Equal(EnumDeclarationSeverity.Warning, ed020.Severity);
         Assert.Contains(memberName, ed020.Message);
     }
 
@@ -808,6 +808,891 @@ public class EnumDeclarationRewriterUnitTests
         Assert.DoesNotContain("sealed class Alpha", result.OutputCode);
         Assert.Contains("sealed class Beta", result.OutputCode);
         AssertOutputCompiles(result.OutputCode);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // 回归：case 标签/模式本身是 enum pass 降级形态 (E)((int)E.A | (int)E.B) 时，
+    // 语义决策必须先于 Visit 捕获，否则对游离节点 GetSymbolInfo 抛
+    // "Syntax node is not within syntax tree"（Uri.cs L3147 崩溃）。
+    // ────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void SwitchStatement_WithEnumPassLoweredCaseLabel_CapturesSemanticsBeforeVisit()
+    {
+        var src = """
+            using System;
+            [Flags] enum E { None = 0, A = 1, B = 2, C = 4 }
+            class C
+            {
+                static int M(E p)
+                {
+                    int r;
+                    switch (p)
+                    {
+                        case (E)((int)E.A | (int)E.B):
+                            r = 3;
+                            break;
+                        case E.C:
+                            r = 4;
+                            break;
+                        default:
+                            r = -1;
+                            break;
+                    }
+                    return r;
+                }
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+        AssertOutputCompiles(code);
+        Assert.DoesNotContain("switch (", code);
+        Assert.DoesNotContain("case ", code);
+        // 折叠常量位值（A|B=3、C=4）在 if 链谓词中。
+        Assert.Contains("== 3", code);
+        Assert.Contains("== 4", code);
+        Assert.Contains(".GetValue()", code);
+    }
+
+    [Fact]
+    public void SwitchExpression_WithEnumPassLoweredConstantArm_CapturesSemanticsBeforeVisit()
+    {
+        var src = """
+            using System;
+            [Flags] enum E { None = 0, A = 1, B = 2, C = 4 }
+            class C
+            {
+                static int M(E p) => p switch
+                {
+                    (E)((int)E.A | (int)E.B) => 3,
+                    E.C => 4,
+                    _ => 0
+                };
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+        AssertOutputCompiles(code);
+        Assert.DoesNotContain("switch", code);
+        Assert.Contains("== 3", code);
+        Assert.Contains("== 4", code);
+    }
+
+    [Fact]
+    public void IsPattern_WithEnumPassLoweredConstant_CapturesSemanticsBeforeVisit()
+    {
+        var src = """
+            using System;
+            [Flags] enum E { None = 0, A = 1, B = 2, C = 4 }
+            class C
+            {
+                static bool M(E p) => p is (E)((int)E.A | (int)E.B);
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+        AssertOutputCompiles(code);
+        Assert.Contains("== 3", code);
+    }
+
+    [Fact]
+    public void ConstField_OfConvertedEnum_WithLiteralCastInitializer_IsDowngradedToStaticReadonly()
+    {
+        // 回归 Uri.cs V1ToStringUnescape：enum 变 class 后 const 非法（CS0133），
+        // 即使初值是纯字面量 cast 也必须降级（DeclarationReferencesActiveEnum
+        // 不能只检查枚举成员引用）。
+        var src = """
+            using System;
+            [Flags] enum E { None = 0, A = 1 }
+            class C
+            {
+                const E Sentinel = (E)0x7FFF;
+                static int Use() => (int)Sentinel;
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+        Assert.DoesNotContain("const ", code);
+        Assert.Contains("static readonly E Sentinel", code);
+        Assert.Contains("FromValue((int)(0x7FFF))", code);
+        AssertOutputCompiles(code);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // 跨枚举成员初值耦合：enum D { X = S.M } 保持真 enum 时，S 也不能转换
+    // （S.M 变 static readonly → D 的常量初值 CS0029；XmlSubtreeReader.State→
+    // ReadState ED030 回归）。
+    // ────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void ForcedRollback_ReferencingEnumExcluded_ForcesReferencedEnumBack()
+    {
+        var src = """
+            enum S { Sa = 10, Sb = 20 }
+            enum D { Da = S.Sa, Db = S.Sb }
+            class C { static void M() { int x = (int)D.Da + (int)S.Sb; } }
+            """;
+        var pp = new EnumDeclarationPreprocessor();
+        pp.BindCompilation(ParseWithSemantics(src).Compilation);
+        Assert.Equal(2, pp.Plans.Count);
+
+        var forced = pp.ComputeForcedRollbacks(new[] { "D" });
+
+        Assert.Equal(new[] { "S" }, forced);
+    }
+
+    [Fact]
+    public void ForcedRollback_IsTransitiveAcrossInitializerChain()
+    {
+        var src = """
+            enum C { Ca = 1 }
+            enum B { Ba = C.Ca, Bb = 2 }
+            enum A { Aa = B.Ba }
+            class X { static void M() { int x = (int)A.Aa + (int)B.Ba + (int)C.Ca; } }
+            """;
+        var pp = new EnumDeclarationPreprocessor();
+        pp.BindCompilation(ParseWithSemantics(src).Compilation);
+
+        var forced = pp.ComputeForcedRollbacks(new[] { "A" });
+
+        Assert.Equal(new[] { "B", "C" }, forced.OrderBy(n => n, StringComparer.Ordinal).ToArray());
+    }
+
+    [Fact]
+    public void ForcedRollback_InfeasibleReferencingEnum_ForcesReferencedEnumBack_FromRoundOne()
+    {
+        // D 因固定签名成员名冲突 ED020 不可行（保持真 enum），首轮就必须连带 S 回滚。
+        var src = """
+            enum S { Sa = 10 }
+            enum D { Equals = S.Sa }
+            class C { static void M() { int x = (int)D.Equals; } }
+            """;
+        var pp = new EnumDeclarationPreprocessor();
+        pp.BindCompilation(ParseWithSemantics(src).Compilation);
+
+        var dPlan = Assert.Single(pp.Plans.Where(p => p.Id == "D"));
+        Assert.False(dPlan.Feasible);
+        var forced = pp.ComputeForcedRollbacks(Array.Empty<string>());
+
+        Assert.Equal(new[] { "S" }, forced);
+    }
+
+    [Fact]
+    public void ForcedRollback_BothEnumsConvert_NoForcedPlan_AndOutputCompiles()
+    {
+        var src = """
+            using System;
+            enum S { Sa = 10 }
+            enum D { Da = S.Sa }
+            class C { static void M() { Console.WriteLine(D.Da); } }
+            """;
+        var pp = new EnumDeclarationPreprocessor();
+        var model = ParseWithSemantics(src);
+        pp.BindCompilation(model.Compilation);
+
+        Assert.Empty(pp.ComputeForcedRollbacks(Array.Empty<string>()));
+
+        var stats = new EnumDeclarationStatistics();
+        var diags = new List<EnumDeclarationDiagnostic>();
+        var result = pp.RewriteFile(src, model, stats, diags);
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        // 依赖方转换后初值由编译期常量折叠，输出中不残留 S.Sa 引用。
+        Assert.DoesNotContain("S.Sa", result.OutputCode);
+    }
+
+    [Fact]
+    public void ForcedRollback_ReferencedEnumKeptReal_E2E_RewriteLeavesBothEnumsAndCompiles()
+    {
+        var src = """
+            enum S { Sa = 10, Sb = 20 }
+            enum D { Da = S.Sa, Db = S.Sb }
+            class C { static int M() => (int)D.Da; }
+            """;
+        var pp = new EnumDeclarationPreprocessor();
+        var model = ParseWithSemantics(src);
+        pp.BindCompilation(model.Compilation);
+        pp.ExcludePlans(new[] { "D" });
+        pp.ExcludePlans(pp.ComputeForcedRollbacks(new[] { "D" }));
+
+        var stats = new EnumDeclarationStatistics();
+        var diags = new List<EnumDeclarationDiagnostic>();
+        var result = pp.RewriteFile(src, model, stats, diags);
+
+        Assert.False(result.Changed);
+        Assert.Contains("enum S", result.OutputCode);
+        Assert.Contains("enum D", result.OutputCode);
+        Assert.DoesNotContain("sealed class", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // switch → if-else 链降级时的跨 case 段局部作用域（CS0103 'result' 回归，
+    // CompiledXPathExpr.Compare 形态）。
+    // ────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Switch_LoweredToIfChain_HoistsLocalSharedAcrossSections()
+    {
+        var src = """
+            using System;
+            enum Kind { Text = 0, Number = 1, Other = 2 }
+            class C
+            {
+                int Compare(int x, int y, Kind k)
+                {
+                    switch (k)
+                    {
+                        case Kind.Text:
+                            int result = x + y;
+                            if (result != 0) return result;
+                            result = x - y;
+                            return result;
+                        case Kind.Number:
+                            result = x.CompareTo(y);
+                            return result;
+                        default:
+                            throw new InvalidOperationException();
+                    }
+                }
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+        AssertOutputCompiles(code);
+        Assert.DoesNotContain("switch (", code);
+        // 声明提升到 if 链之外，原位置变为赋值。
+        Assert.Contains("int result;", code);
+        Assert.Contains("result = x + y;", code);
+        Assert.Contains("result = x.CompareTo(y);", code);
+    }
+
+    [Fact]
+    public void Switch_LoweredToIfChain_HoistedVarLocal_ResolvedToConcreteType()
+    {
+        var src = """
+            using System;
+            enum Kind { Text = 0, Number = 1, Other = 2 }
+            class C
+            {
+                int M(int x, int y, Kind k)
+                {
+                    switch (k)
+                    {
+                        case Kind.Text:
+                            var result = x.CompareTo(y);
+                            return result;
+                        case Kind.Number:
+                            result = y;
+                            return result;
+                        default:
+                            return 0;
+                    }
+                }
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+        AssertOutputCompiles(code);
+        Assert.Contains("int result;", code);
+        Assert.DoesNotContain("var result", code);
+    }
+
+    [Fact]
+    public void Switch_LoweredToIfChain_MultiVariableDecl_OnlyCrossReferencedOneHoisted()
+    {
+        var src = """
+            using System;
+            enum Kind { A = 0, B = 1, C = 2 }
+            class P
+            {
+                int M(Kind k)
+                {
+                    switch (k)
+                    {
+                        case Kind.A:
+                            int a = 1, b = 2;
+                            return a + b;
+                        case Kind.B:
+                            a = 3;
+                            return a;
+                        default:
+                            return 0;
+                    }
+                }
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+        AssertOutputCompiles(code);
+        Assert.Contains("int a;", code);
+        Assert.Contains("int b = 2", code);
+    }
+
+    [Fact]
+    public void Switch_LocalFunctionReferencedFromAnotherSection_IsED020()
+    {
+        var src = """
+            using System;
+            enum Kind { Text = 0, Number = 1, Other = 2 }
+            class C
+            {
+                int M(Kind k)
+                {
+                    switch (k)
+                    {
+                        case Kind.Text:
+                            int Local() => 1;
+                            return Local();
+                        case Kind.Number:
+                            return Local();
+                        default:
+                            return 0;
+                    }
+                }
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.False(changed);
+        Assert.Contains("enum Kind", code);
+        var ed020 = Assert.Single(diags, d => d.Code == EnumDeclarationDiagnosticCode.ED020);
+        Assert.Equal(EnumDeclarationSeverity.Warning, ed020.Severity);
+    }
+
+    [Fact]
+    public void Switch_ConstLocalReferencedFromAnotherSection_IsED020()
+    {
+        var src = """
+            using System;
+            enum Kind { Text = 0, Number = 1, Other = 2 }
+            class C
+            {
+                int M(Kind k)
+                {
+                    switch (k)
+                    {
+                        case Kind.Text:
+                            const int Z = 5;
+                            return Z;
+                        case Kind.Number:
+                            return Z;
+                        default:
+                            return 0;
+                    }
+                }
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.False(changed);
+        Assert.Contains("enum Kind", code);
+        Assert.Contains(diags, d => d.Code == EnumDeclarationDiagnosticCode.ED020
+            && d.Severity == EnumDeclarationSeverity.Warning);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // == / != 重写为 object.Equals 时，右操作数尾随的单行注释（//…）不能把合成
+    // 的闭合括号注释掉（CS1026/CS1002 → ED031 本地解析失败 → ED030 整轮回滚，
+    // XPathParser.IsStep 形态）。
+    // ────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Comparison_TrailingLineCommentOnRightOperand_CommentMovedAfterCallAndCompiles()
+    {
+        var src = """
+            using System;
+            enum Kind { A = 1, B = 2, C = 3 }
+            class P
+            {
+                bool IsStep(Kind lexKind)
+                {
+                    return (
+                        lexKind == Kind.A ||
+                        lexKind == Kind.B ||
+                        lexKind == Kind.C          // NodeTest is also Name
+                    );
+                }
+                bool NotStep(Kind lexKind)
+                {
+                    return lexKind != Kind.A      // anything but A
+                        ;
+                }
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+        AssertOutputCompiles(code);
+        Assert.Contains("object.Equals(lexKind, Kind.C)", code);
+        Assert.Contains("!object.Equals(lexKind, Kind.A)", code);
+        // 注释没有丢，而是挂在合成调用之后，且后面的 token 仍能被解析。
+        Assert.Contains("// NodeTest is also Name", code);
+        Assert.Contains("// anything but A", code);
+    }
+
+    [Fact]
+    public void CastAndEnumApi_TrailingLineCommentOnEmbeddedOperand_DoesNotSwallowSynthesizedParen()
+    {
+        var src = """
+            using System;
+            enum Kind { A = 1, B = 2 }
+            class P
+            {
+                string NameOf(object o)
+                {
+                    Kind a = (Kind)o          // unboxed enum
+                        ;
+                    int v = (int)a            // underlying value
+                        ;
+                    return Enum.GetName(typeof(Kind), 1   // the value to name
+                        ) + v + a;
+                }
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+        AssertOutputCompiles(code);
+        Assert.Contains("// unboxed enum", code);
+        Assert.Contains("// underlying value", code);
+        Assert.Contains("// the value to name", code);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // 值类型 const（字段/局部）初始化器整体是编译期常量时，折叠成字面量并保留
+    // const——它可能正被 case 标签等常量语境引用，降级 static readonly 会
+    // CS9135/CS0182（ctestbase.TEST_PASS 形态）。
+    // ────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void ConstField_IntegerInitializerReferencingEnum_FoldedToLiteral_StaysConst_AndCaseLabelsCompile()
+    {
+        var src = """
+            using System;
+            enum Status { Failed = 0, Passed = 1, NotRun = 2 }
+            abstract class C
+            {
+                public const int TEST_FAIL = (int)Status.Failed;
+                public const int TEST_PASS = (int)Status.Passed;
+                public const int TEST_SKIPPED = (int)Status.NotRun;
+
+                int Handle(int result)
+                {
+                    switch (result)
+                    {
+                        case TEST_PASS:
+                        case TEST_SKIPPED:
+                            return result;
+                        default:
+                            return TEST_FAIL;
+                    }
+                }
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+        AssertOutputCompiles(code);
+        Assert.Contains("const int TEST_PASS = 1;", code);
+        Assert.Contains("const int TEST_FAIL = 0;", code);
+        Assert.Contains("const int TEST_SKIPPED = 2;", code);
+        Assert.DoesNotContain("static readonly int TEST", code);
+        Assert.Contains("case TEST_PASS:", code);
+    }
+
+    [Fact]
+    public void ConstLocal_FoldedToLiteral_StaysConst()
+    {
+        var src = """
+            enum Status { Failed = 0, Passed = 1 }
+            class C
+            {
+                int M()
+                {
+                    const int Passed = (int)Status.Passed;
+                    const bool Ok = Status.Passed == (Status)1;
+                    return Passed + (Ok ? 1 : 0);
+                }
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+        AssertOutputCompiles(code);
+        Assert.Contains("const int Passed = 1;", code);
+        Assert.Contains("const bool Ok = true;", code);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // null/default 实参的重载消歧：归一 enum 变 class 后，原本只匹配引用类型
+    // 参数重载的 null 在两个重载间 CS0121（XmlPreloadedResolver 形态）。
+    // ────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void NullArgument_ConstructorInitializer_AmbiguousAfterEnumClassNormalization_GetsExplicitCast()
+    {
+        var src = """
+            using System;
+            [Flags]
+            enum Dtds { None = 0, Xhtml = 1, Rss = 2, All = 3 }
+            class Resolver { }
+            class Preloaded
+            {
+                public Preloaded()
+                    : this(null)
+                {
+                }
+
+                public Preloaded(Dtds dtds)
+                    : this(null, dtds, null)
+                {
+                }
+
+                public Preloaded(Resolver fallback)
+                    : this(fallback, Dtds.All, null)
+                {
+                }
+
+                public Preloaded(Resolver fallback, Dtds dtds, object tag)
+                {
+                }
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+        AssertOutputCompiles(code);
+        // 默认构造函数的 this(null) 原本绑定 Resolver 重载，补 cast 消歧。
+        Assert.Contains("this((global::Resolver)null)", code);
+    }
+
+    [Fact]
+    public void NullArgument_MethodAndObjectCreation_AmbiguousAfterNormalization_GetsExplicitCast()
+    {
+        var src = """
+            using System;
+            [Flags]
+            enum Mode { None = 0, Fast = 1 }
+            class Box { }
+            class Worker
+            {
+                void Run()
+                {
+                    Configure(null);
+                    var w = new Worker(null);
+                }
+                void Configure(Mode mode) { }
+                void Configure(Box box) { }
+                Worker() { }
+                Worker(Mode mode) { }
+                Worker(Box box) { }
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+        AssertOutputCompiles(code);
+        Assert.Contains("Configure((global::Box)null)", code);
+        Assert.Contains("new Worker((global::Box)null)", code);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // 隐式常量表达式转换：字面量 0 可出现在任意 enum 类型位置（字段初始化、
+    // 三元分支、return、比较）；归一为 class 后替换为默认实例（CS0029 回归，
+    // DataTypeImplementation.RestrictionFlags 形态）。
+    // ────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void ZeroLiteral_AtEnumTypedSites_ReplacedWithDefaultInstance_AndCompiles()
+    {
+        var src = """
+            using System;
+            [Flags]
+            enum RestrictionFlags { None = 0, Pattern = 1, WhiteSpace = 2 }
+            class Facets
+            {
+                internal RestrictionFlags Flags = 0;
+                internal RestrictionFlags FixedFlags = 0;
+
+                RestrictionFlags Pick(Facets other)
+                {
+                    RestrictionFlags flags = other != null ? other.Flags : 0;
+                    if (flags != 0)
+                    {
+                        return 0;
+                    }
+                    return flags;
+                }
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+        AssertOutputCompiles(code);
+        Assert.DoesNotContain("= 0;", code);
+        Assert.Contains("other.Flags : global::RestrictionFlags.DEFAULT", code);
+        Assert.Contains("return global::RestrictionFlags.DEFAULT;", code);
+        Assert.Contains("object.Equals(flags, global::RestrictionFlags.DEFAULT)", code);
+    }
+
+    [Fact]
+    public void ZeroLiteral_AtAttributeArgumentAndDefaultValue_IsED020()
+    {
+        var src = """
+            using System;
+            [Flags]
+            enum Mode { None = 0, Fast = 1 }
+            [AttributeUsage(AttributeTargets.All)]
+            sealed class MarkAttribute : Attribute
+            {
+                public MarkAttribute(Mode mode) { }
+            }
+            class C
+            {
+                [Mark(0)]
+                void M(Mode mode = 0) { }
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.False(changed);
+        Assert.Contains("enum Mode", code);
+        var ed020Sites = diags.Where(d => d.Code == EnumDeclarationDiagnosticCode.ED020).ToList();
+        Assert.Contains(ed020Sites, d => d.Severity == EnumDeclarationSeverity.Warning);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InfeasiblePlan_ED020_IsAlwaysAWarning_SafeRollbackNotFailure(bool strict)
+    {
+        var src = """
+            enum Color { Red = 1, Green = 2 }
+            [AttributeUsage(AttributeTargets.All)]
+            sealed class MyAttrAttribute : Attribute
+            {
+                public MyAttrAttribute(Color c) { }
+            }
+            [MyAttr(Color.Red)]
+            class C { }
+            """;
+
+        var (code, _, _, diags) =
+            Rewrite(src, new EnumDeclarationOptions { Strict = strict });
+        Assert.Contains("enum Color", code);
+        Assert.All(diags.Where(d => d.Code == EnumDeclarationDiagnosticCode.ED020),
+            d => Assert.Equal(EnumDeclarationSeverity.Warning, d.Severity));
+    }
+
+    [Fact]
+    public void Enum_Used_As_Attribute_Ctor_Property_Field_Type_Stays_Native_Without_Application()
+    {
+        // CS0181 structural gate: even when the attribute is never applied in
+        // the analyzed sources (so no attribute-argument site exists), an enum
+        // typed as an attribute ctor parameter / property / field cannot be
+        // classed into a sealed type.
+        var src = """
+        using System;
+        namespace N
+        {
+            [Flags]
+            public enum Monikers { A = 1, B = 2, C = 4 }
+
+            [AttributeUsage(AttributeTargets.Method)]
+            public sealed class SkipAttribute : Attribute
+            {
+                public SkipAttribute(Monikers frameworks) { }
+                public Monikers Preferred { get; set; }
+                public Monikers Legacy;
+            }
+        }
+        """;
+        var (code, changed, _, _) = Rewrite(src);
+        Assert.False(changed);
+        Assert.Contains("enum Monikers", code);
+        Assert.DoesNotContain("sealed class Monikers", code);
+        AssertOutputCompiles(code);
+    }
+
+    [Fact]
+    public void Ambiguously_Resolved_Enum_In_Attribute_Argument_Keeps_Plan_Enum_Native()
+    {
+        // Mirrors TargetFrameworkMonikers used as a SkipOnTargetFramework
+        // argument while a same-named attribute/enum pair imported from
+        // another namespace makes the reference ambiguous: the
+        // uniquely-symbol-based argument gate cannot see it, so the
+        // ambiguity gate must roll both candidate plans back to real enums.
+        // The attribute ctor here takes object so the declaration-shape gate
+        // does not cover it.
+        var src1 = """
+        namespace N1
+        {
+            [System.Flags]
+            public enum Kind { A = 1, B = 2, C = 4 }
+            public sealed class MarkAttribute : System.Attribute
+            {
+                public MarkAttribute(object o) { }
+            }
+        }
+        """;
+        var src2 = """
+        namespace N2
+        {
+            [System.Flags]
+            public enum Kind { A = 1, B = 2, C = 4 }
+            public sealed class MarkAttribute : System.Attribute
+            {
+                public MarkAttribute(object o) { }
+            }
+        }
+        """;
+        var src3 = """
+        using N1;
+        using N2;
+        class C
+        {
+            [Mark(Kind.A)]
+            void M() { }
+        }
+        """;
+        var trees = new[] { src1, src2, src3 }
+            .Select(s => CSharpSyntaxTree.ParseText(s, ParseOptions)).ToArray();
+        var compilation = CSharpCompilation.Create("ed-ambig-attr",
+            trees, GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+
+        var pp = new EnumDeclarationPreprocessor();
+        var stats = new EnumDeclarationStatistics();
+        var diags = new List<EnumDeclarationDiagnostic>();
+        var result = pp.RewriteFile(
+            src1, compilation.GetSemanticModel(trees[0]), stats, diags);
+
+        Assert.False(result.Changed);
+        Assert.Contains("enum Kind", result.OutputCode);
+        Assert.DoesNotContain("sealed class Kind", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uninitialized_Field_Local_And_AutoProperty_Of_Converted_Enum_Seed_Default_Instance()
+    {
+        // A native enum is a value type: uninitialized fields/locals start at
+        // the zero member. The class form is a reference type whose default is
+        // null, which NREs on the first GetValue()/Equals call (Uri._flags).
+        // Non-nullable fields (class containers), locals and auto-properties
+        // must be seeded with E.DEFAULT; nullable ones must stay null.
+        var src = """
+        using System;
+        [Flags]
+        enum E : byte { None = 0, A = 1, B = 2 }
+        class C
+        {
+            private E _f;
+            private static E? _nf;
+            public E Auto { get; set; }
+            public E Assigned { get; set; } = E.A;
+
+            void M()
+            {
+                E x;
+                Assign(out x);
+                Console.WriteLine(x);
+            }
+            static void Assign(out E x) { x = E.A; }
+        }
+        abstract class Abs
+        {
+            // Abstract/extern properties have no backing field here: an
+            // initializer would be CS8050, so they must stay unseeded.
+            public abstract E AbstractProp { get; }
+            public E ConcreteAuto { get; set; }
+        }
+        """;
+        var (code, changed, _, diags) = Rewrite(src);
+        Assert.True(changed, string.Join("\n", diags.Select(d => $"{d.Code}: {d.Message}")));
+        Assert.Contains("_f = global::E.DEFAULT;", code);
+        Assert.Contains("E x = global::E.DEFAULT;", code);
+        Assert.Contains("public E Auto { get; set; } = global::E.DEFAULT;", code);
+        Assert.Contains("public E ConcreteAuto { get; set; } = global::E.DEFAULT;", code);
+        Assert.DoesNotContain("AbstractProp { get; } =", code);
+        // Nullable keeps the faithful null default; initialized decls untouched.
+        Assert.DoesNotContain("_nf =", code);
+        Assert.Contains("Assigned { get; set; } = E.A;", code);
+        AssertOutputCompiles(code);
+
+        var asm = EmitAssembly(code, "ed-zerodefault");
+        var cType = asm.GetType("C")!;
+        var instance = Activator.CreateInstance(cType);
+        var fieldValue = cType.GetField(
+            "_f", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(instance);
+        Assert.NotNull(fieldValue);
+        Assert.Equal((byte)0, fieldValue!.GetType().GetMethod("GetValue")!.Invoke(fieldValue, null));
+        Assert.Null(cType.GetField(
+            "_nf", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null));
+        var autoValue = cType.GetProperty("Auto")!.GetValue(instance);
+        Assert.NotNull(autoValue);
+        Assert.Equal((byte)0, autoValue!.GetType().GetMethod("GetValue")!.Invoke(autoValue, null));
+    }
+
+    [Fact]
+    public void Zero_Initialized_Array_Of_Converted_Enum_Is_Filled_With_Default_Instance()
+    {
+        // UnicodeCharHelper pattern: a native 'new E[n]' leaves every element at
+        // the zero member; the class form leaves nulls, so a read-modify-write
+        // like 'table[c] |= flag' NREs on the first access. Zero-initialized
+        // 1-D arrays must route through the synthesized zero-filling factory,
+        // while explicitly initialized arrays are left intact.
+        var src = """
+        using System;
+        [Flags]
+        enum E : byte { None = 0, A = 1, B = 2 }
+        class C
+        {
+            public static E[] MakeTable() => new E[8];
+            public static E[] Explicit => new E[] { E.A, E.B };
+        }
+        """;
+        var (code, changed, _, diags) = Rewrite(src);
+        Assert.True(changed, string.Join("\n", diags.Select(d => $"{d.Code}: {d.Message}")));
+        Assert.Contains("global::E.__Cs2jNewArray(8)", code);
+        // An explicitly initialized array is not rerouted to the factory.
+        Assert.DoesNotContain("__Cs2jNewArray()", code);
+        Assert.Contains("new E[] { E.A, E.B }", code);
+        AssertOutputCompiles(code);
+
+        var asm = EmitAssembly(code, "ed-arrayzero");
+        var eType = asm.GetType("E")!;
+        var factory = eType.GetMethod("__Cs2jNewArray")!;
+        var array = (Array)factory.Invoke(null, new object[] { 8 })!;
+        Assert.Equal(8, array.Length);
+        var getValue = eType.GetMethod("GetValue")!;
+        foreach (var element in array)
+        {
+            Assert.NotNull(element);
+            Assert.Equal((byte)0, getValue.Invoke(element, null));
+        }
     }
 
     private static Diagnostic SyntheticError(SyntaxTree tree, TextSpan span)

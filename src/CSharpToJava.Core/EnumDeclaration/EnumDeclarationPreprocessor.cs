@@ -39,6 +39,47 @@ public sealed class EnumDeclarationPreprocessor
         foreach (var id in planIds) _excludedPlanIds.Add(id);
     }
 
+    /// <summary>
+    /// 跨枚举成员初值耦合闭包：若枚举 D 的成员初值引用枚举 S 的成员，则只要 D
+    /// 本轮不转换（无计划/Infeasible/Deferred/已排除），S 也必须回滚为真 enum——
+    /// 否则 S.M 变成 static readonly 字段，D 的常量初值无法编译（CS0029）。
+    /// 依赖传递（A↔B↔C）由不动点收敛。返回除 <paramref name="excluded"/> 外
+    /// 本轮还必须排除的 plan id。
+    /// </summary>
+    internal List<string> ComputeForcedRollbacks(IReadOnlyCollection<string> excluded)
+    {
+        if (_analysis == null) return new List<string>();
+
+        var active = new HashSet<string>(
+            _analysis.Plans
+                .Where(p => p.Feasible && !excluded.Contains(p.Id))
+                .Select(p => p.Id),
+            StringComparer.Ordinal);
+
+        var changed = true;
+        var removed = new HashSet<string>(StringComparer.Ordinal);
+        while (changed)
+        {
+            changed = false;
+            foreach (var (dependent, sources) in _analysis.InitializerDependencies)
+            {
+                if (active.Contains(dependent)) continue;
+                foreach (var source in sources)
+                {
+                    if (active.Remove(source))
+                    {
+                        removed.Add(source);
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        // 仅返回原本本轮会转换（feasible 且未被排除）、因耦合被迫回滚的 plan；
+        // 本就 Infeasible/Deferred/已排除者不转换，无需重复回滚。
+        return removed.Where(id => !excluded.Contains(id)).ToList();
+    }
+
     public EnumDeclarationFileResult RewriteFile(
         string sourceCode,
         SemanticModel semanticModel,
@@ -212,11 +253,19 @@ public sealed class EnumDeclarationPreprocessor
             }
             else if (!plan.Feasible)
             {
+                // ED020 表示该 plan 安全让位、保持真 enum（使用点零改写，整树不会
+                // 引入新编译错误，pass 的 success 判定也从不因 ED020 失败——只有
+                // ED030 整树验证失败才算）。它是设计内的回退终态而非损坏，恒为
+                // Warning；ED010/ED011/ED090 是输入异常/单文件硬约束，保持 Error。
+                var infeasibleSeverity =
+                    plan.FailCode == EnumDeclarationDiagnosticCode.ED020
+                        ? EnumDeclarationSeverity.Warning
+                        : EnumDeclarationSeverity.Error;
                 foreach (var site in plan.InfeasibleSites)
                 {
                     var span = site.Location.GetLineSpan().StartLinePosition;
                     diagnostics.Add(new EnumDeclarationDiagnostic(
-                        EnumDeclarationSeverity.Error, plan.FailCode!.Value,
+                        infeasibleSeverity, plan.FailCode!.Value,
                         site.Reason,
                         site.Location.SourceTree?.FilePath,
                         span.Line + 1, span.Character + 1, plan.EnumQualifiedName));
@@ -225,7 +274,7 @@ public sealed class EnumDeclarationPreprocessor
                 {
                     var span = plan.FailLocation.GetLineSpan().StartLinePosition;
                     diagnostics.Add(new EnumDeclarationDiagnostic(
-                        EnumDeclarationSeverity.Error, plan.FailCode!.Value,
+                        infeasibleSeverity, plan.FailCode!.Value,
                         plan.FailReason ?? "enum normalization is infeasible.",
                         plan.FailLocation.SourceTree?.FilePath,
                         span.Line + 1, span.Character + 1, plan.EnumQualifiedName));

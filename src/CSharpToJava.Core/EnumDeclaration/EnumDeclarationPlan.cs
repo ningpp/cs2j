@@ -65,6 +65,13 @@ internal sealed class EnumSynthesizedNames
     public required string ParseTokenHelper { get; init; }
     public required string TryParseTokenHelper { get; init; }
 
+    /// <summary>
+    /// 一维零填充数组工厂方法名：原生 <c>new E[n]</c> 的每个元素是零成员，
+    /// 类化后默认是 null，故改写为该工厂调用，内部用 <see cref="DefaultInstance"/>
+    /// 填满数组。
+    /// </summary>
+    public required string NewArray1D { get; init; }
+
     /// <summary>按需可选成员（D6）的最终方法名（可能经 D16 加序号）。</summary>
     public Dictionary<EnumOptionalMembers, string> MethodNames { get; } = new();
 
@@ -152,6 +159,14 @@ internal sealed class EnumAnalysis
 
     public Dictionary<INamedTypeSymbol, EnumDeclarationPlan> BySymbol { get; }
         = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    /// 跨枚举成员初始化器依赖：依赖方枚举完全限定名（成员 EqualsValue 的宿主）
+    /// → 其初值中引用到的其他枚举完全限定名集合。若依赖方保持真 enum（无计划/
+    /// 不可行/被 ED031 回滚），被引用方也不能转换，否则其成员不再是编译期常量。
+    /// </summary>
+    public Dictionary<string, HashSet<string>> InitializerDependencies { get; }
+        = new(StringComparer.Ordinal);
 }
 
 internal static class EnumPlanBuilder2

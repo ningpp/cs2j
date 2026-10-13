@@ -129,11 +129,32 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
     /// Creates a (E) cast expression around the given expression.
     /// Uses the enum type name from the symbol.
     /// </summary>
-    private static ExpressionSyntax CastToEnum(
-        ExpressionSyntax expr, INamedTypeSymbol enumType)
+    private ExpressionSyntax CastToEnum(
+        ExpressionSyntax expr, INamedTypeSymbol enumType, SyntaxNode origin)
     {
-        var enumName = SyntaxFactory.IdentifierName(enumType.Name);
+        var enumName = EnumTypeSyntax(enumType, origin.SpanStart);
         return SyntaxFactory.CastExpression(enumName, EnsureParenthesized(expr));
+    }
+
+    /// <summary>
+    /// Builds the cast target type for an enum at <paramref name="position"/>.
+    /// The simple metadata name (<c>enumType.Name</c>) is not usable when the
+    /// enum is nested inside another type and the use site lives outside that
+    /// type (different namespace or even just a sibling class): the simple
+    /// name then fails to bind (CS0246) and, worse, poisons the semantic
+    /// model of downstream passes so the cast can no longer be classified.
+    /// Roslyn's minimal display emits the shortest name that binds at the use
+    /// site (<c>E</c> in scope, <c>Outer.E</c> in a sibling type,
+    /// <c>Ns.Outer.E</c> cross namespace); without a semantic model the fully
+    /// qualified <c>global::</c> form is used.
+    /// </summary>
+    private TypeSyntax EnumTypeSyntax(INamedTypeSymbol enumType, int position)
+    {
+        var text = _semanticModel is { } model
+            ? enumType.ToMinimalDisplayString(
+                model, position, SymbolDisplayFormat.MinimallyQualifiedFormat)
+            : enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        return SyntaxFactory.ParseTypeName(text);
     }
 
     // ── Stable reference check (spec §3.9) ──
@@ -205,6 +226,98 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
+    /// True when the compound-assignment target may be duplicated (read once,
+    /// written once) without changing observable behavior. Covers, beyond
+    /// <see cref="IsStableReference"/>: property access with a deterministic
+    /// receiver (local/parameter/field/this/type chain — the property getter
+    /// is still invoked exactly once, as with <c>|=</c>), and array element
+    /// access with a deterministic receiver and side-effect-free indices.
+    /// Indexers/properties with non-deterministic receivers, method-call
+    /// receivers or side-effecting index expressions are NOT accepted:
+    /// observationally-correct lowering for those would require statement
+    /// level temp lifting, which this expression-only pass does not do.
+    /// </summary>
+    private bool IsSafelyExpandableTarget(ExpressionSyntax expr)
+    {
+        expr = StripParentheses(expr);
+
+        if (IsStableReference(expr))
+            return true;
+
+        switch (expr)
+        {
+            case MemberAccessExpressionSyntax ma:
+                return _semanticModel?.GetSymbolInfo(expr).Symbol
+                           is IFieldSymbol or IPropertySymbol
+                       && IsStableReceiver(ma.Expression);
+
+            case ElementAccessExpressionSyntax ea:
+                // Array elements (receiver type is an array) with deterministic
+                // base and pure indices; user indexers invoke getter/setter
+                // pairs and stay unsupported.
+                var receiverType = _semanticModel?.GetTypeInfo(ea.Expression).Type;
+                return receiverType is IArrayTypeSymbol
+                       && IsStableReceiver(ea.Expression)
+                       && ea.ArgumentList.Arguments.All(
+                           a => IsSideEffectFreeArgument(a.Expression));
+
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Conservative purity check for index arguments that get evaluated
+    /// twice when a compound assignment is expanded to read + write.
+    /// </summary>
+    private bool IsSideEffectFreeArgument(ExpressionSyntax? expr)
+    {
+        if (expr == null || _semanticModel == null)
+            return false;
+
+        foreach (var node in expr.DescendantNodesAndSelf())
+        {
+            switch (node)
+            {
+                case InvocationExpressionSyntax:
+                case ObjectCreationExpressionSyntax:
+                case ImplicitObjectCreationExpressionSyntax:
+                case AssignmentExpressionSyntax:
+                case ConditionalAccessExpressionSyntax:
+                case ThrowExpressionSyntax:
+                case AwaitExpressionSyntax:
+                case StackAllocArrayCreationExpressionSyntax:
+                case AnonymousFunctionExpressionSyntax:
+                    return false;
+
+                case PrefixUnaryExpressionSyntax prefix
+                    when prefix.OperatorToken.IsKind(SyntaxKind.PlusPlusToken)
+                         || prefix.OperatorToken.IsKind(SyntaxKind.MinusMinusToken):
+                case PostfixUnaryExpressionSyntax postfix
+                    when postfix.OperatorToken.IsKind(SyntaxKind.PlusPlusToken)
+                         || postfix.OperatorToken.IsKind(SyntaxKind.MinusMinusToken):
+                    return false;
+
+                // Property/indexer reads invoke accessors; only fields (and
+                // locals/parameters) are guaranteed side-effect-free reads.
+                case MemberAccessExpressionSyntax memberAccess:
+                    if (_semanticModel.GetSymbolInfo(memberAccess).Symbol
+                        is not (IFieldSymbol or INamedTypeSymbol))
+                        return false;
+                    break;
+
+                case ElementAccessExpressionSyntax elementAccess:
+                    if (_semanticModel.GetTypeInfo(elementAccess.Expression).Type
+                        is not IArrayTypeSymbol)
+                        return false;
+                    break;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Wraps an expression in unchecked(...) if the underlying type is narrow.
     /// </summary>
     private static ExpressionSyntax MaybeUnchecked(
@@ -268,11 +381,14 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
             && !node.IsKind(SyntaxKind.ExclusiveOrExpression))
             return node.Update(left, node.OperatorToken, right);
 
-        // Determine if either operand is an enum type
-        var leftEnum = GetEnumType(node.Left);
-        var rightEnum = GetEnumType(node.Right);
-        var enumType = leftEnum ?? rightEnum;
-
+        // Rewrite only when the ORIGINAL node itself binds to an enum bitwise
+        // operator (its own type is E / E?). Inside enum member initializers
+        // member references are bound as the enum's UNDERLYING integer type,
+        // so the chosen operator is plain integer arithmetic even though the
+        // identifiers look enum-typed. Rewriting those nodes nests an E cast
+        // back under another bitwise operator, producing invalid `E | int`
+        // code (CS0019) in the output.
+        var enumType = GetEnumType(node);
         if (enumType == null)
             return node.Update(left, node.OperatorToken, right);
 
@@ -311,7 +427,7 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         // Outer (E) cast — skip if parent is already (E) cast
         var result = ShouldSkipOuterCast(node)
             ? innerOp
-            : CastToEnum(innerOp, enumType);
+            : CastToEnum(innerOp, enumType, node);
 
         // Update stats
         switch (node.Kind())
@@ -414,7 +530,7 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
             _ => throw new InvalidOperationException(),
         };
 
-        var enumName = SyntaxFactory.IdentifierName(enumType.Name);
+        var enumName = EnumTypeSyntax(enumType, node.SpanStart);
         var nullableEnum = SyntaxFactory.NullableType(enumName);
 
         ExpressionSyntax hasValueCondition = rightIsNullable
@@ -435,7 +551,7 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
 
         var trueExpr = SyntaxFactory.CastExpression(
             nullableEnum,
-            EnsureParenthesized(CastToEnum(innerOp, enumType)));
+            EnsureParenthesized(CastToEnum(innerOp, enumType, node)));
         var falseExpr = SyntaxFactory.CastExpression(
             nullableEnum,
             SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression));
@@ -466,7 +582,10 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         var visitedOperand = (ExpressionSyntax?)Visit(node.Operand);
         var operand = visitedOperand ?? node.Operand;
 
-        var enumType = GetEnumType(node.Operand);
+        // Gate on the node's OWN bound type: ~Member inside an enum member
+        // initializer binds to the underlying integer operator and must be
+        // left untouched (see VisitBinaryExpression).
+        var enumType = GetEnumType(node);
         if (enumType == null)
             return node.Update(node.OperatorToken, operand);
 
@@ -499,11 +618,11 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
                 ? SyntaxFactory.CheckedExpression(
                     SyntaxKind.UncheckedExpression, CastToUnderlying(notExpr, underlying))
                 : CastToUnderlying(notExpr, underlying);
-            var enumName = SyntaxFactory.IdentifierName(enumType.Name);
+            var enumName = EnumTypeSyntax(enumType, node.SpanStart);
             var nullableEnum = SyntaxFactory.NullableType(enumName);
             var trueExpr = SyntaxFactory.CastExpression(
                 nullableEnum,
-                EnsureParenthesized(CastToEnum(narrowed, enumType)));
+                EnsureParenthesized(CastToEnum(narrowed, enumType, node)));
             var falseExpr = SyntaxFactory.CastExpression(
                 nullableEnum,
                 SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression));
@@ -537,14 +656,14 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
                 SyntaxKind.UncheckedExpression, innerCast);
             result = ShouldSkipOuterCast(node)
                 ? uncheckedExpr
-                : CastToEnum(uncheckedExpr, enumType);
+                : CastToEnum(uncheckedExpr, enumType, node);
         }
         else
         {
             // (E)(~(U)X)
             result = ShouldSkipOuterCast(node)
                 ? notExpr2
-                : CastToEnum(notExpr2, enumType);
+                : CastToEnum(notExpr2, enumType, node);
         }
 
         _stats.BitwiseNotRewritten++;
@@ -556,30 +675,50 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
+        // Visit both sides: the target expression can itself carry enum
+        // operations (e.g. an enum bitwise index argument of an indexer
+        // compound assignment).
+        var visitedLeft = (ExpressionSyntax?)Visit(node.Left);
+        var left = visitedLeft ?? node.Left;
         var visitedRight = (ExpressionSyntax?)Visit(node.Right);
         var right = visitedRight ?? node.Right;
 
         if (!node.IsKind(SyntaxKind.OrAssignmentExpression)
             && !node.IsKind(SyntaxKind.AndAssignmentExpression)
             && !node.IsKind(SyntaxKind.ExclusiveOrAssignmentExpression))
-            return node.Update(node.Left, node.OperatorToken, right);
+            return node.Update(left, node.OperatorToken, right);
 
         // Compound assignment to enum — only rewrite if target is stable
         var enumType = GetEnumType(node.Left);
         if (enumType == null)
-            return node.Update(node.Left, node.OperatorToken, right);
+            return node.Update(left, node.OperatorToken, right);
 
         var underlying = GetUnderlyingType(enumType);
         if (underlying == null)
         {
             AddWarning($"Cannot resolve underlying type for enum '{enumType.Name}' in compound assignment; skipping.");
-            return node.Update(node.Left, node.OperatorToken, right);
+            return node.Update(left, node.OperatorToken, right);
         }
 
-        if (!IsStableReference(node.Left))
+        // Nullable compound assignments read the target up to three times;
+        // require a stable reference for them. Non-nullable compound
+        // assignments can additionally expand to any target that is safe to
+        // duplicate (property with a deterministic receiver, array/indexer
+        // element with deterministic receiver and side-effect-free indices),
+        // since reading such a target twice is observationally equivalent.
+        var nullableTarget = IsNullableEnum(node.Left);
+        if (nullableTarget)
+        {
+            if (!IsStableReference(node.Left))
+            {
+                AddWarning($"Nullable enum compound assignment target is not a stable reference; skipping rewrite.");
+                return node.Update(left, node.OperatorToken, right);
+            }
+        }
+        else if (!IsSafelyExpandableTarget(node.Left))
         {
             AddWarning($"Compound assignment target is not a stable reference; skipping rewrite.");
-            return node.Update(node.Left, node.OperatorToken, right);
+            return node.Update(left, node.OperatorToken, right);
         }
 
         var (binKind, binToken) = node.Kind() switch
@@ -591,21 +730,21 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         };
 
         // Handle nullable enum compound assignment
-        if (IsNullableEnum(node.Left))
+        if (nullableTarget)
         {
             var rightCasted = MaybeCastToUnderlying(right, node.Right, enumType, underlying);
             var leftValue = SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
-                node.Left,
+                left,
                 SyntaxFactory.IdentifierName("Value"));
             var leftCasted = CastToUnderlying(leftValue, underlying);
 
             var innerOp = SyntaxFactory.BinaryExpression(binKind, leftCasted, binToken, rightCasted);
-            var enumName = SyntaxFactory.IdentifierName(enumType.Name);
+            var enumName = EnumTypeSyntax(enumType, node.SpanStart);
             var nullableEnum = SyntaxFactory.NullableType(enumName);
             var trueExpr = SyntaxFactory.CastExpression(
                 nullableEnum,
-                EnsureParenthesized(CastToEnum(innerOp, enumType)));
+                EnsureParenthesized(CastToEnum(innerOp, enumType, node)));
             var falseExpr = SyntaxFactory.CastExpression(
                 nullableEnum,
                 SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression));
@@ -613,7 +752,7 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
             var ternary = SyntaxFactory.ConditionalExpression(
                 SyntaxFactory.MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,
-                    node.Left,
+                    left,
                     SyntaxFactory.IdentifierName("HasValue")),
                 trueExpr,
                 falseExpr);
@@ -623,22 +762,23 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
             IncrementRewrite();
             return SyntaxFactory.AssignmentExpression(
                 SyntaxKind.SimpleAssignmentExpression,
-                node.Left,
+                left,
                 SyntaxFactory.ParenthesizedExpression(ternary));
         }
 
-        // Non-nullable: x |= R → x = (E)((U)x | R')
-        var leftCasted2 = CastToUnderlying(node.Left, underlying);
+        // Non-nullable: x |= R → x = (E)((U)x | R'); x is emitted twice,
+        // which is equivalent for targets that passed IsSafelyExpandableTarget.
+        var leftCasted2 = CastToUnderlying(left, underlying);
         var rightCasted2 = MaybeCastToUnderlying(right, node.Right, enumType, underlying);
 
         var binExpr = SyntaxFactory.BinaryExpression(binKind, leftCasted2, binToken, rightCasted2);
-        var castedResult = CastToEnum(binExpr, enumType);
+        var castedResult = CastToEnum(binExpr, enumType, node);
 
         _stats.CompoundAssignRewritten++;
         IncrementRewrite();
         return SyntaxFactory.AssignmentExpression(
             SyntaxKind.SimpleAssignmentExpression,
-            node.Left,
+            left,
             EnsureParenthesized(castedResult));
     }
 
@@ -647,53 +787,60 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
         // Process arguments first (bottom-up)
-        var visitedArgs = Visit(node.ArgumentList);
-        var args = visitedArgs as ArgumentListSyntax ?? node.ArgumentList;
+        var visitedArgs = (ArgumentListSyntax?)Visit(node.ArgumentList)
+                          ?? node.ArgumentList;
 
         // Check if this is a HasFlag call: x.HasFlag(f)
         if (node.Expression is MemberAccessExpressionSyntax ma
             && ma.Name.Identifier.ValueText == "HasFlag"
-            && args.Arguments.Count == 1)
+            && node.ArgumentList.Arguments.Count == 1)
         {
+            var originalArg = node.ArgumentList.Arguments[0].Expression;
             var receiverEnum = GetEnumType(ma.Expression);
-            if (receiverEnum == null)
-                return node.Update(node.Expression, args);
+            var argEnum = receiverEnum == null ? null : GetEnumType(originalArg);
 
-            var argExpr = args.Arguments[0].Expression;
-            var argEnum = GetEnumType(argExpr);
+            // Skip paths: the receiver chain was not visited yet; visit it so
+            // enum ops nested inside the receiver are still rewritten.
+            ExpressionSyntax Skipped()
+            {
+                var visitedSkipped = (ExpressionSyntax?)Visit(node.Expression);
+                return visitedSkipped ?? node.Expression;
+            }
+
+            if (receiverEnum == null)
+                return node.Update(Skipped(), visitedArgs);
 
             // Both must be the same enum type
             if (argEnum == null
                 || !argEnum.Equals(receiverEnum, SymbolEqualityComparer.Default))
             {
                 AddWarning($"HasFlag argument type does not match receiver enum type; skipping rewrite.");
-                return node.Update(node.Expression, args);
+                return node.Update(Skipped(), visitedArgs);
             }
 
             var underlying = GetUnderlyingType(receiverEnum);
             if (underlying == null)
             {
                 AddWarning($"Cannot resolve underlying type for enum '{receiverEnum.Name}' in HasFlag; skipping.");
-                return node.Update(node.Expression, args);
+                return node.Update(Skipped(), visitedArgs);
             }
 
             // Handle nullable receiver
             if (IsNullableEnum(ma.Expression))
             {
                 AddWarning($"Nullable receiver in HasFlag call; skipping rewrite.");
-                return node.Update(node.Expression, args);
+                return node.Update(Skipped(), visitedArgs);
             }
 
             // Rewrite: x.HasFlag(f) → ((U)x & (U)f) == (U)f
             var visitedReceiver = (ExpressionSyntax?)Visit(ma.Expression);
             var receiver = visitedReceiver ?? ma.Expression;
-            var visitedArg = (ExpressionSyntax?)Visit(argExpr);
-            var arg = visitedArg ?? argExpr;
+            var arg = visitedArgs.Arguments[0].Expression;
 
             var receiverCasted = MaybeCastToUnderlying(receiver, ma.Expression, receiverEnum, underlying);
-            var argCasted = MaybeCastToUnderlying(arg, argExpr, receiverEnum, underlying);
+            var argCasted = MaybeCastToUnderlying(arg, originalArg, receiverEnum, underlying);
             // Use the same casted arg for comparison
-            var argCastedForCompare = MaybeCastToUnderlying(arg, argExpr, receiverEnum, underlying);
+            var argCastedForCompare = MaybeCastToUnderlying(arg, originalArg, receiverEnum, underlying);
 
             // BitwiseAnd 的优先级低于 Equals：语法树落盘为文本后会被重新解析为
             // a & (b == c)（byte & bool 编译错误），内层 & 表达式必须显式加括号。
@@ -714,6 +861,12 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
             return SyntaxFactory.ParenthesizedExpression(eqExpr);
         }
 
-        return node.Update(node.Expression, args);
+        // Non-HasFlag invocation: the receiver chain must also be visited —
+        // enum ops nested in the receiver (e.g.
+        // new Regex(pattern, options | compiled).IsMatch(input)) otherwise
+        // survive the pass untouched and trip the residual gate.
+        var visitedExpression = (ExpressionSyntax?)Visit(node.Expression);
+        var expression = visitedExpression ?? node.Expression;
+        return node.Update(expression, visitedArgs);
     }
 }

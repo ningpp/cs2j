@@ -288,6 +288,30 @@ internal sealed class EnumDeclarationAnalyzer
             if (file != null) plan.TouchedFiles.Add(file);
         }
 
+        /// <summary>
+        /// 记录跨枚举成员初始化器依赖（D 的成员初值引用 S 的成员）。该耦合与
+        /// plan 可行性无关：只要 D 最终保持真 enum，S 转换就会让初值丧失常量性。
+        /// </summary>
+        private void RecordInitializerDependency(IFieldSymbol referencedField, SyntaxNode node)
+        {
+            if (referencedField.ContainingType.TypeKind != TypeKind.Enum) return;
+            var ownerMember = node.AncestorsAndSelf()
+                .OfType<EnumMemberDeclarationSyntax>().FirstOrDefault();
+            if (ownerMember?.Parent is not EnumDeclarationSyntax ownerDecl) return;
+            var owner = _model.GetDeclaredSymbol(ownerDecl);
+            if (owner == null) return;
+
+            var dependent = owner.ToDisplayString();
+            var source = referencedField.ContainingType.ToDisplayString();
+            if (dependent == source) return;
+            if (!_analysis.InitializerDependencies.TryGetValue(dependent, out var set))
+            {
+                set = new HashSet<string>(StringComparer.Ordinal);
+                _analysis.InitializerDependencies[dependent] = set;
+            }
+            set.Add(source);
+        }
+
         private void Infeasible(
             EnumDeclarationPlan plan, SyntaxNode node, string reason, Location? location = null)
         {
@@ -329,6 +353,119 @@ internal sealed class EnumDeclarationAnalyzer
             return invocation != null
                 && invocation.Expression is IdentifierNameSyntax n
                 && n.Identifier.IsKind(SyntaxKind.NameOfKeyword);
+        }
+
+        // ── Attribute-declaration sites (CS0181/CS0182 structural gate) ──
+
+        /// <summary>
+        /// True when the type derives from System.Attribute. A class-form enum
+        /// used in an attribute's constructor parameter / property / field
+        /// shape is never representable: attribute applications accept only
+        /// the limited constant-type family (primitives, enums, string, Type,
+        /// 1D arrays), and the whole-tree build diff can miss CS0181 when the
+        /// application is ambiguously resolved between two same-named
+        /// attributes imported by different using directives.
+        /// </summary>
+        private static bool IsAttributeClass(INamedTypeSymbol? type)
+        {
+            for (var current = type; current != null; current = current.BaseType)
+            {
+                if (current.ToDisplayString() == "System.Attribute") return true;
+            }
+            return false;
+        }
+
+        public override void VisitParameter(ParameterSyntax node)
+        {
+            base.VisitParameter(node);
+            if (_model.GetDeclaredSymbol(node) is not IParameterSymbol parameter) return;
+            if (parameter.ContainingSymbol is not IMethodSymbol method
+                || method.MethodKind != MethodKind.Constructor
+                || !IsAttributeClass(method.ContainingType))
+            {
+                return;
+            }
+
+            var plan = FeasiblePlan(parameter.Type);
+            if (plan != null)
+            {
+                Infeasible(plan, node,
+                    $"enum '{plan.EnumShortName}' is a constructor parameter type of attribute " +
+                    $"'{method.ContainingType.Name}'; attributes require one of the limited constant " +
+                    "parameter types, so the enum must remain a real enum (CS0181).");
+            }
+        }
+
+        public override void VisitPropertyDeclaration(PropertyDeclarationSyntax node)
+        {
+            base.VisitPropertyDeclaration(node);
+            if (_model.GetDeclaredSymbol(node) is not IPropertySymbol property) return;
+            if (!IsAttributeClass(property.ContainingType)) return;
+
+            var plan = FeasiblePlan(property.Type);
+            if (plan != null)
+            {
+                Infeasible(plan, node,
+                    $"enum '{plan.EnumShortName}' is a property type of attribute " +
+                    $"'{property.ContainingType.Name}'; named attribute arguments require compile-time " +
+                    "constant types, so the enum must remain a real enum (CS0181).");
+            }
+        }
+
+        public override void VisitFieldDeclaration(FieldDeclarationSyntax node)
+        {
+            base.VisitFieldDeclaration(node);
+            if (node.Declaration.Variables.FirstOrDefault() is not { } first
+                || _model.GetDeclaredSymbol(first) is not IFieldSymbol field)
+            {
+                return;
+            }
+            if (!IsAttributeClass(field.ContainingType)) return;
+
+            var plan = FeasiblePlan(field.Type);
+            if (plan != null)
+            {
+                Infeasible(plan, node,
+                    $"enum '{plan.EnumShortName}' is a field type of attribute " +
+                    $"'{field.ContainingType.Name}'; named attribute arguments require compile-time " +
+                    "constant types, so the enum must remain a real enum (CS0181).");
+            }
+        }
+
+        /// <summary>
+        /// Attribute-argument references that fail to bind to a single symbol
+        /// (typically ambiguous between two same-named attribute/enum pairs
+        /// imported via different using directives) bypass the regular
+        /// member-access gate, which keys off the uniquely resolved symbol.
+        /// Every plan-enum candidate in such a site must stay a real enum:
+        /// candidates are either the enum member fields or the enum types
+        /// themselves (the ambiguous prefix of a qualified member access).
+        /// </summary>
+        private void MarkAmbiguousAttributeArgumentMembers(SyntaxNode node)
+        {
+            if (!IsInAttributeArgument(node)) return;
+            var info = _model.GetSymbolInfo(node);
+            if (info.Symbol != null) return;
+
+            foreach (var candidate in info.CandidateSymbols)
+            {
+                INamedTypeSymbol? enumType = candidate switch
+                {
+                    IFieldSymbol { HasConstantValue: true, ContainingType.TypeKind: TypeKind.Enum } f
+                        => f.ContainingType,
+                    INamedTypeSymbol { TypeKind: TypeKind.Enum } t => t,
+                    _ => null,
+                };
+                if (enumType == null) continue;
+                if (_analysis.BySymbol.TryGetValue(enumType, out var plan)
+                    && plan.Outcome == EnumPlanOutcome.Converted)
+                {
+                    Infeasible(plan, node,
+                        "enum referenced as an attribute argument requires a compile-time constant; " +
+                        "the reference is ambiguously resolved and the generated static readonly " +
+                        "field cannot serve in that position.");
+                }
+            }
         }
 
         public override void VisitCastExpression(CastExpressionSyntax node)
@@ -468,10 +605,40 @@ internal sealed class EnumDeclarationAnalyzer
         public override void VisitLiteralExpression(LiteralExpressionSyntax node)
         {
             base.VisitLiteralExpression(node);
-            if (!node.IsKind(SyntaxKind.DefaultLiteralExpression)) return;
+            SyntaxKind kind;
+            if (node.IsKind(SyntaxKind.DefaultLiteralExpression))
+                kind = SyntaxKind.DefaultLiteralExpression;
+            else if (node.IsKind(SyntaxKind.NumericLiteralExpression)
+                && EnumDeclarationSyntaxFacts.IsZeroIntegralLiteral(node.Token.Value))
+                kind = SyntaxKind.NumericLiteralExpression;
+            else
+                return;
+
             var plan = FeasiblePlan(_model.GetTypeInfo(node).ConvertedType)
                 ?? FeasiblePlan(_model.GetTypeInfo(node).Type);
-            if (plan != null) Touch(plan, node);
+            if (plan == null) return;
+
+            if (kind == SyntaxKind.NumericLiteralExpression)
+            {
+                // 0 替换成静态 readonly 默认实例后，同样不能进入需要编译期常量的
+                // 特性实参/参数默认值语境（CS0182/CS1736）。
+                if (IsInAttributeArgument(node))
+                {
+                    Infeasible(plan, node,
+                        "literal 0 converted to the enum default instance cannot be an "
+                        + "attribute argument, which requires a compile-time constant.");
+                    return;
+                }
+                if (node.Ancestors().OfType<ParameterSyntax>().Any(p =>
+                        p.Default?.Value.Span.Contains(node.Span) == true))
+                {
+                    Infeasible(plan, node,
+                        "literal 0 converted to the enum default instance cannot be a "
+                        + "default parameter value, which requires a compile-time constant.");
+                    return;
+                }
+            }
+            Touch(plan, node);
         }
 
         public override void VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
@@ -500,6 +667,13 @@ internal sealed class EnumDeclarationAnalyzer
                         "switch with 'goto case'/'goto default' on a rewritten enum cannot be lowered "
                         + "by this pass; run a goto-elimination pass first.");
                 }
+            }
+
+            // 跨 case 段作用域：无法随局部提升保留的跨段引用（const/using/ref、
+            // 本地函数、解构/out-var）本 pass 无法降级 → ED020。
+            if (SwitchSectionScopeFacts.Analyze(node, _model).Unhoistable is { } crossSection)
+            {
+                Infeasible(plan, crossSection.Node, crossSection.Reason);
             }
 
             // 声明/属性/位置模式作用于被改写 enum → ED020。
@@ -774,7 +948,12 @@ internal sealed class EnumDeclarationAnalyzer
         public override void VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
         {
             base.VisitMemberAccessExpression(node);
+            MarkAmbiguousAttributeArgumentMembers(node);
             var symbol = _model.GetSymbolInfo(node).Symbol;
+
+            // 跨枚举成员初值耦合（独立于可行性，先于 plan 过滤记录）。
+            if (symbol is IFieldSymbol accessedEnumField)
+                RecordInitializerDependency(accessedEnumField, node);
 
             // 成员引用 E.M（零改写；只建触碰 + 常量上下文处置）。
             if (symbol is IFieldSymbol field && field.HasConstantValue
@@ -810,7 +989,10 @@ internal sealed class EnumDeclarationAnalyzer
         public override void VisitIdentifierName(IdentifierNameSyntax node)
         {
             base.VisitIdentifierName(node);
+            MarkAmbiguousAttributeArgumentMembers(node);
             var symbol = _model.GetSymbolInfo(node).Symbol;
+            if (symbol is IFieldSymbol bareEnumField)
+                RecordInitializerDependency(bareEnumField, node);
             if (symbol is IFieldSymbol field && field.HasConstantValue
                 && _analysis.BySymbol.TryGetValue(field.ContainingType, out var memberPlan)
                 && memberPlan.Outcome == EnumPlanOutcome.Converted
