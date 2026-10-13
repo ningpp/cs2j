@@ -22,6 +22,13 @@ internal sealed class RefOutInStatementLifter
     internal static readonly SyntaxAnnotation ValueInjectedAnnotation = new("Cs2jValueInjected");
     /// <summary>Marks statement-level blocks produced by lifting; VisitBlock flattens them into the parent scope.</summary>
     internal static readonly SyntaxAnnotation HoistedBlockAnnotation = new("Cs2jHoistedBlock");
+    /// <summary>
+    /// Marks a pure variable declaration hoisted from an <c>out var x</c>
+    /// designation. It has no condition-evaluation side effects and may be
+    /// placed before a do-while body (where x must be in scope); all other
+    /// hoisted statements must run where the condition is evaluated.
+    /// </summary>
+    internal static readonly SyntaxAnnotation RootDeclarationAnnotation = new("Cs2jRootDeclaration");
 
     private readonly RefOutInSyntaxRewriter _owner;
     private List<StatementSyntax> _out = new();
@@ -287,7 +294,8 @@ internal sealed class RefOutInStatementLifter
             var defaultLit = paramTypeSymbol.IsValueType ? "default" : "default!";
             // The declared variable is visible in the enclosing statement scope
             // (e.g. an if body), so the declaration escapes conditional splices.
-            _rootOut.Add(ParseStmt($"{paramType} {varName} = {defaultLit};"));
+            _rootOut.Add(ParseStmt($"{paramType} {varName} = {defaultLit};")
+                .WithAdditionalAnnotations(RootDeclarationAnnotation));
             var slot = Temp("__out");
             return (ParseStmt($"ByRef<{paramType}> {slot} = ByRef<{paramType}>.Create();"),
                 ParseStmt($"{varName} = {slot}.Value;"),

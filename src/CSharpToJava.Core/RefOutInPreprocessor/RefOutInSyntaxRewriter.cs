@@ -737,10 +737,193 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitDoStatement(DoStatementSyntax node)
     {
-        if (_lifter.ContainsLiftable(node.Condition))
-            Report3303(node.Condition,
-                "do-while condition contains an internal ref/out call; continue semantics cannot be preserved — restructure the loop");
-        return base.VisitDoStatement(node);
+        var cond = _lifter.SpliceExpression(node.Condition, out var hoisted);
+        var pending = _lifter.TakePendingReadbacks();
+        bool condChanged = !ReferenceEquals(cond, node.Condition);
+
+        if (hoisted.Count == 0 && pending.Count == 0)
+        {
+            if (!condChanged)
+                return base.VisitDoStatement(node);
+            var visitedBodyOnly = (StatementSyntax)base.Visit(node.Statement)!;
+            return node.WithStatement(visitedBodyOnly).WithCondition(InjectSlotValues(cond));
+        }
+
+        // do B while (C) with lifted condition calls becomes:
+        //   while (true) { <rootDecls>; B; <evalStmts>; if (!C') break; }
+        // The body runs BEFORE the condition is evaluated, so only pure `out
+        // var x` declarations (rootDecls) may precede it; every other hoisted
+        // statement (proxy slots, the call, read-backs) stays after the body.
+        var visitedBody = (StatementSyntax)base.Visit(node.Statement)!;
+
+        var rootDecls = new List<StatementSyntax>();
+        var evalStmts = new List<StatementSyntax>();
+        foreach (var stmt in hoisted)
+        {
+            if (stmt.HasAnnotation(RefOutInStatementLifter.RootDeclarationAnnotation))
+                rootDecls.Add(stmt);
+            else
+                evalStmts.Add(stmt);
+        }
+        evalStmts.AddRange(pending);
+
+        var scanner = new DoBodyJumpScanner();
+        scanner.Visit(visitedBody);
+
+        var outerStmts = new List<StatementSyntax>();
+        outerStmts.AddRange(rootDecls);
+
+        if (!scanner.HasContinue)
+        {
+            // A direct `break` inside B binds to the enclosing while(true)
+            // unchanged; nothing maps.
+            outerStmts.Add(visitedBody);
+        }
+        else
+        {
+            // A direct `continue` must jump to condition evaluation, whereas a
+            // plain continue in the while(true) form would re-enter B before C
+            // runs. Wrap B in a do-once loop: continue -> inner break (falls
+            // through to the condition code); a direct break needs an escape
+            // flag to leave BOTH loops.
+            string? brkVar = scanner.HasBreak ? $"__cs2jDoBrk{NextTemp()}" : null;
+            if (brkVar != null)
+                outerStmts.Add(BoolFalseDeclaration(brkVar));
+            var mappedBody = (StatementSyntax)new DoBodyJumpMapper(brkVar).Visit(visitedBody)!;
+            outerStmts.Add(SyntaxFactory.DoStatement(
+                SyntaxFactory.Block(mappedBody),
+                SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression)));
+            if (brkVar != null)
+                outerStmts.Add(SyntaxFactory.IfStatement(
+                    SyntaxFactory.IdentifierName(brkVar), SyntaxFactory.BreakStatement()));
+        }
+
+        outerStmts.AddRange(evalStmts);
+        outerStmts.Add(SyntaxFactory.IfStatement(
+            Negate(InjectSlotValues(cond)), SyntaxFactory.BreakStatement()));
+
+        return SyntaxFactory.WhileStatement(
+            SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression),
+            SyntaxFactory.Block(outerStmts));
+    }
+
+    private static LocalDeclarationStatementSyntax BoolFalseDeclaration(string name) =>
+        SyntaxFactory.LocalDeclarationStatement(SyntaxFactory.VariableDeclaration(
+            SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.BoolKeyword)),
+            SyntaxFactory.SingletonSeparatedList(SyntaxFactory.VariableDeclarator(
+                SyntaxFactory.Identifier(name),
+                null,
+                SyntaxFactory.EqualsValueClause(
+                    SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression))))));
+
+    /// <summary>
+    /// Finds <c>continue</c>/<c>break</c> statements inside a do-while body
+    /// that bind to the do loop itself. Jumps nested inside another loop or
+    /// switch (break) and anonymous functions / local functions are ignored.
+    /// </summary>
+    private sealed class DoBodyJumpScanner : CSharpSyntaxRewriter
+    {
+        private int _loopDepth;
+        private int _switchDepth;
+        public bool HasContinue;
+        public bool HasBreak;
+
+        public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node) => node;
+        public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node) => node;
+        public override SyntaxNode? VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node) => node;
+        public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node) => node;
+
+        public override SyntaxNode? VisitDoStatement(DoStatementSyntax node) => EnterLoop(node, base.VisitDoStatement);
+        public override SyntaxNode? VisitWhileStatement(WhileStatementSyntax node) => EnterLoop(node, base.VisitWhileStatement);
+        public override SyntaxNode? VisitForStatement(ForStatementSyntax node) => EnterLoop(node, base.VisitForStatement);
+        public override SyntaxNode? VisitForEachStatement(ForEachStatementSyntax node) => EnterLoop(node, base.VisitForEachStatement);
+        public override SyntaxNode? VisitForEachVariableStatement(ForEachVariableStatementSyntax node) => EnterLoop(node, base.VisitForEachVariableStatement);
+
+        public override SyntaxNode? VisitSwitchStatement(SwitchStatementSyntax node)
+        {
+            _switchDepth++;
+            var result = base.VisitSwitchStatement(node);
+            _switchDepth--;
+            return result;
+        }
+
+        public override SyntaxNode? VisitContinueStatement(ContinueStatementSyntax node)
+        {
+            if (_loopDepth == 0) HasContinue = true;
+            return node;
+        }
+
+        public override SyntaxNode? VisitBreakStatement(BreakStatementSyntax node)
+        {
+            if (_loopDepth == 0 && _switchDepth == 0) HasBreak = true;
+            return node;
+        }
+
+        private SyntaxNode? EnterLoop<T>(T node, Func<T, SyntaxNode?> visit) where T : SyntaxNode
+        {
+            _loopDepth++;
+            var result = visit(node);
+            _loopDepth--;
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Maps do-loop-bound jumps for the do-once wrapped body:
+    /// continue → inner break (runs the condition code next); break → set the
+    /// escape flag and inner break (leaves the outer while).
+    /// </summary>
+    private sealed class DoBodyJumpMapper : CSharpSyntaxRewriter
+    {
+        private readonly string? _brkVar;
+        private int _loopDepth;
+        private int _switchDepth;
+
+        public DoBodyJumpMapper(string? brkVar) => _brkVar = brkVar;
+
+        public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node) => node;
+        public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node) => node;
+        public override SyntaxNode? VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node) => node;
+        public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node) => node;
+
+        public override SyntaxNode? VisitDoStatement(DoStatementSyntax node) => EnterLoop(node, base.VisitDoStatement);
+        public override SyntaxNode? VisitWhileStatement(WhileStatementSyntax node) => EnterLoop(node, base.VisitWhileStatement);
+        public override SyntaxNode? VisitForStatement(ForStatementSyntax node) => EnterLoop(node, base.VisitForStatement);
+        public override SyntaxNode? VisitForEachStatement(ForEachStatementSyntax node) => EnterLoop(node, base.VisitForEachStatement);
+        public override SyntaxNode? VisitForEachVariableStatement(ForEachVariableStatementSyntax node) => EnterLoop(node, base.VisitForEachVariableStatement);
+
+        public override SyntaxNode? VisitSwitchStatement(SwitchStatementSyntax node)
+        {
+            _switchDepth++;
+            var result = base.VisitSwitchStatement(node);
+            _switchDepth--;
+            return result;
+        }
+
+        public override SyntaxNode? VisitContinueStatement(ContinueStatementSyntax node)
+        {
+            if (_loopDepth > 0) return node;
+            return SyntaxFactory.BreakStatement();
+        }
+
+        public override SyntaxNode? VisitBreakStatement(BreakStatementSyntax node)
+        {
+            if (_loopDepth > 0 || _switchDepth > 0 || _brkVar == null) return node;
+            return SyntaxFactory.Block(
+                SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    SyntaxFactory.IdentifierName(_brkVar),
+                    SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression))),
+                SyntaxFactory.BreakStatement());
+        }
+
+        private SyntaxNode? EnterLoop<T>(T node, Func<T, SyntaxNode?> visit) where T : SyntaxNode
+        {
+            _loopDepth++;
+            var result = visit(node);
+            _loopDepth--;
+            return result;
+        }
     }
 
     public override SyntaxNode? VisitForStatement(ForStatementSyntax node)
@@ -787,28 +970,39 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             newCondition = InjectSlotValues(liftedCond);
         }
 
-        // body + increments
-        var visitedBody = (StatementSyntax)base.Visit(node.Statement)!;
-        var incStmts = new List<StatementSyntax>();
-        var incExprs = new List<ExpressionSyntax>();
+        // Detect liftable incrementors with the non-mutating probe before
+        // touching the body. On the unchanged path base.VisitForStatement does
+        // the single regular walk; visiting the body here first would walk it
+        // twice per nesting level (2^d on nested for loops).
         bool incrementsChanged = false;
         foreach (var inc in node.Incrementors)
         {
-            var liftedInc = _lifter.SpliceExpression(inc, out var hInc);
-            if (hInc.Count > 0)
+            if (_lifter.ContainsLiftable(inc))
             {
                 anyLift = true;
                 incrementsChanged = true;
-                incStmts.AddRange(hInc);
-                incStmts.AddRange(_lifter.TakePendingReadbacks());
             }
-            incExprs.Add(InjectSlotValues(liftedInc));
         }
 
         if (!anyLift && !incrementsChanged
             && ReferenceEquals(newCondition, node.Condition))
         {
             return base.VisitForStatement(node);
+        }
+
+        // body + increments (custom while(true) reconstruction path)
+        var visitedBody = (StatementSyntax)base.Visit(node.Statement)!;
+        var incStmts = new List<StatementSyntax>();
+        var incExprs = new List<ExpressionSyntax>();
+        foreach (var inc in node.Incrementors)
+        {
+            var liftedInc = _lifter.SpliceExpression(inc, out var hInc);
+            if (hInc.Count > 0)
+            {
+                incStmts.AddRange(hInc);
+                incStmts.AddRange(_lifter.TakePendingReadbacks());
+            }
+            incExprs.Add(InjectSlotValues(liftedInc));
         }
 
         // for (I; C; U) B → I; while (true) { C-splice; if (!C) break; B; U-splice; }
