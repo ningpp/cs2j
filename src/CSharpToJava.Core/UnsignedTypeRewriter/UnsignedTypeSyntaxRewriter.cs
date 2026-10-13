@@ -141,15 +141,22 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         {
             switch (current)
             {
+                // VisitVariableDeclarator passes the declarator NODE itself,
+                // whose span COVERS the initializer (so Initializer.Span.Contains
+                // is false for it); inner expression visitors pass nodes inside
+                // the initializer. Accept both — a const declarator value must
+                // stay a constant expression (CS0133 on a ToInt64UInt32 call).
                 case FieldDeclarationSyntax fieldDeclaration
                     when fieldDeclaration.Modifiers.Any(SyntaxKind.ConstKeyword)
                          && fieldDeclaration.Declaration.Variables
-                             .Any(variable => variable.Initializer?.Span.Contains(node.Span) == true):
+                             .Any(variable => ReferenceEquals(variable, node)
+                                 || variable.Initializer?.Span.Contains(node.Span) == true):
                     return true;
                 case LocalDeclarationStatementSyntax localDeclaration
                     when localDeclaration.Modifiers.Any(SyntaxKind.ConstKeyword)
                          && localDeclaration.Declaration.Variables
-                             .Any(variable => variable.Initializer?.Span.Contains(node.Span) == true):
+                             .Any(variable => ReferenceEquals(variable, node)
+                                 || variable.Initializer?.Span.Contains(node.Span) == true):
                     return true;
                 case EnumMemberDeclarationSyntax enumMember
                     when enumMember.EqualsValue?.Span.Contains(node.Span) == true:
