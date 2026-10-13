@@ -70,11 +70,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
 
         Microsoft.CodeAnalysis.SymbolInfo info;
         try { info = _semanticModel.GetSymbolInfo(inv); }
-        catch (ArgumentException ex)
-        {
-            DumpLiftSkip(inv, "model-threw: " + ex.GetType().Name, info: null);
-            return false;
-        }
+        catch (ArgumentException) { return false; }
 
         if (info.Symbol is IMethodSymbol single)
         {
@@ -84,14 +80,12 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                 return true;
             }
 
-            DumpLiftSkip(inv, "single-not-internal: " + single.ToDisplayString(), info);
             return false;
         }
 
         if (info.CandidateReason != CandidateReason.OverloadResolutionFailure
             || info.CandidateSymbols.Length == 0)
         {
-            DumpLiftSkip(inv, "reason=" + info.CandidateReason + " n=" + info.CandidateSymbols.Length, info);
             return false;
         }
 
@@ -101,7 +95,6 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             if (candidate is not IMethodSymbol candidateMethod
                 || !IsInternalCandidate(candidateMethod))
             {
-                DumpLiftSkip(inv, "candidate-not-internal: " + candidate?.ToDisplayString(), info);
                 return false;
             }
 
@@ -110,73 +103,11 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
 
         if (!RefArgumentShapeAgrees(inv, candidates))
         {
-            DumpLiftSkip(inv, "shape-disagrees", info);
             return false;
         }
 
         methods = candidates;
         return true;
-    }
-
-    /// <summary>
-    /// Environment-gated diagnostics for ref/out call sites the lifter
-    /// refuses (CS2J_LIFT_DUMP=&lt;file&gt;). Temporary root-cause instrumentation
-    /// for residual CS1615 sites in the unified solution build.
-    /// </summary>
-    private static readonly string? LiftDumpPath =
-        System.Environment.GetEnvironmentVariable("CS2J_LIFT_DUMP");
-
-    private static readonly object LiftDumpGate = new();
-
-    private void DumpLiftSkip(
-        InvocationExpressionSyntax inv,
-        string why,
-        Microsoft.CodeAnalysis.SymbolInfo? info)
-    {
-        var hasByRefArgument = inv.ArgumentList.Arguments.Any(a =>
-            a.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
-            || a.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
-            || a.RefKindKeyword.IsKind(SyntaxKind.InKeyword));
-        if (LiftDumpPath is null || !hasByRefArgument)
-        {
-            return;
-        }
-
-        try
-        {
-            var span = inv.GetLocation().GetLineSpan();
-            var sb = new System.Text.StringBuilder();
-            sb.Append("SKIP ").Append(why).Append(" @ ")
-                .Append(span.Path).Append('(').Append(span.StartLinePosition.Line + 1)
-                .Append(',').Append(span.StartLinePosition.Character + 1).AppendLine(")");
-            sb.Append("  CALL: ").AppendLine(inv.ToString().Replace("\r", " ").Replace("\n", " "));
-            if (info is { } si)
-            {
-                sb.Append("  SYM: ").AppendLine(si.Symbol?.ToDisplayString() ?? "<null>");
-                foreach (var c in si.CandidateSymbols)
-                {
-                    if (c is IMethodSymbol m)
-                    {
-                        sb.Append("  CAND: ").AppendLine(m.ToDisplayString());
-                        sb.Append("    params: ").AppendLine(string.Join("; ",
-                            m.Parameters.Select(p => p.RefKind + " " + p.Type.ToDisplayString())));
-                    }
-                    else
-                    {
-                        sb.Append("  CAND(non-method): ").AppendLine(c?.ToDisplayString() ?? "<null>");
-                    }
-                }
-            }
-
-            lock (LiftDumpGate)
-            {
-                System.IO.File.AppendAllText(LiftDumpPath, sb.ToString());
-            }
-        }
-        catch
-        {
-            // diagnostics must never affect the pass
-        }
     }
 
     /// <summary>

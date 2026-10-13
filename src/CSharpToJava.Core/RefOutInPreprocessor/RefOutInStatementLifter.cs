@@ -72,18 +72,21 @@ internal sealed class RefOutInStatementLifter
     /// <c>__refN</c>). Fragments produced inside the lambda belong to the
     /// lambda's own statement replacements and are discarded here on leave.
     /// </summary>
-    private List<StatementSyntax>? _savedOut;
-    private List<StatementSyntax>? _savedRootOut;
-    private Stack<List<StatementSyntax>>? _savedScope;
-    private List<StatementSyntax>? _savedPendingReadbacks;
+    // Fragment isolation is properly nested (a lambda reached via the splicer
+    // may itself contain the expression-lambda conversion, etc.), so the save
+    // slots are stacks rather than single fields.
+    private readonly Stack<List<StatementSyntax>> _savedOut = new();
+    private readonly Stack<List<StatementSyntax>> _savedRootOut = new();
+    private readonly Stack<Stack<List<StatementSyntax>>> _savedScope = new();
+    private readonly Stack<List<StatementSyntax>> _savedPendingReadbacks = new();
     private int _fragmentLambdaDepth;
 
     internal void EnterFragmentLambdaVisit()
     {
-        _savedOut = _out;
-        _savedRootOut = _rootOut;
-        _savedScope = _scope;
-        _savedPendingReadbacks = _pendingReadbacks;
+        _savedOut.Push(_out);
+        _savedRootOut.Push(_rootOut);
+        _savedScope.Push(_scope);
+        _savedPendingReadbacks.Push(_pendingReadbacks);
         _out = _rootOut = new List<StatementSyntax>();
         _scope = new Stack<List<StatementSyntax>>();
         _pendingReadbacks = new List<StatementSyntax>();
@@ -92,14 +95,10 @@ internal sealed class RefOutInStatementLifter
 
     internal void LeaveFragmentLambdaVisit()
     {
-        _out = _savedOut!;
-        _rootOut = _savedRootOut!;
-        _scope = _savedScope!;
-        _pendingReadbacks = _savedPendingReadbacks!;
-        _savedOut = null;
-        _savedRootOut = null;
-        _savedScope = null;
-        _savedPendingReadbacks = null;
+        _out = _savedOut.Pop();
+        _rootOut = _savedRootOut.Pop();
+        _scope = _savedScope.Pop();
+        _pendingReadbacks = _savedPendingReadbacks.Pop();
         _fragmentLambdaDepth--;
     }
 
