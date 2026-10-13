@@ -21,6 +21,12 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     // Holder-name scopes: one entry per active method/constructor frame.
     private readonly Stack<HashSet<string>> _holderNameScopes = new();
 
+    // Value-typed held-lambda frames: holder name → shadow local name. A frame
+    // is pushed only by the anonymous-function visitors; a null value is a
+    // sentinel for a frame whose same-named holder stays a direct ByRef
+    // (reference T), masking an outer frame's shadow of the same name.
+    private readonly Stack<Dictionary<string, string?>> _shadowNameScopes = new();
+
     public bool UsedHolder { get; private set; }
 
     public RefOutInSyntaxRewriter(
@@ -43,6 +49,26 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     internal int NextTemp() => _tempCounter++;
 
     internal bool IsHolderName(string name) => _holderNameScopes.Any(s => s.Contains(name));
+
+    /// <summary>
+    /// True when the holder name denotes a value-typed held-lambda parameter in
+    /// the innermost frame that owns it: body references then bind to the
+    /// shadow copy-in/copy-out local instead of <c>holder.Value</c> (CS1612).
+    /// </summary>
+    internal bool TryGetShadowName(string name, out string shadowName)
+    {
+        // Stack enumerates top (innermost) first.
+        foreach (var frame in _shadowNameScopes)
+        {
+            if (frame.TryGetValue(name, out var mapped))
+            {
+                shadowName = mapped!;
+                return mapped != null;
+            }
+        }
+        shadowName = null!;
+        return false;
+    }
 
     internal IMethodSymbol? ResolveInvocation(InvocationExpressionSyntax inv)
     {
@@ -223,6 +249,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             return base.VisitMethodDeclaration(node);
 
         _holderNameScopes.Push(new HashSet<string>());
+        Dictionary<string, string?>? shadowFrame = null;
         try
         {
             // Pre-scan for ref local names in this method body (BEFORE any
@@ -237,12 +264,14 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             }
 
             var newParamList = new List<ParameterSyntax>();
+            var holderParams = new List<(string Name, IParameterSymbol Symbol)>();
             foreach (var param in node.ParameterList.Parameters)
             {
                 var paramSymbol = symbol.Parameters.FirstOrDefault(p => p.Name == param.Identifier.Text);
                 if (paramSymbol != null && _annotator.HolderSymbols.Contains(paramSymbol))
                 {
                     CurrentHolderNames.Add(param.Identifier.Text);
+                    holderParams.Add((param.Identifier.Text, paramSymbol));
                     newParamList.Add(RewriteParameter(param, paramSymbol));
                 }
                 else if (NeedsInStrip(param) && _annotator.IsInParameterKept(paramSymbol))
@@ -297,14 +326,62 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                 signatureChanged = true;
             }
 
+            // Value-typed holders get a shadow copy-in/copy-out frame inside
+            // the body (same CS1612 lowering as for held lambda parameters).
+            shadowFrame = PushHolderShadowFrame(holderParams,
+                (SyntaxNode?)node.Body ?? node.ExpressionBody, true, out var shadows);
+            bool shadowReturnsVoid = symbol.ReturnsVoid;
+            string? shadowReturnType = symbol.ReturnsVoid
+                ? null
+                : (refReturn
+                    ? "ByRef<" + TypeDisplay(symbol.ReturnType) + ">"
+                    : TypeDisplay(symbol.ReturnType));
+
             var newParams = SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(newParamList));
             var visited = (MethodDeclarationSyntax)base.VisitMethodDeclaration(node)!;
             visited = visited.WithParameterList(newParams).WithReturnType(newReturnType);
 
+            if (shadows.Count > 0)
+                visited = ApplyMethodShadows(visited, shadows, shadowReturnsVoid, shadowReturnType);
+
             if (signatureChanged) UsedHolder = true;
             return visited;
         }
-        finally { _holderNameScopes.Pop(); }
+        finally
+        {
+            if (shadowFrame != null) _shadowNameScopes.Pop();
+            _holderNameScopes.Pop();
+        }
+    }
+
+    /// <summary>
+    /// Wraps a rewritten method body (block or expression) with the holder
+    /// shadow frame; expression-bodied methods are converted to block bodies.
+    /// </summary>
+    private MethodDeclarationSyntax ApplyMethodShadows(
+        MethodDeclarationSyntax node,
+        IReadOnlyList<(string Holder, string Shadow, string Type)> shadows,
+        bool returnsVoid,
+        string? returnTypeDisplay)
+    {
+        BlockSyntax block;
+        if (node.Body != null)
+        {
+            block = node.Body;
+        }
+        else if (node.ExpressionBody != null)
+        {
+            block = BlockFromShadowExpression(node.ExpressionBody.Expression, returnsVoid);
+        }
+        else
+        {
+            return node;
+        }
+
+        return node
+            .WithBody(BuildShadowBlock(block, shadows, returnsVoid, returnTypeDisplay))
+            .WithExpressionBody(null)
+            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
     }
 
     private static bool NeedsInStrip(ParameterSyntax param) =>
@@ -406,6 +483,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             return base.VisitConstructorDeclaration(node);
 
         _holderNameScopes.Push(new HashSet<string>());
+        Dictionary<string, string?>? shadowFrame = null;
         try
         {
             if (node.ExpressionBody != null && _lifter.ContainsLiftable(node.ExpressionBody.Expression))
@@ -413,12 +491,14 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                     "constructor expression body contains an internal ref/out call; convert to a block body");
 
             var newParamList = new List<ParameterSyntax>();
+            var holderParams = new List<(string Name, IParameterSymbol Symbol)>();
             foreach (var param in node.ParameterList.Parameters)
             {
                 var paramSymbol = symbol.Parameters.FirstOrDefault(p => p.Name == param.Identifier.Text);
                 if (paramSymbol != null && _annotator.HolderSymbols.Contains(paramSymbol))
                 {
                     CurrentHolderNames.Add(param.Identifier.Text);
+                    holderParams.Add((param.Identifier.Text, paramSymbol));
                     newParamList.Add(RewriteParameter(param, paramSymbol));
                 }
                 else
@@ -427,11 +507,34 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                 }
             }
 
+            shadowFrame = PushHolderShadowFrame(holderParams,
+                (SyntaxNode?)node.Body ?? node.ExpressionBody, true, out var shadows);
             var newParams = SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(newParamList));
             var visited = (ConstructorDeclarationSyntax)base.VisitConstructorDeclaration(node)!;
-            return visited.WithParameterList(newParams);
+            visited = visited.WithParameterList(newParams);
+            if (shadows.Count > 0)
+            {
+                if (visited.Body != null)
+                {
+                    visited = visited.WithBody(
+                        BuildShadowBlock(visited.Body, shadows, returnsVoid: true, returnTypeDisplay: null));
+                }
+                else if (visited.ExpressionBody != null)
+                {
+                    var block = BlockFromShadowExpression(visited.ExpressionBody.Expression, returnsVoid: true);
+                    visited = visited
+                        .WithBody(BuildShadowBlock(block, shadows, true, null))
+                        .WithExpressionBody(null)
+                        .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
+                }
+            }
+            return visited;
         }
-        finally { _holderNameScopes.Pop(); }
+        finally
+        {
+            if (shadowFrame != null) _shadowNameScopes.Pop();
+            _holderNameScopes.Pop();
+        }
     }
 
     public override SyntaxNode? VisitDelegateDeclaration(DelegateDeclarationSyntax node)
@@ -502,6 +605,14 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             return base.VisitIdentifierName(node);
 
         _stats.HoldersInjected++;
+        if (TryGetShadowName(name, out var shadowName))
+        {
+            // Value-typed held lambda: bind to the shadow local (a variable),
+            // never to holder.Value (a property return value → CS1612).
+            return SyntaxFactory.IdentifierName(shadowName)
+                .WithAdditionalAnnotations(RefOutInStatementLifter.ValueInjectedAnnotation);
+        }
+
         return SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
             node.WithAdditionalAnnotations(RefOutInStatementLifter.ValueInjectedAnnotation),
@@ -559,8 +670,22 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             return null;
 
         MarkHolderUsed();
-        var holder = SyntaxFactory.IdentifierName(holderId.Identifier)
-            .WithAdditionalAnnotations(RefOutInStatementLifter.DirectPassAnnotation);
+        ExpressionSyntax holder;
+        if (TryGetShadowName(holderId.Identifier.Text, out var shadowName))
+        {
+            // Inside a value-typed held-lambda frame the atomic op must target
+            // the shadow local; forward through an accessor proxy so results
+            // flow through copy-out.
+            var holderSym = GetSymbol(holderId);
+            var t = holderSym is IParameterSymbol ps ? TypeDisplay(ps.Type) : "object";
+            holder = SyntaxFactory.ParseExpression(
+                $"ByRef<{t}>.Create(() => {shadowName}, v => {shadowName} = v)");
+        }
+        else
+        {
+            holder = SyntaxFactory.IdentifierName(holderId.Identifier)
+                .WithAdditionalAnnotations(RefOutInStatementLifter.DirectPassAnnotation);
+        }
 
         // Remaining arguments still need ordinary holder .Value injection.
         var arguments = new List<ArgumentSyntax> { SyntaxFactory.Argument(holder) };
@@ -1336,24 +1461,43 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         var sym = _semanticModel.GetDeclaredSymbol(node.Parameter);
         bool holder = sym != null && _annotator.HolderSymbols.Contains(sym);
         _holderNameScopes.Push(new HashSet<string>());
+        Dictionary<string, string?>? shadowFrame = null;
         try
         {
             if (holder)
                 CurrentHolderNames.Add(node.Parameter.Identifier.Text);
 
-            // Lift the expression body BEFORE rebuilding the holder parameter:
-            // WithParameter changes the parameter text and shifts every body
-            // position, so body symbol lookups against a rebuilt node fail to
-            // map into the tree.
-            var lifted = (SimpleLambdaExpressionSyntax)LiftExpressionLambdaBody(node);
-            if (!holder)
-                return base.VisitSimpleLambdaExpression(lifted);
+            var holderParams = holder
+                ? new[] { (node.Parameter.Identifier.Text, Symbol: sym!) }
+                : Array.Empty<(string, IParameterSymbol)>();
+            shadowFrame = PushHolderShadowFrame(holderParams, (SyntaxNode?)node.Body, false, out var shadows);
+            var returnsVoid = DelegateReturnsVoid(node);
 
-            var newNode = (SimpleLambdaExpressionSyntax)lifted.WithParameter(
-                RewriteParameter(node.Parameter, sym!));
-            return base.VisitSimpleLambdaExpression(newNode);
+            // Expression-body conversion (and the forced block shape for shadow
+            // copy-in/copy-out) runs on the ORIGINAL tree-owned node BEFORE any
+            // parameter rebuild.
+            var lifted = (SimpleLambdaExpressionSyntax)
+                LiftExpressionLambdaBody(node, shadows.Count > 0);
+
+            // Visit the body BEFORE rebuilding the parameter: WithParameter
+            // detaches every body red-node from this syntax tree, so semantic
+            // lookups from the body throw ArgumentException and the lifter
+            // silently drops internal ref/out calls (naked `ref holder.Value.X`).
+            var visited = (SimpleLambdaExpressionSyntax)base.VisitSimpleLambdaExpression(lifted);
+
+            if (holder)
+                visited = visited.WithParameter(RewriteParameter(node.Parameter, sym!));
+            if (shadows.Count > 0)
+                visited = (SimpleLambdaExpressionSyntax)
+                    ApplyValueShadows(visited, shadows, returnsVoid,
+                        DelegateReturnTypeDisplay(node));
+            return visited;
         }
-        finally { _holderNameScopes.Pop(); }
+        finally
+        {
+            if (shadowFrame != null) _shadowNameScopes.Pop();
+            _holderNameScopes.Pop();
+        }
     }
 
     public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node)
@@ -1362,17 +1506,18 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             return node;   // fragment lambda: pre-injected, no further processing
 
         _holderNameScopes.Push(new HashSet<string>());
+        Dictionary<string, string?>? shadowFrame = null;
         try
         {
             var newParams = new List<ParameterSyntax>();
-            bool anyHolder = false;
+            var holderParams = new List<(string Name, IParameterSymbol Symbol)>();
             foreach (var param in node.ParameterList.Parameters)
             {
                 var sym = _semanticModel.GetDeclaredSymbol(param);
                 if (sym != null && _annotator.HolderSymbols.Contains(sym))
                 {
-                    anyHolder = true;
                     CurrentHolderNames.Add(param.Identifier.Text);
+                    holderParams.Add((param.Identifier.Text, sym));
                     newParams.Add(RewriteParameter(param, sym));
                 }
                 else
@@ -1380,25 +1525,303 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                     newParams.Add(param);
                 }
             }
+            bool anyHolder = holderParams.Count > 0;
+            shadowFrame = PushHolderShadowFrame(holderParams, (SyntaxNode?)node.Body, false, out var shadows);
+            var returnsVoid = DelegateReturnsVoid(node);
 
             // Lift the expression body on the ORIGINAL tree-owned node BEFORE
-            // rebuilding the parameter list: SeparatedList regenerates
-            // separator trivia, so a rebuilt list detaches the node and shifts
-            // every body position, making both the delegate-type query and the
-            // lifter's body symbol lookups fail ("Syntax node is not within
-            // syntax tree" / unresolved invocations).
-            var lifted = LiftExpressionLambdaBody(node);
-            if (!anyHolder)
-                return base.VisitParenthesizedLambdaExpression(
-                    (ParenthesizedLambdaExpressionSyntax)lifted);
+            // rebuilding the parameter list; shadow frames additionally force
+            // the block shape needed for copy-in/copy-out.
+            var lifted = (ParenthesizedLambdaExpressionSyntax)
+                LiftExpressionLambdaBody(node, shadows.Count > 0);
 
-            var liftedParenthesized = (ParenthesizedLambdaExpressionSyntax)lifted;
-            var newNode = liftedParenthesized.WithParameterList(
-                liftedParenthesized.ParameterList.WithParameters(
-                    SyntaxFactory.SeparatedList(newParams)));
-            return base.VisitParenthesizedLambdaExpression(newNode);
+            // Visit BEFORE replacing the parameter list: SeparatedList
+            // regenerates separator trivia and a rebuilt list detaches every
+            // body node from this syntax tree — body GetSymbolInfo calls then
+            // throw ArgumentException ("Syntax node is not within syntax tree")
+            // and the statement lifter silently skips internal ref/out calls.
+            var visited = (ParenthesizedLambdaExpressionSyntax)
+                base.VisitParenthesizedLambdaExpression(lifted);
+
+            if (anyHolder)
+                visited = visited.WithParameterList(
+                    SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(newParams)));
+            if (shadows.Count > 0)
+                visited = (ParenthesizedLambdaExpressionSyntax)
+                    ApplyValueShadows(visited, shadows, returnsVoid,
+                        DelegateReturnTypeDisplay(node));
+            return visited;
         }
-        finally { _holderNameScopes.Pop(); }
+        finally
+        {
+            if (shadowFrame != null) _shadowNameScopes.Pop();
+            _holderNameScopes.Pop();
+        }
+    }
+
+    /// <summary>
+    /// Builds the shadow-rename frame for one anonymous-function or member
+    /// visit: a value-typed (non-ref-like) held parameter whose OWN body has a
+    /// CS1612-shaped mutation (member/element assignment, ++/--, a ref/out
+    /// member-chain argument, or a mutating member call through the holder)
+    /// gets a private mutable local; other value holders and reference-type /
+    /// ref-like holders push a null sentinel so that the same name in this
+    /// frame is not redirected to an OUTER shadow. A read-only body needs no
+    /// frame at all.
+    /// </summary>
+    private Dictionary<string, string?>? PushHolderShadowFrame(
+        IReadOnlyList<(string Name, IParameterSymbol Symbol)> holderParams,
+        SyntaxNode? scanRoot,
+        bool localFunctionsCapture,
+        out List<(string Holder, string Shadow, string Type)> shadows)
+    {
+        shadows = new List<(string, string, string)>();
+        if (holderParams.Count == 0 || scanRoot == null)
+            return null;
+
+        var frame = new Dictionary<string, string?>();
+        foreach (var (name, symbol) in holderParams)
+        {
+            if (symbol.Type.IsValueType && !symbol.Type.IsRefLikeType
+                && BodyMutatesHolder(scanRoot, name, localFunctionsCapture))
+            {
+                var shadow = "__shadow" + NextTemp();
+                frame[name] = shadow;
+                shadows.Add((name, shadow, TypeDisplay(symbol.Type)));
+            }
+            else
+            {
+                frame[name] = null;
+            }
+        }
+        // Push even when every entry is a null sentinel (e.g. an inner lambda
+        // has a reference-type holder with the same name as an outer value
+        // shadow): the sentinel must still hide the outer mapping.
+        _shadowNameScopes.Push(frame);
+        return frame;
+    }
+
+    /// <summary>
+    /// True when <paramref name="body"/> mutates (or passes onward by
+    /// ref/out) a holder value through a member/element chain rooted at
+    /// <paramref name="holderName"/> — the shapes that CS1612 rejects on a
+    /// <c>ByRef&lt;T&gt;.Value</c> property return and that therefore require a
+    /// shadow local. Bare <c>ref holder</c> arguments are already legal via the
+    /// lifter's direct pass / Cs2jInterlocked mapping and do not force a frame.
+    /// </summary>
+    private static bool BodyMutatesHolder(
+        SyntaxNode body, string holderName, bool descendIntoLocalFunctions)
+    {
+        bool Barrier(SyntaxNode n) =>
+            n is AnonymousFunctionExpressionSyntax
+            || (!descendIntoLocalFunctions && n is LocalFunctionStatementSyntax);
+
+        foreach (var id in body.DescendantNodesAndSelf(n => !Barrier(n))
+                     .OfType<IdentifierNameSyntax>())
+        {
+            if (id.Identifier.Text != holderName || IsInDeclarationContext(id))
+                continue;
+
+            // Climb member/element (and null-conditional) chains rooted at the
+            // holder identifier; a mutation at any chain level needs the shadow.
+            SyntaxNode chain = id;
+            while (true)
+            {
+                var parent = chain.Parent;
+                if (parent is AssignmentExpressionSyntax assign
+                    && ReferenceEquals(assign.Left, chain))
+                    return true;
+                if (parent is PrefixUnaryExpressionSyntax pre
+                    && (pre.IsKind(SyntaxKind.PreIncrementExpression)
+                        || pre.IsKind(SyntaxKind.PreDecrementExpression)))
+                    return true;
+                if (parent is PostfixUnaryExpressionSyntax post
+                    && (post.IsKind(SyntaxKind.PostIncrementExpression)
+                        || post.IsKind(SyntaxKind.PostDecrementExpression)))
+                    return true;
+                if (parent is ArgumentSyntax arg
+                    && (arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
+                        || arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
+                    && ReferenceEquals(arg.Expression, chain)
+                    && chain is not IdentifierNameSyntax)
+                    return true;
+                if (parent is InvocationExpressionSyntax call
+                    && ReferenceEquals(call.Expression, chain)
+                    && chain is not IdentifierNameSyntax)
+                    return true;   // mutating member call (CS1612-conservative)
+
+                if (parent is MemberAccessExpressionSyntax member
+                    && ReferenceEquals(member.Expression, chain))
+                {
+                    chain = member;
+                    continue;
+                }
+                if (parent is ElementAccessExpressionSyntax element
+                    && ReferenceEquals(element.Expression, chain))
+                {
+                    chain = element;
+                    continue;
+                }
+                if (parent is MemberBindingExpressionSyntax binding
+                    && binding.Parent is ConditionalAccessExpressionSyntax conditional
+                    && ReferenceEquals(conditional.WhenNotNull, binding))
+                {
+                    chain = conditional;
+                    continue;
+                }
+                break;
+            }
+        }
+        return false;
+    }
+
+    private bool DelegateReturnsVoid(AnonymousFunctionExpressionSyntax node)
+        => DelegateInvoke(node)?.ReturnsVoid ?? false;
+
+    /// <summary>Display name of the delegate return type (for the return temp).</summary>
+    private string? DelegateReturnTypeDisplay(AnonymousFunctionExpressionSyntax node)
+    {
+        var invoke = DelegateInvoke(node);
+        return invoke == null || invoke.ReturnsVoid ? null : TypeDisplay(invoke.ReturnType);
+    }
+
+    private IMethodSymbol? DelegateInvoke(AnonymousFunctionExpressionSyntax node)
+        => (_semanticModel.GetTypeInfo(node).ConvertedType as INamedTypeSymbol)
+            ?.DelegateInvokeMethod;
+
+    /// <summary>
+    /// Wraps a shadow-frame lambda body as
+    /// <c>{ T __s = holder.Value; …body with holder names bound to __s…;
+    /// holder.Value = __s; // before every return / at void fall-through }</c>.
+    /// Exceptions skip copy-out, matching AccessorByRef/copy-in/copy-out
+    /// semantics elsewhere in the pass.
+    /// </summary>
+    private AnonymousFunctionExpressionSyntax ApplyValueShadows(
+        AnonymousFunctionExpressionSyntax node,
+        IReadOnlyList<(string Holder, string Shadow, string Type)> shadows,
+        bool returnsVoid,
+        string? returnTypeDisplay)
+    {
+        if (node.Body is not BlockSyntax block)
+            return node;   // defensive: forceBlock should have converted an expression body
+
+        return node.WithBody(
+            BuildShadowBlock(block, shadows, returnsVoid, returnTypeDisplay));
+    }
+
+    /// <summary>
+    /// Builds a shadow frame block (shared by held lambdas and by method /
+    /// constructor / local-function bodies whose value-typed ref parameters
+    /// became <c>ByRef&lt;T&gt;</c> holders): copy-in declarations, the body
+    /// with holder names bound to the shadows, and copy-out before every own
+    /// return plus at void fall-through.
+    /// </summary>
+    private BlockSyntax BuildShadowBlock(
+        BlockSyntax block,
+        IReadOnlyList<(string Holder, string Shadow, string Type)> shadows,
+        bool returnsVoid,
+        string? returnTypeDisplay)
+    {
+        var statements = new List<StatementSyntax>();
+        foreach (var shadow in shadows)
+            statements.Add(BuildShadowCopyIn(shadow.Holder, shadow.Shadow, shadow.Type));
+
+        var writebacks = shadows
+            .Select(s => BuildShadowWriteback(s.Holder, s.Shadow))
+            .ToList<StatementSyntax>();
+        var rewritten = (BlockSyntax)new ShadowReturnWriter(
+            writebacks, returnTypeDisplay, NextTemp).Visit(block)!;
+        statements.AddRange(rewritten.Statements);
+        if (returnsVoid)
+            statements.AddRange(writebacks);
+
+        return SyntaxFactory.Block(statements);
+    }
+
+    /// <summary>
+    /// Wraps an expression-bodied member's visited expression as a block the
+    /// shadow frame can rewrite: <c>=&gt; expr</c> → <c>{ return expr; }</c>
+    /// (or <c>{ expr; }</c> for void members).
+    /// </summary>
+    private static BlockSyntax BlockFromShadowExpression(ExpressionSyntax expression, bool returnsVoid) =>
+        returnsVoid
+            ? SyntaxFactory.Block(SyntaxFactory.ExpressionStatement(expression))
+            : SyntaxFactory.Block(SyntaxFactory.ReturnStatement(expression));
+
+    private static MemberAccessExpressionSyntax HolderValueAccess(string holder) =>
+        SyntaxFactory.MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression,
+            SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(holder))
+                .WithAdditionalAnnotations(RefOutInStatementLifter.DirectPassAnnotation),
+            SyntaxFactory.IdentifierName("Value"));
+
+    private static LocalDeclarationStatementSyntax BuildShadowCopyIn(
+        string holder, string shadow, string type) =>
+        SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(
+                SyntaxFactory.ParseTypeName(type),
+                SyntaxFactory.SingletonSeparatedList(
+                    SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(shadow))
+                        .WithInitializer(SyntaxFactory.EqualsValueClause(
+                            HolderValueAccess(holder))))));
+
+    private static ExpressionStatementSyntax BuildShadowWriteback(string holder, string shadow) =>
+        SyntaxFactory.ExpressionStatement(
+            SyntaxFactory.AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                HolderValueAccess(holder),
+                SyntaxFactory.IdentifierName(shadow)));
+
+    /// <summary>
+    /// Inserts the copy-out statements immediately before every return of the
+    /// OWN lambda only; nested lambdas/local functions are barriers. A
+    /// value-returning return first materializes its expression into a temp,
+    /// so the shadow copy-out observes the expression's own mutations
+    /// (<c>return --__s.X</c> must persist the decrement).
+    /// </summary>
+    private sealed class ShadowReturnWriter : CSharpSyntaxRewriter
+    {
+        private readonly List<StatementSyntax> _writebacks;
+        private readonly string? _returnTypeDisplay;
+        private readonly Func<int> _nextTemp;
+
+        public ShadowReturnWriter(
+            List<StatementSyntax> writebacks,
+            string? returnTypeDisplay,
+            Func<int> nextTemp)
+        {
+            _writebacks = writebacks;
+            _returnTypeDisplay = returnTypeDisplay;
+            _nextTemp = nextTemp;
+        }
+
+        public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node) => node;
+        public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node) => node;
+        public override SyntaxNode? VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node) => node;
+        public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node) => node;
+
+        public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
+        {
+            var statements = new List<StatementSyntax>();
+            if (node.Expression != null && _returnTypeDisplay != null)
+            {
+                var temp = "__ret" + _nextTemp();
+                statements.Add(SyntaxFactory.LocalDeclarationStatement(
+                    SyntaxFactory.VariableDeclaration(
+                        SyntaxFactory.ParseTypeName(_returnTypeDisplay),
+                        SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(temp))
+                                .WithInitializer(SyntaxFactory.EqualsValueClause(node.Expression))))));
+                statements.AddRange(_writebacks);
+                statements.Add(SyntaxFactory.ReturnStatement(SyntaxFactory.IdentifierName(temp)));
+            }
+            else
+            {
+                statements.AddRange(_writebacks);
+                statements.Add(node);
+            }
+            return SyntaxFactory.Block(statements);
+        }
     }
 
     /// <summary>
@@ -1417,7 +1840,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     // longer maps into the tree — GetTypeInfo throws "Syntax node is not
     // within syntax tree" and body invocations silently fail to resolve.
     private AnonymousFunctionExpressionSyntax LiftExpressionLambdaBody(
-        AnonymousFunctionExpressionSyntax node)
+        AnonymousFunctionExpressionSyntax node, bool forceBlock = false)
     {
         if (node.Body is not ExpressionSyntax body)
         {
@@ -1433,7 +1856,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             // The liftability scan must run INSIDE fragment scope: reached via
             // the plain base re-walk (outer statement had no hoist) the owning
             // lambda would otherwise be treated as a barrier.
-            if (!_lifter.ContainsLiftable(body))
+            if (!forceBlock && !_lifter.ContainsLiftable(body))
             {
                 return node;
             }
@@ -1467,30 +1890,53 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         if (!InCurrentTree(node))
             return node;   // fragment lambda: pre-injected, no further processing
 
-        if (node.ParameterList == null)
-            return base.VisitAnonymousMethodExpression(node);
         _holderNameScopes.Push(new HashSet<string>());
+        Dictionary<string, string?>? shadowFrame = null;
         try
         {
             var newParams = new List<ParameterSyntax>();
-            foreach (var param in node.ParameterList.Parameters)
+            var holderParams = new List<(string Name, IParameterSymbol Symbol)>();
+            if (node.ParameterList != null)
             {
-                var sym = _semanticModel.GetDeclaredSymbol(param);
-                if (sym != null && _annotator.HolderSymbols.Contains(sym))
+                foreach (var param in node.ParameterList.Parameters)
                 {
-                    CurrentHolderNames.Add(param.Identifier.Text);
-                    newParams.Add(RewriteParameter(param, sym));
-                }
-                else
-                {
-                    newParams.Add(param);
+                    var sym = _semanticModel.GetDeclaredSymbol(param);
+                    if (sym != null && _annotator.HolderSymbols.Contains(sym))
+                    {
+                        CurrentHolderNames.Add(param.Identifier.Text);
+                        holderParams.Add((param.Identifier.Text, sym));
+                        newParams.Add(RewriteParameter(param, sym));
+                    }
+                    else
+                    {
+                        newParams.Add(param);
+                    }
                 }
             }
-            var newNode = node.WithParameterList(node.ParameterList.WithParameters(
-                SyntaxFactory.SeparatedList(newParams)));
-            return base.VisitAnonymousMethodExpression(newNode);
+            bool anyHolder = holderParams.Count > 0;
+            shadowFrame = PushHolderShadowFrame(holderParams, (SyntaxNode?)node.Body, false, out var shadows);
+            var returnsVoid = DelegateReturnsVoid(node);
+
+            // Visit the original node first (body bound to this syntax tree),
+            // then swap in the rewritten parameter list — see
+            // VisitParenthesizedLambdaExpression for the detachment rationale.
+            var visited = (AnonymousMethodExpressionSyntax)
+                base.VisitAnonymousMethodExpression(node);
+
+            if (anyHolder)
+                visited = visited.WithParameterList(
+                    node.ParameterList!.WithParameters(SyntaxFactory.SeparatedList(newParams)));
+            if (shadows.Count > 0)
+                visited = (AnonymousMethodExpressionSyntax)
+                    ApplyValueShadows(visited, shadows, returnsVoid,
+                        DelegateReturnTypeDisplay(node));
+            return visited;
         }
-        finally { _holderNameScopes.Pop(); }
+        finally
+        {
+            if (shadowFrame != null) _shadowNameScopes.Pop();
+            _holderNameScopes.Pop();
+        }
     }
 
     public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node)
@@ -1503,15 +1949,18 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             return base.VisitLocalFunctionStatement(node);
 
         _holderNameScopes.Push(new HashSet<string>());
+        Dictionary<string, string?>? shadowFrame = null;
         try
         {
             var newParams = new List<ParameterSyntax>();
+            var holderParams = new List<(string Name, IParameterSymbol Symbol)>();
             foreach (var param in node.ParameterList.Parameters)
             {
                 var paramSymbol = symbol.Parameters.FirstOrDefault(p => p.Name == param.Identifier.Text);
                 if (paramSymbol != null && _annotator.HolderSymbols.Contains(paramSymbol))
                 {
                     CurrentHolderNames.Add(param.Identifier.Text);
+                    holderParams.Add((param.Identifier.Text, paramSymbol));
                     newParams.Add(RewriteParameter(param, paramSymbol));
                 }
                 else
@@ -1519,11 +1968,58 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                     newParams.Add(param);
                 }
             }
-            var newNode = node.WithParameterList(node.ParameterList.WithParameters(
-                SyntaxFactory.SeparatedList(newParams)));
-            return base.VisitLocalFunctionStatement(newNode);
+            bool anyHolder = holderParams.Count > 0;
+            shadowFrame = PushHolderShadowFrame(holderParams,
+                (SyntaxNode?)node.Body ?? node.ExpressionBody, true, out var shadows);
+            bool returnsVoid = symbol.ReturnsVoid;
+            string? returnTypeDisplay = symbol.ReturnsVoid
+                ? null
+                : (node.ReturnType is RefTypeSyntax
+                    ? "ByRef<" + TypeDisplay(symbol.ReturnType) + ">"
+                    : TypeDisplay(symbol.ReturnType));
+
+            // Visit the body BEFORE rebuilding the parameter list — a rebuilt
+            // SeparatedList detaches every body node from the syntax tree and
+            // body GetSymbolInfo calls throw ArgumentException, which makes the
+            // statement lifter silently drop internal ref/out calls (same root
+            // cause as for held lambdas).
+            var visited = (LocalFunctionStatementSyntax)
+                base.VisitLocalFunctionStatement(node);
+
+            if (anyHolder)
+            {
+                visited = visited.WithParameterList(
+                    SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(newParams)));
+            }
+            if (shadows.Count > 0)
+            {
+                BlockSyntax block;
+                if (visited.Body != null)
+                {
+                    block = visited.Body;
+                }
+                else if (visited.ExpressionBody != null)
+                {
+                    block = BlockFromShadowExpression(visited.ExpressionBody.Expression, returnsVoid);
+                    visited = visited
+                        .WithExpressionBody(null)
+                        .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
+                }
+                else
+                {
+                    return visited;
+                }
+
+                visited = visited.WithBody(
+                    BuildShadowBlock(block, shadows, returnsVoid, returnTypeDisplay));
+            }
+            return visited;
         }
-        finally { _holderNameScopes.Pop(); }
+        finally
+        {
+            if (shadowFrame != null) _shadowNameScopes.Pop();
+            _holderNameScopes.Pop();
+        }
     }
 
     // ── C11: CS2J3304 — ref struct holder forwarded to an external ref API ──
@@ -1903,6 +2399,11 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             if (IsInDeclarationContext(node) || !_owner.IsHolderName(node.Identifier.Text))
                 return base.VisitIdentifierName(node);
             _owner._stats.HoldersInjected++;
+            if (_owner.TryGetShadowName(node.Identifier.Text, out var shadowName))
+            {
+                return SyntaxFactory.IdentifierName(shadowName)
+                    .WithAdditionalAnnotations(RefOutInStatementLifter.ValueInjectedAnnotation);
+            }
             return SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
                 node.WithAdditionalAnnotations(RefOutInStatementLifter.ValueInjectedAnnotation),

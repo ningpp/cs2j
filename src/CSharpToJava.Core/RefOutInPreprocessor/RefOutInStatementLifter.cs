@@ -397,8 +397,14 @@ internal sealed class RefOutInStatementLifter
         var paramTypeSymbol = method.Parameters[index].Type;
         var paramType = _owner.TypeDisplay(paramTypeSymbol);
 
-        // (1) holder slot direct pass — internal callee now expects ByRef<T>/RefStructByRef<T>
-        if (expr is IdentifierNameSyntax slotId && _owner.IsHolderName(slotId.Identifier.Text))
+        // (1) holder slot direct pass — internal callee now expects ByRef<T>/RefStructByRef<T>.
+        // A value-typed holder inside a shadow copy-in/copy-out frame is NOT
+        // forwarded directly: that would alias the outer ByRef and bypass (and
+        // get clobbered by) the shadow copy-out. Fall through to the accessor
+        // shape, which aliases the shadow local instead.
+        if (expr is IdentifierNameSyntax slotId
+            && _owner.IsHolderName(slotId.Identifier.Text)
+            && !_owner.TryGetShadowName(slotId.Identifier.Text, out _))
         {
             var id = SyntaxFactory.IdentifierName(slotId.Identifier.Text)
                 .WithAdditionalAnnotations(DirectPassAnnotation);
