@@ -986,13 +986,53 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         UsedExtensions = true;
         _stats.OperatorsRewritten++;
 
+        // ++x/--x lowers from a prefix-unary expression (high precedence) to an
+        // assignment expression (lowest precedence). In a value sub-expression
+        // slot (`if (++x < y)`, an argument, an operand…) the unparenthesized
+        // print lets the enclosing operator bind as the assignment's RHS —
+        // `x = F() < y` — which is only a semantic error (CS0029 bool→target),
+        // not a parse error. Group the assignment everywhere except the C#
+        // statement-expression slots (expression statement, for initializer /
+        // incrementor), where a parenthesized assignment is itself rejected
+        // (CS0201) and the bare assignment is the expected statement form.
+        ExpressionSyntax lowered = SyntaxFactory.AssignmentExpression(
+            SyntaxKind.SimpleAssignmentExpression,
+            prefixOperand,
+            UnsignedMathSyntax.WrapTarget(operandSpecial, value));
+        if (!IsStatementExpressionSite(node))
+        {
+            lowered = SyntaxFactory.ParenthesizedExpression(lowered);
+        }
+
         return UnsignedRewriteAnnotations.Mark(
-            WithHoistedLeading(
-                SyntaxFactory.AssignmentExpression(
-                    SyntaxKind.SimpleAssignmentExpression,
-                    prefixOperand,
-                    UnsignedMathSyntax.WrapTarget(operandSpecial, value)),
-                prefixLead));
+            WithHoistedLeading(lowered, prefixLead));
+    }
+
+    /// <summary>
+    /// True when <paramref name="node"/> occupies one of C#'s
+    /// statement-expression slots — an expression statement, or a for-loop
+    /// initializer/incrementor (source parentheses around the node are
+    /// transparent): a lowered assignment needs no grouping parens there, and
+    /// wrapping it would even be rejected with CS0201.
+    /// </summary>
+    private static bool IsStatementExpressionSite(ExpressionSyntax node)
+    {
+        SyntaxNode current = node;
+        while (current.Parent is ParenthesizedExpressionSyntax)
+        {
+            current = current.Parent;
+        }
+
+        switch (current.Parent)
+        {
+            case ExpressionStatementSyntax statement:
+                return statement.Expression == current;
+            case ForStatementSyntax forStatement:
+                return forStatement.Initializers.Contains((ExpressionSyntax)current)
+                       || forStatement.Incrementors.Contains((ExpressionSyntax)current);
+            default:
+                return false;
+        }
     }
 
     public override SyntaxNode? VisitCastExpression(CastExpressionSyntax node)
