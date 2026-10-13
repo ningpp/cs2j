@@ -590,6 +590,64 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             || (node.Parent is MemberBindingExpressionSyntax mbe && ReferenceEquals(mbe.Name, node));
     }
 
+    // ── CS0206: Interlocked.X(ref holder, …) → Cs2jInterlocked.X(holder, …) ──
+    // A holder's Value is a ByRef<T> property, never a variable, so the BCL
+    // Interlocked methods cannot take it by ref. The Cs2jByRef support class
+    // provides lock-based equivalents with the same observable semantics.
+
+    private static readonly HashSet<string> InterlockedHolderOps = new()
+    {
+        "Exchange", "CompareExchange", "Or", "And", "Add", "Increment", "Decrement",
+    };
+
+    public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
+    {
+        if (TryRewriteInterlockedHolderCall(node) is { } rewritten)
+            return rewritten;
+        return base.VisitInvocationExpression(node);
+    }
+
+    private InvocationExpressionSyntax? TryRewriteInterlockedHolderCall(InvocationExpressionSyntax node)
+    {
+        if (node.ArgumentList.Arguments.Count == 0)
+            return null;
+
+        var first = node.ArgumentList.Arguments[0];
+        if (!first.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
+            && !first.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
+            return null;
+
+        if (first.Expression is not IdentifierNameSyntax holderId
+            || !IsHolderName(holderId.Identifier.Text))
+            return null;
+
+        var sym = ResolveInvocation(node);
+        if (sym == null
+            || sym.ContainingType?.ToDisplayString() != "System.Threading.Interlocked"
+            || !InterlockedHolderOps.Contains(sym.Name))
+            return null;
+
+        MarkHolderUsed();
+        var holder = SyntaxFactory.IdentifierName(holderId.Identifier)
+            .WithAdditionalAnnotations(RefOutInStatementLifter.DirectPassAnnotation);
+
+        // Remaining arguments still need ordinary holder .Value injection.
+        var arguments = new List<ArgumentSyntax> { SyntaxFactory.Argument(holder) };
+        foreach (var arg in node.ArgumentList.Arguments.Skip(1))
+        {
+            var visited = (ExpressionSyntax)Visit(arg.Expression)!;
+            arguments.Add(SyntaxFactory.Argument(visited));
+        }
+
+        var target = SyntaxFactory.MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression,
+            SyntaxFactory.ParseName("global::Cs2jByRef.Cs2jInterlocked"),
+            SyntaxFactory.IdentifierName(sym.Name));
+        return SyntaxFactory.InvocationExpression(
+            target,
+            SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments)));
+    }
+
     public override SyntaxNode? VisitBlock(BlockSyntax node)
     {
         var newStatements = new List<StatementSyntax>();

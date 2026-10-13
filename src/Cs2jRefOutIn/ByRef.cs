@@ -52,6 +52,113 @@ internal sealed class AccessorByRef<T> : ByRef<T>
     }
 }
 
+/// <summary>
+/// Atomic System.Threading.Interlocked-style operations over <see cref="ByRef{T}"/>
+/// proxies. A proxy's <c>Value</c> is a property (often an accessor closure over
+/// a field/parameter chain), so the BCL methods cannot take
+/// <c>ref proxy.Value</c> (CS0206: a property is not a variable). Every
+/// operation locks the proxy instance, which serializes against all other
+/// Cs2jInterlocked users of the SAME proxy; the observable semantics
+/// (exchange / compare-exchange / CAS arithmetic) are identical to the
+/// Interlocked originals. The ref-out-in pass maps
+/// <c>Interlocked.X(ref holder, …)</c> here.
+/// </summary>
+public static class Cs2jInterlocked
+{
+    public static T Exchange<T>(ByRef<T> slot, T value)
+    {
+        lock (slot)
+        {
+            var old = slot.Value;
+            slot.Value = value;
+            return old;
+        }
+    }
+
+    public static T CompareExchange<T>(ByRef<T> slot, T value, T comparand)
+    {
+        lock (slot)
+        {
+            var old = slot.Value;
+            if (System.Collections.Generic.EqualityComparer<T>.Default.Equals(old, comparand))
+                slot.Value = value;
+            return old;
+        }
+    }
+
+    public static int Or(ByRef<int> slot, int value)
+    {
+        lock (slot) { var old = slot.Value; slot.Value = old | value; return old; }
+    }
+
+    public static int And(ByRef<int> slot, int value)
+    {
+        lock (slot) { var old = slot.Value; slot.Value = old & value; return old; }
+    }
+
+    public static int Add(ByRef<int> slot, int value)
+    {
+        lock (slot) { var updated = slot.Value + value; slot.Value = updated; return updated; }
+    }
+
+    public static int Increment(ByRef<int> slot) => Add(slot, 1);
+    public static int Decrement(ByRef<int> slot) => Add(slot, -1);
+
+    public static uint Or(ByRef<uint> slot, uint value)
+    {
+        lock (slot) { var old = slot.Value; slot.Value = old | value; return old; }
+    }
+
+    public static uint And(ByRef<uint> slot, uint value)
+    {
+        lock (slot) { var old = slot.Value; slot.Value = old & value; return old; }
+    }
+
+    public static uint Add(ByRef<uint> slot, uint value)
+    {
+        lock (slot) { var updated = slot.Value + value; slot.Value = updated; return updated; }
+    }
+
+    public static uint Increment(ByRef<uint> slot) => Add(slot, 1u);
+    public static uint Decrement(ByRef<uint> slot) => Add(slot, 0xFFFFFFFFu);
+
+    public static long Or(ByRef<long> slot, long value)
+    {
+        lock (slot) { var old = slot.Value; slot.Value = old | value; return old; }
+    }
+
+    public static long And(ByRef<long> slot, long value)
+    {
+        lock (slot) { var old = slot.Value; slot.Value = old & value; return old; }
+    }
+
+    public static long Add(ByRef<long> slot, long value)
+    {
+        lock (slot) { var updated = slot.Value + value; slot.Value = updated; return updated; }
+    }
+
+    public static long Increment(ByRef<long> slot) => Add(slot, 1L);
+    public static long Decrement(ByRef<long> slot) => Add(slot, -1L);
+
+    public static ulong Or(ByRef<ulong> slot, ulong value)
+    {
+        lock (slot) { var old = slot.Value; slot.Value = old | value; return old; }
+    }
+
+    public static ulong And(ByRef<ulong> slot, ulong value)
+    {
+        lock (slot) { var old = slot.Value; slot.Value = old & value; return old; }
+    }
+
+    public static ulong Add(ByRef<ulong> slot, ulong value)
+    {
+        lock (slot) { var updated = slot.Value + value; slot.Value = updated; return updated; }
+    }
+
+    public static ulong Increment(ByRef<ulong> slot) => Add(slot, 1UL);
+    public static ulong Decrement(ByRef<ulong> slot) => Add(slot, 0xFFFFFFFFFFFFFFFFUL);
+}
+
 // ref readonly 局部/形参的只读代理（C40 M3 裁决 3）：只暴露 get，对 Value
 // 写入在 C# 中间树编译期即 CS0200，只读约束不靠注释维持。堆接收器（数组、
 // class/普通 struct 索引器等不被 lambda 捕获限制的位置）用 Func 访问器。
