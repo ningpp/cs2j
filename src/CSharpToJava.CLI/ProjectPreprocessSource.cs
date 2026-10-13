@@ -154,25 +154,42 @@ internal static class ProjectPreprocessSource
         // default globs are inside the project directory and are already
         // covered by includedDirectories.
         var explicitlyCompiled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Full per-project compile sets (SDK default glob MINUS <Compile Remove>
+        // globs), used to exclude files that physically sit under a project
+        // directory but are not part of ANY real compilation — e.g. platform
+        // split files (*.Unix.cs) dropped by <Compile Remove="**\*.Unix.cs" />.
+        // Merging/rewriting such files corrupts the real build: a partial-merge
+        // target inside an excluded file disappears from the actual compile.
+        var compiledSets = new List<(string ProjectDirectory, ProjectCompileSet.ProjectCompiledSet? Set)>();
+        var compiledByAny = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var project in includedProjects)
         {
-            var compiled = ProjectCompileSet.ComputeCompiledFiles(
+            var explicitOnly = ProjectCompileSet.ComputeCompiledFiles(
                 project.ProjectFilePath, layout.SourceRoot, includeDefaultItems: false);
-            if (compiled == null)
+            if (explicitOnly != null)
             {
-                continue;
+                foreach (var compiledFile in explicitOnly)
+                {
+                    explicitlyCompiled.Add(Path.GetFullPath(compiledFile));
+                }
             }
 
-            foreach (var compiledFile in compiled)
+            var fullSet = ProjectCompileSet.ComputeCompiledSet(
+                project.ProjectFilePath, layout.SourceRoot, includeDefaultItems: true);
+            compiledSets.Add((project.ProjectDirectory, fullSet));
+            if (fullSet != null)
             {
-                explicitlyCompiled.Add(Path.GetFullPath(compiledFile));
+                foreach (var compiledFile in fullSet.Files)
+                {
+                    compiledByAny.Add(Path.GetFullPath(compiledFile));
+                }
             }
         }
 
         return fullFiles
             .Where(full =>
             {
-                if (explicitlyCompiled.Contains(full))
+                if (explicitlyCompiled.Contains(full) || compiledByAny.Contains(full))
                 {
                     return true;
                 }
@@ -182,8 +199,34 @@ internal static class ProjectPreprocessSource
                     return false;
                 }
 
-                return layoutFiles.Contains(full)
-                       || SupportedProjectFiltering.IsUnderAnyDirectory(full, includedDirectories);
+                if (layoutFiles.Contains(full))
+                {
+                    return true;
+                }
+
+                // Non-source assets keep the historical directory-containment
+                // rule; only .cs files can be excluded by <Compile Remove>.
+                if (!full.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+                {
+                    return SupportedProjectFiltering.IsUnderAnyDirectory(full, includedDirectories);
+                }
+
+                var responsible = compiledSets
+                    .Where(entry => SupportedProjectFiltering.IsUnderAnyDirectory(
+                        full, new[] { entry.ProjectDirectory }))
+                    .ToList();
+                if (responsible.Count == 0)
+                {
+                    return false;
+                }
+
+                // Reliable exclusion only when every project covering the file
+                // directory was analyzed AND relies on the SDK default glob:
+                // then "in none of the sets" means the file is removed from the
+                // real build. An unparseable project or EnableDefaultCompileItems
+                // =false keeps the conservative keep-it behavior.
+                return responsible.Any(entry =>
+                    entry.Set is null || !entry.Set.DefaultItemsInEffect);
             })
             .ToList();
     }

@@ -64,6 +64,16 @@ public sealed class GraphLinkedCompileFilesFilterTests : IDisposable
            </Project>
            """;
 
+    private static string SdkProject(params string[] itemElements)
+        => """
+           <Project Sdk="Microsoft.NET.Sdk">
+             <ItemGroup>
+           """ + string.Join(Environment.NewLine, itemElements) + """
+
+             </ItemGroup>
+           </Project>
+           """;
+
     private static DiscoveredProject Project(string projectFilePath)
     {
         var directory = Path.GetDirectoryName(projectFilePath)!;
@@ -225,6 +235,138 @@ public sealed class GraphLinkedCompileFilesFilterTests : IDisposable
 
         Assert.Contains(keptFile, result);
         Assert.DoesNotContain(excludedFile, result);
+    }
+
+    [Fact]
+    public void SdkProject_DefaultGlob_CompileRemoveGlob_DropsExcludedPlatformSplit()
+    {
+        // Regression for CS0246 after partial-merge: the pass tree must match the
+        // real MSBuild compile set. <Compile Remove="**\*.Unix.cs" /> keeps the
+        // platform split out of the build, so it must not enter the pass file set
+        // (partial-merge otherwise merges the whole partial type into the
+        // excluded file and the compiled parts are stubbed away).
+        var csproj = WriteProject(
+            Path.Combine("xml", "src"),
+            "dotnet-xml",
+            SdkProject(
+                "<Compile Remove=\"**\\*.Unix.cs\" />",
+                "<Compile Remove=\"**\\*.OSX.cs\" />"));
+
+        var shared = WriteFile("xml", "src", "System", "Xml", "Reader.cs");
+        var unix = WriteFile("xml", "src", "System", "Xml", "Reader.Unix.cs");
+        var osx = WriteFile("xml", "src", "System", "Xml", "Reader.OSX.cs");
+
+        var layout = new ProjectPreprocessSourceLayout(
+            _sourceRoot, csproj, new[] { csproj });
+
+        var result = ProjectPreprocessSource.FilterToGraphMembers(
+            new[] { csproj, shared, unix, osx }, SingleGraph(Project(csproj)), layout,
+            new SupportedProjectFiltering.ExclusionInfo());
+
+        Assert.Contains(shared, result);
+        Assert.DoesNotContain(unix, result);
+        Assert.DoesNotContain(osx, result);
+        // The project file itself always stays.
+        Assert.Contains(csproj, result);
+    }
+
+    [Fact]
+    public void FileRemovedByOneSdkProject_ButCompiledByAnotherProject_IsKept()
+    {
+        // A <Compile Remove> is per-project: another retained project that still
+        // compiles the file (explicit link) keeps it in the pass set.
+        var remover = WriteProject(
+            Path.Combine("product", "src"),
+            "product",
+            SdkProject("<Compile Remove=\"Platform\\Impl.Unix.cs\" />"));
+        var consumer = WriteProject(
+            Path.Combine("product", "shim"),
+            "shim",
+            SdkProject("<Compile Include=\"..\\src\\Platform\\Impl.Unix.cs\" Link=\"Impl.Unix.cs\" />"));
+
+        var ordinary = WriteFile("product", "src", "Platform", "Impl.cs");
+        var removedHere = WriteFile("product", "src", "Platform", "Impl.Unix.cs");
+
+        var graph = new ProjectGraph
+        {
+            RootProjectPath = remover,
+            ProjectsInTopologicalOrder = new[] { Project(remover), Project(consumer) },
+        };
+        var layout = new ProjectPreprocessSourceLayout(
+            _sourceRoot, remover, new[] { remover, consumer });
+
+        var result = ProjectPreprocessSource.FilterToGraphMembers(
+            new[] { remover, consumer, ordinary, removedHere }, graph, layout,
+            new SupportedProjectFiltering.ExclusionInfo());
+
+        Assert.Contains(ordinary, result);
+        Assert.Contains(removedHere, result);
+    }
+
+    [Fact]
+    public void SdkProject_DefaultItemsDisabled_NonCompiledLooseFile_IsKeptConservatively()
+    {
+        // EnableDefaultCompileItems=false is non-deterministic for loose files
+        // (the SDK default glob is off); the filter must not drop them on the
+        // strength of a compile set that never included the directory glob.
+        var csproj = WriteProject(
+            Path.Combine("lib", "src"),
+            "lib",
+            """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+              </PropertyGroup>
+              <ItemGroup>
+                <Compile Include="Listed.cs" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        var listed = WriteFile("lib", "src", "Listed.cs");
+        var loose = WriteFile("lib", "src", "Loose.cs");
+
+        var layout = new ProjectPreprocessSourceLayout(
+            _sourceRoot, csproj, new[] { csproj });
+
+        var result = ProjectPreprocessSource.FilterToGraphMembers(
+            new[] { csproj, listed, loose }, SingleGraph(Project(csproj)), layout,
+            new SupportedProjectFiltering.ExclusionInfo());
+
+        Assert.Contains(listed, result);
+        Assert.Contains(loose, result);
+    }
+
+    [Fact]
+    public void SdkProject_RemoveAllThenIncludeOne_ReincludedFile_IsKept()
+    {
+        // MSBuild evaluates Compile items in document order: <Compile Remove="**\*.cs" />
+        // followed by <Compile Include="CorrectnessTest.cs" /> leaves exactly the
+        // re-included file in the compile set (dotnet-xml.root-tests.csproj shape).
+        var csproj = WriteProject(
+            Path.Combine("xml-tiny", "tests"),
+            "dotnet-xml.root-tests",
+            SdkProject(
+                "<Compile Remove=\"**\\*.cs\" />",
+                "<Compile Include=\"CorrectnessTest.cs\" />"));
+
+        var included = WriteFile("xml-tiny", "tests", "CorrectnessTest.cs");
+        var removed = WriteFile("xml-tiny", "tests", "Common", "OtherTest.cs");
+
+        var layout = new ProjectPreprocessSourceLayout(
+            _sourceRoot, csproj, new[] { csproj });
+
+        var result = ProjectPreprocessSource.FilterToGraphMembers(
+            new[] { csproj, included, removed }, SingleGraph(Project(csproj)), layout,
+            new SupportedProjectFiltering.ExclusionInfo());
+
+        Assert.Contains(included, result);
+        Assert.DoesNotContain(removed, result);
+
+        var compiled = ProjectCompileSet.ComputeCompiledFiles(csproj, _sourceRoot);
+        Assert.NotNull(compiled);
+        Assert.Contains(included, compiled!);
+        Assert.DoesNotContain(removed, compiled!);
     }
 
     [Fact]

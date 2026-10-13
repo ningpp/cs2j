@@ -11,6 +11,17 @@ namespace CSharpToJava.CLI;
 internal static class ProjectCompileSet
 {
     /// <summary>
+    /// 项目编译集合解析结果：<see cref="Files"/> 为实际编译的源文件绝对路径集合；
+    /// <see cref="DefaultItemsInEffect"/> 表示 SDK 默认 glob（项目目录下全部 *.cs
+    /// 再扣除显式 Remove）确实参与了解析——只有此时“不在集合内”才是可靠的排除信号。
+    /// </summary>
+    internal sealed class ProjectCompiledSet
+    {
+        public required HashSet<string> Files { get; init; }
+        public required bool DefaultItemsInEffect { get; init; }
+    }
+
+    /// <summary>
     /// 列出项目编译的源文件（绝对路径）。<paramref name="root"/> 界定
     /// Directory.Build.props/targets 的向上查找边界：中间树调用传中间树根，
     /// 源码树调用传源码根。<paramref name="includeDefaultItems"/> 为 false 时只解析
@@ -19,6 +30,17 @@ internal static class ProjectCompileSet
     /// 解析不了的项目返回 null，调用方应保守处理。
     /// </summary>
     internal static HashSet<string>? ComputeCompiledFiles(
+        string projectPath,
+        string root,
+        bool includeDefaultItems = true)
+        => ComputeCompiledSet(projectPath, root, includeDefaultItems)?.Files;
+
+    /// <summary>
+    /// 同 <see cref="ComputeCompiledFiles"/>，额外报告 SDK 默认 glob 是否生效，
+    /// 供调用方判断“集合外文件”能否被可靠排除（如 <c>&lt;Compile Remove&gt;</c>
+    /// 掉的平台分片 *.Unix.cs）。
+    /// </summary>
+    internal static ProjectCompiledSet? ComputeCompiledSet(
         string projectPath,
         string root,
         bool includeDefaultItems = true)
@@ -54,7 +76,22 @@ internal static class ProjectCompileSet
             && !IsFalse(properties.GetValueOrDefault("EnableDefaultItems"));
 
         var included = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var removed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Evaluate in MSBuild document order: SDK default items are imported
+        // before the project body, so seed them first; then each <Compile
+        // Include>/<Compile Remove> mutates the live item set in document
+        // order. Bucketing removes for a final sweep is wrong — a file removed
+        // and then re-included later in the project (e.g.
+        // "<Compile Remove="**\*.cs" />" followed by
+        // "<Compile Include="CorrectnessTest.cs" />") must survive.
+        var defaultItemsInEffect = includeDefaultItems && isSdkProject && defaultCompileItems;
+        if (defaultItemsInEffect)
+        {
+            foreach (var file in EnumerateSourceFiles(projectDirectory))
+            {
+                included.Add(file);
+            }
+        }
 
         foreach (var element in projectRootElement.Descendants())
         {
@@ -81,7 +118,7 @@ internal static class ProjectCompileSet
             {
                 if (isRemove)
                 {
-                    removed.Add(resolved);
+                    included.Remove(resolved);
                 }
                 else
                 {
@@ -90,21 +127,11 @@ internal static class ProjectCompileSet
             }
         }
 
-        // SDK 默认 glob：项目目录下的所有 .cs（排除 bin/obj 与显式 Remove）。
-        if (includeDefaultItems && isSdkProject && defaultCompileItems)
+        return new ProjectCompiledSet
         {
-            foreach (var file in EnumerateSourceFiles(projectDirectory))
-            {
-                included.Add(file);
-            }
-        }
-
-        foreach (var file in removed)
-        {
-            included.Remove(file);
-        }
-
-        return included;
+            Files = included,
+            DefaultItemsInEffect = defaultItemsInEffect,
+        };
     }
 
     private static bool IsFalse(string? value) =>
