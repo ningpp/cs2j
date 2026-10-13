@@ -87,6 +87,12 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     /// each project compiles cleanly by itself; the ref/out arguments and
     /// their parameter mapping stay unambiguous in that case, and leaving the
     /// call untouched is what produces CS1615 against the lifted declaration.
+    /// A third failure mode is a sibling project NAMESPACE shadowing the
+    /// receiver TYPE in the enclosing-namespace lookup chain (Symbol=null,
+    /// CandidateReason=None, zero candidates — e.g. a test-only namespace
+    /// <c>dotnet.system.Net.Test.Uri</c> shadowing source type
+    /// <c>dotnet.system.Uri</c>); that case is recovered by
+    /// <see cref="TryGetNamespaceShadowedTypeLiftMethods"/>.
     /// </summary>
     internal bool TryGetLiftMethods(
         InvocationExpressionSyntax inv,
@@ -109,22 +115,132 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             return false;
         }
 
-        if (info.CandidateReason != CandidateReason.OverloadResolutionFailure
-            || info.CandidateSymbols.Length == 0)
+        if (info.CandidateReason == CandidateReason.OverloadResolutionFailure
+            && info.CandidateSymbols.Length > 0)
         {
-            return false;
-        }
+            var candidates = new List<IMethodSymbol>();
+            foreach (var candidate in info.CandidateSymbols)
+            {
+                if (candidate is not IMethodSymbol candidateMethod
+                    || !IsInternalCandidate(candidateMethod))
+                {
+                    return false;
+                }
 
-        var candidates = new List<IMethodSymbol>();
-        foreach (var candidate in info.CandidateSymbols)
-        {
-            if (candidate is not IMethodSymbol candidateMethod
-                || !IsInternalCandidate(candidateMethod))
+                candidates.Add(candidateMethod);
+            }
+
+            if (!RefArgumentShapeAgrees(inv, candidates))
             {
                 return false;
             }
 
-            candidates.Add(candidateMethod);
+            methods = candidates;
+            return true;
+        }
+
+        return TryGetNamespaceShadowedTypeLiftMethods(inv, out methods);
+    }
+
+    /// <summary>
+    /// Recovery for static calls <c>T.M(...)</c> whose simple-name receiver
+    /// binds to a NAMESPACE instead of the intended TYPE in the merged
+    /// solution-graph model. One model is bound for every project's sources, so
+    /// a namespace declared by a SIBLING project (absent from the call site's
+    /// own per-project build) can shadow a source type declared in an outer
+    /// enclosing namespace: C# lookup takes the inner namespace member and
+    /// never walks outward, yielding Symbol=null/CandidateReason=None with a
+    /// CS0234 diagnostic. Each project compiles cleanly on its own, where the
+    /// type (not the foreign namespace) is visible.
+    ///
+    /// Recovery replays just the enclosing-namespace part of name lookup,
+    /// ignoring namespace symbols: the FIRST outer scope containing a type of
+    /// the receiver's name wins (C# precedence; duplicate source declarations
+    /// merge into one symbol). The call is liftable only when every
+    /// same-arity static method of that name is an internal SOURCE candidate
+    /// whose byref shape agrees — a metadata-only type (a real framework/BCL
+    /// method) has no source location and therefore never matches, so genuine
+    /// external out/ref calls are still left untouched.
+    /// </summary>
+    private bool TryGetNamespaceShadowedTypeLiftMethods(
+        InvocationExpressionSyntax inv,
+        out IReadOnlyList<IMethodSymbol> methods)
+    {
+        methods = System.Array.Empty<IMethodSymbol>();
+
+        if (inv.Expression is not MemberAccessExpressionSyntax memberAccess
+            || memberAccess.Expression is not IdentifierNameSyntax receiverName)
+        {
+            return false;
+        }
+
+        Microsoft.CodeAnalysis.SymbolInfo receiverInfo;
+        try { receiverInfo = _semanticModel.GetSymbolInfo(receiverName); }
+        catch (ArgumentException) { return false; }
+
+        // Only the namespace-shadowing case: the bare receiver actually binds
+        // to a namespace symbol. A metadata type, local or alias here is some
+        // other failure mode the existing paths must decide.
+        if (receiverInfo.Symbol is not INamespaceSymbol)
+        {
+            return false;
+        }
+
+        var receiverText = receiverName.Identifier.Text;
+        INamedTypeSymbol? receiverType = null;
+        for (var scope = _semanticModel.GetEnclosingSymbol(inv.SpanStart)?.ContainingNamespace;
+             scope != null;
+             scope = scope.ContainingNamespace)
+        {
+            List<INamedTypeSymbol>? scopeTypes = null;
+            try
+            {
+                scopeTypes = _semanticModel
+                    .LookupSymbols(inv.SpanStart, scope, receiverText)
+                    .OfType<INamedTypeSymbol>()
+                    .ToList();
+            }
+            catch (ArgumentException) { return false; }
+
+            if (scopeTypes.Count == 0)
+            {
+                continue;
+            }
+
+            // First enclosing scope that declares a type of this name wins.
+            // A metadata-only twin at the winning scope means the target is a
+            // real external type: refuse rather than lifting against it.
+            if (scopeTypes.Any(t => !t.Locations.Any(l => l.IsInSource)))
+            {
+                return false;
+            }
+
+            receiverType = scopeTypes[0];
+            break;
+        }
+
+        if (receiverType == null)
+        {
+            return false;
+        }
+
+        var argumentCount = inv.ArgumentList.Arguments.Count;
+        var candidates = receiverType
+            .GetMembers(memberAccess.Name.Identifier.Text)
+            .OfType<IMethodSymbol>()
+            .Where(m => m.IsStatic
+                && m.Parameters.Length == argumentCount
+                && !m.Parameters.Any(p => p.IsParams))
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            return false;
+        }
+
+        if (!candidates.All(IsInternalCandidate))
+        {
+            return false;
         }
 
         if (!RefArgumentShapeAgrees(inv, candidates))
