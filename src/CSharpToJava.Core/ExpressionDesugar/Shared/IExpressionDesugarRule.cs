@@ -88,6 +88,40 @@ internal abstract class ExpressionDesugarRulePlan
     public abstract int RewriteCount { get; }
 
     /// <summary>
+    /// True when the plan carries sites intentionally left untouched by the
+    /// primary rewrite pending the post-lift late pass (anchor-deferred sites).
+    /// Keeps the family pipeline past the zero-rewrite early return so the late
+    /// pass can lower them or emit their diagnostic.
+    /// </summary>
+    public virtual bool HasDeferredSites => false;
+
+    /// <summary>
+    /// Optional SECOND rewrite run against the tree AFTER the family-wide
+    /// <see cref="ExpressionDesugarTempLifter.Apply"/>. Sites that traveled
+    /// inside another rule's pending statement sequences are invisible to the
+    /// primary <see cref="Rewrite"/> (the sequences are still in memory then)
+    /// and become reachable only once they are spliced into the tree. Returns
+    /// null when the rule has no late contribution. Pending sequences produced
+    /// here are exposed via <see cref="LatePendingTemps"/> and lifted by one
+    /// additional family-wide lift pass.
+    /// </summary>
+    public virtual CompilationUnitSyntax? LateRewriteAfterLift(
+        CompilationUnitSyntax root)
+        => null;
+
+    /// <summary>Statement sequences collected during <see cref="LateRewriteAfterLift"/>.</summary>
+    public virtual IReadOnlyList<ExpressionDesugarTempLifter.PendingTemp> LatePendingTemps
+        => Array.Empty<ExpressionDesugarTempLifter.PendingTemp>();
+
+    /// <summary>
+    /// CURRENT post-lift anchor node -> annotation map for the late pending
+    /// sequences (late anchors cannot reuse analyze-time anchors, which may
+    /// precede the inserted sequences or have been replaced).
+    /// </summary>
+    public virtual IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> LateAnchorAnnotations
+        => new Dictionary<SyntaxNode, SyntaxAnnotation>();
+
+    /// <summary>
     /// Post-lift residual gate: every trigger node left in the tree must be
     /// paired with an explicit skip (explained annotation/node-diagnostic
     /// mapping). Returns the number of unpaired residuals and reports the

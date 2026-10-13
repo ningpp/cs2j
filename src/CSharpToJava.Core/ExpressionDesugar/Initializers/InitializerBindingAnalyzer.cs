@@ -299,6 +299,9 @@ internal static class InitializerBindingAnalyzer
             : decision.Kind;
         plan.IsOwnerHandled = ownerHandled;
 
+        if (!isNested && decision.BuilderMethod)
+            plan.BuilderAnchor = decision.Owner;
+
         if (!isNested && chain.Count > 0 && !ownerHandled)
         {
             Report(context, InitializerDiagnosticCodes.CS2J0538,
@@ -799,12 +802,52 @@ internal static class InitializerBindingAnalyzer
         for (var i = 0; i < index; i++)
         {
             var previous = list.Arguments[i];
+
+            // A preceding argument that is itself an initializer site lowered
+            // to its own receiver temp needs no hoist: its construct/member
+            // statements are registered at the same anchor in source order
+            // (LiftOrder) and the argument slot is replaced by that temp by
+            // the site's own plan. Hoisting it here would capture the ORIGINAL
+            // creation expression and the argument-list rewrite would clobber
+            // the site's own temp replacement (residual initializer on disk).
+            if (IsSelfLoweredSite(previous.Expression, state))
+                continue;
+
             if (!HasObservableSideEffect(previous.Expression))
                 continue;
 
             var declare = state.DeclaredHoists.Add(previous);
             plan.HoistRequests.Add((i, previous, declare));
         }
+    }
+
+    /// <summary>
+    /// True when <paramref name="expression"/> is a top-level initializer site
+    /// that this same analysis lowers into a receiver-temp sequence (its plan
+    /// outcome is Object/CollectionSequence). Nested plans (consumed inline by
+    /// an enclosing initializer) and preserved/skipped sites are NOT self-lowered.
+    /// </summary>
+    private static bool IsSelfLoweredSite(
+        ExpressionSyntax expression, AnalyzeState state)
+    {
+        if (expression is not (ObjectCreationExpressionSyntax { Initializer: not null }
+            or ImplicitObjectCreationExpressionSyntax))
+        {
+            return false;
+        }
+
+        foreach (var planned in state.All)
+        {
+            if (!planned.IsNested
+                && planned.Node == expression
+                && planned.Outcome is InitializerOutcome.ObjectSequence
+                    or InitializerOutcome.CollectionSequence)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -989,6 +1032,11 @@ internal static class InitializerBindingAnalyzer
 
     private static SyntaxNode AnchorUnit(InitializerPlan plan)
     {
+        // All sequences emitted into one field/property builder method share a
+        // single lift group (statements are concatenated in source order).
+        if (plan.BuilderAnchor != null)
+            return plan.BuilderAnchor;
+
         if (!plan.IsOwnerHandled || plan.ContextOwner == null)
             return plan.Node;
 

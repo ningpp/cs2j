@@ -273,14 +273,18 @@ public class Program
                     },
                     // C23 rule-level opt-in: default off keeps pre-C23
                     // byte-identical behavior; the family pass itself (C36)
-                    // stays default-on. HandlerPolicy=Error (Q1: Error/Keep
-                    // only), FormattableString preserved (0511), expression-
-                    // tree canonical lowering deferred (M4/Q4).
+                    // stays default-on. HandlerPolicy=Keep: custom-handler
+                    // sites (e.g. StringBuilder.Append/AppendLine($"")) stay
+                    // compilable C# with a CS2J0510 Warning and are rendered
+                    // natively by the Java-side interpolation transformer;
+                    // Q1 still forbids Concat/Format downgrade. Formattable
+                    // String preserved (0511), expression-tree canonical
+                    // lowering deferred (M4/Q4).
                     Interpolations = new CSharpToJava.Core.ExpressionDesugar.Interpolations.InterpolationOptions
                     {
                         Enabled = opts.InterpolationExpand && !opts.NoInterpolationExpand,
                         Strict = opts.LocalFunctionStrict,
-                        HandlerPolicy = CSharpToJava.Core.ExpressionDesugar.Interpolations.HandlerUnsupportedPolicy.Error,
+                        HandlerPolicy = CSharpToJava.Core.ExpressionDesugar.Interpolations.HandlerUnsupportedPolicy.Keep,
                         KeepFormattableString = true,
                         RewriteInExpressionTrees = false,
                         FoldConstants = true,
@@ -3992,14 +3996,18 @@ public class Program
                     },
                     // C23 rule-level opt-in: default off keeps pre-C23
                     // byte-identical behavior; the family pass itself (C36)
-                    // stays default-on. HandlerPolicy=Error (Q1: Error/Keep
-                    // only), FormattableString preserved (0511), expression-
-                    // tree canonical lowering deferred (M4/Q4).
+                    // stays default-on. HandlerPolicy=Keep: custom-handler
+                    // sites (e.g. StringBuilder.Append/AppendLine($"")) stay
+                    // compilable C# with a CS2J0510 Warning and are rendered
+                    // natively by the Java-side interpolation transformer;
+                    // Q1 still forbids Concat/Format downgrade. Formattable
+                    // String preserved (0511), expression-tree canonical
+                    // lowering deferred (M4/Q4).
                     Interpolations = new CSharpToJava.Core.ExpressionDesugar.Interpolations.InterpolationOptions
                     {
                         Enabled = opts.InterpolationExpand && !opts.NoInterpolationExpand,
                         Strict = opts.LocalFunctionStrict,
-                        HandlerPolicy = CSharpToJava.Core.ExpressionDesugar.Interpolations.HandlerUnsupportedPolicy.Error,
+                        HandlerPolicy = CSharpToJava.Core.ExpressionDesugar.Interpolations.HandlerUnsupportedPolicy.Keep,
                         KeepFormattableString = true,
                         RewriteInExpressionTrees = false,
                         FoldConstants = true,

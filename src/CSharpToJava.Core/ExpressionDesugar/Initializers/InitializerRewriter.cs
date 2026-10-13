@@ -28,6 +28,7 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
     private readonly InitializerStableMarkers _markers;
     private readonly Dictionary<BaseObjectCreationExpressionSyntax, InitializerPlan> _byNode = new();
     private readonly Dictionary<SyntaxNode, InitializerPlan> _ownedSiteByNode = new();
+    private readonly Dictionary<SyntaxNode, SyntaxNode> _builderAnchorByOwner = new();
 
     public InitializerRewriter(
         InitializerAnalysis analysis,
@@ -46,6 +47,12 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
 
             if (plan.IsOwnerHandled && plan.OwnerChain.Count > 0)
                 _ownedSiteByNode[plan.Node] = plan;
+
+            if (plan.BuilderAnchor != null)
+            {
+                foreach (var owner in plan.OwnerChain)
+                    _builderAnchorByOwner[owner] = plan.BuilderAnchor;
+            }
         }
     }
 
@@ -198,7 +205,7 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
 
         statements.AddRange(EmitSequence(plan, visited));
 
-        Register(plan.Node, statements, plan.LiftOrder);
+        Register(plan, plan.Node, statements, plan.LiftOrder);
         RewriteCount++;
         return SyntaxFactory.IdentifierName(plan.TempName!);
     }
@@ -229,7 +236,7 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
 
         var statements = new List<StatementSyntax>();
         var resultTemp = EmitOwnerInto(info, visited, statements);
-        Register(info.Original, statements, info.Order);
+        Register(null, info.Original, statements, info.Order);
         RewriteCount++;
         return SyntaxFactory.IdentifierName(resultTemp);
     }
@@ -531,9 +538,16 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
     // Anchor registration.
     // ------------------------------------------------------------------
 
-    private void Register(SyntaxNode source, List<StatementSyntax> statements, int order)
+    private void Register(
+        InitializerPlan? plan, SyntaxNode source,
+        List<StatementSyntax> statements, int order)
     {
-        var anchor = ExpressionDesugarTempLifter.FindAnchor(source);
+        // Field/property initializer sites share the field/property builder
+        // anchor; owner expressions inside such an initializer route there too.
+        SyntaxNode? anchor = plan?.BuilderAnchor;
+        if (anchor == null)
+            _builderAnchorByOwner.TryGetValue(source, out anchor);
+        anchor ??= ExpressionDesugarTempLifter.FindAnchor(source);
         if (anchor == null)
             return;
 
@@ -641,15 +655,22 @@ internal sealed class InitializerStableMarkers
 
             // Only top-level sequence sites register Pending temps (nested
             // sequences are emitted inline by their enclosing site). Owner
-            // sites register against the outermost owner expression.
+            // sites register against the outermost owner expression. Field/
+            // property initializer sites register against their declarator/
+            // property builder anchor.
             if (!plan.IsNested
                 && plan.Outcome is InitializerOutcome.ObjectSequence
                     or InitializerOutcome.CollectionSequence)
             {
-                var anchorSource = plan.IsOwnerHandled && plan.OwnerChain.Count > 0
-                    ? plan.OwnerChain[^1]
-                    : plan.Node;
-                var anchor = ExpressionDesugarTempLifter.FindAnchor(anchorSource);
+                SyntaxNode? anchor = plan.BuilderAnchor;
+                if (anchor == null)
+                {
+                    var anchorSource = plan.IsOwnerHandled && plan.OwnerChain.Count > 0
+                        ? plan.OwnerChain[^1]
+                        : plan.Node;
+                    anchor = ExpressionDesugarTempLifter.FindAnchor(anchorSource);
+                }
+
                 if (anchor != null && !markers.AnchorAnnotations.ContainsKey(anchor))
                 {
                     var annotation = new SyntaxAnnotation(

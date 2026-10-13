@@ -64,6 +64,9 @@ internal sealed class NullConditionalRule : IExpressionDesugarRule
         /// </summary>
         private readonly Dictionary<ChainPlan, SyntaxAnnotation> _anchorReplacementsByPlan = new();
         private NullConditionalRewriter? _rewriter;
+        private NullConditionalRewriter? _lateRewriter;
+        private IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> _lateAnchorAnnotations
+            = new Dictionary<SyntaxNode, SyntaxAnnotation>();
 
         public NullConditionalRulePlan(
             RuleAnalysisContext context,
@@ -142,6 +145,182 @@ internal sealed class NullConditionalRule : IExpressionDesugarRule
                ?? _anchorAnnotations;
 
         public override int RewriteCount => _rewriter?.RewriteCount ?? 0;
+
+        public override bool HasDeferredSites
+            => _analysis.Plans.Any(static plan => plan.AnchorDeferred);
+
+        /// <summary>
+        /// Post-lift late rewrite (design hard interaction with C24/C36):
+        /// chains carried INSIDE another rule's pending statement sequences
+        /// (e.g. a null-conditional in an object initializer member value)
+        /// are invisible to the primary rewrite because those sequences are
+        /// spliced into the tree only by the family TempLifter. Once they are
+        /// in the tree their site markers resolve again; anchor their pending
+        /// declarations against the CURRENT hosting statements and let one
+        /// additional family lift insert them.
+        /// </summary>
+        public override CompilationUnitSyntax? LateRewriteAfterLift(
+            CompilationUnitSyntax root)
+        {
+            if (_context.Options.NullConditional is null)
+                return null;
+
+            var deferredPlans = _analysis.Plans
+                .Where(static plan => plan.AnchorDeferred)
+                .ToList();
+
+            // Pre-scan: every planned chain root still present in the
+            // post-lift tree was unreachable during the primary rewrite
+            // (lowered roots disappeared with their expressions; preserved
+            // roots were explained in place).
+            var anchorByPlan = new Dictionary<ChainPlan, StatementSyntax>();
+            var anchors = new List<StatementSyntax>();
+            var anchorSet = new HashSet<StatementSyntax>();
+            var replacementPlans = new List<ChainPlan>();
+
+            foreach (var ca in root.DescendantNodes()
+                         .OfType<ConditionalAccessExpressionSyntax>())
+            {
+                var plan = _markers.TryResolve(ca);
+                if (plan == null)
+                    continue;
+
+                // Already paired by the primary rewrite (preserved sites keep
+                // the node plus the explained annotation).
+                if (plan.Outcome == ChainOutcome.Preserved
+                    && NullConditionalSyntaxFacts.IsExplained(ca))
+                {
+                    continue;
+                }
+
+                if (ExpressionDesugarTempLifter.FindAnchor(ca)
+                    is not StatementSyntax anchor)
+                {
+                    continue;
+                }
+
+                anchorByPlan[plan] = anchor;
+                if (anchorSet.Add(anchor))
+                    anchors.Add(anchor);
+                if (plan.Shape is NullConditionalLoweringShape.StatementIf
+                    or NullConditionalLoweringShape.GuardedBlock
+                    && !replacementPlans.Contains(plan))
+                {
+                    replacementPlans.Add(plan);
+                }
+            }
+
+            if (anchorByPlan.Count == 0 && deferredPlans.Count == 0)
+                return null;
+
+            CompilationUnitSyntax result = root;
+
+            if (anchorByPlan.Count > 0)
+            {
+                // Stamp FRESH lift/replacement annotations on the current
+                // hosting statements (the plans' analyze-time anchors precede
+                // those statements or were replaced by the primary lift).
+                var stamps = new Dictionary<SyntaxNode, List<SyntaxAnnotation>>();
+                var anchorAnnotations =
+                    new Dictionary<SyntaxNode, SyntaxAnnotation>();
+                var anchorAnnotationsByStatement =
+                    new Dictionary<StatementSyntax, SyntaxAnnotation>();
+                foreach (var anchor in anchors)
+                {
+                    var annotation = new SyntaxAnnotation(
+                        ExpressionDesugarTempLifter.AnchorAnnotationKind);
+                    anchorAnnotations[anchor] = annotation;
+                    anchorAnnotationsByStatement[anchor] = annotation;
+                    AddStamp(stamps, anchor, annotation);
+                }
+
+                var replacementMarkers = new Dictionary<ChainPlan, SyntaxAnnotation>();
+                foreach (var plan in replacementPlans)
+                {
+                    var marker = new SyntaxAnnotation("ed-nc-anchor-replacement");
+                    replacementMarkers[plan] = marker;
+                    AddStamp(stamps, anchorByPlan[plan], marker);
+                }
+
+                var stamped = StableMarkerStamper.Apply(root, stamps);
+
+                var lateContext = new NullConditionalLateContext
+                {
+                    AnchorByPlan = anchorByPlan,
+                    AnchorAnnotations = anchorAnnotationsByStatement,
+                    ReplacementMarkers = replacementMarkers,
+                };
+
+                _lateRewriter = new NullConditionalRewriter(
+                    _analysis, _context.SemanticModel!, _markers,
+                    _anchorAnnotations, _anchorReplacementsByPlan, lateContext);
+                var visited = (CompilationUnitSyntax)_lateRewriter.Visit(stamped)!;
+                result = PendingAnchorReplacementApplicator.Apply(
+                    visited, _lateRewriter.AnchorReplacements);
+
+                _lateAnchorAnnotations = anchorAnnotations;
+            }
+
+            return ResolveDeferredPlans(result, deferredPlans);
+        }
+
+        /// <summary>
+        /// Settles anchor-deferred chains after the late rewrite: chains that
+        /// left the tree acquired a hosting statement during the family lift
+        /// and are now lowered (emit success Info/stats); chains still present
+        /// are genuinely anchor-free and receive CS2J0557 (strict Error /
+        /// non-strict Warning) plus the explained annotation pairing the gate.
+        /// </summary>
+        private CompilationUnitSyntax ResolveDeferredPlans(
+            CompilationUnitSyntax result, IReadOnlyList<ChainPlan> deferredPlans)
+        {
+            if (deferredPlans.Count == 0)
+                return result;
+
+            var explainStamps =
+                new Dictionary<SyntaxNode, List<SyntaxAnnotation>>();
+            var strict = _context.Options.NullConditional!.Strict;
+
+            foreach (var plan in deferredPlans)
+            {
+                var remaining = result.DescendantNodes()
+                    .OfType<ConditionalAccessExpressionSyntax>()
+                    .FirstOrDefault(c => _markers.TryResolve(c) == plan);
+
+                if (remaining == null)
+                {
+                    ChainSegmentAnalyzer.AccumulateLowered(plan, _context);
+                    continue;
+                }
+
+                _context.Report(
+                    NullConditionalDiagnostics.ResolveStrictError(strict),
+                    NullConditionalDiagnosticCodes.CS2J0557,
+                    string.Format(
+                        NullConditionalDiagnostics.UnliftableMessage,
+                        plan.RootOriginal.ToString()),
+                    remaining);
+                _context.Statistics.NullConditional.AddSkip(
+                    NullConditionalDiagnosticCodes.CS2J0557);
+                AddStamp(
+                    explainStamps, remaining,
+                    ExpressionDesugarSyntaxFacts.ExplainedAnnotation);
+            }
+
+            return explainStamps.Count > 0
+                ? StableMarkerStamper.Apply(result, explainStamps)
+                : result;
+        }
+
+        public override IReadOnlyList<ExpressionDesugarTempLifter.PendingTemp>
+            LatePendingTemps
+            => (IReadOnlyList<ExpressionDesugarTempLifter.PendingTemp>?)
+                   _lateRewriter?.Pending
+               ?? Array.Empty<ExpressionDesugarTempLifter.PendingTemp>();
+
+        public override IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation>
+            LateAnchorAnnotations
+            => _lateAnchorAnnotations;
 
         public override int CheckResiduals(
             RuleAnalysisContext context, CompilationUnitSyntax root)

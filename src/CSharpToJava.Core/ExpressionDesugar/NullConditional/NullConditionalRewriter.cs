@@ -6,6 +6,22 @@ using CSharpToJava.Core.ExpressionDesugar.NullConditional.Assignment;
 namespace CSharpToJava.Core.ExpressionDesugar.NullConditional;
 
 /// <summary>
+/// Anchoring for the post-lift late pass: planned chains discovered inside
+/// other rules' already-inserted pending statement sequences must anchor
+/// against CURRENT statements (the analyze-time anchor precedes, or has been
+/// replaced by, those sequences), carrying freshly stamped family-lift and
+/// anchor-replacement annotations.
+/// </summary>
+internal sealed class NullConditionalLateContext
+{
+    public required IReadOnlyDictionary<ChainPlan, StatementSyntax> AnchorByPlan { get; init; }
+
+    public required IReadOnlyDictionary<StatementSyntax, SyntaxAnnotation> AnchorAnnotations { get; init; }
+
+    public required IReadOnlyDictionary<ChainPlan, SyntaxAnnotation> ReplacementMarkers { get; init; }
+}
+
+/// <summary>
 /// Bottom-up rewriter for C35 (design §4.1 / NC-1...). Chain-root conditional
 /// accesses are replaced as whole plans:
 /// <list type="bullet">
@@ -29,18 +45,21 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
     private readonly RuleSiteMarkers<ChainPlan> _markers;
     private readonly IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> _anchorAnnotations;
     private readonly IReadOnlyDictionary<ChainPlan, SyntaxAnnotation> _anchorReplacementsByPlan;
+    private readonly NullConditionalLateContext? _late;
 
     public NullConditionalRewriter(
         NullConditionalAnalysis analysis,
         SemanticModel model,
         RuleSiteMarkers<ChainPlan> markers,
         IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> anchorAnnotations,
-        IReadOnlyDictionary<ChainPlan, SyntaxAnnotation> anchorReplacementsByPlan)
+        IReadOnlyDictionary<ChainPlan, SyntaxAnnotation> anchorReplacementsByPlan,
+        NullConditionalLateContext? late = null)
     {
         _analysis = analysis;
         _markers = markers;
         _anchorAnnotations = anchorAnnotations;
         _anchorReplacementsByPlan = anchorReplacementsByPlan;
+        _late = late;
     }
 
     public List<ExpressionDesugarTempLifter.PendingTemp> Pending { get; } = new();
@@ -67,9 +86,22 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
         {
             // Pair the residual gate directly (the site marker is how the
             // plan was resolved after earlier rules refreshed node identity).
+            // The late pass rewalks the whole tree: skip sites the primary
+            // rewrite already paired.
+            if (_late != null
+                && visited.HasAnnotation(ExpressionDesugarSyntaxFacts.ExplainedAnnotation))
+            {
+                return visited;
+            }
+
             return visited.WithAdditionalAnnotations(
                 ExpressionDesugarSyntaxFacts.ExplainedAnnotation);
         }
+
+        // Anchor-deferred chains are lowered exclusively by the post-lift late
+        // pass (their statement anchor materializes during the family lift).
+        if (plan.AnchorDeferred && _late == null)
+            return visited;
 
         // C51 assignment terminals render through the Assignment sub-rule
         // (NA-1...NA-7); read-side terminals keep the flow below.
@@ -131,7 +163,9 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
                 var nestedTernary = NullConditionalEmitter.BuildNestedTernary(
                     plan, terminalVisited);
 
-                var finalStatement = RebuildValueAnchorStatement(plan, nestedTernary);
+                var finalStatement = _late != null
+                    ? RebuildLateAnchorStatement(plan, nestedTernary)
+                    : RebuildValueAnchorStatement(plan, nestedTernary);
                 var statements = prefix;
                 statements.Add(finalStatement);
 
@@ -371,7 +405,9 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
 
             var valueTernary = NullConditionalAssignmentEmitter.BuildCoalesceValueTernary(
                 plan, terminalAssignment);
-            statements.Add(RebuildValueAnchorStatement(plan, valueTernary));
+            statements.Add(_late != null
+                ? RebuildLateAnchorStatement(plan, valueTernary)
+                : RebuildValueAnchorStatement(plan, valueTernary));
         }
 
         RegisterAnchorReplacement(plan, statements);
@@ -411,11 +447,26 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
 
     private void RegisterPending(ChainPlan plan, StatementSyntax statement)
     {
-        var anchor = plan.Anchor;
-        if (anchor == null)
-            return;
+        SyntaxNode anchor;
+        if (_late != null)
+        {
+            // Late pass: anchor against the CURRENT statement that now hosts
+            // the chain (it traveled inside another rule's inserted pending
+            // sequence); the analyze-time anchor precedes that statement and
+            // would put the declaration after its first use.
+            if (!_late.AnchorByPlan.TryGetValue(plan, out var lateAnchor))
+                return;
+            anchor = lateAnchor;
+        }
+        else
+        {
+            anchor = plan.Anchor!;
+            if (anchor == null)
+                return;
+        }
 
-        // The anchor's family-lift annotation was pre-stamped in the plan.
+        // The anchor's family-lift annotation was pre-stamped in the plan
+        // (primary pass) or in the late pre-scan (late pass).
         Pending.Add(new ExpressionDesugarTempLifter.PendingTemp(
             new[] { statement }, anchor, plan.RootOriginal.SpanStart));
     }
@@ -423,13 +474,34 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
     private void RegisterAnchorReplacement(
         ChainPlan plan, IReadOnlyList<StatementSyntax> statements)
     {
-        var anchor = plan.Anchor!;
+        SyntaxNode anchor;
+        SyntaxAnnotation marker;
+        SyntaxAnnotation? anchorAnnotation;
+
+        if (_late != null)
+        {
+            if (!_late.AnchorByPlan.TryGetValue(plan, out var lateAnchor)
+                || !_late.ReplacementMarkers.TryGetValue(plan, out var lateMarker))
+            {
+                return;
+            }
+
+            anchor = lateAnchor;
+            marker = lateMarker;
+            _late.AnchorAnnotations.TryGetValue(lateAnchor, out anchorAnnotation);
+        }
+        else
+        {
+            anchor = plan.Anchor!;
+            marker = _anchorReplacementsByPlan[plan];
+            _anchorAnnotations.TryGetValue(anchor, out anchorAnnotation);
+        }
 
         // An independent inner root (e.g. j?[i] inside j?[i]?.Length) may
         // have anchored pending temps to this same statement. The splice
         // removes the anchor node, so carry the family anchor annotation
         // onto the first replacement statement to keep insertion working.
-        if (_anchorAnnotations.TryGetValue(anchor, out var anchorAnnotation))
+        if (anchorAnnotation != null)
         {
             var copied = new List<StatementSyntax>(statements.Count)
             {
@@ -440,8 +512,25 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
             statements = copied;
         }
 
-        var marker = _anchorReplacementsByPlan[plan];
         AnchorReplacements.Add(new PendingAnchorReplacement(
             anchor, marker, statements));
+    }
+
+    /// <summary>
+    /// Late-pass counterpart of <see cref="RebuildValueAnchorStatement"/>: the
+    /// chain now lives inside an arbitrary CURRENT statement (another rule's
+    /// inserted sequence), so substitute the chain root in that statement in
+    /// place rather than rebuilding the analyze-time local/return anchor.
+    /// The anchor is the stamped-tree instance captured by the late pre-scan;
+    /// the applicator locates it through its replacement marker.
+    /// </summary>
+    private StatementSyntax RebuildLateAnchorStatement(
+        ChainPlan plan, ExpressionSyntax replacement)
+    {
+        var anchor = _late!.AnchorByPlan[plan];
+        var rootCa = anchor.DescendantNodesAndSelf()
+            .OfType<ConditionalAccessExpressionSyntax>()
+            .First(c => _markers.TryResolve(c) == plan);
+        return (StatementSyntax)anchor.ReplaceNode(rootCa, replacement);
     }
 }

@@ -14,7 +14,8 @@ namespace CSharpToJava.Core.ExpressionDesugar.Initializers;
 internal readonly record struct InitializerContextDecision(
     InitializerContextKind Kind,
     bool Liftable,
-    SyntaxNode? Owner);
+    SyntaxNode? Owner,
+    bool BuilderMethod = false);
 
 /// <summary>
 /// C24 expression-position classification and statement-lowering gate
@@ -27,10 +28,13 @@ internal readonly record struct InitializerContextDecision(
 /// assignment RHS, expression statements, expression-bodied members, <c>?:</c>
 /// branches (synthesized if/else with a definite-assignment temp, guard NOT
 /// hoisted), <c>??</c> right operand and argument positions (preceding
-/// side-effecting arguments hoisted left-to-right). Anchor-free positions
-/// (field/property initializers, attributes, default parameters, query
-/// clauses) map to CS2J0538; v1-unsupported statement positions (constructor
-/// chain arguments, lambda/method-group inferred targets) map to CS2J0537.
+/// side-effecting arguments hoisted left-to-right). Field/event-field/property
+/// initializers (including argument/branch positions directly inside them)
+/// lower through a synthesized private static builder method on the enclosing
+/// type; the remaining anchor-free positions (attributes, default parameters,
+/// query clauses) map to CS2J0538; v1-unsupported statement positions
+/// (constructor chain arguments, lambda/method-group inferred targets) map to
+/// CS2J0537.
 /// </summary>
 internal static class InitializerContextLowering
 {
@@ -38,6 +42,8 @@ internal static class InitializerContextLowering
     public static InitializerContextDecision Classify(SyntaxNode site)
     {
         var decision = ClassifyCore(site);
+        if (decision.BuilderMethod)
+            return decision;
         if (!decision.Liftable)
             return decision;
 
@@ -45,12 +51,56 @@ internal static class InitializerContextLowering
         // boundary may separate the site from it (evaluation timing).
         var anchor = ExpressionDesugarTempLifter.FindAnchor(site);
         if (anchor == null)
-            return Unsupported(decision.Kind);
+        {
+            // No statement anchor, but the site lives directly in a field/
+            // property initializer (argument/branch positions included): its
+            // sequence is emitted into a synthesized builder method instead.
+            var builderAnchor = FindBuilderAnchor(site);
+            return builderAnchor != null
+                ? new InitializerContextDecision(
+                    decision.Kind, true, builderAnchor, BuilderMethod: true)
+                : Unsupported(decision.Kind);
+        }
 
         if (IsSeparatedByFunctionBoundary(site, anchor))
             return Unsupported(InitializerContextKind.LambdaTarget);
 
         return decision;
+    }
+
+    /// <summary>
+    /// Finds the field declarator / property declaration whose initializer
+    /// directly encloses <paramref name="site"/>. Returns null when a statement,
+    /// lambda/local-function or arrow boundary is reached first (the site is
+    /// then ordinary statement-lifted, or unsupported inside an expression
+    /// lambda).
+    /// </summary>
+    public static SyntaxNode? FindBuilderAnchor(SyntaxNode site)
+    {
+        for (var current = site.Parent; current != null; current = current.Parent)
+        {
+            switch (current)
+            {
+                // LocalFunctionStatementSyntax is a StatementSyntax and is
+                // covered by the first label.
+                case StatementSyntax:
+                case ArrowExpressionClauseSyntax:
+                case AnonymousFunctionExpressionSyntax:
+                    return null;
+
+                case VariableDeclaratorSyntax declarator
+                    when declarator.Parent is VariableDeclarationSyntax
+                    {
+                        Parent: FieldDeclarationSyntax or EventFieldDeclarationSyntax
+                    }:
+                    return declarator;
+
+                case PropertyDeclarationSyntax property:
+                    return property.Initializer != null ? property : null;
+            }
+        }
+
+        return null;
     }
 
     private static InitializerContextDecision ClassifyCore(SyntaxNode site)
@@ -95,9 +145,13 @@ internal static class InitializerContextLowering
                 case InitializerExpressionSyntax:
                     return Unsupported();
 
-                // Lambda / local-function boundaries; an expression-bodied
-                // lambda's own arrow has no member block to expand.
-                case AnonymousFunctionExpressionSyntax:
+                // Expression-bodied lambdas: the shared TempLifter converts the
+                // lambda itself into a block body (FindAnchor returns the
+                // lambda), so ordinary positions inside the body are supported.
+                // A block-bodied lambda can only be reached when the site sits
+                // outside any of its statements (syntactically impossible);
+                // keep it rejected defensively.
+                case AnonymousFunctionExpressionSyntax { Body: BlockSyntax }:
                     return Unsupported(InitializerContextKind.LambdaTarget);
 
                 case LocalFunctionStatementSyntax:
@@ -156,28 +210,52 @@ internal static class InitializerContextLowering
     }
 
     /// <summary>
-    /// Classifies an <c>= value</c> clause by its declaration owner. Only
-    /// local/using declarations are liftable; field/property/event initializers
-    /// and <c>for</c> declarations are anchor-free (design §2 decision 12).
+    /// Classifies an <c>= value</c> clause by its declaration owner. Local/using
+    /// declarations are statement-lifted; field/event-field/property
+    /// initializers are anchor-free for statements but lower through a
+    /// synthesized private static builder method (BuilderMethod decision);
+    /// other declarators (<c>for</c>, fixed-size) remain unsupported.
     /// </summary>
     private static InitializerContextDecision ClassifyDeclaration(
         EqualsValueClauseSyntax equalsValue)
     {
+        // Auto-property initializer: `T P { get; } = value`.
+        if (equalsValue.Parent is PropertyDeclarationSyntax property)
+        {
+            return new InitializerContextDecision(
+                InitializerContextKind.PropertyInitializer,
+                true, property, BuilderMethod: true);
+        }
+
         if (equalsValue.Parent is not VariableDeclaratorSyntax declarator
             || declarator.Parent is not VariableDeclarationSyntax declaration)
         {
             return Unsupported();
         }
 
-        return declaration.Parent switch
+        switch (declaration.Parent)
         {
-            LocalDeclarationStatementSyntax local
-                => Supported(local.UsingKeyword != default
+            case LocalDeclarationStatementSyntax local:
+                return Supported(local.UsingKeyword != default
                     ? InitializerContextKind.Using
-                    : InitializerContextKind.LocalDecl, null),
-            UsingStatementSyntax => Supported(InitializerContextKind.Using, null),
-            _ => Unsupported(),
-        };
+                    : InitializerContextKind.LocalDecl, null);
+
+            case UsingStatementSyntax:
+                return Supported(InitializerContextKind.Using, null);
+
+            case FieldDeclarationSyntax:
+                return new InitializerContextDecision(
+                    InitializerContextKind.FieldInitializer,
+                    true, declarator, BuilderMethod: true);
+
+            case EventFieldDeclarationSyntax:
+                return new InitializerContextDecision(
+                    InitializerContextKind.FieldInitializer,
+                    true, declarator, BuilderMethod: true);
+
+            default:
+                return Unsupported();
+        }
     }
 
     /// <summary>

@@ -1,8 +1,9 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.Runtime.Loader;
 using System.Text.RegularExpressions;
 using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
+using CSharpToJava.Core.ExpressionDesugar.Initializers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -592,6 +593,121 @@ public class CollectionExprDesugarUnitTests
             .ContainsKey(CollectionExprDiagnosticCodes.CS2J0581));
         Assert.Equal(1, result.Statistics.CollectionExpr.InterfaceConstructSites);
         Assert.Equal(1, result.Statistics.CollectionExpr.BuilderFactoryEmitted);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    // ------------------------------------------------------------------
+    // Expression-bodied lambda carrying lifted statements: the synthesized
+    // block tail must match the delegate's void/value nature. Regression for
+    // CS8030/CS0029/CS1662 in RegexCharacterSetTests.ValidateValidateSet, where
+    // Assert.Throws<XunitException>(() => VoidCall(...)) was lowered to a block
+    // ending in "return VoidCall(...);".
+    // ------------------------------------------------------------------
+
+    private static readonly ExpressionDesugarOptions InitializerDesugarOptions = new()
+    {
+        Initializers = new InitializerOptions(),
+    };
+
+    [Fact]
+    public void InitializerLift_VoidExpressionLambda_ResolvedAction_EmitsExpressionStatement()
+    {
+        const string source = """
+            using System;
+            using System.Collections.Generic;
+
+            public class C
+            {
+                static void Record(string s, int o, HashSet<char> set, object extra) {}
+
+                static void Throws(Action action) {}
+
+                public void M()
+                {
+                    Throws(() => Record("[a]", 0, new HashSet<char>() { 'b' }, null));
+                }
+            }
+            """;
+        var preprocessor = new ExpressionDesugarPreprocessor();
+
+        var result = preprocessor.Preprocess(source, BuildModel(source), InitializerDesugarOptions);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("new HashSet<char>()", normalized);
+        // The void invocation becomes an expression statement — never "return".
+        Assert.DoesNotContain("return Record(", normalized);
+        Assert.Contains("Record(\"[a]\", 0,", normalized);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void InitializerLift_VoidExpressionLambda_UnresolvedDelegate_StillHasNoReturn()
+    {
+        // In the pass compilation the delegate target may fail to resolve (the
+        // corpus test project's xUnit metadata is not referenced). The body
+        // itself still binds (Record is source-defined and void): "return E;"
+        // is illegal for a void E regardless of the delegate, so the fallback
+        // classification must keep the expression-statement tail. The optional
+        // second parameter makes the call ambiguous ON PURPOSE so the lambda's
+        // ConvertedType is null in the semantic model.
+        const string source = """
+            using System;
+            using System.Collections.Generic;
+
+            public class C
+            {
+                static void Record(string s, int o, HashSet<char> set, object extra) {}
+
+                static void Throws(Action action) {}
+                static void Throws(Action action, int level = 0) {}
+
+                public void M()
+                {
+                    Throws(() => Record("[a]", 0, new HashSet<char>() { 'b' }, null));
+                }
+            }
+            """;
+        var preprocessor = new ExpressionDesugarPreprocessor();
+
+        var result = preprocessor.Preprocess(source, BuildModel(source), InitializerDesugarOptions);
+
+        Assert.True(result.Changed);
+        var normalized = Normalize(result.OutputCode);
+        Assert.DoesNotContain("return Record(", normalized);
+        Assert.Contains("__ed_", normalized);
+    }
+
+    [Fact]
+    public void InitializerLift_ActionDiscardingValueBody_EmitsExpressionStatement()
+    {
+        // The Action-discard shape (void delegate, value body) is decided by the
+        // delegate: an "IntReturning();" statement discards the result exactly
+        // like the original expression lambda did — never "return …" into void.
+        const string source = """
+            using System;
+            using System.Collections.Generic;
+
+            public class C
+            {
+                static int Count(HashSet<char> set) => set.Count;
+
+                static void Run(Action action) {}
+
+                public void M()
+                {
+                    Run(() => Count(new HashSet<char>() { 'b' }));
+                }
+            }
+            """;
+        var preprocessor = new ExpressionDesugarPreprocessor();
+
+        var result = preprocessor.Preprocess(source, BuildModel(source), InitializerDesugarOptions);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        var normalized = Normalize(result.OutputCode);
+        // void delegate -> expression statement; the int result is discarded.
+        Assert.DoesNotContain("return Count(", normalized);
         AssertOutputCompiles(result.OutputCode);
     }
 

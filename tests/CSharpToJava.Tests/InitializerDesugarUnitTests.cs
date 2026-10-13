@@ -1896,8 +1896,11 @@ public class InitializerDesugarUnitTests
     }
 
     [Fact]
-    public void M2_FieldInitializerWithStatements_CS2J0538_AtomicUnchanged()
+    public void M2_FieldInitializer_LowersToBuilderMethod()
     {
+        // Field initializers are anchor-free for statement lifting; the site
+        // now lowers into a synthesized private static builder method instead
+        // of failing with CS2J0538.
         const string source = """
             public class Dto { public int A { get; set; } }
             public class Holder { private readonly Dto _d = new Dto { A = 1 }; }
@@ -1905,21 +1908,36 @@ public class InitializerDesugarUnitTests
 
         var result = Preprocess(source);
 
-        Assert.True(HasDiagnostic(
-            result, InitializerDiagnosticCodes.CS2J0538, ExpressionDesugarSeverity.Error));
-        Assert.False(result.Changed);
-        Assert.Equal(source, result.OutputCode);
+        Assert.DoesNotContain(
+            result.Diagnostics, d => d.Code == InitializerDiagnosticCodes.CS2J0538);
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains(
+            "private readonly Dto _d = __cs2j_init__d();", normalized);
+        Assert.Contains("private static Dto __cs2j_init__d()", normalized);
+        Assert.Contains("__ed_0.A = 1;", normalized);
+        Assert.Contains("return __ed_0;", normalized);
     }
 
     [Fact]
     public void M2_NonStrict_UnsupportedSitePreserved_SiblingsRewrite()
     {
+        // A query-clause site remains a genuine CS2J0538 context (anchor-free,
+        // no builder owner); in non-strict mode it is preserved (Warning) while
+        // the statement-anchored sibling still rewrites.
         const string source = """
+            using System.Collections.Generic;
+            using System.Linq;
             public class Dto { public int A { get; set; } }
-            public class Holder { private readonly Dto _d = new Dto { A = 1 }; }
             public static class C
             {
-                public static void M() { var d = new Dto { A = 2 }; }
+                public static void M()
+                {
+                    var q = from x in new List<Dto> { new Dto { A = 1 } } select x;
+                    var d = new Dto { A = 2 };
+                }
             }
             """;
 

@@ -284,6 +284,15 @@ public sealed class InitializerPlan
     /// <summary>Owner argument list when the site sits in an argument position.</summary>
     public ArgumentListSyntax? ArgumentList { get; set; }
 
+    /// <summary>
+    /// Field declarator / property declaration whose initializer hosts this
+    /// site: statement sequences are emitted into a synthesized private static
+    /// builder method on the enclosing type and the whole initializer RHS is
+    /// replaced by the builder invocation (field/property initializers are
+    /// anchor-free for ordinary statement lifting).
+    /// </summary>
+    public SyntaxNode? BuilderAnchor { get; set; }
+
     /// <summary>Preceding arguments hoisted into temps (argument position only).</summary>
     public List<HoistedArgument> HoistedArguments { get; } = new();
 

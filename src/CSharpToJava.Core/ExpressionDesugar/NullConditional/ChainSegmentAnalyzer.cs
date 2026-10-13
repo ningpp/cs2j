@@ -458,6 +458,12 @@ internal static class ChainSegmentAnalyzer
             {
                 LowerGuardedBlock(plan, context);
             }
+            else if (anchor == null)
+            {
+                // Anchor-free today; the family lift may synthesize the hosting
+                // statement (field/property builder). The late pass decides.
+                DeferLowered(plan, NullConditionalLoweringShape.GuardedBlock, context);
+            }
             else
             {
                 Preserve(plan, NullConditionalDiagnosticCodes.CS2J0557);
@@ -485,14 +491,11 @@ internal static class ChainSegmentAnalyzer
             case ChainTerminalKind.Invoke:
                 if (anchor == null)
                 {
-                    Preserve(plan, NullConditionalDiagnosticCodes.CS2J0557);
-                    Report(context,
-                        NullConditionalDiagnostics.ResolveStrictError(strict),
-                        NullConditionalDiagnosticCodes.CS2J0557,
-                        string.Format(
-                            NullConditionalDiagnostics.UnliftableMessage,
-                            plan.RootOriginal.ToString()),
-                        root);
+                    // Anchor-free today; the family lift may synthesize the
+                    // hosting statement (field/property builder). The late
+                    // pass lowers it or re-reports CS2J0557 if still anchorless.
+                    DeferLowered(
+                        plan, NullConditionalLoweringShape.TempTernary, context);
                     break;
                 }
 
@@ -515,7 +518,7 @@ internal static class ChainSegmentAnalyzer
 
         if (plan.Anchor == null)
         {
-            // Anchor-free: only the zero-declaration inline form is possible.
+            // Anchor-free: the zero-declaration inline form works anywhere.
             if (whitelist
                 && NullConditionalSyntaxFacts.AreArgumentsInlineSafe(
                     arguments, context.SemanticModel))
@@ -524,14 +527,11 @@ internal static class ChainSegmentAnalyzer
             }
             else
             {
-                Preserve(plan, NullConditionalDiagnosticCodes.CS2J0557);
-                Report(context,
-                    NullConditionalDiagnostics.ResolveStrictError(strict),
-                    NullConditionalDiagnosticCodes.CS2J0557,
-                    string.Format(
-                        NullConditionalDiagnostics.UnliftableMessage,
-                        plan.RootOriginal.ToString()),
-                    plan.RootOriginal);
+                // Otherwise the segment temp needs a statement anchor. It may
+                // materialize during the family lift (field/property builder);
+                // the late pass lowers it or re-reports CS2J0557 if not.
+                DeferLowered(
+                    plan, NullConditionalLoweringShape.TempTernary, context);
             }
 
             return;
@@ -606,7 +606,33 @@ internal static class ChainSegmentAnalyzer
         stats.SegmentTempsLifted += plan.Segments.Count;
     }
 
-    private static void AccumulateLowered(ChainPlan plan, RuleAnalysisContext context)
+    /// <summary>
+    /// Anchor-free value chain deferred to the post-lift late pass: the shape
+    /// and segment temps are fixed now (the allocator runs once), but no
+    /// success diagnostic/statistics are emitted until the late pass confirms
+    /// a hosting statement materialized. Sites still anchor-free then are
+    /// re-diagnosed as CS2J0557.
+    /// </summary>
+    private static void DeferLowered(
+        ChainPlan plan,
+        NullConditionalLoweringShape shape,
+        RuleAnalysisContext context)
+    {
+        plan.Outcome = ChainOutcome.Lowered;
+        plan.Shape = shape;
+        plan.AnchorDeferred = true;
+        var stats = context.Statistics.NullConditional;
+        if (shape == NullConditionalLoweringShape.GuardedBlock)
+            stats.AnchorReplacements++;
+        stats.SegmentTempsLifted += plan.Segments.Count;
+    }
+
+    /// <summary>
+    /// Emits the success Info diagnostics + statistics for a chain once it is
+    /// actually lowered. Also called by the late pass for anchor-deferred
+    /// chains that acquired a hosting statement during the family lift.
+    /// </summary>
+    internal static void AccumulateLowered(ChainPlan plan, RuleAnalysisContext context)
     {
         var stats = context.Statistics.NullConditional;
 

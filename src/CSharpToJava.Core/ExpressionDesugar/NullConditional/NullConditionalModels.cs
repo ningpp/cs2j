@@ -142,6 +142,16 @@ internal sealed class ChainPlan
     /// <summary>Diagnostic code explaining a preserved site (skip/defer); null when lowered.</summary>
     public string? SkipCode { get; set; }
 
+    /// <summary>
+    /// True for a value chain that had no statement anchor at analyze time but
+    /// may acquire one during the family lift (e.g. an initializer site inside
+    /// a field/property initializer is moved into a synthesized builder
+    /// method). The primary rewriter leaves such sites untouched; the post-lift
+    /// late pass lowers them against their NEW hosting statement. Sites still
+    /// anchor-free after the lift are re-diagnosed as CS2J0557 (strict Error).
+    /// </summary>
+    public bool AnchorDeferred { get; set; }
+
     /// <summary>True when the site sits inside an E03 (<c>___tN</c>) temp initializer (NC-6).</summary>
     public required bool IsCoalesceComposition { get; init; }
 

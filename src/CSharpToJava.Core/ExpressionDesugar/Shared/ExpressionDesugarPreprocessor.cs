@@ -135,11 +135,12 @@ public sealed class ExpressionDesugarPreprocessor
                 allAnnotations[pair.Key] = pair.Value;
         }
 
-        if (rewriteCount == 0)
+        if (rewriteCount == 0 && plans.All(static plan => !plan.HasDeferredSites))
         {
             // Dirty syntax but every site is diagnostic-only/intentionally
             // untouched (e.g. CE-GUARD-only files or all-warning skips): keep
-            // the source bytes.
+            // the source bytes. Anchor-deferred plans must fall through to the
+            // late pass, which may still lower them or report their error.
             stats.FilesDirtyNoRewrite = 1;
             stats.CollectionExpr.FilesDirtyNoRewrite = 1;
             if (interpolationActive)
@@ -150,12 +151,42 @@ public sealed class ExpressionDesugarPreprocessor
 
         // Single family-wide lifting pass (statement sequences, __ed_ numbering).
         currentRoot = ExpressionDesugarTempLifter.Apply(
-            currentRoot, allPending, allAnnotations);
-        stats.TempsLifted = allPending.Count;
-        stats.CollectionExpr.TempsLifted = allPending.Count;
+            currentRoot, allPending, allAnnotations, context.SemanticModel);
+        var liftedCount = allPending.Count;
+
+        // Post-lift late rewrites: planned sites that traveled INSIDE another
+        // rule's pending statement sequences are reachable only now (the
+        // primary rewrites ran while those sequences were still in memory).
+        // Their late pending sequences are lifted by one additional pass.
+        List<ExpressionDesugarTempLifter.PendingTemp>? latePending = null;
+        Dictionary<SyntaxNode, SyntaxAnnotation>? lateAnnotations = null;
+        foreach (var plan in plans)
+        {
+            var lateRoot = plan.LateRewriteAfterLift(currentRoot);
+            if (lateRoot == null)
+                continue;
+
+            currentRoot = lateRoot;
+            if (plan.LatePendingTemps.Count > 0)
+                (latePending ??= new List<ExpressionDesugarTempLifter.PendingTemp>())
+                    .AddRange(plan.LatePendingTemps);
+            foreach (var pair in plan.LateAnchorAnnotations)
+                (lateAnnotations ??= new Dictionary<SyntaxNode, SyntaxAnnotation>())
+                    [pair.Key] = pair.Value;
+        }
+
+        if (latePending is { Count: > 0 })
+        {
+            currentRoot = ExpressionDesugarTempLifter.Apply(
+                currentRoot, latePending, lateAnnotations!, context.SemanticModel);
+            liftedCount += latePending.Count;
+        }
+
+        stats.TempsLifted = liftedCount;
+        stats.CollectionExpr.TempsLifted = liftedCount;
         if (interpolationActive)
-            stats.Interpolations.TempsLifted = allPending.Count;
-        stats.Initializers.TempsLifted = allPending.Count;
+            stats.Interpolations.TempsLifted = liftedCount;
+        stats.Initializers.TempsLifted = liftedCount;
 
         // ---- Per-rule residual gates (post-lift tree) ----
         var residualCount = 0;

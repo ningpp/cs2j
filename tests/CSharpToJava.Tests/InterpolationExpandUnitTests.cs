@@ -38,6 +38,7 @@ public class InterpolationExpandUnitTests
         MetadataReference.CreateFromFile(typeof(System.Collections.Generic.List<>).Assembly.Location),
         MetadataReference.CreateFromFile(typeof(System.Span<>).Assembly.Location),
         MetadataReference.CreateFromFile(typeof(System.FormattableString).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(System.Text.StringBuilder).Assembly.Location),
         MetadataReference.CreateFromFile(
             typeof(System.Runtime.CompilerServices.InterpolatedStringHandlerAttribute).Assembly.Location),
         MetadataReference.CreateFromFile(
@@ -1260,6 +1261,51 @@ public class InterpolationExpandUnitTests
         Assert.Equal(ExpressionDesugarSeverity.Warning, diagnostic.Severity);
         Assert.Equal(1, result.Statistics.Interpolations.CustomHandlerSites);
         Assert.Equal(0, result.Statistics.Interpolations.ResidualInterpolationCount);
+    }
+
+    [Fact]
+    public void Gate_BclStringBuilderAppendHandler_KeepPolicy_WarnsPreservesPairsAndCompiles()
+    {
+        // The csharp-sdk corpus custom-handler sites are all
+        // StringBuilder.Append/AppendLine($"…") binding to the BCL
+        // AppendInterpolatedStringHandler. Keep policy (the CLI converter
+        // default): sites stay compilable C# with a CS2J0510 Warning each,
+        // pair with the residual gate (no CS2J0516), and the Java-side
+        // interpolation transformer renders the call argument natively.
+        const string source = """
+            using System.Text;
+            public static class C
+            {
+                public static void M(StringBuilder sb, int value)
+                {
+                    sb.Append($"value={value}");
+                    sb.AppendLine($"line={value + 1}");
+                }
+            }
+            """;
+
+        var options = new InterpolationOptions
+        {
+            Enabled = true,
+            HandlerPolicy = HandlerUnsupportedPolicy.Keep,
+        };
+
+        var result = Preprocess(source, options);
+
+        Assert.DoesNotContain(
+            result.Diagnostics, d => d.Severity == ExpressionDesugarSeverity.Error);
+        var keepDiagnostics = result.Diagnostics
+            .Where(d => d.Code == InterpolationDiagnosticCodes.CS2J0510).ToList();
+        Assert.Equal(2, keepDiagnostics.Count);
+        Assert.All(keepDiagnostics, d => Assert.Equal(
+            ExpressionDesugarSeverity.Warning, d.Severity));
+        Assert.Equal(2, result.Statistics.Interpolations.CustomHandlerSites);
+        Assert.Equal(0, result.Statistics.Interpolations.ResidualInterpolationCount);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("sb.Append($\"value={value}\");", normalized);
+        Assert.Contains("sb.AppendLine($\"line={value + 1}\");", normalized);
+        AssertOutputCompiles(result.OutputCode);
     }
 
     [Fact]
