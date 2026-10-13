@@ -1338,14 +1338,19 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         _holderNameScopes.Push(new HashSet<string>());
         try
         {
-            SimpleLambdaExpressionSyntax newNode = node;
             if (holder)
-            {
                 CurrentHolderNames.Add(node.Parameter.Identifier.Text);
-                newNode = (SimpleLambdaExpressionSyntax)node.WithParameter(RewriteParameter(node.Parameter, sym!));
-            }
 
-            newNode = (SimpleLambdaExpressionSyntax)LiftExpressionLambdaBody(newNode);
+            // Lift the expression body BEFORE rebuilding the holder parameter:
+            // WithParameter changes the parameter text and shifts every body
+            // position, so body symbol lookups against a rebuilt node fail to
+            // map into the tree.
+            var lifted = (SimpleLambdaExpressionSyntax)LiftExpressionLambdaBody(node);
+            if (!holder)
+                return base.VisitSimpleLambdaExpression(lifted);
+
+            var newNode = (SimpleLambdaExpressionSyntax)lifted.WithParameter(
+                RewriteParameter(node.Parameter, sym!));
             return base.VisitSimpleLambdaExpression(newNode);
         }
         finally { _holderNameScopes.Pop(); }
@@ -1360,11 +1365,13 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         try
         {
             var newParams = new List<ParameterSyntax>();
+            bool anyHolder = false;
             foreach (var param in node.ParameterList.Parameters)
             {
                 var sym = _semanticModel.GetDeclaredSymbol(param);
                 if (sym != null && _annotator.HolderSymbols.Contains(sym))
                 {
+                    anyHolder = true;
                     CurrentHolderNames.Add(param.Identifier.Text);
                     newParams.Add(RewriteParameter(param, sym));
                 }
@@ -1373,11 +1380,23 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                     newParams.Add(param);
                 }
             }
-            var newNode = node.WithParameterList(node.ParameterList.WithParameters(
-                SyntaxFactory.SeparatedList(newParams)));
-            var liftedBody = LiftExpressionLambdaBody(newNode);
-            return base.VisitParenthesizedLambdaExpression(
-                (ParenthesizedLambdaExpressionSyntax)liftedBody);
+
+            // Lift the expression body on the ORIGINAL tree-owned node BEFORE
+            // rebuilding the parameter list: SeparatedList regenerates
+            // separator trivia, so a rebuilt list detaches the node and shifts
+            // every body position, making both the delegate-type query and the
+            // lifter's body symbol lookups fail ("Syntax node is not within
+            // syntax tree" / unresolved invocations).
+            var lifted = LiftExpressionLambdaBody(node);
+            if (!anyHolder)
+                return base.VisitParenthesizedLambdaExpression(
+                    (ParenthesizedLambdaExpressionSyntax)lifted);
+
+            var liftedParenthesized = (ParenthesizedLambdaExpressionSyntax)lifted;
+            var newNode = liftedParenthesized.WithParameterList(
+                liftedParenthesized.ParameterList.WithParameters(
+                    SyntaxFactory.SeparatedList(newParams)));
+            return base.VisitParenthesizedLambdaExpression(newNode);
         }
         finally { _holderNameScopes.Pop(); }
     }
@@ -1391,7 +1410,14 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     /// hoisting (fragment isolation keeps the hoisted statements inside the
     /// lambda), ending in <c>return</c> for non-void delegates.
     /// </summary>
-    private AnonymousFunctionExpressionSyntax LiftExpressionLambdaBody(AnonymousFunctionExpressionSyntax node)
+    // Callers MUST pass the ORIGINAL, tree-owned lambda (before any
+    // WithParameter/WithParameterList rebuild): the converted delegate type is
+    // queried below and the lifter binds the body through this semantic model,
+    // while a rebuilt parameter list produces a detached node whose span no
+    // longer maps into the tree — GetTypeInfo throws "Syntax node is not
+    // within syntax tree" and body invocations silently fail to resolve.
+    private AnonymousFunctionExpressionSyntax LiftExpressionLambdaBody(
+        AnonymousFunctionExpressionSyntax node)
     {
         if (node.Body is not ExpressionSyntax body)
         {
