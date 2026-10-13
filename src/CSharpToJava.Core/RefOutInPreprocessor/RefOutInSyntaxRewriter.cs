@@ -754,18 +754,39 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitIfStatement(IfStatementSyntax node)
     {
         var cond = _lifter.SpliceExpression(node.Condition, out var hoisted);
+
+        // Every child is walked exactly once. An untouched spliced condition
+        // may still contain holder identifier reads (-> .Value), so it goes
+        // through the normal visit; a spliced remainder is finalized by the
+        // slot injector. Never re-dispatch base.VisitIfStatement(node) here:
+        // the then/else subtrees were already visited above, and a second
+        // dispatch walks them again — 2^d visits on nested if-else chains.
+        var condChanged = !ReferenceEquals(cond, node.Condition);
+        var newCondition = condChanged
+            ? InjectSlotValues(cond)
+            : (ExpressionSyntax)base.Visit(node.Condition)!;
         var visitedThen = (StatementSyntax)base.Visit(node.Statement)!;
-        ElseClauseSyntax? elseClause = node.Else != null
-            ? SyntaxFactory.ElseClause((StatementSyntax)base.Visit(node.Else.Statement)!)
+        StatementSyntax? visitedElse = node.Else != null
+            ? (StatementSyntax)base.Visit(node.Else.Statement)!
             : null;
+        ElseClauseSyntax? elseClause = visitedElse != null
+            ? SyntaxFactory.ElseClause(visitedElse)
+            : null;
+
         if (hoisted.Count == 0)
         {
-            if (ReferenceEquals(cond, node.Condition))
-                return base.VisitIfStatement(node);
-            return SyntaxFactory.IfStatement(InjectSlotValues(cond), visitedThen, elseClause);
+            if (!condChanged
+                && ReferenceEquals(newCondition, node.Condition)
+                && ReferenceEquals(visitedThen, node.Statement)
+                && (node.Else == null || ReferenceEquals(visitedElse, node.Else.Statement)))
+            {
+                return node;
+            }
+
+            return SyntaxFactory.IfStatement(newCondition, visitedThen, elseClause);
         }
 
-        var newIf = SyntaxFactory.IfStatement(InjectSlotValues(cond), visitedThen, elseClause);
+        var newIf = SyntaxFactory.IfStatement(newCondition, visitedThen, elseClause);
         return HoistedBlock(hoisted.Append(newIf));
     }
 
@@ -1176,14 +1197,32 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitSwitchStatement(SwitchStatementSyntax node)
     {
         var lifted = _lifter.SpliceExpression(node.Expression, out var hoisted);
-        var sections = SyntaxFactory.List(node.Sections.Select(s => (SwitchSectionSyntax)base.Visit(s)!));
+
+        // Walk the governing expression and every section exactly once (same
+        // 2^d hazard as VisitIfStatement on nested switches).
+        var exprChanged = !ReferenceEquals(lifted, node.Expression);
+        var newExpression = exprChanged
+            ? InjectSlotValues(lifted)
+            : (ExpressionSyntax)base.Visit(node.Expression)!;
+
+        var visitedSections = new List<SwitchSectionSyntax>();
+        var sectionsUnchanged = !exprChanged;
+        foreach (var section in node.Sections)
+        {
+            var visitedSection = (SwitchSectionSyntax)base.Visit(section)!;
+            visitedSections.Add(visitedSection);
+            if (!ReferenceEquals(visitedSection, section)) sectionsUnchanged = false;
+        }
+
+        var sections = SyntaxFactory.List(visitedSections);
         if (hoisted.Count == 0)
         {
-            if (ReferenceEquals(lifted, node.Expression))
-                return base.VisitSwitchStatement(node);
-            return node.WithExpression(InjectSlotValues(lifted)).WithSections(sections);
+            if (sectionsUnchanged && ReferenceEquals(newExpression, node.Expression))
+                return node;
+            return node.WithExpression(newExpression).WithSections(sections);
         }
-        var newSwitch = node.WithExpression(InjectSlotValues(lifted)).WithSections(sections);
+
+        var newSwitch = node.WithExpression(newExpression).WithSections(sections);
         return HoistedBlock(hoisted.Append(newSwitch));
     }
 
