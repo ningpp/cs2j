@@ -194,6 +194,7 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
            $"{_statistics.FixedVariablesNull} null, " +
            $"{_statistics.FixedVariablesString} string, " +
            $"{_statistics.FixedVariablesScalar} scalar); " +
+           $"{_statistics.MemoryCopiesLowered} Buffer.MemoryCopy call(s) lowered to BlockCopy; " +
            $"{_statistics.ExplicitStackAllocCollected} explicit stackalloc(s), " +
            $"{_statistics.ImplicitStackAllocCollected} implicit stackalloc(s) heap-allocated; " +
            $"{_statistics.PointerSignaturesRewritten} pointer signature(s) " +
@@ -244,6 +245,7 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
         _statistics.FixedVariablesNull += source.FixedVariablesNull;
         _statistics.FixedVariablesString += source.FixedVariablesString;
         _statistics.FixedVariablesScalar += source.FixedVariablesScalar;
+        _statistics.MemoryCopiesLowered += source.MemoryCopiesLowered;
         _statistics.Uf020Rejections += source.Uf020Rejections;
         _statistics.Uf030Rejections += source.Uf030Rejections;
         _statistics.Uf031Rejections += source.Uf031Rejections;

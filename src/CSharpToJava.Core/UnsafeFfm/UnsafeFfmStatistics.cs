@@ -83,6 +83,12 @@ public sealed class UnsafeFfmStatistics
     /// <summary>初始式=&scalar（标量单槽）的固定指针数。</summary>
     public int FixedVariablesScalar { get; set; }
 
+    /// <summary>
+    /// Buffer.MemoryCopy 归一数：两侧 void* 实参均可溯源到「托管数组 +
+    /// 元素索引」时归一为 Buffer.BlockCopy（按调用计）。
+    /// </summary>
+    public int MemoryCopiesLowered { get; set; }
+
     /// <summary>固定指针变量总数（一个 fixed 语句可声明多个）。</summary>
     public int FixedVariablesTotal =>
         FixedVariablesArray + FixedVariablesOffset + FixedVariablesAlias

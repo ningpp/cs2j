@@ -1057,6 +1057,188 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
         return base.VisitCastExpression(node);
     }
 
+    // ---- Buffer.MemoryCopy(void*, void*, ulong, ulong)：数组间字节拷贝 ----
+
+    public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
+    {
+        if (TryLowerBufferMemoryCopy(node, out var blockCopy))
+            return blockCopy;
+
+        return base.VisitInvocationExpression(node);
+    }
+
+    /// <summary>
+    /// <c>Buffer.MemoryCopy(src, dst, destinationSizeInBytes, sourceBytesToCopy)</c>
+    /// 的两个 void* 实参都可溯源到「托管数组 + 元素索引」（fixed 帧/别名/
+    /// R5 flow/GCHandle Pinned 句柄）时，归一为
+    /// <c>Buffer.BlockCopy(srcArray, srcByteOffset, dstArray, dstByteOffset,
+    /// sourceBytesToCopy)</c>：指针实参上的 byte* 重解释强转（char*→byte*
+    /// 等）只是元素视角变化，字节偏移 = 元素索引 × 元素尺寸。
+    /// destinationSizeInBytes 仅用于 MemoryCopy 的越界报错，BlockCopy 按
+    /// 目标数组实际长度校验（数组身份已证，二者契约一致），故丢弃。
+    /// 任一侧不可溯源即返回 false，落既有 UF021/UF020 判决，绝不放行。
+    /// </summary>
+    private bool TryLowerBufferMemoryCopy(
+        InvocationExpressionSyntax node,
+        out InvocationExpressionSyntax blockCopy)
+    {
+        blockCopy = null!;
+
+        if (node.Expression is not MemberAccessExpressionSyntax memberAccess
+            || memberAccess.Name.Identifier.ValueText != "MemoryCopy"
+            || SymbolInfoFor(memberAccess).Symbol is not IMethodSymbol method
+            || method.ContainingType.ToDisplayString() != "System.Buffer"
+            || node.ArgumentList.Arguments.Count != 4)
+        {
+            return false;
+        }
+
+        var arguments = node.ArgumentList.Arguments;
+        if (arguments.Any(a => !a.RefKindKeyword.IsKind(SyntaxKind.None)))
+            return false;
+
+        if (!TryResolveMemoryCopyOperand(
+                UnwrapParenthesized(arguments[0].Expression), node,
+                out var sourceArray, out var sourceByteOffset, destination: false)
+            || !TryResolveMemoryCopyOperand(
+                UnwrapParenthesized(arguments[1].Expression), node,
+                out var destinationArray, out var destinationByteOffset, destination: true))
+        {
+            return false;
+        }
+
+        var byteCount = UnwrapParenthesized(arguments[3].Expression);
+        if (TypeInfoFor(byteCount).Type is { } countType
+            && countType.SpecialType != SpecialType.System_Int32)
+        {
+            byteCount = CastExpression(
+                PredefinedType(Token(SyntaxKind.IntKeyword)),
+                ParenthesizedExpression(byteCount));
+        }
+
+        blockCopy = InvocationExpression(
+                MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    ParseExpression("global::System.Buffer"),
+                    IdentifierName("BlockCopy")))
+            .WithArgumentList(ArgumentList(SeparatedList(new[]
+            {
+                Argument(sourceArray),
+                Argument(sourceByteOffset),
+                Argument(destinationArray),
+                Argument(destinationByteOffset),
+                Argument(byteCount),
+            })));
+
+        _statistics.MemoryCopiesLowered++;
+        return true;
+    }
+
+    /// <summary>
+    /// 解析 MemoryCopy 的单个指针实参为「数组 + 字节偏移」。先剥掉任意层
+    /// 指针→指针重解释强转（<c>(byte*)p</c>、<c>(void*)(byte*)p</c>），
+    /// 再按 R3 既有数组+索引模型（含 R5 flow 与 GCHandle Pinned 句柄）溯源；
+    /// 字节偏移按最内层指针元素尺寸放大。目标实参溯源到只读 fixed string
+    /// 时发 UF030（写入只读缓冲未定义）。
+    /// </summary>
+    private bool TryResolveMemoryCopyOperand(
+        ExpressionSyntax raw,
+        SyntaxNode site,
+        out ExpressionSyntax array,
+        out ExpressionSyntax byteOffset,
+        bool destination)
+    {
+        array = null!;
+        byteOffset = null!;
+
+        var inner = raw;
+        while (inner is CastExpressionSyntax cast
+            && cast.Type is PointerTypeSyntax
+            && TypeInfoFor(cast.Expression).Type is IPointerTypeSymbol)
+        {
+            inner = UnwrapParenthesized(cast.Expression);
+        }
+
+        if (TypeInfoFor(inner).Type is not IPointerTypeSymbol innerPointer
+            || !TryPrimitivePointerElementSize(innerPointer.PointedAtType, out var elementSize))
+        {
+            return false;
+        }
+
+        string? resolvedArrayName = null;
+        ExpressionSyntax? elementIndex = null;
+        var readOnly = false;
+
+        if (TryResolvePointer(inner, out var trackedArray, out var trackedIndex, out var trackedReadOnly))
+        {
+            resolvedArrayName = trackedArray;
+            elementIndex = trackedIndex;
+            readOnly = trackedReadOnly;
+        }
+        else if (TryResolvePinnedArrayPointer(
+                     inner, site, out var pinnedArray, out var pinnedIndex, out _))
+        {
+            resolvedArrayName = pinnedArray;
+            elementIndex = pinnedIndex;
+        }
+
+        if (resolvedArrayName == null || elementIndex == null)
+            return false;
+
+        if (destination && readOnly)
+        {
+            AddError(
+                UnsafeFfmDiagnosticCode.UF030,
+                $"Buffer.MemoryCopy destination '{raw}' writes through a fixed string pointer; " +
+                "the fixed string buffer is read-only and cannot be written back.",
+                site);
+            return false;
+        }
+
+        array = IdentifierName(resolvedArrayName);
+        byteOffset = elementSize == 1
+            ? elementIndex
+            : BinaryExpression(
+                SyntaxKind.MultiplyExpression,
+                ParenthesizedExpression(elementIndex),
+                LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(elementSize)));
+        return true;
+    }
+
+    /// <summary>
+    /// 基元指针元素的托管尺寸（字节）：仅支持可证明尺寸的基元元素；
+    /// 枚举/非基元 struct/void 等返回 false（保守落 UF021）。
+    /// </summary>
+    private static bool TryPrimitivePointerElementSize(ITypeSymbol element, out int size)
+    {
+        switch (element.SpecialType)
+        {
+            case SpecialType.System_Boolean
+                or SpecialType.System_Byte
+                or SpecialType.System_SByte:
+                size = 1;
+                return true;
+            case SpecialType.System_Char
+                or SpecialType.System_Int16
+                or SpecialType.System_UInt16:
+                size = 2;
+                return true;
+            case SpecialType.System_Int32
+                or SpecialType.System_UInt32
+                or SpecialType.System_Single:
+                size = 4;
+                return true;
+            case SpecialType.System_Int64
+                or SpecialType.System_UInt64
+                or SpecialType.System_Double:
+                size = 8;
+                return true;
+            default:
+                size = 0;
+                return false;
+        }
+    }
+
     // ---- 从 fixed 指针重建 Span：逃逸，UF022 ----
 
     public override SyntaxNode? VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
