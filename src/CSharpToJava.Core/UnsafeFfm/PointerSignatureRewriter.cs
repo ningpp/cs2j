@@ -59,6 +59,12 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
     public HashSet<ISymbol> RewrittenSymbols { get; } =
         new(SymbolEqualityComparer.Default);
 
+    /// <summary>
+    /// 已降级为数组的只读资源指针字段（构造入参集合即 <c>rewrittenFields</c>，
+    /// 与 R2 fixed 字段集合并后交 R3）。
+    /// </summary>
+    public HashSet<IFieldSymbol> RewrittenResourceFields => _rewrittenFields;
+
     public PointerFlowModel FlowModel => _flowModel;
 
     public List<UnsafeFfmDiagnostic> Diagnostics { get; } = new();
@@ -158,12 +164,16 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
             {
                 RewrittenSymbols.Add(parameter.Symbol);
                 _statistics.PointerParametersRewritten++;
+                // 末端形参（pEnd/pCharsEndPos）共享基指针形参的源槽：入口契约
+                // 保证其索引与基指针同处一个数组空间。
+                var slotSymbol = parameter.SlotBaseSymbol ?? parameter.Symbol;
                 _flowModel.Register(parameter.Symbol, new PointerFlow(
                     PointerSourceKind.ParamArray,
                     parameter.ArrayName,
                     parameter.IndexName)
                 {
                     FoldsToOffset = true,
+                    SourceSlot = PointerMethodCatalog.SymbolSlot(slotSymbol!),
                 });
             }
             else if (parameter.Kind == PairedParamKind.HolderPointer)
@@ -331,8 +341,33 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitFieldDeclaration(FieldDeclarationSyntax node)
     {
-        if (IsPointerTypeSyntax(node.Declaration.Type))
+        if (node.Declaration.Type is PointerTypeSyntax pointerType)
         {
+            var eligible = node.Declaration.Variables
+                .Select(v => GetFieldSymbol(v))
+                .ToList();
+
+            if (eligible.All(f => f != null && IsReadOnlyResourcePointerField(f!)))
+            {
+                var visited = (FieldDeclarationSyntax)base.VisitFieldDeclaration(node)!;
+                var arrayType = BuildArrayType(pointerType);
+                foreach (var field in eligible)
+                {
+                    _rewrittenFields.Add(field!);
+                    // 资源字段降级为 byte[]（等）后即「以自身为名、偏移 0」的
+                    // 可证托管数组：加入 R5 改写符号集（R3 逃逸门据此放行）并在
+                    // flow 模型登记 ArrayElement，使 R6 的实参/赋值/下标门按
+                    // 普通托管数组处理（同构下标读不产生重写）。
+                    RewrittenSymbols.Add(field!);
+                    _flowModel.Register(field!, new PointerFlow(
+                        PointerSourceKind.ArrayElement, field!.Name)
+                    {
+                        SourceSlot = PointerMethodCatalog.SymbolSlot(field!),
+                    });
+                }
+                return visited.WithDeclaration(visited.Declaration.WithType(arrayType));
+            }
+
             AddError(
                 UnsafeFfmDiagnosticCode.UF020,
                 $"pointer field '{node.Declaration}' stores a managed address in a field; its target " +
@@ -343,6 +378,218 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
 
         return base.VisitFieldDeclaration(node);
     }
+
+    private IFieldSymbol? GetFieldSymbol(VariableDeclaratorSyntax declarator)
+    {
+        var original = _resolver.Resolve(declarator);
+        return original == null ? null : _model.GetDeclaredSymbol(original) as IFieldSymbol;
+    }
+
+    /// <summary>
+    /// 只读资源指针字段判定（统一规则，无类型/文件名白名单）：字段元素在白名单；
+    /// 字段在本树内的全部使用仅为——下标读、与 null 比较、传入声明类型自身
+    /// 构造器；全部写入的 RHS 必须是同集合候选字段（含同类型其他实例的同名字段，
+    /// 覆盖 struct 拷贝构造/Clone 的 <c>f = other.f</c>）、仅用于此赋值的同元素
+    /// 指针形参，或来自 <c>Assembly.GetManifestResourceStream(...)</c> 资源流
+    /// <c>UnmanagedMemoryStream.PositionPointer</c> 的局部。静态资源在程序生命
+    /// 期内不变异，字段降级为托管数组后按 provable slot 索引；实例间共享的仍是
+    /// 同一只读资源数组引用，拷贝不破坏不变量。
+    /// </summary>
+    private bool IsReadOnlyResourcePointerField(IFieldSymbol field)
+    {
+        if (field.Type is not IPointerTypeSymbol pointer
+            || !PointerMethodCatalog.IsWhitelistElement(pointer.PointedAtType))
+        {
+            return false;
+        }
+
+        var root = _model.SyntaxTree.GetRoot();
+        // 语法预筛先行：语义模型可能覆盖生成的巨型聚合树，全节点语义绑定
+        // 代价不可接受；只对「同声明类型、同元素指针」的少量字段查模型。
+        // 集合含字段自身：struct 拷贝构造中 f = other.f 的 RHS 绑定的就是
+        // 本字段符号（按其他实例接收）。
+        var candidateFields = new HashSet<IFieldSymbol>(
+            SymbolEqualityComparer.Default) { field };
+        foreach (var candidate in root.DescendantNodes()
+                     .OfType<VariableDeclaratorSyntax>()
+                     .Where(v => v.FirstAncestorOrSelf<FieldDeclarationSyntax>()
+                         is { Declaration.Type: PointerTypeSyntax })
+                     .Select(v => _model.GetDeclaredSymbol(v) as IFieldSymbol))
+        {
+            if (candidate is { Type: IPointerTypeSymbol candidatePointer }
+                && SymbolEqualityComparer.Default.Equals(
+                    candidate.ContainingType, field.ContainingType)
+                && PointerMethodCatalog.IsWhitelistElement(candidatePointer.PointedAtType)
+                && SymbolEqualityComparer.Default.Equals(
+                    candidatePointer.PointedAtType, pointer.PointedAtType))
+            {
+                candidateFields.Add(candidate);
+            }
+        }
+
+        var fieldUses = root.DescendantNodes()
+            .OfType<ExpressionSyntax>()
+            .Where(e => e switch
+            {
+                // 成员访问的内层 Name 标识符由外层 MemberAccess 节点代表
+                //（两者 GetSymbolInfo 同为字段）；否则 this.f = v 的内层
+                // 标识符父节点为 MemberAccess，会误落 default 拒绝。
+                IdentifierNameSyntax id => id.Identifier.ValueText == field.Name
+                    && !(id.Parent is MemberAccessExpressionSyntax idParentAccess
+                        && idParentAccess.Name == id
+                        && SymbolEqualityComparer.Default.Equals(
+                            _model.GetSymbolInfo(idParentAccess).Symbol, field)),
+                MemberAccessExpressionSyntax ma => ma.Name.Identifier.ValueText == field.Name,
+                _ => false,
+            })
+            .Where(e => SymbolEqualityComparer.Default.Equals(
+                _model.GetSymbolInfo(e).Symbol, field))
+            .ToList();
+
+        if (fieldUses.Count == 0) return false;
+
+        foreach (var use in fieldUses)
+        {
+            var parent = use.Parent;
+            switch (parent)
+            {
+                case ElementAccessExpressionSyntax access when access.Expression == use:
+                    if (IsWritePosition(use)) return false;
+                    break;
+
+                case AssignmentExpressionSyntax assignment when assignment.Left == use:
+                    if (!IsEligibleResourceWriteRhs(assignment.Right, candidateFields))
+                        return false;
+                    break;
+
+                case AssignmentExpressionSyntax copyAssignment when copyAssignment.Right == use:
+                    // 同类型实例间资源字段拷贝（struct 拷贝构造/Clone 合成的
+                    // f = other.f）：左值必须绑定同集合候选字段，拷贝后两个
+                    // 实例共享同一只读资源数组引用，不引入新的地址来源。
+                    if (_model.GetSymbolInfo(copyAssignment.Left).Symbol
+                        is not IFieldSymbol copyTarget
+                        || !candidateFields.Contains(copyTarget))
+                    {
+                        return false;
+                    }
+                    break;
+
+                case BinaryExpressionSyntax binary
+                    when binary.IsKind(SyntaxKind.EqualsExpression)
+                        || binary.IsKind(SyntaxKind.NotEqualsExpression):
+                    var other = binary.Left == use ? binary.Right : binary.Left;
+                    if (!other.IsKind(SyntaxKind.NullLiteralExpression))
+                        return false;
+                    break;
+
+                case ArgumentSyntax argument:
+                    if (!argument.RefKindKeyword.IsKind(SyntaxKind.None))
+                        return false;
+
+                    if (argument.Parent is not ArgumentListSyntax { Parent: ObjectCreationExpressionSyntax creation }
+                        || _model.GetTypeInfo(creation).Type is not { } createdType
+                        || !SymbolEqualityComparer.Default.Equals(
+                            createdType, field.ContainingType))
+                    {
+                        return false;
+                    }
+                    break;
+
+                default:
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool IsWritePosition(ExpressionSyntax expression)
+    {
+        var node = expression;
+        while (node.Parent is ElementAccessExpressionSyntax parentAccess
+               && parentAccess.Expression == node)
+        {
+            node = parentAccess;
+        }
+
+        var direct = node.Parent;
+        if (direct is AssignmentExpressionSyntax assignment && assignment.Left == node)
+            return true;
+        if (direct is PostfixUnaryExpressionSyntax)
+            return true;
+        if (direct is PrefixUnaryExpressionSyntax prefix
+            && (prefix.IsKind(SyntaxKind.PreIncrementExpression)
+                || prefix.IsKind(SyntaxKind.PreDecrementExpression)))
+        {
+            return true;
+        }
+        if (direct is ArgumentSyntax writeArgument
+            && (writeArgument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
+                || writeArgument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool IsEligibleResourceWriteRhs(
+        ExpressionSyntax rawRhs,
+        HashSet<IFieldSymbol> candidateFields)
+    {
+        var rhs = UnwrapParenthesized(rawRhs);
+
+        // 同集合候选字段拷贝（含 other.f 同名跨实例拷贝；联合判定：所有候选
+        // 字段同时合格才整体降级）。
+        if (rhs is IdentifierNameSyntax or MemberAccessExpressionSyntax
+            && _model.GetSymbolInfo(rhs).Symbol is IFieldSymbol sourceField)
+        {
+            return candidateFields.Contains(sourceField);
+        }
+
+        // 仅用于此单次字段赋值的同元素指针形参（构造器 copy-in）。
+        if (rhs is IdentifierNameSyntax
+            && _model.GetSymbolInfo(rhs).Symbol is IParameterSymbol parameter
+            && parameter.Type is IPointerTypeSymbol parameterPointer
+            && PointerMethodCatalog.IsWhitelistElement(parameterPointer.PointedAtType))
+        {
+            if (parameter.ContainingSymbol is not IMethodSymbol
+                { MethodKind: MethodKind.Constructor })
+            {
+                return false;
+            }
+
+            var parameterUses = _model.SyntaxTree.GetRoot().DescendantNodes()
+                .OfType<IdentifierNameSyntax>()
+                .Where(e => e.Identifier.ValueText == parameter.Name)
+                .Where(e => SymbolEqualityComparer.Default.Equals(
+                    _model.GetSymbolInfo(e).Symbol, parameter))
+                .ToList();
+            return parameterUses.Count == 1
+                && parameterUses[0].Parent is AssignmentExpressionSyntax singleAssignment
+                && singleAssignment.Right == parameterUses[0];
+        }
+
+        // 资源流 PositionPointer 局部。
+        if (rhs is IdentifierNameSyntax
+            && _model.GetSymbolInfo(rhs).Symbol is ILocalSymbol local
+            && local.Type is IPointerTypeSymbol)
+        {
+            var declarator = local.DeclaringSyntaxReferences
+                .FirstOrDefault()?.GetSyntax() as VariableDeclaratorSyntax;
+            return declarator?.Initializer?.Value is { } localInitializer
+                && IsResourcePositionPointer(localInitializer);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 初值是否为资源流指针：<c>stream.PositionPointer</c>，其中 stream 局部
+    /// 初值（去强转）为 <c>Assembly.GetManifestResourceStream(...)</c>。
+    /// </summary>
+    private bool IsResourcePositionPointer(ExpressionSyntax raw)
+        => PointerMethodCatalog.IsManifestResourcePositionPointer(raw, _model, out _);
 
     public override SyntaxNode? VisitEventFieldDeclaration(EventFieldDeclarationSyntax node)
     {
@@ -438,7 +685,11 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
                 else if (_rewrittenFields.Contains(resolvedPlan.SourceSymbol))
                 {
                     _flowModel.Register(localSymbol, new PointerFlow(
-                        PointerSourceKind.ArrayField, resolvedPlan.SourceExpression.ToString()));
+                        PointerSourceKind.ArrayField,
+                        resolvedPlan.SourceExpression.ToString())
+                    {
+                        SourceSlot = PointerMethodCatalog.SymbolSlot(resolvedPlan.SourceSymbol),
+                    });
                 }
             }
         }
@@ -479,6 +730,7 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
 
         var initializer = UnwrapParenthesized(rawInitializer);
         string? arrayName = null;
+        string? sourceSlot = null;
         ExpressionSyntax? newInitializer = null;
 
         // holder.Value copy-in。
@@ -493,15 +745,19 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
             if (holderPlan != null)
             {
                 arrayName = holderPlan.ArrayName;
+                // holder 伴生数组形参是独立数组空间，槽即伴生名。
+                sourceSlot = holderPlan.ArrayName;
                 newInitializer = initializer;
             }
         }
 
         // 指针形参别名（标识符或 p±n 一元/二元算术）。
         if (arrayName == null
-            && TryBuildPairedParamAlias(initializer, plan, out var aliasArray, out var aliasIndex))
+            && TryBuildPairedParamAlias(initializer, plan,
+                out var aliasArray, out var aliasSlot, out var aliasIndex))
         {
             arrayName = aliasArray;
+            sourceSlot = aliasSlot;
             newInitializer = aliasIndex;
         }
 
@@ -519,6 +775,7 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
             PointerSourceKind.ParamArray, arrayName, localSymbol.Name)
         {
             FoldsToOffset = true,
+            SourceSlot = sourceSlot,
         });
         return true;
     }
@@ -532,9 +789,11 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
         ExpressionSyntax initializer,
         PairedMethodPlan plan,
         out string? arrayName,
+        out string? sourceSlot,
         out ExpressionSyntax? indexExpression)
     {
         arrayName = null;
+        sourceSlot = null;
         indexExpression = null;
 
         ExpressionSyntax pointerSide;
@@ -549,8 +808,12 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
                  && (binary.IsKind(SyntaxKind.AddExpression)
                      || binary.IsKind(SyntaxKind.SubtractExpression)))
         {
-            var leftType = _model.GetTypeInfo(binary.Left).Type;
-            var rightType = _model.GetTypeInfo(binary.Right).Type;
+            // 节点可能来自前序 pass 重建的新树：语义查询必须映射回原树；
+            // 映射不到（纯合成节点）时保守放弃，交 R3 既有路径。
+            if (_resolver.Resolve(binary) is not BinaryExpressionSyntax resolvedBinary)
+                return false;
+            var leftType = _model.GetTypeInfo(resolvedBinary.Left).Type;
+            var rightType = _model.GetTypeInfo(resolvedBinary.Right).Type;
             if (leftType is IPointerTypeSymbol)
             {
                 pointerSide = binary.Left;
@@ -583,6 +846,8 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
         if (paramPlan != null)
         {
             arrayName = paramPlan.ArrayName;
+            var slotSymbol = paramPlan.SlotBaseSymbol ?? paramPlan.Symbol;
+            sourceSlot = PointerMethodCatalog.SymbolSlot(slotSymbol!);
             var baseIndex = IdentifierName(paramPlan.IndexName);
             indexExpression = offsetSide == null
                 ? baseIndex
@@ -595,6 +860,7 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
             && inherited.FoldsToOffset)
         {
             arrayName = inherited.ArrayExpressionText;
+            sourceSlot = inherited.SourceSlot ?? inherited.ArrayExpressionText;
             var baseIndex = IdentifierName(inherited.OffsetText);
             indexExpression = offsetSide == null
                 ? baseIndex
@@ -635,7 +901,11 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
                         RewrittenSymbols.Add(symbol);
                         _statistics.PointerParametersRewritten++;
                         _flowModel.Register(symbol, new PointerFlow(
-                            PointerSourceKind.ParamArray, parameter.Identifier.ValueText));
+                            PointerSourceKind.ParamArray,
+                            parameter.Identifier.ValueText)
+                        {
+                            SourceSlot = PointerMethodCatalog.SymbolSlot(symbol),
+                        });
 
                         if (i + 1 < parameters.Count && IsLengthLikeParameter(parameters[i + 1]))
                             _statistics.PointerLengthPatterns++;

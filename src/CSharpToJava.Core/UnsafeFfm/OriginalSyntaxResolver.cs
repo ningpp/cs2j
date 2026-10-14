@@ -25,6 +25,18 @@ internal sealed class OriginalSyntaxResolver
     private readonly SyntaxNode _currentRoot;
     private readonly ConditionalWeakTable<SyntaxNode, SyntaxNode?> _cache = new();
 
+    /// <summary>
+    /// 节点归一化/去 trivia 结果按实例记忆化：回退等价搜索会对大量候选重复
+    /// 执行 ReplaceTokens（在巨型聚合树上呈平方级开销），绿/红节点不可变，
+    /// 同一实例的归一结果可安全复用。
+    /// </summary>
+    private readonly ConditionalWeakTable<SyntaxNode, SyntaxNode> _normalizedCache = new();
+    private readonly ConditionalWeakTable<SyntaxNode, SyntaxNode> _strippedCache = new();
+
+    /// <summary>等价判定结果按 (current, original) 实例对记忆化。</summary>
+    private readonly ConditionalWeakTable<SyntaxNode, Dictionary<SyntaxNode, bool>>
+        _equivalenceCache = new();
+
     public OriginalSyntaxResolver(SyntaxNode originalRoot, SyntaxNode currentRoot)
     {
         _originalRoot = originalRoot;
@@ -68,7 +80,7 @@ internal sealed class OriginalSyntaxResolver
 
         // 1) 纯索引回放（无插入/删除时最精确）。
         var indexed = ReplayByIndices(chain, chain.Count);
-        if (indexed != null && EquivalentCore(indexed, node)) return indexed;
+        if (indexed != null && EquivalentCached(indexed, node)) return indexed;
 
         // 2) 逐层扩大作用域的等价搜索。固定深度回放失配时（R3 以 Block 替换
         // FixedStatement 且块内插入语句，当前路径与原始路径深度错位——嵌套
@@ -94,7 +106,7 @@ internal sealed class OriginalSyntaxResolver
             foreach (var candidate in scope.DescendantNodes())
             {
                 if (candidate.Parent?.Kind() != currentParentKind) continue;
-                if (!EquivalentCore(candidate, node)) continue;
+                if (!EquivalentCached(candidate, node)) continue;
 
                 var candidateIndices = RelativeIndices(candidate, scope);
                 var score = 0;
@@ -177,23 +189,40 @@ internal sealed class OriginalSyntaxResolver
         return original;
     }
 
-    private static bool EquivalentCore(SyntaxNode original, SyntaxNode current)
+    private bool EquivalentCore(SyntaxNode original, SyntaxNode current)
     {
         if (original.IsEquivalentTo(current)) return true;
 
         // R1 会剥掉 unsafe 修饰符：当前树与原始树在该 token 上必然不等价。
         // R9 会剥掉 ref struct using（LocalDeclarationStatement/UsingStatement
         // 的 UsingKeyword）：比较前对两侧统一归一。
-        var normalizedOriginal = NormalizeForCompare(original);
-        var normalizedCurrent = NormalizeForCompare(current);
+        var normalizedOriginal = NormalizeForCompareCached(original);
+        var normalizedCurrent = NormalizeForCompareCached(current);
         if (normalizedOriginal.IsEquivalentTo(normalizedCurrent)) return true;
 
         // R1 RemoveUnsafe 会把 unsafe token 的 trivia 并入相邻保留修饰符
         // （探针实测方法同时带 method 级 unsafe 修饰时，保留修饰符尾部空白
         // 翻倍："static "→"static  "）。IsEquivalentTo 对非弹性 trivia
         // 敏感，绿结构全等仍判否；映射只用结构身份，去全部 trivia 后再比。
-        return StripTrivia(normalizedOriginal)
-            .IsEquivalentTo(StripTrivia(normalizedCurrent));
+        return StripTriviaCached(normalizedOriginal)
+            .IsEquivalentTo(StripTriviaCached(normalizedCurrent));
+    }
+
+    private SyntaxNode NormalizeForCompareCached(SyntaxNode node)
+        => _normalizedCache.GetValue(node, NormalizeForCompare);
+
+    private SyntaxNode StripTriviaCached(SyntaxNode node)
+        => _strippedCache.GetValue(node, StripTrivia);
+
+    /// <summary>带实例对记忆化的等价判定（回退搜索热路径）。</summary>
+    private bool EquivalentCached(SyntaxNode original, SyntaxNode current)
+    {
+        var byCurrent = _equivalenceCache.GetValue(current,
+            static _ => new Dictionary<SyntaxNode, bool>(ReferenceEqualityComparer.Instance));
+        if (byCurrent.TryGetValue(original, out var cached)) return cached;
+        var result = EquivalentCore(original, current);
+        byCurrent[original] = result;
+        return result;
     }
 
     /// <summary>

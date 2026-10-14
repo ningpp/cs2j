@@ -130,9 +130,11 @@ public sealed class UnsafeFfmPreprocessor
         // CS8385 证明参数必须先由 byte* 改为 byte[]，R3 的 fixed 才能走数组路径。
         var flowModel = new PointerFlowModel();
         var pointerRewritten = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var resourceFields = new HashSet<IFieldSymbol>(SymbolEqualityComparer.Default);
         var loweredPointerSymbols = Array.Empty<ISymbol>();
-        IReadOnlyDictionary<ISymbol, (string ArrayName, bool ReadOnly)> loweredArrayMap =
-            new Dictionary<ISymbol, (string, bool)>(SymbolEqualityComparer.Default);
+        IReadOnlyDictionary<ISymbol, (string ArrayName, bool ReadOnly, string SourceSlot)>
+            loweredArrayMap =
+            new Dictionary<ISymbol, (string, bool, string)>(SymbolEqualityComparer.Default);
         var pointerMethodCatalog = new PointerMethodCatalog(semanticModel.Compilation);
 
         if (_options.EnablePointer)
@@ -140,7 +142,7 @@ public sealed class UnsafeFfmPreprocessor
             var signatureResolver = new OriginalSyntaxResolver(root, newRoot);
             var signatureRewriter = new PointerSignatureRewriter(
                 semanticModel,
-                new HashSet<IFieldSymbol>(SymbolEqualityComparer.Default),
+                resourceFields,
                 flowModel,
                 statistics,
                 signatureResolver,
@@ -183,9 +185,13 @@ public sealed class UnsafeFfmPreprocessor
             }
 
             var statementResolver = new OriginalSyntaxResolver(root, newRoot);
+            var loweredFields = new HashSet<IFieldSymbol>(
+                fieldRewriter.RewrittenFields, SymbolEqualityComparer.Default);
+            foreach (var resourceField in resourceFields)
+                loweredFields.Add(resourceField);
             var statementRewriter = new FixedStatementRewriter(
                 semanticModel,
-                fieldRewriter.RewrittenFields,
+                loweredFields,
                 pointerRewritten,
                 statistics,
                 statementResolver,

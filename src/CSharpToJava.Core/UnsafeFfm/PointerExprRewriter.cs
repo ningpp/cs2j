@@ -35,7 +35,8 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
     private readonly SemanticModel _model;
     private readonly PointerFlowModel _flowModel;
     private readonly IReadOnlyCollection<ISymbol> _loweredSymbols;
-    private readonly IReadOnlyDictionary<ISymbol, (string ArrayName, bool ReadOnly)> _loweredArrayMap;
+    private readonly IReadOnlyDictionary<ISymbol, (string ArrayName, bool ReadOnly, string SourceSlot)>
+        _loweredArrayMap;
     private readonly PointerMethodCatalog _catalog;
     private readonly UnsafeFfmStatistics _statistics;
     private readonly OriginalSyntaxResolver _resolver;
@@ -59,7 +60,8 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
         SemanticModel model,
         PointerFlowModel flowModel,
         IReadOnlyCollection<ISymbol> loweredSymbols,
-        IReadOnlyDictionary<ISymbol, (string ArrayName, bool ReadOnly)> loweredArrayMap,
+        IReadOnlyDictionary<ISymbol, (string ArrayName, bool ReadOnly, string SourceSlot)>
+            loweredArrayMap,
         PointerMethodCatalog catalog,
         UnsafeFfmStatistics statistics,
         OriginalSyntaxResolver resolver,
@@ -165,7 +167,7 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
         if (TryGetInvocationPlan(node) is { } plan)
-            return ExpandPairedInvocation(node, plan, out _);
+            return ExpandPairedInvocation(node, plan, out _, out _);
 
         if (IsHolderCreateInvocation(node))
             return RebuildHolderCreateInvocation(node, out _);
@@ -180,14 +182,17 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
     /// <paramref name="firstArray"/> 为第一个成功解析的指针槽数组名
     /// （指针返回结果的同源数组载体——配对约定下返回索引相对调用方传入的
     /// 同入参数组空间；调用点一律将结果赋回/返回输出游标，元素访问经该
-    /// 游标自身的 flow/降级表解析，不依赖此处数组名）。
+    /// 游标自身的 flow/降级表解析，不依赖此处数组名）；
+    /// <paramref name="firstSlot"/> 为该实参根的真源源槽键。
     /// </summary>
     private InvocationExpressionSyntax ExpandPairedInvocation(
         InvocationExpressionSyntax invocation,
         PairedMethodPlan plan,
-        out string? firstArray)
+        out string? firstArray,
+        out string? firstSlot)
     {
         firstArray = null;
+        firstSlot = null;
         var originalArgs = invocation.ArgumentList.Arguments;
         var newArgs = new List<ArgumentSyntax>();
 
@@ -214,9 +219,11 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
 
             if (slot.Kind == PairedParamKind.PlainPointer)
             {
-                if (TryBuildIndex(rawArg, out var argArray, out var argIndex, out _))
+                if (TryBuildIndex(rawArg, out var argArray, out var argIndex,
+                        out var argSlot))
                 {
                     firstArray ??= argArray;
+                    firstSlot ??= argSlot;
                     newArgs.Add(Argument(ParseExpression(argArray)));
                     newArgs.Add(Argument(Simplify(argIndex)));
                 }
@@ -446,16 +453,17 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
     /// 把单个指针位置表达式解析为「数组表达式 + int 索引表达式」。
     /// 覆盖：配对 int 索引形参/FOLDS 局部、R3 降级游标、array-only 形参
     /// （整组数组，索引 0）、指针 ± n、配对指针返回调用。
-    /// <paramref name="pairedDomain"/> 为 true 表示根来自配对折叠索引
-    /// （形参索引/shadow），允许跨形参数组的比较/相减按入口契约归一。
+    /// <paramref name="sourceSlot"/> 为根的真源源槽键：两个游标仅当源槽相等
+    /// 才允许指针比较/相减归一（末端形参按命名约定归基指针槽；R3 fixed
+    /// 游标按 fixed 真源归槽；独立形参各自成槽）。
     /// </summary>
     private bool TryResolveIndex(
         ExpressionSyntax raw,
         out ExpressionSyntax array,
         out ExpressionSyntax index,
-        out bool pairedDomain)
+        out string sourceSlot)
     {
-        if (TryBuildIndex(raw, out var arrayText, out var indexNode, out pairedDomain))
+        if (TryBuildIndex(raw, out var arrayText, out var indexNode, out sourceSlot))
         {
             array = ParseExpression(arrayText);
             index = indexNode;
@@ -481,14 +489,14 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
         string ownText,
         out string arrayText,
         out ExpressionSyntax index,
-        out bool pairedDomain)
+        out string sourceSlot)
     {
         if (IsFoldsSymbol(symbol))
         {
             var flow = _flowModel.TryGet(symbol, out var f) ? f : default;
             arrayText = flow.ArrayExpressionText;
             index = ParseExpression(flow.OffsetText);
-            pairedDomain = true;
+            sourceSlot = flow.SourceSlot ?? flow.ArrayExpressionText;
             return true;
         }
 
@@ -496,7 +504,7 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
         {
             arrayText = lowered.ArrayName;
             index = IdentifierName(ownText);
-            pairedDomain = false;
+            sourceSlot = lowered.SourceSlot;
             return true;
         }
 
@@ -510,13 +518,13 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
             else
                 index = LiteralExpression(
                     SyntaxKind.NumericLiteralExpression, Literal(0));
-            pairedDomain = false;
+            sourceSlot = provable.SourceSlot ?? provable.ArrayExpressionText;
             return true;
         }
 
         arrayText = string.Empty;
         index = default!;
-        pairedDomain = false;
+        sourceSlot = string.Empty;
         return false;
     }
 
@@ -804,6 +812,15 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
         {
             var operand = UnwrapParenthesized(node.Operand);
 
+            // 标量槽位重解释 *((T*)&scalar)：同尺寸基元位模式归一为
+            // System.BitConverter 调用（double↔long、int/uint→float、
+            // long/ulong→double），不属于数组索引域。
+            if (TryBuildScalarReinterpret(operand, out var scalarReinterpret))
+            {
+                _statistics.PointerExprsIndexized++;
+                return scalarReinterpret;
+            }
+
             if (TryBuildIndex(operand, out var arrayText, out var index))
             {
                 var result = ElementAccessExpression(ParseExpression(arrayText))
@@ -866,6 +883,47 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
         }
 
         return base.VisitPostfixUnaryExpression(node);
+    }
+
+    /// <summary>
+    /// 标量槽位重解释 <c>*((T*)&amp;scalar)</c>：同尺寸基元位模式经
+    /// <c>System.BitConverter</c> 归一（配对匹配见
+    /// <see cref="PointerMethodCatalog.TryMatchScalarReinterpret"/>）。
+    /// </summary>
+    private bool TryBuildScalarReinterpret(
+        ExpressionSyntax operand,
+        out ExpressionSyntax replacement)
+    {
+        replacement = null!;
+
+        if (!PointerMethodCatalog.TryMatchScalarReinterpret(
+                operand, _model, _resolver,
+                out var methodName, out var signedCastKeyword))
+        {
+            return false;
+        }
+
+        var cast = (CastExpressionSyntax)PointerMethodCatalog.UnwrapParentheses(operand);
+        var address = (PrefixUnaryExpressionSyntax)
+            PointerMethodCatalog.UnwrapParentheses(cast.Expression);
+        var scalar = PointerMethodCatalog.UnwrapParentheses(address.Operand);
+
+        ExpressionSyntax argument = scalar;
+        if (signedCastKeyword is { } keyword)
+        {
+            // unchecked((int)x)：位重解释不依赖溢出上下文，显式固定语义。
+            argument = CheckedExpression(
+                SyntaxKind.UncheckedExpression,
+                CastExpression(PredefinedType(Token(keyword)), scalar));
+        }
+
+        replacement = InvocationExpression(
+            MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                ParseExpression("global::System.BitConverter"),
+                IdentifierName(methodName)))
+            .WithArgumentList(ArgumentList(SingletonSeparatedList(Argument(argument))));
+        return true;
     }
 
     private SyntaxNode HandleStandaloneMutation(SyntaxNode node, ExpressionSyntax rawOperand)
@@ -1077,9 +1135,6 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
         if (!IsSupportedPointerFamily(node.Kind()))
             return base.VisitBinaryExpression(node);
 
-        if (IsLoweredExpression(node))
-            return base.VisitBinaryExpression(node);
-
         var plan = _plan!;
         if (plan.BlockedSites.Contains(node))
         {
@@ -1096,6 +1151,12 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
 
         var leftPointer = leftType is IPointerTypeSymbol;
         var rightPointer = rightType is IPointerTypeSymbol;
+
+        // 旧模型两侧均非指针（二次跑的 int 产物、R3 已降级且溯源为 int 的
+        // 运算、普通 int 比较）：普通托管二元，子节点各自归一即可。
+        // R3 降级但本 pass 旧类型仍为指针的比较/相减不在此列——必须继续下探
+        // 过同源槽门：分别 fixed 在两个不同数组上的游标降级后文本上已是 int
+        // 比较，直接放行会把跨数组索引误当地址序，不同源须保守 UF020。
 
         // p == null / p != null：数组空检查，正常托管比较。
         if (node.Kind() is SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression
@@ -1228,12 +1289,12 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
         ExpressionSyntax raw,
         out string arrayText,
         out ExpressionSyntax index,
-        out bool pairedDomain)
+        out string sourceSlot)
     {
         var e = UnwrapParenthesized(raw);
         arrayText = string.Empty;
         index = default!;
-        pairedDomain = false;
+        sourceSlot = string.Empty;
 
         switch (e)
         {
@@ -1242,7 +1303,7 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
                 {
                     return TryResolveIndexSymbol(
                         identifierSymbol, e.ToString(),
-                        out arrayText, out index, out pairedDomain);
+                        out arrayText, out index, out sourceSlot);
                 }
 
                 return false;
@@ -1269,7 +1330,7 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
                             SyntaxKind.SimpleMemberAccessExpression,
                             memberAccess.Expression,
                             IdentifierName("Value"));
-                        pairedDomain = true;
+                        sourceSlot = holderArray;
                         return true;
                     }
                 }
@@ -1278,7 +1339,7 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
                 {
                     return TryResolveIndexSymbol(
                         memberSymbol, e.ToString(),
-                        out arrayText, out index, out pairedDomain);
+                        out arrayText, out index, out sourceSlot);
                 }
 
                 return false;
@@ -1307,7 +1368,7 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
                     }
 
                     if (!TryBuildIndex(pointerSide, out var nestedArray, out var nestedIndex,
-                            out var nestedPaired))
+                            out var nestedSlot))
                     {
                         return false;
                     }
@@ -1320,7 +1381,7 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
 
                     arrayText = nestedArray;
                     index = combined;
-                    pairedDomain = nestedPaired;
+                    sourceSlot = nestedSlot;
                     _statistics.PointerArithmeticPropagated++;
                     return true;
                 }
@@ -1329,7 +1390,7 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
                     && bLeftPointer && !bRightPointer)
                 {
                     if (!TryBuildIndex(binary.Left, out var nestedArray, out var nestedIndex,
-                            out var nestedPaired))
+                            out var nestedSlot))
                     {
                         return false;
                     }
@@ -1342,7 +1403,7 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
 
                     arrayText = nestedArray;
                     index = combined;
-                    pairedDomain = nestedPaired;
+                    sourceSlot = nestedSlot;
                     _statistics.PointerArithmeticPropagated++;
                     return true;
                 }
@@ -1352,17 +1413,18 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
 
             case ConditionalExpressionSyntax conditional:
                 if (TryBuildIndex(conditional.WhenTrue, out var trueArray, out var trueIndex,
-                        out var truePaired)
+                        out var trueSlot)
                     && TryBuildIndex(conditional.WhenFalse, out var falseArray, out var falseIndex,
-                        out var falsePaired)
-                    && trueArray == falseArray)
+                        out var falseSlot)
+                    && trueArray == falseArray
+                    && trueSlot == falseSlot)
                 {
                     arrayText = trueArray;
                     index = ConditionalExpression(
                         conditional.Condition,
                         ParenthesizedExpression(trueIndex),
                         ParenthesizedExpression(falseIndex));
-                    pairedDomain = truePaired || falsePaired;
+                    sourceSlot = trueSlot;
                     return true;
                 }
 
@@ -1370,34 +1432,35 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
 
             case CheckedExpressionSyntax checkedExpression:
                 return TryBuildIndex(checkedExpression.Expression,
-                    out arrayText, out index, out pairedDomain);
+                    out arrayText, out index, out sourceSlot);
 
             case PostfixUnaryExpressionSyntax postfix
                 when postfix.Kind() is SyntaxKind.PostIncrementExpression
                     or SyntaxKind.PostDecrementExpression:
                 return TryBuildMutationIndex(postfix.Operand, postfix,
-                    out arrayText, out index, out pairedDomain);
+                    out arrayText, out index, out sourceSlot);
 
             case PrefixUnaryExpressionSyntax prefix
                 when prefix.Kind() is SyntaxKind.PreIncrementExpression
                     or SyntaxKind.PreDecrementExpression:
                 return TryBuildMutationIndex(prefix.Operand, prefix,
-                    out arrayText, out index, out pairedDomain);
+                    out arrayText, out index, out sourceSlot);
 
             case InvocationExpressionSyntax invocation
                 when TryGetInvocationPlan(invocation) is { } calleePlan:
-                var rebuilt = ExpandPairedInvocation(invocation, calleePlan, out var firstArray);
+                var rebuilt = ExpandPairedInvocation(
+                    invocation, calleePlan, out var firstArray, out var firstSlot);
                 if (firstArray == null) return false;
                 arrayText = firstArray;
                 index = rebuilt;
-                pairedDomain = true;
+                sourceSlot = firstSlot ?? firstArray;
                 return true;
 
             case CastExpressionSyntax cast
                 when cast.Expression is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.SubtractExpression } innerDifference
                     && IsOldPointerTyped(innerDifference.Left):
                 // 嵌套 (T)(p-q)：内层差值构造。
-                return TryBuildIndex(cast.Expression, out arrayText, out index, out pairedDomain);
+                return TryBuildIndex(cast.Expression, out arrayText, out index, out sourceSlot);
 
             default:
                 return false;
@@ -1409,7 +1472,7 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
         SyntaxNode mutation,
         out string arrayText,
         out ExpressionSyntax index,
-        out bool pairedDomain)
+        out string sourceSlot)
     {
         var target = UnwrapParenthesized(rawTarget);
         var symbol = GetExpressionSymbol(target);
@@ -1420,7 +1483,7 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
             var foldsFlow = _flowModel.TryGet(symbol!, out var f) ? f : default;
             arrayText = foldsFlow.ArrayExpressionText;
             index = BuildMutationExpression(foldsFlow.OffsetText, mutation.Kind());
-            pairedDomain = true;
+            sourceSlot = foldsFlow.SourceSlot ?? foldsFlow.ArrayExpressionText;
             _statistics.PointerIncrements++;
             return true;
         }
@@ -1430,7 +1493,7 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
         {
             arrayText = lowered.ArrayName;
             index = BuildMutationExpression(target.ToString(), mutation.Kind());
-            pairedDomain = false;
+            sourceSlot = lowered.SourceSlot;
             _statistics.PointerIncrements++;
             return true;
         }
@@ -1443,20 +1506,20 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
             {
                 arrayText = default!;
                 index = default!;
-                pairedDomain = false;
+                sourceSlot = string.Empty;
                 return false;
             }
 
             arrayText = flow.ArrayExpressionText;
             index = BuildMutationExpression(local.Name, mutation.Kind());
-            pairedDomain = false;
+            sourceSlot = flow.SourceSlot ?? flow.ArrayExpressionText;
             _statistics.PointerIncrements++;
             return true;
         }
 
         arrayText = default!;
         index = default!;
-        pairedDomain = false;
+        sourceSlot = string.Empty;
         return false;
     }
 
@@ -1469,10 +1532,10 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
     {
         diffIndex = default!;
 
-        var leftOk = TryBuildIndex(node.Left, out var leftArray, out var leftIndex,
-            out var leftPaired);
-        var rightOk = TryBuildIndex(node.Right, out var rightArray, out var rightIndex,
-            out var rightPaired);
+        var leftOk = TryBuildIndex(node.Left, out _, out var leftIndex,
+            out var leftSlot);
+        var rightOk = TryBuildIndex(node.Right, out _, out var rightIndex,
+            out var rightSlot);
 
         if (!leftOk || !rightOk)
         {
@@ -1480,10 +1543,10 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
             return false;
         }
 
-        // 配对方法入口契约：形参索引（含 shadow/别名）相对同一入参数组空间，
-        // 形参索引间、形参索引与本方法 fixed 索引间允许相减；至少一侧为
-        // 配对折叠索引时放宽同源要求。
-        if (leftArray != rightArray && !(leftPaired || rightPaired))
+        // 同源门以真源源槽身份判定：独立指针形参各自成槽；末端形参
+        // （pEnd 命名约定）归属基指针槽；R3 fixed 游标按 fixed 真源归槽。
+        // 槽不等即不同数组空间，相减无意义——保守 UF020，不做配对放宽。
+        if (leftSlot != rightSlot)
         {
             reason = DifferenceReason.DifferentSource;
             return false;
@@ -1504,13 +1567,14 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
     {
         comparison = default!;
 
-        if (!TryBuildIndex(node.Left, out var leftArray, out var leftIndex, out var leftPaired)
-            || !TryBuildIndex(node.Right, out var rightArray, out var rightIndex, out var rightPaired))
+        if (!TryBuildIndex(node.Left, out _, out var leftIndex, out var leftSlot)
+            || !TryBuildIndex(node.Right, out _, out var rightIndex, out var rightSlot))
         {
             return false;
         }
 
-        if (leftArray != rightArray && !(leftPaired || rightPaired))
+        // 同源门：仅真源源槽相等的游标比较才归一为 int 索引比较。
+        if (leftSlot != rightSlot)
             return false;
 
         comparison = BinaryExpression(
@@ -1683,7 +1747,7 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
             if (rhs is InvocationExpressionSyntax rhsInvocation
                 && TryGetInvocationPlan(rhsInvocation) is { } rhsPlan)
             {
-                var rebuiltRight = ExpandPairedInvocation(rhsInvocation, rhsPlan, out _);
+                var rebuiltRight = ExpandPairedInvocation(rhsInvocation, rhsPlan, out _, out _);
                 var visitedInvocationLeft = (ExpressionSyntax)Visit(node.Left)!;
                 return node.Update(
                     visitedInvocationLeft, node.OperatorToken, rebuiltRight);
@@ -1773,6 +1837,17 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
 
         if (IsOldPointerTyped(expression))
         {
+            // 信号⑧ 配对方法域：可证偏移实参（pIndex ± n 等）外发给非配对
+            // 调用（含元数据/extern，如 Encoding.UTF8.GetBytes(pInput+next)）
+            // 归一为 int 索引表达式，指针不逃逸；根不可证（异源/外部原生源）
+            // 仍保守 UF020。裸形参实参已在上方 flow 分支按数组名保留。
+            if (_pairedStack.Count > 0
+                && TryBuildIndex(node.Expression, out _, out var argumentIndex, out _))
+            {
+                _statistics.PointerExprsIndexized++;
+                return node.WithExpression(Simplify(argumentIndex));
+            }
+
             AddError(
                 UnsafeFfmDiagnosticCode.UF020,
                 $"pointer expression '{node.Expression}' is passed as an argument and escapes the " +

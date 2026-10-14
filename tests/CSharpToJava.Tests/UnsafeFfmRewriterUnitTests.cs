@@ -3027,4 +3027,930 @@ public class UnsafeFfmRewriterUnitTests
         }
         return count;
     }
+
+    // ==================================================================
+    // UF020 第二子族：同源证明（数组/string/pointer+length/末端指针）、
+    // 裸指针局部继承与 *(p-k)、只读资源指针字段、资源流物化、
+    // 标量位重解释、byte*→char* UTF-16 重解释、保守拒绝与幂等。
+    // ==================================================================
+
+    [Fact]
+    public void Uf020b_FixedArray_EndPointer_ComparisonAndDifference_Normalized()
+    {
+        var src = """
+            unsafe class C
+            {
+                static int M(byte[] data)
+                {
+                    fixed (byte* p = data)
+                    {
+                        byte* end = p + data.Length;
+                        int n = 0;
+                        while (p + n != end)
+                        {
+                            n++;
+                        }
+                        return n + (int)(end - p);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        Assert.Equal(1, result.Statistics.PointerComparisons);
+        Assert.Equal(1, result.Statistics.PointerDifferences);
+        Assert.DoesNotContain("byte*", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020b_FixedString_EndPointer_Comparison_Normalized()
+    {
+        var src = """
+            unsafe class C
+            {
+                static int M(string s)
+                {
+                    fixed (char* p = s)
+                    {
+                        char* end = p + s.Length;
+                        int n = 0;
+                        while (p + n < end)
+                        {
+                            n++;
+                        }
+                        return n;
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        Assert.Equal(1, result.Statistics.PointerComparisons);
+        Assert.Contains("s.ToCharArray()", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020b_PointerPlusLengthParameter_EndPointer_ComparisonDifference_Normalized()
+    {
+        var src = """
+            unsafe class C
+            {
+                static int M(byte* p, int length)
+                {
+                    byte* end = p + length;
+                    int n = 0;
+                    while (p < end)
+                    {
+                        p++;
+                        n++;
+                    }
+                    return n + (int)(end - p);
+                }
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        Assert.Equal(1, result.Statistics.PointerComparisons);
+        Assert.Equal(1, result.Statistics.PointerDifferences);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020b_FixedArray_NegativeOffsetDereference_Normalized()
+    {
+        var src = """
+            unsafe class C
+            {
+                static byte M(byte[] data)
+                {
+                    fixed (byte* p = &data[2])
+                    {
+                        return *(p - 1);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        // p 以 2 为初值的 int 索引局部，*(p-1) 即相对该索引再前移一位。
+        Assert.Contains("int p = 2;", result.OutputCode);
+        Assert.Contains("return _p_array[p - 1];", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020b_FixedArray_BareLocalInheritsSource_NegativeDereference_Normalized()
+    {
+        var src = """
+            unsafe class C
+            {
+                static byte M(byte[] data)
+                {
+                    fixed (byte* p = data)
+                    {
+                        byte* q = p;
+                        return *(q - 1);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        Assert.Contains("int q = p;", result.OutputCode);
+        Assert.Contains("_p_array[q - 1]", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020b_DifferentArrays_PointerComparison_Rejected_UF020()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte[] a, byte[] b)
+                {
+                    fixed (byte* p = a)
+                    fixed (byte* q = b)
+                    {
+                        System.Console.Write(p < q);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF020);
+    }
+
+    [Fact]
+    public void Uf020b_FixedCursor_EscapesToPointerField_Rejected_UF020()
+    {
+        var src = """
+            unsafe class C
+            {
+                private static byte* f;
+
+                static void M(byte[] a)
+                {
+                    fixed (byte* p = a)
+                    {
+                        f = p;
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF020);
+    }
+
+    private const string ResourceFieldsSource = """
+
+        using System.IO;
+        using System.Reflection;
+
+        unsafe class ResourceTable
+        {
+            private static volatile byte* s_Props;
+            internal byte* props;
+
+            private static void InitInstance()
+            {
+                if (s_Props != null)
+                {
+                    return;
+                }
+
+                UnmanagedMemoryStream memStream =
+                    (UnmanagedMemoryStream)typeof(ResourceTable).Assembly
+                        .GetManifestResourceStream("ResourceTable.bin");
+                byte* p = memStream.PositionPointer;
+                s_Props = p;
+            }
+
+            private ResourceTable(byte* props)
+            {
+                this.props = props;
+            }
+
+            public static ResourceTable Instance
+            {
+                get
+                {
+                    if (s_Props == null)
+                    {
+                        InitInstance();
+                    }
+                    return new ResourceTable(s_Props);
+                }
+            }
+
+            public byte Get(char ch)
+            {
+                return props[ch];
+            }
+        }
+        """;
+
+    [Fact]
+    public void Uf020b_ReadOnlyResourcePointerFields_StaticAndInstance_DowngradedToArrays()
+    {
+        var result = Rewrite(ResourceFieldsSource);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        Assert.Contains("private static volatile byte[] s_Props;", result.OutputCode);
+        Assert.Contains("internal byte[] props;", result.OutputCode);
+        Assert.Contains("new byte[(int)memStream.Length]", result.OutputCode);
+        Assert.Contains("memStream.Read(_p_array, 0, _p_array.Length);", result.OutputCode);
+        Assert.Contains("s_Props = _p_array;", result.OutputCode);
+        Assert.DoesNotContain("byte*", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020b_ReadOnlyResourcePointerField_StructCopyCtor_CrossInstanceCopy_Downgraded()
+    {
+        var src = """
+
+            using System.IO;
+            using System.Reflection;
+
+            unsafe struct ResourceTable
+            {
+                private static volatile byte* s_Props;
+                internal byte* props;
+
+                private static void Init()
+                {
+                    UnmanagedMemoryStream memStream =
+                        (UnmanagedMemoryStream)typeof(ResourceTable).Assembly
+                            .GetManifestResourceStream("ResourceTable.bin");
+                    byte* p = memStream.PositionPointer;
+                    s_Props = p;
+                }
+
+                private ResourceTable(byte* props)
+                {
+                    this.props = props;
+                }
+
+                private ResourceTable(ResourceTable other)
+                {
+                    props = other.props;
+                }
+
+                public ResourceTable Clone() => new ResourceTable(this);
+
+                public byte Get(char ch) => props[ch];
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        Assert.Contains("internal byte[] props;", result.OutputCode);
+        // 跨实例拷贝降级为托管数组引用拷贝（只读资源共享不变量）。
+        Assert.Contains("props = other.props;", result.OutputCode);
+        Assert.Contains("public ResourceTable Clone() => new ResourceTable(this);",
+            result.OutputCode);
+        Assert.DoesNotContain("byte*", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020b_ResourcePointerField_SubscriptWrite_Rejected_UF020()
+    {
+        var src = """
+
+            using System.IO;
+            using System.Reflection;
+
+            unsafe class C
+            {
+                private static byte* s_Props;
+
+                private static void Init()
+                {
+                    UnmanagedMemoryStream memStream =
+                        (UnmanagedMemoryStream)typeof(C).Assembly
+                            .GetManifestResourceStream("C.bin");
+                    s_Props = memStream.PositionPointer;
+                }
+
+                static void Mutate(byte b)
+                {
+                    s_Props[0] = b;
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF020);
+    }
+
+    [Fact]
+    public void Uf020b_ResourcePointerField_ForeignParameterWrite_Rejected_UF020()
+    {
+        var src = """
+
+            using System.IO;
+            using System.Reflection;
+
+            unsafe class C
+            {
+                private static byte* s_Props;
+
+                public static void Store(byte* p)
+                {
+                    s_Props = p;
+                }
+
+                public static byte Get(int i) => s_Props[i];
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        // 非常造器单次 copy-in 形参：来源不可证，整文回滚。
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF020);
+    }
+
+    [Fact]
+    public void Uf020b_ResourceStreamPositionPointer_LocalMaterializedToArray()
+    {
+        var src = """
+
+            using System.IO;
+            using System.Reflection;
+
+            unsafe class C
+            {
+                static byte Get()
+                {
+                    UnmanagedMemoryStream memStream =
+                        (UnmanagedMemoryStream)typeof(C).Assembly
+                            .GetManifestResourceStream("C.bin");
+                    byte* p = memStream.PositionPointer;
+                    return p[1];
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        Assert.Contains("byte[] _p_array = new byte[(int)memStream.Length];", result.OutputCode);
+        Assert.Contains("memStream.Read(_p_array, 0, _p_array.Length);", result.OutputCode);
+        Assert.Contains("return _p_array[(p) + (1)];", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020b_ResourceStreamPointer_SeekBeforeUse_Rejected_UF020()
+    {
+        var src = """
+
+            using System.IO;
+            using System.Reflection;
+
+            unsafe class C
+            {
+                static byte Get()
+                {
+                    UnmanagedMemoryStream memStream =
+                        (UnmanagedMemoryStream)typeof(C).Assembly
+                            .GetManifestResourceStream("C.bin");
+                    memStream.Seek(0, SeekOrigin.Begin);
+                    byte* p = memStream.PositionPointer;
+                    return p[1];
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF020);
+    }
+
+    [Theory]
+    // 强转指针元素即目标类型：源位模式按同尺寸目标解释。
+    [InlineData("double value", "long", "long", "DoubleToInt64Bits(value)")]
+    [InlineData("int value", "float", "float", "Int32BitsToSingle(value)")]
+    [InlineData("uint value", "float", "float", "Int32BitsToSingle(unchecked((int)value))")]
+    [InlineData("long value", "double", "double", "Int64BitsToDouble(value)")]
+    [InlineData("ulong value", "double", "double", "Int64BitsToDouble(unchecked((long)value))")]
+    public void Uf020b_ScalarBitReinterpret_FivePairs_NormalizedToBitConverter(
+        string parameter, string ret, string pointerElement, string expectedCall)
+    {
+        var src = $$"""
+
+            unsafe class C
+            {
+                static {{ret}} M({{parameter}})
+                {
+                    return *(({{pointerElement}}*)&value);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        Assert.Contains("global::System.BitConverter." + expectedCall, result.OutputCode);
+        Assert.DoesNotContain("*(", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020b_ScalarBitReinterpret_WrongSizePair_Rejected_UF020()
+    {
+        var src = """
+
+            unsafe class C
+            {
+                static int M(double value)
+                {
+                    return *((int*)&value);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF020);
+    }
+
+    [Fact]
+    public void Uf020b_ScalarBitReinterpret_IsIdempotent_SecondPassClean()
+    {
+        var src = """
+
+            unsafe class C
+            {
+                static long M(double value)
+                {
+                    return *((long*)&value);
+                }
+            }
+            """;
+
+        var first = Rewrite(src);
+        Assert.True(first.Changed);
+        AssertOutputCompiles(first.OutputCode);
+
+        var second = Rewrite(first.OutputCode);
+
+        Assert.False(second.Changed);
+        Assert.Empty(second.Diagnostics);
+    }
+
+    [Fact]
+    public void Uf020b_Utf16Reinterpret_NewString_NormalizedToEncodingUnicodeGetString()
+    {
+        var src = """
+
+            using System;
+
+            unsafe class C
+            {
+                private string GetStringAligned(byte[] data, int offset, int cch)
+                {
+                    fixed (byte* pb = data)
+                    {
+                        char* p = (char*)(pb + offset);
+                        string withOffset = new String(p + 1, 0, cch);
+                        return new String(p, 0, cch);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        Assert.Contains(
+            "global::System.Text.Encoding.Unicode.GetString(_pb_array, (pb + offset), checked((cch) * 2))",
+            result.OutputCode);
+        Assert.Contains(
+            "global::System.Text.Encoding.Unicode.GetString(_pb_array, (pb + offset) + (1) * 2, checked((cch) * 2))",
+            result.OutputCode);
+        Assert.DoesNotContain("char*", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020b_Utf16Reinterpret_NonStringCtorUse_Rejected_UF020()
+    {
+        var src = """
+
+            unsafe class C
+            {
+                private static char M(byte[] data, int offset)
+                {
+                    fixed (byte* pb = data)
+                    {
+                        char* p = (char*)(pb + offset);
+                        return p[0];
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF020);
+    }
+
+    [Fact]
+    public void Uf020b_Utf16Reinterpret_IsIdempotent_SecondPassClean()
+    {
+        var src = """
+
+            using System;
+
+            unsafe class C
+            {
+                private static string M(byte[] data, int cch)
+                {
+                    fixed (byte* pb = data)
+                    {
+                        char* p = (char*)pb;
+                        return new String(p, 0, cch);
+                    }
+                }
+            }
+            """;
+
+        var first = Rewrite(src);
+        Assert.True(first.Changed);
+        Assert.False(first.HasErrors,
+            string.Join("\n", first.Diagnostics));
+        AssertOutputCompiles(first.OutputCode);
+
+        var second = Rewrite(first.OutputCode);
+
+        Assert.False(second.Changed);
+        Assert.Empty(second.Diagnostics);
+    }
+
+    [Fact]
+    public void Uf020b_PairedMethod_FixedCursorsAndEndPointers_CombinedNormalization()
+    {
+        var src = """
+
+            unsafe class C
+            {
+                private static int Consume(char* p, char* pEnd, byte* pb, byte* pbEnd)
+                {
+                    char* q = p;
+                    int n = 0;
+                    while (q < pEnd)
+                    {
+                        q++;
+                        n++;
+                    }
+                    return n + (int)(pbEnd - pb);
+                }
+
+                private static int M(char[] chars, int charLen, byte[] bytes, int byteLen)
+                {
+                    fixed (char* p = chars)
+                    fixed (byte* pb = bytes)
+                    {
+                        return Consume(p, p + charLen, pb, pb + byteLen);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        // Consume 四个白名单指针形参全部按配对约定降级为数组+索引。
+        Assert.Equal(4, result.Statistics.PointerParametersRewritten);
+        Assert.Contains("char[] p, int pIndex", result.OutputCode);
+        Assert.Contains("byte[] pb, int pbIndex", result.OutputCode);
+        Assert.Equal(1, result.Statistics.PointerComparisons);
+        Assert.Equal(1, result.Statistics.PointerDifferences);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020b_ResourceFields_NormalizedOutput_IsIdempotent_SecondPassClean()
+    {
+        var first = Rewrite(ResourceFieldsSource);
+        Assert.True(first.Changed);
+        Assert.False(first.HasErrors,
+            string.Join("\n", first.Diagnostics));
+        AssertOutputCompiles(first.OutputCode);
+
+        var second = Rewrite(first.OutputCode);
+
+        Assert.False(second.Changed);
+        Assert.Empty(second.Diagnostics);
+    }
+
+    // ==================================================================
+    // UF020 第二子族补遗：游标命名族（Begin/End/EndPos）、裸别名闭包、
+    // 形参索引↔同方法 fixed 同族索引、形参 ±n 外发实参（extern/元数据）。
+    // ==================================================================
+
+    [Fact]
+    public void Uf020b_BeginEndNamedParams_BareAliasClosure_ComparisonDifferenceNormalized()
+    {
+        var src = """
+            unsafe class C
+            {
+                private char[] bufChars = new char[64];
+                private int bufPos;
+
+                unsafe void WriteRaw(char* pSrcBegin, char* pSrcEnd)
+                {
+                    fixed (char* pDstBegin = bufChars)
+                    {
+                        char* pSrc = pSrcBegin;
+                        char* pDst = pDstBegin + bufPos;
+                        char* pDstEnd = pDst + (pSrcEnd - pSrc);
+                        bool done = pSrc <= pSrcEnd && pSrc >= pSrcEnd;
+                        bufPos = (int)(pDst - pDstBegin);
+                        System.Console.Write(done);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        Assert.Contains(
+            "void WriteRaw(char[] pSrcBegin, int pSrcBeginIndex, char[] pSrcEnd, int pSrcEndIndex)",
+            result.OutputCode);
+        Assert.Contains("int pSrc = pSrcBeginIndex;", result.OutputCode);
+        Assert.Contains("pSrcEndIndex - pSrc", result.OutputCode);
+        Assert.Contains("pSrc <= pSrcEndIndex", result.OutputCode);
+        Assert.Contains("pSrc >= pSrcEndIndex", result.OutputCode);
+        Assert.Contains("pDst - pDstBegin", result.OutputCode);
+        Assert.Equal(2, result.Statistics.PointerComparisons);
+        Assert.Equal(2, result.Statistics.PointerDifferences);
+        Assert.DoesNotContain("char*", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020b_ParamAndSameFamilyFixedCursor_DifferenceAndReturnNormalized()
+    {
+        var src = """
+            unsafe class C
+            {
+                private char[] bufChars = new char[64];
+                private int bufPos;
+
+                protected unsafe char* WriteNewLine(char* pDst)
+                {
+                    fixed (char* pDstBegin = bufChars)
+                    {
+                        bufPos = (int)(pDst - pDstBegin);
+                        return pDstBegin + bufPos;
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        Assert.Contains("int WriteNewLine(char[] pDst, int pDstIndex)", result.OutputCode);
+        Assert.Contains("bufPos = pDstIndex - pDstBegin;", result.OutputCode);
+        Assert.Contains("return pDstBegin + bufPos;", result.OutputCode);
+        Assert.Equal(1, result.Statistics.PointerDifferences);
+        Assert.DoesNotContain("char*", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+
+        var second = Rewrite(result.OutputCode);
+        Assert.False(second.Changed);
+        Assert.Empty(second.Diagnostics);
+    }
+
+    [Fact]
+    public void Uf020b_SameFamilyFixedCursor_ForwardsToPairedCallee_ExpandedWithArrayAndIndex()
+    {
+        var src = """
+            unsafe class C
+            {
+                private char[] bufChars = new char[64];
+                private int bufPos;
+
+                protected unsafe char* WriteNewLine(char* pDst)
+                {
+                    fixed (char* pDstBegin = bufChars)
+                    {
+                        bufPos = (int)(pDst - pDstBegin);
+                        return pDstBegin + bufPos;
+                    }
+                }
+
+                private void Append()
+                {
+                    fixed (char* pDstBegin = bufChars)
+                    {
+                        char* pDst = pDstBegin + bufPos;
+                        pDst = WriteNewLine(pDst);
+                        bufPos = (int)(pDst - pDstBegin);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        // fixed 游标外发给配对被调方：展开为「伴生数组 + 当前 int 索引」。
+        // 同类两个 fixed pDstBegin 帧的伴生数组按声明顺序消歧（_2 后缀确定）。
+        Assert.Contains("pDst = WriteNewLine(_pDstBegin_array_2, pDst);", result.OutputCode);
+        Assert.DoesNotContain("char*", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020b_DifferentFamilyParams_BeginEndNames_ComparisonRejected_UF020()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(char* pSrcBegin, char* pDstEnd)
+                {
+                    System.Console.Write(pSrcBegin < pDstEnd);
+                }
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF020);
+    }
+
+    [Fact]
+    public void Uf020b_ParamAndCrossFamilyFixedCursor_DifferenceRejected_UF020()
+    {
+        var src = """
+            unsafe class C
+            {
+                private static char[] bufChars = new char[8];
+
+                static void M(char* pSrc)
+                {
+                    fixed (char* pDstBegin = bufChars)
+                    {
+                        int distance = (int)(pSrc - pDstBegin);
+                        System.Console.Write(distance);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF020);
+    }
+
+    [Fact]
+    public void Uf020b_ParamOffsetArgument_ForwardedToExtern_NormalizedToIndexArgument()
+    {
+        var src = """
+            unsafe class C
+            {
+                static int EncodeAt(char* pInput, int next)
+                {
+                    byte[] encodedBytes = new byte[8];
+                    fixed (byte* pEncodedBytes = &encodedBytes[0])
+                    {
+                        return System.Text.Encoding.UTF8.GetBytes(
+                            pInput + next, 1, pEncodedBytes, encodedBytes.Length);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        Assert.Contains("int EncodeAt(char[] pInput, int pInputIndex, int next)", result.OutputCode);
+        Assert.Contains("System.Text.Encoding.UTF8.GetBytes(", result.OutputCode);
+        Assert.Contains("pInputIndex + next, 1, pEncodedBytes, encodedBytes.Length",
+            result.OutputCode);
+        Assert.DoesNotContain("char*", result.OutputCode);
+
+        var second = Rewrite(result.OutputCode);
+        Assert.False(second.Changed);
+        Assert.Empty(second.Diagnostics);
+    }
+
+    [Fact]
+    public void Uf020b_BareAliasOffsetArgument_ClosureReachesParam_NormalizedToIndexArgument()
+    {
+        var src = """
+            unsafe class C
+            {
+                static int EncodeAt(char* pInput)
+                {
+                    char* cursor = pInput;
+                    byte[] encodedBytes = new byte[8];
+                    fixed (byte* pEncodedBytes = &encodedBytes[0])
+                    {
+                        return System.Text.Encoding.UTF8.GetBytes(
+                            cursor + 1, 1, pEncodedBytes, encodedBytes.Length);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        Assert.Contains("int EncodeAt(char[] pInput, int pInputIndex)", result.OutputCode);
+        Assert.Contains("int cursor = pInputIndex;", result.OutputCode);
+        Assert.Contains("cursor + 1, 1, pEncodedBytes, encodedBytes.Length",
+            result.OutputCode);
+        Assert.DoesNotContain("char*", result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020b_BareParamArgument_NotPaired_ArrayOnlyShapeKept()
+    {
+        var src = """
+            unsafe class C
+            {
+                static int Count(char* p)
+                {
+                    return System.Text.Encoding.UTF8.GetByteCount(p, 3);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors,
+            string.Join("\n", result.Diagnostics));
+        // 裸形参外发可整组数组传递：array-only 即够，不插入配对 int 索引。
+        Assert.Contains("static int Count(char[] p)", result.OutputCode);
+        Assert.DoesNotContain("pIndex", result.OutputCode);
+        Assert.Contains("GetByteCount(p, 3)", result.OutputCode);
+    }
 }

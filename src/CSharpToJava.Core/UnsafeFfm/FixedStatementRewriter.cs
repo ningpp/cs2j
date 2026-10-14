@@ -25,8 +25,24 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
     private sealed class PtrInfo
     {
         public required string ArrayName { get; set; }
+
+        /// <summary>
+        /// 真源源槽键：指针比较/相减的同源判定按此键而非伴生数组名——同一真源
+        /// 数组的多个 fixed 变量各有独立伴生名（_p_array/_q_array）但共享源槽。
+        /// </summary>
+        public required string SourceSlot { get; set; }
+
         public bool ReadOnlyString { get; init; }
         public bool Resolved { get; set; } = true;
+
+        /// <summary>
+        /// 是否为 byte*→char* 的 UTF-16 重解释局部（仅服务 new String 实参，
+        /// 归一为 Encoding.Unicode.GetString）；为 true 时不承载 int 索引。
+        /// </summary>
+        public bool ReinterpretUnicode { get; init; }
+
+        /// <summary>重解释局部来源的字节起始索引文本（相对 <see cref="ArrayName"/>）。</summary>
+        public string? ByteIndexText { get; init; }
     }
 
     private sealed record FrameRecord(
@@ -47,6 +63,14 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<ISymbol, PtrInfo> _infos = new();
     private readonly HashSet<string> _generatedNames = new();
     private readonly Dictionary<SyntaxNode, HashSet<string>> _scopeNameCache = new();
+
+    /// <summary>
+    /// fixed 块外指针局部（资源流指针）的伴生语句注入：外层块 → 锚点语句
+    /// （原指针局部声明）→ 需插在其前的语句。伴生数组必须与 int 索引局部同
+    /// 处一块作用域，不能用嵌套块包裹（后续语句仍要引用两个名字）。
+    /// </summary>
+    private readonly Dictionary<BlockSyntax, Dictionary<StatementSyntax, List<StatementSyntax>>>
+        _blockInjections = new();
 
     /// <summary>当前访问子树所属的配对方法计划栈（返回/赋值逃逸门放行用）。</summary>
     private readonly List<PairedMethodPlan> _pairedStack = new();
@@ -74,16 +98,17 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
     /// 供 R6 在跨域表达式（配对形参与 fixed 索引混算）中把这些 int 索引
     /// 重新还原为「数组 + 索引」对。
     /// </summary>
-    public IReadOnlyDictionary<ISymbol, (string ArrayName, bool ReadOnly)> LoweredArrayMap
+    public IReadOnlyDictionary<ISymbol, (string ArrayName, bool ReadOnly, string SourceSlot)>
+        LoweredArrayMap
     {
         get
         {
-            var map = new Dictionary<ISymbol, (string, bool)>(
+            var map = new Dictionary<ISymbol, (string, bool, string)>(
                 SymbolEqualityComparer.Default);
             foreach (var (symbol, info) in _infos)
             {
                 if (info.Resolved && info.ArrayName.Length > 0)
-                    map[symbol] = (info.ArrayName, info.ReadOnlyString);
+                    map[symbol] = (info.ArrayName, info.ReadOnlyString, info.SourceSlot);
             }
 
             return map;
@@ -180,6 +205,27 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
     // ---- fixed 节点 ----
 
+    public override SyntaxNode? VisitBlock(BlockSyntax node)
+    {
+        var visited = (BlockSyntax)base.VisitBlock(node)!;
+
+        // 资源指针局部的伴生语句按锚点（原声明语句）注入同一块列表。
+        // 子语句访问与列表一一对应（每个语句 Visit 仍返回单个语句节点），
+        // 故按下标对齐插入。
+        if (!_blockInjections.TryGetValue(node, out var injections))
+            return visited;
+
+        var statements = new List<StatementSyntax>();
+        for (var i = 0; i < node.Statements.Count; i++)
+        {
+            if (injections.TryGetValue(node.Statements[i], out var extras))
+                statements.AddRange(extras);
+            statements.Add(visited.Statements[i]);
+        }
+
+        return visited.WithStatements(List(statements));
+    }
+
     public override SyntaxNode? VisitFixedStatement(FixedStatementSyntax node)
     {
         _statistics.FixedStatementsCount++;
@@ -208,6 +254,9 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
             _infos[record.Symbol] = new PtrInfo
             {
                 ArrayName = record.ArrayName,
+                SourceSlot = ResolveFrameSlot(
+                    record.Kind, record.ArrayName, record.Payload,
+                    record.Declarator.Identifier.ValueText),
                 ReadOnlyString = record.Kind == InitKind.String,
             };
         }
@@ -693,6 +742,14 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                 return node;
             }
 
+            // 标量槽重解释 *((T*)&scalar)：结构与配对由 catalog 统一匹配，
+            // R6 归一为 System.BitConverter 调用，R3 不前置 UF020。
+            if (PointerMethodCatalog.TryMatchScalarReinterpret(
+                    node.Operand, _model, _resolver, out _, out _))
+            {
+                return node;
+            }
+
             if (TryResolvePointer(node.Operand, out var array, out var index, out var readOnly))
             {
                 if (readOnly && IsWriteTarget(node))
@@ -812,6 +869,39 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
+        // 向 R5 降级的只读资源指针字段存储：R5 已证明该字段全部写入只来自
+        // 同集合字段、单次构造器形参或资源流 PositionPointer 局部。
+        if (node.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            && GetIdentifierSymbol(node.Left) is IFieldSymbol targetField
+            && _rewrittenFields.Contains(targetField))
+        {
+            var fieldRhs = UnwrapParenthesized(node.Right);
+            if (!fieldRhs.IsKind(SyntaxKind.NullLiteralExpression)
+                && TypeInfoFor(fieldRhs).Type is IPointerTypeSymbol)
+            {
+                // R5 已把 RHS（形参/字段）改写为托管数组：普通数组引用赋值。
+                var rhsSymbol = GetIdentifierSymbol(fieldRhs);
+                if (rhsSymbol != null && _pointerRewritten.Contains(rhsSymbol))
+                    return base.VisitAssignmentExpression(node);
+
+                // R3 已降级的资源指针局部：RHS 归原为伴生数组引用。
+                if (TryResolvePointer(fieldRhs, out var resourceArray, out _, out _))
+                {
+                    var fieldLeft = (ExpressionSyntax)Visit(node.Left)!;
+                    return node.Update(fieldLeft, node.OperatorToken,
+                        IdentifierName(resourceArray));
+                }
+
+                AddError(
+                    UnsafeFfmDiagnosticCode.UF020,
+                    $"cannot assign pointer value '{node.Right}' to resource field " +
+                    $"'{node.Left}': its origin is not a proven resource stream array or another " +
+                    "proven source; the original file was preserved.",
+                    node);
+                return base.VisitAssignmentExpression(node);
+            }
+        }
+
         // 赋给已登记指针局部（含声明后赋值的别名）且 RHS 为指针形态。
         if (GetIdentifierSymbol(node.Left) is ILocalSymbol leftSymbol
             && _infos.TryGetValue(leftSymbol, out var info))
@@ -835,7 +925,21 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                 {
                     newRhs = indexExpression;
                     info.ArrayName = sourceArray;
+                    // 重绑定到另一可证游标：源槽随 RHS 真源迁移，后续比较/
+                    // 相减按新槽判定同源。
+                    info.SourceSlot = CompanionSlot(sourceArray);
                     info.Resolved = true;
+                }
+                else if (TryResolvePinnedArrayPointer(
+                             rhs, node, out var repinnedArray, out var repinnedIndex,
+                             out var repinnedSlot)
+                    && repinnedArray == info.ArrayName)
+                {
+                    // 同名数组变量上的重固定（数组变量可经 newDest 重绑定，
+                    // 按名引用保持动态正确）：游标归零，数组名不变，源槽随
+                    // 本次 Alloc 的数组真源更新。
+                    newRhs = repinnedIndex;
+                    info.SourceSlot = repinnedSlot;
                 }
                 else if (IsPairedPointerReturnInvocation(rhs))
                 {
@@ -878,6 +982,10 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
         if (TypeInfoFor(node.Expression).Type is IPointerTypeSymbol
             && !(expression is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.AddressOfExpression })
+            // 指针→指针强转实参（如 (byte*)p）：VisitCastExpression 已就绝对地址
+            // 强转发 UF021，或按 R5 改写域交 R6；此处不再重复发逃逸 UF020。
+            && !(expression is CastExpressionSyntax pointerCast
+                && TypeInfoFor(pointerCast.Expression).Type is IPointerTypeSymbol)
             // 可解析为「数组+int 索引」的 tracked 指针：归一后实参是 int，不是逃逸。
             && !TryResolvePointer(node.Expression, out _, out _, out _))
         {
@@ -953,6 +1061,11 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
     {
+        // byte*→char* 重解释局部唯一允许的消费形态 new String(p[, +k], 0, cch)：
+        // UTF-16 字节经 Encoding.Unicode.GetString 解码。
+        if (TryBuildUnicodeGetString(node, out var getStringCall))
+            return getStringCall;
+
         var createdType = TypeInfoFor(node).Type;
         if (createdType is INamedTypeSymbol created
             && node.ArgumentList is { Arguments.Count: >= 1 } argumentList
@@ -1018,6 +1131,20 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                 ((IPointerTypeSymbol)entries.First(e => e.sym!.Type is IPointerTypeSymbol).sym!.Type)
                     .PointedAtType.ToDisplayString());
 
+        // byte*→char* UTF-16 重解释单声明（fixed 域内）：声明整体移除，其
+        // new String 实参用途归一为 Encoding.Unicode.GetString。
+        if (entries.Count == 1
+            && entries[0].sym is { } reinterpretSymbol
+            && node.Declaration.Variables[0].Initializer?.Value is { } reinterpretRaw
+            && TryRegisterUnicodeReinterpret(
+                UnwrapParenthesized(reinterpretRaw),
+                reinterpretSymbol,
+                node,
+                node.Declaration.Variables[0]))
+        {
+            return null;
+        }
+
         var newDeclarators = new List<VariableDeclaratorSyntax>();
         var extraStatements = new List<StatementSyntax>();
 
@@ -1031,6 +1158,7 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
             var rawInitializer = declarator.Initializer?.Value;
             string? arrayName = null;
+            string? sourceSlot = null;
             ExpressionSyntax? newInitializer = null;
 
             if (rawInitializer != null)
@@ -1040,6 +1168,7 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                 if (initializer.IsKind(SyntaxKind.NullLiteralExpression))
                 {
                     arrayName = MakeGeneratedName(declarator.Identifier.ValueText, "array", node);
+                    sourceSlot = arrayName;
                     extraStatements.Add(ArrayLocal(arrayName, elementTypeSyntax,
                         PostfixUnaryExpression(
                             SyntaxKind.SuppressNullableWarningExpression,
@@ -1051,7 +1180,32 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                              out var sourceArray, out var indexExpression, out _))
                 {
                     arrayName = sourceArray;
+                    sourceSlot = CompanionSlot(sourceArray);
                     newInitializer = indexExpression;
+                }
+                else if (TryResolvePinnedArrayPointer(
+                             initializer, declarator,
+                             out var pinnedArray, out var pinnedIndex, out var pinnedSlot))
+                {
+                    arrayName = pinnedArray;
+                    sourceSlot = pinnedSlot;
+                    newInitializer = pinnedIndex;
+                }
+                else if (TryResolveResourceStreamPointer(
+                             initializer, symbol, out var resourceStream, out var resourceArray)
+                    && !TryRegisterResourceArrayInjection(
+                            node, elementTypeSyntax, resourceArray, resourceStream))
+                {
+                    // 诊断已发（声明不在块语句列表中）：占位让整文回滚。
+                    newDeclarators.Add(declarator);
+                    continue;
+                }
+                else if (resourceArray != null)
+                {
+                    arrayName = resourceArray;
+                    // 物化副本各自独立，槽即伴生数组名。
+                    sourceSlot = resourceArray;
+                    newInitializer = ZeroLiteral();
                 }
                 else
                 {
@@ -1072,6 +1226,7 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
             _infos[symbol] = new PtrInfo
             {
                 ArrayName = arrayName ?? string.Empty,
+                SourceSlot = sourceSlot ?? (arrayName ?? string.Empty),
                 Resolved = arrayName != null,
             };
         }
@@ -1183,7 +1338,8 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
             var symbol = SymbolInfoFor(identifier).Symbol;
             if (symbol != null
                 && _infos.TryGetValue(symbol, out var info)
-                && info.Resolved)
+                && info.Resolved
+                && !info.ReinterpretUnicode)
             {
                 arrayName = info.ArrayName;
                 indexExpression = e;
@@ -1286,6 +1442,539 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
         return false;
     }
+
+    /// <summary>
+    /// fixed 帧的真源源槽：数组/偏移帧按初始式真源（局部/形参/字段符号）归槽；
+    /// 别名帧继承跟踪源的槽；string/scalar/null 帧物化副本彼此独立（两次 fixed
+    /// 同一 string 会生成两份拷贝），槽即伴生数组名，保守不合并。
+    /// 配对方法内，数组/偏移帧与本方法某指针形参命名族同族（形参 <c>pDst</c>
+    /// 对 <c>fixed(char* pDstBegin = bufChars)</c>）时，帧槽提升为该族槽——
+    /// 入口契约保证入参指针指向本帧缓冲，形参索引与帧索引可比较/相减。
+    /// </summary>
+    private string ResolveFrameSlot(
+        InitKind kind,
+        string arrayName,
+        object? payload,
+        string cursorName)
+    {
+        switch (kind)
+        {
+            case InitKind.Array when payload is ExpressionSyntax source:
+                return TryResolveFamilySlot(cursorName)
+                    ?? (TryExpressionSourceSlot(source, out var arraySlot)
+                        ? arraySlot
+                        : arrayName);
+
+            case InitKind.Offset when payload is OffsetPayload offset:
+                return TryResolveFamilySlot(cursorName)
+                    ?? (TryExpressionSourceSlot(offset.Receiver, out var offsetSlot)
+                        ? offsetSlot
+                        : arrayName);
+
+            case InitKind.Alias when payload is AliasPayload alias:
+                return CompanionSlot(alias.SourceArray);
+
+            default:
+                return arrayName;
+        }
+    }
+
+    /// <summary>
+    /// 配对方法内，fixed 游标名与某指针形参命名族同族时返回该族的源槽键
+    /// （与 R5 为族内形参登记的槽一致）；非配对方法或无同族形参返回 null。
+    /// 命名族是入口契约约定（见 <see cref="PointerMethodCatalog.CursorFamily"/>）：
+    /// 仅当方法作者以 pDst/pDstBegin 同族命名表达「入参指针即指向本缓冲」时才
+    /// 合并，跨族（pSrc 形参对 pDstBegin 帧）不合并。
+    /// </summary>
+    private string? TryResolveFamilySlot(string cursorName)
+    {
+        if (_pairedStack.Count == 0)
+            return null;
+
+        var family = PointerMethodCatalog.CursorFamily(cursorName);
+        foreach (var parameter in _pairedStack[^1].Parameters)
+        {
+            if (parameter.Kind != PairedParamKind.PlainPointer || parameter.Symbol == null)
+                continue;
+            if (!string.Equals(
+                    PointerMethodCatalog.CursorFamily(parameter.Symbol.Name),
+                    family,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var slotSymbol = parameter.SlotBaseSymbol ?? parameter.Symbol;
+            return PointerMethodCatalog.SymbolSlot(slotSymbol!);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 伴生数组名（R3 已降级帧的 <c>_p_array</c>，或 R5 flow 的数组文本如
+    /// 形参名 <c>p</c>）→ 其真源源槽。
+    /// </summary>
+    private string CompanionSlot(string companion)
+    {
+        foreach (var info in _infos.Values)
+        {
+            if (info.Resolved && info.ArrayName == companion)
+                return info.SourceSlot;
+        }
+
+        foreach (var flow in _flowModel.EnumerateFlows())
+        {
+            if (flow.IsProvable && flow.ArrayExpressionText == companion)
+                return flow.SourceSlot ?? companion;
+        }
+
+        return companion;
+    }
+
+    private bool TryExpressionSourceSlot(ExpressionSyntax expression, out string slot)
+        => PointerMethodCatalog.TryGetExpressionSlot(
+            expression, _model, _resolver, out slot);
+
+    /// <summary>
+    /// 溯源 <c>(T*)handle.AddrOfPinnedObject()</c>：handle 必须是 GCHandle 局部，
+    /// 且使用点之前最近一次 <c>handle = GCHandle.Alloc(arr, GCHandleType.Pinned)
+    /// </c>（含声明初值）固定的是与强转元素同类型的简单数组标识符 arr。
+    /// 命中返回 arr 的名字（数组变量重绑定后按名动态生效）与零索引；非 Pinned、
+    /// 非数组实参、元素类型不符或句柄不是局部一律 false（保守，保留 UF020）。
+    /// </summary>
+    private bool TryResolvePinnedArrayPointer(
+        ExpressionSyntax raw,
+        SyntaxNode site,
+        out string arrayName,
+        out ExpressionSyntax indexExpression,
+        out string sourceSlot)
+    {
+        arrayName = string.Empty;
+        indexExpression = null!;
+        sourceSlot = string.Empty;
+
+        var e = UnwrapParenthesized(raw);
+        if (e is not CastExpressionSyntax cast
+            || TypeInfoFor(cast).Type is not IPointerTypeSymbol pointerType)
+        {
+            return false;
+        }
+
+        if (cast.Expression is not InvocationExpressionSyntax invocation
+            || invocation.Expression is not MemberAccessExpressionSyntax memberAccess
+            || memberAccess.Name.Identifier.ValueText != "AddrOfPinnedObject")
+        {
+            return false;
+        }
+
+        if (SymbolInfoFor(memberAccess).Symbol is not IMethodSymbol handleMethod
+            || handleMethod.ContainingType.ToDisplayString()
+                != "System.Runtime.InteropServices.GCHandle")
+        {
+            return false;
+        }
+
+        if (SymbolInfoFor(memberAccess.Expression).Symbol is not ILocalSymbol handleLocal)
+            return false;
+
+        var handleDeclarator = handleLocal.DeclaringSyntaxReferences
+            .FirstOrDefault()?.GetSyntax() as VariableDeclaratorSyntax;
+        if (handleDeclarator == null) return false;
+
+        // 候选 Alloc 站点：声明初值 + 句柄的全部赋值，取使用点之前最近一个。
+        InvocationExpressionSyntax? nearestAlloc = null;
+        var sitePosition = site.SpanStart;
+        if (handleDeclarator.Initializer?.Value is { } declarationInit
+            && UnwrapParenthesized(declarationInit) is InvocationExpressionSyntax declarationAlloc)
+        {
+            nearestAlloc = declarationAlloc;
+        }
+
+        var enclosingBody = site.FirstAncestorOrSelf<BaseMethodDeclarationSyntax>()
+                            ?? (SyntaxNode?)site.FirstAncestorOrSelf<LocalFunctionStatementSyntax>();
+        if (enclosingBody != null)
+        {
+            foreach (var assignment in enclosingBody.DescendantNodes()
+                         .OfType<AssignmentExpressionSyntax>()
+                         .Where(a => a.IsKind(SyntaxKind.SimpleAssignmentExpression)
+                             && a.SpanStart <= sitePosition
+                             && a.Left is IdentifierNameSyntax assignedIdentifier
+                             && assignedIdentifier.Identifier.ValueText == handleLocal.Name))
+            {
+                if (SymbolInfoFor(assignment.Left).Symbol is not ILocalSymbol assignedHandle
+                    || !SymbolEqualityComparer.Default.Equals(assignedHandle, handleLocal))
+                {
+                    continue;
+                }
+
+                if (UnwrapParenthesized(assignment.Right) is InvocationExpressionSyntax reassignedAlloc
+                    && (nearestAlloc == null
+                        || reassignedAlloc.SpanStart >= nearestAlloc.SpanStart))
+                {
+                    nearestAlloc = reassignedAlloc;
+                }
+            }
+        }
+
+        if (nearestAlloc == null) return false;
+
+        if (nearestAlloc.Expression is not MemberAccessExpressionSyntax allocAccess
+            || SymbolInfoFor(allocAccess).Symbol is not IMethodSymbol allocMethod
+            || allocMethod.ContainingType.ToDisplayString()
+                != "System.Runtime.InteropServices.GCHandle"
+            || allocMethod.Name != "Alloc")
+        {
+            return false;
+        }
+
+        var arguments = nearestAlloc.ArgumentList.Arguments;
+        if (arguments.Count < 2) return false;
+
+        if (SymbolInfoFor(UnwrapParenthesized(arguments[1].Expression)).Symbol
+            is not IFieldSymbol pinnedKind
+            || pinnedKind.ContainingType?.Name != "GCHandleType"
+            || pinnedKind.Name != "Pinned")
+        {
+            return false;
+        }
+
+        var arrayArg = UnwrapParenthesized(arguments[0].Expression);
+        if (arrayArg is not IdentifierNameSyntax arrayIdentifier
+            || TypeInfoFor(arrayArg).Type is not IArrayTypeSymbol arrayType)
+        {
+            return false;
+        }
+
+        if (!SymbolEqualityComparer.Default.Equals(
+                arrayType.ElementType, pointerType.PointedAtType))
+        {
+            return false;
+        }
+
+        arrayName = arrayIdentifier.Identifier.ValueText;
+        indexExpression = ZeroLiteral();
+        // 源槽归 Alloc 固定的数组局部：同一 Pinned 数组的多个游标同源可比。
+        sourceSlot = SymbolInfoFor(arrayIdentifier).Symbol is { } pinnedSymbol
+            ? PointerMethodCatalog.SymbolSlot(pinnedSymbol)
+            : arrayName;
+        return true;
+    }
+
+    /// <summary>
+    /// 溯源资源流指针局部初值 <c>byte* p = stream.PositionPointer</c>：元素必须
+    /// 为 byte，stream 是初值为 <c>Assembly.GetManifestResourceStream(...)</c>
+    /// 的局部（与 R5 字段写 RHS 资格同口径），且声明点之前没有对 stream 重
+    /// 定位（Position 写/Seek）——资源指针从当前位置起读，重定位会使「读空整个
+    /// 流」的归一改变语义。命中输出 stream 局部名与生成的伴生数组名。
+    /// </summary>
+    private bool TryResolveResourceStreamPointer(
+        ExpressionSyntax raw,
+        ILocalSymbol? pointerLocal,
+        out string streamLocalName,
+        out string? arrayName)
+    {
+        streamLocalName = string.Empty;
+        arrayName = null;
+
+        if (pointerLocal?.Type is not IPointerTypeSymbol localPointer
+            || localPointer.PointedAtType.SpecialType != SpecialType.System_Byte)
+        {
+            return false;
+        }
+
+        if (!PointerMethodCatalog.IsManifestResourcePositionPointer(
+                raw, _model, out streamLocalName, _resolver))
+            return false;
+
+        var originalDeclarator = pointerLocal.DeclaringSyntaxReferences
+            .FirstOrDefault()?.GetSyntax() as VariableDeclaratorSyntax;
+        if (originalDeclarator == null) return false;
+
+        var enclosingBody = originalDeclarator.FirstAncestorOrSelf<BaseMethodDeclarationSyntax>()
+                            ?? (SyntaxNode?)originalDeclarator.FirstAncestorOrSelf<LocalFunctionStatementSyntax>();
+        if (enclosingBody != null)
+        {
+            var sitePosition = originalDeclarator.SpanStart;
+            foreach (var memberAccess in enclosingBody.DescendantNodes()
+                         .OfType<MemberAccessExpressionSyntax>()
+                         .Where(m => m.SpanStart < sitePosition
+                             && m.Name.Identifier.ValueText is "Position" or "Seek"))
+            {
+                if (memberAccess.Expression is not IdentifierNameSyntax receiver
+                    || receiver.Identifier.ValueText != streamLocalName
+                    || SymbolInfoFor(receiver).Symbol is not ILocalSymbol)
+                {
+                    continue;
+                }
+
+                var isPositionWrite = memberAccess.Name.Identifier.ValueText == "Position"
+                    && memberAccess.Parent is AssignmentExpressionSyntax positionAssignment
+                    && positionAssignment.Left == memberAccess;
+                var isSeekCall = memberAccess.Name.Identifier.ValueText == "Seek"
+                    && memberAccess.Parent is InvocationExpressionSyntax;
+                if (isPositionWrite || isSeekCall)
+                    return false;
+            }
+        }
+
+        arrayName = MakeGeneratedName(pointerLocal.Name, "array", originalDeclarator);
+        return true;
+    }
+
+    /// <summary>
+    /// 为资源指针局部登记伴生语句（插在外层块中锚点语句之前）：
+    /// <code>
+    /// byte[] _p_array = new byte[(int)stream.Length];
+    /// stream.Read(_p_array, 0, _p_array.Length);
+    /// </code>
+    /// 两语句与降级后的 <c>int p = 0;</c> 同作用域。声明语句不直接位于块
+    /// 语句列表（如 switch 节）时保守拒绝。
+    /// </summary>
+    private bool TryRegisterResourceArrayInjection(
+        LocalDeclarationStatementSyntax anchor,
+        TypeSyntax elementType,
+        string arrayName,
+        string streamLocalName)
+    {
+        if (anchor.Parent is not BlockSyntax parentBlock)
+        {
+            AddError(
+                UnsafeFfmDiagnosticCode.UF020,
+                $"resource stream pointer local '{anchor.Declaration}' must be declared directly " +
+                "in a block so its backing array can be materialized; the original file was preserved.",
+                anchor);
+            return false;
+        }
+
+        var streamLength = MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression,
+            IdentifierName(streamLocalName),
+            IdentifierName("Length"));
+        var newArray = ArrayCreationExpression(
+            ArrayType(elementType)
+                .WithRankSpecifiers(SingletonList(ArrayRankSpecifier(
+                    SingletonSeparatedList<ExpressionSyntax>(
+                        CastExpression(PredefinedType(Token(SyntaxKind.IntKeyword)), streamLength))))));
+
+        var arrayLocal = ArrayLocal(arrayName, elementType, newArray, anchor);
+
+        var readCall = InvocationExpression(
+            MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                IdentifierName(streamLocalName),
+                IdentifierName("Read")))
+            .WithArgumentList(ArgumentList(SeparatedList(new[]
+            {
+                Argument(IdentifierName(arrayName)),
+                Argument(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(0))),
+                Argument(MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    IdentifierName(arrayName),
+                    IdentifierName("Length"))),
+            })));
+        var readStatement = ExpressionStatement(readCall)
+            .WithLeadingTrivia(anchor.GetLeadingTrivia());
+
+        if (!_blockInjections.TryGetValue(parentBlock, out var per))
+        {
+            per = new Dictionary<StatementSyntax, List<StatementSyntax>>();
+            _blockInjections[parentBlock] = per;
+        }
+
+        if (!per.TryGetValue(anchor, out var list))
+        {
+            list = new List<StatementSyntax>();
+            per[anchor] = list;
+        }
+
+        list.Add(arrayLocal);
+        list.Add(readStatement);
+        return true;
+    }
+
+    // ---- byte*→char* UTF-16 重解释局部（new String 实参专用） ----
+
+    /// <summary>
+    /// 登记 fixed 域内 <c>char* p = (char*)(pb + byteOffset)</c> 重解释局部：
+    /// 源指针必须可溯源到 byte 数组索引，且 fixed 块内该局部（声明之后）的
+    /// <b>全部</b>使用只出现在 <c>new String(p[, +charOffset], 0, cch)</c> 的
+    /// 首参数位置（不被 lambda/局部函数捕获、不自增/赋值/取址/下标）。命中后
+    /// 声明由调用方移除，使用点由
+    /// <see cref="TryBuildUnicodeGetString"/> 归一为 Encoding.Unicode.GetString。
+    /// 任何结构性前提不满足均返回 false（保守，落既有 UF020 路径）。
+    /// </summary>
+    private bool TryRegisterUnicodeReinterpret(
+        ExpressionSyntax initializer,
+        ILocalSymbol local,
+        LocalDeclarationStatementSyntax declaration,
+        VariableDeclaratorSyntax declarator)
+    {
+        if (local.Type is not IPointerTypeSymbol { PointedAtType.SpecialType: SpecialType.System_Char })
+            return false;
+
+        if (initializer is not CastExpressionSyntax cast)
+            return false;
+
+        var inner = UnwrapParenthesized(cast.Expression);
+        if (TypeInfoFor(inner).Type is not IPointerTypeSymbol sourcePointer
+            || sourcePointer.PointedAtType.SpecialType != SpecialType.System_Byte)
+        {
+            return false;
+        }
+
+        if (!TryResolvePointer(inner, out var byteArray, out var byteIndex, out _))
+            return false;
+
+        var fixedStatement = declaration.FirstAncestorOrSelf<FixedStatementSyntax>();
+        if (fixedStatement == null)
+            return false;
+
+        var uses = fixedStatement.Statement.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(id => id.SpanStart > declarator.Span.End
+                && SymbolEqualityComparer.Default.Equals(SymbolInfoFor(id).Symbol, local))
+            .ToList();
+        if (uses.Count == 0)
+            return false;
+
+        foreach (var use in uses)
+        {
+            if (!IsReinterpretStringCtorArgument(use, fixedStatement))
+                return false;
+        }
+
+        _infos[local] = new PtrInfo
+        {
+            ArrayName = byteArray,
+            SourceSlot = byteArray,
+            Resolved = true,
+            ReinterpretUnicode = true,
+            ByteIndexText = "(" + byteIndex.ToString() + ")",
+        };
+        return true;
+    }
+
+    /// <summary>
+    /// use 是否为 <c>new String(p[, +charOffset], 0, cch)</c> 的首参数（首参数
+    /// 即 use 自身或 use + 整型偏移），且中途未被 lambda/局部函数捕获。
+    /// </summary>
+    private bool IsReinterpretStringCtorArgument(
+        IdentifierNameSyntax use,
+        FixedStatementSyntax fixedStatement)
+    {
+        if (use.Ancestors()
+            .TakeWhile(a => a != fixedStatement.Statement)
+            .Any(a => a is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+        {
+            return false;
+        }
+
+        ExpressionSyntax access = use;
+        SyntaxNode? accessParent = use.Parent;
+        if (accessParent is BinaryExpressionSyntax add
+            && add.IsKind(SyntaxKind.AddExpression)
+            && add.Left == use
+            && IsIntegralType(TypeInfoFor(add.Right).Type))
+        {
+            access = add;
+            accessParent = add.Parent;
+        }
+
+        while (accessParent is ParenthesizedExpressionSyntax parenthesized)
+            accessParent = parenthesized.Parent;
+
+        if (accessParent is not ArgumentSyntax argument
+            || argument.RefKindKeyword.Kind() != SyntaxKind.None
+            || argument.Parent is not ArgumentListSyntax argumentList
+            || argumentList.Parent is not ObjectCreationExpressionSyntax creation
+            || !ReferenceEquals(UnwrapParenthesized(argument.Expression), access)
+            || argumentList.Arguments.Count != 3
+            || !ReferenceEquals(argument, argumentList.Arguments[0])
+            || !IsZeroLiteralExpression(
+                UnwrapParenthesized(argumentList.Arguments[1].Expression)))
+        {
+            return false;
+        }
+
+        return TypeInfoFor(creation).Type?.SpecialType == SpecialType.System_String;
+    }
+
+    /// <summary>
+    /// <c>new String(p[, +charOffset], 0, cch)</c>（p 为 byte*→char* 重解释
+    /// 局部）→ <c>Encoding.Unicode.GetString(bytes, byteIndex, checked(cch*2))</c>。
+    /// </summary>
+    private bool TryBuildUnicodeGetString(
+        ObjectCreationExpressionSyntax creation,
+        out InvocationExpressionSyntax invocation)
+    {
+        invocation = null!;
+
+        if (TypeInfoFor(creation).Type?.SpecialType != SpecialType.System_String
+            || creation.ArgumentList is not { Arguments.Count: 3 } arguments
+            || !IsZeroLiteralExpression(UnwrapParenthesized(arguments.Arguments[1].Expression)))
+        {
+            return false;
+        }
+
+        var firstArgument = UnwrapParenthesized(arguments.Arguments[0].Expression);
+        ExpressionSyntax? charOffset = null;
+        IdentifierNameSyntax? pointerIdentifier = firstArgument as IdentifierNameSyntax;
+        if (pointerIdentifier == null
+            && firstArgument is BinaryExpressionSyntax offsetAdd
+            && offsetAdd.IsKind(SyntaxKind.AddExpression)
+            && offsetAdd.Left is IdentifierNameSyntax offsetIdentifier)
+        {
+            pointerIdentifier = offsetIdentifier;
+            charOffset = offsetAdd.Right;
+            if (!IsIntegralType(TypeInfoFor(charOffset).Type))
+                return false;
+        }
+
+        if (pointerIdentifier == null
+            || SymbolInfoFor(pointerIdentifier).Symbol is not ILocalSymbol local
+            || !_infos.TryGetValue(local, out var info)
+            || !info.ReinterpretUnicode)
+        {
+            return false;
+        }
+
+        var byteIndexText = info.ByteIndexText!;
+        if (charOffset != null)
+            byteIndexText += " + (" + charOffset + ") * 2";
+
+        var charCount = UnwrapParenthesized(arguments.Arguments[2].Expression);
+        var byteCount = CheckedExpression(
+            SyntaxKind.CheckedExpression,
+            ParseExpression("(" + charCount + ") * 2"));
+
+        invocation = InvocationExpression(
+            MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    ParseExpression("global::System.Text.Encoding"),
+                    IdentifierName("Unicode")),
+                IdentifierName("GetString")))
+            .WithArgumentList(ArgumentList(SeparatedList(new[]
+            {
+                Argument(IdentifierName(info.ArrayName)),
+                Argument(ParseExpression(byteIndexText)),
+                Argument(byteCount),
+            })));
+        return true;
+    }
+
+    private static bool IsIntegralType(ITypeSymbol? type)
+        => type?.SpecialType is SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_Int32
+            or SpecialType.System_UInt32
+            or SpecialType.System_Int64
+            or SpecialType.System_UInt64
+            or SpecialType.System_Byte
+            or SpecialType.System_SByte
+            or SpecialType.System_Char;
 
     // ---- 构造辅助 ----
 

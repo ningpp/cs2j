@@ -74,4 +74,20 @@ public final class BitConverter {
     public static int singleToInt32Bits(float value) {
         return Float.floatToRawIntBits(value);
     }
+
+    /**
+     * Converts the specified 32-bit signed integer to a single-precision
+     * floating-point number, preserving the exact IEEE 754 bit pattern.
+     */
+    public static float int32BitsToSingle(int value) {
+        return Float.intBitsToFloat(value);
+    }
+
+    /**
+     * Converts the specified 64-bit signed integer to a double-precision
+     * floating-point number, preserving the exact IEEE 754 bit pattern.
+     */
+    public static double int64BitsToDouble(long value) {
+        return Double.longBitsToDouble(value);
+    }
 }

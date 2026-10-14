@@ -45,4 +45,16 @@ class BitConverterTest {
         assertEquals(0x00000000, BitConverter.singleToInt32Bits(0.0f));
         assertEquals(0x80000000, BitConverter.singleToInt32Bits(-0.0f));
     }
+
+    @Test
+    void int32BitsToSingle_preservesNegativeZeroSign() {
+        assertEquals(0.0f, BitConverter.int32BitsToSingle(0x00000000));
+        assertEquals(-0.0f, BitConverter.int32BitsToSingle(0x80000000));
+    }
+
+    @Test
+    void int64BitsToDouble_preservesNegativeZeroSign() {
+        assertEquals(0.0, BitConverter.int64BitsToDouble(0x0000000000000000L));
+        assertEquals(-0.0, BitConverter.int64BitsToDouble(0x8000000000000000L));
+    }
 }

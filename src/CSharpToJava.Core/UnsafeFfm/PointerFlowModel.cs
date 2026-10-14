@@ -45,6 +45,14 @@ internal sealed record PointerFlow(
     /// 指向的既有变量上，不再插入合成索引局部，也不做 lambda 捕获阻塞。
     /// </summary>
     public bool FoldsToOffset { get; init; }
+
+    /// <summary>
+    /// 真源源槽键：两个可证游标仅当源槽相等才允许指针比较/相减归一。
+    /// null 时回退 <see cref="ArrayExpressionText"/>（数组文本即槽）。
+    /// 独立指针形参各自成槽；末端形参（pEnd）归属基指针槽；R3 fixed
+    /// 游标按真源（fixed 初始式溯源的局部/形参/字段符号）归槽。
+    /// </summary>
+    public string? SourceSlot { get; init; }
 }
 
 /// <summary>
@@ -73,4 +81,7 @@ internal sealed class PointerFlowModel
 
     public bool Contains(ISymbol? symbol) =>
         symbol != null && _flows.ContainsKey(symbol);
+
+    /// <summary>全部已登记 flow（R3 按伴生数组文本反查源槽归属）。</summary>
+    public IEnumerable<PointerFlow> EnumerateFlows() => _flows.Values;
 }
