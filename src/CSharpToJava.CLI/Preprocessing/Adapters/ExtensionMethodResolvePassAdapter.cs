@@ -297,7 +297,7 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
             return Task.CompletedTask;
         }
 
-        var candidate = BuildIntermediateCompilation(tree);
+        var candidate = BuildIntermediateCompilation(tree, _preprocessor.RewrittenFiles);
 
         // M4 §4.4-4: candidate-vs-baseline compile-error diff with file
         // attribution; unique rewritten file → replay that file; otherwise
@@ -311,7 +311,7 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         if (rollbackPlan.Verdict == ExtensionRollbackVerdict.ExcludeFiles)
         {
             excludedFiles = RevertFiles(tree, rollbackPlan.FilesToRevert, rollbackPlan.NewErrors);
-            candidate = BuildIntermediateCompilation(tree);
+            candidate = BuildIntermediateCompilation(tree, _preprocessor.RewrittenFiles);
         }
         else if (rollbackPlan.Verdict == ExtensionRollbackVerdict.WholeTreeRollback)
         {
@@ -472,10 +472,15 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         }
     }
 
-    private CSharpCompilation BuildIntermediateCompilation(PassTreeContext tree)
+    private CSharpCompilation BuildIntermediateCompilation(
+        PassTreeContext tree,
+        IReadOnlyCollection<string>? rewrittenSourcePaths = null)
     {
         var parseOptions = CreateParseOptions(tree);
         var trees = new List<SyntaxTree>();
+        var rewritten = rewrittenSourcePaths is null
+            ? null
+            : new HashSet<string>(rewrittenSourcePaths, StringComparer.OrdinalIgnoreCase);
 
         // Rebuild the candidate tree list in the SAME order the baseline
         // compilation enumerated (BuildStandardCompilation walks tree.CsFiles).
@@ -499,6 +504,18 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
             if (!File.Exists(intermediateFile))
             {
                 intermediateFile = sourceFile;
+            }
+
+            // A file this pass did not rewrite still holds the original bytes,
+            // so its already-parsed source tree (from the syntax gate) is reused
+            // with the intermediate layout path instead of being read and
+            // parsed a second time. Only rewritten files are parsed from disk.
+            if (rewritten is not null
+                && !rewritten.Contains(sourceFile)
+                && tree.ParsedSyntaxTrees.TryGetValue(sourceFile, out var parsed))
+            {
+                trees.Add(parsed.WithFilePath(intermediateFile));
+                continue;
             }
 
             trees.Add(CSharpSyntaxTree.ParseText(

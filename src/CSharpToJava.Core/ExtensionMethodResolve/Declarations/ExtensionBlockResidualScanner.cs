@@ -49,144 +49,176 @@ internal static class ExtensionBlockResidualScanner
     {
         ArgumentNullException.ThrowIfNull(rewritten);
 
-        var remainingBlocks = 0;
-        var unpairedSites = 0;
-        var identityFailures = 0;
-        var indexerMismatches = 0;
+        var trees = rewritten.SyntaxTrees as IReadOnlyList<SyntaxTree>
+            ?? rewritten.SyntaxTrees.ToList();
+        var remainingBlocksByTree = new int[trees.Count];
+        var unpairedSitesByTree = new int[trees.Count];
+        var identityFailuresByTree = new int[trees.Count];
+        var indexerMismatchesByTree = new int[trees.Count];
 
-        foreach (var tree in rewritten.SyntaxTrees)
-        {
-            if (excludedFiles is not null
-                && excludedFiles.Contains(tree.FilePath, StringComparer.OrdinalIgnoreCase))
+        // The scan is a pure per-tree count with no cross-tree state, so the
+        // trees run in parallel; the per-tree counts are summed afterwards, so
+        // the aggregated result is independent of the execution order.
+        Parallel.For(
+            0,
+            trees.Count,
+            new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount) },
+            index =>
             {
-                continue;
-            }
-
-            var root = tree.GetCompilationUnitRoot();
-            var model = rewritten.GetSemanticModel(tree);
-            analyses.TryGetValue(tree, out var analysis);
-
-            // Rejected blocks are paired with an Error diagnostic at the
-            // block's line; collect which lines carry a block-level rejection.
-            var rejectedBlockLines = analysis is not null
-                ? new HashSet<int>(analysis.Diagnostics
-                    .Where(d => d.Severity == ExtensionSeverity.Error
-                                && (d.Code == ExtensionBlockCodes.Unsupported
-                                    || d.Code == ExtensionBlockCodes.ParseProbeFailed
-                                    || d.Code == ExtensionBlockCodes.PropertyChainGate
-                                    || d.Code == ExtensionBlockCodes.UnsupportedReceiver
-                                    || d.Code == ExtensionBlockCodes.SignatureCollision))
-                    .Select(d => d.Line ?? -1))
-                : new HashSet<int>();
-
-            var retainedBlocks = new List<ExtensionBlockDeclarationSyntax>();
-            foreach (var block in ExtensionBlockSyntaxFacts.EnumerateBlocks(root))
-            {
-                var line = block.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-                if (!rejectedBlockLines.Contains(line))
+                var tree = trees[index];
+                if (excludedFiles is not null
+                    && excludedFiles.Contains(tree.FilePath, StringComparer.OrdinalIgnoreCase))
                 {
-                    remainingBlocks++;
+                    return;
                 }
 
-                retainedBlocks.Add(block);
-            }
+                var remainingBlocks = 0;
+                var unpairedSites = 0;
+                var identityFailures = 0;
+                var indexerMismatches = 0;
 
-            // (4) Indexer rejection count pairing.
-            indexerMismatches += VerifyIndexerPairing(root, retainedBlocks, analysis);
+                var root = tree.GetCompilationUnitRoot();
+                var model = rewritten.GetSemanticModel(tree);
+                analyses.TryGetValue(tree, out var analysis);
 
-            // Paired spans: deferred sites plus external metadata reports.
-            var pairedSpans = new HashSet<int>();
-            if (analysis is not null)
-            {
-                foreach (var deferred in analysis.DeferredSites)
+                // Rejected blocks are paired with an Error diagnostic at the
+                // block's line; collect which lines carry a block-level rejection.
+                var rejectedBlockLines = analysis is not null
+                    ? new HashSet<int>(analysis.Diagnostics
+                        .Where(d => d.Severity == ExtensionSeverity.Error
+                                    && (d.Code == ExtensionBlockCodes.Unsupported
+                                        || d.Code == ExtensionBlockCodes.ParseProbeFailed
+                                        || d.Code == ExtensionBlockCodes.PropertyChainGate
+                                        || d.Code == ExtensionBlockCodes.UnsupportedReceiver
+                                        || d.Code == ExtensionBlockCodes.SignatureCollision))
+                        .Select(d => d.Line ?? -1))
+                    : new HashSet<int>();
+
+                var retainedBlocks = new List<ExtensionBlockDeclarationSyntax>();
+                foreach (var block in ExtensionBlockSyntaxFacts.EnumerateBlocks(root))
                 {
-                    pairedSpans.Add(deferred.Site.SpanStart);
-                }
-
-                foreach (var external in analysis.ExternalSites)
-                {
-                    pairedSpans.Add(external.Site.SpanStart);
-                }
-            }
-
-            // (2a) invocation sites (block methods).
-            foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
-            {
-                if (model.GetSymbolInfo(invocation).Symbol is IMethodSymbol
+                    var line = block.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                    if (!rejectedBlockLines.Contains(line))
                     {
-                        MethodKind: MethodKind.Ordinary,
-                    } method
-                    && method.ContainingType.TypeKind == TypeKind.Extension
-                    && !pairedSpans.Contains(invocation.SpanStart))
-                {
-                    unpairedSites++;
-                }
-            }
-
-            // (2b) property accesses (member access + member binding).
-            var propertyAccesses = root.DescendantNodes()
-                .OfType<MemberAccessExpressionSyntax>()
-                .Cast<ExpressionSyntax>()
-                .Concat(root.DescendantNodes().OfType<MemberBindingExpressionSyntax>());
-            foreach (var access in propertyAccesses)
-            {
-                if (model.GetSymbolInfo(access).Symbol is { } symbol
-                    && IsExtensionContainerSymbol(symbol)
-                    && !pairedSpans.Contains(access.SpanStart))
-                {
-                    unpairedSites++;
-                }
-            }
-
-            // (2c) operator sites still binding to extension containers.
-            foreach (var binary in root.DescendantNodes().OfType<BinaryExpressionSyntax>())
-            {
-                if (model.GetSymbolInfo(binary).Symbol is IMethodSymbol
-                    {
-                        MethodKind: MethodKind.UserDefinedOperator,
-                    } op
-                    && op.ContainingType.TypeKind == TypeKind.Extension
-                    && !pairedSpans.Contains(binary.SpanStart))
-                {
-                    unpairedSites++;
-                }
-            }
-
-            foreach (var unary in root.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>())
-            {
-                if (model.GetSymbolInfo(unary).Symbol is IMethodSymbol
-                    {
-                        MethodKind: MethodKind.UserDefinedOperator,
-                    } op
-                    && op.ContainingType.TypeKind == TypeKind.Extension
-                    && !pairedSpans.Contains(unary.SpanStart))
-                {
-                    unpairedSites++;
-                }
-            }
-
-            foreach (var compound in root.DescendantNodes()
-                         .OfType<AssignmentExpressionSyntax>()
-                         .Where(a => !a.IsKind(SyntaxKind.SimpleAssignmentExpression)))
-            {
-                if (model.GetOperation(compound) is ICompoundAssignmentOperation
-                    {
-                        OperatorMethod.ContainingType.TypeKind: TypeKind.Extension,
+                        remainingBlocks++;
                     }
-                    && !pairedSpans.Contains(compound.SpanStart))
-                {
-                    unpairedSites++;
-                }
-            }
 
-            if (analysis is not null)
-            {
-                identityFailures += VerifySiteIdentity(rewritten, model, root, analysis);
-            }
+                    retainedBlocks.Add(block);
+                }
+
+                // (4) Indexer rejection count pairing.
+                indexerMismatches += VerifyIndexerPairing(root, retainedBlocks, analysis);
+
+                // Paired spans: deferred sites plus external metadata reports.
+                var pairedSpans = new HashSet<int>();
+                if (analysis is not null)
+                {
+                    foreach (var deferred in analysis.DeferredSites)
+                    {
+                        pairedSpans.Add(deferred.Site.SpanStart);
+                    }
+
+                    foreach (var external in analysis.ExternalSites)
+                    {
+                        pairedSpans.Add(external.Site.SpanStart);
+                    }
+                }
+
+                // (2a) invocation sites (block methods).
+                foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+                {
+                    if (model.GetSymbolInfo(invocation).Symbol is IMethodSymbol
+                        {
+                            MethodKind: MethodKind.Ordinary,
+                        } method
+                        && method.ContainingType.TypeKind == TypeKind.Extension
+                        && !pairedSpans.Contains(invocation.SpanStart))
+                    {
+                        unpairedSites++;
+                    }
+                }
+
+                // (2b) property accesses (member access + member binding).
+                var propertyAccesses = root.DescendantNodes()
+                    .OfType<MemberAccessExpressionSyntax>()
+                    .Cast<ExpressionSyntax>()
+                    .Concat(root.DescendantNodes().OfType<MemberBindingExpressionSyntax>());
+                foreach (var access in propertyAccesses)
+                {
+                    if (model.GetSymbolInfo(access).Symbol is { } symbol
+                        && IsExtensionContainerSymbol(symbol)
+                        && !pairedSpans.Contains(access.SpanStart))
+                    {
+                        unpairedSites++;
+                    }
+                }
+
+                // (2c) operator sites still binding to extension containers.
+                foreach (var binary in root.DescendantNodes().OfType<BinaryExpressionSyntax>())
+                {
+                    if (model.GetSymbolInfo(binary).Symbol is IMethodSymbol
+                        {
+                            MethodKind: MethodKind.UserDefinedOperator,
+                        } op
+                        && op.ContainingType.TypeKind == TypeKind.Extension
+                        && !pairedSpans.Contains(binary.SpanStart))
+                    {
+                        unpairedSites++;
+                    }
+                }
+
+                foreach (var unary in root.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>())
+                {
+                    if (model.GetSymbolInfo(unary).Symbol is IMethodSymbol
+                        {
+                            MethodKind: MethodKind.UserDefinedOperator,
+                        } op
+                        && op.ContainingType.TypeKind == TypeKind.Extension
+                        && !pairedSpans.Contains(unary.SpanStart))
+                    {
+                        unpairedSites++;
+                    }
+                }
+
+                foreach (var compound in root.DescendantNodes()
+                             .OfType<AssignmentExpressionSyntax>()
+                             .Where(a => !a.IsKind(SyntaxKind.SimpleAssignmentExpression)))
+                {
+                    if (model.GetOperation(compound) is ICompoundAssignmentOperation
+                        {
+                            OperatorMethod.ContainingType.TypeKind: TypeKind.Extension,
+                        }
+                        && !pairedSpans.Contains(compound.SpanStart))
+                    {
+                        unpairedSites++;
+                    }
+                }
+
+                if (analysis is not null)
+                {
+                    identityFailures += VerifySiteIdentity(rewritten, model, root, analysis);
+                }
+
+                remainingBlocksByTree[index] = remainingBlocks;
+                unpairedSitesByTree[index] = unpairedSites;
+                identityFailuresByTree[index] = identityFailures;
+                indexerMismatchesByTree[index] = indexerMismatches;
+            });
+
+        var totalRemainingBlocks = 0;
+        var totalUnpairedSites = 0;
+        var totalIdentityFailures = 0;
+        var totalIndexerMismatches = 0;
+        for (var index = 0; index < trees.Count; index++)
+        {
+            totalRemainingBlocks += remainingBlocksByTree[index];
+            totalUnpairedSites += unpairedSitesByTree[index];
+            totalIdentityFailures += identityFailuresByTree[index];
+            totalIndexerMismatches += indexerMismatchesByTree[index];
         }
 
         return new BlockResidualResult(
-            remainingBlocks, unpairedSites, identityFailures, indexerMismatches);
+            totalRemainingBlocks, totalUnpairedSites, totalIdentityFailures, totalIndexerMismatches);
     }
 
     private static int VerifyIndexerPairing(

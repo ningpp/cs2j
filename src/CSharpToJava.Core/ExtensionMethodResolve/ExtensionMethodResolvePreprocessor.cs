@@ -109,86 +109,115 @@ public sealed class ExtensionMethodResolvePreprocessor
         _thisModifierBaseline = 0;
         BlockStatisticsForLastFile = null;
 
-        foreach (var tree in _compilation.SyntaxTrees.OrderBy(t => t.FilePath, StringComparer.OrdinalIgnoreCase))
-        {
-            var model = _compilation.GetSemanticModel(tree);
-            var entryDiagnostics = new List<ExtensionDiagnostic>();
-            BlockAnalysisResult? blockAnalysis = null;
-            var suppressClassicBlockGate = false;
+        // Per-tree analysis is independent (each tree owns its SemanticModel and
+        // its own analyzer/binder state), so it runs in parallel. Results are
+        // written into order-indexed slots and then merged into the plan tables
+        // strictly in the original sorted-tree order, so the table contents,
+        // the accumulated `this`-modifier baseline and every downstream
+        // diagnostic/statistic sequence are byte-identical to the serial loop.
+        var orderedTrees = _compilation.SyntaxTrees
+            .OrderBy(t => t.FilePath, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var planSlots = new FilePlan?[orderedTrees.Count];
+        var blockSlots = new BlockAnalysisResult?[orderedTrees.Count];
 
-            var materialize = blockOptions?.MaterializeExtensionBlocks == true;
-            if (materialize)
+        Parallel.For(
+            0,
+            orderedTrees.Count,
+            new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount) },
+            index =>
             {
-                var root = tree.GetCompilationUnitRoot();
-                var hasBlocks = root.DescendantNodes()
-                    .Any(n => n.IsKind(SyntaxKind.ExtensionBlockDeclaration));
+                var tree = orderedTrees[index];
+                // Distinct tree → distinct SemanticModel → one thread never
+                // touches another thread's model (same pattern as the spine's
+                // parallel per-file rewrite).
+                var model = _compilation.GetSemanticModel(tree);
+                var entryDiagnostics = new List<ExtensionDiagnostic>();
+                BlockAnalysisResult? blockAnalysis = null;
+                var suppressClassicBlockGate = false;
 
-                if (hasBlocks)
+                var materialize = blockOptions?.MaterializeExtensionBlocks == true;
+                if (materialize)
                 {
-                    if (!ExtensionBlockParseProbe.Passes())
+                    var root = tree.GetCompilationUnitRoot();
+                    var hasBlocks = root.DescendantNodes()
+                        .Any(n => n.IsKind(SyntaxKind.ExtensionBlockDeclaration));
+
+                    if (hasBlocks)
                     {
-                        // C49 cannot run: keep the classic 1206 gate, add 1213 per block.
-                        foreach (var block in ExtensionBlockSyntaxFacts.EnumerateBlocks(root))
+                        if (!ExtensionBlockParseProbe.Passes())
                         {
-                            entryDiagnostics.Add(BlockEntryDiagnostic(
-                                ExtensionBlockCodes.ParseProbeFailed,
-                                ExtensionBlockMessages.ParseProbeFailed,
-                                tree, block));
+                            // C49 cannot run: keep the classic 1206 gate, add 1213 per block.
+                            foreach (var block in ExtensionBlockSyntaxFacts.EnumerateBlocks(root))
+                            {
+                                entryDiagnostics.Add(BlockEntryDiagnostic(
+                                    ExtensionBlockCodes.ParseProbeFailed,
+                                    ExtensionBlockMessages.ParseProbeFailed,
+                                    tree, block));
+                            }
                         }
-                    }
-                    else if (blockOptions!.RequireMemberDesugarChain
-                             && (blockOptions.EnableProperties || blockOptions.EnableOperators)
-                             && !memberDesugarChainAvailable)
-                    {
-                        // Property/operator chain missing: take over the gate with 1208.
-                        suppressClassicBlockGate = true;
-                        foreach (var block in ExtensionBlockSyntaxFacts.EnumerateBlocks(root))
+                        else if (blockOptions!.RequireMemberDesugarChain
+                                 && (blockOptions.EnableProperties || blockOptions.EnableOperators)
+                                 && !memberDesugarChainAvailable)
                         {
-                            entryDiagnostics.Add(BlockEntryDiagnostic(
-                                ExtensionBlockCodes.PropertyChainGate,
-                                ExtensionBlockMessages.PropertyChainGate,
-                                tree, block));
+                            // Property/operator chain missing: take over the gate with 1208.
+                            suppressClassicBlockGate = true;
+                            foreach (var block in ExtensionBlockSyntaxFacts.EnumerateBlocks(root))
+                            {
+                                entryDiagnostics.Add(BlockEntryDiagnostic(
+                                    ExtensionBlockCodes.PropertyChainGate,
+                                    ExtensionBlockMessages.PropertyChainGate,
+                                    tree, block));
+                            }
+                        }
+                        else
+                        {
+                            suppressClassicBlockGate = true;
+                            var analyzer = new ExtensionBlockAnalyzer(model, blockOptions!);
+                            blockAnalysis = analyzer.Analyze();
                         }
                     }
                     else
                     {
-                        suppressClassicBlockGate = true;
+                        // No blocks declared in THIS file, but it may consume
+                        // extension members from an external assembly
+                        // (decision appendix 5): still run the analyzer so the
+                        // report-only CS2J1203 boundary scan can fire.
                         var analyzer = new ExtensionBlockAnalyzer(model, blockOptions!);
                         blockAnalysis = analyzer.Analyze();
-                        _blockAnalyses[tree] = blockAnalysis;
                     }
                 }
-                else
+
+                var binder = new ExtensionCallBinder(model, _options, suppressClassicBlockGate);
+                binder.Analyze();
+
+                blockSlots[index] = blockAnalysis;
+                planSlots[index] = new FilePlan
                 {
-                    // No blocks declared in THIS file, but it may consume
-                    // extension members from an external assembly
-                    // (decision appendix 5): still run the analyzer so the
-                    // report-only CS2J1203 boundary scan can fire.
-                    var analyzer = new ExtensionBlockAnalyzer(model, blockOptions!);
-                    blockAnalysis = analyzer.Analyze();
-                    _blockAnalyses[tree] = blockAnalysis;
-                }
+                    Bindings = binder.Bindings,
+                    ConditionalPlans = binder.ConditionalPlans,
+                    GroupPlans = binder.GroupPlans,
+                    RefMismatchSites = binder.RefMismatchSites,
+                    ExprTreeReportOnlySites = binder.ExprTreeReportOnlySites,
+                    MixedChainSkippedSites = binder.MixedChainSkippedSites,
+                    OverrideSkippedSites = binder.OverrideSkippedSites,
+                    Diagnostics = binder.Diagnostics,
+                    Statistics = binder.Statistics,
+                    BlockAnalysis = blockAnalysis,
+                    BlockEntryDiagnostics = entryDiagnostics,
+                };
+            });
+
+        for (var index = 0; index < orderedTrees.Count; index++)
+        {
+            var tree = orderedTrees[index];
+            if (blockSlots[index] is { } blockAnalysis)
+            {
+                _blockAnalyses[tree] = blockAnalysis;
             }
 
-            var binder = new ExtensionCallBinder(model, _options, suppressClassicBlockGate);
-            binder.Analyze();
-
             _thisModifierBaseline += ExtensionMethodResidualScanner.CountExtensionThisModifiers(tree);
-
-            _plans[tree] = new FilePlan
-            {
-                Bindings = binder.Bindings,
-                ConditionalPlans = binder.ConditionalPlans,
-                GroupPlans = binder.GroupPlans,
-                RefMismatchSites = binder.RefMismatchSites,
-                ExprTreeReportOnlySites = binder.ExprTreeReportOnlySites,
-                MixedChainSkippedSites = binder.MixedChainSkippedSites,
-                OverrideSkippedSites = binder.OverrideSkippedSites,
-                Diagnostics = binder.Diagnostics,
-                Statistics = binder.Statistics,
-                BlockAnalysis = blockAnalysis,
-                BlockEntryDiagnostics = entryDiagnostics,
-            };
+            _plans[tree] = planSlots[index]!;
         }
 
         _rewrittenSites = Array.Empty<ExtensionRewrittenSiteKey>();
