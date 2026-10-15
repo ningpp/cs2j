@@ -23,6 +23,9 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
     private readonly bool _verifyTests;
     private readonly bool _strict;
 
+    /// <summary>Test-project root directories (see <see cref="IsInTestProject"/>).</summary>
+    private HashSet<string>? _testProjectDirectories;
+
     private readonly ClosureLiftPreprocessor _preprocessor = new();
     private readonly List<ClosureLiftDiagnostic> _diagnostics = new();
     private readonly ClosureLiftStatistics _statistics = new();
@@ -57,13 +60,26 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
     public ClosureLiftStatistics Statistics => _statistics;
     public IReadOnlyList<ClosureLiftDiagnostic> Diagnostics => _diagnostics;
 
-    // Standard .NET (net6+) ImplicitUsings set. The spine compilation parses
-    // source files directly, so the SDK-generated global usings are absent and
-    // bare `Func<int, int>`-style references surface as error types — the
-    // named-method stage resolves lambda target delegates through the semantic
-    // model and would freeze otherwise liftable files (design D8). Files that
-    // already `using` these namespaces are unaffected; the tree mirrors the
-    // real project build closely enough for delegate-type resolution.
+    // Standard .NET (net6+) ImplicitUsings set, plus System.Text (see below).
+    // The spine compilation parses source files directly, so the SDK-generated
+    // global usings are absent and bare `Func<int, int>`-style references
+    // surface as error types — the named-method stage resolves lambda target
+    // delegates through the semantic model and would freeze otherwise liftable
+    // files (design D8). Files that already `using` these namespaces are
+    // unaffected; the tree mirrors the real project build closely enough for
+    // delegate-type resolution.
+    //
+    // System.Text is added on top of the SDK default set: the regex production
+    // project declares its whole using set through csproj `<Using>` items
+    // (including System.Text) and its files carry no file-level
+    // `using System.Text;`. Match.cs binds the captured `SegmentStringBuilder`
+    // local through that namespace; without the global using it binds to an
+    // error type and the read-only capture path emits a spurious CS2J4502 that
+    // freezes a Java-bound production file (full-chain blocker). The spine's
+    // per-project global-usings synthesis cannot be reused here as-is: applied
+    // compilation-wide it pulls in every project's whole `<Using>` set
+    // (System.Diagnostics, System.Reflection, …), perturbing lambda capture
+    // classification across dozens of unrelated files.
     private const string ImplicitGlobalUsings =
         """
         global using System;
@@ -71,6 +87,7 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
         global using System.IO;
         global using System.Linq;
         global using System.Net.Http;
+        global using System.Text;
         global using System.Threading;
         global using System.Threading.Tasks;
         """;
@@ -78,13 +95,46 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
     public override IReadOnlyList<SyntaxTree> CreateAdditionalSyntaxTrees(PassTreeContext tree)
         => new[] { CSharpSyntaxTree.ParseText(ImplicitGlobalUsings, CreateParseOptions(tree)) };
 
+    public override Task OnTreePreparedAsync(PassTreeContext tree)
+    {
+        // 记录测试工程目录（与 unsafe-ffm 同法）：测试工程不是 Java 转换输入，
+        // 其 closure-lift 每一条 Error 都只是「文件原样保留」，需要降级（见
+        // RewriteFileAsync）。
+        if (tree.ProjectGraph is { } graph)
+        {
+            _testProjectDirectories = graph.ProjectsInTopologicalOrder
+                .Where(p => p.Kind == ProjectKind.Test)
+                .Select(p => NormalizeDirectory(p.ProjectDirectory))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return Task.CompletedTask;
+    }
+
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
     {
         var result = _preprocessor.Preprocess(context.SourceCode, context.SemanticModel!, _options);
         MergeStatistics(result.Statistics);
 
+        var inTestProject = IsInTestProject(context.SourceFilePath);
         foreach (var diagnostic in result.Diagnostics)
-            _diagnostics.Add(diagnostic.WithFilePath(context.RelativePath));
+        {
+            var effective = diagnostic;
+
+            // 与 unsafe-ffm UF050 先例一致：测试工程不是 Java 转换输入（链只对
+            // 生产工程产出 Java；测试工程是 .NET 运行时预言机）。closure-lift 的
+            // 每一条 Error 都意味着「整个文件原样保留」，对不产出 Java 的测试工程
+            // 没有实际影响；而 pass 编译只用基础元数据引用集（无 xunit 等包），
+            // 测试工程对 xunit/外部库类型的捕获会被解析成 error type 而误报
+            // CS2J4502。故测试工程内的 Error 降级为 Warning，源文件仍原样通过
+            // C# verify，全链得以继续。
+            if (inTestProject && diagnostic.Severity == ClosureLiftSeverity.Error)
+            {
+                effective = diagnostic with { Severity = ClosureLiftSeverity.Warning };
+            }
+
+            _diagnostics.Add(effective.WithFilePath(context.RelativePath));
+        }
 
         if (_verbose)
         {
@@ -289,4 +339,34 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
                 _statistics.SkippedByReason[kvp.Key] += kvp.Value;
         }
     }
+
+    /// <summary>
+    /// True when the source file lives under a test-project root (unsafe-ffm 同法).
+    /// </summary>
+    private bool IsInTestProject(string sourceFilePath)
+    {
+        if (_testProjectDirectories is not { Count: > 0 } roots)
+        {
+            return false;
+        }
+
+        var directory = NormalizeDirectory(Path.GetDirectoryName(sourceFilePath));
+        var current = new DirectoryInfo(directory);
+        while (current != null)
+        {
+            if (roots.Contains(NormalizeDirectory(current.FullName)))
+            {
+                return true;
+            }
+
+            current = current.Parent;
+        }
+
+        return false;
+    }
+
+    private static string NormalizeDirectory(string? path)
+        => path == null
+            ? string.Empty
+            : Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 }
