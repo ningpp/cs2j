@@ -37,6 +37,24 @@ internal sealed class OriginalSyntaxResolver
     private readonly ConditionalWeakTable<SyntaxNode, Dictionary<SyntaxNode, bool>>
         _equivalenceCache = new();
 
+    /// <summary>
+    /// 每父节点的「子节点 → 索引」映射：<see cref="ResolveCore"/> 的索引回放
+    /// 与回退搜索对每个待解析节点都要数一次其在父节点中的位置，直接线性扫
+    /// 父节点的 <c>ChildNodes()</c>；大类型的每个成员各扫一遍全部兄弟节点，
+    /// 整类呈 O(成员数²)。子节点序列是绿/红不可变结构的固有属性，按父节点
+    /// 实例构建一次后可 O(1) 复用。
+    /// </summary>
+    private readonly ConditionalWeakTable<SyntaxNode, Dictionary<SyntaxNode, int>>
+        _childIndexCache = new();
+
+    /// <summary>
+    /// 每父节点的子节点顺序表：索引回放 <see cref="ReplayByIndices"/> 原按
+    /// 索引逐个枚举 <c>ChildNodes()</c>（O(index)），同样构成大类成员解析的
+    /// 平方级开销；按父节点实例构建一次顺序表后取下标即 O(1)。
+    /// </summary>
+    private readonly ConditionalWeakTable<SyntaxNode, List<SyntaxNode>>
+        _childOrderCache = new();
+
     public OriginalSyntaxResolver(SyntaxNode originalRoot, SyntaxNode currentRoot)
     {
         _originalRoot = originalRoot;
@@ -133,23 +151,30 @@ internal sealed class OriginalSyntaxResolver
     }
 
     /// <summary>节点在父节点子节点序列中的索引；非父节点直接子节点返回 -1。</summary>
-    private static int IndexAmongChildren(SyntaxNode parent, SyntaxNode child)
-    {
-        var index = 0;
-        foreach (var node in parent.ChildNodes())
-        {
-            if (ReferenceEquals(node, child)) return index;
-            index++;
-        }
+    private int IndexAmongChildren(SyntaxNode parent, SyntaxNode child)
+        => ChildIndexMap(parent).TryGetValue(child, out var index) ? index : -1;
 
-        return -1;
-    }
+    private Dictionary<SyntaxNode, int> ChildIndexMap(SyntaxNode parent)
+        => _childIndexCache.GetValue(parent, static p =>
+        {
+            var map = new Dictionary<SyntaxNode, int>(ReferenceEqualityComparer.Instance);
+            var index = 0;
+            foreach (var child in p.ChildNodes())
+            {
+                map[child] = index++;
+            }
+
+            return map;
+        });
+
+    private List<SyntaxNode> ChildOrder(SyntaxNode parent)
+        => _childOrderCache.GetValue(parent, static p => p.ChildNodes().ToList());
 
     /// <summary>
     /// 候选节点相对作用域的索引路径（候选自身在父节点中的索引在前，逐层
     /// 向上直到作用域直接子节点），与 chain 的取向一致。
     /// </summary>
-    private static List<int> RelativeIndices(SyntaxNode candidate, SyntaxNode scope)
+    private List<int> RelativeIndices(SyntaxNode candidate, SyntaxNode scope)
     {
         var indices = new List<int>();
         var current = candidate;
@@ -169,19 +194,9 @@ internal sealed class OriginalSyntaxResolver
         var original = (SyntaxNode)_originalRoot;
         for (var i = chain.Count - 1; i >= chain.Count - prefixLength; i--)
         {
-            SyntaxNode? next = null;
             var index = chain[i].Index;
-            foreach (var child in original.ChildNodes())
-            {
-                if (index == 0)
-                {
-                    next = child;
-                    break;
-                }
-
-                index--;
-            }
-
+            var children = ChildOrder(original);
+            SyntaxNode? next = index >= 0 && index < children.Count ? children[index] : null;
             if (next == null) return null;
             original = next;
         }
