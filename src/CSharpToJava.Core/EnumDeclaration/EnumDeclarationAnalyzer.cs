@@ -267,11 +267,32 @@ internal sealed class EnumDeclarationAnalyzer
         private readonly EnumAnalysis _analysis;
         private readonly EnumDeclarationOptions _options;
 
+        /// <summary>
+        /// 全部 plan 的成员名集合（Ordinal）。成员引用站点（E.M / using static 裸 M）
+        /// 只可能命中这里的名字：任何会触发改写分支的字段符号，其宿主类型必是某个
+        /// plan 枚举，其名字必是该 plan 的成员名。用它对逐标识符/成员访问的
+        /// GetSymbolInfo 做语法预筛，跳过占绝大多数的局部/参数/方法/类型名查询
+        /// （实测 901 文件全树 ~635k 次标识符符号查询中 &gt;99% 与本 pass 无关）。
+        /// </summary>
+        private readonly HashSet<string> _planMemberNames;
+
+        /// <summary>Nullable&lt;T&gt; 的两个可访问成员；成员访问符号查询的另一命中面。</summary>
+        private static readonly HashSet<string> NullableAccessorNames = new(StringComparer.Ordinal)
+        {
+            "HasValue",
+            "Value",
+        };
+
         public UseSiteWalker(SemanticModel model, EnumAnalysis analysis, EnumDeclarationOptions options)
         {
             _model = model;
             _analysis = analysis;
             _options = options;
+            _planMemberNames = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var plan in analysis.Plans)
+            {
+                foreach (var member in plan.Members) _planMemberNames.Add(member.Name);
+            }
         }
 
         private EnumDeclarationPlan? FeasiblePlan(ITypeSymbol? type)
@@ -949,6 +970,13 @@ internal sealed class EnumDeclarationAnalyzer
         {
             base.VisitMemberAccessExpression(node);
             MarkAmbiguousAttributeArgumentMembers(node);
+            // 名称预筛：成员访问符号查询只有两个命中面——plan 枚举成员（字段）与
+            // Nullable&lt;T&gt; 的 HasValue/Value 属性；其余名字不会触发任何改写分支。
+            if (!_planMemberNames.Contains(node.Name.Identifier.ValueText)
+                && !NullableAccessorNames.Contains(node.Name.Identifier.ValueText))
+            {
+                return;
+            }
             var symbol = _model.GetSymbolInfo(node).Symbol;
 
             // 跨枚举成员初值耦合（独立于可行性，先于 plan 过滤记录）。
@@ -990,6 +1018,9 @@ internal sealed class EnumDeclarationAnalyzer
         {
             base.VisitIdentifierName(node);
             MarkAmbiguousAttributeArgumentMembers(node);
+            // 名称预筛：名字不在 plan 成员名集合内的标识符，其符号不可能是有常量值的
+            // 枚举成员字段，后续两个分支都不会命中（见 _planMemberNames 注释）。
+            if (!_planMemberNames.Contains(node.Identifier.ValueText)) return;
             var symbol = _model.GetSymbolInfo(node).Symbol;
             if (symbol is IFieldSymbol bareEnumField)
                 RecordInitializerDependency(bareEnumField, node);

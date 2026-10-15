@@ -95,9 +95,12 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
             tree.ResetScratchFile(asset, assetDest);
         }
 
-        var baselineErrors = BuildErrorSet(
+        // 基线编译同时充当每轮循环的首个编译：每轮开头都要把全部 scratch 文件
+        // 重置回原始字节，故其内容与基线（读自源文件）逐字节相同，无需重新解析。
+        var baselineCompilation = BuildCompilation(
             sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Source))),
             tree.Layout, intermediateRoot);
+        var baselineErrors = BuildErrorSet(baselineCompilation, intermediateRoot);
 
         var excluded = new HashSet<string>(StringComparer.Ordinal);
         var rollbackDiagnostics = new List<EnumDeclarationDiagnostic>();
@@ -115,9 +118,7 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
             var passStats = new EnumDeclarationStatistics();
             var passDiagnostics = new List<EnumDeclarationDiagnostic>();
             var preprocessor = new EnumDeclarationPreprocessor(_options);
-            var compilation = BuildCompilation(
-                sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
-                tree.Layout, intermediateRoot);
+            var compilation = baselineCompilation;
             preprocessor.BindCompilation(compilation);
             preprocessor.ExcludePlans(excluded);
 
@@ -444,18 +445,17 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
     }
 
     private static HashSet<(string File, string Id, string Message)> BuildErrorSet(
-        IEnumerable<(string Path, string Content)> files,
-        ProjectPreprocessSourceLayout layout,
+        CSharpCompilation compilation,
         string intermediateRoot)
     {
-        var compilation = BuildCompilation(files, layout, intermediateRoot);
-        return new HashSet<(string, string, string)>(
+        var set = new HashSet<(string, string, string)>(
             compilation.GetDiagnostics()
                 .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)
                 .Select(d => (
                     Normalize(d.Location.SourceTree!.FilePath, intermediateRoot),
                     d.Descriptor.Id,
                     d.GetMessage())));
+        return set;
     }
 
     private static List<Diagnostic> DiffErrors(

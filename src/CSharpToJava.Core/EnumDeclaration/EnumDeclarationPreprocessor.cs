@@ -342,44 +342,56 @@ public sealed class EnumDeclarationPreprocessor
     /// <summary>仅格式化改动区间→整文件格式化→原文候选，每个候选重新解析零错误才返回。</summary>
     internal static string? FormatAndValidate(CompilationUnitSyntax root)
     {
-        var candidates = new List<string>();
-        using (var workspace = new AdhocWorkspace())
+        // 候选按原顺序惰性求值：第一个可解析零错误的候选立即返回。原先无条件算完
+        // 三个候选再取首个可解析者——span 区间格式化几乎总能通过局部解析验证，
+        // 整文件 Formatter.Format（单个改动文件实测 ~数十 ms）便纯属浪费。
+        using var workspace = new AdhocWorkspace();
+        try
         {
-            try
+            var spans = root
+                .GetAnnotatedNodes(EnumDeclarationSyntaxFacts.RewriteAnnotationKind)
+                .Where(n => n is ExpressionSyntax or StatementSyntax or MemberDeclarationSyntax)
+                .Where(n => !n.Ancestors().Any(a =>
+                    a.HasAnnotations(EnumDeclarationSyntaxFacts.RewriteAnnotationKind)))
+                .Select(n => n.Span)
+                .Distinct()
+                .OrderBy(s => s.Start)
+                .ToList();
+            if (spans.Count > 0)
             {
-                var spans = root
-                    .GetAnnotatedNodes(EnumDeclarationSyntaxFacts.RewriteAnnotationKind)
-                    .Where(n => n is ExpressionSyntax or StatementSyntax or MemberDeclarationSyntax)
-                    .Where(n => !n.Ancestors().Any(a =>
-                        a.HasAnnotations(EnumDeclarationSyntaxFacts.RewriteAnnotationKind)))
-                    .Select(n => n.Span)
-                    .Distinct()
-                    .OrderBy(s => s.Start)
-                    .ToList();
-                if (spans.Count > 0)
-                    candidates.Add(Formatter.Format(root, spans, workspace).ToFullString());
+                var spanFormatted = Formatter.Format(root, spans, workspace).ToFullString();
+                if (IsParseClean(spanFormatted)) return spanFormatted;
             }
-            catch
-            {
-                // 局部格式化失败不致命。
-            }
-            try { candidates.Add(Formatter.Format(root, workspace).ToFullString()); }
-            catch { /* 忽略 */ }
         }
-        candidates.Add(root.ToFullString());
-
-        return candidates.FirstOrDefault(candidate =>
+        catch
         {
-            try
-            {
-                var reparsed = CSharpSyntaxTree.ParseText(
-                    candidate, new CSharpParseOptions(LanguageVersion.Latest));
-                return !reparsed.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error);
-            }
-            catch
-            {
-                return false;
-            }
-        });
+            // 局部格式化失败不致命。
+        }
+        try
+        {
+            var wholeFormatted = Formatter.Format(root, workspace).ToFullString();
+            if (IsParseClean(wholeFormatted)) return wholeFormatted;
+        }
+        catch
+        {
+            // 整文件格式化失败不致命。
+        }
+
+        var raw = root.ToFullString();
+        return IsParseClean(raw) ? raw : null;
+    }
+
+    private static bool IsParseClean(string candidate)
+    {
+        try
+        {
+            var reparsed = CSharpSyntaxTree.ParseText(
+                candidate, new CSharpParseOptions(LanguageVersion.Latest));
+            return !reparsed.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error);
+        }
+        catch
+        {
+            return false;
+        }
     }
 }
