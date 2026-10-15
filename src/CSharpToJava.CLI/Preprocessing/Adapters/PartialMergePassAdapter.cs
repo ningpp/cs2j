@@ -98,13 +98,23 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
     {
         var tree = context.Tree;
 
-        // 1. Explicit 1:1 copy; baseline error set reads ORIGINAL content at dest paths.
+        // 1. Explicit 1:1 copy; the baseline error set reads ORIGINAL content.
+        // The standard compilation (parsed from the untouched source root and
+        // reused by every round) is where the baseline diagnostics come from, so
+        // the whole tree is parsed and bound exactly once instead of per round /
+        // per compilation.
         CopyInputs(tree);
-        var baseline = BuildErrorSet(tree);
+        var analysisCompilation = context.BuildStandardCompilation();
+        var baselineDiagnostics = analysisCompilation.GetDiagnostics();
+        var baseline = BuildErrorSet(baselineDiagnostics, tree.SourceRoot);
+        var baselineErrors = baselineDiagnostics
+            .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)
+            .ToList();
 
         var preprocessor = new PartialMergePreprocessor(_options);
         var excludedGroups = new HashSet<string>(StringComparer.Ordinal);
         var success = true;
+        CSharpCompilation? candidate = null;
         const int maxIterations = 1024;
 
         for (var iteration = 0; iteration < maxIterations; iteration++)
@@ -112,8 +122,11 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             // 2. Every round starts from originals (replay, like JavaKeywords L101-103).
             CopyInputs(tree);
 
-            var analysisCompilation = context.BuildStandardCompilation();
-            var plan = preprocessor.Analyze(analysisCompilation, tree.SourceRoot);
+            // Reuse the baseline build: the source root never mutates during the
+            // pass, so its diagnostics are the same every round. The analyzer gets
+            // them precomputed instead of re-binding the tree.
+            var plan = preprocessor.Analyze(
+                analysisCompilation, tree.SourceRoot, baselineErrors: baselineErrors);
             _lastPlan = plan;
             foreach (var group in plan.Groups
                          .Where(g => excludedGroups.Contains(g.TypeFullName)))
@@ -136,6 +149,7 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             // file shared by an active and a rolled-back group only replays the
             // active edits. Files with no active edit are already copied.
             var rewriter = new PartialMergeRewriter();
+            var rewrittenFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var csFile in tree.CsFiles)
             {
                 var activePartSpans = plan.ActiveGroups
@@ -158,10 +172,11 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
                     tree.IntermediateRoot, Path.GetRelativePath(tree.SourceRoot, csFile));
                 File.WriteAllText(destination, output,
                     FileStartsWithBom(csFile) ? new UTF8Encoding(true) : new UTF8Encoding(false));
+                rewrittenFiles.Add(csFile);
             }
 
             // 4. Candidate recompile + baseline diff.
-            var candidate = BuildIntermediateCompilation(tree);
+            candidate = BuildIntermediateCompilation(tree, rewrittenFiles);
             var newErrors = DiffErrors(baseline, candidate, tree.IntermediateRoot);
 
             if (newErrors.Count == 0)
@@ -239,10 +254,12 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
         }
 
         // 7. Residual gate: multi-part types must be whitelisted (rollback/skip).
-        if (_acceptedPlan != null && success)
+        // Reuses the accepted candidate compilation: the intermediate tree is not
+        // touched between its build and this gate (acceptance breaks the loop
+        // before restore), so it is the exact accepted content.
+        if (_acceptedPlan != null && success && candidate != null)
         {
-            var finalTree = BuildIntermediateCompilation(tree);
-            foreach (var residual in preprocessor.CheckResidual(finalTree, _acceptedPlan))
+            foreach (var residual in preprocessor.CheckResidual(candidate, _acceptedPlan))
             {
                 _diagnostics.Add(residual);
             }
@@ -351,7 +368,15 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             .ToList();
     }
 
-    private CSharpCompilation BuildIntermediateCompilation(PassTreeContext tree)
+    /// <summary>
+    /// Build the candidate compilation over the intermediate tree. Files that the
+    /// round did not rewrite still hold the original bytes, so their already-parsed
+    /// source tree is re-pathed (<see cref="SyntaxTree.WithFilePath"/>) instead of
+    /// being read and parsed again; only rewritten files are parsed from disk.
+    /// </summary>
+    private CSharpCompilation BuildIntermediateCompilation(
+        PassTreeContext tree,
+        IReadOnlySet<string>? rewrittenSourcePaths = null)
     {
         var parseOptions = CreateParseOptions(tree);
         var trees = tree.CsFiles
@@ -359,7 +384,14 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             {
                 var destination = Path.Combine(
                     tree.IntermediateRoot, Path.GetRelativePath(tree.SourceRoot, file));
-                return CSharpSyntaxTree.ParseText(
+                if (rewrittenSourcePaths is not null
+                    && !rewrittenSourcePaths.Contains(file)
+                    && tree.ParsedSyntaxTrees.TryGetValue(file, out var parsed))
+                {
+                    return parsed.WithFilePath(destination);
+                }
+
+                return (SyntaxTree)CSharpSyntaxTree.ParseText(
                     File.ReadAllText(destination), parseOptions, path: destination);
             })
             .ToList();
@@ -369,13 +401,13 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             Descriptor.Id + "-candidate", trees, GetMetadataReferences(), CreateCompilationOptions());
     }
 
-    /// <summary>(relative intermediate path, error id, message) set over ORIGINAL sources.</summary>
-    private HashSet<(string File, string Id, string Message)> BuildErrorSet(PassTreeContext tree)
-        => new(BuildIntermediateCompilation(tree)
-            .GetDiagnostics()
+    /// <summary>(root-relative path, error id, message) set over the ORIGINAL sources.</summary>
+    private static HashSet<(string File, string Id, string Message)> BuildErrorSet(
+        IReadOnlyList<Diagnostic> diagnostics, string sourceRoot)
+        => new(diagnostics
             .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)
             .Select(d => (
-                NormalizePath(d.Location.SourceTree!.FilePath, tree.IntermediateRoot),
+                NormalizePath(d.Location.SourceTree!.FilePath, sourceRoot),
                 d.Descriptor.Id,
                 d.GetMessage())));
 
@@ -392,8 +424,21 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
                     d.GetMessage())))
             .ToList();
 
-    private static string NormalizePath(string path, string intermediateRoot)
-        => Path.GetRelativePath(intermediateRoot, Path.GetFullPath(path)).Replace('\\', '/');
+    /// <summary>
+    /// Root-relative key for a source-tree path. The baseline is normalized
+    /// against the source root and the candidate against the intermediate root,
+    /// but the two trees hold the same files at the same relative paths, so both
+    /// views agree. A tree not under the given root (the synthesized global-usings
+    /// tree) keys on its bare file name so the views still agree.
+    /// </summary>
+    private static string NormalizePath(string path, string root)
+    {
+        var relative = Path.GetRelativePath(
+            Path.GetFullPath(root), Path.GetFullPath(path));
+        return relative.StartsWith("..", StringComparison.Ordinal)
+            ? "__external__/" + Path.GetFileName(path)
+            : relative.Replace('\\', '/');
+    }
 
     private static bool FileStartsWithBom(string path)
     {

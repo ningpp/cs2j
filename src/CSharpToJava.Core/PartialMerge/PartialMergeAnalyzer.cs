@@ -18,7 +18,8 @@ internal sealed class PartialMergeAnalyzer
         CSharpCompilation compilation,
         PartialMergeOptions options,
         string sourceRoot,
-        IReadOnlyList<Action<TypeGroupPlan>>? groupMutators = null)
+        IReadOnlyList<Action<TypeGroupPlan>>? groupMutators = null,
+        IReadOnlyList<Diagnostic>? precomputedBaselineErrors = null)
     {
         var diagnostics = new List<PartialMergeDiagnostic>();
         var stats = new MutablePartialMergeStats();
@@ -35,10 +36,13 @@ internal sealed class PartialMergeAnalyzer
 
         // Baseline-first (design §4.1): groups already covered by a compiler error
         // are marked skip — the pass does not compete with compiler diagnostics.
-        var baselineErrors = compilation.GetDiagnostics()
-            .Where(d => d.Severity == DiagnosticSeverity.Error
-                && d.Location.SourceTree != null)
-            .ToList();
+        // The caller may pass the diagnostics it already bound for its own
+        // baseline diff, so the tree is not bound twice.
+        var baselineErrors = precomputedBaselineErrors
+            ?? compilation.GetDiagnostics()
+                .Where(d => d.Severity == DiagnosticSeverity.Error
+                    && d.Location.SourceTree != null)
+                .ToList();
 
         static bool CoversBaselineError(TypeGroupPlan group, Diagnostic error)
             => group.Parts.Any(part =>
