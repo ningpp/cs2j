@@ -4436,4 +4436,149 @@ public class UnsafeFfmRewriterUnitTests
         var errors = verify.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         Assert.True(errors.Count == 0, string.Join("\n", errors));
     }
+
+    // ---- UF020 第三子族：string 实参传配对指针形参方法的伴生数组来源 ----
+    // C# 的 string 实参在受限/退化重载解析下可能落到配对（char[] + int）指针形参
+    // 位（string 重载内部 fixed 转发、或候选符号回退）。string 本身即不可变
+    // char 序列，与 R3 fixed(string) 的既有物化约定一致：物化为
+    // `expr.ToCharArray()` + 元素索引 0，语义逐位等价（只读使用）。
+
+    [Fact]
+    public void Uf020c_StringArgument_ToPairedPointerMethod_MaterializedToCharArray()
+    {
+        var src = """
+            unsafe class C
+            {
+                private string _string = "";
+
+                static char[] Unescape(char* pStr, int start, char[] dest)
+                {
+                    char* q = pStr + start;
+                    dest[0] = q[0];
+                    return dest;
+                }
+
+                unsafe void M(char[] dest)
+                {
+                    Unescape(_string, 0, dest);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors, string.Join("\n", result.Diagnostics));
+        Assert.Equal(0, result.Statistics.Uf020Rejections);
+        Assert.Contains("char[] Unescape(char[] pStr, int pStrIndex, int start, char[] dest)",
+            result.OutputCode);
+        // string 实参物化为伴生 char[] + 零索引。
+        Assert.Contains("Unescape(_string.ToCharArray(), 0, 0, dest)", result.OutputCode);
+        Assert.DoesNotContain("char*", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+
+        var second = Rewrite(result.OutputCode);
+        Assert.False(second.Changed);
+        Assert.Empty(second.Diagnostics);
+    }
+
+    [Fact]
+    public void Uf020c_FieldLocalAndParameterStrings_AllMaterializedPerSlot()
+    {
+        var src = """
+            unsafe class C
+            {
+                private string _field = "";
+
+                static char[] Join(char* a, char* b, char[] dest)
+                {
+                    char* q = a + 1;
+                    dest[0] = q[0];
+                    dest[1] = b[0];
+                    return dest;
+                }
+
+                unsafe void M(string paramStr, char[] dest)
+                {
+                    string localStr = "";
+                    Join(_field, localStr, dest);
+                    Join(paramStr, localStr, dest);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors, string.Join("\n", result.Diagnostics));
+        Assert.Equal(0, result.Statistics.Uf020Rejections);
+        Assert.Contains("char[] Join(char[] a, int aIndex, char[] b, int bIndex, char[] dest)",
+            result.OutputCode);
+        // 字段/局部/形参三类 string 来源各自物化；多个配对形参同现逐位展开。
+        Assert.Contains("Join(_field.ToCharArray(), 0, localStr.ToCharArray(), 0, dest)",
+            result.OutputCode);
+        Assert.Contains("Join(paramStr.ToCharArray(), 0, localStr.ToCharArray(), 0, dest)",
+            result.OutputCode);
+        Assert.DoesNotContain("char*", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020c_StringMemberAccess_ToPairedPointerMethod_Materialized()
+    {
+        var src = """
+            unsafe class C
+            {
+                private string _string = "";
+
+                static char[] Read(char* pStr, char[] dest)
+                {
+                    char* q = pStr + 1;
+                    dest[0] = q[0];
+                    return dest;
+                }
+
+                unsafe void M(char[] dest)
+                {
+                    Read(this._string, dest);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors, string.Join("\n", result.Diagnostics));
+        Assert.Contains("Read(this._string.ToCharArray(), 0, dest)", result.OutputCode);
+        Assert.DoesNotContain("char*", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020c_UnprovablePointerArgument_StillRejected_UF020()
+    {
+        // 整数位重解释指针 (char*)x 无可证数组来源：保持 UF020 判决，文件回滚。
+        var src = """
+            unsafe class C
+            {
+                static char[] Read(char* p, char[] dest)
+                {
+                    char* q = p + 1;
+                    dest[0] = q[0];
+                    return dest;
+                }
+
+                unsafe void M(int x, char[] dest)
+                {
+                    Read((char*)x, dest);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.HasErrors, string.Join("\n", result.Diagnostics));
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF020);
+        Assert.Equal(1, result.Statistics.Uf020Rejections);
+    }
 }

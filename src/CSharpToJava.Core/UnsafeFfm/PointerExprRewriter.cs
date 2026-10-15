@@ -1094,11 +1094,40 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
             return true;
         }
 
+        // 字符串实参的伴生数组来源：C# 的 `string` 本身即不可变 char 序列，配对
+        // 形参（declared char*）在 R3 fixed(string) 路径下的既有物化约定就是
+        // `expr.ToCharArray()` + 零偏移（见 FixedStatementRewriter 的 InitKind.
+        // String）。调用点把 string实参传给指针形参位（多为 string 重载内部
+        // 转发给指针重载，或重载解析在受限编译环境下退化到候选符号）时，同
+        // 样把实参展开为「物化 char[] + 元素索引 0」，语义与 string 重载的
+        // fixed 转发逐位一致（只读使用）。
+        if (IsStringTypedSymbol(symbol))
+        {
+            arrayText = ownText + ".ToCharArray()";
+            index = LiteralExpression(
+                SyntaxKind.NumericLiteralExpression, Literal(0));
+            sourceSlot = PointerMethodCatalog.SymbolSlot(symbol!);
+            return true;
+        }
+
         arrayText = string.Empty;
         index = default!;
         sourceSlot = string.Empty;
         return false;
     }
+
+    /// <summary>
+    /// 标识符类根符号是否为 <c>string</c> 存储（字段/局部/形参/属性）。配对
+    /// 指针形参位的字符串实参据此物化为 `<c>expr.ToCharArray()</c>` + 索引 0。
+    /// </summary>
+    private static bool IsStringTypedSymbol(ISymbol? symbol) => symbol switch
+    {
+        ILocalSymbol local => local.Type.SpecialType == SpecialType.System_String,
+        IParameterSymbol parameter => parameter.Type.SpecialType == SpecialType.System_String,
+        IFieldSymbol field => field.Type.SpecialType == SpecialType.System_String,
+        IPropertySymbol property => property.Type.SpecialType == SpecialType.System_String,
+        _ => false,
+    };
 
     // ==================================================================
     // M3b 索引局部计划：扫描当前树，找出需要「int 索引局部」承载自增/

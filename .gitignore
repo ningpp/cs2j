@@ -119,3 +119,4 @@ triage-*.json
 dumps/
 t-regex/
 t-xml/
+tmp/

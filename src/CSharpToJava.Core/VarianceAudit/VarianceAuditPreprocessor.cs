@@ -22,6 +22,8 @@ public sealed class VarianceAuditPreprocessor
     private readonly VarianceAuditOptions _options;
     private CSharpCompilation? _compilation;
     private VarianceAuditAnalysis? _analysis;
+    private VarianceBaselineCache? _baseline;
+    private SiteBuckets? _buckets;
 
     public VarianceAuditPreprocessor(VarianceAuditOptions? options = null)
         => _options = options ?? new VarianceAuditOptions();
@@ -34,6 +36,8 @@ public sealed class VarianceAuditPreprocessor
         ArgumentNullException.ThrowIfNull(compilation);
         _compilation = compilation;
         _analysis = null;
+        _baseline = null;
+        _buckets = null;
     }
 
     /// <summary>
@@ -53,11 +57,15 @@ public sealed class VarianceAuditPreprocessor
 
     private VarianceAuditAnalysis BuildAnalysis()
     {
-        var analysis = new VarianceSiteInventory(_compilation!, Statistics).Build();
-        new UseSiteSafetyClassifier(_compilation!, _options, Statistics).Enrich(analysis);
-        new ConstraintAuditor(_compilation!, Statistics).Audit(analysis);
-        Statistics.BaselineErrorFilesSkipped = _compilation!.SyntaxTrees.Count(
-            tree => VariancePositionFacts.HasBaselineErrors(_compilation.GetSemanticModel(tree)));
+        var baseline = new VarianceBaselineCache(_compilation!);
+        _baseline = baseline;
+
+        var analysis = new VarianceSiteInventory(_compilation!, Statistics, baseline).Build();
+        new UseSiteSafetyClassifier(_compilation!, _options, Statistics, baseline).Enrich(analysis);
+        new ConstraintAuditor(_compilation!, Statistics, baseline).Audit(analysis);
+        Statistics.BaselineErrorFilesSkipped = baseline.CountErrorTrees();
+
+        _buckets = SiteBuckets.Build(analysis);
         return analysis;
     }
 
@@ -70,15 +78,16 @@ public sealed class VarianceAuditPreprocessor
     public VarianceFileAudit AuditFile(SemanticModel model)
     {
         ArgumentNullException.ThrowIfNull(model);
-        var analysis = Analyze();
+        Analyze();
         var audit = new VarianceFileAudit();
         var path = model.SyntaxTree.FilePath;
+        var buckets = _buckets!;
 
-        var declarations = analysis.DeclarationSites.Where(site => site.FilePath == path).ToList();
-        var uses = analysis.UseSites.Where(site => site.FilePath == path).ToList();
-        var constraints = analysis.ConstraintSites.Where(site => site.FilePath == path).ToList();
-        var dependents = analysis.ConstraintDependentSites.Where(site => site.FilePath == path).ToList();
-        var conversions = analysis.ConversionSites.Where(site => site.FilePath == path).ToList();
+        var declarations = buckets.Declarations(path);
+        var uses = buckets.Uses(path);
+        var constraints = buckets.Constraints(path);
+        var dependents = buckets.Dependents(path);
+        var conversions = buckets.Conversions(path);
         if (declarations.Count == 0 && uses.Count == 0 && constraints.Count == 0
             && dependents.Count == 0 && conversions.Count == 0)
         {
@@ -99,7 +108,7 @@ public sealed class VarianceAuditPreprocessor
             }
         }
 
-        if (VariancePositionFacts.HasBaselineErrors(model))
+        if (_baseline!.HasErrors(model))
         {
             return audit;
         }
@@ -402,6 +411,72 @@ public sealed class VarianceAuditPreprocessor
             ConstraintDependentNullableSites: Statistics.ConstraintDependentNullableSites,
             BaselineErrorFilesSkipped: Statistics.BaselineErrorFilesSkipped,
             ReportsWritten: Statistics.ReportsWritten);
+}
+
+/// <summary>
+/// Sites pre-grouped by file path. <see cref="AuditFile"/> used to run five full
+/// <c>Where(FilePath == path)</c> scans over the whole-tree lists for every file
+/// (O(files × sites)); the buckets make each per-file lookup O(1).
+/// </summary>
+internal sealed class SiteBuckets
+{
+    private readonly Dictionary<string, IReadOnlyList<VariantDeclarationRecord>> _declarations;
+    private readonly Dictionary<string, IReadOnlyList<VarianceUseRecord>> _uses;
+    private readonly Dictionary<string, IReadOnlyList<VarianceConstraintSite>> _constraints;
+    private readonly Dictionary<string, IReadOnlyList<VarianceConstraintDependentSite>> _dependents;
+    private readonly Dictionary<string, IReadOnlyList<VarianceConversionFinding>> _conversions;
+
+    private SiteBuckets(
+        Dictionary<string, IReadOnlyList<VariantDeclarationRecord>> declarations,
+        Dictionary<string, IReadOnlyList<VarianceUseRecord>> uses,
+        Dictionary<string, IReadOnlyList<VarianceConstraintSite>> constraints,
+        Dictionary<string, IReadOnlyList<VarianceConstraintDependentSite>> dependents,
+        Dictionary<string, IReadOnlyList<VarianceConversionFinding>> conversions)
+    {
+        _declarations = declarations;
+        _uses = uses;
+        _constraints = constraints;
+        _dependents = dependents;
+        _conversions = conversions;
+    }
+
+    public IReadOnlyList<VariantDeclarationRecord> Declarations(string path) => Lookup(_declarations, path);
+    public IReadOnlyList<VarianceUseRecord> Uses(string path) => Lookup(_uses, path);
+    public IReadOnlyList<VarianceConstraintSite> Constraints(string path) => Lookup(_constraints, path);
+    public IReadOnlyList<VarianceConstraintDependentSite> Dependents(string path) => Lookup(_dependents, path);
+    public IReadOnlyList<VarianceConversionFinding> Conversions(string path) => Lookup(_conversions, path);
+
+    private static IReadOnlyList<T> Lookup<T>(Dictionary<string, IReadOnlyList<T>> map, string path)
+        => map.TryGetValue(path, out var sites) ? sites : Array.Empty<T>();
+
+    public static SiteBuckets Build(VarianceAuditAnalysis analysis)
+        => new(
+            Bucket(analysis.DeclarationSites, site => site.FilePath),
+            Bucket(analysis.UseSites, site => site.FilePath),
+            Bucket(analysis.ConstraintSites, site => site.FilePath),
+            Bucket(analysis.ConstraintDependentSites, site => site.FilePath),
+            Bucket(analysis.ConversionSites, site => site.FilePath));
+
+    private static Dictionary<string, IReadOnlyList<T>> Bucket<T>(
+        IEnumerable<T> sites,
+        Func<T, string?> keySelector)
+    {
+        var map = new Dictionary<string, IReadOnlyList<T>>(StringComparer.Ordinal);
+        foreach (var site in sites)
+        {
+            var key = keySelector(site) ?? string.Empty;
+            if (map.TryGetValue(key, out var existing))
+            {
+                ((List<T>)existing).Add(site);
+            }
+            else
+            {
+                map[key] = new List<T> { site };
+            }
+        }
+
+        return map;
+    }
 }
 
 internal sealed record VarianceAuditReport(

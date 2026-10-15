@@ -38,6 +38,12 @@ internal sealed class ProjectPassRunResult
     public required bool Success { get; init; }
     /// <summary>True when an enabled stub was rejected before any file was touched.</summary>
     public required bool StubRejected { get; init; }
+
+    /// <summary>Total wall-clock time for this pass (prepare + execute).</summary>
+    public TimeSpan TotalElapsed { get; init; }
+
+    /// <summary>Named sub-stage timings populated when the runner instruments each phase.</summary>
+    public IReadOnlyDictionary<string, TimeSpan>? Stages { get; init; }
 }
 
 /// <summary>
@@ -102,6 +108,16 @@ internal sealed class PassTreeContext
     /// </summary>
     public void ResetScratchFile(string sourceFilePath, string destinationFilePath)
         => Snapshot.Reset(sourceFilePath, destinationFilePath);
+
+    /// <summary>
+    /// Syntax trees produced by the mandatory pre-parse syntax gate, keyed by
+    /// full source path. <see cref="ProjectPassRunner.BuildStandardCompilation"/>
+    /// reuses them so every file is read and parsed once per pass instead of
+    /// twice. Populated during tree preparation; never null after that.
+    /// Concurrent because the gate parses files in parallel.
+    /// </summary>
+    public ConcurrentDictionary<string, SyntaxTree> ParsedSyntaxTrees { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <summary>
@@ -197,6 +213,12 @@ internal sealed class PassExecutionContext
     public required PassTreeContext Tree { get; init; }
     public bool Success { get; set; } = true;
 
+    /// <summary>Accumulated sub-stage timings (filled by the runner or custom passes).</summary>
+    public Dictionary<string, TimeSpan> Timings { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Total wall-clock time for this pass execution.</summary>
+    public TimeSpan TotalElapsed { get; set; }
+
     /// <summary>Parse + compile all .cs files with the adapter's options/references.</summary>
     public CSharpCompilation BuildStandardCompilation()
         => ProjectPassRunner.BuildStandardCompilation(Adapter, Tree);
@@ -230,7 +252,31 @@ internal sealed class PassExecutionContext
 /// </summary>
 internal abstract class ProjectPassAdapter
 {
+    /// <summary>
+    /// When non-null, overrides the descriptor default. Set by the chain
+    /// factory from CLI --no-verify-build / --no-verify-tests flags so that
+    /// ALL passes (not just the few that thread config through their own
+    /// constructor) honor the user's choice.
+    /// </summary>
+    private bool? _verifyBuildOverride;
+    private bool? _verifyTestsOverride;
+
     public abstract PassDescriptor Descriptor { get; }
+
+    /// <summary>
+    /// Apply CLI verification flags. Call once after construction. Any pass
+    /// that wants to keep full control can simply never call this (the
+    /// property falls back to the descriptor default).
+    /// </summary>
+    public void ApplyVerificationConfig(bool verifyBuild, bool verifyTests)
+    {
+        // Only override when the CLI explicitly turned something OFF; we never
+        // force-enable a descriptor-default-off pass from a bare config.
+        if (!verifyBuild && Descriptor.VerifyBuildByDefault)
+            _verifyBuildOverride = false;
+        if (!verifyTests && Descriptor.VerifyTestsByDefault)
+            _verifyTestsOverride = false;
+    }
 
     public virtual string LogPrefix => "[" + Descriptor.Id + "]";
     public virtual bool Verbose => false;
@@ -238,10 +284,10 @@ internal abstract class ProjectPassAdapter
     public virtual IReadOnlyCollection<string>? CompatNamespacePrefixes => null;
 
     /// <summary>Run dotnet build on the intermediate tree.</summary>
-    public virtual bool VerifyBuild => Descriptor.VerifyBuildByDefault;
+    public virtual bool VerifyBuild => _verifyBuildOverride ?? Descriptor.VerifyBuildByDefault;
 
     /// <summary>Run dotnet test on supported test projects in the intermediate tree.</summary>
-    public virtual bool VerifyTests => Descriptor.VerifyTestsByDefault;
+    public virtual bool VerifyTests => _verifyTestsOverride ?? Descriptor.VerifyTestsByDefault;
 
     /// <summary>
     /// Whether the runner deletes bin/ directories under the intermediate tree after

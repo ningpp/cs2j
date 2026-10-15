@@ -376,6 +376,10 @@ internal static class CliPreprocessChain
                 return Failed(sourcePath, executedIntermediateDirectoryNames, executedSupportLibraries);
             }
 
+            Console.WriteLine(
+                $"  [{pass.Id}] total: {run.TotalElapsed.TotalSeconds:F2}s" +
+                (run.Stages != null ? " | " + FormatStages(run.Stages) : ""));
+
             sourcePath = run.PreprocessedSourcePath;
             if (adapter.RepointsFingerprintToPassInput)
             {
@@ -403,6 +407,9 @@ internal static class CliPreprocessChain
             ExecutedSupportLibraries = executedSupportLibraries,
         };
     }
+
+    private static string FormatStages(IReadOnlyDictionary<string, TimeSpan> stages)
+        => string.Join(", ", stages.Select(kv => $"{kv.Key}={kv.Value.TotalSeconds:F2}s"));
 
     private static CliChainResult Failed(
         string sourcePath,

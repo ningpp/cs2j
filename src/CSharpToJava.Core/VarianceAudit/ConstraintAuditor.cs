@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -11,57 +12,106 @@ namespace CSharpToJava.Core.VarianceAudit;
 /// — for value-type constraints (<c>struct</c>/<c>unmanaged</c>) — enumerates the sites
 /// whose semantics depend on the erased constraint. It never rewrites anything.
 /// </summary>
+/// <remarks>
+/// Performance: each tree is audited independently and in parallel. The dependent-site
+/// scan used to re-walk the whole file once per constrained type parameter (K parameters
+/// meant K full walks with K semantic queries per candidate); now one walk collects the
+/// semantic shape of every candidate node once, and all parameters for that file match
+/// against the same candidate set.
+/// </remarks>
 internal sealed class ConstraintAuditor
 {
     private readonly Compilation _compilation;
     private readonly VarianceAuditStatistics _statistics;
+    private readonly VarianceBaselineCache _baseline;
 
-    public ConstraintAuditor(Compilation compilation, VarianceAuditStatistics statistics)
+    public ConstraintAuditor(
+        Compilation compilation,
+        VarianceAuditStatistics statistics,
+        VarianceBaselineCache baseline)
     {
         _compilation = compilation;
         _statistics = statistics;
+        _baseline = baseline;
     }
 
     public void Audit(VarianceAuditAnalysis analysis)
     {
-        foreach (var tree in _compilation.SyntaxTrees)
-        {
-            if (tree.FilePath.EndsWith("__cs2j_global_usings.g.cs", StringComparison.Ordinal))
+        var perTreeResults = new ConcurrentBag<TreeAuditResult>();
+        Parallel.ForEach(
+            _compilation.SyntaxTrees,
+            () => new List<TreeAuditResult>(),
+            (tree, _, local) =>
             {
-                continue;
-            }
+                if (!tree.FilePath.EndsWith("__cs2j_global_usings.g.cs", StringComparison.Ordinal))
+                {
+                    local.Add(AuditTree(_compilation.GetSemanticModel(tree)));
+                }
 
-            AuditTree(_compilation.GetSemanticModel(tree), analysis);
+                return local;
+            },
+            local =>
+            {
+                foreach (var result in local)
+                {
+                    perTreeResults.Add(result);
+                }
+            });
+
+        foreach (var result in perTreeResults)
+        {
+            Merge(result, analysis);
         }
     }
 
-    private void AuditTree(SemanticModel model, VarianceAuditAnalysis analysis)
+    private void Merge(TreeAuditResult result, VarianceAuditAnalysis analysis)
     {
+        analysis.ConstraintSites.AddRange(result.ConstraintSites);
+        analysis.ConstraintDependentSites.AddRange(result.DependentSites);
+
+        _statistics.ConstraintsStruct += result.ConstraintsStruct;
+        _statistics.ConstraintsUnmanaged += result.ConstraintsUnmanaged;
+        _statistics.ConstraintsNew += result.ConstraintsNew;
+        _statistics.ConstraintsNotNull += result.ConstraintsNotNull;
+        _statistics.ConstraintsDefault += result.ConstraintsDefault;
+        _statistics.ConstraintsClass += result.ConstraintsClass;
+        _statistics.ConstraintDependentDefaultSites += result.DependentDefaults;
+        _statistics.ConstraintDependentNewSites += result.DependentNews;
+        _statistics.ConstraintDependentBoxingSites += result.DependentBoxing;
+        _statistics.ConstraintDependentArraySites += result.DependentArrays;
+        _statistics.ConstraintDependentNullableSites += result.DependentNullables;
+    }
+
+    private static TreeAuditResult AuditTree(SemanticModel model)
+    {
+        var result = new TreeAuditResult(model);
         foreach (var node in model.SyntaxTree.GetRoot().DescendantNodes())
         {
             switch (node)
             {
                 case TypeDeclarationSyntax declaration when declaration.TypeParameterList != null:
-                    AuditType(model, declaration, model.GetDeclaredSymbol(declaration), analysis);
+                    AuditType(model, declaration, model.GetDeclaredSymbol(declaration), result);
                     break;
                 case DelegateDeclarationSyntax declaration when declaration.TypeParameterList != null:
-                    AuditType(model, declaration, model.GetDeclaredSymbol(declaration), analysis);
+                    AuditType(model, declaration, model.GetDeclaredSymbol(declaration), result);
                     break;
                 case MethodDeclarationSyntax declaration when declaration.TypeParameterList != null:
-                    AuditMethod(model, declaration, model.GetDeclaredSymbol(declaration), analysis);
+                    AuditMethod(model, declaration, model.GetDeclaredSymbol(declaration), result);
                     break;
                 case LocalFunctionStatementSyntax declaration when declaration.TypeParameterList != null:
-                    AuditMethod(model, declaration, model.GetDeclaredSymbol(declaration), analysis);
+                    AuditMethod(model, declaration, model.GetDeclaredSymbol(declaration), result);
                     break;
             }
         }
+
+        return result;
     }
 
-    private void AuditType(
+    private static void AuditType(
         SemanticModel model,
         SyntaxNode declaration,
         INamedTypeSymbol? symbol,
-        VarianceAuditAnalysis analysis)
+        TreeAuditResult result)
     {
         if (symbol == null)
         {
@@ -71,15 +121,15 @@ internal sealed class ConstraintAuditor
         var declaringName = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
         foreach (var parameter in symbol.TypeParameters)
         {
-            ProcessTypeParameter(model, declaration, parameter, declaringName, analysis);
+            ProcessTypeParameter(model, declaration, parameter, declaringName, result);
         }
     }
 
-    private void AuditMethod(
+    private static void AuditMethod(
         SemanticModel model,
         SyntaxNode declaration,
         IMethodSymbol? symbol,
-        VarianceAuditAnalysis analysis)
+        TreeAuditResult result)
     {
         if (symbol == null)
         {
@@ -89,16 +139,16 @@ internal sealed class ConstraintAuditor
         var declaringName = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
         foreach (var parameter in symbol.TypeParameters)
         {
-            ProcessTypeParameter(model, declaration, parameter, declaringName, analysis);
+            ProcessTypeParameter(model, declaration, parameter, declaringName, result);
         }
     }
 
-    private void ProcessTypeParameter(
+    private static void ProcessTypeParameter(
         SemanticModel model,
         SyntaxNode declaration,
         ITypeParameterSymbol parameter,
         string declaringName,
-        VarianceAuditAnalysis analysis)
+        TreeAuditResult result)
     {
         var clause = ConstraintClauseOf(declaration, parameter.Name);
         var kinds = ClassifyConstraints(clause, parameter);
@@ -109,7 +159,9 @@ internal sealed class ConstraintAuditor
 
         var valueType = kinds.Contains(ConstraintKind.Struct) || kinds.Contains(ConstraintKind.Unmanaged);
         var construction = kinds.Contains(ConstraintKind.New) || valueType;
-        var dependents = construction ? ScanDependents(model, parameter) : Dependents.Empty;
+        var dependents = construction
+            ? result.Candidates.Match(parameter)
+            : Dependents.Empty;
         if (!valueType)
         {
             // A 'new()'-only constraint guarantees reference-or-value construction, not
@@ -119,31 +171,31 @@ internal sealed class ConstraintAuditor
 
         foreach (var kind in kinds)
         {
-            AddConstraintSite(model, parameter, declaringName, kind, dependents, analysis);
+            AddConstraintSite(model, parameter, declaringName, kind, dependents, result);
         }
 
         if (valueType || kinds.Contains(ConstraintKind.New))
         {
-            _statistics.ConstraintDependentDefaultSites += dependents.Default;
-            _statistics.ConstraintDependentNewSites += dependents.New;
-            _statistics.ConstraintDependentBoxingSites += dependents.Boxing;
-            _statistics.ConstraintDependentArraySites += dependents.Array;
-            _statistics.ConstraintDependentNullableSites += dependents.Nullable;
-            analysis.ConstraintDependentSites.AddRange(dependents.Diagnostics);
+            result.DependentDefaults += dependents.Default;
+            result.DependentNews += dependents.New;
+            result.DependentBoxing += dependents.Boxing;
+            result.DependentArrays += dependents.Array;
+            result.DependentNullables += dependents.Nullable;
+            result.DependentSites.AddRange(dependents.Diagnostics);
         }
     }
 
-    private void AddConstraintSite(
+    private static void AddConstraintSite(
         SemanticModel model,
         ITypeParameterSymbol parameter,
         string declaringName,
         ConstraintKind kind,
         Dependents dependents,
-        VarianceAuditAnalysis analysis)
+        TreeAuditResult result)
     {
         var location = parameter.Locations.FirstOrDefault(candidate => candidate.IsInSource);
         var span = location?.GetLineSpan().StartLinePosition;
-        analysis.ConstraintSites.Add(new VarianceConstraintSite(
+        result.ConstraintSites.Add(new VarianceConstraintSite(
             Kind: KindWord(kind),
             TypeParameterName: parameter.Name,
             DeclaringName: declaringName,
@@ -160,22 +212,22 @@ internal sealed class ConstraintAuditor
         switch (kind)
         {
             case ConstraintKind.Struct:
-                _statistics.ConstraintsStruct++;
+                result.ConstraintsStruct++;
                 break;
             case ConstraintKind.Unmanaged:
-                _statistics.ConstraintsUnmanaged++;
+                result.ConstraintsUnmanaged++;
                 break;
             case ConstraintKind.New:
-                _statistics.ConstraintsNew++;
+                result.ConstraintsNew++;
                 break;
             case ConstraintKind.NotNull:
-                _statistics.ConstraintsNotNull++;
+                result.ConstraintsNotNull++;
                 break;
             case ConstraintKind.Default:
-                _statistics.ConstraintsDefault++;
+                result.ConstraintsDefault++;
                 break;
             case ConstraintKind.Class:
-                _statistics.ConstraintsClass++;
+                result.ConstraintsClass++;
                 break;
         }
     }
@@ -289,138 +341,6 @@ internal sealed class ConstraintAuditor
         return null;
     }
 
-    // ---- D5b dependent sites ----
-
-    private static Dependents ScanDependents(SemanticModel model, ITypeParameterSymbol parameter)
-    {
-        var diagnostics = new List<VarianceConstraintDependentSite>();
-        var defaults = 0;
-        var news = 0;
-        var boxing = 0;
-        var arrays = 0;
-        var nullables = 0;
-        var activators = 0;
-
-        foreach (var node in model.SyntaxTree.GetRoot().DescendantNodes())
-        {
-            switch (node)
-            {
-                case DefaultExpressionSyntax expression when TypeMatches(model, expression, parameter):
-                    defaults++;
-                    diagnostics.Add(Dependent(
-                        VarianceCodes.DefaultOnValueTypeConstraint,
-                        DefaultMessage(parameter), parameter, expression));
-                    break;
-                case LiteralExpressionSyntax literal
-                    when literal.IsKind(SyntaxKind.DefaultLiteralExpression)
-                         && ConvertedTypeMatches(model, literal, parameter):
-                    defaults++;
-                    diagnostics.Add(Dependent(
-                        VarianceCodes.DefaultOnValueTypeConstraint,
-                        DefaultMessage(parameter), parameter, literal));
-                    break;
-                case ObjectCreationExpressionSyntax creation when TypeMatches(model, creation, parameter):
-                    news++;
-                    if (creation.ArgumentList?.Arguments.Count > 0 || creation.Initializer != null)
-                    {
-                        diagnostics.Add(Dependent(
-                            VarianceCodes.ResidualNewTSite,
-                            ResidualNewMessage(parameter), parameter, creation));
-                    }
-
-                    break;
-                case InvocationExpressionSyntax invocation when IsActivatorCreateInstance(model, invocation, parameter):
-                    activators++;
-                    news++;
-                    break;
-                case ArrayTypeSyntax array when ArrayElementMatches(model, array, parameter):
-                    arrays++;
-                    break;
-                case NullableTypeSyntax nullable when NullableArgumentMatches(model, nullable, parameter):
-                    nullables++;
-                    break;
-                case GenericNameSyntax generic
-                    when generic.Identifier.ValueText == "Nullable"
-                         && NullableArgumentMatches(model, generic, parameter):
-                    nullables++;
-                    break;
-                case CastExpressionSyntax cast
-                    when ExpressionMatches(model, cast.Expression, parameter)
-                         && IsObjectType(model, cast.Type):
-                    boxing++;
-                    break;
-                case LockStatementSyntax lockStatement when ExpressionMatches(model, lockStatement.Expression, parameter):
-                    boxing++;
-                    break;
-                case BinaryExpressionSyntax binary
-                    when (binary.IsKind(SyntaxKind.EqualsExpression) || binary.IsKind(SyntaxKind.NotEqualsExpression))
-                         && (ExpressionMatches(model, binary.Left, parameter)
-                             || ExpressionMatches(model, binary.Right, parameter)):
-                    boxing++;
-                    break;
-                case BinaryExpressionSyntax binary
-                    when (binary.IsKind(SyntaxKind.IsExpression) || binary.IsKind(SyntaxKind.AsExpression))
-                         && ExpressionMatches(model, binary.Left, parameter)
-                         && IsObjectType(model, binary.Right):
-                    boxing++;
-                    break;
-            }
-        }
-
-        return new Dependents(defaults, news, boxing, arrays, nullables, activators, diagnostics);
-    }
-
-    private static bool TypeMatches(SemanticModel model, SyntaxNode node, ITypeParameterSymbol parameter)
-        => SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(node).Type, parameter);
-
-    private static bool ConvertedTypeMatches(SemanticModel model, SyntaxNode node, ITypeParameterSymbol parameter)
-        => SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(node).ConvertedType, parameter);
-
-    private static bool ExpressionMatches(SemanticModel model, SyntaxNode node, ITypeParameterSymbol parameter)
-        => SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(node).Type, parameter);
-
-    private static bool ArrayElementMatches(SemanticModel model, TypeSyntax type, ITypeParameterSymbol parameter)
-        => model.GetTypeInfo(type).Type is IArrayTypeSymbol array
-           && SymbolEqualityComparer.Default.Equals(array.ElementType, parameter);
-
-    private static bool NullableArgumentMatches(SemanticModel model, SyntaxNode node, ITypeParameterSymbol parameter)
-        => model.GetTypeInfo(node).Type is INamedTypeSymbol named
-           && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T
-           && named.TypeArguments.Length == 1
-           && SymbolEqualityComparer.Default.Equals(named.TypeArguments[0], parameter);
-
-    private static bool IsObjectType(SemanticModel model, SyntaxNode node)
-        => model.GetTypeInfo(node).Type?.SpecialType == SpecialType.System_Object;
-
-    private static bool IsActivatorCreateInstance(SemanticModel model, InvocationExpressionSyntax invocation, ITypeParameterSymbol parameter)
-    {
-        if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
-            || method.Name != "CreateInstance"
-            || method.ContainingType?.ToDisplayString() != "System.Activator"
-            || method.TypeArguments.Length != 1)
-        {
-            return false;
-        }
-
-        return SymbolEqualityComparer.Default.Equals(method.TypeArguments[0], parameter);
-    }
-
-    private static VarianceConstraintDependentSite Dependent(
-        string code,
-        string message,
-        ITypeParameterSymbol parameter,
-        SyntaxNode node)
-    {
-        var span = node.GetLocation().GetLineSpan().StartLinePosition;
-        return new VarianceConstraintDependentSite(
-            Code: code,
-            Message: message,
-            TypeParameterName: parameter.Name,
-            FilePath: node.SyntaxTree.FilePath,
-            Line: span.Line + 1,
-            Column: span.Character + 1);
-    }
-
     private static string KindWord(ConstraintKind kind) => kind switch
     {
         ConstraintKind.Struct => "struct",
@@ -439,6 +359,275 @@ internal sealed class ConstraintAuditor
         => $"residual 'new T()' with an object initializer or arguments at this site (T='{parameter.Name}'); "
            + "E10 does not rewrite this form and the direct conversion behavior is undefined; "
            + "rewrite the construction explicitly";
+
+    /// <summary>Per-tree accumulator; owns the lazily-built dependent-site candidates.</summary>
+    private sealed class TreeAuditResult
+    {
+        private DependentCandidates? _candidates;
+
+        public TreeAuditResult(SemanticModel model)
+        {
+            Model = model;
+        }
+
+        public SemanticModel Model { get; }
+        public List<VarianceConstraintSite> ConstraintSites { get; } = new();
+        public List<VarianceConstraintDependentSite> DependentSites { get; } = new();
+
+        public int ConstraintsStruct;
+        public int ConstraintsUnmanaged;
+        public int ConstraintsNew;
+        public int ConstraintsNotNull;
+        public int ConstraintsDefault;
+        public int ConstraintsClass;
+
+        public int DependentDefaults;
+        public int DependentNews;
+        public int DependentBoxing;
+        public int DependentArrays;
+        public int DependentNullables;
+
+        public DependentCandidates Candidates => _candidates ??= DependentCandidates.Build(Model);
+    }
+
+    /// <summary>
+    /// Semantic shape, resolved once, of every node that could be a value-constraint
+    /// dependent site. Each constrained type parameter then matches its own symbol
+    /// against the candidate types without triggering any further semantic query.
+    /// </summary>
+    private sealed class DependentCandidates
+    {
+        private readonly List<(ITypeSymbol Type, SyntaxNode Node)> _defaults = new();
+        private readonly List<(ITypeSymbol ConvertedType, SyntaxNode Node)> _defaultLiterals = new();
+        private readonly List<(ITypeSymbol Type, ObjectCreationExpressionSyntax Creation)> _news = new();
+        private readonly List<ITypeSymbol> _activators = new();
+        private readonly List<ITypeSymbol> _arrayElements = new();
+        private readonly List<ITypeSymbol> _nullableArguments = new();
+        private readonly List<ITypeSymbol> _boxing = new();
+
+        // One entry per ==/!= node (never two: matching either operand counted once).
+        private readonly List<(ITypeSymbol? Left, ITypeSymbol? Right)> _equalityPairs = new();
+
+        private DependentCandidates()
+        {
+        }
+
+        public static DependentCandidates Build(SemanticModel model)
+        {
+            var candidates = new DependentCandidates();
+            foreach (var node in model.SyntaxTree.GetRoot().DescendantNodes())
+            {
+                switch (node)
+                {
+                    case DefaultExpressionSyntax expression:
+                        var defaultInfo = model.GetTypeInfo(expression);
+                        if (defaultInfo.Type != null)
+                        {
+                            candidates._defaults.Add((defaultInfo.Type, expression));
+                        }
+
+                        break;
+                    case LiteralExpressionSyntax literal
+                        when literal.IsKind(SyntaxKind.DefaultLiteralExpression):
+                        var literalInfo = model.GetTypeInfo(literal);
+                        if (literalInfo.ConvertedType != null)
+                        {
+                            candidates._defaultLiterals.Add((literalInfo.ConvertedType, literal));
+                        }
+
+                        break;
+                    case ObjectCreationExpressionSyntax creation:
+                        if (model.GetTypeInfo(creation).Type is { } createdType)
+                        {
+                            candidates._news.Add((createdType, creation));
+                        }
+
+                        break;
+                    case InvocationExpressionSyntax invocation when IsActivatorCreateInstance(model, invocation, out var typeArgument):
+                        candidates._activators.Add(typeArgument!);
+                        break;
+                    case ArrayTypeSyntax array:
+                        if (model.GetTypeInfo(array).Type is IArrayTypeSymbol arraySymbol)
+                        {
+                            candidates._arrayElements.Add(arraySymbol.ElementType);
+                        }
+
+                        break;
+                    case NullableTypeSyntax nullable:
+                        AddNullableCandidate(model, nullable, candidates);
+                        break;
+                    case GenericNameSyntax generic when generic.Identifier.ValueText == "Nullable":
+                        AddNullableCandidate(model, generic, candidates);
+                        break;
+                    case CastExpressionSyntax cast
+                        when TypeMatches(model, cast.Expression, out var expressionType)
+                             && IsObjectType(model, cast.Type):
+                        candidates._boxing.Add(expressionType!);
+                        break;
+                    case LockStatementSyntax lockStatement
+                        when TypeMatches(model, lockStatement.Expression, out var lockType):
+                        candidates._boxing.Add(lockType!);
+                        break;
+                    case BinaryExpressionSyntax binary
+                        when (binary.IsKind(SyntaxKind.EqualsExpression) || binary.IsKind(SyntaxKind.NotEqualsExpression)):
+                        candidates._equalityPairs.Add((
+                            model.GetTypeInfo(binary.Left).Type,
+                            model.GetTypeInfo(binary.Right).Type));
+                        break;
+                    case BinaryExpressionSyntax binary
+                        when (binary.IsKind(SyntaxKind.IsExpression) || binary.IsKind(SyntaxKind.AsExpression))
+                             && TypeMatches(model, binary.Left, out var isAsType)
+                             && IsObjectType(model, binary.Right):
+                        candidates._boxing.Add(isAsType!);
+                        break;
+                }
+            }
+
+            return candidates;
+        }
+
+        private static void AddNullableCandidate(SemanticModel model, SyntaxNode node, DependentCandidates candidates)
+        {
+            if (model.GetTypeInfo(node).Type is INamedTypeSymbol named
+                && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T
+                && named.TypeArguments.Length == 1)
+            {
+                candidates._nullableArguments.Add(named.TypeArguments[0]);
+            }
+        }
+
+        public Dependents Match(ITypeParameterSymbol parameter)
+        {
+            var diagnostics = new List<VarianceConstraintDependentSite>();
+            var defaults = 0;
+            var news = 0;
+            var boxing = 0;
+            var arrays = 0;
+            var nullables = 0;
+            var activators = 0;
+
+            foreach (var (type, node) in _defaults)
+            {
+                if (SymbolEqualityComparer.Default.Equals(type, parameter))
+                {
+                    defaults++;
+                    diagnostics.Add(Dependent(VarianceCodes.DefaultOnValueTypeConstraint, DefaultMessage(parameter), parameter, node));
+                }
+            }
+
+            foreach (var (convertedType, node) in _defaultLiterals)
+            {
+                if (SymbolEqualityComparer.Default.Equals(convertedType, parameter))
+                {
+                    defaults++;
+                    diagnostics.Add(Dependent(VarianceCodes.DefaultOnValueTypeConstraint, DefaultMessage(parameter), parameter, node));
+                }
+            }
+
+            foreach (var (type, creation) in _news)
+            {
+                if (!SymbolEqualityComparer.Default.Equals(type, parameter))
+                {
+                    continue;
+                }
+
+                news++;
+                if (creation.ArgumentList?.Arguments.Count > 0 || creation.Initializer != null)
+                {
+                    diagnostics.Add(Dependent(
+                        VarianceCodes.ResidualNewTSite,
+                        ResidualNewMessage(parameter), parameter, creation));
+                }
+            }
+
+            foreach (var typeArgument in _activators)
+            {
+                if (SymbolEqualityComparer.Default.Equals(typeArgument, parameter))
+                {
+                    activators++;
+                    news++;
+                }
+            }
+
+            foreach (var element in _arrayElements)
+            {
+                if (SymbolEqualityComparer.Default.Equals(element, parameter))
+                {
+                    arrays++;
+                }
+            }
+
+            foreach (var argument in _nullableArguments)
+            {
+                if (SymbolEqualityComparer.Default.Equals(argument, parameter))
+                {
+                    nullables++;
+                }
+            }
+
+            foreach (var type in _boxing)
+            {
+                if (SymbolEqualityComparer.Default.Equals(type, parameter))
+                {
+                    boxing++;
+                }
+            }
+
+            foreach (var (left, right) in _equalityPairs)
+            {
+                if (SymbolEqualityComparer.Default.Equals(left, parameter)
+                    || SymbolEqualityComparer.Default.Equals(right, parameter))
+                {
+                    boxing++;
+                }
+            }
+
+            return new Dependents(defaults, news, boxing, arrays, nullables, activators, diagnostics);
+        }
+
+        private static bool TypeMatches(SemanticModel model, SyntaxNode node, out ITypeSymbol? type)
+        {
+            type = model.GetTypeInfo(node).Type;
+            return type != null;
+        }
+
+        private static bool IsObjectType(SemanticModel model, SyntaxNode node)
+            => model.GetTypeInfo(node).Type?.SpecialType == SpecialType.System_Object;
+
+        private static bool IsActivatorCreateInstance(
+            SemanticModel model,
+            InvocationExpressionSyntax invocation,
+            out ITypeSymbol? typeArgument)
+        {
+            typeArgument = null;
+            if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+                || method.Name != "CreateInstance"
+                || method.ContainingType?.ToDisplayString() != "System.Activator"
+                || method.TypeArguments.Length != 1)
+            {
+                return false;
+            }
+
+            typeArgument = method.TypeArguments[0];
+            return true;
+        }
+
+        private static VarianceConstraintDependentSite Dependent(
+            string code,
+            string message,
+            ITypeParameterSymbol parameter,
+            SyntaxNode node)
+        {
+            var span = node.GetLocation().GetLineSpan().StartLinePosition;
+            return new VarianceConstraintDependentSite(
+                Code: code,
+                Message: message,
+                TypeParameterName: parameter.Name,
+                FilePath: node.SyntaxTree.FilePath,
+                Line: span.Line + 1,
+                Column: span.Character + 1);
+        }
+    }
 
     private readonly record struct Dependents(
         int Default,

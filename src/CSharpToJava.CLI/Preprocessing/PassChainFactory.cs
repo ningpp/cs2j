@@ -257,7 +257,7 @@ internal static class PassChainFactory
     public static ProjectPassAdapter CreateAdapter(string passId, PassChainConfiguration config)
     {
         ArgumentNullException.ThrowIfNull(config);
-        return passId switch
+        ProjectPassAdapter adapter = passId switch
         {
             PassIds.Conditional => new ConditionalPassAdapter(
                 config.Verbose,
@@ -646,6 +646,13 @@ internal static class PassChainFactory
 
             _ => throw new KeyNotFoundException($"No chain adapter is registered for pass id '{passId}'."),
         };
+
+        // Push CLI --no-verify-build / --no-verify-tests to every adapter so
+        // that even passes which don't take a verifyTests ctor arg honor the
+        // user's choice (the adapter property falls back to descriptor default
+        // for passes we never call this on).
+        adapter.ApplyVerificationConfig(config.VerifyBuild, config.VerifyTests);
+        return adapter;
     }
 
     /// <summary>

@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis;
@@ -33,7 +35,12 @@ internal static class ProjectPassRunner
         ArgumentException.ThrowIfNullOrWhiteSpace(request.SourcePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.DestinationRoot);
 
+        var totalSw = Stopwatch.StartNew();
+
+        var prepareSw = Stopwatch.StartNew();
         var tree = await PrepareTreeAsync(adapter, request);
+        prepareSw.Stop();
+
         var context = new PassExecutionContext
         {
             Request = request,
@@ -42,7 +49,14 @@ internal static class ProjectPassRunner
             Success = true,
         };
 
+        var execSw = Stopwatch.StartNew();
         await adapter.ExecuteAsync(context);
+        execSw.Stop();
+
+        totalSw.Stop();
+        context.Timings["prepare"] = prepareSw.Elapsed;
+        context.Timings["execute"] = execSw.Elapsed;
+        context.TotalElapsed = totalSw.Elapsed;
 
         var success = context.Success && !adapter.HasErrors;
         return new ProjectPassRunResult
@@ -54,6 +68,8 @@ internal static class ProjectPassRunner
                 tree.Layout, tree.IntermediateRoot),
             Success = success,
             StubRejected = false,
+            Stages = context.Timings,
+            TotalElapsed = context.TotalElapsed,
         };
     }
 
@@ -206,28 +222,46 @@ internal static class ProjectPassRunner
     private static void ValidateSyntaxOrThrow(ProjectPassAdapter adapter, PassTreeContext tree)
     {
         var parseOptions = adapter.CreateParseOptions(tree);
-        foreach (var csFile in tree.CsFiles)
-        {
-            var sourceCode = File.ReadAllText(csFile);
-            var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode, parseOptions, path: csFile);
-            var error = syntaxTree.GetDiagnostics()
-                .FirstOrDefault(d => d.Severity == DiagnosticSeverity.Error);
-            if (error == null)
-            {
-                continue;
-            }
 
-            var position = error.Location.IsInSource
-                ? error.Location.GetLineSpan().StartLinePosition
-                : new Microsoft.CodeAnalysis.Text.LinePosition(0, 0);
-            throw new ProjectSyntaxException(
-                adapter.LogPrefix,
-                csFile,
-                position.Line + 1,
-                position.Character + 1,
-                error.Descriptor.Id,
-                error.GetMessage());
+        // Parse every file once, in parallel (ParseText is thread-safe), keep the
+        // trees for the compilation builder, and surface the first parse error found.
+        var parseError = new ConcurrentBag<(string File, Diagnostic Diagnostic)>();
+        Parallel.ForEach(
+            tree.CsFiles,
+            new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount / 2) },
+            csFile =>
+            {
+                var sourceCode = File.ReadAllText(csFile);
+                var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode, parseOptions, path: csFile);
+                tree.ParsedSyntaxTrees[csFile] = syntaxTree;
+
+                var error = syntaxTree.GetDiagnostics()
+                    .FirstOrDefault(d => d.Severity == DiagnosticSeverity.Error);
+                if (error != null)
+                {
+                    parseError.Add((csFile, error));
+                }
+            });
+
+        var firstError = parseError
+            .OrderBy(item => item.File, StringComparer.Ordinal)
+            .ThenBy(item => item.Diagnostic.Location.SourceSpan.Start)
+            .FirstOrDefault();
+        if (firstError.File == null)
+        {
+            return;
         }
+
+        var position = firstError.Diagnostic.Location.IsInSource
+            ? firstError.Diagnostic.Location.GetLineSpan().StartLinePosition
+            : new Microsoft.CodeAnalysis.Text.LinePosition(0, 0);
+        throw new ProjectSyntaxException(
+            adapter.LogPrefix,
+            firstError.File,
+            position.Line + 1,
+            position.Character + 1,
+            firstError.Diagnostic.Descriptor.Id,
+            firstError.Diagnostic.GetMessage());
     }
 
     // ---- stage 2: whole-tree parse + compile ----
@@ -236,12 +270,23 @@ internal static class ProjectPassRunner
         ProjectPassAdapter adapter,
         PassTreeContext tree)
     {
-        var parseOptions = adapter.CreateParseOptions(tree);
-        var trees = new List<SyntaxTree>();
+        var trees = new List<SyntaxTree>(tree.CsFiles.Count);
         foreach (var csFile in tree.CsFiles)
         {
-            var sourceCode = File.ReadAllText(csFile);
-            trees.Add(CSharpSyntaxTree.ParseText(sourceCode, parseOptions, path: csFile));
+            if (tree.ParsedSyntaxTrees.TryGetValue(csFile, out var parsed))
+            {
+                trees.Add(parsed);
+            }
+            else
+            {
+                // Defensive fallback (custom flows that skipped the syntax gate):
+                // parse on demand and remember the tree for later passes.
+                var sourceCode = File.ReadAllText(csFile);
+                parsed = CSharpSyntaxTree.ParseText(
+                    sourceCode, adapter.CreateParseOptions(tree), path: csFile);
+                tree.ParsedSyntaxTrees[csFile] = parsed;
+                trees.Add(parsed);
+            }
         }
 
         trees.AddRange(adapter.CreateAdditionalSyntaxTrees(tree));
@@ -261,10 +306,24 @@ internal static class ProjectPassRunner
         var tree = context.Tree;
 
         CSharpCompilation? compilation = null;
+        Dictionary<string, SyntaxTree>? compilationTreesByPath = null;
         if (adapter.Descriptor.NeedsSemanticModel)
         {
             await adapter.OnTreePreparedAsync(tree);
+            var compileSw = Stopwatch.StartNew();
             compilation = BuildStandardCompilation(adapter, tree);
+            compileSw.Stop();
+            context.Timings["compile"] = compileSw.Elapsed;
+
+            // The per-file spine used to linear-scan compilation.SyntaxTrees
+            // for every source file (O(files^2)); index once.
+            compilationTreesByPath = new Dictionary<string, SyntaxTree>(
+                compilation.SyntaxTrees.Count(), StringComparer.OrdinalIgnoreCase);
+            foreach (var syntaxTree in compilation.SyntaxTrees)
+            {
+                compilationTreesByPath.TryAdd(syntaxTree.FilePath, syntaxTree);
+            }
+
             await adapter.CompilationReadyAsync(compilation);
         }
         else
@@ -272,6 +331,7 @@ internal static class ProjectPassRunner
             await adapter.OnTreePreparedAsync(tree);
         }
 
+        var rewriteSw = Stopwatch.StartNew();
         foreach (var sourceFile in tree.SourceFiles)
         {
             var relativePath = Path.GetRelativePath(tree.SourceRoot, sourceFile);
@@ -298,8 +358,8 @@ internal static class ProjectPassRunner
                 continue;
             }
 
-            SyntaxTree? syntaxTree = compilation?.SyntaxTrees.FirstOrDefault(tree =>
-                string.Equals(tree.FilePath, sourceFile, StringComparison.OrdinalIgnoreCase));
+            SyntaxTree? syntaxTree = null;
+            compilationTreesByPath?.TryGetValue(sourceFile, out syntaxTree);
 
             // Capture pristine bytes before any rewrite so in-place chains can
             // roll a file back after the fact (e.g. extension-methods build gate).
@@ -336,12 +396,21 @@ internal static class ProjectPassRunner
             await WriteRewrittenAsync(tree, fileContext, rewrite);
         }
 
+        rewriteSw.Stop();
+        context.Timings["rewrite"] = rewriteSw.Elapsed;
+
         await adapter.AfterFilesAsync(tree);
 
         // ---- stage 4: restore ----
+        //
+        // Restore only exists to feed build/test verification. A read-only pass
+        // (verify disabled by design or by --no-verify-*) never compiles the
+        // intermediate tree, so restoring the whole solution is pure overhead.
 
-        var restoreTarget = ProjectPreprocessSource.ResolveRestoreTarget(
-            tree.Layout, tree.IntermediateRoot);
+        var restoreTarget = (!adapter.VerifyBuild && !adapter.VerifyTests)
+            ? null
+            : ProjectPreprocessSource.ResolveRestoreTarget(
+                tree.Layout, tree.IntermediateRoot);
         if (restoreTarget != null)
         {
             if (adapter.Verbose)
@@ -349,8 +418,11 @@ internal static class ProjectPassRunner
                 Console.WriteLine($"{adapter.LogPrefix} Restoring packages: {restoreTarget}");
             }
 
+            var restoreSw = Stopwatch.StartNew();
             var restoreExitCode = ProjectPreprocessSource.RunDotNetRestore(
                 restoreTarget, adapter.LogPrefix);
+            restoreSw.Stop();
+            context.Timings["restore"] = restoreSw.Elapsed;
 
             if (adapter.Verbose)
             {
@@ -364,7 +436,10 @@ internal static class ProjectPassRunner
 
             // ---- stage 5: verify build/tests + cleanup ----
 
+            var verifySw = Stopwatch.StartNew();
             await VerifyBuildAndTestsAsync(adapter, tree, restoreTarget);
+            verifySw.Stop();
+            context.Timings["verify"] = verifySw.Elapsed;
             if (adapter.DeleteBuildOutputsAfterRestore)
             {
                 DeleteBuildOutputs(tree.IntermediateRoot);

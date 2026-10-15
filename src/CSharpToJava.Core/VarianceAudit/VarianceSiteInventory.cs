@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using CSharpToJava.Core.Analysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -56,29 +57,63 @@ public sealed record VarianceUseRecord(
 /// in §4.3 with D3① position-direction and D7 nested composition. Safety classification and
 /// variance-conversion detection belong to batch 3.
 /// </summary>
+/// <remarks>
+/// Performance: declaration symbols are walked once (cheap), while use-site collection is
+/// embarrassingly per-tree and runs in parallel over the compilation's syntax trees. All
+/// semantic queries for one tree are scoped to a <see cref="UseCollector"/> (ancestor
+/// caches live there), and sites are deterministically re-sorted after the merge.
+/// </remarks>
 internal sealed class VarianceSiteInventory
 {
     private const string WildcardInvariant = "invariant";
 
     private readonly Compilation _compilation;
     private readonly VarianceAuditStatistics _statistics;
-    private readonly Dictionary<string, bool> _baselineByFile = new(StringComparer.Ordinal);
+    private readonly VarianceBaselineCache _baseline;
     private readonly HashSet<string> _metadataVariantTypes = new(StringComparer.Ordinal);
     private readonly List<VariantDeclarationRecord> _declarations = new();
     private readonly List<VarianceUseRecord> _uses = new();
 
-    public VarianceSiteInventory(Compilation compilation, VarianceAuditStatistics statistics)
+    public VarianceSiteInventory(
+        Compilation compilation,
+        VarianceAuditStatistics statistics,
+        VarianceBaselineCache baseline)
     {
         _compilation = compilation;
         _statistics = statistics;
+        _baseline = baseline;
     }
 
     public VarianceAuditAnalysis Build()
     {
         CollectDeclarations(_compilation.Assembly.GlobalNamespace);
-        foreach (var tree in _compilation.SyntaxTrees)
+
+        // Syntax pre-screen shared by all trees: bind a type position only when its
+        // shape could possibly be a variant use (reference array, a known/source
+        // variant generic, or a bare type parameter).
+        var hintNames = BuildHintNames();
+
+        var perTreeResults = new ConcurrentBag<UseCollector>();
+        Parallel.ForEach(
+            _compilation.SyntaxTrees,
+            () => new List<UseCollector>(),
+            (tree, _, local) =>
+            {
+                local.Add(UseCollector.Collect(_compilation, tree, _baseline, hintNames));
+                return local;
+            },
+            local =>
+            {
+                foreach (var collector in local)
+                {
+                    perTreeResults.Add(collector);
+                }
+            });
+
+        foreach (var result in perTreeResults)
         {
-            CollectUses(tree);
+            _uses.AddRange(result.Uses);
+            _metadataVariantTypes.UnionWith(result.MetadataVariantTypes);
         }
 
         SortSites();
@@ -88,6 +123,35 @@ internal sealed class VarianceSiteInventory
         analysis.DeclarationSites.AddRange(_declarations);
         analysis.UseSites.AddRange(_uses);
         return analysis;
+    }
+
+    /// <summary>
+    /// Short type names worth binding at a use position: the well-known variant BCL
+    /// types plus every source-declared variant interface/delegate found in this run.
+    /// </summary>
+    private HashSet<string> BuildHintNames()
+    {
+        var names = new HashSet<string>(
+            UseSiteSafetyClassifier.KnownVariantTypeNames, StringComparer.Ordinal);
+        foreach (var declaration in _declarations)
+        {
+            var name = declaration.TypeName;
+            var dot = name.LastIndexOf('.');
+            if (dot >= 0)
+            {
+                name = name[(dot + 1)..];
+            }
+
+            var tick = name.IndexOfAny(new[] { '`', '<' });
+            if (tick >= 0)
+            {
+                name = name[..tick];
+            }
+
+            names.Add(name);
+        }
+
+        return names;
     }
 
     // ---- declaration sites (D4: semantic model, source definitions only) ----
@@ -130,7 +194,7 @@ internal sealed class VarianceSiteInventory
                     Kind: VariancePositionFacts.ToKind(parameter.Variance),
                     Constraints: Array.Empty<string>(),
                     Origin: VarianceOrigin.Source,
-                    BaselineHasErrors: GetBaselineErrors(location.SourceTree),
+                    BaselineHasErrors: _baseline.HasErrors(location.SourceTree),
                     FilePath: location.SourceTree?.FilePath,
                     Line: span.Line + 1,
                     Column: span.Character + 1));
@@ -141,251 +205,6 @@ internal sealed class VarianceSiteInventory
         {
             CollectType(nested);
         }
-    }
-
-    // ---- use sites (§4.3: one record per syntactic type position) ----
-
-    private void CollectUses(SyntaxTree tree)
-    {
-        var model = _compilation.GetSemanticModel(tree);
-        var baseline = GetBaselineErrors(tree);
-        foreach (var node in tree.GetRoot().DescendantNodes())
-        {
-            switch (node)
-            {
-                case MethodDeclarationSyntax method:
-                    RecordPosition(model, method.ReturnType, baseline);
-                    break;
-                case LocalFunctionStatementSyntax local:
-                    RecordPosition(model, local.ReturnType, baseline);
-                    break;
-                case DelegateDeclarationSyntax declaration:
-                    RecordPosition(model, declaration.ReturnType, baseline);
-                    break;
-                case PropertyDeclarationSyntax property:
-                    RecordPosition(model, property.Type, baseline);
-                    break;
-                case IndexerDeclarationSyntax indexer:
-                    RecordPosition(model, indexer.Type, baseline);
-                    break;
-                case EventDeclarationSyntax eventDeclaration:
-                    RecordPosition(model, eventDeclaration.Type, baseline);
-                    break;
-                case VariableDeclarationSyntax variable:
-                    RecordPosition(model, variable.Type, baseline);
-                    break;
-                case ParameterSyntax parameter:
-                    RecordPosition(model, parameter.Type, baseline);
-                    break;
-                case ForEachStatementSyntax forEach:
-                    RecordPosition(model, forEach.Type, baseline);
-                    break;
-                case CatchDeclarationSyntax catchDeclaration when catchDeclaration.Type != null:
-                    RecordPosition(model, catchDeclaration.Type, baseline);
-                    break;
-                case DeclarationExpressionSyntax declarationExpression:
-                    RecordPosition(model, declarationExpression.Type, baseline);
-                    break;
-                case SimpleBaseTypeSyntax baseType:
-                    RecordPosition(model, baseType.Type, baseline);
-                    break;
-                case PrimaryConstructorBaseTypeSyntax primaryBase:
-                    RecordPosition(model, primaryBase.Type, baseline);
-                    break;
-                case ObjectCreationExpressionSyntax creation:
-                    RecordPosition(model, creation.Type, baseline);
-                    break;
-                case CastExpressionSyntax cast:
-                    RecordPosition(model, cast.Type, baseline);
-                    break;
-                case DefaultExpressionSyntax defaultExpression:
-                    RecordPosition(model, defaultExpression.Type, baseline);
-                    break;
-                case TypeOfExpressionSyntax typeOf:
-                    RecordPosition(model, typeOf.Type, baseline);
-                    break;
-                case BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.IsExpression)
-                                                        || binary.IsKind(SyntaxKind.AsExpression):
-                    if (binary.Right is TypeSyntax rightType)
-                    {
-                        RecordPosition(model, rightType, baseline);
-                    }
-
-                    break;
-            }
-        }
-    }
-
-    private void RecordPosition(SemanticModel model, TypeSyntax? typeSyntax, bool baseline)
-    {
-        if (typeSyntax == null)
-        {
-            return;
-        }
-
-        var type = model.GetTypeInfo(typeSyntax).Type;
-        if (type == null)
-        {
-            return;
-        }
-
-        var positionFlow = VariancePositionFacts.FlowForPosition(typeSyntax);
-        switch (type)
-        {
-            case ITypeParameterSymbol parameter
-                when parameter.Variance != Microsoft.CodeAnalysis.VarianceKind.None:
-                RecordBareTypeParameter(model, typeSyntax, parameter, positionFlow, baseline);
-                break;
-            case IArrayTypeSymbol array when array.ElementType.IsReferenceType:
-                RecordArrayCovariance(model, typeSyntax, array, baseline);
-                break;
-            case INamedTypeSymbol named when IsVariantClosedType(named):
-                RecordVariantClosedType(model, typeSyntax, named, positionFlow, baseline);
-                break;
-        }
-    }
-
-    private static bool IsVariantClosedType(INamedTypeSymbol type)
-        => type.TypeArguments.Length > 0
-           && type.OriginalDefinition.TypeParameters.Any(
-               parameter => parameter.Variance != Microsoft.CodeAnalysis.VarianceKind.None);
-
-    private void RecordBareTypeParameter(
-        SemanticModel model,
-        TypeSyntax typeSyntax,
-        ITypeParameterSymbol parameter,
-        UseFlow positionFlow,
-        bool baseline)
-    {
-        var display = parameter.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
-        var wildcard = Wildcard(positionFlow, display);
-        var entry = new VarianceTypeArgumentUse(
-            ParameterName: parameter.Name,
-            DeclarationKind: VariancePositionFacts.ToKind(parameter.Variance),
-            Flow: positionFlow,
-            ArgumentType: display,
-            SuggestedWildcard: wildcard);
-        var chain = new[]
-        {
-            $"{VariancePositionFacts.FlowWord(positionFlow)}({VariancePositionFacts.FlowSymbol(positionFlow)}) ∘ "
-            + $"{parameter.Name}<{VariancePositionFacts.VarianceAnnotation(parameter.Variance)}>",
-        };
-        AddUse(model, typeSyntax, new VarianceUseRecord(
-            Flow: positionFlow,
-            TypeDisplayName: display,
-            SuggestedWildcard: wildcard,
-            TypeArguments: new[] { entry },
-            CompositionChain: chain,
-            Tags: UseTag.None,
-            EnclosedByExpressionTree: IsInExpressionTree(model, typeSyntax),
-            EnclosedByDynamic: IsDynamic(model, typeSyntax),
-            VarianceConversion: false,
-            Origin: OriginOf(parameter.ContainingType),
-            BaselineHasErrors: baseline));
-    }
-
-    private void RecordArrayCovariance(
-        SemanticModel model,
-        TypeSyntax typeSyntax,
-        IArrayTypeSymbol array,
-        bool baseline)
-    {
-        // Reference-type array covariance is only registered (no conversion judgement in
-        // batch 2); Flow stays conservative Both so no safety diagnostic is emitted.
-        AddUse(model, typeSyntax, new VarianceUseRecord(
-            Flow: UseFlow.Both,
-            TypeDisplayName: array.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
-            SuggestedWildcard: WildcardInvariant,
-            TypeArguments: Array.Empty<VarianceTypeArgumentUse>(),
-            CompositionChain: Array.Empty<string>(),
-            Tags: UseTag.None,
-            EnclosedByExpressionTree: IsInExpressionTree(model, typeSyntax),
-            EnclosedByDynamic: IsDynamic(model, typeSyntax),
-            VarianceConversion: false,
-            Origin: VarianceOrigin.Metadata,
-            BaselineHasErrors: baseline));
-    }
-
-    private void RecordVariantClosedType(
-        SemanticModel model,
-        TypeSyntax typeSyntax,
-        INamedTypeSymbol type,
-        UseFlow positionFlow,
-        bool baseline)
-    {
-        var entries = new List<VarianceTypeArgumentUse>();
-        var chain = new List<string>();
-        var overall = Descend(type, positionFlow, entries, chain);
-        var nested = entries.Count > 1;
-        var origin = OriginOf(type);
-        if (origin == VarianceOrigin.Metadata)
-        {
-            _metadataVariantTypes.Add(type.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
-        }
-
-        var wildcard = entries.Count > 0 ? entries[^1].SuggestedWildcard : WildcardInvariant;
-        AddUse(model, typeSyntax, new VarianceUseRecord(
-            Flow: overall,
-            TypeDisplayName: type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
-            SuggestedWildcard: wildcard,
-            TypeArguments: entries,
-            CompositionChain: chain,
-            Tags: nested ? UseTag.NestedComposition : UseTag.None,
-            EnclosedByExpressionTree: IsInExpressionTree(model, typeSyntax),
-            EnclosedByDynamic: IsDynamic(model, typeSyntax),
-            VarianceConversion: false,
-            Origin: origin,
-            BaselineHasErrors: baseline));
-    }
-
-    /// <summary>
-    /// D7: descends the type-argument tree through variant layers, composing the incoming
-    /// position flow with each layer's declared variance and recording the composition chain.
-    /// </summary>
-    private UseFlow Descend(
-        ITypeSymbol type,
-        UseFlow flow,
-        List<VarianceTypeArgumentUse> entries,
-        List<string> chain)
-    {
-        if (type is INamedTypeSymbol named
-            && named.TypeArguments.Length > 0
-            && named.OriginalDefinition.TypeParameters.Any(
-                parameter => parameter.Variance != Microsoft.CodeAnalysis.VarianceKind.None))
-        {
-            var original = named.OriginalDefinition;
-            UseFlow? combined = null;
-            for (var i = 0; i < named.TypeArguments.Length && i < original.TypeParameters.Length; i++)
-            {
-                var parameter = original.TypeParameters[i];
-                var layerFlow = VariancePositionFacts.Compose(flow, parameter.Variance);
-                chain.Add(
-                    $"{VariancePositionFacts.FlowWord(flow)}({VariancePositionFacts.FlowSymbol(flow)}) ∘ "
-                    + $"{named.Name}<{VariancePositionFacts.VarianceAnnotation(parameter.Variance)} {parameter.Name}> = "
-                    + $"{VariancePositionFacts.FlowWord(layerFlow)}");
-
-                var argument = named.TypeArguments[i];
-                if (parameter.Variance != Microsoft.CodeAnalysis.VarianceKind.None)
-                {
-                    var argumentText = argument.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
-                    entries.Add(new VarianceTypeArgumentUse(
-                        ParameterName: parameter.Name,
-                        DeclarationKind: VariancePositionFacts.ToKind(parameter.Variance),
-                        Flow: layerFlow,
-                        ArgumentType: argumentText,
-                        SuggestedWildcard: Wildcard(layerFlow, argumentText)));
-                }
-
-                var childFlow = Descend(argument, layerFlow, entries, chain);
-                combined = combined == null
-                    ? childFlow
-                    : VariancePositionFacts.Combine(combined.Value, childFlow);
-            }
-
-            return combined ?? flow;
-        }
-
-        return flow;
     }
 
     private static string Wildcard(UseFlow flow, string argument) => flow switch
@@ -399,69 +218,6 @@ internal sealed class VarianceSiteInventory
         => type != null && type.Locations.Any(location => location.IsInSource)
             ? VarianceOrigin.Source
             : VarianceOrigin.Metadata;
-
-    private void AddUse(SemanticModel model, TypeSyntax typeSyntax, VarianceUseRecord record)
-    {
-        var span = typeSyntax.GetLocation().GetLineSpan().StartLinePosition;
-        _uses.Add(record with
-        {
-            FilePath = model.SyntaxTree.FilePath,
-            Line = span.Line + 1,
-            Column = span.Character + 1,
-        });
-    }
-
-    private static bool IsInExpressionTree(SemanticModel model, SyntaxNode node)
-    {
-        foreach (var lambda in node.Ancestors().OfType<LambdaExpressionSyntax>())
-        {
-            if (ExpressionTreeFacts.IsExpressionTreeLambda(model, lambda))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsDynamic(SemanticModel model, SyntaxNode node)
-    {
-        foreach (var ancestor in node.Ancestors())
-        {
-            if (ancestor is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == "dynamic")
-            {
-                return true;
-            }
-
-            if (ancestor is InvocationExpressionSyntax invocation
-                && model.GetTypeInfo(invocation).Type is IDynamicTypeSymbol)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    // ---- baseline errors (D12) ----
-
-    private bool GetBaselineErrors(SyntaxTree? tree)
-    {
-        if (tree == null)
-        {
-            return false;
-        }
-
-        if (_baselineByFile.TryGetValue(tree.FilePath, out var cached))
-        {
-            return cached;
-        }
-
-        var model = _compilation.GetSemanticModel(tree);
-        var hasErrors = VariancePositionFacts.HasBaselineErrors(model);
-        _baselineByFile[tree.FilePath] = hasErrors;
-        return hasErrors;
-    }
 
     // ---- ordering and statistics ----
 
@@ -512,5 +268,407 @@ internal sealed class VarianceSiteInventory
         _statistics.UseSitesConsumer = _uses.Count(u => u.Flow == UseFlow.Consumer);
         _statistics.UseSitesBoth = _uses.Count(u => u.Flow == UseFlow.Both);
         _statistics.NestedCompositionSites = _uses.Count(u => u.Tags.HasFlag(UseTag.NestedComposition));
+    }
+
+    /// <summary>
+    /// Single-tree use-site collector. Owns the per-tree semantic model and the
+    /// ancestor-query caches, so no semantic result is computed twice within a tree.
+    /// </summary>
+    private sealed class UseCollector
+    {
+        private readonly SemanticModel _model;
+        private readonly bool _baseline;
+        private readonly IReadOnlySet<string> _hintNames;
+        private readonly HashSet<string> _typeParameterNames;
+        private readonly List<VarianceUseRecord> _uses = new();
+        private readonly HashSet<string> _metadataVariantTypes = new(StringComparer.Ordinal);
+
+        // A use site may sit under several lambdas / dynamic invocations; resolve each
+        // ancestor node at most once per tree.
+        private readonly Dictionary<LambdaExpressionSyntax, bool> _expressionTreeLambda = new();
+        private readonly Dictionary<InvocationExpressionSyntax, bool> _dynamicInvocation = new();
+
+        private UseCollector(
+            SemanticModel model,
+            bool baseline,
+            IReadOnlySet<string> hintNames,
+            HashSet<string> typeParameterNames)
+        {
+            _model = model;
+            _baseline = baseline;
+            _hintNames = hintNames;
+            _typeParameterNames = typeParameterNames;
+        }
+
+        public List<VarianceUseRecord> Uses => _uses;
+        public HashSet<string> MetadataVariantTypes => _metadataVariantTypes;
+
+        public static UseCollector Collect(
+            Compilation compilation,
+            SyntaxTree tree,
+            VarianceBaselineCache baseline,
+            IReadOnlySet<string> hintNames)
+        {
+            var model = compilation.GetSemanticModel(tree);
+            var root = tree.GetRoot();
+
+            // Bare variant type parameters can only hide behind identifiers named in a
+            // type-parameter list enclosing the position; gather those names syntactically.
+            var typeParameterNames = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var parameter in root.DescendantNodes().OfType<TypeParameterSyntax>())
+            {
+                typeParameterNames.Add(parameter.Identifier.ValueText);
+            }
+
+            var collector = new UseCollector(
+                model, baseline.HasErrors(tree), hintNames, typeParameterNames);
+            foreach (var node in root.DescendantNodes())
+            {
+                switch (node)
+                {
+                    case MethodDeclarationSyntax method:
+                        collector.RecordPosition(method.ReturnType);
+                        break;
+                    case LocalFunctionStatementSyntax local:
+                        collector.RecordPosition(local.ReturnType);
+                        break;
+                    case DelegateDeclarationSyntax declaration:
+                        collector.RecordPosition(declaration.ReturnType);
+                        break;
+                    case PropertyDeclarationSyntax property:
+                        collector.RecordPosition(property.Type);
+                        break;
+                    case IndexerDeclarationSyntax indexer:
+                        collector.RecordPosition(indexer.Type);
+                        break;
+                    case EventDeclarationSyntax eventDeclaration:
+                        collector.RecordPosition(eventDeclaration.Type);
+                        break;
+                    case VariableDeclarationSyntax variable:
+                        collector.RecordPosition(variable.Type);
+                        break;
+                    case ParameterSyntax parameter:
+                        collector.RecordPosition(parameter.Type);
+                        break;
+                    case ForEachStatementSyntax forEach:
+                        collector.RecordPosition(forEach.Type);
+                        break;
+                    case CatchDeclarationSyntax catchDeclaration when catchDeclaration.Type != null:
+                        collector.RecordPosition(catchDeclaration.Type);
+                        break;
+                    case DeclarationExpressionSyntax declarationExpression:
+                        collector.RecordPosition(declarationExpression.Type);
+                        break;
+                    case SimpleBaseTypeSyntax baseType:
+                        collector.RecordPosition(baseType.Type);
+                        break;
+                    case PrimaryConstructorBaseTypeSyntax primaryBase:
+                        collector.RecordPosition(primaryBase.Type);
+                        break;
+                    case ObjectCreationExpressionSyntax creation:
+                        collector.RecordPosition(creation.Type);
+                        break;
+                    case CastExpressionSyntax cast:
+                        collector.RecordPosition(cast.Type);
+                        break;
+                    case DefaultExpressionSyntax defaultExpression:
+                        collector.RecordPosition(defaultExpression.Type);
+                        break;
+                    case TypeOfExpressionSyntax typeOf:
+                        collector.RecordPosition(typeOf.Type);
+                        break;
+                    case BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.IsExpression)
+                                                        || binary.IsKind(SyntaxKind.AsExpression):
+                        if (binary.Right is TypeSyntax rightType)
+                        {
+                            collector.RecordPosition(rightType);
+                        }
+
+                        break;
+                }
+            }
+
+            return collector;
+        }
+
+        private void RecordPosition(TypeSyntax? typeSyntax)
+        {
+            if (typeSyntax == null || !ShapeMightBeVariant(typeSyntax))
+            {
+                return;
+            }
+
+            var type = _model.GetTypeInfo(typeSyntax).Type;
+            if (type == null)
+            {
+                return;
+            }
+
+            var positionFlow = VariancePositionFacts.FlowForPosition(typeSyntax);
+            switch (type)
+            {
+                case ITypeParameterSymbol parameter
+                    when parameter.Variance != Microsoft.CodeAnalysis.VarianceKind.None:
+                    RecordBareTypeParameter(typeSyntax, parameter, positionFlow);
+                    break;
+                case IArrayTypeSymbol array when array.ElementType.IsReferenceType:
+                    RecordArrayCovariance(typeSyntax, array);
+                    break;
+                case INamedTypeSymbol named when IsVariantClosedType(named):
+                    RecordVariantClosedType(typeSyntax, named, positionFlow);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Syntax-only gate before any semantic query. A variance use can only appear at a
+        /// reference array, a generic name from a known/source variant type, or an
+        /// identifier naming an enclosing type parameter; binding every other position
+        /// (int, string, tuples, ordinary generics, ...) is wasted work.
+        /// </summary>
+        private bool ShapeMightBeVariant(TypeSyntax type)
+        {
+            switch (type)
+            {
+                // Only reference-element arrays have C# array covariance; the
+                // semantic pass rejects value arrays anyway. A jagged/multidimensional
+                // type with 2+ rank specifiers ('int[][]') is stored flat by the parser
+                // and its outer element is itself an array (always a reference type).
+                case ArrayTypeSyntax array when array.RankSpecifiers.Count >= 2:
+                    return true;
+                case ArrayTypeSyntax array:
+                    return ArrayElementCouldBeReference(array.ElementType);
+                case NullableTypeSyntax nullable:
+                    return ShapeMightBeVariant(nullable.ElementType);
+                case GenericNameSyntax generic:
+                    return _hintNames.Contains(generic.Identifier.ValueText);
+                case IdentifierNameSyntax identifier:
+                    // 'var' hides the actual type (an array or variant interface is only
+                    // visible on the initializer), so it is resolved semantically.
+                    return identifier.IsVar
+                           || _typeParameterNames.Contains(identifier.Identifier.ValueText);
+                case QualifiedNameSyntax qualified:
+                    return ShapeMightBeVariant(qualified.Right);
+                case AliasQualifiedNameSyntax alias:
+                    return ShapeMightBeVariant(alias.Name);
+                default:
+                    return false;
+            }
+        }
+
+        private static bool ArrayElementCouldBeReference(TypeSyntax element)
+        {
+            switch (element)
+            {
+                case ArrayTypeSyntax:
+                    return true;
+                // 'T?' is a value Nullable only when T is a value type; recurse so
+                // 'int[]?[]' (annotated reference element) is still recognised.
+                case NullableTypeSyntax nullable:
+                    return ArrayElementCouldBeReference(nullable.ElementType);
+                case PointerTypeSyntax:
+                case TupleTypeSyntax:
+                    return false;
+                case PredefinedTypeSyntax predefined:
+                    return predefined.Keyword.IsKind(SyntaxKind.StringKeyword)
+                           || predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword);
+                default:
+                    // 'dynamic' reaches here as an IdentifierName and is a reference type.
+                    return true;
+            }
+        }
+
+        private static bool IsVariantClosedType(INamedTypeSymbol type)
+            => type.TypeArguments.Length > 0
+               && type.OriginalDefinition.TypeParameters.Any(
+                   parameter => parameter.Variance != Microsoft.CodeAnalysis.VarianceKind.None);
+
+        private void RecordBareTypeParameter(
+            TypeSyntax typeSyntax,
+            ITypeParameterSymbol parameter,
+            UseFlow positionFlow)
+        {
+            var display = parameter.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+            var wildcard = Wildcard(positionFlow, display);
+            var entry = new VarianceTypeArgumentUse(
+                ParameterName: parameter.Name,
+                DeclarationKind: VariancePositionFacts.ToKind(parameter.Variance),
+                Flow: positionFlow,
+                ArgumentType: display,
+                SuggestedWildcard: wildcard);
+            var chain = new[]
+            {
+                $"{VariancePositionFacts.FlowWord(positionFlow)}({VariancePositionFacts.FlowSymbol(positionFlow)}) ∘ "
+                + $"{parameter.Name}<{VariancePositionFacts.VarianceAnnotation(parameter.Variance)}>",
+            };
+            AddUse(typeSyntax, new VarianceUseRecord(
+                Flow: positionFlow,
+                TypeDisplayName: display,
+                SuggestedWildcard: wildcard,
+                TypeArguments: new[] { entry },
+                CompositionChain: chain,
+                Tags: UseTag.None,
+                EnclosedByExpressionTree: IsInExpressionTree(typeSyntax),
+                EnclosedByDynamic: IsDynamic(typeSyntax),
+                VarianceConversion: false,
+                Origin: OriginOf(parameter.ContainingType),
+                BaselineHasErrors: _baseline));
+        }
+
+        private void RecordArrayCovariance(TypeSyntax typeSyntax, IArrayTypeSymbol array)
+        {
+            // Reference-type array covariance is only registered (no conversion judgement in
+            // batch 2); Flow stays conservative Both so no safety diagnostic is emitted.
+            AddUse(typeSyntax, new VarianceUseRecord(
+                Flow: UseFlow.Both,
+                TypeDisplayName: array.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                SuggestedWildcard: WildcardInvariant,
+                TypeArguments: Array.Empty<VarianceTypeArgumentUse>(),
+                CompositionChain: Array.Empty<string>(),
+                Tags: UseTag.None,
+                EnclosedByExpressionTree: IsInExpressionTree(typeSyntax),
+                EnclosedByDynamic: IsDynamic(typeSyntax),
+                VarianceConversion: false,
+                Origin: VarianceOrigin.Metadata,
+                BaselineHasErrors: _baseline));
+        }
+
+        private void RecordVariantClosedType(
+            TypeSyntax typeSyntax,
+            INamedTypeSymbol type,
+            UseFlow positionFlow)
+        {
+            var entries = new List<VarianceTypeArgumentUse>();
+            var chain = new List<string>();
+            var overall = Descend(type, positionFlow, entries, chain);
+            var nested = entries.Count > 1;
+            var origin = OriginOf(type);
+            if (origin == VarianceOrigin.Metadata)
+            {
+                _metadataVariantTypes.Add(
+                    type.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+            }
+
+            var wildcard = entries.Count > 0 ? entries[^1].SuggestedWildcard : WildcardInvariant;
+            AddUse(typeSyntax, new VarianceUseRecord(
+                Flow: overall,
+                TypeDisplayName: type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                SuggestedWildcard: wildcard,
+                TypeArguments: entries,
+                CompositionChain: chain,
+                Tags: nested ? UseTag.NestedComposition : UseTag.None,
+                EnclosedByExpressionTree: IsInExpressionTree(typeSyntax),
+                EnclosedByDynamic: IsDynamic(typeSyntax),
+                VarianceConversion: false,
+                Origin: origin,
+                BaselineHasErrors: _baseline));
+        }
+
+        /// <summary>
+        /// D7: descends the type-argument tree through variant layers, composing the incoming
+        /// position flow with each layer's declared variance and recording the composition chain.
+        /// </summary>
+        private UseFlow Descend(
+            ITypeSymbol type,
+            UseFlow flow,
+            List<VarianceTypeArgumentUse> entries,
+            List<string> chain)
+        {
+            if (type is INamedTypeSymbol named
+                && named.TypeArguments.Length > 0
+                && named.OriginalDefinition.TypeParameters.Any(
+                    parameter => parameter.Variance != Microsoft.CodeAnalysis.VarianceKind.None))
+            {
+                var original = named.OriginalDefinition;
+                UseFlow? combined = null;
+                for (var i = 0; i < named.TypeArguments.Length && i < original.TypeParameters.Length; i++)
+                {
+                    var parameter = original.TypeParameters[i];
+                    var layerFlow = VariancePositionFacts.Compose(flow, parameter.Variance);
+                    chain.Add(
+                        $"{VariancePositionFacts.FlowWord(flow)}({VariancePositionFacts.FlowSymbol(flow)}) ∘ "
+                        + $"{named.Name}<{VariancePositionFacts.VarianceAnnotation(parameter.Variance)} {parameter.Name}> = "
+                        + $"{VariancePositionFacts.FlowWord(layerFlow)}");
+
+                    var argument = named.TypeArguments[i];
+                    if (parameter.Variance != Microsoft.CodeAnalysis.VarianceKind.None)
+                    {
+                        var argumentText = argument.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                        entries.Add(new VarianceTypeArgumentUse(
+                            ParameterName: parameter.Name,
+                            DeclarationKind: VariancePositionFacts.ToKind(parameter.Variance),
+                            Flow: layerFlow,
+                            ArgumentType: argumentText,
+                            SuggestedWildcard: Wildcard(layerFlow, argumentText)));
+                    }
+
+                    var childFlow = Descend(argument, layerFlow, entries, chain);
+                    combined = combined == null
+                        ? childFlow
+                        : VariancePositionFacts.Combine(combined.Value, childFlow);
+                }
+
+                return combined ?? flow;
+            }
+
+            return flow;
+        }
+
+        private void AddUse(TypeSyntax typeSyntax, VarianceUseRecord record)
+        {
+            var span = typeSyntax.GetLocation().GetLineSpan().StartLinePosition;
+            _uses.Add(record with
+            {
+                FilePath = _model.SyntaxTree.FilePath,
+                Line = span.Line + 1,
+                Column = span.Character + 1,
+            });
+        }
+
+        private bool IsInExpressionTree(SyntaxNode node)
+        {
+            foreach (var lambda in node.Ancestors().OfType<LambdaExpressionSyntax>())
+            {
+                if (!_expressionTreeLambda.TryGetValue(lambda, out var isExpressionTree))
+                {
+                    isExpressionTree = ExpressionTreeFacts.IsExpressionTreeLambda(_model, lambda);
+                    _expressionTreeLambda[lambda] = isExpressionTree;
+                }
+
+                if (isExpressionTree)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsDynamic(SyntaxNode node)
+        {
+            foreach (var ancestor in node.Ancestors())
+            {
+                if (ancestor is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == "dynamic")
+                {
+                    return true;
+                }
+
+                if (ancestor is InvocationExpressionSyntax invocation)
+                {
+                    if (!_dynamicInvocation.TryGetValue(invocation, out var isDynamic))
+                    {
+                        isDynamic = _model.GetTypeInfo(invocation).Type is IDynamicTypeSymbol;
+                        _dynamicInvocation[invocation] = isDynamic;
+                    }
+
+                    if (isDynamic)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
     }
 }
