@@ -28,13 +28,42 @@ internal sealed class CallerInfoAnalyzer
     {
         ArgumentNullException.ThrowIfNull(compilation);
 
-        foreach (var tree in compilation.SyntaxTrees)
+        // Per-tree analysis is independent (site collection + inventory only read
+        // the compilation), so run it across trees in parallel and merge the
+        // per-tree results back in source-tree order — the merge order preserves
+        // exactly the sequential accumulation order, keeping plan/site/occurrence
+        // ordering deterministic.
+        var trees = compilation.SyntaxTrees.ToList();
+        var perTree = new (Dictionary<IMethodSymbol, CallerInfoPlan> Plans,
+            List<AttributeOccurrence> Occurrences)[trees.Count];
+
+        System.Threading.Tasks.Parallel.For(0, trees.Count, index =>
         {
+            var tree = trees[index];
             var root = tree.GetRoot();
             var model = compilation.GetSemanticModel(tree);
 
-            CollectSites(root, model);
-            ScanInventory(root, model);
+            var local = new CallerInfoAnalyzer(_options);
+            local.CollectSites(root, model);
+            local.ScanInventory(root, model);
+            perTree[index] = (local._plans, local._occurrences);
+        });
+
+        foreach (var (plans, occurrences) in perTree)
+        {
+            foreach (var (symbol, plan) in plans)
+            {
+                if (_plans.TryGetValue(symbol, out var existing))
+                {
+                    existing.Sites.AddRange(plan.Sites);
+                }
+                else
+                {
+                    _plans[symbol] = plan;
+                }
+            }
+
+            _occurrences.AddRange(occurrences);
         }
 
         FinalizePlans();

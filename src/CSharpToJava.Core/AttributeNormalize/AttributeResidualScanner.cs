@@ -59,17 +59,29 @@ internal sealed class AttributeResidualScanner
             }
         }
 
-        // ----- 输出侧枚举 -----
+        // ----- 输出侧枚举（按树并行，再按树序归并：per-file 计数相加、
+        // per-file Caller 属性列表按树序拼接，与串行遍历结果一致） -----
         var outputCaller = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var outputNonCaller = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var callerAttributesByFile
             = new Dictionary<string, List<AttributeSyntax>>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var tree in outputCompilation.SyntaxTrees)
+        var outputTrees = outputCompilation.SyntaxTrees.ToList();
+        var perTreeCaller = new Dictionary<string, int>[outputTrees.Count];
+        var perTreeNonCaller = new Dictionary<string, int>[outputTrees.Count];
+        var perTreeCallerAttributes = new List<AttributeSyntax>[outputTrees.Count];
+        var perTreeFile = new string[outputTrees.Count];
+
+        System.Threading.Tasks.Parallel.For(0, outputTrees.Count, index =>
         {
+            var tree = outputTrees[index];
             var root = tree.GetRoot();
             var model = outputCompilation.GetSemanticModel(tree);
             var file = tree.FilePath;
+
+            var caller = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var nonCaller = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var callerAttributes = new List<AttributeSyntax>();
 
             foreach (var attribute in root.DescendantNodes().OfType<AttributeSyntax>())
             {
@@ -77,23 +89,48 @@ internal sealed class AttributeResidualScanner
 
                 if (KnownAttributeCatalog.TryGetCallerKind(attributeType, out _))
                 {
-                    Increment(outputCaller, file);
-                    if (!callerAttributesByFile.TryGetValue(file, out var list))
-                    {
-                        list = new List<AttributeSyntax>();
-                        callerAttributesByFile[file] = list;
-                    }
-
-                    list.Add(attribute);
+                    Increment(caller, file);
+                    callerAttributes.Add(attribute);
                 }
                 else
                 {
                     var classification = KnownAttributeCatalog.Classify(
                         attributeType, attribute, _options);
                     if (classification.Status == BridgeStatus.Ignored) continue;
-                    Increment(outputNonCaller, file);
+                    Increment(nonCaller, file);
                 }
             }
+
+            perTreeCaller[index] = caller;
+            perTreeNonCaller[index] = nonCaller;
+            perTreeCallerAttributes[index] = callerAttributes;
+            perTreeFile[index] = file;
+        });
+
+        for (var index = 0; index < outputTrees.Count; index++)
+        {
+            foreach (var entry in perTreeCaller[index])
+            {
+                outputCaller.TryGetValue(entry.Key, out var count);
+                outputCaller[entry.Key] = count + entry.Value;
+            }
+
+            foreach (var entry in perTreeNonCaller[index])
+            {
+                outputNonCaller.TryGetValue(entry.Key, out var count);
+                outputNonCaller[entry.Key] = count + entry.Value;
+            }
+
+            if (perTreeCallerAttributes[index].Count == 0) continue;
+
+            var file = perTreeFile[index];
+            if (!callerAttributesByFile.TryGetValue(file, out var list))
+            {
+                list = new List<AttributeSyntax>();
+                callerAttributesByFile[file] = list;
+            }
+
+            list.AddRange(perTreeCallerAttributes[index]);
         }
 
         // ----- 对账：Caller residual -----

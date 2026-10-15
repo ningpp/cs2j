@@ -98,15 +98,26 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
             .Select(p => Path.GetFullPath(p.Dest))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var baselineErrors = BuildErrorSet(
+        // The pristine input compilation. Every replay round resets the scratch
+        // files back to these exact bytes, so the source text (and thus the parsed
+        // trees and semantic models) is identical across rounds: build it once and
+        // reuse it for analysis, rewriting and — when nothing was rewritten — for
+        // the validation gate as well.
+        var inputCompilation = BuildCompilation(
             sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Source))),
             tree.Layout, intermediateRoot);
+
+        // Baseline error set is only ever consulted by the whole-tree validation
+        // gate, which runs solely when at least one file was rewritten; compute it
+        // lazily from the pristine compilation instead of always.
+        HashSet<(string File, string Id, string Message)>? baselineErrors = null;
 
         var excluded = new HashSet<string>(StringComparer.Ordinal);
         var nonSelfContainedPlans = new List<CallerInfoPlan>();
         var rollbackDiagnostics = new List<AttributeNormalizeDiagnostic>();
         var acceptedStats = new AttributeNormalizeStatistics();
         var acceptedDiagnostics = new List<AttributeNormalizeDiagnostic>();
+        CSharpCompilation? acceptedCompilation = null;
         AttributeNormalizePreprocessor? lastPreprocessor = null;
         var success = true;
         const int maxIterations = 1024;
@@ -120,10 +131,7 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
             var passStats = new AttributeNormalizeStatistics();
             var passDiagnostics = new List<AttributeNormalizeDiagnostic>();
             var preprocessor = new AttributeNormalizePreprocessor(_options);
-            var compilation = BuildCompilation(
-                sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
-                tree.Layout, intermediateRoot);
-            preprocessor.BindCompilation(compilation);
+            preprocessor.BindCompilation(inputCompilation);
             preprocessor.Analyze();
 
             // CS2J1390 self-containment gate (design §4.2-7): loose-directory
@@ -156,13 +164,13 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
             foreach (var pair in sourceFiles)
             {
                 var sourceCode = File.ReadAllText(pair.Dest);
-                var syntaxTree = compilation.SyntaxTrees.FirstOrDefault(t =>
+                var syntaxTree = inputCompilation.SyntaxTrees.FirstOrDefault(t =>
                     string.Equals(t.FilePath, pair.Dest, StringComparison.OrdinalIgnoreCase));
                 if (syntaxTree == null) continue;
 
                 var result = preprocessor.RewriteFile(
                     sourceCode,
-                    compilation.GetSemanticModel(syntaxTree),
+                    inputCompilation.GetSemanticModel(syntaxTree),
                     passStats,
                     passDiagnostics);
 
@@ -183,6 +191,18 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
                 }
             }
 
+            // No file changed: the candidate tree is byte-identical to the pristine
+            // input compilation, so the baseline-relative diff is empty by
+            // construction — skip recompiling and re-diagnosing the whole tree.
+            if (rewrittenByFile.Count == 0)
+            {
+                acceptedStats = passStats;
+                acceptedDiagnostics = passDiagnostics;
+                acceptedCompilation = inputCompilation;
+                break;
+            }
+
+            baselineErrors ??= BuildErrorSet(inputCompilation, intermediateRoot);
             var candidateCompilation = BuildCompilation(
                 sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
                 tree.Layout, intermediateRoot);
@@ -192,6 +212,7 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
             {
                 acceptedStats = passStats;
                 acceptedDiagnostics = passDiagnostics;
+                acceptedCompilation = candidateCompilation;
                 break;
             }
 
@@ -273,9 +294,14 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
         // entirely when the run itself rolled back.
         if (success && lastPreprocessor != null)
         {
-            var finalCompilation = BuildCompilation(
-                sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
-                tree.Layout, intermediateRoot);
+            // The accepted round's compilation already reflects the converged tree
+            // (either the pristine input compilation when nothing changed, or the
+            // candidate built from the final scratch output) — reuse it instead of
+            // re-parsing the whole tree a third time.
+            var finalCompilation = acceptedCompilation
+                ?? BuildCompilation(
+                    sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
+                    tree.Layout, intermediateRoot);
             var residualDiagnostics = lastPreprocessor.ResidualScan(finalCompilation, acceptedStats);
             acceptedDiagnostics.AddRange(residualDiagnostics);
 
@@ -417,11 +443,9 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
 
     /// <summary>(相对中间根路径, 错误码, 消息) 集合。</summary>
     private static HashSet<(string File, string Id, string Message)> BuildErrorSet(
-        IEnumerable<(string Path, string Content)> files,
-        ProjectPreprocessSourceLayout layout,
+        CSharpCompilation compilation,
         string intermediateRoot)
     {
-        var compilation = BuildCompilation(files, layout, intermediateRoot);
         return new HashSet<(string, string, string)>(
             compilation.GetDiagnostics()
                 .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)
