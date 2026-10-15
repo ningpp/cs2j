@@ -169,7 +169,12 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
         {
             var text = File.ReadAllText(csFile);
 
-            var fileCount = _preprocessor.CountResidualMutableCaptures(text);
+            // One parse per file drives both gates: files without lambda syntax
+            // short-circuit to zero captures/statement-lambdas inside the
+            // preprocessor without building the two per-file semantic models
+            // (the tree walk dominates otherwise).
+            var (fileCount, statementLambdas, anonymousMethods) =
+                _preprocessor.CountResiduals(text);
             if (fileCount > 0 && _verbose)
             {
                 Console.WriteLine(
@@ -182,7 +187,6 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
             // preprocessor owns the ENFORCEMENT (unaccounted residuals freeze
             // their file), so no duplicate gate row is emitted here. Each
             // residual anonymous method is a CS2J4503 row (E05 output missing).
-            var (statementLambdas, anonymousMethods) = _preprocessor.CountResidualLambdas(text);
             treeStatementLambdas += statementLambdas;
             if (anonymousMethods > 0)
             {

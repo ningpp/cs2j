@@ -132,14 +132,67 @@ public sealed class ClosureLiftPreprocessor
     /// </summary>
     public int CountResidualMutableCaptures(string code)
     {
-        var model = BuildStandaloneModel(code, out var parseError);
-        if (parseError != null)
+        var tree = CSharpSyntaxTree.ParseText(code);
+        if (HasParseErrors(tree))
             return 0;
 
+        var root = (CompilationUnitSyntax)tree.GetRoot();
+
+        // Capture candidates are enumerated from lambda nodes only
+        // (CaptureAnalyzer walks OfType<LambdaExpressionSyntax>), so a file with
+        // no lambda syntax cannot own a residual: skip the standalone
+        // compilation entirely (tree-walk cost only).
+        if (!root.DescendantNodes().Any(n => n is LambdaExpressionSyntax))
+            return 0;
+
+        var model = BuildStandaloneModel(tree);
         var discarded = new List<ClosureLiftDiagnostic>();
-        var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
         var analysis = new CaptureAnalyzer(model, new ClosureLiftOptions(), discarded).Analyze(root);
         return analysis.AllSymbols.Count;
+    }
+
+    /// <summary>
+    /// Combined tree residual gate for the adapter's tree walk: parses the file
+    /// once and returns (residual mutable captures, residual statement lambdas,
+    /// residual anonymous methods). Files without lambda syntax (and
+    /// parse-broken files) short-circuit to zero captures/statement-lambdas
+    /// without building the two semantic models, which are only materialized
+    /// when lambda syntax exists. Byte-identical to calling
+    /// <see cref="CountResidualMutableCaptures"/> and
+    /// <see cref="CountResidualLambdas"/> separately.
+    /// </summary>
+    public (int ResidualMutableCaptures, int StatementLambdas, int AnonymousMethods) CountResiduals(string code)
+    {
+        var tree = CSharpSyntaxTree.ParseText(code);
+        if (HasParseErrors(tree))
+            return (0, 0, 0);
+
+        var root = (CompilationUnitSyntax)tree.GetRoot();
+        // Anonymous methods are a purely syntactic shape (see CountResidualLambdas).
+        var anonymousMethods = root
+            .DescendantNodes()
+            .OfType<AnonymousMethodExpressionSyntax>()
+            .Count();
+
+        var lambdas = root.DescendantNodes().OfType<LambdaExpressionSyntax>().ToList();
+        if (lambdas.Count == 0)
+            return (0, 0, anonymousMethods);
+
+        var standalone = BuildStandaloneModel(tree);
+        var captures = new CaptureAnalyzer(
+                standalone, new ClosureLiftOptions(), new List<ClosureLiftDiagnostic>())
+            .Analyze(root)
+            .AllSymbols.Count;
+
+        var residual = BuildResidualModel(tree);
+        var statementLambdas = 0;
+        foreach (var lambda in lambdas)
+        {
+            if (!ExpressionTreeFacts.IsExpressionTreeLambda(residual, lambda))
+                statementLambdas += 1;
+        }
+
+        return (captures, statementLambdas, anonymousMethods);
     }
 
     /// <summary>
@@ -155,55 +208,84 @@ public sealed class ClosureLiftPreprocessor
     /// </summary>
     public (int StatementLambdas, int AnonymousMethods) CountResidualLambdas(string code)
     {
-        var model = BuildResidualModel(code, out var parseError);
-        if (parseError != null)
+        var tree = CSharpSyntaxTree.ParseText(code);
+        if (HasParseErrors(tree))
             return (0, 0);
 
-        var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
-        var statementLambdas = 0;
-        foreach (var lambda in root.DescendantNodes().OfType<LambdaExpressionSyntax>())
-        {
-            if (!ExpressionTreeFacts.IsExpressionTreeLambda(model, lambda))
-                statementLambdas += 1;
-        }
-
+        var root = (CompilationUnitSyntax)tree.GetRoot();
         var anonymousMethods = root
             .DescendantNodes()
             .OfType<AnonymousMethodExpressionSyntax>()
             .Count();
 
+        // Statement-lambda residual is a lambda shape: without lambda syntax
+        // there is nothing to classify, so skip the residual compilation.
+        var lambdas = root.DescendantNodes().OfType<LambdaExpressionSyntax>().ToList();
+        if (lambdas.Count == 0)
+            return (0, anonymousMethods);
+
+        var model = BuildResidualModel(tree);
+        var statementLambdas = 0;
+        foreach (var lambda in lambdas)
+        {
+            if (!ExpressionTreeFacts.IsExpressionTreeLambda(model, lambda))
+                statementLambdas += 1;
+        }
+
         return (statementLambdas, anonymousMethods);
     }
 
-    private static SemanticModel BuildResidualModel(string sourceCode, out string? parseError)
-    {
-        parseError = null;
-        var tree = CSharpSyntaxTree.ParseText(sourceCode);
+    /// <summary>Parser-only Error gate shared by every gate entry (no semantic binding).</summary>
+    private static bool HasParseErrors(SyntaxTree tree)
+        => tree.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error);
 
-        var errors = tree.GetDiagnostics()
-            .Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
-        if (errors.Count > 0)
-        {
-            parseError = string.Join("; ", errors.Select(e => e.GetMessage()));
-        }
+    // The gate builds a fresh single-tree compilation per file; the metadata
+    // references are immutable and reused across every model so the gate pays
+    // the assembly-load cost once instead of once per file.
+    private static readonly MetadataReference ObjectReference =
+        MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
+    private static readonly MetadataReference ListReference =
+        MetadataReference.CreateFromFile(typeof(System.Collections.Generic.List<>).Assembly.Location);
+    private static readonly MetadataReference ConsoleReference =
+        MetadataReference.CreateFromFile(typeof(Console).Assembly.Location);
+    private static readonly MetadataReference EnumerableReference =
+        MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location);
+    // Quoted-lambda detection resolves Expression<TDelegate> targets.
+    private static readonly MetadataReference ExpressionsReference =
+        MetadataReference.CreateFromFile(typeof(System.Linq.Expressions.Expression<>).Assembly.Location);
 
-        var compilation = CSharpCompilation.Create("closure-lift-residual",
-            new[] { tree },
-            references: new[]
-            {
-                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(System.Collections.Generic.List<>).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location),
-                // Quoted-lambda detection resolves Expression<TDelegate> targets.
-                MetadataReference.CreateFromFile(typeof(System.Linq.Expressions.Expression<>).Assembly.Location),
-            },
-            options: new CSharpCompilationOptions(
-                OutputKind.DynamicallyLinkedLibrary,
-                allowUnsafe: true));
+    private static SemanticModel BuildResidualModel(SyntaxTree tree)
+        => CSharpCompilation.Create(
+                "closure-lift-residual",
+                new[] { tree },
+                references: new[]
+                {
+                    ObjectReference,
+                    ListReference,
+                    ConsoleReference,
+                    EnumerableReference,
+                    ExpressionsReference,
+                },
+                options: new CSharpCompilationOptions(
+                    OutputKind.DynamicallyLinkedLibrary,
+                    allowUnsafe: true))
+            .GetSemanticModel(tree);
 
-        return compilation.GetSemanticModel(tree);
-    }
+    private static SemanticModel BuildStandaloneModel(SyntaxTree tree)
+        => CSharpCompilation.Create(
+                "closure-lift-standalone",
+                new[] { tree },
+                references: new[]
+                {
+                    ObjectReference,
+                    ListReference,
+                    ConsoleReference,
+                    EnumerableReference,
+                },
+                options: new CSharpCompilationOptions(
+                    OutputKind.DynamicallyLinkedLibrary,
+                    allowUnsafe: true))
+            .GetSemanticModel(tree);
 
     private static SemanticModel BuildStandaloneModel(string sourceCode, out string? parseError)
     {
@@ -217,19 +299,6 @@ public sealed class ClosureLiftPreprocessor
             parseError = string.Join("; ", errors.Select(e => e.GetMessage()));
         }
 
-        var compilation = CSharpCompilation.Create("closure-lift-standalone",
-            new[] { tree },
-            references: new[]
-            {
-                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(System.Collections.Generic.List<>).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location),
-            },
-            options: new CSharpCompilationOptions(
-                OutputKind.DynamicallyLinkedLibrary,
-                allowUnsafe: true));
-
-        return compilation.GetSemanticModel(tree);
+        return BuildStandaloneModel(tree);
     }
 }
