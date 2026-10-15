@@ -75,12 +75,17 @@ internal static class ReadOnlyStructPassEngine
         }
 
         var outputTrees = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
+        // Files whose text contains no `struct` keyword declare no structs, so the
+        // struct-declaration discovery below can skip them entirely.
+        var structTextFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in outputCsFiles)
         {
             var code = await File.ReadAllTextAsync(file);
             outputTrees[file] = treeCache == null
                 ? CSharpSyntaxTree.ParseText(code, path: file)
                 : treeCache.Get(file, code);
+            if (code.IndexOf("struct", StringComparison.Ordinal) >= 0)
+                structTextFiles.Add(file);
         }
 
         // Find migrated method names by scanning struct declarations
@@ -88,12 +93,24 @@ internal static class ReadOnlyStructPassEngine
         var outMigratedMethodToStruct = new Dictionary<string, HashSet<string>>();
         var migratedArities = new Dictionary<string, HashSet<int>>();
         var allMethodArities = new Dictionary<string, HashSet<int>>();
-        foreach (var (_, tree) in outputTrees)
+        // Every instance method name declared by any struct. The struct-returning call
+        // rewrite below only ever matches a method that belongs to a struct, so a call
+        // site whose method name is absent from this (over-approximated) set can never
+        // be rewritten — its semantic resolution is skipped entirely.
+        var structMethodNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (file, tree) in outputTrees)
         {
+            if (!structTextFiles.Contains(file)) continue;
             var root = tree.GetRoot();
             foreach (var structDecl in root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
             {
                 var structName = structDecl.Identifier.Text;
+                foreach (var member in structDecl.Members.OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>())
+                {
+                    if (member.Modifiers.Any(m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.StaticKeyword)))
+                        continue;
+                    structMethodNames.Add(member.Identifier.Text);
+                }
                 if (!migratedStructs.ContainsKey(structName))
                 {
                     // Diagnostic StructName values carry type parameters for generic
@@ -187,7 +204,8 @@ internal static class ReadOnlyStructPassEngine
             var updater = new CallSiteUpdater(migratedMethodToStruct, model,
                 outMigratedMethodToStruct: outMigratedMethodToStruct,
                 migratedArities: migratedArities,
-                allMethodArities: allMethodArities);
+                allMethodArities: allMethodArities,
+                structMethodNames: structMethodNames);
             var newRoot = updater.Visit(root);
             if (newRoot != null && newRoot.ToFullString() != root.ToFullString())
             {
@@ -255,12 +273,17 @@ internal static class ReadOnlyStructPassEngine
         }
 
         var outputTrees = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
+        // Files whose text contains no `struct` keyword declare no structs, so the
+        // struct-declaration discovery loops below can skip them entirely.
+        var structTextFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in outputCsFiles)
         {
             var code = await File.ReadAllTextAsync(file);
             outputTrees[file] = treeCache == null
                 ? CSharpSyntaxTree.ParseText(code, path: file)
                 : treeCache.Get(file, code);
+            if (code.IndexOf("struct", StringComparison.Ordinal) >= 0)
+                structTextFiles.Add(file);
         }
 
         // Find L4-converted structs: those with private fields + getXxx() getter methods
@@ -277,8 +300,9 @@ internal static class ReadOnlyStructPassEngine
             set.Add(AssignmentRewriter.GetQualifiedStructName(structDecl));
         }
 
-        foreach (var (_, tree) in outputTrees)
+        foreach (var (file, tree) in outputTrees)
         {
+            if (!structTextFiles.Contains(file)) continue;
             var root = tree.GetRoot();
             foreach (var structDecl in root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
             {
@@ -312,8 +336,9 @@ internal static class ReadOnlyStructPassEngine
         // otherwise a full data container must not claim only that one property's
         // writes — the constructor reconstruction covers ALL properties uniformly.
         var l3Eligible = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var (_, tree) in outputTrees)
+        foreach (var (file, tree) in outputTrees)
         {
+            if (!structTextFiles.Contains(file)) continue;
             foreach (var structDecl in tree.GetRoot()
                          .DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
             {
@@ -329,8 +354,9 @@ internal static class ReadOnlyStructPassEngine
         // so the AssignmentRewriter must use property access for reads, not getXxx().
         var l5StructNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var withChainStructs = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var (_, tree) in outputTrees)
+        foreach (var (file, tree) in outputTrees)
         {
+            if (!structTextFiles.Contains(file)) continue;
             var root = tree.GetRoot();
             foreach (var structDecl in root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
             {
@@ -391,8 +417,9 @@ internal static class ReadOnlyStructPassEngine
         // properties (the public surface) and the generated constructor's parameter
         // names, so writes become `x = new S(p1: x.P1, ..., pj: v)`.
         var l3Structs = new Dictionary<string, (HashSet<string> Props, List<string> CtorParams)>(StringComparer.Ordinal);
-        foreach (var (_, tree) in outputTrees)
+        foreach (var (file, tree) in outputTrees)
         {
+            if (!structTextFiles.Contains(file)) continue;
             var root = tree.GetRoot();
             foreach (var structDecl in root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
             {
@@ -510,10 +537,19 @@ internal static class ReadOnlyStructPassEngine
         }
 
         var outputTrees = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
+        // The hoister only rewrites ref/out arguments, so a file whose text contains
+        // neither `ref ` nor `out ` can never be modified — record the candidates so
+        // the semantic model and whole-tree visit are skipped for the rest.
+        var refOutCandidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in outputCsFiles)
         {
             var code = await File.ReadAllTextAsync(file);
-            outputTrees[file] = CSharpSyntaxTree.ParseText(code, path: file);
+            outputTrees[file] = treeCache == null
+                ? CSharpSyntaxTree.ParseText(code, path: file)
+                : treeCache.Get(file, code);
+            if (code.IndexOf("ref ", StringComparison.Ordinal) >= 0 ||
+                code.IndexOf("out ", StringComparison.Ordinal) >= 0)
+                refOutCandidates.Add(file);
         }
 
         // Collect instance field names of readonly structs (all of them are readonly fields),
@@ -558,6 +594,7 @@ internal static class ReadOnlyStructPassEngine
 
         foreach (var (file, tree) in outputTrees)
         {
+            if (!refOutCandidates.Contains(file)) continue;
             var root = tree.GetRoot();
             var model = outputCompilation.GetSemanticModel(tree);
             var rewriter = new RefReadonlyFieldHoister(readonlyStructFields, model);
@@ -1186,6 +1223,12 @@ internal static class ReadOnlyStructPassEngine
             // no `struct` keyword has no such declaration — skip the parse entirely.
             if (code.IndexOf("struct", StringComparison.Ordinal) < 0) continue;
 
+            // An inactive (#if-false) region can only exist when the file carries a
+            // conditional directive, so struct-declaration files without one have
+            // nothing the pass can change — the whole-tree walk and regex scan are
+            // skipped entirely.
+            if (!ContainsConditionalDirective(code)) continue;
+
             var tree = treeCache == null
                 ? CSharpSyntaxTree.ParseText(code, path: outputFile)
                 : treeCache.Get(outputFile, code);
@@ -1219,6 +1262,25 @@ internal static class ReadOnlyStructPassEngine
                 await File.WriteAllTextAsync(outputFile, newCode, new System.Text.UTF8Encoding(false));
             }
         }
+    }
+
+    /// <summary>
+    /// True when the text contains a <c>#if</c> preprocessor directive (the only way
+    /// an inactive region — and thus disabled struct text — can appear). Whitespace
+    /// between the <c>#</c> and the directive name is tolerated; a directive embedded
+    /// in a comment/string only yields a harmless false positive.
+    /// </summary>
+    private static bool ContainsConditionalDirective(string code)
+    {
+        var idx = code.IndexOf('#');
+        while (idx >= 0)
+        {
+            var j = idx + 1;
+            while (j < code.Length && (code[j] == ' ' || code[j] == '\t')) j++;
+            if (j + 1 < code.Length && code[j] == 'i' && code[j + 1] == 'f') return true;
+            idx = code.IndexOf('#', idx + 1);
+        }
+        return false;
     }
 
     /// <summary>
@@ -1596,7 +1658,9 @@ internal static class ReadOnlyStructPassEngine
         foreach (var file in outputCsFiles)
         {
             var code = await File.ReadAllTextAsync(file);
-            outputTrees[file] = CSharpSyntaxTree.ParseText(code, path: file);
+            outputTrees[file] = treeCache == null
+                ? CSharpSyntaxTree.ParseText(code, path: file)
+                : treeCache.Get(file, code);
         }
 
         var references = ProjectUnsignedTypePreprocessor.GetBasicReferences();
@@ -1618,30 +1682,48 @@ internal static class ReadOnlyStructPassEngine
         // explicit bridges, and derived-class overrides break (CS0738/CS0508). Their
         // struct implementers keep the generated explicit interface implementations
         // (void IFace.M(args) { M(args); }), which satisfy the original contract.
+        //
+        // The set is computed lazily on the first candidate interface: when no source-
+        // declared interface is implemented by a readonly struct, this whole-tree class
+        // scan is never needed, so it is skipped entirely.
         var classImplementedInterfaces = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
-        foreach (var (_, tree) in outputTrees)
+        var classScanDone = false;
+        void EnsureClassScan()
         {
-            var model = outputCompilation.GetSemanticModel(tree);
-            foreach (var classDecl in tree.GetRoot().DescendantNodes()
-                         .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax>())
+            if (classScanDone) return;
+            classScanDone = true;
+            foreach (var (_, tree) in outputTrees)
             {
-                if (model.GetDeclaredSymbol(classDecl) is not INamedTypeSymbol classSymbol) continue;
-                foreach (var iface in classSymbol.AllInterfaces)
+                var classDecls = tree.GetRoot().DescendantNodes()
+                    .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax>()
+                    .Where(c => c.BaseList != null)
+                    .ToList();
+                if (classDecls.Count == 0) continue;
+                var model = outputCompilation.GetSemanticModel(tree);
+                foreach (var classDecl in classDecls)
                 {
-                    if (iface.DeclaringSyntaxReferences.Length > 0)
-                        classImplementedInterfaces.Add(iface);
+                    if (model.GetDeclaredSymbol(classDecl) is not INamedTypeSymbol classSymbol) continue;
+                    foreach (var iface in classSymbol.AllInterfaces)
+                    {
+                        if (iface.DeclaringSyntaxReferences.Length > 0)
+                            classImplementedInterfaces.Add(iface);
+                    }
                 }
             }
         }
 
         foreach (var (file, tree) in outputTrees)
         {
+            // Files without a readonly struct declaration cannot contribute; decide
+            // syntactically first so the semantic model is only created for candidates.
+            var structDecls = tree.GetRoot().DescendantNodes()
+                .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>()
+                .Where(s => s.Modifiers.Any(m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.ReadOnlyKeyword)))
+                .ToList();
+            if (structDecls.Count == 0) continue;
             var model = outputCompilation.GetSemanticModel(tree);
-            foreach (var structDecl in tree.GetRoot().DescendantNodes()
-                         .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
+            foreach (var structDecl in structDecls)
             {
-                if (!structDecl.Modifiers.Any(m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.ReadOnlyKeyword)))
-                    continue;
                 if (model.GetDeclaredSymbol(structDecl) is not INamedTypeSymbol structSymbol)
                     continue;
 
@@ -1649,6 +1731,7 @@ internal static class ReadOnlyStructPassEngine
                 {
                     if (iface.DeclaringSyntaxReferences.Length == 0)
                         continue; // external interface — cannot rewrite
+                    EnsureClassScan();
                     if (classImplementedInterfaces.Contains(iface))
                         continue; // interface also implemented by classes — do not transform
                     foreach (var member in iface.GetMembers())

@@ -466,6 +466,10 @@ internal sealed class CrossFileAccessIndex
             // (3) object initializers assigning struct fields from outside.
             foreach (var objectCreation in root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>())
             {
+                // Without an initializer there is nothing assigned through the creation,
+                // so the type binding (and its fallbacks) can be skipped entirely.
+                if (objectCreation.Initializer == null) continue;
+
                 var typeInfo = model.GetTypeInfo(objectCreation.Type);
                 var typeName = typeInfo.Type?.Name;
                 if (typeName == null)
@@ -476,7 +480,7 @@ internal sealed class CrossFileAccessIndex
                     var genericIndex = typeName.IndexOf('<');
                     if (genericIndex > 0) typeName = typeName.Substring(0, genericIndex);
                 }
-                if (typeName == null || objectCreation.Initializer == null) continue;
+                if (typeName == null) continue;
 
                 foreach (var expr in objectCreation.Initializer.Expressions)
                 {

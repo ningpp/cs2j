@@ -25,6 +25,11 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
     private readonly Dictionary<string, List<string>> _structTypeParams; // structName -> type parameter names
     private readonly HashSet<IMethodSymbol> _migratedSymbols;
     private readonly SemanticModel _model;
+    // Instance method names declared by any struct (over-approximation of the methods
+    // that can appear in a struct-returning call). When non-null, a call site whose
+    // method name is absent cannot match IsStructReturningCall, so the semantic
+    // resolution is skipped. Null preserves the original resolve-every-call behavior.
+    private readonly HashSet<string>? _structMethodNames;
 
     public CallSiteUpdater(Dictionary<string, HashSet<string>> migratedMethodToStruct, SemanticModel model,
         Dictionary<string, List<string>>? structFieldNames = null,
@@ -32,7 +37,8 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
         Dictionary<string, HashSet<int>>? migratedArities = null,
         Dictionary<string, HashSet<int>>? allMethodArities = null,
         IEnumerable<IMethodSymbol>? migratedSymbols = null,
-        Dictionary<string, List<string>>? structTypeParams = null)
+        Dictionary<string, List<string>>? structTypeParams = null,
+        HashSet<string>? structMethodNames = null)
     {
         _migratedMethodToStruct = migratedMethodToStruct ?? new Dictionary<string, HashSet<string>>();
         _structFieldNames = structFieldNames ?? new Dictionary<string, List<string>>();
@@ -43,6 +49,7 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
         _migratedSymbols = migratedSymbols != null
             ? new HashSet<IMethodSymbol>(migratedSymbols, SymbolEqualityComparer.Default)
             : new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        _structMethodNames = structMethodNames;
         _model = model;
     }
 
@@ -377,7 +384,11 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
             // Any method on a migrated readonly struct that RETURNS the struct type is
             // a mutation surrogate (WithXxx-style); discarding its result would lose
             // the update. Rewrite `s.M(args);` → `s = s.M(args);` for those too.
-            if (IsStructReturningCall(invocation, memberAccess))
+            // IsStructReturningCall can only match a method declared by a struct, so
+            // when the caller supplied the struct-method name set a call whose name is
+            // absent skips the semantic resolution.
+            if ((_structMethodNames == null || _structMethodNames.Contains(methodName)) &&
+                IsStructReturningCall(invocation, memberAccess))
             {
                 return BuildStructReturningStatement(node, invocation, memberAccess, memberAccess.Expression);
             }

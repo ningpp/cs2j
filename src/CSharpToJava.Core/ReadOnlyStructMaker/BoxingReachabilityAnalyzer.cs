@@ -81,6 +81,13 @@ internal static class BoxingReachabilityAnalyzer
                             if (declaration?.Type is IdentifierNameSyntax { Identifier.Text: "var" })
                                 break;
 
+                            // The declared type can only be object-like (System.Object /
+                            // ValueType / Enum / dynamic) when its syntax names one of them,
+                            // so the declared-type binding can be skipped for every other
+                            // type (primitives, classes, generics, arrays).
+                            if (declaration == null || !CouldBeObjectLikeType(declaration.Type))
+                                break;
+
                             if (IsObjectLikeDeclaredType(GetDeclaredType(declarator, GetModel()), out var declaredType) &&
                                 declaredType != null)
                             {
@@ -116,6 +123,10 @@ internal static class BoxingReachabilityAnalyzer
                             // 目标类型取 cast 表达式自身类型（== cast.Type 的目标类型）：避免
                             // SemanticModel.GetTypeInfo(cast.Type) 对 TypeSyntax 的病态慢路径
                             // （实测 ~6ms/次；全树 cast 累计 >100s），表达式类型信息按表达式缓存。
+                            // 目标类型只有在语法上命名为 object/ValueType/Enum/dynamic 时才可能
+                            // 是 object-like，其他强制转换直接跳过整个绑定。
+                            if (!CouldBeObjectLikeType(cast.Type))
+                                break;
                             var targetType = GetModel().GetTypeInfo(cast).Type;
                             if (IsObjectLike(targetType))
                             {
@@ -133,6 +144,13 @@ internal static class BoxingReachabilityAnalyzer
                             var enclosing = ret.FirstAncestorOrSelf<MethodDeclarationSyntax>();
                             if (enclosing != null)
                             {
+                                // An object-like return type can only be System.Object /
+                                // ValueType / Enum / dynamic, so unless the declared return
+                                // type names one of them the enclosing-method symbol lookup
+                                // can be skipped.
+                                if (!CouldBeObjectLikeType(enclosing.ReturnType))
+                                    break;
+
                                 var method = GetModel().GetDeclaredSymbol(enclosing);
                                 if (method != null && IsObjectLike(method.ReturnType))
                                 {
@@ -459,6 +477,27 @@ internal static class BoxingReachabilityAnalyzer
         result = declaredType;
         return IsObjectLike(declaredType);
     }
+
+    /// <summary>
+    /// True when a type-syntax could possibly denote an object-like type
+    /// (<c>object</c>, <c>System.Object</c>, <c>ValueType</c>, <c>System.Enum</c>,
+    /// <c>dynamic</c>). This is a purely syntactic necessary condition for
+    /// <see cref="IsObjectLike"/>: every other type name (primitives, user classes,
+    /// generics, arrays, pointers, nullable) can never be object-like, so the
+    /// expensive semantic binding can be skipped. Type aliases are the only
+    /// (vanishingly rare) exception and are handled by falling through to the
+    /// semantic check when the syntax does name one of the object-like identifiers.
+    /// </summary>
+    private static bool CouldBeObjectLikeType(TypeSyntax type) => type switch
+    {
+        PredefinedTypeSyntax pre => pre.Keyword.IsKind(SyntaxKind.ObjectKeyword),
+        IdentifierNameSyntax id => IsObjectLikeName(id.Identifier.Text),
+        QualifiedNameSyntax q => IsObjectLikeName(q.Right.Identifier.Text),
+        _ => false,
+    };
+
+    private static bool IsObjectLikeName(string name) =>
+        name is "Object" or "ValueType" or "Enum" or "dynamic";
 
     private static ITypeSymbol? GetDeclaredType(VariableDeclaratorSyntax declarator, SemanticModel model)
     {
