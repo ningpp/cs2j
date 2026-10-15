@@ -26,6 +26,27 @@ public sealed class ReadOnlyStructMaker
         return cached;
     }
 
+    /// <summary>
+    /// Cache of the one-shot cross-file semantic index keyed by compilation.
+    /// <see cref="MakeReadOnly"/> runs once per syntax tree against the same
+    /// compilation, so the whole-compilation scan (ref/out parameter passing,
+    /// external field access/assignment) runs only once per run instead of once
+    /// per candidate struct.
+    /// </summary>
+    private readonly Dictionary<Compilation, CrossFileAccessIndex> _externalAccessCache =
+        new(ReferenceEqualityComparer.Instance);
+
+    private CrossFileAccessIndex GetExternalAccessIndex(Compilation compilation)
+    {
+        if (!_externalAccessCache.TryGetValue(compilation, out var cached))
+        {
+            cached = CrossFileAccessIndex.Build(compilation);
+            _externalAccessCache[compilation] = cached;
+        }
+
+        return cached;
+    }
+
     private static void AddQualifiedName(
         Dictionary<string, HashSet<string>> qualifiedNames, string name, string qualifiedName)
     {
@@ -48,7 +69,8 @@ public sealed class ReadOnlyStructMaker
         var structs = root.DescendantNodes().OfType<StructDeclarationSyntax>().ToList();
         stats.StructsScanned = structs.Count;
 
-        var analyzer = new StructAnalyzer(options, semanticModel, GetBoxingReachableStructs(semanticModel.Compilation));
+        var analyzer = new StructAnalyzer(options, semanticModel, GetBoxingReachableStructs(semanticModel.Compilation),
+            GetExternalAccessIndex(semanticModel.Compilation));
         var analysisResults = new Dictionary<StructDeclarationSyntax, AnalyzeResult>();
 
         foreach (var structSyntax in structs)

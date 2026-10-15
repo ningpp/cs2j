@@ -11,8 +11,13 @@ namespace CSharpToJava.Core.ReadOnlyStructMaker;
 internal sealed class CallGraphBuilder
 {
     private readonly SemanticModel _model;
+    private readonly CrossFileAccessIndex? _index;
 
-    public CallGraphBuilder(SemanticModel model) => _model = model;
+    public CallGraphBuilder(SemanticModel model, CrossFileAccessIndex? index = null)
+    {
+        _model = model;
+        _index = index;
+    }
 
     /// <summary>
     /// Check if any field of the struct is modified through a ref/out parameter
@@ -20,6 +25,9 @@ internal sealed class CallGraphBuilder
     /// </summary>
     public bool IsModifiedThroughRef(INamedTypeSymbol structSymbol, SyntaxNode root)
     {
+        if (_index != null)
+            return _index.IsModifiedThroughRef(root.SyntaxTree, structSymbol.Name);
+
         var structName = structSymbol.Name;
 
         // Find all parameters of this struct type with ref/out modifiers
@@ -53,6 +61,9 @@ internal sealed class CallGraphBuilder
     /// </summary>
     public bool HasExternalRefFieldAccess(INamedTypeSymbol structSymbol, SyntaxNode root)
     {
+        if (_index != null)
+            return _index.HasExternalRefFieldAccess(structSymbol);
+
         var accessibleFields = structSymbol.GetMembers().OfType<IFieldSymbol>()
             .Where(f => f.DeclaredAccessibility != Accessibility.Private && f.DeclaredAccessibility != Accessibility.NotApplicable && !f.IsStatic && !f.IsConst)
             .Select(f => f.Name).ToHashSet();
@@ -116,6 +127,9 @@ internal sealed class CallGraphBuilder
     /// </summary>
     public bool HasExternalPublicFieldAssignment(INamedTypeSymbol structSymbol, SyntaxNode root)
     {
+        if (_index != null)
+            return _index.HasExternalPublicFieldAssignment(structSymbol);
+
         var accessibleFields = structSymbol.GetMembers().OfType<IFieldSymbol>()
             .Where(f => f.DeclaredAccessibility != Accessibility.Private && f.DeclaredAccessibility != Accessibility.NotApplicable && !f.IsStatic && !f.IsConst)
             .Select(f => f.Name).ToHashSet();
@@ -322,6 +336,328 @@ internal sealed class CallGraphBuilder
                 return true;
         }
 
+        return false;
+    }
+}
+
+/// <summary>
+/// One-shot, per-compilation index of the cross-file semantic queries that the
+/// readonly-struct shaping previously repeated once per candidate struct. The
+/// original CallGraphBuilder / StructAnalyzer scans walked every syntax tree and
+/// resolved symbols for every node on each <c>Analyze</c> call — an
+/// O(structs × trees × nodes) pattern. Building the aggregate result a single
+/// time (over the same semantic models, with the identical name/symbol-equality
+/// predicates) turns the repeated scans into dictionary lookups and yields the
+/// same boolean for every struct.
+/// </summary>
+internal sealed class CrossFileAccessIndex
+{
+    // OriginalDefinition of value types written >= 8 times through a ref/out/in
+    // parameter declared in a method of another type (frame-size preservation rule).
+    private readonly HashSet<ITypeSymbol> _refOutExternalWriteStructs;
+    // struct simple name -> field names ref/out-accessed from outside the struct.
+    private readonly Dictionary<string, HashSet<string>> _externalRefFields;
+    // struct simple name -> field names assigned / ref-accessed / object-initialized
+    // from outside the struct.
+    private readonly Dictionary<string, HashSet<string>> _externalAssignedFields;
+    // tree -> struct simple names whose fields are modified through a ref/out
+    // parameter within that tree.
+    private readonly Dictionary<SyntaxTree, HashSet<string>> _refModifiedStructsByTree;
+
+    private CrossFileAccessIndex(
+        HashSet<ITypeSymbol> refOutExternalWriteStructs,
+        Dictionary<string, HashSet<string>> externalRefFields,
+        Dictionary<string, HashSet<string>> externalAssignedFields,
+        Dictionary<SyntaxTree, HashSet<string>> refModifiedStructsByTree)
+    {
+        _refOutExternalWriteStructs = refOutExternalWriteStructs;
+        _externalRefFields = externalRefFields;
+        _externalAssignedFields = externalAssignedFields;
+        _refModifiedStructsByTree = refModifiedStructsByTree;
+    }
+
+    public static CrossFileAccessIndex Build(Compilation compilation)
+    {
+        var refOutWrite = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+        var refFields = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        var assignedFields = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        var refModifiedByTree = new Dictionary<SyntaxTree, HashSet<string>>();
+
+        // Each tree's contribution is independent (only its own semantic model is
+        // queried), so the scan runs in parallel across trees and the per-tree
+        // results are merged as set/dictionary unions — order-independent and
+        // identical to the sequential scan.
+        System.Threading.Tasks.Parallel.ForEach(compilation.SyntaxTrees, tree =>
+        {
+            var localRefOutWrite = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+            var localRefFields = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            var localAssignedFields = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            var localModified = new HashSet<string>(StringComparer.Ordinal);
+
+            var model = compilation.GetSemanticModel(tree);
+            var root = tree.GetRoot();
+
+            // (1) ref/out/in parameters of methods belonging to other types whose
+            // members are written >= 8 times (mirrors StructAnalyzer.HasExternalRefParamPassing).
+            foreach (var method in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
+            {
+                var methodSymbol = model.GetDeclaredSymbol(method);
+                if (methodSymbol == null) continue;
+                foreach (var parameter in method.ParameterList.Parameters)
+                {
+                    if (!parameter.Modifiers.Any(m =>
+                            m.IsKind(SyntaxKind.RefKeyword) ||
+                            m.IsKind(SyntaxKind.OutKeyword) ||
+                            m.IsKind(SyntaxKind.InKeyword)))
+                        continue;
+
+                    ITypeSymbol? type;
+                    try
+                    {
+                        type = model.GetTypeInfo(parameter.Type).Type;
+                    }
+                    catch (ArgumentException)
+                    {
+                        continue;
+                    }
+                    if (type == null) continue;
+
+                    var target = type.OriginalDefinition;
+                    if (SymbolEqualityComparer.Default.Equals(
+                            methodSymbol.ContainingType?.OriginalDefinition, target))
+                        continue; // the struct's own methods
+
+                    var paramName = parameter.Identifier.Text;
+                    var chainCount = 0;
+                    foreach (var assign in method.DescendantNodes().OfType<AssignmentExpressionSyntax>())
+                    {
+                        if (IsParamMemberWrite(assign.Left, paramName)) chainCount++;
+                    }
+                    foreach (var unary in method.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>()
+                                 .Cast<ExpressionSyntax>()
+                                 .Concat(method.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>()))
+                    {
+                        if (unary is PrefixUnaryExpressionSyntax pre && IsParamMemberWrite(pre.Operand, paramName) ||
+                            unary is PostfixUnaryExpressionSyntax post && IsParamMemberWrite(post.Operand, paramName))
+                        {
+                            chainCount++;
+                        }
+                    }
+                    if (chainCount >= 8)
+                        localRefOutWrite.Add(target);
+                }
+            }
+
+            // (2) ref/out accesses to a struct field from outside the struct definition.
+            foreach (var argument in root.DescendantNodes().OfType<ArgumentSyntax>())
+            {
+                if (!argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword) &&
+                    !argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
+                    continue;
+                var expression = argument.Expression;
+                if (expression is PostfixUnaryExpressionSyntax suppress &&
+                    suppress.IsKind(SyntaxKind.SuppressNullableWarningExpression))
+                    expression = suppress.Operand;
+                if (expression is not MemberAccessExpressionSyntax memberAccess) continue;
+                if (model.GetSymbolInfo(memberAccess).Symbol is not IFieldSymbol field) continue;
+                AddExternalField(localRefFields, localAssignedFields, field, argument);
+            }
+
+            // (3) object initializers assigning struct fields from outside.
+            foreach (var objectCreation in root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>())
+            {
+                var typeInfo = model.GetTypeInfo(objectCreation.Type);
+                var typeName = typeInfo.Type?.Name;
+                if (typeName == null)
+                    typeName = model.GetSymbolInfo(objectCreation.Type).Symbol?.Name;
+                if (typeName == null)
+                {
+                    typeName = objectCreation.Type.ToString();
+                    var genericIndex = typeName.IndexOf('<');
+                    if (genericIndex > 0) typeName = typeName.Substring(0, genericIndex);
+                }
+                if (typeName == null || objectCreation.Initializer == null) continue;
+
+                foreach (var expr in objectCreation.Initializer.Expressions)
+                {
+                    if (expr is not AssignmentExpressionSyntax initAssignment ||
+                        initAssignment.Left is not IdentifierNameSyntax initFieldName)
+                        continue;
+                    AddExternalFieldName(null, localAssignedFields, initFieldName.Identifier.Text, typeName, objectCreation);
+                }
+            }
+
+            // (4) assignments to struct fields from outside.
+            foreach (var assignment in root.DescendantNodes().OfType<AssignmentExpressionSyntax>())
+            {
+                if (assignment.Left is not MemberAccessExpressionSyntax) continue;
+                if (model.GetSymbolInfo(assignment.Left).Symbol is not IFieldSymbol field) continue;
+                AddExternalField(null, localAssignedFields, field, assignment);
+            }
+
+            // (5) ++/-- on struct fields from outside.
+            foreach (var unary in root.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>())
+            {
+                if (unary.Operand is not MemberAccessExpressionSyntax) continue;
+                if (model.GetSymbolInfo(unary.Operand).Symbol is not IFieldSymbol field) continue;
+                AddExternalField(null, localAssignedFields, field, unary);
+            }
+            foreach (var unary in root.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>())
+            {
+                if (unary.Kind() is not (SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression))
+                    continue;
+                if (unary.Operand is not MemberAccessExpressionSyntax) continue;
+                if (model.GetSymbolInfo(unary.Operand).Symbol is not IFieldSymbol field) continue;
+                AddExternalField(null, localAssignedFields, field, unary);
+            }
+
+            // (6) ref/out parameters of this tree whose members are modified (mirrors
+            // CallGraphBuilder.IsModifiedThroughRef over the same tree).
+            foreach (var param in root.DescendantNodes().OfType<ParameterSyntax>())
+            {
+                if (!param.Modifiers.Any(m =>
+                        m.IsKind(SyntaxKind.RefKeyword) || m.IsKind(SyntaxKind.OutKeyword)))
+                    continue;
+                var paramSymbol = model.GetDeclaredSymbol(param);
+                if (paramSymbol?.Type is not INamedTypeSymbol paramType) continue;
+                var containingMethod = param.Ancestors().OfType<BaseMethodDeclarationSyntax>().FirstOrDefault();
+                if (containingMethod == null) continue;
+                if (IsParameterFieldModified(containingMethod, param.Identifier.Text))
+                    localModified.Add(paramType.Name);
+            }
+
+            lock (refOutWrite)
+            {
+                foreach (var t in localRefOutWrite) refOutWrite.Add(t);
+            }
+            lock (refFields)
+            {
+                MergeInto(refFields, localRefFields);
+            }
+            lock (assignedFields)
+            {
+                MergeInto(assignedFields, localAssignedFields);
+            }
+            if (localModified.Count > 0)
+            {
+                lock (refModifiedByTree)
+                {
+                    refModifiedByTree[tree] = localModified;
+                }
+            }
+        });
+
+        return new CrossFileAccessIndex(refOutWrite, refFields, assignedFields, refModifiedByTree);
+    }
+
+    private static void MergeInto(Dictionary<string, HashSet<string>> target, Dictionary<string, HashSet<string>> source)
+    {
+        foreach (var (key, values) in source)
+        {
+            if (!target.TryGetValue(key, out var set))
+                target[key] = set = new HashSet<string>(StringComparer.Ordinal);
+            set.UnionWith(values);
+        }
+    }
+
+    public bool HasExternalRefParamPassing(INamedTypeSymbol structSymbol)
+        => _refOutExternalWriteStructs.Contains(structSymbol.OriginalDefinition);
+
+    public bool HasExternalRefFieldAccess(INamedTypeSymbol structSymbol)
+    {
+        var accessibleFields = AccessibleFieldNames(structSymbol);
+        if (accessibleFields.Count == 0) return false;
+        return _externalRefFields.TryGetValue(structSymbol.Name, out var set) && set.Overlaps(accessibleFields);
+    }
+
+    public bool HasExternalPublicFieldAssignment(INamedTypeSymbol structSymbol)
+    {
+        var accessibleFields = AccessibleFieldNames(structSymbol);
+        if (accessibleFields.Count == 0) return false;
+        return _externalAssignedFields.TryGetValue(structSymbol.Name, out var set) && set.Overlaps(accessibleFields);
+    }
+
+    public bool IsModifiedThroughRef(SyntaxTree tree, string structName)
+        => _refModifiedStructsByTree.TryGetValue(tree, out var set) && set.Contains(structName);
+
+    private static HashSet<string> AccessibleFieldNames(INamedTypeSymbol structSymbol)
+        => structSymbol.GetMembers().OfType<IFieldSymbol>()
+            .Where(f => f.DeclaredAccessibility != Accessibility.Private &&
+                        f.DeclaredAccessibility != Accessibility.NotApplicable &&
+                        !f.IsStatic && !f.IsConst)
+            .Select(f => f.Name).ToHashSet();
+
+    private static void AddExternalField(
+        Dictionary<string, HashSet<string>>? refFields,
+        Dictionary<string, HashSet<string>> assignedFields,
+        IFieldSymbol field,
+        SyntaxNode accessNode)
+    {
+        var containingType = field.ContainingType;
+        if (containingType == null) return;
+        AddExternalFieldName(refFields, assignedFields, field.Name, containingType.Name, accessNode);
+    }
+
+    private static void AddExternalFieldName(
+        Dictionary<string, HashSet<string>>? refFields,
+        Dictionary<string, HashSet<string>> assignedFields,
+        string fieldName,
+        string structName,
+        SyntaxNode accessNode)
+    {
+        var containingStruct = accessNode.Ancestors().OfType<StructDeclarationSyntax>().FirstOrDefault();
+        if (containingStruct != null && containingStruct.Identifier.Text == structName)
+            return; // access inside the struct itself — not external
+        if (refFields != null) Add(refFields, structName, fieldName);
+        Add(assignedFields, structName, fieldName);
+    }
+
+    private static void Add(Dictionary<string, HashSet<string>> map, string key, string value)
+    {
+        if (!map.TryGetValue(key, out var set))
+            map[key] = set = new HashSet<string>(StringComparer.Ordinal);
+        set.Add(value);
+    }
+
+    private static bool IsParamMemberWrite(ExpressionSyntax expr, string paramName)
+    {
+        while (expr is MemberAccessExpressionSyntax ma)
+            expr = ma.Expression;
+        return expr is IdentifierNameSyntax id && id.Identifier.Text == paramName;
+    }
+
+    private static bool IsParameterFieldModified(BaseMethodDeclarationSyntax method, string paramName)
+    {
+        foreach (var assignment in method.DescendantNodes().OfType<AssignmentExpressionSyntax>())
+        {
+            if (assignment.Left is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Expression is IdentifierNameSyntax id &&
+                id.Identifier.Text == paramName)
+                return true;
+        }
+        foreach (var postfix in method.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>())
+        {
+            if (postfix.Operand is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Expression is IdentifierNameSyntax id &&
+                id.Identifier.Text == paramName)
+                return true;
+        }
+        foreach (var prefix in method.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>())
+        {
+            if (prefix.Kind() is SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression &&
+                prefix.Operand is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Expression is IdentifierNameSyntax id &&
+                id.Identifier.Text == paramName)
+                return true;
+        }
+        foreach (var assignment in method.DescendantNodes().OfType<AssignmentExpressionSyntax>())
+        {
+            if (assignment.Kind() != SyntaxKind.SimpleAssignmentExpression &&
+                assignment.Left is MemberAccessExpressionSyntax memberAccess &&
+                memberAccess.Expression is IdentifierNameSyntax id &&
+                id.Identifier.Text == paramName)
+                return true;
+        }
         return false;
     }
 }

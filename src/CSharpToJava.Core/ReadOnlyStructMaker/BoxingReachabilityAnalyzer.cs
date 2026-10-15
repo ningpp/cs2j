@@ -25,25 +25,25 @@ internal static class BoxingReachabilityAnalyzer
     /// </summary>
     public static HashSet<INamedTypeSymbol> ComputeBoxingReachableStructs(Compilation compilation)
     {
-        var reachable = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
-        var queue = new Queue<ITypeSymbol>();
-
-        void Enqueue(ITypeSymbol? type)
-        {
-            if (type == null) return;
-            type = Unwrap(type);
-            if (type == null) return;
-            if (reachable.Add(type))
-            {
-                queue.Enqueue(type);
-            }
-        }
-
-        // Pass 1: find direct boxing/object-like conversion roots.
-        foreach (var tree in compilation.SyntaxTrees)
+        // Pass 1: find direct boxing/object-like conversion roots. Each tree is
+        // independent — its syntax walk only queries that tree's semantic model —
+        // so the scan runs in parallel across trees and the per-tree root sets are
+        // merged afterwards. The reachability closure computed below is
+        // order-independent, so the result is identical to the sequential scan.
+        var roots = new System.Collections.Concurrent.ConcurrentBag<ITypeSymbol>();
+        System.Threading.Tasks.Parallel.ForEach(compilation.SyntaxTrees, tree =>
         {
             SemanticModel? model = null;
             SemanticModel GetModel() => model ??= compilation.GetSemanticModel(tree);
+
+            var local = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+            void EnqueueLocal(ITypeSymbol? type)
+            {
+                if (type == null) return;
+                type = Unwrap(type);
+                if (type == null) return;
+                local.Add(type);
+            }
 
             var root = tree.GetRoot();
 
@@ -52,7 +52,7 @@ internal static class BoxingReachabilityAnalyzer
                 switch (node)
                 {
                     case ArgumentSyntax argument:
-                        HandleArgument(argument, GetModel(), compilation, Enqueue);
+                        HandleArgument(argument, GetModel(), compilation, EnqueueLocal);
                         break;
 
                     case VariableDeclaratorSyntax declarator when declarator.Initializer?.Value != null:
@@ -62,7 +62,7 @@ internal static class BoxingReachabilityAnalyzer
                             var valueType = GetModel().GetTypeInfo(declarator.Initializer.Value).Type;
                             if (IsUserCodeType(valueType))
                             {
-                                Enqueue(valueType);
+                                EnqueueLocal(valueType);
                             }
                         }
                         break;
@@ -75,7 +75,7 @@ internal static class BoxingReachabilityAnalyzer
                                 var valueType = GetModel().GetTypeInfo(assignment.Right).Type;
                                 if (IsUserCodeType(valueType))
                                 {
-                                    Enqueue(valueType);
+                                    EnqueueLocal(valueType);
                                 }
                             }
                         }
@@ -89,7 +89,7 @@ internal static class BoxingReachabilityAnalyzer
                                 var valueType = GetModel().GetTypeInfo(cast.Expression).Type;
                                 if (IsUserCodeType(valueType))
                                 {
-                                    Enqueue(valueType);
+                                    EnqueueLocal(valueType);
                                 }
                             }
                         }
@@ -106,7 +106,7 @@ internal static class BoxingReachabilityAnalyzer
                                     var valueType = GetModel().GetTypeInfo(ret.Expression).Type;
                                     if (IsUserCodeType(valueType))
                                     {
-                                        Enqueue(valueType);
+                                        EnqueueLocal(valueType);
                                     }
                                 }
                             }
@@ -120,7 +120,7 @@ internal static class BoxingReachabilityAnalyzer
                         // which the call site cannot see, so treat it as boxed.
                         if (IsSerializerFamilyMethod(typeArgs, GetModel(), compilation, out var serializerTypeArg))
                         {
-                            Enqueue(serializerTypeArg);
+                            EnqueueLocal(serializerTypeArg);
                         }
                         break;
 
@@ -128,10 +128,35 @@ internal static class BoxingReachabilityAnalyzer
                         // typeof(T) arguments: `JsonSerializer.Deserialize(json, type, options)`.
                         if (IsArgumentToSerializerFamily(typeOf, GetModel(), out var typeOfArgType))
                         {
-                            Enqueue(typeOfArgType);
+                            EnqueueLocal(typeOfArgType);
                         }
                         break;
                 }
+            }
+
+            foreach (var type in local)
+                roots.Add(type);
+        });
+
+        var reachable = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+        var queue = new Queue<ITypeSymbol>();
+
+        void Enqueue(ITypeSymbol? type)
+        {
+            if (type == null) return;
+            type = Unwrap(type);
+            if (type == null) return;
+            if (reachable.Add(type))
+            {
+                queue.Enqueue(type);
+            }
+        }
+
+        foreach (var type in roots)
+        {
+            if (reachable.Add(type))
+            {
+                queue.Enqueue(type);
             }
         }
 

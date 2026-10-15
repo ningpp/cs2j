@@ -36,17 +36,20 @@ internal sealed class StructAnalyzer
     private readonly SemanticModel _model;
     private readonly CallGraphBuilder _callGraph;
     private readonly IReadOnlySet<INamedTypeSymbol> _boxingReachableStructs;
+    private readonly CrossFileAccessIndex? _externalAccessIndex;
 
     public StructAnalyzer(
         ReadOnlyStructMakerOptions options,
         SemanticModel model,
-        IReadOnlySet<INamedTypeSymbol>? boxingReachableStructs = null)
+        IReadOnlySet<INamedTypeSymbol>? boxingReachableStructs = null,
+        CrossFileAccessIndex? externalAccessIndex = null)
     {
         _options = options;
         _model = model;
-        _callGraph = new CallGraphBuilder(model);
+        _callGraph = new CallGraphBuilder(model, externalAccessIndex);
         _boxingReachableStructs = boxingReachableStructs
             ?? new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        _externalAccessIndex = externalAccessIndex;
     }
 
     public AnalyzeResult Analyze(INamedTypeSymbol symbol, StructDeclarationSyntax syntax)
@@ -76,6 +79,9 @@ internal sealed class StructAnalyzer
     /// </summary>
     private bool HasExternalRefParamPassing(INamedTypeSymbol structSymbol)
     {
+        if (_externalAccessIndex != null)
+            return _externalAccessIndex.HasExternalRefParamPassing(structSymbol);
+
         var compilation = _model.Compilation;
         var target = structSymbol.OriginalDefinition;
         foreach (var tree in compilation.SyntaxTrees)
