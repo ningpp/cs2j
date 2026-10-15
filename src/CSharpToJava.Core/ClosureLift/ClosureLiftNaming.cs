@@ -177,13 +177,41 @@ internal sealed class ClosureLiftNaming
     /// A member literally named with a C# reserved keyword (e.g. <c>@class</c>)
     /// gets a deterministic Member suffix. Contextual keywords stay verbatim
     /// (they are legal identifiers, same policy as E02 GetBaseName).
+    /// Metadata member names that are not legal identifiers — constructors
+    /// (<c>.ctor</c>/<c>.cctor</c>) and explicit-interface implementations
+    /// (<c>IFoo.Bar</c>) — are first character-sanitized (see
+    /// <see cref="ToIdentifierChars"/>) so the generated identifier stays legal.
     /// </summary>
     internal static string SanitizeMemberName(string name)
     {
-        var stripped = TrimEscape(name);
+        var stripped = ToIdentifierChars(TrimEscape(name));
         return SyntaxFacts.GetKeywordKind(stripped) != SyntaxKind.None
             ? stripped + "Member"
             : stripped;
+    }
+
+    /// <summary>
+    /// Replaces every character that cannot appear in a C# identifier with '_'
+    /// (the anonymous/tuple shape registries use the same rule). A result whose
+    /// first character is neither a letter nor '_' gets a '_' prefix. Pure and
+    /// idempotent: an already-legal identifier is returned unchanged, so name
+    /// reservation uniqueness/determinism is preserved.
+    /// </summary>
+    private static string ToIdentifierChars(string text)
+    {
+        if (text.Length == 0)
+            return text;
+
+        var chars = text.ToCharArray();
+        for (var i = 0; i < chars.Length; i++)
+        {
+            if (chars[i] != '_' && !char.IsLetterOrDigit(chars[i]))
+                chars[i] = '_';
+        }
+
+        return char.IsLetter(chars[0]) || chars[0] == '_'
+            ? new string(chars)
+            : "_" + new string(chars);
     }
 
     private static string TrimEscape(string name)
