@@ -149,6 +149,13 @@ internal sealed class RecordReadOnlyAnalyzer
             }
         }
 
+        // 无 record：Pass 2/3/4 只填充 record 作用域数据（部件写集、用点清单、接口图），
+        // 而 MS-14 标志也只在 BuildRecordPlan 中按 record 读取。Records 为空 ⇒ PlanBuilder
+        // 产出空计划，这些结果全部无人消费，可直接返回，省去对整树的全量语义扫描。
+        // 判定集合与结果完全等价（不产生任何可观测差异）。
+        if (_analysis.Records.Count == 0)
+            return _analysis;
+
         // Pass 2：成员/方法写集/接口/层次事实。
         foreach (var info in _analysis.Records.ToList())
             FillMemberFacts(info, compilation);
@@ -505,6 +512,27 @@ internal sealed class RecordReadOnlyAnalyzer
         var root = tree.GetRoot();
         var model = compilation.GetSemanticModel(tree);
 
+        // MS-14 预筛：原实现对每个节点都扫描其整棵子树找 dynamic 标识符，导致
+        // O(节点数 × 子树大小) 次 GetTypeInfo。改为对每个标识符只查一次类型——且仅对
+        // 位于赋值/调用节点之下的标识符——命中 dynamic 即标记。二者判定集合完全等价：
+        // 标识符本身不可能是赋值/调用节点，故“在节点 N 的子树内”即“N 是标识符的严格祖先”。
+        foreach (var id in root.DescendantNodes().OfType<IdentifierNameSyntax>())
+        {
+            var underWrite = false;
+            for (var ancestor = id.Parent; ancestor != null; ancestor = ancestor.Parent)
+            {
+                if (ancestor is AssignmentExpressionSyntax or InvocationExpressionSyntax)
+                {
+                    underWrite = true;
+                    break;
+                }
+            }
+            if (!underWrite) continue;
+            if (model.GetTypeInfo(id).Type?.TypeKind != TypeKind.Dynamic) continue;
+            // 保守地标记，由 PlanBuilder 决定是否阻断。
+            _analysis.HasDynamicOrReflectionMutation = true;
+        }
+
         foreach (var node in root.DescendantNodes())
         {
             switch (node)
@@ -526,14 +554,6 @@ internal sealed class RecordReadOnlyAnalyzer
                 case InvocationExpressionSyntax invocation when IsReflectionSetValue(model, invocation):
                     _analysis.HasDynamicOrReflectionMutation = true;
                     break;
-            }
-
-            if (node.DescendantNodesAndSelf().Any(n => n is IdentifierNameSyntax id
-                    && model.GetTypeInfo(id).Type?.TypeKind == TypeKind.Dynamic))
-            {
-                // 仅当下文是赋值/调用写时才算；保守地标记，由 PlanBuilder 决定是否阻断。
-                if (node is AssignmentExpressionSyntax or InvocationExpressionSyntax)
-                    _analysis.HasDynamicOrReflectionMutation = true;
             }
         }
     }
