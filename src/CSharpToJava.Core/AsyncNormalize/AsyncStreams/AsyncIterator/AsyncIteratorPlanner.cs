@@ -509,16 +509,7 @@ internal static class AsyncIteratorPlanner
         or SimpleLambdaExpressionSyntax);
 
     private static List<(SyntaxTree Tree, TextSpan Span)> CollectBaselineErrors(SemanticModel model)
-    {
-        var result = new List<(SyntaxTree, TextSpan)>();
-        foreach (var diagnostic in model.Compilation.GetDiagnostics())
-        {
-            if (diagnostic.Severity != DiagnosticSeverity.Error) continue;
-            if (diagnostic.Location.SourceTree is not { } sourceTree) continue;
-            result.Add((sourceTree, diagnostic.Location.SourceSpan));
-        }
-        return result;
-    }
+        => AsyncNormalizeAnalyzer.CollectTreeErrorSpans(model, null);
 
     private static bool BaselineContains(
         List<(SyntaxTree Tree, TextSpan Span)> baselineErrors,

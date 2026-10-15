@@ -51,9 +51,55 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
     public override bool VerifyTests => _verifyTests;
     public override bool DeleteBuildOutputsAfterRestore => true;
 
-    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    /// <summary>
+    /// Opt-in: the per-file rewrite is a pure function. The shared
+    /// <see cref="AsyncNormalizePreprocessor"/> holds no mutable state (every
+    /// analyzer/rewriter is a static method or a per-call instance) and the Core
+    /// analyzers only read immutable Roslyn state, so the spine may run the read +
+    /// rewrite step in parallel. All accumulation (statistics/diagnostics/verbose
+    /// lines) is deferred to <see cref="MergeFilePureResult"/>, which the runner
+    /// calls serially in source-file order — keeping the summary counts and
+    /// diagnostic order identical to the sequential path.
+    /// </summary>
+    public override bool SupportsParallelFileRewrite => true;
+
+    public override async Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    {
+        var pure = await RewriteFilePureAsync(context);
+        MergeFilePureResult(pure);
+        return pure.Rewrite;
+    }
+
+    /// <summary>
+    /// Pure per-file rewrite for the opt-in parallel path. Reads only the
+    /// stateless <see cref="_preprocessor"/> and the immutable
+    /// <see cref="_options"/>; no shared field is mutated. Per-file effects are
+    /// carried via <see cref="PassFilePureResult.PassState"/> and applied later by
+    /// <see cref="MergeFilePureResult"/>.
+    /// </summary>
+    public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
     {
         var result = _preprocessor.Preprocess(context.SourceCode, context.SemanticModel, _options);
+        var rewrite = result.Changed
+            ? new PassFileRewrite { OutputCode = result.OutputCode, Changed = true }
+            : null;
+        return Task.FromResult(new PassFilePureResult
+        {
+            Context = context,
+            Rewrite = rewrite,
+            PassState = result,
+        });
+    }
+
+    /// <summary>
+    /// Serial merge of one file's pure result, invoked by the runner in
+    /// source-file order. Applies statistics/diagnostics and prints the per-file
+    /// verbose line here (not in the parallel phase) so the order is preserved.
+    /// </summary>
+    public override void MergeFilePureResult(PassFilePureResult pure)
+    {
+        var context = pure.Context;
+        var result = (AsyncNormalizeFileResult)pure.PassState!;
         MergeStatistics(result.Statistics);
 
         foreach (var diagnostic in result.Diagnostics)
@@ -68,11 +114,6 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
                 : "dirty-no-rewrite (copy)";
             Console.WriteLine($"[async-normalize] {status}: {context.RelativePath}");
         }
-
-        var rewrite = result.Changed
-            ? new PassFileRewrite { OutputCode = result.OutputCode, Changed = true }
-            : null;
-        return Task.FromResult(rewrite);
     }
 
     public override Task AfterFilesAsync(PassTreeContext tree)

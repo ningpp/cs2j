@@ -881,44 +881,36 @@ internal static class AsyncNormalizeAnalyzer
     // ── 基线快照 ──
 
     private static List<(SyntaxTree Tree, TextSpan Span)> CollectBaselineLockErrors(SemanticModel model)
-    {
-        var result = new List<(SyntaxTree, TextSpan)>();
-        foreach (var diagnostic in model.Compilation.GetDiagnostics())
-        {
-            if (diagnostic.Severity != DiagnosticSeverity.Error) continue;
-            if (diagnostic.Descriptor.Id != "CS1996") continue;
-            if (diagnostic.Location.SourceTree is not { } sourceTree) continue;
-            result.Add((sourceTree, diagnostic.Location.SourceSpan));
-        }
-        return result;
-    }
+        => CollectTreeErrorSpans(model, "CS1996");
 
     /// <summary>
     /// 不安全上下文 await 的基线错误 CS4004 快照（CS2J1809 基线优先用）。
     /// 注意：CS4007/CS9217 曾在此列，探针证明 Roslyn 5 已不再发出（C# 13 合法化），移除。
     /// </summary>
     private static List<(SyntaxTree Tree, TextSpan Span)> CollectBaselineUnsafeAwaitErrors(SemanticModel model)
-    {
-        var result = new List<(SyntaxTree, TextSpan)>();
-        foreach (var diagnostic in model.Compilation.GetDiagnostics())
-        {
-            if (diagnostic.Severity != DiagnosticSeverity.Error) continue;
-            if (diagnostic.Descriptor.Id != "CS4004") continue;
-            if (diagnostic.Location.SourceTree is not { } sourceTree) continue;
-            result.Add((sourceTree, diagnostic.Location.SourceSpan));
-        }
-        return result;
-    }
+        => CollectTreeErrorSpans(model, "CS4004");
 
     private static List<(SyntaxTree Tree, TextSpan Span)> CollectBaselineErrors(SemanticModel model)
+        => CollectTreeErrorSpans(model, null);
+
+    /// <summary>
+    /// 当前语法树内的 Error 级诊断 (树, 跨度) 快照。基线集合只在
+    /// <see cref="BaselineContains"/> 里以 <c>model.SyntaxTree</c> 查询，因此只需本树
+    /// 的诊断；直接对 <see cref="SemanticModel.GetDiagnostics"/> 求值，避免对整棵编译
+    /// （全部源文件）反复全量绑定。
+    /// </summary>
+    internal static List<(SyntaxTree Tree, TextSpan Span)> CollectTreeErrorSpans(
+        SemanticModel model, string? code)
     {
         var result = new List<(SyntaxTree, TextSpan)>();
-        foreach (var diagnostic in model.Compilation.GetDiagnostics())
+        foreach (var diagnostic in model.GetDiagnostics())
         {
             if (diagnostic.Severity != DiagnosticSeverity.Error) continue;
-            if (diagnostic.Location.SourceTree is not { } sourceTree) continue;
-            result.Add((sourceTree, diagnostic.Location.SourceSpan));
+            if (code != null && diagnostic.Descriptor.Id != code) continue;
+            if (diagnostic.Location.SourceTree is not { } tree) continue;
+            result.Add((tree, diagnostic.Location.SourceSpan));
         }
+
         return result;
     }
 
