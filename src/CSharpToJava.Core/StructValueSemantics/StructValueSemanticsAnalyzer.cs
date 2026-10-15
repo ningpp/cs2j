@@ -3,8 +3,7 @@ using Microsoft.CodeAnalysis;
 namespace CSharpToJava.Core.StructValueSemantics;
 
 /// <summary>
-/// Phase 1/2 整树分析产物：残余 struct 集合、装箱可达集合（按 compilation 缓存）、
-/// 变异方法集、全站点点表与 ClonePlan 集合。
+/// Phase 1/2 整树分析产物：残余 struct 集合、变异方法集、全站点点表与 ClonePlan 集合。
 /// </summary>
 internal sealed class StructValueSemanticsAnalysis
 {
@@ -14,10 +13,6 @@ internal sealed class StructValueSemanticsAnalysis
 
     /// <summary>残余 struct 原始定义符号 → 其 plan（含 Skipped/Infeasible）。</summary>
     public Dictionary<INamedTypeSymbol, ClonePlan> PlansBySymbol { get; }
-        = new(SymbolEqualityComparer.Default);
-
-    /// <summary>装箱可达 struct 原始定义集合（BoxingReachabilityAnalyzer 接线）。</summary>
-    public HashSet<INamedTypeSymbol> BoxingReachableStructs { get; }
         = new(SymbolEqualityComparer.Default);
 
     /// <summary>计划期诊断（SV001/SV010/SV011/SV012/SV020/SV050/SV051 …）。</summary>
@@ -68,9 +63,10 @@ internal static partial class StructValueSemanticsAnalyzer
         var compilation = analysis.Compilation;
         var options = analysis.Options;
 
-        // 装箱可达：同程序集直接复用 E13 分析器，按 compilation 缓存。
-        var boxing = GetBoxingReachableStructs(compilation);
-        analysis.BoxingReachableStructs.UnionWith(boxing);
+        // 装箱可达集合（BoxingReachabilityAnalyzer，全编译扫描）本 pass 不消费：
+        // 该集合仅被 StructAnalyzer.Analyze 的反射安全跳过分支读取，而本 pass 只经
+        // IsMutating/CallsMutatingMethod/IsTransitiveMigrationCandidate 取变异方法集，
+        // 从不调用 Analyze。省去这趟约 4~5s 的全编译绑定扫描。
 
         // === Phase 1a：残余 struct 集合（源内声明、非 ref、声明处无 readonly）===
         var sourceTypes = new List<INamedTypeSymbol>();
@@ -249,10 +245,11 @@ internal static partial class StructValueSemanticsAnalyzer
         {
             if (!analyzersByTree.TryGetValue(tree, out var analyzer))
             {
+                // 不传 boxingReachableStructs：本 pass 只用 IsMutating/CallsMutatingMethod，
+                // 该集合仅服务 StructAnalyzer.Analyze（未调用）的反射安全跳过分支。
                 analyzer = new ReadOnlyStructMaker.StructAnalyzer(
                     new ReadOnlyStructMaker.ReadOnlyStructMakerOptions(),
-                    compilation.GetSemanticModel(tree),
-                    analysis.BoxingReachableStructs);
+                    compilation.GetSemanticModel(tree));
                 analyzersByTree[tree] = analyzer;
             }
             return analyzer;
@@ -329,19 +326,6 @@ internal static partial class StructValueSemanticsAnalyzer
             acc.Add(nested);
             CollectNested(nested, acc);
         }
-    }
-
-    // 装箱可达按 compilation 缓存（仿 ReadOnlyStructMaker 的实例缓存；用 CWT 防止测试场景泄漏）。
-    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<
-        Compilation, HashSet<INamedTypeSymbol>> BoxingCache = new();
-
-    private static HashSet<INamedTypeSymbol> GetBoxingReachableStructs(Compilation compilation)
-    {
-        if (BoxingCache.TryGetValue(compilation, out var cached)) return cached;
-        cached = ReadOnlyStructMaker.BoxingReachabilityAnalyzer
-            .ComputeBoxingReachableStructs(compilation);
-        BoxingCache.AddOrUpdate(compilation, cached);
-        return cached;
     }
 
     private static void AddPlanningInfo(

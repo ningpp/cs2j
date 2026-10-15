@@ -82,10 +82,15 @@ internal sealed class StructValueSemanticsPassAdapter : ProjectPassAdapter
             tree.ResetScratchFile(asset, assetDest);
         }
 
-        // 基线错误集：用原始内容、path 取中间树路径，保证键可直接比对。
-        var baselineErrors = BuildErrorSet(
+        // 基线编译：内容取原始文件、但 path 取中间树路径，保证错误键可直接比对。
+        // 该编译供第 0 轮复用（scratch 刚被重置为原始字节，内容逐字节相同），
+        // 省去一次全量 parse 与绑定。
+        var baselineCompilation = BuildCompilation(
             sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Source))),
             tree.Layout, intermediateRoot);
+        // 基线错误集惰性求值：仅当确有文件被改写、需要与候选编译比对时才整树 GetDiagnostics。
+        // 无改写时（本 pass 常见情形）该集合无人消费，避免一次昂贵的全量绑定。
+        HashSet<(string File, string Id, string Message)>? baselineErrors = null;
 
         var excluded = new HashSet<string>(StringComparer.Ordinal);
         var rollbackDiagnostics = new List<StructValueSemanticsDiagnostic>();
@@ -103,9 +108,12 @@ internal sealed class StructValueSemanticsPassAdapter : ProjectPassAdapter
             var passStats = new StructValueSemanticsStatistics();
             var passDiagnostics = new List<StructValueSemanticsDiagnostic>();
             var preprocessor = new StructValueSemanticsPreprocessor(_options);
-            var compilation = BuildCompilation(
-                sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
-                tree.Layout, intermediateRoot);
+            // 第 0 轮复用基线编译（内容逐字节相同，见上）；后续轮次因改写/回退重建。
+            var compilation = iteration == 0
+                ? baselineCompilation
+                : BuildCompilation(
+                    sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
+                    tree.Layout, intermediateRoot);
             preprocessor.BindCompilation(compilation);
             preprocessor.ExcludePlans(excluded);
 
@@ -140,10 +148,24 @@ internal sealed class StructValueSemanticsPassAdapter : ProjectPassAdapter
                 }
             }
 
-            var candidateCompilation = BuildCompilation(
-                sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
-                tree.Layout, intermediateRoot);
-            var newErrors = DiffErrors(baselineErrors, candidateCompilation, intermediateRoot);
+            // 本轮无文件被改写时，scratch 内容与基线逐字节相同，候选编译的错误必然
+            // 与基线一致（新增错误为空），无需再重复 parse + 全量 GetDiagnostics；
+            // 基线错误集也在此刻才惰性求值。
+            List<Diagnostic> newErrors;
+            if (rewrittenByFile.Count == 0)
+            {
+                newErrors = new List<Diagnostic>();
+            }
+            else
+            {
+                baselineErrors ??= BuildErrorSet(baselineCompilation, intermediateRoot);
+                newErrors = DiffErrors(
+                    baselineErrors,
+                    BuildCompilation(
+                        sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
+                        tree.Layout, intermediateRoot),
+                    intermediateRoot);
+            }
 
             if (newErrors.Count == 0)
             {
@@ -358,11 +380,9 @@ internal sealed class StructValueSemanticsPassAdapter : ProjectPassAdapter
 
     /// <summary>(相对中间根路径, 错误码, 消息) 集合。</summary>
     private static HashSet<(string File, string Id, string Message)> BuildErrorSet(
-        IEnumerable<(string Path, string Content)> files,
-        ProjectPreprocessSourceLayout layout,
+        CSharpCompilation compilation,
         string intermediateRoot)
     {
-        var compilation = BuildCompilation(files, layout, intermediateRoot);
         return new HashSet<(string, string, string)>(
             compilation.GetDiagnostics()
                 .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)

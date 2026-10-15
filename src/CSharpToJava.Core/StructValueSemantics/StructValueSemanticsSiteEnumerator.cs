@@ -29,6 +29,12 @@ internal sealed class StructValueSemanticsSiteEnumerator
     private readonly HashSet<string> _sv013Files = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _sv014Files = new(StringComparer.OrdinalIgnoreCase);
 
+    // 单树归并面：站点/跳过文件按“首次出现次序”累积，父实例按树序合并回写。
+    private readonly List<ValueCopySite> _pendingSites = new();
+    private readonly List<string> _sv013Order = new();
+    private readonly List<string> _sv014Order = new();
+    private int _uninitializedFields;
+
     public StructValueSemanticsSiteEnumerator(StructValueSemanticsAnalysis analysis)
     {
         _analysis = analysis;
@@ -36,46 +42,91 @@ internal sealed class StructValueSemanticsSiteEnumerator
         _plans = analysis.PlansBySymbol;
     }
 
+    /// <summary>
+    /// Phase 1c 入口：各语法树彼此独立（站点/优先级锚点/SV013·SV014 均为树内事实，
+    /// 跨树仅经引用相等匹配故不会互相命中），按树并行枚举后严格按
+    /// <see cref="Compilation.SyntaxTrees"/> 顺序归并回写 plan.Sites 与跳过文件集，
+    /// 使插入次序与串行逐树枚举逐位一致（输出逐字节守恒）。
+    /// </summary>
     public void Enumerate()
     {
-        foreach (var tree in _compilation.SyntaxTrees)
+        var trees = _compilation.SyntaxTrees.ToList();
+        var results = new TreeEnumerationResult[trees.Count];
+        if (trees.Count == 0) return;
+
+        System.Threading.Tasks.Parallel.For(0, trees.Count, i =>
         {
-            var root = tree.GetRoot();
-            var model = _compilation.GetSemanticModel(tree);
-            var allNodes = root.DescendantNodes().ToList();
+            results[i] = new StructValueSemanticsSiteEnumerator(_analysis).EnumerateTree(trees[i]);
+        });
 
-            // pass 1：VS-5 cast（(object)s / (IFoo)s / (S)o）。
-            foreach (var node in allNodes.OfType<CastExpressionSyntax>())
-                VisitCast(node, model);
-
-            // pass 2：其余值流站点
-            foreach (var node in allNodes)
-            {
-                switch (node)
-                {
-                    case VariableDeclaratorSyntax declarator:
-                        VisitDeclarator(declarator, model);
-                        break;
-                    case AssignmentExpressionSyntax assignment:
-                        VisitAssignment(assignment, model);
-                        break;
-                    case ReturnStatementSyntax { Expression: not null } ret:
-                        VisitReturn(ret, model);
-                        break;
-                    case ArgumentSyntax argument:
-                        VisitArgument(argument, model);
-                        break;
-                    case InvocationExpressionSyntax invocation:
-                        VisitDefensiveReceiver(invocation, model);
-                        break;
-                }
-            }
+        foreach (var result in results)
+        {
+            _pendingSites.AddRange(result.Sites);
+            foreach (var file in result.Sv013Files) _sv013Files.Add(file);
+            foreach (var file in result.Sv014Files) _sv014Files.Add(file);
+            _analysis.PlanningStatistics.UninitializedStructFields += result.UninitializedFields;
         }
+        // 按树序（= 串行枚举序）回写站点，plan.Sites 次序与串行完全一致。
+        foreach (var site in _pendingSites)
+            site.Plan.Sites.Add(site);
 
         EmitSkipInfo(StructValueSemanticsDiagnosticCode.SV013, _sv013Files,
             "value-copy sites inside expression-tree lambdas were skipped.");
         EmitSkipInfo(StructValueSemanticsDiagnosticCode.SV014, _sv014Files,
             "dynamically bound value-copy sites were skipped.");
+    }
+
+    /// <summary>单树枚举（纯树内状态），返回按节点序累积的站点与跳过文件。</summary>
+    private TreeEnumerationResult EnumerateTree(SyntaxTree tree)
+    {
+        var root = tree.GetRoot();
+        var model = _compilation.GetSemanticModel(tree);
+        var allNodes = root.DescendantNodes().ToList();
+
+        // pass 1：VS-5 cast（(object)s / (IFoo)s / (S)o）。
+        foreach (var node in allNodes.OfType<CastExpressionSyntax>())
+            VisitCast(node, model);
+
+        // pass 2：其余值流站点
+        foreach (var node in allNodes)
+        {
+            switch (node)
+            {
+                case VariableDeclaratorSyntax declarator:
+                    VisitDeclarator(declarator, model);
+                    break;
+                case AssignmentExpressionSyntax assignment:
+                    VisitAssignment(assignment, model);
+                    break;
+                case ReturnStatementSyntax { Expression: not null } ret:
+                    VisitReturn(ret, model);
+                    break;
+                case ArgumentSyntax argument:
+                    VisitArgument(argument, model);
+                    break;
+                case InvocationExpressionSyntax invocation:
+                    VisitDefensiveReceiver(invocation, model);
+                    break;
+            }
+        }
+
+        return new TreeEnumerationResult(_pendingSites, _sv013Order, _sv014Order, _uninitializedFields);
+    }
+
+    private sealed record TreeEnumerationResult(
+        List<ValueCopySite> Sites,
+        List<string> Sv013Files,
+        List<string> Sv014Files,
+        int UninitializedFields);
+
+    private void MarkSv013(string file)
+    {
+        if (_sv013Files.Add(file)) _sv013Order.Add(file);
+    }
+
+    private void MarkSv014(string file)
+    {
+        if (_sv014Files.Add(file)) _sv014Order.Add(file);
     }
 
     private void EmitSkipInfo(
@@ -125,7 +176,7 @@ internal sealed class StructValueSemanticsSiteEnumerator
             if (model.GetDeclaredSymbol(declarator) is IFieldSymbol { IsStatic: false } uninitializedField
                 && ActivePlanForType(uninitializedField.Type) != null)
             {
-                _analysis.PlanningStatistics.UninitializedStructFields++;
+                _uninitializedFields++;
             }
             return;
         }
@@ -287,14 +338,14 @@ internal sealed class StructValueSemanticsSiteEnumerator
             if ((invocationType?.TypeKind == TypeKind.Dynamic || receiverType?.TypeKind == TypeKind.Dynamic)
                 && ActivePlanForType(model.GetTypeInfo(value).Type) != null)
             {
-                _sv014Files.Add(value.SyntaxTree?.FilePath ?? string.Empty);
+                MarkSv014(value.SyntaxTree?.FilePath ?? string.Empty);
             }
             return;
         }
 
         if (IsInsideExpressionTree(argument, model))
         {
-            _sv013Files.Add(argument.SyntaxTree?.FilePath ?? string.Empty);
+            MarkSv013(argument.SyntaxTree?.FilePath ?? string.Empty);
             return;
         }
 
@@ -449,7 +500,7 @@ internal sealed class StructValueSemanticsSiteEnumerator
 
         if (IsInsideExpressionTree(value, model))
         {
-            _sv013Files.Add(value.SyntaxTree?.FilePath ?? string.Empty);
+            MarkSv013(value.SyntaxTree?.FilePath ?? string.Empty);
             return false;
         }
 
@@ -458,7 +509,7 @@ internal sealed class StructValueSemanticsSiteEnumerator
 
         if (targetType.TypeKind == TypeKind.Dynamic)
         {
-            _sv014Files.Add(value.SyntaxTree?.FilePath ?? string.Empty);
+            MarkSv014(value.SyntaxTree?.FilePath ?? string.Empty);
             return false;
         }
 
@@ -674,7 +725,8 @@ internal sealed class StructValueSemanticsSiteEnumerator
         var memberName = enclosingNode.AncestorsAndSelf().OfType<MemberDeclarationSyntax>()
             .FirstOrDefault()?.GetMemberNameString();
 
-        plan.Sites.Add(new ValueCopySite
+        // 站点先累积在树内顺序表里，待父实例按树序统一回写 plan.Sites（并行的确定性归并）。
+        _pendingSites.Add(new ValueCopySite
         {
             Kind = kind,
             Plan = plan,
