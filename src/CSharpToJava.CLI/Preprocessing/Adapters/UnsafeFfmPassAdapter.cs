@@ -209,6 +209,7 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
            $"UF030={_statistics.Uf030Rejections}, UF031={_statistics.Uf031Rejections}, " +
            $"UF040={_statistics.Uf040Rejections}, " +
            $"UF050={_statistics.Uf050Rejections}, " +
+           $"UF052={_statistics.Uf052Downgrades}, " +
            $"UF051={_statistics.Uf051Rejections}, UF055={_statistics.Uf055Rejections}, " +
            $"UF060={_statistics.Uf060Rejections}, UF061={_statistics.Uf061Rejections}, " +
            $"UF070={_statistics.Uf070Rejections}), " +
@@ -258,6 +259,7 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
         _statistics.Uf021Rejections += source.Uf021Rejections;
         _statistics.Uf022Rejections += source.Uf022Rejections;
         _statistics.Uf050Rejections += source.Uf050Rejections;
+        _statistics.Uf052Downgrades += source.Uf052Downgrades;
         _statistics.Uf051Rejections += source.Uf051Rejections;
         _statistics.Uf055Rejections += source.Uf055Rejections;
         _statistics.Uf060Rejections += source.Uf060Rejections;

@@ -7,8 +7,9 @@ namespace CSharpToJava.Core.UnsafeFfm;
 /// UF020/UF030/UF031 拒绝数；M2 追加 R4 显式 stackalloc 收编数、隐式
 /// stackalloc 收编数与 UF040 拒绝数；M3a 追加 R5 签名改写数（形参/
 /// 返回/局部，含指针+长度模式）、R6 指针表达式索引化数与 UF021/UF022
-/// 拒绝数；M3b 追加算术传播数、自增数、比较数、差值数；M4 追加
-/// UF050（用户 ref struct 声明）、UF051（InlineArray）、UF055
+/// M3b 追加算术传播数、自增数、比较数、差值数；M4 追加
+/// UF050（带 ref-only 成员的用户 ref struct 声明拒绝）、UF052
+/// （纯数据型 ref struct 去 ref 降级）、UF051（InlineArray）、UF055
 /// （非白名单 ref struct using）、UF060（extern-like）、UF070
 /// （Marshal/NativeLibrary/SafeHandle/HandleRef）计数与 Span using
 /// 空操作归一数。
@@ -173,8 +174,14 @@ public sealed class UnsafeFfmStatistics
 
     // ---- M4：ref struct / InlineArray / extern ----
 
-    /// <summary>UF050 拒绝数（用户自定义 ref struct/readonly ref struct 声明）。</summary>
+    /// <summary>
+    /// UF050 拒绝数（用户自定义 ref struct/readonly ref struct 声明，带
+    /// ref-only 成员者）。
+    /// </summary>
     public int Uf050Rejections { get; set; }
+
+    /// <summary>UF052 降级数（纯数据型 ref struct 去 ref 降级为普通 struct）。</summary>
+    public int Uf052Downgrades { get; set; }
 
     /// <summary>UF051 拒绝数（[InlineArray] 标注 struct）。</summary>
     public int Uf051Rejections { get; set; }

@@ -11,7 +11,8 @@ namespace CSharpToJava.Core.UnsafeFfm;
 /// 直接使用调用方已解析树的 <see cref="SemanticModel"/>，规则在内存中顺序
 /// 合批：R1 <see cref="UnsafeContextStripper"/> 始终先跑；随后 M4 的 pass
 /// 基座规则 R7 <see cref="RefStructDeclRewriter"/>（用户 ref struct 声明
-/// UF050）、<see cref="InlineArrayDetector"/>（UF051）、R9
+/// 处置：ref-only 者 UF050 拒绝、纯数据型 UF052 去 ref 降级）、
+/// <see cref="InlineArrayDetector"/>（UF051）、R9
 /// <see cref="RefStructUsingRewriter"/>（Span using 空操作归一/UF055）
 /// 随 pass 生效；M1 起 EnableFixed 时同树合批 R2
 /// <see cref="FixedBufferFieldRewriter"/> → R3
@@ -312,7 +313,8 @@ public sealed class UnsafeFfmPreprocessor
 
         // R7 + InlineArray + R9（M4 pass 基座，随 pass 生效，与 R1 同级
         // 语义；不挂 EnableExtern）。声明判定先于 using 站点：同文件内
-        // 非白名单 ref struct 声明先以 UF050 拒绝。
+        // 非白名单 ref struct 声明先处置（带 ref-only 成员者 UF050 拒绝、
+        // 纯数据型 UF052 去 ref 降级为普通 struct）。
         var refStructResolver = new OriginalSyntaxResolver(root, newRoot);
         var refStructRewriter = new RefStructDeclRewriter(
             semanticModel, statistics, refStructResolver);

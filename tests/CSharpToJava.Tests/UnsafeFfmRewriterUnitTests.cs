@@ -2334,12 +2334,13 @@ public class UnsafeFfmRewriterUnitTests
     }
 
     // ==================================================================
-    // M4 / R7：用户自定义 ref struct 声明 → UF050
+    // M4 / R7：用户自定义 ref struct 声明 → UF052 降级 / UF050 拒绝
     // ==================================================================
 
     /// <summary>
     /// 双文件编译辅助：被处理文件可引用兄弟文件中声明的 ref struct
-    /// （单文件站点规则测试需要，避免 R7 先对同文件声明发 UF050）。
+    /// （单文件站点规则测试需要，避免 R7 先对同文件声明作 ref struct 处置
+    /// ——纯数据型降级/ref-only 拒绝）。
     /// </summary>
     private static UnsafeFfmResult RewriteWithSibling(
         string mainSrc, string siblingSrc, UnsafeFfmOptions? options = null)
@@ -2357,7 +2358,7 @@ public class UnsafeFfmRewriterUnitTests
     }
 
     [Fact]
-    public void M4_UserRefStructDecl_Rejected_UF050()
+    public void M4_UserRefStructDecl_PureData_Downgraded_UF052()
     {
         var src = """
             namespace P;
@@ -2366,16 +2367,21 @@ public class UnsafeFfmRewriterUnitTests
 
         var result = Rewrite(src);
 
-        Assert.False(result.Changed);
-        Assert.Equal(src, result.OutputCode);
-        var diag = Assert.Single(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF050);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("ref struct", result.OutputCode);
+        Assert.Contains("public struct MyBuf", result.OutputCode);
+        Assert.False(result.HasErrors);
+        var diag = Assert.Single(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF052);
+        Assert.Equal(UnsafeFfmSeverity.Warning, diag.Severity);
         Assert.Contains("stack-only", diag.Message);
-        Assert.Contains("Java", diag.Message);
-        Assert.Equal(1, result.Statistics.Uf050Rejections);
+        Assert.Contains("plain struct", diag.Message);
+        Assert.Equal(1, result.Statistics.Uf052Downgrades);
+        Assert.Equal(0, result.Statistics.Uf050Rejections);
+        AssertOutputCompiles(result.OutputCode);
     }
 
     [Fact]
-    public void M4_ReadOnlyRefStructDecl_Rejected_UF050()
+    public void M4_ReadOnlyRefStructDecl_PureData_Downgraded_UF052()
     {
         var src = """
             namespace P;
@@ -2384,9 +2390,54 @@ public class UnsafeFfmRewriterUnitTests
 
         var result = Rewrite(src);
 
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("ref struct", result.OutputCode);
+        Assert.Contains("public readonly struct RoBuf", result.OutputCode);
+        Assert.False(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF052);
+        Assert.Equal(1, result.Statistics.Uf052Downgrades);
+        Assert.Equal(0, result.Statistics.Uf050Rejections);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M4_RefOnlyRefStructDecl_RefLikeField_Rejected_UF050()
+    {
+        // ref-like 实例字段（Span<T>）去 ref 后成非法普通 struct：维持拒绝。
+        var src = """
+            namespace P;
+            public ref struct MyBuf { public System.Span<byte> B; }
+            """;
+
+        var result = Rewrite(src);
+
         Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Equal(src, result.OutputCode);
+        var diag = Assert.Single(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF050);
+        Assert.Equal(UnsafeFfmSeverity.Error, diag.Severity);
+        Assert.Contains("stack-only", diag.Message);
+        Assert.Equal(1, result.Statistics.Uf050Rejections);
+        Assert.Equal(0, result.Statistics.Uf052Downgrades);
+    }
+
+    [Fact]
+    public void M4_RefOnlyRefStructDecl_RefField_Rejected_UF050()
+    {
+        // ref 字段去 ref 后成非法普通 struct（CS9059）：维持拒绝。
+        var src = """
+            namespace P;
+            public ref struct MyBuf { private ref int _r; }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Equal(src, result.OutputCode);
         Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF050);
         Assert.Equal(1, result.Statistics.Uf050Rejections);
+        Assert.Equal(0, result.Statistics.Uf052Downgrades);
     }
 
     [Fact]

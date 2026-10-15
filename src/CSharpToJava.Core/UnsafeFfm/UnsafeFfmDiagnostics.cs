@@ -38,6 +38,9 @@ public enum UnsafeFfmDiagnosticCode
     /// <summary>InlineArray 构造（盘点期拒绝）。</summary>
     UF051,
 
+    /// <summary>纯数据型用户 ref struct 去 ref 降级为普通 struct（Warning）。</summary>
+    UF052,
+
     /// <summary>非白名单 ref struct 的 using 站点（2026-09-29 裁决新增 R9）。</summary>
     UF055,
 

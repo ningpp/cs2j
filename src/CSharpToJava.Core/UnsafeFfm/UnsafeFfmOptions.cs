@@ -8,8 +8,9 @@ namespace CSharpToJava.Core.UnsafeFfm;
 /// 随 pass 开启；M2 已交付 stackalloc 规则段（R4 显式/隐式 stackalloc
 /// 统一堆化），EnableStackAlloc 默认开启；M3 已交付 pointer 规则段
 /// （R5 指针签名白名单 + R6 表达式索引化，含 M3b 算术/比较/差值族），
-/// EnablePointer 默认开启；M4 已交付 R7 用户 ref struct 声明拒绝
-/// （UF050）、R9 ref struct using 归一（UF055）、InlineArray 盘点
+/// EnablePointer 默认开启；M4 已交付 R7 用户 ref struct 声明处置
+/// （带 ref-only 成员者 UF050 拒绝、纯数据型 UF052 去 ref 降级）、
+/// R9 ref struct using 归一（UF055）、InlineArray 盘点
 /// （UF051）——ref struct 段是 pass 基座，与 R1 同级语义，无独立开关；
 /// R8 extern 互操作显式拒绝（UF060/UF070）随 EnableExtern 开启。
 /// M4 裁决：白名单 facade 归一作为独立 opt-in 子段交付——
