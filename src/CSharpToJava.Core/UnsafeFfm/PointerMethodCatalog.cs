@@ -76,6 +76,332 @@ internal sealed class PointerMethodCatalog
         new(SymbolEqualityComparer.Default);
 
     /// <summary>
+    /// UF040 降级域：经 <see cref="StackAllocPointerSafety"/> 判定可降级的
+    /// 裸指针 stackalloc 局部（信号⑦可证根的额外来源；含候选根，逐文件
+    /// catalog 随 RewriteFile 存活，不可降级站点所在文件整文回滚不落盘）。
+    /// </summary>
+    private readonly HashSet<ISymbol> _stackAllocCursorRoots =
+        new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    /// 注册可降级裸指针 stackalloc 局部为信号⑦可证游标根：本作用域把该
+    /// 游标外发给源码内白名单指针形参方法时，被调方必须按配对约定降级，
+    /// 调用点才能把「伴生数组 + 0 索引」展开为配对实参。
+    /// </summary>
+    public void RegisterStackAllocCursorRoots(IEnumerable<ISymbol> locals)
+    {
+        foreach (var local in locals)
+            _stackAllocCursorRoots.Add(local);
+    }
+
+    /// <summary>
+    /// 重解释存储约束（信号⑦扩展）：被调方法某指针形参位实际接收的存储元素
+    /// （调用实参为 <c>(T2*)inner</c>、inner 为异类 T1* 时记 T1）。同一形参位
+    /// 多条边存储不一致即冲突。键内字典的键为形参位置。
+    /// </summary>
+    private readonly Dictionary<IMethodSymbol, Dictionary<int, ITypeSymbol>>
+        _reinterpretStorage = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    /// 重解释冲突方法：存储约束矛盾，或方法体对重解释形参存在只读打包解引用
+    /// 之外的使用（写入/自增/外发/下标/比较等）。其配对计划恒为 null。
+    /// </summary>
+    private readonly HashSet<IMethodSymbol> _reinterpretConflicts =
+        new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    /// 整文回滚（不落盘）文件的语法树集合：其内声明的方法不参与配对闭包、
+    /// 计划恒为 null；活动文件发往其内方法的强制边一律忽略（调用点按不可证
+    /// 处理，调用方随之回滚），保证落盘产物跨文件签名一致。
+    /// </summary>
+    private readonly HashSet<SyntaxTree> _disabledTrees = new();
+
+    /// <summary>
+    /// 新一轮编译级闭包分析：清空逐轮缓存与强制/重解释结论及 stackalloc
+    /// 种子，登记本轮的回滚文件集合。compilation 不变（同一进程内语义符号
+    /// 跨轮可比）。
+    /// </summary>
+    public void ResetRound(IEnumerable<SyntaxTree>? disabledTrees = null)
+    {
+        _cache.Clear();
+        _forced.Clear();
+        _inProgress.Clear();
+        _stackAllocCursorRoots.Clear();
+        _reinterpretStorage.Clear();
+        _reinterpretConflicts.Clear();
+        _annotationSymbols.Clear();
+        _annotationSequence = 0;
+        _disabledTrees.Clear();
+        if (disabledTrees != null)
+        {
+            foreach (var tree in disabledTrees)
+                _disabledTrees.Add(tree);
+        }
+    }
+
+    private bool IsTreeDisabled(IMethodSymbol method)
+    {
+        var reference = method.DeclaringSyntaxReferences.FirstOrDefault();
+        return reference != null && _disabledTrees.Contains(reference.SyntaxTree);
+    }
+
+    /// <summary>
+    /// 编译级信号⑦闭包驱动：在活动（本轮不回滚的）语法树范围内，对全部含
+    /// 白名单指针形参的源码方法反复求计划，直到强制集与重解释冲突集不动点。
+    /// 必须在任何文件改写前完成，保证「声明点 ↔ 全部调用点」跨文件一致。
+    /// </summary>
+    public void ComputeClosure(IEnumerable<SyntaxTree> activeTrees)
+    {
+        var candidates = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        foreach (var tree in activeTrees)
+        {
+            if (_disabledTrees.Contains(tree)) continue;
+
+            var treeModel = _compilation.GetSemanticModel(tree);
+            SyntaxNode? root;
+            try
+            {
+                root = tree.GetRoot();
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var declaration in root.DescendantNodes().Where(n =>
+                         n is BaseMethodDeclarationSyntax or LocalFunctionStatementSyntax))
+            {
+                if (treeModel.GetDeclaredSymbol(declaration) is not IMethodSymbol method)
+                    continue;
+                if (method.Parameters.Any(p =>
+                        p.Type is IPointerTypeSymbol pointer
+                        && IsWhitelistElement(pointer.PointedAtType)))
+                {
+                    candidates.Add(method);
+                }
+            }
+        }
+
+        var forcedCount = -1;
+        var conflictCount = -1;
+        while (forcedCount != _forced.Count || conflictCount != _reinterpretConflicts.Count)
+        {
+            forcedCount = _forced.Count;
+            conflictCount = _reinterpretConflicts.Count;
+            foreach (var method in candidates)
+                GetPlan(method);
+        }
+    }
+
+    public static bool TryPrimitiveSize(ITypeSymbol? element, out int size)
+    {
+        switch (element?.SpecialType)
+        {
+            case SpecialType.System_Boolean
+                or SpecialType.System_Byte
+                or SpecialType.System_SByte:
+                size = 1;
+                return true;
+            case SpecialType.System_Char
+                or SpecialType.System_Int16
+                or SpecialType.System_UInt16:
+                size = 2;
+                return true;
+            case SpecialType.System_Int32
+                or SpecialType.System_UInt32
+                or SpecialType.System_Single:
+                size = 4;
+                return true;
+            case SpecialType.System_Int64
+                or SpecialType.System_UInt64
+                or SpecialType.System_Double:
+                size = 8;
+                return true;
+            default:
+                size = 0;
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// 判定解引用操作数是否为「重解释存储形参上的只读打包读」：
+    /// <c>*p</c>、<c>*(p ± k)</c> 或 <c>*(T3*)(p ± k)</c>，基标 p 是
+    /// <paramref name="plan"/> 中带 <see cref="PairedParamPlan.StorageElement"/>
+    /// 的形参，k 为编译期常量，且声明/目标元素尺寸可被存储元素整除。
+    /// 供 R3 前置门放行（真正的索引化与小端拼包在 R6
+    /// TryBuildReinterpretRead 完成）。
+    /// </summary>
+    public static bool MatchesReinterpretStorageRead(
+        ExpressionSyntax rawOperand,
+        SemanticModel model,
+        OriginalSyntaxResolver? resolver,
+        PairedMethodPlan? plan)
+    {
+        if (plan == null) return false;
+
+        ExpressionSyntax? ToModel(ExpressionSyntax node)
+            => node.SyntaxTree == model.SyntaxTree
+                ? node
+                : resolver?.Resolve(node) as ExpressionSyntax;
+
+        var address = UnwrapParentheses(rawOperand);
+        ITypeSymbol? targetElement = null;
+        if (address is CastExpressionSyntax addressCast
+            && addressCast.Type is PointerTypeSyntax)
+        {
+            if (ToModel(addressCast) is { } modelCast
+                && model.GetTypeInfo(modelCast).Type is IPointerTypeSymbol castPointer)
+            {
+                targetElement = castPointer.PointedAtType;
+            }
+
+            address = UnwrapParentheses(addressCast.Expression);
+        }
+
+        ExpressionSyntax baseExpression;
+        if (address is IdentifierNameSyntax)
+        {
+            baseExpression = address;
+        }
+        else if (address is BinaryExpressionSyntax binary
+                 && (binary.IsKind(SyntaxKind.AddExpression)
+                     || binary.IsKind(SyntaxKind.SubtractExpression))
+                 && (UnwrapParentheses(binary.Left) is IdentifierNameSyntax
+                     || UnwrapParentheses(binary.Right) is IdentifierNameSyntax))
+        {
+            var modelBinary = ToModel(binary) ?? binary;
+            if (model.GetTypeInfo(modelBinary).Type is not IPointerTypeSymbol)
+                return false;
+
+            IdentifierNameSyntax sideIdentifier;
+            ExpressionSyntax constantSide;
+            if (UnwrapParentheses(binary.Left) is IdentifierNameSyntax leftIdentifier)
+            {
+                sideIdentifier = leftIdentifier;
+                constantSide = binary.Right;
+            }
+            else
+            {
+                sideIdentifier = (IdentifierNameSyntax)UnwrapParentheses(binary.Right);
+                constantSide = binary.Left;
+            }
+
+            var constantOriginal = ToModel(constantSide) ?? constantSide;
+            if (model.GetConstantValue(constantOriginal).Value is not int)
+                return false;
+
+            baseExpression = sideIdentifier;
+        }
+        else
+        {
+            return false;
+        }
+
+        var baseSymbol = ToModel(baseExpression) is { } modelBase
+            ? model.GetSymbolInfo(modelBase).Symbol
+            : null;
+
+        var slot = plan.Parameters.FirstOrDefault(p =>
+            p.Kind == PairedParamKind.PlainPointer
+            && p.StorageElement != null
+            && SymbolEqualityComparer.Default.Equals(p.Symbol, baseSymbol));
+        if (slot is not { Symbol.Type: IPointerTypeSymbol slotPointer,
+                StorageElement: { } storage })
+        {
+            return false;
+        }
+
+        var declaredElement = slotPointer.PointedAtType;
+        var readElement = targetElement ?? declaredElement;
+        if (!TryPrimitiveSize(declaredElement, out var declaredSize)
+            || !TryPrimitiveSize(storage, out var storageSize)
+            || !TryPrimitiveSize(readElement, out var targetSize)
+            || declaredSize % storageSize != 0
+            || targetSize % storageSize != 0)
+        {
+            return false;
+        }
+
+        // 形态与尺寸与 IsReinterpretBodyEligible / R6 TryBuildReinterpretRead
+        // 接受域一致：偏移为任意编译期常量（负偏移在 R6 生成 index - k，
+        // 入口索引运行时才可知，前置门不做越界判决）；plan 存在本身已保证
+        // 体内该形参全部使用都是只读前缀解引用。
+        return true;
+    }
+
+    /// <summary>
+    /// 判定指针强转是否为「重解释存储实参」：<c>(T2*)(p ± k)</c> 作为位置实参
+    /// 传给源码内配对方法，且对应形参槽带
+    /// <see cref="PairedParamPlan.StorageElement"/> 约束（实存 T1[]）。
+    /// R3/R6 的 cast 前置门据此放行，调用点由 R6 ExpandPairedInvocation
+    /// 剥除强转、按「数组 + 存储单位索引」展开；不可证根由 R6 落 UF020。
+    /// </summary>
+    public bool IsReinterpretArgumentCast(
+        CastExpressionSyntax cast,
+        SemanticModel model,
+        OriginalSyntaxResolver? resolver)
+    {
+        if (cast.Type is not PointerTypeSyntax) return false;
+
+        SyntaxNode? current = cast;
+        while (current.Parent is ParenthesizedExpressionSyntax parenthesized
+               && parenthesized.Expression == current)
+        {
+            current = parenthesized;
+        }
+
+        if (current.Parent is not ArgumentSyntax argument
+            || argument.Expression != (ExpressionSyntax)current
+            || argument.NameColon != null)
+        {
+            return false;
+        }
+
+        if (argument.Parent is not ArgumentListSyntax argumentList
+            || argumentList.Parent is not InvocationExpressionSyntax invocation)
+        {
+            return false;
+        }
+
+        var parameterIndex = argumentList.Arguments.IndexOf(argument);
+        if (parameterIndex < 0) return false;
+
+        var modelInvocation = invocation.SyntaxTree == model.SyntaxTree
+            ? invocation
+            : resolver?.Resolve(invocation) as InvocationExpressionSyntax;
+        if (modelInvocation == null) return false;
+
+        var inner = UnwrapParentheses(cast.Expression);
+        var modelInner = inner.SyntaxTree == model.SyntaxTree
+            ? inner
+            : resolver?.Resolve(inner) as ExpressionSyntax;
+        if (model.GetTypeInfo(modelInner ?? inner).Type is not IPointerTypeSymbol innerPointer
+            || !IsWhitelistElement(innerPointer.PointedAtType))
+        {
+            return false;
+        }
+
+        var info = model.GetSymbolInfo(modelInvocation);
+        var methods = new List<IMethodSymbol>();
+        if (info.Symbol is IMethodSymbol direct) methods.Add(direct);
+        foreach (var candidate in info.CandidateSymbols)
+        {
+            if (candidate is IMethodSymbol candidateMethod) methods.Add(candidateMethod);
+        }
+
+        foreach (var method in methods)
+        {
+            if (GetPlan(method) is not { } plan) continue;
+            if (parameterIndex >= plan.Parameters.Count) continue;
+            var slot = plan.Parameters[parameterIndex];
+            if (slot.Kind == PairedParamKind.PlainPointer && slot.StorageElement != null)
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// R5 配对声明节点注解 id → 原方法符号（catalog 随单次 RewriteFile 存活；
     /// 本工程 Roslyn 包不暴露 SymbolKey 公共 API，用进程内标识承载）。
     /// </summary>
@@ -120,6 +446,7 @@ internal sealed class PointerMethodCatalog
     public PairedMethodPlan? GetPlan(IMethodSymbol? method)
     {
         if (method == null) return null;
+        if (IsTreeDisabled(method)) return null;
         if (_cache.TryGetValue(method, out var cached)) return cached;
 
         // 调用图环：在途方法按「配对」返回临时候选（其形参计划与最终计划仅
@@ -235,7 +562,173 @@ internal sealed class PointerMethodCatalog
 
         if (!paired) return null;
 
+        // 重解释存储约束（(T2*)(T1* p) 调用族）：把对应指针形参的存储元素
+        // 钉为 T1 并校验体内使用全部是只读打包解引用；冲突/越界使用即不可
+        // 配对（计划 null，调用点落 UF020/UF021）。
+        if (!TryApplyReinterpretStorage(method, paramPlans, treeModel, declaration))
+            return null;
+
         return FinalizePlan(method, paramPlans, returnsPointer);
+    }
+
+    /// <summary>
+    /// 套用信号⑦记录的重解释存储约束：异类存储（声明 T2*、实存 T1[]）写入
+    /// 形参计划，并逐形参校验方法体内对该形参的所有使用都落在
+    /// <c>*p</c> / <c>*(p ± k)</c> / <c>*(T3*)(p ± k)</c> 只读解引用链内
+    /// （k 为编译期常量；解引用不得为赋值目标）。任一条件不满足即冲突。
+    /// </summary>
+    private bool TryApplyReinterpretStorage(
+        IMethodSymbol method,
+        List<PairedParamPlan> paramPlans,
+        SemanticModel model,
+        SyntaxNode declaration)
+    {
+        if (_reinterpretConflicts.Contains(method))
+            return false;
+
+        if (!_reinterpretStorage.TryGetValue(method, out var constraints))
+            return true;
+
+        foreach (var pair in constraints)
+        {
+            var index = pair.Key;
+            var storage = pair.Value;
+            if ((uint)index >= (uint)paramPlans.Count)
+            {
+                _reinterpretConflicts.Add(method);
+                return false;
+            }
+
+            var plan = paramPlans[index];
+            if (plan is not { Kind: PairedParamKind.PlainPointer, Symbol: { } parameter }
+                || parameter.Type is not IPointerTypeSymbol declaredPointer)
+            {
+                _reinterpretConflicts.Add(method);
+                return false;
+            }
+
+            var declaredElement = declaredPointer.PointedAtType;
+            if (SymbolEqualityComparer.Default.Equals(storage, declaredElement))
+                continue;
+
+            if (!IsWhitelistElement(storage)
+                || !TryPrimitiveSize(declaredElement, out var declaredSize)
+                || !TryPrimitiveSize(storage, out var storageSize)
+                || declaredSize < storageSize
+                || declaredSize % storageSize != 0)
+            {
+                _reinterpretConflicts.Add(method);
+                return false;
+            }
+
+            paramPlans[index] = plan with { StorageElement = storage };
+        }
+
+        foreach (var plan in paramPlans)
+        {
+            if (plan.StorageElement == null || plan.Symbol == null)
+                continue;
+            if (!IsReinterpretBodyEligible(declaration, model, plan.Symbol))
+            {
+                _reinterpretConflicts.Add(method);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 重解释形参体内使用合法性：形参标识符只允许出现在
+    /// <c>p</c>/<c>p ± const</c>（可再经一层指针强转）→ 前缀解引用链内，
+    /// 且解引用为读取；形参出现在实参、返回、比较、自增、下标、裸赋值等
+    /// 其它位置均判不可降级。
+    /// </summary>
+    private static bool IsReinterpretBodyEligible(
+        SyntaxNode declaration,
+        SemanticModel model,
+        IParameterSymbol parameter)
+    {
+        var nestedScopes = NestedScopes(declaration);
+
+        foreach (var identifier in declaration.DescendantNodes()
+                     .OfType<IdentifierNameSyntax>())
+        {
+            if (nestedScopes.Any(n => n != identifier && n.Contains(identifier)))
+                continue;
+            if (!SymbolEqualityComparer.Default.Equals(
+                    model.GetSymbolInfo(identifier).Symbol, parameter))
+            {
+                continue;
+            }
+
+            ExpressionSyntax cursor = identifier;
+            SyntaxNode? parent = cursor.Parent;
+
+            // p ± const：仅一层，另一侧必须是编译期常量。
+            if (parent is BinaryExpressionSyntax binary
+                && (binary.IsKind(SyntaxKind.AddExpression)
+                    || binary.IsKind(SyntaxKind.SubtractExpression))
+                && (binary.Left == cursor || binary.Right == cursor))
+            {
+                var other = binary.Left == cursor ? binary.Right : binary.Left;
+                if (model.GetTypeInfo(binary).Type is not IPointerTypeSymbol
+                    || model.GetConstantValue(other).Value is not int)
+                {
+                    return false;
+                }
+
+                cursor = binary;
+                parent = binary.Parent;
+            }
+
+            while (parent is ParenthesizedExpressionSyntax parenthesized
+                   && parenthesized.Expression == cursor)
+            {
+                cursor = parenthesized;
+                parent = parenthesized.Parent;
+            }
+
+            // 可选一层 (T3*) 重解释强转；目标元素必须在白名单内。
+            if (parent is CastExpressionSyntax cast && cast.Expression == cursor)
+            {
+                if (model.GetTypeInfo(cast).Type is not IPointerTypeSymbol castPointer
+                    || !IsWhitelistElement(castPointer.PointedAtType)
+                    || !TryPrimitiveSize(castPointer.PointedAtType, out var targetSize)
+                    || (TryPrimitiveSize(
+                            ((IPointerTypeSymbol)parameter.Type).PointedAtType,
+                            out var paramSize)
+                        && targetSize > paramSize))
+                {
+                    return false;
+                }
+
+                cursor = cast;
+                parent = cast.Parent;
+                while (parent is ParenthesizedExpressionSyntax wrapped
+                       && wrapped.Expression == cursor)
+                {
+                    cursor = wrapped;
+                    parent = wrapped.Parent;
+                }
+            }
+
+            // 必须落到前缀解引用（读取）。
+            if (parent is not PrefixUnaryExpressionSyntax
+                    { RawKind: (int)SyntaxKind.PointerIndirectionExpression } dereference
+                || dereference.Operand != cursor)
+            {
+                return false;
+            }
+
+            if (dereference.Parent is AssignmentExpressionSyntax assignment
+                && assignment.Left == dereference)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private PairedMethodPlan FinalizePlan(
@@ -686,19 +1179,111 @@ internal sealed class PointerMethodCatalog
                     continue;
                 }
 
-                var forcedByArg = invocation.ArgumentList.Arguments.Any(argument =>
-                    model.GetTypeInfo(argument.Expression).Type is IPointerTypeSymbol
-                    && CollectRootSymbols(argument.Expression, model)
-                        .Any(provableRoots.Contains));
+                // 回滚文件中的被调方签名维持指针形态，强制边不成立：调用点按
+                // 不可证外发处理（活动调用方随之回滚），避免跨文件签名错配。
+                if (_disabledTrees.Contains(
+                        callee.DeclaringSyntaxReferences[0].SyntaxTree))
+                {
+                    continue;
+                }
+
+                var constraintsChanged = false;
+                var forcedByArg = false;
+                var arguments = invocation.ArgumentList.Arguments;
+                for (var i = 0; i < arguments.Count; i++)
+                {
+                    var argument = arguments[i];
+                    if (model.GetTypeInfo(argument.Expression).Type
+                        is not IPointerTypeSymbol)
+                    {
+                        continue;
+                    }
+
+                    if (!CollectRootSymbols(argument.Expression, model)
+                            .Any(provableRoots.Contains))
+                    {
+                        continue;
+                    }
+
+                    forcedByArg = true;
+
+                    // 记录该形参位的实际存储元素：(T2*)inner（inner 为异类
+                    // T1*）→ T1；裸/同型实参 → 声明元素 T2。仅位置实参。
+                    if (argument.NameColon == null
+                        && i < callee.Parameters.Length
+                        && callee.Parameters[i].Type is IPointerTypeSymbol slotPointer)
+                    {
+                        var storage = ResolveArgumentStorageElement(
+                            argument.Expression, model, slotPointer.PointedAtType);
+                        if (storage != null
+                            && RecordStorageConstraint(callee, i, storage))
+                        {
+                            constraintsChanged = true;
+                        }
+                    }
+                }
+
                 if (!forcedByArg) continue;
 
-                if (_forced.Add(callee))
+                if (_forced.Add(callee) || constraintsChanged)
                 {
                     _cache.Remove(callee);
                     GetPlan(callee);
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// 解析指针实参在被调形参位上的实际存储元素：实参为异类指针强转
+    /// <c>(T2*)inner</c>（inner 静态类型为 T1*，T1 白名单且与 T2 不同）时
+    /// 返回 T1；其余形态（裸标识符、同型强转、算术等）返回声明元素 T2。
+    /// </summary>
+    private static ITypeSymbol? ResolveArgumentStorageElement(
+        ExpressionSyntax argument,
+        SemanticModel model,
+        ITypeSymbol declaredElement)
+    {
+        var expression = UnwrapParentheses(argument);
+        if (expression is CastExpressionSyntax cast
+            && cast.Type is PointerTypeSyntax
+            && model.GetTypeInfo(UnwrapParentheses(cast.Expression)).Type
+                is IPointerTypeSymbol innerPointer
+            && IsWhitelistElement(innerPointer.PointedAtType)
+            && !SymbolEqualityComparer.Default.Equals(
+                innerPointer.PointedAtType, declaredElement))
+        {
+            return innerPointer.PointedAtType;
+        }
+
+        return declaredElement;
+    }
+
+    /// <summary>
+    /// 登记重解释存储约束；同一被调方法同一形参位出现不同存储即置冲突。
+    /// 返回 true 表示约束集合发生变化（调用方需失效缓存重求计划）。
+    /// </summary>
+    private bool RecordStorageConstraint(
+        IMethodSymbol callee,
+        int parameterIndex,
+        ITypeSymbol storage)
+    {
+        if (!_reinterpretStorage.TryGetValue(callee, out var constraints))
+        {
+            constraints = new Dictionary<int, ITypeSymbol>();
+            _reinterpretStorage[callee] = constraints;
+        }
+
+        if (constraints.TryGetValue(parameterIndex, out var existing))
+        {
+            if (SymbolEqualityComparer.Default.Equals(existing, storage))
+                return false;
+            _reinterpretConflicts.Add(callee);
+            return true;
+        }
+
+        constraints[parameterIndex] = storage;
+        return true;
     }
 
     /// <summary>
@@ -761,6 +1346,18 @@ internal sealed class PointerMethodCatalog
             .Where(d => d.FirstAncestorOrSelf<LocalDeclarationStatementSyntax>() != null
                 && !IsInsideNestedScope(d))
             .ToList();
+
+        // UF040 降级域种子：裸指针 stackalloc 局部（其初值即新堆数组）始终
+        // 作为可证根参与外发边强制——无论当前方法自身是否配对，被调方都必须
+        // 按配对约定接收「数组 + 索引」（stackalloc 降级后调用点只有 int 索引）。
+        foreach (var declarator in locals)
+        {
+            if (model.GetDeclaredSymbol(declarator) is { } declared
+                && _stackAllocCursorRoots.Contains(declared))
+            {
+                roots.Add(declared);
+            }
+        }
 
         var changed = true;
         while (changed)
@@ -941,21 +1538,36 @@ internal sealed class PointerMethodCatalog
                     continue;
 
                 var expression = UnwrapParentheses(argument.Expression);
-                // 裸形参/裸别名：整组数组可直接传递，array-only 足以承载。
-                if (expression is IdentifierNameSyntax)
+
+                // 重解释实参 (T2*)inner：剥掉一层白名单异类/同型指针强转，按
+                // inner 判定（inner 为形参 ± 常量时本方法仍须配对，被调方按
+                // 重解释存储约定接收——见 TryApplyReinterpretStorage）。
+                var probe = expression;
+                if (expression is CastExpressionSyntax pointerCast
+                    && pointerCast.Type is PointerTypeSyntax
+                    && model.GetTypeInfo(UnwrapParentheses(pointerCast.Expression)).Type
+                        is IPointerTypeSymbol innerPointerType
+                    && IsWhitelistElement(innerPointerType.PointedAtType))
+                {
+                    probe = UnwrapParentheses(pointerCast.Expression);
+                }
+
+                // 裸形参/裸别名（含裸强转 (T2*)p）：整组数组可直接传递，
+                // array-only 足以承载。
+                if (probe is IdentifierNameSyntax)
                     continue;
-                // 取址实参走 &arr[i] 通道；指针强转实参走 UF021/R6 既有判决。
-                if (expression is PrefixUnaryExpressionSyntax
+                // 取址实参走 &arr[i] 通道；其余指针强转实参走 UF021/R6 既有判决。
+                if (probe is PrefixUnaryExpressionSyntax
                     { RawKind: (int)SyntaxKind.AddressOfExpression })
                 {
                     continue;
                 }
 
-                if (expression is CastExpressionSyntax)
+                if (probe is CastExpressionSyntax)
                     continue;
 
                 var roots = ExpandRoots(
-                    CollectRootSymbols(argument.Expression, model), closure);
+                    CollectRootSymbols(probe, model), closure);
                 if (roots.Any(pointerParams.Contains))
                     return true;
             }
@@ -1240,6 +1852,14 @@ internal sealed record PairedParamPlan
     /// 该形参自身即源槽代表。决定 R5 flow 登记的源槽归属。
     /// </summary>
     public IParameterSymbol? SlotBaseSymbol { get; init; }
+
+    /// <summary>
+    /// 重解释存储元素：形参声明为 T2* 但唯一调用族以 <c>(T2*)(T1* p)</c>
+    /// 传入异类存储（如 long* 形参实由 char[] 承载）时为 T1。R5 数组形参用
+    /// T1[]，R6 体内 <c>*(T3*)(p±k)</c> 按字节偏移在 T1 存储上打包读取；
+    /// null 表示常规同元素配对。
+    /// </summary>
+    public ITypeSymbol? StorageElement { get; init; }
 }
 
 internal sealed record PairedMethodPlan

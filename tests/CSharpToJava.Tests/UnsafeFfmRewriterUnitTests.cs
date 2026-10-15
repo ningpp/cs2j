@@ -1042,39 +1042,244 @@ public class UnsafeFfmRewriterUnitTests
     }
 
     [Fact]
-    public void StackAlloc_BarePointerTarget_Rejected_UF040_OriginalPreserved()
+    public void StackAlloc_BarePointerTarget_ConstantLength_LoweredToHeapArrayAndIndex()
     {
         var src = """
             unsafe class C
             {
-                static void M()
+                static int M()
                 {
                     int* p = stackalloc int[8];
-                    System.Console.Write(p[0]);
+                    p[0] = 11;
+                    p[3] = p[0] + 1;
+                    return p[3];
                 }
             }
             """;
 
         var result = Rewrite(src);
 
-        Assert.False(result.Changed);
-        Assert.True(result.HasErrors);
-        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF040);
-        Assert.Equal(1, result.Statistics.Uf040Rejections);
-        // 原文回滚。
-        Assert.Contains("int* p = stackalloc int[8];", result.OutputCode);
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Equal(0, result.Statistics.Uf040Rejections);
+        Assert.Equal(1, result.Statistics.ExplicitStackAllocCollected);
+        Assert.Contains("int[] _p_array = new int[8];", result.OutputCode);
+        Assert.Contains("int p = 0;", result.OutputCode);
+        // 常量下标语义保持为「索引局部 + 常量」（R6 既有元素访问形态）。
+        Assert.Contains("_p_array[(p) + (0)] = 11;", result.OutputCode);
+        Assert.Contains("_p_array[(p) + (3)] = _p_array[(p) + (0)] + 1;", result.OutputCode);
+        Assert.DoesNotContain("stackalloc", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
     }
 
     [Fact]
-    public void StackAlloc_VarTarget_IsPointerSite_Rejected_UF040()
+    public void StackAlloc_VarPointerTarget_LoweredToHeapArrayAndIndex()
     {
         var src = """
             unsafe class C
             {
-                static void M()
+                static int M()
                 {
                     var x = stackalloc int[4];
-                    System.Console.Write(x[0]);
+                    x[2] = 9;
+                    return x[2];
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Equal(0, result.Statistics.Uf040Rejections);
+        Assert.Contains("int[] _x_array = new int[4];", result.OutputCode);
+        Assert.Contains("int x = 0;", result.OutputCode);
+        Assert.Contains("_x_array[(x) + (2)] = 9;", result.OutputCode);
+        Assert.DoesNotContain("stackalloc", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_BarePointerTarget_NonConstantLength_LoweredPreservingOverflowBehavior()
+    {
+        var src = """
+            unsafe class C
+            {
+                static int M(int n)
+                {
+                    byte* p = stackalloc byte[n];
+                    p[0] = 7;
+                    return p[0];
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Equal(0, result.Statistics.Uf040Rejections);
+        // 负长度：new byte[n] 与 stackalloc byte[n] 同样抛 OverflowException；
+        // 同名索引局部一律为 int。
+        Assert.Contains("byte[] _p_array = new byte[n];", result.OutputCode);
+        Assert.Contains("int p = 0;", result.OutputCode);
+        Assert.DoesNotContain("stackalloc", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_BarePointerTarget_DereferenceReadWrite_Lowered()
+    {
+        var src = """
+            unsafe class C
+            {
+                static int M()
+                {
+                    int* p = stackalloc int[2];
+                    *p = 4;
+                    return *p;
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("_p_array[p] = 4;", result.OutputCode);
+        Assert.Contains("return _p_array[p];", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_BarePointerTarget_PointerIncrement_LoweredToIndexIncrement()
+    {
+        var src = """
+            unsafe class C
+            {
+                static int M()
+                {
+                    int* p = stackalloc int[4];
+                    p[0] = 1;
+                    p[1] = 2;
+                    p++;
+                    int v = *p;
+                    p += 2;
+                    return v + p[0];
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("int[] _p_array = new int[4];", result.OutputCode);
+        Assert.Contains("p++", result.OutputCode);
+        Assert.Contains("p += 2", result.OutputCode);
+        Assert.DoesNotContain("stackalloc", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_BarePointerTarget_UnsignedElement_Lowered()
+    {
+        var src = """
+            unsafe class C
+            {
+                static uint M()
+                {
+                    uint* p = stackalloc uint[4];
+                    p[0] = 0xFFFFFFFFu;
+                    p[1]++;
+                    return p[0] + p[1];
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("uint[] _p_array = new uint[4];", result.OutputCode);
+        Assert.Contains("int p = 0;", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_BarePointerTarget_PairedSourceCallee_ExpandedToArrayAndZeroIndex()
+    {
+        var src = """
+            unsafe class C
+            {
+                static int M(string s)
+                {
+                    byte* numbers = stackalloc byte[4];
+                    numbers[0] = 0;
+                    return Parse(s, numbers, 0, 1);
+                }
+
+                private static unsafe int Parse(string name, byte* numbers, int start, int end)
+                {
+                    fixed (char* ipString = name)
+                    {
+                        return numbers[start] + ipString[end - start] + (int)*numbers;
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Equal(0, result.Statistics.Uf040Rejections);
+        // 调用点实参展开为「伴生数组 + 0 起点索引局部」。
+        Assert.Contains("Parse(s, _numbers_array, numbers, 0, 1)", result.OutputCode);
+        // 被调签名按 paired-index 改写。
+        Assert.Contains("byte[] numbers, int numbersIndex", result.OutputCode);
+        Assert.DoesNotContain("stackalloc", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_BarePointerTarget_NestedFixedOffsetFrame_Lowered()
+    {
+        var src = """
+            unsafe class C
+            {
+                static int M()
+                {
+                    int* p = stackalloc int[8];
+                    for (int i = 0; i < 8; i++) p[i] = i;
+                    fixed (int* q = &p[2])
+                    {
+                        q[0] = 42;
+                        return q[1];
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Equal(0, result.Statistics.Uf040Rejections);
+        Assert.DoesNotContain("stackalloc", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_BarePointerTarget_Returned_StillRejected_UF040()
+    {
+        var src = """
+            unsafe class C
+            {
+                static int* M()
+                {
+                    int* p = stackalloc int[4];
+                    return p;
                 }
             }
             """;
@@ -1085,7 +1290,142 @@ public class UnsafeFfmRewriterUnitTests
         Assert.True(result.HasErrors);
         Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF040);
         Assert.Equal(1, result.Statistics.Uf040Rejections);
-        Assert.Contains("var x = stackalloc int[4];", result.OutputCode);
+        Assert.Contains("int* p = stackalloc int[4];", result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_BarePointerTarget_LambdaCapture_StillRejected_UF040()
+    {
+        var src = """
+            using System;
+            unsafe class C
+            {
+                static int M()
+                {
+                    int* p = stackalloc int[4];
+                    Func<int> f = () => p[0];
+                    return f();
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF040);
+    }
+
+    [Fact]
+    public void StackAlloc_BarePointerTarget_RefArgument_StillRejected_UF040()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void Take(ref int* q) { q[0] = 1; }
+                static int M()
+                {
+                    int* p = stackalloc int[4];
+                    Take(ref p);
+                    return p[0];
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF040);
+    }
+
+    [Fact]
+    public void StackAlloc_BarePointerTarget_NonWhitelistPointerCallee_StillRejected_UF040()
+    {
+        var src = """
+            unsafe struct Box { public int A; public int B; }
+            unsafe class C
+            {
+                static void Consume(Box* b) { b->A = 1; }
+                static int M()
+                {
+                    Box* p = stackalloc Box[2];
+                    Consume(p);
+                    return p[0].A;
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF040);
+    }
+
+    [Fact]
+    public void StackAlloc_BarePointerTarget_LoweringIsIdempotent()
+    {
+        var src = """
+            unsafe class C
+            {
+                static int M()
+                {
+                    int* p = stackalloc int[4];
+                    p[0] = 5;
+                    return p[0];
+                }
+            }
+            """;
+
+        var first = Rewrite(src);
+        Assert.True(first.Changed);
+        Assert.False(first.HasErrors);
+
+        var second = Rewrite(first.OutputCode);
+
+        Assert.False(second.Changed);
+        Assert.False(second.HasErrors);
+        Assert.Empty(second.Diagnostics);
+        Assert.DoesNotContain("stackalloc", second.OutputCode);
+        AssertOutputCompiles(second.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_BarePointerTarget_MetadataEncodingGetBytes_RewrittenToArrayOverload()
+    {
+        var src = """
+            using System.Text;
+            unsafe class C
+            {
+                static int M(string input, int i, int count)
+                {
+                    byte* bytes = stackalloc byte[160];
+                    fixed (char* pStr = input)
+                    {
+                        return Encoding.UTF8.GetBytes(pStr + i, count, bytes, 160);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Equal(0, result.Statistics.Uf040Rejections);
+        Assert.Equal(0, result.Statistics.Uf020Rejections);
+        // 指针重载 → 托管数组重载：两个指针实参各展开为数组+索引；bytes 索引
+        // 全程恒 0，当运行库只提供 5 参形态时容量实参按零不变后备消去
+        // （bytes.Length-0 恰为原容量 160，语义一致）。两种形态均接受。
+        Assert.True(
+            result.OutputCode.Contains(
+                "Encoding.UTF8.GetBytes(_pStr_array, pStr + i, count, _bytes_array, bytes, 160)")
+            || result.OutputCode.Contains(
+                "Encoding.UTF8.GetBytes(_pStr_array, pStr + i, count, _bytes_array, bytes)"),
+            result.OutputCode);
+        Assert.DoesNotContain("stackalloc", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
     }
 
     [Fact]
@@ -3952,5 +4292,148 @@ public class UnsafeFfmRewriterUnitTests
         Assert.Contains("static int Count(char[] p)", result.OutputCode);
         Assert.DoesNotContain("pIndex", result.OutputCode);
         Assert.Contains("GetByteCount(p, 3)", result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_SpanOnlyMembers_SliceFillClear_RetainsSpanTarget()
+    {
+        var src = """
+            class C
+            {
+                static int M(int n)
+                {
+                    System.Span<char> buf = stackalloc char[n];
+                    buf.Fill('x');
+                    System.Span<char> tail = buf.Slice(1);
+                    tail.Clear();
+                    return buf.Length;
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors, string.Join("\n", result.Diagnostics));
+        // Span 专有成员（Fill/Slice/Clear）要求目标保留 Span<T>；堆化只换分配源。
+        Assert.Contains("System.Span<char> buf = new char[n]", result.OutputCode);
+        Assert.Contains(".Fill('x')", result.OutputCode);
+        Assert.Contains(".Slice(1)", result.OutputCode);
+        Assert.Contains(".Clear()", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020b_ReinterpretStorage_KnownSchemesChain_PackedReadAndCallExpanded()
+    {
+        // Uri.cs CheckKnownSchemes 链最小复现：调用方 char* 游标经 (long*) 重解释
+        // 强转传给被调，被调 long* 形参实存 char[]，体内只读前缀解引用链。
+        var src = """
+            unsafe class C
+            {
+                static bool Known(long* lptr, ushort n)
+                {
+                    const long m0 = 'h' | (('t' << 0));
+                    if (*lptr == m0) return true;
+                    if (*(char*)(lptr + 1) == 's') return true;
+                    if (*(int*)(lptr + 1) == 2) return true;
+                    if (*(lptr + 1) == 2) return false;
+                    return false;
+                }
+
+                static ushort Parse(char* uriString, ushort length)
+                {
+                    ushort idx = 1;
+                    ushort end = 5;
+                    if (Known((long*)(uriString + idx), (ushort)(end - idx)))
+                        return end;
+                    char* schemePtr = stackalloc char[end - idx];
+                    schemePtr[0] = uriString[idx];
+                    return 0;
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors, string.Join("\n", result.Diagnostics));
+        // 被调形参按重解释存储元素 char 钉定：long* → char[] + int 索引。
+        Assert.Contains("static bool Known(char[] lptr, int lptrIndex, ushort n)", result.OutputCode);
+        // *lptr 小端打包读（char[] 4 元拼 long）。
+        Assert.Contains("(long)((ulong)lptr[lptrIndex]", result.OutputCode);
+        // *(char*)(lptr+1)：存储单位偏移 4（long = 4×char）的窄读。
+        Assert.Contains("lptr[lptrIndex + 4]", result.OutputCode);
+        // *(int*)(lptr+1)：两存储单位拼 int。
+        Assert.Contains("lptr[lptrIndex + 5] << 16", result.OutputCode);
+        // 调用点剥除重解释强转，按「数组 + 存储单位索引」展开。
+        Assert.Contains("Known(uriString, uriStringIndex + idx, (ushort)(end - idx))", result.OutputCode);
+        // 非常量长度 stackalloc → 伴生堆数组 + 同名 int 索引（UF040 降级）。
+        Assert.Contains("char[] _schemePtr_array = new char[end - idx]", result.OutputCode);
+        Assert.Contains("int schemePtr = 0", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020b_ReinterpretStorage_AcrossFiles_SessionCatalogClosesBothSides()
+    {
+        // 声明点（文件2）与调用点（文件1）分处两文件：共享 compilation + 共享
+        // preprocessor 序列改写，会话级 catalog 闭包必须给出两侧一致的配对形态。
+        var caller = """
+            unsafe class Caller
+            {
+                public static ushort Parse(char* uriString, ushort length)
+                {
+                    ushort idx = 1;
+                    ushort end = 5;
+                    if (Callee.Known((long*)(uriString + idx), (ushort)(end - idx)))
+                        return end;
+                    char* schemePtr = stackalloc char[end - idx];
+                    schemePtr[0] = uriString[idx];
+                    return 0;
+                }
+            }
+            """;
+        var callee = """
+            unsafe class Callee
+            {
+                public static bool Known(long* lptr, ushort n)
+                {
+                    if (*lptr == 0L) return true;
+                    if (*(char*)(lptr + 1) == 's') return true;
+                    if (*(int*)(lptr + 1) == 2) return false;
+                    return false;
+                }
+            }
+            """;
+
+        var tree1 = CSharpSyntaxTree.ParseText(caller, ParseOptions);
+        var tree2 = CSharpSyntaxTree.ParseText(callee, ParseOptions);
+        var compilation = CSharpCompilation.Create("uffm-reinterpret-multi",
+            new[] { tree1, tree2 }, GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var preprocessor = new UnsafeFfmPreprocessor();
+
+        var r1 = preprocessor.RewriteFile(caller, compilation.GetSemanticModel(tree1));
+        var r2 = preprocessor.RewriteFile(callee, compilation.GetSemanticModel(tree2));
+
+        Assert.False(r1.HasErrors, string.Join("\n", r1.Diagnostics));
+        Assert.False(r2.HasErrors, string.Join("\n", r2.Diagnostics));
+        Assert.Contains("static bool Known(char[] lptr, int lptrIndex, ushort n)", r2.OutputCode);
+        Assert.Contains("lptr[lptrIndex + 4]", r2.OutputCode);
+        Assert.Contains("Callee.Known(uriString, uriStringIndex + idx, (ushort)(end - idx))", r1.OutputCode);
+        Assert.Contains("char[] _schemePtr_array = new char[end - idx]", r1.OutputCode);
+
+        // 两文件合在一起可编译。
+        var verify = CSharpCompilation.Create("uffm-reinterpret-multi-verify",
+            new[]
+            {
+                CSharpSyntaxTree.ParseText(r1.OutputCode, ParseOptions),
+                CSharpSyntaxTree.ParseText(r2.OutputCode, ParseOptions),
+            },
+            GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var errors = verify.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0, string.Join("\n", errors));
     }
 }

@@ -35,9 +35,209 @@ public sealed class UnsafeFfmPreprocessor
     private readonly HashSet<string> _facadeSupportEmittedAssemblies =
         new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// 编译级配对计划 catalog（一轮 RewriteFile 序列共享）及其所属编译。
+    /// stackalloc 段开启时惰性引导：全树 prescan → 回滚树集合不动点 →
+    /// ResetRound + ComputeClosure，保证跨文件声明点/调用点结论一致。
+    /// </summary>
+    private PointerMethodCatalog? _sessionCatalog;
+    private Compilation? _sessionCompilation;
+
     public UnsafeFfmPreprocessor(UnsafeFfmOptions? options = null)
     {
         _options = options ?? new UnsafeFfmOptions();
+    }
+
+    /// <summary>
+    /// 取本轮 catalog。stackalloc 降级规则段（连同 fixed/pointer 段）开启时
+    /// 返回编译级共享 catalog（首次调用做全树预检引导）；其余开关组合维持
+    /// 逐文件新建 catalog 的既有行为。
+    /// </summary>
+    private PointerMethodCatalog GetCatalog(SemanticModel semanticModel)
+    {
+        var compilation = semanticModel.Compilation;
+        if (_sessionCatalog != null
+            && ReferenceEquals(_sessionCompilation, compilation))
+        {
+            return _sessionCatalog;
+        }
+
+        // 非全段开启：保持逐文件 catalog 的历史行为，不扰动 UF020 路径。
+        if (!_options.EnableStackAlloc
+            || !_options.EnableFixed
+            || !_options.EnablePointer)
+        {
+            return new PointerMethodCatalog(compilation);
+        }
+
+        var catalog = BootstrapSessionCatalog(compilation);
+        _sessionCatalog = catalog;
+        _sessionCompilation = compilation;
+        return catalog;
+    }
+
+    /// <summary>
+    /// 全树预检引导：对编译内全部语法树扫描裸指针 stackalloc 站点，迭代
+    /// 「回滚树集合 → catalog 重置闭包 → 逐站点可降级判定」至不动点。
+    /// 回滚树（prescan 拒绝）内声明的方法不参与配对闭包，活动树发往其的
+    /// 强制边被 catalog 忽略，保证落盘产物跨文件签名一致。
+    /// </summary>
+    private PointerMethodCatalog BootstrapSessionCatalog(Compilation compilation)
+    {
+        var catalog = new PointerMethodCatalog(compilation);
+
+        // 与 catalog 闭包无关的一次性分类：每棵树的裸指针站点，以及 Span
+        // 目标元素不可安全堆化的整文拒绝（prescan 两类拒绝之一）。
+        var pointerSites =
+            new Dictionary<SyntaxTree, List<(ExpressionSyntax Node,
+                VariableDeclaratorSyntax? Declarator)>>();
+        var elementRejectedTrees = new HashSet<SyntaxTree>();
+
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            CompilationUnitSyntax root;
+            SemanticModel model;
+            try
+            {
+                root = (CompilationUnitSyntax)tree.GetRoot();
+                model = compilation.GetSemanticModel(tree);
+            }
+            catch
+            {
+                continue;
+            }
+
+            List<(ExpressionSyntax, VariableDeclaratorSyntax?)>? sites = null;
+
+            foreach (var node in root.DescendantNodes()
+                         .OfType<StackAllocArrayCreationExpressionSyntax>())
+            {
+                if (StackAllocElementSafety.GetSiteType(model, node)
+                    is IPointerTypeSymbol)
+                {
+                    (sites ??= new List<(ExpressionSyntax, VariableDeclaratorSyntax?)>())
+                        .Add((node, FindPointerSeedDeclarator(node)));
+                    continue;
+                }
+
+                var element = StackAllocElementSafety.GetExplicitElement(model, node);
+                if (element == null
+                    || !StackAllocElementSafety.IsSafeElement(element, out _))
+                {
+                    elementRejectedTrees.Add(tree);
+                }
+            }
+
+            foreach (var node in root.DescendantNodes()
+                         .OfType<ImplicitStackAllocArrayCreationExpressionSyntax>())
+            {
+                if (StackAllocElementSafety.GetSiteType(model, node)
+                    is IPointerTypeSymbol)
+                {
+                    (sites ??= new List<(ExpressionSyntax, VariableDeclaratorSyntax?)>())
+                        .Add((node, FindPointerSeedDeclarator(node)));
+                    continue;
+                }
+
+                var element = StackAllocElementSafety.GetImplicitElement(model, node);
+                if (element == null
+                    || !StackAllocElementSafety.IsSafeElement(element, out _))
+                {
+                    elementRejectedTrees.Add(tree);
+                }
+            }
+
+            if (sites != null) pointerSites[tree] = sites;
+        }
+
+        var allTrees = compilation.SyntaxTrees.ToList();
+        var disabled = new HashSet<SyntaxTree>(elementRejectedTrees);
+
+        // 回滚树集合不动点：回滚树外发边剔除后闭包只会收缩，可能令更多
+        // stackalloc 站点失去配对被调方而不可降级 → 其整树加入回滚集。
+        while (true)
+        {
+            catalog.ResetRound(disabled);
+
+            // 先统一登记活动树全部种子，再预取种子所属方法/局部函数计划，
+            // 令信号⑦沿调用图（含跨文件）传播。
+            var seedDeclarators =
+                new List<(SyntaxTree Tree, VariableDeclaratorSyntax Declarator)>();
+            foreach (var (tree, sites) in pointerSites)
+            {
+                if (disabled.Contains(tree)) continue;
+                var model = compilation.GetSemanticModel(tree);
+                foreach (var (_, declarator) in sites)
+                {
+                    if (declarator == null) continue;
+                    if (model.GetDeclaredSymbol(declarator)
+                        is ILocalSymbol { Type: IPointerTypeSymbol })
+                    {
+                        seedDeclarators.Add((tree, declarator));
+                    }
+                }
+            }
+
+            catalog.RegisterStackAllocCursorRoots(seedDeclarators
+                .Select(s =>
+                    compilation.GetSemanticModel(s.Tree)
+                        .GetDeclaredSymbol(s.Declarator))
+                .Where(s => s != null)!);
+
+            foreach (var (tree, declarator) in seedDeclarators)
+            {
+                var model = compilation.GetSemanticModel(tree);
+
+                var enclosingLocalFunction = declarator
+                    .FirstAncestorOrSelf<LocalFunctionStatementSyntax>();
+                if (enclosingLocalFunction != null
+                    && model.GetDeclaredSymbol(enclosingLocalFunction)
+                        is IMethodSymbol localFunction)
+                {
+                    catalog.GetPlan(localFunction);
+                }
+
+                var enclosingMethod = declarator
+                    .FirstAncestorOrSelf<BaseMethodDeclarationSyntax>();
+                if (enclosingMethod != null
+                    && model.GetDeclaredSymbol(enclosingMethod)
+                        is IMethodSymbol method)
+                {
+                    catalog.GetPlan(method);
+                }
+            }
+
+            catalog.ComputeClosure(allTrees.Where(t => !disabled.Contains(t)));
+
+            var newlyDisabled = new HashSet<SyntaxTree>();
+            foreach (var (tree, sites) in pointerSites)
+            {
+                if (disabled.Contains(tree)) continue;
+                var model = compilation.GetSemanticModel(tree);
+
+                foreach (var (_, declarator) in sites)
+                {
+                    if (declarator == null)
+                    {
+                        newlyDisabled.Add(tree);
+                        break;
+                    }
+
+                    if (!StackAllocPointerSafety.IsLowerable(
+                            declarator, model, catalog,
+                            out _, out _))
+                    {
+                        newlyDisabled.Add(tree);
+                        break;
+                    }
+                }
+            }
+
+            if (newlyDisabled.Count == 0) break;
+            disabled.UnionWith(newlyDisabled);
+        }
+
+        return catalog;
     }
 
     /// <summary>
@@ -55,11 +255,27 @@ public sealed class UnsafeFfmPreprocessor
         var root = (CompilationUnitSyntax)semanticModel.SyntaxTree.GetRoot();
         var filePath = semanticModel.SyntaxTree.FilePath;
 
+        // 配对计划 catalog 提前到 prescan 之前创建：裸指针 stackalloc 可降级
+        // 判定（StackAllocPointerSafety）依赖信号⑦强制配对闭包，后者由
+        // GetPlan（含 stackalloc 站点的方法）经 catalog 传播；同一 catalog
+        // 贯穿 R5/R3/R6，声明点与调用点结论一致。stackalloc 规则段开启时
+        // catalog 提升为「单次编译（一轮 RewriteFile 序列）」级：所有文件
+        // 改写前先做全树预检与闭包不动点，避免逐文件新建 catalog 造成跨文件
+        // 强制结论不一致（声明点 array-only、调用点已配对 → 签名错配）。
+        var pointerMethodCatalog = GetCatalog(semanticModel);
+        var lowerableStackAllocLocals =
+            new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var zeroInvariantStackAllocLocals =
+            new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
         // M2 拒绝预检（拒绝优先，先于 R1/R2/R3）：stackalloc 站点为裸指针
-        // （含 var）或元素不可安全堆化时直接 UF040，避免 R3 先以 UF020
-        // 拦截同一构造。判定走 StackAllocElementSafety 共享事实。
+        // （含 var）且使用可证留在可索引域时不拒绝——交 R3 降级为「伴生堆
+        // 数组 + 同名 int 索引」；不可证明不外泄或元素不可安全堆化时直接
+        // UF040，避免 R3 先以 UF020 拦截同一构造。
         if (_options.EnableStackAlloc && TryRejectStackAllocSites(
-                root, semanticModel, filePath, statistics, out var prescanDiagnostics))
+                root, semanticModel, filePath, pointerMethodCatalog, statistics,
+                out var prescanDiagnostics,
+                lowerableStackAllocLocals, zeroInvariantStackAllocLocals))
         {
             return Rollback(sourceCode, statistics, prescanDiagnostics);
         }
@@ -135,7 +351,6 @@ public sealed class UnsafeFfmPreprocessor
         IReadOnlyDictionary<ISymbol, (string ArrayName, bool ReadOnly, string SourceSlot)>
             loweredArrayMap =
             new Dictionary<ISymbol, (string, bool, string)>(SymbolEqualityComparer.Default);
-        var pointerMethodCatalog = new PointerMethodCatalog(semanticModel.Compilation);
 
         if (_options.EnablePointer)
         {
@@ -196,7 +411,8 @@ public sealed class UnsafeFfmPreprocessor
                 statistics,
                 statementResolver,
                 pointerMethodCatalog,
-                flowModel);
+                flowModel,
+                lowerableStackAllocLocals);
             newRoot = (CompilationUnitSyntax)statementRewriter.Visit(newRoot)!;
             foreach (var diagnostic in statementRewriter.Diagnostics)
             {
@@ -280,7 +496,9 @@ public sealed class UnsafeFfmPreprocessor
                 pointerMethodCatalog,
                 statistics,
                 exprResolver,
-                newRoot);
+                newRoot,
+                lowerableStackAllocLocals,
+                zeroInvariantStackAllocLocals);
             newRoot = (CompilationUnitSyntax)exprRewriter.Visit(newRoot)!;
             foreach (var diagnostic in exprRewriter.Diagnostics)
             {
@@ -404,18 +622,29 @@ public sealed class UnsafeFfmPreprocessor
     }
 
     /// <summary>
-    /// stackalloc 拒绝预检：扫描原始树全部显式/隐式 stackalloc 站点，
-    /// 站点为裸指针（含 var 自然类型）或元素不可安全堆化即收集 UF040。
-    /// 返回 true 表示存在拒绝（调用方整文回滚）。
+    /// stackalloc 拒绝预检：扫描原始树全部显式/隐式 stackalloc 站点。
+    /// Span 目标站点仅做元素安全判定（交 R4 堆化）；裸指针（含 var 自然类型）
+    /// 站点先经 <see cref="StackAllocPointerSafety"/> 判定——全部使用可证留在
+    /// 可索引域（下标/*p/自增/同源运算/嵌套 fixed/配对源码方法或白名单指针
+    /// 元数据方法实参）时登记为可降级局部（R3 降级为「伴生堆数组 + 同名 int
+    /// 索引」），否则收集 UF040。返回 true 表示存在拒绝（调用方整文回滚）。
     /// </summary>
-    private static bool TryRejectStackAllocSites(
+    private bool TryRejectStackAllocSites(
         CompilationUnitSyntax root,
         SemanticModel semanticModel,
         string filePath,
+        PointerMethodCatalog catalog,
         UnsafeFfmStatistics statistics,
-        out List<UnsafeFfmDiagnostic> rejected)
+        out List<UnsafeFfmDiagnostic> rejected,
+        HashSet<ISymbol> lowerableLocals,
+        HashSet<ISymbol> zeroInvariantLocals)
     {
         rejected = new List<UnsafeFfmDiagnostic>();
+
+        // 裸指针降级依赖 R3（fixed/指针局部降级）与 R6（表达式索引化）同时在线。
+        var pointerLoweringEnabled = _options.EnableFixed && _options.EnablePointer;
+
+        var pointerSites = new List<(ExpressionSyntax Node, VariableDeclaratorSyntax? Declarator)>();
 
         foreach (var node in root.DescendantNodes()
                      .OfType<StackAllocArrayCreationExpressionSyntax>())
@@ -423,12 +652,7 @@ public sealed class UnsafeFfmPreprocessor
             var siteType = StackAllocElementSafety.GetSiteType(semanticModel, node);
             if (siteType is IPointerTypeSymbol)
             {
-                rejected.Add(MakeUf040(
-                    $"stackalloc expression '{node.ToString().Replace("\n", " ")}' is assigned to a " +
-                    "bare pointer target (including 'var', whose natural type for stackalloc is T*); " +
-                    "it cannot be converted to a Span/array local without changing pointer-only usages. " +
-                    "Rewrite it as 'Span<T> x = stackalloc T[n];' (or an array form) manually.",
-                    node, statistics));
+                pointerSites.Add((node, FindPointerSeedDeclarator(node)));
                 continue;
             }
 
@@ -450,12 +674,7 @@ public sealed class UnsafeFfmPreprocessor
             var siteType = StackAllocElementSafety.GetSiteType(semanticModel, node);
             if (siteType is IPointerTypeSymbol)
             {
-                rejected.Add(MakeUf040(
-                    $"implicit stackalloc expression '{node}' is used at a bare pointer site (including " +
-                    "'var', whose natural type for stackalloc is T*); it cannot be converted to a " +
-                    "Span/array form without changing pointer-only usages. Rewrite it manually with an " +
-                    "explicit 'Span<T>' target.",
-                    node, statistics));
+                pointerSites.Add((node, FindPointerSeedDeclarator(node)));
                 continue;
             }
 
@@ -470,7 +689,105 @@ public sealed class UnsafeFfmPreprocessor
             }
         }
 
+        if (pointerSites.Count == 0) return rejected.Count > 0;
+
+        // 阶段一：统一登记全部候选种子，再预取其所属方法的配对计划，令信号
+        // ⑦强制闭包沿 stackalloc 可证根传播（catalog 逐文件存活，不可降级
+        // 站点所在文件整文回滚，候选过登记不落盘）。
+        var candidateSeeds = new List<VariableDeclaratorSyntax>();
+        foreach (var (_, declarator) in pointerSites)
+        {
+            if (declarator == null) continue;
+            if (semanticModel.GetDeclaredSymbol(declarator) is ILocalSymbol { Type: IPointerTypeSymbol })
+                candidateSeeds.Add(declarator);
+        }
+
+        catalog.RegisterStackAllocCursorRoots(candidateSeeds
+            .Select(d => semanticModel.GetDeclaredSymbol(d))
+            .Where(s => s != null)!);
+        foreach (var declarator in candidateSeeds)
+        {
+            // 种子可能声明于方法体或局部函数体内；最内层局部函数与其外层
+            // 方法均预取计划，使信号⑦强制配对闭包完整传播。
+            var enclosingLocalFunction = declarator
+                .FirstAncestorOrSelf<LocalFunctionStatementSyntax>();
+            if (enclosingLocalFunction != null
+                && semanticModel.GetDeclaredSymbol(enclosingLocalFunction) is IMethodSymbol localFunction)
+            {
+                catalog.GetPlan(localFunction);
+            }
+
+            var enclosingMethod = declarator
+                .FirstAncestorOrSelf<BaseMethodDeclarationSyntax>();
+            if (enclosingMethod != null
+                && semanticModel.GetDeclaredSymbol(enclosingMethod) is IMethodSymbol method)
+            {
+                catalog.GetPlan(method);
+            }
+        }
+
+        // 阶段二：逐站点安全判定。
+        foreach (var (node, declarator) in pointerSites)
+        {
+            if (!pointerLoweringEnabled || declarator == null)
+            {
+                rejected.Add(MakeBarePointerUf040(node, statistics));
+                continue;
+            }
+
+            if (StackAllocPointerSafety.IsLowerable(
+                    declarator, semanticModel, catalog, out var lowerReason, out var staysAtZero))
+            {
+                var local = (ILocalSymbol)semanticModel.GetDeclaredSymbol(declarator)!;
+                lowerableLocals.Add(local);
+                if (staysAtZero) zeroInvariantLocals.Add(local);
+            }
+            else
+            {
+                rejected.Add(MakeUf040(
+                    $"stackalloc expression '{node.ToString().Replace("\n", " ")}' assigned to a bare " +
+                    "pointer target cannot be lowered to a heap array plus index: " + lowerReason +
+                    " Rewrite it as 'Span<T> x = stackalloc T[n];' (or an array form) manually.",
+                    node, statistics));
+            }
+        }
+
         return rejected.Count > 0;
+    }
+
+    /// <summary>
+    /// 找到以该 stackalloc 表达式为初值的局部声明符（经括号/checked 包装
+    /// 解包）；非声明初值（如直接作实参）返回 null。
+    /// </summary>
+    private static VariableDeclaratorSyntax? FindPointerSeedDeclarator(
+        ExpressionSyntax stackAllocNode)
+    {
+        var current = stackAllocNode.Parent;
+        while (current is ParenthesizedExpressionSyntax or CheckedExpressionSyntax)
+            current = current.Parent;
+
+        return current is EqualsValueClauseSyntax
+        {
+            Parent: VariableDeclaratorSyntax declarator
+        } && declarator.Initializer?.Value != null
+            ? declarator
+            : null;
+    }
+
+    private static UnsafeFfmDiagnostic MakeBarePointerUf040(
+        SyntaxNode node, UnsafeFfmStatistics statistics)
+    {
+        var implicitSite = node is ImplicitStackAllocArrayCreationExpressionSyntax;
+        var message = implicitSite
+            ? $"implicit stackalloc expression '{node}' is used at a bare pointer site (including " +
+              "'var', whose natural type for stackalloc is T*); it cannot be converted to a " +
+              "Span/array form without changing pointer-only usages. Rewrite it manually with an " +
+              "explicit 'Span<T>' target."
+            : $"stackalloc expression '{node.ToString().Replace("\n", " ")}' is assigned to a " +
+              "bare pointer target (including 'var', whose natural type for stackalloc is T*); " +
+              "it cannot be converted to a Span/array local without changing pointer-only usages. " +
+              "Rewrite it as 'Span<T> x = stackalloc T[n];' (or an array form) manually.";
+        return MakeUf040(message, node, statistics);
     }
 
     private static UnsafeFfmDiagnostic MakeUf040(

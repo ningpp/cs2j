@@ -60,6 +60,14 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
     private readonly PointerMethodCatalog _catalog;
     private readonly PointerFlowModel _flowModel;
 
+    /// <summary>
+    /// UF040 降级域：prescan 判定可降级的裸指针 stackalloc 局部（原始符号）。
+    /// 命中时声明改写为「同块前置伴生堆数组 <c>T[] _p_array = new T[n];</c>
+    /// + 同名 <c>int p = 0;</c>」，登记进 <see cref="_infos"/> 后其全部使用
+    /// 由 R6 既有索引化/配对展开通道承载。
+    /// </summary>
+    private readonly HashSet<ISymbol> _lowerableStackAllocLocals;
+
     private readonly Dictionary<ISymbol, PtrInfo> _infos = new();
     private readonly HashSet<string> _generatedNames = new();
     private readonly Dictionary<SyntaxNode, HashSet<string>> _scopeNameCache = new();
@@ -82,7 +90,8 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
         UnsafeFfmStatistics statistics,
         OriginalSyntaxResolver resolver,
         PointerMethodCatalog catalog,
-        PointerFlowModel flowModel)
+        PointerFlowModel flowModel,
+        HashSet<ISymbol>? lowerableStackAllocLocals = null)
     {
         _model = model;
         _rewrittenFields = rewrittenFields;
@@ -91,6 +100,8 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
         _resolver = resolver;
         _catalog = catalog;
         _flowModel = flowModel;
+        _lowerableStackAllocLocals = lowerableStackAllocLocals
+            ?? new HashSet<ISymbol>(SymbolEqualityComparer.Default);
     }
 
     /// <summary>
@@ -159,6 +170,13 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
             _pairedStack.RemoveAt(_pairedStack.Count - 1);
         }
     }
+
+    /// <summary>
+    /// 节点当前所处的配对方法计划（R3 按方法/局部函数压栈）；重解释存储读
+    /// 形参判定只在配对方法体内成立。
+    /// </summary>
+    private PairedMethodPlan? ReinterpretPlanForNode(SyntaxNode node)
+        => _pairedStack.Count == 0 ? null : _pairedStack[^1];
 
     private PairedMethodPlan? GetCurrentPlan(SyntaxNode node)
     {
@@ -304,11 +322,17 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
                 case InitKind.String:
                     var sourceExpr = (ExpressionSyntax)record.Payload!;
+                    // 物化调用 .ToCharArray() 的成员绑定优先级高于 ?:/二元/强转：
+                    // 非主表达式（如 fixed (char* p = c ? a : b)）必须先加括号，
+                    // 否则会被误析为 c ? a : b.ToCharArray()，把调用绑到末支。
+                    var materializedSource = IsPrimaryMaterializationSource(sourceExpr)
+                        ? sourceExpr
+                        : ParenthesizedExpression(sourceExpr);
                     var charType = PredefinedType(Token(SyntaxKind.CharKeyword));
                     statements.Add(ArrayLocal(record.ArrayName, charType,
                         InvocationExpression(MemberAccessExpression(
                             SyntaxKind.SimpleMemberAccessExpression,
-                            sourceExpr,
+                            materializedSource,
                             IdentifierName("ToCharArray")))
                         .WithArgumentList(ArgumentList()), node));
                     statements.Add(IndexLocal(ptrName, ZeroLiteral(), lineStart));
@@ -750,6 +774,16 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                 return node;
             }
 
+            // 重解释存储形参上的只读打包读 *p / *(p±k) / *(T3*)(p±k)：
+            // R6 按 StorageElement 计划在异类存储数组上小端拼包，R3 不前置
+            // UF020（亦不遍历子 cast——形态由 R6 在解引用点整体接管）。
+            if (PointerMethodCatalog.MatchesReinterpretStorageRead(
+                    node.Operand, _model, _resolver,
+                    ReinterpretPlanForNode(node)))
+            {
+                return node;
+            }
+
             if (TryResolvePointer(node.Operand, out var array, out var index, out var readOnly))
             {
                 if (readOnly && IsWriteTarget(node))
@@ -1043,6 +1077,16 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
             if (castSymbol != null && _pointerRewritten.Contains(castSymbol))
                 return base.VisitCastExpression(node);
 
+            // 重解释存储读 *(T3*)(p ± k) 与重解释实参 (T2*)(p ± k)：形参/被调
+            // 方配对计划带 StorageElement 时由 R6 统一索引化（小端打包读/
+            // 数组+索引实参展开），R3 不前置 UF021。
+            if (PointerMethodCatalog.MatchesReinterpretStorageRead(
+                    node, _model, _resolver, ReinterpretPlanForNode(node))
+                || _catalog.IsReinterpretArgumentCast(node, _model, _resolver))
+            {
+                return node;
+            }
+
             // R3 已降级 fixed 指针局部（含其别名局部）：归一后 p 只是 int 索引，
             // 对其取整等于把相对索引当绝对地址（HexConverter (IntPtr)p 场景），
             // 显式 UF021，不放行无意义强转。
@@ -1296,6 +1340,15 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
         if (!entries.Any(e => e.sym?.Type is IPointerTypeSymbol))
             return base.VisitLocalDeclarationStatement(node);
 
+        // UF040 降级域：裸指针 stackalloc 单声明 → 同块前置伴生堆数组 +
+        // 同名 int 索引局部（prescan 已完成外泄/同族安全判定）。
+        if (entries.Count == 1
+            && entries[0].sym is { } stackAllocSymbol
+            && _lowerableStackAllocLocals.Contains(stackAllocSymbol))
+        {
+            return LowerStackAllocLocal(node, node.Declaration.Variables[0], stackAllocSymbol);
+        }
+
         // R5 已改写的声明（当前树已是 byte[] q = p 形态）：其指针符号全部在
         // R5 集合内，本规则不能再按旧符号类型降级，否则会误报 UF020。
         if (entries.Where(e => e.sym?.Type is IPointerTypeSymbol)
@@ -1351,11 +1404,23 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                 {
                     arrayName = MakeGeneratedName(declarator.Identifier.ValueText, "array", node);
                     sourceSlot = arrayName;
-                    extraStatements.Add(ArrayLocal(arrayName, elementTypeSyntax,
+                    var nullArrayLocal = ArrayLocal(arrayName, elementTypeSyntax,
                         PostfixUnaryExpression(
                             SyntaxKind.SuppressNullableWarningExpression,
                             LiteralExpression(SyntaxKind.NullLiteralExpression)),
-                        node));
+                        node);
+                    // 伴生数组与同名 int 索引必须同处一块作用域：优先注入父块
+                    // 语句列表（声明前的同一层），不能用嵌套块包裹——后续语句
+                    // 仍要引用这两个名字。
+                    if (node.Parent is BlockSyntax nullParentBlock)
+                    {
+                        InjectBeforeStatement(nullParentBlock, node, nullArrayLocal);
+                    }
+                    else
+                    {
+                        extraStatements.Add(nullArrayLocal);
+                    }
+
                     newInitializer = ZeroLiteral();
                 }
                 else if (TryResolvePointer(initializer,
@@ -1424,6 +1489,122 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
         }
 
         return newStatement;
+    }
+
+    /// <summary>
+    /// UF040 降级：<c>T* p = stackalloc T[n];</c> → 同块语句列表中原声明前
+    /// 注入 <c>T[] _p_array = new T[n];</c>，声明本身变为 <c>int p = 0;</c>，
+    /// 并登记 <see cref="_infos"/>（源槽即伴生数组）。R4 的 residual 闸门
+    /// 天然通过：stackalloc 节点已物化进 new 数组表达式。
+    /// </summary>
+    private StatementSyntax LowerStackAllocLocal(
+        LocalDeclarationStatementSyntax node,
+        VariableDeclaratorSyntax declarator,
+        ILocalSymbol symbol)
+    {
+        var rawInitializer = declarator.Initializer?.Value;
+        var pointerSymbol = (IPointerTypeSymbol)symbol.Type;
+
+        TypeSyntax elementTypeSyntax = node.Declaration.Type is PointerTypeSyntax pointerType
+            ? pointerType.ElementType
+            : ParseTypeName(pointerSymbol.PointedAtType.ToDisplayString());
+
+        // checked(stackalloc T[n]) 与 new T[n] 负长度行为一致（均抛
+        // OverflowException，不依赖溢出检查上下文），剥除 checked 包装。
+        var unwrappedInitializer = rawInitializer!;
+        while (true)
+        {
+            if (unwrappedInitializer is ParenthesizedExpressionSyntax parens)
+            {
+                unwrappedInitializer = parens.Expression;
+                continue;
+            }
+
+            if (unwrappedInitializer is CheckedExpressionSyntax checkedExpression)
+            {
+                unwrappedInitializer = checkedExpression.Expression;
+                continue;
+            }
+
+            break;
+        }
+
+        ExpressionSyntax newArray;
+        if (unwrappedInitializer is StackAllocArrayCreationExpressionSyntax explicitStack)
+        {
+            if (explicitStack.Type is not ArrayTypeSyntax arrayType)
+            {
+                AddError(
+                    UnsafeFfmDiagnosticCode.UF040,
+                    $"stackalloc expression '{explicitStack}' has an unrecognized type shape " +
+                    "(internal rule gap).",
+                    declarator);
+                return node;
+            }
+
+            newArray = ArrayCreationExpression(arrayType)
+                .WithInitializer(explicitStack.Initializer)
+                .WithAdditionalAnnotations(StackAllocRewriter.StackAllocReplacedAnnotation);
+            _statistics.ExplicitStackAllocCollected++;
+        }
+        else if (unwrappedInitializer is ImplicitStackAllocArrayCreationExpressionSyntax implicitStack)
+        {
+            var implicitArrayType = ArrayType(elementTypeSyntax)
+                .WithRankSpecifiers(SingletonList(ArrayRankSpecifier()));
+            newArray = ArrayCreationExpression(implicitArrayType)
+                .WithInitializer(implicitStack.Initializer)
+                .WithAdditionalAnnotations(StackAllocRewriter.StackAllocReplacedAnnotation);
+            _statistics.ImplicitStackAllocCollected++;
+        }
+        else
+        {
+            AddError(
+                UnsafeFfmDiagnosticCode.UF040,
+                $"pointer local '{declarator.Identifier.ValueText}' is registered as a lowerable " +
+                "stackalloc local but its initializer is no longer a stackalloc expression " +
+                "(internal rule gap).",
+                declarator);
+            return node;
+        }
+
+        if (node.Parent is not BlockSyntax parentBlock)
+        {
+            AddError(
+                UnsafeFfmDiagnosticCode.UF040,
+                $"stackalloc pointer local '{declarator.Identifier.ValueText}' must be declared directly " +
+                "in a block so its backing array can be materialized; the original file was preserved.",
+                node);
+            return node;
+        }
+
+        var arrayName = MakeGeneratedName(
+            declarator.Identifier.ValueText, "array", node);
+
+        if (!_blockInjections.TryGetValue(parentBlock, out var per))
+        {
+            per = new Dictionary<StatementSyntax, List<StatementSyntax>>();
+            _blockInjections[parentBlock] = per;
+        }
+
+        if (!per.TryGetValue(node, out var list))
+        {
+            list = new List<StatementSyntax>();
+            per[node] = list;
+        }
+
+        list.Add(ArrayLocal(arrayName, elementTypeSyntax, newArray, node));
+
+        _infos[symbol] = new PtrInfo
+        {
+            ArrayName = arrayName,
+            SourceSlot = arrayName,
+        };
+
+        var rebuiltDeclarator = declarator
+            .WithInitializer(EqualsValueClause(ZeroLiteral()));
+        return node.WithDeclaration(
+            VariableDeclaration(PredefinedType(Token(SyntaxKind.IntKeyword)),
+                SingletonSeparatedList(rebuiltDeclarator)));
     }
 
     // ---- lambda 捕获 ----
@@ -2180,6 +2361,45 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                 .WithInitializer(EqualsValueClause(initializer)))))
             .WithLeadingTrivia(lineStart);
     }
+
+    /// <summary>
+    /// 登记「在原声明语句前注入伴生语句」，由 <see cref="VisitBlock"/> 按锚点
+    /// 插入同一块语句列表（保持作用域，配对/降级局部的伴生数组与 int 索引
+    /// 必须与后续使用同层可见）。
+    /// </summary>
+    private void InjectBeforeStatement(
+        BlockSyntax parentBlock, StatementSyntax anchor, StatementSyntax statement)
+    {
+        if (!_blockInjections.TryGetValue(parentBlock, out var perAnchor))
+        {
+            perAnchor = new Dictionary<StatementSyntax, List<StatementSyntax>>();
+            _blockInjections[parentBlock] = perAnchor;
+        }
+
+        if (!perAnchor.TryGetValue(anchor, out var list))
+        {
+            list = new List<StatementSyntax>();
+            perAnchor[anchor] = list;
+        }
+
+        list.Add(statement);
+    }
+
+    /// <summary>
+    /// <c>.ToCharArray()</c> 可直接后缀的「主表达式」：标识符/成员访问/调用/
+    /// 下标/字面量/括号/this/base/new。其余（条件/二元/强转/赋值/一元等）需先
+    /// 加括号再物化。
+    /// </summary>
+    private static bool IsPrimaryMaterializationSource(ExpressionSyntax expression) =>
+        expression is IdentifierNameSyntax
+            or MemberAccessExpressionSyntax
+            or InvocationExpressionSyntax
+            or ElementAccessExpressionSyntax
+            or LiteralExpressionSyntax
+            or ParenthesizedExpressionSyntax
+            or ThisExpressionSyntax
+            or BaseExpressionSyntax
+            or ObjectCreationExpressionSyntax;
 
     private static LiteralExpressionSyntax ZeroLiteral() =>
         LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(0));

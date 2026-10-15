@@ -197,11 +197,82 @@ internal sealed class StackAllocRewriter : CSharpSyntaxRewriter
 
         if (elementTypeSyntax == null) return visited;
 
+        // 任一变量在其作用域内使用了 Span/ReadOnlySpan 专有实例成员
+        // （Slice/Fill/Clear 等，数组无同名同签名成员）时保留 Span<T>
+        // 声明：Span<T> x = new T[n] 隐式转换合法，而 T[] 上这些访问为
+        // CS1061/CS1503（如 stackSpace.Slice(...)）。
+        foreach (var variable in node.Declaration.Variables)
+        {
+            var originalVariable = _resolver.Resolve(variable);
+            if (originalVariable == null
+                || _model.GetDeclaredSymbol(originalVariable) is not ILocalSymbol spanLocal)
+            {
+                continue;
+            }
+
+            if (UsesSpanOnlyInstanceMember(originalVariable, spanLocal))
+                return visited;
+        }
+
         var arrayDeclarationType = ArrayType(elementTypeSyntax)
             .WithRankSpecifiers(SingletonList(ArrayRankSpecifier(
                 SingletonSeparatedList<ExpressionSyntax>(OmittedArraySizeExpression()))));
 
         return visited.WithDeclaration(visited.Declaration.WithType(arrayDeclarationType));
+    }
+
+    /// <summary>
+    /// 局部在声明作用域内是否使用了 <see cref="Span{T}"/>/ReadOnlySpan
+    /// 专有实例成员（数组无同名同签名成员）：Slice、Fill、Clear、TryCopyTo、
+    /// GetPinnableReference、IsEmpty、ToArray、CopyTo。索引器与 Length 数组
+    /// 同样具备，不在此列。
+    /// </summary>
+    private bool UsesSpanOnlyInstanceMember(
+        VariableDeclaratorSyntax declarator,
+        ILocalSymbol local)
+    {
+        SyntaxNode? scope = declarator.FirstAncestorOrSelf<BlockSyntax>();
+        scope ??= declarator.FirstAncestorOrSelf<ArrowExpressionClauseSyntax>();
+        scope ??= (SyntaxNode?)declarator.FirstAncestorOrSelf<BaseMethodDeclarationSyntax>();
+        if (scope == null) return false;
+
+        foreach (var memberAccess in scope.DescendantNodes()
+                     .OfType<MemberAccessExpressionSyntax>())
+        {
+            var receiverRoots = memberAccess.Expression
+                .DescendantNodesAndSelf()
+                .OfType<IdentifierNameSyntax>();
+            var rootedAtLocal = receiverRoots.Any(identifier =>
+                SymbolEqualityComparer.Default.Equals(
+                    _model.GetSymbolInfo(identifier).Symbol, local));
+            if (!rootedAtLocal) continue;
+
+            var member = _model.GetSymbolInfo(memberAccess).Symbol;
+            if (IsSpanOnlyInstanceMember(member)) return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsSpanOnlyInstanceMember(ISymbol? member)
+    {
+        if (member == null) return false;
+
+        var container = member.ContainingType;
+        if (container is not { Name: "Span" or "ReadOnlySpan" }
+            || container.ContainingNamespace?.ToDisplayString() != "System")
+        {
+            return false;
+        }
+
+        return member.Name is "Slice"
+            or "Fill"
+            or "Clear"
+            or "TryCopyTo"
+            or "GetPinnableReference"
+            or "IsEmpty"
+            or "ToArray"
+            or "CopyTo";
     }
 
     private void AddError(string message, SyntaxNode node)

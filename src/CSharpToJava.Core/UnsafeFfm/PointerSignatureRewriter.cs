@@ -216,7 +216,9 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
             }
 
             var elementSyntax = parameterPlan.Kind == PairedParamKind.PlainPointer
-                ? ArrayElementTypeSyntax(visitedParameter)
+                ? (parameterPlan.StorageElement != null
+                    ? ParseTypeName(parameterPlan.StorageElement.ToDisplayString())
+                    : ArrayElementTypeSyntax(visitedParameter))
                 : HolderPointerElementTypeSyntax(visitedParameter);
 
             if (parameterPlan.Kind == PairedParamKind.PlainPointer)
