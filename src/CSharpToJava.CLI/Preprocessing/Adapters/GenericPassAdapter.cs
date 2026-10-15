@@ -45,9 +45,43 @@ internal sealed class GenericPassAdapter : ProjectPassAdapter
     public GenericPreprocessStatistics Statistics => _statistics;
     public IReadOnlyList<GenericPreprocessDiagnostic> Diagnostics => _diagnostics;
 
-    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    /// <summary>
+    /// Opt-in: the per-file rewrite is a pure function (the shared
+    /// <see cref="GenericPreprocessor"/> holds no mutable state — each call builds
+    /// its own statistics/rewriter), so the spine may run the read + rewrite step in
+    /// parallel. Every accumulation (statistics, diagnostics, verbose line) is
+    /// deferred to <see cref="MergeFilePureResult"/>, which the runner calls serially
+    /// in source-file order — keeping summary counts and diagnostic order identical
+    /// to the sequential path.
+    /// </summary>
+    public override bool SupportsParallelFileRewrite => true;
+
+    public override async Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    {
+        // Single source of truth for both spines: rewrite purely, then merge.
+        var pure = await RewriteFilePureAsync(context);
+        MergeFilePureResult(pure);
+        return pure.Rewrite;
+    }
+
+    public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
     {
         var result = _preprocessor.Preprocess(context.SourceCode, context.SemanticModel!, _options);
+        PassFileRewrite? rewrite = result.Changed
+            ? new PassFileRewrite { OutputCode = result.OutputCode, Changed = true }
+            : null;
+        return Task.FromResult(new PassFilePureResult
+        {
+            Context = context,
+            Rewrite = rewrite,
+            PassState = result,
+        });
+    }
+
+    public override void MergeFilePureResult(PassFilePureResult pure)
+    {
+        var context = pure.Context;
+        var result = (GenericPreprocessResult)pure.PassState!;
         MergeStatistics(result.Statistics);
 
         foreach (var diagnostic in result.Diagnostics)
@@ -59,10 +93,6 @@ internal sealed class GenericPassAdapter : ProjectPassAdapter
         {
             Console.WriteLine($"[generic] {(result.Changed ? "transformed" : "clean (copy)")}: {context.RelativePath}");
         }
-
-        return Task.FromResult(result.Changed
-            ? new PassFileRewrite { OutputCode = result.OutputCode, Changed = true }
-            : (PassFileRewrite?)null);
     }
 
     public override void OnRestoreFailed(int exitCode, string restoreTarget)

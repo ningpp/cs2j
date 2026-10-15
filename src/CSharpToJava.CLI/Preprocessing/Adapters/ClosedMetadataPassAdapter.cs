@@ -184,16 +184,38 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
         return Task.CompletedTask;
     }
 
-    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    /// <summary>
+    /// Opt-in: the per-file rewrite is a pure function of the (immutable post-analysis)
+    /// <see cref="ClosedMetadataPreprocessor"/> state — <c>_compilation</c>,
+    /// <c>_analysis</c> and the holder resolver are all fixed before the loop; each
+    /// call builds its own <c>ClosedMetadataConsumptionLinker</c> and never mutates
+    /// shared state — so the spine may run the read + rewrite step in parallel. The
+    /// one shared cache (<see cref="ResolveHolderName"/>'s directory→holder map) is
+    /// guarded by a lock; every accumulation (statistics, diagnostics, verbose lines)
+    /// is deferred to <see cref="MergeFilePureResult"/>, which the runner calls serially
+    /// in source-file order — keeping summary counts and diagnostic order identical to
+    /// the sequential path.
+    /// </summary>
+    public override bool SupportsParallelFileRewrite => true;
+
+    public override async Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    {
+        // Single source of truth for both spines: rewrite purely, then merge.
+        var pure = await RewriteFilePureAsync(context);
+        MergeFilePureResult(pure);
+        return pure.Rewrite;
+    }
+
+    public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
     {
         if (context.SemanticModel is null)
         {
-            if (_verbose)
+            return Task.FromResult(new PassFilePureResult
             {
-                Console.WriteLine($"[closed-metadata] clean (copy): {context.RelativePath}");
-            }
-
-            return Task.FromResult<PassFileRewrite?>(null);
+                Context = context,
+                Rewrite = null,
+                PassState = null,
+            });
         }
 
         // CM-LINK (M4b): insert the idempotent bootstrap guards in front of D8
@@ -201,6 +223,21 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
         // byte-level copy (BOM and line endings preserved verbatim).
         var selfHolderName = ResolveHolderName(context.SourceFilePath);
         var result = _preprocessor.RewriteFile(context.SemanticModel, selfHolderName);
+        PassFileRewrite? rewrite = result is { Changed: true }
+            ? new PassFileRewrite { OutputCode = result.OutputCode, Changed = true }
+            : null;
+        return Task.FromResult(new PassFilePureResult
+        {
+            Context = context,
+            Rewrite = rewrite,
+            PassState = result,
+        });
+    }
+
+    public override void MergeFilePureResult(PassFilePureResult pure)
+    {
+        var context = pure.Context;
+        var result = pure.PassState as ClosedMetadataFileResult;
         if (result is null || !result.Changed)
         {
             if (_verbose)
@@ -208,7 +245,7 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
                 Console.WriteLine($"[closed-metadata] clean (copy): {context.RelativePath}");
             }
 
-            return Task.FromResult<PassFileRewrite?>(null);
+            return;
         }
 
         _statistics.Merge(result.Statistics);
@@ -222,8 +259,6 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
             Console.WriteLine(
                 $"[closed-metadata] linked {result.Statistics.ConsumerSitesLinked} consumer site(s): {context.RelativePath}");
         }
-
-        return Task.FromResult<PassFileRewrite?>(new PassFileRewrite { OutputCode = result.OutputCode, Changed = true });
     }
 
     /// <summary>
@@ -235,6 +270,13 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
     /// </summary>
     private readonly Dictionary<string, string?> _holderByDirectory = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Guards <see cref="_holderByDirectory"/>: the resolver is invoked both from the
+    /// single-threaded analysis phase and (when <see cref="SupportsParallelFileRewrite"/>
+    /// is on) concurrently from the parallel per-file rewrite phase.
+    /// </summary>
+    private readonly object _holderLock = new();
+
     private string? ResolveHolderName(string? filePath)
     {
         if (string.IsNullOrEmpty(filePath))
@@ -242,28 +284,31 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
             return null;
         }
 
-        var directory = Path.GetDirectoryName(Path.GetFullPath(filePath));
-        while (directory is not null)
+        lock (_holderLock)
         {
-            if (_holderByDirectory.TryGetValue(directory, out var cached))
+            var directory = Path.GetDirectoryName(Path.GetFullPath(filePath));
+            while (directory is not null)
             {
-                return cached;
+                if (_holderByDirectory.TryGetValue(directory, out var cached))
+                {
+                    return cached;
+                }
+
+                var projectFile = Directory.EnumerateFiles(directory, "*.csproj").FirstOrDefault();
+                if (projectFile is not null)
+                {
+                    var holder = ClosedMetadataRegistrationGenerator.HolderTypeName(
+                        Path.GetFileNameWithoutExtension(projectFile));
+                    _holderByDirectory[directory] = holder;
+                    return holder;
+                }
+
+                _holderByDirectory[directory] = null;
+                directory = Path.GetDirectoryName(directory);
             }
 
-            var projectFile = Directory.EnumerateFiles(directory, "*.csproj").FirstOrDefault();
-            if (projectFile is not null)
-            {
-                var holder = ClosedMetadataRegistrationGenerator.HolderTypeName(
-                    Path.GetFileNameWithoutExtension(projectFile));
-                _holderByDirectory[directory] = holder;
-                return holder;
-            }
-
-            _holderByDirectory[directory] = null;
-            directory = Path.GetDirectoryName(directory);
+            return null;
         }
-
-        return null;
     }
 
     public override Task AfterFilesAsync(PassTreeContext tree)

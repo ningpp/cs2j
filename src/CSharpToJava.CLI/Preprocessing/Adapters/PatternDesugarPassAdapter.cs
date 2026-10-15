@@ -51,9 +51,44 @@ internal sealed class PatternDesugarPassAdapter : ProjectPassAdapter
     public PatternDesugarStatistics Statistics => _statistics;
     public IReadOnlyList<PatternDesugarDiagnostic> Diagnostics => _diagnostics;
 
-    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    /// <summary>
+    /// Opt-in: the per-file rewrite is a pure function (the shared
+    /// <see cref="PatternDesugarPreprocessor"/> holds no mutable state — each call
+    /// builds its own plans/statistics and an AdhocWorkspace), so the spine may run
+    /// the read + rewrite step in parallel. Every accumulation, including the
+    /// whitelist-filtered diagnostic projection, is deferred to
+    /// <see cref="MergeFilePureResult"/>, which the runner calls serially in
+    /// source-file order — keeping the summary counts and diagnostic order identical
+    /// to the sequential path.
+    /// </summary>
+    public override bool SupportsParallelFileRewrite => true;
+
+    public override async Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    {
+        // Single source of truth for both spines: rewrite purely, then merge.
+        var pure = await RewriteFilePureAsync(context);
+        MergeFilePureResult(pure);
+        return pure.Rewrite;
+    }
+
+    public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
     {
         var result = _preprocessor.Preprocess(context.SourceCode, context.SemanticModel!, _options);
+        PassFileRewrite? rewrite = result.Changed
+            ? new PassFileRewrite { OutputCode = result.OutputCode, Changed = true }
+            : null;
+        return Task.FromResult(new PassFilePureResult
+        {
+            Context = context,
+            Rewrite = rewrite,
+            PassState = result,
+        });
+    }
+
+    public override void MergeFilePureResult(PassFilePureResult pure)
+    {
+        var context = pure.Context;
+        var result = (PatternDesugarResult)pure.PassState!;
         MergeStatistics(result.Statistics);
 
         foreach (var diagnostic in result.Diagnostics)
@@ -75,11 +110,6 @@ internal sealed class PatternDesugarPassAdapter : ProjectPassAdapter
                 : "dirty-no-rewrite (copy)";
             Console.WriteLine($"[pattern-desugar] {status}: {context.RelativePath}");
         }
-
-        var rewrite = result.Changed
-            ? new PassFileRewrite { OutputCode = result.OutputCode, Changed = true }
-            : null;
-        return Task.FromResult(rewrite);
     }
 
     public override Task AfterFilesAsync(PassTreeContext tree)

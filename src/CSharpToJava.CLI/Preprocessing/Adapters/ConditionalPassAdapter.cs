@@ -51,14 +51,42 @@ internal sealed class ConditionalPassAdapter : ProjectPassAdapter
     public int DisabledBranchesRemoved => _disabledBranchesRemoved;
     public IReadOnlyList<string> Diagnostics => _diagnostics;
 
-    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    /// <summary>
+    /// Opt-in: the per-file rewrite is a pure function — <see cref="ProjectSymbolResolver"/>
+    /// is static and every file gets a fresh <see cref="ConditionalDirectiveStripper"/>,
+    /// so the spine may run the read + rewrite step in parallel. The per-file diagnostic
+    /// lines (symbol warnings first, then strip diagnostics, in historical order) and
+    /// counters travel through <see cref="PassFilePureResult.PassState"/> and are applied
+    /// by <see cref="MergeFilePureResult"/>, which the runner calls serially in
+    /// source-file order — keeping the summary counters, diagnostic order and verbose
+    /// lines identical to the sequential path.
+    /// </summary>
+    public override bool SupportsParallelFileRewrite => true;
+
+    /// <summary>Per-file side effects carried out of the parallel phase.</summary>
+    private sealed record ConditionalFileState(
+        List<string> DiagnosticLines,
+        bool Changed,
+        int DirectivesRemoved,
+        int DisabledBranchesRemoved);
+
+    public override async Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    {
+        // Single source of truth for both spines: rewrite purely, then merge.
+        var pure = await RewriteFilePureAsync(context);
+        MergeFilePureResult(pure);
+        return pure.Rewrite;
+    }
+
+    public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
     {
         var symbols = ProjectSymbolResolver.ResolveForFile(
             context.SourceFilePath, _configuration, _tfm);
 
+        var diagnosticLines = new List<string>(symbols.Warnings.Count);
         foreach (var warning in symbols.Warnings)
         {
-            _diagnostics.Add($"[Warning] {context.RelativePath}:0: {warning}");
+            diagnosticLines.Add($"[Warning] {context.RelativePath}:0: {warning}");
         }
 
         var stripOptions = new ConditionalDirectiveStripOptions
@@ -72,26 +100,50 @@ internal sealed class ConditionalPassAdapter : ProjectPassAdapter
         foreach (var diagnostic in result.Diagnostics)
         {
             var severity = diagnostic.Severity == ConditionalDirectiveSeverity.Error ? "Error" : "Warning";
-            _diagnostics.Add(
+            diagnosticLines.Add(
                 $"[{severity}] {context.RelativePath}:{diagnostic.Line ?? 0}: {diagnostic.Message}");
         }
 
-        if (result.Changed)
+        PassFileRewrite? rewrite = result.Changed
+            ? new PassFileRewrite { OutputCode = result.OutputCode, Changed = true }
+            : null;
+        return Task.FromResult(new PassFilePureResult
+        {
+            Context = context,
+            Rewrite = rewrite,
+            PassState = new ConditionalFileState(
+                diagnosticLines,
+                result.Changed,
+                result.Statistics.DirectivesRemoved,
+                result.Statistics.DisabledBranchesRemoved),
+        });
+    }
+
+    public override void MergeFilePureResult(PassFilePureResult pure)
+    {
+        var context = pure.Context;
+        var state = (ConditionalFileState)pure.PassState!;
+
+        foreach (var line in state.DiagnosticLines)
+        {
+            _diagnostics.Add(line);
+        }
+
+        if (state.Changed)
         {
             _filesTransformed++;
-            _directivesRemoved += result.Statistics.DirectivesRemoved;
-            _disabledBranchesRemoved += result.Statistics.DisabledBranchesRemoved;
+            _directivesRemoved += state.DirectivesRemoved;
+            _disabledBranchesRemoved += state.DisabledBranchesRemoved;
 
             if (_verbose)
             {
                 Console.WriteLine(
                     $"[conditional] transformed: {context.RelativePath} " +
-                    $"({result.Statistics.DirectivesRemoved} directives, " +
-                    $"{result.Statistics.DisabledBranchesRemoved} disabled blocks)");
+                    $"({state.DirectivesRemoved} directives, " +
+                    $"{state.DisabledBranchesRemoved} disabled blocks)");
             }
 
-            return Task.FromResult<PassFileRewrite?>(
-                new PassFileRewrite { OutputCode = result.OutputCode, Changed = true });
+            return;
         }
 
         _filesSkippedClean++;
@@ -99,8 +151,6 @@ internal sealed class ConditionalPassAdapter : ProjectPassAdapter
         {
             Console.WriteLine($"[conditional] clean (copy): {context.RelativePath}");
         }
-
-        return Task.FromResult<PassFileRewrite?>(null);
     }
 
     public override void OnRestoreFailed(int exitCode, string restoreTarget)

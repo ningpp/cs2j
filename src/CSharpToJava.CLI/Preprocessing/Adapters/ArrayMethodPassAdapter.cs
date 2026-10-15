@@ -52,20 +52,72 @@ internal sealed class ArrayMethodPassAdapter : ProjectPassAdapter
         return Task.CompletedTask;
     }
 
-    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    /// <summary>
+    /// Opt-in: the per-file rewrite is a pure function (the shared
+    /// <see cref="ArrayMethodRewriter"/> holds no mutable state — each call builds its
+    /// own statistics/rewriter and an AdhocWorkspace), so the spine may run the read
+    /// + rewrite step in parallel. Every accumulation (statistics, diagnostics,
+    /// rewritten-file list, verbose lines) is deferred to
+    /// <see cref="MergeFilePureResult"/>, which the runner calls serially in
+    /// source-file order — keeping summary counts, diagnostic order and the
+    /// support-library host-project list identical to the sequential path.
+    /// </summary>
+    public override bool SupportsParallelFileRewrite => true;
+
+    public override async Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    {
+        // Single source of truth for both spines: rewrite purely, then merge.
+        var pure = await RewriteFilePureAsync(context);
+        MergeFilePureResult(pure);
+        return pure.Rewrite;
+    }
+
+    public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
     {
         if (Cs2jArraySupportLibrary.IsUnderOwnRelease(
                 context.SourceFilePath, _ownReleaseDirectories))
+        {
+            // Support-library code is never rewritten; its verbose line is deferred
+            // to the serial merge so console order stays identical.
+            return Task.FromResult(new PassFilePureResult
+            {
+                Context = context,
+                Rewrite = null,
+                PassState = null,
+            });
+        }
+
+        var result = _rewriter.Rewrite(context.SourceCode, context.SemanticModel!, _options);
+        PassFileRewrite? rewrite = result.Changed
+            ? new PassFileRewrite
+            {
+                OutputCode = result.OutputCode,
+                Changed = true,
+                PreserveBom = true,
+            }
+            : null;
+        return Task.FromResult(new PassFilePureResult
+        {
+            Context = context,
+            Rewrite = rewrite,
+            PassState = result,
+        });
+    }
+
+    public override void MergeFilePureResult(PassFilePureResult pure)
+    {
+        var context = pure.Context;
+        if (pure.PassState is null)
         {
             if (_verbose)
             {
                 Console.WriteLine($"[array-method] clean (own release copy): {context.RelativePath}");
             }
 
-            return Task.FromResult<PassFileRewrite?>(null);
+            return;
         }
 
-        var result = _rewriter.Rewrite(context.SourceCode, context.SemanticModel!, _options);
+        var result = (ArrayMethodRewriterResult)pure.PassState;
         MergeStatistics(result.Statistics);
 
         foreach (var diagnostic in result.Diagnostics)
@@ -82,16 +134,7 @@ internal sealed class ArrayMethodPassAdapter : ProjectPassAdapter
         if (result.Changed)
         {
             _rewrittenSourceFiles.Add(context.SourceFilePath);
-            var rewrite = new PassFileRewrite
-            {
-                OutputCode = result.OutputCode,
-                Changed = true,
-                PreserveBom = true,
-            };
-            return Task.FromResult<PassFileRewrite?>(rewrite);
         }
-
-        return Task.FromResult<PassFileRewrite?>(null);
     }
 
     public override async Task AfterFilesAsync(PassTreeContext tree)

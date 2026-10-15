@@ -70,10 +70,72 @@ internal sealed class IndexRangePassAdapter : ProjectPassAdapter
         return Task.CompletedTask;
     }
 
-    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    /// <summary>
+    /// Opt-in: the per-file rewrite is a pure function (the shared
+    /// <see cref="IndexRangePreprocessor"/> holds no mutable state — each call builds
+    /// its own statistics/rewriter and an AdhocWorkspace), so the spine may run the
+    /// read + rewrite step in parallel. Every accumulation (statistics, diagnostics,
+    /// the expected-residual counter, the rewritten-file list, verbose lines) is
+    /// deferred to <see cref="MergeFilePureResult"/>, which the runner calls serially
+    /// in source-file order — keeping summary counts, diagnostic order and the
+    /// residual-gate baseline identical to the sequential path.
+    /// </summary>
+    public override bool SupportsParallelFileRewrite => true;
+
+    /// <summary>Per-file side effects carried out of the parallel phase.</summary>
+    private sealed record IndexRangeFileState(IndexRangeResult Result, int ExpectedRemainingContribution);
+
+    public override async Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    {
+        // Single source of truth for both spines: rewrite purely, then merge.
+        var pure = await RewriteFilePureAsync(context);
+        MergeFilePureResult(pure);
+        return pure.Rewrite;
+    }
+
+    public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
     {
         if (Cs2jArraySupportLibrary.IsUnderOwnRelease(
                 context.SourceFilePath, _ownReleaseDirectories))
+        {
+            // Support-library code is never rewritten; its verbose line is deferred
+            // to the serial merge so console order stays identical.
+            return Task.FromResult(new PassFilePureResult
+            {
+                Context = context,
+                Rewrite = null,
+                PassState = null,
+            });
+        }
+
+        var result = _preprocessor.Preprocess(
+            context.SourceCode, context.SemanticModel!, _options);
+        PassFileRewrite? rewrite = result.Changed
+            ? new PassFileRewrite
+            {
+                OutputCode = result.OutputCode,
+                Changed = true,
+            }
+            : null;
+
+        // Dirty but diagnostics-only: those ^/.. nodes legitimately remain. Counted
+        // in the parallel phase (pure function of the source) and applied serially.
+        var contribution = result.Changed
+            ? 0
+            : CountIndexRangeExpressions(context.SourceCode);
+
+        return Task.FromResult(new PassFilePureResult
+        {
+            Context = context,
+            Rewrite = rewrite,
+            PassState = new IndexRangeFileState(result, contribution),
+        });
+    }
+
+    public override void MergeFilePureResult(PassFilePureResult pure)
+    {
+        var context = pure.Context;
+        if (pure.PassState is null)
         {
             if (_verbose)
             {
@@ -81,11 +143,11 @@ internal sealed class IndexRangePassAdapter : ProjectPassAdapter
                     $"[index-range] clean (own release copy): {context.RelativePath}");
             }
 
-            return Task.FromResult<PassFileRewrite?>(null);
+            return;
         }
 
-        var result = _preprocessor.Preprocess(
-            context.SourceCode, context.SemanticModel!, _options);
+        var state = (IndexRangeFileState)pure.PassState;
+        var result = state.Result;
         MergeStatistics(result.Statistics);
 
         foreach (var diagnostic in result.Diagnostics)
@@ -93,11 +155,7 @@ internal sealed class IndexRangePassAdapter : ProjectPassAdapter
             _diagnostics.Add(diagnostic with { FilePath = context.RelativePath });
         }
 
-        if (!result.Changed)
-        {
-            // Dirty but diagnostics-only: those ^/.. nodes legitimately remain.
-            _expectedRemaining += CountIndexRangeExpressions(context.SourceCode);
-        }
+        _expectedRemaining += state.ExpectedRemainingContribution;
 
         if (_verbose)
         {
@@ -108,14 +166,7 @@ internal sealed class IndexRangePassAdapter : ProjectPassAdapter
         if (result.Changed)
         {
             _rewrittenSourceFiles.Add(context.SourceFilePath);
-            return Task.FromResult<PassFileRewrite?>(new PassFileRewrite
-            {
-                OutputCode = result.OutputCode,
-                Changed = true,
-            });
         }
-
-        return Task.FromResult<PassFileRewrite?>(null);
     }
 
     public override async Task AfterFilesAsync(PassTreeContext tree)

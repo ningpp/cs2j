@@ -53,17 +53,68 @@ internal sealed class LexicalNormalizePassAdapter : ProjectPassAdapter
     public override IReadOnlyCollection<string>? CompatNamespacePrefixes => _compatNamespacePrefixes;
     public override bool DeleteBuildOutputsAfterRestore => true;
 
-    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    /// <summary>
+    /// Opt-in: the per-file rewrite is a pure function — every file gets a fresh
+    /// <see cref="LexicalNormalizePreprocessor"/> (the adapter itself holds no state
+    /// used by the rewrite), so the spine may run the read + rewrite step in parallel.
+    /// The per-file formatted diagnostic lines, the per-file statistics buckets and
+    /// the collected global-using records travel through
+    /// <see cref="PassFilePureResult.PassState"/> and are applied by
+    /// <see cref="MergeFilePureResult"/>, which the runner calls serially in
+    /// source-file order — keeping the summary counters, diagnostic order and the
+    /// LN-5 global-using audit input order identical to the sequential path.
+    /// </summary>
+    public override bool SupportsParallelFileRewrite => true;
+
+    private sealed record LexicalFileState(List<string> DiagnosticLines, LexicalNormalizeResult Result);
+
+    public override async Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    {
+        // Single source of truth for both spines: rewrite purely, then merge.
+        var pure = await RewriteFilePureAsync(context);
+        MergeFilePureResult(pure);
+        return pure.Rewrite;
+    }
+
+    public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
     {
         var result = new LexicalNormalizePreprocessor().Normalize(context.SourceCode, _options);
 
+        var diagnosticLines = new List<string>(result.Diagnostics.Count);
         foreach (var diagnostic in result.Diagnostics)
         {
             var severity = diagnostic.Severity == LexicalNormalizeSeverity.Error ? "Error"
                 : diagnostic.Severity == LexicalNormalizeSeverity.Warning ? "Warning"
                 : "Info";
-            _diagnostics.Add(
+            diagnosticLines.Add(
                 $"[{severity}] {context.RelativePath}:{diagnostic.Line ?? 0}: {diagnostic.Code}: {diagnostic.Message}");
+        }
+
+        PassFileRewrite? rewrite = result.Changed
+            ? new PassFileRewrite
+            {
+                OutputCode = result.OutputCode,
+                Changed = true,
+                PreserveBom = true,
+            }
+            : null;
+        return Task.FromResult(new PassFilePureResult
+        {
+            Context = context,
+            Rewrite = rewrite,
+            PassState = new LexicalFileState(diagnosticLines, result),
+        });
+    }
+
+    public override void MergeFilePureResult(PassFilePureResult pure)
+    {
+        var context = pure.Context;
+        var state = (LexicalFileState)pure.PassState!;
+        var result = state.Result;
+
+        foreach (var line in state.DiagnosticLines)
+        {
+            _diagnostics.Add(line);
         }
 
         _lineRemoved += result.Statistics.LineDirectivesRemoved;
@@ -97,12 +148,7 @@ internal sealed class LexicalNormalizePassAdapter : ProjectPassAdapter
                 Console.WriteLine($"[lexical-normalize] transformed: {context.RelativePath}");
             }
 
-            return Task.FromResult<PassFileRewrite?>(new PassFileRewrite
-            {
-                OutputCode = result.OutputCode,
-                Changed = true,
-                PreserveBom = true,
-            });
+            return;
         }
 
         _filesClean++;
@@ -110,8 +156,6 @@ internal sealed class LexicalNormalizePassAdapter : ProjectPassAdapter
         {
             Console.WriteLine($"[lexical-normalize] clean (copy): {context.RelativePath}");
         }
-
-        return Task.FromResult<PassFileRewrite?>(null);
     }
 
     public override Task AfterFilesAsync(PassTreeContext tree)

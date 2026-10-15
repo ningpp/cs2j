@@ -55,9 +55,44 @@ internal sealed class DelegatePassAdapter : ProjectPassAdapter
     public DelegatePreprocessorStatistics Statistics => _statistics;
     public IReadOnlyList<DelegatePreprocessorDiagnostic> Diagnostics => _diagnostics;
 
-    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    /// <summary>
+    /// Opt-in: the per-file rewrite is a pure function (the shared
+    /// <see cref="DelegatePreprocessor"/> holds no mutable state — each call builds
+    /// its own statistics/rewriter), so the spine may run the read + rewrite step in
+    /// parallel. Every accumulation (statistics, diagnostics, the rewritten-file
+    /// list used by the AfterFiles injection, verbose line) is deferred to
+    /// <see cref="MergeFilePureResult"/>, which the runner calls serially in
+    /// source-file order — keeping the summary counts, diagnostic order and the
+    /// host-project list identical to the sequential path.
+    /// </summary>
+    public override bool SupportsParallelFileRewrite => true;
+
+    public override async Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    {
+        // Single source of truth for both spines: rewrite purely, then merge.
+        var pure = await RewriteFilePureAsync(context);
+        MergeFilePureResult(pure);
+        return pure.Rewrite;
+    }
+
+    public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
     {
         var result = _rewriter.Preprocess(context.SourceCode, context.SemanticModel!, _options);
+        PassFileRewrite? rewrite = result.Changed
+            ? new PassFileRewrite { OutputCode = result.OutputCode, Changed = true }
+            : null;
+        return Task.FromResult(new PassFilePureResult
+        {
+            Context = context,
+            Rewrite = rewrite,
+            PassState = result,
+        });
+    }
+
+    public override void MergeFilePureResult(PassFilePureResult pure)
+    {
+        var context = pure.Context;
+        var result = (DelegatePreprocessorResult)pure.PassState!;
         MergeStatistics(result.Statistics);
 
         foreach (var diagnostic in result.Diagnostics)
@@ -74,11 +109,7 @@ internal sealed class DelegatePassAdapter : ProjectPassAdapter
         if (result.Changed)
         {
             _rewrittenDestinationFiles.Add(context.DestinationFilePath);
-            var rewrite = new PassFileRewrite { OutputCode = result.OutputCode, Changed = true };
-            return Task.FromResult<PassFileRewrite?>(rewrite);
         }
-
-        return Task.FromResult<PassFileRewrite?>(null);
     }
 
     public override async Task AfterFilesAsync(PassTreeContext tree)
