@@ -48,9 +48,56 @@ internal sealed class IteratorLoweringPassAdapter : ProjectPassAdapter
     public override bool VerifyTests => _verifyTests;
     public override bool DeleteBuildOutputsAfterRestore => true;
 
-    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    /// <summary>
+    /// Opt-in: the per-file rewrite is a pure function. The shared
+    /// <see cref="IteratorLoweringPreprocessor"/> holds no mutable state (every
+    /// stage constructs its own analyzer/normalizer/rewriter, and the only
+    /// static member is an immutable <c>SyntaxAnnotation</c>), and each file is
+    /// processed against its own semantic model, so the spine may run the read +
+    /// rewrite step in parallel. All accumulation (statistics/diagnostics/verbose
+    /// lines) is deferred to <see cref="MergeFilePureResult"/>, which the runner
+    /// calls serially in source-file order — keeping the summary counts and
+    /// diagnostic order identical to the sequential path.
+    /// </summary>
+    public override bool SupportsParallelFileRewrite => true;
+
+    public override async Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    {
+        var pure = await RewriteFilePureAsync(context);
+        MergeFilePureResult(pure);
+        return pure.Rewrite;
+    }
+
+    /// <summary>
+    /// Side-effect-free per-file rewrite for the opt-in parallel path. Calls the
+    /// stateless <see cref="IteratorLoweringPreprocessor"/> and returns its
+    /// per-file result as the opaque <see cref="PassFilePureResult.PassState"/>;
+    /// no shared adapter field is mutated, so it is safe to call concurrently.
+    /// </summary>
+    public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
     {
         var result = _preprocessor.Preprocess(context.SourceCode, context.SemanticModel, _options);
+        var rewrite = result.Changed
+            ? new PassFileRewrite { OutputCode = result.OutputCode, Changed = true }
+            : null;
+        return Task.FromResult(new PassFilePureResult
+        {
+            Context = context,
+            Rewrite = rewrite,
+            PassState = result,
+        });
+    }
+
+    /// <summary>
+    /// Serial merge of one file's pure result, invoked by the runner in
+    /// source-file order. Applies statistics/diagnostics and prints the per-file
+    /// verbose line here (not in the parallel phase) so the observable output is
+    /// identical to the sequential loop.
+    /// </summary>
+    public override void MergeFilePureResult(PassFilePureResult pure)
+    {
+        var context = pure.Context;
+        var result = (IteratorLoweringFileResult)pure.PassState!;
         MergeStatistics(result.Statistics);
 
         foreach (var diagnostic in result.Diagnostics)
@@ -65,11 +112,6 @@ internal sealed class IteratorLoweringPassAdapter : ProjectPassAdapter
                 : "dirty-no-rewrite (copy)";
             Console.WriteLine($"[iterator-lowering] {status}: {context.RelativePath}");
         }
-
-        var rewrite = result.Changed
-            ? new PassFileRewrite { OutputCode = result.OutputCode, Changed = true }
-            : null;
-        return Task.FromResult(rewrite);
     }
 
     public override Task AfterFilesAsync(PassTreeContext tree)
