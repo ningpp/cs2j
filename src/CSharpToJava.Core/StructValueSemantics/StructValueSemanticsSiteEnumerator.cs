@@ -359,10 +359,21 @@ internal sealed class StructValueSemanticsSiteEnumerator
         if (IsInsideExpressionTree(cast, model)) return;
         if (!_options_InsertAtBoxingSites()) return;
 
+        // 目标类型取 cast 表达式自身类型（== cast.Type 的目标类型），避免对 TypeSyntax 走
+        // model.GetTypeInfo(cast.Type) 的病态慢路径（实测 ~6ms/次，全树 cast 累计 >100s）；
+        // 表达式类型信息在 SemanticModel 中按表达式缓存，成本 ~µs 级。
         // GetConversion 对显式 cast 不回填拆箱标志；显式分类才能识别 unboxing。
         var sourceType = model.GetTypeInfo(cast.Expression).Type;
-        var targetType = model.GetTypeInfo(cast.Type).Type;
+        var targetType = model.GetTypeInfo(cast).Type;
         if (targetType == null) return;
+
+        // 语法预筛：拆箱站点要求目标类型、装箱/接口站点要求源类型为本轮活跃 struct。
+        // 二者皆非活跃 struct 时，任何分支都不会 AddSite（也无关转换分类），直接跳过
+        // 昂贵的 ClassifyConversion —— 绝大多数 cast 是基元/BCL 间转换，与本 pass 无关。
+        var targetPlan = ActivePlanForType(targetType);
+        var valuePlan = ActivePlanForType(sourceType);
+        if (targetPlan == null && valuePlan == null) return;
+
         var conversion = sourceType != null
             ? _compilation.ClassifyConversion(sourceType, targetType)
             : model.GetConversion(cast);
@@ -370,15 +381,14 @@ internal sealed class StructValueSemanticsSiteEnumerator
         if (conversion.IsUnboxing)
         {
             // 幂等：已被 .Clone() 消费的拆箱表达式（((S)o).Clone()，含上一轮产物）不重复登记。
-            if (ActivePlanForType(targetType) is { } unboxPlan && !IsCloneReceiver(cast, model))
+            if (targetPlan != null && !IsCloneReceiver(cast, model))
             {
                 _priorityAnchors.Add(cast);
-                AddSite(unboxPlan, SiteKind.Unbox, cast, cast);
+                AddSite(targetPlan, SiteKind.Unbox, cast, cast);
             }
             return;
         }
 
-        var valuePlan = ActivePlanForType(model.GetTypeInfo(cast.Expression).Type);
         if (valuePlan == null) return;
 
         if (targetType.TypeKind == TypeKind.Interface)

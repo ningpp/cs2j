@@ -83,7 +83,10 @@ internal static class BoxingReachabilityAnalyzer
 
                     case CastExpressionSyntax cast:
                         {
-                            var targetType = GetModel().GetTypeInfo(cast.Type).Type;
+                            // 目标类型取 cast 表达式自身类型（== cast.Type 的目标类型）：避免
+                            // SemanticModel.GetTypeInfo(cast.Type) 对 TypeSyntax 的病态慢路径
+                            // （实测 ~6ms/次；全树 cast 累计 >100s），表达式类型信息按表达式缓存。
+                            var targetType = GetModel().GetTypeInfo(cast).Type;
                             if (IsObjectLike(targetType))
                             {
                                 var valueType = GetModel().GetTypeInfo(cast.Expression).Type;
