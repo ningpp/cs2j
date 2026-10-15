@@ -26,17 +26,15 @@ internal sealed class OriginalSyntaxResolver
     private readonly ConditionalWeakTable<SyntaxNode, SyntaxNode?> _cache = new();
 
     /// <summary>
-    /// 节点归一化/去 trivia 结果按实例记忆化：回退等价搜索会对大量候选重复
-    /// 执行 ReplaceTokens（在巨型聚合树上呈平方级开销），绿/红节点不可变，
-    /// 同一实例的归一结果可安全复用。归一/去 trivia 是节点结构的纯函数，且
-    /// 各阶段共用同一原始树根，故提升为进程级共享缓存：同一原始节点的归一
-    /// 结果在 R7/R5/R3/R6 各 resolver 实例间复用，免去逐阶段重算（关键字
-    /// 弱引用键随语法树回收，不驻留）。
+    /// 节点归一化（剥 unsafe/using 形态）结果按实例记忆化：回退等价搜索会对
+    /// 大量候选重复执行 ReplaceNodes/ReplaceTokens（在巨型聚合树上呈平方级
+    /// 开销），绿/红节点不可变，同一实例的归一结果可安全复用。归一化是节点
+    /// 结构的纯函数，且各阶段共用同一原始树根，故提升为进程级共享缓存：同一
+    /// 原始节点的归一结果在 R7/R5/R3/R6 各 resolver 实例间复用，免去逐阶段
+    /// 重算（关键字弱引用键随语法树回收，不驻留）。
     /// </summary>
     private static readonly ConditionalWeakTable<SyntaxNode, SyntaxNode>
         NormalizedCache = new();
-    private static readonly ConditionalWeakTable<SyntaxNode, SyntaxNode>
-        StrippedCache = new();
 
     /// <summary>等价判定结果按 (current, original) 实例对记忆化（纯函数，跨实例共享）。</summary>
     private static readonly ConditionalWeakTable<SyntaxNode, Dictionary<SyntaxNode, bool>>
@@ -227,10 +225,10 @@ internal sealed class OriginalSyntaxResolver
         var normalizedCurrent = NormalizeForCompareCached(current);
         if (normalizedOriginal.IsEquivalentTo(normalizedCurrent)) return true;
 
-        // 便宜的必要条件（均比 ReplaceTokens 廉价得多）：等价（去 trivia 后）
-        // 要求「子节点+token」总数、首/末 token 的 kind、以及全部 token 的 kind
-        // 序列一致；任一项不一致即必不等价，免去整子树的 ReplaceTokens——回退
-        // 搜索中绝大多数候选正是被这些逐 token 的 early-exit 剪掉。
+        // 便宜的必要条件（均比整树比较廉价得多）：等价（去 trivia 后）要求
+        // 「子节点+token」总数、首/末 token 的 kind、以及全部 token 的 kind
+        // 序列一致；任一项不一致即必不等价，免去整子树比较——回退搜索中绝大
+        // 多数候选正是被这些逐 token 的 early-exit 剪掉。
         if (normalizedOriginal.ChildNodesAndTokens().Count
                 != normalizedCurrent.ChildNodesAndTokens().Count
             || normalizedOriginal.GetFirstToken().RawKind
@@ -244,10 +242,52 @@ internal sealed class OriginalSyntaxResolver
 
         // R1 RemoveUnsafe 会把 unsafe token 的 trivia 并入相邻保留修饰符
         // （探针实测方法同时带 method 级 unsafe 修饰时，保留修饰符尾部空白
-        // 翻倍："static "→"static  "）。IsEquivalentTo 对非弹性 trivia
-        // 敏感，绿结构全等仍判否；映射只用结构身份，去全部 trivia 后再比。
-        return StripTriviaCached(normalizedOriginal)
-            .IsEquivalentTo(StripTriviaCached(normalizedCurrent));
+        // 翻倍："static "→"static  "）。IsEquivalentTo 对非弹性 trivia 敏感，
+        // 绿结构全等仍判否，故不能用它直接判定；映射只用结构身份，去全部
+        // trivia 后再比。此处用零分配的 TriviaInsensitiveEquivalent：等价
+        // （去 trivia）要求节点 kind 结构 + token kind + token 文本全等，
+        // trivia 不参与——等价于 StripTrivia(a).IsEquivalentTo(StripTrivia(b))
+        // （已实测逐案一致），但免去为两侧重建去 trivia 整树的 ReplaceTokens
+        // 开销（回退等价搜索中原最重的一环）。
+        return TriviaInsensitiveEquivalent(normalizedOriginal, normalizedCurrent);
+    }
+
+    /// <summary>
+    /// 去 trivia 的结构等价：两侧子树在「节点 kind 结构 + token kind + token
+    /// 文本」上全等。trivia（空白/注释）不参与比较，与
+    /// <c>StripTrivia(a).IsEquivalentTo(StripTrivia(b))</c> 等价。递归按
+    /// <c>ChildNodesAndTokens()</c> 逐位比较（子节点数与各槽位 kind 全等隐含
+    /// 树形结构），非等价对通常在校前若干槽位即早退。
+    /// </summary>
+    private static bool TriviaInsensitiveEquivalent(SyntaxNode a, SyntaxNode b)
+    {
+        if (a.RawKind != b.RawKind) return false;
+
+        var ea = a.ChildNodesAndTokens().GetEnumerator();
+        var eb = b.ChildNodesAndTokens().GetEnumerator();
+        while (true)
+        {
+            var aMore = ea.MoveNext();
+            var bMore = eb.MoveNext();
+            if (aMore != bMore) return false;
+            if (!aMore) return true;
+
+            var x = ea.Current;
+            var y = eb.Current;
+            if (x.IsToken != y.IsToken) return false;
+            if (x.RawKind != y.RawKind) return false;
+            if (x.IsToken)
+            {
+                if (!string.Equals(x.AsToken().Text, y.AsToken().Text, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+            else if (!TriviaInsensitiveEquivalent(x.AsNode()!, y.AsNode()!))
+            {
+                return false;
+            }
+        }
     }
 
     /// <summary>
@@ -281,9 +321,6 @@ internal sealed class OriginalSyntaxResolver
     private SyntaxNode NormalizeForCompareCached(SyntaxNode node)
         => NormalizedCache.GetValue(node, NormalizeForCompare);
 
-    private SyntaxNode StripTriviaCached(SyntaxNode node)
-        => StrippedCache.GetValue(node, StripTrivia);
-
     /// <summary>带实例对记忆化的等价判定（回退搜索热路径）。</summary>
     private bool EquivalentCached(SyntaxNode original, SyntaxNode current)
     {
@@ -292,7 +329,7 @@ internal sealed class OriginalSyntaxResolver
         // 降为其内嵌 Block（换 kind），并以 default token 替换 unsafe/using
         // 关键字 token——后者不改变任何节点 kind。故两侧归一后顶层 kind 不等
         // 时必不等价。回退搜索对绝大多数候选都走这条负路径，直接判否可免去
-        // 整个子树的 Normalize/StripTrivia（等价判定的主要开销）。
+        // 整个子树的 Normalize/整树比较（等价判定的主要开销）。
         if (NormalizedTopKind(original.RawKind) != NormalizedTopKind(current.RawKind))
         {
             return false;
@@ -304,17 +341,6 @@ internal sealed class OriginalSyntaxResolver
         var result = EquivalentCore(original, current);
         byCurrent[original] = result;
         return result;
-    }
-
-    /// <summary>
-    /// 返回去掉全部前导/尾部 trivia 的等价节点（结构不变）。仅供
-    /// <see cref="EquivalentCore"/> 的 trivia 不敏感兜底比较使用。
-    /// </summary>
-    private static SyntaxNode StripTrivia(SyntaxNode node)
-    {
-        var tokens = node.DescendantTokens().ToList();
-        if (tokens.Count == 0) return node;
-        return node.ReplaceTokens(tokens, (_, token) => token.WithoutTrivia());
     }
 
     private static SyntaxNode NormalizeForCompare(SyntaxNode node)

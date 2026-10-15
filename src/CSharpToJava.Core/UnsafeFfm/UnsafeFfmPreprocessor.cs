@@ -95,14 +95,18 @@ public sealed class UnsafeFfmPreprocessor
                 VariableDeclaratorSyntax? Declarator)>>();
         var elementRejectedTrees = new HashSet<SyntaxTree>();
 
+        // 含指针/函数指针类型语法的语法树：闭包候选方法必然以 T* 形参声明
+        // （声明即 PointerTypeSyntax；ByRef<T*> holder 形参的类型实参亦含），
+        // 故 ComputeClosure 只需在这些树上找候选——无该语法的树必无候选。
+        // 与 prescan 同一次整树结构扫描内一并判定，避免再次整树遍历。
+        var pointerTypeTrees = new HashSet<SyntaxTree>();
+
         foreach (var tree in compilation.SyntaxTrees)
         {
             CompilationUnitSyntax root;
-            SemanticModel model;
             try
             {
                 root = (CompilationUnitSyntax)tree.GetRoot();
-                model = compilation.GetSemanticModel(tree);
             }
             catch
             {
@@ -110,50 +114,70 @@ public sealed class UnsafeFfmPreprocessor
             }
 
             List<(ExpressionSyntax, VariableDeclaratorSyntax?)>? sites = null;
+            var hasPointerType = false;
+            SemanticModel? model = null;
 
-            foreach (var node in root.DescendantNodes()
-                         .OfType<StackAllocArrayCreationExpressionSyntax>())
+            foreach (var node in root.DescendantNodes())
             {
-                if (StackAllocElementSafety.GetSiteType(model, node)
-                    is IPointerTypeSymbol)
+                switch (node)
                 {
-                    (sites ??= new List<(ExpressionSyntax, VariableDeclaratorSyntax?)>())
-                        .Add((node, FindPointerSeedDeclarator(node)));
-                    continue;
-                }
+                    case StackAllocArrayCreationExpressionSyntax explicitNode:
+                        // 语义模型按需惰性创建：只有真正含 stackalloc 的语法树
+                        // 才需要绑定（含 stackalloc 的树极少），避免为全编译每
+                        // 棵树创建 SemanticModel 的一次性开销。
+                        if (!TryGetModel(compilation, tree, ref model)) break;
 
-                var element = StackAllocElementSafety.GetExplicitElement(model, node);
-                if (element == null
-                    || !StackAllocElementSafety.IsSafeElement(element, out _))
-                {
-                    elementRejectedTrees.Add(tree);
-                }
-            }
+                        if (StackAllocElementSafety.GetSiteType(model!, explicitNode)
+                            is IPointerTypeSymbol)
+                        {
+                            (sites ??= new List<(ExpressionSyntax, VariableDeclaratorSyntax?)>())
+                                .Add((explicitNode, FindPointerSeedDeclarator(explicitNode)));
+                            break;
+                        }
 
-            foreach (var node in root.DescendantNodes()
-                         .OfType<ImplicitStackAllocArrayCreationExpressionSyntax>())
-            {
-                if (StackAllocElementSafety.GetSiteType(model, node)
-                    is IPointerTypeSymbol)
-                {
-                    (sites ??= new List<(ExpressionSyntax, VariableDeclaratorSyntax?)>())
-                        .Add((node, FindPointerSeedDeclarator(node)));
-                    continue;
-                }
+                        var explicitElement = StackAllocElementSafety.GetExplicitElement(model!, explicitNode);
+                        if (explicitElement == null
+                            || !StackAllocElementSafety.IsSafeElement(explicitElement, out _))
+                        {
+                            elementRejectedTrees.Add(tree);
+                        }
 
-                var element = StackAllocElementSafety.GetImplicitElement(model, node);
-                if (element == null
-                    || !StackAllocElementSafety.IsSafeElement(element, out _))
-                {
-                    elementRejectedTrees.Add(tree);
+                        break;
+
+                    case ImplicitStackAllocArrayCreationExpressionSyntax implicitNode:
+                        if (!TryGetModel(compilation, tree, ref model)) break;
+
+                        if (StackAllocElementSafety.GetSiteType(model!, implicitNode)
+                            is IPointerTypeSymbol)
+                        {
+                            (sites ??= new List<(ExpressionSyntax, VariableDeclaratorSyntax?)>())
+                                .Add((implicitNode, FindPointerSeedDeclarator(implicitNode)));
+                            break;
+                        }
+
+                        var implicitElement = StackAllocElementSafety.GetImplicitElement(model!, implicitNode);
+                        if (implicitElement == null
+                            || !StackAllocElementSafety.IsSafeElement(implicitElement, out _))
+                        {
+                            elementRejectedTrees.Add(tree);
+                        }
+
+                        break;
+
+                    case PointerTypeSyntax or FunctionPointerTypeSyntax:
+                        hasPointerType = true;
+                        break;
                 }
             }
 
             if (sites != null) pointerSites[tree] = sites;
+            if (hasPointerType) pointerTypeTrees.Add(tree);
         }
 
-        var allTrees = compilation.SyntaxTrees.ToList();
         var disabled = new HashSet<SyntaxTree>(elementRejectedTrees);
+        // 闭包候选只在含指针类型语法的树内（见 pointerTypeTrees）；无该语法的
+        // 树不含白名单指针形参方法，逐树整方法枚举可整树跳过。
+        var closureTrees = pointerTypeTrees.ToList();
 
         // 回滚树集合不动点：回滚树外发边剔除后闭包只会收缩，可能令更多
         // stackalloc 站点失去配对被调方而不可降级 → 其整树加入回滚集。
@@ -209,7 +233,7 @@ public sealed class UnsafeFfmPreprocessor
                 }
             }
 
-            catalog.ComputeClosure(allTrees.Where(t => !disabled.Contains(t)));
+            catalog.ComputeClosure(closureTrees.Where(t => !disabled.Contains(t)));
 
             var newlyDisabled = new HashSet<SyntaxTree>();
             foreach (var (tree, sites) in pointerSites)
@@ -240,6 +264,25 @@ public sealed class UnsafeFfmPreprocessor
         }
 
         return catalog;
+    }
+
+    /// <summary>
+    /// 惰性取语法树的语义模型（含 stackalloc 的树才需要）；创建失败返回 false
+    /// （与旧口径一致：该树不再参与 prescan）。
+    /// </summary>
+    private static bool TryGetModel(
+        Compilation compilation, SyntaxTree tree, ref SemanticModel? model)
+    {
+        if (model != null) return true;
+        try
+        {
+            model = compilation.GetSemanticModel(tree);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>
@@ -278,7 +321,7 @@ public sealed class UnsafeFfmPreprocessor
         // 跳过与逐规则空跑输出逐字节一致，却省下各 rewriter 的整树 Visit 与
         // 语义绑定（本 pass 最重的 R6/R3/R5/R8 正是全树空遍历的开销）。
         // 预筛是单次结构扫描，远廉价于被跳过的整树改写。
-        var pointerCluster = HasPointerClusterSyntax(root);
+        var pointerCluster = HasPointerClusterSyntax(root, out var hasStackAlloc);
         var externInterop = HasExternInteropSyntax(root);
 
         // 配对计划 catalog 提前到 prescan 之前创建：裸指针 stackalloc 可降级
@@ -298,7 +341,7 @@ public sealed class UnsafeFfmPreprocessor
         // （含 var）且使用可证留在可索引域时不拒绝——交 R3 降级为「伴生堆
         // 数组 + 同名 int 索引」；不可证明不外泄或元素不可安全堆化时直接
         // UF040，避免 R3 先以 UF020 拦截同一构造。
-        if (_options.EnableStackAlloc && TryRejectStackAllocSites(
+        if (_options.EnableStackAlloc && hasStackAlloc && TryRejectStackAllocSites(
                 root, semanticModel, filePath, pointerMethodCatalog, statistics,
                 out var prescanDiagnostics,
                 lowerableStackAllocLocals, zeroInvariantStackAllocLocals))
@@ -478,7 +521,7 @@ public sealed class UnsafeFfmPreprocessor
         }
 
         // M2：R4 仅在 EnableStackAlloc 时执行，链位在 R3 之后。
-        if (_options.EnableStackAlloc)
+        if (_options.EnableStackAlloc && hasStackAlloc)
         {
             var stackAllocResolver = new OriginalSyntaxResolver(root, newRoot);
             var stackAllocRewriter = new StackAllocRewriter(
@@ -859,27 +902,38 @@ public sealed class UnsafeFfmPreprocessor
     /// 函数指针类型，或 <c>unsafe</c>/<c>fixed</c>/<c>stackalloc</c> 关键字。
     /// 指针符号必然由指针类型语法声明（形参/局部/字段），ByRef&lt;T*&gt; holder
     /// 与元数据指针实参亦含指针类型实参，故无这些形态时指针簇规则必为恒等
-    /// 空改写。仅读语法结构，不做任何语义查询。
+    /// 空改写。<paramref name="hasStackAlloc"/> 另输出原树是否含 stackalloc
+    /// 关键字，供 M2 拒绝预检/R4 对无 stackalloc 文件整段跳过（无站点时两者
+    /// 均为恒等空操作）。仅读语法结构，不做任何语义查询。
     /// </summary>
-    private static bool HasPointerClusterSyntax(CompilationUnitSyntax root)
+    private static bool HasPointerClusterSyntax(CompilationUnitSyntax root, out bool hasStackAlloc)
     {
+        var pointer = false;
         foreach (var node in root.DescendantNodes())
         {
             if (node is PointerTypeSyntax or FunctionPointerTypeSyntax)
-                return true;
-        }
-
-        foreach (var token in root.DescendantTokens())
-        {
-            if (token.IsKind(SyntaxKind.UnsafeKeyword)
-                || token.IsKind(SyntaxKind.FixedKeyword)
-                || token.IsKind(SyntaxKind.StackAllocKeyword))
             {
-                return true;
+                pointer = true;
+                break;
             }
         }
 
-        return false;
+        hasStackAlloc = false;
+        foreach (var token in root.DescendantTokens())
+        {
+            if (token.IsKind(SyntaxKind.StackAllocKeyword))
+            {
+                hasStackAlloc = true;
+                pointer = true;
+            }
+            else if (token.IsKind(SyntaxKind.UnsafeKeyword)
+                || token.IsKind(SyntaxKind.FixedKeyword))
+            {
+                pointer = true;
+            }
+        }
+
+        return pointer;
     }
 
     /// <summary>
