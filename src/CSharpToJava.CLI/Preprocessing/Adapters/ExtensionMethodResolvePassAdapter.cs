@@ -476,16 +476,33 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
     {
         var parseOptions = CreateParseOptions(tree);
         var trees = new List<SyntaxTree>();
-        foreach (var file in Directory.EnumerateFiles(tree.IntermediateRoot, "*.cs", SearchOption.AllDirectories))
+
+        // Rebuild the candidate tree list in the SAME order the baseline
+        // compilation enumerated (BuildStandardCompilation walks tree.CsFiles).
+        // Roslyn attributes order-sensitive duplicate diagnostics — CS0101
+        // (duplicate type), CS0111 (duplicate member), CS0102 (duplicate
+        // field/property in a partial type) and CS0579 (duplicate assembly
+        // attribute) — to a specific declaration, and that attribution depends
+        // on the order the syntax trees are added. This whole-tree compilation
+        // intentionally merges every project, so cross-project same-name types
+        // (test stubs, shared helper files, generated support files and the
+        // test UI-culture shims) produce such duplicates in BOTH the baseline
+        // and the candidate. Enumerating the intermediate tree with
+        // Directory.EnumerateFiles (a different order) re-attributes those
+        // duplicates to different files and the baseline-vs-candidate diff then
+        // reports pre-existing duplicates as NEW compile errors, forcing a
+        // spurious whole-tree rollback (CS2J1200).
+        foreach (var sourceFile in tree.CsFiles)
         {
-            var normalized = file.Replace('\\', '/');
-            if (normalized.Contains("/obj/", StringComparison.OrdinalIgnoreCase)
-                || normalized.Contains("/bin/", StringComparison.OrdinalIgnoreCase))
+            var relativePath = Path.GetRelativePath(tree.SourceRoot, sourceFile);
+            var intermediateFile = Path.Combine(tree.IntermediateRoot, relativePath);
+            if (!File.Exists(intermediateFile))
             {
-                continue;
+                intermediateFile = sourceFile;
             }
 
-            trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(file), parseOptions, path: file));
+            trees.Add(CSharpSyntaxTree.ParseText(
+                File.ReadAllText(intermediateFile), parseOptions, path: intermediateFile));
         }
 
         // Mirror the SDK implicit global usings for gate binding as well.
