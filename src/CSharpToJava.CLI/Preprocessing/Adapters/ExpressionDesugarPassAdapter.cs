@@ -100,10 +100,62 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
     public ExpressionDesugarStatistics Statistics => _statistics;
     public IReadOnlyList<ExpressionDesugarDiagnostic> Diagnostics => _diagnostics;
 
-    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    /// <summary>
+    /// Opt-in: the per-file rewrite is a pure function — the shared
+    /// <see cref="ExpressionDesugarPreprocessor"/> holds no mutable state (each
+    /// call builds its own statistics/plans and an AdhocWorkspace), so the spine
+    /// may run the read + rewrite step in parallel. Every accumulation
+    /// (statistics, the per-file statistics map, diagnostics, verbose line) is
+    /// deferred to <see cref="MergeFilePureResult"/>, which the runner calls
+    /// serially in source-file order — keeping summary counts, the per-file map
+    /// and diagnostic/verbose order identical to the sequential path.
+    /// </summary>
+    public override bool SupportsParallelFileRewrite => true;
+
+    public override async Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    {
+        // Single source of truth for both spines: rewrite purely, then merge.
+        var pure = await RewriteFilePureAsync(context);
+        MergeFilePureResult(pure);
+        return pure.Rewrite;
+    }
+
+    /// <summary>
+    /// Pure per-file rewrite for the opt-in parallel path: reads only immutable
+    /// adapter state and calls the stateless preprocessor; no shared field is
+    /// mutated, so it is safe to call concurrently. Per-file effects travel
+    /// through <see cref="PassFilePureResult.PassState"/> and are applied later by
+    /// <see cref="MergeFilePureResult"/>.
+    /// </summary>
+    public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
     {
         var result = _preprocessor.Preprocess(
             context.SourceCode, context.SemanticModel, _options);
+        PassFileRewrite? rewrite = result.Changed
+            ? new PassFileRewrite
+            {
+                OutputCode = result.OutputCode,
+                Changed = true,
+            }
+            : null;
+        return Task.FromResult(new PassFilePureResult
+        {
+            Context = context,
+            Rewrite = rewrite,
+            PassState = result,
+        });
+    }
+
+    /// <summary>
+    /// Serial merge of one file's pure result, invoked by the runner in
+    /// source-file order. Applies statistics / the per-file statistics map /
+    /// diagnostics and prints the verbose line here (not in the parallel phase)
+    /// so its order is preserved.
+    /// </summary>
+    public override void MergeFilePureResult(PassFilePureResult pure)
+    {
+        var context = pure.Context;
+        var result = (ExpressionDesugarResult)pure.PassState!;
         _statistics.MergeFrom(result.Statistics);
         _fileStatistics[context.RelativePath] = result.Statistics;
 
@@ -117,17 +169,6 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
             Console.WriteLine(
                 $"[expression-desugar] {(result.Changed ? "transformed" : "clean (copy)")}: {context.RelativePath}");
         }
-
-        if (result.Changed)
-        {
-            return Task.FromResult<PassFileRewrite?>(new PassFileRewrite
-            {
-                OutputCode = result.OutputCode,
-                Changed = true,
-            });
-        }
-
-        return Task.FromResult<PassFileRewrite?>(null);
     }
 
     /// <summary>

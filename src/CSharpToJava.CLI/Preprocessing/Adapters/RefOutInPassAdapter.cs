@@ -56,6 +56,23 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
     public override bool DeleteBuildOutputsAfterRestore => true;
     public override bool StreamVerifyOutput => false;
 
+    /// <summary>
+    /// Opt-in: the per-file rewrite is a pure function — the shared
+    /// <see cref="RefOutInRewriter"/> holds no mutable state (each call builds its
+    /// own annotator/rewriter and an AdhocWorkspace), so the spine may run the
+    /// read + rewrite step in parallel. Every accumulation (statistics, the
+    /// diagnostic list, the final-output map used by the residual gate, the
+    /// rewritten-file list, verbose lines) is deferred to
+    /// <see cref="MergeFilePureResult"/>, which the runner calls serially in
+    /// source-file order — keeping summary counts, diagnostic order and the
+    /// final-output insertion order identical to the sequential path.
+    /// </summary>
+    public override bool SupportsParallelFileRewrite => true;
+
+    /// <summary>Sentinel <see cref="PassFilePureResult.PassState"/> for files under a
+    /// previously released support-library tree (no rewrite, no statistics).</summary>
+    private static readonly object OwnReleaseLibMarker = new();
+
     public RefOutInRewriterStatistics Statistics => _statistics;
     public IReadOnlyList<RefOutInRewriterDiagnostic> Diagnostics => _diagnostics;
     public string? BuildLogSummary => _buildLogSummary;
@@ -67,22 +84,88 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
         return Task.CompletedTask;
     }
 
-    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    /// <summary>
+    /// Cache the compilation references once, before any per-file rewrite. The
+    /// sequential loop used to populate this lazily from the first file's
+    /// semantic model; doing it here keeps a shared mutable field out of the
+    /// (now potentially parallel) per-file phase — every file shares the same
+    /// compilation, so the value is identical.
+    /// </summary>
+    public override Task CompilationReadyAsync(CSharpCompilation compilation)
+    {
+        _cachedReferences = compilation.References.ToArray();
+        return Task.CompletedTask;
+    }
+
+    public override async Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    {
+        // Single source of truth for both spines: rewrite purely, then merge.
+        var pure = await RewriteFilePureAsync(context);
+        MergeFilePureResult(pure);
+        return pure.Rewrite;
+    }
+
+    /// <summary>
+    /// Pure per-file rewrite for the opt-in parallel path: reads only immutable
+    /// adapter state and calls the stateless rewriter; no shared field is
+    /// mutated, so it is safe to call concurrently. Per-file effects travel
+    /// through <see cref="PassFilePureResult.PassState"/> and are applied later by
+    /// <see cref="MergeFilePureResult"/>.
+    /// </summary>
+    public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
     {
         if (IsUnderOwnReleaseLib(context.SourceFilePath, _ownReleaseDirectories))
+        {
+            // Support-library code is never rewritten; its verbose line is
+            // deferred to the serial merge so console order stays identical.
+            return Task.FromResult(new PassFilePureResult
+            {
+                Context = context,
+                Rewrite = null,
+                PassState = OwnReleaseLibMarker,
+            });
+        }
+
+        var result = _rewriter.Rewrite(context.SourceCode, context.SemanticModel!, _options);
+        PassFileRewrite? rewrite = null;
+        if (result.Changed)
+        {
+            rewrite = new PassFileRewrite
+            {
+                OutputCode = result.OutputCode,
+                Changed = true,
+                PreserveBom = true,
+            };
+        }
+
+        return Task.FromResult(new PassFilePureResult
+        {
+            Context = context,
+            Rewrite = rewrite,
+            PassState = result,
+        });
+    }
+
+    /// <summary>
+    /// Serial merge of one file's pure result, invoked by the runner in
+    /// source-file order. Applies statistics, the final-output map (kept in
+    /// source order for the residual gate), diagnostics, the rewritten-file list
+    /// and the verbose line exactly as the sequential loop did.
+    /// </summary>
+    public override void MergeFilePureResult(PassFilePureResult pure)
+    {
+        var context = pure.Context;
+        if (ReferenceEquals(pure.PassState, OwnReleaseLibMarker))
         {
             if (_verbose)
             {
                 Console.WriteLine($"[ref-out-in] clean (own release copy): {context.RelativePath}");
             }
 
-            return Task.FromResult<PassFileRewrite?>(null);
+            return;
         }
 
-        if (_cachedReferences == null && context.SemanticModel != null)
-            _cachedReferences = context.SemanticModel.Compilation.References.ToArray();
-
-        var result = _rewriter.Rewrite(context.SourceCode, context.SemanticModel!, _options);
+        var result = (RefOutInRewriterResult)pure.PassState!;
         MergeStatistics(result.Statistics);
         _finalOutputs[context.DestinationFilePath] =
             result.Changed ? result.OutputCode : context.SourceCode;
@@ -104,16 +187,7 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
         if (result.Changed)
         {
             _rewrittenSourceFiles.Add(context.SourceFilePath);
-            var rewrite = new PassFileRewrite
-            {
-                OutputCode = result.OutputCode,
-                Changed = true,
-                PreserveBom = true,
-            };
-            return Task.FromResult<PassFileRewrite?>(rewrite);
         }
-
-        return Task.FromResult<PassFileRewrite?>(null);
     }
 
     public override async Task AfterFilesAsync(PassTreeContext tree)
