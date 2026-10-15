@@ -58,6 +58,21 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
     public override bool VerifyTests => _verifyTests;
     public override bool DeleteBuildOutputsAfterRestore => true;
 
+    /// <summary>
+    /// Opt-in: the per-file rewrite is a pure function (the shared
+    /// <see cref="NumericBoundaryPreprocessor"/> holds no mutable state and every
+    /// rule is constructed per call), so the spine may run the read + rewrite
+    /// step in parallel. All accumulation (statistics/diagnostics/verbose lines/
+    /// released-file list) is deferred to <see cref="MergeFilePureResult"/>, which
+    /// the runner calls serially in source-file order — keeping the summary counts
+    /// and diagnostic order identical to the sequential path.
+    /// </summary>
+    public override bool SupportsParallelFileRewrite => true;
+
+    /// <summary>Sentinel <see cref="PassFilePureResult.PassState"/> for files under a
+    /// previously released support-library tree (no rewrite, no statistics).</summary>
+    private static readonly object OwnReleaseLibMarker = new();
+
     public NumericBoundaryStatistics Statistics => _statistics;
     public IReadOnlyList<NumericBoundaryDiagnostic> Diagnostics => _diagnostics;
 
@@ -71,19 +86,38 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
         return Task.CompletedTask;
     }
 
-    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    public override async Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    {
+        // Single source of truth for both the sequential spine and (via the
+        // runner's serial merge) the opt-in parallel spine: rewrite purely, then
+        // accumulate. Keeps the two paths from drifting apart.
+        var pure = await RewriteFilePureAsync(context);
+        MergeFilePureResult(pure);
+        return pure.Rewrite;
+    }
+
+    /// <summary>
+    /// Pure per-file rewrite for the opt-in parallel path. Reads only immutable
+    /// adapter state (<c>_options</c>, <c>_checkForOverflowMap</c>,
+    /// <c>_ownReleaseDirectories</c>, all set before the loop) and calls the
+    /// stateless <see cref="NumericBoundaryPreprocessor"/>; no shared field is
+    /// mutated, so it is safe to call concurrently. Per-file effects are carried
+    /// out via <see cref="PassFilePureResult.PassState"/> and applied later by
+    /// <see cref="MergeFilePureResult"/>.
+    /// </summary>
+    public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
     {
         if (IsUnderOwnReleaseLib(context.SourceFilePath, _ownReleaseDirectories))
         {
-            // Support-library code legitimately contains checked/unchecked;
-            // it never enters the NB-13 gate.
-            if (_verbose)
+            // Support-library code legitimately contains checked/unchecked; it
+            // never enters the NB-13 gate. Its verbose line is deferred to the
+            // serial merge so console order stays identical.
+            return Task.FromResult(new PassFilePureResult
             {
-                Console.WriteLine(
-                    $"[numeric-boundary] clean (own release copy): {context.RelativePath}");
-            }
-
-            return Task.FromResult<PassFileRewrite?>(null);
+                Context = context,
+                Rewrite = null,
+                PassState = OwnReleaseLibMarker,
+            });
         }
 
         var perFileOptions = _options with
@@ -93,6 +127,47 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
         };
 
         var result = _rewriter.Rewrite(context.SourceCode, context.SemanticModel, perFileOptions);
+
+        PassFileRewrite? rewrite = null;
+        if (result.Changed)
+        {
+            rewrite = new PassFileRewrite
+            {
+                OutputCode = result.OutputCode,
+                Changed = true,
+                PreserveBom = true,
+            };
+        }
+
+        return Task.FromResult(new PassFilePureResult
+        {
+            Context = context,
+            Rewrite = rewrite,
+            PassState = result,
+        });
+    }
+
+    /// <summary>
+    /// Serial merge of one file's pure result, invoked by the runner in
+    /// source-file order. Applies statistics/diagnostics/the released-file list
+    /// exactly as the sequential loop did, and prints the per-file verbose line
+    /// here (not in the parallel phase) so its order is preserved.
+    /// </summary>
+    public override void MergeFilePureResult(PassFilePureResult pure)
+    {
+        var context = pure.Context;
+        if (ReferenceEquals(pure.PassState, OwnReleaseLibMarker))
+        {
+            if (_verbose)
+            {
+                Console.WriteLine(
+                    $"[numeric-boundary] clean (own release copy): {context.RelativePath}");
+            }
+
+            return;
+        }
+
+        var result = (NumericBoundaryFileResult)pure.PassState!;
         MergeStatistics(result.Statistics);
 
         foreach (var diagnostic in result.Diagnostics)
@@ -117,16 +192,7 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
         if (result.Changed)
         {
             _rewrittenSourceFiles.Add(context.SourceFilePath);
-            var rewrite = new PassFileRewrite
-            {
-                OutputCode = result.OutputCode,
-                Changed = true,
-                PreserveBom = true,
-            };
-            return Task.FromResult<PassFileRewrite?>(rewrite);
         }
-
-        return Task.FromResult<PassFileRewrite?>(null);
     }
 
     public override async Task AfterFilesAsync(PassTreeContext tree)

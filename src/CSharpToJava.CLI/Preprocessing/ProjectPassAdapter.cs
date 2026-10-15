@@ -58,6 +58,29 @@ internal sealed class PassFileRewrite
     public bool PreserveBom { get; init; }
 }
 
+/// <summary>
+/// Per-file output of the opt-in parallel rewrite path
+/// (<see cref="ProjectPassAdapter.SupportsParallelFileRewrite"/>). Carries the
+/// optional file rewrite plus an opaque pass-owned state object the adapter uses
+/// to move per-file side effects (statistics/diagnostics) out of the parallel
+/// phase and into the serial merge, so the loop's observable output stays
+/// identical to the sequential path.
+/// </summary>
+internal sealed class PassFilePureResult
+{
+    public required PassFileContext Context { get; init; }
+
+    /// <summary>Null / Changed=false means "copy the source file over unchanged".</summary>
+    public PassFileRewrite? Rewrite { get; init; }
+
+    /// <summary>
+    /// Opaque per-file state produced by <see cref="ProjectPassAdapter.RewriteFilePureAsync"/>
+    /// and consumed by <see cref="ProjectPassAdapter.MergeFilePureResult"/>. Null
+    /// for passes with no per-file side effects to merge.
+    /// </summary>
+    public object? PassState { get; init; }
+}
+
 /// <summary>Everything a pass needs while processing one .cs file.</summary>
 internal sealed class PassFileContext
 {
@@ -395,6 +418,38 @@ internal abstract class ProjectPassAdapter
 
     /// <summary>Rewrite one file; return null/Changed=false to keep the file verbatim.</summary>
     public abstract Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context);
+
+    /// <summary>
+    /// Opt-in (default false): lets the standard spine
+    /// (<see cref="ProjectPassRunner.RunStandardSpineAsync"/>) run the per-file
+    /// read + rewrite step in parallel. Only passes whose per-file rewrite is a
+    /// pure function with no shared mutable state may enable this; a stateful
+    /// pass must instead override <see cref="RewriteFilePureAsync"/> to return
+    /// its per-file effects as an opaque <see cref="PassFilePureResult.PassState"/>
+    /// and apply them in <see cref="MergeFilePureResult"/> (called serially, in
+    /// source-file order). While false, the runner keeps the original sequential
+    /// loop verbatim.
+    /// </summary>
+    public virtual bool SupportsParallelFileRewrite => false;
+
+    /// <summary>
+    /// Side-effect-free per-file rewrite used by the opt-in parallel path. MUST
+    /// NOT mutate shared adapter state and MAY be called concurrently; the
+    /// default simply wraps <see cref="RewriteFileAsync"/> and is only correct
+    /// for already-pure passes.
+    /// </summary>
+    public virtual async Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
+        => new() { Context = context, Rewrite = await RewriteFileAsync(context) };
+
+    /// <summary>
+    /// Serial merge hook for the opt-in parallel path: invoked once per .cs file
+    /// in source-file order after the parallel rewrite phase. A stateful pass
+    /// applies its per-file statistics/diagnostics here — never from the
+    /// parallel phase — so summary counts and diagnostic order are unchanged.
+    /// </summary>
+    public virtual void MergeFilePureResult(PassFilePureResult result)
+    {
+    }
 
     /// <summary>Called after all files were rewritten; inject support libraries, distribute generated files, etc.</summary>
     public virtual Task AfterFilesAsync(PassTreeContext tree)

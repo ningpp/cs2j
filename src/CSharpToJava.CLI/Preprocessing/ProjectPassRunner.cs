@@ -332,68 +332,76 @@ internal static class ProjectPassRunner
         }
 
         var rewriteSw = Stopwatch.StartNew();
-        foreach (var sourceFile in tree.SourceFiles)
+        if (adapter.SupportsParallelFileRewrite)
         {
-            var relativePath = Path.GetRelativePath(tree.SourceRoot, sourceFile);
-            var destinationFile = Path.Combine(tree.IntermediateRoot, relativePath);
-            Directory.CreateDirectory(Path.GetDirectoryName(destinationFile)!);
-
-            if (!sourceFile.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+            await RewriteFilesInParallelAsync(
+                context, tree, compilation, compilationTreesByPath);
+        }
+        else
+        {
+            foreach (var sourceFile in tree.SourceFiles)
             {
-                if (sourceFile.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+                var relativePath = Path.GetRelativePath(tree.SourceRoot, sourceFile);
+                var destinationFile = Path.Combine(tree.IntermediateRoot, relativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(destinationFile)!);
+
+                if (!sourceFile.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
                 {
+                    if (sourceFile.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    // In a unified-directory chain the tree is rewritten in place,
+                    // so source and destination are the same file.
+                    if (!string.Equals(
+                            Path.GetFullPath(sourceFile),
+                            Path.GetFullPath(destinationFile),
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        File.Copy(sourceFile, destinationFile, overwrite: true);
+                    }
+
                     continue;
                 }
 
-                // In a unified-directory chain the tree is rewritten in place,
-                // so source and destination are the same file.
-                if (!string.Equals(
-                        Path.GetFullPath(sourceFile),
-                        Path.GetFullPath(destinationFile),
-                        StringComparison.OrdinalIgnoreCase))
+                SyntaxTree? syntaxTree = null;
+                compilationTreesByPath?.TryGetValue(sourceFile, out syntaxTree);
+
+                // Capture pristine bytes before any rewrite so in-place chains can
+                // roll a file back after the fact (e.g. extension-methods build gate).
+                tree.Snapshot.Capture(sourceFile);
+
+                var sourceCode = await File.ReadAllTextAsync(sourceFile);
+                var fileContext = new PassFileContext
                 {
-                    File.Copy(sourceFile, destinationFile, overwrite: true);
+                    SourceCode = sourceCode,
+                    SourceFilePath = sourceFile,
+                    RelativePath = relativePath,
+                    DestinationFilePath = destinationFile,
+                    SemanticModel = syntaxTree == null || compilation == null
+                        ? null
+                        : compilation.GetSemanticModel(syntaxTree),
+                };
+
+                var rewrite = await adapter.RewriteFileAsync(fileContext);
+                if (rewrite is not { Changed: true })
+                {
+                    // Unchanged file: copy it over unless the pass is rewriting the
+                    // tree in place (unified directory), where paths are identical.
+                    if (!string.Equals(
+                            Path.GetFullPath(sourceFile),
+                            Path.GetFullPath(destinationFile),
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        File.Copy(sourceFile, destinationFile, overwrite: true);
+                    }
+
+                    continue;
                 }
 
-                continue;
+                await WriteRewrittenAsync(tree, fileContext, rewrite);
             }
-
-            SyntaxTree? syntaxTree = null;
-            compilationTreesByPath?.TryGetValue(sourceFile, out syntaxTree);
-
-            // Capture pristine bytes before any rewrite so in-place chains can
-            // roll a file back after the fact (e.g. extension-methods build gate).
-            tree.Snapshot.Capture(sourceFile);
-
-            var sourceCode = await File.ReadAllTextAsync(sourceFile);
-            var fileContext = new PassFileContext
-            {
-                SourceCode = sourceCode,
-                SourceFilePath = sourceFile,
-                RelativePath = relativePath,
-                DestinationFilePath = destinationFile,
-                SemanticModel = syntaxTree == null || compilation == null
-                    ? null
-                    : compilation.GetSemanticModel(syntaxTree),
-            };
-
-            var rewrite = await adapter.RewriteFileAsync(fileContext);
-            if (rewrite is not { Changed: true })
-            {
-                // Unchanged file: copy it over unless the pass is rewriting the
-                // tree in place (unified directory), where paths are identical.
-                if (!string.Equals(
-                        Path.GetFullPath(sourceFile),
-                        Path.GetFullPath(destinationFile),
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    File.Copy(sourceFile, destinationFile, overwrite: true);
-                }
-
-                continue;
-            }
-
-            await WriteRewrittenAsync(tree, fileContext, rewrite);
         }
 
         rewriteSw.Stop();
@@ -444,6 +452,112 @@ internal static class ProjectPassRunner
             {
                 DeleteBuildOutputs(tree.IntermediateRoot);
             }
+        }
+    }
+
+    /// <summary>
+    /// Opt-in parallel variant of the standard per-file loop. The read + rewrite
+    /// step (the pure per-file computation) runs on the thread pool; every shared
+    /// mutation — statistics/diagnostics merge, verbose lines, file writes and
+    /// non-.cs copies — happens afterwards on the calling thread in source-file
+    /// order, so the pass' observable output is byte-identical to the serial loop.
+    /// </summary>
+    private static async Task RewriteFilesInParallelAsync(
+        PassExecutionContext context,
+        PassTreeContext tree,
+        CSharpCompilation? compilation,
+        Dictionary<string, SyntaxTree>? compilationTreesByPath)
+    {
+        var adapter = context.Adapter;
+        var csFiles = tree.SourceFiles
+            .Where(file => file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var pureResults = new PassFilePureResult[csFiles.Count];
+        Parallel.For(
+            0,
+            csFiles.Count,
+            new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount) },
+            index =>
+            {
+                var sourceFile = csFiles[index];
+                var relativePath = Path.GetRelativePath(tree.SourceRoot, sourceFile);
+                var destinationFile = Path.Combine(tree.IntermediateRoot, relativePath);
+                SyntaxTree? syntaxTree = null;
+                compilationTreesByPath?.TryGetValue(sourceFile, out syntaxTree);
+
+                // Capture pristine bytes before any rewrite; the snapshot store is
+                // a ConcurrentDictionary, so concurrent Capture calls are safe (and
+                // here every capture completes before the serial write phase below).
+                tree.Snapshot.Capture(sourceFile);
+
+                var sourceCode = File.ReadAllText(sourceFile);
+                var fileContext = new PassFileContext
+                {
+                    SourceCode = sourceCode,
+                    SourceFilePath = sourceFile,
+                    RelativePath = relativePath,
+                    DestinationFilePath = destinationFile,
+                    // Roslyn's SemanticModel is not thread-safe, but GetSemanticModel
+                    // is only queried for a distinct syntax tree per file: each file
+                    // owns exactly one tree, so no two threads ever touch the same
+                    // model and no lock is needed (same pattern as
+                    // GenericDeepenAnalyzer / UseSiteSafetyClassifier).
+                    SemanticModel = syntaxTree == null || compilation == null
+                        ? null
+                        : compilation.GetSemanticModel(syntaxTree),
+                };
+
+                pureResults[index] = adapter
+                    .RewriteFilePureAsync(fileContext)
+                    .GetAwaiter()
+                    .GetResult();
+            });
+
+        // Serial merge + write, in source-file order (identical to the serial loop).
+        var csIndex = 0;
+        foreach (var sourceFile in tree.SourceFiles)
+        {
+            var relativePath = Path.GetRelativePath(tree.SourceRoot, sourceFile);
+            var destinationFile = Path.Combine(tree.IntermediateRoot, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationFile)!);
+
+            if (!sourceFile.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+            {
+                if (sourceFile.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!string.Equals(
+                        Path.GetFullPath(sourceFile),
+                        Path.GetFullPath(destinationFile),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    File.Copy(sourceFile, destinationFile, overwrite: true);
+                }
+
+                continue;
+            }
+
+            var pure = pureResults[csIndex++];
+            adapter.MergeFilePureResult(pure);
+
+            var rewrite = pure.Rewrite;
+            if (rewrite is not { Changed: true })
+            {
+                if (!string.Equals(
+                        Path.GetFullPath(sourceFile),
+                        Path.GetFullPath(destinationFile),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    File.Copy(sourceFile, destinationFile, overwrite: true);
+                }
+
+                continue;
+            }
+
+            await WriteRewrittenAsync(tree, pure.Context, rewrite);
         }
     }
 
