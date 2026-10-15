@@ -69,6 +69,18 @@ public sealed class ReadOnlyStructMaker
         var structs = root.DescendantNodes().OfType<StructDeclarationSyntax>().ToList();
         stats.StructsScanned = structs.Count;
 
+        // Fast path: a tree with no struct declarations cannot be reshaped. The
+        // rewriter only touches struct declarations and the constructor normalizer
+        // only readonly structs, so the whole-tree rewriter visit, the constructor
+        // normalization pass and the (twice-materialized) output comparison below
+        // would all be no-ops. Skipping them keeps the result identical (no change,
+        // no diagnostics) while avoiding the full-tree walks per file.
+        if (structs.Count == 0)
+        {
+            return new ReadOnlyStructMakerResult(
+                null, false, new Dictionary<string, string>(), diagnostics, stats);
+        }
+
         var analyzer = new StructAnalyzer(options, semanticModel, GetBoxingReachableStructs(semanticModel.Compilation),
             GetExternalAccessIndex(semanticModel.Compilation));
         var analysisResults = new Dictionary<StructDeclarationSyntax, AnalyzeResult>();

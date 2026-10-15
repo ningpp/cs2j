@@ -47,28 +47,58 @@ internal static class BoxingReachabilityAnalyzer
 
             var root = tree.GetRoot();
 
+            // Every argument of an invocation/creation binds the SAME callee symbol,
+            // so a per-tree memo avoids re-resolving a call once per argument. The
+            // resolved symbol is identical for each argument (only the argument index
+            // differs), so the enqueue decision is unchanged.
+            var calleeCache = new Dictionary<SyntaxNode, IMethodSymbol?>();
+            IMethodSymbol? ResolveCallee(SyntaxNode site)
+            {
+                if (calleeCache.TryGetValue(site, out var cached))
+                    return cached;
+                var resolved = GetModel().GetSymbolInfo(site).Symbol as IMethodSymbol;
+                calleeCache[site] = resolved;
+                return resolved;
+            }
+
             foreach (var node in root.DescendantNodes())
             {
                 switch (node)
                 {
                     case ArgumentSyntax argument:
-                        HandleArgument(argument, GetModel(), compilation, EnqueueLocal);
+                        HandleArgument(argument, GetModel(), compilation, EnqueueLocal, ResolveCallee);
                         break;
 
                     case VariableDeclaratorSyntax declarator when declarator.Initializer?.Value != null:
-                        if (IsObjectLikeDeclaredType(GetDeclaredType(declarator, GetModel()), out var declaredType) &&
-                            declaredType != null)
                         {
-                            var valueType = GetModel().GetTypeInfo(declarator.Initializer.Value).Type;
-                            if (IsUserCodeType(valueType))
+                            // `var` declarations infer the declared type from the initializer,
+                            // so declared type and value type are the SAME symbol:
+                            // IsObjectLike(declared) then implies the value type is object-like,
+                            // which IsUserCodeType always rejects. This branch therefore can
+                            // never enqueue for `var` — skip the (expensive) declared-type
+                            // binding entirely for the common form.
+                            var declaration = declarator.FirstAncestorOrSelf<VariableDeclarationSyntax>();
+                            if (declaration?.Type is IdentifierNameSyntax { Identifier.Text: "var" })
+                                break;
+
+                            if (IsObjectLikeDeclaredType(GetDeclaredType(declarator, GetModel()), out var declaredType) &&
+                                declaredType != null)
                             {
-                                EnqueueLocal(valueType);
+                                var valueType = GetModel().GetTypeInfo(declarator.Initializer.Value).Type;
+                                if (IsUserCodeType(valueType))
+                                {
+                                    EnqueueLocal(valueType);
+                                }
                             }
                         }
                         break;
 
-                    case AssignmentExpressionSyntax assignment:
+                    case AssignmentExpressionSyntax assignment
+                        when assignment.Right is not LiteralExpressionSyntax:
                         {
+                            // A literal right-hand side (numeric/string/bool/char/null) is
+                            // never a user-code type, so no value can be enqueued no matter
+                            // what the target's declared type is — skip the bindings.
                             var targetType = GetModel().GetTypeInfo(assignment.Left).Type;
                             if (IsObjectLike(targetType))
                             {
@@ -219,11 +249,16 @@ internal static class BoxingReachabilityAnalyzer
         ArgumentSyntax argument,
         SemanticModel model,
         Compilation compilation,
-        Action<ITypeSymbol?> enqueue)
+        Action<ITypeSymbol?> enqueue,
+        Func<SyntaxNode, IMethodSymbol?> resolveCallee)
     {
         if (argument.Parent is not BaseArgumentListSyntax argList) return;
         var parent = argList.Parent;
         if (parent == null) return;
+
+        // A literal argument (numeric/string/bool/char/null) is never a user-code
+        // type, so it can never be enqueued — skip resolving the callee entirely.
+        if (argument.Expression is LiteralExpressionSyntax) return;
 
         var index = argList.Arguments.IndexOf(argument);
         IMethodSymbol? method = null;
@@ -231,7 +266,7 @@ internal static class BoxingReachabilityAnalyzer
         switch (parent)
         {
             case InvocationExpressionSyntax invocation:
-                method = model.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+                method = resolveCallee(invocation);
                 if (method != null && method.MethodKind == MethodKind.ReducedExtension)
                 {
                     // Reduced extension call: receiver is not part of the argument list.
@@ -240,12 +275,12 @@ internal static class BoxingReachabilityAnalyzer
                 break;
 
             case ObjectCreationExpressionSyntax creation:
-                method = model.GetSymbolInfo(creation).Symbol as IMethodSymbol;
+                method = resolveCallee(creation);
                 break;
 
             case ImplicitElementAccessSyntax elementAccess:
                 // Collection/dictionary initializer element: binds to Add()/indexer.
-                method = model.GetSymbolInfo(elementAccess).Symbol as IMethodSymbol;
+                method = resolveCallee(elementAccess);
                 break;
 
             default:

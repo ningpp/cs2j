@@ -61,11 +61,18 @@ internal sealed class MakeReadonlyPassAdapter : ProjectPassAdapter
         // Parse all C# files into syntax trees. The historical pass uses bare parse
         // options (no preprocessor symbols, default language version).
         var syntaxTrees = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
+        // Files whose source text contains no `struct` keyword declare no structs
+        // (the modifier/declaration keyword must appear literally), so the maker can
+        // never rewrite them. Recording them here lets the per-file maker loop skip
+        // the whole-tree struct walk for the vast majority of files.
+        var structBearingFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var csFile in tree.CsFiles)
         {
             var sourceCode = await File.ReadAllTextAsync(csFile);
             var parsed = CSharpSyntaxTree.ParseText(sourceCode, path: csFile);
             syntaxTrees[csFile] = parsed;
+            if (sourceCode.IndexOf("struct", StringComparison.Ordinal) >= 0)
+                structBearingFiles.Add(csFile);
         }
 
         var compilation = CSharpCompilation.Create(
@@ -109,6 +116,15 @@ internal sealed class MakeReadonlyPassAdapter : ProjectPassAdapter
             // --t.Item). The readonly-struct shaping would turn them into get-only
             // properties and produce CS0200 at the rewritten call sites.
             if (IsGeneratedSupportFile(sourceFile))
+            {
+                tree.ResetScratchFile(sourceFile, destinationFile);
+                continue;
+            }
+
+            // Struct-free source (no `struct` keyword): the maker would scan zero
+            // structs and report no change, so the whole-tree analysis walk is skipped
+            // and the file is treated exactly like an unchanged file.
+            if (!structBearingFiles.Contains(sourceFile))
             {
                 tree.ResetScratchFile(sourceFile, destinationFile);
                 continue;
@@ -172,47 +188,54 @@ internal sealed class MakeReadonlyPassAdapter : ProjectPassAdapter
 
         var sourceFileList = tree.SourceFiles.ToList();
 
+        // Every cross-file pass below re-reads the intermediate tree and re-parses
+        // every output file. Most files are untouched by any pass, so a shared cache
+        // (validated by the freshly read text) lets them reuse the same syntax tree
+        // instead of paying a full parse per pass. Cross-pass tree reuse is safe:
+        // trees are immutable and each pass builds its own compilation around them.
+        var treeCache = new ReadOnlyStructPassEngine.OutputTreeCache();
+
         // Second pass: update call sites across all files for migrated methods
         if (globalMigratedMethods.Count > 0 && _makerOptions.UpdateCallSites)
         {
             await ReadOnlyStructPassEngine.UpdateCrossFileCallSites(
-                intermediateRoot, sourceRoot, sourceFileList, globalMigratedMethods);
+                intermediateRoot, sourceRoot, sourceFileList, globalMigratedMethods, treeCache);
         }
 
         // Third pass: update cross-file read accesses for L4 public field conversions
         if (_makerOptions.EnablePublicFieldConversion)
         {
             await ReadOnlyStructPassEngine.UpdateCrossFileFieldReads(
-                intermediateRoot, sourceRoot, sourceFileList);
+                intermediateRoot, sourceRoot, sourceFileList, treeCache);
         }
 
         // Third-and-a-half pass: hoist ref/out arguments that target readonly struct
         // fields into temps with WithXxx write-back (CS0192).
         await ReadOnlyStructPassEngine.HoistRefReadonlyFieldArguments(
-            intermediateRoot, sourceRoot, sourceFileList);
+            intermediateRoot, sourceRoot, sourceFileList, treeCache);
 
         // Third-and-three-quarter pass: widen transformed interface members to
         // covariant returns and rewrite interface call sites to reassign the receiver.
         await ReadOnlyStructPassEngine.TransformMigratedInterfaces(
-            intermediateRoot, sourceRoot, sourceFileList);
+            intermediateRoot, sourceRoot, sourceFileList, treeCache);
 
         // Companion pass: concrete class implementers widen void methods to return
         // `this` so the widened interface contract is satisfied.
         await ReadOnlyStructPassEngine.FixConcreteInterfaceImplementers(
-            intermediateRoot, sourceRoot, sourceFileList);
+            intermediateRoot, sourceRoot, sourceFileList, treeCache);
 
         // Final interface-compat step: add explicit bridge implementations to classes.
         await ReadOnlyStructPassEngine.AddClassInterfaceBridges(
-            intermediateRoot, sourceRoot, sourceFileList);
+            intermediateRoot, sourceRoot, sourceFileList, treeCache);
 
         // Fourth pass: normalize constructors of readonly structs so each field is
         // assigned exactly once (Java final fields allow a single assignment).
         await ReadOnlyStructPassEngine.NormalizeReadOnlyStructConstructors(
-            intermediateRoot, sourceRoot, sourceFileList);
+            intermediateRoot, sourceRoot, sourceFileList, treeCache);
 
         // Fifth pass: mark structs in inactive #if regions readonly too.
         await ReadOnlyStructPassEngine.MarkDisabledRegionStructsReadonly(
-            intermediateRoot, sourceRoot, sourceFileList);
+            intermediateRoot, sourceRoot, sourceFileList, treeCache);
 
         // Restore NuGet packages, verify build/tests, then drop bin/ outputs.
         var restoreTarget = ProjectPreprocessSource.ResolveRestoreTarget(tree.Layout, intermediateRoot);

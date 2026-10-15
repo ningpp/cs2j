@@ -14,6 +14,33 @@ namespace CSharpToJava.CLI.Preprocessing.Adapters;
 /// </summary>
 internal static class ReadOnlyStructPassEngine
 {
+    /// <summary>
+    /// Per-run cache of parsed output trees shared by every cross-file pass. Each
+    /// pass re-reads the intermediate tree and re-parses every output file; most
+    /// files are never written by any pass, so their tree is reused verbatim. The
+    /// cache validates by comparing the freshly read source text against the text
+    /// the tree was parsed from, so a file rewritten by an earlier pass is always
+    /// re-parsed (identical input text still yields the identical tree).
+    /// </summary>
+    internal sealed class OutputTreeCache
+    {
+        private readonly Dictionary<string, (string Code, SyntaxTree Tree)> _map =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        public SyntaxTree Get(string file, string code)
+        {
+            if (_map.TryGetValue(file, out var entry) &&
+                string.Equals(entry.Code, code, StringComparison.Ordinal))
+            {
+                return entry.Tree;
+            }
+
+            var tree = CSharpSyntaxTree.ParseText(code, path: file);
+            _map[file] = (code, tree);
+            return tree;
+        }
+    }
+
     public static void MergeStatistics(ReadOnlyStructMakerStatistics target, ReadOnlyStructMakerStatistics source)
     {
         target.StructsScanned += source.StructsScanned;
@@ -34,7 +61,7 @@ internal static class ReadOnlyStructPassEngine
     /// </summary>
     public static async Task UpdateCrossFileCallSites(
         string intermediateRoot, string sourceRoot, List<string> sourceFiles,
-        Dictionary<string, string> migratedStructs)
+        Dictionary<string, string> migratedStructs, OutputTreeCache? treeCache = null)
     {
         // Parse all output .cs files from the intermediate directory
         var outputCsFiles = new List<string>();
@@ -51,8 +78,9 @@ internal static class ReadOnlyStructPassEngine
         foreach (var file in outputCsFiles)
         {
             var code = await File.ReadAllTextAsync(file);
-            var tree = CSharpSyntaxTree.ParseText(code, path: file);
-            outputTrees[file] = tree;
+            outputTrees[file] = treeCache == null
+                ? CSharpSyntaxTree.ParseText(code, path: file)
+                : treeCache.Get(file, code);
         }
 
         // Find migrated method names by scanning struct declarations
@@ -174,7 +202,7 @@ internal static class ReadOnlyStructPassEngine
     /// the generated Java final-field assignments legal.
     /// </summary>
     public static async Task NormalizeReadOnlyStructConstructors(
-        string intermediateRoot, string sourceRoot, List<string> sourceFiles)
+        string intermediateRoot, string sourceRoot, List<string> sourceFiles, OutputTreeCache? treeCache = null)
     {
         foreach (var sourceFile in sourceFiles)
         {
@@ -184,7 +212,15 @@ internal static class ReadOnlyStructPassEngine
             if (!File.Exists(outputFile)) continue;
 
             var code = await File.ReadAllTextAsync(outputFile);
-            var tree = CSharpSyntaxTree.ParseText(code, path: outputFile);
+
+            // Fast pre-check: constructor normalization only touches readonly structs,
+            // so a file whose text contains no `struct` keyword cannot be affected —
+            // skip the parse entirely for the (vast majority) struct-free files.
+            if (code.IndexOf("struct", StringComparison.Ordinal) < 0) continue;
+
+            var tree = treeCache == null
+                ? CSharpSyntaxTree.ParseText(code, path: outputFile)
+                : treeCache.Get(outputFile, code);
             var root = (Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax)tree.GetRoot();
 
             // Fast pre-check: skip files without readonly structs.
@@ -205,7 +241,7 @@ internal static class ReadOnlyStructPassEngine
     /// struct fields in ALL files, not just the file containing the struct definition.
     /// </summary>
     public static async Task UpdateCrossFileFieldReads(
-        string intermediateRoot, string sourceRoot, List<string> sourceFiles)
+        string intermediateRoot, string sourceRoot, List<string> sourceFiles, OutputTreeCache? treeCache = null)
     {
         // Parse all output .cs files from the intermediate directory
         var outputCsFiles = new List<string>();
@@ -222,8 +258,9 @@ internal static class ReadOnlyStructPassEngine
         foreach (var file in outputCsFiles)
         {
             var code = await File.ReadAllTextAsync(file);
-            var tree = CSharpSyntaxTree.ParseText(code, path: file);
-            outputTrees[file] = tree;
+            outputTrees[file] = treeCache == null
+                ? CSharpSyntaxTree.ParseText(code, path: file)
+                : treeCache.Get(file, code);
         }
 
         // Find L4-converted structs: those with private fields + getXxx() getter methods
@@ -460,7 +497,7 @@ internal static class ReadOnlyStructPassEngine
     /// </code>
     /// </summary>
     public static async Task HoistRefReadonlyFieldArguments(
-        string intermediateRoot, string sourceRoot, List<string> sourceFiles)
+        string intermediateRoot, string sourceRoot, List<string> sourceFiles, OutputTreeCache? treeCache = null)
     {
         var outputCsFiles = new List<string>();
         foreach (var sourceFile in sourceFiles)
@@ -1129,7 +1166,7 @@ internal static class ReadOnlyStructPassEngine
     /// compiled), so every struct declaration in the output is readonly.
     /// </summary>
     public static async Task MarkDisabledRegionStructsReadonly(
-        string intermediateRoot, string sourceRoot, List<string> sourceFiles)
+        string intermediateRoot, string sourceRoot, List<string> sourceFiles, OutputTreeCache? treeCache = null)
     {
         var structPattern = new System.Text.RegularExpressions.Regex(
             @"(?<=^|\n)(?<indent>[ \t]*)(?<mods>(?:(?:public|internal|private|protected|file|unsafe|partial|ref)\s+)*)(?<kw>struct)(?<name>\s+\w+)",
@@ -1143,7 +1180,15 @@ internal static class ReadOnlyStructPassEngine
             if (!File.Exists(outputFile)) continue;
 
             var code = await File.ReadAllTextAsync(outputFile);
-            var tree = CSharpSyntaxTree.ParseText(code, path: outputFile);
+
+            // Fast pre-check: the pass only adds `readonly` to struct declarations
+            // (including ones inside inactive #if regions). A file whose text contains
+            // no `struct` keyword has no such declaration — skip the parse entirely.
+            if (code.IndexOf("struct", StringComparison.Ordinal) < 0) continue;
+
+            var tree = treeCache == null
+                ? CSharpSyntaxTree.ParseText(code, path: outputFile)
+                : treeCache.Get(outputFile, code);
 
             // Collect line spans of ACTIVE struct declarations (already handled by the maker).
             // Use the line of the `struct` KEYWORD, not the declaration start: when the
@@ -1183,7 +1228,7 @@ internal static class ReadOnlyStructPassEngine
     /// are excluded — their methods were already migrated by the readonly-struct maker.
     /// </summary>
     public static async Task FixConcreteInterfaceImplementers(
-        string intermediateRoot, string sourceRoot, List<string> sourceFiles)
+        string intermediateRoot, string sourceRoot, List<string> sourceFiles, OutputTreeCache? treeCache = null)
     {
         // Load the members transformed by TransformMigratedInterfaces (persisted in a
         // metadata file): interface name -> member names.
@@ -1371,7 +1416,7 @@ internal static class ReadOnlyStructPassEngine
     /// Structs are skipped (their bridges come from the readonly-struct maker + widener).
     /// </summary>
     public static async Task AddClassInterfaceBridges(
-        string intermediateRoot, string sourceRoot, List<string> sourceFiles)
+        string intermediateRoot, string sourceRoot, List<string> sourceFiles, OutputTreeCache? treeCache = null)
     {
         // Load the members transformed by TransformMigratedInterfaces (metadata file).
         var affectedMembersByInterface = await LoadTransformedInterfaceMembers(intermediateRoot);
@@ -1535,7 +1580,7 @@ internal static class ReadOnlyStructPassEngine
     ///      public method now implements the member implicitly).
     /// </summary>
     public static async Task TransformMigratedInterfaces(
-        string intermediateRoot, string sourceRoot, List<string> sourceFiles)
+        string intermediateRoot, string sourceRoot, List<string> sourceFiles, OutputTreeCache? treeCache = null)
     {
         var outputCsFiles = new List<string>();
         foreach (var sourceFile in sourceFiles)
