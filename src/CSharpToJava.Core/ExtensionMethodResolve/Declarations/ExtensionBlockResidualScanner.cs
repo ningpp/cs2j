@@ -45,9 +45,20 @@ internal static class ExtensionBlockResidualScanner
     public static BlockResidualResult Scan(
         Compilation rewritten,
         IReadOnlyDictionary<SyntaxTree, BlockAnalysisResult> analyses,
-        IReadOnlyCollection<string>? excludedFiles)
+        IReadOnlyCollection<string>? excludedFiles,
+        ExtensionBlockMetadataIndex? metadataFilter = null)
     {
         ArgumentNullException.ThrowIfNull(rewritten);
+
+        // A caller that knows the candidate carries no source extension-block
+        // declaration may pass the metadata index. When that index cannot expose
+        // a bindable member, no candidate node can bind to an extension
+        // container and there are no retained block nodes, so every counter is
+        // zero by construction and the per-tree semantic sweep is skipped.
+        if (metadataFilter is { CanBindMember: false })
+        {
+            return new BlockResidualResult(0, 0, 0, 0);
+        }
 
         var trees = rewritten.SyntaxTrees as IReadOnlyList<SyntaxTree>
             ?? rewritten.SyntaxTrees.ToList();
@@ -127,6 +138,12 @@ internal static class ExtensionBlockResidualScanner
                 // (2a) invocation sites (block methods).
                 foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
                 {
+                    if (metadataFilter is not null
+                        && !metadataFilter.NamedMemberCouldMatch(invocation))
+                    {
+                        continue;
+                    }
+
                     if (model.GetSymbolInfo(invocation).Symbol is IMethodSymbol
                         {
                             MethodKind: MethodKind.Ordinary,
@@ -145,6 +162,12 @@ internal static class ExtensionBlockResidualScanner
                     .Concat(root.DescendantNodes().OfType<MemberBindingExpressionSyntax>());
                 foreach (var access in propertyAccesses)
                 {
+                    if (metadataFilter is not null
+                        && !metadataFilter.NamedMemberCouldMatch(access))
+                    {
+                        continue;
+                    }
+
                     if (model.GetSymbolInfo(access).Symbol is { } symbol
                         && IsExtensionContainerSymbol(symbol)
                         && !pairedSpans.Contains(access.SpanStart))
@@ -154,7 +177,14 @@ internal static class ExtensionBlockResidualScanner
                 }
 
                 // (2c) operator sites still binding to extension containers.
-                foreach (var binary in root.DescendantNodes().OfType<BinaryExpressionSyntax>())
+                // A metadata extension container can only be reached by an
+                // operator when it declares an operator member; otherwise the
+                // operator sweeps are skipped (empty node sequence).
+                var operatorNodes = metadataFilter is null || metadataFilter.HasOperatorMembers
+                    ? root.DescendantNodes()
+                    : Enumerable.Empty<SyntaxNode>();
+
+                foreach (var binary in operatorNodes.OfType<BinaryExpressionSyntax>())
                 {
                     if (model.GetSymbolInfo(binary).Symbol is IMethodSymbol
                         {
@@ -167,7 +197,7 @@ internal static class ExtensionBlockResidualScanner
                     }
                 }
 
-                foreach (var unary in root.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>())
+                foreach (var unary in operatorNodes.OfType<PrefixUnaryExpressionSyntax>())
                 {
                     if (model.GetSymbolInfo(unary).Symbol is IMethodSymbol
                         {
@@ -180,7 +210,7 @@ internal static class ExtensionBlockResidualScanner
                     }
                 }
 
-                foreach (var compound in root.DescendantNodes()
+                foreach (var compound in operatorNodes
                              .OfType<AssignmentExpressionSyntax>()
                              .Where(a => !a.IsKind(SyntaxKind.SimpleAssignmentExpression)))
                 {

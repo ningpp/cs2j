@@ -340,21 +340,42 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
             return;
         }
 
-        // The intermediate compilation reparses files: its SyntaxTree
-        // instances differ from the analysis keys. Re-key by file path.
-        var analysesByPath = _preprocessor.BlockAnalyses
-            .ToDictionary(kv => kv.Key.FilePath, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
-        var candidateAnalyses = new Dictionary<SyntaxTree, BlockAnalysisResult>();
-        foreach (var candidateTree in compilation.SyntaxTrees)
-        {
-            if (analysesByPath.TryGetValue(candidateTree.FilePath, out var analysis))
-            {
-                candidateAnalyses[candidateTree] = analysis;
-            }
-        }
+        // The metadata index can only act as a filter when the candidate carries
+        // no source extension-block declaration: C49 never synthesizes one, and
+        // a rejected source block keeps arbitrary member names, so filtering
+        // would wrongly drop its sites. With no source block the candidate's
+        // only extension containers are the metadata ones the index describes.
+        var metadataFilter = _preprocessor.HasSourceExtensionBlocks
+            ? null
+            : _preprocessor.MetadataExtensionIndex;
 
-        var blockResidual = ExtensionBlockResidualScanner.Scan(
-            compilation, candidateAnalyses, excludedFiles);
+        // Provable zero-result fast path: no source block survived and no
+        // referenced assembly exposes a bindable extension-container member, so
+        // no candidate node can bind to an extension container and there are no
+        // retained block nodes — every counter is zero by construction.
+        BlockResidualResult blockResidual;
+        if (metadataFilter is { CanBindMember: false })
+        {
+            blockResidual = new BlockResidualResult(0, 0, 0, 0);
+        }
+        else
+        {
+            // The intermediate compilation reparses files: its SyntaxTree
+            // instances differ from the analysis keys. Re-key by file path.
+            var analysesByPath = _preprocessor.BlockAnalyses
+                .ToDictionary(kv => kv.Key.FilePath, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+            var candidateAnalyses = new Dictionary<SyntaxTree, BlockAnalysisResult>();
+            foreach (var candidateTree in compilation.SyntaxTrees)
+            {
+                if (analysesByPath.TryGetValue(candidateTree.FilePath, out var analysis))
+                {
+                    candidateAnalyses[candidateTree] = analysis;
+                }
+            }
+
+            blockResidual = ExtensionBlockResidualScanner.Scan(
+                compilation, candidateAnalyses, excludedFiles, metadataFilter);
+        }
 
         if (_verbose)
         {

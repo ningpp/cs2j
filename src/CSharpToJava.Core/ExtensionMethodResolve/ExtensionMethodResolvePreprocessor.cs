@@ -50,6 +50,23 @@ public sealed class ExtensionMethodResolvePreprocessor
     private IReadOnlyList<ExtensionExemptSite> _exemptSites = Array.Empty<ExtensionExemptSite>();
     private int _thisModifierBaseline;
 
+    /// <summary>
+    /// True when the analyzed (original) compilation declared at least one C#14
+    /// extension block in source. C49 rewriters never synthesize extension
+    /// declarations, so a false value guarantees the candidate tree carries
+    /// none either.
+    /// </summary>
+    internal bool HasSourceExtensionBlocks { get; private set; }
+
+    /// <summary>
+    /// Index of C#14 extension-block containers declared by the referenced
+    /// assemblies (member names + operator presence), or null when block
+    /// materialization is off. Its <see cref="ExtensionBlockMetadataIndex.CanBindMember"/>
+    /// false value proves no call site can bind to a metadata extension
+    /// container, making the report-only external boundary scan a no-op.
+    /// </summary>
+    internal ExtensionBlockMetadataIndex? MetadataExtensionIndex { get; private set; }
+
     /// <summary>Test hook: force an identity mismatch for a rewritten expression-tree site.</summary>
     internal Func<InvocationExpressionSyntax, IMethodSymbol, bool>? ForceExpressionTreeMismatch { get; set; }
 
@@ -108,6 +125,7 @@ public sealed class ExtensionMethodResolvePreprocessor
         _rewrittenFiles.Clear();
         _thisModifierBaseline = 0;
         BlockStatisticsForLastFile = null;
+        HasSourceExtensionBlocks = false;
 
         // Per-tree analysis is independent (each tree owns its SemanticModel and
         // its own analyzer/binder state), so it runs in parallel. Results are
@@ -120,6 +138,15 @@ public sealed class ExtensionMethodResolvePreprocessor
             .ToList();
         var planSlots = new FilePlan?[orderedTrees.Count];
         var blockSlots = new BlockAnalysisResult?[orderedTrees.Count];
+        var sourceBlockSlots = new bool[orderedTrees.Count];
+
+        // One-time compilation-level probe of the extension-block containers
+        // declared by referenced metadata assemblies, shared by every per-tree
+        // analyzer rather than recomputed 932 times.
+        var metadataIndex = blockOptions?.MaterializeExtensionBlocks == true
+            ? BuildExtensionBlockMetadataIndex(_compilation)
+            : null;
+        MetadataExtensionIndex = metadataIndex;
 
         Parallel.For(
             0,
@@ -135,12 +162,13 @@ public sealed class ExtensionMethodResolvePreprocessor
                 var entryDiagnostics = new List<ExtensionDiagnostic>();
                 BlockAnalysisResult? blockAnalysis = null;
                 var suppressClassicBlockGate = false;
+                var hasBlocks = false;
 
                 var materialize = blockOptions?.MaterializeExtensionBlocks == true;
                 if (materialize)
                 {
                     var root = tree.GetCompilationUnitRoot();
-                    var hasBlocks = root.DescendantNodes()
+                    hasBlocks = root.DescendantNodes()
                         .Any(n => n.IsKind(SyntaxKind.ExtensionBlockDeclaration));
 
                     if (hasBlocks)
@@ -173,7 +201,7 @@ public sealed class ExtensionMethodResolvePreprocessor
                         else
                         {
                             suppressClassicBlockGate = true;
-                            var analyzer = new ExtensionBlockAnalyzer(model, blockOptions!);
+                            var analyzer = new ExtensionBlockAnalyzer(model, blockOptions!, metadataIndex);
                             blockAnalysis = analyzer.Analyze();
                         }
                     }
@@ -183,11 +211,12 @@ public sealed class ExtensionMethodResolvePreprocessor
                         // extension members from an external assembly
                         // (decision appendix 5): still run the analyzer so the
                         // report-only CS2J1203 boundary scan can fire.
-                        var analyzer = new ExtensionBlockAnalyzer(model, blockOptions!);
+                        var analyzer = new ExtensionBlockAnalyzer(model, blockOptions!, metadataIndex);
                         blockAnalysis = analyzer.Analyze();
                     }
                 }
 
+                sourceBlockSlots[index] = hasBlocks;
                 var binder = new ExtensionCallBinder(model, _options, suppressClassicBlockGate);
                 binder.Analyze();
 
@@ -217,6 +246,7 @@ public sealed class ExtensionMethodResolvePreprocessor
             }
 
             _thisModifierBaseline += ExtensionMethodResidualScanner.CountExtensionThisModifiers(tree);
+            HasSourceExtensionBlocks |= sourceBlockSlots[index];
             _plans[tree] = planSlots[index]!;
         }
 
@@ -264,6 +294,98 @@ public sealed class ExtensionMethodResolvePreprocessor
         var effective = new HashSet<string>(options.LinqHostSet, StringComparer.Ordinal);
         effective.UnionWith(additions);
         return options with { LinqHostSet = effective };
+    }
+
+    /// <summary>
+    /// Walks every referenced assembly once and indexes the C#14
+    /// extension-block containers (<c>TypeKind.Extension</c>) they declare:
+    /// which member names they expose and whether any declares an operator
+    /// member. A call site can only bind to such a container through one of
+    /// these names (or, for operators, when an operator member exists), so the
+    /// report-only external boundary scan becomes a no-op when the index is
+    /// empty and can skip all non-matching nodes otherwise. Metadata symbols
+    /// only ever come from these references.
+    /// </summary>
+    private static ExtensionBlockMetadataIndex BuildExtensionBlockMetadataIndex(Compilation compilation)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        var present = false;
+        var hasOperators = false;
+        foreach (var reference in compilation.References)
+        {
+            if (compilation.GetAssemblyOrModuleSymbol(reference) is IAssemblySymbol assembly)
+            {
+                CollectExtensionContainers(
+                    assembly.GlobalNamespace, names, ref present, ref hasOperators);
+            }
+        }
+
+        return new ExtensionBlockMetadataIndex
+        {
+            Present = present,
+            MemberNames = names,
+            HasOperatorMembers = hasOperators,
+        };
+    }
+
+    private static void CollectExtensionContainers(
+        INamespaceSymbol @namespace,
+        HashSet<string> names,
+        ref bool present,
+        ref bool hasOperators)
+    {
+        foreach (var type in @namespace.GetTypeMembers())
+        {
+            CollectExtensionContainers(type, names, ref present, ref hasOperators);
+        }
+
+        foreach (var nested in @namespace.GetNamespaceMembers())
+        {
+            CollectExtensionContainers(nested, names, ref present, ref hasOperators);
+        }
+    }
+
+    private static void CollectExtensionContainers(
+        INamedTypeSymbol type,
+        HashSet<string> names,
+        ref bool present,
+        ref bool hasOperators)
+    {
+        if (type.TypeKind == TypeKind.Extension)
+        {
+            present = true;
+            foreach (var member in type.GetMembers())
+            {
+                switch (member)
+                {
+                    case IMethodSymbol method:
+                        if (method.MethodKind is MethodKind.UserDefinedOperator or MethodKind.Conversion)
+                        {
+                            hasOperators = true;
+                        }
+                        else if (method.MethodKind == MethodKind.Ordinary)
+                        {
+                            names.Add(method.Name);
+                        }
+
+                        break;
+                    case IPropertySymbol property:
+                        names.Add(property.Name);
+                        break;
+                    case IEventSymbol @event:
+                        names.Add(@event.Name);
+                        break;
+                    case IFieldSymbol field:
+                        names.Add(field.Name);
+                        break;
+                }
+            }
+        }
+
+        foreach (var nested in type.GetTypeMembers())
+        {
+            CollectExtensionContainers(nested, names, ref present, ref hasOperators);
+        }
     }
 
     /// <summary>Rewrite the syntax tree backing <paramref name="model"/> (the same tree analyzed in <see cref="Analyze"/>).</summary>

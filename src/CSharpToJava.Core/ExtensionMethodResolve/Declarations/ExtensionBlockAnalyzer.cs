@@ -7,6 +7,60 @@ using Microsoft.CodeAnalysis.Operations;
 namespace CSharpToJava.Core.ExtensionMethodResolve.Declarations;
 
 /// <summary>
+/// Index of the C#14 extension-block containers (<c>TypeKind.Extension</c>)
+/// declared by referenced metadata assemblies: the member names they expose and
+/// whether any declares an operator member. A call site can only bind to such a
+/// container through one of these names (or, for operator nodes, only when an
+/// operator member exists), so a node that fails the name test can never be an
+/// external extension site — the report-only boundary scan skips it without a
+/// semantic query.
+/// </summary>
+internal sealed class ExtensionBlockMetadataIndex
+{
+    /// <summary>True when at least one referenced assembly declares an extension container.</summary>
+    public required bool Present { get; init; }
+
+    /// <summary>Member names exposed by the metadata extension containers.</summary>
+    public required IReadOnlySet<string> MemberNames { get; init; }
+
+    /// <summary>True when any metadata extension container declares an operator member.</summary>
+    public required bool HasOperatorMembers { get; init; }
+
+    /// <summary>
+    /// True when a metadata extension container exposes at least one member a
+    /// call site could bind to (a named member or an operator).
+    /// </summary>
+    public bool CanBindMember => Present && (MemberNames.Count > 0 || HasOperatorMembers);
+
+    /// <summary>
+    /// True when the accessed member name of an invocation / member access /
+    /// member binding node appears among the names exposed by metadata
+    /// extension containers. A node shape with no identifier to inspect (e.g. a
+    /// delegate invocation) is conservatively treated as a possible match.
+    /// </summary>
+    public bool NamedMemberCouldMatch(SyntaxNode node)
+    {
+        var name = node switch
+        {
+            MemberAccessExpressionSyntax access => access.Name.Identifier.ValueText,
+            MemberBindingExpressionSyntax binding => binding.Name.Identifier.ValueText,
+            InvocationExpressionSyntax invocation => InvokedMemberName(invocation),
+            _ => null,
+        };
+        return name is null || MemberNames.Contains(name);
+    }
+
+    private static string? InvokedMemberName(InvocationExpressionSyntax invocation)
+        => invocation.Expression switch
+        {
+            MemberAccessExpressionSyntax access => access.Name.Identifier.ValueText,
+            MemberBindingExpressionSyntax binding => binding.Name.Identifier.ValueText,
+            SimpleNameSyntax simple => simple.Identifier.ValueText,
+            _ => null,
+        };
+}
+
+/// <summary>
 /// Single-tree C49 analysis (M1): enumerates extension blocks, validates them
 /// semantically, builds member/site plans, and synthesizes C19
 /// <see cref="ExtensionConditionalPlan"/>s for liftable null-conditional block
@@ -17,14 +71,27 @@ internal sealed class ExtensionBlockAnalyzer
 {
     private readonly SemanticModel _model;
     private readonly ExtensionBlockOptions _options;
+    private readonly ExtensionBlockMetadataIndex? _metadataIndex;
     private readonly ExtensionTempAllocator _allocator;
     private readonly List<ExtensionDiagnostic> _diagnostics = new();
     private readonly ExtensionBlockStatistics _stats = new();
 
-    public ExtensionBlockAnalyzer(SemanticModel model, ExtensionBlockOptions options)
+    /// <summary>
+    /// <paramref name="metadataIndex"/> indexes the extension-block containers
+    /// declared by referenced assemblies. Null (the conservative default for
+    /// callers that cannot supply it) runs the external boundary scan
+    /// unfiltered; a non-null index that cannot expose a bindable member skips
+    /// it entirely, otherwise the scan only queries nodes whose accessed name
+    /// (or operator shape) could belong to such a container.
+    /// </summary>
+    public ExtensionBlockAnalyzer(
+        SemanticModel model,
+        ExtensionBlockOptions options,
+        ExtensionBlockMetadataIndex? metadataIndex = null)
     {
         _model = model;
         _options = options;
+        _metadataIndex = metadataIndex;
         _allocator = new ExtensionTempAllocator(model.SyntaxTree.GetCompilationUnitRoot());
     }
 
@@ -86,8 +153,17 @@ internal sealed class ExtensionBlockAnalyzer
         (MemberPlan Plan, BlockPlan Block)? ResolveMember(ISymbol symbol)
             => membersByOriginal.TryGetValue(symbol, out var hit) ? hit : null;
 
+        // Perf elision (provably output-identical): when no extension-block
+        // member was materialized, `membersByOriginal` is empty, so every site
+        // loop below is a no-op — each of its membership tests keys on that
+        // (empty) dictionary and therefore always `continue`s. Iterating an
+        // empty sequence skips the per-node GetSymbolInfo sweep entirely.
+        var siteNodes = membersByOriginal.Count > 0
+            ? root.DescendantNodes()
+            : Enumerable.Empty<SyntaxNode>();
+
         // ---- Invocations: block methods (instance + static) ----
-        foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        foreach (var invocation in siteNodes.OfType<InvocationExpressionSyntax>())
         {
             if (_model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol
                 {
@@ -125,7 +201,7 @@ internal sealed class ExtensionBlockAnalyzer
         }
 
         // ---- Member access: block properties, instance + static (read/write/compound) ----
-        foreach (var access in root.DescendantNodes().OfType<MemberAccessExpressionSyntax>())
+        foreach (var access in siteNodes.OfType<MemberAccessExpressionSyntax>())
         {
             // Sites inside null-conditional chains are built by the
             // conditional pipeline (seams), not by read/write site plans.
@@ -160,7 +236,7 @@ internal sealed class ExtensionBlockAnalyzer
         }
 
         // ---- EMD-OP: binary operator sites (a + b) ----
-        foreach (var binary in root.DescendantNodes().OfType<BinaryExpressionSyntax>())
+        foreach (var binary in siteNodes.OfType<BinaryExpressionSyntax>())
         {
             if (binary.IsKind(SyntaxKind.LogicalAndExpression)
                 || binary.IsKind(SyntaxKind.LogicalOrExpression))
@@ -205,7 +281,7 @@ internal sealed class ExtensionBlockAnalyzer
         }
 
         // ---- EMD-OP: unary operator sites (-a) ----
-        foreach (var unary in root.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>())
+        foreach (var unary in siteNodes.OfType<PrefixUnaryExpressionSyntax>())
         {
             if (_model.GetSymbolInfo(unary).Symbol is not IMethodSymbol
                 {
@@ -241,7 +317,7 @@ internal sealed class ExtensionBlockAnalyzer
         }
 
         // ---- EMD-OP: compound assignment sites (a += b) ----
-        foreach (var assignment in root.DescendantNodes()
+        foreach (var assignment in siteNodes
                      .OfType<AssignmentExpressionSyntax>()
                      .Where(a => !a.IsKind(SyntaxKind.SimpleAssignmentExpression)))
         {
@@ -300,7 +376,7 @@ internal sealed class ExtensionBlockAnalyzer
         }
 
         // ---- Block method groups: r.M / Type.M delegate conversion (M3) ----
-        foreach (var access in root.DescendantNodes().OfType<MemberAccessExpressionSyntax>())
+        foreach (var access in siteNodes.OfType<MemberAccessExpressionSyntax>())
         {
             if (access.Parent is InvocationExpressionSyntax { Expression: { } invoked } && invoked == access)
             {
@@ -368,7 +444,15 @@ internal sealed class ExtensionBlockAnalyzer
         }
 
         // ---- External metadata boundary (decision appendix 5) ----
-        ScanExternalMetadata(root, membersByOriginal, externalSites);
+        // The metadata index proves which container members are reachable: a
+        // non-bindable index (or a node whose accessed name / operator shape is
+        // not exposed by any container) can never yield an external site, so it
+        // is skipped without a semantic query. A null index keeps the original
+        // unfiltered scan.
+        if (_metadataIndex is not { CanBindMember: false })
+        {
+            ScanExternalMetadata(root, membersByOriginal, externalSites);
+        }
 
         return new BlockAnalysisResult
         {
@@ -1475,20 +1559,43 @@ internal sealed class ExtensionBlockAnalyzer
         List<ExternalExtensionSite> externalSites)
     {
         var seenSpans = new HashSet<int>();
+        var filter = _metadataIndex;
 
         foreach (var node in root.DescendantNodesAndSelf())
         {
-            ISymbol? symbol = node switch
+            ISymbol? symbol;
+            switch (node)
             {
-                InvocationExpressionSyntax
+                // Named members: an extension container can only be reached
+                // through a member whose name it exposes, so any other name is
+                // skipped without binding.
+                case InvocationExpressionSyntax
                     or MemberAccessExpressionSyntax
-                    or MemberBindingExpressionSyntax
-                    or BinaryExpressionSyntax
+                    or MemberBindingExpressionSyntax:
+                    if (filter is not null && !filter.NamedMemberCouldMatch(node))
+                    {
+                        continue;
+                    }
+
+                    symbol = _model.GetSymbolInfo(node).Symbol;
+                    break;
+
+                // Operator members carry no syntax name; only query when some
+                // metadata container declares one.
+                case BinaryExpressionSyntax
                     or PrefixUnaryExpressionSyntax
-                    or AssignmentExpressionSyntax
-                    => _model.GetSymbolInfo(node).Symbol,
-                _ => null,
-            };
+                    or AssignmentExpressionSyntax:
+                    if (filter is { HasOperatorMembers: false })
+                    {
+                        continue;
+                    }
+
+                    symbol = _model.GetSymbolInfo(node).Symbol;
+                    break;
+
+                default:
+                    continue;
+            }
 
             if (symbol is not (IMethodSymbol or IPropertySymbol)
                 || symbol.ContainingType?.TypeKind != TypeKind.Extension)
