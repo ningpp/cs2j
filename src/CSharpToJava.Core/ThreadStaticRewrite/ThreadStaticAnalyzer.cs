@@ -107,6 +107,11 @@ internal sealed class ThreadStaticAnalyzer
             var model = _compilation.GetSemanticModel(tree);
             foreach (var field in tree.GetRoot().DescendantNodes().OfType<FieldDeclarationSyntax>())
             {
+                // A [ThreadStatic] candidate must carry the attribute syntactically, so
+                // declarations with no attribute list can be skipped before the (far more
+                // expensive) GetDeclaredSymbol/GetAttributes symbol queries.
+                if (field.AttributeLists.Count == 0) continue;
+
                 foreach (var declarator in field.Declaration.Variables)
                 {
                     if (model.GetDeclaredSymbol(declarator) is not IFieldSymbol fieldSymbol) continue;
@@ -141,11 +146,23 @@ internal sealed class ThreadStaticAnalyzer
 
     private void CollectReferenceSites(Dictionary<IFieldSymbol, Candidate> candidates)
     {
+        // Syntax pre-filter over the whole forest: a name segment can only bind to a
+        // candidate field when its text equals that field's simple name
+        // (IFieldSymbol.Name). Candidates are typically a handful, so this removes the
+        // overwhelming majority of GetSymbolInfo calls without changing results.
+        var candidateNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var candidate in candidates.Values)
+        {
+            candidateNames.Add(candidate.Field.Name);
+        }
+
         foreach (var tree in _compilation.SyntaxTrees)
         {
             var model = _compilation.GetSemanticModel(tree);
             foreach (var identifier in tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>())
             {
+                if (!candidateNames.Contains(identifier.Identifier.ValueText)) continue;
+
                 var field = ResolveField(model, identifier, candidates);
                 if (field == null) continue;
 
