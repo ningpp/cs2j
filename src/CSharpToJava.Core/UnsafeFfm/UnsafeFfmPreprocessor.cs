@@ -1,3 +1,4 @@
+using System.IO;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -254,6 +255,18 @@ public sealed class UnsafeFfmPreprocessor
 
         var root = (CompilationUnitSyntax)semanticModel.SyntaxTree.GetRoot();
         var filePath = semanticModel.SyntaxTree.FilePath;
+
+        // cs2j 生成的支撑/登记产物（顶层命名约定 _Cs2j*.cs：tuple 替换结构、
+        // closed-metadata 登记等）是按精确 C# 语义预置的辅助文件，不属于用户
+        // unsafe 面。本 pass 无任何规则作用于它们，末端 D14 残留闸门对这类文件
+        // 内嵌的指针语法（如 closed 登记里的 typeof(泛型指针实参)）注定误报且
+        // 无法由本 pass 改写。与 make-readonly 跳过 _Cs2j* 支撑文件、
+        // closed-metadata 残差扫描跳过自身登记文件的既有口径一致：整文原样放行。
+        if (IsCs2jGeneratedSupportFile(filePath))
+        {
+            statistics.FilesSkippedClean++;
+            return Rollback(sourceCode, statistics, diagnostics);
+        }
 
         // 配对计划 catalog 提前到 prescan 之前创建：裸指针 stackalloc 可降级
         // 判定（StackAllocPointerSafety）依赖信号⑦强制配对闭包，后者由
@@ -813,6 +826,18 @@ public sealed class UnsafeFfmPreprocessor
             UnsafeFfmDiagnosticCode.UF040,
             message,
             null, line, character);
+    }
+
+    /// <summary>
+    /// cs2j 生成的支撑/登记产物命名约定（顶层 <c>_Cs2j*.cs</c>），与
+    /// <c>CSharpToJava.CLI.Preprocessing.Adapters.MakeReadonlyPassAdapter.IsGeneratedSupportFile</c>
+    /// 同口径。这类文件不是用户 unsafe 面，本 pass 无规则作用于它们。
+    /// </summary>
+    private static bool IsCs2jGeneratedSupportFile(string? filePath)
+    {
+        var fileName = Path.GetFileName(filePath);
+        return fileName.StartsWith("_Cs2j", StringComparison.Ordinal)
+               && fileName.EndsWith(".cs", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

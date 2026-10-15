@@ -57,10 +57,12 @@ public sealed class ClosedTypeKey : IEquatable<ClosedTypeKey>, IComparable<Close
                 ? null
                 : $"{element}[{array.Rank - 1}]"),
         INamedTypeSymbol named when named.IsGenericType && !named.IsDefinition
-            => AppendNullableMarker(
-                named,
-                named.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-                + "(" + JoinArguments(named.TypeArguments) + ")"),
+            => JoinArguments(named.TypeArguments) is { } arguments
+                ? AppendNullableMarker(
+                    named,
+                    named.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+                    + "(" + arguments + ")")
+                : null,
         _ => AppendNullableMarker(
             type, type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)),
     };
