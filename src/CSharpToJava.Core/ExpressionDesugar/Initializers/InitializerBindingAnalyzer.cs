@@ -45,6 +45,15 @@ internal static class InitializerBindingAnalyzer
         public Dictionary<SyntaxNode, string> OwnerTemps { get; } = new();
         public Dictionary<ArgumentSyntax, string> Hoisted { get; } = new();
         public HashSet<ArgumentSyntax> DeclaredHoists { get; } = new();
+
+        /// <summary>
+        /// Top-level sites this analysis lowers into a receiver-temp sequence
+        /// (outcome Object/CollectionSequence), indexed by node identity so
+        /// <see cref="IsSelfLoweredSite"/> is an O(1) lookup instead of a scan
+        /// over every plan accumulated so far. That scan ran once per preceding
+        /// argument and dominated Analyze on site-heavy files (O(sites²)).
+        /// </summary>
+        public HashSet<SyntaxNode> SelfLoweredSites { get; } = new();
     }
 
     public static InitializerAnalysis Analyze(RuleAnalysisContext context)
@@ -357,6 +366,10 @@ internal static class InitializerBindingAnalyzer
         plan.Outcome = isObjectInitializer
             ? InitializerOutcome.ObjectSequence
             : InitializerOutcome.CollectionSequence;
+        // Index this site for the O(1) hoist self-lowering check; nested plans
+        // are consumed inline by their enclosing site and never self-lowered.
+        if (!isNested)
+            state.SelfLoweredSites.Add(node);
         stats.AddContextLowered(plan.Context);
 
         if (!isNested && plan.Members.OfType<IndexSetPlan>().Any())
@@ -836,18 +849,7 @@ internal static class InitializerBindingAnalyzer
             return false;
         }
 
-        foreach (var planned in state.All)
-        {
-            if (!planned.IsNested
-                && planned.Node == expression
-                && planned.Outcome is InitializerOutcome.ObjectSequence
-                    or InitializerOutcome.CollectionSequence)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return state.SelfLoweredSites.Contains(expression);
     }
 
     /// <summary>
