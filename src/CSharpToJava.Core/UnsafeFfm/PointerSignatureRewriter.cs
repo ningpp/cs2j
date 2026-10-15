@@ -128,6 +128,15 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
     /// </summary>
     private PairedMethodPlan? GetCurrentPlan(SyntaxNode node)
     {
+        // 语法预筛：本方法体/签名内既无指针/函数指针类型语法，也无 fixed/
+        // stackalloc，则 catalog.GetPlan 必返回 null 且无任何副作用——
+        // BuildPlan 无指针形参/返回即不进入体内信号分析；ForcePairedCallees
+        // 的可证根只能来自 fixed 变量、指针局部别名、Pinned 句柄指针或
+        // stackalloc 种子，前者无则根集为空直接短路。据此省去逐方法的
+        // Resolve + GetDeclaredSymbol + 全方法体可证根扫描（R5 的主要开销）。
+        if (!MayHavePointerPlan(node))
+            return null;
+
         var original = _resolver.Resolve(node);
         var symbol = original == null
             ? null
@@ -1195,6 +1204,32 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// 方法/局部函数节点内是否可能承载配对计划：子树含指针/函数指针类型语法，
+    /// 或 fixed/stackalloc 关键字（后者对应 fixed 游标 / stackalloc 种子——
+    /// 信号⑦可证根的来源）。全为 false 时 catalog.GetPlan 必 null 且无副作用。
+    /// 仅读语法，不做任何语义查询。
+    /// </summary>
+    private static bool MayHavePointerPlan(SyntaxNode node)
+    {
+        foreach (var descendant in node.DescendantNodes())
+        {
+            if (descendant is PointerTypeSyntax or FunctionPointerTypeSyntax)
+                return true;
+        }
+
+        foreach (var token in node.DescendantTokens())
+        {
+            if (token.IsKind(SyntaxKind.FixedKeyword)
+                || token.IsKind(SyntaxKind.StackAllocKeyword))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private IParameterSymbol? GetParameterSymbol(ParameterSyntax parameter)

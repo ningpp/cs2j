@@ -269,6 +269,18 @@ public sealed class UnsafeFfmPreprocessor
             return Rollback(sourceCode, statistics, diagnostics);
         }
 
+        // 语法预筛（零语义查询，只读语法树）：本文件是否可能含 R2/R3/R5/R6
+        // 所作用的指针语法（指针/函数指针类型，或 unsafe/fixed/stackalloc
+        // 关键字），以及 R8 所作用的 extern/DllImport/LibraryImport/Marshal/
+        // NativeLibrary/SafeHandle/HandleRef 站点。指针簇规则的全部触发点都
+        // 必须落在这些语法形态上（指针符号的声明即含指针类型语法，配对/holder
+        // 亦含指针类型实参），故「无该语法 → 无改写、无诊断、无统计」；整簇
+        // 跳过与逐规则空跑输出逐字节一致，却省下各 rewriter 的整树 Visit 与
+        // 语义绑定（本 pass 最重的 R6/R3/R5/R8 正是全树空遍历的开销）。
+        // 预筛是单次结构扫描，远廉价于被跳过的整树改写。
+        var pointerCluster = HasPointerClusterSyntax(root);
+        var externInterop = HasExternInteropSyntax(root);
+
         // 配对计划 catalog 提前到 prescan 之前创建：裸指针 stackalloc 可降级
         // 判定（StackAllocPointerSafety）依赖信号⑦强制配对闭包，后者由
         // GetPlan（含 stackalloc 站点的方法）经 catalog 传播；同一 catalog
@@ -367,7 +379,7 @@ public sealed class UnsafeFfmPreprocessor
             loweredArrayMap =
             new Dictionary<ISymbol, (string, bool, string)>(SymbolEqualityComparer.Default);
 
-        if (_options.EnablePointer)
+        if (_options.EnablePointer && pointerCluster)
         {
             var signatureResolver = new OriginalSyntaxResolver(root, newRoot);
             var signatureRewriter = new PointerSignatureRewriter(
@@ -398,7 +410,7 @@ public sealed class UnsafeFfmPreprocessor
         // fixed residual 闸门：R6（EnablePointer 时）会继续索引化 R5 域内
         // 的解引用/下标，闸门必须延后到 R6 之后，否则 *p 会被误判为 R3 残留。
         var fixedGatePending = false;
-        if (_options.EnableFixed)
+        if (_options.EnableFixed && pointerCluster)
         {
             var fieldResolver = new OriginalSyntaxResolver(root, newRoot);
             var fieldRewriter = new FixedBufferFieldRewriter(
@@ -500,7 +512,7 @@ public sealed class UnsafeFfmPreprocessor
 
         // R6 指针表达式索引化（M3a 基础族）：消费 R5 的 flowModel 与
         // R3 降级符号集，链位在 R4 之后。
-        if (_options.EnablePointer)
+        if (_options.EnablePointer && pointerCluster)
         {
             var exprResolver = new OriginalSyntaxResolver(root, newRoot);
             var exprRewriter = new PointerExprRewriter(
@@ -560,7 +572,7 @@ public sealed class UnsafeFfmPreprocessor
         // InteropFacade 受控声明（C# 响亮 stub，Java FFM 通道消费）；
         // Marshal/NativeLibrary/SafeHandle/HandleRef 站点 UF070。
         ExternInteropRewriter? externRewriter = null;
-        if (_options.EnableExtern)
+        if (_options.EnableExtern && externInterop)
         {
             var externResolver = new OriginalSyntaxResolver(root, newRoot);
             externRewriter = new ExternInteropRewriter(
@@ -840,6 +852,66 @@ public sealed class UnsafeFfmPreprocessor
         var fileName = Path.GetFileName(filePath);
         return fileName.StartsWith("_Cs2j", StringComparison.Ordinal)
                && fileName.EndsWith(".cs", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// 指针簇语法预筛：原树是否含 R2/R3/R5/R6 可能作用的语法形态——指针/
+    /// 函数指针类型，或 <c>unsafe</c>/<c>fixed</c>/<c>stackalloc</c> 关键字。
+    /// 指针符号必然由指针类型语法声明（形参/局部/字段），ByRef&lt;T*&gt; holder
+    /// 与元数据指针实参亦含指针类型实参，故无这些形态时指针簇规则必为恒等
+    /// 空改写。仅读语法结构，不做任何语义查询。
+    /// </summary>
+    private static bool HasPointerClusterSyntax(CompilationUnitSyntax root)
+    {
+        foreach (var node in root.DescendantNodes())
+        {
+            if (node is PointerTypeSyntax or FunctionPointerTypeSyntax)
+                return true;
+        }
+
+        foreach (var token in root.DescendantTokens())
+        {
+            if (token.IsKind(SyntaxKind.UnsafeKeyword)
+                || token.IsKind(SyntaxKind.FixedKeyword)
+                || token.IsKind(SyntaxKind.StackAllocKeyword))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// R8 语法预筛：原树是否含 extern 修饰符、<c>DllImport</c>/<c>LibraryImport</c>
+    /// 特性名，或 <c>Marshal</c>/<c>NativeLibrary</c>/<c>SafeHandle</c>/<c>HandleRef</c>
+    /// 标识符（含 using 别名/限定名形态——限定名的各段都是标识符，别名来源的
+    /// using 指令同样含全名标识符）。R8 的全部触发（extern-like 方法、互操作
+    /// API/类型站点）都必须经由这些文本标识符或 extern 关键字进入，无则恒空。
+    /// </summary>
+    private static bool HasExternInteropSyntax(CompilationUnitSyntax root)
+    {
+        foreach (var token in root.DescendantTokens())
+        {
+            if (token.IsKind(SyntaxKind.ExternKeyword))
+                return true;
+        }
+
+        foreach (var node in root.DescendantNodes())
+        {
+            if (node is IdentifierNameSyntax identifier)
+            {
+                var text = identifier.Identifier.ValueText;
+                if (text is "Marshal" or "NativeLibrary" or "SafeHandle" or "HandleRef"
+                    or "DllImport" or "DllImportAttribute"
+                    or "LibraryImport" or "LibraryImportAttribute")
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

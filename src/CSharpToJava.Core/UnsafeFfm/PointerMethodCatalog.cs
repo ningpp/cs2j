@@ -171,6 +171,13 @@ internal sealed class PointerMethodCatalog
             foreach (var declaration in root.DescendantNodes().Where(n =>
                          n is BaseMethodDeclarationSyntax or LocalFunctionStatementSyntax))
             {
+                // 语法预筛：配对候选必须是「含白名单指针形参」的源码方法，而
+                // 指针形参必然以指针类型语法声明（T* p）。先做零语义的结构
+                // 判定，命中才做 GetDeclaredSymbol 绑定——全树方法逐个绑定是
+                // 闭包引导的主要开销。
+                if (!HasPointerParameterSyntax(declaration))
+                    continue;
+
                 if (treeModel.GetDeclaredSymbol(declaration) is not IMethodSymbol method)
                     continue;
                 if (method.Parameters.Any(p =>
@@ -191,6 +198,29 @@ internal sealed class PointerMethodCatalog
             foreach (var method in candidates)
                 GetPlan(method);
         }
+    }
+
+    /// <summary>
+    /// 声明节点的形参表中是否存在指针类型语法（<c>T* p</c>）。配对候选必须
+    /// 含白名单指针形参，而此类形参必然以指针类型语法声明，故全 false 的
+    /// 声明节点无需再做符号绑定即可排除，仅读语法。
+    /// </summary>
+    private static bool HasPointerParameterSyntax(SyntaxNode declaration)
+    {
+        var parameters = declaration switch
+        {
+            BaseMethodDeclarationSyntax method => method.ParameterList.Parameters,
+            LocalFunctionStatementSyntax localFunction => localFunction.ParameterList.Parameters,
+            _ => default,
+        };
+
+        foreach (var parameter in parameters)
+        {
+            if (parameter.Type is PointerTypeSyntax)
+                return true;
+        }
+
+        return false;
     }
 
     public static bool TryPrimitiveSize(ITypeSymbol? element, out int size)

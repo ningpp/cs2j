@@ -28,32 +28,37 @@ internal sealed class OriginalSyntaxResolver
     /// <summary>
     /// 节点归一化/去 trivia 结果按实例记忆化：回退等价搜索会对大量候选重复
     /// 执行 ReplaceTokens（在巨型聚合树上呈平方级开销），绿/红节点不可变，
-    /// 同一实例的归一结果可安全复用。
+    /// 同一实例的归一结果可安全复用。归一/去 trivia 是节点结构的纯函数，且
+    /// 各阶段共用同一原始树根，故提升为进程级共享缓存：同一原始节点的归一
+    /// 结果在 R7/R5/R3/R6 各 resolver 实例间复用，免去逐阶段重算（关键字
+    /// 弱引用键随语法树回收，不驻留）。
     /// </summary>
-    private readonly ConditionalWeakTable<SyntaxNode, SyntaxNode> _normalizedCache = new();
-    private readonly ConditionalWeakTable<SyntaxNode, SyntaxNode> _strippedCache = new();
+    private static readonly ConditionalWeakTable<SyntaxNode, SyntaxNode>
+        NormalizedCache = new();
+    private static readonly ConditionalWeakTable<SyntaxNode, SyntaxNode>
+        StrippedCache = new();
 
-    /// <summary>等价判定结果按 (current, original) 实例对记忆化。</summary>
-    private readonly ConditionalWeakTable<SyntaxNode, Dictionary<SyntaxNode, bool>>
-        _equivalenceCache = new();
+    /// <summary>等价判定结果按 (current, original) 实例对记忆化（纯函数，跨实例共享）。</summary>
+    private static readonly ConditionalWeakTable<SyntaxNode, Dictionary<SyntaxNode, bool>>
+        EquivalenceCache = new();
 
     /// <summary>
     /// 每父节点的「子节点 → 索引」映射：<see cref="ResolveCore"/> 的索引回放
     /// 与回退搜索对每个待解析节点都要数一次其在父节点中的位置，直接线性扫
     /// 父节点的 <c>ChildNodes()</c>；大类型的每个成员各扫一遍全部兄弟节点，
     /// 整类呈 O(成员数²)。子节点序列是绿/红不可变结构的固有属性，按父节点
-    /// 实例构建一次后可 O(1) 复用。
+    /// 实例构建一次后可 O(1) 复用（纯结构派生，跨实例共享）。
     /// </summary>
-    private readonly ConditionalWeakTable<SyntaxNode, Dictionary<SyntaxNode, int>>
-        _childIndexCache = new();
+    private static readonly ConditionalWeakTable<SyntaxNode, Dictionary<SyntaxNode, int>>
+        ChildIndexCache = new();
 
     /// <summary>
     /// 每父节点的子节点顺序表：索引回放 <see cref="ReplayByIndices"/> 原按
     /// 索引逐个枚举 <c>ChildNodes()</c>（O(index)），同样构成大类成员解析的
-    /// 平方级开销；按父节点实例构建一次顺序表后取下标即 O(1)。
+    /// 平方级开销；按父节点实例构建一次顺序表后取下标即 O(1)（跨实例共享）。
     /// </summary>
-    private readonly ConditionalWeakTable<SyntaxNode, List<SyntaxNode>>
-        _childOrderCache = new();
+    private static readonly ConditionalWeakTable<SyntaxNode, List<SyntaxNode>>
+        ChildOrderCache = new();
 
     public OriginalSyntaxResolver(SyntaxNode originalRoot, SyntaxNode currentRoot)
     {
@@ -96,9 +101,16 @@ internal sealed class OriginalSyntaxResolver
 
         if (current == null) return null;
 
-        // 1) 纯索引回放（无插入/删除时最精确）。
+        // 1) 纯索引回放（无插入/删除时最精确）。回放出的原始节点与当前节点
+        // 为同一红实例时必等价（前序 rewriter 未触碰该子树，父节点重建时原样
+        // 复用了该子节点），直接返回，免去 IsEquivalentTo 对整个子树的比较
+        // ——大节点（方法体/类型声明）的等价比较正是 Resolve 的主要开销。
         var indexed = ReplayByIndices(chain, chain.Count);
-        if (indexed != null && EquivalentCached(indexed, node)) return indexed;
+        if (indexed != null
+            && (ReferenceEquals(indexed, node) || EquivalentCached(indexed, node)))
+        {
+            return indexed;
+        }
 
         // 2) 逐层扩大作用域的等价搜索。固定深度回放失配时（R3 以 Block 替换
         // FixedStatement 且块内插入语句，当前路径与原始路径深度错位——嵌套
@@ -155,7 +167,7 @@ internal sealed class OriginalSyntaxResolver
         => ChildIndexMap(parent).TryGetValue(child, out var index) ? index : -1;
 
     private Dictionary<SyntaxNode, int> ChildIndexMap(SyntaxNode parent)
-        => _childIndexCache.GetValue(parent, static p =>
+        => ChildIndexCache.GetValue(parent, static p =>
         {
             var map = new Dictionary<SyntaxNode, int>(ReferenceEqualityComparer.Instance);
             var index = 0;
@@ -168,7 +180,7 @@ internal sealed class OriginalSyntaxResolver
         });
 
     private List<SyntaxNode> ChildOrder(SyntaxNode parent)
-        => _childOrderCache.GetValue(parent, static p => p.ChildNodes().ToList());
+        => ChildOrderCache.GetValue(parent, static p => p.ChildNodes().ToList());
 
     /// <summary>
     /// 候选节点相对作用域的索引路径（候选自身在父节点中的索引在前，逐层
@@ -215,6 +227,21 @@ internal sealed class OriginalSyntaxResolver
         var normalizedCurrent = NormalizeForCompareCached(current);
         if (normalizedOriginal.IsEquivalentTo(normalizedCurrent)) return true;
 
+        // 便宜的必要条件（均比 ReplaceTokens 廉价得多）：等价（去 trivia 后）
+        // 要求「子节点+token」总数、首/末 token 的 kind、以及全部 token 的 kind
+        // 序列一致；任一项不一致即必不等价，免去整子树的 ReplaceTokens——回退
+        // 搜索中绝大多数候选正是被这些逐 token 的 early-exit 剪掉。
+        if (normalizedOriginal.ChildNodesAndTokens().Count
+                != normalizedCurrent.ChildNodesAndTokens().Count
+            || normalizedOriginal.GetFirstToken().RawKind
+                != normalizedCurrent.GetFirstToken().RawKind
+            || normalizedOriginal.GetLastToken().RawKind
+                != normalizedCurrent.GetLastToken().RawKind
+            || !SameTokenKindSequence(normalizedOriginal, normalizedCurrent))
+        {
+            return false;
+        }
+
         // R1 RemoveUnsafe 会把 unsafe token 的 trivia 并入相邻保留修饰符
         // （探针实测方法同时带 method 级 unsafe 修饰时，保留修饰符尾部空白
         // 翻倍："static "→"static  "）。IsEquivalentTo 对非弹性 trivia
@@ -223,16 +250,55 @@ internal sealed class OriginalSyntaxResolver
             .IsEquivalentTo(StripTriviaCached(normalizedCurrent));
     }
 
+    /// <summary>
+    /// 节点 RawKind 经 <see cref="NormalizeForCompare"/> 归一后的顶层 kind：
+    /// UnsafeStatement/UsingStatement 整体降为其内嵌 Block，其余保持原 kind。
+    /// </summary>
+    private static int NormalizedTopKind(int rawKind)
+        => rawKind is (int)SyntaxKind.UnsafeStatement or (int)SyntaxKind.UsingStatement
+            ? (int)SyntaxKind.Block
+            : rawKind;
+
+    /// <summary>
+    /// 两个节点的 token kind 序列是否一致（含自身 token，按文档序）。等价
+    /// （去 trivia 后）的两棵子树 token kind 序列必一致，故不一致是「必不等价」
+    /// 的廉价必要判据；逐 token 早期退出，无需构造去 trivia 的整棵子树。
+    /// </summary>
+    private static bool SameTokenKindSequence(SyntaxNode a, SyntaxNode b)
+    {
+        using var ea = a.DescendantTokens().GetEnumerator();
+        using var eb = b.DescendantTokens().GetEnumerator();
+        while (true)
+        {
+            var aMore = ea.MoveNext();
+            var bMore = eb.MoveNext();
+            if (aMore != bMore) return false;
+            if (!aMore) return true;
+            if (ea.Current.RawKind != eb.Current.RawKind) return false;
+        }
+    }
+
     private SyntaxNode NormalizeForCompareCached(SyntaxNode node)
-        => _normalizedCache.GetValue(node, NormalizeForCompare);
+        => NormalizedCache.GetValue(node, NormalizeForCompare);
 
     private SyntaxNode StripTriviaCached(SyntaxNode node)
-        => _strippedCache.GetValue(node, StripTrivia);
+        => StrippedCache.GetValue(node, StripTrivia);
 
     /// <summary>带实例对记忆化的等价判定（回退搜索热路径）。</summary>
     private bool EquivalentCached(SyntaxNode original, SyntaxNode current)
     {
-        var byCurrent = _equivalenceCache.GetValue(current,
+        // 廉价必要条件（零遍历，短路于记忆化之前，避免缓存污染）：归一化
+        // （NormalizeForCompare）只可能把 UnsafeStatement/UsingStatement 整体
+        // 降为其内嵌 Block（换 kind），并以 default token 替换 unsafe/using
+        // 关键字 token——后者不改变任何节点 kind。故两侧归一后顶层 kind 不等
+        // 时必不等价。回退搜索对绝大多数候选都走这条负路径，直接判否可免去
+        // 整个子树的 Normalize/StripTrivia（等价判定的主要开销）。
+        if (NormalizedTopKind(original.RawKind) != NormalizedTopKind(current.RawKind))
+        {
+            return false;
+        }
+
+        var byCurrent = EquivalenceCache.GetValue(current,
             static _ => new Dictionary<SyntaxNode, bool>(ReferenceEqualityComparer.Instance));
         if (byCurrent.TryGetValue(original, out var cached)) return cached;
         var result = EquivalentCore(original, current);
