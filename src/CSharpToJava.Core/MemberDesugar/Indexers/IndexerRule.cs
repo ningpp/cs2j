@@ -47,6 +47,16 @@ internal sealed class IndexerRule : IMemberDesugarRule
                     continue;
                 }
 
+                // 实现「元数据接口」（BCL/外部程序集，或不参与本次编译的项目）索引器槽的
+                // 索引器不能展开成 get_Item/set_Item 方法对：接口本体不经过本 pass 降形，
+                // 展开后 C# 报 CS0683（显式实现 → 方法不能显式实现访问器，实例如
+                // CaptureCollection 对 IList<Capture>/IList）或 CS0470/CS0535（隐式实现 →
+                // 方法对无法实现接口索引器槽，实例如 GroupCollection 对 IReadOnlyList<Group>）。
+                // 保留原索引器，使用点也不改写；源内用户接口的实现随接口一起降形
+                // （镜像 C11 PropertyRule 同类闸门）。
+                if (IndexerFacts.ImplementsMetadataInterfaceIndexer(prop))
+                    continue;
+
                 var gate = DeclarationGate(decl, prop);
                 if (gate != null)
                 {

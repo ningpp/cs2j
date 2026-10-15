@@ -21,6 +21,38 @@ internal static class IndexerFacts
     public static bool IsExternal(IPropertySymbol prop)
         => !prop.Locations.Any(l => l.IsInSource);
 
+    /// <summary>C12 闸门（镜像 C11 PropertyRule 的同类判定，按 §3.2 所有权约定在 C12
+    /// 目录内自持副本）：实现「元数据接口」（BCL/外部程序集，或不参与本次编译的项目）
+    /// 索引器槽的索引器不展开为 get_Item/set_Item 方法对。接口本体不经过本 pass 降形，
+    /// 而展开后 C# 要么报「方法不能显式实现索引器访问器」CS0683（显式实现），要么报
+    /// CS0470/CS0535（方法对无法隐式实现接口索引器槽）。保留原索引器，使用点也不改写；
+    /// 源内用户接口的实现随接口一起降形。任一台实现槽落在元数据接口即整条闸门。</summary>
+    public static bool ImplementsMetadataInterfaceIndexer(IPropertySymbol prop)
+    {
+        if (prop.ExplicitInterfaceImplementations.Any(
+                implemented => implemented.DeclaringSyntaxReferences.Length == 0))
+        {
+            return true;
+        }
+
+        var type = prop.ContainingType;
+        if (type == null) return false;
+        foreach (var iface in type.AllInterfaces)
+        {
+            foreach (var member in iface.GetMembers())
+            {
+                if (member is not IPropertySymbol { IsIndexer: true }) continue;
+                if (member.Locations.Any(l => l.IsInSource)) continue;
+                if (SymbolEqualityComparer.Default.Equals(
+                        type.FindImplementationForInterfaceMember(member), prop))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /// <summary>有效索引器名：显式接口实现的 MetadataName 形如 "IFoo.Item"，
     /// 方法名/诊断必须取最后一段（[IndexerName] 自定义名同样落在 MetadataName，D3）。</summary>
     public static string EffectiveName(IPropertySymbol prop)
