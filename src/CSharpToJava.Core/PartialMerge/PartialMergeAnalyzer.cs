@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -18,12 +19,15 @@ internal sealed class PartialMergeAnalyzer
         CSharpCompilation compilation,
         PartialMergeOptions options,
         string sourceRoot,
-        IReadOnlyList<Action<TypeGroupPlan>>? groupMutators = null,
-        Func<IReadOnlyList<Diagnostic>>? wholeTreeErrorsProvider = null)
+        IReadOnlyList<Action<TypeGroupPlan>>? groupMutators = null)
     {
         var diagnostics = new List<PartialMergeDiagnostic>();
         var stats = new MutablePartialMergeStats();
-        var (multiGroups, singleTypes, topLevelSkipped, typesScanned) =
+        List<TypeGroupPlan> multiGroups;
+        List<TypeGroupPlan> singleTypes;
+        int topLevelSkipped;
+        int typesScanned;
+        (multiGroups, singleTypes, topLevelSkipped, typesScanned) =
             PartialTypePartCollector.Collect(
                 compilation, sourceRoot, nameSinglePartTypes: options.AssumeNoGeneratedPartial);
         stats.TypesScanned = typesScanned;
@@ -38,16 +42,40 @@ internal sealed class PartialMergeAnalyzer
         // Baseline-first (design §4.1): groups already covered by a compiler error
         // are marked skip — the pass does not compete with compiler diagnostics.
         //
-        // Two lazy stages. The compilation-wide declaration diagnostics are a cheap
-        // first filter, and a tree whose every multi-part group they already cover
-        // (a red tree) stops there without ever binding a SemanticModel. Anything
-        // they leave uncovered — the very groups the pass would merge — is decided
-        // against the whole-compilation error set, which the adapter supplies
-        // lazily and reuses for the round's baseline keys, so the pass binds a
-        // whole-tree diagnostic set exactly once.
-        List<Diagnostic>? declarationErrorsCache = null;
-        IReadOnlyList<Diagnostic>? wholeTreeErrorsCache = null;
+        // CoversBaselineError only matches an error whose location lies INSIDE one
+        // of a group's part declarations, i.e. in that part's own syntax tree. The
+        // whole-compilation GetDiagnostics the gate used to bind is exactly the
+        // union of Roslyn's three diagnostic stages, so the gate reads those stages
+        // directly and nothing else:
+        //   parse   — compilation.GetParseDiagnostics()        (cheap, all trees)
+        //   declare — compilation.GetDeclarationDiagnostics()  (compilation-wide)
+        //   compile — a part tree's SemanticModel.GetMethodBodyDiagnostics() (only
+        //             the trees a declaration-uncovered group actually reads)
+        // The first two are compilation-wide and cheap; the method bodies are bound
+        // lazily, once per part tree and only when the declaration stage left a
+        // group uncovered, so the ~800 trees no part lives in are never bound.
+        List<Diagnostic>? parseErrorsCache = null;
+        List<Diagnostic> ParseErrors()
+        {
+            if (parseErrorsCache is not null)
+            {
+                return parseErrorsCache;
+            }
 
+            var errors = new List<Diagnostic>();
+            foreach (var diagnostic in compilation.GetParseDiagnostics())
+            {
+                if (diagnostic.Severity == DiagnosticSeverity.Error
+                    && diagnostic.Location.SourceTree != null)
+                {
+                    errors.Add(diagnostic);
+                }
+            }
+
+            return parseErrorsCache = errors;
+        }
+
+        List<Diagnostic>? declarationErrorsCache = null;
         List<Diagnostic> DeclarationErrors()
         {
             if (declarationErrorsCache is not null)
@@ -68,45 +96,60 @@ internal sealed class PartialMergeAnalyzer
             return declarationErrorsCache = errors;
         }
 
-        IReadOnlyList<Diagnostic> WholeTreeErrors()
+        var bodyErrorsByTree = new ConcurrentDictionary<SyntaxTree, IReadOnlyList<Diagnostic>>();
+        IReadOnlyList<Diagnostic> BodyErrorsInTree(SyntaxTree tree)
         {
-            if (wholeTreeErrorsCache is not null)
+            if (bodyErrorsByTree.TryGetValue(tree, out var cached))
             {
-                return wholeTreeErrorsCache;
+                return cached;
             }
 
-            var errors = wholeTreeErrorsProvider?.Invoke();
-            if (errors is null)
+            var errors = new List<Diagnostic>();
+            foreach (var diagnostic in compilation.GetSemanticModel(tree)
+                         .GetMethodBodyDiagnostics(span: null, cancellationToken: default))
             {
-                var own = new List<Diagnostic>();
-                foreach (var diagnostic in compilation.GetDiagnostics())
+                if (diagnostic.Severity == DiagnosticSeverity.Error
+                    && diagnostic.Location.SourceTree != null)
                 {
-                    if (diagnostic.Severity == DiagnosticSeverity.Error
-                        && diagnostic.Location.SourceTree != null)
-                    {
-                        own.Add(diagnostic);
-                    }
+                    errors.Add(diagnostic);
                 }
-
-                errors = own;
             }
 
-            return wholeTreeErrorsCache = errors;
+            return bodyErrorsByTree.GetOrAdd(tree, errors);
         }
 
-        static bool CoversBaselineError(TypeGroupPlan group, Diagnostic error)
-            => group.Parts.Any(part =>
-                string.Equals(part.Declaration.SyntaxTree.FilePath,
-                    error.Location.SourceTree!.FilePath, StringComparison.OrdinalIgnoreCase)
-                && part.Declaration.FullSpan.Contains(error.Location.SourceSpan.Start));
+        static bool CoversBaselineError(TypePartInfo part, Diagnostic error)
+            => error.Location.SourceTree is not null
+                && string.Equals(part.Declaration.SyntaxTree.FilePath,
+                    error.Location.SourceTree.FilePath, StringComparison.OrdinalIgnoreCase)
+                && part.Declaration.FullSpan.Contains(error.Location.SourceSpan.Start);
+
+        bool AnyStageErrorInSpan(TypeGroupPlan unit, IReadOnlyList<Diagnostic> errors)
+            => unit.Parts.Any(part => errors.Any(error => CoversBaselineError(part, error)));
 
         bool IsCoveredByBaselineError(TypeGroupPlan unit)
-            => DeclarationErrors().Any(error => CoversBaselineError(unit, error))
-                || WholeTreeErrors().Any(error => CoversBaselineError(unit, error));
+            => AnyStageErrorInSpan(unit, ParseErrors())
+                || AnyStageErrorInSpan(unit, DeclarationErrors())
+                || unit.Parts.Any(part =>
+                    BodyErrorsInTree(part.Declaration.SyntaxTree)
+                        .Any(error => CoversBaselineError(part, error)));
 
-        foreach (var group in units.Where(IsCoveredByBaselineError))
+        // Bind the two compilation-wide stages before going parallel; the
+        // method-body stage then runs per group, concurrently, and the skip flags
+        // are applied serially in unit order so the result is deterministic.
+        _ = ParseErrors();
+        _ = DeclarationErrors();
+        var coveredByBaseline = new bool[units.Count];
+        System.Threading.Tasks.Parallel.For(0, units.Count, i =>
         {
-            group.SkipBaseline = true;
+            coveredByBaseline[i] = IsCoveredByBaselineError(units[i]);
+        });
+        for (var i = 0; i < units.Count; i++)
+        {
+            if (coveredByBaseline[i])
+            {
+                units[i].SkipBaseline = true;
+            }
         }
 
         // Shape gate (CS2J2016): a record primary-constructor parameter list may

@@ -105,27 +105,81 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
         CopyInputs(tree);
         var analysisCompilation = context.BuildStandardCompilation();
 
-        // One error set describes the ORIGINAL sources: it feeds the analyzer's
-        // baseline-skip gate and the round's candidate diff, and is bound lazily so
-        // a tree whose groups the cheap declaration stage already covers never pays
-        // for the whole-compilation call. The per-file key view below is derived
-        // from the same list, so no file is bound twice.
-        List<Diagnostic>? wholeTreeErrors = null;
-        IReadOnlyList<Diagnostic> WholeTreeErrors()
-            => wholeTreeErrors ??= analysisCompilation.GetDiagnostics()
-                .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)
-                .ToList();
-        Dictionary<string, HashSet<(string Id, string Message)>>? baselineKeysByFile = null;
-        Dictionary<string, HashSet<(string Id, string Message)>> BaselineKeysByFile()
-            => baselineKeysByFile ??= WholeTreeErrors()
+        // Per-rewritten-file baseline keys: the ORIGINAL errors of a rewritten file,
+        // resolved lazily and only when the diff actually finds a candidate error in
+        // that file (the pass used to bind a whole-compilation GetDiagnostics up
+        // front just to build this view, even when no rewritten file ever had one).
+        // The set is the union of Roslyn's three diagnostic stages for that tree —
+        // parse (compilation-wide), declaration (compilation-wide) and method-body
+        // (the rewritten file's own tree) — which is exactly the whole-compilation
+        // GetDiagnostics restricted to the file (the repo's established substitute,
+        // async-normalize 1829abe6 / struct-value-semantics aaebe9b5) that the frozen
+        // per-file baseline view held. The candidate side keys rewritten files
+        // against the intermediate root; the source trees are indexed by the same
+        // root-relative key (the two trees mirror each other at the same relative
+        // paths).
+        Dictionary<string, SyntaxTree>? sourceTreesByKey = null;
+        List<Diagnostic>? baselineParseErrors = null;
+        List<Diagnostic>? baselineDeclarationErrors = null;
+        var baselineBodyByTree = new Dictionary<SyntaxTree, IReadOnlyList<Diagnostic>>();
+        var baselineKeysCache = new Dictionary<string, HashSet<(string Id, string Message)>>(
+            StringComparer.OrdinalIgnoreCase);
+        HashSet<(string Id, string Message)> BaselineKeysForFile(string key)
+        {
+            if (baselineKeysCache.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            sourceTreesByKey ??= analysisCompilation.SyntaxTrees
                 .GroupBy(
-                    d => NormalizePath(d.Location.SourceTree!.FilePath, tree.SourceRoot),
+                    syntaxTree => NormalizePath(syntaxTree.FilePath, tree.SourceRoot),
                     StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(
                     byFile => byFile.Key,
-                    byFile => new HashSet<(string Id, string Message)>(
-                        byFile.Select(d => (d.Descriptor.Id, d.GetMessage()))),
+                    byFile => byFile.First(),
                     StringComparer.OrdinalIgnoreCase);
+
+            var keys = new HashSet<(string Id, string Message)>();
+            if (!sourceTreesByKey.TryGetValue(key, out var sourceTree))
+            {
+                return baselineKeysCache[key] = keys;
+            }
+
+            baselineParseErrors ??= analysisCompilation.GetParseDiagnostics()
+                .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)
+                .ToList();
+            baselineDeclarationErrors ??= analysisCompilation.GetDeclarationDiagnostics()
+                .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)
+                .ToList();
+            if (!baselineBodyByTree.TryGetValue(sourceTree, out var bodyErrors))
+            {
+                bodyErrors = analysisCompilation.GetSemanticModel(sourceTree)
+                    .GetMethodBodyDiagnostics(span: null, cancellationToken: default)
+                    .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)
+                    .ToList();
+                baselineBodyByTree[sourceTree] = bodyErrors;
+            }
+
+            void Consider(IReadOnlyList<Diagnostic> errors)
+            {
+                foreach (var diagnostic in errors)
+                {
+                    if (string.Equals(
+                            NormalizePath(diagnostic.Location.SourceTree!.FilePath, tree.SourceRoot),
+                            key, StringComparison.OrdinalIgnoreCase))
+                    {
+                        keys.Add((diagnostic.Descriptor.Id, diagnostic.GetMessage()));
+                    }
+                }
+            }
+
+            Consider(baselineParseErrors);
+            Consider(baselineDeclarationErrors);
+            Consider(bodyErrors);
+
+            return baselineKeysCache[key] = keys;
+        }
 
         var preprocessor = new PartialMergePreprocessor(_options);
         var excludedGroups = new HashSet<string>(StringComparer.Ordinal);
@@ -146,10 +200,8 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             }
 
             // Reuse the baseline build: the source root never mutates during the
-            // pass, so its diagnostics are the same every round. The analyzer draws
-            // them lazily from the shared list below.
-            var plan = preprocessor.Analyze(
-                analysisCompilation, tree.SourceRoot, wholeTreeErrorsProvider: WholeTreeErrors);
+            // pass, so its diagnostics are the same every round.
+            var plan = preprocessor.Analyze(analysisCompilation, tree.SourceRoot);
             _lastPlan = plan;
             foreach (var group in plan.Groups
                          .Where(g => excludedGroups.Contains(g.TypeFullName)))
@@ -224,7 +276,7 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             var rewrittenKeys = new HashSet<string>(
                 rewrittenFiles.Select(file => NormalizePath(file, tree.SourceRoot)),
                 StringComparer.OrdinalIgnoreCase);
-            var newErrors = DiffErrors(tree, candidate, rewrittenKeys, BaselineKeysByFile);
+            var newErrors = DiffErrors(tree, candidate, rewrittenKeys, BaselineKeysForFile);
 
             if (newErrors.Count == 0)
             {
@@ -435,26 +487,35 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
         IReadOnlySet<string>? rewrittenSourcePaths = null)
     {
         var parseOptions = CreateParseOptions(tree);
-        var trees = tree.CsFiles
-            .Select(file =>
-            {
-                var destination = Path.Combine(
-                    tree.IntermediateRoot, Path.GetRelativePath(tree.SourceRoot, file));
-                if (rewrittenSourcePaths is not null
-                    && !rewrittenSourcePaths.Contains(file)
-                    && tree.ParsedSyntaxTrees.TryGetValue(file, out var parsed))
-                {
-                    return parsed.WithFilePath(destination);
-                }
+        var csFiles = tree.CsFiles;
 
-                return (SyntaxTree)CSharpSyntaxTree.ParseText(
-                    File.ReadAllText(destination), parseOptions, path: destination);
-            })
-            .ToList();
-        trees.AddRange(CreateAdditionalSyntaxTrees(tree));
+        // Each file's tree is independent (a re-path of an already-parsed tree or a
+        // fresh parse of one rewritten file), so build them in parallel into a
+        // positional array; the array is then materialized in source-file order, so
+        // the compilation sees the exact same tree sequence as the sequential loop.
+        var trees = new SyntaxTree[csFiles.Count];
+        System.Threading.Tasks.Parallel.For(0, csFiles.Count, i =>
+        {
+            var file = csFiles[i];
+            var destination = Path.Combine(
+                tree.IntermediateRoot, Path.GetRelativePath(tree.SourceRoot, file));
+            if (rewrittenSourcePaths is not null
+                && !rewrittenSourcePaths.Contains(file)
+                && tree.ParsedSyntaxTrees.TryGetValue(file, out var parsed))
+            {
+                trees[i] = parsed.WithFilePath(destination);
+                return;
+            }
+
+            trees[i] = CSharpSyntaxTree.ParseText(
+                File.ReadAllText(destination), parseOptions, path: destination);
+        });
+
+        var allTrees = trees.ToList();
+        allTrees.AddRange(CreateAdditionalSyntaxTrees(tree));
 
         return CSharpCompilation.Create(
-            Descriptor.Id + "-candidate", trees, GetMetadataReferences(), CreateCompilationOptions());
+            Descriptor.Id + "-candidate", allTrees, GetMetadataReferences(), CreateCompilationOptions());
     }
 
     /// <summary>
@@ -471,35 +532,42 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
     /// The candidate's declaration diagnostics are restricted the same way, so a
     /// rewritten file's declaration-level regression (a duplicate member produced
     /// by a member union, say) is still caught even though no tree's SemanticModel
-    /// reports it. The baseline side is the per-file view of the single
-    /// whole-compilation error set the analyzer's gate already bound, so an error
-    /// is "new" exactly when its (id, message) is absent from the original sources'
-    /// errors of the same file — the verdict and its order are the whole-tree
-    /// diff's.
+    /// reports it. The baseline side is resolved per rewritten file through the same
+    /// three-stage view the analyzer's gate binds (see
+    /// <see cref="BaselineKeysForFile"/>), so an error is "new" exactly when its
+    /// (id, message) is absent from the original sources' errors of the same file —
+    /// the verdict and its order are the whole-tree diff's.
     /// </para>
     /// </summary>
     private static List<Diagnostic> DiffErrors(
         PassTreeContext tree,
         CSharpCompilation candidate,
         HashSet<string> rewrittenKeys,
-        Func<Dictionary<string, HashSet<(string Id, string Message)>>> baselineKeysByFile)
+        Func<string, HashSet<(string Id, string Message)>> baselineKeysForFile)
     {
         List<Diagnostic>? newErrors = null;
-        Dictionary<string, HashSet<(string Id, string Message)>>? baselineKeys = null;
 
         foreach (var diagnostic in candidate.GetDeclarationDiagnostics())
         {
             Consider(diagnostic);
         }
 
-        foreach (var syntaxTree in candidate.SyntaxTrees)
+        // The rewritten trees' SemanticModels are independent, so bind them in
+        // parallel into a positional array; the array is then replayed serially in
+        // syntax-tree order, so the verdict (and the order of newErrors) is exactly
+        // the sequential loop's.
+        var rewrittenTrees = candidate.SyntaxTrees
+            .Where(syntaxTree => rewrittenKeys.Contains(
+                NormalizePath(syntaxTree.FilePath, tree.IntermediateRoot)))
+            .ToList();
+        var diagnosticsByTree = new IReadOnlyList<Diagnostic>[rewrittenTrees.Count];
+        System.Threading.Tasks.Parallel.For(0, rewrittenTrees.Count, i =>
         {
-            if (!rewrittenKeys.Contains(NormalizePath(syntaxTree.FilePath, tree.IntermediateRoot)))
-            {
-                continue;
-            }
-
-            foreach (var diagnostic in candidate.GetSemanticModel(syntaxTree).GetDiagnostics())
+            diagnosticsByTree[i] = candidate.GetSemanticModel(rewrittenTrees[i]).GetDiagnostics();
+        });
+        for (var i = 0; i < rewrittenTrees.Count; i++)
+        {
+            foreach (var diagnostic in diagnosticsByTree[i])
             {
                 Consider(diagnostic);
             }
@@ -521,9 +589,8 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
                 return;
             }
 
-            baselineKeys ??= baselineKeysByFile();
-            if (baselineKeys.TryGetValue(key, out var original)
-                && original.Contains((diagnostic.Descriptor.Id, diagnostic.GetMessage())))
+            var original = baselineKeysForFile(key);
+            if (original.Contains((diagnostic.Descriptor.Id, diagnostic.GetMessage())))
             {
                 return;
             }
