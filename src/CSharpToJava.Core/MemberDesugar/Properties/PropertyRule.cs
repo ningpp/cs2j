@@ -64,6 +64,15 @@ internal sealed class PropertyRule : IMemberDesugarRule
                     continue;
                 }
 
+                // 跨程序集同名类型镜像合并（CLI 整树编译把不同工程/程序集的同名类型
+                // 折成同一符号，基线 CS0260）：展开 get_X/set_X 会与镜像声明的同名属性
+                // 撞访问器槽（CS0082/CS0111），且两侧无论展开哪一侧都撞。真实 msbuild
+                // 构建按程序集隔离不存在该合并，故此处整体保留原属性不展开。
+                if (MemberDesugarSyntaxFacts.IsMergedMirrorType(prop.ContainingType))
+                {
+                    continue;
+                }
+
                 var gate = DeclarationGate(decl, prop, model, options, out var fieldKeyword);
                 if (gate != null)
                 {
@@ -81,6 +90,7 @@ internal sealed class PropertyRule : IMemberDesugarRule
             {
                 if (rec.ParameterList == null) continue;
                 if (model.GetDeclaredSymbol(rec) is not INamedTypeSymbol type) continue;
+                if (MemberDesugarSyntaxFacts.IsMergedMirrorType(type)) continue; // 镜像合并类型不展开
                 foreach (var param in rec.ParameterList.Parameters)
                 {
                     var prop = type.GetMembers(param.Identifier.ValueText)
