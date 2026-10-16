@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -43,102 +42,36 @@ internal sealed class PartialMergeAnalyzer
         // are marked skip — the pass does not compete with compiler diagnostics.
         //
         // CoversBaselineError only matches an error whose location lies INSIDE one
-        // of a group's part declarations, i.e. in that part's own syntax tree. The
-        // whole-compilation GetDiagnostics the gate used to bind is exactly the
-        // union of Roslyn's three diagnostic stages, so the gate reads those stages
-        // directly and nothing else:
-        //   parse   — compilation.GetParseDiagnostics()        (cheap, all trees)
-        //   declare — compilation.GetDeclarationDiagnostics()  (compilation-wide)
-        //   compile — a part tree's SemanticModel.GetMethodBodyDiagnostics() (only
-        //             the trees a declaration-uncovered group actually reads)
-        // The first two are compilation-wide and cheap; the method bodies are bound
-        // lazily, once per part tree and only when the declaration stage left a
-        // group uncovered, so the ~800 trees no part lives in are never bound.
-        List<Diagnostic>? parseErrorsCache = null;
-        List<Diagnostic> ParseErrors()
-        {
-            if (parseErrorsCache is not null)
-            {
-                return parseErrorsCache;
-            }
-
-            var errors = new List<Diagnostic>();
-            foreach (var diagnostic in compilation.GetParseDiagnostics())
-            {
-                if (diagnostic.Severity == DiagnosticSeverity.Error
-                    && diagnostic.Location.SourceTree != null)
-                {
-                    errors.Add(diagnostic);
-                }
-            }
-
-            return parseErrorsCache = errors;
-        }
-
-        List<Diagnostic>? declarationErrorsCache = null;
-        List<Diagnostic> DeclarationErrors()
-        {
-            if (declarationErrorsCache is not null)
-            {
-                return declarationErrorsCache;
-            }
-
-            var errors = new List<Diagnostic>();
-            foreach (var diagnostic in compilation.GetDeclarationDiagnostics())
-            {
-                if (diagnostic.Severity == DiagnosticSeverity.Error
-                    && diagnostic.Location.SourceTree != null)
-                {
-                    errors.Add(diagnostic);
-                }
-            }
-
-            return declarationErrorsCache = errors;
-        }
-
-        var bodyErrorsByTree = new ConcurrentDictionary<SyntaxTree, IReadOnlyList<Diagnostic>>();
-        IReadOnlyList<Diagnostic> BodyErrorsInTree(SyntaxTree tree)
-        {
-            if (bodyErrorsByTree.TryGetValue(tree, out var cached))
-            {
-                return cached;
-            }
-
-            var errors = new List<Diagnostic>();
-            foreach (var diagnostic in compilation.GetSemanticModel(tree)
-                         .GetMethodBodyDiagnostics(span: null, cancellationToken: default))
-            {
-                if (diagnostic.Severity == DiagnosticSeverity.Error
-                    && diagnostic.Location.SourceTree != null)
-                {
-                    errors.Add(diagnostic);
-                }
-            }
-
-            return bodyErrorsByTree.GetOrAdd(tree, errors);
-        }
-
-        static bool CoversBaselineError(TypePartInfo part, Diagnostic error)
-            => error.Location.SourceTree is not null
-                && string.Equals(part.Declaration.SyntaxTree.FilePath,
-                    error.Location.SourceTree.FilePath, StringComparison.OrdinalIgnoreCase)
-                && part.Declaration.FullSpan.Contains(error.Location.SourceSpan.Start);
-
-        bool AnyStageErrorInSpan(TypeGroupPlan unit, IReadOnlyList<Diagnostic> errors)
-            => unit.Parts.Any(part => errors.Any(error => CoversBaselineError(part, error)));
-
+        // of a group's part declarations, i.e. in that part's own syntax tree. A
+        // whole-compilation GetDiagnostics therefore does dead work for the ~800
+        // trees no part lives in. Instead each part reads its own declaration
+        // region: the SemanticModel's span-restricted GetDiagnostics(part.FullSpan)
+        // is exactly the parse + declaration + method-body stages restricted to that
+        // span — the three stages the whole-tree GetDiagnostics unions — so the
+        // verdict is unchanged while only the bodies inside a part declaration are
+        // bound, never the bodies of unrelated files or of a part's surrounding
+        // code. The engine folds the compilation-wide declaration work into the
+        // first such call, so it is paid once here just as it was before.
         bool IsCoveredByBaselineError(TypeGroupPlan unit)
-            => AnyStageErrorInSpan(unit, ParseErrors())
-                || AnyStageErrorInSpan(unit, DeclarationErrors())
-                || unit.Parts.Any(part =>
-                    BodyErrorsInTree(part.Declaration.SyntaxTree)
-                        .Any(error => CoversBaselineError(part, error)));
+            => unit.Parts.Any(part =>
+            {
+                var model = compilation.GetSemanticModel(part.Declaration.SyntaxTree);
+                foreach (var diagnostic in model.GetDiagnostics(part.Declaration.FullSpan))
+                {
+                    if (diagnostic.Severity == DiagnosticSeverity.Error
+                        && diagnostic.Location.SourceTree is not null
+                        && part.Declaration.FullSpan.Contains(diagnostic.Location.SourceSpan.Start))
+                    {
+                        return true;
+                    }
+                }
 
-        // Bind the two compilation-wide stages before going parallel; the
-        // method-body stage then runs per group, concurrently, and the skip flags
-        // are applied serially in unit order so the result is deterministic.
-        _ = ParseErrors();
-        _ = DeclarationErrors();
+                return false;
+            });
+
+        // The parts are independent, so bind their semantic models concurrently; the
+        // skip flags are applied serially in unit order so the result is
+        // deterministic.
         var coveredByBaseline = new bool[units.Count];
         System.Threading.Tasks.Parallel.For(0, units.Count, i =>
         {
