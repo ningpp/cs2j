@@ -60,7 +60,7 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
     private readonly NumericBoundaryOptions _options;
     private readonly IncrementTargetStatistics _stats;
     private readonly List<NumericBoundaryDiagnostic> _diagnostics;
-    private readonly IncrementTargetSyntaxFacts.TempNameAllocator _names;
+    private IncrementTargetSyntaxFacts.TempNameAllocator? _names;
 
     private readonly Dictionary<ExpressionSyntax, IncrementTargetClassification> _accepted = new();
     private readonly List<IncrementHoistPlan> _plans = new();
@@ -77,10 +77,16 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
         _options = options;
         _stats = stats;
         _diagnostics = diagnostics;
-        _names = new IncrementTargetSyntaxFacts.TempNameAllocator(model.SyntaxTree.GetRoot());
 
         Plan(allSites);
     }
+
+    /// <summary>
+    /// Temporary-name allocator, created on first use: reserving every identifier
+    /// already in the tree is a full token pass that only rendered sites need.
+    /// </summary>
+    private IncrementTargetSyntaxFacts.TempNameAllocator Names =>
+        _names ??= new IncrementTargetSyntaxFacts.TempNameAllocator(_model.SyntaxTree.GetRoot());
 
     /// <summary>True when no site error was diagnosed during planning.</summary>
     public bool HasErrorDiagnostic { get; private set; }
@@ -560,7 +566,7 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
             or Liftability.WhileConditionPostfix)
         {
             // var __o = READ; WRITE = CORE(__o); site → __o
-            var oldName = _names.Old(site);
+            var oldName = Names.Old(site);
             AddTempRole(IncrementTargetDiagnostics.TempRoleOldValue);
             statements.Add(IncrementTargetSyntaxFacts.VarDeclaration(oldName, descriptor.BuildAccess()));
 
@@ -584,7 +590,7 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
                 AssignmentExpression(
                     SyntaxKind.SimpleAssignmentExpression, descriptor.BuildAccess(), core)));
 
-            replacement = IdentifierName(_names.Discard(site));
+            replacement = IdentifierName(Names.Discard(site));
             if (!classification.IsPrefix)
             {
                 _stats.PostfixStandaloneSites++;
@@ -601,7 +607,7 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
             if (standalone)
             {
                 statements.Add(IncrementTargetSyntaxFacts.WriteStatement(assignment));
-                replacement = IdentifierName(_names.Discard(site));
+                replacement = IdentifierName(Names.Discard(site));
                 if (!classification.IsPrefix)
                 {
                     _stats.PostfixStandaloneSites++;
@@ -719,7 +725,7 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
                 {
                     var originalArgument = originalAccess.ArgumentList.Arguments[i];
                     var visitedArgument = visitedAccess.ArgumentList.Arguments[i];
-                    var name = _names.Argument(site, i);
+                    var name = Names.Argument(site, i);
                     AddTempRole(IncrementTargetDiagnostics.TempRoleIndexArg);
                     temps.Add(IncrementTargetSyntaxFacts.VarDeclaration(
                         name, visitedArgument.Expression));
@@ -745,7 +751,7 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
                 var indices = new List<IndexRef>();
                 for (var d = 0; d < originalAccess.ArgumentList.Arguments.Count; d++)
                 {
-                    var name = _names.Index(site, d);
+                    var name = Names.Index(site, d);
                     AddTempRole(IncrementTargetDiagnostics.TempRoleIndexArg);
                     temps.Add(IncrementTargetSyntaxFacts.VarDeclaration(
                         name, visitedAccess.ArgumentList.Arguments[d].Expression));
@@ -842,7 +848,7 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
                     $"unexpected ref-returning target shape {visitedEffective.Kind()}");
         }
 
-        var aliasName = _names.Ref(site);
+        var aliasName = Names.Ref(site);
         AddTempRole(IncrementTargetDiagnostics.TempRoleRefAlias);
 
         // ParseTypeName (not ParseName): the display string can be a keyword
@@ -915,7 +921,7 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
                 continue;
             }
 
-            var name = _names.Argument(site, i);
+            var name = Names.Argument(site, i);
             AddTempRole(IncrementTargetDiagnostics.TempRoleIndexArg);
             temps.Add(IncrementTargetSyntaxFacts.VarDeclaration(
                 name, visitedArgument.Expression));
@@ -973,7 +979,7 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
                 return new ReceiverRef.Identifier { Name = identifier.Identifier.Text };
             default:
             {
-                var name = _names.Receiver(site);
+                var name = Names.Receiver(site);
                 AddTempRole(IncrementTargetDiagnostics.TempRoleReceiver);
                 temps.Add(IncrementTargetSyntaxFacts.VarDeclaration(name, visitedReceiver));
                 return ReceiverRef.TempNamed(name);

@@ -21,9 +21,9 @@ internal sealed class DecimalOpRewriter : CSharpSyntaxRewriter
     private readonly NumericBoundaryOptions _options;
     private readonly DecimalOpStatistics _stats;
     private readonly List<NumericBoundaryDiagnostic> _diagnostics;
-    private readonly TempNameAllocator _names;
     private readonly HashSet<SyntaxNode> _downgradeTargets;
     private readonly List<HoistPlan> _hoistPlans = new();
+    private TempNameAllocator? _names;
 
     public DecimalOpRewriter(
         SemanticModel model,
@@ -36,9 +36,15 @@ internal sealed class DecimalOpRewriter : CSharpSyntaxRewriter
         _options = options;
         _stats = stats;
         _diagnostics = diagnostics;
-        _names = new TempNameAllocator(model.SyntaxTree.GetRoot());
         _downgradeTargets = downgradeTargets ?? new HashSet<SyntaxNode>();
     }
+
+    /// <summary>
+    /// Temporary-name allocator, created on first use: it reserves every
+    /// identifier already present in the tree (a full token pass), which is pure
+    /// overhead for the many files that never hoist a complex compound target.
+    /// </summary>
+    private TempNameAllocator Names => _names ??= new TempNameAllocator(_model.SyntaxTree.GetRoot());
 
     public bool MadeChanges { get; private set; }
 
@@ -265,7 +271,7 @@ internal sealed class DecimalOpRewriter : CSharpSyntaxRewriter
         // hoist into the enclosing block and keep using the global allocator.
         var names = standalone
             ? new TempNameAllocator((CompilationUnitSyntax)_model.SyntaxTree.GetRoot())
-            : _names;
+            : Names;
 
         ExpressionSyntax receiverAccess;
         SimpleNameSyntax? memberName = null;

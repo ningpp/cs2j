@@ -550,15 +550,34 @@ internal sealed class IncrementTargetAnalyzer
     /// <summary>All ++/-- sites in tree order (rules and tests iterate this).</summary>
     public IReadOnlyList<(ExpressionSyntax Node, IncrementTargetClassification C)> FindAllSites(SyntaxNode root)
     {
+        // Single walk filtered on the four increment/decrement kinds directly,
+        // instead of materializing every descendant as ExpressionSyntax and
+        // probing a 4-element array per node; the yielded node set and order are
+        // identical.
         var sites = new List<(ExpressionSyntax, IncrementTargetClassification)>();
-        foreach (var node in root.DescendantNodes()
-                     .OfType<ExpressionSyntax>()
-                     .Where(n => Array.IndexOf(IncrementKinds, n.Kind()) >= 0))
+        foreach (var node in root.DescendantNodes())
         {
-            var classification = Classify(node);
+            if (node is not (PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax))
+            {
+                continue;
+            }
+
+            switch (node.Kind())
+            {
+                case SyntaxKind.PreIncrementExpression:
+                case SyntaxKind.PreDecrementExpression:
+                case SyntaxKind.PostIncrementExpression:
+                case SyntaxKind.PostDecrementExpression:
+                    break;
+                default:
+                    continue;
+            }
+
+            var unary = (ExpressionSyntax)node;
+            var classification = Classify(unary);
             if (classification != null)
             {
-                sites.Add((node, classification));
+                sites.Add((unary, classification));
             }
         }
 
@@ -680,27 +699,17 @@ internal sealed class IncrementTargetAnalyzer
             return ArithmeticCore.EnumCast;
         }
 
-        // C05 dual-contract fingerprint hook (decision 7): a non-enum value
-        // type carrying instance Value + static FromValue(U). Detection only;
-        // IsOwnedByRule keeps EnumFromValue unowned and no FromValue call is
-        // rendered until C05 lands and M2 wires the dual-form expansion.
-        if (HasC05FromValueFingerprint(type))
-        {
-            return ArithmeticCore.EnumFromValue;
-        }
-
-        if (type?.SpecialType == SpecialType.System_Decimal)
-        {
-            return ArithmeticCore.Decimal;
-        }
-
-        if (type?.SpecialType is SpecialType.System_IntPtr or SpecialType.System_UIntPtr)
-        {
-            return ArithmeticCore.NativeInt;
-        }
-
+        // Resolve the built-in numeric special types before the C05 probe: no
+        // primitive special type carries the Value/FromValue fingerprint, so the
+        // probe's two GetMembers metadata scans are pure overhead here and
+        // skipping them cannot change the classification.
         switch (type?.SpecialType)
         {
+            case SpecialType.System_Decimal:
+                return ArithmeticCore.Decimal;
+            case SpecialType.System_IntPtr:
+            case SpecialType.System_UIntPtr:
+                return ArithmeticCore.NativeInt;
             case SpecialType.System_SByte
                 or SpecialType.System_Int16
                 or SpecialType.System_Int32
@@ -713,9 +722,18 @@ internal sealed class IncrementTargetAnalyzer
             case SpecialType.System_UInt32
                 or SpecialType.System_UInt64:
                 return ArithmeticCore.UnsignedDomain;
-            default:
-                return forComplexTarget ? ArithmeticCore.BuiltinNarrow : ArithmeticCore.DirectMap;
         }
+
+        // C05 dual-contract fingerprint hook (decision 7): a non-enum value
+        // type carrying instance Value + static FromValue(U). Detection only;
+        // IsOwnedByRule keeps EnumFromValue unowned and no FromValue call is
+        // rendered until C05 lands and M2 wires the dual-form expansion.
+        if (HasC05FromValueFingerprint(type))
+        {
+            return ArithmeticCore.EnumFromValue;
+        }
+
+        return forComplexTarget ? ArithmeticCore.BuiltinNarrow : ArithmeticCore.DirectMap;
     }
 
     private static bool IsNullableNumericOrEnum(ITypeSymbol? type)

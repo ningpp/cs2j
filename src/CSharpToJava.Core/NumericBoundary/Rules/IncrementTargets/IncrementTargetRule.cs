@@ -34,9 +34,25 @@ internal sealed class IncrementTargetRule : INumericBoundaryRule
             return new NumericBoundaryRuleResult(context.Root, MadeChanges: false);
         }
 
+        // Whole-cluster skip: C17 only classifies ++/-- nodes, so a file with no
+        // increment/decrement token has no site, no statistics and no residual.
+        // FindAllSites' full semantic traversal and the rewriter visit are both
+        // provably empty-handed here.
+        if (!context.Profile.HasIncrementOrDecrement)
+        {
+            return new NumericBoundaryRuleResult(context.Root, MadeChanges: false);
+        }
+
         var analyzer = new IncrementTargetAnalyzer(
             context.SemanticModel, context.Options, context.GetSharedAnalyzer());
         var sites = analyzer.FindAllSites(context.Root);
+
+        // No owned/classifiable site: the pass-1 rewriter (a full tree visit with
+        // its own semantic queries) can only be a no-op, so skip it entirely.
+        if (sites.Count == 0)
+        {
+            return new NumericBoundaryRuleResult(context.Root, MadeChanges: false);
+        }
 
         var rewriter = new IncrementTargetRewriter(
             context.SemanticModel,

@@ -46,7 +46,12 @@ public sealed class NumericBoundaryPreprocessor
             options.SourceFilePath,
             options.CheckForOverflowUnderflowByProjectDirectory) ?? false;
 
-        var c15Dirty = IsDirty(root, projectDefaultChecked);
+        // Cheap ordinal text probe (no tree walk): every trigger token is literal
+        // source text, so this is a sound necessary-condition lower bound for the
+        // pristine file. The context re-scans the syntax tree only when a rule
+        // synthesizes a new tree (see NumericBoundaryRuleContext.RebindModel).
+        var profile = NumericBoundaryFileProfile.FromSourceText(sourceCode);
+        var c15Dirty = projectDefaultChecked || profile.HasCheckedOrUncheckedKeyword;
 
         // Family-level early gate: keep the pipeline alive when any family rule
         // is enabled — EnableDecimalOps (C34), EnableIncrementTargets (C17) and
@@ -61,7 +66,7 @@ public sealed class NumericBoundaryPreprocessor
         }
 
         var context = new NumericBoundaryRuleContext(
-            root, semanticModel, projectDefaultChecked, options, stats, diagnostics);
+            root, semanticModel, projectDefaultChecked, options, stats, diagnostics, profile);
 
         // Explicit ordered rule list (no reflection discovery); execution is
         // Order ascending via OrderBy. Written in execution order with the
@@ -151,19 +156,6 @@ public sealed class NumericBoundaryPreprocessor
 
         stats.FilesTransformed = 1;
         return new NumericBoundaryFileResult(outputCode, true, diagnostics, stats);
-    }
-
-    internal static bool IsDirty(CompilationUnitSyntax root, bool projectDefaultChecked)
-    {
-        if (projectDefaultChecked)
-        {
-            // A /checked project rewrites keyword-free files too (every integer
-            // arithmetic site is checked by default).
-            return true;
-        }
-
-        return root.DescendantNodes().Any(static node =>
-            node is CheckedExpressionSyntax or CheckedStatementSyntax);
     }
 
     /// <summary>

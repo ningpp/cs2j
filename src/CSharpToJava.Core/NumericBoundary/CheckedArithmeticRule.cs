@@ -21,6 +21,16 @@ internal sealed class CheckedArithmeticRule : INumericBoundaryRule
 
     public NumericBoundaryRuleResult Execute(NumericBoundaryRuleContext context)
     {
+        // Whole-cluster skip: C15 only rewrites inside an explicit
+        // checked/unchecked keyword scope (incl. guards C22 just synthesized) or
+        // a /checked project. With neither, the sweep, its statistics and its
+        // NB-13 residual gate are provably no-ops (no checked/unchecked node can
+        // exist), so the file is returned untouched.
+        if (!context.ProjectDefaultChecked && !context.Profile.HasCheckedOrUncheckedKeyword)
+        {
+            return new NumericBoundaryRuleResult(context.Root, MadeChanges: false);
+        }
+
         var analyzer = context.GetSharedAnalyzer();
         var rewriter = new CheckedExprRewriter(
             analyzer, context.Stats, context.Diagnostics, context.Options.EnableDecimalOps);

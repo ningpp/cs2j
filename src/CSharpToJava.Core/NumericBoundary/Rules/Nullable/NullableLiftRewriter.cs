@@ -47,7 +47,7 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
     private readonly NullableLiftStatistics _stats;
     private readonly List<NumericBoundaryDiagnostic> _diagnostics;
     private readonly NullableLiftAnalyzer _analyzer;
-    private readonly NullableLiftSyntaxFacts.TempNameAllocator _names;
+    private NullableLiftSyntaxFacts.TempNameAllocator? _names;
     private readonly List<PendingNullableLift> _pending = new();
     private int _sequence;
 
@@ -64,8 +64,14 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
         _stats = stats;
         _diagnostics = diagnostics;
         _analyzer = analyzer;
-        _names = new NullableLiftSyntaxFacts.TempNameAllocator(model.SyntaxTree.GetRoot());
     }
+
+    /// <summary>
+    /// Temporary-name allocator, created on first use: reserving every identifier
+    /// already in the tree is a full token pass that only hoisting sites need.
+    /// </summary>
+    private NullableLiftSyntaxFacts.TempNameAllocator Names =>
+        _names ??= new NullableLiftSyntaxFacts.TempNameAllocator(_model.SyntaxTree.GetRoot());
 
     public bool HasErrorDiagnostic { get; private set; }
 
@@ -518,7 +524,7 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
                 return null;
             }
 
-            oldName = _names.Old(hoist.SiteNumber);
+            oldName = Names.Old(hoist.SiteNumber);
             AddTempDeclaration(
                 hoist, VarDeclaration(oldName, visitedTarget), NullableLiftSyntaxFacts.RoleOld);
             sourceAccess = OperandAccess.Direct(IdentifierName(oldName), isNullablePosition: true);
@@ -710,7 +716,7 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             return null;
         }
 
-        var targetName = _names.Target(hoist.SiteNumber);
+        var targetName = Names.Target(hoist.SiteNumber);
         AddTempDeclaration(
             hoist, VarDeclaration(targetName, access.BuildRead()),
             NullableLiftSyntaxFacts.RoleTarget);
@@ -783,7 +789,7 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             return null;
         }
 
-        var targetName = _names.Target(hoist.SiteNumber);
+        var targetName = Names.Target(hoist.SiteNumber);
         AddTempDeclaration(
             hoist, VarDeclaration(targetName, access.BuildRead()),
             NullableLiftSyntaxFacts.RoleTarget);
@@ -886,7 +892,7 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
                 for (var i = 0; i < originalAccess.ArgumentList.Arguments.Count; i++)
                 {
                     var visitedArgument = visitedAccess.ArgumentList.Arguments[i].Expression;
-                    var indexName = _names.Index(hoist.SiteNumber, i);
+                    var indexName = Names.Index(hoist.SiteNumber, i);
                     AddTempDeclaration(
                         hoist, VarDeclaration(indexName, visitedArgument),
                         NullableLiftSyntaxFacts.RoleIndex);
@@ -929,7 +935,7 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             return () => CopyTrivial(visitedReceiver);
         }
 
-        var receiverName = _names.Receiver(hoist.SiteNumber);
+        var receiverName = Names.Receiver(hoist.SiteNumber);
         AddTempDeclaration(
             hoist, VarDeclaration(receiverName, visitedReceiver),
             NullableLiftSyntaxFacts.RoleReceiver);
@@ -1649,10 +1655,10 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
         }
 
         var name = defaultRole
-            ? _names.Default(hoist.SiteNumber)
+            ? Names.Default(hoist.SiteNumber)
             : isLeft
-                ? _names.Left(hoist.SiteNumber)
-                : _names.Right(hoist.SiteNumber);
+                ? Names.Left(hoist.SiteNumber)
+                : Names.Right(hoist.SiteNumber);
         var role = defaultRole
             ? NullableLiftSyntaxFacts.RoleDefault
             : isLeft

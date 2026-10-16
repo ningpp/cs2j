@@ -40,7 +40,8 @@ internal sealed class NumericBoundaryRuleContext
         bool projectDefaultChecked,
         NumericBoundaryOptions options,
         NumericBoundaryStatistics stats,
-        List<NumericBoundaryDiagnostic> diagnostics)
+        List<NumericBoundaryDiagnostic> diagnostics,
+        NumericBoundaryFileProfile? profile = null)
     {
         Root = root;
         SemanticModel = semanticModel;
@@ -48,6 +49,7 @@ internal sealed class NumericBoundaryRuleContext
         Options = options;
         Stats = stats;
         Diagnostics = diagnostics;
+        Profile = profile ?? NumericBoundaryFileProfile.Scan(root);
     }
 
     /// <summary>当前文件树根（规则产出后由驱动方更新）。</summary>
@@ -58,6 +60,13 @@ internal sealed class NumericBoundaryRuleContext
 
     /// <summary>工程级 <c>/checked</c> 种子。</summary>
     public bool ProjectDefaultChecked { get; }
+
+    /// <summary>
+    /// 当前 <see cref="Root"/> 的触发语法画像（必要条件下界）。规则用它做整簇
+    /// 跳过；<see cref="RebindModel"/> 产出新树后失效重建，保证画像始终描述
+    /// 规则即将扫描的那棵树。
+    /// </summary>
+    public NumericBoundaryFileProfile Profile { get; private set; }
 
     /// <summary>族选项（含各规则 kill-switch）。</summary>
     public NumericBoundaryOptions Options { get; }
@@ -112,6 +121,7 @@ internal sealed class NumericBoundaryRuleContext
         Root = (CompilationUnitSyntax)newTree.GetRoot();
         SemanticModel = reboundModel;
         _sharedAnalyzer = null;
+        Profile = NumericBoundaryFileProfile.Scan(Root);
         return reboundModel;
     }
 }

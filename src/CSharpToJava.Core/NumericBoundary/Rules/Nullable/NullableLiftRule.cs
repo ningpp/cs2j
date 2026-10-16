@@ -50,8 +50,18 @@ internal sealed class NullableLiftRule : INumericBoundaryRule
         // return anchor inside the (now) block scope. Speculative: a residual
         // CS2J5355 below still rolls the WHOLE file back, and the failure
         // result returns the untouched original root.
-        var linearizedRoot = NullableLambdaLinearizer.Linearize(
-            context.Root, context.SemanticModel, out var linearized);
+        // Whole-cluster skip of the linearizer: without any anonymous-function
+        // syntax (no => and no delegate in the tree) there is no expression
+        // lambda to linearize, so Linearize provably reports changed=false and
+        // returns the root untouched.
+        var linearizedRoot = context.Root;
+        var linearized = false;
+        if (context.Profile.HasAnonymousFunction)
+        {
+            linearizedRoot = NullableLambdaLinearizer.Linearize(
+                context.Root, context.SemanticModel, out linearized);
+        }
+
         if (linearized)
         {
             var linearizedModel = context.RebindModel(linearizedRoot);
