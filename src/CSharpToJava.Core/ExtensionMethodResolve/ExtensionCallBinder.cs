@@ -48,13 +48,24 @@ internal sealed class ExtensionCallBinder
     private readonly ExtensionMethodResolveStatistics _statistics = new();
     private readonly ExtensionTempAllocator _allocator;
 
-    public ExtensionCallBinder(SemanticModel model, ExtensionMethodResolveOptions options, bool suppressExtensionBlockGate = false)
+    public ExtensionCallBinder(SemanticModel model, ExtensionMethodResolveOptions options, bool suppressExtensionBlockGate = false, IReadOnlySet<string>? extensionMethodNames = null)
     {
         Model = model;
         Options = options;
         SuppressExtensionBlockGate = suppressExtensionBlockGate;
+        ExtensionMethodNames = extensionMethodNames;
         _allocator = new ExtensionTempAllocator(model.SyntaxTree.GetCompilationUnitRoot());
     }
+
+    /// <summary>
+    /// Names of every extension method reachable from the compilation (source
+    /// declarations with a <c>this</c> first parameter plus metadata
+    /// <see cref="IMethodSymbol.IsExtensionMethod"/> members), or null to keep
+    /// the unfiltered historical sweep. A reduced extension site is only ever
+    /// reachable through one of these names, so a node whose accessed name is
+    /// absent can be skipped without a semantic query.
+    /// </summary>
+    public IReadOnlySet<string>? ExtensionMethodNames { get; }
 
     /// <summary>
     /// When true, the unconditional CS2J1206 syntax gate for extension blocks
@@ -105,6 +116,29 @@ internal sealed class ExtensionCallBinder
 
         foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
         {
+            // A reduced extension invocation is always receiver-style (member
+            // access / member binding); any other shape can never bind as
+            // ReducedExtension, and the unbound-classification branch below is
+            // receiver-style only, so it is safe to skip without a query.
+            if (invocation.Expression is not (MemberAccessExpressionSyntax or MemberBindingExpressionSyntax))
+            {
+                continue;
+            }
+
+            // Name prefilter: only applied when the caller does not request per-
+            // site detail (ReportSiteDetail is exactly the CLI verbose flag). A
+            // receiver-style call whose accessed name is not an extension-method
+            // name can only ever produce the Info-level "receiver-style call
+            // unbound" trace, and Info diagnostics are filtered from the printed
+            // output unless verbose — so this skip is observationally a no-op
+            // when detail is off, and is disabled when detail is on.
+            if (ExtensionMethodNames is not null
+                && !Options.ReportSiteDetail
+                && !InvokedNameCouldBeExtensionName(invocation))
+            {
+                continue;
+            }
+
             var info = Model.GetSymbolInfo(invocation);
             if (info.Symbol is IMethodSymbol
                 {
@@ -145,6 +179,15 @@ internal sealed class ExtensionCallBinder
         {
             if (memberAccess.Parent is InvocationExpressionSyntax parentInvocation
                 && parentInvocation.Expression == memberAccess)
+            {
+                continue;
+            }
+
+            // AnalyzeMethodGroup produces no diagnostic/statistic for an access
+            // that cannot be a reduced extension method group, so a name-filtered
+            // skip is exactly equivalent.
+            if (ExtensionMethodNames is not null
+                && !ExtensionMethodNames.Contains(memberAccess.Name.Identifier.ValueText))
             {
                 continue;
             }
@@ -1090,6 +1133,20 @@ internal sealed class ExtensionCallBinder
 
     private static bool IsReceiverStyleCall(InvocationExpressionSyntax invocation)
         => invocation.Expression is MemberAccessExpressionSyntax or MemberBindingExpressionSyntax;
+
+    /// <summary>
+    /// True when the invoked member name of a receiver-style invocation is a
+    /// reachable extension-method name.
+    /// </summary>
+    private bool InvokedNameCouldBeExtensionName(InvocationExpressionSyntax invocation)
+        => invocation.Expression switch
+        {
+            MemberBindingExpressionSyntax binding =>
+                ExtensionMethodNames!.Contains(binding.Name.Identifier.ValueText),
+            MemberAccessExpressionSyntax access =>
+                ExtensionMethodNames!.Contains(access.Name.Identifier.ValueText),
+            _ => true,
+        };
 
     private static ExpressionSyntax? TryGetReceiverExpression(InvocationExpressionSyntax invocation)
         => (invocation.Expression as MemberAccessExpressionSyntax)?.Expression;

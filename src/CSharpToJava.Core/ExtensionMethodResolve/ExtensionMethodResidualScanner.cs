@@ -74,7 +74,8 @@ public static class ExtensionMethodResidualScanner
         IReadOnlyList<ExtensionExemptSite> exemptSites,
         IReadOnlyCollection<string>? excludedFiles,
         int baselineThisModifierCount,
-        int expectedAddedThisModifiers = 0)
+        int expectedAddedThisModifiers = 0,
+        IReadOnlySet<string>? extensionMethodNames = null)
     {
         ArgumentNullException.ThrowIfNull(rewritten);
         ArgumentNullException.ThrowIfNull(rewrittenSites);
@@ -85,7 +86,7 @@ public static class ExtensionMethodResidualScanner
         var residuals = new Dictionary<string, int>(StringComparer.Ordinal);
         var exemptionIndex = new ExemptionIndex(exemptSites);
 
-        ScanCallShapes(rewritten, options, exemptionIndex, residuals, excluded);
+        ScanCallShapes(rewritten, options, exemptionIndex, residuals, excluded, extensionMethodNames);
         ScanExpressionTreeShapes(rewritten, options, exemptionIndex, rewrittenSites, residuals, excluded);
         ScanRewriteIdentity(rewritten, rewrittenSites, residuals, excluded);
         ScanThisModifierPreservation(
@@ -113,6 +114,24 @@ public static class ExtensionMethodResidualScanner
     private static bool IsExcluded(string treeFilePath, HashSet<string> excluded)
         => excluded.Contains(NormalizePath(treeFilePath));
 
+    /// <summary>
+    /// True when an invocation could bind to a reduced extension method (its
+    /// invoked name is a reachable extension-method name) or must still be
+    /// queried for gate 6 (a <c>global::</c>-qualified member access, whose
+    /// static host name need not be an extension name).
+    /// </summary>
+    private static bool InvokedNameCouldBeExtension(
+        InvocationExpressionSyntax invocation, IReadOnlySet<string> extensionMethodNames)
+        => invocation.Expression switch
+        {
+            MemberBindingExpressionSyntax binding =>
+                extensionMethodNames.Contains(binding.Name.Identifier.ValueText),
+            MemberAccessExpressionSyntax access =>
+                extensionMethodNames.Contains(access.Name.Identifier.ValueText)
+                || access.GetFirstToken().IsKind(SyntaxKind.GlobalKeyword),
+            _ => true,
+        };
+
     /// <summary>All whitespace removed; exempt nodes replay byte-for-byte otherwise.</summary>
     public static string CompactSource(string text) => Whitespace.Replace(text, string.Empty);
 
@@ -121,7 +140,8 @@ public static class ExtensionMethodResidualScanner
         ExtensionMethodResolveOptions options,
         ExemptionIndex exemptions,
         Dictionary<string, int> residuals,
-        HashSet<string> excluded)
+        HashSet<string> excluded,
+        IReadOnlySet<string>? extensionMethodNames)
     {
         foreach (var tree in compilation.SyntaxTrees)
         {
@@ -136,6 +156,26 @@ public static class ExtensionMethodResidualScanner
 
             foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
+                // A reduced extension invocation is always receiver-style
+                // (member access / member binding); any other invocation shape
+                // can never move gate 1, and gate 6 requires the member-access
+                // shape too. Skip without a semantic query.
+                if (invocation.Expression is not (MemberAccessExpressionSyntax or MemberBindingExpressionSyntax))
+                {
+                    continue;
+                }
+
+                // Name prefilter: C19 only ever selects a reduced call through a
+                // reachable extension-method name, so a node whose invoked name
+                // is not one of them can never be gate-1 residual. A global::-
+                // qualified call is still queried for gate 6 (its host name need
+                // not be an extension name).
+                if (extensionMethodNames is not null
+                    && !InvokedNameCouldBeExtension(invocation, extensionMethodNames))
+                {
+                    continue;
+                }
+
                 var info = model.GetSymbolInfo(invocation);
 
                 // Gate 1: a reduced invocation that survived the rewrite. LINQ
@@ -181,12 +221,21 @@ public static class ExtensionMethodResidualScanner
                     continue;
                 }
 
+                // Gate 2 can only fire on a reduced extension method group, i.e.
+                // one whose accessed name is a reachable extension-method name.
+                if (extensionMethodNames is not null
+                    && !extensionMethodNames.Contains(memberAccess.Name.Identifier.ValueText))
+                {
+                    continue;
+                }
+
                 if (IsInsideExpressionTreeLambda(memberAccess, model))
                 {
                     continue;
                 }
 
-                if (!IsReducedMethodGroup(model.GetSymbolInfo(memberAccess), out var hostName))
+                var maInfo = model.GetSymbolInfo(memberAccess);
+                if (!IsReducedMethodGroup(maInfo, out var hostName))
                 {
                     continue;
                 }
@@ -352,82 +401,109 @@ public static class ExtensionMethodResidualScanner
         // mirrored layouts.
         var commonRoot = LongestCommonDirectory(sites.Select(s => s.FilePath));
 
-        foreach (var fileGroup in sites.GroupBy(s => s.FilePath, StringComparer.OrdinalIgnoreCase))
+        // File groups are independent (each resolves its own candidate tree and
+        // pairs its keys in span order), so they run in parallel; only the
+        // aggregated residual count is order-sensitive, and that is a plain sum.
+        var groups = sites.GroupBy(s => s.FilePath, StringComparer.OrdinalIgnoreCase).ToList();
+        var counts = new int[groups.Count];
+        Parallel.For(
+            0,
+            groups.Count,
+            gi => counts[gi] = ScanIdentityGroup(compilation, groups[gi], commonRoot, excluded));
+
+        var total = 0;
+        for (var gi = 0; gi < counts.Length; gi++)
         {
-            var relativePath = RelativeToRoot(NormalizePath(fileGroup.Key), commonRoot);
-            var tree = compilation.SyntaxTrees.FirstOrDefault(t =>
-                MatchesRelative(NormalizePath(t.FilePath), relativePath));
+            total += counts[gi];
+        }
 
-            // M4: the file was reverted byte-for-byte by the build-failure
-            // rollback; its rewrite keys are no longer owed by the candidate.
-            if (tree is not null && IsExcluded(tree.FilePath, excluded))
+        if (total > 0)
+        {
+            Add(residuals, RuleRewriteIdentity, total);
+        }
+    }
+
+    private static int ScanIdentityGroup(
+        Compilation compilation,
+        IGrouping<string, ExtensionRewrittenSiteKey> fileGroup,
+        string commonRoot,
+        HashSet<string> excluded)
+    {
+        var residual = 0;
+        var relativePath = RelativeToRoot(NormalizePath(fileGroup.Key), commonRoot);
+        var tree = compilation.SyntaxTrees.FirstOrDefault(t =>
+            MatchesRelative(NormalizePath(t.FilePath), relativePath));
+
+        // M4: the file was reverted byte-for-byte by the build-failure
+        // rollback; its rewrite keys are no longer owed by the candidate.
+        if (tree is not null && IsExcluded(tree.FilePath, excluded))
+        {
+            return 0;
+        }
+
+        if (tree is null)
+        {
+            return fileGroup.Count();
+        }
+
+        var model = compilation.GetSemanticModel(tree);
+
+        // All ordinary static invocations in the file grouped by their
+        // original definition display; each rewritten site pairs with one
+        // node from its signature group (ordered by span).
+        var nodesBySignature = new Dictionary<string, List<(InvocationExpressionSyntax Node, IMethodSymbol Symbol)>>(
+            StringComparer.Ordinal);
+        foreach (var invocation in tree.GetCompilationUnitRoot().DescendantNodes()
+                     .OfType<InvocationExpressionSyntax>())
+        {
+            if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol
+                {
+                    MethodKind: MethodKind.Ordinary,
+                } method)
             {
                 continue;
             }
 
-            if (tree is null)
+            var signature = method.OriginalDefinition.ToDisplayString();
+            if (!nodesBySignature.TryGetValue(signature, out var list))
             {
-                Add(residuals, RuleRewriteIdentity, fileGroup.Count());
+                list = new List<(InvocationExpressionSyntax, IMethodSymbol)>();
+                nodesBySignature[signature] = list;
+            }
+
+            list.Add((invocation, method));
+        }
+
+        foreach (var list in nodesBySignature.Values)
+        {
+            list.Sort((a, b) => a.Node.SpanStart.CompareTo(b.Node.SpanStart));
+        }
+
+        foreach (var key in fileGroup.OrderBy(s => s.SpanStart))
+        {
+            if (!nodesBySignature.TryGetValue(key.MethodOriginalDefinitionDisplay, out var candidates)
+                || candidates.Count == 0)
+            {
+                residual++;
                 continue;
             }
 
-            var model = compilation.GetSemanticModel(tree);
+            var (node, symbol) = candidates[0];
+            candidates.RemoveAt(0);
 
-            // All ordinary static invocations in the file grouped by their
-            // original definition display; each rewritten site pairs with one
-            // node from its signature group (ordered by span).
-            var nodesBySignature = new Dictionary<string, List<(InvocationExpressionSyntax Node, IMethodSymbol Symbol)>>(
-                StringComparer.Ordinal);
-            foreach (var invocation in tree.GetCompilationUnitRoot().DescendantNodes()
-                         .OfType<InvocationExpressionSyntax>())
+            var reboundParameterTypes = symbol.OriginalDefinition.Parameters
+                .Select(p => p.Type.ToDisplayString())
+                .ToList();
+
+            if (node.ArgumentList.Arguments.Count != key.ArgumentCount
+                || reboundParameterTypes.Count != key.ParameterTypeDisplays.Count
+                || !reboundParameterTypes.SequenceEqual(key.ParameterTypeDisplays, StringComparer.Ordinal))
             {
-                if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol
-                    {
-                        MethodKind: MethodKind.Ordinary,
-                    } method)
-                {
-                    continue;
-                }
-
-                var signature = method.OriginalDefinition.ToDisplayString();
-                if (!nodesBySignature.TryGetValue(signature, out var list))
-                {
-                    list = new List<(InvocationExpressionSyntax, IMethodSymbol)>();
-                    nodesBySignature[signature] = list;
-                }
-
-                list.Add((invocation, method));
-            }
-
-            foreach (var list in nodesBySignature.Values)
-            {
-                list.Sort((a, b) => a.Node.SpanStart.CompareTo(b.Node.SpanStart));
-            }
-
-            foreach (var key in fileGroup.OrderBy(s => s.SpanStart))
-            {
-                if (!nodesBySignature.TryGetValue(key.MethodOriginalDefinitionDisplay, out var candidates)
-                    || candidates.Count == 0)
-                {
-                    Add(residuals, RuleRewriteIdentity);
-                    continue;
-                }
-
-                var (node, symbol) = candidates[0];
-                candidates.RemoveAt(0);
-
-                var reboundParameterTypes = symbol.OriginalDefinition.Parameters
-                    .Select(p => p.Type.ToDisplayString())
-                    .ToList();
-
-                if (node.ArgumentList.Arguments.Count != key.ArgumentCount
-                    || reboundParameterTypes.Count != key.ParameterTypeDisplays.Count
-                    || !reboundParameterTypes.SequenceEqual(key.ParameterTypeDisplays, StringComparer.Ordinal))
-                {
-                    Add(residuals, RuleRewriteIdentity);
-                }
+                residual++;
             }
         }
+
+        return residual;
     }
 
     private static void ScanThisModifierPreservation(
@@ -437,15 +513,23 @@ public static class ExtensionMethodResidualScanner
         Dictionary<string, int> residuals,
         HashSet<string> excluded)
     {
-        var preserved = 0;
-        foreach (var tree in compilation.SyntaxTrees)
+        // Both counts are pure per-tree syntax scans; run them in parallel and
+        // sum (the aggregates are order-independent).
+        var trees = compilation.SyntaxTrees as IReadOnlyList<SyntaxTree>
+            ?? compilation.SyntaxTrees.ToList();
+        var preservedSlots = new int[trees.Count];
+        Parallel.For(0, trees.Count, i =>
         {
-            if (IsExcluded(tree.FilePath, excluded))
-            {
-                continue;
-            }
+            var tree = trees[i];
+            preservedSlots[i] = IsExcluded(tree.FilePath, excluded)
+                ? 0
+                : CountExtensionThisModifiers(tree);
+        });
 
-            preserved += CountExtensionThisModifiers(tree);
+        var preserved = 0;
+        for (var i = 0; i < preservedSlots.Length; i++)
+        {
+            preserved += preservedSlots[i];
         }
 
         // Rolled-back files replay byte-for-byte, so their this modifiers are

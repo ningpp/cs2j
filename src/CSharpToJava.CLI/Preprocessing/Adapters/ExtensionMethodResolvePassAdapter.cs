@@ -59,7 +59,8 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
 
     private ExtensionMethodResolveOptions _effectiveOptions = new();
     private IReadOnlyList<MetadataReference> _enhancedReferences = Array.Empty<MetadataReference>();
-    private HashSet<ExtensionRewriteErrorKey> _baselineErrorKeys = new();
+    private CSharpCompilation? _baselineCompilation;
+    private Dictionary<string, SyntaxTree>? _baselineTreesByPath;
     private PassTreeContext? _tree;
     private bool _prepared;
 
@@ -259,12 +260,40 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
 
         // M4 rollback gate baseline (design §4.4-4): error keys of the ORIGINAL
         // tree compiled with the same references/options the candidate uses.
-        // Location paths are remapped into the intermediate layout so the
-        // triples diff directly against candidate diagnostics.
-        _baselineErrorKeys = new HashSet<ExtensionRewriteErrorKey>(
-            BuildErrorKeys(compilation, remapToIntermediate: true));
+        // The whole-tree `GetDiagnostics()` (which binds every method body of
+        // the merged compilation) is deferred: only the per-tree diagnostics of
+        // files that actually carry a candidate error are needed for the diff
+        // (any candidate error elsewhere matches the baseline by construction,
+        // see BuildLazyBaselineErrors). Tree paths here are the ORIGINAL layout;
+        // the candidate lookup remaps them into the intermediate layout so the
+        // triples diff directly.
+        _baselineCompilation = compilation;
+        _baselineTreesByPath = BuildBaselineTreeIndex(compilation);
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// Maps every baseline tree to the INTERMEDIATE-layout path the candidate
+    /// reports its diagnostics under (the same remap <see cref="BuildErrorKeys"/>
+    /// historically applied to baseline keys), so a candidate diagnostic's file
+    /// can be looked up directly. Trees outside the source root (the synthesized
+    /// global-usings tree) keep their own path.
+    /// </summary>
+    private Dictionary<string, SyntaxTree> BuildBaselineTreeIndex(CSharpCompilation compilation)
+    {
+        var index = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            var remapped = _tree is null
+                ? tree.FilePath
+                : RemapSourceToIntermediate(tree.FilePath, _tree);
+            index[NormalizePath(remapped)] = tree;
+        }
+
+        return index;
+    }
+
+    private static string NormalizePath(string path) => path.Replace('\\', '/');
 
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
     {
@@ -304,8 +333,9 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         // whole-tree rollback + CS2J1200.
         var candidateKeys = BuildErrorKeys(candidate, remapToIntermediate: false);
         var rewrittenDest = MapRewrittenToDestination(tree);
+        var baselineSubset = BuildLazyBaselineErrors(candidateKeys);
         var rollbackPlan = ExtensionRewriteRollback.Plan(
-            _baselineErrorKeys, candidateKeys, rewrittenDest);
+            baselineSubset, candidateKeys, rewrittenDest);
 
         HashSet<string>? excludedFiles = null;
         if (rollbackPlan.Verdict == ExtensionRollbackVerdict.ExcludeFiles)
@@ -551,6 +581,90 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
             trees, GetMetadataReferences(), CreateCompilationOptions());
     }
 
+    /// <summary>
+    /// Lazily binds the baseline error keys the candidate diff can actually
+    /// compare against. Only files that carry a candidate error need baseline
+    /// keys: any candidate error in a file the pass did NOT rewrite comes from
+    /// a syntax tree the candidate reused verbatim (same root, remapped path),
+    /// so its baseline triple is identical by construction and cancels out of
+    /// the diff regardless. Files the pass DID rewrite are rebound here, one
+    /// tree at a time and in parallel — the equivalent of the historical
+    /// whole-tree <c>GetDiagnostics()</c> restricted to the keys that can
+    /// matter.
+    /// </summary>
+    private HashSet<ExtensionRewriteErrorKey> BuildLazyBaselineErrors(
+        IReadOnlyList<ExtensionRewriteErrorKey> candidateErrors)
+    {
+        var keys = new HashSet<ExtensionRewriteErrorKey>();
+        var compilation = _baselineCompilation;
+        var index = _baselineTreesByPath;
+        if (compilation is null || index is null)
+        {
+            return keys;
+        }
+
+        // Distinct candidate-error files that map to a baseline tree; only
+        // those can need baseline keys (see the method comment).
+        var files = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in candidateErrors)
+        {
+            if (key.File.Length == 0 || !seen.Add(key.File)
+                || !index.ContainsKey(NormalizePath(key.File)))
+            {
+                continue;
+            }
+
+            files.Add(key.File);
+        }
+
+        // Per-tree models are independent, so the rebound trees run in
+        // parallel; the key set is order-independent.
+        var slots = new List<ExtensionRewriteErrorKey>[files.Count];
+        Parallel.For(0, files.Count, i =>
+        {
+            var file = files[i];
+            var model = compilation.GetSemanticModel(index[NormalizePath(file)]);
+            var list = new List<ExtensionRewriteErrorKey>();
+            foreach (var diagnostic in model.GetDiagnostics())
+            {
+                // Same filter as the candidate side: compilation-level errors
+                // carry no source tree and cannot move, so they are ignored on
+                // both sides.
+                if (diagnostic.Severity != DiagnosticSeverity.Error
+                    || diagnostic.Location.SourceTree is null)
+                {
+                    continue;
+                }
+
+                list.Add(new ExtensionRewriteErrorKey(
+                    file, diagnostic.Descriptor.Id, diagnostic.GetMessage()));
+            }
+
+            slots[i] = list;
+        });
+
+        foreach (var list in slots)
+        {
+            foreach (var key in list)
+            {
+                keys.Add(key);
+            }
+        }
+
+        return keys;
+    }
+
+    /// <summary>
+    /// Error keys of the tree-located diagnostics of <paramref name="compilation"/>.
+    /// The whole-compilation <c>GetDiagnostics()</c> is used verbatim (Roslyn
+    /// binds the merged compilation's trees in parallel internally, which a
+    /// hand-rolled per-tree loop cannot beat). Diagnostics that carry no source
+    /// tree (compilation-level, e.g. CS0009) are dropped: they are reference-
+    /// owned, identical on the baseline/candidate sides, and can never be moved
+    /// by a rewrite, so excluding them on both sides keeps the diff verdict
+    /// unchanged.
+    /// </summary>
     private List<ExtensionRewriteErrorKey> BuildErrorKeys(
         CSharpCompilation compilation,
         bool remapToIntermediate)
@@ -565,15 +679,18 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
             }
 
             var file = diagnostic.Location.SourceTree?.FilePath;
-            if (file is not null && remapToIntermediate && tree is not null)
+            if (file is null)
+            {
+                continue;
+            }
+
+            if (remapToIntermediate && tree is not null)
             {
                 file = RemapSourceToIntermediate(file, tree);
             }
 
             keys.Add(new ExtensionRewriteErrorKey(
-                file ?? string.Empty,
-                diagnostic.Descriptor.Id,
-                diagnostic.GetMessage()));
+                file, diagnostic.Descriptor.Id, diagnostic.GetMessage()));
         }
 
         return keys;

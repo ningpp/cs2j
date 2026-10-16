@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using CSharpToJava.Core.ExtensionMethodResolve.Declarations;
 using CSharpToJava.Core.IndexRange;
 using Microsoft.CodeAnalysis;
@@ -66,6 +67,18 @@ public sealed class ExtensionMethodResolvePreprocessor
     /// container, making the report-only external boundary scan a no-op.
     /// </summary>
     internal ExtensionBlockMetadataIndex? MetadataExtensionIndex { get; private set; }
+
+    /// <summary>
+    /// Every extension-method name reachable from the analyzed compilation,
+    /// declared in source (a static method whose first parameter carries the
+    /// <c>this</c> modifier) or in a referenced assembly
+    /// (<see cref="IMethodSymbol.IsExtensionMethod"/>). C19 only ever selects a
+    /// reduced extension call through one such name, so this set is a provably
+    /// complete prefilter for the invocation / non-call-member-access sweeps;
+    /// empty when the compilation declares/exposes none.
+    /// </summary>
+    internal IReadOnlySet<string> ExtensionMethodNames { get; private set; }
+        = new HashSet<string>(StringComparer.Ordinal);
 
     /// <summary>Test hook: force an identity mismatch for a rewritten expression-tree site.</summary>
     internal Func<InvocationExpressionSyntax, IMethodSymbol, bool>? ForceExpressionTreeMismatch { get; set; }
@@ -148,6 +161,16 @@ public sealed class ExtensionMethodResolvePreprocessor
             : null;
         MetadataExtensionIndex = metadataIndex;
 
+        // One-time compilation-level index of every extension-method NAME
+        // reachable from this compilation (C19 classic form: a static method
+        // whose first parameter carries `this`, declared in source or in a
+        // referenced assembly). Shared by every per-tree analyzer and by the
+        // post-rewrite residual scan: an invocation / non-call member access can
+        // only ever bind to a reduced extension method through one of these
+        // names, so any node whose accessed name is not in the set is skipped
+        // without a semantic query.
+        ExtensionMethodNames = BuildExtensionMethodNames(_compilation);
+
         Parallel.For(
             0,
             orderedTrees.Count,
@@ -217,7 +240,8 @@ public sealed class ExtensionMethodResolvePreprocessor
                 }
 
                 sourceBlockSlots[index] = hasBlocks;
-                var binder = new ExtensionCallBinder(model, _options, suppressClassicBlockGate);
+                var binder = new ExtensionCallBinder(
+                    model, _options, suppressClassicBlockGate, ExtensionMethodNames);
                 binder.Analyze();
 
                 blockSlots[index] = blockAnalysis;
@@ -326,6 +350,77 @@ public sealed class ExtensionMethodResolvePreprocessor
             MemberNames = names,
             HasOperatorMembers = hasOperators,
         };
+    }
+
+    /// <summary>
+    /// Collects every extension-method name reachable from
+    /// <paramref name="compilation"/>: source declarations whose first parameter
+    /// carries the <c>this</c> modifier (the C19 classic form) and metadata
+    /// methods flagged <see cref="IMethodSymbol.IsExtensionMethod"/>. Source
+    /// trees and referenced assemblies are independent, so the walk runs in
+    /// parallel; the resulting set is order-independent.
+    /// </summary>
+    private static IReadOnlySet<string> BuildExtensionMethodNames(Compilation compilation)
+    {
+        var names = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
+        Parallel.ForEach(compilation.SyntaxTrees, tree =>
+        {
+            foreach (var method in tree.GetCompilationUnitRoot().DescendantNodes()
+                         .OfType<MethodDeclarationSyntax>())
+            {
+                var parameters = method.ParameterList.Parameters;
+                if (parameters.Count > 0
+                    && parameters[0].Modifiers.Any(SyntaxKind.ThisKeyword))
+                {
+                    names.TryAdd(method.Identifier.ValueText, 0);
+                }
+            }
+        });
+
+        var references = compilation.References as IReadOnlyList<MetadataReference>
+            ?? compilation.References.ToList();
+        Parallel.ForEach(references, reference =>
+        {
+            if (compilation.GetAssemblyOrModuleSymbol(reference) is IAssemblySymbol assembly)
+            {
+                CollectExtensionMethodNames(assembly.GlobalNamespace, names);
+            }
+        });
+
+        return new HashSet<string>(names.Keys, StringComparer.Ordinal);
+    }
+
+    private static void CollectExtensionMethodNames(
+        INamespaceSymbol @namespace,
+        ConcurrentDictionary<string, byte> names)
+    {
+        foreach (var type in @namespace.GetTypeMembers())
+        {
+            CollectExtensionMethodNames(type, names);
+        }
+
+        foreach (var nested in @namespace.GetNamespaceMembers())
+        {
+            CollectExtensionMethodNames(nested, names);
+        }
+    }
+
+    private static void CollectExtensionMethodNames(
+        INamedTypeSymbol type,
+        ConcurrentDictionary<string, byte> names)
+    {
+        foreach (var member in type.GetMembers())
+        {
+            if (member is IMethodSymbol method && method.IsExtensionMethod)
+            {
+                names.TryAdd(method.Name, 0);
+            }
+        }
+
+        foreach (var nested in type.GetTypeMembers())
+        {
+            CollectExtensionMethodNames(nested, names);
+        }
     }
 
     private static void CollectExtensionContainers(
@@ -1113,7 +1208,8 @@ public sealed class ExtensionMethodResolvePreprocessor
         int expectedAddedThisModifiers = 0)
         => ExtensionMethodResidualScanner.Scan(
             rewritten, _rewrittenSites, _options, _exemptSites,
-            excludedFiles, _thisModifierBaseline, expectedAddedThisModifiers);
+            excludedFiles, _thisModifierBaseline, expectedAddedThisModifiers,
+            ExtensionMethodNames);
 
     /// <summary>
     /// C49: number of classic <c>this</c>-modified first parameters that
