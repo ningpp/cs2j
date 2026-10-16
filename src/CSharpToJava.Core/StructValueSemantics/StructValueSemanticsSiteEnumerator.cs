@@ -26,6 +26,10 @@ internal sealed class StructValueSemanticsSiteEnumerator
     private readonly Dictionary<(ClonePlan Plan, INamedTypeSymbol Interface), bool> _mutatingInterfaceCache =
         new(new PlanInterfaceComparer());
 
+    /// <summary>调用点节点 → 已解析的被调方（同一调用点的多个实参共享一次 GetSymbolInfo）。</summary>
+    private readonly Dictionary<SyntaxNode, IMethodSymbol?> _invocationSymbols =
+        new(ReferenceEqualityComparer.Instance);
+
     private readonly HashSet<string> _sv013Files = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _sv014Files = new(StringComparer.OrdinalIgnoreCase);
 
@@ -183,6 +187,15 @@ internal sealed class StructValueSemanticsSiteEnumerator
             return;
         }
 
+        // 语法预筛：显式声明为「object 除外的预定义类型关键字」（int/string/bool/…）的槽位
+        // 不可能是活跃 struct，也不可能是 object/ValueType/接口/dynamic 目标，任何站点分支
+        // 都不成立（VS-6 计数同理）；据此在 GetDeclaredSymbol 之前短路。
+        if (declarator.Parent is VariableDeclarationSyntax { Type: PredefinedTypeSyntax predefined }
+            && !predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword))
+        {
+            return;
+        }
+
         if (declarator.Initializer?.Value is not { } value)
         {
             // VS-6：无初始化器的 struct 类型实例字段——零值/默认构造语义另由既有路径负责，仅登记。
@@ -328,9 +341,15 @@ internal sealed class StructValueSemanticsSiteEnumerator
         var invocation = argumentList.Parent;
         if (invocation == null) return;
 
-        var symbolInfo = model.GetSymbolInfo(invocation);
-        IMethodSymbol? method = symbolInfo.Symbol as IMethodSymbol
-            ?? symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+        // 同一被调方在一次枚举里会被每个实参各问一次；按 invocation 节点记忆一次解析结果，
+        // 把 GetSymbolInfo 调用数从「实参数」降到「调用点数」，且结果逐字相同。
+        if (!_invocationSymbols.TryGetValue(invocation, out var method))
+        {
+            var symbolInfo = model.GetSymbolInfo(invocation);
+            method = symbolInfo.Symbol as IMethodSymbol
+                ?? symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+            _invocationSymbols[invocation] = method;
+        }
 
         var value = argument.Expression;
 
@@ -344,12 +363,16 @@ internal sealed class StructValueSemanticsSiteEnumerator
                 return;
             }
 
+            // 先判最便宜的实参类型（本分支登记 SV014 的必要条件），再取被调方/接收者类型；
+            // 与「(调用/接收者动态) && 实参为活跃 struct」的合取等价，但多数实参非 struct 时
+            // 可省去两次逐节点类型查询。
+            if (ActivePlanForType(model.GetTypeInfo(value).Type) == null) return;
+
             var invocationType = model.GetTypeInfo(actualInvocation).Type;
             var receiverType = model.GetTypeInfo(
                 (actualInvocation.Expression as MemberAccessExpressionSyntax)?.Expression
                 ?? actualInvocation.Expression).Type;
-            if ((invocationType?.TypeKind == TypeKind.Dynamic || receiverType?.TypeKind == TypeKind.Dynamic)
-                && ActivePlanForType(model.GetTypeInfo(value).Type) != null)
+            if (invocationType?.TypeKind == TypeKind.Dynamic || receiverType?.TypeKind == TypeKind.Dynamic)
             {
                 MarkSv014(value.SyntaxTree?.FilePath ?? string.Empty);
             }

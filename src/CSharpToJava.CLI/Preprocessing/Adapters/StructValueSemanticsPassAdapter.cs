@@ -86,8 +86,8 @@ internal sealed class StructValueSemanticsPassAdapter : ProjectPassAdapter
         // 该编译供第 0 轮复用（scratch 刚被重置为原始字节，内容逐字节相同），
         // 省去一次全量 parse 与绑定。
         var baselineCompilation = BuildCompilation(
-            sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Source))),
-            tree.Layout, intermediateRoot);
+            sourceFiles.Select(p => (Path: p.Dest, Source: p.Source)).ToList(),
+            tree, intermediateRoot);
         // 基线错误集惰性求值：仅当确有文件被改写、需要与候选编译比对时才整树 GetDiagnostics。
         // 无改写时（本 pass 常见情形）该集合无人消费，避免一次昂贵的全量绑定。
         HashSet<(string File, string Id, string Message)>? baselineErrors = null;
@@ -102,8 +102,13 @@ internal sealed class StructValueSemanticsPassAdapter : ProjectPassAdapter
         for (var iteration = 0; iteration < maxIterations; iteration++)
         {
             // 每轮从原始副本出发：避免对已改写文件二次驱动造成幂等问题。
-            foreach (var pair in sourceFiles)
-                tree.ResetScratchFile(pair.Source, pair.Dest);
+            // 第 0 轮无需重复播种：循环前的首次 ResetScratchFile 已把 scratch 置为原始字节，
+            // 其间没有任何写入；后续轮次因改写/回退仍按回滚语义重新播种。
+            if (iteration > 0)
+            {
+                foreach (var pair in sourceFiles)
+                    tree.ResetScratchFile(pair.Source, pair.Dest);
+            }
 
             var passStats = new StructValueSemanticsStatistics();
             var passDiagnostics = new List<StructValueSemanticsDiagnostic>();
@@ -112,8 +117,8 @@ internal sealed class StructValueSemanticsPassAdapter : ProjectPassAdapter
             var compilation = iteration == 0
                 ? baselineCompilation
                 : BuildCompilation(
-                    sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
-                    tree.Layout, intermediateRoot);
+                    sourceFiles.Select(p => (Path: p.Dest, Source: p.Dest)).ToList(),
+                    tree, intermediateRoot, fromScratch: true);
             preprocessor.BindCompilation(compilation);
             preprocessor.ExcludePlans(excluded);
             // 计划级产物（聚合计数 + 计划期诊断）即使全体文件 clean 也要暴露一次；
@@ -179,11 +184,18 @@ internal sealed class StructValueSemanticsPassAdapter : ProjectPassAdapter
             }
             else
             {
-                baselineErrors ??= BuildErrorSet(baselineCompilation, intermediateRoot);
-                newErrors = DiffErrors(
-                    baselineErrors,
-                    BuildCandidateCompilation(baselineCompilation, rewrittenByFile),
-                    intermediateRoot);
+                var candidate = BuildCandidateCompilation(baselineCompilation, rewrittenByFile);
+                // 只对「被改写文件」的树取按树诊断（声明层 + 方法体层一并覆盖）：未改写文件
+                // 内容逐字节等于基线，其诊断在两侧同键、键集相减必然抵消，逐树绑定它们的
+                // 代价纯属白付。两侧各取本编译里同名文件的树（候选侧是重新解析后的树对象）。
+                var baselineBodyTrees = baselineCompilation.SyntaxTrees
+                    .Where(t => rewrittenByFile.ContainsKey(t.FilePath))
+                    .ToList();
+                var candidateBodyTrees = candidate.SyntaxTrees
+                    .Where(t => rewrittenByFile.ContainsKey(t.FilePath))
+                    .ToList();
+                baselineErrors ??= BuildTreeErrorKeys(baselineCompilation, baselineBodyTrees, intermediateRoot);
+                newErrors = DiffTreeErrors(baselineErrors, candidate, candidateBodyTrees, intermediateRoot);
             }
 
             if (newErrors.Count == 0)
@@ -274,7 +286,9 @@ internal sealed class StructValueSemanticsPassAdapter : ProjectPassAdapter
             var restoreTarget = ProjectPreprocessSource.ResolveRestoreTarget(tree.Layout, intermediateRoot);
             if (restoreTarget != null)
             {
-                var restoreExitCode = context.Restore();
+                // restore 只为 build/test 验证服务（ProjectPassRunner stage 4）；
+                // 两项验证都关时中间树不会被编译，恢复整个解决方案纯属开销。
+                var restoreExitCode = (VerifyBuild || VerifyTests) ? context.Restore() : 0;
                 if (restoreExitCode != 0)
                 {
                     success = false;
@@ -359,19 +373,39 @@ internal sealed class StructValueSemanticsPassAdapter : ProjectPassAdapter
             .ToList();
 
     private static CSharpCompilation BuildCompilation(
-        IEnumerable<(string Path, string Content)> files,
+        IReadOnlyList<(string Path, string Source)> files,
+        PassTreeContext tree,
+        string intermediateRoot,
+        bool fromScratch = false)
+    {
+        var layout = tree.Layout;
+        var trees = new List<SyntaxTree>(files.Count);
+        foreach (var (path, source) in files)
+        {
+            // 强制语法门已用同一 parse 选项解析过每个源文件（key 为源路径），其内容即当前
+            // 源字节；直接复用并按中间树路径重新落位（<see cref="SyntaxTree.WithFilePath"/>），
+            // 免去一次全量读取 + 解析。未命中（或需要读 scratch 现状）时才回退到自行解析。
+            if (!fromScratch && tree.ParsedSyntaxTrees.TryGetValue(source, out var cached))
+            {
+                trees.Add(cached.WithFilePath(path));
+            }
+            else
+            {
+                trees.Add(CSharpSyntaxTree.ParseText(
+                    File.ReadAllText(fromScratch ? path : source),
+                    new CSharpParseOptions(LanguageVersion.Latest),
+                    path: path));
+            }
+        }
+
+        return AssembleCompilation(trees, layout, intermediateRoot);
+    }
+
+    private static CSharpCompilation AssembleCompilation(
+        List<SyntaxTree> trees,
         ProjectPreprocessSourceLayout layout,
         string intermediateRoot)
     {
-        var trees = new List<SyntaxTree>();
-        foreach (var (path, content) in files)
-        {
-            trees.Add(CSharpSyntaxTree.ParseText(
-                content,
-                new CSharpParseOptions(LanguageVersion.Latest),
-                path: path));
-        }
-
         var globalUsings = new StringBuilder();
         foreach (var projectFile in layout.ProjectFiles
                      .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
@@ -422,33 +456,73 @@ internal sealed class StructValueSemanticsPassAdapter : ProjectPassAdapter
         return candidate;
     }
 
-    /// <summary>(相对中间根路径, 错误码, 消息) 集合。</summary>
-    private static HashSet<(string File, string Id, string Message)> BuildErrorSet(
+    /// <summary>
+    /// 编译错误键集（相对中间根路径, 错误码, 消息），只覆盖指定文件（被改写文件）的树：
+    /// 按树 SemanticModel 诊断同时给出该树的声明层与方法体层错误，故对「改写只发生在这些
+    /// 文件内」的场景，本键集与整编译 <c>GetDiagnostics()</c> 键集在键集相减后的结果一致
+    /// （未改写文件的键两侧同键，必然抵消）。
+    /// </summary>
+    private static HashSet<(string File, string Id, string Message)> BuildTreeErrorKeys(
         CSharpCompilation compilation,
+        IReadOnlyList<SyntaxTree> trees,
         string intermediateRoot)
     {
-        return new HashSet<(string, string, string)>(
-            compilation.GetDiagnostics()
-                .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)
-                .Select(d => (
-                    Normalize(d.Location.SourceTree!.FilePath, intermediateRoot),
-                    d.Descriptor.Id,
-                    d.GetMessage())));
+        var keys = new HashSet<(string, string, string)>();
+        foreach (var tree in trees)
+            AddTreeErrors(compilation, tree, keys, intermediateRoot);
+        return keys;
     }
 
-    private static List<Diagnostic> DiffErrors(
-        HashSet<(string File, string Id, string Message)> baseline,
-        CSharpCompilation candidate,
+    private static void AddTreeErrors(
+        CSharpCompilation compilation,
+        SyntaxTree tree,
+        HashSet<(string File, string Id, string Message)> keys,
         string intermediateRoot)
     {
-        return candidate.GetDiagnostics()
-            .Where(d => d.Severity == DiagnosticSeverity.Error
-                && d.Location.SourceTree != null
-                && !baseline.Contains((
-                    Normalize(d.Location.SourceTree!.FilePath, intermediateRoot),
-                    d.Descriptor.Id,
-                    d.GetMessage())))
-            .ToList();
+        foreach (var diagnostic in compilation.GetSemanticModel(tree).GetDiagnostics())
+        {
+            if (diagnostic.Severity != DiagnosticSeverity.Error
+                || diagnostic.Location.SourceTree is not { } sourceTree)
+            {
+                continue;
+            }
+
+            keys.Add((Normalize(sourceTree.FilePath, intermediateRoot),
+                diagnostic.Descriptor.Id, diagnostic.GetMessage()));
+        }
+    }
+
+    /// <summary>候选新错误：只遍历候选里被改写文件的树，次序按树序（声明层与方法体层同树内合并）。</summary>
+    private static List<Diagnostic> DiffTreeErrors(
+        HashSet<(string File, string Id, string Message)> baseline,
+        CSharpCompilation candidate,
+        IReadOnlyList<SyntaxTree> trees,
+        string intermediateRoot)
+    {
+        var result = new List<Diagnostic>();
+        foreach (var tree in trees)
+        {
+            foreach (var diagnostic in candidate.GetSemanticModel(tree).GetDiagnostics())
+            {
+                if (IsNewError(diagnostic, baseline, intermediateRoot)) result.Add(diagnostic);
+            }
+        }
+        return result;
+    }
+
+    private static bool IsNewError(
+        Diagnostic diagnostic,
+        HashSet<(string File, string Id, string Message)> baseline,
+        string intermediateRoot)
+    {
+        if (diagnostic.Severity != DiagnosticSeverity.Error
+            || diagnostic.Location.SourceTree is not { } tree)
+        {
+            return false;
+        }
+
+        return !baseline.Contains((Normalize(tree.FilePath, intermediateRoot),
+            diagnostic.Descriptor.Id, diagnostic.GetMessage()));
     }
 
     private static string Normalize(string path, string intermediateRoot)
