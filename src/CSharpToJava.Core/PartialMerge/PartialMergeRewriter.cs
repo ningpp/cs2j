@@ -1,5 +1,5 @@
+using System.Text;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
 
 namespace CSharpToJava.Core.PartialMerge;
@@ -14,8 +14,10 @@ internal sealed class PartialMergeRewriter
 {
     public string Apply(string source, IReadOnlyList<FileEdit> edits)
     {
-        var syntaxTree = CSharpSyntaxTree.ParseText(
-            source, new CSharpParseOptions(LanguageVersion.Latest));
+        // The edits are pure text splices, so the text is wrapped directly instead
+        // of being parsed: parsing a whole file only to reach its SourceText would
+        // re-do work the candidate compilation's parse already covers.
+        var text = SourceText.From(source, Encoding.UTF8);
 
         var changes = edits
             .OrderByDescending(edit => edit.Span.Start)
@@ -32,6 +34,6 @@ internal sealed class PartialMergeRewriter
             })
             .ToList();
 
-        return syntaxTree.GetText().WithChanges(changes).ToString();
+        return text.WithChanges(changes).ToString();
     }
 }

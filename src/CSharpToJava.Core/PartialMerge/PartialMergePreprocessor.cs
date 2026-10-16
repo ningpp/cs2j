@@ -20,9 +20,10 @@ internal sealed class PartialMergePreprocessor
     public PartialMergePlan Analyze(
         CSharpCompilation compilation,
         string sourceRoot,
-        IReadOnlyList<Action<TypeGroupPlan>>? groupMutators = null)
+        IReadOnlyList<Action<TypeGroupPlan>>? groupMutators = null,
+        Func<IReadOnlyList<Diagnostic>>? wholeTreeErrorsProvider = null)
         => new PartialMergeAnalyzer().Analyze(
-            compilation, _options, sourceRoot, groupMutators);
+            compilation, _options, sourceRoot, groupMutators, wholeTreeErrorsProvider);
 
     public string RewriteFile(string source, IReadOnlyList<FileEdit> edits)
         => new PartialMergeRewriter().Apply(source, edits);
