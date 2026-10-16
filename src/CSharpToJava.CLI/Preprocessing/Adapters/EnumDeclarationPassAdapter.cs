@@ -100,6 +100,12 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
         var baselineCompilation = BuildCompilation(
             sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Source))),
             tree.Layout, intermediateRoot);
+        // filePath → 基线 SyntaxTree 映射：整轮只建一次，供「按文件取树」与增量候选
+        // 编译（只替换被改写文件的重解析树）复用，取代每文件一次线性扫描。
+        var treeByPath = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
+        foreach (var baselineTree in baselineCompilation.SyntaxTrees)
+            treeByPath[baselineTree.FilePath] = baselineTree;
+
         // 基线错误集惰性求值：只有本轮确有文件被改写、真的需要与候选编译做 diff 时
         // 才做一次整树 GetDiagnostics。常见的「零改写」终态下整轮都不需要它。
         HashSet<(string, string, string)>? baselineErrors = null;
@@ -147,34 +153,66 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
             }
             if (forcedRollbacks.Count > 0) preprocessor.ExcludePlans(excluded);
 
-            var rewrittenByFile = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var pair in sourceFiles)
+            // 摘要级统计/诊断（ED010/ED020/ED040/ED001 等）本轮只落账一次。原先由首个
+            // 文件的 RewriteFile 顺手落账；这里显式前置，使下面只对「被活动 plan 触碰」
+            // 的文件做改写也保持诊断集合与顺序不变。
+            preprocessor.PrimeSummary(passStats, passDiagnostics);
+
+            // 只有出现在活动 plan 触碰清单里的文件才可能改变：其余文件 RewriteFile 必然
+            // 返回 unchanged（activePlans 为空）。整树扫描（含原 declaresActive 的全文
+            // DescendantNodes 扫描）对它们纯属开销，故直接跳过读盘与改写。
+            var affected = preprocessor.ActiveTouchedFiles();
+            var targetFiles = sourceFiles.Where(p => affected.Contains(p.Dest)).ToList();
+
+            // 每个目标文件的使用点/声明改写彼此独立（改写器对 plan 只读，语义模型各自
+            // 独立），故并行执行；统计与诊断按文件顺序在串行合并阶段汇总，保证与逐文件
+            // 串行执行逐项一致。
+            var outcomes = new FileRewriteOutcome[targetFiles.Count];
+            Parallel.For(0, targetFiles.Count, i =>
             {
-                var sourceCode = File.ReadAllText(pair.Dest);
-                var syntaxTree = compilation.SyntaxTrees.FirstOrDefault(t =>
-                    string.Equals(t.FilePath, pair.Dest, StringComparison.OrdinalIgnoreCase));
-                if (syntaxTree == null) continue;
+                var pair = targetFiles[i];
+                var fileStats = new EnumDeclarationStatistics();
+                var fileDiagnostics = new List<EnumDeclarationDiagnostic>();
+                if (!treeByPath.TryGetValue(pair.Dest, out var syntaxTree))
+                {
+                    outcomes[i] = new FileRewriteOutcome(
+                        pair,
+                        new EnumDeclarationFileResult { OutputCode = string.Empty, Changed = false },
+                        fileStats,
+                        fileDiagnostics);
+                    return;
+                }
 
                 var result = preprocessor.RewriteFile(
-                    sourceCode,
+                    File.ReadAllText(pair.Dest),
                     compilation.GetSemanticModel(syntaxTree),
-                    passStats,
-                    passDiagnostics);
+                    fileStats,
+                    fileDiagnostics);
+                outcomes[i] = new FileRewriteOutcome(pair, result, fileStats, fileDiagnostics);
+            });
 
-                if (result.Changed)
+            var rewrittenByFile = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var outcome in outcomes)
+            {
+                passStats.FilesScanned += outcome.Stats.FilesScanned;
+                passStats.FilesSkippedClean += outcome.Stats.FilesSkippedClean;
+                passStats.FilesTransformed += outcome.Stats.FilesTransformed;
+                passDiagnostics.AddRange(outcome.Diagnostics);
+
+                if (outcome.Result.Changed)
                 {
-                    File.WriteAllText(pair.Dest, result.OutputCode,
-                        FileStartsWithBom(pair.Source)
+                    File.WriteAllText(outcome.Pair.Dest, outcome.Result.OutputCode,
+                        FileStartsWithBom(outcome.Pair.Source)
                             ? new UTF8Encoding(true)
                             : new UTF8Encoding(false));
-                    rewrittenByFile[pair.Dest] = pair.Source;
+                    rewrittenByFile[outcome.Pair.Dest] = outcome.Pair.Source;
                 }
 
                 if (_verbose)
                 {
                     Console.WriteLine(
-                        $"[enum-declaration] {(result.Changed ? "transformed" : "clean (copy)")}: " +
-                        $"{Path.GetRelativePath(sourceRoot, pair.Source)}");
+                        $"[enum-declaration] {(outcome.Result.Changed ? "transformed" : "clean (copy)")}: " +
+                        $"{Path.GetRelativePath(sourceRoot, outcome.Pair.Source)}");
                 }
             }
 
@@ -192,10 +230,31 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
                 break;
             }
 
-            var candidateCompilation = BuildCompilation(
-                sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
-                tree.Layout, intermediateRoot);
-            var newErrors = DiffErrors(BaselineErrors(), candidateCompilation, intermediateRoot);
+            // 增量候选编译：候选与基线只有被改写的 ~105 棵语法树不同，故直接在基线上
+            // ReplaceSyntaxTree，只重解析这些文件，省去 ~800 个未变文件的重复解析。树
+            // 集合内容与顺序、编译选项、引用集均与整体重建逐项相同，故 GetDiagnostics
+            // 的错误集合与顺序不变（等价性见提交说明）。
+            var candidateCompilation = baselineCompilation;
+            foreach (var destPath in rewrittenByFile.Keys)
+            {
+                if (!treeByPath.TryGetValue(destPath, out var oldTree)) continue;
+                var newTree = CSharpSyntaxTree.ParseText(
+                    File.ReadAllText(destPath),
+                    new CSharpParseOptions(LanguageVersion.Latest),
+                    path: oldTree.FilePath);
+                candidateCompilation = candidateCompilation.ReplaceSyntaxTree(oldTree, newTree);
+            }
+
+            // 基线/候选两棵整树诊断各自独立（不同 Compilation 实例），并行求值以缩短
+            // 墙钟；各自的错误集合与顺序与串行逐次调用完全相同，DiffErrors 判定随之等价。
+            var baselineTask = Task.Run(BaselineErrors);
+            var candidateTask = Task.Run(() => candidateCompilation.GetDiagnostics()
+                .Where(d => d.Severity == DiagnosticSeverity.Error
+                    && d.Location.SourceTree != null)
+                .ToList());
+            var baselineSet = await baselineTask;
+            var candidateErrorList = await candidateTask;
+            var newErrors = DiffErrors(baselineSet, candidateErrorList, intermediateRoot);
 
             if (newErrors.Count == 0)
             {
@@ -392,6 +451,13 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
         return Task.CompletedTask;
     }
 
+    /// <summary>单文件改写结果 + 该文件独占的统计/诊断，供串行合并阶段按序汇总。</summary>
+    private sealed record FileRewriteOutcome(
+        (string Source, string Dest) Pair,
+        EnumDeclarationFileResult Result,
+        EnumDeclarationStatistics Stats,
+        IReadOnlyList<EnumDeclarationDiagnostic> Diagnostics);
+
     public override void OnRestoreFailed(int exitCode, string restoreTarget)
         => _diagnostics.Add(new EnumDeclarationDiagnostic(
             EnumDeclarationSeverity.Warning,
@@ -430,14 +496,19 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
         ProjectPreprocessSourceLayout layout,
         string intermediateRoot)
     {
-        var trees = new List<SyntaxTree>();
-        foreach (var (path, content) in files)
+        // 解析彼此独立（ParseText 纯函数），并行执行但按索引保序写入，得到的树内容与
+        // 顺序与串行逐个解析完全相同。
+        var fileList = files.ToList();
+        var treeArray = new SyntaxTree[fileList.Count];
+        Parallel.For(0, fileList.Count, i =>
         {
-            trees.Add(CSharpSyntaxTree.ParseText(
+            var (path, content) = fileList[i];
+            treeArray[i] = CSharpSyntaxTree.ParseText(
                 content,
                 new CSharpParseOptions(LanguageVersion.Latest),
-                path: path));
-        }
+                path: path);
+        });
+        var trees = new List<SyntaxTree>(treeArray);
 
         var globalUsings = new StringBuilder();
         foreach (var projectFile in layout.ProjectFiles
@@ -480,16 +551,14 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
 
     private static List<Diagnostic> DiffErrors(
         HashSet<(string File, string Id, string Message)> baseline,
-        CSharpCompilation candidate,
+        List<Diagnostic> candidateErrors,
         string intermediateRoot)
     {
-        return candidate.GetDiagnostics()
-            .Where(d => d.Severity == DiagnosticSeverity.Error
-                && d.Location.SourceTree != null
-                && !baseline.Contains((
-                    Normalize(d.Location.SourceTree!.FilePath, intermediateRoot),
-                    d.Descriptor.Id,
-                    d.GetMessage())))
+        return candidateErrors
+            .Where(d => !baseline.Contains((
+                Normalize(d.Location.SourceTree!.FilePath, intermediateRoot),
+                d.Descriptor.Id,
+                d.GetMessage())))
             .ToList();
     }
 

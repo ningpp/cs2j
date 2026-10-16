@@ -104,15 +104,10 @@ public sealed class EnumDeclarationPreprocessor
                 && p.TouchedFiles.Contains(filePath))
             .ToList();
 
-        var declaresActive = root.DescendantNodes().OfType<EnumDeclarationSyntax>()
-            .Any(d => activePlans.Any(p => p.Declaration == d));
-
-        if (!declaresActive && activePlans.Count == 0)
-        {
-            statistics.FilesSkippedClean++;
-            return new EnumDeclarationFileResult { OutputCode = sourceCode, Changed = false };
-        }
-
+        // 该文件不含任何活动 plan 触碰点 → 无改写。Analyzer 建 plan 时已把声明所在
+        // 文件记入 plan.TouchedFiles（EnumDeclarationPlan.TouchedFiles 的初值即声明
+        // 文件），故「本文件声明了活动 enum」必然蕴含 activePlans 非空；原先的
+        // declaresActive（整文件 DescendantNodes 扫描）恒为不可达分支，已删除。
         if (activePlans.Count == 0)
         {
             statistics.FilesSkippedClean++;
@@ -158,6 +153,36 @@ public sealed class EnumDeclarationPreprocessor
     {
         if (_analysis != null) return;
         BindCompilation(compilation);
+    }
+
+    /// <summary>
+    /// 把「摘要级」统计与诊断提前落账一次（ED010/ED020/ED040/ED001 等）。等价于原先
+    /// 首个 <see cref="RewriteFile"/> 调用顺带完成的那一步；提前后，调用方可以跳过
+    /// 那些不含任何活动 plan 触碰的文件而保持诊断集合与顺序完全不变。
+    /// </summary>
+    internal void PrimeSummary(
+        EnumDeclarationStatistics statistics, List<EnumDeclarationDiagnostic> diagnostics)
+    {
+        if (_analysis == null) return;
+        FillSummaryStatistics(statistics);
+        ReportSummaryDiagnostics(statistics, diagnostics);
+    }
+
+    /// <summary>
+    /// 全部活动 plan（可行且未被排除）触碰的文件路径集合。文件在集合内 ⇔ 其
+    /// <see cref="RewriteFile"/> 的 activePlans 非空；不在集合内的文件必然返回
+    /// unchanged，调用方可整族跳过整树扫描与读盘。
+    /// </summary>
+    internal HashSet<string> ActiveTouchedFiles()
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (_analysis == null) return set;
+        foreach (var plan in _analysis.Plans)
+        {
+            if (!plan.Feasible || _excludedPlanIds.Contains(plan.Id)) continue;
+            foreach (var file in plan.TouchedFiles) set.Add(file);
+        }
+        return set;
     }
 
     /// <summary>为全部可行 plan 物化合成声明（D16 命名表落到 plan.Names，供使用点改写）。</summary>
