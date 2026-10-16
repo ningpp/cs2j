@@ -94,9 +94,11 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
             tree.ResetScratchFile(asset, assetDest);
         }
 
-        // Baseline error set keyed on the original contents (dest paths).
-        var baselineErrors = BuildErrorSet(
-            sourceFiles.Select(p => (p.Dest, Content: File.ReadAllText(p.Source))));
+        // The baseline error set is only needed to diff a candidate that actually
+        // rewrote at least one file (see the validator below); building it eagerly
+        // would parse and semantically analyze the whole forest even when the
+        // rewrite is a no-op. Defer it to first use.
+        HashSet<(string File, string Id, string Message)>? baselineErrors = null;
 
         var runnerInputs = sourceFiles
             .Select(p => new ThreadStaticSourceFile(p.Dest, File.ReadAllText(p.Source)))
@@ -106,7 +108,20 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
             runnerInputs,
             _options,
             BuildCompilationFromTexts,
-            (baseline, candidate) => DiffNewErrors(baselineErrors, candidate));
+            (baseline, candidate) =>
+            {
+                // No file's output changed: the candidate is byte-identical to the
+                // baseline sources, so it cannot carry any error the baseline did
+                // not already have. Recompiling here (and analyzing it) is pure waste.
+                if (!candidate.Any(f => f.Changed))
+                {
+                    return Array.Empty<ThreadStaticCompileError>();
+                }
+
+                baselineErrors ??= BuildErrorSet(
+                    sourceFiles.Select(p => (p.Dest, Content: File.ReadAllText(p.Source))));
+                return DiffNewErrors(baselineErrors, candidate);
+            });
 
         // Persist the final outputs; unchanged files are byte copies of the originals.
         foreach (var file in result.Files)
@@ -136,14 +151,19 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
 
         // Post-rewrite residual reconciliation only makes sense when the run was accepted:
         // after a whole-run rollback every field is back in its original form by design.
-        if (result.Success)
+        // With no field plans at all there is nothing that could have been dropped, and
+        // the residual report is necessarily empty, so the extra compilation is skipped.
+        if (result.Success && result.FinalPlans.Count > 0)
         {
             RunResidualScan(result);
         }
 
         context.Success = result.Success;
 
-        var restoreExitCode = context.Restore();
+        // Matches the standard spine: restore only exists to feed build/test
+        // verification, so with --no-verify-build/--no-verify-tests the whole-tree
+        // restore is pure overhead and is skipped.
+        var restoreExitCode = (VerifyBuild || VerifyTests) ? context.Restore() : 0;
         if (restoreExitCode != 0)
         {
             context.Success = false;

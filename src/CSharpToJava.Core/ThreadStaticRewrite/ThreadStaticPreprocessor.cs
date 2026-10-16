@@ -313,6 +313,29 @@ internal static class ThreadStaticRollbackRunner
 {
     public const int DefaultMaxRounds = 1024;
 
+    /// <summary>
+    /// A [ThreadStatic] field can only exist when the attribute is spelled out in
+    /// the same file it decorates (attribute names and their <c>using</c> aliases
+    /// are file-scoped), so a forest with no textual occurrence of the attribute
+    /// name cannot contain a single candidate. That is a cheap necessary
+    /// precondition that lets the whole rollback loop be skipped: with no
+    /// candidates there are no plans, no rewrites, and necessarily an empty
+    /// residual report (both the analyzer and the residual scanner reject every
+    /// field whose bound attribute is absent).
+    /// </summary>
+    private static bool MayContainCandidates(IReadOnlyList<ThreadStaticSourceFile> files)
+    {
+        foreach (var file in files)
+        {
+            if (file.Content.Contains("ThreadStatic", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static ThreadStaticRollbackResult Run(
         IReadOnlyList<ThreadStaticSourceFile> files,
         ThreadStaticOptions options,
@@ -323,6 +346,27 @@ internal static class ThreadStaticRollbackRunner
         var baseline = files
             .Select(f => new ThreadStaticRewrittenFile { Path = f.Path, Source = f.Content, Output = f.Content })
             .ToList();
+
+        if (!MayContainCandidates(files))
+        {
+            // Nothing to analyze, rewrite, validate or reconcile: every file is
+            // already its own (unchanged) output.
+            return new ThreadStaticRollbackResult
+            {
+                Success = true,
+                Files = baseline,
+                Diagnostics = Array.Empty<ThreadStaticDiagnostic>(),
+                Statistics = new ThreadStaticStatistics
+                {
+                    FilesScanned = files.Count,
+                    FilesSkippedClean = files.Count,
+                    RollbackRounds = 1,
+                },
+                Rounds = 1,
+                FinalPlans = Array.Empty<ThreadStaticFieldPlan>(),
+                FirstRoundErrors = Array.Empty<ThreadStaticCompileError>(),
+            };
+        }
 
         var excluded = new HashSet<string>(StringComparer.Ordinal);
         IReadOnlyList<ThreadStaticCompileError> firstRoundErrors = Array.Empty<ThreadStaticCompileError>();
@@ -347,7 +391,12 @@ internal static class ThreadStaticRollbackRunner
             var candidate = RewriteAll(baseline, compilation, preprocessor, roundStats, roundDiagnostics);
             finalPlans = preprocessor.Plans;
 
-            var newErrors = validator(baseline, candidate);
+            // A candidate in which nothing changed is byte-identical to the baseline
+            // sources, so the diff against the baseline error set is necessarily empty.
+            // Skipping the (full-forest) recompile is therefore equivalent.
+            var newErrors = candidate.Any(f => f.Changed)
+                ? validator(baseline, candidate)
+                : (IReadOnlyList<ThreadStaticCompileError>)Array.Empty<ThreadStaticCompileError>();
             if (round == 1)
             {
                 firstRoundErrors = newErrors;

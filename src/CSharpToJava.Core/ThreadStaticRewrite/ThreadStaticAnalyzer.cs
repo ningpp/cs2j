@@ -104,6 +104,13 @@ internal sealed class ThreadStaticAnalyzer
     {
         foreach (var tree in _compilation.SyntaxTrees)
         {
+            // Necessary precondition (see ThreadStaticRollbackRunner): a field can
+            // only carry the bound attribute when the attribute name is spelled out
+            // in this very file. Trees without the token are skipped outright, so
+            // the (all-node) descent and per-declarator symbol queries below run
+            // only on the handful of files that can possibly declare a candidate.
+            if (!tree.ToString().Contains("ThreadStatic", StringComparison.Ordinal)) continue;
+
             var model = _compilation.GetSemanticModel(tree);
             foreach (var field in tree.GetRoot().DescendantNodes().OfType<FieldDeclarationSyntax>())
             {
