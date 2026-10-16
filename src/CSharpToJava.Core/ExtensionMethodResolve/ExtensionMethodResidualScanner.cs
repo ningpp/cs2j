@@ -326,6 +326,15 @@ public static class ExtensionMethodResidualScanner
     {
         var sitesRoot = LongestCommonDirectory(rewrittenSites.Select(s => s.FilePath));
 
+        // Precompute the site-relative paths ONCE: the per-tree lookup below
+        // would otherwise normalize every site path for every tree
+        // (trees × sites string allocations).
+        var siteRelativePaths = new string[rewrittenSites.Count];
+        for (var i = 0; i < rewrittenSites.Count; i++)
+        {
+            siteRelativePaths[i] = RelativeToRoot(NormalizePath(rewrittenSites[i].FilePath), sitesRoot);
+        }
+
         foreach (var tree in compilation.SyntaxTrees)
         {
             if (IsExcluded(tree.FilePath, excluded))
@@ -336,10 +345,15 @@ public static class ExtensionMethodResidualScanner
             var model = compilation.GetSemanticModel(tree);
             var root = tree.GetCompilationUnitRoot();
             var filePath = tree.FilePath;
-            var keysForTree = rewrittenSites
-                .Where(s => MatchesRelative(NormalizePath(tree.FilePath),
-                    RelativeToRoot(NormalizePath(s.FilePath), sitesRoot)))
-                .ToList();
+            var normalizedTreePath = NormalizePath(tree.FilePath);
+            var keysForTree = new List<ExtensionRewrittenSiteKey>();
+            for (var i = 0; i < rewrittenSites.Count; i++)
+            {
+                if (MatchesRelative(normalizedTreePath, siteRelativePaths[i]))
+                {
+                    keysForTree.Add(rewrittenSites[i]);
+                }
+            }
 
             foreach (var lambda in root.DescendantNodes().OfType<LambdaExpressionSyntax>())
             {
@@ -470,11 +484,22 @@ public static class ExtensionMethodResidualScanner
         // pairs its keys in span order), so they run in parallel; only the
         // aggregated residual count is order-sensitive, and that is a plain sum.
         var groups = sites.GroupBy(s => s.FilePath, StringComparer.OrdinalIgnoreCase).ToList();
+
+        // Normalize each candidate tree path ONCE (rather than per file group);
+        // the lookup below is a pure suffix test against those strings.
+        var trees = compilation.SyntaxTrees as IReadOnlyList<SyntaxTree>
+            ?? compilation.SyntaxTrees.ToList();
+        var treePaths = new string[trees.Count];
+        for (var i = 0; i < trees.Count; i++)
+        {
+            treePaths[i] = NormalizePath(trees[i].FilePath);
+        }
+
         var counts = new int[groups.Count];
         Parallel.For(
             0,
             groups.Count,
-            gi => counts[gi] = ScanIdentityGroup(compilation, groups[gi], commonRoot, excluded));
+            gi => counts[gi] = ScanIdentityGroup(compilation, trees, treePaths, groups[gi], commonRoot, excluded));
 
         var total = 0;
         for (var gi = 0; gi < counts.Length; gi++)
@@ -490,14 +515,23 @@ public static class ExtensionMethodResidualScanner
 
     private static int ScanIdentityGroup(
         Compilation compilation,
+        IReadOnlyList<SyntaxTree> trees,
+        string[] treePaths,
         IGrouping<string, ExtensionRewrittenSiteKey> fileGroup,
         string commonRoot,
         HashSet<string> excluded)
     {
         var residual = 0;
         var relativePath = RelativeToRoot(NormalizePath(fileGroup.Key), commonRoot);
-        var tree = compilation.SyntaxTrees.FirstOrDefault(t =>
-            MatchesRelative(NormalizePath(t.FilePath), relativePath));
+        SyntaxTree? tree = null;
+        for (var i = 0; i < trees.Count; i++)
+        {
+            if (MatchesRelative(treePaths[i], relativePath))
+            {
+                tree = trees[i];
+                break;
+            }
+        }
 
         // M4: the file was reverted byte-for-byte by the build-failure
         // rollback; its rewrite keys are no longer owed by the candidate.

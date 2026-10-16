@@ -210,6 +210,17 @@ internal sealed class ExtensionCallBinder
                 continue;
             }
 
+            // An assignment target cannot be a method-group value: no delegate
+            // conversion can happen there, so the access can never yield an
+            // ExtensionGroupPlan, a rewritten site or a group diagnostic (a
+            // method group is not a legal assignment target in the first place).
+            // The vast majority of free member accesses are plain property
+            // writes; skipping them avoids a full GetSymbolInfo each.
+            if (memberAccess.Parent is AssignmentExpressionSyntax { Left: { } target } && target == memberAccess)
+            {
+                continue;
+            }
+
             AnalyzeMethodGroup(memberAccess);
         }
 

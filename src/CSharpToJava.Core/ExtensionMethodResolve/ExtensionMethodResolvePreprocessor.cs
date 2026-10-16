@@ -389,9 +389,11 @@ public sealed class ExtensionMethodResolvePreprocessor
     private static IReadOnlySet<string> BuildExtensionMethodNames(Compilation compilation)
     {
         var names = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
-        Parallel.ForEach(compilation.SyntaxTrees, tree =>
+        var sourceTrees = compilation.SyntaxTrees as IReadOnlyList<SyntaxTree>
+            ?? compilation.SyntaxTrees.ToList();
+        Parallel.For(0, sourceTrees.Count, i =>
         {
-            foreach (var method in tree.GetCompilationUnitRoot().DescendantNodes()
+            foreach (var method in sourceTrees[i].GetCompilationUnitRoot().DescendantNodes()
                          .OfType<MethodDeclarationSyntax>())
             {
                 var parameters = method.ParameterList.Parameters;
@@ -405,9 +407,9 @@ public sealed class ExtensionMethodResolvePreprocessor
 
         var references = compilation.References as IReadOnlyList<MetadataReference>
             ?? compilation.References.ToList();
-        Parallel.ForEach(references, reference =>
+        Parallel.For(0, references.Count, i =>
         {
-            if (compilation.GetAssemblyOrModuleSymbol(reference) is IAssemblySymbol assembly)
+            if (compilation.GetAssemblyOrModuleSymbol(references[i]) is IAssemblySymbol assembly)
             {
                 CollectExtensionMethodNames(assembly.GlobalNamespace, names);
             }
