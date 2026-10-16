@@ -215,6 +215,7 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
         => _diagnostics
+            .Where(d => d.Severity != AsyncNormalizeSeverity.Info || verbose)
             .Select(d =>
             {
                 var prefix = d.FilePath != null ? $"{d.FilePath}: " : "";
