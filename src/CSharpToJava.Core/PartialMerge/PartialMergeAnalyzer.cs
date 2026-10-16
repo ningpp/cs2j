@@ -18,8 +18,7 @@ internal sealed class PartialMergeAnalyzer
         CSharpCompilation compilation,
         PartialMergeOptions options,
         string sourceRoot,
-        IReadOnlyList<Action<TypeGroupPlan>>? groupMutators = null,
-        IReadOnlyList<Diagnostic>? precomputedBaselineErrors = null)
+        IReadOnlyList<Action<TypeGroupPlan>>? groupMutators = null)
     {
         var diagnostics = new List<PartialMergeDiagnostic>();
         var stats = new MutablePartialMergeStats();
@@ -36,13 +35,85 @@ internal sealed class PartialMergeAnalyzer
 
         // Baseline-first (design §4.1): groups already covered by a compiler error
         // are marked skip — the pass does not compete with compiler diagnostics.
-        // The caller may pass the diagnostics it already bound for its own
-        // baseline diff, so the tree is not bound twice.
-        var baselineErrors = precomputedBaselineErrors
-            ?? compilation.GetDiagnostics()
-                .Where(d => d.Severity == DiagnosticSeverity.Error
-                    && d.Location.SourceTree != null)
-                .ToList();
+        //
+        // CoversBaselineError only ever matches an error whose source tree is the
+        // very file of a candidate part, so the verdict is decided from the
+        // diagnostics the whole-compilation call reports against the
+        // candidate-part files. Binding just those trees through their
+        // SemanticModel (the repo's standard substitute for a whole-compilation
+        // GetDiagnostics) gives the same verdict at a fraction of the cost, and is
+        // deferred: a tree with no `partial` declaration has no candidate part and
+        // binds nothing.
+        //
+        // A compilation-wide declaration diagnostic (an unresolvable base type,
+        // say) can still cover a part without appearing in that tree's
+        // SemanticModel, so the declaration diagnostics are bound as a separate
+        // stage and consulted first — they are the cheapest and the first the
+        // whole-compilation call reports. Only a candidate they leave uncovered
+        // asks for the per-file SemanticModel bind.
+        List<Diagnostic>? treeErrorsCache = null;
+        List<Diagnostic>? declarationErrorsCache = null;
+
+        List<Diagnostic> TreeErrors()
+        {
+            if (treeErrorsCache is not null)
+            {
+                return treeErrorsCache;
+            }
+
+            var candidateTrees = new HashSet<SyntaxTree>();
+            foreach (var group in multiGroups)
+            {
+                foreach (var part in group.Parts)
+                {
+                    candidateTrees.Add(part.Declaration.SyntaxTree);
+                }
+            }
+
+            // M3 single-part units only ever join the plan behind the opt-in flag;
+            // without it their files are irrelevant to the gate.
+            if (options.AssumeNoGeneratedPartial)
+            {
+                foreach (var single in singleTypes)
+                {
+                    foreach (var part in single.Parts)
+                    {
+                        candidateTrees.Add(part.Declaration.SyntaxTree);
+                    }
+                }
+            }
+
+            var errors = new List<Diagnostic>();
+            foreach (var tree in candidateTrees)
+            {
+                errors.AddRange(compilation.GetSemanticModel(tree)
+                    .GetDiagnostics()
+                    .Where(d => d.Severity == DiagnosticSeverity.Error
+                        && d.Location.SourceTree != null));
+            }
+
+            return treeErrorsCache = errors;
+        }
+
+        List<Diagnostic> DeclarationErrors()
+        {
+            if (declarationErrorsCache is not null)
+            {
+                return declarationErrorsCache;
+            }
+
+            var errors = new List<Diagnostic>();
+            foreach (var diagnostic in compilation.GetDeclarationDiagnostics())
+            {
+                if (diagnostic.Severity == DiagnosticSeverity.Error
+                    && diagnostic.Location.SourceTree != null)
+                {
+                    errors.Add(diagnostic);
+                }
+            }
+
+            return declarationErrorsCache = errors;
+        }
 
         static bool CoversBaselineError(TypeGroupPlan group, Diagnostic error)
             => group.Parts.Any(part =>
@@ -50,7 +121,16 @@ internal sealed class PartialMergeAnalyzer
                     error.Location.SourceTree!.FilePath, StringComparison.OrdinalIgnoreCase)
                 && part.Declaration.FullSpan.Contains(error.Location.SourceSpan.Start));
 
-        foreach (var group in units.Where(g => baselineErrors.Any(e => CoversBaselineError(g, e))))
+        // Whole-compilation verdict, reached without ever binding the whole tree.
+        // The compilation-wide declaration diagnostics are the cheapest stage and
+        // also the first the whole-compilation call reports, so they are consulted
+        // before the candidate-part files; a unit they already cover never pays for
+        // the SemanticModel bind.
+        bool IsCoveredByBaselineError(TypeGroupPlan unit)
+            => DeclarationErrors().Any(error => CoversBaselineError(unit, error))
+                || TreeErrors().Any(error => CoversBaselineError(unit, error));
+
+        foreach (var group in units.Where(IsCoveredByBaselineError))
         {
             group.SkipBaseline = true;
         }
@@ -103,7 +183,7 @@ internal sealed class PartialMergeAnalyzer
             // member-only rewrites.
             foreach (var single in singleTypes)
             {
-                if (baselineErrors.Any(e => CoversBaselineError(single, e)))
+                if (IsCoveredByBaselineError(single))
                 {
                     single.SkipBaseline = true;
                     continue;

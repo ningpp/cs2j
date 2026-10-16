@@ -98,18 +98,27 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
     {
         var tree = context.Tree;
 
-        // 1. Explicit 1:1 copy; the baseline error set reads ORIGINAL content.
-        // The standard compilation (parsed from the untouched source root and
-        // reused by every round) is where the baseline diagnostics come from, so
-        // the whole tree is parsed and bound exactly once instead of per round /
-        // per compilation.
+        // 1. Explicit 1:1 copy; the shared analysis compilation is parsed once from
+        // the untouched source root and reused by every round, so the whole tree is
+        // parsed (and re-parsed) exactly once instead of per round / per
+        // compilation.
         CopyInputs(tree);
         var analysisCompilation = context.BuildStandardCompilation();
-        var baselineDiagnostics = analysisCompilation.GetDiagnostics();
-        var baseline = BuildErrorSet(baselineDiagnostics, tree.SourceRoot);
-        var baselineErrors = baselineDiagnostics
-            .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)
-            .ToList();
+
+        // The whole-tree baseline key set is bound at most once, lazily, and only
+        // to confirm candidate errors the cheap per-file baseline could not
+        // classify (see DiffErrors). A round that rewrites nothing never asks for
+        // it, so the pass stays off the whole-tree GetDiagnostics path entirely.
+        HashSet<(string File, string Id, string Message)>? fullBaselineKeys = null;
+        HashSet<(string File, string Id, string Message)> FullBaselineKeys()
+            => fullBaselineKeys ??= new HashSet<(string File, string Id, string Message)>(
+                analysisCompilation.GetDiagnostics()
+                    .Where(d => d.Severity == DiagnosticSeverity.Error
+                        && d.Location.SourceTree != null)
+                    .Select(d => (
+                        NormalizePath(d.Location.SourceTree!.FilePath, tree.SourceRoot),
+                        d.Descriptor.Id,
+                        d.GetMessage())));
 
         var preprocessor = new PartialMergePreprocessor(_options);
         var excludedGroups = new HashSet<string>(StringComparer.Ordinal);
@@ -120,13 +129,20 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
         for (var iteration = 0; iteration < maxIterations; iteration++)
         {
             // 2. Every round starts from originals (replay, like JavaKeywords L101-103).
-            CopyInputs(tree);
+            // Round 0 does not need the reset: the tree was copied to the
+            // intermediate root before the analysis compilation was built and
+            // nothing wrote to it since. Later rounds must re-seed after a
+            // rollback restored a subset of the files.
+            if (iteration > 0)
+            {
+                CopyInputs(tree);
+            }
 
             // Reuse the baseline build: the source root never mutates during the
-            // pass, so its diagnostics are the same every round. The analyzer gets
-            // them precomputed instead of re-binding the tree.
+            // pass, so its diagnostics are the same every round. The analyzer binds
+            // the errors of the candidate-part files itself, lazily.
             var plan = preprocessor.Analyze(
-                analysisCompilation, tree.SourceRoot, baselineErrors: baselineErrors);
+                analysisCompilation, tree.SourceRoot);
             _lastPlan = plan;
             foreach (var group in plan.Groups
                          .Where(g => excludedGroups.Contains(g.TypeFullName)))
@@ -175,9 +191,22 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
                 rewrittenFiles.Add(csFile);
             }
 
+            if (rewrittenFiles.Count == 0)
+            {
+                // Nothing was rewritten: the intermediate tree is byte-identical
+                // to the analysis compilation's content, so the candidate
+                // recompile would yield zero new errors against the baseline and
+                // the residual gate would read exactly the same source. Accept
+                // and reuse the baseline compilation in place of the candidate
+                // instead of recompiling and re-binding the whole tree.
+                _acceptedPlan = plan;
+                candidate = analysisCompilation;
+                break;
+            }
+
             // 4. Candidate recompile + baseline diff.
             candidate = BuildIntermediateCompilation(tree, rewrittenFiles);
-            var newErrors = DiffErrors(baseline, candidate, tree.IntermediateRoot);
+            var newErrors = DiffErrors(tree, analysisCompilation, candidate, FullBaselineKeys);
 
             if (newErrors.Count == 0)
             {
@@ -256,7 +285,9 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
         // 7. Residual gate: multi-part types must be whitelisted (rollback/skip).
         // Reuses the accepted candidate compilation: the intermediate tree is not
         // touched between its build and this gate (acceptance breaks the loop
-        // before restore), so it is the exact accepted content.
+        // before restore), so it is the exact accepted content. A round that
+        // rewrote nothing accepted the baseline compilation instead of a fresh
+        // candidate — byte-identical content, so the gate sees the same source.
         if (_acceptedPlan != null && success && candidate != null)
         {
             foreach (var residual in preprocessor.CheckResidual(candidate, _acceptedPlan))
@@ -265,10 +296,17 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             }
         }
 
-        // 8. Restore + build/test double verify on the accepted tree.
+        // 8. Restore + build/test double verify on the accepted tree. Restore only
+        // exists to feed build/test verification (ProjectPassRunner stage 4): when
+        // both are off the intermediate tree is never compiled, so restoring the
+        // whole solution is pure overhead.
         if (success && !HasErrors)
         {
-            context.Restore();
+            if (VerifyBuild || VerifyTests)
+            {
+                context.Restore();
+            }
+
             var verified = await context.VerifyBuildAndTestsAsync();
             context.Success = verified && !HasErrors;
         }
@@ -401,28 +439,120 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             Descriptor.Id + "-candidate", trees, GetMetadataReferences(), CreateCompilationOptions());
     }
 
-    /// <summary>(root-relative path, error id, message) set over the ORIGINAL sources.</summary>
-    private static HashSet<(string File, string Id, string Message)> BuildErrorSet(
-        IReadOnlyList<Diagnostic> diagnostics, string sourceRoot)
-        => new(diagnostics
-            .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)
-            .Select(d => (
-                NormalizePath(d.Location.SourceTree!.FilePath, sourceRoot),
-                d.Descriptor.Id,
-                d.GetMessage())));
-
+    /// <summary>
+    /// Candidate errors that the ORIGINAL sources did not already report. The
+    /// baseline side is bound PER FILE and only for the files the candidate
+    /// reports an error in: an error is "new" exactly when its (id, message) is
+    /// absent from the baseline diagnostics of the same file, so no other file's
+    /// baseline can change the verdict. That keeps the pass off the whole-tree
+    /// GetDiagnostics path for every candidate error a tree's own diagnostics can
+    /// account for.
+    ///
+    /// <para>
+    /// A handful of compilation-level diagnostics (the entry-point family, e.g.
+    /// CS8805) carry a source location but are not produced by any tree's
+    /// SemanticModel, so the per-file view cannot classify them. Those — and any
+    /// genuinely new error — are re-checked against the whole-tree key set, which
+    /// is therefore bound lazily and only when such an error actually occurs. The
+    /// verdict and its order are then exactly the ones a whole-tree diff gives.
+    /// </para>
+    /// </summary>
     private static List<Diagnostic> DiffErrors(
-        HashSet<(string File, string Id, string Message)> baseline,
+        PassTreeContext tree,
+        CSharpCompilation analysisCompilation,
         CSharpCompilation candidate,
-        string intermediateRoot)
-        => candidate.GetDiagnostics()
-            .Where(d => d.Severity == DiagnosticSeverity.Error
-                && d.Location.SourceTree != null
-                && !baseline.Contains((
-                    NormalizePath(d.Location.SourceTree!.FilePath, intermediateRoot),
-                    d.Descriptor.Id,
-                    d.GetMessage())))
+        Func<HashSet<(string File, string Id, string Message)>> fullBaselineKeys)
+    {
+        Dictionary<string, SyntaxTree>? baselineTreesByKey = null;
+        var baselineKeysByFile = new Dictionary<string, HashSet<(string Id, string Message)>>(
+            StringComparer.OrdinalIgnoreCase);
+        List<Diagnostic>? unclassified = null;
+
+        foreach (var diagnostic in candidate.GetDiagnostics())
+        {
+            if (diagnostic.Severity != DiagnosticSeverity.Error
+                || diagnostic.Location.SourceTree is null)
+            {
+                continue;
+            }
+
+            var relative = NormalizePath(diagnostic.Location.SourceTree.FilePath, tree.IntermediateRoot);
+            if (!baselineKeysByFile.TryGetValue(relative, out var baselineKeys))
+            {
+                baselineTreesByKey ??= BuildBaselineTreeIndex(analysisCompilation, tree.SourceRoot);
+                baselineKeys = baselineTreesByKey.TryGetValue(relative, out var sourceTree)
+                    ? BaselineKeysFor(analysisCompilation, sourceTree)
+                    : new HashSet<(string Id, string Message)>();
+                baselineKeysByFile[relative] = baselineKeys;
+            }
+
+            if (!baselineKeys.Contains((diagnostic.Descriptor.Id, diagnostic.GetMessage())))
+            {
+                (unclassified ??= []).Add(diagnostic);
+            }
+        }
+
+        if (unclassified is null)
+        {
+            return [];
+        }
+
+        var full = fullBaselineKeys();
+        return unclassified
+            .Where(d => !full.Contains((
+                NormalizePath(d.Location.SourceTree!.FilePath, tree.IntermediateRoot),
+                d.Descriptor.Id,
+                d.GetMessage())))
             .ToList();
+    }
+
+    /// <summary>
+    /// Baseline error (id, message) pairs of one source file: its declaration
+    /// diagnostics plus the diagnostics of its SemanticModel. Together they cover
+    /// every error the whole-compilation call reports against that tree, apart
+    /// from the compilation-level entry-point family (which the lazy whole-tree
+    /// fallback in <see cref="DiffErrors"/> re-checks).
+    /// </summary>
+    private static HashSet<(string Id, string Message)> BaselineKeysFor(
+        CSharpCompilation analysisCompilation,
+        SyntaxTree sourceTree)
+    {
+        var keys = new HashSet<(string Id, string Message)>(
+            analysisCompilation.GetDeclarationDiagnostics()
+                .Where(d => d.Severity == DiagnosticSeverity.Error
+                    && ReferenceEquals(d.Location.SourceTree, sourceTree))
+                .Select(d => (d.Descriptor.Id, d.GetMessage())));
+
+        foreach (var diagnostic in analysisCompilation.GetSemanticModel(sourceTree).GetDiagnostics())
+        {
+            if (diagnostic.Severity == DiagnosticSeverity.Error
+                && diagnostic.Location.SourceTree is not null)
+            {
+                keys.Add((diagnostic.Descriptor.Id, diagnostic.GetMessage()));
+            }
+        }
+
+        return keys;
+    }
+
+    /// <summary>
+    /// Root-relative path → source tree, for every tree of the analysis
+    /// compilation. Both the source root and the intermediate root hold the same
+    /// files at the same relative paths, so a candidate tree's key finds its
+    /// baseline counterpart here (the synthesized global-usings tree included,
+    /// since it carries the same synthetic path in both compilations).
+    /// </summary>
+    private static Dictionary<string, SyntaxTree> BuildBaselineTreeIndex(
+        CSharpCompilation analysisCompilation, string sourceRoot)
+    {
+        var index = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
+        foreach (var syntaxTree in analysisCompilation.SyntaxTrees)
+        {
+            index.TryAdd(NormalizePath(syntaxTree.FilePath, sourceRoot), syntaxTree);
+        }
+
+        return index;
+    }
 
     /// <summary>
     /// Root-relative key for a source-tree path. The baseline is normalized
