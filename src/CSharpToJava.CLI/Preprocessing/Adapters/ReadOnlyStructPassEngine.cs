@@ -15,6 +15,16 @@ namespace CSharpToJava.CLI.Preprocessing.Adapters;
 internal static class ReadOnlyStructPassEngine
 {
     /// <summary>
+    /// The basic metadata-reference set is identical for every cross-file pass in a
+    /// run (it only reflects the fixed trusted-framework assembly list), so it is
+    /// built once and shared by the four compilations the engine creates. The
+    /// references are immutable; the compilation only enumerates them.
+    /// </summary>
+    private static List<MetadataReference>? _sharedBasicReferences;
+    private static List<MetadataReference> BasicReferences()
+        => _sharedBasicReferences ??= ProjectUnsignedTypePreprocessor.GetBasicReferences();
+
+    /// <summary>
     /// Per-run cache of parsed output trees shared by every cross-file pass. Each
     /// pass re-reads the intermediate tree and re-parses every output file; most
     /// files are never written by any pass, so their tree is reused verbatim. The
@@ -26,19 +36,55 @@ internal static class ReadOnlyStructPassEngine
     {
         private readonly Dictionary<string, (string Code, SyntaxTree Tree)> _map =
             new(StringComparer.OrdinalIgnoreCase);
+        private readonly object _gate = new();
 
         public SyntaxTree Get(string file, string code)
         {
-            if (_map.TryGetValue(file, out var entry) &&
-                string.Equals(entry.Code, code, StringComparison.Ordinal))
+            lock (_gate)
             {
-                return entry.Tree;
+                if (_map.TryGetValue(file, out var entry) &&
+                    string.Equals(entry.Code, code, StringComparison.Ordinal))
+                {
+                    return entry.Tree;
+                }
             }
 
+            // Parse outside the lock so the (cold) first pass can parse in parallel;
+            // each file is only parsed by the single thread that owns its slot.
             var tree = CSharpSyntaxTree.ParseText(code, path: file);
-            _map[file] = (code, tree);
+            lock (_gate)
+            {
+                _map[file] = (code, tree);
+            }
             return tree;
         }
+    }
+
+    /// <summary>
+    /// Reads and parses every output file in parallel, returning an ordered
+    /// path→tree map (identical order to the serial loop) plus the freshly read
+    /// source text of each file so callers can run their own textual probes without
+    /// re-reading. Parsing is CPU-bound, so the cold first pass binds across cores.
+    /// </summary>
+    private static Dictionary<string, SyntaxTree> ReadOutputTreesParallel(
+        IReadOnlyList<string> files, OutputTreeCache? treeCache, out string[] codes)
+    {
+        var trees = new SyntaxTree[files.Count];
+        var localCodes = new string[files.Count];
+        System.Threading.Tasks.Parallel.For(0, files.Count, i =>
+        {
+            var code = File.ReadAllText(files[i]);
+            localCodes[i] = code;
+            trees[i] = treeCache == null
+                ? CSharpSyntaxTree.ParseText(code, path: files[i])
+                : treeCache.Get(files[i], code);
+        });
+        codes = localCodes;
+
+        var result = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < files.Count; i++)
+            result[files[i]] = trees[i];
+        return result;
     }
 
     public static void MergeStatistics(ReadOnlyStructMakerStatistics target, ReadOnlyStructMakerStatistics source)
@@ -59,7 +105,7 @@ internal static class ReadOnlyStructPassEngine
     /// <summary>
     /// Second pass: updates call sites of migrated void→struct methods across all files.
     /// </summary>
-    public static async Task UpdateCrossFileCallSites(
+    public static Task UpdateCrossFileCallSites(
         string intermediateRoot, string sourceRoot, List<string> sourceFiles,
         Dictionary<string, string> migratedStructs, OutputTreeCache? treeCache = null)
     {
@@ -74,18 +120,14 @@ internal static class ReadOnlyStructPassEngine
                 outputCsFiles.Add(outputFile);
         }
 
-        var outputTrees = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
         // Files whose text contains no `struct` keyword declare no structs, so the
         // struct-declaration discovery below can skip them entirely.
         var structTextFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in outputCsFiles)
+        var outputTrees = ReadOutputTreesParallel(outputCsFiles, treeCache, out var callsiteCodes);
+        for (var i = 0; i < outputCsFiles.Count; i++)
         {
-            var code = await File.ReadAllTextAsync(file);
-            outputTrees[file] = treeCache == null
-                ? CSharpSyntaxTree.ParseText(code, path: file)
-                : treeCache.Get(file, code);
-            if (code.IndexOf("struct", StringComparison.Ordinal) >= 0)
-                structTextFiles.Add(file);
+            if (callsiteCodes[i].IndexOf("struct", StringComparison.Ordinal) >= 0)
+                structTextFiles.Add(outputCsFiles[i]);
         }
 
         // Find migrated method names by scanning struct declarations
@@ -186,19 +228,24 @@ internal static class ReadOnlyStructPassEngine
             }
         }
 
-        if (migratedMethodToStruct.Count == 0 && outMigratedMethodToStruct.Count == 0) return;
+        if (migratedMethodToStruct.Count == 0 && outMigratedMethodToStruct.Count == 0) return Task.CompletedTask;
 
         // Create compilation for semantic analysis
-        var references = ProjectUnsignedTypePreprocessor.GetBasicReferences();
+        var references = BasicReferences();
         var outputCompilation = CSharpCompilation.Create(
             "callsite-update",
             outputTrees.Values,
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
 
-        // Apply CallSiteUpdater to each file
-        foreach (var (file, tree) in outputTrees)
+        // Apply CallSiteUpdater to each file. Files are disjoint (each write targets
+        // its own output path) and the semantic model is queried per tree, so the
+        // per-file rewrite is pure and runs in parallel; the emitted bytes are
+        // identical to the serial loop because no shared state is touched.
+        System.Threading.Tasks.Parallel.ForEach(outputTrees, kvp =>
         {
+            var file = kvp.Key;
+            var tree = kvp.Value;
             var root = tree.GetRoot();
             var model = outputCompilation.GetSemanticModel(tree);
             var updater = new CallSiteUpdater(migratedMethodToStruct, model,
@@ -207,11 +254,12 @@ internal static class ReadOnlyStructPassEngine
                 allMethodArities: allMethodArities,
                 structMethodNames: structMethodNames);
             var newRoot = updater.Visit(root);
-            if (newRoot != null && newRoot.ToFullString() != root.ToFullString())
+            if (newRoot != null && !ReferenceEquals(newRoot, root) && newRoot.ToFullString() != root.ToFullString())
             {
-                await File.WriteAllTextAsync(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
+                File.WriteAllText(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
             }
-        }
+        });
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -258,7 +306,7 @@ internal static class ReadOnlyStructPassEngine
     /// Cross-file pass: updates read accesses (obj.Field → obj.getField()) for L4-converted
     /// struct fields in ALL files, not just the file containing the struct definition.
     /// </summary>
-    public static async Task UpdateCrossFileFieldReads(
+    public static Task UpdateCrossFileFieldReads(
         string intermediateRoot, string sourceRoot, List<string> sourceFiles, OutputTreeCache? treeCache = null)
     {
         // Parse all output .cs files from the intermediate directory
@@ -272,18 +320,14 @@ internal static class ReadOnlyStructPassEngine
                 outputCsFiles.Add(outputFile);
         }
 
-        var outputTrees = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
         // Files whose text contains no `struct` keyword declare no structs, so the
         // struct-declaration discovery loops below can skip them entirely.
         var structTextFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in outputCsFiles)
+        var outputTrees = ReadOutputTreesParallel(outputCsFiles, treeCache, out var fieldreadCodes);
+        for (var i = 0; i < outputCsFiles.Count; i++)
         {
-            var code = await File.ReadAllTextAsync(file);
-            outputTrees[file] = treeCache == null
-                ? CSharpSyntaxTree.ParseText(code, path: file)
-                : treeCache.Get(file, code);
-            if (code.IndexOf("struct", StringComparison.Ordinal) >= 0)
-                structTextFiles.Add(file);
+            if (fieldreadCodes[i].IndexOf("struct", StringComparison.Ordinal) >= 0)
+                structTextFiles.Add(outputCsFiles[i]);
         }
 
         // Find L4-converted structs: those with private fields + getXxx() getter methods
@@ -437,30 +481,35 @@ internal static class ReadOnlyStructPassEngine
             }
         }
 
-        if (publicFieldStructs.Count == 0) return;
+        if (publicFieldStructs.Count == 0) return Task.CompletedTask;
 
         // Create compilation for semantic analysis
-        var references = ProjectUnsignedTypePreprocessor.GetBasicReferences();
+        var references = BasicReferences();
         var outputCompilation = CSharpCompilation.Create(
             "field-read-update",
             outputTrees.Values,
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
 
-        // Apply AssignmentRewriter to each file (handles both read and write accesses)
-        foreach (var (file, tree) in outputTrees)
+        // Apply AssignmentRewriter to each file (handles both read and write accesses).
+        // Each file has its own semantic model and its own output path, so the rewrite
+        // is pure per file and runs in parallel with byte-identical output.
+        System.Threading.Tasks.Parallel.ForEach(outputTrees, kvp =>
         {
+            var file = kvp.Key;
+            var tree = kvp.Value;
             var root = tree.GetRoot();
             var model = outputCompilation.GetSemanticModel(tree);
             var rewriter = new AssignmentRewriter(publicFieldStructs, model, l5StructNames, withChainStructs, l3Structs,
                 qualifiedNames: qualifiedNames);
             rewriter.BuildVariableTypeMap(root);
             var newRoot = rewriter.Visit(root);
-            if (newRoot != null && newRoot.ToFullString() != root.ToFullString())
+            if (newRoot != null && !ReferenceEquals(newRoot, root) && newRoot.ToFullString() != root.ToFullString())
             {
-                await File.WriteAllTextAsync(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
+                File.WriteAllText(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
             }
-        }
+        });
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -523,7 +572,7 @@ internal static class ReadOnlyStructPassEngine
     ///                               p0 = p0.WithaRot(__cs2jRef0);
     /// </code>
     /// </summary>
-    public static async Task HoistRefReadonlyFieldArguments(
+    public static Task HoistRefReadonlyFieldArguments(
         string intermediateRoot, string sourceRoot, List<string> sourceFiles, OutputTreeCache? treeCache = null)
     {
         var outputCsFiles = new List<string>();
@@ -536,20 +585,17 @@ internal static class ReadOnlyStructPassEngine
                 outputCsFiles.Add(outputFile);
         }
 
-        var outputTrees = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
         // The hoister only rewrites ref/out arguments, so a file whose text contains
         // neither `ref ` nor `out ` can never be modified — record the candidates so
         // the semantic model and whole-tree visit are skipped for the rest.
         var refOutCandidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in outputCsFiles)
+        var outputTrees = ReadOutputTreesParallel(outputCsFiles, treeCache, out var hoistCodes);
+        for (var i = 0; i < outputCsFiles.Count; i++)
         {
-            var code = await File.ReadAllTextAsync(file);
-            outputTrees[file] = treeCache == null
-                ? CSharpSyntaxTree.ParseText(code, path: file)
-                : treeCache.Get(file, code);
+            var code = hoistCodes[i];
             if (code.IndexOf("ref ", StringComparison.Ordinal) >= 0 ||
                 code.IndexOf("out ", StringComparison.Ordinal) >= 0)
-                refOutCandidates.Add(file);
+                refOutCandidates.Add(outputCsFiles[i]);
         }
 
         // Collect instance field names of readonly structs (all of them are readonly fields),
@@ -583,27 +629,30 @@ internal static class ReadOnlyStructPassEngine
             }
         }
 
-        if (readonlyStructFields.Count == 0) return;
+        if (readonlyStructFields.Count == 0) return Task.CompletedTask;
 
-        var references = ProjectUnsignedTypePreprocessor.GetBasicReferences();
+        var references = BasicReferences();
         var outputCompilation = CSharpCompilation.Create(
             "ref-hoist",
             outputTrees.Values,
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
 
-        foreach (var (file, tree) in outputTrees)
+        System.Threading.Tasks.Parallel.ForEach(outputTrees, kvp =>
         {
-            if (!refOutCandidates.Contains(file)) continue;
+            var file = kvp.Key;
+            var tree = kvp.Value;
+            if (!refOutCandidates.Contains(file)) return;
             var root = tree.GetRoot();
             var model = outputCompilation.GetSemanticModel(tree);
             var rewriter = new RefReadonlyFieldHoister(readonlyStructFields, model);
             var newRoot = rewriter.Visit(root);
-            if (newRoot != null && newRoot.ToFullString() != root.ToFullString())
+            if (newRoot != null && !ReferenceEquals(newRoot, root) && newRoot.ToFullString() != root.ToFullString())
             {
-                await File.WriteAllTextAsync(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
+                File.WriteAllText(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
             }
-        }
+        });
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -630,16 +679,25 @@ internal static class ReadOnlyStructPassEngine
             // ancestors above the block while we process them.
             var context = BuildNameTypeContext(node);
 
+            var original = node;
             node = (Microsoft.CodeAnalysis.CSharp.Syntax.BlockSyntax)base.VisitBlock(node)!;
             var newStatements = new List<Microsoft.CodeAnalysis.CSharp.Syntax.StatementSyntax>();
+            // Returning the ORIGINAL block node when nothing was hoisted keeps the whole
+            // rewritten tree reference-equal to its input, letting the caller's
+            // reference-equality change check skip the full-text comparison.
+            var changed = !ReferenceEquals(node, original);
             foreach (var statement in node.Statements)
             {
                 var (leading, middle, trailing) = RewriteStatement(statement, context);
+                if (leading.Count > 0 || trailing.Count > 0 || !ReferenceEquals(middle, statement))
+                    changed = true;
                 newStatements.AddRange(leading);
                 newStatements.Add(middle);
                 newStatements.AddRange(trailing);
             }
-            return node.WithStatements(Microsoft.CodeAnalysis.CSharp.SyntaxFactory.List(newStatements));
+            return changed
+                ? node.WithStatements(Microsoft.CodeAnalysis.CSharp.SyntaxFactory.List(newStatements))
+                : node;
         }
 
         private sealed record HoistContext(
@@ -1307,23 +1365,20 @@ internal static class ReadOnlyStructPassEngine
                 outputCsFiles.Add(outputFile);
         }
 
-        var outputTrees = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in outputCsFiles)
-        {
-            var code = await File.ReadAllTextAsync(file);
-            outputTrees[file] = CSharpSyntaxTree.ParseText(code, path: file);
-        }
+        var outputTrees = ReadOutputTreesParallel(outputCsFiles, treeCache, out _);
 
-        var rewriter = new ConcreteImplementerRewriter(affectedMembersByInterface);
-        foreach (var (file, tree) in outputTrees)
+        System.Threading.Tasks.Parallel.ForEach(outputTrees, kvp =>
         {
+            var file = kvp.Key;
+            var tree = kvp.Value;
             var root = tree.GetRoot();
+            var rewriter = new ConcreteImplementerRewriter(affectedMembersByInterface);
             var newRoot = rewriter.Visit(root);
-            if (newRoot != null && newRoot.ToFullString() != root.ToFullString())
+            if (newRoot != null && !ReferenceEquals(newRoot, root) && newRoot.ToFullString() != root.ToFullString())
             {
-                await File.WriteAllTextAsync(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
+                File.WriteAllText(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
             }
-        }
+        });
     }
 
     /// <summary>
@@ -1494,23 +1549,20 @@ internal static class ReadOnlyStructPassEngine
                 outputCsFiles.Add(outputFile);
         }
 
-        var outputTrees = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in outputCsFiles)
-        {
-            var code = await File.ReadAllTextAsync(file);
-            outputTrees[file] = CSharpSyntaxTree.ParseText(code, path: file);
-        }
+        var outputTrees = ReadOutputTreesParallel(outputCsFiles, treeCache, out _);
 
-        var rewriter = new ClassInterfaceBridgeRewriter(affectedMembersByInterface);
-        foreach (var (file, tree) in outputTrees)
+        System.Threading.Tasks.Parallel.ForEach(outputTrees, kvp =>
         {
+            var file = kvp.Key;
+            var tree = kvp.Value;
             var root = tree.GetRoot();
+            var rewriter = new ClassInterfaceBridgeRewriter(affectedMembersByInterface);
             var newRoot = rewriter.Visit(root);
-            if (newRoot != null && newRoot.ToFullString() != root.ToFullString())
+            if (newRoot != null && !ReferenceEquals(newRoot, root) && newRoot.ToFullString() != root.ToFullString())
             {
-                await File.WriteAllTextAsync(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
+                File.WriteAllText(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
             }
-        }
+        });
     }
 
     /// <summary>
@@ -1654,16 +1706,9 @@ internal static class ReadOnlyStructPassEngine
                 outputCsFiles.Add(outputFile);
         }
 
-        var outputTrees = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in outputCsFiles)
-        {
-            var code = await File.ReadAllTextAsync(file);
-            outputTrees[file] = treeCache == null
-                ? CSharpSyntaxTree.ParseText(code, path: file)
-                : treeCache.Get(file, code);
-        }
+        var outputTrees = ReadOutputTreesParallel(outputCsFiles, treeCache, out _);
 
-        var references = ProjectUnsignedTypePreprocessor.GetBasicReferences();
+        var references = BasicReferences();
         var outputCompilation = CSharpCompilation.Create(
             "iface-transform",
             outputTrees.Values,
@@ -1808,21 +1853,23 @@ internal static class ReadOnlyStructPassEngine
         var affectedMemberKeys = transformedInterfaceMethods
             .Select(m => (InterfaceName: m.ContainingType.Name, MemberName: m.Name))
             .ToHashSet();
-        var ifaceRewriter = new InterfaceReturnTypeRewriter(affectedMemberKeys);
-        var callSiteRewriter = new InterfaceCallSiteRewriter(transformedInterfaceMethods, outputCompilation);
-        var explicitWidener = new ExplicitInterfaceImplWidener(explicitImplsToWiden);
 
-        foreach (var (file, tree) in outputTrees)
+        System.Threading.Tasks.Parallel.ForEach(outputTrees, kvp =>
         {
+            var file = kvp.Key;
+            var tree = kvp.Value;
             var root = tree.GetRoot();
+            var ifaceRewriter = new InterfaceReturnTypeRewriter(affectedMemberKeys);
+            var callSiteRewriter = new InterfaceCallSiteRewriter(transformedInterfaceMethods, outputCompilation);
+            var explicitWidener = new ExplicitInterfaceImplWidener(explicitImplsToWiden);
             var newRoot = ifaceRewriter.Visit(root);
             newRoot = callSiteRewriter.Visit(newRoot);
             newRoot = explicitWidener.Visit(newRoot);
-            if (newRoot != null && newRoot.ToFullString() != root.ToFullString())
+            if (newRoot != null && !ReferenceEquals(newRoot, root) && newRoot.ToFullString() != root.ToFullString())
             {
-                await File.WriteAllTextAsync(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
+                File.WriteAllText(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
             }
-        }
+        });
     }
 
     /// <summary>

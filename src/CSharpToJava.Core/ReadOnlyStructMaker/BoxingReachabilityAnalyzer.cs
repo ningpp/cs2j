@@ -103,14 +103,16 @@ internal static class BoxingReachabilityAnalyzer
                     case AssignmentExpressionSyntax assignment
                         when assignment.Right is not LiteralExpressionSyntax:
                         {
-                            // A literal right-hand side (numeric/string/bool/char/null) is
-                            // never a user-code type, so no value can be enqueued no matter
-                            // what the target's declared type is — skip the bindings.
-                            var targetType = GetModel().GetTypeInfo(assignment.Left).Type;
-                            if (IsObjectLike(targetType))
+                            // The enqueued root is the RIGHT-hand value; the assignment can
+                            // only matter when that value is a user-code type. Binding the
+                            // value first lets the (more expensive) target binding be skipped
+                            // for the common non-user RHS (string/number/method call) — the
+                            // enqueue decision is unchanged because both conditions must hold.
+                            var valueType = GetModel().GetTypeInfo(assignment.Right).Type;
+                            if (IsUserCodeType(valueType))
                             {
-                                var valueType = GetModel().GetTypeInfo(assignment.Right).Type;
-                                if (IsUserCodeType(valueType))
+                                var targetType = GetModel().GetTypeInfo(assignment.Left).Type;
+                                if (IsObjectLike(targetType))
                                 {
                                     EnqueueLocal(valueType);
                                 }
@@ -278,6 +280,14 @@ internal static class BoxingReachabilityAnalyzer
         // type, so it can never be enqueued — skip resolving the callee entirely.
         if (argument.Expression is LiteralExpressionSyntax) return;
 
+        // The enqueued root is the argument VALUE, so the argument can only matter
+        // when its value is a user-code type. Binding the value first lets the
+        // (much more expensive) callee overload resolution be skipped for the vast
+        // majority of BCL argument positions — the enqueue decision is unchanged
+        // because both the value-type and parameter-type conditions must hold.
+        var valueType = model.GetTypeInfo(argument.Expression).Type;
+        if (!IsUserCodeType(valueType)) return;
+
         var index = argList.Arguments.IndexOf(argument);
         IMethodSymbol? method = null;
 
@@ -314,21 +324,13 @@ internal static class BoxingReachabilityAnalyzer
             // is sunk into reflection-based writers inside the library.
             if (parameter.Type is ITypeParameterSymbol && IsSerializerFamily(method.ContainingType))
             {
-                var genericValueType = model.GetTypeInfo(argument.Expression).Type;
-                if (IsUserCodeType(genericValueType))
-                {
-                    enqueue(genericValueType);
-                }
+                enqueue(valueType);
             }
             return;
         }
         if (IsHarmlessFormattingSink(method)) return;
 
-        var valueType = model.GetTypeInfo(argument.Expression).Type;
-        if (IsUserCodeType(valueType))
-        {
-            enqueue(valueType);
-        }
+        enqueue(valueType);
     }
 
     /// <summary>

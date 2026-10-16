@@ -448,86 +448,104 @@ internal sealed class CrossFileAccessIndex
                 }
             }
 
-            // (2) ref/out accesses to a struct field from outside the struct definition.
-            foreach (var argument in root.DescendantNodes().OfType<ArgumentSyntax>())
+            // (2)-(6) The remaining contributions are collected in a SINGLE descendant
+            // walk (previously five separate `DescendantNodes().OfType<...>()` walks,
+            // each scanning the whole tree). Every processed node is visited exactly
+            // once and contributes to the same set/dictionary entries, so the merged
+            // result is identical to the five independent scans.
+            foreach (var node in root.DescendantNodes())
             {
-                if (!argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword) &&
-                    !argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
-                    continue;
-                var expression = argument.Expression;
-                if (expression is PostfixUnaryExpressionSyntax suppress &&
-                    suppress.IsKind(SyntaxKind.SuppressNullableWarningExpression))
-                    expression = suppress.Operand;
-                if (expression is not MemberAccessExpressionSyntax memberAccess) continue;
-                if (model.GetSymbolInfo(memberAccess).Symbol is not IFieldSymbol field) continue;
-                AddExternalField(localRefFields, localAssignedFields, field, argument);
-            }
-
-            // (3) object initializers assigning struct fields from outside.
-            foreach (var objectCreation in root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>())
-            {
-                // Without an initializer there is nothing assigned through the creation,
-                // so the type binding (and its fallbacks) can be skipped entirely.
-                if (objectCreation.Initializer == null) continue;
-
-                var typeInfo = model.GetTypeInfo(objectCreation.Type);
-                var typeName = typeInfo.Type?.Name;
-                if (typeName == null)
-                    typeName = model.GetSymbolInfo(objectCreation.Type).Symbol?.Name;
-                if (typeName == null)
+                switch (node)
                 {
-                    typeName = objectCreation.Type.ToString();
-                    var genericIndex = typeName.IndexOf('<');
-                    if (genericIndex > 0) typeName = typeName.Substring(0, genericIndex);
+                    // (2) ref/out accesses to a struct field from outside the struct definition.
+                    case ArgumentSyntax argument:
+                        {
+                            if (!argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword) &&
+                                !argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
+                                break;
+                            var expression = argument.Expression;
+                            if (expression is PostfixUnaryExpressionSyntax suppress &&
+                                suppress.IsKind(SyntaxKind.SuppressNullableWarningExpression))
+                                expression = suppress.Operand;
+                            if (expression is not MemberAccessExpressionSyntax memberAccess) break;
+                            if (model.GetSymbolInfo(memberAccess).Symbol is not IFieldSymbol field) break;
+                            AddExternalField(localRefFields, localAssignedFields, field, argument);
+                        }
+                        break;
+
+                    // (3) object initializers assigning struct fields from outside.
+                    case ObjectCreationExpressionSyntax objectCreation:
+                        {
+                            // Without an initializer there is nothing assigned through the
+                            // creation, so the type binding (and its fallbacks) can be skipped.
+                            if (objectCreation.Initializer == null) break;
+
+                            var typeInfo = model.GetTypeInfo(objectCreation.Type);
+                            var typeName = typeInfo.Type?.Name;
+                            if (typeName == null)
+                                typeName = model.GetSymbolInfo(objectCreation.Type).Symbol?.Name;
+                            if (typeName == null)
+                            {
+                                typeName = objectCreation.Type.ToString();
+                                var genericIndex = typeName.IndexOf('<');
+                                if (genericIndex > 0) typeName = typeName.Substring(0, genericIndex);
+                            }
+                            if (typeName == null) break;
+
+                            foreach (var expr in objectCreation.Initializer.Expressions)
+                            {
+                                if (expr is not AssignmentExpressionSyntax initAssignment ||
+                                    initAssignment.Left is not IdentifierNameSyntax initFieldName)
+                                    continue;
+                                AddExternalFieldName(null, localAssignedFields, initFieldName.Identifier.Text, typeName, objectCreation);
+                            }
+                        }
+                        break;
+
+                    // (4) assignments to struct fields from outside.
+                    case AssignmentExpressionSyntax assignment:
+                        {
+                            if (assignment.Left is not MemberAccessExpressionSyntax) break;
+                            if (model.GetSymbolInfo(assignment.Left).Symbol is not IFieldSymbol field) break;
+                            AddExternalField(null, localAssignedFields, field, assignment);
+                        }
+                        break;
+
+                    // (5) ++/-- on struct fields from outside.
+                    case PostfixUnaryExpressionSyntax postfix:
+                        {
+                            if (postfix.Operand is not MemberAccessExpressionSyntax postfixOperand) break;
+                            if (model.GetSymbolInfo(postfixOperand).Symbol is not IFieldSymbol postfixField) break;
+                            AddExternalField(null, localAssignedFields, postfixField, postfix);
+                        }
+                        break;
+
+                    case PrefixUnaryExpressionSyntax prefix:
+                        {
+                            if (prefix.Kind() is not (SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression))
+                                break;
+                            if (prefix.Operand is not MemberAccessExpressionSyntax prefixOperand) break;
+                            if (model.GetSymbolInfo(prefixOperand).Symbol is not IFieldSymbol prefixField) break;
+                            AddExternalField(null, localAssignedFields, prefixField, prefix);
+                        }
+                        break;
+
+                    // (6) ref/out parameters of this tree whose members are modified (mirrors
+                    // CallGraphBuilder.IsModifiedThroughRef over the same tree).
+                    case ParameterSyntax param:
+                        {
+                            if (!param.Modifiers.Any(m =>
+                                    m.IsKind(SyntaxKind.RefKeyword) || m.IsKind(SyntaxKind.OutKeyword)))
+                                break;
+                            var paramSymbol = model.GetDeclaredSymbol(param);
+                            if (paramSymbol?.Type is not INamedTypeSymbol paramType) break;
+                            var containingMethod = param.Ancestors().OfType<BaseMethodDeclarationSyntax>().FirstOrDefault();
+                            if (containingMethod == null) break;
+                            if (IsParameterFieldModified(containingMethod, param.Identifier.Text))
+                                localModified.Add(paramType.Name);
+                        }
+                        break;
                 }
-                if (typeName == null) continue;
-
-                foreach (var expr in objectCreation.Initializer.Expressions)
-                {
-                    if (expr is not AssignmentExpressionSyntax initAssignment ||
-                        initAssignment.Left is not IdentifierNameSyntax initFieldName)
-                        continue;
-                    AddExternalFieldName(null, localAssignedFields, initFieldName.Identifier.Text, typeName, objectCreation);
-                }
-            }
-
-            // (4) assignments to struct fields from outside.
-            foreach (var assignment in root.DescendantNodes().OfType<AssignmentExpressionSyntax>())
-            {
-                if (assignment.Left is not MemberAccessExpressionSyntax) continue;
-                if (model.GetSymbolInfo(assignment.Left).Symbol is not IFieldSymbol field) continue;
-                AddExternalField(null, localAssignedFields, field, assignment);
-            }
-
-            // (5) ++/-- on struct fields from outside.
-            foreach (var unary in root.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>())
-            {
-                if (unary.Operand is not MemberAccessExpressionSyntax) continue;
-                if (model.GetSymbolInfo(unary.Operand).Symbol is not IFieldSymbol field) continue;
-                AddExternalField(null, localAssignedFields, field, unary);
-            }
-            foreach (var unary in root.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>())
-            {
-                if (unary.Kind() is not (SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression))
-                    continue;
-                if (unary.Operand is not MemberAccessExpressionSyntax) continue;
-                if (model.GetSymbolInfo(unary.Operand).Symbol is not IFieldSymbol field) continue;
-                AddExternalField(null, localAssignedFields, field, unary);
-            }
-
-            // (6) ref/out parameters of this tree whose members are modified (mirrors
-            // CallGraphBuilder.IsModifiedThroughRef over the same tree).
-            foreach (var param in root.DescendantNodes().OfType<ParameterSyntax>())
-            {
-                if (!param.Modifiers.Any(m =>
-                        m.IsKind(SyntaxKind.RefKeyword) || m.IsKind(SyntaxKind.OutKeyword)))
-                    continue;
-                var paramSymbol = model.GetDeclaredSymbol(param);
-                if (paramSymbol?.Type is not INamedTypeSymbol paramType) continue;
-                var containingMethod = param.Ancestors().OfType<BaseMethodDeclarationSyntax>().FirstOrDefault();
-                if (containingMethod == null) continue;
-                if (IsParameterFieldModified(containingMethod, param.Identifier.Text))
-                    localModified.Add(paramType.Name);
             }
 
             lock (refOutWrite)

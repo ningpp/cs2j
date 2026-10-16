@@ -66,13 +66,24 @@ internal sealed class MakeReadonlyPassAdapter : ProjectPassAdapter
         // never rewrite them. Recording them here lets the per-file maker loop skip
         // the whole-tree struct walk for the vast majority of files.
         var structBearingFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var csFile in tree.CsFiles)
+        var csFileList = tree.CsFiles.ToList();
+        var parsedList = new SyntaxTree[csFileList.Count];
+        var codeList = new string[csFileList.Count];
+        // Reading + parsing is CPU/IO-bound and every file is independent, so the
+        // initial tree build runs in parallel; the trees are then re-inserted in the
+        // deterministic source order, so the compilation and every downstream probe
+        // observe exactly the same input as the serial loop.
+        System.Threading.Tasks.Parallel.For(0, csFileList.Count, i =>
         {
-            var sourceCode = await File.ReadAllTextAsync(csFile);
-            var parsed = CSharpSyntaxTree.ParseText(sourceCode, path: csFile);
-            syntaxTrees[csFile] = parsed;
-            if (sourceCode.IndexOf("struct", StringComparison.Ordinal) >= 0)
-                structBearingFiles.Add(csFile);
+            var sourceCode = File.ReadAllText(csFileList[i]);
+            codeList[i] = sourceCode;
+            parsedList[i] = CSharpSyntaxTree.ParseText(sourceCode, path: csFileList[i]);
+        });
+        for (var i = 0; i < csFileList.Count; i++)
+        {
+            syntaxTrees[csFileList[i]] = parsedList[i];
+            if (codeList[i].IndexOf("struct", StringComparison.Ordinal) >= 0)
+                structBearingFiles.Add(csFileList[i]);
         }
 
         var compilation = CSharpCompilation.Create(
@@ -238,7 +249,12 @@ internal sealed class MakeReadonlyPassAdapter : ProjectPassAdapter
             intermediateRoot, sourceRoot, sourceFileList, treeCache);
 
         // Restore NuGet packages, verify build/tests, then drop bin/ outputs.
-        var restoreTarget = ProjectPreprocessSource.ResolveRestoreTarget(tree.Layout, intermediateRoot);
+        // Restore only exists to feed build/test verification (see ProjectPassRunner);
+        // when both are disabled the intermediate tree is never compiled, so restoring
+        // the whole solution is pure overhead and is skipped.
+        var restoreTarget = (!_verifyBuild && !_verifyTests)
+            ? null
+            : ProjectPreprocessSource.ResolveRestoreTarget(tree.Layout, intermediateRoot);
         if (restoreTarget != null)
         {
             context.Restore();
