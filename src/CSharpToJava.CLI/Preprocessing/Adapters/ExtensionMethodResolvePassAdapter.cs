@@ -331,8 +331,8 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         // M4 §4.4-4: candidate-vs-baseline compile-error diff with file
         // attribution; unique rewritten file → replay that file; otherwise
         // whole-tree rollback + CS2J1200.
-        var candidateKeys = BuildErrorKeys(candidate, remapToIntermediate: false);
         var rewrittenDest = MapRewrittenToDestination(tree);
+        var candidateKeys = BuildCandidateErrorKeys(candidate, rewrittenDest);
         var baselineSubset = BuildLazyBaselineErrors(candidateKeys);
         var rollbackPlan = ExtensionRewriteRollback.Plan(
             baselineSubset, candidateKeys, rewrittenDest);
@@ -656,41 +656,61 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
     }
 
     /// <summary>
-    /// Error keys of the tree-located diagnostics of <paramref name="compilation"/>.
-    /// The whole-compilation <c>GetDiagnostics()</c> is used verbatim (Roslyn
-    /// binds the merged compilation's trees in parallel internally, which a
-    /// hand-rolled per-tree loop cannot beat). Diagnostics that carry no source
-    /// tree (compilation-level, e.g. CS0009) are dropped: they are reference-
-    /// owned, identical on the baseline/candidate sides, and can never be moved
-    /// by a rewrite, so excluding them on both sides keeps the diff verdict
-    /// unchanged.
+    /// Error keys of the candidate's tree-located diagnostics, restricted to the
+    /// trees this pass actually rewrote.
+    ///
+    /// The diff they feed only has to discover errors the rewrite could have
+    /// INTRODUCED. A file the pass did not rewrite is carried into the candidate
+    /// compilation as the very same syntax tree the baseline bound (same root,
+    /// remapped path); its diagnostics are therefore identical on both sides and
+    /// cancel out of the diff whatever they are. So the candidate only needs the
+    /// rebound trees, and binding the merged compilation's other trees (test
+    /// shims, shared helpers, generated support files) is pure overhead.
+    /// Diagnostics with no source tree are reference-owned and equally cancelling
+    /// on both sides, so they are dropped.
     /// </summary>
-    private List<ExtensionRewriteErrorKey> BuildErrorKeys(
-        CSharpCompilation compilation,
-        bool remapToIntermediate)
+    private List<ExtensionRewriteErrorKey> BuildCandidateErrorKeys(
+        CSharpCompilation candidate,
+        HashSet<string> rewrittenDest)
     {
-        var tree = _tree;
-        var keys = new List<ExtensionRewriteErrorKey>();
-        foreach (var diagnostic in compilation.GetDiagnostics())
+        var trees = candidate.SyntaxTrees as IReadOnlyList<SyntaxTree>
+            ?? candidate.SyntaxTrees.ToList();
+        var slots = new List<ExtensionRewriteErrorKey>?[trees.Count];
+
+        // Distinct tree → distinct SemanticModel; per-tree diagnostics are
+        // independent, so the rebound trees run in parallel.
+        Parallel.For(0, trees.Count, i =>
         {
-            if (diagnostic.Severity != DiagnosticSeverity.Error)
+            var tree = trees[i];
+            if (!rewrittenDest.Contains(tree.FilePath))
             {
-                continue;
+                return;
             }
 
-            var file = diagnostic.Location.SourceTree?.FilePath;
-            if (file is null)
+            var model = candidate.GetSemanticModel(tree);
+            var list = new List<ExtensionRewriteErrorKey>();
+            foreach (var diagnostic in model.GetDiagnostics())
             {
-                continue;
+                if (diagnostic.Severity != DiagnosticSeverity.Error
+                    || diagnostic.Location.SourceTree is null)
+                {
+                    continue;
+                }
+
+                list.Add(new ExtensionRewriteErrorKey(
+                    tree.FilePath, diagnostic.Descriptor.Id, diagnostic.GetMessage()));
             }
 
-            if (remapToIntermediate && tree is not null)
-            {
-                file = RemapSourceToIntermediate(file, tree);
-            }
+            slots[i] = list;
+        });
 
-            keys.Add(new ExtensionRewriteErrorKey(
-                file, diagnostic.Descriptor.Id, diagnostic.GetMessage()));
+        var keys = new List<ExtensionRewriteErrorKey>();
+        for (var i = 0; i < slots.Length; i++)
+        {
+            if (slots[i] is { } list)
+            {
+                keys.AddRange(list);
+            }
         }
 
         return keys;

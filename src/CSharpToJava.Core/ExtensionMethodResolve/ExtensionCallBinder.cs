@@ -48,14 +48,22 @@ internal sealed class ExtensionCallBinder
     private readonly ExtensionMethodResolveStatistics _statistics = new();
     private readonly ExtensionTempAllocator _allocator;
 
-    public ExtensionCallBinder(SemanticModel model, ExtensionMethodResolveOptions options, bool suppressExtensionBlockGate = false, IReadOnlySet<string>? extensionMethodNames = null)
+    public ExtensionCallBinder(SemanticModel model, ExtensionMethodResolveOptions options, bool suppressExtensionBlockGate = false, IReadOnlySet<string>? extensionMethodNames = null, bool? hasExtensionBlocks = null)
     {
         Model = model;
         Options = options;
         SuppressExtensionBlockGate = suppressExtensionBlockGate;
         ExtensionMethodNames = extensionMethodNames;
+        HasExtensionBlocks = hasExtensionBlocks;
         _allocator = new ExtensionTempAllocator(model.SyntaxTree.GetCompilationUnitRoot());
     }
+
+    /// <summary>
+    /// Whether the tree declares an <c>extension</c> block; null when the caller
+    /// did not pre-compute it (the guard then walks the tree as before). A
+    /// definitively false value lets the CS2J1206 gate skip its whole-tree sweep.
+    /// </summary>
+    private bool? HasExtensionBlocks { get; }
 
     /// <summary>
     /// Names of every extension method reachable from the compilation (source
@@ -93,11 +101,22 @@ internal sealed class ExtensionCallBinder
     {
         var root = Model.SyntaxTree.GetCompilationUnitRoot();
 
+        // One manual pre-order walk collects every node kind this analysis needs
+        // (invocations, outermost conditionals, member accesses). Roslyn's
+        // DescendantNodes().OfType<T>() iterator is built three times per tree
+        // and casts every node; a single child-stack walk visits each node once
+        // and yields the same document order, so each collected list is
+        // identical to the separate sweeps below.
+        var invocationNodes = new List<InvocationExpressionSyntax>();
+        var conditionalNodes = new List<ConditionalAccessExpressionSyntax>();
+        var memberAccessNodes = new List<MemberAccessExpressionSyntax>();
+        CollectNodes(root, invocationNodes, conditionalNodes, memberAccessNodes);
+
         // EM-EXT14: syntax-driven (see M1 probe ②): block members bind as
         // Ordinary inside a TypeKind.Extension container, so binding alone
         // would silently miss every block site. C49 materialization suppresses
         // this gate for the tree (it owns the blocks instead).
-        if (!SuppressExtensionBlockGate)
+        if (!SuppressExtensionBlockGate && HasExtensionBlocks != false)
         {
           foreach (var block in root.DescendantNodes()
                      .Where(n => n.IsKind(SyntaxKind.ExtensionBlockDeclaration)))
@@ -114,7 +133,7 @@ internal sealed class ExtensionCallBinder
         }
         }
 
-        foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        foreach (var invocation in invocationNodes)
         {
             // A reduced extension invocation is always receiver-style (member
             // access / member binding); any other shape can never bind as
@@ -167,15 +186,14 @@ internal sealed class ExtensionCallBinder
 
         // EM-COND: outermost conditionals only; nested ?. chains are segments
         // of the outer plan.
-        foreach (var conditional in root.DescendantNodes()
-                     .OfType<ConditionalAccessExpressionSyntax>()
+        foreach (var conditional in conditionalNodes
                      .Where(c => !c.Ancestors().OfType<ConditionalAccessExpressionSyntax>().Any()))
         {
             AnalyzeConditionalChain(conditional);
         }
 
         // EM-GROUP: member accesses that are not the callee of an invocation.
-        foreach (var memberAccess in root.DescendantNodes().OfType<MemberAccessExpressionSyntax>())
+        foreach (var memberAccess in memberAccessNodes)
         {
             if (memberAccess.Parent is InvocationExpressionSyntax parentInvocation
                 && parentInvocation.Expression == memberAccess)
@@ -201,8 +219,36 @@ internal sealed class ExtensionCallBinder
         _diagnostics.Sort((a, b) => (a.Line ?? 0).CompareTo(b.Line ?? 0));
     }
 
-    // ── Ordinary reduced invocations (EM-CALL/EM-REF/EM-EXPRTREE) ───────────
+    /// <summary>
+    /// Single document-order walk of the tree collecting the three node kinds
+    /// the analysis iterates. Equivalent to three separate
+    /// <c>DescendantNodes().OfType&lt;T&gt;()</c> sweeps — same order, same
+    /// contents — but one traversal and no per-node LINQ type test.
+    /// </summary>
+    private static void CollectNodes(
+        SyntaxNode root,
+        List<InvocationExpressionSyntax> invocations,
+        List<ConditionalAccessExpressionSyntax> conditionals,
+        List<MemberAccessExpressionSyntax> memberAccesses)
+    {
+        foreach (var node in root.DescendantNodes())
+        {
+            switch (node)
+            {
+                case InvocationExpressionSyntax invocation:
+                    invocations.Add(invocation);
+                    break;
+                case ConditionalAccessExpressionSyntax conditional:
+                    conditionals.Add(conditional);
+                    break;
+                case MemberAccessExpressionSyntax memberAccess:
+                    memberAccesses.Add(memberAccess);
+                    break;
+            }
+        }
+    }
 
+    // ── Ordinary reduced invocations (EM-CALL/EM-REF/EM-EXPRTREE) ───────────
     private void ClassifyBound(
         InvocationExpressionSyntax invocation,
         IMethodSymbol reduced,

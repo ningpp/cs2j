@@ -188,11 +188,15 @@ public sealed class ExtensionMethodResolvePreprocessor
                 var hasBlocks = false;
 
                 var materialize = blockOptions?.MaterializeExtensionBlocks == true;
+                // The block declaration probe is shared with the binder's
+                // CS2J1206 gate, which then skips its own whole-tree sweep when
+                // the tree carries none (the common case).
+                hasBlocks = tree.GetCompilationUnitRoot().DescendantNodes()
+                    .Any(n => n.IsKind(SyntaxKind.ExtensionBlockDeclaration));
+
                 if (materialize)
                 {
                     var root = tree.GetCompilationUnitRoot();
-                    hasBlocks = root.DescendantNodes()
-                        .Any(n => n.IsKind(SyntaxKind.ExtensionBlockDeclaration));
 
                     if (hasBlocks)
                     {
@@ -241,7 +245,7 @@ public sealed class ExtensionMethodResolvePreprocessor
 
                 sourceBlockSlots[index] = hasBlocks;
                 var binder = new ExtensionCallBinder(
-                    model, _options, suppressClassicBlockGate, ExtensionMethodNames);
+                    model, _options, suppressClassicBlockGate, ExtensionMethodNames, hasBlocks);
                 binder.Analyze();
 
                 blockSlots[index] = blockAnalysis;
@@ -332,16 +336,38 @@ public sealed class ExtensionMethodResolvePreprocessor
     /// </summary>
     private static ExtensionBlockMetadataIndex BuildExtensionBlockMetadataIndex(Compilation compilation)
     {
-        var names = new HashSet<string>(StringComparer.Ordinal);
-        var present = false;
-        var hasOperators = false;
-        foreach (var reference in compilation.References)
+        // Each referenced assembly is independent, so the walk runs in parallel;
+        // the aggregated name set / flags are order-independent.
+        var references = compilation.References as IReadOnlyList<MetadataReference>
+            ?? compilation.References.ToList();
+        var namesSlots = new HashSet<string>[references.Count];
+        var presentSlots = new bool[references.Count];
+        var operatorSlots = new bool[references.Count];
+
+        Parallel.For(0, references.Count, i =>
         {
-            if (compilation.GetAssemblyOrModuleSymbol(reference) is IAssemblySymbol assembly)
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            var present = false;
+            var hasOperators = false;
+            if (compilation.GetAssemblyOrModuleSymbol(references[i]) is IAssemblySymbol assembly)
             {
                 CollectExtensionContainers(
                     assembly.GlobalNamespace, names, ref present, ref hasOperators);
             }
+
+            namesSlots[i] = names;
+            presentSlots[i] = present;
+            operatorSlots[i] = hasOperators;
+        });
+
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        var present = false;
+        var hasOperators = false;
+        for (var i = 0; i < references.Count; i++)
+        {
+            names.UnionWith(namesSlots[i]);
+            present |= presentSlots[i];
+            hasOperators |= operatorSlots[i];
         }
 
         return new ExtensionBlockMetadataIndex
@@ -409,11 +435,19 @@ public sealed class ExtensionMethodResolvePreprocessor
         INamedTypeSymbol type,
         ConcurrentDictionary<string, byte> names)
     {
-        foreach (var member in type.GetMembers())
+        // Cheap metadata-flag gate: extension methods can only be declared in a
+        // static, non-generic, non-nested class, exactly what
+        // MightContainExtensionMethods reports without decoding the type's
+        // members. Skipping GetMembers() for every other type avoids a full
+        // member decode of all 278 referenced assemblies.
+        if (type.MightContainExtensionMethods)
         {
-            if (member is IMethodSymbol method && method.IsExtensionMethod)
+            foreach (var member in type.GetMembers())
             {
-                names.TryAdd(method.Name, 0);
+                if (member is IMethodSymbol method && method.IsExtensionMethod)
+                {
+                    names.TryAdd(method.Name, 0);
+                }
             }
         }
 

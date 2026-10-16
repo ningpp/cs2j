@@ -311,29 +311,53 @@ internal sealed record VoidAnchorExpansion(
 /// <summary>File-wide allocator for synthesized temps/lambda parameters (<c>_cs2j…</c> prefix, ruling ⑤).</summary>
 internal sealed class ExtensionTempAllocator
 {
-    private readonly HashSet<string> _used;
+    private readonly SyntaxNode _root;
+    private HashSet<string>? _used;
     private int _counter;
 
     public ExtensionTempAllocator(SyntaxNode root)
     {
-        _used = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var token in root.DescendantTokens())
+        _root = root;
+    }
+
+    /// <summary>
+    /// Identifiers already present in the file. Built on FIRST allocation only:
+    /// the overwhelming majority of trees never allocate a temp (no liftable
+    /// conditional, no group), and scanning every token of every tree just to
+    /// seed a set that is never consulted is pure overhead. The collected set —
+    /// and therefore every allocated name — is identical to the eager walk.
+    /// </summary>
+    private HashSet<string> Used
+    {
+        get
         {
-            if (token.IsKind(SyntaxKind.IdentifierToken))
+            if (_used is null)
             {
-                _used.Add(token.Text);
+                var used = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var token in _root.DescendantTokens())
+                {
+                    if (token.IsKind(SyntaxKind.IdentifierToken))
+                    {
+                        used.Add(token.Text);
+                    }
+                }
+
+                _used = used;
             }
+
+            return _used;
         }
     }
 
     /// <summary>Allocates a fresh <c>_cs2j_em&lt;kind&gt;&lt;n&gt;</c> name.</summary>
     public string Allocate(string kind)
     {
+        var used = Used;
         while (true)
         {
             _counter++;
             var name = $"_cs2j_em{kind}{_counter}";
-            if (_used.Add(name))
+            if (used.Add(name))
             {
                 return name;
             }

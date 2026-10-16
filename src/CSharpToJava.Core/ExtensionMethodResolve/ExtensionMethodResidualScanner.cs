@@ -143,17 +143,24 @@ public static class ExtensionMethodResidualScanner
         HashSet<string> excluded,
         IReadOnlySet<string>? extensionMethodNames)
     {
-        foreach (var tree in compilation.SyntaxTrees)
+        // Phase 1 — per-tree candidate collection (pure, parallel). Every
+        // semantic query and every exemption-independent filter runs here; the
+        // results are stored per tree in source order.
+        var trees = compilation.SyntaxTrees as IReadOnlyList<SyntaxTree>
+            ?? compilation.SyntaxTrees.ToList();
+        var slots = new TreeCallCandidates?[trees.Count];
+        Parallel.For(0, trees.Count, i =>
         {
+            var tree = trees[i];
             if (IsExcluded(tree.FilePath, excluded))
             {
-                continue;
+                return;
             }
 
             var model = compilation.GetSemanticModel(tree);
             var root = tree.GetCompilationUnitRoot();
-            var filePath = tree.FilePath;
 
+            var invocations = new List<CallCandidate>();
             foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
                 // A reduced extension invocation is always receiver-style
@@ -180,19 +187,19 @@ public static class ExtensionMethodResidualScanner
 
                 // Gate 1: a reduced invocation that survived the rewrite. LINQ
                 // hosts are owned by E16/C26 and stay reduced on purpose; ET
-                // interiors are owned by gate 4.
+                // interiors are owned by gate 4. Both filters are local, so the
+                // surviving candidates are recorded for the serial claim pass.
                 if (info.Symbol is IMethodSymbol { MethodKind: MethodKind.ReducedExtension } reduced
                     && reduced.ReducedFrom is { } unreduced)
                 {
                     var hostName = unreduced.ContainingType.ToDisplayString();
                     if (options.LinqHostSet.Contains(hostName)
-                        || IsInsideExpressionTreeLambda(invocation, model)
-                        || exemptions.ClaimsInvocation(filePath, invocation))
+                        || IsInsideExpressionTreeLambda(invocation, model))
                     {
                         continue;
                     }
 
-                    Add(residuals, RuleRemainingReducedInvocation);
+                    invocations.Add(CallCandidate.Reduced(invocation));
                     continue;
                 }
 
@@ -206,13 +213,14 @@ public static class ExtensionMethodResidualScanner
                     var hostSymbol = model.GetSymbolInfo(memberAccess.Expression).Symbol;
                     if (hostSymbol is null)
                     {
-                        Add(residuals, RuleUnresolvedStaticHost);
+                        invocations.Add(CallCandidate.UnresolvedStaticHost(invocation));
                     }
                 }
             }
 
             // Gate 2: non-call member access still binding as (or offering) a
             // reduced extension method group. CS2J1207-paired exempts only.
+            var groups = new List<MemberAccessExpressionSyntax>();
             foreach (var memberAccess in root.DescendantNodes().OfType<MemberAccessExpressionSyntax>())
             {
                 if (memberAccess.Parent is InvocationExpressionSyntax parentInvocation
@@ -240,15 +248,72 @@ public static class ExtensionMethodResidualScanner
                     continue;
                 }
 
-                if (options.LinqHostSet.Contains(hostName)
-                    || exemptions.ClaimsMethodGroup(filePath, memberAccess))
+                if (options.LinqHostSet.Contains(hostName))
                 {
                     continue;
                 }
 
-                Add(residuals, RuleRemainingReducedMethodGroup);
+                groups.Add(memberAccess);
+            }
+
+            slots[i] = new TreeCallCandidates(tree.FilePath, invocations, groups);
+        });
+
+        // Phase 2 — serial resolution in the ORIGINAL tree/node order, so the
+        // ExemptionIndex is consulted (and its per-file queues dequeued) in
+        // exactly the historical sequence and the residual dictionary is filled
+        // in the historical order.
+        for (var i = 0; i < slots.Length; i++)
+        {
+            if (slots[i] is not { } candidates)
+            {
+                continue;
+            }
+
+            foreach (var candidate in candidates.Invocations)
+            {
+                if (candidate.IsUnresolvedStaticHost)
+                {
+                    Add(residuals, RuleUnresolvedStaticHost);
+                    continue;
+                }
+
+                if (!exemptions.ClaimsInvocation(candidates.FilePath, candidate.Invocation))
+                {
+                    Add(residuals, RuleRemainingReducedInvocation);
+                }
+            }
+
+            foreach (var memberAccess in candidates.Groups)
+            {
+                if (!exemptions.ClaimsMethodGroup(candidates.FilePath, memberAccess))
+                {
+                    Add(residuals, RuleRemainingReducedMethodGroup);
+                }
             }
         }
+    }
+
+    /// <summary>One gate-1/gate-6 invocation candidate collected in phase 1.</summary>
+    private readonly record struct CallCandidate(
+        InvocationExpressionSyntax Invocation,
+        bool IsUnresolvedStaticHost)
+    {
+        public static CallCandidate Reduced(InvocationExpressionSyntax invocation)
+            => new(invocation, IsUnresolvedStaticHost: false);
+
+        public static CallCandidate UnresolvedStaticHost(InvocationExpressionSyntax invocation)
+            => new(invocation, IsUnresolvedStaticHost: true);
+    }
+
+    private sealed class TreeCallCandidates(
+        string filePath,
+        List<CallCandidate> invocations,
+        List<MemberAccessExpressionSyntax> groups)
+    {
+        public string FilePath { get; } = filePath;
+        public List<CallCandidate> Invocations { get; } = invocations;
+        public List<MemberAccessExpressionSyntax> Groups { get; } = groups;
     }
 
     private static void ScanExpressionTreeShapes(
