@@ -8,6 +8,14 @@ namespace CSharpToJava.Core.ReadOnlyStructMaker;
 public sealed class ReadOnlyStructMaker
 {
     /// <summary>
+    /// Formatting only consults the workspace's default formatting options, which never
+    /// change, so a single shared instance is reused instead of paying the
+    /// (MEF-composed) <see cref="AdhocWorkspace"/> construction per rewritten file.
+    /// The formatter never mutates the workspace, and the maker loop is serial.
+    /// </summary>
+    private static readonly AdhocWorkspace FormattingWorkspace = new();
+
+    /// <summary>
     /// Cache of boxing-reachability results keyed by compilation. Project-level
     /// preprocessing calls <see cref="MakeReadOnly"/> once per syntax tree against
     /// the same compilation, so the cross-file analysis runs only once per run.
@@ -277,8 +285,7 @@ public sealed class ReadOnlyStructMaker
         // Format only when changes were made (to fix spacing in generated nodes)
         if (changed)
         {
-            using var workspace = new AdhocWorkspace();
-            newRoot = (CompilationUnitSyntax)Formatter.Format(newRoot, workspace);
+            newRoot = (CompilationUnitSyntax)Formatter.Format(newRoot, FormattingWorkspace);
         }
 
         if (changed)

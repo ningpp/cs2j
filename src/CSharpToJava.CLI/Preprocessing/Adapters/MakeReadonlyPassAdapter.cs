@@ -66,6 +66,10 @@ internal sealed class MakeReadonlyPassAdapter : ProjectPassAdapter
         // never rewrite them. Recording them here lets the per-file maker loop skip
         // the whole-tree struct walk for the vast majority of files.
         var structBearingFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Exact source text of every parsed file. The untouched output files are
+        // verbatim copies of these, so their text (and tree) can seed the cross-file
+        // tree cache without reading the intermediate tree again.
+        var sourceTextOf = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var csFileList = tree.CsFiles.ToList();
         var parsedList = new SyntaxTree[csFileList.Count];
         var codeList = new string[csFileList.Count];
@@ -82,6 +86,7 @@ internal sealed class MakeReadonlyPassAdapter : ProjectPassAdapter
         for (var i = 0; i < csFileList.Count; i++)
         {
             syntaxTrees[csFileList[i]] = parsedList[i];
+            sourceTextOf[csFileList[i]] = codeList[i];
             if (codeList[i].IndexOf("struct", StringComparison.Ordinal) >= 0)
                 structBearingFiles.Add(csFileList[i]);
         }
@@ -94,6 +99,28 @@ internal sealed class MakeReadonlyPassAdapter : ProjectPassAdapter
 
         var maker = new ReadOnlyStructMaker();
         var globalMigratedMethods = new Dictionary<string, string>(); // methodName -> structName
+
+        // Output tree seeds: (output path, exact output text, source tree when the
+        // text is a verbatim copy — null when the text was rewritten). Seeding the
+        // shared output-tree cache lets the cross-file passes reuse the already
+        // parsed tree (unchanged text) or parse the known rewritten text once,
+        // instead of re-reading and re-parsing the whole intermediate tree.
+        var outputSeeds = new List<(string File, string Text, SyntaxTree? CopyOf)>();
+
+        // An untouched output file is a verbatim copy of its source, so its already
+        // parsed source tree is reused when the output path IS the source path (a
+        // unified, in-place chain). Otherwise the tree is re-parsed from the same text
+        // below, exactly as the cross-file passes did before, so a separate-tree chain
+        // remains byte-identical.
+        void SeedUnchanged(string sourceFile, string destinationFile)
+        {
+            if (!syntaxTrees.TryGetValue(sourceFile, out var parsed)) return;
+            if (!sourceTextOf.TryGetValue(sourceFile, out var text)) return;
+            var reuse = string.Equals(parsed.FilePath, destinationFile, StringComparison.OrdinalIgnoreCase)
+                ? parsed
+                : null;
+            outputSeeds.Add((destinationFile, text, reuse));
+        }
 
         foreach (var sourceFile in tree.SourceFiles)
         {
@@ -129,6 +156,7 @@ internal sealed class MakeReadonlyPassAdapter : ProjectPassAdapter
             if (IsGeneratedSupportFile(sourceFile))
             {
                 tree.ResetScratchFile(sourceFile, destinationFile);
+                SeedUnchanged(sourceFile, destinationFile);
                 continue;
             }
 
@@ -138,6 +166,7 @@ internal sealed class MakeReadonlyPassAdapter : ProjectPassAdapter
             if (!structBearingFiles.Contains(sourceFile))
             {
                 tree.ResetScratchFile(sourceFile, destinationFile);
+                SeedUnchanged(sourceFile, destinationFile);
                 continue;
             }
 
@@ -170,12 +199,14 @@ internal sealed class MakeReadonlyPassAdapter : ProjectPassAdapter
             if (!result.Changed)
             {
                 tree.ResetScratchFile(sourceFile, destinationFile);
+                SeedUnchanged(sourceFile, destinationFile);
             }
             else
             {
                 // The maker historically writes UTF-8 without BOM even when the source
                 // carried one; unchanged files are copied verbatim instead.
                 await File.WriteAllTextAsync(destinationFile, result.OutputCode!, new System.Text.UTF8Encoding(false));
+                outputSeeds.Add((destinationFile, result.OutputCode!, null));
             }
         }
 
@@ -205,6 +236,18 @@ internal sealed class MakeReadonlyPassAdapter : ProjectPassAdapter
         // instead of paying a full parse per pass. Cross-pass tree reuse is safe:
         // trees are immutable and each pass builds its own compilation around them.
         var treeCache = new ReadOnlyStructPassEngine.OutputTreeCache();
+
+        // Prime the cache with the trees the per-file loop already produced: the
+        // verbatim copies reuse their source tree, and the rewritten files carry the
+        // exact text that was written (parsed here once, in parallel — the same parse
+        // the cross-file passes used to perform for the whole tree). The cache still
+        // validates every entry against the freshly read file, so a mismatch (e.g. a
+        // file the maker did not author) simply falls back to a normal parse.
+        System.Threading.Tasks.Parallel.ForEach(outputSeeds, seed =>
+        {
+            var seedTree = seed.CopyOf ?? CSharpSyntaxTree.ParseText(seed.Text, path: seed.File);
+            treeCache.Seed(seed.File, seed.Text, seedTree);
+        });
 
         // Second pass: update call sites across all files for migrated methods
         if (globalMigratedMethods.Count > 0 && _makerOptions.UpdateCallSites)

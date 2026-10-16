@@ -38,6 +38,19 @@ internal static class ReadOnlyStructPassEngine
             new(StringComparer.OrdinalIgnoreCase);
         private readonly object _gate = new();
 
+        /// <summary>
+        /// Pre-populates an entry with a tree the caller already has (e.g. the parse
+        /// the per-file maker produced). The entry is validated by the same text
+        /// comparison as <see cref="Get"/>, so a stale seed is simply re-parsed.
+        /// </summary>
+        public void Seed(string file, string code, SyntaxTree tree)
+        {
+            lock (_gate)
+            {
+                _map[file] = (code, tree);
+            }
+        }
+
         public SyntaxTree Get(string file, string code)
         {
             lock (_gate)
@@ -270,19 +283,27 @@ internal static class ReadOnlyStructPassEngine
     public static async Task NormalizeReadOnlyStructConstructors(
         string intermediateRoot, string sourceRoot, List<string> sourceFiles, OutputTreeCache? treeCache = null)
     {
+        var outputFiles = new List<string>();
         foreach (var sourceFile in sourceFiles)
         {
             if (!sourceFile.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)) continue;
             var relativePath = Path.GetRelativePath(sourceRoot, sourceFile);
             var outputFile = Path.Combine(intermediateRoot, relativePath);
-            if (!File.Exists(outputFile)) continue;
+            if (File.Exists(outputFile))
+                outputFiles.Add(outputFile);
+        }
 
-            var code = await File.ReadAllTextAsync(outputFile);
+        // Each file is read, normalized and written independently and writes only its
+        // own path, so the loop runs in parallel with byte-identical output (the tree
+        // cache is thread-safe and per-file).
+        System.Threading.Tasks.Parallel.ForEach(outputFiles, outputFile =>
+        {
+            var code = File.ReadAllText(outputFile);
 
             // Fast pre-check: constructor normalization only touches readonly structs,
             // so a file whose text contains no `struct` keyword cannot be affected —
             // skip the parse entirely for the (vast majority) struct-free files.
-            if (code.IndexOf("struct", StringComparison.Ordinal) < 0) continue;
+            if (code.IndexOf("struct", StringComparison.Ordinal) < 0) return;
 
             var tree = treeCache == null
                 ? CSharpSyntaxTree.ParseText(code, path: outputFile)
@@ -292,14 +313,15 @@ internal static class ReadOnlyStructPassEngine
             // Fast pre-check: skip files without readonly structs.
             if (!root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>()
                 .Any(s => s.Modifiers.Any(m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.ReadOnlyKeyword))))
-                continue;
+                return;
 
             var newRoot = ConstructorNormalizer.Normalize(root);
             if (newRoot.ToFullString() != root.ToFullString())
             {
-                await File.WriteAllTextAsync(outputFile, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
+                File.WriteAllText(outputFile, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
             }
-        }
+        });
+        await Task.CompletedTask;
     }
 
     /// <summary>
@@ -344,12 +366,24 @@ internal static class ReadOnlyStructPassEngine
             set.Add(AssignmentRewriter.GetQualifiedStructName(structDecl));
         }
 
+        // Detect L3-converted structs (DataContainer) BEFORE the WithXxx scan: a
+        // hand-written functional method (e.g. `WithRetries`) on a struct that is
+        // otherwise a full data container must not claim only that one property's
+        // writes — the constructor reconstruction covers ALL properties uniformly.
+        //
+        // The L4 field/getter discovery and the L3 eligibility scan are independent
+        // per-struct predicates, so they share a single walk over the struct-bearing
+        // output trees (identical results to the former two passes).
+        var l3Eligible = new HashSet<string>(StringComparer.Ordinal);
         foreach (var (file, tree) in outputTrees)
         {
             if (!structTextFiles.Contains(file)) continue;
             var root = tree.GetRoot();
             foreach (var structDecl in root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
             {
+                if (TryGetL3DataContainerInfo(structDecl, out _, out _))
+                    l3Eligible.Add(structDecl.Identifier.Text);
+
                 var structName = structDecl.Identifier.Text;
                 var privateFields = structDecl.Members
                     .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.FieldDeclarationSyntax>()
@@ -372,22 +406,6 @@ internal static class ReadOnlyStructPassEngine
                     publicFieldStructs[structName] = convertedFields;
                     RegisterQualified(structName, structDecl);
                 }
-            }
-        }
-
-        // Detect L3-converted structs (DataContainer) BEFORE the WithXxx scan: a
-        // hand-written functional method (e.g. `WithRetries`) on a struct that is
-        // otherwise a full data container must not claim only that one property's
-        // writes — the constructor reconstruction covers ALL properties uniformly.
-        var l3Eligible = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var (file, tree) in outputTrees)
-        {
-            if (!structTextFiles.Contains(file)) continue;
-            foreach (var structDecl in tree.GetRoot()
-                         .DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
-            {
-                if (TryGetL3DataContainerInfo(structDecl, out _, out _))
-                    l3Eligible.Add(structDecl.Identifier.Text);
             }
         }
 
@@ -480,7 +498,6 @@ internal static class ReadOnlyStructPassEngine
                 RegisterQualified(structName, structDecl);
             }
         }
-
         if (publicFieldStructs.Count == 0) return Task.CompletedTask;
 
         // Create compilation for semantic analysis
@@ -589,10 +606,13 @@ internal static class ReadOnlyStructPassEngine
         // neither `ref ` nor `out ` can never be modified — record the candidates so
         // the semantic model and whole-tree visit are skipped for the rest.
         var refOutCandidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var structTextFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var outputTrees = ReadOutputTreesParallel(outputCsFiles, treeCache, out var hoistCodes);
         for (var i = 0; i < outputCsFiles.Count; i++)
         {
             var code = hoistCodes[i];
+            if (code.IndexOf("struct", StringComparison.Ordinal) >= 0)
+                structTextFiles.Add(outputCsFiles[i]);
             if (code.IndexOf("ref ", StringComparison.Ordinal) >= 0 ||
                 code.IndexOf("out ", StringComparison.Ordinal) >= 0)
                 refOutCandidates.Add(outputCsFiles[i]);
@@ -601,9 +621,12 @@ internal static class ReadOnlyStructPassEngine
         // Collect instance field names of readonly structs (all of them are readonly fields),
         // plus get-only properties (fields converted by L3/L4/L5 — same storage, and
         // ref/out uses of them must be hoisted into temps + WithXxx write-backs too).
+        // A file whose text contains no `struct` keyword declares no struct, so its
+        // whole-tree walk is skipped (it can contribute no readonly struct fields).
         var readonlyStructFields = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
-        foreach (var (_, tree) in outputTrees)
+        foreach (var (file, tree) in outputTrees)
         {
+            if (!structTextFiles.Contains(file)) continue;
             var root = tree.GetRoot();
             foreach (var structDecl in root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>())
             {
@@ -1267,25 +1290,33 @@ internal static class ReadOnlyStructPassEngine
             @"(?<=^|\n)(?<indent>[ \t]*)(?<mods>(?:(?:public|internal|private|protected|file|unsafe|partial|ref)\s+)*)(?<kw>struct)(?<name>\s+\w+)",
             System.Text.RegularExpressions.RegexOptions.Multiline);
 
+        var outputFiles = new List<string>();
         foreach (var sourceFile in sourceFiles)
         {
             if (!sourceFile.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)) continue;
             var relativePath = Path.GetRelativePath(sourceRoot, sourceFile);
             var outputFile = Path.Combine(intermediateRoot, relativePath);
-            if (!File.Exists(outputFile)) continue;
+            if (File.Exists(outputFile))
+                outputFiles.Add(outputFile);
+        }
 
-            var code = await File.ReadAllTextAsync(outputFile);
+        // Textual rewriting: every file is read/replaced/written independently and the
+        // regex is thread-safe for matching, so the loop runs in parallel with
+        // byte-identical output.
+        System.Threading.Tasks.Parallel.ForEach(outputFiles, outputFile =>
+        {
+            var code = File.ReadAllText(outputFile);
 
             // Fast pre-check: the pass only adds `readonly` to struct declarations
             // (including ones inside inactive #if regions). A file whose text contains
             // no `struct` keyword has no such declaration — skip the parse entirely.
-            if (code.IndexOf("struct", StringComparison.Ordinal) < 0) continue;
+            if (code.IndexOf("struct", StringComparison.Ordinal) < 0) return;
 
             // An inactive (#if-false) region can only exist when the file carries a
             // conditional directive, so struct-declaration files without one have
             // nothing the pass can change — the whole-tree walk and regex scan are
             // skipped entirely.
-            if (!ContainsConditionalDirective(code)) continue;
+            if (!ContainsConditionalDirective(code)) return;
 
             var tree = treeCache == null
                 ? CSharpSyntaxTree.ParseText(code, path: outputFile)
@@ -1317,9 +1348,10 @@ internal static class ReadOnlyStructPassEngine
 
             if (changed)
             {
-                await File.WriteAllTextAsync(outputFile, newCode, new System.Text.UTF8Encoding(false));
+                File.WriteAllText(outputFile, newCode, new System.Text.UTF8Encoding(false));
             }
-        }
+        });
+        await Task.CompletedTask;
     }
 
     /// <summary>
@@ -1706,7 +1738,17 @@ internal static class ReadOnlyStructPassEngine
                 outputCsFiles.Add(outputFile);
         }
 
-        var outputTrees = ReadOutputTreesParallel(outputCsFiles, treeCache, out _);
+        var outputTrees = ReadOutputTreesParallel(outputCsFiles, treeCache, out var ifaceCodes);
+
+        // Files whose text contains no `struct` keyword declare no struct, so the
+        // readonly-struct discovery below (and the whole-tree walk it needs) only has
+        // to run for the struct-bearing files.
+        var structTextFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < outputCsFiles.Count; i++)
+        {
+            if (ifaceCodes[i].IndexOf("struct", StringComparison.Ordinal) >= 0)
+                structTextFiles.Add(outputCsFiles[i]);
+        }
 
         var references = BasicReferences();
         var outputCompilation = CSharpCompilation.Create(
@@ -1761,6 +1803,7 @@ internal static class ReadOnlyStructPassEngine
         {
             // Files without a readonly struct declaration cannot contribute; decide
             // syntactically first so the semantic model is only created for candidates.
+            if (!structTextFiles.Contains(file)) continue;
             var structDecls = tree.GetRoot().DescendantNodes()
                 .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax>()
                 .Where(s => s.Modifiers.Any(m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.ReadOnlyKeyword)))
