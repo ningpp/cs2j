@@ -26,6 +26,11 @@ internal sealed class GenericDeepenPassAdapter : ProjectPassAdapter
     private readonly List<GenericDeepenDiagnostic> _diagnostics = new();
     private readonly GenericDeepenStatistics _statistics = new();
 
+    /// <summary>Normalized intermediate paths of the files this run actually rewrote. Used
+    /// by the residual gate's necessary-condition gate (a rewritten file always runs the
+    /// full per-tree rules even if it declares no type parameter).</summary>
+    private readonly HashSet<string> _rewrittenPaths = new(StringComparer.OrdinalIgnoreCase);
+
     public GenericDeepenPassAdapter(
         GenericDeepenOptions options,
         bool verbose,
@@ -73,6 +78,11 @@ internal sealed class GenericDeepenPassAdapter : ProjectPassAdapter
             _diagnostics.Add(diagnostic with { FilePath = context.RelativePath });
         }
 
+        if (result.Changed)
+        {
+            _rewrittenPaths.Add(Path.GetFullPath(context.DestinationFilePath));
+        }
+
         if (_verbose)
         {
             Console.WriteLine($"[generic-deepen] {(result.Changed ? "transformed" : "clean (copy)")}: {context.RelativePath}");
@@ -100,6 +110,11 @@ internal sealed class GenericDeepenPassAdapter : ProjectPassAdapter
 
         var parseOptions = CreateParseOptions(tree);
         var trees = new List<SyntaxTree>();
+
+        // Parse the rewritten tree back in, in enumeration order. Parsing is pure, so it
+        // runs in parallel and the trees are appended in the original order afterwards —
+        // the gate's finding order (and therefore its diagnostics) is unchanged.
+        var files = new List<string>();
         foreach (var file in Directory.EnumerateFiles(tree.IntermediateRoot, "*.cs", SearchOption.AllDirectories))
         {
             var normalized = file.Replace('\\', '/');
@@ -109,8 +124,15 @@ internal sealed class GenericDeepenPassAdapter : ProjectPassAdapter
                 continue;
             }
 
-            trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(file), parseOptions, path: file));
+            files.Add(file);
         }
+
+        var parsed = new SyntaxTree[files.Count];
+        System.Threading.Tasks.Parallel.For(0, files.Count, i =>
+        {
+            parsed[i] = CSharpSyntaxTree.ParseText(File.ReadAllText(files[i]), parseOptions, path: files[i]);
+        });
+        trees.AddRange(parsed);
 
         if (trees.Count == 0)
         {
@@ -120,7 +142,19 @@ internal sealed class GenericDeepenPassAdapter : ProjectPassAdapter
         var compilation = CSharpCompilation.Create(
             CompilationName ?? "cs2j-generic-deepen-residual",
             trees, GetMetadataReferences(), CreateCompilationOptions());
-        var report = _preprocessor.ResidualScan(compilation);
+
+        // The analysis reports active trees by their source-tree path; the rewritten
+        // trees carry the intermediate path. Translate by relative path so the gate's
+        // necessary-condition gate lines up (identity when source == intermediate).
+        var activeTreePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var sourcePath in _preprocessor.Analysis.ActiveFilePaths)
+        {
+            var relative = Path.GetRelativePath(tree.SourceRoot, sourcePath);
+            activeTreePaths.Add(Path.GetFullPath(Path.Combine(tree.IntermediateRoot, relative)));
+        }
+
+        activeTreePaths.UnionWith(_rewrittenPaths);
+        var report = _preprocessor.ResidualScan(compilation, activeTreePaths);
         foreach (var (rule, count) in report.Counts)
         {
             _statistics.ResidualsByRule.TryGetValue(rule, out var existing);

@@ -145,7 +145,7 @@ public sealed class GenericDeepenPreprocessor
     /// a malformed/unreadable file degrades to a CS2J1120 Warning and runs the gate
     /// without overrides (same convention as the closed-metadata gate).
     /// </summary>
-    public GenericDeepenResidualReport ResidualScan(Compilation rewritten)
+    public GenericDeepenResidualReport ResidualScan(Compilation rewritten, IReadOnlySet<string>? activeTreePaths = null)
     {
         if (!_options.RunResidualScan)
         {
@@ -170,7 +170,7 @@ public sealed class GenericDeepenPreprocessor
             }
         }
 
-        var report = GenericDeepenResidualScanner.Scan(rewritten, _analysis, _options, overrides);
+        var report = GenericDeepenResidualScanner.Scan(rewritten, _analysis, _options, overrides, activeTreePaths);
         if (loadDiagnostics.Count == 0)
         {
             return report;

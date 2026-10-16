@@ -23,7 +23,8 @@ public static class GenericDeepenResidualScanner
         Compilation rewritten,
         GenericDeepenAnalysis analysis,
         GenericDeepenOptions options,
-        GenericDeepenOverrides? overrides = null)
+        GenericDeepenOverrides? overrides = null,
+        IReadOnlySet<string>? activeTreePaths = null)
     {
         var findings = new List<Finding>();
         var plannedFieldNames = analysis.StaticFields
@@ -32,7 +33,6 @@ public static class GenericDeepenResidualScanner
 
         foreach (var tree in rewritten.SyntaxTrees)
         {
-            var model = rewritten.GetSemanticModel(tree);
             var root = tree.GetRoot();
             var isHolderFile = tree.FilePath.Replace('\\', '/')
                 .Contains(GenericDeepenSyntaxFacts.GeneratedFileStem, StringComparison.OrdinalIgnoreCase);
@@ -43,14 +43,33 @@ public static class GenericDeepenResidualScanner
                 continue;
             }
 
-            ScanStructuralRules(model, root, findings);
-            ScanMethodAnchorRules(model, root, findings);
-            ScanExpressionTreeRewrites(model, root, findings);
-            ScanBareFieldReferences(model, root, plannedFieldNames, findings);
+            // Rule 1/2 and rule 3 (token-site/pattern/catch shapes) can only occur in a
+            // tree that declares a type parameter (a type-parameter reference always has
+            // its declaration in the same file); inactive trees contribute nothing, so
+            // skip their whole-tree semantic scan and model binding.
+            if (activeTreePaths == null || activeTreePaths.Contains(NormalizePath(tree.FilePath)))
+            {
+                var model = rewritten.GetSemanticModel(tree);
+                ScanStructuralRules(model, root, findings);
+                ScanMethodAnchorRules(model, root, findings);
+            }
+
+            // These two rules can fire in any tree (anchor statements / lowered
+            // IsInstanceOfType calls / bare references to a removed holder field), so
+            // they still run everywhere — but they bind the model only on demand.
+            ScanExpressionTreeRewrites(rewritten, tree, root, findings);
+            ScanBareFieldReferences(rewritten, tree, root, plannedFieldNames, findings);
         }
 
-        ScanForwardNeedChain(rewritten, findings);
-        ScanFamilyConsistency(rewritten, findings);
+        ScanForwardNeedChain(rewritten, findings, activeTreePaths);
+
+        // The rule only compares members of an override/interface family, so it needs
+        // a family with two or more generic members to be able to fire at all.
+        if (analysis.HasMultiMemberGenericFamily)
+        {
+            ScanFamilyConsistency(rewritten, findings, activeTreePaths);
+        }
+
         return BuildReport(findings, options, overrides);
     }
 
@@ -213,7 +232,8 @@ public static class GenericDeepenResidualScanner
         public readonly List<(int CallerOrdinal, IMethodSymbol Callee, int CalleeOrdinal)> Edges = new();
     }
 
-    private static void ScanForwardNeedChain(Compilation compilation, List<Finding> findings)
+    private static void ScanForwardNeedChain(
+        Compilation compilation, List<Finding> findings, IReadOnlySet<string>? activeTreePaths)
     {
         var treeSet = new HashSet<SyntaxTree>(compilation.SyntaxTrees);
         var groups = new Dictionary<IMethodSymbol, ForwardGroup>(SymbolEqualityComparer.Default);
@@ -222,6 +242,13 @@ public static class GenericDeepenResidualScanner
         {
             if (tree.FilePath.Replace('\\', '/')
                 .Contains(GenericDeepenSyntaxFacts.GeneratedFileStem, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // A forwarded type-parameter chain exists only where type parameters are
+            // declared; inactive trees carry no needs, edges or anchors.
+            if (activeTreePaths != null && !activeTreePaths.Contains(NormalizePath(tree.FilePath)))
             {
                 continue;
             }
@@ -445,16 +472,20 @@ public static class GenericDeepenResidualScanner
 
     // ---- rule 5: structural self-check inside quoted expression trees ----
 
-    private static void ScanExpressionTreeRewrites(SemanticModel model, SyntaxNode root, List<Finding> findings)
+    private static void ScanExpressionTreeRewrites(
+        Compilation compilation, SyntaxTree tree, SyntaxNode root, List<Finding> findings)
     {
+        SemanticModel? model = null;
+        SemanticModel Model() => model ??= compilation.GetSemanticModel(tree);
+
         foreach (var local in root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>())
         {
             var hasAnchor = local.Declaration.Variables.Any(v =>
                 v.Identifier.ValueText.StartsWith(GenericDeepenSyntaxFacts.AnchorPrefix, StringComparison.Ordinal)
                 || v.Identifier.ValueText.StartsWith(GenericDeepenSyntaxFacts.E10SentinelPrefix, StringComparison.Ordinal));
-            if (hasAnchor && CSharpToJava.Core.Analysis.ExpressionTreeFacts.IsInsideQuotedExpressionLambda(model, local))
+            if (hasAnchor && CSharpToJava.Core.Analysis.ExpressionTreeFacts.IsInsideQuotedExpressionLambda(Model(), local))
             {
-                var method = EnclosingMethodSymbol(local, model);
+                var method = EnclosingMethodSymbol(local, Model());
                 findings.Add(new Finding(
                     "exprtree-illegal-rewrite", local, method, method?.ContainingType,
                     "token anchor statement was inserted inside a quoted expression-tree lambda"));
@@ -469,9 +500,9 @@ public static class GenericDeepenResidualScanner
                     Name.Identifier.ValueText: "IsInstanceOfType",
                     Expression: TypeOfExpressionSyntax,
                 }
-                && CSharpToJava.Core.Analysis.ExpressionTreeFacts.IsInsideQuotedExpressionLambda(model, invocation))
+                && CSharpToJava.Core.Analysis.ExpressionTreeFacts.IsInsideQuotedExpressionLambda(Model(), invocation))
             {
-                var method = EnclosingMethodSymbol(invocation, model);
+                var method = EnclosingMethodSymbol(invocation, Model());
                 findings.Add(new Finding(
                     "exprtree-illegal-rewrite", invocation, method, method?.ContainingType,
                     "lowered IsInstanceOfType pattern call was inserted inside a quoted expression-tree lambda"));
@@ -482,16 +513,19 @@ public static class GenericDeepenResidualScanner
     // ---- rule 6: bare reads/writes of a field the holder rewrite removed ----
 
     private static void ScanBareFieldReferences(
-        SemanticModel model,
+        Compilation compilation,
+        SyntaxTree tree,
         SyntaxNode root,
         HashSet<string> plannedFieldNames,
         List<Finding> findings)
     {
         if (plannedFieldNames.Count == 0)
         {
+            // No field was removed by the holder rewrite, so no bare reference can be residual.
             return;
         }
 
+        SemanticModel? model = null;
         foreach (var identifier in root.DescendantNodes().OfType<IdentifierNameSyntax>())
         {
             if (!plannedFieldNames.Contains(identifier.Identifier.ValueText))
@@ -499,6 +533,7 @@ public static class GenericDeepenResidualScanner
                 continue;
             }
 
+            model ??= compilation.GetSemanticModel(tree);
             var info = model.GetSymbolInfo(identifier);
             if (info.Symbol != null || info.CandidateSymbols.Length > 0)
             {
@@ -515,7 +550,8 @@ public static class GenericDeepenResidualScanner
 
     // ---- rule 3b: override/interface families must anchor the same method type parameters ----
 
-    private static void ScanFamilyConsistency(Compilation rewritten, List<Finding> findings)
+    private static void ScanFamilyConsistency(
+        Compilation rewritten, List<Finding> findings, IReadOnlySet<string>? activeTreePaths)
     {
         var families = BuildFamilies(rewritten);
         foreach (var members in families.Values)
@@ -534,7 +570,11 @@ public static class GenericDeepenResidualScanner
                 }
 
                 var ordinals = new HashSet<int>();
-                var anchored = CollectAnchoredParameterNames(declaration.Body);
+                // An anchor statement can only name a type parameter declared in the same
+                // file, so a body outside an active tree cannot carry one; skip its walk.
+                var anchored = activeTreePaths == null || activeTreePaths.Contains(NormalizePath(declaration.SyntaxTree.FilePath))
+                    ? CollectAnchoredParameterNames(declaration.Body)
+                    : new HashSet<string>(StringComparer.Ordinal);
                 foreach (var parameter in member.TypeParameters)
                 {
                     if (anchored.Contains(parameter.Name))
@@ -596,7 +636,11 @@ public static class GenericDeepenResidualScanner
         {
             foreach (var member in type.GetMembers().OfType<IMethodSymbol>())
             {
-                if (member is { MethodKind: MethodKind.Ordinary, IsOverride: true, OverriddenMethod: not null })
+                // The mismatch rule compares anchor sets of *method* type parameters, so a
+                // non-generic (non-generic override) family can never disagree — overrides
+                // and interface implementations always match the root's type-parameter arity,
+                // so a family is uniformly generic or uniformly non-generic.
+                if (member is { MethodKind: MethodKind.Ordinary, IsOverride: true, OverriddenMethod: not null, IsGenericMethod: true })
                 {
                     var root = member;
                     while (root.OverriddenMethod != null)
@@ -611,6 +655,11 @@ public static class GenericDeepenResidualScanner
 
             foreach (var interfaceMethod in type.AllInterfaces.SelectMany(i => i.GetMembers().OfType<IMethodSymbol>()))
             {
+                if (!interfaceMethod.IsGenericMethod)
+                {
+                    continue;
+                }
+
                 if (type.FindImplementationForInterfaceMember(interfaceMethod) is IMethodSymbol implementation)
                 {
                     Add(interfaceMethod.OriginalDefinition, interfaceMethod.OriginalDefinition);
@@ -703,6 +752,8 @@ public static class GenericDeepenResidualScanner
 
         return new GenericDeepenResidualReport(counts, diagnostics);
     }
+
+    private static string NormalizePath(string path) => GenericDeepenAnalyzer.NormalizePath(path);
 
     private static IMethodSymbol? EnclosingMethodSymbol(SyntaxNode node, SemanticModel model)
     {

@@ -75,6 +75,23 @@ public sealed class GenericDeepenAnalysis
     public required IReadOnlyList<GenericDeepenDiagnostic> Diagnostics { get; init; }
     public required GenericDeepenStatistics Statistics { get; init; }
 
+    /// <summary>
+    /// Normalized paths of the input trees that declare at least one type parameter.
+    /// Every generic-deepen plan and diagnostic (and every residual shape) requires a
+    /// type-parameter declaration, and a type-parameter reference always has its
+    /// declaration in the same file, so trees outside this set can never produce output.
+    /// Consumers use it as a necessary-condition gate.
+    /// </summary>
+    public required IReadOnlySet<string> ActiveFilePaths { get; init; }
+
+    /// <summary>
+    /// True when at least one override/interface family has two or more generic members.
+    /// The residual rule "family-anchor-mismatch" compares method-type-parameter anchor
+    /// sets across the members of such a family, so when no such family exists the gate
+    /// cannot find anything and skips its (expensive) family reconstruction entirely.
+    /// </summary>
+    public required bool HasMultiMemberGenericFamily { get; init; }
+
     public static GenericDeepenAnalysis Empty { get; } = new()
     {
         Anchors = Array.Empty<TokenAnchorPlan>(),
@@ -85,6 +102,8 @@ public sealed class GenericDeepenAnalysis
         StaticMethods = Array.Empty<StaticMethodPlan>(),
         Diagnostics = Array.Empty<GenericDeepenDiagnostic>(),
         Statistics = new GenericDeepenStatistics(),
+        ActiveFilePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+        HasMultiMemberGenericFamily = true,
     };
 }
 
@@ -209,19 +228,39 @@ public sealed class GenericDeepenAnalyzer
 
     public GenericDeepenAnalysis Analyze()
     {
+        // The active-tree set is a pure necessary-condition gate shared by the analysis
+        // and the post-rewrite residual scan, so it is computed even when every rewrite
+        // rule is disabled (the gate still audits the untouched tree for residual shapes).
+        ComputeActiveTrees();
+
         if (!_options.RewriteTypeOfAnchors && !_options.RewriteIsAsPatterns && !_options.RewriteCatchTypeParam
             && !_options.RewriteStaticFieldHolders && !_options.RewriteStaticMembers)
         {
-            return GenericDeepenAnalysis.Empty;
+            return new GenericDeepenAnalysis
+            {
+                Anchors = Array.Empty<TokenAnchorPlan>(),
+                ClosureAnchors = Array.Empty<ClosureAnchorPlan>(),
+                Patterns = Array.Empty<TypeParamPatternPlan>(),
+                Catches = Array.Empty<CatchTypeParamPlan>(),
+                StaticFields = Array.Empty<StaticFieldPlan>(),
+                StaticMethods = Array.Empty<StaticMethodPlan>(),
+                Diagnostics = Array.Empty<GenericDeepenDiagnostic>(),
+                Statistics = new GenericDeepenStatistics(),
+                ActiveFilePaths = _activeFilePaths,
+                HasMultiMemberGenericFamily = true,
+            };
         }
 
         foreach (var tree in _compilation.SyntaxTrees)
         {
+            if (!_activeTrees.Contains(tree)) continue;
             WalkTree(tree);
         }
 
         BuildFamilies();
         PropagateNeeds();
+        _hasMultiMemberGenericFamily = !_options.PropagateNestedTokens
+            || _families.Values.Any(members => members.Count(m => m.IsGenericMethod) >= 2);
         CollectStaticFieldPlans();
         CollectStaticMethodPlans();
 
@@ -290,7 +329,44 @@ public sealed class GenericDeepenAnalyzer
             StaticMethods = _staticMethods,
             Diagnostics = EscalateDiagnostics(_diagnostics, _options),
             Statistics = _analysisStats,
+            ActiveFilePaths = _activeFilePaths,
+            HasMultiMemberGenericFamily = _hasMultiMemberGenericFamily,
         };
+    }
+
+    private bool _hasMultiMemberGenericFamily;
+
+    private readonly HashSet<SyntaxTree> _activeTrees = new();
+    private readonly HashSet<string> _activeFilePaths = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// One cheap syntax walk (no semantic binding) marking the trees that declare at
+    /// least one type parameter. Every plan/diagnostic/residual shape this pass can
+    /// produce requires a type-parameter declaration in the same file, so the rest of
+    /// the analysis (and the post-rewrite gate) can skip the other trees entirely.
+    /// </summary>
+    private void ComputeActiveTrees()
+    {
+        foreach (var tree in _compilation.SyntaxTrees)
+        {
+            if (tree.GetRoot().DescendantNodes().OfType<TypeParameterListSyntax>().Any())
+            {
+                _activeTrees.Add(tree);
+                _activeFilePaths.Add(NormalizePath(tree.FilePath));
+            }
+        }
+    }
+
+    internal static string NormalizePath(string path)
+    {
+        try
+        {
+            return Path.GetFullPath(path);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException or System.Security.SecurityException)
+        {
+            return path;
+        }
     }
 
     /// <summary>
@@ -445,7 +521,12 @@ public sealed class GenericDeepenAnalyzer
             List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> Visible, List<GenericDeepenParamRef> Referenced)>();
         foreach (var tree in _compilation.SyntaxTrees)
         {
-            var model = _compilation.GetSemanticModel(tree);
+            // A static-field plan needs the field's type to reference an enclosing type
+            // parameter, which requires a type-parameter declaration in this file. Trees
+            // without one still have their (syntax-only) skip diagnostics emitted below,
+            // but no model is bound and no candidate is produced for them.
+            var isActive = _activeTrees.Contains(tree);
+            SemanticModel? model = null;
             foreach (var field in tree.GetRoot().DescendantNodes().OfType<FieldDeclarationSyntax>())
             {
                 if (!field.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))) continue;
@@ -473,6 +554,9 @@ public sealed class GenericDeepenAnalyzer
                     continue;
                 }
 
+                if (!isActive) continue;
+
+                model ??= _compilation.GetSemanticModel(tree);
                 if (model.GetDeclaredSymbol(declarator) is not IFieldSymbol fieldSymbol) continue;
                 var visible = CollectVisibleClassParams(fieldSymbol);
                 if (visible.Count == 0) continue;
@@ -503,6 +587,13 @@ public sealed class GenericDeepenAnalyzer
         foreach (var candidate in candidates)
         {
             _fieldCandidateNames.Add(candidate.Field.Name);
+        }
+
+        if (candidates.Count == 0)
+        {
+            // No candidate field ⇒ _staticFields stays empty (plans come only from
+            // candidates) and the usage index is never queried; skip building it.
+            return;
         }
 
         EnsureSymbolIndex();
@@ -824,7 +915,9 @@ public sealed class GenericDeepenAnalyzer
             return;
         }
 
-        EnsureSymbolIndex();
+        // EnsureSymbolIndex is built lazily by the first query site
+        // (HasMethodGroupReference / CollectStaticMethodCallSites); surfaces with no
+        // static-method candidate never pay for it.
 
         ReportStaticPropertyGaps();
 
@@ -984,6 +1077,10 @@ public sealed class GenericDeepenAnalyzer
     {
         foreach (var tree in _compilation.SyntaxTrees)
         {
+            // The reported shape needs an enclosing type parameter, so it can only
+            // occur in a tree that declares one.
+            if (!_activeTrees.Contains(tree)) continue;
+
             var model = _compilation.GetSemanticModel(tree);
             foreach (var property in tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>())
             {
@@ -1008,6 +1105,7 @@ public sealed class GenericDeepenAnalyzer
     /// <summary>Any reference to the method outside an invocation operand (delegate/method-group conversion).</summary>
     private bool HasMethodGroupReference(IMethodSymbol method)
     {
+        EnsureSymbolIndex();
         if (!_identifiersBySymbol.TryGetValue(method, out var references))
         {
             return false;
@@ -1094,6 +1192,7 @@ public sealed class GenericDeepenAnalyzer
         IMethodSymbol method, MethodDeclarationSyntax declaration, SortedSet<GenericDeepenParamRef> referenced)
     {
         var sites = new List<StaticMethodCallSitePlan>();
+        EnsureSymbolIndex();
         if (!_invocationsByMethod.TryGetValue(method, out var matchingInvocations))
         {
             return sites;
