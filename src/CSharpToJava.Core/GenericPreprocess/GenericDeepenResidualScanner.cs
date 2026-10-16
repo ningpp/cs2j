@@ -31,34 +31,22 @@ public static class GenericDeepenResidualScanner
             .Select(plan => plan.FieldName)
             .ToHashSet(StringComparer.Ordinal);
 
-        foreach (var tree in rewritten.SyntaxTrees)
+        // The per-tree rules are independent (each touches only its own tree's model),
+        // so they run in parallel; the per-tree finding lists are merged in SyntaxTrees
+        // order afterwards, which keeps the finding — and therefore the diagnostic —
+        // order identical to the serial scan.
+        var trees = rewritten.SyntaxTrees.ToList();
+        var perTreeFindings = new List<Finding>[trees.Count];
+        System.Threading.Tasks.Parallel.For(0, trees.Count, i =>
         {
-            var root = tree.GetRoot();
-            var isHolderFile = tree.FilePath.Replace('\\', '/')
-                .Contains(GenericDeepenSyntaxFacts.GeneratedFileStem, StringComparison.OrdinalIgnoreCase);
-            if (isHolderFile)
-            {
-                // Our own generated holder classes: token parameters serve the tokens
-                // and the gate only judges user code shapes.
-                continue;
-            }
+            var local = new List<Finding>();
+            ScanTreeRules(rewritten, trees[i], plannedFieldNames, activeTreePaths, local);
+            perTreeFindings[i] = local;
+        });
 
-            // Rule 1/2 and rule 3 (token-site/pattern/catch shapes) can only occur in a
-            // tree that declares a type parameter (a type-parameter reference always has
-            // its declaration in the same file); inactive trees contribute nothing, so
-            // skip their whole-tree semantic scan and model binding.
-            if (activeTreePaths == null || activeTreePaths.Contains(NormalizePath(tree.FilePath)))
-            {
-                var model = rewritten.GetSemanticModel(tree);
-                ScanStructuralRules(model, root, findings);
-                ScanMethodAnchorRules(model, root, findings);
-            }
-
-            // These two rules can fire in any tree (anchor statements / lowered
-            // IsInstanceOfType calls / bare references to a removed holder field), so
-            // they still run everywhere — but they bind the model only on demand.
-            ScanExpressionTreeRewrites(rewritten, tree, root, findings);
-            ScanBareFieldReferences(rewritten, tree, root, plannedFieldNames, findings);
+        foreach (var local in perTreeFindings)
+        {
+            findings.AddRange(local);
         }
 
         ScanForwardNeedChain(rewritten, findings, activeTreePaths);
@@ -71,6 +59,42 @@ public static class GenericDeepenResidualScanner
         }
 
         return BuildReport(findings, options, overrides);
+    }
+
+    /// <summary>The four per-tree rules, in their original order, into <paramref name="findings"/>.</summary>
+    private static void ScanTreeRules(
+        Compilation rewritten,
+        SyntaxTree tree,
+        HashSet<string> plannedFieldNames,
+        IReadOnlySet<string>? activeTreePaths,
+        List<Finding> findings)
+    {
+        var root = tree.GetRoot();
+        var isHolderFile = tree.FilePath.Replace('\\', '/')
+            .Contains(GenericDeepenSyntaxFacts.GeneratedFileStem, StringComparison.OrdinalIgnoreCase);
+        if (isHolderFile)
+        {
+            // Our own generated holder classes: token parameters serve the tokens
+            // and the gate only judges user code shapes.
+            return;
+        }
+
+        // Rule 1/2 and rule 3 (token-site/pattern/catch shapes) can only occur in a
+        // tree that declares a type parameter (a type-parameter reference always has
+        // its declaration in the same file); inactive trees contribute nothing, so
+        // skip their whole-tree semantic scan and model binding.
+        if (activeTreePaths == null || activeTreePaths.Contains(NormalizePath(tree.FilePath)))
+        {
+            var model = rewritten.GetSemanticModel(tree);
+            ScanStructuralRules(model, root, findings);
+            ScanMethodAnchorRules(model, root, findings);
+        }
+
+        // These two rules can fire in any tree (anchor statements / lowered
+        // IsInstanceOfType calls / bare references to a removed holder field), so
+        // they still run everywhere — but they bind the model only on demand.
+        ScanExpressionTreeRewrites(rewritten, tree, root, findings);
+        ScanBareFieldReferences(rewritten, tree, root, plannedFieldNames, findings);
     }
 
     private sealed record Finding(

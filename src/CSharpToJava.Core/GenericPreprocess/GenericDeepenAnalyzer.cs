@@ -349,6 +349,13 @@ public sealed class GenericDeepenAnalyzer
     {
         foreach (var tree in _compilation.SyntaxTrees)
         {
+            // A type-parameter list always spells '<'; files without one cannot declare
+            // a type parameter, so the (pure syntax) tree walk is skipped for them.
+            if (!tree.GetText().ToString().Contains('<'))
+            {
+                continue;
+            }
+
             if (tree.GetRoot().DescendantNodes().OfType<TypeParameterListSyntax>().Any())
             {
                 _activeTrees.Add(tree);
@@ -399,110 +406,201 @@ public sealed class GenericDeepenAnalyzer
         return escalated;
     }
 
-    // ---- shared symbol index (GD-FIELD / GD-STATIC analysis) ----
-
-    private readonly Dictionary<IMethodSymbol, List<InvocationSite>> _invocationsByMethod =
-        new(SymbolEqualityComparer.Default);
-    private readonly Dictionary<ISymbol, List<IdentifierSite>> _identifiersBySymbol =
-        new(SymbolEqualityComparer.Default);
-    private bool _symbolIndexBuilt;
-    private readonly HashSet<string> _fieldCandidateNames = new(StringComparer.Ordinal);
-
-    private readonly record struct InvocationSite(InvocationExpressionSyntax Invocation, SemanticModel Model);
-    private readonly record struct IdentifierSite(IdentifierNameSyntax Identifier, SemanticModel Model);
+    // ---- shared name-bucket index (GD-FIELD / GD-STATIC analysis) ----
 
     /// <summary>
-    /// One-time per-tree scan that binds every invocation and identifier with its
-    /// declaring model, keyed by original definition. It replaces the repeated
-    /// whole-tree <c>GetSymbolInfo</c> scans in the field/static-method collectors
-    /// while preserving the original tree-then-source visitation order.
+    /// Identifier sites grouped by their written simple name (tree order preserved).
+    /// Built without any semantic binding; a query for a symbol binds only the bucket
+    /// whose name equals that symbol's own written name (a direct reference always
+    /// spells the referenced name verbatim), so the whole-tree binding the old
+    /// symbol-keyed index paid for every invocation/identifier is gone.
     /// </summary>
-    private void EnsureSymbolIndex()
+    private readonly Dictionary<string, List<IdentifierNameSyntax>> _identifiersByName =
+        new(StringComparer.Ordinal);
+
+    /// <summary>Invocation sites grouped by their written callee name (tree order).</summary>
+    private readonly Dictionary<string, List<InvocationExpressionSyntax>> _invocationsByName =
+        new(StringComparer.Ordinal);
+
+    private bool _nameIndexBuilt;
+    private readonly HashSet<string> _fieldCandidateNames = new(StringComparer.Ordinal);
+
+    private static string? InvocationSimpleName(InvocationExpressionSyntax invocation)
+        => invocation.Expression switch
+        {
+            IdentifierNameSyntax id => id.Identifier.ValueText,
+            GenericNameSyntax g => g.Identifier.ValueText,
+            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax id } => id.Identifier.ValueText,
+            MemberAccessExpressionSyntax { Name: GenericNameSyntax g } => g.Identifier.ValueText,
+            MemberBindingExpressionSyntax { Name: IdentifierNameSyntax id } => id.Identifier.ValueText,
+            MemberBindingExpressionSyntax { Name: GenericNameSyntax g } => g.Identifier.ValueText,
+            _ => null,
+        };
+
+    /// <summary>
+    /// One-time per-tree syntax walk that buckets identifiers and invocations by their
+    /// written simple name. It replaces the repeated whole-tree <c>GetSymbolInfo</c>
+    /// scans in the field/static-method collectors while preserving the original
+    /// tree-then-source visitation order (the per-tree lists are merged in SyntaxTrees
+    /// order). Only names that can ever be queried are stored, exactly as the old index
+    /// pre-filtered identifiers by name before binding.
+    /// </summary>
+    private void EnsureNameIndex()
     {
-        if (_symbolIndexBuilt)
+        if (_nameIndexBuilt)
         {
             return;
         }
 
-        _symbolIndexBuilt = true;
+        _nameIndexBuilt = true;
 
-        // Only an identifier whose simple name matches a candidate method or field
-        // can ever be queried (the original code pre-filtered on that name before
-        // binding). Invocations are already bound during WalkTree, so the binding
-        // below is served from the semantic-model cache and needs no filter.
-        var identifierNameFilter = new HashSet<string>(StringComparer.Ordinal);
+        var methodNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (var method in _methodDecls.Keys)
         {
-            identifierNameFilter.Add(method.Name);
+            methodNames.Add(method.Name);
         }
 
+        var identifierNames = new HashSet<string>(methodNames, StringComparer.Ordinal);
         foreach (var name in _fieldCandidateNames)
         {
-            identifierNameFilter.Add(name);
+            identifierNames.Add(name);
         }
 
         var trees = _compilation.SyntaxTrees.ToList();
         var count = trees.Count;
-        var models = new SemanticModel[count];
-        for (var i = 0; i < count; i++)
-        {
-            models[i] = _compilation.GetSemanticModel(trees[i]);
-        }
-
-        var perTreeInvocations = new List<(IMethodSymbol Symbol, InvocationExpressionSyntax Invocation, SemanticModel Model)>[count];
-        var perTreeIdentifiers = new List<(ISymbol Symbol, IdentifierNameSyntax Identifier, SemanticModel Model)>[count];
+        var perTreeIdentifiers = new List<(string Name, IdentifierNameSyntax Identifier)>[count];
+        var perTreeInvocations = new List<(string Name, InvocationExpressionSyntax Invocation)>[count];
 
         System.Threading.Tasks.Parallel.For(0, count, i =>
         {
-            var model = models[i];
-            var invocations = new List<(IMethodSymbol, InvocationExpressionSyntax, SemanticModel)>();
-            var identifiers = new List<(ISymbol, IdentifierNameSyntax, SemanticModel)>();
+            var identifiers = new List<(string, IdentifierNameSyntax)>();
+            var invocations = new List<(string, InvocationExpressionSyntax)>();
             foreach (var node in trees[i].GetRoot().DescendantNodes())
             {
-                if (node is InvocationExpressionSyntax invocation)
+                if (node is IdentifierNameSyntax identifier)
                 {
-                    if (model.GetSymbolInfo(invocation).Symbol is IMethodSymbol resolvedMethod)
+                    var name = identifier.Identifier.ValueText;
+                    if (identifierNames.Contains(name))
                     {
-                        invocations.Add((resolvedMethod.OriginalDefinition, invocation, model));
+                        identifiers.Add((name, identifier));
                     }
                 }
-                else if (node is IdentifierNameSyntax identifier
-                    && identifierNameFilter.Contains(identifier.Identifier.ValueText)
-                    && model.GetSymbolInfo(identifier).Symbol is { } resolvedSymbol)
+                else if (node is InvocationExpressionSyntax invocation
+                    && InvocationSimpleName(invocation) is { } calleeName
+                    && methodNames.Contains(calleeName))
                 {
-                    identifiers.Add((resolvedSymbol.OriginalDefinition, identifier, model));
+                    invocations.Add((calleeName, invocation));
                 }
             }
 
-            perTreeInvocations[i] = invocations;
             perTreeIdentifiers[i] = identifiers;
+            perTreeInvocations[i] = invocations;
         });
 
         // Append per-tree results in SyntaxTrees order so lookups stay deterministic.
         for (var i = 0; i < count; i++)
         {
-            foreach (var (symbol, invocation, model) in perTreeInvocations[i])
+            foreach (var (name, identifier) in perTreeIdentifiers[i])
             {
-                if (!_invocationsByMethod.TryGetValue(symbol, out var invocationList))
+                if (!_identifiersByName.TryGetValue(name, out var identifierList))
                 {
-                    invocationList = new List<InvocationSite>();
-                    _invocationsByMethod[symbol] = invocationList;
+                    identifierList = new List<IdentifierNameSyntax>();
+                    _identifiersByName[name] = identifierList;
                 }
 
-                invocationList.Add(new InvocationSite(invocation, model));
+                identifierList.Add(identifier);
             }
 
-            foreach (var (symbol, identifier, model) in perTreeIdentifiers[i])
+            foreach (var (name, invocation) in perTreeInvocations[i])
             {
-                if (!_identifiersBySymbol.TryGetValue(symbol, out var identifierList))
+                if (!_invocationsByName.TryGetValue(name, out var invocationList))
                 {
-                    identifierList = new List<IdentifierSite>();
-                    _identifiersBySymbol[symbol] = identifierList;
+                    invocationList = new List<InvocationExpressionSyntax>();
+                    _invocationsByName[name] = invocationList;
                 }
 
-                identifierList.Add(new IdentifierSite(identifier, model));
+                invocationList.Add(invocation);
             }
         }
+    }
+
+    /// <summary>
+    /// Identifier sites bound per queried name, grouped by original definition. The
+    /// binding for a name is computed once (memoized) — every candidate sharing a name
+    /// reuses it — and each candidate then looks up its own symbol, so the per-candidate
+    /// cost stays proportional to that symbol's own sites.
+    /// </summary>
+    private readonly Dictionary<string, Dictionary<ISymbol, List<IdentifierNameSyntax>>> _boundIdentifierSites =
+        new(StringComparer.Ordinal);
+
+    private readonly Dictionary<string, Dictionary<IMethodSymbol, List<InvocationExpressionSyntax>>> _boundInvocationSites =
+        new(StringComparer.Ordinal);
+
+    private static readonly List<IdentifierNameSyntax> NoIdentifiers = new();
+    private static readonly List<InvocationExpressionSyntax> NoInvocations = new();
+
+    private List<IdentifierNameSyntax> IdentifierSitesBoundTo(string name, ISymbol symbol)
+    {
+        if (!_boundIdentifierSites.TryGetValue(name, out var bySymbol))
+        {
+            bySymbol = new Dictionary<ISymbol, List<IdentifierNameSyntax>>(SymbolEqualityComparer.Default);
+            if (_identifiersByName.TryGetValue(name, out var sites))
+            {
+                foreach (var site in sites)
+                {
+                    var model = _compilation.GetSemanticModel(site.SyntaxTree!);
+                    if (model.GetSymbolInfo(site).Symbol is not { } resolved)
+                    {
+                        continue;
+                    }
+
+                    var key = resolved.OriginalDefinition;
+                    if (!bySymbol.TryGetValue(key, out var list))
+                    {
+                        list = new List<IdentifierNameSyntax>();
+                        bySymbol[key] = list;
+                    }
+
+                    list.Add(site);
+                }
+            }
+
+            _boundIdentifierSites[name] = bySymbol;
+        }
+
+        return bySymbol.TryGetValue(symbol, out var bound) ? bound : NoIdentifiers;
+    }
+
+    private List<InvocationExpressionSyntax> InvocationsBoundTo(IMethodSymbol method)
+    {
+        if (!_boundInvocationSites.TryGetValue(method.Name, out var bySymbol))
+        {
+            bySymbol = new Dictionary<IMethodSymbol, List<InvocationExpressionSyntax>>(SymbolEqualityComparer.Default);
+            if (_invocationsByName.TryGetValue(method.Name, out var sites))
+            {
+                foreach (var site in sites)
+                {
+                    var model = _compilation.GetSemanticModel(site.SyntaxTree!);
+                    if (model.GetSymbolInfo(site).Symbol is not IMethodSymbol bound)
+                    {
+                        continue;
+                    }
+
+                    var key = bound.OriginalDefinition;
+                    if (!bySymbol.TryGetValue(key, out var list))
+                    {
+                        list = new List<InvocationExpressionSyntax>();
+                        bySymbol[key] = list;
+                    }
+
+                    list.Add(site);
+                }
+            }
+
+            _boundInvocationSites[method.Name] = bySymbol;
+        }
+
+        return bySymbol.TryGetValue(method, out var matched) ? matched : NoInvocations;
     }
 
     // ---- GD-FIELD: static generic fields ----
@@ -596,46 +694,41 @@ public sealed class GenericDeepenAnalyzer
             return;
         }
 
-        EnsureSymbolIndex();
+        EnsureNameIndex();
 
-        // Phase B: usage index (cross-tree), served by the prebuilt symbol index.
+        // Phase B: usage sites (cross-tree), served by the name-bucket index.
         foreach (var candidate in candidates)
         {
             var usages = new List<(SyntaxNode Node, bool IsAssignmentTarget, IReadOnlyList<string> TypeArgumentTexts)>();
             var excluded = false;
-            if (_identifiersBySymbol.TryGetValue(candidate.Field.OriginalDefinition, out var usageSites))
+            foreach (var identifier in IdentifierSitesBoundTo(candidate.Field.Name, candidate.Field.OriginalDefinition))
             {
-                foreach (var site in usageSites)
+                var model = _compilation.GetSemanticModel(identifier.SyntaxTree!);
+
+                if (IsWithinNameOf(identifier)) continue;
+
+                if (IsWithinExpressionTree(model, identifier))
                 {
-                    var identifier = site.Identifier;
-                    if (identifier.Identifier.ValueText != candidate.Field.Name) continue;
-                    var model = site.Model;
-
-                    if (IsWithinNameOf(identifier)) continue;
-
-                    if (IsWithinExpressionTree(model, identifier))
-                    {
-                        _diagnostics.Add(new GenericDeepenDiagnostic(
-                            GenericDeepenSeverity.Warning, GenericDeepenRule.StaticField, GenericDeepenCodes.ExpressionTreeSite,
-                            $"Static generic field '{candidate.Field.Name}' is referenced inside an expression-tree lambda; the field cannot be rewritten.",
-                            identifier.SyntaxTree.FilePath, identifier.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
-                        excluded = true;
-                        break;
-                    }
-
-                    var (classification, typeArgs) = ClassifyUsage(identifier, model, candidate);
-                    if (classification == UsageClassification.Exclude)
-                    {
-                        _diagnostics.Add(new GenericDeepenDiagnostic(
-                            GenericDeepenSeverity.Warning, GenericDeepenRule.StaticField, GenericDeepenCodes.StaticFieldNotRewritable,
-                            $"Usage of static generic field '{candidate.Field.Name}' (compound assignment, ref/out pass, or unresolvable construction) cannot be rewritten; the field is left in place.",
-                            identifier.SyntaxTree.FilePath, identifier.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
-                        excluded = true;
-                        break;
-                    }
-
-                    usages.Add((identifier, classification == UsageClassification.AssignmentTarget, typeArgs ?? Array.Empty<string>()));
+                    _diagnostics.Add(new GenericDeepenDiagnostic(
+                        GenericDeepenSeverity.Warning, GenericDeepenRule.StaticField, GenericDeepenCodes.ExpressionTreeSite,
+                        $"Static generic field '{candidate.Field.Name}' is referenced inside an expression-tree lambda; the field cannot be rewritten.",
+                        identifier.SyntaxTree.FilePath, identifier.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                    excluded = true;
+                    break;
                 }
+
+                var (classification, typeArgs) = ClassifyUsage(identifier, model, candidate);
+                if (classification == UsageClassification.Exclude)
+                {
+                    _diagnostics.Add(new GenericDeepenDiagnostic(
+                        GenericDeepenSeverity.Warning, GenericDeepenRule.StaticField, GenericDeepenCodes.StaticFieldNotRewritable,
+                        $"Usage of static generic field '{candidate.Field.Name}' (compound assignment, ref/out pass, or unresolvable construction) cannot be rewritten; the field is left in place.",
+                        identifier.SyntaxTree.FilePath, identifier.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                    excluded = true;
+                    break;
+                }
+
+                usages.Add((identifier, classification == UsageClassification.AssignmentTarget, typeArgs ?? Array.Empty<string>()));
             }
 
             if (excluded)
@@ -915,7 +1008,7 @@ public sealed class GenericDeepenAnalyzer
             return;
         }
 
-        // EnsureSymbolIndex is built lazily by the first query site
+        // The name-bucket index is built lazily by the first query site
         // (HasMethodGroupReference / CollectStaticMethodCallSites); surfaces with no
         // static-method candidate never pay for it.
 
@@ -1105,16 +1198,9 @@ public sealed class GenericDeepenAnalyzer
     /// <summary>Any reference to the method outside an invocation operand (delegate/method-group conversion).</summary>
     private bool HasMethodGroupReference(IMethodSymbol method)
     {
-        EnsureSymbolIndex();
-        if (!_identifiersBySymbol.TryGetValue(method, out var references))
+        EnsureNameIndex();
+        foreach (var identifier in IdentifierSitesBoundTo(method.Name, method))
         {
-            return false;
-        }
-
-        foreach (var site in references)
-        {
-            var identifier = site.Identifier;
-            if (identifier.Identifier.ValueText != method.Name) continue;
             if (IsWithinNameOf(identifier)) continue;
             if (IsInvocationOperand(identifier)) continue;
             return true;
@@ -1191,16 +1277,10 @@ public sealed class GenericDeepenAnalyzer
     private List<StaticMethodCallSitePlan>? CollectStaticMethodCallSites(
         IMethodSymbol method, MethodDeclarationSyntax declaration, SortedSet<GenericDeepenParamRef> referenced)
     {
+        EnsureNameIndex();
         var sites = new List<StaticMethodCallSitePlan>();
-        EnsureSymbolIndex();
-        if (!_invocationsByMethod.TryGetValue(method, out var matchingInvocations))
+        foreach (var invocation in InvocationsBoundTo(method))
         {
-            return sites;
-        }
-
-        foreach (var site in matchingInvocations)
-        {
-            var invocation = site.Invocation;
             var args = RenderMethodTypeArguments(invocation, method.ContainingType, referenced);
             if (args == null)
             {

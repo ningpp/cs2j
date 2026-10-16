@@ -132,6 +132,7 @@ internal sealed class GenericDeepenPassAdapter : ProjectPassAdapter
         {
             parsed[i] = CSharpSyntaxTree.ParseText(File.ReadAllText(files[i]), parseOptions, path: files[i]);
         });
+
         trees.AddRange(parsed);
 
         if (trees.Count == 0)
