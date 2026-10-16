@@ -65,6 +65,12 @@ public static class ThreadStaticResidualScanner
 
         foreach (var tree in rewrittenCompilation.SyntaxTrees)
         {
+            // Necessary precondition (same argument as the analyzer): a residual
+            // attribute can only survive in a file whose text still spells the
+            // attribute name (or a file-scoped alias of it). Trees without the token
+            // hold no residual, so their field-descent is skipped outright.
+            if (!tree.ToString().Contains("ThreadStatic", StringComparison.Ordinal)) continue;
+
             var model = rewrittenCompilation.GetSemanticModel(tree);
             foreach (var field in tree.GetRoot().DescendantNodes().OfType<FieldDeclarationSyntax>())
             {

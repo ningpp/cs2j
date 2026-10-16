@@ -30,6 +30,20 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
     private ThreadStaticStatistics _statistics = new();
     private PassTreeContext? _currentTree;
 
+    // One SyntaxTree per (path, content) shared by every compilation this pass
+    // builds (round, baseline view, candidate view, residual view). Files that are
+    // not rewritten keep their tree object, so they are parsed once instead of four
+    // times and the unchanged trees are literally shared across the compilations.
+    private readonly Dictionary<string, (string Content, SyntaxTree Tree)> _treeCache =
+        new(StringComparer.OrdinalIgnoreCase);
+    private SyntaxTree? _implicitGlobalUsingsTree;
+
+    // Lazily bound per-file baseline error keys for the candidate diff (see
+    // <see cref="BaselineKeysFor"/>). Reset at the start of each diff.
+    private CSharpCompilation? _baselineDiffCompilation;
+    private Dictionary<SyntaxTree, HashSet<(string Id, string Message)>>? _baselineDeclarationKeysByTree;
+    private Dictionary<SyntaxTree, HashSet<(string Id, string Message)>>? _baselineKeysByTree;
+
     public ThreadStaticPassAdapter(
         ThreadStaticOptions options,
         bool verbose,
@@ -94,12 +108,6 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
             tree.ResetScratchFile(asset, assetDest);
         }
 
-        // The baseline error set is only needed to diff a candidate that actually
-        // rewrote at least one file (see the validator below); building it eagerly
-        // would parse and semantically analyze the whole forest even when the
-        // rewrite is a no-op. Defer it to first use.
-        HashSet<(string File, string Id, string Message)>? baselineErrors = null;
-
         var runnerInputs = sourceFiles
             .Select(p => new ThreadStaticSourceFile(p.Dest, File.ReadAllText(p.Source)))
             .ToList();
@@ -108,20 +116,7 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
             runnerInputs,
             _options,
             BuildCompilationFromTexts,
-            (baseline, candidate) =>
-            {
-                // No file's output changed: the candidate is byte-identical to the
-                // baseline sources, so it cannot carry any error the baseline did
-                // not already have. Recompiling here (and analyzing it) is pure waste.
-                if (!candidate.Any(f => f.Changed))
-                {
-                    return Array.Empty<ThreadStaticCompileError>();
-                }
-
-                baselineErrors ??= BuildErrorSet(
-                    sourceFiles.Select(p => (p.Dest, Content: File.ReadAllText(p.Source))));
-                return DiffNewErrors(baselineErrors, candidate);
-            });
+            DiffNewErrors);
 
         // Persist the final outputs; unchanged files are byte copies of the originals.
         foreach (var file in result.Files)
@@ -287,19 +282,38 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
 
     // ---- in-memory compilation + error diffing (Core rollback loop callbacks) ----
 
+    /// <summary>
+    /// Parse (or reuse) the syntax tree for <paramref name="path"/> with the given
+    /// content. A repeated call with byte-identical content returns the cached tree,
+    /// which is what lets the baseline / candidate / residual compilations share the
+    /// unmodified files' trees instead of reparsing the whole forest each time.
+    /// </summary>
+    private SyntaxTree TreeFor(string path, string content)
+    {
+        if (_treeCache.TryGetValue(path, out var entry) && entry.Content == content)
+        {
+            return entry.Tree;
+        }
+
+        var tree = CSharpSyntaxTree.ParseText(
+            content, CreateParseOptions(_currentTree!), path: path);
+        _treeCache[path] = (content, tree);
+        return tree;
+    }
+
     private CSharpCompilation BuildCompilationFromTexts(IReadOnlyList<ThreadStaticSourceFile> files)
     {
-        var parseOptions = CreateParseOptions(_currentTree!);
         var trees = new List<SyntaxTree>(
             files.Count + (_currentTree == null ? 0 : 1));
         foreach (var file in files)
         {
-            trees.Add(CSharpSyntaxTree.ParseText(file.Content, parseOptions, path: file.Path));
+            trees.Add(TreeFor(file.Path, file.Content));
         }
 
         if (_currentTree != null)
         {
-            trees.AddRange(CreateAdditionalSyntaxTrees(_currentTree));
+            trees.Add(_implicitGlobalUsingsTree ??=
+                CSharpSyntaxTree.ParseText(ImplicitGlobalUsings, CreateParseOptions(_currentTree)));
         }
 
         return CSharpCompilation.Create(
@@ -309,49 +323,72 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
             CreateCompilationOptions());
     }
 
-    private HashSet<(string File, string Id, string Message)> BuildErrorSet(
-        IEnumerable<(string Path, string Content)> files)
-    {
-        var compilation = BuildCompilationFromTexts(
-            files.Select(f => new ThreadStaticSourceFile(f.Path, f.Content)).ToList());
-        return new HashSet<(string, string, string)>(
-            compilation.GetDiagnostics()
-                .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)
-                .Select(d => (
-                    Normalize(d.Location.SourceTree!.FilePath),
-                    d.Descriptor.Id,
-                    d.GetMessage())));
-    }
-
+    /// <summary>
+    /// Candidate errors the ORIGINAL sources did not already report. Only the trees
+    /// this round actually rewrote are examined: every other file is byte-identical
+    /// to its baseline source (and shares the same tree object), so its diagnostics
+    /// are unchanged and cannot contribute a new error. The thread-static rewrite
+    /// edits the field declaration and its resolved reference sites, all of which
+    /// live in the rewritten (touched) files, so a new error can only be located in
+    /// one of them. Mirrors the repo's established replacement for a whole-compilation
+    /// GetDiagnostics (partial-merge <c>5acf4a51</c>, extension-methods <c>d3e50ced</c>,
+    /// struct-value-semantics <c>aaebe9b5</c>).
+    /// </summary>
     private IReadOnlyList<ThreadStaticCompileError> DiffNewErrors(
-        HashSet<(string File, string Id, string Message)> baseline,
+        IReadOnlyList<ThreadStaticRewrittenFile> baseline,
         IReadOnlyList<ThreadStaticRewrittenFile> candidate)
     {
-        var compilation = BuildCompilationFromTexts(
-            candidate.Select(f => new ThreadStaticSourceFile(f.Path, f.Output)).ToList());
-        var result = new List<ThreadStaticCompileError>();
-        foreach (var diagnostic in compilation.GetDiagnostics())
+        var rewrittenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in candidate)
         {
-            if (diagnostic.Severity != DiagnosticSeverity.Error
-                || diagnostic.Location.SourceTree is not { } tree)
+            if (file.Changed)
+            {
+                rewrittenKeys.Add(Normalize(file.Path));
+            }
+        }
+
+        if (rewrittenKeys.Count == 0)
+        {
+            return Array.Empty<ThreadStaticCompileError>();
+        }
+
+        var candidateCompilation = BuildCompilationFromTexts(
+            candidate.Select(f => new ThreadStaticSourceFile(f.Path, f.Output)).ToList());
+        var baselineCompilation = BuildCompilationFromTexts(
+            baseline.Select(f => new ThreadStaticSourceFile(f.Path, f.Source)).ToList());
+
+        _baselineDiffCompilation = baselineCompilation;
+        _baselineDeclarationKeysByTree = null;
+        _baselineKeysByTree = new Dictionary<SyntaxTree, HashSet<(string Id, string Message)>>();
+
+        var baselineTrees = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
+        foreach (var tree in baselineCompilation.SyntaxTrees)
+        {
+            baselineTrees.TryAdd(Normalize(tree.FilePath), tree);
+        }
+
+        var result = new List<ThreadStaticCompileError>();
+
+        // Only the rewritten trees' semantic models are bound. A whole-compilation
+        // GetDiagnostics (or even just the compilation-wide declaration stage) binds
+        // every tree in the forest; the per-tree view is the repo's established
+        // substitute (extension-methods d3e50ced, struct-value-semantics aaebe9b5).
+        // The thread-static rewrite only ever edits a field declaration and its
+        // resolved reference sites inside the rewritten files (the synthesized cctor
+        // is inserted into the declaring type's own tree, and is suppressed whenever
+        // any part of the type already declares a cctor), so it cannot introduce a
+        // cross-tree declaration conflict that a per-tree model would miss.
+        foreach (var tree in candidateCompilation.SyntaxTrees)
+        {
+            if (!rewrittenKeys.Contains(Normalize(tree.FilePath)))
             {
                 continue;
             }
 
-            var filePath = tree.FilePath;
-            if (baseline.Contains((Normalize(filePath), diagnostic.Descriptor.Id, diagnostic.GetMessage())))
+            foreach (var diagnostic in candidateCompilation.GetSemanticModel(tree).GetDiagnostics())
             {
-                continue;
+                Consider(diagnostic);
             }
-
-            var position = diagnostic.Location.GetLineSpan().StartLinePosition;
-            result.Add(new ThreadStaticCompileError(
-                filePath,
-                diagnostic.Location.SourceSpan,
-                diagnostic.Descriptor.Id,
-                diagnostic.GetMessage(),
-                position.Line + 1,
-                position.Character + 1));
         }
 
         return result
@@ -359,6 +396,92 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
             .ThenBy(e => e.Line)
             .ThenBy(e => e.Column)
             .ToList();
+
+        void Consider(Diagnostic diagnostic)
+        {
+            if (diagnostic.Severity != DiagnosticSeverity.Error
+                || diagnostic.Location.SourceTree is not { } tree)
+            {
+                return;
+            }
+
+            var key = Normalize(tree.FilePath);
+            if (!rewrittenKeys.Contains(key))
+            {
+                return;
+            }
+
+            if (baselineTrees.TryGetValue(key, out var baselineTree)
+                && BaselineKeysFor(baselineTree).Contains((diagnostic.Descriptor.Id, diagnostic.GetMessage())))
+            {
+                return;
+            }
+
+            var position = diagnostic.Location.GetLineSpan().StartLinePosition;
+            result.Add(new ThreadStaticCompileError(
+                tree.FilePath,
+                diagnostic.Location.SourceSpan,
+                diagnostic.Descriptor.Id,
+                diagnostic.GetMessage(),
+                position.Line + 1,
+                position.Character + 1));
+        }
+    }
+
+    /// <summary>
+    /// Per-file baseline (id, message) keys over the ORIGINAL sources: the
+    /// compilation-wide declaration diagnostics grouped by tree (bound once) plus
+    /// each file's own SemanticModel diagnostics (bound on first use). Only the
+    /// rewritten files are ever queried, so this stays a few-file cost.
+    /// </summary>
+    private HashSet<(string Id, string Message)> BaselineKeysFor(SyntaxTree baselineTree)
+    {
+        var keysByTree = _baselineKeysByTree!;
+        if (keysByTree.TryGetValue(baselineTree, out var cached))
+        {
+            return cached;
+        }
+
+        if (_baselineDeclarationKeysByTree is null)
+        {
+            var byTree = new Dictionary<SyntaxTree, HashSet<(string Id, string Message)>>();
+            foreach (var diagnostic in _baselineDiffCompilation!.GetDeclarationDiagnostics())
+            {
+                if (diagnostic.Severity != DiagnosticSeverity.Error
+                    || diagnostic.Location.SourceTree is not { } declTree)
+                {
+                    continue;
+                }
+
+                if (!byTree.TryGetValue(declTree, out var set))
+                {
+                    set = new HashSet<(string, string)>();
+                    byTree[declTree] = set;
+                }
+
+                set.Add((diagnostic.Descriptor.Id, diagnostic.GetMessage()));
+            }
+
+            _baselineDeclarationKeysByTree = byTree;
+        }
+
+        var keys = new HashSet<(string Id, string Message)>();
+        if (_baselineDeclarationKeysByTree.TryGetValue(baselineTree, out var declarationKeys))
+        {
+            keys.UnionWith(declarationKeys);
+        }
+
+        foreach (var diagnostic in _baselineDiffCompilation!.GetSemanticModel(baselineTree).GetDiagnostics())
+        {
+            if (diagnostic.Severity == DiagnosticSeverity.Error
+                && diagnostic.Location.SourceTree != null)
+            {
+                keys.Add((diagnostic.Descriptor.Id, diagnostic.GetMessage()));
+            }
+        }
+
+        keysByTree[baselineTree] = keys;
+        return keys;
     }
 
     private string Normalize(string path) => path.Replace('\\', '/');

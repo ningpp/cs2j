@@ -163,8 +163,17 @@ internal sealed class ThreadStaticAnalyzer
             candidateNames.Add(candidate.Field.Name);
         }
 
+        var candidateNameList = candidateNames.ToList();
+
         foreach (var tree in _compilation.SyntaxTrees)
         {
+            // Tree-level pre-filter: an IdentifierNameSyntax spelling a candidate's
+            // simple name necessarily makes that spelling appear in the tree text, so
+            // a tree containing none of the candidate names cannot hold a site. This
+            // skips the all-node descent (and its SemanticModel) for the vast majority
+            // of files when only a couple of fields are ever candidates.
+            if (!ContainsAnyCandidateName(tree.ToString(), candidateNameList)) continue;
+
             var model = _compilation.GetSemanticModel(tree);
             foreach (var identifier in tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>())
             {
@@ -178,6 +187,19 @@ internal sealed class ThreadStaticAnalyzer
                 ClassifySite(model, candidate, access);
             }
         }
+    }
+
+    private static bool ContainsAnyCandidateName(string text, List<string> candidateNames)
+    {
+        foreach (var name in candidateNames)
+        {
+            if (text.Contains(name, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static Candidate? ResolveField(

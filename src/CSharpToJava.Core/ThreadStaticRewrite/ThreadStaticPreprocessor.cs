@@ -526,11 +526,18 @@ internal static class ThreadStaticRollbackRunner
         ThreadStaticStatistics roundStats,
         List<ThreadStaticDiagnostic> roundDiagnostics)
     {
+        // Index the trees by path once: the previous per-file linear scan was O(n²)
+        // over the whole forest.
+        var treesByPath = new Dictionary<string, SyntaxTree>(StringComparer.Ordinal);
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            treesByPath.TryAdd(tree.FilePath, tree);
+        }
+
         var result = new List<ThreadStaticRewrittenFile>(baseline.Count);
         foreach (var file in baseline)
         {
-            var tree = compilation.SyntaxTrees.FirstOrDefault(t => t.FilePath == file.Path);
-            if (tree == null)
+            if (!treesByPath.TryGetValue(file.Path, out var tree))
             {
                 file.Output = file.Source;
                 file.Changed = false;
