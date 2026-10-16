@@ -85,10 +85,31 @@ internal static class ExpressionDesugarTempLifter
                     .SelectMany(p => p.Statements)
                     .ToList());
 
-        SyntaxNode current = root;
+        // Bulk block-insert pass: an anchor that is a statement sitting directly
+        // in a BlockSyntax is spliced in by ONE bottom-up traversal (each block
+        // statement's own annotations are checked in O(1)) instead of the
+        // per-anchor full-tree GetAnnotatedNodes walk, which is O(tree) per
+        // anchor and dominated the pass on large files (1016 of 1029 anchors).
+        // The traversal classifies "parent is BlockSyntax" on the SAME current
+        // tree the residual loop would, so the split is exact.
+        var blockStatements =
+            new Dictionary<SyntaxAnnotation, IReadOnlyList<StatementSyntax>>();
+        foreach (var pair in byAnchor)
+        {
+            if (anchorAnnotations.TryGetValue(pair.Key, out var annotation))
+                blockStatements[annotation] = pair.Value;
+        }
+
+        var inserter = new BlockAnchorInserter(blockStatements);
+        SyntaxNode current = inserter.Visit(root)!;
+
         foreach (var (anchor, statements) in byAnchor)
         {
             if (!anchorAnnotations.TryGetValue(anchor, out var annotation))
+                continue;
+
+            // Already spliced by the bulk pass (block-statement anchor).
+            if (inserter.Handled.Contains(annotation))
                 continue;
 
             var currentAnchor = current.GetAnnotatedNodes(annotation)
@@ -165,6 +186,82 @@ internal static class ExpressionDesugarTempLifter
         }
 
         return (CompilationUnitSyntax)current;
+    }
+
+    /// <summary>
+    /// ONE bottom-up traversal that splices every pending sequence whose anchor
+    /// is a statement sitting directly in a <see cref="BlockSyntax"/>: the
+    /// sequence is inserted immediately before that anchor statement.
+    ///
+    /// <see cref="Apply"/>'s per-anchor <c>GetAnnotatedNodes</c> lookup walks
+    /// the whole tree once per anchor (O(anchors × tree)); this pass resolves
+    /// every such anchor in a single O(tree) traversal by checking each block
+    /// statement's own annotation set (O(1) per statement). Because each
+    /// sequence is always inserted immediately before its own anchor statement,
+    /// the resulting statement order is independent of the order anchors are
+    /// visited — the bulk pass reproduces the per-anchor loop's result exactly.
+    /// Anchors whose current parent is not a block (wrap/global/builder/arrow/
+    /// lambda) are left for the residual loop and recorded as not handled.
+    /// </summary>
+    private sealed class BlockAnchorInserter : CSharpSyntaxRewriter
+    {
+        private readonly Dictionary<SyntaxAnnotation, IReadOnlyList<StatementSyntax>>
+            _statements;
+
+        public BlockAnchorInserter(
+            Dictionary<SyntaxAnnotation, IReadOnlyList<StatementSyntax>> statements)
+            => _statements = statements;
+
+        /// <summary>Annotations materialized here; the residual loop skips them.</summary>
+        public HashSet<SyntaxAnnotation> Handled { get; } = new();
+
+        public override SyntaxNode? VisitBlock(BlockSyntax node)
+        {
+            // Children first, so nested block anchors are spliced before this
+            // block's statement list is inspected.
+            var visited = (BlockSyntax)base.VisitBlock(node)!;
+            var statements = visited.Statements;
+
+            List<StatementSyntax>? rewritten = null;
+            for (var i = 0; i < statements.Count; i++)
+            {
+                var statement = statements[i];
+                var lifted = Find(statement);
+                if (lifted == null)
+                {
+                    rewritten?.Add(statement);
+                    continue;
+                }
+
+                if (rewritten == null)
+                {
+                    rewritten = new List<StatementSyntax>(statements.Count);
+                    for (var j = 0; j < i; j++)
+                        rewritten.Add(statements[j]);
+                }
+
+                rewritten.AddRange(lifted);
+                rewritten.Add(statement);
+            }
+
+            return rewritten == null
+                ? visited
+                : visited.WithStatements(SyntaxFactory.List(rewritten));
+        }
+
+        private IReadOnlyList<StatementSyntax>? Find(StatementSyntax statement)
+        {
+            foreach (var annotation in statement.GetAnnotations(AnchorAnnotationKind))
+            {
+                if (_statements.TryGetValue(annotation, out var lifted))
+                {
+                    Handled.Add(annotation);
+                    return lifted;
+                }
+            }
+
+            return null;
+        }
     }
 
     /// <summary>
