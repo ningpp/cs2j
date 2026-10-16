@@ -37,10 +37,11 @@ public sealed partial class StructValueSemanticsPreprocessor
     }
 
     /// <summary>
-    /// 计划级产物（聚合计数 + SV001/SV010/SV020/SV050/SV051 诊断）在首次 RewriteFile
-    /// 时并入本次运行输出一次；即使所有文件都无改写（全部 Skipped/Infeasible）也要暴露。
+    /// 计划级产物（聚合计数 + SV001/SV010/SV020/SV050/SV051 诊断）在一次运行内并入输出
+    /// 一次；由 CLI 适配器在逐文件循环前显式调用（幂等，RewriteFile 内的兜底调用随之空转）。
+    /// 即使所有文件都无改写（全部 Skipped/Infeasible）也要暴露。
     /// </summary>
-    private void MergePlanningOutput(
+    internal void MergePlanningOutput(
         StructValueSemanticsStatistics statistics,
         List<StructValueSemanticsDiagnostic> diagnostics)
     {
@@ -138,6 +139,22 @@ public sealed partial class StructValueSemanticsPreprocessor
         foreach (var id in planIds) _excludedPlanIds.Add(id);
     }
 
+    /// <summary>
+    /// 当前分析结果中「被活跃、未被排除的 plan 触碰」的文件集（比较 OrdinalIgnoreCase，
+    /// 与 <see cref="ClonePlan.TouchedFiles"/>/<see cref="RewriteFile"/> 的命中口径逐字一致）。
+    /// 适配器据此跳过必然 clean 的文件，省去其 SemanticModel 构造与重写遍历。
+    /// </summary>
+    internal IReadOnlyCollection<string> ActiveTouchedFiles()
+    {
+        var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var plan in Plans)
+        {
+            if (!plan.IsActive || _excludedPlanIds.Contains(plan.Id)) continue;
+            foreach (var file in plan.TouchedFiles) files.Add(file);
+        }
+        return files;
+    }
+
     internal IReadOnlyList<ClonePlan> Plans
     {
         get
@@ -185,48 +202,64 @@ public sealed partial class StructValueSemanticsPreprocessor
         return false;
     }
 
-    /// <summary>仅格式化改动区间→整文件格式化→原文候选，每个候选重新解析零错误才返回。</summary>
+    /// <summary>
+    /// 仅格式化改动区间→整文件格式化→原文候选，按序惰性构造并逐候选验证，
+    /// 返回首个重新解析零错误者。惰性化不改变候选次序与内容（与「一次性构造
+    /// [区间候选, 整树候选, 原文] 后 FirstOrDefault」逐字等价），但在改动区间候选
+    /// 即通过校验时可省去 Roslyn Formatter 的整树格式化（对合成节点超线性）。
+    /// </summary>
     internal static string? FormatAndValidate(CompilationUnitSyntax root)
     {
-        var candidates = new List<string>();
-        using (var workspace = new AdhocWorkspace())
-        {
-            try
-            {
-                var spans = root
-                    .GetAnnotatedNodes(StructValueSemanticsSyntaxFacts.RewriteAnnotation.Kind)
-                    .Where(n => n is ExpressionSyntax or StatementSyntax or MemberDeclarationSyntax)
-                    .Where(n => !n.Ancestors().Any(a =>
-                        a.HasAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation.Kind)))
-                    .Select(n => n.Span)
-                    .Distinct()
-                    .OrderBy(s => s.Start)
-                    .ToList();
-                if (spans.Count > 0)
-                    candidates.Add(Formatter.Format(root, spans, workspace).ToFullString());
-            }
-            catch
-            {
-                // 局部格式化失败不致命。
-            }
-            try { candidates.Add(Formatter.Format(root, workspace).ToFullString()); }
-            catch { /* 忽略 */ }
-        }
-        candidates.Add(root.ToFullString());
+        using var workspace = new AdhocWorkspace();
 
-        return candidates.FirstOrDefault(candidate =>
+        // 候选 1：仅格式化改动区间。
+        string? spanCandidate = null;
+        try
         {
-            try
-            {
-                var reparsed = CSharpSyntaxTree.ParseText(
-                    candidate, new CSharpParseOptions(LanguageVersion.Latest));
-                return !reparsed.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error);
-            }
-            catch
-            {
-                return false;
-            }
-        });
+            var spans = root
+                .GetAnnotatedNodes(StructValueSemanticsSyntaxFacts.RewriteAnnotation.Kind)
+                .Where(n => n is ExpressionSyntax or StatementSyntax or MemberDeclarationSyntax)
+                .Where(n => !n.Ancestors().Any(a =>
+                    a.HasAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation.Kind)))
+                .Select(n => n.Span)
+                .Distinct()
+                .OrderBy(s => s.Start)
+                .ToList();
+            if (spans.Count > 0)
+                spanCandidate = Formatter.Format(root, spans, workspace).ToFullString();
+        }
+        catch
+        {
+            // 局部格式化失败不致命。
+        }
+        if (spanCandidate != null && IsParseClean(spanCandidate)) return spanCandidate;
+
+        // 候选 2：整树格式化。
+        try
+        {
+            var wholeCandidate = Formatter.Format(root, workspace).ToFullString();
+            if (IsParseClean(wholeCandidate)) return wholeCandidate;
+        }
+        catch { /* 忽略 */ }
+
+        // 候选 3：原文候选。
+        var original = root.ToFullString();
+        return IsParseClean(original) ? original : null;
+    }
+
+    /// <summary>候选重新解析后是否零错误（不阻断：解析失败按不通过处理，交下一候选）。</summary>
+    private static bool IsParseClean(string candidate)
+    {
+        try
+        {
+            var reparsed = CSharpSyntaxTree.ParseText(
+                candidate, new CSharpParseOptions(LanguageVersion.Latest));
+            return !reparsed.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error);
+        }
+        catch
+        {
+            return false;
+        }
     }
 }
 

@@ -35,11 +35,24 @@ internal sealed class StructValueSemanticsSiteEnumerator
     private readonly List<string> _sv014Order = new();
     private int _uninitializedFields;
 
+    /// <summary>
+    /// 全部活跃 plan 的变异方法名并集。VS-3 只对「接收者类型的变异实例方法」建站点，
+    /// 该方法名必落在本集合内；成员访问名不在集合内时不可能命中任何 plan.MutatingMethods，
+    /// 故可在 GetSymbolInfo 之前短路（名字无别名机制，判定精确到名字层面为必要条件）。
+    /// </summary>
+    private readonly HashSet<string> _mutatingMethodNames = new(StringComparer.Ordinal);
+
     public StructValueSemanticsSiteEnumerator(StructValueSemanticsAnalysis analysis)
     {
         _analysis = analysis;
         _compilation = analysis.Compilation;
         _plans = analysis.PlansBySymbol;
+        foreach (var plan in _plans.Values)
+        {
+            if (!plan.IsActive) continue;
+            foreach (var method in plan.MutatingMethods)
+                _mutatingMethodNames.Add(method.Name);
+        }
     }
 
     /// <summary>
@@ -192,7 +205,7 @@ internal sealed class StructValueSemanticsSiteEnumerator
 
         if (_priorityAnchors.Contains(value)) return;
 
-        if (TryClassifyConversionSite(value, declaredType, model, declarator,
+        if (TryClassifyRelevantValueCopySite(value, declaredType, model, declarator,
                 out var kind, out var plan))
         {
             AddSite(plan!, kind, value, declarator);
@@ -240,7 +253,7 @@ internal sealed class StructValueSemanticsSiteEnumerator
         if (leftSymbol is ILocalSymbol { RefKind: not RefKind.None }) return;
         if (leftSymbol is IPropertySymbol { ReturnsByRef: true }) return;
 
-        var lhsType = model.GetTypeInfo(assignment.Left).Type;
+        var lhsType = SymbolTypeOf(leftSymbol) ?? model.GetTypeInfo(assignment.Left).Type;
         if (lhsType == null) return;
 
         if (assignment.Right is AssignmentExpressionSyntax)
@@ -258,7 +271,7 @@ internal sealed class StructValueSemanticsSiteEnumerator
         var value = assignment.Right;
         if (_priorityAnchors.Contains(value)) return;
 
-        if (TryClassifyConversionSite(value, lhsType, model, assignment,
+        if (TryClassifyRelevantValueCopySite(value, lhsType, model, assignment,
                 out var kind, out var boxingPlan))
         {
             AddSite(boxingPlan!, kind, value, assignment);
@@ -287,7 +300,7 @@ internal sealed class StructValueSemanticsSiteEnumerator
         var value = ret.Expression!;
         if (_priorityAnchors.Contains(value)) return;
 
-        if (TryClassifyConversionSite(value, enclosing.ReturnType, model, ret,
+        if (TryClassifyRelevantValueCopySite(value, enclosing.ReturnType, model, ret,
                 out var kind, out var boxingPlan))
         {
             AddSite(boxingPlan!, kind, value, ret);
@@ -368,7 +381,7 @@ internal sealed class StructValueSemanticsSiteEnumerator
             return;
         }
 
-        if (TryClassifyConversionSite(value, parameter.Type, model, argument,
+        if (TryClassifyRelevantValueCopySite(value, parameter.Type, model, argument,
                 out var kind, out var boxingPlan, method))
         {
             AddSite(boxingPlan!, kind, value, argument);
@@ -384,6 +397,13 @@ internal sealed class StructValueSemanticsSiteEnumerator
     private void VisitDefensiveReceiver(InvocationExpressionSyntax invocation, SemanticModel model)
     {
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess) return;
+        // 名预筛：调用名不在活跃 plan 变异方法名并集内 → 必不命中任何 plan.MutatingMethods，
+        // 直接跳过最贵的 GetSymbolInfo（本 pass 绝大多数调用与本 struct 无关）。
+        if (memberAccess.Name is not SimpleNameSyntax simpleName
+            || !_mutatingMethodNames.Contains(simpleName.Identifier.Text))
+        {
+            return;
+        }
         if (IsInsideExpressionTree(invocation, model)) return;
 
         var symbolInfo = model.GetSymbolInfo(invocation);
@@ -414,25 +434,41 @@ internal sealed class StructValueSemanticsSiteEnumerator
         // model.GetTypeInfo(cast.Type) 的病态慢路径（实测 ~6ms/次，全树 cast 累计 >100s）；
         // 表达式类型信息在 SemanticModel 中按表达式缓存，成本 ~µs 级。
         // GetConversion 对显式 cast 不回填拆箱标志；显式分类才能识别 unboxing。
-        var sourceType = model.GetTypeInfo(cast.Expression).Type;
+        //
+        // 语法预筛（第一级）：目标类型写的是基元关键字（int/string/bool/...）时不可能是
+        // 活跃 struct 或接口，任何分支都不会 AddSite（也不触动优先级锚点），据此在逐节点
+        // 类型查询之前短路——语料中大量 cast 属基元/指针转换族。注意 object 同属预定义类型
+        // 关键字，却正是装箱站点目标（object/ValueType），必须排除在本次短路之外。
+        if (cast.Type is PredefinedTypeSyntax predefined
+            && !predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword))
+        {
+            return;
+        }
+
         var targetType = model.GetTypeInfo(cast).Type;
         if (targetType == null) return;
 
-        // 语法预筛：拆箱站点要求目标类型、装箱/接口站点要求源类型为本轮活跃 struct。
-        // 二者皆非活跃 struct 时，任何分支都不会 AddSite（也无关转换分类），直接跳过
-        // 昂贵的 ClassifyConversion —— 绝大多数 cast 是基元/BCL 间转换，与本 pass 无关。
+        // 目标类型相关性（第二级）：cast 站点只有三种形态——拆箱（目标须为活跃 struct）、
+        // 接口站点（目标须为接口）、装箱站点（目标须为 object/ValueType）。目标既非活跃
+        // struct、又非接口/object-like 时任何分支都不建站点，此时连带 value 的语义查询与
+        // ClassifyConversion 一并省去（同一时刻 valuePlan 即便非空也无对应分支）。
         var targetPlan = ActivePlanForType(targetType);
-        var valuePlan = ActivePlanForType(sourceType);
-        if (targetPlan == null && valuePlan == null) return;
-
-        var conversion = sourceType != null
-            ? _compilation.ClassifyConversion(sourceType, targetType)
-            : model.GetConversion(cast);
-
-        if (conversion.IsUnboxing)
+        if (targetPlan == null
+            && targetType.TypeKind != TypeKind.Interface
+            && !IsObjectLike(targetType))
         {
-            // 幂等：已被 .Clone() 消费的拆箱表达式（((S)o).Clone()，含上一轮产物）不重复登记。
-            if (targetPlan != null && !IsCloneReceiver(cast, model))
+            return;
+        }
+
+        var sourceType = model.GetTypeInfo(cast.Expression).Type;
+
+        if (targetPlan != null)
+        {
+            // 活跃 struct 目标：唯一分支是拆箱（目标为值类型，不可能是接口/object-like）。
+            var conversion = sourceType != null
+                ? _compilation.ClassifyConversion(sourceType, targetType)
+                : model.GetConversion(cast);
+            if (conversion.IsUnboxing && !IsCloneReceiver(cast, model))
             {
                 _priorityAnchors.Add(cast);
                 AddSite(targetPlan, SiteKind.Unbox, cast, cast);
@@ -440,6 +476,8 @@ internal sealed class StructValueSemanticsSiteEnumerator
             return;
         }
 
+        // 目标为接口/object-like：装箱/接口站点，要求源类型为本轮活跃 struct。
+        var valuePlan = ActivePlanForType(sourceType);
         if (valuePlan == null) return;
 
         if (targetType.TypeKind == TypeKind.Interface)
@@ -481,6 +519,57 @@ internal sealed class StructValueSemanticsSiteEnumerator
         }
 
         return model.GetSymbolInfo(invocation).Symbol is IMethodSymbol method && !method.IsStatic;
+    }
+
+    /// <summary>
+    /// 具名存储符号的静态类型（局部/值参/字段/属性）。赋值左槽为这些符号时，
+    /// <c>GetSymbolInfo(Left).Symbol.Type</c> 与 <c>GetTypeInfo(Left).Type</c> 是同一类型
+    /// （成员访问返回已构造成员符号），据此省去一次 <c>GetTypeInfo</c> 逐节点查询；
+    /// 其余左槽形态（数组元素、指针解引用、圆括号复合槽等绑定不出具名符号）仍走语义查询。
+    /// </summary>
+    private static ITypeSymbol? SymbolTypeOf(ISymbol? symbol) => symbol switch
+    {
+        ILocalSymbol local => local.Type,
+        IParameterSymbol parameter => parameter.Type,
+        IFieldSymbol field => field.Type,
+        IPropertySymbol property => property.Type,
+        _ => null,
+    };
+
+    /// <summary>
+    /// 目标类型是否可能承载装箱/接口/动态转换站点：dynamic / interface / object·ValueType。
+    /// 其余目标（含残余 struct 自身与基元/BCL）下 <see cref="TryClassifyConversionSite"/>
+    /// 恒返回 false，唯一副作用是值落于表达式树时登记 SV013——故仅保留该副作用，
+    /// 省去对 value 的 <c>GetTypeInfo</c>（全树最贵的逐节点语义查询之一）。
+    /// </summary>
+    private static bool TargetMayHostConversionSite(ITypeSymbol targetType) =>
+        targetType.TypeKind is TypeKind.Dynamic or TypeKind.Interface || IsObjectLike(targetType);
+
+    /// <summary>
+    /// <see cref="TryClassifyConversionSite"/> 的等价入口：仅在目标类型可能产生转换站点时
+    /// 才执行完整分类（含 value 的语义查询）；否则只补做表达式树跳过登记（SV013），
+    /// 其余判定交回调用方按其 VS-1/2 普通站点路径处理。
+    /// </summary>
+    private bool TryClassifyRelevantValueCopySite(
+        ExpressionSyntax value,
+        ITypeSymbol targetType,
+        SemanticModel model,
+        SyntaxNode enclosingNode,
+        out SiteKind kind,
+        out ClonePlan? plan,
+        IMethodSymbol? sinkMethod = null)
+    {
+        kind = default;
+        plan = null;
+        if (TargetMayHostConversionSite(targetType))
+        {
+            return TryClassifyConversionSite(
+                value, targetType, model, enclosingNode, out kind, out plan, sinkMethod);
+        }
+
+        if (IsInsideExpressionTree(value, model))
+            MarkSv013(value.SyntaxTree?.FilePath ?? string.Empty);
+        return false;
     }
 
     /// <summary>

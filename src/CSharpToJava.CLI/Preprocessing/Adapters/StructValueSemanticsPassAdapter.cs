@@ -116,14 +116,35 @@ internal sealed class StructValueSemanticsPassAdapter : ProjectPassAdapter
                     tree.Layout, intermediateRoot);
             preprocessor.BindCompilation(compilation);
             preprocessor.ExcludePlans(excluded);
+            // 计划级产物（聚合计数 + 计划期诊断）即使全体文件 clean 也要暴露一次；
+            // 显式并入后逐文件 RewriteFile 不再触发（幂等）。
+            preprocessor.MergePlanningOutput(passStats, passDiagnostics);
+
+            // 仅对「被活跃 plan 触碰」的文件构造 SemanticModel 并重写；其余文件必然 clean
+            // （其命中口径与 RewriteFile 内 activePlans 判定逐字相同），跳过读取/建模/遍历。
+            var activeTouchedFiles = preprocessor.ActiveTouchedFiles();
+            var treesByPath = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
+            foreach (var candidateTree in compilation.SyntaxTrees)
+                treesByPath.TryAdd(candidateTree.FilePath, candidateTree);
 
             var rewrittenByFile = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var pair in sourceFiles)
             {
+                if (!treesByPath.TryGetValue(pair.Dest, out var syntaxTree)) continue;
+
+                if (!activeTouchedFiles.Contains(pair.Dest))
+                {
+                    passStats.FilesScanned++;
+                    if (_verbose)
+                    {
+                        Console.WriteLine(
+                            "[struct-value-semantics] clean (copy): " +
+                            $"{Path.GetRelativePath(sourceRoot, pair.Source)}");
+                    }
+                    continue;
+                }
+
                 var sourceCode = File.ReadAllText(pair.Dest);
-                var syntaxTree = compilation.SyntaxTrees.FirstOrDefault(t =>
-                    string.Equals(t.FilePath, pair.Dest, StringComparison.OrdinalIgnoreCase));
-                if (syntaxTree == null) continue;
 
                 var result = preprocessor.RewriteFile(
                     sourceCode,
@@ -161,9 +182,7 @@ internal sealed class StructValueSemanticsPassAdapter : ProjectPassAdapter
                 baselineErrors ??= BuildErrorSet(baselineCompilation, intermediateRoot);
                 newErrors = DiffErrors(
                     baselineErrors,
-                    BuildCompilation(
-                        sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
-                        tree.Layout, intermediateRoot),
+                    BuildCandidateCompilation(baselineCompilation, rewrittenByFile),
                     intermediateRoot);
             }
 
@@ -376,6 +395,31 @@ internal sealed class StructValueSemanticsPassAdapter : ProjectPassAdapter
             trees,
             ProjectUnsignedTypePreprocessor.GetBasicReferences(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+    }
+
+    /// <summary>
+    /// 候选编译：与基线的唯一差异是本次被改写文件的内容。以基线编译为底，仅对
+    /// rewrittenByFile 中的树按其当前磁盘内容重新解析并 <see cref="Compilation.ReplaceSyntaxTree"/>，
+    /// 其余树逐对象复用——每轮开头都把 scratch 重置为原始字节，故未改写文件的内容/路径
+    /// 与基线树逐字节一致，复用在语义上等价于全量重解析；装配名/引用集/编译选项/树序
+    /// 均由基线编译原样保留，等价于「用同一组树全量重建」。省去 900+ 未改写文件的
+    /// 重复读取、解析与全局 using 合成。
+    /// </summary>
+    private static CSharpCompilation BuildCandidateCompilation(
+        CSharpCompilation baseline,
+        IReadOnlyDictionary<string, string> rewrittenByFile)
+    {
+        CSharpCompilation candidate = baseline;
+        foreach (var tree in baseline.SyntaxTrees)
+        {
+            if (!rewrittenByFile.ContainsKey(tree.FilePath)) continue;
+            var reparsed = CSharpSyntaxTree.ParseText(
+                File.ReadAllText(tree.FilePath),
+                new CSharpParseOptions(LanguageVersion.Latest),
+                path: tree.FilePath);
+            candidate = (CSharpCompilation)candidate.ReplaceSyntaxTree(tree, reparsed);
+        }
+        return candidate;
     }
 
     /// <summary>(相对中间根路径, 错误码, 消息) 集合。</summary>
