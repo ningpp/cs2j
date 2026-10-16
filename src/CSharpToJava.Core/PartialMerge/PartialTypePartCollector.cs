@@ -16,7 +16,8 @@ internal static class PartialTypePartCollector
             int TopLevelSkipped, int TypesScanned)
         Collect(
         CSharpCompilation compilation,
-        string sourceRoot)
+        string sourceRoot,
+        bool nameSinglePartTypes)
     {
         var groups = new List<TypeGroupPlan>();
         var singles = new List<TypeGroupPlan>();
@@ -42,13 +43,21 @@ internal static class PartialTypePartCollector
 
         void VisitType(INamedTypeSymbol type)
         {
+            // Resolve every declaring reference's node exactly once: the node kind
+            // (CompilationUnit vs TypeDeclarationSyntax) is what both the top-level
+            // test and the part filter below read, and GetSyntax() is the expensive
+            // half of the walk.
+            var references = type.DeclaringSyntaxReferences
+                .Select(reference => (Reference: reference, Node: reference.GetSyntax()))
+                .ToList();
+
             // Top-level statements synthesize an implicit Program container
             // (D8). IsImplicitClass is the historical marker, but across Roslyn
             // versions the synthesized class may report IsImplicitClass=false;
             // the authoritative shape is a DeclaringSyntaxReference whose node
             // is the CompilationUnit itself (a real type always has a
             // TypeDeclarationSyntax node).
-            if (type.IsImplicitClass || HasCompilationUnitDeclaration(type))
+            if (type.IsImplicitClass || references.Any(item => item.Node is CompilationUnitSyntax))
             {
                 topLevelSkipped++;
                 return;
@@ -69,11 +78,11 @@ internal static class PartialTypePartCollector
             // neither can be partial in C#. The node-kind filter here is the
             // authoritative guard: the parts below are stored and cast as
             // TypeDeclarationSyntax throughout the analyzer/merge pipeline.
-            var sourceReferences = type.DeclaringSyntaxReferences
-                .Where(reference =>
-                    reference.SyntaxTree.FilePath.StartsWith(sourceRoot, StringComparison.OrdinalIgnoreCase)
-                    && !reference.SyntaxTree.FilePath.Contains("__cs2j", StringComparison.Ordinal))
-                .Select(reference => (Reference: reference, Node: reference.GetSyntax() as TypeDeclarationSyntax))
+            var sourceReferences = references
+                .Where(item =>
+                    item.Reference.SyntaxTree.FilePath.StartsWith(sourceRoot, StringComparison.OrdinalIgnoreCase)
+                    && !item.Reference.SyntaxTree.FilePath.Contains("__cs2j", StringComparison.Ordinal))
+                .Select(item => (item.Reference, Node: item.Node as TypeDeclarationSyntax))
                 .Where(part => part.Node is not null)
                 .ToList();
 
@@ -91,7 +100,10 @@ internal static class PartialTypePartCollector
                 var (reference, singleNode) = sourceReferences[0];
                 singles.Add(new TypeGroupPlan
                 {
-                    TypeFullName = type.ToDisplayString(),
+                    // A single-part type only matters under M3, so its display name
+                    // (an expensive symbol formatting for every type in the tree) is
+                    // produced only when M3 is armed.
+                    TypeFullName = nameSinglePartTypes ? type.ToDisplayString() : string.Empty,
                     Symbol = type,
                     Parts =
                     [
@@ -139,23 +151,5 @@ internal static class PartialTypePartCollector
                 Parts = orderedParts,
             });
         }
-    }
-
-    /// <summary>
-    /// True when any declaring syntax reference of <paramref name="type"/>
-    /// resolves to the compilation unit itself (the synthesized top-level
-    /// statements Program container) rather than a type declaration node.
-    /// </summary>
-    private static bool HasCompilationUnitDeclaration(INamedTypeSymbol type)
-    {
-        foreach (var reference in type.DeclaringSyntaxReferences)
-        {
-            if (reference.GetSyntax() is CompilationUnitSyntax)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

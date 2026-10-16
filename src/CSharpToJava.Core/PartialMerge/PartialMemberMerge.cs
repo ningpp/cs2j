@@ -155,7 +155,12 @@ internal static class PartialMemberMerge
         {
             // Nested partial types that are themselves groups are replaced by
             // their merged node (lookup supplied by the analyzer, depth-first).
-            if (NestedOverrides.TryGetValue(member.ToFullString().Trim(), out var nested))
+            // Only a nested TYPE declaration can be a registered part, so the
+            // textual key (an expensive ToFullString per member) is materialized
+            // only for those.
+            if (NestedOverrides.Count > 0
+                && member is TypeDeclarationSyntax nestedMember
+                && NestedOverrides.TryGetValue(nestedMember.ToFullString().Trim(), out var nested))
             {
                 // Non-primary part of a nested group: the merged node is emitted
                 // once at the nested primary's slot; this member disappears.

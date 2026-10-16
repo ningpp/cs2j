@@ -23,7 +23,8 @@ internal sealed class PartialMergeAnalyzer
         var diagnostics = new List<PartialMergeDiagnostic>();
         var stats = new MutablePartialMergeStats();
         var (multiGroups, singleTypes, topLevelSkipped, typesScanned) =
-            PartialTypePartCollector.Collect(compilation, sourceRoot);
+            PartialTypePartCollector.Collect(
+                compilation, sourceRoot, nameSinglePartTypes: options.AssumeNoGeneratedPartial);
         stats.TypesScanned = typesScanned;
         stats.SkippedTopLevel = topLevelSkipped;
 
@@ -47,10 +48,8 @@ internal sealed class PartialMergeAnalyzer
         //
         // A compilation-wide declaration diagnostic (an unresolvable base type,
         // say) can still cover a part without appearing in that tree's
-        // SemanticModel, so the declaration diagnostics are bound as a separate
-        // stage and consulted first — they are the cheapest and the first the
-        // whole-compilation call reports. Only a candidate they leave uncovered
-        // asks for the per-file SemanticModel bind.
+        // SemanticModel, so the declaration diagnostics form a second lazy stage:
+        // a candidate the part files leave uncovered is re-checked against them.
         List<Diagnostic>? treeErrorsCache = null;
         List<Diagnostic>? declarationErrorsCache = null;
 
@@ -121,14 +120,13 @@ internal sealed class PartialMergeAnalyzer
                     error.Location.SourceTree!.FilePath, StringComparison.OrdinalIgnoreCase)
                 && part.Declaration.FullSpan.Contains(error.Location.SourceSpan.Start));
 
-        // Whole-compilation verdict, reached without ever binding the whole tree.
-        // The compilation-wide declaration diagnostics are the cheapest stage and
-        // also the first the whole-compilation call reports, so they are consulted
-        // before the candidate-part files; a unit they already cover never pays for
-        // the SemanticModel bind.
+        // Whole-compilation verdict, reached without ever binding the whole tree:
+        // the candidate-part files' SemanticModels decide a unit, and only a unit
+        // they leave uncovered falls back to the compilation-wide declaration
+        // diagnostics — which for an all-skipped (red) tree never need binding.
         bool IsCoveredByBaselineError(TypeGroupPlan unit)
-            => DeclarationErrors().Any(error => CoversBaselineError(unit, error))
-                || TreeErrors().Any(error => CoversBaselineError(unit, error));
+            => TreeErrors().Any(error => CoversBaselineError(unit, error))
+                || DeclarationErrors().Any(error => CoversBaselineError(unit, error));
 
         foreach (var group in units.Where(IsCoveredByBaselineError))
         {

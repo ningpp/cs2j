@@ -106,9 +106,11 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
         var analysisCompilation = context.BuildStandardCompilation();
 
         // The whole-tree baseline key set is bound at most once, lazily, and only
-        // to confirm candidate errors the cheap per-file baseline could not
-        // classify (see DiffErrors). A round that rewrites nothing never asks for
-        // it, so the pass stays off the whole-tree GetDiagnostics path entirely.
+        // to confirm candidate errors the per-file baseline could not classify
+        // (see DiffErrors). A round that rewrites nothing never asks for it, so the
+        // pass stays off the whole-tree GetDiagnostics path entirely. The per-file
+        // index shares the compilation-wide declaration-diagnostics bind with the
+        // analyzer's baseline-skip gate.
         HashSet<(string File, string Id, string Message)>? fullBaselineKeys = null;
         HashSet<(string File, string Id, string Message)> FullBaselineKeys()
             => fullBaselineKeys ??= new HashSet<(string File, string Id, string Message)>(
@@ -119,6 +121,8 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
                         NormalizePath(d.Location.SourceTree!.FilePath, tree.SourceRoot),
                         d.Descriptor.Id,
                         d.GetMessage())));
+
+        var baselineKeys = new BaselineKeyIndex(analysisCompilation);
 
         var preprocessor = new PartialMergePreprocessor(_options);
         var excludedGroups = new HashSet<string>(StringComparer.Ordinal);
@@ -163,27 +167,36 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
 
             // 3. Per-file rewrites; filter at edit granularity (part spans), so a
             // file shared by an active and a rolled-back group only replays the
-            // active edits. Files with no active edit are already copied.
+            // active edits. Files with no active edit are already copied. The
+            // active part spans are indexed once by file instead of being re-scanned
+            // for every file of the tree (O(files x groups x parts)).
+            var activePartSpansByFile = plan.ActiveGroups
+                .SelectMany(group => group.Parts)
+                .GroupBy(part => part.SourceFilePath, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    byFile => byFile.Key,
+                    byFile => byFile.Select(part => part.Declaration.FullSpan).ToHashSet(),
+                    StringComparer.OrdinalIgnoreCase);
             var rewriter = new PartialMergeRewriter();
             var rewrittenFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var csFile in tree.CsFiles)
             {
-                var activePartSpans = plan.ActiveGroups
-                    .SelectMany(g => g.Parts)
-                    .Where(p => string.Equals(
-                        p.SourceFilePath, csFile, StringComparison.OrdinalIgnoreCase))
-                    .Select(p => p.Declaration.FullSpan)
-                    .ToHashSet();
-                var edits = plan.EditsByFile[csFile]
+                var edits = plan.EditsByFile[csFile];
+                if (!activePartSpansByFile.TryGetValue(csFile, out var activePartSpans))
+                {
+                    continue;
+                }
+
+                var activeEdits = edits
                     .Where(e => activePartSpans.Contains(e.Span))
                     .ToList();
-                if (edits.Count == 0)
+                if (activeEdits.Count == 0)
                 {
                     continue;
                 }
 
                 var source = await File.ReadAllTextAsync(csFile);
-                var output = rewriter.Apply(source, edits);
+                var output = rewriter.Apply(source, activeEdits);
                 var destination = Path.Combine(
                     tree.IntermediateRoot, Path.GetRelativePath(tree.SourceRoot, csFile));
                 File.WriteAllText(destination, output,
@@ -206,7 +219,10 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
 
             // 4. Candidate recompile + baseline diff.
             candidate = BuildIntermediateCompilation(tree, rewrittenFiles);
-            var newErrors = DiffErrors(tree, analysisCompilation, candidate, FullBaselineKeys);
+            var rewrittenKeys = new HashSet<string>(
+                rewrittenFiles.Select(file => NormalizePath(file, tree.SourceRoot)),
+                StringComparer.OrdinalIgnoreCase);
+            var newErrors = DiffErrors(tree, candidate, rewrittenKeys, baselineKeys, FullBaselineKeys);
 
             if (newErrors.Count == 0)
             {
@@ -440,55 +456,59 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
     }
 
     /// <summary>
-    /// Candidate errors that the ORIGINAL sources did not already report. The
-    /// baseline side is bound PER FILE and only for the files the candidate
-    /// reports an error in: an error is "new" exactly when its (id, message) is
-    /// absent from the baseline diagnostics of the same file, so no other file's
-    /// baseline can change the verdict. That keeps the pass off the whole-tree
-    /// GetDiagnostics path for every candidate error a tree's own diagnostics can
-    /// account for.
+    /// Candidate errors that the ORIGINAL sources did not already report. Only the
+    /// trees this round REWROTE are examined: every other tree is byte-identical
+    /// to the baseline compilation's source, and the merge only ever unions
+    /// members into / moves members between the rewritten declaration files, so a
+    /// non-rewritten file's own diagnostics are unchanged — the whole-tree diff
+    /// therefore has nothing to add there. This is the repo's established
+    /// substitute for a whole-compilation GetDiagnostics (async-normalize
+    /// <c>1829abe6</c>, struct-value-semantics <c>aaebe9b5</c>).
     ///
     /// <para>
-    /// A handful of compilation-level diagnostics (the entry-point family, e.g.
-    /// CS8805) carry a source location but are not produced by any tree's
-    /// SemanticModel, so the per-file view cannot classify them. Those — and any
-    /// genuinely new error — are re-checked against the whole-tree key set, which
-    /// is therefore bound lazily and only when such an error actually occurs. The
-    /// verdict and its order are then exactly the ones a whole-tree diff gives.
+    /// The candidate's declaration diagnostics are restricted the same way, so a
+    /// rewritten file's declaration-level regression (a duplicate member produced
+    /// by a member union, say) is still caught even though no tree's SemanticModel
+    /// reports it. The per-file baseline side comes from a shared index that binds
+    /// the compilation-wide declaration diagnostics once — the same bound the
+    /// analyzer's baseline-skip gate already paid — and each file's SemanticModel
+    /// diagnostics on first use.
+    /// </para>
+    ///
+    /// <para>
+    /// A compilation-level entry-point diagnostic (CS8805) carries a location but
+    /// belongs to no tree, so the per-file view cannot classify it; such an error
+    /// is re-checked against the lazily bound whole-tree key set, which keeps the
+    /// verdict and its order identical to a whole-tree diff.
     /// </para>
     /// </summary>
     private static List<Diagnostic> DiffErrors(
         PassTreeContext tree,
-        CSharpCompilation analysisCompilation,
         CSharpCompilation candidate,
+        HashSet<string> rewrittenKeys,
+        BaselineKeyIndex baseline,
         Func<HashSet<(string File, string Id, string Message)>> fullBaselineKeys)
     {
-        Dictionary<string, SyntaxTree>? baselineTreesByKey = null;
-        var baselineKeysByFile = new Dictionary<string, HashSet<(string Id, string Message)>>(
-            StringComparer.OrdinalIgnoreCase);
         List<Diagnostic>? unclassified = null;
 
-        foreach (var diagnostic in candidate.GetDiagnostics())
+        // Declaration diagnostics for the rewritten trees first: they are the
+        // compilation-wide stage, and binding them before the per-tree semantic
+        // passes keeps the two stages off each other's critical path.
+        foreach (var diagnostic in candidate.GetDeclarationDiagnostics())
         {
-            if (diagnostic.Severity != DiagnosticSeverity.Error
-                || diagnostic.Location.SourceTree is null)
+            Consider(diagnostic);
+        }
+
+        foreach (var syntaxTree in candidate.SyntaxTrees)
+        {
+            if (!rewrittenKeys.Contains(NormalizePath(syntaxTree.FilePath, tree.IntermediateRoot)))
             {
                 continue;
             }
 
-            var relative = NormalizePath(diagnostic.Location.SourceTree.FilePath, tree.IntermediateRoot);
-            if (!baselineKeysByFile.TryGetValue(relative, out var baselineKeys))
+            foreach (var diagnostic in candidate.GetSemanticModel(syntaxTree).GetDiagnostics())
             {
-                baselineTreesByKey ??= BuildBaselineTreeIndex(analysisCompilation, tree.SourceRoot);
-                baselineKeys = baselineTreesByKey.TryGetValue(relative, out var sourceTree)
-                    ? BaselineKeysFor(analysisCompilation, sourceTree)
-                    : new HashSet<(string Id, string Message)>();
-                baselineKeysByFile[relative] = baselineKeys;
-            }
-
-            if (!baselineKeys.Contains((diagnostic.Descriptor.Id, diagnostic.GetMessage())))
-            {
-                (unclassified ??= []).Add(diagnostic);
+                Consider(diagnostic);
             }
         }
 
@@ -504,54 +524,115 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
                 d.Descriptor.Id,
                 d.GetMessage())))
             .ToList();
-    }
 
-    /// <summary>
-    /// Baseline error (id, message) pairs of one source file: its declaration
-    /// diagnostics plus the diagnostics of its SemanticModel. Together they cover
-    /// every error the whole-compilation call reports against that tree, apart
-    /// from the compilation-level entry-point family (which the lazy whole-tree
-    /// fallback in <see cref="DiffErrors"/> re-checks).
-    /// </summary>
-    private static HashSet<(string Id, string Message)> BaselineKeysFor(
-        CSharpCompilation analysisCompilation,
-        SyntaxTree sourceTree)
-    {
-        var keys = new HashSet<(string Id, string Message)>(
-            analysisCompilation.GetDeclarationDiagnostics()
-                .Where(d => d.Severity == DiagnosticSeverity.Error
-                    && ReferenceEquals(d.Location.SourceTree, sourceTree))
-                .Select(d => (d.Descriptor.Id, d.GetMessage())));
-
-        foreach (var diagnostic in analysisCompilation.GetSemanticModel(sourceTree).GetDiagnostics())
+        void Consider(Diagnostic diagnostic)
         {
-            if (diagnostic.Severity == DiagnosticSeverity.Error
-                && diagnostic.Location.SourceTree is not null)
+            if (diagnostic.Severity != DiagnosticSeverity.Error
+                || diagnostic.Location.SourceTree is null)
             {
-                keys.Add((diagnostic.Descriptor.Id, diagnostic.GetMessage()));
+                return;
             }
-        }
 
-        return keys;
+            var key = NormalizePath(diagnostic.Location.SourceTree.FilePath, tree.IntermediateRoot);
+            if (!rewrittenKeys.Contains(key))
+            {
+                return;
+            }
+
+            var sourceTree = baseline.SourceTreeFor(key, tree.SourceRoot);
+            if (sourceTree is not null
+                && baseline.KeysFor(sourceTree).Contains((diagnostic.Descriptor.Id, diagnostic.GetMessage())))
+            {
+                return;
+            }
+
+            (unclassified ??= []).Add(diagnostic);
+        }
     }
 
     /// <summary>
-    /// Root-relative path → source tree, for every tree of the analysis
-    /// compilation. Both the source root and the intermediate root hold the same
-    /// files at the same relative paths, so a candidate tree's key finds its
-    /// baseline counterpart here (the synthesized global-usings tree included,
-    /// since it carries the same synthetic path in both compilations).
+    /// Per-file baseline error (id, message) keys over the ORIGINAL sources: the
+    /// compilation-wide declaration diagnostics, grouped by tree and bound once,
+    /// plus each file's own SemanticModel diagnostics, bound on first use. Together
+    /// they cover every error the whole-compilation call reports against that tree,
+    /// apart from the compilation-level entry-point family (which
+    /// <see cref="DiffErrors"/> re-checks against the whole-tree set).
     /// </summary>
-    private static Dictionary<string, SyntaxTree> BuildBaselineTreeIndex(
-        CSharpCompilation analysisCompilation, string sourceRoot)
+    private sealed class BaselineKeyIndex
     {
-        var index = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
-        foreach (var syntaxTree in analysisCompilation.SyntaxTrees)
+        private readonly CSharpCompilation _analysis;
+        private Dictionary<SyntaxTree, HashSet<(string Id, string Message)>>? _declarationKeysByTree;
+        private Dictionary<SyntaxTree, HashSet<(string Id, string Message)>>? _keysByTree;
+        private Dictionary<string, SyntaxTree>? _treesByKey;
+
+        public BaselineKeyIndex(CSharpCompilation analysis)
         {
-            index.TryAdd(NormalizePath(syntaxTree.FilePath, sourceRoot), syntaxTree);
+            _analysis = analysis;
         }
 
-        return index;
+        public SyntaxTree? SourceTreeFor(string key, string sourceRoot)
+        {
+            if (_treesByKey is null)
+            {
+                var index = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
+                foreach (var syntaxTree in _analysis.SyntaxTrees)
+                {
+                    index.TryAdd(NormalizePath(syntaxTree.FilePath, sourceRoot), syntaxTree);
+                }
+
+                _treesByKey = index;
+            }
+
+            return _treesByKey.TryGetValue(key, out var tree) ? tree : null;
+        }
+
+        public HashSet<(string Id, string Message)> KeysFor(SyntaxTree sourceTree)
+        {
+            if (_keysByTree is null)
+            {
+                var declarationKeys = new Dictionary<SyntaxTree, HashSet<(string Id, string Message)>>();
+                foreach (var diagnostic in _analysis.GetDeclarationDiagnostics())
+                {
+                    if (diagnostic.Severity != DiagnosticSeverity.Error
+                        || diagnostic.Location.SourceTree is null)
+                    {
+                        continue;
+                    }
+
+                    if (!declarationKeys.TryGetValue(diagnostic.Location.SourceTree, out var set))
+                    {
+                        set = [];
+                        declarationKeys[diagnostic.Location.SourceTree] = set;
+                    }
+
+                    set.Add((diagnostic.Descriptor.Id, diagnostic.GetMessage()));
+                }
+
+                _declarationKeysByTree = declarationKeys;
+                _keysByTree = new Dictionary<SyntaxTree, HashSet<(string Id, string Message)>>();
+            }
+
+            if (_keysByTree.TryGetValue(sourceTree, out var cached))
+            {
+                return cached;
+            }
+
+            var keys = new HashSet<(string Id, string Message)>(
+                _declarationKeysByTree!.TryGetValue(sourceTree, out var declaration)
+                    ? declaration
+                    : []);
+            foreach (var diagnostic in _analysis.GetSemanticModel(sourceTree).GetDiagnostics())
+            {
+                if (diagnostic.Severity == DiagnosticSeverity.Error
+                    && diagnostic.Location.SourceTree is not null)
+                {
+                    keys.Add((diagnostic.Descriptor.Id, diagnostic.GetMessage()));
+                }
+            }
+
+            _keysByTree[sourceTree] = keys;
+            return keys;
+        }
     }
 
     /// <summary>
