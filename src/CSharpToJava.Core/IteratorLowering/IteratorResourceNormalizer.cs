@@ -54,6 +54,16 @@ internal sealed class IteratorResourceNormalizer : CSharpSyntaxRewriter
         // functions/lambdas don't make the outer method an iterator.
         var containsYield = node.Body != null
             && IteratorLoweringAnalyzer.MethodOwnsYield(node.Body);
+
+        // Nothing inside a non-iterator method can be normalized (every block
+        // and using/lock visit is gated on _inIteratorBody), so prune the whole
+        // subtree instead of walking its body. Nested type declarations are
+        // still reached through their own members, not through this body.
+        if (!containsYield)
+        {
+            return node;
+        }
+
         var previous = _inIteratorBody;
         _inIteratorBody = containsYield;
         try

@@ -13,7 +13,7 @@ namespace CSharpToJava.Core.IteratorLowering;
 /// </summary>
 internal sealed class IteratorStateMachineRewriter
 {
-    private static readonly SyntaxAnnotation Annotation = new("Cs2jIteratorLowering");
+    internal static readonly SyntaxAnnotation Annotation = new("Cs2jIteratorLowering");
     private const string RunningStateResetLocal = "_cs2jTmpDisposeState";
 
     private readonly SemanticModel _semanticModel;

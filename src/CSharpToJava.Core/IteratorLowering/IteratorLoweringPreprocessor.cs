@@ -11,6 +11,13 @@ namespace CSharpToJava.Core.IteratorLowering;
 /// </summary>
 public sealed class IteratorLoweringPreprocessor
 {
+    /// <summary>
+    /// A block is pre-formatted statement-by-statement once it holds at least
+    /// this many statements. Small blocks are cheap to format in context and
+    /// stay with the whole-tree formatter.
+    /// </summary>
+    private const int ChunkedBlockMinStatements = 8;
+
     public IteratorLoweringFileResult Preprocess(
         string sourceCode,
         SemanticModel? semanticModel = null,
@@ -21,6 +28,17 @@ public sealed class IteratorLoweringPreprocessor
         var diagnostics = new List<IteratorLoweringDiagnostic>();
 
         if (semanticModel == null)
+        {
+            stats.FilesSkippedClean = 1;
+            return new IteratorLoweringFileResult(sourceCode, false, diagnostics, stats);
+        }
+
+        // Dirty pre-filter: `yield return` / `yield break` are the only source
+        // forms that make a method an iterator, so a file whose text does not
+        // contain the `yield` token cannot hold one. Testing the bytes first
+        // skips materializing the syntax root and walking every node of the
+        // (often huge) file for the overwhelming majority of clean inputs.
+        if (!sourceCode.Contains("yield"))
         {
             stats.FilesSkippedClean = 1;
             return new IteratorLoweringFileResult(sourceCode, false, diagnostics, stats);
@@ -109,7 +127,7 @@ public sealed class IteratorLoweringPreprocessor
 
         // Format
         using var workspace = new AdhocWorkspace();
-        var formatted = Formatter.Format(newRoot, workspace);
+        var formatted = FormatSynthesized(newRoot, workspace);
         var code = formatted.ToFullString();
 
         // Merge statistics
@@ -127,9 +145,11 @@ public sealed class IteratorLoweringPreprocessor
         stats.UsingResourcesHoisted = normalizer.UsingResourcesHoisted;
         stats.LocksNormalized = normalizer.LocksNormalized;
 
-        // Residual gate: count remaining yield statements in output
-        var outputRoot = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(code).GetRoot();
-        var remainingYields = outputRoot.DescendantNodes()
+        // Residual gate: count remaining yield statements in output. The
+        // formatted tree already carries the exact same statement structure as
+        // a re-parse of its text, so the count is read straight off it instead
+        // of paying a second full parse of the (potentially multi-megabyte) output.
+        var remainingYields = formatted.DescendantNodes()
             .OfType<YieldStatementSyntax>()
             .Count();
         stats.ResidualCount = remainingYields;
@@ -143,6 +163,154 @@ public sealed class IteratorLoweringPreprocessor
         }
 
         return new IteratorLoweringFileResult(code, true, diagnostics, stats);
+    }
+
+    /// <summary>
+    /// Formats the rewritten tree. The synthesized state machines are large,
+    /// wholly trivia-less subtrees: a single whole-tree <see cref="Formatter"/>
+    /// pass synthesizes whitespace for every trivia-less token and its cost is
+    /// super-linear in that token count. Instead, each large fully-synthesized
+    /// statement list is formatted in isolation (cheap, small trees) and spliced
+    /// back carrying canonical trivia, so the final whole-tree pass only fills
+    /// the few remaining gaps and runs in near-linear time. The output text is
+    /// byte-for-byte identical to the single whole-tree pass.
+    /// </summary>
+    private static CompilationUnitSyntax FormatSynthesized(
+        CompilationUnitSyntax root, Microsoft.CodeAnalysis.Workspace workspace)
+    {
+        var replacements = new Dictionary<SyntaxNode, SyntaxNode>();
+        foreach (var annotated in root.GetAnnotatedNodes(IteratorStateMachineRewriter.Annotation))
+        {
+            CollectSynthesizedChunks(annotated, replacements, workspace);
+        }
+
+        var prepared = replacements.Count > 0
+            ? root.ReplaceNodes(
+                replacements.Keys,
+                (original, _) => replacements[original])
+            : (SyntaxNode)root;
+        return (CompilationUnitSyntax)Formatter.Format(prepared, workspace);
+    }
+
+    /// <summary>
+    /// Walks the annotated (rewritten / synthesized) subtrees looking for the
+    /// large flat statement lists the iterator lowering emits; descends no
+    /// further once a block is handled, since the statements inside it are
+    /// formatted as a unit.
+    /// </summary>
+    private static void CollectSynthesizedChunks(
+        SyntaxNode node,
+        Dictionary<SyntaxNode, SyntaxNode> replacements,
+        Microsoft.CodeAnalysis.Workspace workspace)
+    {
+        foreach (var child in node.ChildNodes())
+        {
+            if (child is BlockSyntax block
+                && block.Statements.Count >= ChunkedBlockMinStatements)
+            {
+                // Only blocks whose every statement is produced by SyntaxFactory
+                // (no comment / explicit newline trivia copied from the source)
+                // are pre-formatted: their in-context layout is fully derivable
+                // from the node shape, so isolated formatting is exact. Blocks
+                // that embed preserved original layout are left untouched for
+                // the whole-tree formatter to keep their existing line breaks.
+                if (block.Statements.All(IsSynthesizedStatement))
+                {
+                    ReplaceSynthesizedStatements(block, replacements, workspace);
+                }
+                continue;
+            }
+
+            CollectSynthesizedChunks(child, replacements, workspace);
+        }
+    }
+
+    private static void ReplaceSynthesizedStatements(
+        BlockSyntax block,
+        Dictionary<SyntaxNode, SyntaxNode> replacements,
+        Microsoft.CodeAnalysis.Workspace workspace)
+    {
+        StatementSyntax? previous = null;
+        foreach (var statement in block.Statements)
+        {
+            // Formatting the statement together with its predecessor in a
+            // throw-away block lets the formatter pick the canonical separator
+            // (blank line or not) between the two, which is read back off the
+            // second statement's leading trivia.
+            var probe = previous == null
+                ? (SyntaxNode)statement
+                : SyntaxFactory.Block(previous, statement);
+            var text = Formatter.Format(probe, workspace).ToFullString();
+
+            StatementSyntax? parsed;
+            if (previous == null)
+            {
+                parsed = SyntaxFactory.ParseStatement(text);
+                if (parsed is { ContainsDiagnostics: false })
+                {
+                    var first = parsed.GetFirstToken();
+                    parsed = parsed.ReplaceToken(first, first.WithLeadingTrivia());
+                }
+                else
+                {
+                    parsed = null;
+                }
+            }
+            else if (SyntaxFactory.ParseStatement(text) is BlockSyntax probeBlock
+                && !probeBlock.ContainsDiagnostics
+                && probeBlock.Statements.Count >= 2)
+            {
+                var separated = probeBlock.Statements[1];
+                var separator = probeBlock.Statements[0].GetLastToken().TrailingTrivia
+                    .AddRange(separated.GetLeadingTrivia());
+                var first = separated.GetFirstToken();
+                parsed = separated.ReplaceToken(first, first.WithLeadingTrivia(separator));
+            }
+            else
+            {
+                parsed = null;
+            }
+
+            if (parsed != null)
+            {
+                // Drop the outer trivia so the enclosing whole-tree formatter
+                // supplies the canonical separator on both sides.
+                var last = parsed.GetLastToken();
+                parsed = parsed.ReplaceToken(last, last.WithTrailingTrivia());
+                replacements[statement] = parsed;
+            }
+
+            previous = statement;
+        }
+    }
+
+    /// <summary>
+    /// True when every token of the statement carries no comment and no
+    /// newline trivia, i.e. the statement is built purely from SyntaxFactory
+    /// and the formatter would synthesize all of its whitespace from scratch.
+    /// </summary>
+    private static bool IsSynthesizedStatement(StatementSyntax statement)
+        => !statement.DescendantTokens().Any(t =>
+            HasUnsafeTrivia(t.LeadingTrivia) || HasUnsafeTrivia(t.TrailingTrivia));
+
+    private static bool HasUnsafeTrivia(SyntaxTriviaList trivia)
+    {
+        foreach (var single in trivia)
+        {
+            if (single.Kind() == SyntaxKind.SingleLineCommentTrivia
+                || single.Kind() == SyntaxKind.MultiLineCommentTrivia)
+            {
+                return true;
+            }
+
+            var text = single.ToString();
+            if (text.IndexOf('\n') >= 0 || text.IndexOf('\r') >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 

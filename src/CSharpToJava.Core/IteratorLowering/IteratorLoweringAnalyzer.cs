@@ -25,16 +25,21 @@ internal static class IteratorLoweringAnalyzer
 
         foreach (var method in methods)
         {
-            var symbol = semanticModel.GetDeclaredSymbol(method);
-            if (symbol == null) continue;
+            // Yield ownership is a purely syntactic property; checking it (and
+            // the body presence) before the symbol lookup avoids paying a
+            // GetDeclaredSymbol semantic query for every ordinary method of a
+            // large file.
+            if (method.Body == null) continue;
 
             // Must have a body that itself owns yield statements. Yields inside
             // nested routines (local functions/lambdas) do NOT make the outer
             // method an iterator — e.g. a regular method may return the result
             // of invoking an iterator local function.
-            if (method.Body == null) continue;
             if (!MethodOwnsYield(method.Body))
                 continue;
+
+            var symbol = semanticModel.GetDeclaredSymbol(method);
+            if (symbol == null) continue;
 
             // Check return type: IEnumerable<T>, IEnumerator<T>, IEnumerable, IEnumerator
             var elementType = ResolveElementType(symbol.ReturnType);
