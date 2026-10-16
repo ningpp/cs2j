@@ -23,10 +23,9 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
     public string Id => "CollectionExpr";
 
     public bool IsPotentiallyDirty(
-        CompilationUnitSyntax root,
+        ExpressionDesugarSyntaxProfile profile,
         ExpressionDesugarOptions options)
-        => root.DescendantNodes().Any(static node => node is CollectionExpressionSyntax)
-           || NewSyntaxGuardAnalyzer.ContainsGuardSyntax(root);
+        => profile.HasCollectionExpression || profile.HasGuardSyntax;
 
     public ExpressionDesugarRulePlan Analyze(RuleAnalysisContext context)
     {

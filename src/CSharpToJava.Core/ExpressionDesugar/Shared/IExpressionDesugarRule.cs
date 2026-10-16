@@ -142,13 +142,19 @@ internal interface IExpressionDesugarRule
     string Id { get; }
 
     /// <summary>
-    /// Cheap syntax-only dirty gate. When no rule reports a dirty file the
-    /// family entry performs a byte-level clean copy without semantic work.
+    /// Cheap syntax-only dirty gate over the shared per-file
+    /// <see cref="ExpressionDesugarSyntaxProfile"/>. When no rule reports a
+    /// dirty file the family entry performs a byte-level clean copy without
+    /// semantic work. The profile is produced by ONE
+    /// <see cref="ExpressionDesugarTriggerScan.Scan"/> traversal per file (the
+    /// gate must not walk the tree itself).
     /// <paramref name="options"/> lets rule-level gray-release switches (C23
     /// is opt-in inside the default-enabled family) report clean while staying
     /// syntax-only.
     /// </summary>
-    bool IsPotentiallyDirty(CompilationUnitSyntax root, ExpressionDesugarOptions options);
+    bool IsPotentiallyDirty(
+        ExpressionDesugarSyntaxProfile profile,
+        ExpressionDesugarOptions options);
 
     /// <summary>
     /// File-level analysis: classify sites, accumulate statistics, emit

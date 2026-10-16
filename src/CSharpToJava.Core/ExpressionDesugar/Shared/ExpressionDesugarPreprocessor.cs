@@ -44,8 +44,12 @@ public sealed class ExpressionDesugarPreprocessor
             ? (CompilationUnitSyntax)semanticModel.SyntaxTree.GetRoot()
             : (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(sourceCode).GetRoot();
 
+        // ONE shared traversal feeds every rule's cheap gate; the individual
+        // rules used to each walk the whole tree (up to five node walks plus a
+        // token walk per file), which dominated the pass on large clean files.
+        var profile = ExpressionDesugarTriggerScan.Scan(root, sourceCode);
         var activeRules = ExpressionDesugarRuleSet.Rules
-            .Where(rule => rule.IsPotentiallyDirty(root, options))
+            .Where(rule => rule.IsPotentiallyDirty(profile, options))
             .ToList();
 
         // File-level section mirroring is gated per rule so a disabled rule

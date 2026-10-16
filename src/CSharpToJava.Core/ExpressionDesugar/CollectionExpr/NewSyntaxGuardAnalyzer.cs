@@ -33,34 +33,31 @@ internal static class NewSyntaxGuardAnalyzer
     /// <see cref="Analyze"/>).
     /// </summary>
     public static bool ContainsGuardSyntax(CompilationUnitSyntax root)
+        => root.DescendantNodes().Any(IsGuardNode)
+           || root.DescendantTokens()
+               .Any(token => token.IsKind(SyntaxKind.ScopedKeyword));
+
+    /// <summary>
+    /// Single-node CE-GUARD predicate shared with
+    /// <see cref="ExpressionDesugarTriggerScan"/> so the family dirty gate can
+    /// evaluate the guard trigger inside its one combined traversal instead of
+    /// a dedicated walk. Deliberately over-inclusive (semantic precision lives
+    /// in <see cref="Analyze"/>).
+    /// </summary>
+    public static bool IsGuardNode(SyntaxNode node) => node switch
     {
-        foreach (var node in root.DescendantNodes())
-        {
-            switch (node)
-            {
-                case MethodDeclarationSyntax m when IsInterfaceStaticAbstractOrVirtual(m):
-                case PropertyDeclarationSyntax p when IsInterfaceStaticAbstractOrVirtual(p):
-                case IndexerDeclarationSyntax i when IsInterfaceStaticAbstractOrVirtual(i):
-                case EventDeclarationSyntax e when IsInterfaceStaticAbstractOrVirtual(e):
-                case EventFieldDeclarationSyntax ef when IsInterfaceStaticAbstractOrVirtual(ef):
-                case OperatorDeclarationSyntax o when IsInterfaceStaticAbstractOrVirtual(o):
-                case ConversionOperatorDeclarationSyntax co when IsInterfaceStaticAbstractOrVirtual(co):
-                    return true;
-
-                case ClassDeclarationSyntax c when IsGenericAttributeDeclarationSyntax(c):
-                    return true;
-
-                case RecordDeclarationSyntax r when IsGenericAttributeDeclarationSyntax(r):
-                    return true;
-
-                case AttributeSyntax a when HasGenericAttributeName(a):
-                    return true;
-            }
-        }
-
-        return root.DescendantTokens()
-            .Any(token => token.IsKind(SyntaxKind.ScopedKeyword));
-    }
+        MethodDeclarationSyntax m => IsInterfaceStaticAbstractOrVirtual(m),
+        PropertyDeclarationSyntax p => IsInterfaceStaticAbstractOrVirtual(p),
+        IndexerDeclarationSyntax i => IsInterfaceStaticAbstractOrVirtual(i),
+        EventDeclarationSyntax e => IsInterfaceStaticAbstractOrVirtual(e),
+        EventFieldDeclarationSyntax ef => IsInterfaceStaticAbstractOrVirtual(ef),
+        OperatorDeclarationSyntax o => IsInterfaceStaticAbstractOrVirtual(o),
+        ConversionOperatorDeclarationSyntax co => IsInterfaceStaticAbstractOrVirtual(co),
+        ClassDeclarationSyntax c => IsGenericAttributeDeclarationSyntax(c),
+        RecordDeclarationSyntax r => IsGenericAttributeDeclarationSyntax(r),
+        AttributeSyntax a => HasGenericAttributeName(a),
+        _ => false,
+    };
 
     /// <summary>
     /// Semantic inventory (design §2.5). Emits 0585/0586/0587 diagnostics and

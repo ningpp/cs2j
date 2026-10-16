@@ -177,6 +177,12 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
     /// per-file paired skip accounting. Mismatch -> CS2J0589 Error makes the
     /// chain fail (covers verbatim-copied dirty files too); a balanced run
     /// emits CS2J0584 Info (verbose display only).
+    ///
+    /// All three rule gates (C36 CE-12, C23, C24 IN-13) share ONE traversal
+    /// here: a clean-skipped file (no rule was active) provably carries no
+    /// residual trigger node and no pairing, so it is excluded from the walk
+    /// entirely — the pass used to re-read + re-parse + walk every intermediate
+    /// file twice, which dominated the pass on large trees with few dirty files.
     /// </summary>
     public override Task AfterFilesAsync(PassTreeContext tree)
     {
@@ -190,6 +196,11 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
         var interpolationEnabled = _options.Interpolations.Enabled;
         var interpResidualByFile = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var interpPairedByFile = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        // C24 (IN-13) additive gate: same opt-in discipline (subsection present).
+        var initializerEnabled = _options.Initializers is not null;
+        var initResidualByFile = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var initPairedByFile = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         var parseOptions = new CSharpParseOptions(LanguageVersion.Preview);
 
@@ -216,35 +227,59 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
             if (!File.Exists(intermediateFile))
                 continue;
 
-            if (_fileStatistics.TryGetValue(relativePath, out var fileStats))
+            _fileStatistics.TryGetValue(relativePath, out var fileStats);
+
+            pairedByFile[relativePath] = fileStats is null
+                ? 0
+                : CollectionExprTreeGate.CountPairedNodes(fileStats.CollectionExpr);
+            if (interpolationEnabled)
             {
-                pairedByFile[relativePath] =
-                    CollectionExprTreeGate.CountPairedNodes(fileStats.CollectionExpr);
-                if (interpolationEnabled)
-                {
-                    interpPairedByFile[relativePath] =
-                        fileStats.Interpolations.CountPairedNodes();
-                }
+                interpPairedByFile[relativePath] = fileStats is null
+                    ? 0
+                    : fileStats.Interpolations.CountPairedNodes();
             }
-            else
+
+            if (initializerEnabled)
             {
-                pairedByFile[relativePath] = 0;
+                initPairedByFile[relativePath] = fileStats is null
+                    ? 0
+                    : InitializerTreeGate.CountPairedNodes(fileStats.Initializers);
+            }
+
+            // A clean-skipped file had no rule active, so its verbatim copy
+            // cannot contain a residual trigger node of any rule kind, and its
+            // pairing accounting is empty: skip the read + parse + walk.
+            if (fileStats is { FilesSkippedClean: 1 }
+                && pairedByFile[relativePath] == 0
+                && (!interpolationEnabled || interpPairedByFile[relativePath] == 0)
+                && (!initializerEnabled || initPairedByFile[relativePath] == 0))
+            {
+                continue;
             }
 
             var source = File.ReadAllText(intermediateFile);
             var root = CSharpSyntaxTree.ParseText(source, parseOptions).GetCompilationUnitRoot();
-            var residual = root.DescendantNodes()
-                .Count(CollectionExprSyntaxFacts.IsResidualNode);
+
+            // Single traversal computes all three residual counts.
+            var residual = 0;
+            var interpResidual = 0;
+            var initResidual = 0;
+            foreach (var node in root.DescendantNodes())
+            {
+                if (CollectionExprSyntaxFacts.IsResidualNode(node))
+                    residual++;
+                if (interpolationEnabled && InterpolationSyntaxFacts.IsResidualNode(node))
+                    interpResidual++;
+                if (initializerEnabled && InitializerSyntaxFacts.IsResidualNode(node))
+                    initResidual++;
+            }
+
             if (residual > 0)
                 residualByFile[relativePath] = residual;
-
-            if (interpolationEnabled)
-            {
-                var interpResidual = root.DescendantNodes()
-                    .Count(InterpolationSyntaxFacts.IsResidualNode);
-                if (interpResidual > 0)
-                    interpResidualByFile[relativePath] = interpResidual;
-            }
+            if (interpResidual > 0)
+                interpResidualByFile[relativePath] = interpResidual;
+            if (initResidual > 0)
+                initResidualByFile[relativePath] = initResidual;
         }
 
         _gateResult = CollectionExprTreeGate.Reconcile(residualByFile, pairedByFile);
@@ -252,6 +287,10 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
         if (interpolationEnabled)
             _interpolationGateResult =
                 InterpolationTreeGate.Reconcile(interpResidualByFile, interpPairedByFile);
+
+        if (initializerEnabled)
+            _initializerGateResult =
+                InitializerTreeGate.Reconcile(initResidualByFile, initPairedByFile);
 
         if (!_gateResult.Balanced)
         {
@@ -317,83 +356,37 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
                     interpGate.PairedNodes)));
         }
 
-        // C24 (IN-13) additive whole-tree gate: only runs when the Initializers
-        // subsection is present (the CLI factory does not construct it yet, so
-        // this is inert on every default chain and never changes C36).
-        if (_options.Initializers is not null)
-            RunInitializerGate(tree, parseOptions, atomicErrorFiles);
-
-        return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// C24 IN-13 whole-tree gate: re-parse each intermediate .cs as written,
-    /// count the three residual node kinds and reconcile against the per-file
-    /// pairing accounting (explained preserved sites + coexistence-deferred
-    /// sites). Mismatch -> CS2J0545 Error fails the chain; balanced + verbose
-    /// emits CS2J0546 Info. Additive: the C36 gate above is untouched.
-    /// </summary>
-    private void RunInitializerGate(
-        PassTreeContext tree,
-        CSharpParseOptions parseOptions,
-        HashSet<string> atomicErrorFiles)
-    {
-        var residualByFile = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var pairedByFile = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var sourceFile in tree.CsFiles)
-        {
-            var relativePath = Path.GetRelativePath(tree.SourceRoot, sourceFile);
-            if (HasCs2jOwnedSegment(relativePath)
-                || atomicErrorFiles.Contains(relativePath))
-            {
-                continue;
-            }
-
-            var intermediateFile = Path.Combine(tree.IntermediateRoot, relativePath);
-            if (!File.Exists(intermediateFile))
-                continue;
-
-            pairedByFile[relativePath] =
-                _fileStatistics.TryGetValue(relativePath, out var fileStats)
-                    ? InitializerTreeGate.CountPairedNodes(fileStats.Initializers)
-                    : 0;
-
-            var source = File.ReadAllText(intermediateFile);
-            var root = CSharpSyntaxTree.ParseText(source, parseOptions).GetCompilationUnitRoot();
-            var residual = root.DescendantNodes()
-                .Count(InitializerSyntaxFacts.IsResidualNode);
-            if (residual > 0)
-                residualByFile[relativePath] = residual;
-        }
-
-        _initializerGateResult = InitializerTreeGate.Reconcile(residualByFile, pairedByFile);
-
-        if (!_initializerGateResult.Balanced)
+        // ---- C24 IN-13 additive whole-tree gate (subsection present only) ----
+        // Mismatch -> CS2J0545 Error fails the chain; balanced + verbose emits
+        // CS2J0546 Info.
+        var initGate = _initializerGateResult;
+        if (initGate is { Balanced: false })
         {
             var unpaired = string.Join(
                 ", ",
-                _initializerGateResult.UnpairedFiles.Select(f =>
+                initGate.UnpairedFiles.Select(f =>
                     $"{f.File} ({f.ResidualNodes} residual/{f.PairedNodes} paired)"));
             _diagnostics.Add(new ExpressionDesugarDiagnostic(
                 ExpressionDesugarSeverity.Error,
                 InitializerDiagnosticCodes.CS2J0545,
                 string.Format(
                     InitializerDiagnostics.TreeResidualMessage,
-                    _initializerGateResult.ResidualNodes,
-                    _initializerGateResult.PairedNodes,
+                    initGate.ResidualNodes,
+                    initGate.PairedNodes,
                     unpaired.Length == 0 ? "?" : unpaired)));
         }
-        else if (_verbose)
+        else if (_verbose && initGate != null)
         {
             _diagnostics.Add(new ExpressionDesugarDiagnostic(
                 ExpressionDesugarSeverity.Info,
                 InitializerDiagnosticCodes.CS2J0546,
                 string.Format(
                     InitializerDiagnostics.InventorySummaryMessage,
-                    _initializerGateResult.ResidualNodes,
-                    _initializerGateResult.PairedNodes)));
+                    initGate.ResidualNodes,
+                    initGate.PairedNodes)));
         }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>

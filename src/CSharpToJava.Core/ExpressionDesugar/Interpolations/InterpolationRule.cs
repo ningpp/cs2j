@@ -20,14 +20,11 @@ internal sealed class InterpolationRule : IExpressionDesugarRule
     public string Id => "Interpolations";
 
     public bool IsPotentiallyDirty(
-        CompilationUnitSyntax root,
+        ExpressionDesugarSyntaxProfile profile,
         ExpressionDesugarOptions options)
         // Rule-level opt-in: the family is on by default for C36, so C23 must
         // stay completely inert (byte-identical output) until explicitly enabled.
-        => options.Interpolations.Enabled
-           && root.DescendantNodes()
-               .OfType<InterpolatedStringExpressionSyntax>()
-               .Any();
+        => options.Interpolations.Enabled && profile.HasInterpolatedString;
 
     public ExpressionDesugarRulePlan Analyze(RuleAnalysisContext context)
     {

@@ -20,12 +20,12 @@ internal sealed class InitializersRule : IExpressionDesugarRule
     public string Id => "Initializers";
 
     public bool IsPotentiallyDirty(
-        CompilationUnitSyntax root,
+        ExpressionDesugarSyntaxProfile profile,
         ExpressionDesugarOptions options)
         // The M0 rollout gate lives in Analyze (Options.Initializers subsection):
         // trigger syntax stays "dirty" so the rule participates uniformly, but
         // without the subsection its plan rewrites nothing (byte-identical).
-        => InitializerSyntaxFacts.HasTriggerSyntax(root);
+        => profile.HasInitializerTrigger;
 
     public ExpressionDesugarRulePlan Analyze(RuleAnalysisContext context)
     {

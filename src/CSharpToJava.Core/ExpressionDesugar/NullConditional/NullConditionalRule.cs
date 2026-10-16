@@ -25,12 +25,10 @@ internal sealed class NullConditionalRule : IExpressionDesugarRule
     public string Id => "NullConditional";
 
     public bool IsPotentiallyDirty(
-        CompilationUnitSyntax root,
+        ExpressionDesugarSyntaxProfile profile,
         ExpressionDesugarOptions options)
         // The rollout gate lives in Analyze (Options.NullConditional subsection).
-        => root.DescendantNodes()
-            .OfType<ConditionalAccessExpressionSyntax>()
-            .Any();
+        => profile.HasConditionalAccess;
 
     public ExpressionDesugarRulePlan Analyze(RuleAnalysisContext context)
     {
