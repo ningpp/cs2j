@@ -100,7 +100,11 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
         var baselineCompilation = BuildCompilation(
             sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Source))),
             tree.Layout, intermediateRoot);
-        var baselineErrors = BuildErrorSet(baselineCompilation, intermediateRoot);
+        // 基线错误集惰性求值：只有本轮确有文件被改写、真的需要与候选编译做 diff 时
+        // 才做一次整树 GetDiagnostics。常见的「零改写」终态下整轮都不需要它。
+        HashSet<(string, string, string)>? baselineErrors = null;
+        HashSet<(string, string, string)> BaselineErrors()
+            => baselineErrors ??= BuildErrorSet(baselineCompilation, intermediateRoot);
 
         var excluded = new HashSet<string>(StringComparer.Ordinal);
         var rollbackDiagnostics = new List<EnumDeclarationDiagnostic>();
@@ -174,10 +178,24 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
                 }
             }
 
+            // 本轮零改写短路：scratch 文件在循环开头已按原始字节重置，未被改写的文件
+            // 逐字节保持原样，故候选树与基线树完全相同 → 新错误必然为空集。直接接受，
+            // 省去候选整树重编译、候选 GetDiagnostics 与基线的惰性 GetDiagnostics。
+            if (rewrittenByFile.Count == 0)
+            {
+                acceptedStats = passStats;
+                acceptedDiagnostics = passDiagnostics;
+                acceptedTargets = preprocessor.Plans
+                    .Where(p => p.Feasible && !excluded.Contains(p.Id))
+                    .Select(p => p.EnumQualifiedName)
+                    .ToHashSet(StringComparer.Ordinal);
+                break;
+            }
+
             var candidateCompilation = BuildCompilation(
                 sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
                 tree.Layout, intermediateRoot);
-            var newErrors = DiffErrors(baselineErrors, candidateCompilation, intermediateRoot);
+            var newErrors = DiffErrors(BaselineErrors(), candidateCompilation, intermediateRoot);
 
             if (newErrors.Count == 0)
             {
@@ -260,7 +278,9 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
         _statistics = acceptedStats;
         _acceptedTargets = acceptedTargets;
 
-        var restoreExitCode = context.Restore();
+        // 与标准 spine 一致：只有启用 build/test 验证时才需要 restore 中间树；
+        // --no-verify-build/--no-verify-tests 下整树 restore 纯属开销，直接跳过。
+        var restoreExitCode = (VerifyBuild || VerifyTests) ? context.Restore() : 0;
         if (restoreExitCode != 0)
         {
             success = false;
