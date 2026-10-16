@@ -222,9 +222,14 @@ internal static class ProjectPassRunner
     private static void ValidateSyntaxOrThrow(ProjectPassAdapter adapter, PassTreeContext tree)
     {
         var parseOptions = adapter.CreateParseOptions(tree);
+        var parseSignature = ParsedTreeCache.Signature(parseOptions);
 
         // Parse every file once, in parallel (ParseText is thread-safe), keep the
         // trees for the compilation builder, and surface the first parse error found.
+        // A tree parsed earlier in this process (a unified-directory pass chain only
+        // rewrites a small fraction of the tree per pass) is reused when the file's
+        // bytes and the adapter's parse options are unchanged, so the whole-tree
+        // reparse cost is paid once instead of once per pass.
         var parseError = new ConcurrentBag<(string File, Diagnostic Diagnostic)>();
         Parallel.ForEach(
             tree.CsFiles,
@@ -232,9 +237,17 @@ internal static class ProjectPassRunner
             csFile =>
             {
                 var sourceCode = File.ReadAllText(csFile);
-                var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode, parseOptions, path: csFile);
+
+                if (!ParsedTreeCache.TryGet(parseSignature, csFile, sourceCode, out var syntaxTree))
+                {
+                    syntaxTree = CSharpSyntaxTree.ParseText(sourceCode, parseOptions, path: csFile);
+                    ParsedTreeCache.Store(parseSignature, csFile, sourceCode, syntaxTree);
+                }
+
                 tree.ParsedSyntaxTrees[csFile] = syntaxTree;
 
+                // Parse diagnostics are memoized on the (immutable) SyntaxTree, so a
+                // reused tree recomputes none of them.
                 var error = syntaxTree.GetDiagnostics()
                     .FirstOrDefault(d => d.Severity == DiagnosticSeverity.Error);
                 if (error != null)
