@@ -318,6 +318,113 @@ public sealed class MemberDesugarStatistics
 
     /// <summary>按诊断码分桶的跳过数（设计 §6：按原因分组）。</summary>
     public Dictionary<MemberDesugarDiagnosticCode, int> SkippedByReason { get; } = new();
+
+    /// <summary>逐文件改写产出并入时的计数器求和（并行改写路径串行合并用，设计 §4.2）。
+    /// 全部计数器均为加性；<see cref="FinalizerSidecarPath"/> 为 run 级单值，取非 null。</summary>
+    public void Add(MemberDesugarStatistics other)
+    {
+        FilesScanned += other.FilesScanned;
+        FilesTransformed += other.FilesTransformed;
+        FilesSkippedClean += other.FilesSkippedClean;
+        PropertiesPlanned += other.PropertiesPlanned;
+        BackingFieldsGenerated += other.BackingFieldsGenerated;
+        ReadSitesRewritten += other.ReadSitesRewritten;
+        WriteSitesRewritten += other.WriteSitesRewritten;
+        CompoundSitesRewritten += other.CompoundSitesRewritten;
+        InitializersRewritten += other.InitializersRewritten;
+        NameofLiteralized += other.NameofLiteralized;
+        InitAccessorsWidened += other.InitAccessorsWidened;
+        RequiredConstraintsDropped += other.RequiredConstraintsDropped;
+        PlansSkipped += other.PlansSkipped;
+        PlansRolledBack += other.PlansRolledBack;
+        IndexersPlanned += other.IndexersPlanned;
+        IndexerReadSitesRewritten += other.IndexerReadSitesRewritten;
+        IndexerWriteSitesRewritten += other.IndexerWriteSitesRewritten;
+        IndexerCompoundSitesExpanded += other.IndexerCompoundSitesExpanded;
+        IndexerInitializerSitesRewritten += other.IndexerInitializerSitesRewritten;
+        ExplicitInterfaceIndexers += other.ExplicitInterfaceIndexers;
+        ExternalIndexerSites += other.ExternalIndexerSites;
+        EventsPlanned += other.EventsPlanned;
+        EventBackingFieldsGenerated += other.EventBackingFieldsGenerated;
+        EventSubscribeSitesRewritten += other.EventSubscribeSitesRewritten;
+        EventUnsubscribeSitesRewritten += other.EventUnsubscribeSitesRewritten;
+        EventInClassCombineSitesRewritten += other.EventInClassCombineSitesRewritten;
+        EventNameofLiteralized += other.EventNameofLiteralized;
+        OperatorsPlanned += other.OperatorsPlanned;
+        OperatorBinarySitesRewritten += other.OperatorBinarySitesRewritten;
+        OperatorUnarySitesRewritten += other.OperatorUnarySitesRewritten;
+        OperatorCompoundSitesRewritten += other.OperatorCompoundSitesRewritten;
+        OperatorConversionSitesRewritten += other.OperatorConversionSitesRewritten;
+        OperatorLiftedSitesExpanded += other.OperatorLiftedSitesExpanded;
+        GateOperatorsRetained += other.GateOperatorsRetained;
+        IncrementDecrementDeferred += other.IncrementDecrementDeferred;
+        MetadataOperatorSitesUntouched += other.MetadataOperatorSitesUntouched;
+        FinalizersDetected += other.FinalizersDetected;
+        FinalizersReported += other.FinalizersReported;
+        FinalizerCriticalBlocked += other.FinalizerCriticalBlocked;
+        FinalizerResurrectionSites += other.FinalizerResurrectionSites;
+        FinalizerSuppressFinalizeSites += other.FinalizerSuppressFinalizeSites;
+        FinalizerChainsWithBaseFinalizer += other.FinalizerChainsWithBaseFinalizer;
+        FinalizerEmpty += other.FinalizerEmpty;
+        FinalizerDisposePattern += other.FinalizerDisposePattern;
+        FinalizerSafeHandleOnly += other.FinalizerSafeHandleOnly;
+        FinalizerNativeRelease += other.FinalizerNativeRelease;
+        FinalizerOther += other.FinalizerOther;
+        FinalizerExtern += other.FinalizerExtern;
+        FinalizersRemoved += other.FinalizersRemoved;
+        FinalizersForceRemoved += other.FinalizersForceRemoved;
+        FinalizersRefused += other.FinalizersRefused;
+        FinalizerSidecarEntries += other.FinalizerSidecarEntries;
+        FinalizerResidual += other.FinalizerResidual;
+        FieldKeywordProperties += other.FieldKeywordProperties;
+        FieldKeywordAutoAccessorsExpanded += other.FieldKeywordAutoAccessorsExpanded;
+        FieldReferencesRewritten += other.FieldReferencesRewritten;
+        FieldTargetAttributesMigrated += other.FieldTargetAttributesMigrated;
+        FieldInitializersMoved += other.FieldInitializersMoved;
+        FieldKeywordResidualTokens += other.FieldKeywordResidualTokens;
+        RecordPlans += other.RecordPlans;
+        RecordClassPlans += other.RecordClassPlans;
+        CloneFactoriesSynthesized += other.CloneFactoriesSynthesized;
+        WithSitesTotal += other.WithSitesTotal;
+        WithSitesClass += other.WithSitesClass;
+        WithSitesStruct += other.WithSitesStruct;
+        WithSitesEmpty += other.WithSitesEmpty;
+        PositionalRecordsReshaped += other.PositionalRecordsReshaped;
+        TemporariesPromoted += other.TemporariesPromoted;
+        PropertyAssignments += other.PropertyAssignments;
+        FieldAssignments += other.FieldAssignments;
+        ResidualWithCount += other.ResidualWithCount;
+        SignatureExplicitMembersDetected += other.SignatureExplicitMembersDetected;
+        SignatureExplicitMethods += other.SignatureExplicitMethods;
+        SignatureExplicitProperties += other.SignatureExplicitProperties;
+        SignatureExplicitIndexers += other.SignatureExplicitIndexers;
+        SignatureExplicitEvents += other.SignatureExplicitEvents;
+        SignatureHidingDetected += other.SignatureHidingDetected;
+        SignatureHidingNew += other.SignatureHidingNew;
+        SignatureHidingImplicit += other.SignatureHidingImplicit;
+        SignatureHidingNewSlot += other.SignatureHidingNewSlot;
+        SignatureHidingStatic += other.SignatureHidingStatic;
+        SignatureCovariantChains += other.SignatureCovariantChains;
+        SignatureCovariantRetained += other.SignatureCovariantRetained;
+        SignatureCovariantBridged += other.SignatureCovariantBridged;
+        SignatureCovariantValueTypeSkipped += other.SignatureCovariantValueTypeSkipped;
+        SignaturePlansPromoted += other.SignaturePlansPromoted;
+        SignatureDisplacedRenamed += other.SignatureDisplacedRenamed;
+        SignatureDualInterfaceMerged += other.SignatureDualInterfaceMerged;
+        SignatureCallSitesRewritten += other.SignatureCallSitesRewritten;
+        SignatureResidual += other.SignatureResidual;
+        SignatureReflectionWarnings += other.SignatureReflectionWarnings;
+        SignatureHideRenamed += other.SignatureHideRenamed;
+        SignatureHideBridged += other.SignatureHideBridged;
+        SignatureCovariantBridgesSynthesized += other.SignatureCovariantBridgesSynthesized;
+        SignatureCovariantRenamed += other.SignatureCovariantRenamed;
+        foreach (var (code, count) in other.SkippedByReason)
+        {
+            SkippedByReason.TryGetValue(code, out var existing);
+            SkippedByReason[code] = existing + count;
+        }
+        FinalizerSidecarPath ??= other.FinalizerSidecarPath;
+    }
 }
 
 /// <summary>Overrides 形态（设计 §5.2）：skip/force 接受

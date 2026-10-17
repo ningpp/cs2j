@@ -430,51 +430,29 @@ public sealed partial class MemberDesugarPreprocessor
         foreach (var id in planIds) _excludedPlanIds.Add(id);
     }
 
-    internal bool TryAttributeDiagnostic(
-        Diagnostic diagnostic,
-        IReadOnlyDictionary<string, string> rewrittenByFile,
-        out string planId)
-    {
-        // 与 JK 同款：位置 → (类型名, 成员名) → 唯一 OwnsTouch plan。
-        planId = string.Empty;
-        if (_plans == null || diagnostic.Location.SourceTree is not { } tree) return false;
-        if (!rewrittenByFile.TryGetValue(tree.FilePath, out _)) return false;
-
-        var node = tree.GetRoot().FindNode(diagnostic.Location.SourceSpan);
-        var typeName = node.AncestorsAndSelf().OfType<BaseTypeDeclarationSyntax>()
-            .FirstOrDefault()?.Identifier.Text;
-        var memberName = node.AncestorsAndSelf().OfType<MemberDeclarationSyntax>()
-            .FirstOrDefault()?.GetNameString();
-
-        var matched = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var plan in _plans)
-        {
-            if (_excludedPlanIds.Contains(plan.Id)) continue;
-            if (!plan.TouchedFiles.Contains(tree.FilePath)) continue;
-            if (plan.OwnsTouch(tree.FilePath, typeName, memberName))
-                matched.Add(plan.Id);
-        }
-        if (matched.Count == 1)
-        {
-            planId = matched.First();
-            return true;
-        }
-        return false;
-    }
+    /// <summary>
+    /// 整树回退循环每轮迭代开始时调用：重置 run 级 sidecar 状态，镜像历史"每轮新建
+    /// preprocessor"语义——否则跨轮复用同一实例时，上一轮已登记的删除条目会让本轮
+    /// 重删同一终结器时重复登记（sidecar 条目翻倍，C39 FN-8）。
+    /// </summary>
+    internal void BeginIteration() => _finalizerSidecar = null;
 
     /// <summary>
-    /// 宽松归属（画像暴露，2026-10-09）：严格归属失败后调用。返回 true 表示该错误
-    /// 位置在 plan 权属规则下仅能归属于【已排除】plan——本轮无可回退的活动 plan
-    /// 能消除它。典型场景：CLI 整树编译把不属于任何 msbuild Compile 项的同源文件
-    /// 合入同一 Roslyn 编译（每文件独立成程序的 TrimmingTests 镜像），已回退 plan
-    /// 保留的属性仍隐式保留 get_X 槽位，与他文件产物撞 CS0082；锚点落在本轮未改写
-    /// 文件，因此不能走 rewrittenByFile 门。真实编译是否受损由尾部 msbuild 验证兜底。
+    /// 归属（与 JK 同款键：位置 → (类型名, 成员名) → plan owner 集合）。返回该位置的
+    /// **全部** owner（含已排除者，按 Id 序）；调用方取其中【活动】者作本轮回退集——
+    /// 活动集为空即本轮无可回退的活动 plan 能消除该错误（镜像碰撞 / 跨文件使用点）。
+    ///
+    /// 不要求锚点文件本轮被改写：plan 权属已含 TouchedFiles.Contains(file) 门；接口实现
+    /// 与继承联动文件常因无实际站点而逐字节不变（Changed=false），却因对侧成员的改写产生
+    /// CS0115/CS0539/CS0737 等错误，此时仍须把该 plan 纳入回退（画像 2026-10-17）。
+    /// 同一位置常有多个 owner（如显式接口实现属性同时被属性 plan 与签名 plan 认领、
+    /// 基类与派生各一个 plan），它们必须整组回退才能恢复一致——故返回全体而非要求唯一。
     /// </summary>
-    internal bool TryAttributeDiagnosticBlockedByExcluded(
+    internal bool CollectOwners(
         Diagnostic diagnostic,
-        out string excludedPlanId)
+        out List<string> owners)
     {
-        excludedPlanId = string.Empty;
+        owners = new List<string>();
         if (_plans == null || diagnostic.Location.SourceTree is not { } tree) return false;
 
         var node = tree.GetRoot().FindNode(diagnostic.Location.SourceSpan);
@@ -503,17 +481,15 @@ public sealed partial class MemberDesugarPreprocessor
             }
         }
 
-        var owners = new HashSet<string>(StringComparer.Ordinal);
+        var set = new HashSet<string>(StringComparer.Ordinal);
         foreach (var plan in _plans)
         {
             if (!plan.TouchedFiles.Contains(tree.FilePath)) continue;
             if (memberNames.Any(n => plan.OwnsTouch(tree.FilePath, typeName, n)))
-                owners.Add(plan.Id);
+                set.Add(plan.Id);
         }
-        if (owners.Count == 0) return false;
-        if (owners.Any(id => !_excludedPlanIds.Contains(id))) return false;
-        excludedPlanId = owners.OrderBy(id => id, StringComparer.Ordinal).First();
-        return true;
+        owners = set.OrderBy(id => id, StringComparer.Ordinal).ToList();
+        return owners.Count > 0;
     }
 
     /// <summary>属性 pass 产出新树后，索引器 pass 需要绑定新节点的 SemanticModel：

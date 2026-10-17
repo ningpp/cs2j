@@ -3,6 +3,7 @@ using CSharpToJava.Core.MemberDesugar;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CSharpToJava.CLI.Preprocessing.Adapters;
 
@@ -87,10 +88,51 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
             tree.ResetScratchFile(asset, assetDest);
         }
 
-        // 基线错误集：用原始内容、但 path 取中间树路径，保证键可直接比对。
-        var baselineErrors = BuildErrorSet(
-            sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Source))),
+        // 整树输入编译 + 整树分析（plan）跨轮恒定：每轮都把全部文件重置回 pre-pass 字节，
+        // 因此轮与轮之间只有 excluded 集合不同。编译/绑定一次完成，plan 跨轮复用——否则每轮
+        // 重跑一次 4558-plan 整树分析（画像 2026-10-17：单轮分析 ~73s、改写 ~112s）。
+        var inputCompilation = BuildCompilation(
+            sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
             tree.Layout, intermediateRoot);
+        var pristineTreesByPath = inputCompilation.SyntaxTrees
+            .ToDictionary(t => t.FilePath, StringComparer.OrdinalIgnoreCase);
+        var preprocessor = new MemberDesugarPreprocessor(_options);
+        preprocessor.BindCompilation(inputCompilation);
+        var plans = preprocessor.Plans;
+
+        // 受影响文件集：全部 plan 触碰文件（声明 + 使用点 + 层次/接口联动）的并集。集合外的树
+        // 在基线与候选间逐字节相同（候选甚至复用同一 tree 对象），其诊断两侧恒等、互相抵消，
+        // 故候选 diff 与基线键都只需绑定集合内的树（扩展方法 pass 同款不变性论证 §4.4-4）。
+        var affectedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var plan in plans)
+        {
+            foreach (var touched in plan.TouchedFiles)
+            {
+                affectedPaths.Add(Path.GetFullPath(touched));
+            }
+        }
+
+        // 基线键：原始内容（即本轮输入）在受影响树上的逐树诊断，按树并行。
+        var baselineErrors = new HashSet<(string File, string Id, string Message)>(
+            CollectErrorKeys(inputCompilation, affectedPaths, intermediateRoot));
+
+        // 候选编译的树自缓存：未改写文件复用 pre-pass tree，只有被改写的文件才重新解析。
+        var globalUsingsTree = BuildGlobalUsingsTree(tree.Layout, intermediateRoot);
+        var candidateTreesByPath = new Dictionary<string, SyntaxTree>(
+            pristineTreesByPath, StringComparer.OrdinalIgnoreCase);
+        var parseOptions = CreateParseOptions(tree);
+
+        // 含终结器声明的文件单独串行处理：finalizer 阶段写入共享 sidecar（懒创建 + 逐条登记，
+        // 非线程安全）；其余文件的逐文件改写互不共享可变状态，可并行。
+        var destructorFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in sourceFiles)
+        {
+            if (pristineTreesByPath.TryGetValue(pair.Dest, out var pristine)
+                && pristine.GetRoot().DescendantNodes().OfType<DestructorDeclarationSyntax>().Any())
+            {
+                destructorFiles.Add(pair.Source);
+            }
+        }
 
         var excluded = new HashSet<string>(StringComparer.Ordinal);
         var rollbackDiagnostics = new List<MemberDesugarDiagnostic>();
@@ -106,52 +148,82 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
             foreach (var pair in sourceFiles)
                 tree.ResetScratchFile(pair.Source, pair.Dest);
 
+            preprocessor.ExcludePlans(excluded);
+            preprocessor.BeginIteration();
+            lastPlans = plans;
+
+            // 逐文件改写纯计算并行（终结器宿主文件串行），随后按源文件序串行合并：写盘、
+            // 统计并入、诊断收集、verbose 行打印——可观察输出与串行循环逐字节一致
+            // （扩展方法 pass 同款纪律）。
+            var outcomes = new FileRewriteOutcome[sourceFiles.Count];
+            Parallel.For(
+                0,
+                sourceFiles.Count,
+                new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount) },
+                index =>
+                {
+                    var pair = sourceFiles[index];
+                    if (destructorFiles.Contains(pair.Source))
+                    {
+                        return;
+                    }
+
+                    outcomes[index] = RewriteOneFile(
+                        pair, preprocessor, inputCompilation, pristineTreesByPath);
+                });
+
+            for (var index = 0; index < sourceFiles.Count; index++)
+            {
+                var pair = sourceFiles[index];
+                if (!destructorFiles.Contains(pair.Source))
+                {
+                    continue;
+                }
+
+                outcomes[index] = RewriteOneFile(
+                    pair, preprocessor, inputCompilation, pristineTreesByPath);
+            }
+
             var passStats = new MemberDesugarStatistics();
             var passDiagnostics = new List<MemberDesugarDiagnostic>();
-            var preprocessor = new MemberDesugarPreprocessor(_options);
-            var compilation = BuildCompilation(
-                sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
-                tree.Layout, intermediateRoot);
-            preprocessor.BindCompilation(compilation);
-            preprocessor.ExcludePlans(excluded);
-            lastPlans = preprocessor.Plans;
-
-            // rewrittenByFile：被改写文件 → 其原始源文件路径（值当前未参与归属，仅作"在改写集"判定）。
-            var rewrittenByFile = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var pair in sourceFiles)
+            for (var index = 0; index < sourceFiles.Count; index++)
             {
-                var sourceCode = File.ReadAllText(pair.Dest);
-                var syntaxTree = compilation.SyntaxTrees.FirstOrDefault(t =>
-                    string.Equals(t.FilePath, pair.Dest, StringComparison.OrdinalIgnoreCase));
-                if (syntaxTree == null) continue;
+                var pair = sourceFiles[index];
+                var outcome = outcomes[index];
+                passStats.Add(outcome.Statistics);
+                passDiagnostics.AddRange(outcome.Diagnostics);
 
-                var result = preprocessor.RewriteFile(
-                    sourceCode,
-                    compilation.GetSemanticModel(syntaxTree),
-                    passStats,
-                    passDiagnostics);
-
-                if (result.Changed)
+                if (outcome.Result.Changed)
                 {
-                    File.WriteAllText(pair.Dest, result.OutputCode,
+                    File.WriteAllText(pair.Dest, outcome.Result.OutputCode,
                         FileStartsWithBom(pair.Source)
                             ? new UTF8Encoding(true)
                             : new UTF8Encoding(false));
-                    rewrittenByFile[pair.Dest] = pair.Source;
+                    candidateTreesByPath[pair.Dest] = CSharpSyntaxTree.ParseText(
+                        outcome.Result.OutputCode, parseOptions, path: pair.Dest);
+                }
+                else
+                {
+                    candidateTreesByPath[pair.Dest] = pristineTreesByPath[pair.Dest];
                 }
 
                 if (_verbose)
                 {
                     Console.WriteLine(
-                        $"[member-desugar] {(result.Changed ? "transformed" : "clean (copy)")}: " +
+                        $"[member-desugar] {(outcome.Result.Changed ? "transformed" : "clean (copy)")}: " +
                         $"{Path.GetRelativePath(sourceRoot, pair.Source)}");
                 }
             }
 
-            var candidateCompilation = BuildCompilation(
-                sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
-                tree.Layout, intermediateRoot);
-            var newErrors = DiffErrors(baselineErrors, candidateCompilation, intermediateRoot);
+            var candidateTrees = new List<SyntaxTree>(sourceFiles.Count + 1);
+            foreach (var pair in sourceFiles)
+                candidateTrees.Add(candidateTreesByPath[pair.Dest]);
+            if (globalUsingsTree != null)
+                candidateTrees.Add(globalUsingsTree);
+            var candidateCompilation = CreateCompilation(candidateTrees, tree.Layout);
+            var newErrors = CollectErrorDiagnostics(candidateCompilation, affectedPaths)
+                .Where(d => !baselineErrors.Contains(ErrorKey(d, intermediateRoot)))
+                .ToList();
 
             if (newErrors.Count == 0)
             {
@@ -160,27 +232,26 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                 break;
             }
 
-            // 归属新增错误 → 唯一 plan。
+            // 归属新增错误：取该位置的 owner（含已排除）中的【活动】者作回退集——同位置的
+            // 多个 owner（基/派生、属性/签名 plan、实现/接口）整组回退才能恢复一致。
+            // 活动集为空（仅归属于已排除 plan，或位置不属于任何 plan——错误锚点是使用点/
+            // 类型声明，其 (类型名,成员名) 键落不到生成该节点的 plan 上）则本轮无可回退的
+            // 活动 plan 能消除它，接受本轮；真实 breakage 由尾部 msbuild 验证兜底。
             var plansToRollback = new HashSet<string>(StringComparer.Ordinal);
             var blockedByExcludedCount = 0;
             foreach (var error in newErrors)
             {
-                if (preprocessor.TryAttributeDiagnostic(error, rewrittenByFile, out var planId)
-                    && !excluded.Contains(planId)
-                    && !plansToRollback.Contains(planId))
+                var activeOwners = preprocessor.CollectOwners(error, out var owners)
+                    ? owners.Where(id => !excluded.Contains(id)).ToList()
+                    : new List<string>();
+                if (activeOwners.Count > 0)
                 {
-                    plansToRollback.Add(planId);
+                    foreach (var owner in activeOwners)
+                        plansToRollback.Add(owner);
                     continue;
                 }
 
-                // 严格归属失败（含锚点落在本轮未改写文件）：若位置仅归属于已排除
-                // plan，则任何进一步回退都无法消除该错误——它来自宽松整树合并编译
-                // 的镜像碰撞；真实 breakage 仍由尾部 msbuild build/test 验证拦截。
-                if (preprocessor.TryAttributeDiagnosticBlockedByExcluded(error, out var blockedId)
-                    && excluded.Contains(blockedId))
-                {
-                    blockedByExcludedCount++;
-                }
+                blockedByExcludedCount++;
             }
 
             if (plansToRollback.Count == 0)
@@ -275,8 +346,10 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
         }
 
         // make-readonly 尾段（设计 §5.1）：还原包 → 验证构建/测试 → 清理 bin 输出。
+        // 还原仅为验证构建/测试服务：两者皆被关闭（--no-verify-*）时跳过 restore，
+        // 避免 RC 之后的整个解决方案还原（画像 2026-10-17）。
         var restoreTarget = ProjectPreprocessSource.ResolveRestoreTarget(tree.Layout, intermediateRoot);
-        if (restoreTarget != null)
+        if (restoreTarget != null && (VerifyBuild || VerifyTests))
         {
             context.Restore();
             await context.VerifyBuildAndTestsAsync();
@@ -284,6 +357,51 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
         }
 
         context.Success = success;
+    }
+
+    /// <summary>单文件改写的一次纯计算产出（并行阶段用；无共享可变状态写入）。</summary>
+    private sealed class FileRewriteOutcome
+    {
+        public required MemberDesugarFileResult Result { get; init; }
+        public required MemberDesugarStatistics Statistics { get; init; }
+        public required List<MemberDesugarDiagnostic> Diagnostics { get; init; }
+    }
+
+    /// <summary>
+    /// 逐文件改写：独立 statistics/diagnostics，语义模型取自跨轮复用的输入编译（pre-pass
+    /// 内容），因此产出只依赖该文件自身文本 + 当前活动 plan 集合。终结器宿主文件由调用方
+    /// 串行驱动（sidecar 非线程安全）。
+    /// </summary>
+    private static FileRewriteOutcome RewriteOneFile(
+        (string Source, string Dest) pair,
+        MemberDesugarPreprocessor preprocessor,
+        CSharpCompilation inputCompilation,
+        Dictionary<string, SyntaxTree> pristineTreesByPath)
+    {
+        var statistics = new MemberDesugarStatistics();
+        var diagnostics = new List<MemberDesugarDiagnostic>();
+        var sourceCode = File.ReadAllText(pair.Dest);
+        if (!pristineTreesByPath.TryGetValue(pair.Dest, out var syntaxTree))
+        {
+            return new FileRewriteOutcome
+            {
+                Result = new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false },
+                Statistics = statistics,
+                Diagnostics = diagnostics,
+            };
+        }
+
+        var result = preprocessor.RewriteFile(
+            sourceCode,
+            inputCompilation.GetSemanticModel(syntaxTree),
+            statistics,
+            diagnostics);
+        return new FileRewriteOutcome
+        {
+            Result = result,
+            Statistics = statistics,
+            Diagnostics = diagnostics,
+        };
     }
 
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
@@ -411,6 +529,19 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                 path: path));
         }
 
+        var globalUsingsTree = BuildGlobalUsingsTree(layout, intermediateRoot);
+        if (globalUsingsTree != null)
+        {
+            trees.Add(globalUsingsTree);
+        }
+
+        return CreateCompilation(trees, layout);
+    }
+
+    /// <summary>合成 <c>__cs2j_global_usings.g.cs</c> 树（无隐式 using 时为 null），跨轮复用同一对象。</summary>
+    private static SyntaxTree? BuildGlobalUsingsTree(
+        ProjectPreprocessSourceLayout layout, string intermediateRoot)
+    {
         var globalUsings = new StringBuilder();
         foreach (var projectFile in layout.ProjectFiles
                      .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
@@ -420,21 +551,22 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
             var projectUsings = ImplicitGlobalUsings.BuildForProject(intermediateProjectFile, intermediateRoot);
             if (projectUsings != null) globalUsings.AppendLine(projectUsings);
         }
-        if (globalUsings.Length > 0)
-        {
-            const string syntheticPath = "__cs2j_global_usings.g.cs";
-            trees.Add(CSharpSyntaxTree.ParseText(
+
+        return globalUsings.Length == 0
+            ? null
+            : CSharpSyntaxTree.ParseText(
                 globalUsings.ToString(),
                 new CSharpParseOptions(LanguageVersion.Latest),
-                path: syntheticPath));
-        }
+                path: "__cs2j_global_usings.g.cs");
+    }
 
-        return CSharpCompilation.Create(
+    private static CSharpCompilation CreateCompilation(
+        IEnumerable<SyntaxTree> trees, ProjectPreprocessSourceLayout layout)
+        => CSharpCompilation.Create(
             "member-desugar-preprocess",
             trees,
             ProjectUnsignedTypePreprocessor.GetBasicReferences(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
-    }
 
     // ---- C13：Cs2jPrelude 在场保证（设计 §3.2-3，镜像 DelegatePassAdapter 注入形态）----
 
@@ -547,36 +679,71 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
             .Select(e => e.Value)
             .FirstOrDefault();
 
-    /// <summary>(相对中间根路径, 错误码, 消息) 集合。</summary>
-    private static HashSet<(string File, string Id, string Message)> BuildErrorSet(
-        IEnumerable<(string Path, string Content)> files,
-        ProjectPreprocessSourceLayout layout,
-        string intermediateRoot)
+    /// <summary>
+    /// 受影响文件（∩ 传入编译的树）上的逐树 Error 诊断，按树序（= 编译 SyntaxTrees 序）
+    /// 拼接——与整编译 <c>GetDiagnostics()</c> 的树内枚举序一致，故 diff 结果与逐字节基线
+    /// 相同。集合外的树在基线与候选间逐字节相同，其诊断两侧恒等、互相抵消（参见调用点论证）。
+    /// </summary>
+    private static List<Diagnostic> CollectErrorDiagnostics(
+        CSharpCompilation compilation,
+        HashSet<string> affectedPaths)
     {
-        var compilation = BuildCompilation(files, layout, intermediateRoot);
-        return new HashSet<(string, string, string)>(
-            compilation.GetDiagnostics()
-                .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)
-                .Select(d => (
-                    Normalize(d.Location.SourceTree!.FilePath, intermediateRoot),
-                    d.Descriptor.Id,
-                    d.GetMessage())));
+        var trees = compilation.SyntaxTrees as IReadOnlyList<SyntaxTree>
+            ?? compilation.SyntaxTrees.ToList();
+        var slots = new List<Diagnostic>?[trees.Count];
+        Parallel.For(0, trees.Count, i =>
+        {
+            var tree = trees[i];
+            if (!affectedPaths.Contains(Path.GetFullPath(tree.FilePath)))
+            {
+                return;
+            }
+
+            var model = compilation.GetSemanticModel(tree);
+            var list = new List<Diagnostic>();
+            foreach (var diagnostic in model.GetDiagnostics())
+            {
+                if (diagnostic.Severity == DiagnosticSeverity.Error
+                    && diagnostic.Location.SourceTree != null)
+                {
+                    list.Add(diagnostic);
+                }
+            }
+
+            slots[i] = list;
+        });
+
+        var result = new List<Diagnostic>();
+        foreach (var slot in slots)
+        {
+            if (slot != null)
+            {
+                result.AddRange(slot);
+            }
+        }
+
+        return result;
     }
 
-    private static List<Diagnostic> DiffErrors(
-        HashSet<(string File, string Id, string Message)> baseline,
-        CSharpCompilation candidate,
+    private static HashSet<(string File, string Id, string Message)> CollectErrorKeys(
+        CSharpCompilation compilation,
+        HashSet<string> affectedPaths,
         string intermediateRoot)
     {
-        return candidate.GetDiagnostics()
-            .Where(d => d.Severity == DiagnosticSeverity.Error
-                && d.Location.SourceTree != null
-                && !baseline.Contains((
-                    Normalize(d.Location.SourceTree!.FilePath, intermediateRoot),
-                    d.Descriptor.Id,
-                    d.GetMessage())))
-            .ToList();
+        var keys = new HashSet<(string, string, string)>();
+        foreach (var diagnostic in CollectErrorDiagnostics(compilation, affectedPaths))
+        {
+            keys.Add(ErrorKey(diagnostic, intermediateRoot));
+        }
+
+        return keys;
     }
+
+    private static (string File, string Id, string Message) ErrorKey(
+        Diagnostic diagnostic, string intermediateRoot)
+        => (Normalize(diagnostic.Location.SourceTree!.FilePath, intermediateRoot),
+            diagnostic.Descriptor.Id,
+            diagnostic.GetMessage());
 
     private static string Normalize(string path, string intermediateRoot)
     {
