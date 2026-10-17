@@ -106,11 +106,9 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
         foreach (var baselineTree in baselineCompilation.SyntaxTrees)
             treeByPath[baselineTree.FilePath] = baselineTree;
 
-        // 基线错误集惰性求值：只有本轮确有文件被改写、真的需要与候选编译做 diff 时
-        // 才做一次整树 GetDiagnostics。常见的「零改写」终态下整轮都不需要它。
-        HashSet<(string, string, string)>? baselineErrors = null;
-        HashSet<(string, string, string)> BaselineErrors()
-            => baselineErrors ??= BuildErrorSet(baselineCompilation, intermediateRoot);
+        // 基线错误键索引：整编译声明诊断只绑一次，受影响集合内每棵树自身的 SemanticModel
+        // 诊断首次使用时绑定（与使用点 walk 已完成的绑定重合，不再重复）。
+        var baselineIndex = new BaselineErrorIndex(baselineCompilation, intermediateRoot);
 
         var excluded = new HashSet<string>(StringComparer.Ordinal);
         var rollbackDiagnostics = new List<EnumDeclarationDiagnostic>();
@@ -245,16 +243,27 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
                 candidateCompilation = candidateCompilation.ReplaceSyntaxTree(oldTree, newTree);
             }
 
-            // 基线/候选两棵整树诊断各自独立（不同 Compilation 实例），并行求值以缩短
-            // 墙钟；各自的错误集合与顺序与串行逐次调用完全相同，DiffErrors 判定随之等价。
-            var baselineTask = Task.Run(BaselineErrors);
-            var candidateTask = Task.Run(() => candidateCompilation.GetDiagnostics()
-                .Where(d => d.Severity == DiagnosticSeverity.Error
-                    && d.Location.SourceTree != null)
-                .ToList());
-            var baselineSet = await baselineTask;
+            // 门控诊断的「受影响集合」：本轮真正改写的文件 ∪ plan 短名文本预筛命中的文件
+            // （分析器使用点扫描的树集合）。集合之外的树在源码文本里不出现任何 plan 短名，
+            // 既不会被本 pass 改写，也不会因改写而改变自身诊断（见提交说明的逐树全等证据）。
+            var affectedTreePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var probedPath in preprocessor.ProbedFilePaths)
+                affectedTreePaths.Add(probedPath);
+            foreach (var destPath in rewrittenByFile.Keys)
+                affectedTreePaths.Add(destPath);
+
+            // 基线/候选两侧用同一形状、同一文件集合求错误键集：整编译声明诊断（覆盖跨树
+            // 声明错误）+ 受影响集合内每棵树的 SemanticModel 诊断（parse + body + semantic）。
+            // 两侧不同 Compilation 实例、彼此独立，并行求值以缩短墙钟；各自集合内容与串行
+            // 逐次调用完全相同。
+            var baselineTask = Task.Run(() => baselineIndex.Build(affectedTreePaths));
+            var candidateTask = Task.Run(
+                () => CandidateErrorList(candidateCompilation, affectedTreePaths));
+            var baselineKeys = await baselineTask;
             var candidateErrorList = await candidateTask;
-            var newErrors = DiffErrors(baselineSet, candidateErrorList, intermediateRoot);
+            var newErrors = candidateErrorList
+                .Where(d => !baselineKeys.Contains(ErrorKey(d, intermediateRoot)))
+                .ToList();
 
             if (newErrors.Count == 0)
             {
@@ -535,31 +544,107 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
     }
 
-    private static HashSet<(string File, string Id, string Message)> BuildErrorSet(
-        CSharpCompilation compilation,
-        string intermediateRoot)
+    /// <summary>归一化的「文件 + 诊断 Id + 消息」错误键；无源位置的诊断不参与。</summary>
+    private static (string File, string Id, string Message) ErrorKey(
+        Diagnostic diagnostic, string intermediateRoot)
+        => (
+            Normalize(diagnostic.Location.SourceTree!.FilePath, intermediateRoot),
+            diagnostic.Descriptor.Id,
+            diagnostic.GetMessage());
+
+    /// <summary>
+    /// 候选侧「整编译声明诊断 + 受影响集合内逐树 SemanticModel 诊断」中命中 Error 且带源
+    /// 位置的错误，按求值顺序返回。与 <see cref="BaselineErrorIndex"/> 的基线侧形状与文件
+    /// 集合一一对应，二者相减即与整树 diff 同判定。
+    /// </summary>
+    private static List<Diagnostic> CandidateErrorList(
+        CSharpCompilation candidate,
+        IReadOnlySet<string> affectedTreePaths)
     {
-        var set = new HashSet<(string, string, string)>(
-            compilation.GetDiagnostics()
-                .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)
-                .Select(d => (
-                    Normalize(d.Location.SourceTree!.FilePath, intermediateRoot),
-                    d.Descriptor.Id,
-                    d.GetMessage())));
-        return set;
+        var errors = new List<Diagnostic>();
+        foreach (var diagnostic in candidate.GetDeclarationDiagnostics())
+            Consider(diagnostic);
+        foreach (var tree in candidate.SyntaxTrees)
+        {
+            if (!affectedTreePaths.Contains(tree.FilePath)) continue;
+            foreach (var diagnostic in candidate.GetSemanticModel(tree).GetDiagnostics())
+                Consider(diagnostic);
+        }
+        return errors;
+
+        void Consider(Diagnostic diagnostic)
+        {
+            if (diagnostic.Severity == DiagnosticSeverity.Error
+                && diagnostic.Location.SourceTree != null)
+            {
+                errors.Add(diagnostic);
+            }
+        }
     }
 
-    private static List<Diagnostic> DiffErrors(
-        HashSet<(string File, string Id, string Message)> baseline,
-        List<Diagnostic> candidateErrors,
-        string intermediateRoot)
+    /// <summary>
+    /// 基线的「整编译声明诊断 + 受影响集合内逐树 SemanticModel 诊断」错误键索引。整编译
+    /// 声明诊断只绑一次并按树分组；每棵树自身的语义诊断首次使用时绑定（与使用点 walk 的
+    /// 绑定重合，不再重复计费）。索引只随文件集合增长而增长，跨轮复用安全：额外键的文件
+    /// 必不在本轮受影响集合内，不可能与本轮候选错误撞键（键含归一化文件路径）。
+    /// </summary>
+    private sealed class BaselineErrorIndex
     {
-        return candidateErrors
-            .Where(d => !baseline.Contains((
-                Normalize(d.Location.SourceTree!.FilePath, intermediateRoot),
-                d.Descriptor.Id,
-                d.GetMessage())))
-            .ToList();
+        private readonly CSharpCompilation _baseline;
+        private readonly string _intermediateRoot;
+        private HashSet<(string File, string Id, string Message)>? _declarationKeys;
+        private readonly Dictionary<SyntaxTree, HashSet<(string File, string Id, string Message)>>
+            _treeKeys = new();
+
+        public BaselineErrorIndex(CSharpCompilation baseline, string intermediateRoot)
+        {
+            _baseline = baseline;
+            _intermediateRoot = intermediateRoot;
+        }
+
+        public HashSet<(string File, string Id, string Message)> Build(
+            IReadOnlySet<string> affectedTreePaths)
+        {
+            var keys = _declarationKeys ??= DeclarationKeys();
+            keys = new HashSet<(string File, string Id, string Message)>(keys);
+            foreach (var tree in _baseline.SyntaxTrees)
+            {
+                if (!affectedTreePaths.Contains(tree.FilePath)) continue;
+                if (!_treeKeys.TryGetValue(tree, out var treeKeys))
+                {
+                    treeKeys = new HashSet<(string File, string Id, string Message)>();
+                    foreach (var diagnostic in _baseline.GetSemanticModel(tree).GetDiagnostics())
+                    {
+                        if (diagnostic.Severity == DiagnosticSeverity.Error
+                            && diagnostic.Location.SourceTree != null)
+                        {
+                            treeKeys.Add(ErrorKey(diagnostic, _intermediateRoot));
+                        }
+                    }
+
+                    _treeKeys[tree] = treeKeys;
+                }
+
+                keys.UnionWith(treeKeys);
+            }
+
+            return keys;
+        }
+
+        private HashSet<(string File, string Id, string Message)> DeclarationKeys()
+        {
+            var keys = new HashSet<(string File, string Id, string Message)>();
+            foreach (var diagnostic in _baseline.GetDeclarationDiagnostics())
+            {
+                if (diagnostic.Severity == DiagnosticSeverity.Error
+                    && diagnostic.Location.SourceTree != null)
+                {
+                    keys.Add(ErrorKey(diagnostic, _intermediateRoot));
+                }
+            }
+
+            return keys;
+        }
     }
 
     private static string Normalize(string path, string intermediateRoot)
