@@ -150,7 +150,6 @@ internal sealed class EnumDeclarationAnalyzer
             if (planNameProbe != null && !planNameProbe(tree.GetText().ToString())) continue;
             walkable.Add(tree);
         }
-        foreach (var tree in walkable) analysis.ProbedFilePaths.Add(tree.FilePath);
 
         foreach (var tree in walkable)
         {

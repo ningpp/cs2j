@@ -161,13 +161,6 @@ internal sealed class EnumAnalysis
         = new(SymbolEqualityComparer.Default);
 
     /// <summary>
-    /// plan 短名文本预筛命中的语法树文件路径（= 需要做使用点语义扫描的树集合）。
-    /// 该集合之外的树在源码文本里不出现任何 plan 短名，因而不可能承载本 pass 的使用点
-    /// 或声明改写；CLI 侧据此把门控诊断收窄到「受影响集合」。
-    /// </summary>
-    public List<string> ProbedFilePaths { get; } = new();
-
-    /// <summary>
     /// 跨枚举成员初始化器依赖：依赖方枚举完全限定名（成员 EqualsValue 的宿主）
     /// → 其初值中引用到的其他枚举完全限定名集合。若依赖方保持真 enum（无计划/
     /// 不可行/被 ED031 回滚），被引用方也不能转换，否则其成员不再是编译期常量。

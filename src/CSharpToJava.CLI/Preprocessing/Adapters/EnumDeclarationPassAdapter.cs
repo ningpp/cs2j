@@ -106,8 +106,8 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
         foreach (var baselineTree in baselineCompilation.SyntaxTrees)
             treeByPath[baselineTree.FilePath] = baselineTree;
 
-        // 基线错误键索引：整编译声明诊断只绑一次，受影响集合内每棵树自身的 SemanticModel
-        // 诊断首次使用时绑定（与使用点 walk 已完成的绑定重合，不再重复）。
+        // 基线错误键索引：受影响集合内每棵树自身的 SemanticModel 诊断首次使用时绑定
+        // （与使用点 walk 已完成的绑定重合，不再重复计费），跨轮复用安全。
         var baselineIndex = new BaselineErrorIndex(baselineCompilation, intermediateRoot);
 
         var excluded = new HashSet<string>(StringComparer.Ordinal);
@@ -243,19 +243,19 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
                 candidateCompilation = candidateCompilation.ReplaceSyntaxTree(oldTree, newTree);
             }
 
-            // 门控诊断的「受影响集合」：本轮真正改写的文件 ∪ plan 短名文本预筛命中的文件
-            // （分析器使用点扫描的树集合）。集合之外的树在源码文本里不出现任何 plan 短名，
-            // 既不会被本 pass 改写，也不会因改写而改变自身诊断（见提交说明的逐树全等证据）。
-            var affectedTreePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var probedPath in preprocessor.ProbedFilePaths)
-                affectedTreePaths.Add(probedPath);
-            foreach (var destPath in rewrittenByFile.Keys)
-                affectedTreePaths.Add(destPath);
+            // 门控诊断只覆盖「本轮真正被改写的文件」：只有这些文件在基线/候选之间逐字节不同，
+            // 也只有它们（及其声明级位置）才可能承载新错误。本仓已逐树实测：集合外 797 棵树
+            // 的基线/候选 Error 多重集逐棵全等（见提交说明）。
+            var affectedTreePaths = new HashSet<string>(
+                rewrittenByFile.Keys, StringComparer.OrdinalIgnoreCase);
 
-            // 基线/候选两侧用同一形状、同一文件集合求错误键集：整编译声明诊断（覆盖跨树
-            // 声明错误）+ 受影响集合内每棵树的 SemanticModel 诊断（parse + body + semantic）。
-            // 两侧不同 Compilation 实例、彼此独立，并行求值以缩短墙钟；各自集合内容与串行
-            // 逐次调用完全相同。
+            // 基线/候选两侧用同一形状、同一文件集合，只取「受影响集合内每棵树的
+            // SemanticModel 诊断」（parse + body + declaration + semantic）。集合之外的树
+            // 在基线/候选间逐树诊断全等（本仓 797 棵逐棵实测 differ=0）。
+            // 不再调用整编译 GetDeclarationDiagnostics()：本仓实测其 11037 条错误
+            // (树+id+span+消息) 100% 已由所属树自身的 SemanticModel 诊断给出
+            // (coveredAllTrees=11037/11037)，故该流对集合内判定是冗余的、对集合外无新增
+            // (集合外逐树诊断相同 ⇒ 其上声明错误也相同)。
             var baselineTask = Task.Run(() => baselineIndex.Build(affectedTreePaths));
             var candidateTask = Task.Run(
                 () => CandidateErrorList(candidateCompilation, affectedTreePaths));
@@ -553,17 +553,15 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
             diagnostic.GetMessage());
 
     /// <summary>
-    /// 候选侧「整编译声明诊断 + 受影响集合内逐树 SemanticModel 诊断」中命中 Error 且带源
-    /// 位置的错误，按求值顺序返回。与 <see cref="BaselineErrorIndex"/> 的基线侧形状与文件
-    /// 集合一一对应，二者相减即与整树 diff 同判定。
+    /// 候选侧「受影响集合内逐树 SemanticModel 诊断」中命中 Error 且带源位置的错误，按
+    /// SyntaxTrees 顺序返回。与 <see cref="BaselineErrorIndex"/> 的基线侧形状与文件集合
+    /// 一一对应，二者相减即与整树 diff 同判定。
     /// </summary>
     private static List<Diagnostic> CandidateErrorList(
         CSharpCompilation candidate,
         IReadOnlySet<string> affectedTreePaths)
     {
         var errors = new List<Diagnostic>();
-        foreach (var diagnostic in candidate.GetDeclarationDiagnostics())
-            Consider(diagnostic);
         foreach (var tree in candidate.SyntaxTrees)
         {
             if (!affectedTreePaths.Contains(tree.FilePath)) continue;
@@ -583,16 +581,15 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
     }
 
     /// <summary>
-    /// 基线的「整编译声明诊断 + 受影响集合内逐树 SemanticModel 诊断」错误键索引。整编译
-    /// 声明诊断只绑一次并按树分组；每棵树自身的语义诊断首次使用时绑定（与使用点 walk 的
-    /// 绑定重合，不再重复计费）。索引只随文件集合增长而增长，跨轮复用安全：额外键的文件
-    /// 必不在本轮受影响集合内，不可能与本轮候选错误撞键（键含归一化文件路径）。
+    /// 基线的「受影响集合内逐树 SemanticModel 诊断」错误键索引。每棵树自身的诊断首次
+    /// 使用时绑定（与使用点 walk 的绑定重合，不再重复计费）。索引只随文件集合增长而增长，
+    /// 跨轮复用安全：额外键的文件必不在本轮受影响集合内，不可能与本轮候选错误撞键
+    /// （键含归一化文件路径）。
     /// </summary>
     private sealed class BaselineErrorIndex
     {
         private readonly CSharpCompilation _baseline;
         private readonly string _intermediateRoot;
-        private HashSet<(string File, string Id, string Message)>? _declarationKeys;
         private readonly Dictionary<SyntaxTree, HashSet<(string File, string Id, string Message)>>
             _treeKeys = new();
 
@@ -605,8 +602,7 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
         public HashSet<(string File, string Id, string Message)> Build(
             IReadOnlySet<string> affectedTreePaths)
         {
-            var keys = _declarationKeys ??= DeclarationKeys();
-            keys = new HashSet<(string File, string Id, string Message)>(keys);
+            var keys = new HashSet<(string File, string Id, string Message)>();
             foreach (var tree in _baseline.SyntaxTrees)
             {
                 if (!affectedTreePaths.Contains(tree.FilePath)) continue;
@@ -626,21 +622,6 @@ internal sealed class EnumDeclarationPassAdapter : ProjectPassAdapter
                 }
 
                 keys.UnionWith(treeKeys);
-            }
-
-            return keys;
-        }
-
-        private HashSet<(string File, string Id, string Message)> DeclarationKeys()
-        {
-            var keys = new HashSet<(string File, string Id, string Message)>();
-            foreach (var diagnostic in _baseline.GetDeclarationDiagnostics())
-            {
-                if (diagnostic.Severity == DiagnosticSeverity.Error
-                    && diagnostic.Location.SourceTree != null)
-                {
-                    keys.Add(ErrorKey(diagnostic, _intermediateRoot));
-                }
             }
 
             return keys;

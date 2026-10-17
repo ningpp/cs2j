@@ -34,13 +34,6 @@ public sealed class EnumDeclarationPreprocessor
         => (IReadOnlyList<EnumDeclarationPlan>?)_analysis?.Plans
             ?? Array.Empty<EnumDeclarationPlan>();
 
-    /// <summary>
-    /// plan 短名文本预筛命中的文件路径集合（分析器使用点扫描的树集合）。该集合之外的
-    /// 树不可能承载本 pass 的改写，CLI 侧门控诊断据此收窄。
-    /// </summary>
-    internal IReadOnlyList<string> ProbedFilePaths
-        => _analysis is null ? Array.Empty<string>() : _analysis.ProbedFilePaths;
-
     internal void ExcludePlans(IEnumerable<string> planIds)
     {
         foreach (var id in planIds) _excludedPlanIds.Add(id);
