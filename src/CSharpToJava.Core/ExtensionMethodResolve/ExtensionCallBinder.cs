@@ -48,15 +48,25 @@ internal sealed class ExtensionCallBinder
     private readonly ExtensionMethodResolveStatistics _statistics = new();
     private readonly ExtensionTempAllocator _allocator;
 
-    public ExtensionCallBinder(SemanticModel model, ExtensionMethodResolveOptions options, bool suppressExtensionBlockGate = false, IReadOnlySet<string>? extensionMethodNames = null, bool? hasExtensionBlocks = null)
+    public ExtensionCallBinder(SemanticModel model, ExtensionMethodResolveOptions options, bool suppressExtensionBlockGate = false, IReadOnlySet<string>? extensionMethodNames = null, bool? hasExtensionBlocks = null, ExtensionTreeSyntaxIndex? syntaxIndex = null)
     {
         Model = model;
         Options = options;
         SuppressExtensionBlockGate = suppressExtensionBlockGate;
         ExtensionMethodNames = extensionMethodNames;
         HasExtensionBlocks = hasExtensionBlocks;
+        SyntaxIndex = syntaxIndex;
         _allocator = new ExtensionTempAllocator(model.SyntaxTree.GetCompilationUnitRoot());
     }
+
+    /// <summary>
+    /// Pre-collected per-tree node lists from the shared document-order walk
+    /// (see <see cref="ExtensionTreeSyntaxIndex"/>), or null when the caller did
+    /// not build one — the walk is then repeated here as before. When supplied,
+    /// the candidate/conditional/member-access lists are exactly the ones the
+    /// separate sweep produced, in the same document order.
+    /// </summary>
+    private ExtensionTreeSyntaxIndex? SyntaxIndex { get; }
 
     /// <summary>
     /// Whether the tree declares an <c>extension</c> block; null when the caller
@@ -110,7 +120,16 @@ internal sealed class ExtensionCallBinder
         var invocationNodes = new List<InvocationExpressionSyntax>();
         var conditionalNodes = new List<ConditionalAccessExpressionSyntax>();
         var memberAccessNodes = new List<MemberAccessExpressionSyntax>();
-        CollectNodes(root, invocationNodes, conditionalNodes, memberAccessNodes);
+        if (SyntaxIndex is { } preIndex)
+        {
+            invocationNodes = preIndex.Invocations;
+            conditionalNodes = preIndex.Conditionals;
+            memberAccessNodes = preIndex.MemberAccesses;
+        }
+        else
+        {
+            CollectNodes(root, invocationNodes, conditionalNodes, memberAccessNodes);
+        }
 
         // EM-EXT14: syntax-driven (see M1 probe ②): block members bind as
         // Ordinary inside a TypeKind.Extension container, so binding alone

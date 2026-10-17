@@ -72,6 +72,8 @@ internal sealed class ExtensionBlockAnalyzer
     private readonly SemanticModel _model;
     private readonly ExtensionBlockOptions _options;
     private readonly ExtensionBlockMetadataIndex? _metadataIndex;
+    private readonly bool _hasBlocks;
+    private readonly ExtensionTreeSyntaxIndex? _syntaxIndex;
     private readonly ExtensionTempAllocator _allocator;
     private readonly List<ExtensionDiagnostic> _diagnostics = new();
     private readonly ExtensionBlockStatistics _stats = new();
@@ -83,15 +85,25 @@ internal sealed class ExtensionBlockAnalyzer
     /// unfiltered; a non-null index that cannot expose a bindable member skips
     /// it entirely, otherwise the scan only queries nodes whose accessed name
     /// (or operator shape) could belong to such a container.
+    /// <paramref name="hasBlocks"/> is the caller's pre-computed
+    /// <c>extension</c>-block declaration probe for this very tree: a
+    /// definitively false value lets <see cref="BuildBlockPlans"/> skip its
+    /// whole-tree block enumeration (there is none to find).
+    /// <paramref name="syntaxIndex"/> supplies the shared document-order node
+    /// walk for the boundary scan, replacing its own sweep.
     /// </summary>
     public ExtensionBlockAnalyzer(
         SemanticModel model,
         ExtensionBlockOptions options,
-        ExtensionBlockMetadataIndex? metadataIndex = null)
+        ExtensionBlockMetadataIndex? metadataIndex = null,
+        bool hasBlocks = true,
+        ExtensionTreeSyntaxIndex? syntaxIndex = null)
     {
         _model = model;
         _options = options;
         _metadataIndex = metadataIndex;
+        _hasBlocks = hasBlocks;
+        _syntaxIndex = syntaxIndex;
         _allocator = new ExtensionTempAllocator(model.SyntaxTree.GetCompilationUnitRoot());
     }
 
@@ -101,6 +113,7 @@ internal sealed class ExtensionBlockAnalyzer
         _stats.FilesScanned = 1;
 
         var blockPlans = BuildBlockPlans(root);
+
         var materialized = blockPlans.ToDictionary(b => b.Block, b => b);
         var membersByOriginal = new Dictionary<ISymbol, (MemberPlan Plan, BlockPlan Block)>();
         foreach (var block in blockPlans)
@@ -921,6 +934,14 @@ internal sealed class ExtensionBlockAnalyzer
     {
         var plans = new List<BlockPlan>();
 
+        // The caller's declaration probe already proved this tree declares no
+        // `extension` block, so the enumeration below is provably empty; skip
+        // the whole-tree walk.
+        if (!_hasBlocks)
+        {
+            return plans;
+        }
+
         foreach (var block in ExtensionBlockSyntaxFacts.EnumerateBlocks(root))
         {
             _stats.BlocksScanned++;
@@ -1561,7 +1582,19 @@ internal sealed class ExtensionBlockAnalyzer
         var seenSpans = new HashSet<int>();
         var filter = _metadataIndex;
 
-        foreach (var node in root.DescendantNodesAndSelf())
+        // The boundary scan inspects only invocation / member-access /
+        // member-binding shapes (plus the operator shapes, iff some referenced
+        // container declares an operator member — which is exactly when the
+        // shared walk was asked to collect them). The historical
+        // `DescendantNodesAndSelf()` sweep produced these in document order;
+        // the shared index carries the very same nodes in the very same order,
+        // so the collected sites, the span-dedup and the emitted diagnostics
+        // are identical.
+        var nodes = _syntaxIndex is { } index
+            ? (IEnumerable<SyntaxNode>)index.BoundaryNodes
+            : root.DescendantNodesAndSelf();
+
+        foreach (var node in nodes)
         {
             ISymbol? symbol;
             switch (node)

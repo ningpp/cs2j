@@ -295,6 +295,63 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
 
     private static string NormalizePath(string path) => path.Replace('\\', '/');
 
+    /// <summary>
+    /// The per-file rewrite is a pure function of its own tree (the whole-tree
+    /// analysis tables are read-only at this point), so the standard spine may
+    /// run the read + rewrite step in parallel. Every shared mutation of the
+    /// historical sequential loop — statistics/diagnostics merge order, the
+    /// rewritten-site/exempt site accumulators, the rewritten-file set and the
+    /// verbose lines — is replayed serially in source-file order by
+    /// <see cref="MergeFilePureResult"/>, so the observable output, the printed
+    /// summary and the residual-gate inputs are byte-identical.
+    /// </summary>
+    public override bool SupportsParallelFileRewrite => true;
+
+    private sealed class ExtensionFilePureState
+    {
+        public required ExtensionMethodResolvePreprocessor.ExtensionFilePureResult Pure { get; init; }
+    }
+
+    public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
+    {
+        var pure = _preprocessor.RewriteFilePure(context.SemanticModel!);
+        return Task.FromResult(new PassFilePureResult
+        {
+            Context = context,
+            Rewrite = pure.Result.Changed
+                ? new PassFileRewrite { OutputCode = pure.Result.OutputCode, Changed = true }
+                : null,
+            PassState = new ExtensionFilePureState { Pure = pure },
+        });
+    }
+
+    public override void MergeFilePureResult(PassFilePureResult result)
+    {
+        if (result.PassState is not ExtensionFilePureState state)
+        {
+            return;
+        }
+
+        var pure = state.Pure;
+        _statistics.Merge(pure.Result.Statistics);
+        if (pure.BlockStatistics is { } fileBlockStatistics)
+        {
+            _blockStatistics.Merge(fileBlockStatistics);
+        }
+
+        _preprocessor.AcceptFileKeys(pure, result.Context.SourceFilePath);
+
+        foreach (var diagnostic in pure.Result.Diagnostics)
+        {
+            _diagnostics.Add(diagnostic with { FilePath = result.Context.RelativePath });
+        }
+
+        if (_verbose)
+        {
+            Console.WriteLine($"[extension-methods] {(pure.Result.Changed ? "transformed" : "clean (copy)")}: {result.Context.RelativePath}");
+        }
+    }
+
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
     {
         var result = _preprocessor.RewriteFile(context.SemanticModel!);
@@ -334,6 +391,7 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         var rewrittenDest = MapRewrittenToDestination(tree);
         var candidateKeys = BuildCandidateErrorKeys(candidate, rewrittenDest);
         var baselineSubset = BuildLazyBaselineErrors(candidateKeys);
+
         var rollbackPlan = ExtensionRewriteRollback.Plan(
             baselineSubset, candidateKeys, rewrittenDest);
 
@@ -486,10 +544,9 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
     private void RunResidualScan(PassTreeContext tree, CSharpCompilation compilation, HashSet<string>? excludedFiles)
     {
         _statistics.ThisModifierBaseline = _preprocessor.ThisModifierBaseline;
-        _statistics.ThisModifierPreserved = compilation.SyntaxTrees
-            .Where(t => excludedFiles is null || !excludedFiles.Contains(t.FilePath))
-            .Sum(ExtensionMethodResidualScanner.CountExtensionThisModifiers);
-
+        // The preserved count is gate 5's own (parallel) per-tree count,
+        // surfaced by the scan below; the historical serial re-sum over every
+        // tree is unnecessary.
         // C49 materialization legitimately adds classic this-parameters (block
         // instance methods and property accessors); the gate must treat them
         // as expected. Reverted files are mapped back to their source paths so
@@ -509,8 +566,10 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
             expectedAddedThisModifiers = _preprocessor.CountMaterializedThisModifiers(excludedSourcePaths);
         }
 
+        int preservedThisModifiers;
         foreach (var (rule, count) in _preprocessor.ResidualScan(
-                     compilation, excludedFiles, expectedAddedThisModifiers))
+                     compilation, excludedFiles, expectedAddedThisModifiers,
+                     ScanCandidatesFor(tree), out preservedThisModifiers))
         {
             _statistics.ResidualsByRule.TryGetValue(rule, out var existing);
             _statistics.ResidualsByRule[rule] = existing + count;
@@ -521,6 +580,8 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
                 $"{count} residual site(s) of rule '{rule}' remain after extension-methods; the rewrite did not cover them (design §4.5).",
                 tree.IntermediateRoot));
         }
+
+        _statistics.ThisModifierPreserved = preservedThisModifiers;
     }
 
     private CSharpCompilation BuildIntermediateCompilation(
@@ -734,6 +795,37 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         => new(
             _preprocessor.RewrittenFiles.Select(f => RemapSourceToIntermediate(f, tree)),
             StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Candidate-layout files the post-rewrite call-shape gate (gate 1/2/6) can
+    /// possibly act on: the files this pass rewrote, plus the files it recorded
+    /// an exemption in. Every other tree is provably inert for that gate — the
+    /// rewrite is type-preserving and declaration-neutral, so a tree the pass did
+    /// not rewrite still holds exactly the reduced-extension sugar the baseline
+    /// held, and the binder mapped every such site to a rewrite (⇒ the file is in
+    /// the rewritten set) or to a recorded exemption (⇒ the file is in the
+    /// exemption set). This mirrors the same invariance the adapter's
+    /// candidate-vs-baseline build-error diff already relies on.
+    ///
+    /// Only applied when the pass truly materializes nothing but explicit static
+    /// calls; a source C#14 extension block (C49) can add host members and would
+    /// invalidate the argument, so the gate then keeps its whole-tree sweep.
+    /// </summary>
+    private IReadOnlyCollection<string>? ScanCandidatesFor(PassTreeContext tree)
+    {
+        if (_preprocessor.HasSourceExtensionBlocks)
+        {
+            return null;
+        }
+
+        var files = MapRewrittenToDestination(tree);
+        foreach (var exempt in _preprocessor.ExemptSites)
+        {
+            files.Add(RemapSourceToIntermediate(exempt.FilePath, tree));
+        }
+
+        return files;
+    }
 
     // Design §6: CS2J1230 is Error for both restore and build failures; CS2J1231 for test failures.
 

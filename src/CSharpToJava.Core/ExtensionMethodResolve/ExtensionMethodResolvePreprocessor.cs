@@ -8,6 +8,105 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.Core.ExtensionMethodResolve;
 
 /// <summary>
+/// One document-order (pre-order) walk of a syntax tree collecting exactly the
+/// node sets the C19 analysis needs: invocation candidates, conditional-access
+/// chains, member accesses/member bindings, the operator-shaped nodes the C49
+/// external boundary scan probes, the C#14 extension-block declaration flag and
+/// the source-declared extension-method names. The historical code swept the
+/// whole tree five separate times for these (the block probe, the binder's node
+/// collection, the block analyzer's block enumeration, its external boundary
+/// walk and the source half of the extension-method-name index); this single
+/// walk yields the same nodes in the same document order, so every downstream
+/// consumer observes identical input while the repeated traversals and node
+/// allocations disappear.
+/// </summary>
+internal sealed class ExtensionTreeSyntaxIndex
+{
+    public required bool HasExtensionBlockDeclaration { get; init; }
+
+    public required List<InvocationExpressionSyntax> Invocations { get; init; }
+
+    public required List<ConditionalAccessExpressionSyntax> Conditionals { get; init; }
+
+    public required List<MemberAccessExpressionSyntax> MemberAccesses { get; init; }
+
+    /// <summary>
+    /// Document-order union of the node shapes the C49 metadata boundary scan
+    /// inspects (invocations, member accesses, member bindings and — only when
+    /// some referenced extension container declares an operator member — the
+    /// binary/prefix-unary/assignment shapes).
+    /// </summary>
+    public required List<SyntaxNode> BoundaryNodes { get; init; }
+
+    /// <summary>Names of source-declared extension methods (static, `this` first parameter).</summary>
+    public required List<string> SourceExtensionMethodNames { get; init; }
+
+    public static ExtensionTreeSyntaxIndex Build(SyntaxNode root, bool includeOperatorShapes)
+    {
+        var invocations = new List<InvocationExpressionSyntax>();
+        var conditionals = new List<ConditionalAccessExpressionSyntax>();
+        var memberAccesses = new List<MemberAccessExpressionSyntax>();
+        var boundary = new List<SyntaxNode>();
+        var names = new List<string>();
+        var hasExtensionBlock = false;
+
+        foreach (var node in root.DescendantNodes())
+        {
+            switch (node)
+            {
+                case InvocationExpressionSyntax invocation:
+                    invocations.Add(invocation);
+                    boundary.Add(invocation);
+                    break;
+                case ConditionalAccessExpressionSyntax conditional:
+                    conditionals.Add(conditional);
+                    break;
+                case MemberAccessExpressionSyntax memberAccess:
+                    memberAccesses.Add(memberAccess);
+                    boundary.Add(memberAccess);
+                    break;
+                case MemberBindingExpressionSyntax memberBinding:
+                    boundary.Add(memberBinding);
+                    break;
+                case BinaryExpressionSyntax binary when includeOperatorShapes:
+                    boundary.Add(binary);
+                    break;
+                case PrefixUnaryExpressionSyntax prefixUnary when includeOperatorShapes:
+                    boundary.Add(prefixUnary);
+                    break;
+                case AssignmentExpressionSyntax assignment when includeOperatorShapes:
+                    boundary.Add(assignment);
+                    break;
+                case MethodDeclarationSyntax method:
+                    var parameters = method.ParameterList.Parameters;
+                    if (parameters.Count > 0
+                        && parameters[0].Modifiers.Any(SyntaxKind.ThisKeyword))
+                    {
+                        names.Add(method.Identifier.ValueText);
+                    }
+
+                    break;
+            }
+
+            if (!hasExtensionBlock && node.IsKind(SyntaxKind.ExtensionBlockDeclaration))
+            {
+                hasExtensionBlock = true;
+            }
+        }
+
+        return new ExtensionTreeSyntaxIndex
+        {
+            HasExtensionBlockDeclaration = hasExtensionBlock,
+            Invocations = invocations,
+            Conditionals = conditionals,
+            MemberAccesses = memberAccesses,
+            BoundaryNodes = boundary,
+            SourceExtensionMethodNames = names,
+        };
+    }
+}
+
+/// <summary>
 /// Core entry for the extension-method-resolve pass (C19): bind the
 /// whole-tree compilation once, analyze reduced extension sites per syntax
 /// tree, rewrite each file, assert expression-tree identity with per-site
@@ -97,12 +196,17 @@ public sealed class ExtensionMethodResolvePreprocessor
     /// <summary>Absolute paths of files whose rewrite output was Changed=true in the last Analyze/Rewrite cycle.</summary>
     public IReadOnlyCollection<string> RewrittenFiles => _rewrittenFiles;
 
-    /// <summary>
-    /// Per-tree C49 block analyses from the last <see cref="Analyze"/> cycle
+    /// <summary>Per-tree C49 block analyses from the last <see cref="Analyze"/> cycle
     /// (only trees where materialization actually ran). Consumed by the block
-    /// residual scan; empty when block materialization is off.
-    /// </summary>
+    /// residual scan; empty when block materialization is off.</summary>
     internal IReadOnlyDictionary<SyntaxTree, BlockAnalysisResult> BlockAnalyses => _blockAnalyses;
+
+    /// <summary>
+    /// Exempt sites recorded by the last rewrite cycle (original-layout file
+    /// paths). Consumed by callers that need to know which files the residual
+    /// gate can possibly act on.
+    /// </summary>
+    public IReadOnlyList<ExtensionExemptSite> ExemptSites => _exemptSites;
 
     /// <summary>M4 gate 5: extension-method <c>this</c> modifiers counted in the original compilation.</summary>
     public int ThisModifierBaseline => _thisModifierBaseline;
@@ -161,6 +265,22 @@ public sealed class ExtensionMethodResolvePreprocessor
             : null;
         MetadataExtensionIndex = metadataIndex;
 
+        // One shared document-order walk per tree collects every node set the
+        // per-tree analysis needs (candidates, chains, boundary nodes, the
+        // extension-block flag and the source extension-method names), so the
+        // historical per-consumer whole-tree sweeps collapse into one traversal.
+        // The walks are independent (per-tree, read-only), so they run in
+        // parallel; the collected lists/chains are identical to the separate
+        // sweeps and stay in document order.
+        var syntaxIndexes = new ExtensionTreeSyntaxIndex[orderedTrees.Count];
+        var includeOperatorShapes = metadataIndex?.HasOperatorMembers == true;
+        Parallel.For(
+            0,
+            orderedTrees.Count,
+            new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount) },
+            index => syntaxIndexes[index] = ExtensionTreeSyntaxIndex.Build(
+                orderedTrees[index].GetCompilationUnitRoot(), includeOperatorShapes));
+
         // One-time compilation-level index of every extension-method NAME
         // reachable from this compilation (C19 classic form: a static method
         // whose first parameter carries `this`, declared in source or in a
@@ -169,7 +289,7 @@ public sealed class ExtensionMethodResolvePreprocessor
         // only ever bind to a reduced extension method through one of these
         // names, so any node whose accessed name is not in the set is skipped
         // without a semantic query.
-        ExtensionMethodNames = BuildExtensionMethodNames(_compilation);
+        ExtensionMethodNames = BuildExtensionMethodNames(_compilation, syntaxIndexes);
 
         Parallel.For(
             0,
@@ -178,6 +298,7 @@ public sealed class ExtensionMethodResolvePreprocessor
             index =>
             {
                 var tree = orderedTrees[index];
+                var syntaxIndex = syntaxIndexes[index];
                 // Distinct tree → distinct SemanticModel → one thread never
                 // touches another thread's model (same pattern as the spine's
                 // parallel per-file rewrite).
@@ -185,14 +306,12 @@ public sealed class ExtensionMethodResolvePreprocessor
                 var entryDiagnostics = new List<ExtensionDiagnostic>();
                 BlockAnalysisResult? blockAnalysis = null;
                 var suppressClassicBlockGate = false;
-                var hasBlocks = false;
 
                 var materialize = blockOptions?.MaterializeExtensionBlocks == true;
                 // The block declaration probe is shared with the binder's
                 // CS2J1206 gate, which then skips its own whole-tree sweep when
                 // the tree carries none (the common case).
-                hasBlocks = tree.GetCompilationUnitRoot().DescendantNodes()
-                    .Any(n => n.IsKind(SyntaxKind.ExtensionBlockDeclaration));
+                var hasBlocks = syntaxIndex.HasExtensionBlockDeclaration;
 
                 if (materialize)
                 {
@@ -228,7 +347,8 @@ public sealed class ExtensionMethodResolvePreprocessor
                         else
                         {
                             suppressClassicBlockGate = true;
-                            var analyzer = new ExtensionBlockAnalyzer(model, blockOptions!, metadataIndex);
+                            var analyzer = new ExtensionBlockAnalyzer(
+                                model, blockOptions!, metadataIndex, hasBlocks, syntaxIndex);
                             blockAnalysis = analyzer.Analyze();
                         }
                     }
@@ -238,14 +358,15 @@ public sealed class ExtensionMethodResolvePreprocessor
                         // extension members from an external assembly
                         // (decision appendix 5): still run the analyzer so the
                         // report-only CS2J1203 boundary scan can fire.
-                        var analyzer = new ExtensionBlockAnalyzer(model, blockOptions!, metadataIndex);
+                        var analyzer = new ExtensionBlockAnalyzer(
+                            model, blockOptions!, metadataIndex, hasBlocks, syntaxIndex);
                         blockAnalysis = analyzer.Analyze();
                     }
                 }
 
                 sourceBlockSlots[index] = hasBlocks;
                 var binder = new ExtensionCallBinder(
-                    model, _options, suppressClassicBlockGate, ExtensionMethodNames, hasBlocks);
+                    model, _options, suppressClassicBlockGate, ExtensionMethodNames, hasBlocks, syntaxIndex);
                 binder.Analyze();
 
                 blockSlots[index] = blockAnalysis;
@@ -386,22 +507,20 @@ public sealed class ExtensionMethodResolvePreprocessor
     /// trees and referenced assemblies are independent, so the walk runs in
     /// parallel; the resulting set is order-independent.
     /// </summary>
-    private static IReadOnlySet<string> BuildExtensionMethodNames(Compilation compilation)
+    private static IReadOnlySet<string> BuildExtensionMethodNames(
+        Compilation compilation,
+        ExtensionTreeSyntaxIndex[] syntaxIndexes)
     {
         var names = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
-        var sourceTrees = compilation.SyntaxTrees as IReadOnlyList<SyntaxTree>
-            ?? compilation.SyntaxTrees.ToList();
-        Parallel.For(0, sourceTrees.Count, i =>
+
+        // The source half is already collected by the shared per-tree walk
+        // (identical node set and `this`-parameter test), so only the union
+        // step remains here.
+        Parallel.For(0, syntaxIndexes.Length, i =>
         {
-            foreach (var method in sourceTrees[i].GetCompilationUnitRoot().DescendantNodes()
-                         .OfType<MethodDeclarationSyntax>())
+            foreach (var name in syntaxIndexes[i].SourceExtensionMethodNames)
             {
-                var parameters = method.ParameterList.Parameters;
-                if (parameters.Count > 0
-                    && parameters[0].Modifiers.Any(SyntaxKind.ThisKeyword))
-                {
-                    names.TryAdd(method.Identifier.ValueText, 0);
-                }
+                names.TryAdd(name, 0);
             }
         });
 
@@ -519,8 +638,64 @@ public sealed class ExtensionMethodResolvePreprocessor
         }
     }
 
+    /// <summary>
+    /// Per-file rewrite result in PURE form: the file result plus the
+    /// per-file site/exempt keys that a serial caller must append to the
+    /// shared accumulators in source-file order. Splitting these out lets the
+    /// adapter run the (pure, per-tree) rewrite on the thread pool while the
+    /// order-sensitive accumulation stays serial and byte-identical to the
+    /// historical sequential loop.
+    /// </summary>
+    public sealed class ExtensionFilePureResult
+    {
+        public required ExtensionFileResult Result { get; init; }
+
+        /// <summary>Rewritten-site keys contributed by this file (document order).</summary>
+        public required IReadOnlyList<ExtensionRewrittenSiteKey> Sites { get; init; }
+
+        /// <summary>Exempt-site keys contributed by this file (document order).</summary>
+        public required IReadOnlyList<ExtensionExemptSite> Exempts { get; init; }
+
+        /// <summary>True when this file's rewrite output was Changed.</summary>
+        public required bool RewrittenFile { get; init; }
+
+        /// <summary>C49 block statistics for this file, when materialization ran.</summary>
+        public ExtensionBlockStatistics? BlockStatistics { get; init; }
+    }
+
+    /// <summary>
+    /// Serially accumulates the order-sensitive per-file products of a pure
+    /// rewrite result (rewritten-site keys, exempt-site keys, rewritten-file
+    /// membership). Called once per file in source-file order, so the shared
+    /// accumulators end up exactly as the historical sequential loop left them.
+    /// </summary>
+    public void AcceptFileKeys(ExtensionFilePureResult pure, string sourceFilePath)
+    {
+        ArgumentNullException.ThrowIfNull(pure);
+        _rewrittenSites = _rewrittenSites.Concat(pure.Sites).ToList();
+        _exemptSites = _exemptSites.Concat(pure.Exempts).ToList();
+        if (pure.RewrittenFile)
+        {
+            _rewrittenFiles.Add(sourceFilePath);
+        }
+
+        BlockStatisticsForLastFile = pure.BlockStatistics;
+    }
+
     /// <summary>Rewrite the syntax tree backing <paramref name="model"/> (the same tree analyzed in <see cref="Analyze"/>).</summary>
     public ExtensionFileResult RewriteFile(SemanticModel model)
+    {
+        var pure = RewriteFilePure(model);
+        AcceptFileKeys(pure, model.SyntaxTree.FilePath);
+        return pure.Result;
+    }
+
+    /// <summary>
+    /// Pure per-tree rewrite: identical computation to <see cref="RewriteFile"/>
+    /// (and, for a single tree, identical output) but it mutates no shared
+    /// accumulator state, so distinct trees may run concurrently.
+    /// </summary>
+    public ExtensionFilePureResult RewriteFilePure(SemanticModel model)
     {
         ArgumentNullException.ThrowIfNull(_compilation);
         ArgumentNullException.ThrowIfNull(model);
@@ -529,11 +704,18 @@ public sealed class ExtensionMethodResolvePreprocessor
 
         if (!_plans.TryGetValue(model.SyntaxTree, out var plan))
         {
-            return new ExtensionFileResult(
-                root.ToFullString(),
-                Changed: false,
-                Array.Empty<ExtensionDiagnostic>(),
-                new ExtensionMethodResolveStatistics { FilesScanned = 1, FilesClean = 1 });
+            return new ExtensionFilePureResult
+            {
+                Result = new ExtensionFileResult(
+                    root.ToFullString(),
+                    Changed: false,
+                    Array.Empty<ExtensionDiagnostic>(),
+                    new ExtensionMethodResolveStatistics { FilesScanned = 1, FilesClean = 1 }),
+                Sites = Array.Empty<ExtensionRewrittenSiteKey>(),
+                Exempts = Array.Empty<ExtensionExemptSite>(),
+                RewrittenFile = false,
+                BlockStatistics = null,
+            };
         }
 
         var stats = plan.Statistics;
@@ -572,15 +754,22 @@ public sealed class ExtensionMethodResolvePreprocessor
         {
             // 1204/1205/1207/1208/1213-only file: exempts must still pair with
             // the residual gates on the byte-copied tree.
-            FinalizeSiteKeys(model.SyntaxTree, plan, liftableConditions, rewritableGroups, new HashSet<SyntaxNode>());
-            FinalizeExemptSites(model.SyntaxTree, plan, new HashSet<SyntaxNode>());
+            var cleanSites = BuildSiteKeys(
+                model.SyntaxTree, plan, liftableConditions, rewritableGroups, new HashSet<SyntaxNode>());
+            var cleanExempts = BuildExemptSites(model.SyntaxTree, plan, new HashSet<SyntaxNode>());
             stats.FilesClean++;
-            BlockStatisticsForLastFile = blockAnalysis?.Statistics;
-            return new ExtensionFileResult(
-                root.ToFullString(),
-                Changed: false,
-                plan.Diagnostics.Concat(extraDiagnostics).ToList(),
-                stats);
+            return new ExtensionFilePureResult
+            {
+                Result = new ExtensionFileResult(
+                    root.ToFullString(),
+                    Changed: false,
+                    plan.Diagnostics.Concat(extraDiagnostics).ToList(),
+                    stats),
+                Sites = cleanSites,
+                Exempts = cleanExempts,
+                RewrittenFile = false,
+                BlockStatistics = blockAnalysis?.Statistics,
+            };
         }
 
         var rollback = new HashSet<SyntaxNode>();
@@ -644,19 +833,25 @@ public sealed class ExtensionMethodResolvePreprocessor
         {
             // No rewrite (e.g. 1204/1205/1207-only files): exempts must still
             // pair with the residual gates on the byte-copied tree.
-            FinalizeSiteKeys(model.SyntaxTree, plan, liftableConditions, rewritableGroups, rollback);
-            FinalizeExemptSites(model.SyntaxTree, plan, rollback);
+            var cleanSites = BuildSiteKeys(model.SyntaxTree, plan, liftableConditions, rewritableGroups, rollback);
+            var cleanExempts = BuildExemptSites(model.SyntaxTree, plan, rollback);
             stats.FilesClean++;
-            BlockStatisticsForLastFile = blockAnalysis?.Statistics;
-            return new ExtensionFileResult(
-                root.ToFullString(),
-                Changed: false,
-                plan.Diagnostics.Concat(extraDiagnostics).Concat(identityDiagnostics).ToList(),
-                stats);
+            return new ExtensionFilePureResult
+            {
+                Result = new ExtensionFileResult(
+                    root.ToFullString(),
+                    Changed: false,
+                    plan.Diagnostics.Concat(extraDiagnostics).Concat(identityDiagnostics).ToList(),
+                    stats),
+                Sites = cleanSites,
+                Exempts = cleanExempts,
+                RewrittenFile = false,
+                BlockStatistics = blockAnalysis?.Statistics,
+            };
         }
 
-        FinalizeSiteKeys(model.SyntaxTree, plan, liftableConditions, rewritableGroups, rollback);
-        FinalizeExemptSites(model.SyntaxTree, plan, rollback);
+        var finalSites = BuildSiteKeys(model.SyntaxTree, plan, liftableConditions, rewritableGroups, rollback);
+        var finalExempts = BuildExemptSites(model.SyntaxTree, plan, rollback);
 
         stats.FilesTransformed++;
         stats.CallsitesRewritten += CountRewrittenInvocations(newRoot!, plan, liftableConditions, rewritableGroups, rollback);
@@ -671,13 +866,18 @@ public sealed class ExtensionMethodResolvePreprocessor
             // declarations and spliced statements stay syntactically clean.
             || blockAnalysis is not null;
         var outputCode = Format(newRoot!, needsWholeFileFormat);
-        _rewrittenFiles.Add(model.SyntaxTree.FilePath);
-        BlockStatisticsForLastFile = blockAnalysis?.Statistics;
-        return new ExtensionFileResult(
-            outputCode,
-            Changed: true,
-            plan.Diagnostics.Concat(extraDiagnostics).Concat(identityDiagnostics).ToList(),
-            stats);
+        return new ExtensionFilePureResult
+        {
+            Result = new ExtensionFileResult(
+                outputCode,
+                Changed: true,
+                plan.Diagnostics.Concat(extraDiagnostics).Concat(identityDiagnostics).ToList(),
+                stats),
+            Sites = finalSites,
+            Exempts = finalExempts,
+            RewrittenFile = true,
+            BlockStatistics = blockAnalysis?.Statistics,
+        };
     }
 
     private sealed record RewriteOutput(
@@ -1076,14 +1276,14 @@ public sealed class ExtensionMethodResolvePreprocessor
         }
     }
 
-    private void FinalizeSiteKeys(
+    private static List<ExtensionRewrittenSiteKey> BuildSiteKeys(
         SyntaxTree tree,
         FilePlan plan,
         IReadOnlyList<ExtensionConditionalPlan> liftableConditions,
         IReadOnlyList<ExtensionGroupPlan> rewritableGroups,
         HashSet<SyntaxNode> rollback)
     {
-        var sites = _rewrittenSites.ToList();
+        var sites = new List<ExtensionRewrittenSiteKey>();
 
         foreach (var binding in plan.Bindings)
         {
@@ -1114,7 +1314,7 @@ public sealed class ExtensionMethodResolvePreprocessor
                 group.Unreduced.Parameters.Length);
         }
 
-        _rewrittenSites = sites;
+        return sites;
     }
 
     private static void AddSite(
@@ -1133,12 +1333,12 @@ public sealed class ExtensionMethodResolvePreprocessor
             definition.Parameters.Select(p => p.Type.ToDisplayString()).ToList()));
     }
 
-    private void FinalizeExemptSites(
+    private static List<ExtensionExemptSite> BuildExemptSites(
         SyntaxTree tree,
         FilePlan plan,
         HashSet<SyntaxNode> rollback)
     {
-        var exempts = _exemptSites.ToList();
+        var exempts = new List<ExtensionExemptSite>();
 
         foreach (var site in plan.RefMismatchSites)
         {
@@ -1186,7 +1386,7 @@ public sealed class ExtensionMethodResolvePreprocessor
                 group.MemberAccess.ToString());
         }
 
-        _exemptSites = exempts;
+        return exempts;
     }
 
     private static void AddExempt(
@@ -1246,6 +1446,25 @@ public sealed class ExtensionMethodResolvePreprocessor
             rewritten, _rewrittenSites, _options, _exemptSites,
             excludedFiles, _thisModifierBaseline, expectedAddedThisModifiers,
             ExtensionMethodNames);
+
+    /// <summary>
+    /// Post-rewrite residual scan that also surfaces the gate-5 counter of
+    /// <c>this</c>-modified first parameters still present in the candidate
+    /// tree. Gate 5 computes that count in parallel anyway, so a caller needing
+    /// it as a statistic gets it for free instead of re-summing every tree.
+    /// <paramref name="scannedFiles"/> (candidate-layout paths) optionally
+    /// restricts the call-shape gate to the trees that can actually contribute.
+    /// </summary>
+    public Dictionary<string, int> ResidualScan(
+        Compilation rewritten,
+        IReadOnlyCollection<string>? excludedFiles,
+        int expectedAddedThisModifiers,
+        IReadOnlyCollection<string>? scannedFiles,
+        out int preservedThisModifiers)
+        => ExtensionMethodResidualScanner.Scan(
+            rewritten, _rewrittenSites, _options, _exemptSites,
+            excludedFiles, _thisModifierBaseline, expectedAddedThisModifiers,
+            ExtensionMethodNames, scannedFiles, out preservedThisModifiers);
 
     /// <summary>
     /// C49: number of classic <c>this</c>-modified first parameters that

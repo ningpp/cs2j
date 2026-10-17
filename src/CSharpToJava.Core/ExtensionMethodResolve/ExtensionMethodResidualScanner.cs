@@ -76,6 +76,57 @@ public static class ExtensionMethodResidualScanner
         int baselineThisModifierCount,
         int expectedAddedThisModifiers = 0,
         IReadOnlySet<string>? extensionMethodNames = null)
+        => Scan(
+            rewritten, rewrittenSites, options, exemptSites, excludedFiles,
+            baselineThisModifierCount, expectedAddedThisModifiers, extensionMethodNames,
+            out _);
+
+    /// <summary>
+    /// Same as the 8-argument overload, additionally surfacing the count of
+    /// <c>this</c>-modified first parameters still present in the (non-excluded)
+    /// post-rewrite trees. That per-tree count is already computed — in parallel
+    /// — for gate 5, so a caller that also needs it as a statistic (the CLI
+    /// adapter's summary line) can read it here instead of re-summing every tree
+    /// serially. The value is unconditionally computed by gate 5, so surfacing it
+    /// adds no work and changes nothing about the gate.
+    /// </summary>
+    public static Dictionary<string, int> Scan(
+        Compilation rewritten,
+        IReadOnlyList<ExtensionRewrittenSiteKey> rewrittenSites,
+        ExtensionMethodResolveOptions options,
+        IReadOnlyList<ExtensionExemptSite> exemptSites,
+        IReadOnlyCollection<string>? excludedFiles,
+        int baselineThisModifierCount,
+        int expectedAddedThisModifiers,
+        IReadOnlySet<string>? extensionMethodNames,
+        out int preservedThisModifiers)
+        => Scan(
+            rewritten, rewrittenSites, options, exemptSites, excludedFiles,
+            baselineThisModifierCount, expectedAddedThisModifiers, extensionMethodNames,
+            null, out preservedThisModifiers);
+
+    /// <summary>
+    /// Core overload. <paramref name="scannedFiles"/> optionally names the
+    /// candidate trees the gate-1/2/6 call-shape phase must inspect: the files
+    /// this pass rewrote plus the files it recorded an exemption for. Any other
+    /// tree is skipped, which is sound because — the rewrite being
+    /// type-preserving and declaration-neutral — a tree the pass did not rewrite
+    /// carries exactly the reduced-extension sugar the baseline had, and the
+    /// binder turned every such site into either a rewrite (⇒ the file IS in the
+    /// rewritten set) or a recorded exemption (⇒ the file IS in the exemption
+    /// set). Passing null keeps the historical whole-tree sweep.
+    /// </summary>
+    public static Dictionary<string, int> Scan(
+        Compilation rewritten,
+        IReadOnlyList<ExtensionRewrittenSiteKey> rewrittenSites,
+        ExtensionMethodResolveOptions options,
+        IReadOnlyList<ExtensionExemptSite> exemptSites,
+        IReadOnlyCollection<string>? excludedFiles,
+        int baselineThisModifierCount,
+        int expectedAddedThisModifiers,
+        IReadOnlySet<string>? extensionMethodNames,
+        IReadOnlyCollection<string>? scannedFiles,
+        out int preservedThisModifiers)
     {
         ArgumentNullException.ThrowIfNull(rewritten);
         ArgumentNullException.ThrowIfNull(rewrittenSites);
@@ -86,10 +137,17 @@ public static class ExtensionMethodResidualScanner
         var residuals = new Dictionary<string, int>(StringComparer.Ordinal);
         var exemptionIndex = new ExemptionIndex(exemptSites);
 
-        ScanCallShapes(rewritten, options, exemptionIndex, residuals, excluded, extensionMethodNames);
-        ScanExpressionTreeShapes(rewritten, options, exemptionIndex, rewrittenSites, residuals, excluded);
+        ScanCallShapes(
+            rewritten, options, exemptionIndex, residuals, excluded, extensionMethodNames,
+            NormalizeExcluded(scannedFiles));
+
+        ScanExpressionTreeShapes(
+            rewritten, options, exemptionIndex, rewrittenSites, residuals, excluded,
+            NormalizeExcluded(scannedFiles));
+
         ScanRewriteIdentity(rewritten, rewrittenSites, residuals, excluded);
-        ScanThisModifierPreservation(
+
+        preservedThisModifiers = ScanThisModifierPreservation(
             rewritten, baselineThisModifierCount, expectedAddedThisModifiers, residuals, excluded);
 
         return residuals;
@@ -141,7 +199,8 @@ public static class ExtensionMethodResidualScanner
         ExemptionIndex exemptions,
         Dictionary<string, int> residuals,
         HashSet<string> excluded,
-        IReadOnlySet<string>? extensionMethodNames)
+        IReadOnlySet<string>? extensionMethodNames,
+        HashSet<string> scannedFiles)
     {
         // Phase 1 — per-tree candidate collection (pure, parallel). Every
         // semantic query and every exemption-independent filter runs here; the
@@ -157,11 +216,41 @@ public static class ExtensionMethodResidualScanner
                 return;
             }
 
+            // Provable whole-tree skip: only a file this pass rewrote (its sugar
+            // was explicitized) or one carrying a recorded exemption (its sugar
+            // is claimed) can hold a gate-1/gate-2/gate-6 candidate. See
+            // Scan(..., scannedFiles, ...) for the invariance argument.
+            if (scannedFiles.Count > 0 && !scannedFiles.Contains(NormalizePath(tree.FilePath)))
+            {
+                return;
+            }
+
             var model = compilation.GetSemanticModel(tree);
             var root = tree.GetCompilationUnitRoot();
 
+            // One document-order walk collects both gate-1/6 invocation shapes
+            // and gate-2 member accesses. The historical code built the two
+            // `DescendantNodes().OfType<T>()` iterators separately; a single
+            // switch walk visits each node once and yields the identical node
+            // sets in the identical order, so the per-tree candidate lists — and
+            // thus the serial claim pass below — are unchanged.
+            var invocationNodes = new List<InvocationExpressionSyntax>();
+            var memberAccessNodes = new List<MemberAccessExpressionSyntax>();
+            foreach (var node in root.DescendantNodes())
+            {
+                switch (node)
+                {
+                    case InvocationExpressionSyntax invocation:
+                        invocationNodes.Add(invocation);
+                        break;
+                    case MemberAccessExpressionSyntax memberAccess:
+                        memberAccessNodes.Add(memberAccess);
+                        break;
+                }
+            }
+
             var invocations = new List<CallCandidate>();
-            foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+            foreach (var invocation in invocationNodes)
             {
                 // A reduced extension invocation is always receiver-style
                 // (member access / member binding); any other invocation shape
@@ -221,7 +310,7 @@ public static class ExtensionMethodResidualScanner
             // Gate 2: non-call member access still binding as (or offering) a
             // reduced extension method group. CS2J1207-paired exempts only.
             var groups = new List<MemberAccessExpressionSyntax>();
-            foreach (var memberAccess in root.DescendantNodes().OfType<MemberAccessExpressionSyntax>())
+            foreach (var memberAccess in memberAccessNodes)
             {
                 if (memberAccess.Parent is InvocationExpressionSyntax parentInvocation
                     && parentInvocation.Expression == memberAccess)
@@ -322,7 +411,8 @@ public static class ExtensionMethodResidualScanner
         ExemptionIndex exemptions,
         IReadOnlyList<ExtensionRewrittenSiteKey> rewrittenSites,
         Dictionary<string, int> residuals,
-        HashSet<string> excluded)
+        HashSet<string> excluded,
+        HashSet<string> scannedFiles)
     {
         var sitesRoot = LongestCommonDirectory(rewrittenSites.Select(s => s.FilePath));
 
@@ -338,6 +428,15 @@ public static class ExtensionMethodResidualScanner
         foreach (var tree in compilation.SyntaxTrees)
         {
             if (IsExcluded(tree.FilePath, excluded))
+            {
+                continue;
+            }
+
+            // Same provable whole-tree skip as the call-shape phase: a tree this
+            // pass did not rewrite (and holds no exemption for) is carried into
+            // the candidate compilation unchanged, so nothing inside it can be a
+            // finding *caused by* this pass. See Scan(..., scannedFiles, ...).
+            if (scannedFiles.Count > 0 && !scannedFiles.Contains(NormalizePath(tree.FilePath)))
             {
                 continue;
             }
@@ -462,6 +561,91 @@ public static class ExtensionMethodResidualScanner
         return false;
     }
 
+    /// <summary>
+    /// Names of every invocation the given signatures could pair with, derived
+    /// from the stored <c>OriginalDefinition</c> displays. Returns null (screen
+    /// disabled) when any display's method name cannot be derived, so the caller
+    /// falls back to the historical query-everything sweep.
+    /// </summary>
+    private static HashSet<string>? TryDeriveSiteMethodNames(
+        IReadOnlyList<ExtensionRewrittenSiteKey> sites)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var site in sites)
+        {
+            var name = MethodNameOfDefinitionDisplay(site.MethodOriginalDefinitionDisplay);
+            if (name is null)
+            {
+                return null;
+            }
+
+            names.Add(name);
+        }
+
+        return names;
+    }
+
+    /// <summary>
+    /// The method identifier inside a method's <c>ToDisplayString()</c> rendering
+    /// (<c>[ReturnType ]Ns.Outer&lt;T&gt;.Method&lt;U&gt;(paramTypes)</c>): the text
+    /// between the last '.' before the parameter list and that method's own
+    /// generic type-argument list / the parameter list. Every invocation that
+    /// binds to a method with a given display renders that method's own name in
+    /// syntax, so this value is exactly the syntactic simple name to test.
+    /// </summary>
+    private static string? MethodNameOfDefinitionDisplay(string display)
+    {
+        var open = display.IndexOf('(');
+        if (open <= 0)
+        {
+            return null;
+        }
+
+        var prefix = display[..open];
+
+        // Strip the method's own type-argument list (the display then ends with
+        // '>') by scanning back to its matching '<'.
+        if (prefix[^1] == '>')
+        {
+            var depth = 0;
+            var i = prefix.Length - 1;
+            for (; i >= 0; i--)
+            {
+                if (prefix[i] == '>')
+                {
+                    depth++;
+                }
+                else if (prefix[i] == '<' && --depth == 0)
+                {
+                    break;
+                }
+            }
+
+            if (i <= 0)
+            {
+                return null;
+            }
+
+            prefix = prefix[..i];
+        }
+
+        var dot = prefix.LastIndexOf('.');
+        return dot < 0 || dot == prefix.Length - 1 ? null : prefix[(dot + 1)..];
+    }
+
+    /// <summary>
+    /// The accessed member name of an invocation: the identifier of its member
+    /// access / member binding callee, or the simple name of a bare call.
+    /// </summary>
+    private static string InvokedSimpleName(InvocationExpressionSyntax invocation)
+        => invocation.Expression switch
+        {
+            MemberAccessExpressionSyntax access => access.Name.Identifier.ValueText,
+            MemberBindingExpressionSyntax binding => binding.Name.Identifier.ValueText,
+            SimpleNameSyntax simple => simple.Identifier.ValueText,
+            _ => string.Empty,
+        };
+
     private static void ScanRewriteIdentity(
         Compilation compilation,
         IReadOnlyList<ExtensionRewrittenSiteKey> sites,
@@ -496,10 +680,18 @@ public static class ExtensionMethodResidualScanner
         }
 
         var counts = new int[groups.Count];
+        // Cheap syntactic pre-screen for gate 3: a node can only rebind to one of
+        // the rewritten sites if its accessed method name is one of the site
+        // signatures' method names, so every other invocation can be skipped
+        // without a semantic query. The name is read out of the site's stored
+        // OriginalDefinition display; when any site's name cannot be derived the
+        // screen is disabled entirely (conservative superset = historical sweep).
+        var keyNames = TryDeriveSiteMethodNames(sites);
         Parallel.For(
             0,
             groups.Count,
-            gi => counts[gi] = ScanIdentityGroup(compilation, trees, treePaths, groups[gi], commonRoot, excluded));
+            gi => counts[gi] = ScanIdentityGroup(
+                compilation, trees, treePaths, groups[gi], commonRoot, excluded, keyNames));
 
         var total = 0;
         for (var gi = 0; gi < counts.Length; gi++)
@@ -519,7 +711,8 @@ public static class ExtensionMethodResidualScanner
         string[] treePaths,
         IGrouping<string, ExtensionRewrittenSiteKey> fileGroup,
         string commonRoot,
-        HashSet<string> excluded)
+        HashSet<string> excluded,
+        HashSet<string>? keyNames)
     {
         var residual = 0;
         var relativePath = RelativeToRoot(NormalizePath(fileGroup.Key), commonRoot);
@@ -555,6 +748,14 @@ public static class ExtensionMethodResidualScanner
         foreach (var invocation in tree.GetCompilationUnitRoot().DescendantNodes()
                      .OfType<InvocationExpressionSyntax>())
         {
+            if (keyNames is not null && !keyNames.Contains(InvokedSimpleName(invocation)))
+            {
+                // The invoked name is not one of the rewritten signatures' method
+                // names, so this node can never carry a site's
+                // OriginalDefinition display — skip without binding.
+                continue;
+            }
+
             if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol
                 {
                     MethodKind: MethodKind.Ordinary,
@@ -605,7 +806,7 @@ public static class ExtensionMethodResidualScanner
         return residual;
     }
 
-    private static void ScanThisModifierPreservation(
+    private static int ScanThisModifierPreservation(
         Compilation compilation,
         int baselineCount,
         int expectedAddedCount,
@@ -651,6 +852,8 @@ public static class ExtensionMethodResidualScanner
                 Add(residuals, RuleThisModifierPreserved, delta);
             }
         }
+
+        return preserved;
     }
 
     /// <summary>
