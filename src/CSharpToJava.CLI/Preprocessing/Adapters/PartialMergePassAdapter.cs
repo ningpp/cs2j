@@ -529,14 +529,17 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
     /// struct-value-semantics <c>aaebe9b5</c>).
     ///
     /// <para>
-    /// The candidate's declaration diagnostics are restricted the same way, so a
-    /// rewritten file's declaration-level regression (a duplicate member produced
-    /// by a member union, say) is still caught even though no tree's SemanticModel
-    /// reports it. The baseline side is resolved per rewritten file through the same
-    /// three-stage view the analyzer's gate binds (see
+    /// A rewritten file's declaration-level regression (a duplicate member produced
+    /// by a member union, say) is still caught: each rewritten tree's SemanticModel
+    /// GetDiagnostics already carries
+    /// that tree's parse + declaration + method-body stages, so the whole-compilation
+    /// GetDeclarationDiagnostics() call the diff used to make first (whose 11000+
+    /// errors are read only where they fall in a rewritten file) adds nothing this
+    /// loop does not already see and drops out — corpus-verified: it hit 0 rewritten
+    /// files and contributed 0 surviving new errors. The baseline side is resolved
+    /// per rewritten file through the same three-stage view (see
     /// <see cref="BaselineKeysForFile"/>), so an error is "new" exactly when its
-    /// (id, message) is absent from the original sources' errors of the same file —
-    /// the verdict and its order are the whole-tree diff's.
+    /// (id, message) is absent from the original sources' errors of the same file.
     /// </para>
     /// </summary>
     private static List<Diagnostic> DiffErrors(
@@ -547,15 +550,14 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
     {
         List<Diagnostic>? newErrors = null;
 
-        foreach (var diagnostic in candidate.GetDeclarationDiagnostics())
-        {
-            Consider(diagnostic);
-        }
-
         // The rewritten trees' SemanticModels are independent, so bind them in
         // parallel into a positional array; the array is then replayed serially in
         // syntax-tree order, so the verdict (and the order of newErrors) is exactly
-        // the sequential loop's.
+        // the sequential loop's. Each tree's GetDiagnostics() already carries that
+        // tree's parse + declaration + method-body stages, so the separate
+        // whole-compilation GetDeclarationDiagnostics() call the diff used to make
+        // first (its 11000+ errors are read only where they fall in a rewritten file,
+        // which is exactly this loop's own content) is redundant and drops out.
         var rewrittenTrees = candidate.SyntaxTrees
             .Where(syntaxTree => rewrittenKeys.Contains(
                 NormalizePath(syntaxTree.FilePath, tree.IntermediateRoot)))

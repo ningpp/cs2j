@@ -43,21 +43,9 @@ internal static class PartialTypePartCollector
 
         void VisitType(INamedTypeSymbol type)
         {
-            // Resolve every declaring reference's node exactly once: the node kind
-            // (CompilationUnit vs TypeDeclarationSyntax) is what both the top-level
-            // test and the part filter below read, and GetSyntax() is the expensive
-            // half of the walk.
-            var references = type.DeclaringSyntaxReferences
-                .Select(reference => (Reference: reference, Node: reference.GetSyntax()))
-                .ToList();
-
-            // Top-level statements synthesize an implicit Program container
-            // (D8). IsImplicitClass is the historical marker, but across Roslyn
-            // versions the synthesized class may report IsImplicitClass=false;
-            // the authoritative shape is a DeclaringSyntaxReference whose node
-            // is the CompilationUnit itself (a real type always has a
-            // TypeDeclarationSyntax node).
-            if (type.IsImplicitClass || references.Any(item => item.Node is CompilationUnitSyntax))
+            // Top-level statements synthesize an implicit Program container (D8);
+            // it is skipped before its (local, never-partial) members are walked.
+            if (type.IsImplicitClass)
             {
                 topLevelSkipped++;
                 return;
@@ -67,6 +55,28 @@ internal static class PartialTypePartCollector
             {
                 VisitType(nestedType);
             }
+
+            var declaringReferences = type.DeclaringSyntaxReferences;
+            if (declaringReferences.Length == 0)
+            {
+                return;
+            }
+
+            // Whole-cluster skip without GetSyntax: a multi-part group needs at least
+            // two declaring references, and the single-part list is read only under
+            // M3, so a lone declaration can neither form a group nor a needed single
+            // and its node — the expensive half of the walk — is never resolved. A
+            // node that is not a TypeDeclarationSyntax (e.g. the CompilationUnit an
+            // implicit top-level container would name) cannot be a part and is
+            // dropped by the cast below regardless.
+            if (declaringReferences.Length <= 1 && !nameSinglePartTypes)
+            {
+                return;
+            }
+
+            var references = declaringReferences
+                .Select(reference => (Reference: reference, Node: reference.GetSyntax()))
+                .ToList();
 
             // Only real source trees under the source root participate; the
             // synthesized global-usings tree (synthetic path) is excluded.
