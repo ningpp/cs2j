@@ -276,7 +276,29 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             var rewrittenKeys = new HashSet<string>(
                 rewrittenFiles.Select(file => NormalizePath(file, tree.SourceRoot)),
                 StringComparer.OrdinalIgnoreCase);
-            var newErrors = DiffErrors(tree, candidate, rewrittenKeys, BaselineKeysForFile);
+
+            // Only files whose MERGE changes a method body's binding context need the
+            // candidate's method-body stage. A file that only lost a whole part
+            // declaration (RemoveTypeEdit) keeps its using set and its other bodies
+            // untouched — the removed members survive in the merged primary — so its
+            // method-body diagnostics equal the baseline's. A file that received any
+            // other edit (a replacement carrying merged members / relocated directives,
+            // or an inserted using) or whose group changed the member set (collapse /
+            // classic removal) does need the stage. BaselineKeysForFile still holds all
+            // three stages, so a pre-existing body error stays suppressed either way.
+            var bodyAffectedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var memberSetChanged = plan.Statistics.MembersCollapsed > 0
+                || plan.Statistics.PartialDeclarationsRemoved > 0;
+            foreach (var file in rewrittenFiles)
+            {
+                if (memberSetChanged || plan.EditsByFile[file].Any(edit => edit is not RemoveTypeEdit))
+                {
+                    bodyAffectedKeys.Add(NormalizePath(file, tree.SourceRoot));
+                }
+            }
+
+            var newErrors = DiffErrors(
+                tree, candidate, rewrittenKeys, BaselineKeysForFile, bodyAffectedKeys);
 
             if (newErrors.Count == 0)
             {
@@ -546,18 +568,18 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
         PassTreeContext tree,
         CSharpCompilation candidate,
         HashSet<string> rewrittenKeys,
-        Func<string, HashSet<(string Id, string Message)>> baselineKeysForFile)
+        Func<string, HashSet<(string Id, string Message)>> baselineKeysForFile,
+        HashSet<string> bodyAffectedKeys)
     {
         List<Diagnostic>? newErrors = null;
 
         // The rewritten trees' SemanticModels are independent, so bind them in
         // parallel into a positional array; the array is then replayed serially in
         // syntax-tree order, so the verdict (and the order of newErrors) is exactly
-        // the sequential loop's. Each tree's GetDiagnostics() already carries that
-        // tree's parse + declaration + method-body stages, so the separate
-        // whole-compilation GetDeclarationDiagnostics() call the diff used to make
-        // first (its 11000+ errors are read only where they fall in a rewritten file,
-        // which is exactly this loop's own content) is redundant and drops out.
+        // the sequential loop's. Body-affected trees read the full three stages
+        // (GetDiagnostics); a removal-only tree's method bodies are byte-identical to
+        // the baseline's, so it reads parse + declaration only and skips the
+        // method-body binding entirely.
         var rewrittenTrees = candidate.SyntaxTrees
             .Where(syntaxTree => rewrittenKeys.Contains(
                 NormalizePath(syntaxTree.FilePath, tree.IntermediateRoot)))
@@ -565,7 +587,20 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
         var diagnosticsByTree = new IReadOnlyList<Diagnostic>[rewrittenTrees.Count];
         System.Threading.Tasks.Parallel.For(0, rewrittenTrees.Count, i =>
         {
-            diagnosticsByTree[i] = candidate.GetSemanticModel(rewrittenTrees[i]).GetDiagnostics();
+            var syntaxTree = rewrittenTrees[i];
+            if (bodyAffectedKeys.Contains(
+                    NormalizePath(syntaxTree.FilePath, tree.IntermediateRoot)))
+            {
+                diagnosticsByTree[i] = candidate.GetSemanticModel(syntaxTree).GetDiagnostics();
+                return;
+            }
+
+            var model = candidate.GetSemanticModel(syntaxTree);
+            var diagnostics = new List<Diagnostic>();
+            diagnostics.AddRange(syntaxTree.GetDiagnostics());
+            diagnostics.AddRange(model.GetDeclarationDiagnostics(
+                span: null, cancellationToken: default));
+            diagnosticsByTree[i] = diagnostics;
         });
         for (var i = 0; i < rewrittenTrees.Count; i++)
         {
