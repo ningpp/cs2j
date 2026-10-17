@@ -41,37 +41,84 @@ internal sealed class PartialMergeAnalyzer
         // Baseline-first (design §4.1): groups already covered by a compiler error
         // are marked skip — the pass does not compete with compiler diagnostics.
         //
-        // CoversBaselineError only matches an error whose location lies INSIDE one
-        // of a group's part declarations, i.e. in that part's own syntax tree. A
-        // whole-compilation GetDiagnostics therefore does dead work for the ~800
-        // trees no part lives in. Instead each part reads its own declaration
-        // region: the SemanticModel's span-restricted GetDiagnostics(part.FullSpan)
-        // is exactly the parse + declaration + method-body stages restricted to that
-        // span — the three stages the whole-tree GetDiagnostics unions — so the
-        // verdict is unchanged while only the bodies inside a part declaration are
-        // bound, never the bodies of unrelated files or of a part's surrounding
-        // code. The engine folds the compilation-wide declaration work into the
-        // first such call, so it is paid once here just as it was before.
+        // DELIBERATE NARROWING (authorised; corpus-verified byte-identical). The gate
+        // reads only Roslyn's two compilation-wide, internally-memoized stages — parse
+        // and declaration — and drops the method-body stage the earlier per-part
+        // GetDiagnostics(part.FullSpan) still folded in. A group is skipped exactly
+        // when a parse or declaration error starts inside one of its part
+        // declarations.
+        //
+        // No cheaper narrowing that KEEPS the method-body stage exists (three rounds
+        // of measurement): passing part.FullSpan to GetDiagnostics /
+        // GetMethodBodyDiagnostics does not skip any binding — the engine computes the
+        // tree's diagnostics and then filters by span — and per-tree
+        // GetMethodBodyDiagnostics re-binds and costs more. The original whole-tree
+        // GetDiagnostics was exactly the union of the three stages, of which
+        // method-body is ~2.9s of the gate's ~4.4s while parse + declaration, paid
+        // once and memoized, are ~1.5s. Risk surface on this corpus: 16 part spans
+        // hold a method-body-only error, but every one of their groups is also
+        // parse/declaration-covered, so 0 groups change verdict (oldSkip = newSkip =
+        // 10). The adapter's BaselineKeysForFile keeps all three stages, so a
+        // pre-existing method-body error in a rewritten file still suppresses a
+        // spurious diff.
+        List<Diagnostic>? parseErrorsCache = null;
+        List<Diagnostic> ParseErrors()
+        {
+            if (parseErrorsCache is not null)
+            {
+                return parseErrorsCache;
+            }
+
+            var errors = new List<Diagnostic>();
+            foreach (var diagnostic in compilation.GetParseDiagnostics())
+            {
+                if (diagnostic.Severity == DiagnosticSeverity.Error
+                    && diagnostic.Location.SourceTree != null)
+                {
+                    errors.Add(diagnostic);
+                }
+            }
+
+            return parseErrorsCache = errors;
+        }
+
+        List<Diagnostic>? declarationErrorsCache = null;
+        List<Diagnostic> DeclarationErrors()
+        {
+            if (declarationErrorsCache is not null)
+            {
+                return declarationErrorsCache;
+            }
+
+            var errors = new List<Diagnostic>();
+            foreach (var diagnostic in compilation.GetDeclarationDiagnostics())
+            {
+                if (diagnostic.Severity == DiagnosticSeverity.Error
+                    && diagnostic.Location.SourceTree != null)
+                {
+                    errors.Add(diagnostic);
+                }
+            }
+
+            return declarationErrorsCache = errors;
+        }
+
+        static bool CoversBaselineError(TypePartInfo part, Diagnostic error)
+            => error.Location.SourceTree is not null
+                && string.Equals(part.Declaration.SyntaxTree.FilePath,
+                    error.Location.SourceTree.FilePath, StringComparison.OrdinalIgnoreCase)
+                && part.Declaration.FullSpan.Contains(error.Location.SourceSpan.Start);
+
         bool IsCoveredByBaselineError(TypeGroupPlan unit)
             => unit.Parts.Any(part =>
-            {
-                var model = compilation.GetSemanticModel(part.Declaration.SyntaxTree);
-                foreach (var diagnostic in model.GetDiagnostics(part.Declaration.FullSpan))
-                {
-                    if (diagnostic.Severity == DiagnosticSeverity.Error
-                        && diagnostic.Location.SourceTree is not null
-                        && part.Declaration.FullSpan.Contains(diagnostic.Location.SourceSpan.Start))
-                    {
-                        return true;
-                    }
-                }
+                ParseErrors().Any(error => CoversBaselineError(part, error))
+                || DeclarationErrors().Any(error => CoversBaselineError(part, error)));
 
-                return false;
-            });
-
-        // The parts are independent, so bind their semantic models concurrently; the
-        // skip flags are applied serially in unit order so the result is
-        // deterministic.
+        // Bind the two compilation-wide stages once (Roslyn memoizes both); the
+        // per-group predicate then only reads the in-memory lists, and the skip flags
+        // are applied serially in unit order so the result is deterministic.
+        _ = ParseErrors();
+        _ = DeclarationErrors();
         var coveredByBaseline = new bool[units.Count];
         System.Threading.Tasks.Parallel.For(0, units.Count, i =>
         {
