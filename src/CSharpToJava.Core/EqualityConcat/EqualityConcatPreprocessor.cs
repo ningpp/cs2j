@@ -378,7 +378,11 @@ public sealed class EqualityConcatPreprocessor
         /// <summary>
         /// EC-3: fold only at the topmost node of the pure left-add chain.
         /// Inner left-concat nodes remain binary until this fold; operands are
-        /// collected from the original spine and mapped to their visited form.
+        /// collected from the already-visited spine so child annotations (e.g.
+        /// a MarkExplained ==/!= nested inside a conditional operand) survive
+        /// the fold. The original spine is walked in parallel purely for
+        /// StringConcat classification (the semantic model binds original
+        /// trees, not visited ones).
         /// </summary>
         private SyntaxNode RewriteConcat(
             BinaryExpressionSyntax node,
@@ -392,29 +396,39 @@ public sealed class EqualityConcatPreprocessor
                 return MarkExplained(visited);
             }
 
-            var originalOperands = new List<ExpressionSyntax>();
-            var current = node;
+            // Walk the original and visited spines in parallel: the original
+            // tree drives classification (semantic model needs original nodes);
+            // the visited tree provides the operands (it carries every
+            // annotation applied to nested ==/!= sites by base.Visit). Using
+            // visited operands — instead of MapToVisited(originalOperand) —
+            // guarantees that non-BinaryExpression operands (e.g. a conditional
+            // expression containing a == site) retain their child annotations
+            // in the folded string.Concat call.
+            var visitedOperands = new List<ExpressionSyntax>();
+            var origCurrent = node;
+            var visitedCurrent = visited;
             while (true)
             {
-                originalOperands.Add(current.Right);
-                var left = current.Left;
-                if (left is BinaryExpressionSyntax leftBinary
-                    && leftBinary.OperatorToken.IsKind(SyntaxKind.PlusToken)
-                    && Classify(leftBinary).Kind == EqualityConcatKind.StringConcat)
+                visitedOperands.Add(visitedCurrent.Right);
+                var origLeft = origCurrent.Left;
+                var visitedLeft = visitedCurrent.Left;
+                if (origLeft is BinaryExpressionSyntax origLeftBinary
+                    && origLeftBinary.OperatorToken.IsKind(SyntaxKind.PlusToken)
+                    && Classify(origLeftBinary).Kind
+                        == EqualityConcatKind.StringConcat
+                    && visitedLeft is BinaryExpressionSyntax visitedLeftBinary)
                 {
-                    current = leftBinary;
+                    origCurrent = origLeftBinary;
+                    visitedCurrent = visitedLeftBinary;
                 }
                 else
                 {
-                    originalOperands.Add(left);
+                    visitedOperands.Add(visitedLeft);
                     break;
                 }
             }
 
-            originalOperands.Reverse();
-            var visitedOperands = originalOperands
-                .Select(MapToVisited)
-                .ToList();
+            visitedOperands.Reverse();
 
             var arguments = SyntaxFactory.SeparatedList(
                 visitedOperands.Select(SyntaxFactory.Argument));

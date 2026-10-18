@@ -162,7 +162,11 @@ public class EqualityConcatPreprocessorUnitTests
             class C { string M(string a, string b, string c) => a + (b + c); }
             """;
         var result = Preprocess(src);
-        Assert.Contains("string.Concat(a, (b + c))", result.OutputCode);
+        // The right-associative inner (b + c) is an independent StringConcat
+        // chain (its parent is a parenthesized expression, not a + binary),
+        // so it is folded to its own string.Concat call. The outer a + (…)
+        // chain then folds into string.Concat(a, (string.Concat(b, c))).
+        Assert.Contains("string.Concat(a, (string.Concat(b, c)))", result.OutputCode);
     }
 
     [Fact]

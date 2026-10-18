@@ -219,4 +219,77 @@ public class EqualityConcatClassifierUnitTests
         var c = ClassifyFirst("class C { bool M(dynamic z) => z == \"a\"; }");
         Assert.Equal(EqualityConcatKind.Dynamic, c.Kind);
     }
+
+    [Fact]
+    public void Classifies_MissingType_Equality_As_PredefinedOther_Not_Unknown()
+    {
+        // 模拟 TPA 引用集下操作数类型无法解析的场景:
+        // UnknownEnum/UnknownType 在编译中未定义。Roslyn 给出 ErrorType,
+        // IBinaryOperation.OperatorMethod 与 GetSymbolInfo 双双为 null。
+        // 此站点既不是 string 也不是 dynamic，属于值类型/枚举比较残缺，
+        // 应归为 PredefinedOther（透传），不得发 CS2J0470 阻断整链。
+        var c = ClassifyFirst("class C { bool M(UnknownEnum a, UnknownEnum b) => a == b; }");
+        Assert.Equal(EqualityConcatKind.PredefinedOther, c.Kind);
+    }
+
+    [Fact]
+    public void Classifies_MissingReferenceType_Null_As_PredefinedOther_Not_Unknown()
+    {
+        // 缺失引用类型与 null 比较。不是 string、不是 dynamic、不是 delegate，
+        // 无 (object) 逃逸。应归为 PredefinedOther（透传），不得发 CS2J0470。
+        var c = ClassifyFirst("class C { bool M(UnknownType a) => a == null; }");
+        Assert.Equal(EqualityConcatKind.PredefinedOther, c.Kind);
+    }
+
+    [Fact]
+    public void Classifies_MissingType_NotEquals_As_PredefinedOther_Not_Unknown()
+    {
+        // != 站点同理:缺失类型时不应发 CS2J0470。
+        var c = ClassifyFirst("class C { bool M(UnknownEnum a, UnknownEnum b) => a != b; }");
+        Assert.Equal(EqualityConcatKind.PredefinedOther, c.Kind);
+    }
+
+    [Fact]
+    public void Classifies_MissingType_StringEquality_Still_StringEquality()
+    {
+        // 即使符号绑定失败 (method == null),两个 string 操作数的相等站点
+        // 仍应正确归为 StringEquality 并改写。
+        // 用 UnknownClass 内的 string 字段构造:虽然类无法解析,
+        // 但 string 操作数类型本身可解析。
+        var c = ClassifyFirst(
+            "class C { bool M(string a, string b, UnknownType x) => a == b; }");
+        Assert.Equal(EqualityConcatKind.StringEquality, c.Kind);
+    }
+
+    [Fact]
+    public void Classifies_MissingType_DelegateEquality_Still_DelegateEquality()
+    {
+        // delegate 操作数在符号缺失时仍应归为 DelegateEquality。
+        var c = ClassifyFirst(
+            "class C { bool M(System.Action a, System.Action b, UnknownType x) => a == b; }");
+        Assert.Equal(EqualityConcatKind.DelegateEquality, c.Kind);
+    }
+
+    [Fact]
+    public void Classifies_MissingType_ObjectVariable_Still_ObjectIdentity()
+    {
+        // object 静态类型与 ErrorType 操作数混合时,ErrorType 优先:
+        // 无法确定 ErrorType 是值类型还是引用类型,不应改写为
+        // ReferenceEquals,归为 PredefinedOther 更安全。
+        var c = ClassifyFirst(
+            "class C { bool M(object o, UnknownType x) => o == x; }");
+        Assert.Equal(EqualityConcatKind.PredefinedOther, c.Kind);
+    }
+
+    [Fact]
+    public void Classifies_SymbolLess_ObjectCast_Still_ObjectIdentity()
+    {
+        // (object) 逃逸在符号缺失时仍应归为 ObjectIdentity:
+        // 显式的 (object) cast 表明开发者明确要求引用语义。
+        // 使用 delegate 类型制造符号绑定失败 (delegate 在引用集不完整时
+        // 可能绑定失败),同时用 (object) cast 明确意图。
+        var c = ClassifyFirst(
+            "class C { bool M(string a, object b) => (object)a == b; }");
+        Assert.Equal(EqualityConcatKind.ObjectIdentity, c.Kind);
+    }
 }

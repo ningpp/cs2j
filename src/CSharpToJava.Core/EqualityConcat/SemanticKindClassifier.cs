@@ -213,14 +213,12 @@ internal static class SemanticKindClassifier
 
             // 类型兜底：pass 的绑定编译使用 TPA 手工引用集，与真实 SDK 编译并
             // 不严格一致（重载解析可能因引用残缺而失败，连带 IBinaryOperation
-            // 的 OperatorMethod 与 GetSymbolInfo 双双为 null）。对 Add 站点，
-            // 操作数/结果类型仍足以定性：
-            //  - 任一操作数或结果为 string -> 字符串拼接（C# 的 string + X 恒为
-            //    拼接，包括 string + char/值类型装箱）；
-            //  - 其余 Add（数值/位/委托合并等）本就不归本 pass，按预定义运算
-            //    透传，不应误报 CS2J0470 阻断整链。
-            // 相等站点（==/!=）不在此兜底：身份/值相等的区分必须依赖符号，
-            // 维持 Unknown 让人工介入。
+            // 的 OperatorMethod 与 GetSymbolInfo 双双为 null）。对 Add 站点,
+            // 操作数/结果类型仍足以定性:
+            //  - 任一操作数或结果为 string -> 字符串拼接 (C# 的 string + X 恒为
+            //    拼接,包括 string + char/值类型装箱);
+            //  - 其余 Add (数值/位/委托合并等) 本就不归本 pass,按预定义运算
+            //    透传,不应误报 CS2J0470 阻断整链。
             if (operatorKind == BinaryOperatorKind.Add
                 && node is BinaryExpressionSyntax addBinary)
             {
@@ -228,6 +226,20 @@ internal static class SemanticKindClassifier
                     ? EqualityConcatKind.StringConcat
                     : EqualityConcatKind.PredefinedOther;
             }
+
+            // 相等站点 (==/!=) 的类型兜底:与 Add 站点同理,TPA 引用残缺时
+            // 符号绑定可能双双为 null。按操作数类型分层兜底:
+            //  - 两个 string 操作数且无 (object) 逃逸 -> string equality;
+            //  - (object) 逃逸或任一操作数为 object 静态类型 -> object identity;
+            //  - delegate 静态类型 (TypeKind.Delegate 或 System.Delegate) ->
+            //    delegate equality (event null check 在前面已处理,这里只看
+            //    delegate 变量比较);
+            //  - 任一操作数为 ErrorType 或 null (类型解析彻底失败) ->
+            //    PredefinedOther (透传,不误报 CS2J0470);
+            //  - 其余 (int/enum/struct 等值类型,或 null 与非 string 引用类型)
+            //    -> PredefinedOther (本就不归本 pass)。
+            if (isEquality && node is BinaryExpressionSyntax eqBinary)
+                return ClassifyEqualityByTypeFallback(eqBinary, model);
 
             return EqualityConcatKind.Unknown;
         }
@@ -318,6 +330,17 @@ internal static class SemanticKindClassifier
                 isEquality: true, isNotEquals, operation);
         }
 
+        // Same type-based equality fallback as ClassifyByMethod: when the
+        // operation is missing entirely (GetOperation returned null or an
+        // unrecognized shape), the operand types are still the best signal.
+        if (node is BinaryExpressionSyntax eqFallback
+            && (eqFallback.OperatorToken.IsKind(SyntaxKind.EqualsEqualsToken)
+                || eqFallback.OperatorToken.IsKind(SyntaxKind.ExclamationEqualsToken)))
+        {
+            var kind = ClassifyEqualityByTypeFallback(eqFallback, model);
+            return New(kind, null, isEquality: true, operation: operation);
+        }
+
         return New(EqualityConcatKind.Unknown, operation: operation);
     }
 
@@ -344,6 +367,75 @@ internal static class SemanticKindClassifier
 
         return model.GetTypeInfo(node).Type?.SpecialType == SpecialType.System_String;
     }
+
+    /// <summary>
+    /// Type-only equality fallback for the symbol-less ==/!= site (see
+    /// <see cref="ClassifyByMethod"/>). When TPA reference gaps leave both
+    /// <c>IBinaryOperation.OperatorMethod</c> and <c>GetSymbolInfo</c> null,
+    /// the operand types are still enough to classify the site without
+    /// emitting CS2J0470:
+    /// <list type="bullet">
+    /// <item>Two <see cref="SpecialType.System_String"/> operands, no
+    ///   <c>(object)</c> escape → <see cref="EqualityConcatKind.StringEquality"/>.</item>
+    /// <item>An explicit <c>(object)</c> escape on either operand, or either
+    ///   operand's static type is <see cref="SpecialType.System_Object"/> →
+    ///   <see cref="EqualityConcatKind.ObjectIdentity"/> (identity semantics).</item>
+    /// <item>Either operand's static type is a delegate
+    ///   (<see cref="TypeKind.Delegate"/> or <see cref="SpecialType.System_Delegate"/>)
+    ///   → <see cref="EqualityConcatKind.DelegateEquality"/>.</item>
+    /// <item>Either operand's type is an <see cref="ErrorType"/> or null
+    ///   (unresolvable in the pass compilation) →
+    ///   <see cref="EqualityConcatKind.PredefinedOther"/> (pass-through; the
+    ///   converter's downstream passes handle the real binding).</item>
+    /// <item>Everything else (primitive/enum/struct comparisons, null vs.
+    ///   non-string reference type) → <see cref="EqualityConcatKind.PredefinedOther"/>.</item>
+    /// </list>
+    /// This mirrors the conservative string fallback already present in
+    /// <see cref="ClassifyFallback"/> and extends it to every equality shape
+    /// that used to fall through to <see cref="EqualityConcatKind.Unknown"/>.
+    /// </summary>
+    private static EqualityConcatKind ClassifyEqualityByTypeFallback(
+        BinaryExpressionSyntax node,
+        SemanticModel model)
+    {
+        var leftType = model.GetTypeInfo(node.Left).Type;
+        var rightType = model.GetTypeInfo(node.Right).Type;
+
+        // Unresolvable operand types: TPA reference gap, not a real code issue.
+        // Pass through silently; the converter's downstream binding handles it.
+        if (IsUnresolvableType(leftType) || IsUnresolvableType(rightType))
+            return EqualityConcatKind.PredefinedOther;
+
+        // (object) escape or object-typed operand → reference identity.
+        if (HasObjectEscape(node, model)
+            || leftType?.SpecialType == SpecialType.System_Object
+            || rightType?.SpecialType == SpecialType.System_Object)
+            return EqualityConcatKind.ObjectIdentity;
+
+        // Two string operands without (object) escape → string equality.
+        if (leftType?.SpecialType == SpecialType.System_String
+            && rightType?.SpecialType == SpecialType.System_String)
+            return EqualityConcatKind.StringEquality;
+
+        // Delegate-typed operand → delegate equality (the event null-check
+        // case is handled earlier in ClassifyByMethod's BuiltinOperator arm;
+        // this fallback only fires when the symbol is missing entirely).
+        if (IsDelegateContainingType(leftType) || IsDelegateContainingType(rightType))
+            return EqualityConcatKind.DelegateEquality;
+
+        // Primitive/enum/struct and null-vs-reference-type comparisons are
+        // not this pass's responsibility.
+        return EqualityConcatKind.PredefinedOther;
+    }
+
+    /// <summary>
+    /// True when <paramref name="type"/> is null or an ErrorType — i.e. the
+    /// pass compilation could not resolve it. Such sites are not real code
+    /// defects; they are TPA reference gaps, so the classifier must not
+    /// emit CS2J0470 for them.
+    /// </summary>
+    private static bool IsUnresolvableType(ITypeSymbol? type)
+        => type == null || type.Kind == SymbolKind.ErrorType;
 
     /// <summary>
     /// A delegate-equality containing type is either a specific delegate type
