@@ -116,98 +116,146 @@ internal static class BoundaryInventoryBuilder
     {
         ArgumentNullException.ThrowIfNull(compilation);
 
+        // 各语法树彼此独立：每棵树取自己的 SemanticModel（Roslyn 的语法树读取与
+        // GetSemanticModel 可并发，distinct tree ⇒ 无共享可变模型），故按树并行
+        // 枚举站点，再严格按 compilation.SyntaxTrees 顺序 + 树内站点次序归并并施加
+        // 全局去重，使站点集与排序输入与串行逐树 AddSite 逐位一致（输出逐字节守恒）。
+        var trees = compilation.SyntaxTrees.ToList();
+        var perTreeSites = new List<BoundarySite>[trees.Count];
+        if (trees.Count > 0)
+        {
+            Parallel.For(
+                0,
+                trees.Count,
+                new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount) },
+                index =>
+                {
+                    perTreeSites[index] = CollectTreeSites(
+                        trees[index], compilation, isTestProject, compatNamespacePrefixes);
+                });
+        }
+
         var sites = new List<BoundarySite>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (var syntaxTree in compilation.SyntaxTrees)
+        foreach (var treeSites in perTreeSites)
         {
-            var filePath = syntaxTree.FilePath ?? string.Empty;
-            var root = syntaxTree.GetRoot();
-            var semanticModel = compilation.GetSemanticModel(syntaxTree);
-            var confidence = semanticModel != null ? BoundaryConfidence.Symbol : BoundaryConfidence.SyntaxFallback;
-
-            // UI 命名空间：传 null 前缀取全量，再自行分类 compat 豁免。
-            foreach (var diagnostic in UnsupportedDomainAnalyzer.AnalyzeSyntaxTree(syntaxTree, compatNamespacePrefixes: null))
+            foreach (var site in treeSites)
             {
-                var identity = ExtractQuotedIdentity(diagnostic.Message);
-                var isCompat = HasCompatNamespacePrefix(identity, compatNamespacePrefixes);
-                AddSite(
-                    sites,
-                    seen,
-                    syntaxTree,
-                    root,
-                    diagnostic,
-                    filePath,
-                    family: BoundaryFamily.UiNamespace,
-                    exemption: isCompat ? BoundaryExemption.CompatMapping : BoundaryExemption.None,
-                    defaultAction: PlatformIsolationDefaultAction.Reject,
-                    confidence);
-            }
-
-            // 平台服务 / OS 探针。M2：AssemblyInfo 文件由「跳过」改为「登记」
-            // （Exemption=AssemblyInfo，供 apply 档擦除），CheckPass 的现状跳过不变。
-            var isAssemblyInfo = BoundaryAnalysisHelpers.IsGeneratedAssemblyInfoFile(filePath);
-            foreach (var diagnostic in PlatformBoundaryAnalyzer.AnalyzeSyntaxTree(
-                         syntaxTree,
-                         semanticModel,
-                         shouldDowngradeTestPlatformProbes: isTestProject))
-            {
-                var identity = ExtractQuotedIdentity(diagnostic.Message);
-                var family = ClassifyPlatformFamily(diagnostic.Code, diagnostic.Message, identity);
-                var exemption = isAssemblyInfo
-                    ? BoundaryExemption.AssemblyInfo
-                    : diagnostic.Severity == CoreDiagnosticSeverity.Warning
-                        ? BoundaryExemption.TestProbeWarning
-                        : BoundaryExemption.None;
-                AddSite(
-                    sites,
-                    seen,
-                    syntaxTree,
-                    root,
-                    diagnostic,
-                    filePath,
-                    family,
-                    exemption,
-                    DefaultActionFor(family),
-                    confidence);
-            }
-
-            // 原生互操作。M2：NativeMethods.cs 文件豁免不再伪装成跳过，登记为
-            // Exemption=NativeMethods 的 Reject 站点（D8/§7.4 不允许文件名逃生口）。
-            // M3：C06 unsafe-ffm 已归一并带 InteropFacade 标记的声明，其 3201/3203
-            // 与 UF060/UF070 重复报，按共享谓词抑制（设计 §4.5；只读消费 C06 谓词）。
-            var isNativeMethods = BoundaryAnalysisHelpers.IsPInvokeContainerFile(filePath);
-            foreach (var diagnostic in NativeInteropAnalyzer.AnalyzeSyntaxTree(syntaxTree, semanticModel))
-            {
-                if (diagnostic.Code is "CS2J3201" or "CS2J3203"
-                    && semanticModel != null
-                    && IsOnNormalizedInteropFacade(root, semanticModel, diagnostic))
+                var key = $"{site.Code}|{site.Category}|{site.File}|{site.Line}|{site.Column}|{site.Message}";
+                if (seen.Add(key))
                 {
-                    continue;
+                    sites.Add(site);
                 }
-
-                var family = diagnostic.Code switch
-                {
-                    "CS2J3201" => BoundaryFamily.NativeAttribute,
-                    "CS2J3203" => BoundaryFamily.ExternMethod,
-                    _ => BoundaryFamily.NativeType,
-                };
-                AddSite(
-                    sites,
-                    seen,
-                    syntaxTree,
-                    root,
-                    diagnostic,
-                    filePath,
-                    family,
-                    isNativeMethods ? BoundaryExemption.NativeMethods : BoundaryExemption.None,
-                    DefaultActionFor(family),
-                    confidence);
             }
         }
 
         sites.Sort(CompareSites);
         return new BoundaryInventory { Sites = sites };
+    }
+
+    /// <summary>
+    /// 单树枚举（纯树内状态，可并发调用）：逐诊断调用 <see cref="AddSite"/> 的顺序
+    /// 与串行版本完全一致；树内去重仍由局部 <c>seen</c> 承担，跨树去重留给
+    /// <see cref="Build"/> 的串行归并阶段，故站点集与串行等价。
+    /// </summary>
+    private static List<BoundarySite> CollectTreeSites(
+        SyntaxTree syntaxTree,
+        Compilation compilation,
+        bool isTestProject,
+        IReadOnlyCollection<string>? compatNamespacePrefixes)
+    {
+        var sites = new List<BoundarySite>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var filePath = syntaxTree.FilePath ?? string.Empty;
+        var root = syntaxTree.GetRoot();
+        var semanticModel = compilation.GetSemanticModel(syntaxTree);
+        var confidence = semanticModel != null ? BoundaryConfidence.Symbol : BoundaryConfidence.SyntaxFallback;
+
+        // UI 命名空间：传 null 前缀取全量，再自行分类 compat 豁免。
+        foreach (var diagnostic in UnsupportedDomainAnalyzer.AnalyzeSyntaxTree(syntaxTree, compatNamespacePrefixes: null))
+        {
+            var identity = ExtractQuotedIdentity(diagnostic.Message);
+            var isCompat = HasCompatNamespacePrefix(identity, compatNamespacePrefixes);
+            AddSite(
+                sites,
+                seen,
+                syntaxTree,
+                root,
+                diagnostic,
+                filePath,
+                family: BoundaryFamily.UiNamespace,
+                exemption: isCompat ? BoundaryExemption.CompatMapping : BoundaryExemption.None,
+                defaultAction: PlatformIsolationDefaultAction.Reject,
+                confidence);
+        }
+
+        // 平台服务/OS 探针 + 原生互操作：单树一次合并分析（每节点符号身份只解析
+        // 一次，DescendantNodes 由 11 次降至 1 次），两份诊断与原两个 analyzer
+        // 逐诊断同序，故下方 AddSite 次序与串行逐 analyzer 调用完全一致。
+        var (platformDiagnostics, nativeDiagnostics) = PlatformInteropBoundaryAnalyzer.AnalyzeSyntaxTree(
+            syntaxTree,
+            semanticModel,
+            shouldDowngradeTestPlatformProbes: isTestProject);
+
+        // 平台服务 / OS 探针。M2：AssemblyInfo 文件由「跳过」改为「登记」
+        // （Exemption=AssemblyInfo，供 apply 档擦除），CheckPass 的现状跳过不变。
+        var isAssemblyInfo = BoundaryAnalysisHelpers.IsGeneratedAssemblyInfoFile(filePath);
+        foreach (var diagnostic in platformDiagnostics)
+        {
+            var identity = ExtractQuotedIdentity(diagnostic.Message);
+            var family = ClassifyPlatformFamily(diagnostic.Code, diagnostic.Message, identity);
+            var exemption = isAssemblyInfo
+                ? BoundaryExemption.AssemblyInfo
+                : diagnostic.Severity == CoreDiagnosticSeverity.Warning
+                    ? BoundaryExemption.TestProbeWarning
+                    : BoundaryExemption.None;
+            AddSite(
+                sites,
+                seen,
+                syntaxTree,
+                root,
+                diagnostic,
+                filePath,
+                family,
+                exemption,
+                DefaultActionFor(family),
+                confidence);
+        }
+
+        // 原生互操作。M2：NativeMethods.cs 文件豁免不再伪装成跳过，登记为
+        // Exemption=NativeMethods 的 Reject 站点（D8/§7.4 不允许文件名逃生口）。
+        // M3：C06 unsafe-ffm 已归一并带 InteropFacade 标记的声明，其 3201/3203
+        // 与 UF060/UF070 重复报，按共享谓词抑制（设计 §4.5；只读消费 C06 谓词）。
+        var isNativeMethods = BoundaryAnalysisHelpers.IsPInvokeContainerFile(filePath);
+        foreach (var diagnostic in nativeDiagnostics)
+        {
+            if (diagnostic.Code is "CS2J3201" or "CS2J3203"
+                && semanticModel != null
+                && IsOnNormalizedInteropFacade(root, semanticModel, diagnostic))
+            {
+                continue;
+            }
+
+            var family = diagnostic.Code switch
+            {
+                "CS2J3201" => BoundaryFamily.NativeAttribute,
+                "CS2J3203" => BoundaryFamily.ExternMethod,
+                _ => BoundaryFamily.NativeType,
+            };
+            AddSite(
+                sites,
+                seen,
+                syntaxTree,
+                root,
+                diagnostic,
+                filePath,
+                family,
+                isNativeMethods ? BoundaryExemption.NativeMethods : BoundaryExemption.None,
+                DefaultActionFor(family),
+                confidence);
+        }
+
+        return sites;
     }
 
     private static void AddSite(

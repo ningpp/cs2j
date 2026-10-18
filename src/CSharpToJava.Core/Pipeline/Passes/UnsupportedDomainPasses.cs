@@ -208,7 +208,7 @@ internal static class PlatformBoundaryAnalyzer
         return collector.Diagnostics;
     }
 
-    private static bool IsTestProjectPlatformProbe(string identity)
+    internal static bool IsTestProjectPlatformProbe(string identity)
         => identity is "System.OperatingSystem.IsWindows"
             or "System.OperatingSystem.IsLinux"
             or "System.OperatingSystem.IsMacOS"
@@ -335,6 +335,232 @@ internal static class NativeInteropAnalyzer
         }
 
         return collector.Diagnostics;
+    }
+}
+
+/// <summary>
+/// 单树一次的 platform+native 合并分析器（仅 platform-isolation inventory 消费）。
+/// 现状重复：<see cref="PlatformBoundaryAnalyzer"/> 与 <see cref="NativeInteropAnalyzer"/>
+/// 对 invocation/memberAccess/typeSyntax/objectCreation 各自解析一次符号身份，并各做
+/// 5/6 次 <c>DescendantNodes()</c> 全树遍历；本合并器只遍历一次、每节点身份只解析
+/// 一次，同时按两张前缀表出两份诊断。返回的两列表与两个原 analyzer 逐诊断同码/
+/// 同文案/同位置/同次序（各自 collector 去重口径不变），原 analyzer 保持原样供
+/// ProjectPasses / SingleFilePasses 等其他调用方使用。
+/// </summary>
+internal static class PlatformInteropBoundaryAnalyzer
+{
+    public static (IReadOnlyList<DiagnosticMessage> Platform, IReadOnlyList<DiagnosticMessage> Native)
+        AnalyzeSyntaxTree(
+            SyntaxTree syntaxTree,
+            SemanticModel? semanticModel,
+            bool shouldDowngradeTestPlatformProbes)
+    {
+        var platform = new BoundaryDiagnosticCollector();
+        var native = new BoundaryDiagnosticCollector();
+        if (syntaxTree.GetRoot() is not CompilationUnitSyntax root)
+        {
+            return (platform.Diagnostics, native.Diagnostics);
+        }
+
+        // 单次 DescendantNodes 遍历（文档序），按节点种类分桶；每桶次序即原
+        // analyzer 的 OfType<T>() 次序，供下方按各自族序出站点。
+        var attributes = new List<AttributeSyntax>();
+        var invocations = new List<InvocationExpressionSyntax>();
+        var memberAccesses = new List<MemberAccessExpressionSyntax>();
+        var objectCreations = new List<ObjectCreationExpressionSyntax>();
+        var typeSyntaxes = new List<TypeSyntax>();
+        var externMethods = new List<MethodDeclarationSyntax>();
+
+        foreach (var node in root.DescendantNodes())
+        {
+            switch (node)
+            {
+                case AttributeSyntax attribute:
+                    attributes.Add(attribute);
+                    break;
+                case InvocationExpressionSyntax invocation:
+                    invocations.Add(invocation);
+                    break;
+                case MemberAccessExpressionSyntax memberAccess:
+                    memberAccesses.Add(memberAccess);
+                    break;
+                case ObjectCreationExpressionSyntax objectCreation:
+                    objectCreations.Add(objectCreation);
+                    break;
+                case MethodDeclarationSyntax methodDeclaration:
+                    if (methodDeclaration.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.ExternKeyword)))
+                    {
+                        externMethods.Add(methodDeclaration);
+                    }
+                    break;
+                // TypeSyntax 放最后：IdentifierName/QualifiedName 等皆为其子类，
+                // 只有真正落入类型位置语法形态的节点才在此桶（等价 OfType<TypeSyntax>()）。
+                case TypeSyntax typeSyntax:
+                    typeSyntaxes.Add(typeSyntax);
+                    break;
+            }
+        }
+
+        // 平台族序：属性 → 调用 → 成员访问 → 类型 → 对象创建。
+        foreach (var attribute in attributes)
+        {
+            var attributeName = BoundaryAnalysisHelpers.NormalizeAttributeName(attribute.Name.ToString());
+            if (BoundaryTables.IsOsGuardAttribute(attributeName))
+            {
+                platform.Add(
+                    code: "CS2J3101",
+                    category: "platform-boundary",
+                    message: $"Platform boundary attribute '{attributeName}' must be isolated before Java conversion.",
+                    location: attribute.GetLocation());
+            }
+        }
+
+        // 原生族序：属性 → extern 方法 → 调用 → 成员访问 → 类型 → 对象创建。
+        foreach (var attribute in attributes)
+        {
+            var attributeName = BoundaryAnalysisHelpers.NormalizeAttributeName(attribute.Name.ToString());
+            if (BoundaryTables.IsNativeInteropAttribute(attributeName))
+            {
+                native.Add(
+                    code: "CS2J3201",
+                    category: "native-interop",
+                    message: $"Native interop attribute '{attributeName}' is not supported by the Java-only conversion pipeline.",
+                    location: attribute.GetLocation());
+            }
+        }
+
+        foreach (var methodDeclaration in externMethods)
+        {
+            native.Add(
+                code: "CS2J3203",
+                category: "native-interop",
+                message: $"Extern method '{methodDeclaration.Identifier.ValueText}' is not supported by the Java-only conversion pipeline.",
+                location: methodDeclaration.Identifier.GetLocation());
+        }
+
+        // 调用：一次解析身份，同时判两张前缀表。
+        foreach (var invocation in invocations)
+        {
+            if (!BoundaryAnalysisHelpers.TryResolveSymbolIdentity(invocation, semanticModel, out var identity))
+            {
+                continue;
+            }
+
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.PlatformMemberPrefixes))
+            {
+                platform.Add(
+                    code: "CS2J3102",
+                    category: "platform-boundary",
+                    message: $"Platform-specific API '{identity}' must be isolated before Java conversion.",
+                    location: invocation.GetLocation(),
+                    severity: shouldDowngradeTestPlatformProbes
+                        && PlatformBoundaryAnalyzer.IsTestProjectPlatformProbe(identity)
+                        ? Context.DiagnosticSeverity.Warning
+                        : Context.DiagnosticSeverity.Error);
+            }
+
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.NativeInteropTypePrefixes))
+            {
+                native.Add(
+                    code: "CS2J3202",
+                    category: "native-interop",
+                    message: $"Native interop API '{identity}' is not supported by the Java-only conversion pipeline.",
+                    location: invocation.GetLocation());
+            }
+        }
+
+        // 成员访问。
+        foreach (var memberAccess in memberAccesses)
+        {
+            if (!BoundaryAnalysisHelpers.TryResolveSymbolIdentity(memberAccess, semanticModel, out var identity))
+            {
+                continue;
+            }
+
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.PlatformMemberPrefixes)
+                || BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.PlatformTypePrefixes))
+            {
+                platform.Add(
+                    code: "CS2J3102",
+                    category: "platform-boundary",
+                    message: $"Platform-specific API '{identity}' must be isolated before Java conversion.",
+                    location: memberAccess.GetLocation(),
+                    severity: shouldDowngradeTestPlatformProbes
+                        && PlatformBoundaryAnalyzer.IsTestProjectPlatformProbe(identity)
+                        ? Context.DiagnosticSeverity.Warning
+                        : Context.DiagnosticSeverity.Error);
+            }
+
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.NativeInteropTypePrefixes))
+            {
+                native.Add(
+                    code: "CS2J3202",
+                    category: "native-interop",
+                    message: $"Native interop API '{identity}' is not supported by the Java-only conversion pipeline.",
+                    location: memberAccess.GetLocation());
+            }
+        }
+
+        // 类型站点。
+        foreach (var typeSyntax in typeSyntaxes)
+        {
+            if (!BoundaryAnalysisHelpers.IsTypeSyntaxSite(typeSyntax, semanticModel))
+            {
+                continue;
+            }
+
+            if (!BoundaryAnalysisHelpers.TryResolveTypeIdentity(typeSyntax, semanticModel, out var identity))
+            {
+                continue;
+            }
+
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.PlatformTypePrefixes))
+            {
+                platform.Add(
+                    code: "CS2J3102",
+                    category: "platform-boundary",
+                    message: $"Platform-specific type '{identity}' must be isolated before Java conversion.",
+                    location: typeSyntax.GetLocation());
+            }
+
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.NativeInteropTypePrefixes))
+            {
+                native.Add(
+                    code: "CS2J3202",
+                    category: "native-interop",
+                    message: $"Native interop type '{identity}' is not supported by the Java-only conversion pipeline.",
+                    location: typeSyntax.GetLocation());
+            }
+        }
+
+        // 对象创建。
+        foreach (var objectCreation in objectCreations)
+        {
+            if (!BoundaryAnalysisHelpers.TryResolveSymbolIdentity(objectCreation, semanticModel, out var identity))
+            {
+                continue;
+            }
+
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.PlatformTypePrefixes))
+            {
+                platform.Add(
+                    code: "CS2J3102",
+                    category: "platform-boundary",
+                    message: $"Platform-specific type '{identity}' must be isolated before Java conversion.",
+                    location: objectCreation.GetLocation());
+            }
+
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.NativeInteropTypePrefixes))
+            {
+                native.Add(
+                    code: "CS2J3202",
+                    category: "native-interop",
+                    message: $"Native interop type '{identity}' is not supported by the Java-only conversion pipeline.",
+                    location: objectCreation.GetLocation());
+            }
+        }
+
+        return (platform.Diagnostics, native.Diagnostics);
     }
 }
 
