@@ -176,7 +176,7 @@ public sealed partial class MemberDesugarPreprocessor
             // 阶段的语义查询不能落到不在原语法树中的红色节点上。
             if (recordRewriter.Changed || !ReferenceEquals(workingRoot, root))
             {
-                var recordIntermediate = FormatAndValidate(workingRoot);
+                var recordIntermediate = RewriteAndValidate(workingRoot);
                 if (recordIntermediate == null)
                 {
                     statistics.FilesSkippedClean++;
@@ -215,7 +215,7 @@ public sealed partial class MemberDesugarPreprocessor
             // 阶段同形）。原 finalizer 输出含成员删除处的紧凑 trivia，格式化同时规整间距。
             if (!ReferenceEquals(workingRoot, root))
             {
-                var finalizerIntermediate = FormatAndValidate(workingRoot);
+                var finalizerIntermediate = RewriteAndValidate(workingRoot);
                 if (finalizerIntermediate == null)
                 {
                     statistics.FilesSkippedClean++;
@@ -258,7 +258,7 @@ public sealed partial class MemberDesugarPreprocessor
         {
             // 事件/属性产物含无分隔 trivia 的合成节点（文本级 publicint/returnp），必须先经
             // 格式化+本地校验取干净文本，再解析回编译换取可绑定的新鲜模型。
-            var intermediate = FormatAndValidate(workingRoot);
+            var intermediate = RewriteAndValidate(workingRoot);
             if (intermediate == null)
             {
                 statistics.FilesSkippedClean++;
@@ -298,8 +298,8 @@ public sealed partial class MemberDesugarPreprocessor
             }
             else
             {
-                var indexerIntermediate = FormatAndValidate(workingRoot);
-                if (indexerIntermediate == null)
+                var intermediate = RewriteAndValidate(workingRoot);
+                if (intermediate == null)
                 {
                     statistics.FilesSkippedClean++;
                     diagnostics.Add(new MemberDesugarDiagnostic(
@@ -309,7 +309,7 @@ public sealed partial class MemberDesugarPreprocessor
                     return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
                 }
                 var (replacementModel, replacementRoot) =
-                    ParseReplacement(semanticModel, indexerIntermediate);
+                    ParseReplacement(semanticModel, intermediate);
                 indexerModel = replacementModel;
                 workingRoot = replacementRoot;
             }
@@ -361,7 +361,7 @@ public sealed partial class MemberDesugarPreprocessor
             (CompilationUnitSyntax? Root, SemanticModel? Model) ResolveSignatureStage(CompilationUnitSyntax working)
             {
                 if (ReferenceEquals(working, root)) return (working, semanticModel);
-                var intermediate = FormatAndValidate(working);
+                var intermediate = RewriteAndValidate(working);
                 if (intermediate == null) return (null, null);
                 var (model, replacementRoot) = ParseReplacement(semanticModel, intermediate);
                 return (replacementRoot, model);
@@ -387,7 +387,7 @@ public sealed partial class MemberDesugarPreprocessor
         statistics.IndexersPlanned += plannedIndexers.Count(p => IsFirstDeclarationFile(p, filePath));
         statistics.OperatorsPlanned += plannedOperators.Count(p => IsFirstDeclarationFile(p, filePath));
 
-        var outputCode = FormatAndValidate(workingRoot);
+        var outputCode = RewriteAndValidate(workingRoot);
         if (outputCode == null)
         {
             statistics.FilesSkippedClean++;
@@ -520,74 +520,10 @@ public sealed partial class MemberDesugarPreprocessor
             (CompilationUnitSyntax)newTree.GetRoot());
     }
 
-    /// <summary>三候选：改动区间格式化 → 整文件格式化 → 原文；重解析零错误取首个（RR/JK 同款）。</summary>
-    internal static string? FormatAndValidate(CompilationUnitSyntax root)
+    /// <summary>中间态原文重解析零错误（RR/JK 同款）；不做格式化——产物是中间态，
+    /// 由后续预处理器格式化。</summary>
+    internal static string? RewriteAndValidate(CompilationUnitSyntax root)
     {
-        var workspace = SharedWorkspace();
-
-        // 候选按需惰性求值，选取结果与历史"先构造三候选再取首个可解析者"逐字相同；
-        // 绝大多数文件首候选即可解析，省掉一次整树 Formatter.Format。
-        List<TextSpan> spans;
-        try
-        {
-            spans = root
-                .GetAnnotatedNodes(MemberDesugarSyntaxFacts.RewriteAnnotation.Kind)
-                .Where(n => n is ExpressionSyntax or StatementSyntax or MemberDeclarationSyntax)
-                .Where(n => !n.Ancestors().Any(a =>
-                    a.HasAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation.Kind)))
-                .Select(n => n.Span)
-                .Distinct()
-                .OrderBy(s => s.Start)
-                .ToList();
-        }
-        catch
-        {
-            spans = new List<TextSpan>();
-        }
-
-        // 大 span 集（生成代码常见：单文件可达 5 万 span）下 "span 限定格式化" 的成本近似按
-        // span 数线性（≈0.45ms/span，画像 2026-10-17：单文件 22.7s 对整树 0.9s）。先做一次
-        // 整树规范化并与原文比较：两者相同即说明整树本就是规范化形态，那么任何子集（含本
-        // pass 的 span 限定）都不会产生改动 —— 直接返回原文与 span 限定路径**可证明逐字节
-        // 等价**，且快约 20×；不相同则仍走下面的历史 span 路径（逐字节保留旧行为）。
-        const int WholeNormalizeSpanThreshold = 1024;
-        if (spans.Count >= WholeNormalizeSpanThreshold)
-        {
-            try
-            {
-                var whole = Formatter.Format(root, workspace).ToFullString();
-                var raw = root.ToFullString();
-                if (string.Equals(whole, raw, StringComparison.Ordinal))
-                    return raw;
-            }
-            catch
-            {
-            }
-        }
-
-        if (spans.Count > 0)
-        {
-            try
-            {
-                var spanCandidate = Formatter.Format(root, spans, workspace).ToFullString();
-                if (ParsesClean(spanCandidate))
-                    return spanCandidate;
-            }
-            catch
-            {
-            }
-        }
-
-        try
-        {
-            var wholeCandidate = Formatter.Format(root, workspace).ToFullString();
-            if (ParsesClean(wholeCandidate))
-                return wholeCandidate;
-        }
-        catch
-        {
-        }
-
         var rawText = root.ToFullString();
         return ParsesClean(rawText) ? rawText : null;
     }
