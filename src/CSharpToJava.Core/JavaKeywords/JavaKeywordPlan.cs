@@ -151,6 +151,24 @@ internal sealed class PlanBuilder
                 }
             }
 
+            // For partial methods, also include the implementation part's
+            // source locations so that all partial files are covered by
+            // this plan (the definition part's Locations only include the
+            // defining declaration file).
+            if (symbol is IMethodSymbol method
+                && method.PartialImplementationPart is { } impl)
+            {
+                foreach (var loc in impl.Locations.Where(l => l.IsInSource))
+                {
+                    var file = loc.SourceTree?.FilePath;
+                    if (file != null)
+                    {
+                        p.TouchedFiles.Add(file);
+                        p.Touches.Add(new PlanTouch(file, GetTypeName(symbol), symbol.Name));
+                    }
+                }
+            }
+
             plan.Plans.Add(p);
         }
 

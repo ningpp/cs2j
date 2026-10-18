@@ -350,13 +350,26 @@ internal sealed class JavaKeywordsPassAdapter : ProjectPassAdapter
         CSharpCompilation candidate,
         string intermediateRoot)
     {
+        // Pre-build a (File, Id) only set for diagnostics whose message
+        // embeds the renamed symbol (e.g. CS0759 partial method).  When the
+        // method is renamed the message text changes, so a full
+        // (File, Id, Message) match would wrongly flag it as a new error.
+        var baselineFileId = new HashSet<(string, string)>(
+            baseline.Select(b => (b.File, b.Id)));
+
         return candidate.GetDiagnostics()
             .Where(d => d.Severity == DiagnosticSeverity.Error
                 && d.Location.SourceTree != null
                 && !baseline.Contains((
                     Normalize(d.Location.SourceTree!.FilePath, intermediateRoot),
                     d.Descriptor.Id,
-                    d.GetMessage())))
+                    d.GetMessage()))
+                // CS0759: the message embeds the partial method name which
+                // changes after rename; match on (File, Id) only.
+                && !(d.Descriptor.Id == "CS0759"
+                     && baselineFileId.Contains((
+                         Normalize(d.Location.SourceTree!.FilePath, intermediateRoot),
+                         d.Descriptor.Id))))
             .ToList();
     }
 

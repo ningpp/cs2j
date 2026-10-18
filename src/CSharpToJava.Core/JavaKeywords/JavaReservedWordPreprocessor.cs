@@ -92,12 +92,12 @@ public sealed partial class JavaReservedWordPreprocessor
                 p.SymbolName));
         }
 
-        if (activePlans.Count == 0)
-        {
-            statistics.FilesSkippedClean++;
-            return new JavaKeywordFileResult { OutputCode = sourceCode, Changed = false };
-        }
-
+        // Even when no plan's TouchedFiles contains this file, the
+        // rewriter must still run: partial method implementation
+        // declarations in multi-file partial classes may not appear in
+        // any plan's TouchedFiles (Roslyn's PartialImplementationPart
+        // only links one implementation part), but the rewriter's
+        // TryLookupRename fallback resolves them via the definition part.
         var context = new RewriteContext(
             semanticModel, _analysis!, _plan!, activePlans, _excludedPlanIds,
             statistics, diagnostics, filePath);

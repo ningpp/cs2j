@@ -281,7 +281,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
         if (visited == null) return null;
         // 只改右段（Left 由成员访问/命名空间路径处理）
         var rightSymbol = _context.Model.GetSymbolInfo(node).Symbol;
-        if (rightSymbol != null && _table.TryGetValue(rightSymbol, out var newName))
+        if (rightSymbol != null && TryLookupRename(rightSymbol, out var newName))
         {
             visited = visited.WithRight(
                 SyntaxFactory.IdentifierName(newName))
@@ -296,7 +296,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
         if (visited == null) return null;
         // 改 Name 段
         var nameSymbol = _context.Model.GetSymbolInfo(node).Symbol;
-        if (nameSymbol != null && _table.TryGetValue(nameSymbol, out var newName))
+        if (nameSymbol != null && TryLookupRename(nameSymbol, out var newName))
         {
             visited = visited.WithName(
                 SyntaxFactory.IdentifierName(newName))
@@ -387,10 +387,58 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
         newName = "";
         var symbol = _context.Model.GetDeclaredSymbol(declarationNode);
         if (symbol == null) return false;
-        if (!_table.TryGetValue(symbol, out newName)) return false;
-        _context.Statistics.SymbolsRenamed++;
-        IncrementKindCounter(symbol);
-        return true;
+        if (_table.TryGetValue(symbol, out newName))
+        {
+            _context.Statistics.SymbolsRenamed++;
+            IncrementKindCounter(symbol);
+            return true;
+        }
+        // Fall back: the declared symbol may be one part of a partial
+        // method whose other part is in the rename table. This handles
+        // multi-file partial methods where GetDeclaredSymbol returns
+        // different IMethodSymbol instances for each .cs file and only
+        // the definition part (or one implementation part) was collected.
+        if (symbol is IMethodSymbol method)
+        {
+            if (method.PartialDefinitionPart is { } def
+                && _table.TryGetValue(def, out newName))
+            {
+                _context.Statistics.SymbolsRenamed++;
+                IncrementKindCounter(symbol);
+                return true;
+            }
+            if (method.PartialImplementationPart is { } impl
+                && _table.TryGetValue(impl, out newName))
+            {
+                _context.Statistics.SymbolsRenamed++;
+                IncrementKindCounter(symbol);
+                return true;
+            }
+
+            // Final fallback: when Roslyn does not link this implementation
+            // part to the definition part (e.g. a second implementation file
+            // in a multi-target project where only the first implementation
+            // is linked), look up the rename table by the method's original
+            // name. If another symbol with the same name was renamed, use
+            // the same new name. This ensures all partial parts — even
+            // unlinked ones — get the same rename.
+            if (JavaKeywordSyntaxFacts.NeedsEscape(method.Name))
+            {
+                foreach (var (existingSymbol, existingNewName) in _table)
+                {
+                    if (existingSymbol is IMethodSymbol existingMethod
+                        && existingMethod.Name == method.Name
+                        && existingMethod.IsPartialDefinition)
+                    {
+                        newName = existingNewName;
+                        _context.Statistics.SymbolsRenamed++;
+                        IncrementKindCounter(symbol);
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private void IncrementKindCounter(ISymbol symbol)
@@ -414,7 +462,8 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
         var symbolInfo = _context.Model.GetSymbolInfo(original);
 
         // JK-4c：精确绑定
-        if (symbolInfo.Symbol != null && _table.TryGetValue(symbolInfo.Symbol, out var newName))
+        if (symbolInfo.Symbol != null
+            && TryLookupRename(symbolInfo.Symbol, out var newName))
         {
             return visited.WithIdentifier(
                 SyntaxFactory.Identifier(visited.Identifier.LeadingTrivia, newName, visited.Identifier.TrailingTrivia))
@@ -427,7 +476,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
         {
             foreach (var cand in symbolInfo.CandidateSymbols)
             {
-                if (_table.TryGetValue(cand, out newName))
+                if (TryLookupRename(cand, out newName))
                 {
                     return visited.WithIdentifier(
                         SyntaxFactory.Identifier(visited.Identifier.LeadingTrivia, newName, visited.Identifier.TrailingTrivia))
@@ -438,5 +487,26 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
 
         // 动态绑定不改（JK-4c / JK-8）
         return visited;
+    }
+
+    /// <summary>
+    /// Look up the rename table directly, falling back to the other
+    /// part of a partial method (definition ↔ implementation) when the
+    /// bound symbol itself is not in the table.
+    /// </summary>
+    private bool TryLookupRename(ISymbol symbol, out string newName)
+    {
+        if (_table.TryGetValue(symbol, out newName))
+            return true;
+        if (symbol is IMethodSymbol method)
+        {
+            if (method.PartialDefinitionPart is { } def
+                && _table.TryGetValue(def, out newName))
+                return true;
+            if (method.PartialImplementationPart is { } impl
+                && _table.TryGetValue(impl, out newName))
+                return true;
+        }
+        return false;
     }
 }

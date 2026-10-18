@@ -51,9 +51,25 @@ internal sealed class JavaKeywordAnalyzer
             switch (node)
             {
                 case MethodDeclarationSyntax m:
+                {
                     symbol = model.GetDeclaredSymbol(m);
                     name = m.Identifier.Text;
+                    // For partial methods, only collect the definition part
+                    // (IsPartialDefinition == true). Implementation parts are
+                    // skipped because: (a) collecting them creates a second
+                    // rename candidate that collision-disambiguates to a
+                    // different name (ThrowsValue2 vs ThrowsValue), and
+                    // (b) Roslyn only links the first implementation to the
+                    // definition via PartialImplementationPart — a second
+                    // implementation file's PartialDefinitionPart is null,
+                    // so the old check (PartialDefinitionPart != null) missed
+                    // it. The rewriter's TryLookupRename fallback resolves
+                    // all parts from the definition part's rename table entry.
+                    if (symbol is IMethodSymbol method
+                        && !method.IsPartialDefinition)
+                        continue;
                     break;
+                }
                 case PropertyDeclarationSyntax p:
                     symbol = model.GetDeclaredSymbol(p);
                     name = p.Identifier.Text;
@@ -184,6 +200,41 @@ internal sealed class JavaKeywordAnalyzer
             occupied.Add(newName);
             analysis.RenameTable[symbol] = newName;
         }
+
+        // Synchronize partial method parts: the definition part was
+        // collected (implementation part was skipped), but the rewriter
+        // calls GetDeclaredSymbol on each file, which returns the part
+        // local to that file. Add the implementation part to the table
+        // with the same name so TryGetNewNameForDeclaration succeeds in
+        // implementation-declaration files too.
+        SyncPartialMethodParts(analysis.RenameTable);
+    }
+
+    /// <summary>
+    /// For each partial method in the rename table, ensure both the
+    /// definition part and the implementation part share the same new
+    /// name. The analyzer only collected the definition part; the
+    /// rewriter needs both parts in the table to rename declarations
+    /// across all partial files.
+    /// </summary>
+    private static void SyncPartialMethodParts(
+        Dictionary<ISymbol, string> renameTable)
+    {
+        var additions = new List<(ISymbol Symbol, string NewName)>();
+        foreach (var (symbol, newName) in renameTable)
+        {
+            if (symbol is IMethodSymbol method)
+            {
+                // symbol is the definition part; sync the implementation part.
+                if (method.PartialImplementationPart is { } impl
+                    && !renameTable.ContainsKey(impl))
+                {
+                    additions.Add((impl, newName));
+                }
+            }
+        }
+        foreach (var (symbol, newName) in additions)
+            renameTable[symbol] = newName;
     }
 
     private static string GetSourceLocationSortKey(ISymbol symbol)

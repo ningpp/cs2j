@@ -390,4 +390,120 @@ public struct Foo
         Assert.Contains("operator true", output);
         Assert.Contains(diags ?? new(), d => d.Code == JavaKeywordDiagnosticCode.JK010);
     }
+
+    // ---- Partial method rename: both parts must get the same new name ----
+
+    [Fact]
+    public void PartialMethod_BothParts_Renamed_To_SameName()
+    {
+        // 'Throws' is a Java keyword; both the partial definition and the
+        // partial implementation must be renamed to the same new name.
+        var definition = @"
+public partial class C
+{
+    static partial void Throws(int x);
+}";
+        var implementation = @"
+public partial class C
+{
+    static partial void Throws(int x) { }
+}";
+        var options = new CSharpParseOptions(LanguageVersion.Preview);
+        var defTree = CSharpSyntaxTree.ParseText(definition, options, path: "C.cs");
+        var implTree = CSharpSyntaxTree.ParseText(implementation, options, path: "C.Impl.cs");
+        var compilation = CSharpCompilation.Create("jk-partial-test",
+            new[] { defTree, implTree },
+            GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var pp = new JavaReservedWordPreprocessor();
+        pp.BindCompilation(compilation);
+        var stats = new JavaKeywordStatistics();
+        var diags = new List<JavaKeywordDiagnostic>();
+
+        // Rewrite the definition file
+        var defModel = compilation.GetSemanticModel(defTree);
+        var defResult = pp.RewriteFile(definition, defModel, stats, diags);
+        Assert.True(defResult.Changed, "Definition file should have been changed");
+        Assert.Contains("ThrowsValue", defResult.OutputCode);
+        Assert.DoesNotContain("void Throws(", defResult.OutputCode);
+
+        // Rewrite the implementation file
+        var implModel = compilation.GetSemanticModel(implTree);
+        var implResult = pp.RewriteFile(implementation, implModel, stats, diags);
+        Assert.True(implResult.Changed, "Implementation file should have been changed");
+        Assert.Contains("ThrowsValue", implResult.OutputCode);
+        Assert.DoesNotContain("void Throws(", implResult.OutputCode);
+
+        // Both parts must use the same new name — verify the rewritten
+        // files compile together without CS0759.
+        var rewrittenDef = CSharpSyntaxTree.ParseText(defResult.OutputCode, options, path: "C.cs");
+        var rewrittenImpl = CSharpSyntaxTree.ParseText(implResult.OutputCode, options, path: "C.Impl.cs");
+        var verify = CSharpCompilation.Create("jk-partial-verify",
+            new[] { rewrittenDef, rewrittenImpl },
+            GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var errors = verify.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "Rewritten partial method failed to compile:\n" + string.Join("\n", errors));
+    }
+
+    [Fact]
+    public void PartialMethod_ThreeFiles_Definition_And_Two_Implementations()
+    {
+        // Simulates the SDK scenario: RegexParserTests has one definition
+        // file and two implementation files (.netcoreapp.cs / .netfx.cs).
+        // All three must be renamed to the same new name.
+        var definition = @"
+public partial class C
+{
+    static partial void Throws(int x);
+}";
+        var impl1 = @"
+public partial class C
+{
+    static partial void Throws(int x) { }
+}";
+        var impl2 = @"
+public partial class C
+{
+    static partial void Throws(int x) { }
+}";
+        var options = new CSharpParseOptions(LanguageVersion.Preview);
+        var defTree = CSharpSyntaxTree.ParseText(definition, options, path: "C.cs");
+        var impl1Tree = CSharpSyntaxTree.ParseText(impl1, options, path: "C.Impl1.cs");
+        var impl2Tree = CSharpSyntaxTree.ParseText(impl2, options, path: "C.Impl2.cs");
+        var compilation = CSharpCompilation.Create("jk-partial-multi",
+            new[] { defTree, impl1Tree, impl2Tree },
+            GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var pp = new JavaReservedWordPreprocessor();
+        pp.BindCompilation(compilation);
+        var stats = new JavaKeywordStatistics();
+        var diags = new List<JavaKeywordDiagnostic>();
+
+        // Rewrite all three files
+        var defModel = compilation.GetSemanticModel(defTree);
+        var defResult = pp.RewriteFile(definition, defModel, stats, diags);
+        Assert.Contains("ThrowsValue", defResult.OutputCode);
+
+        var impl1Model = compilation.GetSemanticModel(impl1Tree);
+        var impl1Result = pp.RewriteFile(impl1, impl1Model, stats, diags);
+        Assert.Contains("ThrowsValue", impl1Result.OutputCode);
+
+        var impl2Model = compilation.GetSemanticModel(impl2Tree);
+        var impl2Result = pp.RewriteFile(impl2, impl2Model, stats, diags);
+        Assert.Contains("ThrowsValue", impl2Result.OutputCode);
+
+        // All parts must use the same name.
+        var newName = "ThrowsValue";
+        Assert.Contains(newName, defResult.OutputCode);
+        Assert.Contains(newName, impl1Result.OutputCode);
+        Assert.Contains(newName, impl2Result.OutputCode);
+        Assert.DoesNotContain("void Throws(", defResult.OutputCode);
+        Assert.DoesNotContain("void Throws(", impl1Result.OutputCode);
+        Assert.DoesNotContain("void Throws(", impl2Result.OutputCode);
+    }
 }
