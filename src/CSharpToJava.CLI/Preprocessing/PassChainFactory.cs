@@ -586,17 +586,23 @@ internal static class PassChainFactory
                 config.VerifyBuild,
                 config.VerifyTests),
 
-            // C29 has no convert-project legacy toggle; the descriptor default
-            // (off, long-term opt-in) drives it and --enable-pass/--pass opts in
-            // (expression-desugar precedent).
+            // C29: strict defaults to false in convert-project (goto precedent).
+            // Non-canonical Monitor structures (CS2J2910) are legitimate skips —
+            // the code is left unchanged as valid C#; escalating them to pass-
+            // failing Errors would abort the entire chain on real-world code that
+            // uses batch Enter/Exit in loops or manual TryEnter/Exit pairing.
+            // The ConcurrencyOptions.Strict flag and the adapter's strict
+            // parameter both receive false so CS2J2910/2911/2920/2921 stay
+            // Warnings; a future --concurrency-strict opt-in can restore the
+            // strict CI gate (linq-channel precedent).
             PassStubCatalog.Ids.ConcurrencyNormalize => new ConcurrencyNormalizePassAdapter(
-                new ConcurrencyOptions { Strict = config.Strict },
+                new ConcurrencyOptions { Strict = false },
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,
                 config.VerifyBuild,
                 config.VerifyTests,
-                config.Strict),
+                strict: false),
 
             PassStubCatalog.Ids.EqualityConcat => new EqualityConcatPassAdapter(
                 config.EqualityConcatOptionsFactory(),
