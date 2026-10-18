@@ -6,8 +6,11 @@ namespace CSharpToJava.Core.EqualityConcat;
 public sealed class EqualityConcatOptions
 {
     /// <summary>
-    /// When true (default), residual sites CS2J0474/CS2J0475 are reported as
-    /// errors; when false they degrade to warnings. CS2J0476 stays a warning.
+    /// When true (default), residual sites CS2J0475 are reported as
+    /// errors; when false they degrade to warnings. CS2J0474 (lifted
+    /// nullable) is always a Warning — it is valid C# owned by the C22
+    /// nullable pass and must not abort the chain. CS2J0476 stays a
+    /// warning.
     /// </summary>
     public bool Strict { get; init; } = true;
 

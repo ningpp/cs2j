@@ -232,8 +232,15 @@ public sealed class EqualityConcatPreprocessor
                 case EqualityConcatKind.LiftedNullableEquality:
                     _stats.LiftedEqualityPendingC22++;
                     _stats.AddSkip(nameof(EqualityConcatDiagnosticCode.CS2J0474));
+                    // CS2J0474 is always a Warning, never an Error, even in
+                    // Strict mode. Lifted nullable ==/!= is valid C# that the
+                    // C22 nullable pass owns; escalating it to a pass-failing
+                    // Error would abort the entire chain on real-world code
+                    // (e.g. System.Uri) that legitimately uses Nullable<T>
+                    // comparisons. The site is MarkExplained so it never
+                    // contributes to unaccounted residuals.
                     EmitSite(node, new EqualityConcatDiagnostic(
-                        StrictSeverity(EqualityConcatDiagnosticCode.CS2J0474),
+                        EqualityConcatSeverity.Warning,
                         EqualityConcatDiagnosticCode.CS2J0474,
                         "Lifted (Nullable<T>) ==/!= site left unchanged; the C22 " +
                         "nullable pass handles it."));

@@ -417,8 +417,11 @@ public class EqualityConcatPreprocessorUnitTests
     // ---------- EC-8 lifted equality ----------
 
     [Fact]
-    public void EC8_Lifted_Bool_Equality_Is_Error_In_Strict_Mode()
+    public void EC8_Lifted_Bool_Equality_Is_Warning_Even_In_Strict_Mode()
     {
+        // CS2J0474 is always a Warning — lifted nullable ==/!= is valid C#
+        // owned by the C22 nullable pass; escalating to Error would abort
+        // real-world SDK conversions (e.g. System.Uri).
         var src = """
             class C { bool M(bool? x) => x == true; }
             """;
@@ -427,7 +430,7 @@ public class EqualityConcatPreprocessorUnitTests
         Assert.Equal(1, result.Statistics.LiftedEqualityPendingC22);
         Assert.Contains(result.Diagnostics,
             d => d.Code == EqualityConcatDiagnosticCode.CS2J0474
-                 && d.Severity == EqualityConcatSeverity.Error);
+                 && d.Severity == EqualityConcatSeverity.Warning);
     }
 
     [Fact]
