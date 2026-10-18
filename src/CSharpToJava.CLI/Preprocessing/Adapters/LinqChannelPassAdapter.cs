@@ -44,6 +44,7 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
 
     private readonly LinqChannelStatistics _statistics = new();
     private readonly List<LinqChannelDiagnostic> _diagnostics = new();
+    private IReadOnlyList<MetadataReference> _enhancedReferences = Array.Empty<MetadataReference>();
     private int _desugaredQueryCount;
 
     /// <summary>
@@ -88,6 +89,17 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
         var tree = context.Tree;
         var intermediateRoot = tree.IntermediateRoot;
         var sourceRoot = tree.SourceRoot;
+
+        // The merged whole-tree binding compilation must see the restored NuGet
+        // compile assemblies, exactly like the sibling extension-methods pass
+        // (M3 ruling 2): the analyzed tree is the union of every project, but the
+        // default reference set is TPA-only, so metadata-only symbols (xunit's
+        // Assert, any package type exposing a LINQ-operator-shaped member name)
+        // stay unbound and their chains are falsely reported ambiguous (LC0010).
+        // The pass' own verification restore runs at the END of ExecuteAsync, so
+        // refresh the assets here first; failures are left to that final
+        // (reporting) restore so the diagnostics are not duplicated.
+        // EnsureEnhancedReferences(tree); // NEGATIVE-CHECK (temporary)
 
         // Only .cs files participate; non-.cs project files were already copied
         // by CopyProjectFilesAsync during tree preparation, but intermediate-tree
@@ -501,5 +513,48 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
         Span<byte> prefix = stackalloc byte[3];
         var read = stream.Read(prefix);
         return read >= 3 && prefix[0] == 0xEF && prefix[1] == 0xBB && prefix[2] == 0xBF;
+    }
+
+    /// <summary>
+    /// Refreshes the intermediate tree's NuGet assets and captures the per-project
+    /// compile assemblies into <see cref="_enhancedReferences"/>. A restore failure
+    /// is deliberately NOT reported here: the pass' own verification restore (which
+    /// runs later and reports LC0050) stays the single owner of that diagnostic.
+    /// No project graph (single-file / loose-directory layout) means nothing to
+    /// restore; the conservative LC0010 path is unchanged there.
+    /// </summary>
+    private void EnsureEnhancedReferences(PassTreeContext tree)
+    {
+        if (tree.Layout.ProjectFiles.Count == 0)
+        {
+            return;
+        }
+
+        var restoreTarget = ProjectPreprocessSource.ResolveRestoreTarget(
+            tree.Layout, tree.IntermediateRoot);
+        if (restoreTarget != null && ProjectPreprocessSource.RunDotNetRestore(
+                restoreTarget, LogPrefix) != 0)
+        {
+            return;
+        }
+
+        _enhancedReferences = RestorePackageReferenceEnumerator.Enumerate(
+            tree.IntermediateRoot, out var addedCount);
+        if (_verbose && addedCount > 0)
+        {
+            Console.WriteLine($"[linq-channel] binding with {addedCount} restored package reference(s)");
+        }
+    }
+
+    /// <summary>TPA basics plus the restored NuGet compile assemblies (M3 ruling 2).</summary>
+    public override IReadOnlyCollection<MetadataReference> GetMetadataReferences()
+    {
+        var references = ProjectUnsignedTypePreprocessor.GetBasicReferences();
+        if (_enhancedReferences.Count > 0)
+        {
+            references.AddRange(_enhancedReferences);
+        }
+
+        return references;
     }
 }

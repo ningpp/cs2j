@@ -233,12 +233,24 @@ public class Program
                     explicitPath: null, strict: false, reportInfo: opts.Verbose),
                 // C26 M2: explicit channel-options injection for the
                 // --enable-pass linq-channel opt-in (gate intercepts by
-                // default; Strict follows the shared CLI strict switch).
-                // Build/test verification rides the request Verify* flags.
+                // default). Build/test verification rides the request
+                // Verify* flags. Strict is the channel's OWN opt-in
+                // (--linq-channel-strict), deliberately separate from the
+                // historical --no-local-function-strict shared switch: the
+                // CLI merged whole-tree binding compilation cannot guarantee a
+                // healthy picture (mirror-merged duplicate declarations of the
+                // generated support files + package metadata it does not
+                // reference), so escalating the *conservative-preservation*
+                // diagnostics (LC0010/LC0012) and the registered §7.10①⑤
+                // residual (LC0040) to pass failures would fail a run that the
+                // channel handled safely (design §6 principle ①, §4.2 option
+                // default false; extension-methods precedent). The hard
+                // invariants (LC0011 route violation, LC0051/0052 build/test
+                // failure) stay Errors regardless.
                 LinqChannelOptionsFactory = () =>
                     new CSharpToJava.Core.LinqChannel.LinqChannelOptions
                     {
-                        Strict = opts.LocalFunctionStrict,
+                        Strict = opts.LinqChannelStrict,
                     },
                 EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions
                 {
@@ -3948,11 +3960,13 @@ public class Program
                     strict: opts.AttributeNormalizeStrict,
                     reportInfo: opts.Verbose),
                 // C26 M2: explicit channel-options injection for the
-                // preprocess verb too (shared factory convention).
+                // preprocess verb too (shared factory convention). Strict is
+                // the channel's own --linq-channel-strict opt-in; see the
+                // convert-project factory above for the rationale.
                 LinqChannelOptionsFactory = () =>
                     new CSharpToJava.Core.LinqChannel.LinqChannelOptions
                     {
-                        Strict = opts.LocalFunctionStrict,
+                        Strict = opts.LinqChannelStrict,
                     },
                 EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions
                 {
@@ -5075,6 +5089,11 @@ class PreprocessVerbOptions
         HelpText = "Report residual local functions as warnings instead of failing the conversion")]
     public bool NoLocalFunctionStrict { get; set; }
 
+    [Option("linq-channel-strict", Default = false,
+        HelpText = "linq-channel pass (C26): escalate CS2J1301/1303/1340 warnings to errors (default off; " +
+                   "the conservative-preservation and residual diagnostics stay warnings)")]
+    public bool LinqChannelStrict { get; set; }
+
     [Option("interpolation-expand", Default = true,
         HelpText = "Enable C23 interpolation expansion inside expression-desugar " +
                    "(rewrite interpolated strings to string.Concat/string.Format; default on)")]
@@ -5569,6 +5588,11 @@ class ConvertProjectOptions
     [Option("no-local-function-strict", Default = false,
         HelpText = "Report residual local functions as warnings instead of failing the conversion")]
     public bool NoLocalFunctionStrict { get; set; }
+
+    [Option("linq-channel-strict", Default = false,
+        HelpText = "linq-channel pass (C26): escalate CS2J1301/1303/1340 warnings to errors (default off; " +
+                   "the conservative-preservation and residual diagnostics stay warnings)")]
+    public bool LinqChannelStrict { get; set; }
 
     [Option("interpolation-expand", Default = true,
         HelpText = "Enable C23 interpolation expansion inside expression-desugar " +

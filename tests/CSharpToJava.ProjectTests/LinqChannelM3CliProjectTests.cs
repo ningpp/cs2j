@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using CSharpToJava.CLI.Preprocessing;
 using CSharpToJava.CLI.Preprocessing.Adapters;
 using CSharpToJava.Core.EnumDeclaration;
@@ -14,8 +15,9 @@ namespace CSharpToJava.ProjectTests;
 /// M3/M4 CLI/end-to-end gates for the C26 linq-channel pass (design §7.11):
 /// catalog listing (Implemented, default-on after the M4 flip), default-chain
 /// reachability plus the conflicting enable/disable rejection, verify-build
-/// failure exit code, strict LC0012 escalation to a non-zero exit, and the
-/// LC0011 whole-file rollback path driven through the real
+/// failure exit code, the channel's own LC0012 strict opt-in, the restored
+/// package references feeding the binding compilation, and the LC0011
+/// whole-file rollback path driven through the real
 /// <see cref="CliPreprocessChain"/> via the adapter's test-only fault seam.
 /// </summary>
 public sealed class LinqChannelM3CliProjectTests
@@ -217,7 +219,7 @@ public sealed class LinqChannelM3CliProjectTests
     // ---- strict LC0012 --------------------------------------------------------
 
     [Fact]
-    public async Task StrictLc0012_FailsExit_NonStrict_Passes()
+    public async Task Lc0012_WarnsByDefault_AndLinqChannelStrictEscalates()
     {
         const string source = """
             using System;
@@ -248,30 +250,102 @@ public sealed class LinqChannelM3CliProjectTests
             """;
         var dir = CreateProject("Quotes.csproj", source);
 
+        var defaultOut = Path.Combine(dir, "out-default");
         var strictOut = Path.Combine(dir, "out-strict");
-        var lenientOut = Path.Combine(dir, "out-lenient");
         try
         {
-            // CLI strict DEFAULT is on (LocalFunctionStrict unless
-            // --no-local-function-strict): LC0012 is an Error even though the
-            // intermediate tree compiles.
+            // Default: LC0012 is the designed Warning (conservative
+            // preservation + explicit diagnostic, design §6 principle ①) and the
+            // pass exits 0 even though the intermediate tree compiles.
+            var (defaultExit, _, defaultErr) = await RunCliAsync(
+                "preprocess", "--pass", PassId,
+                "-s", Path.Combine(dir, "Quotes.csproj"),
+                "-d", defaultOut,
+                "--no-verify-tests");
+            Assert.True(defaultExit == 0, defaultErr);
+            Assert.Contains("warning CS2J1303", defaultErr);
+
+            // The channel's own opt-in escalates the same LC0012 to an Error.
             var (strictExit, _, strictErr) = await RunCliAsync(
                 "preprocess", "--pass", PassId,
                 "-s", Path.Combine(dir, "Quotes.csproj"),
                 "-d", strictOut,
+                "--linq-channel-strict",
                 "--no-verify-tests");
             Assert.NotEqual(0, strictExit);
-            Assert.Contains("CS2J1303", strictErr);
+            Assert.Contains("error CS2J1303", strictErr);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 
-            // Lenient: the same LC0012 is a Warning; build verification
-            // succeeds and the pass exits 0.
-            var (lenientExit, _, lenientErr) = await RunCliAsync(
+    // ---- restored package references feed the binding compilation -------------
+
+    [Fact]
+    public async Task RestoredPackageReferences_BindMetadataOnlySymbols_NoFalseLc0010()
+    {
+        // The CLI merged whole-tree binding compilation is TPA-only by default:
+        // metadata-only symbols such as xunit's `Assert` stay unbound and any
+        // member whose name coincides with a LINQ operator (`Assert.Contains`,
+        // `Assert.All`, `Assert.Single`) is then falsely routed Ambiguous
+        // (CS2J1301). The adapter must merge the restored NuGet compile
+        // assemblies (extension-methods M3 ruling 2 precedent) so the binding
+        // picture matches a real per-project build.
+        var dir = Path.Combine(Path.GetTempPath(), "cs2j-c26-pkgref-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "PkgRef.csproj"), """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="xunit" Version="2.9.0" />
+              </ItemGroup>
+            </Project>
+            """);
+        File.WriteAllText(Path.Combine(dir, "Checks.cs"), """
+            using System.Linq;
+            using Xunit;
+
+            public static class Checks
+            {
+                public static void AssertOnString(string xml)
+                {
+                    // `Contains` is both a LINQ operator name and an xunit
+                    // metadata method: with the package referenced the call
+                    // binds (NonLinq), without it the chain is falsely
+                    // ambiguous.
+                    Assert.Contains("Alice", xml);
+                }
+
+                public static void AssertOnSequence(int[] values)
+                {
+                    Assert.All(values, v => Assert.Equal(1, v));
+                }
+            }
+            """);
+        var outDir = Path.Combine(dir, "out");
+        try
+        {
+            var (exit, _, stderr) = await RunCliAsync(
                 "preprocess", "--pass", PassId,
-                "-s", Path.Combine(dir, "Quotes.csproj"),
-                "-d", lenientOut,
-                "--no-local-function-strict",
-                "--no-verify-tests");
-            Assert.True(lenientExit == 0, lenientErr);
+                "-s", Path.Combine(dir, "PkgRef.csproj"),
+                "-d", outDir,
+                "--no-verify-build", "--no-verify-tests");
+
+            Assert.True(exit == 0, stderr);
+            Assert.DoesNotContain("CS2J1301", stderr);
+
+            var reportPath = Path.Combine(outDir, IntermediateDirName, ReportFileName);
+            Assert.True(File.Exists(reportPath), "channel report must be materialized");
+            using var report = JsonDocument.Parse(File.ReadAllText(reportPath));
+            Assert.Equal(
+                0,
+                report.RootElement.GetProperty("routing").GetProperty("ambiguousChains").GetInt32());
         }
         finally
         {
