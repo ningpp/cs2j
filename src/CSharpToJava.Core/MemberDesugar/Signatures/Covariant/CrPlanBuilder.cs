@@ -166,24 +166,39 @@ internal static class CrPlanBuilder
     private static Dictionary<string, List<IMethodSymbol>> BuildOverrideIndex(
         MemberDesugarAnalysisContext context)
     {
-        var index = new Dictionary<string, List<IMethodSymbol>>(StringComparer.Ordinal);
-        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-        foreach (var model in context.Models)
+        // 逐树并行收集 override 成员（只读），随后按树序合并去重（首现优先）。
+        var models = context.Models;
+        var part = new List<IMethodSymbol>[models.Count];
+        System.Threading.Tasks.Parallel.For(0, models.Count, index =>
         {
+            var model = models[index];
+            var list = new List<IMethodSymbol>();
             foreach (var decl in model.SyntaxTree.GetRoot()
                          .DescendantNodes().OfType<MethodDeclarationSyntax>())
             {
                 if (model.GetDeclaredSymbol(decl) is not IMethodSymbol method) continue;
                 if (method.MethodKind != MethodKind.Ordinary || !method.IsOverride) continue;
-                if (method.OverriddenMethod is not { } overridden) continue;
-                if (!seen.Add(method)) continue;
-                var key = CrPlan.SiteKey(overridden);
-                if (!index.TryGetValue(key, out var list))
-                    index[key] = list = new List<IMethodSymbol>();
+                if (method.OverriddenMethod is null) continue;
                 list.Add(method);
             }
+
+            part[index] = list;
+        });
+
+        var index2 = new Dictionary<string, List<IMethodSymbol>>(StringComparer.Ordinal);
+        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        foreach (var list in part)
+        {
+            foreach (var method in list)
+            {
+                if (!seen.Add(method)) continue;
+                var key = CrPlan.SiteKey(method.OverriddenMethod!);
+                if (!index2.TryGetValue(key, out var bucket))
+                    index2[key] = bucket = new List<IMethodSymbol>();
+                bucket.Add(method);
+            }
         }
-        return index;
+        return index2;
     }
 
     private static List<IMethodSymbol> CollectDescendants(
@@ -228,9 +243,16 @@ internal static class CrPlanBuilder
         }
         if (matchByKey.Count == 0) return;
 
-        foreach (var model in context.Models)
+        // 逐树并行采集命中事件，随后按树序回放（Gate 首现优先，故顺序必须与串行一致）。
+        var models = context.Models;
+        var partMatches = new List<(Draft Draft, string FilePath, string Name, bool Undecidable, bool Dynamic)>[
+            models.Count];
+        System.Threading.Tasks.Parallel.For(0, models.Count, index =>
         {
+            var model = models[index];
             var filePath = model.SyntaxTree.FilePath;
+            var matches =
+                new List<(Draft, string, string, bool, bool)>();
             foreach (var node in model.SyntaxTree.GetRoot().DescendantNodes())
             {
                 if (node is InvocationExpressionSyntax invocation
@@ -242,7 +264,8 @@ internal static class CrPlanBuilder
                             continue;
                         foreach (var (name, plans) in byOriginalName)
                             if (MatchesReflectionName(text, name))
-                                foreach (var plan in plans) plan.Files.Add(filePath);
+                                foreach (var plan in plans)
+                                    matches.Add((plan, filePath, string.Empty, false, false));
                     }
                     continue;
                 }
@@ -259,13 +282,25 @@ internal static class CrPlanBuilder
                 var bound = SignatureSyntaxFacts.BoundSymbol(model, expr);
                 if (bound == null) continue;
                 if (!matchByKey.TryGetValue(CrPlan.SiteKey(bound), out var matched)) continue;
+                var undecidable = matched.Count > 0
+                    && SignatureSyntaxFacts.ClassifyCallSite(expr, model)
+                        == SignatureCallSiteClass.Undecidable;
+                var dynamic = undecidable && SignatureSyntaxFacts.IsDynamic(expr, model);
                 foreach (var plan in matched)
-                {
-                    plan.Files.Add(filePath);
-                    if (SignatureSyntaxFacts.ClassifyCallSite(expr, model)
-                        == SignatureCallSiteClass.Undecidable)
-                        Gate(plan, bound.Name, SignatureSyntaxFacts.IsDynamic(expr, model));
-                }
+                    matches.Add((plan, filePath, bound.Name, undecidable, dynamic));
+            }
+
+            partMatches[index] = matches;
+        });
+
+        foreach (var matches in partMatches)
+        {
+            foreach (var (draft, filePath, name, undecidable, dynamic) in matches)
+            {
+                draft.Files.Add(filePath);
+                if (!undecidable) continue;
+                if (draft.Outcome != MemberDesugarOutcome.Planned) continue;
+                Gate(draft, name, dynamic);
             }
         }
     }

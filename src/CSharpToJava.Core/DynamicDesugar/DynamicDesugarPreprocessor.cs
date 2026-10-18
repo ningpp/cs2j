@@ -1,9 +1,39 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
 using CSharpToJava.Core.Analysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CSharpToJava.Core.DynamicDesugar;
+
+// TEMPORARY profiling helper (dynamic-desugar perf task). Remove before finishing.
+internal static class DynamicDesugarProfiling
+{
+    private static readonly ConcurrentDictionary<string, long> Ticks = new();
+    private static readonly ConcurrentDictionary<string, long> Counts = new();
+
+    public static void Add(string key, long elapsedTicks)
+    {
+        Ticks.AddOrUpdate(key, elapsedTicks, (_, v) => v + elapsedTicks);
+        Counts.AddOrUpdate(key, 1, (_, v) => v + 1);
+    }
+
+    public static long Start() => Stopwatch.GetTimestamp();
+
+    public static void Stop(string key, long start) => Add(key, Stopwatch.GetTimestamp() - start);
+
+    public static void Dump()
+    {
+        Console.Error.WriteLine("=== dynamic-desugar profile (aggregate wall, parallel-inflated) ===");
+        foreach (var kv in Ticks.OrderByDescending(k => k.Value))
+        {
+            var counts = Counts.TryGetValue(kv.Key, out var c) ? c : 0;
+            Console.Error.WriteLine(
+                $"  {kv.Key,-42} {kv.Value / (double)Stopwatch.Frequency,10:F2}s  n={counts}");
+        }
+    }
+}
 
 /// <summary>单文件审计/重写结果。Audit 恒 <see cref="Changed"/>=false（字节复制）；
 /// Rewrite 仅在 A1 声明具体化通过三候选校验时 Changed=true。</summary>
@@ -86,9 +116,15 @@ public sealed class DynamicDesugarPreprocessor
                 "BindCompilation must be called before BuildInventory.");
         }
 
+        var __pi = DynamicDesugarProfiling.Start();
         var raw = DynamicSiteInventoryBuilder.Build(_compilation);
+        DynamicDesugarProfiling.Stop("|InventoryBuilder.Build", __pi);
+        var __pp = DynamicDesugarProfiling.Start();
         _proof = FlowTypeProver.Classify(_compilation, raw, _options);
+        DynamicDesugarProfiling.Stop("|FlowTypeProver.Classify", __pp);
+        var __pa = DynamicDesugarProfiling.Start();
         _inventory = ApplyFlowProof(raw, _proof);
+        DynamicDesugarProfiling.Stop("|ApplyFlowProof", __pa);
         return _inventory;
     }
 
@@ -186,7 +222,9 @@ public sealed class DynamicDesugarPreprocessor
                 "BindCompilation must be called before RewriteAll.");
         }
 
+        var __pi = DynamicDesugarProfiling.Start();
         var inventory = BuildInventory();
+        DynamicDesugarProfiling.Stop("|BuildInventory", __pi);
         var files = new List<DynamicFileResult>();
         var diagnostics = new List<DynamicDesugarDiagnostic>();
 
@@ -219,15 +257,18 @@ public sealed class DynamicDesugarPreprocessor
         // 输入清单命中站点（引用相等）。前提（D13）：登记站点都在不被具体化的
         // 字节复制文件（参数/返回/字段/Expando 等），span 稳定，输入命中即输出
         // 残余命中。加载失败时为空集合，原始诊断照常发射。
+        var __pm = DynamicDesugarProfiling.Start();
         IReadOnlySet<DynamicSiteRecord>? manifestHits =
             isRewrite && !manifestLoadFailed
                 ? DynamicResidualGate.FindManifestHitSites(inventory, manifest)
                 : null;
+        DynamicDesugarProfiling.Stop("|FindManifestHits", __pm);
 
         // 逐文件累加同一统计实例（站点/声明口径与 FromRecords 等价，文件口径真实取数：
         // FilesTransformed/FilesSkippedClean/DeclarationsRewritten）。
         var statistics = new DynamicDesugarStatistics();
 
+        var __pf = DynamicDesugarProfiling.Start();
         foreach (var tree in _compilation.SyntaxTrees)
         {
             var text = tree.GetText().ToString();
@@ -239,13 +280,18 @@ public sealed class DynamicDesugarPreprocessor
                 manifestHits);
             files.Add(result);
         }
+        DynamicDesugarProfiling.Stop("|RewriteFileCore-loop", __pf);
 
         // Rewrite 模式收口（Audit 行为零变化）：输出文本整树重建 → residual
         // 双扫闸门（设计 §6.2/D13）。manifest 已在逐文件处理前完成加载。
         if (isRewrite && !manifestLoadFailed)
         {
+            var __po = DynamicDesugarProfiling.Start();
             var outputCompilation = BuildOutputCompilation(files);
+            DynamicDesugarProfiling.Stop("|BuildOutputCompilation", __po);
+            var __pg = DynamicDesugarProfiling.Start();
             gate = DynamicResidualGate.Scan(outputCompilation, manifest, _options);
+            DynamicDesugarProfiling.Stop("|ResidualGateScan", __pg);
             foreach (var gateDiagnostic in gate.Diagnostics)
             {
                 diagnostics.Add(gateDiagnostic);
@@ -317,8 +363,12 @@ public sealed class DynamicDesugarPreprocessor
         ArgumentException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNull(sourceCode);
 
+        var __p0 = DynamicDesugarProfiling.Start();
         var inventory = BuildInventory();
+        DynamicDesugarProfiling.Stop("|RFC:BuildInventory", __p0);
+        var __p1 = DynamicDesugarProfiling.Start();
         var fileSites = inventory.ForFile(filePath);
+        DynamicDesugarProfiling.Stop("|RFC:ForFile", __p1);
 
         // Audit 模式：M1 路径逐字节保持（消息、分级、字节复制均不变）。
         if (_options.Mode != DynamicMode.Rewrite)
@@ -338,20 +388,26 @@ public sealed class DynamicDesugarPreprocessor
         }
 
         // ---- Rewrite 模式 ----
+        var __p2 = DynamicDesugarProfiling.Start();
         var tree = _compilation!.SyntaxTrees.FirstOrDefault(t => t.FilePath == filePath);
+        DynamicDesugarProfiling.Stop("|RFC:FindTree", __p2);
+        var __p3 = DynamicDesugarProfiling.Start();
         var provenInFile = tree != null
             ? (_proof?.ProvenDeclarations ?? [])
                 .Where(p => p.Declarator.SyntaxTree == tree)
                 .ToList()
             : [];
+        DynamicDesugarProfiling.Stop("|RFC:ProvenInFile", __p3);
 
         // dirty 快检：无 proven 时，若连 dynamic token/LateBound 语义节点都没有，
         // 即干净文件（CandidateReason 枚举中不存在 Dynamic 成员，晚绑定一律为 LateBound）。
         if (provenInFile.Count == 0 && tree != null)
         {
+            var __pd = DynamicDesugarProfiling.Start();
             var quickModel = _compilation.GetSemanticModel(tree);
             var dirty = fileSites.Count > 0
                         || DynamicSiteRewriter.IsDynamicDirty(tree.GetRoot(), quickModel);
+            DynamicDesugarProfiling.Stop("|RFC:IsDynamicDirty", __pd);
             if (!dirty)
             {
                 statistics?.AddFile(fileSites, transformed: false);
@@ -387,15 +443,19 @@ public sealed class DynamicDesugarPreprocessor
         var targetTree = tree!;
         var csharpCompilation = (CSharpCompilation)_compilation;
         var semanticModel = csharpCompilation.GetSemanticModel(targetTree);
+        var __pa = DynamicDesugarProfiling.Start();
         var applyResult = DynamicSiteRewriter.Apply(semanticModel, provenInFile);
+        DynamicDesugarProfiling.Stop("|RFC:Rewriter.Apply", __pa);
 
         var concreteSites = BuildConcreteSiteSet(
             fileSites, applyResult.ConcretizedDeclarators);
+        var __pv = DynamicDesugarProfiling.Start();
         var rewrittenText = DynamicSiteRewriter.FormatAndValidate(
             applyResult.Root,
             targetTree,
             csharpCompilation,
             RewriteValidator);
+        DynamicDesugarProfiling.Stop("|RFC:FormatAndValidate", __pv);
 
         if (rewrittenText == null)
         {
@@ -446,11 +506,13 @@ public sealed class DynamicDesugarPreprocessor
         // 绑定，输入清单里的 DS01x 记录（调用/成员/运算/实参/转换）已不描述任何残余，
         // 不能再按 Rewrite 分级发 Error；仍动态的节点（如同文件内另有不可证局部）保留
         // 原诊断，fail-safe 交由收口闸门统一 DS030。
+        var __ps = DynamicDesugarProfiling.Start();
         var stilledSiteSpans = FindStilledSiteSpans(
             fileSites,
             targetTree,
             csharpCompilation,
             applyResult.Root);
+        DynamicDesugarProfiling.Stop("|RFC:FindStilledSiteSpans", __ps);
 
         var successDiagnostics = EmitSiteDiagnostics(
             fileSites, filePath, concreteSites, diagnosticsSink,

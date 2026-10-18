@@ -15,6 +15,13 @@ public sealed partial class MemberDesugarPreprocessor
 {
     private readonly MemberDesugarOptions _options;
     private IReadOnlyList<MemberDesugarPlan>? _plans;
+
+    /// <summary>性能：file → 该文件 TouchedFiles 命中的 plan 列表（按 <see cref="_plans"/> 序，
+    /// 即 Id 序）。索引只建一次，替代逐文件重复的 <c>_plans.Where(p =&gt; p.TouchedFiles.Contains(filePath))</c>
+    /// 全量扫描（原画像：2703 次改写累计 ~12.6s CPU）。键比较用 <see cref="StringComparer.Ordinal"/>，
+    /// 与 <c>TouchedFiles.Contains</c>（List&lt;string&gt;.Contains，序号比较）语义逐字节一致。</summary>
+    private Dictionary<string, List<MemberDesugarPlan>>? _plansByFile;
+
     private Dictionary<string, int>? _metadataSitesByFile;
     private Dictionary<string, Signatures.SignatureStatistics>? _signatureAuditByFile;
     private readonly HashSet<string> _excludedPlanIds = new(StringComparer.Ordinal);
@@ -69,11 +76,10 @@ public sealed partial class MemberDesugarPreprocessor
                     Signatures.SignatureDiagnostics.AuditSummary(signatureAudit),
                     filePath, 0, 0, null));
         }
-
-        var active = _plans!
-            .Where(p => !_excludedPlanIds.Contains(p.Id) && p.TouchedFiles.Contains(filePath))
+        var plansForFile = PlansForFile(filePath);
+        var active = plansForFile
+            .Where(p => !_excludedPlanIds.Contains(p.Id))
             .ToList();
-
         foreach (var p in active.Where(p => p.Outcome != MemberDesugarOutcome.Planned))
             EmitSkipDiagnostics(p, filePath, statistics, diagnostics);
 
@@ -103,20 +109,25 @@ public sealed partial class MemberDesugarPreprocessor
         var plannedCovariant = covariantPlans
             .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
         // C46 SI-7：本文件全部签名 plan（含被回退/跳过项）传给重写器作 residual 归属集合。
-        var allSignaturePlansForFile = _plans!
+        var allSignaturePlansForFile = plansForFile
             .OfType<Signatures.ExplicitInterface.SiPlan>()
-            .Where(p => p.TouchedFiles.Contains(filePath))
             .ToList();
         // C46 CR-4：本文件全部协变 plan（含 Retained/Skipped）作 residual 归属集合。
-        var allCovariantPlansForFile = _plans!
+        var allCovariantPlansForFile = plansForFile
             .OfType<Signatures.Covariant.CrPlan>()
-            .Where(p => p.TouchedFiles.Contains(filePath))
             .ToList();
         // Info 级白名单（inc/dec、门控 &/|）在重写期计数：文件含 operator 声明时
         // 即使无任何 plan 也过一遍 operator rewriter（树不变 → 计数后按 clean 跳过）。
-        var hasOperatorDecls = root.DescendantNodes().OfType<OperatorDeclarationSyntax>().Any();
         // C39：含终结器声明的文件绝不能被 clean 跳过，否则 A 档零诊断（FN-5 信号真空）。
-        var hasDestructorDecls = root.DescendantNodes().OfType<DestructorDeclarationSyntax>().Any();
+        // 性能：单趟遍历同时判定两类声明（原为两次全树 DescendantNodes 枚举）。
+        var hasOperatorDecls = false;
+        var hasDestructorDecls = false;
+        foreach (var node in root.DescendantNodes())
+        {
+            if (node is OperatorDeclarationSyntax) hasOperatorDecls = true;
+            else if (node is DestructorDeclarationSyntax) hasDestructorDecls = true;
+            if (hasOperatorDecls && hasDestructorDecls) break;
+        }
         // C27：本文件含 Records plan 触点（声明部件或 with 站点，含跳过族站点）时绝不
         // clean 早退——逐站点 52xx 诊断与 WR-8 residual 对账都在重写阶段发射；开关关闭
         // 时分析层零 plan，此处恒 false（默认关零行为铁律）。
@@ -160,9 +171,8 @@ public sealed partial class MemberDesugarPreprocessor
                 && p.RecordType is { IsRecord: true, TypeKind: TypeKind.Class }
                 && IsFirstDeclarationFile(p, filePath));
 
-            var allRecordPlansForFile = _plans!
+            var allRecordPlansForFile = plansForFile
                 .OfType<Records.RecordClonePlan>()
-                .Where(p => p.TouchedFiles.Contains(filePath))
                 .ToList();
             var recordRewriter = new Records.WithExpressionRewriter(
                 recordPlans, allRecordPlansForFile,
@@ -201,9 +211,8 @@ public sealed partial class MemberDesugarPreprocessor
             _finalizerSidecar ??= Finalizers.FinalizerSidecarReport.CreateFor(filePath);
             // FN-10：全量 finalizer plans（含 ExcludePlans 回退项）传入 known 集合，
             // 被排除成员保留且不计 residual。
-            var allFinalizerPlansForFile = _plans!
+            var allFinalizerPlansForFile = plansForFile
                 .OfType<Finalizers.FinalizerPlan>()
-                .Where(p => p.TouchedFiles.Contains(filePath))
                 .ToList();
             var finalizerRewriter = new Finalizers.FinalizerRewriter(
                 activeModel, finalizerPlans, allFinalizerPlansForFile,
@@ -416,8 +425,9 @@ public sealed partial class MemberDesugarPreprocessor
             (CSharpParseOptions)original.SyntaxTree.Options,
             original.SyntaxTree.FilePath);
         var newCompilation = compilation.ReplaceSyntaxTree(original.SyntaxTree, newTree);
-        return (newCompilation.GetSemanticModel(newTree),
+        var result = (newCompilation.GetSemanticModel(newTree),
             (CompilationUnitSyntax)newTree.GetRoot());
+        return result;
     }
 
     internal IReadOnlyList<MemberDesugarPlan> Plans
@@ -490,9 +500,8 @@ public sealed partial class MemberDesugarPreprocessor
         }
 
         var set = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var plan in _plans)
+        foreach (var plan in PlansForFile(tree.FilePath))
         {
-            if (!plan.TouchedFiles.Contains(tree.FilePath)) continue;
             if (memberNames.Any(n => plan.OwnsTouch(tree.FilePath, typeName, n)))
                 set.Add(plan.Id);
         }
@@ -525,7 +534,8 @@ public sealed partial class MemberDesugarPreprocessor
     internal static string? RewriteAndValidate(CompilationUnitSyntax root)
     {
         var rawText = root.ToFullString();
-        return ParsesClean(rawText) ? rawText : null;
+        var ok = ParsesClean(rawText);
+        return ok ? rawText : null;
     }
 
     /// <summary>候选文本重解析零错误（RR/JK 同款本地校验；候选筛选条件与历史一致）。</summary>
@@ -548,9 +558,28 @@ public sealed partial class MemberDesugarPreprocessor
         if (_plans != null) return;
         var (context, plans) = MemberDesugarAnalyzer.Analyze(compilation, _options);
         _plans = plans;
+        var index = new Dictionary<string, List<MemberDesugarPlan>>(StringComparer.Ordinal);
+        foreach (var plan in plans)
+        {
+            foreach (var touched in plan.TouchedFiles)
+            {
+                if (!index.TryGetValue(touched, out var list))
+                    index[touched] = list = new List<MemberDesugarPlan>();
+                list.Add(plan);
+            }
+        }
+
+        _plansByFile = index;
         _metadataSitesByFile = context.MetadataOperatorSitesByFile;
         _signatureAuditByFile = context.SignatureAuditByFile;
     }
+
+    /// <summary>本文件 TouchedFiles 命中的 plan（<c>TouchedFiles.Contains(filePath)</c> 语义）；
+    /// 无命中返回空列表。</summary>
+    private IReadOnlyList<MemberDesugarPlan> PlansForFile(string filePath)
+        => _plansByFile != null && _plansByFile.TryGetValue(filePath, out var list)
+            ? list
+            : (IReadOnlyList<MemberDesugarPlan>)Array.Empty<MemberDesugarPlan>();
 
     private static bool IsFirstDeclarationFile(MemberDesugarPlan plan, string filePath)
     {

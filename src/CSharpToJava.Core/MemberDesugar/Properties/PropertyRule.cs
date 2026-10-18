@@ -130,11 +130,23 @@ internal sealed class PropertyRule : IMemberDesugarRule
             .Concat(positionalClaims.Keys.Select(p => p.Name))
             .ToHashSet(StringComparer.Ordinal);
 
-        foreach (var model in context.Models)
+        // 逐树并行：各分区只写自己的局部 siteFiles/siteFailures（读取共享的只读候选集合），
+        // 随后按树序合并——siteFiles 并集、siteFailures 首现优先，与串行逐树扫描逐字节一致。
+        var siteModels = context.Models;
+        var partSiteFiles = new Dictionary<IPropertySymbol, HashSet<string>>[siteModels.Count];
+        var partSiteFailures =
+            new Dictionary<IPropertySymbol, (MemberDesugarDiagnosticCode Code, string Reason)>[siteModels.Count];
+
+        Parallel.For(0, siteModels.Count, index =>
         {
+            var model = siteModels[index];
             var filePath = model.SyntaxTree.FilePath;
             var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
             var liftableMemo = new Dictionary<SyntaxNode, bool>();
+            var fileSiteFiles = new Dictionary<IPropertySymbol, HashSet<string>>(SymbolEqualityComparer.Default);
+            var fileSiteFailures =
+                new Dictionary<IPropertySymbol, (MemberDesugarDiagnosticCode Code, string Reason)>(
+                    SymbolEqualityComparer.Default);
 
             foreach (var node in root.DescendantNodes())
             {
@@ -142,58 +154,77 @@ internal sealed class PropertyRule : IMemberDesugarRule
                 {
                     case AssignmentExpressionSyntax assign when assign.Parent is InitializerExpressionSyntax:
                         HandleInitializerAssignment(assign, model, filePath, candidates,
-                            positionalProps, siteFiles, siteFailures, liftableMemo, options);
+                            positionalProps, fileSiteFiles, fileSiteFailures, liftableMemo, options,
+                            candidateNames);
                         break;
 
                     case AssignmentExpressionSyntax assign:
                         HandleStatementAssignment(assign, model, filePath, candidates,
-                            positionalProps, siteFiles, siteFailures);
+                            positionalProps, fileSiteFiles, fileSiteFailures, candidateNames);
                         break;
 
                     case PostfixUnaryExpressionSyntax post
                         when post.IsKind(SyntaxKind.PostIncrementExpression)
                             || post.IsKind(SyntaxKind.PostDecrementExpression):
                         HandleIncrement(post.Operand, post.Parent, model, filePath, candidates,
-                            positionalProps, siteFiles, siteFailures);
+                            positionalProps, fileSiteFiles, fileSiteFailures, candidateNames);
                         break;
 
                     case PrefixUnaryExpressionSyntax pre
                         when pre.IsKind(SyntaxKind.PreIncrementExpression)
                             || pre.IsKind(SyntaxKind.PreDecrementExpression):
                         HandleIncrement(pre.Operand, pre.Parent, model, filePath, candidates,
-                            positionalProps, siteFiles, siteFailures);
+                            positionalProps, fileSiteFiles, fileSiteFailures, candidateNames);
                         break;
 
                     case MemberAccessExpressionSyntax ma
                         when candidateNames.Contains(ma.Name.Identifier.ValueText):
                         HandleReadCandidate(ma, model, filePath, candidates, positionalProps,
-                            siteFiles, siteFailures, options);
+                            fileSiteFiles, fileSiteFailures, options);
                         break;
 
                     case MemberBindingExpressionSyntax mb
                         when candidateNames.Contains(mb.Name.Identifier.ValueText):
                         HandleReadCandidate(mb, model, filePath, candidates, positionalProps,
-                            siteFiles, siteFailures, options);
+                            fileSiteFiles, fileSiteFailures, options);
                         break;
 
                     case IdentifierNameSyntax id
                         when candidateNames.Contains(id.Identifier.ValueText):
                         HandleReadCandidate(id, model, filePath, candidates, positionalProps,
-                            siteFiles, siteFailures, options);
+                            fileSiteFiles, fileSiteFailures, options);
                         break;
 
                     case MemberAccessExpressionSyntax dyn
-                        when MemberDesugarSyntaxFacts.IsDynamic(dyn, model)
-                            && candidateNames.Contains(dyn.Name.Identifier.ValueText):
+                        when candidateNames.Contains(dyn.Name.Identifier.ValueText)
+                            && MemberDesugarSyntaxFacts.IsDynamic(dyn, model):
                         // dynamic 接收者（即使未绑定符号）：同名候选全部保守跳过（CS2J5118）
+                        // 性能：名字快筛前置——原顺序会对全树每个非候选成员访问都做 IsDynamic
+                        // （两次 GetTypeInfo）；交换合取项后语义不变但短路了绝大多数调用。
                         foreach (var c in candidates.Keys
                                      .Concat(positionalProps)
                                      .Where(c => c.Name == dyn.Name.Identifier.ValueText).ToList())
-                            MarkFailure(siteFailures, c,
+                            MarkFailure(fileSiteFailures, c,
                                 MemberDesugarDiagnosticCode.DynamicSite, PropertyDiagnostics.Dynamic(c.Name));
                         break;
                 }
             }
+
+            partSiteFiles[index] = fileSiteFiles;
+            partSiteFailures[index] = fileSiteFailures;
+        });
+
+        for (var index = 0; index < siteModels.Count; index++)
+        {
+            foreach (var (prop, files) in partSiteFiles[index])
+            {
+                if (!siteFiles.TryGetValue(prop, out var set))
+                    siteFiles[prop] = set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var file in files) set.Add(file);
+            }
+
+            foreach (var (prop, fail) in partSiteFailures[index])
+                MarkFailure(siteFailures, prop, fail.Code, fail.Reason);
         }
 
         // ---- 阶段 3：后备字段命名 + plan 产出 ----
@@ -420,9 +451,11 @@ internal sealed class PropertyRule : IMemberDesugarRule
         Dictionary<IPropertySymbol, HashSet<string>> siteFiles,
         Dictionary<IPropertySymbol, (MemberDesugarDiagnosticCode Code, string Reason)> siteFailures,
         Dictionary<SyntaxNode, bool> liftableMemo,
-        MemberDesugarOptions options)
+        MemberDesugarOptions options,
+        IReadOnlySet<string> candidateNames)
     {
-        if (!TryCandidate(assign.Left, model, candidates, out var prop, positionalProps)) return;
+        if (!TryCandidate(assign.Left, model, candidates, out var prop, positionalProps, candidateNames))
+            return;
 
         if (assign.Ancestors().OfType<WithExpressionSyntax>().Any())
         {
@@ -450,13 +483,14 @@ internal sealed class PropertyRule : IMemberDesugarRule
         Dictionary<IPropertySymbol, (PropertyDeclarationSyntax Decl, SemanticModel Model)> candidates,
         IReadOnlySet<IPropertySymbol> positionalProps,
         Dictionary<IPropertySymbol, HashSet<string>> siteFiles,
-        Dictionary<IPropertySymbol, (MemberDesugarDiagnosticCode Code, string Reason)> siteFailures)
+        Dictionary<IPropertySymbol, (MemberDesugarDiagnosticCode Code, string Reason)> siteFailures,
+        IReadOnlySet<string> candidateNames)
     {
         // 元组/括号解构左值中的属性目标不可提升（保守，CS2J5119）
         if (assign.Left is TupleExpressionSyntax or ParenthesizedExpressionSyntax)
         {
             foreach (var expr in assign.Left.DescendantNodes().OfType<ExpressionSyntax>())
-                if (TryCandidate(expr, model, candidates, out var p, positionalProps))
+                if (TryCandidate(expr, model, candidates, out var p, positionalProps, candidateNames))
                 {
                     Record(siteFiles, p, filePath);
                     MarkFailure(siteFailures, p, MemberDesugarDiagnosticCode.NonLiftableInitializer,
@@ -465,7 +499,8 @@ internal sealed class PropertyRule : IMemberDesugarRule
             return;
         }
 
-        if (!TryCandidate(assign.Left, model, candidates, out var prop, positionalProps)) return;
+        if (!TryCandidate(assign.Left, model, candidates, out var prop, positionalProps, candidateNames))
+            return;
         Record(siteFiles, prop, filePath);
 
         if (!assign.IsKind(SyntaxKind.SimpleAssignmentExpression)
@@ -481,9 +516,11 @@ internal sealed class PropertyRule : IMemberDesugarRule
         Dictionary<IPropertySymbol, (PropertyDeclarationSyntax Decl, SemanticModel Model)> candidates,
         IReadOnlySet<IPropertySymbol> positionalProps,
         Dictionary<IPropertySymbol, HashSet<string>> siteFiles,
-        Dictionary<IPropertySymbol, (MemberDesugarDiagnosticCode Code, string Reason)> siteFailures)
+        Dictionary<IPropertySymbol, (MemberDesugarDiagnosticCode Code, string Reason)> siteFailures,
+        IReadOnlySet<string> candidateNames)
     {
-        if (!TryCandidate(operand, model, candidates, out var prop, positionalProps)) return;
+        if (!TryCandidate(operand, model, candidates, out var prop, positionalProps, candidateNames))
+            return;
         Record(siteFiles, prop, filePath);
         if (parent is not ExpressionStatementSyntax)
             MarkFailure(siteFailures, prop, MemberDesugarDiagnosticCode.NonLiftableInitializer,
@@ -616,9 +653,28 @@ internal sealed class PropertyRule : IMemberDesugarRule
         ExpressionSyntax node, SemanticModel model,
         Dictionary<IPropertySymbol, (PropertyDeclarationSyntax Decl, SemanticModel Model)> candidates,
         out IPropertySymbol prop,
-        IReadOnlySet<IPropertySymbol>? positionalProps = null)
+        IReadOnlySet<IPropertySymbol>? positionalProps = null,
+        IReadOnlySet<string>? nameFilter = null)
     {
         prop = null!;
+        // 性能：名字快筛。候选 key 用【声明标识符文本】（显式接口实现的符号 Name 是
+        // "IFoo.X" 形态，故不能用 Name）；站点处的成员名恒等于声明标识符（显式实现无法被
+        // 简单名引用）。名字不在候选集合内者不可能命中，直接跳过 GetSymbolInfo。
+        // 未知形态（非三种可判定形态）保守放行。
+        if (node is IdentifierNameSyntax or MemberAccessExpressionSyntax or MemberBindingExpressionSyntax)
+        {
+            if (nameFilter != null)
+            {
+                var name = node switch
+                {
+                    IdentifierNameSyntax id => id.Identifier.ValueText,
+                    MemberAccessExpressionSyntax ma => ma.Name.Identifier.ValueText,
+                    _ => ((MemberBindingExpressionSyntax)node).Name.Identifier.ValueText,
+                };
+                if (!nameFilter.Contains(name)) return false;
+            }
+        }
+
         if (node is not (IdentifierNameSyntax or MemberAccessExpressionSyntax or MemberBindingExpressionSyntax))
             return false;
         if (model.GetSymbolInfo(node).Symbol is not IPropertySymbol p) return false;

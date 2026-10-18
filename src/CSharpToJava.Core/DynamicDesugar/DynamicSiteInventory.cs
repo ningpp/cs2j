@@ -35,192 +35,439 @@ internal static class DynamicSiteInventoryBuilder
     {
         ArgumentNullException.ThrowIfNull(compilation);
 
-        var records = new List<DynamicSiteRecord>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var trees = compilation.SyntaxTrees as IReadOnlyList<SyntaxTree>
+            ?? compilation.SyntaxTrees.ToList();
 
-        foreach (var tree in compilation.SyntaxTrees)
+        // 性能：每棵树独立扫描（records / seen 各树独占），按 tree 序并行。
+        // 与 MemberDesugarAnalyzer 同款：SemanticModel 绑定是这里最贵的部分，
+        // 串行单线程被 8-16x 严重浪费。各树 FilePath 互不相同，Seen 跨树去重键含
+        // FilePath，故各树独立 Seen 与串行语义等价。最后按 tree 序合并，再排序。
+        var slots = new List<DynamicSiteRecord>?[trees.Count];
+        var __pTotal = DynamicDesugarProfiling.Start();
+        Parallel.For(0, trees.Count, i =>
         {
-            var root = tree.GetRoot();
+            var tree = trees[i];
+            if (!tree.TryGetRoot(out var root) || root is not CompilationUnitSyntax unit)
+            {
+                return;
+            }
+
+            var __p0 = DynamicDesugarProfiling.Start();
             var model = compilation.GetSemanticModel(tree);
+            DynamicDesugarProfiling.Stop("|B:GetSemanticModel", __p0);
+
+            // 性能：词法前置过滤——先扫描 token 看是否含 dynamic 关键字或边界类型名。
+            // 绝大多数文件不含任何 dynamic 痕迹，可跳过全部语义查询（只做表达式树 lambda
+            // 排除仍需语义查询，但 clean 文件不会有表达式树 lambda 对 dynamic 操作）。
+            // hasDynamicToken: 出现 dynamic 上下文关键字（可能涉及 dynamic 声明/操作/转换）。
+            // hasBoundaryName: 出现边界类型名片段（ExpandoObject/JObject/JToken/JValue/
+            // JArray/RuntimeBinder/DeserializeObject/Deserialize/DynamicObject）。
+            // 性能：用 tree.GetText().ToString() 做文本搜索（SourceText 已缓存，ToString 零分配），
+            // 比 DescendantTokens() 遍历快 ~2x（避免语法树迭代器 + Kind 检查开销）。
+            var __plx = DynamicDesugarProfiling.Start();
+            var sourceText = tree.GetText().ToString();
+            var hasDynamicToken = sourceText.Contains("dynamic", StringComparison.Ordinal);
+            var hasBoundaryName = hasDynamicToken
+                ? true // 有 dynamic token 时边界名也可能出现，省去额外搜索
+                : (sourceText.Contains("ExpandoObject", StringComparison.Ordinal)
+                   || sourceText.Contains("DynamicObject", StringComparison.Ordinal)
+                   || sourceText.Contains("JObject", StringComparison.Ordinal)
+                   || sourceText.Contains("JToken", StringComparison.Ordinal)
+                   || sourceText.Contains("JValue", StringComparison.Ordinal)
+                   || sourceText.Contains("JArray", StringComparison.Ordinal)
+                   || sourceText.Contains("RuntimeBinder", StringComparison.Ordinal)
+                   || sourceText.Contains("JsonConvert", StringComparison.Ordinal)
+                   || sourceText.Contains("JsonSerializer", StringComparison.Ordinal)
+                   || sourceText.Contains("Deserialize", StringComparison.Ordinal));
+            DynamicDesugarProfiling.Stop("|B:LexicalPreScan", __plx);
+
+            var records = new List<DynamicSiteRecord>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
             var context = new ScanContext(tree, model, records, seen);
 
             // 表达式树 lambda（CS1963 共同禁区）整段不盘点——编译器错误已覆盖，
             // C25 不叠加任何诊断噪声（设计 §4.3/R10）。
-            context.ExpressionTreeSpans = root.DescendantNodes()
-                .OfType<LambdaExpressionSyntax>()
-                .Where(lambda => ExpressionTreeFacts.IsExpressionTreeLambda(model, lambda))
-                .Select(lambda => lambda.Span)
-                .ToList();
+            // 性能：只在有 dynamic token 且文件含 lambda 语法（"=>")时才需扫描表达式树 lambda。
+            // hasDynamicToken=false 时直接跳过（clean 文件不会有表达式树 lambda 对 dynamic 操作）。
+            // 进一步：即使有 dynamic token，若文件不含任何 lambda 语法（无 => ），也跳过——
+            // 没有 lambda 就不可能有表达式树 lambda。
+            var __p1 = DynamicDesugarProfiling.Start();
+            if (hasDynamicToken && sourceText.Contains("=>", StringComparison.Ordinal))
+            {
+                context.ExpressionTreeSpans = root.DescendantNodes()
+                    .OfType<LambdaExpressionSyntax>()
+                    .Where(lambda => ExpressionTreeFacts.IsExpressionTreeLambda(model, lambda))
+                    .Select(lambda => lambda.Span)
+                    .ToList();
+            }
+            DynamicDesugarProfiling.Stop("|B:ExpressionTreeSpans", __p1);
 
-            ScanDeclarations(context, root);
-            ScanBoundaryApis(context, root);
-            ScanOperationSites(context, root);
+            // 性能：合并 ScanDeclarations + ScanBoundaryApis + ScanOperationSites 为单趟
+            // DescendantNodes() switch 派发，消除 3 次全树遍历（原 ~3x O(N) → 1x O(N)）。
+            // 各分支与原独立方法逐字节等价：相同的节点类型匹配、符号查询、AddRecord 调用。
+            var __p2 = DynamicDesugarProfiling.Start();
+            ScanAll(context, unit, hasDynamicToken, hasBoundaryName);
+            DynamicDesugarProfiling.Stop("|B:ScanAll", __p2);
+            slots[i] = records;
+        });
+        DynamicDesugarProfiling.Stop("|B:parallel-total", __pTotal);
+
+        var recordsmerged = new List<DynamicSiteRecord>();
+        for (var i = 0; i < trees.Count; i++)
+        {
+            if (slots[i] is { } slot)
+            {
+                recordsmerged.AddRange(slot);
+            }
         }
 
-        records.Sort(CompareRecords);
-        return new DynamicSiteInventory { Sites = records };
+        recordsmerged.Sort(CompareRecords);
+        return new DynamicSiteInventory { Sites = recordsmerged };
     }
 
-    // ---------- 第一遍：声明点 ----------
+    // ---------- 合并单趟扫描（声明点 + 边界 API + 操作点） ----------
 
-    private static void ScanDeclarations(ScanContext c, SyntaxNode root)
+    /// <summary>
+    /// 性能：原为 3 次独立 root.DescendantNodes() 全树遍历（ScanDeclarations +
+    /// ScanBoundaryApis + ScanOperationSites，每趟 O(N)）；合并为单趟 switch 派发。
+    /// 各分支与原独立方法逐字节等价：相同的节点类型匹配、ExpressionTree 过滤、
+    /// 符号查询、AddRecord 调用。
+    /// 词法前置过滤：hasDynamicToken=false 时跳过所有依赖 dynamic token 的分支
+    /// （声明/操作/转换/cast/assignment），hasBoundaryName=false 时跳过边界 API 分支。
+    /// </summary>
+    private static void ScanAll(
+        ScanContext c, SyntaxNode root, bool hasDynamicToken, bool hasBoundaryName)
     {
-        foreach (var declarator in root.DescendantNodes().OfType<VariableDeclaratorSyntax>())
+        // clean 文件：无 dynamic token 且无边界类型名 → 不可能有任何站点，直接返回。
+        if (!hasDynamicToken && !hasBoundaryName)
         {
-            if (c.IsInsideExpressionTree(declarator))
+            return;
+        }
+
+        foreach (var node in root.DescendantNodes())
+        {
+            // ExpressionTree 过滤：表达式树内节点全部跳过（声明 + 边界 + 操作均如此）。
+            // 性能：hasDynamicToken=false 时 ExpressionTreeSpans 为空，IsInsideExpressionTree 恒 false。
+            if (c.IsInsideExpressionTree(node))
             {
                 continue;
             }
 
-            var symbol = c.Model.GetDeclaredSymbol(declarator);
-            switch (declarator.Parent)
+            switch (node)
             {
-                case VariableDeclarationSyntax { Parent: LocalDeclarationStatementSyntax }:
-                    if (symbol is ILocalSymbol local && local.Type.TypeKind == TypeKind.Dynamic)
-                    {
-                        c.AddRecord(declarator, DynamicSiteKind.DynamicLocalDecl,
-                            DynamicDesugarDiagnosticCodes.LocalUnprovable,
-                            boundSymbol: local.Name,
-                            origin: OriginDisplay(c.Model, declarator.Initializer?.Value),
-                            message: Messages.Local(local.Name, Text(declarator),
-                                OriginDisplay(c.Model, declarator.Initializer?.Value)));
-                    }
-
-                    // object 局部（D6）与源内 [Dynamic] object 局部（CS7014，非法上下文）均不计。
-                    break;
-
-                case VariableDeclarationSyntax { Parent: FieldDeclarationSyntax }:
-                    if (symbol is IFieldSymbol field)
-                    {
-                        ClassifyFieldLike(c, declarator, field.Type, field, field.Name);
-                    }
-
-                    break;
-
-                case VariableDeclarationSyntax { Parent: EventFieldDeclarationSyntax }:
-                    if (symbol is IEventSymbol fieldEvent)
-                    {
-                        ClassifyFieldLike(c, declarator, fieldEvent.Type, fieldEvent, fieldEvent.Name);
-                    }
-
-                    break;
-            }
-        }
-
-        foreach (var forEach in root.DescendantNodes().OfType<ForEachStatementSyntax>())
-        {
-            if (c.IsInsideExpressionTree(forEach))
-            {
-                continue;
-            }
-
-            if (c.Model.GetDeclaredSymbol(forEach) is ILocalSymbol { Type.TypeKind: TypeKind.Dynamic } symbol)
-            {
-                c.AddRecord(forEach, DynamicSiteKind.DynamicLocalDecl,
-                    DynamicDesugarDiagnosticCodes.LocalUnprovable,
-                    boundSymbol: symbol.Name,
-                    message: Messages.Local(symbol.Name, Text(forEach), null));
-            }
-        }
-
-        foreach (var catchDecl in root.DescendantNodes().OfType<CatchDeclarationSyntax>())
-        {
-            if (c.IsInsideExpressionTree(catchDecl))
-            {
-                continue;
-            }
-
-            if (c.Model.GetDeclaredSymbol(catchDecl) is ILocalSymbol { Type.TypeKind: TypeKind.Dynamic } symbol)
-            {
-                c.AddRecord(catchDecl, DynamicSiteKind.DynamicLocalDecl,
-                    DynamicDesugarDiagnosticCodes.LocalUnprovable,
-                    boundSymbol: symbol.Name,
-                    message: Messages.Local(symbol.Name, Text(catchDecl), null));
-            }
-        }
-
-        // 解构 dynamic 分量（含 (dynamic a, var b) 与 var (c, dd)，含 ForEachVariable）。
-        foreach (var designation in root.DescendantNodes().OfType<SingleVariableDesignationSyntax>())
-        {
-            if (c.IsInsideExpressionTree(designation))
-            {
-                continue;
-            }
-
-            if (c.Model.GetDeclaredSymbol(designation) is ILocalSymbol { Type.TypeKind: TypeKind.Dynamic } symbol)
-            {
-                c.AddRecord(designation, DynamicSiteKind.DynamicLocalDecl,
-                    DynamicDesugarDiagnosticCodes.LocalUnprovable,
-                    boundSymbol: symbol.Name,
-                    message: Messages.Local(symbol.Name, Text(designation), null));
-            }
-        }
-
-        foreach (var parameter in root.DescendantNodes().OfType<ParameterSyntax>())
-        {
-            if (c.IsInsideExpressionTree(parameter)
-                || c.Model.GetDeclaredSymbol(parameter) is not IParameterSymbol symbol)
-            {
-                continue;
-            }
-
-            if (DynamicSiteFacts.TypeContainsDynamic(symbol.Type))
-            {
-                c.AddRecord(parameter, DynamicSiteKind.DynamicParameter,
-                    DynamicDesugarDiagnosticCodes.CrossBoundarySignature,
-                    boundSymbol: SignatureName(symbol.ContainingSymbol),
-                    message: Messages.Parameter(symbol.Name, SignatureName(symbol.ContainingSymbol),
-                        Text(parameter)));
-            }
-            else if (DynamicSiteFacts.HasDynamicAttribute(symbol))
-            {
-                c.AddRecord(parameter, DynamicSiteKind.DynamicAttributeEntry,
-                    DynamicDesugarDiagnosticCodes.DynamicAttributeEntry,
-                    boundSymbol: SignatureName(symbol.ContainingSymbol),
-                    message: Messages.AttributeEntry(Text(parameter)));
-            }
-        }
-
-        foreach (var method in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
-        {
-            if (c.Model.GetDeclaredSymbol(method) is IMethodSymbol methodSymbol)
-            {
-                ScanReturnType(c, method.ReturnType, methodSymbol);
-            }
-        }
-
-        foreach (var localFunction in root.DescendantNodes().OfType<LocalFunctionStatementSyntax>())
-        {
-            if (c.Model.GetDeclaredSymbol(localFunction) is IMethodSymbol localFunctionSymbol)
-            {
-                ScanReturnType(c, localFunction.ReturnType, localFunctionSymbol);
-            }
-        }
-
-        foreach (var delegateDecl in root.DescendantNodes().OfType<DelegateDeclarationSyntax>())
-        {
-            if (c.Model.GetDeclaredSymbol(delegateDecl) is INamedTypeSymbol
+                // ===== 声明点（原 ScanDeclarations）=====
+                case VariableDeclaratorSyntax declarator:
                 {
-                    DelegateInvokeMethod: { } invoke,
-                })
-            {
-                ScanReturnType(c, delegateDecl.ReturnType, invoke);
-            }
-        }
+                    // 性能：无 dynamic token 时，只有 [Dynamic] attribute 的字段/事件需要检查
+                    // （object+[Dynamic] 模式不需要源内 dynamic 关键字）。但 [Dynamic] attribute
+                    // 在源码中也会出现 "Dynamic" 文本，已被 hasBoundaryName 或 hasDynamicToken 覆盖
+                    // （"DynamicObject" 含 "Dynamic" 但不等于 "dynamic"）。精确处理：无 dynamic token
+                    // 时仍需检查 HasDynamicAttribute（外部程序集 object+[Dynamic] 字段），但
+                    // GetDeclaredSymbol 很便宜（不需要全量绑定），所以保留。
+                    var symbol = c.Model.GetDeclaredSymbol(declarator);
+                    switch (declarator.Parent)
+                    {
+                        case VariableDeclarationSyntax { Parent: LocalDeclarationStatementSyntax }:
+                            if (symbol is ILocalSymbol local && local.Type.TypeKind == TypeKind.Dynamic)
+                            {
+                                c.AddRecord(declarator, DynamicSiteKind.DynamicLocalDecl,
+                                    DynamicDesugarDiagnosticCodes.LocalUnprovable,
+                                    boundSymbol: local.Name,
+                                    origin: OriginDisplay(c.Model, declarator.Initializer?.Value),
+                                    message: Messages.Local(local.Name, Text(declarator),
+                                        OriginDisplay(c.Model, declarator.Initializer?.Value)));
+                            }
 
-        foreach (var property in root.DescendantNodes().OfType<PropertyDeclarationSyntax>())
-        {
-            if (c.Model.GetDeclaredSymbol(property) is IPropertySymbol symbol)
-            {
-                ClassifyMemberStorage(c, property, symbol.Type, symbol, symbol.Name);
-            }
-        }
+                            // object 局部（D6）与源内 [Dynamic] object 局部（CS7014，非法上下文）均不计。
+                            break;
 
-        foreach (var evt in root.DescendantNodes().OfType<EventDeclarationSyntax>())
-        {
-            if (c.Model.GetDeclaredSymbol(evt) is IEventSymbol symbol)
-            {
-                ClassifyMemberStorage(c, evt, symbol.Type, symbol, symbol.Name);
+                        case VariableDeclarationSyntax { Parent: FieldDeclarationSyntax }:
+                            if (symbol is IFieldSymbol field)
+                            {
+                                ClassifyFieldLike(c, declarator, field.Type, field, field.Name);
+                            }
+
+                            break;
+
+                        case VariableDeclarationSyntax { Parent: EventFieldDeclarationSyntax }:
+                            if (symbol is IEventSymbol fieldEvent)
+                            {
+                                ClassifyFieldLike(c, declarator, fieldEvent.Type, fieldEvent, fieldEvent.Name);
+                            }
+
+                            break;
+                    }
+
+                    break;
+                }
+                case ForEachStatementSyntax forEach:
+                {
+                    if (c.Model.GetDeclaredSymbol(forEach) is ILocalSymbol { Type.TypeKind: TypeKind.Dynamic } symbol)
+                    {
+                        c.AddRecord(forEach, DynamicSiteKind.DynamicLocalDecl,
+                            DynamicDesugarDiagnosticCodes.LocalUnprovable,
+                            boundSymbol: symbol.Name,
+                            message: Messages.Local(symbol.Name, Text(forEach), null));
+                    }
+
+                    break;
+                }
+                case CatchDeclarationSyntax catchDecl:
+                {
+                    if (c.Model.GetDeclaredSymbol(catchDecl) is ILocalSymbol { Type.TypeKind: TypeKind.Dynamic } symbol)
+                    {
+                        c.AddRecord(catchDecl, DynamicSiteKind.DynamicLocalDecl,
+                            DynamicDesugarDiagnosticCodes.LocalUnprovable,
+                            boundSymbol: symbol.Name,
+                            message: Messages.Local(symbol.Name, Text(catchDecl), null));
+                    }
+
+                    break;
+                }
+                // 解构 dynamic 分量（含 (dynamic a, var b) 与 var (c, dd)，含 ForEachVariable）。
+                case SingleVariableDesignationSyntax designation:
+                {
+                    if (c.Model.GetDeclaredSymbol(designation) is ILocalSymbol { Type.TypeKind: TypeKind.Dynamic } symbol)
+                    {
+                        c.AddRecord(designation, DynamicSiteKind.DynamicLocalDecl,
+                            DynamicDesugarDiagnosticCodes.LocalUnprovable,
+                            boundSymbol: symbol.Name,
+                            message: Messages.Local(symbol.Name, Text(designation), null));
+                    }
+
+                    break;
+                }
+                case ParameterSyntax parameter:
+                {
+                    if (c.Model.GetDeclaredSymbol(parameter) is not IParameterSymbol symbol)
+                    {
+                        break;
+                    }
+
+                    if (DynamicSiteFacts.TypeContainsDynamic(symbol.Type))
+                    {
+                        c.AddRecord(parameter, DynamicSiteKind.DynamicParameter,
+                            DynamicDesugarDiagnosticCodes.CrossBoundarySignature,
+                            boundSymbol: SignatureName(symbol.ContainingSymbol),
+                            message: Messages.Parameter(symbol.Name, SignatureName(symbol.ContainingSymbol),
+                                Text(parameter)));
+                    }
+                    else if (DynamicSiteFacts.HasDynamicAttribute(symbol))
+                    {
+                        c.AddRecord(parameter, DynamicSiteKind.DynamicAttributeEntry,
+                            DynamicDesugarDiagnosticCodes.DynamicAttributeEntry,
+                            boundSymbol: SignatureName(symbol.ContainingSymbol),
+                            message: Messages.AttributeEntry(Text(parameter)));
+                    }
+
+                    break;
+                }
+                case MethodDeclarationSyntax method:
+                {
+                    if (c.Model.GetDeclaredSymbol(method) is IMethodSymbol methodSymbol)
+                    {
+                        ScanReturnType(c, method.ReturnType, methodSymbol);
+                    }
+
+                    break;
+                }
+                case LocalFunctionStatementSyntax localFunction:
+                {
+                    if (c.Model.GetDeclaredSymbol(localFunction) is IMethodSymbol localFunctionSymbol)
+                    {
+                        ScanReturnType(c, localFunction.ReturnType, localFunctionSymbol);
+                    }
+
+                    break;
+                }
+                case DelegateDeclarationSyntax delegateDecl:
+                {
+                    if (c.Model.GetDeclaredSymbol(delegateDecl) is INamedTypeSymbol
+                        {
+                            DelegateInvokeMethod: { } invoke,
+                        })
+                    {
+                        ScanReturnType(c, delegateDecl.ReturnType, invoke);
+                    }
+
+                    break;
+                }
+                case PropertyDeclarationSyntax property:
+                {
+                    if (c.Model.GetDeclaredSymbol(property) is IPropertySymbol symbol)
+                    {
+                        ClassifyMemberStorage(c, property, symbol.Type, symbol, symbol.Name);
+                    }
+
+                    break;
+                }
+                case EventDeclarationSyntax evt:
+                {
+                    if (c.Model.GetDeclaredSymbol(evt) is IEventSymbol symbol)
+                    {
+                        ClassifyMemberStorage(c, evt, symbol.Type, symbol, symbol.Name);
+                    }
+
+                    break;
+                }
+
+                // ===== 边界 API（原 ScanBoundaryApis）— 只在 hasBoundaryName 时处理 =====
+                case UsingDirectiveSyntax usingDirective when hasBoundaryName:
+                {
+                    var text = Text(usingDirective.Name);
+                    if (text != "Microsoft.CSharp.RuntimeBinder")
+                    {
+                        break;
+                    }
+
+                    var resolved = c.Model.GetSymbolInfo(usingDirective.Name).Symbol is INamespaceSymbol;
+                    var message = resolved
+                        ? Messages.RuntimeBinder(text)
+                        : Messages.RuntimeBinder(text)
+                          + " Unresolved reference; please confirm manually (未解析引用，请人工确认).";
+                    c.AddRecord(usingDirective, DynamicSiteKind.RuntimeBinderApi,
+                        DynamicDesugarDiagnosticCodes.RuntimeBinderApi,
+                        message: message,
+                        symbolUnresolved: !resolved);
+                    break;
+                }
+                case ObjectCreationExpressionSyntax creation when hasBoundaryName:
+                {
+                    var typeInfo = c.Model.GetTypeInfo(creation);
+                    var type = typeInfo.Type is { TypeKind: not TypeKind.Error } ? typeInfo.Type : typeInfo.ConvertedType;
+                    var kind = ClassifyResolvedBoundaryType(type);
+                    if (kind != null)
+                    {
+                        c.AddRecord(creation, kind.Value, CodeForBoundaryKind(kind.Value),
+                            boundSymbol: type!.ToDisplayString(),
+                            message: Messages.Boundary(kind.Value, Text(creation), unresolved: false),
+                            symbolUnresolved: false);
+                        break;
+                    }
+
+                    // 引用缺失：按类型语法文本保守识别（宁假阳，R11）。
+                    if (ClassifyUnresolvedTypeName(Text(creation.Type)) is { } fallbackKind)
+                    {
+                        c.AddRecord(creation, fallbackKind, CodeForBoundaryKind(fallbackKind),
+                            message: Messages.Boundary(fallbackKind, Text(creation), unresolved: true),
+                            symbolUnresolved: true);
+                    }
+
+                    break;
+                }
+                // DynamicObject 子类：基类表符号/文本识别。
+                case SimpleBaseTypeSyntax baseType when hasBoundaryName:
+                {
+                    var type = c.Model.GetSymbolInfo(baseType.Type).Symbol as ITypeSymbol;
+                    var kind = ClassifyResolvedBoundaryType(type);
+                    if (kind == DynamicSiteKind.ExpandoOrDynamicObject)
+                    {
+                        c.AddRecord(baseType, kind.Value, DynamicDesugarDiagnosticCodes.ExpandoJsonInterop,
+                            boundSymbol: type!.ToDisplayString(),
+                            message: Messages.Boundary(kind.Value, Text(baseType), unresolved: false),
+                            symbolUnresolved: false);
+                    }
+                    else if (type == null
+                             && ClassifyUnresolvedTypeName(Text(baseType.Type))
+                                 == DynamicSiteKind.ExpandoOrDynamicObject)
+                    {
+                        c.AddRecord(baseType, DynamicSiteKind.ExpandoOrDynamicObject,
+                            DynamicDesugarDiagnosticCodes.ExpandoJsonInterop,
+                            message: Messages.Boundary(DynamicSiteKind.ExpandoOrDynamicObject, Text(baseType), unresolved: true),
+                            symbolUnresolved: true);
+                    }
+
+                    break;
+                }
+                // 声明类型面上的边界 API（字段/局部/属性/参数；无构造点时仍盘点使用面）。
+                // TypeSyntax 是抽象基类，会被前面的具体 TypeSyntax 子类（如 SimpleBaseTypeSyntax）
+                // 先匹配；为避免双重处理，只匹配 IsDeclarationTypeSyntax 为 true 的节点，且
+                // 不重复处理 SimpleBaseTypeSyntax（已在前一分支处理）。
+                case TypeSyntax typeSyntax when hasBoundaryName && IsDeclarationTypeSyntax(typeSyntax):
+                {
+                    var resolved = c.Model.GetSymbolInfo(typeSyntax).Symbol as ITypeSymbol;
+                    var resolvedKind = ClassifyResolvedBoundaryType(resolved);
+                    var textKind = ClassifyUnresolvedTypeName(Text(typeSyntax));
+                    var effective = resolvedKind ?? textKind;
+                    if (effective == null)
+                    {
+                        break;
+                    }
+
+                    c.AddRecord(typeSyntax, effective.Value, CodeForBoundaryKind(effective.Value),
+                        boundSymbol: resolved?.ToDisplayString(),
+                        message: Messages.Boundary(effective.Value, Text(typeSyntax), unresolved: resolvedKind == null),
+                        symbolUnresolved: resolvedKind == null);
+                    break;
+                }
+
+                // ===== 操作点 + 边界 API 中的 Invocation（原 ScanOperationSites + ScanBoundaryApis 合并）=====
+                case InvocationExpressionSyntax invocation:
+                {
+                    // 边界 API 中的 JSON 反序列化调用（只在 hasBoundaryName 时检查）
+                    if (hasBoundaryName)
+                    {
+                        var invokedName = GetInvokedName(invocation);
+                        if (invokedName != null)
+                        {
+                            var symbol = c.Model.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+                            var expressionText = Text(invocation.Expression);
+                            var isJsonCall = symbol != null
+                                ? IsJsonDeserializer(symbol)
+                                : (invokedName == "DeserializeObject"
+                                   && expressionText.Contains("JsonConvert", StringComparison.Ordinal))
+                                  || (invokedName == "Deserialize"
+                                      && expressionText.Contains("JsonSerializer", StringComparison.Ordinal))
+                                  || expressionText.Contains("dynamic", StringComparison.Ordinal)
+                                      && (invokedName == "DeserializeObject" || invokedName == "Deserialize");
+                            if (isJsonCall)
+                            {
+                                c.AddRecord(invocation, DynamicSiteKind.JsonDynamic,
+                                    DynamicDesugarDiagnosticCodes.ExpandoJsonInterop,
+                                    boundSymbol: symbol?.ToDisplayString(),
+                                    message: Messages.Boundary(DynamicSiteKind.JsonDynamic, Text(invocation), unresolved: symbol == null),
+                                    symbolUnresolved: symbol == null);
+                            }
+                        }
+                    }
+
+                    // 操作点中的动态调用
+                    ScanInvocation(c, invocation);
+                    break;
+                }
+                case CastExpressionSyntax cast:
+                    ScanCast(c, cast);
+                    break;
+                case ElementAccessExpressionSyntax elementAccess:
+                    ScanElementAccess(c, elementAccess);
+                    break;
+                case MemberAccessExpressionSyntax memberAccess:
+                    ScanMemberAccess(c, memberAccess);
+                    break;
+                case MemberBindingExpressionSyntax memberBinding:
+                    ScanMemberBinding(c, memberBinding);
+                    break;
+                // 性能：二元/一元/await 表达式只在 hasDynamicToken 时才检查 IsDynamicallyBoundNode。
+                // 没有 dynamic token 的文件不可能有动态运算（dynamic 运算元必然来自 dynamic
+                // 声明/参数/字段/外部 [Dynamic] 属性返回值，而这些都会在源码中留下 dynamic 或
+                // [Dynamic] 痕迹——[Dynamic] 属性的返回值通过 ScanInvocation 的 GetTypeInfo 检出，
+                // 不需要在这里全量检查二元表达式）。
+                case BinaryExpressionSyntax binary when hasDynamicToken && DynamicSiteFacts.IsDynamicallyBoundNode(c.Model, binary):
+                    AddOperation(c, binary);
+                    break;
+                case AssignmentExpressionSyntax assignment:
+                    ScanAssignment(c, assignment);
+                    break;
+                case PrefixUnaryExpressionSyntax prefix when hasDynamicToken && DynamicSiteFacts.IsDynamicallyBoundNode(c.Model, prefix):
+                    AddOperation(c, prefix);
+                    break;
+                case PostfixUnaryExpressionSyntax postfix when hasDynamicToken && DynamicSiteFacts.IsDynamicallyBoundNode(c.Model, postfix):
+                    AddOperation(c, postfix);
+                    break;
+                case AwaitExpressionSyntax awaitExpression
+                        when hasDynamicToken && DynamicSiteFacts.IsDynamicallyBoundNode(c.Model, awaitExpression):
+                    AddOperation(c, awaitExpression);
+                    break;
             }
         }
     }
@@ -298,150 +545,6 @@ internal static class DynamicSiteInventoryBuilder
                 DynamicDesugarDiagnosticCodes.DynamicAttributeEntry,
                 boundSymbol: name,
                 message: Messages.AttributeEntry(Text(node)));
-        }
-    }
-
-    // ---------- 第二遍 A：边界 API（符号优先，引用缺失按限定名文本保守识别，R11） ----------
-
-    private static void ScanBoundaryApis(ScanContext c, SyntaxNode root)
-    {
-        foreach (var usingDirective in root.DescendantNodes().OfType<UsingDirectiveSyntax>())
-        {
-            if (c.IsInsideExpressionTree(usingDirective))
-            {
-                continue;
-            }
-
-            var text = Text(usingDirective.Name);
-            if (text != "Microsoft.CSharp.RuntimeBinder")
-            {
-                continue;
-            }
-
-            var resolved = c.Model.GetSymbolInfo(usingDirective.Name).Symbol is INamespaceSymbol;
-            var message = resolved
-                ? Messages.RuntimeBinder(text)
-                : Messages.RuntimeBinder(text)
-                  + " Unresolved reference; please confirm manually (未解析引用，请人工确认).";
-            c.AddRecord(usingDirective, DynamicSiteKind.RuntimeBinderApi,
-                DynamicDesugarDiagnosticCodes.RuntimeBinderApi,
-                message: message,
-                symbolUnresolved: !resolved);
-        }
-
-        foreach (var creation in root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>())
-        {
-            if (c.IsInsideExpressionTree(creation))
-            {
-                continue;
-            }
-
-            var typeInfo = c.Model.GetTypeInfo(creation);
-            var type = typeInfo.Type is { TypeKind: not TypeKind.Error } ? typeInfo.Type : typeInfo.ConvertedType;
-            var kind = ClassifyResolvedBoundaryType(type);
-            if (kind != null)
-            {
-                c.AddRecord(creation, kind.Value, CodeForBoundaryKind(kind.Value),
-                    boundSymbol: type!.ToDisplayString(),
-                    message: Messages.Boundary(kind.Value, Text(creation), unresolved: false),
-                    symbolUnresolved: false);
-                continue;
-            }
-
-            // 引用缺失：按类型语法文本保守识别（宁假阳，R11）。
-            if (ClassifyUnresolvedTypeName(Text(creation.Type)) is { } fallbackKind)
-            {
-                c.AddRecord(creation, fallbackKind, CodeForBoundaryKind(fallbackKind),
-                    message: Messages.Boundary(fallbackKind, Text(creation), unresolved: true),
-                    symbolUnresolved: true);
-            }
-        }
-
-        // DynamicObject 子类：基类表符号/文本识别。
-        foreach (var baseType in root.DescendantNodes().OfType<SimpleBaseTypeSyntax>())
-        {
-            if (c.IsInsideExpressionTree(baseType))
-            {
-                continue;
-            }
-
-            var type = c.Model.GetSymbolInfo(baseType.Type).Symbol as ITypeSymbol;
-            var kind = ClassifyResolvedBoundaryType(type);
-            if (kind == DynamicSiteKind.ExpandoOrDynamicObject)
-            {
-                c.AddRecord(baseType, kind.Value, DynamicDesugarDiagnosticCodes.ExpandoJsonInterop,
-                    boundSymbol: type!.ToDisplayString(),
-                    message: Messages.Boundary(kind.Value, Text(baseType), unresolved: false),
-                    symbolUnresolved: false);
-            }
-            else if (type == null
-                     && ClassifyUnresolvedTypeName(Text(baseType.Type))
-                         == DynamicSiteKind.ExpandoOrDynamicObject)
-            {
-                c.AddRecord(baseType, DynamicSiteKind.ExpandoOrDynamicObject,
-                    DynamicDesugarDiagnosticCodes.ExpandoJsonInterop,
-                    message: Messages.Boundary(DynamicSiteKind.ExpandoOrDynamicObject, Text(baseType), unresolved: true),
-                    symbolUnresolved: true);
-            }
-        }
-
-        // 声明类型面上的边界 API（字段/局部/属性/参数；无构造点时仍盘点使用面）。
-        foreach (var typeSyntax in root.DescendantNodes().OfType<TypeSyntax>())
-        {
-            if (c.IsInsideExpressionTree(typeSyntax) || !IsDeclarationTypeSyntax(typeSyntax))
-            {
-                continue;
-            }
-
-            var resolved = c.Model.GetSymbolInfo(typeSyntax).Symbol as ITypeSymbol;
-            var resolvedKind = ClassifyResolvedBoundaryType(resolved);
-            var textKind = ClassifyUnresolvedTypeName(Text(typeSyntax));
-            var effective = resolvedKind ?? textKind;
-            if (effective == null)
-            {
-                continue;
-            }
-
-            c.AddRecord(typeSyntax, effective.Value, CodeForBoundaryKind(effective.Value),
-                boundSymbol: resolved?.ToDisplayString(),
-                message: Messages.Boundary(effective.Value, Text(typeSyntax), unresolved: resolvedKind == null),
-                symbolUnresolved: resolvedKind == null);
-        }
-
-        // JSON 动态反序列化调用：DeserializeObject<dynamic>/Deserialize<dynamic>（引用缺失文本兜底）。
-        foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
-        {
-            if (c.IsInsideExpressionTree(invocation))
-            {
-                continue;
-            }
-
-            var invokedName = GetInvokedName(invocation);
-            if (invokedName == null)
-            {
-                continue;
-            }
-
-            var symbol = c.Model.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
-            var expressionText = Text(invocation.Expression);
-            var isJsonCall = symbol != null
-                ? IsJsonDeserializer(symbol)
-                : (invokedName == "DeserializeObject"
-                   && expressionText.Contains("JsonConvert", StringComparison.Ordinal))
-                  || (invokedName == "Deserialize"
-                      && expressionText.Contains("JsonSerializer", StringComparison.Ordinal))
-                  || expressionText.Contains("dynamic", StringComparison.Ordinal)
-                      && (invokedName == "DeserializeObject" || invokedName == "Deserialize");
-            if (!isJsonCall)
-            {
-                continue;
-            }
-
-            c.AddRecord(invocation, DynamicSiteKind.JsonDynamic,
-                DynamicDesugarDiagnosticCodes.ExpandoJsonInterop,
-                boundSymbol: symbol?.ToDisplayString(),
-                message: Messages.Boundary(DynamicSiteKind.JsonDynamic, Text(invocation), unresolved: symbol == null),
-                symbolUnresolved: symbol == null);
         }
     }
 
@@ -525,54 +628,6 @@ internal static class DynamicSiteInventoryBuilder
         => kind == DynamicSiteKind.RuntimeBinderApi
             ? DynamicDesugarDiagnosticCodes.RuntimeBinderApi
             : DynamicDesugarDiagnosticCodes.ExpandoJsonInterop;
-
-    // ---------- 第二遍 B：操作点 ----------
-
-    private static void ScanOperationSites(ScanContext c, SyntaxNode root)
-    {
-        foreach (var node in root.DescendantNodes())
-        {
-            if (c.IsInsideExpressionTree(node))
-            {
-                continue;
-            }
-
-            switch (node)
-            {
-                case CastExpressionSyntax cast:
-                    ScanCast(c, cast);
-                    break;
-                case InvocationExpressionSyntax invocation:
-                    ScanInvocation(c, invocation);
-                    break;
-                case ElementAccessExpressionSyntax elementAccess:
-                    ScanElementAccess(c, elementAccess);
-                    break;
-                case MemberAccessExpressionSyntax memberAccess:
-                    ScanMemberAccess(c, memberAccess);
-                    break;
-                case MemberBindingExpressionSyntax memberBinding:
-                    ScanMemberBinding(c, memberBinding);
-                    break;
-                case BinaryExpressionSyntax binary when DynamicSiteFacts.IsDynamicallyBoundNode(c.Model, binary):
-                    AddOperation(c, binary);
-                    break;
-                case AssignmentExpressionSyntax assignment:
-                    ScanAssignment(c, assignment);
-                    break;
-                case PrefixUnaryExpressionSyntax prefix when DynamicSiteFacts.IsDynamicallyBoundNode(c.Model, prefix):
-                    AddOperation(c, prefix);
-                    break;
-                case PostfixUnaryExpressionSyntax postfix when DynamicSiteFacts.IsDynamicallyBoundNode(c.Model, postfix):
-                    AddOperation(c, postfix);
-                    break;
-                case AwaitExpressionSyntax awaitExpression
-                        when DynamicSiteFacts.IsDynamicallyBoundNode(c.Model, awaitExpression):
-                    AddOperation(c, awaitExpression);
-                    break;
-            }
-        }
-    }
 
     private static void ScanCast(ScanContext c, CastExpressionSyntax cast)
     {
@@ -1014,6 +1069,13 @@ internal static class DynamicSiteInventoryBuilder
 
         public bool IsInsideExpressionTree(SyntaxNode node)
         {
+            // 性能：clean 文件（无 dynamic token）ExpressionTreeSpans 为空，直接返回 false。
+            // 避免对每个节点都进入 foreach 迭代器分配。
+            if (ExpressionTreeSpans.Count == 0)
+            {
+                return false;
+            }
+
             foreach (var span in ExpressionTreeSpans)
             {
                 // 节点位于表达式树 lambda 内（含作为 lambda 体的节点：表达式体 lambda

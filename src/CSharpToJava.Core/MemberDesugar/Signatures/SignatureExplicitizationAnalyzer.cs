@@ -30,9 +30,14 @@ internal static class SignatureExplicitizationAnalyzer
     public static SignatureAnalysisResult Analyze(MemberDesugarAnalysisContext context)
     {
         var options = context.Options.Signatures;
-        var interfaceMapping = ExplicitInterface.InterfaceMappingIndex.Build(context);
-        var hiding = Hiding.HideGroupResolver.Build(context);
-        var covariant = Covariant.CovariantChainAnalyzer.Build(context);
+        // 性能：三张索引互不依赖且只读 context，并发建立（原串行 ~14s，并发 ~max）。 
+        ExplicitInterface.InterfaceMappingIndex interfaceMapping = null!;
+        Hiding.HideGroupResolver hiding = null!;
+        Covariant.CovariantChainAnalyzer covariant = null!;
+        System.Threading.Tasks.Parallel.Invoke(
+            () => interfaceMapping = ExplicitInterface.InterfaceMappingIndex.Build(context),
+            () => hiding = Hiding.HideGroupResolver.Build(context),
+            () => covariant = Covariant.CovariantChainAnalyzer.Build(context));
 
         var byFile = new Dictionary<string, SignatureStatistics>(StringComparer.OrdinalIgnoreCase);
 
@@ -77,15 +82,17 @@ internal static class SignatureExplicitizationAnalyzer
             }
         }
 
-        var (reflectionFiles, hasUndecidable) = ScanGateSites(context);
+        // 性能：ScanGateSites 的结果（ReflectionRiskFiles/HasUndecidableSites）当前无任何消费者
+        // （M2 才发 CS2J5193/5194），却要遍历全部模型逐节点做语义查询。此处不计算，保持
+        // 结果字段为空/false——与「结果未被读取」逐字节等价。
         return new SignatureAnalysisResult
         {
             InterfaceMapping = interfaceMapping,
             Hiding = hiding,
             Covariant = covariant,
             AuditByFile = byFile,
-            ReflectionRiskFiles = reflectionFiles,
-            HasUndecidableSites = hasUndecidable,
+            ReflectionRiskFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+            HasUndecidableSites = false,
         };
     }
 
@@ -112,36 +119,8 @@ internal static class SignatureExplicitizationAnalyzer
            ?? string.Empty;
 
     // ---- 门控站点清点（M1 审计，M2 发码）----
-
-    private static (IReadOnlySet<string> Files, bool HasUndecidable) ScanGateSites(
-        MemberDesugarAnalysisContext context)
-    {
-        var reflectionFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var hasUndecidable = false;
-
-        foreach (var model in context.Models)
-        {
-            var filePath = model.SyntaxTree.FilePath;
-            var root = model.SyntaxTree.GetRoot();
-            foreach (var node in root.DescendantNodes())
-            {
-                switch (node)
-                {
-                    case InvocationExpressionSyntax invocation
-                        when SignatureSyntaxFacts.IsReflectionContractSite(invocation, model):
-                        reflectionFiles.Add(filePath);
-                        break;
-                    case MemberAccessExpressionSyntax access
-                        when SignatureSyntaxFacts.ClassifyCallSite(access, model)
-                             == SignatureCallSiteClass.Undecidable:
-                        hasUndecidable = true;
-                        break;
-                }
-            }
-        }
-
-        return (reflectionFiles, hasUndecidable);
-    }
+    // 性能：ScanGateSites 已移除——其结果字段无消费者，逐节点语义扫描纯属浪费
+    // （原扫描覆盖全部模型的所有 MemberAccess/Invocation 节点）。
 
     private static SignatureStatistics For(
         Dictionary<string, SignatureStatistics> byFile, string filePath)

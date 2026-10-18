@@ -28,21 +28,39 @@ internal sealed class OperatorRule : IMemberDesugarRule
         foreach (var model in context.Models)
         {
             var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
-            foreach (var decl in root.DescendantNodes().OfType<OperatorDeclarationSyntax>())
-                CollectDeclaration(decl, model, context.Options, candidates, failures, userSkipped);
-            foreach (var decl in root.DescendantNodes().OfType<ConversionOperatorDeclarationSyntax>())
-                CollectDeclaration(decl, model, context.Options, candidates, failures, userSkipped);
+            // 性能：单趟遍历同时收集运算符与转换声明（原为两次全树 OfType 枚举）。
+            foreach (var decl in root.DescendantNodes())
+            {
+                if (decl is OperatorDeclarationSyntax || decl is ConversionOperatorDeclarationSyntax)
+                    CollectDeclaration(decl, model, context.Options, candidates, failures, userSkipped);
+            }
         }
 
-        // ---- 阶段 2：站点扫描 ----
+        // ---- 阶段 2：站点扫描（逐树并行）----
+        // 各分区只写自己的局部表，随后按树序确定性合并：siteFiles 并集、
+        // siteFailures 首现优先（TryAdd）、元数据计数求和——与串行逐树扫描逐字节一致。
         var siteFiles = new Dictionary<IMethodSymbol, HashSet<string>>(SymbolEqualityComparer.Default);
         var siteFailures = new Dictionary<IMethodSymbol, (MemberDesugarDiagnosticCode Code, string Reason)>(
             SymbolEqualityComparer.Default);
 
-        foreach (var model in context.Models)
+        var models = context.Models;
+        var partSiteFiles = new Dictionary<IMethodSymbol, HashSet<string>>[models.Count];
+        var partSiteFailures =
+            new Dictionary<IMethodSymbol, (MemberDesugarDiagnosticCode Code, string Reason)>[models.Count];
+        var partMetadata = new Dictionary<string, int>[models.Count];
+
+        Parallel.For(0, models.Count, index =>
         {
+            var model = models[index];
             var filePath = model.SyntaxTree.FilePath;
             var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
+            var localSiteFiles =
+                new Dictionary<IMethodSymbol, HashSet<string>>(SymbolEqualityComparer.Default);
+            var localSiteFailures =
+                new Dictionary<IMethodSymbol, (MemberDesugarDiagnosticCode Code, string Reason)>(
+                    SymbolEqualityComparer.Default);
+            var localMetadata = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
             foreach (var node in root.DescendantNodes())
             {
                 switch (node)
@@ -53,35 +71,58 @@ internal sealed class OperatorRule : IMemberDesugarRule
                         if (!bin.IsKind(SyntaxKind.LogicalAndExpression)
                             && !bin.IsKind(SyntaxKind.LogicalOrExpression))
                             ScanOperatorSite(bin, model.GetSymbolInfo(bin).Symbol, model, filePath,
-                                candidates, siteFiles, siteFailures, context.Options,
-                                context.MetadataOperatorSitesByFile);
-                        ScanConversionNode(bin, model, filePath, candidates, siteFiles, siteFailures,
-                            context.Options, context.MetadataOperatorSitesByFile);
+                                candidates, localSiteFiles, localSiteFailures, context.Options,
+                                localMetadata);
+                        ScanConversionNode(bin, model, filePath, candidates, localSiteFiles, localSiteFailures,
+                            context.Options, localMetadata);
                         break;
 
                     case PrefixUnaryExpressionSyntax un:
                         if (IsRewritableUnary(un))
                             ScanOperatorSite(un, model.GetSymbolInfo(un).Symbol, model, filePath,
-                                candidates, siteFiles, siteFailures, context.Options,
-                                context.MetadataOperatorSitesByFile);
-                        ScanConversionNode(un, model, filePath, candidates, siteFiles, siteFailures,
-                            context.Options, context.MetadataOperatorSitesByFile);
+                                candidates, localSiteFiles, localSiteFailures, context.Options,
+                                localMetadata);
+                        ScanConversionNode(un, model, filePath, candidates, localSiteFiles, localSiteFailures,
+                            context.Options, localMetadata);
                         break;
 
                     case AssignmentExpressionSyntax assign:
                         if (IsCompoundKind(assign))
-                            ScanCompoundSite(assign, model, filePath, candidates, siteFiles, siteFailures,
-                                context.Options, context.MetadataOperatorSitesByFile);
-                        ScanConversionNode(assign, model, filePath, candidates, siteFiles, siteFailures,
-                            context.Options, context.MetadataOperatorSitesByFile);
+                            ScanCompoundSite(assign, model, filePath, candidates, localSiteFiles, localSiteFailures,
+                                context.Options, localMetadata);
+                        ScanConversionNode(assign, model, filePath, candidates, localSiteFiles, localSiteFailures,
+                            context.Options, localMetadata);
                         break;
 
                     case ExpressionSyntax expr:
                         // 转换站点（决策 4）：cast 语法与非 cast 隐式站点统一经操作树判定
-                        ScanConversionNode(expr, model, filePath, candidates, siteFiles, siteFailures,
-                            context.Options, context.MetadataOperatorSitesByFile);
+                        ScanConversionNode(expr, model, filePath, candidates, localSiteFiles, localSiteFailures,
+                            context.Options, localMetadata);
                         break;
                 }
+            }
+
+            partSiteFiles[index] = localSiteFiles;
+            partSiteFailures[index] = localSiteFailures;
+            partMetadata[index] = localMetadata;
+        });
+
+        for (var index = 0; index < models.Count; index++)
+        {
+            foreach (var (op, files) in partSiteFiles[index])
+            {
+                if (!siteFiles.TryGetValue(op, out var set))
+                    siteFiles[op] = set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var file in files) set.Add(file);
+            }
+
+            foreach (var (op, fail) in partSiteFailures[index])
+                siteFailures.TryAdd(op, fail);
+
+            foreach (var (file, count) in partMetadata[index])
+            {
+                context.MetadataOperatorSitesByFile.TryGetValue(file, out var existing);
+                context.MetadataOperatorSitesByFile[file] = existing + count;
             }
         }
 

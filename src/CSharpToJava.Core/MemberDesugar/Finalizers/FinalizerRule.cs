@@ -211,6 +211,9 @@ internal sealed class FinalizerRule : IMemberDesugarRule
             var root = model.SyntaxTree.GetRoot();
             foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
+                // 性能：按调用点可写名先做廉价的超集过滤，只有名字可能命中 GC 三 API 的
+                // 站点才做语义绑定（BindGcApi 的判定本身不变）。未知调用形态一律放行。
+                if (!NameMayBeGcApi(invocation)) continue;
                 if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method) continue;
                 if (method is not
                     {
@@ -256,5 +259,22 @@ internal sealed class FinalizerRule : IMemberDesugarRule
         public int SuppressThis;
         public int ReRegister;
         public int WaitForPending;
+    }
+
+    /// <summary>廉价超集预筛：调用点最右标识符名须为 GC 三 API 之一；无法静态判名时放行。</summary>
+    private static bool NameMayBeGcApi(InvocationExpressionSyntax invocation)
+    {
+        var name = invocation.Expression switch
+        {
+            Microsoft.CodeAnalysis.CSharp.Syntax.MemberAccessExpressionSyntax ma
+                => ma.Name.Identifier.ValueText,
+            Microsoft.CodeAnalysis.CSharp.Syntax.MemberBindingExpressionSyntax mb
+                => mb.Name.Identifier.ValueText,
+            Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax id
+                => id.Identifier.ValueText,
+            _ => null,
+        };
+        return name == null
+            || name is "SuppressFinalize" or "ReRegisterForFinalize" or "WaitForPendingFinalizers";
     }
 }

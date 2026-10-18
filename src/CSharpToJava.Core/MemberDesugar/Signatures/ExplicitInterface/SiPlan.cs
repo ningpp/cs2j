@@ -62,6 +62,17 @@ internal sealed class SiPlan : MemberDesugarPlan
                    || string.Equals(memberName, DisplacedName, StringComparison.Ordinal));
     }
 
+    /// <summary>从稳定键 <c>{类型全名}::{元数据名}[(参数…)]</c> 取出其中的元数据名；
+    /// 键不含 <c>::</c> 时返回 null（保守：无法判定则不做名字预筛）。</summary>
+    public static string? KeyMemberName(string siteKey)
+    {
+        var sep = siteKey.IndexOf("::", StringComparison.Ordinal);
+        if (sep < 0) return null;
+        var rest = siteKey.Substring(sep + 2);
+        var open = rest.IndexOf('(');
+        return open < 0 ? rest : rest.Substring(0, open);
+    }
+
     public static string BuildId(ISymbol implementation, string containingTypeFqn,
         string promotedName, string parameterSignature)
     {

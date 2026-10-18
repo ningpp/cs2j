@@ -225,6 +225,8 @@ internal sealed class DynamicDesugarPassAdapter : ProjectPassAdapter
         _preprocessor.BindCompilation(compilation, ResolveOptions());
         _applyResult = _preprocessor.RewriteAll();
         _bound = true;
+        // TEMPORARY profiling dump (dynamic-desugar perf task). Remove before finishing.
+        DynamicDesugarProfiling.Dump();
 
         foreach (var diagnostic in _applyResult.Diagnostics)
         {

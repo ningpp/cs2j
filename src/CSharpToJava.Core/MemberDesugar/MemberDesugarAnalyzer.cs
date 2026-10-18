@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -76,15 +77,19 @@ internal static class MemberDesugarAnalyzer
             break;
         }
 
-        // 其余规则族并行（各写各自 builder；仅 OperatorRule 写其独占的
-        // MetadataOperatorSitesByFile，单线程写故安全）。
-        Parallel.For(0, rules.Count, i =>
+        // 其余规则族【串行】执行，各规则内部各自逐树并行（C11–C14/C39/C46 均如此）。
+        // 性能：嵌套 Parallel（外层 7 个规则 × 内层逐树）会在 Roslyn 的共享绑定缓存上
+        // 过度订阅线程池——实测总 CPU 由 ~88s 涨到 ~154s 而墙钟几乎不变。改为单层并行后
+        // CPU 显著下降（墙钟 ≈ CPU / 有效并行度），规则结果与并行版逐字节一致（各规则只
+        // 读 context；SignatureAnalysis 由先行的审计规则建立，MetadataOperatorSitesByFile
+        // 仅 OperatorRule 写）。
+        for (var i = 0; i < rules.Count; i++)
         {
-            if (builders[i] != null) return;
+            if (builders[i] != null) continue;
             var builder = new MemberDesugarPlanBuilder();
             rules[i].Analyze(context, builder);
             builders[i] = builder;
-        });
+        }
 
         var merged = new MemberDesugarPlanBuilder();
         foreach (var builder in builders)

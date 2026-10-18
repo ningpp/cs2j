@@ -122,12 +122,14 @@ internal static class BoundaryInventoryBuilder
         // 全局去重，使站点集与排序输入与串行逐树 AddSite 逐位一致（输出逐字节守恒）。
         var trees = compilation.SyntaxTrees.ToList();
         var perTreeSites = new List<BoundarySite>[trees.Count];
+        var dopEnv = Environment.GetEnvironmentVariable("CS2J_PI_DOP");
+        var dop = int.TryParse(dopEnv, out var dopVal) && dopVal > 0 ? dopVal : Math.Max(2, Environment.ProcessorCount);
         if (trees.Count > 0)
         {
             Parallel.For(
                 0,
                 trees.Count,
-                new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount) },
+                new ParallelOptions { MaxDegreeOfParallelism = dop },
                 index =>
                 {
                     perTreeSites[index] = CollectTreeSites(
@@ -171,8 +173,17 @@ internal static class BoundaryInventoryBuilder
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var confidence = semanticModel != null ? BoundaryConfidence.Symbol : BoundaryConfidence.SyntaxFallback;
 
+        // UI 命名空间 + 平台服务/OS 探针 + 原生互操作：单树一次合并分析（同一
+        // DescendantNodes 遍历，每节点符号身份只解析一次），三份诊断与原三个
+        // analyzer 串行调用逐诊断同序，故下方 AddSite 次序完全一致。
+        var (unsupportedDomainDiagnostics, platformDiagnostics, nativeDiagnostics) =
+            PlatformInteropBoundaryAnalyzer.AnalyzeSyntaxTree(
+                syntaxTree,
+                semanticModel,
+                shouldDowngradeTestPlatformProbes: isTestProject);
+
         // UI 命名空间：传 null 前缀取全量，再自行分类 compat 豁免。
-        foreach (var diagnostic in UnsupportedDomainAnalyzer.AnalyzeSyntaxTree(syntaxTree, compatNamespacePrefixes: null))
+        foreach (var diagnostic in unsupportedDomainDiagnostics)
         {
             var identity = ExtractQuotedIdentity(diagnostic.Message);
             var isCompat = HasCompatNamespacePrefix(identity, compatNamespacePrefixes);
@@ -188,14 +199,6 @@ internal static class BoundaryInventoryBuilder
                 defaultAction: PlatformIsolationDefaultAction.Reject,
                 confidence);
         }
-
-        // 平台服务/OS 探针 + 原生互操作：单树一次合并分析（每节点符号身份只解析
-        // 一次，DescendantNodes 由 11 次降至 1 次），两份诊断与原两个 analyzer
-        // 逐诊断同序，故下方 AddSite 次序与串行逐 analyzer 调用完全一致。
-        var (platformDiagnostics, nativeDiagnostics) = PlatformInteropBoundaryAnalyzer.AnalyzeSyntaxTree(
-            syntaxTree,
-            semanticModel,
-            shouldDowngradeTestPlatformProbes: isTestProject);
 
         // 平台服务 / OS 探针。M2：AssemblyInfo 文件由「跳过」改为「登记」
         // （Exemption=AssemblyInfo，供 apply 档擦除），CheckPass 的现状跳过不变。

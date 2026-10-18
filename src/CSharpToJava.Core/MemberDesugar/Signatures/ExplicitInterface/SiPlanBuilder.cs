@@ -256,6 +256,10 @@ internal static class SiPlanBuilder
 
     // ---- 站点分类（SI-5/SI-6）----
 
+    /// <summary>站点扫描的命中事件（逐树并行采集、随后按树序回放，与串行逐节点处理等价）。</summary>
+    private readonly record struct SiteMatch(
+        Draft Draft, string FilePath, bool IsReflection, string BoundName, bool Undecidable, bool Dynamic);
+
     private static void ClassifySites(
         MemberDesugarAnalysisContext context, Dictionary<string, List<Draft>> displacedByKey)
     {
@@ -265,9 +269,27 @@ internal static class SiPlanBuilder
             if (draft.DisplacedOriginalName != null)
                 reflectionByName[draft.DisplacedOriginalName] = draft;
 
-        foreach (var model in context.Models)
+        // 性能：名字快筛。站点改名只可能命中 displacedByKey 的键；这些键的成员名等于
+        // 站点绑定符号的 MetadataName，而成员访问/标识符绑定符号的 MetadataName 恒等于
+        // 源码标识符文本（显式接口实现无法被简单名引用；索引器站点不在本通道）。故先按
+        // 标识符文本过滤，可省掉绝大多数的 GetSymbolInfo。键无法解析出名字时整个预筛禁用。
+        var siteNames = new HashSet<string>(StringComparer.Ordinal);
+        var filterUsable = true;
+        foreach (var key in displacedByKey.Keys)
         {
+            var keyName = SiPlan.KeyMemberName(key);
+            if (keyName == null) { filterUsable = false; break; }
+            siteNames.Add(keyName);
+        }
+
+        // 逐树并行采集命中事件；只读 displacedByKey/reflectionByName，各分区写各自列表。
+        var models = context.Models;
+        var partMatches = new List<SiteMatch>[models.Count];
+        System.Threading.Tasks.Parallel.For(0, models.Count, index =>
+        {
+            var model = models[index];
             var filePath = model.SyntaxTree.FilePath;
+            var matches = new List<SiteMatch>();
             foreach (var node in model.SyntaxTree.GetRoot().DescendantNodes())
             {
                 if (node is InvocationExpressionSyntax invocation
@@ -278,8 +300,8 @@ internal static class SiPlanBuilder
                         if (arg.Expression is not LiteralExpressionSyntax { Token.Value: string text })
                             continue;
                         foreach (var (name, draft) in reflectionByName)
-                            if (draft.Outcome == MemberDesugarOutcome.Planned && MatchesReflectionName(text, name))
-                                draft.Files.Add(filePath);
+                            if (MatchesReflectionName(text, name))
+                                matches.Add(new SiteMatch(draft, filePath, true, string.Empty, false, false));
                     }
                     continue;
                 }
@@ -293,22 +315,44 @@ internal static class SiPlanBuilder
                     _ => null,
                 };
                 if (expr == null) continue;
+
+                var sourceName = expr switch
+                {
+                    MemberAccessExpressionSyntax ma => ma.Name.Identifier.ValueText,
+                    IdentifierNameSyntax id => id.Identifier.ValueText,
+                    _ => null,
+                };
+                if (filterUsable && sourceName != null && !siteNames.Contains(sourceName)) continue;
+
                 var bound = SignatureSyntaxFacts.BoundSymbol(model, expr);
                 if (bound == null) continue;
                 if (!displacedByKey.TryGetValue(SiPlan.SiteKey(bound), out var plans)) continue;
 
+                var undecidable = plans.Count > 0
+                    && SignatureSyntaxFacts.ClassifyCallSite(expr, model)
+                        == SignatureCallSiteClass.Undecidable;
+                var dynamic = undecidable && SignatureSyntaxFacts.IsDynamic(expr, model);
                 foreach (var plan in plans)
+                    matches.Add(new SiteMatch(plan, filePath, false, bound.Name, undecidable, dynamic));
+            }
+
+            partMatches[index] = matches;
+        });
+
+        // 按树序回放：与串行逐节点处理的判定顺序逐字节一致（首现 Infeasible 后跳过同组计划）。
+        foreach (var matches in partMatches)
+        {
+            foreach (var match in matches)
+            {
+                if (match.Draft.Outcome != MemberDesugarOutcome.Planned) continue;
+                match.Draft.Files.Add(match.FilePath);
+                if (match.IsReflection) continue;
+                if (match.Undecidable)
                 {
-                    if (plan.Outcome != MemberDesugarOutcome.Planned) continue;
-                    plan.Files.Add(filePath);
-                    if (SignatureSyntaxFacts.ClassifyCallSite(expr, model)
-                        == SignatureCallSiteClass.Undecidable)
-                    {
-                        plan.Outcome = MemberDesugarOutcome.Infeasible;
-                        plan.FailCode = MemberDesugarDiagnosticCode.SignatureExpressionTreeOrDynamic;
-                        plan.FailReason = SignatureDiagnostics.ExpressionTreeOrDynamic(
-                            bound.Name, SignatureSyntaxFacts.IsDynamic(expr, model));
-                    }
+                    match.Draft.Outcome = MemberDesugarOutcome.Infeasible;
+                    match.Draft.FailCode = MemberDesugarDiagnosticCode.SignatureExpressionTreeOrDynamic;
+                    match.Draft.FailReason = SignatureDiagnostics.ExpressionTreeOrDynamic(
+                        match.BoundName, match.Dynamic);
                 }
             }
         }

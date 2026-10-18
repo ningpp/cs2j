@@ -45,6 +45,9 @@ internal sealed class NhPlan : MemberDesugarPlan
 
     public static string SiteKey(ISymbol symbol) => ExplicitInterface.SiPlan.SiteKey(symbol);
 
+    public static string? KeyMemberName(string siteKey)
+        => ExplicitInterface.SiPlan.KeyMemberName(siteKey);
+
     public static string BuildId(ISymbol hidden)
     {
         var span = hidden.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? 0;
@@ -260,9 +263,26 @@ internal static class NhPlanBuilder
         }
         if (matchByKey.Count == 0) return;
 
-        foreach (var model in context.Models)
+        // 性能：名字快筛（同 SiPlanBuilder）：命中键的成员名 == 站点绑定符号 MetadataName
+        // == 源码标识符文本；先按文本过滤可省掉绝大多数 GetSymbolInfo。
+        var siteNames = new HashSet<string>(StringComparer.Ordinal);
+        var filterUsable = true;
+        foreach (var key in matchByKey.Keys)
         {
+            var keyName = NhPlan.KeyMemberName(key);
+            if (keyName == null) { filterUsable = false; break; }
+            siteNames.Add(keyName);
+        }
+
+        // 逐树并行采集命中事件，随后按树序回放（Gate 首现优先，顺序必须与串行一致）。
+        var models = context.Models;
+        var partMatches = new List<(Draft Draft, string FilePath, string Name, bool Gate, bool Dynamic)>[
+            models.Count];
+        System.Threading.Tasks.Parallel.For(0, models.Count, index =>
+        {
+            var model = models[index];
             var filePath = model.SyntaxTree.FilePath;
+            var matches = new List<(Draft, string, string, bool, bool)>();
             foreach (var node in model.SyntaxTree.GetRoot().DescendantNodes())
             {
                 if (node is InvocationExpressionSyntax invocation
@@ -274,7 +294,8 @@ internal static class NhPlanBuilder
                             continue;
                         foreach (var (name, plans) in byOriginalName)
                             if (MatchesReflectionName(text, name))
-                                foreach (var plan in plans) plan.Files.Add(filePath);
+                                foreach (var plan in plans)
+                                    matches.Add((plan, filePath, string.Empty, false, false));
                     }
                     continue;
                 }
@@ -288,31 +309,47 @@ internal static class NhPlanBuilder
                 };
                 if (expr == null) continue;
 
+                var sourceName = expr switch
+                {
+                    MemberAccessExpressionSyntax ma => ma.Name.Identifier.ValueText,
+                    IdentifierNameSyntax id => id.Identifier.ValueText,
+                    _ => null,
+                };
+                if (filterUsable && sourceName != null && !siteNames.Contains(sourceName)) continue;
+
                 var bound = SignatureSyntaxFacts.BoundSymbol(model, expr);
                 if (bound != null)
                 {
                     if (!matchByKey.TryGetValue(NhPlan.SiteKey(bound), out var plans)) continue;
+                    var undecidable = plans.Count > 0
+                        && SignatureSyntaxFacts.ClassifyCallSite(expr, model)
+                            == SignatureCallSiteClass.Undecidable;
+                    var dynamic = undecidable && SignatureSyntaxFacts.IsDynamic(expr, model);
                     foreach (var plan in plans)
-                    {
-                        plan.Files.Add(filePath);
-                        if (SignatureSyntaxFacts.ClassifyCallSite(expr, model)
-                            == SignatureCallSiteClass.Undecidable)
-                            Gate(plan, bound.Name, SignatureSyntaxFacts.IsDynamic(expr, model));
-                    }
+                        matches.Add((plan, filePath, bound.Name, undecidable, dynamic));
                     continue;
                 }
 
                 // dynamic 接收者无绑定符号：按成员名保守过闸门（不可判定 → CS2J5194 原子跳过）。
-                if (expr is MemberAccessExpressionSyntax dyn
-                    && SignatureSyntaxFacts.IsDynamic(dyn, model)
-                    && byOriginalName.TryGetValue(dyn.Name.Identifier.ValueText, out var dynPlans))
+                if (expr is MemberAccessExpressionSyntax dynExpr
+                    && SignatureSyntaxFacts.IsDynamic(dynExpr, model)
+                    && byOriginalName.TryGetValue(dynExpr.Name.Identifier.ValueText, out var dynPlans))
                 {
                     foreach (var plan in dynPlans)
-                    {
-                        plan.Files.Add(filePath);
-                        Gate(plan, dyn.Name.Identifier.ValueText, dynamic: true);
-                    }
+                        matches.Add((plan, filePath, dynExpr.Name.Identifier.ValueText, true, true));
                 }
+            }
+
+            partMatches[index] = matches;
+        });
+
+        foreach (var matches in partMatches)
+        {
+            foreach (var (draft, filePath, name, gate, dynamic) in matches)
+            {
+                draft.Files.Add(filePath);
+                if (gate && draft.Outcome == MemberDesugarOutcome.Planned)
+                    Gate(draft, name, dynamic);
             }
         }
     }

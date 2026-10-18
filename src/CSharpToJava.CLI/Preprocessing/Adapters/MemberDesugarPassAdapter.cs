@@ -113,8 +113,15 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
         }
 
         // 基线键：原始内容（即本轮输入）在受影响树上的逐树诊断，按树并行。
-        var baselineErrors = new HashSet<(string File, string Id, string Message)>(
-            CollectErrorKeys(inputCompilation, affectedPaths, intermediateRoot));
+        var __baselinePathCache = new Dictionary<SyntaxTree, string>();
+        var baselineErrors = new HashSet<(string File, string Id, string Message)>();
+        var baselineFileIds = new HashSet<(string File, string Id)>();
+        foreach (var diagnostic in CollectErrorDiagnostics(inputCompilation, affectedPaths))
+        {
+            var key = ErrorKey(diagnostic, intermediateRoot, __baselinePathCache);
+            baselineErrors.Add(key);
+            baselineFileIds.Add((key.File, key.Id));
+        }
 
         // 候选编译的树自缓存：未改写文件复用 pre-pass tree，只有被改写的文件才重新解析。
         var globalUsingsTree = BuildGlobalUsingsTree(tree.Layout, intermediateRoot);
@@ -142,11 +149,27 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
         const int maxIterations = 1024;
         IReadOnlyList<MemberDesugarPlan>? lastPlans = null;
 
+        // 性能：跨迭代复用文件改写产物。一个文件的产出只取决于「其 TouchedFiles 中已被排除
+        // 的 plan 集合」；该集合未变的文件产出确定且逐字节不变，直接复用上一迭代已落盘的输出
+        // 与候选树，无需重跑改写。仅当某 plan 被回退（excluded 增长）才把其触碰文件标为需重写。
+        var destIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < sourceFiles.Count; index++)
+            destIndex[Path.GetFullPath(sourceFiles[index].Dest)] = index;
+        var outcomes = new FileRewriteOutcome[sourceFiles.Count];
+        var needsRewrite = new bool[sourceFiles.Count];
+
         for (var iteration = 0; iteration < maxIterations; iteration++)
         {
-            // 每轮从原始副本出发：避免对已改写文件二次驱动造成幂等问题。
-            foreach (var pair in sourceFiles)
+            if (iteration == 0)
+                Array.Fill(needsRewrite, true);
+
+            // 每轮从原始副本出发（仅对需重写者）：避免对已改写文件二次驱动造成幂等问题。
+            for (var index = 0; index < sourceFiles.Count; index++)
+            {
+                if (!needsRewrite[index]) continue;
+                var pair = sourceFiles[index];
                 tree.ResetScratchFile(pair.Source, pair.Dest);
+            }
 
             preprocessor.ExcludePlans(excluded);
             preprocessor.BeginIteration();
@@ -154,14 +177,14 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
 
             // 逐文件改写纯计算并行（终结器宿主文件串行），随后按源文件序串行合并：写盘、
             // 统计并入、诊断收集、verbose 行打印——可观察输出与串行循环逐字节一致
-            // （扩展方法 pass 同款纪律）。
-            var outcomes = new FileRewriteOutcome[sourceFiles.Count];
+            // （扩展方法 pass 同款纪律）。仅需重写者进入本阶段。
             Parallel.For(
                 0,
                 sourceFiles.Count,
                 new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount) },
                 index =>
                 {
+                    if (!needsRewrite[index]) return;
                     var pair = sourceFiles[index];
                     if (destructorFiles.Contains(pair.Source))
                     {
@@ -174,6 +197,7 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
 
             for (var index = 0; index < sourceFiles.Count; index++)
             {
+                if (!needsRewrite[index]) continue;
                 var pair = sourceFiles[index];
                 if (!destructorFiles.Contains(pair.Source))
                 {
@@ -192,6 +216,11 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                 var outcome = outcomes[index];
                 passStats.Add(outcome.Statistics);
                 passDiagnostics.AddRange(outcome.Diagnostics);
+
+                if (!needsRewrite[index])
+                {
+                    continue; // 复用上一迭代已落盘的输出与候选树
+                }
 
                 if (outcome.Result.Changed)
                 {
@@ -220,9 +249,20 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                 candidateTrees.Add(candidateTreesByPath[pair.Dest]);
             if (globalUsingsTree != null)
                 candidateTrees.Add(globalUsingsTree);
+
             var candidateCompilation = CreateCompilation(candidateTrees, tree.Layout);
-            var newErrors = CollectErrorDiagnostics(candidateCompilation, affectedPaths)
-                .Where(d => !baselineErrors.Contains(ErrorKey(d, intermediateRoot)))
+            var __candidatePathCache = new Dictionary<SyntaxTree, string>();
+            var candidateDiags = CollectErrorDiagnostics(candidateCompilation, affectedPaths);
+            // 性能：(file, id) 不在基线键集合内者可判定为新增，无需计算 GetMessage
+            // （本地化消息构造较贵）；(file, id) 命中基线时才比较消息。
+            var newErrors = candidateDiags
+                .Where(d =>
+                {
+                    var file = CachedNormalizedPath(d, intermediateRoot, __candidatePathCache);
+                    if (!baselineFileIds.Contains((file, d.Descriptor.Id)))
+                        return true;
+                    return !baselineErrors.Contains((file, d.Descriptor.Id, d.GetMessage()));
+                })
                 .ToList();
 
             if (newErrors.Count == 0)
@@ -286,6 +326,10 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                 break;
             }
 
+
+            // 下一迭代只需重写本轮回退 plan 触碰的文件；其余文件的产出与上一迭代逐字节
+            // 相同（其已排除 plan 集合未变），直接复用。
+            var nextNeedsRewrite = new bool[sourceFiles.Count];
             foreach (var planId in plansToRollback)
             {
                 var plan = preprocessor.Plans.First(p => p.Id == planId);
@@ -303,13 +347,11 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                         ?.GetLineSpan().StartLinePosition.Character ?? 0) + 1,
                     plan.SymbolName));
 
-                // 回退该计划触碰的所有文件（可能与其他计划共享文件；下一轮全部重放）。
+                // 回退该计划触碰的所有文件（可能与其他计划共享文件；下一轮重放这些文件）。
                 foreach (var touched in plan.TouchedFiles)
                 {
-                    var full = Path.GetFullPath(touched);
-                    var pair = sourceFiles.FirstOrDefault(p =>
-                        string.Equals(p.Dest, full, StringComparison.OrdinalIgnoreCase));
-                    if (pair.Source != null) tree.ResetScratchFile(pair.Source, pair.Dest);
+                    if (destIndex.TryGetValue(Path.GetFullPath(touched), out var fileIndex))
+                        nextNeedsRewrite[fileIndex] = true;
                 }
             }
 
@@ -320,6 +362,8 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                     tree.ResetScratchFile(pair.Source, pair.Dest);
                 success = false;
             }
+
+            needsRewrite = nextNeedsRewrite;
         }
 
         _diagnostics.AddRange(rollbackDiagnostics);
@@ -725,23 +769,24 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
         return result;
     }
 
-    private static HashSet<(string File, string Id, string Message)> CollectErrorKeys(
-        CSharpCompilation compilation,
-        HashSet<string> affectedPaths,
-        string intermediateRoot)
+    /// <summary>性能：把路径归一化结果按树缓存，避免逐诊断重复 <c>GetFullPath</c>+<c>GetRelativePath</c>
+    /// （每次 diff 要对全部候选诊断计算键）。</summary>
+    private static string CachedNormalizedPath(
+        Diagnostic diagnostic, string intermediateRoot, Dictionary<SyntaxTree, string> pathCache)
     {
-        var keys = new HashSet<(string, string, string)>();
-        foreach (var diagnostic in CollectErrorDiagnostics(compilation, affectedPaths))
+        var tree = diagnostic.Location.SourceTree!;
+        if (!pathCache.TryGetValue(tree, out var normalized))
         {
-            keys.Add(ErrorKey(diagnostic, intermediateRoot));
+            normalized = Normalize(tree.FilePath, intermediateRoot);
+            pathCache[tree] = normalized;
         }
 
-        return keys;
+        return normalized;
     }
 
     private static (string File, string Id, string Message) ErrorKey(
-        Diagnostic diagnostic, string intermediateRoot)
-        => (Normalize(diagnostic.Location.SourceTree!.FilePath, intermediateRoot),
+        Diagnostic diagnostic, string intermediateRoot, Dictionary<SyntaxTree, string> pathCache)
+        => (CachedNormalizedPath(diagnostic, intermediateRoot, pathCache),
             diagnostic.Descriptor.Id,
             diagnostic.GetMessage());
 
