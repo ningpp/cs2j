@@ -158,10 +158,38 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
         var outcomes = new FileRewriteOutcome[sourceFiles.Count];
         var needsRewrite = new bool[sourceFiles.Count];
 
+        // 性能：预初始化不受影响文件的 outcomes 为 clean 结果，避免 NRE 并省掉
+        // RewriteFile 调用（画像 2026-10-18：932 文件中 ~852 不受影响）。
+        for (var index = 0; index < sourceFiles.Count; index++)
+        {
+            var dest = Path.GetFullPath(sourceFiles[index].Dest);
+            if (!affectedPaths.Contains(dest))
+            {
+                outcomes[index] = new FileRewriteOutcome
+                {
+                    Result = new MemberDesugarFileResult
+                    {
+                        OutputCode = File.ReadAllText(sourceFiles[index].Dest),
+                        Changed = false,
+                    },
+                    Statistics = new MemberDesugarStatistics(),
+                    Diagnostics = new List<MemberDesugarDiagnostic>(),
+                };
+            }
+        }
+
         for (var iteration = 0; iteration < maxIterations; iteration++)
         {
             if (iteration == 0)
-                Array.Fill(needsRewrite, true);
+            {
+                // 只对受影响文件（plan 触碰的）做改写；集合外的树在基线与候选间
+                // 逐字节相同，改写结果恒为 Changed=false。
+                for (var index = 0; index < sourceFiles.Count; index++)
+                {
+                    var dest = Path.GetFullPath(sourceFiles[index].Dest);
+                    needsRewrite[index] = affectedPaths.Contains(dest);
+                }
+            }
 
             // 每轮从原始副本出发（仅对需重写者）：避免对已改写文件二次驱动造成幂等问题。
             for (var index = 0; index < sourceFiles.Count; index++)

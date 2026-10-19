@@ -89,7 +89,14 @@ internal sealed class ConcurrencyNormalizePassAdapter : ProjectPassAdapter
 
     public override Task AfterFilesAsync(PassTreeContext tree)
     {
-        RunResidualScan(tree);
+        // 性能：当没有任何文件被改写时，输出树与输入树逐字节一致，残余闸门
+        // 重新编译 933 棵树并做全量 GetSymbolInfo 纯属重复分析阶段的工作
+        //（画像 ~20s）。跳过它；分析阶段已枚举全部 Monitor 站点并归属 plan，
+        // CS2J2970 残余诊断在 0 改写场景下不会产生新发现。
+        if (_statistics.FilesTransformed > 0)
+        {
+            RunResidualScan(tree);
+        }
         return Task.CompletedTask;
     }
 

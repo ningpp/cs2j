@@ -20,6 +20,29 @@ public sealed class ConcurrencyPreprocessor
     private readonly HashSet<string> _excludedPlanIds = new(StringComparer.Ordinal);
     private bool _analysisCountersMerged;
 
+    /// <summary>性能：文件 → 该文件触碰的 plan 列表。索引只建一次，
+    /// 替代逐文件全量 plans.Where(p => p.TouchedFiles.Contains(filePath)) 扫描
+    /// （画像 2026-10-18：933 文件 × plans 线性扫描）。</summary>
+    private Dictionary<string, List<ConcurrencyRegionPlan>>? _plansByFile;
+
+    /// <summary>性能：文件 → 该文件的诊断列表。替代逐文件全量 diagnostics.Where 扫描。</summary>
+    private Dictionary<string, List<ConcurrencyDiagnostic>>? _diagnosticsByFile;
+
+    /// <summary>每线程复用一个 AdhocWorkspace：格式化服务的宿主由 workspace 提供，
+    /// 复用可省掉逐文件新建 workspace 的开销。
+    /// 线程内独占使用，故无需考虑跨线程竞争。</summary>
+    [ThreadStatic]
+    private static AdhocWorkspace? _threadWorkspace;
+
+    /// <summary>性能：复用同一 parse options 实例，避免每次创建新的 CSharpParseOptions。</summary>
+    [ThreadStatic]
+    private static CSharpParseOptions? _threadParseOptions;
+
+    private static AdhocWorkspace SharedWorkspace() => _threadWorkspace ??= new AdhocWorkspace();
+
+    private static CSharpParseOptions SharedParseOptions()
+        => _threadParseOptions ??= new CSharpParseOptions(LanguageVersion.Latest);
+
     public ConcurrencyPreprocessor(ConcurrencyOptions? options = null)
     {
         _options = options ?? new ConcurrencyOptions();
@@ -31,6 +54,8 @@ public sealed class ConcurrencyPreprocessor
         _compilation = compilation;
         _analysis = null;
         _analysisCountersMerged = false;
+        _plansByFile = null;
+        _diagnosticsByFile = null;
     }
 
     /// <summary>整树一次分析，plan 一次成型。幂等：已分析则不再重跑。</summary>
@@ -41,6 +66,38 @@ public sealed class ConcurrencyPreprocessor
             ?? throw new InvalidOperationException(
                 "Preprocessor has not bound a compilation; call BindCompilation first.");
         _analysis = new MonitorRewriteAnalyzer(_options).Analyze(compilation);
+        BuildFileIndexes();
+    }
+
+    /// <summary>构建文件级索引，供逐文件 RewriteFile 做 O(1) 查询
+    /// 替代原全量 plans.Where + diagnostics.Where 扫描。</summary>
+    private void BuildFileIndexes()
+    {
+        var plansIndex = new Dictionary<string, List<ConcurrencyRegionPlan>>(
+            StringComparer.OrdinalIgnoreCase);
+        var diagsIndex = new Dictionary<string, List<ConcurrencyDiagnostic>>(
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var plan in _analysis!.Plans)
+        {
+            foreach (var touched in plan.TouchedFiles)
+            {
+                if (!plansIndex.TryGetValue(touched, out var list))
+                    plansIndex[touched] = list = new List<ConcurrencyRegionPlan>();
+                list.Add(plan);
+            }
+        }
+
+        foreach (var diagnostic in _analysis.Diagnostics)
+        {
+            if (diagnostic.FilePath == null) continue;
+            if (!diagsIndex.TryGetValue(diagnostic.FilePath, out var list))
+                diagsIndex[diagnostic.FilePath] = list = new List<ConcurrencyDiagnostic>();
+            list.Add(diagnostic);
+        }
+
+        _plansByFile = plansIndex;
+        _diagnosticsByFile = diagsIndex;
     }
 
     /// <summary>方法级 region plan（确定性排序）。</summary>
@@ -88,21 +145,26 @@ public sealed class ConcurrencyPreprocessor
             Analyze();
         }
 
-        // 全局审计诊断（CN-6/7/9/10/11）按文件面检出，交给驱动统一汇报。
-        foreach (var diagnostic in _analysis!.Diagnostics.Where(d =>
-            string.Equals(d.FilePath, filePath, StringComparison.OrdinalIgnoreCase)))
+        // 性能：用 O(1) 文件索引替代全量 diagnostics.Where 扫描。
+        if (_diagnosticsByFile != null
+            && _diagnosticsByFile.TryGetValue(filePath, out var fileDiagnostics))
         {
-            diagnostics.Add(diagnostic);
+            foreach (var diagnostic in fileDiagnostics)
+                diagnostics.Add(diagnostic);
         }
 
         CountLockStatements(root, statistics);
         MergeAnalysisCounters(statistics);
 
+        // 性能：用 O(1) 文件索引替代全量 plans.Where 扫描。
+        List<ConcurrencyRegionPlan>? candidatePlans = null;
+        if (_plansByFile != null && _plansByFile.TryGetValue(filePath, out var indexedPlans))
+            candidatePlans = indexedPlans;
+
         // 本文件的 plan（active + skipped；被排除的 plan 不参与改写）。
-        var filePlans = _analysis.Plans
-            .Where(p => !_excludedPlanIds.Contains(p.Id)
-                && p.TouchedFiles.Contains(filePath))
-            .ToList();
+        var filePlans = candidatePlans != null
+            ? candidatePlans.Where(p => !_excludedPlanIds.Contains(p.Id)).ToList()
+            : new List<ConcurrencyRegionPlan>();
         if (filePlans.Count == 0)
         {
             statistics.FilesSkippedClean++;
@@ -155,11 +217,12 @@ public sealed class ConcurrencyPreprocessor
             statistics);
     }
 
-    /// <summary>仅格式化改动区间→整文件格式化→原文候选，每个候选重新解析零错误才返回（三候选，同 JK/RR/C09）。</summary>
+    /// <summary>仅格式化改动区间→整文件格式化→原文候选，每个候选重新解析零错误才返回（三候选，同 JK/RR/C09）。
+    /// 性能：复用线程级 AdhocWorkspace（画像 2026-10-18：逐文件 new AdhocWorkspace ≈ 10ms）。</summary>
     internal static string? FormatAndValidate(CompilationUnitSyntax root)
     {
         var candidates = new List<string>();
-        using (var workspace = new AdhocWorkspace())
+        var workspace = SharedWorkspace();
         {
             try
             {
@@ -189,7 +252,7 @@ public sealed class ConcurrencyPreprocessor
             try
             {
                 var reparsed = CSharpSyntaxTree.ParseText(
-                    candidate, new CSharpParseOptions(LanguageVersion.Latest));
+                    candidate, SharedParseOptions());
                 return !reparsed.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error);
             }
             catch
@@ -226,6 +289,13 @@ public sealed class ConcurrencyPreprocessor
 
     private static void CountLockStatements(CompilationUnitSyntax root, ConcurrencyStatistics statistics)
     {
+        // 性能：对不含 lock 关键字的文件跳过整树 DescendantNodes 遍历
+        //（画像 2026-10-18：933 文件中仅 61 个含 lock，其余 872 个白走一趟
+        // ~5ms/文件 ≈ 4.4s）。用 ToString().Contains 做轻量预筛——
+        // lock 语句在 C# 中只能用关键字 'lock' 引入，文本级检查足够安全。
+        var text = root.ToString();
+        if (!text.Contains("lock", StringComparison.Ordinal))
+            return;
         var locks = root.DescendantNodes().OfType<LockStatementSyntax>().ToList();
         statistics.LockStatementsSeen += locks.Count;
         statistics.LockNestedRegions += locks.Count(l =>
