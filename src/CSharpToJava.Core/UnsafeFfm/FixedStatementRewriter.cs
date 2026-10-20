@@ -17,6 +17,13 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 {
     public static readonly SyntaxAnnotation FixedReplacedAnnotation = new("c06-fixed-replaced");
 
+    /// <summary>
+    /// R3 合成下标注解：<c>*(cursor ± k)</c> / <c>cursor[k]</c> 归一出的
+    /// <c>array[绝对下标]</c>。索引已是绝对托管下标，R6 不得再按接收者游标的
+    /// 折叠偏移二次叠加基偏移（Uri.UnescapeOnly 的 <c>*(pnew - 1)</c> 场景）。
+    /// </summary>
+    public static readonly SyntaxAnnotation FixedIndexedAnnotation = new("c06-fixed-indexed");
+
     private enum InitKind { Array, Offset, Alias, Null, String, Scalar, Error }
 
     private sealed record OffsetPayload(ExpressionSyntax Receiver, ExpressionSyntax Index);
@@ -34,6 +41,15 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
         public bool ReadOnlyString { get; init; }
         public bool Resolved { get; set; } = true;
+
+        /// <summary>
+        /// null 初值游标的伴生数组名（仅 Null 类帧/局部登记，永不随重绑定改写）。
+        /// 该数组以 <c>null</c> 作为「指针为空」的托管表示：指针赋值时同步改写为
+        /// 新数组（见 <see cref="VisitAssignmentExpression"/>），故
+        /// <c>p == null</c> 归一为 <c>_p_array == null</c>（Uri.UnescapeOnly 的
+        /// <c>pnew</c> 场景）。非 null 起源游标为 null，不参与该归一。
+        /// </summary>
+        public string? NullCompanionArray { get; set; }
 
         /// <summary>
         /// 是否为 byte*→char* 的 UTF-16 重解释局部（仅服务 new String 实参，
@@ -276,6 +292,9 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                     record.Kind, record.ArrayName, record.Payload,
                     record.Declarator.Identifier.ValueText),
                 ReadOnlyString = record.Kind == InitKind.String,
+                NullCompanionArray = record.Kind == InitKind.Null
+                    ? record.ArrayName
+                    : null,
             };
         }
 
@@ -322,19 +341,50 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
                 case InitKind.String:
                     var sourceExpr = (ExpressionSyntax)record.Payload!;
-                    // 物化调用 .ToCharArray() 的成员绑定优先级高于 ?:/二元/强转：
-                    // 非主表达式（如 fixed (char* p = c ? a : b)）必须先加括号，
-                    // 否则会被误析为 c ? a : b.ToCharArray()，把调用绑到末支。
-                    var materializedSource = IsPrimaryMaterializationSource(sourceExpr)
-                        ? sourceExpr
-                        : ParenthesizedExpression(sourceExpr);
                     var charType = PredefinedType(Token(SyntaxKind.CharKeyword));
-                    statements.Add(ArrayLocal(record.ArrayName, charType,
-                        InvocationExpression(MemberAccessExpression(
+                    // 源字符串先物化为临时局部：既保证源表达式单次求值，也避免
+                    // 把字符串标识符放进拼接/实参位后被 R6 误按同名指针游标折叠
+                    // （Uri.ParseScheme 的字符串 uriString 与配对指针形参同名）。
+                    var sourceName = MakeGeneratedName(ptrName, "str", node);
+                    statements.Add(LocalDeclarationStatement(VariableDeclaration(
+                            PredefinedType(Token(SyntaxKind.StringKeyword)),
+                            SingletonSeparatedList(VariableDeclarator(sourceName)
+                                .WithInitializer(EqualsValueClause(sourceExpr)))))
+                        .WithLeadingTrivia(LineStartTrivia(node)));
+                    // C# 指针式固定字符串的合法尾读是 NUL 终止符（str[Length]
+                    // 返回 '\0'）；ToCharArray() 只给出 Length 个元素，故物化
+                    // Length+1 的数组并拷入原字符、末位留 '\0'，保持越界一位读
+                    // '\0' 的原语义（Uri.CheckCanonical 的 str[i + 1] 场景）。
+                    // 仅 string 起源（本分支）补位；数组/偏移/别名物化是对调用方
+                    // 真实数组的别名，不得改变长度。
+                    var paddedLength = BinaryExpression(
+                        SyntaxKind.AddExpression,
+                        MemberAccessExpression(
                             SyntaxKind.SimpleMemberAccessExpression,
-                            materializedSource,
-                            IdentifierName("ToCharArray")))
-                        .WithArgumentList(ArgumentList()), node));
+                            IdentifierName(sourceName),
+                            IdentifierName("Length")),
+                        LiteralExpression(
+                            SyntaxKind.NumericLiteralExpression, Literal(1)));
+                    statements.Add(ArrayLocal(record.ArrayName, charType,
+                        ArrayCreationExpression(ArrayType(charType)
+                            .WithRankSpecifiers(SingletonList(ArrayRankSpecifier(
+                                SingletonSeparatedList<ExpressionSyntax>(paddedLength))))),
+                        node));
+                    statements.Add(ExpressionStatement(InvocationExpression(
+                            MemberAccessExpression(
+                                SyntaxKind.SimpleMemberAccessExpression,
+                                IdentifierName(sourceName),
+                                IdentifierName("CopyTo")))
+                        .WithArgumentList(ArgumentList(SeparatedList(new[]
+                        {
+                            Argument(ZeroLiteral()),
+                            Argument(IdentifierName(record.ArrayName)),
+                            Argument(ZeroLiteral()),
+                            Argument(MemberAccessExpression(
+                                SyntaxKind.SimpleMemberAccessExpression,
+                                IdentifierName(sourceName),
+                                IdentifierName("Length"))),
+                        })))).WithLeadingTrivia(lineStart));
                     statements.Add(IndexLocal(ptrName, ZeroLiteral(), lineStart));
                     break;
 
@@ -798,7 +848,8 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
                 return ElementAccessExpression(IdentifierName(array))
                     .WithArgumentList(BracketedArgumentList(SingletonSeparatedList(
-                        Argument(index))));
+                        Argument(index))))
+                    .WithAdditionalAnnotations(FixedIndexedAnnotation);
             }
 
             AddError(
@@ -872,7 +923,8 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
                 return ElementAccessExpression(IdentifierName(array))
                     .WithArgumentList(BracketedArgumentList(SingletonSeparatedList(
-                        Argument(index))));
+                        Argument(index))))
+                    .WithAdditionalAnnotations(FixedIndexedAnnotation);
             }
 
             AddError(
@@ -954,6 +1006,8 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                     newRhs = ZeroLiteral();
                     info.ArrayName = MakeGeneratedName(leftSymbol.Name, "array", node);
                     info.Resolved = true;
+                    if (info.NullCompanionArray != null)
+                        InjectCompanionArraySync(node, info.NullCompanionArray, null);
                 }
                 else if (TryResolvePointer(rhs, out var sourceArray, out var indexExpression, out _))
                 {
@@ -963,6 +1017,9 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                     // 相减按新槽判定同源。
                     info.SourceSlot = CompanionSlot(sourceArray);
                     info.Resolved = true;
+                    if (info.NullCompanionArray != null)
+                        InjectCompanionArraySync(
+                            node, info.NullCompanionArray, IdentifierName(sourceArray));
                 }
                 else if (TryResolvePinnedArrayPointer(
                              rhs, node, out var repinnedArray, out var repinnedIndex,
@@ -974,6 +1031,9 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                     // 本次 Alloc 的数组真源更新。
                     newRhs = repinnedIndex;
                     info.SourceSlot = repinnedSlot;
+                    if (info.NullCompanionArray != null)
+                        InjectCompanionArraySync(
+                            node, info.NullCompanionArray, IdentifierName(info.ArrayName));
                 }
                 else if (IsPairedPointerReturnInvocation(rhs))
                 {
@@ -1001,6 +1061,65 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
         var visitedRight = (ExpressionSyntax)Visit(node.Right)!;
         if (visitedLeft == node.Left && visitedRight == node.Right) return node;
         return node.Update(visitedLeft, node.OperatorToken, visitedRight);
+    }
+
+    /// <summary>
+    /// null 初值游标与 null 的比较（<c>p == null</c>/<c>p != null</c>）：指针的
+    /// 空状态由伴生数组承载，归一为 <c>_p_array == null</c>/<c>_p_array != null</c>
+    /// （Uri.UnescapeOnly 的 <c>pnew == null</c> 场景）；其余二元表达式原样下探。
+    /// </summary>
+    public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
+    {
+        if (node.Kind() is SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression)
+        {
+            var left = UnwrapParenthesized(node.Left);
+            var right = UnwrapParenthesized(node.Right);
+
+            var pointerSide = left.IsKind(SyntaxKind.NullLiteralExpression)
+                ? right
+                : right.IsKind(SyntaxKind.NullLiteralExpression)
+                    ? left
+                    : null;
+
+            if (pointerSide != null
+                && GetIdentifierSymbol(pointerSide) is ILocalSymbol local
+                && _infos.TryGetValue(local, out var info)
+                && info.NullCompanionArray != null)
+            {
+                return BinaryExpression(
+                    node.Kind(),
+                    IdentifierName(info.NullCompanionArray),
+                    LiteralExpression(SyntaxKind.NullLiteralExpression));
+            }
+        }
+
+        return base.VisitBinaryExpression(node);
+    }
+
+    /// <summary>
+    /// null 初值游标的伴生数组同步：指针赋值归一为「数组 + int 索引」后，指针的
+    /// 空/非空状态由伴生数组承载，故在该赋值语句前注入
+    /// <c>_p_array = &lt;新数组&gt;</c>（赋空指针则注入 <c>_p_array = null!;</c>）。
+    /// 仅当赋值直接位于块语句列表时注入；其它形态保守跳过（不误改写，仅极端
+    /// 站点下空判定语义不精确）。
+    /// </summary>
+    private void InjectCompanionArraySync(
+        AssignmentExpressionSyntax node, string arrayName, ExpressionSyntax? arrayExpression)
+    {
+        if (node.Parent is not ExpressionStatementSyntax statement
+            || statement.Parent is not BlockSyntax block)
+        {
+            return;
+        }
+
+        var rhs = arrayExpression ?? PostfixUnaryExpression(
+            SyntaxKind.SuppressNullableWarningExpression,
+            LiteralExpression(SyntaxKind.NullLiteralExpression));
+        var sync = ExpressionStatement(AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                IdentifierName(arrayName), rhs))
+            .WithLeadingTrivia(LineStartTrivia(statement));
+        InjectBeforeStatement(block, statement, sync);
     }
 
     public override SyntaxNode? VisitArgument(ArgumentSyntax node)
@@ -1394,6 +1513,7 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
             var rawInitializer = declarator.Initializer?.Value;
             string? arrayName = null;
             string? sourceSlot = null;
+            string? nullCompanionArray = null;
             ExpressionSyntax? newInitializer = null;
 
             if (rawInitializer != null)
@@ -1404,6 +1524,9 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                 {
                     arrayName = MakeGeneratedName(declarator.Identifier.ValueText, "array", node);
                     sourceSlot = arrayName;
+                    // null 初值游标：伴生数组的 null 状态即「指针为空」的托管
+                    // 表示，登记供 p == null 归一与指针赋值同步改写使用。
+                    nullCompanionArray = arrayName;
                     var nullArrayLocal = ArrayLocal(arrayName, elementTypeSyntax,
                         PostfixUnaryExpression(
                             SyntaxKind.SuppressNullableWarningExpression,
@@ -1475,6 +1598,7 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                 ArrayName = arrayName ?? string.Empty,
                 SourceSlot = sourceSlot ?? (arrayName ?? string.Empty),
                 Resolved = arrayName != null,
+                NullCompanionArray = nullCompanionArray,
             };
         }
 
@@ -2384,22 +2508,6 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
         list.Add(statement);
     }
-
-    /// <summary>
-    /// <c>.ToCharArray()</c> 可直接后缀的「主表达式」：标识符/成员访问/调用/
-    /// 下标/字面量/括号/this/base/new。其余（条件/二元/强转/赋值/一元等）需先
-    /// 加括号再物化。
-    /// </summary>
-    private static bool IsPrimaryMaterializationSource(ExpressionSyntax expression) =>
-        expression is IdentifierNameSyntax
-            or MemberAccessExpressionSyntax
-            or InvocationExpressionSyntax
-            or ElementAccessExpressionSyntax
-            or LiteralExpressionSyntax
-            or ParenthesizedExpressionSyntax
-            or ThisExpressionSyntax
-            or BaseExpressionSyntax
-            or ObjectCreationExpressionSyntax;
 
     private static LiteralExpressionSyntax ZeroLiteral() =>
         LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(0));

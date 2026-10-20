@@ -43,6 +43,10 @@ public enum MemberDesugarDiagnosticCode
     FieldKeywordSafetyNet = 5126,        // Warning（strict Error）：field 文本在但绑不到隐式后备字段
     FieldKeywordUnsupportedContainer = 5127, // Warning（strict Error）：不收编容器（接口实例 DIM 等）
     FieldKeywordAttributeFailed = 5128,  // Warning（strict Error）：[field:] 特性迁移失败
+    // Info：语义性有意保留（元数据接口实现 / 跨程序集同名类型镜像合并），声明与使用点不动。
+    // 保留为语义正确所必需（展开会 CS0535/CS0470/CS0683 或撞镜像访问器槽 CS0082/CS0111），
+    // Info 级记账，不构成 warning 噪声，也不计入 PlansSkipped。
+    PropertyRetained = 5129,
     // 5130-5141 indexer rules (C12, 设计 §6)。
     IndexerPlanCreated = 5130,        // Info，仅 verbose
     IndexerNameAdopted = 5131,        // Info：[IndexerName] 自定义名采用（特性已移除）

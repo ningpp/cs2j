@@ -185,6 +185,13 @@ public sealed class EqualityConcatPreprocessor
             if (!IsCandidateToken(node.OperatorToken.Kind()))
                 return visited;
 
+            // 常量上下文（const 字段/局部初始化器）只允许编译期常量：把
+            // `string + string` 物化成 `string.Concat(...)`（EC-3）或把 `==`/`!=`
+            // 物化成 `string.Equals(...)`（EC-1）都是方法调用，会触发 CS0133；
+            // 而原始运算符本身就是合法的常量表达式，因此整站点保持原样。
+            if (IsConstContext(node))
+                return MarkExplained(visited);
+
             if (_model == null)
             {
                 EmitSite(node, new EqualityConcatDiagnostic(
@@ -549,6 +556,31 @@ public sealed class EqualityConcatPreprocessor
             => kind is SyntaxKind.EqualsEqualsToken
                 or SyntaxKind.ExclamationEqualsToken
                 or SyntaxKind.PlusToken;
+
+        /// <summary>
+        /// True when <paramref name="node"/> lies inside a context that demands a
+        /// compile-time constant: a <c>const</c> field or local initializer.
+        /// The walk stops at the first enclosing statement/member declaration, so
+        /// only the declaration that actually owns the expression is consulted.
+        /// </summary>
+        private static bool IsConstContext(SyntaxNode node)
+        {
+            for (SyntaxNode? current = node.Parent; current != null; current = current.Parent)
+            {
+                switch (current)
+                {
+                    case LocalDeclarationStatementSyntax local:
+                        return local.Modifiers.Any(SyntaxKind.ConstKeyword);
+                    case BaseFieldDeclarationSyntax field:
+                        return field.Modifiers.Any(SyntaxKind.ConstKeyword);
+                    case StatementSyntax:
+                    case MemberDeclarationSyntax:
+                        return false;
+                }
+            }
+
+            return false;
+        }
 
         public override SyntaxNode? Visit(SyntaxNode? node)
         {

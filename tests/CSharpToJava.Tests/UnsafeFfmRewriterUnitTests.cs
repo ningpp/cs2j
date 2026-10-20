@@ -678,7 +678,11 @@ public class UnsafeFfmRewriterUnitTests
 
         Assert.True(result.Changed);
         Assert.False(result.HasErrors);
-        Assert.Contains("s.ToCharArray()", result.OutputCode);
+        // C# 指针式固定字符串的合法尾读是 NUL 终止符：物化数组补一个 '\0'
+        // （Length+1 并拷入原字符），而非只 ToCharArray()（_str_array[Length]
+        // 读 '\0' 的原语义由补位承载）。
+        Assert.Contains("new char[_p_str.Length + 1]", result.OutputCode);
+        Assert.Contains("_p_str.CopyTo(0, _p_array, 0, _p_str.Length)", result.OutputCode);
         Assert.Contains("char c = _p_array[p];", result.OutputCode);
         Assert.Equal(1, result.Statistics.FixedVariablesString);
         AssertOutputCompiles(result.OutputCode);
@@ -3486,7 +3490,55 @@ public class UnsafeFfmRewriterUnitTests
         Assert.False(result.HasErrors,
             string.Join("\n", result.Diagnostics));
         Assert.Equal(1, result.Statistics.PointerComparisons);
-        Assert.Contains("s.ToCharArray()", result.OutputCode);
+        Assert.Contains("new char[_p_str.Length + 1]", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Uf020c_NullCursor_ReassignedByParamPointer_NoBaseOffsetDoubleCount()
+    {
+        // Uri.UnescapeOnly 形态：null 初值裸指针游标 pnew 由折叠指针形参 pch
+        // 赋值（pnew = pch + i），随后 *(pnew - 1) 写入。伴生数组 _pnew_array
+        // 承载指针的空/非空状态（pnew == null 归一为 _pnew_array == null），且
+        // R3 已合成的绝对下标不得被 R6 再叠加 pchIndex 基偏移。
+        var src = """
+            unsafe class C
+            {
+                static void M(char* pch, int start, int end, char ch)
+                {
+                    char* pend = pch + end - 2;
+                    char* pnew = null;
+                    int i = start;
+                    while (i < end && pch < pend)
+                    {
+                        if (pch[i] != '%')
+                        {
+                            i++;
+                            continue;
+                        }
+                        pnew = pch + i;
+                        *(pnew - 1) = ch;
+                        break;
+                    }
+                    if (pnew == null)
+                    {
+                        System.Console.Write("none");
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(!result.HasErrors, string.Join("\n", result.Diagnostics));
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("fixed", result.OutputCode);
+        Assert.Contains("static void M(char[] pch, int pchIndex, int start, int end, char ch)", result.OutputCode);
+        Assert.Contains("int pnew = 0;", result.OutputCode);
+        Assert.Contains("_pnew_array = pch;", result.OutputCode);
+        Assert.Contains("pch[pnew - 1] = ch;", result.OutputCode);
+        Assert.Contains("_pnew_array == null", result.OutputCode);
+        Assert.DoesNotContain("pchIndex + (pnew", result.OutputCode);
         AssertOutputCompiles(result.OutputCode);
     }
 

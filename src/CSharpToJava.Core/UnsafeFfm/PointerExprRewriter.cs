@@ -1968,6 +1968,12 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitElementAccessExpression(ElementAccessExpressionSyntax node)
     {
+        // R3 已合成的数组下标（如 *(pnew-1)→pch[pnew-1]）带 FixedIndexed 注解：
+        // 其索引已是绝对托管下标，接收者虽文本同名于某折叠游标也不得再次叠加
+        // 基偏移（否则双重计数）；仅访问子节点，不再做指针下标折叠。
+        if (node.HasAnnotation(FixedStatementRewriter.FixedIndexedAnnotation))
+            return base.VisitElementAccessExpression(node);
+
         var receiver = UnwrapParenthesized(node.Expression);
 
         if (GetExpressionSymbol(receiver) is { } symbol

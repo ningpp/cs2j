@@ -31,6 +31,11 @@ internal sealed class PropertyRule : IMemberDesugarRule
             MemberDesugarDiagnosticCode Code, string Reason)>(SymbolEqualityComparer.Default);
         var userSkipped = new Dictionary<IPropertySymbol, PropertyDeclarationSyntax>(
             SymbolEqualityComparer.Default);
+        // 语义性有意保留属性 → 保留原因文案（元数据接口实现 / 镜像合并）。这些属性不展开、
+        // 使用点也不改写，但必须各产一条 Retained plan：plan 是唯一记账载体，缺失会让 PD-12
+        // residual 闸门把保留属性误判为「无 plan 的残留属性」而误发 CS2J5112。
+        var retained = new Dictionary<IPropertySymbol, (PropertyDeclarationSyntax Decl, string Reason)>(
+            SymbolEqualityComparer.Default);
         // C27 M2：被可行 reshape 认领的位置 record 属性（prop → reshape 契约后备字段名）。
         // 这些属性没有 PropertyDeclarationSyntax：产 Planned PropertyPlan 仅供使用点降形，
         // 声明侧（字段/get/set/ctor/Deconstruct）完全由 Records reshape 发射。
@@ -44,7 +49,7 @@ internal sealed class PropertyRule : IMemberDesugarRule
             {
                 if (model.GetDeclaredSymbol(decl) is not { } prop || prop.IsIndexer) continue;
                 if (candidates.ContainsKey(prop) || failures.ContainsKey(prop)
-                    || userSkipped.ContainsKey(prop)) continue;
+                    || userSkipped.ContainsKey(prop) || retained.ContainsKey(prop)) continue;
 
                 if (MatchesSet(options.SkipQualifiedNames, prop))
                 {
@@ -60,6 +65,7 @@ internal sealed class PropertyRule : IMemberDesugarRule
                 // 源内用户接口的实现随接口一起降形。
                 if (PropertyFacts.ImplementsMetadataInterfaceProperty(prop))
                 {
+                    retained[prop] = (decl, PropertyDiagnostics.RetainedMetadataInterface(prop.Name));
                     continue;
                 }
 
@@ -69,6 +75,7 @@ internal sealed class PropertyRule : IMemberDesugarRule
                 // 构建按程序集隔离不存在该合并，故此处整体保留原属性不展开。
                 if (MemberDesugarSyntaxFacts.IsMergedMirrorType(prop.ContainingType))
                 {
+                    retained[prop] = (decl, PropertyDiagnostics.RetainedMergedMirror(prop.Name));
                     continue;
                 }
 
@@ -97,7 +104,7 @@ internal sealed class PropertyRule : IMemberDesugarRule
                         .FirstOrDefault(p => !p.IsIndexer);
                     if (prop == null || failures.ContainsKey(prop)
                         || candidates.ContainsKey(prop) || userSkipped.ContainsKey(prop)
-                        || positionalClaims.ContainsKey(prop)) continue;
+                        || positionalClaims.ContainsKey(prop) || retained.ContainsKey(prop)) continue;
                     if (options.Records.Enabled
                         && model.Compilation is CSharpCompilation propCompilation
                         && RecordWithClaim.IsPositionalPropertyClaimed(prop, propCompilation, options))
@@ -383,6 +390,31 @@ internal sealed class PropertyRule : IMemberDesugarRule
                 HasSetter = prop.SetMethod != null,
                 HasInitAccessor = false,
                 IsRequired = false,
+            });
+        }
+
+        // 语义性有意保留：产 Retained plan（记账 + Info 诊断），声明与使用点均不动。
+        // TouchedFiles 用声明文件（同 Infeasible/UserSkipped 跳过族），residual 闸门据此
+        // 在 _knownKeys 中命中该属性，不再误发 CS2J5112。
+        foreach (var (prop, info) in retained)
+        {
+            var declName = info.Decl.Identifier.ValueText;
+            builder.Add(new PropertyPlan
+            {
+                Id = PropertyPlan.BuildId(prop),
+                Kind = MemberDesugarKind.Property,
+                Symbol = prop,
+                Outcome = MemberDesugarOutcome.Retained,
+                TouchedFiles = DeclarationFiles(prop),
+                FailCode = MemberDesugarDiagnosticCode.PropertyRetained,
+                FailReason = info.Reason,
+                Property = prop,
+                DeclName = declName,
+                GetterMethodName = AccessorsToMethods.GetterName(declName),
+                SetterMethodName = AccessorsToMethods.SetterName(declName),
+                HasSetter = prop.SetMethod != null,
+                HasInitAccessor = PropertyFacts.HasInitAccessor(info.Decl),
+                IsRequired = PropertyFacts.IsRequired(info.Decl),
             });
         }
     }

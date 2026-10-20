@@ -42,4 +42,19 @@ internal static class PropertyDiagnostics
     public static string AttributeUnroutable(string name, string attributeName)
         => $"attribute '{attributeName}' on property '{name}' is only applicable to properties " +
            $"and cannot be routed to the backing field or accessor methods; {SkipSuffix}.";
+
+    /// <summary>有意保留（非跳过、非缺陷）：原声明与使用点不变，且为语义正确所必需。</summary>
+    public const string RetainSuffix =
+        "the property is intentionally retained — its declaration and all of its use sites " +
+        "were left unchanged";
+
+    public static string RetainedMetadataInterface(string name)
+        => $"property '{name}' implements a metadata (BCL/external) interface property; " +
+           $"expanding it into get_/set_ methods would break interface implementation " +
+           $"(CS0535/CS0470/CS0683); {RetainSuffix}.";
+
+    public static string RetainedMergedMirror(string name)
+        => $"the type of property '{name}' is merged from same-named declarations " +
+           $"(partial + non-partial); expanding it would collide with the mirror " +
+           $"declaration's accessor slots (CS0082/CS0111); {RetainSuffix}.";
 }

@@ -172,7 +172,13 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
                     residual.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
                     residual.GetLocation().GetLineSpan().StartLinePosition.Character + 1,
                     residualProp.Name));
-                _stats.PlansSkipped++;
+                // residual 闸门命中是「缺陷信号」（无 plan 的残留属性），绝不等同于
+                // 真实跳过：计入 residual 专属桶（摘要行的 residual 字段），不再污染
+                // PlansSkipped（曾经的 46 skipped/0 residual 就是此处错记所致）。
+                _stats.SkippedByReason.TryGetValue(
+                    MemberDesugarDiagnosticCode.ResidualProperty, out var residualProperties);
+                _stats.SkippedByReason[MemberDesugarDiagnosticCode.ResidualProperty] =
+                    residualProperties + 1;
             }
 
             if (Visit(member) is MemberDeclarationSyntax visited)
@@ -601,6 +607,10 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
     }
 
     // ---- nameof（PD-9 / 决策 11）：nameof(X)/nameof(C.X) → "X" ----
+    // 例外：xUnit 的 [MemberData(nameof(X))] 会按名字在编译期/运行期解析成员，
+    // 属性降形后原名已不存在（展开为 get_X 方法），此时必须字面量化到 get_X，
+    // 否则 xUnit1015「MemberData must reference an existing member」编译失败。
+    // （MemberData 的方法形态本就被 xUnit 支持，运行期可正常取数。）
 
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
@@ -610,13 +620,45 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
             && TryGetPlan(node.ArgumentList.Arguments[0].Expression, out var plan))
         {
             _stats.NameofLiteralized++;
+            var literal = IsMemberDataArgument(node) ? plan.GetterMethodName : plan.DeclName;
             return SyntaxFactory.LiteralExpression(
                 SyntaxKind.StringLiteralExpression,
-                SyntaxFactory.Literal(plan.DeclName))
+                SyntaxFactory.Literal(literal))
                 .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
         }
         return base.VisitInvocationExpression(node);
     }
+
+    /// <summary>
+    /// True when the <c>nameof</c> invocation is an argument of a
+    /// <c>[MemberData(...)]</c> attribute — the one consumer that resolves the
+    /// literal against the post-desugar member set.
+    /// </summary>
+    private static bool IsMemberDataArgument(InvocationExpressionSyntax invocation)
+    {
+        for (SyntaxNode? current = invocation.Parent; current != null; current = current.Parent)
+        {
+            if (current is AttributeArgumentSyntax argument)
+            {
+                // AttributeSyntax → AttributeArgumentListSyntax → AttributeArgumentSyntax
+                return argument.Parent?.Parent is AttributeSyntax attribute
+                    && AttributeName(attribute.Name) is "MemberData" or "MemberDataAttribute";
+            }
+
+            // 离开表达式区域仍未命中属性参数 → 普通 nameof 用法。
+            if (current is StatementSyntax or ExpressionSyntax)
+                return false;
+        }
+        return false;
+    }
+
+    private static string AttributeName(NameSyntax name) => name switch
+    {
+        IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
+        AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText,
+        _ => string.Empty,
+    };
 
     // ---- 对象初始化器提升（PD-8 / 决策 7）----
 

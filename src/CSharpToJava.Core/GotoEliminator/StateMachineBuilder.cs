@@ -287,7 +287,7 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
                 if (isRef) throw new GotoEliminatorException("spanning 'ref/out' local not supported");
 
                 var type = decl.Declaration.Type;
-                var synthesizedType = CleanSynthesizedType(type);
+                var synthesizedType = ResolveHoistType(type, decl.Declaration.Variables);
                 // ref 局部（RefTypeSyntax）：见主提升分支的说明。
                 ExpressionSyntax? hoistInit = null;
                 if (type is RefTypeSyntax spanningRefType)
@@ -337,7 +337,7 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
                 if (isRef) throw new GotoEliminatorException("spanning 'ref/out' local not supported");
 
                 var type = decl.Declaration.Type;
-                var synthesizedType = CleanSynthesizedType(type);
+                var synthesizedType = ResolveHoistType(type, decl.Declaration.Variables);
                 // ref 局部（ref 属于 RefTypeSyntax 而非修饰符）：不能发 default(ref T)——非法语法。
                 // ref 局部以 Unsafe.NullRef 初始化（C# 不允许 ref 局部以 null 初始化），后续 `x = ref E` 重新绑定；
                 // 值类型 ref 局部（ref int）无法合成初始化器 → 跳过该方法。
@@ -1576,6 +1576,49 @@ internal sealed partial class StateMachineBuilder
 
     private static TypeSyntax CleanSynthesizedType(TypeSyntax type)
         => type.WithoutTrivia();
+
+    /// <summary>
+    /// The type to spell on a hoisted declaration. An implicitly-typed local
+    /// cannot be hoisted as-is: `var x = default;` is CS0815 and
+    /// `var x = default(var);` is CS0825 (observed for a closure-lift display
+    /// class local, whose `var` initializer is an object creation). Recover the
+    /// type from the initializer; a shape that does not spell its own type
+    /// cannot be hoisted at all and is rejected like the other unsupported
+    /// spanning-local shapes.
+    /// </summary>
+    private static TypeSyntax ResolveHoistType(
+        TypeSyntax declaredType,
+        SeparatedSyntaxList<VariableDeclaratorSyntax> variables)
+    {
+        var clean = CleanSynthesizedType(declaredType);
+        if (clean is not IdentifierNameSyntax { Identifier.ValueText: "var" })
+            return clean;
+
+        TypeSyntax? agreed = null;
+        foreach (var v in variables)
+        {
+            var inferred = InferInitializerType(v.Initializer?.Value)
+                ?? throw new GotoEliminatorException(
+                    "spanning implicitly-typed local with a non-spellable initializer not supported");
+            if (agreed != null && !agreed.IsEquivalentTo(inferred))
+                throw new GotoEliminatorException(
+                    "spanning implicitly-typed declaration with mixed initializer types not supported");
+            agreed = inferred;
+        }
+
+        return agreed ?? clean;
+    }
+
+    /// <summary>The type spelled by an initializer, when the initializer names it outright.</summary>
+    private static TypeSyntax? InferInitializerType(ExpressionSyntax? value)
+        => value switch
+        {
+            ObjectCreationExpressionSyntax creation => CleanSynthesizedType(creation.Type),
+            ArrayCreationExpressionSyntax array => CleanSynthesizedType(array.Type),
+            CastExpressionSyntax cast => CleanSynthesizedType(cast.Type),
+            DefaultExpressionSyntax defaultExpression => CleanSynthesizedType(defaultExpression.Type),
+            _ => null,
+        };
 
     private static StatementSyntax BoolDeclaration(string name)
         => SyntaxFactory.LocalDeclarationStatement(

@@ -19,6 +19,10 @@ internal enum MemberDesugarOutcome
     Planned,
     Infeasible,   // 语言/上下文不可行 → 声明与站点原子不动 + 必留诊断
     UserSkipped,  // overrides.skip
+    // 语义性有意保留（元数据接口实现 / 跨程序集同名类型镜像合并）：声明与使用点一律不动，
+    // 是语义正确所必需（非缺陷、非跳过）。仅为满足「每个源属性都有 plan」的不变量并留
+    // 一条 Info 记账诊断；不改写、不计入 PlansSkipped。
+    Retained,
 }
 
 /// <summary>去糖 plan 基类：一个成员符号一个 plan，plan 是原子回退单位（设计 §1.3/§4.3）。</summary>

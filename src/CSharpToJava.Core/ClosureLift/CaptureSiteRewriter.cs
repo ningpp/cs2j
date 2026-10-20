@@ -377,11 +377,13 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
                 {
                     generated.Add(_generator.BuildArrayStorageDeclaration(symbol));
                     if (declarator.Initializer is { Value: var init })
-                        generated.Add(_generator.BuildArrayAssignment(symbol.StorageName, init));
+                        generated.Add(_generator.BuildArrayAssignment(
+                            symbol.StorageName, RewriteRelocatedInitializer(init)));
                 }
                 else if (declarator.Initializer is { Value: var init })
                 {
-                    generated.Add(BuildInitialization(group, symbol, init));
+                    generated.Add(BuildInitialization(
+                        group, symbol, RewriteRelocatedInitializer(init)));
                 }
                 // No initializer: nothing emitted — field zero-init matches the
                 // definite-assignment rules every legal input already obeys.
@@ -409,6 +411,20 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
         => group.ArrayForm
             ? _generator.BuildArrayAssignment(symbol.StorageName, value)
             : _generator.BuildFieldAssignment(group.InstanceName, symbol.FieldName, value);
+
+    /// <summary>
+    /// Rewrites capture sites inside an initializer that is being RELOCATED into
+    /// a synthesized statement. Site lookup is keyed by red-node identity, and
+    /// Roslyn only keeps those instances stable while a node stays at its
+    /// original tree position: inserting an original node into a new parent
+    /// re-parents it and yields fresh red instances, so every registered site
+    /// inside it would silently miss (e.g. `int end = __shadow162;` lifted to
+    /// `__cs2jClosure0._cs2jCap_end = __shadow162;` with an unrenamed RHS).
+    /// Visiting the original expression BEFORE relocation resolves the sites
+    /// while the identities still hold.
+    /// </summary>
+    private ExpressionSyntax RewriteRelocatedInitializer(ExpressionSyntax initializer)
+        => (ExpressionSyntax)Visit(initializer)!;
 
     // Group lookup helpers. Registration order is the plan order; a symbol
     // belongs to exactly one group.

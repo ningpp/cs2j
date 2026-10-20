@@ -614,6 +614,20 @@ public sealed partial class MemberDesugarPreprocessor
             return;
         }
 
+        // 语义性有意保留（元数据接口实现 / 镜像合并）：在首个声明文件发一条 Info（非缺陷、
+        // 非跳过、不改写、不计 PlansSkipped）——仅作记账，绝不以 Warning 级别污染输出。
+        if (p.Outcome == MemberDesugarOutcome.Retained)
+        {
+            if (!IsFirstDeclarationFile(p, filePath)) return;
+            diagnostics.Add(new MemberDesugarDiagnostic(
+                MemberDesugarSeverity.Info,
+                p.FailCode ?? MemberDesugarDiagnosticCode.PropertyRetained,
+                p.FailReason ?? "property is intentionally retained; " +
+                    "its declaration and all of its use sites were left unchanged",
+                filePath, 0, 0, p.SymbolName));
+            return;
+        }
+
         // Infeasible：在首个声明文件发一次 Warning（strict 升级 Error）。
         if (!IsFirstDeclarationFile(p, filePath)) return;
         var severity = _options.Strict
