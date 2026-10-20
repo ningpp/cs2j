@@ -169,7 +169,9 @@ internal sealed class EventDeclarationExpander
         var method = SyntaxFactory.MethodDeclaration(
             SyntaxFactory.List(methodAttrs),
             modifiers,
-            SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword)),
+            // 合成 void 无 trivia：补分隔空格，避免原文 `voidadd_X` 无法通过本地 reparse 校验。
+            SyntaxFactory.PredefinedType(
+                SyntaxFactory.Token(SyntaxKind.VoidKeyword).WithTrailingTrivia(SyntaxFactory.Space)),
             explicitSpec,
             SyntaxFactory.Identifier(name),
             null,
@@ -226,7 +228,8 @@ internal sealed class EventDeclarationExpander
         var method = SyntaxFactory.MethodDeclaration(
             SyntaxFactory.List(attrs),
             modifiers,
-            SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword)),
+            SyntaxFactory.PredefinedType(
+                SyntaxFactory.Token(SyntaxKind.VoidKeyword).WithTrailingTrivia(SyntaxFactory.Space)),
             original.ExplicitInterfaceSpecifier,
             SyntaxFactory.Identifier(name),
             null,

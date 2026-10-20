@@ -119,21 +119,23 @@ internal static class FieldKeywordNormalizer
     {
         var mods = new List<SyntaxToken>
         {
-            SyntaxFactory.Token(SyntaxKind.PrivateKeyword),
+            SyntaxFactory.Token(SyntaxKind.PrivateKeyword).WithTrailingTrivia(SyntaxFactory.Space),
         };
         if (info.IsStatic)
-            mods.Add(SyntaxFactory.Token(SyntaxKind.StaticKeyword));
+            mods.Add(SyntaxFactory.Token(SyntaxKind.StaticKeyword).WithTrailingTrivia(SyntaxFactory.Space));
         // FK-2（决策 2）：static/readonly 读编译器字段符号；init 放宽为普通 set 后字段必须
         // 可变（与 C11 PD-3 对齐：SetMethod 含 init 访问器，故加 SetMethod==null 守卫）。
         // Roslyn 5.0 实测：field-keyword 形态（含 get-only 纯读）合成字段 IL 层均非 initonly，
         // 与 auto { get; } 不同；以符号事实为准。
         if (EmitReadOnly(info, plan))
-            mods.Add(SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword));
+            mods.Add(SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword).WithTrailingTrivia(SyntaxFactory.Space));
 
         // FK-2：类型/可空性直读字段符号（MinimallyQualified 支持泛型参数与特殊类型）。
         var typeText = info.BackingField.Type.ToMinimalDisplayString(
             model, decl.SpanStart, MinimalNullableFormat);
-        var typeSyntax = SyntaxFactory.ParseTypeName(typeText);
+        // 合成类型无 trivia：补分隔空格，避免 `string?name` 这类原文连词。
+        var typeSyntax = SyntaxFactory.ParseTypeName(typeText)
+            .WithTrailingTrivia(SyntaxFactory.Space);
 
         var declarator = SyntaxFactory.VariableDeclarator(
             SyntaxFactory.Identifier(SyntaxTriviaList.Empty, fieldName, SyntaxTriviaList.Empty));

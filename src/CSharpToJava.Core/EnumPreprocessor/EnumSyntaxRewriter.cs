@@ -375,6 +375,21 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         var left = visitedLeft ?? node.Left;
         var right = visitedRight ?? node.Right;
 
+        var kind = node.Kind();
+
+        // Equality / relational with an enum operand: lower the enum operand to its
+        // underlying (ordinal) integer type. The Java-conversion gate
+        // (BinaryExpressionTransformer.EnsureDirectBinaryOperands) allows only
+        // same-enum ==/!=; any other enum operand (enum vs int, relational, etc.)
+        // must be lowered here — otherwise lowering a parent bitwise expr produces
+        // (E)((U)a op (U)b) compared against a non-enum value and trips the gate.
+        if (kind is SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression
+            or SyntaxKind.LessThanExpression or SyntaxKind.LessThanOrEqualExpression
+            or SyntaxKind.GreaterThanExpression or SyntaxKind.GreaterThanOrEqualExpression)
+        {
+            return RewriteEnumComparison(node, left, right, kind);
+        }
+
         // Only handle enum bitwise operations
         if (!node.IsKind(SyntaxKind.BitwiseOrExpression)
             && !node.IsKind(SyntaxKind.BitwiseAndExpression)
@@ -438,6 +453,64 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         }
         IncrementRewrite();
         return EnsureParenthesized(result);
+    }
+
+    /// <summary>
+    /// Lowers enum operands in equality/relational binary expressions to their
+    /// underlying integer type. The only case left untouched is same-type-enum
+    /// == / != (Java enums support reference equality there). Everything else
+    /// (enum vs int, enum vs other enum, relational comparisons) trips the
+    /// BinaryExpressionTransformer gate unless lowered here.
+    /// </summary>
+    private BinaryExpressionSyntax RewriteEnumComparison(
+        BinaryExpressionSyntax node, ExpressionSyntax left, ExpressionSyntax right, SyntaxKind kind)
+    {
+        var leftEnum = GetEnumType(node.Left);
+        var rightEnum = GetEnumType(node.Right);
+
+        if (leftEnum == null && rightEnum == null)
+            return (BinaryExpressionSyntax)node.Update(left, node.OperatorToken, right);
+
+        var isEquality = kind is SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression;
+
+        // Same-enum equality / inequality → Java enums support == / !=; leave untouched.
+        if (isEquality && leftEnum != null && rightEnum != null
+            && SymbolEqualityComparer.Default.Equals(leftEnum, rightEnum))
+        {
+            return (BinaryExpressionSyntax)node.Update(left, node.OperatorToken, right);
+        }
+
+        // Lower any enum operand to its underlying type.
+        var newLeft = leftEnum != null ? CastEnumToUnderlying(left, node.Left, leftEnum) : left;
+        var newRight = rightEnum != null ? CastEnumToUnderlying(right, node.Right, rightEnum) : right;
+
+        IncrementRewrite();
+        return (BinaryExpressionSyntax)node.Update(newLeft, node.OperatorToken, newRight);
+    }
+
+    /// <summary>
+    /// Casts an enum-typed operand to its underlying type. Handles nullable
+    /// enums (E?) by lifting through .Value before casting.
+    /// </summary>
+    private ExpressionSyntax CastEnumToUnderlying(
+        ExpressionSyntax visited, ExpressionSyntax original, INamedTypeSymbol enumType)
+    {
+        var underlying = GetUnderlyingType(enumType);
+        if (underlying == null)
+            return visited;
+
+        // Nullable enum: (E?)x → (U)x.Value  (null comparison is already unwrapped
+        // by lifted C# semantics, but here we just need the ordinal of the value).
+        if (IsNullableEnum(original))
+        {
+            var valueAccess = SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                visited,
+                SyntaxFactory.IdentifierName("Value"));
+            return CastToUnderlying(valueAccess, underlying);
+        }
+
+        return CastToUnderlying(visited, underlying);
     }
 
     private ExpressionSyntax MaybeCastToUnderlying(

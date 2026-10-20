@@ -78,6 +78,22 @@ internal sealed class CaptureAnalyzer
     private static readonly Func<SyntaxNode, bool> DescendNotIntoLocalFunctions
         = static d => d is not LocalFunctionStatementSyntax;
 
+    /// <summary>
+    /// Descend-predicate that visits ALL descendants (including local function
+    /// bodies and nested lambda bodies).  Used only for outer-routine site
+    /// enumeration so lifted identifiers inside local functions also get their
+    /// sites collected and rewritten by C32's CaptureSiteRewriter.  The symbol
+    /// equality check (line: SymbolEqualityComparer on GetSymbolInfo) already
+    /// filters out any same-named local-function parameters.
+    ///
+    /// <see cref="FindWriteSites"/> intentionally keeps using
+    /// <see cref="DescendNotIntoLocalFunctions"/> — a write to a same-named
+    /// variable inside a local function is not a write to the outer scope
+    /// variable, and must not trigger D2 for the outer routine.
+    /// </summary>
+    private static readonly Func<SyntaxNode, bool> DescendAllScopes
+        = static _ => true;
+
     private readonly SemanticModel _model;
     private readonly ClosureLiftOptions _options;
     private readonly List<ClosureLiftDiagnostic> _diagnostics;
@@ -373,8 +389,13 @@ internal sealed class CaptureAnalyzer
         var sites = new List<ClosureSiteRef>();
         var quotedSites = new List<ClosureSiteRef>();
 
+        // Descend into local function bodies when collecting sites: the C32 capture
+        // rewrite for a lifted symbol must also rewrite its references inside local
+        // functions whose own routine analysis otherwise returns null (read-only
+        // capture). Otherwise the declaration is lifted but the local-function
+        // references remain as dangling identifiers (CS0103).
         foreach (var identifier in bodyRoot
-            .DescendantNodes(DescendNotIntoLocalFunctions)
+            .DescendantNodes(DescendAllScopes)
             .OfType<IdentifierNameSyntax>())
         {
             if (identifier.Parent is NameColonSyntax)

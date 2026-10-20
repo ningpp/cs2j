@@ -64,6 +64,40 @@ internal static class PropertyFacts
     public static bool IsExplicitInterfaceImplementation(IPropertySymbol prop)
         => prop.ExplicitInterfaceImplementations.Length > 0;
 
+    /// <summary>
+    /// 本属性以显式或隐式方式实现的接口属性中，是否有落在元数据上的（BCL/外部程序集/
+    /// 不参与本次编译的工程：无声明语法）。这类接口本体不经过本 pass 降形，属性展开成
+    /// get_X/set_X 方法后类不再以属性实现该接口槽（CS0535/CS0470；显式实现则是 CS0683），
+    /// 因此必须保留原属性。例：迭代器降级产物用 <c>public T Current</c> 隐式实现
+    /// <c>IEnumerator&lt;T&gt;.Current</c>。
+    /// </summary>
+    public static bool ImplementsMetadataInterfaceProperty(IPropertySymbol prop)
+    {
+        if (prop.ExplicitInterfaceImplementations.Any(
+                implemented => implemented.DeclaringSyntaxReferences.Length == 0))
+        {
+            return true;
+        }
+
+        var type = prop.ContainingType;
+        if (type == null || type.AllInterfaces.Length == 0) return false;
+
+        foreach (var iface in type.AllInterfaces)
+        {
+            foreach (var member in iface.GetMembers(prop.Name).OfType<IPropertySymbol>())
+            {
+                if (member.DeclaringSyntaxReferences.Length == 0
+                    && SymbolEqualityComparer.Default.Equals(
+                        type.FindImplementationForInterfaceMember(member), prop))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>接口内声明（含 DIM）。</summary>
     public static bool IsInterfaceMember(IPropertySymbol prop)
         => prop.ContainingType is { TypeKind: TypeKind.Interface };

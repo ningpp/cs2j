@@ -357,6 +357,11 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
 
             foreach (var record in records)
             {
+                if (string.IsNullOrEmpty(record.DeclaringFilePath))
+                {
+                    continue;
+                }
+
                 var recordPath = GeneratedFileWiring.ToIntermediatePath(
                     record.DeclaringFilePath, sourceRoot, intermediateRoot);
                 if (!compiled.Contains(recordPath))

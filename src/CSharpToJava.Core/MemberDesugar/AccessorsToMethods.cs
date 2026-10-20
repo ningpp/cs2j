@@ -42,9 +42,12 @@ internal static class AccessorsToMethods
             return SyntaxFactory.TokenList();
 
         if (inInterface)
+        {
             return property.Modifiers.Any(SyntaxKind.StaticKeyword)
-                ? SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.StaticKeyword))
+                ? SyntaxFactory.TokenList(
+                    SyntaxFactory.Token(SyntaxKind.StaticKeyword).WithTrailingTrivia(SyntaxFactory.Space))
                 : SyntaxFactory.TokenList();
+        }
 
         var mods = new List<SyntaxToken>();
         // 表达式体属性（无 AccessorList）经 Expand 传 null accessor：只有属性级可访问性。

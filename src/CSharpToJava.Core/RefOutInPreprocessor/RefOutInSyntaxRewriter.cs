@@ -1296,14 +1296,39 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             incExprs.Add(InjectSlotValues(liftedInc));
         }
 
-        // for (I; C; U) B → I; while (true) { C-splice; if (!C) break; B; U-splice; }
-        // (continue runs U then re-evaluates C — for semantics kept)
+        // for (I; C; U) B  →  I; while (true) { C-splice; if (!C) break; B-wrapped; U-splice; }
+        //
+        // A direct `continue` inside B must execute U before re-evaluating C,
+        // and a direct `break` inside B must skip U entirely. Both are handled
+        // by wrapping B in a do/while(false) with a flag escape, the same
+        // pattern used for VisitDoStatement:
+        //   continue → inner break  (falls through to U)
+        //   break     → set flag + inner break; if (flag) break;  (skips U)
+        var forScanner = new DoBodyJumpScanner();
+        forScanner.Visit(visitedBody);
         var loopBody = new List<StatementSyntax>();
         loopBody.AddRange(condStmts);
         if (newCondition != null)
             loopBody.Add(SyntaxFactory.IfStatement(
                 Negate(newCondition), SyntaxFactory.BreakStatement()));
-        loopBody.Add(visitedBody);
+
+        if (forScanner.HasContinue || forScanner.HasBreak)
+        {
+            var brkVar = forScanner.HasBreak ? $"__cs2jForBrk{NextTemp()}" : null;
+            if (brkVar != null)
+                loopBody.Add(BoolFalseDeclaration(brkVar));
+            var mappedBody = (StatementSyntax)new DoBodyJumpMapper(brkVar).Visit(visitedBody)!;
+            loopBody.Add(SyntaxFactory.DoStatement(
+                SyntaxFactory.Block(mappedBody),
+                SyntaxFactory.LiteralExpression(SyntaxKind.FalseLiteralExpression)));
+            if (brkVar != null)
+                loopBody.Add(SyntaxFactory.IfStatement(
+                    SyntaxFactory.IdentifierName(brkVar), SyntaxFactory.BreakStatement()));
+        }
+        else
+        {
+            loopBody.Add(visitedBody);
+        }
         loopBody.AddRange(incStmts);
         foreach (var incExpr in incExprs)
             loopBody.Add(SyntaxFactory.ExpressionStatement(incExpr));

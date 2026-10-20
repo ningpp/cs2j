@@ -210,10 +210,11 @@ internal sealed class FinalizerRewriter : CSharpSyntaxRewriter
         var ascii = new string(simpleName.Select(ch => char.IsLetterOrDigit(ch) ? ch : '_').ToArray());
         if (ascii.Length == 0 || char.IsDigit(ascii[0])) ascii = "_" + ascii;
         return SyntaxFactory.MethodDeclaration(
-                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword)),
+                SyntaxFactory.PredefinedType(
+                    SyntaxFactory.Token(SyntaxKind.VoidKeyword).WithTrailingTrivia(SyntaxFactory.Space)),
                 SyntaxFactory.Identifier("Cs2jRemovedFinalizer_" + ascii))
             .WithModifiers(SyntaxFactory.TokenList(
-                SyntaxFactory.Token(SyntaxKind.PrivateKeyword)))
+                SyntaxFactory.Token(SyntaxKind.PrivateKeyword).WithTrailingTrivia(SyntaxFactory.Space)))
             .WithBody(SyntaxFactory.Block(statements))
             .WithLeadingTrivia(destructor.GetLeadingTrivia())
             .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);

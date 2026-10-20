@@ -175,7 +175,7 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
         //    holders with the same local class name. Edits are therefore keyed
         //    by (received host type, nested-holder chain), never by bare class
         //    name — a bare-name map cross-wires every holder of the same name.
-        var classEdits = new Dictionary<(TypeDeclarationSyntax Host, string Chain), List<MemberDeclarationSyntax>>();
+        var classEdits = new Dictionary<(string HostTypeKey, string Chain), List<MemberDeclarationSyntax>>();
         foreach (var group in plan.EvolvedGroups)
         {
             if (!receivedTypeByModelType.TryGetValue(group.HostType, out _))
@@ -202,11 +202,11 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
                 edits.AddRange(methods);
 
             if (edits.Count > 0)
-                classEdits[(group.HostType, SelfChain(group))] = edits;
+                classEdits[(group.HostTypeKey, SelfChain(group))] = edits;
         }
 
         var newClassesByHost = new Dictionary<TypeDeclarationSyntax, List<ClassDeclarationSyntax>>();
-        var nestedClassesByParent = new Dictionary<(TypeDeclarationSyntax Host, string Chain), List<ClassDeclarationSyntax>>();
+        var nestedClassesByParent = new Dictionary<(string HostTypeKey, string Chain), List<ClassDeclarationSyntax>>();
         var topLevelNewGroupCount = 0;
         foreach (var group in plan.NewGroups)
         {
@@ -218,7 +218,7 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
             {
                 // Attach into the parent's member list: keyed by the parent's
                 // own chain (host + path including its class name).
-                var key = (group.HostType, SelfChain(group.Parent));
+                var key = (group.HostTypeKey, SelfChain(group.Parent));
                 if (!nestedClassesByParent.TryGetValue(key, out var nested))
                 {
                     nested = new List<ClassDeclarationSyntax>();
@@ -254,23 +254,30 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
         foreach (var pair in receivedTypeByModelType)
             modelHostByReceivedHost[pair.Value] = pair.Key;
         var withClasses = root.WithMembers(AppendDisplayMembers(
-            root.Members, modelHostByReceivedHost, newClassesByHost,
+            root.Members, model, modelHostByReceivedHost, newClassesByHost,
             nestedClassesByParent, classEdits, enclosingHost: null, chain: string.Empty));
 
         // 3. Ctor-argument edit for evolved groups that captured `this` (D7): the
         //    C32-emitted `new Class()` creations gain the `this` argument.
+        //    Matching uses BOTH (instanceName, className) because instance names are
+        //    PER-ROUTINE — the same `__cs2jClosure<N>` name legitimately appears in
+        //    multiple methods, but only an evolved group whose class name matches the
+        //    `new` target should receive the `this` argument (otherwise unmatched
+        //    holders would produce CS1729: 'Class' has no 1-parameter constructor).
         var creationReplacements = new Dictionary<ObjectCreationExpressionSyntax, ObjectCreationExpressionSyntax>();
-        var thisGroupNames = plan.EvolvedGroups
+        var thisNameClassPairs = plan.EvolvedGroups
             .Where(static g => g.CapturesThis)
-            .Select(static g => g.InstanceName)
-            .ToHashSet(StringComparer.Ordinal);
-        if (thisGroupNames.Count > 0)
+            .Select(static g => (g.InstanceName, g.ClassName))
+            .ToHashSet();
+        if (thisNameClassPairs.Count > 0)
         {
             foreach (var declaration in withClasses.DescendantNodes()
                          .OfType<LocalDeclarationStatementSyntax>())
             {
                 if (!ClosureLiftAnnotations.IsAnnotated(declaration)
-                    || declaration.Declaration.Variables.Count != 1)
+                    || declaration.Declaration.Variables.Count != 1
+                    || declaration.Declaration.Variables[0].Initializer?.Value
+                        is not ObjectCreationExpressionSyntax creation)
                 {
                     continue;
                 }
@@ -279,16 +286,21 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
                     .FirstOrDefault()?.Data is { } data && data.StartsWith("instance:", StringComparison.Ordinal)
                     ? data["instance:".Length..]
                     : null;
-                if (name == null || !thisGroupNames.Contains(name))
+                if (name == null)
                     continue;
 
-                if (declaration.Declaration.Variables[0].Initializer?.Value
-                    is ObjectCreationExpressionSyntax creation)
+                var className = creation.Type switch
                 {
-                    creationReplacements[creation] = creation.WithArgumentList(
-                        SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(
-                            SyntaxFactory.Argument(SyntaxFactory.ThisExpression()))));
-                }
+                    IdentifierNameSyntax id => id.Identifier.ValueText,
+                    GenericNameSyntax generic => generic.Identifier.ValueText,
+                    _ => null,
+                };
+                if (className == null || !thisNameClassPairs.Contains((name, className)))
+                    continue;
+
+                creationReplacements[creation] = creation.WithArgumentList(
+                    SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.Argument(SyntaxFactory.ThisExpression()))));
             }
         }
 
@@ -494,10 +506,11 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
     /// </summary>
     private static SyntaxList<MemberDeclarationSyntax> AppendDisplayMembers(
         SyntaxList<MemberDeclarationSyntax> members,
+        SemanticModel model,
         Dictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> modelHostByReceivedHost,
         Dictionary<TypeDeclarationSyntax, List<ClassDeclarationSyntax>> newClassesByHost,
-        Dictionary<(TypeDeclarationSyntax Host, string Chain), List<ClassDeclarationSyntax>> nestedClassesByParent,
-        Dictionary<(TypeDeclarationSyntax Host, string Chain), List<MemberDeclarationSyntax>> classEdits,
+        Dictionary<(string HostTypeKey, string Chain), List<ClassDeclarationSyntax>> nestedClassesByParent,
+        Dictionary<(string HostTypeKey, string Chain), List<MemberDeclarationSyntax>> classEdits,
         TypeDeclarationSyntax? enclosingHost,
         string chain)
     {
@@ -526,14 +539,15 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
                         var selfChain = chain.Length == 0
                             ? "/" + holderName
                             : chain + "/" + holderName;
+                        var hostTypeKey = HolderPlanner.HostTypeKey(model, enclosingHost);
                         // Edits for THIS holder and children attaching INTO it
                         // share the same key: host + this holder's self chain.
-                        if (classEdits.TryGetValue((enclosingHost, selfChain), out var edits))
+                        if (classEdits.TryGetValue((hostTypeKey, selfChain), out var edits))
                             newType = newType.WithMembers(newType.Members.AddRange(edits));
 
                         // Children are attached before the recursive descent so
                         // grandchildren find their freshly attached parent nodes.
-                        if (nestedClassesByParent.TryGetValue((enclosingHost, selfChain), out var nested))
+                        if (nestedClassesByParent.TryGetValue((hostTypeKey, selfChain), out var nested))
                             newType = newType.WithMembers(newType.Members.AddRange(nested));
                     }
 
@@ -541,7 +555,7 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
                         ? "/" + holderName
                         : chain + "/" + holderName;
                     var nestedMembers = AppendDisplayMembers(
-                        newType.Members, modelHostByReceivedHost, newClassesByHost,
+                        newType.Members, model, modelHostByReceivedHost, newClassesByHost,
                         nestedClassesByParent, classEdits, enclosingHost, childChain);
                     if (nestedMembers != newType.Members)
                         newType = newType.WithMembers(nestedMembers);
@@ -556,7 +570,7 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
                         newType = newType.WithMembers(newType.Members.AddRange(classes));
 
                     var nestedMembers = AppendDisplayMembers(
-                        newType.Members, modelHostByReceivedHost, newClassesByHost,
+                        newType.Members, model, modelHostByReceivedHost, newClassesByHost,
                         nestedClassesByParent, classEdits, hostNode, string.Empty);
                     if (nestedMembers != newType.Members)
                         newType = newType.WithMembers(nestedMembers);
@@ -568,7 +582,7 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
             else if (member is BaseNamespaceDeclarationSyntax namespaceDeclaration)
             {
                 var namespaceMembers = AppendDisplayMembers(
-                    namespaceDeclaration.Members, modelHostByReceivedHost, newClassesByHost,
+                    namespaceDeclaration.Members, model, modelHostByReceivedHost, newClassesByHost,
                     nestedClassesByParent, classEdits, enclosingHost, chain);
                 if (namespaceMembers != namespaceDeclaration.Members)
                     replacement = namespaceDeclaration.WithMembers(namespaceMembers);

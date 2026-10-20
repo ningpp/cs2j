@@ -29,9 +29,13 @@ internal static class EventFacts
     /// <summary>字段修饰符：固定 private（+ static 随事件）。</summary>
     public static SyntaxTokenList BuildFieldModifiers(MemberDeclarationSyntax evt)
     {
-        var mods = new List<SyntaxToken> { SyntaxFactory.Token(SyntaxKind.PrivateKeyword) };
+        // 合成修饰符自带分隔空格（原文 reparse 校验不再先行格式化）。
+        var mods = new List<SyntaxToken>
+        {
+            SyntaxFactory.Token(SyntaxKind.PrivateKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+        };
         if (evt.Modifiers.Any(SyntaxKind.StaticKeyword))
-            mods.Add(SyntaxFactory.Token(SyntaxKind.StaticKeyword));
+            mods.Add(SyntaxFactory.Token(SyntaxKind.StaticKeyword).WithTrailingTrivia(SyntaxFactory.Space));
         return SyntaxFactory.TokenList(mods);
     }
 
@@ -50,9 +54,12 @@ internal static class EventFacts
             return SyntaxFactory.TokenList();
 
         if (inInterface)
+        {
             return evt.Modifiers.Any(SyntaxKind.StaticKeyword)
-                ? SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.StaticKeyword))
+                ? SyntaxFactory.TokenList(
+                    SyntaxFactory.Token(SyntaxKind.StaticKeyword).WithTrailingTrivia(SyntaxFactory.Space))
                 : SyntaxFactory.TokenList();
+        }
 
         var mods = new List<SyntaxToken>();
         var accessorAccessibility = accessor?.Modifiers.FirstOrDefault(IsAccessibility) ?? default;

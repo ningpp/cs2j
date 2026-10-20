@@ -137,12 +137,18 @@ internal sealed class PropertyDeclarationExpander
         PropertyDeclarationSyntax decl, PropertyPlan plan, PropertyDeclarationSyntax bindingDecl)
     {
         var prop = plan.Property;
-        var mods = new List<SyntaxToken> { SyntaxFactory.Token(SyntaxKind.PrivateKeyword) };
+        // 合成修饰符/关键字一律自带分隔空格：原始产物必须先过 RewriteAndValidate 的
+        // 原文 reparse（格式化已从校验路径移除），`privateint` 之类的连词虽可解析为
+        // 单个标识符，却会让整树编译报 CS0246 并触发回滚。
+        var mods = new List<SyntaxToken>
+        {
+            SyntaxFactory.Token(SyntaxKind.PrivateKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+        };
         if (prop.IsStatic)
-            mods.Add(SyntaxFactory.Token(SyntaxKind.StaticKeyword));
+            mods.Add(SyntaxFactory.Token(SyntaxKind.StaticKeyword).WithTrailingTrivia(SyntaxFactory.Space));
         // get-only（无 set/init）→ readonly；init 放宽为可写 set 后字段必须可变（决策 4）。
         if (prop.SetMethod == null)
-            mods.Add(SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword));
+            mods.Add(SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword).WithTrailingTrivia(SyntaxFactory.Space));
 
         var declarator = SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(plan.BackingFieldName!));
         if (decl.Initializer != null)
@@ -185,7 +191,11 @@ internal sealed class PropertyDeclarationExpander
         var modifiers = AccessorsToMethods.BuildMethodModifiers(decl, acc, inInterface, isExplicit);
         var returnType = isGetter
             ? decl.Type
-            : SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword));
+            // 合成 void 无 trivia：必须自带分隔空格，否则原始产物 `voidset_X` 连词法都
+            // 不合法，RewriteAndValidate 的原文 reparse 校验必然失败（格式化已从校验
+            // 路径移除，见 735b0b7d；下游 Formatter 不再有机会修复）。
+            : SyntaxFactory.PredefinedType(
+                SyntaxFactory.Token(SyntaxKind.VoidKeyword).WithTrailingTrivia(SyntaxFactory.Space));
 
         var parameterList = isGetter
             ? SyntaxFactory.ParameterList()
@@ -193,7 +203,7 @@ internal sealed class PropertyDeclarationExpander
               {
                   SyntaxFactory.Parameter(
                       default, default,
-                      decl.Type.WithoutTrivia(),
+                      decl.Type.WithoutTrivia().WithTrailingTrivia(SyntaxFactory.Space),
                       SyntaxFactory.Identifier("value"),
                       null)
               }));
@@ -231,7 +241,9 @@ internal sealed class PropertyDeclarationExpander
             {
                 body = SyntaxFactory.Block(
                     SyntaxFactory.ReturnStatement(
-                        SyntaxFactory.IdentifierName(plan.BackingFieldName!)));
+                            SyntaxFactory.IdentifierName(plan.BackingFieldName!))
+                        .WithReturnKeyword(SyntaxFactory.Token(SyntaxKind.ReturnKeyword)
+                            .WithTrailingTrivia(SyntaxFactory.Space)));
             }
             else
             {

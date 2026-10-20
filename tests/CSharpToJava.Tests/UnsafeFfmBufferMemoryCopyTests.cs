@@ -305,6 +305,45 @@ public class UnsafeFfmBufferMemoryCopyTests
         Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF021);
     }
 
+    /// <summary>回归核心修复点：catalog 因⑧信号识别为 paired 后，R5 改写签名并
+    /// 以 FoldsToOffset=true 登记 flow；R6 VisitInvocationExpression 门控必须
+    /// 命中路径B（root=pInput 自身即配对 flow key）进入
+    /// TryExpandMetadataInvocationAsPairedOffset 降级 fallback，而非被
+    /// IsOldPointerTyped 过滤跳过或回落到 base.VisitInvocationExpression 不作
+    /// 处理。单元测试编译可能无法提供 Encoding 的完整托管重载，此时 fallback
+    /// 走到 UF020 即门控命中证据。</summary>
+    [Fact]
+    public void PairedParameter_ParamOffsetArg_GateTriggersFallback()
+    {
+        // catalog 识别⑧信号：方法把 pInput+next 外发元数据指针方法。
+        // R5 paired 改写 char[] pInput + int pInputIndex，flow FoldsToOffset=true。
+        // fixed 游标的 byte* pEncodedBytes 零不变，容量位 (4) 可消去，应匹配
+        // GetBytes(char[], int, int, byte[], int) 5 参托管重载（BCL 无 6 参形式）。
+        var src = """
+            using System.Text;
+            unsafe class C
+            {
+                static int M(char* pInput, int next)
+                {
+                    byte[] encodedBytes = new byte[4];
+                    fixed (byte* pEncodedBytes = encodedBytes)
+                    {
+                        return Encoding.UTF8.GetBytes(pInput + next, 1, pEncodedBytes, 4);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        // 进入 TryRewriteMetadataPointerInvocation 即门控命中。paired-parameter offset
+        // 路径下 fixed 缓冲零不变，应成功展开为 GetBytes(char[],int,int,byte[],int)。
+        Assert.True(result.Changed, "Expected 5-param managed expansion to succeed");
+        Assert.False(result.HasErrors, "Unexpected UF020:\n" +
+            string.Join("\n", result.Diagnostics));
+        Assert.Contains("GetBytes(", result.OutputCode);
+    }
+
     [Fact]
     public void LoweredOutput_IsIdempotent_SecondRunClean()
     {

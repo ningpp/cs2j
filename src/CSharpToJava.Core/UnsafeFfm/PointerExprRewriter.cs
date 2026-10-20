@@ -453,7 +453,17 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
             }
         }
 
-        if (!hasStackAllocCursorArg) return false;
+        // 降级 fallback：上门控未命中但至少一个 int 型实参（已被先前 visit
+        // 降至 int）的 originating symbols 溯源到被 R5 配对形参的 offset 变量
+        // （如 pInputIndex）。 此时仍尝试托管重载展开——以「数组 + offset 变量」
+        // 替换指针位。 仅当确实存在此类 offset 实参时才接管，避免对其他方法产生
+        // 副作用。 展开失败同样吞错并保真原文（与 stackalloc 域一致）。
+        if (!hasStackAllocCursorArg)
+        {
+            if (!HasPairedParameterOffsetArg(node.ArgumentList.Arguments))
+                return false;
+            return TryExpandMetadataInvocationAsPairedOffset(node, out rewritten, out error);
+        }
 
         string? firstError = null;
         foreach (var method in candidates)
@@ -491,6 +501,163 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
         error = firstError ?? "metadata pointer call with a stackalloc cursor cannot be resolved "
             + "to a managed array overload; the original file was preserved.";
         return true;
+    }
+
+    /// <summary>
+    /// 网关助手：arg 列表中存在 int 型实参（已被先前 visit 降至 int），且其
+    /// originating symbols 溯源到一个 R5 配对形参的 offset 变量（如 pInputIndex）。
+    /// </summary>
+    private bool HasPairedParameterOffsetArg(IReadOnlyList<ArgumentSyntax> arguments)
+    {
+        foreach (var argument in arguments)
+        {
+            var roots = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+            CollectOriginatingSymbols(argument.Expression, roots);
+            if (roots.Any(IsPairedParameterOffsetRoot))
+                return true;
+            // R5 lowered fallback：CollectOriginatingSymbols 依赖
+            // GetExpressionSymbol 映射回原树，对 R5 新引入的配对索引标识符
+            // （如 pInputIndex）返回 null；需要直接拿表达式中的标识符文本与
+            // flow 模型 OffsetText 比对。
+            if (ExpressionContainsPairedOffsetName(argument.Expression))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 递归检查表达式树中是否存在某个标识符的文本名称匹配 flow 模型中某配对
+    /// 指针形参 flow 的 OffsetText（如 pInputIndex）。用于 R5 降级 fallback：
+    /// R5 引入的配对索引变量是新节点，解析器无法映射回原始树，
+    /// <see cref="CollectOriginatingSymbols"/> 会遗漏它；此处按表达式结构
+    /// 直接搜索。
+    /// </summary>
+    private bool ExpressionContainsPairedOffsetName(ExpressionSyntax expression)
+    {
+        expression = UnwrapParenthesized(expression);
+        if (expression is IdentifierNameSyntax identifier)
+        {
+            return _flowModel.AnyPairedParameterWithOffset(identifier.Identifier.ValueText);
+        }
+        if (expression is BinaryExpressionSyntax binary)
+        {
+            return ExpressionContainsPairedOffsetName(binary.Left)
+                || ExpressionContainsPairedOffsetName(binary.Right);
+        }
+        if (expression is PrefixUnaryExpressionSyntax prefix)
+        {
+            return ExpressionContainsPairedOffsetName(prefix.Operand);
+        }
+        if (expression is CastExpressionSyntax cast)
+        {
+            return ExpressionContainsPairedOffsetName(cast.Expression);
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 降级 fallback：上门控（stackalloc）未命中但 HasPairedParameterOffsetArg 命中时，
+    /// 复用栈上展开路径（candidates/TryBuildMetadataExpansion/RebuildMetadataInvocation），
+    /// 只是把 bool 门控置为 true 去重走 TryBuildMetadataExpansion。 展开失败后
+    /// 吞错保真原文，与 stackalloc 域行为一致。
+    /// </summary>
+    private bool TryExpandMetadataInvocationAsPairedOffset(
+        InvocationExpressionSyntax node,
+        out InvocationExpressionSyntax? rewritten,
+        out string? error)
+    {
+        rewritten = null;
+        error = null;
+
+        // 与 TryRewriteMetadataPointerInvocation 共享 candidates 计算。
+        if (_resolver.Resolve(node) is not InvocationExpressionSyntax originalInvocation)
+            return false;
+
+        var symbolInfo = _model.GetSymbolInfo(originalInvocation);
+        var candidates = new List<IMethodSymbol>();
+        if (symbolInfo.Symbol is IMethodSymbol direct) candidates.Add(direct);
+        foreach (var candidate in symbolInfo.CandidateSymbols)
+        {
+            if (candidate is IMethodSymbol candidateMethod)
+                candidates.Add(candidateMethod);
+        }
+        candidates.RemoveAll(method => method.DeclaringSyntaxReferences.Length != 0);
+        candidates.RemoveAll(method => !method.Parameters.Any(p => p.Type is IPointerTypeSymbol));
+        if (candidates.Count == 0) return false;
+
+        string? firstError = null;
+        foreach (var method in candidates)
+        {
+            if (!TryBuildMetadataExpansion(node, method, out var records, out var expandError))
+            {
+                firstError ??= expandError;
+                continue;
+            }
+
+            var pointerArgCount = records.Count(r => r.Kind == MetadataArgKind.Pointer);
+            if (TryConcatRecords(records, out var fullSlots)
+                && TryFindManagedArrayOverload(method, fullSlots, out _))
+            {
+                rewritten = RebuildMetadataInvocation(node, records, pointerArgCount);
+                return true;
+            }
+            if (TryDropCapacityRecord(records)
+                && TryConcatRecords(records, out var reducedSlots)
+                && TryFindManagedArrayOverload(method, reducedSlots, out _))
+            {
+                rewritten = RebuildMetadataInvocation(node, records, pointerArgCount);
+                return true;
+            }
+            firstError ??= $"metadata pointer method '{method.Name}' receives a paired-parameter "
+                + "offset argument but no managed array overload matches; the original file was preserved.";
+        }
+
+        error = firstError ?? "metadata pointer call with a paired-parameter offset argument "
+            + "cannot be resolved to a managed array overload; the original file was preserved.";
+        return true;
+    }
+
+    /// <summary>
+    /// 降级 fallback：originating symbols 中的某个符号溯源到 R5 配对指针形参。
+    /// 两种路径：
+    /// <list type="bullet">
+    /// <item>符号名称为某 R5 配对指针形参 flow 的 OffsetText（如 pInputIndex）。
+    /// 该 int 不作为 key 注册（key 是 pInput 指针符号），按偏移名称反查；</item>
+    /// <item>符号自身即 flow 的注册 key 且 FoldsToOffset（key 是 pInput 指针符号，
+    /// OffsetText 空/不匹配配对形参的 IndexName≠形参名时原始 pInput 自身也配对）。
+    /// VisitInvocationExpression 的栈上 fallback 门控在原始树形态下拿到的是
+    /// pInput 指针原始符号（而非已降级的 pInputIndex int），不能仅靠名称
+    /// 命中 OffsetText。</item>
+    /// </list>
+    /// </summary>
+    private bool IsPairedParameterOffsetRoot(ISymbol? root)
+    {
+        if (root == null) return false;
+        // 路径A：名称为某配对 flow 的 OffsetText（pInputIndex）。
+        if (_flowModel.AnyPairedParameterWithOffset(root.Name)) return true;
+        // 路径B：符号自身即注册的配对指针形参 key（pInput）。
+        // 配对约定在 R5 以 FoldsToOffset=true 登记；array-only 未配对则
+        // FoldsToOffset=false，两路径必须同时命中才不误触发 fallback。
+        if (_flowModel.TryGet(root, out var selfFlow) && selfFlow.FoldsToOffset) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// 降级 fallback：某标识符是否为一个 R5 配对指针形参的「int 索引偏移变量」
+    /// （即 _flowModel 中以 OffsetText 登记的 pInputIndex 等）。该符号自身未中
+    /// 心注册（注册 key 是 pInput 指针符号），但 offset 名称命中即视为配对索引。
+    /// </summary>
+    private bool IsPairedIndexIdentifier(ExpressionSyntax expression)
+    {
+        if (UnwrapParenthesized(expression) is not IdentifierNameSyntax identifier)
+            return false;
+        var symbol = GetExpressionSymbol(identifier);
+        if (symbol != null)
+            return _flowModel.AnyPairedParameterWithOffset(symbol.Name);
+        // R5 lowered fallback: pInputIndex 是 R5 引入的新标识符，解析器无法
+        // 映射回原树，GetExpressionSymbol 返回 null；直接拿标识符文本与 flow
+        // 模型 OffsetText 比对。
+        return _flowModel.AnyPairedParameterWithOffset(identifier.Identifier.ValueText);
     }
 
     private enum MetadataArgKind { Plain, Pointer }
@@ -577,8 +744,10 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
                         _model.Compilation.CreateArrayTypeSymbol(pointerParameter.PointedAtType),
                         _model.Compilation.GetSpecialType(SpecialType.System_Int32),
                     },
-                    RootZeroInvariant = stackAllocRoots.Count > 0
-                        && stackAllocRoots.All(IsZeroInvariantStackAllocRoot),
+                    // zeroInvariant 涵盖：零不变 stackalloc 种子、展开索引为常量 0、
+                    // 裸引用 fixed/Pinned 游标初值零偏移且作用域内无写入——任何
+                    // 一种形态成立，尾部 int 容量位均可安全消去。
+                    RootZeroInvariant = zeroInvariant,
                 });
                 continue;
             }
@@ -1091,6 +1260,21 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
                 index = LiteralExpression(
                     SyntaxKind.NumericLiteralExpression, Literal(0));
             sourceSlot = provable.SourceSlot ?? provable.ArrayExpressionText;
+            return true;
+        }
+
+        // 降级 fallback：符号名本身是某配对指针形参 flow 的 OffsetText
+        // （即「R5 配对索引变量」如 pInputIndex）。该符号自身不居中注册
+        // （flow 的注册 key 是 pInput 指针符号），但它的名称等于 OffsetText。
+        // 此时索引变量自身承载偏移，故 offset 即自身名称。
+        // R5 lowered：symbol 可能为 null（pInputIndex 是 R5 新引入节点，
+        // 解析器无法映射回原树），此时用 ownText（即标识符文本）作为反查键。
+        var offsetLookupName = symbol?.Name ?? ownText;
+        if (_flowModel.TryGetByOffsetName(offsetLookupName, out var offsetFlow))
+        {
+            arrayText = offsetFlow.ArrayExpressionText;
+            index = IdentifierName(offsetLookupName);
+            sourceSlot = offsetFlow.SourceSlot ?? offsetFlow.ArrayExpressionText;
             return true;
         }
 
@@ -2088,14 +2272,14 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
         switch (e)
         {
             case IdentifierNameSyntax:
-                if (GetExpressionSymbol(e) is { } identifierSymbol)
-                {
-                    return TryResolveIndexSymbol(
-                        identifierSymbol, e.ToString(),
-                        out arrayText, out index, out sourceSlot);
-                }
-
-                return false;
+                var idSymbol = GetExpressionSymbol(e);
+                // R5 lowered fallback: GetExpressionSymbol 对新引入的配对索引标识符
+                // （如 pInputIndex）返回 null，但仍需走 TryResolveIndexSymbol，
+                // 其内部会拿 ownText 与 flow 的 OffsetText 比对。不能因为 symbol
+                // 为 null 就直接放弃。
+                return TryResolveIndexSymbol(
+                    idSymbol, e.ToString(),
+                    out arrayText, out index, out sourceSlot);
 
             case MemberAccessExpressionSyntax memberAccess:
                 // holder.Value 读（配对 holder 形参或已重建 holder 局部）：
@@ -2189,6 +2373,47 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
                         SyntaxKind.SubtractExpression,
                         ParenthesizedExpression(nestedIndex),
                         ParenthesizedExpression(visitedIntSide)));
+
+                    arrayText = nestedArray;
+                    index = combined;
+                    sourceSlot = nestedSlot;
+                    _statistics.PointerArithmeticPropagated++;
+                    return true;
+                }
+
+                // 降级 fallback：两边均已降为 int（如 pInputIndex + next），但某
+                // 边的标识符是配对指针形参的 index 变量（OffsetText 命中）。
+                // 以该 index 变量为 cursor，另一侧为算术偏移。
+                if (binary.Kind() == SyntaxKind.AddExpression && !bLeftPointer && !bRightPointer)
+                {
+                    ExpressionSyntax indexSide;
+                    ExpressionSyntax offsetSide;
+                    if (IsPairedIndexIdentifier(binary.Left))
+                    {
+                        indexSide = binary.Left;
+                        offsetSide = binary.Right;
+                    }
+                    else if (IsPairedIndexIdentifier(binary.Right))
+                    {
+                        indexSide = binary.Right;
+                        offsetSide = binary.Left;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+
+                    if (!TryBuildIndex(indexSide, out var nestedArray, out var nestedIndex,
+                            out var nestedSlot))
+                    {
+                        return false;
+                    }
+
+                    var visitedOffsetSide = (ExpressionSyntax)Visit(offsetSide)!;
+                    var combined = Simplify(BinaryExpression(
+                        SyntaxKind.AddExpression,
+                        ParenthesizedExpression(nestedIndex),
+                        ParenthesizedExpression(visitedOffsetSide)));
 
                     arrayText = nestedArray;
                     index = combined;

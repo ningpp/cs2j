@@ -34,15 +34,15 @@ namespace Cs2jArray
         public static int GetLength(System.Array array, int dimension)
         {
             if (dimension < 0) throw new System.IndexOutOfRangeException();
-            int d = 0;
-            var current = array;
-            while (d < dimension)
+            if (array.Rank == 1)
             {
-                if (current.Length == 0) return 0;
-                current = (System.Array)current.GetValue(0)!;
-                d++;
+                if (dimension == 0) return array.Length;
+                throw new System.IndexOutOfRangeException();
             }
-            return current.Length;
+            // 多维数组（非交错数组）：GetValue(0) 返回的是元素而非子数组，
+            // 交错数组遍历算法不适用，直接用 BCL 实例方法。
+            // ArrayHelper 文件被主转换器跳过，不做 TypeMappings 重写。
+            return array.GetLength(dimension);
         }
 
         public static long GetLongLength(System.Array array, int dimension)

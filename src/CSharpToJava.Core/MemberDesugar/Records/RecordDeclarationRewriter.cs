@@ -48,7 +48,9 @@ internal static class RecordDeclarationRewriter
             return null;
         }
 
-        var typeName = BuildSelfTypeName(decl);
+        // 合成类型名补分隔空格，避免 `RCs2jWithClone` / `newR(this)` 连词（原文 reparse
+        // 校验不再先行格式化；连词若恰好可解析，会以错误语义进入候选编译）。
+        var typeName = BuildSelfTypeName(decl).WithTrailingTrivia(SyntaxFactory.Space);
         var modifiers = BuildModifiers(form);
 
         MethodDeclarationSyntax method;
@@ -75,7 +77,9 @@ internal static class RecordDeclarationRewriter
                 typeName.WithoutTrivia(),
                 SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(
                     SyntaxFactory.Argument(SyntaxFactory.ThisExpression()))),
-                null);
+                    null)
+                .WithNewKeyword(SyntaxFactory.Token(SyntaxKind.NewKeyword)
+                    .WithTrailingTrivia(SyntaxFactory.Space));
             method = SyntaxFactory.MethodDeclaration(
                     default,
                     modifiers,
@@ -158,14 +162,17 @@ internal static class RecordDeclarationRewriter
                             SyntaxFactory.VariableDeclarator(
                                 SyntaxFactory.Identifier(fieldName)))))
                 .WithModifiers(SyntaxFactory.TokenList(
-                    SyntaxFactory.Token(SyntaxKind.PrivateKeyword))));
+                    SyntaxFactory.Token(SyntaxKind.PrivateKeyword)
+                        .WithTrailingTrivia(SyntaxFactory.Space))));
 
             // public T get_X() { return this.x; }
             newMembers.Add(SyntaxFactory.MethodDeclaration(
                     type, SyntaxFactory.Identifier(AccessorsToMethods.GetterName(propName)))
                 .WithModifiers(PublicModifiers())
                 .WithBody(SyntaxFactory.Block(
-                    SyntaxFactory.ReturnStatement(ThisField(fieldName)))));
+                    SyntaxFactory.ReturnStatement(ThisField(fieldName))
+                        .WithReturnKeyword(SyntaxFactory.Token(SyntaxKind.ReturnKeyword)
+                            .WithTrailingTrivia(SyntaxFactory.Space)))));
 
             // public void set_X(T value) { this.x = value; }
             newMembers.Add(SyntaxFactory.MethodDeclaration(
@@ -317,7 +324,8 @@ internal static class RecordDeclarationRewriter
     }
 
     private static SyntaxTokenList PublicModifiers()
-        => SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
+        => SyntaxFactory.TokenList(
+            SyntaxFactory.Token(SyntaxKind.PublicKeyword).WithTrailingTrivia(SyntaxFactory.Space));
 
     // ---- RC-5：record 面 required / [SetsRequiredMembers] 剥离（决策 7b/7c）----
 
@@ -436,7 +444,8 @@ internal static class RecordDeclarationRewriter
     }
 
     private static PredefinedTypeSyntax PredefinedVoid()
-        => SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword));
+        => SyntaxFactory.PredefinedType(
+            SyntaxFactory.Token(SyntaxKind.VoidKeyword).WithTrailingTrivia(SyntaxFactory.Space));
 
     /// <summary><c>this.field</c> 成员访问（field 名已是契约转义名）。</summary>
     private static MemberAccessExpressionSyntax ThisField(string fieldName)
@@ -456,8 +465,12 @@ internal static class RecordDeclarationRewriter
             RecordFactoryForm.Override => SyntaxKind.OverrideKeyword,
             _ => (SyntaxKind?)null,
         };
-        var tokens = new List<SyntaxToken> { SyntaxFactory.Token(SyntaxKind.PublicKeyword) };
-        if (kind is { } k) tokens.Add(SyntaxFactory.Token(k));
+        var tokens = new List<SyntaxToken>
+        {
+            SyntaxFactory.Token(SyntaxKind.PublicKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+        };
+        if (kind is { } k)
+            tokens.Add(SyntaxFactory.Token(k).WithTrailingTrivia(SyntaxFactory.Space));
         return SyntaxFactory.TokenList(tokens);
     }
 

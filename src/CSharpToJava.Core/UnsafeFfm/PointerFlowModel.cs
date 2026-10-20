@@ -84,4 +84,45 @@ internal sealed class PointerFlowModel
 
     /// <summary>全部已登记 flow（R3 按伴生数组文本反查源槽归属）。</summary>
     public IEnumerable<PointerFlow> EnumerateFlows() => _flows.Values;
+
+    /// <summary>
+    /// 是否存在某个 <see cref="PointerSourceKind.ParamArray"/> + FoldsToOffset
+    /// 的 flow 条目，其 <see cref="PointerFlow.OffsetText"/> 等于
+    /// <paramref name="offsetName"/>。R6 的 TryRewriteMetadataPointerInvocation
+    /// 降级 fallback 用：配对指针形参的 int 索引变量名（如 pInputIndex）不是
+    /// 注册 key（key 是 pInput 指针符号），但它的名称正好等于 OffsetText；
+    /// 低偏移实参 pInputIndex + next 的 originating symbols 就是该名称，逐条目
+    /// 匹配触发托管重载展开。
+    /// </summary>
+    public bool AnyPairedParameterWithOffset(string offsetName)
+    {
+        foreach (var flow in _flows.Values)
+        {
+            if (flow.Kind == PointerSourceKind.ParamArray
+                && flow.FoldsToOffset
+                && flow.OffsetText == offsetName)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 按 <see cref="PointerFlow.OffsetText"/> 查找某配对 flow 条目。
+    /// 配对指针形参的基础符号是注册 key（如 pInput 指针），但「配对索引变量名」
+    /// （如 pInputIndex）则作为 OffsetText 存储。TryResolveIndexSymbol 的降级
+    /// fallback 按 offset name 反查，把索引变量自身视为游标偏移。
+    /// </summary>
+    public bool TryGetByOffsetName(string offsetName, out PointerFlow flow)
+    {
+        foreach (var entry in _flows.Values)
+        {
+            if (entry.OffsetText == offsetName)
+            {
+                flow = entry;
+                return true;
+            }
+        }
+        flow = default!;
+        return false;
+    }
 }

@@ -109,16 +109,20 @@ internal sealed class IndexerDeclarationExpander
         {
             // ref 索引器的 value 形参类型取 RefType 内层类型（ref int → int）。
             var valueType = decl.Type is RefTypeSyntax rt ? rt.Type : decl.Type;
+            // 合成类型无 trivia：补分隔空格，避免原始产物 `Tvalue` 词法非法
+            // （本地校验按原文 reparse，不再先行格式化）。
             var valueParameter = SyntaxFactory.Parameter(
                 default(SyntaxList<AttributeListSyntax>), default(SyntaxTokenList),
-                valueType.WithoutTrivia(), SyntaxFactory.Identifier("value"), null);
+                valueType.WithoutTrivia().WithTrailingTrivia(SyntaxFactory.Space),
+                SyntaxFactory.Identifier("value"), null);
             var parameters = decl.ParameterList!.Parameters.Add(valueParameter);
             var method = SyntaxFactory.MethodDeclaration(
                 SyntaxFactory.List(RouteDeclarationAttributes(bindingDecl, forGetter: false)
                     .Concat(setAccessor?.AttributeLists ?? Enumerable.Empty<AttributeListSyntax>())
                     .ToList()),
                 BuildIndexerModifiers(decl, setAccessor, inInterface, isExplicit),
-                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword)),
+                SyntaxFactory.PredefinedType(
+                    SyntaxFactory.Token(SyntaxKind.VoidKeyword).WithTrailingTrivia(SyntaxFactory.Space)),
                 isExplicit
                     ? SyntaxFactory.ExplicitInterfaceSpecifier(decl.ExplicitInterfaceSpecifier!.Name)
                     : null,
