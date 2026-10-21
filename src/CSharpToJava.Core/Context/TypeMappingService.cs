@@ -564,7 +564,11 @@ public class TypeMappingService
             if (mappedBase != fullQualifiedName)
             {
                 baseType = MapSimpleTypeName(mappedBase);
-                if (!IsDefinedInSource(namedType))
+                // Config imports must be emitted even when the type is declared in
+                // another project of the same solution: wildcard imports from
+                // dotnet.system.* and io.github.ningpp.compat.* otherwise make the
+                // simple name ambiguous (e.g. UriKind).
+                if (mappedFromConfig || !IsDefinedInSource(namedType))
                     AddImportsForType(configKey);
             }
 
@@ -746,7 +750,7 @@ public class TypeMappingService
 
         if (mapped != name && mapped != fullQualifiedNameSimple)
         {
-            if (!IsDefinedInSource(typeSymbol))
+            if (_typeMappings.HasTypeMapping(configKeySimple) || !IsDefinedInSource(typeSymbol))
                 AddImportsForType(configKeySimple);
             var mappedFromExplicitConfig = _typeMappings.HasTypeMapping(configKeySimple);
             var mappedSimple = MapSimpleTypeName(mapped);
@@ -771,7 +775,9 @@ public class TypeMappingService
 
         // Cross-namespace imports for project types
             if (!string.IsNullOrEmpty(ns)
-                && (ns.StartsWith("Microsoft.", StringComparison.Ordinal) || IsDefinedInSource(typeSymbol)))
+                && (ns.StartsWith("Microsoft.", StringComparison.Ordinal)
+                    || ns.StartsWith("dotnet.", StringComparison.Ordinal)
+                    || IsDefinedInSource(typeSymbol)))
             {
                 if (!string.Equals(curNs, ns, StringComparison.Ordinal)
                     && typeSymbol.ContainingType == null

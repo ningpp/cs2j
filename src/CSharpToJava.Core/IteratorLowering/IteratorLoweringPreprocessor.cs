@@ -362,6 +362,40 @@ internal sealed class BareReturnToYieldBreakRewriter : CSharpSyntaxRewriter
         }
     }
 
+    public override SyntaxNode? VisitPropertyDeclaration(PropertyDeclarationSyntax node)
+    {
+        var getter = node.AccessorList?.Accessors
+            .FirstOrDefault(a => a.IsKind(SyntaxKind.GetAccessorDeclaration));
+        if (getter?.Body == null || !MethodContainsYield(getter.Body)) return node;
+
+        var rewrittenBody = RewriteIteratorBody(getter.Body);
+        return node.WithAccessorList(node.AccessorList!.ReplaceNode(getter, getter.WithBody(rewrittenBody)));
+    }
+
+    public override SyntaxNode? VisitIndexerDeclaration(IndexerDeclarationSyntax node)
+    {
+        var getter = node.AccessorList?.Accessors
+            .FirstOrDefault(a => a.IsKind(SyntaxKind.GetAccessorDeclaration));
+        if (getter?.Body == null || !MethodContainsYield(getter.Body)) return node;
+
+        var rewrittenBody = RewriteIteratorBody(getter.Body);
+        return node.WithAccessorList(node.AccessorList!.ReplaceNode(getter, getter.WithBody(rewrittenBody)));
+    }
+
+    private BlockSyntax RewriteIteratorBody(BlockSyntax body)
+    {
+        var previous = _inIteratorMethod;
+        _inIteratorMethod = true;
+        try
+        {
+            return (BlockSyntax)Visit(body)!;
+        }
+        finally
+        {
+            _inIteratorMethod = previous;
+        }
+    }
+
     public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node) => node;
 
     public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node) => node;

@@ -45,12 +45,134 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     private static string TransformIdentifier(IdentifierNameSyntax node, ConversionContext context)
     {
         var symbol = context.GetSymbolInfo(node).Symbol;
+
+        // Assembly-scoped synthetic resource types (SR → <Project>SR) are renamed at
+        // declaration time; a static-member receiver or bare type reference must use
+        // the same renamed identifier or the simple-name reference dangles.
+        if (symbol is INamedTypeSymbol namedType
+            && context.TryGetAssemblyScopedJavaTypeName(namedType, out var assemblyScopedName))
+        {
+            var typeNamespace = namedType.ContainingNamespace?.ToDisplayString();
+            if (!string.IsNullOrWhiteSpace(typeNamespace)
+                && !string.Equals(typeNamespace, context.CurrentNamespace, StringComparison.Ordinal))
+            {
+                context.AddImport(
+                    $"{context.NamespaceToPackage(typeNamespace)}.{assemblyScopedName}");
+            }
+            return assemblyScopedName;
+        }
+
+        // Bare type identifiers used as static-member receivers need the same explicit
+        // project-package import as type references: `dotnet.system.*` and the compat
+        // wildcard otherwise both provide e.g. UriKind, which javac rejects as ambiguous.
+        if (symbol is INamedTypeSymbol receiverType
+            && receiverType.ContainingType == null)
+        {
+            var typeNamespace = receiverType.ContainingNamespace?.ToDisplayString();
+            if (typeNamespace is not null
+                && typeNamespace.StartsWith("dotnet.", StringComparison.Ordinal)
+                && !string.Equals(typeNamespace, context.CurrentNamespace, StringComparison.Ordinal))
+            {
+                context.AddImport(
+                    $"{context.NamespaceToPackage(typeNamespace)}.{context.GetJavaTopLevelTypeName(receiverType)}");
+            }
+        }
+
+        // An out-var declared inside the current statement is read through its holder:
+        // the value only exists after the call completes, so the read-back declaration
+        // emitted after the statement is too late for same-statement uses such as
+        // `d.TryGetValue(k, out v) ? v : fallback`.
+        if (symbol is ILocalSymbol local
+            && context.TryGetActiveRefHolder(
+                ConversionContext.EscapeJavaKeyword(local.Name), out var outHolder)
+            && IsOutDeclaredLocal(local))
+            return $"{outHolder}.value";
+
+        // Instance fields declared by an enclosing type (or a base class) cannot be
+        // referenced unqualified from a nested Java class: bind them to `this`.
+        if (symbol is IFieldSymbol { IsStatic: false } field
+            && field.ContainingType is { } declaringType
+            && context.CurrentEnclosingRoslynType is { } currentType
+            && !SymbolEqualityComparer.Default.Equals(declaringType, currentType)
+            && IsOuterOrBaseType(declaringType, currentType))
+        {
+            var fieldName = ConversionContext.EscapeJavaKeyword(node.Identifier.Text);
+            if (IsEnclosingType(declaringType, currentType))
+            {
+                // A private field of the enclosing type is reachable from a nested
+                // class, but only through a reference typed as that enclosing type —
+                // `this.field` resolves as an inherited member and fails.
+                return $"(({context.MapType(declaringType)}) this).{fieldName}";
+            }
+            return $"this.{fieldName}";
+        }
+
         // Property accessed by value → getXxx()
         if (symbol is IPropertySymbol p
             && !(node.Parent is AssignmentExpressionSyntax a && a.Left == node))
             return $"get{p.Name}()";
         // Local / parameter / field / default → just the name
         return ConversionContext.EscapeJavaKeyword(node.Identifier.Text);
+    }
+
+    /// <summary>
+    /// True when <paramref name="local"/> was introduced by an <c>out</c> declaration.
+    /// Such a variable is only assigned after the call runs, so reads during the same
+    /// statement must go through the out holder; the read-back declaration emitted
+    /// after the statement runs too late (and preprocessed trees may have been rebuilt,
+    /// so identity comparisons against the declaring statement are unreliable).
+    /// </summary>
+    private static bool IsOutDeclaredLocal(ILocalSymbol local)
+    {
+        foreach (var reference in local.DeclaringSyntaxReferences)
+        {
+            var declared = reference.GetSyntax();
+            if (declared.FirstAncestorOrSelf<DeclarationExpressionSyntax>() is { } declaration
+                && declaration.Parent is ArgumentSyntax argument
+                && argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void AddImportForHelperReceiver(string dottedName, ConversionContext context)
+    {
+        var dot = dottedName.IndexOf('.');
+        if (dot <= 0) return;
+        var helper = dottedName[..dot];
+        if (helper is "IntPtrHelper" or "MathHelper" or "StringHelper" or "ObjectHelper"
+            or "ArrayHelper" or "CultureInfo" or "IPAddressHelper")
+            context.AddImport($"io.github.ningpp.compat.{helper}");
+    }
+
+    private static bool IsEnclosingType(INamedTypeSymbol declaringType, INamedTypeSymbol currentType)
+    {
+        for (var outer = currentType.ContainingType; outer != null; outer = outer.ContainingType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(outer.OriginalDefinition, declaringType.OriginalDefinition))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool IsOuterOrBaseType(INamedTypeSymbol declaringType, INamedTypeSymbol currentType)
+    {
+        for (var outer = currentType.ContainingType; outer != null; outer = outer.ContainingType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(outer.OriginalDefinition, declaringType.OriginalDefinition))
+                return true;
+        }
+
+        for (var baseType = currentType.BaseType; baseType != null; baseType = baseType.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(baseType.OriginalDefinition, declaringType.OriginalDefinition))
+                return true;
+        }
+
+        return false;
     }
 
     // ── Member access ───────────────────────────────────────────────────────
@@ -64,6 +186,28 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         {
             return ObjectCreationTransformer.EmitDelegateMethodReference(node, groupMethod, context);
         }
+        // Static enum members on explicitly mapped enums: NormalizationForm.FormC →
+        // Normalizer.Form.NFC (receiver and member both come from TypeMappings).
+        if (context.GetSymbolInfo(node).Symbol is IFieldSymbol { IsStatic: true } enumField
+            && enumField.ContainingType?.TypeKind == TypeKind.Enum
+            && TryGetMappedStaticContainingType(enumField, context, out var mappedEnumType, out var enumImports))
+        {
+            foreach (var import in enumImports)
+                context.AddImport(import);
+            var mappedMember = context.TypeMappings.MapMethod(
+                enumField.ContainingType.ToDisplayString(), enumField.Name) ?? enumField.Name;
+            return $"{mappedEnumType}.{mappedMember}";
+        }
+
+        // System.String.Empty is a static readonly field in C#; Java has no such
+        // field on java.lang.String, and the empty literal is the exact equivalent.
+        if (context.GetSymbolInfo(node).Symbol
+            is IFieldSymbol { IsStatic: true, Name: "Empty" } emptyField
+            && emptyField.ContainingType?.SpecialType == SpecialType.System_String)
+        {
+            return "\"\"";
+        }
+
         // Primitive static fields on keyword qualifiers: int.MaxValue (the
         // predefined keyword, not the System.Int32 qualified name) must become
         // Integer.MAX_VALUE — Java primitives cannot be dereferenced.
@@ -76,7 +220,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 context.AddImport("io.github.ningpp.compat.Decimal");
                 return $"Decimal.{(primitiveField.Name == "MaxValue" ? "MAX_VALUE" : "MIN_VALUE")}";
             }
-            if (TryRenderPrimitiveStaticField(primitiveField, out var primitiveFieldText))
+            if (TryRenderPrimitiveStaticField(
+                    primitiveField, context.GetTypeInfo(node).ConvertedType, out var primitiveFieldText))
             {
                 return primitiveFieldText;
             }
@@ -90,6 +235,21 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         {
             if (consoleStream.Name == "Error") return "System.err";
             if (consoleStream.Name == "Out") return "System.out";
+        }
+
+        // System.Net.IPAddress.Loopback / IPv6Loopback: the static members live on
+        // different compat surfaces (InetAddress / IPAddressHelper), so resolve them
+        // syntactically even when the member symbol is unavailable post-preprocessing.
+        if (node.Name.Identifier.Text is "Loopback" or "IPv6Loopback"
+            && context.GetTypeInfo(node.Expression).Type?.ToDisplayString() == "System.Net.IPAddress")
+        {
+            if (node.Name.Identifier.Text == "Loopback")
+            {
+                context.AddImport("java.net.InetAddress");
+                return "InetAddress.getLoopbackAddress()";
+            }
+            context.AddImport("io.github.ningpp.compat.IPAddressHelper");
+            return "IPAddressHelper.ipv6Loopback()";
         }
 
         var receiver = ExpressionTransformerFacade.Instance.Transform(node.Expression, context);
@@ -120,6 +280,13 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (symbol is IPropertySymbol property
             && !(node.Parent is AssignmentExpressionSyntax a && a.Left == node))
         {
+            // C# IntPtr/nint is reported with the alias display "nint".
+            if (property.Name == "Size"
+                && property.ContainingType?.SpecialType == SpecialType.System_IntPtr)
+            {
+                context.AddImport("io.github.ningpp.compat.IntPtrHelper");
+                return "IntPtrHelper.getSize()";
+            }
             // C22: System.Nullable<T> surfaces — HasValue is a reference null
             // check and Value is a guarded unbox on the Java wrapper (the C22
             // preprocessor only leaves .Value inside a HasValue guard).
@@ -150,8 +317,26 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             // follow the default getXxx derivation).
             var mappedProperty = context.TypeMappings.MapMethod(
                 property.ContainingType.ToDisplayString(), property.Name);
+            if (mappedProperty?.Contains('.') == true)
+            {
+                // Fully-mapped helper call: IntPtr.Size → IntPtrHelper.getSize().
+                // Some rows already spell the invocation with parentheses
+                // (CultureInfo.InvariantCulture → "CultureInfo.getInvariantCulture()").
+                AddImportForHelperReceiver(mappedProperty, context);
+                return mappedProperty.EndsWith(')') ? mappedProperty : $"{mappedProperty}()";
+            }
             if (JavaNaming.IsBeanAccessorStyleName(mappedProperty))
             {
+                if (property.IsStatic
+                    && TryGetMappedStaticContainingType(property, context, out var mappedOwner, out var propertyImports))
+                {
+                    foreach (var import in propertyImports)
+                        context.AddImport(import);
+                    // System.Net.IPAddress maps to java.net.InetAddress: the mapped
+                    // static property lives on the mapped Java type, not the C# name.
+                    if (mappedOwner != property.ContainingType.Name)
+                        return $"{mappedOwner}.{mappedProperty}()";
+                }
                 return $"{receiver}.{mappedProperty}()";
             }
 
@@ -231,7 +416,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     /// <c>(int)4294967295L</c>). float/double MinValue semantics differ
     /// (smallest-positive vs most-negative) and stay on dedicated paths.
     /// </summary>
-    private static bool TryRenderPrimitiveStaticField(IFieldSymbol field, out string rendered)
+    private static bool TryRenderPrimitiveStaticField(
+        IFieldSymbol field, ITypeSymbol? convertedType, out string rendered)
     {
         rendered = "";
         switch (field.ContainingType?.SpecialType)
@@ -240,7 +426,20 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 rendered = field.Name == "MaxValue" ? "(byte)255" : "(byte)0";
                 return true;
             case SpecialType.System_UInt32 when field.Name is "MaxValue" or "MinValue":
-                rendered = field.Name == "MaxValue" ? "(int)4294967295L" : "0";
+                // uint.MaxValue is 4294967295. When the C# context widens it to a
+                // wider numeric type (e.g. `long x = uint.MaxValue`), the Java value
+                // must keep the magnitude; only an int context uses the -1 bit pattern.
+                var wide = convertedType?.SpecialType
+                    is SpecialType.System_Int64 or SpecialType.System_UInt64
+                    or SpecialType.System_Decimal or SpecialType.System_Double
+                    or SpecialType.System_Single;
+                rendered = field.Name == "MaxValue"
+                    ? (wide ? "4294967295L" : "(int)4294967295L")
+                    : "0";
+                return true;
+            // ushort maps to Java int, so both extremes are plain int literals.
+            case SpecialType.System_UInt16 when field.Name is "MaxValue" or "MinValue":
+                rendered = field.Name == "MaxValue" ? "65535" : "0";
                 return true;
         }
 

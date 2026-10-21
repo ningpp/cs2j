@@ -506,6 +506,89 @@ class C {
         Assert.Contains("yield return x", output);
     }
 
+    [Fact]
+    public void Rewriter_PropertyGetter_ProducesStateMachine()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> Items {
+        get {
+            yield return 1;
+            yield return 2;
+        }
+    }
+}";
+        var (output, stats, diags) = Rewrite(src);
+
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        Assert.Equal(1, stats.IteratorMembersLowered);
+        Assert.Contains("Cs2jIterator_Items_0", output);
+        Assert.Contains("return new Cs2jIterator_Items_0", output);
+        Assert.DoesNotContain("yield return", output);
+        AssertOutputCompilesZeroDiagnostics(output);
+    }
+
+    [Fact]
+    public void Rewriter_MethodAndProperty_AreBothLowered()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    IEnumerable<int> M() { yield return 1; }
+    public IEnumerable<int> Items {
+        get { yield return 2; }
+    }
+}";
+        var (output, stats, diags) = Rewrite(src);
+
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        Assert.Equal(2, stats.IteratorMembersLowered);
+        Assert.Contains("Cs2jIterator_M_0", output);
+        Assert.Contains("Cs2jIterator_Items_1", output);
+        Assert.DoesNotContain("yield", output);
+        AssertOutputCompilesZeroDiagnostics(output);
+    }
+
+    [Fact]
+    public void Rewriter_IndexerGetter_ProducesStateMachine()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> this[int i] {
+        get { yield return i; }
+    }
+}";
+        var (output, stats, diags) = Rewrite(src);
+
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        Assert.Equal(1, stats.IteratorMembersLowered);
+        Assert.Contains("Cs2jIterator_Item_0", output);
+        Assert.Contains("return new Cs2jIterator_Item_0(this, i, -2)", Flat(output));
+        Assert.DoesNotContain("yield", output);
+        AssertOutputCompilesZeroDiagnostics(output);
+    }
+
+    [Fact]
+    public void Runtime_PropertyGetter_Enumerates()
+    {
+        var code = @"
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> Items {
+        get {
+            yield return 1;
+            yield return 2;
+        }
+    }
+}";
+        var asm = LoadRewritten(code);
+        var c = NewC(asm);
+        var result = (IEnumerable)asm.GetType("C")!.GetProperty("Items")!.GetValue(c)!;
+        Assert.Equal(new object[] { 1, 2 }, ToList(result).ToArray());
+    }
+
     // ── Task 7: Preprocessor ──
 
     [Fact]

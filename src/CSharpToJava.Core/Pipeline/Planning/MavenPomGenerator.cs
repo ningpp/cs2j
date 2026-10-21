@@ -204,8 +204,15 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
                 <version>3.3.1</version>
                 <configuration>
                     <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true{previewArg}</argLine>
-                    <forkedProcessTimeoutInSeconds>120</forkedProcessTimeoutInSeconds>
-                    <forkedProcessExitTimeoutInSeconds>120</forkedProcessExitTimeoutInSeconds>
+                    <!-- C# test classes keep arbitrary names (e.g. AppxUriValues), so the
+                         default naming patterns would silently skip them. Scan every
+                         compiled test class; JUnit Platform ignores classes without
+                         test annotations. -->
+                    <includes>
+                        <include>**/*.java</include>
+                    </includes>
+                    <forkedProcessTimeoutInSeconds>900</forkedProcessTimeoutInSeconds>
+                    <forkedProcessExitTimeoutInSeconds>900</forkedProcessExitTimeoutInSeconds>
                     <testFailureIgnore>false</testFailureIgnore>
                 </configuration>
             </plugin>";

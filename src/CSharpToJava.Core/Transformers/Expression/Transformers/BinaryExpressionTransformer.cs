@@ -6,6 +6,7 @@ using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
 using CSharpToJava.Core.Transformers.Member;
+using CSharpToJava.Core.Transformers.Type;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -46,6 +47,8 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             if (IsStringEquality(bin, context)) return BuildObjectsEqualsIR(bin, op.Java, context);
             if (BinarySpecial.TryNullableBoolEquality(bin, op, context) is { } nb)
                 return new JavaRawExpression(nb);
+            if (TryValueEnumEquality(bin, op.Java, context, out var ve))
+                return new JavaRawExpression(ve);
             if (context.GetSymbolInfo(bin.Left).Symbol is IEventSymbol
                 || context.GetSymbolInfo(bin.Right).Symbol is IEventSymbol)
                 return new JavaRawExpression(Transform(node, context));
@@ -99,6 +102,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         if (op.Cat == BinOpCat.Equality)
         {
             if (BinarySpecial.TryNullableBoolEquality(node, op, ctx) is { } nb) return nb;
+            if (TryValueEnumEquality(node, op.Java, ctx, out var valueEnumEq)) return valueEnumEq;
             if (IsStringEquality(node, ctx))
             {
                 ctx.AddImport("java.util.Objects");
@@ -128,6 +132,36 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             && (child.Prec < parent.Prec || (!isLeft && child.Prec == parent.Prec)))
             return $"({transformed})";
         return transformed;
+    }
+
+    /// <summary>
+    /// Value enums are emitted as immutable value classes whose fromValue() may
+    /// create fresh instances for undeclared numeric values, so C# value
+    /// equality inside a value enum must compare getValue() rather than identity.
+    /// </summary>
+    private static bool TryValueEnumEquality(
+        BinaryExpressionSyntax node, string javaOp, ConversionContext ctx, out string result)
+    {
+        result = string.Empty;
+        if (javaOp is not ("==" or "!=")) return false;
+        if (node.Left.IsKind(SyntaxKind.NullLiteralExpression)
+            || node.Right.IsKind(SyntaxKind.NullLiteralExpression))
+            return false;
+
+        var leftType = ctx.GetTypeInfo(node.Left).Type;
+        var rightType = ctx.GetTypeInfo(node.Right).Type;
+        if (leftType?.TypeKind != TypeKind.Enum || rightType?.TypeKind != TypeKind.Enum)
+            return false;
+
+        var isValueEnum =
+            (leftType is INamedTypeSymbol leftEnum && EnumTransformer.IsValueEnum(leftEnum))
+            || (rightType is INamedTypeSymbol rightEnum && EnumTransformer.IsValueEnum(rightEnum));
+        if (!isValueEnum) return false;
+
+        var facade = ExpressionTransformerFacade.Instance;
+        result = $"{facade.Transform(node.Left, ctx)}.getValue() {javaOp} " +
+                 $"{facade.Transform(node.Right, ctx)}.getValue()";
+        return true;
     }
 
     /// <summary>

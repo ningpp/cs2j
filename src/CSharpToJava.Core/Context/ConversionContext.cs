@@ -398,6 +398,20 @@ public class ConversionContext
     public bool IsOverrideMethod(IMethodSymbol method)
         => ConversionContext.IsOverrideOrImplementation(method);
 
+    private readonly Dictionary<ISymbol, string> _erasureRenamedMethods =
+        new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    /// Records that a C# method overload was renamed because its Java erasure
+    /// signature collides with an earlier overload. Call sites use this mapping to
+    /// bind to the renamed declaration instead of the shadowing sibling.
+    /// </summary>
+    public void RegisterErasureConflictMethodName(IMethodSymbol method, string javaName)
+        => _erasureRenamedMethods[method] = javaName;
+
+    public bool TryGetErasureConflictMethodName(IMethodSymbol method, out string javaName)
+        => _erasureRenamedMethods.TryGetValue(method, out javaName!);
+
     /// <summary>
     /// Returns the Java class literal for a concrete type symbol at a call site.
     /// E.g., for C# int → "int.class", for ValueType → "ValueType.class".
@@ -409,9 +423,12 @@ public class ConversionContext
     /// </summary>
     public static string GetClassLiteral(ITypeSymbol typeSymbol, ConversionContext context)
     {
-        if (typeSymbol is ITypeParameterSymbol typeParam)
+        if (typeSymbol is ITypeParameterSymbol)
         {
-            return $"_cs2j_{typeParam.Name}";
+            // Java has no runtime token for an erased type parameter. Call sites that
+            // carry a generic-deepen anchor render it explicitly; every other path
+            // degrades to Object.class (e.g. `new T[n]` on an erased element type).
+            return "Object.class";
         }
         if (typeSymbol.SpecialType == SpecialType.System_Int32) return "int.class";
         if (typeSymbol.SpecialType == SpecialType.System_Int64) return "long.class";

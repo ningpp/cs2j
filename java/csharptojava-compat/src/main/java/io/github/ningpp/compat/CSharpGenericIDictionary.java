@@ -58,10 +58,19 @@ public interface CSharpGenericIDictionary<K, V> extends CSharpIterable<CSharpKey
         }
         return list;
     }
-    /** Default implementation so converter-generated classes that emit the
-     * out-parameter shape (tryGetValue(K, ObjectHolder&lt;V&gt;)) still compile. */
+    /** One-argument convenience shape (returns the value or null). */
     default V tryGetValue(K key) {
         return get(key);
+    }
+    /** Out-parameter shape emitted by the ref/out lowering for
+     * <c>Dictionary.TryGetValue(key, out value)</c>. */
+    default boolean tryGetValue(K key, ObjectHolder<V> result) {
+        if (containsKey(key)) {
+            result.value = get(key);
+            return true;
+        }
+        result.value = null;
+        return false;
     }
     boolean getIsReadOnly();
     int getCount();

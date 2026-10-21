@@ -216,6 +216,27 @@
             ]
         },
         {
+            "csharp": "System.Collections.Generic.Dictionary`2",
+            "java": "CSharpDictionary",
+            "imports": [
+                "io.github.ningpp.compat.CSharpDictionary"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.HashSet`1",
+            "java": "HashSet",
+            "imports": [
+                "java.util.HashSet"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.KeyValuePair`2",
+            "java": "CSharpKeyValuePair",
+            "imports": [
+                "io.github.ningpp.compat.CSharpKeyValuePair"
+            ]
+        },
+        {
             "csharp": "System.Collections.ArrayList",
             "java": "CSharpArrayList",
             "imports": [
@@ -6494,7 +6515,48 @@
         {
             "type": "System.String",
             "method": "Trim",
+            "javaMethod": "StringHelper.trim",
+            "signature": "1"
+        },
+        {
+            "type": "System.String",
+            "method": "Trim",
             "javaMethod": "trim"
+        },
+        {
+            "type": "System.Byte",
+            "method": "TryFormat",
+            "javaMethod": "MathHelper.tryFormatByte"
+        },
+        {
+            "type": "System.SByte",
+            "method": "TryFormat",
+            "javaMethod": "MathHelper.tryFormatSByte"
+        },
+        {
+            "type": "System.Int16",
+            "method": "TryFormat",
+            "javaMethod": "MathHelper.tryFormatShort"
+        },
+        {
+            "type": "System.UInt16",
+            "method": "TryFormat",
+            "javaMethod": "MathHelper.tryFormatUShort"
+        },
+        {
+            "type": "System.Int32",
+            "method": "TryFormat",
+            "javaMethod": "MathHelper.tryFormatInt"
+        },
+        {
+            "type": "System.Int64",
+            "method": "TryFormat",
+            "javaMethod": "MathHelper.tryFormatLong"
+        },
+        {
+            "type": "System.Runtime.InteropServices.GCHandle",
+            "method": "IsAllocated",
+            "javaMethod": "isAllocated"
         },
         {
             "type": "System.String",

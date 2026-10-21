@@ -115,9 +115,20 @@ public partial class StatementTransformer
 
     private static string ResolveLocalJavaType(LocalDeclarationStatementSyntax stmt, ConversionContext context)
     {
-        // C# 'var' maps directly to Java 'var' (Java 10+ local variable inference).
+        // C# 'var' maps directly to Java 'var' (Java 10+ local variable inference),
+        // except when the inferred type is a type parameter: Java cannot infer a
+        // generic method's T from `var`, but an explicit `T` declaration provides
+        // the assignment target type (e.g. `var ex = Assert.Throws<T>(action)`).
         if (stmt.Declaration.Type is IdentifierNameSyntax { Identifier.Text: "var" })
+        {
+            var first = stmt.Declaration.Variables.FirstOrDefault();
+            if (first != null
+                && (context.GetDeclaredSymbol(first) as ILocalSymbol)?.Type is ITypeParameterSymbol typeParam)
+            {
+                return typeParam.Name;
+            }
             return "var";
+        }
 
         var firstVariable = stmt.Declaration.Variables.FirstOrDefault();
         var localType = firstVariable != null

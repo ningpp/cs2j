@@ -1,4 +1,7 @@
 using System.Text;
+using CSharpToJava.Core.ClosureLift;
+using CSharpToJava.Core.GotoEliminator;
+using CSharpToJava.Core.IteratorLowering;
 using CSharpToJava.Core.LinqChannel;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis;
@@ -361,6 +364,23 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
             }
         }
 
+        // The stock procedural LINQ rewriter emits iterator methods
+        // (`..._ProceduralLinqN`) with `yield return` statements. The
+        // iterator-lowering pass has already run earlier in the chain (it must
+        // precede eliminate-goto), so those freshly generated iterators would
+        // otherwise reach the Java converter as residual yield. Lower them on
+        // the materialized stage-2 output before the verification step.
+        if (processedInputs.Count > 0)
+        {
+            // The procedural rewriter also emits lambdas (e.g. a projection
+            // nested inside a yielding foreach). Lift those closure shapes the
+            // same way the earlier closure-lift pass would have, then rebuild
+            // the semantic picture for the state-machine analysis.
+            LiftGeneratedClosures(tree, pairs, processedInputs, rolledBackFiles);
+            var loweringCompilation = BuildIntermediateCompilation(tree, pairs);
+            LowerGeneratedIterators(loweringCompilation, processedInputs, rolledBackFiles);
+        }
+
         // The stock rewriter sees post-desugar trees, so its
         // DesugaredQueryCount does not include stage 1; fold the stage-1
         // tally into the report counters here.
@@ -444,6 +464,86 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
             .Where(d => d.Severity != LinqChannelDiagnosticSeverity.Info || verbose)
             .Select(d => d.ToMsBuildString())
             .ToList();
+
+    /// <summary>
+    /// Lifts lambdas emitted by the procedural LINQ rewriter in files that
+    /// still contain `yield`. Those files were closure-lifted before this pass
+    /// ran, so the generated shapes have not been through that stage.
+    /// </summary>
+    private void LiftGeneratedClosures(
+        PassTreeContext tree,
+        IReadOnlyList<(string Source, string Relative, string Dest)> pairs,
+        IReadOnlyList<(string Relative, string Dest, SemanticModel Model, SyntaxNode InputRoot)> processedInputs,
+        IReadOnlySet<string> rolledBackFiles)
+    {
+        var compilation = BuildIntermediateCompilation(tree, pairs);
+        var preprocessor = new ClosureLiftPreprocessor();
+
+        foreach (var (relative, dest, _, _) in processedInputs)
+        {
+            if (rolledBackFiles.Contains(relative)) continue;
+
+            var text = File.ReadAllText(dest);
+            if (!text.Contains("yield", StringComparison.Ordinal)) continue;
+
+            var treeNode = compilation.SyntaxTrees.FirstOrDefault(t =>
+                string.Equals(t.FilePath, dest, StringComparison.OrdinalIgnoreCase));
+            if (treeNode == null) continue;
+
+            var result = preprocessor.Preprocess(
+                text, compilation.GetSemanticModel(treeNode),
+                new ClosureLiftOptions(Strict: false));
+            if (!result.Changed) continue;
+
+            File.WriteAllText(dest, result.OutputCode, new UTF8Encoding(FileStartsWithBom(dest)));
+        }
+    }
+
+    /// <summary>
+    /// Runs the iterator-lowering preprocessor over stage-2 files that still
+    /// contain `yield` (the procedural LINQ rewriter's generated iterators).
+    /// Original yields were handled by the earlier iterator-lowering pass;
+    /// only output written by this pass can reach here.
+    /// </summary>
+    private void LowerGeneratedIterators(
+        CSharpCompilation compilation,
+        IReadOnlyList<(string Relative, string Dest, SemanticModel Model, SyntaxNode InputRoot)> processedInputs,
+        IReadOnlySet<string> rolledBackFiles)
+    {
+        var preprocessor = new IteratorLoweringPreprocessor();
+        var gotoEliminator = new GotoEliminator();
+        foreach (var (relative, dest, _, _) in processedInputs)
+        {
+            if (rolledBackFiles.Contains(relative)) continue;
+
+            var text = File.ReadAllText(dest);
+            if (!text.Contains("yield", StringComparison.Ordinal)) continue;
+
+            var tree = compilation.SyntaxTrees.FirstOrDefault(t =>
+                string.Equals(t.FilePath, dest, StringComparison.OrdinalIgnoreCase));
+            if (tree == null) continue;
+
+            var model = compilation.GetSemanticModel(tree);
+            var result = preprocessor.Preprocess(text, model, new IteratorLoweringOptions());
+            if (!result.Changed) continue;
+
+            // The state machine emits goto/labels; the goto pass already ran
+            // before linq-channel, so consume them here as it normally would
+            // immediately after iterator-lowering.
+            var output = result.OutputCode;
+            var gotoResult = gotoEliminator.Eliminate(
+                output, new GotoEliminatorOptions(Verbose: false, Strict: false));
+            if (gotoResult.Changed) output = gotoResult.OutputCode;
+
+            File.WriteAllText(dest, output, new UTF8Encoding(FileStartsWithBom(dest)));
+            if (_verbose)
+            {
+                Console.WriteLine(
+                    $"[linq-channel] iterator lowering: {relative} " +
+                    $"({result.Statistics.IteratorMembersLowered} member(s))");
+            }
+        }
+    }
 
     private static bool MayBeRewritten(SyntaxNode root)
     {

@@ -1087,6 +1087,19 @@ public final class Assert {
     // Reflection: T ThrowsAny<T>(Action testCode)
     //            T ThrowsAny<T>(Func<object> testCode)
 
+    /**
+     * Type-erased ThrowsAny(T) form used when the C# call's generic type argument
+     * cannot be materialized as a Class token (e.g. it is only used as a statement).
+     */
+    public static Throwable throwsAny(Runnable testCode) {
+        try {
+            testCode.run();
+        } catch (Throwable t) {
+            return t;
+        }
+        throw new AssertionError("Assert.throwsAny() failure: No exception thrown");
+    }
+
     @SuppressWarnings("unchecked")
     public static <T extends Throwable> T throwsAny(Class<T> exceptionType, Runnable testCode) {
         try {

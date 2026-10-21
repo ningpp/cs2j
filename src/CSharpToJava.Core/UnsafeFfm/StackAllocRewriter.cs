@@ -211,7 +211,33 @@ internal sealed class StackAllocRewriter : CSharpSyntaxRewriter
             }
 
             if (UsesSpanOnlyInstanceMember(originalVariable, spanLocal))
-                return visited;
+            {
+                // The declaration keeps Span<T>, but the rewritten initializer is a
+                // plain T[]. C# converts implicitly; Java needs the span wrapper.
+                var spanType = visited.Declaration.Type;
+                var wrappedVariables = new List<VariableDeclaratorSyntax>();
+                foreach (var declaredVariable in visited.Declaration.Variables)
+                {
+                    if (declaredVariable.Initializer?.Value is ArrayCreationExpressionSyntax spanArray
+                        && spanArray.HasAnnotation(StackAllocReplacedAnnotation))
+                    {
+                        var spanCreation = ObjectCreationExpression(
+                                spanType.WithoutTrivia(),
+                                ArgumentList(SingletonSeparatedList(Argument(spanArray.WithoutTrivia()))),
+                                initializer: null)
+                            .WithLeadingTrivia(spanArray.GetLeadingTrivia());
+                        wrappedVariables.Add(declaredVariable.WithInitializer(
+                            declaredVariable.Initializer.WithValue(spanCreation)));
+                    }
+                    else
+                    {
+                        wrappedVariables.Add(declaredVariable);
+                    }
+                }
+
+                return visited.WithDeclaration(
+                    visited.Declaration.WithVariables(SeparatedList(wrappedVariables)));
+            }
         }
 
         var arrayDeclarationType = ArrayType(elementTypeSyntax)

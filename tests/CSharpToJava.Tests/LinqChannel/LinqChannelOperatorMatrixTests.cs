@@ -803,6 +803,53 @@ public sealed class LinqChannelRiskSurfaceMatrixTests
 }
 
 /// <summary>
+/// Regression tests for array sources that reach the channel through a
+/// SelectMany collection selector (two-`from` query syntax). Such selectors
+/// are spliced into the generated foreach without a normal descent, so the
+/// nested <c>new[]{...}.Select(...)</c> chain used to survive unchanged and
+/// the Java emitter produced an uncompilable <c>String[].map(...)</c>.
+/// </summary>
+public sealed class LinqChannelArraySourceTests
+{
+    private const string Source = """
+        using System.Collections.Generic;
+        using System.Linq;
+        public static class M
+        {
+            public static IEnumerable<object[]> Pairs() =>
+                from host in new[] { "a", "b" }
+                from scheme in new[] { "http", "test" }
+                select new object[] { scheme, host };
+
+            public static int[] Doubled() =>
+                new[] { 1, 2, 3 }.Select(x => x * 2).ToArray();
+        }
+        """;
+
+    [Fact]
+    public void ArrayLiteralSelect_IsProceduralized_NotLeftAsArrayCall()
+    {
+        var result = LinqChannelDualPathHarness.RunBothPaths(Source);
+
+        Assert.True(result.Channel.RewriteChanged);
+        Assert.DoesNotContain(".Select(", result.ChannelText);
+        LinqChannelDualPathHarness.AssertOutputCompiles(result.Channel.RewrittenRoot.ToFullString());
+    }
+
+    [Fact]
+    public void NestedSelectorArrayQuery_UsesAliasForOuterRangeVariable()
+    {
+        var result = LinqChannelDualPathHarness.RunBothPaths(Source);
+        var text = result.Channel.RewrittenRoot.ToFullString();
+
+        // The collection selector's range variable is re-bound to the outer
+        // loop item before the nested foreach.
+        Assert.Contains("= _linqitem", text, StringComparison.Ordinal);
+        LinqChannelDualPathHarness.AssertOutputCompiles(text);
+    }
+}
+
+/// <summary>
 /// M2 idempotency + residual gates (design §7.1③/§7.8): channel output fed
 /// through the channel a second time must not move again, and after
 /// recompilation the route plan must leave no expandable LINQ shape behind

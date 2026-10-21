@@ -131,6 +131,110 @@ public sealed class SolutionLoader : IDisposable
     }
 
     /// <summary>
+    /// Opens an XML solution (.slnx) file. Roslyn's MSBuildWorkspace does not
+    /// evaluate .slnx natively, so the project entries are parsed here and loaded
+    /// one by one into the same workspace.
+    /// </summary>
+    public async Task<IReadOnlyList<WorkspaceProject>> OpenSlnxAsync(
+        string solutionPath,
+        IProgress<string>? progress = null,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(solutionPath);
+        if (!File.Exists(solutionPath))
+            throw new FileNotFoundException("Solution file not found.", solutionPath);
+
+        var projectPaths = ReadSlnxProjectPaths(solutionPath);
+        if (projectPaths.Count == 0)
+            throw new InvalidOperationException($"No project entries found in solution '{solutionPath}'.");
+
+        _workspace = MSBuildWorkspace.Create(GetMSBuildProperties());
+        _workspace.WorkspaceFailed += (_, e) =>
+            progress?.Report($"Workspace warning: {e.Diagnostic.Message}");
+
+        progress?.Report($"Opening solution: {solutionPath}");
+        foreach (var projectPath in projectPaths)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                progress?.Report($"Opening project: {projectPath}");
+                await _workspace.OpenProjectAsync(projectPath, progress: null, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // One broken project must not abort the remaining modules.
+                progress?.Report($"Failed to open project '{projectPath}': {ex.Message}");
+            }
+        }
+
+        return await LoadProjectsFromSolution(_workspace.CurrentSolution, progress, ct);
+    }
+
+    /// <summary>
+    /// Reads the <c>&lt;Project Path="..."/&gt;</c> entries of an .slnx solution
+    /// (they may be nested inside <c>&lt;Folder&gt;</c> nodes). Paths are resolved
+    /// relative to the solution directory; missing files, unresolvable MSBuild
+    /// expressions and duplicates are skipped.
+    /// </summary>
+    internal static IReadOnlyList<string> ReadSlnxProjectPaths(string solutionPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(solutionPath);
+        var solutionDirectory = Path.GetDirectoryName(Path.GetFullPath(solutionPath)) ?? string.Empty;
+
+        XDocument document;
+        try
+        {
+            document = XDocument.Load(solutionPath);
+        }
+        catch (Exception ex) when (ex is IOException or System.Xml.XmlException or UnauthorizedAccessException)
+        {
+            return [];
+        }
+
+        if (document.Root == null)
+            return [];
+
+        var result = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var projectElement in document.Root.Descendants("Project"))
+        {
+            var pathAttribute = projectElement.Attribute("Path")?.Value;
+            if (string.IsNullOrWhiteSpace(pathAttribute))
+                continue;
+            // Skip MSBuild-property / wildcard entries — they cannot be resolved
+            // without a full MSBuild evaluation.
+            if (pathAttribute.Contains('$') || pathAttribute.Contains('*') || pathAttribute.Contains('?'))
+                continue;
+
+            string fullPath;
+            try
+            {
+                var relativePath = pathAttribute
+                    .Replace('\\', Path.DirectorySeparatorChar)
+                    .Replace('/', Path.DirectorySeparatorChar);
+                fullPath = Path.GetFullPath(Path.Combine(solutionDirectory, relativePath));
+            }
+            catch (ArgumentException)
+            {
+                continue;
+            }
+
+            if (!File.Exists(fullPath) || !seen.Add(fullPath))
+                continue;
+
+            result.Add(fullPath);
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Opens a single project (.csproj) file.
     /// </summary>
     public async Task<IReadOnlyList<WorkspaceProject>> OpenProjectAsync(
@@ -166,16 +270,22 @@ public sealed class SolutionLoader : IDisposable
             var ext = Path.GetExtension(path);
             if (ext.Equals(".sln", StringComparison.OrdinalIgnoreCase))
                 return await OpenSolutionAsync(path, progress, ct);
+            if (ext.Equals(".slnx", StringComparison.OrdinalIgnoreCase))
+                return await OpenSlnxAsync(path, progress, ct);
             if (ext.Equals(".csproj", StringComparison.OrdinalIgnoreCase))
                 return await OpenProjectAsync(path, progress, ct);
         }
 
         if (Directory.Exists(path))
         {
-            // Try to find a .sln first, then .csproj
+            // Try to find a .sln first, then .slnx, then .csproj
             var sln = Directory.GetFiles(path, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
             if (sln != null)
                 return await OpenSolutionAsync(sln, progress, ct);
+
+            var slnx = Directory.GetFiles(path, "*.slnx", SearchOption.TopDirectoryOnly).FirstOrDefault();
+            if (slnx != null)
+                return await OpenSlnxAsync(slnx, progress, ct);
 
             var csprojs = Directory.GetFiles(path, "*.csproj", SearchOption.TopDirectoryOnly);
             if (csprojs.Length == 1)
@@ -193,7 +303,11 @@ public sealed class SolutionLoader : IDisposable
             // rather than at the stage root. Resolving it keeps the conversion on the
             // MSBuild multi-module pipeline instead of the flat directory scan.
             if (TryResolveNestedSolutionEntry(path, out var nestedSolution))
-                return await OpenSolutionAsync(nestedSolution, progress, ct);
+            {
+                return Path.GetExtension(nestedSolution).Equals(".slnx", StringComparison.OrdinalIgnoreCase)
+                    ? await OpenSlnxAsync(nestedSolution, progress, ct)
+                    : await OpenSolutionAsync(nestedSolution, progress, ct);
+            }
 
             // Projects nested in immediate subdirectories (e.g. <root>\src\Lib.csproj
             // plus <root>\tests\App.csproj referencing it). Open the referencing root
@@ -208,7 +322,7 @@ public sealed class SolutionLoader : IDisposable
     }
 
     /// <summary>
-    /// Resolves the solution of a directory source whose <c>.sln</c> lives one level
+    /// Resolves the solution (.sln or .slnx) of a directory source whose solution lives one level
     /// below the directory itself — the layout produced by the preprocessing stages,
     /// which preserve the entry solution at its original repository-relative path
     /// (e.g. <c>&lt;stage&gt;\json\System.Text.Json.sln</c>). A top-level solution always
@@ -221,7 +335,9 @@ public sealed class SolutionLoader : IDisposable
         if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
             return false;
 
-        var topLevel = Directory.GetFiles(directory, "*.sln", SearchOption.TopDirectoryOnly);
+        var topLevel = Directory.GetFiles(directory, "*.sln", SearchOption.TopDirectoryOnly)
+            .Concat(Directory.GetFiles(directory, "*.slnx", SearchOption.TopDirectoryOnly))
+            .ToArray();
         if (topLevel.Length > 1)
             return false;
         if (topLevel.Length == 1)
@@ -236,6 +352,7 @@ public sealed class SolutionLoader : IDisposable
             try
             {
                 nested.AddRange(Directory.EnumerateFiles(subDirectory, "*.sln", SearchOption.TopDirectoryOnly));
+                nested.AddRange(Directory.EnumerateFiles(subDirectory, "*.slnx", SearchOption.TopDirectoryOnly));
             }
             catch (IOException)
             {

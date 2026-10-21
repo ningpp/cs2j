@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -21,6 +22,16 @@ public class MethodTransformer : IMemberTransformer
         var sym = ctx.GetDeclaredSymbol(m) as IMethodSymbol;
         ctx.EnterMethod(sym);
 
+        // Serialization surfaces (ISerializable.GetObjectData et al.) map their
+        // parameter/return types to the "__suppress__" sentinel: no Java equivalent
+        // exists, so the whole member is dropped instead of emitting unresolvable
+        // type names in the signature.
+        if (HasSuppressedSignature(sym, ctx))
+        {
+            ctx.LeaveMethod();
+            return new JavaMemberCollection();
+        }
+
         // C06 R8 opt-in FFM 白名单通道：unsafe-ffm 预处理把命中的
         // [DllImport]/[LibraryImport] extern 归一为带
         // [Cs2j.Generation.InteropFacade] 标记的响亮 C# stub；项目管线
@@ -33,9 +44,13 @@ public class MethodTransformer : IMemberTransformer
             return facade;
         }
 
+        var javaMethodName = GetJavaMethodName(m.Identifier.Text, sym, ctx);
+        if (sym != null && ctx.TryGetErasureConflictMethodName(sym, out var renamedMethod))
+            javaMethodName = renamedMethod;
+
         var method = new JavaMethodDeclaration
         {
-            Name = GetJavaMethodName(m.Identifier.Text, sym, ctx),
+            Name = javaMethodName,
             Modifiers = ConvertModifiers(m.Modifiers),
             ReturnType = MapReturnType(m.ReturnType, ctx),
             LeadingComment = ctx.GetDeclarationComments(m, sym).ToCombinedComment()
@@ -56,7 +71,11 @@ public class MethodTransformer : IMemberTransformer
         if (m.Modifiers.Any(t => t.IsKind(SyntaxKind.AsyncKeyword))) method.IsAsync = true;
 
         BuildSignature(method, m.TypeParameterList, m.ConstraintClauses, m.ParameterList, ctx);
+        TryRenameForErasureConflict(method, sym, ctx);
         BuildBody(method, m.Body, m.ExpressionBody, ctx);
+
+        // xUnit/MSTest 测试方法 → JUnit 5 测试方法 + 静态数据 provider。
+        var testMembers = ApplyTestMethodAnnotations(m, method, ctx);
 
         // C# 程序入口 Main：JVM 只能从 `public static void main(String[])` 启动。
         // `private static void Main()` 必须提升为 public、补齐 String[] args；
@@ -82,6 +101,7 @@ public class MethodTransformer : IMemberTransformer
         ctx.LeaveMethod();
         var members = new List<JavaSyntaxNode> { method };
         if (entryWrapper != null) members.Add(entryWrapper);
+        members.AddRange(testMembers);
         members.AddRange(extras);
         return members.Count > 1
             ? new JavaMemberCollection(members)
@@ -318,7 +338,349 @@ public class MethodTransformer : IMemberTransformer
                 "return CompletableFuture.completedFuture(null);"));
     }
 
-    private static string GetJavaMethodName(string name, IMethodSymbol? sym, ConversionContext ctx)
+    // ================== xUnit / MSTest → JUnit 5 ==================
+
+    /// <summary>
+    /// 把 xUnit/MSTest 测试特性映射成 JUnit 5：Fact→@Test、Theory→@ParameterizedTest、
+    /// InlineData/MemberData/ClassData→静态 @MethodSource provider。JUnit 测试方法必须
+    /// 是实例方法，因此这里顺带去掉 static；provider 本身保持 static。
+    /// </summary>
+    internal static List<JavaSyntaxNode> ApplyTestMethodAnnotations(
+        MethodDeclarationSyntax methodDecl, JavaMethodDeclaration javaMethod, ConversionContext ctx)
+    {
+        var providers = new List<JavaSyntaxNode>();
+        var attributes = methodDecl.AttributeLists.SelectMany(al => al.Attributes).ToList();
+        if (attributes.Count == 0)
+            return providers;
+
+        var names = attributes
+            .Select(a => NormalizeAttributeName(a.Name.ToString()))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var isFact = names.Contains("Fact") || names.Contains("SkippableFact") || names.Contains("TestMethod");
+        var isTheory = names.Contains("Theory") || names.Contains("SkippableTheory") || names.Contains("DataTestMethod");
+        if (!isFact && !isTheory)
+            return providers;
+
+        var inlineRows = attributes
+            .Where(a => IsAttribute(a, "InlineData"))
+            .Select(a => a.ArgumentList?.Arguments.Select(x => x.Expression).ToList() ?? new List<ExpressionSyntax>())
+            .ToList();
+        var memberDataAttrs = attributes.Where(a => IsAttribute(a, "MemberData")).ToList();
+        var classDataAttrs = attributes.Where(a => IsAttribute(a, "ClassData")).ToList();
+
+        var disabled = names.Contains("Ignore")
+            || HasSkipArgument(attributes, ctx)
+            || IsSkippedForCurrentPlatform(attributes, ctx);
+
+        // JUnit 5 只发现实例测试方法。
+        javaMethod.Modifiers &= ~JavaModifiers.Static;
+
+        if (isTheory)
+            AddAnnotationOnce(javaMethod, "ParameterizedTest", ctx, "org.junit.jupiter.params.ParameterizedTest");
+        else
+            AddAnnotationOnce(javaMethod, "Test", ctx, "org.junit.jupiter.api.Test");
+
+        if (disabled)
+            AddAnnotationOnce(javaMethod, "Disabled", ctx, "org.junit.jupiter.api.Disabled");
+
+        // Fact 方法上的 InlineData/MemberData 在 xUnit 里同样不生效；只有 Theory 需要数据源。
+        if (!isTheory || (inlineRows.Count == 0 && memberDataAttrs.Count == 0 && classDataAttrs.Count == 0))
+            return providers;
+
+        var providerName = UniqueProviderName(javaMethod.Name, ctx);
+        AddAnnotationOnce(javaMethod, $"MethodSource(\"{providerName}\")", ctx,
+            "org.junit.jupiter.params.provider.MethodSource");
+        ctx.AddImport("org.junit.jupiter.params.provider.Arguments");
+
+        var body = new StringBuilder();
+        var usesList = memberDataAttrs.Count > 0 || classDataAttrs.Count > 0;
+        if (usesList)
+        {
+            body.AppendLine("var __rows = new java.util.ArrayList<Arguments>();");
+            foreach (var row in inlineRows)
+                body.AppendLine($"__rows.add({BuildArgumentsOf(row, ctx)});");
+            foreach (var attr in memberDataAttrs)
+                AppendMemberDataRows(body, attr, ctx);
+            foreach (var attr in classDataAttrs)
+                AppendClassDataRows(body, attr, ctx);
+            body.Append("return __rows.stream();");
+        }
+        else
+        {
+            var rows = inlineRows.Select(r => BuildArgumentsOf(r, ctx)).ToList();
+            body.Append("return java.util.stream.Stream.of(")
+                .Append(string.Join(", ", rows))
+                .Append(");");
+        }
+
+        providers.Add(new JavaMethodDeclaration
+        {
+            Name = providerName,
+            Modifiers = JavaModifiers.Private | JavaModifiers.Static,
+            ReturnType = "java.util.stream.Stream<Arguments>",
+            Body = body.ToString(),
+        });
+        return providers;
+    }
+
+    private static void AddAnnotationOnce(
+        JavaMethodDeclaration method, string annotation, ConversionContext ctx, string import)
+    {
+        var baseName = annotation.Contains('(') ? annotation[..annotation.IndexOf('(')] : annotation;
+        var alreadyPresent = method.Annotations.Any(a =>
+            a.Name == annotation
+            || (a.Name.Contains('(') ? a.Name[..a.Name.IndexOf('(')] : a.Name) == baseName);
+        if (alreadyPresent)
+            return;
+
+        method.Annotations.Add(new JavaAnnotation(annotation));
+        ctx.AddImport(import);
+    }
+
+    private static string UniqueProviderName(string methodName, ConversionContext ctx)
+    {
+        var baseName = "__cs2jData_" + methodName;
+        var name = baseName;
+        var suffix = 2;
+        while (ctx.CurrentType is JavaClassDeclaration cls
+               && cls.Methods.Any(m => m.Name == name))
+        {
+            name = $"{baseName}_{suffix++}";
+        }
+        return name;
+    }
+
+    private static string BuildArgumentsOf(IReadOnlyList<ExpressionSyntax> args, ConversionContext ctx)
+    {
+        if (args.Count == 0)
+            return "Arguments.of()";
+
+        var rendered = new List<string>(args.Count);
+        foreach (var arg in args)
+        {
+            var expression = RenderTestDataExpression(arg, ctx);
+            // 单个 null 字面量 / 数组参数必须显式转成 Object，避免 Arguments.of
+            // 把数组当成 varargs 展开或让 null 产生重载歧义。
+            if (arg is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NullLiteralExpression }
+                || ctx.GetTypeInfo(arg).Type is IArrayTypeSymbol)
+            {
+                expression = "(Object) " + expression;
+            }
+            rendered.Add(expression);
+        }
+
+        return "Arguments.of(" + string.Join(", ", rendered) + ")";
+    }
+
+    private static string RenderTestDataExpression(ExpressionSyntax expression, ConversionContext ctx)
+    {
+        var rendered = ExpressionTransformerFacade.Instance.Transform(expression, ctx);
+        // InlineData 只接受编译期常量；表达式转换理论上不会产生前置语句，保险起见丢弃。
+        if (ctx.HasPendingPreStatements) ctx.DrainPreStatements();
+        if (ctx.HasPendingPostStatements) ctx.DrainPostStatements();
+        return rendered;
+    }
+
+    private static void AppendMemberDataRows(
+        StringBuilder body, AttributeSyntax attr, ConversionContext ctx)
+    {
+        var memberName = ExtractFirstMemberName(attr);
+        if (string.IsNullOrEmpty(memberName))
+            return;
+
+        var owner = ResolveMemberDataOwner(attr, ctx);
+        var (call, resultType) = ResolveDataMemberCall(memberName!, owner, ctx);
+        AppendEnumerationLoop(body, call, resultType, ctx);
+    }
+
+    private static void AppendClassDataRows(
+        StringBuilder body, AttributeSyntax attr, ConversionContext ctx)
+    {
+        var typeOf = attr.ArgumentList?.Arguments.FirstOrDefault()?.Expression as TypeOfExpressionSyntax;
+        if (typeOf == null)
+            return;
+
+        if (ctx.GetTypeInfo(typeOf.Type).Type is not INamedTypeSymbol dataType)
+            return;
+
+        var mapped = ctx.MapType(dataType);
+        AppendEnumerationLoop(body, $"new {mapped}()", dataType, ctx);
+    }
+
+    /// <summary>
+    /// xUnit 数据源是 IEnumerable&lt;object[]&gt;，转换后为 CSharpGenericIterable（不是
+    /// java.lang.Iterable），必须走 iterator()/moveNext()；数组与 java.util 集合走 for-each。
+    /// </summary>
+    private static void AppendEnumerationLoop(
+        StringBuilder body, string source, ITypeSymbol? sourceType, ConversionContext ctx)
+    {
+        var mapped = sourceType != null ? ctx.MapType(sourceType) : string.Empty;
+
+        if (sourceType is IArrayTypeSymbol || mapped.EndsWith("[]", StringComparison.Ordinal))
+        {
+            body.AppendLine($"for (Object[] __row : {source})");
+            body.AppendLine("{");
+            body.AppendLine("    __rows.add(Arguments.of(__row));");
+            body.AppendLine("}");
+            return;
+        }
+
+        if (mapped.StartsWith("List<", StringComparison.Ordinal)
+            || mapped.StartsWith("java.util.", StringComparison.Ordinal)
+            || mapped.StartsWith("Iterable<", StringComparison.Ordinal))
+        {
+            body.AppendLine($"for (Object[] __row : {source})");
+            body.AppendLine("{");
+            body.AppendLine("    __rows.add(Arguments.of(__row));");
+            body.AppendLine("}");
+            return;
+        }
+
+        // CSharpGenericIterable / CSharpGenericIList / 未知 IEnumerable 实现。
+        var enumerator = ctx.GenerateSyntheticName("__cs2jDataEnum");
+        body.AppendLine($"var {enumerator} = {source}.iterator();");
+        body.AppendLine($"while ({enumerator}.moveNext())");
+        body.AppendLine("{");
+        body.AppendLine($"    Object[] __row = {enumerator}.getCurrent();");
+        body.AppendLine("    __rows.add(Arguments.of(__row));");
+        body.AppendLine("}");
+    }
+
+    private static string? ExtractFirstMemberName(AttributeSyntax attr)
+    {
+        var first = attr.ArgumentList?.Arguments.FirstOrDefault();
+        return first == null ? null : SimpleMemberName(first.Expression);
+    }
+
+    private static string? SimpleMemberName(ExpressionSyntax expression) => expression switch
+    {
+        InvocationExpressionSyntax inv when inv.ArgumentList.Arguments.Count > 0
+            => SimpleMemberName(inv.ArgumentList.Arguments[0].Expression),
+        IdentifierNameSyntax id => id.Identifier.Text,
+        MemberAccessExpressionSyntax ma => ma.Name.Identifier.Text,
+        LiteralExpressionSyntax lit when lit.IsKind(SyntaxKind.StringLiteralExpression) => lit.Token.ValueText,
+        _ => null,
+    };
+
+    private static INamedTypeSymbol? ResolveMemberDataOwner(AttributeSyntax attr, ConversionContext ctx)
+    {
+        foreach (var arg in attr.ArgumentList?.Arguments ?? default)
+        {
+            if (arg.NameEquals?.Name.Identifier.Text == "MemberType"
+                && arg.Expression is TypeOfExpressionSyntax typeOf
+                && ctx.GetTypeInfo(typeOf.Type).Type is INamedTypeSymbol memberType)
+            {
+                return memberType;
+            }
+        }
+        return ctx.CurrentEnclosingRoslynType;
+    }
+
+    private static (string Call, ITypeSymbol? ResultType) ResolveDataMemberCall(
+        string memberName, INamedTypeSymbol? owner, ConversionContext ctx)
+    {
+        if (owner == null)
+            return (memberName + "()", null);
+
+        var prefix = string.Empty;
+        if (ctx.CurrentEnclosingRoslynType is { } current
+            && !SymbolEqualityComparer.Default.Equals(owner, current))
+        {
+            prefix = ctx.MapType(owner) + ".";
+        }
+
+        foreach (var member in owner.GetMembers(memberName))
+        {
+            switch (member)
+            {
+                case IMethodSymbol method when method.MethodKind == MethodKind.Ordinary:
+                    return (prefix + GetJavaMethodName(method.Name, method, ctx) + "()", method.ReturnType);
+                case IPropertySymbol property:
+                    return (prefix + JavaNaming.GetPropertyGetterName(ConversionContext.EscapeJavaKeyword(property.Name)) + "()",
+                        property.Type);
+                case IFieldSymbol field:
+                    return (prefix + ConversionContext.EscapeJavaKeyword(field.Name), field.Type);
+            }
+        }
+
+        return (prefix + memberName + "()", null);
+    }
+
+    private static bool HasSkipArgument(IEnumerable<AttributeSyntax> attributes, ConversionContext ctx)
+    {
+        foreach (var attr in attributes)
+        {
+            foreach (var arg in attr.ArgumentList?.Arguments ?? default)
+            {
+                if (arg.NameEquals?.Name.Identifier.Text != "Skip")
+                    continue;
+                var value = ConstantStringValue(arg.Expression, ctx);
+                if (!string.IsNullOrEmpty(value))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool IsSkippedForCurrentPlatform(
+        IEnumerable<AttributeSyntax> attributes, ConversionContext ctx)
+    {
+        foreach (var attr in attributes)
+        {
+            var name = NormalizeAttributeName(attr.Name.ToString());
+            var first = attr.ArgumentList?.Arguments.FirstOrDefault();
+            if (first == null)
+                continue;
+
+            if (name.Equals("PlatformSpecific", StringComparison.OrdinalIgnoreCase))
+            {
+                // 当前 Java 目标运行在 Windows；其余平台变体不执行。
+                var platform = ConstantStringValue(first.Expression, ctx);
+                if (!string.Equals(platform, "Windows", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            else if (name.Equals("SkipOnTargetFramework", StringComparison.OrdinalIgnoreCase))
+            {
+                // 仅 netframework 的差异在 .NET Core/Java 目标上不需要跳过。
+                var framework = ConstantStringValue(first.Expression, ctx);
+                if (!string.Equals(framework, "netframework", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    private static string? ConstantStringValue(ExpressionSyntax expression, ConversionContext ctx)
+    {
+        if (expression is LiteralExpressionSyntax lit)
+        {
+            return lit.IsKind(SyntaxKind.NullLiteralExpression) ? null : lit.Token.ValueText;
+        }
+
+        if (ctx.SemanticModel?.GetConstantValue(expression) is { HasValue: true, Value: string value })
+            return value;
+
+        var text = expression.ToString();
+        var dot = text.LastIndexOf('.');
+        return dot >= 0 ? text[(dot + 1)..] : text.Trim('"');
+    }
+
+    private static bool IsAttribute(AttributeSyntax attr, string name)
+        => NormalizeAttributeName(attr.Name.ToString()).Equals(name, StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeAttributeName(string rawName)
+    {
+        var name = rawName.Trim();
+        var lastDot = name.LastIndexOf('.');
+        if (lastDot >= 0)
+            name = name[(lastDot + 1)..];
+        if (name.EndsWith("Attribute", StringComparison.OrdinalIgnoreCase))
+            name = name[..^9];
+        return name;
+    }
+
+    internal static string GetJavaMethodName(string name, IMethodSymbol? sym, ConversionContext ctx)
     {
         if (name.StartsWith("get_") || name.StartsWith("set_"))
             return char.ToUpper(name[4]) + name[5..];
@@ -557,6 +919,70 @@ public class MethodTransformer : IMemberTransformer
 
     private static string EscapeJavaString(string value) =>
         value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+
+    /// <summary>
+    /// Two C# overloads can collapse to the same Java erasure signature — e.g.
+    /// <c>f(..., ref bool, ref bool)</c> vs <c>f(..., ref bool, ref string)</c> both
+    /// become <c>f(..., ByRef, ByRef)</c>. Rename the colliding overload
+    /// deterministically and publish the rename so call sites bind to it; otherwise
+    /// the mechanical de-duplicator silently drops one overload.
+    /// </summary>
+    private static void TryRenameForErasureConflict(
+        JavaMethodDeclaration method, IMethodSymbol? symbol, ConversionContext context)
+    {
+        if (symbol == null || context.CurrentType is not JavaClassDeclaration javaClass)
+            return;
+        // Explicit interface implementations are bridges: when an implicit member
+        // already occupies the Java signature, the deduplicator drops the bridge —
+        // renaming it would emit a call to a method that does not exist.
+        if (symbol.ExplicitInterfaceImplementations.Length > 0)
+            return;
+
+        var signature = ErasedSignature(method.Parameters);
+        var colliding = javaClass.Methods.FirstOrDefault(m =>
+            m.Name == method.Name && ErasedSignature(m.Parameters) == signature);
+        if (colliding == null)
+            return;
+        // Property accessors keep their bean name: the mechanical dedup drops the
+        // duplicate user method and call sites bind to the accessor (the delegation
+        // case is handled by the pre-scan, which registers an explicit rename).
+        if (colliding.IsAutoGenerated)
+            return;
+
+        var suffix = 2;
+        while (javaClass.Methods.Any(m => m.Name == $"{method.Name}_{suffix}"))
+            suffix++;
+
+        method.Name = $"{method.Name}_{suffix}";
+        context.RegisterErasureConflictMethodName(symbol, method.Name);
+    }
+
+    private static string ErasedSignature(IEnumerable<JavaParameter> parameters) =>
+        string.Join(",", parameters.Select(p =>
+        {
+            var type = p.Type;
+            var angle = type.IndexOf('<');
+            return angle >= 0 ? type[..angle].TrimEnd() : type;
+        }));
+
+    /// <summary>
+    /// True when any parameter type (or the return type) maps to the "__suppress__"
+    /// sentinel configured for serialization-only BCL types.
+    /// </summary>
+    private static bool HasSuppressedSignature(IMethodSymbol? symbol, ConversionContext ctx)
+    {
+        if (symbol == null)
+            return false;
+
+        if (symbol.ReturnsVoid == false
+            && symbol.ReturnType is not null
+            && ctx.MapType(symbol.ReturnType) == "__suppress__")
+        {
+            return true;
+        }
+
+        return symbol.Parameters.Any(p => ctx.MapType(p.Type) == "__suppress__");
+    }
 
     private static string MapReturnType(TypeSyntax returnType, ConversionContext ctx)
     {

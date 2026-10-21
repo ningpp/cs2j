@@ -98,4 +98,45 @@ public class EnumTests : ConversionTestBase
         var result = Convert("enum A { X, Y } enum B { P, Q }");
         AssertConversion(result, "enum A {", "enum B {");
     }
+
+    [Fact]
+    public void FlagsEnum_EmitsValueClassWithFromValue()
+    {
+        var result = Convert(
+            "[System.Flags] enum Perm { None = 0, Read = 1, Write = 2, All = 7 } class C { public Perm P; }");
+
+        AssertSuccess(result);
+        // Undeclared flag combinations cannot be represented by a Java enum, so
+        // value enums are emitted as an immutable value class.
+        AssertJavaContains(result, "final class Perm");
+        AssertJavaContains(result, "new Perm(\"None\", 0, 0)");
+        AssertJavaContains(result, "new Perm(\"All\", 3, 7)");
+        AssertJavaContains(result, "public int getValue()");
+        AssertJavaContains(result, "public static Perm fromValue(int value)");
+        AssertJavaContains(result, "return new Perm(String.valueOf(value), -1, value);");
+    }
+
+    [Fact]
+    public void ValueEnumSwitch_CompoundFlagsLabel_UsesNumericSwitch()
+    {
+        // `A | B` is a constant in C# but a runtime expression in Java, so the
+        // switch must be driven on getValue() with integer case labels.
+        var result = Convert(@"
+[System.Flags] enum Parts { Scheme = 1, Host = 2, Port = 4, All = 7 }
+class C {
+    public int F(Parts c) {
+        switch (c) {
+            case Parts.Scheme | Parts.Host: return 1;
+            case Parts.All: return 2;
+            default: return 0;
+        }
+    }
+}");
+
+        AssertSuccess(result);
+        AssertJavaContains(result, "switch ((c).getValue())");
+        AssertJavaContains(result, "case 3:");
+        AssertJavaContains(result, "case 7:");
+        AssertJavaDoesNotContain(result, "case (Parts.fromValue");
+    }
 }

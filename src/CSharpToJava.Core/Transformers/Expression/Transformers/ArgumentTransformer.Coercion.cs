@@ -15,6 +15,38 @@ public partial class ArgumentTransformer
         ("System.Reflection.MemberInfo", "asMemberInfo")
     };
 
+    /// <summary>
+    /// Applies the implicit C# Span&lt;T&gt; → ReadOnlySpan&lt;T&gt; conversion to a
+    /// directly-transformed argument (the non-ref invocation path bypasses
+    /// <see cref="CoerceArgumentType"/>).
+    /// </summary>
+    public static string CoerceImplicitSpanConversion(
+        ExpressionSyntax argument,
+        string text,
+        IMethodSymbol? method,
+        int index,
+        ConversionContext context)
+    {
+        if (method == null || index >= method.Parameters.Length)
+            return text;
+
+        var parameter = method.Parameters[index];
+        if (!IsSpanOfT(parameter.Type, "ReadOnlySpan")
+            || !IsSpanOfT(context.GetTypeInfo(argument).Type, "Span"))
+        {
+            return text;
+        }
+
+        context.AddImport("io.github.ningpp.compat.ReadOnlySpan");
+        return $"{text}.asReadOnlySpan()";
+    }
+
+    private static bool IsSpanOfT(ITypeSymbol? type, string name)
+        => type is INamedTypeSymbol named
+           && named.Name == name
+           && named.TypeArguments.Length == 1
+           && named.ContainingNamespace?.ToDisplayString() == "System";
+
     private static string CoerceArgumentType(
         ArgumentSyntax arg,
         string transformedExpr,
@@ -44,6 +76,14 @@ public partial class ArgumentTransformer
 
         if (IsNullEmittingArgument(arg, context))
             transformedExpr = CoerceNullArgument(arg, transformedExpr, targetParam, context, isFormatProvider);
+
+        // C# Span<T> → ReadOnlySpan<T> is implicit; the Java compat types are
+        // unrelated classes, so route the argument through asReadOnlySpan().
+        if (IsSpanOfT(paramType, "ReadOnlySpan") && IsSpanOfT(argType, "Span"))
+        {
+            context.AddImport("io.github.ningpp.compat.ReadOnlySpan");
+            return $"{transformedExpr}.asReadOnlySpan()";
+        }
 
         // System.Buffer operates on raw Java arrays; never wrap.
         if (paramType?.SpecialType == SpecialType.System_Array
@@ -728,6 +768,18 @@ public partial class ArgumentTransformer
         => method is { MethodKind: MethodKind.Constructor }
             && method.ContainingType.Name is "List" or "HashSet" or "SortedSet" or "LinkedList" or "Queue";
 
+    private static bool LooksLikeStreamPipeline(string expr)
+        => expr.Contains(".stream(", StringComparison.Ordinal)
+            || expr.Contains(".boxed(", StringComparison.Ordinal)
+            || expr.Contains(".filter(", StringComparison.Ordinal)
+            || expr.Contains(".map(", StringComparison.Ordinal)
+            || expr.Contains(".flatMap(", StringComparison.Ordinal)
+            || expr.Contains(".sorted(", StringComparison.Ordinal)
+            || expr.Contains(".distinct(", StringComparison.Ordinal)
+            || expr.Contains(".anyMatch(", StringComparison.Ordinal)
+            || expr.Contains(".allMatch(", StringComparison.Ordinal)
+            || expr.Contains(".collect(", StringComparison.Ordinal);
+
     private static string CoerceEnumerableStreamFallback(ArgumentSyntax arg, string transformedExpr, ConversionContext context)
     {
         if (context.SemanticModel == null)
@@ -739,6 +791,12 @@ public partial class ArgumentTransformer
         context.AddImport("java.util.ArrayList");
         context.AddImport("io.github.ningpp.compat.CSharpList");
         if (transformedExpr.Contains(".collect(", StringComparison.Ordinal))
+            return transformedExpr;
+
+        // Only a Java Stream pipeline needs a collect() terminal. A plain
+        // IEnumerable expression already maps to CSharpGenericIterable, and
+        // appending .collect to it produces an uncompilable call.
+        if (!LooksLikeStreamPipeline(transformedExpr))
             return transformedExpr;
 
         var collected = $"{transformedExpr}.collect(CSharpList.toCSharpList())";

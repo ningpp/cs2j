@@ -38,6 +38,29 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     {
         var name = type is null or IErrorTypeSymbol ? (ts != null ? c.MapTypeFromSyntax(ts) : "Object") : c.MapType(type);
         var f = ExpressionTransformerFacade.Instance;
+
+        // new string(char, int): Java has no such constructor; compat repeats the char.
+        if (type?.SpecialType == SpecialType.System_String
+            && al is { Arguments.Count: 2 }
+            && c.GetTypeInfo(al.Arguments[0].Expression).Type?.SpecialType == SpecialType.System_Char
+            && c.GetTypeInfo(al.Arguments[1].Expression).Type?.SpecialType == SpecialType.System_Int32)
+        {
+            c.AddImport("io.github.ningpp.compat.StringHelper");
+            return $"StringHelper.newString({f.Transform(al.Arguments[0].Expression, c)}, {f.Transform(al.Arguments[1].Expression, c)})";
+        }
+
+        // new string(ReadOnlySpan<char>/Span<char>): Java has no such constructor;
+        // the compat spans render their characters through toString().
+        if (type?.SpecialType == SpecialType.System_String
+            && al is { Arguments.Count: 1 }
+            && c.GetTypeInfo(al.Arguments[0].Expression).Type is INamedTypeSymbol spanArg
+            && spanArg.Name is "Span" or "ReadOnlySpan"
+            && spanArg.ContainingNamespace?.ToDisplayString() == "System"
+            && spanArg.TypeArguments.Length == 1
+            && spanArg.TypeArguments[0].SpecialType == SpecialType.System_Char)
+        {
+            return $"{f.Transform(al.Arguments[0].Expression, c)}.toString()";
+        }
         if (init?.IsKind(SyntaxKind.ObjectInitializerExpression) == true)
         {
             if (init.Expressions.Count == 0) return EmitNew(name, al, type as INamedTypeSymbol, c);
@@ -109,9 +132,11 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         string owner;
         if (groupExpression is MemberAccessExpressionSyntax memberAccess)
         {
-            // Static method groups carry a type receiver (leave mapped), instance
-            // groups an expression receiver.
-            owner = ExpressionTransformerFacade.Instance.Transform(memberAccess.Expression, c);
+            // A primitive-keyword receiver is a Java keyword, not a type name:
+            // char.IsHighSurrogate → Character::isHighSurrogate.
+            owner = memberAccess.Expression is PredefinedTypeSyntax
+                ? PrimitiveWrapperName(methodGroup.ContainingType.SpecialType) ?? c.MapType(methodGroup.ContainingType)
+                : ExpressionTransformerFacade.Instance.Transform(memberAccess.Expression, c);
         }
         else
         {
@@ -125,6 +150,20 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             : char.ToLowerInvariant(methodGroup.Name[0]) + methodGroup.Name[1..];
         return $"{owner}::{methodName}";
     }
+
+    private static string PrimitiveWrapperName(SpecialType specialType) => specialType switch
+    {
+        SpecialType.System_Boolean => "Boolean",
+        SpecialType.System_Byte or SpecialType.System_UInt16 or SpecialType.System_Int32
+            or SpecialType.System_UInt32 => "Integer",
+        SpecialType.System_SByte => "Byte",
+        SpecialType.System_Int16 => "Short",
+        SpecialType.System_Char => "Character",
+        SpecialType.System_Int64 or SpecialType.System_UInt64 => "Long",
+        SpecialType.System_Single => "Float",
+        SpecialType.System_Double => "Double",
+        _ => null
+    };
 
     private static string NewAnonymous(AnonymousObjectCreationExpressionSyntax n, ConversionContext c)
     {
@@ -196,13 +235,11 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         var vals = init.Expressions.Select(e =>
         {
             var v = f.Transform(e, c);
-            if (elem == "byte" && e is LiteralExpressionSyntax lit && lit.IsKind(SyntaxKind.NumericLiteralExpression) && !v.StartsWith("(byte)"))
-            {
-                var t = lit.Token.Text.Replace("_", "");
-                if (t.StartsWith("0x", StringComparison.OrdinalIgnoreCase) || t.StartsWith("0b", StringComparison.OrdinalIgnoreCase)
-                    || (lit.Token.Value is int i && i > 127) || (lit.Token.Value is long l && l > 127))
-                    v = $"(byte){v}";
-            }
+            // C# byte is unsigned: an element expression frequently lowers to a
+            // widened int (0xF4 & 0xFF, UnsignedMath.toByteInt32, ...), which Java
+            // rejects in a byte[] initializer. Restore the narrowing cast.
+            if (elem == "byte" && !v.TrimStart().StartsWith("(byte)", StringComparison.Ordinal))
+                v = $"(byte) ({v})";
             return v;
         });
         return $"{{ {string.Join(", ", vals)} }}";

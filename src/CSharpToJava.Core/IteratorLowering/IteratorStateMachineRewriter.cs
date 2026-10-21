@@ -17,28 +17,28 @@ internal sealed class IteratorStateMachineRewriter
     private const string RunningStateResetLocal = "_cs2jTmpDisposeState";
 
     private readonly SemanticModel _semanticModel;
-    private readonly Dictionary<MethodDeclarationSyntax, MethodLoweringInfo> _infoByMethod;
+    private readonly Dictionary<SyntaxNode, MethodLoweringInfo> _infoByMember;
 
     public IteratorStateMachineRewriter(SemanticModel semanticModel, AnalyzerResult analyzerResult)
     {
         _semanticModel = semanticModel;
-        _infoByMethod = new();
+        _infoByMember = new();
 
         foreach (var info in analyzerResult.Infos)
         {
-            _infoByMethod[info.Method] = info;
+            _infoByMember[info.Member] = info;
         }
     }
 
     public CompilationUnitSyntax Rewrite(CompilationUnitSyntax root)
     {
-        if (_infoByMethod.Count == 0)
+        if (_infoByMember.Count == 0)
             return root;
 
         var newRoot = root;
         foreach (var typeDecl in root.DescendantNodes().OfType<TypeDeclarationSyntax>().ToList())
         {
-            var plansForType = _infoByMethod
+            var plansForType = _infoByMember
                 .Where(kv => kv.Key.Parent == typeDecl)
                 .ToList();
             if (plansForType.Count == 0) continue;
@@ -48,11 +48,15 @@ internal sealed class IteratorStateMachineRewriter
 
             foreach (var member in typeDecl.Members)
             {
-                if (member is MethodDeclarationSyntax method
-                    && _infoByMethod.TryGetValue(method, out var info))
+                if (_infoByMember.TryGetValue(member, out var info))
                 {
-                    newMembers.Add(RewriteMethodBody(method, info.Plan));
-                    nestedClasses.Add(BuildStateMachineClass(method, info));
+                    if (member is MethodDeclarationSyntax method)
+                        newMembers.Add(RewriteMethodBody(method, info.Plan));
+                    else if (member is BasePropertyDeclarationSyntax property)
+                        newMembers.Add(RewritePropertyGetter(property, info));
+                    else
+                        newMembers.Add(member);
+                    nestedClasses.Add(BuildStateMachineClass(info));
                 }
                 else
                 {
@@ -73,6 +77,34 @@ internal sealed class IteratorStateMachineRewriter
     private static MethodDeclarationSyntax RewriteMethodBody(
         MethodDeclarationSyntax method, StateMachinePlan plan)
     {
+        var objectCreation = BuildStateMachineCreation(plan, genericTypeArgs: GetGenericTypeArgs(method));
+
+        return method
+            .WithBody(Block(ReturnStatement(objectCreation)))
+            .WithExpressionBody(null)
+            .WithSemicolonToken(Token(SyntaxKind.None))
+            .WithAdditionalAnnotations(Annotation);
+    }
+
+    /// <summary>
+    /// Replaces a property/indexer getter body with the state-machine creation
+    /// expression; the indexer parameters are passed through to the machine.
+    /// </summary>
+    private static BasePropertyDeclarationSyntax RewritePropertyGetter(
+        BasePropertyDeclarationSyntax property, MethodLoweringInfo info)
+    {
+        var getter = info.Accessor!;
+        var objectCreation = BuildStateMachineCreation(info.Plan, genericTypeArgs: "");
+        var newGetter = getter.WithBody(Block(ReturnStatement(objectCreation)));
+        var accessorList = property.AccessorList!.ReplaceNode(getter, newGetter);
+        return (BasePropertyDeclarationSyntax)property
+            .WithAccessorList(accessorList)
+            .WithAdditionalAnnotations(Annotation);
+    }
+
+    private static ObjectCreationExpressionSyntax BuildStateMachineCreation(
+        StateMachinePlan plan, string genericTypeArgs)
+    {
         var stateValue = plan.IsIEnumerableReturn ? -2 : 0;
 
         var args = new List<ArgumentSyntax>();
@@ -83,21 +115,11 @@ internal sealed class IteratorStateMachineRewriter
         args.Add(Argument(LiteralExpression(SyntaxKind.NumericLiteralExpression,
             Literal(stateValue))));
 
-        var typeName = plan.StateMachineClassName
-            + (plan.IsGenericMethod ? GetGenericTypeArgs(method) : "");
-
-        var objectCreation = ObjectCreationExpression(ParseTypeName(typeName))
+        return ObjectCreationExpression(ParseTypeName(plan.StateMachineClassName + genericTypeArgs))
             .WithArgumentList(ArgumentList(SeparatedList(args)));
-
-        return method
-            .WithBody(Block(ReturnStatement(objectCreation)))
-            .WithExpressionBody(null)
-            .WithSemicolonToken(Token(SyntaxKind.None))
-            .WithAdditionalAnnotations(Annotation);
     }
 
-    private ClassDeclarationSyntax BuildStateMachineClass(
-        MethodDeclarationSyntax method, MethodLoweringInfo info)
+    private ClassDeclarationSyntax BuildStateMachineClass(MethodLoweringInfo info)
     {
         var plan = info.Plan;
         var fields = new List<MemberDeclarationSyntax>();
@@ -119,8 +141,7 @@ internal sealed class IteratorStateMachineRewriter
             // M4：struct 迭代器按值捕获 this（Roslyn 状态机语义：外层结构体不被
             // 改动）。值类型捕获字段必须可变——readonly 值类型字段上的变异会落在
             // 编译器引入的临时拷贝上；引用类型保持 readonly。
-            var ownerIsValueType = _semanticModel.GetDeclaredSymbol(method)?
-                .ContainingType.IsValueType == true;
+            var ownerIsValueType = info.Symbol.ContainingType.IsValueType;
             fields.Add(ownerIsValueType
                 ? Field(ParseTypeName(plan.ThisCaptureType), IteratorLoweringNaming.ThisField)
                 : Field(ParseTypeName(plan.ThisCaptureType), IteratorLoweringNaming.ThisField,
@@ -140,7 +161,7 @@ internal sealed class IteratorStateMachineRewriter
         }
 
         var ctor = BuildConstructor(plan);
-        var moveNext = BuildMoveNextMethod(method, info);
+        var moveNext = BuildMoveNextMethod(info);
         var dispose = BuildDisposeMethod(info);
         var reset = BuildResetMethod();
 
@@ -154,7 +175,7 @@ internal sealed class IteratorStateMachineRewriter
 
         if (plan.IsIEnumerableReturn)
         {
-            members.Add(BuildGetEnumeratorMethod(plan, method));
+            members.Add(BuildGetEnumeratorMethod(plan, info));
             members.Add(BuildExplicitGetEnumeratorMethod(plan));
         }
 
@@ -185,7 +206,7 @@ internal sealed class IteratorStateMachineRewriter
                 Token(SyntaxKind.PrivateKeyword),
                 Token(SyntaxKind.SealedKeyword)));
 
-        if (plan.IsGenericMethod)
+        if (plan.IsGenericMethod && info.Member is MethodDeclarationSyntax method)
         {
             classDecl = classDecl
                 .WithTypeParameterList(method.TypeParameterList)
@@ -285,13 +306,12 @@ internal sealed class IteratorStateMachineRewriter
         return property;
     }
 
-    private MethodDeclarationSyntax BuildMoveNextMethod(
-        MethodDeclarationSyntax method, MethodLoweringInfo info)
+    private MethodDeclarationSyntax BuildMoveNextMethod(MethodLoweringInfo info)
     {
         var plan = info.Plan;
         var tokenRewriter = new TokenRewriter(_semanticModel, info);
         var flattener = new BodyFlattener(_semanticModel, info, tokenRewriter);
-        var flattened = flattener.FlattenBody(method.Body!);
+        var flattened = flattener.FlattenBody(info.Body);
 
         // MoveNext 体是单层 goto 控制流：所有 resume 标签与 goto 同处一个块作用域，
         // C# 不允许 goto 跳入嵌套块，因此控制构造（if/loop/try/foreach）全部展平。
@@ -547,7 +567,7 @@ internal sealed class IteratorStateMachineRewriter
                     .WithArgumentList(ArgumentList()))));
 
     private MethodDeclarationSyntax BuildGetEnumeratorMethod(
-        StateMachinePlan plan, MethodDeclarationSyntax method)
+        StateMachinePlan plan, MethodLoweringInfo info)
     {
         var cloneArgs = new List<ArgumentSyntax>();
         if (!plan.IsStatic)
@@ -556,7 +576,7 @@ internal sealed class IteratorStateMachineRewriter
             cloneArgs.Add(Argument(IdentifierName(param.FieldName)));
         cloneArgs.Add(Argument(LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(-2))));
 
-        var genericTypeName = plan.StateMachineClassName + GetGenericTypeArgs(method);
+        var genericTypeName = plan.StateMachineClassName + GetGenericTypeArgs(info);
         var cloneCreation = ObjectCreationExpression(ParseTypeName(genericTypeName))
             .WithArgumentList(ArgumentList(SeparatedList(cloneArgs)));
 
@@ -624,6 +644,9 @@ internal sealed class IteratorStateMachineRewriter
         return $"<{args}>";
     }
 
+    private static string GetGenericTypeArgs(MethodLoweringInfo info)
+        => info.Member is MethodDeclarationSyntax method ? GetGenericTypeArgs(method) : "";
+
     internal static string GetArrayIndexFieldName(ForeachLoweringInfo info)
         => info.EnumeratorField != null
             ? info.EnumeratorField.FieldName + "_index"
@@ -667,7 +690,7 @@ internal sealed class IteratorStateMachineRewriter
             _semanticModel = semanticModel;
             _info = info;
             _plan = info.Plan;
-            _methodSymbol = semanticModel.GetDeclaredSymbol(info.Method)!;
+            _methodSymbol = info.Symbol;
         }
 
         public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)

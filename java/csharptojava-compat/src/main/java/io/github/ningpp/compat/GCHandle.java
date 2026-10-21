@@ -53,6 +53,11 @@ public final class GCHandle {
         return allocated;
     }
 
+    /** Bean-style alias for generated property accessors (getIsAllocated()). */
+    public boolean getIsAllocated() {
+        return allocated;
+    }
+
     /**
      * Mirrors {@code AddrOfPinnedObject()}.  Returns the pinned array as a
      * {@link MemorySegment}; {@code null} when the target is not a Java array

@@ -46,13 +46,14 @@ internal static class IteratorLoweringAnalyzer
             if (elementType == null)
             {
                 AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0401,
-                    $"Cannot resolve iterator element type for '{method.Identifier.Text}'.");
+                    $"Cannot resolve iterator element type for '{method.Identifier.ValueText}'.");
                 skipMemberKeys.Add(GetMemberKey(method));
                 continue;
             }
 
             // Legality checks (M2: try-finally with yield is now supported)
-            if (!CheckLegality(method, semanticModel, diagnostics))
+            if (!CheckLegality(method.Body!, method.ParameterList,
+                    method.Identifier.ValueText, method, semanticModel, diagnostics))
             {
                 skipMemberKeys.Add(GetMemberKey(method));
                 continue;
@@ -78,11 +79,75 @@ internal static class IteratorLoweringAnalyzer
             memberIndex++;
         }
 
+        // Property/indexer getters are iterators too (e.g. test-data providers
+        // shaped `IEnumerable<object[]> Data { get { yield return ...; } }`).
+        // Methods are analyzed first so their deterministic state-machine names
+        // (and therefore output) stay byte-identical for method-only inputs.
+        foreach (var property in root.DescendantNodes()
+                     .Where(n => n is PropertyDeclarationSyntax or IndexerDeclarationSyntax)
+                     .Cast<BasePropertyDeclarationSyntax>())
+        {
+            AnalyzePropertyGetter(property, semanticModel, infos, diagnostics, skipMemberKeys, ref memberIndex);
+        }
+
         return new AnalyzerResult(
             infos.Select(i => i.Plan).ToList(),
             infos,
             diagnostics,
             skipMemberKeys);
+    }
+
+    private static void AnalyzePropertyGetter(
+        BasePropertyDeclarationSyntax property,
+        SemanticModel semanticModel,
+        List<MethodLoweringInfo> infos,
+        List<IteratorLoweringDiagnostic> diagnostics,
+        HashSet<string> skipMemberKeys,
+        ref int memberIndex)
+    {
+        var getter = property.AccessorList?.Accessors
+            .FirstOrDefault(a => a.IsKind(SyntaxKind.GetAccessorDeclaration));
+        if (getter?.Body == null) return;
+        if (!MethodOwnsYield(getter.Body)) return;
+        if (semanticModel.GetDeclaredSymbol(getter) is not IMethodSymbol symbol) return;
+
+        var memberName = property switch
+        {
+            PropertyDeclarationSyntax p => p.Identifier.ValueText,
+            IndexerDeclarationSyntax => "Item",
+            _ => "Property",
+        };
+
+        var elementType = ResolveElementType(symbol.ReturnType);
+        if (elementType == null)
+        {
+            AddSkipDiagnostic(diagnostics, property, IteratorLoweringDiagnosticCode.CS2J0401,
+                $"Cannot resolve iterator element type for '{memberName}'.");
+            skipMemberKeys.Add(GetMemberKey(property));
+            return;
+        }
+
+        var parameterList = (property as IndexerDeclarationSyntax)?.ParameterList;
+        if (!CheckLegality(getter.Body, parameterList, memberName, getter, semanticModel, diagnostics))
+        {
+            skipMemberKeys.Add(GetMemberKey(property));
+            return;
+        }
+
+        var usedNames = new HashSet<string>(StringComparer.Ordinal);
+        if (property.Parent is TypeDeclarationSyntax declaringType)
+        {
+            foreach (var nested in declaringType.Members.OfType<BaseTypeDeclarationSyntax>())
+                usedNames.Add(nested.Identifier.ValueText);
+        }
+
+        var className = IteratorLoweringNaming.GetStateMachineClassName(
+            memberName, memberIndex, usedNames);
+
+        infos.Add(IteratorBodyAnalysis.Analyze(
+            getter.Body, symbol, semanticModel, className,
+            memberName, property, parameterList, getter));
+        memberIndex++;
     }
 
     private static string? ResolveElementType(ITypeSymbol returnType)
@@ -100,22 +165,24 @@ internal static class IteratorLoweringAnalyzer
     }
 
     private static bool CheckLegality(
-        MethodDeclarationSyntax method,
+        BlockSyntax body,
+        BaseParameterListSyntax? parameterList,
+        string memberName,
+        SyntaxNode member,
         SemanticModel semanticModel,
         List<IteratorLoweringDiagnostic> diagnostics)
     {
-        var body = method.Body!;
         var ok = true;
 
         // ref/in/out params -> CS2J0402 (CS1623 mirror)
-        foreach (var param in method.ParameterList.Parameters)
+        foreach (var param in parameterList?.Parameters ?? default)
         {
             if (param.Modifiers.Any(m => m.IsKind(SyntaxKind.RefKeyword)
                 || m.IsKind(SyntaxKind.InKeyword)
                 || m.IsKind(SyntaxKind.OutKeyword)))
             {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has ref/in/out parameter '{param.Identifier.Text}' (CS1623 mirror).");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{memberName}' has ref/in/out parameter '{param.Identifier.Text}' (CS1623 mirror).");
                 ok = false;
             }
         }
@@ -127,15 +194,15 @@ internal static class IteratorLoweringAnalyzer
             if (tryStmt.Catches.Count > 0 && ContainsYield(tryStmt.Block)
                 || tryStmt.Catches.Any(c => ContainsYield(c)))
             {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has yield inside try-with-catch (CS1626/CS1631 mirror).");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{memberName}' has yield inside try-with-catch (CS1626/CS1631 mirror).");
                 ok = false;
             }
             // yield inside finally -> CS1625 mirror
             if (tryStmt.Finally != null && ContainsYield(tryStmt.Finally))
             {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has yield inside finally (CS1625 mirror).");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{memberName}' has yield inside finally (CS1625 mirror).");
                 ok = false;
             }
             // try-finally (no catch) with yield in the try block: M2 supported.
@@ -152,20 +219,20 @@ internal static class IteratorLoweringAnalyzer
             if (!ContainsYield(usingStmt)) continue;
             if (usingStmt.AwaitKeyword.RawKind != 0)
             {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has await using (owned by async streams, C38).");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{memberName}' has await using (owned by async streams, C38).");
                 ok = false;
             }
             else if (UsingResourceIsRefLike(usingStmt, semanticModel))
             {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0403,
-                    $"Iterator method '{method.Identifier.Text}' has a ref struct using resource that cannot be hoisted across a yield boundary.");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0403,
+                    $"Iterator method '{memberName}' has a ref struct using resource that cannot be hoisted across a yield boundary.");
                 ok = false;
             }
             else
             {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has a residual using statement after normalization.");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{memberName}' has a residual using statement after normalization.");
                 ok = false;
             }
         }
@@ -175,22 +242,22 @@ internal static class IteratorLoweringAnalyzer
             if (usingDecl.UsingKeyword.RawKind == 0 || !ContainsYield(usingDecl)) continue;
             if (usingDecl.AwaitKeyword.RawKind != 0)
             {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has an await using declaration (owned by async streams, C38).");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{memberName}' has an await using declaration (owned by async streams, C38).");
                 ok = false;
             }
             else if (usingDecl.Declaration.Variables
                 .Select(v => semanticModel.GetDeclaredSymbol(v) is ILocalSymbol local ? local.Type : null)
                 .Any(t => t is { IsRefLikeType: true }))
             {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0403,
-                    $"Iterator method '{method.Identifier.Text}' has a ref struct using declaration that cannot be hoisted across a yield boundary.");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0403,
+                    $"Iterator method '{memberName}' has a ref struct using declaration that cannot be hoisted across a yield boundary.");
                 ok = false;
             }
             else
             {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has a residual using declaration after normalization.");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{memberName}' has a residual using declaration after normalization.");
                 ok = false;
             }
         }
@@ -199,8 +266,8 @@ internal static class IteratorLoweringAnalyzer
         {
             if (ContainsYield(lockStmt))
             {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has a residual lock statement after normalization.");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{memberName}' has a residual lock statement after normalization.");
                 ok = false;
             }
         }
@@ -210,8 +277,8 @@ internal static class IteratorLoweringAnalyzer
         {
             if (ContainsYield(feVar))
             {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has yield inside a deconstruction foreach (M2 unsupported).");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{memberName}' has yield inside a deconstruction foreach (M2 unsupported).");
                 ok = false;
             }
         }
@@ -224,8 +291,8 @@ internal static class IteratorLoweringAnalyzer
             var enumType = feInfo.GetEnumeratorMethod?.ReturnType;
             if (enumType is { IsRefLikeType: true })
             {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0403,
-                    $"Iterator method '{method.Identifier.Text}': foreach enumerator '{enumType.Name}' is a ref struct and cannot be hoisted across a yield boundary (CS4007 mirror).");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0403,
+                    $"Iterator method '{memberName}': foreach enumerator '{enumType.Name}' is a ref struct and cannot be hoisted across a yield boundary (CS4007 mirror).");
                 ok = false;
             }
         }
@@ -236,8 +303,8 @@ internal static class IteratorLoweringAnalyzer
         {
             if (ContainsYield(node))
             {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has yield inside a checked/unchecked block (checked context cannot survive state-machine flattening).");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{memberName}' has yield inside a checked/unchecked block (checked context cannot survive state-machine flattening).");
                 ok = false;
             }
         }
@@ -251,8 +318,8 @@ internal static class IteratorLoweringAnalyzer
         {
             if (ContainsYield(node))
             {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0403,
-                    $"Iterator method '{method.Identifier.Text}' has yield inside an unsafe/fixed block (CS9238 mirror: unsafe contexts and pinned pointers cannot cross a yield boundary).");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0403,
+                    $"Iterator method '{memberName}' has yield inside an unsafe/fixed block (CS9238 mirror: unsafe contexts and pinned pointers cannot cross a yield boundary).");
                 ok = false;
             }
         }
@@ -260,9 +327,9 @@ internal static class IteratorLoweringAnalyzer
         // M4：ref struct/ref local/指针局部跨 yield 边界 -> CS2J0403
         // （CS4007/CS9217 镜像）。不跨边界的受限局部合法，analyzer 放行并由
         // IteratorBodyAnalysis 排除提升、rewriter 保留为 MoveNext 真局部。
-        foreach (var restricted in IteratorLocalEscaping.FindRestrictedLocals(method, semanticModel))
+        foreach (var restricted in IteratorLocalEscaping.FindRestrictedLocals(body, semanticModel))
         {
-            if (IteratorLocalEscaping.EscapesAcrossYield(restricted, method, semanticModel))
+            if (IteratorLocalEscaping.EscapesAcrossYield(restricted, body, semanticModel))
             {
                 var kindText = restricted.Kind switch
                 {
@@ -271,8 +338,8 @@ internal static class IteratorLoweringAnalyzer
                     IteratorLocalEscaping.RestrictedKind.Pointer => "pointer local",
                     _ => "restricted",
                 };
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0403,
-                    $"Iterator method '{method.Identifier.Text}': {kindText} local '{restricted.Symbol.Name}' is alive across a yield boundary (CS4007/CS9217 mirror).");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0403,
+                    $"Iterator method '{memberName}': {kindText} local '{restricted.Symbol.Name}' is alive across a yield boundary (CS4007/CS9217 mirror).");
                 ok = false;
             }
         }
@@ -296,8 +363,8 @@ internal static class IteratorLoweringAnalyzer
             var target = semanticModel.GetSymbolInfo(((IdentifierNameSyntax)addressOf.Operand)).Symbol;
             if (target is ILocalSymbol or IParameterSymbol)
             {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0403,
-                    $"Iterator method '{method.Identifier.Text}': the address-of operator cannot be applied to local/parameter '{target.Name}' (CS9239 mirror).");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0403,
+                    $"Iterator method '{memberName}': the address-of operator cannot be applied to local/parameter '{target.Name}' (CS9239 mirror).");
                 ok = false;
             }
         }
@@ -307,8 +374,8 @@ internal static class IteratorLoweringAnalyzer
         // 契约未与状态机提升做过等价验证，防御性 CS2J0405 拒绝。
         if (body.DescendantNodes().Any(n => n is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax))
         {
-            AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0405,
-                $"Iterator method '{method.Identifier.Text}' contains a residual lambda/anonymous method after closure-lift (capture-across-yield is unverified).");
+            AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0405,
+                $"Iterator method '{memberName}' contains a residual lambda/anonymous method after closure-lift (capture-across-yield is unverified).");
             ok = false;
         }
 
@@ -332,8 +399,8 @@ internal static class IteratorLoweringAnalyzer
                 .Any(d => d.Identifier.Text != "_");
             if (bindsPatternVariable)
             {
-                AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0402,
-                    $"Iterator method '{method.Identifier.Text}' has a yield inside a switch whose case label binds a pattern variable (M4 v1 supports variable-free labels only).");
+                AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0402,
+                    $"Iterator method '{memberName}' has a yield inside a switch whose case label binds a pattern variable (M4 v1 supports variable-free labels only).");
                 ok = false;
             }
         }
@@ -346,8 +413,8 @@ internal static class IteratorLoweringAnalyzer
         if (body.DescendantNodes().OfType<GotoStatementSyntax>().Any()
             || body.DescendantNodes().OfType<LabeledStatementSyntax>().Any())
         {
-            AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0406,
-                $"Iterator method '{method.Identifier.Text}' has user goto/label (unsupported).");
+            AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0406,
+                $"Iterator method '{memberName}' has user goto/label (unsupported).");
             ok = false;
         }
 
@@ -356,8 +423,8 @@ internal static class IteratorLoweringAnalyzer
         // 主动 skip 了该形态，防御性 CS2J0404 拒绝。
         if (body.DescendantNodes().OfType<LocalFunctionStatementSyntax>().Any())
         {
-            AddSkipDiagnostic(diagnostics, method, IteratorLoweringDiagnosticCode.CS2J0404,
-                $"Iterator method '{method.Identifier.Text}' has a residual local function after closure-lift (unsupported form).");
+            AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0404,
+                $"Iterator method '{memberName}' has a residual local function after closure-lift (unsupported form).");
             ok = false;
         }
 
@@ -390,11 +457,11 @@ internal static class IteratorLoweringAnalyzer
 
     private static void AddSkipDiagnostic(
         List<IteratorLoweringDiagnostic> diagnostics,
-        MethodDeclarationSyntax method,
+        SyntaxNode member,
         IteratorLoweringDiagnosticCode code,
         string message)
     {
-        var lineSpan = method.GetLocation().GetLineSpan();
+        var lineSpan = member.GetLocation().GetLineSpan();
         diagnostics.Add(new IteratorLoweringDiagnostic(
             IteratorLoweringSeverity.Error,
             code,
@@ -403,8 +470,14 @@ internal static class IteratorLoweringAnalyzer
             Line: lineSpan.StartLinePosition.Line + 1));
     }
 
-    private static string GetMemberKey(MethodDeclarationSyntax method)
-        => method.Identifier.ValueText + "_" + method.SpanStart;
+    private static string GetMemberKey(SyntaxNode member)
+        => (member switch
+        {
+            MethodDeclarationSyntax m => m.Identifier.ValueText,
+            PropertyDeclarationSyntax p => p.Identifier.ValueText,
+            IndexerDeclarationSyntax => "this[]",
+            _ => member.Kind().ToString(),
+        }) + "_" + member.SpanStart;
 
     /// <summary>
     /// Whether the method body itself (not any nested local function/lambda/

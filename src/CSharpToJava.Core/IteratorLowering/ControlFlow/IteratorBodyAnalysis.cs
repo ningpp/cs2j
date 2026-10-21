@@ -25,7 +25,21 @@ internal sealed record ForeachLoweringInfo(
 /// </summary>
 internal sealed class MethodLoweringInfo
 {
-    public required MethodDeclarationSyntax Method { get; init; }
+    /// <summary>The iterator member: a method, property or indexer declaration.</summary>
+    public required MemberDeclarationSyntax Member { get; init; }
+
+    /// <summary>Getter accessor for property/indexer iterators; null for methods.</summary>
+    public required AccessorDeclarationSyntax? Accessor { get; init; }
+
+    /// <summary>The iterator body (method body or getter body).</summary>
+    public required BlockSyntax Body { get; init; }
+
+    /// <summary>Method/indexer parameters; null for a plain property.</summary>
+    public required BaseParameterListSyntax? ParameterList { get; init; }
+
+    /// <summary>Declared symbol of the iterator method or getter accessor.</summary>
+    public required IMethodSymbol Symbol { get; init; }
+
     public required StateMachinePlan Plan { get; init; }
 
     /// <summary>按语法序的 yield return；其挂起状态号 = 下标 + 1。</summary>
@@ -57,8 +71,26 @@ internal static class IteratorBodyAnalysis
         IMethodSymbol methodSymbol,
         SemanticModel semanticModel,
         string stateMachineClassName)
+        => Analyze(
+            method.Body!,
+            methodSymbol,
+            semanticModel,
+            stateMachineClassName,
+            memberName: method.Identifier.ValueText,
+            member: method,
+            parameterList: method.ParameterList,
+            accessor: null);
+
+    public static MethodLoweringInfo Analyze(
+        BlockSyntax body,
+        IMethodSymbol methodSymbol,
+        SemanticModel semanticModel,
+        string stateMachineClassName,
+        string memberName,
+        MemberDeclarationSyntax member,
+        BaseParameterListSyntax? parameterList,
+        AccessorDeclarationSyntax? accessor)
     {
-        var body = method.Body!;
         var compilation = semanticModel.Compilation;
 
         // ── 1. 状态编号：语法序 yield return 1..N ──
@@ -310,7 +342,7 @@ internal static class IteratorBodyAnalysis
             : BuildThisCaptureType(declaringType);
 
         var plan = new StateMachinePlan(
-            MemberName: methodSymbol.Name,
+            MemberName: memberName,
             StateMachineClassName: stateMachineClassName,
             ElementType: ResolveElementType(methodSymbol.ReturnType),
             IsIEnumerableReturn: IsIEnumerableReturn(methodSymbol.ReturnType),
@@ -332,7 +364,11 @@ internal static class IteratorBodyAnalysis
 
         return new MethodLoweringInfo
         {
-            Method = method,
+            Member = member,
+            Accessor = accessor,
+            Body = body,
+            ParameterList = parameterList,
+            Symbol = methodSymbol,
             Plan = plan,
             YieldReturns = yieldReturns,
             HoistedSymbols = hoisted,

@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression;
+using CSharpToJava.Core.Transformers.Type;
 
 namespace CSharpToJava.Core.Transformers.Statement;
 
@@ -41,6 +42,24 @@ public partial class StatementTransformer
             }
         }
 
+        // A C# value enum (explicit values, including [Flags] combinations) has
+        // no Java constant labels: `A | B` is a runtime expression in Java.
+        // Drive the switch on the numeric value instead and render each label's
+        // compile-time constant as an integer literal.
+        var valueEnumType = switchType is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
+            && EnumTransformer.IsValueEnum(enumType)
+                ? enumType
+                : null;
+        var valueEnumStorage = valueEnumType == null
+            ? null
+            : EnumTransformer.StorageTypeName(
+                valueEnumType.EnumUnderlyingType?.SpecialType ?? SpecialType.System_Int32);
+        var drivenExpression = valueEnumType == null
+            ? expression
+            : valueEnumStorage == "long"
+                ? $"((int)({expression}).getValue())"
+                : $"({expression}).getValue()";
+
         var sections = new List<string>();
         foreach (var section in stmt.Sections)
         {
@@ -50,7 +69,9 @@ public partial class StatementTransformer
                 switch (label)
                 {
                     case CaseSwitchLabelSyntax caseLabel:
-                        labels.Add($"case {exprTransformer.Transform(caseLabel.Value, context)}:");
+                        labels.Add(valueEnumType == null
+                            ? $"case {exprTransformer.Transform(caseLabel.Value, context)}:"
+                            : $"case {RenderValueEnumCaseLabel(caseLabel, valueEnumStorage!, context)}:");
                         break;
                     case DefaultSwitchLabelSyntax:
                         labels.Add("default:");
@@ -90,7 +111,43 @@ public partial class StatementTransformer
             sections.Add($"{string.Join("\n            ", labels)}\n            {sectionBody}");
         }
 
-        return new JavaStatementNode($"switch ({expression}) {{\n        {string.Join("\n\n        ", sections)}\n    }}");
+        return new JavaStatementNode($"switch ({drivenExpression}) {{\n        {string.Join("\n\n        ", sections)}\n    }}");
+    }
+
+    /// <summary>
+    /// Renders a value-enum case label as the Java primitive constant matching
+    /// the enum's storage type. Compound labels such as <c>A | B</c> and
+    /// <c>A &amp; ~B</c> collapse to their C# compile-time constant value.
+    /// </summary>
+    private static string RenderValueEnumCaseLabel(
+        CaseSwitchLabelSyntax label, string storage, ConversionContext context)
+    {
+        var semanticModel = context.SemanticModel;
+        if (semanticModel == null)
+        {
+            throw new NotSupportedException(
+                $"CS2J conversion error: no semantic model to resolve switch case '{label.Value}' on a value enum.");
+        }
+
+        var constant = semanticModel.GetConstantValue(label.Value);
+        if (!constant.HasValue || constant.Value is null)
+        {
+            throw new NotSupportedException(
+                $"CS2J conversion error: cannot resolve compile-time constant for switch case '{label.Value}' on a value enum.");
+        }
+
+        var signed = Convert.ToInt64(constant.Value);
+        return storage switch
+        {
+            // C# byte is unsigned while Java byte is signed: narrow through sbyte
+            // so the literal matches the value produced by getValue().
+            "byte" => unchecked((sbyte)signed).ToString(),
+            "short" => unchecked((short)signed).ToString(),
+            "char" => unchecked((ushort)signed).ToString(),
+            // Java cannot switch on long; the driven expression is cast to int.
+            "long" => unchecked((int)signed).ToString(),
+            _ => unchecked((int)signed).ToString(),
+        };
     }
 
     private JavaSyntaxNode TransformBreakStatement(BreakStatementSyntax? stmt, ConversionContext context)

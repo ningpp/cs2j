@@ -65,6 +65,18 @@ public class LowerProperty : ILoweringPass
         var propSymbol = prop.Symbol as IPropertySymbol;
         var loweredTarget = LowerExpression(prop.Target);
 
+        if (propSymbol is { Name: "Size" }
+            && propSymbol.ContainingType?.SpecialType == SpecialType.System_IntPtr)
+        {
+            _ctx.AddImport("io.github.ningpp.compat.IntPtrHelper");
+            return new IrInvocationExpression
+            {
+                MethodName = "IntPtrHelper.getSize",
+                Symbol = prop.Symbol,
+                JavaType = prop.JavaType,
+            };
+        }
+
         if (propSymbol?.ContainingType?.SpecialType == SpecialType.System_Array
             && prop.PropertyName == "Length"
             && IsJavaArrayType(prop.Target.JavaType))

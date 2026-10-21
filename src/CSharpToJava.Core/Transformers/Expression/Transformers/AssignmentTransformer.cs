@@ -58,14 +58,18 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
         if (op is "+=" or "-=" && symbol is IEventSymbol evt)
             return Event(a, op, evt, context);
-        if (symbol is IPropertySymbol prop)
-            return Property(a, op, prop, context);
+        // Element access must be handled before the property branch: a C# indexer
+        // (`ref T this[int]`, List/Span/...) is an IPropertySymbol, and its
+        // SetMethod is null for ref-return indexers. Falling into the property
+        // path would lose the index/value and emit `this.this[] = ...`.
         if (lhs is ElementAccessExpressionSyntax ea
             && context.GetTypeInfo(ea.Expression).Type is not IArrayTypeSymbol)
         {
             var setter = IsDictionary(ea.Expression, context) ? "put" : "set";
             return Indexer(ea, setter, "get", rhs, context, op == "=" ? null : op);
         }
+        if (symbol is IPropertySymbol prop)
+            return Property(a, op, prop, context);
         if (op == "=" && lhs is ImplicitElementAccessSyntax iea)
             return $"{(iea.ArgumentList.Arguments.Count == 1 ? "put" : "set")}(" +
                    $"{string.Join(", ", iea.ArgumentList.Arguments.Select(x => f.Transform(x.Expression, context)))}, " +
@@ -73,13 +77,71 @@ public class AssignmentTransformer : IIRExpressionTransformer
         if (op == "=" && symbol is IParameterSymbol { RefKind: RefKind.Out or RefKind.Ref } param)
             return $"{ConversionContext.EscapeJavaKeyword(param.Name)}.value = {f.Transform(rhs, context)}";
 
-        return $"{f.Transform(lhs, context)} {op} {f.Transform(rhs, context)}";
+        var rightText = f.Transform(rhs, context);
+        if (op == "=" && JavaNarrowTarget(lhs, context) is { } narrowTarget)
+        {
+            // C# implicit/explicit narrowing conversions to byte/short/char have no
+            // Java counterpart; the numeric-boundary lowering returns widened
+            // int/long values, so the assignment site must restore the cast.
+            rightText = $"({narrowTarget}) ({rightText})";
+        }
+
+        return $"{f.Transform(lhs, context)} {op} {rightText}";
+    }
+
+    /// <summary>
+    /// Java primitive target type of a simple assignment when it is narrower than
+    /// int (byte/short/char); null for all other targets.
+    /// </summary>
+    private static string? JavaNarrowTarget(ExpressionSyntax lhs, ConversionContext context)
+    {
+        ITypeSymbol? targetType = null;
+        if (lhs is ElementAccessExpressionSyntax element
+            && context.GetTypeInfo(element.Expression).Type is IArrayTypeSymbol array)
+        {
+            return array.ElementType.SpecialType switch
+            {
+                // C# byte[] stays Java byte[] (see TypeMappingService array mapping).
+                SpecialType.System_Byte => "byte",
+                SpecialType.System_SByte => "byte",
+                SpecialType.System_Int16 => "short",
+                SpecialType.System_Char => "char",
+                _ => null,
+            };
+        }
+
+        targetType = context.GetSymbolInfo(lhs).Symbol switch
+        {
+            ILocalSymbol local => local.Type,
+            IFieldSymbol field => field.Type,
+            IParameterSymbol parameter => parameter.Type,
+            _ => null,
+        };
+
+        return targetType?.SpecialType switch
+        {
+            SpecialType.System_Byte => "byte",
+            SpecialType.System_SByte => "byte",
+            SpecialType.System_Int16 => "short",
+            SpecialType.System_Char => "char",
+            _ => null,
+        };
     }
 
     // ── Property ────────────────────────────────────────────────────────────
 
     private static string Property(AssignmentExpressionSyntax a, string op, IPropertySymbol p, ConversionContext c)
     {
+        // An indexer is only assignable through element access, which is
+        // dispatched before this method. Reaching here means the index and value
+        // are unavailable; fail clearly instead of emitting an invalid
+        // `this.this[]` (the indexer symbol's name is `this[]`).
+        if (p.IsIndexer)
+        {
+            throw new NotSupportedException(
+                $"Indexer assignment to '{p.ToDisplayString()}' must go through element access.");
+        }
+
         var f = ExpressionTransformerFacade.Instance;
         var receiver = a.Left is MemberAccessExpressionSyntax ma ? f.Transform(ma.Expression, c) + "." : "";
         var name = char.ToUpperInvariant(p.Name[0]) + p.Name[1..];

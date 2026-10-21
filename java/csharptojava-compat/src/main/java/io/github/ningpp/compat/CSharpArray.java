@@ -51,6 +51,24 @@ public final class CSharpArray implements Iterable<Object> {
         return new CSharpArray(arr, lowerBounds == null ? null : lowerBounds.clone());
     }
 
+    /**
+     * Re-materializes {@code source} as an array whose runtime component type is
+     * {@code componentType}. Generic C# declarations such as {@code T[] ToArray()}
+     * erase to {@code Object[]} in Java (there is no runtime token for {@code T}),
+     * so a call site that knows the constructed type argument must convert the
+     * result before an implicit cast to {@code T[]} can succeed.
+     *
+     * @param source The array to convert.
+     * @param componentType The runtime component type of the result.
+     * @return A new array of the requested component type holding the same elements.
+     */
+    public static Object toTypedArray(Object source, Class<?> componentType) {
+        int length = Array.getLength(source);
+        Object result = Array.newInstance(componentType, length);
+        System.arraycopy(source, 0, result, 0, length);
+        return result;
+    }
+
     public static <T> int binarySearch(T[] array, Object value, Comparator<? super Object> comparer) {
         Objects.requireNonNull(array, "array");
         Objects.requireNonNull(comparer, "comparer");

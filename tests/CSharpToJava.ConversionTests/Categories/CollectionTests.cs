@@ -70,4 +70,19 @@ public class CollectionTests : ConversionTestBase
         yield return new object[] { "Dictionary count", "class C { public int M() { var d = new System.Collections.Generic.Dictionary<string, int>(); return d.Count; } }", "d.size()" };
         yield return new object[] { "List count property", "class C { public int M() { var l = new System.Collections.Generic.List<int>(); l.Add(1); int c = l.Count; return c; } }", "l.size()" };
     }
+
+    [Fact]
+    public void SpanRefReturnIndexer_Assignment_UsesSetAccessor()
+    {
+        // Span<T>'s indexer is `ref T this[int]` (SetMethod == null). The
+        // assignment must route through the element-access path, not the
+        // auto-property backing-field path (which produced `this.this[]`).
+        var result = Convert(
+            "using System; class C { public void F(Span<ushort> s) { s[0] = (ushort)1; s[1] += 2; } }");
+
+        AssertSuccess(result);
+        AssertJavaContains(result, "s.set(0, ");
+        AssertJavaContains(result, "s.set(1, s.get(1) + 2)");
+        AssertJavaDoesNotContain(result, "this.this[]");
+    }
 }

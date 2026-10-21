@@ -25,6 +25,15 @@ public final class OSPlatform {
     public static final OSPlatform VisionOS = new OSPlatform("VisionOS");
     public static final OSPlatform LinuxBionic = new OSPlatform("LinuxBionic");
 
+    // Bean-style property accessors for generated code (OSPlatform.Windows etc.).
+    public static OSPlatform getWindows() { return Windows; }
+    public static OSPlatform getLinux() { return Linux; }
+    public static OSPlatform getOSX() { return OSX; }
+    public static OSPlatform getFreeBSD() { return FreeBSD; }
+    public static OSPlatform getBrowser() { return Browser; }
+    public static OSPlatform getAndroid() { return Android; }
+    public static OSPlatform getIOS() { return iOS; }
+
     public static OSPlatform create(String osPlatform) {
         if (osPlatform == null) throw new NullPointerException("osPlatform");
         for (OSPlatform known : new OSPlatform[] {

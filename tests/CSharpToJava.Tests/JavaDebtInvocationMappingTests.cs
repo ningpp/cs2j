@@ -64,6 +64,26 @@ class P
     }
 
     [Fact]
+    public void Primitive_Equals_MapsToBoxedValueOfEquals()
+    {
+        var code = Convert("""
+class P
+{
+    bool M1(int a, int b) => a.GetHashCode().Equals(b.GetHashCode());
+    bool M2(long a, long b) => a.Equals(b);
+    bool M3(char a, char b) => a.Equals(b);
+    bool M4(bool a, bool b) => a.Equals(b);
+}
+""").GeneratedCode;
+
+        Assert.Contains("Integer.valueOf(Integer.hashCode(a)).equals(Integer.hashCode(b))", code, StringComparison.Ordinal);
+        Assert.Contains("Long.valueOf(a).equals(b)", code, StringComparison.Ordinal);
+        Assert.Contains("Character.valueOf(a).equals(b)", code, StringComparison.Ordinal);
+        Assert.Contains("Boolean.valueOf(a).equals(b)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("equalsTo", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Primitive_ToString_NoArgs_MapsToBoxedStatic()
     {
         var code = Convert("""
@@ -214,6 +234,77 @@ class P
         Assert.Contains("Interlocked.increment(", code, StringComparison.Ordinal);
         Assert.DoesNotContain("System.Threading.Interlocked", code, StringComparison.Ordinal);
         Assert.Contains("import io.github.ningpp.compat.Interlocked;", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GenericReceiverArrayReturn_SpecializesRuntimeComponentType()
+    {
+        // ArrayBuilder<T>.ToArray() is declared as `T[]` but Java's erased T
+        // materializes as Object[] at runtime; assigning it to String[] would
+        // fail with ClassCastException. The call site must re-materialize a
+        // typed array from the concrete type argument.
+        var code = Convert("""
+class Box<T>
+{
+    public T[] Items() { return null; }
+}
+class C
+{
+    void M(Box<string> b)
+    {
+        string[] x = b.Items();
+    }
+}
+""").GeneratedCode;
+
+        Assert.Contains("CSharpArray.toTypedArray(", code, StringComparison.Ordinal);
+        Assert.Contains("String.class", code, StringComparison.Ordinal);
+        Assert.Contains("(String[])", code, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.CSharpArray;", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GenericReceiverArrayReturn_PrimitiveTypeArgumentUsesPrimitiveClassLiteral()
+    {
+        var code = Convert("""
+class Box<T>
+{
+    public T[] Items() { return null; }
+}
+class C
+{
+    void M(Box<int> b)
+    {
+        int[] x = b.Items();
+    }
+}
+""").GeneratedCode;
+
+        Assert.Contains("CSharpArray.toTypedArray(", code, StringComparison.Ordinal);
+        Assert.Contains("int.class", code, StringComparison.Ordinal);
+        Assert.Contains("(int[])", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GenericReceiverArrayReturn_TypeParameterArgumentStaysUnwrapped()
+    {
+        // No runtime token exists for an erased type parameter, so the call
+        // site must keep the original (unchecked) shape.
+        var code = Convert("""
+class Box<T>
+{
+    public T[] Items() { return null; }
+}
+class C
+{
+    void M<T>(Box<T> b)
+    {
+        T[] x = b.Items();
+    }
+}
+""").GeneratedCode;
+
+        Assert.DoesNotContain("CSharpArray.toTypedArray(", code, StringComparison.Ordinal);
     }
 
     private static int CountOccurrences(string text, string needle)

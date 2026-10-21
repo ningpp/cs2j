@@ -48,11 +48,11 @@ internal static class IteratorLocalEscaping
     /// 专用检查负责，foreach 迭代变量由枚举器检查负责，均不在此列。
     /// </summary>
     public static IReadOnlyList<RestrictedLocal> FindRestrictedLocals(
-        MethodDeclarationSyntax method,
+        BlockSyntax body,
         SemanticModel model)
     {
         var result = new List<RestrictedLocal>();
-        foreach (var declarator in method.Body!.DescendantNodes()
+        foreach (var declarator in body.DescendantNodes()
                      .OfType<VariableDeclaratorSyntax>())
         {
             var belongs = declarator.Parent switch
@@ -80,18 +80,18 @@ internal static class IteratorLocalEscaping
     /// </summary>
     public static bool EscapesAcrossYield(
         RestrictedLocal restricted,
-        MethodDeclarationSyntax method,
+        BlockSyntax body,
         SemanticModel model)
     {
         var decl = restricted.Declarator;
-        var yields = method.Body!.DescendantNodes()
+        var yields = body.DescendantNodes()
             .OfType<YieldStatementSyntax>()
             .Where(y => y.IsKind(YieldReturnStatement) || y.IsKind(YieldBreakStatement))
             .OrderBy(y => y.SpanStart)
             .ToList();
         if (yields.Count == 0) return false;
 
-        var references = method.Body.DescendantNodes().OfType<IdentifierNameSyntax>()
+        var references = body.DescendantNodes().OfType<IdentifierNameSyntax>()
             .Where(id => model.GetSymbolInfo(id).Symbol is ILocalSymbol referenced
                 && SymbolEqualityComparer.Default.Equals(referenced, restricted.Symbol))
             .Select(id => id.Span)
@@ -107,7 +107,7 @@ internal static class IteratorLocalEscaping
 
         // 条件 2：局部声明在某个含 yield 循环的循环体之外（含 for 头变量），
         // 却在该循环内被引用——跨迭代存活（声明在循环体内则每轮重建，合法）。
-        foreach (var loop in EnumerateLoops(method.Body))
+        foreach (var loop in EnumerateLoops(body))
         {
             if (!loop.Node.DescendantNodes().OfType<YieldStatementSyntax>().Any()) continue;
             var bodySpan = loop.Body.Span;

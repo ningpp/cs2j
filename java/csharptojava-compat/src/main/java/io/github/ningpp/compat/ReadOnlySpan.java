@@ -48,6 +48,25 @@ public final class ReadOnlySpan<T> {
     }
 
     /** Primitive char[] backing — mirrors C# char[] → ReadOnlySpan&lt;char&gt;. */
+    /** Primitive int[] backing — C# int[] → ReadOnlySpan&lt;int&gt; (boxed as Integer). */
+    public ReadOnlySpan(int[] array) {
+        this.array = array;
+        this.stringBacking = null;
+        this.offset = 0;
+        this.length = array == null ? 0 : array.length;
+    }
+
+    public ReadOnlySpan(int[] array, int offset, int length) {
+        if (offset < 0 || length < 0 || offset + length > array.length) {
+            throw new IndexOutOfBoundsException(
+                "offset=" + offset + ", length=" + length + ", arrayLength=" + array.length);
+        }
+        this.array = array;
+        this.stringBacking = null;
+        this.offset = offset;
+        this.length = length;
+    }
+
     public ReadOnlySpan(char[] array) {
         this.array = array;
         this.stringBacking = null;
@@ -188,6 +207,8 @@ public final class ReadOnlySpan<T> {
                 bytes[offset + i] = 0;
             } else if (array instanceof char[] chars) {
                 chars[offset + i] = '\0';
+            } else if (array instanceof int[] ints) {
+                ints[offset + i] = 0;
             } else if (array instanceof Object[] objects) {
                 objects[offset + i] = null;
             }
@@ -207,6 +228,8 @@ public final class ReadOnlySpan<T> {
             bytes[offset + index] = ((Number) value).byteValue();
         } else if (array instanceof char[] chars) {
             chars[offset + index] = ((Character) value).charValue();
+        } else if (array instanceof int[] ints) {
+            ints[offset + index] = ((Number) value).intValue();
         } else {
             @SuppressWarnings("unchecked")
             T[] arr = (T[]) array;
@@ -242,6 +265,11 @@ public final class ReadOnlySpan<T> {
         if (array instanceof char[] chars) {
             @SuppressWarnings("unchecked")
             T value = (T) java.lang.Character.valueOf(chars[offset + index]);
+            return value;
+        }
+        if (array instanceof int[] ints) {
+            @SuppressWarnings("unchecked")
+            T value = (T) java.lang.Integer.valueOf(ints[offset + index]);
             return value;
         }
         @SuppressWarnings("unchecked")
@@ -287,6 +315,9 @@ public final class ReadOnlySpan<T> {
         if (array instanceof char[] chars) {
             // Keep the slice as a view over the original char[] (C# Slice is O(1)).
             return new ReadOnlySpan<>(chars, offset + start, len);
+        }
+        if (array instanceof int[] ints) {
+            return new ReadOnlySpan<>(ints, offset + start, len);
         }
         return new ReadOnlySpan<>((T[]) array, offset + start, len);
     }

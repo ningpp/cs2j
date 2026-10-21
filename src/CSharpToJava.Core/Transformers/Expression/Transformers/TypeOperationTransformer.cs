@@ -256,7 +256,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     {
         var left = Expr(c, n.Left);
         if (c.GetTypeInfo(n.Right).Type is ITypeParameterSymbol tp)
-            return $"{ConversionContext.GetClassLiteral(tp, c)}.isInstance({left})"; // Java forbids instanceof T
+            return $"{TypeParameterToken(n, tp)}.isInstance({left})"; // Java forbids instanceof T
         return $"{left} instanceof {Rt(Map((TypeSyntax)n.Right, c))}";
     }
     private static string As(BinaryExpressionSyntax n, ConversionContext c)
@@ -293,8 +293,39 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     }
     private static string TypeOf(TypeOfExpressionSyntax n, ConversionContext c)
     {
-        if (c.GetTypeInfo(n.Type).Type is ITypeParameterSymbol tp) return ConversionContext.GetClassLiteral(tp, c);
+        if (c.GetTypeInfo(n.Type).Type is ITypeParameterSymbol tp) return TypeParameterToken(n, tp);
         return $"{Rt(Map(n.Type, c))}.class";
+    }
+
+    /// <summary>
+    /// Java cannot form <c>T.class</c> for an erased type parameter. Prefer the
+    /// generic-deepen anchor local (<c>__cs2j_token_T</c>) when one is in scope;
+    /// otherwise — including inside the anchor's own initializer — degrade to
+    /// <c>Object.class</c> so the generated expression always references a
+    /// declared symbol.
+    /// </summary>
+    private static string TypeParameterToken(SyntaxNode site, ITypeParameterSymbol typeParameter)
+    {
+        var anchorName = "__cs2j_token_" + typeParameter.Name;
+        // Only locals injected into the enclosing executable scope are usable; a
+        // class-level (field initializer) site must not pick up an anchor from a
+        // method body elsewhere in the same type.
+        var scope = site.Ancestors().FirstOrDefault(a => a is
+            MethodDeclarationSyntax or LocalFunctionStatementSyntax or
+            AccessorDeclarationSyntax or LambdaExpressionSyntax or
+            ConstructorDeclarationSyntax or OperatorDeclarationSyntax);
+        var anchor = scope?
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .FirstOrDefault(v => v.Identifier.Text == anchorName);
+        if (anchor == null)
+            return "Object.class";
+
+        // The anchor's own `= typeof(T)` must not reference the variable being declared.
+        if (anchor.Initializer?.Span.Contains(site.Span) == true)
+            return "Object.class";
+
+        return anchorName;
     }
     /// <summary>Primitives get zero, structs get new T(), Nullable/enum-default etc. as shown; otherwise null.</summary>
     internal static string GetDefaultValueForType(string typeName, ITypeSymbol? typeSymbol, ConversionContext context)

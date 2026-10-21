@@ -118,6 +118,36 @@ public class PlanningTests
     }
 
     [Fact]
+    public void MavenPomGenerator_SurefirePlugin_ScansAllTestClassesRegardlessOfNaming()
+    {
+        var module = new JavaModulePlan
+        {
+            ModuleName = "functional-tests",
+            IsTestOnly = true,
+            SourceSets = new JavaSourceSets
+            {
+                TestSources = ["test"],
+            },
+        };
+
+        var plan = new JavaWorkspacePlan
+        {
+            GroupId = "com.example",
+            ArtifactId = "demo-parent",
+            Version = "1.0-SNAPSHOT",
+            JavaVersion = "Java28",
+            Modules = [module],
+        };
+
+        var generator = new MavenPomGenerator();
+        var pom = generator.GenerateModuleBuildFile(plan, module);
+
+        Assert.Contains("<artifactId>maven-surefire-plugin</artifactId>", pom, StringComparison.Ordinal);
+        Assert.Contains("<includes>", pom, StringComparison.Ordinal);
+        Assert.Contains("<include>**/*.java</include>", pom, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void JavaWorkspacePlanJsonSerializer_SerializesModulesDependenciesCompatPacksAndRuntimeBridges()
     {
         var jsonBridge = new JavaRuntimeBridgeRequirement

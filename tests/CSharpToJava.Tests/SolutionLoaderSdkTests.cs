@@ -264,6 +264,77 @@ public class SolutionLoaderSdkTests
         Assert.Equal(Path.GetFullPath(topLevel), Path.GetFullPath(entry));
     }
 
+    /// <summary>
+    /// .slnx is XML with &lt;Project Path="..."/&gt; entries nested inside &lt;Folder&gt;
+    /// nodes. Paths are relative to the solution directory; both separators must work.
+    /// </summary>
+    [Fact]
+    public void ReadSlnxProjectPaths_ResolvesNestedProjectEntries()
+    {
+        using var temp = new TempDir();
+        var root = temp.Path;
+        var lib = Path.Combine(root, "src", "Lib.csproj");
+        var app = Path.Combine(root, "tests", "Unit", "App.csproj");
+        WriteProject(lib, """<Project Sdk="Microsoft.NET.Sdk" />""");
+        WriteProject(app, """<Project Sdk="Microsoft.NET.Sdk" />""");
+
+        var slnx = Path.Combine(root, "Sample.slnx");
+        File.WriteAllText(slnx, """
+            <Solution>
+              <Folder Name="/src/">
+                <Project Path="src/Lib.csproj" />
+              </Folder>
+              <Folder Name="/tests/">
+                <Folder Name="/tests/Unit/">
+                  <Project Path="tests\Unit\App.csproj" />
+                </Folder>
+              </Folder>
+            </Solution>
+            """);
+
+        var paths = SolutionLoader.ReadSlnxProjectPaths(slnx);
+
+        Assert.Equal(2, paths.Count);
+        Assert.Equal(Path.GetFullPath(lib), paths[0]);
+        Assert.Equal(Path.GetFullPath(app), paths[1]);
+    }
+
+    [Fact]
+    public void ReadSlnxProjectPaths_IgnoresMissingAndDuplicateEntries()
+    {
+        using var temp = new TempDir();
+        var root = temp.Path;
+        var lib = Path.Combine(root, "src", "Lib.csproj");
+        WriteProject(lib, """<Project Sdk="Microsoft.NET.Sdk" />""");
+
+        var slnx = Path.Combine(root, "Sample.slnx");
+        File.WriteAllText(slnx, """
+            <Solution>
+              <Project Path="src/Lib.csproj" />
+              <Project Path="src/./Lib.csproj" />
+              <Project Path="src/Missing.csproj" />
+              <Project Path="$(Undefined)/Lib.csproj" />
+            </Solution>
+            """);
+
+        var paths = SolutionLoader.ReadSlnxProjectPaths(slnx);
+
+        Assert.Single(paths);
+        Assert.Equal(Path.GetFullPath(lib), paths[0]);
+    }
+
+    [Fact]
+    public void TryResolveNestedSolutionEntry_TopLevelSlnx_ReturnsIt()
+    {
+        using var temp = new TempDir();
+        var root = temp.Path;
+        var slnx = Path.Combine(root, "uri.slnx");
+        File.WriteAllText(slnx, "<Solution />");
+
+        Assert.True(SolutionLoader.TryResolveNestedSolutionEntry(root, out var entry));
+        Assert.Equal(Path.GetFullPath(slnx), Path.GetFullPath(entry));
+    }
+
     private static void WriteProject(string projectPath, string content)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(projectPath)!);

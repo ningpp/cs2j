@@ -1663,6 +1663,106 @@ namespace CSharpToJava.Core.LinqRewrite
             return ch;
         }
 
+        /// <summary>
+        /// Fuses a SelectMany collection selector of the shape
+        /// <c>array.Select(x =&gt; expr)</c> or
+        /// <c>array.Where(x =&gt; pred).Select(x =&gt; expr)</c> into a plain
+        /// foreach over the array. The nested chain is otherwise spliced into
+        /// the generated foreach without a normal descent and survives as a
+        /// direct array receiver, which Java cannot compile.
+        /// Returns null when the selector has any other shape (non-array
+        /// source, delegate arguments, indexed lambdas, …); the caller then
+        /// keeps the pre-existing path.
+        /// </summary>
+        private StatementSyntax TryFuseArraySelector(
+            AnonymousFunctionExpressionSyntax selector,
+            string itemName,
+            TypeSyntax newtype,
+            string newname,
+            ArgumentListSyntax arguments,
+            List<LinqStep> chain,
+            int chainIndex,
+            bool noAggregation)
+        {
+            var outerLambda = new Lambda(selector);
+            if (outerLambda.Parameters.Count != 1 || outerLambda.Body is not ExpressionSyntax selectorBody)
+                return null;
+
+            ExpressionSyntax body = selectorBody;
+            while (body is ParenthesizedExpressionSyntax paren)
+                body = paren.Expression;
+
+            if (body is not InvocationExpressionSyntax selectCall
+                || selectCall.Expression is not MemberAccessExpressionSyntax selectAccess
+                || selectAccess.Name.Identifier.ValueText != "Select"
+                || selectCall.ArgumentList.Arguments.Count != 1
+                || selectCall.ArgumentList.Arguments[0].Expression is not AnonymousFunctionExpressionSyntax selectLambda)
+                return null;
+
+            ExpressionSyntax source = selectAccess.Expression;
+            while (source is ParenthesizedExpressionSyntax paren)
+                source = paren.Expression;
+
+            AnonymousFunctionExpressionSyntax whereLambda = null;
+            if (source is InvocationExpressionSyntax whereCall
+                && whereCall.Expression is MemberAccessExpressionSyntax whereAccess
+                && whereAccess.Name.Identifier.ValueText == "Where"
+                && whereCall.ArgumentList.Arguments.Count == 1
+                && whereCall.ArgumentList.Arguments[0].Expression is AnonymousFunctionExpressionSyntax wl)
+            {
+                whereLambda = wl;
+                source = whereAccess.Expression;
+                while (source is ParenthesizedExpressionSyntax paren)
+                    source = paren.Expression;
+            }
+
+            if (semantic.GetTypeInfo(source).Type is not IArrayTypeSymbol)
+                return null;
+
+            var selectLambdaObj = new Lambda(selectLambda);
+            if (selectLambdaObj.Parameters.Count != 1 || selectLambdaObj.Body is not ExpressionSyntax selectBody)
+                return null;
+
+            var itemParam = selectLambdaObj.Parameters[0].Identifier;
+            ExpressionSyntax whereBody = null;
+            if (whereLambda != null)
+            {
+                var whereLambdaObj = new Lambda(whereLambda);
+                // Query-syntax desugaring reuses the range variable name for
+                // both lambdas; require it so the single foreach parameter
+                // binds both bodies.
+                if (whereLambdaObj.Parameters.Count != 1
+                    || whereLambdaObj.Parameters[0].Identifier.ValueText != itemParam.ValueText
+                    || whereLambdaObj.Body is not ExpressionSyntax wb)
+                    return null;
+                whereBody = wb;
+            }
+
+            var next = CreateProcessingStep(chain, chainIndex - 1, newtype, newname, arguments, noAggregation);
+            var statements = new List<StatementSyntax>();
+            if (whereBody != null)
+            {
+                statements.Add(SyntaxFactory.IfStatement(
+                    SyntaxFactory.PrefixUnaryExpression(
+                        SyntaxKind.LogicalNotExpression,
+                        SyntaxFactory.ParenthesizedExpression(whereBody)),
+                    SyntaxFactory.ContinueStatement()));
+            }
+
+            statements.Add(CreateLocalVariableDeclaration(newname, selectBody));
+            statements.Add(next);
+
+            return SyntaxFactory.Block(
+                CreateLocalVariableDeclaration(
+                    outerLambda.Parameters[0].Identifier.ValueText,
+                    SyntaxFactory.IdentifierName(itemName)),
+                SyntaxFactory.ForEachStatement(
+                    SyntaxFactory.ParseTypeName("var"),
+                    itemParam,
+                    source,
+                    SyntaxFactory.Block(statements)));
+        }
+
         private StatementSyntax CreateProcessingStep(List<LinqStep> chain, int chainIndex, TypeSyntax itemType, string itemName, ArgumentListSyntax arguments, bool noAggregation)
         {
 
@@ -1939,6 +2039,20 @@ namespace CSharpToJava.Core.LinqRewrite
                 var innerCollectionType = lambdaType.TypeArguments.Last();
                 var innerItemType = GetItemType(innerCollectionType);
                 var newtype = innerItemType != null ? SyntaxFactory.ParseTypeName(innerItemType.ToDisplayString()) : null;
+
+                // The collection selector is an arbitrary expression; when it
+                // is a nested chain over an array (two-from query syntax:
+                // `from a in xs from b in arr select ...`) that chain is
+                // spliced into the generated foreach without going through the
+                // normal descent. Left as-is it reaches the Java emitter as a
+                // direct `array.Select(...)` / `array.Where(...)` call, which
+                // java.util arrays do not support. Fuse the nested
+                // Select/Where into the generated loop instead.
+                var fused = TryFuseArraySelector(lambda, itemName, newtype, newname, arguments, chain, chainIndex, noAggregation);
+                if (fused != null)
+                {
+                    return fused;
+                }
 
                 var innerCollectionExpr = InlineOrCreateMethod(new Lambda(lambda), null, arguments, CreateParameter(itemName, itemType));
                 var next = CreateProcessingStep(chain, chainIndex - 1, newtype, newname, arguments, noAggregation);

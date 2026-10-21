@@ -84,23 +84,43 @@ public class ClassTransformer : ITypeTransformer
             Modifiers = ConvertModifiers(modifiers),
             LeadingComment = leadingComment,
         };
+        // 用真正构建中的类替换占位符：成员转换器（例如方法/属性命名冲突检测）
+        // 依赖 context.CurrentType 能看到已加入的成员。
+        context.LeaveType();
+        context.EnterType(javaClass);
         if (symbol?.IsAbstract == true) javaClass.Modifiers |= JavaModifiers.Abstract;
 
         AddBaseTypes(javaClass, symbol, nodes[0], context);
         AddTypeParameters(javaClass, symbol, nodes[0], context);
-        foreach (var tp in javaClass.TypeParameters) context.CurrentType!.TypeParameters.Add(tp);
 
         // 预注册嵌套枚举：C# 允许方法体引用文本顺序靠后的成员，枚举信息需先可用。
         foreach (var node in nodes)
             PreRegisterNestedEnums(node, context);
 
+        PrepareErasureConflictRenames(nodes, context);
         ProcessMembers(nodes, javaClass, context);
         LiftFieldInitializerStatements(javaClass);
+
+        // JUnit 测试类必须能被实例化；C# static 测试类（如 UriTests）原本会拿到
+        // private 无参构造，将其放开为包级可见，否则 surefire 发现不到测试。
+        var hasJUnitTests = javaClass.Methods.Any(HasJUnitTestAnnotation);
+        if (hasJUnitTests)
+        {
+            foreach (var ctor in javaClass.Constructors)
+            {
+                if (ctor.Parameters.Count == 0 && ctor.Modifiers.HasFlag(JavaModifiers.Private))
+                    ctor.Modifiers &= ~JavaModifiers.Private;
+            }
+        }
 
         // static class → 私有无参构造器，禁止实例化（Java 没有 static class）。
         if (isStaticClass && javaClass.Constructors.Count == 0)
             javaClass.Constructors.Add(new JavaConstructorDeclaration
-            { ClassName = javaClass.Name, Modifiers = JavaModifiers.Private, Body = "" });
+            {
+                ClassName = javaClass.Name,
+                Modifiers = hasJUnitTests ? JavaModifiers.None : JavaModifiers.Private,
+                Body = ""
+            });
 
         context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         context.LeaveType();
@@ -168,6 +188,7 @@ public class ClassTransformer : ITypeTransformer
             else if (resolved.TypeKind == TypeKind.Interface)
             {
                 var mapped = WildcardToObjectTypeArg(context.MapTypeForDeclarationHeader(resolved));
+                if (mapped == "__suppress__") continue;
                 if (!javaClass.ImplementedTypes.Any(t => InterfaceErasureKey(t) == InterfaceErasureKey(mapped)))
                     javaClass.ImplementedTypes.Add(mapped);
             }
@@ -276,7 +297,121 @@ public class ClassTransformer : ITypeTransformer
 
     // ── 成员分发（机械） ────────────────────────────────────────────────────────
 
-    private void ProcessMembers(IReadOnlyList<ClassDeclarationSyntax> nodes, JavaClassDeclaration javaClass, ConversionContext context)
+    /// <summary>
+    /// Pre-computes overloads whose Java parameter sigatures collide after type-argument
+    /// erasure (the common cause is ref/out lowering: <c>ref bool</c> and <c>ref string</c>
+    /// both become <c>ByRef</c>). The later overloads are renamed before any body is
+    /// transformed so both same-file call directions bind to the right declaration.
+    /// </summary>
+    private static void PrepareErasureConflictRenames(
+        IReadOnlyList<ClassDeclarationSyntax> nodes, ConversionContext context)
+    {
+        // IsAccessor=true entries keep their generated names (PropertyTransformer does
+        // not consult the rename map). A colliding user method is only renamed when an
+        // accessor body actually calls it; otherwise the old dedup behaviour (drop the
+        // duplicate, bind calls to the bean accessor) stays intact.
+        var methods = new List<(IMethodSymbol Symbol, string Name, string Signature,
+            PropertyDeclarationSyntax? AccessorOwner)>();
+        foreach (var node in nodes)
+        {
+            var model = context.GetSemanticModelForTree(node.SyntaxTree) ?? context.SemanticModel;
+            foreach (var member in node.Members)
+            {
+                if (member is MethodDeclarationSyntax declaration)
+                {
+                    var symbol = model?.GetDeclaredSymbol(declaration) as IMethodSymbol;
+                    if (symbol == null || symbol.MethodKind != MethodKind.Ordinary)
+                        continue;
+                    // Explicit interface implementations duplicate the implicit member's
+                    // Java signature; leave them out so the mechanical dedup drops the
+                    // redundant bridge instead of renaming it to an unresolvable call.
+                    if (symbol.ExplicitInterfaceImplementations.Length > 0)
+                        continue;
+                    if (methods.Any(m => SymbolEqualityComparer.Default.Equals(m.Symbol, symbol)))
+                        continue;
+
+                    var name = MethodTransformer.GetJavaMethodName(declaration.Identifier.Text, symbol, context);
+                    var signature = string.Join(",", symbol.Parameters.Select(p => EraseType(context.MapType(p.Type))));
+                    methods.Add((symbol, name, signature, null));
+                }
+                else if (member is PropertyDeclarationSyntax property)
+                {
+                    var symbol = model?.GetDeclaredSymbol(property) as IPropertySymbol;
+                    if (symbol == null || property.ExplicitInterfaceSpecifier != null) continue;
+
+                    if (symbol.GetMethod is { } getter)
+                        methods.Add((getter,
+                            JavaNaming.GetPropertyGetterName(ConversionContext.EscapeJavaKeyword(symbol.Name)),
+                            string.Empty, property));
+
+                    if (symbol.SetMethod is { } setter)
+                    {
+                        var escaped = ConversionContext.EscapeJavaKeyword(symbol.Name);
+                        var setterName = "set" + (escaped.Length > 0
+                            ? char.ToUpperInvariant(escaped[0]) + escaped[1..]
+                            : escaped);
+                        var signature = string.Join(",",
+                            setter.Parameters.Select(p => EraseType(context.MapType(p.Type))));
+                        methods.Add((setter, setterName, signature, property));
+                    }
+                }
+            }
+        }
+
+        foreach (var group in methods.GroupBy(m => (m.Name, m.Signature)).Where(g => g.Count() > 1))
+        {
+            var entries = group.ToList();
+            var accessorOwner = entries.FirstOrDefault(e => e.AccessorOwner != null).AccessorOwner;
+            var suffix = 2;
+            for (var i = 1; i < entries.Count; i++)
+            {
+                var method = entries[i];
+                if (accessorOwner != null
+                    && !AccessorCallsMethod(accessorOwner, method.Symbol, context))
+                {
+                    // Bean accessor wins unless its body delegates to this method
+                    // (e.g. `LocalPath => GetLocalPath()`), in which case the method
+                    // must stay separately callable and gets the _N suffix.
+                    continue;
+                }
+
+                context.RegisterErasureConflictMethodName(method.Symbol, $"{group.Key.Name}_{suffix++}");
+            }
+        }
+    }
+
+    /// <summary>Whether the property getter/setter body invokes <paramref name="method"/>.</summary>
+    private static bool AccessorCallsMethod(
+        PropertyDeclarationSyntax property, IMethodSymbol method, ConversionContext context)
+    {
+        var model = context.GetSemanticModelForTree(property.SyntaxTree) ?? context.SemanticModel;
+        if (model == null) return false;
+
+        var accessors = property.AccessorList?.Accessors.ToList() ?? new List<AccessorDeclarationSyntax>();
+        var roots = new List<SyntaxNode>();
+        if (property.ExpressionBody != null) roots.Add(property.ExpressionBody.Expression);
+        foreach (var accessor in accessors)
+        {
+            if (accessor.Body != null) roots.Add(accessor.Body);
+            if (accessor.ExpressionBody != null) roots.Add(accessor.ExpressionBody.Expression);
+        }
+
+        foreach (var root in roots)
+        {
+            foreach (var invocation in root.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>())
+            {
+                if (model.GetSymbolInfo(invocation).Symbol is IMethodSymbol called
+                    && SymbolEqualityComparer.Default.Equals(called.OriginalDefinition, method.OriginalDefinition))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void ProcessMembers(IReadOnlyList<ClassDeclarationSyntax> nodes, JavaClassDeclaration javaClass,
+        ConversionContext context)
     {
         // 跨文件的 partial 嵌套类型按符号 key 合并到同一个 Java 嵌套类型。
         var partialNested = new Dictionary<string, JavaClassDeclaration>();
@@ -507,6 +642,11 @@ public class ClassTransformer : ITypeTransformer
         if (block == null && create) { block = new JavaStaticInitializerBlock(); javaClass.StaticInitializers.Add(block); }
         return block!;
     }
+
+    private static bool HasJUnitTestAnnotation(JavaMethodDeclaration method) =>
+        method.Annotations.Any(a =>
+            a.Name is "Test" or "ParameterizedTest" or "RepeatedTest"
+                or "TestFactory" or "TestTemplate");
 
     private static JavaConstructorDeclaration CreateDefaultConstructor(JavaClassDeclaration javaClass) => new()
     {

@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using System.Text;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -13,8 +14,8 @@ namespace CSharpToJava.Core.Transformers.Type;
 /// member constants that do not match their ordinal positions are emitted as a
 /// "value enum": each constant carries its C# value and exposes getValue() /
 /// fromValue() so enum↔numeric casts (including wrap-around increments and
-/// byte/short/long domains) keep C# semantics. [Flags] enums are still lowered
-/// to classes by a C#→C# preprocessor and fail fast here.
+/// byte/short/long domains) keep C# semantics. [Flags] enums have explicit
+/// bit values, so they naturally take the value-enum form.
 /// </summary>
 public class EnumTransformer : ITypeTransformer
 {
@@ -29,12 +30,6 @@ public class EnumTransformer : ITypeTransformer
     {
         var enumSymbol = context.GetDeclaredSymbol(enumDecl) as INamedTypeSymbol;
 
-        if (IsFlagsEnum(enumDecl, enumSymbol))
-        {
-            throw new NotSupportedException(
-                $"CS2J normalization required: [Flags] enum '{enumDecl.Identifier.Text}' must be lowered by a preprocessor before Java conversion.");
-        }
-
         var javaEnum = new JavaEnumDeclaration
         {
             Name = enumDecl.Identifier.Text,
@@ -47,17 +42,175 @@ public class EnumTransformer : ITypeTransformer
         var storage = StorageTypeName(enumSymbol?.EnumUnderlyingType?.SpecialType
             ?? SpecialType.System_Int32);
 
-        foreach (var (name, value) in members)
-        {
-            javaEnum.Values.Add(valueEnum
-                ? $"{name}({RenderLiteral(value, storage)})"
-                : name);
-        }
-
+        // C# value enums can hold values that are not declared members (flags
+        // combinations, (E)0x7FFF casts). A Java enum cannot materialize those,
+        // so value enums are emitted as an immutable value class instead.
         if (valueEnum)
-            BuildValueBody(javaEnum, storage);
+            return BuildValueEnumClass(enumDecl, members, storage, javaEnum.LeadingComment);
+
+        foreach (var (name, _) in members)
+            javaEnum.Values.Add(name);
 
         return javaEnum;
+    }
+
+    /// <summary>
+    /// Emits a value enum as `final class` with static constants and value
+    /// semantics. fromValue returns the canonical constant for declared members
+    /// and a fresh instance for any other numeric value, matching C# enum
+    /// semantics (including [Flags] combinations).
+    /// </summary>
+    private static JavaTypeDeclaration BuildValueEnumClass(
+        EnumDeclarationSyntax enumDecl,
+        IReadOnlyList<(string Name, object Value)> members,
+        string storage,
+        string? leadingComment)
+    {
+        var name = enumDecl.Identifier.Text;
+        var javaClass = new JavaClassDeclaration
+        {
+            Name = name,
+            Modifiers = ConvertModifiers(enumDecl.Modifiers) | JavaModifiers.Final,
+            LeadingComment = leadingComment
+        };
+
+        javaClass.Fields.Add(new JavaFieldDeclaration
+        {
+            Modifiers = JavaModifiers.Private | JavaModifiers.Final,
+            Type = "String",
+            Name = "__cs2jName"
+        });
+        javaClass.Fields.Add(new JavaFieldDeclaration
+        {
+            Modifiers = JavaModifiers.Private | JavaModifiers.Final,
+            Type = "int",
+            Name = "__cs2jOrdinal"
+        });
+        javaClass.Fields.Add(new JavaFieldDeclaration
+        {
+            Modifiers = JavaModifiers.Private | JavaModifiers.Final,
+            Type = storage,
+            Name = "__cs2jValue"
+        });
+
+        for (var i = 0; i < members.Count; i++)
+        {
+            var (memberName, value) = members[i];
+            javaClass.Fields.Add(new JavaFieldDeclaration
+            {
+                Modifiers = JavaModifiers.Public | JavaModifiers.Static | JavaModifiers.Final,
+                Type = name,
+                Name = memberName,
+                Initializer = $"new {name}(\"{memberName}\", {i}, {RenderLiteral(value, storage)})"
+            });
+        }
+
+        var allValues = string.Join(", ", members.Select(m => m.Name));
+        javaClass.Fields.Add(new JavaFieldDeclaration
+        {
+            Modifiers = JavaModifiers.Private | JavaModifiers.Static | JavaModifiers.Final,
+            Type = name + "[]",
+            Name = "__cs2jValues",
+            Initializer = $"new {name}[] {{ {allValues} }}"
+        });
+
+        javaClass.Constructors.Add(new JavaConstructorDeclaration
+        {
+            Modifiers = JavaModifiers.Private,
+            ClassName = name,
+            Parameters =
+            {
+                new JavaParameter("String", "name"),
+                new JavaParameter("int", "ordinal"),
+                new JavaParameter(storage, "value"),
+            },
+            Body = "this.__cs2jName = name;\nthis.__cs2jOrdinal = ordinal;\nthis.__cs2jValue = value;"
+        });
+
+        javaClass.Methods.Add(new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ReturnType = storage,
+            Name = "getValue",
+            Body = "return this.__cs2jValue;"
+        });
+        javaClass.Methods.Add(new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ReturnType = "int",
+            Name = "ordinal",
+            Body = "return this.__cs2jOrdinal;"
+        });
+        javaClass.Methods.Add(new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ReturnType = "String",
+            Name = "name",
+            Body = "return this.__cs2jName;"
+        });
+        javaClass.Methods.Add(new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ReturnType = "String",
+            Name = "toString",
+            Body = "return this.__cs2jName;"
+        });
+        javaClass.Methods.Add(new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public | JavaModifiers.Static,
+            ReturnType = name + "[]",
+            Name = "values",
+            Body = "return __cs2jValues.clone();"
+        });
+        javaClass.Methods.Add(new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public | JavaModifiers.Static,
+            ReturnType = name,
+            Name = "valueOf",
+            Parameters = { new JavaParameter("String", "name") },
+            Body =
+                $"for ({name} candidate : __cs2jValues)\n" +
+                "{\n" +
+                "    if (candidate.__cs2jName.equals(name)) return candidate;\n" +
+                "}\n" +
+                $"throw new IllegalArgumentException(\"No enum constant {name}.\" + name);"
+        });
+
+        var fromValue = new StringBuilder();
+        foreach (var (memberName, value) in members)
+            fromValue.AppendLine($"if (value == {RenderLiteral(value, storage)}) return {memberName};");
+        fromValue.AppendLine(
+            $"return new {name}(String.valueOf(value), -1, value);");
+
+        javaClass.Methods.Add(new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public | JavaModifiers.Static,
+            ReturnType = name,
+            Name = "fromValue",
+            Parameters = { new JavaParameter(storage, "value") },
+            Body = fromValue.ToString().TrimEnd()
+        });
+
+        javaClass.Methods.Add(new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ReturnType = "boolean",
+            Name = "equals",
+            Parameters = { new JavaParameter("Object", "other") },
+            Body =
+                $"return other instanceof {name} && (({name}) other).__cs2jValue == this.__cs2jValue;"
+        });
+        javaClass.Methods.Add(new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public,
+            ReturnType = "int",
+            Name = "hashCode",
+            Body = storage == "long"
+                ? "return Long.hashCode(this.__cs2jValue);"
+                : "return Integer.hashCode((int) this.__cs2jValue);"
+        });
+
+        return javaClass;
     }
 
     /// <summary>
@@ -124,43 +277,6 @@ public class EnumTransformer : ITypeTransformer
             ?? new List<(string, object)>();
     }
 
-    private static void BuildValueBody(JavaEnumDeclaration javaEnum, string storage)
-    {
-        var name = javaEnum.Name;
-        javaEnum.Fields.Add(new JavaFieldDeclaration
-        {
-            Modifiers = JavaModifiers.Private | JavaModifiers.Final,
-            Type = storage,
-            Name = "value"
-        });
-        javaEnum.Constructors.Add(new JavaConstructorDeclaration
-        {
-            Modifiers = JavaModifiers.Private,
-            ClassName = name,
-            Parameters = { new JavaParameter(storage, "value") },
-            Body = "this.value = value;"
-        });
-        javaEnum.Methods.Add(new JavaMethodDeclaration
-        {
-            Modifiers = JavaModifiers.Public,
-            ReturnType = storage,
-            Name = "getValue",
-            Body = "return this.value;"
-        });
-        javaEnum.Methods.Add(new JavaMethodDeclaration
-        {
-            Modifiers = JavaModifiers.Public | JavaModifiers.Static,
-            ReturnType = name,
-            Name = "fromValue",
-            Parameters = { new JavaParameter(storage, "value") },
-            Body =
-                $"for ({name} candidate : values()) {{\n" +
-                "    if (candidate.value == value) return candidate;\n" +
-                "}\n" +
-                $"throw new IllegalArgumentException(\"No enum constant {name} for value \" + value);"
-        });
-    }
-
     private static string RenderLiteral(object raw, string storage)
     {
         var signed = Convert.ToInt64(raw);
@@ -180,20 +296,6 @@ public class EnumTransformer : ITypeTransformer
                     ? $"(int){signed}L"
                     : signed.ToString();
         }
-    }
-
-    private static bool IsFlagsEnum(EnumDeclarationSyntax enumDecl, INamedTypeSymbol? enumSymbol)
-    {
-        if (enumSymbol?.GetAttributes().Any(a =>
-            a.AttributeClass?.ToDisplayString() is "System.FlagsAttribute" or "System.Flags") == true)
-        {
-            return true;
-        }
-
-        return enumDecl.AttributeLists
-            .SelectMany(al => al.Attributes)
-            .Any(a => a.Name.ToString() is "Flags" or "FlagsAttribute"
-                or "System.Flags" or "System.FlagsAttribute");
     }
 
     private static JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)

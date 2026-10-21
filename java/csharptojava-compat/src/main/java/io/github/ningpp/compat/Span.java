@@ -46,6 +46,25 @@ public final class Span<T> {
         this.int32View = false;
     }
 
+    /** Primitive int[] backing — C# int[] → Span&lt;int&gt; (boxed as Integer). */
+    public Span(int[] array) {
+        this.array = array;
+        this.offset = 0;
+        this.length = array.length;
+        this.int32View = false;
+    }
+
+    public Span(int[] array, int offset, int length) {
+        if (offset < 0 || length < 0 || offset + length > array.length) {
+            throw new IndexOutOfBoundsException(
+                "offset=" + offset + ", length=" + length + ", arrayLength=" + array.length);
+        }
+        this.array = array;
+        this.offset = offset;
+        this.length = length;
+        this.int32View = false;
+    }
+
     /** Copy constructor — allows wrapping an existing ReadOnlySpan without type inference issues */
     public Span(ReadOnlySpan<T> other) {
         this.array = other.getArray() != null ? other.getArray() : other.toArray();
@@ -195,6 +214,11 @@ public final class Span<T> {
             T value = (T) Character.valueOf(chars[offset + index]);
             return value;
         }
+        if (array instanceof int[] ints) {
+            @SuppressWarnings("unchecked")
+            T value = (T) java.lang.Integer.valueOf(ints[offset + index]);
+            return value;
+        }
         @SuppressWarnings("unchecked")
         T value = ((T[]) array)[offset + index];
         return value;
@@ -214,6 +238,10 @@ public final class Span<T> {
         }
         if (array instanceof char[] chars) {
             chars[offset + index] = ((Character) value).charValue();
+            return;
+        }
+        if (array instanceof int[] ints) {
+            ints[offset + index] = ((Number) value).intValue();
             return;
         }
         ((T[]) array)[offset + index] = value;
@@ -295,6 +323,9 @@ public final class Span<T> {
         if (array instanceof char[] chars) {
             return new Span<>(chars, offset + start, len);
         }
+        if (array instanceof int[] ints) {
+            return new Span<>(ints, offset + start, len);
+        }
         return new Span<>((T[]) array, offset + start, len);
     }
 
@@ -362,6 +393,10 @@ public final class Span<T> {
             Arrays.fill(chars, offset, offset + length, '\0');
             return;
         }
+        if (array instanceof int[] ints) {
+            Arrays.fill(ints, offset, offset + length, 0);
+            return;
+        }
         Arrays.fill((T[]) array, offset, offset + length, (T) fillValue);
     }
 
@@ -395,6 +430,14 @@ public final class Span<T> {
             T[] copy = (T[]) new Character[length];
             for (int i = 0; i < length; i++) {
                 copy[i] = (T) Character.valueOf(chars[offset + i]);
+            }
+            return copy;
+        }
+        if (array instanceof int[] ints) {
+            @SuppressWarnings("unchecked")
+            T[] copy = (T[]) new Integer[length];
+            for (int i = 0; i < length; i++) {
+                copy[i] = (T) Integer.valueOf(ints[offset + i]);
             }
             return copy;
         }

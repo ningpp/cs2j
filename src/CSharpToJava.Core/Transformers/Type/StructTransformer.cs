@@ -116,6 +116,11 @@ public class StructTransformer : ITypeTransformer
         foreach (var member in EnumerateMembers(structDecl, originalNodes, context))
             ProcessStructMember(member, javaClass, context);
 
+        // C# structs are value types: the converter relies on `clone()` to preserve
+        // value semantics at assignments / method returns. Java's Object.clone is
+        // protected, so every converted struct exposes a public Cloneable clone.
+        EnsureCloneSupport(javaClass);
+
         context.LeaveType();
 
         // 多语句字段初始化：static 字段进 static 块，实例字段进构造器（机械提升）。
@@ -170,9 +175,35 @@ public class StructTransformer : ITypeTransformer
             var typeInfo = context.GetTypeInfo(baseType.Type).Type;
             if (typeInfo?.TypeKind != TypeKind.Interface) continue;
             var mapped = context.MapTypeForDeclarationHeader(typeInfo);
-            if (!javaClass.ImplementedTypes.Contains(mapped))
+            if (mapped != "__suppress__" && !javaClass.ImplementedTypes.Contains(mapped))
                 javaClass.ImplementedTypes.Add(mapped);
         }
+    }
+
+    /// <summary>
+    /// Emits a public <c>clone()</c> backed by <see cref="object"/>'s protected copy
+    /// unless the struct already declares a parameterless Clone. The self type keeps
+    /// the class's generic type arguments so callers get the precise value type.
+    /// </summary>
+    private static void EnsureCloneSupport(JavaClassDeclaration javaClass)
+    {
+        if (javaClass.Methods.Any(m => m.Name == "clone" && m.Parameters.Count == 0))
+            return;
+
+        if (!javaClass.ImplementedTypes.Contains("Cloneable"))
+            javaClass.ImplementedTypes.Add("Cloneable");
+
+        var selfType = javaClass.TypeParameters.Count == 0
+            ? javaClass.Name
+            : $"{javaClass.Name}<{string.Join(", ", javaClass.TypeParameters.Select(tp => tp.Name))}>";
+
+        javaClass.Methods.Add(new JavaMethodDeclaration
+        {
+            Name = "clone",
+            Modifiers = JavaModifiers.Public | JavaModifiers.Override,
+            ReturnType = selfType,
+            Body = $"try {{\nreturn ({selfType}) super.clone();\n}} catch (CloneNotSupportedException e) {{\nthrow new AssertionError(e);\n}}",
+        });
     }
 
     private static JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)
