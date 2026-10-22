@@ -274,6 +274,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return new JavaRawExpression(createCall);
                 }
 
+                if (TryRenderStringBuilderAppendCharRepeat(invocation, receiverText, context, out var appendCharRepeatCall))
+                {
+                    return new JavaRawExpression(appendCharRepeatCall);
+                }
+
                 if (TryRenderStringBuilderAppendFormat(invocation, receiverText, context, out var appendFormatCall))
                 {
                     return new JavaRawExpression(appendFormatCall);
@@ -779,6 +784,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 if (TryRenderStringCreate(node, memberAccess, arguments, context, out var createCall))
                 {
                     return createCall;
+                }
+
+                if (TryRenderStringBuilderAppendCharRepeat(node, receiver, context, out var appendCharRepeatCall))
+                {
+                    return appendCharRepeatCall;
                 }
 
                 if (TryRenderStringBuilderAppendFormat(node, receiver, context, out var appendFormatCall))
@@ -1467,6 +1477,58 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         context.AddImport("io.github.ningpp.compat.StringHelper");
         rendered = $"{receiver}.append({formatted})";
+        return true;
+    }
+
+    /// <summary>
+    /// <c>StringBuilder.Append(char, int)</c> (append a char repeatCount times) →
+    /// <c>StringHelper.append(builder, c, repeatCount)</c>. java.lang.StringBuilder has
+    /// no append(char, int) overload; the compat helper returns the builder, so chained
+    /// calls keep working. The bridge matches the overload signature, not literals.
+    /// </summary>
+    private static bool TryRenderStringBuilderAppendCharRepeat(
+        InvocationExpressionSyntax invocation,
+        string receiver,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
+            || memberAccess.Name.Identifier.Text != "Append")
+        {
+            return false;
+        }
+
+        var args = invocation.ArgumentList.Arguments;
+        if (args.Count != 2)
+            return false;
+
+        // Overload-shape gate: exactly (char, int). The semantic signature is
+        // authoritative when available; post-preprocessed trees may lack it, so
+        // fall back to per-argument type info.
+        var method = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        if (method != null)
+        {
+            if (method.ContainingType.ToDisplayString() != "System.Text.StringBuilder"
+                || method.Parameters.Length != 2
+                || method.Parameters[0].Type.SpecialType != SpecialType.System_Char
+                || method.Parameters[1].Type.SpecialType != SpecialType.System_Int32)
+            {
+                return false;
+            }
+        }
+        else if (context.GetTypeInfo(args[0].Expression).Type?.SpecialType != SpecialType.System_Char
+            || context.GetTypeInfo(args[1].Expression).Type?.SpecialType != SpecialType.System_Int32)
+        {
+            return false;
+        }
+
+        var f = ExpressionTransformerFacade.Instance;
+        var charArg = f.Transform(args[0].Expression, context);
+        var countArg = f.Transform(args[1].Expression, context);
+
+        context.AddImport("io.github.ningpp.compat.StringHelper");
+        rendered = $"StringHelper.append({receiver}, {charArg}, {countArg})";
         return true;
     }
 
