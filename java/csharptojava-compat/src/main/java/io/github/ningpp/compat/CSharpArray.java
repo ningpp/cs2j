@@ -32,6 +32,24 @@ public final class CSharpArray implements Iterable<Object> {
     }
 
     /**
+     * C# System.Array argument view for ICollection.CopyTo call sites: a
+     * CSharpArray wrapper passes through, null stays null so the destination's
+     * own null check reports ArgumentNullException, and a plain Java array is
+     * wrapped with a zero lower bound. Returning the CSharpArray static type lets
+     * the call bind to the copyTo(CSharpArray, int) overload that virtually
+     * dispatches to the destination collection's own CopyTo(Array, int) body.
+     */
+    public static CSharpArray asArrayView(Object array) {
+        if (array instanceof CSharpArray csharpArray) {
+            return csharpArray;
+        }
+        if (array == null) {
+            return null;
+        }
+        return of(array);
+    }
+
+    /**
      * C# Array.CreateInstance(Type, int[] lengths, int[] lowerBounds).
      * <p>
      * Java arrays always have a zero lower bound, so the lower bounds are

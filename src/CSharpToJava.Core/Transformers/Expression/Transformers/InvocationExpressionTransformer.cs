@@ -808,6 +808,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return dictEntryCall;
                 }
 
+                // ((ICollection)x).CopyTo(array, i) binds to ICollection.CopyTo(Array,int),
+                // which dispatches virtually to the class's own CopyTo body — e.g.
+                // CaptureCollection/GroupCollection write through Array.SetValue and
+                // surface IndexOutOfRangeException for bad indexes, while List<T>-backed
+                // MatchCollection validates up front with ArgumentOutOfRangeException.
+                // The compat copyTo(Object,int) erasure can only pick one behavior, so
+                // route the destination through CSharpArray.asArrayView: the CSharpArray
+                // static type binds to copyTo(CSharpArray,int), which converted classes
+                // declare for their public CopyTo(Array,int) and override virtually.
+                if (TryRenderNonGenericCollectionCopyTo(node, memberAccess, receiver, arguments, context, out var collectionCopyToCall))
+                {
+                    return collectionCopyToCall;
+                }
+
                 // Semantic precision overrides run BEFORE the arity-based method mapping:
                 // string.Equals(other, StringComparison) shares arity with the static
                 // object.Equals pair and would otherwise be swallowed by Objects.equals.
@@ -1281,6 +1295,104 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         rendered = $"{TransformReceiver(entryReceiver, context)}.pairIterator()";
         return true;
+    }
+
+    /// <summary>
+    /// True when the invoked member is the NON-generic
+    /// <c>System.Collections.ICollection.CopyTo(System.Array, int)</c> (or the same
+    /// member inherited by <c>System.Collections.IList</c>). The generic
+    /// <c>ICollection&lt;T&gt;.CopyTo(T[], int)</c> overload binds to a different symbol
+    /// (array-typed first parameter) and must keep the plain T[] rendering, because
+    /// its C# implementations validate up front (ArgumentOutOfRangeException) instead
+    /// of delegating to Array.SetValue.
+    /// </summary>
+    private static bool TryRenderNonGenericCollectionCopyTo(
+        InvocationExpressionSyntax node,
+        MemberAccessExpressionSyntax memberAccess,
+        string receiver,
+        string arguments,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+        if (memberAccess.Name.Identifier.Text != "CopyTo")
+            return false;
+        if (context.GetSymbolInfo(node).Symbol is not IMethodSymbol method
+            || method.Name != "CopyTo"
+            || method.Parameters.Length != 2
+            || method.Parameters[0].Type is not INamedTypeSymbol arrayType
+            || arrayType.Name != "Array"
+            || arrayType.TypeArguments.Length != 0
+            || arrayType.ContainingNamespace?.ToDisplayString() != "System")
+        {
+            return false;
+        }
+        var owner = method.ContainingType;
+        if (owner is null
+            || owner.ContainingNamespace?.ToDisplayString() != "System.Collections"
+            || owner.Name is not ("ICollection" or "IList"))
+        {
+            return false;
+        }
+
+        var parts = SplitTopLevelArguments(arguments);
+        if (parts.Count != 2)
+            return false;
+
+        context.AddImport("io.github.ningpp.compat.CSharpArray");
+        rendered = $"{receiver}.copyTo(CSharpArray.asArrayView({parts[0]}), {parts[1]})";
+        return true;
+    }
+
+    /// <summary>
+    /// Splits a rendered argument list on top-level commas only (parentheses,
+    /// brackets, generics and string literals increase the nesting depth).
+    /// </summary>
+    private static List<string> SplitTopLevelArguments(string arguments)
+    {
+        var result = new List<string>();
+        var start = 0;
+        var depth = 0;
+        var inString = false;
+        var escaped = false;
+
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            var ch = arguments[i];
+            if (inString)
+            {
+                escaped = ch == '\\' && !escaped;
+                if (ch == '"' && !escaped)
+                    inString = false;
+                if (ch != '\\')
+                    escaped = false;
+                continue;
+            }
+
+            switch (ch)
+            {
+                case '"':
+                    inString = true;
+                    break;
+                case '<':
+                case '(':
+                case '[':
+                    depth++;
+                    break;
+                case '>':
+                case ')':
+                case ']':
+                    depth--;
+                    break;
+                case ',' when depth == 0:
+                    result.Add(arguments[start..i].Trim());
+                    start = i + 1;
+                    break;
+            }
+        }
+
+        result.Add(arguments[start..].Trim());
+        return result.Where(arg => arg.Length > 0).ToList();
     }
 
     /// <summary>

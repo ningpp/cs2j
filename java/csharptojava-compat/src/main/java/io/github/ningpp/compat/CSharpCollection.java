@@ -16,20 +16,15 @@ public interface CSharpCollection extends CSharpIterable<Object> {
             throw new ArgumentNullException("array");
         }
         if (array instanceof CSharpArray csharpArray) {
-            if (csharpArray.hasNonZeroLowerBound()) {
-                throw new ArgumentOutOfRangeException("destinationIndex");
-            }
-            if (index < 0) {
-                throw new ArgumentOutOfRangeException("destinationIndex");
-            }
-            if (index > csharpArray.getLength() - getCount()) {
-                throw new ArgumentException("Destination array was not long enough.");
-            }
-            int i = 0;
-            for (Object element : this) {
-                csharpArray.setValue(element, index + i);
-                i++;
-            }
+            // C# dispatches ICollection.CopyTo(Array,int) virtually to the class's
+            // own CopyTo implementation (CaptureCollection/GroupCollection write
+            // through Array.SetValue and surface IndexOutOfRangeException, while
+            // List<T>-backed collections validate up front with
+            // ArgumentOutOfRangeException). Delegate to the CSharpArray overload:
+            // classes that declare one (the rendering of their public
+            // CopyTo(Array,int)) keep their own C# semantics, and the interface
+            // default below preserves the generic validation for those that don't.
+            copyTo(csharpArray, index);
             return;
         }
         if (array.getClass().isArray()) {
@@ -51,6 +46,33 @@ public interface CSharpCollection extends CSharpIterable<Object> {
             return;
         }
         throw new ArgumentException("array");
+    }
+
+    /**
+     * C# ICollection.CopyTo(Array, int) for a compat array view. The interface
+     * default carries the generic up-front validation shared by List&lt;T&gt;-style
+     * implementations; converted classes that declare a public
+     * CopyTo(Array, int) render this same signature and virtually override it, so
+     * a call through the interface dispatches to each class's own C# semantics.
+     */
+    default void copyTo(CSharpArray array, int index) {
+        if (array == null) {
+            throw new ArgumentNullException("array");
+        }
+        if (array.hasNonZeroLowerBound()) {
+            throw new ArgumentOutOfRangeException("destinationIndex");
+        }
+        if (index < 0) {
+            throw new ArgumentOutOfRangeException("destinationIndex");
+        }
+        if (index > array.getLength() - getCount()) {
+            throw new ArgumentException("Destination array was not long enough.");
+        }
+        int i = 0;
+        for (Object element : this) {
+            array.setValue(element, index + i);
+            i++;
+        }
     }
 
     boolean getIsSynchronized();
