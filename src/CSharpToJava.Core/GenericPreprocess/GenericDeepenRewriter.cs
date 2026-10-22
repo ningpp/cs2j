@@ -312,6 +312,10 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
             {
                 ctorCount++;
                 rewrittenMember = AppendConstructorTokenParams(ctor, plan);
+                // The original signature stays reflection-reachable: DebuggerTypeProxy
+                // validation helpers bind `Activator.CreateInstance(proxyType, obj)` by
+                // the pre-injection parameter list.
+                members.Add(BuildSignaturePreservingConstructor(ctor, plan));
             }
 
             members.Add(rewrittenMember);
@@ -367,6 +371,48 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
                 .WithParameters(SyntaxFactory.SeparatedList(parameters)));
         var body = updated.Body ?? SyntaxFactory.Block();
         return updated.WithBody(body.WithStatements(SyntaxFactory.List(assignments.Concat(body.Statements))));
+    }
+
+    /// <summary>
+    /// Companion constructor restoring the ORIGINAL signature of one token-mutated
+    /// constructor as a this()-delegation onto the token-parameter version. Reflection
+    /// consumers (e.g. DebuggerTypeProxy validation helpers, which call
+    /// <c>Activator.CreateInstance(proxyType, obj)</c>) bind by the pre-injection
+    /// parameter list and would throw MissingMethodException without it. In C#
+    /// <c>typeof(T)</c> is a real runtime token, so the delegated call carries the same
+    /// value a caller of the original constructor implied; on the JVM this constructor
+    /// is never invoked (all rewritten call sites pass tokens explicitly) and its
+    /// degraded token argument only has to keep the generated code compilable.
+    /// </summary>
+    private static ConstructorDeclarationSyntax BuildSignaturePreservingConstructor(
+        ConstructorDeclarationSyntax original,
+        ConstructorTokenPlan plan)
+    {
+        var originalParameters = original.ParameterList?.Parameters ?? SyntaxFactory.SeparatedList<ParameterSyntax>();
+        var arguments = originalParameters.Select(parameter =>
+        {
+            var refKind = parameter.Modifiers.FirstOrDefault(m =>
+                m.IsKind(SyntaxKind.RefKeyword) || m.IsKind(SyntaxKind.OutKeyword) || m.IsKind(SyntaxKind.InKeyword));
+            return SyntaxFactory.Argument(
+                null,
+                refKind,
+                SyntaxFactory.IdentifierName(parameter.Identifier.Text));
+        }).Concat(plan.Params.Select(param => SyntaxFactory.Argument(
+            null,
+            default,
+            SyntaxFactory.ParseExpression($"typeof({param.Name})"))));
+
+        return SyntaxFactory.ConstructorDeclaration(
+            SyntaxFactory.List<AttributeListSyntax>(),
+            original.Modifiers,
+            original.Identifier,
+            original.ParameterList ?? SyntaxFactory.ParameterList(),
+            SyntaxFactory.ConstructorInitializer(
+                SyntaxKind.ThisConstructorInitializer,
+                SyntaxFactory.Token(SyntaxKind.ColonToken).WithTrailingTrivia(SyntaxFactory.Space),
+                SyntaxFactory.Token(SyntaxKind.ThisKeyword),
+                SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments))),
+            SyntaxFactory.Block());
     }
 
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)

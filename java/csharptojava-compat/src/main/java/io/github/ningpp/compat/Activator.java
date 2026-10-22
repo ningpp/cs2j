@@ -238,6 +238,27 @@ public final class Activator {
                 }
             }
             Constructor<?> chosen = exact != null ? exact : assignable;
+            if (chosen != null) {
+                // The converter restores the original C# constructor signature alongside
+                // the injected-trailing-Class-token version (GD-CTORARR companions, e.g.
+                // CollectionDebuggerProxy(CSharpIList) delegating to
+                // CollectionDebuggerProxy(CSharpIList, Class)). On the JVM the restored
+                // companion cannot re-derive the runtime type token its C# form gets from
+                // typeof(T), so when the matched constructor has a token-augmented sibling
+                // (identical parameter prefix + trailing all-Class parameters), prefer the
+                // sibling: the inferred Class values reproduce the C# typeof(T) answer.
+                Constructor<?> sibling = findTokenAugmentedSibling(ctors, chosen);
+                if (sibling != null) {
+                    chosen = sibling;
+                    Object[] expanded = new Object[sibling.getParameterTypes().length];
+                    System.arraycopy(args, 0, expanded, 0, args.length);
+                    Class<?> inferred = inferElementType(args);
+                    for (int i = args.length; i < expanded.length; i++) {
+                        expanded[i] = inferred;
+                    }
+                    args = expanded;
+                }
+            }
             if (chosen == null) {
                 // DebuggerTypeProxy scenario: the argument is a C# collection whose list
                 // interfaces were dropped by Java erasure-conflict resolution (e.g.
@@ -327,6 +348,46 @@ public final class Activator {
             // InnerException is the original exception.
             throw new TargetInvocationException(null, e.getCause() == null ? e : e.getCause());
         }
+    }
+
+    /**
+     * Finds a constructor whose parameter list is the given exact-match constructor's
+     * parameter list followed by one or more trailing Class parameters — the converter's
+     * injected runtime-type-token shape. Returns null when no such sibling exists.
+     */
+    private static Constructor<?> findTokenAugmentedSibling(Constructor<?>[] ctors, Constructor<?> exact) {
+        Class<?>[] exactParams = exact.getParameterTypes();
+        Constructor<?> best = null;
+        for (Constructor<?> ctor : ctors) {
+            Class<?>[] params = ctor.getParameterTypes();
+            if (params.length <= exactParams.length) {
+                continue;
+            }
+            boolean samePrefix = true;
+            for (int i = 0; i < exactParams.length; i++) {
+                if (params[i] != exactParams[i]) {
+                    samePrefix = false;
+                    break;
+                }
+            }
+            if (!samePrefix) {
+                continue;
+            }
+            boolean allClassSuffix = true;
+            for (int i = exactParams.length; i < params.length; i++) {
+                if (params[i] != Class.class) {
+                    allClassSuffix = false;
+                    break;
+                }
+            }
+            if (!allClassSuffix) {
+                continue;
+            }
+            if (best == null || params.length > best.getParameterTypes().length) {
+                best = ctor;
+            }
+        }
+        return best;
     }
 
     /**
