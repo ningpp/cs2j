@@ -1403,9 +1403,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     };
 
     /// <summary>
-    /// <c>StringBuilder.AppendFormat(IFormatProvider, string, args...)</c> →
-    /// <c>builder.append(StringHelper.formatCs(format, args...))</c>. java.lang.StringBuilder
-    /// has no appendFormat overload; the compat formatter mirrors C# composite format.
+    /// <c>StringBuilder.AppendFormat(...)</c> (both the IFormatProvider-first and the
+    /// format-first overloads) → <c>builder.append(StringHelper.formatCs(format, args...))</c>.
+    /// java.lang.StringBuilder has no appendFormat overload; the compat formatter mirrors
+    /// C# composite format.
     /// </summary>
     private static bool TryRenderStringBuilderAppendFormat(
         InvocationExpressionSyntax invocation,
@@ -1428,7 +1429,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         var args = invocation.ArgumentList.Arguments;
-        if (args.Count < 2)
+        if (args.Count == 0)
             return false;
 
         // The semantic signature may be unavailable in post-preprocessed trees;
@@ -1441,12 +1442,25 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 "System.IFormatProvider", StringComparison.Ordinal)
             : firstArgType is "System.IFormatProvider" or "System.Globalization.CultureInfo"
                 || firstArgText is "CultureInfo.InvariantCulture" or "CultureInfo.CurrentCulture";
-        if (!providerFirst)
+
+        // The format-first overloads — AppendFormat(string), AppendFormat(string, object),
+        // AppendFormat(string, object, object), AppendFormat(string, object, object, object)
+        // and AppendFormat(string, params object[]) — lower the same way; only the format
+        // argument's index shifts. Without a bound signature, only claim the call when the
+        // first argument lexically looks like the format string.
+        var formatIndex = providerFirst ? 1 : 0;
+        if (args.Count <= formatIndex)
             return false;
+        if (!providerFirst && method == null
+            && firstArgType != "System.String"
+            && args[0].Expression is not LiteralExpressionSyntax)
+        {
+            return false;
+        }
 
         var f = ExpressionTransformerFacade.Instance;
-        var format = f.Transform(args[1].Expression, context);
-        var values = args.Skip(2).Select(a => f.Transform(a.Expression, context)).ToList();
+        var format = f.Transform(args[formatIndex].Expression, context);
+        var values = args.Skip(formatIndex + 1).Select(a => f.Transform(a.Expression, context)).ToList();
         var formatted = values.Count == 0
             ? $"StringHelper.formatCs({format})"
             : $"StringHelper.formatCs({format}, {string.Join(", ", values)})";

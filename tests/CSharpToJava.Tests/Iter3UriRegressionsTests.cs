@@ -232,6 +232,29 @@ public class Iter3UriRegressionsTests
     }
 
     [Fact]
+    public async Task StringBuilderAppendFormat_FormatFirstOverload_MapsToCompatFormatter()
+    {
+        var code = await ConvertAsync("""
+            using System.Text;
+
+            public class Test
+            {
+                public static string Render(int value)
+                {
+                    var builder = new StringBuilder();
+                    builder.AppendFormat("{0:D6} ", value);
+                    builder.AppendFormat("{0}{1}", value, value);
+                    builder.AppendFormat("{0}");
+                    return builder.ToString();
+                }
+            }
+            """);
+
+        Assert.Contains("StringHelper.formatCs(", code);
+        Assert.DoesNotContain("appendFormat", code);
+    }
+
+    [Fact]
     public async Task ErasureCollidingOverloads_BothEmittedAndCallsBind()
     {
         var code = await ConvertAsync("""
