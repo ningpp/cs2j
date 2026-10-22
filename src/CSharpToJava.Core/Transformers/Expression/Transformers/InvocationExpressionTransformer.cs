@@ -253,8 +253,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // AutoCloseable, whose close() throws Exception. The generated
                 // class publicly overrides close() with no checked exception, so
                 // the cast is both unnecessary and fatal under javac — unwrap it.
+                // ((ICollection<T>)x).Contains(y)-style casts unwrap too: see
+                // UnwrapErasedInterfaceCast — the compat collection interfaces
+                // erase member parameters to Object, so the interface call would
+                // bind to the Object flavor and can recurse into itself.
                 var receiver = TransformReceiverToIR(
-                    UnwrapExplicitDisposeCast(memberAccess, context), context);
+                    UnwrapErasedInterfaceCast(invocation, memberAccess, context)
+                        ?? UnwrapExplicitDisposeCast(memberAccess, context), context);
                 var receiverText = receiver.ToInlineString();
                 var argumentText = string.Join(", ", arguments.Select(a => a.ToInlineString()));
 
@@ -784,8 +789,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 if (TryRenderPrimitiveStaticCall(memberAccess, originalName, context, arguments, out var primCall))
                     return primCall;
 
+                // ((ICollection<T>)x).Contains(y)-style casts unwrap the cast so the
+                // call binds to the typed overload on the receiver's class — the
+                // compat collection interfaces erase member parameters to Object,
+                // so an interface-bound call can recurse into the Object flavor
+                // (see UnwrapErasedInterfaceCast).
                 var receiver = TransformReceiver(
-                    UnwrapExplicitDisposeCast(memberAccess, context), context);
+                    UnwrapErasedInterfaceCast(node, memberAccess, context)
+                        ?? UnwrapExplicitDisposeCast(memberAccess, context), context);
 
                 // Semantic precision overrides run BEFORE the arity-based method mapping:
                 // string.Equals(other, StringComparison) shares arity with the static
@@ -1091,6 +1102,110 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // back to the canonical spellings emitted by foreach lowering.
         var text = cast.Type.ToString();
         return text is "System.IDisposable" or "global::System.IDisposable" or "IDisposable";
+    }
+
+    /// <summary>
+    /// For <c>((ICollection&lt;T&gt;)this).Contains(item)</c>-style receivers, returns the
+    /// un-cast receiver so the call binds to the typed overload on the receiver's own
+    /// class; null when the cast must be kept.
+    ///
+    /// <para>The compat collection interfaces (CSharpIList&lt;T&gt; and friends) erase every
+    /// member parameter to Object so one Java method can implement the generic and
+    /// non-generic C# flavours at once. A call through the mapped interface therefore
+    /// always binds — at compile time and at runtime — to the Object flavor, even when
+    /// the C# source selected the generic flavor via the cast. Generated collections
+    /// whose Object flavor delegates back through this very cast (the standard C#
+    /// explicit-implementation idiom, e.g. CaptureCollection) then recurse into
+    /// themselves forever: contains(Object) → interface → contains(Object). A direct
+    /// call on the un-cast receiver lets Java overload resolution pick the typed
+    /// flavor, reproducing the C# interface dispatch.</para>
+    /// </summary>
+    private static ExpressionSyntax? UnwrapErasedInterfaceCast(
+        InvocationExpressionSyntax invocation, MemberAccessExpressionSyntax memberAccess, ConversionContext context)
+    {
+        if (context.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+            || method.IsStatic
+            || method.Parameters.Length == 0
+            || method.Parameters.All(p => p.Type.SpecialType == SpecialType.System_Object))
+        {
+            return null;
+        }
+
+        var receiverExpr = memberAccess.Expression;
+        while (receiverExpr is ParenthesizedExpressionSyntax parens)
+            receiverExpr = parens.Expression;
+        if (receiverExpr is not CastExpressionSyntax cast
+            || context.GetTypeInfo(cast.Type).Type is not INamedTypeSymbol castType
+            || castType.TypeKind != TypeKind.Interface
+            || !SymbolEqualityComparer.Default.Equals(
+                method.ContainingType?.OriginalDefinition, castType.OriginalDefinition))
+        {
+            return null;
+        }
+
+        // Only unwrap when the receiver's own (non-interface) type provides the
+        // member — otherwise the cast is load-bearing for compilation and the
+        // Object-flavor binding is the best available.
+        if (context.GetTypeInfo(cast.Expression).Type is not INamedTypeSymbol receiverType
+            || receiverType.TypeKind == TypeKind.Interface)
+        {
+            return null;
+        }
+
+        return ProvidesMember(receiverType, method) ? cast.Expression : null;
+    }
+
+    /// <summary>
+    /// True when <paramref name="type"/> provides an instance method that implements
+    /// <paramref name="method"/>: either an ordinary method with the same name and
+    /// substituted parameter types (found on the type or any base class — these render
+    /// as inheritable public Java methods), or an explicit interface implementation
+    /// (whose C# name is interface-qualified but which renders as a plain Java
+    /// overload with the interface member's signature). Explicit implementations only
+    /// count when declared on the type itself: they do not inherit in C#, and the
+    /// Java rendering of a base class may have dropped the member entirely (e.g.
+    /// SerializationInfo/StreamingContext suppression removes Regex's
+    /// ISerializable.GetObjectData while a derived class still exists).
+    /// </summary>
+    private static bool ProvidesMember(INamedTypeSymbol type, IMethodSymbol method)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            foreach (var member in current.GetMembers())
+            {
+                if (member is not IMethodSymbol candidate || candidate.IsStatic)
+                    continue;
+                if (candidate.MethodKind == MethodKind.ExplicitInterfaceImplementation)
+                {
+                    if (!SymbolEqualityComparer.Default.Equals(current, type))
+                        continue;
+                    if (candidate.ExplicitInterfaceImplementations.Any(impl =>
+                            SymbolEqualityComparer.Default.Equals(impl, method)))
+                    {
+                        return true;
+                    }
+                    continue;
+                }
+                if (candidate.Name != method.Name
+                    || candidate.Parameters.Length != method.Parameters.Length)
+                {
+                    continue;
+                }
+                var parametersMatch = true;
+                for (var i = 0; i < method.Parameters.Length; i++)
+                {
+                    if (!SymbolEqualityComparer.Default.Equals(
+                            candidate.Parameters[i].Type, method.Parameters[i].Type))
+                    {
+                        parametersMatch = false;
+                        break;
+                    }
+                }
+                if (parametersMatch)
+                    return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>
