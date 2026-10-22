@@ -378,6 +378,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         $"StringHelper.{helper}({receiverText}, {argumentText})");
                 }
 
+                // C# String.ToLowerInvariant/ToUpperInvariant() → StringHelper (.NET invariant rules).
+                // Java String.toLowerCase() applies the default locale plus full Unicode mappings
+                // (e.g. U+0130 İ → "i" + combining dot), while .NET invariant uses the simple
+                // mapping; the compat TextInfo keeps pattern/text case folding consistent.
+                if (methodSymbol is { Name: "ToLowerInvariant" or "ToUpperInvariant", Parameters.Length: 0 }
+                    && methodSymbol.ContainingType?.SpecialType == SpecialType.System_String)
+                {
+                    context.AddImport("io.github.ningpp.compat.StringHelper");
+                    var helper = methodSymbol.Name == "ToLowerInvariant" ? "toLowerCaseInvariant" : "toUpperCaseInvariant";
+                    return new JavaRawExpression(
+                        $"StringHelper.{helper}({receiverText})");
+                }
+
                 // C# String.Split(char[]) → StringHelper.split (Java split takes a regex).
                 if (methodSymbol is { Name: "Split" }
                     && methodSymbol.ContainingType?.SpecialType == SpecialType.System_String
@@ -931,6 +944,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     context.AddImport("io.github.ningpp.compat.StringHelper");
                     var helper = memberMethodForOverrides.Name == "ToLower" ? "toLowerCase" : "toUpperCase";
                     return $"StringHelper.{helper}({receiver}, {arguments})";
+                }
+
+                // C# String.ToLowerInvariant/ToUpperInvariant() → StringHelper (.NET invariant rules);
+                // Java's default-locale String.toLowerCase() would expand U+0130 to two chars.
+                if (memberMethodForOverrides is { Name: "ToLowerInvariant" or "ToUpperInvariant", Parameters.Length: 0 }
+                    && memberMethodForOverrides.ContainingType?.SpecialType == SpecialType.System_String)
+                {
+                    context.AddImport("io.github.ningpp.compat.StringHelper");
+                    var helper = memberMethodForOverrides.Name == "ToLowerInvariant" ? "toLowerCaseInvariant" : "toUpperCaseInvariant";
+                    return $"StringHelper.{helper}({receiver})";
                 }
 
                 if (memberMethodForOverrides is { Name: "Split" }
