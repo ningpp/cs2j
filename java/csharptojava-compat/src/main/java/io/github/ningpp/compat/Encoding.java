@@ -31,10 +31,6 @@ public class Encoding {
     private final String encoderReplacement;
     private final boolean throwOnInvalidBytes;
 
-    // ThreadLocal cache so each thread reuses one configured encoder/decoder per Encoding instance.
-    private final ThreadLocal<CharsetEncoder> cachedEncoder = ThreadLocal.withInitial(this::newEncoder);
-    private final ThreadLocal<CharsetDecoder> cachedDecoder = ThreadLocal.withInitial(this::newDecoder);
-
     private Encoding(Charset charset, int codePage) {
         this(charset, codePage, true, "\uFFFD", defaultEncoderReplacement(charset), false);
     }
@@ -308,8 +304,7 @@ public class Encoding {
     }
 
     public int getByteCount(char[] chars, int index, int count) {
-        CharsetEncoder encoder = cachedEncoder.get();
-        encoder.reset();
+        CharsetEncoder encoder = newEncoder();
         CharBuffer cb = CharBuffer.wrap(chars, index, count);
         ByteBuffer bb;
         try {
@@ -363,8 +358,8 @@ public class Encoding {
     }
 
     public byte[] getBytes(char[] chars, int index, int count) {
-        CharsetEncoder encoder = cachedEncoder.get();
-        encoder.reset();
+        if (count == 0) return new byte[0];
+        CharsetEncoder encoder = newEncoder();
         CharBuffer cb = CharBuffer.wrap(chars, index, count);
         ByteBuffer bb;
         try {
@@ -381,8 +376,12 @@ public class Encoding {
     }
 
     public int getBytes(char[] chars, int charIndex, int charCount, byte[] bytes, int byteIndex) {
-        CharsetEncoder encoder = cachedEncoder.get();
-        encoder.reset();
+        if (charCount == 0) return 0;
+        // Fast path: single-character encoding inline
+        if (charCount == 1) {
+            return encodeChar(chars[charIndex], bytes, byteIndex, bytes.length - byteIndex);
+        }
+        CharsetEncoder encoder = newEncoder();
         CharBuffer cb = CharBuffer.wrap(chars, charIndex, charCount);
         ByteBuffer bb;
         try {
@@ -393,6 +392,37 @@ public class Encoding {
         int len = bb.remaining();
         bb.get(bytes, byteIndex, len);
         return len;
+    }
+
+    /** Inline UTF-8 encoding of a single char — no encoder/charset overhead. */
+    static int encodeChar(char ch, byte[] out, int off, int avail) {
+        if (ch < 0x80) {
+            // ASCII
+            if (avail < 1) return 0;
+            out[off] = (byte)ch;
+            return 1;
+        }
+        if (ch < 0x800) {
+            // 2-byte sequence
+            if (avail < 2) return 0;
+            out[off] = (byte)(0xC0 | (ch >> 6));
+            out[off + 1] = (byte)(0x80 | (ch & 0x3F));
+            return 2;
+        }
+        // Lone surrogate (or other BMP): encode as U+FFFD replacement character
+        if (ch >= 0xD800 && ch <= 0xDFFF) {
+            if (avail < 3) return 0;
+            out[off] = (byte)0xEF;
+            out[off + 1] = (byte)0xBF;
+            out[off + 2] = (byte)0xBD;
+            return 3;
+        }
+        // 3-byte sequence
+        if (avail < 3) return 0;
+        out[off] = (byte)(0xE0 | (ch >> 12));
+        out[off + 1] = (byte)(0x80 | ((ch >> 6) & 0x3F));
+        out[off + 2] = (byte)(0x80 | (ch & 0x3F));
+        return 3;
     }
 
     public int getBytes(String s, int charIndex, int charCount, byte[] bytes, int byteIndex) {
@@ -418,8 +448,7 @@ public class Encoding {
         for (int i = 0; i < charCount; i++) {
             chars[i] = src.get(ValueLayout.JAVA_CHAR, i * 2L);
         }
-        CharsetEncoder encoder = cachedEncoder.get();
-        encoder.reset();
+        CharsetEncoder encoder = newEncoder();
         CharBuffer cb = CharBuffer.wrap(chars);
         ByteBuffer bb;
         try {
@@ -441,8 +470,7 @@ public class Encoding {
     }
 
     public int getCharCount(byte[] bytes, int index, int count) {
-        CharsetDecoder decoder = cachedDecoder.get();
-        decoder.reset();
+        CharsetDecoder decoder = newDecoder();
         ByteBuffer bb = ByteBuffer.wrap(bytes, index, count);
         CharBuffer cb;
         try {
@@ -453,15 +481,12 @@ public class Encoding {
         return cb.remaining();
     }
 
-    // ---- Instance Methods: GetChars ----
-
     public char[] getChars(byte[] bytes) {
         return getChars(bytes, 0, bytes.length);
     }
 
     public char[] getChars(byte[] bytes, int index, int count) {
-        CharsetDecoder decoder = cachedDecoder.get();
-        decoder.reset();
+        CharsetDecoder decoder = newDecoder();
         ByteBuffer bb = ByteBuffer.wrap(bytes, index, count);
         CharBuffer cb;
         try {
@@ -475,7 +500,8 @@ public class Encoding {
     }
 
     public int getChars(byte[] bytes, int byteIndex, int byteCount, char[] chars, int charIndex) {
-        CharsetDecoder decoder = cachedDecoder.get();
+        if (byteCount == 0) return 0;
+        CharsetDecoder decoder = newDecoder();
         decoder.reset();
         ByteBuffer bb = ByteBuffer.wrap(bytes, byteIndex, byteCount);
         CharBuffer cb;
@@ -721,7 +747,7 @@ public class Encoding {
         public void convert(byte[] bytes, int byteIndex, int byteCount,
                             char[] chars, int charIndex, int charCount, boolean flush,
                             IntHolder bytesUsed, IntHolder charsUsed, BoolHolder completed) {
-            CharsetDecoder decoder = encoding.cachedDecoder.get();
+            CharsetDecoder decoder = encoding.newDecoder();
             decoder.reset();
             ByteBuffer source = ByteBuffer.wrap(bytes, byteIndex, byteCount);
             CharBuffer destination = CharBuffer.wrap(chars, charIndex, charCount);
@@ -765,8 +791,7 @@ public class Encoding {
         public void convert(char[] chars, int charIndex, int charCount,
                             byte[] bytes, int byteIndex, int byteCount, boolean flush,
                             IntHolder charsUsed, IntHolder bytesUsed, BoolHolder completed) {
-            CharsetEncoder encoder = encoding.cachedEncoder.get();
-            encoder.reset();
+            CharsetEncoder encoder = encoding.newEncoder();
             ByteBuffer bb;
             try {
                 bb = encoder.encode(CharBuffer.wrap(chars, charIndex, charCount));
