@@ -409,11 +409,10 @@ public final class Activator {
     }
 
     /**
-     * CSharpReadOnlyDict.values() walks the entry iterator and casts each item to
-     * CSharpKeyValuePair; dicts whose iterator yields plain values (a generated
-     * GroupCollection yields the Group/Match instances directly) throw
-     * ClassCastException. Reflection probing must not turn that pre-existing
-     * contract mismatch into a crash of the Activator path, so swallow it here.
+     * Reflection probing must not turn a values() failure (a half-populated or
+     * exotic dict view) into a crash of the Activator path, so swallow it here.
+     * Since CSharpReadOnlyDict.values() routes through pairIterator() it also
+     * works for dual-view generated collections such as GroupCollection.
      */
     private static Object tryDictValuesQuietly(CSharpReadOnlyDict<?, ?> dict) {
         try {

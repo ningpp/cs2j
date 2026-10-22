@@ -798,6 +798,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     UnwrapErasedInterfaceCast(node, memberAccess, context)
                         ?? UnwrapExplicitDisposeCast(memberAccess, context), context);
 
+                // C# selects IEnumerator<KeyValuePair<K,V>> GetEnumerator when the
+                // receiver's static type is IReadOnlyDictionary<K,V>/IDictionary<K,V>/
+                // IEnumerable<KeyValuePair<K,V>> — the dictionary ENTRY view. Renaming it
+                // to iterator() would call the dual-view collection's VALUE enumerator
+                // (e.g. GroupCollection yields Group) and die on the KeyValuePair cast.
+                if (TryRenderDictEntryGetEnumerator(node, memberAccess, context, out var dictEntryCall))
+                {
+                    return dictEntryCall;
+                }
+
                 // Semantic precision overrides run BEFORE the arity-based method mapping:
                 // string.Equals(other, StringComparison) shares arity with the static
                 // object.Equals pair and would otherwise be swallowed by Objects.equals.
@@ -1206,6 +1216,87 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
         return false;
+    }
+
+    /// <summary>
+    /// Renders the dictionary ENTRY view of GetEnumerator:
+    /// <c>dict.GetEnumerator()</c> whose invoked symbol returns
+    /// IEnumerator&lt;KeyValuePair&lt;K,V&gt;&gt; (selected when the receiver's static type
+    /// is IReadOnlyDictionary&lt;K,V&gt;, IDictionary&lt;K,V&gt; or
+    /// IEnumerable&lt;KeyValuePair&lt;K,V&gt;&gt;) becomes <c>receiver.pairIterator()</c>.
+    ///
+    /// <para>Renaming it to the well-known <c>iterator()</c> would dispatch to the
+    /// receiver's VALUE enumerator: generated collections implement the public
+    /// GetEnumerator and the IEnumerable&lt;KeyValuePair&gt; GetEnumerator through a
+    /// single Java iterator() (Regex GroupCollection's yields Group/Match), so a
+    /// dictionary-typed caller expecting KeyValuePair elements dies with a
+    /// ClassCastException at the element cast. Compat CSharpReadOnlyDict
+    /// provides pairIterator() — the entry view built from the order-aligned
+    /// Keys/Values iterables every IReadOnlyDictionary implementation exposes.</para>
+    /// </summary>
+    private static bool TryRenderDictEntryGetEnumerator(
+        InvocationExpressionSyntax node,
+        MemberAccessExpressionSyntax memberAccess,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+        if (memberAccess.Name.Identifier.Text != "GetEnumerator"
+            || node.ArgumentList.Arguments.Count != 0)
+        {
+            return false;
+        }
+        if (context.GetSymbolInfo(node).Symbol is not IMethodSymbol method
+            || method.IsStatic
+            || method.ReturnType is not INamedTypeSymbol enumeratorType
+            || enumeratorType.Name != "IEnumerator"
+            || enumeratorType.TypeArguments.Length != 1
+            || enumeratorType.ContainingNamespace?.ToDisplayString() != "System.Collections.Generic"
+            || enumeratorType.TypeArguments[0].OriginalDefinition is not INamedTypeSymbol pairType
+            || pairType.Name != "KeyValuePair"
+            || pairType.ContainingNamespace?.ToDisplayString() != "System.Collections.Generic")
+        {
+            return false;
+        }
+
+        // ((IEnumerable<KeyValuePair<K,V>>)x).GetEnumerator() wraps the receiver in a
+        // cast that renders as a CSharpGenericIterable.fromAnyTyped adapter, which has
+        // no pairIterator member. Unwrap it when the inner type really is a dictionary.
+        var receiverExpr = memberAccess.Expression;
+        while (receiverExpr is ParenthesizedExpressionSyntax parens)
+            receiverExpr = parens.Expression;
+        ExpressionSyntax entryReceiver = receiverExpr;
+        if (receiverExpr is CastExpressionSyntax cast
+            && context.GetTypeInfo(cast.Type).Type is INamedTypeSymbol castType
+            && castType.Name == "IEnumerable"
+            && castType.TypeArguments.Length == 1
+            && castType.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+            && IsGenericDictionaryType(context.GetTypeInfo(cast.Expression).Type))
+        {
+            entryReceiver = cast.Expression;
+        }
+
+        if (!IsGenericDictionaryType(context.GetTypeInfo(entryReceiver).Type))
+            return false;
+
+        rendered = $"{TransformReceiver(entryReceiver, context)}.pairIterator()";
+        return true;
+    }
+
+    /// <summary>
+    /// True when the type IS or implements the generic System.Collections.Generic
+    /// IReadOnlyDictionary&lt;K,V&gt;/IDictionary&lt;K,V&gt; — the interfaces whose GetEnumerator
+    /// resolves to the KeyValuePair entry view. These map to CSharpReadOnlyDict /
+    /// CSharpGenericIDictionary in Java, which carry the pairIterator member.
+    /// </summary>
+    private static bool IsGenericDictionaryType(ITypeSymbol? type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return false;
+        static bool IsDictInterface(INamedTypeSymbol i)
+            => (i.Name == "IReadOnlyDictionary" || i.Name == "IDictionary")
+               && i.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic";
+        return IsDictInterface(named.OriginalDefinition) || named.AllInterfaces.Any(IsDictInterface);
     }
 
     /// <summary>
