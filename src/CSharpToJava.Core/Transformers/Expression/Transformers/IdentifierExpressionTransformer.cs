@@ -250,6 +250,18 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return "\"\"";
         }
 
+        // System.Type.EmptyTypes has no counterpart on java.lang.Class (the mapped
+        // type of System.Type): the exact equivalent is a zero-length Class[]. It
+        // appears in GetConstructor argument positions
+        // (TypeHelper.getConstructor(type, Type.EmptyTypes)), so a bare
+        // `Type.EmptyTypes` leaves javac looking for a nonexistent `Type` variable.
+        if (context.GetSymbolInfo(node).Symbol
+            is IFieldSymbol { IsStatic: true, Name: "EmptyTypes" } emptyTypesField
+            && emptyTypesField.ContainingType?.ToDisplayString() == "System.Type")
+        {
+            return "new Class[0]";
+        }
+
         // Primitive static fields on keyword qualifiers: int.MaxValue (the
         // predefined keyword, not the System.Int32 qualified name) must become
         // Integer.MAX_VALUE — Java primitives cannot be dereferenced.
