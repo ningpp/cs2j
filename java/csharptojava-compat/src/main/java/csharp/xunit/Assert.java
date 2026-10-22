@@ -564,15 +564,27 @@ public final class Assert {
     //            void IsType(Type expectedType, object object)
     //            void IsType(Type expectedType, object object, bool exactMatch)
 
+    /**
+     * Normalizes a primitive class literal ({@code int.class}, ...) to its
+     * wrapper ({@code Integer.class}, ...). C# {@code Assert.IsType<int>(boxed)}
+     * succeeds because the runtime type of a boxed value IS the value type;
+     * in Java every generic Object slot holds the wrapper, so the expected
+     * primitive class must be compared as its wrapper.
+     */
+    private static Class<?> normalizeExpectedType(Class<?> expectedType) {
+        return io.github.ningpp.compat.TypeHelper.toWrapperType(expectedType);
+    }
+
     @SuppressWarnings("unchecked")
     public static <T> T isType(Class<T> expectedType, Object object) {
+        Class<?> expected = normalizeExpectedType(expectedType);
         if (object == null) {
             throw new AssertionError("Assert.isType() failure: Value was null\n"
-                + "Expected type: " + expectedType.getName());
+                + "Expected type: " + expected.getName());
         }
-        if (object.getClass() != expectedType) {
+        if (object.getClass() != expected) {
             throw new AssertionError("Assert.isType() failure\n"
-                + "Expected type: " + expectedType.getName() + "\n"
+                + "Expected type: " + expected.getName() + "\n"
                 + "Actual type: " + object.getClass().getName());
         }
         return (T) object;
@@ -580,20 +592,21 @@ public final class Assert {
 
     @SuppressWarnings("unchecked")
     public static <T> T isType(Class<T> expectedType, Object object, boolean exactMatch) {
+        Class<?> expected = normalizeExpectedType(expectedType);
         if (object == null) {
             throw new AssertionError("Assert.isType() failure: Value was null\n"
-                + "Expected type: " + expectedType.getName());
+                + "Expected type: " + expected.getName());
         }
         if (exactMatch) {
-            if (object.getClass() != expectedType) {
+            if (object.getClass() != expected) {
                 throw new AssertionError("Assert.isType() failure (exact)\n"
-                    + "Expected type: " + expectedType.getName() + "\n"
+                    + "Expected type: " + expected.getName() + "\n"
                     + "Actual type: " + object.getClass().getName());
             }
         } else {
-            if (!expectedType.isInstance(object)) {
+            if (!expected.isInstance(object)) {
                 throw new AssertionError("Assert.isType() failure (non-exact)\n"
-                    + "Expected type: " + expectedType.getName() + "\n"
+                    + "Expected type: " + expected.getName() + "\n"
                     + "Actual type: " + object.getClass().getName());
             }
         }

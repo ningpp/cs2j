@@ -359,6 +359,43 @@ class AssertTest {
         assertThrows(AssertionError.class, () -> Assert.isNotType(String.class, "hello"));
     }
 
+    // ── IsType with primitive class literal (boxed value types) ──────
+
+    @Test
+    void isType_succeeds_whenPrimitiveClassAgainstBoxedValue() {
+        // C# Assert.IsType<int>(someObjectBoxingAnInt) succeeds: the runtime
+        // type of the boxed value IS int. In Java the slot holds Integer, so
+        // int.class must be compared as its wrapper.
+        Object boxed = 42;
+        Integer result = Assert.isType(int.class, boxed);
+        assertEquals(Integer.valueOf(42), result);
+    }
+
+    @Test
+    void isType_fails_whenPrimitiveClassAgainstDifferentBoxedValue() {
+        assertThrows(AssertionError.class, () -> Assert.isType(int.class, Long.valueOf(42)));
+        assertThrows(AssertionError.class, () -> Assert.isType(int.class, "hello"));
+        assertThrows(AssertionError.class, () -> Assert.isType(int.class, null));
+    }
+
+    @Test
+    void isType_exactMatch_primitiveClass_succeeds_forWrapperValue() {
+        Assert.isType(int.class, 42, true);
+        assertThrows(AssertionError.class, () -> Assert.isType(int.class, 42L, true));
+    }
+
+    @Test
+    void isType_nonExact_primitiveClass_succeeds_forWrapperValue() {
+        Assert.isType(int.class, 42, false);
+        assertThrows(AssertionError.class, () -> Assert.isType(int.class, 42L, false));
+    }
+
+    @Test
+    void isType_wrapperClassAgainstBoxedValue_unaffected() {
+        Integer result = Assert.isType(Integer.class, 42);
+        assertEquals(Integer.valueOf(42), result);
+    }
+
     // ── IsAssignableFrom / IsNotAssignableFrom ───────────────────────
 
     @Test
