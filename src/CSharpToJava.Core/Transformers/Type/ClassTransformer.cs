@@ -168,7 +168,13 @@ public class ClassTransformer : ITypeTransformer
             foreach (var iface in symbol.Interfaces)
             {
                 var mapped = context.MapTypeForDeclarationHeader(iface);
-                if (mapped == "__suppress__" || !seen.Add(InterfaceErasureKey(mapped))) continue;
+                if (!seen.Add(InterfaceErasureKey(mapped))) continue;
+                // 序列化抑制接口（ISerializable → __suppress__）必须保留在 implements
+                // 子句里：生成代码会保留 ((ISerializable)x).GetObjectData(...) 形式的
+                // cast（迭代13收紧后基类显式实现不参与解包），类到接口的 cast 在 javac
+                // 层恒可编译，但运行时若类未真正实现该接口就抛 ClassCastException。
+                // __suppress__ 的全部成员都是抛 PlatformNotSupportedException 的
+                // default 方法，implements 它零负担，且与被丢弃的显式实现语义一致。
                 javaClass.ImplementedTypes.Add(WildcardToObjectTypeArg(mapped));
             }
 
@@ -190,8 +196,9 @@ public class ClassTransformer : ITypeTransformer
             }
             else if (resolved.TypeKind == TypeKind.Interface)
             {
+                // 与 symbol 路径一致：__suppress__ 接口保留在 implements 子句，
+                // 见上方 symbol 路径注释。
                 var mapped = WildcardToObjectTypeArg(context.MapTypeForDeclarationHeader(resolved));
-                if (mapped == "__suppress__") continue;
                 if (!javaClass.ImplementedTypes.Any(t => InterfaceErasureKey(t) == InterfaceErasureKey(mapped)))
                     javaClass.ImplementedTypes.Add(mapped);
             }

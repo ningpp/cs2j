@@ -494,6 +494,15 @@ public final class PropertyInfo implements MemberInfo {
         for (Method m : clazz.getMethods()) {
             // C# GetProperties(Public | Instance) never yields static properties.
             if (Modifier.isStatic(m.getModifiers())) continue;
+            // The __suppress__ serialization sentinel (ISerializable/SerializationInfo
+            // stand-in) rides along on classes like Uri/Regex through an inherited
+            // implements clause. Its default accessors (getFullTypeName/getAssemblyName
+            // shape) must never surface as C# properties: .NET's Uri has no such
+            // members, and invoking them throws the sentinel's
+            // PlatformNotSupportedException (IriRelativeFileResolutionTest reflects
+            // over every Uri property). A class overriding a sentinel accessor would
+            // declare it itself, so a declaring-class check keeps those visible.
+            if (m.getDeclaringClass() == __suppress__.class) continue;
             // Skip void returns and methods with parameters
             if (m.getParameterCount() != 0) continue;
             if (m.getReturnType() == void.class) continue;
