@@ -2551,6 +2551,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             ["EnumHelper"] = "io.github.ningpp.compat.EnumHelper",
             ["ArrayHelper"] = "io.github.ningpp.compat.ArrayHelper",
             ["SetCompat"] = "io.github.ningpp.compat.SetCompat",
+            ["Debug"] = "io.github.ningpp.compat.Debug",
+            ["Trace"] = "io.github.ningpp.compat.Trace",
         };
 
     /// <summary>

@@ -4308,8 +4308,10 @@
         },
         {
             "csharp": "System.Diagnostics.Debug",
-            "java": "System",
-            "imports": []
+            "java": "Debug",
+            "imports": [
+                "io.github.ningpp.compat.Debug"
+            ]
         },
         {
             "csharp": "System.Diagnostics.DebuggerBrowsableState",
