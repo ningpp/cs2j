@@ -180,6 +180,9 @@ internal static class KnownAttributeCatalog
     private static readonly HashSet<AttributeTarget> PropertyOnly
         = new() { AttributeTarget.Property };
 
+    private static readonly HashSet<AttributeTarget> TypeOnly
+        = new() { AttributeTarget.Type };
+
     private static CatalogEntry Entry(
         AttributeFamily family,
         BridgeStatus status,
@@ -421,19 +424,31 @@ internal static class KnownAttributeCatalog
                     "src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs:L163-L164",
                     "java/csharptojava-compat/src/main/java/io/github/ningpp/compat/DebuggerBrowsable.java",
                 }),
-            // DebuggerDisplay 仅调试器显示用、无任何运行时语义（IDE/调试元数据），
-            // 按 InventoriedPassthrough 盘点；compat 的 DebuggerDisplay 壳不构成语义契约。
+            // DebuggerDisplay 除 IDE 展示外可被 .NET 反射读到（CustomAttributes），
+            // 移植测试工具 DebuggerAttributes.validateDebuggerDisplayReferences 经
+            // compat TypeInfo.getCustomAttributes 消费 → Bridged，类型级发射
+            // @DebuggerDisplay 注解（仅位置实参 0 的字符串）。
             ["System.Diagnostics.DebuggerDisplayAttribute"] = Entry(
-                AttributeFamily.Debugger, BridgeStatus.InventoriedPassthrough, null,
-                Array.Empty<ReadArgument>(), new HashSet<AttributeTarget>(),
+                AttributeFamily.Debugger, BridgeStatus.Bridged, null,
+                Pos(new ReadArgument("value", ArgValueKind.String, Positional: true)),
+                TypeOnly,
                 new[]
                 {
-                    "debugger-only metadata; no runtime semantics; compat shell io/github/ningpp/compat/DebuggerDisplay.java is informational",
+                    "src/CSharpToJava.Core/Transformers/Type/DebuggerMetadataAnnotationEmitter.cs",
+                    "java/csharptojava-compat/src/main/java/io/github/ningpp/compat/TypeInfo.java:getCustomAttributes",
                 }),
-            // 其余 System.Diagnostics 调试器元数据全部无运行时语义：DebuggerTypeProxy
-            // （代理展示类型，§8 门 3 regex 语料 3 命中）、步进隐藏四件套
-            // （StepThrough/Hidden/NonUserCode/StepperBoundary），统一盘点透传。
-            ["System.Diagnostics.DebuggerTypeProxyAttribute"] = DebuggerPassthroughEntry(),
+            // DebuggerTypeProxy 同理可反射读（getProxyType 断言恰好一个）；类型级发射
+            // @DebuggerTypeProxy(<raw>.class) 注解，typeof 形式取泛型定义裸类名。
+            ["System.Diagnostics.DebuggerTypeProxyAttribute"] = Entry(
+                AttributeFamily.Debugger, BridgeStatus.Bridged, null,
+                Pos(new ReadArgument("type", ArgValueKind.TypeOf, Positional: true)),
+                TypeOnly,
+                new[]
+                {
+                    "src/CSharpToJava.Core/Transformers/Type/DebuggerMetadataAnnotationEmitter.cs",
+                    "java/csharptojava-compat/src/main/java/io/github/ningpp/compat/TypeInfo.java:getCustomAttributes",
+                }),
+            // 步进隐藏四件套：纯 IDE 调试步进元数据，无反射消费面，统一盘点透传。
             ["System.Diagnostics.DebuggerStepThroughAttribute"] = DebuggerPassthroughEntry(),
             ["System.Diagnostics.DebuggerHiddenAttribute"] = DebuggerPassthroughEntry(),
             ["System.Diagnostics.DebuggerNonUserCodeAttribute"] = DebuggerPassthroughEntry(),

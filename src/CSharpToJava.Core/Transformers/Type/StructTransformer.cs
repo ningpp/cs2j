@@ -89,6 +89,10 @@ public class StructTransformer : ITypeTransformer
 
         AddInterfaces(javaClass, structSymbol, structDecl, context);
 
+        // 类型级 [DebuggerDisplay]/[DebuggerTypeProxy] → 运行时可见注解，与类一致
+        // （struct 语料如 SegmentStringBuilder 的 [DebuggerDisplay] 同样可被反射读）。
+        DebuggerMetadataAnnotationEmitter.Emit(javaClass, structSymbol, context);
+
         // 处理成员。
         context.EnterType(javaClass);
 

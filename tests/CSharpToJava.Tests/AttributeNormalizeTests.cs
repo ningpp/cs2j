@@ -1691,7 +1691,7 @@ public class AttributeNormalizeTests
     }
 
     [Fact]
-    public void Bound_Debugger_Metadata_Attributes_Are_Passthrough()
+    public void Bound_Debugger_Metadata_Attributes_Classification()
     {
         var source = """
             using System.Diagnostics;
@@ -1705,8 +1705,11 @@ public class AttributeNormalizeTests
 
         var round = RunSingle(source);
 
+        // DebuggerTypeProxy 可被 .NET 反射读（移植测试工具 getProxyType 经
+        // compat TypeInfo.getCustomAttributes 断言恰好一个）→ Bridged，类型级
+        // 发射 @DebuggerTypeProxy 注解；StepThrough/Hidden 仍是纯 IDE 元数据透传。
         Assert.Equal(
-            BridgeStatus.InventoriedPassthrough,
+            BridgeStatus.Bridged,
             Find(round, "System.Diagnostics.DebuggerTypeProxyAttribute")!.Status);
         Assert.Equal(
             AttributeFamily.Debugger,

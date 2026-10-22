@@ -92,6 +92,9 @@ public class ClassTransformer : ITypeTransformer
 
         AddBaseTypes(javaClass, symbol, nodes[0], context);
         AddTypeParameters(javaClass, symbol, nodes[0], context);
+        // 类型级 [DebuggerDisplay]/[DebuggerTypeProxy] → 运行时可见注解，
+        // 供 compat 反射桥 TypeInfo.getCustomAttributes 读回（移植测试依赖）。
+        DebuggerMetadataAnnotationEmitter.Emit(javaClass, symbol, context);
 
         // 预注册嵌套枚举：C# 允许方法体引用文本顺序靠后的成员，枚举信息需先可用。
         foreach (var node in nodes)
