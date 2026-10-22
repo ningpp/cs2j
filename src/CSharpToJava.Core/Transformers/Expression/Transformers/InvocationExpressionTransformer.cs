@@ -274,6 +274,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return new JavaRawExpression(createCall);
                 }
 
+                if (TryRenderListRemoveAllPredicate(invocation, receiverText, context, out var removeAllPredicateCall))
+                {
+                    return new JavaRawExpression(removeAllPredicateCall);
+                }
+
                 if (TryRenderStringBuilderAppendCharRepeat(invocation, receiverText, context, out var appendCharRepeatCall))
                 {
                     return new JavaRawExpression(appendCharRepeatCall);
@@ -789,6 +794,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 if (TryRenderStringCreate(node, memberAccess, arguments, context, out var createCall))
                 {
                     return createCall;
+                }
+
+                if (TryRenderListRemoveAllPredicate(node, receiver, context, out var removeAllPredicateCall))
+                {
+                    return removeAllPredicateCall;
                 }
 
                 if (TryRenderStringBuilderAppendCharRepeat(node, receiver, context, out var appendCharRepeatCall))
@@ -1541,6 +1551,77 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         rendered = $"StringHelper.append({receiver}, {charArg}, {countArg})";
         return true;
     }
+
+    /// <summary>
+    /// <c>List&lt;T&gt;.RemoveAll(Predicate&lt;T&gt;)</c> →
+    /// <c>receiver.removeAllMatching(predicate)</c>. The camelCase fallback emits
+    /// <c>removeAll(...)</c>, which Java binds to <c>Collection.removeAll(Collection)</c>
+    /// (element-wise mass removal) — uncompilable for a lambda/method-reference argument.
+    /// The compat helper removes every element matching the predicate, matching C#.
+    /// The bridge matches the overload shape — receiver in the C# List family plus a
+    /// single delegate argument — so lambdas, method references and Predicate-typed
+    /// variables all qualify.
+    /// </summary>
+    private static bool TryRenderListRemoveAllPredicate(
+        InvocationExpressionSyntax invocation,
+        string receiver,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
+            || memberAccess.Name.Identifier.Text != "RemoveAll")
+        {
+            return false;
+        }
+
+        var args = invocation.ArgumentList.Arguments;
+        if (args.Count != 1)
+            return false;
+
+        // Overload-shape gate: C# List<T>.RemoveAll only exists as the
+        // (Predicate<T>) overload, so receiver-family + single delegate argument is
+        // already unambiguous. The semantic signature is authoritative when
+        // available; post-preprocessed trees may lack it, so fall back to the
+        // receiver's type plus the argument's delegate type.
+        var method = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        if (method != null)
+        {
+            if (!IsCSharpGenericList(method.ContainingType)
+                || method.Parameters.Length != 1
+                || !IsPredicateDelegateType(method.Parameters[0].Type))
+            {
+                return false;
+            }
+        }
+        else if (!IsCSharpGenericList(context.GetTypeInfo(memberAccess.Expression).Type)
+            || !IsPredicateDelegateType(context.GetTypeInfo(args[0].Expression).Type))
+        {
+            return false;
+        }
+
+        var predicate = ExpressionTransformerFacade.Instance.Transform(args[0].Expression, context);
+        rendered = $"{receiver}.removeAllMatching({predicate})";
+        return true;
+    }
+
+    /// <summary>
+    /// True for <c>System.Collections.Generic.List&lt;T&gt;</c> (and subtypes), the only
+    /// C# type carrying the <c>RemoveAll(Predicate&lt;T&gt;)</c> instance method. It maps
+    /// to the compat <c>CSharpList</c>, which owns <c>removeAllMatching</c>.
+    /// </summary>
+    private static bool IsCSharpGenericList(ITypeSymbol? type)
+        => type is INamedTypeSymbol named
+            && named.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.List<T>";
+
+    /// <summary>
+    /// True for <c>Predicate&lt;T&gt;</c> / <c>Func&lt;T, bool&gt;</c> delegates (the shapes a
+    /// lambda, method group or delegate variable can bind to a RemoveAll argument).
+    /// </summary>
+    private static bool IsPredicateDelegateType(ITypeSymbol? type)
+        => type is INamedTypeSymbol named
+            && named.OriginalDefinition.ContainingNamespace.ToDisplayString() == "System"
+            && named.OriginalDefinition.MetadataName is "Predicate`1" or "Func`2";
 
     /// <summary>
     /// <c>Type.GetConstructor(BindingFlags, Binder, Type[], ParameterModifier[])</c> has
