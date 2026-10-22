@@ -31,6 +31,26 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
     }
 
     /**
+     * C# {@code new List<KeyValuePair<K, V>>(dictionary)}: a C# Dictionary&lt;K,V&gt;
+     * implements IEnumerable&lt;KeyValuePair&lt;K,V&gt;&gt;, so the collection-constructor
+     * overload accepts it; compat maps are {@code Iterable} over their entries but
+     * deliberately not {@link Collection}s, so they need their own constructor that
+     * walks the pairs. The same bridge serves every other compat type that is
+     * C#-enumerable without being a Java collection.
+     *
+     * <p>Overload-resolution invariant: no compat class may implement both
+     * {@code CSharpIterable} and {@link Collection} — an argument doing both would
+     * match this constructor and {@link #CSharpList(Collection)} equally, making the
+     * call ambiguous. Today the families are cleanly split (collections via
+     * {@code CSharpGenericIterable}, maps/stack/queue via {@code CSharpIterable}).
+     */
+    public CSharpList(CSharpIterable<? extends T> pairs) {
+        for (T pair : pairs) {
+            add(pair);
+        }
+    }
+
+    /**
      * C# {@code new List<T>(T[] values)}: a C# array implements {@code IEnumerable<T>},
      * so the collection-constructor overload accepts it; a Java reference array is not
      * a {@link Collection}, so it needs its own constructor.

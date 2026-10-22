@@ -74,6 +74,38 @@ class CSharpListTest {
         assertEquals(0, new CSharpList<>(new String[0]).getCount());
     }
 
+    @Test
+    void dictionaryConstructor_copiesEntriesAsPairsInOrder() {
+        // C# `new List<KeyValuePair<K, V>>(dictionary)`: Dictionary<K, V> implements
+        // IEnumerable<KeyValuePair<K, V>>; a compat map is Iterable but not a Collection.
+        CSharpDictionary<String, String> dict = new CSharpDictionary<>();
+        dict.put("one", "1");
+        dict.put("two", "2");
+        CSharpList<CSharpKeyValuePair<String, String>> list = new CSharpList<>(dict);
+        assertEquals(2, list.getCount());
+        assertEquals("one", list.get(0).getKey());
+        assertEquals("1", list.get(0).getValue());
+        assertEquals("two", list.get(1).getKey());
+        assertEquals("2", list.get(1).getValue());
+    }
+
+    @Test
+    void dictionaryConstructor_acceptsDictionaryTypedAsInterface() {
+        // Call sites may hold the argument under the generic dictionary interface.
+        CSharpGenericIDictionary<String, Integer> dict = new CSharpDictionary<>();
+        dict.put("k", 7);
+        CSharpList<CSharpKeyValuePair<String, Integer>> list = new CSharpList<>(dict);
+        assertEquals(1, list.getCount());
+        assertEquals(Integer.valueOf(7), list.get(0).getValue());
+    }
+
+    @Test
+    void dictionaryConstructor_emptyDictionaryCreatesEmptyList() {
+        CSharpList<CSharpKeyValuePair<String, String>> list =
+            new CSharpList<>(new CSharpDictionary<String, String>());
+        assertEquals(0, list.getCount());
+    }
+
     // ---- Add / Get / Set ----
 
     @Test
