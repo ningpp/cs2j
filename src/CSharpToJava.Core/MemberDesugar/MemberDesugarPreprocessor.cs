@@ -290,7 +290,8 @@ public sealed partial class MemberDesugarPreprocessor
             }
             var opRewriter = new Operators.OperatorUseSiteRewriter(
                 operatorModel, plannedOperators, operatorPlans,
-                _options, statistics, diagnostics, filePath);
+                _options, statistics, diagnostics, filePath,
+                plannedProperties);
             workingRoot = (CompilationUnitSyntax)opRewriter.Visit(workingRoot)!;
         }
         if (plannedIndexers.Count > 0)

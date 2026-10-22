@@ -33,6 +33,15 @@ public static class ProjectSymbolResolver
             tfms = ReadTfms(project, configuration, warnings);
         }
 
+        // SDK-style projects define DEBUG for the Debug configuration through
+        // MSBuild defaults, not the csproj XML; synthesize it so `#if DEBUG`
+        // members (RegexCode.ToString, RegexOptions.Debug, …) survive the strip.
+        if (string.Equals(configuration, "Debug", StringComparison.OrdinalIgnoreCase)
+            && !symbols.Contains("DEBUG"))
+        {
+            symbols.Add("DEBUG");
+        }
+
         var chosenTfm = PickTfm(tfms, tfm);
         if (chosenTfm != null && !TrySynthesizeTfmSymbols(chosenTfm, symbols))
         {

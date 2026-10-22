@@ -175,7 +175,13 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                     var mapped = TryMapPropertyToMethod(prop, exprType, context);
                     if (mapped != null)
                     {
-                        if (mapped.Contains('.')) return mapped;
+                        if (mapped.Contains('.'))
+                            // Static-helper mapping: instance properties take the
+                            // (null-guard-checked) receiver as first argument;
+                            // pre-rendered rows already end with ')'.
+                            return mapped.EndsWith(')')
+                                ? mapped
+                                : prop.IsStatic ? $"{mapped}()" : $"{mapped}({objExpr})";
                         if (prop.ContainingType?.SpecialType == SpecialType.System_Array)
                             return $"{objExpr}.{mapped}";
                         return $"{objExpr}.{mapped}()";

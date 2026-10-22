@@ -51,14 +51,15 @@ internal static class AccessorsToMethods
 
         var mods = new List<SyntaxToken>();
         // 表达式体属性（无 AccessorList）经 Expand 传 null accessor：只有属性级可访问性。
+        // 复合可访问性（protected internal / private protected）由两个 token 组成，
+        // 必须整体平移：只取首个 token 会把 private protected 误降为 private。
         var accessorAccessibility = accessor != null
-            ? accessor.Modifiers.FirstOrDefault(IsAccessibility)
-            : default;
-        var chosen = accessorAccessibility != default
-            ? accessorAccessibility
-            : property.Modifiers.FirstOrDefault(IsAccessibility);
-        if (chosen != default)
-            mods.Add(chosen);
+            ? accessor.Modifiers.Where(IsAccessibility).ToList()
+            : new List<SyntaxToken>();
+        if (accessorAccessibility.Count > 0)
+            mods.AddRange(accessorAccessibility);
+        else
+            mods.AddRange(property.Modifiers.Where(IsAccessibility));
 
         foreach (var m in property.Modifiers)
         {

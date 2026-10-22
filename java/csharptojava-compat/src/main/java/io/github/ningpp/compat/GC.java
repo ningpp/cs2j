@@ -85,6 +85,17 @@ public final class GC {
     }
 
     /**
+     * Mirrors {@code System.GC.SuppressFinalize(Object)}: converted C# Dispose
+     * patterns call it after {@code dispose(true)}, but converted classes have
+     * no JVM finalizers to suppress — a no-op preserves the control flow.
+     *
+     * @param obj the object whose finalizer would have been suppressed
+     */
+    public static void suppressFinalize(Object obj) {
+        // no-op: converted types carry no finalizers.
+    }
+
+    /**
      * Returns the generation number of the target object.
      * In this compat implementation, always returns 0 since Java
      * does not expose object generation the same way .NET does.

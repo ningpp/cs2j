@@ -34,6 +34,28 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
         };
     }
 
+    /**
+     * Bridge from the CSharpIList/CSharpCollection world into the generic-iterable
+     * world. Those interfaces erase to {@code CSharpIterable<Object>}, so
+     * {@code from(Iterable<? extends T>)} cannot prove element compatibility even
+     * when the concrete collection is element-typed (GroupCollection implements
+     * CSharpIList&lt;Group&gt;). Enumerable.Cast&lt;T&gt;() rewrites target this
+     * overload with an explicit type witness; elements are cast lazily, matching
+     * C#'s Cast enumerator.
+     */
+    static <T> CSharpGenericIterable<T> from(CSharpIterable<?> iterable) {
+        if (iterable == null) {
+            return null;
+        }
+        java.util.List<T> items = new java.util.ArrayList<>();
+        for (Object item : iterable) {
+            @SuppressWarnings("unchecked")
+            T cast = (T) item;
+            items.add(cast);
+        }
+        return fromCollection(items);
+    }
+
     /** C# string is IEnumerable<char> — LINQ rewrites call Select/Where on strings. */
     static CSharpGenericIterable<Character> from(String s) {
         // A null C# string is a null IEnumerable<char>, not an empty one.
@@ -87,8 +109,7 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
      * array (e.g. int[][], String[], Object[]).
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    static CSharpGenericIterable fromAny(Object value) {
-        if (value == null) {
+    static CSharpGenericIterable fromAny(Object value) {        if (value == null) {
             return null;
         }
         if (value instanceof CSharpGenericIterable) {
@@ -96,6 +117,10 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
         }
         if (value instanceof Iterable) {
             return from((Iterable<?>) value);
+        }
+        if (value instanceof java.util.stream.Stream<?> stream) {
+            Object[] elements = stream.toArray();
+            return fromAny(elements);
         }
         if (value.getClass().isArray()) {
             return new CSharpGenericIterable() {
@@ -114,6 +139,49 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
         }
         throw new UnsupportedOperationException(
             "Cannot convert " + value.getClass() + " to CSharpGenericIterable");
+    }
+
+    /** Typed view of {@link #fromAny(Object)} for converter-emitted adapters. */
+    @SuppressWarnings("unchecked")
+    static <T> CSharpGenericIterable<T> fromAnyTyped(Object value) {
+        return (CSharpGenericIterable<T>) fromAny(value);
+    }
+
+    /** C# Enumerable.FirstOrDefault(predicate) — null when no element matches. */
+    default T findAny(java.util.function.Predicate<T> predicate) {
+        for (T element : this) {
+            if (predicate.test(element)) {
+                return element;
+            }
+        }
+        return null;
+    }
+
+    /** C# Enumerable.FirstOrDefault() — null when empty. */
+    default T findAny() {
+        java.util.Iterator<T> iterator = iterator();
+        return iterator.hasNext() ? iterator.next() : null;
+    }
+
+    /** C# Enumerable.Cast&lt;T&gt;() — element casts are inserted at the use site. */
+    @SuppressWarnings("unchecked")
+    default <U> CSharpGenericIterable<U> cast() {
+        return (CSharpGenericIterable<U>) this;
+    }
+
+    /**
+     * OrderBy/ThenBy on an Iterable-typed receiver (e.g. the result of a
+     * procedural-LINQ helper) map to {@code sorted(Comparator)}; the default
+     * Iterable/Collection surface has no such method, so materialize a sorted
+     * view. Successive stable sorts compose multi-key ordering like C#.
+     */
+    default CSharpGenericIterable<T> sorted(java.util.Comparator<? super T> comparator) {
+        java.util.List<T> items = new java.util.ArrayList<>();
+        for (T item : this) {
+            items.add(item);
+        }
+        items.sort(comparator);
+        return CSharpGenericIterable.fromCollection(items);
     }
 
     // Default Collection implementations for lazy iterables

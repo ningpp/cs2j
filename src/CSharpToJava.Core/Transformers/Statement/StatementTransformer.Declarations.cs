@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
@@ -60,8 +60,50 @@ public partial class StatementTransformer
             var initExprText = variable.Initializer != null
                 ? exprTransformer.Transform(variable.Initializer.Value, context)
                 : null;
+            if (initExprText != null
+                && variable.Initializer != null
+                && localSymbol?.Type is { } localType)
+            {
+                initExprText = SpanCoercion.CoerceOrSame(
+                    variable.Initializer.Value, initExprText, localType, context);
+                // 常量数字 → 枚举局部（`RegexOptions optionsLast = 0;`）：C# 允许
+                // 隐式常量转换，Java 枚举是类，必须 fromValue/values() 包装。
+                if (localType is INamedTypeSymbol { TypeKind: TypeKind.Enum } localEnum
+                    && context.GetTypeInfo(variable.Initializer.Value).Type?.TypeKind
+                        != TypeKind.Enum)
+                {
+                    var mappedEnum = context.MapType(localEnum);
+                    var storage = CSharpToJava.Core.Transformers.Type.EnumTransformer.StorageTypeName(
+                        localEnum.EnumUnderlyingType?.SpecialType ?? SpecialType.System_Int32);
+                    initExprText = CSharpToJava.Core.Transformers.Type.EnumTransformer.IsValueEnum(localEnum)
+                        ? $"{mappedEnum}.fromValue(({storage}){initExprText})"
+                        : $"{mappedEnum}.values()[{initExprText}]";
+                }
+                // IEnumerable<T> locals receive concrete collections whose Java
+                // classes may not implement compat CSharpGenericIterable (e.g. a
+                // class implementing only non-generic interfaces). Adapt explicitly.
+                if (localType is INamedTypeSymbol
+                    {
+                        Name: "IEnumerable",
+                    } enumerableLocal
+                    && enumerableLocal.ContainingNamespace?.ToDisplayString()
+                        == "System.Collections.Generic"
+                    && enumerableLocal.TypeArguments.Length == 1
+                    && !initExprText.Contains("CSharpGenericIterable", StringComparison.Ordinal))
+                {
+                    context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                    initExprText =
+                        $"CSharpGenericIterable.<{context.MapType(enumerableLocal.TypeArguments[0])}>fromAnyTyped({initExprText})";
+                }
+            }
 
-            plainDeclarators.Add(initExprText != null ? $"{name} = {initExprText}" : name);
+            // 无初始化器的引用类型局部：Java 没有 C# 的 definite-assignment 流分析，
+            // 后续若在分支/短路表达式中先读后写会报“可能尚未初始化”，补 null。
+            plainDeclarators.Add(initExprText != null
+                ? $"{name} = {initExprText}"
+                : localSymbol?.Type.IsReferenceType == true
+                    ? $"{name} = null"
+                    : name);
 
             if (stmt.Declaration.Variables.Count == 1 && variable.Initializer != null)
             {

@@ -72,8 +72,16 @@ public sealed class IteratorLoweringPreprocessor
         var bareReturnRewriter = new BareReturnToYieldBreakRewriter();
         normalizedRoot = (CompilationUnitSyntax)bareReturnRewriter.Visit(normalizedRoot)!;
 
+        // Giant yield-only iterators (hundreds of plain `yield return expr;`
+        // statements) lower to one state-machine MoveNext whose bytecode busts
+        // the JVM's 64KB per-method limit. Split them into chunk iterators
+        // forwarded by the original method BEFORE analysis; purely syntactic.
+        var giantIteratorSplitter = new GiantYieldOnlyIteratorSplitter();
+        normalizedRoot = (CompilationUnitSyntax)giantIteratorSplitter.Visit(normalizedRoot)!;
+
         var activeModel = semanticModel;
         var normalized = bareReturnRewriter.Changed
+            || giantIteratorSplitter.Changed
             || normalizer.Diagnostics.Count > 0
             || normalizer.UsingRegionsNormalized > 0
             || normalizer.LocksNormalized > 0;
@@ -421,4 +429,123 @@ internal sealed class BareReturnToYieldBreakRewriter : CSharpSyntaxRewriter
         // contains an iterator local function would get its bare `return;`
         // rewritten to `yield break` (CS1631).
         => IteratorLoweringAnalyzer.MethodOwnsYield(body);
+}
+
+/// <summary>
+/// Splits static parameterless iterator methods whose body is nothing but a
+/// long run of plain <c>yield return expr;</c> statements into several chunk
+/// iterator methods, with the original method forwarding via
+/// <c>foreach (var item in ChunkK()) yield return item;</c>. Without the split
+/// the lowered state machine's single MoveNext exceeds the JVM 64KB per-method
+/// bytecode limit ("code too large"). Purely syntactic; no semantic binding.
+/// </summary>
+public sealed class GiantYieldOnlyIteratorSplitter : CSharpSyntaxRewriter
+{
+    private const int SplitThreshold = 500;
+    private const int ChunkSize = 250;
+    private const string LoopItemName = "__cs2jYieldChunkItem";
+
+    public bool Changed { get; private set; }
+
+    public override SyntaxNode? VisitClassDeclaration(ClassDeclarationSyntax node)
+    {
+        var visited = (ClassDeclarationSyntax)base.VisitClassDeclaration(node)!;
+        return SplitGiantIterators(visited);
+    }
+
+    public override SyntaxNode? VisitStructDeclaration(StructDeclarationSyntax node)
+    {
+        var visited = (StructDeclarationSyntax)base.VisitStructDeclaration(node)!;
+        return SplitGiantIterators(visited);
+    }
+
+    private TypeDeclarationSyntax SplitGiantIterators(TypeDeclarationSyntax visited)
+    {
+        var members = new List<MemberDeclarationSyntax>(visited.Members.Count);
+        var modified = false;
+        foreach (var member in visited.Members)
+        {
+            if (member is MethodDeclarationSyntax method
+                && TrySplit(method, out var forwarding, out var chunks))
+            {
+                members.Add(forwarding);
+                members.AddRange(chunks);
+                modified = true;
+            }
+            else
+            {
+                members.Add(member);
+            }
+        }
+
+        if (!modified)
+            return visited;
+        Changed = true;
+        return visited.WithMembers(SyntaxFactory.List(members));
+    }
+
+    private static bool TrySplit(
+        MethodDeclarationSyntax method,
+        out MethodDeclarationSyntax forwarding,
+        out List<MethodDeclarationSyntax> chunks)
+    {
+        forwarding = method;
+        chunks = new List<MethodDeclarationSyntax>();
+
+        if (method.Body == null
+            || method.ExpressionBody != null
+            || method.ParameterList.Parameters.Count != 0
+            || !method.Modifiers.Any(SyntaxKind.StaticKeyword)
+            || method.Body.Statements.Count < SplitThreshold)
+        {
+            return false;
+        }
+
+        // Only a body made exclusively of `yield return expr;` statements can be
+        // chunked safely (no control flow, no locals, no cleanup regions).
+        foreach (var statement in method.Body.Statements)
+        {
+            if (!statement.IsKind(SyntaxKind.YieldReturnStatement))
+                return false;
+        }
+
+        var returnType = method.ReturnType.WithoutTrivia();
+        if (!returnType.ToString().Contains("IEnumerable", StringComparison.Ordinal))
+            return false;
+
+        var bodyStatements = method.Body.Statements;
+        forwarding = method.WithBody(SyntaxFactory.Block(BuildForwardingStatements(
+            method.Identifier.ValueText, bodyStatements.Count)));
+
+        var returnTypeText = returnType.ToString();
+        var chunkIndex = 0;
+        for (var start = 0; start < bodyStatements.Count; start += ChunkSize)
+        {
+            var count = Math.Min(ChunkSize, bodyStatements.Count - start);
+            var chunkBody = SyntaxFactory.Block(bodyStatements.Skip(start).Take(count));
+            // Build the header from text: factory-assembled nodes render without
+            // separator whitespace and fuse adjacent identifiers into one token.
+            var header = $"{method.Modifiers.ToString()} {returnTypeText} {ChunkMethodName(method.Identifier.ValueText, chunkIndex)}()";
+            var chunkMethod = SyntaxFactory.ParseMemberDeclaration(header + "\n{ }");
+            if (chunkMethod == null)
+                return false;
+            chunks.Add(((MethodDeclarationSyntax)chunkMethod).WithBody(chunkBody));
+            chunkIndex++;
+        }
+
+        return true;
+    }
+
+    private static IEnumerable<StatementSyntax> BuildForwardingStatements(string sourceName, int totalYields)
+    {
+        var chunkCount = (totalYields + ChunkSize - 1) / ChunkSize;
+        for (var i = 0; i < chunkCount; i++)
+        {
+            yield return SyntaxFactory.ParseStatement(
+                $"foreach (var {LoopItemName} in {ChunkMethodName(sourceName, i)}()) yield return {LoopItemName};");
+        }
+    }
+
+    private static string ChunkMethodName(string sourceName, int index)
+        => $"{sourceName}__cs2jYieldChunk{index}";
 }

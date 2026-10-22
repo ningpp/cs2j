@@ -275,6 +275,41 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
         return RenameIfBound(visited, node);
     }
 
+    public override SyntaxNode? VisitGenericName(GenericNameSyntax node)
+    {
+        var visited = (GenericNameSyntax?)base.VisitGenericName(node);
+        if (visited == null) return null;
+        // Explicit type arguments (e.g. `Throws<T>(...)`) parse as
+        // GenericNameSyntax, which the IdentifierNameSyntax visit never sees;
+        // without this the declaration is renamed but the reference is not,
+        // producing CS0103.
+        var symbolInfo = _context.Model.GetSymbolInfo(node);
+
+        if (symbolInfo.Symbol != null
+            && TryLookupRename(symbolInfo.Symbol, out var newName))
+        {
+            return visited.WithIdentifier(
+                SyntaxFactory.Identifier(visited.Identifier.LeadingTrivia, newName, visited.Identifier.TrailingTrivia))
+                .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
+        }
+
+        if (symbolInfo.CandidateReason == CandidateReason.OverloadResolutionFailure
+            || symbolInfo.CandidateReason == CandidateReason.MemberGroup)
+        {
+            foreach (var cand in symbolInfo.CandidateSymbols)
+            {
+                if (TryLookupRename(cand, out newName))
+                {
+                    return visited.WithIdentifier(
+                        SyntaxFactory.Identifier(visited.Identifier.LeadingTrivia, newName, visited.Identifier.TrailingTrivia))
+                        .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
+                }
+            }
+        }
+
+        return visited;
+    }
+
     public override SyntaxNode? VisitQualifiedName(QualifiedNameSyntax node)
     {
         var visited = (QualifiedNameSyntax?)base.VisitQualifiedName(node);
@@ -284,7 +319,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
         if (rightSymbol != null && TryLookupRename(rightSymbol, out var newName))
         {
             visited = visited.WithRight(
-                SyntaxFactory.IdentifierName(newName))
+                RenameSimpleName(visited.Right, newName))
                 .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
         }
         return visited;
@@ -299,7 +334,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
         if (nameSymbol != null && TryLookupRename(nameSymbol, out var newName))
         {
             visited = visited.WithName(
-                SyntaxFactory.IdentifierName(newName))
+                RenameSimpleName(visited.Name, newName))
                 .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
         }
         return visited;
@@ -457,6 +492,17 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
         }
     }
 
+    /// <summary>
+    /// Replace the identifier of a (possibly generic) simple name while
+    /// preserving its type-argument list (e.g. <c>Throws&lt;T&gt;</c>).
+    /// </summary>
+    private static SimpleNameSyntax RenameSimpleName(SimpleNameSyntax name, string newName)
+        => name is GenericNameSyntax generic
+            ? generic.WithIdentifier(
+                SyntaxFactory.Identifier(
+                    generic.Identifier.LeadingTrivia, newName, generic.Identifier.TrailingTrivia))
+            : SyntaxFactory.IdentifierName(newName);
+
     private IdentifierNameSyntax RenameIfBound(IdentifierNameSyntax visited, IdentifierNameSyntax original)
     {
         var symbolInfo = _context.Model.GetSymbolInfo(original);
@@ -500,6 +546,11 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
             return true;
         if (symbol is IMethodSymbol method)
         {
+            // `Throws<T>(...)` binds to the constructed method; the rename
+            // table keys the generic definition.
+            if (!SymbolEqualityComparer.Default.Equals(method, method.ConstructedFrom)
+                && _table.TryGetValue(method.ConstructedFrom, out newName))
+                return true;
             if (method.PartialDefinitionPart is { } def
                 && _table.TryGetValue(def, out newName))
                 return true;

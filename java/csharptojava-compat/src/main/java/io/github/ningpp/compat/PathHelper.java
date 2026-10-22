@@ -76,9 +76,17 @@ public class PathHelper {
         return UUID.randomUUID().toString("N").substring(0, 8) + ".tmp";
     }
 
+    /** Mirrors Path.GetTempPath() — trailing separator included, as in .NET. */
+    public static String getTempPath() {
+        String temp = System.getProperty("java.io.tmpdir");
+        if (temp == null || temp.isEmpty()) {
+            temp = ".";
+        }
+        return temp.endsWith(java.io.File.separator) ? temp : temp + java.io.File.separator;
+    }
+
     /** Mirrors Path.GetTempFileName() — creates an empty temporary file and returns its absolute path. */
-    public static String getTempFileName() {
-        try {
+    public static String getTempFileName() {        try {
             java.io.File tempFile = java.io.File.createTempFile("cs2j", ".tmp");
             return tempFile.getAbsolutePath();
         } catch (java.io.IOException e) {

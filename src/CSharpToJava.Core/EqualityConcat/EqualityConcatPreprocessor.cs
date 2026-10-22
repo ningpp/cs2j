@@ -573,6 +573,10 @@ public sealed class EqualityConcatPreprocessor
                         return local.Modifiers.Any(SyntaxKind.ConstKeyword);
                     case BaseFieldDeclarationSyntax field:
                         return field.Modifiers.Any(SyntaxKind.ConstKeyword);
+                    // 特性实参必须是编译期常量：`string + string` 本身是常量表达式，
+                    // 物化成 string.Concat(...) 后不再是常量（CS0182）。
+                    case AttributeArgumentSyntax:
+                        return true;
                     case StatementSyntax:
                     case MemberDeclarationSyntax:
                         return false;

@@ -246,8 +246,7 @@ public class StringHelper {
         return s1.equals(s2);
     }
     /** Mirrors C# String.ToLowerInvariant() — .NET invariant lowercase rules. */
-    public static String toLowerCaseInvariant(String s) {
-        if (s == null) return null;
+    public static String toLowerCaseInvariant(String s) {        if (s == null) return null;
         return CultureInfo.getInvariantCulture().getTextInfo().toLower(s);
     }
 
@@ -255,6 +254,24 @@ public class StringHelper {
     public static String toUpperCaseInvariant(String s) {
         if (s == null) return null;
         return CultureInfo.getInvariantCulture().getTextInfo().toUpper(s);
+    }
+
+    /** Mirrors C# String.ToLower(CultureInfo) via the culture's Java Locale. */
+    public static String toLowerCase(String s, CultureInfo culture) {
+        if (s == null) return null;
+        return s.toLowerCase(culture == null ? java.util.Locale.getDefault() : culture.toLocale());
+    }
+
+    /** Mirrors C# String.ToUpper(CultureInfo) via the culture's Java Locale. */
+    public static String toUpperCase(String s, CultureInfo culture) {
+        if (s == null) return null;
+        return s.toUpperCase(culture == null ? java.util.Locale.getDefault() : culture.toLocale());
+    }
+
+    private static boolean isIgnoreCase(StringComparison comparison) {
+        return comparison == StringComparison.OrdinalIgnoreCase
+            || comparison == StringComparison.CurrentCultureIgnoreCase
+            || comparison == StringComparison.InvariantCultureIgnoreCase;
     }
 
     /** Mirrors C# String.Equals(a, b, StringComparison) via ignoreCase semantics. */
@@ -939,6 +956,19 @@ public class StringHelper {
         return s; // String is immutable, return itself
     }
 
+    // ==================== Reverse ====================
+    /**
+     * Mirrors C# {@code Enumerable.Reverse(string)} used as
+     * {@code string.Concat(s.Reverse())}: a materialized reversal of the
+     * characters, not a lazy sequence.
+     */
+    public static String reverse(String s) {
+        if (s == null) {
+            return null;
+        }
+        return new StringBuilder(s).reverse().toString();
+    }
+
     // ==================== CompareTo ====================
     /** Mirrors C# String.CompareTo(obj) */
     public static int compareTo(String s, Object obj) {
@@ -1388,6 +1418,13 @@ public class StringHelper {
             for (Object item : iterable) {
                 appendConcatValue(builder, item);
             }
+            return;
+        }
+
+        // C# string.Concat(IEnumerable<char>/IEnumerable<string>) may reach Java as
+        // a Stream pipeline (converted LINQ chains); drain it into the builder.
+        if (value instanceof java.util.stream.Stream<?> stream) {
+            stream.forEach(item -> appendConcatValue(builder, item));
             return;
         }
 

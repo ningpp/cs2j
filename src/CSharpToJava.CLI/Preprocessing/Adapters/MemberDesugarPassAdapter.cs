@@ -191,6 +191,16 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                 }
             }
 
+            // BeginIteration resets the shared finalizer sidecar, so every
+            // destructor-host file with active plans must replay each round;
+            // otherwise later iterations lose its earlier sidecar entries.
+            for (var index = 0; index < sourceFiles.Count; index++)
+            {
+                if (destructorFiles.Contains(sourceFiles[index].Source)
+                    && affectedPaths.Contains(Path.GetFullPath(sourceFiles[index].Dest)))
+                    needsRewrite[index] = true;
+            }
+
             // 每轮从原始副本出发（仅对需重写者）：避免对已改写文件二次驱动造成幂等问题。
             for (var index = 0; index < sourceFiles.Count; index++)
             {

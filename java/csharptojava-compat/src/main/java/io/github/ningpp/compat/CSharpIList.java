@@ -1,6 +1,17 @@
 package io.github.ningpp.compat;
 
-public interface CSharpIList extends CSharpCollection {
+/**
+ * C# non-generic IList compat view.
+ *
+ * <p>The C# generic <c>IList&lt;T&gt;</c>/<c>ICollection&lt;T&gt;</c> interfaces are
+ * also mapped here. The type parameter is intentionally unused: all members keep
+ * Object parameters, so a generated read-only collection that also declares the
+ * C# generic (T-parameterized) explicit implementations does not hit Java's
+ * "same erasure, neither overrides" clash between the generic and non-generic
+ * flavours. Element accessors stay covariant (a generated <c>Match get(int)</c>
+ * overrides <c>Object get(int)</c>).</p>
+ */
+public interface CSharpIList<T> extends CSharpCollection {
     int add(Object value);
     void clear();
     boolean contains(Object value);
@@ -10,7 +21,7 @@ public interface CSharpIList extends CSharpCollection {
     boolean getIsReadOnly();
     void remove(Object value);
     void removeAt(int index);
-    Object get(int index);
+    default T get(int index) { throw new UnsupportedOperationException(); }
     Object set(int index, Object value);
 
     /**
@@ -74,9 +85,12 @@ public interface CSharpIList extends CSharpCollection {
             public Object set(int index, Object value) {
                 return ((CSharpGenericIList) list).set(index, value);
             }
-            @Override
             public void copyTo(CSharpArray array, int index) {
-                list.copyTo(array, index);
+                int i = 0;
+                for (Object element : list) {
+                    array.setValue(element, index + i);
+                    i++;
+                }
             }
             @Override
             public boolean getIsSynchronized() {

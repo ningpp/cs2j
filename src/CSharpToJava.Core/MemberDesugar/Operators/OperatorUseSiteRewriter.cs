@@ -14,6 +14,11 @@ internal sealed partial class OperatorUseSiteRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<string, OperatorPlan> _active;
     private readonly HashSet<string> _knownKeys;
     private readonly ConversionResolver _conversions;
+    // 前置属性/索引器阶段在同一遍内合成的写入方法（set_X）→ 目标属性符号。
+    // 这些成员不在本文件的原始语义模型里，`b.set_X(arg)` 的实参转换没有
+    // IArgumentOperation（GetOperation 为 null），需要按 receiver 类型 + 方法名
+    // 回查目标类型后再套用本文件的转换 plan。
+    private readonly Dictionary<(string Owner, string Method), IPropertySymbol> _synthesizedSetters;
     private readonly MemberDesugarOptions _options;
     private readonly MemberDesugarStatistics _stats;
     private readonly List<MemberDesugarDiagnostic> _diagnostics;
@@ -27,7 +32,8 @@ internal sealed partial class OperatorUseSiteRewriter : CSharpSyntaxRewriter
         MemberDesugarOptions options,
         MemberDesugarStatistics stats,
         List<MemberDesugarDiagnostic> diagnostics,
-        string filePath)
+        string filePath,
+        IReadOnlyList<Properties.PropertyPlan>? propertyPlans = null)
     {
         _model = model;
         _active = new Dictionary<string, OperatorPlan>(StringComparer.Ordinal);
@@ -36,6 +42,22 @@ internal sealed partial class OperatorUseSiteRewriter : CSharpSyntaxRewriter
         foreach (var p in allPlans) _knownKeys.Add(PlanKey(p.Operator));
         _conversions = new ConversionResolver(
             (CompilationUnitSyntax)model.SyntaxTree.GetRoot(), model, plannedPlans);
+        _synthesizedSetters = new Dictionary<(string, string), IPropertySymbol>();
+        if (propertyPlans != null)
+        {
+            foreach (var p in propertyPlans)
+            {
+                if (p.Outcome != MemberDesugarOutcome.Planned
+                    || p.SetterMethodName == null
+                    || p.Property.ContainingType == null)
+                {
+                    continue;
+                }
+                _synthesizedSetters[(
+                    p.Property.ContainingType.OriginalDefinition.ToDisplayString(),
+                    p.SetterMethodName)] = p.Property;
+            }
+        }
         _options = options;
         _stats = stats;
         _diagnostics = diagnostics;
@@ -180,6 +202,148 @@ internal sealed partial class OperatorUseSiteRewriter : CSharpSyntaxRewriter
            && plan != null;
 
     // ---- OC-3 复合赋值（决策 2b）：简单左值内联；复杂接收者在语句位提升 __cs2j_recv ----
+
+    /// <summary>
+    /// 实参位置的隐式用户转换兜底。属性/索引器前置阶段在同一遍内合成的新调用
+    /// （`b.setValue(r)`）不在本文件原始语义模型中：<c>GetOperation(argument)</c> 为 null，
+    /// <see cref="ConversionResolver"/> 的语法父链探测也命中不了。此时按
+    /// 「receiver 类型 + 合成 setter 名」回查目标属性类型，与源类型配对后套用本文件
+    /// 的转换 plan（regex-sdk 的 `ByRef&lt;LocalBuilder&gt;.set_Value(spanLocal)` 残留即此形态）。
+    /// 已有配方的站点跳过，避免双重包裹。
+    /// </summary>
+    public override SyntaxNode? VisitArgument(ArgumentSyntax node)
+    {
+        var visited = (ArgumentSyntax)base.VisitArgument(node)!;
+        if (node.Expression is not ExpressionSyntax originalExpr
+            || visited.Expression is not ExpressionSyntax value
+            || _conversions.Recipes.ContainsKey(originalExpr))
+            return visited;
+
+        OperatorPlan plan;
+        ITypeSymbol? sourceType;
+        ITypeSymbol? targetType;
+        var operation = _model.GetOperation(node);
+        if (operation is IArgumentOperation argument)
+        {
+            if (!argument.InConversion.IsUserDefined
+                || argument.InConversion.MethodSymbol is not { } m
+                || !TryGetPlan(m, out var opPlan))
+                return visited;
+            plan = opPlan;
+            sourceType = _model.GetTypeInfo(originalExpr).Type;
+            targetType = argument.Parameter?.Type;
+        }
+        else if (operation == null
+                 && node.Parent?.Parent is InvocationExpressionSyntax invocation
+                 && TryResolveSynthesizedTarget(invocation, out var synthesizedTarget))
+        {
+            sourceType = _model.GetTypeInfo(originalExpr).Type;
+            targetType = synthesizedTarget;
+            var found = TryFindConversionPlan(sourceType, targetType, out plan);
+            if (!found)
+                return visited;
+        }
+        else
+        {
+            return visited;
+        }
+
+        var qualifier = plan.Operator.ContainingType!.ToDisplayString();
+        var sourceNullable = sourceType is INamedTypeSymbol
+            { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T };
+        var targetNullable = targetType is INamedTypeSymbol
+            { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T };
+
+        // S? → T / S? → T?：与 OperatorRule/ConversionResolver 的提升公式一致，
+        // 缺值分支保持 null（ExpandLiftedConversion）。
+        if (sourceNullable && targetType != null)
+        {
+            _stats.OperatorLiftedSitesExpanded++;
+            var underlying = targetNullable
+                ? ((INamedTypeSymbol)targetType).TypeArguments[0]
+                : targetType;
+            var nullableDisplay = underlying.ToDisplayString() + "?";
+            return node.WithExpression(LiftedOperatorExpansion.ExpandLiftedConversion(
+                qualifier, plan.GeneratedMethodName, nullableDisplay, value));
+        }
+
+        _stats.OperatorConversionSitesRewritten++;
+        var call = SyntaxFactory.InvocationExpression(
+                SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    SyntaxFactory.ParseTypeName(qualifier),
+                    SyntaxFactory.IdentifierName(plan.GeneratedMethodName)),
+                SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(
+                    new[] { SyntaxFactory.Argument(value) })))
+            .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        return node.WithExpression(call);
+    }
+
+    /// <summary>合成 setter 的目标类型：receiver 为构造泛型时把属性的类型参数替换为实参。</summary>
+    private bool TryResolveSynthesizedTarget(
+        InvocationExpressionSyntax invocation, out ITypeSymbol targetType)
+    {
+        targetType = null!;
+        if (invocation.Expression is not MemberAccessExpressionSyntax access)
+            return false;
+        if (_model.GetTypeInfo(access.Expression).Type is not INamedTypeSymbol receiverType)
+            return false;
+        var key = (receiverType.OriginalDefinition.ToDisplayString(),
+                   access.Name.Identifier.ValueText);
+        if (!_synthesizedSetters.TryGetValue(key, out var property))
+            return false;
+        targetType = SubstitutePropertyType(property.Type, receiverType);
+        return true;
+    }
+
+    private static ITypeSymbol SubstitutePropertyType(
+        ITypeSymbol type, INamedTypeSymbol receiverType)
+    {
+        if (type is ITypeParameterSymbol parameter
+            && parameter.DeclaringType != null
+            && parameter.Ordinal >= 0
+            && parameter.Ordinal < receiverType.TypeArguments.Length)
+        {
+            return receiverType.TypeArguments[parameter.Ordinal];
+        }
+        return type;
+    }
+
+    /// <summary>按 (源类型, 目标类型) 在活动 plan 中找唯一的转换运算符。</summary>
+    private bool TryFindConversionPlan(
+        ITypeSymbol? sourceType, ITypeSymbol? targetType, out OperatorPlan plan)
+    {
+        plan = null!;
+        if (sourceType == null || targetType == null) return false;
+        var sourceUnderlying = sourceType is INamedTypeSymbol
+            { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } sn
+                ? sn.TypeArguments[0]
+                : sourceType;
+        var targetUnderlying = targetType is INamedTypeSymbol
+            { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } tn
+                ? tn.TypeArguments[0]
+                : targetType;
+        // plan 来自分析期的编译，_model 属于重写期的替换编译；跨编译符号引用不等，
+        // 因此按显示串配对（构造泛型归一后稳定）。
+        var sourceDisplay = sourceUnderlying.ToDisplayString();
+        var targetDisplay = targetUnderlying.ToDisplayString();
+        foreach (var candidate in _active.Values)
+        {
+            if (!candidate.IsConversion || candidate.Operator.Parameters.Length != 1)
+                continue;
+            if (!string.Equals(
+                    candidate.Operator.Parameters[0].Type.ToDisplayString(),
+                    sourceDisplay, StringComparison.Ordinal))
+                continue;
+            if (!string.Equals(
+                    candidate.Operator.ReturnType.ToDisplayString(),
+                    targetDisplay, StringComparison.Ordinal))
+                continue;
+            plan = candidate;
+            return true;
+        }
+        return false;
+    }
 
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
@@ -381,8 +545,17 @@ internal sealed partial class OperatorUseSiteRewriter : CSharpSyntaxRewriter
         var visitedExpr = expressionBody != null
             ? (ArrowExpressionClauseSyntax)Visit(expressionBody) : null;
 
-        var method = SyntaxFactory.MethodDeclaration(returnType,
-                SyntaxFactory.Identifier(plan.GeneratedMethodName).WithTriviaFrom(operatorToken))
+        // Conversion declarations pass the `operator` keyword, whose leading
+        // trivia is empty (the space after implicit/explicit is trailing
+        // trivia of that keyword), so WithTriviaFrom would fuse the return
+        // type and method name (`doubleToDouble`).  Keep the separating space
+        // explicitly for conversions; binary operator tokens carry it already.
+        var identifier = plan.IsConversion
+            ? SyntaxFactory.Identifier(plan.GeneratedMethodName)
+                .WithLeadingTrivia(SyntaxFactory.Space)
+            : SyntaxFactory.Identifier(plan.GeneratedMethodName).WithTriviaFrom(operatorToken);
+
+        var method = SyntaxFactory.MethodDeclaration(returnType, identifier)
             .WithModifiers(cleaned)
             .WithParameterList(parameterList)
             .WithBody(visitedBody)

@@ -506,4 +506,27 @@ public partial class C
         Assert.DoesNotContain("void Throws(", impl1Result.OutputCode);
         Assert.DoesNotContain("void Throws(", impl2Result.OutputCode);
     }
+
+    [Fact]
+    public void GenericInvocation_OfRenamedMethod_RenamedTogether()
+    {
+        // `Throws<T>(...)` is a GenericNameSyntax; the reference must be
+        // renamed together with its declaration or the output fails CS0103.
+        var src = @"
+internal static class AssertExtensions
+{
+    public static T Throws<T>(string paramName, System.Action action) where T : System.Exception
+        => throw new System.NotImplementedException();
+
+    public static T Throws<T>(string paramName, string message, System.Action action) where T : System.Exception
+    {
+        _ = Throws<T>(paramName, action);
+        return AssertExtensions.Throws<T>(paramName, action);
+    }
+}";
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("ThrowsValue<T>", output);
+        Assert.Contains("AssertExtensions.ThrowsValue<T>", output);
+        AssertOutputCompiles(output);
+    }
 }

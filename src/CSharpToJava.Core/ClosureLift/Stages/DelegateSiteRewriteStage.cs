@@ -52,14 +52,19 @@ internal sealed class DelegateSiteRewriteStage : IClosureLiftStage
             static p => (p.SiteSpanStart, p.SiteRawKind),
             static p => p);
 
-        var plansByFinalNode = new Dictionary<LambdaExpressionSyntax, (StaticLambdaPlan? Static, DelegateSitePlan? Instance)>();
+        var plansByFinalNode = new Dictionary<LambdaExpressionSyntax, (StaticLambdaPlan? Static, DelegateSitePlan? Instance, bool Bare)>();
         for (var i = 0; i < modelLambdas.Count; i++)
         {
             var key = (modelLambdas[i].SpanStart, modelLambdas[i].RawKind);
+            // `new D(λ)` already performs the delegate conversion: emitting
+            // `new D(method)` inside it would double-wrap and produce
+            // `new D(new D(method))`. Such sites get the bare method group
+            // (the outer creation keeps the delegate type).
+            var bare = IsDirectDelegateCreationArgument(modelLambdas[i], model);
             if (staticPlans.TryGetValue(key, out var staticPlan))
-                plansByFinalNode[mainTreeLambdas[i]] = (staticPlan, null);
+                plansByFinalNode[mainTreeLambdas[i]] = (staticPlan, null, bare);
             else if (instancePlans.TryGetValue(key, out var instancePlan))
-                plansByFinalNode[mainTreeLambdas[i]] = (null, instancePlan);
+                plansByFinalNode[mainTreeLambdas[i]] = (null, instancePlan, bare);
         }
 
         var rewriter = new SiteRewriter(plansByFinalNode, statistics);
@@ -72,13 +77,32 @@ internal sealed class DelegateSiteRewriteStage : IClosureLiftStage
         => lambda.Ancestors().Any(static a => a.GetAnnotations(ClosureLiftAnnotations.Kind)
             .Any(static x => x.Data is { } data && data.StartsWith("method:", StringComparison.Ordinal)));
 
+    /// <summary>
+    /// True when the lambda is the sole argument of a delegate-creation
+    /// expression (<c>new D(λ)</c>): the outer creation already supplies the
+    /// delegate type, so its site must be replaced by the bare method group.
+    /// </summary>
+    private static bool IsDirectDelegateCreationArgument(
+        LambdaExpressionSyntax lambda, SemanticModel model)
+    {
+        if (lambda.Parent is not ArgumentSyntax argument
+            || argument.Parent is not ArgumentListSyntax argumentList
+            || argumentList.Arguments.Count != 1
+            || argumentList.Parent is not ObjectCreationExpressionSyntax creation)
+        {
+            return false;
+        }
+
+        return model.GetTypeInfo(creation).Type?.TypeKind == TypeKind.Delegate;
+    }
+
     private sealed class SiteRewriter : CSharpSyntaxRewriter
     {
-        private readonly Dictionary<LambdaExpressionSyntax, (StaticLambdaPlan? Static, DelegateSitePlan? Instance)> _plansByNode;
+        private readonly Dictionary<LambdaExpressionSyntax, (StaticLambdaPlan? Static, DelegateSitePlan? Instance, bool Bare)> _plansByNode;
         private readonly ClosureLiftStatistics? _statistics;
 
         public SiteRewriter(
-            Dictionary<LambdaExpressionSyntax, (StaticLambdaPlan? Static, DelegateSitePlan? Instance)> plansByNode,
+            Dictionary<LambdaExpressionSyntax, (StaticLambdaPlan? Static, DelegateSitePlan? Instance, bool Bare)> plansByNode,
             ClosureLiftStatistics? statistics)
         {
             _plansByNode = plansByNode;
@@ -105,8 +129,10 @@ internal sealed class DelegateSiteRewriteStage : IClosureLiftStage
 
                 if (plan.Static is { } staticPlan)
                 {
-                    return StaticLambdaHandler
-                        .BuildSiteReplacement(staticPlan)
+                    var staticNode = plan.Bare
+                        ? SyntaxFactory.ParseExpression(staticPlan.MethodName)
+                        : StaticLambdaHandler.BuildSiteReplacement(staticPlan);
+                    return staticNode
                         .WithTriviaFrom(node)
                         .WithAdditionalAnnotations(ClosureLiftAnnotations.LiftedSite(staticPlan.MethodName));
                 }
@@ -116,6 +142,13 @@ internal sealed class DelegateSiteRewriteStage : IClosureLiftStage
                     SyntaxKind.SimpleMemberAccessExpression,
                     SyntaxFactory.IdentifierName(instancePlan.ReceiverExpression),
                     SyntaxFactory.IdentifierName(instancePlan.MethodName));
+
+                if (plan.Bare)
+                {
+                    return receiver
+                        .WithTriviaFrom(node)
+                        .WithAdditionalAnnotations(ClosureLiftAnnotations.LiftedSite(instancePlan.MethodName));
+                }
 
                 return SyntaxFactory.ObjectCreationExpression(
                         SyntaxFactory.ParseTypeName(instancePlan.DelegateTypeDisplay))

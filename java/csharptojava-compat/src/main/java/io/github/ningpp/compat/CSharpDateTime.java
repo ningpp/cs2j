@@ -48,6 +48,11 @@ public final class CSharpDateTime implements Comparable<CSharpDateTime> {
         this(year, month, day, hour, minute, second, 0, DateTimeKind.Unspecified);
     }
 
+    /** Mirrors C# DateTime(int, int, int, int, int, int, DateTimeKind). */
+    public CSharpDateTime(int year, int month, int day, int hour, int minute, int second, DateTimeKind kind) {
+        this(year, month, day, hour, minute, second, 0, kind);
+    }
+
     public CSharpDateTime(int year, int month, int day, int hour, int minute, int second, int millisecond) {
         this(year, month, day, hour, minute, second, millisecond, DateTimeKind.Unspecified);
     }

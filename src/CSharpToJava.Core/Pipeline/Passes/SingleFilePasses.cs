@@ -114,6 +114,11 @@ public sealed class SingleFileLinqDesugarPass : ICs2jPass<SingleFilePassState>, 
             state.Request.FileName,
             state.SyntaxTree,
             state.Compilation);
+        // Keep ProjectCompilation in sync: a stale compilation makes
+        // GetSemanticModelForTree's FilePath fallback hand out a model bound to
+        // the pre-rewrite tree, so every symbol query on current nodes returns
+        // null (nameof resolution, overload binding, ...).
+        state.Context.ProjectCompilation = state.Compilation;
         state.Context.SemanticModel = state.Library.PrimaryCompilation?.GetSemanticModel(state.SyntaxTree)
             ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
     }
@@ -277,6 +282,11 @@ public sealed class SingleFileJavaEmitPass : ICs2jPass<SingleFilePassState>
                     state.Request.FileName,
                     state.SyntaxTree,
                     state.Compilation);
+                // Keep ProjectCompilation in sync: GetSemanticModelForTree falls back
+                // to a same-FilePath tree of ProjectCompilation, and a stale
+                // (pre-rewrite) compilation answers GetDeclaredSymbol with the old
+                // tree ("syntax node is not within syntax tree").
+                state.Context.ProjectCompilation = state.Compilation;
                 state.Context.SemanticModel = state.Library.PrimaryCompilation?.GetSemanticModel(state.SyntaxTree)
                     ?? state.Compilation.GetSemanticModel(state.SyntaxTree);
             }

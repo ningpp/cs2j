@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -66,6 +66,28 @@ public class ControlFlowTransformer : IIRExpressionTransformer
             var condition = facade.TransformToIR(ternary.Condition, context);
             var whenTrue = facade.TransformToIR(ternary.WhenTrue, context);
             var whenFalse = facade.TransformToIR(ternary.WhenFalse, context);
+            if (context.SemanticModel != null
+                && context.GetTypeInfo(ternary) is { } irTernaryInfo
+                && (irTernaryInfo.ConvertedType ?? irTernaryInfo.Type) is { } irTernaryTarget)
+            {
+                var trueText = SpanCoercion.CoerceOrSame(
+                    ternary.WhenTrue, whenTrue.ToInlineString(), irTernaryTarget, context);
+                var falseText = SpanCoercion.CoerceOrSame(
+                    ternary.WhenFalse, whenFalse.ToInlineString(), irTernaryTarget, context);
+                INamedTypeSymbol? enumTarget = irTernaryTarget as INamedTypeSymbol;
+                if (enumTarget is not { TypeKind: TypeKind.Enum })
+                {
+                    enumTarget = (context.GetTypeInfo(ternary.WhenTrue).Type
+                        ?? context.GetTypeInfo(ternary.WhenFalse).Type) as INamedTypeSymbol;
+                }
+                if (enumTarget is { TypeKind: TypeKind.Enum } irTernaryEnum)
+                {
+                    trueText = CoerceEnumBranch(ternary.WhenTrue, trueText, irTernaryEnum, context);
+                    falseText = CoerceEnumBranch(ternary.WhenFalse, falseText, irTernaryEnum, context);
+                }
+                whenTrue = new JavaRawExpression(trueText);
+                whenFalse = new JavaRawExpression(falseText);
+            }
             return new JavaConditionalExpression
             {
                 Condition = condition,
@@ -88,6 +110,20 @@ public class ControlFlowTransformer : IIRExpressionTransformer
             return new JavaThisExpression { IsSuper = true };
 
         return new JavaRawExpression(Transform(node, context));
+    }
+
+    /// <summary>非枚举臂（数字常量）→ 枚举：Java 值枚举 fromValue / 普通枚举 values()[i]。</summary>
+    private static string CoerceEnumBranch(
+        ExpressionSyntax branch, string text, INamedTypeSymbol target, ConversionContext context)
+    {
+        if (context.GetTypeInfo(branch).Type?.TypeKind == TypeKind.Enum)
+            return text;
+        var mappedEnum = context.MapType(target);
+        var storage = CSharpToJava.Core.Transformers.Type.EnumTransformer.StorageTypeName(
+            target.EnumUnderlyingType?.SpecialType ?? SpecialType.System_Int32);
+        return CSharpToJava.Core.Transformers.Type.EnumTransformer.IsValueEnum(target)
+            ? $"{mappedEnum}.fromValue(({storage}){text})"
+            : $"{mappedEnum}.values()[{text}]";
     }
 
     private string TransformConditional(ConditionalExpressionSyntax node, ConversionContext context)
@@ -117,6 +153,29 @@ public class ControlFlowTransformer : IIRExpressionTransformer
 
         // Deduplicate post-statements that both branches may have queued
         context.MethodState.DeduplicatePostStatements();
+
+        // C# ternary whose type is Span<T>/ReadOnlySpan<T>: array/string branches
+        // need the compat bridge so both arms share the Java class type.
+        if (context.SemanticModel != null
+            && context.GetTypeInfo(node) is { } ternaryInfo
+            && (ternaryInfo.ConvertedType ?? ternaryInfo.Type) is { } ternaryTarget)
+        {
+            trueExpr = SpanCoercion.CoerceOrSame(node.WhenTrue, trueExpr, ternaryTarget, context);
+            falseExpr = SpanCoercion.CoerceOrSame(node.WhenFalse, falseExpr, ternaryTarget, context);
+            // 常量数字臂 → 枚举（如 `... ? RegexOptions.ECMAScript : 0`）。嵌套三元
+            // 在 C# 里可能被推断为 int（外层再转换），此时用枚举兄弟臂补目标类型。
+            INamedTypeSymbol? enumTarget = ternaryTarget as INamedTypeSymbol;
+            if (enumTarget is not { TypeKind: TypeKind.Enum })
+            {
+                enumTarget = (context.GetTypeInfo(node.WhenTrue).Type
+                    ?? context.GetTypeInfo(node.WhenFalse).Type) as INamedTypeSymbol;
+            }
+            if (enumTarget is { TypeKind: TypeKind.Enum } ternaryEnum)
+            {
+                trueExpr = CoerceEnumBranch(node.WhenTrue, trueExpr, ternaryEnum, context);
+                falseExpr = CoerceEnumBranch(node.WhenFalse, falseExpr, ternaryEnum, context);
+            }
+        }
 
         // If the conditional expression is typed as IEnumerable/ICollection-like, but branches
         // are stream chains, collect each branch so both sides become Iterable-compatible.
@@ -510,11 +569,28 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var governingExpr = facade.Transform(node.GoverningExpression, context);
 
+        // C# switch expressions may mix enum members with numeric literals
+        // (e.g. `_ => 0`) because the enum is the target type; Java ternaries
+        // require both arms to agree, so numeric arms are coerced exactly like
+        // the conditional-expression path does.
+        INamedTypeSymbol? enumTarget = null;
+        if (context.SemanticModel != null
+            && (context.GetTypeInfo(node).ConvertedType ?? context.GetTypeInfo(node).Type)
+                is INamedTypeSymbol { TypeKind: TypeKind.Enum } targetEnum)
+        {
+            enumTarget = targetEnum;
+        }
+
         // Build a ternary chain from last arm to first
         string result = "null";
         foreach (var arm in node.Arms.Reverse())
         {
             var armValue = facade.Transform(arm.Expression, context);
+            if (enumTarget != null
+                && !arm.Expression.IsKind(SyntaxKind.NullLiteralExpression))
+            {
+                armValue = CoerceEnumBranch(arm.Expression, armValue, enumTarget, context);
+            }
             if (arm.Pattern is DiscardPatternSyntax && arm.WhenClause == null)
             {
                 result = armValue;

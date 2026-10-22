@@ -263,7 +263,12 @@ internal static class PassChainFactory
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,
-                configuration: "Release",
+                // The upstream test suites run under `dotnet test`'s default Debug
+                // configuration: `#if DEBUG` members (RegexCode.ToString/Dump,
+                // RegexOptions.Debug, IsDebug, …) are part of the tested surface.
+                // Stripping to Release silently deletes them and the converted
+                // tests fail against members that no longer exist.
+                configuration: "Debug",
                 tfm: null,
                 removeRegions: false),
 

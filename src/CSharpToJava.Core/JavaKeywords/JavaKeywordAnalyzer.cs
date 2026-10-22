@@ -65,8 +65,12 @@ internal sealed class JavaKeywordAnalyzer
                     // so the old check (PartialDefinitionPart != null) missed
                     // it. The rewriter's TryLookupRename fallback resolves
                     // all parts from the definition part's rename table entry.
+                    // Only declarations carrying the `partial` modifier are
+                    // implementation parts; ordinary methods must still be
+                    // collected (otherwise their declarations never rename).
                     if (symbol is IMethodSymbol method
-                        && !method.IsPartialDefinition)
+                        && !method.IsPartialDefinition
+                        && m.Modifiers.Any(SyntaxKind.PartialKeyword))
                         continue;
                     break;
                 }

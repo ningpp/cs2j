@@ -58,6 +58,16 @@ internal sealed class MethodMigrator
             .Any(r => r.Expression is ThisExpressionSyntax);
         var isOtherReturn = !isVoid && !returnsThis;
 
+        // 0. The synthesized local below is named `result`; when the method body
+        //    already declares its own `result` (e.g. ArrayBuilder<T>.ToArray's
+        //    `T[] result`), the generated Java would carry a duplicate variable
+        //    declaration. Rename the user local first.
+        if (body.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                .Any(d => d.Identifier.ValueText == "result"))
+        {
+            body = (BlockSyntax)new RenameUserLocalRewriter("result", "__cs2j_userResult").Visit(body)!;
+        }
+
         // 1. Insert `var result = this;` at top
         // Use the concrete struct type (not `var`) so that GotoEliminator's
         // variable hoisting produces default(StructName) instead of default(var),
@@ -480,5 +490,31 @@ internal sealed class MethodMigrator
             return SyntaxFactory.Block(tempDecl, assignment, returnTemp)
                 .WithLeadingTrivia(node.GetLeadingTrivia());
         }
+    }
+
+    /// <summary>
+    /// Renames a user-declared local (declarator plus identifier references) so
+    /// the migrator's synthesized <c>result</c> local cannot collide with it.
+    /// </summary>
+    private sealed class RenameUserLocalRewriter : CSharpSyntaxRewriter
+    {
+        private readonly string _from;
+        private readonly string _to;
+
+        public RenameUserLocalRewriter(string from, string to)
+        {
+            _from = from;
+            _to = to;
+        }
+
+        public override SyntaxNode? VisitVariableDeclarator(VariableDeclaratorSyntax node)
+            => node.Identifier.ValueText == _from
+                ? node.WithIdentifier(SyntaxFactory.Identifier(_to).WithTriviaFrom(node.Identifier))
+                : base.VisitVariableDeclarator(node);
+
+        public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
+            => node.Identifier.ValueText == _from
+                ? SyntaxFactory.IdentifierName(_to).WithTriviaFrom(node)
+                : base.VisitIdentifierName(node);
     }
 }

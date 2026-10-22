@@ -94,6 +94,26 @@ public final class TypeHelper {
     }
 
     /**
+     * C# Type.MakeGenericMethodParameter(position) — Reflection.Emit/generic-method
+     * emulation stub. Java reflection has no method type-parameter tokens; the
+     * enclosing MethodInfo.makeGenericMethod(...) records the actual arguments,
+     * so this placeholder is compile-time only. RegexCompiler's reflection-emit
+     * path is already stubbed on Java, so no runtime semantics are lost here.
+     */
+    public static Class<?> makeGenericMethodParameter(int position) {
+        return Object.class;
+    }
+
+
+    /**
+     * Mirrors Type.GetType(string) — the single-argument overload throws when
+     * the type cannot be loaded (C# defaults throwOnError to true).
+     */
+    public static Class<?> getType(String name) {
+        return getType(name, true);
+    }
+
+    /**
      * Mirrors Type.GetType(string, bool throwOnError) — loads a type by name,
      * returning null instead of throwing when throwOnError is false.
      */

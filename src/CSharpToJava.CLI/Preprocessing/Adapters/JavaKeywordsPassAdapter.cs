@@ -351,9 +351,13 @@ internal sealed class JavaKeywordsPassAdapter : ProjectPassAdapter
         string intermediateRoot)
     {
         // Pre-build a (File, Id) only set for diagnostics whose message
-        // embeds the renamed symbol (e.g. CS0759 partial method).  When the
-        // method is renamed the message text changes, so a full
-        // (File, Id, Message) match would wrongly flag it as a new error.
+        // embeds the renamed symbol (e.g. CS0759 partial method, CS0111
+        // duplicate member, CS0121 ambiguous call listing candidate
+        // signatures).  When the symbol is renamed the message text changes,
+        // so a full (File, Id, Message) match would wrongly flag it as a new
+        // error.  CS0121 matters for trees that compile mutually exclusive
+        // TFM files together: a call bound ambiguously before the rename
+        // stays ambiguous (same file, same code) after it.
         var baselineFileId = new HashSet<(string, string)>(
             baseline.Select(b => (b.File, b.Id)));
 
@@ -364,9 +368,9 @@ internal sealed class JavaKeywordsPassAdapter : ProjectPassAdapter
                     Normalize(d.Location.SourceTree!.FilePath, intermediateRoot),
                     d.Descriptor.Id,
                     d.GetMessage()))
-                // CS0759: the message embeds the partial method name which
-                // changes after rename; match on (File, Id) only.
-                && !(d.Descriptor.Id == "CS0759"
+                // These messages embed the declared/candidate symbol names,
+                // which change after rename; match on (File, Id) only.
+                && !(d.Descriptor.Id is "CS0759" or "CS0111" or "CS0121"
                      && baselineFileId.Contains((
                          Normalize(d.Location.SourceTree!.FilePath, intermediateRoot),
                          d.Descriptor.Id))))

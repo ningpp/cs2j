@@ -1,124 +1,84 @@
 package io.github.ningpp.compat;
 
 /**
- * Placeholder type emitted by the converter for C# types that have no Java
- * counterpart (e.g. System.Runtime.Serialization.StreamingContext and
- * System.Runtime.Serialization.ISerializable). Kept deliberately minimal so
- * that generated code compiles; operations on it fail with
- * PlatformNotSupportedException, matching the behavior of the .NET surface
- * it stands in for.
+ * Stand-in for serialization-only BCL types that map to the {@code __suppress__}
+ * sentinel in TypeMappings.json (System.Runtime.Serialization's ISerializable /
+ * SerializationInfo / StreamingContext). Members whose signatures reference
+ * these types are dropped during conversion, but generated code may still
+ * mention the sentinel in casts ({@code ((ISerializable)r).GetObjectData(...)}),
+ * so it must be an interface: javac rejects casts from a class to an unrelated
+ * class, while class-to-interface casts always compile.
  *
- * <p>It doubles as the converter's stand-in for
- * {@code System.Runtime.Serialization.SerializationInfo}: generated
- * {@code OnDeserialization}/{@code GetObjectData} members call
- * {@code getInt32}/{@code getValue}/{@code addValue} on it.</p>
+ * <p>Every operation throws {@link PlatformNotSupportedException}, matching
+ * the behavior of the .NET surfaces it stands in for.</p>
  */
-public final class __suppress__ {
-
-    public __suppress__() {
-    }
+public interface __suppress__ {
 
     /**
-     * Mirrors the SerializationInfo(Type, IFormatterConverter) constructor.
+     * Mirrors ISerializable.GetObjectData(SerializationInfo, StreamingContext):
+     * binary serialization is not supported on this platform.
      */
-    public __suppress__(Class<?> type, Object converter) {
-    }
-
-    /**
-     * Mirrors the SerializationInfo(Type, IFormatterConverter) constructor for
-     * call sites whose converter argument is itself a compat placeholder.
-     */
-    public __suppress__(Class<?> type, __suppress__ converter) {
-    }
-
-    /**
-     * Mirrors ISerializable.GetObjectData(SerializationInfo, StreamingContext).
-     */
-    public void getObjectData(Object info, __suppress__ context) {
+    default void getObjectData(__suppress__ info, __suppress__ context) {
         throw new PlatformNotSupportedException();
     }
 
-    /**
-     * Mirrors SerializationInfo.GetInt32(string).
-     */
-    public int getInt32(String name) {
+    /** Mirrors ISerializable.GetObjectData(SerializationInfo, StreamingContext). */
+    default void getObjectData(Object info, __suppress__ context) {
         throw new PlatformNotSupportedException();
     }
 
-    /**
-     * Mirrors SerializationInfo.GetInt64(string).
-     */
-    public long getInt64(String name) {
+    /** Mirrors SerializationInfo.GetInt32(string). */
+    default int getInt32(String name) {
         throw new PlatformNotSupportedException();
     }
 
-    /**
-     * Mirrors SerializationInfo.GetString(string).
-     */
-    public String getString(String name) {
+    /** Mirrors SerializationInfo.GetInt64(string). */
+    default long getInt64(String name) {
         throw new PlatformNotSupportedException();
     }
 
-    /**
-     * Mirrors SerializationInfo.GetBoolean(string).
-     */
-    public boolean getBoolean(String name) {
+    /** Mirrors SerializationInfo.GetString(string). */
+    default String getString(String name) {
         throw new PlatformNotSupportedException();
     }
 
-    /**
-     * Mirrors SerializationInfo.GetValue(string, Type).
-     *
-     * @param <T> The type of the value to read.
-     * @param name The name of the value to read.
-     * @param type The type of the value to read.
-     * @return Nothing; always throws.
-     */
-    public <T> T getValue(String name, Class<T> type) {
+    /** Mirrors SerializationInfo.GetBoolean(string). */
+    default boolean getBoolean(String name) {
         throw new PlatformNotSupportedException();
     }
 
-    /**
-     * Mirrors SerializationInfo.GetValue(string, Type) for array types such as
-     * {@code KeyValuePair<K,V>[]}, whose {@code Class} literal is not statically
-     * typed as {@code Class<T[]>}.
-     */
-    public Object getValue(String name, Object type) {
+    /** Mirrors SerializationInfo.GetValue(string, Type). */
+    default <T> T getValue(String name, Class<T> type) {
         throw new PlatformNotSupportedException();
     }
 
-    /**
-     * Mirrors SerializationInfo.AddValue(string, object).
-     */
-    public void addValue(String name, Object value) {
+    /** Mirrors SerializationInfo.GetValue(string, Type) for untyped Class literals. */
+    default Object getValue(String name, Object type) {
         throw new PlatformNotSupportedException();
     }
 
-    /**
-     * Mirrors SerializationInfo.AddValue(string, object, Type).
-     */
-    public void addValue(String name, Object value, Class<?> type) {
+    /** Mirrors SerializationInfo.AddValue(string, object). */
+    default void addValue(String name, Object value) {
         throw new PlatformNotSupportedException();
     }
 
-    /**
-     * Mirrors SerializationInfo.SetType(Type).
-     */
-    public void setType(Class<?> type) {
+    /** Mirrors SerializationInfo.AddValue(string, object, Type). */
+    default void addValue(String name, Object value, Class<?> type) {
         throw new PlatformNotSupportedException();
     }
 
-    /**
-     * Mirrors SerializationInfo.FullTypeName.
-     */
-    public String getFullTypeName() {
+    /** Mirrors SerializationInfo.SetType(Type). */
+    default void setType(Class<?> type) {
         throw new PlatformNotSupportedException();
     }
 
-    /**
-     * Mirrors SerializationInfo.AssemblyName.
-     */
-    public String getAssemblyName() {
+    /** Mirrors SerializationInfo.FullTypeName. */
+    default String getFullTypeName() {
+        throw new PlatformNotSupportedException();
+    }
+
+    /** Mirrors SerializationInfo.AssemblyName. */
+    default String getAssemblyName() {
         throw new PlatformNotSupportedException();
     }
 }

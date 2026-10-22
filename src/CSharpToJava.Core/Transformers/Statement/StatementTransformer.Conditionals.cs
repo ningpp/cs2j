@@ -45,7 +45,18 @@ public partial class StatementTransformer
                 // Primitive out types (int, long, ...) must be declared with their boxed
                 // type so the null check below compiles (int == null is illegal Java).
                 // Subsequent uses auto-unbox/autobox (e.g. _stringTable.add(str, i)).
-                string declaredJavaType = outJavaType;
+                string declaredJavaType = outJavaType switch
+                {
+                    "int" => "Integer",
+                    "long" => "Long",
+                    "short" => "Short",
+                    "byte" => "Byte",
+                    "char" => "Character",
+                    "boolean" => "Boolean",
+                    "float" => "Float",
+                    "double" => "Double",
+                    _ => outJavaType,
+                };
 
                 var tvStmtTransformer = new StatementTransformer();
                 string thenBody;
@@ -325,34 +336,54 @@ public partial class StatementTransformer
             }
         }
 
-        var condition = exprTransformer.Transform(stmt.Condition, context);
+        string condPreamble;
+        string effectiveCondition;
+        if (ContainsByRefArgument(stmt.Condition) && IsShortCircuitSplittable(stmt.Condition))
+        {
+            // C# short-circuit conditions may read an out variable inside a later
+            // operand (e.g. `!ref.TryGetTarget(out repl) || !repl.Pattern...`).
+            // The holder read-back must run after the call but before that
+            // operand; hoisting the whole condition into one temp (the generic
+            // path below) reads `repl` before assignment (Java definite-
+            // assignment error). Lower operand-by-operand instead: each evaluated
+            // operand is captured in a temp with its read-backs emitted right
+            // after it, and the right operand stays lazy inside `||`/`&&`.
+            var preamble = new System.Text.StringBuilder();
+            effectiveCondition = BuildShortCircuitCondition(stmt.Condition, context, preamble);
+            condPreamble = preamble.ToString();
+        }
+        else
+        {
+            var condition = exprTransformer.Transform(stmt.Condition, context);
+            condPreamble = "";
+            effectiveCondition = condition;
 
-        // Fix: out/ref parameters in the condition (e.g. if (TryParse(s, out var n))) emit
-        // Holder declarations as pre-statements and value read-backs as post-statements.
-        // Both must appear BEFORE the if — the out values must be available regardless
-        // of whether the condition is true or false (C# guarantees out params are set).
-        string condPreamble = "";
-        string readBacks = "";
-        string effectiveCondition = condition;
-        if (context.HasPendingPreStatements)
-        {
-            var pre = context.DrainPreStatements();
-            condPreamble = string.Join("\n", pre.Select(s => s.TrimEnd(';') + ";")) + "\n";
+            // Fix: out/ref parameters in the condition (e.g. if (TryParse(s, out var n))) emit
+            // Holder declarations as pre-statements and value read-backs as post-statements.
+            // Both must appear BEFORE the if — the out values must be available regardless
+            // of whether the condition is true or false (C# guarantees out params are set).
+            if (context.HasPendingPreStatements)
+            {
+                var pre = context.DrainPreStatements();
+                condPreamble = string.Join("\n", pre.Select(s => s.TrimEnd(';') + ";")) + "\n";
+            }
+            if (context.HasPendingPostStatements)
+            {
+                var post = context.DrainPostStatements();
+                // Out-var read-backs (declarations like "int n = _nHolder1.value" and
+                // assignments like "v = _vHolder1.value") must be visible AFTER the if
+                // statement: C# out-var scope is the enclosing block, so the read-back
+                // can be used below the condition (e.g. "if (!TryGet(key, out Regex r))
+                // { ... } return r;"). Extract the condition to a temp variable, emit
+                // all read-backs before the if, and use the temp as the condition.
+                var condTemp = context.GenerateSyntheticName("_ifCond");
+                condPreamble += $"var {condTemp} = {condition};\n"
+                    + string.Join("\n", post.Select(s => s.TrimEnd(';') + ";")) + "\n";
+                effectiveCondition = condTemp;
+            }
         }
-        if (context.HasPendingPostStatements)
-        {
-            var post = context.DrainPostStatements();
-            // Out-var read-backs (declarations like "int n = _nHolder1.value" and
-            // assignments like "v = _vHolder1.value") must be visible AFTER the if
-            // statement: C# out-var scope is the enclosing block, so the read-back
-            // can be used below the condition (e.g. "if (!TryGet(key, out Regex r))
-            // { ... } return r;"). Extract the condition to a temp variable, emit
-            // all read-backs before the if, and use the temp as the condition.
-            var condTemp = context.GenerateSyntheticName("_ifCond");
-            condPreamble += $"var {condTemp} = {condition};\n"
-                + string.Join("\n", post.Select(s => s.TrimEnd(';') + ";")) + "\n";
-            effectiveCondition = condTemp;
-        }
+
+        var readBacks = "";
 
         var stmtTransformer = new StatementTransformer();
 
@@ -399,5 +430,87 @@ public partial class StatementTransformer
     private static string CastGetResultForPrimitiveOutType(string target, string key, string outJavaType)
     {
         return $"{target}.get({key})";
+    }
+
+    /// <summary>Any ref/out argument in the subtree (holder read-backs pending).</summary>
+    private static bool ContainsByRefArgument(SyntaxNode node)
+        => node.DescendantNodesAndSelf()
+            .OfType<InvocationExpressionSyntax>()
+            .Any(i => i.ArgumentList.Arguments.Any(a =>
+                a.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
+                || a.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)));
+
+    /// <summary>
+    /// True when a logical condition can be lowered operand-by-operand: every
+    /// lazily evaluated (right-hand) operand must be ref/out-free, because its
+    /// holder read-backs cannot be hoisted before its evaluation point.
+    /// </summary>
+    private static bool IsShortCircuitSplittable(ExpressionSyntax expr)
+    {
+        while (expr is ParenthesizedExpressionSyntax paren)
+            expr = paren.Expression;
+
+        if (expr is not BinaryExpressionSyntax binary
+            || !(binary.IsKind(SyntaxKind.LogicalOrExpression)
+                 || binary.IsKind(SyntaxKind.LogicalAndExpression)))
+        {
+            // A leaf operand may itself carry ref/out arguments: it is evaluated
+            // eagerly at its position, so its holder read-backs can be hoisted
+            // right after it (BuildShortCircuitCondition captures it in a temp).
+            return true;
+        }
+
+        return IsShortCircuitSplittable(binary.Left) && !ContainsByRefArgument(binary.Right);
+    }
+
+    /// <summary>
+    /// Renders a logical condition with per-operand read-backs: every evaluated
+    /// operand is captured in a temp whose holder read-backs are emitted right
+    /// after the capture, so a later operand may read the out variable while
+    /// Java definite-assignment stays satisfied. The composed text keeps Java's
+    /// lazy evaluation of the right operand.
+    /// </summary>
+    private string BuildShortCircuitCondition(
+        ExpressionSyntax expr, ConversionContext context, System.Text.StringBuilder preamble)
+    {
+        while (expr is ParenthesizedExpressionSyntax paren)
+            expr = paren.Expression;
+
+        if (expr is BinaryExpressionSyntax binary
+            && (binary.IsKind(SyntaxKind.LogicalOrExpression)
+                || binary.IsKind(SyntaxKind.LogicalAndExpression)))
+        {
+            var leftText = BuildShortCircuitCondition(binary.Left, context, preamble);
+            var leftTemp = context.GenerateSyntheticName("_scCond");
+            preamble.Append($"var {leftTemp} = {leftText};\n");
+            DrainPendingPostStatements(preamble, context);
+            // Right operand: eligibility guarantees no ref/out holders; any
+            // pre-statements are hoisted before the condition.
+            var rightText = BuildShortCircuitCondition(binary.Right, context, preamble);
+            DrainPendingPreStatements(preamble, context);
+            DrainPendingPostStatements(preamble, context);
+            var op = binary.IsKind(SyntaxKind.LogicalOrExpression) ? "||" : "&&";
+            return $"{leftTemp} {op} {rightText}";
+        }
+
+        var text = ExpressionTransformerFacade.Instance.Transform(expr, context);
+        DrainPendingPreStatements(preamble, context);
+        return text;
+    }
+
+    private static void DrainPendingPreStatements(
+        System.Text.StringBuilder preamble, ConversionContext context)
+    {
+        if (!context.HasPendingPreStatements) return;
+        foreach (var statement in context.DrainPreStatements())
+            preamble.Append(statement.TrimEnd(';')).Append(";\n");
+    }
+
+    private static void DrainPendingPostStatements(
+        System.Text.StringBuilder preamble, ConversionContext context)
+    {
+        if (!context.HasPendingPostStatements) return;
+        foreach (var statement in context.DrainPostStatements())
+            preamble.Append(statement.TrimEnd(';')).Append(";\n");
     }
 }

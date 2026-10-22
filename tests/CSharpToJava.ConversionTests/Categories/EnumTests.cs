@@ -139,4 +139,37 @@ class C {
         AssertJavaContains(result, "case 7:");
         AssertJavaDoesNotContain(result, "case (Parts.fromValue");
     }
+
+    [Fact]
+    public void ValueEnumSwitchExpression_NumericDefault_CoercedThroughFromValue()
+    {
+        // Java ternary arms must agree; C# lets an enum arm and a numeric
+        // literal (`_ => 0`) share the enum target type.
+        var result = Convert(@"
+[System.Flags] enum Parts { Scheme = 1, Host = 2 }
+class C {
+    public Parts F(char ch) => ch switch { 'a' => Parts.Scheme, _ => 0 };
+}");
+
+        AssertSuccess(result);
+        AssertJavaContains(result, "Parts.fromValue((int)0)");
+    }
+
+    [Fact]
+    public void ValueEnum_BitwiseComparedToZero_LowersThroughGetValue()
+    {
+        // regex-sdk regression: `(f & Parts.Scheme) == 0` reached the Java
+        // converter when the C# enum preprocessor could not bind the enum
+        // (cross-project duplicate type names). Value enums expose
+        // getValue()/fromValue(), so the converter lowers it directly.
+        var result = Convert(@"
+[System.Flags] enum Parts { Scheme = 1, Host = 2, All = 3 }
+class C {
+    public bool F(Parts f) => (f & Parts.Scheme) == 0;
+}");
+
+        AssertSuccess(result);
+        AssertJavaContains(result, "f.getValue() & Parts.Scheme.getValue()");
+        AssertJavaContains(result, ".getValue() == 0");
+    }
 }

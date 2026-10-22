@@ -77,8 +77,70 @@ public class AssemblyCompat {
 
     /** Mirrors C# Assembly.GetTypes() — returns all types from the assembly */
     public Class<?>[] getTypes() {
-        // Simplified: can't enumerate all types from a URLClassLoader easily
-        return new Class<?>[0];
+        // Enumerate classes visible to this loader by scanning the runtime
+        // classpath (directories and jars). Converted test utilities reflect over
+        // "all types in the executing assembly" (e.g. xUnit MemberData helpers
+        // locating a data method by name), so an empty result breaks them with
+        // "Test method not found". Classes are loaded without initialization.
+        java.util.List<Class<?>> types = new java.util.ArrayList<>();
+        String classPath = System.getProperty("java.class.path", "");
+        ClassLoader loader = Thread.currentThread().getContextClassLoader() != null
+                ? Thread.currentThread().getContextClassLoader()
+                : classLoader;
+        for (String entry : classPath.split(File.pathSeparator)) {
+            if (entry.isBlank()) {
+                continue;
+            }
+            File file = new File(entry);
+            if (file.isDirectory()) {
+                collectDirectoryClasses(file, file, loader, types);
+            } else if (entry.endsWith(".jar")) {
+                collectJarClasses(file, loader, types);
+            }
+        }
+        return types.toArray(new Class<?>[0]);
+    }
+
+    private static void collectDirectoryClasses(File root, File current, ClassLoader loader, java.util.List<Class<?>> types) {
+        File[] children = current.listFiles();
+        if (children == null) {
+            return;
+        }
+        for (File child : children) {
+            if (child.isDirectory()) {
+                collectDirectoryClasses(root, child, loader, types);
+            } else if (child.getName().endsWith(".class") && !child.getName().contains("$")) {
+                String relative = root.toURI().relativize(child.toURI()).getPath();
+                String binaryName = relative.replace('/', '.').substring(0, relative.length() - ".class".length());
+                addClass(binaryName, loader, types);
+            }
+        }
+    }
+
+    private static void collectJarClasses(File jarFile, ClassLoader loader, java.util.List<Class<?>> types) {
+        try (java.util.jar.JarFile jar = new java.util.jar.JarFile(jarFile)) {
+            java.util.Enumeration<java.util.jar.JarEntry> entries = jar.entries();
+            while (entries.hasMoreElements()) {
+                String name = entries.nextElement().getName();
+                if (name.endsWith(".class") && !name.contains("$")) {
+                    String binaryName = name.replace('/', '.').substring(0, name.length() - ".class".length());
+                    addClass(binaryName, loader, types);
+                }
+            }
+        } catch (IOException e) {
+            // Unreadable classpath entry: skip it, other entries still count.
+        }
+    }
+
+    private static void addClass(String binaryName, ClassLoader loader, java.util.List<Class<?>> types) {
+        if (binaryName.contains("module-info")) {
+            return;
+        }
+        try {
+            types.add(Class.forName(binaryName, false, loader));
+        } catch (Throwable ignored) {
+            // Not visible to this loader (or unsupported): skip.
+        }
     }
 
     /** Mirrors C# Assembly.GetName() */

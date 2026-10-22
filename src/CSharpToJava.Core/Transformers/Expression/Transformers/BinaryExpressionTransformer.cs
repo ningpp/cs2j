@@ -54,6 +54,9 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 return new JavaRawExpression(Transform(node, context));
         }
 
+        if (TryTransformValueEnumOperands(bin, op, context, out var valueEnumIr))
+            return new JavaRawExpression(valueEnumIr);
+
         EnsureDirectBinaryOperands(bin, op, context);
 
         return new JavaBinaryExpression
@@ -82,6 +85,9 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
         if (op.Cat == BinOpCat.Relational && BinarySpecial.TryUnsignedComparison(node, op, ctx) is { } unsigned)
             return unsigned;
+
+        if (TryTransformValueEnumOperands(node, op, ctx, out var valueEnumResult))
+            return valueEnumResult;
 
         EnsureDirectBinaryOperands(node, op, ctx);
 
@@ -180,6 +186,74 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         throw new NotSupportedException(
             $"CS2J normalization required: enum operand in binary operator '{op.Java}' must be lowered to ordinal/cast form by a preprocessor before Java conversion.");
     }
+
+    /// <summary>
+    /// Value enums are emitted as value classes exposing getValue()/fromValue(),
+    /// so C#'s non-equality operator surface (bitwise, relational, mixed
+    /// enum-vs-numeric equality) can be lowered here instead of requiring the
+    /// C# enum preprocessor: every value-enum operand reads getValue(), and an
+    /// enum-typed bitwise result is re-wrapped with E.fromValue(...). Plain Java
+    /// enums (ordinal-aligned) still fall through to the preprocessor gate.
+    /// Same-enum ==/!= keeps the dedicated <see cref="TryValueEnumEquality"/>
+    /// rendering; null operands keep their nullable special paths.
+    /// </summary>
+    private static bool TryTransformValueEnumOperands(
+        BinaryExpressionSyntax node, BinOp op, ConversionContext ctx, out string result)
+    {
+        result = string.Empty;
+        if (node.Left.IsKind(SyntaxKind.NullLiteralExpression)
+            || node.Right.IsKind(SyntaxKind.NullLiteralExpression))
+            return false;
+
+        var leftType = ctx.GetTypeInfo(node.Left).Type;
+        var rightType = ctx.GetTypeInfo(node.Right).Type;
+        var leftEnum = AsValueEnum(leftType);
+        var rightEnum = AsValueEnum(rightType);
+        if (leftEnum == null && rightEnum == null) return false;
+
+        // Same-enum ==/!= (including plain enums) keeps its existing path.
+        if (op.Cat == BinOpCat.Equality && leftEnum != null && rightEnum != null) return false;
+
+        // A non-value enum operand cannot be lowered through getValue().
+        if (IsPlainEnum(leftType) || IsPlainEnum(rightType)) return false;
+
+        if (op.Cat is BinOpCat.Coalesce or BinOpCat.Logical or BinOpCat.Shift or BinOpCat.Arithmetic)
+            return false;
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var left = facade.Transform(node.Left, ctx);
+        var right = facade.Transform(node.Right, ctx);
+        if (leftEnum != null) left = $"{left}.getValue()";
+        if (rightEnum != null) right = $"{right}.getValue()";
+
+        // Lowered nested binaries are raw strings; re-parenthesize them.
+        if (node.Left is BinaryExpressionSyntax) left = $"({left})";
+        if (node.Right is BinaryExpressionSyntax) right = $"({right})";
+
+        var expr = $"{left} {op.Java} {right}";
+
+        // The bitwise result is enum-typed in C#; restore the enum type so
+        // assignments/returns to E keep compiling.
+        if (op.Cat == BinOpCat.Bitwise
+            && ctx.GetTypeInfo(node).Type is INamedTypeSymbol { TypeKind: TypeKind.Enum } resultEnum)
+        {
+            var storage = EnumTransformer.StorageTypeName(
+                resultEnum.EnumUnderlyingType?.SpecialType ?? SpecialType.System_Int32);
+            result = $"{ctx.MapType(resultEnum)}.fromValue(({storage}){expr})";
+            return true;
+        }
+
+        result = expr;
+        return true;
+    }
+
+    private static INamedTypeSymbol? AsValueEnum(ITypeSymbol? type)
+        => type is INamedTypeSymbol { TypeKind: TypeKind.Enum } named && EnumTransformer.IsValueEnum(named)
+            ? named
+            : null;
+
+    private static bool IsPlainEnum(ITypeSymbol? type)
+        => type is INamedTypeSymbol { TypeKind: TypeKind.Enum } named && !EnumTransformer.IsValueEnum(named);
 
     private string TransformCoalesce(BinaryExpressionSyntax node, ConversionContext ctx)
     {

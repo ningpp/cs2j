@@ -31,14 +31,97 @@ public partial class ArgumentTransformer
             return text;
 
         var parameter = method.Parameters[index];
-        if (!IsSpanOfT(parameter.Type, "ReadOnlySpan")
-            || !IsSpanOfT(context.GetTypeInfo(argument).Type, "Span"))
-        {
-            return text;
-        }
+        return SpanCoercion.CoerceOrSame(argument, text, parameter.Type, context);
+    }
 
-        context.AddImport("io.github.ningpp.compat.ReadOnlySpan");
-        return $"{text}.asReadOnlySpan()";
+    /// <summary>
+    /// Non-generic IDictionary parameter bridge for the direct invocation path
+    /// (which bypasses <see cref="CoerceArgumentType"/>): C# Dictionary&lt;K,V&gt;
+    /// implements the non-generic IDictionary, but the compat CSharpDictionary
+    /// and CSharpIDictionary types are unrelated, so wrap with the adapter.
+    /// </summary>
+    public static string CoerceNonGenericDictionaryBridge(
+        ExpressionSyntax argument,
+        string text,
+        IMethodSymbol? method,
+        int index,
+        ConversionContext context)
+    {
+        if (method == null || index >= method.Parameters.Length)
+            return text;
+
+        var parameter = method.Parameters[index];
+        if (parameter.Type.ToDisplayString() != "System.Collections.IDictionary")
+            return text;
+
+        if (context.GetTypeInfo(argument).Type?.ToDisplayString()
+            .StartsWith("System.Collections.Generic.Dictionary", StringComparison.Ordinal) != true)
+            return text;
+
+        if (text.StartsWith("CSharpIDictionary.from", StringComparison.Ordinal))
+            return text;
+
+        context.AddImport("io.github.ningpp.compat.CSharpIDictionary");
+        return $"CSharpIDictionary.fromAny({text})";
+    }
+
+    /// <summary>
+    /// Materializes a Java Stream pipeline produced for an IEnumerable&lt;T&gt;
+    /// argument when the target parameter maps to CSharpGenericIterable
+    /// (e.g. procedural-LINQ helper `_linqitems` parameters): the stream must
+    /// be collected back into an Iterable for the call to compile.
+    /// Only fires when the argument's TOP-LEVEL expression is a stream producer —
+    /// a call whose outermost operator already yields an Iterable (e.g. a
+    /// procedural-LINQ helper) must stay untouched even when its inner arguments
+    /// contain `.boxed()`/`.collect()` text.
+    /// </summary>
+    public static string CoerceStreamToIterableParameter(
+        ExpressionSyntax argument,
+        string text,
+        IMethodSymbol? method,
+        int index,
+        ConversionContext context)
+    {
+        if (method == null || index >= method.Parameters.Length)
+            return text;
+
+        var parameter = method.Parameters[index];
+        if (parameter.Type is not INamedTypeSymbol paramNamed
+            || paramNamed.Name != "IEnumerable"
+            || paramNamed.TypeKind != TypeKind.Interface
+            || paramNamed.ContainingNamespace?.ToDisplayString() != "System.Collections.Generic")
+            return text;
+
+        if (!LooksLikeStreamPipeline(text))
+            return text;
+
+        if (text.StartsWith("CSharpGenericIterable.from(", StringComparison.Ordinal))
+            return text;
+
+        // Already collected (e.g. the Concat/Union residual render appends its
+        // own .collect(CSharpList.toCSharpList())): the expression already
+        // yields an Iterable-shaped value — collecting again is invalid.
+        if (text.Contains(".collect(", StringComparison.Ordinal))
+            return text;
+
+        // Stream-producer prefixes: `Arrays.stream(x).map(...)`,
+        // `StreamSupport.stream(x, false).map(...)`, `Stream.concat(...)`,
+        // `IntStream.range(...).boxed()...`. Anything else (a helper call that
+        // merely CONTAINS stream text in its arguments) already yields an
+        // Iterable and must not be collected.
+        var trimmed = text.TrimStart('(');
+        var isStreamProducer = trimmed.StartsWith("Arrays.stream(", StringComparison.Ordinal)
+            || trimmed.StartsWith("StreamSupport.stream(", StringComparison.Ordinal)
+            || trimmed.StartsWith("Stream.concat(", StringComparison.Ordinal)
+            || trimmed.StartsWith("IntStream.", StringComparison.Ordinal)
+            || trimmed.StartsWith("LongStream.", StringComparison.Ordinal)
+            || trimmed.StartsWith("DoubleStream.", StringComparison.Ordinal);
+        if (!isStreamProducer)
+            return text;
+
+        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+        context.AddImport("io.github.ningpp.compat.CSharpList");
+        return $"CSharpGenericIterable.from({text}.collect(CSharpList.toCSharpList()))";
     }
 
     private static bool IsSpanOfT(ITypeSymbol? type, string name)
@@ -77,12 +160,21 @@ public partial class ArgumentTransformer
         if (IsNullEmittingArgument(arg, context))
             transformedExpr = CoerceNullArgument(arg, transformedExpr, targetParam, context, isFormatProvider);
 
-        // C# Span<T> → ReadOnlySpan<T> is implicit; the Java compat types are
-        // unrelated classes, so route the argument through asReadOnlySpan().
-        if (IsSpanOfT(paramType, "ReadOnlySpan") && IsSpanOfT(argType, "Span"))
+        // C# Dictionary<K,V> implements non-generic IDictionary; the compat types are
+        // unrelated, so adapt at the argument boundary.
+        if (paramType?.ToDisplayString() == "System.Collections.IDictionary"
+            && argType?.ToDisplayString().StartsWith(
+                "System.Collections.Generic.Dictionary", StringComparison.Ordinal) == true)
         {
-            context.AddImport("io.github.ningpp.compat.ReadOnlySpan");
-            return $"{transformedExpr}.asReadOnlySpan()";
+            context.AddImport("io.github.ningpp.compat.CSharpIDictionary");
+            return $"CSharpIDictionary.fromAny({transformedExpr})";
+        }
+
+        // C# Span<T> → ReadOnlySpan<T> / array|string → Span<T> 的隐式转换：Java
+        // compat 类型是普通类，需要显式构造或 asSpan 桥接。
+        if (SpanCoercion.TryCoerce(arg.Expression, transformedExpr, paramType, context, out var spanCoercedArg))
+        {
+            return spanCoercedArg;
         }
 
         // System.Buffer operates on raw Java arrays; never wrap.
@@ -282,6 +374,15 @@ public partial class ArgumentTransformer
         var javaTarget = context.MapType(targetParam.Type);
         if (string.IsNullOrWhiteSpace(javaTarget))
             return transformedExpr;
+
+        // C# `ICollection.CopyTo(null, 0)` lowers to compat copyTo overloads
+        // (Object[] vs CSharpArray); the declared parameter is System.Array, so
+        // cast the null to the exact overload.
+        if (targetParam.Type.SpecialType == SpecialType.System_Array)
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpArray");
+            return $"(CSharpArray) {transformedExpr}";
+        }
 
         var receiver = GetReceiverTypeOfInvocation(arg, context);
         if (isFormatProvider

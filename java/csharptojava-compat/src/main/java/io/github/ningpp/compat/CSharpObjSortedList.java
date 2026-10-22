@@ -24,7 +24,7 @@ public class CSharpObjSortedList implements CSharpIDictionary, Cloneable {
         CSharpCollection coll = new CSharpCollection() {
             @Override public int size() { return map.size(); }
             @Override public int getCount() { return map.size(); }
-            @Override public void copyTo(CSharpArray array, int index) {
+            public void copyTo(CSharpArray array, int index) {
                 int i = index; for (Object k : map.keySet()) array.setValue(k, i++);
             }
             @Override public boolean getIsSynchronized() { return false; }
@@ -37,7 +37,7 @@ public class CSharpObjSortedList implements CSharpIDictionary, Cloneable {
         CSharpCollection coll = new CSharpCollection() {
             @Override public int size() { return map.size(); }
             @Override public int getCount() { return map.size(); }
-            @Override public void copyTo(CSharpArray array, int index) {
+            public void copyTo(CSharpArray array, int index) {
                 int i = index; for (Object v : map.values()) array.setValue(v, i++);
             }
             @Override public boolean getIsSynchronized() { return false; }
@@ -51,7 +51,7 @@ public class CSharpObjSortedList implements CSharpIDictionary, Cloneable {
     @Override public Object put(Object key, Object value) { return map.put(key, value); }
     @Override public int size() { return map.size(); }
     @Override public int getCount() { return map.size(); }
-    @Override public void copyTo(CSharpArray array, int index) {
+    public void copyTo(CSharpArray array, int index) {
         int i = index;
         for (Map.Entry<Object, Object> e : map.entrySet()) {
             array.setValue(new CSharpDictEntry(e.getKey(), e.getValue()), i++);

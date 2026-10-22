@@ -428,12 +428,20 @@ internal sealed class OperatorRule : IMemberDesugarRule
             } operandN)
         {
             var paramType = planOp.Parameters.FirstOrDefault()?.Type;
-            var shapeOk = conv.Type is INamedTypeSymbol
+            // 公式 ① 的可构建目标形态：
+            //   a) S? → T?（两侧可空值类型）；
+            //   b) S? → T（T 为引用类型）：C# 隐式提升转换在缺值时为 null，
+            //      与重写期 ExpandLiftedConversion 的 `(T?)null` 分支一致。
+            //      典型来源：`RentedLocalBuilder? → LocalBuilder`（regex-sdk）。
+            var targetOk = conv.Type is INamedTypeSymbol
             {
                 OriginalDefinition.SpecialType: SpecialType.System_Nullable_T
             } targetN
+                ? SymbolEqualityComparer.Default.Equals(targetN.TypeArguments[0], planOp.ReturnType)
+                : conv.Type is { IsReferenceType: true }
+                  && SymbolEqualityComparer.Default.Equals(conv.Type, planOp.ReturnType);
+            var shapeOk = targetOk
                 && paramType != null
-                && SymbolEqualityComparer.Default.Equals(targetN.TypeArguments[0], planOp.ReturnType)
                 && SymbolEqualityComparer.Default.Equals(operandN.TypeArguments[0], paramType);
             if (!shapeOk
                 || conv.Operand.Syntax is not ExpressionSyntax operandSyntax

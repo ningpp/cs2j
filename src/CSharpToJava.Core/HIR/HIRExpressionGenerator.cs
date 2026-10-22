@@ -196,9 +196,39 @@ public class HIRExpressionGenerator
         if (node.Expression is MemberAccessExpressionSyntax ma)
             targetExpr = Generate(ma.Expression, _ctx);
 
-        var args = node.ArgumentList.Arguments.Select(a =>
+        var args = node.ArgumentList.Arguments.Select((a, index) =>
         {
             var argExpr = Generate(a.Expression, _ctx);
+            // C# `CopyTo(null, 0)`: the declared parameter is System.Array, so the
+            // bare Java null is ambiguous between compat copyTo(Object[]) and
+            // copyTo(CSharpArray). Cast to the declared array view.
+            if (a.Expression.IsKind(SyntaxKind.NullLiteralExpression)
+                && symbol != null
+                && index < symbol.Parameters.Length)
+            {
+                var parameterType = symbol.Parameters[index].Type;
+                if (parameterType.SpecialType == SpecialType.System_Array)
+                {
+                    _ctx.AddImport("io.github.ningpp.compat.CSharpArray");
+                    argExpr = new IrCastExpression
+                    {
+                        TargetType = "CSharpArray",
+                        Expression = argExpr,
+                    };
+                }
+                else
+                {
+                    var mappedParameter = _ctx.MapType(parameterType);
+                    if (mappedParameter.EndsWith("[]", StringComparison.Ordinal))
+                    {
+                        argExpr = new IrCastExpression
+                        {
+                            TargetType = mappedParameter,
+                            Expression = argExpr,
+                        };
+                    }
+                }
+            }
             if (a.RefKindKeyword.IsKind(SyntaxKind.RefKeyword) || a.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
             {
                 return new IrCSharpRefOutExpression
@@ -260,6 +290,12 @@ if (symbol?.IsGenericMethod == true && symbol.TypeArguments.Length > 0)
         var symbol = GetSymbol(node);
         var target = Generate(node.Expression, _ctx);
         var memberName = node.Name.Identifier.Text;
+        if (memberName is "CurrentThread" or "Zero" or "MaxValue" or "MinValue")
+        {
+            System.IO.File.AppendAllText(@"D:\tmp\hir-debug.txt",
+                $"member={memberName} node={node} symbol={(symbol == null ? "null" : symbol.Kind + ":" + symbol.ToDisplayString())} " +
+                $"exprType={_ctx.GetTypeInfo(node.Expression).Type?.ToDisplayString() ?? "null"} targetJava={target.JavaType}\n");
+        }
 
         if (symbol is IPropertySymbol)
         {
@@ -279,6 +315,37 @@ if (symbol?.IsGenericMethod == true && symbol.TypeArguments.Length > 0)
                 EventName = memberName,
                 Symbol = symbol,
             };
+        }
+        // Static fields of mapped BCL types (TimeSpan.Zero, …): the receiver must
+        // be the mapped Java class and the member name the configured Java field.
+        if (symbol is IFieldSymbol { IsStatic: true } staticField
+            && staticField.ContainingType is INamedTypeSymbol fieldOwner
+            && fieldOwner.TypeKind != TypeKind.Enum)
+        {
+            var mappedOwner = _ctx.MapType(fieldOwner);
+            if (mappedOwner.Contains('<'))
+                mappedOwner = mappedOwner[..mappedOwner.IndexOf('<')];
+            if (mappedOwner != fieldOwner.Name)
+            {
+                foreach (var import in _ctx.TypeMappings.GetRequiredImports(
+                             fieldOwner.OriginalDefinition.ToDisplayString()))
+                {
+                    _ctx.AddImport(import);
+                }
+                var mappedMember = _ctx.TypeMappings.MapMethod(
+                    fieldOwner.ToDisplayString(), memberName) ?? memberName;
+                return new IrMemberAccessExpression
+                {
+                    Target = new IrIdentifierExpression
+                    {
+                        Name = mappedOwner,
+                        Symbol = fieldOwner,
+                        JavaType = mappedOwner,
+                    },
+                    MemberName = mappedMember,
+                    Symbol = symbol,
+                };
+            }
         }
         return new IrMemberAccessExpression
         {

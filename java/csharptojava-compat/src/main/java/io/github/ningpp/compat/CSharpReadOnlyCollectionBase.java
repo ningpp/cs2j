@@ -32,7 +32,6 @@ public abstract class CSharpReadOnlyCollectionBase implements CSharpCollection {
         return innerList.indexOf(value);
     }
 
-    @Override
     public void copyTo(CSharpArray array, int index) {
         for (int i = 0; i < innerList.size(); i++) {
             array.setValue(innerList.get(i), index + i);

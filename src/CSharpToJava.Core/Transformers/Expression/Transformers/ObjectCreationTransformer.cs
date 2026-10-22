@@ -23,8 +23,12 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     public static ObjectCreationTransformer Instance => _instance.Value;
     public string Transform(ExpressionSyntax n, ConversionContext c) => n switch
     {
-        ObjectCreationExpressionSyntax o => NewObject(c.GetTypeInfo(o).Type, o.Type, o.ArgumentList, o.Initializer, c),
-        ImplicitObjectCreationExpressionSyntax io => NewObject(c.GetTypeInfo(io).Type, null, io.ArgumentList, io.Initializer, c),
+        ObjectCreationExpressionSyntax o => NewObject(
+            c.GetTypeInfo(o).Type, o.Type, o.ArgumentList, o.Initializer, c,
+            c.GetSymbolInfo(o).Symbol as IMethodSymbol),
+        ImplicitObjectCreationExpressionSyntax io => NewObject(
+            c.GetTypeInfo(io).Type, null, io.ArgumentList, io.Initializer, c,
+            c.GetSymbolInfo(io).Symbol as IMethodSymbol),
         AnonymousObjectCreationExpressionSyntax a => NewAnonymous(a, c),
         ArrayCreationExpressionSyntax ar => NewArray(ar, c),
         ImplicitArrayCreationExpressionSyntax ia => NewImplicitArray(ia, c),
@@ -34,7 +38,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     };
     public JavaExpression TransformToIR(ExpressionSyntax n, ConversionContext c)
         => new JavaRawExpression(Transform(n, c));
-    private string NewObject(ITypeSymbol? type, TypeSyntax? ts, ArgumentListSyntax? al, InitializerExpressionSyntax? init, ConversionContext c)
+    private string NewObject(ITypeSymbol? type, TypeSyntax? ts, ArgumentListSyntax? al, InitializerExpressionSyntax? init, ConversionContext c, IMethodSymbol? constructor = null)
     {
         var name = type is null or IErrorTypeSymbol ? (ts != null ? c.MapTypeFromSyntax(ts) : "Object") : c.MapType(type);
         var f = ExpressionTransformerFacade.Instance;
@@ -63,9 +67,9 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
         if (init?.IsKind(SyntaxKind.ObjectInitializerExpression) == true)
         {
-            if (init.Expressions.Count == 0) return EmitNew(name, al, type as INamedTypeSymbol, c);
+            if (init.Expressions.Count == 0) return EmitNew(name, al, type as INamedTypeSymbol, c, constructor);
             var tmp = c.GenerateSyntheticName("_obj");
-            c.AddPreStatement($"{name} {tmp} = {EmitNew(name, al, type as INamedTypeSymbol, c)};");
+            c.AddPreStatement($"{name} {tmp} = {EmitNew(name, al, type as INamedTypeSymbol, c, constructor)};");
             foreach (AssignmentExpressionSyntax e in init.Expressions)
             {
                 if (e.Left is not IdentifierNameSyntax id) continue;
@@ -87,9 +91,9 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                     c.AddPreStatement($"{tmp}.add({f.Transform(e, c)});");
             return tmp;
         }
-        return EmitNew(name, al, type as INamedTypeSymbol, c);
+        return EmitNew(name, al, type as INamedTypeSymbol, c, constructor);
     }
-    private static string EmitNew(string name, ArgumentListSyntax? al, INamedTypeSymbol? type, ConversionContext c)
+    private static string EmitNew(string name, ArgumentListSyntax? al, INamedTypeSymbol? type, ConversionContext c, IMethodSymbol? constructor = null)
     {
         // `new Runnable(methodGroup)` (closure-lift emits `new Action(LocalMethod)`):
         // Java functional interfaces are satisfied by a method reference, not by
@@ -98,7 +102,12 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             && al is { Arguments.Count: 1 }
             && c.GetSymbolInfo(al.Arguments[0].Expression).Symbol is IMethodSymbol methodGroup)
         {
-            return EmitDelegateMethodReference(al.Arguments[0].Expression, methodGroup, c);
+            var methodReference = EmitDelegateMethodReference(al.Arguments[0].Expression, methodGroup, c);
+            // Inside an object[]/collection initializer there is no target type for
+            // the method reference (C# boxes the delegate), so cast explicitly.
+            return al.Parent?.Parent is InitializerExpressionSyntax
+                ? $"({name}) {methodReference}"
+                : methodReference;
         }
 
         // C09 Java 半区：C# 的 new ThreadLocal<T>() 首访返回 default(T)（值类型为
@@ -118,7 +127,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             return $"new {name}(() -> {defaultValue})";
         }
 
-        var args = ArgumentTransformer.TransformArgumentList(al, c, ExpressionTransformerFacade.Instance);
+        var args = ArgumentTransformer.TransformArgumentList(
+            al, c, ExpressionTransformerFacade.Instance, methodSymbol: constructor);
         return $"new {name}({args})";
     }
     /// <summary>
@@ -147,8 +157,55 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         var methodName = methodGroup.Name.Length == 0
             ? methodGroup.Name
-            : char.ToLowerInvariant(methodGroup.Name[0]) + methodGroup.Name[1..];
+            : MapPrimitiveWrapperMethodGroupName(methodGroup, methodGroup.Name);
         return $"{owner}::{methodName}";
+    }
+
+    /// <summary>
+    /// Method-group references on primitive wrappers must honor the same
+    /// C#→Java name table as invocations (char.IsWhiteSpace →
+    /// Character::isWhitespace); plain camel-casing emits a nonexistent
+    /// `isWhiteSpace` and the method reference fails to compile.
+    /// </summary>
+    private static string MapPrimitiveWrapperMethodGroupName(IMethodSymbol methodGroup, string name)
+    {
+        if (methodGroup.ContainingType?.SpecialType == SpecialType.System_Char)
+        {
+            var mapped = name switch
+            {
+                "IsLower" => "isLowerCase",
+                "IsUpper" => "isUpperCase",
+                "IsWhiteSpace" => "isWhitespace",
+                "IsControl" => "isISOControl",
+                "IsSurrogate" => "isSurrogate",
+                "IsHighSurrogate" => "isHighSurrogate",
+                "IsLowSurrogate" => "isLowSurrogate",
+                "IsSurrogatePair" => "isSurrogatePair",
+                "GetNumericValue" => "getNumericValue",
+                "ToLower" or "ToLowerInvariant" => "toLowerCase",
+                "ToUpper" or "ToUpperInvariant" => "toUpperCase",
+                "ToString" => "toString",
+                "ConvertFromUtf32" => "toChars",
+                "ConvertToUtf32" => "toCodePoint",
+                "Parse" => "valueOf",
+                _ => null
+            };
+            if (mapped != null)
+                return mapped;
+        }
+        else if (methodGroup.ContainingType is { SpecialType: SpecialType.System_Single or SpecialType.System_Double })
+        {
+            var mapped = name switch
+            {
+                "IsInfinity" => "isInfinite",
+                "IsNaN" => "isNaN",
+                "IsFinite" => "isFinite",
+                _ => null
+            };
+            if (mapped != null)
+                return mapped;
+        }
+        return char.ToLowerInvariant(name[0]) + name[1..];
     }
 
     private static string PrimitiveWrapperName(SpecialType specialType) => specialType switch

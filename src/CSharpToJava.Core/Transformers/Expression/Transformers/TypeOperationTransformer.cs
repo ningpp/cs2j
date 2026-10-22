@@ -58,6 +58,35 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         var srcSym = c.GetTypeInfo(n.Expression).Type;
         if (sym is IPointerTypeSymbol) return e; // all pointers lower to MemorySegment
 
+        // C# casts to IEnumerable<T> become compat adapters: generated collections
+        // may implement the non-generic interfaces only, and Java cannot prove a
+        // class→interface cast is valid in all shapes.
+        if (sym is INamedTypeSymbol { Name: "IEnumerable", TypeArguments.Length: 1 } enumerableCast
+            && enumerableCast.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic")
+        {
+            c.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            var element = c.MapType(enumerableCast.TypeArguments[0]);
+            return $"CSharpGenericIterable.<{element}>fromAnyTyped({e})";
+        }
+
+        // Casts to the __suppress__ sentinel (ISerializable et al.): the sentinel
+        // is an interface, but the source is often a FINAL generated class —
+        // javac rejects a provably-disjoint final-class→interface cast. Routing
+        // through Object keeps the cast legal (it fails at runtime only when the
+        // class really does not implement the sentinel, which the converted
+        // assertion code expects as an exception anyway).
+        if (sym != null && c.MapType(sym) == "__suppress__")
+        {
+            c.AddImport("io.github.ningpp.compat.__suppress__");
+            return $"(__suppress__)(Object)({e})";
+        }
+
+        // C# implicit array/string → Span<T>/ReadOnlySpan<T> conversions become
+        // explicit casts in the intermediate tree; the compat types are plain
+        // classes, so render the construction/asSpan bridge instead of a Java cast.
+        if (SpanCoercion.TryCoerce(n.Expression, e, sym, c, out var spanCast))
+            return spanCast;
+
         // Plain enum casts (including C# lifted Nullable<E> casts, which map to
         // the same Java enum reference type). Ordinal enums: (E)i ->
         // E.values()[i], (int)e -> e.ordinal(). Value enums (explicit values /
@@ -72,6 +101,10 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             var richTarget = EnumTransformer.IsValueEnum(targetEnum);
             var targetStorage = EnumTransformer.StorageTypeName(
                 targetEnum.EnumUnderlyingType?.SpecialType ?? SpecialType.System_Int32);
+            // 元数据 flags 枚举（BindingFlags/MethodAttributes 等）由 compat 以 int
+            // 常量提供，Java 侧没有值类：转成底层整数即可。
+            if (EnumTransformer.IsIntConstantMetadataEnum(targetEnum))
+                return $"({targetStorage})({e})";
             if (TryUnwrapNullableEnum(srcSym, out var sourceEnum))
             {
                 if (SymbolEqualityComparer.Default.Equals(sourceEnum, targetEnum))
@@ -83,6 +116,11 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                     : $"{e}.ordinal()";
                 return $"{target}.fromValue(({targetStorage}){sourceValue})";
             }
+            // C# unboxing from object is type-strict: `(E)obj` succeeds only when obj
+            // holds a boxed E (never a boxed int — that needs `(E)(int)obj`). Lower
+            // the object-typed source to a plain Java reference cast.
+            if (srcSym?.SpecialType == SpecialType.System_Object)
+                return $"({target})({e})";
             if (richTarget)
                 return $"{target}.fromValue(({targetStorage}){e})";
             var index = srcSym?.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64
@@ -91,9 +129,11 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return $"{target}.values()[{index}]";
         }
         if (TryUnwrapNullableEnum(srcSym, out var srcEnum))
-            e = EnumTransformer.IsValueEnum(srcEnum)
-                ? $"{e}.getValue()"
-                : $"{e}.ordinal()";
+            e = EnumTransformer.IsIntConstantMetadataEnum(srcEnum)
+                ? e
+                : EnumTransformer.IsValueEnum(srcEnum)
+                    ? $"{e}.getValue()"
+                    : $"{e}.ordinal()";
 
         // C# numeric-to-decimal conversions (C34 DC-9 operand promotion emits
         // them explicitly): Java has no primitive->reference cast, so they must
@@ -278,6 +318,10 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         return n.Pattern switch
         {
             DeclarationPatternSyntax d => DeclPattern(e, d, c),
+            // JavaGenericPatternRewriter lowers generic declaration patterns to a
+            // type-only pattern plus a hoisted cast declaration; C#9 `x is T` also
+            // parses here for qualified types. Same reified form as the binary `is`.
+            TypePatternSyntax tp => $"{e} instanceof {Rt(Map(tp.Type, c))}",
             ConstantPatternSyntax { Expression: LiteralExpressionSyntax l } when l.IsKind(SyntaxKind.NullLiteralExpression) => $"{e} == null",
             DiscardPatternSyntax => "true",
             _ => "/* TODO: unsupported pattern */ true"
@@ -347,6 +391,9 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             context.AddImport("io.vavr.Tuple");
             return $"Tuple.of({string.Join(", ", tuple.TupleElements.Select(el => GetDefaultValueForType(context.MapType(el.Type), el.Type, context)))})";
         }
+        // Serialization-only BCL structs (StreamingContext et al.) map to the
+        // __suppress__ sentinel, which is not instantiable — default is null.
+        if (typeName == "__suppress__") return "null";
         if (typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Struct }) return $"new {typeName}()";
         if (typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } en) return $"{en.Name}.values()[0]";
         return "null";

@@ -273,6 +273,81 @@ public class MemberDesugarPropertyUnitTests
         AssertOutputCompiles(outCode);
     }
 
+    // 语料回归（csharp-sdk regular-expressions RegexNode.Ch）：数组初始化器内
+    // 的属性读站点此前被 `node.Parent is not InitializerExpressionSyntax` 挡掉，
+    // 声明已降形但 `new char[1] { Ch }` 残留 CS1061。
+    [Fact]
+    public void PropertyRead_InsideInitializer_IsRewritten()
+    {
+        var src = """
+            internal sealed class C
+            {
+                public char Ch { get; set; }
+
+                public char[] M()
+                {
+                    return new char[1] { Ch };
+                }
+            }
+            """;
+
+        var (outCode, _, _) = Rewrite(src);
+
+        AssertContains(outCode, "new char[1] { get_Ch() }");
+        AssertOutputCompiles(outCode);
+    }
+
+    // 语料回归（csharp-sdk regular-expressions RegexNode.Str）：`Str += cond ? a : b`
+    // 的 RHS 条件表达式作为二元右操作数时必须补括号，否则重解析为
+    // `(Str + cond) ? a : b`（CS0029）。
+    [Fact]
+    public void CompoundAssignment_ConditionalRhs_Parenthesized()
+    {
+        var src = """
+            internal sealed class C
+            {
+                public string Str { get; set; } = "";
+
+                public void M(bool cond, string other)
+                {
+                    Str += cond ? "x" : other;
+                }
+            }
+            """;
+
+        var (outCode, _, _) = Rewrite(src);
+
+        AssertContains(outCode, "set_Str(get_Str() + (cond ? \"x\" : other))");
+        AssertOutputCompiles(outCode);
+    }
+
+    // 语料回归（csharp-sdk regular-expressions Capture.Index）：访问器
+    // `private protected set` 是复合可访问性，降形为方法时必须整体平移，
+    // 只取首个 token 会误降为 private（派生类调用 CS0122）。
+    [Fact]
+    public void SetAccessor_PrivateProtected_PreservesCompoundAccessibility()
+    {
+        var src = """
+            internal class B
+            {
+                public int Index { get; private protected set; }
+            }
+
+            internal sealed class D : B
+            {
+                internal void Set(int value)
+                {
+                    Index = value;
+                }
+            }
+            """;
+
+        var (outCode, _, _) = Rewrite(src);
+
+        AssertContains(outCode, "private protected void set_Index(int value)");
+        AssertOutputCompiles(outCode);
+    }
+
     private static void AssertContains(string output, string expected)
         => Assert.True(Normalize(output).Contains(Normalize(expected).Trim(),
             StringComparison.Ordinal),

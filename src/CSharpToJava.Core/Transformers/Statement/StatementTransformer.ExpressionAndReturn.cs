@@ -180,13 +180,8 @@ public partial class StatementTransformer
             expr = expr.Replace(".toArray()", replacement, StringComparison.Ordinal);
         }
 
-        // string 返回给 ReadOnlySpan<char>：经 compat MemoryExtensions.asSpan 桥接
-        if (srcType?.SpecialType == SpecialType.System_String
-            && retType is INamedTypeSymbol { Name: "ReadOnlySpan" })
-        {
-            ctx.AddImport("io.github.ningpp.compat.MemoryExtensions");
-            expr = $"MemoryExtensions.asSpan({expr})";
-        }
+        // array/string → Span<T>/ReadOnlySpan<T>：经 compat 构造或 asSpan 桥接
+        expr = SpanCoercion.CoerceOrSame(stmt.Expression, expr, retType, ctx);
 
         // 整数字面量返回给 byte/short：Java 没有 C# 的常量隐式窄化
         if (Regex.IsMatch(expr.Trim(), @"^-?\d+$")

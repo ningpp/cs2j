@@ -806,6 +806,55 @@ class C {
     }
 
     [Fact]
+    public void Transform_DelegateCreationArgument_LiftsToBareMethodGroup()
+    {
+        var src = @"
+public delegate string Eval(int x);
+
+class C {
+    public Eval A() => new Eval(x => ""v"" + x);
+    public Eval B(int seed) { return new Eval(x => { System.Console.WriteLine(seed); return ""v""; }); }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        // `new D(λ)` already supplies the delegate type: the site becomes the
+        // bare method group, never the double wrap `new D(new D(method))`
+        // (regex-sdk: Java `new MatchEvaluator(...)` on an abstract type).
+        Assert.Contains("new Eval(Cs2jLambda_A_0)", r.OutputCode);
+        Assert.Contains("new Eval(__cs2jClosure0.Lambda_0)", r.OutputCode);
+        Assert.DoesNotContain("new Eval(new Eval", r.OutputCode);
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_UnresolvedTargetSite_DoesNotDiscardOtherStaticPlans()
+    {
+        var src = @"
+public delegate string ProbeEvaluator(ProbeMatch match);
+public class ProbeMatch { }
+
+class C {
+    public static System.Collections.Generic.IEnumerable<object[]> Data() {
+        yield return new object[] { new ProbeEvaluator(match => ""uhoh"") };
+        UnresolvedHost.Take(42, x => x + 1);
+    }
+}";
+        var r = Transform(src);
+
+        // The unresolved generic-inference site (D20/E16) is an accounted
+        // residual only; it must not roll back the file's other static plans
+        // (regex-sdk CS2J0405 regression: the iterator's delegate-creation
+        // lambda has to be lifted so iterator-lowering can state-machine it).
+        Assert.True(r.Changed);
+        Assert.Contains("new ProbeEvaluator(Cs2jLambda_Data_0)", r.OutputCode);
+        Assert.Equal(1, r.Statistics.StaticLambdaMethods);
+        Assert.Single(LambdaNodes(r.OutputCode));
+        Assert.DoesNotContain(r.Diagnostics, d => d.Code != "CS2J3207");
+    }
+
+    [Fact]
     public void Transform_AsyncLambdaMutableCapture_AwaitPreservedAndCompiles()
     {
         var src = @"

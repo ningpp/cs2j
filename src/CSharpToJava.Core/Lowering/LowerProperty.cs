@@ -64,6 +64,50 @@ public class LowerProperty : ILoweringPass
     {
         var propSymbol = prop.Symbol as IPropertySymbol;
         var loweredTarget = LowerExpression(prop.Target);
+        if (prop.PropertyName is "CurrentThread" or "Zero" or "MaxValue" or "MinValue")
+        {
+            var dbgOwner = propSymbol?.ContainingType;
+            System.IO.File.AppendAllText(@"D:\tmp\lower-debug.txt",
+                $"prop={prop.PropertyName} owner={dbgOwner?.ToDisplayString() ?? "null"} " +
+                $"mapped={(dbgOwner == null ? "?" : _ctx.MapType(dbgOwner))} " +
+                $"mapMethod={(dbgOwner == null ? "?" : _ctx.TypeMappings.MapMethod(dbgOwner.ToDisplayString(), prop.PropertyName) ?? "null")} " +
+                $"targetJava={prop.Target.JavaType} static={propSymbol?.IsStatic}\n");
+        }
+
+        // Static BCL property (Thread.CurrentThread, …): the receiver must be the
+        // mapped compat type; the source identifier alone has no Java counterpart.
+        if (propSymbol is { IsStatic: true } && propSymbol.ContainingType is INamedTypeSymbol staticOwner
+            && staticOwner.TypeKind != TypeKind.Enum)
+        {
+            var mappedOwner = _ctx.MapType(staticOwner);
+            if (mappedOwner.Contains('<'))
+                mappedOwner = mappedOwner[..mappedOwner.IndexOf('<')];
+            if (mappedOwner != staticOwner.Name)
+            {
+                foreach (var import in _ctx.TypeMappings.GetRequiredImports(
+                             staticOwner.OriginalDefinition.ToDisplayString()))
+                {
+                    _ctx.AddImport(import);
+                }
+                var metadataKey = (staticOwner.ContainingNamespace?.ToDisplayString() is { Length: > 0 } ns
+                    ? ns + "." : string.Empty) + staticOwner.OriginalDefinition.MetadataName;
+                foreach (var import in _ctx.TypeMappings.GetRequiredImports(metadataKey))
+                    _ctx.AddImport(import);
+
+                return new IrInvocationExpression
+                {
+                    Target = new IrIdentifierExpression
+                    {
+                        Name = mappedOwner,
+                        Symbol = staticOwner,
+                        JavaType = mappedOwner,
+                    },
+                    MethodName = TryMapPropertyName(propSymbol, prop.PropertyName),
+                    Symbol = prop.Symbol,
+                    JavaType = prop.JavaType,
+                };
+            }
+        }
 
         if (propSymbol is { Name: "Size" }
             && propSymbol.ContainingType?.SpecialType == SpecialType.System_IntPtr)

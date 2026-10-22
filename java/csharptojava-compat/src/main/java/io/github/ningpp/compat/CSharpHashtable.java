@@ -43,7 +43,7 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
     @Override public Object put(Object key, Object value) { return map.put(key, value); }
     @Override public int size() { return map.size(); }
     @Override public int getCount() { return map.size(); }
-    @Override public void copyTo(CSharpArray array, int index) {
+    public void copyTo(CSharpArray array, int index) {
         int i = index;
         for (Map.Entry<Object, Object> e : map.entrySet()) {
             array.setValue(new CSharpDictEntry(e.getKey(), e.getValue()), i++);
@@ -56,6 +56,11 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
             .map(e -> (Object) new CSharpDictEntry(e.getKey(), e.getValue()))
             .iterator());
     }
+
+    /** C# Hashtable.GetEnumerator() — exposes Key/Value/Entry via IDictionaryEnumerator. */
+    public CSharpDictEnumerator dictEnumerator() {
+        return CSharpDictEnumerator.from(iterator());
+    }
     @Override public CSharpHashtable clone() {
         return new CSharpHashtable(map);
     }
@@ -67,7 +72,7 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
         CSharpKeyCollection(java.util.Set<Object> keys) { this.keys = keys; }
         @Override public int size() { return keys.size(); }
         @Override public int getCount() { return keys.size(); }
-        @Override public void copyTo(CSharpArray array, int index) {
+        public void copyTo(CSharpArray array, int index) {
             int i = index; for (Object k : keys) array.setValue(k, i++);
         }
         @Override public boolean getIsSynchronized() { return false; }
@@ -81,7 +86,7 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
         CSharpValueCollection(java.util.Collection<Object> values) { this.values = values; }
         @Override public int size() { return values.size(); }
         @Override public int getCount() { return values.size(); }
-        @Override public void copyTo(CSharpArray array, int index) {
+        public void copyTo(CSharpArray array, int index) {
             int i = index; for (Object v : values) array.setValue(v, i++);
         }
         @Override public boolean getIsSynchronized() { return false; }
@@ -108,7 +113,7 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
         @Override public Object put(Object key, Object value) { synchronized (syncRoot) { return inner.put(key, value); } }
         @Override public int size() { synchronized (syncRoot) { return inner.size(); } }
         @Override public int getCount() { synchronized (syncRoot) { return inner.getCount(); } }
-        @Override public void copyTo(CSharpArray array, int index) { synchronized (syncRoot) { inner.copyTo(array, index); } }
+        public void copyTo(CSharpArray array, int index) { synchronized (syncRoot) { inner.copyTo(array, index); } }
         @Override public CSharpGenericEnumerator<Object> iterator() { synchronized (syncRoot) { return inner.iterator(); } }
         @Override public CSharpICollection<?> getKeys() { synchronized (syncRoot) { return inner.getKeys(); } }
         @Override public CSharpICollection<?> getValues() { synchronized (syncRoot) { return inner.getValues(); } }

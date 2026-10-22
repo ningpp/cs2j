@@ -210,4 +210,26 @@ public class RefOutInComprehensiveTests : ConversionTestBase
         var result = Convert("class C { public bool TryGet(out double x) { x = 1.5; return true; } public void Test() { TryGet(out var y); var z = y; } }");
         AssertConversion(result, "DoubleHolder", "double y = ", ".value");
     }
+
+    [Fact]
+    [Trait("Category", "EdgeCases")]
+    public void OutVarReadInLaterOperandOfShortCircuitCondition_ReadBackBeforeUse()
+    {
+        // regex-sdk: `!WeakReference.TryGetTarget(out repl) || !repl.Pattern...`
+        // reads the out variable inside the same condition. The holder read-back
+        // must run after the call but before the operand that reads it, or Java
+        // rejects the variable as possibly uninitialized.
+        var result = Convert(@"
+class C {
+    public bool TryGet(out int val) { val = 1; return true; }
+    public void Test() {
+        if (!TryGet(out var val) || val > 2) { System.Console.WriteLine(val); }
+    }
+}");
+        AssertSuccess(result);
+        // 左操作数捕获到 `_scCond` 临时变量，holder read-back 紧随其后，
+        // 右侧惰性操作数再读 val（Java 明确赋值 + 短路语义）。
+        AssertJavaContains(result, "var _scCond");
+        AssertJavaContains(result, "int val = _valHolder1.value;");
+    }
 }

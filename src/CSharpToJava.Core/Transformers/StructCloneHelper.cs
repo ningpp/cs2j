@@ -415,6 +415,24 @@ internal static class StructCloneHelper
             or ElementAccessExpressionSyntax;
 
     /// <summary>
+    /// True when <paramref name="exprNode"/> is a bare <c>this</c> (possibly
+    /// parenthesized) lexically inside a method named <c>Clone</c>/<c>clone</c>.
+    /// Synthesized structs declare <c>Clone() =&gt; new T(this)</c> (copy-ctor
+    /// argument); appending <c>.clone()</c> at that site makes clone() call
+    /// itself — a guaranteed StackOverflowError. Passing the reference to the
+    /// copy constructor (or returning it) is what performs the field-wise copy.
+    /// </summary>
+    public static bool IsThisInsideOwnCloneMethod(ExpressionSyntax exprNode)
+    {
+        var unwrapped = exprNode;
+        while (unwrapped is ParenthesizedExpressionSyntax paren)
+            unwrapped = paren.Expression;
+        return unwrapped is ThisExpressionSyntax
+            && unwrapped.Ancestors().OfType<MethodDeclarationSyntax>()
+                .FirstOrDefault()?.Identifier.ValueText is "Clone" or "clone";
+    }
+
+    /// <summary>
     /// For assignment/declaration/return contexts: returns the expression with .clone()
     /// appended if the type is a user-defined struct and the expression is not a temporary.
     /// </summary>
@@ -431,6 +449,11 @@ internal static class StructCloneHelper
             return transformedExpr;
 
         if (IsCloneableTemporary(exprNode))
+            return transformedExpr;
+
+        // `this` inside the struct's own Clone/clone method must not be cloned
+        // again — see IsThisInsideOwnCloneMethod.
+        if (IsThisInsideOwnCloneMethod(exprNode))
             return transformedExpr;
 
         // Skip if the expression already ends with .clone()

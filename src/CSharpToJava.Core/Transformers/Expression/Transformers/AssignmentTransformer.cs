@@ -65,8 +65,14 @@ public class AssignmentTransformer : IIRExpressionTransformer
         if (lhs is ElementAccessExpressionSyntax ea
             && context.GetTypeInfo(ea.Expression).Type is not IArrayTypeSymbol)
         {
-            var setter = IsDictionary(ea.Expression, context) ? "put" : "set";
-            return Indexer(ea, setter, "get", rhs, context, op == "=" ? null : op);
+            // C# StringBuilder's Chars[int] indexer maps to Java charAt/setCharAt.
+            var builderReceiver = context.GetTypeInfo(ea.Expression).Type
+                is INamedTypeSymbol { Name: "StringBuilder" } sb
+                && sb.ContainingNamespace?.ToDisplayString() == "System.Text";
+            var setter = builderReceiver ? "setCharAt"
+                : IsDictionary(ea.Expression, context) ? "put" : "set";
+            var getter = builderReceiver ? "charAt" : "get";
+            return Indexer(ea, setter, getter, rhs, context, op == "=" ? null : op);
         }
         if (symbol is IPropertySymbol prop)
             return Property(a, op, prop, context);
@@ -74,10 +80,22 @@ public class AssignmentTransformer : IIRExpressionTransformer
             return $"{(iea.ArgumentList.Arguments.Count == 1 ? "put" : "set")}(" +
                    $"{string.Join(", ", iea.ArgumentList.Arguments.Select(x => f.Transform(x.Expression, context)))}, " +
                    $"{f.Transform(rhs, context)})";
+        // C# struct self-assignment (`this = default;` / `this = clone;` from the
+        // struct-value/ref-out-in lowering). Java structs are classes: copy fields.
+        // Must run before the ref/out parameter branch — Roslyn exposes the implicit
+        // struct `this` as a Ref parameter whose Java keyword-escaped name is thisValue.
+        if (op == "=" && lhs.IsKind(SyntaxKind.ThisExpression))
+        {
+            context.AddImport("io.github.ningpp.compat.StructCloneHelper");
+            return $"StructCloneHelper.copyInto(this, {f.Transform(rhs, context)})";
+        }
+
         if (op == "=" && symbol is IParameterSymbol { RefKind: RefKind.Out or RefKind.Ref } param)
             return $"{ConversionContext.EscapeJavaKeyword(param.Name)}.value = {f.Transform(rhs, context)}";
 
         var rightText = f.Transform(rhs, context);
+        rightText = SpanCoercion.CoerceOrSame(
+            rhs, rightText, context.GetTypeInfo(lhs).Type, context);
         if (op == "=" && JavaNarrowTarget(lhs, context) is { } narrowTarget)
         {
             // C# implicit/explicit narrowing conversions to byte/short/char have no
@@ -177,9 +195,20 @@ public class AssignmentTransformer : IIRExpressionTransformer
         var target = f.Transform(ea.Expression, c);
         var args = string.Join(", ", ea.ArgumentList.Arguments.Select(x => f.Transform(x.Expression, c)));
         var val = f.Transform(rhs, c);
-        return compoundOp == null
-            ? $"{target}.{setter}({args}, {val})"
-            : $"{target}.{setter}({args}, {target}.{getter}({args}) {compoundOp[..^1]} {val})";
+        if (compoundOp == null)
+            return $"{target}.{setter}({args}, {val})";
+        var compoundValue = $"{target}.{getter}({args}) {compoundOp[..^1]} {val}";
+        // 窄元素类型（char/byte/short）：Java 二元运算提升为 int，setter 需要原类型。
+        var narrowElement = c.GetTypeInfo(ea).Type?.SpecialType switch
+        {
+            SpecialType.System_Char => "char",
+            SpecialType.System_Byte or SpecialType.System_SByte => "byte",
+            SpecialType.System_Int16 => "short",
+            _ => null,
+        };
+        if (narrowElement != null)
+            compoundValue = $"({narrowElement}) ({compoundValue})";
+        return $"{target}.{setter}({args}, {compoundValue})";
     }
 
     private static bool IsDictionary(ExpressionSyntax expression, ConversionContext c)

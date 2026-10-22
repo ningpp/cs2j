@@ -189,14 +189,56 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Static enum members on explicitly mapped enums: NormalizationForm.FormC →
         // Normalizer.Form.NFC (receiver and member both come from TypeMappings).
         if (context.GetSymbolInfo(node).Symbol is IFieldSymbol { IsStatic: true } enumField
-            && enumField.ContainingType?.TypeKind == TypeKind.Enum
-            && TryGetMappedStaticContainingType(enumField, context, out var mappedEnumType, out var enumImports))
+            && enumField.ContainingType is INamedTypeSymbol enumOwner
+            && enumOwner.TypeKind == TypeKind.Enum)
         {
-            foreach (var import in enumImports)
+            // 元数据 flags 枚举以 int 常量形式由 compat 提供；其类型映射为 int，
+            // 但常量引用仍必须走 compat 类名（MethodAttributes.Public）。
+            if (CSharpToJava.Core.Transformers.Type.EnumTransformer
+                    .IsIntConstantMetadataEnum(enumOwner))
+            {
+                context.AddImport($"io.github.ningpp.compat.{enumOwner.Name}");
+                return $"{enumOwner.Name}.{enumField.Name}";
+            }
+            if (TryGetMappedStaticContainingType(enumField, context, out var mappedEnumType, out var enumImports))
+            {
+                foreach (var import in enumImports)
+                    context.AddImport(import);
+                var mappedMember = context.TypeMappings.MapMethod(
+                    enumField.ContainingType.ToDisplayString(), enumField.Name) ?? enumField.Name;
+                return $"{mappedEnumType}.{mappedMember}";
+            }
+        }
+
+        // Mapped static constants on compat types: TimeSpan.Zero is a static
+        // readonly field → CSharpTimeSpan.ZERO (the mapped Java type keeps its
+        // constants under Java-style names).
+        if (context.GetSymbolInfo(node).Symbol is IFieldSymbol { IsStatic: true } mappedStaticField
+            && TryGetMappedStaticContainingType(
+                mappedStaticField, context, out var constantOwner, out var constantImports)
+            && context.TypeMappings.MapMethod(
+                mappedStaticField.ContainingType.ToDisplayString(), mappedStaticField.Name)
+                is { } mappedConstant
+            && !mappedConstant.Contains('('))
+        {
+            foreach (var import in constantImports)
                 context.AddImport(import);
-            var mappedMember = context.TypeMappings.MapMethod(
-                enumField.ContainingType.ToDisplayString(), enumField.Name) ?? enumField.Name;
-            return $"{mappedEnumType}.{mappedMember}";
+            // Method-shaped mapped values must render as invocations:
+            // IPAddress.Loopback → InetAddress.getLoopbackAddress() and
+            // IPAddress.IPv6Loopback → IPAddressHelper.ipv6Loopback(); a bare
+            // field-style access leaves javac looking for a nonexistent variable.
+            if (mappedConstant.Contains('.'))
+            {
+                AddImportForHelperReceiver(mappedConstant, context);
+                return $"{mappedConstant}()";
+            }
+            if (mappedConstant.Length > 3
+                && mappedConstant.StartsWith("get", StringComparison.Ordinal)
+                && char.IsUpper(mappedConstant[3]))
+            {
+                return $"{constantOwner}.{mappedConstant}()";
+            }
+            return $"{constantOwner}.{mappedConstant}";
         }
 
         // System.String.Empty is a static readonly field in C#; Java has no such
@@ -252,6 +294,16 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return "IPAddressHelper.ipv6Loopback()";
         }
 
+        // Synthesized pass output (e.g. iterator state machines) can reach the
+        // transformer without semantic binding; resolve well-known static members
+        // by syntax so compat constants/accessors still render.
+        if (context.GetSymbolInfo(node).Symbol is null
+            && TryRenderUnboundStaticMember(
+                node.Expression, node.Name.Identifier.Text, context, out var unboundMember))
+        {
+            return unboundMember;
+        }
+
         var receiver = ExpressionTransformerFacade.Instance.Transform(node.Expression, context);
         var symbol = context.GetSymbolInfo(node).Symbol;
         var member = ConversionContext.EscapeJavaKeyword(node.Name.Identifier.Text);
@@ -286,6 +338,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             {
                 context.AddImport("io.github.ningpp.compat.IntPtrHelper");
                 return "IntPtrHelper.getSize()";
+            }
+
+            // System.Type.GenericTypeArguments has no java.lang.Class counterpart;
+            // the compat helper takes the receiver as its argument.
+            if (property.Name == "GenericTypeArguments"
+                && property.ContainingType?.ToDisplayString() == "System.Type")
+            {
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                return $"TypeHelper.getGenericTypeArguments({receiver})";
             }
             // C22: System.Nullable<T> surfaces — HasValue is a reference null
             // check and Value is a guarded unbox on the Java wrapper (the C22
@@ -323,8 +384,33 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 // Some rows already spell the invocation with parentheses
                 // (CultureInfo.InvariantCulture → "CultureInfo.getInvariantCulture()").
                 AddImportForHelperReceiver(mappedProperty, context);
-                return mappedProperty.EndsWith(')') ? mappedProperty : $"{mappedProperty}()";
+                if (mappedProperty.EndsWith(')'))
+                    return mappedProperty;
+                // INSTANCE properties mapped to a static helper (X.Assembly →
+                // TypeHelper.getAssembly) take the receiver as the first
+                // argument; static properties (IntPtr.Size) carry no receiver.
+                if (!property.IsStatic)
+                    return $"{mappedProperty}({receiver})";
+                return $"{mappedProperty}()";
             }
+            // Non-bean mapped member names (Thread.CurrentThread → currentThread)
+            // keep the mapped owner/receiver and become a call.
+            if (!string.IsNullOrEmpty(mappedProperty)
+                && !JavaNaming.IsBeanAccessorStyleName(mappedProperty)
+                && mappedProperty is not ("length" or "size")
+                && !mappedProperty.Contains('('))
+            {
+                if (property.IsStatic
+                    && TryGetMappedStaticContainingType(property, context, out var staticOwner, out var staticImports)
+                    && staticOwner != property.ContainingType.Name)
+                {
+                    foreach (var import in staticImports)
+                        context.AddImport(import);
+                    return $"{staticOwner}.{mappedProperty}()";
+                }
+                return $"{receiver}.{mappedProperty}()";
+            }
+
             if (JavaNaming.IsBeanAccessorStyleName(mappedProperty))
             {
                 if (property.IsStatic
@@ -369,6 +455,57 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         }
 
         return $"{receiver}.{member}";
+    }
+
+    /// <summary>
+    /// Syntax-level fallback for well-known static members whose semantic symbol is
+    /// missing (synthesized pass output such as iterator state machines): maps the
+    /// C# spelling to the compat/Java surface without a binding model.
+    /// </summary>
+    private static bool TryRenderUnboundStaticMember(
+        ExpressionSyntax receiverSyntax, string memberName,
+        ConversionContext context, out string rendered)
+    {
+        rendered = string.Empty;
+        var receiverName = receiverSyntax switch
+        {
+            IdentifierNameSyntax id => id.Identifier.Text,
+            PredefinedTypeSyntax predefined => predefined.Keyword.Text,
+            _ => null,
+        };
+        if (receiverName is null)
+            return false;
+
+        switch (receiverName, memberName)
+        {
+            case ("TimeSpan", "Zero"):
+                context.AddImport("io.github.ningpp.compat.CSharpTimeSpan");
+                rendered = "CSharpTimeSpan.ZERO";
+                return true;
+            case ("TimeSpan", "MaxValue"):
+                context.AddImport("io.github.ningpp.compat.CSharpTimeSpan");
+                rendered = "CSharpTimeSpan.MAX_VALUE";
+                return true;
+            case ("TimeSpan", "MinValue"):
+                context.AddImport("io.github.ningpp.compat.CSharpTimeSpan");
+                rendered = "CSharpTimeSpan.MIN_VALUE";
+                return true;
+            case ("Thread", "CurrentThread"):
+                context.AddImport("io.github.ningpp.compat.ThreadHelper");
+                rendered = "ThreadHelper.currentThread()";
+                return true;
+            case ("int", "MaxValue"): rendered = "Integer.MAX_VALUE"; return true;
+            case ("int", "MinValue"): rendered = "Integer.MIN_VALUE"; return true;
+            case ("long", "MaxValue"): rendered = "Long.MAX_VALUE"; return true;
+            case ("long", "MinValue"): rendered = "Long.MIN_VALUE"; return true;
+            case ("short", "MaxValue"): rendered = "Short.MAX_VALUE"; return true;
+            case ("short", "MinValue"): rendered = "Short.MIN_VALUE"; return true;
+            case ("byte", "MaxValue"): rendered = "Byte.MAX_VALUE"; return true;
+            case ("byte", "MinValue"): rendered = "Byte.MIN_VALUE"; return true;
+            case ("char", "MaxValue"): rendered = "Character.MAX_VALUE"; return true;
+            case ("char", "MinValue"): rendered = "Character.MIN_VALUE"; return true;
+            default: return false;
+        }
     }
 
     /// <summary>
@@ -449,6 +586,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             SpecialType.System_Int16 => "Short",
             SpecialType.System_Int32 => "Integer",
             SpecialType.System_Int64 => "Long",
+            SpecialType.System_Char => "Character",
             _ => null,
         };
         if (wrapper == null) return false;

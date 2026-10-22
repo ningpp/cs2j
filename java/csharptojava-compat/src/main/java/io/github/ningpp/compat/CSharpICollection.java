@@ -129,7 +129,7 @@ public interface CSharpICollection<T> extends CSharpReadOnlyCollection<T> {
             @Override public void copyTo(Object[] array, int arrayIndex) {
                 collection.copyTo(array, arrayIndex);
             }
-            @Override public void copyTo(CSharpArray array, int index) {
+            public void copyTo(CSharpArray array, int index) {
                 collection.copyTo(array, index);
             }
             @Override public boolean getIsSynchronized() {
@@ -149,29 +149,6 @@ public interface CSharpICollection<T> extends CSharpReadOnlyCollection<T> {
     int getCount();
     default boolean getIsReadOnly() { return false; }
 
-    // CSharpCollection-compatible methods (non-generic ICollection surface)
-    default void copyTo(CSharpArray array, int index) {
-        if (array == null) {
-            throw new ArgumentNullException("array");
-        }
-        // .NET List<T>.ICollection.CopyTo validates through Array.Copy:
-        // non-zero lower bound or a negative index → ArgumentOutOfRangeException,
-        // range overflow → ArgumentException.
-        if (array.hasNonZeroLowerBound()) {
-            throw new ArgumentOutOfRangeException("destinationIndex");
-        }
-        if (index < 0) {
-            throw new ArgumentOutOfRangeException("destinationIndex");
-        }
-        if (index > array.getLength() - getCount()) {
-            throw new ArgumentException("Destination array was not long enough.");
-        }
-        int i = 0;
-        for (T elem : this) {
-            array.setValue(elem, index + i);
-            i++;
-        }
-    }
 
     default boolean getIsSynchronized() { return false; }
     default Object getSyncRoot() { return this; }

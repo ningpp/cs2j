@@ -1,6 +1,15 @@
 package io.github.ningpp.compat;
 
-public interface CSharpReadOnlyDict<K, V> extends CSharpReadOnlyCollection<CSharpKeyValuePair<K, V>> {
+/**
+ * C# IReadOnlyDictionary&lt;K,V&gt; compat view. Deliberately does not extend
+ * CSharpReadOnlyCollection: a generated dictionary collection also implements
+ * CSharpIList (whose Collection&lt;Object&gt; base declares add(Object)), and
+ * inheriting Collection&lt;KeyValuePair&gt; from this interface would make the
+ * class inherit the same erased add with two different type arguments.
+ */
+public interface CSharpReadOnlyDict<K, V> {
+    int getCount();
+    CSharpGenericEnumerator iterator();
     boolean containsKey(K key);
     V get(K key);
 
@@ -14,21 +23,28 @@ public interface CSharpReadOnlyDict<K, V> extends CSharpReadOnlyCollection<CShar
         }
         return get(key);
     }
+
+    @SuppressWarnings("unchecked")
     default CSharpGenericIterable<K> keySet() {
         CSharpList<K> keys = new CSharpList<>();
-        for (CSharpKeyValuePair<K, V> pair : this) {
-            keys.add(pair.getKey());
+        CSharpGenericEnumerator e = iterator();
+        while (e.moveNext()) {
+            keys.add(((CSharpKeyValuePair<K, V>) e.getCurrent()).getKey());
         }
         return keys;
     }
 
+    @SuppressWarnings("unchecked")
     default CSharpGenericIterable<V> values() {
         CSharpList<V> vals = new CSharpList<>();
-        for (CSharpKeyValuePair<K, V> pair : this) {
-            vals.add(pair.getValue());
+        CSharpGenericEnumerator e = iterator();
+        while (e.moveNext()) {
+            vals.add(((CSharpKeyValuePair<K, V>) e.getCurrent()).getValue());
         }
         return vals;
     }
 
-    V tryGetValue(K key);
+    default V tryGetValue(K key) {
+        return get(key);
+    }
 }

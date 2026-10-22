@@ -50,7 +50,7 @@ public class CSharpArrayList implements CSharpIList, Cloneable {
     @Override public Object set(int index, Object value) { return list.set(index, value); }
     @Override public int size() { return list.size(); }
     @Override public int getCount() { return list.size(); }
-    @Override public void copyTo(CSharpArray array, int index) {
+    public void copyTo(CSharpArray array, int index) {
         for (int i = 0; i < list.size(); i++) array.setValue(list.get(i), index + i);
     }
     @Override public boolean getIsSynchronized() { return false; }

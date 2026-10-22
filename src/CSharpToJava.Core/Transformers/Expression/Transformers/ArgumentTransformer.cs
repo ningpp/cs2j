@@ -257,6 +257,9 @@ public partial class ArgumentTransformer
             return transformedExpr;
         if (StructCloneHelper.IsCloneableTemporary(arg.Expression) || arg.Expression is ElementAccessExpressionSyntax)
             return transformedExpr;
+        // `Clone() => new T(this)` must not clone its own receiver (self recursion).
+        if (StructCloneHelper.IsThisInsideOwnCloneMethod(arg.Expression))
+            return transformedExpr;
 
         return StructCloneHelper.BuildCloneExpression(arg.Expression, transformedExpr);
     }

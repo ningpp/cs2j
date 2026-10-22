@@ -452,7 +452,6 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
 
         if (TryGetPlan(node, out var plan)
             && !IsDirectAssignmentLeft(node)
-            && node.Parent is not InitializerExpressionSyntax
             && !IsInsideDeconstructionLeft(node))
         {
             var recv = (ExpressionSyntax)Visit(node.Expression)!;
@@ -593,7 +592,6 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
 
         if (TryGetPlan(node, out var plan)
             && !IsDirectAssignmentLeft(node)
-            && node.Parent is not InitializerExpressionSyntax
             && !IsInsideDeconstructionLeft(node))
         {
             if (IsMethodGroupContext(node))
@@ -966,6 +964,15 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         SyntaxKind assignmentKind, SyntaxKind operatorKind,
         ExpressionSyntax left, ExpressionSyntax right)
     {
+        // 复合赋值的 RHS 原样作为二元右操作数时，优先级低于算术/位运算的表达式
+        // （条件、合并）必须补括号：否则 `a += c ? x : y` 降形后会重解析为
+        // `(a + c) ? x : y`（CS0029）。
+        if (right.IsKind(SyntaxKind.ConditionalExpression)
+            || right.IsKind(SyntaxKind.CoalesceExpression))
+        {
+            right = SyntaxFactory.ParenthesizedExpression(right);
+        }
+
         var binaryKind = ToBinaryKind(assignmentKind);
         return SyntaxFactory.BinaryExpression(binaryKind, left,
             SyntaxFactory.Token(ToBinaryToken(binaryKind)), right);

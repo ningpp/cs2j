@@ -441,6 +441,15 @@ public class ArrayHelper {
         java.util.Arrays.sort(array);
     }
 
+    // C# Array.Sort(primitive[]) — Java generics cannot bind primitive arrays.
+    public static void sort(int[] array) { java.util.Arrays.sort(array); }
+    public static void sort(long[] array) { java.util.Arrays.sort(array); }
+    public static void sort(short[] array) { java.util.Arrays.sort(array); }
+    public static void sort(byte[] array) { java.util.Arrays.sort(array); }
+    public static void sort(char[] array) { java.util.Arrays.sort(array); }
+    public static void sort(float[] array) { java.util.Arrays.sort(array); }
+    public static void sort(double[] array) { java.util.Arrays.sort(array); }
+
     @SuppressWarnings("unchecked")
     public static <T> void sort(T[] array, java.util.Comparator<? super T> comparer) {
         java.util.Arrays.sort(array, comparer);

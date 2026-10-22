@@ -78,7 +78,6 @@ public interface CSharpIDictionary extends CSharpCollection {
             return null;
         }
         return new CSharpIDictionary() {
-            @Override
             public void copyTo(CSharpArray array, int index) {
                 throw new UnsupportedOperationException();
             }
@@ -171,7 +170,6 @@ public interface CSharpIDictionary extends CSharpCollection {
 
     private static CSharpCollection asCollection(CSharpList<Object> list) {
         return new CSharpCollection() {
-            @Override
             public void copyTo(CSharpArray array, int index) {
                 list.copyTo(array, index);
             }

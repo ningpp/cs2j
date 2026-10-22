@@ -150,7 +150,30 @@ public partial class StatementTransformer
         // Captured foreach variable lowering (display class or per-iteration
         // holder) is owned by the closure-lift preprocessor; nothing to inject here.
         var body = TransformLoopBody(stmt.Statement, bodyPostInjection: null, context);
-        return new JavaStatementNode($"{preamble}for ({javaType} {identifier} : {expression}) {body}");
+        // Compat collection interfaces expose a raw iterator (the generated classes
+        // bridge generic/non-generic GetEnumerator), so an enhanced-for over them
+        // yields Object. Re-type the iterable to the C# element type; javac then
+        // inserts the element checkcast (unchecked, same runtime objects).
+        var iterableExpression = expression;
+        if (expressionType is not IArrayTypeSymbol
+            && javaType is not "Object" and not "var")
+        {
+            var iterableElement = javaType switch
+            {
+                "char" => "Character",
+                "int" => "Integer",
+                "long" => "Long",
+                "short" => "Short",
+                "byte" => "Byte",
+                "boolean" => "Boolean",
+                "float" => "Float",
+                "double" => "Double",
+                _ => javaType,
+            };
+            iterableExpression = $"(Iterable<{iterableElement}>)(Iterable) ({expression})";
+        }
+        return new JavaStatementNode(
+            $"{preamble}for ({javaType} {identifier} : {iterableExpression}) {body}");
     }
 
     private JavaSyntaxNode TransformForEachVariableStatement(ForEachVariableStatementSyntax stmt, ConversionContext context)

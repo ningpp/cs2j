@@ -234,7 +234,6 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
         return list.toArray();
     }
 
-    @Override
     public <E> E[] toArray(E[] a) {
         java.util.List<CSharpKeyValuePair<K, V>> list = new java.util.ArrayList<>();
         for (CSharpKeyValuePair<K, V> pair : this) {
@@ -259,7 +258,6 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
         map.clear();
     }
 
-    @Override
     public boolean contains(Object o) {
         if (o instanceof Map.Entry<?, ?> entry) {
             K key = storedKey(entry.getKey());

@@ -4520,4 +4520,24 @@ public class NumericBoundaryNullableLiftUnitTests
             d.Severity == NumericBoundarySeverity.Error
             && d.Code == PreprocessDiagnosticCodes.NullableLiftResidual);
     }
+
+    // 引用类型 → T?（`(E?)object`）是拆箱/引用转换：null 必须保持 null。
+    // 旧实现把它当值类型 lifted 转换，生成 `(E?)(E)(obj)`，对 null 抛 NRE
+    // （regular-expressions RegexParserTests.Parse 388 例失败）。
+    [Fact]
+    public void LiftedConversion_FromReferenceSource_LeavesCastUntouched()
+    {
+        var src = """
+            public enum E { A }
+
+            public class C
+            {
+                public static E? F(object o) => (E?)o;
+            }
+            """;
+
+        var result = Run(src);
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+    }
 }

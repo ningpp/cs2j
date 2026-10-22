@@ -65,7 +65,17 @@ public final class CSharpArray implements Iterable<Object> {
     public static Object toTypedArray(Object source, Class<?> componentType) {
         int length = Array.getLength(source);
         Object result = Array.newInstance(componentType, length);
-        System.arraycopy(source, 0, result, 0, length);
+        if (componentType.isPrimitive()) {
+            // System.arraycopy cannot unbox: an Object[]/Integer[] source copied
+            // into a primitive array (e.g. List<int>.ToArray() -> int[]) throws
+            // ArrayStoreException. Element-wise Array.set performs the widening
+            // or unboxing conversion the C# cast implies.
+            for (int i = 0; i < length; i++) {
+                Array.set(result, i, Array.get(source, i));
+            }
+        } else {
+            System.arraycopy(source, 0, result, 0, length);
+        }
         return result;
     }
 

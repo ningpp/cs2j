@@ -38,6 +38,13 @@ public final class Interlocked {
         return location.getAndSet(value);
     }
 
+    /** Mirrors Interlocked.Exchange for ObjectHolder (C# `ref T` lowered by the ref-out-in pass). */
+    public static <T> T exchange(ObjectHolder<T> location, T value) {
+        T old = location.value;
+        location.value = value;
+        return old;
+    }
+
     /** Mirrors Interlocked.Increment(ref int) */
     public static int increment(AtomicInteger location) {
         return location.incrementAndGet();

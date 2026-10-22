@@ -117,6 +117,25 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
         }
     }
 
+    /** C# ICollection.CopyTo(Array, int) — compat array view with validation. */
+    public void copyTo(CSharpArray array, int index) {
+        if (array == null) {
+            throw new ArgumentNullException("array");
+        }
+        if (array.hasNonZeroLowerBound()) {
+            throw new ArgumentOutOfRangeException("destinationIndex");
+        }
+        if (index < 0) {
+            throw new ArgumentOutOfRangeException("destinationIndex");
+        }
+        if (index > array.getLength() - size()) {
+            throw new ArgumentException("Destination array was not long enough.");
+        }
+        for (int i = 0; i < size(); i++) {
+            array.setValue(get(i), index + i);
+        }
+    }
+
     /**
      * Copies the elements of a CSharpList&lt;Integer&gt; to a primitive int[] array,
      * performing auto-unboxing. Mirrors the C# List&lt;int&gt;.CopyTo(int[]) pattern.

@@ -117,7 +117,6 @@ public abstract class CSharpCollectionBase implements CSharpIList {
         return CSharpGenericEnumerator.<Object>from(innerList.iterator());
     }
 
-    @Override
     public void copyTo(CSharpArray array, int index) {
         for (int i = 0; i < innerList.size(); i++) {
             array.setValue(innerList.get(i), index + i);

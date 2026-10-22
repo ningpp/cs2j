@@ -1,4 +1,4 @@
-{
+﻿{
     "typeMappings": [
         {
             "csharp": "System.String",
@@ -203,7 +203,7 @@
         },
         {
             "csharp": "System.Collections.IEnumerator",
-            "java": "CSharpGenericEnumerator<Object>",
+            "java": "CSharpGenericEnumerator",
             "imports": [
                 "io.github.ningpp.compat.CSharpGenericEnumerator"
             ]
@@ -220,6 +220,13 @@
             "java": "CSharpDictionary",
             "imports": [
                 "io.github.ningpp.compat.CSharpDictionary"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Concurrent.ConcurrentDictionary`2",
+            "java": "CSharpConcurrentDictionary",
+            "imports": [
+                "io.github.ningpp.compat.CSharpConcurrentDictionary"
             ]
         },
         {
@@ -244,6 +251,90 @@
             ]
         },
         {
+            "csharp": "System.Collections.Hashtable",
+            "java": "CSharpHashtable",
+            "imports": [
+                "io.github.ningpp.compat.CSharpHashtable"
+            ]
+        },
+        {
+            "csharp": "System.Collections.IDictionaryEnumerator",
+            "java": "CSharpDictEnumerator",
+            "imports": [
+                "io.github.ningpp.compat.CSharpDictEnumerator"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.IList`1",
+            "java": "CSharpIList",
+            "imports": [
+                "io.github.ningpp.compat.CSharpIList"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.ICollection`1",
+            "java": "CSharpIList",
+            "imports": [
+                "io.github.ningpp.compat.CSharpIList"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.IReadOnlyList`1",
+            "java": "CSharpIList",
+            "imports": [
+                "io.github.ningpp.compat.CSharpIList"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.IReadOnlyCollection`1",
+            "java": "CSharpIList",
+            "imports": [
+                "io.github.ningpp.compat.CSharpIList"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.IDictionary`2",
+            "java": "CSharpGenericIDictionary",
+            "imports": [
+                "io.github.ningpp.compat.CSharpGenericIDictionary"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.IReadOnlyDictionary`2",
+            "java": "CSharpReadOnlyDict",
+            "imports": [
+                "io.github.ningpp.compat.CSharpReadOnlyDict"
+            ]
+        },
+        {
+            "csharp": "System.Collections.IDictionary",
+            "java": "CSharpIDictionary",
+            "imports": [
+                "io.github.ningpp.compat.CSharpIDictionary"
+            ]
+        },
+        {
+            "csharp": "System.Collections.IList",
+            "java": "CSharpIList",
+            "imports": [
+                "io.github.ningpp.compat.CSharpIList"
+            ]
+        },
+        {
+            "csharp": "System.Collections.ICollection",
+            "java": "CSharpIList",
+            "imports": [
+                "io.github.ningpp.compat.CSharpIList"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.Stack`1",
+            "java": "CSharpStack",
+            "imports": [
+                "io.github.ningpp.compat.CSharpStack"
+            ]
+        },
+        {
             "csharp": "System.IAsyncDisposable",
             "java": "AsyncDisposable",
             "imports": [
@@ -255,6 +346,13 @@
             "java": "CSharpDateTime",
             "imports": [
                 "io.github.ningpp.compat.CSharpDateTime"
+            ]
+        },
+        {
+            "csharp": "System.DateTimeKind",
+            "java": "DateTimeKind",
+            "imports": [
+                "io.github.ningpp.compat.DateTimeKind"
             ]
         },
         {
@@ -3152,17 +3250,13 @@
         },
         {
             "csharp": "System.Reflection.MethodAttributes",
-            "java": "MethodAttributes",
-            "imports": [
-                "io.github.ningpp.compat.MethodAttributes"
-            ]
+            "java": "int",
+            "imports": []
         },
         {
             "csharp": "System.Reflection.CallingConventions",
-            "java": "CallingConventions",
-            "imports": [
-                "io.github.ningpp.compat.CallingConventions"
-            ]
+            "java": "int",
+            "imports": []
         },
         {
             "csharp": "System.Reflection.TypeAttributes",
@@ -3634,10 +3728,8 @@
         },
         {
             "csharp": "System.Reflection.BindingFlags",
-            "java": "BindingFlags",
-            "imports": [
-                "io.github.ningpp.compat.BindingFlags"
-            ]
+            "java": "int",
+            "imports": []
         },
         {
             "csharp": "System.Reflection.RuntimeReflectionExtensions",
@@ -4220,6 +4312,34 @@
             "imports": []
         },
         {
+            "csharp": "System.Diagnostics.DebuggerBrowsableState",
+            "java": "DebuggerBrowsableState",
+            "imports": [
+                "io.github.ningpp.compat.DebuggerBrowsableState"
+            ]
+        },
+        {
+            "csharp": "System.Diagnostics.DebuggerBrowsableAttribute",
+            "java": "DebuggerBrowsableAttribute",
+            "imports": [
+                "io.github.ningpp.compat.DebuggerBrowsableAttribute"
+            ]
+        },
+        {
+            "csharp": "System.Linq.Enumerable",
+            "java": "Enumerable",
+            "imports": [
+                "io.github.ningpp.compat.Enumerable"
+            ]
+        },
+        {
+            "csharp": "System.Reflection.CustomAttributeExtensions",
+            "java": "CustomAttributeExtensions",
+            "imports": [
+                "io.github.ningpp.compat.CustomAttributeExtensions"
+            ]
+        },
+        {
             "csharp": "System.Diagnostics.Trace",
             "java": "Trace",
             "imports": [
@@ -4286,17 +4406,23 @@
         {
             "csharp": "System.Runtime.Serialization.ISerializable",
             "java": "__suppress__",
-            "imports": []
+            "imports": [
+                "io.github.ningpp.compat.__suppress__"
+            ]
         },
         {
             "csharp": "System.Runtime.Serialization.SerializationInfo",
             "java": "__suppress__",
-            "imports": []
+            "imports": [
+                "io.github.ningpp.compat.__suppress__"
+            ]
         },
         {
             "csharp": "System.Runtime.Serialization.StreamingContext",
             "java": "__suppress__",
-            "imports": []
+            "imports": [
+                "io.github.ningpp.compat.__suppress__"
+            ]
         },
         {
             "csharp": "System.StringComparison",
@@ -6261,6 +6387,126 @@
     ],
     "methodMappings": [
         {
+            "type": "System.Collections.Generic.List`1",
+            "method": "RemoveRange",
+            "javaMethod": "_removeRange"
+        },
+        {
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "IsSubsetOf",
+            "javaMethod": "SetCompat.isSubsetOf"
+        },
+        {
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "IsSupersetOf",
+            "javaMethod": "SetCompat.isSupersetOf"
+        },
+        {
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "SetEquals",
+            "javaMethod": "SetCompat.setEquals"
+        },
+        {
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "Overlaps",
+            "javaMethod": "SetCompat.overlaps"
+        },
+        {
+            "type": "System.Collections.Generic.ISet`1",
+            "method": "IsSubsetOf",
+            "javaMethod": "SetCompat.isSubsetOf"
+        },
+        {
+            "type": "System.Collections.Generic.ISet`1",
+            "method": "IsSupersetOf",
+            "javaMethod": "SetCompat.isSupersetOf"
+        },
+        {
+            "type": "System.Collections.Generic.ISet`1",
+            "method": "SetEquals",
+            "javaMethod": "SetCompat.setEquals"
+        },
+        {
+            "type": "System.Collections.Generic.ISet`1",
+            "method": "Overlaps",
+            "javaMethod": "SetCompat.overlaps"
+        },
+        {
+            "type": "System.Text.StringBuilder",
+            "method": "GetChunks",
+            "javaMethod": "StringBuilderExtensions.getChunks"
+        },
+        {
+            "type": "System.Text.StringBuilder",
+            "method": "AppendLine",
+            "javaMethod": "StringBuilderExtensions.appendLine"
+        },
+        {
+            "type": "System.TimeSpan",
+            "method": "Zero",
+            "javaMethod": "ZERO"
+        },
+        {
+            "type": "System.TimeSpan",
+            "method": "MaxValue",
+            "javaMethod": "MAX_VALUE"
+        },
+        {
+            "type": "System.TimeSpan",
+            "method": "MinValue",
+            "javaMethod": "MIN_VALUE"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetGenericArguments",
+            "javaMethod": "TypeHelper.getGenericArguments"
+        },
+        {
+            "type": "System.Collections.Hashtable",
+            "method": "GetEnumerator",
+            "javaMethod": "dictEnumerator"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetMethod",
+            "javaMethod": "TypeHelper.getMethod"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetField",
+            "javaMethod": "TypeHelper.getField"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetProperty",
+            "javaMethod": "TypeHelper.getProperty"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetConstructor",
+            "javaMethod": "TypeHelper.getConstructor"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetMethods",
+            "javaMethod": "TypeHelper.getMethods"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetFields",
+            "javaMethod": "TypeHelper.getFields"
+        },
+        {
+            "type": "System.Type",
+            "method": "MakeGenericType",
+            "javaMethod": "TypeHelper.makeGenericType"
+        },
+        {
+            "type": "System.Type",
+            "method": "MakeGenericMethodParameter",
+            "javaMethod": "TypeHelper.makeGenericMethodParameter"
+        },
+        {
             "type": "Cs2jByRef.ByRef",
             "method": "get_Value",
             "javaMethod": "getValue",
@@ -6742,6 +6988,11 @@
             "type": "System.String",
             "method": "Clone",
             "javaMethod": "StringHelper.clone"
+        },
+        {
+            "type": "System.String",
+            "method": "Reverse",
+            "javaMethod": "StringHelper.reverse"
         },
         {
             "type": "System.String",
@@ -7232,6 +7483,11 @@
             "type": "System.Console",
             "method": "In",
             "javaMethod": "in"
+        },
+        {
+            "type": "System.Diagnostics.Debug",
+            "method": "Fail",
+            "javaMethod": "Debug.fail"
         },
         {
             "type": "System.Diagnostics.Debug",

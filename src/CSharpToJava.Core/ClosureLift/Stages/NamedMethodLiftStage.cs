@@ -63,10 +63,21 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
 
         foreach (var site in sites)
         {
+            var before = diagnostics.Count;
             var signature = LambdaSignatureResolver.Resolve(
                 model, site.Lambda, options, site.RoutineName, diagnostics);
             if (signature == null)
-                return new ClosureStageResult(root, false); // CS2J4501/4509: file stays verbatim.
+            {
+                // CS2J4501/4509 freeze the file (D12 fail-loud). A bare
+                // ConvertedType null (generic-inference position, D20/E16) adds
+                // no row: it is an accounted residual only, so the file's other
+                // static plans must survive — same per-site discipline as the
+                // M2 planner census (DisplayClassPlanner Resolve call).
+                if (diagnostics.Count > before)
+                    return new ClosureStageResult(root, false);
+
+                continue;
+            }
 
             var receivedLambda = receivedLambdaBySpanStart[site.SpanStart];
 

@@ -233,6 +233,27 @@ public class EnumTransformer : ITypeTransformer
     public static bool IsValueEnum(INamedTypeSymbol? enumSymbol)
         => IsValueEnum(enumSymbol, GetOrderedMembers(enumSymbol, null));
 
+    /// <summary>
+    /// Metadata flags enums supplied by compat as plain <c>int</c> constants
+    /// (BindingFlags/MethodAttributes/...). They have no Java value-class emitted by
+    /// this converter, so casts must stay numeric — synthesizing getValue()/fromValue()
+    /// is uncompilable (the compat holder exposes int fields, not instances).
+    /// </summary>
+    private static readonly HashSet<string> IntConstantMetadataEnums = new(StringComparer.Ordinal)
+    {
+        "System.Reflection.BindingFlags",
+        "System.Reflection.MethodAttributes",
+        "System.Reflection.FieldAttributes",
+        "System.Reflection.PropertyAttributes",
+        "System.Reflection.ParameterAttributes",
+        "System.Reflection.CallingConventions",
+    };
+
+    public static bool IsIntConstantMetadataEnum(INamedTypeSymbol? enumSymbol)
+        => enumSymbol is { TypeKind: TypeKind.Enum }
+           && enumSymbol.DeclaringSyntaxReferences.Length == 0
+           && IntConstantMetadataEnums.Contains(enumSymbol.ToDisplayString());
+
     private static bool IsValueEnum(
         INamedTypeSymbol? enumSymbol,
         IReadOnlyList<(string Name, object Value)> members)

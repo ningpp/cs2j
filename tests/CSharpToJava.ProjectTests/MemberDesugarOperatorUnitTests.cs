@@ -203,6 +203,68 @@ public class MemberDesugarOperatorUnitTests
         Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.ConversionMirrorMiss);
     }
 
+    // 元数据（外部程序集）非泛型目标类型不在 Java 基元镜像表内，但转换站点同样
+    // 必须降形：否则 Java 侧把隐式转换当普通赋值（Reflection.Emit.LocalBuilder
+    // 的 RentedLocalBuilder 包装在 RegexCompiler 中有 440+ 站点）。
+    [Fact]
+    public void Declaration_ConversionToMetadataType_PlannedAndSitesRewritten()
+    {
+        var (output, stats, diags) = Rewrite("""
+            using System.Text;
+
+            public sealed class Wrapper
+            {
+                public string V = "";
+
+                public static implicit operator StringBuilder(Wrapper w) => new StringBuilder(w.V);
+
+                public StringBuilder ToBuilder() => this;
+            }
+            """);
+        Assert.True(stats.OperatorsPlanned >= 1);
+        Assert.DoesNotContain(diags, d => d.Code == MemberDesugarDiagnosticCode.ConversionMirrorMiss);
+        Assert.Contains("public static StringBuilder ToStringBuilder(Wrapper w)", output);
+        Assert.Contains("ToStringBuilder(this)", output);
+        AssertOutputCompiles(output);
+    }
+
+    // 跨文件 + using 局部 + 泛型属性赋值：属性阶段先把 `b.Value = r` 降形为
+    // `b.set_Value(r)`，同一 RewriteFile 内的 operator 阶段必须仍能绑定并改写该实参
+    // （regex-sdk 的 ByRef<LocalBuilder>.set_Value(spanLocal) 残留即此形态）。
+    [Fact]
+    public void ConversionSite_PropertyAssignmentOnGenericBox_RewritesImplicitOperand()
+    {
+        var (outputs, stats, _) = RewriteAll(null, """
+            public sealed class Box<T>
+            {
+                private T _value;
+                public T Value { get => _value; set => _value = value; }
+            }
+            """, """
+            using System;
+            using System.Text;
+
+            public struct Rented : IDisposable
+            {
+                public static implicit operator StringBuilder(Rented r) => new StringBuilder();
+                public void Dispose() { }
+            }
+
+            public static class Use
+            {
+                public static StringBuilder F(Box<StringBuilder> b)
+                {
+                    using Rented r = default;
+                    b.Value = r;
+                    return b.Value;
+                }
+            }
+            """);
+        Assert.Contains("set_Value(Rented.ToStringBuilder(r))", outputs[1]);
+        Assert.True(stats.OperatorConversionSitesRewritten >= 1);
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
     [Fact]
     public void Declaration_ConversionToString_CollidesWithObjectMethod_Upgrades()
     {
@@ -743,6 +805,30 @@ public class MemberDesugarOperatorUnitTests
         Assert.True(stats.OperatorLiftedSitesExpanded >= 1);
         AssertContains(outputs[1],
             "s.HasValue ? Snow.ToDouble(s.GetValueOrDefault()) : (double?)null");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    [Fact]
+    public void LiftedConversion_NullableToReference_Expanded()
+    {
+        // regex-sdk: RentedLocalBuilder? → LocalBuilder (reference target) is a
+        // legal lifted user-defined conversion; null must stay null.
+        var (outputs, stats, _) = RewriteAll(null, """
+            public struct Rented
+            {
+                public int V;
+                public Rented(int v) { V = v; }
+                public static implicit operator string(Rented r) => r.V.ToString();
+            }
+            """, """
+            public static class Use
+            {
+                public static string F(Rented? r) => r;
+            }
+            """);
+        Assert.True(stats.OperatorLiftedSitesExpanded >= 1);
+        AssertContains(outputs[1],
+            "r.HasValue ? Rented.ToStringOperator(r.GetValueOrDefault()) : (string?)null");
         AssertOutputCompiles(outputs[0], outputs[1]);
     }
 

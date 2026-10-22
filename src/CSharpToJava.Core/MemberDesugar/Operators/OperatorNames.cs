@@ -61,10 +61,31 @@ internal static class OperatorNames
         out string baseName)
     {
         baseName = "";
-        if (!TryGetJavaTypeName(targetType, out var javaType)) return false;
-        if (!TryGetConversionBaseSuffix(javaType, out var suffix)) return false;
-        baseName = "To" + suffix + (isExplicitOperator ? "Explicit" : "");
-        return true;
+        if (TryGetJavaTypeName(targetType, out var javaType))
+        {
+            if (!TryGetConversionBaseSuffix(javaType, out var suffix)) return false;
+            baseName = "To" + suffix + (isExplicitOperator ? "Explicit" : "");
+            return true;
+        }
+
+        // 元数据（外部程序集）非泛型类型：镜像表按 Java 基元/字符串设计，但转换站点
+        // 同样必须降形——否则声明与使用点原子不动，Java 侧把隐式转换当普通赋值
+        // （如 Reflection.Emit.LocalBuilder 的 RentedLocalBuilder 包装，440+ 站点）。
+        // 基名用目标简单名派生；MethodTransformer.JavaName 首字母小写后即
+        // to<SimpleName>，与本 pass 生成的声明名一致。
+        if (targetType is INamedTypeSymbol
+            {
+                IsGenericType: false,
+                SpecialType: SpecialType.None,
+                TypeKind: TypeKind.Class or TypeKind.Struct or TypeKind.Interface,
+            } named
+            && !named.Locations.Any(l => l.IsInSource))
+        {
+            baseName = "To" + named.Name + (isExplicitOperator ? "Explicit" : "");
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>镜像表判定与后缀（供单测直接核对）。</summary>

@@ -10,7 +10,11 @@ internal sealed class ProjectConditionalDirectivePreprocessRequest
     public bool Force { get; init; } = true;
     public bool Verbose { get; init; }
     public bool Strict { get; init; }
-    public string Configuration { get; init; } = "Release";
+    // The upstream test suites run under `dotnet test`'s default Debug
+    // configuration: `#if DEBUG` members (RegexCode.ToString/Dump,
+    // RegexOptions.Debug, IsDebug, …) are part of the tested surface, so the
+    // preprocessed tree must resolve the Debug branch.
+    public string Configuration { get; init; } = "Debug";
     public string? Tfm { get; init; }
     public bool RemoveRegions { get; init; }
     public bool FilterUnsupportedProjects { get; init; } = true;

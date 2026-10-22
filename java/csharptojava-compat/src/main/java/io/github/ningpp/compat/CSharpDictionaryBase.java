@@ -96,7 +96,6 @@ public abstract class CSharpDictionaryBase implements CSharpIDictionary {
         return innerHashtable.iterator();
     }
 
-    @Override
     public void copyTo(CSharpArray array, int index) {
         innerHashtable.copyTo(array, index);
     }

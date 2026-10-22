@@ -211,4 +211,13 @@ public final class CustomAttributeExtensions {
     public static Object getCustomAttribute(MemberInfo member, Class<?> attributeType) {
         return getCustomAttribute(attributeType, member);
     }
+
+    /** C# MemberInfo.GetCustomAttribute&lt;T&gt;() with an inferred attribute type. */
+    @SuppressWarnings("unchecked")
+    public static <T> T getCustomAttribute(PropertyInfo member) {
+        for (Object attribute : getCustomAttributes(member)) {
+            return (T) attribute;
+        }
+        return null;
+    }
 }

@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -62,6 +62,24 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return false;
         argument = invocation.ArgumentList.Arguments[0].Expression;
         return true;
+    }
+
+    /// <summary>
+    /// Resolves the nameof literal, honoring converter-side renames: a nameof
+    /// argument bound to a method symbol must produce the Java method name
+    /// (camelCase, compat map, keyword escape) — runtime consumers such as
+    /// reflection-based test-data lookups search for the converted name.
+    /// </summary>
+    private static string ResolveNameOfName(ExpressionSyntax argument, ConversionContext context)
+    {
+        var name = ExtractNameOfArgument(argument);
+        // nameof(X) binds a method group as CandidateSymbols (Symbol == null,
+        // CandidateReason == MemberGroup), so consult the candidates too.
+        var symbol = context.GetSymbolInfo(argument).Symbol
+            ?? context.GetSymbolInfo(argument).CandidateSymbols.FirstOrDefault();
+        if (symbol is IMethodSymbol method)
+            return Member.MethodTransformer.GetJavaMethodName(name, method, context);
+        return name;
     }
 
     /// <summary>
@@ -146,7 +164,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // nameof(X) → Java string literal "argumentName"
         if (IsNameOfInvocation(invocation, out var nameofArgument))
         {
-            var name = ExtractNameOfArgument(nameofArgument!);
+            var name = ResolveNameOfName(nameofArgument!, context);
             return new JavaLiteralExpression("\"" + JavaEscapeString(name) + "\"");
         }
 
@@ -174,11 +192,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     var text = facade.TransformToIR(a.Expression, context).ToInlineString();
                     text = ArgumentTransformer.CoerceImplicitSpanConversion(
                         a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceNonGenericDictionaryBridge(
+                        a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceStreamToIterableParameter(
+                        a.Expression, text, invocationMethod, index, context);
                     text = ApplyIntegralNarrowing(text, a.Expression, invocationMethod, index, context);
                     return new JavaRawExpression(text);
                 })
                 .ToList();
         }
+
+        // Xunit.Assert.Throws<T>(code) / Assert.IsType<T>(obj): the assertion
+        // type travels as a generic argument that Java erases. The compat Assert
+        // exposes Class-based overloads — prepend the materialized class literal
+        // so the runtime type check survives conversion.
+        if (TryMaterializeAssertTypeArgument(invocation, context, out var assertClassLiteral))
+            arguments.Insert(0, new JavaLiteralExpression(assertClassLiteral));
 
         // C# string.Substring(startIndex, length) vs Java substring(beginIndex,
         // endIndex): the second argument has different semantics. Rewrite length
@@ -252,6 +281,135 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
                 var methodSymbol = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
 
+                // 静态接收者（ArrayPool<T>.Shared / SegmentStringBuilder.Create()）
+                // 的类型只出现在表达式位置，导入收集器看不到，这里补 import。
+                AddReceiverTypeImports(memberAccess.Expression, context);
+                if (methodSymbol is { IsStatic: true }
+                    && TryMapStaticReceiver(memberAccess.Expression, context, out var mappedStaticReceiverIr))
+                {
+                    receiverText = mappedStaticReceiverIr;
+                    receiver = new JavaRawExpression(mappedStaticReceiverIr);
+                }
+
+                // C# Array.Empty<primitive>()：Java 泛型类型变量不能取基本类型
+                // （CSharpArray.empty() 会推出 T=int 违反 Object 上界），直接给零长数组。
+                if (methodSymbol is { Name: "Empty", TypeArguments.Length: 1, IsStatic: true }
+                    && methodSymbol.ContainingType?.ToDisplayString() == "System.Array")
+                {
+                    var element = context.MapType(methodSymbol.TypeArguments[0]);
+                    if (element is "int" or "long" or "short" or "byte" or "char"
+                        or "boolean" or "float" or "double")
+                    {
+                        return new JavaRawExpression($"new {element}[0]");
+                    }
+                }
+
+                // Enumerable.ToArray<T>() on a compat iterable: Object[] would be
+                // emitted by the raw iterator; materialize a typed array instead.
+                if (methodSymbol is { Name: "ToArray", Parameters.Length: 0 }
+                    && methodSymbol.ContainingType?.ToDisplayString() == "System.Linq.Enumerable"
+                    && TryGetEnumerableElementType(context.GetTypeInfo(memberAccess.Expression).Type, out var toArrayElement))
+                {
+                    var element = BoxPrimitive(context.MapType(toArrayElement));
+                    var receiverMapped = context.MapType(context.GetTypeInfo(memberAccess.Expression).Type);
+                    var arrayFactory = receiverMapped.StartsWith("Stream", StringComparison.Ordinal)
+                        || receiverMapped.StartsWith("java.util.stream", StringComparison.Ordinal)
+                        || receiverText.Contains("StreamSupport.stream", StringComparison.Ordinal)
+                        || receiverText.Contains(".filter(", StringComparison.Ordinal)
+                        || receiverText.Contains(".map(", StringComparison.Ordinal)
+                        ? $"{element}[]::new"
+                        : $"new {element}[0]";
+                    return new JavaRawExpression(WrapPrimitiveArrayUnbox(
+                        $"{receiverText}.toArray({arrayFactory})",
+                        context.GetTypeInfo(invocation).Type, context));
+                }
+
+                // C# String.StartsWith/EndsWith(value, StringComparison) → StringHelper.
+                if (methodSymbol is { Name: "StartsWith" or "EndsWith", Parameters.Length: 2 }
+                    && methodSymbol.ContainingType?.SpecialType == SpecialType.System_String
+                    && methodSymbol.Parameters[1].Type is INamedTypeSymbol { Name: "StringComparison" })
+                {
+                    context.AddImport("io.github.ningpp.compat.StringHelper");
+                    var helper = methodSymbol.Name == "StartsWith" ? "startsWith" : "endsWith";
+                    return new JavaRawExpression(
+                        $"StringHelper.{helper}({receiverText}, {argumentText})");
+                }
+
+                // C# String.ToLower/ToUpper(CultureInfo) → StringHelper (Locale bridge).
+                if (methodSymbol is { Name: "ToLower" or "ToUpper", Parameters.Length: 1 }
+                    && methodSymbol.ContainingType?.SpecialType == SpecialType.System_String
+                    && methodSymbol.Parameters[0].Type is INamedTypeSymbol { Name: "CultureInfo" })
+                {
+                    context.AddImport("io.github.ningpp.compat.StringHelper");
+                    var helper = methodSymbol.Name == "ToLower" ? "toLowerCase" : "toUpperCase";
+                    return new JavaRawExpression(
+                        $"StringHelper.{helper}({receiverText}, {argumentText})");
+                }
+
+                // C# String.Split(char[]) → StringHelper.split (Java split takes a regex).
+                if (methodSymbol is { Name: "Split" }
+                    && methodSymbol.ContainingType?.SpecialType == SpecialType.System_String
+                    && methodSymbol.Parameters.Length >= 1
+                    && methodSymbol.Parameters[0].Type is IArrayTypeSymbol
+                        { ElementType.SpecialType: SpecialType.System_Char })
+                {
+                    context.AddImport("io.github.ningpp.compat.StringHelper");
+                    return new JavaRawExpression(
+                        $"StringHelper.split({receiverText}, {argumentText})");
+                }
+
+                // Extension-method resolution may lower MemberInfo.GetCustomAttribute<T>()
+                // to an instance call; Java erases T, so restore the inferred cast
+                // before the result is used (…getCustomAttribute().State).
+                if (methodSymbol is { Name: "GetCustomAttribute" })
+                {
+                    var attributeType = methodSymbol.TypeArguments.Length == 1
+                        ? methodSymbol.TypeArguments[0]
+                        : context.GetTypeInfo(node).Type;
+                    var mappedAttribute = attributeType is null ? null : context.MapType(attributeType);
+                    if (!string.IsNullOrEmpty(mappedAttribute)
+                        && mappedAttribute is not "Object" and not "Attribute" and not "var")
+                    {
+                        context.AddImport("io.github.ningpp.compat.CustomAttributeExtensions");
+                        var attributeReceiver = methodSymbol.IsStatic ? argumentText : receiverText;
+                        return new JavaRawExpression(
+                            $"CustomAttributeExtensions.getCustomAttribute({mappedAttribute}.class, {attributeReceiver})");
+                    }
+                }
+
+                // 自写 struct 的 Nullable<T>.GetValueOrDefault()：Java 侧 T? 就是
+                // 可空引用（无包装类），语义等价于接收者本身。
+                if (methodSymbol is { Name: "GetValueOrDefault", Parameters.Length: 0 }
+                    && methodSymbol.ContainingType is INamedTypeSymbol
+                        { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable
+                    && nullable.TypeArguments[0].SpecialType == SpecialType.None)
+                {
+                    return new JavaRawExpression(receiverText);
+                }
+
+                // Java 原生数值没有实例方法：x.CompareTo(y) → Long.compare(x, y)。
+                if (methodSymbol is { Name: "CompareTo", Parameters.Length: 1 }
+                    && TryGetBoxedPrimitiveName(context.GetTypeInfo(memberAccess.Expression).Type)
+                        is { } boxedPrimitive)
+                {
+                    return new JavaRawExpression(
+                        $"{boxedPrimitive}.compare({receiverText}, {argumentText})");
+                }
+
+                // DynamicMethod.CreateDelegate<T>() → createDelegate(T.class)；raw 泛型
+                // 返回值到 Predicate<…>/Consumer<…> 字段是 unchecked 赋值，Java 允许。
+                if (methodSymbol is { Name: "CreateDelegate", TypeArguments.Length: 1 }
+                    && methodSymbol.ContainingType?.ToDisplayString()
+                        is "System.Reflection.MethodInfo" or "System.Reflection.Emit.DynamicMethod")
+                {
+                    var delegateJava = context.MapType(methodSymbol.TypeArguments[0]);
+                    var rawDelegate = delegateJava.Contains('<')
+                        ? delegateJava[..delegateJava.IndexOf('<')]
+                        : delegateJava;
+                    return new JavaRawExpression(
+                        $"{receiverText}.createDelegate({rawDelegate}.class)");
+                }
+
                 // Erasure-conflict overloads were renamed at declaration time; bind
                 // this call to the renamed sibling instead of the shadowing one.
                 if (methodSymbol != null
@@ -314,6 +472,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
                     foreach (var argument in arguments)
                         call.Arguments.Add(argument);
+                    WrapSortKeySelectorInComparator(call, memberAccess.Name.Identifier.Text, context);
                     return call;
                 }
 
@@ -503,8 +662,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (invocation.Expression is not (IdentifierNameSyntax or MemberAccessExpressionSyntax))
             return false;
 
-        var sam = DelegateTransformer.InferSamMethodName(
-            methodSymbol.ReturnsVoid, methodSymbol.Parameters.Length);
+        var sam = methodSymbol.ContainingType is { } delegateType
+            && delegateType.ContainingNamespace?.ToDisplayString() == "System"
+            && ((delegateType.Name == "Func" && delegateType.TypeArguments.Length == 2
+                 && delegateType.TypeArguments[1].SpecialType == SpecialType.System_Boolean)
+                || (delegateType.Name == "Predicate" && delegateType.TypeArguments.Length == 1))
+            && methodSymbol.Parameters.Length == 1
+                ? "test"
+                : DelegateTransformer.InferSamMethodName(
+                    methodSymbol.ReturnsVoid, methodSymbol.Parameters.Length);
         var receiver = ExpressionTransformerFacade.Instance.Transform(invocation.Expression, context);
         rendered = $"{receiver}.{sam}({argumentText})";
         return true;
@@ -515,7 +681,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // nameof(X) → "argumentName"
         if (IsNameOfInvocation(node, out var nameofArgument))
         {
-            var name = ExtractNameOfArgument(nameofArgument!);
+            var name = ResolveNameOfName(nameofArgument!, context);
             return "\"" + JavaEscapeString(name) + "\"";
         }
 
@@ -536,6 +702,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     var invocationMethod = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
                     text = ArgumentTransformer.CoerceImplicitSpanConversion(
                         a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceNonGenericDictionaryBridge(
+                        a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceStreamToIterableParameter(
+                        a.Expression, text, invocationMethod, index, context);
                     return ApplyIntegralNarrowing(
                         text, a.Expression, invocationMethod, index, context);
                 })
@@ -550,6 +720,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
             arguments = string.Join(", ", argList);
         }
+
+        // Xunit.Assert.Throws<T>/IsType<T>: see the matching rewrite in
+        // TransformToIR — prepend the erased type argument as a class literal.
+        if (TryMaterializeAssertTypeArgument(node, context, out var assertClassLiteral))
+            arguments = assertClassLiteral + (arguments.Length == 0 ? "" : ", " + arguments);
 
         // Implicit delegate invocation `d(args)` (no explicit `.Invoke`).
         if (TryRenderImplicitDelegateInvoke(
@@ -617,6 +792,112 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return RenderMappedCall(conflictName, conflictMethod.IsStatic, receiver, arguments);
                 }
 
+                var memberMethodForOverrides = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
+                AddReceiverTypeImports(memberAccess.Expression, context);
+                if (memberMethodForOverrides is { IsStatic: true }
+                    && TryMapStaticReceiver(memberAccess.Expression, context, out var mappedStaticReceiver))
+                {
+                    receiver = mappedStaticReceiver;
+                }
+
+                if (memberMethodForOverrides is { Name: "Empty", TypeArguments.Length: 1, IsStatic: true }
+                    && memberMethodForOverrides.ContainingType?.ToDisplayString() == "System.Array")
+                {
+                    var emptyElement = context.MapType(memberMethodForOverrides.TypeArguments[0]);
+                    if (emptyElement is "int" or "long" or "short" or "byte" or "char"
+                        or "boolean" or "float" or "double")
+                    {
+                        return $"new {emptyElement}[0]";
+                    }
+                }
+
+                if (memberMethodForOverrides is { Name: "ToArray", Parameters.Length: 0 }
+                    && memberMethodForOverrides.ContainingType?.ToDisplayString() == "System.Linq.Enumerable"
+                    && TryGetEnumerableElementType(context.GetTypeInfo(memberAccess.Expression).Type, out var irToArrayElement))
+                {
+                    var element = BoxPrimitive(context.MapType(irToArrayElement));
+                    var receiverMapped = context.MapType(context.GetTypeInfo(memberAccess.Expression).Type);
+                    var arrayFactory = receiverMapped.StartsWith("Stream", StringComparison.Ordinal)
+                        || receiverMapped.StartsWith("java.util.stream", StringComparison.Ordinal)
+                        || receiver.Contains("StreamSupport.stream", StringComparison.Ordinal)
+                        || receiver.Contains(".filter(", StringComparison.Ordinal)
+                        || receiver.Contains(".map(", StringComparison.Ordinal)
+                        ? $"{element}[]::new"
+                        : $"new {element}[0]";
+                    return WrapPrimitiveArrayUnbox(
+                        $"{receiver}.toArray({arrayFactory})",
+                        context.GetTypeInfo(node).Type, context);
+                }
+
+                if (memberMethodForOverrides is { Name: "StartsWith" or "EndsWith", Parameters.Length: 2 }
+                    && memberMethodForOverrides.ContainingType?.SpecialType == SpecialType.System_String
+                    && memberMethodForOverrides.Parameters[1].Type is INamedTypeSymbol { Name: "StringComparison" })
+                {
+                    context.AddImport("io.github.ningpp.compat.StringHelper");
+                    var helper = memberMethodForOverrides.Name == "StartsWith" ? "startsWith" : "endsWith";
+                    return $"StringHelper.{helper}({receiver}, {arguments})";
+                }
+
+                if (memberMethodForOverrides is { Name: "ToLower" or "ToUpper", Parameters.Length: 1 }
+                    && memberMethodForOverrides.ContainingType?.SpecialType == SpecialType.System_String
+                    && memberMethodForOverrides.Parameters[0].Type is INamedTypeSymbol { Name: "CultureInfo" })
+                {
+                    context.AddImport("io.github.ningpp.compat.StringHelper");
+                    var helper = memberMethodForOverrides.Name == "ToLower" ? "toLowerCase" : "toUpperCase";
+                    return $"StringHelper.{helper}({receiver}, {arguments})";
+                }
+
+                if (memberMethodForOverrides is { Name: "Split" }
+                    && memberMethodForOverrides.ContainingType?.SpecialType == SpecialType.System_String
+                    && memberMethodForOverrides.Parameters.Length >= 1
+                    && memberMethodForOverrides.Parameters[0].Type is IArrayTypeSymbol
+                        { ElementType.SpecialType: SpecialType.System_Char })
+                {
+                    context.AddImport("io.github.ningpp.compat.StringHelper");
+                    return $"StringHelper.split({receiver}, {arguments})";
+                }
+
+                if (memberMethodForOverrides is { Name: "GetCustomAttribute" })
+                {
+                    var attributeType = memberMethodForOverrides.TypeArguments.Length == 1
+                        ? memberMethodForOverrides.TypeArguments[0]
+                        : context.GetTypeInfo(node).Type;
+                    var mappedAttribute = attributeType is null ? null : context.MapType(attributeType);
+                    if (!string.IsNullOrEmpty(mappedAttribute)
+                        && mappedAttribute is not "Object" and not "Attribute" and not "var")
+                    {
+                        context.AddImport("io.github.ningpp.compat.CustomAttributeExtensions");
+                        var attributeReceiver = memberMethodForOverrides.IsStatic ? arguments : receiver;
+                        return $"CustomAttributeExtensions.getCustomAttribute({mappedAttribute}.class, {attributeReceiver})";
+                    }
+                }
+
+                if (memberMethodForOverrides is { Name: "GetValueOrDefault", Parameters.Length: 0 }
+                    && memberMethodForOverrides.ContainingType is INamedTypeSymbol
+                        { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullableReceiver
+                    && nullableReceiver.TypeArguments[0].SpecialType == SpecialType.None)
+                {
+                    return receiver;
+                }
+
+                if (memberMethodForOverrides is { Name: "CompareTo", Parameters.Length: 1 }
+                    && TryGetBoxedPrimitiveName(context.GetTypeInfo(memberAccess.Expression).Type)
+                        is { } boxedPrimitiveReceiver)
+                {
+                    return $"{boxedPrimitiveReceiver}.compare({receiver}, {arguments})";
+                }
+
+                if (memberMethodForOverrides is { Name: "CreateDelegate", TypeArguments.Length: 1 }
+                    && memberMethodForOverrides.ContainingType?.ToDisplayString()
+                        is "System.Reflection.MethodInfo" or "System.Reflection.Emit.DynamicMethod")
+                {
+                    var delegateJava = context.MapType(memberMethodForOverrides.TypeArguments[0]);
+                    var rawDelegate = delegateJava.Contains('<')
+                        ? delegateJava[..delegateJava.IndexOf('<')]
+                        : delegateJava;
+                    return $"{receiver}.createDelegate({rawDelegate}.class)";
+                }
+
                 if (TryRenderPrimitiveMemberByType(
                         node, memberAccess.Expression, receiver, arguments,
                         originalName, context, out var primitiveCall))
@@ -645,6 +926,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         receiver = mappedReceiverExpr.ToInlineString();
                     }
 
+                    // OrderBy/ThenBy map to `sorted` but carry a C# KEY-SELECTOR
+                    // argument; Java sorted(Comparator) cannot take a 1-arg key
+                    // function directly — wrap it with Comparator.comparing.
+                    if (mappedName == "sorted")
+                        arguments = WrapSortKeySelectorText(originalName, arguments, context);
+
                     return RenderMappedCall(mappedName, isStatic, receiver, arguments);
                 }
 
@@ -668,7 +955,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
 
                 AddStaticReceiverTypeImports(memberAccess.Expression, context);
-                return $"{receiver}.{WellKnownMethodName(originalName)}({arguments})";
+                var renderedCall = $"{receiver}.{WellKnownMethodName(originalName)}({arguments})";
+                // Java erases explicit type arguments, so a generic helper whose
+                // return type is its own type parameter (`GetCustomAttribute<T>`)
+                // infers Object at the call site; restore the inferred type so
+                // member access on the result still binds.
+                if (memberAccess.Name is GenericNameSyntax { TypeArgumentList.Arguments.Count: > 0 }
+                    && context.GetSymbolInfo(node).Symbol
+                        is IMethodSymbol { ReturnType: ITypeParameterSymbol { TypeParameterKind: TypeParameterKind.Method } }
+                    && context.GetTypeInfo(node).Type is { } inferredReturn
+                    && inferredReturn is not ITypeParameterSymbol
+                    && context.MapType(inferredReturn) is { } mappedReturn
+                    && mappedReturn != "Object")
+                {
+                    renderedCall = $"({mappedReturn}) {renderedCall}";
+                }
+                return renderedCall;
             }
 
             // CallMethod(arg1, arg2) → callMethod(arg1, arg2)
@@ -678,7 +980,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var (mappedName, _) = TryResolveMappedName(node, originalName, context);
                 mappedName = ConflictRenamedName(node, context) ?? mappedName;
 
-                var methodName = mappedName ?? AccessorOrCamelName(originalName);
+                // WellKnownMethodName (Dispose→close, GetType→getClass, …) must
+                // also apply to receiver-less calls: the declaration side always
+                // renames, so a bare `Dispose(true)` camel-cased to `dispose(true)`
+                // would no longer bind to the renamed `close(boolean)` member.
+                var methodName = mappedName ?? WellKnownMethodName(originalName);
                 return $"{methodName}({arguments})";
             }
 
@@ -690,7 +996,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var (mappedName, _) = TryResolveMappedName(node, originalName, context);
                 mappedName = ConflictRenamedName(node, context) ?? mappedName;
 
-                var methodName = mappedName ?? AccessorOrCamelName(originalName);
+                var methodName = mappedName ?? WellKnownMethodName(originalName);
                 return $"{methodName}({arguments})";
             }
 
@@ -1213,6 +1519,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (symbol is not null && owner != "System.Linq.Enumerable")
             return false;
 
+        // string.Reverse() (Enumerable.Reverse on a string receiver) — the C#
+        // intent is a reversed character sequence, usually fed to string.Concat;
+        // StringHelper.reverse returns the materialized reversed string.
+        if (name == "Reverse" && argCount == 0
+            && context.GetTypeInfo(memberAccess.Expression).Type?.SpecialType == SpecialType.System_String)
+        {
+            context.AddImport("io.github.ningpp.compat.StringHelper");
+            rendered = $"StringHelper.reverse({receiver})";
+            return true;
+        }
+
         if (!IsEnumerableReceiver(memberAccess.Expression, context))
             return false;
 
@@ -1246,6 +1563,40 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             rendered = name == "Concat"
                 ? $"Stream.concat({first}, {second}).collect(CSharpList.toCSharpList())"
                 : $"Stream.concat({first}, {second}).distinct().collect(CSharpList.toCSharpList())";
+            return true;
+        }
+
+        // IEnumerable.Cast<TResult>() — converted collections already carry
+        // their C# element type, so the cast is an identity: a stream pipeline
+        // stays as-is (type arguments already flow), everything else wraps into
+        // the generic-iterable world so downstream Iterable/Stream consumers
+        // bind against a typed element instead of a bare `cast()` call.
+        // The from() call carries an explicit type witness: receivers typed
+        // CSharpIList<T>/CSharpCollection erase their iterator to Object, and
+        // an unwitnessed from() would infer a Stream<Object>.
+        if (name == "Cast" && argCount == 0)
+        {
+            if (receiverIsStream)
+            {
+                rendered = receiver;
+                return true;
+            }
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            var witness = TryGetCastTypeWitness(invocation, memberAccess, context);
+            rendered = witness == null
+                ? $"CSharpGenericIterable.from({receiver})"
+                : $"CSharpGenericIterable.<{witness}>from({receiver})";
+            return true;
+        }
+
+        // Enumerable.Count(predicate) — C# returns int; Java Stream.count()
+        // returns long, so cast the filtered count.
+        if (name == "Count" && argCount == 1)
+        {
+            var countStream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            rendered = $"(int) {countStream}.filter({argumentText}).count()";
             return true;
         }
 
@@ -1339,6 +1690,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
             return false;
         }
+        // C# arrays implement IEnumerable<T>: residual LINQ operators on arrays
+        // (`allChars.Count(c => …)`) must route through the stream path too.
+        if (type is IArrayTypeSymbol)
+            return true;
         if (type is not INamedTypeSymbol named)
             return false;
         if (named.SpecialType == SpecialType.System_String)
@@ -1362,6 +1717,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         if (context.GetTypeInfo(receiverExpression).Type is IArrayTypeSymbol array)
         {
+            // Arrays.stream has int/long/double/T[] overloads only; char,
+            // boolean, byte, short and float arrays must box through the
+            // reflection-backed compat iterable instead. The explicit witness
+            // keeps the stream element type from erasing to Object.
+            if (array.ElementType is INamedTypeSymbol { TypeKind: TypeKind.Enum }
+                || (array.ElementType.IsValueType && array.ElementType.SpecialType
+                    is not (SpecialType.System_Int32 or SpecialType.System_Int64
+                        or SpecialType.System_Double)))
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                context.AddImport("java.util.stream.StreamSupport");
+                var witness = BoxPrimitive(context.MapType(array.ElementType));
+                return $"StreamSupport.stream(CSharpGenericIterable.<{witness}>fromAnyTyped({receiverText}).spliterator(), false)";
+            }
             context.AddImport("java.util.Arrays");
             return array.ElementType.IsValueType
                 ? $"Arrays.stream({receiverText}).boxed()"
@@ -1432,7 +1801,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && char.IsDigit(fmt[1])
                 && fmt[0] is 'X' or 'x')
             {
-                rendered = $"String.format(\"%0{fmt[1]}{fmt[0]}\", {receiver})";
+                // `((int)c).ToString("X4")`: the redundant char→int widening cast
+                // is elided during rendering, but String.format's Object varargs
+                // would box the char back to Character, which Formatter rejects
+                // for %X ("x != java.lang.Character"). Re-impose the int box.
+                var formatReceiver = IsCharTypedBeforeWidening(invocation.Expression, context)
+                    ? $"(int)({receiver})"
+                    : receiver;
+                rendered = $"String.format(\"%0{fmt[1]}{fmt[0]}\", {formatReceiver})";
                 return true;
             }
 
@@ -1449,6 +1825,56 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// True when the invoked member's receiver is char-typed, or is a widening
+    /// cast whose operand is char-typed — the rendered form loses the (int) box
+    /// that varargs consumers like String.format need to avoid a Character
+    /// argument. <paramref name="callee"/> is the invocation's callee
+    /// (`((int)c).ToString`), whose receiver segment is inspected.
+    /// </summary>
+    private static bool IsCharTypedBeforeWidening(ExpressionSyntax callee, ConversionContext context)
+    {
+        if (callee is MemberAccessExpressionSyntax member)
+            callee = member.Expression;
+        while (callee is ParenthesizedExpressionSyntax parenthesized)
+            callee = parenthesized.Expression;
+        if (context.GetTypeInfo(callee).Type?.SpecialType == SpecialType.System_Char)
+            return true;
+        return callee is CastExpressionSyntax cast
+            && context.GetTypeInfo(cast.Expression).Type?.SpecialType == SpecialType.System_Char;
+    }
+
+    /// <summary>
+    /// xUnit's <c>Assert.Throws&lt;T&gt;(code)</c> / <c>Assert.IsType&lt;T&gt;(obj)</c>
+    /// carry the asserted type as a generic argument, which Java erases at the
+    /// call site — the erased 1-arg compat overloads can only assert
+    /// "some exception". The compat Assert also exposes Class-based overloads;
+    /// when the explicit type argument resolves to a concrete type, materialize
+    /// it as a leading class literal so the runtime type check survives.
+    /// </summary>
+    private static bool TryMaterializeAssertTypeArgument(
+        InvocationExpressionSyntax node, ConversionContext context, out string classLiteral)
+    {
+        classLiteral = null!;
+        if (node.Expression is not MemberAccessExpressionSyntax { Name: GenericNameSyntax generic })
+            return false;
+        if (generic.Identifier.Text is not ("Throws" or "ThrowsAny" or "IsType" or "IsNotType"))
+            return false;
+        if (generic.TypeArgumentList.Arguments.Count != 1)
+            return false;
+        if (context.GetSymbolInfo(node).Symbol is not IMethodSymbol { IsStatic: true } method
+            || method.ContainingType?.ToDisplayString() != "Xunit.Assert")
+            return false;
+        var typeArgument = context.GetTypeInfo(generic.TypeArgumentList.Arguments[0]).Type;
+        if (typeArgument == null
+            || typeArgument is ITypeParameterSymbol or IErrorTypeSymbol)
+        {
+            return false;
+        }
+        classLiteral = ConversionContext.GetClassLiteral(typeArgument, context);
+        return true;
     }
 
     /// <summary>
@@ -1636,6 +2062,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         var display = containingType.ToDisplayString();
         var fqn = $"{containingType.ContainingNamespace}.{containingType.Name}";
+
+        // C# static Type.GetType(string[, bool]) resolves the System.Type →
+        // java.lang.Class mapping and would render `Class.getClass(name)` —
+        // Object.getClass() takes no arguments. Route the lookup through the
+        // compat TypeHelper (Class.forName-based) instead.
+        if (originalMethodName == "GetType"
+            && (display == "System.Type" || fqn == "System.Type"))
+        {
+            context.AddImport("io.github.ningpp.compat.TypeHelper");
+            rendered = $"TypeHelper.getType({arguments})";
+            return true;
+        }
 
         string? mappedType = null;
         var configKey = context.TypeMappings.HasTypeMapping(display) ? display
@@ -1872,17 +2310,215 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     }
 
     /// <summary>
-    /// Simple-prefix → FQN import table for dotted mapped names rendered by
-    /// <see cref="ApplyMappedName"/>/<see cref="RenderMappedCall"/> (e.g. an
-    /// invocation mapped to "Objects.equals" needs <c>import java.util.Objects;</c>).
-    /// <para>
-    /// The project pipeline already emits <c>java.util.*</c> wildcard imports, but
-    /// <c>ObjectHelper</c>/<c>DelegateHelper</c>/<c>StringHelper</c> are not covered
-    /// by that wildcard, and the single-file pipeline has no wildcard at all — both
-    /// pipelines rely on this rule for explicit helper imports. Prefixes absent from
-    /// this table keep their historical behavior (no import added here).
-    /// </para>
+    /// Adds imports for the static/instance receiver's type. Static receivers such as
+    /// <c>ArrayPool&lt;T&gt;.Shared</c> or <c>SegmentStringBuilder.Create()</c> expose the type
+    /// only inside an expression, so the declaration-driven import collector misses them.
     /// </summary>
+    private static void AddReceiverTypeImports(ExpressionSyntax receiver, ConversionContext context)
+    {
+        if (receiver is not (IdentifierNameSyntax or MemberAccessExpressionSyntax)) return;
+        if (context.GetTypeInfo(receiver).Type is not INamedTypeSymbol type) return;
+        if (type.SpecialType != SpecialType.None) return;
+        if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct
+            or TypeKind.Interface or TypeKind.Enum)) return;
+        // Cs2jByRef support forms are resolved by dedicated compat mappings/classes;
+        // MapType on them fails fast (CS2J3320) and their receiver stays FQN.
+        if (type.ContainingNamespace?.ToDisplayString()
+                .StartsWith("Cs2j", StringComparison.Ordinal) == true) return;
+
+        var configuredImports = context.TypeMappings.GetRequiredImports(
+            type.OriginalDefinition.ToDisplayString());
+        if (configuredImports.Count == 0)
+        {
+            // Roslyn displays ArrayPool<T> but the config key is the metadata name
+            // (ArrayPool`1); try the backtick form as well.
+            var metadataKey = (type.ContainingNamespace?.ToDisplayString() is { Length: > 0 } ns
+                ? ns + "." : string.Empty) + type.OriginalDefinition.MetadataName;
+            configuredImports = context.TypeMappings.GetRequiredImports(metadataKey);
+        }
+        foreach (var import in configuredImports)
+            context.AddImport(import);
+        // Configured mapping already supplies the Java type + imports (Cs2jUnsigned/
+        // Cs2jArray support namespaces → compat); never add the C# package as import.
+        if (configuredImports.Count > 0) return;
+
+        // Project-local types have no config mapping; add their package-qualified name.
+        if (type.Locations.Any(l => l.IsInSource) && type.ContainingType == null)
+        {
+            // 顶层源类型名必须走 GetJavaTopLevelTypeName（SR → DotnetUriSR 等
+            // 跨程序集作用域改名），否则 import 仍指向未生成的简名。
+            var javaName = context.GetJavaTopLevelTypeName(type);
+            if (javaName.Contains('<'))
+                javaName = javaName[..javaName.IndexOf('<')];
+            if (javaName.Contains('.')) return;
+            var package = context.NamespaceToPackage(
+                type.ContainingNamespace?.ToDisplayString() ?? string.Empty);
+            if (!string.IsNullOrEmpty(package))
+                context.AddImport($"{package}.{javaName}");
+        }
+    }
+
+    /// <summary>
+    /// Static receiver written with its full C# namespace (extension-method lowering emits
+    /// <c>System.Collections.HashtableExtensions.TryGetValue(...)</c>). Source types must be
+    /// rendered by their Java simple name plus the mapped package import; otherwise the
+    /// leading C# namespace is parsed as <c>java.lang.System</c>.
+    /// </summary>
+    private static bool TryMapStaticReceiver(
+        ExpressionSyntax receiver, ConversionContext context, out string mappedReceiver)
+    {
+        mappedReceiver = string.Empty;
+        if (context.GetTypeInfo(receiver).Type is not INamedTypeSymbol type) return false;
+        if (type.SpecialType != SpecialType.None
+            || type.ContainingType != null
+            || !type.Locations.Any(l => l.IsInSource))
+            return false;
+        if (type.ContainingNamespace?.ToDisplayString()
+                .StartsWith("Cs2j", StringComparison.Ordinal) == true)
+            return false;
+        var javaName = context.GetJavaTopLevelTypeName(type);
+        if (javaName.Contains('<'))
+            javaName = javaName[..javaName.IndexOf('<')];
+        if (javaName.Contains('.')) return false;
+        var configuredImports = context.TypeMappings.GetRequiredImports(
+            type.OriginalDefinition.ToDisplayString());
+        if (configuredImports.Count == 0)
+        {
+            // Roslyn displays ArrayPool<T> but the config key is the metadata name
+            // (ArrayPool`1); try the backtick form as well.
+            var metadataKey = (type.ContainingNamespace?.ToDisplayString() is { Length: > 0 } ns
+                ? ns + "." : string.Empty) + type.OriginalDefinition.MetadataName;
+            configuredImports = context.TypeMappings.GetRequiredImports(metadataKey);
+        }
+        foreach (var import in configuredImports)
+            context.AddImport(import);
+        if (configuredImports.Count == 0)
+        {
+            var package = context.NamespaceToPackage(
+                type.ContainingNamespace?.ToDisplayString() ?? string.Empty);
+            if (!string.IsNullOrEmpty(package))
+                context.AddImport($"{package}.{javaName}");
+        }
+        mappedReceiver = javaName;
+        return true;
+    }
+
+    private static bool TryGetEnumerableElementType(ITypeSymbol? type, out ITypeSymbol element)
+    {
+        element = null!;
+        if (type is not INamedTypeSymbol named) return false;
+        bool IsEnumerable(INamedTypeSymbol candidate)
+            => candidate.Name == "IEnumerable"
+               && candidate.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+               && candidate.TypeArguments.Length == 1;
+        if (IsEnumerable(named))
+        {
+            element = named.TypeArguments[0];
+            return true;
+        }
+        foreach (var iface in named.AllInterfaces)
+        {
+            if (IsEnumerable(iface))
+            {
+                element = iface.TypeArguments[0];
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static string BoxPrimitive(string mapped) => mapped switch
+    {
+        "char" => "Character",
+        "int" => "Integer",
+        "long" => "Long",
+        "short" => "Short",
+        "byte" => "Byte",
+        "boolean" => "Boolean",
+        "float" => "Float",
+        "double" => "Double",
+        _ => mapped,
+    };
+
+    /// <summary>
+    /// Enumerable.ToArray() on a primitive-element source keeps its C# primitive
+    /// array type (char[]), but the Java render pipeline materializes a boxed
+    /// Character[] — javac reports the reference/primitive mismatch as a confusing
+    /// generic-inference error. Unbox through the ArrayHelper converters.
+    /// </summary>
+    private static string WrapPrimitiveArrayUnbox(string expr, ITypeSymbol? invocationType, ConversionContext context)
+    {
+        if (invocationType is not IArrayTypeSymbol array)
+            return expr;
+
+        var unboxer = array.ElementType.SpecialType switch
+        {
+            SpecialType.System_Char => "toCharArray",
+            SpecialType.System_Int32 => "toIntArray",
+            SpecialType.System_Int64 => "toLongArray",
+            SpecialType.System_Double => "toDoubleArray",
+            SpecialType.System_Single => "toFloatArray",
+            SpecialType.System_Int16 => "toShortArray",
+            SpecialType.System_Byte => "toByteArray",
+            SpecialType.System_Boolean => "toBooleanArray",
+            _ => null
+        };
+        if (unboxer == null)
+            return expr;
+
+        context.AddImport("io.github.ningpp.compat.ArrayHelper");
+        return $"ArrayHelper.{unboxer}({expr})";
+    }
+
+    /// <summary>
+    /// Resolves the Java element type for an IEnumerable.Cast&lt;TResult&gt;()
+    /// invocation, used as the explicit type witness on the emitted
+    /// CSharpGenericIterable.from() call. Prefers the invocation's semantic
+    /// type (IEnumerable&lt;TResult&gt;), then the GenericNameSyntax argument.
+    /// </summary>
+    private static string? TryGetCastTypeWitness(
+        InvocationExpressionSyntax invocation,
+        MemberAccessExpressionSyntax memberAccess,
+        ConversionContext context)
+    {
+        ITypeSymbol? element = null;
+        if (context.GetTypeInfo(invocation).Type is INamedTypeSymbol { TypeArguments.Length: 1 } enumerable)
+            element = enumerable.TypeArguments[0];
+        else if (memberAccess.Name is GenericNameSyntax { TypeArgumentList.Arguments.Count: 1 } generic)
+        {
+            element = context.GetTypeInfo(generic.TypeArgumentList.Arguments[0]).Type;
+        }
+        if (element == null)
+            return null;
+        var mapped = context.MapType(element);
+        return string.IsNullOrEmpty(mapped) || mapped == "__suppress__" ? null : BoxPrimitive(mapped);
+    }
+
+    /// <summary>
+    /// OrderBy/ThenBy/OrderByDescending/ThenByDescending map to `sorted`, but
+    /// their C# argument is a key selector (T → key), not a java.util.Comparator.
+    /// Wrap the single key-selector argument with Comparator.comparing (and
+    /// .reversed() for the descending variants) so the Java call compiles.
+    /// </summary>
+    private static void WrapSortKeySelectorInComparator(
+        JavaMethodCallExpression call, string originalName, ConversionContext context)
+    {
+        if (call.MethodName != "sorted" || call.Arguments.Count != 1)
+            return;
+        var wrapped = WrapSortKeySelectorText(originalName, call.Arguments[0].ToInlineString(), context);
+        call.Arguments[0] = new JavaRawExpression(wrapped);
+    }
+
+    private static string WrapSortKeySelectorText(string originalName, string arguments, ConversionContext context)
+    {
+        if (arguments.Length == 0)
+            return arguments;
+        context.AddImport("java.util.Comparator");
+        return originalName is "OrderByDescending" or "ThenByDescending"
+            ? $"Comparator.comparing({arguments}).reversed()"
+            : $"Comparator.comparing({arguments})";
+    }
+
     private static readonly Dictionary<string, string> DottedNameImports =
         new(StringComparer.Ordinal)
         {
@@ -1891,11 +2527,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             ["DelegateHelper"] = "io.github.ningpp.compat.DelegateHelper",
             ["Environment"] = "io.github.ningpp.compat.Environment",
             ["StringHelper"] = "io.github.ningpp.compat.StringHelper",
+            ["StringBuilderExtensions"] = "io.github.ningpp.compat.StringBuilderExtensions",
             ["MathHelper"] = "io.github.ningpp.compat.MathHelper",
+            ["TypeHelper"] = "io.github.ningpp.compat.TypeHelper",
             ["MemoryExtensions"] = "io.github.ningpp.compat.MemoryExtensions",
             ["AsyncTasks"] = "io.github.ningpp.compat.AsyncTasks",
             ["IPAddressHelper"] = "io.github.ningpp.compat.IPAddressHelper",
             ["UriHelper"] = "dotnet.system.UriHelper",
+            ["EnumHelper"] = "io.github.ningpp.compat.EnumHelper",
+            ["ArrayHelper"] = "io.github.ningpp.compat.ArrayHelper",
+            ["SetCompat"] = "io.github.ningpp.compat.SetCompat",
         };
 
     /// <summary>

@@ -68,11 +68,46 @@ public class MethodTransformer : IMemberTransformer
         {
             method.Modifiers |= JavaModifiers.Public;
         }
+        // C# `protected override` of a `protected internal` / `internal` base
+        // member is legal (family-or-assembly accessibility), but the base maps
+        // to public in Java (assembly visibility has no JVM analogue) and javac
+        // rejects an override that weakens access. Widen the override to match
+        // the overridden member's mapped accessibility.
+        if (m.Modifiers.Any(t => t.IsKind(SyntaxKind.OverrideKeyword))
+            && sym?.OverriddenMethod is { } overridden
+            && overridden.DeclaredAccessibility
+                is Accessibility.Public or Accessibility.Internal or Accessibility.ProtectedOrInternal
+            && !method.Modifiers.HasFlag(JavaModifiers.Public))
+        {
+            method.Modifiers &= ~(JavaModifiers.Private | JavaModifiers.Protected);
+            method.Modifiers |= JavaModifiers.Public;
+        }
         if (m.Modifiers.Any(t => t.IsKind(SyntaxKind.AsyncKeyword))) method.IsAsync = true;
 
         BuildSignature(method, m.TypeParameterList, m.ConstraintClauses, m.ParameterList, ctx);
         TryRenameForErasureConflict(method, sym, ctx);
         BuildBody(method, m.Body, m.ExpressionBody, ctx);
+        // Unimplemented C# partial method declarations have no body; the C# compiler
+        // elides their calls. Emit an empty body so the Java declaration stays valid
+        // (method.Body would otherwise render a bodyless, abstract-looking member).
+        if ((m.Modifiers.Any(t => t.IsKind(SyntaxKind.PartialKeyword))
+             || sym?.IsPartialDefinition == true)
+            && m.Body == null && m.ExpressionBody == null
+            && sym?.PartialImplementationPart == null)
+        {
+            method.Body = "{\n}";
+        }
+        // Any other source-declared bodyless instance/static member (e.g. partial
+        // declarations whose symbol lost the partial flag after text round-trips)
+        // must still be a concrete Java method; C# elides calls to such partials.
+        if (method.Body == null && method.StructuredBody == null
+            && sym is { IsAbstract: false }
+            && sym.ContainingType?.TypeKind != TypeKind.Interface
+            && !m.Modifiers.Any(t => t.IsKind(SyntaxKind.AbstractKeyword)
+                                     || t.IsKind(SyntaxKind.ExternKeyword)))
+        {
+            method.Body = "{\n}";
+        }
 
         // xUnit/MSTest 测试方法 → JUnit 5 测试方法 + 静态数据 provider。
         var testMembers = ApplyTestMethodAnnotations(m, method, ctx);
@@ -275,6 +310,11 @@ public class MethodTransformer : IMemberTransformer
         else if (arrow != null)
         {
             var expr = facade.Transform(arrow.Expression, ctx);
+            // array/string → Span<T>/ReadOnlySpan<T> 表达式体返回（如
+            // `static ReadOnlySpan<int> Category() => new byte[]{...}`）。
+            var arrowTypeInfo = ctx.GetTypeInfo(arrow.Expression);
+            expr = SpanCoercion.CoerceOrSame(
+                arrow.Expression, expr, arrowTypeInfo.ConvertedType ?? arrowTypeInfo.Type, ctx);
             // async Task/Task<T> 表达式体：返回类型是 CompletableFuture，需包 completedFuture。
             if (ctx.IsInAsyncContext)
             {
@@ -399,7 +439,7 @@ public class MethodTransformer : IMemberTransformer
         {
             body.AppendLine("var __rows = new java.util.ArrayList<Arguments>();");
             foreach (var row in inlineRows)
-                body.AppendLine($"__rows.add({BuildArgumentsOf(row, ctx)});");
+                body.AppendLine($"__rows.add({BuildArgumentsOf(PadWithOptionalDefaults(row, methodDecl), ctx)});");
             foreach (var attr in memberDataAttrs)
                 AppendMemberDataRows(body, attr, ctx);
             foreach (var attr in classDataAttrs)
@@ -408,7 +448,7 @@ public class MethodTransformer : IMemberTransformer
         }
         else
         {
-            var rows = inlineRows.Select(r => BuildArgumentsOf(r, ctx)).ToList();
+            var rows = inlineRows.Select(r => BuildArgumentsOf(PadWithOptionalDefaults(r, methodDecl), ctx)).ToList();
             body.Append("return java.util.stream.Stream.of(")
                 .Append(string.Join(", ", rows))
                 .Append(");");
@@ -451,6 +491,30 @@ public class MethodTransformer : IMemberTransformer
         return name;
     }
 
+    /// <summary>
+    /// xUnit lets an InlineData row omit trailing optional parameters and fills in
+    /// the declared default; JUnit supplies no such mechanism and fails with
+    /// ParameterResolutionException. Append each omitted parameter's default
+    /// expression so the generated Arguments.of row matches the method arity.
+    /// </summary>
+    private static IReadOnlyList<ExpressionSyntax> PadWithOptionalDefaults(
+        IReadOnlyList<ExpressionSyntax> row, MethodDeclarationSyntax methodDecl)
+    {
+        var parameters = methodDecl.ParameterList.Parameters;
+        if (row.Count >= parameters.Count)
+            return row;
+
+        var padded = new List<ExpressionSyntax>(row);
+        for (int i = row.Count; i < parameters.Count; i++)
+        {
+            var defaultValue = parameters[i].Default?.Value;
+            if (defaultValue == null)
+                return row; // required parameter missing: keep xUnit's arity untouched
+            padded.Add(defaultValue);
+        }
+        return padded;
+    }
+
     private static string BuildArgumentsOf(IReadOnlyList<ExpressionSyntax> args, ConversionContext ctx)
     {
         if (args.Count == 0)
@@ -489,8 +553,15 @@ public class MethodTransformer : IMemberTransformer
         if (string.IsNullOrEmpty(memberName))
             return;
 
+        // xUnit MemberData can forward extra attribute arguments to the provider:
+        // [MemberData(nameof(Transform), nameof(TestData), 3)].
+        var extraArguments = attr.ArgumentList?.Arguments.Skip(1)
+            .Where(a => a.NameEquals == null && a.NameColon == null)
+            .Select(a => ExpressionTransformerFacade.Instance.Transform(a.Expression, ctx))
+            .ToList() ?? new List<string>();
+
         var owner = ResolveMemberDataOwner(attr, ctx);
-        var (call, resultType) = ResolveDataMemberCall(memberName!, owner, ctx);
+        var (call, resultType) = ResolveDataMemberCall(memberName!, owner, ctx, extraArguments);
         AppendEnumerationLoop(body, call, resultType, ctx);
     }
 
@@ -578,10 +649,14 @@ public class MethodTransformer : IMemberTransformer
     }
 
     private static (string Call, ITypeSymbol? ResultType) ResolveDataMemberCall(
-        string memberName, INamedTypeSymbol? owner, ConversionContext ctx)
+        string memberName, INamedTypeSymbol? owner, ConversionContext ctx,
+        IReadOnlyList<string>? extraArguments = null)
     {
+        var args = extraArguments is { Count: > 0 }
+            ? "(" + string.Join(", ", extraArguments) + ")"
+            : "()";
         if (owner == null)
-            return (memberName + "()", null);
+            return (memberName + args, null);
 
         var prefix = string.Empty;
         if (ctx.CurrentEnclosingRoslynType is { } current
@@ -595,7 +670,7 @@ public class MethodTransformer : IMemberTransformer
             switch (member)
             {
                 case IMethodSymbol method when method.MethodKind == MethodKind.Ordinary:
-                    return (prefix + GetJavaMethodName(method.Name, method, ctx) + "()", method.ReturnType);
+                    return (prefix + GetJavaMethodName(method.Name, method, ctx) + args, method.ReturnType);
                 case IPropertySymbol property:
                     return (prefix + JavaNaming.GetPropertyGetterName(ConversionContext.EscapeJavaKeyword(property.Name)) + "()",
                         property.Type);
@@ -604,7 +679,7 @@ public class MethodTransformer : IMemberTransformer
             }
         }
 
-        return (prefix + memberName + "()", null);
+        return (prefix + memberName + args, null);
     }
 
     private static bool HasSkipArgument(IEnumerable<AttributeSyntax> attributes, ConversionContext ctx)

@@ -307,7 +307,7 @@ public final class MethodInfo implements MemberInfo {
         return value;
     }
 
-    public Object invoke(Object target, java.util.List<?> args) {
+    public Object invokeWithList(Object target, java.util.List<?> args) {
         return invoke(target, args == null ? new Object[0] : args.toArray());
     }
 

@@ -437,13 +437,23 @@ internal sealed class NullableLiftAnalyzer
         NullableConversionQuadrant quadrant;
         if (!sourceNullable && targetNullable)
         {
-            // T → T? wrap; a null literal cast (source type unknown) is a wrap
-            // too. A cross-domain S → T? binds the lifted conversion with a
-            // non-nullable operand (decision 13-③ family).
-            quadrant = source == null
-                || SymbolEqualityComparer.Default.Equals(source, targetUnderlying)
-                    ? NullableConversionQuadrant.Wrap
-                    : NullableConversionQuadrant.Lifted;
+            // 引用类型（含 object/dynamic/接口）→ T? 是拆箱/引用转换，null 必须
+            // 保持 null；它不是值类型的 lifted 转换（S → T?）。这里保持源语法，
+            // 后续 Java 侧的普通 cast 对 null 天然返回 null。
+            if (source != null && !source.IsValueType)
+            {
+                quadrant = NullableConversionQuadrant.None;
+            }
+            else
+            {
+                // T → T? wrap; a null literal cast (source type unknown) is a wrap
+                // too. A cross-domain S → T? binds the lifted conversion with a
+                // non-nullable operand (decision 13-③ family).
+                quadrant = source == null
+                    || SymbolEqualityComparer.Default.Equals(source, targetUnderlying)
+                        ? NullableConversionQuadrant.Wrap
+                        : NullableConversionQuadrant.Lifted;
+            }
         }
         else if (sourceNullable && !targetNullable)
         {
