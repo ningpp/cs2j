@@ -106,10 +106,38 @@ public sealed class GenericDeepenPreprocessor
             }
         }
 
+        var ctorTokensByType = new Dictionary<SyntaxNode, ConstructorTokenPlan>();
+        var ctorTokenSites = new Dictionary<SyntaxNode, GenericDeepenParamRef>();
+        var ctorTokenCallSites = new Dictionary<SyntaxNode, IReadOnlyList<string>>();
+        foreach (var plan in _analysis.ConstructorTokens)
+        {
+            if (plan.Declaration.SyntaxTree == model.SyntaxTree)
+            {
+                ctorTokensByType[plan.Declaration] = plan;
+            }
+
+            foreach (var site in plan.TypeOfSites)
+            {
+                if (site.Site.SyntaxTree == model.SyntaxTree)
+                {
+                    ctorTokenSites[site.Site] = site.Param;
+                }
+            }
+
+            foreach (var callSite in plan.CallSites)
+            {
+                if (callSite.Creation.SyntaxTree == model.SyntaxTree)
+                {
+                    ctorTokenCallSites[callSite.Creation] = callSite.TypeArgumentTexts;
+                }
+            }
+        }
+
         if (anchorsByNode.Count == 0 && closuresByNode.Count == 0
             && patternsByNode.Count == 0 && catchesByNode.Count == 0
             && fieldDeclRemovals.Count == 0 && fieldUsages.Count == 0
-            && staticMethodsByNode.Count == 0 && staticCallSites.Count == 0)
+            && staticMethodsByNode.Count == 0 && staticCallSites.Count == 0
+            && ctorTokensByType.Count == 0 && ctorTokenSites.Count == 0 && ctorTokenCallSites.Count == 0)
         {
             stats.FilesSkippedClean = 1;
             AppendAnalysisDiagnostics(diagnostics, model);
@@ -119,7 +147,8 @@ public sealed class GenericDeepenPreprocessor
         var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
         var rewriter = new GenericDeepenRewriter(
             anchorsByNode, closuresByNode, patternsByNode, catchesByNode, fieldDeclRemovals, fieldUsages,
-            staticMethodsByNode, staticCallSites, stats, diagnostics, model);
+            staticMethodsByNode, staticCallSites, ctorTokensByType, ctorTokenSites, ctorTokenCallSites,
+            stats, diagnostics, model);
         var newRoot = rewriter.Visit(root);
         AppendAnalysisDiagnostics(diagnostics, model);
         if (newRoot == root)

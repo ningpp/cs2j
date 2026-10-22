@@ -279,10 +279,11 @@ public final class Activator {
             if (chosen == null) {
                 // The converter injects trailing Class<?> parameters into constructors
                 // of generic classes that need runtime type tokens (e.g.
-                // CollectionDebuggerProxy(CSharpICollection<T>, Class<?>)). Reflection
-                // callers that pass the original C# argument count cannot supply the
-                // extra Class<?> token. Try to match a constructor whose prefix
-                // matches the supplied args and whose suffix is all Class<?> params.
+                // CollectionDebuggerProxy(CSharpIList<T> collection, Class<?> token) for
+                // new T[] inside the class body). Reflection callers that pass the
+                // original C# argument count cannot supply the extra Class<?> token.
+                // Try to match a constructor whose prefix matches the supplied args and
+                // whose suffix is all Class<?> params.
                 Object[] expandedArgs = tryMatchInjectedClassParams(ctors, args);
                 if (expandedArgs != null) {
                     // Re-scan for the matching constructor with the expanded args.
@@ -368,7 +369,7 @@ public final class Activator {
         if (args.length != 1 || !(args[0] instanceof CSharpReadOnlyDict<?, ?> dict)) {
             return null;
         }
-        Object values = dict.values();
+        Object values = tryDictValuesQuietly(dict);
         if (values == null) {
             return null;
         }
@@ -405,6 +406,21 @@ public final class Activator {
             return expanded;
         }
         return null;
+    }
+
+    /**
+     * CSharpReadOnlyDict.values() walks the entry iterator and casts each item to
+     * CSharpKeyValuePair; dicts whose iterator yields plain values (a generated
+     * GroupCollection yields the Group/Match instances directly) throw
+     * ClassCastException. Reflection probing must not turn that pre-existing
+     * contract mismatch into a crash of the Activator path, so swallow it here.
+     */
+    private static Object tryDictValuesQuietly(CSharpReadOnlyDict<?, ?> dict) {
+        try {
+            return dict.values();
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     /**
@@ -517,6 +533,14 @@ public final class Activator {
      * argument. This is used to fill injected Class<?> parameters when the
      * caller cannot supply them (reflection-based instantiation).
      *
+     * The C# answer is the DECLARED element type (T of the collection contract),
+     * so the static generic signatures kept in the class's bytecode are consulted
+     * first: a MatchCollection declares CSharpIList&lt;Match&gt; and a GroupCollection
+     * declares CSharpReadOnlyDict&lt;String, Group&gt;, whose value argument is the
+     * element type even when the runtime items are subtypes (entry 0 of a
+     * GroupCollection is the whole Match) or the collection is empty — cases the
+     * runtime element scan below cannot answer faithfully.
+     *
      * If the collection contains elements of different runtime types (e.g.
      * Match and Group where Match extends Group), fall back to Object.class
      * to avoid ArrayStoreException. The caller (tryAsArray) can later
@@ -529,10 +553,16 @@ public final class Activator {
             if (arg == null) {
                 continue;
             }
+            // Declared-type inference from the retained generic signatures.
+            Class<?> declared = inferDeclaredElementType(arg);
+            if (declared != null) {
+                return declared;
+            }
             java.util.Collection<?> collection = null;
             // Try CSharpReadOnlyDict — get values
             if (arg instanceof CSharpReadOnlyDict<?, ?> dict) {
-                collection = (java.util.Collection<?>) dict.values();
+                Object values = tryDictValuesQuietly(dict);
+                collection = values instanceof java.util.Collection<?> coll ? coll : null;
             } else if (arg instanceof java.util.Collection<?> coll) {
                 collection = coll;
             }
@@ -563,6 +593,95 @@ public final class Activator {
             }
         }
         return null;
+    }
+
+    /**
+     * Reads the declared element type off the argument's generic interface/superclass
+     * signatures: the value argument of a CSharpReadOnlyDict&lt;K, V&gt;, or the single
+     * argument of a one-type-argument CSharp* collection contract (CSharpIList&lt;T&gt;,
+     * CSharpList&lt;T&gt;, ...). Returns null when no such signature exists — the caller
+     * falls back to the runtime element scan.
+     */
+    private static Class<?> inferDeclaredElementType(Object arg) {
+        if (arg instanceof CSharpReadOnlyDict<?, ?>) {
+            Class<?> valueArg = findGenericTypeArgument(arg.getClass(), "CSharpReadOnlyDict", -1);
+            if (valueArg != null) {
+                return valueArg;
+            }
+        }
+        // One-type-argument CSharp collection contract: try the interfaces first,
+        // then the generic superclass chain (wrapper classes extend CSharpList etc.).
+        Class<?> declared = findGenericTypeArgument(arg.getClass(), null, 0);
+        if (declared != null) {
+            return declared;
+        }
+        for (Class<?> supervisor = arg.getClass().getSuperclass();
+             supervisor != null && supervisor != Object.class;
+             supervisor = supervisor.getSuperclass()) {
+            declared = findGenericTypeArgument(supervisor, null, 0);
+            if (declared != null) {
+                return declared;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Scans the type's generic interface signatures (and, when {@code rawName} is null,
+     * the type itself) for a parameterized CSharp* contract and returns one type argument:
+     * index &gt;= 0 selects that argument, index &lt; 0 selects the LAST argument (the value
+     * type of a dictionary).
+     */
+    private static Class<?> findGenericTypeArgument(Class<?> type, String rawName, int argumentIndex) {
+        if (type == null) {
+            return null;
+        }
+        java.lang.reflect.Type[] candidates;
+        if (rawName == null) {
+            // The type itself when directly parameterized (e.g. a subclass of CSharpList<T>).
+            java.lang.reflect.Type genericSuperclass = type.getGenericSuperclass();
+            if (genericSuperclass instanceof java.lang.reflect.ParameterizedType parameterized
+                && isCSharpContract(parameterized.getRawType())) {
+                return typeArgumentOf(parameterized, argumentIndex);
+            }
+            candidates = type.getGenericInterfaces();
+        } else {
+            candidates = type.getGenericInterfaces();
+        }
+        for (java.lang.reflect.Type candidate : candidates) {
+            if (!(candidate instanceof java.lang.reflect.ParameterizedType parameterized)) {
+                continue;
+            }
+            if (rawName != null) {
+                if (!String.valueOf(((Class<?>) parameterized.getRawType()).getSimpleName()).equals(rawName)) {
+                    continue;
+                }
+            } else if (!isCSharpContract(parameterized.getRawType())) {
+                continue;
+            }
+            Class<?> argument = typeArgumentOf(parameterized, argumentIndex);
+            if (argument != null) {
+                return argument;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isCSharpContract(Object rawType) {
+        return rawType instanceof Class<?> raw
+            && raw.getSimpleName().startsWith("CSharp");
+    }
+
+    private static Class<?> typeArgumentOf(java.lang.reflect.ParameterizedType parameterized, int argumentIndex) {
+        java.lang.reflect.Type[] arguments = parameterized.getActualTypeArguments();
+        if (arguments.length == 0) {
+            return null;
+        }
+        int index = argumentIndex < 0 ? arguments.length - 1 : argumentIndex;
+        if (index >= arguments.length || !(arguments[index] instanceof Class<?> argument)) {
+            return null;
+        }
+        return argument;
     }
 
     /**

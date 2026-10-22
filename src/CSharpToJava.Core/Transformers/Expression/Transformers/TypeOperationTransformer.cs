@@ -306,12 +306,29 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             or ElementAccessExpressionSyntax or AssignmentExpressionSyntax)
         {
             var tmp = c.GenerateSyntheticName("_asExpr"); // hoist side effects, evaluate once
-            c.AddPreStatement($"var {tmp} = {e};");
+            var hoisted = $"var {tmp} = {e};";
+            if (n.Right is ArrayTypeSyntax
+                && IsPropertyGetValueInvocation(n.Left))
+            {
+                // PropertyInfo.getValue emulates .NET's Array.ToString() by wrapping array
+                // results in an ArrayPropertyWrapper; C# `GetValue(...) as T[]` sees the raw
+                // runtime array, so the hoisted value unwraps before the instanceof/cast.
+                c.AddImport("io.github.ningpp.compat.PropertyInfo");
+                hoisted = $"var {tmp} = PropertyInfo.unwrapArrayValue({e});";
+            }
+
+            c.AddPreStatement(hoisted);
             e = tmp;
         }
         var t = Map((TypeSyntax)n.Right, c);
         return $"({e} instanceof {Rt(t)} ? ({t})({e}) : null)";
     }
+
+    /// <summary>`expr.GetValue(...)` / `expr.getValue(...)` — the reflection property-value read.</summary>
+    private static bool IsPropertyGetValueInvocation(ExpressionSyntax expression)
+        => expression is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax member }
+            && member.Name is IdentifierNameSyntax name
+            && (name.Identifier.ValueText == "GetValue" || name.Identifier.ValueText == "getValue");
     private static string IsPattern(IsPatternExpressionSyntax n, ConversionContext c)
     {
         var e = Expr(c, n.Expression);

@@ -63,6 +63,43 @@ public sealed class StaticMethodPlan
     public string FilePath => Declaration.SyntaxTree.FilePath;
 }
 
+/// <summary>
+/// Generic type whose body allocates <c>new T[]</c> arrays (post-E10:
+/// <c>Array.CreateInstance(typeof(T), n)</c>) with T a class type parameter (GD-CTORARR).
+/// Every instance constructor receives a trailing <c>global::System.Type</c> parameter per
+/// needed parameter, stores it in a private field, and the triggering typeof sites read that
+/// field — so the Java side reifies the real element type (e.g. Capture.class, forwarded by
+/// compat Activator.tryMatchInjectedClassParams for reflection-created debugger proxies)
+/// instead of the erasure-degraded Object.class.
+/// </summary>
+public sealed class ConstructorTokenPlan
+{
+    public required TypeDeclarationSyntax Declaration { get; init; }
+    /// <summary>The class type parameters needing a runtime token, ordered by ordinal.</summary>
+    public required IReadOnlyList<GenericDeepenParamRef> Params { get; init; }
+    /// <summary>Triggering typeof(T) sites inside the type; each reads the injected field.</summary>
+    public required IReadOnlyList<ConstructorTokenTypeOfSite> TypeOfSites { get; init; }
+    /// <summary>Direct <c>new Proxy&lt;...&gt;(...)</c> constructions needing the token arguments.</summary>
+    public required IReadOnlyList<ConstructorTokenCallSitePlan> CallSites { get; init; }
+    /// <summary>
+    /// True when at least one call site binds to the implicitly declared default
+    /// constructor (structs): a token-only constructor is synthesized for them because
+    /// the implicit constructor cannot grow parameters.
+    /// </summary>
+    public required bool SynthesizeDefaultTokenConstructor { get; init; }
+    public string FilePath => Declaration.SyntaxTree.FilePath;
+}
+
+/// <summary>One triggering typeof(T) site plus the type parameter whose token it must read.</summary>
+public sealed record ConstructorTokenTypeOfSite(TypeOfExpressionSyntax Site, GenericDeepenParamRef Param);
+
+/// <summary>Direct construction of a planned type: the token arguments to append.</summary>
+public sealed class ConstructorTokenCallSitePlan
+{
+    public required ObjectCreationExpressionSyntax Creation { get; init; }
+    public required IReadOnlyList<string> TypeArgumentTexts { get; init; }
+}
+
 /// <summary>Whole-compilation analysis result: plans keyed by symbol, sorted by (file, span).</summary>
 public sealed class GenericDeepenAnalysis
 {
@@ -72,6 +109,7 @@ public sealed class GenericDeepenAnalysis
     public required IReadOnlyList<CatchTypeParamPlan> Catches { get; init; }
     public required IReadOnlyList<StaticFieldPlan> StaticFields { get; init; }
     public required IReadOnlyList<StaticMethodPlan> StaticMethods { get; init; }
+    public required IReadOnlyList<ConstructorTokenPlan> ConstructorTokens { get; init; }
     public required IReadOnlyList<GenericDeepenDiagnostic> Diagnostics { get; init; }
     public required GenericDeepenStatistics Statistics { get; init; }
 
@@ -100,6 +138,7 @@ public sealed class GenericDeepenAnalysis
         Catches = Array.Empty<CatchTypeParamPlan>(),
         StaticFields = Array.Empty<StaticFieldPlan>(),
         StaticMethods = Array.Empty<StaticMethodPlan>(),
+        ConstructorTokens = Array.Empty<ConstructorTokenPlan>(),
         Diagnostics = Array.Empty<GenericDeepenDiagnostic>(),
         Statistics = new GenericDeepenStatistics(),
         ActiveFilePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
@@ -244,6 +283,7 @@ public sealed class GenericDeepenAnalyzer
                 Catches = Array.Empty<CatchTypeParamPlan>(),
                 StaticFields = Array.Empty<StaticFieldPlan>(),
                 StaticMethods = Array.Empty<StaticMethodPlan>(),
+                ConstructorTokens = Array.Empty<ConstructorTokenPlan>(),
                 Diagnostics = Array.Empty<GenericDeepenDiagnostic>(),
                 Statistics = new GenericDeepenStatistics(),
                 ActiveFilePaths = _activeFilePaths,
@@ -263,6 +303,7 @@ public sealed class GenericDeepenAnalyzer
             || _families.Values.Any(members => members.Count(m => m.IsGenericMethod) >= 2);
         CollectStaticFieldPlans();
         CollectStaticMethodPlans();
+        CollectConstructorTokenCallSites();
 
         var anchors = new List<TokenAnchorPlan>();
         foreach (var (method, needs) in _needs)
@@ -327,6 +368,7 @@ public sealed class GenericDeepenAnalyzer
             Catches = _catches,
             StaticFields = _staticFields,
             StaticMethods = _staticMethods,
+            ConstructorTokens = BuildConstructorTokenPlans(),
             Diagnostics = EscalateDiagnostics(_diagnostics, _options),
             Statistics = _analysisStats,
             ActiveFilePaths = _activeFilePaths,
@@ -1323,6 +1365,285 @@ public sealed class GenericDeepenAnalyzer
         {
             CollectForwardEdge(invocation, model);
         }
+
+        // GD-CTORARR: `new T[]` allocations (post-E10: Array.CreateInstance(typeof(T), n))
+        // inside generic types get their token from an injected constructor parameter
+        // instead of the erasure-degraded Object.class.
+        if (_options.RewriteTypeOfAnchors)
+        {
+            foreach (var typeOf in root.DescendantNodes().OfType<TypeOfExpressionSyntax>())
+            {
+                CollectConstructorArrayTokenNeed(typeOf, model);
+            }
+        }
+    }
+
+    // ---- GD-CTORARR: constructor token parameters for new T[] allocations ----
+
+    private sealed class ConstructorTokenBuilder
+    {
+        public required TypeDeclarationSyntax Declaration { get; init; }
+        public required INamedTypeSymbol Symbol { get; init; }
+        public SortedSet<GenericDeepenParamRef> Params { get; } = new(ParamRefComparer.Instance);
+        public List<ConstructorTokenTypeOfSite> Sites { get; } = new();
+        public Dictionary<ObjectCreationExpressionSyntax, IReadOnlyList<string>> CallSites { get; } = new();
+        public bool HasImplicitDefaultCreation { get; set; }
+    }
+
+    private readonly Dictionary<SyntaxNode, ConstructorTokenBuilder> _ctorTokenBuilders = new();
+    private readonly Dictionary<INamedTypeSymbol, ConstructorTokenBuilder> _ctorTokenBuildersBySymbol =
+        new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    /// Registers one <c>Array.CreateInstance(typeof(T), ...)</c> site (the E10 lowering of
+    /// <c>new T[]</c>) whose T is a CLASS type parameter: the declaring type plans trailing
+    /// constructor token parameters and the site reads the injected field. Method/local-function
+    /// type parameters keep their method-anchor path; static members and field initializers
+    /// cannot read an instance field and are left as-is with a warning (previous behaviour).
+    /// </summary>
+    private void CollectConstructorArrayTokenNeed(TypeOfExpressionSyntax typeOf, SemanticModel model)
+    {
+        // Trigger shape: first argument of an Array.CreateInstance(...) invocation.
+        if (typeOf.Parent is not ArgumentSyntax argument
+            || argument.Parent is not ArgumentListSyntax argumentList
+            || argumentList.Arguments.Count == 0
+            || argumentList.Arguments[0] != argument
+            || argumentList.Parent is not InvocationExpressionSyntax invocation
+            || invocation.ArgumentList != argumentList
+            || invocation.Expression is not MemberAccessExpressionSyntax { Name: IdentifierNameSyntax memberName }
+            || memberName.Identifier.ValueText != "CreateInstance")
+        {
+            return;
+        }
+
+        if (model.GetSymbolInfo(invocation.Expression).Symbol is not IMethodSymbol createInstance
+            || createInstance.ContainingType.SpecialType != SpecialType.System_Array)
+        {
+            return;
+        }
+
+        if (model.GetTypeInfo(typeOf.Type).Type is not ITypeParameterSymbol typeParameter
+            || typeParameter.DeclaringMethod != null)
+        {
+            // Method/local-function parameters already have the anchor path (GD-ANCHOR/GD-NEST).
+            return;
+        }
+
+        var filePath = typeOf.SyntaxTree.FilePath;
+        var line = typeOf.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+
+        var declaringType = typeParameter.DeclaringType?.OriginalDefinition;
+        if (declaringType == null) return;
+
+        // The declaration part carrying the type-parameter list this site resolves to.
+        var typeDecl = declaringType.DeclaringSyntaxReferences
+            .Select(reference => reference.GetSyntax())
+            .OfType<TypeDeclarationSyntax>()
+            .FirstOrDefault(declaration => declaration.TypeParameterList != null
+                && declaration.TypeParameterList.Parameters.Count > typeParameter.Ordinal
+                && declaration.TypeParameterList.Parameters[typeParameter.Ordinal].Identifier.ValueText == typeParameter.Name);
+        if (typeDecl == null) return;
+
+        // The injected field lives on the declaring type; a site inside a nested type
+        // (separate class after Java lowering) cannot read it.
+        if (typeOf.SyntaxTree != typeDecl.SyntaxTree
+            || typeOf.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault() != typeDecl)
+        {
+            _diagnostics.Add(new GenericDeepenDiagnostic(
+                GenericDeepenSeverity.Warning, GenericDeepenRule.Anchor, GenericDeepenCodes.UndecidableSite,
+                $"new T[] token for type parameter '{typeParameter.Name}' is needed inside a nested type; " +
+                "the constructor-token rewrite is left out and the site keeps the erasure-degraded token.",
+                filePath, line));
+            return;
+        }
+
+        // Instance field initializers cannot reference `this`; static members have no instance field.
+        foreach (var ancestor in typeOf.Ancestors())
+        {
+            if (ancestor == typeDecl) break;
+            if (ancestor is FieldDeclarationSyntax or EventFieldDeclarationSyntax)
+            {
+                _diagnostics.Add(new GenericDeepenDiagnostic(
+                    GenericDeepenSeverity.Warning, GenericDeepenRule.Anchor, GenericDeepenCodes.UndecidableSite,
+                    $"new T[] token for type parameter '{typeParameter.Name}' in a field initializer cannot read the " +
+                    "injected constructor token; the site keeps the erasure-degraded token.",
+                    filePath, line));
+                return;
+            }
+
+            if (ancestor is ConstructorDeclarationSyntax ancestorCtor)
+            {
+                if (ancestorCtor.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)))
+                {
+                    _diagnostics.Add(new GenericDeepenDiagnostic(
+                        GenericDeepenSeverity.Warning, GenericDeepenRule.Anchor, GenericDeepenCodes.UndecidableSite,
+                        $"new T[] token for type parameter '{typeParameter.Name}' in a static constructor cannot read " +
+                        "the injected instance token; the site keeps the erasure-degraded token.",
+                        filePath, line));
+                    return;
+                }
+
+                break;
+            }
+
+            if (ancestor is MethodDeclarationSyntax ancestorMethod)
+            {
+                if (ancestorMethod.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)))
+                {
+                    _diagnostics.Add(new GenericDeepenDiagnostic(
+                        GenericDeepenSeverity.Warning, GenericDeepenRule.Anchor, GenericDeepenCodes.UndecidableSite,
+                        $"new T[] token for type parameter '{typeParameter.Name}' in a static method cannot read the " +
+                        "injected instance token; the site keeps the erasure-degraded token.",
+                        filePath, line));
+                    return;
+                }
+
+                break;
+            }
+
+            if (ancestor is AccessorDeclarationSyntax
+                && ancestor.Parent?.Parent is BasePropertyDeclarationSyntax propertyDeclaration
+                && propertyDeclaration.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)))
+            {
+                _diagnostics.Add(new GenericDeepenDiagnostic(
+                    GenericDeepenSeverity.Warning, GenericDeepenRule.Anchor, GenericDeepenCodes.UndecidableSite,
+                    $"new T[] token for type parameter '{typeParameter.Name}' in a static accessor cannot read the " +
+                    "injected instance token; the site keeps the erasure-degraded token.",
+                    filePath, line));
+                return;
+            }
+        }
+
+        if (!_ctorTokenBuilders.TryGetValue(typeDecl, out var builder))
+        {
+            builder = new ConstructorTokenBuilder
+            {
+                Declaration = typeDecl,
+                Symbol = declaringType,
+            };
+            _ctorTokenBuilders[typeDecl] = builder;
+            _ctorTokenBuildersBySymbol[declaringType] = builder;
+        }
+
+        var paramRef = new GenericDeepenParamRef(GenericDeepenParamKind.ClassTypeParameter, typeParameter.Ordinal, typeParameter.Name);
+        if (builder.Params.Add(paramRef))
+        {
+            _analysisStats.ConstructorTokenTypesPlanned++;
+        }
+
+        builder.Sites.Add(new ConstructorTokenTypeOfSite(typeOf, paramRef));
+    }
+
+    /// <summary>
+    /// Direct <c>new Proxy&lt;...&gt;(...)</c> constructions of a planned type: each gets the
+    /// trailing token arguments (<c>typeof(Capture)</c> etc.) so declaration and call sites stay
+    /// in sync. Runs after every tree's typeof walk so cross-file call sites see all plans.
+    /// </summary>
+    private void CollectConstructorTokenCallSites()
+    {
+        if (_ctorTokenBuildersBySymbol.Count == 0) return;
+
+        // ALL trees, not just the active set: the active-tree gate is safe for token sites
+        // (a typeof(T) always shares its file with the type-parameter declaration) but a
+        // `new Proxy<...>(...)` call site can live in any file of the compilation.
+        foreach (var tree in _compilation.SyntaxTrees)
+        {
+            var model = _compilation.GetSemanticModel(tree);
+            foreach (var creation in tree.GetRoot().DescendantNodes().OfType<ObjectCreationExpressionSyntax>())
+            {
+                if (model.GetTypeInfo(creation).Type is not INamedTypeSymbol constructed
+                    || !constructed.IsGenericType
+                    || constructed.TypeArguments.IsDefaultOrEmpty)
+                {
+                    continue;
+                }
+
+                if (!_ctorTokenBuildersBySymbol.TryGetValue(constructed.OriginalDefinition, out var builder))
+                {
+                    continue;
+                }
+
+                if (builder.CallSites.ContainsKey(creation)) continue;
+
+                // A creation binding to the implicitly declared default constructor (structs)
+                // cannot grow parameters: flag the plan to synthesize a token-only constructor.
+                if (model.GetSymbolInfo(creation).Symbol is IMethodSymbol creationCtor
+                    && creationCtor.IsImplicitlyDeclared)
+                {
+                    builder.HasImplicitDefaultCreation = true;
+                }
+
+                var typeArgumentTexts = new List<string>();
+                foreach (var param in builder.Params)
+                {
+                    if (creation.Type is GenericNameSyntax generic
+                        && generic.TypeArgumentList.Arguments.Count == constructed.TypeArguments.Length
+                        && generic.TypeArgumentList.Arguments.Count > param.Ordinal)
+                    {
+                        // The call site's own spelling resolves in this file's namespace context.
+                        typeArgumentTexts.Add(generic.TypeArgumentList.Arguments[param.Ordinal].ToString());
+                    }
+                    else
+                    {
+                        // Target-typed new() / qualified names: fall back to the resolved symbol.
+                        typeArgumentTexts.Add(constructed.TypeArguments[param.Ordinal].ToDisplayString());
+                    }
+                }
+
+                builder.CallSites[creation] = typeArgumentTexts;
+            }
+        }
+    }
+
+    private List<ConstructorTokenPlan> BuildConstructorTokenPlans()
+    {
+        var plans = new List<ConstructorTokenPlan>();
+        foreach (var builder in _ctorTokenBuilders.Values)
+        {
+            var declaration = builder.Declaration;
+            var filePath = declaration.SyntaxTree.FilePath;
+            var line = declaration.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+
+            if (declaration.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
+            {
+                _diagnostics.Add(new GenericDeepenDiagnostic(
+                    GenericDeepenSeverity.Warning, GenericDeepenRule.Anchor, GenericDeepenCodes.UndecidableSite,
+                    $"Type '{declaration.Identifier.Text}' plans constructor token parameters but is partial; the " +
+                    "other part's constructors would desynchronize, so the rewrite is skipped.",
+                    filePath, line));
+                _analysisStats.PlansSkipped++;
+                continue;
+            }
+
+            var hasInstanceCtor = declaration.Members.OfType<ConstructorDeclarationSyntax>()
+                .Any(ctor => !ctor.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)));
+            if (!hasInstanceCtor)
+            {
+                _diagnostics.Add(new GenericDeepenDiagnostic(
+                    GenericDeepenSeverity.Warning, GenericDeepenRule.Anchor, GenericDeepenCodes.UndecidableSite,
+                    $"Type '{declaration.Identifier.Text}' needs a new T[] token but declares no instance constructor " +
+                    "to carry the injected token parameter; the rewrite is skipped.",
+                    filePath, line));
+                _analysisStats.PlansSkipped++;
+                continue;
+            }
+
+            plans.Add(new ConstructorTokenPlan
+            {
+                Declaration = declaration,
+                Params = builder.Params.ToList(),
+                TypeOfSites = builder.Sites,
+                CallSites = builder.CallSites
+                    .Select(kv => new ConstructorTokenCallSitePlan { Creation = kv.Key, TypeArgumentTexts = kv.Value })
+                    .ToList(),
+                SynthesizeDefaultTokenConstructor = builder.HasImplicitDefaultCreation,
+            });
+        }
+
+        plans.Sort((a, b) => string.CompareOrdinal(a.FilePath, b.FilePath) != 0
+            ? string.CompareOrdinal(a.FilePath, b.FilePath)
+            : a.Declaration.SpanStart.CompareTo(b.Declaration.SpanStart));
+        return plans;
     }
 
     private IEnumerable<GenericDeepenParamRef> CollectDirectNeeds(

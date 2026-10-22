@@ -12,6 +12,7 @@ public static class GenericDeepenSyntaxFacts
     public const string GeneratedFileStem = "_Cs2jGenericHolders";
     public const string HolderGetAccessorPrefix = "__cs2j_get_";
     public const string HolderSetAccessorPrefix = "__cs2j_set_";
+    public const string ClassTokenPrefix = "__cs2j_class_";
 
     public static bool IsHolderAccessorName(string name)
         => name.StartsWith(HolderGetAccessorPrefix, StringComparison.Ordinal)
@@ -20,6 +21,15 @@ public static class GenericDeepenSyntaxFacts
     public static string AnchorVariableName(string typeParamName) => AnchorPrefix + typeParamName;
 
     public static string E10SentinelVariableName(string typeParamName) => E10SentinelPrefix + typeParamName;
+
+    /// <summary>
+    /// Constructor-parameter/field name carrying the runtime token for a class type
+    /// parameter (GD-CTORARR: the <c>new T[]</c> fix). The same spelling is used for
+    /// the injected field and the trailing constructor parameter so the constructor
+    /// body assignment reads <c>this.__cs2j_class_T = __cs2j_class_T;</c> in both C#
+    /// (parameter shadows field) and the emitted Java.
+    /// </summary>
+    public static string ClassTokenVariableName(string typeParamName) => ClassTokenPrefix + typeParamName;
 
     /// <summary>Holder class name for a containing type, e.g. "Outer`1+Inner" → "Outer_1_Inner".</summary>
     public static string HolderTypeName(string containingTypeMetadataName)

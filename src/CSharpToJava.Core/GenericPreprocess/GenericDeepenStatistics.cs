@@ -21,6 +21,11 @@ public sealed class GenericDeepenStatistics
     public int NestedPropagations;
     public int ExpressionTreeSitesSkipped;
     public int PlansSkipped;
+    public int ConstructorTokenTypesPlanned;
+    public int ConstructorTokenTypesRewritten;
+    public int ConstructorTokenParamsInjected;
+    public int ConstructorTokenSitesRewritten;
+    public int ConstructorTokenCallSitesUpdated;
     public Dictionary<string, int> SkippedByReason { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, int> ResidualsByRule { get; } = new(StringComparer.Ordinal);
 
@@ -42,6 +47,11 @@ public sealed class GenericDeepenStatistics
         NestedPropagations += source.NestedPropagations;
         ExpressionTreeSitesSkipped += source.ExpressionTreeSitesSkipped;
         PlansSkipped += source.PlansSkipped;
+        ConstructorTokenTypesPlanned += source.ConstructorTokenTypesPlanned;
+        ConstructorTokenTypesRewritten += source.ConstructorTokenTypesRewritten;
+        ConstructorTokenParamsInjected += source.ConstructorTokenParamsInjected;
+        ConstructorTokenSitesRewritten += source.ConstructorTokenSitesRewritten;
+        ConstructorTokenCallSitesUpdated += source.ConstructorTokenCallSitesUpdated;
         MergeCounters(SkippedByReason, source.SkippedByReason);
         MergeCounters(ResidualsByRule, source.ResidualsByRule);
     }
@@ -53,6 +63,9 @@ public sealed class GenericDeepenStatistics
            $"{CatchTypeParamsRewritten} catches, {StaticMethodsRewritten} static methods, " +
            $"{StaticFieldAccessesRewritten} field accesses, {CallSitesUpdated} call sites, " +
            $"{ExpressionTreeSitesSkipped} expression-tree skips, {PlansSkipped} plans skipped, " +
+           $"{ConstructorTokenTypesRewritten} ctor-token types, " +
+           $"{ConstructorTokenSitesRewritten} ctor-token sites, " +
+           $"{ConstructorTokenCallSitesUpdated} ctor-token call sites, " +
            $"{ResidualsByRule.Values.Sum()} residuals)";
 
     private static void MergeCounters(Dictionary<string, int> target, Dictionary<string, int> source)

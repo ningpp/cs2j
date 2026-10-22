@@ -241,8 +241,10 @@ public final class PropertyInfo implements MemberInfo {
     }
 
     /**
-     * getValue() wraps array results so their toString() matches C# array semantics;
-     * consumers that need the raw array (casts, deep comparisons) unwrap via this helper.
+     * getValue() wraps array results so their toString() matches .NET Array.ToString()
+     * (the type name, e.g. "System.String[]") — converted call sites compare property
+     * values via toString(). Consumers that need the raw array (the `as T[]` casts the
+     * converter emits for GetValue results unwrap through this helper) unwrap here.
      */
     public static Object unwrapArrayValue(Object value) {
         if (value instanceof ArrayPropertyWrapper wrapper) {

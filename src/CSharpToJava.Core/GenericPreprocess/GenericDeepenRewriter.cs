@@ -15,6 +15,9 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<SyntaxNode, StaticFieldUsagePlan> _fieldUsages;
     private readonly Dictionary<SyntaxNode, StaticMethodPlan> _staticMethodsByNode;
     private readonly Dictionary<SyntaxNode, StaticMethodCallSitePlan> _staticCallSites;
+    private readonly Dictionary<SyntaxNode, ConstructorTokenPlan> _ctorTokensByType;
+    private readonly Dictionary<SyntaxNode, GenericDeepenParamRef> _ctorTokenSites;
+    private readonly Dictionary<SyntaxNode, IReadOnlyList<string>> _ctorTokenCallSites;
     private readonly GenericDeepenStatistics _stats;
     private readonly List<GenericDeepenDiagnostic> _diagnostics;
     private readonly SemanticModel _model;
@@ -28,6 +31,9 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         Dictionary<SyntaxNode, StaticFieldUsagePlan> fieldUsages,
         Dictionary<SyntaxNode, StaticMethodPlan> staticMethodsByNode,
         Dictionary<SyntaxNode, StaticMethodCallSitePlan> staticCallSites,
+        Dictionary<SyntaxNode, ConstructorTokenPlan> ctorTokensByType,
+        Dictionary<SyntaxNode, GenericDeepenParamRef> ctorTokenSites,
+        Dictionary<SyntaxNode, IReadOnlyList<string>> ctorTokenCallSites,
         GenericDeepenStatistics stats,
         List<GenericDeepenDiagnostic> diagnostics,
         SemanticModel model)
@@ -40,6 +46,9 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         _fieldUsages = fieldUsages;
         _staticMethodsByNode = staticMethodsByNode;
         _staticCallSites = staticCallSites;
+        _ctorTokensByType = ctorTokensByType;
+        _ctorTokenSites = ctorTokenSites;
+        _ctorTokenCallSites = ctorTokenCallSites;
         _stats = stats;
         _diagnostics = diagnostics;
         _model = model;
@@ -227,6 +236,137 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
 
         var newBody = visited.Body.WithStatements(visited.Body.Statements.InsertRange(0, toInsert));
         return visited.WithBody(newBody);
+    }
+
+    // ---- GD-CTORARR: constructor token parameters for new T[] allocations ----
+
+    public override SyntaxNode? VisitTypeOfExpression(TypeOfExpressionSyntax node)
+    {
+        // Triggering Array.CreateInstance(typeof(T), ...) sites read the injected field
+        // instead of the erasure-degraded token.
+        if (_ctorTokenSites.TryGetValue(node, out var param))
+        {
+            _stats.ConstructorTokenSitesRewritten++;
+            return SyntaxFactory.ParseExpression($"this.{GenericDeepenSyntaxFacts.ClassTokenVariableName(param.Name)}")
+                .WithTriviaFrom(node);
+        }
+
+        return base.VisitTypeOfExpression(node);
+    }
+
+    public override SyntaxNode? VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
+    {
+        var visited = (ObjectCreationExpressionSyntax)base.VisitObjectCreationExpression(node)!;
+        if (!_ctorTokenCallSites.TryGetValue(node, out var typeArgumentTexts))
+        {
+            return visited;
+        }
+
+        _stats.ConstructorTokenCallSitesUpdated++;
+        var extraArguments = typeArgumentTexts.Select(text => SyntaxFactory.Argument(
+            SyntaxFactory.ParseExpression($"typeof({text})")));
+        var argumentList = visited.ArgumentList == null
+            ? SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(extraArguments))
+            : visited.ArgumentList.WithArguments(SyntaxFactory.SeparatedList(
+                visited.ArgumentList.Arguments.Concat(extraArguments)));
+        return visited.WithArgumentList(argumentList);
+    }
+
+    public override SyntaxNode? VisitClassDeclaration(ClassDeclarationSyntax node)
+        => ApplyConstructorTokenPlan(node, base.VisitClassDeclaration(node));
+
+    public override SyntaxNode? VisitStructDeclaration(StructDeclarationSyntax node)
+        => ApplyConstructorTokenPlan(node, base.VisitStructDeclaration(node));
+
+    public override SyntaxNode? VisitRecordDeclaration(RecordDeclarationSyntax node)
+        => ApplyConstructorTokenPlan(node, base.VisitRecordDeclaration(node));
+
+    /// <summary>
+    /// Applies one GD-CTORARR plan to its type declaration: private token field per
+    /// parameter, then every instance constructor gains the trailing token parameters and
+    /// the leading field assignments. The field is deliberately NOT readonly: a Java final
+    /// field cannot be assigned in a this()-chaining constructor, which C# allows.
+    /// </summary>
+    private SyntaxNode? ApplyConstructorTokenPlan(TypeDeclarationSyntax original, SyntaxNode? visited)
+    {
+        if (visited is not TypeDeclarationSyntax visitedType
+            || !_ctorTokensByType.TryGetValue(original, out var plan))
+        {
+            return visited;
+        }
+
+        var members = new List<MemberDeclarationSyntax>();
+        foreach (var param in plan.Params)
+        {
+            var fieldName = GenericDeepenSyntaxFacts.ClassTokenVariableName(param.Name);
+            members.Add(SyntaxFactory.ParseMemberDeclaration(
+                $"private global::System.Type {fieldName};")!);
+        }
+
+        var ctorCount = 0;
+        foreach (var member in visitedType.Members)
+        {
+            var rewrittenMember = member;
+            if (rewrittenMember is ConstructorDeclarationSyntax ctor
+                && !ctor.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)))
+            {
+                ctorCount++;
+                rewrittenMember = AppendConstructorTokenParams(ctor, plan);
+            }
+
+            members.Add(rewrittenMember);
+        }
+
+        if (plan.SynthesizeDefaultTokenConstructor)
+        {
+            members.Add(BuildDefaultTokenConstructor(visitedType, plan));
+        }
+
+        _stats.ConstructorTokenTypesRewritten++;
+        _stats.ConstructorTokenParamsInjected += plan.Params.Count * Math.Max(ctorCount, 1);
+        return visitedType.WithMembers(SyntaxFactory.List(members));
+    }
+
+    /// <summary>
+    /// Token-only constructor for call sites that bind to the implicitly declared default
+    /// constructor (structs): it chains <c>: this()</c> and stores the tokens, so those
+    /// creations can pass <c>typeof(T)</c> without clashing with the implicit arity.
+    /// </summary>
+    private static MemberDeclarationSyntax BuildDefaultTokenConstructor(
+        TypeDeclarationSyntax type,
+        ConstructorTokenPlan plan)
+    {
+        var tokenNames = plan.Params
+            .Select(param => GenericDeepenSyntaxFacts.ClassTokenVariableName(param.Name))
+            .ToList();
+        var parameterList = string.Join(", ", tokenNames.Select(name => $"global::System.Type {name}"));
+        var assignments = string.Join(" ", tokenNames.Select(name => $"this.{name} = {name};"));
+        var isStruct = type is StructDeclarationSyntax
+            || (type is RecordDeclarationSyntax record && record.ClassOrStructKeyword.IsKind(SyntaxKind.StructKeyword));
+        var thisChain = isStruct ? " : this()" : string.Empty;
+        return SyntaxFactory.ParseMemberDeclaration(
+            $"public {type.Identifier.Text}({parameterList}){thisChain} {{ {assignments} }}")!;
+    }
+
+    private static ConstructorDeclarationSyntax AppendConstructorTokenParams(
+        ConstructorDeclarationSyntax ctor,
+        ConstructorTokenPlan plan)
+    {
+        var parameters = new List<ParameterSyntax>(ctor.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>());
+        var assignments = new List<StatementSyntax>();
+        foreach (var param in plan.Params)
+        {
+            var tokenName = GenericDeepenSyntaxFacts.ClassTokenVariableName(param.Name);
+            // The parameter shadows the same-named field: `this.X = X` reads the parameter.
+            parameters.Add(SyntaxFactory.ParseParameterList($"(global::System.Type {tokenName})").Parameters[0]);
+            assignments.Add(SyntaxFactory.ParseStatement($"this.{tokenName} = {tokenName};"));
+        }
+
+        var updated = ctor.WithParameterList(
+            (ctor.ParameterList ?? SyntaxFactory.ParameterList())
+                .WithParameters(SyntaxFactory.SeparatedList(parameters)));
+        var body = updated.Body ?? SyntaxFactory.Block();
+        return updated.WithBody(body.WithStatements(SyntaxFactory.List(assignments.Concat(body.Statements))));
     }
 
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
