@@ -14,6 +14,28 @@ public abstract class ByRef<T>
     public static ByRef<T> Create(T[] array, int index) => new ArrayElementByRef<T>(array, index);
     // 字段/静态字段/值参成员链别名：访问器闭包，读写穿透
     public static ByRef<T> Create(Func<T> getter, Action<T> setter) => new AccessorByRef<T>(getter, setter);
+
+    // ── out 值类型读回（Java 半区 null→default 桥）───────────────────────────
+    // C# out 合约保证被调方返回前必然赋值，值类型槽内只可能是写入值或 default(T)，
+    // 读回无条件解箱永远安全。Java 泛型擦除下，泛型被调方（如 TryGetValue<T> 的
+    // 失败路径 value = default）只能把 null 写进槽里，调用点无条件解箱就会 NPE。
+    // 因此值类型 out 拷回经由这些 ReadbackX 发射（RefOutInStatementLifter）：
+    // C# 侧无 null 可言，直接透传；Java 半区（io.github.ningpp.compat.ByRef 的
+    // readbackX）把 null 映射回对应基本类型的默认值，等价还原 default(T) 语义。
+    // 两半区按槽的实例化类型一一对应（C# uint/byte→Java int、ushort→Java short 等
+    // 宽化映射已在下方重载中就位）。
+    public static int ReadbackInt(ByRef<int> slot) => slot.Value;
+    public static int ReadbackInt(ByRef<uint> slot) => (int)slot.Value;
+    public static int ReadbackInt(ByRef<byte> slot) => slot.Value;
+    public static short ReadbackShort(ByRef<short> slot) => slot.Value;
+    public static short ReadbackShort(ByRef<ushort> slot) => (short)slot.Value;
+    public static byte ReadbackByte(ByRef<sbyte> slot) => (byte)slot.Value;
+    public static long ReadbackLong(ByRef<long> slot) => slot.Value;
+    public static long ReadbackLong(ByRef<ulong> slot) => (long)slot.Value;
+    public static char ReadbackChar(ByRef<char> slot) => slot.Value;
+    public static bool ReadbackBool(ByRef<bool> slot) => slot.Value;
+    public static float ReadbackFloat(ByRef<float> slot) => slot.Value;
+    public static double ReadbackDouble(ByRef<double> slot) => slot.Value;
 }
 
 internal sealed class SlotByRef<T> : ByRef<T>

@@ -134,4 +134,39 @@ public abstract class ByRef<T> {
         @Override public T getValue() { return getter.get(); }
         @Override public void setValue(T v) { setter.accept(v); }
     }
+
+    // ── out value-type readback (null → default bridge) ─────────────────────
+    // The C# out contract guarantees the callee assigns before returning, so a
+    // value-type slot can only hold the written value or default(T) and the
+    // call-site copy-back may unbox unconditionally. Under Java generic
+    // erasure a generic callee's failure path (`value = default`, e.g.
+    // HashtableExtensions.TryGetValue) can only write null into the slot, so
+    // the value-type copy-back goes through these readbackX helpers: null maps
+    // back to the primitive default, restoring default(T) exactly. Mirrors the
+    // Cs2jByRef.ByRef<T>.ReadbackX statics slot-type for slot-type
+    // (C# uint/byte widen to Java int, ushort to short, etc.).
+
+    /** out int copy-back; null (erased default(T)) maps to 0. */
+    public static int readbackInt(ByRef<Integer> slot) { Integer v = slot.getValue(); return v != null ? v : 0; }
+
+    /** out long copy-back; null (erased default(T)) maps to 0L. */
+    public static long readbackLong(ByRef<Long> slot) { Long v = slot.getValue(); return v != null ? v : 0L; }
+
+    /** out short copy-back; null (erased default(T)) maps to (short)0. */
+    public static short readbackShort(ByRef<Short> slot) { Short v = slot.getValue(); return v != null ? v : (short) 0; }
+
+    /** out sbyte copy-back; null (erased default(T)) maps to (byte)0. */
+    public static byte readbackByte(ByRef<Byte> slot) { Byte v = slot.getValue(); return v != null ? v : (byte) 0; }
+
+    /** out char copy-back; null (erased default(T)) maps to '\0'. */
+    public static char readbackChar(ByRef<Character> slot) { Character v = slot.getValue(); return v != null ? v : '\0'; }
+
+    /** out bool copy-back; null (erased default(T)) maps to false. */
+    public static boolean readbackBool(ByRef<Boolean> slot) { Boolean v = slot.getValue(); return v != null ? v : false; }
+
+    /** out float copy-back; null (erased default(T)) maps to 0.0f. */
+    public static float readbackFloat(ByRef<Float> slot) { Float v = slot.getValue(); return v != null ? v : 0.0f; }
+
+    /** out double copy-back; null (erased default(T)) maps to 0.0. */
+    public static double readbackDouble(ByRef<Double> slot) { Double v = slot.getValue(); return v != null ? v : 0.0; }
 }

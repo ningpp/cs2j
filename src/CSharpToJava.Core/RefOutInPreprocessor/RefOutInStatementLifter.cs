@@ -430,7 +430,7 @@ internal sealed class RefOutInStatementLifter
                 .WithAdditionalAnnotations(RootDeclarationAnnotation));
             var slot = Temp("__out");
             return (ParseStmt($"ByRef<{paramType}> {slot} = ByRef<{paramType}>.Create();"),
-                ParseStmt($"{varName} = {slot}.Value;"),
+                ParseStmt(ReadbackStatement(varName, slot, paramTypeSymbol)),
                 SyntaxFactory.Argument(Identifier(slot)));
         }
 
@@ -483,12 +483,16 @@ internal sealed class RefOutInStatementLifter
                     ? $"ByRef<{paramType}>.Create()"
                     : $"ByRef<{paramType}>.Create({target})";
                 return (ParseStmt($"ByRef<{paramType}> {slot} = {ctor};"),
-                    ParseStmt($"{target} = {slot}.Value;"),
+                    ParseStmt(isOut
+                        ? ReadbackStatement(target, slot, paramTypeSymbol)
+                        : $"{target} = {slot}.Value;"),
                     SyntaxFactory.Argument(Identifier(slot)));
             }
 
             var innerType = _owner.TypeDisplay(arrayType.ElementType);
-            var readback = isOut ? ParseStmt($"{target} = {slot}.Value;") : null;
+            var readback = isOut
+                ? ParseStmt(ReadbackStatement(target, slot, arrayType.ElementType))
+                : null;
             _owner.Stats.ArrayElementProxies++;
             return (ParseStmt($"ByRef<{innerType}> {slot} = ByRef<{innerType}>.Create({baseExpr}, {indexText});"),
                 readback, SyntaxFactory.Argument(Identifier(slot)));
@@ -504,8 +508,9 @@ internal sealed class RefOutInStatementLifter
                 // Slot + read-back: never captures the variable, so unassigned
                 // locals stay legal (no CS0165 through the getter closure).
                 var slot = Temp("__out");
+                var readbackType = _owner.GetTypeOf(expr) ?? paramTypeSymbol;
                 return (ParseStmt($"ByRef<{paramType}> {slot} = ByRef<{paramType}>.Create();"),
-                    ParseStmt($"{target} = {slot}.Value;"),
+                    ParseStmt(ReadbackStatement(target, slot, readbackType)),
                     SyntaxFactory.Argument(Identifier(slot)));
             }
 
@@ -526,6 +531,49 @@ internal sealed class RefOutInStatementLifter
         // (7) anything else — fail fast with a readable diagnostic
         Report3303(arg.Expression, "unsupported ref/out argument shape");
         return (null, null, arg);
+    }
+
+    /// <summary>
+    /// Java primitive mapped from a C# value type, keyed by the converter's
+    /// primitive widening rules (byte→int, uint→int, ushort→short, ulong→long …).
+    /// Null when the type has no null→default readback (reference types, enums,
+    /// custom structs, decimal, IntPtr, nullable — null is legitimate there).
+    /// </summary>
+    private static readonly Dictionary<SpecialType, string> ReadbackHelperBySpecialType = new()
+    {
+        [SpecialType.System_Int32] = "ReadbackInt",
+        [SpecialType.System_UInt32] = "ReadbackInt",     // uint → Java int
+        [SpecialType.System_Byte] = "ReadbackInt",       // byte → Java int
+        [SpecialType.System_Int16] = "ReadbackShort",
+        [SpecialType.System_UInt16] = "ReadbackShort",   // ushort → Java short
+        [SpecialType.System_SByte] = "ReadbackByte",
+        [SpecialType.System_Int64] = "ReadbackLong",
+        [SpecialType.System_UInt64] = "ReadbackLong",    // ulong → Java long
+        [SpecialType.System_Char] = "ReadbackChar",
+        [SpecialType.System_Boolean] = "ReadbackBool",
+        [SpecialType.System_Single] = "ReadbackFloat",
+        [SpecialType.System_Double] = "ReadbackDouble",
+    };
+
+    /// <summary>
+    /// Copy-back statement for a lifted <c>out</c> argument. Value-type targets
+    /// route through <c>ByRef&lt;T&gt;.ReadbackX(slot)</c>: the C# out contract
+    /// guarantees the callee assigns before returning, so the slot can only hold
+    /// the written value or default(T) — but under Java generic erasure a
+    /// generic callee's failure path (<c>value = default</c>, e.g.
+    /// HashtableExtensions.TryGetValue) can only write null, and the previous
+    /// unconditional <c>target = slot.Value</c> NPE'd on the unbox. The Java
+    /// readbackX halves map null back to the primitive default, restoring
+    /// default(T) exactly. Reference-type targets keep the plain shape (null is
+    /// a legitimate C# value there).
+    /// </summary>
+    private static string ReadbackStatement(string target, string slot, ITypeSymbol targetType)
+    {
+        if (targetType is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T })
+            return $"{target} = {slot}.Value;";
+        if (ReadbackHelperBySpecialType.TryGetValue(targetType.SpecialType, out var helper))
+            return $"{target} = ByRef<{targetType.ToDisplayString()}>.{helper}({slot});";
+        return $"{target} = {slot}.Value;";
     }
 
     internal bool ContainsRefStructCapture(ExpressionSyntax expr)

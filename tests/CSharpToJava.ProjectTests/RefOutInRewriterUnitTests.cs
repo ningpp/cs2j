@@ -564,7 +564,8 @@ public class C
 }";
         var result = RewriteAndAssertCompiles(src);
         Assert.Contains("ByRef<int> __out", result);
-        Assert.Contains("v = __out", result);
+        // 值类型 out 拷回经由 ReadbackInt（Java 半区把擦除 null 映射回 default(int)）。
+        Assert.Contains("v = ByRef<int>.ReadbackInt(__out", result);
     }
 
     [Fact]

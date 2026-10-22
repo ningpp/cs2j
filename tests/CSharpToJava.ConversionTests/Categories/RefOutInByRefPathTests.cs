@@ -275,7 +275,66 @@ public class Calc
 }");
         AssertSuccess(result);
         AssertJavaContains(result, "ByRef.create()", "no-seed slot");
-        AssertJavaContains(result, ".getValue()", "slot read-back");
+        // 值类型 out 拷回走 readbackInt：泛型被调方失败路径在擦除下只能写 null，
+        // helper 把 null 映射回 default(int)，等价 C# out 合约（C# 侧直接透传）。
+        AssertJavaContains(result, "readbackInt(", "null→default(int) slot read-back");
+    }
+
+    [Fact]
+    public void OutSlot_GenericCalleeFailurePath_ReadBackToleratesErasureNull()
+    {
+        // regex-sdk: `caps.TryGetValue(i, out i)` — TryGetValue<T> 的失败路径
+        // `value = default` 在 Java 泛型擦除下只能 setValue(null)，旧的
+        // `i = __out.getValue()` 无条件解箱直接 NPE（35× GetGroupNamesTests 簇）。
+        // 值类型拷回必须走 readbackX，null → default(T)。
+        var result = ConvertRewritten(@"
+public class Calc
+{
+    public bool TryGetValue(int key, out int value) { value = default; return false; }
+    public string Use(int i)
+    {
+        return !TryGetValue(i, out i) ? string.Empty : i.ToString();
+    }
+}");
+        AssertSuccess(result);
+        AssertJavaContains(result, "ByRef.readbackInt(", "value-type out readback maps erasure-null to default(int)");
+        AssertJavaDoesNotContain(result, "= __out0.getValue()");
+    }
+
+    [Fact]
+    public void OutSlot_ReferenceTypeReadBack_KeepsPlainGetValue()
+    {
+        // 引用类型 out 拷回保持原样：null 是合法的 C# 值，不得被 helper 吞掉。
+        var result = ConvertRewritten(@"
+public class Calc
+{
+    public bool TryGet(out string r) { r = null; return false; }
+    public string Use()
+    {
+        if (TryGet(out var s)) { return s; }
+        return string.Empty;
+    }
+}");
+        AssertSuccess(result);
+        AssertJavaContains(result, "= __out0.getValue()", "plain reference-type read-back");
+        AssertJavaDoesNotContain(result, "readback");
+    }
+
+    [Fact]
+    public void OutSlot_CharTypeReadBack_UsesReadbackChar()
+    {
+        var result = ConvertRewritten(@"
+public class Calc
+{
+    public bool TryGet(out char c) { c = default; return false; }
+    public bool Use()
+    {
+        if (TryGet(out var ch)) { return ch != '\0'; }
+        return false;
+    }
+}");
+        AssertSuccess(result);
+        AssertJavaContains(result, "readbackChar(", "char out readback maps erasure-null to '\\0'");
     }
 
     [Fact]
