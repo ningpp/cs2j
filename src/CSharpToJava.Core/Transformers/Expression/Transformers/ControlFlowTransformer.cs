@@ -118,6 +118,10 @@ public class ControlFlowTransformer : IIRExpressionTransformer
     {
         if (context.GetTypeInfo(branch).Type?.TypeKind == TypeKind.Enum)
             return text;
+        // Int-constant 元数据枚举（BindingFlags/TypeAttributes 等）Java 侧是 int，
+        // 数字臂无需包装。
+        if (CSharpToJava.Core.Transformers.Type.EnumTransformer.IsIntConstantMetadataEnum(target))
+            return text;
         var mappedEnum = context.MapType(target);
         var storage = CSharpToJava.Core.Transformers.Type.EnumTransformer.StorageTypeName(
             target.EnumUnderlyingType?.SpecialType ?? SpecialType.System_Int32);

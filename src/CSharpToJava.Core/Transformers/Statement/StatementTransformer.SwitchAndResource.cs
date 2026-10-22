@@ -46,7 +46,11 @@ public partial class StatementTransformer
         // no Java constant labels: `A | B` is a runtime expression in Java.
         // Drive the switch on the numeric value instead and render each label's
         // compile-time constant as an integer literal.
+        // Int-constant metadata enums (BindingFlags/TypeAttributes/...) are plain
+        // ints in Java: the switch drives on the int itself and case labels render
+        // as compat int constants, so the value-enum getValue() rewrite must not fire.
         var valueEnumType = switchType is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
+            && !EnumTransformer.IsIntConstantMetadataEnum(enumType)
             && EnumTransformer.IsValueEnum(enumType)
                 ? enumType
                 : null;

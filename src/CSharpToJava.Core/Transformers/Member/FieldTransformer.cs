@@ -207,8 +207,11 @@ public class FieldTransformer : IMemberTransformer
 
             // C# enum fields default to the zero-valued member; plain Java enums are
             // ordinal-ordered (0..n-1), so values()[0] is the direct equivalent.
+            // Int-constant metadata enums map to a Java primitive int — the JVM
+            // default (0) is already correct, no initializer needed.
             if (variable.Initializer == null
-                && fieldTypeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+                && fieldTypeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
+                && !CSharpToJava.Core.Transformers.Type.EnumTransformer.IsIntConstantMetadataEnum(enumType))
             {
                 javaField.Initializer = $"{context.MapType(enumType)}.values()[0]";
             }
@@ -302,7 +305,10 @@ public class FieldTransformer : IMemberTransformer
                     javaField.Initializer = RenderConstantValue(constVal.Value);
 
                     // C# const enum fields inline as the ordinal integer; index values() directly.
-                    if (fieldTypeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumFieldType)
+                    // Int-constant metadata enums (BindingFlags/TypeAttributes/...) map to a
+                    // Java primitive int — the folded numeric literal is already the value.
+                    if (fieldTypeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumFieldType
+                        && !CSharpToJava.Core.Transformers.Type.EnumTransformer.IsIntConstantMetadataEnum(enumFieldType))
                     {
                         var javaEnumType = context.MapType(enumFieldType);
                         javaField.Initializer = $"{javaEnumType}.values()[{javaField.Initializer}]";

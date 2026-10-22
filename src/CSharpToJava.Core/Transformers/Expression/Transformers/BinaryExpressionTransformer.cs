@@ -159,6 +159,11 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         if (leftType?.TypeKind != TypeKind.Enum || rightType?.TypeKind != TypeKind.Enum)
             return false;
 
+        // Int-constant metadata enums (BindingFlags/TypeAttributes/...) are plain
+        // ints in Java: direct ==/!= needs no getValue() pairing.
+        if (IsIntConstantMetadataEnum(leftType) || IsIntConstantMetadataEnum(rightType))
+            return false;
+
         var isValueEnum =
             (leftType is INamedTypeSymbol leftEnum && EnumTransformer.IsValueEnum(leftEnum))
             || (rightType is INamedTypeSymbol rightEnum && EnumTransformer.IsValueEnum(rightEnum));
@@ -207,6 +212,24 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
         var leftType = ctx.GetTypeInfo(node.Left).Type;
         var rightType = ctx.GetTypeInfo(node.Right).Type;
+        var facade = ExpressionTransformerFacade.Instance;
+
+        // Int-constant metadata enums (BindingFlags/TypeAttributes/...) are plain
+        // ints in Java: operands render as compat constants, the result is an int —
+        // no getValue() on operands and no fromValue() re-wrap of the result.
+        if (IsIntConstantMetadataEnum(leftType) || IsIntConstantMetadataEnum(rightType))
+        {
+            if (op.Cat is BinOpCat.Equality or BinOpCat.Coalesce or BinOpCat.Logical
+                or BinOpCat.Shift or BinOpCat.Arithmetic)
+                return false;
+            var metaLeft = facade.Transform(node.Left, ctx);
+            var metaRight = facade.Transform(node.Right, ctx);
+            if (node.Left is BinaryExpressionSyntax) metaLeft = $"({metaLeft})";
+            if (node.Right is BinaryExpressionSyntax) metaRight = $"({metaRight})";
+            result = $"{metaLeft} {op.Java} {metaRight}";
+            return true;
+        }
+
         var leftEnum = AsValueEnum(leftType);
         var rightEnum = AsValueEnum(rightType);
         if (leftEnum == null && rightEnum == null) return false;
@@ -220,7 +243,6 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         if (op.Cat is BinOpCat.Coalesce or BinOpCat.Logical or BinOpCat.Shift or BinOpCat.Arithmetic)
             return false;
 
-        var facade = ExpressionTransformerFacade.Instance;
         var left = facade.Transform(node.Left, ctx);
         var right = facade.Transform(node.Right, ctx);
         if (leftEnum != null) left = $"{left}.getValue()";
@@ -251,6 +273,10 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         => type is INamedTypeSymbol { TypeKind: TypeKind.Enum } named && EnumTransformer.IsValueEnum(named)
             ? named
             : null;
+
+    private static bool IsIntConstantMetadataEnum(ITypeSymbol? type)
+        => type is INamedTypeSymbol { TypeKind: TypeKind.Enum } named
+            && EnumTransformer.IsIntConstantMetadataEnum(named);
 
     private static bool IsPlainEnum(ITypeSymbol? type)
         => type is INamedTypeSymbol { TypeKind: TypeKind.Enum } named && !EnumTransformer.IsValueEnum(named);

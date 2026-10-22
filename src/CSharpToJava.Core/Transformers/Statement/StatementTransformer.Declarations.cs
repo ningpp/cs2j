@@ -68,7 +68,11 @@ public partial class StatementTransformer
                     variable.Initializer.Value, initExprText, localType, context);
                 // 常量数字 → 枚举局部（`RegexOptions optionsLast = 0;`）：C# 允许
                 // 隐式常量转换，Java 枚举是类，必须 fromValue/values() 包装。
+                // Int-constant 元数据枚举（BindingFlags/TypeAttributes 等）在 Java
+                // 侧就是 int，数字初始化直接赋值即可。
                 if (localType is INamedTypeSymbol { TypeKind: TypeKind.Enum } localEnum
+                    && !CSharpToJava.Core.Transformers.Type.EnumTransformer
+                        .IsIntConstantMetadataEnum(localEnum)
                     && context.GetTypeInfo(variable.Initializer.Value).Type?.TypeKind
                         != TypeKind.Enum)
                 {

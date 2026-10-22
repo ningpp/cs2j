@@ -247,6 +247,7 @@ public class EnumTransformer : ITypeTransformer
         "System.Reflection.PropertyAttributes",
         "System.Reflection.ParameterAttributes",
         "System.Reflection.CallingConventions",
+        "System.Reflection.TypeAttributes",
     };
 
     public static bool IsIntConstantMetadataEnum(INamedTypeSymbol? enumSymbol)

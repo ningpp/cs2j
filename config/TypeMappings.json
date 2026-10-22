@@ -3267,10 +3267,8 @@
         },
         {
             "csharp": "System.Reflection.TypeAttributes",
-            "java": "TypeAttributes",
-            "imports": [
-                "io.github.ningpp.compat.TypeAttributes"
-            ]
+            "java": "int",
+            "imports": []
         },
         {
             "csharp": "WeakReference",
