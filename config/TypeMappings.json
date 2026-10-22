@@ -265,6 +265,13 @@
             ]
         },
         {
+            "csharp": "System.Collections.DictionaryEntry",
+            "java": "CSharpDictEntry",
+            "imports": [
+                "io.github.ningpp.compat.CSharpDictEntry"
+            ]
+        },
+        {
             "csharp": "System.Collections.Generic.IList`1",
             "java": "CSharpIList",
             "imports": [
