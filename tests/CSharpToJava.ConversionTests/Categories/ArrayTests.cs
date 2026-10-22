@@ -115,6 +115,37 @@ public class ArrayTests : ConversionTestBase
     }
 
     [Fact]
+    public void ArrayEmpty_PrimitiveElementType()
+    {
+        var result = Convert("class C { public int[] M() { return System.Array.Empty<int>(); } }");
+        AssertConversion(result, "return new int[0];");
+    }
+
+    [Fact]
+    public void ArrayEmpty_ReferenceElementType_UsesTypedEmpty()
+    {
+        // no-arg CSharpArray.empty() 返回共享 Object[0]，赋给具体数组类型的字段/局部
+        // 时调用点 checkcast 会抛 ClassCastException，必须带元素类型 Class token。
+        var result = Convert("class C { public string[] M() { return System.Array.Empty<string>(); } }");
+        AssertConversion(result, "return CSharpArray.empty(String.class);");
+    }
+
+    [Fact]
+    public void ArrayEmpty_GenericElementType_StripsTypeArguments()
+    {
+        var result = Convert("class C { public System.Collections.Generic.List<int>[] M() { return System.Array.Empty<System.Collections.Generic.List<int>>(); } }");
+        AssertConversion(result, "return CSharpArray.empty(CSharpList.class);");
+    }
+
+    [Fact]
+    public void ArrayEmpty_TypeParameterElementType_KeepsErasureSafeEmpty()
+    {
+        // 类型参数无法取 .class；其 T[] 目标擦除为 Object[]，no-arg empty() 行为正确。
+        var result = Convert("class C { public T[] M<T>() { return System.Array.Empty<T>(); } }");
+        AssertConversion(result, "return CSharpArray.empty();");
+    }
+
+    [Fact]
     public void CharArrayField()
     {
         var result = Convert("class C { public char[] Chars; }");

@@ -317,6 +317,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     {
                         return new JavaRawExpression($"new {element}[0]");
                     }
+                    // CSharpArray.empty() 共享 new Object[0]：当赋值目标是具体数组类型
+                    // （如 ReadOnlyMemory<char>[]）时，调用点编译出的 checkcast [LX;
+                    // 会在运行期抛 ClassCastException（[LObject; cannot be cast to [LX;）。
+                    // 改为 empty(元素类型.class) 生成真正元素类型的零长数组；
+                    // 类型参数无法取 .class（Java 擦除），且其 T[] 目标擦除为 Object[]，
+                    // no-arg empty() 行为正确，保持不变。
+                    if (methodSymbol.TypeArguments[0] is not ITypeParameterSymbol)
+                    {
+                        context.AddImport("io.github.ningpp.compat.CSharpArray");
+                        var emptyClassLiteral = ConversionContext.GetClassLiteral(methodSymbol.TypeArguments[0], context);
+                        return new JavaRawExpression($"CSharpArray.empty({emptyClassLiteral})");
+                    }
                 }
 
                 // Enumerable.ToArray<T>() on a compat iterable: Object[] would be
@@ -838,6 +850,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         or "boolean" or "float" or "double")
                     {
                         return $"new {emptyElement}[0]";
+                    }
+                    // 与 IR 路径同理：no-arg CSharpArray.empty() 返回共享 Object[0]，
+                    // 赋给具体数组类型会在调用点 checkcast 处抛 ClassCastException。
+                    // 类型参数目标 T[] 擦除为 Object[]，no-arg empty() 保持不变。
+                    if (memberMethodForOverrides.TypeArguments[0] is not ITypeParameterSymbol)
+                    {
+                        context.AddImport("io.github.ningpp.compat.CSharpArray");
+                        var emptyClassLiteral = ConversionContext.GetClassLiteral(memberMethodForOverrides.TypeArguments[0], context);
+                        return $"CSharpArray.empty({emptyClassLiteral})";
                     }
                 }
 
