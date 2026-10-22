@@ -284,6 +284,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return new JavaRawExpression(appendFormatCall);
                 }
 
+                if (TryRenderTypeGetConstructor(invocation, memberAccess, receiverText, context, out var getConstructorCall))
+                {
+                    return new JavaRawExpression(getConstructorCall);
+                }
+
                 var methodSymbol = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
 
                 // 静态接收者（ArrayPool<T>.Shared / SegmentStringBuilder.Create()）
@@ -794,6 +799,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 if (TryRenderStringBuilderAppendFormat(node, receiver, context, out var appendFormatCall))
                 {
                     return appendFormatCall;
+                }
+
+                if (TryRenderTypeGetConstructor(node, memberAccess, receiver, context, out var getConstructorCall))
+                {
+                    return getConstructorCall;
                 }
 
                 if (context.GetSymbolInfo(node).Symbol is IMethodSymbol conflictMethod
@@ -1530,6 +1540,86 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         context.AddImport("io.github.ningpp.compat.StringHelper");
         rendered = $"StringHelper.append({receiver}, {charArg}, {countArg})";
         return true;
+    }
+
+    /// <summary>
+    /// <c>Type.GetConstructor(BindingFlags, Binder, Type[], ParameterModifier[])</c> has
+    /// no java.lang.Class counterpart of that arity: Java reflection lookup is
+    /// <c>(Class, int, Class[])</c>. The managed Binder argument is always null in the
+    /// converted code base and <c>ParameterModifier[]</c> is a .NET COM-interop relic,
+    /// so the bridge drops both and routes the (bindingAttr, types) pair through the
+    /// compat helper that implements the C# bindingFlags lookup. The 1-arg
+    /// <c>GetConstructor(Type[])</c> keeps its public-instance method mapping.
+    /// </summary>
+    private static bool TryRenderTypeGetConstructor(
+        InvocationExpressionSyntax invocation,
+        MemberAccessExpressionSyntax memberAccess,
+        string receiver,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+        if (memberAccess.Name.Identifier.Text != "GetConstructor")
+        {
+            return false;
+        }
+
+        var args = invocation.ArgumentList.Arguments;
+        if (args.Count != 4)
+            return false;
+
+        // Overload-shape gate: exactly (BindingFlags, Binder, Type[], ParameterModifier[]).
+        // The semantic signature is authoritative when available; post-preprocessed
+        // trees may lack it, so fall back to receiver type + null binder/modifiers.
+        // Display comparisons strip the trailing nullable annotation: the parameter
+        // symbols may be NRT-annotated ("System.Reflection.Binder?") depending on
+        // the compilation's flow analysis.
+        var method = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        if (method != null)
+        {
+            if (method.ContainingType?.ToDisplayString() != "System.Type"
+                || method.Parameters.Length != 4
+                || DisplayWithoutNullability(method.Parameters[0].Type) != "System.Reflection.BindingFlags"
+                || DisplayWithoutNullability(method.Parameters[1].Type) != "System.Reflection.Binder"
+                || method.Parameters[2].Type is not IArrayTypeSymbol { ElementType: INamedTypeSymbol typesElement }
+                || DisplayWithoutNullability(typesElement) != "System.Type"
+                || method.Parameters[3].Type is not IArrayTypeSymbol { ElementType: INamedTypeSymbol modifiersElement }
+                || DisplayWithoutNullability(modifiersElement) != "System.Reflection.ParameterModifier")
+            {
+                return false;
+            }
+        }
+        else
+        {
+            if (context.GetTypeInfo(memberAccess.Expression).Type?.ToDisplayString() != "System.Type"
+                || !IsNullArgument(args[1].Expression)
+                || !IsNullArgument(args[3].Expression))
+            {
+                return false;
+            }
+        }
+
+        var f = ExpressionTransformerFacade.Instance;
+        var flagsArg = f.Transform(args[0].Expression, context);
+        var typesArg = f.Transform(args[2].Expression, context);
+
+        context.AddImport("io.github.ningpp.compat.TypeHelper");
+        rendered = $"TypeHelper.getConstructorInfo({receiver}, {flagsArg}, {typesArg})";
+        return true;
+    }
+
+    private static bool IsNullArgument(ExpressionSyntax expression)
+        => expression.IsKind(SyntaxKind.NullLiteralExpression)
+            || (expression is CastExpressionSyntax { Expression: var inner } && IsNullArgument(inner));
+
+    /// <summary>
+    /// Type display text with the trailing nullable annotation removed, so gates
+    /// match regardless of the compilation's nullable flow analysis ("T?" vs "T").
+    /// </summary>
+    private static string DisplayWithoutNullability(ITypeSymbol type)
+    {
+        var text = type.ToDisplayString();
+        return text.EndsWith("?", StringComparison.Ordinal) ? text[..^1] : text;
     }
 
     /// <summary>
