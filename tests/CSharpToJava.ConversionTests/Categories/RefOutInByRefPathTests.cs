@@ -428,4 +428,152 @@ public unsafe class Calc
         var violations = RefOutInPostVerifier.Verify(new[] { rewrittenTree }, rewrittenCompilation);
         Assert.Empty(violations);
     }
+
+    /// <summary>
+    /// Minimal ByRef surface needed to compile the rewritten struct snippet.
+    /// The runtime half lives in src/Cs2jRefOutIn/ByRef.cs; the test only needs
+    /// the factory/read-back signatures the lifter emits.
+    /// </summary>
+    private const string StructByRefStub = @"
+namespace Cs2jByRef
+{
+    public abstract class ByRef<T>
+    {
+        public abstract T Value { get; set; }
+        public static ByRef<T> Create() => null;
+        public static ByRef<T> Create(T initial) => null;
+        public static ByRef<T> Create(System.Func<T> getter, System.Action<T> setter) => null;
+        public static int ReadbackInt(ByRef<int> slot) => slot.Value;
+    }
+}";
+
+    private static CSharpCompilation CompileWithByRefStub(string source, string assemblyName)
+    {
+        var tree = CSharpSyntaxTree.ParseText(source + StructByRefStub);
+        return CSharpCompilation.Create(assemblyName,
+            new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+    }
+
+    [Fact]
+    public void StructInstanceFieldRefArguments_UseCopyInOutSlot_WithoutThisCapturingLambda()
+    {
+        // xml-tiny XsdDateTime.Parser: a struct instance method calling
+        // `Parse4Dig(start, ref year)` used to emit
+        // `ByRef<int>.Create(() => year, v => year = v)`. A lambda inside a
+        // struct cannot access instance members of `this` (CS1673), so a
+        // field target must be read into a local ByRef slot before the call
+        // and written back after it (same synchronous copy-in/copy-out shape
+        // the shadow-frame machinery uses for value-typed holders).
+        var source = @"
+public struct Acc
+{
+    private int _total;
+    private int _count;
+
+    private bool TryParse(string s, int pos, ref int value)
+    {
+        value = pos + s.Length;
+        return true;
+    }
+
+    private bool TryCount(out int n)
+    {
+        n = 1;
+        return true;
+    }
+
+    public int Add(string s)
+    {
+        int pos = 0;
+        if (TryParse(s, pos, ref _total))
+        {
+            TryCount(out _count);
+        }
+        return _total + _count;
+    }
+}";
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("refout-struct-field",
+            new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var result = new RefOutInRewriter().Rewrite(source, compilation.GetSemanticModel(tree));
+        Assert.True(result.Changed, "expected the preprocessor to rewrite the input");
+
+        // No getter/setter closure over a `this` field may survive.
+        Assert.DoesNotContain("=> _total", result.OutputCode);
+        Assert.DoesNotContain("=> _count", result.OutputCode);
+        // Copy-in from the field + write-back after the call.
+        Assert.Contains("ByRef<int>.Create(_total)", result.OutputCode);
+        Assert.Contains("_total = __ref", result.OutputCode);
+
+        var rewrittenTree = CSharpSyntaxTree.ParseText(result.OutputCode + StructByRefStub);
+        var rewrittenCompilation = CSharpCompilation.Create("refout-struct-field-out",
+            new[] { rewrittenTree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var errors = rewrittenCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        Assert.True(errors.Count == 0,
+            "Rewritten source must compile (no CS1673).\n--- Errors ---\n" +
+            string.Join("\n", errors) + "\n--- Rewritten ---\n" + result.OutputCode);
+
+        // Copy-in/copy-out slots are the intended output, not residual debt.
+        var violations = RefOutInPostVerifier.Verify(new[] { rewrittenTree }, rewrittenCompilation);
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void ClassInstanceFieldRefArgument_KeepsAccessorLambda()
+    {
+        // The copy-in/copy-out rewrite is scoped to value-type receivers:
+        // `this` of a class is safely captureable, so the alias-through-call
+        // accessor shape (writes visible to the callee immediately) must stay.
+        var source = @"
+public class Calc
+{
+    private int _value;
+    private void Bump(ref int v) { v = v + 1; }
+    public void Use() { Bump(ref _value); }
+}";
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("refout-class-field",
+            new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var result = new RefOutInRewriter().Rewrite(source, compilation.GetSemanticModel(tree));
+
+        Assert.True(result.Changed, "expected the preprocessor to rewrite the input");
+        Assert.Contains("() => _value", result.OutputCode);
+        Assert.Contains("v => _value = v", result.OutputCode);
+
+        var rewritten = CompileWithByRefStub(result.OutputCode, "refout-class-field-out");
+        var errors = rewritten.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        Assert.True(errors.Count == 0,
+            "Rewritten source must compile.\n--- Errors ---\n" +
+            string.Join("\n", errors) + "\n--- Rewritten ---\n" + result.OutputCode);
+    }
 }

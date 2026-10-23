@@ -323,6 +323,56 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         catch (ArgumentException) { return null; }
     }
 
+    /// <summary>
+    /// True when an accessor closure over <paramref name="expr"/> would have to
+    /// capture <c>this</c> inside a value type (CS1673: lambdas in a struct
+    /// cannot access instance members of <c>this</c>). A field/property/method
+    /// reached through the implicit or explicit <c>this</c> of a struct forces
+    /// the call-site rewrite onto a synchronous copy-in/copy-out slot instead
+    /// of <c>ByRef&lt;T&gt;.Create(() => field, v => field = v)</c>.
+    /// Reference-type receivers (<c>this</c> of a class) are unaffected: their
+    /// capture is legal and keeps alias-through-call semantics.
+    /// </summary>
+    internal bool CapturesValueTypeThis(ExpressionSyntax expr)
+    {
+        if (!IsInValueTypeInstanceMember(expr))
+            return false;
+
+        foreach (var node in expr.DescendantNodesAndSelf())
+        {
+            if (node is ThisExpressionSyntax)
+                return true;
+            if (node is not IdentifierNameSyntax id || IsInDeclarationContext(id))
+                continue;
+            // A bare identifier binding to an instance member is an implicit
+            // `this.member` access; locals/parameters/statics are capturable.
+            if (GetSymbol(id) is IFieldSymbol { IsStatic: false }
+                or IPropertySymbol { IsStatic: false }
+                or IMethodSymbol { IsStatic: false }
+                or IEventSymbol { IsStatic: false })
+                return true;
+        }
+        return false;
+    }
+
+    private bool IsInValueTypeInstanceMember(SyntaxNode node)
+    {
+        ISymbol? enclosing;
+        try { enclosing = _semanticModel.GetEnclosingSymbol(node.SpanStart); }
+        catch (ArgumentException) { return false; }
+
+        var containingType = enclosing switch
+        {
+            IMethodSymbol m => m.ContainingType,
+            IFieldSymbol f => f.ContainingType,
+            IPropertySymbol p => p.ContainingType,
+            IEventSymbol e => e.ContainingType,
+            INamedTypeSymbol t => t,
+            _ => null,
+        };
+        return containingType is { IsValueType: true, TypeKind: not TypeKind.Enum };
+    }
+
     internal string TypeDisplay(ITypeSymbol t) => t.ToDisplayString();
 
     internal bool IsInternalCandidate(IMethodSymbol m) =>

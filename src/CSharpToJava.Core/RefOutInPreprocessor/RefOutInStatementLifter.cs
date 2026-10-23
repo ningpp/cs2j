@@ -524,7 +524,14 @@ internal sealed class RefOutInStatementLifter
                     SyntaxFactory.Argument(Identifier(slot)));
             }
 
-            if (ContainsRefStructCapture(expr))
+            // A getter/setter closure is only legal when the target is
+            // capturable. Ref-like captures (CS8175/CS9108) and `this` members
+            // of a value type (CS1673, e.g. a struct instance method passing
+            // its own field by ref) are not: read the target into a
+            // synchronous copy-in slot and write it back after the call — the
+            // same copy-in/copy-out shape the shadow-frame machinery uses for
+            // value-typed holders.
+            if (ContainsRefStructCapture(expr) || _owner.CapturesValueTypeThis(expr))
             {
                 var slot = Temp("__ref");
                 return (ParseStmt($"ByRef<{paramType}> {slot} = ByRef<{paramType}>.Create({target});"),
