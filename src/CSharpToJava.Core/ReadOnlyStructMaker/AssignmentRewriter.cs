@@ -83,12 +83,204 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         }
     }
 
+    private int _hoistCounter;
+
+    /// <summary>Deterministic temp name for hoisted value-position reads.</summary>
+    internal string NextHoistTempName(string fieldName)
+        => "__cs2jOld" + char.ToUpperInvariant(fieldName[0]) + fieldName.Substring(1) + "_" + (_hoistCounter++);
+
+    /// <summary>
+    /// 语义解析目标字段访问：<c>receiver.F</c>（F ∈ 目标字段，receiver 为可赋值
+    /// 左值且类型命中目标 struct）。命中返回成员访问与 struct 名；否则 null。
+    /// 供语句级重写与值位提升共用同一判定。
+    /// </summary>
+    internal MemberAccessExpressionSyntax? TryResolveTargetAccess(
+        ExpressionSyntax expression, out string? structName)
+    {
+        structName = null;
+        if (expression is not MemberAccessExpressionSyntax memberAccess
+            || memberAccess.Name is not IdentifierNameSyntax fieldName
+            || !_targetFieldNames.Contains(fieldName.Identifier.Text)
+            || !IsModifiableLValue(memberAccess.Expression))
+        {
+            return null;
+        }
+
+        var resolved = TryGetTargetStructName(memberAccess.Expression);
+        if (resolved == null)
+            return null;
+
+        // Writes inside the struct's own instance members manage themselves
+        // (WithXxx bodies, constructors, property accessors).
+        if (memberAccess.Expression is not IdentifierNameSyntax
+            && InsideOwnInstanceMember(expression, resolved))
+        {
+            return null;
+        }
+        if (memberAccess.Expression is ThisExpressionSyntax
+            && !InsideTargetType(expression, resolved))
+        {
+            return null;
+        }
+
+        structName = resolved;
+        return memberAccess;
+    }
+
+    /// <summary>Builds the statement-level write-back for a resolved target access.</summary>
+    internal AssignmentExpressionSyntax BuildWriteForAccess(
+        MemberAccessExpressionSyntax access, string structName, ExpressionSyntax value, SyntaxNode triviaFrom)
+        => BuildWriteAssignment(structName, access.Expression, access.Name.Identifier.Text, value, triviaFrom);
+
+    public override SyntaxNode? VisitBlock(BlockSyntax node)
+    {
+        // Bottom-up: statement-level writes already rewrote; what remains in
+        // value positions (declaration initializers, arguments, assignment RHS)
+        // is hoisted here so external readonly-struct writes never survive raw.
+        var visited = (BlockSyntax)base.VisitBlock(node)!;
+
+        var newStatements = new List<StatementSyntax>();
+        var changed = false;
+        foreach (var statement in visited.Statements)
+        {
+            var hoister = new ValuePositionWriteHoister(this);
+            var rewrittenStatement = (StatementSyntax)hoister.Visit(statement)!;
+            if (!ReferenceEquals(rewrittenStatement, statement) || hoister.Hoisted.Count > 0)
+                changed = true;
+            newStatements.AddRange(hoister.Hoisted);
+            newStatements.Add(rewrittenStatement);
+        }
+
+        return changed
+            ? visited.WithStatements(SyntaxFactory.List(newStatements))
+            : visited;
+    }
+
+    /// <summary>
+    /// 值位写提升：声明初值/实参/赋值 RHS 中的 <c>r.F++</c>/<c>--r.F</c>/
+    /// <c>r.F = v</c>（含连环赋值内层）→「temp 读 + With 写回」两条语句前置，
+    /// 表达式替换为 temp（后缀）或 temp±1（前缀）或值本身（赋值）。求值顺序
+    /// 与 C# 一致（内层连环写先于外层写，写先于所在语句的后续副作用）。
+    /// </summary>
+    private sealed class ValuePositionWriteHoister : CSharpSyntaxRewriter
+    {
+        private readonly AssignmentRewriter _owner;
+        internal readonly List<StatementSyntax> Hoisted = new();
+
+        public ValuePositionWriteHoister(AssignmentRewriter owner)
+        {
+            _owner = owner;
+        }
+
+        public override SyntaxNode? VisitPostfixUnaryExpression(PostfixUnaryExpressionSyntax node)
+        {
+            if (node.Parent is ExpressionStatementSyntax)
+                return base.VisitPostfixUnaryExpression(node);
+
+            if ((node.IsKind(SyntaxKind.PostIncrementExpression)
+                 || node.IsKind(SyntaxKind.PostDecrementExpression))
+                && _owner.TryResolveTargetAccess(node.Operand, out var structName) is { } access)
+            {
+                return HoistUnary(access, structName!, node,
+                    node.IsKind(SyntaxKind.PostIncrementExpression), isPrefix: false);
+            }
+
+            return base.VisitPostfixUnaryExpression(node);
+        }
+
+        public override SyntaxNode? VisitPrefixUnaryExpression(PrefixUnaryExpressionSyntax node)
+        {
+            if (node.Parent is ExpressionStatementSyntax)
+                return base.VisitPrefixUnaryExpression(node);
+
+            if ((node.IsKind(SyntaxKind.PreIncrementExpression)
+                 || node.IsKind(SyntaxKind.PreDecrementExpression))
+                && _owner.TryResolveTargetAccess(node.Operand, out var structName) is { } access)
+            {
+                return HoistUnary(access, structName!, node,
+                    node.IsKind(SyntaxKind.PreIncrementExpression), isPrefix: true);
+            }
+
+            return base.VisitPrefixUnaryExpression(node);
+        }
+
+        public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
+        {
+            // 语句根形态由外层 VisitExpressionStatement/VisitAssignmentExpression
+            // 处理；值位（实参/嵌套赋值/声明初值）在此提升。
+            if (node.Parent is ExpressionStatementSyntax
+                || !node.IsKind(SyntaxKind.SimpleAssignmentExpression))
+            {
+                return base.VisitAssignmentExpression(node);
+            }
+
+            if (_owner.TryResolveTargetAccess(node.Left, out var structName) is { } access)
+            {
+                var value = (ExpressionSyntax)Visit(node.Right)!;
+                // 非平凡 RHS（new/调用等有副作用的形态）先落 temp：写回与
+                // 表达式替换共用同一次求值，引用类型别名不复制（与
+                // struct-value-semantics 链式赋值展开的 temp 约定一致）。
+                if (!IsTrivialValue(value))
+                {
+                    var tempName = _owner.NextHoistTempName(access.Name.Identifier.Text);
+                    Hoisted.Add(SyntaxFactory.LocalDeclarationStatement(
+                        SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName("var"))
+                            .WithVariables(SyntaxFactory.SingletonSeparatedList(
+                                SyntaxFactory.VariableDeclarator(tempName)
+                                    .WithInitializer(SyntaxFactory.EqualsValueClause(value))))));
+                    value = SyntaxFactory.IdentifierName(tempName);
+                }
+
+                Hoisted.Add(SyntaxFactory.ExpressionStatement(
+                    _owner.BuildWriteForAccess(access, structName!, value, node)));
+                return value.WithTriviaFrom(node);
+            }
+
+            return base.VisitAssignmentExpression(node);
+        }
+
+        private static bool IsTrivialValue(ExpressionSyntax expression)
+            => expression is LiteralExpressionSyntax
+                or IdentifierNameSyntax
+                or ThisExpressionSyntax
+                or ParenthesizedExpressionSyntax { Expression: LiteralExpressionSyntax or IdentifierNameSyntax };
+
+        private SyntaxNode HoistUnary(
+            MemberAccessExpressionSyntax access, string structName,
+            ExpressionSyntax original, bool isIncrement, bool isPrefix)
+        {
+            var fieldName = access.Name.Identifier.Text;
+            var tempName = _owner.NextHoistTempName(fieldName);
+
+            Hoisted.Add(SyntaxFactory.LocalDeclarationStatement(
+                SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName("var"))
+                    .WithVariables(SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.VariableDeclarator(tempName)
+                            .WithInitializer(SyntaxFactory.EqualsValueClause(
+                                access.WithoutTrivia()))))));
+
+            var incremented = SyntaxFactory.BinaryExpression(
+                isIncrement ? SyntaxKind.AddExpression : SyntaxKind.SubtractExpression,
+                SyntaxFactory.IdentifierName(tempName),
+                SyntaxFactory.LiteralExpression(
+                    SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(1)));
+            Hoisted.Add(SyntaxFactory.ExpressionStatement(
+                _owner.BuildWriteForAccess(access, structName, incremented, original)));
+
+            if (isPrefix)
+            {
+                return SyntaxFactory.ParenthesizedExpression(incremented).WithTriviaFrom(original);
+            }
+
+            return SyntaxFactory.IdentifierName(tempName).WithTriviaFrom(original);
+        }
+    }
+
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
         // Statement-level member writes only.
         if (node.Parent is not ExpressionStatementSyntax)
             return base.VisitAssignmentExpression(node);
-
         if (node.Left is not MemberAccessExpressionSyntax memberAccess
             || memberAccess.Name is not IdentifierNameSyntax fieldName
             || !_targetFieldNames.Contains(fieldName.Identifier.Text)
