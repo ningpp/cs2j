@@ -129,6 +129,22 @@ namespace Cs2jArray
 
         public static void Sort(System.Array keys, System.Array items, System.Collections.IComparer comparer) => System.Array.Sort(keys, items, comparer);
 
+        // ---- 泛型形态（与 BCL 泛型重载平行）：Array.Sort<T> 改写保留 <T> 时绑定 ----
+
+        public static void Sort<T>(T[] array) => System.Array.Sort(array);
+
+        public static void Sort<T>(T[] array, System.Collections.Generic.IComparer<T> comparer) => System.Array.Sort(array, comparer);
+
+        public static void Sort<T>(T[] array, System.Comparison<T> comparison) => System.Array.Sort(array, comparison);
+
+        public static void Sort<T>(T[] array, int index, int length) => System.Array.Sort(array, index, length);
+
+        public static void Sort<T>(T[] array, int index, int length, System.Collections.Generic.IComparer<T> comparer) => System.Array.Sort(array, index, length, comparer);
+
+        public static void Sort<TKey, TValue>(TKey[] keys, TValue[] items) => System.Array.Sort(keys, items);
+
+        public static void Sort<TKey, TValue>(TKey[] keys, TValue[] items, System.Collections.Generic.IComparer<TKey> comparer) => System.Array.Sort(keys, items, comparer);
+
         public static int BinarySearch(System.Array array, object value) => System.Array.BinarySearch(array, value);
 
         public static int BinarySearch(System.Array array, object value, System.Collections.IComparer comparer) => System.Array.BinarySearch(array, value, comparer);
@@ -136,6 +152,14 @@ namespace Cs2jArray
         public static int BinarySearch(System.Array array, int index, int length, object value) => System.Array.BinarySearch(array, index, length, value);
 
         public static int BinarySearch(System.Array array, int index, int length, object value, System.Collections.IComparer comparer) => System.Array.BinarySearch(array, index, length, value, comparer);
+
+        public static int BinarySearch<T>(T[] array, T value) => System.Array.BinarySearch(array, value);
+
+        public static int BinarySearch<T>(T[] array, T value, System.Collections.Generic.IComparer<T> comparer) => System.Array.BinarySearch(array, value, comparer);
+
+        public static int BinarySearch<T>(T[] array, int index, int length, T value) => System.Array.BinarySearch(array, index, length, value);
+
+        public static int BinarySearch<T>(T[] array, int index, int length, T value, System.Collections.Generic.IComparer<T> comparer) => System.Array.BinarySearch(array, index, length, value, comparer);
 
         public static void Clear(System.Array array, int index, int length) => System.Array.Clear(array, index, length);
 

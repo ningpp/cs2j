@@ -91,6 +91,26 @@ public class ArrayMethodRewriterUnitTests
     }
 
     [Fact]
+    public void GenericSort_WithExplicitTypeArg_PreservesTypeArgument()
+    {
+        // Array.Sort<T>(T[], IComparer<T>) 必须保留显式泛型实参，否则落回
+        // ArrayHelper.Sort(Array, IComparer)（非泛型）而 IComparer<T> 无法转换。
+        var source = "using System; using System.Collections.Generic; class C { void M(object[] a, IComparer<object> c) { Array.Sort<object>(a, c); } }\n";
+        var result = RewriteWithSemantics(source);
+        Assert.True(result.Changed);
+        Assert.Contains("Cs2jArray.ArrayHelper.Sort<object>(a, c)", result.OutputCode);
+    }
+
+    [Fact]
+    public void GenericBinarySearch_WithExplicitTypeArg_PreservesTypeArgument()
+    {
+        var source = "using System; using System.Collections.Generic; class C { void M(object[] a, object v, IComparer<object> c) { var i = Array.BinarySearch<object>(a, v, c); } }\n";
+        var result = RewriteWithSemantics(source);
+        Assert.True(result.Changed);
+        Assert.Contains("Cs2jArray.ArrayHelper.BinarySearch<object>(a, v, c)", result.OutputCode);
+    }
+
+    [Fact]
     public void ArrayResize_StatementRewritten()
     {
         var source = "using System; class C { void M() { int[] a = {1,2,3}; Array.Resize(ref a, 5); } }\n";

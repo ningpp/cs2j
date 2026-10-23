@@ -106,16 +106,24 @@ internal sealed class ArrayMethodSyntaxRewriter : CSharpSyntaxRewriter
 
     // ---- 辅助：构造 Cs2jArray.ArrayHelper.XXX(...) 调用 ----
 
-    private static ExpressionSyntax StaticCall(string methodName, params ExpressionSyntax[] args)
+    private static ExpressionSyntax StaticCall(
+        string methodName,
+        TypeArgumentListSyntax? typeArguments,
+        params ExpressionSyntax[] args)
     {
         var memberAccess = SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
             SyntaxFactory.IdentifierName("Cs2jArray"),
             SyntaxFactory.IdentifierName("ArrayHelper"));
+        // 泛型实参必须原样保留：Array.Sort<T>(T[], IComparer<T>) 若丢掉 <T>
+        // 会落到非泛型 Sort(Array, IComparer) 重载，而 IComparer<T> 无法转换。
+        SimpleNameSyntax name = typeArguments is null
+            ? SyntaxFactory.IdentifierName(methodName)
+            : SyntaxFactory.GenericName(SyntaxFactory.Identifier(methodName), typeArguments);
         var memberAccess2 = SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
             memberAccess,
-            SyntaxFactory.IdentifierName(methodName));
+            name);
         return SyntaxFactory.InvocationExpression(memberAccess2,
             SyntaxFactory.ArgumentList(
                 SyntaxFactory.SeparatedList(args.Select(a => SyntaxFactory.Argument(a)))));
@@ -225,14 +233,14 @@ internal sealed class ArrayMethodSyntaxRewriter : CSharpSyntaxRewriter
 
         ExpressionSyntax? replacement = methodName switch
         {
-            "Clone" => StaticCall("Clone", parenReceiver),
-            "CopyTo" => StaticCall("CopyTo", parenReceiver, visitedArgs[0], visitedArgs[1]),
+            "Clone" => StaticCall("Clone", null, parenReceiver),
+            "CopyTo" => StaticCall("CopyTo", null, parenReceiver, visitedArgs[0], visitedArgs[1]),
             "GetValue" => RewriteGetValue(parenReceiver, visitedArgs, arrayType),
             "SetValue" => RewriteSetValue(parenReceiver, visitedArgs, arrayType),
-            "GetLength" when visitedArgs.Length == 1 => StaticCall("GetLength", parenReceiver, visitedArgs[0]),
-            "GetLongLength" when visitedArgs.Length == 1 => StaticCall("GetLongLength", parenReceiver, visitedArgs[0]),
-            "GetLowerBound" => StaticCall("GetLowerBound", parenReceiver, visitedArgs[0]),
-            "GetUpperBound" => StaticCall("GetUpperBound", parenReceiver, visitedArgs[0]),
+            "GetLength" when visitedArgs.Length == 1 => StaticCall("GetLength", null, parenReceiver, visitedArgs[0]),
+            "GetLongLength" when visitedArgs.Length == 1 => StaticCall("GetLongLength", null, parenReceiver, visitedArgs[0]),
+            "GetLowerBound" => StaticCall("GetLowerBound", null, parenReceiver, visitedArgs[0]),
+            "GetUpperBound" => StaticCall("GetUpperBound", null, parenReceiver, visitedArgs[0]),
             _ => null,
         };
 
@@ -251,7 +259,7 @@ internal sealed class ArrayMethodSyntaxRewriter : CSharpSyntaxRewriter
         // rank > 3 或 params 形态 → GetValue(System.Array, params int[])
         int rank = arrayType.Rank;
         var allArgs = new[] { receiver }.Concat(args).ToArray();
-        return StaticCall("GetValue", allArgs);
+        return StaticCall("GetValue", null, allArgs);
     }
 
     private ExpressionSyntax RewriteSetValue(
@@ -259,7 +267,7 @@ internal sealed class ArrayMethodSyntaxRewriter : CSharpSyntaxRewriter
     {
         // SetValue(value, index) / SetValue(value, i, j) / SetValue(value, params int[])
         var allArgs = new[] { receiver }.Concat(args).ToArray();
-        return StaticCall("SetValue", allArgs);
+        return StaticCall("SetValue", null, allArgs);
     }
 
     // ---- 实例属性改写（§3.1: LongLength / Rank / 多维 Length）----
@@ -302,8 +310,8 @@ internal sealed class ArrayMethodSyntaxRewriter : CSharpSyntaxRewriter
 
         ExpressionSyntax? replacement = memberName switch
         {
-            "Length" when arrayType.Rank > 1 => StaticCall("GetLength", parenReceiver), // 多维 .Length → GetLength(arr)（元素总数）
-            "LongLength" => StaticCall("GetLongLength", parenReceiver),
+            "Length" when arrayType.Rank > 1 => StaticCall("GetLength", null, parenReceiver), // 多维 .Length → GetLength(arr)（元素总数）
+            "LongLength" => StaticCall("GetLongLength", null, parenReceiver),
             "Rank" => SyntaxFactory.LiteralExpression(
                 SyntaxKind.NumericLiteralExpression,
                 SyntaxFactory.Literal(arrayType.Rank)), // 内联常量
@@ -349,7 +357,7 @@ internal sealed class ArrayMethodSyntaxRewriter : CSharpSyntaxRewriter
                 {
                     var newSize = (ExpressionSyntax)Visit(args[1].Expression)!;
                     var visitedTarget = VisitAndStripLeading(target, out var targetLead);
-                    var call = StaticCall("Resize", visitedTarget, newSize);
+                    var call = StaticCall("Resize", null, visitedTarget, newSize);
                     var assignment = SyntaxFactory.AssignmentExpression(
                         SyntaxKind.SimpleAssignmentExpression,
                         visitedTarget,
@@ -441,7 +449,7 @@ internal sealed class ArrayMethodSyntaxRewriter : CSharpSyntaxRewriter
         var args = originalNode.ArgumentList.Arguments
             .Select(a => (ExpressionSyntax)Visit(a.Expression)!).ToArray();
 
-        var replacement = StaticCall(methodName, args);
+        var replacement = StaticCall(methodName, (mae.Name as GenericNameSyntax)?.TypeArgumentList, args);
         _stats.StaticArrayCalls++;
         return ArrayRewriteAnnotations.Mark(replacement);
     }
