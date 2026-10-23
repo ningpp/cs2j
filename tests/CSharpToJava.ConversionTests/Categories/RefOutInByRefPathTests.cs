@@ -1,3 +1,4 @@
+using System.Reflection;
 using CSharpToJava.Core.ClosureLift;
 using CSharpToJava.Core.ForeachSource;
 using CSharpToJava.Core.Pipeline;
@@ -575,5 +576,143 @@ public class Calc
         Assert.True(errors.Count == 0,
             "Rewritten source must compile.\n--- Errors ---\n" +
             string.Join("\n", errors) + "\n--- Rewritten ---\n" + result.OutputCode);
+    }
+
+    /// <summary>
+    /// Fully functional ByRef surface for the execution assertions below: the
+    /// emitted assembly must actually run (unlike <see cref="StructByRefStub"/>,
+    /// whose factories return null).
+    /// </summary>
+    private const string ExecutableByRefStub = @"
+namespace Cs2jByRef
+{
+    public class ByRef<T>
+    {
+        private T _value;
+        public ByRef() { }
+        public ByRef(T value) { _value = value; }
+        public virtual T Value
+        {
+            get => _value;
+            set => _value = value;
+        }
+        public static ByRef<T> Create() => new ByRef<T>();
+        public static ByRef<T> Create(T initial) => new ByRef<T>(initial);
+        public static ByRef<T> Create(System.Func<T> getter, System.Action<T> setter)
+            => new Accessor<T>(getter, setter);
+        public static int ReadbackInt(ByRef<int> slot) => slot.Value;
+        private sealed class Accessor<T> : ByRef<T>
+        {
+            private readonly System.Func<T> _getter;
+            private readonly System.Action<T> _setter;
+            public Accessor(System.Func<T> getter, System.Action<T> setter)
+            {
+                _getter = getter;
+                _setter = setter;
+            }
+            public override T Value
+            {
+                get => _getter();
+                set => _setter(value);
+            }
+        }
+    }
+}";
+
+    [Fact]
+    public void HolderForwardedToExternalNativeOutOrRef_Compiles_AndCopiesBack()
+    {
+        // xml-tiny XmlConvert.TryToChar: `internal static Exception TryToChar(string s, out char result)`
+        // forwards its (rewritten) ByRef<char> holder to the BCL
+        // `Char.TryParse(string, out char)`. `out result.Value` is CS0206 — a
+        // property is not a variable. The call site must copy the holder into a
+        // temp local, pass the temp as the native `out`/`ref` argument, then
+        // write it back into the holder after the call (XmlConvert.TryToUri
+        // hits the same shape with the reference-typed `out Uri result`, and
+        // XdrBuilder.ParseInteger with `ref uint n`).
+        var source = @"
+public class Calc
+{
+    internal static bool TryGet(string s, out int value)
+    {
+        if (!int.TryParse(s, out value))
+        {
+            return false;
+        }
+        return true;
+    }
+
+    internal static void Grow(ref int[] items)
+    {
+        System.Array.Resize(ref items, items.Length + 1);
+    }
+
+    public static int Use(string s)
+    {
+        if (TryGet(s, out int v)) { return v; }
+        return -1;
+    }
+
+    public static int UseGrow()
+    {
+        int[] items = new int[2];
+        Grow(ref items);
+        return items.Length;
+    }
+}";
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("refout-native-ref",
+            new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var result = new RefOutInRewriter().Rewrite(source, compilation.GetSemanticModel(tree));
+        Assert.True(result.Changed, "expected the preprocessor to rewrite the input");
+
+        // The holder's Value must never be forwarded as a native ref/out target.
+        Assert.DoesNotContain("out value.Value", result.OutputCode);
+        Assert.DoesNotContain("ref items.Value", result.OutputCode);
+        // Temp local passed to the callee, then written back into the holder.
+        Assert.Contains("value.Value = __out", result.OutputCode);
+        Assert.Contains("items.Value = __ref", result.OutputCode);
+
+        var rewrittenTree = CSharpSyntaxTree.ParseText(result.OutputCode + ExecutableByRefStub);
+        var rewrittenCompilation = CSharpCompilation.Create("refout-native-ref-out",
+            new[] { rewrittenTree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var errors = rewrittenCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        Assert.True(errors.Count == 0,
+            "Rewritten source must compile (no CS0206).\n--- Errors ---\n" +
+            string.Join("\n", errors) + "\n--- Rewritten ---\n" + result.OutputCode);
+
+        // Native ref/out arguments to external APIs are the intended output.
+        var violations = RefOutInPostVerifier.Verify(new[] { rewrittenTree }, rewrittenCompilation);
+        Assert.Empty(violations);
+
+        // Semantics: the copy-back must surface the callee's writes to the
+        // caller's holder exactly like a direct alias would.
+        using var stream = new MemoryStream();
+        var emit = rewrittenCompilation.Emit(stream);
+        Assert.True(emit.Success,
+            "Emit failed.\n--- Diagnostics ---\n" + string.Join("\n", emit.Diagnostics));
+        var assembly = Assembly.Load(stream.ToArray());
+        var type = assembly.GetType("Calc")!;
+        var use = type.GetMethod("Use")!;
+        var useGrow = type.GetMethod("UseGrow")!;
+        Assert.Equal(123, use.Invoke(null, new object[] { "123" }));
+        Assert.Equal(-1, use.Invoke(null, new object[] { "abc" }));
+        Assert.Equal(3, useGrow.Invoke(null, null));
     }
 }

@@ -870,6 +870,68 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments)));
     }
 
+    /// <summary>
+    /// True when <paramref name="inv"/> targets a NON-internal callee that keeps
+    /// its native <c>ref</c>/<c>out</c> signature (external metadata or locked
+    /// source, e.g. BCL <c>char.TryParse(string, out char)</c> or
+    /// <c>Array.Resize(ref T[], int)</c>) and hands it a bare ByRef holder
+    /// identifier. The declaration rewrite replaced the original variable with
+    /// <c>ByRef&lt;T&gt;</c>, whose <c>Value</c> is a property — forwarding it
+    /// as <c>out holder.Value</c> is CS0206. The statement lifter copies the
+    /// holder into a temp local, passes the temp with the native ref/out
+    /// keyword, then writes it back after the call.
+    ///
+    /// Pointer params never become holders (native ref kept, CS0306), and
+    /// ref-like holders forwarded to external ref APIs stay on the C11
+    /// CS2J3304 fail-fast path. Shadowed value holders bind to a plain local
+    /// and need no rewrite. Invocations must map positionally (no named /
+    /// params arguments) because the lifter indexes <c>Parameters[i]</c>.
+    /// </summary>
+    internal bool TryGetExternalHolderRefMethod(
+        InvocationExpressionSyntax inv, out IMethodSymbol method)
+    {
+        method = null!;
+        var arguments = inv.ArgumentList.Arguments;
+        if (arguments.Count == 0)
+            return false;
+
+        var resolved = ResolveInvocation(inv);
+        if (resolved == null || IsInternalCandidate(resolved))
+            return false;
+
+        // Interlocked has its own lock-based Cs2jInterlocked rewrite; lifting
+        // it to temp+copy-back would silently drop the atomic semantics.
+        if (resolved.ContainingType?.ToDisplayString() == "System.Threading.Interlocked")
+            return false;
+
+        if (resolved.Parameters.Length != arguments.Count
+            || resolved.Parameters.Any(p => p.IsParams)
+            || arguments.Any(a => a.NameColon != null))
+            return false;
+
+        foreach (var arg in arguments)
+        {
+            if (!arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
+                && !arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
+                continue;
+
+            var expr = arg.Expression;
+            while (expr is ParenthesizedExpressionSyntax p) expr = p.Expression;
+
+            if (expr is not IdentifierNameSyntax id || !IsHolderName(id.Identifier.Text))
+                continue;
+            if (TryGetShadowName(id.Identifier.Text, out _))
+                continue;
+            if (GetTypeOf(expr) is { IsRefLikeType: true })
+                continue;
+
+            method = resolved;
+            return true;
+        }
+
+        return false;
+    }
+
     public override SyntaxNode? VisitBlock(BlockSyntax node)
     {
         var newStatements = new List<StatementSyntax>();

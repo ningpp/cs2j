@@ -407,6 +407,28 @@ internal sealed class RefOutInStatementLifter
         var paramTypeSymbol = method.Parameters[index].Type;
         var paramType = _owner.TypeDisplay(paramTypeSymbol);
 
+        // (0) native callee (external metadata / locked source): the parameter
+        // keeps its `ref`/`out T` signature, so a ByRef holder cannot be
+        // forwarded — `holder.Value` is a property (CS0206). Copy the holder
+        // into a temp local at the argument position, pass the temp with its
+        // native keyword, and write it back after the call (read-backs run in
+        // reverse argument order, like every other lifted call).
+        if (!_owner.IsInternalCandidate(method)
+            && expr is IdentifierNameSyntax nativeHolder
+            && _owner.IsHolderName(nativeHolder.Identifier.Text)
+            && !_owner.TryGetShadowName(nativeHolder.Identifier.Text, out _))
+        {
+            var holderType = _owner.GetTypeOf(expr) ?? paramTypeSymbol;
+            var holderTypeName = _owner.TypeDisplay(holderType);
+            var holderText = nativeHolder.Identifier.Text;
+            var temp = Temp(isOut ? "__out" : "__ref");
+            return (ParseStmt(isOut
+                    ? $"{holderTypeName} {temp};"
+                    : $"{holderTypeName} {temp} = {holderText}.Value;"),
+                ParseStmt($"{holderText}.Value = {temp};"),
+                arg.WithExpression(Identifier(temp)));
+        }
+
         // (1) holder slot direct pass — internal callee now expects ByRef<T>/RefStructByRef<T>.
         // A value-typed holder inside a shadow copy-in/copy-out frame is NOT
         // forwarded directly: that would alias the outer ByRef and bypass (and
@@ -652,6 +674,13 @@ internal sealed class RefOutInStatementLifter
                     break;
                 }
             }
+        }
+        else if (_owner.TryGetExternalHolderRefMethod(inv, out var nativeCallee))
+        {
+            // Native callee (external/locked) receiving a ByRef holder by
+            // ref/out: `out holder.Value` is CS0206, so the call site is
+            // lifted too — the argument becomes a temp local plus a read-back.
+            resolved = new[] { nativeCallee };
         }
 
         _liftableCache[inv] = resolved;
