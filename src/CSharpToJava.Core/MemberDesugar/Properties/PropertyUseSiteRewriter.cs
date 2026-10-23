@@ -357,6 +357,137 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         return base.VisitReturnStatement(node);
     }
 
+    // ---- 箭头体提升（PD-6 值上下文延伸）----
+    // 表达式体成员/访问器/lambda 的体直接是属性简单赋值时，setter 返回 void，
+    // 不能充当箭头体的值（CS0029）。块化为
+    // `{ var __v = rhs; set_X(__v); return __v; }`：赋值表达式的值即赋入值，
+    // rhs 只求值一次（先于 setter 调用）。void 宿主的 `=> set_X(rhs)` 本就合法，
+    // 保持默认游历。识别与语义绑定一律走原始在树节点，产物块覆盖到已访问节点上。
+
+    public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
+    {
+        var visited = (MethodDeclarationSyntax)base.VisitMethodDeclaration(node)!;
+        if (!TryGetArrowAssignment(node.ExpressionBody, node.Body,
+                _model.GetDeclaredSymbol(node) is IMethodSymbol { ReturnsVoid: false },
+                out var assign, out var plan))
+            return visited;
+        return visited.WithExpressionBody(null)
+            .WithSemicolonToken(default)
+            .WithBody(BuildArrowAssignmentBlock(assign, plan))
+            .WithTrailingTrivia(visited.GetTrailingTrivia())
+            .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+    }
+
+    public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node)
+    {
+        var visited = (LocalFunctionStatementSyntax)base.VisitLocalFunctionStatement(node)!;
+        if (!TryGetArrowAssignment(node.ExpressionBody, node.Body,
+                _model.GetDeclaredSymbol(node) is IMethodSymbol { ReturnsVoid: false },
+                out var assign, out var plan))
+            return visited;
+        return visited.WithExpressionBody(null)
+            .WithSemicolonToken(default)
+            .WithBody(BuildArrowAssignmentBlock(assign, plan))
+            .WithTrailingTrivia(visited.GetTrailingTrivia())
+            .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+    }
+
+    public override SyntaxNode? VisitAccessorDeclaration(AccessorDeclarationSyntax node)
+    {
+        var visited = (AccessorDeclarationSyntax)base.VisitAccessorDeclaration(node)!;
+        if (!TryGetArrowAssignment(node.ExpressionBody, node.Body,
+                _model.GetDeclaredSymbol(node) is IMethodSymbol { ReturnsVoid: false },
+                out var assign, out var plan))
+            return visited;
+        return visited.WithExpressionBody(null)
+            .WithSemicolonToken(default)
+            .WithBody(BuildArrowAssignmentBlock(assign, plan))
+            .WithTrailingTrivia(visited.GetTrailingTrivia())
+            .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+    }
+
+    public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node)
+    {
+        var visited = (SimpleLambdaExpressionSyntax)base.VisitSimpleLambdaExpression(node)!;
+        if (!TryGetLambdaAssignment(node, out var assign, out var plan))
+            return visited;
+        return visited.WithExpressionBody(null)
+            .WithBlock(BuildArrowAssignmentBlock(assign, plan))
+            .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+    }
+
+    public override SyntaxNode? VisitParenthesizedLambdaExpression(
+        ParenthesizedLambdaExpressionSyntax node)
+    {
+        var visited =
+            (ParenthesizedLambdaExpressionSyntax)base.VisitParenthesizedLambdaExpression(node)!;
+        if (!TryGetLambdaAssignment(node, out var assign, out var plan))
+            return visited;
+        return visited.WithExpressionBody(null)
+            .WithBlock(BuildArrowAssignmentBlock(assign, plan))
+            .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+    }
+
+    /// <summary>箭头体站点识别：宿主无块体且（值返回时）箭头表达式剥括号后恰为
+    /// 被规划属性的简单赋值。只认直接表达式，嵌套形态不受理。</summary>
+    private bool TryGetArrowAssignment(
+        ArrowExpressionClauseSyntax? arrow,
+        BlockSyntax? blockBody,
+        bool returnsValue,
+        out AssignmentExpressionSyntax assign,
+        out PropertyPlan plan)
+    {
+        assign = null!;
+        plan = null!;
+        if (!returnsValue || arrow == null || blockBody != null) return false;
+        return TryGetAssignment(arrow.Expression, out assign, out plan);
+    }
+
+    /// <summary>表达式 lambda 站点识别：返回类型由转换后的委托 Invoke 决定，
+    /// 仅值返回委托需要提升（Action 的裸 setter 调用合法）。</summary>
+    private bool TryGetLambdaAssignment(
+        LambdaExpressionSyntax node,
+        out AssignmentExpressionSyntax assign,
+        out PropertyPlan plan)
+    {
+        assign = null!;
+        plan = null!;
+        return node.Block == null
+               && node.ExpressionBody is { } body
+               && _model.GetTypeInfo(node).ConvertedType
+                   is INamedTypeSymbol { DelegateInvokeMethod: { ReturnsVoid: false } }
+               && TryGetAssignment(body, out assign, out plan);
+    }
+
+    private bool TryGetAssignment(
+        ExpressionSyntax expression,
+        out AssignmentExpressionSyntax assign,
+        out PropertyPlan plan)
+    {
+        assign = null!;
+        plan = null!;
+        if (UnwrapParentheses(expression) is not AssignmentExpressionSyntax candidate
+            || !candidate.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            || !TryGetPlan(candidate.Left, out plan)
+            || !plan.HasSetter)
+            return false;
+        assign = candidate;
+        return true;
+    }
+
+    /// <summary>提升块：rhs 先存临时（单次求值），setter 消费临时，返回赋入值。</summary>
+    private BlockSyntax BuildArrowAssignmentBlock(
+        AssignmentExpressionSyntax assign, PropertyPlan plan)
+    {
+        var value = (ExpressionSyntax)Visit(assign.Right)!;
+        var temp = TempName("pval");
+        var tempIdent = Ident(temp);
+        return Block(
+            DeclVar(temp, value),
+            SyntaxFactory.ExpressionStatement(BuildSetterCall(assign.Left, plan, tempIdent)),
+            SyntaxFactory.ReturnStatement(tempIdent.WithLeadingTrivia(SyntaxFactory.Space)));
+    }
+
     // ---- 赋值（PD-6/PD-7）----
 
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)

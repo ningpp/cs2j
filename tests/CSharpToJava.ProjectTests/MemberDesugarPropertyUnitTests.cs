@@ -348,6 +348,41 @@ public class MemberDesugarPropertyUnitTests
         AssertOutputCompiles(outCode);
     }
 
+    // CS0029 回归（regular-expressions Regex.CacheSize / MatchTimeout）：表达式体
+    // 成员/lambda 的体直接是属性赋值时，赋值结果（= 赋入值）必须保留；setter 返回
+    // void 前不能直接作返回值，块化为求值一次 + setter + return 临时。
+    [Fact]
+    public void ExpressionBodiedAssignment_PreservesAssignedValue()
+    {
+        var src = """
+            using System;
+
+            internal sealed class C
+            {
+                public int P { get; set; }
+
+                internal object M() => P = 5;
+
+                internal void L()
+                {
+                    Func<object> f = () => P = 3;
+                    _ = f;
+                }
+            }
+            """;
+
+        var (outCode, stats, _) = Rewrite(src);
+        var compact = Normalize(outCode);
+
+        // 赋值结果作为返回值（方法 + lambda 各一），setter 各只调用一次。
+        AssertContains(outCode, "var __cs2j_pval0 = 5; set_P(__cs2j_pval0); return __cs2j_pval0;");
+        AssertContains(outCode, "var __cs2j_pval1 = 3; set_P(__cs2j_pval1); return __cs2j_pval1;");
+        Assert.Equal(2, compact.Split("set_P(__cs2j_pval").Length - 1);
+        Assert.Equal(2, compact.Split("return__cs2j_pval").Length - 1);
+        Assert.True(stats.WriteSitesRewritten >= 2);
+        AssertOutputCompiles(outCode);
+    }
+
     private static void AssertContains(string output, string expected)
         => Assert.True(Normalize(output).Contains(Normalize(expected).Trim(),
             StringComparison.Ordinal),
