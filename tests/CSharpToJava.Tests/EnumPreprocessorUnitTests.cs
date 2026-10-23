@@ -926,4 +926,45 @@ public class EnumPreprocessorUnitTests
         Assert.False(result.Changed);
         Assert.Contains("w - Weird.A", result.OutputCode);
     }
+
+    // 可空 enum vs null 字面量是 HasValue 判空（Java 引用判空直译），绝不能降为
+    // (U)x.Value != null——那既不合法也改变语义。回归 regular-expressions
+    // RegexParserTests.ParseTree 的 `error != null`（脏检查扩宽后暴露的既有缺口）。
+    [Fact]
+    public void Nullable_Enum_Vs_Null_Literal_Stays_Untouched()
+    {
+        var src = """
+        enum RegexParseError { InsufficientOpeningParentheses }
+        class C
+        {
+            bool Has(RegexParseError? error) => error != null;
+            bool Missing(RegexParseError? error) => error == null;
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains("error != null", result.OutputCode);
+        Assert.Contains("error == null", result.OutputCode);
+        Assert.DoesNotContain("error.Value", result.OutputCode);
+    }
+
+    // 可空 enum 参与关系比较（非 null 字面量）沿用既有提升行为：读 .Value 后降为
+    // (int) 比较。
+    [Fact]
+    public void Nullable_Enum_Relational_Still_Lifts_Value()
+    {
+        var src = """
+        enum Op { EQ, GE }
+        class C
+        {
+            bool Check(Op? op) => op >= Op.GE;
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("(int)op.Value >= (int)Op.GE", result.OutputCode);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
 }

@@ -508,6 +508,16 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         var leftEnum = GetEnumType(node.Left);
         var rightEnum = GetEnumType(node.Right);
 
+        // C# 的 E - E / E + i 按规范永不溢出检查（E-E 在底层域无检查计算）；降为
+        // (int) 算术后在 checked 上下文里可能新抛 OverflowException，语义漂移——
+        // checked 上下文内的算术站点保持原样。
+        if (node.Ancestors().Any(a =>
+                (a is CheckedExpressionSyntax ce && ce.IsKind(SyntaxKind.CheckedExpression))
+                || (a is CheckedStatementSyntax cs && cs.IsKind(SyntaxKind.CheckedStatement))))
+        {
+            return null;
+        }
+
         if (node.IsKind(SyntaxKind.SubtractExpression))
         {
             if (leftEnum == null || rightEnum == null
@@ -564,9 +574,20 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
 
         var isEquality = kind is SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression;
 
-        // Same-enum equality / inequality → Java enums support == / !=; leave untouched.
+        // 同 enum 相等/不等 → Java enums 支持 == / !=；保持原样。
         if (isEquality && leftEnum != null && rightEnum != null
             && SymbolEqualityComparer.Default.Equals(leftEnum, rightEnum))
+        {
+            return (BinaryExpressionSyntax)node.Update(left, node.OperatorToken, right);
+        }
+
+        // 可空 enum vs null 字面量是 HasValue 判空（Java 引用判空直译），不是值
+        // 比较：降为 (U)x.Value != null 既不合法也改变语义，必须保持原样。
+        // （回归 regular-expressions RegexParserTests.ParseTree 的 `error != null`：
+        // 脏检查纳入关系站点后，该形态曾是 (int)error.Value != null 残留，触发
+        // numeric-boundary 的 CS2J5355。）
+        if (node.Left.IsKind(SyntaxKind.NullLiteralExpression)
+            || node.Right.IsKind(SyntaxKind.NullLiteralExpression))
         {
             return (BinaryExpressionSyntax)node.Update(left, node.OperatorToken, right);
         }
