@@ -421,6 +421,8 @@ public sealed class UnsafeFfmPreprocessor
         IReadOnlyDictionary<ISymbol, (string ArrayName, bool ReadOnly, string SourceSlot)>
             loweredArrayMap =
             new Dictionary<ISymbol, (string, bool, string)>(SymbolEqualityComparer.Default);
+        IReadOnlyDictionary<IMethodSymbol, string> pointerMethodRenames =
+            new Dictionary<IMethodSymbol, string>(SymbolEqualityComparer.Default);
 
         if (_options.EnablePointer && pointerCluster)
         {
@@ -447,6 +449,11 @@ public sealed class UnsafeFfmPreprocessor
             {
                 pointerRewritten.Add(symbol);
             }
+
+            // R5 配对展开与既有数组重载撞签名（CS0111）时改名指针方法，并记录
+            // 「原始符号 → 新名」供 R6 调用点同步改名。
+            (newRoot, pointerMethodRenames) = OverloadCollisionDisambiguator.Disambiguate(
+                newRoot, root, semanticModel);
         }
 
         // M1：R2→R3 同树合批，仅在 EnableFixed 时执行。
@@ -568,7 +575,8 @@ public sealed class UnsafeFfmPreprocessor
                 exprResolver,
                 newRoot,
                 lowerableStackAllocLocals,
-                zeroInvariantStackAllocLocals);
+                zeroInvariantStackAllocLocals,
+                pointerMethodRenames);
             newRoot = (CompilationUnitSyntax)exprRewriter.Visit(newRoot)!;
             foreach (var diagnostic in exprRewriter.Diagnostics)
             {

@@ -59,6 +59,12 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
     /// <summary>当前访问子树所属配对方法栈（栈顶即最近方法计划）。</summary>
     private readonly List<PairedMethodPlan> _pairedStack = new();
 
+    /// <summary>
+    /// R5 展开撞既有数组重载签名的指针方法改名表（原始方法符号 → 新名），
+    /// 供调用点按符号同步改名；空表为零开销。
+    /// </summary>
+    private readonly IReadOnlyDictionary<IMethodSymbol, string>? _methodRenames;
+
     /// <summary>配对 holder 形参符号 → 伴生数组形参名。</summary>
     private readonly Dictionary<ISymbol, string> _holderParameters =
         new(SymbolEqualityComparer.Default);
@@ -81,7 +87,8 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
         OriginalSyntaxResolver resolver,
         CompilationUnitSyntax root,
         IReadOnlyCollection<ISymbol>? stackAllocCursorSymbols = null,
-        IReadOnlyCollection<ISymbol>? stackAllocZeroInvariantSymbols = null)
+        IReadOnlyCollection<ISymbol>? stackAllocZeroInvariantSymbols = null,
+        IReadOnlyDictionary<IMethodSymbol, string>? methodRenames = null)
     {
         _model = model;
         _flowModel = flowModel;
@@ -94,6 +101,7 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
             ?? Array.Empty<ISymbol>();
         _stackAllocZeroInvariantSymbols = stackAllocZeroInvariantSymbols
             ?? Array.Empty<ISymbol>();
+        _methodRenames = methodRenames;
         _plan = BuildPlan(root);
     }
 
@@ -186,6 +194,15 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
+        var rename = _methodRenames is { Count: > 0 } ? TryGetInvocationRename(node) : null;
+        var result = VisitInvocationCore(node);
+        if (rename != null && result is InvocationExpressionSyntax rewritten)
+            result = RenameInvocationName(rewritten, rename);
+        return result;
+    }
+
+    private SyntaxNode? VisitInvocationCore(InvocationExpressionSyntax node)
+    {
         if (TryGetInvocationPlan(node) is { } plan)
             return ExpandPairedInvocation(node, plan, out _, out _);
 
@@ -205,6 +222,50 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
         }
 
         return base.VisitInvocationExpression(node);
+    }
+
+    /// <summary>
+    /// 调用点是否命中改名表：沿原始调用节点取绑定方法符号（直接绑定或候选），
+    /// OriginalDefinition 在改名表中时返回新名。仅当表非空时调用。
+    /// </summary>
+    private string? TryGetInvocationRename(InvocationExpressionSyntax node)
+    {
+        if (_resolver.Resolve(node) is not InvocationExpressionSyntax originalInvocation)
+            return null;
+
+        var info = _model.GetSymbolInfo(originalInvocation);
+        var method = info.Symbol as IMethodSymbol
+            ?? info.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+        if (method == null) return null;
+
+        return _methodRenames!.TryGetValue(method.OriginalDefinition, out var newName)
+            ? newName
+            : null;
+    }
+
+    /// <summary>把改写后调用表达式的名称段替换为新名（保留类型实参与接收者）。</summary>
+    private static InvocationExpressionSyntax RenameInvocationName(
+        InvocationExpressionSyntax invocation, string newName)
+    {
+        switch (invocation.Expression)
+        {
+            case GenericNameSyntax generic:
+                return invocation.WithExpression(
+                    generic.WithIdentifier(Identifier(generic.Identifier.LeadingTrivia, newName, generic.Identifier.TrailingTrivia)));
+            case IdentifierNameSyntax identifier:
+                return invocation.WithExpression(
+                    IdentifierName(Identifier(identifier.Identifier.LeadingTrivia, newName, identifier.Identifier.TrailingTrivia)));
+            case MemberAccessExpressionSyntax memberAccess
+                when memberAccess.Name is GenericNameSyntax memberGeneric:
+                return invocation.WithExpression(memberAccess.WithName(
+                    memberGeneric.WithIdentifier(Identifier(memberGeneric.Identifier.LeadingTrivia, newName, memberGeneric.Identifier.TrailingTrivia))));
+            case MemberAccessExpressionSyntax memberAccess
+                when memberAccess.Name is SimpleNameSyntax memberName:
+                return invocation.WithExpression(memberAccess.WithName(
+                    IdentifierName(Identifier(memberName.Identifier.LeadingTrivia, newName, memberName.Identifier.TrailingTrivia))));
+            default:
+                return invocation;
+        }
     }
 
     public override SyntaxNode? VisitObjectCreationExpression(
