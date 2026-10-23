@@ -349,7 +349,23 @@ public partial class StatementTransformer
             // operand is captured in a temp with its read-backs emitted right
             // after it, and the right operand stays lazy inside `||`/`&&`.
             var preamble = new System.Text.StringBuilder();
-            effectiveCondition = BuildShortCircuitCondition(stmt.Condition, context, preamble);
+            var conditionText = BuildShortCircuitCondition(stmt.Condition, context, preamble);
+            if (context.HasPendingPostStatements)
+            {
+                // 顶层叶条件（如 `!obj.TryGet(key, out var v)`，整体是一个急值操作数）
+                // 在 BuildShortCircuitCondition 中不做 temp 捕获也不排 post，holder
+                // 读回声明此刻仍悬挂。若不在此处收口，then 块的第一条表达式语句会把
+                // 读回排进块内（DrainPostStatements 同时清空 active holder），读回
+                // 别名落在块里，if 之后的使用（C# out-var 作用域是整个外层块，如
+                // `if (!TryGet(key, out var r)) {...} return r;`）悬空引用。与二元
+                // 分支同款处理：条件捕获进 temp，读回提升到 if 之前。二元条件走到
+                // 这里 post 已排空，不会重复捕获。
+                var condTemp = context.GenerateSyntheticName("_scCond");
+                preamble.Append($"var {condTemp} = {conditionText};\n");
+                DrainPendingPostStatements(preamble, context);
+                conditionText = condTemp;
+            }
+            effectiveCondition = conditionText;
             condPreamble = preamble.ToString();
         }
         else
