@@ -15,11 +15,20 @@ public sealed partial class JavaReservedWordPreprocessor
     private JavaKeywordAnalysis? _analysis;
     private ConversionPlan? _plan;
     private readonly HashSet<string> _excludedPlanIds = new(StringComparer.Ordinal);
+    private IJavaKeywordScopedBindingFallback? _scopedBindingFallback;
+    private TopLevelPartitionScopedBindingFallback? _defaultScopedFallback;
 
     public JavaReservedWordPreprocessor(JavaKeywordOptions? options = null)
     {
         _options = options ?? new JavaKeywordOptions();
     }
+
+    /// <summary>
+    /// 注入宿主侧作用域化重绑定回退（按文件所属项目分区 + 各项目 global usings）。
+    /// 未注入时用缺省顶层目录分区实现（仅补默认 SDK 隐式 usings）。
+    /// </summary>
+    internal void SetScopedBindingFallback(IJavaKeywordScopedBindingFallback? fallback)
+        => _scopedBindingFallback = fallback;
 
     public JavaKeywordFileResult RewriteFile(
         string sourceCode,
@@ -98,9 +107,15 @@ public sealed partial class JavaReservedWordPreprocessor
         // any plan's TouchedFiles (Roslyn's PartialImplementationPart
         // only links one implementation part), but the rewriter's
         // TryLookupRename fallback resolves them via the definition part.
+        if (_scopedBindingFallback == null)
+        {
+            _defaultScopedFallback ??= TopLevelPartitionScopedBindingFallback.Build(
+                (CSharpCompilation)semanticModel.Compilation);
+        }
         var context = new RewriteContext(
             semanticModel, _analysis!, _plan!, activePlans, _excludedPlanIds,
-            statistics, diagnostics, filePath);
+            statistics, diagnostics, filePath,
+            _scopedBindingFallback ?? _defaultScopedFallback);
 
         var newRoot = ApplyRewriters(root, context);
 

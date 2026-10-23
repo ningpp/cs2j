@@ -108,7 +108,8 @@ internal sealed record RewriteContext(
     IReadOnlySet<string> ExcludedPlanIds,
     JavaKeywordStatistics Statistics,
     List<JavaKeywordDiagnostic> Diagnostics,
-    string FilePath);
+    string FilePath,
+    IJavaKeywordScopedBindingFallback? ScopedBindingFallback = null);
 
 /// <summary>
 /// Phase 2：从分析结果构建 plan 列表。关键字改名 plan 永不 Infeasible；

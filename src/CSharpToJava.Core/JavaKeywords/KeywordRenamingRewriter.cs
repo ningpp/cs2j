@@ -12,11 +12,16 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
 {
     private readonly RewriteContext _context;
     private readonly Dictionary<ISymbol, string> _table;
+    /// <summary>改名表中出现过的原始名（剥 @），用于调用点回退改名的快速预筛。</summary>
+    private readonly HashSet<string> _renamedOriginalNames;
 
     public KeywordRenamingRewriter(RewriteContext context) : base(visitIntoStructuredTrivia: true)
     {
         _context = context;
         _table = context.Analysis.RenameTable;
+        _renamedOriginalNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var symbol in _table.Keys)
+            _renamedOriginalNames.Add(JavaKeywordSyntaxFacts.StripAt(symbol.Name));
     }
 
     // ---- 声明点改名 ----
@@ -307,6 +312,12 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
             }
         }
 
+        // JK-4d：合并整树绑定失败（跨项目同名类型）→ 作用域化重绑定
+        if (TryScopedRebind(node, node.Identifier.ValueText, out var scopedName))
+        {
+            return (GenericNameSyntax)RenameSimpleNameNode(visited, scopedName);
+        }
+
         return visited;
     }
 
@@ -322,6 +333,12 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
                 RenameSimpleName(visited.Right, newName))
                 .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
         }
+        else if (visited.Right is SimpleNameSyntax right
+                 && TryScopedRebind(node, right.Identifier.ValueText, out var scopedRight))
+        {
+            visited = visited.WithRight((SimpleNameSyntax)RenameSimpleNameNode(visited.Right, scopedRight))
+                .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
+        }
         return visited;
     }
 
@@ -335,6 +352,12 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
         {
             visited = visited.WithName(
                 RenameSimpleName(visited.Name, newName))
+                .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
+        }
+        else if (visited.Name is SimpleNameSyntax name
+                 && TryScopedRebind(node, name.Identifier.ValueText, out var scopedName))
+        {
+            visited = visited.WithName((SimpleNameSyntax)RenameSimpleNameNode(visited.Name, scopedName))
                 .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
         }
         return visited;
@@ -531,6 +554,14 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
             }
         }
 
+        // JK-4d：合并整树绑定失败（跨项目同名类型）→ 作用域化重绑定
+        if (TryScopedRebind(original, original.Identifier.ValueText, out var scopedName))
+        {
+            return visited.WithIdentifier(
+                SyntaxFactory.Identifier(visited.Identifier.LeadingTrivia, scopedName, visited.Identifier.TrailingTrivia))
+                .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
+        }
+
         // 动态绑定不改（JK-4c / JK-8）
         return visited;
     }
@@ -560,4 +591,74 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
         }
         return false;
     }
+
+    /// <summary>
+    /// 作用域化重绑定回退（JK-4d）。整树合并编译里跨项目同名类型会让调用点绑定
+    /// 完全失败（Symbol=null、无候选，如 <c>System.AssertExtensions</c> 与
+    /// <c>System.Tests.AssertExtensions</c>），声明侧改名因此残留调用点（真实 SDK
+    /// 上 147 处 CS0117）。此处按宿主提供的作用域编译（文件所属项目分区 + 该项目
+    /// global usings）重新绑定同一节点，命中改名表即采纳。仅当标识符原文与表中
+    /// 某个原始名相同时才触发，常规标识符零开销；查不到则保持现状不改写。
+    /// </summary>
+    private bool TryScopedRebind(SyntaxNode original, string identifierText, out string newName)
+    {
+        newName = string.Empty;
+        var fallback = _context.ScopedBindingFallback;
+        if (fallback == null) return false;
+        if (!_renamedOriginalNames.Contains(JavaKeywordSyntaxFacts.StripAt(identifierText)))
+            return false;
+
+        var scopedModel = fallback.GetScopedModel(original.SyntaxTree);
+        if (scopedModel == null) return false;
+
+        var info = scopedModel.GetSymbolInfo(original);
+        // 作用域编译与合并编译是不同编译实例：即使共享同一语法树，声明符号也是
+        // 不同实例，直接查改名表（合并符号为键）必落空。这里沿作用域符号的声明
+        // 语法引用回到共享语法树，用合并模型重新取声明符号后再查表。
+        var scopedSymbol = (ISymbol?)info.Symbol ?? info.CandidateSymbols.FirstOrDefault();
+        if (scopedSymbol == null) return false;
+        var declRef = scopedSymbol.OriginalDefinition.DeclaringSyntaxReferences.FirstOrDefault();
+        if (declRef == null) return false;
+
+        var declNode = declRef.GetSyntax();
+        var mergedModel = _context.Model.Compilation.GetSemanticModel(declRef.SyntaxTree);
+        var mergedSymbol = declNode switch
+        {
+            MethodDeclarationSyntax m => mergedModel.GetDeclaredSymbol(m),
+            PropertyDeclarationSyntax p => mergedModel.GetDeclaredSymbol(p),
+            EventDeclarationSyntax e => mergedModel.GetDeclaredSymbol(e),
+            FieldDeclarationSyntax f => mergedModel.GetDeclaredSymbol(
+                f.Declaration.Variables.FirstOrDefault()) is { } v ? v : null,
+            VariableDeclaratorSyntax vd => mergedModel.GetDeclaredSymbol(vd),
+            ClassDeclarationSyntax c => mergedModel.GetDeclaredSymbol(c),
+            StructDeclarationSyntax s => mergedModel.GetDeclaredSymbol(s),
+            InterfaceDeclarationSyntax i => mergedModel.GetDeclaredSymbol(i),
+            EnumDeclarationSyntax en => mergedModel.GetDeclaredSymbol(en),
+            DelegateDeclarationSyntax d => mergedModel.GetDeclaredSymbol(d),
+            RecordDeclarationSyntax r => mergedModel.GetDeclaredSymbol(r),
+            TypeParameterSyntax tp => mergedModel.GetDeclaredSymbol(tp),
+            ParameterSyntax par => mergedModel.GetDeclaredSymbol(par),
+            _ => null,
+        };
+        if (mergedSymbol != null && TryLookupRename(mergedSymbol, out newName))
+            return true;
+
+        foreach (var candidate in info.CandidateSymbols)
+        {
+            var candRef = candidate.OriginalDefinition.DeclaringSyntaxReferences.FirstOrDefault();
+            if (candRef == null) continue;
+            var candNode = candRef.GetSyntax();
+            var candMerged = _context.Model.Compilation.GetSemanticModel(candRef.SyntaxTree)
+                .GetDeclaredSymbol(candNode as MethodDeclarationSyntax ?? (SyntaxNode?)null);
+            if (candMerged != null && TryLookupRename(candMerged, out newName))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>带注记地把简单名（可含类型实参）改名，保留前后 trivia。</summary>
+    private SyntaxNode RenameSimpleNameNode(SimpleNameSyntax visited, string newName)
+        => visited.WithIdentifier(
+                SyntaxFactory.Identifier(visited.Identifier.LeadingTrivia, newName, visited.Identifier.TrailingTrivia))
+            .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
 }

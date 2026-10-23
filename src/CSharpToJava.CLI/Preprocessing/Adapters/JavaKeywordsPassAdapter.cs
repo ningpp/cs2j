@@ -109,6 +109,8 @@ internal sealed class JavaKeywordsPassAdapter : ProjectPassAdapter
                 sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Dest))),
                 tree.Layout, intermediateRoot);
             preprocessor.BindCompilation(compilation);
+            preprocessor.SetScopedBindingFallback(
+                BuildProjectScopedBindingFallback(compilation, tree.Layout, intermediateRoot));
             preprocessor.ExcludePlans(excluded);
 
             // rewrittenByFile：被改写文件 → 其原始源文件路径（值当前未参与归属，仅作"在改写集"判定）。
@@ -389,5 +391,101 @@ internal sealed class JavaKeywordsPassAdapter : ProjectPassAdapter
         Span<byte> prefix = stackalloc byte[3];
         var read = stream.Read(prefix);
         return read >= 3 && prefix[0] == 0xEF && prefix[1] == 0xBB && prefix[2] == 0xBF;
+    }
+
+    /// <summary>
+    /// 按项目分区的绑定回退：合并整树编译里跨项目同名类型（如 xml-tiny 的
+    /// <c>System.AssertExtensions</c> 与 regex tests 的 <c>System.Tests.AssertExtensions</c>，
+    /// 后者经项目级 &lt;Using /&gt; 进入作用域）会让调用点绑定失败、调用点改名残留。
+    /// 此处以「文件所属 csproj 目录」划区，用各项目自身的 global usings 重建小编译，
+    /// 供 JK-4d 作用域化重绑定。作用域编译懒构建（仅实际触发回退的项目付费）。
+    /// </summary>
+    private static IJavaKeywordScopedBindingFallback BuildProjectScopedBindingFallback(
+        CSharpCompilation compilation,
+        ProjectPreprocessSourceLayout layout,
+        string intermediateRoot)
+    {
+        var projects = new List<(string ProjectDir, string Usings)>();
+        foreach (var projectFile in layout.ProjectFiles
+                     .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
+        {
+            var intermediateProjectFile = Path.Combine(
+                intermediateRoot, Path.GetRelativePath(layout.SourceRoot, projectFile));
+            var projectDir = Path.GetFullPath(Path.GetDirectoryName(intermediateProjectFile)!);
+            var usings = ImplicitGlobalUsings.BuildForProject(intermediateProjectFile, intermediateRoot) ?? string.Empty;
+            projects.Add((projectDir, usings));
+        }
+
+        // 嵌套 csproj 时最长目录前缀优先。
+        projects.Sort((a, b) => b.ProjectDir.Length.CompareTo(a.ProjectDir.Length));
+        return new ProjectScopedBindingFallback(compilation, projects);
+    }
+
+    private sealed class ProjectScopedBindingFallback : IJavaKeywordScopedBindingFallback
+    {
+        private readonly CSharpCompilation _compilation;
+        private readonly List<(string ProjectDir, string Usings)> _projects;
+        private readonly Dictionary<string, CSharpCompilation> _scopedCache =
+            new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<SyntaxTree, SemanticModel> _modelCache = new();
+
+        public ProjectScopedBindingFallback(
+            CSharpCompilation compilation,
+            List<(string ProjectDir, string Usings)> projects)
+        {
+            _compilation = compilation;
+            _projects = projects;
+        }
+
+        public SemanticModel? GetScopedModel(SyntaxTree tree)
+        {
+            if (_modelCache.TryGetValue(tree, out var cachedModel)) return cachedModel;
+
+            string? projectDir = null, usings = null;
+            foreach (var (dir, usingText) in _projects)
+            {
+                if (IsUnderDir(tree.FilePath, dir))
+                {
+                    projectDir = dir;
+                    usings = usingText;
+                    break;
+                }
+            }
+            if (projectDir == null) return null;
+
+            if (!_scopedCache.TryGetValue(projectDir, out var scoped))
+            {
+                var trees = new List<SyntaxTree>();
+                foreach (var candidate in _compilation.SyntaxTrees)
+                {
+                    if (IsUnderDir(candidate.FilePath, projectDir)) trees.Add(candidate);
+                }
+                if (usings.Length > 0)
+                {
+                    trees.Add(CSharpSyntaxTree.ParseText(
+                        usings,
+                        new CSharpParseOptions(LanguageVersion.Latest),
+                        path: Path.Combine(projectDir, "__cs2j_project_global_usings.g.cs")));
+                }
+                scoped = CSharpCompilation.Create(
+                    $"java-keywords-scoped-{Path.GetFileName(projectDir)}",
+                    trees,
+                    _compilation.ExternalReferences,
+                    _compilation.Options);
+                _scopedCache[projectDir] = scoped;
+            }
+
+            var model = scoped.GetSemanticModel(tree);
+            _modelCache[tree] = model;
+            return model;
+        }
+
+        private static bool IsUnderDir(string path, string dir)
+        {
+            var full = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var baseDir = dir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return full.StartsWith(baseDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                || full.StartsWith(baseDir + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        }
     }
 }
