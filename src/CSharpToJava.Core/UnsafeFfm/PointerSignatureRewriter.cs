@@ -208,6 +208,12 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
     /// <summary>
     /// 按配对计划重建形参表：指针形参 → 数组形参 + 紧随的 int 索引形参；
     /// holder 指针形参 → ByRef&lt;int&gt; + 紧随的伴生 T[] 数组形参。
+    /// <para>
+    /// 原声明为 <c>ref T*</c>/<c>out T*</c> 的指针形参：ref/out 语义落在
+    /// 「游标推进」上（被调方对指针的再赋值=索引变更），数组身份经指针不可
+    /// 变更——因此数组形参剥离 ref/out 修饰，索引形参补 <c>ref</c>（后续
+    /// RefOutIn 按 ByRef&lt;int&gt; 槽接管写回），配对展开的写回语义才完整。
+    /// </para>
     /// </summary>
     private ParameterListSyntax ApplyPairedParameters(
         ParameterListSyntax visitedList, PairedMethodPlan plan)
@@ -232,9 +238,30 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
 
             if (parameterPlan.Kind == PairedParamKind.PlainPointer)
             {
-                result.Add(visitedParameter.WithType(BuildArrayTypeFromElement(elementSyntax)));
-                result.Add(Parameter(Identifier(parameterPlan.IndexName))
-                    .WithType(PredefinedType(Token(SyntaxKind.IntKeyword))));
+                var isArrayByRef = parameterPlan.Symbol is { RefKind: not RefKind.None };
+                var arrayParameter = visitedParameter
+                    .WithType(BuildArrayTypeFromElement(elementSyntax));
+                if (isArrayByRef)
+                {
+                    // 数组身份经指针不可变更：剥离原 ref/out 修饰。
+                    arrayParameter = arrayParameter.WithModifiers(TokenList(
+                        visitedParameter.Modifiers.Where(m =>
+                            !m.IsKind(SyntaxKind.RefKeyword)
+                            && !m.IsKind(SyntaxKind.OutKeyword)
+                            && !m.IsKind(SyntaxKind.InKeyword))));
+                }
+
+                var indexParameter = Parameter(Identifier(parameterPlan.IndexName))
+                    .WithType(PredefinedType(Token(SyntaxKind.IntKeyword)));
+                if (isArrayByRef)
+                {
+                    // 游标推进即原指针再赋值：按 ref 语义写回调用方。
+                    indexParameter = indexParameter.WithModifiers(
+                        TokenList(Token(SyntaxKind.RefKeyword)));
+                }
+
+                result.Add(arrayParameter);
+                result.Add(indexParameter);
             }
             else
             {

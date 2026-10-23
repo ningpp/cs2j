@@ -394,7 +394,21 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
                     firstArray ??= argArray;
                     firstSlot ??= argSlot;
                     newArgs.Add(Argument(ParseExpression(argArray)));
-                    newArgs.Add(Argument(Simplify(argIndex)));
+                    // 原形参为 ref/out 指针：游标推进写回调用方，索引实参补
+                    // ref（被调方签名的索引形参同为 ref；游标实参恒为调用方
+                    // 可寻址的 int 局部/形参——原 ref 指针实参本就要求可赋值）。
+                    if (slot.Symbol is { RefKind: not RefKind.None }
+                        && argIndex is IdentifierNameSyntax)
+                    {
+                        newArgs.Add(Argument(
+                            null,
+                            Token(SyntaxKind.RefKeyword),
+                            Simplify(argIndex)));
+                    }
+                    else
+                    {
+                        newArgs.Add(Argument(Simplify(argIndex)));
+                    }
                 }
                 else
                 {
@@ -2824,14 +2838,16 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
             var rhs = UnwrapParenthesized(node.Right);
 
             // RHS 为配对指针返回方法调用：实参展开、结果按配对约定是同源
-            // int 索引（p = Entity(p) 形态），整体重建为 int 赋值。
+            // int 索引（p = Entity(p) 形态），整体重建为 int 赋值。赋值目标
+            // 必须落在「索引游标」上（配对形参的 pDstIndex / 别名局部自身），
+            // 而非数组形参名——指针赋值改变的是指针位置，不是数组身份。
             if (rhs is InvocationExpressionSyntax rhsInvocation
                 && TryGetInvocationPlan(rhsInvocation) is { } rhsPlan)
             {
                 var rebuiltRight = ExpandPairedInvocation(rhsInvocation, rhsPlan, out _, out _);
-                var visitedInvocationLeft = (ExpressionSyntax)Visit(node.Left)!;
+                var cursorLeft = RewritePointerAssignmentLeft(node.Left);
                 return node.Update(
-                    visitedInvocationLeft, node.OperatorToken, rebuiltRight);
+                    cursorLeft, node.OperatorToken, rebuiltRight);
             }
 
             // 配对方法域内其它可证指针 RHS（形参索引±n/shadow 派生）：归一
@@ -2841,9 +2857,9 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
                 && IsOldPointerTyped(rhs)
                 && TryBuildIndex(rhs, out _, out var pairedRhs, out _))
             {
-                var visitedPairedLeft = (ExpressionSyntax)Visit(node.Left)!;
+                var cursorLeftPaired = RewritePointerAssignmentLeft(node.Left);
                 return node.Update(
-                    visitedPairedLeft, node.OperatorToken, Simplify(pairedRhs));
+                    cursorLeftPaired, node.OperatorToken, Simplify(pairedRhs));
             }
         }
 
@@ -2881,6 +2897,31 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
         var visitedLeftFinal = (ExpressionSyntax)Visit(node.Left)!;
         if (visitedLeftFinal == node.Left && visitedRight == node.Right) return node;
         return node.Update(visitedLeftFinal, node.OperatorToken, visitedRight);
+    }
+
+    /// <summary>
+    /// 指针赋值目标的游标归一：可证指针左值 → 其索引游标标识符（配对形参
+    /// <c>pDstIndex</c>、折叠别名局部自身名、R3 合成索引局部），与
+    /// <see cref="HandleStandaloneMutation"/> 的自增折叠同口径。不可证或已
+    /// 降级左值按普通访问处理（既有逃逸门给出判决）。
+    /// </summary>
+    private ExpressionSyntax RewritePointerAssignmentLeft(ExpressionSyntax left)
+    {
+        var target = UnwrapParenthesized(left);
+        if (!IsLoweredExpression(target))
+        {
+            var symbol = GetExpressionSymbol(target);
+            if (symbol != null && _flowModel.TryGet(symbol, out var flow))
+            {
+                if (flow is { IsProvable: true, FoldsToOffset: true })
+                    return IdentifierName(flow.OffsetText);
+
+                if (_plan != null && _plan.Locals.TryGetValue(symbol, out var local))
+                    return IdentifierName(local.Name);
+            }
+        }
+
+        return (ExpressionSyntax)Visit(left)!;
     }
 
     public override SyntaxNode? VisitArgument(ArgumentSyntax node)

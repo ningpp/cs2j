@@ -378,4 +378,117 @@ public class UnsafeFfmPointerReturnMethodTests
         Assert.Equal(0, second.Statistics.PointerReturnsRewritten);
         AssertOutputCompiles(second.OutputCode);
     }
+
+    private const string RefPointerSource = """
+        unsafe class Writer
+        {
+            byte[] _bufBytes = new byte[64];
+
+            static byte* EncodeSurrogate(char* pSrc, char* pSrcEnd, byte* pDst)
+            {
+                return pDst + 2;
+            }
+
+            internal void EncodeChar(ref char* pSrc, char* pSrcEnd, ref byte* pDst)
+            {
+                int ch = *pSrc;
+                if (ch == 'x')
+                {
+                    pDst = EncodeSurrogate(pSrc, pSrcEnd, pDst);
+                    pSrc += 2;
+                }
+                else
+                {
+                    *pDst = (byte)ch;
+                    pSrc++;
+                }
+            }
+
+            void Run(char* pSrc, char* pSrcEnd)
+            {
+                fixed (byte* pDstBegin = _bufBytes)
+                {
+                    byte* pDst = pDstBegin + 1;
+                    EncodeChar(ref pSrc, pSrcEnd, ref pDst);
+                }
+            }
+        }
+        """;
+
+    [Fact]
+    public void RefPointerParams_CursorTakesRef_ArrayDropsRef()
+    {
+        var result = Rewrite(RefPointerSource);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        // 数组形参剥离 ref（指针再赋值=游标推进，数组身份不变），索引形参补 ref。
+        Assert.Contains("void EncodeChar(char[] pSrc, ref int pSrcIndex, char[] pSrcEnd, int pSrcEndIndex, byte[] pDst, ref int pDstIndex)",
+            result.OutputCode, StringComparison.Ordinal);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void RefPointerParams_CallSitePassesRefCursor()
+    {
+        var result = Rewrite(RefPointerSource);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        // 调用点索引实参按 ref 传递（数组实参不带 ref）。
+        Assert.Contains("EncodeChar(pSrc, ref pSrcIndex, pSrcEnd, pSrcEndIndex, _pDstBegin_array, ref pDst)",
+            result.OutputCode, StringComparison.Ordinal);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void PointerAssignment_FromPointerReturnCall_AssignsCursorNotArray()
+    {
+        var result = Rewrite(RefPointerSource);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        // 体内 pDst = EncodeSurrogate(...) 是指针位置赋值 → 落在索引游标上。
+        Assert.Contains("pDstIndex = EncodeSurrogate(pSrc, pSrcIndex, pSrcEnd, pSrcEndIndex, pDst, pDstIndex);",
+            result.OutputCode, StringComparison.Ordinal);
+        // ref 指针形参的游标推进写回：pSrcIndex += 2 作用于 ref 索引形参。
+        Assert.Contains("pSrcIndex += 2;", result.OutputCode, StringComparison.Ordinal);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    private const string ByValuePointerAssignSource = """
+        unsafe class Writer
+        {
+            internal static byte* EncodeMultibyteUTF8(int ch, byte* pDst)
+            {
+                pDst[0] = (byte)ch;
+                return pDst + 1;
+            }
+
+            internal static int WriteChar(int ch, char* pSrc, char* pSrcEnd, byte* pDst)
+            {
+                bool more = pSrc < pSrcEnd;
+                if (ch > 0x7F && more)
+                {
+                    pDst = EncodeMultibyteUTF8(ch, pDst);
+                    return 0;
+                }
+                pDst[0] = (byte)ch;
+                return 1;
+            }
+        }
+        """;
+
+    [Fact]
+    public void ByValuePointerAssignment_FromPointerReturnCall_AssignsCursorNotArray()
+    {
+        var result = Rewrite(ByValuePointerAssignSource);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        // 值参指针的指针位置赋值同样落到索引游标（pDstIndex），不是数组 pDst。
+        Assert.Contains("pDstIndex = EncodeMultibyteUTF8(ch, pDst, pDstIndex);",
+            result.OutputCode, StringComparison.Ordinal);
+        AssertOutputCompiles(result.OutputCode);
+    }
 }
