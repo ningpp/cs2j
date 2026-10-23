@@ -91,4 +91,45 @@ public class ReadOnlyStructExternalValuePositionTests
         Assert.Contains("WithqnameCount(", result.OutputCode, StringComparison.Ordinal);
         Assert.Contains("WithsymCount(", result.OutputCode, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void ChainedAssignment_InsideSwitchCase_HoistsWithinSection()
+    {
+        // 状态机形态：值位连环赋值位于后面的 case，temp 声明必须落在同一
+        // section 内（真实链：StringConcat case 5 被提升到 case 0 → CS0103/CS0841）。
+        var src = """
+        class Reader
+        {
+            SymbolTables _symbolTables;
+
+            internal int Run(int state)
+            {
+                switch (state)
+                {
+                    case 0:
+                        return 0;
+                    case 5:
+                        int n = _symbolTables.symCount = _symbolTables.qnameCount = 3;
+                        return n;
+                    default:
+                        return -1;
+                }
+            }
+        }
+
+        struct SymbolTables
+        {
+            public int symCount;
+            public int qnameCount;
+        }
+        """;
+        var result = RunMaker(src);
+
+        Assert.True(result.Changed);
+        var output = result.OutputCode.Replace("\r\n", "\n");
+        Assert.DoesNotContain("symCount = _symbolTables.qnameCount = 3", output, StringComparison.Ordinal);
+        // 提升产生的 temp 声明不得越出所属 switch section（case 0 中不得出现）。
+        var case0 = output[output.IndexOf("case 0:", StringComparison.Ordinal)..output.IndexOf("case 5:", StringComparison.Ordinal)];
+        Assert.DoesNotContain("__cs2jOld", case0, StringComparison.Ordinal);
+    }
 }

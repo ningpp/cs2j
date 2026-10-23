@@ -274,6 +274,45 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
 
             return SyntaxFactory.IdentifierName(tempName).WithTriviaFrom(original);
         }
+
+        /// <summary>
+        /// switch 语句的提升边界：整棵 switch 子树里命中的值位写必须落在其
+        /// <b>所属 section 的语句表内</b>（在原语句之前），否则 temp 声明会越出
+        /// section 作用域（真实链：StringConcat 状态机 case 5 的连环赋值被提升到
+        /// case 0，使用点 CS0103/声明点 CS0841）。
+        /// </summary>
+        public override SyntaxNode? VisitSwitchStatement(SwitchStatementSyntax node)
+        {
+            var expression = (ExpressionSyntax)Visit(node.Expression)!;
+            var newSections = new List<SwitchSectionSyntax>();
+            var changed = false;
+
+            foreach (var section in node.Sections)
+            {
+                var newStatements = new List<StatementSyntax>();
+                var sectionChanged = false;
+                foreach (var statement in section.Statements)
+                {
+                    var inner = new ValuePositionWriteHoister(_owner);
+                    var visitedStatement = (StatementSyntax)inner.Visit(statement)!;
+                    if (!ReferenceEquals(visitedStatement, statement) || inner.Hoisted.Count > 0)
+                        sectionChanged = true;
+                    newStatements.AddRange(inner.Hoisted);
+                    newStatements.Add(visitedStatement);
+                }
+
+                newSections.Add(sectionChanged
+                    ? section.WithStatements(SyntaxFactory.List(newStatements))
+                    : section);
+                changed |= sectionChanged;
+            }
+
+            return changed
+                ? node.Update(node.SwitchKeyword, node.OpenParenToken, expression,
+                    node.CloseParenToken, node.OpenBraceToken,
+                    SyntaxFactory.List(newSections), node.CloseBraceToken)
+                : node;
+        }
     }
 
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
