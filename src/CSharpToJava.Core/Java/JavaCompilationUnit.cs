@@ -118,14 +118,19 @@ public class JavaCompilationUnit : JavaSyntaxNode
         if (suppressJavaUtilWildcard)
             emittedJdkWildcardPackages.Remove("java.util");
 
+        // 同文件顶级类型名：与「非 compat」单类型导入同简名时丢弃该导入（JLS
+        // single-type-import 冲突；真实形态：partial 合并文件声明了
+        // ParameterModifier 等，而按用途收集的导入带不可解析的
+        // System.Reflection.* 残留 using）。compat 助手导入例外：项目可能同时
+        // 声明并调用 compat 同名助手（Cs2jUnsigned 的 UnsignedMath 形态）。
+        var ownTopLevelTypeNames = new HashSet<string>(StringComparer.Ordinal);
+        CollectTopLevelTypeNames(TypeDeclarations, ownTopLevelTypeNames);
+
         // 同简名单类型导入去重：两个不同包的同名类型都被登记为单类型导入时
         // javac 直接拒编（javac: X 的 single-type-import 已定义具有相同简名的
         // 类型，真实链 dotnet-xml 106 处：项目自转换的 XmlException/XsltException/
         // XPathException 与 compat 映射导入并存）。保留与文件自身包一致的导入
         // （裸简名引用大概率指向项目内类型），否则保留最先登记者。
-        // 注意：不做「导入简名 vs 本文件顶级类型名」的丢弃——项目可能同时声明
-        // 并调用 compat 同名助手（Cs2jUnsigned 的 UnsignedMath 形态），一概丢弃
-        // 会断解析（真实回归：MappedStaticReceiver_UnmappedMethod）。
         var keptSimpleNameImport = new Dictionary<string, JavaImport>(StringComparer.Ordinal);
         var droppedSimpleNameImports = new HashSet<JavaImport>();
         foreach (var import in Imports)
@@ -166,6 +171,16 @@ public class JavaCompilationUnit : JavaSyntaxNode
             if (droppedSimpleNameImports.Contains(import))
             {
                 continue;
+            }
+
+            if (!import.IsWildcard && !import.IsStatic)
+            {
+                var ownSimpleName = import.Name[(import.Name.LastIndexOf('.') + 1)..];
+                if (ownTopLevelTypeNames.Contains(ownSimpleName)
+                    && !import.Name.StartsWith("io.github.ningpp.compat.", StringComparison.Ordinal))
+                {
+                    continue;
+                }
             }
 
             // Drop on-demand imports for dotnet.* BCL stub packages when the file
@@ -216,6 +231,17 @@ public class JavaCompilationUnit : JavaSyntaxNode
     /// 常用 java.util 公共类型目录：当 java.util.* 通配被 dotnet 集合面压制时，
     /// 按文件体内出现的简单名补发单类型导入。
     /// </summary>
+    private static void CollectTopLevelTypeNames(
+        IEnumerable<JavaTypeDeclaration> declarations, HashSet<string> names)
+    {
+        foreach (var declaration in declarations)
+        {
+            names.Add(declaration.Name);
+            if (declaration is JavaClassDeclaration { NestedTypes: { } nested })
+                CollectTopLevelTypeNames(nested, names);
+        }
+    }
+
     private static readonly HashSet<string> KnownJavaUtilTypes = new(StringComparer.Ordinal)
     {
         "ArrayDeque", "ArrayList", "Arrays", "BitSet", "Calendar", "Collection",
