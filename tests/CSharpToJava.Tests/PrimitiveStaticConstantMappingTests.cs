@@ -92,6 +92,42 @@ public class Sample
         Assert.DoesNotContain("return double.NaN;", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    // 回归（xml-tiny NumberFunctions/TemplateAction/XPathScanner）：double/float 的
+    // NaN/Infinity/MinValue/MaxValue/Epsilon 以原始关键字拼写（double.NaN，而非
+    // System.Double 别名拼写）出现在方法返回与字段初始化器中时，同样必须落到
+    // Java 包装类常量——原始关键字在 Java 里不可解引用，double.NaN 直接非法。
+    // MinValue 语义差（C# 最负值 vs Java MIN_VALUE 最小正值）必须取 -MAX_VALUE。
+    [Fact]
+    public void PrimitiveKeywordFloatDoubleConstants_AllSiteShapes_UseWrapperConstants()
+    {
+        var result = Convert(@"
+public class Sample
+{
+    private double _priority = double.NaN;
+    private float _fInfinity = float.PositiveInfinity;
+    public double Get() { return double.NaN; }
+    public double Neg() { return double.MinValue; }
+    public double Pos() { return double.MaxValue; }
+    public float NegInf() { return float.NegativeInfinity; }
+    public float Eps() { return float.Epsilon; }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("_priority = Double.NaN;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("_fInfinity = Float.POSITIVE_INFINITY;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return Double.NaN;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return (-Double.MAX_VALUE);", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return Double.MAX_VALUE;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return Float.NEGATIVE_INFINITY;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("return Float.MIN_VALUE;", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("double.NaN", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("double.MinValue", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("double.MaxValue", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("float.PositiveInfinity", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("float.NegativeInfinity", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("float.Epsilon", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     [SlowE2EFact(5.5)]
     public async Task MsbuildProjectStructGetter_BoxedDoubleNaN_UsesJavaWrapperConstant()
     {

@@ -516,6 +516,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             case ("byte", "MinValue"): rendered = "Byte.MIN_VALUE"; return true;
             case ("char", "MaxValue"): rendered = "Character.MAX_VALUE"; return true;
             case ("char", "MinValue"): rendered = "Character.MIN_VALUE"; return true;
+            case var (keyword, _) when keyword is "double" or "float"
+                && TryRenderRealWrapperConstant(keyword == "double" ? "Double" : "Float", memberName, out rendered):
+                return true;
             default: return false;
         }
     }
@@ -562,8 +565,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     /// constants. C# byte/uint are stored in Java signed primitives with the
     /// same bit width, so their extremes render as narrowing-cast literals
     /// (<c>byte.MaxValue</c> → <c>(byte)255</c>, <c>uint.MaxValue</c> →
-    /// <c>(int)4294967295L</c>). float/double MinValue semantics differ
-    /// (smallest-positive vs most-negative) and stay on dedicated paths.
+    /// <c>(int)4294967295L</c>). float/double surface NaN/Infinity/extremes on
+    /// the Java wrapper classes too — Java primitive keywords cannot be
+    /// dereferenced, so <c>double.NaN</c> is illegal as-is; MinValue semantics
+    /// differ (C# most-negative vs Java MIN_VALUE smallest-positive), so it
+    /// renders as the negated MAX_VALUE.
     /// </summary>
     private static bool TryRenderPrimitiveStaticField(
         IFieldSymbol field, ITypeSymbol? convertedType, out string rendered)
@@ -590,6 +596,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             case SpecialType.System_UInt16 when field.Name is "MaxValue" or "MinValue":
                 rendered = field.Name == "MaxValue" ? "65535" : "0";
                 return true;
+            case SpecialType.System_Double or SpecialType.System_Single:
+                var realWrapper = field.ContainingType?.SpecialType == SpecialType.System_Double ? "Double" : "Float";
+                if (TryRenderRealWrapperConstant(realWrapper, field.Name, out rendered)) return true;
+                break;
         }
 
         var wrapper = field.ContainingType?.SpecialType switch
@@ -611,6 +621,26 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (constant == null) return false;
         rendered = $"{wrapper}.{constant}";
         return true;
+    }
+
+    /// <summary>C# System.Double/System.Single named constants on the Java
+    /// Double/Float wrappers. Epsilon is the smallest positive value, which is
+    /// exactly Java's MIN_VALUE; MinValue is the most negative finite value,
+    /// which Java spells as -MAX_VALUE (parenthesized so it composes inside
+    /// larger expressions and initializers).</summary>
+    private static bool TryRenderRealWrapperConstant(string wrapper, string fieldName, out string rendered)
+    {
+        rendered = fieldName switch
+        {
+            "NaN" => $"{wrapper}.NaN",
+            "PositiveInfinity" => $"{wrapper}.POSITIVE_INFINITY",
+            "NegativeInfinity" => $"{wrapper}.NEGATIVE_INFINITY",
+            "MaxValue" => $"{wrapper}.MAX_VALUE",
+            "MinValue" => $"(-{wrapper}.MAX_VALUE)",
+            "Epsilon" => $"{wrapper}.MIN_VALUE",
+            _ => "",
+        };
+        return rendered != "";
     }
 
     // ── System.Nullable<T> member surface (C22) ─────────────────────────────
