@@ -1293,6 +1293,17 @@ public class TypeMappingService
         _ => typeName
     };
 
+    /// <summary>
+    /// C# decimal 关键字映射为裸 Decimal 简名——与 System.Decimal 配置映射同源，
+    /// 必须同步登记 compat 单类型导入，否则生成文件缺 import（真实链
+    /// dotnet-xml 26 处 Decimal 找不到符号）。
+    /// </summary>
+    private string MapDecimalKeyword()
+    {
+        AddImportsForType("System.Decimal");
+        return "Decimal";
+    }
+
     private void AddImportsForType(string csharpType)
     {
         var imports = _typeMappings.GetRequiredImports(csharpType);
@@ -1370,7 +1381,7 @@ public class TypeMappingService
             "ushort"  => "short",
             "float"   => "float",
             "double"  => "double",
-            "decimal" => "Decimal",
+            "decimal" => MapDecimalKeyword(),
             "char"    => "char",
             "void"    => "void",
             "object"  => "Object",

@@ -1,17 +1,32 @@
+using System.Text.RegularExpressions;
+
 namespace CSharpToJava.Core.Java.Rewriters;
 
 /// <summary>
 /// IR rewriter that replaces calls to <c>memberwiseClone()</c> (from C#'s <c>MemberwiseClone()</c>)
-/// with the Java-compatible <c>clone()</c>.
+/// with the compat helper <c>ObjectHelper.__memberwiseClone(target)</c>.
 ///
-/// <para>Since <c>clone()</c> declares <c>CloneNotSupportedException</c> (a checked exception),
-/// enclosing method bodies are wrapped with try-catch to re-throw as RuntimeException,
-/// matching C# unchecked-exception semantics.</para>
+/// <para>Java has no intrinsic shallow-copy on arbitrary classes: the class's own
+/// <c>clone()</c> may be the caller (recursion) and may not exist on the receiver's
+/// static type. The compat helper performs a reflective field-wise shallow copy,
+/// matching C# unchecked-exception semantics (no checked CloneNotSupportedException,
+/// so the previous try/catch body wrap is no longer needed).</para>
+///
+/// <para>Also fixes raw statements (<c>var x = this.memberwiseClone();</c>) whose
+/// call text never materialized as a <see cref="JavaMethodCallExpression"/> node.</para>
 /// </summary>
 public sealed class MemberwiseCloneRewriter : JavaSyntaxRewriter
 {
+    private const string HelperImport = "io.github.ningpp.compat.ObjectHelper";
+    private const string HelperTarget = "ObjectHelper";
+    private const string HelperMethod = "__memberwiseClone";
+
+    private static readonly Regex RawCallPattern = new(
+        @"(?<target>(?:[A-Za-z_$][A-Za-z0-9_$]*\.)+)?memberwiseClone\s*\(\)",
+        RegexOptions.Compiled);
+
     private int _rewriteCount;
-    private bool _needsCloneException;
+    private bool _needsHelperImport;
 
     /// <summary>Number of rewrites performed during traversal.</summary>
     public int RewriteCount => _rewriteCount;
@@ -19,27 +34,12 @@ public sealed class MemberwiseCloneRewriter : JavaSyntaxRewriter
     public override JavaCompilationUnit VisitCompilationUnit(JavaCompilationUnit node)
     {
         _rewriteCount = 0;
-        return base.VisitCompilationUnit(node);
-    }
-
-    public override JavaMethodDeclaration VisitMethodDeclaration(JavaMethodDeclaration node)
-    {
-        _needsCloneException = false;
-        var result = base.VisitMethodDeclaration(node);
-        if (_needsCloneException)
+        _needsHelperImport = false;
+        var result = base.VisitCompilationUnit(node);
+        if (_needsHelperImport
+            && result.Imports.All(i => !string.Equals(i.Name, HelperImport, StringComparison.Ordinal)))
         {
-            WrapMethodBodyForClone(result);
-        }
-        return result;
-    }
-
-    public override JavaConstructorDeclaration VisitConstructorDeclaration(JavaConstructorDeclaration node)
-    {
-        _needsCloneException = false;
-        var result = base.VisitConstructorDeclaration(node);
-        if (_needsCloneException)
-        {
-            WrapConstructorBodyForClone(result);
+            result.Imports.Add(new JavaImport(HelperImport));
         }
         return result;
     }
@@ -50,73 +50,39 @@ public sealed class MemberwiseCloneRewriter : JavaSyntaxRewriter
 
         if (node.MethodName is "memberwiseClone" or "MemberwiseClone"
             && node.Arguments.Count == 0
-            && node.Target != null)
+            && (node.Target == null || node.Target is JavaThisExpression))
         {
-            node.MethodName = "clone";
-            _needsCloneException = true;
+            node.Target = new JavaRawExpression(HelperTarget);
+            node.MethodName = HelperMethod;
+            node.Arguments.Add(new JavaThisExpression());
+            _needsHelperImport = true;
             _rewriteCount++;
         }
 
         return node;
     }
 
-    private static void WrapMethodBodyForClone(JavaMethodDeclaration node)
+    public override JavaRawStatement VisitRawStatement(JavaRawStatement node)
     {
-        if (node.StructuredBody != null)
+        if (string.IsNullOrEmpty(node.Code)
+            || (!node.Code.Contains("memberwiseClone", StringComparison.Ordinal)
+                && !node.Code.Contains("MemberwiseClone", StringComparison.Ordinal)))
         {
-            var tryStmt = new JavaTryCatchStatement();
-            tryStmt.TryBody = new JavaBlockStatement();
-            foreach (var stmt in node.StructuredBody.Statements)
-                tryStmt.TryBody.Statements.Add(stmt);
-
-            var catchBody = new JavaBlockStatement();
-            catchBody.Statements.Add(new JavaRawStatement("throw new RuntimeException(e);"));
-            tryStmt.CatchClauses.Add(new JavaCatchClause
-            {
-                ExceptionType = "Exception",
-                VariableName = "e",
-                Body = catchBody,
-            });
-
-            node.StructuredBody = new JavaMethodBody { Statements = { tryStmt } };
+            return node;
         }
-        else if (!string.IsNullOrWhiteSpace(node.Body))
+
+        var rewritten = RawCallPattern.Replace(node.Code, match =>
         {
-            var content = node.IsBodyExpression
-                ? $"return {node.Body.TrimEnd(';')};"
-                : node.Body;
-            node.Body = $"try {{\n        {content}\n    }} catch (Exception e) {{\n        throw new RuntimeException(e);\n    }}";
-            node.IsBodyExpression = false;
-        }
-    }
+            _needsHelperImport = true;
+            _rewriteCount++;
+            var target = match.Groups["target"].Success
+                ? match.Groups["target"].Value[..^1] // strip the trailing dot
+                : "this";
+            return $"{HelperTarget}.{HelperMethod}({target})";
+        });
 
-    private static void WrapConstructorBodyForClone(JavaConstructorDeclaration node)
-    {
-        if (node.StructuredBody != null)
-        {
-            var tryStmt = new JavaTryCatchStatement();
-            tryStmt.TryBody = new JavaBlockStatement();
-            foreach (var stmt in node.StructuredBody.Statements)
-                tryStmt.TryBody.Statements.Add(stmt);
-
-            var catchBody = new JavaBlockStatement();
-            catchBody.Statements.Add(new JavaRawStatement("throw new RuntimeException(e);"));
-            tryStmt.CatchClauses.Add(new JavaCatchClause
-            {
-                ExceptionType = "Exception",
-                VariableName = "e",
-                Body = catchBody,
-            });
-
-            node.StructuredBody = new JavaMethodBody { Statements = { tryStmt } };
-        }
-        else if (!string.IsNullOrWhiteSpace(node.Body))
-        {
-            node.Body = $"try {{\n        {node.Body}\n    }} catch (Exception e) {{\n        throw new RuntimeException(e);\n    }}";
-        }
-        else if (!string.IsNullOrEmpty(node.Initializer))
-        {
-            node.StructuredBody = new JavaMethodBody();
-        }
+        if (rewritten != node.Code)
+            node.Code = rewritten;
+        return node;
     }
 }

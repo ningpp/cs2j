@@ -350,7 +350,7 @@ public class D4IrRewriterTests
     // ═══════════════════════════════════════════════════════════
 
     [Fact]
-    public void MemberwiseClone_RenamesToClone()
+    public void MemberwiseClone_RenamesToCompatHelper()
     {
         var rewriter = new MemberwiseCloneRewriter();
 
@@ -373,12 +373,13 @@ public class D4IrRewriterTests
 
         rewriter.VisitMethodDeclaration(method);
 
-        Assert.Equal("clone", call.MethodName);
+        // Java 无任意类的内建浅拷贝：改写为 compat 反射浅拷贝助手，且不再需要
+        // CloneNotSupportedException 的 try/catch 包装（避免落入自身 clone() 递归）。
+        Assert.Equal("__memberwiseClone", call.MethodName);
         Assert.Equal(1, rewriter.RewriteCount);
-        // Body should be wrapped with try-catch instead of adding throws
+        Assert.Single(call.Arguments);
         Assert.Empty(method.ThrownExceptions);
         Assert.Single(method.StructuredBody.Statements);
-        Assert.IsType<JavaTryCatchStatement>(method.StructuredBody.Statements[0]);
     }
 
     [Fact]
@@ -401,16 +402,16 @@ public class D4IrRewriterTests
         method.StructuredBody.Statements.Add(new JavaExpressionStatement { Expression = call });
 
         rewriter.VisitMethodDeclaration(method);
-        Assert.Equal("clone", call.MethodName);
+        Assert.Equal("__memberwiseClone", call.MethodName);
         Assert.Equal(1, rewriter.RewriteCount);
     }
 
     [Fact]
-    public void MemberwiseClone_NoTargetCall_Unchanged()
+    public void MemberwiseClone_ImplicitThisCall_RewrittenToHelper()
     {
         var rewriter = new MemberwiseCloneRewriter();
 
-        // Static call without target — should not be rewritten
+        // 隐式 this 调用（真实链 CS0021 残留形态：memberwiseClone()）
         var call = new JavaMethodCallExpression
         {
             MethodName = "memberwiseClone",
@@ -418,15 +419,43 @@ public class D4IrRewriterTests
 
         var method = new JavaMethodDeclaration
         {
-            Name = "test",
-            ReturnType = "void",
+            Name = "clone",
+            ReturnType = "Object",
             StructuredBody = new JavaMethodBody(),
         };
-        method.StructuredBody.Statements.Add(new JavaExpressionStatement { Expression = call });
+        method.StructuredBody.Statements.Add(new JavaReturnStatement { Expression = call });
 
         rewriter.VisitMethodDeclaration(method);
-        Assert.Equal("memberwiseClone", call.MethodName);
-        Assert.Equal(0, rewriter.RewriteCount);
+        Assert.Equal("__memberwiseClone", call.MethodName);
+        Assert.Equal(1, rewriter.RewriteCount);
+        Assert.Single(call.Arguments);
+    }
+
+    [Fact]
+    public void MemberwiseClone_RawStatementText_RewrittenWithImport()
+    {
+        var rewriter = new MemberwiseCloneRewriter();
+
+        var unit = new JavaCompilationUnit { Package = "demo" };
+        unit.Imports.Add(new JavaImport("java.util.List"));
+        var method = new JavaMethodDeclaration
+        {
+            Name = "clone",
+            ReturnType = "Object",
+            StructuredBody = new JavaMethodBody(),
+        };
+        method.StructuredBody.Statements.Add(
+            new JavaRawStatement("var _asExpr1 = this.memberwiseClone();"));
+        var cls = new JavaClassDeclaration { Name = "A" };
+        cls.Methods.Add(method);
+        unit.TypeDeclarations.Add(cls);
+
+        var result = rewriter.VisitCompilationUnit(unit);
+
+        var raw = Assert.IsType<JavaRawStatement>(method.StructuredBody!.Statements[0]);
+        Assert.Contains("ObjectHelper.__memberwiseClone(this)", raw.Code, StringComparison.Ordinal);
+        Assert.Contains("io.github.ningpp.compat.ObjectHelper", result.Imports.Select(i => i.Name), StringComparer.Ordinal);
+        Assert.Equal(1, rewriter.RewriteCount);
     }
 
     // ═══════════════════════════════════════════════════════════

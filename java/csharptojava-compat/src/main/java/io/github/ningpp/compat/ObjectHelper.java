@@ -71,4 +71,68 @@ public final class ObjectHelper {
         }
         return value.toString();
     }
+
+    /**
+     * Shallow field-wise copy equivalent to C# Object.MemberwiseClone():
+     * allocates a fresh instance of the runtime class and copies every
+     * non-static field (inherited fields included) from the source.
+     */
+    public static Object __memberwiseClone(Object source) {
+        Class<?> cls = source.getClass();
+        Object copy = allocateShallow(cls);
+        for (Class<?> c = cls; c != null && c != Object.class; c = c.getSuperclass()) {
+            for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+                    continue;
+                }
+                try {
+                    f.setAccessible(true);
+                    f.set(copy, f.get(source));
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException("__memberwiseClone failed on field "
+                        + c.getName() + "." + f.getName(), e);
+                }
+            }
+        }
+        return copy;
+    }
+
+    private static Object allocateShallow(Class<?> cls) {
+        try {
+            java.lang.reflect.Constructor<?> noArg = cls.getDeclaredConstructor();
+            noArg.setAccessible(true);
+            return noArg.newInstance();
+        } catch (ReflectiveOperationException ignored) {
+            // fall through to parameterized constructors
+        }
+        for (java.lang.reflect.Constructor<?> ctor : cls.getDeclaredConstructors()) {
+            try {
+                ctor.setAccessible(true);
+                Class<?>[] parameterTypes = ctor.getParameterTypes();
+                Object[] args = new Object[parameterTypes.length];
+                for (int i = 0; i < parameterTypes.length; i++) {
+                    args[i] = defaultValue(parameterTypes[i]);
+                }
+                return ctor.newInstance(args);
+            } catch (ReflectiveOperationException ignored) {
+                // try the next constructor
+            }
+        }
+        throw new RuntimeException("__memberwiseClone: no usable constructor on " + cls.getName());
+    }
+
+    private static Object defaultValue(Class<?> type) {
+        if (!type.isPrimitive()) {
+            return null;
+        }
+        if (type == boolean.class) return Boolean.FALSE;
+        if (type == byte.class) return (byte) 0;
+        if (type == short.class) return (short) 0;
+        if (type == int.class) return 0;
+        if (type == long.class) return 0L;
+        if (type == float.class) return 0.0f;
+        if (type == double.class) return 0.0d;
+        if (type == char.class) return '\0';
+        return null;
+    }
 }
