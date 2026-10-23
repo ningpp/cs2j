@@ -295,7 +295,80 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
                 .WithTrailingTrivia(node.GetTrailingTrivia())
                 .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
 
+        // PD-6 链式赋值提升：`a.P = b.Q = v;` / `local = a.P = v;`。setter 返回
+        // void，内层赋值改写产物不能充当外层实参（CS1503）。rhs 先存临时（单次
+        // 求值），再按 C# 求值顺序（由内向外）逐个 setter；最外层非属性目标保留
+        // 赋值形态读回临时。仅拦截 RHS 为赋值链的语句位，`a.P = v;` 常规路径不变。
+        if (UnwrapParentheses(node.Expression) is AssignmentExpressionSyntax headAssign
+            && headAssign.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            && UnwrapParentheses(headAssign.Right) is AssignmentExpressionSyntax
+            && LiftChainedPropertyAssignment(node, headAssign, out var chainBlock))
+        {
+            return chainBlock;
+        }
+
         return base.VisitExpressionStatement(node);
+    }
+
+    private bool LiftChainedPropertyAssignment(
+        ExpressionStatementSyntax node,
+        AssignmentExpressionSyntax head,
+        out BlockSyntax block)
+    {
+        block = null!;
+        var sites = new List<(AssignmentExpressionSyntax Assign, PropertyPlan Plan)>();
+
+        // 最外层非属性目标（`local = a.P = v`）保留赋值形态，从其右侧进入链。
+        AssignmentExpressionSyntax? outerNonSite = null;
+        if (!(TryGetPlan(head.Left, out var headPlan) && headPlan.HasSetter))
+        {
+            outerNonSite = head;
+            head = (AssignmentExpressionSyntax)UnwrapParentheses(head.Right)!;
+        }
+
+        var current = (ExpressionSyntax?)head;
+        ExpressionSyntax value = current!;
+        while (UnwrapParentheses(current) is AssignmentExpressionSyntax assign
+            && assign.IsKind(SyntaxKind.SimpleAssignmentExpression))
+        {
+            if (TryGetPlan(assign.Left, out var plan) && plan.HasSetter)
+            {
+                sites.Add((assign, plan));
+                current = assign.Right;
+                value = current;
+                continue;
+            }
+
+            // 非属性目标：整段赋值保留为值表达式（最内层，合法 C# 赋值表达式）。
+            value = assign;
+            current = null;
+            break;
+        }
+
+        if (sites.Count == 0)
+            return false;
+
+        var temp = TempName("pval");
+        var tempIdent = Ident(temp);
+        var lifted = new List<StatementSyntax>
+        {
+            DeclVar(temp, (ExpressionSyntax)Visit(value)!),
+        };
+        foreach (var (assign, plan) in sites.AsEnumerable().Reverse())
+            lifted.Add(SyntaxFactory.ExpressionStatement(BuildSetterCall(assign.Left, plan, tempIdent)));
+
+        if (outerNonSite != null)
+            lifted.Add(SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    (ExpressionSyntax)Visit(outerNonSite.Left)!,
+                    tempIdent.WithLeadingTrivia(SyntaxFactory.Space))));
+
+        block = Block(lifted)
+            .WithLeadingTrivia(node.GetLeadingTrivia())
+            .WithTrailingTrivia(node.GetTrailingTrivia())
+            .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        return true;
     }
 
     public override SyntaxNode? VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
