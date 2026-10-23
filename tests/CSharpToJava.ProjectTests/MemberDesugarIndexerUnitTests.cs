@@ -606,4 +606,65 @@ public class MemberDesugarIndexerUnitTests
         var (second, _, _) = MemberDesugarPropertyUnitTests.Rewrite(first);
         Assert.Equal(Normalize(first), Normalize(second));
     }
+
+    // 回归：外部（BCL）类型索引器的使用点保留原生 [] 语法，避免
+    // d["k"] → d.get_Item("k") 触发 CS0571；源码声明的索引器仍改写为访问器方法。
+    [Fact]
+    public void ExternalDictionaryIndexer_SiteKeepsNativeBrackets()
+    {
+        var (outCode, _, _) = MemberDesugarPropertyUnitTests.Rewrite("""
+            using System.Collections.Generic;
+            class C
+            {
+                private readonly Dictionary<string, string> d = new Dictionary<string, string>();
+                public string ReadField() => d["k"];
+                public string ReadLocal()
+                {
+                    var x = d["k"];
+                    return x;
+                }
+                public void Write() { d["k"] = "v"; }
+            }
+            """);
+        AssertContains(outCode, "d[\"k\"]");
+        AssertNotContains(outCode, "get_Item");
+        AssertNotContains(outCode, "set_Item");
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(outCode);
+
+        var (srcCode, _, _) = MemberDesugarPropertyUnitTests.Rewrite("""
+            class C
+            {
+                private string _v = "v";
+                public string this[string k] { get => _v; set => _v = value; }
+                public string Read() => this["k"];
+                public void Write() { this["k"] = "v"; }
+            }
+            """);
+        AssertContains(srcCode, "this.get_Item(\"k\")");
+        AssertContains(srcCode, "this.set_Item(\"k\", \"v\")");
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(srcCode);
+
+        // 同一编译单元内既有源码索引器（触发本 pass）又有外部 Dictionary 使用点：
+        // 外部站点必须保持原生 []，源码站点照常改写。
+        var (mixedCode, _, _) = MemberDesugarPropertyUnitTests.Rewrite("""
+            using System.Collections.Generic;
+            class Holder
+            {
+                public string this[string k] { get => k; set { } }
+            }
+            class D
+            {
+                private readonly Dictionary<string, string> d = new Dictionary<string, string>();
+                private readonly Holder h = new Holder();
+                public string Mixed() => d["k"] + h["k"];
+                public void WriteMixed() { d["k"] = "v"; h["k"] = "v"; }
+            }
+            """);
+        AssertContains(mixedCode, "d[\"k\"]");
+        AssertNotContains(mixedCode, "d.get_Item");
+        AssertNotContains(mixedCode, "d.set_Item");
+        AssertContains(mixedCode, "h.get_Item(\"k\")");
+        AssertContains(mixedCode, "h.set_Item(\"k\", \"v\")");
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(mixedCode);
+    }
 }

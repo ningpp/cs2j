@@ -450,6 +450,10 @@ internal sealed class IndexerUseSiteRewriter : CSharpSyntaxRewriter
             or ImplicitElementAccessSyntax)) return false;
         if (_model.GetSymbolInfo(node).Symbol is not IPropertySymbol { IsIndexer: true } p) return false;
         if (!p.IsDefinition) p = p.OriginalDefinition;
+        // D5 闸门：非源码声明的（BCL/外部程序集）索引器使用点保留原生 []
+        // 语法，否则 Dictionary<string,string> 的 d["k"] 会变成 d.get_Item("k")，
+        // 在方法组/调用位置触发 CS0571。
+        if (!p.Locations.Any(l => l.IsInSource)) return false;
         return _active.TryGetValue(IndexerPlan.SiteKey(p), out plan);
     }
 
