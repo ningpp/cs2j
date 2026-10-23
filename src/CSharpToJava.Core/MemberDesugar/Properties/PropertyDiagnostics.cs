@@ -62,4 +62,10 @@ internal static class PropertyDiagnostics
         => $"'{name}' is a property of a System.Attribute subclass referenced by name from " +
            $"attribute named arguments, which cannot be rewritten into method calls " +
            $"(expansion would orphan every named argument with CS0246); {RetainSuffix}.";
+
+    public static string RetainedOverrideChain(string name)
+        => $"'{name}' participates in an override chain / interface implementation whose " +
+           $"members do not all qualify for accessor expansion; keeping only part of the " +
+           $"chain would break the virtual slot (CS0115) or silently drop the override; " +
+           $"{RetainSuffix}.";
 }

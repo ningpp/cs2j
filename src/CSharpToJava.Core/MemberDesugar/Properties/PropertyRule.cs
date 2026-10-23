@@ -245,6 +245,9 @@ internal sealed class PropertyRule : IMemberDesugarRule
                 MarkFailure(siteFailures, prop, fail.Code, fail.Reason);
         }
 
+        // ---- 层次一致性（决策 8 + 回退闭环）：override 链 / 接口实现必须同拆或同留 ----
+        EnforceHierarchyCoherence(candidates, failures, retained, userSkipped, siteFailures, context);
+
         // ---- 阶段 3：后备字段命名 + plan 产出 ----
         // C50：field-backed 属性（IsAutoProperty=false）也必须进命名分配，名字与
         // 「同一属性若写成 auto 属性」逐字符相同（设计决策 2）。
@@ -675,6 +678,93 @@ internal sealed class PropertyRule : IMemberDesugarRule
                     files.Add(loc.SourceTree!.FilePath);
             }
         }
+    }
+
+    // ---- 层次联动（决策 8 + 回退闭环）：override 链 / 接口实现 ----
+
+    /// <summary>
+    /// override 链 / 接口实现的一致性闸门：同一条链上的属性必须同拆或同留。
+    /// 基类虚属性被展开而派生 override 因声明级闸门被保留 → 派生找不到可重写
+    /// 属性槽（CS0115，真实 SDK：XmlSchemaParticle/XmlSchemaElement.NameString）；
+    /// 反向（派生展开、基类保留）则 override 语义悄悄丢失；接口属性与类实现
+    /// 不一致同理（CS0523/CS0535）。任一链成员不可展开时，所有仍处于 Planned
+    /// 状态的链成员整体保守降级为 Infeasible（写入 siteFailures，plan 产出与
+    /// 使用点改写自然随之关闭）。
+    /// </summary>
+    private static void EnforceHierarchyCoherence(
+        Dictionary<IPropertySymbol, (PropertyDeclarationSyntax Decl, SemanticModel Model)> candidates,
+        Dictionary<IPropertySymbol, (PropertyDeclarationSyntax? Decl, string DeclName,
+            MemberDesugarDiagnosticCode Code, string Reason)> failures,
+        Dictionary<IPropertySymbol, (PropertyDeclarationSyntax Decl, string Reason)> retained,
+        Dictionary<IPropertySymbol, PropertyDeclarationSyntax> userSkipped,
+        Dictionary<IPropertySymbol, (MemberDesugarDiagnosticCode Code, string Reason)> siteFailures,
+        MemberDesugarAnalysisContext context)
+    {
+        if (candidates.Count == 0) return;
+
+        bool IsNonPlanned(IPropertySymbol p)
+            => failures.ContainsKey(p) || retained.ContainsKey(p)
+               || userSkipped.ContainsKey(p) || siteFailures.ContainsKey(p);
+
+        // 相关链成员：基类链、派生 override、显式/隐式接口实现（仅源内符号入册，
+        // 元数据成员天然不在各字典里，不会误伤）。
+        IEnumerable<IPropertySymbol> Related(IPropertySymbol prop)
+        {
+            for (var b = prop.OverriddenProperty; b != null; b = b.OverriddenProperty)
+                if (b.Locations.Any(l => l.IsInSource))
+                    yield return b;
+            foreach (var other in context.SourceProperties)
+            {
+                if (SymbolEqualityComparer.Default.Equals(other, prop)) continue;
+                if (InOverrideChain(other, prop)
+                    || other.ExplicitInterfaceImplementations.Contains(prop, SymbolEqualityComparer.Default)
+                    || ImplementsImplicit(other, prop))
+                {
+                    yield return other;
+                }
+            }
+            foreach (var ifaceProp in prop.ExplicitInterfaceImplementations)
+                yield return ifaceProp;
+            var containingType = prop.ContainingType;
+            if (containingType != null)
+            {
+                foreach (var iface in containingType.AllInterfaces)
+                {
+                    foreach (var member in iface.GetMembers(prop.Name).OfType<IPropertySymbol>())
+                    {
+                        if (!member.IsIndexer
+                            && SymbolEqualityComparer.Default.Equals(
+                                containingType.FindImplementationForInterfaceMember(member), prop))
+                        {
+                            yield return member;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 不动点迭代：降级会让新的链成员变得「部分不可拆」，需反复收敛。
+        var demoted = new List<(IPropertySymbol Prop, (PropertyDeclarationSyntax Decl, SemanticModel Model) Info)>();
+        bool changed;
+        do
+        {
+            changed = false;
+            demoted.Clear();
+            foreach (var (prop, info) in candidates)
+            {
+                if (Related(prop).Any(IsNonPlanned))
+                {
+                    demoted.Add((prop, info));
+                    changed = true;
+                }
+            }
+            foreach (var (prop, info) in demoted)
+            {
+                candidates.Remove(prop);
+                siteFailures[prop] = (MemberDesugarDiagnosticCode.PropertyRetained,
+                    PropertyDiagnostics.RetainedOverrideChain(prop.Name));
+            }
+        } while (changed);
     }
 
     private static bool InOverrideChain(IPropertySymbol derived, IPropertySymbol potentialBase)
