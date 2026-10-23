@@ -96,6 +96,36 @@ class Parser : Base
         Assert.Contains("super(null);", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ConsoleWriteLine_FormatOverload_BridgesThroughStringHelperFormatCs()
+    {
+        // Console.WriteLine/Write 的复合格式重载 (string format, args…) 映射
+        // out.println/out.print 后 arity 失配——Java PrintStream 没有两参 println
+        // （mvn 现场：xml-tiny ModuleCore CError.java 三处）。桥接为
+        // StringHelper.formatCs(format, args...)（C# 复合格式语义）；
+        // Debug/Trace.WriteLine(string, string) 的 category 语义不按形状桥接。
+        var result = Convert("""
+using System;
+class C
+{
+    void Log(string message, object value)
+    {
+        Console.WriteLine("ERROR: {0}", message);
+        Console.WriteLine("Expected: {0} Actual: {1}", message, value);
+        Console.Write("prefix {0}", message);
+        Console.WriteLine("plain");
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+        Assert.Contains("System.out.println(StringHelper.formatCs(\"ERROR: {0}\", message))", code, StringComparison.Ordinal);
+        Assert.Contains("System.out.println(StringHelper.formatCs(\"Expected: {0} Actual: {1}\", message, value))", code, StringComparison.Ordinal);
+        Assert.Contains("System.out.print(StringHelper.formatCs(\"prefix {0}\", message))", code, StringComparison.Ordinal);
+        Assert.Contains("System.out.println(\"plain\")", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

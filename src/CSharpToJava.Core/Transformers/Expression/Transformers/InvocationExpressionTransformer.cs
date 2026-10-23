@@ -517,6 +517,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
                     foreach (var argument in arguments)
                         call.Arguments.Add(argument);
+
+                    // Console.WriteLine/Write 复合格式重载（IR 路径孪生，见字符串路径
+                    // TryBridgeConsoleFormatCall 注释）：arity 失配，包 formatCs。
+                    if (IsConsoleFormatMappedCall(invocation, mappedName, context)
+                        && arguments.Count >= 2
+                        && context.GetTypeInfo(invocation.ArgumentList.Arguments[0].Expression).Type?.SpecialType
+                            == SpecialType.System_String)
+                    {
+                        context.AddImport("io.github.ningpp.compat.StringHelper");
+                        var joinedArguments = string.Join(", ", arguments.Select(a => a.ToInlineString()));
+                        call.Arguments.Clear();
+                        call.Arguments.Add(new JavaRawExpression($"StringHelper.formatCs({joinedArguments})"));
+                    }
+
                     WrapSortKeySelectorInComparator(call, memberAccess.Name.Identifier.Text, context);
                     return call;
                 }
@@ -1049,6 +1063,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     // function directly — wrap it with Comparator.comparing.
                     if (mappedName == "sorted")
                         arguments = WrapSortKeySelectorText(originalName, arguments, context);
+
+                    // Console.WriteLine/Write 的复合格式重载 (string format, args…)
+                    // 映射 out.println/out.print 后 arity 失配——Java PrintStream
+                    // 没有两参 println（mvn 现场：xml-tiny ModuleCore CError.java）。
+                    // 按被调包含类型精确判定 Console（Debug/Trace.WriteLine(string,
+                    // string) 的 category 不是格式实参，不能按形状桥接），统一包
+                    // StringHelper.formatCs（与 StringBuilder AppendFormat 桥接同一助手）。
+                    if (TryBridgeConsoleFormatCall(node, mappedName, arguments, context, out var consoleFormatArgs))
+                        arguments = consoleFormatArgs;
 
                     return RenderMappedCall(mappedName, isStatic, receiver, arguments);
                 }
@@ -2896,6 +2919,49 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             call.MethodName = mappedName;
         }
     }
+
+    /// <summary>
+    /// Console.WriteLine/Write 复合格式重载的 println/print 桥接判定（见调用点注释）。
+    /// 仅当：映射目标为 out.println/out.print、被调包含类型精确为 System.Console、
+    /// 实参 ≥2 且首参 C# 类型为 string 时命中，实参串整体包 StringHelper.formatCs。
+    /// </summary>
+    private static bool TryBridgeConsoleFormatCall(
+        InvocationExpressionSyntax node,
+        string mappedName,
+        string arguments,
+        ConversionContext context,
+        out string bridgedArguments)
+    {
+        bridgedArguments = string.Empty;
+        if (!IsConsoleFormatMappedCall(node, mappedName, context))
+            return false;
+
+        var parts = SplitTopLevelArguments(arguments);
+        if (parts.Count < 2)
+            return false;
+        // 首参必须是 string（复合格式串）；Console.Write(char[], int, int) 写段
+        // 重载首参为数组，不在此列。
+        if (context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type?.SpecialType
+            != SpecialType.System_String)
+            return false;
+
+        context.AddImport("io.github.ningpp.compat.StringHelper");
+        bridgedArguments = $"StringHelper.formatCs({string.Join(", ", parts)})";
+        return true;
+    }
+
+    /// <summary>
+    /// 被调是否为映射到 out.println/out.print 的 System.Console 方法。按包含类型
+    /// 精确判定：Debug/Trace.WriteLine(string, string) 的 category 不是格式实参，
+    /// 不能按映射形状桥接。
+    /// </summary>
+    private static bool IsConsoleFormatMappedCall(
+        InvocationExpressionSyntax invocation,
+        string mappedName,
+        ConversionContext context)
+        => mappedName is "out.println" or "out.print"
+           && context.GetSymbolInfo(invocation).Symbol is IMethodSymbol method
+           && method.ContainingType?.ToDisplayString() == "System.Console";
 
     /// <summary>
     /// Renders the Java source for a method whose name was resolved through TypeMappings.json.
