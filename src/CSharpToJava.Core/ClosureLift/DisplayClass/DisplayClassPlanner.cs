@@ -202,7 +202,11 @@ internal static class DisplayClassPlanner
         var isNewByLambda = new Dictionary<LambdaExpressionSyntax, bool>();
         var signatureByLambda = new Dictionary<LambdaExpressionSyntax, ResolvedLambdaSignature>();
         var parameterSlotsByLambda = new Dictionary<LambdaExpressionSyntax, IReadOnlyList<ParameterSlot>>();
-        var snapshotAnchors = new Dictionary<CapturedSymbolPlan, int>();
+        // 引用相等键：CapturedSymbolPlan 是 record（值相等），两个组的同名只读
+        // 符号 plan 字段全等——值相等字典会让后组查到前组的锚（快照插进未声明
+        // 该实例的作用域 → CS0103）。键必须是各组自己的 plan 实例。
+        var snapshotAnchors = new Dictionary<CapturedSymbolPlan, int>(
+            System.Collections.Generic.ReferenceEqualityComparer.Instance);
         var accountedSkips = 0;
         var plannedStaticSpans = staticPlans.Select(static p => p.SiteSpanStart).ToHashSet();
 
