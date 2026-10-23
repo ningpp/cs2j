@@ -17,7 +17,10 @@ namespace CSharpToJava.Tests;
 /// Observed and locked for M5 default-on review:
 /// - the converter consumes explicitized sites as ordinary static calls in
 ///   every scenario (Success, host-qualified Java invocation present);
-/// - unmapped external hosts are reported preprocess-time as CS2J1203.
+/// - unmapped external hosts are reported preprocess-time as CS2J1203;
+/// - the former M5 gap (namespaced host emitted as a dotted name chain) is
+///   closed: same-compilation namespace hosts now land via a single-type
+///   import with simple-name call sites.
 ///
 /// Known converter-side gap (M5 list, NOT a C19 regression): the host is
 /// emitted as a dotted name chain (e.g. SampleLib.Collections.Host.method)
@@ -101,9 +104,9 @@ public class ExtensionMethodConverterCoSmokeTests
                 public string M() => new[] { "x", "y" }.RequireNonEmpty().JoinWith(",");
             }
             """,
-            // The dotted chain (instead of a Java package import) is the
-            // documented M5 namespace-to-package landing gap.
-            "SampleLib.Collections.CollectionExtensions.joinWith(SampleLib.Collections.CollectionExtensions.requireNonEmpty(",
+            // 命名空间宿主经单类型 import 落地（M5 gap 已关闭）：调用点用简单名，
+            // 头部出现 import SampleLib.Collections.CollectionExtensions。
+            "CollectionExtensions.joinWith(CollectionExtensions.requireNonEmpty(",
         };
     }
 

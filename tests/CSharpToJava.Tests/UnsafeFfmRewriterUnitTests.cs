@@ -4452,7 +4452,9 @@ public class UnsafeFfmRewriterUnitTests
         Assert.True(result.Changed);
         Assert.False(result.HasErrors, string.Join("\n", result.Diagnostics));
         // Span 专有成员（Fill/Slice/Clear）要求目标保留 Span<T>；堆化只换分配源。
-        Assert.Contains("System.Span<char> buf = new char[n]", result.OutputCode);
+        // 474e555f 起 Span 目标保留形态显式包一层 Span 构造（Java 半区无 T[]→Span
+        // 隐式转换，需要显式 wrapper），C# 侧 Span<T>(T[]) 构造与隐式转换等价。
+        Assert.Contains("System.Span<char> buf = new System.Span<char>(new char[n])", result.OutputCode);
         Assert.Contains(".Fill('x')", result.OutputCode);
         Assert.Contains(".Slice(1)", result.OutputCode);
         Assert.Contains(".Clear()", result.OutputCode);
