@@ -112,4 +112,42 @@ public class DelegateEventTests : ConversionTestBase
             "}");
         AssertConversion(result, "_eListeners.add((sender, args) -> handler(sender, args));");
     }
+
+    // ── 隐式委托调用（Invoke 绑定）的非裸名形态。Java 里 (...) 只能作用于方法名，
+    //    委托表达式必须走 SAM 调用；三形态都绑定 MethodKind.DelegateInvoke。
+    //    回归（xml-tiny mvn 门）：XdrBuilder 的 (this._CurState._InitFunc)(this, qname)、
+    //    LogicalExpr 的 s_CompXsltE[type1][type2](op, val1, val2)、XmlSerializationReader 的
+    //    _events.OnUnknownNode(_events.sender, e)（属性降糖后调用点 callee 是 getter 调用）。
+
+    [Fact]
+    public void ParenthesizedDelegateFieldInvocation_RendersSamCall()
+    {
+        var result = Convert(
+            "public delegate int D(); class C { public D F; public int M() { return (this.F)(); } }");
+
+        AssertConversion(result, "this.F.get()");
+        AssertJavaDoesNotContain(result, "F)()", "parenthesized delegate invocation must become a SAM call");
+    }
+
+    [Fact]
+    public void DelegateArrayElementInvocation_RendersSamCall()
+    {
+        var result = Convert(
+            "public delegate int D(int x); class C { public D[] Table; public int M(int i, int v) { return Table[i](v); } }");
+
+        AssertConversion(result, "Table[i].apply(v)");
+        AssertJavaDoesNotContain(result, "](v)", "array-of-delegate invocation must become a SAM call");
+    }
+
+    [Fact]
+    public void DelegatePropertyInvocation_RendersSamCall()
+    {
+        var result = Convert(
+            "public delegate void D(object s, object e); public class Events { public D OnUnknown { get; set; } } " +
+            "class C { public Events _events; public void M(object s, object e) { _events.OnUnknown(s, e); } }");
+
+        AssertJavaContains(result, ".accept(s, e)");
+        AssertJavaDoesNotContain(result, ")(", "delegate invocation must become a SAM call");
+    }
 }
+

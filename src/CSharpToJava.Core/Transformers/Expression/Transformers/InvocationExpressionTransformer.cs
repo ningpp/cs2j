@@ -697,14 +697,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         rendered = string.Empty;
         if (methodSymbol is not { MethodKind: MethodKind.DelegateInvoke })
             return false;
-        if (invocation.Expression is MemberAccessExpressionSyntax
+        var callee = invocation.Expression;
+        while (callee is ParenthesizedExpressionSyntax parenthesized)
+            callee = parenthesized.Expression;
+        if (callee is MemberAccessExpressionSyntax
             {
                 Name: IdentifierNameSyntax invokedName
             } && invokedName.Identifier.Text == "Invoke")
         {
             return false;
         }
-        if (invocation.Expression is not (IdentifierNameSyntax or MemberAccessExpressionSyntax))
+        // 裸名之外的三种委托表达式 callee（语义闸门已确证 DelegateInvoke 绑定）：
+        // 成员访问（d.F(args)）、委托数组元素（Table[i](args)，回归 xml-tiny
+        // LogicalExpr 的 s_CompXsltE[type1][type2](...)）、以及属性降糖后的 getter
+        // 调用（_events.OnUnknownNode(args)，回归 XmlSerializationReader）。括号外壳
+        // （(this._CurState._InitFunc)(...)，回归 XdrBuilder）在上方剥除。
+        if (callee is not (IdentifierNameSyntax or MemberAccessExpressionSyntax
+                or ElementAccessExpressionSyntax or InvocationExpressionSyntax))
             return false;
 
         var sam = methodSymbol.ContainingType is { } delegateType
@@ -716,7 +725,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 ? "test"
                 : DelegateTransformer.InferSamMethodName(
                     methodSymbol.ReturnsVoid, methodSymbol.Parameters.Length);
-        var receiver = ExpressionTransformerFacade.Instance.Transform(invocation.Expression, context);
+        var receiver = ExpressionTransformerFacade.Instance.Transform(callee, context);
         rendered = $"{receiver}.{sam}({argumentText})";
         return true;
     }
