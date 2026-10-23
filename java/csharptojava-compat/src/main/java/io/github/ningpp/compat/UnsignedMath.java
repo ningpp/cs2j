@@ -159,6 +159,12 @@ public final class UnsignedMath {
     public static int toUInt16CheckedInt32(int v) { return checkedRange(v, 0L, 65535L); }
     public static int toCharCheckedInt32(int v) { return checkedRange(v, 0L, 65535L); }
     public static int toUInt32CheckedInt32(int v) { return checkedRange(v, 0L, 0xFFFFFFFFL); }
+    public static long toUInt64CheckedInt32(int v) {
+        if (v < 0) {
+            throw new ArithmeticException("overflow");
+        }
+        return v;
+    }
 
     // from UInt32 domain
     public static int toSByteCheckedUInt32(int v) { return checkedRange(v & 0xFFFFFFFFL, 0L, 127L); }

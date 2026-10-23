@@ -231,6 +231,8 @@ class UnsignedMathTest {
         assertEquals(65535, UnsignedMath.toUInt16CheckedInt32(65535));
         assertEquals(65535, UnsignedMath.toCharCheckedInt32(65535));
         assertEquals(0x7FFFFFFF, UnsignedMath.toUInt32CheckedInt32(Integer.MAX_VALUE));
+        assertEquals(0L, UnsignedMath.toUInt64CheckedInt32(0));
+        assertEquals(Integer.MAX_VALUE, UnsignedMath.toUInt64CheckedInt32(Integer.MAX_VALUE));
 
         assertEquals(255, UnsignedMath.toByteCheckedUInt32(255));
         assertEquals(0x7FFFFFFF, UnsignedMath.toInt32CheckedUInt32(0x7FFFFFFF));
@@ -254,6 +256,7 @@ class UnsignedMathTest {
         assertThrows(ArithmeticException.class, () -> UnsignedMath.toUInt16CheckedInt32(-1));
         assertThrows(ArithmeticException.class, () -> UnsignedMath.toCharCheckedInt32(65536));
         assertThrows(ArithmeticException.class, () -> UnsignedMath.toUInt32CheckedInt32(-1));
+        assertThrows(ArithmeticException.class, () -> UnsignedMath.toUInt64CheckedInt32(-1));
 
         // from UInt32（参数为无符号存储 int）
         assertThrows(ArithmeticException.class, () -> UnsignedMath.toSByteCheckedUInt32(128));

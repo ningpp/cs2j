@@ -127,6 +127,7 @@ namespace Cs2jUnsigned
         public static System.UInt16 ToUInt16CheckedInt32(int v) => checked((ushort)v);
         public static char ToCharCheckedInt32(int v) => checked((char)v);
         public static uint ToUInt32CheckedInt32(int v) => checked((uint)v);
+        public static ulong ToUInt64CheckedInt32(int v) => checked((ulong)v);
 
         // from UInt32 domain
         public static System.SByte ToSByteCheckedUInt32(uint v) => checked((sbyte)v);

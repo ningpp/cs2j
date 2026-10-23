@@ -682,6 +682,20 @@ public class NumericBoundaryRewriterUnitTests
     }
 
     [Fact]
+    public void NB7_CheckedNarrowing_FromInt32ToUInt64_UsesInt32Helper()
+    {
+        // int -> ulong is a checked out-of-range conversion (negative sources
+        // overflow) but the source domain is Int32, so the helper must be the
+        // Int32-domain entry point.
+        var src = "public class C { public ulong M(int a) => checked((ulong)a); }";
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        AssertContainsHelper(result, "ToUInt64CheckedInt32(a)");
+        Assert.Equal(1, result.Statistics.CheckedConversionSites);
+    }
+
+    [Fact]
     public void NB7_CheckedNarrowing_FromUInt64_UsesUInt64Helpers()
     {
         var src = """

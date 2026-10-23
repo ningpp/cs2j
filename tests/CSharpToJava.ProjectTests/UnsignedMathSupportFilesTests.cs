@@ -15,6 +15,16 @@ public class UnsignedMathSupportFilesTests
     }
 
     [Fact]
+    public void ToUInt64CheckedInt32_MatchesEmitterExpectation()
+    {
+        // The numeric-boundary C15 conversion matrix emits this helper for
+        // checked int -> ulong conversions (source domain Int32).
+        Assert.Equal(0UL, Cs2jUnsigned.UnsignedMath.ToUInt64CheckedInt32(0));
+        Assert.Equal((ulong)int.MaxValue, Cs2jUnsigned.UnsignedMath.ToUInt64CheckedInt32(int.MaxValue));
+        Assert.Throws<OverflowException>(() => Cs2jUnsigned.UnsignedMath.ToUInt64CheckedInt32(-1));
+    }
+
+    [Fact]
     public async Task ReleaseAsync_WritesProjectAndSourceFiles()
     {
         var dir = Path.Combine(Path.GetTempPath(), "cs2j-unsigned-support-" + Guid.NewGuid().ToString("N"));
