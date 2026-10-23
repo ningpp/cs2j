@@ -5,6 +5,7 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
+using CSharpToJava.Core.Transformers.Type;
 using CSharpToJava.Core.Transformers.Utilities;
 using System.Text;
 namespace CSharpToJava.Core.Transformers.Expression;
@@ -113,19 +114,25 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
             // `new Func<T>(delegateVar)`：实参是委托变量而非方法组——Java 函数式
             // 接口抽象方法不可实例化（javac: Supplier是抽象的; 无法实例化），SAM
-            // 转换为转发 lambda：`() -> var.invoke()` / 带参 `(a, b) -> var.invoke(a, b)`。
+            // 转换为转发 lambda。SAM 方法名必须与 DelegateTransformer 接口发射
+            // 同约定（InferSamMethodName）：此前硬编码 invoke()，对自定义委托
+            // （Supplier 形 get()）与元数据 Func/Action（apply/accept）都不成立
+            // （真实链 modulecore-tests ModuleGenerator 找不到 invoke）。
             if (c.GetTypeInfo(al.Arguments[0].Expression).Type is { TypeKind: TypeKind.Delegate })
             {
                 var delegateArg = ExpressionTransformerFacade.Instance.Transform(al.Arguments[0].Expression, c);
                 var invoke = type.GetMembers("Invoke").OfType<IMethodSymbol>().FirstOrDefault()
                     ?? type.GetMembers().OfType<IMethodSymbol>().FirstOrDefault(m => m.Name == "Invoke");
+                var sam = DelegateTransformer.InferSamMethodName(
+                    invoke?.ReturnsVoid ?? false,
+                    invoke?.Parameters.Length ?? 0);
                 if (invoke == null || invoke.Parameters.Length == 0)
-                    return $"() -> {delegateArg}.invoke()";
+                    return $"() -> {delegateArg}.{sam}()";
 
                 var samParams = string.Join(", ", invoke.Parameters.Select(
                     (p, i) => $"{c.MapType(p.Type)} _cs2jSam{i}"));
                 var samArgs = string.Join(", ", invoke.Parameters.Select((_, i) => $"_cs2jSam{i}"));
-                return $"({samParams}) -> {delegateArg}.invoke({samArgs})";
+                return $"({samParams}) -> {delegateArg}.{sam}({samArgs})";
             }
         }
 

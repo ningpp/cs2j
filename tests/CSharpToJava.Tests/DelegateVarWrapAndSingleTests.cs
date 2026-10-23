@@ -36,7 +36,10 @@ class XmlTestsAttribute
         var result = Convert(source);
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         Assert.DoesNotContain("new Supplier<CTestModule>(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains(".invoke()", result.GeneratedCode, StringComparison.Ordinal);
+        // SAM 方法名与 DelegateTransformer 接口发射同约定：自定义委托
+        // ModuleGenerator（Supplier 形）→ get()，不再是硬编码 invoke()。
+        Assert.Contains(".get()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(".invoke()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
