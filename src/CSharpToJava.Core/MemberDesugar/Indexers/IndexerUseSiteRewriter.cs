@@ -457,9 +457,19 @@ internal sealed class IndexerUseSiteRewriter : CSharpSyntaxRewriter
         return _active.TryGetValue(IndexerPlan.SiteKey(p), out plan);
     }
 
+    /// <summary>c[i] 是纯左值目标（赋值左侧 / ++/-- 操作数）时读路径让位：简单写由
+    /// <see cref="VisitExpressionStatement"/> 的 setter 路径接管、自增/自减由 get→算→set
+    /// 展开接管。注意一元父节点仅在 ++/-- 时才算写目标——`!`/`~`/`+`/`-` 是纯读，必须照常
+    /// 改写（回归：xml-tiny ContentValidator 的 `!context.CurPos[i][j]` 曾被本闸门整体
+    /// 跳过，降糖后该站点残留 [] 索引，最终阶段 '!' 非 bool 操作数 fail-fast）。</summary>
     private static bool IsDirectAssignmentTarget(SyntaxNode node)
         => (node.Parent is AssignmentExpressionSyntax a && ReferenceEquals(a.Left, node))
-           || node.Parent is PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax;
+           || (node.Parent is PrefixUnaryExpressionSyntax pre
+               && (pre.IsKind(SyntaxKind.PreIncrementExpression)
+                   || pre.IsKind(SyntaxKind.PreDecrementExpression)))
+           || (node.Parent is PostfixUnaryExpressionSyntax post
+               && (post.IsKind(SyntaxKind.PostIncrementExpression)
+                   || post.IsKind(SyntaxKind.PostDecrementExpression)));
 
     private static ExpressionSyntax? UnwrapParentheses(ExpressionSyntax? expression)
     {

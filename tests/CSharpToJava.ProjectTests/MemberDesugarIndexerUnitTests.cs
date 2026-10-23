@@ -731,4 +731,70 @@ public class MemberDesugarIndexerUnitTests
         MemberDesugarPropertyUnitTests.AssertOutputCompiles(declOut);
         MemberDesugarPropertyUnitTests.AssertOutputCompiles(crossOut, declOut);
     }
+
+    // 回归（xml-tiny ContentValidator.cs:1886）：链式索引 arr[i][j] 的内层 [j] 是
+    // 降糖索引器调用、外层 [i] 是数组元素访问，且站点在 `!` 一元操作数下。使用点
+    // 改写必须按语义模型识别内层索引器站点并改写为 .Get(j)，与接收者语法形态无关；
+    // 漏改会让最终阶段把该表达式解析为未知类型，UnaryExpressionTransformer 对
+    // `!` 非 bool 操作数 fail-fast，整类转换失败。
+    [Fact]
+    public void ChainedElementAccess_IndexerSiteUnderUnaryNot_RewrittenToGetter()
+    {
+        var (outCode, _, diags) = MemberDesugarPropertyUnitTests.Rewrite("""
+            class BitSet
+            {
+                private readonly bool[] _bits = new bool[8];
+                public bool this[int i] => _bits[i];
+            }
+            class State
+            {
+                public BitSet[] CurPos = { new BitSet(), new BitSet() };
+            }
+            class App
+            {
+                private int _endMarkerPos;
+                public bool CompleteValidation(State context, int idx)
+                    => !context.CurPos[idx][_endMarkerPos];
+                public bool Read(State context, int idx)
+                    => context.CurPos[idx][_endMarkerPos];
+            }
+            """);
+        Assert.DoesNotContain(CS2J(5141), Codes(diags));
+        // `!` 一元操作数下的链式索引是纯读：必须照常改写（成员 desugar 阶段
+        // 访问器名为 get_Item，后续阶段才改名 Get）。
+        AssertContains(outCode, "!context.CurPos[idx].get_Item(_endMarkerPos)");
+        AssertContains(outCode, "context.CurPos[idx].get_Item(_endMarkerPos)");
+        AssertNotContains(outCode, "CurPos[idx][_endMarkerPos]");
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(outCode);
+    }
+
+    // 链式索引器写/复合/自增站点：语句级 setter 路径按语义模型绑定，接收者语法形态
+    // 无关——外层 [i] 是数组元素访问、内层 [j] 是降糖索引器时同样改写为 set_Item；
+    // ++/-- 继续 get→算→set 展开（IX-7/D11 既有能力，链式形态不豁免也不额外处理）。
+    [Fact]
+    public void ChainedElementAccess_WriteAndCompoundSites_RewrittenToSetter()
+    {
+        var (outCode, _, _) = MemberDesugarPropertyUnitTests.Rewrite("""
+            class Cell
+            {
+                private int _v;
+                public int this[int i] { get => _v; set => _v = value; }
+            }
+            class Grid
+            {
+                public Cell[] Row = { new Cell(), new Cell() };
+            }
+            class App
+            {
+                public void Write(Grid g, int r, int c, int v) { g.Row[r][c] = v; }
+                public void Compound(Grid g, int r, int c, int v) { g.Row[r][c] += v; }
+                public void Increment(Grid g, int r, int c) { g.Row[r][c]++; }
+            }
+            """);
+        AssertContains(outCode, "g.Row[r].set_Item(c, v)");
+        AssertContains(outCode, "g.Row[r].set_Item(c, g.Row[r].get_Item(c) + v)");
+        AssertContains(outCode, "g.Row[r].set_Item(c, g.Row[r].get_Item(c) + 1)");
+        AssertNotContains(outCode, "Row[r][c]");
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(outCode);
+    }
 }
