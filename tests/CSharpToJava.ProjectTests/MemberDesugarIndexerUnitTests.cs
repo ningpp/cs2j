@@ -667,4 +667,68 @@ public class MemberDesugarIndexerUnitTests
         AssertContains(mixedCode, "h.set_Item(\"k\", \"v\")");
         MemberDesugarPropertyUnitTests.AssertOutputCompiles(mixedCode);
     }
+
+    // C12×C46 回归（xml-tiny cmodinfo/cparser：MyDict<K,V> : Dictionary<K,V> 的 new 隐藏
+    // 索引器）：外部 Dictionary 的 get/set 站点保持原生 []；源内索引器照常展开；被 new 隐藏
+    // 触发的访问器改名必须同步覆盖同文件与跨文件站点（否则站点仍调 BCL 访问器 → CS0571）。
+    [Fact]
+    public void ExternalDictionaryNative_SourceIndexerDesugars_HidingIndexerSitesRenamed()
+    {
+        var options = new MemberDesugarOptions
+        {
+            Signatures = new CSharpToJava.Core.MemberDesugar.Signatures.SignatureOptions
+            {
+                Enabled = true,
+            },
+        };
+        var declAndSameFileUse = """
+            using System.Collections.Generic;
+            public class MyDict<K, V> : Dictionary<K, V>
+            {
+                public new V this[K k]
+                {
+                    get { return ContainsKey(k) ? base[k] : default(V); }
+                    set { base[k] = value; }
+                }
+            }
+            class C
+            {
+                private readonly int[] _a = new int[4];
+                public int this[int i] { get => _a[i]; set => _a[i] = value; }
+                public int Read(int i) => this[i];
+                private readonly Dictionary<string, string> _o = new Dictionary<string, string>();
+                public string Get(string k) => _o[k];
+                public void Put(string k, string v) { _o[k] = v; }
+                private static MyDict<string, string> s_d;
+                public static string F => s_d["x"];
+                public static void S(string k, string v) { s_d[k] = v; }
+            }
+            """;
+        var crossFileUse = """
+            class D
+            {
+                private static MyDict<string, string> s_d;
+                public static string F => s_d["x"];
+                public static void S(string k, string v) { s_d[k] = v; }
+            }
+            """;
+
+        var (declOut, _, _) = MemberDesugarPropertyUnitTests.Rewrite(declAndSameFileUse, options);
+        var (crossOut, _, _) = MemberDesugarPropertyUnitTests.Rewrite(
+            crossFileUse, options, declAndSameFileUse);
+
+        // 外部 BCL 索引器：原生 [] 原样保留（不得出现访问器调用）。
+        AssertContains(declOut, "_o[k]");
+        AssertNotContains(declOut, "_o.get_Item");
+        AssertNotContains(declOut, "_o.set_Item");
+        // 源内索引器：照常展开为 get_Item/set_Item 并改写使用点。
+        AssertContains(declOut, "this.get_Item(i)");
+        // new 隐藏索引器：声明与同文件/跨文件站点的访问器名一致（_cs2jNew）。
+        AssertContains(declOut, "s_d.get_Item_cs2jNew(\"x\")");
+        AssertContains(declOut, "s_d.set_Item_cs2jNew(k,v)");
+        AssertContains(crossOut, "s_d.get_Item_cs2jNew(\"x\")");
+        AssertContains(crossOut, "s_d.set_Item_cs2jNew(k,v)");
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(declOut);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(crossOut, declOut);
+    }
 }

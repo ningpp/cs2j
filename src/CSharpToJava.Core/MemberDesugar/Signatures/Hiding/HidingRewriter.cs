@@ -138,6 +138,12 @@ internal sealed class HidingRewriter : CSharpSyntaxRewriter
         {
             if (_rename.TryGetValue(NhPlan.SiteKey(bound), out var newName))
                 return Rename(visited, newName);
+            // 同文件使用点：C11–C13 已在本文件展开访问器方法对，站点直接绑定到合成方法
+            // （声明文件即本文件，故不会像跨文件那样绑定失败）——plan 键是索引器/属性符号，
+            // 按接收者静态类型 + 访问器原始名回退，否则声明改名而站点漏改（CS0571）。
+            if (bound is IMethodSymbol
+                && TryFallbackAccessorRename(visited, out var boundFallbackName))
+                return Rename(visited, boundFallbackName);
             return visited;   // 真实绑定到非改名成员 → 不动
         }
 

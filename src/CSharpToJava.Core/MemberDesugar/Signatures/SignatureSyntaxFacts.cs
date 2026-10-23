@@ -208,7 +208,10 @@ internal static class SignatureSyntaxFacts
     {
         newName = string.Empty;
         for (var type = receiverType as INamedTypeSymbol; type != null; type = type.BaseType)
-            if (map.TryGetValue((type.ToDisplayString(), accessorName, arity), out var found))
+            // 回退表键来自 plan 的声明符号（泛型定义实例），接收者静态类型可能是构造实例
+            // （MyDict<string,string>）→ 统一归一到原始定义再比对。
+            if (map.TryGetValue(
+                    (type.OriginalDefinition.ToDisplayString(), accessorName, arity), out var found))
             {
                 newName = found;
                 return true;

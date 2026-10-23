@@ -275,6 +275,9 @@ internal static class NhPlanBuilder
         }
 
         // 逐树并行采集命中事件，随后按树序回放（Gate 首现优先，顺序必须与串行一致）。
+        // 仅当存在索引器隐藏 plan 时才需要扫描元素访问站点，避免常态下的额外绑定开销。
+        var hasIndexerHide = drafts.Any(d => d.Outcome == MemberDesugarOutcome.Planned
+            && d.Hidden.Member is IPropertySymbol { IsIndexer: true });
         var models = context.Models;
         var partMatches = new List<(Draft Draft, string FilePath, string Name, bool Gate, bool Dynamic)>[
             models.Count];
@@ -307,7 +310,24 @@ internal static class NhPlanBuilder
                         or MemberBindingExpressionSyntax) => id,
                     _ => null,
                 };
-                if (expr == null) continue;
+                if (expr == null)
+                {
+                    // C12 索引器使用点（c[k] / c?[k] / 初始化器 [k] = v）：绑定到被改名索引器
+                    // 的文件必须纳入 plan，否则索引器阶段把站点改写成 get_Item/set_Item 后
+                    // NH 不处理该文件，声明改 _cs2jNew 而站点漏改 → CS0571。
+                    if (hasIndexerHide
+                        && node is (ElementAccessExpressionSyntax
+                            or ElementBindingExpressionSyntax
+                            or ImplicitElementAccessSyntax)
+                        && model.GetSymbolInfo(node).Symbol is IPropertySymbol { IsIndexer: true } siteIndexer)
+                    {
+                        if (!siteIndexer.IsDefinition) siteIndexer = siteIndexer.OriginalDefinition;
+                        if (matchByKey.TryGetValue(NhPlan.SiteKey(siteIndexer), out var indexerPlans))
+                            foreach (var plan in indexerPlans)
+                                matches.Add((plan, filePath, siteIndexer.MetadataName, false, false));
+                    }
+                    continue;
+                }
 
                 var sourceName = expr switch
                 {
