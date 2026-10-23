@@ -359,6 +359,51 @@ public class NumericBoundaryDecimalOpUnitTests
         AssertOutputCompiles(result.OutputCode);
     }
 
+    [Fact]
+    public void ComplexCompound_EmbeddedElseBranch_ExpandsToBlock_NoPlaceholderResidue()
+    {
+        // Regression: an embedded (unbraced) else branch is not a BlockSyntax
+        // parent, so the hoist post-pass must wrap the compound in a block.
+        // Previously only the value placeholder survived (`__cs2j_dec_t;`).
+        var src = """
+            public class Particle
+            {
+                public decimal MaxOccurs { get; set; }
+                public decimal MinOccurs { get; set; }
+            }
+
+            public class C
+            {
+                public void M(Particle baseParticle, Particle baseGroupBase)
+                {
+                    baseParticle.MinOccurs *= baseGroupBase.MinOccurs;
+                    if (baseParticle.MaxOccurs != decimal.MaxValue)
+                    {
+                        if (baseGroupBase.MaxOccurs == decimal.MaxValue)
+                            baseParticle.MaxOccurs = decimal.MaxValue;
+                        else
+                            baseParticle.MaxOccurs *= baseGroupBase.MaxOccurs;
+                    }
+                }
+            }
+            """;
+
+        var result = Run(src, EnabledOptions());
+        var compact = Compact(result.OutputCode);
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("__cs2j_dec_t", compact);
+        Assert.Contains("var__cs2j_dec_r=baseParticle;", compact);
+        Assert.Contains(
+            "__cs2j_dec_r.MinOccurs=(decimal.Multiply(__cs2j_dec_r.MinOccurs,baseGroupBase.MinOccurs))",
+            compact);
+        Assert.Contains(
+            "__cs2j_dec_r.MaxOccurs=(decimal.Multiply(__cs2j_dec_r.MaxOccurs,baseGroupBase.MaxOccurs))",
+            compact);
+        Assert.Equal(2, result.Statistics.DecimalOps.ComplexCompoundSites);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
     [Theory]
     [InlineData("if ((r.P += x) == 0m) { }")]
     [InlineData("System.Func<decimal> f = () => r.P += x;")]

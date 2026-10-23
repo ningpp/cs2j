@@ -506,39 +506,111 @@ internal sealed class DecimalOpRewriter : CSharpSyntaxRewriter
                 g.OrderBy(p => p.Key.SpanStart).Select(p => p.Value).ToList()))
             .ToList();
 
-        var plansByStatement = groups.ToDictionary(g => g.Statement);
-        var parents = groups
-            .Select(g => g.Statement.Parent)
-            .Concat(arrowGroups.Select(g => (SyntaxNode?)g.Arrow.Parent))
-            .Where(p => p != null)
-            .Distinct()
-            .Cast<SyntaxNode>()
-            .ToList();
-
-        return root.ReplaceNodes(parents, (parent, _) =>
+        // Expand expression-bodied member anchors first: members never live
+        // inside statements, so their nodes stay valid across the statement
+        // replacements below.
+        foreach (var arrowGroup in arrowGroups)
         {
-            if (parent is BlockSyntax parentBlock)
+            root = root.ReplaceNode(arrowGroup.Arrow.Parent!, ConvertArrowMember(arrowGroup));
+        }
+
+        // Expand statement-anchored groups one at a time, re-locating each
+        // group's current statement from its placeholder annotations. A single
+        // ReplaceNodes over every parent silently drops nested replacements:
+        // rebuilding an enclosing block in the same call leaves the embedded
+        // slot statement (e.g. an unbraced `else x *= y;`) unreachable, so only
+        // the value temp survived. Re-locating per step also keeps every node
+        // reference valid after an ancestor has been rebuilt.
+        var pending = groups.OrderBy(g => g.Statement.SpanStart).ToList();
+        while (pending.Count > 0)
+        {
+            var group = pending[0];
+            pending.RemoveAt(0);
+
+            var statement = FindCurrentStatement(root, group);
+            if (statement == null)
             {
-                return parentBlock.WithStatements(List(ExpandStatements(parentBlock.Statements, plansByStatement)));
+                continue;
             }
 
-            if (parent is SwitchSectionSyntax parentSection)
+            switch (statement.Parent)
             {
-                return parentSection.WithStatements(List(ExpandStatements(parentSection.Statements, plansByStatement)));
+                case BlockSyntax block:
+                {
+                    var current = block.Statements.FirstOrDefault(s => s.SpanStart == statement.SpanStart);
+                    if (current == null)
+                    {
+                        continue;
+                    }
+
+                    var plansByStatement = new Dictionary<StatementSyntax, HoistGroup>
+                    {
+                        [current] = group,
+                    };
+                    root = root.ReplaceNode(
+                        block,
+                        block.WithStatements(
+                            List(ExpandStatements(block.Statements, plansByStatement))));
+                    break;
+                }
+
+                case SwitchSectionSyntax section:
+                {
+                    var current = section.Statements.FirstOrDefault(s => s.SpanStart == statement.SpanStart);
+                    if (current == null)
+                    {
+                        continue;
+                    }
+
+                    var plansByStatement = new Dictionary<StatementSyntax, HoistGroup>
+                    {
+                        [current] = group,
+                    };
+                    root = root.ReplaceNode(
+                        section,
+                        section.WithStatements(
+                            List(ExpandStatements(section.Statements, plansByStatement))));
+                    break;
+                }
+
+                default:
+                    // Embedded statement slot: wrap the single statement in a
+                    // block so the hoisted temps precede it.
+                    root = root.ReplaceNode(statement, WrapInBlock(group));
+                    break;
+            }
+        }
+
+        return root;
+    }
+
+    /// <summary>
+    /// Locate a hoist group's current anchor statement through the marker
+    /// annotations carried by its placeholder. Red nodes are re-instantiated
+    /// whenever an ancestor is rebuilt, so a statement captured during the
+    /// sweep cannot be reused after any replacement; annotations live on the
+    /// placeholder green nodes and survive the rebuilds.
+    /// </summary>
+    private static StatementSyntax? FindCurrentStatement(SyntaxNode root, HoistGroup group)
+    {
+        foreach (var node in root.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+        {
+            var annotations = node.GetAnnotations(DecimalOpSyntaxFacts.HoistAnnotationKind);
+            if (!annotations.Any())
+            {
+                continue;
             }
 
-            var arrowGroup = arrowGroups.FirstOrDefault(g => g.Arrow.Parent == parent);
-            if (arrowGroup != null)
+            foreach (var plan in group.Plans)
             {
-                return ConvertArrowMember(arrowGroup);
+                if (annotations.Any(annotation => ReferenceEquals(annotation, plan.Marker)))
+                {
+                    return node.Ancestors().OfType<StatementSyntax>().FirstOrDefault();
+                }
             }
+        }
 
-            // Embedded statement slot: consumed anchor only (a standalone compound
-            // is itself an expression statement living in a block/section).
-            var group = groups.Single(g => g.Statement.Parent == parent);
-            var block = WrapInBlock(group);
-            return parent.ReplaceNode(group.Statement, block);
-        });
+        return null;
     }
 
     private sealed record HoistGroup(StatementSyntax Statement, List<HoistPlan> Plans);
@@ -673,7 +745,14 @@ internal sealed class DecimalOpRewriter : CSharpSyntaxRewriter
             sequence.AddRange(plan.PrefixStatements);
         }
 
-        sequence.Add(group.Statement.WithoutLeadingTrivia());
+        // A standalone compound IS the anchor expression statement: the write
+        // replaces it, so the placeholder statement must be dropped. Consumed
+        // anchors keep their statement (it reads the value temp).
+        if (!group.Plans.All(p => p.Standalone))
+        {
+            sequence.Add(group.Statement.WithoutLeadingTrivia());
+        }
+
         return Block(sequence)
             .WithLeadingTrivia(group.Statement.GetLeadingTrivia())
             .WithAdditionalAnnotations(NB.RewriteAnnotation, DecimalOpSyntaxFacts.RewriteAnnotation);
