@@ -25,7 +25,7 @@ public abstract class JavaTypeDeclaration : JavaSyntaxNode
         }
     }
 
-    protected string GetModifiersString()
+    protected virtual string GetModifiersString()
     {
         var modifiers = new List<string>();
 
@@ -221,6 +221,15 @@ public class JavaInterfaceDeclaration : JavaTypeDeclaration
     public List<JavaFieldDeclaration> Fields { get; } = new();
     public List<JavaTypeDeclaration> NestedTypes { get; } = new();
 
+    /// <summary>Java 接口隐式静态：显式 static 修饰非法（嵌套 interface 不得写作 static interface）。</summary>
+    protected override string GetModifiersString()
+    {
+        var saved = Modifiers;
+        Modifiers &= ~JavaModifiers.Static;
+        try { return base.GetModifiersString(); }
+        finally { Modifiers = saved; }
+    }
+
     public override string ToString(string indentation)
     {
         var sb = new StringBuilder();
@@ -277,6 +286,15 @@ public class JavaEnumDeclaration : JavaTypeDeclaration
     public List<JavaFieldDeclaration> Fields { get; } = new();
     public List<JavaConstructorDeclaration> Constructors { get; } = new();
     public List<JavaMethodDeclaration> Methods { get; } = new();
+
+    /// <summary>Java 枚举隐式静态：显式 static 修饰非法（嵌套 enum 不得写作 static enum）。</summary>
+    protected override string GetModifiersString()
+    {
+        var saved = Modifiers;
+        Modifiers &= ~JavaModifiers.Static;
+        try { return base.GetModifiersString(); }
+        finally { Modifiers = saved; }
+    }
 
     public override string ToString(string indentation)
     {
