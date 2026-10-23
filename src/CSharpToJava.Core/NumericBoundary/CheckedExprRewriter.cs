@@ -1118,7 +1118,12 @@ internal sealed class CheckedExprRewriter : CSharpSyntaxRewriter
     private ExpressionSyntax StripShell(CheckedExpressionSyntax node, ExpressionSyntax visitedInner)
     {
         MadeChanges = true;
-        return NB.ParenthesizeIfNeeded(visitedInner)
+        var stripped = node.Parent is CastExpressionSyntax cast
+                       && cast.Expression == node
+                       && NB.NeedsParenthesesAsCastOperand(visitedInner, cast)
+            ? SyntaxFactory.ParenthesizedExpression(visitedInner)
+            : NB.ParenthesizeIfNeeded(visitedInner);
+        return stripped
             .WithTriviaFrom(node)
             .WithAdditionalAnnotations(NB.RewriteAnnotation);
     }

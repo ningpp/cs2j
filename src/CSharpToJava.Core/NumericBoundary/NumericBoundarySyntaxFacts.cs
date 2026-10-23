@@ -280,6 +280,17 @@ internal static class NumericBoundarySyntaxFacts
             : expression;
 
     /// <summary>
+    /// After stripping a checked/unchecked shell, a unary +/- operand of a cast
+    /// must be parenthesized when the cast type is not a predefined type:
+    /// C# parses <c>(T)-x</c> with a non-predefined T as a subtraction (CS0075),
+    /// while predefined-type forms such as <c>(long)-x</c> stay casts. Only
+    /// this combination needs the extra parentheses.
+    /// </summary>
+    public static bool NeedsParenthesesAsCastOperand(ExpressionSyntax expression, CastExpressionSyntax cast)
+        => expression is PrefixUnaryExpressionSyntax
+            && cast.Type is not PredefinedTypeSyntax;
+
+    /// <summary>
     /// Build a legal C# literal (with one same-domain cast when the target is a
     /// narrow/enum type) holding <paramref name="constantValue"/> as returned by
     /// <c>SemanticModel.GetConstantValue</c>/<c>IOperation.ConstantValue</c>.

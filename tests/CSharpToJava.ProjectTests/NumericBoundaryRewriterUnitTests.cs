@@ -112,7 +112,7 @@ public class NumericBoundaryRewriterUnitTests
     }
 
     [Fact]
-    public void NB1_UnsignedHelperCoexistence_UncheckedCastShellsStripped()
+    public void NB1_UncheckedHelperCoexistence_UncheckedCastShellsStripped()
     {
         var src = "public class C { public int M(uint a, uint b) => " +
                   "Cs2jUnsigned.UnsignedMath.AddUInt32(unchecked((int)a), unchecked((int)b)); }";
@@ -123,6 +123,36 @@ public class NumericBoundaryRewriterUnitTests
         Assert.Contains("AddUInt32((int)a,(int)b)", compact);
         Assert.DoesNotContain("unchecked", result.OutputCode);
         Assert.Equal(2, result.Statistics.UncheckedExpressionsStripped);
+    }
+
+    [Fact]
+    public void NB1_UncheckedNegationAsNonPredefinedCastOperand_GetsParentheses()
+    {
+        // A stripped shell leaves `(T)-x`; for a non-predefined type the parser
+        // reads that as a subtraction and reports CS0075, so the operand needs
+        // parentheses.
+        var src = "public class C { public ulong M(long d) => " +
+                  "(global::System.UInt64)unchecked(-d); }";
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("(global::System.UInt64)(-d)", result.OutputCode);
+        Assert.DoesNotContain("unchecked", result.OutputCode);
+        var outputDiagnostics = CSharpSyntaxTree.ParseText(result.OutputCode).GetDiagnostics();
+        Assert.DoesNotContain(outputDiagnostics, d => d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
+    public void NB1_UncheckedNegationAsPredefinedCastOperand_KeepsBareForm()
+    {
+        // Predefined-type casts already disambiguate `(long)-x`; no redundant
+        // parentheses are added.
+        var src = "public class C { public long M(int a) => (long)unchecked(-a); }";
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("(long)-a", result.OutputCode);
+        Assert.DoesNotContain("(long)(-a)", result.OutputCode);
     }
 
     // ── NB-2: unchecked blocks ──
