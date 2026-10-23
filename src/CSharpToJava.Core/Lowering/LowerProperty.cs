@@ -66,12 +66,7 @@ public class LowerProperty : ILoweringPass
         var loweredTarget = LowerExpression(prop.Target);
         if (prop.PropertyName is "CurrentThread" or "Zero" or "MaxValue" or "MinValue")
         {
-            var dbgOwner = propSymbol?.ContainingType;
-            System.IO.File.AppendAllText(@"D:\tmp\lower-debug.txt",
-                $"prop={prop.PropertyName} owner={dbgOwner?.ToDisplayString() ?? "null"} " +
-                $"mapped={(dbgOwner == null ? "?" : _ctx.MapType(dbgOwner))} " +
-                $"mapMethod={(dbgOwner == null ? "?" : _ctx.TypeMappings.MapMethod(dbgOwner.ToDisplayString(), prop.PropertyName) ?? "null")} " +
-                $"targetJava={prop.Target.JavaType} static={propSymbol?.IsStatic}\n");
+            // （曾用于排查的 D:\tmp 调试写文件已移除——管线不应有隐藏副作用。）
         }
 
         // Static BCL property (Thread.CurrentThread, …): the receiver must be the
@@ -175,6 +170,12 @@ public class LowerProperty : ILoweringPass
         var mappedMethod = TryMapPropertyName(propSymbol, prop.PropertyName);
         if (mappedMethod != prop.PropertyName)
         {
+            // 点分静态 compat 助手映射（System.Exception.InnerException →
+            // ExceptionCompat.getInnerException）：渲染为 Helper.method(receiver)，
+            // 导入按映射名前缀注入（receiver 常是 Exception 子类，类型条目 imports
+            // 覆盖不到；与 InvocationExpressionTransformer.AddCompatHelperImport 同款）。
+            Transformers.Expression.InvocationExpressionTransformer
+                .AddCompatHelperImport(mappedMethod, _ctx);
             // For System.Array properties mapped to field names, emit member access (no parens)
             if (propSymbol?.ContainingType?.SpecialType == SpecialType.System_Array)
             {

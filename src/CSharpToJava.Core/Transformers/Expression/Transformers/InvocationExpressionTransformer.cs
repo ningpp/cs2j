@@ -2959,7 +2959,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// System.Exception 的 imports）。在此按映射名前缀补 compat 导入，与
     /// AddReceiverTypeImports 的 GetRequiredImports 互补。
     /// </summary>
-    private static void AddCompatHelperImport(string mappedName, ConversionContext context)
+    internal static void AddCompatHelperImport(string mappedName, ConversionContext context)
     {
         // ExceptionCompat 为当前唯一以点分静态助手形态出现在方法映射表中的 compat 类；
         // 后续新增时在此登记（或扩展 TypeMappings 条目级 imports 结构）。
