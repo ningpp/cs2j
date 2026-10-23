@@ -28,6 +28,19 @@ public class RefOutInInterlockedHolderTests
                 public static ByRef<T> Create(T value) => new SlotByRef<T>(value);
                 public static ByRef<T> Create(System.Func<T> getter, System.Action<T> setter)
                     => new AccessorByRef<T>(getter, setter);
+                // out 值类型读回（与 src/Cs2jRefOutIn/ByRef.cs 的 ReadbackX 一致，Java 半区 null→default 桥）
+                public static int ReadbackInt(ByRef<int> slot) => slot.Value;
+                public static int ReadbackInt(ByRef<uint> slot) => (int)slot.Value;
+                public static int ReadbackInt(ByRef<byte> slot) => slot.Value;
+                public static short ReadbackShort(ByRef<short> slot) => slot.Value;
+                public static short ReadbackShort(ByRef<ushort> slot) => (short)slot.Value;
+                public static byte ReadbackByte(ByRef<sbyte> slot) => (byte)slot.Value;
+                public static long ReadbackLong(ByRef<long> slot) => slot.Value;
+                public static long ReadbackLong(ByRef<ulong> slot) => (long)slot.Value;
+                public static char ReadbackChar(ByRef<char> slot) => slot.Value;
+                public static bool ReadbackBool(ByRef<bool> slot) => slot.Value;
+                public static float ReadbackFloat(ByRef<float> slot) => slot.Value;
+                public static double ReadbackDouble(ByRef<double> slot) => slot.Value;
             }
             internal sealed class SlotByRef<T> : ByRef<T>
             {
