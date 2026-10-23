@@ -820,4 +820,145 @@ public class Calc
         Assert.Equal(-1, use.Invoke(null, new object[] { "abc" }));
         Assert.Equal(3, useGrow.Invoke(null, null));
     }
+
+    [Fact]
+    public void HolderReadInSplicedShortCircuitGate_UsesShadowLocal()
+    {
+        // xml-tiny XsdDateTime.Parser.ParseTime (CS0019 ×2): an `&&` chain
+        // mixes ref-carrying Parse2Dig calls with plain
+        // `ParseChar(start + const, ':')` gates. Statement-lifting splits the
+        // chain and embeds the already-spliced left side as the gate of a
+        // generated `if`; that fragment is never re-visited by the main
+        // rewriter, so the holder read inside the gate must be rewritten at
+        // splice time — otherwise `start + s_lzHH` stays `ByRef<int> + int`.
+        // `start += const` later in the body forces a shadow frame, so the
+        // read must bind to the shadow local, not `start.Value`.
+        var source = @"
+public class Calc
+{
+    private const int s_lzHH = 3;
+    private const int s_lzHH_mm_ss = 9;
+    private int hour;
+
+    private bool Parse2Dig(int start, ref int value) { value = start; return true; }
+    private bool ParseChar(int start, char c) { return start >= 0; }
+
+    private bool ParseTime(ref int start)
+    {
+        if (Parse2Dig(start, ref hour) && hour < 24 &&
+            ParseChar(start + s_lzHH, ':') &&
+            Parse2Dig(start + s_lzHH, ref hour) && hour < 60)
+        {
+            start += s_lzHH_mm_ss;
+            return ParseChar(start, '.');
+        }
+        return false;
+    }
+
+    public bool Parse()
+    {
+        int pos = 0;
+        return ParseTime(ref pos);
+    }
+}";
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("refout-splice-gate",
+            new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var result = new RefOutInRewriter().Rewrite(source, compilation.GetSemanticModel(tree));
+        Assert.True(result.Changed, "expected the preprocessor to rewrite the input");
+
+        // No bare holder read in the spliced gate: the shadow local is the
+        // value bound by the copy-in frame, so `start + const` must use it.
+        Assert.DoesNotContain("ParseChar(start", result.OutputCode);
+        Assert.Contains("__shadow", result.OutputCode);
+
+        var rewritten = CompileWithByRefStub(result.OutputCode, "refout-splice-gate-out");
+        var errors = rewritten.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        Assert.True(errors.Count == 0,
+            "Rewritten source must compile (no CS0019).\n--- Errors ---\n" +
+            string.Join("\n", errors) + "\n--- Rewritten ---\n" + result.OutputCode);
+
+        var violations = RefOutInPostVerifier.Verify(
+            new[] { rewritten.SyntaxTrees.Single() }, rewritten);
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void HolderReadInLiftedInvocationReceiver_UsesValueAndShadow()
+    {
+        // xml-tiny XPathNodeHelper.GetNextAttribute (CS0021):
+        // `idx = pageNode[idxNode].GetSibling(out page)` lifts the call, but
+        // the retained callee expression is embedded in a generated statement
+        // and never re-visited. Both the element-access receiver
+        // (`pageNode` → `.Value`, reference type keeps the holder) and the
+        // index (`idxNode` → shadow local, value type) must be substituted.
+        var source = @"
+public struct Node
+{
+    public int Degree;
+    public int GetSibling(out Node[] page)
+    {
+        page = new Node[4];
+        return Degree + 1;
+    }
+}
+
+public class Calc
+{
+    public static bool GetNext(ref Node[] pageNode, ref int idxNode)
+    {
+        Node[] page;
+        int idx;
+        idx = pageNode[idxNode].GetSibling(out page);
+        if (idx != 0)
+        {
+            pageNode = page;
+            idxNode = idx;
+            return true;
+        }
+        return false;
+    }
+}";
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("refout-receiver",
+            new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var result = new RefOutInRewriter().Rewrite(source, compilation.GetSemanticModel(tree));
+        Assert.True(result.Changed, "expected the preprocessor to rewrite the input");
+
+        // The array holder is a reference type (no shadow): `.Value`; the
+        // index holder is value-typed and mutated (shadow local).
+        Assert.DoesNotContain("pageNode[idxNode]", result.OutputCode);
+        Assert.Contains("pageNode.Value[", result.OutputCode);
+        Assert.DoesNotContain("[idxNode]", result.OutputCode);
+
+        var rewritten = CompileWithByRefStub(result.OutputCode, "refout-receiver-out");
+        var errors = rewritten.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        Assert.True(errors.Count == 0,
+            "Rewritten source must compile (no CS0021).\n--- Errors ---\n" +
+            string.Join("\n", errors) + "\n--- Rewritten ---\n" + result.OutputCode);
+
+        var violations = RefOutInPostVerifier.Verify(
+            new[] { rewritten.SyntaxTrees.Single() }, rewritten);
+        Assert.Empty(violations);
+    }
 }

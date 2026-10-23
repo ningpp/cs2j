@@ -179,11 +179,15 @@ internal sealed class RefOutInStatementLifter
         var temp = Temp("__sc");
         _out.Add(ParseStmt($"bool {temp} = {(isAnd ? "false" : "true")};"));
         PushScope();
-        var rightValue = Splice(bin.Right);
+        var rightValue = Inject(Splice(bin.Right));
         _out.Add(ParseStmt($"{temp} = {rightValue};"));
         var conditional = PopScope();
 
-        var gate = isAnd ? left : Negate(left);
+        // The gate may be an already-spliced partial expression that reuses
+        // original nodes (e.g. `Liftable(...) && plainHolder + c`): it lands in
+        // a generated statement and is never re-visited, so its holder reads
+        // must be finalized here (CS0019 otherwise).
+        var gate = Inject(isAnd ? left : Negate(left));
         _out.Add(SyntaxFactory.IfStatement(gate, conditional));
         return Identifier(temp);
     }
@@ -196,9 +200,9 @@ internal sealed class RefOutInStatementLifter
 
         var typeName = TypeNameOf(bin) ?? "object";
         var temp = Temp("__cs");
-        _out.Add(ParseStmt($"{typeName} {temp} = {left};"));
+        _out.Add(ParseStmt($"{typeName} {temp} = {Inject(left)};"));
         PushScope();
-        var rightValue = Splice(bin.Right);
+        var rightValue = Inject(Splice(bin.Right));
         _out.Add(BranchAssignment(temp, rightValue));
         var conditional = PopScope();
 
@@ -233,7 +237,7 @@ internal sealed class RefOutInStatementLifter
             return SpliceChildren(cond);
         }
 
-        var condition = Splice(cond.Condition);
+        var condition = Inject(Splice(cond.Condition));
         var typeName = TypeNameOf(cond) ?? "object";
         var temp = Temp("__cond");
         var typeSymbol = _owner.GetTypeOf(cond);
@@ -241,11 +245,11 @@ internal sealed class RefOutInStatementLifter
         _out.Add(ParseStmt($"{typeName} {temp} = {defaultLit};"));
 
         PushScope();
-        _out.Add(BranchAssignment(temp, Splice(cond.WhenTrue)));
+        _out.Add(BranchAssignment(temp, Inject(Splice(cond.WhenTrue))));
         var trueBlock = PopScope();
 
         PushScope();
-        _out.Add(BranchAssignment(temp, Splice(cond.WhenFalse)));
+        _out.Add(BranchAssignment(temp, Inject(Splice(cond.WhenFalse))));
         var falseBlock = PopScope();
 
         _out.Add(SyntaxFactory.IfStatement(condition, trueBlock, SyntaxFactory.ElseClause(falseBlock)));
@@ -370,8 +374,15 @@ internal sealed class RefOutInStatementLifter
 
         _owner.Stats.CallSitesLifted++;
         _owner.MarkHolderUsed();
-        var newInvocation = invocation.WithArgumentList(
-            SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(newArgs)));
+        // The callee expression is retained verbatim, but the whole lifted
+        // call is embedded in a generated statement that is never re-visited.
+        // A holder read in the target (element-access receiver AND index, or a
+        // member chain through a holder) must therefore be substituted here —
+        // e.g. `pageNode[idxNode].GetSibling(out page)` (CS0021).
+        var newInvocation = invocation
+            .WithExpression(Inject(invocation.Expression))
+            .WithArgumentList(
+                SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(newArgs)));
 
         readbacks.Reverse();
         if (method.ReturnsVoid)
@@ -715,6 +726,18 @@ internal sealed class RefOutInStatementLifter
     }
 
     private static ExpressionSyntax Identifier(string name) => SyntaxFactory.IdentifierName(name);
+
+    /// <summary>
+    /// Finalizes holder reads inside an expression that is about to be embedded
+    /// in a generated fragment (shadow local when the active frame has one,
+    /// else <c>.Value</c>). Fragments are assembled from original nodes and are
+    /// never re-visited by the main rewriter, so every splice path that copies
+    /// an expression into a generated statement — short-circuit gates/branch
+    /// values, coalesce operands, conditional operands, and the retained callee
+    /// of a lifted invocation (its element-access receiver/index included) —
+    /// must route it through here. Idempotent via ValueInjectedAnnotation.
+    /// </summary>
+    private ExpressionSyntax Inject(ExpressionSyntax expr) => _owner.InjectSlotValues(expr);
 
     private static ExpressionSyntax Negate(ExpressionSyntax e) =>
         SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression,
