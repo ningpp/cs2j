@@ -357,8 +357,7 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
             && (literal.IsKind(SyntaxKind.NullLiteralExpression)
                 || literal.IsKind(SyntaxKind.DefaultLiteralExpression)))
         {
-            var propertyType = sites[^1].Plan.Property.Type.ToDisplayString();
-            tempDecl = DeclVarTyped(propertyType, temp, visitedValue);
+            tempDecl = DeclVarTyped(NullTempTypeDisplay(sites[^1]), temp, visitedValue);
         }
         else
         {
@@ -1265,6 +1264,18 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
                     SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(name))
                         .WithInitializer(SyntaxFactory.EqualsValueClause(value))
                 })));
+
+    /// <summary>null/default 临时声明类型：站点绑定类型优先（泛型属性声明的
+    /// TypeDisplay 可能是裸类型参数名 T，不能作显式类型），退回符号类型显示。</summary>
+    private string NullTempTypeDisplay((AssignmentExpressionSyntax Assign, PropertyPlan Plan) innermost)
+    {
+        if (_model.GetTypeInfo(innermost.Assign.Left).Type is { } bound
+            && bound.TypeKind != TypeKind.Error)
+            return bound.ToDisplayString();
+        var declared = innermost.Plan.Property.Type;
+        if (declared.TypeKind == TypeKind.TypeParameter) return "object";
+        return declared.ToDisplayString();
+    }
 
     /// <summary>左值 → set 调用：X=v / recv.X=v / base.X=v → set_X(v) / recv.set_X(v) / base.set_X(v)。</summary>
     private ExpressionSyntax BuildSetterCall(

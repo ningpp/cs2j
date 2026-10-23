@@ -56,6 +56,21 @@ class Use
     {
         h.Raw = h.Expanded = null;
     }
+
+    void NullChainOnGenericProperty(Holder h, ByRef<string> prefix, ByRef<string> uri)
+    {
+        prefix.Value = uri.Value = null;
+    }
+}
+
+class ByRef<T>
+{
+    private T _value;
+    public T Value
+    {
+        get { return _value; }
+        set { _value = value; }
+    }
 }";
 
     [Fact]
@@ -97,8 +112,10 @@ class Use
     {
         var code = Rewrite();
 
-        // null 字面量的临时不能用 var（CS0815），退回属性类型 string。
+        // null 字面量的临时不能用 var（CS0815），退回属性类型 string；
+        // 泛型属性（ByRef<T>.Value）站点必须用绑定类型，不得出现裸 T。
         Assert.DoesNotContain("= null;", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("T __cs2j_pval", code, StringComparison.Ordinal);
         Assert.Contains("string __cs2j_pval", code, StringComparison.Ordinal);
         Assert.Contains("set_Raw(", code, StringComparison.Ordinal);
     }
