@@ -133,6 +133,17 @@ public class JavaCompilationUnit : JavaSyntaxNode
         // （裸简名引用大概率指向项目内类型），否则保留最先登记者。
         var keptSimpleNameImport = new Dictionary<string, JavaImport>(StringComparer.Ordinal);
         var droppedSimpleNameImports = new HashSet<JavaImport>();
+        int PackagePreference(string importName)
+        {
+            var pkg = importName[..importName.LastIndexOf('.')];
+            // ① 本文件自身包（裸简名引用大概率指向项目内类型）；② compat 模块
+            // （类路径恒存在，且映射语义以 compat 实现为准）；③ 其余（含
+            // dotnet.System.* 虚拟 stub 包——对应模块未必参与构建，真实链
+            // dotnet-uri 的 KeyNotFoundException 导入劫持）。
+            if (string.Equals(pkg, Package, StringComparison.Ordinal)) return 2;
+            if (pkg.StartsWith("io.github.ningpp.compat.", StringComparison.Ordinal)) return 1;
+            return 0;
+        }
         foreach (var import in Imports)
         {
             if (import.IsWildcard || import.IsStatic)
@@ -144,11 +155,9 @@ public class JavaCompilationUnit : JavaSyntaxNode
                 continue;
             }
 
-            var keptPackage = kept.Name[..kept.Name.LastIndexOf('.')];
-            var currentPackage = import.Name[..import.Name.LastIndexOf('.')];
-            var preferCurrent = string.Equals(currentPackage, Package, StringComparison.Ordinal)
-                                && !string.Equals(keptPackage, Package, StringComparison.Ordinal);
-            if (preferCurrent)
+            var keptPreference = PackagePreference(kept.Name);
+            var currentPreference = PackagePreference(import.Name);
+            if (currentPreference > keptPreference)
             {
                 droppedSimpleNameImports.Add(kept);
                 keptSimpleNameImport[simpleName] = import;
