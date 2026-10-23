@@ -150,6 +150,7 @@ class C
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode ?? "";
+        Assert.Contains("import io.github.ningpp.compat.ExceptionCompat;", code, StringComparison.Ordinal);
         Assert.Contains("ExceptionCompat.getInnerException(e)", code, StringComparison.Ordinal);
         Assert.Contains("ExceptionCompat.getStackTrace(", code, StringComparison.Ordinal);
         Assert.Contains("ExceptionCompat.getSource(", code, StringComparison.Ordinal);

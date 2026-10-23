@@ -498,6 +498,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 if (mappedName != null)
                 {
                     ApplyMappedName(call, mappedName, isStatic, receiver);
+                    AddCompatHelperImport(mappedName, context);
 
                     // Static calls written with a fully-qualified C# receiver
                     // (System.Threading.Monitor.enter, System.Threading.Interlocked.decrement, …)
@@ -521,8 +522,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     // Console.WriteLine/Write 复合格式重载（IR 路径孪生，见字符串路径
                     // TryBridgeConsoleFormatCall 注释）：arity 失配，包 formatCs。
                     if (IsConsoleFormatMappedCall(invocation, mappedName, context)
-                        && arguments.Count >= 2
-                        && context.GetTypeInfo(invocation.ArgumentList.Arguments[0].Expression).Type?.SpecialType
+                        && arguments.Count >= 2                        && context.GetTypeInfo(invocation.ArgumentList.Arguments[0].Expression).Type?.SpecialType
                             == SpecialType.System_String)
                     {
                         context.AddImport("io.github.ningpp.compat.StringHelper");
@@ -1047,6 +1047,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
                 if (mappedName != null)
                 {
+                    AddCompatHelperImport(mappedName, context);
+
                     // Same FQN static-receiver collapse as the IR path:
                     // System.Threading.Monitor.enter(…) keeps its qualified C# receiver
                     // after a method-name-only mapping, which is uncompilable Java.
@@ -2948,6 +2950,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         context.AddImport("io.github.ningpp.compat.StringHelper");
         bridgedArguments = $"StringHelper.formatCs({string.Join(", ", parts)})";
         return true;
+    }
+
+    /// <summary>
+    /// 点分静态 compat 助手映射（如 System.Exception.InnerException →
+    /// ExceptionCompat.getInnerException）渲染为 Helper.method(receiver)，其导入
+    /// 无法由 receiver 类型条目覆盖（receiver 常是 Exception 的子类，走不到
+    /// System.Exception 的 imports）。在此按映射名前缀补 compat 导入，与
+    /// AddReceiverTypeImports 的 GetRequiredImports 互补。
+    /// </summary>
+    private static void AddCompatHelperImport(string mappedName, ConversionContext context)
+    {
+        // ExceptionCompat 为当前唯一以点分静态助手形态出现在方法映射表中的 compat 类；
+        // 后续新增时在此登记（或扩展 TypeMappings 条目级 imports 结构）。
+        if (mappedName.StartsWith("ExceptionCompat.", StringComparison.Ordinal))
+            context.AddImport("io.github.ningpp.compat.ExceptionCompat");
     }
 
     /// <summary>
