@@ -126,6 +126,36 @@ class C
         Assert.Contains("System.out.println(\"plain\")", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ExceptionMemberMappings_UseCompatHelpers()
+    {
+        // System.Exception 映射为 RuntimeException 后，InnerException/StackTrace/Source
+        // 若沿用 java.lang Throwable 成员（getCause/getStackTrace）或直译 getSource，
+        // 类型与成员均不匹配（getCause 返回 Throwable 无法赋回 RuntimeException、
+        // getSource 不存在、getStackTrace 返回数组而非 string）——须桥接
+        // ExceptionCompat 静态助手（mvn 现场：dotnet-xml-modulecore-tests CTestBase）。
+        var result = Convert("""
+using System;
+class C
+{
+    string Describe(Exception e)
+    {
+        if (e.InnerException != null)
+            e = e.InnerException;
+        string inner = e.InnerException == null ? "" : e.InnerException.Message;
+        return e.Source + "|" + e.StackTrace + "|" + inner;
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+        Assert.Contains("ExceptionCompat.getInnerException(e)", code, StringComparison.Ordinal);
+        Assert.Contains("ExceptionCompat.getStackTrace(", code, StringComparison.Ordinal);
+        Assert.Contains("ExceptionCompat.getSource(", code, StringComparison.Ordinal);
+        Assert.DoesNotContain(".getCause()", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

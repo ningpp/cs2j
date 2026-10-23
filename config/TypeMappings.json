@@ -415,7 +415,8 @@
             "csharp": "System.Exception",
             "java": "RuntimeException",
             "imports": [
-                "java.lang.RuntimeException"
+                "java.lang.RuntimeException",
+                "io.github.ningpp.compat.ExceptionCompat"
             ]
         },
         {
@@ -8341,12 +8342,17 @@
         {
             "type": "System.Exception",
             "method": "InnerException",
-            "javaMethod": "getCause"
+            "javaMethod": "ExceptionCompat.getInnerException"
         },
         {
             "type": "System.Exception",
             "method": "StackTrace",
-            "javaMethod": "getStackTrace"
+            "javaMethod": "ExceptionCompat.getStackTrace"
+        },
+        {
+            "type": "System.Exception",
+            "method": "Source",
+            "javaMethod": "ExceptionCompat.getSource"
         },
         {
             "type": "System.TimeSpan",
