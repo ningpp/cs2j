@@ -118,6 +118,48 @@ public class JavaCompilationUnit : JavaSyntaxNode
         if (suppressJavaUtilWildcard)
             emittedJdkWildcardPackages.Remove("java.util");
 
+        // 本文件（含 partial 合并产物）声明的顶级类型名：同名单类型导入与文件内
+        // 顶级类型声明互斥（javac: X 的 single-type-import 已定义具有相同简名的
+        // 类型，真实链 dotnet-xml 106 处——合并后文件内已含顶级 XmlException/
+        // XsltException/XPathException/Function 等，而按用途收集的导入表仍带
+        // 同名包外/同名单类型导入）。Java 规则下同文件顶级类型名无需导入即可用，
+        // 丢弃这些导入即可。
+        var ownTopLevelTypeNames = new HashSet<string>(StringComparer.Ordinal);
+        CollectTopLevelTypeNames(TypeDeclarations, ownTopLevelTypeNames);
+
+        // 同简名单类型导入去重：两个不同包的同名类型都被登记为单类型导入时
+        // javac 直接拒编（javac: X 的 single-type-import 已定义具有相同简名的
+        // 类型，真实链 dotnet-xml 106 处：项目自转换的 XmlException/XsltException/
+        // XPathException 与 compat 映射导入并存）。保留与文件自身包一致的导入
+        // （裸简名引用大概率指向项目内类型），否则保留最先登记者。
+        var keptSimpleNameImport = new Dictionary<string, JavaImport>(StringComparer.Ordinal);
+        var droppedSimpleNameImports = new HashSet<JavaImport>();
+        foreach (var import in Imports)
+        {
+            if (import.IsWildcard || import.IsStatic)
+                continue;
+            var simpleName = import.Name[(import.Name.LastIndexOf('.') + 1)..];
+            if (!keptSimpleNameImport.TryGetValue(simpleName, out var kept))
+            {
+                keptSimpleNameImport[simpleName] = import;
+                continue;
+            }
+
+            var keptPackage = kept.Name[..kept.Name.LastIndexOf('.')];
+            var currentPackage = import.Name[..import.Name.LastIndexOf('.')];
+            var preferCurrent = string.Equals(currentPackage, Package, StringComparison.Ordinal)
+                                && !string.Equals(keptPackage, Package, StringComparison.Ordinal);
+            if (preferCurrent)
+            {
+                droppedSimpleNameImports.Add(kept);
+                keptSimpleNameImport[simpleName] = import;
+            }
+            else
+            {
+                droppedSimpleNameImports.Add(import);
+            }
+        }
+
         foreach (var import in Imports)
         {
             if (suppressJavaUtilWildcard
@@ -125,6 +167,20 @@ public class JavaCompilationUnit : JavaSyntaxNode
                 && import.Name == "java.util")
             {
                 continue;
+            }
+
+            if (droppedSimpleNameImports.Contains(import))
+            {
+                continue;
+            }
+
+            if (!import.IsWildcard && !import.IsStatic)
+            {
+                var simpleName = import.Name[(import.Name.LastIndexOf('.') + 1)..];
+                if (ownTopLevelTypeNames.Contains(simpleName))
+                {
+                    continue;
+                }
             }
 
             // Drop on-demand imports for dotnet.* BCL stub packages when the file
@@ -175,6 +231,17 @@ public class JavaCompilationUnit : JavaSyntaxNode
     /// 常用 java.util 公共类型目录：当 java.util.* 通配被 dotnet 集合面压制时，
     /// 按文件体内出现的简单名补发单类型导入。
     /// </summary>
+    private static void CollectTopLevelTypeNames(
+        IEnumerable<JavaTypeDeclaration> declarations, HashSet<string> names)
+    {
+        foreach (var declaration in declarations)
+        {
+            names.Add(declaration.Name);
+            if (declaration is JavaClassDeclaration { NestedTypes: { } nested })
+                CollectTopLevelTypeNames(nested, names);
+        }
+    }
+
     private static readonly HashSet<string> KnownJavaUtilTypes = new(StringComparer.Ordinal)
     {
         "ArrayDeque", "ArrayList", "Arrays", "BitSet", "Calendar", "Collection",

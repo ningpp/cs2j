@@ -28,6 +28,15 @@ public class StringWriter extends Writer {
         lock = this.sb;
     }
 
+    /**
+     * Matches C# System.IO.StringWriter(IFormatProvider): the format provider
+     * is irrelevant to the accumulated text, only the constructor shape must
+     * exist so converted call sites bind.
+     */
+    public StringWriter(CultureInfo cultureInfo) {
+        this();
+    }
+
     @Override
     public void write(char[] cbuf, int off, int len) throws IOException {
         sb.append(cbuf, off, len);

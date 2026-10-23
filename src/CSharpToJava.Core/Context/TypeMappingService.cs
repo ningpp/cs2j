@@ -777,7 +777,8 @@ public class TypeMappingService
             if (!string.IsNullOrEmpty(ns)
                 && (ns.StartsWith("Microsoft.", StringComparison.Ordinal)
                     || ns.StartsWith("dotnet.", StringComparison.Ordinal)
-                    || IsDefinedInSource(typeSymbol)))
+                    || IsDefinedInSource(typeSymbol)
+                    || HasExplicitNamespaceMapping(ns)))
             {
                 if (!string.Equals(curNs, ns, StringComparison.Ordinal)
                     && typeSymbol.ContainingType == null
@@ -824,6 +825,18 @@ public class TypeMappingService
 
         return javaType;
     }
+
+    /// <summary>
+    /// True when <paramref name="ns"/>（或其父命名空间）在 TypeMappings.json 的
+    /// namespaceMappings 里有显式包映射（如 System.Text.RegularExpressions →
+    /// dotnet.text.regularexpressions）。这类命名空间的类型即便无类型级改名
+    /// （映射名==原名）也必须登记跨包单类型导入，否则生成文件用裸简名
+    /// （真实链 dotnet-xml 14 处 Regex 找不到符号）。
+    /// </summary>
+    private bool HasExplicitNamespaceMapping(string ns)
+        => GetExplicitNamespaceMappings().Any(m =>
+            string.Equals(ns, m, StringComparison.Ordinal)
+            || ns.StartsWith(m + ".", StringComparison.Ordinal));
 
     private string? TryMapNestedType(
         ITypeSymbol typeSymbol,
