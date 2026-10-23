@@ -339,6 +339,104 @@ public class Calc
     }
 
     [Fact]
+    public void OutUnsignedAndNarrowIntegerReadBack_EmitsExplicitCastToTargetType()
+    {
+        // xml-tiny SqlUtils/DataTypeImplementation: `uint ulRem; ... ulRem =
+        // ByRef<uint>.ReadbackInt(__out3);` — the helper table deliberately maps
+        // unsigned/byte slots to Java-friendly signed results (uint/byte →
+        // readbackInt returns int, sbyte → readbackByte returns byte,
+        // ushort → readbackShort returns short, ulong → readbackLong returns
+        // long). The copy-back must convert that helper result back to the
+        // original target type, otherwise the stage stops compiling (CS0266).
+        var source = @"
+public class Calc
+{
+    private static void Fill(out uint u, out sbyte s, out ulong l, out ushort us, out byte b)
+    {
+        u = 1;
+        s = -1;
+        l = 2;
+        us = 3;
+        b = 4;
+    }
+
+    public static ulong Use()
+    {
+        uint u;
+        sbyte s;
+        ulong l;
+        ushort us;
+        byte b;
+        Fill(out u, out s, out l, out us, out b);
+        return u + (ulong)s + l + us + b;
+    }
+}";
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("refout-readback-cast",
+            new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var result = new RefOutInRewriter().Rewrite(source, compilation.GetSemanticModel(tree));
+        Assert.True(result.Changed, "expected the preprocessor to rewrite the input");
+
+        // One explicit conversion per readback whose helper result type differs
+        // from the destination type; same-signed helpers stay cast-free.
+        Assert.Contains("u = (uint)ByRef<uint>.ReadbackInt(", result.OutputCode);
+        Assert.Contains("s = (sbyte)ByRef<sbyte>.ReadbackByte(", result.OutputCode);
+        Assert.Contains("l = (ulong)ByRef<ulong>.ReadbackLong(", result.OutputCode);
+        Assert.Contains("us = (ushort)ByRef<ushort>.ReadbackShort(", result.OutputCode);
+        Assert.Contains("b = (byte)ByRef<byte>.ReadbackInt(", result.OutputCode);
+
+        var rewrittenTree = CSharpSyntaxTree.ParseText(result.OutputCode + StructByRefStub);
+        var rewrittenCompilation = CSharpCompilation.Create("refout-readback-cast-out",
+            new[] { rewrittenTree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var errors = rewrittenCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        Assert.True(errors.Count == 0,
+            "Rewritten source must compile (no CS0266).\n--- Errors ---\n" +
+            string.Join("\n", errors) + "\n--- Rewritten ---\n" + result.OutputCode);
+
+        var violations = RefOutInPostVerifier.Verify(new[] { rewrittenTree }, rewrittenCompilation);
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void OutUnsignedReadBack_WithExplicitCast_ConvertsToJavaReadback()
+    {
+        // The CS0266 fix must not disturb the Java-facing helper contract: the
+        // explicit C# conversion is a no-op on the Java side (uint → int,
+        // ulong → long) and the copy-back still binds to readbackInt/Long.
+        var result = ConvertRewritten(@"
+public class Calc
+{
+    internal static void Fill(out uint u, out ulong l) { u = 1; l = 2; }
+    public static ulong Use()
+    {
+        uint u;
+        ulong l;
+        Fill(out u, out l);
+        return l;
+    }
+}");
+        AssertSuccess(result);
+        AssertJavaContains(result, "readbackInt(", "uint out readback preserved");
+        AssertJavaContains(result, "readbackLong(", "ulong out readback preserved");
+    }
+
+    [Fact]
     public void ByRefValue_WriteUsesSetValue()
     {
         var result = Convert(@"
@@ -445,6 +543,13 @@ namespace Cs2jByRef
         public static ByRef<T> Create(T initial) => null;
         public static ByRef<T> Create(System.Func<T> getter, System.Action<T> setter) => null;
         public static int ReadbackInt(ByRef<int> slot) => slot.Value;
+        public static int ReadbackInt(ByRef<uint> slot) => (int)slot.Value;
+        public static int ReadbackInt(ByRef<byte> slot) => slot.Value;
+        public static short ReadbackShort(ByRef<short> slot) => slot.Value;
+        public static short ReadbackShort(ByRef<ushort> slot) => (short)slot.Value;
+        public static byte ReadbackByte(ByRef<sbyte> slot) => (byte)slot.Value;
+        public static long ReadbackLong(ByRef<long> slot) => slot.Value;
+        public static long ReadbackLong(ByRef<ulong> slot) => (long)slot.Value;
     }
 }";
 

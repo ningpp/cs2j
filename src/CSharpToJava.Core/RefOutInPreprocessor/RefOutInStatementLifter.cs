@@ -575,23 +575,26 @@ internal sealed class RefOutInStatementLifter
     /// <summary>
     /// Java primitive mapped from a C# value type, keyed by the converter's
     /// primitive widening rules (byte→int, uint→int, ushort→short, ulong→long …).
+    /// The result type is the helper's declared return type — deliberately the
+    /// Java-friendly primitive, so it can differ from the C# target type and
+    /// the copy-back needs an explicit conversion (CS0266).
     /// Null when the type has no null→default readback (reference types, enums,
     /// custom structs, decimal, IntPtr, nullable — null is legitimate there).
     /// </summary>
-    private static readonly Dictionary<SpecialType, string> ReadbackHelperBySpecialType = new()
+    private static readonly Dictionary<SpecialType, (string Helper, SpecialType Result)> ReadbackHelperBySpecialType = new()
     {
-        [SpecialType.System_Int32] = "ReadbackInt",
-        [SpecialType.System_UInt32] = "ReadbackInt",     // uint → Java int
-        [SpecialType.System_Byte] = "ReadbackInt",       // byte → Java int
-        [SpecialType.System_Int16] = "ReadbackShort",
-        [SpecialType.System_UInt16] = "ReadbackShort",   // ushort → Java short
-        [SpecialType.System_SByte] = "ReadbackByte",
-        [SpecialType.System_Int64] = "ReadbackLong",
-        [SpecialType.System_UInt64] = "ReadbackLong",    // ulong → Java long
-        [SpecialType.System_Char] = "ReadbackChar",
-        [SpecialType.System_Boolean] = "ReadbackBool",
-        [SpecialType.System_Single] = "ReadbackFloat",
-        [SpecialType.System_Double] = "ReadbackDouble",
+        [SpecialType.System_Int32] = ("ReadbackInt", SpecialType.System_Int32),
+        [SpecialType.System_UInt32] = ("ReadbackInt", SpecialType.System_Int32),     // uint → Java int
+        [SpecialType.System_Byte] = ("ReadbackInt", SpecialType.System_Int32),       // byte → Java int
+        [SpecialType.System_Int16] = ("ReadbackShort", SpecialType.System_Int16),
+        [SpecialType.System_UInt16] = ("ReadbackShort", SpecialType.System_Int16),   // ushort → Java short
+        [SpecialType.System_SByte] = ("ReadbackByte", SpecialType.System_Byte),
+        [SpecialType.System_Int64] = ("ReadbackLong", SpecialType.System_Int64),
+        [SpecialType.System_UInt64] = ("ReadbackLong", SpecialType.System_Int64),    // ulong → Java long
+        [SpecialType.System_Char] = ("ReadbackChar", SpecialType.System_Char),
+        [SpecialType.System_Boolean] = ("ReadbackBool", SpecialType.System_Boolean),
+        [SpecialType.System_Single] = ("ReadbackFloat", SpecialType.System_Single),
+        [SpecialType.System_Double] = ("ReadbackDouble", SpecialType.System_Double),
     };
 
     /// <summary>
@@ -605,13 +608,23 @@ internal sealed class RefOutInStatementLifter
     /// readbackX halves map null back to the primitive default, restoring
     /// default(T) exactly. Reference-type targets keep the plain shape (null is
     /// a legitimate C# value there).
+    /// The unsigned/narrow helpers intentionally return the Java-side signed
+    /// primitive (uint/byte → int, ushort → short, sbyte → byte, ulong → long);
+    /// when that differs from the C# destination an explicit conversion is
+    /// emitted so the intermediate stage still compiles (CS0266), while the
+    /// helper's Java-friendly return type is preserved for the Java half.
     /// </summary>
     private static string ReadbackStatement(string target, string slot, ITypeSymbol targetType)
     {
         if (targetType is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T })
             return $"{target} = {slot}.Value;";
         if (ReadbackHelperBySpecialType.TryGetValue(targetType.SpecialType, out var helper))
-            return $"{target} = ByRef<{targetType.ToDisplayString()}>.{helper}({slot});";
+        {
+            var helperCall = $"ByRef<{targetType.ToDisplayString()}>.{helper.Helper}({slot})";
+            if (helper.Result != targetType.SpecialType)
+                helperCall = $"({targetType.ToDisplayString()}){helperCall}";
+            return $"{target} = {helperCall};";
+        }
         return $"{target} = {slot}.Value;";
     }
 
