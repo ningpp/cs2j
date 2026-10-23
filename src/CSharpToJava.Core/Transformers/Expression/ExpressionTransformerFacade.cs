@@ -176,12 +176,21 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                     if (mapped != null)
                     {
                         if (mapped.Contains('.'))
+                        {
+                            // 点分静态助手映射（如 System.Exception.InnerException →
+                            // ExceptionCompat.getInnerException）渲染为 Helper.method(rx)，
+                            // 其导入按映射名前缀注入（InvocationExpressionTransformer
+                            // 同款规则；receiver 常是 Exception 子类，类型条目 imports
+                            // 覆盖不到）。
+                            Transformers.Expression.InvocationExpressionTransformer
+                                .AddCompatHelperImport(mapped, context);
                             // Static-helper mapping: instance properties take the
                             // (null-guard-checked) receiver as first argument;
                             // pre-rendered rows already end with ')'.
                             return mapped.EndsWith(')')
                                 ? mapped
                                 : prop.IsStatic ? $"{mapped}()" : $"{mapped}({objExpr})";
+                        }
                         if (prop.ContainingType?.SpecialType == SpecialType.System_Array)
                             return $"{objExpr}.{mapped}";
                         return $"{objExpr}.{mapped}()";
