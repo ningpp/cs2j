@@ -47,6 +47,21 @@ public class DateTimeMathTests : ConversionTestBase
             "left.compareTo(right) >= 0");
     }
 
+    // 回归（xml-tiny ToTypeTests.cs:580 的 -new TimeSpan(...)）：外部桥接类型的一元
+    // 负号绑定元数据 op_UnaryNegation，最终阶段不能 fail-fast，必须映射为映射类型
+    // CSharpTimeSpan.negate(value) 静态调用（与二元运算的 ShouldUseTypeInfoFallback
+    // 机制同款）。
+    [Fact]
+    public void TimeSpanUnaryNegation_CallsCompatNegate()
+    {
+        var result = Convert(
+            "class C { public object M() { return -new System.TimeSpan(6, 7, 45, 58, 450); } }");
+
+        AssertConversion(result,
+            "import io.github.ningpp.compat.CSharpTimeSpan;",
+            "CSharpTimeSpan.negate(new CSharpTimeSpan(6, 7, 45, 58, 450))");
+    }
+
     [Fact]
     public void RandomNext_ConvertsToCSharpRandom()
     {

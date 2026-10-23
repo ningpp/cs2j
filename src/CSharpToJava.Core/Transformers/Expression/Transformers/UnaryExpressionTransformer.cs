@@ -4,6 +4,8 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
+using CSharpToJava.Core.Transformers.Member;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -78,6 +80,13 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
 
         var operand = GetOperand(node);
 
+        if (node is PrefixUnaryExpressionSyntax metadataNegate
+            && node.Kind() == SyntaxKind.UnaryMinusExpression
+            && TryRenderMetadataNegateCall(metadataNegate, context, out var negateCall))
+        {
+            return new JavaRawExpression(negateCall);
+        }
+
         if (node.Kind() == SyntaxKind.LogicalNotExpression)
             EnsureBooleanOperand(operand, context);
         else if (node.Kind() is SyntaxKind.UnaryMinusExpression or SyntaxKind.UnaryPlusExpression
@@ -105,8 +114,62 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
 
     private static string TransformPrefix(PrefixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
+        if (op == "-" && TryRenderMetadataNegateCall(node, context, out var lowered))
+            return lowered;
         EnsureBuiltInNumericOperand(node, node.Operand, context);
         return $"{op}{ExpressionTransformerFacade.Instance.Transform(node.Operand, context)}";
+    }
+
+    /// <summary>
+    /// 外部桥接类型的一元负号（绑定元数据 op_UnaryNegation，如 System.TimeSpan）：
+    /// 与二元运算的 <see cref="BinaryOperatorResolution.ShouldUseTypeInfoFallback"/>
+    /// 同款配置驱动机制——映射类型（ctx.MapType，含 compat import）+ 
+    /// OperatorTransformer.OpSymbolToJavaName（op_UnaryNegation → negate）渲染静态
+    /// 调用 CSharpTimeSpan.negate(x)。仅限无源内声明的一元负号；源内运算符由
+    /// member-desugar 的 operator plan 改写，一元 + / ~ 保持 fail-fast 交预处理器。
+    /// </summary>
+    private static bool TryRenderMetadataNegateCall(
+        PrefixUnaryExpressionSyntax node, ConversionContext context, out string call)
+    {
+        call = "";
+        if (context.GetSymbolInfo(node).Symbol is not IMethodSymbol m
+            || m.MethodKind != MethodKind.UserDefinedOperator
+            || m.ContainingType is not { } operatorType
+            || BinaryOperatorResolution.HasSourceDeclaration(m)
+            || m.Name != "op_UnaryNegation"
+            || !OperatorTransformer.OpSymbolToJavaName.TryGetValue(m.Name, out var javaName))
+        {
+            return false;
+        }
+
+        var argument = ExpressionTransformerFacade.Instance.Transform(node.Operand, context);
+        var invocation = $"{javaName}({argument})";
+        call = UnaryStaticQualifier(operatorType, context, node) is { } q
+            ? $"{q}.{invocation}"
+            : invocation;
+        return true;
+    }
+
+    /// <summary>静态运算符调用的类型限定符；null 表示类内直呼（与二元路径同规则）。</summary>
+    private static string? UnaryStaticQualifier(
+        INamedTypeSymbol operatorType, ConversionContext context, PrefixUnaryExpressionSyntax node)
+    {
+        if (context.CurrentType is { Name: var currentName } && currentName == operatorType.Name)
+        {
+            return null;
+        }
+        var q = context.MapType(operatorType);
+        var angle = q.IndexOf('<');
+        if (angle > 0) q = q[..angle];
+        // 类内同名成员遮蔽类型名时退到全限定（与二元路径 qualifyCollision 一致）。
+        if (context.SemanticModel?.GetEnclosingSymbol(node.SpanStart)?.ContainingType
+                is INamedTypeSymbol enclosing
+            && enclosing.GetMembers(operatorType.Name).Any(m => m is not INamedTypeSymbol))
+        {
+            var ns = operatorType.ContainingNamespace?.ToDisplayString();
+            q = string.IsNullOrWhiteSpace(ns) ? operatorType.Name : $"{ns}.{operatorType.Name}";
+        }
+        return q;
     }
 
     private static string TransformLogicalNot(PrefixUnaryExpressionSyntax node, ConversionContext context)
