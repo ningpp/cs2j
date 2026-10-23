@@ -71,6 +71,18 @@ internal static class AccessorsToMethods
             mods.Add(m);
         }
 
+        if (mods.Count > 0)
+        {
+            // 首个修饰符 token 原样复用自属性/访问器声明，携带其前导 trivia（缩进，
+            // 或 #region/#endregion + 注释块）。get_X/set_X 共用同一 token 时该块随
+            // 修饰符复制到每个生成方法：纯空白复制不可见，而指令复制会让 #endregion
+            // 与 #region 失衡（CS1038）→ 本地解析校验失败 → 整文件回滚，跨文件继承
+            // 属性的使用点改写一并丢失（xml-tiny SchemaElementDecl/SchemaAttDef）。
+            // 前导 trivia 统一由 PropertyDeclarationExpander 的 decl.GetLeadingTrivia()
+            // 挂到 getter（文档/前导 trivia 归 getter 惯例），此处只保留间距。
+            mods[0] = mods[0].WithLeadingTrivia(SyntaxFactory.TriviaList());
+        }
+
         return SyntaxFactory.TokenList(mods);
     }
 }

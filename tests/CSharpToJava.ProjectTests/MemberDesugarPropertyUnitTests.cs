@@ -383,6 +383,67 @@ public class MemberDesugarPropertyUnitTests
         AssertOutputCompiles(outCode);
     }
 
+    // 回归（xml-tiny SchemaElementDecl.cs / SchemaAttDef.cs，2026-10-23）：属性首个
+    // 修饰符 token 携带属性的前导 trivia（#endregion + 注释块）时，同一 token 被复制到
+    // 该属性的每个生成方法（get_X/set_X 共用 property.Modifiers），#endregion 随之
+    // 重复 → CS1038 → 本地解析校验失败 → 整文件回滚，继承属性使用点（attdef.Presence
+    // → attdef.get_Presence()）改写一并丢失，最终阶段 '==' enum 操作数 fail-fast。
+    [Fact]
+    public void PropertyExpansion_LeadingTriviaBlock_IsNotDuplicatedOnEachAccessor()
+    {
+        var src = """
+            internal enum Use
+            {
+                None,
+                Required,
+            }
+
+            internal class Base
+            {
+                private Use _presence;
+
+                #region PresenceRegion
+                internal Use Marker { get; set; }
+                #endregion
+
+                internal Use Presence
+                {
+                    get { return _presence; }
+                    set { _presence = value; }
+                }
+            }
+
+            internal class Derived
+            {
+                internal bool Check(Base b) => b.Presence == Use.Required;
+            }
+            """;
+
+        var (outCode, _, _) = Rewrite(src);
+
+        // #region/#endregion 指令必须保持 1:1，绝不能随修饰符 token 复制到每个访问器方法。
+        Assert.Equal(
+            CountOccurrences(src, "#endregion"),
+            CountOccurrences(outCode, "#endregion"));
+        AssertOutputCompiles(outCode);
+
+        // 声明展开后继承属性使用点必须同步改写为 getter 调用。
+        AssertContains(outCode, "b.get_Presence() == Use.Required");
+        AssertNotContains(outCode, "b.Presence");
+    }
+
+    private static int CountOccurrences(string text, string token)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = text.IndexOf(token, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += token.Length;
+        }
+        return count;
+    }
+
     private static void AssertContains(string output, string expected)
         => Assert.True(Normalize(output).Contains(Normalize(expected).Trim(),
             StringComparison.Ordinal),
