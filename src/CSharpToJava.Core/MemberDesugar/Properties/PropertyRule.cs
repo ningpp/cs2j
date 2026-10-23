@@ -79,6 +79,18 @@ internal sealed class PropertyRule : IMemberDesugarRule
                     continue;
                 }
 
+                // System.Attribute 派生类上的属性会被特性命名实参按名引用
+                // （[XmlAttribute("source", DataType = "anyURI")] 的 DataType），
+                // 命名实参在语法上是 NameEquals、不可改写为方法调用；属性一旦展开
+                // 成 get_X/set_X（如 XmlAttributeAttribute.DataType），全部命名实参
+                // 悬空 → CS0246。特性用法在最终 Java 侧整体丢弃，中间链尾的 C# 编译
+                // 是唯一约束，特性类属性整体保留。
+                if (IsAttributeClass(prop.ContainingType))
+                {
+                    retained[prop] = (decl, PropertyDiagnostics.RetainedAttributeClass(prop.Name));
+                    continue;
+                }
+
                 var gate = DeclarationGate(decl, prop, model, options, out var fieldKeyword);
                 if (gate != null)
                 {
@@ -677,6 +689,21 @@ internal sealed class PropertyRule : IMemberDesugarRule
            && impl.ContainingType != null
            && SymbolEqualityComparer.Default.Equals(
                impl.ContainingType.FindImplementationForInterfaceMember(ifaceProp), impl);
+
+    /// <summary>包含类型是否为 System.Attribute 派生类（沿基类链判定）。</summary>
+    private static bool IsAttributeClass(ITypeSymbol? type)
+    {
+        for (var b = type?.BaseType; b != null; b = b.BaseType)
+        {
+            if (b is INamedTypeSymbol named
+                && named.Name == "Attribute"
+                && named.ContainingNamespace?.ToDisplayString() == "System")
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 
     // ---- 小工具 ----
 

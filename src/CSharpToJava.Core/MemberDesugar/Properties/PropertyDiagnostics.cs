@@ -57,4 +57,9 @@ internal static class PropertyDiagnostics
         => $"the type of property '{name}' is merged from same-named declarations " +
            $"(partial + non-partial); expanding it would collide with the mirror " +
            $"declaration's accessor slots (CS0082/CS0111); {RetainSuffix}.";
+
+    public static string RetainedAttributeClass(string name)
+        => $"'{name}' is a property of a System.Attribute subclass referenced by name from " +
+           $"attribute named arguments, which cannot be rewritten into method calls " +
+           $"(expansion would orphan every named argument with CS0246); {RetainSuffix}.";
 }
