@@ -144,7 +144,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (dot <= 0) return;
         var helper = dottedName[..dot];
         if (helper is "IntPtrHelper" or "MathHelper" or "StringHelper" or "ObjectHelper"
-            or "ArrayHelper" or "CultureInfo" or "IPAddressHelper")
+            or "ArrayHelper" or "CultureInfo" or "IPAddressHelper" or "ExceptionCompat")
             context.AddImport($"io.github.ningpp.compat.{helper}");
     }
 
