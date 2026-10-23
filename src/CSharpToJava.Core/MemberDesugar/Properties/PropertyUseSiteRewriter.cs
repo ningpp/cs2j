@@ -350,9 +350,24 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
 
         var temp = TempName("pval");
         var tempIdent = Ident(temp);
+        var visitedValue = (ExpressionSyntax)Visit(value)!;
+        // null/default 字面量无法用 var 推断（CS0815）：退回最内层属性类型显式声明。
+        StatementSyntax tempDecl;
+        if (UnwrapParentheses(value) is LiteralExpressionSyntax literal
+            && (literal.IsKind(SyntaxKind.NullLiteralExpression)
+                || literal.IsKind(SyntaxKind.DefaultLiteralExpression)))
+        {
+            var propertyType = sites[^1].Plan.Property.Type.ToDisplayString();
+            tempDecl = DeclVarTyped(propertyType, temp, visitedValue);
+        }
+        else
+        {
+            tempDecl = DeclVar(temp, visitedValue);
+        }
+
         var lifted = new List<StatementSyntax>
         {
-            DeclVar(temp, (ExpressionSyntax)Visit(value)!),
+            tempDecl,
         };
         foreach (var (assign, plan) in sites.AsEnumerable().Reverse())
             lifted.Add(SyntaxFactory.ExpressionStatement(BuildSetterCall(assign.Left, plan, tempIdent)));
@@ -1236,11 +1251,15 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         => SyntaxFactory.ExpressionStatement(e);
 
     private static LocalDeclarationStatementSyntax DeclVar(string name, ExpressionSyntax value)
+        => DeclVarTyped("var", name, value);
+
+    private static LocalDeclarationStatementSyntax DeclVarTyped(
+        string typeDisplay, string name, ExpressionSyntax value)
         => SyntaxFactory.LocalDeclarationStatement(
             SyntaxFactory.VariableDeclaration(
                 // "var" 与标识符之间必须显式留白：无 trivia 的相邻标识符会拼接成
                 // 单个 token（var__cs2j_init0），重解析后语义破坏。
-                SyntaxFactory.IdentifierName("var").WithTrailingTrivia(SyntaxFactory.Space),
+                SyntaxFactory.ParseTypeName(typeDisplay).WithTrailingTrivia(SyntaxFactory.Space),
                 SyntaxFactory.SeparatedList(new[]
                 {
                     SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(name))

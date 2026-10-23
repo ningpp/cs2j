@@ -51,6 +51,11 @@ class Use
     {
         h.Raw = v;
     }
+
+    void NullChain(Holder h)
+    {
+        h.Raw = h.Expanded = null;
+    }
 }";
 
     [Fact]
@@ -84,6 +89,17 @@ class Use
         // 目标保留赋值形态并读回临时。
         Assert.DoesNotContain("local = set_Raw(", code, StringComparison.Ordinal);
         Assert.DoesNotContain("= set_Raw(", code, StringComparison.Ordinal);
+        Assert.Contains("set_Raw(", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NullChain_TempUsesPropertyType()
+    {
+        var code = Rewrite();
+
+        // null 字面量的临时不能用 var（CS0815），退回属性类型 string。
+        Assert.DoesNotContain("= null;", code, StringComparison.Ordinal);
+        Assert.Contains("string __cs2j_pval", code, StringComparison.Ordinal);
         Assert.Contains("set_Raw(", code, StringComparison.Ordinal);
     }
 
