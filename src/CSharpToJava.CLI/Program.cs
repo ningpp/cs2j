@@ -3187,6 +3187,7 @@ public class Program
             $"{preprocessResult.Statistics.CompoundAssignRewritten} compound, " +
             $"{preprocessResult.Statistics.HasFlagRewritten} HasFlag, " +
             $"{preprocessResult.Statistics.NullableLiftedRewritten} lifted, " +
+            $"{preprocessResult.Statistics.PlainEnumArithmeticRewritten} enum-arith, " +
             $"{preprocessResult.Statistics.ResidualCount} residual");
 
         foreach (var diagnostic in preprocessResult.Diagnostics)

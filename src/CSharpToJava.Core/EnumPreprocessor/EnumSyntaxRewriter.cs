@@ -90,7 +90,7 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         => enumType.EnumUnderlyingType?.SpecialType ?? SpecialType.None;
 
     /// <summary>
-    /// Returns true if the underlying type is a narrow integer type
+    /// True when the underlying type is a narrow integer type
     /// that requires unchecked() for ~ operations: byte, sbyte, short, ushort.
     /// </summary>
     private static bool IsNarrowType(INamedTypeSymbol enumType)
@@ -98,6 +98,36 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         var st = GetUnderlyingSpecialType(enumType);
         return st is SpecialType.System_Byte or SpecialType.System_SByte
             or SpecialType.System_Int16 or SpecialType.System_UInt16;
+    }
+
+    /// <summary>
+    /// 普通真 enum（plain real enum）：源内声明、底层 int、成员常量值与声明序对齐
+    /// （0..n-1）。最终侧把它直译为 Java enum（仅 ==/!= 合法），算术/关系二元运算
+    /// 必须在本 pass 降为 (int) 形态。判定口径与 Transformers 的
+    /// EnumTransformer.IsValueEnum 逐字对齐：值形态（显式/非对齐值或非 int 底层）
+    /// 最终侧以值类 getValue()/fromValue() 承载，外部元数据 enum 由 compat 常量
+    /// 承载，都不适用 (int) 直译面以外的额外处理。
+    /// </summary>
+    private bool IsPlainRealEnum(INamedTypeSymbol? enumType)
+    {
+        if (enumType is not { TypeKind: TypeKind.Enum }) return false;
+        if (enumType.DeclaringSyntaxReferences.Length == 0) return false;
+        if (enumType.EnumUnderlyingType?.SpecialType != SpecialType.System_Int32) return false;
+        var members = enumType.GetMembers()
+            .OfType<IFieldSymbol>()
+            .Where(f => f.HasConstantValue)
+            .OrderBy(f => f.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start
+                           ?? int.MaxValue)
+            .ToList();
+        for (var i = 0; i < members.Count; i++)
+        {
+            if (Convert.ToInt64(members[i].ConstantValue,
+                    System.Globalization.CultureInfo.InvariantCulture) != i)
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     /// <summary>
@@ -390,6 +420,16 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
             return RewriteEnumComparison(node, left, right, kind);
         }
 
+        // 算术站点（E - E / E + i）：Java enum 不能参与算术，必须在预处理期降为
+        // 底层 int 形态。只对 plain 真 enum 生效——值形态 enum 的 +/- 站点由
+        // enum-declaration 的 Deferred 判定交给 numeric-boundary 族（C15/C17），
+        // 本 pass 让位；否则 (int) 直译面会与其 getValue()/fromValue() 终态冲突。
+        if (kind is SyntaxKind.SubtractExpression or SyntaxKind.AddExpression
+            && RewritePlainEnumArithmetic(node, left, right) is { } arith)
+        {
+            return arith;
+        }
+
         // Only handle enum bitwise operations
         if (!node.IsKind(SyntaxKind.BitwiseOrExpression)
             && !node.IsKind(SyntaxKind.BitwiseAndExpression)
@@ -453,6 +493,57 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         }
         IncrementRewrite();
         return EnsureParenthesized(result);
+    }
+
+    /// <summary>
+    /// plain 真 enum 的算术降级：
+    /// <c>E - E</c> → <c>(int)a - (int)b</c>（C# 结果本就是底层 int，语义不变；
+    /// 回归 xml-tiny XPathNavigator 的 <c>(uint)(type - XPathNodeType.Text)</c>）；
+    /// <c>E + i / i + E</c> → <c>(E)((int)e + i)</c>（C# 结果是 enum，必须回挂 (E)
+    /// 转换才能保持赋值/传参面）。可空操作数、非 plain enum 返回 null（站点让位）。
+    /// </summary>
+    private SyntaxNode? RewritePlainEnumArithmetic(
+        BinaryExpressionSyntax node, ExpressionSyntax left, ExpressionSyntax right)
+    {
+        var leftEnum = GetEnumType(node.Left);
+        var rightEnum = GetEnumType(node.Right);
+
+        if (node.IsKind(SyntaxKind.SubtractExpression))
+        {
+            if (leftEnum == null || rightEnum == null
+                || !IsPlainRealEnum(leftEnum) || !IsPlainRealEnum(rightEnum)
+                || IsNullableEnum(node.Left) || IsNullableEnum(node.Right))
+            {
+                return null;
+            }
+            var newLeft = CastEnumToUnderlying(left, node.Left, leftEnum);
+            var newRight = CastEnumToUnderlying(right, node.Right, rightEnum);
+            _stats.PlainEnumArithmeticRewritten++;
+            IncrementRewrite();
+            return node.Update(newLeft, node.OperatorToken, newRight);
+        }
+
+        // E + i / i + E：恰一侧 plain enum，另一侧为参与加法的非 enum 操作数。
+        var enumSideIsLeft = leftEnum != null && rightEnum == null;
+        var enumSide = enumSideIsLeft ? node.Left : node.Right;
+        var enumType = enumSideIsLeft ? leftEnum : rightEnum;
+        if (enumType == null
+            || (leftEnum != null && rightEnum != null)
+            || !IsPlainRealEnum(enumType)
+            || IsNullableEnum(enumSide))
+        {
+            return null;
+        }
+
+        var visitedEnum = enumSideIsLeft ? left : right;
+        var visitedOther = enumSideIsLeft ? right : left;
+        var castedEnum = CastEnumToUnderlying(visitedEnum, enumSide, enumType);
+        var sum = SyntaxFactory.BinaryExpression(
+            SyntaxKind.AddExpression, castedEnum,
+            SyntaxFactory.Token(SyntaxKind.PlusToken), visitedOther);
+        _stats.PlainEnumArithmeticRewritten++;
+        IncrementRewrite();
+        return CastToEnum(sum, enumType, node);
     }
 
     /// <summary>
@@ -854,6 +945,8 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
             left,
             EnsureParenthesized(castedResult));
     }
+
+    // ── plain 真 enum 的算术/关系站点 ──
 
     // ── HasFlag ──
 

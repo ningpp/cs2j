@@ -72,15 +72,27 @@ public sealed class EnumPreprocessor
 
     /// <summary>
     /// Dirty check: syntax tree contains any bitwise operators, compound
-    /// assignments, prefix ~, or HasFlag calls. This is intentionally a
-    /// superset of enum operations (int bitwise also matches).
+    /// assignments, prefix ~, HasFlag calls, or enum relational/arithmetic
+    /// candidate shapes (equality/relational/add/subtract binaries). The
+    /// comparison/arithmetic shapes are a syntax-level superset (int sites
+    /// match too) — the rewriter gates semantically and the file falls through
+    /// to dirty-no-rewrite (byte-level preserved) when nothing enum-typed hits.
+    /// This is intentionally a superset of enum operations.
     /// </summary>
     internal static bool IsDirty(CompilationUnitSyntax root)
         => root.DescendantNodes().Any(n =>
             (n is BinaryExpressionSyntax b &&
                 (b.IsKind(SyntaxKind.BitwiseOrExpression)
                  || b.IsKind(SyntaxKind.BitwiseAndExpression)
-                 || b.IsKind(SyntaxKind.ExclusiveOrExpression)))
+                 || b.IsKind(SyntaxKind.ExclusiveOrExpression)
+                 || b.IsKind(SyntaxKind.EqualsExpression)
+                 || b.IsKind(SyntaxKind.NotEqualsExpression)
+                 || b.IsKind(SyntaxKind.LessThanExpression)
+                 || b.IsKind(SyntaxKind.LessThanOrEqualExpression)
+                 || b.IsKind(SyntaxKind.GreaterThanExpression)
+                 || b.IsKind(SyntaxKind.GreaterThanOrEqualExpression)
+                 || b.IsKind(SyntaxKind.AddExpression)
+                 || b.IsKind(SyntaxKind.SubtractExpression)))
             || (n is AssignmentExpressionSyntax a &&
                 (a.IsKind(SyntaxKind.OrAssignmentExpression)
                  || a.IsKind(SyntaxKind.AndAssignmentExpression)

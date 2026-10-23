@@ -826,4 +826,104 @@ public class EnumPreprocessorUnitTests
         Assert.DoesNotContain("(LoadFlags?)", result.OutputCode);
         Assert.Empty(CompileErrors(result.OutputCode));
     }
+
+    // ── 普通真 enum 的关系/算术站点（Java enum 只支持 ==/!=，其余二元运算必须
+    //    在预处理期降为底层 int 形态；回归 xml-tiny Operator.InvertOperator、
+    //    XPathNavigatorReader.get_IsReading、XPathNavigator 的 XPathNodeType 差值）──
+
+    private const string PlainEnumSource = """
+        enum Op { EQ, NE, LT, LE, GT, GE }
+        class C
+        {
+            bool Check(Op op) => Op.EQ <= op && op <= Op.GE;
+            bool Reading(Op state) => state > Op.EQ && state < Op.GE;
+        }
+        """;
+
+    [Fact]
+    public void Plain_Enum_Relational_In_NonBitwise_File_Is_Lowered_To_Int_Casts()
+    {
+        var result = Preprocess(PlainEnumSource);
+
+        Assert.True(result.Changed);
+        Assert.Contains("(int)Op.EQ <= (int)op", result.OutputCode);
+        Assert.Contains("(int)op <= (int)Op.GE", result.OutputCode);
+        Assert.Contains("(int)state > (int)Op.EQ", result.OutputCode);
+        Assert.Contains("(int)state < (int)Op.GE", result.OutputCode);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void Plain_Enum_Subtraction_Is_Lowered_To_Int_Casts()
+    {
+        var src = """
+        enum NodeType { Document, Attribute, Text, Whitespace }
+        class C
+        {
+            bool InRange(NodeType type)
+                => (uint)(type - NodeType.Text) <= (uint)(NodeType.Whitespace - NodeType.Text);
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("(uint)((int)type - (int)NodeType.Text)", result.OutputCode);
+        Assert.Contains("(uint)((int)NodeType.Whitespace - (int)NodeType.Text)", result.OutputCode);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    // 同 enum == / != 是合法 Java 直译（引用相等），保持原样不改写。
+    [Fact]
+    public void Plain_Enum_Same_Type_Equality_Stays_Untouched()
+    {
+        var src = """
+        enum Op { EQ, NE }
+        class C
+        {
+            bool Check(Op op) => op == Op.EQ && op != Op.NE;
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains("op == Op.EQ", result.OutputCode);
+        Assert.Contains("op != Op.NE", result.OutputCode);
+    }
+
+    // 关系站点沿用本 pass 既有语义（枚举操作数一律降为底层 int，(int) 直译面对
+    // 对齐/非对齐 enum 都成立），脏检查扩宽后非 bitwise 文件同样生效。
+    [Fact]
+    public void NonOrdinal_Enum_Relational_Is_Lowered_To_Int_Casts_Too()
+    {
+        var src = """
+        enum Weird { A = 5, B = 9 }
+        class C
+        {
+            bool Check(Weird w) => w <= Weird.B;
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("(int)w <= (int)Weird.B", result.OutputCode);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    // 算术站点只降 plain（底层 int 且 0..n-1 对齐）enum：值形态 enum 的 +/- 站点
+    // 由 enum-declaration 的 Deferred 判定交给 numeric-boundary 族，本 pass 不碰。
+    [Fact]
+    public void NonOrdinal_Enum_Subtraction_Is_Not_Lowered_By_This_Pass()
+    {
+        var src = """
+        enum Weird { A = 5, B = 9 }
+        class C
+        {
+            int Diff(Weird w) => w - Weird.A;
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains("w - Weird.A", result.OutputCode);
+    }
 }

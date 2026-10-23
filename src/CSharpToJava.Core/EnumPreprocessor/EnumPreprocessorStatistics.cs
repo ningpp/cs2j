@@ -13,6 +13,7 @@ public sealed class EnumPreprocessorStatistics
     public int CompoundAssignRewritten;
     public int HasFlagRewritten;
     public int NullableLiftedRewritten;
+    public int PlainEnumArithmeticRewritten;
     public int SkippedUnsupported;
     public int ResidualCount;
 }
