@@ -448,13 +448,51 @@ internal sealed class IndexerUseSiteRewriter : CSharpSyntaxRewriter
         plan = null!;
         if (node is not (ElementAccessExpressionSyntax or ElementBindingExpressionSyntax
             or ImplicitElementAccessSyntax)) return false;
-        if (_model.GetSymbolInfo(node).Symbol is not IPropertySymbol { IsIndexer: true } p) return false;
+        var sym = _model.GetSymbolInfo(node).Symbol;
+        if (sym is not IPropertySymbol { IsIndexer: true } p)
+        {
+            // IX 跨文件兜底：索引实参依赖兄弟文件刚被属性 pass 展开的合成访问器时
+            // （属性 pass 先行改写、逐文件绑定原始编译），GetSymbolInfo 对整个元素
+            // 访问绑定失败。此时按接收者静态类型匹配活跃 plan——plan 只含源码声明
+            // 索引器，外部索引器（D5 闸门）天然不会被劫持；歧义（同类型多个活跃
+            // 索引器）时保守放弃。
+            p = ResolveIndexerByReceiver(node);
+            if (p == null) return false;
+        }
         if (!p.IsDefinition) p = p.OriginalDefinition;
         // D5 闸门：非源码声明的（BCL/外部程序集）索引器使用点保留原生 []
         // 语法，否则 Dictionary<string,string> 的 d["k"] 会变成 d.get_Item("k")，
         // 在方法组/调用位置触发 CS0571。
         if (!p.Locations.Any(l => l.IsInSource)) return false;
         return _active.TryGetValue(IndexerPlan.SiteKey(p), out plan);
+    }
+
+    /// <summary>接收者静态类型兜底：沿基类链匹配唯一活跃索引器 plan；0 个或多个
+    /// 匹配都返回 null（不猜）。数组接收者的 GetSymbolInfo 本就无符号，同样安全。</summary>
+    private IPropertySymbol? ResolveIndexerByReceiver(ExpressionSyntax node)
+    {
+        if (node is not ElementAccessExpressionSyntax ea) return null;
+        var receiverType = _model.GetTypeInfo(ea.Expression).Type;
+        if (receiverType is IErrorTypeSymbol or null) return null;
+
+        IndexerPlan? match = null;
+        foreach (var candidate in _active.Values)
+        {
+            var containing = candidate.Indexer.ContainingType;
+            if (containing == null) continue;
+            // 接收者类型绑自重解析树、plan 符号绑自原始编译——跨 Compilation 的
+            // 符号 SymbolEqualityComparer 判不相等（本文件头部注释），按显示串比较。
+            var containingDisplay = containing.ToDisplayString();
+            for (var t = (ITypeSymbol?)receiverType; t != null; t = t.BaseType)
+            {
+                if (!StringComparer.Ordinal.Equals(t.ToDisplayString(), containingDisplay)) continue;
+                if (match != null) return null; // 歧义：同接收者类型多个活跃索引器。
+                match = candidate;
+                break;
+            }
+        }
+
+        return match?.Indexer;
     }
 
     /// <summary>c[i] 是纯左值目标（赋值左侧 / ++/-- 操作数）时读路径让位：简单写由
