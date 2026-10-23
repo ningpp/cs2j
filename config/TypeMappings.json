@@ -251,6 +251,70 @@
             ]
         },
         {
+            "csharp": "System.Collections.CollectionBase",
+            "java": "CSharpCollectionBase",
+            "imports": [
+                "io.github.ningpp.compat.CSharpCollectionBase"
+            ]
+        },
+        {
+            "csharp": "System.Collections.SortedList",
+            "java": "CSharpObjSortedList",
+            "imports": [
+                "io.github.ningpp.compat.CSharpObjSortedList"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Stack",
+            "java": "CSharpStack",
+            "imports": [
+                "io.github.ningpp.compat.CSharpStack"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Comparer",
+            "java": "CSharpComparer",
+            "imports": [
+                "io.github.ningpp.compat.CSharpComparer"
+            ]
+        },
+        {
+            "csharp": "System.Collections.CaseInsensitiveComparer",
+            "java": "CSharpCaseInsensitiveComparer",
+            "imports": [
+                "io.github.ningpp.compat.CSharpCaseInsensitiveComparer"
+            ]
+        },
+        {
+            "csharp": "System.Collections.IComparer",
+            "java": "java.util.Comparator"
+        },
+        {
+            "csharp": "System.Collections.Generic.IComparer`1",
+            "java": "java.util.Comparator"
+        },
+        {
+            "csharp": "System.Collections.IEqualityComparer",
+            "java": "IEqualityComparer",
+            "imports": [
+                "io.github.ningpp.compat.IEqualityComparer"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.IEqualityComparer`1",
+            "java": "IEqualityComparer",
+            "imports": [
+                "io.github.ningpp.compat.IEqualityComparer"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Specialized.StringCollection",
+            "java": "CSharpArrayList",
+            "imports": [
+                "io.github.ningpp.compat.CSharpArrayList"
+            ]
+        },
+        {
             "csharp": "System.Collections.Hashtable",
             "java": "CSharpHashtable",
             "imports": [
