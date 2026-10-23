@@ -290,12 +290,6 @@ if (symbol?.IsGenericMethod == true && symbol.TypeArguments.Length > 0)
         var symbol = GetSymbol(node);
         var target = Generate(node.Expression, _ctx);
         var memberName = node.Name.Identifier.Text;
-        if (memberName is "CurrentThread" or "Zero" or "MaxValue" or "MinValue")
-        {
-            System.IO.File.AppendAllText(@"D:\tmp\hir-debug.txt",
-                $"member={memberName} node={node} symbol={(symbol == null ? "null" : symbol.Kind + ":" + symbol.ToDisplayString())} " +
-                $"exprType={_ctx.GetTypeInfo(node.Expression).Type?.ToDisplayString() ?? "null"} targetJava={target.JavaType}\n");
-        }
 
         if (symbol is IPropertySymbol)
         {
