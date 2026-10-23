@@ -44,8 +44,8 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
             SyntaxKind.UnaryMinusExpression => TransformPrefix((PrefixUnaryExpressionSyntax)node, "-", context),
             SyntaxKind.LogicalNotExpression => TransformLogicalNot((PrefixUnaryExpressionSyntax)node, context),
             SyntaxKind.BitwiseNotExpression => TransformPrefix((PrefixUnaryExpressionSyntax)node, "~", context),
-            SyntaxKind.AddressOfExpression => throw NormalizationRequired("address-of '&'", node),
-            SyntaxKind.PointerIndirectionExpression => throw NormalizationRequired("pointer indirection '*'", node),
+            SyntaxKind.AddressOfExpression => throw NormalizationRequired.At("address-of '&'", node),
+            SyntaxKind.PointerIndirectionExpression => throw NormalizationRequired.At("pointer indirection '*'", node),
             SyntaxKind.PostIncrementExpression => TransformIncrement((PostfixUnaryExpressionSyntax)node, "++", isPostfix: true, context),
             SyntaxKind.PostDecrementExpression => TransformIncrement((PostfixUnaryExpressionSyntax)node, "--", isPostfix: true, context),
             SyntaxKind.PreIncrementExpression => TransformIncrement((PrefixUnaryExpressionSyntax)node, "++", isPostfix: false, context),
@@ -61,7 +61,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
             return ExpressionTransformerFacade.Instance.TransformToIR(GetOperand(node), context);
 
         if (node.Kind() is SyntaxKind.AddressOfExpression or SyntaxKind.PointerIndirectionExpression)
-            throw NormalizationRequired(node.Kind() == SyntaxKind.AddressOfExpression ? "address-of '&'" : "pointer indirection '*'", node);
+            throw NormalizationRequired.At(node.Kind() == SyntaxKind.AddressOfExpression ? "address-of '&'" : "pointer indirection '*'", node);
 
         var (op, isPostfix) = node.Kind() switch
         {
@@ -211,8 +211,8 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         var type = context.GetTypeInfo(operand).Type;
         if (type != null && type.SpecialType != SpecialType.System_Boolean)
         {
-            throw NormalizationRequired(
-                $"logical '!' on non-boolean operand of type '{type.ToDisplayString()}'", operand);
+            throw NormalizationRequired.At(
+                $"logical '!' on non-boolean operand of type '{type.ToDisplayString()}' in {operand.Kind()}", operand);
         }
     }
 
@@ -223,15 +223,15 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         var symbolInfo = context.GetSymbolInfo(node);
         if (symbolInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator })
         {
-            throw NormalizationRequired("user-defined unary operator", node);
+            throw NormalizationRequired.At("user-defined unary operator", node);
         }
 
         var type = context.GetTypeInfo(operand).Type;
         if (type == null) return;
         if (type.TypeKind == TypeKind.Enum)
-            throw NormalizationRequired($"unary operator on enum operand '{type.ToDisplayString()}'", node);
+            throw NormalizationRequired.At($"unary operator on enum operand '{type.ToDisplayString()}'", node);
         if (type.SpecialType == SpecialType.System_Decimal)
-            throw NormalizationRequired("unary operator on decimal operand", node);
+            throw NormalizationRequired.At("unary operator on decimal operand", node);
     }
 
     /// <summary>
@@ -249,32 +249,30 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                 break;
             case MemberAccessExpressionSyntax:
                 if (symbol is IPropertySymbol or IEventSymbol)
-                    throw NormalizationRequired("increment/decrement on a property or event", operand);
+                    throw NormalizationRequired.At("increment/decrement on a property or event", operand);
                 break;
             case ElementAccessExpressionSyntax:
                 if (symbol is IPropertySymbol)
-                    throw NormalizationRequired("increment/decrement on an indexer", operand);
+                    throw NormalizationRequired.At("increment/decrement on an indexer", operand);
                 break;
             default:
-                throw NormalizationRequired($"increment/decrement target {operand.Kind()}", operand);
+                throw NormalizationRequired.At($"increment/decrement target {operand.Kind()}", operand);
         }
 
         var type = context.GetTypeInfo(operand).Type;
         if (type == null) return;
         if (type.TypeKind == TypeKind.Enum)
-            throw NormalizationRequired("increment/decrement on an enum target", operand);
+            throw NormalizationRequired.At("increment/decrement on an enum target", operand);
         if (type.SpecialType == SpecialType.System_Decimal)
-            throw NormalizationRequired("increment/decrement on a decimal target", operand);
+            throw NormalizationRequired.At("increment/decrement on a decimal target", operand);
         if (type.SpecialType is SpecialType.System_UInt32 or SpecialType.System_UInt64
             or SpecialType.System_UInt16 or SpecialType.System_Byte or SpecialType.System_IntPtr
             or SpecialType.System_UIntPtr)
         {
-            throw NormalizationRequired($"increment/decrement on unsigned/narrow integer target '{type.ToDisplayString()}'", operand);
+            throw NormalizationRequired.At($"increment/decrement on unsigned/narrow integer target '{type.ToDisplayString()}'", operand);
         }
         if (symbol is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator })
-            throw NormalizationRequired("user-defined increment/decrement operator", operand);
+            throw NormalizationRequired.At("user-defined increment/decrement operator", operand);
     }
 
-    private static NotSupportedException NormalizationRequired(string construct, SyntaxNode node) =>
-        new($"CS2J normalization required: {construct} in {node.Kind()} must be lowered by a preprocessor before Java conversion.");
 }

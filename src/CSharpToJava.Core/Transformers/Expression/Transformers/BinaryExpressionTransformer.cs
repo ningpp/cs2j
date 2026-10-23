@@ -188,8 +188,10 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
         if (op.Cat == BinOpCat.Equality && leftIsEnum && rightIsEnum) return;
 
-        throw new NotSupportedException(
-            $"CS2J normalization required: enum operand in binary operator '{op.Java}' must be lowered to ordinal/cast form by a preprocessor before Java conversion.");
+        throw NormalizationRequired.At(
+            $"enum operand in binary operator '{op.Java}'",
+            node,
+            leftIsEnum ? node.Left : node.Right);
     }
 
     /// <summary>
