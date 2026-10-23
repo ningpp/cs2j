@@ -99,15 +99,34 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // Java functional interfaces are satisfied by a method reference, not by
         // construction — emit `Owner::method` and let target typing pick the shape.
         if (type is { TypeKind: TypeKind.Delegate }
-            && al is { Arguments.Count: 1 }
-            && c.GetSymbolInfo(al.Arguments[0].Expression).Symbol is IMethodSymbol methodGroup)
+            && al is { Arguments.Count: 1 })
         {
-            var methodReference = EmitDelegateMethodReference(al.Arguments[0].Expression, methodGroup, c);
-            // Inside an object[]/collection initializer there is no target type for
-            // the method reference (C# boxes the delegate), so cast explicitly.
-            return al.Parent?.Parent is InitializerExpressionSyntax
-                ? $"({name}) {methodReference}"
-                : methodReference;
+            if (c.GetSymbolInfo(al.Arguments[0].Expression).Symbol is IMethodSymbol methodGroup)
+            {
+                var methodReference = EmitDelegateMethodReference(al.Arguments[0].Expression, methodGroup, c);
+                // Inside an object[]/collection initializer there is no target type for
+                // the method reference (C# boxes the delegate), so cast explicitly.
+                return al.Parent?.Parent is InitializerExpressionSyntax
+                    ? $"({name}) {methodReference}"
+                    : methodReference;
+            }
+
+            // `new Func<T>(delegateVar)`：实参是委托变量而非方法组——Java 函数式
+            // 接口抽象方法不可实例化（javac: Supplier是抽象的; 无法实例化），SAM
+            // 转换为转发 lambda：`() -> var.invoke()` / 带参 `(a, b) -> var.invoke(a, b)`。
+            if (c.GetTypeInfo(al.Arguments[0].Expression).Type is { TypeKind: TypeKind.Delegate })
+            {
+                var delegateArg = ExpressionTransformerFacade.Instance.Transform(al.Arguments[0].Expression, c);
+                var invoke = type.GetMembers("Invoke").OfType<IMethodSymbol>().FirstOrDefault()
+                    ?? type.GetMembers().OfType<IMethodSymbol>().FirstOrDefault(m => m.Name == "Invoke");
+                if (invoke == null || invoke.Parameters.Length == 0)
+                    return $"() -> {delegateArg}.invoke()";
+
+                var samParams = string.Join(", ", invoke.Parameters.Select(
+                    (p, i) => $"{c.MapType(p.Type)} _cs2jSam{i}"));
+                var samArgs = string.Join(", ", invoke.Parameters.Select((_, i) => $"_cs2jSam{i}"));
+                return $"({samParams}) -> {delegateArg}.invoke({samArgs})";
+            }
         }
 
         // C09 Java 半区：C# 的 new ThreadLocal<T>() 首访返回 default(T)（值类型为
