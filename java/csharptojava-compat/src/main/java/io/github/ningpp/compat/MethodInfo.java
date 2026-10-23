@@ -326,6 +326,104 @@ public final class MethodInfo implements MemberInfo {
         return new MethodInfo(method, typeArguments.clone());
     }
 
+    /**
+     * Bridges C# MethodInfo.CreateDelegate(Type) for static methods: binds the
+     * reflected method into an instance of the requested functional interface.
+     * <p>
+     * The converter renders C# delegates as {@code @FunctionalInterface} types
+     * whose abstract method is the mapped invoke name; the returned proxy
+     * forwards every abstract interface method to the underlying reflected
+     * method (static: target-less). Java has no native delegate binding, so the
+     * proxy is built with {@link java.lang.reflect.Proxy} (dynamic static
+     * binding).
+     */
+    public <T> T createDelegate(Class<T> delegateType) {
+        return createDelegate(delegateType, null);
+    }
+
+    /**
+     * Bridges C# MethodInfo.CreateDelegate(Type, object) — instance methods bind
+     * to the given target; static methods must pass {@code null}.
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T createDelegate(Class<T> delegateType, Object target) {
+        if (delegateType == null || !delegateType.isInterface()) {
+            throw new IllegalArgumentException(
+                "createDelegate requires a functional interface type, got: " + delegateType);
+        }
+        if (target != null && Modifier.isStatic(method.getModifiers())) {
+            throw new IllegalArgumentException(
+                "cannot bind a static method to a target: " + method);
+        }
+        java.lang.reflect.InvocationHandler handler = (proxy, called, args) -> {
+            if (called.getDeclaringClass() == Object.class) {
+                return switch (called.getName()) {
+                    case "equals" -> proxy == args[0];
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "toString" -> "MethodInfo.createDelegate[" + method + "]";
+                    default -> null;
+                };
+            }
+            if (called.isDefault()) {
+                return java.lang.reflect.InvocationHandler.invokeDefault(proxy, called, args);
+            }
+            Object result = invoke(target, args);
+            return adaptDelegateResult(called.getReturnType(), result);
+        };
+        return (T) java.lang.reflect.Proxy.newProxyInstance(
+            delegateType.getClassLoader(), new Class<?>[] {delegateType}, handler);
+    }
+
+    /** Converts the reflected method's result to the interface method's return type. */
+    private static Object adaptDelegateResult(Class<?> expected, Object result) {
+        if (expected == void.class || expected == Void.class) {
+            return null;
+        }
+        if (result == null) {
+            if (expected.isPrimitive()) {
+                return defaultPrimitive(expected);
+            }
+            return null;
+        }
+        Class<?> actual = result.getClass();
+        if (expected.isInstance(result)) {
+            return result;
+        }
+        Class<?> wrapper = primitiveWrapper(expected);
+        if (wrapper != null) {
+            return convertNumber(result, wrapper);
+        }
+        if (Number.class.isAssignableFrom(expected) && result instanceof Number) {
+            return convertNumber(result, expected);
+        }
+        return result;
+    }
+
+    private static Object defaultPrimitive(Class<?> type) {
+        if (type == boolean.class) {
+            return Boolean.FALSE;
+        }
+        if (type == long.class) {
+            return 0L;
+        }
+        if (type == double.class) {
+            return 0d;
+        }
+        if (type == float.class) {
+            return 0f;
+        }
+        if (type == short.class) {
+            return (short) 0;
+        }
+        if (type == byte.class) {
+            return (byte) 0;
+        }
+        if (type == char.class) {
+            return '\0';
+        }
+        return 0;
+    }
+
     public static final class ReturnParameter {
         private final Class<?> type;
 
