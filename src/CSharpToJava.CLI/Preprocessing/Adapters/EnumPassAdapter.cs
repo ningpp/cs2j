@@ -147,6 +147,7 @@ internal sealed class EnumPassAdapter : ProjectPassAdapter
            $"{_statistics.CompoundAssignRewritten} compound, " +
            $"{_statistics.HasFlagRewritten} HasFlag, " +
            $"{_statistics.NullableLiftedRewritten} lifted, " +
+           $"{_statistics.PlainEnumArithmeticRewritten} enum-arith, " +
            $"{_statistics.ResidualCount} residual";
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
