@@ -1075,6 +1075,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     if (TryBridgeConsoleFormatCall(node, mappedName, arguments, context, out var consoleFormatArgs))
                         arguments = consoleFormatArgs;
 
+                    // LINQ Single/SingleOrDefault 映射到流方法 findAny，但具体化集合
+                    // 接收器（接口映射常返回 java.util.List/CSharpList）没有 findAny
+                    // （mvn 现场：modulecore-tests XmlInlineDataDiscoverer）。集合上取
+                    // 首元素 get(0)；流管道形态保持既有 findAny 约定不变。
+                    if (mappedName == "findAny" && originalName is "Single" or "SingleOrDefault"
+                        && arguments.Length == 0
+                        && !LooksLikeStreamPipeline(receiver))
+                    {
+                        return $"{receiver}.get(0)";
+                    }
+
                     return RenderMappedCall(mappedName, isStatic, receiver, arguments);
                 }
 
