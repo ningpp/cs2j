@@ -545,6 +545,17 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
             return null;
         }
 
+        // 另一侧是 string 时整个站点是字符串拼接（string + enum 是合法 C#，
+        // enum 操作数走 ToString/装箱面），不是 enum 算术：既不能交换操作数
+        // （拼接不满足交换律）也不能套 (E) cast。回归 xml-tiny XmlEventCache/
+        // WriterOutput/XsdBuilder 的 Debug.Assert(false, "..." + eventType)——
+        // 曾被降级为 (E)((int)e + "...") 触发 CS0030。
+        var otherSide = enumSideIsLeft ? node.Right : node.Left;
+        if (_semanticModel?.GetTypeInfo(otherSide).Type?.SpecialType == SpecialType.System_String)
+        {
+            return null;
+        }
+
         var visitedEnum = enumSideIsLeft ? left : right;
         var visitedOther = enumSideIsLeft ? right : left;
         var castedEnum = CastEnumToUnderlying(visitedEnum, enumSide, enumType);

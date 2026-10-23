@@ -872,6 +872,35 @@ public class EnumPreprocessorUnitTests
         Assert.Empty(CompileErrors(result.OutputCode));
     }
 
+    // string + enum 是字符串拼接（enum 操作数走 ToString/装箱面），不是 enum 算术：
+    // 若按 E + i 降级会把操作数交换并回挂 (E) cast，产出 (E)((int)e + "str") 的
+    // CS0030 非法代码。回归 xml-tiny XmlEventCache/WriterOutput/XsdBuilder 的
+    // Debug.Assert(false, "..." + eventType)。
+    [Fact]
+    public void String_Concat_With_Enum_Is_Not_Treated_As_Enum_Arithmetic()
+    {
+        var src = """
+        enum XmlEventType { None, EndOfFile, Element }
+        class C
+        {
+            void M(XmlEventType eventType)
+            {
+                Report("Unknown event: " + eventType);
+                Report(eventType + " tail");
+            }
+
+            void Report(string message) { }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains("\"Unknown event: \" + eventType", result.OutputCode);
+        Assert.Contains("eventType + \" tail\"", result.OutputCode);
+        Assert.DoesNotContain("(XmlEventType)", result.OutputCode);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
     // 同 enum == / != 是合法 Java 直译（引用相等），保持原样不改写。
     [Fact]
     public void Plain_Enum_Same_Type_Equality_Stays_Untouched()
