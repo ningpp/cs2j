@@ -102,6 +102,9 @@ public class Iter3UriRegressionsTests
     [Fact]
     public async Task SerializableInterfaceAndMembers_AreSuppressed()
     {
+        // 474e555f 起抑制签名成员（GetObjectData 等）整体丢弃；2599234e 起被抑制
+        // 接口保留 implements __suppress__（运行时 cast 由接口 default PNSE 兜底），
+        // 但成员本身不再发射。
         var code = await ConvertAsync("""
             using System.Runtime.Serialization;
 
@@ -111,7 +114,7 @@ public class Iter3UriRegressionsTests
             }
             """);
 
-        Assert.DoesNotContain("__suppress__", code);
+        Assert.Contains("implements __suppress__", code);
         Assert.DoesNotContain("getObjectData", code);
     }
 

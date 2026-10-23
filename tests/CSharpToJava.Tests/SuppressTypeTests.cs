@@ -7,11 +7,12 @@ public class SuppressTypeTests
 {
 
     [Fact]
-    public void GetObjectData_TrivialBody_EmitsSuppressedParameterVersion()
+    public void GetObjectData_TrivialBody_MemberDropped_InterfaceKeptAsSuppress()
     {
-        // A GetObjectData whose body does not use the suppressed params is emitted with
-        // __suppress__-typed parameters so that derived call sites (e.g. base.GetObjectData
-        // forwarding) still compile.
+        // 474e555f 起抑制签名（参数/返回类型映射到 __suppress__ 哨兵）的成员整体
+        // 丢弃，不在签名里发射无法解析的类型名（base.GetObjectData 转发调用点由
+        // e01d69be 剥离）；2599234e 起被抑制接口保留在 implements 子句，运行时
+        // cast 由接口 default PNSE 兜底。
         var result = Convert(@"
 using System.Runtime.Serialization;
 
@@ -21,7 +22,8 @@ public class MyUri : ISerializable
 }");
 
         Assert.True(result.Success);
-        Assert.Contains("getObjectData(__suppress__ info, __suppress__ context)", result.GeneratedCode);
+        Assert.Contains("class MyUri implements __suppress__", result.GeneratedCode);
+        Assert.DoesNotContain("getObjectData", result.GeneratedCode);
     }
 
     [Fact]
