@@ -774,11 +774,17 @@ public class TypeMappingService
             return MapSimpleTypeName(mapped);
 
         // Cross-namespace imports for project types
+            // 注意：SpecialType（decimal/DateTime 等）的 FullyQualifiedFormat 渲染为
+            // C# 关键字（"decimal"），配置键探测会漏——用 "System."+名字兜底探测
+            // （System.Decimal 有类型级配置映射 → 走 compat 导入，不走命名空间门）。
+            var hasTypeLevelMapping = _typeMappings.HasTypeMapping(fullQualifiedNameSimple)
+                                      || _typeMappings.HasTypeMapping(name)
+                                      || _typeMappings.HasTypeMapping($"System.{name}");
             if (!string.IsNullOrEmpty(ns)
                 && (ns.StartsWith("Microsoft.", StringComparison.Ordinal)
                     || ns.StartsWith("dotnet.", StringComparison.Ordinal)
                     || IsDefinedInSource(typeSymbol)
-                    || HasExplicitNamespaceMapping(ns)))
+                    || (HasExplicitNamespaceMapping(ns) && !hasTypeLevelMapping)))
             {
                 if (!string.Equals(curNs, ns, StringComparison.Ordinal)
                     && typeSymbol.ContainingType == null
