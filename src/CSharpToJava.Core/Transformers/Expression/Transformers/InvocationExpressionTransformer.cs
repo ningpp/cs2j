@@ -2276,6 +2276,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         ExpressionSyntax receiverExpression,
         ConversionContext context)
     {
+        // 仅静态接收者（类型名）适用：实例成员访问（prefixes.Keys）的 Name 是
+        // 成员名，按简单名查类型表会错配同名类型（Keys → dotnet.winforms.swing.Keys，
+        // 注入不存在的包 import）。接收者可绑定且不是类型名时直接跳过。
+        if (context.GetSymbolInfo(receiverExpression).Symbol is not (null or INamedTypeSymbol))
+            return;
+
         var simpleName = receiverExpression switch
         {
             IdentifierNameSyntax id => id.Identifier.Text,
