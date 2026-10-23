@@ -351,4 +351,81 @@ public class Calc
         AssertJavaContains(result, "setValue(3)", "property write convention");
         AssertJavaContains(result, "getValue()", "property read convention");
     }
+
+    [Fact]
+    public void UnsafePointerRefParameters_KeepNativeRefSyntax_WithoutByRefGeneric()
+    {
+        // xml-tiny: `internal unsafe void EncodeChar(ref char* pSrc, char* pSrcEnd, ref byte* pDst)`
+        // — pointer types cannot be generic type arguments (CS0306), so ref/out
+        // pointer parameters must keep the native C# ref form at both the
+        // declaration and the by-ref call site.
+        var source = @"
+public unsafe class Calc
+{
+    private char* _src;
+    private byte* _dst;
+
+    internal unsafe void EncodeChar(ref char* pSrc, char* pSrcEnd, ref byte* pDst)
+    {
+        int ch = *pSrc;
+        pSrc++;
+        pDst++;
+    }
+
+    internal unsafe void Reset(out char* p)
+    {
+        p = null;
+    }
+
+    internal unsafe void Call()
+    {
+        char* p = _src;
+        byte* q = _dst;
+        EncodeChar(ref p, p, ref q);
+        Reset(out p);
+    }
+}";
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("refout-ptr",
+            new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var result = new RefOutInRewriter().Rewrite(source, compilation.GetSemanticModel(tree));
+
+        Assert.True(result.Changed, "expected the preprocessor to rewrite the input");
+        Assert.DoesNotContain("ByRef<", result.OutputCode);
+        Assert.Contains("ref char*", result.OutputCode);
+        Assert.Contains("ref byte*", result.OutputCode);
+        Assert.Contains("out char*", result.OutputCode);
+        Assert.Contains("EncodeChar(ref p, p, ref q)", result.OutputCode);
+        Assert.Contains("Reset(out p)", result.OutputCode);
+
+        // The rewritten source must itself compile: keeping native pointer refs
+        // is what removes CS0306 (pointer as generic type argument) from the
+        // pass output.
+        var rewrittenTree = CSharpSyntaxTree.ParseText(result.OutputCode);
+        var rewrittenCompilation = CSharpCompilation.Create("refout-ptr-out",
+            new[] { rewrittenTree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var errors = rewrittenCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        Assert.True(errors.Count == 0,
+            "Rewritten source must compile.\n--- Errors ---\n" +
+            string.Join("\n", errors) + "\n--- Rewritten ---\n" + result.OutputCode);
+
+        // Native pointer ref/out params are the intended output, not residual
+        // debt the post-verifier should reject.
+        var violations = RefOutInPostVerifier.Verify(new[] { rewrittenTree }, rewrittenCompilation);
+        Assert.Empty(violations);
+    }
 }

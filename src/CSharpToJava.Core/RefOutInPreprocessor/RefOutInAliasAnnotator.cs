@@ -108,7 +108,7 @@ internal sealed class RefOutInAliasAnnotator
             for (int i = 0; i < lambdaParams.Length && i < invoke.Parameters.Length; i++)
             {
                 var p = invoke.Parameters[i];
-                if (p.RefKind is RefKind.Ref or RefKind.Out)
+                if (p.RefKind is RefKind.Ref or RefKind.Out && !IsPointerType(p.Type))
                 {
                     var sym = _semanticModel.GetDeclaredSymbol(lambdaParams[i]);
                     if (sym != null) _holderSymbols.Add(sym);
@@ -138,6 +138,12 @@ internal sealed class RefOutInAliasAnnotator
             var refKind = param.RefKind;
             if (refKind == RefKind.Ref || refKind == RefKind.Out)
             {
+                // Raw/function pointers cannot be generic type arguments
+                // (CS0306), so ByRef<T> is not expressible for them: the
+                // parameter must keep its native `ref`/`out` form.
+                if (IsPointerType(param.Type))
+                    continue;
+
                 _holderSymbols.Add(param);
                 if (param.Type.IsRefLikeType)
                 {
@@ -197,6 +203,10 @@ internal sealed class RefOutInAliasAnnotator
         {
             if (param.RefKind == RefKind.Ref || param.RefKind == RefKind.Out)
             {
+                // Pointer types cannot be ByRef<T> type arguments (CS0306).
+                if (IsPointerType(param.Type))
+                    continue;
+
                 _holderSymbols.Add(param);
                 hasRefOrOut = true;
                 if (param.RefKind == RefKind.Ref)
@@ -261,6 +271,14 @@ internal sealed class RefOutInAliasAnnotator
         }
         return false;
     }
+
+    /// <summary>
+    /// True for types that cannot be generic type arguments (CS0306): raw
+    /// pointers and function pointers. A ref/out parameter of such a type has
+    /// no <c>ByRef&lt;T&gt;</c> form and must keep its native ref/out syntax.
+    /// </summary>
+    internal static bool IsPointerType(ITypeSymbol type) =>
+        type.TypeKind is TypeKind.Pointer or TypeKind.FunctionPointer;
 
     internal static bool IsLocked(ISymbol symbol)
     {

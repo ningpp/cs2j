@@ -348,6 +348,16 @@ internal sealed class RefOutInStatementLifter
             }
 
             bool isOut = arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword);
+
+            // Pointer/function-pointer parameters have no ByRef<T> form
+            // (CS0306); the callee keeps its native ref/out signature, so the
+            // argument — keyword included — is forwarded unchanged.
+            if (RefOutInAliasAnnotator.IsPointerType(method.Parameters[i].Type))
+            {
+                newArgs.Add(arg);
+                continue;
+            }
+
             var lifted = LiftArgument(method, i, arg, isOut);
             if (lifted.decl != null) _out.Add(lifted.decl);
             if (lifted.readback != null) readbacks.Add(lifted.readback);

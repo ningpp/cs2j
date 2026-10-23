@@ -29,7 +29,11 @@ public static class RefOutInPostVerifier
 
                 foreach (var param in symbol.Parameters)
                 {
+                    // Pointer/function-pointer types have no ByRef<T> form
+                    // (CS0306): keeping their native ref/out syntax is the
+                    // intended rewrite result, not residual debt.
                     if (param.RefKind is RefKind.Ref or RefKind.Out
+                        && !RefOutInAliasAnnotator.IsPointerType(param.Type)
                         && param.Locations.Any(l => l.IsInSource))
                         violations.Add(new ResidualViolation(tree.FilePath,
                             $"internal '{symbol.ToDisplayString()}' still declares ref/out parameter '{param.Name}'"));
