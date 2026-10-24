@@ -791,7 +791,13 @@ public class TypeMappingService
                     && (!string.IsNullOrWhiteSpace(curNs) ? !NamespaceContainsType(curNs, name) : true))
             {
                 var javaPackage = NamespaceToPackage(ns);
-                if (!string.IsNullOrEmpty(javaPackage))
+                // dotnet.System.* 是消费模块内生成的虚拟 stub 包（大小写敏感，包
+                // 名与其他模块的 dotnet.system.* 不同且未必存在）：跨模块导入它
+                // 会劫持同简名的 compat 导入并直接拒编（真实链 dotnet-uri 的
+                // KeyNotFoundException）。此类命名空间类型走各自的 compat 类型
+                // 映射导入，不经命名空间门。
+                if (!string.IsNullOrEmpty(javaPackage)
+                    && !javaPackage.StartsWith("dotnet.System.", StringComparison.Ordinal))
                 {
                     AddImport($"{javaPackage}.{name}");
                 }
