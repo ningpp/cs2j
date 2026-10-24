@@ -310,13 +310,21 @@ public static class TypeGroupResolver
                     // MS.Internal.Xml.XPath.Function) do not shadow java.util.function.Function.
                     AddStandardJdkImports(javaCompilation);
 
-                    // Imports collected during conversion (type-specific)
+                    // Imports collected during conversion (type-specific).
+                    // source-defined 标记必须带上：未映射 System.* 命名空间的
+                    // 源内类型按恒等包发射（package System.Text 的
+                    // SegmentStringBuilder），发射期的 System.* 导入丢弃只豁免
+                    // source-defined 导入。
                     foreach (var imp in context.ImportedTypes)
                     {
+                        var isSourceDefined = context.SourceDefinedImports.Contains(imp);
                         if (imp.EndsWith(".*", StringComparison.Ordinal))
                             javaCompilation.Imports.Add(new Java.JavaImport(imp[..^2], isWildcard: true));
                         else
-                            javaCompilation.Imports.Add(new Java.JavaImport(imp));
+                            javaCompilation.Imports.Add(new Java.JavaImport(imp)
+                            {
+                                IsSourceDefined = isSourceDefined,
+                            });
                     }
 
                     javaCompilation.TypeDeclarations.Add(javaType);
@@ -619,7 +627,10 @@ public static class TypeGroupResolver
                         if (imp.EndsWith(".*", StringComparison.Ordinal))
                             javaCompilation.Imports.Add(new Java.JavaImport(imp[..^2], isWildcard: true));
                         else
-                            javaCompilation.Imports.Add(new Java.JavaImport(imp));
+                            javaCompilation.Imports.Add(new Java.JavaImport(imp)
+                            {
+                                IsSourceDefined = context.SourceDefinedImports.Contains(imp),
+                            });
                     }
 
                     javaCompilation.TypeDeclarations.Add(javaEnum);
@@ -700,7 +711,10 @@ public static class TypeGroupResolver
                         if (imp.EndsWith(".*", StringComparison.Ordinal))
                             javaCompilation.Imports.Add(new Java.JavaImport(imp[..^2], isWildcard: true));
                         else
-                            javaCompilation.Imports.Add(new Java.JavaImport(imp));
+                            javaCompilation.Imports.Add(new Java.JavaImport(imp)
+                            {
+                                IsSourceDefined = context.SourceDefinedImports.Contains(imp),
+                            });
                     }
 
                     javaCompilation.TypeDeclarations.Add(javaInterface);

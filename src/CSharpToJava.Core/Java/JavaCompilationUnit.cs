@@ -185,12 +185,16 @@ public class JavaCompilationUnit : JavaSyntaxNode
             if (!import.IsWildcard && !import.IsStatic)
             {
                 // C# 命名空间残留：using System.* → import System.*（大写 S）。
-                // 本仓库的 Java 包面从不使用大写 System 顶级段（BCL stub 是小写
-                // dotnet.system.*，项目包是 dotnet.* / MS.* / Cs2jTuples.* 等），
-                // 此类导入必指向不存在的包（真实链 dotnet-text-regularexpressions
-                // RegexAssemblyCompiler 的 System.Reflection.ParameterModifier）。
-                if (import.Name == "System"
-                    || import.Name.StartsWith("System.", StringComparison.Ordinal))
+                // BCL 侧的 Java 包面从不使用大写 System 顶级段（stub 是小写
+                // dotnet.system.*），此类导入必指向不存在的包（真实链
+                // dotnet-text-regularexpressions RegexAssemblyCompiler 的
+                // System.Reflection.ParameterModifier）。例外：source-defined
+                // 导入——目标类型是本工作区源内定义、以未映射 System.* 命名空间
+                // 的恒等包发射（如 package System.Text 的 SegmentStringBuilder），
+                // 该包真实存在，丢弃会让跨包引用找不到符号。
+                if (!import.IsSourceDefined
+                    && (import.Name == "System"
+                        || import.Name.StartsWith("System.", StringComparison.Ordinal)))
                 {
                     continue;
                 }
@@ -310,6 +314,11 @@ public class JavaImport
     public string Name { get; set; } = string.Empty;
     public bool IsStatic { get; set; }
     public bool IsWildcard { get; set; }
+    /// <summary>导入目标为<b>本工作区源内定义的类型</b>（TypeMappingService 的
+    /// source-defined 登记）。发射期「大写 System.* 恒等包导入丢弃」据此豁免：
+    /// 源内类型的恒等包（如 package System.Text 的 SegmentStringBuilder）真实
+    /// 存在于产物中，丢弃会让跨包引用找不到符号。</summary>
+    public bool IsSourceDefined { get; set; }
 
     public JavaImport(string name, bool isStatic = false, bool isWildcard = false)
     {

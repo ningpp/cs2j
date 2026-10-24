@@ -288,6 +288,10 @@ public class ConversionContext
     }
 
     public HashSet<string> ImportedTypes { get; } = new();
+    /// <summary>源内定义类型的跨命名空间导入（TypeMappingService 登记）：发射期
+    /// 据此豁免「大写 System.* 恒等包导入」的丢弃（真实链 SegmentStringBuilder，
+    /// package System.Text）。随 <see cref="ClearImports"/> 按文件清空。</summary>
+    public HashSet<string> SourceDefinedImports { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, string> PreferredJavaTypeImports { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
@@ -551,7 +555,8 @@ public class ConversionContext
             resolveAlias: name => ResolveAlias(name),
             getCurrentEnclosingType: () => CurrentEnclosingRoslynType,
             isUsingAlias: name => IsAlias(name),
-            getNestedTypeNameOverride: key => NestedTypeNameOverrides.TryGetValue(key, out var nestedName) ? nestedName : null);
+            getNestedTypeNameOverride: key => NestedTypeNameOverrides.TryGetValue(key, out var nestedName) ? nestedName : null,
+            sourceDefinedImports: SourceDefinedImports);
         TypeMapper.SetSynthesizedRecordNameResolver(key =>
             TryGetSynthesizedRecord(key, out var rec) && rec != null ? rec.RecordName : "Object");
     }
@@ -661,6 +666,7 @@ public class ConversionContext
     public void ClearImports()
     {
         ImportedTypes.Clear();
+        SourceDefinedImports.Clear();
         PreferredJavaTypeImports.Clear();
         // Clearing cache ensures each type group re-triggers import additions.
         TypeMapper.ClearCache();

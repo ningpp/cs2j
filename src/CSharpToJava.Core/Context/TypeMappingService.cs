@@ -20,6 +20,9 @@ public class TypeMappingService
     private readonly TypeMapping.TypeMappingRegistry _typeMappings;
     private readonly DiagnosticCollector _diagnostics;
     private readonly HashSet<string> _importedTypes;
+    /// <summary>源内定义类型的跨命名空间导入集合（发射期据此豁免大写 System.*
+    /// 恒等包导入的丢弃）；由 <see cref="ConversionContext"/> 持有并随文件清空。</summary>
+    private readonly HashSet<string>? _sourceDefinedImports;
     private readonly Func<string> _getCurrentNamespace;
     private readonly Func<INamespaceSymbol?> _getGlobalNamespace;
     private readonly Func<string, bool> _tryGetSynthesizedRecordMatch;
@@ -125,9 +128,24 @@ public class TypeMappingService
         if (!string.IsNullOrEmpty(projectNs)
             && !string.Equals(projectNs, currentNs, StringComparison.Ordinal))
         {
-            AddImport($"{NamespaceToPackage(projectNs)}.{projectType.Name}");
+            // 源内定义类型的跨命名空间导入必须登记为 source-defined：包名可能
+            // 是未映射 System.* 命名空间的恒等形态（package System.Text，如
+            // SegmentStringBuilder），发射期的「大写 System.* 残留导入丢弃」
+            // 只放过 source-defined 导入。
+            AddSourceDefinedImport($"{NamespaceToPackage(projectNs)}.{projectType.Name}");
         }
         return MapSimpleTypeName(projectType.Name);
+    }
+
+    /// <summary>
+    /// 登记一个指向<b>源内定义类型</b>的导入：与普通导入一起进 <c>_importedTypes</c>，
+    /// 并同步登记到 <c>_sourceDefinedImports</c>（发射期据此豁免大写 System.* 恒等包
+    /// 导入的丢弃——该包真实存在于本工作区产物中）。
+    /// </summary>
+    private void AddSourceDefinedImport(string name)
+    {
+        AddImport(name);
+        _sourceDefinedImports?.Add(name);
     }
 
     private readonly Func<string, ITypeSymbol?> _resolveAlias;
@@ -145,12 +163,14 @@ public class TypeMappingService
           Func<string, ITypeSymbol?>? resolveAlias = null,
           Func<INamedTypeSymbol?>? getCurrentEnclosingType = null,
           Func<string, bool>? isUsingAlias = null,
-          Func<string, string?>? getNestedTypeNameOverride = null)
+          Func<string, string?>? getNestedTypeNameOverride = null,
+          HashSet<string>? sourceDefinedImports = null)
       {
           _options = options;
           _typeMappings = typeMappings;
           _diagnostics = diagnostics;
           _importedTypes = importedTypes;
+          _sourceDefinedImports = sourceDefinedImports;
           _resolveAlias = resolveAlias ?? (_ => null);
           _getCurrentNamespace = getCurrentNamespace;
           _getGlobalNamespace = getGlobalNamespace;
@@ -610,7 +630,13 @@ public class TypeMappingService
                 var javaPackage = NamespaceToPackage(genericTypeNamespace);
                 if (!string.IsNullOrEmpty(javaPackage))
                 {
-                    AddImport($"{javaPackage}.{baseType}");
+                    // 源内定义的基类型走 source-defined 登记（其包可能是未映射
+                    // System.* 命名空间的恒等形态）；Microsoft.* 恒等包不受
+                    // 发射期 System.* 丢弃规则影响，普通登记即可。
+                    if (IsDefinedInSource(namedType))
+                        AddSourceDefinedImport($"{javaPackage}.{baseType}");
+                    else
+                        AddImport($"{javaPackage}.{baseType}");
                 }
             }
 
@@ -799,7 +825,13 @@ public class TypeMappingService
                 if (!string.IsNullOrEmpty(javaPackage)
                     && !javaPackage.StartsWith("dotnet.System.", StringComparison.Ordinal))
                 {
-                    AddImport($"{javaPackage}.{name}");
+                    // 源内定义类型登记为 source-defined：其包可能是未映射
+                    // System.* 命名空间的恒等形态（package System.Text 的
+                    // SegmentStringBuilder），发射期据此豁免 System.* 导入丢弃。
+                    if (IsDefinedInSource(typeSymbol))
+                        AddSourceDefinedImport($"{javaPackage}.{name}");
+                    else
+                        AddImport($"{javaPackage}.{name}");
                 }
             }
         }

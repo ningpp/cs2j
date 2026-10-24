@@ -77,9 +77,17 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
         // type transformers are not yet reflected in compilation.Imports at that point.
         foreach (var import in _context.ImportedTypes)
         {
-            if (!compilation.Imports.Any(i => i.Name == import))
+            var existing = compilation.Imports.FirstOrDefault(i => i.Name == import);
+            if (existing == null)
             {
-                compilation.Imports.Add(new JavaImport(import));
+                compilation.Imports.Add(new JavaImport(import)
+                {
+                    IsSourceDefined = _context.SourceDefinedImports.Contains(import),
+                });
+            }
+            else if (_context.SourceDefinedImports.Contains(import))
+            {
+                existing.IsSourceDefined = true;
             }
         }
 
@@ -135,9 +143,17 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
         // 添加类型映射所需的导入
         foreach (var import in _context.ImportedTypes)
         {
-            if (!compilation.Imports.Any(i => i.Name == import))
+            var existing = compilation.Imports.FirstOrDefault(i => i.Name == import);
+            if (existing == null)
             {
-                compilation.Imports.Add(new JavaImport(import));
+                compilation.Imports.Add(new JavaImport(import)
+                {
+                    IsSourceDefined = _context.SourceDefinedImports.Contains(import),
+                });
+            }
+            else if (_context.SourceDefinedImports.Contains(import))
+            {
+                existing.IsSourceDefined = true;
             }
         }
     }
