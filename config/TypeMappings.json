@@ -3038,7 +3038,7 @@
             "csharp": "System.IO.StringReader",
             "java": "StringReader",
             "imports": [
-                "java.io.StringReader"
+                "io.github.ningpp.compat.StringReader"
             ]
         },
         {
