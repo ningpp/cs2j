@@ -279,12 +279,23 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Integer.MAX_VALUE — Java primitives cannot be dereferenced.
         if (context.GetSymbolInfo(node).Symbol is IFieldSymbol { IsStatic: true } primitiveField)
         {
-            // compat Decimal keeps its extremes under Java-style names.
-            if (primitiveField.ContainingType?.SpecialType == SpecialType.System_Decimal
-                && primitiveField.Name is "MaxValue" or "MinValue")
+            // compat Decimal keeps its constants under Java-style names.
+            if (primitiveField.ContainingType?.SpecialType == SpecialType.System_Decimal)
             {
-                context.AddImport("io.github.ningpp.compat.Decimal");
-                return $"Decimal.{(primitiveField.Name == "MaxValue" ? "MAX_VALUE" : "MIN_VALUE")}";
+                var decimalConstant = primitiveField.Name switch
+                {
+                    "MaxValue" => "Decimal.MAX_VALUE",
+                    "MinValue" => "Decimal.MIN_VALUE",
+                    "Zero" => "Decimal.ZERO",
+                    "One" => "Decimal.ONE",
+                    "MinusOne" => "Decimal.MINUS_ONE",
+                    _ => null,
+                };
+                if (decimalConstant != null)
+                {
+                    context.AddImport("io.github.ningpp.compat.Decimal");
+                    return decimalConstant;
+                }
             }
             if (TryRenderPrimitiveStaticField(
                     primitiveField, context.GetTypeInfo(node).ConvertedType, out var primitiveFieldText))
