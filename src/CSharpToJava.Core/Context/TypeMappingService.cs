@@ -795,7 +795,20 @@ public class TypeMappingService
         // → CSharpStack), the type name doesn't change but the config entry
         // may still carry imports that must be registered.
         if (!IsDefinedInSource(typeSymbol))
+        {
             AddImportsForType(configKeySimple);
+            // SpecialType（decimal/DateTime 等）的 FullyQualifiedFormat 渲染为
+            // C# 关键字（"decimal"），上面的 configKeySimple 探测不到
+            // System.Decimal 的类型级映射；导入登记同样需要 "System."+名字
+            // 兜底——否则方法返回类型 decimal → Decimal 不登记 compat 导入
+            // （真实链 dotnet-xml XmlAsyncCheckReader 6 处找不到符号 类 Decimal）。
+            if (ns == "System"
+                && !_typeMappings.HasTypeMapping(configKeySimple)
+                && _typeMappings.HasTypeMapping($"System.{name}"))
+            {
+                AddImportsForType($"System.{name}");
+            }
+        }
         if (_typeMappings.HasTypeMapping(configKeySimple))
             return MapSimpleTypeName(mapped);
 
