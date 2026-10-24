@@ -7,6 +7,8 @@ namespace CSharpToJava.Core.MemberDesugar.Properties;
 /// <summary>
 /// PD-6/PD-7/PD-8/PD-9：使用点改写 + 声明展开插入（单遍，绑定一律取原始 SemanticModel）。
 /// 读/写/复合/++--/方法组/base/?.、构造器直写后备字段、对象初始化器临时提升、nameof 字面量化。
+/// 值消费赋值（if 条件比较、方法实参、局部初始化、return 等）提升为宿主语句前的
+/// `var __t = rhs; set_P(__t);` 双语句，值位改用临时（setter 返回 void 不能占值位）。
 /// </summary>
 internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
 {
@@ -24,6 +26,11 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
     private readonly List<MemberDesugarDiagnostic> _diagnostics;
     private readonly string _filePath;
     private int _tempCounter;
+    // 值消费赋值提升收集器：宿主语句（if/switch/return/实参语句/局部声明等）改写期间
+    // 非 null；VisitAssignmentExpression 把被消费的属性赋值降为「临时声明 + setter
+    // 调用」两条语句追加于此，表达式位替换为临时标识符。嵌套语句宿主（宿主表达式中
+    // lambda 块内的语句）经 save/restore 自管，作用域不外溢。
+    private List<StatementSyntax>? _hoisted;
 
     public PropertyUseSiteRewriter(
         SemanticModel model,
@@ -307,7 +314,8 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
             return chainBlock;
         }
 
-        return base.VisitExpressionStatement(node);
+        // PD-6 值消费泛化：`M(a.P = v);` / `x = (a.P = v) + 1;` 等深层消费形态。
+        return HoistIfNeeded(node, () => base.VisitExpressionStatement(node), node.Expression);
     }
 
     private bool LiftChainedPropertyAssignment(
@@ -400,6 +408,18 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
                 .WithTrailingTrivia(node.GetTrailingTrivia())
                 .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
         }
+
+        // PD-6 值消费泛化：`var x = (a.P = v) + 1;` 局部初始化位。using-var/await
+        // 形态的作用域与求值时机特殊，保守不走提升。
+        if (node.UsingKeyword.IsKind(SyntaxKind.None)
+            && node.AwaitKeyword.IsKind(SyntaxKind.None))
+        {
+            var slots = node.Declaration.Variables
+                .Select(v => v.Initializer?.Value)
+                .ToArray();
+            return HoistIfNeeded(
+                node, () => base.VisitLocalDeclarationStatement(node), slots);
+        }
         return base.VisitLocalDeclarationStatement(node);
     }
 
@@ -441,7 +461,35 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
                 .WithTrailingTrivia(node.GetTrailingTrivia())
                 .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
         }
-        return base.VisitReturnStatement(node);
+
+        // PD-6 值消费泛化：`return M(a.P = v);` 等深层消费形态。
+        return HoistIfNeeded(node, () => base.VisitReturnStatement(node), node.Expression);
+    }
+
+    // ---- 值消费宿主语句（PD-6 值上下文泛化）：表达式槽先行提升 ----
+
+    public override SyntaxNode? VisitIfStatement(IfStatementSyntax node)
+        => HoistIfNeeded(node, () => base.VisitIfStatement(node), node.Condition);
+
+    public override SyntaxNode? VisitSwitchStatement(SwitchStatementSyntax node)
+        => HoistIfNeeded(node, () => base.VisitSwitchStatement(node), node.Expression);
+
+    public override SyntaxNode? VisitThrowStatement(ThrowStatementSyntax node)
+        => HoistIfNeeded(node, () => base.VisitThrowStatement(node), node.Expression);
+
+    public override SyntaxNode? VisitYieldStatement(YieldStatementSyntax node)
+        => HoistIfNeeded(node, () => base.VisitYieldStatement(node), node.Expression);
+
+    public override SyntaxNode? VisitLockStatement(LockStatementSyntax node)
+        => HoistIfNeeded(node, () => base.VisitLockStatement(node), node.Expression);
+
+    public override SyntaxNode? VisitUsingStatement(UsingStatementSyntax node)
+    {
+        var slots = new List<ExpressionSyntax?> { node.Expression };
+        if (node.Declaration != null)
+            slots.AddRange(node.Declaration.Variables.Select(v => v.Initializer?.Value));
+        return HoistIfNeeded(
+            node, () => base.VisitUsingStatement(node), slots.ToArray());
     }
 
     // ---- 箭头体提升（PD-6 值上下文延伸）----
@@ -575,6 +623,130 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
             SyntaxFactory.ReturnStatement(tempIdent.WithLeadingTrivia(SyntaxFactory.Space)));
     }
 
+    // ---- 值消费赋值提升（PD-6 值上下文泛化）----
+    // 简单属性赋值的值被外层表达式消费时（if 条件比较、方法实参、局部初始化、
+    // return、一元/二元操作数、字符串插值等），void setter 调用不能占据值位
+    // （真实链 XPathDocumentBuilder.cs CS0019）。宿主语句改写前先扫描表达式槽，
+    // 命中即进入提升模式：改写期间被消费的赋值降为
+    // `var __t = rhs; recv.set_P(__t);` 两条语句（追加进 _hoisted，由内层站点
+    // 先后自然保序），表达式位替换为临时；产物块挂 RewriteAnnotation 供
+    // VisitBlock/SwitchSection 拆开拼接，提升语句最终落在宿主语句之前。
+    // 求值顺序：rhs 先求值入临时（RHS 内更深的站点在本次 Visit 中先行追加），
+    // 再 setter，再由外层消费临时——与原赋值表达式的值语义一致。
+
+    private SyntaxNode? HoistIfNeeded(
+        StatementSyntax node, Func<SyntaxNode?> visit, params ExpressionSyntax?[] slots)
+    {
+        if (!HasConsumedSite(slots))
+            return visit();
+
+        var saved = _hoisted;
+        _hoisted = new List<StatementSyntax>();
+        var visited = visit();
+        var collected = _hoisted;
+        _hoisted = saved;
+
+        if (collected.Count == 0 || visited is not StatementSyntax visitedStatement)
+            return visited;
+        return Block(collected.Append(visitedStatement))
+            .WithLeadingTrivia(node.GetLeadingTrivia())
+            .WithTrailingTrivia(node.GetTrailingTrivia())
+            .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+    }
+
+    /// <summary>语句的表达式槽中是否存在可提升的「值被消费的属性简单赋值」站点。
+    /// 只扫原始在树节点（TryGetPlan 的语义查询要求），且不进入匿名函数体——
+    /// 那是独立上下文（块体语句各自为宿主，表达式体直接形态另有处理器）。</summary>
+    private bool HasConsumedSite(params ExpressionSyntax?[] slots)
+    {
+        foreach (var slot in slots)
+        {
+            if (slot == null) continue;
+            foreach (var candidate in slot.DescendantNodesAndSelf(
+                         n => n is not AnonymousFunctionExpressionSyntax))
+            {
+                if (candidate is AssignmentExpressionSyntax assignment
+                    && IsConsumedValueSite(assignment)
+                    && TryGetPlan(assignment.Left, out var plan)
+                    && plan.HasSetter)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>简单赋值的值是否被外层消费且处于无条件求值路径（可安全提升到宿主
+    /// 语句之前）。纯语法/父链判定；属性规划由调用方检查。</summary>
+    private static bool IsConsumedValueSite(AssignmentExpressionSyntax node)
+    {
+        if (!node.IsKind(SyntaxKind.SimpleAssignmentExpression))
+            return false;
+
+        // ① 值丢弃位/独立上下文：站点剥括号后的直接父。
+        var probe = (SyntaxNode)node;
+        while (probe.Parent is ParenthesizedExpressionSyntax parenthesized)
+            probe = parenthesized;
+        switch (probe.Parent)
+        {
+            // 语句位（含括号包裹）：值未被消费，常规 setter 调用路径。
+            case ExpressionStatementSyntax:
+            // lambda 表达式体：独立上下文（直接形态由箭头/lambda 处理器接管）。
+            case AnonymousFunctionExpressionSyntax:
+            // 对象/集合初始化器：LiftCreation/链式提升的领域。
+            case InitializerExpressionSyntax:
+                return false;
+            // 字段/参数等成员级初始化：非语句上下文，无处提升，保守跳过。
+            case EqualsValueClauseSyntax equals
+                when equals.Parent is VariableDeclaratorSyntax declarator
+                     && declarator.Parent is VariableDeclarationSyntax declaration
+                     && declaration.Parent is not LocalDeclarationStatementSyntax:
+                return false;
+        }
+
+        // ② 无条件路径：站点到宿主语句之间不得出现条件求值槽（提升会把未选中
+        // 分支的副作用提前），也不得越出语句边界（lambda 体/成员级上下文）。
+        for (var current = (SyntaxNode?)node; ; current = current.Parent)
+        {
+            var parent = current!.Parent;
+            if (parent == null)
+                return false;
+            switch (parent)
+            {
+                case StatementSyntax statement:
+                    // 仅认可安全提升的宿主语句；while/do/for 条件每轮重求值，
+                    // 提升会改变语义，保持原状（分析期闸门兜底）。
+                    return IsHoistableHostStatement(statement);
+                case AnonymousFunctionExpressionSyntax:
+                case InitializerExpressionSyntax:
+                case SwitchExpressionArmSyntax:
+                    return false;
+                case BinaryExpressionSyntax binary
+                    when (binary.IsKind(SyntaxKind.LogicalAndExpression)
+                          || binary.IsKind(SyntaxKind.LogicalOrExpression)
+                          || binary.IsKind(SyntaxKind.CoalesceExpression))
+                         && ReferenceEquals(binary.Right, current):
+                    return false;
+                case ConditionalExpressionSyntax conditional
+                    when ReferenceEquals(conditional.WhenTrue, current)
+                         || ReferenceEquals(conditional.WhenFalse, current):
+                    return false;
+                case ConditionalAccessExpressionSyntax conditionalAccess
+                    when ReferenceEquals(conditionalAccess.WhenNotNull, current):
+                    return false;
+            }
+        }
+    }
+
+    /// <summary>可作为提升宿主的语句：其表达式槽只求值一次，提升到语句之前不改语义。</summary>
+    private static bool IsHoistableHostStatement(StatementSyntax statement) => statement switch
+    {
+        ExpressionStatementSyntax or LocalDeclarationStatementSyntax
+            or IfStatementSyntax or SwitchStatementSyntax or ReturnStatementSyntax
+            or ThrowStatementSyntax or YieldStatementSyntax or LockStatementSyntax
+            or UsingStatementSyntax => true,
+        _ => false,
+    };
+
     // ---- 赋值（PD-6/PD-7）----
 
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
@@ -596,6 +768,36 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
                 _stats.WriteSitesRewritten++;
                 return BuildFieldStore(node.Left, plan.BackingFieldName, right);
             }
+
+            // PD-6 值消费泛化：赋值表达式的值被外层消费（if 条件比较、方法实参、
+            // 局部初始化等）时，void setter 调用不能占值位（CS0019）。提升模式由
+            // 宿主语句开启：rhs 已 Visit（更深的站点先行入列，求值顺序保序），
+            // 此处追加本站点的临时声明 + setter 调用，值位改用临时。接收者在
+            // setter 调用内求值——与链式/复合提升同约定（接收者与 rhs 的求值
+            // 顺序可能与原式互换，仅副作用顺序偏差，可接受）。
+            if (_hoisted != null && IsConsumedValueSite(node))
+            {
+                _stats.WriteSitesRewritten++;
+                var temp = TempName("pval");
+                var tempIdent = Ident(temp);
+                // null/default 字面量无法用 var 推断（CS0815）：显式属性类型声明。
+                StatementSyntax tempDecl;
+                if (UnwrapParentheses(node.Right) is LiteralExpressionSyntax literal
+                    && (literal.IsKind(SyntaxKind.NullLiteralExpression)
+                        || literal.IsKind(SyntaxKind.DefaultLiteralExpression)))
+                {
+                    tempDecl = DeclVarTyped(NullTempTypeDisplay((node, plan)), temp, right);
+                }
+                else
+                {
+                    tempDecl = DeclVar(temp, right);
+                }
+                _hoisted.Add(tempDecl);
+                _hoisted.Add(ExprStmt(BuildSetterCall(node.Left, plan, tempIdent)));
+                return tempIdent
+                    .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+            }
+
             _stats.WriteSitesRewritten++;
             return BuildSetterCall(node.Left, plan, right);
         }
