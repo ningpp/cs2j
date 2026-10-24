@@ -85,4 +85,33 @@ public sealed class MemberwiseCloneRewriter : JavaSyntaxRewriter
             node.Code = rewritten;
         return node;
     }
+
+    /// <summary>
+    /// 强转/复杂表达式语境下的调用以 RawExpression 落地（真实链
+    /// <c>(XmlSchemaAttribute)(memberwiseClone())</c>——cast 表达式整体走 raw 文本，
+    /// 既不是 <see cref="JavaMethodCallExpression"/> 也不在 RawStatement 里），
+    /// 与语句位同规则改写，否则 javac 找不到符号 方法 memberwiseClone()。
+    /// </summary>
+    public override JavaExpression VisitExpression(JavaExpression node)
+    {
+        node = base.VisitExpression(node);
+        if (node is JavaRawExpression raw
+            && !string.IsNullOrEmpty(raw.Code)
+            && (raw.Code.Contains("memberwiseClone", StringComparison.Ordinal)
+                || raw.Code.Contains("MemberwiseClone", StringComparison.Ordinal)))
+        {
+            var rewritten = RawCallPattern.Replace(raw.Code, match =>
+            {
+                _needsHelperImport = true;
+                _rewriteCount++;
+                var target = match.Groups["target"].Success
+                    ? match.Groups["target"].Value[..^1]
+                    : "this";
+                return $"{HelperTarget}.{HelperMethod}({target})";
+            });
+            if (rewritten != raw.Code)
+                raw.Code = rewritten;
+        }
+        return node;
+    }
 }
