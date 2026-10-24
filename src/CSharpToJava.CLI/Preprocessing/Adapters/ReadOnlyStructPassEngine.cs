@@ -1,6 +1,7 @@
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Formatting;
 
 namespace CSharpToJava.CLI.Preprocessing.Adapters;
 
@@ -23,6 +24,28 @@ internal static class ReadOnlyStructPassEngine
     private static List<MetadataReference>? _sharedBasicReferences;
     private static List<MetadataReference> BasicReferences()
         => _sharedBasicReferences ??= ProjectUnsignedTypePreprocessor.GetBasicReferences();
+
+    /// <summary>
+    /// Adhoc workspace shared by all cross-file passes for <see cref="Formatter.Format"/>:
+    /// cross-file rewriters create new syntax nodes (via SyntaxFactory) that carry no
+    /// trivia (no indentation, no newlines); writing such a tree directly via
+    /// <c>ToFullString()</c> produces unformatted source (e.g.
+    /// <c>var__cs2jOld_Field=new List&lt;T&gt;(cap);receiver=receiver.With_Field(__cs2jOld_Field);</c>).
+    /// The shared workspace is stateless and thread-safe across passes.
+    /// </summary>
+    private static readonly AdhocWorkspace FormattingWorkspace = new();
+
+    /// <summary>
+    /// Writes <paramref name="root"/> to <paramref name="file"/> after a round of
+    /// <see cref="Formatter.Format"/>: cross-file rewrites generate trivia-less
+    /// syntax nodes that the formatter normalises back to properly indented,
+    /// line-separated source.
+    /// </summary>
+    private static void WriteFormatted(string file, SyntaxNode root)
+    {
+        var formatted = Formatter.Format(root, FormattingWorkspace);
+        File.WriteAllText(file, formatted.ToFullString(), new System.Text.UTF8Encoding(false));
+    }
 
     /// <summary>
     /// Per-run cache of parsed output trees shared by every cross-file pass. Each
@@ -269,7 +292,7 @@ internal static class ReadOnlyStructPassEngine
             var newRoot = updater.Visit(root);
             if (newRoot != null && !ReferenceEquals(newRoot, root) && newRoot.ToFullString() != root.ToFullString())
             {
-                File.WriteAllText(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
+                WriteFormatted(file, newRoot);
             }
         });
         return Task.CompletedTask;
@@ -318,7 +341,7 @@ internal static class ReadOnlyStructPassEngine
             var newRoot = ConstructorNormalizer.Normalize(root);
             if (newRoot.ToFullString() != root.ToFullString())
             {
-                File.WriteAllText(outputFile, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
+                WriteFormatted(outputFile, newRoot);
             }
         });
         await Task.CompletedTask;
@@ -523,7 +546,7 @@ internal static class ReadOnlyStructPassEngine
             var newRoot = rewriter.Visit(root);
             if (newRoot != null && !ReferenceEquals(newRoot, root) && newRoot.ToFullString() != root.ToFullString())
             {
-                File.WriteAllText(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
+                WriteFormatted(file, newRoot);
             }
         });
         return Task.CompletedTask;
@@ -672,7 +695,7 @@ internal static class ReadOnlyStructPassEngine
             var newRoot = rewriter.Visit(root);
             if (newRoot != null && !ReferenceEquals(newRoot, root) && newRoot.ToFullString() != root.ToFullString())
             {
-                File.WriteAllText(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
+                WriteFormatted(file, newRoot);
             }
         });
         return Task.CompletedTask;
@@ -1408,7 +1431,7 @@ internal static class ReadOnlyStructPassEngine
             var newRoot = rewriter.Visit(root);
             if (newRoot != null && !ReferenceEquals(newRoot, root) && newRoot.ToFullString() != root.ToFullString())
             {
-                File.WriteAllText(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
+                WriteFormatted(file, newRoot);
             }
         });
     }
@@ -1592,7 +1615,7 @@ internal static class ReadOnlyStructPassEngine
             var newRoot = rewriter.Visit(root);
             if (newRoot != null && !ReferenceEquals(newRoot, root) && newRoot.ToFullString() != root.ToFullString())
             {
-                File.WriteAllText(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
+                WriteFormatted(file, newRoot);
             }
         });
     }
@@ -1910,7 +1933,7 @@ internal static class ReadOnlyStructPassEngine
             newRoot = explicitWidener.Visit(newRoot);
             if (newRoot != null && !ReferenceEquals(newRoot, root) && newRoot.ToFullString() != root.ToFullString())
             {
-                File.WriteAllText(file, newRoot.ToFullString(), new System.Text.UTF8Encoding(false));
+                WriteFormatted(file, newRoot);
             }
         });
     }

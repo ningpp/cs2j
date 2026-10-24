@@ -69,6 +69,6 @@ public class ReadOnlyStructPreprocessorCallSiteTests
             migratedStructs, request);
 
         var updated = await File.ReadAllTextAsync(Path.Combine(intermediateRoot, "User.cs"));
-        Assert.Contains("pathSegments=pathSegments.Add(", updated);
+        Assert.Contains("pathSegments = pathSegments.Add(", updated);
     }
 }
