@@ -654,6 +654,19 @@ public class ConversionContext
         ImportedTypes.Add(typeName);
     }
 
+    /// <summary>
+    /// 登记一个指向<b>源内定义类型</b>的导入：与普通导入同入 <see cref="ImportedTypes"/>，
+    /// 并同步标记 <see cref="SourceDefinedImports"/>（发射期据此豁免大写 System.*
+    /// 恒等包导入的丢弃——如静态接收者 <c>SegmentStringBuilder.create()</c> 的
+    /// import System.Text.SegmentStringBuilder）。
+    /// </summary>
+    public void AddSourceDefinedImport(string typeName)
+    {
+        AddImport(typeName);
+        if (ImportedTypes.Contains(typeName))
+            SourceDefinedImports.Add(typeName);
+    }
+
     private static bool IsImplicitJavaLangType(string typeName)
     {
         if (!typeName.StartsWith("java.lang.", StringComparison.Ordinal))

@@ -65,16 +65,28 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // Bare type identifiers used as static-member receivers need the same explicit
         // project-package import as type references: `dotnet.system.*` and the compat
         // wildcard otherwise both provide e.g. UriKind, which javac rejects as ambiguous.
+        // 源内定义类型的接收者同理必须登记（source-defined）：其包可能是未映射
+        // System.* 命名空间的恒等形态（真实链 Regex.Cache 的
+        // SegmentStringBuilder.Create() → import System.Text.SegmentStringBuilder，
+        // 否则 mvn 找不到符号 变量 SegmentStringBuilder）。BCL 接收者
+        // （System.Math 等）不登记——残留导入会被发射期丢弃。
         if (symbol is INamedTypeSymbol receiverType
             && receiverType.ContainingType == null)
         {
             var typeNamespace = receiverType.ContainingNamespace?.ToDisplayString();
             if (typeNamespace is not null
-                && typeNamespace.StartsWith("dotnet.", StringComparison.Ordinal)
                 && !string.Equals(typeNamespace, context.CurrentNamespace, StringComparison.Ordinal))
             {
-                context.AddImport(
-                    $"{context.NamespaceToPackage(typeNamespace)}.{context.GetJavaTopLevelTypeName(receiverType)}");
+                if (typeNamespace.StartsWith("dotnet.", StringComparison.Ordinal))
+                {
+                    context.AddImport(
+                        $"{context.NamespaceToPackage(typeNamespace)}.{context.GetJavaTopLevelTypeName(receiverType)}");
+                }
+                else if (receiverType.Locations.Any(static loc => loc.IsInSource))
+                {
+                    context.AddSourceDefinedImport(
+                        $"{context.NamespaceToPackage(typeNamespace)}.{context.GetJavaTopLevelTypeName(receiverType)}");
+                }
             }
         }
 
