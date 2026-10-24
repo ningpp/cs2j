@@ -327,6 +327,10 @@ public static class TypeGroupResolver
                             });
                     }
 
+                    // 标准种子与映射登记的 java.util.function.* 单类型导入在
+                    // 同名源内类型存在时遮蔽后者，统一在组装末尾丢弃。
+                    DropJdkFunctionImportsShadowingSourceTypes(javaCompilation, context.TypeMapper);
+
                     javaCompilation.TypeDeclarations.Add(javaType);
 
                     // IR-level post-processing
@@ -586,6 +590,43 @@ public static class TypeGroupResolver
     }
 
     /// <summary>
+    /// java.util.function.* 的标准单类型导入清单（见 <see cref="AddStandardJdkImports"/>）。
+    /// 这些名字会被映射面（Func→Function 等）与源内类型同时争用。
+    /// </summary>
+    private static readonly string[] StandardJdkFunctionImports =
+    {
+        "java.util.function.Function",
+        "java.util.function.BiFunction",
+        "java.util.function.Consumer",
+        "java.util.function.BiConsumer",
+        "java.util.function.Predicate",
+        "java.util.function.BiPredicate",
+        "java.util.function.Supplier",
+        "java.util.function.UnaryOperator",
+        "java.util.function.BinaryOperator",
+    };
+
+    /// <summary>
+    /// 当前命名空间声明了同简名顶级类型时，java.util.function.* 单类型导入会
+    /// 遮蔽它（JLS：单类型导入优先于同包其他编译单元声明的类型）。真实链
+    /// dotnet-xml 的 MS.Internal.Xml.XPath 包声明 Function 类，凡引用
+    /// Function.FunctionType 的文件全部报「找不到符号 类 FunctionType 位置:
+    /// 接口 java.util.function.Function」。丢弃导入后简单名/限定名引用自然
+    /// 解析到同包源内类型；文件若同时使用映射面 Function&lt;T,R&gt;（该包现状：
+    /// 无）则属真二义，留给 javac 暴露。
+    /// </summary>
+    public static void DropJdkFunctionImportsShadowingSourceTypes(
+        JavaCompilationUnit javaCompilation, Context.TypeMappingService typeMapper)
+    {
+        javaCompilation.Imports.RemoveAll(import =>
+            !import.IsWildcard
+            && !import.IsStatic
+            && StandardJdkFunctionImports.Contains(import.Name, StringComparer.Ordinal)
+            && typeMapper.CurrentNamespaceDeclaresType(
+                import.Name[(import.Name.LastIndexOf('.') + 1)..]));
+    }
+
+    /// <summary>
     /// Converts an enum type group using EnumTransformer.
     /// </summary>
     public static ConversionResult? ConvertEnumTypeGroup(
@@ -632,6 +673,10 @@ public static class TypeGroupResolver
                                 IsSourceDefined = context.SourceDefinedImports.Contains(imp),
                             });
                     }
+
+                    // 标准种子与映射登记的 java.util.function.* 单类型导入在
+                    // 同名源内类型存在时遮蔽后者，统一在组装末尾丢弃。
+                    DropJdkFunctionImportsShadowingSourceTypes(javaCompilation, context.TypeMapper);
 
                     javaCompilation.TypeDeclarations.Add(javaEnum);
 
@@ -716,6 +761,10 @@ public static class TypeGroupResolver
                                 IsSourceDefined = context.SourceDefinedImports.Contains(imp),
                             });
                     }
+
+                    // 标准种子与映射登记的 java.util.function.* 单类型导入在
+                    // 同名源内类型存在时遮蔽后者，统一在组装末尾丢弃。
+                    DropJdkFunctionImportsShadowingSourceTypes(javaCompilation, context.TypeMapper);
 
                     javaCompilation.TypeDeclarations.Add(javaInterface);
 

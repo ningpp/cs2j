@@ -1247,6 +1247,15 @@ public class TypeMappingService
         return ns?.GetTypeMembers(typeName).Length > 0;
     }
 
+    /// <summary>
+    /// 当前正在转换的 C# 命名空间是否声明了指定简名的顶级类型。发射期据此
+    /// 跳过同简名的 JDK 单类型导入（java.util.function.Function 等）：JLS 中
+    /// 单类型导入优先于同包其他编译单元的类型，盲目种子导入会遮蔽源内同名
+    /// 类型（MS.Internal.Xml.XPath.Function 的 Function.FunctionType 引用）。
+    /// </summary>
+    public bool CurrentNamespaceDeclaresType(string simpleName)
+        => NamespaceContainsType(_getCurrentNamespace() ?? string.Empty, simpleName);
+
     private static string TrimGlobalPrefix(string name)
         => name.StartsWith("global::", StringComparison.Ordinal) ? name["global::".Length..] : name;
 
