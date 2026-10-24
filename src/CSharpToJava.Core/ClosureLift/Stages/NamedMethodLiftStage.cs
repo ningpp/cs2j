@@ -158,6 +158,16 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
     /// Appends planned methods along the type/namespace member spine. Only the
     /// member lists that gain methods are rebuilt (WithMembers) — every other
     /// node instance in the tree is preserved untouched.
+    /// <para>
+    /// The descent ALWAYS walks the ORIGINAL member list of each type, never a
+    /// list this walk just extended: <see cref="WithMembers"/> rebuilds the
+    /// whole member list and hands every untouched nested type a FRESH red node
+    /// instance, so the identity-keyed <paramref name="methodsByHost"/> lookup
+    /// would silently miss for nested hosts of any host that gained methods
+    /// first (their lifted static-lambda methods dropped). Appended methods are
+    /// non-type members, so attaching them AFTER the recursion preserves the
+    /// original end-of-member-list placement without being walked.
+    /// </para>
     /// </summary>
     private static SyntaxList<MemberDeclarationSyntax> AppendMethods(
         SyntaxList<MemberDeclarationSyntax> members,
@@ -173,12 +183,11 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
             if (member is TypeDeclarationSyntax type)
             {
                 var newType = type;
+                var nestedMembers = AppendMethods(type.Members, methodsByHost);
                 if (methodsByHost.TryGetValue(type, out var methods))
-                    newType = type.WithMembers(type.Members.AddRange(methods));
-
-                var nestedMembers = AppendMethods(newType.Members, methodsByHost);
-                if (nestedMembers != newType.Members)
-                    newType = newType.WithMembers(nestedMembers);
+                    nestedMembers = nestedMembers.AddRange(methods);
+                if (nestedMembers != type.Members)
+                    newType = type.WithMembers(nestedMembers);
 
                 if (!ReferenceEquals(newType, type))
                     replacement = newType;

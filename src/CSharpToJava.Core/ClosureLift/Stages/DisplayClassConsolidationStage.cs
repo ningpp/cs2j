@@ -497,6 +497,18 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
     /// parent class; untouched positions keep identity, so
     /// DelegateSiteRewriteStage's SpanStart anchors resolve as frozen.
     /// <para>
+    /// The recursive descent ALWAYS walks the ORIGINAL member list of each type,
+    /// never a list this walk just extended: <see cref="WithMembers"/> rebuilds
+    /// the whole member list and hands every untouched nested type a FRESH red
+    /// node instance, so the identity-keyed lookups below
+    /// (<c>newClassesByHost</c>, <c>modelHostByReceivedHost</c>) would silently
+    /// miss for nested hosts of any host that gained members first (declaration
+    /// dropped while the site rewrite still lands). Appended members are applied
+    /// to the recursion result afterwards; freshly appended display classes are
+    /// walked in a scoped pass with the same (host, chain) context — their edits
+    /// key on annotations/chains, never on node identity.
+    /// </para>
+    /// <para>
     /// Edit dictionaries are scoped by <c>(host type, holder chain)</c>: the
     /// same local holder name is legal in different host types (and at
     /// different nesting depths), so the walk tracks the enclosing non-holder
@@ -525,6 +537,14 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
             {
                 var newType = type;
                 var holderName = GetHolderClassName(type);
+                // Descend into the ORIGINAL members with the context they live
+                // in: holder interiors keep the enclosing host + holder chain,
+                // a non-annotated type is itself a host boundary for its members.
+                var nestedMembers = AppendDisplayMembers(
+                    type.Members, model, modelHostByReceivedHost, newClassesByHost,
+                    nestedClassesByParent, classEdits,
+                    holderName != null ? enclosingHost : HostNodeOf(type),
+                    holderName != null ? chain + "/" + holderName : string.Empty);
 
                 if (holderName != null)
                 {
@@ -535,46 +555,38 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
                     {
                         // Edits target THIS holder (keyed by the chain including
                         // its own name); children attach into THIS holder (keyed
-                        // by the chain leading to it).
+                        // by the chain leading to it). Edits for THIS holder and
+                        // children attaching INTO it share the same key: host +
+                        // this holder's self chain.
                         var selfChain = chain.Length == 0
                             ? "/" + holderName
                             : chain + "/" + holderName;
                         var hostTypeKey = HolderPlanner.HostTypeKey(model, enclosingHost);
-                        // Edits for THIS holder and children attaching INTO it
-                        // share the same key: host + this holder's self chain.
                         if (classEdits.TryGetValue((hostTypeKey, selfChain), out var edits))
-                            newType = newType.WithMembers(newType.Members.AddRange(edits));
+                            nestedMembers = nestedMembers.AddRange(edits);
 
-                        // Children are attached before the recursive descent so
-                        // grandchildren find their freshly attached parent nodes.
+                        // Fresh children are walked in a scoped pass so
+                        // grandchildren still find their freshly attached parent
+                        // nodes (annotation-keyed edits only, no identity keys).
                         if (nestedClassesByParent.TryGetValue((hostTypeKey, selfChain), out var nested))
-                            newType = newType.WithMembers(newType.Members.AddRange(nested));
+                            nestedMembers = nestedMembers.AddRange(WalkFreshClasses(
+                                nested, model, modelHostByReceivedHost, newClassesByHost,
+                                nestedClassesByParent, classEdits, enclosingHost, selfChain));
                     }
-
-                    var childChain = chain.Length == 0
-                        ? "/" + holderName
-                        : chain + "/" + holderName;
-                    var nestedMembers = AppendDisplayMembers(
-                        newType.Members, model, modelHostByReceivedHost, newClassesByHost,
-                        nestedClassesByParent, classEdits, enclosingHost, childChain);
-                    if (nestedMembers != newType.Members)
-                        newType = newType.WithMembers(nestedMembers);
                 }
                 else
                 {
                     // Non-annotated type = host boundary. Fresh top-level
                     // display classes key off the received node; its model
                     // symbol scopes holder edits encountered while descending.
-                    var hostNode = modelHostByReceivedHost.TryGetValue(type, out var host) ? host : null;
                     if (newClassesByHost.TryGetValue(type, out var classes))
-                        newType = newType.WithMembers(newType.Members.AddRange(classes));
-
-                    var nestedMembers = AppendDisplayMembers(
-                        newType.Members, model, modelHostByReceivedHost, newClassesByHost,
-                        nestedClassesByParent, classEdits, hostNode, string.Empty);
-                    if (nestedMembers != newType.Members)
-                        newType = newType.WithMembers(nestedMembers);
+                        nestedMembers = nestedMembers.AddRange(WalkFreshClasses(
+                            classes, model, modelHostByReceivedHost, newClassesByHost,
+                            nestedClassesByParent, classEdits, HostNodeOf(type), string.Empty));
                 }
+
+                if (nestedMembers != type.Members)
+                    newType = type.WithMembers(nestedMembers);
 
                 if (!ReferenceEquals(newType, type))
                     replacement = newType;
@@ -599,7 +611,33 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
         }
 
         return buffer == null ? members : SyntaxFactory.List(buffer);
+
+        // Model host of a received host node (null when unpaired).
+        TypeDeclarationSyntax? HostNodeOf(TypeDeclarationSyntax receivedType)
+            => modelHostByReceivedHost.TryGetValue(receivedType, out var host) ? host : null;
     }
+
+    /// <summary>
+    /// Scoped walk over freshly appended display classes: attaches THEIR nested
+    /// children (grandchildren of the host, D4) in the same
+    /// <c>(enclosing host, chain)</c> context the spine walk would have used.
+    /// The spine walk cannot visit them through its own recursion without
+    /// rebuilding the host member list first, which would destroy the red-node
+    /// identities its identity-keyed lookups depend on.
+    /// </summary>
+    private static SyntaxList<MemberDeclarationSyntax> WalkFreshClasses(
+        List<ClassDeclarationSyntax> classes,
+        SemanticModel model,
+        Dictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> modelHostByReceivedHost,
+        Dictionary<TypeDeclarationSyntax, List<ClassDeclarationSyntax>> newClassesByHost,
+        Dictionary<(string HostTypeKey, string Chain), List<ClassDeclarationSyntax>> nestedClassesByParent,
+        Dictionary<(string HostTypeKey, string Chain), List<MemberDeclarationSyntax>> classEdits,
+        TypeDeclarationSyntax? enclosingHost,
+        string chain)
+        => AppendDisplayMembers(
+            SyntaxFactory.List<MemberDeclarationSyntax>(classes),
+            model, modelHostByReceivedHost, newClassesByHost,
+            nestedClassesByParent, classEdits, enclosingHost, chain);
 
     /// <summary>
     /// Chain identifying the holder itself (its parent path + its own class
