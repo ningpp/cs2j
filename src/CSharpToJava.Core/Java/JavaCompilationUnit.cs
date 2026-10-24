@@ -184,6 +184,17 @@ public class JavaCompilationUnit : JavaSyntaxNode
 
             if (!import.IsWildcard && !import.IsStatic)
             {
+                // C# 命名空间残留：using System.* → import System.*（大写 S）。
+                // 本仓库的 Java 包面从不使用大写 System 顶级段（BCL stub 是小写
+                // dotnet.system.*，项目包是 dotnet.* / MS.* / Cs2jTuples.* 等），
+                // 此类导入必指向不存在的包（真实链 dotnet-text-regularexpressions
+                // RegexAssemblyCompiler 的 System.Reflection.ParameterModifier）。
+                if (import.Name == "System"
+                    || import.Name.StartsWith("System.", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
                 var ownSimpleName = import.Name[(import.Name.LastIndexOf('.') + 1)..];
                 if (ownTopLevelTypeNames.Contains(ownSimpleName)
                     && !import.Name.StartsWith("io.github.ningpp.compat.", StringComparison.Ordinal))
