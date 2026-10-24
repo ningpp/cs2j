@@ -3608,6 +3608,39 @@
             "imports": []
         },
         {
+            "csharp": "System.Enum",
+            "java": "Enum",
+            "imports": []
+        },
+        {
+            "csharp": "System.FlagsAttribute",
+            "java": "FlagsAttribute",
+            "imports": [
+                "io.github.ningpp.compat.FlagsAttribute"
+            ]
+        },
+        {
+            "csharp": "System.IConvertible",
+            "java": "IConvertible",
+            "imports": [
+                "io.github.ningpp.compat.IConvertible"
+            ]
+        },
+        {
+            "csharp": "System.IFormattable",
+            "java": "IFormattable",
+            "imports": [
+                "io.github.ningpp.compat.IFormattable"
+            ]
+        },
+        {
+            "csharp": "System.ValueType",
+            "java": "ValueType",
+            "imports": [
+                "io.github.ningpp.compat.ValueType"
+            ]
+        },
+        {
             "csharp": "System.AttributeUsageAttribute",
             "java": "Retention",
             "imports": [
