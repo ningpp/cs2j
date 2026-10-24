@@ -343,6 +343,27 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         var symbol = context.GetSymbolInfo(node).Symbol;
         var member = ConversionContext.EscapeJavaKeyword(node.Name.Identifier.Text);
 
+        // C# 元组元素 tuple.ItemN（含 System.Tuple<T1,...> 的 ItemN）→ vavr 访问器
+        // _N()：元组类型映射为 io.vavr.TupleN，成员名原样发射会让 javac 找不到
+        // 符号 变量 ItemN（真实链 XmlTextReaderImpl 的 tuple_1.Item2 等 4 处）。
+        if (IsTupleItemName(node.Name.Identifier.Text, out var tupleItemIndex))
+        {
+            var tupleMemberIsTuple = symbol is IFieldSymbol tupleItemField
+                && tupleItemField.ContainingType is INamedTypeSymbol tupleItemCt
+                && (tupleItemCt.IsTupleType
+                    || tupleItemCt.ToDisplayString().StartsWith("System.Tuple", StringComparison.Ordinal));
+            var tupleReceiverType = context.GetTypeInfo(node.Expression).Type
+                                    ?? context.GetTypeInfo(node.Expression).ConvertedType;
+            var tupleReceiverIsTuple = !tupleMemberIsTuple
+                && tupleReceiverType is INamedTypeSymbol tupleRt
+                && (tupleRt.IsTupleType
+                    || tupleRt.ToDisplayString().StartsWith("System.Tuple", StringComparison.Ordinal));
+            if (tupleMemberIsTuple || tupleReceiverIsTuple)
+            {
+                return $"{receiver}._{tupleItemIndex}()";
+            }
+        }
+
         // Static members qualified by a type with an explicit type mapping: when
         // the mapped Java type keeps the same simple name as the C# type, rewrite
         // the qualifier to that simple name and register its import
