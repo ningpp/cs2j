@@ -138,11 +138,14 @@ internal sealed class PropertyDeclarationExpander
     {
         var prop = plan.Property;
         // 合成修饰符/关键字一律自带分隔空格：原始产物必须先过 RewriteAndValidate 的
-        // 原文 reparse（格式化已从校验路径移除），`privateint` 之类的连词虽可解析为
+        // 原文 reparse（格式化已从校验路径移除），`publicint` 之类的连词虽可解析为
         // 单个标识符，却会让整树编译报 CS0246 并触发回滚。
+        // 后备字段固定 public：XmlSerializer 等 .NET 反射框架只枚举 public 的
+        // FieldInfo/PropertyInfo，private 后备字段会让原属性的可序列化语义整体丢失
+        //（public 字段 + 已路由特性 == 原属性序列化面，驼峰名 round-trip 自洽）。
         var mods = new List<SyntaxToken>
         {
-            SyntaxFactory.Token(SyntaxKind.PrivateKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(SyntaxKind.PublicKeyword).WithTrailingTrivia(SyntaxFactory.Space),
         };
         if (prop.IsStatic)
             mods.Add(SyntaxFactory.Token(SyntaxKind.StaticKeyword).WithTrailingTrivia(SyntaxFactory.Space));

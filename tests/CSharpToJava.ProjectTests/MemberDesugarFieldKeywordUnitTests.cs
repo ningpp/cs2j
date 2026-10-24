@@ -97,7 +97,7 @@ public class MemberDesugarFieldKeywordUnitTests
             """;
         var (output, stats, diags) = Rewrite(src, Enabled());
         AssertCompiles(output);
-        AssertContains(output, "private int p;");
+        AssertContains(output, "public int p;");
         AssertContains(output, "public int get_P()");
         AssertContains(output, "=> p;");
         AssertContains(output, "public void set_P(int value)");
@@ -132,7 +132,7 @@ public class MemberDesugarFieldKeywordUnitTests
             """;
         var (output, stats, _) = Rewrite(src, Enabled());
         AssertCompiles(output);
-        AssertContains(output, "private string name;");
+        AssertContains(output, "public string name;");
         AssertContains(output, "return name;");
         AssertContains(output, "if (name != value)");
         AssertContains(output, "Changed?.Invoke(\"Name\")");
@@ -152,7 +152,7 @@ public class MemberDesugarFieldKeywordUnitTests
             """;
         var (output, stats, _) = Rewrite(src, Enabled());
         AssertCompiles(output);
-        AssertContains(output, "private int plus;");
+        AssertContains(output, "public int plus;");
         AssertContains(output, "public int get_Plus() => plus + 1;");
         AssertNotContains(output, "readonly");
     }
@@ -173,7 +173,7 @@ public class MemberDesugarFieldKeywordUnitTests
             """;
         var (output, stats, _) = Rewrite(src, Enabled());
         AssertCompiles(output);
-        AssertContains(output, "private string lazy;");
+        AssertContains(output, "public string lazy;");
         AssertContains(output, "=> lazy ??= Compute();");
         AssertNotContains(output, "readonly");
         AssertNotContains(output, "field");
@@ -194,7 +194,7 @@ public class MemberDesugarFieldKeywordUnitTests
             """;
         var (output, stats, _) = Rewrite(src, Enabled());
         AssertCompiles(output);
-        AssertContains(output, "private int p;");
+        AssertContains(output, "public int p;");
         AssertContains(output, "public int get_P() => p;");
         AssertContains(output, "private void set_P(int value) => p = value * 2;");
         Assert.Equal(1, stats.FieldKeywordAutoAccessorsExpanded);
@@ -234,7 +234,7 @@ public class MemberDesugarFieldKeywordUnitTests
         // override get-only field-backed（无初始化器版）：override 合法。
         var (output, _, _) = Rewrite(src, Enabled());
         AssertCompiles(output);
-        AssertContains(output, "private int v;");
+        AssertContains(output, "public int v;");
         AssertNotContains(output, "field");
     }
 
@@ -249,7 +249,7 @@ public class MemberDesugarFieldKeywordUnitTests
             """;
         var (output, stats, _) = Rewrite(src, Enabled());
         AssertCompiles(output);
-        AssertContains(output, "private int p = 42;");
+        AssertContains(output, "public int p = 42;");
         AssertNotContains(output, "} = 42;"); // 属性侧初始化器已摘除
         Assert.Equal(1, stats.FieldInitializersMoved);
     }
@@ -269,7 +269,7 @@ public class MemberDesugarFieldKeywordUnitTests
             """;
         var (output, _, _) = Rewrite(src, Enabled());
         AssertCompiles(output);
-        AssertContains(output, "private static int s;");
+        AssertContains(output, "public static int s;");
         AssertContains(output, "public static int get_S()");
         AssertContains(output, "public static void set_S(int value)");
     }
@@ -290,7 +290,7 @@ public class MemberDesugarFieldKeywordUnitTests
             """;
         var (output, _, _) = Rewrite(src, Enabled());
         AssertCompiles(output);
-        AssertContains(output, "private string? name;");
+        AssertContains(output, "public string? name;");
     }
 
     [Fact]
@@ -309,7 +309,7 @@ public class MemberDesugarFieldKeywordUnitTests
         var (output, _, _) = Rewrite(src, Enabled());
         AssertCompiles(output);
         // 属性名 Value 与 set 的 value 形参撞名，BackingFieldNaming 既有契约加 Value 后缀。
-        AssertContains(output, "private T valueValue;");
+        AssertContains(output, "public T valueValue;");
         AssertContains(output, "=> valueValue;");
         AssertContains(output, "=> valueValue = value;");
     }
@@ -437,11 +437,13 @@ public class MemberDesugarFieldKeywordUnitTests
         AssertCompiles(output);
         // 属性侧不得残留 field 目标列表；字段上带着剥掉 target 的同一张列表。
         AssertNotContains(output, "field:");
-        AssertContains(output, "[NonSerialized] private int p;");
+        AssertContains(output, "[NonSerialized] public int p;");
         Assert.Equal(1, stats.FieldTargetAttributesMigrated);
 
         var fieldInfo = CompileToAssembly(output).GetType("Dto")!
-            .GetField("p", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)!;
+            .GetField("p", BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)!;
+        Assert.True(fieldInfo.IsPublic,
+            "后备字段必须 public：XmlSerializer 等反射框架只枚举 public 的 FieldInfo/PropertyInfo");
         Assert.True(fieldInfo.IsNotSerialized);
         Assert.False(fieldInfo.IsStatic);
         Assert.False(fieldInfo.IsInitOnly,
@@ -495,7 +497,8 @@ public class MemberDesugarFieldKeywordUnitTests
         var (output, _, _) = Rewrite(src, Enabled());
         AssertCompiles(output);
         var fieldInfo = CompileToAssembly(output).GetType("C")!
-            .GetField("p", BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance)!;
+            .GetField("p", BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance)!;
+        Assert.True(fieldInfo.IsPublic);
         Assert.True(fieldInfo.IsStatic);
         Assert.False(fieldInfo.IsInitOnly);
     }
@@ -671,8 +674,10 @@ public class MemberDesugarFieldKeywordUnitTests
         Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
 
         var fieldInfo = CompileToAssembly(output).GetType("I")!
-            .GetFields(BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance)
+            .GetFields(BindingFlags.Public | BindingFlags.NonPublic |
+                       BindingFlags.Static | BindingFlags.Instance)
             .Single(f => f.FieldType == typeof(int));
+        Assert.True(fieldInfo.IsPublic);
         Assert.True(fieldInfo.IsStatic);
     }
 

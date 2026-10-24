@@ -162,6 +162,8 @@ internal static class NhPlanBuilder
                         foreach (var loc in decl.Locations.Where(l => l.IsInSource))
                             draft.Files.Add(loc.SourceTree!.FilePath);
                     }
+                    if (member is IPropertySymbol { IsIndexer: false } newSlotProp)
+                        AddBackingFieldRename(draft, newSlotProp, reservations);
                     draft.MatchKeys.Add(NhPlan.SiteKey(member));
                 }
                 claimed.Add(hidden.Member);
@@ -172,6 +174,8 @@ internal static class NhPlanBuilder
             // NH-1：实例化石隐藏改名（显式 new / 隐式 CS0108）。
             foreach (var (accessor, original) in DeclarationUnits(hidden.Member))
                 AddRename(draft, accessor, original, reservations);
+            if (hidden.Member is IPropertySymbol { IsIndexer: false } nhProp)
+                AddBackingFieldRename(draft, nhProp, reservations);
             draft.MatchKeys.Add(NhPlan.SiteKey(hidden.Member));
             claimed.Add(hidden.Member);
             drafts.Add(draft);
@@ -221,6 +225,28 @@ internal static class NhPlanBuilder
                 if (e.RemoveMethod != null) yield return (e.RemoveMethod, e.Name);
                 break;
         }
+    }
+
+    /// <summary>NH-1/NH-2 属性隐藏改名时，把 C11 将为该属性合成的后备字段与访问器对
+    /// 同批改名：后备字段 public 化（PD-2 反射序列化可见性）后会隐藏基类同名合成字段
+    /// （CS0108），若不同批改名，下一轮重写才补改字段名，破坏幂等（Nh1_Property 幂等
+    /// 断言现场）。字段名按 BackingFieldNaming 同一规则预测；不计 PrimaryKeys（统计语义
+    /// 保持"get_/set_ 两条声明"）；站点改写由 HidingRewriter 按展开后树中合成字段的
+    /// 绑定符号命中本表键完成。</summary>
+    private static void AddBackingFieldRename(
+        Draft draft, IPropertySymbol prop,
+        Dictionary<string, HashSet<string>> reservations)
+    {
+        if (prop.ContainingType == null) return;
+        var decl = prop.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+            as PropertyDeclarationSyntax;
+        if (decl == null || !Properties.PropertyFacts.NeedsBackingField(decl, prop)) return;
+        if (!BackingFieldNaming.Assign(new[] { (prop, prop.Name) }).TryGetValue(prop, out var fieldName))
+            return;
+        var key = $"{prop.ContainingType.ToDisplayString()}::{fieldName}";
+        if (draft.Renames.ContainsKey(key)) return;
+        draft.Renames[key] = ReserveName(prop.ContainingType, fieldName, reservations);
+        draft.OriginalNames[key] = fieldName;
     }
 
     private static void AddRename(

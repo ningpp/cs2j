@@ -6,7 +6,7 @@ namespace CSharpToJava.Core.MemberDesugar.Properties;
 
 /// <summary>FK-2/FK-6（决策 2/6/7）：C50 编排入口。对一个已计划的 field-backed 属性，
 /// 在 C11 <see cref="PropertyDeclarationExpander"/> 之前把 field 形态归一为
-/// 「显式 private 后备字段 + 全访问器有体/无 field 主表达式/无属性初始化器」的普通属性，
+/// 「显式 public 后备字段 + 全访问器有体/无 field 主表达式/无属性初始化器」的普通属性，
 /// 随后 C11 复用既有字段名（plan.BackingFieldName）与展开路径，不重复发字段。
 /// 失败时不产出任何改动并返回跳过码（plan 原子不动，严禁文本替换兜底）。</summary>
 internal static class FieldKeywordNormalizer
@@ -119,7 +119,8 @@ internal static class FieldKeywordNormalizer
     {
         var mods = new List<SyntaxToken>
         {
-            SyntaxFactory.Token(SyntaxKind.PrivateKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+            // 与 C11 PD-2 同步：后备字段 public，保住反射序列化可见性。
+            SyntaxFactory.Token(SyntaxKind.PublicKeyword).WithTrailingTrivia(SyntaxFactory.Space),
         };
         if (info.IsStatic)
             mods.Add(SyntaxFactory.Token(SyntaxKind.StaticKeyword).WithTrailingTrivia(SyntaxFactory.Space));

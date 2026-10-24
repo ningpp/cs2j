@@ -170,9 +170,9 @@ public class FieldKeywordProjectTests
             Assert.DoesNotMatch(ResidualFieldUse, codeOnly);
             Assert.DoesNotContain("[field:", codeOnly, StringComparison.Ordinal);
             Assert.Contains("[NonSerialized]", codeOnly, StringComparison.Ordinal);
-            Assert.Contains("private string secret = \"shh\";", text, StringComparison.Ordinal);
-            Assert.Contains("private int weight = 10;", text, StringComparison.Ordinal);
-            Assert.Contains("private string name = \"init\";", text, StringComparison.Ordinal);
+            Assert.Contains("public string secret = \"shh\";", text, StringComparison.Ordinal);
+            Assert.Contains("public int weight = 10;", text, StringComparison.Ordinal);
+            Assert.Contains("public string name = \"init\";", text, StringComparison.Ordinal);
         }
         finally
         {
