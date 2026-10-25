@@ -71,6 +71,15 @@ public partial class StatementTransformer
                 return new JavaStatementNode(TupleAssignmentSplitters.SplitTupleAssignment(assign, ctx));
         }
 
+        // C# 链式赋值 `a.P = b.Q = value;`：Java 属性 setter 返回 void，嵌套
+        // setter 调用不能充当外层 setter 的实参（javac: 此处不允许使用 '空' 类型；
+        // 真实链 DatatypeImplementation.finishBuiltinType 的
+        // `listContent.ItemType = listContent.BaseItemType = s_enumToTypeCode[...]`）。
+        // 归一化：值先单次求值入临时，再按 C# 求值顺序（由内向外）逐个 setter/赋值。
+        if (e is AssignmentExpressionSyntax chainHead
+            && TrySplitChainedAssignmentStatement(chainHead, ctx, out var chainedText))
+            return new JavaStatementNode(chainedText);
+
         var expr = f.Transform(e, ctx);
 
         // 三元不能作语句，整体三元转 if-else（如裸标记位条件）
@@ -79,6 +88,72 @@ public partial class StatementTransformer
 
         return new JavaStatementNode(EmitWithPending(ctx, IsBareReadExpression(expr) ? "" : expr + ";"));
     }
+
+    private int _chainTempCounter;
+
+    private bool TrySplitChainedAssignmentStatement(
+        AssignmentExpressionSyntax head, ConversionContext ctx, out string? text)
+    {
+        text = null;
+        if (!head.IsKind(SyntaxKind.SimpleAssignmentExpression))
+            return false;
+
+        var targets = new List<ExpressionSyntax>();
+        var hasPropertyTarget = false;
+        var current = (ExpressionSyntax)head;
+        while (current is AssignmentExpressionSyntax assign
+               && assign.IsKind(SyntaxKind.SimpleAssignmentExpression))
+        {
+            targets.Add(assign.Left);
+            if (IsSettablePropertyTarget(assign.Left, ctx))
+                hasPropertyTarget = true;
+            current = assign.Right;
+        }
+
+        // 单目标（非链），或链上没有属性目标（纯局部/字段链的 Java 链式赋值本身
+        // 合法）→ 保持原路径。
+        if (targets.Count < 2 || !hasPropertyTarget)
+            return false;
+
+        var f = ExpressionTransformerFacade.Instance;
+        var tmp = $"__cs2jChain{_chainTempCounter++}";
+        var sb = new StringBuilder();
+        var declared = false;
+        // null 字面量无法用 var 推断（CS0815 同型问题）：退回链的静态类型显式声明。
+        if (current.IsKind(SyntaxKind.NullLiteralExpression))
+        {
+            var chainType = ctx.GetTypeInfo(targets[targets.Count - 1]).Type is { } t
+                ? ctx.MapType(t)
+                : null;
+            if (!string.IsNullOrEmpty(chainType) && chainType != "var")
+            {
+                sb.Append($"{chainType} {tmp} = null;");
+                declared = true;
+            }
+        }
+        if (!declared)
+            sb.Append($"var {tmp} = {f.Transform(current, ctx)};");
+
+        // 由内向外 = C# 链式赋值求值顺序。
+        for (var i = targets.Count - 1; i >= 0; i--)
+        {
+            var left = targets[i];
+            sb.Append('\n');
+            sb.Append(IsSettablePropertyTarget(left, ctx)
+                ? AssignmentTransformer.PropertySetterCall(
+                    left, (IPropertySymbol)ctx.GetSymbolInfo(left).Symbol!, tmp, ctx)
+                : $"{f.Transform(left, ctx)} = {tmp};");
+            sb.Append(';');
+        }
+
+        text = sb.ToString();
+        return true;
+    }
+
+    private static bool IsSettablePropertyTarget(ExpressionSyntax left, ConversionContext ctx)
+        => ctx.GetSymbolInfo(left).Symbol is IPropertySymbol prop
+           && !prop.IsIndexer
+           && prop.SetMethod != null;
 
     // ── throw / return ─────────────────────────────────────────────────────
     private JavaSyntaxNode TransformThrowStatement(ThrowStatementSyntax stmt, ConversionContext ctx)

@@ -182,8 +182,27 @@ public class AssignmentTransformer : IIRExpressionTransformer
             return $"{(receiver.Length == 0 ? "this." : receiver)}{field} = {right}";
         }
         if (op == "=")
-            return $"{receiver}{setterName}({right})";
+            return PropertySetterCall(a.Left, p, right, c);
         return $"{receiver}{setterName}({receiver}{getterName}() {op[..^1]} {right})";
+    }
+
+    /// <summary>
+    /// Renders a plain property setter call `{receiver}.set{Name}({valueText})`
+    /// with the same accessor-name mapping Property() uses. Shared with the
+    /// statement-level chained-assignment split (C# `a.P = b.Q = v;`), whose
+    /// setter statements must not diverge from the single-assignment path.
+    /// </summary>
+    internal static string PropertySetterCall(ExpressionSyntax left, IPropertySymbol p, string valueText, ConversionContext c)
+    {
+        var f = ExpressionTransformerFacade.Instance;
+        var receiver = left is MemberAccessExpressionSyntax ma ? f.Transform(ma.Expression, c) + "." : "";
+        var name = char.ToUpperInvariant(p.Name[0]) + p.Name[1..];
+        var mappedPropertyName = JavaNaming.IsBeanAccessorStyleName(
+                c.TypeMappings.MapMethod(p.ContainingType.ToDisplayString(), p.Name))
+            ? c.TypeMappings.MapMethod(p.ContainingType.ToDisplayString(), p.Name)
+            : null;
+        var setterName = mappedPropertyName ?? ("set" + name);
+        return $"{receiver}{setterName}({valueText})";
     }
 
     // ── Indexer ─────────────────────────────────────────────────────────────
