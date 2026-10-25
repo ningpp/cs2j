@@ -52,6 +52,12 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
         this.comparer = comparer;
     }
 
+    /** C# ctor accepting a user IEqualityComparer&lt;T&gt; (same shape as the comparer above). */
+    public CSharpDictionary(IEqualityComparer<K> comparer) {
+        this.map = new LinkedHashMap<>();
+        this.comparer = comparer;
+    }
+
     // CSharpGenericIDictionary / CSharpICollection methods
 
     /**

@@ -35,6 +35,30 @@ public class StreamWrapper implements AutoCloseable {
         this.name = name;
     }
 
+    StreamWrapper(StreamWrapper other) {
+        this.inputStream = other.inputStream;
+        this.outputStream = other.outputStream;
+        this.name = other.name;
+    }
+
+    /**
+     * Mirrors the C# {@code FileStream(path, mode, access[, share[, bufferSize[, useAsync]]])}
+     * constructor shapes — converted call sites emit ctor syntax while the open
+     * logic lives in {@link FileHelper#open}.
+     */
+    public StreamWrapper(String path, int fileMode, int fileAccess) {
+        this(FileHelper.open(path, fileMode, fileAccess));
+    }
+
+    public StreamWrapper(String path, int fileMode, int fileAccess, int fileShare) {
+        this(FileHelper.open(path, fileMode, fileAccess, fileShare));
+    }
+
+    public StreamWrapper(String path, int fileMode, int fileAccess, int fileShare,
+                         int bufferSize, boolean useAsync) {
+        this(FileHelper.open(path, fileMode, fileAccess, fileShare, bufferSize, useAsync));
+    }
+
     public static StreamWrapper of(InputStream in) {
         return new StreamWrapper(in, null);
     }
