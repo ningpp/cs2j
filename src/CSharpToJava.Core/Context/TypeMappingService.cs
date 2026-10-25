@@ -327,6 +327,18 @@ public class TypeMappingService
 
             var errorName = errorType.Name;
 
+            // 源内工程类型优先于一切配置/字符串回退（与下方 simpleConfigKey 分支
+            // 同判据上提）：合并声明成员的语义绑定可能产出 error 符号（真实链类
+            // 成员返回类型 dotnet.xml.serialization.IXxxHelper 绑定为 error，
+            // CandidateSymbols 为空），按简名解析回源内类型才能登记跨包导入——
+            // 否则退化为裸简名且被 TypeCache 固化（javac 找不到符号）。
+            // C# 名称解析中源内类型本就遮蔽 BCL 同名类型，语义上等价。
+            if (!_isUsingAlias(errorName)
+                && TryResolveProjectTypeBySimpleName(errorName, out var projectTypeFirst))
+            {
+                return MapProjectTypeFromSimpleName(projectTypeFirst!);
+            }
+
             // If the error type has type arguments, try the string-based fallback
             // which correctly handles generics, boxing, and simple-name fuzzy lookup.
             var displayString = errorType.ToDisplayString();
