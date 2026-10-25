@@ -975,6 +975,26 @@ public class TypeMappingService
             return $"CSharpGenericEnumerator<{elemType}>";
         }
 
+        // Dictionary<K,V>.ValueCollection.Enumerator / KeyCollection.Enumerator (the
+        // nested C# value enumerators over the collection views) iterate the values
+        // or keys directly. CSharpDictionary's getValues()/getKeys() views hand out
+        // CSharpGenericEnumerator<V>/CSharpGenericEnumerator<K> from iterator(), so
+        // foreach state machines can store the field with that type. Without this
+        // the outer view falls into the generic nested-type fallback whose mapped
+        // "Collection" gets namespace-qualified to the non-existent
+        // dotnet.System.Collections.Generic.Collection package
+        // (real chain: SchemaInfo.GetAttributeLists iterator field).
+        if ((outerOriginal == "System.Collections.Generic.Dictionary<TKey, TValue>.ValueCollection"
+            || outerOriginal == "System.Collections.Generic.Dictionary<TKey, TValue>.KeyCollection")
+            && name == "Enumerator"
+            && outerType.ContainingType?.TypeArguments.Length == 2)
+        {
+            var viewElemIndex = outerOriginal.EndsWith("ValueCollection", StringComparison.Ordinal) ? 1 : 0;
+            var viewElemType = MapTypeForGeneric(outerType.ContainingType.TypeArguments[viewElemIndex], referenceContext);
+            AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");
+            return $"CSharpGenericEnumerator<{viewElemType}>";
+        }
+
         // When referencing a nested type from within the same enclosing type
         // OR from within the nested type itself, use the simple name to avoid
         // Java raw type issues (e.g., "LowLevelDictionary.Entry" is a raw type
@@ -1437,17 +1457,24 @@ public class TypeMappingService
     /// True for framework nested types that are mapped through built-in special
     /// cases in <see cref="TryMapNestedType"/> rather than TypeMappings.json keys
     /// (currently <c>System.Collections.Generic.List&lt;T&gt;.Enumerator</c>
-    /// → <c>CSharpGenericEnumerator&lt;T&gt;</c>). Post-mapping qualification
+    /// → <c>CSharpGenericEnumerator&lt;T&gt;</c>, plus the
+    /// Dictionary collection-view <c>Enumerator</c> nested types with the same
+    /// target). Post-mapping qualification
     /// passes must treat them as configured mappings so the compat import they
     /// register is not interpreted as a colliding import.
     /// </summary>
     public static bool HasBuiltInNestedTypeMapping(ITypeSymbol typeSymbol)
     {
         if (typeSymbol is INamedTypeSymbol { ContainingType: { } outer } nested
-            && nested.Name == "Enumerator"
-            && outer.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.List<T>")
+            && nested.Name == "Enumerator")
         {
-            return true;
+            var outerOriginal = outer.OriginalDefinition?.ToDisplayString();
+            if (outerOriginal == "System.Collections.Generic.List<T>"
+                || outerOriginal == "System.Collections.Generic.Dictionary<TKey, TValue>.ValueCollection"
+                || outerOriginal == "System.Collections.Generic.Dictionary<TKey, TValue>.KeyCollection")
+            {
+                return true;
+            }
         }
 
         return false;
