@@ -98,12 +98,15 @@ public class CSharpArrayList implements CSharpIList, Cloneable {
     public void setCapacity(int value) { list.ensureCapacity(value); }
     public void addRange(Collection<?> c) { list.addAll(c); }
     public void addRange(Object[] arr) { for (Object item : arr) list.add(item); }
+    // CSharpArrayList itself is NOT a java.util.Collection (it goes through the
+    // compat CSharpIList view), so addRange(Collection) never accepts another
+    // CSharpArrayList; generated ArrayList.AddRange(other) call sites need this.
+    public void addRange(CSharpArrayList other) { list.addAll(other.list); }
     public void insertRange(int index, Collection<?> c) { list.addAll(index, c); }
-    public void insertRange(int index, Iterable<?> c) {
-        for (Object item : c) {
-            list.add(index++, item);
-        }
-    }
+    // NOTE: no insertRange(int, Iterable) overload on purpose. A CSharpIList
+    // argument is applicable to both insertRange(int, Iterable) and
+    // insertRange(int, CSharpIList) and javac cannot pick the more specific one
+    // (raw CSharpIList vs Iterable<?>) — it reports the call as ambiguous.
     public void insertRange(int index, CSharpIList c) {
         for (int i = 0; i < c.getCount(); i++) {
             list.add(index + i, c.get(i));
