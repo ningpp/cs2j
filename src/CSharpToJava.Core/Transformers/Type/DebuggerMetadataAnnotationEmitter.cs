@@ -36,6 +36,12 @@ internal static class DebuggerMetadataAnnotationEmitter
         if (symbol == null)
             return;
 
+        // partial 各部分可各自声明同一 [DebuggerDisplay]/[DebuggerTypeProxy]（真实链
+        // XmlReader.cs + XmlReaderAsync.cs 同 payload）。Roslyn 合并 partial 后
+        // GetAttributes 返回两个实例，逐个发射会重复同一 Java 注解——Java 注解缺省
+        // 不可重复（javac: 不是可重复的批注接口），且移植的反射测试断言
+        // "Expected one ..."。相同渲染结果只发射一次。
+        var emitted = new HashSet<string>(StringComparer.Ordinal);
         foreach (var attr in symbol.GetAttributes())
         {
             var attributeClass = attr.AttributeClass?.OriginalDefinition;
@@ -45,36 +51,44 @@ internal static class DebuggerMetadataAnnotationEmitter
             switch (attributeClass.ToDisplayString())
             {
                 case DebuggerDisplayAttributeMetadataName:
-                    EmitDebuggerDisplay(javaClass, attr, context);
+                    TryAdd(javaClass, emitted, () => RenderDebuggerDisplay(attr, context));
                     break;
                 case DebuggerTypeProxyAttributeMetadataName:
-                    EmitDebuggerTypeProxy(javaClass, attr, context);
+                    TryAdd(javaClass, emitted, () => RenderDebuggerTypeProxy(attr, context));
                     break;
             }
         }
     }
 
-    private static void EmitDebuggerDisplay(JavaClassDeclaration javaClass, AttributeData attr, ConversionContext context)
+    private static void TryAdd(
+        JavaClassDeclaration javaClass, HashSet<string> emitted, Func<string?> render)
     {
-        if (attr.ConstructorArguments.Length == 0 || attr.ConstructorArguments[0].Value is not string displayText)
+        var annotation = render();
+        if (annotation == null || !emitted.Add(annotation))
             return;
-
-        context.AddImport("io.github.ningpp.compat.DebuggerDisplay");
-        javaClass.Annotations.Add(new JavaAnnotation(
-            $"DebuggerDisplay(\"{StringEscapeHelper.EscapeJavaString(displayText)}\")"));
+        javaClass.Annotations.Add(new JavaAnnotation(annotation));
     }
 
-    private static void EmitDebuggerTypeProxy(JavaClassDeclaration javaClass, AttributeData attr, ConversionContext context)
+    private static string? RenderDebuggerDisplay(AttributeData attr, ConversionContext context)
+    {
+        if (attr.ConstructorArguments.Length == 0 || attr.ConstructorArguments[0].Value is not string displayText)
+            return null;
+
+        context.AddImport("io.github.ningpp.compat.DebuggerDisplay");
+        return $"DebuggerDisplay(\"{StringEscapeHelper.EscapeJavaString(displayText)}\")";
+    }
+
+    private static string? RenderDebuggerTypeProxy(AttributeData attr, ConversionContext context)
     {
         if (attr.ConstructorArguments.Length == 0)
-            return;
+            return null;
 
         // .NET 允许 typeof(Foo<Bar>)；注解值要求编译期常量，取泛型定义裸类名
         // （compat 桥按 raw Class 记录，运行时无法再特化，与 .NET 的构造特化语义差异
         // 属于 Java 泛型擦除的既有边界）。MapType 只为跨命名空间引用注册 import；
         // 类名本身取 arity-safe 裸名，避免 MapType 对泛型定义渲染出 Foo<T> 形态。
         if (attr.ConstructorArguments[0].Value is not INamedTypeSymbol named)
-            return;
+            return null;
 
         var definition = named.OriginalDefinition;
         var mapped = context.MapType(definition);
@@ -82,10 +96,10 @@ internal static class DebuggerMetadataAnnotationEmitter
             ? context.GetJavaTopLevelTypeName(definition)
             : StripTypeArguments(mapped);
         if (string.IsNullOrEmpty(rawJavaName))
-            return;
+            return null;
 
         context.AddImport("io.github.ningpp.compat.DebuggerTypeProxy");
-        javaClass.Annotations.Add(new JavaAnnotation($"DebuggerTypeProxy({rawJavaName}.class)"));
+        return $"DebuggerTypeProxy({rawJavaName}.class)";
     }
 
     /// <summary>Map&lt;K,V&gt; → Map；无类型实参时原样返回。</summary>
