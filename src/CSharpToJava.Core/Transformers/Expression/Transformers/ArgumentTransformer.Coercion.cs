@@ -516,13 +516,21 @@ public partial class ArgumentTransformer
         IParameterSymbol targetParam,
         ConversionContext context,
         out string rendered)
+        => TryEmitDelegateMethodReference(expression, targetParam.Type, context, out rendered);
+
+    /// <param name="targetType">期望的目标委托/函数式接口类型（参数类型或赋值左侧类型）。</param>
+    public static bool TryEmitDelegateMethodReference(
+        ExpressionSyntax expression,
+        ITypeSymbol targetType,
+        ConversionContext context,
+        out string rendered)
     {
         rendered = "";
         if (context.SemanticModel == null
             || expression is not (IdentifierNameSyntax or MemberAccessExpressionSyntax)
             || context.GetSymbolInfo(expression).Symbol is not IMethodSymbol methodGroup
             || methodGroup.IsGenericMethod
-            || !IsDelegateLikeTarget(targetParam.Type))
+            || !IsDelegateLikeTarget(targetType))
         {
             return false;
         }

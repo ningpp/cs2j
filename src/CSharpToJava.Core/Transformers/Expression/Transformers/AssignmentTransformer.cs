@@ -94,6 +94,16 @@ public class AssignmentTransformer : IIRExpressionTransformer
             return $"{ConversionContext.EscapeJavaKeyword(param.Name)}.value = {f.Transform(rhs, context)}";
 
         var rightText = f.Transform(rhs, context);
+        // C# 允许方法组直接赋给兼容委托（真实链 XmlReaderSettings：
+        // `_addValidationFunc = AddValidationInternal;`）。标识符转换器只会发出
+        // 原名（javac: 找不到符号 变量 AddValidationInternal），委托目标存在时
+        // 必须落成 Java 方法引用 this::addValidationInternal。
+        if (op == "="
+            && context.GetTypeInfo(lhs).Type is { } delegateTarget
+            && ArgumentTransformer.TryEmitDelegateMethodReference(rhs, delegateTarget, context, out var methodRef))
+        {
+            rightText = methodRef;
+        }
         rightText = SpanCoercion.CoerceOrSame(
             rhs, rightText, context.GetTypeInfo(lhs).Type, context);
         if (op == "=" && JavaNarrowTarget(lhs, context) is { } narrowTarget)
