@@ -41,7 +41,7 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
     @Override public void remove(Object key) { map.remove(key); }
     @Override public Object get(Object key) { return map.get(key); }
     @Override public Object put(Object key, Object value) { return map.put(key, value); }
-    @Override public int size() { return map.size(); }
+    public int size() { return map.size(); }
     @Override public int getCount() { return map.size(); }
     public void copyTo(CSharpArray array, int index) {
         int i = index;
@@ -70,7 +70,7 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
         private final java.util.Set<Object> keys;
         private final Object syncRoot = new Object();
         CSharpKeyCollection(java.util.Set<Object> keys) { this.keys = keys; }
-        @Override public int size() { return keys.size(); }
+        public int size() { return keys.size(); }
         @Override public int getCount() { return keys.size(); }
         public void copyTo(CSharpArray array, int index) {
             int i = index; for (Object k : keys) array.setValue(k, i++);
@@ -84,7 +84,7 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
         private final java.util.Collection<Object> values;
         private final Object syncRoot = new Object();
         CSharpValueCollection(java.util.Collection<Object> values) { this.values = values; }
-        @Override public int size() { return values.size(); }
+        public int size() { return values.size(); }
         @Override public int getCount() { return values.size(); }
         public void copyTo(CSharpArray array, int index) {
             int i = index; for (Object v : values) array.setValue(v, i++);

@@ -22,7 +22,7 @@ public class CSharpObjSortedList implements CSharpIDictionary, Cloneable {
     @Override public boolean getIsReadOnly() { return false; }
     @Override public CSharpICollection<?> getKeys() {
         CSharpCollection coll = new CSharpCollection() {
-            @Override public int size() { return map.size(); }
+            public int size() { return map.size(); }
             @Override public int getCount() { return map.size(); }
             public void copyTo(CSharpArray array, int index) {
                 int i = index; for (Object k : map.keySet()) array.setValue(k, i++);
@@ -35,7 +35,7 @@ public class CSharpObjSortedList implements CSharpIDictionary, Cloneable {
     }
     @Override public CSharpICollection<?> getValues() {
         CSharpCollection coll = new CSharpCollection() {
-            @Override public int size() { return map.size(); }
+            public int size() { return map.size(); }
             @Override public int getCount() { return map.size(); }
             public void copyTo(CSharpArray array, int index) {
                 int i = index; for (Object v : map.values()) array.setValue(v, i++);
@@ -49,7 +49,7 @@ public class CSharpObjSortedList implements CSharpIDictionary, Cloneable {
     @Override public void remove(Object key) { map.remove(key); }
     @Override public Object get(Object key) { return map.get(key); }
     @Override public Object put(Object key, Object value) { return map.put(key, value); }
-    @Override public int size() { return map.size(); }
+    public int size() { return map.size(); }
     @Override public int getCount() { return map.size(); }
     public void copyTo(CSharpArray array, int index) {
         int i = index;

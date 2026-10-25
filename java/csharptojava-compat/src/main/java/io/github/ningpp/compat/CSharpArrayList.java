@@ -45,10 +45,10 @@ public class CSharpArrayList implements CSharpIList, Cloneable {
     @Override public boolean getIsFixedSize() { return false; }
     @Override public boolean getIsReadOnly() { return false; }
     @Override public void remove(Object value) { list.remove(value); }
-    @Override public void removeAt(int index) { list.remove(index); }
+    @Override public Object removeAt(int index) { return list.remove(index); }
     @Override public Object get(int index) { return list.get(index); }
     @Override public Object set(int index, Object value) { return list.set(index, value); }
-    @Override public int size() { return list.size(); }
+    public int size() { return list.size(); }
     @Override public int getCount() { return list.size(); }
     public void copyTo(CSharpArray array, int index) {
         for (int i = 0; i < list.size(); i++) array.setValue(list.get(i), index + i);

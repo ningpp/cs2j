@@ -90,11 +90,12 @@ public abstract class CSharpCollectionBase implements CSharpIList {
     }
 
     @Override
-    public void removeAt(int index) {
+    public Object removeAt(int index) {
         Object value = innerList.get(index);
         onRemove(index, value);
         innerList.remove(index);
         onRemoveComplete(index, value);
+        return value;
     }
 
     @Override

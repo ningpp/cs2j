@@ -137,10 +137,8 @@ public interface CSharpIDictionary extends CSharpCollection {
             public Object put(Object key, Object value) {
                 return ((CSharpGenericIDictionary) dict).put(key, value);
             }
-            // CSharpCollection declares size()/getCount() as defaults that call each other, so an
-            // adapter overriding neither dies with StackOverflowError. Break the cycle on the
-            // backing dictionary's size.
-            @Override
+            // size() is a plain helper (CSharpCollection declares only getCount()); both
+            // members read the backing dictionary's size.
             public int size() {
                 return ((CSharpGenericIDictionary) dict).size();
             }
@@ -185,7 +183,6 @@ public interface CSharpIDictionary extends CSharpCollection {
             public int getCount() {
                 return list.size();
             }
-            @Override
             public int size() {
                 return list.size();
             }

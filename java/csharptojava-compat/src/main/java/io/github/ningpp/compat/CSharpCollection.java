@@ -3,8 +3,14 @@ package io.github.ningpp.compat;
 public interface CSharpCollection extends CSharpIterable<Object> {
     @Override
     CSharpGenericEnumerator iterator();
-    default int size() { return getCount(); }
-    default int getCount() { return size(); }
+    /**
+     * C# ICollection.Count. Deliberately abstract with no size() companion:
+     * generated views can also sit under a CSharpGenericIterable (java.util.Collection)
+     * branch, whose default size() would clash with a CSharpCollection default of the
+     * same signature ("inherits unrelated defaults"). Implementers declare getCount()
+     * directly and java.util-side callers use iterator()/getCount() instead of size().
+     */
+    int getCount();
 
     /**
      * C# ICollection.CopyTo(Array, int). A single Object parameter accepts both the

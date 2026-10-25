@@ -10,19 +10,29 @@ package io.github.ningpp.compat;
  * "same erasure, neither overrides" clash between the generic and non-generic
  * flavours. Element accessors stay covariant (a generated <c>Match get(int)</c>
  * overrides <c>Object get(int)</c>).</p>
+ *
+ * <p>The C# non-generic <c>System.Collections.ICollection</c> maps here too, and
+ * it only requires Count/CopyTo/IsSynchronized/SyncRoot. Generated views backed
+ * by it therefore implement just the collection surface, so every pure IList
+ * member carries a default: mutators throw UnsupportedOperationException (C#
+ * throws NotSupportedException for a read-only view), and IsFixedSize/IsReadOnly
+ * report false. removeAt returns Object rather than void so a generated C#
+ * RemoveAt that yields the removed item (e.g. XmlAttributeCollection.RemoveAt
+ * returning XmlAttribute) overrides it covariantly instead of clashing with an
+ * incompatible return type.</p>
  */
 public interface CSharpIList<T> extends CSharpCollection {
-    int add(Object value);
-    void clear();
-    boolean contains(Object value);
-    int indexOf(Object value);
-    void insert(int index, Object value);
-    boolean getIsFixedSize();
-    boolean getIsReadOnly();
-    void remove(Object value);
-    void removeAt(int index);
+    default int add(Object value) { throw new UnsupportedOperationException(); }
+    default void clear() { throw new UnsupportedOperationException(); }
+    default boolean contains(Object value) { throw new UnsupportedOperationException(); }
+    default int indexOf(Object value) { throw new UnsupportedOperationException(); }
+    default void insert(int index, Object value) { throw new UnsupportedOperationException(); }
+    default boolean getIsFixedSize() { return false; }
+    default boolean getIsReadOnly() { return false; }
+    default void remove(Object value) { throw new UnsupportedOperationException(); }
+    default Object removeAt(int index) { throw new UnsupportedOperationException(); }
     default T get(int index) { throw new UnsupportedOperationException(); }
-    Object set(int index, Object value);
+    default Object set(int index, Object value) { throw new UnsupportedOperationException(); }
 
     /**
      * Adapts a generic list (CSharpList / CSharpGenericIList) to the non-generic
@@ -74,8 +84,9 @@ public interface CSharpIList<T> extends CSharpCollection {
                 ((CSharpGenericIList) list).remove(value);
             }
             @Override
-            public void removeAt(int index) {
+            public Object removeAt(int index) {
                 list.removeAt(index);
+                return null;
             }
             @Override
             public Object get(int index) {
