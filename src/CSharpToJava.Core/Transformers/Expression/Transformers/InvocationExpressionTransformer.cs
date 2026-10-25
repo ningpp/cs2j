@@ -2519,11 +2519,51 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 || (args.Count == 1
                     && !args[0].RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
                     && (context.GetTypeInfo(args[0].Expression).Type?.ToDisplayString()
-                        is "System.IFormatProvider" or "System.Globalization.CultureInfo"));
+                        is "System.IFormatProvider" or "System.Globalization.CultureInfo"
+                            or "System.Globalization.NumberFormatInfo"));
             if (providerOnly)
             {
                 rendered = $"{boxed}.toString({receiver})";
                 return true;
+            }
+
+            // value.ToString(fmt, provider)（真实链 XmlTextWriter.generatePrefix、
+            // XmlTextEncoder.WriteSurrogateCharEntity、XmlConvert.ToString(double)）：
+            // Java 基本类型不能解引用（javac: 无法取消引用int）。标准数字格式落法：
+            //   "X"/"x"（可带一位精度）→ String.format 十六进制（无包装类等价）；
+            //   "d"/"D"（十进制）、"R"/"r"（最短往返，Java Double.toString 语义）
+            //     → 包装类 toString 无损。
+            // provider 在语料中恒为 Invariant；带精度后缀的 d/f（"d3"/"f2"）与非
+            // 字面量格式不走此路，保持失败可见。
+            if (args.Count == 2
+                && args[0].Expression is LiteralExpressionSyntax stdLiteral
+                && stdLiteral.IsKind(SyntaxKind.StringLiteralExpression)
+                && context.GetTypeInfo(args[1].Expression).Type?.ToDisplayString()
+                    is "System.IFormatProvider" or "System.Globalization.CultureInfo"
+                        or "System.Globalization.NumberFormatInfo")
+            {
+                var std = stdLiteral.Token.ValueText;
+                var hex = std.Length is 1 or 2
+                    && (std[0] is 'X' or 'x')
+                    && (std.Length == 1 || char.IsDigit(std[1]));
+                if (hex)
+                {
+                    // `((int)c).ToString("X4")`：char→int 的显式加宽在渲染时被省略，
+                    // 但 String.format 的 Object varargs 会把 char 装回 Character，
+                    // Formatter 对 %X 拒绝（"x != java.lang.Character"），重加 int 装箱。
+                    var formatReceiver = IsCharTypedBeforeWidening(invocation.Expression, context)
+                        ? $"(int)({receiver})"
+                        : receiver;
+                    rendered = std.Length == 1
+                        ? $"String.format(\"%{std[0]}\", {formatReceiver})"
+                        : $"String.format(\"%0{std[1]}{std[0]}\", {formatReceiver})";
+                    return true;
+                }
+                if (std.Length == 1 && (std is "d" or "D" or "R" or "r"))
+                {
+                    rendered = $"{boxed}.toString({receiver})";
+                    return true;
+                }
             }
         }
 
