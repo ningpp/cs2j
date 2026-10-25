@@ -121,4 +121,47 @@ public interface CSharpIList<T> extends CSharpCollection {
             }
         };
     }
+
+    /**
+     * Adapts a CSharpICollection value (the views returned by the compat
+     * SortedList.Values / Hashtable.Keys / IDictionary member mappings) to the
+     * non-generic C# IList surface. A C# System.Collections.ICollection value
+     * assigns to any IList-family slot, but the two compat interface families
+     * cannot share a type (C# IList.Add yields int while ICollection&lt;T&gt;.Add
+     * yields boolean), so the converter wraps the value with this read-through
+     * view. Mutators keep the throwing defaults, matching the
+     * NotSupportedException the .NET dictionary key/value views throw;
+     * Count/CopyTo/enumeration (the only surface a non-generic C# ICollection
+     * slot can use) delegate to the wrapped collection.
+     */
+    static CSharpIList from(CSharpICollection<?> collection) {
+        if (collection == null) {
+            return null;
+        }
+        if (collection instanceof CSharpIList) {
+            return (CSharpIList) collection;
+        }
+        return new CSharpIList() {
+            @Override
+            public int getCount() {
+                return collection.getCount();
+            }
+            @Override
+            public CSharpGenericEnumerator iterator() {
+                return collection.iterator();
+            }
+            @Override
+            public boolean getIsSynchronized() {
+                return collection.getIsSynchronized();
+            }
+            @Override
+            public Object getSyncRoot() {
+                return collection.getSyncRoot();
+            }
+            @Override
+            public void copyTo(CSharpArray array, int index) {
+                collection.copyTo(array, index);
+            }
+        };
+    }
 }
