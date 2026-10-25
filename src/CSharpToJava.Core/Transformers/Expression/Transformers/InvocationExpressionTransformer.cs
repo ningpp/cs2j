@@ -927,6 +927,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     && memberMethodForOverrides.ContainingType?.ToDisplayString() == "System.Array")
                 {
                     var emptyElement = context.MapType(memberMethodForOverrides.TypeArguments[0]);
+                    // C# byte 数组元素保持 byte[]（IR 路径同规则），否则与
+                    // byte[] 目标冲突（真实链 BinHexDecoder Array.Empty<byte>()）。
+                    if (memberMethodForOverrides.TypeArguments[0].SpecialType == SpecialType.System_Byte)
+                        emptyElement = "byte";
                     if (emptyElement is "int" or "long" or "short" or "byte" or "char"
                         or "boolean" or "float" or "double")
                     {
