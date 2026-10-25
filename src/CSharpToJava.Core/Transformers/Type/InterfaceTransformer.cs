@@ -37,10 +37,19 @@ public class InterfaceTransformer : ITypeTransformer
         }
 
         var name = context.GetJavaTopLevelTypeName(mergedType.TypeSymbol);
-        return TransformCore(interfaceDecl, name, mergedType.TypeSymbol, context);
+
+        // 成员必须遍历原始声明节点（与 ClassTransformer.TransformMerged 同策略）：
+        // 合并节点是 WithMembers 产物、脱离编译语法树（SyntaxTree 为 dummy），
+        // 其成员的语义查询（GetTypeInfo）一律 ArgumentException → 签名类型退化
+        // 到字符串映射路径，跨包单类型导入全部丢失（真实链 dotnet-xml 接口文件
+        // IXmlSerializable/IXsltContextFunction 等 ~15 处 javac 找不到符号）。
+        var originalNodes = mergedType.OriginalSyntaxNodes.OfType<InterfaceDeclarationSyntax>().ToList();
+        return TransformCore(interfaceDecl, name, mergedType.TypeSymbol, context, originalNodes);
     }
 
-    private JavaTypeDeclaration TransformCore(InterfaceDeclarationSyntax interfaceDecl, string name, INamedTypeSymbol? interfaceSymbol, ConversionContext context)
+    private JavaTypeDeclaration TransformCore(InterfaceDeclarationSyntax interfaceDecl, string name,
+        INamedTypeSymbol? interfaceSymbol, ConversionContext context,
+        List<InterfaceDeclarationSyntax>? originalNodes = null)
     {
         var javaInterface = new JavaInterfaceDeclaration
         {
@@ -82,7 +91,10 @@ public class InterfaceTransformer : ITypeTransformer
         }
 
         // 处理类型参数
-        foreach (var typeParam in interfaceDecl.TypeParameterList?.Parameters ?? Enumerable.Empty<TypeParameterSyntax>())
+        // 类型参数/约束同样取自原始声明：约束类型的 MapType 依赖语义模型，
+        // 合并节点上会退化为字符串路径（见 TransformMerged 注释）。
+        var paramSource = originalNodes != null && originalNodes.Count > 0 ? originalNodes[0] : interfaceDecl;
+        foreach (var typeParam in paramSource.TypeParameterList?.Parameters ?? Enumerable.Empty<TypeParameterSyntax>())
         {
             javaInterface.TypeParameters.Add(new JavaTypeParameter(typeParam.Identifier.Text));
 
@@ -105,12 +117,18 @@ public class InterfaceTransformer : ITypeTransformer
         }
 
         // Propagate generic type parameter constraints
-        ClassTransformer.ApplyTypeParameterConstraints(interfaceDecl.ConstraintClauses, javaInterface.TypeParameters, context);
+        ClassTransformer.ApplyTypeParameterConstraints(paramSource.ConstraintClauses, javaInterface.TypeParameters, context);
 
         // 处理成员 — Fix 4: create factory once outside the per-member loop
         var factory = new Transformers.TransformerFactory();
 
-        foreach (var member in interfaceDecl.Members)
+        // 原始声明节点在编译语法树内，成员语义可用；合并节点成员脱离树
+        // （见 TransformMerged 注释）。C# partial 接口不允许跨 part 重复成员，
+        // 直接按声明顺序拼接即可。
+        var memberSources = originalNodes != null && originalNodes.Count > 0
+            ? originalNodes.SelectMany(n => n.Members)
+            : interfaceDecl.Members;
+        foreach (var member in memberSources)
         {
             ProcessInterfaceMember(member, javaInterface, context, factory);
         }
