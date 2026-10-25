@@ -58,6 +58,29 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         var srcSym = c.GetTypeInfo(n.Expression).Type;
         if (sym is IPointerTypeSymbol) return e; // all pointers lower to MemorySegment
 
+        // C# user-defined implicit/explicit conversions are emitted as static
+        // toXxx(...) methods on the declaring type (OperatorTransformer
+        // .TransformConversion); Java has no user-defined casts, so a bare
+        // `(Target)(expr)` would not compile (real chain: DatatypeImplementation's
+        // `(DatatypeImplementation)s_xdrTypes[i]` over its SchemaDatatypeMap
+        // explicit operator).
+        var castModel = c.GetSemanticModelForNode(n);
+        if (castModel != null && sym != null)
+        {
+            var userDefined = castModel.ClassifyConversion(n.Expression, sym);
+            if (userDefined.IsUserDefined
+                && userDefined.MethodSymbol is IMethodSymbol convMethod
+                // 源内声明的转换运算符才有 OperatorTransformer 生成的 toXxx 静态方法；
+                // 元数据类型的转换由 MemberDesugar.Operators 预处理管线的自有命名降形，
+                // 不进入本分支（保持原有直译行为）。
+                && convMethod.ContainingType.Locations.Any(l => l.IsInSource))
+            {
+                var containing = c.MapType(convMethod.ContainingType);
+                var methodName = $"to{Member.OperatorTransformer.BuildConversionMethodSuffix(c.MapType(convMethod.ReturnType))}";
+                return $"{containing}.{methodName}({e})";
+            }
+        }
+
         // C# casts to IEnumerable<T> become compat adapters: generated collections
         // may implement the non-generic interfaces only, and Java cannot prove a
         // class→interface cast is valid in all shapes.

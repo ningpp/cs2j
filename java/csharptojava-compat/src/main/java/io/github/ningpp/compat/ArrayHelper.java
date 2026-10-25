@@ -483,6 +483,49 @@ public class ArrayHelper {
         return java.util.Arrays.binarySearch(array, index, index + length, value, comparer);
     }
 
+    // Non-generic C# Array.BinarySearch(Array, object[, IComparer]) analog. The
+    // search value may be a different type than the elements (e.g. searching a
+    // SchemaDatatypeMap[] by its string name with a null comparer), which the
+    // generic binarySearch(T[], T, ...) signatures cannot express.
+    public static int binarySearch(CSharpArray array, Object value) {
+        return binarySearch(array, value, (java.util.Comparator<?>) null);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static int binarySearch(CSharpArray array, Object value, java.util.Comparator<?> comparer) {
+        if (array == null) {
+            throw new ArgumentNullException("array");
+        }
+        Object underlying = array.getUnderlyingArray();
+        int length = java.lang.reflect.Array.getLength(underlying);
+        java.util.Comparator<Object> cmp = (java.util.Comparator<Object>) comparer;
+        if (cmp == null) {
+            // C# null comparer: each element's own IComparable compareTo(value)
+            // decides the order, so the comparison goes element-to-key.
+            cmp = (element, key) -> {
+                if (element == null) {
+                    return key == null ? 0 : -1;
+                }
+                return ((java.lang.Comparable<Object>) element).compareTo(key);
+            };
+        }
+        int lo = 0;
+        int hi = length - 1;
+        while (lo <= hi) {
+            int mid = (lo + hi) >>> 1;
+            int c = cmp.compare(java.lang.reflect.Array.get(underlying, mid), value);
+            if (c == 0) {
+                return mid;
+            }
+            if (c < 0) {
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        return -(lo + 1);
+    }
+
     public static void clear(Object[] array, int index, int length) {
         for (int i = index; i < index + length && i < array.length; i++) {
             array[i] = null;

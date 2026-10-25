@@ -215,6 +215,11 @@ public final class CSharpArray implements Iterable<Object> {
         return index;
     }
 
+    /** The underlying Java array (any primitive or reference array). */
+    public Object getUnderlyingArray() {
+        return array;
+    }
+
     public Object getValue(int index) {
         checkSingleDimensional();
         try {

@@ -290,7 +290,7 @@ public class OperatorTransformer
         };
     }
 
-    private static string BuildConversionMethodSuffix(string javaType)
+    internal static string BuildConversionMethodSuffix(string javaType)
     {
         if (string.IsNullOrWhiteSpace(javaType))
             return "Object";
