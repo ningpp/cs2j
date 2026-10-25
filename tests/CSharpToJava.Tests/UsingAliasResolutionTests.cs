@@ -59,6 +59,48 @@ class Test
         Assert.DoesNotContain("MyPoint", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A using alias used as a static-member receiver inside a switch case label
+    /// (`case FT.FuncBoolean:`) must resolve to the mapped target type, exactly
+    /// like the same alias in field/method-signature type positions. Keeping the
+    /// alias spelling makes javac parse `FT.` as a package
+    /// (real chain: MS.Internal.Xml.XPath BooleanFunctions/NodeFunctions/
+    /// NumberFunctions/QueryBuilder over `using FT = ...FunctionType`).
+    /// </summary>
+    [Fact]
+    public void UsingAlias_EnumMemberReceiverInSwitchCaseLabel_Resolved()
+    {
+        var result = Convert(@"
+using FT = Helpers.FuncType;
+
+namespace Helpers
+{
+    public enum FuncType
+    {
+        FuncA,
+        FuncB,
+    }
+}
+
+class Test
+{
+    int Eval(FT t)
+    {
+        switch (t)
+        {
+            case FT.FuncA:
+                return 1;
+            default:
+                return 0;
+        }
+    }
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.DoesNotContain("FT.", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("case FuncType.FuncA:", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

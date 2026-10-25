@@ -62,6 +62,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return assemblyScopedName;
         }
 
+        // using 别名的裸类型标识（静态成员接收者、switch case 标签如
+        // `case FT.FuncBoolean:`）：类型位置已按符号解析出映射名（`FT _funcType` →
+        // `Function.FunctionType`），表达式位置若保留别名拼写，javac 会把 `FT.`
+        // 当程序包解析（程序包FT不存在 / 找不到符号 变量 FT），这里同样落到映射名
+        // （MapType 会同步登记所需导入；别名未绑定到类型时维持原样）。
+        if (context.IsAlias(node.Identifier.Text)
+            && context.MapAliasToJavaType(node.Identifier.Text) is { } aliasJavaType)
+        {
+            return aliasJavaType;
+        }
+
         // Bare type identifiers used as static-member receivers need the same explicit
         // project-package import as type references: `dotnet.system.*` and the compat
         // wildcard otherwise both provide e.g. UriKind, which javac rejects as ambiguous.
@@ -348,18 +359,37 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // 符号 变量 ItemN（真实链 XmlTextReaderImpl 的 tuple_1.Item2 等 4 处）。
         if (IsTupleItemName(node.Name.Identifier.Text, out var tupleItemIndex))
         {
-            var tupleMemberIsTuple = symbol is IFieldSymbol tupleItemField
+            INamedTypeSymbol? tupleType = null;
+            if (symbol is IFieldSymbol tupleItemField
                 && tupleItemField.ContainingType is INamedTypeSymbol tupleItemCt
                 && (tupleItemCt.IsTupleType
-                    || tupleItemCt.ToDisplayString().StartsWith("System.Tuple", StringComparison.Ordinal));
-            var tupleReceiverType = context.GetTypeInfo(node.Expression).Type
-                                    ?? context.GetTypeInfo(node.Expression).ConvertedType;
-            var tupleReceiverIsTuple = !tupleMemberIsTuple
-                && tupleReceiverType is INamedTypeSymbol tupleRt
-                && (tupleRt.IsTupleType
-                    || tupleRt.ToDisplayString().StartsWith("System.Tuple", StringComparison.Ordinal));
-            if (tupleMemberIsTuple || tupleReceiverIsTuple)
+                    || tupleItemCt.ToDisplayString().StartsWith("System.Tuple", StringComparison.Ordinal)))
             {
+                tupleType = tupleItemCt;
+            }
+            else
+            {
+                var tupleReceiverType = context.GetTypeInfo(node.Expression).Type
+                                        ?? context.GetTypeInfo(node.Expression).ConvertedType;
+                if (tupleReceiverType is INamedTypeSymbol tupleRt
+                    && (tupleRt.IsTupleType
+                        || tupleRt.ToDisplayString().StartsWith("System.Tuple", StringComparison.Ordinal)))
+                {
+                    tupleType = tupleRt;
+                }
+            }
+            if (tupleType != null)
+            {
+                // System.Tuple`2 的映射是 java.util.Map.Entry（声明侧变量/返回类型发
+                // Map.Entry，实例化侧发 AbstractMap.SimpleImmutableEntry）：调用侧
+                // 元素访问必须同键，落 getKey()/getValue()；发 vavr 的 _N() 会让
+                // javac 在 Map.Entry 上找不到 _1/_2（真实链 DtdParser/
+                // XsdValidatingReader 异步 out 参数链）。其余元组形态（tuple 语法
+                // ValueTuple/System.Tuple`3+）映射 vavr TupleN，保持 _N()。
+                if (MapsToMapEntry(tupleType, context))
+                {
+                    return tupleItemIndex == 1 ? $"{receiver}.getKey()" : $"{receiver}.getValue()";
+                }
                 return $"{receiver}._{tupleItemIndex}()";
             }
         }
@@ -766,6 +796,26 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return false;
         index = n;
         return true;
+    }
+
+    /// <summary>
+    /// True when the tuple shape's configured mapping is java.util.Map.Entry
+    /// (System.Tuple`2 → Map.Entry). Tuple-syntax ValueTuple and System.Tuple`3+
+    /// map to vavr TupleN and keep the _N() accessors.
+    /// </summary>
+    private static bool MapsToMapEntry(INamedTypeSymbol tupleType, ConversionContext context)
+    {
+        if (tupleType.IsTupleType) return false;
+        var def = tupleType.OriginalDefinition;
+        if (def.ContainingNamespace?.ToDisplayString() != "System"
+            || def.Name != "Tuple"
+            || tupleType.Arity != 2)
+            return false;
+        return context.TypeMappings.HasTypeMapping("System.Tuple`2")
+            && string.Equals(
+                context.TypeMappings.MapType("System.Tuple`2"),
+                "Map.Entry",
+                StringComparison.Ordinal);
     }
 
     internal static int TryGetTupleElementIndex(INamedTypeSymbol tupleType, string elementName)

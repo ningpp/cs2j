@@ -11,6 +11,43 @@ public class XmlDateTimeConstructorTests
     /// because CSharpDateTime has no 7-param constructor with DateTimeKind.
     /// </summary>
 
+    /// <summary>
+    /// C# DateTime.MinValue/DateTime.MaxValue static constants must resolve to the
+    /// mapped compat surface CSharpDateTime.MIN_VALUE / MAX_VALUE. Leaving the raw
+    /// C# receiver spelling in place leaves javac hunting for a DateTime class
+    /// (real chain: XsdDateTime underflow/overflow guards reading
+    /// DateTime.MinValue.Ticks inside switch case sections).
+    /// </summary>
+    [Fact]
+    public void DateTimeMinValueStaticField_MapsToCSharpDateTimeMinValue()
+    {
+        var result = Convert("""
+using System;
+
+class Sample
+{
+    long Check(long ticks)
+    {
+        if (ticks < DateTime.MinValue.Ticks)
+        {
+            ticks = DateTime.MinValue.Ticks;
+        }
+        if (ticks > DateTime.MaxValue.Ticks)
+        {
+            ticks = DateTime.MaxValue.Ticks;
+        }
+        return ticks;
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("CSharpDateTime.MIN_VALUE.getTicks()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("CSharpDateTime.MAX_VALUE.getTicks()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("DateTime.MinValue", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("DateTime.MaxValue", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void DateTimeConstructor_SixParams_NoKind_NoChange()
     {

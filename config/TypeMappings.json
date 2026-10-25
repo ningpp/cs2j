@@ -6574,6 +6574,16 @@
             "javaMethod": "MIN_VALUE"
         },
         {
+            "type": "System.DateTime",
+            "method": "MinValue",
+            "javaMethod": "MIN_VALUE"
+        },
+        {
+            "type": "System.DateTime",
+            "method": "MaxValue",
+            "javaMethod": "MAX_VALUE"
+        },
+        {
             "type": "System.Type",
             "method": "GetGenericArguments",
             "javaMethod": "TypeHelper.getGenericArguments"

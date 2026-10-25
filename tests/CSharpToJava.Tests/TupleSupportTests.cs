@@ -158,6 +158,59 @@ class C {
         Assert.DoesNotContain("clone()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// System.Tuple`2 maps to java.util.Map.Entry (declarations render Map.Entry,
+    /// instantiations render AbstractMap.SimpleImmutableEntry), so item accessors
+    /// must render getKey()/getValue() - the vavr _N() spelling only fits the
+    /// vavr-mapped tuple shapes (tuple syntax / System.Tuple`3+)
+    /// (real chain: DtdParser/XsdValidatingReader async out-param chains).
+    /// </summary>
+    [Fact]
+    public void SystemTuple2_ItemAccess_UsesEntryAccessors()
+    {
+        var result = Convert(@"
+using System;
+
+class C
+{
+    int PickItem1(Tuple<int, bool> t)
+    {
+        return t.Item1;
+    }
+
+    bool PickItem2(Tuple<int, bool> t)
+    {
+        return t.Item2;
+    }
+}
+");
+        Assert.True(result.Success);
+        Assert.DoesNotContain("_1()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("_2()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("getKey()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("getValue()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Tuple-syntax tuples keep mapping to io.vavr.TupleN, so their ItemN
+    /// accessors stay on the vavr _N() spelling.
+    /// </summary>
+    [Fact]
+    public void ValueTuple_ItemAccess_KeepsVavrAccessors()
+    {
+        var result = Convert(@"
+class C
+{
+    int PickItem1((int, bool) t)
+    {
+        return t.Item1;
+    }
+}
+");
+        Assert.True(result.Success);
+        Assert.Contains("_1()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string csharpCode)
     {
         var pipeline = new ConversionPipeline();
