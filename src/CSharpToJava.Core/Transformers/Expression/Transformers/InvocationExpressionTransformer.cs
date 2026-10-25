@@ -377,6 +377,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         $"StringHelper.{helper}({receiverText}, {argumentText})");
                 }
 
+                // C# String.IndexOf/LastIndexOf(value[, startIndex], StringComparison) → StringHelper.
+                // 仅当末参为 StringComparison 时接管：IndexOf(char, int)/IndexOf(string, int)
+                // 的 startIndex 不能落进 StringHelper.indexOf(s, value, comparison) 的
+                // 忽略大小写布尔语义，保持通用 IndexOf→indexOf 改名映射。
+                if (methodSymbol is { Name: "IndexOf" or "LastIndexOf", Parameters.Length: 2 or 3 }
+                    && methodSymbol.ContainingType?.SpecialType == SpecialType.System_String
+                    && methodSymbol.Parameters[methodSymbol.Parameters.Length - 1].Type is INamedTypeSymbol { Name: "StringComparison" })
+                {
+                    context.AddImport("io.github.ningpp.compat.StringHelper");
+                    var helper = methodSymbol.Name == "IndexOf" ? "indexOf" : "lastIndexOf";
+                    return new JavaRawExpression(
+                        $"StringHelper.{helper}({receiverText}, {argumentText})");
+                }
+
                 // C# String.ToLower/ToUpper(CultureInfo) → StringHelper (Locale bridge).
                 if (methodSymbol is { Name: "ToLower" or "ToUpper", Parameters.Length: 1 }
                     && methodSymbol.ContainingType?.SpecialType == SpecialType.System_String
@@ -975,6 +989,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 {
                     context.AddImport("io.github.ningpp.compat.StringHelper");
                     var helper = memberMethodForOverrides.Name == "StartsWith" ? "startsWith" : "endsWith";
+                    return $"StringHelper.{helper}({receiver}, {arguments})";
+                }
+
+                // C# String.IndexOf/LastIndexOf(value[, startIndex], StringComparison) → StringHelper.
+                // IR 路径孪生（见上方字符串路径同名分支注释）。
+                if (memberMethodForOverrides is { Name: "IndexOf" or "LastIndexOf", Parameters.Length: 2 or 3 }
+                    && memberMethodForOverrides.ContainingType?.SpecialType == SpecialType.System_String
+                    && memberMethodForOverrides.Parameters[memberMethodForOverrides.Parameters.Length - 1].Type is INamedTypeSymbol { Name: "StringComparison" })
+                {
+                    context.AddImport("io.github.ningpp.compat.StringHelper");
+                    var helper = memberMethodForOverrides.Name == "IndexOf" ? "indexOf" : "lastIndexOf";
                     return $"StringHelper.{helper}({receiver}, {arguments})";
                 }
 
