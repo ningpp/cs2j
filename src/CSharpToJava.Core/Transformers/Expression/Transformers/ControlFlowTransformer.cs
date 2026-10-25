@@ -218,16 +218,11 @@ public class ControlFlowTransformer : IIRExpressionTransformer
 
         // Java's conditional expression requires both branches to have compatible types.
         // C# allows `condition ? enumValue : 0` because 0 is implicitly convertible to any enum.
-        // Wrap the integral literal with EnumType.fromValue(...) so both branches are enum-typed.
-        if (context.SemanticModel != null)
-        {
-            var conditionalType = context.GetTypeInfo(node).ConvertedType;
-            if (conditionalType?.TypeKind == TypeKind.Enum)
-            {
-                trueExpr = AdaptIntegralLiteralToEnum(node.WhenTrue, trueExpr, conditionalType, context);
-                falseExpr = AdaptIntegralLiteralToEnum(node.WhenFalse, falseExpr, conditionalType, context);
-            }
-        }
+        // 枚举臂归一已由上方 CoerceEnumBranch 完成（value enum → fromValue、
+        // ordinal enum → values()[i]）。此处不再叠一层 AdaptIntegralLiteralToEnum：
+        // 它会对字面臂再包一次 EnumType.fromValue(...)，对 ordinal enum 发出
+        // 不存在的 fromValue（XmlTypeCode 真实链 FacetsChecker 编译错），对 value
+        // enum 则产生 fromValue(fromValue(...)) 双层包装。
 
         // A C# ternary typed T? (e.g. bool? with branches `true` and `null`)
         // lowers to a Java ternary whose branches are the primitive type and
@@ -382,55 +377,12 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         _ => null
     };
 
-    /// <summary>
-    /// If a conditional-expression branch is an integral literal while the conditional's
-    /// target type is an enum, wrap the literal with EnumType.fromValue(...) so Java's
-    /// ternary operator accepts both branches. C# permits 0 as an implicit enum value;
-    /// Java does not.
-    /// </summary>
-    private static string AdaptIntegralLiteralToEnum(
-        ExpressionSyntax branchNode,
-        string branchExpr,
-        ITypeSymbol enumType,
-        ConversionContext context)
-    {
-        var branchTypeInfo = context.GetTypeInfo(branchNode);
-        var branchType = branchTypeInfo.Type;
-        if (branchType == null || !IsIntegralSpecialType(branchType.SpecialType))
-            return branchExpr;
-
-        // Only adapt bare integer literals (including 0). Other integral expressions
-        // such as casts are handled by their own transformers.
-        if (branchNode is not LiteralExpressionSyntax literal)
-            return branchExpr;
-
-        var value = literal.Token.Value;
-        if (value is not int && value is not long && value is not sbyte
-            && value is not byte && value is not short && value is not ushort
-            && value is not uint && value is not ulong)
-        {
-            return branchExpr;
-        }
-
-        var javaEnumType = context.MapType(enumType);
-        if (string.IsNullOrWhiteSpace(javaEnumType))
-            return branchExpr;
-
-        // [Flags] enums mapped to primitive integral types are already compatible.
-        if (javaEnumType is "int" or "long" or "short" or "byte"
-            or "Integer" or "Long" or "Short" or "Byte")
-        {
-            return branchExpr;
-        }
-
-        return $"{javaEnumType}.fromValue({branchExpr})";
-    }
-
-    private static bool IsIntegralSpecialType(SpecialType specialType)
-        => specialType is SpecialType.System_Int32 or SpecialType.System_Int64
-            or SpecialType.System_Int16 or SpecialType.System_Byte
-            or SpecialType.System_SByte or SpecialType.System_UInt16
-            or SpecialType.System_UInt32 or SpecialType.System_UInt64;
+    // (AdaptIntegralLiteralToEnum removed: CoerceEnumBranch above already normalizes
+    // literal arms to the enum type per enum kind — value enums get
+    // E.fromValue((storage)lit), ordinal enums get E.values()[lit]. Re-wrapping
+    // literal arms here emitted E.fromValue(E.values()[0]) for ordinal enums
+    // (XmlTypeCode, real chain: FacetsChecker javac "找不到符号 fromValue") and
+    // a double fromValue(fromValue(...)) for value enums.)
 
     private string TransformConditionalAccess(ConditionalAccessExpressionSyntax node, ConversionContext context)
     {
