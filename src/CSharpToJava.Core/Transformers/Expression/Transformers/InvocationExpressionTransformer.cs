@@ -3302,12 +3302,32 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 $"{containingType.ContainingNamespace}.{containingType.Name}", originalName, paramCount);
 
         // Implicit interface implementations (e.g. IEquatable<T>.Equals → equalsTo).
-        if (mappedName == null && containingType is INamedTypeSymbol namedType)
+        // 与声明侧（MethodTransformer.TryMapImplicitInterfaceImplementation）同规则：
+        // 接口方法的实际实现（FindImplementationForInterfaceMember）必须就是被调
+        // 方法才改名；且接收者类型必须来自源码（声明侧才会同步改名）。否则跨模
+        // 块符号可能把调用绑到 BCL 同名类型的接口实现（真实链 xml 编译把
+        // uri1.Equals(uri2) 绑到 BCL Uri 的 IEquatable<Uri>.Equals(Uri)，接收者
+        // 映射到 dotnet.system.Uri，而源内 Uri.java 只声明 equals(Object)）。
+        if (mappedName == null
+            && containingType is INamedTypeSymbol namedType
+            && namedType.Locations.All(l => l.IsInSource))
         {
             foreach (var iface in namedType.AllInterfaces)
             {
                 if (!MethodSignatureMatchesInterface(methodSymbol, iface, originalName))
                     continue;
+
+                var interfaceMethod = iface.GetMembers(originalName).OfType<IMethodSymbol>().FirstOrDefault();
+                if (interfaceMethod == null)
+                    continue;
+                var implementation = namedType.FindImplementationForInterfaceMember(interfaceMethod);
+                if (implementation == null
+                    || (!SymbolEqualityComparer.Default.Equals(implementation, methodSymbol)
+                        && !SymbolEqualityComparer.Default.Equals(
+                            implementation.OriginalDefinition, methodSymbol.OriginalDefinition)))
+                {
+                    continue;
+                }
 
                 mappedName = context.TypeMappings.MapMethod(
                     iface.ConstructedFrom.ToDisplayString(), originalName, paramCount)
