@@ -8,11 +8,11 @@ public interface CSharpDictEnumerator extends CSharpEnumerator {
     @Override
     default Object getCurrent() { return getEntry(); }
 
-    /** Iterator-style convenience: hasNext() == moveNext(). */
-    default boolean hasNext() { return moveNext(); }
-
-    /** Iterator-style convenience: next() == getCurrent(). */
-    default Object next() { return getCurrent(); }
+    // NOTE: no default hasNext()/next() here on purpose. A class that implements
+    // both CSharpDictEnumerator and CSharpGenericEnumerator<T> (e.g. generated
+    // IDictionaryEnumerator views extending a generic enumerator) would inherit
+    // two unrelated defaults for those members and javac rejects the class
+    // outright. moveNext()/getCurrent()/getEntry() carry the protocol.
 
     /**
      * Adapts a generic key/value enumerator into the non-generic IDictionaryEnumerator
