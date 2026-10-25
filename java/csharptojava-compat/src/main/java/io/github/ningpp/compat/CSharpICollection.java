@@ -145,6 +145,19 @@ public interface CSharpICollection<T> extends CSharpReadOnlyCollection<T> {
     default void clear() { throw new UnsupportedOperationException(); }
     default boolean contains(Object o) { throw new UnsupportedOperationException(); }
     default void copyTo(T[] array, int arrayIndex) { throw new UnsupportedOperationException(); }
+    /**
+     * C# ICollection.CopyTo(Array, int)：转换调用点把 T[] 实参包成 CSharpArray
+     * 写透视图传入（真实链 XmlSchemaSet 的 _schemas.Values.CopyTo(schemas, index)），
+     * 接口此前只有 T[] 重载，javac 无法把 CSharpArray 匹配到 capture 擦除数组。
+     * 逐元素经视图 setValue 写回底层数组。
+     */
+    default void copyTo(CSharpArray array, int index) {
+        int i = 0;
+        CSharpGenericEnumerator<T> e = iterator();
+        while (e.moveNext()) {
+            array.setValue(e.getCurrent(), index + i++);
+        }
+    }
     default boolean remove(Object o) { throw new UnsupportedOperationException(); }
     int getCount();
     default boolean getIsReadOnly() { return false; }
