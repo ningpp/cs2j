@@ -161,6 +161,27 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             return $"new {name}(() -> {defaultValue})";
         }
 
+        // `new ValueTask<T>(x)` / `new ValueTask(t)` 经类型映射落到 CompletableFuture，
+        // 而 Java CompletableFuture 只有公共无参构造（javac: 无法将构造器
+        // CompletableFuture应用到给定类型；真实链 XmlTextReaderImpl.ParseTextAsync）。
+        // C# 形状分支：
+        //   new ValueTask<T>(Task<T> task) → Task 本体（ValueTask 只是 Task 包装），直通实参；
+        //   new ValueTask<T>(T value)      → 已完成任务 CompletableFuture.completedFuture(value)。
+        // `new Task(...)`（冷任务，需 Start）语义不同且工程内无使用，不在此处理。
+        if (type is INamedTypeSymbol valueTaskType
+            && valueTaskType.OriginalDefinition.ContainingNamespace?.ToDisplayString() == "System.Threading.Tasks"
+            && valueTaskType.OriginalDefinition.Name == "ValueTask"
+            && constructor is { Parameters.Length: 1 } valueTaskCtor)
+        {
+            var arg = ArgumentTransformer.TransformArgumentList(
+                al, c, ExpressionTransformerFacade.Instance, methodSymbol: constructor);
+            var param = valueTaskCtor.Parameters[0].Type;
+            var paramIsTaskLike = param is INamedTypeSymbol paramNamed
+                && paramNamed.OriginalDefinition.ContainingNamespace?.ToDisplayString() == "System.Threading.Tasks"
+                && paramNamed.OriginalDefinition.Name is "Task" or "ValueTask";
+            return paramIsTaskLike ? arg : $"CompletableFuture.completedFuture({arg})";
+        }
+
         var args = ArgumentTransformer.TransformArgumentList(
             al, c, ExpressionTransformerFacade.Instance, methodSymbol: constructor);
         return $"new {name}({args})";
