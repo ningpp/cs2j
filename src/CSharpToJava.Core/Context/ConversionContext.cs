@@ -413,8 +413,24 @@ public class ConversionContext
     public void RegisterErasureConflictMethodName(IMethodSymbol method, string javaName)
         => _erasureRenamedMethods[method] = javaName;
 
+    /// <summary>
+    /// 按方法符号取擦除冲突改名。Java 覆写方法必须与基类改名后的方法同名，
+    /// 沿 OverriddenMethod 链向上查（真实链 XPathDocumentNavigator.Clone 覆写
+    /// XPathNavigator.Clone，基类改 clone_2 后子类与调用点必须同步 clone_2）。
+    /// </summary>
     public bool TryGetErasureConflictMethodName(IMethodSymbol method, out string javaName)
-        => _erasureRenamedMethods.TryGetValue(method, out javaName!);
+    {
+        for (var m = method; m != null; m = m.OverriddenMethod)
+        {
+            if (_erasureRenamedMethods.TryGetValue(m, out javaName!))
+                return true;
+            if (!SymbolEqualityComparer.Default.Equals(m.OriginalDefinition, m)
+                && _erasureRenamedMethods.TryGetValue(m.OriginalDefinition, out javaName!))
+                return true;
+        }
+        javaName = null!;
+        return false;
+    }
 
     /// <summary>
     /// Returns the Java class literal for a concrete type symbol at a call site.

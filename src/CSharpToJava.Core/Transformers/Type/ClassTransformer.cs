@@ -320,8 +320,12 @@ public class ClassTransformer : ITypeTransformer
         // not consult the rename map). A colliding user method is only renamed when an
         // accessor body actually calls it; otherwise the old dedup behaviour (drop the
         // duplicate, bind calls to the bean accessor) stays intact.
+        // IsBridge=true 条目（显式接口实现）按接口映射名占位但从不改名：隐式同
+        // 签名成员（真实链 XPathNavigator 的 abstract Clone 与 ICloneable.Clone
+        // 桥都映射 clone()）必须在此预注册 _N 改名——声明时才注册的话，文件序
+        // 早于该声明的调用点 body 已用旧名渲染（clone() 应为 clone_2()）。
         var methods = new List<(IMethodSymbol Symbol, string Name, string Signature,
-            PropertyDeclarationSyntax? AccessorOwner)>();
+            PropertyDeclarationSyntax? AccessorOwner, bool IsBridge)>();
         foreach (var node in nodes)
         {
             var model = context.GetSemanticModelForTree(node.SyntaxTree) ?? context.SemanticModel;
@@ -330,19 +334,27 @@ public class ClassTransformer : ITypeTransformer
                 if (member is MethodDeclarationSyntax declaration)
                 {
                     var symbol = model?.GetDeclaredSymbol(declaration) as IMethodSymbol;
-                    if (symbol == null || symbol.MethodKind != MethodKind.Ordinary)
+                    if (symbol == null
+                        || (symbol.MethodKind != MethodKind.Ordinary
+                            && symbol.MethodKind != MethodKind.ExplicitInterfaceImplementation))
                         continue;
-                    // Explicit interface implementations duplicate the implicit member's
-                    // Java signature; leave them out so the mechanical dedup drops the
-                    // redundant bridge instead of renaming it to an unresolvable call.
                     if (symbol.ExplicitInterfaceImplementations.Length > 0)
+                    {
+                        // 桥按接口映射名参与占位；隐式成员在先的旧去重行为
+                        // （丢弃冗余桥）保持不变——只有桥在先时隐式成员才改 _N。
+                        var bridgeName = MethodTransformer.GetJavaMethodName(
+                            declaration.Identifier.Text, symbol, context);
+                        methods.Add((symbol, bridgeName,
+                            string.Join(",", symbol.Parameters.Select(p => EraseType(context.MapType(p.Type)))),
+                            null, true));
                         continue;
+                    }
                     if (methods.Any(m => SymbolEqualityComparer.Default.Equals(m.Symbol, symbol)))
                         continue;
 
                     var name = MethodTransformer.GetJavaMethodName(declaration.Identifier.Text, symbol, context);
                     var signature = string.Join(",", symbol.Parameters.Select(p => EraseType(context.MapType(p.Type))));
-                    methods.Add((symbol, name, signature, null));
+                    methods.Add((symbol, name, signature, null, false));
                 }
                 else if (member is PropertyDeclarationSyntax property)
                 {
@@ -352,7 +364,7 @@ public class ClassTransformer : ITypeTransformer
                     if (symbol.GetMethod is { } getter)
                         methods.Add((getter,
                             JavaNaming.GetPropertyGetterName(ConversionContext.EscapeJavaKeyword(symbol.Name)),
-                            string.Empty, property));
+                            string.Empty, property, false));
 
                     if (symbol.SetMethod is { } setter)
                     {
@@ -362,7 +374,7 @@ public class ClassTransformer : ITypeTransformer
                             : escaped);
                         var signature = string.Join(",",
                             setter.Parameters.Select(p => EraseType(context.MapType(p.Type))));
-                        methods.Add((setter, setterName, signature, property));
+                        methods.Add((setter, setterName, signature, property, false));
                     }
                 }
             }
@@ -376,6 +388,10 @@ public class ClassTransformer : ITypeTransformer
             for (var i = 1; i < entries.Count; i++)
             {
                 var method = entries[i];
+                // 桥（显式接口实现）保留接口映射名：隐式成员在先时由机械去重
+                // 丢弃冗余桥；桥在先时隐式成员已在下方（或运行时）改 _N。
+                if (method.IsBridge)
+                    continue;
                 if (accessorOwner != null
                     && !AccessorCallsMethod(accessorOwner, method.Symbol, context))
                 {
