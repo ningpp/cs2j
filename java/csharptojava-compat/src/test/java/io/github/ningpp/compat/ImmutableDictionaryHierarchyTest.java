@@ -41,7 +41,12 @@ class ImmutableDictionaryHierarchyTest {
 
         int seen = 0;
         CSharpReadOnlyDict<String, Integer> view = readAsContract(dict);
-        for (CSharpKeyValuePair<String, Integer> pair : view) {
+        // CSharpReadOnlyDict erases to a CSharpGenericEnumerator (not Iterable),
+        // so walk it with the C#-style moveNext/getCurrent contract.
+        CSharpGenericEnumerator<?> enumerator = view.iterator();
+        while (enumerator.moveNext()) {
+            CSharpKeyValuePair<String, Integer> pair =
+                (CSharpKeyValuePair<String, Integer>) enumerator.getCurrent();
             assertEquals("a", pair.getKey());
             assertEquals(1, pair.getValue());
             seen++;

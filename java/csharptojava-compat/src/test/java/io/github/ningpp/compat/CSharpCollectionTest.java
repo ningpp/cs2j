@@ -12,7 +12,7 @@ class CSharpCollectionTest {
     void derivedCollectionCanImplementCSharpCollection() {
         DerivedCollection collection = new DerivedCollection();
 
-        assertEquals(0, collection.size());
+        assertEquals(0, collection.getCount());
         assertSame(collection, collection.getSyncRoot());
     }
 
@@ -25,7 +25,7 @@ class CSharpCollectionTest {
 
     static class DerivedCollection implements CSharpCollection {
         @Override
-        public int size() {
+        public int getCount() {
             return 0;
         }
 

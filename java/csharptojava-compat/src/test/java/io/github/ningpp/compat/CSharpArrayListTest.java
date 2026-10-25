@@ -46,7 +46,7 @@ class CSharpArrayListTest {
     @Test
     void csharpCollectionConstructor_copiesElements() {
         CSharpCollection collection = new CSharpCollection() {
-            @Override public int size() { return 3; }
+            @Override public int getCount() { return 3; }
             @Override public void copyTo(CSharpArray array, int index) { }
             @Override public boolean getIsSynchronized() { return false; }
             @Override public Object getSyncRoot() { return this; }
