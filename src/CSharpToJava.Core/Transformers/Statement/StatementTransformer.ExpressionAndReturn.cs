@@ -260,8 +260,16 @@ public partial class StatementTransformer
 
         // IList 家族返回槽位（List<T>/getValues() 值 → CSharpIList）：包适配视图
         // （真实链 SchemaElementDecl.DefaultAttDefs、XmlSchemaSet.Schemas、
-        // NamespaceList.Enumerate）。
-        expr = IListCoercion.CoerceOrSame(stmt.Expression, expr, retType, ctx);
+        // NamespaceList.Enumerate）。IReadOnlyList/IReadOnlyCollection 的数组源
+        // 返回保持下方既有的 CSharpList 复制包装分支
+        // （TupleArrayReturnedAsIReadOnlyList 返回位语义不变），不在此桥接。
+        var isArrayReadOnlyListReturn = ctx.GetTypeInfo(stmt.Expression).Type is IArrayTypeSymbol
+            && retType is INamedTypeSymbol readOnlyTarget
+            && readOnlyTarget.OriginalDefinition?.ToDisplayString()
+                is "System.Collections.Generic.IReadOnlyList<T>"
+                    or "System.Collections.Generic.IReadOnlyCollection<T>";
+        if (!isArrayReadOnlyListReturn)
+            expr = IListCoercion.CoerceOrSame(stmt.Expression, expr, retType, ctx);
 
         // 整数字面量返回给 byte/short：Java 没有 C# 的常量隐式窄化
         if (Regex.IsMatch(expr.Trim(), @"^-?\d+$")
@@ -274,6 +282,7 @@ public partial class StatementTransformer
         }
 
         if (!stmt.Ancestors().OfType<AnonymousFunctionExpressionSyntax>().Any()
+            && !expr.TrimStart().StartsWith("CSharpIList.from(", StringComparison.Ordinal)
             && ctx.GetTypeInfo(stmt.Expression).Type is IArrayTypeSymbol { Rank: 1 } arr
             && retType is INamedTypeSymbol rn)
         {

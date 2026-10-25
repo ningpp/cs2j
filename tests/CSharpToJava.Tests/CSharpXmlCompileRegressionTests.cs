@@ -6,8 +6,16 @@ namespace CSharpToJava.Tests;
 public class CSharpXmlCompileRegressionTests
 {
 
+    /// <summary>
+    /// C# List&lt;T&gt; 参数赋给 IList&lt;T&gt; 字段：两侧映射（CSharpList /
+    /// CSharpIList）在 Java 里没有实现关系，裸赋值 javac 报
+    /// "CSharpList 无法转换为 CSharpIList"（真实链 FunctionQuery 构造器，
+    /// out6 D:/tmp-xml-out6 .../FunctionQuery.java:41），必须落
+    /// CSharpIList.from 适配视图；CSharpGenericIList.from 依旧禁止——
+    /// CSharpGenericIList 与 CSharpIList 是不相关的接口族。
+    /// </summary>
     [Fact]
-    public void FunctionQuery_Ctor_AssignsListToGenericIList_DoesNotWrapWithFrom()
+    public void FunctionQuery_Ctor_AssignsListToGenericIList_UsesCSharpIListAdapter()
     {
         var result = Convert("""
             using System.Collections.Generic;
@@ -26,7 +34,7 @@ public class CSharpXmlCompileRegressionTests
             """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("_args = args", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("_args = CSharpIList.from(args)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("CSharpGenericIList.from(", result.GeneratedCode, StringComparison.Ordinal);
     }
 

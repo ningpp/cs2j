@@ -106,6 +106,10 @@ public class AssignmentTransformer : IIRExpressionTransformer
         }
         rightText = SpanCoercion.CoerceOrSame(
             rhs, rightText, context.GetTypeInfo(lhs).Type, context);
+        // IList 家族赋值槽位：与参数/声明/返回位一致的适配视图
+        // （真实链 FunctionQuery/StringFunctions 克隆构造器 `_args = tmp`）。
+        rightText = IListCoercion.CoerceOrSame(
+            rhs, rightText, context.GetTypeInfo(lhs).Type, context);
         if (op == "=" && JavaNarrowTarget(lhs, context) is { } narrowTarget)
         {
             // C# implicit/explicit narrowing conversions to byte/short/char have no

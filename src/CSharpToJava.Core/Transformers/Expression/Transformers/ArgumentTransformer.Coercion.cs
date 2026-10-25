@@ -83,6 +83,13 @@ public partial class ArgumentTransformer
         if (method == null || index >= method.Parameters.Length)
             return text;
 
+        // CSharpList/CSharpArrayList 的 addRange 接受裸数组（Object[] 重载），
+        // 与 CoerceArrayToCollection 的 AddRange 早退一致：数组实参保持原样，
+        // 不包 CSharpIList.from 视图（真实链 SchemaCollectionCompiler
+        // memberTypeDefinitions.AddRange(uniondt.BaseMemberTypes)）。
+        if (method.Name is "AddRange" or "addRange")
+            return text;
+
         return IListCoercion.CoerceOrSame(argument, text, method.Parameters[index].Type, context);
     }
 
@@ -573,10 +580,35 @@ public partial class ArgumentTransformer
 
         context.AddImport("io.github.ningpp.compat.ArrayHelper");
         var collectionExpr = $"ArrayHelper.toList({transformedExpr})";
-        if (arrayParam.Name == "IList" && !collectionExpr.StartsWith("CSharpList<", StringComparison.Ordinal))
+        // C# System.Collections.IList 与 System.Collections.Generic.IList`1 都映射
+        // CSharpIList：数组实参落 CSharpGenericIList.fromTyped(...) 与声明侧
+        // CSharpIList 形参永不兼容（真实链 SortQuery.AddFunction →
+        // StringFunctions(IList<Query>)，javac 不存在 T 使
+        // CSharpGenericIList<T> 与 CSharpIList 一致）。按映射落对应的
+        // CSharpIList.from(ArrayHelper.asListView(arr)) 数组视图。
+        if (arrayParam.Name == "IList")
         {
-            context.AddImport("io.github.ningpp.compat.CSharpGenericIList");
-            return $"CSharpGenericIList.fromTyped({collectionExpr})";
+            // metadata 形键（System.Collections.Generic.IList`1 / System.Collections.IList）
+            var iListDef = arrayParam.OriginalDefinition;
+            var iListNs = iListDef.ContainingNamespace?.ToDisplayString();
+            var mapKey = arrayParam.Arity > 0
+                ? $"{iListNs}.{iListDef.Name}`{arrayParam.Arity}"
+                : $"{iListNs}.{iListDef.Name}";
+            if (context.TypeMappings.HasTypeMapping(mapKey)
+                && context.TypeMappings.MapType(mapKey) is { } mappedIListParam)
+            {
+                if (mappedIListParam.StartsWith("CSharpIList", StringComparison.Ordinal))
+                {
+                    context.AddImport("io.github.ningpp.compat.CSharpIList");
+                    return $"CSharpIList.from(ArrayHelper.asListView({transformedExpr}))";
+                }
+                if (mappedIListParam.StartsWith("CSharpGenericIList", StringComparison.Ordinal)
+                    && !collectionExpr.StartsWith("CSharpList<", StringComparison.Ordinal))
+                {
+                    context.AddImport("io.github.ningpp.compat.CSharpGenericIList");
+                    return $"CSharpGenericIList.fromTyped({collectionExpr})";
+                }
+            }
         }
         return collectionExpr;
     }
