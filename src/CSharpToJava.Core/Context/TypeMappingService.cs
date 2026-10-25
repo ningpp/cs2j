@@ -802,7 +802,17 @@ public class TypeMappingService
             // System.Decimal 的类型级映射；导入登记同样需要 "System."+名字
             // 兜底——否则方法返回类型 decimal → Decimal 不登记 compat 导入
             // （真实链 dotnet-xml XmlAsyncCheckReader 6 处找不到符号 类 Decimal）。
+            // 数值/bool/char 基元例外：JavaNaming 已把它们改写到基元存储
+            // （UInt16→Int32），compat 的 UByte/UShort/UInt/ULong 导入反而
+            // 破坏基元形态（UnsignedPrimitiveMappingTests）。
+            var primitiveStorage = typeSymbol.SpecialType is
+                SpecialType.System_Boolean or SpecialType.System_Char or SpecialType.System_SByte
+                or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16
+                or SpecialType.System_Int32 or SpecialType.System_UInt32
+                or SpecialType.System_Int64 or SpecialType.System_UInt64
+                or SpecialType.System_Single or SpecialType.System_Double;
             if (ns == "System"
+                && !primitiveStorage
                 && !_typeMappings.HasTypeMapping(configKeySimple)
                 && _typeMappings.HasTypeMapping($"System.{name}"))
             {
