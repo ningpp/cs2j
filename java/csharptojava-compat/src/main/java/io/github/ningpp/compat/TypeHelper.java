@@ -2821,6 +2821,26 @@ public final class TypeHelper {
     }
 
     /**
+     * Mirrors C# {@code Type.IsSubclassOf(Type)}: true only when {@code type}
+     * derives from {@code base} through class inheritance. Unlike
+     * {@link Class#isAssignableFrom}, the answer is false when the two are the
+     * same type, and interface implementation / interface derivation never
+     * counts (C# IsSubclassOf walks the class parent chain only).
+     */
+    public static boolean isSubclassOf(Class<?> type, Class<?> base) {
+        if (type == null || base == null) {
+            return false;
+        }
+        if (isSameType(type, base)) {
+            return false;
+        }
+        if (base.isInterface()) {
+            return false;
+        }
+        return base.isAssignableFrom(type);
+    }
+
+    /**
      * Bridges C# array covariance to Java. In C#, any array (including
      * {@code int[]}) can be cast to {@code T[]} where T is a reference type,
      * because C# supports array covariance through {@code IEnumerable}.

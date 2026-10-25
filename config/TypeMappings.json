@@ -6617,6 +6617,11 @@
             "javaMethod": "TypeHelper.makeGenericMethodParameter"
         },
         {
+            "type": "System.Type",
+            "method": "IsSubclassOf",
+            "javaMethod": "TypeHelper.isSubclassOf"
+        },
+        {
             "type": "Cs2jByRef.ByRef",
             "method": "get_Value",
             "javaMethod": "getValue",
