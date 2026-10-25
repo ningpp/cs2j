@@ -589,6 +589,22 @@ public class StringHelper {
     public static int lastIndexOf(String s, String value, int startIndex, int comparison) {
         return lastIndexOf(s, value, startIndex, comparison == 1 || comparison == 3 || comparison == 5);
     }
+    /** Mirrors C# String.IndexOf(value, StringComparison) */
+    public static int indexOf(String s, String value, StringComparison comparison) {
+        return indexOf(s, value, comparison.ordinal());
+    }
+    /** Mirrors C# String.IndexOf(value, startIndex, StringComparison) */
+    public static int indexOf(String s, String value, int startIndex, StringComparison comparison) {
+        return indexOf(s, value, startIndex, comparison.ordinal());
+    }
+    /** Mirrors C# String.LastIndexOf(value, StringComparison) */
+    public static int lastIndexOf(String s, String value, StringComparison comparison) {
+        return lastIndexOf(s, value, comparison.ordinal());
+    }
+    /** Mirrors C# String.LastIndexOf(value, startIndex, StringComparison) */
+    public static int lastIndexOf(String s, String value, int startIndex, StringComparison comparison) {
+        return lastIndexOf(s, value, startIndex, comparison.ordinal());
+    }
 
     // ==================== Insert ====================
     /** Mirrors C# String.Insert(startIndex, value) */
@@ -1356,6 +1372,15 @@ public class StringHelper {
             }
         }
         return csFormat(l, converted, args);
+    }
+
+    /**
+     * Mirrors C# String.Format(IFormatProvider, format, args) for the CultureInfo
+     * provider form. Delegates to the Locale overload via {@link CultureInfo#toLocale()};
+     * a null provider falls back to the root locale like the invariant culture.
+     */
+    public static String formatCs(CultureInfo culture, String format, Object... args) {
+        return formatCs(culture != null ? culture.toLocale() : Locale.ROOT, format, args);
     }
 
     /**
