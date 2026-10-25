@@ -234,6 +234,17 @@ public class Encoding {
         return new byte[0];
     }
 
+    /**
+     * C# .NET Core Encoding.Preamble span property (ReadOnlySpan&lt;byte&gt;).
+     * Subclasses generated from C# overrides declare the same signature, so this
+     * base accessor keeps virtual dispatch working for Encoding-typed receivers
+     * (real chain: XmlTextReaderImpl.EatPreamble / raw text writers read
+     * encoding.Preamble through the base type).
+     */
+    public io.github.ningpp.compat.ReadOnlySpan<Integer> getPreambleSpan() {
+        return io.github.ningpp.compat.MemoryExtensions.asSpan(getPreamble());
+    }
+
     // ---- Static Methods ----
 
     public static Encoding getEncoding(Charset charset) {
