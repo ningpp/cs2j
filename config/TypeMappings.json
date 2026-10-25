@@ -6547,6 +6547,11 @@
             "javaMethod": "StringBuilderExtensions.appendLine"
         },
         {
+            "type": "System.Text.StringBuilder",
+            "method": "Remove",
+            "javaMethod": "StringHelper.remove"
+        },
+        {
             "type": "System.TimeSpan",
             "method": "Zero",
             "javaMethod": "ZERO"
@@ -8345,6 +8350,12 @@
             "type": "System.IO.TextWriter",
             "method": "WriteLine",
             "javaMethod": "println"
+        },
+        {
+            "type": "System.IO.TextWriter",
+            "method": "Write",
+            "javaMethod": "write",
+            "signature": "3"
         },
         {
             "type": "System.IO.TextWriter",
