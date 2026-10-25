@@ -1426,6 +1426,14 @@ public class TypeMappingService
     public void AddImportsForTypePublic(string csharpType) => AddImportsForType(csharpType);
 
     /// <summary>
+    /// Registers a raw Java import for emitters that produce a Java type outside
+    /// the TypeMappings config (e.g. ClassTransformer narrowing the implements
+    /// clause of System.Collections.ICollection to CSharpCollection when the type
+    /// also carries a CSharpGenericIterable branch).
+    /// </summary>
+    public void AddImportPublic(string javaTypeName) => AddImport(javaTypeName);
+
+    /// <summary>
     /// True for framework nested types that are mapped through built-in special
     /// cases in <see cref="TryMapNestedType"/> rather than TypeMappings.json keys
     /// (currently <c>System.Collections.Generic.List&lt;T&gt;.Enumerator</c>

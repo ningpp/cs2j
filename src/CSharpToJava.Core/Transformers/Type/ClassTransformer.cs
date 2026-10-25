@@ -168,6 +168,21 @@ public class ClassTransformer : ITypeTransformer
             foreach (var iface in symbol.Interfaces)
             {
                 var mapped = context.MapTypeForDeclarationHeader(iface);
+                // 非泛型 System.Collections.ICollection 默认映射 CSharpIList；但当类型同时
+                // 从别处继承 IEnumerable（Java 侧展开为 CSharpGenericIterable / java.util.Collection
+                // 分支，例如 XmlAttributeCollection : XmlNamedNodeMap, ICollection）时，两条无关
+                // 继承链的 clear/contains/add/remove/size 等 Collection 表面成员都是 default 方法，
+                // 类会同时继承两组同签名默认值 → Java “继承了不相关默认值”编译错误。此时把该接口
+                // 收窄为 CSharpCollection（只声明 iterator/getCount/copyTo/IsSynchronized/SyncRoot，
+                // 无 Collection 默认成员），菱形消失。C# ICollection 表面本就只有这四个成员；
+                // 需要 IList 语义的调用点在 C# 里必须先经 (IList) 强转，仍走 CSharpIList 映射。
+                if (mapped == "CSharpIList"
+                    && iface.OriginalDefinition.ToDisplayString() == "System.Collections.ICollection"
+                    && ConflictsWithIterableBranch(symbol, iface))
+                {
+                    mapped = "CSharpCollection";
+                    context.TypeMapper.AddImportPublic("io.github.ningpp.compat.CSharpCollection");
+                }
                 if (!seen.Add(InterfaceErasureKey(mapped))) continue;
                 // 序列化抑制接口（ISerializable → __suppress__）必须保留在 implements
                 // 子句里：生成代码会保留 ((ISerializable)x).GetObjectData(...) 形式的
@@ -217,6 +232,33 @@ public class ClassTransformer : ITypeTransformer
         if (lt >= 0) body = body[..lt];
         var dot = body.LastIndexOf('.');
         return dot >= 0 ? body[(dot + 1)..] : body;
+    }
+
+    /// <summary>
+    /// True when the Java graph of <paramref name="symbol"/> will contain a
+    /// CSharpGenericIterable (java.util.Collection) branch besides the mapped
+    /// CSharpIList branch: either a base class chain that implements C# IEnumerable,
+    /// or another directly-declared IEnumerable flavour. Both branches default the
+    /// whole Collection surface (clear/contains/add/remove/size), so keeping
+    /// CSharpIList on such a class yields Java's "inherits unrelated defaults"
+    /// compile error; the caller narrows the ICollection mapping to
+    /// CSharpCollection instead.
+    /// </summary>
+    private static bool ConflictsWithIterableBranch(INamedTypeSymbol symbol, ITypeSymbol collectionInterface)
+    {
+        static bool IsEnumerableFlavor(ITypeSymbol type)
+            => type.OriginalDefinition.SpecialType is SpecialType.System_Collections_IEnumerable
+                or SpecialType.System_Collections_Generic_IEnumerable_T;
+
+        // AllInterfaces on the direct base already covers the whole base chain.
+        if (symbol.BaseType is { SpecialType: not SpecialType.System_Object }
+            && symbol.BaseType.AllInterfaces.Any(IsEnumerableFlavor))
+        {
+            return true;
+        }
+
+        return symbol.Interfaces.Any(i =>
+            !SymbolEqualityComparer.Default.Equals(i, collectionInterface) && IsEnumerableFlavor(i));
     }
 
     // ── 类型参数与约束 ──────────────────────────────────────────────────────────
