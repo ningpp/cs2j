@@ -319,6 +319,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     && methodSymbol.ContainingType?.ToDisplayString() == "System.Array")
                 {
                     var element = context.MapType(methodSymbol.TypeArguments[0]);
+                    // C# byte 是无符号：标量存储映射为 int，但数组元素保持 byte[]
+                    // （IArrayTypeSymbol 分支同规则）。Array.Empty<byte>() 落
+                    // new byte[0]，否则与 byte[] 返回类型冲突（真实链
+                    // BinHexDecoder.Decode 1 处 int[] 无法转换为 byte[]）。
+                    if (methodSymbol.TypeArguments[0].SpecialType == SpecialType.System_Byte)
+                        element = "byte";
                     if (element is "int" or "long" or "short" or "byte" or "char"
                         or "boolean" or "float" or "double")
                     {
