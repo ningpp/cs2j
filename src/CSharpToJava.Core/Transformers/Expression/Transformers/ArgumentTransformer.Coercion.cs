@@ -130,6 +130,38 @@ public partial class ArgumentTransformer
            && named.TypeArguments.Length == 1
            && named.ContainingNamespace?.ToDisplayString() == "System";
 
+    /// <summary>
+    /// Direct invocation path (which bypasses <see cref="CoerceArgumentType"/>)
+    /// array → System.Array parameter bridge: C# T[] implicitly upcasts to
+    /// System.Array, but Java arrays are unrelated to compat CSharpArray — wrap
+    /// with the write-through asArrayView (real chain: XmlTextReaderImpl's
+    /// IncrementalRead(Array, ...) receiving byte[]/char[]).
+    /// </summary>
+    public static string CoerceArrayToSystemArrayParameter(
+        ExpressionSyntax argument,
+        string text,
+        IMethodSymbol? method,
+        int index,
+        ConversionContext context)
+    {
+        if (method == null || index >= method.Parameters.Length)
+            return text;
+
+        var parameter = method.Parameters[index];
+        if (parameter.Type.SpecialType != SpecialType.System_Array
+            // System.Buffer operates on raw Java arrays; never wrap.
+            || method.ContainingType?.ToDisplayString() == "System.Buffer")
+        {
+            return text;
+        }
+
+        if (context.GetTypeInfo(argument).Type is not IArrayTypeSymbol)
+            return text;
+
+        context.AddImport("io.github.ningpp.compat.CSharpArray");
+        return $"CSharpArray.asArrayView({text})";
+    }
+
     private static string CoerceArgumentType(
         ArgumentSyntax arg,
         string transformedExpr,
@@ -183,6 +215,17 @@ public partial class ArgumentTransformer
             && bufferType.ToDisplayString() == "System.Buffer")
         {
             return transformedExpr;
+        }
+
+        // C# T[] 隐式上转型 System.Array 参数：Java 数组与 compat CSharpArray
+        // 类型不相干，经 asArrayView 包成写透视图（真实链 XmlTextReaderImpl 的
+        // IncrementalRead(Array, ...) 收 byte[]/char[]，8 处参数不匹配拒编；
+        // System.Buffer 的裸数组例外已在上方先行返回）。
+        if (paramType?.SpecialType == SpecialType.System_Array
+            && argType is IArrayTypeSymbol)
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpArray");
+            return $"CSharpArray.asArrayView({transformedExpr})";
         }
 
         foreach (var (interfaceName, factory) in SystemTypeArgumentWrappers)

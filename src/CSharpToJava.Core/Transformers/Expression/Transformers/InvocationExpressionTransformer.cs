@@ -196,6 +196,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceStreamToIterableParameter(
                         a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceArrayToSystemArrayParameter(
+                        a.Expression, text, invocationMethod, index, context);
                     text = ApplyIntegralNarrowing(text, a.Expression, invocationMethod, index, context);
                     return new JavaRawExpression(text);
                 })
@@ -773,6 +775,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     text = ArgumentTransformer.CoerceNonGenericDictionaryBridge(
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceStreamToIterableParameter(
+                        a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceArrayToSystemArrayParameter(
                         a.Expression, text, invocationMethod, index, context);
                     return ApplyIntegralNarrowing(
                         text, a.Expression, invocationMethod, index, context);
