@@ -341,6 +341,25 @@ public class ClassTransformer : ITypeTransformer
 
     // ── 成员处理前的预扫描 ──────────────────────────────────────────────────────
 
+    /// <summary>
+    /// 项目级预扫描：在任何一个类的成员体渲染之前，对每个顶层类先跑一次擦除冲突
+    /// 改名预注册（与 <see cref="PrepareErasureConflictRenames"/> 同一决策，幂等）。
+    /// 类按文件序逐个转换，跨类调用点若先于声明类处理（真实链 Core/XmlWriter.cs
+    /// 调 XPath/XPathNavigator.cs 的 navigator.Clone()，桥 ICloneable.Clone 占用
+    /// clone()、隐式 Clone 改 clone_2），否则调用点拿不到改名映射而发出旧名 clone()，
+    /// 落到 Object 返回的桥方法（javac: Object无法转换为XPathNavigator）。
+    /// </summary>
+    public static void PreRegisterErasureConflictRenamesProjectWide(
+        PartialTypeGroup typeGroup, ConversionContext context)
+    {
+        var classNodes = typeGroup.SyntaxNodes
+            .Where(n => n is ClassDeclarationSyntax)
+            .Cast<ClassDeclarationSyntax>()
+            .ToList();
+        if (classNodes.Count == 0) return;
+        PrepareErasureConflictRenames(classNodes, context);
+    }
+
     private static void PreRegisterNestedEnums(ClassDeclarationSyntax node, ConversionContext context)
     {
         foreach (var member in node.Members)

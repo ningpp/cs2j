@@ -409,6 +409,13 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
         // Pre-scan: resolve var-declared local types for downstream fallback use
         VarTypeResolver.PreScan(state.Compilation, state.Context);
 
+        // 擦除冲突改名项目级预注册：类按文件序转换，跨类调用点可能先于声明类
+        // 处理（真实链 Core/XmlWriter.cs → XPathNavigator.Clone 改名 clone_2）。
+        // 必须在渲染任何成员体之前让全部改名映射可见（幂等，类内随后还会再跑）。
+        foreach (var preScanGroup in state.TypeGroups)
+            Transformers.Type.ClassTransformer.PreRegisterErasureConflictRenamesProjectWide(
+                preScanGroup, state.Context);
+
         // Build effective IR rewriters: user-registered + built-in validation rewriters
         var effectiveRewriters = BuildEffectiveRewriters(state);
 
