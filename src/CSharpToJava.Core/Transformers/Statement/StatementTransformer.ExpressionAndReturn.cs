@@ -183,6 +183,11 @@ public partial class StatementTransformer
         // array/string → Span<T>/ReadOnlySpan<T>：经 compat 构造或 asSpan 桥接
         expr = SpanCoercion.CoerceOrSame(stmt.Expression, expr, retType, ctx);
 
+        // IList 家族返回槽位（List<T>/getValues() 值 → CSharpIList）：包适配视图
+        // （真实链 SchemaElementDecl.DefaultAttDefs、XmlSchemaSet.Schemas、
+        // NamespaceList.Enumerate）。
+        expr = IListCoercion.CoerceOrSame(stmt.Expression, expr, retType, ctx);
+
         // 整数字面量返回给 byte/short：Java 没有 C# 的常量隐式窄化
         if (Regex.IsMatch(expr.Trim(), @"^-?\d+$")
             && retType is INamedTypeSymbol { TypeKind: TypeKind.Struct } nt)

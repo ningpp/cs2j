@@ -194,6 +194,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceNonGenericDictionaryBridge(
                         a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceIListFamilyBridge(
+                        a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceStreamToIterableParameter(
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceArrayToSystemArrayParameter(
@@ -779,6 +781,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     text = ArgumentTransformer.CoerceImplicitSpanConversion(
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceNonGenericDictionaryBridge(
+                        a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceIListFamilyBridge(
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceStreamToIterableParameter(
                         a.Expression, text, invocationMethod, index, context);

@@ -66,6 +66,27 @@ public partial class ArgumentTransformer
     }
 
     /// <summary>
+    /// Direct invocation path (which bypasses <see cref="CoerceArgumentType"/>)
+    /// IList-family parameter bridge: C# List&lt;T&gt; implements the non-generic
+    /// IList (and List&lt;T&gt; ↔ IList&lt;T&gt; interconvert freely), but the compat
+    /// CSharpList / CSharpICollection value shapes implement neither
+    /// CSharpIList flavour — wrap with the adapter view (real chain: XmlSchemaSet
+    /// passing its reprocessList to GetExternalSchemasList(IList, ...)).
+    /// </summary>
+    public static string CoerceIListFamilyBridge(
+        ExpressionSyntax argument,
+        string text,
+        IMethodSymbol? method,
+        int index,
+        ConversionContext context)
+    {
+        if (method == null || index >= method.Parameters.Length)
+            return text;
+
+        return IListCoercion.CoerceOrSame(argument, text, method.Parameters[index].Type, context);
+    }
+
+    /// <summary>
     /// Materializes a Java Stream pipeline produced for an IEnumerable&lt;T&gt;
     /// argument when the target parameter maps to CSharpGenericIterable
     /// (e.g. procedural-LINQ helper `_linqitems` parameters): the stream must
@@ -310,6 +331,12 @@ public partial class ArgumentTransformer
             context.AddImport("io.github.ningpp.compat.CSharpGenericIList");
             return $"CSharpGenericIList.from({transformedExpr})";
         }
+
+        // C# List<T>/非泛型 ICollection 值绑定到 IList 家族参数（映射 CSharpIList）：
+        // CSharpList 与 CSharpICollection 视图都不实现 CSharpIList，包适配视图
+        // （真实链 XmlSchemaSet 把 reprocessList 传给 GetExternalSchemasList(IList,…)）。
+        if (IListCoercion.TryCoerce(arg.Expression, transformedExpr, paramType, context, out var iListCoercedArg))
+            return iListCoercedArg;
 
         if (paramType is INamedTypeSymbol dictParam && dictParam.ToDisplayString() == "System.Collections.IDictionary"
             && argType is INamedTypeSymbol dictArg && IsGenericDictionary(dictArg)

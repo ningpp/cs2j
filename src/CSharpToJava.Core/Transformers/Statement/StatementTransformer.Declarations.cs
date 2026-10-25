@@ -66,6 +66,10 @@ public partial class StatementTransformer
             {
                 initExprText = SpanCoercion.CoerceOrSame(
                     variable.Initializer.Value, initExprText, localType, context);
+                // IList 家族局部槽位（List<T>/getValues() 值 → CSharpIList）：包适配
+                // 视图（真实链 XmlSchemaSet 的 chameleonKeys 读取 Hashtable.Keys）。
+                initExprText = IListCoercion.CoerceOrSame(
+                    variable.Initializer.Value, initExprText, localType, context);
                 // 常量数字 → 枚举局部（`RegexOptions optionsLast = 0;`）：C# 允许
                 // 隐式常量转换，Java 枚举是类，必须 fromValue/values() 包装。
                 // Int-constant 元数据枚举（BindingFlags/TypeAttributes 等）在 Java
