@@ -315,6 +315,13 @@
             ]
         },
         {
+            "csharp": "System.Collections.Specialized.HybridDictionary",
+            "java": "HybridDictionary",
+            "imports": [
+                "io.github.ningpp.compat.HybridDictionary"
+            ]
+        },
+        {
             "csharp": "System.Collections.Hashtable",
             "java": "CSharpHashtable",
             "imports": [
@@ -8269,6 +8276,11 @@
             "type": "System.Text.Encoding",
             "method": "GetPreamble",
             "javaMethod": "getPreamble"
+        },
+        {
+            "type": "System.Text.Encoding",
+            "method": "Preamble",
+            "javaMethod": "getPreambleSpan"
         },
         {
             "type": "System.Text.Encoding",
