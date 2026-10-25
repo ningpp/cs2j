@@ -190,6 +190,23 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return $"({BoxedWrapperName(sym.SpecialType)})({e})";
         }
 
+        // System.Array → T[]：源经 array-method 归一为 CSharpArray 视图，Java
+        // 不接受 CSharpArray→T[] 的直接强转（javac 不可转换对；真实链解码器
+        // `_buffer = (byte[])buffer` 3 处），经 tryAs 解包（null 安全，与 C#
+        // 失配抛异常相比静默返回 null，调用方均有 Debug.Assert 保护）。
+        // 类型参数元素除外：T[].class 非法。
+        if (sym is IArrayTypeSymbol castArr
+            && castArr.ElementType is not ITypeParameterSymbol
+            && srcSym?.SpecialType == SpecialType.System_Array)
+        {
+            var t = Map(n.Type, c);
+            if (!t.Contains('<'))
+            {
+                c.AddImport("io.github.ningpp.compat.CSharpArray");
+                return $"CSharpArray.tryAs({e}, {t}.class)";
+            }
+        }
+
         return sym?.SpecialType switch
         {
             SpecialType.System_Int32 when NeedsExplicitIntCast(srcSym) => $"(int)({e})",
@@ -297,6 +314,21 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         var left = Expr(c, n.Left);
         if (c.GetTypeInfo(n.Right).Type is ITypeParameterSymbol tp)
             return $"{TypeParameterToken(n, tp)}.isInstance({left})"; // Java forbids instanceof T
+        // System.Array 装载的数组经 array-method 归一为 CSharpArray 视图；
+        // `x is T[]` 的 instanceof 对 CSharpArray 恒为 false（且 javac 拒绝
+        // CSharpArray→T[] 的不可转换比较），须经 tryAs 解包判定。
+        // 类型参数元素除外：T[].class 非法（javac 无法从类型变量中进行选择）。
+        if (c.GetTypeInfo(n.Right).Type is IArrayTypeSymbol isArr
+            && isArr.ElementType is not ITypeParameterSymbol
+            && c.GetTypeInfo(n.Left).Type?.SpecialType == SpecialType.System_Array)
+        {
+            var isT = Map((TypeSyntax)n.Right, c);
+            if (!isT.Contains('<'))
+            {
+                c.AddImport("io.github.ningpp.compat.CSharpArray");
+                return $"CSharpArray.tryAs({left}, {isT}.class) != null";
+            }
+        }
         return $"{left} instanceof {Rt(Map((TypeSyntax)n.Right, c))}";
     }
     private static string As(BinaryExpressionSyntax n, ConversionContext c)
@@ -321,6 +353,20 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             e = tmp;
         }
         var t = Map((TypeSyntax)n.Right, c);
+        // System.Array 源上的数组目标经 tryAs：array-method 归一出的 CSharpArray
+        // 视图与 T[] 是 javac 不可转换对（instanceof/cast 双拒；真实链
+        // ConstraintStruct 的 `arr as XmlAtomicValue[]` 6 处），tryAs 对裸数组
+        // 与包装视图行为一致且 null 安全。object 源保持旧 instanceof 路径
+        //（PropertyGetValueAsArrayTests 的解包+instanceof 形态）；泛型与类型
+        // 参数元素同样保持（List<String>[].class / T[].class 不合法）。
+        if (n.Right is ArrayTypeSyntax asArrType
+            && c.GetTypeInfo(asArrType.ElementType).Type is not ITypeParameterSymbol
+            && c.GetTypeInfo(n.Left).Type?.SpecialType == SpecialType.System_Array
+            && !t.Contains('<'))
+        {
+            c.AddImport("io.github.ningpp.compat.CSharpArray");
+            return $"CSharpArray.tryAs({e}, {t}.class)";
+        }
         return $"({e} instanceof {Rt(t)} ? ({t})({e}) : null)";
     }
 
