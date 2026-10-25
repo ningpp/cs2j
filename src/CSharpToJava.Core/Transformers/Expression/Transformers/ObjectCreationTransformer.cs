@@ -96,6 +96,14 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     }
     private static string EmitNew(string name, ArgumentListSyntax? al, INamedTypeSymbol? type, ConversionContext c, IMethodSymbol? constructor = null)
     {
+        // System.Tuple`2 → Map.Entry：接口不可实例化（javac: Map.Entry是抽象的），
+        // 改落到不可变条目实现并登记导入（真实链 XmlTextReaderImpl 的
+        // new Map.Entry<Integer, Boolean>(...) 2 处）。
+        if (name.StartsWith("Map.Entry", StringComparison.Ordinal))
+        {
+            name = "AbstractMap.SimpleImmutableEntry" + name["Map.Entry".Length..];
+            c.AddImport("java.util.AbstractMap");
+        }
         // `new Runnable(methodGroup)` (closure-lift emits `new Action(LocalMethod)`):
         // Java functional interfaces are satisfied by a method reference, not by
         // construction — emit `Owner::method` and let target typing pick the shape.
