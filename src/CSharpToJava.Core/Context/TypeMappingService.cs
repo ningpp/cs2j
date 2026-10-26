@@ -398,7 +398,12 @@ public class TypeMappingService
             if (!string.IsNullOrEmpty(errorNs) && errorNs != "<global namespace>"
                 && !string.IsNullOrEmpty(errorName) && errorName != "?" && errorName != "var")
             {
-                var qualifiedName = $"{errorNs}.{errorName}";
+                // error 符号的命名空间可能已是映射后的 Java 包名（stub/dotnet.* 形态，
+                // 如 dotnet.System.Collections）——先用 C# 命名空间反查再查配置，否则
+                // 落不存在的 dotnet.* FQN（真实链 ParticleContentValidator 的非泛型
+                // System.Collections.Queue 1 站）。
+                var csharpErrorNs = TryMapJavaNamespaceBackToCSharp(errorNs);
+                var qualifiedName = $"{csharpErrorNs ?? errorNs}.{errorName}";
                 var qualifiedMapped = _typeMappings.MapType(qualifiedName);
                 if (qualifiedMapped != qualifiedName)
                 {
@@ -926,6 +931,37 @@ public class TypeMappingService
         => GetExplicitNamespaceMappings().Any(m =>
             string.Equals(ns, m, StringComparison.Ordinal)
             || ns.StartsWith(m + ".", StringComparison.Ordinal));
+
+    /// <summary>
+    /// 把已是映射后 Java 包名的命名空间反查回 C# 命名空间（最长前缀命中）。
+    /// 供 error 符号的限定名回退使用：中间树/合成符号的 ContainingNamespace 可能是
+    /// dotnet.System.Collections 这类 Java 侧包名，直接拼 {包名}.{类型} 会落不存在的
+    /// FQN（真实链 System.Collections.Queue → compat CSharpObjQueue）。
+    /// </summary>
+    private string? TryMapJavaNamespaceBackToCSharp(string? javaNamespace)
+    {
+        if (string.IsNullOrWhiteSpace(javaNamespace))
+            return null;
+
+        string? bestCs = null;
+        var bestLength = -1;
+        foreach (var cs in GetExplicitNamespaceMappings())
+        {
+            var java = NamespaceToPackage(cs);
+            if (string.IsNullOrEmpty(java) || java == cs)
+                continue;
+            if (string.Equals(javaNamespace, java, StringComparison.Ordinal)
+                || javaNamespace.StartsWith(java + ".", StringComparison.Ordinal))
+            {
+                if (java.Length > bestLength)
+                {
+                    bestCs = cs + javaNamespace[java.Length..];
+                    bestLength = java.Length;
+                }
+            }
+        }
+        return bestCs;
+    }
 
     private string? TryMapNestedType(
         ITypeSymbol typeSymbol,
