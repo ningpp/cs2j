@@ -293,10 +293,37 @@ public partial class StatementTransformer
                 }
 
                 var ifSb4 = new System.Text.StringBuilder();
-                // When the out variable is a primitive holder (assignTarget ends with .value),
-                // the get() must go inside the if block to avoid NPE from auto-unboxing null.
+                // 基元局部/字段目标（existingNsIndex 这类 int 局部）：get() 放 if 外
+                // 会在缺键时拆箱 NPE（真实链 XmlWellFormedWriter.AddToNamespace-
+                // Hashtable）。先以类型默认值初始化满足 Java 明确赋值，get 放进分支。
                 // For reference-type variables, assign before the if for Java definite assignment.
-                if (assignTarget.EndsWith(".value"))
+                var existingSymbolType = context.GetSymbolInfo(tvIfIdent2).Symbol switch
+                {
+                    ILocalSymbol outLocal => outLocal.Type,
+                    IFieldSymbol outField => outField.Type,
+                    _ => null,
+                };
+                var existingJavaType = existingSymbolType != null ? context.MapType(existingSymbolType) : null;
+                var isPrimitiveTarget = !assignTarget.EndsWith(".value")
+                    && existingJavaType is not null and not "Object" and not "var" and not ""
+                    && IsJavaPrimitiveOrNumericCompat(existingJavaType);
+                if (isPrimitiveTarget)
+                {
+                    string thenBodyWithAssign;
+                    if (stmt.Statement is BlockSyntax tvIfThenBlock4_2)
+                    {
+                        var bodyStr2 = TransformBlock(tvIfThenBlock4_2, context);
+                        thenBodyWithAssign = $"{{\n        {assignTarget} = {tvTarget2}.get({tvKey2});\n        {bodyStr2}\n    }}";
+                    }
+                    else
+                    {
+                        var bodyStr2 = tvStmtTransformer4.Transform(stmt.Statement, context).ToString("");
+                        thenBodyWithAssign = $"{{\n        {assignTarget} = {tvTarget2}.get({tvKey2});\n        {bodyStr2}\n    }}";
+                    }
+                    ifSb4.Append($"{assignTarget} = {PrimitiveJavaDefault(existingJavaType!)};\n");
+                    ifSb4.Append($"if ({tvTarget2}.containsKey({tvKey2})) {thenBodyWithAssign}");
+                }
+                else if (assignTarget.EndsWith(".value"))
                 {
                     // Primitive holder: containsKey guards the get() so unboxing is safe.
                     // The holder already has default(T) from its initialization, so definite
@@ -529,4 +556,23 @@ public partial class StatementTransformer
         foreach (var statement in context.DrainPostStatements())
             preamble.Append(statement.TrimEnd(';')).Append(";\n");
     }
+
+    /// <summary>Java 基元/数值 compat 存储类型判定（TryGetValue 基元目标分支用）。</summary>
+    private static bool IsJavaPrimitiveOrNumericCompat(string javaType)
+        => javaType is "int" or "long" or "short" or "byte" or "char"
+            or "boolean" or "float" or "double";
+
+    private static string PrimitiveJavaDefault(string javaType)
+        => javaType switch
+        {
+            "int" => "0",
+            "long" => "0L",
+            "short" => "(short) 0",
+            "byte" => "(byte) 0",
+            "char" => "'\u0000'",
+            "boolean" => "false",
+            "float" => "0.0f",
+            "double" => "0.0d",
+            _ => "0",
+        };
 }
