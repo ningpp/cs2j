@@ -153,6 +153,33 @@ public partial class ArgumentTransformer
     }
 
     /// <summary>
+    /// Direct invocation path (which bypasses <see cref="CoerceArgumentType"/>)
+    /// null-literal overload disambiguation: C# binds <c>M(x, null)</c> against the
+    /// declared parameter types (a struct parameter never accepts null), while the
+    /// Java surface may make every reference-typed sibling applicable — javac then
+    /// reports 二义引用. Emit the explicit cast for the bound parameter's mapped
+    /// type (real chain: XmlSerializer.Deserialize(reader, null) between
+    /// (XmlReader, XmlDeserializationEvents) and (XmlReader, string)).
+    /// </summary>
+    public static string CoerceNullLiteralArgument(
+        ArgumentSyntax argument,
+        string text,
+        IMethodSymbol? method,
+        int index,
+        ConversionContext context)
+    {
+        if (method == null || index >= method.Parameters.Length)
+            return text;
+        if (!argument.Expression.IsKind(SyntaxKind.NullLiteralExpression))
+            return text;
+
+        var parameter = method.Parameters[index];
+        var isFormatProvider = parameter.Type is INamedTypeSymbol fmt
+            && fmt.Name == "IFormatProvider" && InSystemNamespace(fmt);
+        return CoerceNullArgument(argument, text, parameter, context, isFormatProvider);
+    }
+
+    /// <summary>
     /// Direct invocation path (which bypasses <see cref="CoerceArgumentType"/>):
     /// C# Type (or TypeInfo) implements ICustomAttributeProvider/MemberInfo, but
     /// java.lang.Class is unrelated to the compat interfaces — wrap with the
@@ -231,7 +258,15 @@ public partial class ArgumentTransformer
         var parameter = method.Parameters[index];
         if (parameter.Type.SpecialType != SpecialType.System_Array
             // System.Buffer operates on raw Java arrays; never wrap.
-            || method.ContainingType?.ToDisplayString() == "System.Buffer")
+            || method.ContainingType?.ToDisplayString() == "System.Buffer"
+            // Cs2jArray.ArrayHelper shim 的 IndexOf/LastIndexOf Java 面（indexOf(T[],
+            // Object)）直接收 Java 原生数组，CSharpArray 视图无法匹配 T[]（真实链
+            // regular-expressions-tests RegexCharacterSetTests：Array.IndexOf(categories,
+            // …) 先经 ArrayMethod 改写到支撑 shim（C# 形参 System.Array），再被本包装
+            // 破坏 → javac 找不到合适的 indexOf）。其余方法（clear(CSharpArray,int,int)
+            // 等）的 Java 面仍收 CSharpArray 视图，保持包装。
+            || (method.ContainingType?.ToDisplayString() == "Cs2jArray.ArrayHelper"
+                && method.Name is "IndexOf" or "LastIndexOf"))
         {
             return text;
         }
@@ -547,6 +582,37 @@ public partial class ArgumentTransformer
             return $"({javaTarget}) {transformedExpr}";
 
         return transformedExpr;
+    }
+
+    /// <summary>
+    /// 直接调用路径（CoerceArgumentType 之外）的 null 实参类型见证。C# 重载决议
+    /// 已把 null 实参绑定到具体重载；当同名额位重载的形参是值类型（映射 Java 后
+    /// 成为引用类型、接受 null）时，裸 null 在 Java 侧变成同名额异性二义（真实链
+    /// dotnet-xml XmlSerializer：C# 里 XmlDeserializationEvents 是 struct，null 只
+    /// 适用 string 重载；Java 侧两个重载都接受 null）。按被绑形参的映射 Java 类型
+    /// 发显式类型见证 (T) null，忠实还原 C# 绑定。
+    /// </summary>
+    public static string CoerceNullTypeWitness(
+        ArgumentSyntax argument,
+        string text,
+        IMethodSymbol? method,
+        int index,
+        ConversionContext context)
+    {
+        if (method == null || index >= method.Parameters.Length || context.SemanticModel == null)
+            return text;
+        if (!IsNullEmittingArgument(argument, context))
+            return text;
+
+        var parameter = method.Parameters[index];
+        var receiver = GetReceiverTypeOfInvocation(argument, context);
+        if (!HasAmbiguousSiblingOverload(parameter, receiver, context))
+            return text;
+
+        var javaTarget = context.MapType(parameter.Type);
+        if (string.IsNullOrWhiteSpace(javaTarget) || IsJavaPrimitiveTypeName(javaTarget))
+            return text;
+        return $"({javaTarget}) {text}";
     }
 
     private static string CoerceLambdaArgument(
