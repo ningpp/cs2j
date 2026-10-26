@@ -69,7 +69,14 @@ public class AssemblyCompat {
             return byIdentity;
         }
         try {
-            return classLoader.loadClass(name);
+            // 引导类加载器类型（Object 等）的 getClassLoader() 返回 null——退回本
+            // compat 类的加载器，保证 getClass(name) 对任意调用方都可用（真实链
+            // XmlAttributes.IgnoreAttribute 以 TypeHelper.getAssembly(Object.class)
+            // 查 dotnet.xmlIgnoreMemberAttribute）。
+            ClassLoader loader = classLoader != null
+                ? classLoader
+                : AssemblyCompat.class.getClassLoader();
+            return loader.loadClass(name);
         } catch (ClassNotFoundException e) {
             return null;
         }
