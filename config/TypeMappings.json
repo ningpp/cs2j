@@ -3627,6 +3627,27 @@
             ]
         },
         {
+            "csharp": "System.DBNull",
+            "java": "DBNull",
+            "imports": [
+                "io.github.ningpp.compat.DBNull"
+            ]
+        },
+        {
+            "csharp": "System.Runtime.CompilerServices.TypeForwardedFromAttribute",
+            "java": "TypeForwardedFromAttribute",
+            "imports": [
+                "io.github.ningpp.compat.TypeForwardedFromAttribute"
+            ]
+        },
+        {
+            "csharp": "System.ComponentModel.DefaultValueAttribute",
+            "java": "DefaultValueAttribute",
+            "imports": [
+                "io.github.ningpp.compat.DefaultValueAttribute"
+            ]
+        },
+        {
             "csharp": "System.IConvertible",
             "java": "IConvertible",
             "imports": [
@@ -9067,6 +9088,131 @@
             "type": "System.Type",
             "method": "GetElementType",
             "javaMethod": "TypeHelper.getElementType"
+        },
+        {
+            "type": "System.Type",
+            "method": "FullName",
+            "javaMethod": "TypeHelper.getFullName"
+        },
+        {
+            "type": "System.Type",
+            "method": "BaseType",
+            "javaMethod": "TypeHelper.getBaseType"
+        },
+        {
+            "type": "System.Type",
+            "method": "DeclaringType",
+            "javaMethod": "TypeHelper.getDeclaringType"
+        },
+        {
+            "type": "System.Type",
+            "method": "IsAbstract",
+            "javaMethod": "TypeHelper.getIsAbstract"
+        },
+        {
+            "type": "System.Type",
+            "method": "IsValueType",
+            "javaMethod": "TypeHelper.getIsValueType"
+        },
+        {
+            "type": "System.Type",
+            "method": "IsGenericType",
+            "javaMethod": "TypeHelper.getIsGenericType"
+        },
+        {
+            "type": "System.Type",
+            "method": "IsGenericTypeDefinition",
+            "javaMethod": "TypeHelper.getIsGenericTypeDefinition"
+        },
+        {
+            "type": "System.Type",
+            "method": "ContainsGenericParameters",
+            "javaMethod": "TypeHelper.getContainsGenericParameters"
+        },
+        {
+            "type": "System.Type",
+            "method": "IsVisible",
+            "javaMethod": "TypeHelper.getIsVisible"
+        },
+        {
+            "type": "System.Type",
+            "method": "IsClass",
+            "javaMethod": "TypeHelper.getIsClass"
+        },
+        {
+            "type": "System.Type",
+            "method": "IsNestedPublic",
+            "javaMethod": "TypeHelper.getIsNestedPublic"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetArrayRank",
+            "javaMethod": "TypeHelper.getArrayRank"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetGenericTypeDefinition",
+            "javaMethod": "TypeHelper.getGenericTypeDefinition"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetMember",
+            "javaMethod": "TypeHelper.getMembers"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetDefaultMembers",
+            "javaMethod": "TypeHelper.getDefaultMembers"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetConstructors",
+            "javaMethod": "TypeHelper.getConstructors"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetCustomAttributes",
+            "javaMethod": "TypeHelper.getCustomAttributes"
+        },
+        {
+            "type": "System.Type",
+            "method": "IsDefined",
+            "javaMethod": "TypeHelper.isDefined"
+        },
+        {
+            "type": "System.Type",
+            "method": "MakeArrayType",
+            "javaMethod": "TypeHelper.makeArrayType"
+        },
+        {
+            "type": "System.Type",
+            "method": "IsGenericParameter",
+            "javaMethod": "TypeHelper.getIsGenericParameter"
+        },
+        {
+            "type": "System.Type",
+            "method": "GetMembers",
+            "javaMethod": "TypeHelper.getMembers"
+        },
+        {
+            "type": "System.Reflection.MemberInfo",
+            "method": "GetCustomAttributes",
+            "javaMethod": "TypeHelper.getCustomAttributes"
+        },
+        {
+            "type": "System.Reflection.MemberInfo",
+            "method": "IsDefined",
+            "javaMethod": "TypeHelper.isDefined"
+        },
+        {
+            "type": "System.Reflection.CustomAttributeExtensions",
+            "method": "GetCustomAttributes",
+            "javaMethod": "TypeHelper.getCustomAttributes"
+        },
+        {
+            "type": "System.Reflection.CustomAttributeExtensions",
+            "method": "IsDefined",
+            "javaMethod": "TypeHelper.isDefined"
         },
         {
             "type": "System.Nullable",

@@ -200,6 +200,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceArrayToSystemArrayParameter(
                         a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceSystemTypeArgumentWrapper(
+                        a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceDecimalArgument(
+                        a.Expression, text, invocationMethod, index, context);
                     text = ApplyIntegralNarrowing(text, a.Expression, invocationMethod, index, context);
                     return new JavaRawExpression(text);
                 })
@@ -801,6 +805,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     text = ArgumentTransformer.CoerceStreamToIterableParameter(
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceArrayToSystemArrayParameter(
+                        a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceSystemTypeArgumentWrapper(
+                        a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceDecimalArgument(
                         a.Expression, text, invocationMethod, index, context);
                     return ApplyIntegralNarrowing(
                         text, a.Expression, invocationMethod, index, context);
@@ -3378,6 +3386,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     }
 
     /// <summary>
+    /// True when the given static receiver type is System.Type or
+    /// System.Reflection.TypeInfo (their Java host is java.lang.Class, which has
+    /// no C#-shaped attribute introspection surface of its own).
+    /// </summary>
+    private static bool IsSystemTypeReceiver(ITypeSymbol? receiver)
+    {
+        for (var current = receiver; current is INamedTypeSymbol named; current = named.BaseType)
+        {
+            var display = named.ToDisplayString();
+            if (display is "System.Type" or "System.Reflection.TypeInfo")
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// Looks up the configured Java method name for the invocation via TypeMappings.json.
     /// Checks the method's containing type (display name, then namespace+name FQN),
     /// then every implemented interface whose member signature matches the invocation.
@@ -3399,6 +3423,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         var mappedName = context.TypeMappings.MapMethod(containingType.ToDisplayString(), originalName, paramCount)
             ?? context.TypeMappings.MapMethod(
                 $"{containingType.ContainingNamespace}.{containingType.Name}", originalName, paramCount);
+
+        // Attribute-introspection helper rows are registered on the extension
+        // hosts (System.Reflection.MemberInfo / CustomAttributeExtensions) and
+        // must fire only when the receiver is really System.Type/TypeInfo — the
+        // compat reflection family (ConstructorInfo/MethodInfo/FieldInfo/…)
+        // exposes its own getCustomAttributes/isDefined overloads, and pushing
+        // those receivers through the Class-taking TypeHelper static breaks
+        // overload resolution (real chain: ctor.GetCustomAttributes in
+        // Types.GetTypeFlags, XmlAttributes.getAttr over MemberInfo).
+        if (mappedName is "TypeHelper.getCustomAttributes" or "TypeHelper.isDefined")
+        {
+            var attributeReceiver = invocation.Expression is MemberAccessExpressionSyntax attrAccess
+                ? context.GetTypeInfo(attrAccess.Expression).Type
+                : null;
+            if (!IsSystemTypeReceiver(attributeReceiver))
+                return (null, false);
+        }
 
         // Implicit interface implementations (e.g. IEquatable<T>.Equals → equalsTo).
         // 与声明侧（MethodTransformer.TryMapImplicitInterfaceImplementation）同规则：

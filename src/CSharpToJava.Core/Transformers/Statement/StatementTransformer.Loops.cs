@@ -156,6 +156,7 @@ public partial class StatementTransformer
         // inserts the element checkcast (unchecked, same runtime objects).
         var iterableExpression = expression;
         if (expressionType is not IArrayTypeSymbol
+            && !IsCompatTypeInfoArraySource(stmt.Expression, context)
             && javaType is not "Object" and not "var")
         {
             var iterableElement = javaType switch
@@ -179,6 +180,28 @@ public partial class StatementTransformer
     private JavaSyntaxNode TransformForEachVariableStatement(ForEachVariableStatementSyntax stmt, ConversionContext context)
         => throw new NotSupportedException(
             "CS2J normalization required: deconstructing foreach must be lowered by a preprocessor before Java conversion.");
+
+    /// <summary>
+    /// True for foreach sources that are C# IEnumerable but render as a JAVA ARRAY:
+    /// System.Reflection.TypeInfo's Declared* members map to compat TypeInfo, whose
+    /// getDeclaredProperties()/getDeclaredFields()/getDeclaredMethods()/
+    /// getDeclaredConstructors() return raw arrays. The (Iterable&lt;T&gt;) re-type
+    /// cast would then wrap a Java array (javac: 数组无法转换为Iterable — real chain
+    /// TypeScope's hide-by-name scan); an enhanced-for iterates arrays natively.
+    /// </summary>
+    private static bool IsCompatTypeInfoArraySource(ExpressionSyntax expression, ConversionContext context)
+    {
+        if (context.SemanticModel == null
+            || expression is not MemberAccessExpressionSyntax memberAccess
+            || context.GetSymbolInfo(memberAccess).Symbol is not IPropertySymbol property
+            || property.ContainingType?.ToDisplayString() is not ("System.Reflection.TypeInfo"))
+        {
+            return false;
+        }
+        return property.Name
+            is "DeclaredProperties" or "DeclaredFields" or "DeclaredMethods" or "DeclaredConstructors"
+            or "DeclaredMembers";
+    }
 
     /// <summary>
     /// True for the synthesized inner loop of an array-method flatten:

@@ -2938,6 +2938,60 @@ public final class TypeHelper {
         return null;
     }
 
+    /**
+     * Bridges the C# {@code Type.GetMethod(name, bindingFlags, types)} shape
+     * (real chain: TypeScope's enumerator lookup passes
+     * {@code Array.Empty<Type>()} alongside BindingFlags). Selects by name +
+     * binding flags and verifies the parameter list when one is supplied, so
+     * overloads of the same name resolve the way the C# overload set does.
+     */
+    public static MethodInfo getMethod(Class<?> type, String name, int bindingFlags, Object... parameterTypes) {
+        MethodInfo candidate = getMethod(type, name, bindingFlags);
+        if (candidate == null) {
+            return null;
+        }
+        Class<?>[] wanted = normalizeParameterList(parameterTypes);
+        if (wanted == null) {
+            return candidate;
+        }
+        Class<?>[] actual = candidate.getMethod().getParameterTypes();
+        if (actual.length != wanted.length) {
+            return null;
+        }
+        for (int i = 0; i < wanted.length; i++) {
+            if (!wanted[i].equals(actual[i])) {
+                return null;
+            }
+        }
+        return candidate;
+    }
+
+    /**
+     * The converted shape of C# {@code Type[]}-shaped arguments varies: a plain
+     * {@code new Type[]{...}} renders as a Java {@code Class[]} (spread or passed
+     * through varargs elementwise) while {@code Array.Empty<Type>()} renders as a
+     * compat CSharpArray, which varargs then boxes as a single element. Normalize
+     * both to the declared parameter list; empty means "no arity constraint".
+     */
+    private static Class<?>[] normalizeParameterList(Object... parameterTypes) {
+        if (parameterTypes == null || parameterTypes.length == 0) {
+            return null;
+        }
+        if (parameterTypes.length == 1 && parameterTypes[0] instanceof CSharpArray csharpArray) {
+            int length = csharpArray.getLength();
+            Class<?>[] result = new Class<?>[length];
+            for (int i = 0; i < length; i++) {
+                result[i] = (Class<?>) csharpArray.getValue(i);
+            }
+            return result;
+        }
+        Class<?>[] result = new Class<?>[parameterTypes.length];
+        for (int i = 0; i < parameterTypes.length; i++) {
+            result[i] = (Class<?>) parameterTypes[i];
+        }
+        return result;
+    }
+
     private static MethodInfo findMethodByName(Class<?> type, String name, int bindingFlags) {
         for (Method method : type.getMethods()) {
             if (method.getName().equals(name) && matchesBindingFlags(method.getModifiers(), bindingFlags)) {
