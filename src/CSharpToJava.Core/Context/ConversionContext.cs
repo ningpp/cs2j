@@ -702,6 +702,46 @@ public class ConversionContext
     }
 
     public string NamespaceToPackage(string ns) => TypeMapper.NamespaceToPackage(ns);
+
+    /// <summary>
+    /// 收集工作区源内在给定 Java 包下定义的所有顶级类型简单名（跨文件）。
+    /// 发射期的 java.util 单类型导入回填据此避让：单类型导入会遮蔽同包同名
+    /// 类型（JLS 7.5.3/6.4.1——单类型导入优先于同包隐式声明），真实链
+    /// dotnet-xml dotnet.xml.schema.BitSet 被 import java.util.BitSet 劫持，
+    /// SyntaxTreeNode.constructPos 抽象签名与子类覆盖签名错位（javac: 不是
+    /// 抽象的, 并且未覆盖抽象方法 constructPos）。按包缓存，一次编译一遍。
+    /// </summary>
+    public HashSet<string> CollectSourceTopLevelTypeSimpleNamesInPackage(string javaPackage)
+    {
+        var cacheKey = javaPackage ?? string.Empty;
+        if (_packageSourceTopLevelTypeNamesCache.TryGetValue(cacheKey, out var cached))
+            return cached;
+
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        var globalNs = SemanticModel?.Compilation?.GlobalNamespace;
+        if (globalNs != null)
+            CollectSourceNamespaceTypeNames(globalNs, cacheKey, names);
+        _packageSourceTopLevelTypeNamesCache[cacheKey] = names;
+        return names;
+    }
+
+    private readonly Dictionary<string, HashSet<string>> _packageSourceTopLevelTypeNamesCache =
+        new(StringComparer.Ordinal);
+
+    private void CollectSourceNamespaceTypeNames(INamespaceSymbol ns, string javaPackage, HashSet<string> names)
+    {
+        if (string.Equals(NamespaceToPackage(ns.ToDisplayString()), javaPackage, StringComparison.Ordinal))
+        {
+            foreach (var typeMember in ns.GetTypeMembers())
+            {
+                if (typeMember.Locations.Any(loc => loc.IsInSource))
+                    names.Add(typeMember.Name);
+            }
+        }
+
+        foreach (var childNs in ns.GetNamespaceMembers())
+            CollectSourceNamespaceTypeNames(childNs, javaPackage, names);
+    }
     public string GetJavaTopLevelTypeName(INamedTypeSymbol typeSymbol)
     {
         if (TryGetCustomJavaTopLevelTypeName(typeSymbol, out var customName))

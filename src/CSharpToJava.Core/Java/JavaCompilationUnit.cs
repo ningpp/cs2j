@@ -14,6 +14,13 @@ public class JavaCompilationUnit : JavaSyntaxNode
     /// 来自 CompilationUnitSyntax 的 leading trivia，输出在 package 之前。
     /// </summary>
     public string? FileHeaderComment { get; set; }
+    /// <summary>
+    /// 本文件目标 Java 包下（跨文件）源内定义的顶级类型简单名。发射期
+    /// java.util 单类型导入回填据此避让——单类型导入会遮蔽同包同名类型，
+    /// 而源码中的裸简名引用（同 C# 命名空间）指的正是同包类型。
+    /// 由 CSharpToJavaVisitor.VisitCompilationUnit 填充。
+    /// </summary>
+    public HashSet<string> PackageSiblingTypeNames { get; } = new(StringComparer.Ordinal);
     public List<JavaImport> Imports { get; } = new();
     public List<JavaTypeDeclaration> TypeDeclarations { get; } = new();
 
@@ -74,13 +81,19 @@ public class JavaCompilationUnit : JavaSyntaxNode
                 }
             }
 
-            // 已有显式导入或本文件声明了同名类型时不补发。
+            // 已有显式导入、本文件或同包（跨文件）声明了同名类型时不补发。
+            // 同包避让是关键：java.util.X 单类型导入会遮蔽同包源内类型 X，
+            // 而源码裸简名引用指向的恰是同包类型（真实链 dotnet-xml
+            // dotnet.xml.schema.BitSet 被 import java.util.BitSet 劫持，
+            // SyntaxTreeNode.constructPos 抽象签名与覆盖签名错位）。
             explicitJavaUtilNames.RemoveWhere(name =>
                 Imports.Any(i => !i.IsWildcard
                     && i.Name.EndsWith("." + name, StringComparison.Ordinal)));
             explicitJavaUtilNames.RemoveWhere(name =>
                 Regex.IsMatch(typesText,
                     $@"(class|interface|enum|record)\s+{Regex.Escape(name)}\b"));
+            explicitJavaUtilNames.RemoveWhere(name =>
+                PackageSiblingTypeNames.Contains(name));
 
             // dotnet.System.Collections 与 dotnet.System.Collections.Generic 两个
             // 按需导入里的同名接口（IEnumerator/IEnumerable/...）对简单名构成歧义。

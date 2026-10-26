@@ -124,6 +124,14 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
             _context.ClearSynthesizedRecords();
         }
 
+        // 记录同包（跨文件）源内顶级类型简单名，供发射期 java.util 单类型导入
+        // 回填避让（防止单类型导入遮蔽同包类型，真实链 dotnet.xml.schema.BitSet）。
+        if (!string.IsNullOrEmpty(compilation.Package))
+        {
+            compilation.PackageSiblingTypeNames.UnionWith(
+                _context.CollectSourceTopLevelTypeSimpleNamesInPackage(compilation.Package));
+        }
+
         return compilation;
     }
 

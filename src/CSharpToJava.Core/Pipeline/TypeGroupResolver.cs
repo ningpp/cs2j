@@ -304,6 +304,8 @@ public static class TypeGroupResolver
                     // Build a JavaCompilationUnit with structured imports
                     var javaCompilation = new Java.JavaCompilationUnit(pkg);
                     javaCompilation.FileHeaderComment = fileHeaderComment;
+                    javaCompilation.PackageSiblingTypeNames.UnionWith(
+                        context.CollectSourceTopLevelTypeSimpleNamesInPackage(pkg ?? string.Empty));
 
                     // Standard JDK wildcard imports; java.util.function types are imported
                     // explicitly so that project types with the same simple name (e.g.
@@ -660,6 +662,8 @@ public static class TypeGroupResolver
                     // Build a JavaCompilationUnit with structured imports
                     var javaCompilation = new Java.JavaCompilationUnit(pkg);
                     javaCompilation.FileHeaderComment = fileHeaderComment;
+                    javaCompilation.PackageSiblingTypeNames.UnionWith(
+                        context.CollectSourceTopLevelTypeSimpleNamesInPackage(pkg ?? string.Empty));
 
                     AddStandardJdkImports(javaCompilation);
 
@@ -748,6 +752,8 @@ public static class TypeGroupResolver
                     // Build a JavaCompilationUnit with structured imports
                     var javaCompilation = new Java.JavaCompilationUnit(pkg);
                     javaCompilation.FileHeaderComment = fileHeaderComment;
+                    javaCompilation.PackageSiblingTypeNames.UnionWith(
+                        context.CollectSourceTopLevelTypeSimpleNamesInPackage(pkg ?? string.Empty));
 
                     AddStandardJdkImports(javaCompilation);
 
