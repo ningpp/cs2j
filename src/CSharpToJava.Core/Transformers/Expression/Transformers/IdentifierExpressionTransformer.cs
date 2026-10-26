@@ -641,8 +641,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             case ("long", "MinValue"): rendered = "Long.MIN_VALUE"; return true;
             case ("short", "MaxValue"): rendered = "Short.MAX_VALUE"; return true;
             case ("short", "MinValue"): rendered = "Short.MIN_VALUE"; return true;
-            case ("byte", "MaxValue"): rendered = "Byte.MAX_VALUE"; return true;
-            case ("byte", "MinValue"): rendered = "Byte.MIN_VALUE"; return true;
+            case ("byte", "MaxValue"): rendered = "255"; return true;
+            case ("byte", "MinValue"): rendered = "0"; return true;
             case ("char", "MaxValue"): rendered = "Character.MAX_VALUE"; return true;
             case ("char", "MinValue"): rendered = "Character.MIN_VALUE"; return true;
             case var (keyword, _) when keyword is "double" or "float"
@@ -707,7 +707,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         switch (field.ContainingType?.SpecialType)
         {
             case SpecialType.System_Byte when field.Name is "MaxValue" or "MinValue":
-                rendered = field.Name == "MaxValue" ? "(byte)255" : "(byte)0";
+                // C# byte 的 Java 载体是 int（0..255，收窄用 `(e & 0xFF)`）。写成
+                // (byte)255 会让 Java 有符号 byte 折成 -1：`value > (byte)255` 对
+                // 0/1 也成立，XmlUntypedStringConverter.int32ToByte 因此误报溢出
+                // （真实链 read-content-as-tests 40 例 ArithmeticException）。
+                rendered = field.Name == "MaxValue" ? "255" : "0";
                 return true;
             case SpecialType.System_UInt32 when field.Name is "MaxValue" or "MinValue":
                 // uint.MaxValue is 4294967295. When the C# context widens it to a
