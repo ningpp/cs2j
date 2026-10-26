@@ -2565,6 +2565,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return true;
                 }
             }
+
+            // value.ToString(null, provider)（真实链 XmlConvert.ToString(SByte/Int16/
+            // Int32/Int64/Byte/UInt16)：`value.ToString(null, s_invariantCultureInfo)`）。
+            // null 格式即 "G" 通用格式 → 包装类 toString 等价。上面的字面量格式分支
+            // 只认字符串字面量，null 字面量漏到默认 member 渲染会产生原语
+            // `.toString(null, ...)`（javac: 无法取消引用int）。
+            if (args.Count == 2
+                && args[0].Expression.IsKind(SyntaxKind.NullLiteralExpression)
+                && context.GetTypeInfo(args[1].Expression).Type?.ToDisplayString()
+                    is "System.IFormatProvider" or "System.Globalization.CultureInfo"
+                        or "System.Globalization.NumberFormatInfo")
+            {
+                rendered = $"{boxed}.toString({receiver})";
+                return true;
+            }
         }
 
         return false;
@@ -2987,6 +3002,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             "long" => "MathHelper.tryParseLong",
             "short" => "MathHelper.tryParseShort",
             "byte" => "MathHelper.tryParseByte",
+            // C# sbyte 与 byte 同宿主：compat 的 tryParseByte(s, style, provider,
+            // ByteHolder) 按 AllowLeadingSign 解析带符号值并收窄回 byte（-128..127
+            // 位型即 sbyte 语义）。缺此行时 SByte.TryParse 落到裸 Byte.tryParse
+            // （java.lang.Byte 无此方法；此前被同一站点的枚举实参错误掩盖）。
+            "sbyte" => "MathHelper.tryParseByte",
             "char" => "MathHelper.tryParseChar",
             "bool" => "MathHelper.tryParseBool",
             "uint" => "MathHelper.tryParseUInt",

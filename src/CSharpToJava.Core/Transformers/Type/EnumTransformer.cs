@@ -248,6 +248,15 @@ public class EnumTransformer : ITypeTransformer
         "System.Reflection.ParameterAttributes",
         "System.Reflection.CallingConventions",
         "System.Reflection.TypeAttributes",
+        // 数字/解析面元数据 flags 枚举：compat 以 int 常量提供（NumberStyles 直挂
+        // compat.NumberStyles；DateTimeStyles/StringSplitOptions 的常量宿主是
+        // compat.IntegerHelper，其常量与 int 常量同层）。它们的成员值非序数对齐
+        // （[Flags] 位值），若不列入会按 value enum 发出 getValue()/fromValue()，
+        // 而 compat 宿主只有 int 常量 → javac 无法取消引用int / 找不到符号
+        // fromValue(int)（真实链 XmlConvert.ToDecimal 等全量 Parse 站点）。
+        "System.Globalization.NumberStyles",
+        "System.Globalization.DateTimeStyles",
+        "System.StringSplitOptions",
     };
 
     public static bool IsIntConstantMetadataEnum(INamedTypeSymbol? enumSymbol)

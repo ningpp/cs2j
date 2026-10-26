@@ -7,6 +7,8 @@ package io.github.ningpp.compat;
  * but adds the constructors used by translated C# code:
  * <ul>
  *   <li>{@code new UUID()} - the empty/all-zero GUID</li>
+ *   <li>{@code new UUID(String)} - C# new Guid(string); throws FormatException
+ *       for malformed input, matching C# semantics</li>
  *   <li>{@code new UUID(int, short, short, byte...)} - C# Guid(int, short, short, byte[])</li>
  *   <li>{@code new UUID(long, long)} - same as java.util.UUID</li>
  * </ul>
@@ -15,8 +17,20 @@ public final class UUID implements Comparable<UUID> {
 
     private final java.util.UUID value;
 
+    /** C# Guid.Empty. */
+    public static final UUID Empty = new UUID();
+
     public UUID() {
         this.value = new java.util.UUID(0L, 0L);
+    }
+
+    /**
+     * C# new Guid(string s). {@link #fromString} normalizes whitespace and
+     * wraps {@link IllegalArgumentException} into {@link FormatException},
+     * which is what translated C# catch blocks expect.
+     */
+    public UUID(String name) {
+        this.value = fromString(name).value;
     }
 
     public UUID(long mostSigBits, long leastSigBits) {

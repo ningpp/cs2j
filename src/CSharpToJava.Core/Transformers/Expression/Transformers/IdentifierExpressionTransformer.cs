@@ -216,10 +216,22 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             && enumOwner.TypeKind == TypeKind.Enum)
         {
             // 元数据 flags 枚举以 int 常量形式由 compat 提供；其类型映射为 int，
-            // 但常量引用仍必须走 compat 类名（MethodAttributes.Public）。
+            // 但常量引用仍必须走 compat 常量宿主类名（MethodAttributes.Public）。
+            // 常量宿主与 C# 简名可能不同（DateTimeStyles/StringSplitOptions 的常量
+            // 宿主是 compat.IntegerHelper），优先经类型映射解析宿主名与导入；映射
+            // 目标是 int 本体（BindingFlags）或无映射时回退 compat.{简名}。
             if (CSharpToJava.Core.Transformers.Type.EnumTransformer
                     .IsIntConstantMetadataEnum(enumOwner))
             {
+                if (TryGetMappedStaticContainingType(enumField, context, out var hostType, out var hostImports)
+                    && hostType != "int")
+                {
+                    foreach (var hostImport in hostImports)
+                    {
+                        context.AddImport(hostImport);
+                    }
+                    return $"{hostType}.{enumField.Name}";
+                }
                 context.AddImport($"io.github.ningpp.compat.{enumOwner.Name}");
                 return $"{enumOwner.Name}.{enumField.Name}";
             }
@@ -271,6 +283,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             && emptyField.ContainingType?.SpecialType == SpecialType.System_String)
         {
             return "\"\"";
+        }
+
+        // System.Guid.Empty：Guid 映射 compat UUID（宿主 java.util.UUID 无 Empty 字段），
+        // 常量由 compat UUID 桥承载（UUID.Empty）。缺此分支时字段名原样透传为
+        // `Guid.Empty`（javac 找不到符号 变量 Guid；真实链 XmlConvert.TryToGuid）。
+        if (context.GetSymbolInfo(node).Symbol
+            is IFieldSymbol { IsStatic: true, Name: "Empty" } guidEmptyField
+            && guidEmptyField.ContainingType?.ToDisplayString() == "System.Guid")
+        {
+            context.AddImport("io.github.ningpp.compat.UUID");
+            return "UUID.Empty";
         }
 
         // System.Type.EmptyTypes has no counterpart on java.lang.Class (the mapped

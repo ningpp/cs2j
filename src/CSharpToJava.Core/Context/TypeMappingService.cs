@@ -295,6 +295,16 @@ public class TypeMappingService
             && aliasTarget.Name != typeSymbol.Name)
             return MapTypeInternal(aliasTarget, referenceContext);
 
+        // Int-constant metadata enums (BindingFlags/NumberStyles/...): compat hosts
+        // their constants as plain `public static final int` fields, so the Java
+        // side of the TYPE itself is `int`. Config rows that point at the compat
+        // constants-host class (DateTimeStyles → IntegerHelper) are for constant
+        // qualification only; letting a declaration pick up that class name makes
+        // javac reject every call into parse/format APIs that take `int style`.
+        if (typeSymbol is INamedTypeSymbol { TypeKind: Microsoft.CodeAnalysis.TypeKind.Enum } metadataEnum
+            && Transformers.Type.EnumTransformer.IsIntConstantMetadataEnum(metadataEnum))
+            return "int";
+
         if (typeSymbol is IPointerTypeSymbol)
         {
             AddImport("java.lang.foreign.MemorySegment");
