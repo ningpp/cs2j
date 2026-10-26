@@ -224,14 +224,23 @@ public class AssemblyCompat {
         return new String[0];
     }
 
-    /** Mirrors C# Assembly.GetManifestResourceStream(name) — returns StreamWrapper
-     *  so the result is directly assignable to the Java mapping of System.IO.Stream. */
-    public StreamWrapper getManifestResourceStream(String name) {
+    /** Mirrors C# Assembly.GetManifestResourceStream(name). C# 侧产物常把返回值
+     *  强转 UnmanagedMemoryStream（真实链 XmlCharType.initInstance 读 XmlCharType.bin），
+     *  这里物化成 UnmanagedMemoryStream（is-a StreamWrapper，Stream 槽位赋值不受影响），
+     *  该 cast 在运行期才合法。 */
+    public UnmanagedMemoryStream getManifestResourceStream(String name) {
         java.io.InputStream stream = classLoader.getResourceAsStream(name);
         if (stream == null) {
             stream = AssemblyCompat.class.getClassLoader().getResourceAsStream(name);
         }
-        return StreamWrapper.of(stream);
+        if (stream == null) {
+            throw new IllegalArgumentException("Manifest resource not found: " + name);
+        }
+        try (java.io.InputStream input = stream) {
+            return new UnmanagedMemoryStream(input.readAllBytes());
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
     }
 
     /** Nested type for AssemblyName compat */

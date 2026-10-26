@@ -322,27 +322,49 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         };
         var sizes = n.Type.RankSpecifiers.SelectMany(rs => rs.Sizes
             .Select(s => s.IsKind(SyntaxKind.OmittedArraySizeExpression) ? "" : f.Transform(s, c))).ToList();
-        return EmitArray(elem, sizes, n.Initializer, c, es?.TypeKind == TypeKind.TypeParameter);
+        return EmitArray(elem, sizes, n.Initializer, c, es?.TypeKind == TypeKind.TypeParameter,
+            elemSymbol: es, needsValueFill: NeedsValueFill(es, init: n.Initializer != null));
     }
     private string NewImplicitArray(ImplicitArrayCreationExpressionSyntax n, ConversionContext c)
     {
         var at = (c.GetTypeInfo(n).Type ?? c.GetTypeInfo(n).ConvertedType) as IArrayTypeSymbol;
         return EmitArray(at != null ? c.MapType(at.ElementType) : "Object",
-            Enumerable.Repeat("", n.Commas.Count + 1).ToList(), n.Initializer, c);
+            Enumerable.Repeat("", n.Commas.Count + 1).ToList(), n.Initializer, c,
+            elemSymbol: at?.ElementType,
+            needsValueFill: NeedsValueFill(at?.ElementType, init: n.Initializer != null));
     }
     private string NewBareArray(InitializerExpressionSyntax n, ConversionContext c)
     {
         var arr = (c.GetTypeInfo(n).ConvertedType ?? c.GetTypeInfo(n).Type) as IArrayTypeSymbol;
         if (arr != null)
             return EmitArray(arr.ElementType.SpecialType == SpecialType.System_Byte ? "byte" : c.MapType(arr.ElementType),
-                Enumerable.Repeat("", arr.Rank).ToList(), n, c);
+                Enumerable.Repeat("", arr.Rank).ToList(), n, c,
+                elemSymbol: arr.ElementType,
+                needsValueFill: NeedsValueFill(arr.ElementType, init: n.Expressions.Count > 0));
         if (n.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax { Type: ArrayTypeSyntax at } } })
             return EmitArray(c.MapTypeFromSyntax(at.ElementType),
                 Enumerable.Repeat("", at.RankSpecifiers.FirstOrDefault()?.Sizes.Count ?? 1).ToList(), n, c);
         return ArrayBody(n, "Object", c);
     }
+
+    /// <summary>
+    /// C# 结构体数组元素默认已初始化（default(T)），而转换产物把结构体降为 Java
+    /// class——`new NamespaceDeclaration[8]` 的元素全是 null，首访问即 NPE（真实链
+    /// XmlNamespaceManager 构造器 _nsdecls[0].Set(...)）。有初始化器的不涉及；仅
+    /// 非基元/非枚举/非 decimal 的值类型元素改走 compat 工厂（无可用无参构造器时
+    /// 返回普通 null 数组，与现状一致）。
+    /// </summary>
+    private static bool NeedsValueFill(ITypeSymbol? elementType, bool init)
+        => !init
+           && elementType is INamedTypeSymbol
+           {
+               TypeKind: TypeKind.Struct,
+               SpecialType: SpecialType.None,
+               OriginalDefinition.SpecialType: SpecialType.None
+           };
     private static string EmitArray(string elem, List<string> sizes, InitializerExpressionSyntax? init,
-        ConversionContext c, bool typeParam = false)
+        ConversionContext c, bool typeParam = false,
+        ITypeSymbol? elemSymbol = null, bool needsValueFill = false)
     {
         // C# decimal[] elements default to 0m; Java Decimal reference arrays
         // start as null. Allocate through the compat factory which fills with
@@ -352,6 +374,14 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         {
             c.AddImport("io.github.ningpp.compat.Decimal");
             return $"Decimal.array({length})";
+        }
+        // 结构体元素默认实例填充（见 NeedsValueFill）。
+        if (init == null && needsValueFill && elemSymbol != null && sizes.Count == 1
+            && sizes[0] is { Length: > 0 } fillLength)
+        {
+            c.AddImport("io.github.ningpp.compat.ArrayHelper");
+            var classLiteral = ConversionContext.GetClassLiteral(elemSymbol, c);
+            return $"ArrayHelper.filledValueArray({classLiteral}, {fillLength})";
         }
         var gen = elem.IndexOf('<');
         var sb = new StringBuilder();

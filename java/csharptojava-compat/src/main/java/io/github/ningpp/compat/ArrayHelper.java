@@ -489,7 +489,31 @@ public class ArrayHelper {
         java.util.Arrays.sort(array, index, index + length, comparer);
     }
 
+    /**
+     * C# 结构体数组语义：元素默认已初始化（default(T)）。转换产物把结构体降为
+     * Java class，`new T[n]` 元素全 null，首个默认读取即 NPE（真实链
+     * XmlNamespaceManager._nsdecls[0].Set）。工厂创建数组后用无参构造器填充
+     * 一个共享默认实例（readonly-struct 形态的变更都产生新实例，共享仅用于
+     * 默认读取）；类型无无参构造器时退回普通 null 数组（与旧发射一致）。
+     */
     @SuppressWarnings("unchecked")
+    public static <T> T[] filledValueArray(Class<T> elementType, int length) {
+        T[] array = (T[]) java.lang.reflect.Array.newInstance(elementType, length);
+        try {
+            java.lang.reflect.Constructor<T> ctor = elementType.getDeclaredConstructor();
+            // 私有嵌套的 struct 派生类（真实链 XmlNamespaceManager.NamespaceDeclaration）
+            // 的构造器反射调用需要显式提权。
+            ctor.setAccessible(true);
+            T defaultInstance = ctor.newInstance();
+            if (length > 0) {
+                java.util.Arrays.fill(array, defaultInstance);
+            }
+        } catch (ReflectiveOperationException | IllegalArgumentException e) {
+            // no parameterless constructor: keep the plain null-filled array
+        }
+        return array;
+    }
+
     public static <T> int binarySearch(T[] array, T value) {
         return java.util.Arrays.binarySearch(array, value);
     }
