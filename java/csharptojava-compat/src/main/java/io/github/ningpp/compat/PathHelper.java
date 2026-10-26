@@ -37,6 +37,19 @@ public class PathHelper {
         if (Paths.get(path2).isAbsolute()) return path2;
         return Paths.get(path1, path2).toString();
     }
+    /**
+     * Mirrors Path.Combine(ReadOnlySpan&lt;char&gt;, params ReadOnlySpan&lt;string&gt;):
+     * C# overload resolution prefers this normal form over params string[] when the
+     * first argument is a string literal (implicit string → ReadOnlySpan&lt;char&gt;),
+     * so converted call sites arrive with the span-wrapped first path (real chain:
+     * FilePathUtil state-machine cases). The span is just the first path's text.
+     */
+    public static String combine(ReadOnlySpan<Character> path1, String... paths) {
+        String[] all = new String[paths.length + 1];
+        all[0] = path1 == null ? null : path1.toString();
+        System.arraycopy(paths, 0, all, 1, paths.length);
+        return combine(all);
+    }
     /** Mirrors Path.Combine(params string[] paths). */
     public static String combine(String... paths) {
         if (paths == null || paths.length == 0) return "";

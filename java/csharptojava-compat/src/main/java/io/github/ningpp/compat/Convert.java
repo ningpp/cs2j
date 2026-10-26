@@ -71,6 +71,23 @@ public class Convert {
         return s.length() > 0 ? s.charAt(0) : '\0';
     }
 
+    /**
+     * C# Convert.ToByte(string): parses the decimal text and range-checks 0..255
+     * (FormatException/OverflowException in C#; NumberFormatException here).
+     */
+    public static int toByte(String value) {
+        int parsed = java.lang.Integer.parseInt(value.trim());
+        if (parsed < 0 || parsed > 255) {
+            throw new java.lang.NumberFormatException("Value was either too large or too small for an unsigned byte.");
+        }
+        return parsed;
+    }
+
+    /** C# Convert.ToInt32(char): the code point of the character. */
+    public static int toInt32(char value) {
+        return value;
+    }
+
     public static int toInt32(String value) {        return java.lang.Integer.parseInt(value);
     }
 
