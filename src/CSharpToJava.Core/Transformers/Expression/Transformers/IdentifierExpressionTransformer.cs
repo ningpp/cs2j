@@ -575,6 +575,16 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return $"{receiver}.size()";
             }
 
+            // 分布在移植类上的 BCL 属性（System.Xml.XmlReader → dotnet.xml.XmlReader）：
+            // 移植类的属性已被 member-desugar 展开为 get_LocalName 访问器并发射成
+            // LocalName()，Java bean getter getLocalName() 不存在（真实链 root-tests
+            // CorrectnessTest 33 行编译错误）。只有确实是该形态（get_<Name> 方法在
+            // 源内声明）才切换，自动属性仍走 bean getter。
+            if (!property.IsStatic && context.ExposesCSharpStyleProperty(property.ContainingType, member))
+            {
+                return $"{receiver}.{member}()";
+            }
+
             // C11 访问器形态：setter 可访问性是 private protected（Java 无法表达）时，
             // member-desugar 在声明项目把属性展开成 get_X/set_X 方法，Java 侧渲染为
             // X()/X(v)。plan 按项目计算，跨项目使用点不经使用点改写，只能按访问器

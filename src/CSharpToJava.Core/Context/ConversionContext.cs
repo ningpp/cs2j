@@ -875,6 +875,49 @@ public class ConversionContext
         return QualifyMappedTypeIfCurrentTypeNameCollides(typeSymbol, result);
     }
 
+    private readonly Dictionary<string, bool> _mapsToSourceTypeCache = new(StringComparer.Ordinal);
+    private readonly Dictionary<(string TypeName, string PropertyName), bool> _cSharpStylePropertyCache = new();
+
+    /// <summary>
+    /// True when <paramref name="containingType"/> (a BCL type such as
+    /// <c>System.Xml.XmlReader</c>) maps onto a type declared in this compilation's
+    /// source AND that ported class carries <paramref name="propertyName"/> in the
+    /// member-desugar accessor form (<c>get_LocalName</c>), which the Java emission
+    /// renames to <c>LocalName()</c>. Auto-properties keep their bean-getter shape
+    /// (<c>getLocalName()</c>) and must not take this branch.
+    /// </summary>
+    public bool ExposesCSharpStyleProperty(ITypeSymbol? containingType, string propertyName)
+    {
+        if (containingType == null || string.IsNullOrEmpty(propertyName)) return false;
+        var mapped = MapType(containingType);
+        if (string.IsNullOrWhiteSpace(mapped) || mapped.Contains('<') || mapped.Contains('['))
+            return false;
+
+        // The mapped rendering is a simple name; resolve it in the ported package of the
+        // C# namespace (System.Xml → dotnet.xml), so `System.Xml.XmlReader` is looked up
+        // as `dotnet.xml.XmlReader`.
+        var ns = containingType.ContainingNamespace?.ToDisplayString() ?? string.Empty;
+        var package = TypeMappings.MapNamespace(ns) ?? ns;
+        var qualified = string.IsNullOrEmpty(package) ? mapped : $"{package}.{mapped}";
+
+        if (_cSharpStylePropertyCache.TryGetValue((qualified, propertyName), out var cached))
+            return cached;
+
+        var compilation = SemanticModel?.Compilation;
+        var resolved = compilation?.GetTypeByMetadataName(qualified);
+        var isSource = resolved != null && resolved.Locations.Any(l => l.IsInSource);
+        _mapsToSourceTypeCache[qualified] = isSource;
+        // 注意：普通自动属性的访问器方法名也是 get_X，故不能用 GetMembers("get_X") 判定。
+        // 区分点是该类型是否仍有同名属性符号：属性 → Java bean getter（getX()）；
+        // 只剩 get_X 方法（member-desugar 展开）→ C11 访问器（X()）。
+        var accessorForm = isSource
+            && !resolved!.GetMembers(propertyName).OfType<IPropertySymbol>().Any()
+            && resolved.GetMembers($"get_{propertyName}").OfType<IMethodSymbol>()
+                .Any(m => !m.IsStatic && m.Parameters.Length == 0);
+        _cSharpStylePropertyCache[(qualified, propertyName)] = accessorForm;
+        return accessorForm;
+    }
+
     /// <summary>
     /// Maps a type for use as a generic type argument: primitive Java types are
     /// boxed (int → Integer, etc.) since Java generics cannot hold primitives.
