@@ -384,6 +384,15 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             return $"ArrayHelper.filledValueArray({classLiteral}, {fillLength})";
         }
         var gen = elem.IndexOf('<');
+        // 大嵌入字节数组降位 base64（见 ArrayBody）后是自包含表达式，没有
+        // `new byte[]` 前缀：必须整体短路返回，否则拼出
+        // `new byte[]ArrayHelper.fromBase64("…")`（真实链 xmlcoretest-tests
+        // FilePathUtil.s_fileN）。多维尺寸不支持（base64 只承载一维）。
+        if (init != null && sizes.Count == 1
+            && TryEmbeddedByteArrayBody(init, elem, c) is { } base64Body)
+        {
+            return base64Body;
+        }
         var sb = new StringBuilder();
         if (typeParam || gen > 0)
             sb.Append('(').Append(elem).Append(string.Concat(Enumerable.Repeat("[]", sizes.Count))).Append(") ");
@@ -395,6 +404,15 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     }
     private static string ArrayBody(InitializerExpressionSyntax init, string elem, ConversionContext c)
     {
+        // 大嵌入字节数组（测试资源整文件内嵌，真实链 FilePathUtil 的 s_fileN，单行
+        // 4.7MB）超出 javac 单方法 64KB 字节码上限（代码过长/常量过多）。全常量
+        // 字面量时改走 base64：ArrayHelper.fromBase64("<b64>")，字段初始化保持单行。
+        // 先判后渲染：命中时无需逐元素 Transform（4.7MB 数组的字面量转换代价大）。
+        if (TryEmbeddedByteArrayBody(init, elem, c) is { } base64Body)
+        {
+            return base64Body;
+        }
+
         var f = ExpressionTransformerFacade.Instance;
         var vals = init.Expressions.Select(e =>
         {
@@ -406,36 +424,41 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 v = $"(byte) ({v})";
             return v;
         }).ToList();
-        // 大嵌入字节数组（测试资源整文件内嵌，真实链 FilePathUtil 的 s_fileN，单行
-        // 4.7MB）超出 javac 单方法 64KB 字节码上限（代码过长/常量过多）。全常量
-        // 字面量时改走 base64：ArrayHelper.fromBase64("<b64>")，字段初始化保持单行。
-        if (elem == "byte" && init.Expressions.Count >= 1000)
+        return $"{{ {string.Join(", ", vals)} }}";
+    }
+
+    /// <summary>
+    /// <c>ArrayHelper.fromBase64("…")</c> when <paramref name="init"/> is a large
+    /// all-constant byte initializer, else null. The result is a self-contained
+    /// expression (it allocates the array itself), so callers must not prepend
+    /// <c>new byte[]</c> to it.
+    /// </summary>
+    private static string? TryEmbeddedByteArrayBody(
+        InitializerExpressionSyntax init, string elem, ConversionContext c)
+    {
+        if (elem != "byte" || init.Expressions.Count < 1000)
         {
-            var bytes = new List<byte>(init.Expressions.Count);
-            var allConstant = true;
-            foreach (var e in init.Expressions)
+            return null;
+        }
+
+        var bytes = new List<byte>(init.Expressions.Count);
+        foreach (var e in init.Expressions)
+        {
+            if (e is LiteralExpressionSyntax lit
+                && lit.IsKind(SyntaxKind.NumericLiteralExpression)
+                && lit.Token.Value is int byteValue
+                && byteValue is >= 0 and <= 255)
             {
-                if (e is LiteralExpressionSyntax lit
-                    && lit.IsKind(SyntaxKind.NumericLiteralExpression)
-                    && lit.Token.Value is int byteValue
-                    && byteValue is >= 0 and <= 255)
-                {
-                    bytes.Add((byte)byteValue);
-                }
-                else
-                {
-                    allConstant = false;
-                    break;
-                }
+                bytes.Add((byte)byteValue);
             }
-            if (allConstant)
+            else
             {
-                c.AddImport("io.github.ningpp.compat.ArrayHelper");
-                var base64 = Convert.ToBase64String(bytes.ToArray());
-                return $"ArrayHelper.fromBase64(\"{base64}\")";
+                return null;
             }
         }
-        return $"{{ {string.Join(", ", vals)} }}";
+
+        c.AddImport("io.github.ningpp.compat.ArrayHelper");
+        return $"ArrayHelper.fromBase64(\"{Convert.ToBase64String(bytes.ToArray())}\")";
     }
     private string NewStackAlloc(StackAllocArrayCreationExpressionSyntax n, ConversionContext c)
         => throw new NotSupportedException(
