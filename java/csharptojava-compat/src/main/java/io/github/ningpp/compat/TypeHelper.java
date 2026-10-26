@@ -2945,6 +2945,16 @@ public final class TypeHelper {
      * binding flags and verifies the parameter list when one is supplied, so
      * overloads of the same name resolve the way the C# overload set does.
      */
+    /**
+     * C# {@code Type.GetMethod(string, BindingFlags, Binder, Type[], ParameterModifier[])}
+     * shape: the binder and modifiers slots are reflection internals with no Java
+     * counterpart, so only the parameter list takes part in selection.
+     */
+    public static MethodInfo getMethod(Class<?> type, String name, int bindingFlags,
+            Object binder, Class<?>[] parameterTypes, Object[] modifiers) {
+        return getMethod(type, name, bindingFlags, (Object[]) parameterTypes);
+    }
+
     public static MethodInfo getMethod(Class<?> type, String name, int bindingFlags, Object... parameterTypes) {
         MethodInfo candidate = getMethod(type, name, bindingFlags);
         if (candidate == null) {
