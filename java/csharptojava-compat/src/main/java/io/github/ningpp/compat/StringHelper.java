@@ -1162,6 +1162,7 @@ public class StringHelper {
         // (e.g. "f != java.lang.String").  This was observed in MSAGL's
         // ResultVerifierBase.postCheckResults which uses {0:F5} with doubles.
         java.util.Set<Integer> stringConversionIndices = collectStringConversionIndices(javaFormat, args.length);
+        java.util.Set<Integer> integralConversionIndices = collectIntegralConversionIndices(javaFormat);
 
         Object[] converted = args.clone();
         for (int i = 0; i < converted.length; i++) {
@@ -1169,6 +1170,15 @@ public class StringHelper {
             int positionalIndex = i + 1;
             boolean useStringConversion = stringConversionIndices.contains(positionalIndex)
                     || stringConversionIndices.contains(-1); // -1 means unindexed (sequential) %s
+            boolean useIntegralConversion = integralConversionIndices.contains(positionalIndex)
+                    || integralConversionIndices.contains(-1);
+            // C# treats char as an integral type: string.Format("{0:X4}", ch) hex-formats
+            // the code point. Java's %x/%X/%d/%o require a numeric argument and reject
+            // Character ("x != java.lang.Character") — unbox to the code point instead
+            // (real chain XmlException.BuildCharExceptionArgs → StringHelper.formatCs).
+            if (useIntegralConversion && converted[i] instanceof Character ch) {
+                converted[i] = (int) ch.charValue();
+            }
             if (converted[i] instanceof Boolean b) {
                 if (useStringConversion) {
                     converted[i] = b ? "True" : "False";
@@ -1214,8 +1224,7 @@ public class StringHelper {
      * @param argCount   the number of arguments
      * @return a set of 1-based indices (and/or -1) that use the 's' conversion
      */
-    private static java.util.Set<Integer> collectStringConversionIndices(String javaFormat, int argCount) {
-        java.util.Set<Integer> result = new java.util.HashSet<>();
+    private static java.util.Set<Integer> collectStringConversionIndices(String javaFormat, int argCount) {        java.util.Set<Integer> result = new java.util.HashSet<>();
         // Regex to match Java format specifiers like %[argument_index$][flags][width][.precision][conversion]
         // We need to capture the optional argument index and the conversion character.
         // Pattern: % ( [digits] $ )? [flags] [width] [.precision]? [tT]? [conversion]
@@ -1246,6 +1255,45 @@ public class StringHelper {
         }
         // Also handle the case where there are NO format specifiers at all but there
         // are args — String.format with no specifiers ignores args, so no conversion needed.
+        return result;
+    }
+
+    /**
+     * Argument indices (1-based, or -1 for sequential specifiers) whose conversion is
+     * an integral one (d/o/x/X). C# treats {@code char} as an integral type there, and
+     * Java's Formatter rejects Character for those conversions
+     * ("x != java.lang.Character"), so the caller unboxes to the code point.
+     */
+    private static java.util.Set<Integer> collectIntegralConversionIndices(String javaFormat) {
+        java.util.Set<Integer> result = new java.util.HashSet<>();
+        java.util.regex.Pattern p = java.util.regex.Pattern.compile(
+                "%(\\d+\\$)?([-#+ 0,(]*\\d*)(\\.\\d+)?[tT]?([a-zA-Z])");
+        java.util.regex.Matcher m = p.matcher(javaFormat);
+        int seqIndex = 0;
+        boolean hasSequentialIntegral = false;
+        while (m.find()) {
+            String indexPart = m.group(1);
+            char conversion = m.group(4).charAt(0);
+            boolean integral = conversion == 'd' || conversion == 'o'
+                    || conversion == 'x' || conversion == 'X';
+            if (indexPart != null) {
+                if (integral) {
+                    result.add(Integer.parseInt(indexPart.substring(0, indexPart.length() - 1)));
+                }
+            } else {
+                seqIndex++;
+                if (integral) {
+                    result.add(seqIndex);
+                    hasSequentialIntegral = true;
+                }
+            }
+        }
+        if (hasSequentialIntegral) {
+            // A sequential integral specifier consumes args in order; mirror the
+            // string-conversion convention (-1 = "applies to the sequential slots")
+            // so mixed explicit/sequential formats still unbox the char arguments.
+            result.add(-1);
+        }
         return result;
     }
 
