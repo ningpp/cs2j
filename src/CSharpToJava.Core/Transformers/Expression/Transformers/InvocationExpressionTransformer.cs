@@ -168,6 +168,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return new JavaLiteralExpression("\"" + JavaEscapeString(name) + "\"");
         }
 
+        // Task/ValueTask 异步归一残端（IR 路径孪生，见文本路径同名分支）：
+        // AsTask() 是身份函数、GetAwaiter().GetResult() → join()。真实链
+        // XmlTextReaderImpl 的 AsTask/getAwaiter 4 站走 IR 路径，此前只有文本
+        // 路径有该特判。
+        if (TryRenderTaskMemberCall(invocation, context, out var taskCallIr))
+            return new JavaRawExpression(taskCallIr);
+
         var facade = ExpressionTransformerFacade.Instance;
         var invocationMethod = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
         // Holder expansion anchors pending statements on the enclosing statement;
@@ -202,6 +209,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceSystemTypeArgumentWrapper(
                         a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceNullLiteralArgument(
+                        a, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceDecimalArgument(
                         a.Expression, text, invocationMethod, index, context);
                     text = ApplyIntegralNarrowing(text, a.Expression, invocationMethod, index, context);
@@ -772,6 +781,61 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         return true;
     }
 
+    /// <summary>
+    /// True when the receiver's static type is the mapped async surface
+    /// (System.Threading.Tasks.Task / ValueTask, generic or not — both map to
+    /// java.util.concurrent.CompletableFuture).
+    /// </summary>
+    private static bool IsTaskLikeReceiver(ExpressionSyntax receiver, ConversionContext context)
+    {
+        var typeInfo = context.GetTypeInfo(receiver);
+        var named = (typeInfo.Type ?? typeInfo.ConvertedType) as INamedTypeSymbol;
+        var fqn = named?.OriginalDefinition.ToDisplayString();
+        return fqn == "System.Threading.Tasks.Task"
+            || fqn == "System.Threading.Tasks.ValueTask"
+            || (fqn?.StartsWith("System.Threading.Tasks.Task<", StringComparison.Ordinal) ?? false)
+            || (fqn?.StartsWith("System.Threading.Tasks.ValueTask<", StringComparison.Ordinal) ?? false);
+    }
+
+    /// <summary>
+    /// Renders the async-normalize residues on the mapped task surface:
+    /// task.AsTask() → task（ValueTask→CompletableFuture 后 AsTask 是身份函数），
+    /// task.GetAwaiter().GetResult() → task.join()。非 Task/ValueTask 接收者一律
+    /// false，按普通调用降形。
+    /// </summary>
+    private bool TryRenderTaskMemberCall(
+        InvocationExpressionSyntax node,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = null!;
+        if (node.Expression is not MemberAccessExpressionSyntax memberAccess)
+            return false;
+        if (node.ArgumentList.Arguments.Count != 0)
+            return false;
+
+        var methodName = memberAccess.Name.Identifier.Text;
+        if (methodName == "AsTask" && IsTaskLikeReceiver(memberAccess.Expression, context))
+        {
+            rendered = ExpressionTransformerFacade.Instance.Transform(memberAccess.Expression, context);
+            return true;
+        }
+
+        if (methodName == "GetResult"
+            && memberAccess.Expression is InvocationExpressionSyntax getAwaiterCall
+            && getAwaiterCall.ArgumentList.Arguments.Count == 0
+            && getAwaiterCall.Expression is MemberAccessExpressionSyntax getAwaiterAccess
+            && getAwaiterAccess.Name.Identifier.Text == "GetAwaiter"
+            && IsTaskLikeReceiver(getAwaiterAccess.Expression, context))
+        {
+            var taskReceiver = ExpressionTransformerFacade.Instance.Transform(getAwaiterAccess.Expression, context);
+            rendered = $"{taskReceiver}.join()";
+            return true;
+        }
+
+        return false;
+    }
+
     private string TransformInvocation(InvocationExpressionSyntax node, ConversionContext context)
     {
         // nameof(X) → "argumentName"
@@ -780,6 +844,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var name = ResolveNameOfName(nameofArgument!, context);
             return "\"" + JavaEscapeString(name) + "\"";
         }
+
+        // Task/ValueTask 异步归一残端（真实链 dotnet-xml XmlTextReaderImplAsync）：
+        // Task/ValueTask 映射 CompletableFuture 后，AsTask() 本就是身份函数（直接
+        // 返回接收者）；GetAwaiter().GetResult() 的 Java 对应面是 join()。二者不
+        // 处理就漏成 .asTask()/.getAwaiter().getResult()，javac 找不到符号。
+        if (TryRenderTaskMemberCall(node, context, out var taskCall))
+            return taskCall;
 
         var facade = ExpressionTransformerFacade.Instance;
         string arguments;
@@ -808,8 +879,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceSystemTypeArgumentWrapper(
                         a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceNullLiteralArgument(
+                        a, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceDecimalArgument(
                         a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceNullTypeWitness(
+                        a, text, invocationMethod, index, context);
                     return ApplyIntegralNarrowing(
                         text, a.Expression, invocationMethod, index, context);
                 })
@@ -2245,10 +2320,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // 显式见证类型：o.getClass() 的推断 K 携带 capture 通配符，落进
             // Map.Entry<Class,String> 槽位即报 capture 不兼容（真实链
             // ReflectionXmlSerializationReader 的 Tuple.Create(o.GetType(),
-            // memberName)）。按方法形参（Type→Class）渲染见证。
+            // memberName)）。按方法形参（Type→Class）渲染见证；基元类型实参
+            // （真实链 uri 功能测试 Tuple.Create(char, char)）必须装箱——Java
+            // 泛型实参不允许基元类型（Map.<char, char> 无法编译）。
             if (symbol is { TypeArguments.Length: 2 }
-                && context.MapType(symbol.TypeArguments[0]) is { } witnessK
-                && context.MapType(symbol.TypeArguments[1]) is { } witnessV)
+                && context.MapTypeBoxed(symbol.TypeArguments[0]) is { } witnessK
+                && context.MapTypeBoxed(symbol.TypeArguments[1]) is { } witnessV)
             {
                 rendered = $"Map.<{witnessK}, {witnessV}>entry({argumentText})";
             }
