@@ -94,6 +94,70 @@ return toDecimal(value);
         return Decimal.valueOf(value);
     }
 
+    /**
+     * Mirrors C# Convert.ToDouble(Object, IFormatProvider). null → 0d;
+     * Boolean → 1/0; numeric → value; Character → code point; String → parse
+     * (FormatException surfaces like C#). Anything else is the ClassCastException
+     * analogue of C# InvalidCastException (compat convention, see CSharpArray).
+     */
+    public static double toDouble(Object value) {
+        if (value == null) {
+            return 0.0;
+        }
+        if (value instanceof Double) {
+            return (Double) value;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        if (value instanceof Boolean) {
+            return (Boolean) value ? 1.0 : 0.0;
+        }
+        if (value instanceof Character) {
+            return ((Character) value).charValue();
+        }
+        if (value instanceof String) {
+            // C# Convert.ToDouble(String) throws FormatException on bad input;
+            // NumberFormatException is not one, so re-wrap for translated catches.
+            try {
+                return Double.parseDouble(((String) value).trim());
+            } catch (NumberFormatException e) {
+                throw new FormatException(e.getMessage(), e);
+            }
+        }
+        throw new ClassCastException(
+                "Cannot convert " + value.getClass().getName() + " to double");
+    }
+
+    /** Mirrors C# Convert.ToDouble(Object, IFormatProvider) — invariant provider. */
+    public static double toDouble(Object value, NumberFormatInfo info) {
+        return toDouble(value);
+    }
+
+    /** Mirrors C# Convert.ToDouble(Object, IFormatProvider) with CultureInfo. */
+    public static double toDouble(Object value, CultureInfo info) {
+        return toDouble(value);
+    }
+
+    /**
+     * Mirrors C# Convert.ToString(Object, IFormatProvider): null → empty string;
+     * String → itself; boxed primitives/other → toString (invariant "G" shape
+     * for the boxed numeric corpus this bridge serves).
+     */
+    public static String toString(Object value) {
+        return value == null ? "" : value.toString();
+    }
+
+    /** Mirrors C# Convert.ToString(Object, IFormatProvider) — invariant provider. */
+    public static String toString(Object value, NumberFormatInfo info) {
+        return toString(value);
+    }
+
+    /** Mirrors C# Convert.ToString(Object, IFormatProvider) with CultureInfo. */
+    public static String toString(Object value, CultureInfo info) {
+        return toString(value);
+    }
+
     /** Mirrors C# Convert.ChangeType(Object, Type) */
     public static Object changeType(Object value, Class<?> targetType) {
         return changeType(value, targetType, null);
