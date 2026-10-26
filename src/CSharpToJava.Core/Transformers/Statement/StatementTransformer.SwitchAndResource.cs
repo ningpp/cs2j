@@ -265,9 +265,36 @@ public partial class StatementTransformer
                     && tryStmt.Catches.Count > 0
                     && StatementAlwaysTerminatesSwitchSection(tryStmt.Block)
                     && tryStmt.Catches.All(c => StatementAlwaysTerminatesSwitchSection(c.Block));
+            case SyntaxKind.ForStatement:
+            case SyntaxKind.WhileStatement:
+            case SyntaxKind.DoStatement:
+                // 无退出条件的无限循环（for(;;) / while(true) / do..while(true)）且体
+                // 内不含 break：C# 认为该 section 终点不可达、允许省略 break；Java 同
+                // 理，追加的 break; 反而是「无法访问的语句」（真实链
+                // XPathNavigatorReader.MoveToNextAttribute 的 namespaces 反序遍历）。
+                // 保守实现：体内任何 break 都视为可能跳出，退回追加 break 的旧行为。
+                return IsInfiniteLoopWithoutExit(stmt);
             default:
                 return false;
         }
+    }
+
+    /// <summary>
+    /// 无退出条件的无限循环且体内不含 break（保守：嵌套 switch 内部的 break 也算
+    /// 可能跳出，此时不判定为不可正常完成）。
+    /// </summary>
+    private static bool IsInfiniteLoopWithoutExit(StatementSyntax stmt)
+    {
+        StatementSyntax? body = stmt switch
+        {
+            ForStatementSyntax forStmt when forStmt.Condition == null => forStmt.Statement,
+            WhileStatementSyntax whileStmt when IsTrueLiteral(whileStmt.Condition) => whileStmt.Statement,
+            DoStatementSyntax doStmt when IsTrueLiteral(doStmt.Condition) => doStmt.Statement,
+            _ => null,
+        };
+        if (body == null)
+            return false;
+        return !body.DescendantNodes().OfType<BreakStatementSyntax>().Any();
     }
 
     /// <summary>
