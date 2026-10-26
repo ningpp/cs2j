@@ -359,6 +359,13 @@ public class ArrayHelper {
     // ---- [B] 元数据 ----
 
     public static int getLength(Object array) {
+        // 调用点可能把数组包成 CSharpArray 写透视图（System.Array 形参归一的
+        // 统一形态）；元数据查询必须看裸数组，否则反射抛
+        // IllegalArgumentException("Argument is not an array")（真实链
+        // dotnet-uri-functional-tests IriEncodingDecodingTest 10 站）。
+        if (array instanceof CSharpArray ca) {
+            array = ca.unwrap();
+        }
         if (array instanceof Object[] arr && arr.length > 0 && arr[0] != null && arr[0].getClass().isArray()) {
             int total = 0;
             for (Object row : arr) {
@@ -374,6 +381,9 @@ public class ArrayHelper {
     }
 
     public static int getLength(Object array, int dimension) {
+        if (array instanceof CSharpArray ca) {
+            array = ca.unwrap();
+        }
         if (dimension < 0) throw new IndexOutOfBoundsException();
         Object current = array;
         for (int d = 0; d < dimension; d++) {
