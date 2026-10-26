@@ -127,6 +127,23 @@ public class MethodConversionState
     private readonly Dictionary<string, int> _outHolderAllocCounts = new(StringComparer.Ordinal);
     private readonly HashSet<string> _readOnlyRefStructParams = new(StringComparer.Ordinal);
 
+    // Parameters of the method currently being declared whose Java parameter is
+    // a holder (IntHolder/ObjectHolder<...>, from ConvertParameter). Expression
+    // reads of such parameters must dereference `.value` — the declaration-side
+    // holder lowering only rewrites plain `=` assignments, so `p++` / `p += n` /
+    // indexing / argument passing would otherwise use the holder object as the
+    // raw value (real chains: Decoder.Convert's `bytesUsed++`, XmlUtf8RawTextWriter's
+    // paired-pointer index slots `pSrcIndex++` / `pSrc[pSrcIndex]`).
+    private readonly HashSet<IParameterSymbol> _holderValueParams = new(SymbolEqualityComparer.Default);
+
+    /// <summary>Registers a parameter that is declared as a Java holder type.</summary>
+    public void RegisterHolderValueParam(IParameterSymbol parameter)
+        => _holderValueParams.Add(parameter);
+
+    /// <summary>True when the given parameter's Java declaration is a holder type.</summary>
+    public bool IsHolderValueParam(IParameterSymbol? parameter)
+        => parameter != null && _holderValueParams.Contains(parameter);
+
     public bool IsReadOnlyRefStructParam(string paramName)
         => _readOnlyRefStructParams.Contains(paramName);
 
@@ -520,6 +537,7 @@ public class MethodConversionState
         _pendingPostStatements.Clear();
         _outHolderAllocCounts.Clear();
         _readOnlyRefStructParams.Clear();
+        _holderValueParams.Clear();
         _shortCircuitDepth = 0;
         _shortCircuitDeferredSideEffects.Clear();
         _renamedLocals.Clear();

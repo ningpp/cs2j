@@ -291,7 +291,17 @@ public class MethodTransformer : IMemberTransformer
         if (constraints.Count > 0)
             ClassTransformer.ApplyTypeParameterConstraints(constraints, jm.TypeParameters, ctx);
         foreach (var p in parameters?.Parameters ?? Enumerable.Empty<ParameterSyntax>())
-            if (ConvertParameter(p, ctx) is { } jp) jm.Parameters.Add(jp);
+            if (ConvertParameter(p, ctx) is { } jp)
+            {
+                jm.Parameters.Add(jp);
+                // Track ref/out parameters that the Java declaration wraps in a
+                // holder type so the body's expression-level reads emit `.value`.
+                if (HolderTypeResolver.IsHolderType(jp.Type)
+                    && ctx.GetDeclaredSymbol(p) is IParameterSymbol holderParam)
+                {
+                    ctx.MethodState.RegisterHolderValueParam(holderParam);
+                }
+            }
     }
 
     private static void BuildBody(JavaMethodDeclaration jm, BlockSyntax? body,

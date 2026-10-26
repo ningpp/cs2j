@@ -134,6 +134,18 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (symbol is IPropertySymbol p
             && !(node.Parent is AssignmentExpressionSyntax a && a.Left == node))
             return $"get{p.Name}()";
+        // Declared holder parameters (ref/out wrapped into IntHolder/ObjectHolder<...>
+        // by ConvertParameter) read through `.value` at every expression position:
+        // the declaration-side lowering only rewrites plain `=` assignments, so
+        // compound ops, indexing and argument passing need the dereference here
+        // (real chains: Decoder.Convert's `bytesUsed++`, XmlUtf8RawTextWriter's
+        // paired-pointer index slots). Plain `=` keeps its dedicated branch in
+        // AssignmentTransformer, which never routes the LHS through this path.
+        if (symbol is IParameterSymbol { RefKind: RefKind.Ref or RefKind.Out } holderParam
+            && context.MethodState.IsHolderValueParam(holderParam))
+        {
+            return $"{ConversionContext.EscapeJavaKeyword(node.Identifier.Text)}.value";
+        }
         // Local / parameter / field / default → just the name
         return ConversionContext.EscapeJavaKeyword(node.Identifier.Text);
     }
@@ -167,7 +179,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (dot <= 0) return;
         var helper = dottedName[..dot];
         if (helper is "IntPtrHelper" or "MathHelper" or "StringHelper" or "ObjectHelper"
-            or "ArrayHelper" or "CultureInfo" or "IPAddressHelper" or "ExceptionCompat")
+            or "ArrayHelper" or "CultureInfo" or "IPAddressHelper" or "ExceptionCompat"
+            or "TypeHelper")
             context.AddImport($"io.github.ningpp.compat.{helper}");
     }
 
