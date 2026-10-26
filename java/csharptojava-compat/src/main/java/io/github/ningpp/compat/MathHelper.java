@@ -11,6 +11,16 @@ import java.util.Locale;
 public class MathHelper {
     private static final BigInteger UINT64_MAX_VALUE = new BigInteger("18446744073709551615");
 
+    /**
+     * C# Math.Round(double): midpoint-to-even in double space, NaN/±∞ pass through.
+     * Java's Math.round(double) is NOT this: it returns long, rounds half-up and
+     * maps NaN to 0 — which broke XPath round()/XPathRound (substring("ABCDE", 0 div 0, 3)
+     * returned "AB" because round(NaN) became 0). Math.rint is exactly the C# contract.
+     */
+    public static double round(double value) {
+        return Math.rint(value);
+    }
+
     public static double parseDouble(String s) {
         return parseNumber(() -> Double.parseDouble(s));
     }
