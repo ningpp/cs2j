@@ -45,4 +45,14 @@ public interface IConvertible {
     static long toInt64(Object value) {
         return toInt64(value, null);
     }
+
+    /**
+     * Instance-call form of the C# ((IConvertible)v).ToInt64(provider). Without
+     * it the 1-arg call site resolves to the static helper and javac rejects a
+     * receiver-qualified static interface call (real chain:
+     * EnumModel constant enumeration).
+     */
+    default long toInt64(IFormatProvider provider) {
+        return toInt64((Object) this, provider);
+    }
 }

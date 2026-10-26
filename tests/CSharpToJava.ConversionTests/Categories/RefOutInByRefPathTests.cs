@@ -345,9 +345,11 @@ public class Calc
         // ByRef<uint>.ReadbackInt(__out3);` — the helper table deliberately maps
         // unsigned/byte slots to Java-friendly signed results (uint/byte →
         // readbackInt returns int, sbyte → readbackByte returns byte,
-        // ushort → readbackShort returns short, ulong → readbackLong returns
-        // long). The copy-back must convert that helper result back to the
-        // original target type, otherwise the stage stops compiling (CS0266).
+        // ushort → readbackUShort returns int（ushort 的 Java 载体是 int，
+        // ByRef<Integer>——readbackShort 的 ByRef<Short> 形参与产物不符）,
+        // ulong → readbackLong returns long). The copy-back must convert that
+        // helper result back to the original target type, otherwise the stage
+        // stops compiling (CS0266).
         var source = @"
 public class Calc
 {
@@ -390,7 +392,7 @@ public class Calc
         Assert.Contains("u = (uint)ByRef<uint>.ReadbackInt(", result.OutputCode);
         Assert.Contains("s = (sbyte)ByRef<sbyte>.ReadbackByte(", result.OutputCode);
         Assert.Contains("l = (ulong)ByRef<ulong>.ReadbackLong(", result.OutputCode);
-        Assert.Contains("us = (ushort)ByRef<ushort>.ReadbackShort(", result.OutputCode);
+        Assert.Contains("us = (ushort)ByRef<ushort>.ReadbackUShort(", result.OutputCode);
         Assert.Contains("b = (byte)ByRef<byte>.ReadbackInt(", result.OutputCode);
 
         var rewrittenTree = CSharpSyntaxTree.ParseText(result.OutputCode + StructByRefStub);
@@ -547,6 +549,7 @@ namespace Cs2jByRef
         public static int ReadbackInt(ByRef<byte> slot) => slot.Value;
         public static short ReadbackShort(ByRef<short> slot) => slot.Value;
         public static short ReadbackShort(ByRef<ushort> slot) => (short)slot.Value;
+        public static int ReadbackUShort(ByRef<ushort> slot) => slot.Value;
         public static byte ReadbackByte(ByRef<sbyte> slot) => (byte)slot.Value;
         public static long ReadbackLong(ByRef<long> slot) => slot.Value;
         public static long ReadbackLong(ByRef<ulong> slot) => (long)slot.Value;

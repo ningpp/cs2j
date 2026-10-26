@@ -29,7 +29,7 @@ public interface CSharpIList<T> extends CSharpCollection {
     default void insert(int index, Object value) { throw new UnsupportedOperationException(); }
     default boolean getIsFixedSize() { return false; }
     default boolean getIsReadOnly() { return false; }
-    default void remove(Object value) { throw new UnsupportedOperationException(); }
+    default boolean remove(Object value) { throw new UnsupportedOperationException(); }
     default Object removeAt(int index) { throw new UnsupportedOperationException(); }
     default T get(int index) { throw new UnsupportedOperationException(); }
     default Object set(int index, Object value) { throw new UnsupportedOperationException(); }
@@ -80,8 +80,8 @@ public interface CSharpIList<T> extends CSharpCollection {
                 return list.getIsReadOnly();
             }
             @Override
-            public void remove(Object value) {
-                ((CSharpGenericIList) list).remove(value);
+            public boolean remove(Object value) {
+                return ((CSharpGenericIList) list).remove(value);
             }
             @Override
             public Object removeAt(int index) {

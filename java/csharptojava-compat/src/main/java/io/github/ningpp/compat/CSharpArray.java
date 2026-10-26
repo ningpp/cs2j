@@ -563,18 +563,24 @@ public final class CSharpArray implements Iterable<Object> {
      * C# Array.CreateInstance(Type elementType, int length) — a new
      * single-dimensional array of the requested element type.
      *
+     * <p>Returns the {@link CSharpArray} view that is the Java mapping of
+     * System.Array, so assignment/argument slots typed System.Array bind
+     * without a cast (real chain: XmlSerializationReader.ensureArrayIndex,
+     * CodeIdentifiers.ToArray). Array-typed consumers go through
+     * {@link #tryAs(Object, Class)} casts emitted by the converter.</p>
+     *
      * @param elementType The element type of the array to create.
      * @param length The number of elements in the array.
-     * @return The newly created array.
+     * @return The newly created array as a CSharpArray view.
      */
-    public static Object createInstance(Class<?> elementType, int length) {
+    public static CSharpArray createInstance(Class<?> elementType, int length) {
         if (elementType == null) {
             throw new ArgumentNullException("elementType");
         }
         if (length < 0) {
             throw new ArgumentOutOfRangeException("length");
         }
-        return Array.newInstance(elementType, length);
+        return of(Array.newInstance(elementType, length));
     }
 
     /**
@@ -583,16 +589,16 @@ public final class CSharpArray implements Iterable<Object> {
      *
      * @param elementType The element type of the array to create.
      * @param lengths The length of every dimension, outermost first.
-     * @return The newly created array.
+     * @return The newly created array as a CSharpArray view.
      */
-    public static Object createInstance(Class<?> elementType, int[] lengths) {
+    public static CSharpArray createInstance(Class<?> elementType, int[] lengths) {
         if (elementType == null) {
             throw new ArgumentNullException("elementType");
         }
         if (lengths == null) {
             throw new ArgumentNullException("lengths");
         }
-        return Array.newInstance(elementType, lengths);
+        return of(Array.newInstance(elementType, lengths));
     }
 
     // --- Array.Copy ---

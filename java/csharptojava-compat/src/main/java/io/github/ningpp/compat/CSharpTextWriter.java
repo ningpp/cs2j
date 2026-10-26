@@ -16,6 +16,25 @@ import java.nio.charset.Charset;
  * plus C# TextWriter.NewLine semantics.
  */
 public class CSharpTextWriter extends PrintWriter {
+
+    /**
+     * C# TextWriter.FlushAsync() in the blocking async bridge (await →
+     * AsyncAwait.join(CompletableFuture)) — flush is synchronous, the future is
+     * completed immediately.
+     */
+    public java.util.concurrent.CompletableFuture<Void> flushAsync() {
+        flush();
+        return java.util.concurrent.CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * C# TextWriter.WriteAsync(char[], int, int) in the blocking async bridge —
+     * the write is synchronous, the future is completed immediately.
+     */
+    public java.util.concurrent.CompletableFuture<Void> writeAsync(char[] buffer, int index, int count) {
+        write(buffer, index, count);
+        return java.util.concurrent.CompletableFuture.completedFuture(null);
+    }
     private String newLine = "\r\n";
     private final Writer innerWriter;
 

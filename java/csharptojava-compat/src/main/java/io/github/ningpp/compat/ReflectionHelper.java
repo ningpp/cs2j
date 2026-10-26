@@ -16,6 +16,16 @@ import java.util.Arrays;
  */
 public final class ReflectionHelper {
 
+    /**
+     * C# ParameterInfo.IsOptional approximation: the JDK reflection model has no
+     * "optional parameter" flag, so a real (compiler-emitted, name-carrying)
+     * parameter reports optional and synthetic/implicit ones do not. Callers use
+     * it only to lower minimum-argument counts for script method binding.
+     */
+    public static boolean isOptionalParameter(java.lang.reflect.Parameter parameter) {
+        return parameter.isNamePresent();
+    }
+
     private ReflectionHelper() {}
 
     /**

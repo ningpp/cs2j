@@ -12,6 +12,7 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
     public CSharpHashtable(int capacity) { this.map = new LinkedHashMap<>(capacity); }
     public CSharpHashtable(Map<?, ?> m) { this.map = new LinkedHashMap<>(m); }
     public CSharpHashtable(CSharpEqualityComparer comparer) { this.map = new LinkedHashMap<>(); }
+    public CSharpHashtable(IEqualityComparer comparer) { this.map = new LinkedHashMap<>(); }
     public CSharpHashtable(int capacity, CSharpEqualityComparer comparer) { this.map = new LinkedHashMap<>(capacity); }
     public CSharpHashtable(int capacity, StringComparer comparer) { this.map = new LinkedHashMap<>(capacity); }
 

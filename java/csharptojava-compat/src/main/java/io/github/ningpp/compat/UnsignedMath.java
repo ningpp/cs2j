@@ -221,6 +221,20 @@ public final class UnsignedMath {
     public static Decimal toDecimalUInt32(int v) { return Decimal.valueOf(v & 0xFFFFFFFFL); }
     public static Decimal toDecimalUInt64(long v) { return Decimal.parse(Long.toUnsignedString(v)); }
 
+    /**
+     * Mirrors C# (ulong)decimal explicit conversion: truncate toward zero and
+     * keep the low 64 bits as the unsigned carrier (generated guard code checks
+     * the [0, 2^64) range first, e.g. XmlValueConverter.DecimalToUInt64).
+     * BigDecimal.longValue() drops the fraction and wraps modulo 2^64, which is
+     * exactly the ulong bit-pattern semantics on the long carrier.
+     */
+    public static long toUInt64Decimal(Decimal v) {
+        if (v == null) {
+            throw new NullPointerException("Decimal value is null");
+        }
+        return v.toBigDecimal().longValue();
+    }
+
     // ---- ToString (unsigned) ----
     public static String toStringUInt32(int v) { return Integer.toUnsignedString(v); }
     public static String toStringUInt32(int v, String format) { return toStringUInt32(v, format, null); }

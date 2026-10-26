@@ -44,7 +44,7 @@ public class CSharpArrayList implements CSharpIList, Cloneable {
     @Override public void insert(int index, Object value) { list.add(index, value); }
     @Override public boolean getIsFixedSize() { return false; }
     @Override public boolean getIsReadOnly() { return false; }
-    @Override public void remove(Object value) { list.remove(value); }
+    @Override public boolean remove(Object value) { return list.remove(value); }
     @Override public Object removeAt(int index) { return list.remove(index); }
     @Override public Object get(int index) { return list.get(index); }
     @Override public Object set(int index, Object value) { return list.set(index, value); }

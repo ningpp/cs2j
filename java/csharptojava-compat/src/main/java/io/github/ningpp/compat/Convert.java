@@ -74,9 +74,124 @@ public class Convert {
     public static int toInt32(String value) {        return java.lang.Integer.parseInt(value);
     }
 
-    /** Mirrors C# Convert.ToBoolean(String) */
-    public static boolean toBoolean(String value) {
-        return Boolean.parseBoolean(value);
+    /**
+     * Mirrors C# Convert.ToInt64(Object). null → 0; Boolean → 1/0; numeric →
+     * longValue; Character → code point; String → parse with FormatException
+     * re-wrap (translated catches). Anything else is the ClassCastException
+     * analogue of C# InvalidCastException.
+     */
+    public static long toInt64(Object value) {
+        if (value == null) {
+            return 0L;
+        }
+        if (value instanceof Long) {
+            return (Long) value;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        if (value instanceof Boolean) {
+            return (Boolean) value ? 1L : 0L;
+        }
+        if (value instanceof Character) {
+            return ((Character) value).charValue();
+        }
+        if (value instanceof String) {
+            try {
+                return Long.parseLong(((String) value).trim());
+            } catch (NumberFormatException e) {
+                throw new FormatException(e.getMessage(), e);
+            }
+        }
+        throw new ClassCastException(
+                "Cannot convert " + value.getClass().getName() + " to long");
+    }
+
+    /**
+     * Mirrors C# Convert.ToInt32(String, IFormatProvider): int.Parse with
+     * NumberStyles.Integer (whitespace + sign, no thousands). Bad input throws
+     * FormatException so translated catches (FormatException) keep working.
+     */
+    public static int toInt32(String value, CultureInfo provider) {
+        return parseIntWithProvider(value);
+    }
+
+    /** Mirrors C# Convert.ToInt32(String, IFormatProvider) — NumberFormatInfo provider. */
+    public static int toInt32(String value, NumberFormatInfo provider) {
+        return parseIntWithProvider(value);
+    }
+
+    /**
+     * Mirrors C# Convert.ToInt32(char, IFormatProvider): the code point of the
+     * character; the provider is ignored by .NET for this overload.
+     */
+    public static int toInt32(char value, CultureInfo provider) {
+        return value;
+    }
+
+    private static int parseIntWithProvider(String value) {
+        try {
+            return java.lang.Integer.parseInt(value.trim());
+        } catch (NumberFormatException e) {
+            throw new FormatException(e.getMessage(), e);
+        }
+    }
+
+    /** Mirrors C# Convert.ToBoolean(String): Boolean.Parse (trim + True/False, case-insensitive). */
+    public static boolean toBoolean(String value, CultureInfo provider) {
+        return parseBooleanWithProvider(value);
+    }
+
+    /** Mirrors C# Convert.ToBoolean(String, IFormatProvider) — NumberFormatInfo provider. */
+    public static boolean toBoolean(String value, NumberFormatInfo provider) {
+        return parseBooleanWithProvider(value);
+    }
+
+    private static boolean parseBooleanWithProvider(String value) {
+        String trimmed = value.trim();
+        if (trimmed.equalsIgnoreCase("true")) {
+            return true;
+        }
+        if (trimmed.equalsIgnoreCase("false")) {
+            return false;
+        }
+        throw new FormatException("String '" + value + "' was not recognized as a valid Boolean.");
+    }
+
+    /**
+     * Mirrors C# Convert.ToBoolean(Object, IFormatProvider): null → false;
+     * Boolean → itself; String → Boolean.Parse; numeric → 0 is false (matches
+     * .NET Core 3.0+ IConvertible.ToBoolean); anything else is the
+     * ClassCastException analogue of C# InvalidCastException.
+     */
+    public static boolean toBoolean(Object value, CultureInfo provider) {
+        return toBooleanObject(value);
+    }
+
+    /** Mirrors C# Convert.ToBoolean(Object, IFormatProvider) — NumberFormatInfo provider. */
+    public static boolean toBoolean(Object value, NumberFormatInfo provider) {
+        return toBooleanObject(value);
+    }
+
+    private static boolean toBooleanObject(Object value) {
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        if (value instanceof String) {
+            return parseBooleanWithProvider((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue() != 0.0;
+        }
+        if (value instanceof Character) {
+            throw new ClassCastException(
+                    "Cannot convert char to Boolean (C# InvalidCastException analogue)");
+        }
+        throw new ClassCastException(
+                "Cannot convert " + value.getClass().getName() + " to boolean");
     }
 
 /** Mirrors C# Convert.ToDecimal(Object, IFormatProvider) */

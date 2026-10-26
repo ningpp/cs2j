@@ -54,6 +54,10 @@ public class StreamWrapper implements AutoCloseable {
         this(FileHelper.open(path, fileMode, fileAccess, fileShare));
     }
 
+    public StreamWrapper(String path, int fileMode, int fileAccess, int fileShare, int bufferSize) {
+        this(path, fileMode, fileAccess, fileShare, bufferSize, false);
+    }
+
     public StreamWrapper(String path, int fileMode, int fileAccess, int fileShare,
                          int bufferSize, boolean useAsync) {
         this(FileHelper.open(path, fileMode, fileAccess, fileShare, bufferSize, useAsync));

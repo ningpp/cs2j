@@ -8,6 +8,18 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
     @Override
     CSharpGenericEnumerator<T> iterator();
 
+    /**
+     * C# Enumerable.FirstOrDefault(): the first element or null. A default
+     * method (rather than the java.util.stream findFirst() Optional shape) so a
+     * generated IEnumerable-typed slot chain (Where...FirstOrDefault) resolves
+     * with the C# null-on-empty contract on the erased iterable carrier
+     * (real chain: ExtensionMethods.filterMethodBases).
+     */
+    default T findFirst() {
+        Iterator<T> it = iterator();
+        return it.hasNext() ? it.next() : null;
+    }
+
     static <T> CSharpGenericIterable<T> from(Iterable<? extends T> iterable) {
         // C# IEnumerable<T> is a reference type: a null source must stay null.
         // Wrapping null in an anonymous CSharpGenericIterable would create a

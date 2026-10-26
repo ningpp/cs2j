@@ -400,7 +400,18 @@ public class ArrayHelper {
 
     // ---- [B] 实例成员收口 ----
 
+    /**
+     * Unwraps a CSharpArray view to its backing Java array (pass-through for
+     * plain arrays/null). System.Array slots map to the wrapper, and the
+     * reflective helpers below use java.lang.reflect.Array/System.arraycopy,
+     * which require real arrays.
+     */
+    private static Object unwrapArrayView(Object array) {
+        return array instanceof CSharpArray csharpArray ? csharpArray.unwrap() : array;
+    }
+
     public static Object clone(Object array) {
+        array = unwrapArrayView(array);
         int len = java.lang.reflect.Array.getLength(array);
         Object copy = java.lang.reflect.Array.newInstance(
             array.getClass().getComponentType(), len);
@@ -411,6 +422,8 @@ public class ArrayHelper {
     }
 
     public static void copyTo(Object source, Object destination, long index) {
+        source = unwrapArrayView(source);
+        destination = unwrapArrayView(destination);
         int len = java.lang.reflect.Array.getLength(source);
         for (int i = 0; i < len; i++) {
             java.lang.reflect.Array.set(destination, (int) index + i,
@@ -419,6 +432,7 @@ public class ArrayHelper {
     }
 
     public static Object getValue(Object array, int... indices) {
+        array = unwrapArrayView(array);
         Object current = array;
         for (int idx : indices) {
             current = java.lang.reflect.Array.get(current, idx);
@@ -427,6 +441,7 @@ public class ArrayHelper {
     }
 
     public static void setValue(Object array, Object value, int... indices) {
+        array = unwrapArrayView(array);
         Object current = array;
         for (int i = 0; i < indices.length - 1; i++) {
             current = java.lang.reflect.Array.get(current, indices[i]);
@@ -530,6 +545,45 @@ public class ArrayHelper {
         for (int i = index; i < index + length && i < array.length; i++) {
             array[i] = null;
         }
+    }
+
+    /**
+     * C# Array.Clear(Array, int, int) for CSharpArray views: struct-lifted
+     * receivers read their array fields through CSharpArray.asArrayView at the
+     * call site (defensive-copy rule of the array-helper preprocessor), so the
+     * first argument arrives as the wrapper instead of a plain Object[].
+     */
+    public static void clear(CSharpArray array, int index, int length) {
+        CSharpArray.clear(array, index, length);
+    }
+
+    /**
+     * C# Array.Sort(Array) for CSharpArray views: the array-helper preprocessor
+     * wraps the argument in CSharpArray.asArrayView at the call site (e.g.
+     * AccessorMapping.sortMostToLeastDerived). Object arrays only — C#
+     * Array.Sort(Array) uses IComparable, which the element boxes provide.
+     */
+    public static void sort(CSharpArray array) {
+        Object raw = array == null ? null : array.unwrap();
+        if (!(raw instanceof Object[])) {
+            throw new IllegalArgumentException("CSharpArray must wrap an object array for sort");
+        }
+        java.util.Arrays.sort((Object[]) raw);
+    }
+
+    /**
+     * C# Array.Sort(Array, IComparer) for CSharpArray views. The generated
+     * comparer classes (project IComparer implementations) are raw
+     * java.util.Comparator, so the element type cannot be inferred from the
+     * array — sort as Object[] with an unchecked comparator cast.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static void sort(CSharpArray array, java.util.Comparator<?> comparer) {
+        Object raw = array == null ? null : array.unwrap();
+        if (!(raw instanceof Object[])) {
+            throw new IllegalArgumentException("CSharpArray must wrap an object array for sort");
+        }
+        java.util.Arrays.sort((Object[]) raw, (java.util.Comparator) comparer);
     }
 
     @SuppressWarnings("unchecked")
@@ -671,11 +725,11 @@ public class ArrayHelper {
     }
 
     public static void copy(Object source, Object destination, int length) {
-        System.arraycopy(source, 0, destination, 0, length);
+        System.arraycopy(unwrapArrayView(source), 0, unwrapArrayView(destination), 0, length);
     }
 
     public static void copy(Object source, int sourceIndex, Object destination, int destinationIndex, int length) {
-        System.arraycopy(source, sourceIndex, destination, destinationIndex, length);
+        System.arraycopy(unwrapArrayView(source), sourceIndex, unwrapArrayView(destination), destinationIndex, length);
     }
 
     public static void constrainedCopy(Object source, int sourceIndex, Object destination, int destinationIndex, int length) {

@@ -319,6 +319,17 @@ public final class MethodInfo implements MemberInfo {
      * MethodInfo so that a following {@link #invoke(Object, Object...)} can supply
      * the runtime {@code Class} tokens the converter appends to such methods.
      */
+    /**
+     * C# MethodBase.GetBaseDefinition: the base-most declaration of this method.
+     * The compat reflection surface carries no inheritance hierarchy (a
+     * java.lang.reflect.Method has no "base declaration" notion), so the method
+     * itself is the base — callers only consult the returned member's flags
+     * (real chain: XsltCompileContext.GetMethod filters on IsPublic).
+     */
+    public MethodInfo getBaseDefinition() {
+        return this;
+    }
+
     public MethodInfo makeGenericMethod(Class<?>... typeArguments) {
         if (typeArguments == null || typeArguments.length == 0) {
             return this;

@@ -11,6 +11,14 @@ import java.nio.ByteOrder;
  * .NET's {@code BitConverter} behavior on the same machine.</p>
  */
 public final class BitConverter {
+
+    /**
+     * C# BitConverter.IsLittleEndian. The JVM spec fixes the in-memory byte
+     * order of physical memory only; the convention for this compat surface is
+     * the prevalent little-endian runtime (x86/x64/ARM), matching the C# value
+     * on every platform this corpus targets.
+     */
+    public static final boolean IsLittleEndian = true;
     private BitConverter() {
     }
 

@@ -330,8 +330,14 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
     /**
      * Mirrors Dictionary&lt;TKey, TValue&gt;.Enumerator — the C# generic dictionary
      * enumerator. The converter references it as Dictionary.Enumerator (raw).
+     *
+     * <p>Also implements the non-generic {@link CSharpDictEnumerator} view:
+     * generated code that declares IDictionaryEnumerator over a generic
+     * dictionary's GetEnumerator binds to this same iterator() (real chain:
+     * XmlDocument schema-attribute walks). getCurrent stays the typed pair for
+     * generic consumers; the non-generic accessors surface key/value/entry.</p>
      */
-    public static class Enumerator<K, V> implements CSharpGenericEnumerator<CSharpKeyValuePair<K, V>> {
+    public static class Enumerator<K, V> implements CSharpGenericEnumerator<CSharpKeyValuePair<K, V>>, CSharpDictEnumerator {
         private final Iterator<Map.Entry<K, V>> it;
         private CSharpKeyValuePair<K, V> current;
         private boolean hasCurrent;
@@ -357,6 +363,23 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
         public CSharpKeyValuePair<K, V> getCurrent() {
             if (!hasCurrent) throw new IllegalStateException("Enumeration has not started or has already finished.");
             return current;
+        }
+
+        @Override
+        public CSharpDictEntry getEntry() {
+            return new CSharpDictEntry(getKey(), getValue());
+        }
+
+        @Override
+        public Object getKey() {
+            if (!hasCurrent) throw new IllegalStateException("Enumeration has not started or has already finished.");
+            return current.getKey();
+        }
+
+        @Override
+        public Object getValue() {
+            if (!hasCurrent) throw new IllegalStateException("Enumeration has not started or has already finished.");
+            return current.getValue();
         }
 
         @Override

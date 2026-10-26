@@ -155,6 +155,14 @@ public abstract class ByRef<T> {
     /** out short copy-back; null (erased default(T)) maps to (short)0. */
     public static short readbackShort(ByRef<Short> slot) { Short v = slot.getValue(); return v != null ? v : (short) 0; }
 
+    /**
+     * ushort out-argument readback. The ushort carrier in generated code is the
+     * Java int (ByRef&lt;Integer&gt; — ushort maps to int like uint/byte), so this
+     * helper reads the int slot; callers re-mask via UnsignedMath.toUInt16Int32
+     * when the destination needs the canonical 0..0xFFFF carrier form.
+     */
+    public static int readbackUShort(ByRef<Integer> slot) { Integer v = slot.getValue(); return v != null ? v : 0; }
+
     /** out sbyte copy-back; null (erased default(T)) maps to (byte)0. */
     public static byte readbackByte(ByRef<Byte> slot) { Byte v = slot.getValue(); return v != null ? v : (byte) 0; }
 

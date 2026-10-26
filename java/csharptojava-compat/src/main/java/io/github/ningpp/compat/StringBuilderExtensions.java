@@ -31,4 +31,10 @@ public final class StringBuilderExtensions {
     public static java.lang.StringBuilder appendLine(java.lang.StringBuilder sb, char value) {
         return sb.append(value).append(System.lineSeparator());
     }
+
+    /** C# StringBuilder.Clear() — reset to empty (returns the receiver, fluent). */
+    public static java.lang.StringBuilder clear(java.lang.StringBuilder sb) {
+        sb.setLength(0);
+        return sb;
+    }
 }

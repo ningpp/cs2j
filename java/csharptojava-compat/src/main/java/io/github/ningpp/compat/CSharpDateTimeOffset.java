@@ -63,6 +63,15 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         this.offset = offsetFromKind(dateTime.getKind(), dateTime);
     }
 
+    /**
+     * C# DateTimeOffset ← DateTime implicit conversion (op_Implicit) rendered as
+     * a factory: Java has no user-defined conversions. Delegates to the existing
+     * (CSharpDateTime) constructor.
+     */
+    public static CSharpDateTimeOffset fromDateTime(CSharpDateTime dateTime) {
+        return new CSharpDateTimeOffset(dateTime);
+    }
+
     public static CSharpDateTimeOffset toCSharpDateTimeOffset(CSharpDateTime dateTime) {
         return new CSharpDateTimeOffset(dateTime);
     }

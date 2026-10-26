@@ -177,6 +177,14 @@ public final class ReadOnlySpan<T> {
         return span;
     }
 
+    /**
+     * C# Span&lt;T&gt;.AsReadOnlySpan() idiom renders uniformly on both span types;
+     * the read-only view already is read-only, so it returns itself.
+     */
+    public ReadOnlySpan<T> asReadOnlySpan() {
+        return this;
+    }
+
     public int length() {
         return length;
     }

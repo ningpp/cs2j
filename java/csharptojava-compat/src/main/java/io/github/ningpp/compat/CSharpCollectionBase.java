@@ -80,13 +80,15 @@ public abstract class CSharpCollectionBase implements CSharpIList {
     }
 
     @Override
-    public void remove(Object value) {
+    public boolean remove(Object value) {
         int index = innerList.indexOf(value);
         if (index >= 0) {
             onRemove(index, value);
             innerList.remove(index);
             onRemoveComplete(index, value);
+            return true;
         }
+        return false;
     }
 
     @Override
@@ -113,9 +115,12 @@ public abstract class CSharpCollectionBase implements CSharpIList {
         return oldValue;
     }
 
+    // 通配返回类型：生成的子类（如 XmlSchemas）以更具体元素类型
+    // CSharpGenericEnumerator<T> 覆写 iterator()，泛型不变，具体类型无法
+    // 协变覆写 <Object> 形态（javac: iterator() 无法覆盖 iterator()）。
     @Override
-    public CSharpGenericEnumerator<Object> iterator() {
-        return CSharpGenericEnumerator.<Object>from(innerList.iterator());
+    public CSharpGenericEnumerator<?> iterator() {
+        return CSharpGenericEnumerator.from(innerList.iterator());
     }
 
     public void copyTo(CSharpArray array, int index) {
