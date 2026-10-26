@@ -234,10 +234,38 @@ public class XmlSerializer {
             }
         }
 
+        // C# 公共字段：转换产物保留为 Java public 字段（属性则落 C11 访问器方法对）。
+        // XmlSerializer 在 .NET 里同样序列化公共字段，这里必须直接按字段枚举，
+        // 否则字段形态的 POCO 序列化结果为空（真实链 serializer-tests 4 例）。
+        for (Field field : fields.values()) {
+            int mod = field.getModifiers();
+            if (Modifier.isStatic(mod) || field.isSynthetic() || !Modifier.isPublic(mod)) {
+                continue;
+            }
+            PropertyMeta meta = new PropertyMeta();
+            meta.name = field.getName();
+            meta.type = field.getType();
+            meta.field = field;
+            // 同名 C11 访问器（get_X/set_X → X()/X(v)）优先，保留封装形态的读写语义。
+            Method getter = findAccessorGetter(clazz, field.getName());
+            if (getter != null) {
+                meta.readMethod = getter;
+            }
+            Method setter = findAccessorSetter(clazz, field.getName(), field.getType());
+            if (setter != null) {
+                meta.writeMethod = setter;
+            }
+            applyXmlAnnotations(meta, meta.readMethod, meta.writeMethod, field);
+            result.put(meta.name, meta);
+        }
+
         try {
             for (PropertyDescriptor pd : Introspector.getBeanInfo(clazz).getPropertyDescriptors()) {
                 String name = pd.getName();
                 if ("class".equals(name)) {
+                    continue;
+                }
+                if (result.containsKey(name)) {
                     continue;
                 }
                 Method read = pd.getReadMethod();
@@ -252,26 +280,8 @@ public class XmlSerializer {
                 meta.type = pd.getPropertyType();
                 meta.readMethod = read;
                 meta.writeMethod = write;
-
-                XmlAttribute xmlAttr = getAnnotation(read, write, field, XmlAttribute.class);
-                XmlIgnore xmlIgnore = getAnnotation(read, write, field, XmlIgnore.class);
-                XmlArray xmlArray = getAnnotation(read, write, field, XmlArray.class);
-                XmlArrayItem xmlArrayItem = getAnnotation(read, write, field, XmlArrayItem.class);
-
-                if (xmlIgnore != null) {
-                    meta.isIgnored = true;
-                }
-                if (xmlAttr != null) {
-                    meta.isAttribute = true;
-                    meta.elementName = xmlAttr.name().isEmpty() ? name : xmlAttr.name();
-                } else {
-                    meta.elementName = xmlArray != null && !xmlArray.elementName().isEmpty()
-                            ? xmlArray.elementName()
-                            : name;
-                    meta.arrayItemName = xmlArrayItem != null && !xmlArrayItem.elementName().isEmpty()
-                            ? xmlArrayItem.elementName()
-                            : "Item";
-                }
+                meta.field = field;
+                applyXmlAnnotations(meta, read, write, field);
 
                 result.put(name, meta);
             }
@@ -282,8 +292,75 @@ public class XmlSerializer {
         return result;
     }
 
+    /** Maps [XmlAttribute]/[XmlIgnore]/[XmlArray]/[XmlArrayItem] onto one property. */
+    private void applyXmlAnnotations(PropertyMeta meta, Method read, Method write, Field field) {
+        XmlAttribute xmlAttr = getAnnotation(read, write, field, XmlAttribute.class);
+        XmlIgnore xmlIgnore = getAnnotation(read, write, field, XmlIgnore.class);
+        XmlArray xmlArray = getAnnotation(read, write, field, XmlArray.class);
+        XmlArrayItem xmlArrayItem = getAnnotation(read, write, field, XmlArrayItem.class);
+
+        if (xmlIgnore != null) {
+            meta.isIgnored = true;
+        }
+        if (xmlAttr != null) {
+            meta.isAttribute = true;
+            meta.elementName = xmlAttr.name().isEmpty() ? meta.name : xmlAttr.name();
+        } else {
+            meta.elementName = xmlArray != null && !xmlArray.elementName().isEmpty()
+                    ? xmlArray.elementName()
+                    : meta.name;
+            meta.arrayItemName = xmlArrayItem != null && !xmlArrayItem.elementName().isEmpty()
+                    ? xmlArrayItem.elementName()
+                    : "Item";
+        }
+    }
+
+    /**
+     * The C11 getter half of a converted C# property ({@code get_X} → accessor method
+     * {@code X()}) for a backing field, or null. Converted auto-properties keep the
+     * field name in camelCase, so the accessor name is the capitalized field name.
+     */
+    private static Method findAccessorGetter(Class<?> clazz, String fieldName) {
+        String getter = capitalize(fieldName);
+        for (Method m : clazz.getMethods()) {
+            if (Modifier.isStatic(m.getModifiers()) || m.getParameterCount() != 0) continue;
+            if (m.getReturnType() == void.class || !m.getName().equals(getter)) continue;
+            return m;
+        }
+        return null;
+    }
+
+    private static Method findAccessorSetter(Class<?> clazz, String fieldName, Class<?> type) {
+        String setter = capitalize(fieldName);
+        for (Method m : clazz.getMethods()) {
+            if (Modifier.isStatic(m.getModifiers()) || m.getParameterCount() != 1) continue;
+            if (m.getReturnType() != void.class || !m.getName().equals(setter)) continue;
+            if (m.getParameterTypes()[0].isAssignableFrom(type)
+                || isBoxCompatible(m.getParameterTypes()[0], type)) {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    private static String capitalize(String name) {
+        return name.isEmpty() ? name : Character.toUpperCase(name.charAt(0)) + name.substring(1);
+    }
+
+    private static boolean isBoxCompatible(Class<?> parameterType, Class<?> valueType) {
+        if (parameterType.isAssignableFrom(valueType)) return true;
+        return (parameterType == Integer.class && (valueType == int.class || valueType == Integer.class))
+            || (parameterType == Long.class && (valueType == long.class || valueType == Long.class))
+            || (parameterType == Short.class && (valueType == short.class || valueType == Short.class))
+            || (parameterType == Byte.class && (valueType == byte.class || valueType == Byte.class))
+            || (parameterType == Character.class && (valueType == char.class || valueType == Character.class))
+            || (parameterType == Boolean.class && (valueType == boolean.class || valueType == Boolean.class))
+            || (parameterType == Double.class && (valueType == double.class || valueType == Double.class))
+            || (parameterType == Float.class && (valueType == float.class || valueType == Float.class));
+    }
+
     private <A extends java.lang.annotation.Annotation> A getAnnotation(Method read, Method write, Field field, Class<A> annotationType) {
-        A a = read.getAnnotation(annotationType);
+        A a = read != null ? read.getAnnotation(annotationType) : null;
         if (a != null) return a;
         if (write != null) {
             a = write.getAnnotation(annotationType);
@@ -305,6 +382,8 @@ public class XmlSerializer {
         Class<?> type;
         Method readMethod;
         Method writeMethod;
+        /** Backing/public field of a converted C# field-or-property (null for bean-only shapes). */
+        Field field;
         boolean isAttribute;
         boolean isIgnored;
         String elementName;
@@ -312,18 +391,25 @@ public class XmlSerializer {
 
         Object read(Object target) {
             try {
-                return readMethod.invoke(target);
+                if (readMethod != null) {
+                    return readMethod.invoke(target);
+                }
+                return field.get(target);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
 
         void write(Object target, Object value) {
-            if (writeMethod == null) {
+            if (writeMethod == null && field == null) {
                 return;
             }
             try {
-                writeMethod.invoke(target, value);
+                if (writeMethod != null) {
+                    writeMethod.invoke(target, value);
+                } else {
+                    field.set(target, value);
+                }
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

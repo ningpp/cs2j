@@ -151,6 +151,12 @@ public class FieldTransformer : IMemberTransformer
             }
             declaredNames.Add(variable.Identifier.Text);
 
+            // [XmlAttribute]/[XmlIgnore]/[XmlArray]/[XmlArrayItem] on a plain field:
+            // XmlSerializer reads them reflectively at runtime, so they must reach the
+            // generated field as compat annotations (same mapping as properties).
+            PropertyTransformer.ApplyXmlAttributes(
+                fieldDecl.AttributeLists.SelectMany(l => l.Attributes), javaField, context);
+
             // C# [JsonNumberHandling(flags)] on a field overrides the declaring type's
             // handling; compat materializes the generated attribute class from this marker
             // on the member lookup (JsonNumberHandlingAttribute is a class, not an annotation).

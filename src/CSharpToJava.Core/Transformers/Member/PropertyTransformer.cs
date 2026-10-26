@@ -181,8 +181,15 @@ private static void InitExpression(JavaFieldDeclaration field, PropertyDeclarati
 var stmts = ctx.DrainBranchScopedPreStatements().Concat(ctx.DrainPreStatements()).ToList();
 stmts.Add($"{(isStatic ? fieldName : $"this.{fieldName}")} = {field.Initializer};");
 field.InitializerStatements = stmts; field.Initializer = null; } } 
-private static void ApplyXml(PropertyDeclarationSyntax p, JavaFieldDeclaration field, ConversionContext ctx) {
-foreach (var attr in p.AttributeLists.SelectMany(l => l.Attributes)) { var info = ctx.GetSymbolInfo(attr);
+private static void ApplyXml(PropertyDeclarationSyntax p, JavaFieldDeclaration field, ConversionContext ctx) => ApplyXmlAttributes(p.AttributeLists.SelectMany(l => l.Attributes), field, ctx);
+/// <summary>
+/// 把 [XmlAttribute]/[XmlIgnore]/[XmlArray]/[XmlArrayItem] 落成 compat 注解。属性与
+/// 普通字段共用（真实链 serializer-tests 的 POCO：特性挂在 public 字段上，
+/// 属性是 member-desugar 展开的 get_X/set_X 方法——只处理属性声明会让特性凭空消失，
+/// XmlSerializer 于是把该字段当普通成员或整类序列化成空）。
+/// </summary>
+internal static void ApplyXmlAttributes(IEnumerable<AttributeSyntax> attributes, JavaFieldDeclaration field, ConversionContext ctx) {
+foreach (var attr in attributes) { var info = ctx.GetSymbolInfo(attr);
 var typeName = info.Symbol is IMethodSymbol ctor ? ctor.ContainingType?.ToDisplayString() : info.Symbol?.ContainingType?.ToDisplayString();
 if (typeName == null) continue; var args = attr.ArgumentList?.Arguments;
 var first = args is { Count: > 0 } ? args.Value[0].Expression.ToString() : null;
