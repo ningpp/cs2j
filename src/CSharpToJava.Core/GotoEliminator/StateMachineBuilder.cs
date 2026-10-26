@@ -1177,7 +1177,12 @@ internal sealed partial class StateMachineBuilder
                 bool endsWithGuardedFallthrough =
                     block.Exit == BlockExit.ConditionalGoto
                     || (block.Exit == BlockExit.FallThrough && block.FallThroughTarget != null);
-                if (endsWithGuardedFallthrough)
+                // 末语句语法上必然不正常完成（return/throw/continue 收尾，或 try 块以
+                // return/throw 收尾且所有 catch 块均以 throw 收尾）时不追加 break;——
+                // C# 把该位置的 break 记 CS0162 警告，Java 是「无法访问的语句」编译错
+                // （真实链 dotnet-xml Datatype_fixed.ParseValue：goto Error 的状态机
+                // case 以穷尽 try/catch 收尾）。
+                if (endsWithGuardedFallthrough && CompletesNormally(caseStmts.Count > 0 ? caseStmts[^1] : null))
                     caseStmts.Add(SyntaxFactory.BreakStatement());
             }
             var label = SyntaxFactory.CaseSwitchLabel(
@@ -2320,6 +2325,39 @@ internal sealed partial class StateMachineBuilder
             if (!CanSwitchFallThrough(visited))
                 return visited;
             return SyntaxFactory.Block(visited, ExitCheck());
+        }
+    }
+
+    /// <summary>
+    /// 语句序列尾部的语法级「正常完成」判定（JLS definite-completion 保守近似）：
+    /// return/throw/continue/break/goto 收尾 → false；块看末语句；穷尽 try/catch
+    /// （try 体 return/throw 收尾且每个 catch 体 throw 收尾、无 finally）→ false；
+    /// 其余（if/赋值/表达式等）→ true（保守放行，break 照常追加）。
+    /// </summary>
+    internal static bool CompletesNormally(StatementSyntax? statement)
+    {
+        switch (statement)
+        {
+            case null:
+                return true;
+            case ReturnStatementSyntax or ThrowStatementSyntax or ContinueStatementSyntax
+                or BreakStatementSyntax or GotoStatementSyntax:
+                return false;
+            case BlockSyntax block:
+                return block.Statements.Count == 0 || CompletesNormally(block.Statements[^1]);
+            case TryStatementSyntax tryStmt:
+            {
+                if (tryStmt.Finally != null) return true;
+                if (CompletesNormally(tryStmt.Block)) return true;
+                if (tryStmt.Catches.Count == 0) return true;
+                foreach (var catchClause in tryStmt.Catches)
+                {
+                    if (CompletesNormally(catchClause.Block)) return true;
+                }
+                return false;
+            }
+            default:
+                return true;
         }
     }
 }

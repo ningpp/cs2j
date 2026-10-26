@@ -21,7 +21,10 @@ public partial class ArgumentTransformer
         {
             if (parameter?.Type != null && context.SemanticModel != null)
             {
-                var holderType = HolderTypeResolver.GetHolderType(context.MapType(parameter.Type));
+                var javaType = context.MapType(parameter.Type);
+                if (UsesByRefSlotAbi(parameter))
+                    return "io.github.ningpp.compat.ByRef.create()";
+                var holderType = HolderTypeResolver.GetHolderType(javaType);
                 return HolderTypeResolver.GetHolderInstantiation(holderType);
             }
             return "new Object[1]";
@@ -32,6 +35,19 @@ public partial class ArgumentTransformer
             var varName = ConversionContext.EscapeJavaKeyword(svd.Identifier.Text);
             var holderName = context.AllocateOutHolderName(varName);
             var javaType = ResolveOutVarType(outDecl, context);
+            if (UsesByRefSlotAbi(parameter))
+            {
+                // 跨模块 out ABI 对齐（真实链 dotnet-xml → dotnet-uri）：C# 源把
+                // System.Uri 绑到 BCL 元数据（外部符号，ref-out-in pass 只改写源内
+                // 声明/调用点），Java 目标却是转换产物 dotnet.system.Uri——其 public
+                // TryCreate 在 uri 模块内已按源内绑定提升为 ByRef<Uri> 形参。调用点
+                // 必须按 ByRef 槽位发射（create()/getValue 读回），ObjectHolder 实参
+                // 对不上 ByRef 形参（javac 找不到合适的方法）。
+                context.AddPreStatement($"io.github.ningpp.compat.ByRef<{javaType}> {holderName} = io.github.ningpp.compat.ByRef.create()");
+                context.SetActiveRefHolder(varName, holderName);
+                context.AddPostStatement($"{javaType} {varName} = {holderName}.getValue()");
+                return holderName;
+            }
             var holderType = HolderTypeResolver.GetHolderType(javaType);
             context.AddPreStatement($"{holderType} {holderName} = {HolderTypeResolver.GetHolderInstantiation(holderType)}");
             context.SetActiveRefHolder(varName, holderName);
@@ -103,6 +119,27 @@ public partial class ArgumentTransformer
     }
 
     /// <summary>
+    /// 真实链 dotnet-xml → dotnet-uri 的跨模块 out ABI 对齐：XmlConvert.ToUri/
+    /// TryToUri 与 extensions/ExtensionMethods 把 System.Uri.TryCreate 绑到 BCL
+    /// 元数据（外部符号——ref-out-in pass 只改写源内声明/调用点），Java 目标却是
+    /// 转换产物 dotnet.system.Uri，其 public TryCreate 在 uri 模块内已按源内绑定
+    /// 提升为 ByRef&lt;Uri&gt; 形参。这类调用点的 out 实参必须按 ByRef 槽位发射
+    /// （ByRef.create() / getValue 读回），否则 ObjectHolder 实参对不上 ByRef
+    /// 形参（javac 找不到合适的方法）。
+    /// </summary>
+    private static bool UsesByRefSlotAbi(IParameterSymbol? parameter)
+    {
+        // BCL 引用程序集带 NRT 注解（out Uri? → 显示串 "System.Uri?"），比较须去后缀。
+        var hit = parameter?.ContainingSymbol is IMethodSymbol callee
+            && callee.IsStatic
+            && callee.Name == "TryCreate"
+            && callee.ContainingType?.ToDisplayString() == "System.Uri"
+            && callee.Parameters.Length == 3
+            && parameter.Type.ToDisplayString().TrimEnd('?') == "System.Uri";
+        return hit;
+    }
+
+    /// <summary>
     /// Shared out/ref path for an identifier: forward existing holders, otherwise
     /// allocate a typed holder seeded from the current value and schedule write-back.
     /// </summary>
@@ -133,7 +170,10 @@ public partial class ArgumentTransformer
 
         var holderName = isOut ? context.AllocateOutHolderName(varName) : context.AllocateRefHolderName(varName);
         var (javaType, resolved) = ResolveHolderValueType(arg, ident, context, parameter, isOut);
-        var holderType = HolderTypeResolver.GetHolderType(javaType);
+        var byRefSlot = isOut && UsesByRefSlotAbi(parameter);
+        var holderType = byRefSlot
+            ? $"io.github.ningpp.compat.ByRef<{javaType}>"
+            : HolderTypeResolver.GetHolderType(javaType);
 
         var writeBack = varName;
 
@@ -148,17 +188,29 @@ public partial class ArgumentTransformer
             seedExpr = $"{writeBack}.clone()";
         }
 
-        var holderInit = seed
-            ? HolderTypeResolver.GetHolderInstantiationWithValue(holderType, seedExpr)
-            : HolderTypeResolver.GetHolderInstantiation(holderType);
+        string holderInit;
+        if (byRefSlot)
+        {
+            holderInit = seed
+                ? $"io.github.ningpp.compat.ByRef.create({seedExpr})"
+                : "io.github.ningpp.compat.ByRef.create()";
+        }
+        else
+        {
+            holderInit = seed
+                ? HolderTypeResolver.GetHolderInstantiationWithValue(holderType, seedExpr)
+                : HolderTypeResolver.GetHolderInstantiation(holderType);
+        }
         context.AddPreStatement($"{holderType} {holderName} = {holderInit}");
+
+        var readbackAccessor = byRefSlot ? ".getValue()" : ".value";
 
         if (isOut)
         {
             context.SetActiveRefHolder(varName, holderName);
             context.AddPostStatement(resolved
-                ? $"{writeBack} = {holderName}.value"
-                : $"{javaType} {varName} = {holderName}.value");
+                ? $"{writeBack} = {holderName}{readbackAccessor}"
+                : $"{javaType} {varName} = {holderName}{readbackAccessor}");
         }
         else if (IsRefArgAssignedToSameVariable(ident, ident))
         {
@@ -167,7 +219,7 @@ public partial class ArgumentTransformer
         }
         else
         {
-            context.AddPostStatement($"{writeBack} = {holderName}.value");
+            context.AddPostStatement($"{writeBack} = {holderName}{readbackAccessor}");
         }
 
         return holderName;
