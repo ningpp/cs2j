@@ -29,6 +29,7 @@ public abstract class ByRef<T>
     public static int ReadbackInt(ByRef<byte> slot) => slot.Value;
     public static short ReadbackShort(ByRef<short> slot) => slot.Value;
     public static short ReadbackShort(ByRef<ushort> slot) => (short)slot.Value;
+    public static ushort ReadbackUShort(ByRef<ushort> slot) => slot.Value;
     public static byte ReadbackByte(ByRef<sbyte> slot) => (byte)slot.Value;
     public static long ReadbackLong(ByRef<long> slot) => slot.Value;
     public static long ReadbackLong(ByRef<ulong> slot) => (long)slot.Value;
