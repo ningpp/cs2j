@@ -1299,7 +1299,10 @@ internal sealed partial class StateMachineBuilder
                 bool endsWithGuardedFallthrough =
                     block.Exit == BlockExit.ConditionalGoto
                     || block.Exit == BlockExit.FallThrough;
-                if (endsWithGuardedFallthrough)
+                // 末语句语法上必然不正常完成（return/throw 收尾等）时不追加 break;：
+                // 该位置本就不可达，javac 报「无法访问的语句」而 C# 只是 CS0162 警告
+                // （真实链 dotnet-xml Datatype_fixed.ParseValue 的 goto Error 状态机）。
+                if (endsWithGuardedFallthrough && CompletesNormally(caseStmts.Count > 0 ? caseStmts[^1] : null))
                     caseStmts.Add(SyntaxFactory.BreakStatement());
             }
 
