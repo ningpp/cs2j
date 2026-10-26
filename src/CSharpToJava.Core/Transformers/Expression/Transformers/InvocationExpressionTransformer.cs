@@ -2673,7 +2673,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                             or "System.Globalization.NumberFormatInfo"));
             if (providerOnly)
             {
-                rendered = $"{boxed}.toString({receiver})";
+                // C# double/float ToString()（含 ToString(IFormatProvider)）是 .NET 最短
+                // 往返串形：1.0 → "1"；Java Double.toString 给 "1.0"（真实链 XPath
+                // position() 的 concat/串化）。整型与 bool 的包装 toString 语义一致。
+                if (boxed is "Double" or "Float")
+                {
+                    context.AddImport("io.github.ningpp.compat.MathHelper");
+                    rendered = $"MathHelper.formatRoundTrip({receiver})";
+                }
+                else
+                {
+                    rendered = $"{boxed}.toString({receiver})";
+                }
                 return true;
             }
 
@@ -2709,9 +2720,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         : $"String.format(\"%0{std[1]}{std[0]}\", {formatReceiver})";
                     return true;
                 }
-                if (std.Length == 1 && (std is "d" or "D" or "R" or "r"))
+                if (std.Length == 1 && (std is "d" or "D"))
                 {
                     rendered = $"{boxed}.toString({receiver})";
+                    return true;
+                }
+                // "R"/"r"（最短往返）：.NET 对整值 double 去掉小数点（1.0 → "1"，
+                // 真实链 XPath StringFunctions.toString(double)），Java Double.toString
+                // 恒带 ".0"——落 compat 的 formatRoundTrip。
+                if (std.Length == 1 && (std is "R" or "r"))
+                {
+                    context.AddImport("io.github.ningpp.compat.MathHelper");
+                    rendered = $"MathHelper.formatRoundTrip({receiver})";
                     return true;
                 }
                 // 其余标准/自定义数字格式（"N" 千分位数值，真实链 NumberAction 的
@@ -3253,10 +3273,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// </summary>
     internal static void AddCompatHelperImport(string mappedName, ConversionContext context)
     {
-        // ExceptionCompat 为当前唯一以点分静态助手形态出现在方法映射表中的 compat 类；
-        // 后续新增时在此登记（或扩展 TypeMappings 条目级 imports 结构）。
+        // ExceptionCompat/Convert 是当前以点分静态助手形态出现在方法映射表中的
+        // compat 类；后续新增时在此登记（或扩展 TypeMappings 条目级 imports 结构）。
         if (mappedName.StartsWith("ExceptionCompat.", StringComparison.Ordinal))
             context.AddImport("io.github.ningpp.compat.ExceptionCompat");
+        if (mappedName.StartsWith("Convert.", StringComparison.Ordinal))
+            context.AddImport("io.github.ningpp.compat.Convert");
     }
 
     /// <summary>
