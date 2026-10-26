@@ -120,6 +120,10 @@ public class StructTransformer : ITypeTransformer
         foreach (var member in EnumerateMembers(structDecl, originalNodes, context))
             ProcessStructMember(member, javaClass, context);
 
+        // C# struct 默认相等 = ValueType.Equals（逐字段）；移植成 class 后必须补 value equals，
+        // 否则以 struct 作哈希键的字典查找恒 miss（见 EnsureValueEquality）。
+        EnsureValueEquality(javaClass, structDecl, structSymbol, context);
+
         // C# structs are value types: the converter relies on `clone()` to preserve
         // value semantics at assignments / method returns. Java's Object.clone is
         // protected, so every converted struct exposes a public Cloneable clone.
@@ -132,6 +136,87 @@ public class StructTransformer : ITypeTransformer
 
         context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         return javaClass;
+    }
+
+    /// <summary>
+    /// C# struct 的默认相等是 <c>ValueType.Equals</c>（逐字段值比较）；移植成 Java
+    /// class 后 <c>equals</c> 退化为引用相等，凡以 struct 作字典键的类型（真实链
+    /// <c>CSharpDictionary&lt;XPathNodeRef, …&gt;</c>）查找恒 miss——xpath 的命名空间轴
+    /// 因此全空（xpath-tests / xpathdocument-tests 各 593 例失败）。
+    /// 只对「覆写了 GetHashCode、但没有覆写 Equals」的 struct 补：其余 struct 的相等
+    /// 语义已由源码里的 Equals 覆写承载。隐式字段（自动属性后备字段、事件）没有可用
+    /// 的 Java 名且承载状态，存在时跳过，避免漏比状态却声称值相等。
+    /// </summary>
+    private static void EnsureValueEquality(
+        JavaClassDeclaration javaClass,
+        StructDeclarationSyntax structDecl,
+        INamedTypeSymbol? structSymbol,
+        ConversionContext context)
+    {
+        if (javaClass.Methods.Any(m => m.Name == "equals" && m.Parameters.Count == 1))
+            return;
+        // GetHashCode 在 Java 侧已改写为 hashCode；没有它说明该 struct 不参与哈希键。
+        if (!javaClass.Methods.Any(m => m.Name == "hashCode" && m.Parameters.Count == 0))
+            return;
+
+        var fields = new List<(string JavaName, string JavaType)>();
+        if (structSymbol != null)
+        {
+            if (structSymbol.GetMembers("Equals").OfType<IMethodSymbol>()
+                .Any(m => !m.IsStatic && m.Parameters.Length == 1))
+            {
+                return;
+            }
+
+            var instanceFields = structSymbol.GetMembers().OfType<IFieldSymbol>()
+                .Where(f => !f.IsStatic && f.Type.TypeKind != TypeKind.Error)
+                .ToList();
+            if (instanceFields.Any(f => f.IsImplicitlyDeclared || f.AssociatedSymbol != null))
+                return;
+            foreach (var field in instanceFields)
+                fields.Add((ConversionContext.EscapeJavaKeyword(field.Name), context.MapType(field.Type)));
+        }
+        else
+        {
+            foreach (var fieldDecl in structDecl.Members.OfType<FieldDeclarationSyntax>())
+            {
+                if (fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)
+                        || m.IsKind(SyntaxKind.ConstKeyword)))
+                    continue;
+                var javaType = context.MapTypeFromSyntax(fieldDecl.Declaration.Type);
+                foreach (var variable in fieldDecl.Declaration.Variables)
+                    fields.Add((ConversionContext.EscapeJavaKeyword(variable.Identifier.Text), javaType));
+            }
+        }
+
+        var primitives = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "boolean", "byte", "short", "char", "int", "long", "float", "double",
+        };
+        var comparisons = fields.Select(f => primitives.Contains(f.JavaType)
+            ? $"this.{f.JavaName} == other.{f.JavaName}"
+            : $"ObjectHelper.equals(this.{f.JavaName}, other.{f.JavaName})").ToList();
+        if (comparisons.Any(c => c.StartsWith("ObjectHelper.", StringComparison.Ordinal)))
+            context.AddImport("io.github.ningpp.compat.ObjectHelper");
+
+        var castType = javaClass.Name;
+        var body = new System.Text.StringBuilder();
+        body.Append("if (this == obj) {\nreturn true;\n}\n");
+        body.Append("if (obj == null || getClass() != obj.getClass()) {\nreturn false;\n}\n");
+        body.Append(castType).Append(" other = (").Append(castType).Append(") obj;\n");
+        body.Append(comparisons.Count == 0
+            ? "return true;\n"
+            : "return " + string.Join(" &&\n", comparisons) + ";\n");
+
+        var equals = new JavaMethodDeclaration
+        {
+            Name = "equals",
+            Modifiers = JavaModifiers.Public | JavaModifiers.Override,
+            ReturnType = "boolean",
+            Body = body.ToString(),
+        };
+        equals.Parameters.Add(new JavaParameter("Object", "obj"));
+        javaClass.Methods.Add(equals);
     }
 
     /// <summary>
