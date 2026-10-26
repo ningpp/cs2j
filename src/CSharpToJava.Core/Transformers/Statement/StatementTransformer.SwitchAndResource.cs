@@ -64,6 +64,53 @@ public partial class StatementTransformer
                 ? $"((int)({expression}).getValue())"
                 : $"({expression}).getValue()";
 
+        // ── 跨节共享局部提升 ──
+        // C# 的 switch 各节共享一个声明作用域：前一节声明的局部，后一节可直接
+        // 赋值复用（真实链 DocumentXmlWriter.CloseInnerContent：
+        // InsertSiblingAfter 节声明 `XmlNode parent`，InsertSiblingBefore 节裸
+        // 赋值复用）。Java 每个 case 块自成作用域（每节固定包 { }），后节的
+        // 裸赋值落空（javac: 找不到符号 变量 parent）。把被后节引用的声明提升
+        // 到 switch 之前，节内声明降级为纯赋值。
+        var hoistPlans = new List<(LocalDeclarationStatementSyntax Stmt, string Name, string TypeText)>();
+        var declaredBySection = new Dictionary<int, List<(string Name, LocalDeclarationStatementSyntax Stmt)>>();
+        var switchSemanticModel = context.SemanticModel;
+        for (var i = 0; i < stmt.Sections.Count; i++)
+        {
+            var declared = new List<(string Name, LocalDeclarationStatementSyntax Stmt)>();
+            foreach (var s in stmt.Sections[i].Statements)
+            {
+                if (s is LocalDeclarationStatementSyntax { IsConst: false } lds)
+                {
+                    foreach (var v in lds.Declaration.Variables)
+                    {
+                        if (switchSemanticModel?.GetDeclaredSymbol(v) is ILocalSymbol)
+                            declared.Add((v.Identifier.ValueText, lds));
+                    }
+                }
+            }
+            declaredBySection[i] = declared;
+        }
+        for (var i = 0; i < stmt.Sections.Count; i++)
+        {
+            foreach (var (name, hoistStmt) in declaredBySection[i])
+            {
+                var usedLater = stmt.Sections.Skip(i + 1).Any(section =>
+                    section.Statements.Any(s => s.DescendantNodes().OfType<IdentifierNameSyntax>()
+                        .Any(id => id.Identifier.ValueText == name)));
+                if (!usedLater || hoistPlans.Any(p => p.Name == name))
+                    continue;
+                var localSymbol = hoistStmt.Declaration.Variables
+                    .Select(v => switchSemanticModel?.GetDeclaredSymbol(v))
+                    .OfType<ILocalSymbol>()
+                    .FirstOrDefault(s => s.Name == name);
+                var typeText = localSymbol != null ? context.MapType(localSymbol.Type) : "Object";
+                hoistPlans.Add((hoistStmt, name, typeText));
+            }
+        }
+        var hoistText = string.Join("", hoistPlans
+            .DistinctBy(p => p.Name)
+            .Select(p => $"{p.TypeText} {p.Name};\n        "));
+
         var sections = new List<string>();
         foreach (var section in stmt.Sections)
         {
@@ -103,7 +150,20 @@ public partial class StatementTransformer
                 var statements = new List<string>();
                 foreach (var s in section.Statements)
                 {
-                    statements.Add(stmtTransformer.Transform(s, context).ToString(""));
+                    // 被提升的节内声明降级为纯赋值（同名变量在提升表中时）。
+                    if (s is LocalDeclarationStatementSyntax lds2
+                        && hoistPlans.Any(p => p.Stmt == lds2))
+                    {
+                        foreach (var v in lds2.Declaration.Variables)
+                        {
+                            if (v.Initializer != null)
+                                statements.Add($"{v.Identifier.ValueText} = {exprTransformer.Transform(v.Initializer.Value, context)};");
+                        }
+                    }
+                    else
+                    {
+                        statements.Add(stmtTransformer.Transform(s, context).ToString(""));
+                    }
                     if (StatementAlwaysTerminatesSwitchSection(s))
                         break;
                 }
@@ -115,7 +175,8 @@ public partial class StatementTransformer
             sections.Add($"{string.Join("\n            ", labels)}\n            {sectionBody}");
         }
 
-        return new JavaStatementNode($"switch ({drivenExpression}) {{\n        {string.Join("\n\n        ", sections)}\n    }}");
+        return new JavaStatementNode(
+            $"{hoistText}switch ({drivenExpression}) {{\n        {string.Join("\n\n        ", sections)}\n    }}");
     }
 
     /// <summary>

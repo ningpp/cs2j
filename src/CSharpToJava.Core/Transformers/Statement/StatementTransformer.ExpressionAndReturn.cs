@@ -207,6 +207,13 @@ public partial class StatementTransformer
         }
 
         var expr = f.Transform(stmt.Expression, ctx);
+        // 委托返回槽位的方法组 → 方法引用（真实链 ReflectionXmlSerializationReader
+        // `return DummyReadArrayMethod;`，javac: 找不到符号 变量 DummyReadArrayMethod）。
+        if (ctx.CurrentMethod?.ReturnType is { } delegateReturn
+            && ArgumentTransformer.TryEmitDelegateMethodReference(stmt.Expression, delegateReturn, ctx, out var retMethodRef))
+        {
+            expr = retMethodRef;
+        }
         expr = AdjustReturnValue(stmt, expr, ctx);
 
         if (ctx.HasPendingPreStatements || ctx.HasPendingPostStatements)

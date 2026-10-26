@@ -110,6 +110,21 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // （真实链 FunctionQuery/StringFunctions 克隆构造器 `_args = tmp`）。
         rightText = IListCoercion.CoerceOrSame(
             rhs, rightText, context.GetTypeInfo(lhs).Type, context);
+        // IEnumerable<T> 槽位收到的流管道终端表达式：声明/参数位会包
+        // CSharpGenericIterable.fromAnyTyped 适配视图（见
+        // StatementTransformer.Declarations），赋值位同样必须包——否则 Stream
+        // 表达式落进 CSharpGenericIterable 变量（javac: 不兼容的类型；真实链
+        // ExtensionMethods.filterMethodBases 的二段 Where 链回填同名局部）。
+        if (op == "="
+            && rightText.Contains("StreamSupport.stream", StringComparison.Ordinal)
+            && !rightText.Contains("CSharpGenericIterable", StringComparison.Ordinal)
+            && context.GetTypeInfo(lhs).Type is INamedTypeSymbol { Name: "IEnumerable" } seqTarget
+            && seqTarget.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+            && seqTarget.TypeArguments.Length == 1)
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            rightText = $"CSharpGenericIterable.<{context.MapType(seqTarget.TypeArguments[0])}>fromAnyTyped({rightText})";
+        }
         // C# 隐式数值 → decimal 赋值（真实链 SchemaSetCompiler `maxOccurs = 0;`、
         // RangeContentValidator `rangeCounters[...] = 0;`）：Java 无基元→引用提升，
         // 须经 compat Decimal 工厂包装。
@@ -190,13 +205,22 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
         // TypeMappings may rename the property's accessor pair (see
         // IdentifierExpressionTransformer.TransformMemberAccess for the read
-        // side); only bean-style method names apply here — field-style renames
-        // (length/size) are consumed by the lowering pipeline instead.
-        var mappedPropertyName = JavaNaming.IsBeanAccessorStyleName(
-                c.TypeMappings.MapMethod(p.ContainingType.ToDisplayString(), p.Name))
-            ? c.TypeMappings.MapMethod(p.ContainingType.ToDisplayString(), p.Name)
+        // side); only bean-style method names apply to the setter — field-style
+        // renames (length/size) are consumed by the lowering pipeline instead.
+        // 读取侧与读路径同名：field-style 映射（StringBuilder.Length → length）
+        // 只用于 getter；setter 保持 bean 风格（真实链 XsdDuration 的
+        // sb.Length += 9 → sb.setLength(sb.length() + 9)，旧代码两侧都派生
+        // get/set 前缀，getLength() 在 java.lang.StringBuilder 上不存在）。
+        var rawMappedProperty = c.TypeMappings.MapMethod(p.ContainingType.ToDisplayString(), p.Name);
+        var mappedPropertyName = JavaNaming.IsBeanAccessorStyleName(rawMappedProperty)
+            ? rawMappedProperty
             : null;
-        var getterName = mappedPropertyName ?? ("get" + name);
+        var fieldStyleGetter = !string.IsNullOrEmpty(rawMappedProperty)
+            && rawMappedProperty != p.Name
+            && rawMappedProperty is "length" or "size"
+            ? rawMappedProperty
+            : null;
+        var getterName = mappedPropertyName ?? fieldStyleGetter ?? ("get" + name);
         var setterName = mappedPropertyName ?? ("set" + name);
 
         if (op == "=" && p.SetMethod == null)

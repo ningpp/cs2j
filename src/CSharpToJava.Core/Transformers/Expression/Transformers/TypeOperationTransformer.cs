@@ -213,21 +213,65 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return $"({BoxedWrapperName(sym.SpecialType)})({e})";
         }
 
-        // System.Array → T[]：源经 array-method 归一为 CSharpArray 视图，Java
-        // 不接受 CSharpArray→T[] 的直接强转（javac 不可转换对；真实链解码器
-        // `_buffer = (byte[])buffer` 3 处），经 tryAs 解包（null 安全，与 C#
-        // 失配抛异常相比静默返回 null，调用方均有 Debug.Assert 保护）。
-        // 类型参数元素除外：T[].class 非法。
+        // System.Array → T[]：源经 array-method 归一为 CSharpArray 视图（现在
+        // 包括 CSharpArray.createInstance 的返回值），Java 不接受 CSharpArray→T[]
+        // 的直接强转（javac 不可转换对；真实链解码器 `_buffer = (byte[])buffer`
+        // 3 处），经 tryAs 解包（null 安全，与 C# 失配抛异常相比静默返回 null，
+        // 调用方均有 Debug.Assert 保护）。类型参数元素无运行时 class（T[].class
+        // 非法）：以 Object[].class 解包后按擦除形态强转——(T[])Object[] 是合法
+        // unchecked 强转（真实链 XmlListConverter/ArrayBuilder 的
+        // (T[])Array.CreateInstance(typeof(T), n)，compat createInstance 现返回
+        // CSharpArray 包装视图）。
         if (sym is IArrayTypeSymbol castArr
-            && castArr.ElementType is not ITypeParameterSymbol
             && srcSym?.SpecialType == SpecialType.System_Array)
         {
             var t = Map(n.Type, c);
-            if (!t.Contains('<'))
+            c.AddImport("io.github.ningpp.compat.CSharpArray");
+            if (castArr.ElementType is ITypeParameterSymbol || t.Contains('<'))
             {
-                c.AddImport("io.github.ningpp.compat.CSharpArray");
-                return $"CSharpArray.tryAs({e}, {t}.class)";
+                return $"({t})(CSharpArray.tryAs({e}, Object[].class))";
             }
+            return $"CSharpArray.tryAs({e}, {t}.class)";
+        }
+
+        // C# DateTimeOffset ← DateTime 隐式转换（元数据 op_Implicit，非源内
+        // 声明，上面的 user-defined 分支不接；真实链 XmlDateTimeConverter 的
+        // (DateTimeOffset)atomicValue.ValueAsDateTime()）。
+        if (sym is INamedTypeSymbol { SpecialType: SpecialType.None } dateTimeOffsetTarget
+            && dateTimeOffsetTarget.ToDisplayString() == "System.DateTimeOffset"
+            && srcSym is INamedTypeSymbol { SpecialType: SpecialType.System_DateTime })
+        {
+            c.AddImport("io.github.ningpp.compat.CSharpDateTimeOffset");
+            return $"CSharpDateTimeOffset.fromDateTime({e})";
+        }
+
+        // C# decimal → 整型/浮点的显式收窄（真实链 XmlValueConverter 的
+        // DecimalToInt32/DecimalToInt64 `(long)value`、XmlUntypedStringConverter
+        // `(double)` 等，7 站）：Java 无引用 Decimal→基元强转，走 Decimal 的
+        // value 方法——setScale(0, DOWN)+*Exact 的截断向零语义与 C# decimal
+        // 显式转换一致（越界抛异常对应 C# 恒 checked 的 decimal→integral）。
+        if (srcSym?.SpecialType == SpecialType.System_Decimal
+            && sym?.SpecialType is SpecialType.System_Int32
+                or SpecialType.System_Int64
+                or SpecialType.System_Single
+                or SpecialType.System_Double)
+        {
+            var valueMethod = sym.SpecialType switch
+            {
+                SpecialType.System_Int32 => "intValue",
+                SpecialType.System_Int64 => "longValue",
+                SpecialType.System_Single => "floatValue",
+                _ => "doubleValue",
+            };
+            return $"({e}).{valueMethod}()";
+        }
+        // decimal → ulong：long 载体的无符号位型经 BigDecimal 截断取低 64 位
+        //（生成代码在调用点已有 [0, 2^64) 域检查，如 DecimalToUInt64）。
+        if (srcSym?.SpecialType == SpecialType.System_Decimal
+            && sym?.SpecialType == SpecialType.System_UInt64)
+        {
+            c.AddImport("io.github.ningpp.compat.UnsignedMath");
+            return $"UnsignedMath.toUInt64Decimal({e})";
         }
 
         return sym?.SpecialType switch
@@ -236,7 +280,20 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             SpecialType.System_Int32 => e,
             SpecialType.System_Byte => $"({e} & 0xFF)",                                   // unsigned narrowing → mask
             SpecialType.System_UInt16 => $"(((int)({e})) & 0xFFFF)",
+            // uint 重写面是 int 载体+掩码；来源为装箱/引用形态时必须先解箱：
+            // `(uint)objectExpr` 直接落 `(expr & 0xFFFFFFFFL)` 会让 javac 报
+            // 「二元运算符 '&' 的操作数类型错误」（真实链 Datatype_unsignedInt
+            // .compare 的 ((uint)value1).CompareTo((uint)value2) 等，9 站）。
+            // Integer 在二元数值上下文自动解箱（JLS 5.6），与 int 载体路径同语义。
+            SpecialType.System_UInt32 when srcSym is not null && IsBoxedOrReferenceSource(srcSym)
+                => $"(int)(((Integer)({e})) & 0xFFFFFFFFL)",
             SpecialType.System_UInt32 => $"(int)(({e}) & 0xFFFFFFFFL)",
+            // (float)doubleExpr 的内层解箱已产出 (Double)(obj) 形态：javac 拒绝
+            // Double→float 强转组合（JLS 5.5；真实链 XmlNumeric2Converter 的
+            // (float)value），经 floatValue() 取值。
+            SpecialType.System_Single when srcSym?.SpecialType == SpecialType.System_Double
+                && e.StartsWith("(Double)", StringComparison.Ordinal)
+                => $"({e}).floatValue()",
             _ => $"({Map(n.Type, c)})({e})"
         };
     }

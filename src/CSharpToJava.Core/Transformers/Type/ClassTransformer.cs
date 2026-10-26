@@ -184,6 +184,20 @@ public class ClassTransformer : ITypeTransformer
                     context.TypeMapper.AddImportPublic("io.github.ningpp.compat.CSharpCollection");
                 }
                 if (!seen.Add(InterfaceErasureKey(mapped))) continue;
+                // CollectionBase 基类（CSharpCollectionBase→CSharpIList→CSharpCollection
+                // →CSharpIterable→java.lang.Iterable）已提供 Iterable 分支；类自身再
+                // 实现 IEnumerable<T>（映射 CSharpGenericIterable<T>）时，Java 禁止以
+                // 不同实参继承同一泛型接口（javac: 无法使用以下不同的参数继承
+                // java.lang.Iterable: <T> 和 <>，真实链 XmlSchemas :
+                // CollectionBase, IEnumerable<XmlSchema>）。丢弃子句：基类通配
+                // iterator() 覆写为具体元素型，foreach 的 Iterable<T> 重型转换与
+                // 迭代语义不受影响。
+                if (mapped.StartsWith("CSharpGenericIterable", StringComparison.Ordinal)
+                    && javaClass.ExtendedType is { } extended
+                    && InterfaceErasureKey(extended) == "CSharpCollectionBase")
+                {
+                    continue;
+                }
                 // 序列化抑制接口（ISerializable → __suppress__）必须保留在 implements
                 // 子句里：生成代码会保留 ((ISerializable)x).GetObjectData(...) 形式的
                 // cast（迭代13收紧后基类显式实现不参与解包），类到接口的 cast 在 javac

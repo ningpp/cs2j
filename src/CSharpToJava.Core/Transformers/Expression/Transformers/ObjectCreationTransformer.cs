@@ -66,6 +66,21 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         {
             return $"{f.Transform(al.Arguments[0].Expression, c)}.toString()";
         }
+
+        // new StringBuilder(string, int, int, int)：Java 无该构造器。C# 语义是取
+        // value.Substring(startIndex, length)，capacity 仅为预分配提示（Java 形态
+        // 无对应，安全省略）。substring 按同一参数渲染（真实链 RecordBuilder 的
+        // new StringBuilder(comment, begin, index, 2 * comment.Length)，2 站）。
+        if (type is INamedTypeSymbol { SpecialType: SpecialType.None } sbType
+            && sbType.ToDisplayString() == "System.Text.StringBuilder"
+            && al is { Arguments.Count: 4 }
+            && c.GetTypeInfo(al.Arguments[0].Expression).Type?.SpecialType == SpecialType.System_String)
+        {
+            var value = f.Transform(al.Arguments[0].Expression, c);
+            var start = f.Transform(al.Arguments[1].Expression, c);
+            var length = f.Transform(al.Arguments[2].Expression, c);
+            return $"new StringBuilder({value}.substring({start}, {start} + {length}))";
+        }
         if (init?.IsKind(SyntaxKind.ObjectInitializerExpression) == true)
         {
             if (init.Expressions.Count == 0) return EmitNew(name, al, type as INamedTypeSymbol, c, constructor);
@@ -110,7 +125,14 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (type is { TypeKind: TypeKind.Delegate }
             && al is { Arguments.Count: 1 })
         {
-            if (c.GetSymbolInfo(al.Arguments[0].Expression).Symbol is IMethodSymbol methodGroup)
+            // 仅裸方法组（标识符/成员访问）转方法引用。调用表达式
+            // `new Callback(GetCallback(x))` 的 GetSymbolInfo 同样绑定被调方法
+            // 符号，但它是「调用结果」不是方法组——误转 this::getter 会丢掉
+            // 实参（javac: 方法引用无效；真实链 ReflectionXmlSerializationReader
+            // 的 new XmlSerializationCollectionFixupCallback(
+            // GetCreateCollectionOfObjectsCallback(typeDesc.Type))）。
+            if (al.Arguments[0].Expression is IdentifierNameSyntax or MemberAccessExpressionSyntax
+                && c.GetSymbolInfo(al.Arguments[0].Expression).Symbol is IMethodSymbol methodGroup)
             {
                 var methodReference = EmitDelegateMethodReference(al.Arguments[0].Expression, methodGroup, c);
                 // Inside an object[]/collection initializer there is no target type for

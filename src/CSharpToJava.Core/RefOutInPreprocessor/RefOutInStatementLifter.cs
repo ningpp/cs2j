@@ -598,7 +598,7 @@ internal sealed class RefOutInStatementLifter
         [SpecialType.System_UInt32] = ("ReadbackInt", SpecialType.System_Int32),     // uint → Java int
         [SpecialType.System_Byte] = ("ReadbackInt", SpecialType.System_Int32),       // byte → Java int
         [SpecialType.System_Int16] = ("ReadbackShort", SpecialType.System_Int16),
-        [SpecialType.System_UInt16] = ("ReadbackShort", SpecialType.System_Int16),   // ushort → Java short
+        [SpecialType.System_UInt16] = ("ReadbackUShort", SpecialType.System_Int32),  // ushort → Java int 载体（ByRef<Integer>）
         [SpecialType.System_SByte] = ("ReadbackByte", SpecialType.System_Byte),
         [SpecialType.System_Int64] = ("ReadbackLong", SpecialType.System_Int64),
         [SpecialType.System_UInt64] = ("ReadbackLong", SpecialType.System_Int64),    // ulong → Java long

@@ -483,6 +483,20 @@
             ]
         },
         {
+            "csharp": "System.StringComparer",
+            "java": "StringComparer",
+            "imports": [
+                "io.github.ningpp.compat.StringComparer"
+            ]
+        },
+{
+            "csharp": "System.Activator",
+            "java": "Activator",
+            "imports": [
+                "io.github.ningpp.compat.Activator"
+            ]
+        },
+        {
             "csharp": "System.Exception",
             "java": "RuntimeException",
             "imports": [
@@ -6539,6 +6553,30 @@
             "method": "SetEquals",
             "javaMethod": "SetCompat.setEquals"
         },
+{
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "Count",
+            "javaMethod": "size"
+        },
+{
+            "csharp": "System.StringComparer",
+            "java": "StringComparer",
+            "imports": [
+                "io.github.ningpp.compat.StringComparer"
+            ]
+        },
+{
+            "csharp": "System.Activator",
+            "java": "Activator",
+            "imports": [
+                "io.github.ningpp.compat.Activator"
+            ]
+        },
+{
+            "type": "System.Reflection.ParameterInfo",
+            "method": "IsOptional",
+            "javaMethod": "ReflectionHelper.isOptionalParameter"
+        },
         {
             "type": "System.Collections.Generic.HashSet`1",
             "method": "Overlaps",
@@ -6574,6 +6612,16 @@
             "method": "AppendLine",
             "javaMethod": "StringBuilderExtensions.appendLine"
         },
+{
+            "type": "System.Text.StringBuilder",
+            "method": "Clear",
+            "javaMethod": "StringBuilderExtensions.clear"
+        },
+{
+            "type": "dotnet.xml.serialization.XmlSchemas",
+            "method": "Add",
+            "javaMethod": "addSchema"
+        },
         {
             "type": "System.Text.StringBuilder",
             "method": "Remove",
@@ -6593,6 +6641,31 @@
             "type": "System.TimeSpan",
             "method": "MinValue",
             "javaMethod": "MIN_VALUE"
+        },
+{
+            "type": "System.TimeSpan",
+            "method": "TicksPerDay",
+            "javaMethod": "TICKS_PER_DAY"
+        },
+{
+            "type": "System.TimeSpan",
+            "method": "TicksPerHour",
+            "javaMethod": "TICKS_PER_HOUR"
+        },
+{
+            "type": "System.TimeSpan",
+            "method": "TicksPerMinute",
+            "javaMethod": "TICKS_PER_MINUTE"
+        },
+{
+            "type": "System.TimeSpan",
+            "method": "TicksPerSecond",
+            "javaMethod": "TICKS_PER_SECOND"
+        },
+{
+            "type": "System.TimeSpan",
+            "method": "TicksPerMillisecond",
+            "javaMethod": "TICKS_PER_MILLISECOND"
         },
         {
             "type": "System.DateTime",

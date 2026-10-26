@@ -1088,6 +1088,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return primitiveCall;
                 }
 
+                // System.Array 接收器上的 GetType()：接收器映射为 compat CSharpArray
+                // 包装视图（System.Array 的 Java 形态），getClass() 会得到包装类而非
+                // 数组运行时类——必须先 unwrap 再取 class（真实链 XmlValueConverter
+                // 的 _clrTypeDefault = Array.CreateInstance(type, 0).GetType()）。
+                if (originalName == "GetType"
+                    && context.GetTypeInfo(memberAccess.Expression).Type?.SpecialType
+                        == SpecialType.System_Array)
+                {
+                    return $"{receiver}.unwrap().getClass()";
+                }
+
                 if (TryRenderEnumerableInvocation(
                         node, memberAccess, receiver, arguments, context, out var enumerableCall))
                 {
@@ -1095,6 +1106,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
 
                 var (mappedName, isStatic) = TryResolveMappedName(node, originalName, context);
+
+                // Task.Run<TResult>(Func<TResult>)：Task 静态类的泛型重载。Run→runAsync
+                // 映射行不带返回形态，泛型实例化（lambda 返回值）必须落 supplyAsync，
+                // 否则 CompletableFuture<Void> 落进 CompletableFuture<StreamWrapper>
+                // 返回槽（真实链 XmlDownloadManager.GetStreamAsync 的 Task.Run）。
+                if (mappedName == "runAsync"
+                    && context.GetSymbolInfo(node).Symbol is IMethodSymbol taskRun
+                    && taskRun.TypeArguments.Length > 0)
+                {
+                    mappedName = "supplyAsync";
+                }
 
                 if (mappedName != null)
                 {
@@ -1161,6 +1183,36 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
                 AddStaticReceiverTypeImports(memberAccess.Expression, context);
                 var renderedCall = $"{receiver}.{WellKnownMethodName(originalName)}({arguments})";
+                // C# T[] 返回的成员（如 CSharpList<T> 槽位上的泛型 ToArray）擦除为
+                // Object[]（javac: Object[] 无法转换为 T[]；真实链 XmlListConverter
+                // 的泛型列表 ToArray）。按声明的擦除返回形态补 unchecked 强转。
+                if (context.GetSymbolInfo(node).Symbol is IMethodSymbol typedArrayReturn
+                    && typedArrayReturn.ReturnType is IArrayTypeSymbol { ElementType: ITypeParameterSymbol }
+                    && context.MapType(typedArrayReturn.ReturnType) is { } typedArrayText
+                    && renderedCall.Contains(".toArray(", StringComparison.Ordinal))
+                {
+                    renderedCall = $"({typedArrayText}) {renderedCall}";
+                }
+                // 显式 d.Invoke(args)：MethodKind.DelegateInvoke 的常规成员路径把
+                // Invoke 驼峰成 invoke，但委托形态的 SAM 名是 accept/apply/run/get
+                // （见 DelegateTransformer.InferSamMethodName，声明侧一致）；javac:
+                // 找不到符号 方法 invoke(<nulltype>)（真实链
+                // ReflectionXmlSerializationReader.processUnknownNode 的
+                // action?.Invoke(null)）。
+                if (context.GetSymbolInfo(node).Symbol is IMethodSymbol explicitDelegateInvoke
+                    && explicitDelegateInvoke.MethodKind == MethodKind.DelegateInvoke)
+                {
+                    var sam = explicitDelegateInvoke.ContainingType is { } delegateType2
+                        && delegateType2.ContainingNamespace?.ToDisplayString() == "System"
+                        && ((delegateType2.Name == "Func" && delegateType2.TypeArguments.Length == 2
+                             && delegateType2.TypeArguments[1].SpecialType == SpecialType.System_Boolean)
+                            || (delegateType2.Name == "Predicate" && delegateType2.TypeArguments.Length == 1))
+                        && explicitDelegateInvoke.Parameters.Length == 1
+                            ? "test"
+                            : DelegateTransformer.InferSamMethodName(
+                                explicitDelegateInvoke.ReturnsVoid, explicitDelegateInvoke.Parameters.Length);
+                    renderedCall = $"{receiver}.{sam}({arguments})";
+                }
                 // Java erases explicit type arguments, so a generic helper whose
                 // return type is its own type parameter (`GetCustomAttribute<T>`)
                 // infers Object at the call site; restore the inferred type so
@@ -2190,7 +2242,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 || memberAccess.Expression is IdentifierNameSyntax { Identifier.Text: "Tuple" }))
         {
             context.AddImport("java.util.Map");
-            rendered = $"Map.entry({argumentText})";
+            // 显式见证类型：o.getClass() 的推断 K 携带 capture 通配符，落进
+            // Map.Entry<Class,String> 槽位即报 capture 不兼容（真实链
+            // ReflectionXmlSerializationReader 的 Tuple.Create(o.GetType(),
+            // memberName)）。按方法形参（Type→Class）渲染见证。
+            if (symbol is { TypeArguments.Length: 2 }
+                && context.MapType(symbol.TypeArguments[0]) is { } witnessK
+                && context.MapType(symbol.TypeArguments[1]) is { } witnessV)
+            {
+                rendered = $"Map.<{witnessK}, {witnessV}>entry({argumentText})";
+            }
+            else
+            {
+                rendered = $"Map.entry({argumentText})";
+            }
             return true;
         }
 
@@ -2572,6 +2637,28 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     rendered = $"{boxed}.toString({receiver})";
                     return true;
                 }
+                // 其余标准/自定义数字格式（"N" 千分位数值，真实链 NumberAction 的
+                // val.ToString("N", NumberFormat)）：统一落 compat 的 C# 数字格式
+                // 引擎 MathHelper.formatNumeric——基元接收器不能解引用 toString。
+                {
+                    context.AddImport("io.github.ningpp.compat.MathHelper");
+                    rendered = $"MathHelper.formatNumeric(\"{std}\", {receiver})";
+                    return true;
+                }
+            }
+
+            // value.ToString(非字面量格式, provider)（真实链 DecimalFormatter 的
+            // value.ToString(subPicture, formatInfo)）：同上落 formatNumeric，
+            // 格式串按表达式渲染。
+            if (args.Count == 2
+            && context.GetTypeInfo(args[1].Expression).Type?.ToDisplayString()
+                is "System.IFormatProvider" or "System.Globalization.CultureInfo"
+                    or "System.Globalization.NumberFormatInfo")
+            {
+                var formatArgument = ExpressionTransformerFacade.Instance.Transform(args[0].Expression, context);
+                context.AddImport("io.github.ningpp.compat.MathHelper");
+                rendered = $"MathHelper.formatNumeric({formatArgument}, {receiver})";
+                return true;
             }
 
             // value.ToString(null, provider)（真实链 XmlConvert.ToString(SByte/Int16/

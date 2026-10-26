@@ -87,6 +87,15 @@ public partial class StatementTransformer
                         ? $"{mappedEnum}.fromValue(({storage}){initExprText})"
                         : $"{mappedEnum}.values()[{initExprText}]";
                 }
+                // 委托目标局部声明的方法组 → 方法引用（真实链
+                // ReflectionXmlSerializationReader 的
+                // `UnknownNodeAction elementElseAction = CreateUnknownNodeException;`，
+                // 裸方法名落成标识符，javac: 找不到符号 变量 CreateUnknownNodeException）。
+                if (ArgumentTransformer.TryEmitDelegateMethodReference(
+                        variable.Initializer.Value, localType, context, out var declMethodRef))
+                {
+                    initExprText = declMethodRef;
+                }
                 // IEnumerable<T> locals receive concrete collections whose Java
                 // classes may not implement compat CSharpGenericIterable (e.g. a
                 // class implementing only non-generic interfaces). Adapt explicitly.

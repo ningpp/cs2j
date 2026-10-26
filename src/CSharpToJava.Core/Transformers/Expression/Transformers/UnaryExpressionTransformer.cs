@@ -116,8 +116,42 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
     {
         if (op == "-" && TryRenderMetadataNegateCall(node, context, out var lowered))
             return lowered;
+        if (op == "-" && TryRenderIntMinValueLiteral(node, context, out var intMin))
+            return intMin;
         EnsureBuiltInNumericOperand(node, node.Operand, context);
         return $"{op}{ExpressionTransformerFacade.Instance.Transform(node.Operand, context)}";
+    }
+
+    /// <summary>
+    /// C# 字面量特形 <c>-2147483648</c>：十进制 2147483648 紧贴一元负号时定型
+    /// int（值为 int.MinValue）。Java 有完全相同的特形文法（2147483648 仅允许
+    /// 作为一元负号操作数，<c>-2147483648</c> 是合法 int 字面量）。默认路径把
+    /// 2147483648 当独立 uint 字面量补 L（LiteralExpressionTransformer 的越界
+    /// 规则），产出的 <c>-2147483648L</c> 是 long 字面量——落入 int 形参/赋值位
+    /// 即报「从long转换到int可能会有损失」（真实链 NumericBoundary 折叠
+    /// unchecked((int)0x80000000) 后的 XsdDuration <c>_nanoseconds |= NegativeBit</c>
+    /// 3 处与 BitStack <c>_curr &amp; 0x80000000</c>，共 4 站）。
+    /// </summary>
+    private static bool TryRenderIntMinValueLiteral(
+        PrefixUnaryExpressionSyntax node, ConversionContext context, out string rendered)
+    {
+        rendered = "";
+        if (node.Operand is not LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression } literal
+            || literal.Token.Value is not uint literalValue
+            || literalValue != 0x80000000u)
+        {
+            return false;
+        }
+        // 仅当整体定型 int（C# 特形规则）时走无 L 形态；定型 long 的场景
+        // 带上 L 后缀仍是合法 long 字面量，保持原路径。
+        var semanticType = context.GetTypeInfo(node).Type
+            ?? context.GetTypeInfo(node).ConvertedType;
+        if (semanticType?.SpecialType != SpecialType.System_Int32)
+        {
+            return false;
+        }
+        rendered = "-2147483648";
+        return true;
     }
 
     /// <summary>

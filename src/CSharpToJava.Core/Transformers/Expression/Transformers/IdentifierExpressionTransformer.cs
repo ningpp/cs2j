@@ -180,7 +180,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         var helper = dottedName[..dot];
         if (helper is "IntPtrHelper" or "MathHelper" or "StringHelper" or "ObjectHelper"
             or "ArrayHelper" or "CultureInfo" or "IPAddressHelper" or "ExceptionCompat"
-            or "TypeHelper")
+            or "TypeHelper" or "TextWriterHelper" or "ReflectionHelper")
             context.AddImport($"io.github.ningpp.compat.{helper}");
     }
 
@@ -705,6 +705,12 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             // ushort maps to Java int, so both extremes are plain int literals.
             case SpecialType.System_UInt16 when field.Name is "MaxValue" or "MinValue":
                 rendered = field.Name == "MaxValue" ? "65535" : "0";
+                return true;
+            // ulong 极值落在 long 载体位型：MaxValue=0xFFFF...F → -1L（无符号
+            // 消费面 UnsignedMath.toDecimalUInt64/toDoubleUInt64 均按位型解释，
+            // toDecimalUInt64(-1) 即 2^64-1）；MinValue → 0L。
+            case SpecialType.System_UInt64 when field.Name is "MaxValue" or "MinValue":
+                rendered = field.Name == "MaxValue" ? "-1L" : "0L";
                 return true;
             case SpecialType.System_Double or SpecialType.System_Single:
                 var realWrapper = field.ContainingType?.SpecialType == SpecialType.System_Double ? "Double" : "Float";

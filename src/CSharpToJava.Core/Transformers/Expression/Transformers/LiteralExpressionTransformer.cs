@@ -87,10 +87,22 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
             literal.EndsWith("lu", StringComparison.OrdinalIgnoreCase))
         {
             string numPart = literal.TrimEnd('u', 'U', 'l', 'L');
-            if (TryParseNumericValue(numPart, out ulong ulongValue) && ulongValue > (ulong)long.MaxValue)
+            if (TryParseNumericValue(numPart, out ulong ulongValue))
             {
-                context.AddImport("java.math.BigInteger");
-                return $"new BigInteger(\"{ulongValue}\")";
+                // 2^63 特形：ulong 9223372036854775808 的 long 载体位型就是
+                // Long.MIN_VALUE，全部无符号运算/比较都按位型解释。BigInteger
+                // 形态在 long 载体的 == 等上下文直接报操作数类型错误（真实链
+                // XsdDuration 的 ticks == (ulong)Int64.MaxValue + 1，由
+                // NumericBoundary 折叠产出的 9223372036854775808UL 字面量）。
+                if (ulongValue == 0x8000000000000000UL)
+                {
+                    return "Long.MIN_VALUE";
+                }
+                if (ulongValue > (ulong)long.MaxValue)
+                {
+                    context.AddImport("java.math.BigInteger");
+                    return $"new BigInteger(\"{ulongValue}\")";
+                }
             }
             numPart = StripLeadingZeros(numPart);
             return numPart + "L";
