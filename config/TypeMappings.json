@@ -272,6 +272,18 @@
             ]
         },
         {
+            "csharp": "System.Collections.Queue",
+            "java": "CSharpObjQueue",
+            "imports": [
+                "io.github.ningpp.compat.CSharpObjQueue"
+            ]
+        },
+        {
+            "csharp": "System.Reflection.ParameterModifier",
+            "java": "Object",
+            "imports": []
+        },
+        {
             "csharp": "System.Collections.Comparer",
             "java": "CSharpComparer",
             "imports": [
@@ -6947,6 +6959,11 @@
             "type": "System.IEquatable",
             "method": "Equals",
             "javaMethod": "equalsTo"
+        },
+        {
+            "type": "System.Text.RegularExpressions.Capture",
+            "method": "Index",
+            "javaMethod": "Index"
         },
         {
             "type": "System.String",
