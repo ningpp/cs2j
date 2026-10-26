@@ -96,6 +96,17 @@ internal static class IListCoercion
                 return true;
             }
 
+            // C# 非泛型/泛型 ICollection（真实链 XmlAttributeCollection : ICollection）：
+            // Java 类只实现 CSharpCollection/CSharpICollection，与 CSharpIList 平行——
+            // IList 槽位同样需要适配视图（此前只有渲染以 getValues()/getKeys() 结尾的
+            // Dictionary 视图才会桥接，普通集合类型漏桥导致 6 行编译错误）。
+            if (ImplementsCollectionWithoutList(sourceType))
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpIList");
+                rendered = $"CSharpIList.from({text})";
+                return true;
+            }
+
             // A C# System.Collections.ICollection (or generic ICollection<T>, e.g.
             // Dictionary<K,V>.Values — whose static type is the nested
             // ValueCollection/KeyCollection class implementing ICollection<T>)
@@ -143,6 +154,35 @@ internal static class IListCoercion
         || sourceType.AllInterfaces.Any(i =>
             i.OriginalDefinition.ToDisplayString()
                 is "System.Collections.ICollection" or "System.Collections.Generic.ICollection<T>");
+
+    /// <summary>
+    /// Implements a C# collection interface (non-generic <c>ICollection</c> or generic
+    /// <c>ICollection&lt;T&gt;</c>) without any list interface — the Java class then only
+    /// implements <c>CSharpCollection</c>/<c>CSharpICollection</c> and needs the
+    /// read-through adapter for an <c>IList</c> slot.
+    /// </summary>
+    private static bool ImplementsCollectionWithoutList(INamedTypeSymbol sourceType)
+    {
+        var implementsCollection = false;
+        foreach (var iface in sourceType.AllInterfaces)
+        {
+            var name = iface.OriginalDefinition.ToDisplayString();
+            switch (name)
+            {
+                case "System.Collections.Generic.IList<T>":
+                case "System.Collections.Generic.IReadOnlyList<T>":
+                case "System.Collections.IList":
+                    return false;
+                case "System.Collections.ICollection":
+                case "System.Collections.Generic.ICollection<T>":
+                case "System.Collections.Generic.IReadOnlyCollection<T>":
+                    implementsCollection = true;
+                    break;
+            }
+        }
+
+        return implementsCollection;
+    }
 
     /// <summary>
     /// Implements the non-generic <c>System.Collections.IList</c> while no generic

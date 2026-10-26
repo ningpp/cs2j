@@ -163,6 +163,40 @@ class Host
         Assert.Contains("CSharpIList nonGeneric = create();", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A class implementing only the non-generic ICollection (真实链
+    /// XmlAttributeCollection : XmlNamedNodeMap, ICollection) maps to a Java class
+    /// implementing CSharpCollection only, so an IList slot needs the adapter view.
+    /// </summary>
+    [Fact]
+    public void CollectionOnlyClass_IntoIListSlot_GetsAdapterView()
+    {
+        var result = Convert("""
+using System.Collections;
+
+class Attributes : ICollection
+{
+    public int Count => 0;
+    public bool IsSynchronized => false;
+    public object SyncRoot => this;
+    public void CopyTo(System.Array array, int index) { }
+    public IEnumerator GetEnumerator() => null;
+}
+
+class Host
+{
+    static Attributes Get() => new Attributes();
+    static void Use()
+    {
+        IList list = Get();
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("CSharpIList list = CSharpIList.from(get());", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
