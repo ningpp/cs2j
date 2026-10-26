@@ -526,7 +526,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     /// </summary>
     private MethodDeclarationSyntax ApplyMethodShadows(
         MethodDeclarationSyntax node,
-        IReadOnlyList<(string Holder, string Shadow, string Type)> shadows,
+        IReadOnlyList<(string Holder, string Shadow, string Type, bool IsOut)> shadows,
         bool returnsVoid,
         string? returnTypeDisplay)
     {
@@ -1866,9 +1866,9 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         IReadOnlyList<(string Name, IParameterSymbol Symbol)> holderParams,
         SyntaxNode? scanRoot,
         bool localFunctionsCapture,
-        out List<(string Holder, string Shadow, string Type)> shadows)
+        out List<(string Holder, string Shadow, string Type, bool IsOut)> shadows)
     {
-        shadows = new List<(string, string, string)>();
+        shadows = new List<(string Holder, string Shadow, string Type, bool IsOut)>();
         if (holderParams.Count == 0 || scanRoot == null)
             return null;
 
@@ -1880,7 +1880,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             {
                 var shadow = "__shadow" + NextTemp();
                 frame[name] = shadow;
-                shadows.Add((name, shadow, TypeDisplay(symbol.Type)));
+                shadows.Add((name, shadow, TypeDisplay(symbol.Type), symbol.RefKind == RefKind.Out));
             }
             else
             {
@@ -1991,7 +1991,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     /// </summary>
     private AnonymousFunctionExpressionSyntax ApplyValueShadows(
         AnonymousFunctionExpressionSyntax node,
-        IReadOnlyList<(string Holder, string Shadow, string Type)> shadows,
+        IReadOnlyList<(string Holder, string Shadow, string Type, bool IsOut)> shadows,
         bool returnsVoid,
         string? returnTypeDisplay)
     {
@@ -2011,13 +2011,13 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     /// </summary>
     private BlockSyntax BuildShadowBlock(
         BlockSyntax block,
-        IReadOnlyList<(string Holder, string Shadow, string Type)> shadows,
+        IReadOnlyList<(string Holder, string Shadow, string Type, bool IsOut)> shadows,
         bool returnsVoid,
         string? returnTypeDisplay)
     {
         var statements = new List<StatementSyntax>();
         foreach (var shadow in shadows)
-            statements.Add(BuildShadowCopyIn(shadow.Holder, shadow.Shadow, shadow.Type));
+            statements.Add(BuildShadowCopyIn(shadow.Holder, shadow.Shadow, shadow.Type, shadow.IsOut));
 
         var writebacks = shadows
             .Select(s => BuildShadowWriteback(s.Holder, s.Shadow))
@@ -2049,14 +2049,23 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             SyntaxFactory.IdentifierName("Value"));
 
     private static LocalDeclarationStatementSyntax BuildShadowCopyIn(
-        string holder, string shadow, string type) =>
-        SyntaxFactory.LocalDeclarationStatement(
+        string holder, string shadow, string type, bool isOut)
+    {
+        // out 形参按 C# 语义在进入时未定义（值由被调方写出）——copy-in 读
+        // 未播种的 ByRef.getValue() 会 NPE（拆箱 Integer）。以 default(T) 播种，
+        // copy-out 照旧回写。
+        var initializer = isOut
+            ? SyntaxFactory.CastExpression(
+                SyntaxFactory.ParseTypeName(type),
+                SyntaxFactory.DefaultExpression(SyntaxFactory.ParseTypeName(type)))
+            : (ExpressionSyntax)HolderValueAccess(holder);
+        return SyntaxFactory.LocalDeclarationStatement(
             SyntaxFactory.VariableDeclaration(
                 SyntaxFactory.ParseTypeName(type),
                 SyntaxFactory.SingletonSeparatedList(
                     SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(shadow))
-                        .WithInitializer(SyntaxFactory.EqualsValueClause(
-                            HolderValueAccess(holder))))));
+                        .WithInitializer(SyntaxFactory.EqualsValueClause(initializer)))));
+    }
 
     private static ExpressionStatementSyntax BuildShadowWriteback(string holder, string shadow) =>
         SyntaxFactory.ExpressionStatement(
