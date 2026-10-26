@@ -2790,7 +2790,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         classLiteral = null!;
         if (node.Expression is not MemberAccessExpressionSyntax { Name: GenericNameSyntax generic })
             return false;
-        if (generic.Identifier.Text is not ("Throws" or "ThrowsAny" or "IsType" or "IsNotType"))
+        if (generic.Identifier.Text is not ("Throws" or "ThrowsAsync" or "ThrowsAny" or "IsType" or "IsNotType"))
             return false;
         if (generic.TypeArgumentList.Arguments.Count != 1)
             return false;
