@@ -109,6 +109,10 @@ public class MethodTransformer : IMemberTransformer
             method.Body = "{\n}";
         }
 
+        // 显式接口实现（桥）：Java 返回类型必须采用映射接口成员的形状（接口映射
+        // 权威），否则 javac 对同擦除签名报"返回类型不兼容"硬错。
+        ApplyExplicitInterfaceMemberShape(method, sym, ctx);
+
         // xUnit/MSTest 测试方法 → JUnit 5 测试方法 + 静态数据 provider。
         var testMembers = ApplyTestMethodAnnotations(m, method, ctx);
 
@@ -805,6 +809,133 @@ public class MethodTransformer : IMemberTransformer
         }
         return null;
     }
+
+    // ================== 显式接口实现：映射接口成员形状权威 ==================
+
+    /// <summary>
+    /// compat 收紧族接口（CSharpIList 等）的成员 Java 形状由 compat jar 权威，
+    /// 与 C# 接口槽返回类型的直接映射不同：
+    /// <list type="bullet">
+    /// <item>removeAt 返回 Object：容纳协变的公开 RemoveAt 实现（真实链
+    /// XmlAttributeCollection.RemoveAt→XmlAttribute；C# void 形状是硬冲突，
+    /// compat 侧 default 化无法消除）；</item>
+    /// <item>remove 返回 boolean：统一 ICollection&lt;T&gt;.Remove 的 bool 形状；
+    /// 非泛型 System.Collections.IList.Remove 的 void 与之同擦除签名，硬冲突。</item>
+    /// </list>
+    /// 键 =（接口原始定义命名空间，接口简单名，成员名）：同擦除签名才会冲突，
+    /// 无需参数维度。仅对显式实现生效（隐式公开成员保留 C# 形状以协变实现）。
+    /// </summary>
+    private static readonly Dictionary<(string Namespace, string Interface, string Member), string>
+        CompatInterfaceMemberReturnTypes = new()
+        {
+            [("System.Collections.Generic", "IList", "RemoveAt")] = "Object",
+            [("System.Collections", "IList", "RemoveAt")] = "Object",
+            [("System.Collections.Generic", "IList", "Remove")] = "boolean",
+            [("System.Collections.Generic", "ICollection", "Remove")] = "boolean",
+            [("System.Collections", "IList", "Remove")] = "boolean",
+        };
+
+    /// <summary>
+    /// 显式接口实现方法（桥）：Java 返回类型采用映射接口成员的形状——生成类
+    /// implements 的就是映射后的 Java 接口，成员形状以接口为准（与
+    /// <see cref="TryMapImplicitInterfaceImplementation"/> 的接口映射改名同理）。
+    /// C# 侧显式实现与接口槽的返回类型恒相同，但映射后可能分叉：C# void 槽位
+    /// 映射到 compat 接口的非 void 成员（CSharpIList.removeAt→Object、
+    /// remove→boolean），void 实现是 javac 硬错（返回类型不兼容）。返回类型从
+    /// void 变为非 void 时，纯抛出体无需处理（Java 允许任意返回类型的方法以
+    /// throw 结尾），其余非终结体补默认返回语句防缺失返回/不可达编译错。
+    /// </summary>
+    private static void ApplyExplicitInterfaceMemberShape(
+        JavaMethodDeclaration method, IMethodSymbol? sym, ConversionContext ctx)
+    {
+        if (sym == null
+            || sym.ExplicitInterfaceImplementations.Length == 0
+            || method.Modifiers.HasFlag(JavaModifiers.Abstract))
+        {
+            return;
+        }
+
+        // ExplicitInterfaceImplementations 给出的是替换了类型实参的构造槽符号。
+        var slot = sym.ExplicitInterfaceImplementations.OfType<IMethodSymbol>().FirstOrDefault();
+        if (slot == null || slot.ContainingType == null)
+            return;
+
+        string authoritative;
+        var originalInterface = slot.ContainingType.OriginalDefinition;
+        if (CompatInterfaceMemberReturnTypes.TryGetValue(
+                (originalInterface.ContainingNamespace?.ToDisplayString() ?? string.Empty,
+                 originalInterface.Name, slot.Name), out var compatShape))
+        {
+            authoritative = compatShape;
+        }
+        else
+        {
+            authoritative = slot.ReturnsVoid ? "void" : ctx.MapType(slot.ReturnType);
+        }
+
+        if (authoritative == "void"
+            || authoritative == method.ReturnType
+            || authoritative == "__suppress__")
+        {
+            return;
+        }
+
+        method.ReturnType = authoritative;
+        EnsureBodyTerminatesForNonVoid(method, authoritative, ctx);
+    }
+
+    /// <summary>
+    /// 返回类型变为非 void 后保证方法体可编译：纯抛出体与已有终结语句
+    ///（throw/return）不处理——尾补 return 反而是不可达语句编译错；
+    /// 结构化体补默认返回语句节点，字符串块体追加默认返回行；
+    /// 单表达式体由发射器自动渲染 <c>return expr;</c>，无需处理。
+    /// </summary>
+    private static void EnsureBodyTerminatesForNonVoid(
+        JavaMethodDeclaration method, string returnType, ConversionContext ctx)
+    {
+        var defaultValue = DefaultJavaReturnValue(returnType);
+
+        if (method.StructuredBody != null)
+        {
+            var statements = method.StructuredBody.Statements;
+            if (statements.Count > 0 && IsTerminalStatement(statements[^1].ToString(string.Empty)))
+                return;
+            statements.Add(new Transformers.Statement.JavaStatementNode($"return {defaultValue};"));
+            return;
+        }
+
+        if (method.Body == null || method.IsBodyExpression)
+            return;
+
+        if (method.Body.TrimStart().StartsWith("throw ", StringComparison.Ordinal))
+            return;
+
+        var lastLine = method.Body.Split('\n')
+            .LastOrDefault(l => !string.IsNullOrWhiteSpace(l))?.Trim();
+        if (lastLine != null && IsTerminalStatement(lastLine))
+            return;
+
+        method.Body = $"{method.Body}\nreturn {defaultValue};";
+        ctx.Diagnostics.Warning(
+            $"Explicit interface implementation '{method.Name}' adopts mapped interface return type "
+            + $"'{returnType}'; appended a default return because the body has no terminal statement.");
+    }
+
+    private static bool IsTerminalStatement(string statement)
+        => statement.StartsWith("throw ", StringComparison.Ordinal)
+           || statement.StartsWith("return ", StringComparison.Ordinal);
+
+    /// <summary>非 void 形状的默认返回值：基元取零值，其余（含 Object）取 null。</summary>
+    private static string DefaultJavaReturnValue(string javaType) => javaType switch
+    {
+        "boolean" => "false",
+        "int" or "short" or "byte" => "0",
+        "long" => "0L",
+        "double" => "0.0",
+        "float" => "0.0f",
+        "char" => "'\\0'",
+        _ => "null",
+    };
 
     // ================== C06 R8 FFM 白名单 facade（opt-in） ==================
 
