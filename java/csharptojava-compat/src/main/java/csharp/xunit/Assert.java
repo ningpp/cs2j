@@ -1180,6 +1180,18 @@ public final class Assert {
         return throwsAsync(exceptionType, (Supplier<? extends CompletableFuture<?>>) () -> future);
     }
 
+    /**
+     * Overload for generic C# helpers whose type argument appears only in the return
+     * type (<c>static async Task&lt;T&gt; Helper&lt;T&gt;() =&gt; await Assert.ThrowsAsync&lt;T&gt;(code)</c>),
+     * where Java cannot spell the erased <c>T.class</c>. The concrete type is still
+     * enforced by the caller's cast of the returned exception.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T extends Throwable> CompletableFuture<T> throwsAsync(
+        Supplier<? extends CompletableFuture<?>> testCode) {
+        return (CompletableFuture<T>) throwsAsync(Throwable.class, testCode);
+    }
+
     // ── ThrowsAnyAsync ───────────────────────────────────────────────
     // Reflection: Task<T> ThrowsAnyAsync<T>(Func<Task> testCode)
 
