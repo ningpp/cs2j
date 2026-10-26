@@ -84,8 +84,12 @@ internal static class IListCoercion
             // CollectionInterfaceTests 的 CSharpIList target = element.Attributes()）：
             // 其 Java 类经 ICollection 菱形收窄后只实现 CSharpCollection，与
             // CSharpIList 平行无交集——包 CSharpIList.from(CSharpCollection) 视图。
-            if (sourceType.AllInterfaces.Any(i =>
-                    i.OriginalDefinition.ToDisplayString() == "System.Collections.IList"))
+            // 但若源类同时实现泛型 IList<T>/IReadOnlyList<T>，它的 Java 类本身就
+            // 实现 CSharpIList（真实链 CaptureCollection : IList<Capture>,
+            // IReadOnlyList<Capture>, IList → `implements CSharpIList<Capture>`），
+            // 直接赋值即可；再包一层反而落到只读视图的默认实现上抛
+            // UnsupportedOperationException（regularexpressions-tests 21 例）。
+            if (ImplementsNonGenericIListOnly(sourceType))
             {
                 context.AddImport("io.github.ningpp.compat.CSharpIList");
                 rendered = $"CSharpIList.from({text})";
@@ -139,6 +143,26 @@ internal static class IListCoercion
         || sourceType.AllInterfaces.Any(i =>
             i.OriginalDefinition.ToDisplayString()
                 is "System.Collections.ICollection" or "System.Collections.Generic.ICollection<T>");
+
+    /// <summary>
+    /// Implements the non-generic <c>System.Collections.IList</c> while no generic
+    /// <c>IList&lt;T&gt;</c>/<c>IReadOnlyList&lt;T&gt;</c> interface pulls the generated Java
+    /// class onto <c>CSharpIList</c> already.
+    /// </summary>
+    private static bool ImplementsNonGenericIListOnly(INamedTypeSymbol sourceType)
+    {
+        var implementsNonGeneric = false;
+        foreach (var iface in sourceType.AllInterfaces)
+        {
+            var name = iface.OriginalDefinition.ToDisplayString();
+            if (name is "System.Collections.Generic.IList<T>" or "System.Collections.Generic.IReadOnlyList<T>")
+                return false;
+            if (name == "System.Collections.IList")
+                implementsNonGeneric = true;
+        }
+
+        return implementsNonGeneric;
+    }
 
     private static bool IsJavaPrimitiveMapped(string mappedElementType)
         => mappedElementType is "int" or "long" or "short" or "byte"

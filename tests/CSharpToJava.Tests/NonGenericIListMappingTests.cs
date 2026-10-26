@@ -105,6 +105,64 @@ class Source
         Assert.Contains("CSharpIList.from(ArrayHelper.asListView(new Query[]{ q }))", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A class implementing the non-generic IList AND a generic IList&lt;T&gt; maps to a
+    /// Java class that already implements CSharpIList (真实链 CaptureCollection), so the
+    /// assignment must not wrap it in the read-only bridge — its default get/contains/
+    /// indexOf throw UnsupportedOperationException.
+    /// </summary>
+    [Fact]
+    public void ClassImplementingGenericAndNonGenericIList_AssignsWithoutAdapter()
+    {
+        var result = Convert("""
+using System.Collections;
+using System.Collections.Generic;
+
+class Capture { }
+class Captures : IList<Capture>, IReadOnlyList<Capture>, IList
+{
+    public Capture this[int index] => null;
+    object IList.this[int index] { get => null; set { } }
+    public int Count => 0;
+    public bool IsReadOnly => true;
+    public bool IsFixedSize => true;
+    public bool IsSynchronized => false;
+    public object SyncRoot => this;
+    public void Add(Capture item) { }
+    int IList.Add(object value) => 0;
+    public void Clear() { }
+    public bool Contains(Capture item) => false;
+    bool IList.Contains(object value) => false;
+    public void CopyTo(Capture[] array, int arrayIndex) { }
+    void ICollection.CopyTo(System.Array array, int index) { }
+    public IEnumerator<Capture> GetEnumerator() => null;
+    IEnumerator IEnumerable.GetEnumerator() => null;
+    public int IndexOf(Capture item) => -1;
+    int IList.IndexOf(object value) => -1;
+    public void Insert(int index, Capture item) { }
+    void IList.Insert(int index, object value) { }
+    public bool Remove(Capture item) => false;
+    void IList.Remove(object value) { }
+    public void RemoveAt(int index) { }
+}
+
+class Host
+{
+    static Captures Create() => new Captures();
+    static void Use()
+    {
+        IList<Capture> generic = Create();
+        IList nonGeneric = Create();
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.DoesNotContain("CSharpIList.from(Create())", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("CSharpIList<Capture> generic = create();", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("CSharpIList nonGeneric = create();", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
