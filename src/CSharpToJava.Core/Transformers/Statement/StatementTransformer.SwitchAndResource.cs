@@ -254,6 +254,17 @@ public partial class StatementTransformer
                     && nestedSwitch.Sections.All(s =>
                         s.Statements.Count > 0
                         && StatementAlwaysTerminatesSwitchSection(s.Statements.Last()));
+            case SyntaxKind.TryStatement:
+                // 穷尽 try/catch：try 体必然转出控制流（return/throw/continue/
+                // break）且每个 catch 体亦然、无 finally——此后追加的 break; 在
+                // Java 是「无法访问的语句」（C# 里只是 CS0162 警告）。真实链
+                // Datatype_fixed.ParseValue 的 goto 状态机 case 以
+                // try{return} catch{throw} catch{throw} 收尾。
+                return stmt is TryStatementSyntax tryStmt
+                    && tryStmt.Finally == null
+                    && tryStmt.Catches.Count > 0
+                    && StatementAlwaysTerminatesSwitchSection(tryStmt.Block)
+                    && tryStmt.Catches.All(c => StatementAlwaysTerminatesSwitchSection(c.Block));
             default:
                 return false;
         }
