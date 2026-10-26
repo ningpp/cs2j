@@ -23,7 +23,7 @@ class TestClass
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("value.toString()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Convert.toString(value)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("toString()()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("getToString", result.GeneratedCode, StringComparison.Ordinal);
     }
@@ -44,7 +44,7 @@ class TestClass
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("value.toString()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Convert.toString(value)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("toString()()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
@@ -128,8 +128,8 @@ class TestClass
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("obj.toString()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("obj.toString().toUpperCase()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Convert.toString(obj)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Convert.toString(obj).toUpperCase()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("toString()()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("toUpperCase()()", result.GeneratedCode, StringComparison.Ordinal);
     }
@@ -150,8 +150,8 @@ class TestClass
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("obj.toString()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("obj.toString().length()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Convert.toString(obj)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Convert.toString(obj).length()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("toString()()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("length()()", result.GeneratedCode, StringComparison.Ordinal);
     }
@@ -235,7 +235,7 @@ class TestClass
 """);
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("value.toString()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Convert.toString(value)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("toString()()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("getToString", result.GeneratedCode, StringComparison.Ordinal);
     }

@@ -3581,6 +3581,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (context.GetSymbolInfo(invocation).Symbol is not IMethodSymbol methodSymbol)
             return (null, false);
 
+        // base.ToString() 的 Java 形态是 super.toString()（C# 对 base 的调用是
+        // 非虚基类调用）。System.Object.ToString 的方法映射会把 base 接收器发成
+        // Convert.toString(super)——既非合法 Java，也丢了非虚语义。
+        if (originalName == "ToString"
+            && invocation.Expression is MemberAccessExpressionSyntax { Expression: BaseExpressionSyntax })
+        {
+            return (null, false);
+        }
+
         var paramCount = invocation.ArgumentList.Arguments.Count;
         var containingType = methodSymbol.ContainingType;
 

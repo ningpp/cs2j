@@ -7602,6 +7602,12 @@
             "javaMethod": "indexOfOptions"
         },
         {
+            "type": "System.Object",
+            "method": "ToString",
+            "signature": "0",
+            "javaMethod": "Convert.toString"
+        },
+        {
             "type": "System.Math",
             "method": "Ceiling",
             "javaMethod": "ceil"

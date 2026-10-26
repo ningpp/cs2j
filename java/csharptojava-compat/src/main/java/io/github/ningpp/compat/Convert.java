@@ -273,11 +273,17 @@ return toDecimal(value);
 
     /**
      * Mirrors C# Convert.ToString(Object, IFormatProvider): null → empty string;
-     * String → itself; boxed primitives/other → toString (invariant "G" shape
-     * for the boxed numeric corpus this bridge serves).
+     * String → itself; boxed primitives/other → toString.
+     * Double/Float render per .NET's default (shortest round-trip) shape — Java's
+     * Double.toString yields "1.0" where C# ToString() yields "1" (XPath
+     * concat("… = ", position()) produced "= 1.0").
      */
     public static String toString(Object value) {
-        return value == null ? "" : value.toString();
+        if (value == null) return "";
+        if (value instanceof Double || value instanceof Float) {
+            return MathHelper.formatRoundTrip(value);
+        }
+        return value.toString();
     }
 
     /** Mirrors C# Convert.ToString(Object, IFormatProvider) — invariant provider. */

@@ -760,7 +760,7 @@ public class MathHelper {
      * uses the shortest representation that round-trips, and strips trailing
      * zeros and the decimal point for integer-valued numbers (1.0 → "1").
      */
-    private static String formatRoundTrip(Object value) {
+    public static String formatRoundTrip(Object value) {
         if (value instanceof Float f) {
             return formatRoundTripFloat(f);
         }

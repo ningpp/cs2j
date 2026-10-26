@@ -340,6 +340,28 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 return $"{invokeInvokedTarget}({invokeTargetArg}, {invokeArgsArg})";
                 }
 
+                // 点分静态助手映射（如 System.Object.ToString → Convert.toString）：
+                // 绑定名映射成 Helper.method 时，接收器降为第一实参
+                // （Helper.method(rx[, args])，点分名不带接收器前缀——此前该形态
+                // 渲染成 rx.Helper.method(...)，无法编译），导入按映射名前缀注入
+                // （InvocationExpressionTransformer.RenderMappedCall 同规则）。
+                if (invocation.Expression is MemberBindingExpressionSyntax qualifiedBinding
+                    && context.GetSymbolInfo(qualifiedBinding).Symbol is IMethodSymbol qualifiedMethod)
+                {
+                    var qualifiedMapped = ApplyMethodBindingNameMapping(
+                        qualifiedMethod, qualifiedBinding.Name.Identifier.Text, context);
+                    if (qualifiedMapped.Contains('.'))
+                    {
+                        Transformers.Expression.InvocationExpressionTransformer
+                            .AddCompatHelperImport(qualifiedMapped, context);
+                        var qualifiedArgs = invocation.ArgumentList.Arguments.Count == 0
+                            ? ""
+                            : ", " + string.Join(", ", invocation.ArgumentList.Arguments.Select(
+                                a => Transform(a.Expression, context)));
+                        return $"{qualifiedMapped}({objExpr}{qualifiedArgs})";
+                    }
+                }
+
                 var invokedTarget = TransformWhenNotNull(invocation.Expression, objExpr, context);
                 // Split(char) inside ?. chains must convert the char separator to a
                 // String regex argument (Java split(String) — e.g. s?.Split(',') →
