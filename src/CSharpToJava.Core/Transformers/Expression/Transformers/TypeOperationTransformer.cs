@@ -58,6 +58,16 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         var srcSym = c.GetTypeInfo(n.Expression).Type;
         if (sym is IPointerTypeSymbol) return e; // all pointers lower to MemorySegment
 
+        // C# 方法组到委托的显式转换（用户代码或 goto 消除产物，真实链
+        // ReaderCreateUtil 的 `(Func<CharType,string>)UnicodeCharHelper.GetValidCharacters`）
+        // 落函数式接口方法引用——Java 的 cast 不可用（javac 找不到符号 变量 X）。
+        if (sym is INamedTypeSymbol { TypeKind: TypeKind.Delegate }
+            && c.GetSymbolInfo(n.Expression).Symbol is IMethodSymbol
+            && ArgumentTransformer.TryEmitDelegateMethodReference(n.Expression, sym, c, out var castMethodRef))
+        {
+            return castMethodRef;
+        }
+
         // C# user-defined implicit/explicit conversions are emitted as static
         // toXxx(...) methods on the declaring type (OperatorTransformer
         // .TransformConversion); Java has no user-defined casts, so a bare
