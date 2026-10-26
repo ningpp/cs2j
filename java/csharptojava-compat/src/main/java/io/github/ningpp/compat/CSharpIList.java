@@ -134,6 +134,42 @@ public interface CSharpIList<T> extends CSharpCollection {
      * Count/CopyTo/enumeration (the only surface a non-generic C# ICollection
      * slot can use) delegate to the wrapped collection.
      */
+    /**
+     * Adapts a CSharpCollection implementer (C# non-generic IList view such as
+     * XmlAttributeCollection, whose Java class implements CSharpCollection after
+     * the ICollection-diamond narrowing) to the non-generic CSharpIList surface.
+     * Read surface delegates (Count/CopyTo/enumeration); IList mutators keep the
+     * interface defaults (throwing), matching the C# read-only view.
+     */
+    static CSharpIList from(CSharpCollection collection) {
+        return new CSharpIList() {
+            @Override
+            public CSharpGenericEnumerator iterator() {
+                return collection.iterator();
+            }
+            @Override
+            public int getCount() {
+                return collection.getCount();
+            }
+            @Override
+            public void copyTo(Object array, int index) {
+                collection.copyTo(array, index);
+            }
+            @Override
+            public void copyTo(CSharpArray array, int index) {
+                collection.copyTo(array, index);
+            }
+            @Override
+            public boolean getIsSynchronized() {
+                return collection.getIsSynchronized();
+            }
+            @Override
+            public Object getSyncRoot() {
+                return collection.getSyncRoot();
+            }
+        };
+    }
+
     static CSharpIList from(CSharpICollection<?> collection) {
         if (collection == null) {
             return null;

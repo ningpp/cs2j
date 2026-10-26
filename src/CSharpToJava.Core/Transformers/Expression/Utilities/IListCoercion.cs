@@ -80,6 +80,18 @@ internal static class IListCoercion
                 return true;
             }
 
+            // 源类实现了非泛型 System.Collections.IList（真实链
+            // CollectionInterfaceTests 的 CSharpIList target = element.Attributes()）：
+            // 其 Java 类经 ICollection 菱形收窄后只实现 CSharpCollection，与
+            // CSharpIList 平行无交集——包 CSharpIList.from(CSharpCollection) 视图。
+            if (sourceType.AllInterfaces.Any(i =>
+                    i.OriginalDefinition.ToDisplayString() == "System.Collections.IList"))
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpIList");
+                rendered = $"CSharpIList.from({text})";
+                return true;
+            }
+
             // A C# System.Collections.ICollection (or generic ICollection<T>, e.g.
             // Dictionary<K,V>.Values — whose static type is the nested
             // ValueCollection/KeyCollection class implementing ICollection<T>)
