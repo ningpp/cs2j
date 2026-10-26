@@ -446,6 +446,13 @@
             ]
         },
         {
+            "csharp": "System.DayOfWeek",
+            "java": "DayOfWeek",
+            "imports": [
+                "io.github.ningpp.compat.DayOfWeek"
+            ]
+        },
+        {
             "csharp": "System.DateTimeOffset",
             "java": "CSharpDateTimeOffset",
             "imports": [
