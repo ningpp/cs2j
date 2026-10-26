@@ -405,7 +405,36 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             if (elem == "byte" && !v.TrimStart().StartsWith("(byte)", StringComparison.Ordinal))
                 v = $"(byte) ({v})";
             return v;
-        });
+        }).ToList();
+        // 大嵌入字节数组（测试资源整文件内嵌，真实链 FilePathUtil 的 s_fileN，单行
+        // 4.7MB）超出 javac 单方法 64KB 字节码上限（代码过长/常量过多）。全常量
+        // 字面量时改走 base64：ArrayHelper.fromBase64("<b64>")，字段初始化保持单行。
+        if (elem == "byte" && init.Expressions.Count >= 1000)
+        {
+            var bytes = new List<byte>(init.Expressions.Count);
+            var allConstant = true;
+            foreach (var e in init.Expressions)
+            {
+                if (e is LiteralExpressionSyntax lit
+                    && lit.IsKind(SyntaxKind.NumericLiteralExpression)
+                    && lit.Token.Value is int byteValue
+                    && byteValue is >= 0 and <= 255)
+                {
+                    bytes.Add((byte)byteValue);
+                }
+                else
+                {
+                    allConstant = false;
+                    break;
+                }
+            }
+            if (allConstant)
+            {
+                c.AddImport("io.github.ningpp.compat.ArrayHelper");
+                var base64 = Convert.ToBase64String(bytes.ToArray());
+                return $"ArrayHelper.fromBase64(\"{base64}\")";
+            }
+        }
         return $"{{ {string.Join(", ", vals)} }}";
     }
     private string NewStackAlloc(StackAllocArrayCreationExpressionSyntax n, ConversionContext c)

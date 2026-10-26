@@ -513,6 +513,15 @@ public class ArrayHelper {
         }
         return array;
     }
+    /**
+     * Large embedded byte[] initializers (whole test-resource files inlined by the
+     * C# source) exceed javac's 64KB per-method bytecode limit, so the converter
+     * emits a base64 payload instead; this decodes it back to the exact bytes.
+     */
+    public static byte[] fromBase64(String base64) {
+        return java.util.Base64.getDecoder().decode(base64);
+    }
+
 
     public static <T> int binarySearch(T[] array, T value) {
         return java.util.Arrays.binarySearch(array, value);
