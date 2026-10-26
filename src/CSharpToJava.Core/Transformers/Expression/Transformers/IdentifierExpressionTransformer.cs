@@ -566,6 +566,16 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return $"{receiver}.size()";
             }
 
+            // C11 访问器形态：setter 可访问性是 private protected（Java 无法表达）时，
+            // member-desugar 在声明项目把属性展开成 get_X/set_X 方法，Java 侧渲染为
+            // X()/X(v)。plan 按项目计算，跨项目使用点不经使用点改写，只能按访问器
+            // 形态发 X()——否则 getXxx() 找不到符号（真实链 Capture.Index/Length 被
+            // dotnet-xml 的 XmlConvert 读取 6 站）。
+            if (property.SetMethod is { DeclaredAccessibility: Accessibility.ProtectedAndInternal })
+            {
+                return $"{receiver}.{member}()";
+            }
+
             return $"{receiver}.get{member.Substring(0, 1).ToUpperInvariant()}{member.Substring(1)}()";
         }
 
