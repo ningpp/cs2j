@@ -120,6 +120,37 @@ public class CompareInfo {
         return -1;
     }
 
+    // --- IndexOf, options-aware ---
+
+    // CompareOptions is a bag of int constants, so an options-aware IndexOf CANNOT
+    // overload against indexOf(String, String, int startIndex) — the compiler binds
+    // CompareOptions.Ordinal (0x40000000) as a startIndex and the search always
+    // misses. The converter maps the (…, CompareOptions) shapes here instead.
+
+    public int indexOfOptions(String source, String value) {
+        return indexOf(source, value);
+    }
+
+    public int indexOfOptions(String source, char value) {
+        return indexOf(source, value);
+    }
+
+    public int indexOfOptions(String source, String value, int options) {
+        if (source == null || value == null) return -1;
+        if ((options & CompareOptions.OrdinalIgnoreCase) != 0) {
+            int limit = source.length() - value.length();
+            for (int i = 0; i <= limit; i++) {
+                if (source.regionMatches(true, i, value, 0, value.length())) return i;
+            }
+            return -1;
+        }
+        // Ordinal and the culture-aware stub both resolve to the plain index search:
+        // java.text.Collator has no search primitive, and the ported XPath string
+        // functions (contains / substring-before / substring-after) only depend on
+        // the ordinal result.
+        return source.indexOf(value);
+    }
+
     // --- LastIndexOf ---
 
     public int lastIndexOf(String source, String value) {

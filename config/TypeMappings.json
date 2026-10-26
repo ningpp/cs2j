@@ -7591,6 +7591,18 @@
         },
         {
             "type": "System.Math",
+            "method": "Round",
+            "signature": "1",
+            "javaMethod": "MathHelper.round"
+        },
+        {
+            "type": "System.Globalization.CompareInfo",
+            "method": "IndexOf",
+            "signature": "3",
+            "javaMethod": "indexOfOptions"
+        },
+        {
+            "type": "System.Math",
             "method": "Ceiling",
             "javaMethod": "ceil"
         },
