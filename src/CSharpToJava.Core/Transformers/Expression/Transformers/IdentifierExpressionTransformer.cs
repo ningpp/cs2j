@@ -104,11 +104,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         // An out-var declared inside the current statement is read through its holder:
         // the value only exists after the call completes, so the read-back declaration
         // emitted after the statement is too late for same-statement uses such as
-        // `d.TryGetValue(k, out v) ? v : fallback`.
+        // `d.TryGetValue(k, out v) ? v : fallback`. 同一判据也覆盖「先声明后作为
+        // out 实参」的局部变量（`object obj; return d.TryGetValue(k, out obj) ? obj
+        // : null;`）——其声明无初始化器，本语句内的读取同样必须先走 holder
+        //（真实链 NameTable.Item 2 站 javac 可能尚未初始化变量 obj）。holder 集合
+        // 按语句清空（DrainPostStatements），跨语句读取仍走变量本体。
         if (symbol is ILocalSymbol local
             && context.TryGetActiveRefHolder(
                 ConversionContext.EscapeJavaKeyword(local.Name), out var outHolder)
-            && IsOutDeclaredLocal(local))
+            && (IsOutDeclaredLocal(local) || IsUninitializedLocalDeclaration(local)))
             return $"{outHolder}.value";
 
         // Instance fields declared by an enclosing type (or a base class) cannot be
@@ -172,6 +176,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         return false;
     }
+
+    /// <summary>局部变量声明无初始化器（C# 里靠后续赋值/out 调用获得值）。</summary>
+    private static bool IsUninitializedLocalDeclaration(ILocalSymbol local)
+        => local.DeclaringSyntaxReferences.Any(reference =>
+            reference.GetSyntax() is VariableDeclaratorSyntax { Initializer: null });
 
     private static void AddImportForHelperReceiver(string dottedName, ConversionContext context)
     {
