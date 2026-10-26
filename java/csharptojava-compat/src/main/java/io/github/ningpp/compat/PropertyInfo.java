@@ -520,6 +520,12 @@ public final class PropertyInfo implements MemberInfo {
             } else if (methodName.startsWith("is") && methodName.length() > 2
                        && (m.getReturnType() == boolean.class || m.getReturnType() == Boolean.class)) {
                 props.add(new PropertyInfo(m, findSetter(clazz, methodName.substring(2), m)));
+            } else if (looksLikeCSharpProperty(clazz, m)) {
+                // C11 访问器形态：member-desugar 把 C# 属性展开成 get_X/set_X 方法，
+                // Java 侧渲染为 X()/X(v)（PascalCase 无 get 前缀）。同名单参 void
+                // 方法即 setter（真实链 XmlSerializer 反射序列化 Person.Name/Age，
+                // 简单类全部 8 个测试因属性缺失输出空元素）。
+                props.add(new PropertyInfo(m, findCSharpStyleSetter(clazz, m)));
             }
         }
         // A property whose accessors are all invisible in C# is not a public property, and
@@ -556,6 +562,38 @@ public final class PropertyInfo implements MemberInfo {
      * only its getter, and consumers keying on SetMethod (e.g. the JSON serializer's
      * ShouldDeserialize) would silently treat every writable property as read-only.
      */
+    /**
+     * True when the no-arg method is the getter half of a C11 accessor-method pair:
+     * the class also declares a same-name one-arg void overload (the setter), the
+     * name is PascalCase, and no "get"/"is" prefix was matched. C# bean accessors
+     * (get_X) never reach this shape, and converted ordinary methods rarely pair a
+     * PascalCase no-arg overload with a same-name one-arg void overload.
+     */
+    private static boolean looksLikeCSharpProperty(Class<?> clazz, Method getter) {
+        String name = getter.getName();
+        if (name.isEmpty() || !Character.isUpperCase(name.charAt(0))) return false;
+        if (name.startsWith("get") || name.startsWith("is")) return false;
+        for (Method m : clazz.getMethods()) {
+            if (Modifier.isStatic(m.getModifiers())) continue;
+            if (!m.getName().equals(name)) continue;
+            if (m.getParameterCount() == 1 && m.getReturnType() == void.class) return true;
+        }
+        return false;
+    }
+
+    private static Method findCSharpStyleSetter(Class<?> clazz, Method getter) {
+        for (Method m : clazz.getMethods()) {
+            if (Modifier.isStatic(m.getModifiers())) continue;
+            if (!m.getName().equals(getter.getName())) continue;
+            if (m.getParameterCount() == 1 && m.getReturnType() == void.class) {
+                if (isBoxCompatible(m.getParameterTypes()[0], getter.getReturnType())) {
+                    return m;
+                }
+            }
+        }
+        return null;
+    }
+
     private static Method findSetter(Class<?> clazz, String propertyName, Method getter) {
         String setterName = "set" + propertyName;
         Class<?> getterType = getter.getReturnType();
