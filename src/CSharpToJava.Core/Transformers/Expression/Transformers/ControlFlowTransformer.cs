@@ -74,6 +74,13 @@ public class ControlFlowTransformer : IIRExpressionTransformer
                     ternary.WhenTrue, whenTrue.ToInlineString(), irTernaryTarget, context);
                 var falseText = SpanCoercion.CoerceOrSame(
                     ternary.WhenFalse, whenFalse.ToInlineString(), irTernaryTarget, context);
+                // C# 隐式数值 → decimal 臂统一（真实链 XmlSchemaExporter
+                // `repeats ? decimal.MaxValue : 1`）：Java 条件表达式两臂类型必须
+                // 一致，decimal 目标下 int 臂须经 compat Decimal 工厂包装。
+                trueText = TypeOperationTransformer.TryCoerceToDecimal(
+                    ternary.WhenTrue, trueText, irTernaryTarget, context) ?? trueText;
+                falseText = TypeOperationTransformer.TryCoerceToDecimal(
+                    ternary.WhenFalse, falseText, irTernaryTarget, context) ?? falseText;
                 INamedTypeSymbol? enumTarget = irTernaryTarget as INamedTypeSymbol;
                 if (enumTarget is not { TypeKind: TypeKind.Enum })
                 {
@@ -166,6 +173,13 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         {
             trueExpr = SpanCoercion.CoerceOrSame(node.WhenTrue, trueExpr, ternaryTarget, context);
             falseExpr = SpanCoercion.CoerceOrSame(node.WhenFalse, falseExpr, ternaryTarget, context);
+            // C# 隐式数值 → decimal 臂统一（真实链 XmlSchemaExporter
+            // `repeats ? decimal.MaxValue : 1`）：Java 条件表达式两臂类型必须
+            // 一致，decimal 目标下 int 臂须经 compat Decimal 工厂包装。
+            trueExpr = TypeOperationTransformer.TryCoerceToDecimal(
+                node.WhenTrue, trueExpr, ternaryTarget, context) ?? trueExpr;
+            falseExpr = TypeOperationTransformer.TryCoerceToDecimal(
+                node.WhenFalse, falseExpr, ternaryTarget, context) ?? falseExpr;
             // 常量数字臂 → 枚举（如 `... ? RegexOptions.ECMAScript : 0`）。嵌套三元
             // 在 C# 里可能被推断为 int（外层再转换），此时用枚举兄弟臂补目标类型。
             INamedTypeSymbol? enumTarget = ternaryTarget as INamedTypeSymbol;

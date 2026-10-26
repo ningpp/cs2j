@@ -152,6 +152,59 @@ public partial class ArgumentTransformer
         return $"CSharpGenericIterable.from({text}.collect(CSharpList.toCSharpList()))";
     }
 
+    /// <summary>
+    /// Direct invocation path (which bypasses <see cref="CoerceArgumentType"/>):
+    /// C# Type (or TypeInfo) implements ICustomAttributeProvider/MemberInfo, but
+    /// java.lang.Class is unrelated to the compat interfaces — wrap with the
+    /// TypeHelper adapter (real chain: XmlReflectionImporter.IncludeTypes(Type)
+    /// flowing into the ICustomAttributeProvider overload).
+    /// </summary>
+    public static string CoerceSystemTypeArgumentWrapper(
+        ExpressionSyntax argument,
+        string text,
+        IMethodSymbol? method,
+        int index,
+        ConversionContext context)
+    {
+        if (method == null || index >= method.Parameters.Length || context.SemanticModel == null)
+            return text;
+
+        var parameter = method.Parameters[index];
+        var interfaceName = parameter.Type is INamedTypeSymbol capType ? capType.ToDisplayString() : null;
+        if (interfaceName is not ("System.Reflection.ICustomAttributeProvider" or "System.Reflection.MemberInfo"))
+            return text;
+
+        if (context.GetTypeInfo(argument).Type is not INamedTypeSymbol argNamed
+            || !IsSystemTypeOrDerived(argNamed))
+            return text;
+
+        var factory = interfaceName == "System.Reflection.ICustomAttributeProvider"
+            ? "asCustomAttributeProvider"
+            : "asMemberInfo";
+        context.AddImport("io.github.ningpp.compat.TypeHelper");
+        return $"TypeHelper.{factory}({text})";
+    }
+
+    /// <summary>
+    /// Direct invocation path (which bypasses <see cref="CoerceArgumentType"/>):
+    /// implicit C# numeric → decimal parameter conversion must wrap the value in
+    /// the compat Decimal factory (real chain: XmlSchemaElement.MinOccurs = 0).
+    /// </summary>
+    public static string CoerceDecimalArgument(
+        ExpressionSyntax argument,
+        string text,
+        IMethodSymbol? method,
+        int index,
+        ConversionContext context)
+    {
+        if (method == null || index >= method.Parameters.Length)
+            return text;
+
+        var coerced = TypeOperationTransformer.TryCoerceToDecimal(
+            argument, text, method.Parameters[index].Type, context);
+        return coerced ?? text;
+    }
+
     private static bool IsSpanOfT(ITypeSymbol? type, string name)
         => type is INamedTypeSymbol named
            && named.Name == name
@@ -264,6 +317,14 @@ public partial class ArgumentTransformer
                 context.AddImport("io.github.ningpp.compat.TypeHelper");
                 return $"TypeHelper.{factory}({transformedExpr})";
             }
+        }
+
+        // Implicit C# numeric → decimal conversion (parameter slot): Java has no
+        // primitive→reference promotion; wrap through the compat Decimal factory.
+        if (TypeOperationTransformer.TryCoerceToDecimal(arg.Expression, transformedExpr, paramType, context)
+            is { } decimalCoerced)
+        {
+            return decimalCoerced;
         }
 
         if (arg.Expression is ThisExpressionSyntax

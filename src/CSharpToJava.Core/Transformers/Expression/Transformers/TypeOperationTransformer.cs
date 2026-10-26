@@ -332,6 +332,45 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             or SpecialType.System_Single
             or SpecialType.System_Double
             || source.TypeKind == TypeKind.Enum;
+
+    /// <summary>
+    /// Implicit C# numeric → decimal conversion at an assignment/argument slot
+    /// whose target type is System.Decimal (real chains: SchemaSetCompiler's
+    /// <c>virtualSeq.MinOccurs = 1</c>, Exporter's <c>int minOccurs</c> into
+    /// <c>element.MinOccurs</c>, Numeric10FacetsChecker(long.MinValue, ...)).
+    /// Java has no primitive→reference promotion, so the value must go through
+    /// the compat Decimal factory: valueOf for promotable/narrow sources,
+    /// UnsignedMath magnitude helpers for real uint/ulong. Returns null when
+    /// the target is not decimal or the source is already decimal.
+    /// </summary>
+    public static string? TryCoerceToDecimal(ExpressionSyntax value, string text, ITypeSymbol? targetType, ConversionContext context)
+    {
+        if (targetType?.SpecialType != SpecialType.System_Decimal)
+            return null;
+        var sourceType = context.GetTypeInfo(value).Type;
+        if (sourceType?.SpecialType == SpecialType.System_Decimal)
+            return null;
+        if (sourceType is not null)
+        {
+            if (sourceType.SpecialType == SpecialType.System_UInt32)
+            {
+                // uint literals above int range render with an L suffix; the
+                // (int) cast is an identity for already-int values and keeps the
+                // bit pattern for the L-literal ones (compat takes the raw pattern).
+                context.AddImport("io.github.ningpp.compat.UnsignedMath");
+                return $"UnsignedMath.toDecimalUInt32((int)({text}))";
+            }
+            if (sourceType.SpecialType == SpecialType.System_UInt64)
+            {
+                context.AddImport("io.github.ningpp.compat.UnsignedMath");
+                return $"UnsignedMath.toDecimalUInt64({text})";
+            }
+            if (!IsNumericPromotableToDecimal(sourceType))
+                return null;
+        }
+        context.AddImport("io.github.ningpp.compat.Decimal");
+        return $"Decimal.valueOf({text})";
+    }
     private static string Is(BinaryExpressionSyntax n, ConversionContext c)
     {
         var left = Expr(c, n.Left);
@@ -424,7 +463,79 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     private static string TypeOf(TypeOfExpressionSyntax n, ConversionContext c)
     {
         if (c.GetTypeInfo(n.Type).Type is ITypeParameterSymbol tp) return TypeParameterToken(n, tp);
+        // Unbound generic `typeof(X<>)` (real chain Types.IsOptionalValue's
+        // `typeof(Nullable<>).GetGenericTypeDefinition()`): GetTypeInfo yields the
+        // constructed definition, whose empty argument list otherwise falls through
+        // to the type-parameter fallback and emits `T.class` (javac: 找不到符号 类 T).
+        // Map the erased definition host instead. The omitted argument still counts
+        // as one entry (`Nullable<>`), so match on OmittedTypeArgument.
+        if (n.Type is GenericNameSyntax unboundGeneric
+            && unboundGeneric.TypeArgumentList.Arguments.Any(a => a is OmittedTypeArgumentSyntax))
+        {
+            var infoType = c.GetTypeInfo(n.Type).Type;
+            if (infoType is INamedTypeSymbol { } unboundNamed && infoType is not IErrorTypeSymbol)
+            {
+                var definition = unboundNamed.OriginalDefinition;
+                // MapType unwraps Nullable<T> to its element type (the type
+                // parameter "T" for the definition itself); the class literal of
+                // the unbound form must be the mapped host class instead.
+                if (definition.SpecialType == SpecialType.System_Nullable_T)
+                {
+                    var metadataKey = $"{definition.ContainingNamespace?.ToDisplayString()}.{definition.MetadataName}";
+                    if (c.TypeMappings.MapType(metadataKey) is { } nullableHost)
+                    {
+                        foreach (var import in c.TypeMappings.GetRequiredImports(metadataKey))
+                            c.AddImport(import);
+                        return $"{Rt(nullableHost)}.class";
+                    }
+                    return "Optional.class";
+                }
+                return $"{Rt(c.MapType(definition))}.class";
+            }
+            // Error-typed operand (unbound generics are not first-class types):
+            // resolve the generic definition through the enclosing namespaces and
+            // the file's using directives.
+            var metadataName = $"{unboundGeneric.Identifier.ValueText}`{unboundGeneric.Arity}";
+            var resolved = ResolveGenericDefinitionByMetadataName(n, metadataName, c);
+            if (resolved != null)
+                return $"{Rt(c.MapType(resolved))}.class";
+        }
         return $"{Rt(Map(n.Type, c))}.class";
+    }
+
+    /// <summary>
+    /// Resolves an unbound-generic typeof operand (<c>Nullable&lt;&gt;</c>) to its
+    /// generic definition symbol by probing the enclosing namespaces, the file's
+    /// using directives, and System (in that order) against the compilation.
+    /// </summary>
+    private static INamedTypeSymbol? ResolveGenericDefinitionByMetadataName(
+        TypeOfExpressionSyntax site, string metadataName, ConversionContext c)
+    {
+        var compilation = c.ProjectCompilation;
+        if (compilation == null)
+            return null;
+
+        var candidates = new List<string>();
+        for (var ancestor = site.Ancestors().FirstOrDefault(); ancestor != null; ancestor = ancestor.Parent)
+        {
+            if (ancestor is NamespaceDeclarationSyntax nsDecl)
+                candidates.Insert(0, nsDecl.Name.ToString());
+            else if (ancestor is FileScopedNamespaceDeclarationSyntax fileNs)
+                candidates.Insert(0, fileNs.Name.ToString());
+        }
+        if (c.SemanticModel?.SyntaxTree?.GetCompilationUnitRoot() is { } root)
+        {
+            foreach (var usingDir in root.DescendantNodes().OfType<UsingDirectiveSyntax>())
+            {
+                if (usingDir.Name != null && usingDir.Alias == null)
+                    candidates.Add(usingDir.Name.ToString());
+            }
+        }
+        candidates.Add("System");
+
+        return candidates
+            .Select(ns => compilation.GetTypeByMetadataName($"{ns}.{metadataName}"))
+            .FirstOrDefault(t => t != null);
     }
 
     /// <summary>

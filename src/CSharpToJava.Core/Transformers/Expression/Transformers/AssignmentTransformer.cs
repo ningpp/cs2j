@@ -110,6 +110,11 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // （真实链 FunctionQuery/StringFunctions 克隆构造器 `_args = tmp`）。
         rightText = IListCoercion.CoerceOrSame(
             rhs, rightText, context.GetTypeInfo(lhs).Type, context);
+        // C# 隐式数值 → decimal 赋值（真实链 SchemaSetCompiler `maxOccurs = 0;`、
+        // RangeContentValidator `rangeCounters[...] = 0;`）：Java 无基元→引用提升，
+        // 须经 compat Decimal 工厂包装。
+        rightText = TypeOperationTransformer.TryCoerceToDecimal(
+            rhs, rightText, context.GetTypeInfo(lhs).Type, context) ?? rightText;
         if (op == "=" && JavaNarrowTarget(lhs, context) is { } narrowTarget)
         {
             // C# implicit/explicit narrowing conversions to byte/short/char have no
@@ -178,6 +183,10 @@ public class AssignmentTransformer : IIRExpressionTransformer
         var receiver = a.Left is MemberAccessExpressionSyntax ma ? f.Transform(ma.Expression, c) + "." : "";
         var name = char.ToUpperInvariant(p.Name[0]) + p.Name[1..];
         var right = f.Transform(a.Right, c);
+        // C# 隐式数值 → decimal 属性赋值（真实链 XmlSchemaInference
+        // `el.MinOccurs = 0`、SchemaSetCompiler `virtualSeq.MinOccurs = 1`）：
+        // setter 形参落 compat Decimal，数值须经 Decimal.valueOf 包装。
+        right = TypeOperationTransformer.TryCoerceToDecimal(a.Right, right, p.Type, c) ?? right;
 
         // TypeMappings may rename the property's accessor pair (see
         // IdentifierExpressionTransformer.TransformMemberAccess for the read
