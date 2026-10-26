@@ -51,6 +51,37 @@ public sealed class ClosureAnchorPlan
     public string FilePath => Closure.SyntaxTree!.FilePath;
 }
 
+/// <summary>
+/// GD-MTOK: a generic method whose body needs the runtime token of one of its OWN
+/// type parameters (typeof sites only). The method gains a trailing
+/// <c>global::System.Type __cs2j_token_T</c> parameter and every call site passes
+/// the closed type argument's token, so the Java side reifies the real class
+/// (e.g. <c>Double.class</c>) instead of the erasure-degraded anchor <c>Object.class</c> —
+/// the anchor local cannot know T, but the call site binds it concretely.
+/// </summary>
+public sealed class MethodTokenPlan
+{
+    public required IMethodSymbol Method { get; init; }
+    public required MethodDeclarationSyntax Declaration { get; init; }
+    /// <summary>The method's own type parameters needing a runtime token, ordered by ordinal.</summary>
+    public required IReadOnlyList<GenericDeepenParamRef> Params { get; init; }
+    /// <summary>Triggering typeof(T) sites inside the method; each reads the injected parameter.</summary>
+    public required IReadOnlyList<MethodTokenTypeOfSite> TypeOfSites { get; init; }
+    /// <summary>Every invocation of the method with the token arguments to append.</summary>
+    public required IReadOnlyList<MethodTokenCallSitePlan> CallSites { get; init; }
+    public string FilePath => Declaration.SyntaxTree.FilePath;
+}
+
+/// <summary>One triggering typeof(T) site plus the method type parameter whose token it must read.</summary>
+public sealed record MethodTokenTypeOfSite(TypeOfExpressionSyntax Site, GenericDeepenParamRef Param);
+
+/// <summary>Direct invocation of a planned method: the token arguments to append.</summary>
+public sealed class MethodTokenCallSitePlan
+{
+    public required InvocationExpressionSyntax Invocation { get; init; }
+    public required IReadOnlyList<string> TypeArgumentTexts { get; init; }
+}
+
 /// <summary>Static method referencing enclosing class type parameters, hoisted into a generic method (GD-STATIC).</summary>
 public sealed class StaticMethodPlan
 {
@@ -110,6 +141,7 @@ public sealed class GenericDeepenAnalysis
     public required IReadOnlyList<StaticFieldPlan> StaticFields { get; init; }
     public required IReadOnlyList<StaticMethodPlan> StaticMethods { get; init; }
     public required IReadOnlyList<ConstructorTokenPlan> ConstructorTokens { get; init; }
+    public required IReadOnlyList<MethodTokenPlan> MethodTokens { get; init; }
     public required IReadOnlyList<GenericDeepenDiagnostic> Diagnostics { get; init; }
     public required GenericDeepenStatistics Statistics { get; init; }
 
@@ -139,6 +171,7 @@ public sealed class GenericDeepenAnalysis
         StaticFields = Array.Empty<StaticFieldPlan>(),
         StaticMethods = Array.Empty<StaticMethodPlan>(),
         ConstructorTokens = Array.Empty<ConstructorTokenPlan>(),
+        MethodTokens = Array.Empty<MethodTokenPlan>(),
         Diagnostics = Array.Empty<GenericDeepenDiagnostic>(),
         Statistics = new GenericDeepenStatistics(),
         ActiveFilePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
@@ -284,6 +317,7 @@ public sealed class GenericDeepenAnalyzer
                 StaticFields = Array.Empty<StaticFieldPlan>(),
                 StaticMethods = Array.Empty<StaticMethodPlan>(),
                 ConstructorTokens = Array.Empty<ConstructorTokenPlan>(),
+                MethodTokens = Array.Empty<MethodTokenPlan>(),
                 Diagnostics = Array.Empty<GenericDeepenDiagnostic>(),
                 Statistics = new GenericDeepenStatistics(),
                 ActiveFilePaths = _activeFilePaths,
@@ -304,12 +338,23 @@ public sealed class GenericDeepenAnalyzer
         CollectStaticFieldPlans();
         CollectStaticMethodPlans();
         CollectConstructorTokenCallSites();
+        CollectMethodTokenPlans();
+
+        var threadedMethods = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        foreach (var plan in _methodTokens)
+        {
+            threadedMethods.Add(plan.Method);
+        }
 
         var anchors = new List<TokenAnchorPlan>();
         foreach (var (method, needs) in _needs)
         {
             if (needs.Count == 0) continue;
             if (!_methodDecls.TryGetValue(method, out var declaration)) continue;
+            // GD-MTOK: a threaded method's token reaches it as an injected parameter,
+            // so the anchor local (which the Java side degrades to Object.class for a
+            // method type parameter) must not be inserted alongside it.
+            if (threadedMethods.Contains(method)) continue;
 
             var isInterface = method.ContainingType?.TypeKind == TypeKind.Interface;
             var hasBody = declaration.Body != null || declaration.ExpressionBody != null;
@@ -369,6 +414,7 @@ public sealed class GenericDeepenAnalyzer
             StaticFields = _staticFields,
             StaticMethods = _staticMethods,
             ConstructorTokens = BuildConstructorTokenPlans(),
+            MethodTokens = _methodTokens,
             Diagnostics = EscalateDiagnostics(_diagnostics, _options),
             Statistics = _analysisStats,
             ActiveFilePaths = _activeFilePaths,
@@ -1207,6 +1253,30 @@ public sealed class GenericDeepenAnalyzer
         }
     }
 
+    private void RecordMethodTypeOfSite(
+        IMethodSymbol method, TypeOfExpressionSyntax typeOf, GenericDeepenParamRef paramRef)
+    {
+        var key = method.OriginalDefinition;
+        if (!_methodTypeOfSites.TryGetValue(key, out var sites))
+        {
+            sites = new List<MethodTokenTypeOfSite>();
+            _methodTypeOfSites[key] = sites;
+        }
+
+        sites.Add(new MethodTokenTypeOfSite(typeOf, paramRef));
+    }
+
+    private static HashSet<string> CollectIdentifierNames(SyntaxNode scope)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var token in scope.DescendantTokens().Where(token => token.IsKind(SyntaxKind.IdentifierToken)))
+        {
+            names.Add(token.ValueText);
+        }
+
+        return names;
+    }
+
     /// <summary>Static properties referencing class parameters are not rewritable in v1 — surface as CS2J1102.</summary>
     private void ReportStaticPropertyGaps()
     {
@@ -1393,6 +1463,217 @@ public sealed class GenericDeepenAnalyzer
     private readonly Dictionary<SyntaxNode, ConstructorTokenBuilder> _ctorTokenBuilders = new();
     private readonly Dictionary<INamedTypeSymbol, ConstructorTokenBuilder> _ctorTokenBuildersBySymbol =
         new(SymbolEqualityComparer.Default);
+
+    // ---- GD-MTOK: method type-parameter token threading ----
+
+    private readonly List<MethodTokenPlan> _methodTokens = new();
+
+    /// <summary>typeof sites inside a method whose type resolves to a type parameter, per method.</summary>
+    private readonly Dictionary<IMethodSymbol, List<MethodTokenTypeOfSite>> _methodTypeOfSites =
+        new(SymbolEqualityComparer.Default);
+
+    /// <summary>Parameters whose token need comes from a non-typeof site (is/as/pattern/catch) — not threadable.</summary>
+    private readonly Dictionary<IMethodSymbol, HashSet<string>> _methodNonTypeOfTokenParams =
+        new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    /// GD-MTOK: generic methods whose token needs are exclusively typeof sites over
+    /// their OWN type parameters gain a trailing token parameter and pass concrete
+    /// tokens at every call site. Sites over class parameters, non-typeof token uses
+    /// (is/as/pattern/catch), forwarded needs, closure needs, contract-bearing
+    /// signatures (virtual/override/abstract/interface) and unresolvable call sites
+    /// keep the anchor path.
+    /// </summary>
+    private void CollectMethodTokenPlans()
+    {
+        if (!_options.RewriteTypeOfAnchors)
+        {
+            return;
+        }
+
+        foreach (var (method, declaration) in _methodDecls)
+        {
+            if (!_needs.TryGetValue(method, out var needs) || needs.Count == 0) continue;
+            if (!_methodTypeOfSites.TryGetValue(method, out var typeOfSites) || typeOfSites.Count == 0) continue;
+
+            // Contract-bearing members cannot grow a parameter: the override/interface
+            // contract fixes the signature, and a method-group reference binds by arity.
+            if (method.MethodKind != MethodKind.Ordinary) continue;
+            if (method.ContainingType?.TypeKind == TypeKind.Interface) continue;
+            if (method.IsOverride || method.OverriddenMethod != null) continue;
+            if (declaration.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword)
+                || m.IsKind(SyntaxKind.VirtualKeyword) || m.IsKind(SyntaxKind.OverrideKeyword)
+                || m.IsKind(SyntaxKind.ExternKeyword))) continue;
+            if (declaration.Body == null && declaration.ExpressionBody == null) continue;
+            if (method.Parameters is { Length: > 0 } parameters
+                && parameters[^1].IsParams) continue;
+            if (HasMethodGroupReference(method)) continue;
+
+            _methodNonTypeOfTokenParams.TryGetValue(method, out var nonTypeOf);
+            var candidates = new List<GenericDeepenParamRef>();
+            var blocked = false;
+            foreach (var need in needs)
+            {
+                // Only the method's own parameters can be threaded; a class-parameter
+                // need has no per-call-site type argument to read the token from.
+                if (need.Kind != GenericDeepenParamKind.MethodTypeParameter
+                    || (nonTypeOf != null && nonTypeOf.Contains(need.Name)))
+                {
+                    blocked = true;
+                    break;
+                }
+
+                candidates.Add(need);
+            }
+
+            if (blocked || candidates.Count == 0) continue;
+
+            // Every need must have at least one direct typeof site in this method; a
+            // need that only arrived through propagation has no site to rewrite.
+            var sitesByParam = typeOfSites
+                .GroupBy(site => site.Param.Ordinal)
+                .ToDictionary(group => group.Key, group => group.ToList());            if (candidates.Any(candidate => !sitesByParam.ContainsKey(candidate.Ordinal))) continue;
+
+            // A closure inside the method anchoring the same parameter would capture
+            // the injected token through a display class; keep the anchor path there.
+            var candidateNames = candidates.Select(candidate => candidate.Name).ToHashSet(StringComparer.Ordinal);
+            if (_closureNeeds.Values.Any(set => set.Any(p => candidateNames.Contains(p.Name)))) continue;
+
+            // Forwarding a threaded parameter to a hoisted callee needs the anchor at
+            // the call site (the hoisted invocation spells the token); keep it.
+            if (_forwardEdges.TryGetValue(method, out var edges)
+                && edges.Any(edge => candidateNames.Contains(edge.CallerParam.Name)))
+            {
+                continue;
+            }
+
+            // The injected parameter shares the anchor spelling; a body already using
+            // that name would collide with it.
+            var tokenNames = candidates.Select(candidate => GenericDeepenSyntaxFacts.AnchorVariableName(candidate.Name)).ToList();
+            var usedNames = CollectIdentifierNames(declaration);
+            if (tokenNames.Any(tokenName => usedNames.Contains(tokenName))) continue;
+
+            var callSites = CollectMethodTokenCallSites(method, candidates);
+            if (callSites == null) continue;
+            if (callSites.Count == 0)
+            {
+                // No rewriteable call site: threading would change the signature for
+                // nothing (and break any reflection caller).
+                continue;
+            }
+
+            _methodTokens.Add(new MethodTokenPlan
+            {
+                Method = method,
+                Declaration = declaration,
+                Params = candidates,
+                TypeOfSites = sitesByParam
+                    .SelectMany(kv => kv.Value)
+                    .Where(site => candidateNames.Contains(site.Param.Name))
+                    .ToList(),
+                CallSites = callSites,
+            });
+            _analysisStats.MethodTokenMethodsPlanned++;
+        }
+
+        _methodTokens.Sort((a, b) => string.CompareOrdinal(a.FilePath, b.FilePath) != 0
+            ? string.CompareOrdinal(a.FilePath, b.FilePath)
+            : a.Declaration.SpanStart.CompareTo(b.Declaration.SpanStart));
+    }
+
+    /// <summary>
+    /// Every invocation of the method with the token texts to append. Null means a
+    /// call site cannot be safely rewritten (no explicit type arguments, a
+    /// type-parameter-flavoured argument, elided arguments or named arguments) —
+    /// the whole plan is dropped rather than half-rewritten.
+    /// </summary>
+    private List<MethodTokenCallSitePlan>? CollectMethodTokenCallSites(
+        IMethodSymbol method, IReadOnlyList<GenericDeepenParamRef> threadedParams)
+    {
+        EnsureNameIndex();
+        var sites = new List<MethodTokenCallSitePlan>();
+        foreach (var invocation in InvocationsBoundTo(method))
+        {
+            // The written type arguments are both the concreteness evidence and the
+            // emitted token text; inferred call sites have neither.
+            var generic = invocation.Expression switch
+            {
+                GenericNameSyntax g => g,
+                MemberAccessExpressionSyntax { Name: GenericNameSyntax g } => g,
+                _ => null,
+            };
+            if (generic == null
+                || generic.TypeArgumentList.Arguments.Count != method.TypeParameters.Length)
+            {
+                _diagnostics.Add(new GenericDeepenDiagnostic(
+                    GenericDeepenSeverity.Info, GenericDeepenRule.Anchor, GenericDeepenCodes.Info,
+                    $"Call site '{invocation}' of method '{method.ToDisplayString()}' does not spell its type arguments; " +
+                    "the method keeps its token anchor instead of a threaded token parameter.",
+                    invocation.SyntaxTree.FilePath,
+                    invocation.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                return null;
+            }
+
+            if (invocation.ArgumentList == null
+                || invocation.ArgumentList.Arguments.Count != method.Parameters.Length
+                || invocation.ArgumentList.Arguments.Any(argument => argument.NameColon != null))
+            {
+                _diagnostics.Add(new GenericDeepenDiagnostic(
+                    GenericDeepenSeverity.Info, GenericDeepenRule.Anchor, GenericDeepenCodes.Info,
+                    $"Call site '{invocation}' of method '{method.ToDisplayString()}' elides optional parameters or uses named arguments; " +
+                    "the method keeps its token anchor instead of a threaded token parameter.",
+                    invocation.SyntaxTree.FilePath,
+                    invocation.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                return null;
+            }
+
+            var model = _compilation.GetSemanticModel(invocation.SyntaxTree);
+            var texts = new List<string>();
+            foreach (var param in threadedParams)
+            {
+                var argument = generic.TypeArgumentList.Arguments[param.Ordinal];
+                var argumentType = model.GetTypeInfo(argument).Type ?? model.GetSymbolInfo(argument).Symbol as ITypeSymbol;
+                if (argumentType == null || ContainsTypeParameter(argumentType))
+                {
+                    _diagnostics.Add(new GenericDeepenDiagnostic(
+                        GenericDeepenSeverity.Info, GenericDeepenRule.Anchor, GenericDeepenCodes.Info,
+                        $"Call site '{invocation}' of method '{method.ToDisplayString()}' binds type parameter '{param.Name}' to " +
+                        $"{argumentType?.ToDisplayString() ?? "<unresolved>"}, whose token cannot be spelled here; " +
+                        "the method keeps its token anchor instead of a threaded token parameter.",
+                        invocation.SyntaxTree.FilePath,
+                        invocation.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                    return null;
+                }
+
+                texts.Add(argument.ToString());
+            }
+
+            sites.Add(new MethodTokenCallSitePlan
+            {
+                Invocation = invocation,
+                TypeArgumentTexts = texts,
+            });
+        }
+
+        return sites;
+    }
+
+    private static bool ContainsTypeParameter(ITypeSymbol? type)
+    {
+        switch (type)
+        {
+            case ITypeParameterSymbol:
+                return true;
+            case INamedTypeSymbol named:
+                return named.TypeArguments.Any(ContainsTypeParameter);
+            case IArrayTypeSymbol array:
+                return ContainsTypeParameter(array.ElementType);
+            case IPointerTypeSymbol pointer:
+                return ContainsTypeParameter(pointer.PointedAtType);
+            default:
+                return false;
+        }
+    }
 
     /// <summary>
     /// Registers one <c>Array.CreateInstance(typeof(T), ...)</c> site (the E10 lowering of
@@ -1664,6 +1945,7 @@ public sealed class GenericDeepenAnalyzer
                 case TypeOfExpressionSyntax typeOf:
                     if (ResolveTypeParameter(model, typeOf.Type, visible, declaration) is { } typeofRef)
                     {
+                        RecordMethodTypeOfSite(method, typeOf, typeofRef.Ref);
                         RegisterTokenSite(method, declaration, model, typeOf, typeofRef.Symbol, typeofRef.Ref, needs);
                     }
 
@@ -1751,6 +2033,19 @@ public sealed class GenericDeepenAnalyzer
         if (ownerClosure == null)
         {
             methodNeeds.Add(paramRef);
+            // GD-MTOK threads only pure-typeof needs; a token need satisfied by an
+            // is/as/pattern/catch lowering marks its parameter not threadable.
+            if (site is not TypeOfExpressionSyntax)
+            {
+                var methodKey = method.OriginalDefinition;
+                if (!_methodNonTypeOfTokenParams.TryGetValue(methodKey, out var nonTypeOf))
+                {
+                    nonTypeOf = new HashSet<string>(StringComparer.Ordinal);
+                    _methodNonTypeOfTokenParams[methodKey] = nonTypeOf;
+                }
+
+                nonTypeOf.Add(paramRef.Name);
+            }
         }
 
         if (!_options.PropagateNestedTokens)

@@ -18,6 +18,9 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<SyntaxNode, ConstructorTokenPlan> _ctorTokensByType;
     private readonly Dictionary<SyntaxNode, GenericDeepenParamRef> _ctorTokenSites;
     private readonly Dictionary<SyntaxNode, IReadOnlyList<string>> _ctorTokenCallSites;
+    private readonly Dictionary<SyntaxNode, MethodTokenPlan> _methodTokensByNode;
+    private readonly Dictionary<SyntaxNode, string> _methodTokenSites;
+    private readonly Dictionary<SyntaxNode, IReadOnlyList<string>> _methodTokenCallSites;
     private readonly GenericDeepenStatistics _stats;
     private readonly List<GenericDeepenDiagnostic> _diagnostics;
     private readonly SemanticModel _model;
@@ -34,6 +37,9 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         Dictionary<SyntaxNode, ConstructorTokenPlan> ctorTokensByType,
         Dictionary<SyntaxNode, GenericDeepenParamRef> ctorTokenSites,
         Dictionary<SyntaxNode, IReadOnlyList<string>> ctorTokenCallSites,
+        Dictionary<SyntaxNode, MethodTokenPlan> methodTokensByNode,
+        Dictionary<SyntaxNode, string> methodTokenSites,
+        Dictionary<SyntaxNode, IReadOnlyList<string>> methodTokenCallSites,
         GenericDeepenStatistics stats,
         List<GenericDeepenDiagnostic> diagnostics,
         SemanticModel model)
@@ -49,6 +55,9 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         _ctorTokensByType = ctorTokensByType;
         _ctorTokenSites = ctorTokenSites;
         _ctorTokenCallSites = ctorTokenCallSites;
+        _methodTokensByNode = methodTokensByNode;
+        _methodTokenSites = methodTokenSites;
+        _methodTokenCallSites = methodTokenCallSites;
         _stats = stats;
         _diagnostics = diagnostics;
         _model = model;
@@ -212,6 +221,12 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
             _stats.StaticMethodsRewritten++;
         }
 
+        if (_methodTokensByNode.TryGetValue(node, out var methodTokenPlan))
+        {
+            visited = AppendMethodTokenParams(visited, methodTokenPlan);
+            _stats.MethodTokenMethodsRewritten++;
+        }
+
         if (!_anchorsByNode.TryGetValue(node, out var plan))
         {
             return visited;
@@ -242,6 +257,13 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitTypeOfExpression(TypeOfExpressionSyntax node)
     {
+        // GD-MTOK: the site reads the method's injected token parameter.
+        if (_methodTokenSites.TryGetValue(node, out var tokenName))
+        {
+            _stats.MethodTokenSitesRewritten++;
+            return SyntaxFactory.IdentifierName(tokenName).WithTriviaFrom(node);
+        }
+
         // Triggering Array.CreateInstance(typeof(T), ...) sites read the injected field
         // instead of the erasure-degraded token.
         if (_ctorTokenSites.TryGetValue(node, out var param))
@@ -418,7 +440,24 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
         var visited = (InvocationExpressionSyntax)base.VisitInvocationExpression(node)!;
-        if (!_staticCallSites.TryGetValue(node, out var callSite)) return visited;
+        if (!_staticCallSites.TryGetValue(node, out var callSite))
+        {
+            if (_methodTokenCallSites.TryGetValue(node, out var tokenTexts))
+            {
+                // GD-MTOK: the trailing token arguments bind the closed type argument
+                // of this call site (typeof(double) etc.), replacing the anchor local
+                // whose initializer the Java side cannot reify.
+                _stats.MethodTokenCallSitesUpdated++;
+                var tokenArguments = tokenTexts.Select(text => SyntaxFactory.Argument(
+                    SyntaxFactory.ParseExpression($"typeof({text})")));
+                var argumentList = visited.ArgumentList ?? SyntaxFactory.ArgumentList();
+                visited = visited.WithArgumentList(argumentList.WithArguments(
+                    SyntaxFactory.SeparatedList(argumentList.Arguments.Concat(tokenArguments))));
+            }
+
+            return visited;
+        }
+
         var nameText = node.Expression switch
         {
             MemberAccessExpressionSyntax m => m.Name.Identifier.ValueText,
@@ -546,6 +585,25 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
                 SyntaxFactory.Token(SyntaxKind.ReturnKeyword).WithTrailingTrivia(SyntaxFactory.Space),
                 expression,
                 SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+
+    /// <summary>
+    /// GD-MTOK: appends one trailing <c>global::System.Type __cs2j_token_T</c> parameter
+    /// per threaded type parameter. The spelling matches the anchor convention, so the
+    /// emitted Java keeps the same variable name at every token use site.
+    /// </summary>
+    private static MethodDeclarationSyntax AppendMethodTokenParams(MethodDeclarationSyntax method, MethodTokenPlan plan)
+    {
+        var parameters = new List<ParameterSyntax>(method.ParameterList?.Parameters ?? Enumerable.Empty<ParameterSyntax>());
+        foreach (var param in plan.Params)
+        {
+            var tokenName = GenericDeepenSyntaxFacts.AnchorVariableName(param.Name);
+            parameters.Add(SyntaxFactory.ParseParameterList($"(global::System.Type {tokenName})").Parameters[0]);
+        }
+
+        return method.WithParameterList(
+            (method.ParameterList ?? SyntaxFactory.ParameterList())
+                .WithParameters(SyntaxFactory.SeparatedList(parameters)));
+    }
 
     /// <summary>
     /// Steals the type-parameter list and constraint clauses from a scratch declaration —

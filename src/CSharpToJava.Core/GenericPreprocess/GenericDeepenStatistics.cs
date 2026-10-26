@@ -26,6 +26,10 @@ public sealed class GenericDeepenStatistics
     public int ConstructorTokenParamsInjected;
     public int ConstructorTokenSitesRewritten;
     public int ConstructorTokenCallSitesUpdated;
+    public int MethodTokenMethodsPlanned;
+    public int MethodTokenMethodsRewritten;
+    public int MethodTokenSitesRewritten;
+    public int MethodTokenCallSitesUpdated;
     public Dictionary<string, int> SkippedByReason { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, int> ResidualsByRule { get; } = new(StringComparer.Ordinal);
 
@@ -52,6 +56,10 @@ public sealed class GenericDeepenStatistics
         ConstructorTokenParamsInjected += source.ConstructorTokenParamsInjected;
         ConstructorTokenSitesRewritten += source.ConstructorTokenSitesRewritten;
         ConstructorTokenCallSitesUpdated += source.ConstructorTokenCallSitesUpdated;
+        MethodTokenMethodsPlanned += source.MethodTokenMethodsPlanned;
+        MethodTokenMethodsRewritten += source.MethodTokenMethodsRewritten;
+        MethodTokenSitesRewritten += source.MethodTokenSitesRewritten;
+        MethodTokenCallSitesUpdated += source.MethodTokenCallSitesUpdated;
         MergeCounters(SkippedByReason, source.SkippedByReason);
         MergeCounters(ResidualsByRule, source.ResidualsByRule);
     }
@@ -66,6 +74,9 @@ public sealed class GenericDeepenStatistics
            $"{ConstructorTokenTypesRewritten} ctor-token types, " +
            $"{ConstructorTokenSitesRewritten} ctor-token sites, " +
            $"{ConstructorTokenCallSitesUpdated} ctor-token call sites, " +
+           $"{MethodTokenMethodsRewritten} mtok methods, " +
+           $"{MethodTokenSitesRewritten} mtok sites, " +
+           $"{MethodTokenCallSitesUpdated} mtok call sites, " +
            $"{ResidualsByRule.Values.Sum()} residuals)";
 
     private static void MergeCounters(Dictionary<string, int> target, Dictionary<string, int> source)

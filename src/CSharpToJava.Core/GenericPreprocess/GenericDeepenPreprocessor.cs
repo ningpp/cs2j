@@ -133,11 +133,39 @@ public sealed class GenericDeepenPreprocessor
             }
         }
 
+        var methodTokensByNode = new Dictionary<SyntaxNode, MethodTokenPlan>();
+        var methodTokenSites = new Dictionary<SyntaxNode, string>();
+        var methodTokenCallSites = new Dictionary<SyntaxNode, IReadOnlyList<string>>();
+        foreach (var plan in _analysis.MethodTokens)
+        {
+            if (plan.Declaration.SyntaxTree == model.SyntaxTree)
+            {
+                methodTokensByNode[plan.Declaration] = plan;
+            }
+
+            foreach (var site in plan.TypeOfSites)
+            {
+                if (site.Site.SyntaxTree == model.SyntaxTree)
+                {
+                    methodTokenSites[site.Site] = GenericDeepenSyntaxFacts.AnchorVariableName(site.Param.Name);
+                }
+            }
+
+            foreach (var callSite in plan.CallSites)
+            {
+                if (callSite.Invocation.SyntaxTree == model.SyntaxTree)
+                {
+                    methodTokenCallSites[callSite.Invocation] = callSite.TypeArgumentTexts;
+                }
+            }
+        }
+
         if (anchorsByNode.Count == 0 && closuresByNode.Count == 0
             && patternsByNode.Count == 0 && catchesByNode.Count == 0
             && fieldDeclRemovals.Count == 0 && fieldUsages.Count == 0
             && staticMethodsByNode.Count == 0 && staticCallSites.Count == 0
-            && ctorTokensByType.Count == 0 && ctorTokenSites.Count == 0 && ctorTokenCallSites.Count == 0)
+            && ctorTokensByType.Count == 0 && ctorTokenSites.Count == 0 && ctorTokenCallSites.Count == 0
+            && methodTokensByNode.Count == 0 && methodTokenSites.Count == 0 && methodTokenCallSites.Count == 0)
         {
             stats.FilesSkippedClean = 1;
             AppendAnalysisDiagnostics(diagnostics, model);
@@ -148,6 +176,7 @@ public sealed class GenericDeepenPreprocessor
         var rewriter = new GenericDeepenRewriter(
             anchorsByNode, closuresByNode, patternsByNode, catchesByNode, fieldDeclRemovals, fieldUsages,
             staticMethodsByNode, staticCallSites, ctorTokensByType, ctorTokenSites, ctorTokenCallSites,
+            methodTokensByNode, methodTokenSites, methodTokenCallSites,
             stats, diagnostics, model);
         var newRoot = rewriter.Visit(root);
         AppendAnalysisDiagnostics(diagnostics, model);
