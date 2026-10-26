@@ -23,6 +23,25 @@ public class CSharpArrayList implements CSharpIList, Cloneable {
 
     public CSharpArrayList() { this.list = new ArrayList<>(); }
     public CSharpArrayList(int capacity) { this.list = new ArrayList<>(capacity); }
+    /**
+     * Live backing-list view (no copy): C# CollectionBase.List / InnerList are
+     * live references — derived-class helpers like XmlElementAttributes.add must
+     * reach the SAME storage the Count property reads. The Collection copy ctor
+     * above snapshots, which silently discarded every such mutation.
+     */
+    public static CSharpArrayList live(java.util.List<Object> backing) {
+        return new CSharpArrayList(backing, true);
+    }
+
+    private CSharpArrayList(java.util.List<Object> backing, boolean live) {
+        this.list = new ArrayList<>(backing) {
+            @Override public boolean add(Object o) { return backing.add(o); }
+            @Override public void add(int index, Object o) { backing.add(index, o); }
+            @Override public boolean remove(Object o) { return backing.remove(o); }
+            @Override public Object remove(int index) { return backing.remove(index); }
+            @Override public Object set(int index, Object o) { return backing.set(index, o); }
+        };
+    }
     public CSharpArrayList(Collection<?> c) { this.list = new ArrayList<>(c); }
     /** C# {@code new ArrayList(object[])}: a C# array is IEnumerable; Java arrays are not Collection. */
     public CSharpArrayList(Object[] values) {

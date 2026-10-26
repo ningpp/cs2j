@@ -11,7 +11,10 @@ public abstract class CSharpCollectionBase implements CSharpIList {
     }
 
     protected CSharpArrayList getInnerList() {
-        return new CSharpArrayList(innerList);
+        // C# ArrayList InnerList 是活引用：派生集合助手（如 XmlElementAttributes.add）
+        // 必须与 Count 属性读同一存储——旧实现经 Collection 拷贝构造返回快照，
+        // 全部写操作被静默丢弃（真实链 XmlSerializer 默认元素 accessor 永远为空）。
+        return CSharpArrayList.live(innerList);
     }
 
     protected CSharpArrayList getList() {
