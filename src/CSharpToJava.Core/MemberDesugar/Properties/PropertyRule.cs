@@ -69,6 +69,22 @@ internal sealed class PropertyRule : IMemberDesugarRule
                     continue;
                 }
 
+                // ref-out-in 支持库（Cs2jRefOutIn 项目名保留、整库豁免预处理）的
+                // ByRef<T>.Value / ReadOnlyByRef<T>.Value：声明侧永不展开成
+                // get_Value/set_Value 方法，使用点改写（get_Value() 显式调用）会
+                // 对着属性形态的 stub 触发 CS0571（真实链 uri 的 shadow copy-in
+                // bool __shadow = isLoopback.get_Value()）。整类豁免：保留属性，
+                // 使用点维持 .Value 成员访问（Java 侧经 bean 约定落到
+                // getValue/setValue）。
+                var declaringContainer = prop.ContainingType?.OriginalDefinition;
+                if (declaringContainer != null
+                    && prop.ContainingType.ContainingNamespace?.ToDisplayString() == "Cs2jByRef"
+                    && prop.Name == "Value")
+                {
+                    retained[prop] = (decl, PropertyDiagnostics.RetainedMetadataInterface(prop.Name));
+                    continue;
+                }
+
                 // 跨程序集同名类型镜像合并（CLI 整树编译把不同工程/程序集的同名类型
                 // 折成同一符号，基线 CS0260）：展开 get_X/set_X 会与镜像声明的同名属性
                 // 撞访问器槽（CS0082/CS0111），且两侧无论展开哪一侧都撞。真实 msbuild
