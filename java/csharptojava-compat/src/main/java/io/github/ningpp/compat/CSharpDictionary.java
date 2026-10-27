@@ -397,6 +397,22 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
         public void remove() {
             it.remove();
         }
+
+        /**
+         * C# Dictionary&lt;TKey,TValue&gt;.Enumerator implements IEnumerator.Reset(),
+         * which moves the enumerator back to its initial position (before the first
+         * element). The underlying Java Iterator cannot be rewound, so a true reset
+         * is impossible. However, in practice reset() is always called immediately
+         * after GetEnumerator() (real chain: XmlLoader.loadDocumentType), before
+         * any MoveNext(), so the enumerator is still at its initial position and a
+         * no-op is semantically correct. Throwing UnsupportedOperationException would
+         * break those callers — the C# code calls Reset() defensively before a
+         * MoveNext() loop even though the enumerator is already at the start.
+         */
+        @Override
+        public void reset() {
+            // no-op: the enumerator is already at the initial position.
+        }
     }
 
     public CSharpGenericEqualityComparer<K> getComparer() {

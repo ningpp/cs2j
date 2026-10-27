@@ -39,6 +39,7 @@ public interface CSharpDictEnumerator extends CSharpEnumerator {
             }
             @Override public Object getKey() { return getEntry().getKey(); }
             @Override public Object getValue() { return getEntry().getValue(); }
+            @Override public void reset() { enumerator.reset(); }
         };
     }
 
@@ -61,6 +62,7 @@ public interface CSharpDictEnumerator extends CSharpEnumerator {
             }
             @Override public Object getKey() { return getEntry().getKey(); }
             @Override public Object getValue() { return getEntry().getValue(); }
+            @Override public void reset() { enumerator.reset(); }
         };
     }
 }

@@ -1,4 +1,4 @@
-﻿﻿using System.Linq;
+﻿using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -1023,6 +1023,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 if (TryRenderStringBuilderAppendFormat(node, receiver, context, out var appendFormatCall))
                 {
                     return appendFormatCall;
+                }
+
+                if (TryRenderStringBuilderInsert(node, receiver, context, out var insertCall))
+                {
+                    return insertCall;
+                }
+
+                if (TryRenderStringSubstring(node, receiver, context, out var substringCall))
+                {
+                    return substringCall;
                 }
 
                 if (TryRenderTypeGetConstructor(node, memberAccess, receiver, context, out var getConstructorCall))
@@ -2236,6 +2246,117 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         context.AddImport("io.github.ningpp.compat.StringHelper");
         rendered = $"StringHelper.append({receiver}, {charArg}, {countArg})";
         return true;
+    }
+
+    /// <summary>
+    /// C# <c>StringBuilder.Insert(int, string)</c> throws
+    /// <c>ArgumentOutOfRangeException</c> when the offset is out of range,
+    /// but Java <c>StringBuilder.insert(int, String)</c> throws
+    /// <c>StringIndexOutOfBoundsException</c>. Route through
+    /// <c>StringHelper.insert(builder, offset, str)</c> which validates the
+    /// offset and throws the compat <c>ArgumentOutOfRangeException</c>.
+    /// </summary>
+    private static bool TryRenderStringBuilderInsert(
+        InvocationExpressionSyntax invocation,
+        string receiver,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
+            || memberAccess.Name.Identifier.Text != "Insert")
+        {
+            return false;
+        }
+
+        var args = invocation.ArgumentList.Arguments;
+        if (args.Count != 2)
+            return false;
+
+        var method = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        if (method is null)
+        {
+            // Post-preprocessed trees may lack semantic info; fall back to
+            // per-argument type info.
+            if (context.GetTypeInfo(args[0].Expression).Type?.SpecialType != SpecialType.System_Int32
+                || context.GetTypeInfo(args[1].Expression).Type?.SpecialType != SpecialType.System_String)
+            {
+                return false;
+            }
+        }
+        else
+        {
+            if (method.ContainingType.ToDisplayString() != "System.Text.StringBuilder"
+                || method.Parameters.Length != 2
+                || method.Parameters[0].Type.SpecialType != SpecialType.System_Int32
+                || method.Parameters[1].Type.SpecialType != SpecialType.System_String)
+            {
+                return false;
+            }
+        }
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var offsetArg = facade.Transform(args[0].Expression, context);
+        var strArg = facade.Transform(args[1].Expression, context);
+        context.AddImport("io.github.ningpp.compat.StringHelper");
+        rendered = $"StringHelper.insert({receiver}, {offsetArg}, {strArg})";
+        return true;
+    }
+
+    /// <summary>
+    /// C# <c>string.Substring(int, int)</c> and <c>string.Substring(int)</c>
+    /// throw <c>ArgumentOutOfRangeException</c> on out-of-range arguments,
+    /// but Java <c>String.substring(int, int)</c> throws
+    /// <c>StringIndexOutOfBoundsException</c>. Route through
+    /// <c>StringHelper.substring(s, start, count)</c> which validates and
+    /// throws the compat <c>ArgumentOutOfRangeException</c>.
+    /// </summary>
+    private static bool TryRenderStringSubstring(
+        InvocationExpressionSyntax invocation,
+        string receiver,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
+            || memberAccess.Name.Identifier.Text != "Substring")
+        {
+            return false;
+        }
+
+        var method = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        if (method is null
+            || method.ContainingType.SpecialType != SpecialType.System_String
+            || method.Parameters.Length is not (1 or 2)
+            || method.Parameters[0].Type.SpecialType != SpecialType.System_Int32)
+        {
+            return false;
+        }
+
+        // Read arguments directly from the original AST, not from the
+        // transformed arguments string, because the TransformInvocation pipeline
+        // rewrites Substring(start, count) → Substring(start, start + count)
+        // before reaching this method, which would corrupt the C# count
+        // semantics that StringHelper.substring expects.
+        var facade = ExpressionTransformerFacade.Instance;
+        var csArgs = invocation.ArgumentList.Arguments;
+        context.AddImport("io.github.ningpp.compat.StringHelper");
+        if (csArgs.Count == 2)
+        {
+            // C# Substring(start, count) → StringHelper.substring(s, start, count)
+            var startText = facade.Transform(csArgs[0].Expression, context);
+            var countText = facade.Transform(csArgs[1].Expression, context);
+            rendered = $"StringHelper.substring({receiver}, {startText}, {countText})";
+            return true;
+        }
+        else if (csArgs.Count == 1)
+        {
+            // C# Substring(start) → StringHelper.substring(s, start, s.length() - start)
+            var startText = facade.Transform(csArgs[0].Expression, context);
+            rendered = $"StringHelper.substring({receiver}, {startText}, {receiver}.length() - ({startText}))";
+            return true;
+        }
+        return false;
     }
 
     /// <summary>
