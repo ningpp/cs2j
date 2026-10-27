@@ -987,6 +987,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return equalsCall;
                 }
 
+                // object.Equals(object) → ObjectHelper.objectEquals(expected, actual):
+                // C# double.Equals treats +0.0 == -0.0 as true, but Java
+                // Double.equals compares bit patterns and returns false.
+                // Route through ObjectHelper.objectEquals to match C# semantics
+                // (real chain: CError.InternalEquals → expected.Equals(actual)).
+                if (originalName == "Equals"
+                    && context.GetSymbolInfo(node).Symbol is IMethodSymbol objEqualsMethod
+                    && objEqualsMethod.ContainingType.SpecialType == SpecialType.System_Object
+                    && objEqualsMethod.Parameters.Length == 1
+                    && objEqualsMethod.Parameters[0].Type.SpecialType == SpecialType.System_Object)
+                {
+                    context.AddImport("io.github.ningpp.compat.ObjectHelper");
+                    return $"ObjectHelper.objectEquals({receiver}, {arguments})";
+                }
+
                 // string.Split(',') / Split(',', ';') → StringHelper.split(s, new char[]{...})
                 if (TryRenderStringCharSplit(node, memberAccess, receiver, context, out var splitCall))
                 {

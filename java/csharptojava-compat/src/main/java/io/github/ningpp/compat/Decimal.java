@@ -423,7 +423,10 @@ public final class Decimal implements Comparable<Decimal> {
     }
 
     public String toStringPlain() {
-        return value.toPlainString();
+        // C# decimal.ToString strips trailing zeros (e.g. 0.000050 → "0.00005"),
+        // but BigDecimal.toPlainString() preserves them. Use stripTrailingZeros
+        // to match C# behavior (real chain: XmlConvert.ToString(decimal)).
+        return value.stripTrailingZeros().toPlainString();
     }
 
     @Override
