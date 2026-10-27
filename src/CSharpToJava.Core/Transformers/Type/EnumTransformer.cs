@@ -293,9 +293,24 @@ public class EnumTransformer : ITypeTransformer
             .ToList();
         if (fields is { Count: > 0 })
         {
-            fields.Sort((a, b) =>
-                a.DeclaringSyntaxReferences.FirstOrDefault()?.Span.Start
-                    .CompareTo(b.DeclaringSyntaxReferences.FirstOrDefault()?.Span.Start) ?? 0);
+            // Prefer source declaration order via DeclaringSyntaxReferences.Span.Start
+            // (works for source-defined enums). For metadata-only enums with no
+            // syntax references, fall back to ConstantValue ordering so that a
+            // plain ordinal-aligned enum (0..n-1) is not misclassified as a value
+            // enum due to arbitrary GetMembers() iteration order.
+            bool hasSyntaxRefs = fields.Any(f => f.DeclaringSyntaxReferences.Length > 0);
+            if (hasSyntaxRefs)
+            {
+                fields.Sort((a, b) =>
+                    a.DeclaringSyntaxReferences.FirstOrDefault()?.Span.Start
+                        .CompareTo(b.DeclaringSyntaxReferences.FirstOrDefault()?.Span.Start) ?? 0);
+            }
+            else
+            {
+                fields.Sort((a, b) =>
+                    Convert.ToInt64(a.ConstantValue ?? 0)
+                        .CompareTo(Convert.ToInt64(b.ConstantValue ?? 0)));
+            }
             return fields
                 .Select(f => (f.Name, f.ConstantValue ?? 0))
                 .ToList();
