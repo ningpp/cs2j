@@ -318,6 +318,20 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return "UUID.Empty";
         }
 
+        // System.DateTimeOffset.MaxValue / .MinValue：DateTimeOffset 映射 compat
+        // CSharpDateTimeOffset（简单名不同，mappedStaticType != containingType.Name，
+        // 不会走通用的静态类型映射 receiver 重写）。常量由 compat 提供（MaxValue/
+        // MinValue）；缺此分支时原样透传 `DateTimeOffset.MaxValue`（javac 找不到
+        // 符号 变量 DateTimeOffset；真实链 XmlConvert.ToTypeTests）。
+        if (context.GetSymbolInfo(node).Symbol
+            is IFieldSymbol { IsStatic: true } dtoField
+            && dtoField.ContainingType?.ToDisplayString() == "System.DateTimeOffset"
+            && dtoField.Name is "MaxValue" or "MinValue")
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpDateTimeOffset");
+            return $"CSharpDateTimeOffset.{dtoField.Name}";
+        }
+
         // System.Type.EmptyTypes has no counterpart on java.lang.Class (the mapped
         // type of System.Type): the exact equivalent is a zero-length Class[]. It
         // appears in GetConstructor argument positions
@@ -640,6 +654,14 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             case ("TimeSpan", "MinValue"):
                 context.AddImport("io.github.ningpp.compat.CSharpTimeSpan");
                 rendered = "CSharpTimeSpan.MIN_VALUE";
+                return true;
+            case ("DateTimeOffset", "MaxValue"):
+                context.AddImport("io.github.ningpp.compat.CSharpDateTimeOffset");
+                rendered = "CSharpDateTimeOffset.MaxValue";
+                return true;
+            case ("DateTimeOffset", "MinValue"):
+                context.AddImport("io.github.ningpp.compat.CSharpDateTimeOffset");
+                rendered = "CSharpDateTimeOffset.MinValue";
                 return true;
             case ("Thread", "CurrentThread"):
                 context.AddImport("io.github.ningpp.compat.ThreadHelper");
