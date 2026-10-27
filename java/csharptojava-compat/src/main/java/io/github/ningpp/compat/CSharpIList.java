@@ -140,8 +140,17 @@ public interface CSharpIList<T> extends CSharpCollection {
      * the ICollection-diamond narrowing) to the non-generic CSharpIList surface.
      * Read surface delegates (Count/CopyTo/enumeration); IList mutators keep the
      * interface defaults (throwing), matching the C# read-only view.
+     * <p>If the collection already implements CSharpIList (e.g. CaptureCollection /
+     * GroupCollection / MatchCollection, which implement both the generic and
+     * non-generic C# IList interfaces), return it directly — wrapping would lose
+     * the class's own get/contains/indexOf/getIsReadOnly implementations and fall
+     * back to the interface defaults (UnsupportedOperationException / false).
      */
+    @SuppressWarnings("unchecked")
     static CSharpIList from(CSharpCollection collection) {
+        if (collection instanceof CSharpIList) {
+            return (CSharpIList) collection;
+        }
         return new CSharpIList() {
             @Override
             public CSharpGenericEnumerator iterator() {
