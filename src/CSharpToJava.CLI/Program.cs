@@ -198,8 +198,42 @@ public class Program
             // ordering (locked via RunAfter) and defaults; legacy --no-xxx/enable
             // flags and explicit --enable-pass/--disable-pass only override the
             // enablement; all execution/output details live on the adapters.
-            var chain = await CliPreprocessChain.RunAsync(new CliChainRequest
+            //
+            // --no-preprocess: skip the entire preprocess chain and convert the
+            // source directly. Use when the C# project has already been
+            // preprocessed and you want to iterate quickly on the C#-to-Java
+            // conversion stage without re-running every pass on the original tree.
+            CliChainResult chain;
+            if (opts.NoPreprocess)
             {
+                if (opts.Verbose)
+                {
+                    Console.WriteLine("--no-preprocess: skipping all preprocessing passes; converting source directly.");
+                }
+                chain = new CliChainResult
+                {
+                    Success = true,
+                    FinalSourcePath = opts.Source,
+                    UsingGotoPreprocessedSource = false,
+                    ExecutedIntermediateDirectoryNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                    // 预处理后的源码树中包含各 pass 注入的支撑库项目（Cs2jUnsignedMath/
+                    // Cs2jArray/Cs2jRefOutIn/Cs2jPrelude），它们仅作符号来源，不应转为
+                    // Java 模块。正常流程中 executedSupportLibraries 按实际执行的 pass
+                    // 集合填充；--no-preprocess 时源码已包含这些支撑库，所以标记全部
+                    // 已执行，使 IsExecutedSupportLibraryProject 过滤逻辑生效。
+                    ExecutedSupportLibraries = new HashSet<PassSupportLibrary>
+                    {
+                        PassSupportLibrary.Cs2jUnsignedMath,
+                        PassSupportLibrary.Cs2jArray,
+                        PassSupportLibrary.Cs2jRefOutIn,
+                        PassSupportLibrary.Cs2jPrelude,
+                    },
+                };
+            }
+            else
+            {
+                chain = await CliPreprocessChain.RunAsync(new CliChainRequest
+                {
                 SourcePath = opts.Source,
                 DestinationRoot = opts.Destination,
                 Force = opts.Force,
@@ -342,7 +376,8 @@ public class Program
                 ExtensionBlockOptionsFactory = () => BuildExtensionBlockOptions(
                     opts.MaterializeExtensionBlocks && !opts.NoMaterializeExtensionBlocks,
                     opts.ExtensionMethodStrict),
-            });
+                });
+            }
 
             if (!chain.Success)
             {
@@ -1942,6 +1977,11 @@ public class Program
             $"include-tests={opts.IncludeTests}",
             $"extra-deps={GetNormalizedExtraDependencyToken(opts)}",
         };
+
+        // --no-preprocess changes the input set (raw vs preprocessed tree);
+        // the token must be part of the fingerprint so cached outputs from a
+        // full run are not reused when --no-preprocess is toggled (and vice-versa).
+        tokens.Add($"no-preprocess={opts.NoPreprocess}");
 
         // 每个注册 pass 一个开关令牌（注册表拓扑序，含默认关 pass），新增 pass 时
         // 令牌自动覆盖；切换预处理组合会使旧产物指纹失效一次（预期行为）。
@@ -5776,6 +5816,12 @@ class ConvertProjectOptions
         HelpText = "unsafe-ffm (C06) opt-in: path to the FFM extern whitelist JSON; whitelisted " +
                    "[DllImport]/[LibraryImport] methods are lowered to FFM facades, all other extern stays UF060")]
     public string? ExternWhitelistPath { get; set; }
+
+    [Option("no-preprocess", Default = false,
+        HelpText = "Skip ALL preprocessing passes and convert the source directly to Java " +
+                   "(use when the C# project has already been preprocessed; speeds up " +
+                   "iterative debugging of the C#-to-Java conversion stage)")]
+    public bool NoPreprocess { get; set; }
 
     public bool UseRecords => !NoRecords;
     public bool GenerateJavaDoc => !NoJavaDoc;
