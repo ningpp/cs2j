@@ -248,6 +248,20 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 c.TypeMappings.MapMethod(p.ContainingType.ToDisplayString(), p.Name))
             ? c.TypeMappings.MapMethod(p.ContainingType.ToDisplayString(), p.Name)
             : null;
+
+        // 分布在移植类上的 BCL 属性（System.Xml.XmlElement → dotnet.xml.XmlElement）：
+        // 移植类的属性已被 member-desugar 展开为 set_InnerText 方法并发射成
+        // InnerText(value)，Java bean setter setInnerText() 不存在（真实链
+        // root-tests CorrectnessTest setInnerText 编译错误）。与读取侧
+        // (IdentifierExpressionTransformer line 597) 对称：只有确实是该形态
+        //（get_<Name> 方法在源内声明，同名属性符号不存在）才切换。
+        if (mappedPropertyName == null
+            && !p.IsStatic
+            && c.ExposesCSharpStyleProperty(p.ContainingType, p.Name))
+        {
+            return $"{receiver}{p.Name}({valueText})";
+        }
+
         var setterName = mappedPropertyName ?? ("set" + name);
         return $"{receiver}{setterName}({valueText})";
     }
