@@ -239,11 +239,11 @@ public class MathHelper {
         return parseULong(s, style);
     }
 
-    public static byte parseByte(String s) {
+    public static int parseByte(String s) {
         return parseByte(s, NumberStyles.AllowLeadingSign);
     }
 
-    public static byte parseByte(String s, int style) {
+    public static int parseByte(String s, int style) {
         int val = parseNumber(() -> parseIntWithStyle(s, style));
         // When AllowLeadingSign is set, treat as signed sbyte (-128..127);
         // otherwise treat as unsigned byte (0..255).
@@ -251,35 +251,36 @@ public class MathHelper {
             if (val < Byte.MIN_VALUE || val > Byte.MAX_VALUE) {
                 throw new ArithmeticException("Value out of range for sbyte: " + val);
             }
+            return val;
         } else {
             if (val < 0 || val > 0xFF) {
                 throw new ArithmeticException("Value out of range for byte: " + val);
             }
+            return val & 0xFF; // keep unsigned 0..255 in int carrier
         }
-        return (byte) val;
     }
 
-    public static byte parseByte(String s, CultureInfo culture) {
+    public static int parseByte(String s, CultureInfo culture) {
         return parseByte(s);
     }
 
-    public static byte parseByte(String s, NumberFormatInfo formatInfo) {
+    public static int parseByte(String s, NumberFormatInfo formatInfo) {
         return parseByte(s);
     }
 
-    public static byte parseByte(String s, Locale locale) {
+    public static int parseByte(String s, Locale locale) {
         return parseByte(s);
     }
 
-    public static byte parseByte(String s, int style, CultureInfo culture) {
+    public static int parseByte(String s, int style, CultureInfo culture) {
         return parseByte(s, style);
     }
 
-    public static byte parseByte(String s, int style, NumberFormatInfo formatInfo) {
+    public static int parseByte(String s, int style, NumberFormatInfo formatInfo) {
         return parseByte(s, style);
     }
 
-    public static byte parseByte(String s, int style, Locale locale) {
+    public static int parseByte(String s, int style, Locale locale) {
         return parseByte(s, style);
     }
 
