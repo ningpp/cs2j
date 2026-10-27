@@ -928,6 +928,51 @@ public class ConversionContext
     }
 
     /// <summary>
+    /// True when <paramref name="containingType"/> (a BCL type such as
+    /// <c>System.Xml.XmlNodeList</c>) maps onto a type declared in this compilation's
+    /// source AND that ported class carries an <c>Item(int)</c> method in the
+    /// member-desugar accessor form, which the Java emission renames to
+    /// <c>item(int)</c>. This is used by the element-access transformer to emit
+    /// <c>item(int)</c> instead of the default Java <c>get(int)</c>.
+    /// </summary>
+    public bool ExposesCSharpStyleIndexer(ITypeSymbol? containingType)
+    {
+        if (containingType == null) return false;
+        var mapped = MapType(containingType);
+        if (string.IsNullOrWhiteSpace(mapped) || mapped.Contains('<') || mapped.Contains('['))
+            return false;
+
+        string qualified;
+        if (mapped.Contains('.'))
+        {
+            qualified = mapped;
+        }
+        else
+        {
+            var ns = containingType.ContainingNamespace?.ToDisplayString() ?? string.Empty;
+            var package = TypeMappings.MapNamespace(ns) ?? ns;
+            qualified = string.IsNullOrEmpty(package) ? mapped : $"{package}.{mapped}";
+        }
+
+        if (_cSharpStyleIndexerCache.TryGetValue(qualified, out var cached))
+            return cached;
+
+        var compilation = SemanticModel?.Compilation;
+        var resolved = compilation?.GetTypeByMetadataName(qualified);
+        var isSource = resolved != null && resolved.Locations.Any(l => l.IsInSource);
+        // The ported class has Item(int) as a member-desugar-expanded method
+        // (not an indexer property), and no get_Item method — only Item(int).
+        var accessorForm = isSource
+            && !resolved!.GetMembers().OfType<IPropertySymbol>().Any(p => p.IsIndexer)
+            && resolved.GetMembers("Item").OfType<IMethodSymbol>()
+                .Any(m => !m.IsStatic && m.Parameters.Length == 1);
+        _cSharpStyleIndexerCache[qualified] = accessorForm;
+        return accessorForm;
+    }
+
+    private readonly Dictionary<string, bool> _cSharpStyleIndexerCache = new(StringComparer.Ordinal);
+
+    /// <summary>
     /// Maps a type for use as a generic type argument: primitive Java types are
     /// boxed (int → Integer, etc.) since Java generics cannot hold primitives.
     /// </summary>

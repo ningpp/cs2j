@@ -279,6 +279,14 @@ public class ElementAccessTransformer : IIRExpressionTransformer
             var typeDisplayName = exprType?.ToDisplayString() ?? "";
             if (typeDisplayName == "string" || typeDisplayName.EndsWith("String"))
                 return $"{expr}.charAt({idx})";
+            // Ported BCL classes (e.g. dotnet.xml.XmlNodeList) expose element
+            // access through a member-desugar-expanded Item(int) method that
+            // renders as item(int) in Java, not the get(int) Java List style.
+            if (exprType is INamedTypeSymbol portedType
+                && context.ExposesCSharpStyleIndexer(portedType))
+            {
+                return $"{expr}.item({idx})";
+            }
             return exprType?.TypeKind == TypeKind.Array ? $"{expr}[{idx}]" : $"{expr}.get({idx})";
         }
 
