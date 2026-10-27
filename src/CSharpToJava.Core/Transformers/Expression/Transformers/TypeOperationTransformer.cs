@@ -381,8 +381,12 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             SpecialType.System_Int64 => "Long",
             SpecialType.System_Int16 => "Short",
             SpecialType.System_SByte => "Byte",
-            SpecialType.System_Byte => "Byte",
-            SpecialType.System_UInt16 => "Short",
+            // C# byte maps to Java int at runtime (unsigned 8 → signed 32),
+            // so unboxing casts must target Integer, not Byte — the runtime
+            // value is an Integer box. (Byte is only used for typeof(byte)
+            // type-key distinction in TypeOf.)
+            SpecialType.System_Byte => "Integer",
+            SpecialType.System_UInt16 => "Integer",
             SpecialType.System_Char => "Character",
             SpecialType.System_Single => "Float",
             SpecialType.System_Double => "Double",
@@ -573,31 +577,39 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             if (resolved != null)
                 return $"{Rt(c.MapType(resolved))}.class";
         }
-        // C# unsigned primitive types (byte, ushort, uint, ulong) map to the
-        // same Java types as their signed counterparts (int, int, int, long),
-        // so typeof(byte) and typeof(int) both produce Integer.class — they
-        // become indistinguishable at runtime. When C# code uses typeof(byte)
-        // as a type key for dispatch (e.g. XmlUntypedStringConverter checks
-        // destinationType == typeof(byte) before typeof(int)), the collision
-        // causes int-typed requests to match the byte branch. Preserve the
-        // distinction by using the Java wrapper that matches the C# type name:
-        // byte → Byte, ushort → Short, uint → Integer (no distinct wrapper),
-        // ulong → Long (no distinct wrapper). byte/ushort are the only ones
-        // that gain a distinct key; uint/ulong still collide with int/long
-        // (acceptable: no C# code dispatches typeof(uint) ahead of typeof(int)
-        // in the converted codebase).
+        // C# unsigned primitives byte/ushort map to Java int at runtime (same
+        // as int/uint), so typeof(byte) and typeof(int) both produce
+        // Integer.class — they become indistinguishable. When C# code uses
+        // typeof(byte) as a type-dispatch key (e.g. XmlUntypedStringConverter
+        // checks destinationType == typeof(byte) before typeof(int)), the
+        // collision makes int-typed requests match the byte branch. Use the
+        // C#-name-matching wrapper (Byte/Short) as a distinct typeof key.
+        // BoxedWrapperName returns the runtime wrapper (Integer) for unboxing
+        // casts, so it cannot be reused here.
         var typeSymbol = c.GetTypeInfo(n.Type).Type;
         if (typeSymbol != null)
         {
-            var boxed = BoxedWrapperName(typeSymbol.SpecialType);
-            if (boxed != null
-                && typeSymbol.SpecialType is SpecialType.System_Byte or SpecialType.System_UInt16)
-            {
-                return $"{boxed}.class";
-            }
+            var typeofWrapper = TypeOfWrapperName(typeSymbol.SpecialType);
+            if (typeofWrapper != null)
+                return $"{typeofWrapper}.class";
         }
         return $"{Rt(Map(n.Type, c))}.class";
     }
+
+    /// <summary>
+    /// Maps C# unsigned primitive types to a distinct Java wrapper class name
+    /// for use in typeof() expressions. C# byte → Byte, ushort → Short (even
+    /// though they map to int/Integer at runtime) so typeof(byte) and
+    /// typeof(int) produce different Class keys. Returns null for types that
+    /// don't need a distinct key.
+    /// </summary>
+    private static string? TypeOfWrapperName(SpecialType special)
+        => special switch
+        {
+            SpecialType.System_Byte => "Byte",
+            SpecialType.System_UInt16 => "Short",
+            _ => null
+        };
 
     /// <summary>
     /// Resolves an unbound-generic typeof operand (<c>Nullable&lt;&gt;</c>) to its
