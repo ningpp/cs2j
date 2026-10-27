@@ -142,12 +142,17 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             {
                 if (SymbolEqualityComparer.Default.Equals(sourceEnum, targetEnum))
                     return e;
-                if (!richTarget)
-                    return $"{target}.values()[{e}.ordinal()]";
-                var sourceValue = EnumTransformer.IsValueEnum(sourceEnum)
+                // 枚举互转按 C# 语义取**数值**：源枚举若带显式值（value enum，
+                // 如 TextBlockType.Text=4），Java ordinal() 是声明序（Text=1），
+                // 拿它索引目标 values() 会错位（真实链 XPathDocumentBuilder：
+                // Whitespace(ordinal 3) 被索引成 Namespace，文本节点类型全乱，
+                // xpath-tests/xpathdocument-tests 各 593 例失败）。
+                var sourceIndex = EnumTransformer.IsValueEnum(sourceEnum)
                     ? $"{e}.getValue()"
                     : $"{e}.ordinal()";
-                return $"{target}.fromValue(({targetStorage}){sourceValue})";
+                if (!richTarget)
+                    return $"{target}.values()[{sourceIndex}]";
+                return $"{target}.fromValue(({targetStorage}){sourceIndex})";
             }
             // C# unboxing from object is type-strict: `(E)obj` succeeds only when obj
             // holds a boxed E (never a boxed int — that needs `(E)(int)obj`). Lower

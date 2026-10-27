@@ -195,7 +195,7 @@ public class StructTransformer : ITypeTransformer
         };
         var comparisons = fields.Select(f => primitives.Contains(f.JavaType)
             ? $"this.{f.JavaName} == other.{f.JavaName}"
-            : $"ObjectHelper.equals(this.{f.JavaName}, other.{f.JavaName})").ToList();
+            : $"ObjectHelper.objectEquals(this.{f.JavaName}, other.{f.JavaName})").ToList();
         if (comparisons.Any(c => c.StartsWith("ObjectHelper.", StringComparison.Ordinal)))
             context.AddImport("io.github.ningpp.compat.ObjectHelper");
 

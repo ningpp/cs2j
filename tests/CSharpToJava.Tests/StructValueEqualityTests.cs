@@ -31,7 +31,7 @@ public struct NodeRef
         Assert.Contains("public boolean equals(Object obj)", code);
         Assert.Contains("getClass() != obj.getClass()", code);
         // Reference field compares through C# object.Equals semantics; int field by ==.
-        Assert.Contains("ObjectHelper.equals(this._page, other._page)", code);
+        Assert.Contains("ObjectHelper.objectEquals(this._page, other._page)", code);
         Assert.Contains("this._idx == other._idx", code);
         Assert.Contains("import io.github.ningpp.compat.ObjectHelper;", code);
     }
