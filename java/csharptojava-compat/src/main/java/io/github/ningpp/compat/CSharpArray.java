@@ -12,7 +12,7 @@ import java.util.Objects;
  * Compact mapping for System.Array.
  */
 public final class CSharpArray implements Iterable<Object> {
-    private final Object array;
+    private Object array;
     private final int[] lowerBounds;
 
     private CSharpArray(Object array) {
@@ -296,9 +296,37 @@ public final class CSharpArray implements Iterable<Object> {
     /**
      * C#-style "as" cast: returns the underlying array cast to the requested
      * array type, or null if the underlying array is not an instance of it.
+     * When the target is Object[].class and the underlying array is a
+     * primitive array (e.g. int[]), boxes each element into an Object[]
+     * wrapper — C# Array.CreateInstance(typeof(int),n) yields int[] which
+     * is assignable to object[] in C#, but Java int[] is NOT Object[].
+     * Returns the primitive array directly when the target is a primitive
+     * array type matching the underlying array.
      */
+    @SuppressWarnings("unchecked")
     public <T> T tryAs(Class<T> type) {
-        return type.isInstance(array) ? type.cast(array) : null;
+        if (type.isInstance(array)) {
+            return type.cast(array);
+        }
+        // C# int[] is assignable to object[], but Java int[] is NOT Object[].
+        // Box the primitive array into an Object[] so the generated ToArray
+        // generic method (which casts via Object[].class) can populate and
+        // return it (real chain: XmlUntypedStringConverter.toArray).
+        if (type == Object[].class && array.getClass().isArray()
+                && array.getClass().getComponentType().isPrimitive()) {
+            int len = java.lang.reflect.Array.getLength(array);
+            Object[] boxed = new Object[len];
+            for (int i = 0; i < len; i++) {
+                boxed[i] = java.lang.reflect.Array.get(array, i);
+            }
+            // Replace the underlying array with the boxed Object[] so that
+            // subsequent array writes (arrDst[i] = ...) land in the Object[]
+            // rather than the original primitive array (which would throw
+            // ArrayStoreException for boxed values).
+            this.array = boxed;
+            return (T) boxed;
+        }
+        return null;
     }
 
     /**
@@ -580,7 +608,7 @@ public final class CSharpArray implements Iterable<Object> {
         if (length < 0) {
             throw new ArgumentOutOfRangeException("length");
         }
-        return of(Array.newInstance(elementType, length));
+        return of(Array.newInstance(toPrimitiveComponentType(elementType), length));
     }
 
     /**
@@ -598,7 +626,78 @@ public final class CSharpArray implements Iterable<Object> {
         if (lengths == null) {
             throw new ArgumentNullException("lengths");
         }
-        return of(Array.newInstance(elementType, lengths));
+        return of(Array.newInstance(toPrimitiveComponentType(elementType), lengths));
+    }
+
+    /**
+     * Maps a wrapper Class to its primitive counterpart for Array.newInstance.
+     * C# typeof(int) maps to Java Integer.class, but C# Array.CreateInstance
+     * produces an int[] (primitive), not Integer[]. So when the converter
+     * emits CSharpArray.createInstance(Integer.class, n), the underlying
+     * array must be int[] to remain cast-compatible with int[] consumers
+     * (real chain: XmlUntypedStringConverter.toArray → (int[])readContentAs).
+     * Non-wrapper types pass through unchanged.
+     */
+    private static Class<?> toPrimitiveComponentType(Class<?> elementType) {
+        if (elementType == Integer.class) return int.class;
+        if (elementType == Long.class) return long.class;
+        if (elementType == Short.class) return short.class;
+        if (elementType == Byte.class) return byte.class;
+        if (elementType == Float.class) return float.class;
+        if (elementType == Double.class) return double.class;
+        if (elementType == Boolean.class) return boolean.class;
+        if (elementType == Character.class) return char.class;
+        return elementType;
+    }
+
+    /**
+     * Converts an Object (which may be a boxed wrapper array like Integer[]
+     * or an Object[] containing boxed primitives) into the corresponding
+     * primitive array. C# (int[])objectExpr works because int[] is
+     * assignable from Array.CreateInstance(typeof(int), n), but in Java
+     * Integer[] / Object[] cannot be cast to int[]. This helper unboxes
+     * each element into a new primitive array.
+     * Returns the input unchanged if it is already the correct primitive
+     * array type, or null if input is null.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> T toPrimitiveArray(Object value, Class<T> primitiveArrayType) {
+        if (value == null) {
+            return null;
+        }
+        if (primitiveArrayType.isInstance(value)) {
+            return primitiveArrayType.cast(value);
+        }
+        if (!value.getClass().isArray()) {
+            throw new ClassCastException("Cannot cast " + value.getClass().getName()
+                    + " to " + primitiveArrayType.getName());
+        }
+        int len = java.lang.reflect.Array.getLength(value);
+        Class<?> componentType = primitiveArrayType.getComponentType();
+        Object result = java.lang.reflect.Array.newInstance(componentType, len);
+        for (int i = 0; i < len; i++) {
+            Object elem = java.lang.reflect.Array.get(value, i);
+            if (componentType == int.class) {
+                java.lang.reflect.Array.setInt(result, i, ((Number) elem).intValue());
+            } else if (componentType == long.class) {
+                java.lang.reflect.Array.setLong(result, i, ((Number) elem).longValue());
+            } else if (componentType == short.class) {
+                java.lang.reflect.Array.setShort(result, i, ((Number) elem).shortValue());
+            } else if (componentType == byte.class) {
+                java.lang.reflect.Array.setByte(result, i, ((Number) elem).byteValue());
+            } else if (componentType == float.class) {
+                java.lang.reflect.Array.setFloat(result, i, ((Number) elem).floatValue());
+            } else if (componentType == double.class) {
+                java.lang.reflect.Array.setDouble(result, i, ((Number) elem).doubleValue());
+            } else if (componentType == boolean.class) {
+                java.lang.reflect.Array.setBoolean(result, i, (Boolean) elem);
+            } else if (componentType == char.class) {
+                java.lang.reflect.Array.setChar(result, i, (Character) elem);
+            } else {
+                java.lang.reflect.Array.set(result, i, elem);
+            }
+        }
+        return (T) result;
     }
 
     // --- Array.Copy ---

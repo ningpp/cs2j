@@ -228,6 +228,21 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return $"({BoxedWrapperName(sym.SpecialType)})({e})";
         }
 
+        // (int[])objectExpr: C# Array.CreateInstance(typeof(int), n) returns
+        // int[], and (int[])objectExpr unboxes it. In Java, the runtime value
+        // is Integer[] or Object[] (from the generic ToArray method), which
+        // cannot be cast to int[]. Route through CSharpArray.toPrimitiveArray
+        // to unbox each element (real chain: XmlReader.readContentAs(int[].class)).
+        if (sym is IArrayTypeSymbol primArr
+            && IsPrimitiveSpecialType(primArr.ElementType.SpecialType)
+            && srcSym is not null && IsBoxedOrReferenceSource(srcSym)
+            && srcSym.SpecialType != SpecialType.System_Array)
+        {
+            var t = Map(n.Type, c);
+            c.AddImport("io.github.ningpp.compat.CSharpArray");
+            return $"CSharpArray.toPrimitiveArray({e}, {t}.class)";
+        }
+
         // System.Array → T[]：源经 array-method 归一为 CSharpArray 视图（现在
         // 包括 CSharpArray.createInstance 的返回值），Java 不接受 CSharpArray→T[]
         // 的直接强转（javac 不可转换对；真实链解码器 `_buffer = (byte[])buffer`
@@ -577,39 +592,8 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             if (resolved != null)
                 return $"{Rt(c.MapType(resolved))}.class";
         }
-        // C# unsigned primitives byte/ushort map to Java int at runtime (same
-        // as int/uint), so typeof(byte) and typeof(int) both produce
-        // Integer.class — they become indistinguishable. When C# code uses
-        // typeof(byte) as a type-dispatch key (e.g. XmlUntypedStringConverter
-        // checks destinationType == typeof(byte) before typeof(int)), the
-        // collision makes int-typed requests match the byte branch. Use the
-        // C#-name-matching wrapper (Byte/Short) as a distinct typeof key.
-        // BoxedWrapperName returns the runtime wrapper (Integer) for unboxing
-        // casts, so it cannot be reused here.
-        var typeSymbol = c.GetTypeInfo(n.Type).Type;
-        if (typeSymbol != null)
-        {
-            var typeofWrapper = TypeOfWrapperName(typeSymbol.SpecialType);
-            if (typeofWrapper != null)
-                return $"{typeofWrapper}.class";
-        }
         return $"{Rt(Map(n.Type, c))}.class";
     }
-
-    /// <summary>
-    /// Maps C# unsigned primitive types to a distinct Java wrapper class name
-    /// for use in typeof() expressions. C# byte → Byte, ushort → Short (even
-    /// though they map to int/Integer at runtime) so typeof(byte) and
-    /// typeof(int) produce different Class keys. Returns null for types that
-    /// don't need a distinct key.
-    /// </summary>
-    private static string? TypeOfWrapperName(SpecialType special)
-        => special switch
-        {
-            SpecialType.System_Byte => "Byte",
-            SpecialType.System_UInt16 => "Short",
-            _ => null
-        };
 
     /// <summary>
     /// Resolves an unbound-generic typeof operand (<c>Nullable&lt;&gt;</c>) to its
