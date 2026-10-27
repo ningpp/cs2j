@@ -422,6 +422,7 @@ public class MethodTransformer : IMemberTransformer
             .ToList();
         var memberDataAttrs = attributes.Where(a => IsAttribute(a, "MemberData")).ToList();
         var classDataAttrs = attributes.Where(a => IsAttribute(a, "ClassData")).ToList();
+        var xmlTestsAttrs = attributes.Where(a => IsAttribute(a, "XmlTests")).ToList();
 
         var disabled = names.Contains("Ignore")
             || HasSkipArgument(attributes, ctx)
@@ -439,7 +440,7 @@ public class MethodTransformer : IMemberTransformer
             AddAnnotationOnce(javaMethod, "Disabled", ctx, "org.junit.jupiter.api.Disabled");
 
         // Fact 方法上的 InlineData/MemberData 在 xUnit 里同样不生效；只有 Theory 需要数据源。
-        if (!isTheory || (inlineRows.Count == 0 && memberDataAttrs.Count == 0 && classDataAttrs.Count == 0))
+        if (!isTheory || (inlineRows.Count == 0 && memberDataAttrs.Count == 0 && classDataAttrs.Count == 0 && xmlTestsAttrs.Count == 0))
             return providers;
 
         var providerName = UniqueProviderName(javaMethod.Name, ctx);
@@ -448,7 +449,7 @@ public class MethodTransformer : IMemberTransformer
         ctx.AddImport("org.junit.jupiter.params.provider.Arguments");
 
         var body = new StringBuilder();
-        var usesList = memberDataAttrs.Count > 0 || classDataAttrs.Count > 0;
+        var usesList = memberDataAttrs.Count > 0 || classDataAttrs.Count > 0 || xmlTestsAttrs.Count > 0;
         if (usesList)
         {
             body.AppendLine("var __rows = new java.util.ArrayList<Arguments>();");
@@ -458,6 +459,8 @@ public class MethodTransformer : IMemberTransformer
                 AppendMemberDataRows(body, attr, ctx);
             foreach (var attr in classDataAttrs)
                 AppendClassDataRows(body, attr, ctx);
+            foreach (var attr in xmlTestsAttrs)
+                AppendXmlTestsRows(body, attr, methodDecl, ctx);
             body.Append("return __rows.stream();");
         }
         else
@@ -591,6 +594,31 @@ public class MethodTransformer : IMemberTransformer
 
         var mapped = ctx.MapType(dataType);
         AppendEnumerationLoop(body, $"new {mapped}()", dataType, ctx);
+    }
+
+    /// <summary>
+    /// [XmlTests(nameof(Create))] is a custom xUnit DataAttribute that calls
+    /// XmlInlineDataDiscoverer.generateTestCases(Supplier&lt;CTestModule&gt;) to
+    /// produce IEnumerable&lt;object[]&gt; test case rows. Generate the equivalent
+    /// Java call and feed it through the same enumeration loop as MemberData.
+    /// </summary>
+    private static void AppendXmlTestsRows(
+        StringBuilder body, AttributeSyntax attr, MethodDeclarationSyntax methodDecl, ConversionContext ctx)
+    {
+        var memberName = ExtractFirstMemberName(attr);
+        if (string.IsNullOrEmpty(memberName))
+            return;
+
+        // Resolve the class name that owns the Create() method (the declaring
+        // type of the test method, mapped to its Java name).
+        var methodSymbol = ctx.SemanticModel.GetDeclaredSymbol(methodDecl) as IMethodSymbol;
+        var ownerType = methodSymbol?.ContainingType;
+        var javaOwner = ownerType != null ? ctx.MapType(ownerType) : methodDecl.Identifier.Text;
+        // Map the C# method name to its Java equivalent (PascalCase -> camelCase).
+        var javaMethodName = char.ToLowerInvariant(memberName![0]) + memberName[1..];
+        var call = $"OLEDB.Test.ModuleCore.XmlInlineDataDiscoverer.generateTestCases(() -> {javaOwner}.{javaMethodName}())";
+        // Result type is CSharpGenericIterable<Object[]> (from generateTestCases).
+        AppendEnumerationLoop(body, call, null, ctx);
     }
 
     /// <summary>
