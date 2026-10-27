@@ -321,7 +321,22 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             _ => es != null ? c.MapType(es) : c.MapTypeFromSyntax(n.Type.ElementType)
         };
         var sizes = n.Type.RankSpecifiers.SelectMany(rs => rs.Sizes
-            .Select(s => s.IsKind(SyntaxKind.OmittedArraySizeExpression) ? "" : f.Transform(s, c))).ToList();
+            .Select(s =>
+            {
+                if (s.IsKind(SyntaxKind.OmittedArraySizeExpression))
+                    return "";
+                var sizeExpr = f.Transform(s, c);
+                // C# allows new byte[stream.Length] where Length is long; Java
+                // requires int for array sizes. Cast long/ulong/nint/nuint
+                // expressions to int to avoid compilation failure.
+                var sizeType = c.GetTypeInfo(s).Type?.SpecialType;
+                if (sizeType is SpecialType.System_Int64 or SpecialType.System_UInt64
+                    or SpecialType.System_IntPtr or SpecialType.System_UIntPtr)
+                {
+                    sizeExpr = $"(int) ({sizeExpr})";
+                }
+                return sizeExpr;
+            })).ToList();
         return EmitArray(elem, sizes, n.Initializer, c, es?.TypeKind == TypeKind.TypeParameter,
             elemSymbol: es, needsValueFill: NeedsValueFill(es, init: n.Initializer != null));
     }

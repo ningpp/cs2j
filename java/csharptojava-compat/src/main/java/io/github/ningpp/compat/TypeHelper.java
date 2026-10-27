@@ -2582,6 +2582,15 @@ public final class TypeHelper {
     }
 
     /**
+     * Mirrors C# {@code TypeInfo.Assembly} — in C# TypeInfo inherits from
+     * MemberInfo, but the Java compat TypeInfo does not implement MemberInfo,
+     * so the conversion emits this overload.
+     */
+    public static AssemblyCompat getAssembly(TypeInfo typeInfo) {
+        return typeInfo == null ? null : getAssembly(typeInfo.asClass());
+    }
+
+    /**
      * Mirrors C# {@code Module.Assembly} for the Java {@link java.lang.Module}
      * returned by {@link Class#getModule()}.
      */
