@@ -1,4 +1,4 @@
-﻿using System.Linq;
+﻿﻿using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -299,6 +299,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 if (TryRenderListRemoveAllPredicate(invocation, receiverText, context, out var removeAllPredicateCall))
                 {
                     return new JavaRawExpression(removeAllPredicateCall);
+                }
+
+                if (TryRenderStringBuilderAppendNullableString(invocation, receiverText, context, out var appendNullableCall))
+                {
+                    return new JavaRawExpression(appendNullableCall);
                 }
 
                 if (TryRenderStringBuilderAppendCharRepeat(invocation, receiverText, context, out var appendCharRepeatCall))
@@ -993,6 +998,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 if (TryRenderListRemoveAllPredicate(node, receiver, context, out var removeAllPredicateCall))
                 {
                     return removeAllPredicateCall;
+                }
+
+                if (TryRenderStringBuilderAppendNullableString(node, receiver, context, out var appendNullableCall))
+                {
+                    return appendNullableCall;
                 }
 
                 if (TryRenderStringBuilderAppendCharRepeat(node, receiver, context, out var appendCharRepeatCall))
@@ -2091,6 +2101,44 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// no append(char, int) overload; the compat helper returns the builder, so chained
     /// calls keep working. The bridge matches the overload signature, not literals.
     /// </summary>
+    /// <summary>
+    /// C# StringBuilder.Append(string?) is a no-op when value is null, but Java
+    /// StringBuilder.append((String)null) appends the literal "null". Wrap the
+    /// argument with StringHelper.nullToEmpty() to preserve C# semantics.
+    /// </summary>
+    private static bool TryRenderStringBuilderAppendNullableString(
+        InvocationExpressionSyntax invocation,
+        string receiver,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
+            || memberAccess.Name.Identifier.Text != "Append")
+        {
+            return false;
+        }
+
+        var args = invocation.ArgumentList.Arguments;
+        if (args.Count != 1)
+            return false;
+
+        var method = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        if (method is null
+            || method.ContainingType.ToDisplayString() != "System.Text.StringBuilder"
+            || method.Parameters.Length != 1
+            || method.Parameters[0].Type.SpecialType != SpecialType.System_String)
+        {
+            return false;
+        }
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var argText = facade.Transform(args[0].Expression, context);
+        context.AddImport("io.github.ningpp.compat.StringHelper");
+        rendered = $"{receiver}.append(StringHelper.nullToEmpty({argText}))";
+        return true;
+    }
+
     private static bool TryRenderStringBuilderAppendCharRepeat(
         InvocationExpressionSyntax invocation,
         string receiver,
