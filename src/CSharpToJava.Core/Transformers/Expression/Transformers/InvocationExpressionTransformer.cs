@@ -301,6 +301,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return new JavaRawExpression(removeAllPredicateCall);
                 }
 
+                if (TryRenderStringBuilderAppendRange(invocation, receiverText, context, out var appendRangeCall))
+                {
+                    return new JavaRawExpression(appendRangeCall);
+                }
+
                 if (TryRenderStringBuilderAppendNullableString(invocation, receiverText, context, out var appendNullableCall))
                 {
                     return new JavaRawExpression(appendNullableCall);
@@ -998,6 +1003,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 if (TryRenderListRemoveAllPredicate(node, receiver, context, out var removeAllPredicateCall))
                 {
                     return removeAllPredicateCall;
+                }
+
+                if (TryRenderStringBuilderAppendRange(node, receiver, context, out var appendRangeCall))
+                {
+                    return appendRangeCall;
                 }
 
                 if (TryRenderStringBuilderAppendNullableString(node, receiver, context, out var appendNullableCall))
@@ -2136,6 +2146,49 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         var argText = facade.Transform(args[0].Expression, context);
         context.AddImport("io.github.ningpp.compat.StringHelper");
         rendered = $"{receiver}.append(StringHelper.nullToEmpty({argText}))";
+        return true;
+    }
+
+    /// <summary>
+    /// C# StringBuilder.Append(string, startIndex, count) uses (start, length)
+    /// semantics, but Java StringBuilder.append(CharSequence, start, end) uses
+    /// (start, endExclusive). Rewrite the third argument from count to
+    /// startIndex + count so the Java call selects the same character range.
+    /// </summary>
+    private static bool TryRenderStringBuilderAppendRange(
+        InvocationExpressionSyntax invocation,
+        string receiver,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
+            || memberAccess.Name.Identifier.Text != "Append")
+        {
+            return false;
+        }
+
+        var args = invocation.ArgumentList.Arguments;
+        if (args.Count != 3)
+            return false;
+
+        var method = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        if (method is null
+            || method.ContainingType.ToDisplayString() != "System.Text.StringBuilder"
+            || method.Parameters.Length != 3
+            || method.Parameters[0].Type.SpecialType != SpecialType.System_String
+            || method.Parameters[1].Type.SpecialType != SpecialType.System_Int32
+            || method.Parameters[2].Type.SpecialType != SpecialType.System_Int32)
+        {
+            return false;
+        }
+
+        var facade = ExpressionTransformerFacade.Instance;
+        var strArg = facade.Transform(args[0].Expression, context);
+        var startArg = facade.Transform(args[1].Expression, context);
+        var countArg = facade.Transform(args[2].Expression, context);
+        // C# Append(str, start, count) → Java append(str, start, start + count)
+        rendered = $"{receiver}.append({strArg}, {startArg}, ({startArg}) + ({countArg}))";
         return true;
     }
 
