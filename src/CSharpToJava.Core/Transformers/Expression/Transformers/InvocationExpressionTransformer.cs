@@ -3402,7 +3402,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             "ulong" => "MathHelper.parseULong",
             "ushort" => "MathHelper.parseUShort",
             "short" => "MathHelper.parseShort",
-            "byte" => "MathHelper.parseByte",
+            "byte" => "MathHelper.parseUnsignedByte",
             "sbyte" => "MathHelper.parseByte",
             _ => null
         };

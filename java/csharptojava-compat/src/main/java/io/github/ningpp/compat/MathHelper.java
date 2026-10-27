@@ -259,6 +259,26 @@ public class MathHelper {
         return (byte) val;
     }
 
+    /**
+     * C# Byte.Parse (unsigned, 0..255) mapped to int carrier — C# byte maps to
+     * Java int at runtime, so the result must stay in 0..255 (not truncated
+     * to signed byte). Used by XmlConvert.ToByte which returns int.
+     */
+    public static int parseUnsignedByte(String s, int style, NumberFormatInfo formatInfo) {
+        int val = parseNumber(() -> parseIntWithStyle(s, style));
+        if ((style & NumberStyles.AllowLeadingSign) != 0) {
+            // Shouldn't happen for Byte.Parse, but handle defensively
+            if (val < Byte.MIN_VALUE || val > Byte.MAX_VALUE) {
+                throw new ArithmeticException("Value out of range for sbyte: " + val);
+            }
+            return val;
+        }
+        if (val < 0 || val > 0xFF) {
+            throw new ArithmeticException("Value out of range for byte: " + val);
+        }
+        return val;
+    }
+
     public static byte parseByte(String s, CultureInfo culture) {
         return parseByte(s);
     }
