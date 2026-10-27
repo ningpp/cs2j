@@ -895,10 +895,19 @@ public class ConversionContext
 
         // The mapped rendering is a simple name; resolve it in the ported package of the
         // C# namespace (System.Xml → dotnet.xml), so `System.Xml.XmlReader` is looked up
-        // as `dotnet.xml.XmlReader`.
-        var ns = containingType.ContainingNamespace?.ToDisplayString() ?? string.Empty;
-        var package = TypeMappings.MapNamespace(ns) ?? ns;
-        var qualified = string.IsNullOrEmpty(package) ? mapped : $"{package}.{mapped}";
+        // as `dotnet.xml.XmlReader`. When MapType already returns a fully-qualified name
+        // (collision qualification), use it directly to avoid double-prefixing.
+        string qualified;
+        if (mapped.Contains('.'))
+        {
+            qualified = mapped;
+        }
+        else
+        {
+            var ns = containingType.ContainingNamespace?.ToDisplayString() ?? string.Empty;
+            var package = TypeMappings.MapNamespace(ns) ?? ns;
+            qualified = string.IsNullOrEmpty(package) ? mapped : $"{package}.{mapped}";
+        }
 
         if (_cSharpStylePropertyCache.TryGetValue((qualified, propertyName), out var cached))
             return cached;
