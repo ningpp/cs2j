@@ -114,16 +114,17 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
         if (left is LiteralExpressionSyntax lit && lit.IsKind(SyntaxKind.NullLiteralExpression))
             return node;
 
-        // Derive type from left operand
+        // Derive type from left operand. The hoisted temp is declared with 'var',
+        // so the symbol is only consulted to decide whether the operand is a
+        // Nullable<T>, whose true branch must read the unwrapped .Value. An
+        // unresolved type — a declaration living in an assembly outside the pass
+        // compilation's reference set, e.g. MSTest's TestContext in a test project
+        // — therefore still rewrites: the plain reference-typed temp is the only
+        // provable shape, and leaving the operator behind would trip the strict
+        // residual gate and abort the whole conversion.
         var typeSymbol = _semanticModel?.GetTypeInfo(node.Left).Type;
-        if (typeSymbol == null || typeSymbol is IErrorTypeSymbol)
-        {
-            _diagnostics.Add(new NullCoalesceDiagnostic(
-                NullCoalesceSeverity.Warning,
-                $"Cannot resolve type of left operand in ?? expression; skipping rewrite."));
-            _stats.SkippedUnsupported++;
-            return node;
-        }
+        var leftIsNullableValueType = typeSymbol is INamedTypeSymbol named
+            && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
 
         var tempName = GenerateTempName();
 
@@ -145,8 +146,7 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
         // reference types need no such unwrap.
         var tempRef = SyntaxFactory.IdentifierName(tempName);
         ExpressionSyntax trueBranch = tempRef;
-        if (typeSymbol is INamedTypeSymbol named
-            && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+        if (leftIsNullableValueType)
         {
             trueBranch = SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
