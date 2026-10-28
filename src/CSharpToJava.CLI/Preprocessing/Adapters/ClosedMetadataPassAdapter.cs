@@ -40,6 +40,17 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
     /// </summary>
     private IReadOnlyList<string> _infrastructureDirectories = Array.Empty<string>();
 
+    /// <summary>
+    /// D6 ownership fallback map: project directory → project identity (the source
+    /// tree's absolute <c>*.csproj</c> path). The collector resolves a source file's
+    /// owning project by walking up to the nearest entry, so a closed construction's
+    /// source-pinned ownership file can be checked for argument visibility.
+    /// </summary>
+    private readonly Dictionary<string, string> _projectByDirectory = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Project identity → source projects it can name directly or transitively.</summary>
+    private readonly Dictionary<string, HashSet<string>> _visibleProjectsByProject = new(StringComparer.OrdinalIgnoreCase);
+
     public ClosedMetadataPassAdapter(
         ClosedMetadataOptions options,
         bool verbose,
@@ -70,8 +81,109 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
             .Select(projectPath => Path.GetDirectoryName(projectPath)!)
             .ToList();
 
+        BuildProjectVisibility(tree);
+
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// Builds the project identity map and the transitive <c>ProjectReference</c>
+    /// closure used by the D6 ownership fallback. References are read from the
+    /// intermediate tree (its csproj files carry the pass-injected support-library
+    /// references) and mapped back to the source-tree project identities the
+    /// collector's ownership paths resolve to.
+    /// </summary>
+    private void BuildProjectVisibility(PassTreeContext tree)
+    {
+        _projectByDirectory.Clear();
+        _visibleProjectsByProject.Clear();
+
+        var sourceProjects = tree.Layout.ProjectFiles
+            .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+            .Select(file => Path.GetFullPath(Path.IsPathRooted(file)
+                ? file
+                : Path.Combine(tree.SourceRoot, file)))
+            .ToList();
+
+        var intermediateBySource = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var sourceProject in sourceProjects)
+        {
+            var intermediateProject = Path.Combine(
+                tree.IntermediateRoot, Path.GetRelativePath(tree.SourceRoot, sourceProject));
+            intermediateBySource[sourceProject] = intermediateProject;
+            _projectByDirectory[NormalizeDirectory(Path.GetDirectoryName(intermediateProject)!)] = sourceProject;
+        }
+
+        foreach (var (sourceProject, intermediateProject) in intermediateBySource)
+        {
+            var visible = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { intermediateProject };
+            var pending = new Queue<string>();
+            pending.Enqueue(intermediateProject);
+            while (pending.Count > 0)
+            {
+                foreach (var reference in ProjectCompileSet.ReadProjectReferences(pending.Dequeue()))
+                {
+                    var referenceDirectory = Path.GetDirectoryName(Path.GetFullPath(reference));
+                    if (referenceDirectory is null
+                        || !_projectByDirectory.TryGetValue(NormalizeDirectory(referenceDirectory), out var referencedProject)
+                        || !visible.Add(referencedProject))
+                    {
+                        continue;
+                    }
+
+                    if (intermediateBySource.TryGetValue(referencedProject, out var referencedIntermediate)
+                        && visited.Add(referencedIntermediate))
+                    {
+                        pending.Enqueue(referencedIntermediate);
+                    }
+                }
+            }
+
+            _visibleProjectsByProject[sourceProject] = visible;
+        }
+    }
+
+    private static string NormalizeDirectory(string directory) =>
+        directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+    /// <summary>
+    /// Maps a source file to its owning project identity by walking up to the
+    /// nearest project directory (layout-known first, then on-disk <c>*.csproj</c>).
+    /// </summary>
+    private string? ResolveProjectIdentity(string filePath)
+    {
+        if (string.IsNullOrEmpty(filePath))
+        {
+            return null;
+        }
+
+        var directory = Path.GetDirectoryName(Path.GetFullPath(filePath));
+        while (directory is not null)
+        {
+            var normalized = NormalizeDirectory(directory);
+            if (_projectByDirectory.TryGetValue(normalized, out var project))
+            {
+                return project;
+            }
+
+            var projectFile = Directory.Exists(directory)
+                ? Directory.EnumerateFiles(directory, "*.csproj").FirstOrDefault()
+                : null;
+            if (projectFile is not null)
+            {
+                return Path.GetFullPath(projectFile);
+            }
+
+            directory = Path.GetDirectoryName(directory);
+        }
+
+        return null;
+    }
+
+    private bool IsProjectVisible(string from, string to)
+        => string.Equals(from, to, StringComparison.OrdinalIgnoreCase)
+            || (_visibleProjectsByProject.TryGetValue(from, out var visible) && visible.Contains(to));
 
     /// <summary>
     /// Injected support projects can only exist under their reserved csproj
@@ -172,6 +284,12 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
             IsInfrastructureSource = _infrastructureDirectories.Count == 0
                 ? null
                 : IsInfrastructureSource,
+            ProjectIdentityResolver = _projectByDirectory.Count == 0
+                ? null
+                : ResolveProjectIdentity,
+            IsProjectVisible = _visibleProjectsByProject.Count == 0
+                ? null
+                : IsProjectVisible,
         });
         _statistics.Merge(_preprocessor.Analysis.Statistics);
         if (_verbose)

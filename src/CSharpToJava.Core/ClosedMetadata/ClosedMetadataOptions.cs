@@ -65,4 +65,22 @@ public sealed record ClosedMetadataOptions
     /// user types cannot compile there.
     /// </summary>
     public Func<string, bool>? IsInfrastructureSource { get; init; }
+
+    /// <summary>
+    /// Optional resolver mapping a source file path to the identity of the project
+    /// that compiles it (e.g. the absolute project-file path). The D6 ownership
+    /// rule uses it to detect a closed type whose generic arguments are declared
+    /// in projects the declaring project cannot name (GraphLayout: the Set&lt;Edge&gt;
+    /// construction is declared in MSAGL while Edge lives in Drawing, which MSAGL
+    /// does not reference). Such records fall back to the discovery-site project.
+    /// </summary>
+    public Func<string, string?>? ProjectIdentityResolver { get; init; }
+
+    /// <summary>
+    /// Whether project <paramref name="from"/> can name types declared in project
+    /// <paramref name="to"/> (direct or transitive <c>ProjectReference</c>). Paired
+    /// with <see cref="ProjectIdentityResolver"/>; when either is unset the D6
+    /// ownership rule keeps the legacy declaration-project behavior.
+    /// </summary>
+    public Func<string, string, bool>? IsProjectVisible { get; init; }
 }

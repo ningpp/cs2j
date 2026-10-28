@@ -454,6 +454,13 @@ public sealed class ClosedMetadataCollector
     /// behave like framework metadata for ownership: they never convert to Java and
     /// cannot reference user projects, so a construction declared there is owned by
     /// its (user-side) discovery site instead.
+    ///
+    /// The declaration project is only a compile-safe owner when it can also name
+    /// every source-declared type argument of the closure. A construction site can
+    /// always name both the declaring assembly and its arguments, so a closure whose
+    /// argument lives in a project outside the declaration project's reference
+    /// closure (GraphLayout: <c>Set&lt;Drawing.Edge&gt;</c> is declared in MSAGL,
+    /// which does not reference Drawing) falls back to the discovery site.
     /// </summary>
     private string OwnershipFilePath(ITypeSymbol type, Location? siteLocation)
     {
@@ -461,16 +468,110 @@ public sealed class ClosedMetadataCollector
             .Locations.FirstOrDefault(location => location.IsInSource)?.SourceTree?.FilePath;
         if (typeSourcePath is not null && !IsInfrastructure(typeSourcePath))
         {
+            var sitePath = siteLocation?.SourceTree?.FilePath;
+            if (sitePath is not null
+                && !IsInfrastructure(sitePath)
+                && HasTypeArgumentOutsideDeclaringProject(type, typeSourcePath))
+            {
+                return sitePath;
+            }
+
             return typeSourcePath;
         }
 
-        var sitePath = siteLocation?.SourceTree?.FilePath;
-        if (sitePath is not null && !IsInfrastructure(sitePath))
+        var fallbackSitePath = siteLocation?.SourceTree?.FilePath;
+        if (fallbackSitePath is not null && !IsInfrastructure(fallbackSitePath))
         {
-            return sitePath;
+            return fallbackSitePath;
         }
 
         return string.Empty;
+    }
+
+    /// <summary>
+    /// True when any source-declared type argument of <paramref name="type"/> is
+    /// declared in a project the declaring project cannot reference. Framework
+    /// arguments (and their nested framework generics such as
+    /// <c>Tuple&lt;Drawing.Node, Drawing.Node&gt;</c>) carry no source declaration and
+    /// are skipped; the recursion still reaches their source-backed arguments.
+    /// When the project graph is unavailable the legacy declaration-project
+    /// ownership is kept.
+    /// </summary>
+    private bool HasTypeArgumentOutsideDeclaringProject(ITypeSymbol type, string declaringFilePath)
+    {
+        var resolveProject = _options.ProjectIdentityResolver;
+        var isVisible = _options.IsProjectVisible;
+        if (resolveProject is null || isVisible is null)
+        {
+            return false;
+        }
+
+        var declaringProject = resolveProject(declaringFilePath);
+        if (declaringProject is null)
+        {
+            return false;
+        }
+
+        return HasInvisibleArgument(type, declaringProject, resolveProject, isVisible);
+    }
+
+    private static bool HasInvisibleArgument(
+        ITypeSymbol type,
+        string declaringProject,
+        Func<string, string?> resolveProject,
+        Func<string, string, bool> isVisible)
+    {
+        switch (type)
+        {
+            case IArrayTypeSymbol array:
+                return HasInvisibleArgument(array.ElementType, declaringProject, resolveProject, isVisible);
+            case INamedTypeSymbol named:
+                foreach (var argument in named.TypeArguments)
+                {
+                    if (IsArgumentOutsideProject(argument, declaringProject, resolveProject, isVisible)
+                        || HasInvisibleArgument(argument, declaringProject, resolveProject, isVisible))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            default:
+                return false;
+        }
+    }
+
+    private static bool IsArgumentOutsideProject(
+        ITypeSymbol type,
+        string declaringProject,
+        Func<string, string?> resolveProject,
+        Func<string, string, bool> isVisible)
+    {
+        if (type is IArrayTypeSymbol array)
+        {
+            return IsArgumentOutsideProject(array.ElementType, declaringProject, resolveProject, isVisible);
+        }
+
+        if (type is not INamedTypeSymbol named)
+        {
+            return false;
+        }
+
+        var sourcePath = named.Locations
+            .FirstOrDefault(location => location.IsInSource)?.SourceTree?.FilePath;
+        if (sourcePath is null)
+        {
+            return false;
+        }
+
+        var argumentProject = resolveProject(sourcePath);
+        if (argumentProject is null
+            || string.Equals(argumentProject, declaringProject, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return !isVisible(declaringProject, argumentProject);
     }
 
     private bool IsInfrastructure(string sourceFilePath)
