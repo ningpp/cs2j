@@ -1,3 +1,4 @@
+using CSharpToJava.Core.ClosureLift;
 using CSharpToJava.Core.IteratorLowering.ControlFlow;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -372,7 +373,14 @@ internal static class IteratorLoweringAnalyzer
         // M4：closure-lift 已在本 pass 之前运行，正常情况下迭代器体内不会残留
         // lambda/匿名方法；残留意味着 closure-lift 主动 skip 了该形态，而其捕获
         // 契约未与状态机提升做过等价验证，防御性 CS2J0405 拒绝。
-        if (body.DescendantNodes().Any(n => n is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax))
+        // 例外：C01 ref-out-in 生成的 ByRef<T>.Create(() => x, v => x = v)
+        // 访问器脚手架 lambda 是基础设施而非用户闭包，不属于跨 yield 捕获
+        // （判定见 ClosureLift.ByRefAccessorLambda，语义优先、语法兜底）。
+        if (body.DescendantNodes()
+                .OfType<AnonymousFunctionExpressionSyntax>()
+                .Any(n => n is AnonymousMethodExpressionSyntax
+                    || (n is LambdaExpressionSyntax lambda
+                        && !ByRefAccessorLambda.IsByRefCreateArgument(semanticModel, lambda))))
         {
             AddSkipDiagnostic(diagnostics, member, IteratorLoweringDiagnosticCode.CS2J0405,
                 $"Iterator method '{memberName}' contains a residual lambda/anonymous method after closure-lift (capture-across-yield is unverified).");

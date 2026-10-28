@@ -2088,6 +2088,126 @@ class C {
         Assert.Equal(0, GetField(blocked, "Adds"));
     }
 
+    [Fact]
+    public void NonGenericIEnumerator_ExplicitInterfaceImplementation_SkipsIEnumerableBase()
+    {
+        // GraphLayout 画像：类实现 IEnumerable<T>，显式 IEnumerator
+        // IEnumerable.GetEnumerator() 体内有 yield。状态机返回形态是非泛型
+        // IEnumerator，只能实现 IEnumerator（+IDisposable）；同时加
+        // IEnumerable 会缺 GetEnumerator() 而 CS0535。
+        var src = @"
+using System.Collections;
+using System.Collections.Generic;
+class C : IEnumerable<int> {
+    public IEnumerator<int> GetEnumerator() { yield return 1; }
+    IEnumerator IEnumerable.GetEnumerator() {
+        yield return 2;
+    }
+    public IEnumerable<int> M() { yield return 3; }
+}";
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+
+        var root = CSharpSyntaxTree.ParseText(output, ParseOptions).GetCompilationUnitRoot();
+        var explicitGetEnumerator = root.DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Parent is ClassDeclarationSyntax { Identifier.ValueText: "C" }
+                && m.ExplicitInterfaceSpecifier?.Name.ToString()
+                    .EndsWith("IEnumerable", StringComparison.Ordinal) == true);
+        var machineName = Regex.Match(
+            Flat(explicitGetEnumerator.Body!.ToString()),
+            @"new (Cs2jIterator_\w+)").Groups[1].Value;
+        Assert.False(string.IsNullOrEmpty(machineName));
+
+        var machines = root.DescendantNodes().OfType<ClassDeclarationSyntax>()
+            .Where(c => c.Identifier.ValueText.StartsWith("Cs2jIterator_", StringComparison.Ordinal))
+            .ToList();
+        var enumeratorMachine = machines.Single(c => c.Identifier.ValueText == machineName);
+        var enumeratorBases = enumeratorMachine.BaseList!.Types
+            .Select(t => Flat(t.Type.ToString())).ToList();
+        Assert.Contains("System.Collections.IEnumerator", enumeratorBases);
+        Assert.Contains("System.IDisposable", enumeratorBases);
+        Assert.DoesNotContain("System.Collections.IEnumerable", enumeratorBases);
+
+        // 泛型 IEnumerable<int> 迭代器仍实现泛型双目 + 非泛型 IEnumerator。
+        var genericMachine = machines.Single(c => c.BaseList!.Types
+            .Any(t => Flat(t.Type.ToString()) == "System.Collections.Generic.IEnumerable<int>"));
+        var genericBases = genericMachine.BaseList!.Types
+            .Select(t => Flat(t.Type.ToString())).ToList();
+        Assert.Contains("System.Collections.Generic.IEnumerable<int>", genericBases);
+        Assert.Contains("System.Collections.Generic.IEnumerator<int>", genericBases);
+        Assert.Contains("System.Collections.IEnumerator", genericBases);
+
+        AssertOutputCompilesZeroDiagnostics(output);
+    }
+
+    [Fact]
+    public void ByRefAccessorLambdas_InIterator_NoResidualLambdaDiagnostic()
+    {
+        // C01 ref-out-in 生成的 ByRef<T>.Create(() => x, v => x = v)
+        // 脚手架 lambda 属于基础设施，不是跨 yield 捕获，不得触发 CS2J0405。
+        var src = @"
+namespace Cs2jByRef {
+    public class ByRef<T> {
+        public static ByRef<T> Create(System.Func<T> getter, System.Action<T> setter) => new ByRef<T>();
+        public T Value;
+    }
+}
+class C {
+    public System.Collections.Generic.IEnumerable<char> M() {
+        char prev = 'w';
+        yield return 'M';
+        Cs2jByRef.ByRef<char> r = Cs2jByRef.ByRef<char>.Create(() => prev, v => prev = v);
+        r.Value = 'L';
+        yield return prev;
+    }
+}";
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain(diags, d => d.Code == IteratorLoweringDiagnosticCode.CS2J0405);
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        // 脚手架 lambda 原样保留（不提升、不删除）。
+        Assert.Contains("Create(() =>", Flat(output));
+        AssertOutputCompilesZeroDiagnostics(output);
+
+        // 普通用户 lambda 的残余拒绝行为保持不变。
+        var plain = @"
+using System.Collections.Generic;
+class D {
+    public IEnumerable<int> M() {
+        System.Func<int> f = () => 1;
+        yield return f();
+    }
+}";
+        var (_, _, plainDiags) = Rewrite(plain);
+        Assert.Contains(plainDiags, d => d.Code == IteratorLoweringDiagnosticCode.CS2J0405);
+    }
+
+    [Fact]
+    public void ForeachOverExplicitInterfaceEnumerator_EmitsInterfaceCast()
+    {
+        // C# foreach 模式允许接收者只提供显式接口 GetEnumerator；展平后直接
+        // `expr.GetEnumerator()` 会 CS1061（GraphLayout 的 Polyline 画像）。
+        var src = @"
+using System.Collections;
+using System.Collections.Generic;
+class C {
+    public IEnumerable<int> M(P p) {
+        foreach (var x in p) yield return x;
+    }
+}
+class P : IEnumerable<int> {
+    public int[] Items = { 1, 2 };
+    IEnumerator<int> IEnumerable<int>.GetEnumerator() {
+        foreach (var x in Items) yield return x;
+    }
+    IEnumerator IEnumerable.GetEnumerator() { return ((IEnumerable<int>)this).GetEnumerator(); }
+}";
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain(diags, d => d.Severity == IteratorLoweringSeverity.Error);
+        Assert.Contains("System.Collections.Generic.IEnumerable<int>)", Flat(output));
+        AssertOutputCompilesZeroDiagnostics(output);
+    }
+
     // ── Helpers: parsing / analysis / rewriting ──
 
     private static string Flat(string s) => Regex.Replace(s, @"\s+", " ");

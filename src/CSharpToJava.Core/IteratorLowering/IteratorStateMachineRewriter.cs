@@ -180,17 +180,26 @@ internal sealed class IteratorStateMachineRewriter
         }
 
         var baseTypes = new List<BaseTypeSyntax>();
-        if (plan.IsNonGenericReturn)
+        if (plan.IsIEnumerableReturn)
         {
-            baseTypes.Add(SimpleBaseType(ParseTypeName("System.Collections.IEnumerable")));
+            if (plan.IsNonGenericReturn)
+            {
+                // 非泛型 IEnumerable 返回：状态机同时是 IEnumerable 与 IEnumerator。
+                baseTypes.Add(SimpleBaseType(ParseTypeName("System.Collections.IEnumerable")));
+            }
+            else
+            {
+                baseTypes.Add(SimpleBaseType(ParseTypeName(
+                    $"System.Collections.Generic.IEnumerable<{plan.ElementType}>")));
+                baseTypes.Add(SimpleBaseType(ParseTypeName(
+                    $"System.Collections.Generic.IEnumerator<{plan.ElementType}>")));
+            }
             baseTypes.Add(SimpleBaseType(ParseTypeName("System.Collections.IEnumerator")));
         }
-        else if (plan.IsIEnumerableReturn)
+        else if (plan.IsNonGenericReturn)
         {
-            baseTypes.Add(SimpleBaseType(ParseTypeName(
-                $"System.Collections.Generic.IEnumerable<{plan.ElementType}>")));
-            baseTypes.Add(SimpleBaseType(ParseTypeName(
-                $"System.Collections.Generic.IEnumerator<{plan.ElementType}>")));
+            // 非泛型 IEnumerator 返回（如显式 `IEnumerator IEnumerable.GetEnumerator()`）：
+            // 只实现 IEnumerator；再加 IEnumerable 会缺 GetEnumerator() 而 CS0535。
             baseTypes.Add(SimpleBaseType(ParseTypeName("System.Collections.IEnumerator")));
         }
         else
@@ -1351,12 +1360,21 @@ internal sealed class IteratorStateMachineRewriter
                         MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
                             IdentifierName(arrayField.FieldName), IdentifierName("Length")))),
                     Block(Goto(endLabel))));
+                var arrayElement = (ExpressionSyntax)ElementAccessExpression(IdentifierName(arrayField.FieldName))
+                    .WithArgumentList(BracketedArgumentList(SingletonSeparatedList(
+                        Argument(IdentifierName(idxField)))));
+                var arrayInfo = _semanticModel.GetForEachStatementInfo(node);
+                if (arrayInfo.ElementType != null
+                    && !string.IsNullOrEmpty(fe.ItemFieldType)
+                    && arrayInfo.ElementType.ToDisplayString() != fe.ItemFieldType)
+                {
+                    // 迭代变量声明类型窄于数组元素类型：foreach 语义在此插入显式转换。
+                    arrayElement = CastExpression(ParseTypeName(fe.ItemFieldType), arrayElement);
+                }
                 _out.Add(ExpressionStatement(AssignmentExpression(
                     SyntaxKind.SimpleAssignmentExpression,
                     IdentifierName(fe.ItemFieldName),
-                    ElementAccessExpression(IdentifierName(arrayField.FieldName))
-                        .WithArgumentList(BracketedArgumentList(SingletonSeparatedList(
-                            Argument(IdentifierName(idxField))))))));
+                    arrayElement)));
                 _stack.Add(new LoopFrame(beginLabel, endLabel));
                 FlattenStatement(body);
                 _stack.RemoveAt(_stack.Count - 1);
@@ -1371,7 +1389,7 @@ internal sealed class IteratorStateMachineRewriter
             _out.Add(ExpressionStatement(AssignmentExpression(SyntaxKind.SimpleAssignmentExpression,
                 IdentifierName(enumField.FieldName),
                 InvocationExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression,
-                    Tx(node.Expression), IdentifierName(fe.GetEnumeratorMethodName!))))));
+                    ForeachReceiver(node), IdentifierName(fe.GetEnumeratorMethodName!))))));
 
             var region = fe.Region;
             var hasBreak = LoopBodyHasDirectBreak(body, node);
@@ -1393,12 +1411,12 @@ internal sealed class IteratorStateMachineRewriter
                 IdentifierName(enumField.FieldName), IdentifierName(fe.CurrentMemberName));
             var feInfo = _semanticModel.GetForEachStatementInfo(node);
             if (feInfo.CurrentProperty != null
-                && feInfo.ElementType != null
-                && !_semanticModel.Compilation.ClassifyConversion(
-                        feInfo.CurrentProperty.Type, feInfo.ElementType).IsIdentity)
+                && !string.IsNullOrEmpty(fe.ItemFieldType)
+                && feInfo.CurrentProperty.Type.ToDisplayString() != fe.ItemFieldType)
             {
+                // 迭代变量声明类型窄于 Current 类型：foreach 语义在此插入显式转换。
                 currentAccess = CastExpression(
-                    ParseTypeName(feInfo.ElementType.ToDisplayString()), currentAccess);
+                    ParseTypeName(fe.ItemFieldType), currentAccess);
             }
             _out.Add(Assign(fe.ItemFieldName, currentAccess));
 
@@ -1427,6 +1445,36 @@ internal sealed class IteratorStateMachineRewriter
             {
                 EmitLabel(endLabel);
             }
+        }
+
+        /// <summary>
+        /// `GetEnumerator()` 的接收者。C# foreach 模式在接收者类型只提供
+        /// 显式接口实现时经接口转换解析（如 `IEnumerator IEnumerable.GetEnumerator()`），
+        /// 直接成员调用会 CS1061；展平后须补一次接口强转。
+        /// </summary>
+        private ExpressionSyntax ForeachReceiver(ForEachStatementSyntax node)
+        {
+            var receiver = Tx(node.Expression);
+            var enumeratorMethod = _semanticModel.GetForEachStatementInfo(node).GetEnumeratorMethod;
+            var receiverType = _semanticModel.GetTypeInfo(node.Expression).Type;
+            if (enumeratorMethod == null || receiverType == null)
+            {
+                return receiver;
+            }
+
+            var castType = enumeratorMethod.MethodKind == MethodKind.ExplicitInterfaceImplementation
+                ? enumeratorMethod.ExplicitInterfaceImplementations.FirstOrDefault()?.ContainingType
+                : receiverType.TypeKind is TypeKind.Class or TypeKind.Struct
+                  && enumeratorMethod.ContainingType.TypeKind == TypeKind.Interface
+                    ? enumeratorMethod.ContainingType
+                    : null;
+            if (castType == null)
+            {
+                return receiver;
+            }
+
+            return ParenthesizedExpression((ExpressionSyntax)CastExpression(
+                ParseTypeName(castType.ToDisplayString()), receiver));
         }
     }
 

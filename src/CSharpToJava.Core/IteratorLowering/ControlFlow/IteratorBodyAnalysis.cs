@@ -16,6 +16,7 @@ internal sealed record ForeachLoweringInfo(
     bool IsEnumeratorValueType,
     string CurrentMemberName,
     string? GetEnumeratorMethodName,
+    string ItemFieldType,
     string ItemFieldName,
     RegionPlan? Region);
 
@@ -204,12 +205,17 @@ internal static class IteratorBodyAnalysis
             var feInfo = semanticModel.GetForEachStatementInfo(fe);
             var itemFieldName = IteratorLoweringNaming.GetLocalFieldName(fe.Identifier.ValueText);
             CaptureField? itemField = null;
+            // 迭代变量声明类型可能比集合元素类型更窄：C# foreach 语义是在
+            // 赋值处插入显式转换（如 `foreach (CubicBezierSegment bez in IList<ICurve>)`），
+            // 因此提升字段按声明类型落库，访问派生成员才不会退化到元素类型。
+            var itemTypeText = feInfo.ElementType?.ToDisplayString() ?? "";
             if (itemSymbol is ILocalSymbol itemLocal)
             {
+                itemTypeText = itemLocal.Type.ToDisplayString();
                 itemField = AddField(
                     itemLocal,
                     fe.Identifier.ValueText,
-                    feInfo.ElementType ?? itemLocal.Type,
+                    itemLocal.Type,
                     itemFieldName);
             }
 
@@ -261,6 +267,7 @@ internal static class IteratorBodyAnalysis
                 isEnumeratorValueType,
                 currentName,
                 getEnumeratorName,
+                itemTypeText,
                 itemField?.FieldName ?? itemFieldName,
                 Region: null);
         }
