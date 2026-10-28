@@ -482,10 +482,14 @@ internal sealed class IndexerUseSiteRewriter : CSharpSyntaxRewriter
             if (containing == null) continue;
             // 接收者类型绑自重解析树、plan 符号绑自原始编译——跨 Compilation 的
             // 符号 SymbolEqualityComparer 判不相等（本文件头部注释），按显示串比较。
-            var containingDisplay = containing.ToDisplayString();
+            // 构造泛型归一为 OriginalDefinition：`PushdownPrefixState<TSpan>` 与 plan 的
+            // `PushdownPrefixState<T>` 必须视为同一类型（GraphLayout QUT.ShiftReduceParser
+            // 的 `this.LocationStack[i]` 站点：索引实参含跨文件 getter，元素访问整体
+            // 绑定为 null，只能靠接收者类型兜底）。
+            var containingDisplay = NormalizedTypeDisplay(containing);
             for (var t = (ITypeSymbol?)receiverType; t != null; t = t.BaseType)
             {
-                if (!StringComparer.Ordinal.Equals(t.ToDisplayString(), containingDisplay)) continue;
+                if (!StringComparer.Ordinal.Equals(NormalizedTypeDisplay(t), containingDisplay)) continue;
                 if (match != null) return null; // 歧义：同接收者类型多个活跃索引器。
                 match = candidate;
                 break;
@@ -494,6 +498,11 @@ internal sealed class IndexerUseSiteRewriter : CSharpSyntaxRewriter
 
         return match?.Indexer;
     }
+
+    private static string NormalizedTypeDisplay(ITypeSymbol type)
+        => type is INamedTypeSymbol named
+            ? named.OriginalDefinition.ToDisplayString()
+            : type.ToDisplayString();
 
     /// <summary>c[i] 是纯左值目标（赋值左侧 / ++/-- 操作数）时读路径让位：简单写由
     /// <see cref="VisitExpressionStatement"/> 的 setter 路径接管、自增/自减由 get→算→set

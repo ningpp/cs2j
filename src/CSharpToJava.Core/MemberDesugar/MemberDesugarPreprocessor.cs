@@ -26,6 +26,12 @@ public sealed partial class MemberDesugarPreprocessor
     private Dictionary<string, Signatures.SignatureStatistics>? _signatureAuditByFile;
     private readonly HashSet<string> _excludedPlanIds = new(StringComparer.Ordinal);
 
+    /// <summary>运算符 overlay 缓存（见 <see cref="EnsureOperatorOverlay"/>）：键为源编译，
+    /// ExcludePlans/BeginIteration 变更活动 plan 集时失效。</summary>
+    private readonly object _operatorOverlayLock = new();
+    private CSharpCompilation? _operatorOverlay;
+    private CSharpCompilation? _operatorOverlaySource;
+
     /// <summary>C39 FN-8：本 run 的 sidecar（懒创建；适配器每轮迭代新建 preprocessor，
     /// 首次实际删除时重置旧文件）。定位不到 .cs2j-member-desugar-src 段时为内存模式。</summary>
     private Finalizers.FinalizerSidecarReport? _finalizerSidecar;
@@ -149,9 +155,10 @@ public sealed partial class MemberDesugarPreprocessor
         statistics.SignatureHideBridged += plannedHiding.Count(p =>
             p is Signatures.Hiding.NhPlan { Bridged: true } && IsFirstDeclarationFile(p, filePath));
 
-        // 四级 dispatch：属性->事件(重解析)->运算符(重解析)->索引器
-        // 属性改写器在原始树上运行；事件/运算符改写器经替换树运行（属性产物是红色节点，
-        // 语义查询必须绑定自有模型）；索引器最后。事件 plan 归属键使用「含类型::事件名」显示串，
+        // 阶段序：record with → finalizer → 运算符(重解析) → 属性 → 事件(重解析) → 索引器 → 签名。
+        // 运算符/转换站点必须在属性展开之前绑定完整编译（跨文件属性访问器尚未合成，
+        // 见下方运算符块注释）；其余阶段在各自重解析出的新鲜模型上运行。
+        // 事件 plan 归属键使用「含类型::事件名」显示串，
         // 运算符 plan 归属键使用「含类型::op 名(参数):返回」（设计 §4.6）。
         var workingRoot = root;
         // 随重写链推进的活动模型：finalizer B 档删除会重建编译单元（同文件内未改动类型的
@@ -240,6 +247,63 @@ public sealed partial class MemberDesugarPreprocessor
                 workingRoot = replacementRoot;
             }
         }
+        // C14 运算符阶段先于属性阶段（GraphLayout 回归）：运算符/转换站点的判定依赖
+        // 完整编译语义。属性阶段会把属性访问改写成 get_X()/set_X()，而这些访问器
+        // 只在本文件的改写树里存在——其他文件的属性声明尚未展开，重解析出的新鲜模型
+        // 对 `x.get_Origin()` 绑定失败，GetSymbolInfo(binary) 为 null，站点静默漏改，
+        // 而运算符声明已改名 → CS0019。改在属性阶段之前跑，绑定用的是未改写的完整
+        // 编译（运算符、属性、跨文件一切照旧可绑）；属性阶段随后在重解析树/新鲜模型上
+        // 运行（其声明级 GetDeclaredSymbol 同样要求节点在语法树中）。
+        if (plannedOperators.Count > 0 || hasOperatorDecls)
+        {
+            // 前置 record/finalizer 阶段可能已重建树：先取干净文本再重解析换可绑定模型。
+            var intermediate = RewriteAndValidate(workingRoot);
+            if (intermediate == null)
+            {
+                statistics.FilesSkippedClean++;
+                diagnostics.Add(new MemberDesugarDiagnostic(
+                    MemberDesugarSeverity.Warning, MemberDesugarDiagnosticCode.PlanRolledBack,
+                    "member-desugar rewrite failed local parse validation; the original file was " +
+                    "preserved pending whole-tree validation.", filePath, 0, 0, null));
+                return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
+            }
+            SemanticModel operatorModel;
+            if (ReferenceEquals(workingRoot, root))
+            {
+                operatorModel = semanticModel;
+            }
+            else
+            {
+                var (replacementModel, replacementRoot) = ParseReplacement(activeModel, intermediate);
+                operatorModel = replacementModel;
+                workingRoot = replacementRoot;
+            }
+            var opRewriter = new Operators.OperatorUseSiteRewriter(
+                operatorModel, plannedOperators, operatorPlans,
+                _options, statistics, diagnostics, filePath,
+                plannedProperties);
+            workingRoot = (CompilationUnitSyntax)opRewriter.Visit(workingRoot)!;
+
+            // 运算符产物（声明改名/站点调用）是红色节点：后续属性/事件/索引器阶段的
+            // 声明级绑定必须换新鲜模型，否则 GetDeclaredSymbol 抛「节点不在语法树中」。
+            if (!ReferenceEquals(workingRoot, root))
+            {
+                var operatorIntermediate = RewriteAndValidate(workingRoot);
+                if (operatorIntermediate == null)
+                {
+                    statistics.FilesSkippedClean++;
+                    diagnostics.Add(new MemberDesugarDiagnostic(
+                        MemberDesugarSeverity.Warning, MemberDesugarDiagnosticCode.PlanRolledBack,
+                        "member-desugar rewrite failed local parse validation; the original file was " +
+                        "preserved pending whole-tree validation.", filePath, 0, 0, null));
+                    return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
+                }
+                var (replacementModel, replacementRoot) = ParseOntoOperatorOverlay(
+                    (CSharpCompilation)semanticModel.Compilation, filePath, operatorIntermediate);
+                activeModel = replacementModel;
+                workingRoot = replacementRoot;
+            }
+        }
         if (plannedProperties.Count > 0)
         {
             var rewriter = new Properties.PropertyUseSiteRewriter(
@@ -262,37 +326,6 @@ public sealed partial class MemberDesugarPreprocessor
                 _options, statistics, diagnostics, filePath);
             workingRoot = (CompilationUnitSyntax)eventRewriter.Visit(eventTree.GetRoot())!;
             activeModel = eventModel;
-        }
-        if (plannedOperators.Count > 0 || hasOperatorDecls)
-        {
-            // 事件/属性产物含无分隔 trivia 的合成节点（文本级 publicint/returnp），必须先经
-            // 格式化+本地校验取干净文本，再解析回编译换取可绑定的新鲜模型。
-            var intermediate = RewriteAndValidate(workingRoot);
-            if (intermediate == null)
-            {
-                statistics.FilesSkippedClean++;
-                diagnostics.Add(new MemberDesugarDiagnostic(
-                    MemberDesugarSeverity.Warning, MemberDesugarDiagnosticCode.PlanRolledBack,
-                    "member-desugar rewrite failed local parse validation; the original file was " +
-                    "preserved pending whole-tree validation.", filePath, 0, 0, null));
-                return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
-            }
-            SemanticModel operatorModel;
-            if (ReferenceEquals(workingRoot, root))
-            {
-                operatorModel = semanticModel;
-            }
-            else
-            {
-                var (replacementModel, replacementRoot) = ParseReplacement(semanticModel, intermediate);
-                operatorModel = replacementModel;
-                workingRoot = replacementRoot;
-            }
-            var opRewriter = new Operators.OperatorUseSiteRewriter(
-                operatorModel, plannedOperators, operatorPlans,
-                _options, statistics, diagnostics, filePath,
-                plannedProperties);
-            workingRoot = (CompilationUnitSyntax)opRewriter.Visit(workingRoot)!;
         }
         if (plannedIndexers.Count > 0)
         {
@@ -415,6 +448,69 @@ public sealed partial class MemberDesugarPreprocessor
     internal void BindCompilation(Compilation compilation)
         => EnsureBuilt((CSharpCompilation)compilation);
 
+    /// <summary>
+    /// 运算符阶段之后的**一致绑定编译**：把编译内每个含运算符 plan 的文件都用
+    /// <see cref="Operators.OperatorUseSiteRewriter"/> 在**原始模型**上过一遍
+    /// （运算符绑定只依赖原始编译，不依赖属性阶段产物），得到「全文件运算符已去糖」
+    /// 的编译。属性/事件/索引器阶段在其上重解析即可绑定本文件刚生成的
+    /// <c>Type.MultiplyOperator(...)</c> 等跨文件引用——否则新鲜编译里其他文件仍是
+    /// 运算符语法，调用绑定失败会把接收者类型退化成错误类型，进而漏改属性/索引器
+    /// 站点（GraphLayout CS1061/CS0021）。统计与诊断用一次性桶，避免重复计数。
+    /// </summary>
+    private CSharpCompilation EnsureOperatorOverlay(CSharpCompilation source)
+    {
+        lock (_operatorOverlayLock)
+        {
+            if (_operatorOverlay != null && ReferenceEquals(_operatorOverlaySource, source))
+                return _operatorOverlay;
+
+            var overlay = source;
+            foreach (var tree in source.SyntaxTrees.ToList())
+            {
+                var plansForFile = PlansForFile(tree.FilePath);
+                var allOperatorPlans = plansForFile.OfType<Operators.OperatorPlan>().ToList();
+                var planned = allOperatorPlans
+                    .Where(p => p.Outcome == MemberDesugarOutcome.Planned
+                                && !_excludedPlanIds.Contains(p.Id))
+                    .ToList();
+                if (planned.Count == 0) continue;
+
+                var model = source.GetSemanticModel(tree);
+                var rewriter = new Operators.OperatorUseSiteRewriter(
+                    model, planned, allOperatorPlans,
+                    _options, new MemberDesugarStatistics(),
+                    new List<MemberDesugarDiagnostic>(), tree.FilePath);
+                var rewritten = (CompilationUnitSyntax)rewriter.Visit(tree.GetRoot())!;
+                var text = rewritten.ToFullString();
+                if (!ParsesClean(text)) continue;
+                var newTree = CSharpSyntaxTree.ParseText(
+                    text, (CSharpParseOptions)tree.Options, tree.FilePath);
+                overlay = overlay.ReplaceSyntaxTree(tree, newTree);
+            }
+
+            _operatorOverlay = overlay;
+            _operatorOverlaySource = source;
+            return overlay;
+        }
+    }
+
+    /// <summary>在运算符 overlay 编译中换入本文件的实际运算符产物，产出可绑定的新鲜模型。</summary>
+    private (SemanticModel Model, CompilationUnitSyntax Root) ParseOntoOperatorOverlay(
+        CSharpCompilation source, string filePath, string text)
+    {
+        var overlay = EnsureOperatorOverlay(source);
+        var newTree = CSharpSyntaxTree.ParseText(
+            text, (CSharpParseOptions)source.SyntaxTrees.FirstOrDefault()?.Options
+                  ?? new CSharpParseOptions(LanguageVersion.Latest),
+            filePath);
+        var previous = overlay.SyntaxTrees.FirstOrDefault(
+            t => string.Equals(t.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+        var compilation = previous != null
+            ? overlay.ReplaceSyntaxTree(previous, newTree)
+            : overlay.AddSyntaxTrees(newTree);
+        return (compilation.GetSemanticModel(newTree), (CompilationUnitSyntax)newTree.GetRoot());
+    }
+
     /// <summary>把中间产物文本解析回编译，产出可绑定新节点的
     /// 新鲜模型与其附着根（operator 重写器用；设计 §4.6 键桥接）。仅混族文件触发。</summary>
     private static (SemanticModel Model, CompilationUnitSyntax Root) ParseReplacement(
@@ -447,6 +543,9 @@ public sealed partial class MemberDesugarPreprocessor
     internal void ExcludePlans(IEnumerable<string> planIds)
     {
         foreach (var id in planIds) _excludedPlanIds.Add(id);
+        // 活动 plan 集变化 → 运算符 overlay 需要重建。
+        _operatorOverlay = null;
+        _operatorOverlaySource = null;
     }
 
     /// <summary>
@@ -455,7 +554,6 @@ public sealed partial class MemberDesugarPreprocessor
     /// 重删同一终结器时重复登记（sidecar 条目翻倍，C39 FN-8）。
     /// </summary>
     internal void BeginIteration() => _finalizerSidecar = null;
-
     /// <summary>
     /// 归属（与 JK 同款键：位置 → (类型名, 成员名) → plan owner 集合）。返回该位置的
     /// **全部** owner（含已排除者，按 Id 序）；调用方取其中【活动】者作本轮回退集——

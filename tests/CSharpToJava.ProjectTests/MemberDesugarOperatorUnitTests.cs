@@ -1026,6 +1026,56 @@ public class MemberDesugarOperatorUnitTests
         AssertOutputCompiles(outputs[0], outputs[1]);
     }
 
+    /// <summary>回归（GraphLayout CS0019）：站点运算元含**跨文件**属性访问时（`holder.Origin`
+    /// 声明在另一个文件，被 C11 改写成 `holder.get_Origin()`），运算符阶段不能在
+    /// 「只有本文件已属性去糖」的半新编译上绑定——那会让 `get_Origin()` 绑定失败，
+    /// `GetSymbolInfo(binary)` 为 null，站点被静默漏改，而声明已改名 → CS0019。
+    /// 同时覆盖同/异类型多重载并存（`*(Point,Point):double` 与 `*(Point,double):Point`）、
+    /// 泛型方法与迭代器体内的站点。</summary>
+    [Fact]
+    public void BinarySites_PropertyOperands_CrossFileGenericAndIterator_Rewritten()
+    {
+        var (outputs, stats, _) = RewriteAll(null, """
+            public struct Point
+            {
+                public double X { get; set; }
+                public double Y { get; set; }
+                public Point(double x, double y) { X = x; Y = y; }
+                public static Point Multiply(Point a, double k) => new Point(a.X * k, a.Y * k);
+                public static double operator *(Point a, Point b) => a.X * b.X + a.Y * b.Y;
+                public static Point operator *(double k, Point a) => new Point(a.X * k, a.Y * k);
+                public static Point operator *(Point a, double k) => new Point(a.X * k, a.Y * k);
+            }
+            """, """
+            public partial class Holder
+            {
+                public Point Origin { get; set; }
+                public Point Delta { get; set; }
+            }
+            """, """
+            using System.Collections.Generic;
+            public partial class Holder
+            {
+                public Point DotByProperty(double k) => k * Origin;
+                public double DotPair() => Origin * Delta;
+                public Point Scaled() => Origin * 2.0;
+                public Point ScaleGeneric<T>(T ignored) => Origin * 3.0;
+                public static IEnumerable<Point> Repeat(Point p, int n)
+                {
+                    for (var i = 0; i < n; i++)
+                        yield return 2 * p;
+                }
+            }
+            """);
+        Assert.True(stats.OperatorBinarySitesRewritten >= 5);
+        AssertContains(outputs[2], "Point.MultiplyOperator(k, get_Origin())");
+        AssertContains(outputs[2], "Point.MultiplyOperator(get_Origin(), get_Delta())");
+        AssertContains(outputs[2], "Point.MultiplyOperator(get_Origin(), 2.0)");
+        AssertContains(outputs[2], "Point.MultiplyOperator(get_Origin(), 3.0)");
+        AssertContains(outputs[2], "Point.MultiplyOperator(2, p)");
+        AssertOutputCompiles(outputs[0], outputs[1], outputs[2]);
+    }
+
     // ---- 工程性质（§7.1-14）----
 
     [Fact]
