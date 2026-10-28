@@ -125,6 +125,11 @@ internal static class DisplayClassPlanner
         {
             if (ClosureLiftAnnotations.IsAnnotated(lambda))
                 continue;
+            // C01 ByRef accessor scaffolding (`ByRef<T>.Create<T>(λ, λ)`) is
+            // infrastructure that survives closure-lift verbatim: it is neither
+            // a plan candidate nor a residual for the CS2J4510 census.
+            if (ByRefAccessorLambda.IsByRefCreateArgument(model, lambda))
+                continue;
             if (ExpressionTreeFacts.IsExpressionTreeLambda(model, lambda))
             {
                 quoted.Add(lambda);

@@ -99,7 +99,11 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
             // D19 (static path): the method lands at TYPE level, where the
             // enclosing method's type parameters are out of scope — carry the
             // ones its signature/body actually reference (semantic ownership).
-            var typeParameters = LiftedTypeParameterResolver.Resolve(model, site.Lambda, site.Routine);
+            // Initializer-host sites have no routine: only the host TYPE's type
+            // parameters are in scope, so the resolver's method-arity look-up
+            // sees the type and returns nothing to redeclare.
+            var typeParameters = LiftedTypeParameterResolver.Resolve(
+                model, site.Lambda, (SyntaxNode?)site.Routine ?? site.HostType);
             // Model span is the cross-stage pairing anchor (planner census +
             // delegate-site order pairing); received span addresses nested
             // sites inside to-be-moved bodies (C32 inserts shift positions).

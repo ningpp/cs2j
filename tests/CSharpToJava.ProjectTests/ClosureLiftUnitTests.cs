@@ -295,13 +295,15 @@ class C {
     {
         var src = @"
 class C {
-    System.Func<int> F = () => 1;
+    private int _n;
+    System.Func<int> F = () => _n;
 }";
         var r = Audit(src);
 
-        // D18③ (M3): captureless non-static initializer lambdas now carry an
-        // explicit CS2J4504 row too (previously the boundary was silent here
-        // and only static shapes were reported by the M1 stage).
+        // D18③ (M3): a CAPTURING initializer lambda stays the unsupported-host
+        // family (CS2J4504 Error). Capture-free non-static shapes are lifted by
+        // the M1 static path instead (see
+        // Transform_CaptureFreeFieldInitializerLambda_LiftedToStaticMethod).
         Assert.Contains(r.Diagnostics, d =>
             d.Code == "CS2J4504" && d.Severity == ClosureLiftSeverity.Error);
     }
@@ -1409,6 +1411,105 @@ class C {
         Assert.Equal(src, r.OutputCode);
         Assert.Contains(r.Diagnostics, d =>
             d.Code == "CS2J4504" && d.Severity == ClosureLiftSeverity.Warning);
+    }
+
+    // ── GraphLayout regressions: initializer lambdas + ByRef accessors ──
+
+    [Fact]
+    public void Transform_CaptureFreeFieldInitializerLambda_LiftedToStaticMethod()
+    {
+        // GraphLayout CS2J4504: a capture-free initializer lambda is a plain
+        // static lambda in disguise. The lifted method lives at type level and
+        // the initializer converts the method group — no instance is involved.
+        var src = @"
+class C {
+    readonly System.Func<int, int> square = x => x * x;
+    public int Run(int v) {
+        System.Func<int, int> addOne = y => y + 1;
+        return square(v) + addOne(v);
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed, string.Join("\n", r.Diagnostics));
+        Assert.DoesNotContain(r.Diagnostics, d => d.Code == "CS2J4504");
+        Assert.Contains("Cs2jLambda_square_0", r.OutputCode);
+        Assert.Contains("private static int Cs2jLambda_square_0(int x)", r.OutputCode);
+        Assert.Contains("new global::System.Func<int, int>(Cs2jLambda_square_0)", r.OutputCode);
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_CapturingFieldInitializerLambda_CS2J4504_FileVerbatim()
+    {
+        // A capturing initializer lambda has no host instance contract: the
+        // CS2J4504 Error and the whole-file rollback are unchanged.
+        var src = @"
+class C {
+    private int _n;
+    System.Func<int> F = () => _n;
+}";
+        var r = Transform(src);
+
+        Assert.False(r.Changed);
+        Assert.Equal(src, r.OutputCode);
+        Assert.Contains(r.Diagnostics, d =>
+            d.Code == "CS2J4504" && d.Severity == ClosureLiftSeverity.Error);
+        Assert.DoesNotContain("Cs2jLambda_", r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_ByRefAccessorLambdas_NoCaptureRows_LambdasPreserved()
+    {
+        // C01 shape: `ByRef<T>.Create<T>(() => t, v => t = v)` in an indexer
+        // accessor. The synthetic accessor parameter has no declarator in the
+        // model, so closure-lift used to emit CS2J4502 and count a residual.
+        // Both lambdas are infrastructure: verbatim, no rows, no plans.
+        var src = @"
+namespace Cs2jByRef {
+    public class ByRef<T> {
+        public static ByRef<T> Create<T>(System.Func<T> get, System.Action<T> set) => new ByRef<T>();
+        public T Value;
+    }
+}
+class C {
+    public int this[int t] {
+        get {
+            Cs2jByRef.ByRef<int> r = Cs2jByRef.ByRef<int>.Create<int>(() => t, v => t = v);
+            return r.Value + t;
+        }
+    }
+}";
+        var r = Transform(src);
+
+        Assert.False(r.Changed);
+        Assert.Equal(src, r.OutputCode);
+        // Pre-fix the analyzer sees the synthetic accessor parameter (Roslyn
+        // exposes it without a declarator) and emits CS2J3202/CS2J4502.
+        Assert.DoesNotContain(r.Diagnostics, d => d.Severity == ClosureLiftSeverity.Error);
+        Assert.Empty(HolderClassNames(r.OutputCode));
+        Assert.Contains("ByRef<int>.Create<int>(() => t, v => t = v)", r.OutputCode);
+        Assert.Equal(0, new ClosureLiftPreprocessor().CountResidualMutableCaptures(r.OutputCode));
+        Assert.Equal(0, new ClosureLiftPreprocessor().CountResiduals(r.OutputCode).ResidualMutableCaptures);
+
+        // The residual gates build a single-tree model WITHOUT the support
+        // library, so `ByRef` does not bind there: the syntactic fallback must
+        // exclude the same shape too (GraphLayout's C32 residual gate).
+        var unresolved = @"
+class C {
+    public int this[int t] {
+        get {
+            int r = ByRef<int>.Create<int>(() => t, v => t = v);
+            return r;
+        }
+    }
+}";
+        Assert.Equal(0, new ClosureLiftPreprocessor().CountResidualMutableCaptures(unresolved));
+        Assert.Equal(0, new ClosureLiftPreprocessor().CountResiduals(unresolved).ResidualMutableCaptures);
+        Assert.Equal(2, LambdaNodes(unresolved).Count); // both scaffolding lambdas present
+
+        AssertOutputCompiles(r.OutputCode);
     }
 
     // ── M2 residual gate (design §7.3) ──

@@ -135,6 +135,13 @@ internal sealed class CaptureAnalyzer
 
         foreach (var lambda in lambdas)
         {
+            // C01 ByRef accessor scaffolding (`ByRef<T>.Create<T>(() => x, v => x = v)`)
+            // is infrastructure, not user capture state: its synthetic accessor
+            // parameter has no declarator in the model, so analysing it could only
+            // produce a spurious CS2J4502 (GraphLayout Polyline).
+            if (ByRefAccessorLambda.IsByRefCreateArgument(_model, lambda))
+                continue;
+
             var lambdaBody = lambda is ParenthesizedLambdaExpressionSyntax parenthesized
                 ? (SyntaxNode?)parenthesized.Block ?? parenthesized.ExpressionBody
                 : ((SimpleLambdaExpressionSyntax)lambda).Block is { } block2
@@ -146,14 +153,17 @@ internal sealed class CaptureAnalyzer
             var routine = ResolveRoutine(lambda, out var boundaryCode, out var boundaryNode);
             if (routine == null)
             {
-                // D18③ (M3): field/property/indexer initializers and residual
-                // local functions are the CS2J4504 unsupported-host family for
-                // EVERY lambda shape — captureless and `static` included. The
-                // row is strict Error (Warning when non-strict), so strict mode
-                // keeps the whole file verbatim rather than partially lifting
-                // the other lambdas of the same file.
-                if (boundaryCode != null)
+                // D18③ (M3): residual local functions stay CS2J4504 for EVERY
+                // lambda shape. Field/property initializers do too — except the
+                // capture-free, non-`static` shape the M1 static path lifts to a
+                // host-level method (GraphLayout CS2J4504); the index stage owns
+                // that plan and the delegate-site stage the replacement.
+                if (boundaryCode != null
+                    && !IsLiftedInitializerLambda(lambda, quoted))
+                {
                     Emit(boundaryCode, BoundaryMessage(boundaryCode), boundaryNode!.GetLocation());
+                }
+
                 continue;
             }
 
@@ -556,6 +566,21 @@ internal sealed class CaptureAnalyzer
 
         return null;
     }
+
+    /// <summary>
+    /// True when the initializer-hosted lambda is not an unsupported host at
+    /// all: the M1 index also plans it (`InitializerHost` + zero capture) and
+    /// lifts it into a host-level `private static` method. Quoted data and
+    /// `static`-modified initializer lambdas keep the D18③ row.
+    /// </summary>
+    private bool IsLiftedInitializerLambda(
+        LambdaExpressionSyntax lambda,
+        ISet<LambdaExpressionSyntax> quoted)
+        => !quoted.Contains(lambda)
+           && !lambda.Modifiers.Any(
+               static m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.StaticKeyword))
+           && InitializerHost.TryGetMemberAnchor(lambda, out _)
+           && LambdaSiteIndex.IsCaptureFree(_model, lambda, routineSymbol: null);
 
     private static string BoundaryMessage(string code) => code switch
     {

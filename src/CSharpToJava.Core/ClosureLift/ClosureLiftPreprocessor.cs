@@ -179,6 +179,15 @@ public sealed class ClosureLiftPreprocessor
             return (0, 0, anonymousMethods);
 
         var standalone = BuildStandaloneModel(tree);
+
+        // C01 ByRef accessor scaffolding survives the pass verbatim and is not a
+        // residual for either bucket (same exclusion as the analysis stages).
+        var userLambdas = lambdas
+            .Where(lambda => !ByRefAccessorLambda.IsByRefCreateArgument(standalone, lambda))
+            .ToList();
+        if (userLambdas.Count == 0)
+            return (0, 0, anonymousMethods);
+
         var captures = new CaptureAnalyzer(
                 standalone, new ClosureLiftOptions(), new List<ClosureLiftDiagnostic>())
             .Analyze(root)
@@ -186,7 +195,7 @@ public sealed class ClosureLiftPreprocessor
 
         var residual = BuildResidualModel(tree);
         var statementLambdas = 0;
-        foreach (var lambda in lambdas)
+        foreach (var lambda in userLambdas)
         {
             if (!ExpressionTreeFacts.IsExpressionTreeLambda(residual, lambda))
                 statementLambdas += 1;
@@ -228,6 +237,9 @@ public sealed class ClosureLiftPreprocessor
         var statementLambdas = 0;
         foreach (var lambda in lambdas)
         {
+            // C01 ByRef accessor scaffolding: never an unaccounted residual.
+            if (ByRefAccessorLambda.IsByRefCreateArgument(model, lambda))
+                continue;
             if (!ExpressionTreeFacts.IsExpressionTreeLambda(model, lambda))
                 statementLambdas += 1;
         }

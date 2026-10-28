@@ -6,15 +6,16 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.Core.ClosureLift;
 
 /// <summary>
-/// One lambda site classified by the M1 index: the enclosing routine is a
+/// One lambda site classified by the M1 index: the enclosing routine (or the
+/// field/property initializer's host type — <see cref="Routine"/> null) is a
 /// supported analysis root (design D21) and the lambda is not excluded
-/// outright (quoted / synthesized / initializer-host). <see cref="SpanStart"/>
+/// outright (quoted / synthesized / local-function host). <see cref="SpanStart"/>
 /// is the site anchor — unique per source occurrence.
 /// </summary>
 internal sealed record StaticLambdaSite(
     int SpanStart,
     LambdaExpressionSyntax Lambda,
-    SyntaxNode Routine,
+    SyntaxNode? Routine,
     TypeDeclarationSyntax HostType,
     string RoutineName,
     /// <summary>C# 9 `static` modifier present (D10: same path, analysis still verifies).</summary>
@@ -28,8 +29,14 @@ internal sealed record StaticLambdaSite(
 ///   - quoted Expression&lt;TDelegate&gt; lambdas are excluded whole (D18, shared
 ///     <see cref="ExpressionTreeFacts"/> predicate);
 ///   - nodes carrying the cs2j_closure_lift annotation are excluded (§3.2);
-///   - field/property-initializer and residual-local-function hosts stay out
-///     (D18③/D21 — C32 rows already own the non-static part of that family);
+///   - C01 ByRef accessor scaffolding lambdas are excluded whole
+///     (<see cref="ByRefAccessorLambda"/>);
+///   - residual-local-function hosts stay out (D18③/D21);
+///   - field/property-initializer capture-free lambdas now DO lift (GraphLayout
+///     CS2J4504): the emitted static method lives at type level and never sees
+///     the instance the initializer runs in. `static`-modified initializer
+///     lambdas keep the D18③ row (existing contract). <see cref="StaticLambdaSite.Routine"/>
+///     is null for this family; the member-name anchor is the field/property name;
 ///   - a candidate must capture no local/parameter/range symbol, no `this`
 ///     (implicit, explicit or `base`), reference no local function and no
 ///     enclosing-method type parameter (D19 is M2).
@@ -57,14 +64,39 @@ internal static class LambdaSiteIndex
             if (ExpressionTreeFacts.IsExpressionTreeLambda(model, lambda))
                 continue; // D18: quoted expression-tree lambdas are skipped whole.
 
-            if (ResolveRoutine(lambda) is not { } routine)
-                continue; // initializer host / residual local function: C32 rows own these.
+            if (ByRefAccessorLambda.IsByRefCreateArgument(model, lambda))
+                continue; // C01 infrastructure; never a liftable user lambda.
 
-            var hostType = routine.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
-            if (hostType is not (ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax))
-                continue; // interface / top-level statements: no insertable host type (D21).
+            var hasStaticKeyword = lambda.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword));
+            var routine = ResolveRoutine(lambda);
+            TypeDeclarationSyntax? hostType;
+            string routineName;
+            if (routine != null)
+            {
+                hostType = routine.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+                if (hostType is not (ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax))
+                    continue; // interface / top-level statements: no insertable host type (D21).
+                routineName = GetRoutineName(routine, model, hostType);
+            }
+            else if (!hasStaticKeyword
+                     && InitializerHost.TryGetMemberAnchor(lambda, out var memberName))
+            {
+                // Field/property initializer, capture-free and not declared
+                // `static`: the M1 static path can host the body at type level.
+                // The `static` shape keeps its D18③ CS2J4504 row (analyzer owns
+                // it), so the index must not plan it here either.
+                hostType = lambda.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+                if (hostType is not (ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax))
+                    continue;
+                routineName = memberName;
+            }
+            else
+            {
+                continue; // residual local function / static initializer host.
+            }
 
-            if (!IsZeroCapture(model, lambda, routine))
+            var routineSymbol = routine is null ? null : model.GetDeclaredSymbol(routine) as IMethodSymbol;
+            if (!IsCaptureFree(model, lambda, routineSymbol))
                 continue;
 
             sites.Add(new StaticLambdaSite(
@@ -72,8 +104,8 @@ internal static class LambdaSiteIndex
                 lambda,
                 routine,
                 hostType,
-                GetRoutineName(routine, model, hostType),
-                lambda.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)),
+                routineName,
+                hasStaticKeyword,
                 lambda.AsyncKeyword.IsKind(SyntaxKind.AsyncKeyword)));
         }
 
@@ -86,7 +118,8 @@ internal static class LambdaSiteIndex
     /// Mirrors the C32 analyzer's routine resolution: methods, constructors,
     /// destructors, operators, conversion operators and accessors are roots;
     /// lambdas under residual local functions or field/property initializers
-    /// resolve to nothing (M1 does not lift them).
+    /// resolve to nothing (initializer hosts are resolved by
+    /// <see cref="InitializerHost"/>).
     /// </summary>
     private static SyntaxNode? ResolveRoutine(LambdaExpressionSyntax lambda)
     {
@@ -108,7 +141,16 @@ internal static class LambdaSiteIndex
         return null;
     }
 
-    private static bool IsZeroCapture(SemanticModel model, LambdaExpressionSyntax lambda, SyntaxNode routine)
+    /// <summary>
+    /// Zero-capture classification shared with the C32 analyzer (initializer
+    /// hosts pass a null <paramref name="routineSymbol"/>: their host TYPE's
+    /// type parameters stay in scope inside a nested member, so only an
+    /// enclosing METHOD's arity (D19) has to be rejected).
+    /// </summary>
+    internal static bool IsCaptureFree(
+        SemanticModel model,
+        LambdaExpressionSyntax lambda,
+        IMethodSymbol? routineSymbol)
     {
         var lambdaBody = GetBodyRoot(lambda);
         if (lambdaBody == null)
@@ -117,7 +159,6 @@ internal static class LambdaSiteIndex
         // Synthesized anonymous-function method symbol owns the lambda's own
         // parameters (Roslyn 5 GetSymbolInfo shape, same as the C32 analyzer).
         var lambdaSymbol = model.GetSymbolInfo(lambda).Symbol as IMethodSymbol;
-        var routineSymbol = model.GetDeclaredSymbol(routine) as IMethodSymbol;
 
         // 1. No captured local/parameter/range symbol (single implementation, E02
         //    extract). The LAMBDA node is the walk root — a bare expression body
