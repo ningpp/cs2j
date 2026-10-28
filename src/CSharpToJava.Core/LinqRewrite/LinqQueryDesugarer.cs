@@ -258,8 +258,52 @@ public sealed class LinqQueryDesugarer : CSharpSyntaxRewriter
         => SyntaxFactory.InvocationExpression(
             SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
-                receiver,
+                ParenthesizeReceiver(receiver),
                 SyntaxFactory.IdentifierName(method)),
             SyntaxFactory.ArgumentList(
                 SyntaxFactory.SeparatedList(args.Select(SyntaxFactory.Argument))));
+
+    /// <summary>
+    /// Member access binds tighter than every lower-precedence expression, so
+    /// appending <c>.Where(...)</c>/<c>.Select(...)</c> to a non-primary source
+    /// must wrap that source first. Query sources are arbitrary expressions
+    /// (e.g. <c>from x in items as int[]</c> or <c>from x in a ?? b</c>); left
+    /// unwrapped they serialize as <c>items as int[].Where(...)</c> — a syntax
+    /// error (CS1073/CS1003) in the materialized intermediate tree (GraphLayout
+    /// SplineRouter.cs:800). Primary sources keep their bare form so no
+    /// redundant parentheses are introduced.
+    /// </summary>
+    private static ExpressionSyntax ParenthesizeReceiver(ExpressionSyntax receiver)
+        => receiver is ParenthesizedExpressionSyntax || IsPrimaryExpression(receiver)
+            ? receiver
+            : SyntaxFactory.ParenthesizedExpression(receiver);
+
+    private static bool IsPrimaryExpression(ExpressionSyntax expression) => expression switch
+    {
+        IdentifierNameSyntax => true,
+        GenericNameSyntax => true,
+        QualifiedNameSyntax => true,
+        AliasQualifiedNameSyntax => true,
+        MemberAccessExpressionSyntax => true,
+        InvocationExpressionSyntax => true,
+        ElementAccessExpressionSyntax => true,
+        ThisExpressionSyntax => true,
+        BaseExpressionSyntax => true,
+        ParenthesizedExpressionSyntax => true,
+        LiteralExpressionSyntax => true,
+        DefaultExpressionSyntax => true,
+        TypeOfExpressionSyntax => true,
+        SizeOfExpressionSyntax => true,
+        ObjectCreationExpressionSyntax => true,
+        ImplicitObjectCreationExpressionSyntax => true,
+        ArrayCreationExpressionSyntax => true,
+        ImplicitArrayCreationExpressionSyntax => true,
+        StackAllocArrayCreationExpressionSyntax => true,
+        ImplicitStackAllocArrayCreationExpressionSyntax => true,
+        AnonymousObjectCreationExpressionSyntax => true,
+        InterpolatedStringExpressionSyntax => true,
+        CheckedExpressionSyntax => true,
+        ConditionalAccessExpressionSyntax => true,
+        _ => false,
+    };
 }
