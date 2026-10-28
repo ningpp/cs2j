@@ -60,7 +60,8 @@ internal static class DefaultParameterOverloadBuilder
                 .WithTypeParameterList(method.TypeParameterList)
                 .WithConstraintClauses(method.ConstraintClauses)
                 .WithBody(SyntaxFactory.Block(
-                    BuildForwardingStatement(BuildInvocationTarget(method), args, isVoid)));
+                    BuildForwardingStatement(BuildInvocationTarget(method), args, isVoid)))
+                .WithoutDeclarationLeadingTrivia();
 
             result.Add(overload);
             stats.OverloadsGenerated++;
@@ -248,7 +249,8 @@ internal static class DefaultParameterOverloadBuilder
             .WithModifiers(modifiers)
             .WithParameterList(SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(retained)))
             .WithInitializer(initializer)
-            .WithBody(SyntaxFactory.Block());
+            .WithBody(SyntaxFactory.Block())
+            .WithoutDeclarationLeadingTrivia();
     }
 
     private static LocalFunctionStatementSyntax? BuildLocalFuncOverload(
@@ -268,8 +270,20 @@ internal static class DefaultParameterOverloadBuilder
             .WithParameterList(SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(retained)))
             .WithTypeParameterList(original.TypeParameterList)
             .WithConstraintClauses(original.ConstraintClauses)
-            .WithBody(SyntaxFactory.Block(BuildForwardingStatement(invocation, isVoid)));
+            .WithBody(SyntaxFactory.Block(BuildForwardingStatement(invocation, isVoid)))
+            .WithoutDeclarationLeadingTrivia();
     }
+
+    /// <summary>
+    /// The first token of a declaration carries the declaration's leading trivia,
+    /// which includes directive trivia such as <c>#region</c> (the conditional
+    /// pass removes every <c>#if</c> but leaves regions in place). Reusing
+    /// <c>method.ReturnType</c> / <c>method.Modifiers</c> / the identifier would
+    /// copy that block onto every generated overload, leaving an unmatched
+    /// <c>#region</c> and CS1038 in the preprocessed project.
+    /// </summary>
+    private static T WithoutDeclarationLeadingTrivia<T>(this T node) where T : SyntaxNode
+        => (T)node.WithLeadingTrivia();
 
     private static StatementSyntax BuildForwardingStatement(
         ExpressionSyntax invocation, bool isVoid)
