@@ -96,15 +96,26 @@ public class TupleToStructProjectTests
 
             Assert.True(result.Success, string.Join("\n", result.Diagnostics));
 
-            // 两个项目都必须引用生成文件（文件名带项目名后缀，因为宿主不止一个）。
-            foreach (var project in new[] { "SampleTupleLib", "SampleTupleApp" })
-            {
-                var csprojPath = Path.Combine(
-                    result.IntermediateRoot, project, $"{project}.csproj");
-                Assert.True(File.Exists(csprojPath), $"Missing intermediate project: {csprojPath}");
-                var content = await File.ReadAllTextAsync(csprojPath);
-                Assert.Contains($"_Cs2jTupleTypes.{project}.cs", content);
-            }
+            // 跨项目共享的 public 形状由库项目唯一定义，应用经 ProjectReference
+            // 复用；两个程序集各自生成一份同名 struct 会让元组集合跨程序集传递
+            // 时报 CS1503。
+            var libProject = Path.Combine(
+                result.IntermediateRoot, "SampleTupleLib", "SampleTupleLib.csproj");
+            Assert.True(File.Exists(libProject), $"Missing intermediate project: {libProject}");
+            var libContent = await File.ReadAllTextAsync(libProject);
+            Assert.Contains("_Cs2jTupleTypes.cs", libContent);
+
+            var appProject = Path.Combine(
+                result.IntermediateRoot, "SampleTupleApp", "SampleTupleApp.csproj");
+            Assert.True(File.Exists(appProject), $"Missing intermediate project: {appProject}");
+            var appContent = await File.ReadAllTextAsync(appProject);
+            Assert.DoesNotContain("_Cs2jTupleTypes", appContent);
+
+            var structFile = Path.Combine(result.IntermediateRoot, "_Cs2jTupleTypes.cs");
+            Assert.True(File.Exists(structFile), $"Missing generated struct file: {structFile}");
+            var structContent = await File.ReadAllTextAsync(structFile);
+            Assert.Contains("public struct TupleInt32String", structContent);
+            Assert.Contains("public struct TupleInt32Int32", structContent);
 
             var appProgram = await File.ReadAllTextAsync(
                 Path.Combine(result.IntermediateRoot, "SampleTupleApp", "Program.cs"));

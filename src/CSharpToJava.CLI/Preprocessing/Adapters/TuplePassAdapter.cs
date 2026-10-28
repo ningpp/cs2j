@@ -243,8 +243,11 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
                 continue;
             }
 
+            // 归属必须是"其他使用方都能看到"的那个项目，即每个使用方都（传递）
+            // 引用候选者；方向反了会把定义放进最下游的消费者程序集，上游程序集
+            // 便看不到该类型。
             publicOwners[key] = users.FirstOrDefault(candidate =>
-                users.All(other => IsReachable(candidate, other, referenceGraph)));
+                users.All(other => IsReachable(other, candidate, referenceGraph)));
         }
 
         // 项目 → 它必须定义的形状。
@@ -385,7 +388,11 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
         var byDirectory = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var projectFile in projectFiles)
         {
-            var directory = Path.GetDirectoryName(Path.GetFullPath(projectFile))!
+            // ProjectReference 的解析结果是中间树里的绝对路径，索引也必须用中间树
+            // 路径；用源树路径索引会让所有引用边丢失（被误判为互不引用）。
+            var intermediateProjectFile = Path.Combine(
+                intermediateRoot, Path.GetRelativePath(sourceRoot, projectFile));
+            var directory = Path.GetDirectoryName(Path.GetFullPath(intermediateProjectFile))!
                 .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             byDirectory[directory] = projectFile;
         }
