@@ -276,6 +276,16 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
 
         switch (expr)
         {
+            case IdentifierNameSyntax:
+                // Implicit-this property: a bare `Prop` target is `this.Prop`
+                // (or a static property of the containing type), so the
+                // receiver is just as deterministic as the explicit
+                // `this.Prop` form below. Locals/parameters/fields never reach
+                // this point (IsStableReference already accepted them), and
+                // inside an enum member initializer `Prop` would bind to a
+                // constant field, not a property.
+                return _semanticModel?.GetSymbolInfo(expr).Symbol is IPropertySymbol;
+
             case MemberAccessExpressionSyntax ma:
                 return _semanticModel?.GetSymbolInfo(expr).Symbol
                            is IFieldSymbol or IPropertySymbol

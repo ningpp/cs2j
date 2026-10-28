@@ -346,8 +346,10 @@ public class EnumPreprocessorUnitTests
     }
 
     [Fact]
-    public void Compound_Assignment_Property_Not_Rewritten()
+    public void Compound_Assignment_Implicit_This_Property_Rewritten()
     {
+        // A bare `Prop` target is `this.Prop`: the receiver is deterministic,
+        // so the read+write expansion is observationally equivalent to |=.
         var src = """
         [System.Flags]
         enum E { A = 1, B = 2 }
@@ -359,7 +361,9 @@ public class EnumPreprocessorUnitTests
         }
         """;
         var result = Preprocess(src);
-        Assert.False(result.Changed);
+        Assert.True(result.Changed);
+        Assert.Contains("Prop = ((E)((int)Prop | (int)E.B))", result.OutputCode);
+        Assert.Equal(0, result.Statistics.ResidualCount);
     }
 
     [Fact]
