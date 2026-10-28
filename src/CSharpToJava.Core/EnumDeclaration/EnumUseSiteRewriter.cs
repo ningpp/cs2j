@@ -1229,6 +1229,281 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
                 .WithTrailingTrivia(trailing));
     }
 
+    // ── struct 存储的零值语义 ──
+    //
+    // 原生 enum 是值类型：struct 中未初始化的 enum 字段/自动属性在
+    // default(S) 与 new S() 下都是零号成员。类化后引用类型默认是 null。
+    // struct 的 field initializer 无法修复 default(S)（它绕过构造函数），
+    // 故把 enum 类型的实例存储改写为「可空后备字段 + ?? E.DEFAULT getter」的
+    // 显式访问器：default(S) 的后备字段是 null，读取时合并回零号成员。
+    // class 容器仍走 VisitFieldDeclaration/VisitPropertyDeclaration 的播种路径。
+
+    public override SyntaxNode? VisitStructDeclaration(StructDeclarationSyntax node)
+    {
+        var visited = (StructDeclarationSyntax)base.VisitStructDeclaration(node)!;
+        if (visited.Members.Count != node.Members.Count) return visited;
+
+        var isReadonlyStruct = node.Modifiers.Any(SyntaxKind.ReadOnlyKeyword);
+        var usedNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var member in visited.Members) CollectMemberNames(member, usedNames);
+
+        var members = new List<MemberDeclarationSyntax>(visited.Members.Count);
+        var changed = false;
+        for (var i = 0; i < node.Members.Count; i++)
+        {
+            var original = node.Members[i];
+            var current = visited.Members[i];
+
+            if (current is PropertyDeclarationSyntax property
+                && original is PropertyDeclarationSyntax originalProperty
+                && TryRewriteStructProperty(
+                    property, originalProperty, isReadonlyStruct, usedNames) is { } propertyMembers)
+            {
+                members.AddRange(propertyMembers);
+                changed = true;
+                continue;
+            }
+
+            if (current is FieldDeclarationSyntax field
+                && original is FieldDeclarationSyntax originalField
+                && TryRewriteStructField(
+                    field, originalField, isReadonlyStruct, usedNames) is { } fieldMembers)
+            {
+                members.AddRange(fieldMembers);
+                changed = true;
+                continue;
+            }
+
+            members.Add(current);
+        }
+
+        return changed
+            ? visited.WithMembers(List(members))
+                .WithAdditionalAnnotations(EnumDeclarationSyntaxFacts.RewriteAnnotation)
+            : visited;
+    }
+
+    private List<MemberDeclarationSyntax>? TryRewriteStructProperty(
+        PropertyDeclarationSyntax visited,
+        PropertyDeclarationSyntax original,
+        bool isReadonlyStruct,
+        HashSet<string> usedNames)
+    {
+        var plan = PlanExact(_model.GetTypeInfo(original.Type).Type);
+        if (plan == null) return null;
+        if (_model.GetDeclaredSymbol(original) is not IPropertySymbol property
+            || property.IsStatic)
+        {
+            return null;
+        }
+        if (original.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword)
+            || m.IsKind(SyntaxKind.ExternKeyword)
+            || m.IsKind(SyntaxKind.PartialKeyword)))
+        {
+            return null;
+        }
+        // 仅自动属性（访问器均为空体）；显式访问器由用户代码自行负责零值语义。
+        if (visited.AccessorList is not { } accessorList
+            || accessorList.Accessors.Any(a => a.Body != null || a.ExpressionBody != null))
+        {
+            return null;
+        }
+
+        var backingName = UniqueName("__cs2j_" + original.Identifier.ValueText, usedNames);
+        var backing = CreateStructBackingField(
+            original.Type, backingName, isReadonlyStruct);
+        if (backing == null) return null;
+
+        var accessors = new List<AccessorDeclarationSyntax>(accessorList.Accessors.Count + 1);
+        foreach (var accessor in accessorList.Accessors)
+        {
+            if (accessor.IsKind(SyntaxKind.GetAccessorDeclaration))
+            {
+                accessors.Add(ReplaceAccessorBody(
+                    accessor, CoalesceBody(backingName, plan)));
+            }
+            else if (accessor.IsKind(SyntaxKind.SetAccessorDeclaration)
+                || accessor.IsKind(SyntaxKind.InitAccessorDeclaration))
+            {
+                accessors.Add(ReplaceAccessorBody(accessor, AssignmentBody(backingName)));
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        // get-only 自动属性在构造函数里可直接赋值；显式 getter 后补一个
+        // private set 以保留该能力（readonly struct 不能有可变访问器）。
+        if (!isReadonlyStruct && accessors.All(a =>
+                !a.IsKind(SyntaxKind.SetAccessorDeclaration)
+                && !a.IsKind(SyntaxKind.InitAccessorDeclaration)))
+        {
+            accessors.Add(PrivateSetter(backingName));
+        }
+
+        var rewritten = visited
+            .WithAccessorList(accessorList.WithAccessors(List(accessors)))
+            .WithAdditionalAnnotations(EnumDeclarationSyntaxFacts.RewriteAnnotation);
+
+        return new List<MemberDeclarationSyntax> { rewritten, backing };
+    }
+
+    private List<MemberDeclarationSyntax>? TryRewriteStructField(
+        FieldDeclarationSyntax visited,
+        FieldDeclarationSyntax original,
+        bool isReadonlyStruct,
+        HashSet<string> usedNames)
+    {
+        var plan = PlanExact(_model.GetTypeInfo(original.Declaration.Type).Type);
+        if (plan == null) return null;
+        if (original.Modifiers.Any(m => m.IsKind(SyntaxKind.ConstKeyword)
+            || m.IsKind(SyntaxKind.VolatileKeyword)
+            || m.IsKind(SyntaxKind.FixedKeyword)))
+        {
+            return null;
+        }
+
+        // static 字段不参与 struct 实例的 default(S) 语义，沿用 class 播种形态：
+        // 未初始化的 static 字段补 = E.DEFAULT（静态构造里执行）。
+        if (original.Modifiers.Any(SyntaxKind.StaticKeyword))
+        {
+            var seeded = WithDefaultInitializers(visited.Declaration, plan);
+            return ReferenceEquals(seeded, visited.Declaration)
+                ? null
+                : new List<MemberDeclarationSyntax> { visited.WithDeclaration(seeded) };
+        }
+        if (visited.Declaration.Variables.Count != original.Declaration.Variables.Count)
+            return null;
+
+        var isReadonlyField = original.Modifiers.Any(SyntaxKind.ReadOnlyKeyword);
+        var result = new List<MemberDeclarationSyntax>(visited.Declaration.Variables.Count * 2);
+
+        for (var i = 0; i < visited.Declaration.Variables.Count; i++)
+        {
+            var declarator = visited.Declaration.Variables[i];
+            var backingName = UniqueName("__cs2j_" + declarator.Identifier.ValueText, usedNames);
+            var backing = CreateStructBackingField(
+                original.Declaration.Type, backingName, isReadonlyStruct);
+            if (backing == null) return null;
+
+            var modifiers = visited.Modifiers
+                .Where(m => !m.IsKind(SyntaxKind.ReadOnlyKeyword))
+                .ToList();
+            var accessors = new List<AccessorDeclarationSyntax>
+            {
+                Getter(backingName, plan),
+            };
+            if (!isReadonlyStruct)
+            {
+                accessors.Add(isReadonlyField
+                    ? PrivateSetter(backingName)
+                    : Setter(backingName));
+            }
+
+            var property = PropertyDeclaration(
+                    visited.Declaration.Type, declarator.Identifier)
+                .WithAttributeLists(visited.AttributeLists)
+                .WithModifiers(TokenList(modifiers))
+                .WithAccessorList(AccessorList(List(accessors)));
+            if (declarator.Initializer != null)
+            {
+                property = property
+                    .WithInitializer(declarator.Initializer)
+                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
+            }
+
+            property = property
+                .WithLeadingTrivia(declarator.GetLeadingTrivia())
+                .WithAdditionalAnnotations(EnumDeclarationSyntaxFacts.RewriteAnnotation);
+            if (result.Count > 0)
+            {
+                property = property.WithLeadingTrivia(
+                    TriviaList(ElasticCarriageReturnLineFeed)
+                        .AddRange(property.GetLeadingTrivia()));
+            }
+
+            result.Add(property);
+            result.Add(backing);
+        }
+
+        return result;
+    }
+
+    private static void CollectMemberNames(
+        MemberDeclarationSyntax member, HashSet<string> used)
+    {
+        switch (member)
+        {
+            case BaseTypeDeclarationSyntax type:
+                used.Add(type.Identifier.ValueText);
+                break;
+            case BaseFieldDeclarationSyntax field:
+                foreach (var variable in field.Declaration.Variables)
+                    used.Add(variable.Identifier.ValueText);
+                break;
+            case PropertyDeclarationSyntax property:
+                used.Add(property.Identifier.ValueText);
+                break;
+            case MethodDeclarationSyntax method:
+                used.Add(method.Identifier.ValueText);
+                break;
+            case EventDeclarationSyntax @event:
+                used.Add(@event.Identifier.ValueText);
+                break;
+            case DelegateDeclarationSyntax @delegate:
+                used.Add(@delegate.Identifier.ValueText);
+                break;
+        }
+    }
+
+    private static string UniqueName(string preferred, HashSet<string> used)
+    {
+        var name = preferred;
+        var suffix = 2;
+        while (!used.Add(name)) name = preferred + suffix++;
+        return name;
+    }
+
+    private static FieldDeclarationSyntax? CreateStructBackingField(
+        TypeSyntax type, string name, bool isReadonlyStruct)
+    {
+        var typeText = type.WithoutTrivia().ToFullString();
+        var modifiers = isReadonlyStruct ? "private readonly " : "private ";
+        return ParseMemberDeclaration($"{modifiers}{typeText}? {name};")
+            as FieldDeclarationSyntax;
+    }
+
+    private BlockSyntax CoalesceBody(string backingName, EnumDeclarationPlan plan)
+        => Block(ParseStatement($"return {backingName} ?? {DefaultText(plan)};"));
+
+    private static BlockSyntax AssignmentBody(string backingName)
+        => Block(ParseStatement($"{backingName} = value;"));
+
+    private static AccessorDeclarationSyntax ReplaceAccessorBody(
+        AccessorDeclarationSyntax accessor, BlockSyntax body)
+        => accessor
+            .WithBody(body)
+            .WithSemicolonToken(default(SyntaxToken));
+
+    private static AccessorDeclarationSyntax Getter(
+        string backingName, EnumDeclarationPlan plan)
+        => AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+            .WithKeyword(Token(SyntaxKind.GetKeyword).WithTrailingTrivia(ElasticSpace))
+            .WithBody(Block(ParseStatement(
+                $"return {backingName} ?? {DefaultText(plan)};")))
+            .WithAdditionalAnnotations(EnumDeclarationSyntaxFacts.RewriteAnnotation);
+
+    private static AccessorDeclarationSyntax Setter(string backingName)
+        => AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
+            .WithKeyword(Token(SyntaxKind.SetKeyword).WithTrailingTrivia(ElasticSpace))
+            .WithBody(AssignmentBody(backingName));
+
+    private static AccessorDeclarationSyntax PrivateSetter(string backingName)
+        => Setter(backingName)
+            .WithModifiers(TokenList(
+                Token(SyntaxKind.PrivateKeyword).WithTrailingTrivia(ElasticSpace)));
+
     private static SyntaxToken SpacedEqualsToken()
         => Token(SyntaxKind.EqualsToken)
             .WithLeadingTrivia(ElasticSpace)

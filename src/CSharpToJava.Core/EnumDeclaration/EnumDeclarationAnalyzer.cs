@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -133,25 +132,12 @@ internal sealed class EnumDeclarationAnalyzer
 
         // 2) 逐语法树做使用点分类。
         //
-        // 整簇跳过：使用点 walker 只对 plan 枚举（analysis.BySymbol 中的问题枚举及其
-        // Nullable 包装）产生副作用——触碰/TouchedFiles、ED020 不可表示站点、成员初值
-        // 耦合依赖、ED040 契约站点。任何这类站点都必然在源码文本里写出该 plan 枚举的
-        // 短名：类型位置（default(E)/(E)x/new E()/typeof(E)/泛型实参/声明类型/数组元素）
-        // 直接出现短名；成员访问/using static 裸成员访问，也一定伴随 `E.M` 或
-        // `using ... E`（含别名声明行）从而出现短名。故文本中完全不出现任何 plan 短名
-        // 的文件不可能产生任何 plan 副作用，可整族跳过整树语义扫描。先把候选短名集合
-        // 一次算好，再用一次廉价正则 IsMatch 预筛（本仓 901 文件中 194 个命中，其中
-        // 真正产生副作用的 13 个文件全部命中，与未预筛结果逐项一致）。
-        var planNameProbe = BuildPlanNameProbe(analysis.Plans);
-        var walkable = new List<SyntaxTree>();
+        // 不做「文本含 plan 短名」预筛：使用点可以通过 `var`/推断类型出现，源码
+        // 文本里完全没有枚举短名（例：`var nextDir = CompassVector.RotateRight(dir);`
+        // 再 `nextDir != ...`），却仍需要改写/触碰。任何基于文本的预筛都会漏掉
+        // 这类文件，导致 TouchedFiles 缺项。语义 walker 对每个节点都有名称/符号
+        // 前筛，整树扫描的额外成本可接受。
         foreach (var tree in _compilation.SyntaxTrees)
-        {
-            if (tree.FilePath == "__cs2j_global_usings.g.cs") continue;
-            if (planNameProbe != null && !planNameProbe(tree.GetText().ToString())) continue;
-            walkable.Add(tree);
-        }
-
-        foreach (var tree in walkable)
         {
             var model = _compilation.GetSemanticModel(tree);
             var root = tree.GetRoot();
@@ -177,26 +163,6 @@ internal sealed class EnumDeclarationAnalyzer
 
         analysis.Plans.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
         return analysis;
-    }
-
-    /// <summary>
-    /// plan 短名文本预筛器：返回「文本是否含任一 plan 枚举短名」的谓词。
-    /// 无 plan 时返回 null（此时 walker 对任何文件都不会产生副作用，无需预筛）。
-    /// 单次正则交替匹配，避免按短名逐个 Contains 的多趟扫描。
-    /// </summary>
-    private static Func<string, bool>? BuildPlanNameProbe(
-        IReadOnlyList<EnumDeclarationPlan> plans)
-    {
-        if (plans.Count == 0) return null;
-        var names = plans
-            .Select(p => p.EnumShortName)
-            .Distinct(StringComparer.Ordinal)
-            .Select(Regex.Escape)
-            .ToList();
-        if (names.Count == 0) return null;
-        var regex = new Regex(@"\b(" + string.Join("|", names) + @")\b",
-            RegexOptions.CultureInvariant);
-        return text => regex.IsMatch(text);
     }
 
     private static void ScanNameContractAttributes(
@@ -315,6 +281,14 @@ internal sealed class EnumDeclarationAnalyzer
         /// </summary>
         private readonly HashSet<string> _planMemberNames;
 
+        /// <summary>
+        /// 全部 plan 的枚举短名集合（Ordinal）。纯类型引用（字段/属性/局部变量声明、
+        /// 参数、泛型实参等）不产生任何成员访问/强转使用点，却可能正是改写器需要
+        /// 落地的位置（未初始化存储播种、struct 零值兜底）。文件只有这类引用时
+        /// 必须仍被记入 TouchedFiles，故按短名预筛后做一次类型符号查询。
+        /// </summary>
+        private readonly HashSet<string> _planTypeNames;
+
         /// <summary>Nullable&lt;T&gt; 的两个可访问成员；成员访问符号查询的另一命中面。</summary>
         private static readonly HashSet<string> NullableAccessorNames = new(StringComparer.Ordinal)
         {
@@ -328,9 +302,11 @@ internal sealed class EnumDeclarationAnalyzer
             _analysis = analysis;
             _options = options;
             _planMemberNames = new HashSet<string>(StringComparer.Ordinal);
+            _planTypeNames = new HashSet<string>(StringComparer.Ordinal);
             foreach (var plan in analysis.Plans)
             {
                 foreach (var member in plan.Members) _planMemberNames.Add(member.Name);
+                _planTypeNames.Add(plan.EnumShortName);
             }
         }
 
@@ -1057,9 +1033,22 @@ internal sealed class EnumDeclarationAnalyzer
         {
             base.VisitIdentifierName(node);
             MarkAmbiguousAttributeArgumentMembers(node);
+            var name = node.Identifier.ValueText;
+
+            // 纯类型引用：`public E P { get; set; }` / `E x;` / 形参/泛型实参中的 E。
+            // 这些文件可能不产生任何其它使用点，但改写器要在声明处播种/加兜底，
+            // 故类型引用本身必须记入 TouchedFiles。
+            if (_planTypeNames.Contains(name)
+                && _model.GetSymbolInfo(node).Symbol is INamedTypeSymbol typeSymbol
+                && _analysis.BySymbol.TryGetValue(typeSymbol, out var typePlan)
+                && typePlan.Outcome == EnumPlanOutcome.Converted)
+            {
+                Touch(typePlan, node);
+            }
+
             // 名称预筛：名字不在 plan 成员名集合内的标识符，其符号不可能是有常量值的
             // 枚举成员字段，后续两个分支都不会命中（见 _planMemberNames 注释）。
-            if (!_planMemberNames.Contains(node.Identifier.ValueText)) return;
+            if (!_planMemberNames.Contains(name)) return;
             var symbol = _model.GetSymbolInfo(node).Symbol;
             if (symbol is IFieldSymbol bareEnumField)
                 RecordInitializerDependency(bareEnumField, node);
