@@ -48,7 +48,9 @@ internal static class NullConditionalDiagnostics
         "member); add an explicit null check or convert the member to a block body.";
     public const string DynamicMessage =
         "The receiver or terminal type of this null-conditional expression is " +
-        "'dynamic' or cannot be resolved; static types are required.";
+        "'dynamic', or cannot be resolved to a type this lowering must render " +
+        "(multi-segment prefetch or coalesce-assignment temp); static types " +
+        "are required.";
     public const string RefContextMessage =
         "Null-conditional expressions are not allowed in ref/out contexts " +
         "(defensive mirror of the baseline compiler error).";
@@ -388,7 +390,7 @@ internal static class ChainSegmentAnalyzer
             return;
         }
 
-        if (HasDynamicOrError(plan))
+        if (HasDynamicOrUnlowerableUnresolvedType(plan))
         {
             Preserve(plan, NullConditionalDiagnosticCodes.CS2J0559);
             Report(context,
@@ -543,31 +545,56 @@ internal static class ChainSegmentAnalyzer
             LowerTempTernary(plan, context);
     }
 
-    private static bool HasDynamicOrError(ChainPlan plan)
+    /// <summary>
+    /// True when the site cannot be lowered statically (CS2J0559): a
+    /// <c>dynamic</c> receiver/terminal binds through the runtime binder and
+    /// must stay, and an unresolved (error-type) symbol only blocks the
+    /// shapes that have to render its name into syntax (multi-segment typed
+    /// prefetch temps, NA-6 inner coalesce temp).
+    ///
+    /// A single-segment member/call/index site needs no type symbol at all:
+    /// the segment temp is declared with <c>var</c>, and an unresolved type
+    /// can never prove the <c>Nullable&lt;T&gt;</c> unwrap, so the plain
+    /// reference-typed ternary is the only provable rendering. Missing
+    /// references (e.g. MSTest's <c>TestContext</c> in a test project) are
+    /// therefore no reason to preserve the site and trip the strict residual
+    /// gate — the real project build resolves the type.
+    /// </summary>
+    private static bool HasDynamicOrUnlowerableUnresolvedType(ChainPlan plan)
     {
         foreach (var segment in plan.Segments)
         {
-            if (segment.ReceiverType is IErrorTypeSymbol
-                or { TypeKind: TypeKind.Dynamic })
-            {
+            if (segment.ReceiverType is { TypeKind: TypeKind.Dynamic })
                 return true;
-            }
         }
 
         if (plan.Terminal.Kind != ChainTerminalKind.Assign
-            && plan.ResultType is IErrorTypeSymbol
-            or { TypeKind: TypeKind.Dynamic })
+            && plan.ResultType is { TypeKind: TypeKind.Dynamic })
         {
             return true;
         }
 
-        if (plan.TerminalValueType is IErrorTypeSymbol
-            or { TypeKind: TypeKind.Dynamic })
-        {
+        if (plan.TerminalValueType is { TypeKind: TypeKind.Dynamic })
             return true;
-        }
 
-        return false;
+        var hasUnresolvedType =
+            plan.Segments.Exists(static s => s.ReceiverType is IErrorTypeSymbol)
+            || plan.TerminalValueType is IErrorTypeSymbol
+            || (plan.Terminal.Kind != ChainTerminalKind.Assign
+                && plan.ResultType is IErrorTypeSymbol);
+
+        if (!hasUnresolvedType)
+            return false;
+
+        // Multi-segment prefix temps are declared with the segment type, and
+        // NA-6 declares the inner coalesce temp with the terminal value type;
+        // an error type has no renderable name in either position.
+        if (plan.Segments.Count > 1)
+            return true;
+
+        return plan.Terminal.Kind == ChainTerminalKind.Assign
+               && plan.Terminal.ExpressionOriginal is AssignmentExpressionSyntax assignment
+               && assignment.IsKind(SyntaxKind.CoalesceAssignmentExpression);
     }
 
     private static void LowerInline(ChainPlan plan, RuleAnalysisContext context)

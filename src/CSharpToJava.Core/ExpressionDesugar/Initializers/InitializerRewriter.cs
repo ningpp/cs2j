@@ -362,11 +362,15 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
     private List<StatementSyntax> EmitSequence(
         InitializerPlan plan, BaseObjectCreationExpressionSyntax visited)
     {
-        var statements = new List<StatementSyntax>
-        {
-            ExpressionDesugarTempLifter.DeclareVar(
-                plan.TempName!, ObjectInitRewriter.BuildConstruction(plan, visited)),
-        };
+        var statements = new List<StatementSyntax>();
+
+        // Embedded creations in the constructor argument list are evaluated
+        // before the object exists and must precede the construction statement.
+        var construction = EmitEmbeddedPlans(
+            ObjectInitRewriter.BuildConstruction(plan, visited), statements);
+
+        statements.Add(ExpressionDesugarTempLifter.DeclareVar(
+            plan.TempName!, construction));
 
         if (visited.Initializer != null)
             EmitMembers(plan.TempName!, plan.Members, visited.Initializer, statements);
@@ -401,17 +405,21 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
         {
             case PropertySetPlan property:
                 statements.Add(ObjectInitRewriter.BuildMemberAssignment(
-                    receiver, property.Property?.Name ?? "_", ValueOf(element)));
+                    receiver, property.Property?.Name ?? "_",
+                    EmitValue(ValueOf(element), statements)));
                 break;
 
             case FieldSetPlan field:
                 statements.Add(ObjectInitRewriter.BuildMemberAssignment(
-                    receiver, field.Field?.Name ?? "_", ValueOf(element)));
+                    receiver, field.Field?.Name ?? "_",
+                    EmitValue(ValueOf(element), statements)));
                 break;
 
             case IndexSetPlan:
                 statements.Add(ObjectInitRewriter.BuildIndexAssignment(
-                    receiver, LeftOf(element), ValueOf(element)));
+                    receiver,
+                    EmitEmbeddedPlans(LeftOf(element), statements),
+                    EmitValue(ValueOf(element), statements)));
                 break;
 
             case NestedCreatePlan nested:
@@ -450,7 +458,9 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
         }
         else
         {
-            value = ObjectInitRewriter.BuildConstruction(inner, visitedCreation);
+            value = EmitEmbeddedPlans(
+                ObjectInitRewriter.BuildConstruction(inner, visitedCreation),
+                statements);
         }
 
         statements.Add(ObjectInitRewriter.BuildMemberAssignment(
@@ -477,23 +487,78 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
     /// and returns the value expression to use in its place.</summary>
     private ExpressionSyntax EmitValue(ExpressionSyntax visited, List<StatementSyntax> statements)
     {
-        if (visited is BaseObjectCreationExpressionSyntax creation)
+        if (visited is BaseObjectCreationExpressionSyntax creation
+            && PlanForCurrent(creation) is { IsNested: true } plan)
         {
-            var plan = PlanForCurrent(creation);
-            if (plan is { IsNested: true })
-            {
-                if (plan.Outcome is InitializerOutcome.ObjectSequence
-                    or InitializerOutcome.CollectionSequence)
-                {
-                    statements.AddRange(EmitSequence(plan, creation));
-                    return SyntaxFactory.IdentifierName(plan.TempName!);
-                }
-
-                return ObjectInitRewriter.BuildConstruction(plan, creation);
-            }
+            return EmitNestedPlan(plan, creation, statements);
         }
 
-        return visited;
+        return EmitEmbeddedPlans(visited, statements);
+    }
+
+    /// <summary>
+    /// Emits one planned nested creation: a sequence site becomes statements
+    /// plus its receiver temp; every zero-temp/explicitized form becomes its
+    /// construction (target-typed <c>new()</c> gets the resolved type).
+    /// </summary>
+    private ExpressionSyntax EmitNestedPlan(
+        InitializerPlan plan,
+        BaseObjectCreationExpressionSyntax creation,
+        List<StatementSyntax> statements)
+    {
+        if (plan.Outcome is InitializerOutcome.ObjectSequence
+            or InitializerOutcome.CollectionSequence)
+        {
+            statements.AddRange(EmitSequence(plan, creation));
+            return SyntaxFactory.IdentifierName(plan.TempName!);
+        }
+
+        return EmitEmbeddedPlans(
+            ObjectInitRewriter.BuildConstruction(plan, creation), statements);
+    }
+
+    /// <summary>
+    /// Rewrites an already-visited expression that is emitted verbatim as part
+    /// of a parent site's value: every creation carrying an analysis-embedded
+    /// nested plan is lowered into <paramref name="statements"/> (before the
+    /// enclosing construction/member assignment) and replaced by its receiver
+    /// temp. Bottom-up, left-to-right traversal preserves argument evaluation
+    /// order and lets an inner sequence precede the outer value that feeds it.
+    /// </summary>
+    private ExpressionSyntax EmitEmbeddedPlans(
+        ExpressionSyntax expression, List<StatementSyntax> statements)
+        => (ExpressionSyntax)new EmbeddedPlanEmitter(this, statements).Visit(expression)!;
+
+    /// <summary>Substitutes every embedded plan site inside one emitted expression.</summary>
+    private sealed class EmbeddedPlanEmitter : CSharpSyntaxRewriter
+    {
+        private readonly InitializerRewriter _owner;
+        private readonly List<StatementSyntax> _statements;
+
+        public EmbeddedPlanEmitter(
+            InitializerRewriter owner, List<StatementSyntax> statements)
+        {
+            _owner = owner;
+            _statements = statements;
+        }
+
+        public override SyntaxNode? VisitObjectCreationExpression(
+            ObjectCreationExpressionSyntax node)
+        {
+            if (_owner.PlanForCurrent(node) is { IsNested: true } plan)
+                return _owner.EmitNestedPlan(plan, node, _statements);
+
+            return base.VisitObjectCreationExpression(node);
+        }
+
+        public override SyntaxNode? VisitImplicitObjectCreationExpression(
+            ImplicitObjectCreationExpressionSyntax node)
+        {
+            if (_owner.PlanForCurrent(node) is { IsNested: true } plan)
+                return _owner.EmitNestedPlan(plan, node, _statements);
+
+            return base.VisitImplicitObjectCreationExpression(node);
+        }
     }
 
     private static ExpressionSyntax ValueOf(ExpressionSyntax element)

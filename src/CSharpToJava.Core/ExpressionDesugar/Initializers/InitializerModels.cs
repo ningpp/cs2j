@@ -296,6 +296,17 @@ public sealed class InitializerPlan
     /// <summary>Preceding arguments hoisted into temps (argument position only).</summary>
     public List<HoistedArgument> HoistedArguments { get; } = new();
 
+    /// <summary>
+    /// Creations carrying an initializer that sit buried inside this site's
+    /// emitted expressions (member-value expressions, index arguments and
+    /// constructor arguments — e.g. <c>XmlWriter.Create(ms, new Settings { … })</c>).
+    /// They are not initializer items themselves, so they are consumed inline by
+    /// this site's sequence emission (inner sequence before the outer
+    /// construction/member assignment, preserving evaluation order) instead of
+    /// being lifted as independent sites.
+    /// </summary>
+    public List<InitializerPlan> EmbeddedPlans { get; } = new();
+
     /// <summary>Raw hoist requests recorded in Analyze before temp allocation.</summary>
     internal List<(int Index, ArgumentSyntax Argument, bool Declare)> HoistRequests { get; } = new();
 

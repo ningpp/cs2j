@@ -46,6 +46,9 @@ internal static class InitializerBindingAnalyzer
         public Dictionary<ArgumentSyntax, string> Hoisted { get; } = new();
         public HashSet<ArgumentSyntax> DeclaredHoists { get; } = new();
 
+        /// <summary>Every creation already owned by a plan (top-level or nested).</summary>
+        public HashSet<BaseObjectCreationExpressionSyntax> PlannedNodes { get; } = new();
+
         /// <summary>
         /// Top-level sites this analysis lowers into a receiver-temp sequence
         /// (outcome Object/CollectionSequence), indexed by node identity so
@@ -96,6 +99,15 @@ internal static class InitializerBindingAnalyzer
             };
 
             if (creation == null || InitializerSyntaxFacts.IsNestedInInitializer(creation))
+                continue;
+
+            // Already owned by an earlier site as a nested/embedded plan (e.g. a
+            // creation with an initializer used as a constructor argument of an
+            // outer initializer site). Re-planning it as an independent top-level
+            // site would lift its temp to the shared statement anchor AFTER the
+            // outer construction that consumes it (CS0841); the owner emits it
+            // inline, before its own construction statement.
+            if (state.PlannedNodes.Contains(creation))
                 continue;
 
             if (hasC36Face)
@@ -179,6 +191,8 @@ internal static class InitializerBindingAnalyzer
     {
         var stats = context.Statistics.Initializers;
         var isImplicit = node is ImplicitObjectCreationExpressionSyntax;
+
+        state.PlannedNodes.Add(node);
 
         var plan = new InitializerPlan
         {
@@ -360,6 +374,19 @@ internal static class InitializerBindingAnalyzer
         {
             plan.Outcome = InitializerOutcome.SkippedDiagnostic;
             plan.SkipCode = skipCode;
+            return plan;
+        }
+
+        // Creations with initializers buried inside the expressions this site
+        // emits (e.g. a call argument of a member value) are planned as nested
+        // and consumed inline by the emission, so no residual initializer node
+        // survives the outer lowering. A skip of any such inner site preserves
+        // this whole site (its residual subtree becomes explained/pair-counted).
+        var embeddedSkip = PlanEmbeddedCreations(context, model, state, plan);
+        if (embeddedSkip != null)
+        {
+            plan.Outcome = InitializerOutcome.SkippedDiagnostic;
+            plan.SkipCode = embeddedSkip;
             return plan;
         }
 
@@ -702,6 +729,224 @@ internal static class InitializerBindingAnalyzer
             : BuildPlan(context, model, creation, state, isNested: true);
     }
 
+    // ------------------------------------------------------------------
+    // Embedded creations inside emitted expressions.
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Plans every creation-with-initializer / target-typed <c>new()</c> that
+    /// sits inside an expression this site emits verbatim (constructor
+    /// arguments, member values, index arguments) but is not itself an
+    /// initializer item. Such creations are consumed inline by the site's
+    /// sequence emission (inner statements before the construction/member
+    /// assignment), never lifted as independent sites — lifting would either
+    /// hoist them past their evaluation position or double-emit the outer site.
+    /// Returns the first skip code of an unlowerable inner site (the caller
+    /// preserves the whole site); null when every inner site was planned.
+    /// </summary>
+    private static string? PlanEmbeddedCreations(
+        RuleAnalysisContext context,
+        SemanticModel model,
+        AnalyzeState state,
+        InitializerPlan plan)
+    {
+        foreach (var root in EmittedExpressionRoots(plan))
+        {
+            // A creation used directly as an argument is itself the root of the
+            // emitted expression; the child walk below would never see it.
+            var skip = root is BaseObjectCreationExpressionSyntax rootCreation
+                ? PlanEmbeddedCreation(context, model, state, plan, rootCreation)
+                : PlanEmbeddedCreationsIn(context, model, state, plan, root);
+            if (skip != null)
+                return skip;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Plans one embedded creation (if not already owned) and returns its skip
+    /// code when the inner site cannot be lowered. BuildPlan also scans the
+    /// expressions this creation emits, so callers never descend into it.
+    /// </summary>
+    private static string? PlanEmbeddedCreation(
+        RuleAnalysisContext context,
+        SemanticModel model,
+        AnalyzeState state,
+        InitializerPlan owner,
+        BaseObjectCreationExpressionSyntax creation)
+    {
+        // Already planned: the direct value of a member (TryNested /
+        // TryNestedBySyntax) or an inner site consumed by a plan that scans
+        // its own emitted expressions.
+        if (state.PlannedNodes.Contains(creation))
+            return null;
+
+        var nested = BuildPlan(context, model, creation, state, isNested: true);
+        owner.EmbeddedPlans.Add(nested);
+        return nested.Outcome is InitializerOutcome.SkippedDiagnostic
+            ? nested.SkipCode ?? UnsupportedSentinel
+            : null;
+    }
+
+    /// <summary>
+    /// Expression roots a lowering emission renders verbatim: construction
+    /// arguments (evaluated first), then member-value/index expressions in
+    /// source order. Direct nested creations are already planned by
+    /// TryNested/TryNestedBySyntax; their own plan scans what they emit.
+    /// </summary>
+    private static IEnumerable<ExpressionSyntax> EmittedExpressionRoots(
+        InitializerPlan plan)
+    {
+        if (plan.Node.ArgumentList is { } argumentList)
+        {
+            foreach (var argument in argumentList.Arguments)
+                yield return argument.Expression;
+        }
+
+        foreach (var member in plan.Members)
+        {
+            foreach (var value in MemberValueExpressions(member))
+                yield return value;
+        }
+    }
+
+    private static IEnumerable<ExpressionSyntax> MemberValueExpressions(
+        InitializerMemberPlan member)
+    {
+        switch (member)
+        {
+            case PropertySetPlan property:
+                yield return property.Value;
+                break;
+
+            case FieldSetPlan field:
+                yield return field.Value;
+                break;
+
+            case IndexSetPlan index:
+                foreach (var argument in index.Arguments)
+                    yield return argument;
+                yield return index.Value;
+                break;
+
+            case CollectionAddPlan add:
+                foreach (var argument in add.Arguments)
+                    yield return argument;
+                break;
+
+            case NestedMemberInitPlan nestedMember:
+                foreach (var inner in nestedMember.Members)
+                {
+                    foreach (var value in MemberValueExpressions(inner))
+                        yield return value;
+                }
+
+                break;
+        }
+    }
+
+    private static string? PlanEmbeddedCreationsIn(
+        RuleAnalysisContext context,
+        SemanticModel model,
+        AnalyzeState state,
+        InitializerPlan owner,
+        SyntaxNode scope)
+    {
+        foreach (var child in scope.ChildNodes())
+        {
+            switch (child)
+            {
+                case BaseObjectCreationExpressionSyntax creation:
+                {
+                    var skip = PlanEmbeddedCreation(
+                        context, model, state, owner, creation);
+                    if (skip != null)
+                        return skip;
+
+                    continue; // BuildPlan scanned this creation's emitted expressions
+                }
+
+                // Deferred evaluation (lambda / local function) must not be
+                // hoisted into this site's sequence; collection expressions are
+                // C36-owned (and defer the whole file anyway).
+                case AnonymousFunctionExpressionSyntax:
+                case LocalFunctionStatementSyntax:
+                case CollectionExpressionSyntax:
+                    continue;
+
+                // Conditional-evaluation scopes: hoisting a creation out of a
+                // branch/short-circuit/guarded side would evaluate it even when
+                // the original expression never did. Only the always-evaluated
+                // part (condition / left operand / guarded receiver) is scanned.
+                case ConditionalExpressionSyntax conditional:
+                {
+                    var skip = PlanEmbeddedCreationsIn(
+                        context, model, state, owner, conditional.Condition);
+                    if (skip != null)
+                        return skip;
+                    break;
+                }
+
+                case SwitchExpressionSyntax switchExpression:
+                {
+                    var skip = PlanEmbeddedCreationsIn(
+                        context, model, state, owner, switchExpression.GoverningExpression);
+                    if (skip != null)
+                        return skip;
+                    break;
+                }
+
+                case ConditionalAccessExpressionSyntax conditionalAccess:
+                {
+                    var skip = PlanEmbeddedCreationsIn(
+                        context, model, state, owner, conditionalAccess.Expression);
+                    if (skip != null)
+                        return skip;
+                    break;
+                }
+
+                case BinaryExpressionSyntax binary
+                    when binary.IsKind(SyntaxKind.CoalesceExpression)
+                         || binary.IsKind(SyntaxKind.LogicalAndExpression)
+                         || binary.IsKind(SyntaxKind.LogicalOrExpression):
+                {
+                    var skip = PlanEmbeddedCreationsIn(
+                        context, model, state, owner, binary.Left);
+                    if (skip != null)
+                        return skip;
+                    break;
+                }
+
+                // ??= evaluates its right operand only when the left is null.
+                case AssignmentExpressionSyntax assignment
+                    when assignment.IsKind(SyntaxKind.CoalesceAssignmentExpression):
+                {
+                    var skip = PlanEmbeddedCreationsIn(
+                        context, model, state, owner, assignment.Left);
+                    if (skip != null)
+                        return skip;
+                    break;
+                }
+
+                // Query clauses compile to deferred lambdas; never hoist out of them.
+                case QueryExpressionSyntax:
+                    continue;
+
+                default:
+                {
+                    var skip = PlanEmbeddedCreationsIn(
+                        context, model, state, owner, child);
+                    if (skip != null)
+                        return skip;
+                    break;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private static string UnsupportedMember(
         RuleAnalysisContext context, InitializerPlan plan, IOperation item)
     {
@@ -887,6 +1132,11 @@ internal static class InitializerBindingAnalyzer
 
         if (plan.IsOwnerHandled && plan.OwnerChain.Count > 0)
             plan.ResultTempName = state.OwnerTemps[plan.OwnerChain[0]];
+
+        // Embedded creations also emit their own receiver temp, inline in this
+        // site's sequence (before the outer construction/member assignment).
+        foreach (var embedded in plan.EmbeddedPlans)
+            AllocateTemps(embedded, state);
 
         foreach (var member in plan.Members)
             AllocateMemberTemps(member, state);
