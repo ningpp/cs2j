@@ -101,4 +101,95 @@ internal static class PropertyFacts
     /// <summary>接口内声明（含 DIM）。</summary>
     public static bool IsInterfaceMember(IPropertySymbol prop)
         => prop.ContainingType is { TypeKind: TypeKind.Interface };
+
+    /// <summary>
+    /// MSTest 框架契约属性：测试运行器按「属性名 TestContext」反射注入
+    /// <c>Microsoft.VisualStudio.TestTools.UnitTesting.TestContext</c> 实例。
+    /// 展开成 get_TestContext/set_TestContext 方法后属性消失，反射注入永远为 null，
+    /// 所有使用点（TestContext.WriteLine / TestContext.DeploymentDirectory）全部 NRE。
+    /// 故按语义符号判定并整体保留（实例/静态、自动属性/显式访问器同判）。
+    /// </summary>
+    public static bool IsTestFrameworkInjectionProperty(
+        IPropertySymbol prop, SemanticModel model, TypeSyntax typeSyntax)
+    {
+        if (prop.Name != MstestTestContextName) return false;
+        if (prop.Type is not INamedTypeSymbol { Name: MstestTestContextName } type) return false;
+
+        // 正常情形（编译带 MSTest 引用）：按类型符号的完全限定名判定。
+        if (type.TypeKind != TypeKind.Error)
+            return type.ContainingNamespace?.ToDisplayString() == MstestTestContextNamespace;
+
+        // member-desugar 预处理编译只挂 BCL 引用（ProjectUnsignedTypePreprocessor
+        // .GetBasicReferences），NuGet 里的 MSTest 程序集不参与绑定 → 属性类型退化为
+        // IErrorTypeSymbol（Name 仍为 TestContext，命名空间为空）。此时按 C# 名称解析
+        // 规则还原类型全名：声明处作用域的 using（含项目级 <Using> 生成的 global using）
+        // 必须导入 MSTest 命名空间。判定输入仍是属性/类型符号名，不做声明文本匹配。
+        return DeclaredNameResolvesToMstestTestContext(typeSyntax, model);
+    }
+
+    private const string MstestTestContextNamespace = "Microsoft.VisualStudio.TestTools.UnitTesting";
+    private const string MstestTestContextName = "TestContext";
+    private const string MstestTestContextFullName =
+        MstestTestContextNamespace + "." + MstestTestContextName;
+
+    private static bool DeclaredNameResolvesToMstestTestContext(
+        TypeSyntax typeSyntax, SemanticModel model)
+    {
+        // 全限定写法：Foo.Bar.TestContext 直接比对全名。
+        if (typeSyntax is QualifiedNameSyntax or AliasQualifiedNameSyntax)
+        {
+            return string.Equals(
+                typeSyntax.ToString().Replace("global::", string.Empty, StringComparison.Ordinal),
+                MstestTestContextFullName,
+                StringComparison.Ordinal);
+        }
+
+        if (typeSyntax is not IdentifierNameSyntax { Identifier.ValueText: MstestTestContextName })
+            return false;
+
+        // 文件/命名空间作用域内的 using。
+        foreach (var ancestor in typeSyntax.AncestorsAndSelf())
+        {
+            var usings = ancestor switch
+            {
+                NamespaceDeclarationSyntax ns => ns.Usings,
+                FileScopedNamespaceDeclarationSyntax fileScoped => fileScoped.Usings,
+                CompilationUnitSyntax unit => unit.Usings,
+                _ => default,
+            };
+            if (ImportsMstestNamespace(usings, requireGlobal: false)) return true;
+        }
+
+        // 项目级 <Using Include="..."/> 由预处理链编译成合成 global using 树。
+        foreach (var tree in model.Compilation.SyntaxTrees)
+        {
+            if (tree.GetRoot() is CompilationUnitSyntax root
+                && ImportsMstestNamespace(root.Usings, requireGlobal: true))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ImportsMstestNamespace(
+        SyntaxList<UsingDirectiveSyntax> usings, bool requireGlobal)
+    {
+        foreach (var directive in usings)
+        {
+            if (directive.Alias != null || directive.StaticKeyword.IsKind(SyntaxKind.StaticKeyword))
+                continue;
+            if (requireGlobal && !directive.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword))
+                continue;
+            var name = directive.Name?.ToString();
+            if (name == null) continue;
+            // 合成 global using 树用「global::Ns」形态（ImplicitGlobalUsings）。
+            if (name.StartsWith("global::", StringComparison.Ordinal))
+                name = name["global::".Length..];
+            if (name == MstestTestContextNamespace) return true;
+        }
+
+        return false;
+    }
 }

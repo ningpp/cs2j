@@ -57,6 +57,18 @@ internal sealed class PropertyRule : IMemberDesugarRule
                     continue;
                 }
 
+                // MSTest 反射注入契约：测试运行器按「属性名 TestContext」注入
+                // Microsoft.VisualStudio.TestTools.UnitTesting.TestContext 实例。
+                // 属性一旦展开成 get_TestContext/set_TestContext 方法，注入失去目标
+                // 而永远为 null，所有使用点（TestContext.WriteLine 等）全部 NRE
+                // （GraphLayout 回归）。按语义符号判定，实例/静态、自动属性/显式
+                // 访问器一律整体保留：声明与使用点都不动，仅记 Retained plan。
+                if (PropertyFacts.IsTestFrameworkInjectionProperty(prop, model, decl.Type))
+                {
+                    retained[prop] = (decl, PropertyDiagnostics.RetainedMstestTestContext(prop.Name));
+                    continue;
+                }
+
                 // 实现“元数据接口”（BCL/外部程序集，或不参与本次编译的项目）属性的成员
                 // 不能展开成 get_X/set_X 方法：接口本体不经过本 pass 降形，展开后类不再
                 // 以属性实现该接口槽（CS0535/CS0470；显式实现更是 CS0683）。显式与隐式

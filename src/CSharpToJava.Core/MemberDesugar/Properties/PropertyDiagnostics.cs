@@ -63,6 +63,11 @@ internal static class PropertyDiagnostics
            $"attribute named arguments, which cannot be rewritten into method calls " +
            $"(expansion would orphan every named argument with CS0246); {RetainSuffix}.";
 
+    public static string RetainedMstestTestContext(string name)
+        => $"property '{name}' is injected by the MSTest runner via reflection on the " +
+           $"property name 'TestContext'; expanding it into accessor methods would orphan " +
+           $"the injection and null out every use site; {RetainSuffix}.";
+
     public static string RetainedOverrideChain(string name)
         => $"'{name}' participates in an override chain / interface implementation whose " +
            $"members do not all qualify for accessor expansion; keeping only part of the " +
