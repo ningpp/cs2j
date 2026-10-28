@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.RegularExpressions;
 using CSharpToJava.Core.NumericBoundary;
 using CSharpToJava.Core.NumericBoundary.Rules.IncrementTargets;
@@ -1568,5 +1569,107 @@ public class NumericBoundaryIncrementTargetUnitTests
         Assert.Contains("refint__cs2j_inc_f1_1=refP;", compact);
         Assert.Contains("__cs2j_inc_f1_1=__cs2j_inc_f1_1+1", compact);
         AssertOutputCompiles(result.OutputCode);
+    }
+
+    // ── (k) if-condition postfix lift (GraphLayout CS2J5339 eradication) ──
+
+    [Fact]
+    public void IfConditionPostfix_EqualityComparison_LiftsOldValue_SingleReadWrite()
+    {
+        var src = """
+            public class C
+            {
+                private static int _iterations;
+                public static int Gets;
+                public static int Sets;
+
+                public static int Iterations
+                {
+                    get { Gets++; return _iterations; }
+                    set { Sets++; _iterations = value; }
+                }
+
+                public static int F()
+                {
+                    if (Iterations++ == 0)
+                    {
+                        return 10;
+                    }
+
+                    return 20;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Severity == NumericBoundarySeverity.Error);
+
+        var compact = Compact(result.OutputCode);
+        // Old value read once into the temp, the original (half-open interval)
+        // comparison runs on that temp, and the write follows immediately —
+        // all before the unconditionally evaluated `if` condition.
+        Assert.Contains("var__cs2j_inc_o1=Iterations;", compact);
+        Assert.Contains("Iterations=__cs2j_inc_o1+1;", compact);
+        Assert.Contains("if(__cs2j_inc_o1==0)", compact);
+        // Exactly one getter read + one setter write for the whole site (plus
+        // the property declaration itself).
+        Assert.Equal(3, Regex.Matches(compact, "Iterations").Count);
+        AssertOutputCompiles(result.OutputCode);
+
+        // Runtime equivalence: the first call sees the OLD value 0 (returns
+        // 10), the second sees 1 (returns 20), with one get and one set each.
+        var original = (10, 20, 2, 2);
+        var rewritten = (10, 20, 2, 2);
+        Assert.Equal(original, RunTwice(CompileAndLoad(src)));
+        Assert.Equal(rewritten, RunTwice(CompileAndLoad(result.OutputCode)));
+    }
+
+    [Fact]
+    public void IfConditionPostfix_ShortCircuitCondition_5339_Error_RollsBack()
+    {
+        // `x++` on the right of `&&` is only evaluated when the left side is
+        // true: hoisting the plan before the `if` is not equivalent.
+        var result = Run(WrapInMethod("if (p != null && IntProp++ == 0) { }"));
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Severity == NumericBoundarySeverity.Error
+            && d.Code == PreprocessDiagnosticCodes.IncrementTargetNoAnchor);
+    }
+
+    private static Assembly CompileAndLoad(string code)
+    {
+        var references = ((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") ?? string.Empty)
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+            .Where(File.Exists)
+            .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
+            .ToList();
+        references.Add(MetadataReference.CreateFromFile(typeof(Cs2jUnsigned.UnsignedMath).Assembly.Location));
+        var compilation = CSharpCompilation.Create(
+            "c17-if-condition-" + Guid.NewGuid().ToString("N"),
+            new[] { CSharpSyntaxTree.ParseText(code) },
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var stream = new MemoryStream();
+        var emit = compilation.Emit(stream);
+        Assert.True(emit.Success,
+            "test harness emit failed:" + Environment.NewLine
+            + string.Join(Environment.NewLine, emit.Diagnostics)
+            + Environment.NewLine + code);
+        return Assembly.Load(stream.ToArray());
+    }
+
+    private static (int First, int Second, int Gets, int Sets) RunTwice(Assembly assembly)
+    {
+        var type = assembly.GetType("C")!;
+        var f = type.GetMethod("F")!;
+        var first = (int)f.Invoke(null, null)!;
+        var second = (int)f.Invoke(null, null)!;
+        return (first, second,
+            (int)type.GetField("Gets")!.GetValue(null)!,
+            (int)type.GetField("Sets")!.GetValue(null)!);
     }
 }

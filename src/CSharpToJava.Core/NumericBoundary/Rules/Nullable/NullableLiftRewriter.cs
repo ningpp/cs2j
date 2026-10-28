@@ -159,6 +159,18 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
 
         if (classification.Flavor == LiftedBinaryFlavor.UserDefined)
         {
+            // GraphLayout `q != null` (`Point?` whose `Point` defines `==/!=`):
+            // per the C# spec a lifted operator with a null operand never calls
+            // the user-defined operator, so `x != null` ≡ `x.HasValue` and
+            // `x == null` ≡ `!x.HasValue`. Every other user-defined lifted
+            // shape keeps the CS2J5353 gate.
+            var nullLiteral =
+                RewriteUserDefinedNullLiteralComparison(node, visited, operation);
+            if (nullLiteral != null)
+            {
+                return nullLiteral;
+            }
+
             ReportSiteError(node,
                 PreprocessDiagnosticCodes.NullableLiftUserDefinedOperator,
                 NullableLiftDiagnostics.ReasonUserDefinedOperator,
@@ -1070,6 +1082,62 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
         }
 
         var rewritten = NullableLiftExpansion.NullLiteralEquality(access, classification.IsNotEquals);
+        _stats.LiftedEqualityNullLiteralSites++;
+        return FinalizeSite(original, rewritten, _currentHoist);
+    }
+
+    /// <summary>
+    /// Lifted user-defined <c>==</c>/<c>!=</c> whose other operand is a null
+    /// constant (GraphLayout <c>if (q != null)</c> with <c>Point?</c>): the
+    /// lifted operator never calls the user operator for a null operand, so
+    /// the site is exactly <c>x.HasValue</c> / <c>!x.HasValue</c>. Restricted
+    /// to <c>Nullable&lt;T&gt;</c> receivers (a reference-typed T keeps its own
+    /// null-check semantics and stays CS2J5353) and reached only when the
+    /// remaining shape is equality. An unstable receiver is read once through
+    /// the ordinary hoist seam.
+    /// </summary>
+    private ExpressionSyntax? RewriteUserDefinedNullLiteralComparison(
+        BinaryExpressionSyntax original,
+        BinaryExpressionSyntax visited,
+        NBOp.IBinaryOperation operation)
+    {
+        if (original.Kind() is not (SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression))
+        {
+            return null;
+        }
+
+        var leftIsNull = NullableLiftAnalyzer.IsNullConstant(operation.LeftOperand);
+        var rightIsNull = NullableLiftAnalyzer.IsNullConstant(operation.RightOperand);
+        if (leftIsNull == rightIsNull)
+        {
+            return null;
+        }
+
+        var nullableIsLeft = !leftIsNull;
+        var originalSide = nullableIsLeft ? original.Left : original.Right;
+        var visitedSide = nullableIsLeft ? visited.Left : visited.Right;
+        var sideOperation = nullableIsLeft
+            ? operation.LeftOperand
+            : operation.RightOperand;
+
+        if (!NullableLiftAnalyzer.TryUnwrapNullable(
+                _model.GetTypeInfo(originalSide).Type, out var underlying)
+            || underlying is not { IsValueType: true })
+        {
+            return null;
+        }
+
+        _currentHoist = null;
+        var (ok, access) = PrepareOperand(
+            original, originalSide, visitedSide, sideOperation,
+            sideNullable: true, isLeft: true);
+        if (!ok)
+        {
+            return null;
+        }
+
+        var rewritten = NullableLiftExpansion.NullLiteralEquality(
+            access, original.IsKind(SyntaxKind.NotEqualsExpression));
         _stats.LiftedEqualityNullLiteralSites++;
         return FinalizeSite(original, rewritten, _currentHoist);
     }

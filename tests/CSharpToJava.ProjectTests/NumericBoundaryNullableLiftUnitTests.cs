@@ -4540,4 +4540,96 @@ public class NumericBoundaryNullableLiftUnitTests
         Assert.False(result.Changed);
         Assert.Equal(src, result.OutputCode);
     }
+
+    // ── null-literal lifted comparison on a user-defined-operator struct
+    //    (GraphLayout CS2J5353 eradication; C# spec: a null operand never
+    //    calls the user-defined operator, so `x != null` ≡ `x.HasValue`) ──
+
+    private const string UserDefinedPointStruct = """
+        public struct Point
+        {
+            public int X;
+            public Point(int x) { X = x; }
+            public static bool operator ==(Point a, Point b) => a.X == b.X;
+            public static bool operator !=(Point a, Point b) => a.X != b.X;
+            public override bool Equals(object? o) => o is Point p && p.X == X;
+            public override int GetHashCode() => X;
+        }
+        """;
+
+    [Fact]
+    public void M1_UserDefinedLifted_NullLiteralEquality_RewritesToHasValue()
+    {
+        var src = $$"""
+            {{UserDefinedPointStruct}}
+
+            public class C
+            {
+                public static bool NotNull(int mode)
+                {
+                    Point? q = mode == 0 ? (Point?)null : new Point(5);
+                    if (q != null)
+                    {
+                        return true;
+                    }
+
+                    return false;
+                }
+
+                public static bool IsNull(int mode)
+                {
+                    Point? q = mode == 0 ? (Point?)null : new Point(5);
+                    if (q == null)
+                    {
+                        return true;
+                    }
+
+                    return false;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Severity == NumericBoundarySeverity.Error);
+
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("if((q.HasValue))", compact);
+        Assert.Contains("if((!q.HasValue))", compact);
+        AssertOutputCompiles(result.OutputCode);
+
+        foreach (var code in new[] { src, result.OutputCode })
+        {
+            var type = CompileAndLoad(code).GetType("C")!;
+            var notNull = type.GetMethod("NotNull")!;
+            var isNull = type.GetMethod("IsNull")!;
+            Assert.False((bool)notNull.Invoke(null, new object?[] { 0 })!);
+            Assert.True((bool)notNull.Invoke(null, new object?[] { 1 })!);
+            Assert.True((bool)isNull.Invoke(null, new object?[] { 0 })!);
+            Assert.False((bool)isNull.Invoke(null, new object?[] { 1 })!);
+        }
+    }
+
+    [Fact]
+    public void M1_Error_UserDefinedLifted_NonNullLiteralComparison_5353_Rollback()
+    {
+        var src = $$"""
+            {{UserDefinedPointStruct}}
+
+            public class C
+            {
+                public static bool F(Point? a, Point? b) => a != b;
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Severity == NumericBoundarySeverity.Error
+            && d.Code == PreprocessDiagnosticCodes.NullableLiftUserDefinedOperator);
+    }
 }

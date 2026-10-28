@@ -297,10 +297,13 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
 
     /// <summary>
     /// Multi-site materialization gate. Beyond the single-site decision-14
-    /// rules, two linearized shapes are accepted:
+    /// rules, these linearized shapes are accepted:
     /// <list type="bullet">
     /// <item>postfix sites in a WHILE condition (any count): the plans run at
     /// the top of the restructured loop body, before the test, per iteration;</item>
+    /// <item>postfix sites in an IF condition (any count): the plans run once
+    /// immediately before the statement, in source order, and the condition
+    /// reads their old-value temps;</item>
     /// <item>multiple value-consumed postfixes in one anchor: each old value is
     /// read and written once in source order, so the only ordering hazard is a
     /// disjoint side effect that a site textually follows.</item>
@@ -318,6 +321,17 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
             var allConditionPostfixes = sites.All(s =>
                 s.C.Lift == Liftability.WhileConditionPostfix
                 && whileStatement.Condition.Span.Contains(s.Node.Span));
+            return allConditionPostfixes && IsMaterializationOrderSafe(anchor, sites);
+        }
+
+        if (anchor is IfStatementSyntax ifStatement)
+        {
+            // GraphLayout `if (settings.Iterations++ == 0)`: the condition runs
+            // exactly once, so the plans splice right before the if and the
+            // condition reads the old-value temps.
+            var allConditionPostfixes = sites.All(s =>
+                s.C.Lift == Liftability.IfConditionPostfix
+                && ifStatement.Condition.Span.Contains(s.Node.Span));
             return allConditionPostfixes && IsMaterializationOrderSafe(anchor, sites);
         }
 
@@ -563,7 +577,8 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
 
         ExpressionSyntax replacement;
         if (classification.Lift is Liftability.LiftablePostfix
-            or Liftability.WhileConditionPostfix)
+            or Liftability.WhileConditionPostfix
+            or Liftability.IfConditionPostfix)
         {
             // var __o = READ; WRITE = CORE(__o); site → __o
             var oldName = Names.Old(site);

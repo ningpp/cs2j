@@ -103,6 +103,17 @@ internal enum Liftability
     /// source order (continue naturally re-runs the plans and the test).
     /// </summary>
     WhileConditionPostfix,
+
+    /// <summary>
+    /// Postfix site inside an IF condition on an unblocked evaluation path and
+    /// a top-level <c>==</c>/<c>!=</c> comparison (GraphLayout
+    /// <c>if (settings.Iterations++ == 0)</c>): the condition is evaluated
+    /// exactly once and unconditionally when the <c>if</c> runs, so the
+    /// read-modify-write plan is spliced immediately BEFORE the statement and
+    /// the condition reads the old-value temp. Short-circuit/coalesce right
+    /// operands, ternary arms and lambdas stay <see cref="NoAnchor"/>.
+    /// </summary>
+    IfConditionPostfix,
 }
 
 /// <summary>
@@ -273,6 +284,15 @@ internal sealed class IncrementTargetAnalyzer
             return classification with { Lift = Liftability.WhileConditionPostfix };
         }
 
+        // ④ a postfix inside an if condition (top-level ==/!= comparison): the
+        //    condition is evaluated exactly once and unconditionally when the
+        //    `if` runs, so the same plan can simply be spliced before it.
+        if (classification is { IsPrefix: false, Lift: Liftability.NoAnchor }
+            && IsIfConditionSite(unaryNode))
+        {
+            return classification with { Lift = Liftability.IfConditionPostfix };
+        }
+
         return classification;
     }
 
@@ -336,6 +356,30 @@ internal sealed class IncrementTargetAnalyzer
             && whileStatement.Condition.Span.Contains(unaryNode.Span)
             && !IncrementTargetSyntaxFacts.IsBlockedPath(unaryNode, whileStatement)
             && !CrossesFunctionScope(whileStatement);
+    }
+
+    /// <summary>
+    /// True when the postfix node sits inside an if statement's condition on a
+    /// path that is evaluated exactly once, unconditionally, as part of a
+    /// top-level <c>==</c>/<c>!=</c> comparison: the nearest statement is the
+    /// if, the node span is inside the condition span, the condition (parens
+    /// stripped) is an equality comparison, the path crosses no blocked
+    /// construct (short-circuit/coalesce right side, ternary arm, lambda/local
+    /// function, query, initializer, interpolation) and no function scope. The
+    /// plan is then spliced immediately before the if, which preserves the
+    /// source evaluation order of the read, the write and the comparison.
+    /// </summary>
+    private static bool IsIfConditionSite(ExpressionSyntax unaryNode)
+    {
+        var anchor = IncrementTargetSyntaxFacts.FindAnchorStatement(unaryNode);
+        return anchor is IfStatementSyntax ifStatement
+            && ifStatement.Condition.Span.Contains(unaryNode.Span)
+            && IncrementTargetSyntaxFacts.UnwrapParens(ifStatement.Condition)
+                is BinaryExpressionSyntax comparison
+            && comparison.Kind() is SyntaxKind.EqualsExpression
+                or SyntaxKind.NotEqualsExpression
+            && !IncrementTargetSyntaxFacts.IsBlockedPath(unaryNode, ifStatement)
+            && !CrossesFunctionScope(ifStatement);
     }
 
     private IncrementTargetClassification? ClassifyInternal(ExpressionSyntax unaryNode)
