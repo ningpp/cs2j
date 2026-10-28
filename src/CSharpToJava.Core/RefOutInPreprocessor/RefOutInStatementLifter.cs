@@ -586,7 +586,8 @@ internal sealed class RefOutInStatementLifter
 
             var slot2 = Temp("__ref");
             _owner.Stats.AccessorProxies++;
-            return (ParseStmt($"ByRef<{paramType}> {slot2} = ByRef<{paramType}>.Create(() => {target}, v => {target} = v);"),
+            var valueName = RefOutInSyntaxRewriter.AccessorSetterParamName(target);
+            return (ParseStmt($"ByRef<{paramType}> {slot2} = ByRef<{paramType}>.Create(() => {target}, {valueName} => {target} = {valueName});"),
                 null, SyntaxFactory.Argument(Identifier(slot2)));
         }
 

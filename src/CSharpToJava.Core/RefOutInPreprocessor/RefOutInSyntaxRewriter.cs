@@ -320,6 +320,28 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         catch (ArgumentException) { return null; }
     }
 
+    /// <summary>
+    /// Setter lambda parameter name for an accessor proxy
+    /// <c>ByRef&lt;T&gt;.Create(() =&gt; target, p =&gt; target = p)</c>. The
+    /// parameter must not shadow any identifier referenced by
+    /// <paramref name="targetText"/> (a same-named local, an index variable in
+    /// <c>arr[v]</c>, a receiver in a member chain …), otherwise the write-back
+    /// silently collapses into a self-assignment and never reaches the target.
+    /// </summary>
+    internal static string AccessorSetterParamName(string targetText)
+    {
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var id in SyntaxFactory.ParseExpression(targetText)
+                     .DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+            used.Add(id.Identifier.ValueText);
+
+        var candidate = "__cs2jRefValue";
+        for (var i = 1; used.Contains(candidate)
+            || targetText.Contains(candidate, StringComparison.Ordinal); i++)
+            candidate = "__cs2jRefValue" + i;
+        return candidate;
+    }
+
     internal ITypeSymbol? GetTypeOf(ExpressionSyntax e)
     {
         try
@@ -336,7 +358,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     /// cannot access instance members of <c>this</c>). A field/property/method
     /// reached through the implicit or explicit <c>this</c> of a struct forces
     /// the call-site rewrite onto a synchronous copy-in/copy-out slot instead
-    /// of <c>ByRef&lt;T&gt;.Create(() => field, v => field = v)</c>.
+    /// of <c>ByRef&lt;T&gt;.Create(() => field, value => field = value)</c>.
     /// Reference-type receivers (<c>this</c> of a class) are unaffected: their
     /// capture is legal and keeps alias-through-call semantics.
     /// </summary>
@@ -859,8 +881,9 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             // flow through copy-out.
             var holderSym = GetSymbol(holderId);
             var t = holderSym is IParameterSymbol ps ? TypeDisplay(ps.Type) : "object";
+            var valueName = AccessorSetterParamName(shadowName);
             holder = SyntaxFactory.ParseExpression(
-                $"ByRef<{t}>.Create(() => {shadowName}, v => {shadowName} = v)");
+                $"ByRef<{t}>.Create(() => {shadowName}, {valueName} => {shadowName} = {valueName})");
         }
         else
         {
@@ -2485,9 +2508,10 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                 $"ByRef<{t}>.Create({arr}, {string.Join(", ", indices)})");
         }
         var name = inner.ToString();
+        var valueName = AccessorSetterParamName(name);
         _stats.AccessorProxies++;
         return SyntaxFactory.ParseExpression(
-            $"ByRef<{t}>.Create(() => {name}, v => {name} = v)");
+            $"ByRef<{t}>.Create(() => {name}, {valueName} => {name} = {valueName})");
     }
 
     public override SyntaxNode? VisitPropertyDeclaration(PropertyDeclarationSyntax node)
@@ -2760,8 +2784,9 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                     $"ReadOnlyByRef<{typeDisplay}>.Create(() => {elemText})"));
             }
             _stats.AccessorProxies++;
+            var elemValueName = AccessorSetterParamName(elemText);
             return ("ByRef", SyntaxFactory.ParseExpression(
-                $"ByRef<{typeDisplay}>.Create(() => {elemText}, v => {elemText} = v)"));
+                $"ByRef<{typeDisplay}>.Create(() => {elemText}, {elemValueName} => {elemText} = {elemValueName})"));
         }
 
         // identifier / member chain / other lvalue shapes
@@ -2785,8 +2810,9 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                 $"ScopedByRef<{typeDisplay}>.Create(ref {nameText})"));
         }
         _stats.AccessorProxies++;
+        var nameValueName = AccessorSetterParamName(nameText);
         return ("ByRef", SyntaxFactory.ParseExpression(
-            $"ByRef<{typeDisplay}>.Create(() => {nameText}, v => {nameText} = v)"));
+            $"ByRef<{typeDisplay}>.Create(() => {nameText}, {nameValueName} => {nameText} = {nameValueName})"));
     }
 
     private static ExpressionSyntax Negate(ExpressionSyntax e) =>

@@ -583,7 +583,7 @@ public class C
     }
 }";
         var result = RewriteAndAssertCompiles(src);
-        Assert.Contains("ByRef<int>.Create(() => x, v => x = v)", result);
+        Assert.Contains("ByRef<int>.Create(() => x, __cs2jRefValue => x = __cs2jRefValue)", result);
         Assert.Contains("ByRef<int> __ref", result);   // ref → accessor proxy
     }
 
@@ -602,7 +602,7 @@ public class C
     }
 }";
         var result = RewriteAndAssertCompiles(src);
-        Assert.Contains("Create(() => h.Value, v => h.Value = v)", result);
+        Assert.Contains("Create(() => h.Value, __cs2jRefValue => h.Value = __cs2jRefValue)", result);
     }
 
     [Fact]
@@ -949,7 +949,7 @@ public class C
 }";
         var (result, errorText) = RewriteAndCompile(src, peer);
         Assert.Equal("", errorText);
-        Assert.Contains("ByRef<int>.Create(() => box[0], v => box[0] = v)", result.OutputCode);
+        Assert.Contains("ByRef<int>.Create(() => box[0], __cs2jRefValue => box[0] = __cs2jRefValue)", result.OutputCode);
         Assert.Equal(1, result.Statistics.AccessorProxies);
         Assert.Equal(42, RewriteCompileAndRun(src, peer));
     }
