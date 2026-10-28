@@ -343,6 +343,96 @@ class C {
     }
 
     [Fact]
+    public void M1_GenericMethodSignatureTypeParameter_RedeclaredWithConstraint()
+    {
+        // GraphLayout CS0246 regression: the delegate-derived signature names an
+        // ENCLOSING METHOD type parameter (`Func<T,int>` for `x => x.CompareTo(x)`).
+        // The lifted static method lives at type level, where `T` is not in
+        // scope, so it must redeclare the method arity AND carry `where T`.
+        var src = @"
+using System.Linq;
+class C {
+    public static int[] Order<T>(System.Collections.Generic.IEnumerable<T> xs) where T : System.IComparable<T> {
+        return xs.Select(x => x.CompareTo(x)).ToArray();
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed, string.Join("\n", r.Diagnostics) + "\n" + r.OutputCode);
+        var lifted = LiftedStaticMethod(r.OutputCode, "Cs2jLambda_Order_0");
+        var typeParameter = Assert.Single(lifted.TypeParameterList!.Parameters);
+        Assert.Equal("T", typeParameter.Identifier.Text);
+        var clause = Assert.Single(lifted.ConstraintClauses);
+        Assert.Equal("T", clause.Name.Identifier.Text);
+        Assert.Contains("IComparable", clause.ToString());
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void M1_GenericMethod_OnlyReferencedTypeParameter_Redeclared()
+    {
+        // Minimal carry: `U` is never part of the lifted signature/body, so the
+        // synthesized method must declare `<T>` only (and only T's constraint).
+        var src = @"
+using System.Linq;
+class C {
+    public static int[] Order<T, U>(System.Collections.Generic.IEnumerable<T> xs, U extra)
+        where T : System.IComparable<T>
+        where U : struct {
+        System.Console.WriteLine(extra);
+        return xs.Select(x => x.CompareTo(x)).ToArray();
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        var lifted = LiftedStaticMethod(r.OutputCode, "Cs2jLambda_Order_0");
+        var typeParameter = Assert.Single(lifted.TypeParameterList!.Parameters);
+        Assert.Equal("T", typeParameter.Identifier.Text);
+        Assert.Single(lifted.ConstraintClauses);
+        Assert.Equal("T", lifted.ConstraintClauses[0].Name.Identifier.Text);
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void M2_EvolvedGroup_LambdaSiteBeforeC32Anchor_InstanceHoistedBeforeUse()
+    {
+        // GraphLayout CS0841 regression: C32 anchors the evolved group's
+        // instance before its earliest LIFTED LOCAL declaration, but this
+        // M2 site (`() => _n`, merged into the same class) sits in an earlier
+        // statement's initializer — the instance must be hoisted in front of
+        // the earliest migrated site instead.
+        var src = @"
+class C {
+    private int _n;
+    void M() {
+        System.Func<int> f = () => _n;
+        int x = 0;
+        System.Action a = () => x++;
+        a();
+        System.Console.WriteLine(f() + x);
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed, string.Join("\n", r.Diagnostics) + "\n" + r.OutputCode);
+        var instanceIndex = r.OutputCode.IndexOf(
+            "var __cs2jClosure0 = new Cs2jDisplayClass_M_0(this)", StringComparison.Ordinal);
+        var siteIndex = r.OutputCode.IndexOf(
+            "new global::System.Func<int>(__cs2jClosure0.Lambda_0)", StringComparison.Ordinal);
+        Assert.True(instanceIndex >= 0, r.OutputCode);
+        Assert.True(siteIndex >= 0, r.OutputCode);
+        Assert.True(instanceIndex < siteIndex, r.OutputCode);
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    private static MethodDeclarationSyntax LiftedStaticMethod(string code, string name)
+        => Assert.Single(((SyntaxNode)CSharpSyntaxTree.ParseText(code, ParseOptions).GetRoot())
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Where(m => m.Identifier.Text == name));
+
+    [Fact]
     public void M1_ExpressionBodiedAndAccessorHosts_LiftWithMemberAnchor()
     {
         var expressionBodied = @"

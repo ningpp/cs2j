@@ -257,74 +257,13 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
             root.Members, model, modelHostByReceivedHost, newClassesByHost,
             nestedClassesByParent, classEdits, enclosingHost: null, chain: string.Empty));
 
-        // 3. Ctor-argument edit for evolved groups that captured `this` (D7): the
-        //    C32-emitted `new Class()` creations gain the `this` argument.
-        //    Matching uses BOTH (instanceName, className) because instance names are
-        //    PER-ROUTINE — the same `__cs2jClosure<N>` name legitimately appears in
-        //    multiple methods, but only an evolved group whose class name matches the
-        //    `new` target should receive the `this` argument (otherwise unmatched
-        //    holders would produce CS1729: 'Class' has no 1-parameter constructor).
-        var creationReplacements = new Dictionary<ObjectCreationExpressionSyntax, ObjectCreationExpressionSyntax>();
-        var thisNameClassPairs = plan.EvolvedGroups
-            .Where(static g => g.CapturesThis)
-            .Select(static g => (g.InstanceName, g.ClassName))
-            .ToHashSet();
-        if (thisNameClassPairs.Count > 0)
-        {
-            foreach (var declaration in withClasses.DescendantNodes()
-                         .OfType<LocalDeclarationStatementSyntax>())
-            {
-                if (!ClosureLiftAnnotations.IsAnnotated(declaration)
-                    || declaration.Declaration.Variables.Count != 1
-                    || declaration.Declaration.Variables[0].Initializer?.Value
-                        is not ObjectCreationExpressionSyntax creation)
-                {
-                    continue;
-                }
-
-                var name = declaration.GetAnnotations(ClosureLiftAnnotations.Kind)
-                    .FirstOrDefault()?.Data is { } data && data.StartsWith("instance:", StringComparison.Ordinal)
-                    ? data["instance:".Length..]
-                    : null;
-                if (name == null)
-                    continue;
-
-                var className = creation.Type switch
-                {
-                    IdentifierNameSyntax id => id.Identifier.ValueText,
-                    GenericNameSyntax generic => generic.Identifier.ValueText,
-                    _ => null,
-                };
-                if (className == null || !thisNameClassPairs.Contains((name, className)))
-                    continue;
-
-                creationReplacements[creation] = creation.WithArgumentList(
-                    SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(
-                        SyntaxFactory.Argument(SyntaxFactory.ThisExpression()))));
-            }
-        }
-
-        // 4. Statement insertions (D14②): new-group instance declarations and
-        //    read-only snapshots, each at the nearest statement boundary before
-        //    its anchor lambda site (after it when that statement declares the
-        //    captured symbol). `withClasses` appends members along the type
-        //    spine: Roslyn red nodes get fresh wrappers (so reference identity
-        //    does NOT survive) and, for a later sibling type, absolute spans
-        //    shift by the inserted members. Anchors therefore re-pair the
-        //    RECEIVED lambdas with the `withClasses` lambdas by descendant
-        //    ORDER (same ordinal discipline as the model↔received pairing;
-        //    generated display classes are excluded) and then climb that live
-        //    node's parents to its statement-list membership.
-        var liveLambdas = withClasses
-            .DescendantNodes(static n =>
-                n is not TypeDeclarationSyntax t || !ClosureLiftAnnotations.IsAnnotated(t))
-            .OfType<LambdaExpressionSyntax>()
-            .ToList();
         var receivedLambdas = root
             .DescendantNodes()
             .OfType<LambdaExpressionSyntax>()
             .ToList();
-        StatementSyntax? AnchorStatementOf(int modelSpan)
+        StatementSyntax? AnchorStatementOf(
+            IReadOnlyList<LambdaExpressionSyntax> liveLambdas,
+            int modelSpan)
         {
             if (!receivedLambdaBySpanStart.TryGetValue(modelSpan, out var receivedLambda))
                 return null;
@@ -353,6 +292,99 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
             return statement;
         }
 
+        // 3. Evolved groups: C32 anchored the instance declaration before the
+        //    earliest LIFTED LOCAL declaration, but an M2 lambda merged into that
+        //    class may sit in an EARLIER statement (typically a local-declaration
+        //    initializer), so its migrated delegate site would reference the
+        //    instance before its declaration (CS0841). Hoist the C32 declaration
+        //    in front of the earliest such sibling site. The move re-parents that
+        //    statement, and Roslyn hands out fresh red nodes for re-parented
+        //    subtrees, so EVERY later identity-keyed map below is built on the
+        //    hoisted tree (never on `withClasses`).
+        var withClassesLambdas = LambdasOutsideDisplayClasses(withClasses);
+        var withClassesInstances = CollectInstanceDeclarations(withClasses);
+        var hoistBefore = new Dictionary<StatementSyntax, StatementSyntax>();
+        foreach (var group in plan.EvolvedGroups.Where(static g => g.Methods.Count > 0))
+        {
+            var instance = withClassesInstances
+                .Where(d => d.Name == group.InstanceName && d.ClassName == group.ClassName)
+                .Select(static d => d.Statement)
+                .FirstOrDefault();
+            if (instance?.Parent is not (BlockSyntax or SwitchSectionSyntax))
+                continue;
+
+            var statements = instance.Parent is BlockSyntax block
+                ? block.Statements
+                : ((SwitchSectionSyntax)instance.Parent).Statements;
+            var instanceIndex = OrdinalOf(statements, instance!);
+            if (instanceIndex < 0)
+                continue;
+
+            var earliest = -1;
+            foreach (var method in group.Methods)
+            {
+                if (AnchorStatementOf(withClassesLambdas, method.SiteSpanStart) is not { } anchor
+                    || !ReferenceEquals(anchor.Parent, instance.Parent))
+                {
+                    continue;
+                }
+
+                var index = OrdinalOf(statements, anchor);
+                if (index >= 0 && index < instanceIndex && (earliest < 0 || index < earliest))
+                    earliest = index;
+            }
+
+            if (earliest >= 0)
+                hoistBefore[instance] = statements[earliest];
+        }
+
+        var hoisted = hoistBefore.Count == 0
+            ? withClasses
+            : (CompilationUnitSyntax)new InstanceHoistRewriter(hoistBefore).Visit(withClasses)!;
+
+        // 4. Ctor-argument edit for evolved groups that captured `this` (D7): the
+        //    C32-emitted `new Class()` creations gain the `this` argument.
+        //    Matching uses BOTH (instanceName, className) because instance names are
+        //    PER-ROUTINE — the same `__cs2jClosure<N>` name legitimately appears in
+        //    multiple methods, but only an evolved group whose class name matches the
+        //    `new` target should receive the `this` argument (otherwise unmatched
+        //    holders would produce CS1729: 'Class' has no 1-parameter constructor).
+        var instanceDeclarations = CollectInstanceDeclarations(hoisted);
+        var creationReplacements = new Dictionary<ObjectCreationExpressionSyntax, ObjectCreationExpressionSyntax>();
+        var thisNameClassPairs = plan.EvolvedGroups
+            .Where(static g => g.CapturesThis)
+            .Select(static g => (g.InstanceName, g.ClassName))
+            .ToHashSet();
+        if (thisNameClassPairs.Count > 0)
+        {
+            foreach (var (declaration, name, className) in instanceDeclarations)
+            {
+                if (!thisNameClassPairs.Contains((name, className)))
+                    continue;
+
+                var creation = (ObjectCreationExpressionSyntax)
+                    declaration.Declaration.Variables[0].Initializer!.Value;
+                creationReplacements[creation] = creation.WithArgumentList(
+                    SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.Argument(SyntaxFactory.ThisExpression()))));
+            }
+        }
+
+        // 5. Statement insertions (D14②): new-group instance declarations and
+        //    read-only snapshots, each at the nearest statement boundary before
+        //    its anchor lambda site (after it when that statement declares the
+        //    captured symbol). Appending members along the type spine hands out
+        //    fresh red wrappers (so reference identity from `root` does NOT
+        //    survive) and, for a later sibling type, absolute spans shift by the
+        //    inserted members. Anchors therefore re-pair the RECEIVED lambdas with
+        //    the current tree's lambdas by descendant ORDER (same ordinal
+        //    discipline as the model↔received pairing; generated display classes
+        //    are excluded) and then climb that live node's parents to its
+        //    statement-list membership.
+        var liveLambdas = hoisted == withClasses
+            ? withClassesLambdas
+            : LambdasOutsideDisplayClasses(hoisted);
+
         var insertBefore = new Dictionary<SyntaxNode, List<StatementSyntax>>();
         var insertAfter = new Dictionary<SyntaxNode, List<StatementSyntax>>();
 
@@ -362,7 +394,7 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
         foreach (var group in plan.NewGroups.Where(static g => g.Parent == null))
         {
             var anchorSpan = group.Methods.Count > 0 ? group.Methods[0].SiteSpanStart : -1;
-            if (anchorSpan < 0 || AnchorStatementOf(anchorSpan) is not { } anchor)
+            if (anchorSpan < 0 || AnchorStatementOf(liveLambdas, anchorSpan) is not { } anchor)
                 return new ClosureStageResult(root, false);
 
             AddInsertion(insertBefore, anchor, emitter.BuildInstanceDeclaration(group));
@@ -370,7 +402,7 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
             foreach (var symbol in group.Symbols.Where(static s => s.Reason == TriggerReason.ReadOnlyValue))
             {
                 if (!plan.SnapshotAnchors.TryGetValue(symbol, out var snapshotSpan)
-                    || AnchorStatementOf(snapshotSpan) is not { } snapshotAnchor)
+                    || AnchorStatementOf(liveLambdas, snapshotSpan) is not { } snapshotAnchor)
                 {
                     return new ClosureStageResult(root, false);
                 }
@@ -387,7 +419,7 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
             foreach (var symbol in group.Symbols.Where(static s => s.Reason == TriggerReason.ReadOnlyValue))
             {
                 if (!plan.SnapshotAnchors.TryGetValue(symbol, out var snapshotSpan)
-                    || AnchorStatementOf(snapshotSpan) is not { } snapshotAnchor)
+                    || AnchorStatementOf(liveLambdas, snapshotSpan) is not { } snapshotAnchor)
                 {
                     return new ClosureStageResult(root, false);
                 }
@@ -399,7 +431,7 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
         }
 
         var insertionRewriter = new StatementInsertionRewriter(insertBefore, insertAfter, creationReplacements);
-        var rewritten = (CompilationUnitSyntax)insertionRewriter.Visit(withClasses)!;
+        var rewritten = (CompilationUnitSyntax)insertionRewriter.Visit(hoisted)!;
 
         // 5. Freeze the site plans for the delegate-site stage (D8). Site plans
         //    carry MODEL spans on purpose: DelegateSiteRewriteStage re-anchors
@@ -435,6 +467,63 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
             AddInsertion(insertAfter, anchor, build(value));
         else
             AddInsertion(insertBefore, anchor, build(value));
+    }
+
+    /// <summary>Main-tree lambdas of <paramref name="tree"/>; display-class interiors are excluded.</summary>
+    private static List<LambdaExpressionSyntax> LambdasOutsideDisplayClasses(CompilationUnitSyntax tree)
+        => tree.DescendantNodes(static n =>
+                n is not TypeDeclarationSyntax type || !ClosureLiftAnnotations.IsAnnotated(type))
+            .OfType<LambdaExpressionSyntax>()
+            .ToList();
+
+    /// <summary>
+    /// Every C32 `instance:`-annotated declaration still present in the tree:
+    /// (statement, instance name, created class name). Instance names are
+    /// per-routine, so all consumers pair them with the class name.
+    /// </summary>
+    private static List<(LocalDeclarationStatementSyntax Statement, string Name, string ClassName)>
+        CollectInstanceDeclarations(CompilationUnitSyntax root)
+    {
+        var declarations = new List<(LocalDeclarationStatementSyntax, string, string)>();
+        foreach (var declaration in root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>())
+        {
+            if (!ClosureLiftAnnotations.IsAnnotated(declaration)
+                || declaration.Declaration.Variables.Count != 1
+                || declaration.Declaration.Variables[0].Initializer?.Value
+                    is not ObjectCreationExpressionSyntax creation)
+            {
+                continue;
+            }
+
+            var name = declaration.GetAnnotations(ClosureLiftAnnotations.Kind)
+                .FirstOrDefault()?.Data is { } data && data.StartsWith("instance:", StringComparison.Ordinal)
+                ? data["instance:".Length..]
+                : null;
+            var className = creation.Type switch
+            {
+                IdentifierNameSyntax id => id.Identifier.ValueText,
+                GenericNameSyntax generic => generic.Identifier.ValueText,
+                _ => null,
+            };
+            if (name == null || className == null)
+                continue;
+
+            declarations.Add((declaration, name, className));
+        }
+
+        return declarations;
+    }
+
+    /// <summary>Reference-identity ordinal of <paramref name="statement"/> in its own list.</summary>
+    private static int OrdinalOf(SyntaxList<StatementSyntax> statements, StatementSyntax statement)
+    {
+        for (var i = 0; i < statements.Count; i++)
+        {
+            if (ReferenceEquals(statements[i], statement))
+                return i;
+        }
+
+        return -1;
     }
 
     private static void AddInsertion(
@@ -685,6 +774,83 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Moves one statement to the front of another inside the SAME statement
+    /// list (block / switch section). Only list ORDER changes: every statement
+    /// node keeps its identity, so later identity-keyed insertion/creation maps
+    /// still resolve.
+    /// </summary>
+    private sealed class InstanceHoistRewriter : CSharpSyntaxRewriter
+    {
+        private readonly Dictionary<StatementSyntax, StatementSyntax> _hoistBefore;
+
+        public InstanceHoistRewriter(Dictionary<StatementSyntax, StatementSyntax> hoistBefore)
+        {
+            _hoistBefore = hoistBefore;
+        }
+
+        public override SyntaxNode? VisitBlock(BlockSyntax node)
+        {
+            var visited = (BlockSyntax?)base.VisitBlock(node);
+            return visited == null
+                ? null
+                : visited.WithStatements(Hoist(node.Statements, visited.Statements));
+        }
+
+        public override SyntaxNode? VisitSwitchSection(SwitchSectionSyntax node)
+        {
+            var visited = (SwitchSectionSyntax?)base.VisitSwitchSection(node);
+            if (visited == null)
+                return null;
+
+            var statements = visited.Statements;
+            var hoisted = Hoist(node.Statements, statements);
+            return hoisted == statements ? visited : visited.WithStatements(hoisted);
+        }
+
+        private SyntaxList<StatementSyntax> Hoist(
+            SyntaxList<StatementSyntax> originalStatements,
+            SyntaxList<StatementSyntax> visitedStatements)
+        {
+            if (_hoistBefore.Count == 0 || originalStatements.Count != visitedStatements.Count)
+                return visitedStatements;
+
+            var removed = new HashSet<int>();
+            var movedBefore = new Dictionary<int, List<int>>();
+            foreach (var (instance, anchor) in _hoistBefore)
+            {
+                var from = OrdinalOf(originalStatements, instance);
+                var to = OrdinalOf(originalStatements, anchor);
+                if (from < 0 || to < 0 || to >= from)
+                    continue;
+
+                removed.Add(from);
+                if (!movedBefore.TryGetValue(to, out var sources))
+                {
+                    sources = new List<int>();
+                    movedBefore[to] = sources;
+                }
+
+                sources.Add(from);
+            }
+
+            if (removed.Count == 0)
+                return visitedStatements;
+
+            var result = new List<StatementSyntax>(visitedStatements.Count);
+            for (var i = 0; i < visitedStatements.Count; i++)
+            {
+                if (movedBefore.TryGetValue(i, out var sources))
+                    result.AddRange(sources.OrderBy(static s => s).Select(s => visitedStatements[s]));
+
+                if (!removed.Contains(i))
+                    result.Add(visitedStatements[i]);
+            }
+
+            return SyntaxFactory.List(result);
+        }
     }
 
     /// <summary>
