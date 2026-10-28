@@ -906,7 +906,9 @@ internal sealed class IteratorStateMachineRewriter
     private sealed class BodyFlattener
     {
         private abstract record Frame;
-        private sealed record LoopFrame(string BeginLabel, string EndLabel) : Frame;
+        // ContinueLabel 是 `continue` 的落点：while/foreach 与循环头一致，for 指向
+        // 自增段、do-while 指向条件判断——跳到循环头会跳过自增/条件（死循环）。
+        private sealed record LoopFrame(string BeginLabel, string EndLabel, string ContinueLabel) : Frame;
         // M4: 含 yield 的 switch 被展平为"转发 switch + 顶层 section 标签"，
         // break 解析到 EndLabel。
         private sealed record SwitchFrame(string EndLabel) : Frame;
@@ -1149,7 +1151,7 @@ internal sealed class IteratorStateMachineRewriter
                 crossedFrames = crossedFrames.Take(ownIndex).ToList();
             }
             EmitRegionExit(crossedFrames.Select(f => f.Region).ToList());
-            _out.Add(Goto(loop.BeginLabel));
+            _out.Add(Goto(loop.ContinueLabel));
         }
 
         private void EmitRegionExit(IReadOnlyList<RegionPlan> innerToOuter)
@@ -1273,13 +1275,43 @@ internal sealed class IteratorStateMachineRewriter
             return false;
         }
 
+        /// <summary>
+        /// 循环体是否含直接指向本循环的 `continue`（switch 不截获 continue，
+        /// 因此只有嵌套迭代语句会截断外层）。
+        /// </summary>
+        private static bool LoopBodyHasDirectContinue(StatementSyntax body, SyntaxNode loop)
+        {
+            foreach (var continueStmt in body.DescendantNodesAndSelf()
+                         .OfType<ContinueStatementSyntax>())
+            {
+                var cursor = continueStmt.Parent;
+                while (cursor != null && cursor != loop)
+                {
+                    if (cursor is CommonForEachStatementSyntax
+                        or ForStatementSyntax
+                        or WhileStatementSyntax
+                        or DoStatementSyntax)
+                    {
+                        break;
+                    }
+                    cursor = cursor.Parent;
+                }
+                if (cursor == loop)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private void FlattenWhile(WhileStatementSyntax node)
         {
             var beginLabel = NewLabel();
             var endLabel = NewLabel();
             EmitLabel(beginLabel);
             _out.Add(IfStatement(Not(Tx(node.Condition)), Block(Goto(endLabel))));
-            _stack.Add(new LoopFrame(beginLabel, endLabel));
+            // while 的条件在循环头，continue 直接回到循环头。
+            _stack.Add(new LoopFrame(beginLabel, endLabel, beginLabel));
             FlattenStatement(node.Statement);
             _stack.RemoveAt(_stack.Count - 1);
             _out.Add(Goto(beginLabel));
@@ -1291,10 +1323,18 @@ internal sealed class IteratorStateMachineRewriter
             var beginLabel = NewLabel();
             var endLabel = NewLabel();
             var hasBreak = LoopBodyHasDirectBreak(node.Statement, node);
+            // do-while 的 continue 先求条件：跳到循环头会多跑一次循环体。
+            var continueLabel = LoopBodyHasDirectContinue(node.Statement, node)
+                ? NewLabel()
+                : beginLabel;
             EmitLabel(beginLabel);
-            _stack.Add(new LoopFrame(beginLabel, endLabel));
+            _stack.Add(new LoopFrame(beginLabel, endLabel, continueLabel));
             FlattenStatement(node.Statement);
             _stack.RemoveAt(_stack.Count - 1);
+            if (continueLabel != beginLabel)
+            {
+                EmitLabel(continueLabel);
+            }
             _out.Add(IfStatement(Tx(node.Condition), Block(Goto(beginLabel))));
             if (hasBreak)
             {
@@ -1324,14 +1364,22 @@ internal sealed class IteratorStateMachineRewriter
 
             var beginLabel = NewLabel();
             var endLabel = NewLabel();
+            // for 的 continue 必须先执行自增段再回条件：跳到循环头会跳过自增（死循环）。
+            var continueLabel = LoopBodyHasDirectContinue(node.Statement, node)
+                ? NewLabel()
+                : beginLabel;
             EmitLabel(beginLabel);
             if (node.Condition != null)
             {
                 _out.Add(IfStatement(Not(Tx(node.Condition)), Block(Goto(endLabel))));
             }
-            _stack.Add(new LoopFrame(beginLabel, endLabel));
+            _stack.Add(new LoopFrame(beginLabel, endLabel, continueLabel));
             FlattenStatement(node.Statement);
             _stack.RemoveAt(_stack.Count - 1);
+            if (continueLabel != beginLabel)
+            {
+                EmitLabel(continueLabel);
+            }
             foreach (var incrementor in node.Incrementors)
             {
                 _out.Add(ExpressionStatement(Tx(incrementor)));
@@ -1375,7 +1423,8 @@ internal sealed class IteratorStateMachineRewriter
                     SyntaxKind.SimpleAssignmentExpression,
                     IdentifierName(fe.ItemFieldName),
                     arrayElement)));
-                _stack.Add(new LoopFrame(beginLabel, endLabel));
+                // foreach 的枚举推进在循环头，continue 直接回到循环头。
+                _stack.Add(new LoopFrame(beginLabel, endLabel, beginLabel));
                 FlattenStatement(body);
                 _stack.RemoveAt(_stack.Count - 1);
                 _out.Add(ExpressionStatement(PostfixUnaryExpression(
@@ -1420,7 +1469,8 @@ internal sealed class IteratorStateMachineRewriter
             }
             _out.Add(Assign(fe.ItemFieldName, currentAccess));
 
-            _stack.Add(new LoopFrame(beginLabel, endLabel));
+            // foreach 的 MoveNext 在循环头，continue 直接回到循环头。
+            _stack.Add(new LoopFrame(beginLabel, endLabel, beginLabel));
             if (region != null)
             {
                 _stack.Add(new RegionFrame(region, beginLabel));
