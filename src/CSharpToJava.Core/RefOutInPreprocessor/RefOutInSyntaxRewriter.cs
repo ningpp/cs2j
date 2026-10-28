@@ -27,6 +27,13 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     // (reference T), masking an outer frame's shadow of the same name.
     private readonly Stack<Dictionary<string, string?>> _shadowNameScopes = new();
 
+    // Identifiers declared WITHOUT an initializer in the active member body and
+    // passed as a ref/out argument to a lifted (internal) call. Lifting a
+    // short-circuit `a != null && a.TryGet(out edge)` hides the assignment
+    // behind a generated `if (__sc)`, which the compiler's definite-assignment
+    // analysis cannot follow (CS0165); such locals are seeded with `default!`.
+    private readonly Stack<HashSet<string>> _liftedOutArgTargets = new();
+
     public bool UsedHolder { get; private set; }
 
     public RefOutInSyntaxRewriter(
@@ -415,6 +422,9 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             return base.VisitMethodDeclaration(node);
 
         _holderNameScopes.Push(new HashSet<string>());
+        _liftedOutArgTargets.Push(node.Body != null
+            ? CollectLiftedOutArgTargets(node.Body)
+            : new HashSet<string>());
         Dictionary<string, string?>? shadowFrame = null;
         try
         {
@@ -516,6 +526,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         finally
         {
             if (shadowFrame != null) _shadowNameScopes.Pop();
+            _liftedOutArgTargets.Pop();
             _holderNameScopes.Pop();
         }
     }
@@ -649,6 +660,9 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             return base.VisitConstructorDeclaration(node);
 
         _holderNameScopes.Push(new HashSet<string>());
+        _liftedOutArgTargets.Push(node.Body != null
+            ? CollectLiftedOutArgTargets(node.Body)
+            : new HashSet<string>());
         Dictionary<string, string?>? shadowFrame = null;
         try
         {
@@ -699,6 +713,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         finally
         {
             if (shadowFrame != null) _shadowNameScopes.Pop();
+            _liftedOutArgTargets.Pop();
             _holderNameScopes.Pop();
         }
     }
@@ -1035,6 +1050,31 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         return HoistedBlock(stmts);
     }
 
+    public override SyntaxNode? VisitYieldStatement(YieldStatementSyntax node)
+    {
+        // Only `yield return e` carries an expression; `yield break` is inert.
+        if (node.Expression == null)
+            return base.VisitYieldStatement(node);
+
+        var lifted = _lifter.SpliceExpression(node.Expression, out var hoisted);
+        var pending = _lifter.TakePendingReadbacks();
+        if (hoisted.Count == 0 && pending.Count == 0)
+        {
+            if (ReferenceEquals(lifted, node.Expression))
+                return base.VisitYieldStatement(node);
+            return node.WithExpression(InjectSlotValues(lifted));
+        }
+
+        // Same shape as VisitReturnStatement: hoisted slots, the yield, then
+        // the copy-backs. Statements after `yield return` run on resume, so the
+        // read-backs still precede the next iteration's call.
+        var stmts = new List<StatementSyntax>();
+        stmts.AddRange(hoisted);
+        stmts.Add(node.WithExpression(InjectSlotValues(lifted)));
+        stmts.AddRange(pending);
+        return HoistedBlock(stmts);
+    }
+
     public override SyntaxNode? VisitIfStatement(IfStatementSyntax node)
     {
         var cond = _lifter.SpliceExpression(node.Condition, out var hoisted);
@@ -1352,10 +1392,16 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             }
         }
 
-        if (!anyLift && !incrementsChanged
-            && ReferenceEquals(newCondition, node.Condition))
+        // A holder-slot substitution in the condition (`i > jumperLayer` →
+        // `i > __shadow`) is NOT a lift. Keep the for form: degrading to
+        // `int i = …; while (true)` hoists the loop variable into the method
+        // block, where it collides with a sibling `for (int i …)` (CS0136).
+        if (!anyLift && !incrementsChanged)
         {
-            return base.VisitForStatement(node);
+            var visited = (ForStatementSyntax)base.VisitForStatement(node)!;
+            return ReferenceEquals(newCondition, node.Condition)
+                ? visited
+                : visited.WithCondition(newCondition);
         }
 
         // Rebuild the initializer statements, in original order, before the
@@ -1448,6 +1494,12 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         preStmts.Add(SyntaxFactory.WhileStatement(
             SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression),
             SyntaxFactory.Block(loopBody)));
+        // Restore the for's block scope when the declaration is hoisted: the
+        // `int i = …` must not leak into the enclosing method block (CS0136
+        // against a sibling `for (int i …)`). continue/break still bind to the
+        // while inside this block.
+        if (node.Declaration != null)
+            return HoistedBlock(new StatementSyntax[] { SyntaxFactory.Block(preStmts) });
         return HoistedBlock(preStmts);
     }
 
@@ -1467,8 +1519,8 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         {
             // 快路径：表达式无需提升。不能调 base.Visit(node)——Visit 经 node.Accept
             // 虚分发会重入本 override 造成无限递归（SO）；body 已手动访问过，直接重建。
-            if (ReferenceEquals(lifted, expression))
-                return rebuild(expression, visitedBody);
+            // 无提升时 InjectSlotValues 对非 holder 表达式是 no-op，但 out 形参
+            // 源（ByRef<T>）必须注入 `.Value`，否则 foreach 绑定到代理本身（CS1579）。
             return rebuild(InjectSlotValues(lifted), visitedBody);
         }
         var newForeach = rebuild(InjectSlotValues(lifted), visitedBody);
@@ -1577,6 +1629,50 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
 
     // ── Local declarations ──────────────────────────────────────────────────
 
+    /// <summary>
+    /// Pre-scan (on the ORIGINAL body, before any rewrite detaches nodes):
+    /// identifiers passed as a ref/out argument to a call the lifter will
+    /// rebuild. Such a call's assignment may end up inside a generated
+    /// conditional block, which the compiler does not treat as definite
+    /// assignment (CS0165 on a local declared without an initializer).
+    /// </summary>
+    private HashSet<string> CollectLiftedOutArgTargets(SyntaxNode body)
+    {
+        var targets = new HashSet<string>();
+        foreach (var arg in body.DescendantNodes().OfType<ArgumentSyntax>())
+        {
+            if (!arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
+                && !arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword))
+                continue;
+            if (arg.Expression is not IdentifierNameSyntax id)
+                continue;
+            var invocation = arg.Ancestors().OfType<InvocationExpressionSyntax>().FirstOrDefault();
+            // Resolve through the rewriter (not the lifter): this scan runs
+            // before the method's holder names are registered, and the lifter's
+            // per-invocation liftability cache must not be primed from here —
+            // an external native callee would be cached as "not liftable" and
+            // its later `out holder.Value` would surface CS0206.
+            if (invocation == null
+                || !TryGetLiftMethods(invocation, out var methods)
+                || methods.Count == 0)
+                continue;
+            targets.Add(id.Identifier.Text);
+        }
+        return targets;
+    }
+
+    private bool IsLiftedOutArgTarget(string name) =>
+        _liftedOutArgTargets.Count > 0 && _liftedOutArgTargets.Peek().Contains(name);
+
+    /// <summary>Seeds `default!` into an uninitialized local used as a lifted out/ref argument.</summary>
+    private VariableDeclaratorSyntax WithLiftedOutDefault(VariableDeclaratorSyntax declarator)
+    {
+        if (declarator.Initializer != null || !IsLiftedOutArgTarget(declarator.Identifier.Text))
+            return declarator;
+        return declarator.WithInitializer(SyntaxFactory.EqualsValueClause(
+            SyntaxFactory.ParseExpression("default!")));
+    }
+
     public override SyntaxNode? VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
     {
         if (node.Declaration.Type is RefTypeSyntax refType)
@@ -1675,10 +1771,24 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                     continue;
                 }
             }
-            newVariables.Add(d);
+            newVariables.Add(WithLiftedOutDefault(d));
         }
         if (!anyLift)
-            return base.VisitLocalDeclarationStatement(node);
+        {
+            var visited = (LocalDeclarationStatementSyntax)base.VisitLocalDeclarationStatement(node)!;
+            var updated = new List<VariableDeclaratorSyntax>();
+            bool defaultsAdded = false;
+            foreach (var d in visited.Declaration.Variables)
+            {
+                var withDefault = WithLiftedOutDefault(d);
+                defaultsAdded |= !ReferenceEquals(withDefault, d);
+                updated.Add(withDefault);
+            }
+            if (!defaultsAdded)
+                return visited;
+            return visited.WithDeclaration(SyntaxFactory.VariableDeclaration(
+                visited.Declaration.Type, SyntaxFactory.SeparatedList(updated)));
+        }
 
         var newDeclaration = SyntaxFactory.VariableDeclaration(
             node.Declaration.Type, SyntaxFactory.SeparatedList(newVariables));
@@ -1922,15 +2032,18 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             {
                 var parent = chain.Parent;
                 if (parent is AssignmentExpressionSyntax assign
-                    && ReferenceEquals(assign.Left, chain))
+                    && ReferenceEquals(assign.Left, chain)
+                    && chain is not IdentifierNameSyntax)
                     return true;
                 if (parent is PrefixUnaryExpressionSyntax pre
                     && (pre.IsKind(SyntaxKind.PreIncrementExpression)
-                        || pre.IsKind(SyntaxKind.PreDecrementExpression)))
+                        || pre.IsKind(SyntaxKind.PreDecrementExpression))
+                    && chain is not IdentifierNameSyntax)
                     return true;
                 if (parent is PostfixUnaryExpressionSyntax post
                     && (post.IsKind(SyntaxKind.PostIncrementExpression)
-                        || post.IsKind(SyntaxKind.PostDecrementExpression)))
+                        || post.IsKind(SyntaxKind.PostDecrementExpression))
+                    && chain is not IdentifierNameSyntax)
                     return true;
                 if (parent is ArgumentSyntax arg
                     && (arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
@@ -2251,6 +2364,9 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             return base.VisitLocalFunctionStatement(node);
 
         _holderNameScopes.Push(new HashSet<string>());
+        _liftedOutArgTargets.Push(node.Body != null
+            ? CollectLiftedOutArgTargets(node.Body)
+            : new HashSet<string>());
         Dictionary<string, string?>? shadowFrame = null;
         try
         {
@@ -2320,6 +2436,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         finally
         {
             if (shadowFrame != null) _shadowNameScopes.Pop();
+            _liftedOutArgTargets.Pop();
             _holderNameScopes.Pop();
         }
     }

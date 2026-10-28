@@ -462,6 +462,18 @@ internal sealed class RefOutInStatementLifter
                 null, SyntaxFactory.Argument(Identifier(slot)));
         }
 
+        // (2b) typed/var discard declaration: `out T _` / `out var _`. Roslyn
+        // represents these as a DeclarationExpression carrying a
+        // DiscardDesignation, so case (3)'s SingleVariableDesignation test
+        // misses them and the native `out T _` would survive against the
+        // rewritten ByRef<T> parameter (CS1615). Nothing is written back.
+        if (expr is DeclarationExpressionSyntax { Designation: DiscardDesignationSyntax })
+        {
+            var discardSlot = Temp("__out");
+            return (ParseStmt($"ByRef<{paramType}> {discardSlot} = ByRef<{paramType}>.Create();"),
+                null, SyntaxFactory.Argument(Identifier(discardSlot)));
+        }
+
         // (3) declaration expression: out var x / out T x
         if (expr is DeclarationExpressionSyntax { Designation: SingleVariableDesignationSyntax svd })
         {

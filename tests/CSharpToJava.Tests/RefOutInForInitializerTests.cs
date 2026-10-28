@@ -9,16 +9,15 @@ namespace CSharpToJava.Tests;
 
 /// <summary>
 /// Regression for CS0103/CS0165 after the for→while(true) reconstruction:
-/// when the for header's condition contains a held ref/out name (or an
-/// initializer/incrementor contains a liftable call), the rewriter rebuilds
-/// the loop as
+/// when the for header's initializer/incrementor contains a liftable call
+/// (NOT a mere holder read) the rewriter rebuilds the loop as
 ///
 ///   for (I; C; U) B → I; while (true) { C-splice; if (!C') break; B; U; }
 ///
 /// but the custom path only emitted the statements hoisted out from INSIDE
 /// the initializers — the initializer declaration/assignment I itself was
-/// silently dropped. The fast path (base.VisitForStatement, taken when no
-/// holder injection/lift occurs) was never affected.
+/// silently dropped. A holder-slot read in the condition is not a lift and
+/// keeps the for form (loop-variable scope is preserved, CS0136).
 ///
 /// Real sites: System.UriHelper (missing `int i = 0;`) and
 /// System.IPv6AddressHelper (missing `i = start;`).
@@ -176,17 +175,16 @@ public class RefOutInForInitializerTests
     {
         var actual = RunRewriteAndEmit(DeclaredCounterSource, out var result);
 
-        int declIndex = result.OutputCode.IndexOf("int i = 0;", StringComparison.Ordinal);
-        int whileIndex = result.OutputCode.IndexOf("while (true)", StringComparison.Ordinal);
-        Assert.True(declIndex >= 0, "missing `int i = 0;` declaration:\n" + result.OutputCode);
-        Assert.True(whileIndex >= 0);
-        Assert.True(declIndex < whileIndex, "initializer declaration must precede the rebuilt loop");
+        // A holder read in the condition is injected in place; the loop keeps
+        // its for form (its declared counter must still be emitted).
+        Assert.Contains("for (int i = 0;", result.OutputCode);
+        Assert.DoesNotContain("while (true)", result.OutputCode);
         Assert.Equal("10,5", actual);
     }
 
     // (b) externally declared loop variable: the assignment initializer must
-    // be emitted before the while, otherwise the first condition read hits
-    // CS0165 (IPv6AddressHelper.cs shape).
+    // stay in the for header (kept as-is for holder reads), otherwise the
+    // first condition read hits CS0165 (IPv6AddressHelper.cs shape).
     private const string OuterDeclaredSource = """
         public class Demo
         {
@@ -212,11 +210,8 @@ public class RefOutInForInitializerTests
     {
         var actual = RunRewriteAndEmit(OuterDeclaredSource, out var result);
 
-        int initIndex = result.OutputCode.IndexOf("i = start;", StringComparison.Ordinal);
-        int whileIndex = result.OutputCode.IndexOf("while (true)", StringComparison.Ordinal);
-        Assert.True(initIndex >= 0, "missing `i = start;` initializer:\n" + result.OutputCode);
-        Assert.True(whileIndex >= 0);
-        Assert.True(initIndex < whileIndex, "initializer assignment must precede the rebuilt loop");
+        Assert.Contains("i = start;", result.OutputCode);
+        Assert.DoesNotContain("while (true)", result.OutputCode);
         Assert.Equal("905", actual);
     }
 
@@ -265,7 +260,8 @@ public class RefOutInForInitializerTests
     }
 
     // (d) multiple declarators in one for header: every initializer must
-    // survive in the single merged declaration before the loop.
+    // survive in the single merged for declaration (holder reads are injected
+    // in place and keep the for form).
     private const string MultipleDeclaratorsSource = """
         public class Demo
         {
@@ -291,9 +287,7 @@ public class RefOutInForInitializerTests
         var actual = RunRewriteAndEmit(MultipleDeclaratorsSource, out var result);
 
         Assert.Contains("int i = 0, j = 1;", result.OutputCode);
-        int declIndex = result.OutputCode.IndexOf("int i = 0, j = 1;", StringComparison.Ordinal);
-        int whileIndex = result.OutputCode.IndexOf("while (true)", StringComparison.Ordinal);
-        Assert.True(declIndex < whileIndex);
+        Assert.DoesNotContain("while (true)", result.OutputCode);
         Assert.Equal("15", actual);
     }
 }
