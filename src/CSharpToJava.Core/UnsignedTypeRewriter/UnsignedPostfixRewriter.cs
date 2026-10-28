@@ -92,12 +92,21 @@ internal sealed class UnsignedPostfixRewriter : CSharpSyntaxRewriter
                     var tempIdentifier = SyntaxFactory.IdentifierName(tempName);
                     replacements[postfix] = tempIdentifier.WithTriviaFrom(postfix);
 
+                    // 该声明完全由新造 token 组成,没有任何原始 trivia;pass 输出
+                    // 不经过 Formatter,所以 var/名字/= 的空格必须显式补上,
+                    // 否则打印成 `var__cs2j_unsigned_0=...`,引用处即 CS0103。
+                    var equalsToken = SyntaxFactory.Token(SyntaxKind.EqualsToken)
+                        .WithLeadingTrivia(SyntaxFactory.Space)
+                        .WithTrailingTrivia(SyntaxFactory.Space);
                     var tempDeclaration = SyntaxFactory.LocalDeclarationStatement(
                         SyntaxFactory.VariableDeclaration(
-                            SyntaxFactory.IdentifierName("var"),
+                            SyntaxFactory.IdentifierName("var")
+                                .WithTrailingTrivia(SyntaxFactory.Space),
                             SyntaxFactory.SingletonSeparatedList(
-                                SyntaxFactory.VariableDeclarator(tempName)
-                                    .WithInitializer(SyntaxFactory.EqualsValueClause(operand)))));
+                                SyntaxFactory.VariableDeclarator(
+                                        SyntaxFactory.Identifier(tempName))
+                                    .WithInitializer(
+                                        SyntaxFactory.EqualsValueClause(equalsToken, operand)))));
 
                     var indent = statementLeading.LastOrDefault(
                         t => t.IsKind(SyntaxKind.WhitespaceTrivia));
