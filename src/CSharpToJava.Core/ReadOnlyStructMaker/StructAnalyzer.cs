@@ -238,6 +238,15 @@ internal sealed class StructAnalyzer
             return new(ConversionLevel.Skip, StructPattern.MutableMethodsNonMigratable, false,
                 "passed by ref/out to external methods (frame-size preservation)", name);
 
+        // L0: instance fields written through a copy of this struct type instead of
+        // `this` (local, parameter, element, or any other non-this receiver —
+        // `tmp.F = v`, `obj.F++`, `ref obj.F`). Making the fields readonly would turn
+        // those writes into CS0191 (GraphLayout's desugared object-initializer factory
+        // `var tmp = new S(); tmp.F = v; return tmp;`). Keep the struct mutable.
+        if (HasFieldWriteThroughStructCopy(symbol, syntax))
+            return new(ConversionLevel.Skip, StructPattern.MutableMethodsNonMigratable, false,
+                "fields written through a copy of the struct type (readonly would be CS0191)", name);
+
         // Gather members
         var fields = symbol.GetMembers().OfType<IFieldSymbol>()
             .Where(f => !f.IsStatic && !f.IsConst && !f.IsImplicitlyDeclared).ToList();
@@ -858,6 +867,80 @@ internal sealed class StructAnalyzer
             }
         }
     }
+    /// <summary>
+    /// True when an instance field of this struct is written through a copy of the
+    /// struct type: a local (<c>var tmp = new S(); tmp.F = v;</c> — the desugared
+    /// object-initializer shape), a parameter, an element, or any other non-<c>this</c>
+    /// receiver, including <c>obj.F++</c> and <c>ref obj.F</c> arguments. Those writes
+    /// stay illegal once the field is readonly (CS0191), so the struct cannot be
+    /// converted. Implicit-<c>this</c> and <c>this.F</c> writes keep their existing
+    /// semantics (legal inside constructors).
+    /// </summary>
+    private bool HasFieldWriteThroughStructCopy(INamedTypeSymbol symbol, StructDeclarationSyntax syntax)
+    {
+        var structType = symbol.OriginalDefinition;
+        foreach (var node in syntax.DescendantNodes())
+        {
+            switch (node)
+            {
+                case AssignmentExpressionSyntax assignment:
+                    if (IsStructFieldWriteTarget(assignment.Left, structType))
+                        return true;
+                    break;
+                case PrefixUnaryExpressionSyntax prefix
+                    when prefix.Kind() is SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression:
+                    if (IsStructFieldWriteTarget(prefix.Operand, structType))
+                        return true;
+                    break;
+                case PostfixUnaryExpressionSyntax postfix
+                    when postfix.Kind() is SyntaxKind.PostIncrementExpression or SyntaxKind.PostDecrementExpression:
+                    if (IsStructFieldWriteTarget(postfix.Operand, structType))
+                        return true;
+                    break;
+                case ArgumentSyntax argument
+                    when argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword) ||
+                         argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword):
+                    if (IsStructFieldWriteTarget(argument.Expression, structType))
+                        return true;
+                    break;
+            }
+        }
+        return false;
+    }
+
+    private bool IsStructFieldWriteTarget(ExpressionSyntax target, INamedTypeSymbol structType)
+    {
+        while (target is ParenthesizedExpressionSyntax parenthesized)
+            target = parenthesized.Expression;
+
+        // Bare identifiers and `this.F` are receiver-state writes handled elsewhere.
+        if (target is not MemberAccessExpressionSyntax memberAccess ||
+            memberAccess.Expression is ThisExpressionSyntax)
+            return false;
+
+        try
+        {
+            if (_model.GetSymbolInfo(memberAccess).Symbol is not IFieldSymbol field ||
+                field.IsStatic ||
+                !SymbolEqualityComparer.Default.Equals(field.ContainingType.OriginalDefinition, structType))
+            {
+                return false;
+            }
+
+            var receiverType = _model.GetTypeInfo(memberAccess.Expression).Type as INamedTypeSymbol;
+            if (receiverType?.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+                receiverType = receiverType.TypeArguments.FirstOrDefault() as INamedTypeSymbol;
+
+            return receiverType != null &&
+                   SymbolEqualityComparer.Default.Equals(receiverType.OriginalDefinition, structType);
+        }
+        catch (ArgumentException)
+        {
+            // Syntax from another tree (partial declaration) — not analyzable here.
+            return false;
+        }
+    }
+
     private static bool AllFieldsOnlyAssignedInCtor(IReadOnlyList<IFieldSymbol> fields, StructDeclarationSyntax syntax)
     {
         if (fields.Count == 0) return true;
