@@ -25,10 +25,14 @@ namespace CSharpToJava.Core.ClosureLift;
 /// <param name="MethodName">Cs2jLambda_&lt;member&gt;_&lt;k&gt; (D9/D10).</param>
 /// <param name="DelegateTypeDisplay">Symbol-rendered target delegate (D8).</param>
 /// <param name="Method">The synthesized private static method (built in phase 2; null while planning).</param>
+/// <param name="TypeArguments">Explicit type arguments for the delegate site
+/// when method-group inference cannot supply every carried enclosing-method
+/// type parameter (null = infer, the previous shape).</param>
 internal sealed record StaticLambdaPlan(
     int SiteSpanStart,
     int SiteRawKind,
     int ReceivedSpanStart,
     string MethodName,
     string DelegateTypeDisplay,
-    MethodDeclarationSyntax? Method = null);
+    MethodDeclarationSyntax? Method = null,
+    IReadOnlyList<string>? TypeArguments = null);

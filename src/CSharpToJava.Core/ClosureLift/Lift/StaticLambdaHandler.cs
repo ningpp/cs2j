@@ -30,7 +30,8 @@ internal static class StaticLambdaHandler
         ResolvedLambdaSignature signature,
         LambdaExpressionSyntax lambda,
         IReadOnlyDictionary<(int Start, int Kind), StaticLambdaPlan> plans,
-        IReadOnlyList<ParameterSlot> parameterSlots)
+        IReadOnlyList<ParameterSlot> parameterSlots,
+        IReadOnlyList<LiftedTypeParameter> typeParameters)
     {
         var parameters = ParameterNormalizer.BuildMethodParameters(lambda, signature, parameterSlots);
 
@@ -54,14 +55,14 @@ internal static class StaticLambdaHandler
         if (lambda is ParenthesizedLambdaExpressionSyntax { Block: { } parenthesizedBlock })
         {
             declaration = BuildDeclaration(
-                methodName, modifiers, returnType, parameters,
+                methodName, modifiers, returnType, parameters, typeParameters,
                 SyntaxFactory.Block(substituter.VisitList(parenthesizedBlock.Statements)),
                 expressionBody: null);
         }
         else if (lambda is SimpleLambdaExpressionSyntax { Block: { } simpleBlock })
         {
             declaration = BuildDeclaration(
-                methodName, modifiers, returnType, parameters,
+                methodName, modifiers, returnType, parameters, typeParameters,
                 SyntaxFactory.Block(substituter.VisitList(simpleBlock.Statements)),
                 expressionBody: null);
         }
@@ -76,7 +77,7 @@ internal static class StaticLambdaHandler
             };
             var substituted = substituter.Visit(expressionBody);
             declaration = BuildDeclaration(
-                methodName, modifiers, returnType, parameters,
+                methodName, modifiers, returnType, parameters, typeParameters,
                 block: null,
                 SyntaxFactory.ArrowExpressionClause(
                     substituted as ExpressionSyntax
@@ -92,7 +93,22 @@ internal static class StaticLambdaHandler
                 SyntaxFactory.ParseTypeName(plan.DelegateTypeDisplay))
             .WithArgumentList(SyntaxFactory.ArgumentList(
                 SyntaxFactory.SingletonSeparatedList(
-                    SyntaxFactory.Argument(SyntaxFactory.IdentifierName(plan.MethodName)))));
+                    SyntaxFactory.Argument(BuildMethodGroup(plan)))));
+
+    /// <summary>
+    /// The method group the site converts: a plain identifier when the delegate
+    /// signature makes every re-declared type parameter inferable, otherwise
+    /// `Cs2jLambda_&lt;member&gt;_&lt;k&gt;&lt;T…&gt;` (CS0411 — a parameter that only
+    /// appears in a `where` clause cannot be inferred).
+    /// </summary>
+    public static ExpressionSyntax BuildMethodGroup(StaticLambdaPlan plan)
+        => plan.TypeArguments is { Count: > 0 } typeArguments
+            ? SyntaxFactory.GenericName(
+                SyntaxFactory.Identifier(plan.MethodName),
+                SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(
+                    typeArguments.Select(static name =>
+                        (TypeSyntax)SyntaxFactory.ParseTypeName(name)))))
+            : SyntaxFactory.IdentifierName(plan.MethodName);
 
     /// <summary>
     /// Replaces nested planned lambdas inside a to-be-moved body. Positions
@@ -134,18 +150,32 @@ internal static class StaticLambdaHandler
         List<SyntaxToken> modifiers,
         TypeSyntax? returnType,
         List<ParameterSyntax> parameters,
+        IReadOnlyList<LiftedTypeParameter> typeParameters,
         BlockSyntax? block,
         ArrowExpressionClauseSyntax? expressionBody)
     {
+        // D19 (static path): the enclosing METHOD's type parameters vanish at
+        // type level, so the signature/body references are redeclared here with
+        // their `where` clauses. Empty for every non-generic lambda, which keeps
+        // the emitted shape byte-identical.
+        var typeParameterList = typeParameters.Count == 0
+            ? null
+            : SyntaxFactory.TypeParameterList(SyntaxFactory.SeparatedList(
+                typeParameters.Select(static tp => SyntaxFactory.TypeParameter(tp.Name))));
+        var constraintClauses = SyntaxFactory.List(
+            typeParameters
+                .Where(static tp => tp.Constraint != null)
+                .Select(static tp => tp.Constraint!.WithLeadingTrivia(SyntaxFactory.Space)));
+
         var declaration = SyntaxFactory.MethodDeclaration(
             SyntaxFactory.List<AttributeListSyntax>(),
             SyntaxFactory.TokenList(modifiers),
             returnType,
             explicitInterfaceSpecifier: null,
             SyntaxFactory.Identifier(methodName),
-            typeParameterList: null,
+            typeParameterList,
             SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(parameters)),
-            SyntaxFactory.List<TypeParameterConstraintClauseSyntax>(),
+            constraintClauses,
             block,
             expressionBody);
 

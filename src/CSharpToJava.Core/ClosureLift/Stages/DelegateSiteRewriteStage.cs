@@ -130,7 +130,7 @@ internal sealed class DelegateSiteRewriteStage : IClosureLiftStage
                 if (plan.Static is { } staticPlan)
                 {
                     var staticNode = plan.Bare
-                        ? SyntaxFactory.ParseExpression(staticPlan.MethodName)
+                        ? StaticLambdaHandler.BuildMethodGroup(staticPlan)
                         : StaticLambdaHandler.BuildSiteReplacement(staticPlan);
                     return staticNode
                         .WithTriviaFrom(node)

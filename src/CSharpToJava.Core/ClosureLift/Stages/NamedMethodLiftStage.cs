@@ -59,7 +59,7 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
         // nested planned lambda inside an outer body can be substituted with
         // its own explicit delegate construction at emit time (D8).
         var memberOrdinal = new Dictionary<string, int>(StringComparer.Ordinal);
-        var pending = new List<(StaticLambdaPlan Plan, ResolvedLambdaSignature Signature, LambdaExpressionSyntax ReceivedLambda, TypeDeclarationSyntax ReceivedHost, IReadOnlyList<ParameterSlot> ParameterSlots)>();
+        var pending = new List<(StaticLambdaPlan Plan, ResolvedLambdaSignature Signature, LambdaExpressionSyntax ReceivedLambda, TypeDeclarationSyntax ReceivedHost, IReadOnlyList<ParameterSlot> ParameterSlots, LiftedTypeParameterSet TypeParameters)>();
 
         foreach (var site in sites)
         {
@@ -96,16 +96,21 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
             memberOrdinal[memberKey] = index + 1;
 
             var methodName = naming.ReserveMethodName(hostKey, site.RoutineName, index);
+            // D19 (static path): the method lands at TYPE level, where the
+            // enclosing method's type parameters are out of scope — carry the
+            // ones its signature/body actually reference (semantic ownership).
+            var typeParameters = LiftedTypeParameterResolver.Resolve(model, site.Lambda, site.Routine);
             // Model span is the cross-stage pairing anchor (planner census +
             // delegate-site order pairing); received span addresses nested
             // sites inside to-be-moved bodies (C32 inserts shift positions).
             var plan = new StaticLambdaPlan(
                 site.SpanStart, site.Lambda.RawKind,
                 receivedLambda.SpanStart,
-                methodName, signature.DelegateTypeDisplay);
+                methodName, signature.DelegateTypeDisplay,
+                TypeArguments: typeParameters.TypeArguments.Count == 0 ? null : typeParameters.TypeArguments);
 
             var receivedHost = receivedTypeByModelType[site.HostType];
-            pending.Add((plan, signature, receivedLambda, receivedHost, parameterSlots));
+            pending.Add((plan, signature, receivedLambda, receivedHost, parameterSlots, typeParameters));
         }
 
         if (pending.Count == 0)
@@ -123,10 +128,11 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
         var plans = new List<StaticLambdaPlan>();
         var methodsByReceivedHost = new Dictionary<TypeDeclarationSyntax, List<MethodDeclarationSyntax>>();
 
-        foreach (var (plan, signature, receivedLambda, receivedHost, parameterSlots) in pending)
+        foreach (var (plan, signature, receivedLambda, receivedHost, parameterSlots, typeParameters) in pending)
         {
             var method = StaticLambdaHandler.BuildMethod(
-                plan.MethodName, signature, receivedLambda, planByPosition, parameterSlots);
+                plan.MethodName, signature, receivedLambda, planByPosition, parameterSlots,
+                typeParameters.Parameters);
             var built = plan with { Method = method };
             plans.Add(built);
             planByPosition[(built.ReceivedSpanStart, built.SiteRawKind)] = built;

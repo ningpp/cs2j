@@ -61,6 +61,15 @@ internal static class LambdaSignatureResolver
             return null;
         }
 
+        if (ContainsErrorType(delegateType))
+        {
+            // A missing reference leaves the inferred delegate with error type
+            // arguments (`Func<?, bool>`, rendered as `Func<, bool>`). Nothing
+            // compilable can be synthesized — same residual discipline as the
+            // missing-ConvertedType case (no row, no freeze).
+            return null;
+        }
+
         var parameters = new List<ResolvedLambdaParameter>();
         foreach (var parameter in invoke.Parameters)
         {
@@ -103,4 +112,19 @@ internal static class LambdaSignatureResolver
             parameters,
             returnType);
     }
+
+    /// <summary>
+    /// True when the type or any of its type arguments is an error type: the
+    /// semantic model is missing a reference, so the symbol renders an empty or
+    /// `?` type that would be emitted as invalid syntax (CS1031/CS1001).
+    /// </summary>
+    private static bool ContainsErrorType(ITypeSymbol? type) => type switch
+    {
+        null => false,
+        _ when type.TypeKind == TypeKind.Error => true,
+        IArrayTypeSymbol array => ContainsErrorType(array.ElementType),
+        IPointerTypeSymbol pointer => ContainsErrorType(pointer.PointedAtType),
+        INamedTypeSymbol named => named.TypeArguments.Any(ContainsErrorType),
+        _ => false,
+    };
 }

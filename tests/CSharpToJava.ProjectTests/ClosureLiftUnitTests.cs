@@ -1297,6 +1297,78 @@ class C<T> {
         AssertOutputCompiles(r.OutputCode);
     }
 
+    // ── D19 static path: enclosing METHOD type parameters ──
+
+    [Fact]
+    public void Transform_GenericMethodStaticLambda_RedeclaresMethodTypeParameterAndConstraint()
+    {
+        var src = @"
+interface IItem { int Value { get; } }
+class C {
+    public static int[] Values<TItem>(System.Collections.Generic.IEnumerable<TItem> items)
+        where TItem : IItem {
+        return System.Linq.Enumerable.ToArray(
+            System.Linq.Enumerable.Select(items, item => item.Value));
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        // The lifted method sits at type level: the enclosing method's type
+        // parameter is out of scope there and must be redeclared with its `where`.
+        Assert.Contains("Cs2jLambda_Values_0<TItem>", r.OutputCode);
+        Assert.Contains("where TItem : IItem", r.OutputCode);
+        // The delegate signature names TItem, so method-group inference works.
+        Assert.Contains("new global::System.Func<TItem, int>(Cs2jLambda_Values_0)", r.OutputCode);
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_GenericMethodStaticLambda_ConstraintDependency_EmitsExplicitTypeArguments()
+    {
+        var src = @"
+class C {
+    public static int[] Values<TItem, TBase>(System.Collections.Generic.IEnumerable<TItem> items)
+        where TItem : System.IComparable<TBase> {
+        return System.Linq.Enumerable.ToArray(
+            System.Linq.Enumerable.Select(items, item => item.GetHashCode()));
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        // `where TItem : IComparable<TBase>` references a second enclosing
+        // method type parameter: both are redeclared, declaration order kept.
+        Assert.Contains("Cs2jLambda_Values_0<TItem, TBase>", r.OutputCode);
+        Assert.Contains("where TItem : System.IComparable<TBase>", r.OutputCode);
+        // TBase is not inferable from the delegate signature: the site needs
+        // explicit type arguments or the method-group conversion is CS0411.
+        Assert.Contains(
+            "new global::System.Func<TItem, int>(Cs2jLambda_Values_0<TItem, TBase>)",
+            r.OutputCode);
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_ErrorTypedDelegateSignature_LeavesLambdaResidual()
+    {
+        // Missing references leave the inferred delegate with an error type
+        // argument (`Func<, bool>`); rendering it would emit an uncompilable
+        // method + site (CS1031/CS1001), so the lambda must stay verbatim.
+        var src = @"
+class C {
+    void M() {
+        var xs = new[] { MissingThing.Value, System.AppContext.BaseDirectory };
+        foreach (var x in System.Linq.Enumerable.Where(xs, v => !string.IsNullOrEmpty(v))) { }
+    }
+}";
+        var r = Transform(src);
+
+        Assert.False(r.Changed);
+        Assert.Equal(src, r.OutputCode);
+        Assert.DoesNotContain(r.Diagnostics, d => d.Code == "CS2J4509");
+    }
+
     [Fact]
     public void Transform_StaticLambdaInFieldInitializer_CS2J4504_FileVerbatim()
     {
