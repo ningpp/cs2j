@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-using System.Diagnostics;
 using CSharpToJava.Core.Analysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -10,29 +8,10 @@ namespace CSharpToJava.Core.DynamicDesugar;
 // TEMPORARY profiling helper (dynamic-desugar perf task). Remove before finishing.
 internal static class DynamicDesugarProfiling
 {
-    private static readonly ConcurrentDictionary<string, long> Ticks = new();
-    private static readonly ConcurrentDictionary<string, long> Counts = new();
-
-    public static void Add(string key, long elapsedTicks)
-    {
-        Ticks.AddOrUpdate(key, elapsedTicks, (_, v) => v + elapsedTicks);
-        Counts.AddOrUpdate(key, 1, (_, v) => v + 1);
-    }
-
-    public static long Start() => Stopwatch.GetTimestamp();
-
-    public static void Stop(string key, long start) => Add(key, Stopwatch.GetTimestamp() - start);
-
-    public static void Dump()
-    {
-        Console.Error.WriteLine("=== dynamic-desugar profile (aggregate wall, parallel-inflated) ===");
-        foreach (var kv in Ticks.OrderByDescending(k => k.Value))
-        {
-            var counts = Counts.TryGetValue(kv.Key, out var c) ? c : 0;
-            Console.Error.WriteLine(
-                $"  {kv.Key,-42} {kv.Value / (double)Stopwatch.Frequency,10:F2}s  n={counts}");
-        }
-    }
+    public static void Add(string key, long elapsedTicks) { }
+    public static long Start() => 0;
+    public static void Stop(string key, long start) { }
+    public static void Dump() { }
 }
 
 /// <summary>单文件审计/重写结果。Audit 恒 <see cref="Changed"/>=false（字节复制）；

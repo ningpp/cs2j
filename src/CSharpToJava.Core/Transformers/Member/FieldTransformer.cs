@@ -291,12 +291,6 @@ public class FieldTransformer : IMemberTransformer
                 }
 
                 bool inlineConstLiteral = hasConstantValue;
-                // DEBUG: Log inlineConstLiteral for byte[] fields
-                if (variable.Initializer.Value is Microsoft.CodeAnalysis.CSharp.Syntax.InitializerExpressionSyntax initDbg
-                    && initDbg.Expressions.Count > 100)
-                {
-                    System.Console.WriteLine($"[DEBUG] FieldTransformer: field={variable.Identifier.Text}, hasConstValue={hasConstantValue}, inlineConst={inlineConstLiteral}, isInitExpr=True, count={initDbg.Expressions.Count}");
-                }
                 if (inlineConstLiteral
                     && context.SemanticModel!.GetSymbolInfo(variable.Initializer.Value).Symbol is IFieldSymbol { IsStatic: true } staticField
                     && staticField.ContainingType is INamedTypeSymbol containingType
@@ -323,12 +317,6 @@ public class FieldTransformer : IMemberTransformer
                 else
                 {
                     javaField.Initializer = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(variable.Initializer.Value, context);
-                    // DEBUG: Log when field initializer uses ExpressionTransformerFacade
-                    if (variable.Initializer.Value is Microsoft.CodeAnalysis.CSharp.Syntax.InitializerExpressionSyntax init
-                        && init.Expressions.Count > 100)
-                    {
-                        System.Console.WriteLine($"[DEBUG] FieldTransformer: field={variable.Identifier.Text}, initializer length={javaField.Initializer?.Length}, startsWith={javaField.Initializer?.Substring(0, System.Math.Min(50, javaField.Initializer?.Length ?? 0))}");
-                    }
                 }
                 context.IsInStaticMember = previousStaticContext;
 
