@@ -98,20 +98,9 @@ public partial class StatementTransformer
                 }
                 // IEnumerable<T> locals receive concrete collections whose Java
                 // classes may not implement compat CSharpGenericIterable (e.g. a
-                // class implementing only non-generic interfaces). Adapt explicitly.
-                if (localType is INamedTypeSymbol
-                    {
-                        Name: "IEnumerable",
-                    } enumerableLocal
-                    && enumerableLocal.ContainingNamespace?.ToDisplayString()
-                        == "System.Collections.Generic"
-                    && enumerableLocal.TypeArguments.Length == 1
-                    && !initExprText.Contains("CSharpGenericIterable", StringComparison.Ordinal))
-                {
-                    context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-                    initExprText =
-                        $"CSharpGenericIterable.<{context.MapType(enumerableLocal.TypeArguments[0])}>fromAnyTyped({initExprText})";
-                }
+                // class implementing only non-generic interfaces).
+                initExprText = IterableCoercion.CoerceOrSame(
+                    variable.Initializer.Value, initExprText, localType, context);
             }
 
             // 无初始化器的引用类型局部：Java 没有 C# 的 definite-assignment 流分析，

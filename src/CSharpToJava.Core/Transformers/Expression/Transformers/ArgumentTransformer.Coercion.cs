@@ -154,6 +154,48 @@ public partial class ArgumentTransformer
 
     /// <summary>
     /// Direct invocation path (which bypasses <see cref="CoerceArgumentType"/>)
+    /// IEnumerable&lt;T&gt; parameter-slot bridge: the slot maps to the compat
+    /// carrier CSharpGenericIterable&lt;T&gt;, a hierarchy separate from the compat
+    /// collections (generated <c>ICollection&lt;T&gt;</c> classes erase to
+    /// CSharpCollection/CSharpIterable&lt;Object&gt;, <c>List&lt;T&gt;</c> renders as a
+    /// CSharpList, dictionaries are not collections, arrays implement no
+    /// interface) — wrap the argument with the compat adapter (real chain:
+    /// MSAGL <c>Set&lt;Rail&gt;</c> arguments, procedural-LINQ <c>_linqitems</c>
+    /// helper calls, array literals bound to IEnumerable parameters).
+    /// </summary>
+    public static string CoerceIterableSlotArgument(
+        ExpressionSyntax argument,
+        string text,
+        IMethodSymbol? method,
+        int index,
+        ConversionContext context)
+    {
+        if (method == null || index >= method.Parameters.Length)
+            return text;
+
+        return CoerceIterableSlotType(text, argument, method.Parameters[index], context);
+    }
+
+    /// <summary>
+    /// Shared IEnumerable-slot bridge (invocation + constructor argument paths):
+    /// skipped for Java-side Collection parameters (addAll/addRange/... and the
+    /// List/HashSet constructors), which the concrete value already satisfies.
+    /// </summary>
+    private static string CoerceIterableSlotType(
+        string text,
+        ExpressionSyntax argument,
+        IParameterSymbol parameter,
+        ConversionContext context)
+    {
+        if (IsJavaMethodRequiringCollection(parameter.ContainingSymbol as IMethodSymbol, context)
+            || IsJavaCollectionConstructor(parameter.ContainingSymbol as IMethodSymbol))
+            return text;
+
+        return IterableCoercion.CoerceOrSame(argument, text, parameter.Type, context);
+    }
+
+    /// <summary>
+    /// Direct invocation path (which bypasses <see cref="CoerceArgumentType"/>)
     /// null-literal overload disambiguation: C# binds <c>M(x, null)</c> against the
     /// declared parameter types (a struct parameter never accepts null), while the
     /// Java surface may make every reference-typed sibling applicable — javac then
@@ -431,7 +473,8 @@ public partial class ArgumentTransformer
         }
 
         if (argType is IArrayTypeSymbol && paramType is INamedTypeSymbol arrayParam
-            && IsEnumerableOrCollectionInterface(arrayParam))
+            && IsEnumerableOrCollectionInterface(arrayParam)
+            && !IterableCoercion.IsGenericIterableSlot(arrayParam, context))
         {
             return CoerceArrayToCollection(arg, transformedExpr, arrayParam, targetParam, context);
         }
@@ -457,11 +500,7 @@ public partial class ArgumentTransformer
         if (TryCoerceMultiEnumerableDictionary(transformedExpr, paramType, argType, out var dictCoerced))
             return dictCoerced;
 
-        if (ShouldWrapCollectionAsIterable(transformedExpr, paramType, argType, targetParam, context))
-        {
-            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-            return $"CSharpGenericIterable.from({transformedExpr})";
-        }
+        transformedExpr = CoerceIterableSlotType(transformedExpr, arg.Expression, targetParam, context);
 
         var bridged = TryBuildIterableBridge(transformedExpr, paramType, argType, targetParam, context);
         if (bridged != null)
@@ -863,23 +902,6 @@ public partial class ArgumentTransformer
         return true;
     }
 
-    private static bool ShouldWrapCollectionAsIterable(
-        string transformedExpr,
-        ITypeSymbol paramType,
-        ITypeSymbol argType,
-        IParameterSymbol targetParam,
-        ConversionContext context)
-    {
-        return paramType is INamedTypeSymbol p && p.Name == "IEnumerable" && InSystemNamespace(p)
-            && argType is INamedTypeSymbol a
-            && (IsCollectionType(argType)
-                || a.AllInterfaces.Any(i => i.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>"))
-            && !IsGenericDictionary(a)
-            && !IsJavaMethodRequiringCollection(targetParam.ContainingSymbol as IMethodSymbol, context)
-            && !IsJavaCollectionConstructor(targetParam.ContainingSymbol as IMethodSymbol)
-            && !transformedExpr.StartsWith("CSharpGenericIterable.from(", StringComparison.Ordinal);
-    }
-
     /// <summary>Builds the (JavaType)(Iterable&lt;?&gt;) bridge for generic variance and keySet()/values().</summary>
     private static string? TryBuildIterableBridge(
         string transformedExpr,
@@ -1096,7 +1118,11 @@ public partial class ArgumentTransformer
         var mapped = context.TypeMappings.MapMethod(method.ContainingType.ToDisplayString(), method.Name)
             ?? context.TypeMappings.MapMethod(
                 $"{method.ContainingType.ContainingNamespace}.{method.ContainingType.Name}", method.Name);
-        return mapped is "addAll" or "removeAll" or "containsAll" or "retainAll" or "addRange";
+        if (mapped is "addAll" or "removeAll" or "containsAll" or "retainAll" or "addRange")
+            return true;
+        // Constructed generic receivers (System.Collections.Generic.List<Segment>)
+        // do not hit the mapping table, so the C# member name is the fallback.
+        return method.Name is "AddAll" or "RemoveAll" or "ContainsAll" or "RetainAll" or "AddRange";
     }
 
     private static bool InSystemNamespace(INamedTypeSymbol type)

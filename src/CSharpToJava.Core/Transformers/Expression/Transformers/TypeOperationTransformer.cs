@@ -51,6 +51,38 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             "double" => "Double", "float" => "Float", "char" => "Character", "boolean" => "Boolean", _ => s
         };
     }
+
+    /// <summary>
+    /// Class literal name usable at a cast/<c>as</c> site: the raw (erased)
+    /// type for generic instantiations, the component type plus <c>[]</c> for
+    /// arrays. Null when no class literal exists (primitive values, type
+    /// parameters, generic-array element types).
+    /// </summary>
+    private static string? RuntimeClassName(ITypeSymbol? type, ConversionContext c)
+    {
+        switch (type)
+        {
+            case null:
+                return null;
+            case IArrayTypeSymbol { Rank: 1 } array:
+                return RuntimeClassName(array.ElementType, c) is { } element ? $"{element}[]" : null;
+            case ITypeParameterSymbol:
+                return null;
+            case INamedTypeSymbol named:
+                if (named.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64
+                    or SpecialType.System_Int16 or SpecialType.System_Byte or SpecialType.System_SByte
+                    or SpecialType.System_UInt16 or SpecialType.System_UInt32 or SpecialType.System_UInt64
+                    or SpecialType.System_Char or SpecialType.System_Double or SpecialType.System_Single
+                    or SpecialType.System_Boolean or SpecialType.System_Decimal)
+                {
+                    return null;
+                }
+                var mapped = Rt(c.MapType(named));
+                return mapped.Length > 0 && !mapped.Contains('<') ? mapped : null;
+            default:
+                return null;
+        }
+    }
     private static string Cast(CastExpressionSyntax n, ConversionContext c)
     {
         var e = Expr(c, n.Expression);
@@ -100,6 +132,20 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             c.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
             var element = c.MapType(enumerableCast.TypeArguments[0]);
             return $"CSharpGenericIterable.<{element}>fromAnyTyped({e})";
+        }
+
+        // C# 从 IEnumerable 家族向具体集合/数组的向下转换（C# 语义是运行时类型
+        // 检查）：兼容载体是独立接口，生成集合类并不实现它，Java 侧两个映射类型
+        // 不可转换。先经适配器还原原始值再落 Java 强转（真实链 MSAGL
+        // `inEdges_ = (Set<Edge>)value;`、`((Set<Edge>)(node.OutEdges())).clear()`）。
+        if (sym != null && srcSym != null
+            && IterableCoercion.IsGenericIterableSlot(srcSym, c)
+            && !IterableCoercion.IsGenericIterableSlot(sym, c)
+            && c.MapType(sym) is { Length: > 0 } castTarget
+            && castTarget is not ("int" or "long" or "short" or "byte" or "char" or "double" or "float" or "boolean"))
+        {
+            c.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            return $"({castTarget}) CSharpGenericIterable.unwrap({e})";
         }
 
         // Casts to the __suppress__ sentinel (ISerializable et al.): the sentinel
@@ -571,6 +617,36 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             e = tmp;
         }
         var t = Map((TypeSyntax)n.Right, c);
+        var asSrcType = c.GetTypeInfo(n.Left).Type ?? c.GetTypeInfo(n.Left).ConvertedType;
+
+        // `x as IEnumerable<T>` from a value C# knows to be enumerable always
+        // succeeds: adapt instead of running a Java instanceof the compat
+        // carriers never satisfy (real chain MSAGL `feedbackSet as IEnumerable<IEdge>`
+        // over a Set<T> value).
+        if (asSrcType != null && !asSrcType.IsValueType
+            && IterableCoercion.IsGenericIterableSlot(c.GetTypeInfo(n.Right).Type, c)
+            && !IterableCoercion.IsGenericIterableSlot(asSrcType, c)
+            && asSrcType.AllInterfaces.Concat(new[] { asSrcType }).Any(i =>
+                i.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>"))
+        {
+            c.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            var element = c.GetTypeInfo(n.Right).Type is INamedTypeSymbol { TypeArguments.Length: 1 } asTarget
+                ? c.MapType(asTarget.TypeArguments[0])
+                : "Object";
+            return $"CSharpGenericIterable.<{element}>fromAnyTyped({e})";
+        }
+
+        // `x as ConcreteCollection/T[]` out of the carrier world: unwrap the
+        // compat adapter first and re-check the runtime type (real chain MSAGL
+        // `pushingNodes as GeomNode[]`).
+        if (asSrcType != null
+            && IterableCoercion.IsGenericIterableSlot(asSrcType, c)
+            && !IterableCoercion.IsGenericIterableSlot(c.GetTypeInfo(n.Right).Type, c)
+            && RuntimeClassName(c.GetTypeInfo(n.Right).Type, c) is { } asTargetClass)
+        {
+            c.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            return $"CSharpGenericIterable.tryAs({e}, {asTargetClass}.class)";
+        }
         // System.Array 源上的数组目标经 tryAs：array-method 归一出的 CSharpArray
         // 视图与 T[] 是 javac 不可转换对（instanceof/cast 双拒；真实链
         // ConstraintStruct 的 `arr as XmlAtomicValue[]` 6 处），tryAs 对裸数组

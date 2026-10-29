@@ -338,6 +338,10 @@ public class MethodTransformer : IMemberTransformer
             var arrowTypeInfo = ctx.GetTypeInfo(arrow.Expression);
             expr = SpanCoercion.CoerceOrSame(
                 arrow.Expression, expr, arrowTypeInfo.ConvertedType ?? arrowTypeInfo.Type, ctx);
+            // IEnumerable 家族表达式体返回的载体适配（生成集合/数组/流管道 → 
+            // CSharpGenericIterable），与 return 语句路径同一规则。
+            expr = IterableCoercion.CoerceOrSame(
+                arrow.Expression, expr, ctx.CurrentMethod?.ReturnType, ctx);
             // async Task/Task<T> 表达式体：返回类型是 CompletableFuture，需包 completedFuture。
             if (ctx.IsInAsyncContext)
             {

@@ -327,6 +327,14 @@ public class FieldTransformer : IMemberTransformer
                     if (arrayType != null)
                         javaField.Initializer = ObjectCreationTransformer.WrapArrayForCollectionArg(javaField.Initializer, arrayType, context);
                 }
+                // IEnumerable 家族字段初始化器：数组/具体集合落进 CSharpGenericIterable
+                // 字段需要载体适配（真实链 MSAGL Label.placementStrategyPriority
+                // `IEnumerable<PlacementStrategy> f = new[]{...}`）。
+                if (context.SemanticModel != null && fieldTypeSymbol != null && javaField.Initializer != null)
+                {
+                    javaField.Initializer = IterableCoercion.CoerceOrSame(
+                        variable.Initializer.Value, javaField.Initializer, fieldTypeSymbol, context);
+                }
             }
 
             // Issue 5: suggest AtomicReference for volatile fields of non-primitive types.

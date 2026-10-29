@@ -205,6 +205,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceStreamToIterableParameter(
                         a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceIterableSlotArgument(
+                        a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceArrayToSystemArrayParameter(
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceSystemTypeArgumentWrapper(
@@ -900,6 +902,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     text = ArgumentTransformer.CoerceIListFamilyBridge(
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceStreamToIterableParameter(
+                        a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceIterableSlotArgument(
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceArrayToSystemArrayParameter(
                         a.Expression, text, invocationMethod, index, context);
@@ -2685,9 +2689,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
             context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
             var witness = TryGetCastTypeWitness(invocation, memberAccess, context);
+            // fromAnyTyped (not from): the receiver may already be a carrier with a
+            // different element type (C# Cast<T> is a valid runtime cast), and the
+            // erased CSharpIList/CSharpCollection receivers are not Iterables of the
+            // target element.
             rendered = witness == null
-                ? $"CSharpGenericIterable.from({receiver})"
-                : $"CSharpGenericIterable.<{witness}>from({receiver})";
+                ? $"CSharpGenericIterable.fromAnyTyped({receiver})"
+                : $"CSharpGenericIterable.<{witness}>fromAnyTyped({receiver})";
             return true;
         }
 

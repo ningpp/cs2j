@@ -9,6 +9,35 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
     CSharpGenericEnumerator<T> iterator();
 
     /**
+     * The original value behind a {@code from*}/{@code asIterable} adapter; the
+     * identity default keeps generated implementors (iterators, views)
+     * source-compatible while adapters override it with the wrapped value.
+     */
+    default Object unwrap() {
+        return this;
+    }
+
+    /**
+     * The original value behind an adapter created by this interface (or
+     * {@code value} itself when it is not an adapter), so a C# reference
+     * downcast out of the IEnumerable world can be rendered as a plain Java
+     * cast against the original object.
+     */
+    static Object unwrap(Object value) {
+        if (value instanceof CSharpGenericIterable<?> iterable) {
+            return iterable.unwrap();
+        }
+        return value;
+    }
+
+    /** C# {@code value as T}: unwraps an adapter, then checks the runtime type. */
+    @SuppressWarnings("unchecked")
+    static <T> T tryAs(Object value, Class<T> type) {
+        Object unwrapped = unwrap(value);
+        return type.isInstance(unwrapped) ? (T) unwrapped : null;
+    }
+
+    /**
      * C# Enumerable.FirstOrDefault(): the first element or null. A default
      * method (rather than the java.util.stream findFirst() Optional shape) so a
      * generated IEnumerable-typed slot chain (Where...FirstOrDefault) resolves
@@ -42,6 +71,10 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
             @Override
             public CSharpGenericEnumerator<T> iterator() {
                 return CSharpGenericEnumerator.from(iterable.iterator());
+            }
+            @Override
+            public Object unwrap() {
+                return iterable;
             }
         };
     }
@@ -91,7 +124,11 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
     }
 
     static <T> CSharpGenericIterable<T> fromCollection(Collection<? extends T> collection) {
-        return new CSharpGenericIterable<>() {
+        return new CSharpGenericIterable<T>() {
+            @Override
+            public Object unwrap() {
+                return collection;
+            }
             @Override
             public CSharpGenericEnumerator<T> iterator() {
                 return CSharpGenericEnumerator.from(collection.iterator());
@@ -147,6 +184,7 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
                     return CSharpGenericEnumerator.from(list.iterator());
                 }
                 @Override public int size() { return java.lang.reflect.Array.getLength(value); }
+                @Override public Object unwrap() { return value; }
             };
         }
         throw new UnsupportedOperationException(

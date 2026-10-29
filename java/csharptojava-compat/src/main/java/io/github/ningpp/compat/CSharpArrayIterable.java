@@ -18,6 +18,12 @@ public class CSharpArrayIterable<T> implements CSharpGenericIterable<T> {
         this.items = items;
     }
 
+    /** The backing array, so an IEnumerable → T[] downcast recovers the array. */
+    @Override
+    public Object unwrap() {
+        return items;
+    }
+
     @Override
     public CSharpGenericEnumerator<T> iterator() {
         return new CSharpGenericEnumerator<T>() {

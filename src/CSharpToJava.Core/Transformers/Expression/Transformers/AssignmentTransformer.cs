@@ -110,6 +110,11 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // （真实链 FunctionQuery/StringFunctions 克隆构造器 `_args = tmp`）。
         rightText = IListCoercion.CoerceOrSame(
             rhs, rightText, context.GetTypeInfo(lhs).Type, context);
+        // IEnumerable<T> 赋值槽位：与参数/声明/返回位一致的载体适配
+        // （真实链 CycleRemovalWithConstraints `constrainedEdges = constraints;`，
+        // 生成 Set<T> 落进 CSharpGenericIterable<T> 字段）。
+        rightText = IterableCoercion.CoerceOrSame(
+            rhs, rightText, context.GetTypeInfo(lhs).Type, context);
         // IEnumerable<T> 槽位收到的流管道终端表达式：声明/参数位会包
         // CSharpGenericIterable.fromAnyTyped 适配视图（见
         // StatementTransformer.Declarations），赋值位同样必须包——否则 Stream

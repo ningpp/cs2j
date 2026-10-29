@@ -292,6 +292,12 @@ public partial class StatementTransformer
         if (!isArrayReadOnlyListReturn)
             expr = IListCoercion.CoerceOrSame(stmt.Expression, expr, retType, ctx);
 
+        // IEnumerable 家族返回槽位（方法体/属性 getter 均按声明返回类型判定）：
+        // 生成集合类、CSharpList、字典视图、数组与 LINQ 流管道都要经 compat
+        // 载体适配（真实链 Node.InEdges `return inEdges_;`、
+        // CycleRemoval `return new Set<IEdge>();`）。
+        expr = IterableCoercion.CoerceOrSame(stmt.Expression, expr, retType, ctx);
+
         // 整数字面量返回给 byte/short：Java 没有 C# 的常量隐式窄化
         if (Regex.IsMatch(expr.Trim(), @"^-?\d+$")
             && retType is INamedTypeSymbol { TypeKind: TypeKind.Struct } nt)
@@ -317,7 +323,7 @@ public partial class StatementTransformer
                 ctx.AddImport("io.github.ningpp.compat.CSharpList");
                 expr = $"new CSharpList<{elemJava}>(ArrayHelper.toList({expr}))";
             }
-            else if (rn.Name is "IList" or "ICollection" or "List" or "Collection" or "IEnumerable" or "Iterable")
+            else if (rn.Name is "IList" or "ICollection" or "List" or "Collection" or "Iterable")
             {
                 if (arr.ElementType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64
                     or SpecialType.System_Double or SpecialType.System_Single or SpecialType.System_Boolean
@@ -358,26 +364,9 @@ public partial class StatementTransformer
             expr = StructCloneHelper.CloneStructValueIfNeeded(stmt.Expression, expr,
                 ctx.GetTypeInfo(stmt.Expression).Type, ctx);
 
-        if (ctx.ReturnsCSharpGenericIterable && ShouldWrapIterable(expr, ctx.GetTypeInfo(stmt.Expression).Type))
-        {
-            ctx.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-            expr = $"CSharpGenericIterable.from({expr})";
-        }
+        // 结构体拷贝之后不再补载体适配：上面的 IEnumerable 槽位规则已覆盖
+        // （compat 适配是幂等的，重复包装只会产生嵌套视图）。
         return expr;
-    }
-
-    private static bool ShouldWrapIterable(string expr, ITypeSymbol? t)
-    {
-        if (expr.StartsWith("CSharpGenericIterable.from(", StringComparison.Ordinal) || t is not INamedTypeSymbol n)
-            return false;
-        if (n.Name is "Dictionary" or "SortedDictionary" or "IDictionary" || n.AllInterfaces.Any(i => i.Name == "IDictionary"))
-            return false;
-        if (n.Name is "IEnumerable" or "ICollection" or "IList" or "IReadOnlyCollection" or "IReadOnlyList"
-            && n.ContainingNamespace?.ToDisplayString().StartsWith("System", StringComparison.Ordinal) == true)
-            return true;
-        return n.AllInterfaces.Any(i => i.OriginalDefinition.ToDisplayString() is
-            "System.Collections.Generic.IEnumerable<T>" or "System.Collections.Generic.ICollection<T>"
-            or "System.Collections.Generic.IList<T>" or "System.Collections.Generic.ISet<T>");
     }
 
     // Java 不支持泛型数组创建，去掉类型参数（Tuple2<…> → Tuple2）
