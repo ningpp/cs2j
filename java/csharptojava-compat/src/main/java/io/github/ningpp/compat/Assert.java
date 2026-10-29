@@ -19,6 +19,14 @@ public final class Assert {
         }
     }
 
+    public static void isTrue(boolean condition, String format, Object... args) {
+        isTrue(condition, StringHelper.formatCs(format, args));
+    }
+
+    public static void isFalse(boolean condition, String format, Object... args) {
+        isFalse(condition, StringHelper.formatCs(format, args));
+    }
+
     public static void isFalse(boolean condition) {
         isTrue(!condition);
     }
@@ -53,6 +61,21 @@ public final class Assert {
         if (!Objects.equals(expected, actual)) {
             throw new AssertionError(message + " Expected: " + expected + " but was: " + actual);
         }
+    }
+
+    public static void areEqual(Object expected, Object actual, String format, Object... args) {
+        areEqual(expected, actual, StringHelper.formatCs(format, args));
+    }
+
+    public static void areEqual(Object expected, Object actual, boolean ignoreCase,
+            CultureInfo culture, String message) {
+        if (ignoreCase && expected instanceof String left && actual instanceof String right) {
+            if (!left.equalsIgnoreCase(right)) {
+                throw new AssertionError(message);
+            }
+            return;
+        }
+        areEqual(expected, actual, message);
     }
 
     public static void areEqual(double expected, double actual, double tolerance) {

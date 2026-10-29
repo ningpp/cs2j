@@ -26,6 +26,26 @@ public class CSharpHashSet<T> implements CSharpISet<T>, Cloneable {
         this.comparer = null;
     }
 
+    public CSharpHashSet(Iterable<? extends T> values) {
+        this.set = new LinkedHashSet<>();
+        this.comparer = null;
+        if (values != null) {
+            for (T value : values) {
+                this.set.add(value);
+            }
+        }
+    }
+
+    public CSharpHashSet(CSharpIList<T> values) {
+        this.set = new LinkedHashSet<>();
+        this.comparer = null;
+        if (values != null) {
+            for (int i = 0; i < values.getCount(); i++) {
+                this.set.add(values.get(i));
+            }
+        }
+    }
+
     // CSharpICollection<T> methods
 
     @Override

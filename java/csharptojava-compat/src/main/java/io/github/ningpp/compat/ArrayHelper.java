@@ -510,6 +510,15 @@ public class ArrayHelper {
         java.util.Arrays.sort(array, comparer);
     }
 
+    /** C# Enumerable.OrderBy on an array: a new sorted list. */
+    public static <T> CSharpList<T> sorted(T[] array, java.util.Comparator<? super T> comparer) {
+        T[] copy = array.clone();
+        java.util.Arrays.sort(copy, comparer);
+        CSharpList<T> result = new CSharpList<>();
+        java.util.Collections.addAll(result, copy);
+        return result;
+    }
+
     public static <T> void sort(T[] array, int index, int length) {
         java.util.Arrays.sort(array, index, index + length);
     }

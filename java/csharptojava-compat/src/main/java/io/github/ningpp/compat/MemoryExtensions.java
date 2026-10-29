@@ -476,6 +476,15 @@ public class MemoryExtensions {
         return false;
     }
 
+    /** C# MemoryExtensions.Contains(ReadOnlySpan&lt;string&gt;, string, StringComparer). */
+    public static boolean contains(ReadOnlySpan<String> span, String value, StringComparer comparer) {
+        if (span == null) return false;
+        for (int i = 0; i < span.length(); i++) {
+            if (comparer.equals(span.get(i), value)) return true;
+        }
+        return false;
+    }
+
     public static <T> boolean contains(Span<T> span, T value) {
         if (span == null) return false;
         for (int i = 0; i < span.length(); i++) {

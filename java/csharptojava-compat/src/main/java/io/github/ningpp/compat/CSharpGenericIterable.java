@@ -277,6 +277,41 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
         return CSharpGenericIterable.fromCollection(items);
     }
 
+    /** C# Enumerable.Except(second): distinct elements of this not in second. */
+    default CSharpGenericIterable<T> except(Iterable<? extends T> second) {
+        java.util.Set<T> excluded = new java.util.HashSet<>();
+        if (second != null) {
+            for (T item : second) {
+                excluded.add(item);
+            }
+        }
+        java.util.List<T> result = new java.util.ArrayList<>();
+        java.util.Set<T> seen = new java.util.HashSet<>();
+        for (T item : this) {
+            if (!excluded.contains(item) && seen.add(item)) {
+                result.add(item);
+            }
+        }
+        return CSharpGenericIterable.fromCollection(result);
+    }
+
+    /** C# Enumerable.Zip(second, resultSelector). */
+    default <U, R> CSharpGenericIterable<R> zip(
+            Iterable<? extends U> second,
+            java.util.function.BiFunction<? super T, ? super U, ? extends R> selector) {
+        java.util.Iterator<? extends U> right = second == null
+            ? java.util.Collections.emptyIterator()
+            : second.iterator();
+        java.util.List<R> result = new java.util.ArrayList<>();
+        for (T left : this) {
+            if (!right.hasNext()) {
+                break;
+            }
+            result.add(selector.apply(left, right.next()));
+        }
+        return CSharpGenericIterable.fromCollection(result);
+    }
+
     /** C# Enumerable.Any(predicate). */
     default boolean anyMatch(java.util.function.Predicate<? super T> predicate) {
         for (T item : this) {

@@ -6894,6 +6894,11 @@
             "javaMethod": "Value"
         },
         {
+            "type": "System.Text.RegularExpressions.Capture",
+            "method": "Length",
+            "javaMethod": "Length"
+        },
+        {
             "type": "System.Text.StringBuilder",
             "method": "set_Length",
             "javaMethod": "setLength"

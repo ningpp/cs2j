@@ -62,6 +62,16 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
         {
             node.Parameters[0].Type = "Microsoft.Msagl.Drawing.PhyloTree";
         }
+        // MSTest injects TestContext; JUnit has no property injection, so the
+        // converted base getter must lazily create the compat context.
+        if (node.Name == "getTestContext"
+            && node.ReturnType.EndsWith("TestContext", StringComparison.Ordinal)
+            && (node.Modifiers & JavaModifiers.Static) == 0)
+        {
+            node.Body = "{\n        return this.testContext != null\n"
+                + "            ? this.testContext\n"
+                + "            : Microsoft.VisualStudio.TestTools.UnitTesting.TestContext.create();\n    }";
+        }
         return node;
     }
 
@@ -99,6 +109,26 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
         @"(?<lhs>\bpos\s*=\s*)(?<rhs>[^;]*\.get\(0\))\s*;",
         RegexOptions.Compiled);
 
+    private static readonly Regex PathCombineReference = new(
+        @"\bPath::combine\b",
+        RegexOptions.Compiled);
+
+    private static readonly Regex PrimitiveFromAnyTyped = new(
+        @"CSharpGenericIterable\.<(?:double|float|int|long|short|byte|char|boolean)>fromAnyTyped",
+        RegexOptions.Compiled);
+
+    private static readonly Regex ArrayReduce = new(
+        @"(?<arr>relativePathSegments)\.reduce\(",
+        RegexOptions.Compiled);
+
+    private static readonly Regex ArraySorted = new(
+        @"(?<arr>dotFiles)\.sorted\(",
+        RegexOptions.Compiled);
+
+    private static readonly Regex RTreeRefArgument = new(
+        @"(?<call>rTreeQuery_[A-Za-z0-9_]+)\((?<first>[^,]+), (?<second>[A-Za-z_$][A-Za-z0-9_$]*),",
+        RegexOptions.Compiled);
+
     private static string Rewrite(string code)
     {
         code = GetClusteredConnectedComponents.Replace(
@@ -110,6 +140,13 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
             code, ".Center((Microsoft.Msagl.Core.Geometry.Point) ${arg})");
         code = RawListPointAssignment.Replace(
             code, "${lhs}(Microsoft.Msagl.Core.Geometry.Point) (${rhs});");
+        code = PathCombineReference.Replace(code, "PathHelper::combine");
+        code = PrimitiveFromAnyTyped.Replace(code, "CSharpGenericIterable.fromAnyTyped");
+        code = ArrayReduce.Replace(code, "ArrayHelper.asListView(${arr}).reduce(");
+        code = ArraySorted.Replace(code, "io.github.ningpp.compat.ArrayHelper.sorted(${arr}, ");
+        code = RTreeRefArgument.Replace(
+            code,
+            "${call}(${first}, new io.github.ningpp.compat.ObjectHolder<>(${second}),");
         return code;
     }
 

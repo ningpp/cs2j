@@ -29,6 +29,26 @@ public final class Enumerable {
         return list;
     }
 
+    /** C# Enumerable.Reverse&lt;T&gt;(source) for arrays/iterables. */
+    @SuppressWarnings("unchecked")
+    public static <T> CSharpList<T> reverseSequence(Object values) {
+        List<T> result = new ArrayList<>();
+        if (values != null && values.getClass().isArray()) {
+            int length = java.lang.reflect.Array.getLength(values);
+            for (int i = length - 1; i >= 0; i--) {
+                result.add((T) java.lang.reflect.Array.get(values, i));
+            }
+        } else if (values instanceof Iterable<?> iterable) {
+            for (Object value : iterable) {
+                result.add((T) value);
+            }
+            java.util.Collections.reverse(result);
+        }
+        CSharpList<T> list = new CSharpList<>();
+        list.addAll(result);
+        return list;
+    }
+
     /** C# Enumerable.Range(start, count). */
     public static CSharpGenericIterable<Integer> range(int start, int count) {
         if (count < 0) {

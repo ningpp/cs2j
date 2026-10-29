@@ -3171,6 +3171,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             ? receiver
             : BuildStreamReceiver(receiver, memberAccess.Expression, context);
 
+        if (name == "Where" && argCount == 1
+            && IsIndexedSelector(invocation.ArgumentList.Arguments[0].Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.IndexedPredicate");
+            rendered = $"{streamReceiver}.filter(new IndexedPredicate<>({argumentText}))";
+            return true;
+        }
+
         // C# Select((item, index) => ...) has two selector parameters; Java's
         // Stream.map takes a unary Function. Wrap the selector so it receives a
         // running index (IndexedFunction), preserving source order.
@@ -3509,8 +3517,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (args.Count == 1
                 && args[0].Expression is LiteralExpressionSyntax literal
                 && literal.IsKind(SyntaxKind.StringLiteralExpression)
-                && literal.Token.ValueText is { Length: 2 } fmt
-                && char.IsDigit(fmt[1])
+                && literal.Token.ValueText is { Length: 1 or 2 } fmt
+                && (fmt.Length == 1 || char.IsDigit(fmt[1]))
                 && fmt[0] is 'X' or 'x')
             {
                 // `((int)c).ToString("X4")`: the redundant char→int widening cast
@@ -3520,7 +3528,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var formatReceiver = IsCharTypedBeforeWidening(invocation.Expression, context)
                     ? $"(int)({receiver})"
                     : receiver;
-                rendered = $"String.format(\"%0{fmt[1]}{fmt[0]}\", {formatReceiver})";
+                rendered = fmt.Length == 2
+                    ? $"String.format(\"%0{fmt[1]}{fmt[0]}\", {formatReceiver})"
+                    : $"String.format(\"%{fmt[0]}\", {formatReceiver})";
                 return true;
             }
 

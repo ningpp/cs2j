@@ -439,6 +439,29 @@ public class MethodTransformer : IMemberTransformer
             .Select(a => NormalizeAttributeName(a.Name.ToString()))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        if (names.Contains("TestInitialize"))
+        {
+            AddAnnotationOnce(javaMethod, "BeforeEach", ctx, "org.junit.jupiter.api.BeforeEach");
+            if (!string.IsNullOrEmpty(javaMethod.Body) && !javaMethod.IsBodyExpression
+                && (javaMethod.Modifiers & JavaModifiers.Static) == 0)
+            {
+                var close = javaMethod.Body.LastIndexOf('}');
+                if (close >= 0)
+                {
+                    javaMethod.Body = javaMethod.Body[..close]
+                        + "this.testContext = Microsoft.VisualStudio.TestTools.UnitTesting.TestContext.create();\n"
+                        + javaMethod.Body[close..];
+                }
+            }
+            return providers;
+        }
+
+        if (names.Contains("TestCleanup"))
+        {
+            AddAnnotationOnce(javaMethod, "AfterEach", ctx, "org.junit.jupiter.api.AfterEach");
+            return providers;
+        }
+
         var isFact = names.Contains("Fact") || names.Contains("SkippableFact") || names.Contains("TestMethod");
         var isTheory = names.Contains("Theory") || names.Contains("SkippableTheory") || names.Contains("DataTestMethod");
         if (!isFact && !isTheory)

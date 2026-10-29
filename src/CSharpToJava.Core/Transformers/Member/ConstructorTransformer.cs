@@ -404,7 +404,7 @@ public class ConstructorTransformer : IMemberTransformer
             || syntaxText.EndsWith($".{expectedName}", StringComparison.Ordinal);
     }
 
-    private static bool HasEarlierErasedDuplicateConstructor(
+    internal static bool HasEarlierErasedDuplicateConstructor(
         IMethodSymbol ctor, ConversionContext context)
     {
         if (ctor.Locations.Length == 0)

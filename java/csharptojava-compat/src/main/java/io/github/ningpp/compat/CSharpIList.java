@@ -87,6 +87,31 @@ public interface CSharpIList<T> extends CSharpCollection {
     }
 
     /** Materialize a residual LINQ stream terminal on an IList-typed receiver. */
+    default T reduce(T identity, java.util.function.BinaryOperator<T> operator) {
+        T result = identity;
+        for (T item : toList()) {
+            result = operator.apply(result, item);
+        }
+        return result;
+    }
+
+    default CSharpGenericIterable<T> except(CSharpGenericIterable<T> second) {
+        java.util.Set<T> excluded = new java.util.HashSet<>();
+        if (second != null) {
+            for (T item : second) {
+                excluded.add(item);
+            }
+        }
+        java.util.List<T> result = new java.util.ArrayList<>();
+        java.util.Set<T> seen = new java.util.HashSet<>();
+        for (T item : toList()) {
+            if (!excluded.contains(item) && seen.add(item)) {
+                result.add(item);
+            }
+        }
+        return CSharpGenericIterable.fromCollection(result);
+    }
+
     default <R, A> R collect(Collector<? super T, A, R> collector) {
         return toList().stream().collect(collector);
     }

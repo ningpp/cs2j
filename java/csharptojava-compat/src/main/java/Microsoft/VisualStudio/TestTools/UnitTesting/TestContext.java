@@ -28,7 +28,10 @@ public class TestContext {
         String defaultRunDir = resolveDefaultRunDirectory();
         TestDir = defaultRunDir;
         TestRunDirectory = defaultRunDir;
-        DeploymentDirectory = Paths.get(defaultRunDir, "Deployment").toString();
+        String resources = resolveTestResourcesDirectory();
+        DeploymentDirectory = resources != null
+                ? resources
+                : Paths.get(defaultRunDir, "Deployment").toString();
     }
 
     private final String testRunDirectory;
@@ -38,14 +41,24 @@ public class TestContext {
     private TestContext() {
         this.testRunDirectory = System.getProperty("cs2j.testRunDirectory",
                 resolveDefaultRunDirectory());
+        String resources = resolveTestResourcesDirectory();
         this.deploymentDirectory = System.getProperty("cs2j.deploymentDirectory",
-                Paths.get(testRunDirectory, "Deployment").toString());
+                resources != null ? resources : Paths.get(testRunDirectory, "Deployment").toString());
         this.outDirectory = Paths.get(testRunDirectory, "Out").toString();
 
         // Update static fields for backward compatibility
         TestDir = testRunDirectory;
         TestRunDirectory = testRunDirectory;
         DeploymentDirectory = deploymentDirectory;
+    }
+
+    private static String resolveTestResourcesDirectory() {
+        java.nio.file.Path resources = Paths.get(
+                System.getProperty("user.dir"), "src", "test", "resources");
+        if (java.nio.file.Files.isDirectory(resources.resolve("Resources"))) {
+            return resources.toString();
+        }
+        return null;
     }
 
     private static String resolveDefaultRunDirectory() {

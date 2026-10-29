@@ -12,6 +12,14 @@ public interface CSharpGenericIList<T> extends CSharpICollection<T> {
         return false;
     }
 
+    default T reduce(T identity, java.util.function.BinaryOperator<T> operator) {
+        T result = identity;
+        for (int i = 0; i < getCount(); i++) {
+            result = operator.apply(result, get(i));
+        }
+        return result;
+    }
+
     /**
      * Adapts a concrete generic list (CSharpList&lt;T&gt; / CSharpGenericIList&lt;T&gt;)
      * or a non-generic CSharpIList / CSharpArrayList to CSharpGenericIList&lt;Object&gt;.

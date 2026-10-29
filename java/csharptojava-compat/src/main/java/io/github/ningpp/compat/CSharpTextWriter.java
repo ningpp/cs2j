@@ -111,6 +111,16 @@ public class CSharpTextWriter extends PrintWriter {
         print(newLine);
     }
 
+    /** C# TextWriter.WriteLine(format, args...) composite formatting. */
+    public void println(String format, Object... args) {
+        println(StringHelper.formatCs(format, args));
+    }
+
+    /** C# TextWriter.Write(format, args...) composite formatting. */
+    public void print(String format, Object... args) {
+        print(StringHelper.formatCs(format, args));
+    }
+
     /**
      * C# TextWriter.ToString() returns the buffered content when the underlying
      * writer is a StringWriter.  Mirror that behaviour so test helpers that call

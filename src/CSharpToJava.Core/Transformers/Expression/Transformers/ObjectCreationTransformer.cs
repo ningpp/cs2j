@@ -206,7 +206,10 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         var args = ArgumentTransformer.TransformArgumentList(
             al, c, ExpressionTransformerFacade.Instance, methodSymbol: constructor);
-        if (constructor != null && c.IsErasureConflictConstructor(constructor))
+        if (constructor != null
+            && (c.IsErasureConflictConstructor(constructor)
+                || CSharpToJava.Core.Transformers.Member.ConstructorTransformer
+                    .HasEarlierErasedDuplicateConstructor(constructor, c)))
         {
             args = string.IsNullOrEmpty(args) ? "true" : $"{args}, true";
         }
