@@ -334,6 +334,8 @@ public class FieldTransformer : IMemberTransformer
                 {
                     javaField.Initializer = IterableCoercion.CoerceOrSame(
                         variable.Initializer.Value, javaField.Initializer, fieldTypeSymbol, context);
+                    javaField.Initializer = IListCoercion.CoerceOrSame(
+                        variable.Initializer.Value, javaField.Initializer, fieldTypeSymbol, context);
                 }
             }
 
