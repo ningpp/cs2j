@@ -6614,6 +6614,11 @@
     "methodMappings": [
         {
             "type": "System.Collections.Generic.List`1",
+            "method": "Remove",
+            "javaMethod": "removeValue"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
             "method": "ToArray",
             "javaMethod": "toArrayCs"
         },

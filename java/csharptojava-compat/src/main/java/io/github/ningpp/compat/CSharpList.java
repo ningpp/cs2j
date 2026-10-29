@@ -251,6 +251,15 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
 
     // List-specific methods
 
+    /**
+     * C# List&lt;T&gt;.Remove(T): Java's overload set would pick
+     * ArrayList.remove(int) for a primitive element value (returning Integer),
+     * so the converter maps this C# overload to a distinct name.
+     */
+    public boolean removeValue(T item) {
+        return remove(item);
+    }
+
     public void addRange(Collection<? extends T> c) {
         addAll(c);
     }
