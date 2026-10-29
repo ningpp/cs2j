@@ -2738,7 +2738,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // 仅静态接收者（类型名）适用：实例成员访问（prefixes.Keys）的 Name 是
         // 成员名，按简单名查类型表会错配同名类型（Keys → dotnet.winforms.swing.Keys，
         // 注入不存在的包 import）。接收者可绑定且不是类型名时直接跳过。
-        if (context.GetSymbolInfo(receiverExpression).Symbol is not (null or INamedTypeSymbol))
+        var receiverSymbol = context.GetSymbolInfo(receiverExpression).Symbol;
+        if (receiverSymbol is not (null or INamedTypeSymbol))
             return;
 
         var simpleName = receiverExpression switch
@@ -2755,8 +2756,41 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (configKey == null)
             return;
 
+        // 绑定成功的接收者必须就是配置行映射的那个类型。仅共享简单名的源内类型
+        // （如 MultipoleCoefficients 内定义的嵌套 struct Complex 对比
+        // System.Numerics.Complex）不能触发 compat 导入——类型映射只适用于被映射
+        // 的符号，而不是任何同名类型（否则会遮蔽源内声明、并诱发按命名空间的错误
+        // 限定名）。
+        if (receiverSymbol is INamedTypeSymbol boundType
+            && !ConfigKeyMatchesBoundType(configKey, boundType))
+        {
+            return;
+        }
+
         foreach (var import in context.TypeMappings.GetRequiredImports(configKey))
             context.AddImport(import);
+    }
+
+    /// <summary>
+    /// True when a TypeMappings.json key denotes exactly the given bound type.
+    /// The key may be abbreviated to a bare simple name (legacy short rows);
+    /// fully qualified keys must match the symbol's namespace + nested type chain.
+    /// </summary>
+    private static bool ConfigKeyMatchesBoundType(string configKey, INamedTypeSymbol boundType)
+    {
+        if (!configKey.Contains('.', StringComparison.Ordinal))
+            return string.Equals(configKey, boundType.Name, StringComparison.Ordinal);
+
+        var parts = new Stack<string>();
+        for (var current = boundType; current != null; current = current.ContainingType)
+            parts.Push(current.MetadataName);
+
+        var ns = boundType.ContainingNamespace?.ToDisplayString();
+        var qualifiedName = string.IsNullOrEmpty(ns) || ns == "<global namespace>"
+            ? string.Join(".", parts)
+            : $"{ns}.{string.Join(".", parts)}";
+
+        return string.Equals(configKey, qualifiedName, StringComparison.Ordinal);
     }
 
     private static bool IsEnumerableReceiver(ExpressionSyntax receiverExpression, ConversionContext context)

@@ -200,7 +200,13 @@ public class TypeMappingService
         => _typeMappings.GetExplicitNamespaceMappings();
     public string MapType(ITypeSymbol typeSymbol)
     {
-        if (TypeCache.TryGetValue(typeSymbol, out var cached))
+        // Nested type references are context-sensitive: inside the enclosing type the
+        // simple name is correct, while other scopes need "Outer.Inner". Caching by
+        // symbol alone leaks the first site's shape into every later reference
+        // (real chain: MultipoleCoefficients.Complex inside the class cached "Complex",
+        // callers in other classes then emitted an unqualified/unimportable "Complex").
+        var cacheable = typeSymbol.ContainingType == null;
+        if (cacheable && TypeCache.TryGetValue(typeSymbol, out var cached))
         {
             foreach (var import in cached.Imports)
                 AddImport(import);
@@ -212,7 +218,8 @@ public class TypeMappingService
         var addedImports = _importedTypes
             .Where(import => !importsBefore.Contains(import))
             .ToArray();
-        TypeCache[typeSymbol] = new TypeMappingCacheEntry(result, addedImports);
+        if (cacheable)
+            TypeCache[typeSymbol] = new TypeMappingCacheEntry(result, addedImports);
         return result;
     }
 
@@ -1219,6 +1226,14 @@ public class TypeMappingService
 
     private string QualifyTypeReferenceIfNeeded(ITypeSymbol typeSymbol, string simpleTypeName)
     {
+        // Nested types cannot be namespace-qualified: their Java reference is the
+        // simple name inside the enclosing type (the member type shadows imports)
+        // or the already-assembled "Outer.Inner" produced by TryMapNestedType.
+        // Prefixing the namespace would drop the outer type and name a type that
+        // does not exist (e.g. Microsoft.Msagl.Layout.Incremental.Complex).
+        if (typeSymbol.ContainingType != null)
+            return simpleTypeName;
+
         var ns = typeSymbol.ContainingNamespace?.ToDisplayString();
         if (string.IsNullOrWhiteSpace(ns) || ns == "<global namespace>")
             return simpleTypeName;

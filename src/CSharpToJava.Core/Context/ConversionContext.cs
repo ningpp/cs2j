@@ -1052,6 +1052,14 @@ public class ConversionContext
         if (string.IsNullOrWhiteSpace(result))
             return result;
 
+        // Nested types must not be qualified with their namespace: the simple name
+        // is correct inside the enclosing type (Java member types shadow single-type
+        // imports), and other scopes already carry the "Outer.Inner" prefix from
+        // TryMapNestedType. Namespace qualification would drop the outer segment and
+        // produce a non-existent type such as Microsoft.Msagl.Layout.Incremental.Complex.
+        if (typeSymbol.ContainingType != null)
+            return result;
+
         var genericStart = result.IndexOf('<');
         var baseName = genericStart >= 0 ? result[..genericStart] : result;
         if (baseName.Contains('.', StringComparison.Ordinal))
