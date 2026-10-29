@@ -3017,6 +3017,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 ? argumentText
                 : WrapSortKeySelectorTextWithWitness(
                     name, argumentText, invocation, memberAccess, context);
+            // ThenBy/ThenByDescending must refine the existing order, not start
+            // a second dominant sort. Java's sorted() is stable, so C#
+            // OrderBy(primary).ThenBy(secondary) is emitted as
+            // sorted(secondary).sorted(primary): the later primary sort keeps
+            // equal-primary elements in secondary order.
+            if (name is "ThenBy" or "ThenByDescending"
+                && orderStream.EndsWith(")", StringComparison.Ordinal))
+            {
+                var sortedAt = orderStream.IndexOf(".sorted(", StringComparison.Ordinal);
+                if (sortedAt >= 0)
+                {
+                    rendered = orderStream[..sortedAt]
+                        + $".sorted({sortArgument})"
+                        + orderStream[sortedAt..];
+                    return true;
+                }
+            }
             rendered = $"{orderStream}.sorted({sortArgument})";
             return true;
         }
