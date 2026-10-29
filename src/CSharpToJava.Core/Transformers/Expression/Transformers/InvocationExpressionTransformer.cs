@@ -2616,8 +2616,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         var symbol = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
         var owner = symbol?.ContainingType?.ToDisplayString();
 
-        // Tuple.Create(a, b) → Map.entry(a, b): System.Tuple`2 maps to
-        // java.util.Map.Entry, which has a static entry() factory.
         if (name == "Create" && argCount == 2
             && (symbol?.ContainingType?.Name == "Tuple"
                 || memberAccess.Expression is IdentifierNameSyntax { Identifier.Text: "Tuple" }))
@@ -2642,8 +2640,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return true;
         }
 
-        // Enumerable.Range(start, count) → an Iterable<Integer> (the argument
-        // position is the common residual; chained uses wrap it afterwards).
+        // Tuple.Create(a,b,c[,d...]) on an N-ary tuple maps to vavr TupleN.of:
+        // the System.Tuple`N type mapping already points at io.vavr.TupleN.
+        if (name == "Create" && argCount is >= 3 and <= 8
+            && (symbol?.ContainingType?.Name == "Tuple"
+                || memberAccess.Expression is IdentifierNameSyntax { Identifier.Text: "Tuple" }))
+        {
+            context.AddImport($"io.vavr.Tuple{argCount}");
+            context.AddImport("io.vavr.Tuple");
+            rendered = $"Tuple.of({argumentText})";
+            return true;
+        }
+
         if (name == "Range" && argCount == 2
             && (owner == "System.Linq.Enumerable"
                 || memberAccess.Expression is IdentifierNameSyntax { Identifier.Text: "Enumerable" }))
