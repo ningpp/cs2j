@@ -188,6 +188,18 @@ public class ClassTransformer : ITypeTransformer
                     context.TypeMapper.AddImportPublic("io.github.ningpp.compat.CSharpCollection");
                 }
                 if (!seen.Add(InterfaceErasureKey(mapped))) continue;
+                // Java forbids inheriting the same generic interface with a
+                // different type argument than the base class already supplies
+                // (real chain: FreeSpaceFinder : LineSweeperBase, IComparer<AxisEdgesContainer>
+                // where the base is IComparer<SweepEvent>).  The erased interface
+                // surface is already inherited; keep the class's own method.
+                if (symbol.BaseType is { SpecialType: not SpecialType.System_Object } baseWithInterfaces
+                    && baseWithInterfaces.AllInterfaces.Any(baseInterface =>
+                        InterfaceErasureKey(context.MapTypeForDeclarationHeader(baseInterface))
+                            == InterfaceErasureKey(mapped)))
+                {
+                    continue;
+                }
                 // CollectionBase 基类（CSharpCollectionBase→CSharpIList→CSharpCollection
                 // →CSharpIterable→java.lang.Iterable）已提供 Iterable 分支；类自身再
                 // 实现 IEnumerable<T>（映射 CSharpGenericIterable<T>）时，Java 禁止以
