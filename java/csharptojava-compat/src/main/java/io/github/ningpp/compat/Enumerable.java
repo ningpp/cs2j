@@ -11,9 +11,10 @@ public final class Enumerable {
     private Enumerable() {
     }
 
-    /** C# Enumerable.Empty&lt;T&gt;(). */
-    public static <T> CSharpGenericIterable<T> empty() {
-        return CSharpGenericIterable.fromCollection(new CSharpList<>());
+    /** C# Enumerable.Empty&lt;T&gt;(). Raw CSharpList keeps a conditional with a
+     * concrete list branch from degrading to a wildcard element type. */
+    public static CSharpList empty() {
+        return new CSharpList<>();
     }
 
     /** C# Enumerable.Repeat&lt;T&gt;(element, count) — materialized; null/negative count is invalid in C#. */
