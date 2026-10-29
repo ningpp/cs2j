@@ -4132,7 +4132,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// rendered by their Java simple name plus the mapped package import; otherwise the
     /// leading C# namespace is parsed as <c>java.lang.System</c>.
     /// </summary>
-    private static bool TryMapStaticReceiver(
+    internal static bool TryMapStaticReceiver(
         ExpressionSyntax receiver, ConversionContext context, out string mappedReceiver)
     {
         mappedReceiver = string.Empty;

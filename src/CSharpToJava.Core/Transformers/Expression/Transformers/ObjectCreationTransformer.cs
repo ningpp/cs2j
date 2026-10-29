@@ -241,7 +241,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         else
         {
             owner = methodGroup.IsStatic
-                ? c.MapType(methodGroup.ContainingType)
+                ? StripTypeArguments(c.MapType(methodGroup.ContainingType))
                 : "this";
         }
 
@@ -249,6 +249,36 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             ? methodGroup.Name
             : MapPrimitiveWrapperMethodGroupName(methodGroup, methodGroup.Name);
         return (owner, methodName);
+    }
+
+    /// <summary>
+    /// Java forbids a parameterized qualifier before a static method reference
+    /// (Type&lt;T&gt;::method); target typing re-infers the method's type params.
+    /// Remove every top-level generic argument list from the mapped owner.
+    /// </summary>
+    private static string StripTypeArguments(string typeName)
+    {
+        if (!typeName.Contains('<'))
+            return typeName;
+
+        var builder = new System.Text.StringBuilder(typeName.Length);
+        var depth = 0;
+        foreach (var ch in typeName)
+        {
+            if (ch == '<')
+            {
+                depth++;
+                continue;
+            }
+            if (ch == '>')
+            {
+                if (depth > 0) depth--;
+                continue;
+            }
+            if (depth == 0)
+                builder.Append(ch);
+        }
+        return builder.ToString();
     }
 
     /// <summary>

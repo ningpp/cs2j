@@ -11,7 +11,7 @@ import java.util.function.Supplier;
  */
 public abstract class ByRef<T> {
     public abstract T getValue();
-    public abstract void setValue(T value);
+    public abstract T setValue(T value);
 
     /** out scratch slot (no seed). */
     public static <T> ByRef<T> create() { return new SlotByRef<>(null); }
@@ -57,63 +57,63 @@ public abstract class ByRef<T> {
         private final int index;
         IntArrayByRef(int[] array, int index) { this.array = array; this.index = index; }
         @Override public Integer getValue() { return array[index]; }
-        @Override public void setValue(Integer v) { array[index] = v; }
+        @Override public Integer setValue(Integer v) { array[index] = v; return v; }
     }
     private static final class LongArrayByRef extends ByRef<Long> {
         private final long[] array;
         private final int index;
         LongArrayByRef(long[] array, int index) { this.array = array; this.index = index; }
         @Override public Long getValue() { return array[index]; }
-        @Override public void setValue(Long v) { array[index] = v; }
+        @Override public Long setValue(Long v) { array[index] = v; return v; }
     }
     private static final class DoubleArrayByRef extends ByRef<Double> {
         private final double[] array;
         private final int index;
         DoubleArrayByRef(double[] array, int index) { this.array = array; this.index = index; }
         @Override public Double getValue() { return array[index]; }
-        @Override public void setValue(Double v) { array[index] = v; }
+        @Override public Double setValue(Double v) { array[index] = v; return v; }
     }
     private static final class FloatArrayByRef extends ByRef<Float> {
         private final float[] array;
         private final int index;
         FloatArrayByRef(float[] array, int index) { this.array = array; this.index = index; }
         @Override public Float getValue() { return array[index]; }
-        @Override public void setValue(Float v) { array[index] = v; }
+        @Override public Float setValue(Float v) { array[index] = v; return v; }
     }
     private static final class BooleanArrayByRef extends ByRef<Boolean> {
         private final boolean[] array;
         private final int index;
         BooleanArrayByRef(boolean[] array, int index) { this.array = array; this.index = index; }
         @Override public Boolean getValue() { return array[index]; }
-        @Override public void setValue(Boolean v) { array[index] = v; }
+        @Override public Boolean setValue(Boolean v) { array[index] = v; return v; }
     }
     private static final class ByteArrayByRef extends ByRef<Byte> {
         private final byte[] array;
         private final int index;
         ByteArrayByRef(byte[] array, int index) { this.array = array; this.index = index; }
         @Override public Byte getValue() { return array[index]; }
-        @Override public void setValue(Byte v) { array[index] = v; }
+        @Override public Byte setValue(Byte v) { array[index] = v; return v; }
     }
     private static final class ShortArrayByRef extends ByRef<Short> {
         private final short[] array;
         private final int index;
         ShortArrayByRef(short[] array, int index) { this.array = array; this.index = index; }
         @Override public Short getValue() { return array[index]; }
-        @Override public void setValue(Short v) { array[index] = v; }
+        @Override public Short setValue(Short v) { array[index] = v; return v; }
     }
     private static final class CharArrayByRef extends ByRef<Character> {
         private final char[] array;
         private final int index;
         CharArrayByRef(char[] array, int index) { this.array = array; this.index = index; }
         @Override public Character getValue() { return array[index]; }
-        @Override public void setValue(Character v) { array[index] = v; }
+        @Override public Character setValue(Character v) { array[index] = v; return v; }
     }
 
     private static final class SlotByRef<T> extends ByRef<T> {
         private T slot;
         SlotByRef(T v) { this.slot = v; }
         @Override public T getValue() { return slot; }
-        @Override public void setValue(T v) { this.slot = v; }
+        @Override public T setValue(T v) { this.slot = v; return v; }
     }
 
     private static final class ArrayElementByRef<T> extends ByRef<T> {
@@ -121,7 +121,7 @@ public abstract class ByRef<T> {
         private final int index;
         ArrayElementByRef(T[] array, int index) { this.array = array; this.index = index; }
         @Override public T getValue() { return array[index]; }
-        @Override public void setValue(T v) { array[index] = v; }
+        @Override public T setValue(T v) { array[index] = v; return v; }
     }
 
     private static final class AccessorByRef<T> extends ByRef<T> {
@@ -132,7 +132,7 @@ public abstract class ByRef<T> {
             this.setter = setter;
         }
         @Override public T getValue() { return getter.get(); }
-        @Override public void setValue(T v) { setter.accept(v); }
+        @Override public T setValue(T v) { setter.accept(v); return v; }
     }
 
     // ── out value-type readback (null → default bridge) ─────────────────────

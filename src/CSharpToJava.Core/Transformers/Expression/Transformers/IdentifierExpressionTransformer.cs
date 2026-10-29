@@ -409,7 +409,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return unboundMember;
         }
 
-        var receiver = ExpressionTransformerFacade.Instance.Transform(node.Expression, context);
+        // A type-qualified static member (Core.Geometry.Direction.None) has an
+        // INamedTypeSymbol receiver; map it to the ported simple name instead of
+        // echoing the C# namespace chain as a Java package chain. Value
+        // receivers (locals/fields/parameters) keep the normal expression path.
+        var receiver = context.GetSymbolInfo(node.Expression).Symbol is INamedTypeSymbol
+            && InvocationExpressionTransformer.TryMapStaticReceiver(
+                node.Expression, context, out var mappedStaticReceiver)
+            ? mappedStaticReceiver
+            : ExpressionTransformerFacade.Instance.Transform(node.Expression, context);
         var symbol = context.GetSymbolInfo(node).Symbol;
         var member = ConversionContext.EscapeJavaKeyword(node.Name.Identifier.Text);
 
