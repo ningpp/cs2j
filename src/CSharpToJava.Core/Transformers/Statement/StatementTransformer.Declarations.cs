@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
@@ -70,6 +70,14 @@ public partial class StatementTransformer
                 // 视图（真实链 XmlSchemaSet 的 chameleonKeys 读取 Hashtable.Keys）。
                 initExprText = IListCoercion.CoerceOrSame(
                     variable.Initializer.Value, initExprText, localType, context);
+                // JsonConvert.DeserializeObject<T> erases to Object in Java;
+                // restore the declared local type so member access resolves.
+                if (initExprText.StartsWith("JsonConvert.deserializeObject(", StringComparison.Ordinal))
+                {
+                    var mappedLocal = context.MapType(localType);
+                    if (mappedLocal is not ("Object" or "var"))
+                        initExprText = $"({mappedLocal}) {initExprText}";
+                }
                 // 常量数字 → 枚举局部（`RegexOptions optionsLast = 0;`）：C# 允许
                 // 隐式常量转换，Java 枚举是类，必须 fromValue/values() 包装。
                 // Int-constant 元数据枚举（BindingFlags/TypeAttributes 等）在 Java
@@ -174,6 +182,17 @@ public partial class StatementTransformer
                 && (context.GetDeclaredSymbol(first) as ILocalSymbol)?.Type is ITypeParameterSymbol typeParam)
             {
                 return typeParam.Name;
+            }
+            // Java's `var` cannot infer a target type for a bare method reference
+            // (e.g. `var projection = cond ? A::f : B::g`); use the mapped
+            // functional interface so the conditional has an explicit target.
+            if (first != null
+                && (context.GetDeclaredSymbol(first) as ILocalSymbol)?.Type is INamedTypeSymbol
+                { TypeKind: TypeKind.Delegate } delegateLocal)
+            {
+                var mappedDelegate = context.MapType(delegateLocal);
+                if (!string.IsNullOrWhiteSpace(mappedDelegate) && mappedDelegate != "var")
+                    return mappedDelegate;
             }
             return "var";
         }
