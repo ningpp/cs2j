@@ -2865,7 +2865,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (LooksLikeStreamPipeline(receiverText))
             return receiverText;
 
-        if (context.GetTypeInfo(receiverExpression).Type is IArrayTypeSymbol array)
+        var receiverType = context.GetTypeInfo(receiverExpression).Type;
+        if (receiverType is IArrayTypeSymbol array)
         {
             // Arrays.stream has int/long/double/T[] overloads only; char,
             // boolean, byte, short and float arrays must box through the
@@ -2888,7 +2889,72 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         context.AddImport("java.util.stream.StreamSupport");
+        // Compat collection interfaces erase the element type: a generated
+        // ICollection<T>/IList<T> class implements CSharpIList<T> extends the
+        // non-generic CSharpCollection extends CSharpIterable<Object>, so
+        // `x.spliterator()` yields Spliterator<Object> and a lifted lambda taking
+        // the C# element type cannot bind as Predicate<Object>. The same happens
+        // when a call argument is a raw CSharpIList value (javac erases the
+        // invocation type), even though the receiver's C# type is IEnumerable<T>.
+        // Re-type the source to the C# element type exactly like the foreach
+        // bridge (StatementTransformer.Loops); javac then inserts the element
+        // checkcast and the stream carries the element type.
+        if (TryBuildElementTypedIterable(receiverText, receiverExpression, receiverType, context, out var typedReceiver))
+            return $"StreamSupport.stream(({typedReceiver}).spliterator(), false)";
         return $"StreamSupport.stream(({receiverText}).spliterator(), false)";
+    }
+
+    /// <summary>
+    /// Builds the foreach-style element re-typing cast
+    /// <c>(Iterable&lt;Element&gt;)(Iterable) (receiver)</c> for a stream source whose
+    /// C# element type is known. Returns false when the element type cannot be
+    /// determined (non-generic IEnumerable, error/dynamic types) or when the
+    /// receiver is a compat member rendered as a Java array (TypeInfo.Declared*),
+    /// where an Iterable cast would not compile.
+    /// </summary>
+    private static bool TryBuildElementTypedIterable(
+        string receiverText,
+        ExpressionSyntax receiverExpression,
+        ITypeSymbol? receiverType,
+        ConversionContext context,
+        out string typedReceiver)
+    {
+        typedReceiver = string.Empty;
+        if (receiverType is null or IArrayTypeSymbol)
+            return false;
+        if (!TryGetEnumerableElementType(receiverType, out var elementType))
+            return false;
+        if (IsCompatArrayIterableSource(receiverExpression, context))
+            return false;
+
+        var javaElement = BoxPrimitive(context.MapType(elementType));
+        if (string.IsNullOrWhiteSpace(javaElement)
+            || javaElement is "Object" or "var")
+        {
+            return false;
+        }
+
+        typedReceiver = $"(Iterable<{javaElement}>)(Iterable) ({receiverText})";
+        return true;
+    }
+
+    /// <summary>
+    /// True for C# IEnumerable members that the compat TypeInfo renders as Java
+    /// arrays. Mirrors StatementTransformer.Loops.IsCompatTypeInfoArraySource: the
+    /// (Iterable&lt;T&gt;) re-type cast would wrap a Java array and not compile.
+    /// </summary>
+    private static bool IsCompatArrayIterableSource(ExpressionSyntax expression, ConversionContext context)
+    {
+        if (context.SemanticModel == null
+            || expression is not MemberAccessExpressionSyntax memberAccess
+            || context.GetSymbolInfo(memberAccess).Symbol is not IPropertySymbol property
+            || property.ContainingType?.ToDisplayString() is not "System.Reflection.TypeInfo")
+        {
+            return false;
+        }
+        return property.Name
+            is "DeclaredProperties" or "DeclaredFields" or "DeclaredMethods"
+            or "DeclaredConstructors" or "DeclaredMembers";
     }
 
     private static bool LooksLikeStreamPipeline(string expression)
