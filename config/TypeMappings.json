@@ -8709,6 +8709,11 @@
         },
         {
             "type": "System.IO.File",
+            "method": "Create",
+            "javaMethod": "createWrapper"
+        },
+        {
+            "type": "System.IO.File",
             "method": "Open",
             "javaMethod": "open"
         },

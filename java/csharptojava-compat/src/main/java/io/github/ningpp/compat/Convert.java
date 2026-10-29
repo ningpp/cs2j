@@ -155,6 +155,10 @@ public class Convert {
     }
 
     /** Mirrors C# Convert.ToBoolean(String): Boolean.Parse (trim + True/False, case-insensitive). */
+    public static boolean toBoolean(String value) {
+        return parseBooleanWithProvider(value);
+    }
+
     public static boolean toBoolean(String value, CultureInfo provider) {
         return parseBooleanWithProvider(value);
     }
@@ -278,6 +282,11 @@ return toDecimal(value);
      * Double.toString yields "1.0" where C# ToString() yields "1" (XPath
      * concat("… = ", position()) produced "= 1.0").
      */
+    /** Mirrors C# Convert.ToString(int value, int toBase) (bases 2/8/10/16). */
+    public static String toString(int value, int toBase) {
+        return Integer.toString(value, toBase);
+    }
+
     public static String toString(Object value) {
         if (value == null) return "";
         if (value instanceof Double || value instanceof Float) {

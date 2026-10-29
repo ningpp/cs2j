@@ -30,6 +30,11 @@ public class StreamWrapper implements AutoCloseable {
         this(in, null, null);
     }
 
+    /** C# File.Create returns a writable Stream; wrap an open output stream. */
+    public StreamWrapper(OutputStream out) {
+        this(null, out, null);
+    }
+
     protected StreamWrapper(InputStream in, OutputStream out) {
         this(in, out, null);
     }

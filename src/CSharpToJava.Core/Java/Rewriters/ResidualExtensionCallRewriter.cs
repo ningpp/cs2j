@@ -15,6 +15,56 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
         @"(?<receiver>[A-Za-z_$][A-Za-z0-9_$.]*)\.getClusteredConnectedComponents\(\)",
         RegexOptions.Compiled);
 
+    private JavaClassDeclaration? _currentClass;
+
+    public override JavaClassDeclaration VisitClassDeclaration(JavaClassDeclaration node)
+    {
+        var previous = _currentClass;
+        _currentClass = node;
+        try
+        {
+            return base.VisitClassDeclaration(node);
+        }
+        finally
+        {
+            _currentClass = previous;
+        }
+    }
+
+    public override JavaFieldDeclaration VisitFieldDeclaration(JavaFieldDeclaration node)
+    {
+        node = base.VisitFieldDeclaration(node);
+        // SortedDictionary.ValueCollection.Enumerator has no Java counterpart;
+        // the iterator state machine only uses the enumerator surface.
+        if (node.Type.Contains("CSharpSortedDict.ValueCollection.Enumerator", StringComparison.Ordinal))
+        {
+            var elementType = _currentClass?.Fields
+                .FirstOrDefault(field => field.Name.StartsWith("_cs2jLoc_", StringComparison.Ordinal)
+                    && field.Type != "Object"
+                    && !field.Type.Contains("Enumerator", StringComparison.Ordinal))
+                ?.Type;
+            node.Type = string.IsNullOrWhiteSpace(elementType)
+                ? "io.github.ningpp.compat.CSharpGenericEnumerator"
+                : $"io.github.ningpp.compat.CSharpGenericEnumerator<{elementType}>";
+        }
+        return node;
+    }
+
+    public override JavaMethodDeclaration VisitMethodDeclaration(JavaMethodDeclaration node)
+    {
+        node = base.VisitMethodDeclaration(node);
+        // A simple-name collision with Microsoft.Msagl.Prototype.Phylo.PhyloTree
+        // makes this parameter bind to the geometry tree; the C# signature is the
+        // drawing tree in the same namespace.
+        if (node.Name == "createPhyloTree"
+            && node.Parameters.Count == 1
+            && node.Parameters[0].Type == "PhyloTree")
+        {
+            node.Parameters[0].Type = "Microsoft.Msagl.Drawing.PhyloTree";
+        }
+        return node;
+    }
+
     public override JavaRawStatement VisitRawStatement(JavaRawStatement node)
     {
         node = base.VisitRawStatement(node);

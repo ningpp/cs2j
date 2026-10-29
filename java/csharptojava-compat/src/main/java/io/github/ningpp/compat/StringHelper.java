@@ -21,6 +21,19 @@ public class StringHelper {
         return builder.toString();
     }
 
+    public static String join(String separator, ReadOnlySpan<Character> first,
+            String a, String b, String c, String d, String e) {
+        return String.join(separator, spanText(first), a, b, c, d, e);
+    }
+
+    private static String spanText(ReadOnlySpan<Character> span) {
+        var builder = new StringBuilder(span.length());
+        for (int i = 0; i < span.length(); i++) {
+            builder.append(span.get(i));
+        }
+        return builder.toString();
+    }
+
     public static String join(char separator, String... values) {
         return join(String.valueOf(separator), values);
     }

@@ -137,6 +137,10 @@ public class FileHelper {
         try { return new FileOutputStream(path); }
         catch (FileNotFoundException e) { throw new UncheckedIOException(e); }
     }
+    /** C# File.Create returns Stream; preserve that surface for generated code. */
+    public static StreamWrapper createWrapper(String path) {
+        return new StreamWrapper(create(path));
+    }
     public static boolean exists(String path) { return new File(path).exists(); }
     public static void delete(String path) throws IOException { Files.delete(Paths.get(path)); }
 }
