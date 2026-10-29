@@ -350,7 +350,7 @@ internal sealed partial class OperatorUseSiteRewriter : CSharpSyntaxRewriter
         if (OperatorRule.IsCompoundKind(node)
             && _model.GetOperation(node) is ICompoundAssignmentOperation compound
             && compound.OperatorMethod is { } m && TryGetPlan(m, out var plan)
-            && OperatorFacts.IsSimpleLvalue(node.Left))
+            && (OperatorFacts.IsSimpleLvalue(node.Left) || IsInlineElementTarget(node)))
         {
             var left = (ExpressionSyntax)Visit(node.Left)!;
             var right = (ExpressionSyntax)Visit(node.Right)!;
@@ -362,6 +362,13 @@ internal sealed partial class OperatorUseSiteRewriter : CSharpSyntaxRewriter
         }
         return base.VisitAssignmentExpression(node);
     }
+
+    /// <summary>语句位的简单元素访问目标：内联为 `a[i] = op(a[i], v)`，写入由后续
+    /// 索引器 pass（索引器 plan）或 Java 侧索引语义承接。</summary>
+    private static bool IsInlineElementTarget(AssignmentExpressionSyntax node)
+        => node.Left is ElementAccessExpressionSyntax element
+           && node.Parent is ExpressionStatementSyntax
+           && OperatorFacts.IsSimpleElementTarget(element);
 
     public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)
     {

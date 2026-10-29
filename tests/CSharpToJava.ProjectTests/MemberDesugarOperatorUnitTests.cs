@@ -726,7 +726,7 @@ public class MemberDesugarOperatorUnitTests
     }
 
     [Fact]
-    public void CompoundAssignment_PropertyTarget_SkipsPlanAtomically()
+    public void CompoundAssignment_PropertyTarget_RewrittenThroughOperatorAndPropertyPasses()
     {
         var (outputs, stats, diags) = RewriteAll(null, """
             public struct Acc
@@ -748,12 +748,13 @@ public class MemberDesugarOperatorUnitTests
                 }
             }
             """);
-        Assert.Equal(0, stats.OperatorsPlanned); // plan Infeasible → 计数不涨
-        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.CompoundTargetUnsupported);
-        AssertContains(outputs[0], "operator +(Acc a, Acc b)"); // 声明原子不动
-        // C11 属性族照常消费该复合站点（合成 set_P(get_P() + v)，二元仍绑未动的运算符）
-        AssertContains(outputs[1], "b.set_P(b.get_P() + v);");
-        AssertNotContains(outputs[1], "Acc.Add(");
+        // 决策 2b 修订：属性目标不再是整 plan 的原子跳过理由——运算符 pass 先内联
+        // 为 `b.P = Acc.Add(b.P, v)`，属性 pass 再把读/写两侧展开为 get_/set_。
+        Assert.True(stats.OperatorsPlanned > 0);
+        Assert.DoesNotContain(diags, d => d.Code == MemberDesugarDiagnosticCode.CompoundTargetUnsupported);
+        AssertContains(outputs[0], "public static Acc Add(Acc a, Acc b)");
+        AssertContains(outputs[1], "b.set_P(Acc.Add(b.get_P(), v));");
+        AssertNotContains(outputs[1], "b.P += v");
         AssertOutputCompiles(outputs[0], outputs[1]);
     }
 

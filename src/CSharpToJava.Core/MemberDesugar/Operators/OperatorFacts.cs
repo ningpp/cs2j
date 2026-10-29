@@ -55,4 +55,20 @@ internal static class OperatorFacts
         ParenthesizedExpressionSyntax p => IsSimpleLvalue(p.Expression),
         _ => false,
     };
+
+    /// <summary>复合赋值可内联的元素访问目标（数组元素/外部索引器）：接收者与全部
+    /// 索引实参无副作用。语句位内联为 `a[i] = op(a[i], v)`——后续索引器 pass 或
+    /// Java 侧索引语义承载写入；表达式位与复杂实参由分析闸门整 plan 跳过。</summary>
+    public static bool IsSimpleElementTarget(ElementAccessExpressionSyntax element)
+        => IsSimpleLvalue(element.Expression)
+           && element.ArgumentList.Arguments.All(a => IsSimpleArgument(a.Expression));
+
+    private static bool IsSimpleArgument(ExpressionSyntax e) => e switch
+    {
+        LiteralExpressionSyntax => true,
+        IdentifierNameSyntax or ThisExpressionSyntax or BaseExpressionSyntax => true,
+        MemberAccessExpressionSyntax ma => IsSimpleArgument(ma.Expression),
+        ParenthesizedExpressionSyntax p => IsSimpleArgument(p.Expression),
+        _ => false,
+    };
 }

@@ -332,20 +332,37 @@ internal sealed class OperatorRule : IMemberDesugarRule
             return;
         }
 
-        // 决策 2b：属性/索引器目标 → 整 plan 跳过；复杂接收者且非语句位 → 不可提升
-        if (model.GetSymbolInfo(assign.Left).Symbol is IPropertySymbol)
+        // 决策 2b 修订：属性目标可内联为 `x.P = op(x.P, v)`（属性 pass 随后把两侧
+        // 访问展开为 get_/set_），不再整 plan 跳过——单个属性站点的原子跳过会把同
+        // 类型上全部二元/复合站点一起留在 C# 层（AGL Point 即此形态，javac 端表现为
+        // 整类「二元运算符的操作数类型错误」）。索引器目标仍整 plan 跳过：索引器
+        // pass 的复合展开要求复合语法，运算符 pass 产生的简单赋值在索引器非语句位
+        // 不可重建。
+        if (model.GetSymbolInfo(assign.Left).Symbol is IPropertySymbol { IsIndexer: true })
         {
             MarkFailure(siteFailures, planOp,
                 MemberDesugarDiagnosticCode.CompoundTargetUnsupported,
-                OperatorDiagnostics.CompoundUnsupported(planOp.Name, "property/indexer target"));
+                OperatorDiagnostics.CompoundUnsupported(planOp.Name, "indexer target"));
             return;
         }
+        // 复杂接收者且非语句位 → 不可提升
         if (!OperatorFacts.IsSimpleLvalue(assign.Left)
             && assign.Parent is not ExpressionStatementSyntax)
         {
             MarkFailure(siteFailures, planOp,
                 MemberDesugarDiagnosticCode.CompoundTargetUnsupported,
                 OperatorDiagnostics.CompoundUnsupported(planOp.Name, "non-statement complex receiver"));
+            return;
+        }
+        // 元素访问目标（数组元素）：仅语句位且接收者/索引实参无副作用时可内联为
+        // `a[i] = op(a[i], v)`；其余形态不可重建 → 整 plan 跳过。
+        if (assign.Left is ElementAccessExpressionSyntax elementTarget
+            && !(assign.Parent is ExpressionStatementSyntax
+                 && OperatorFacts.IsSimpleElementTarget(elementTarget)))
+        {
+            MarkFailure(siteFailures, planOp,
+                MemberDesugarDiagnosticCode.CompoundTargetUnsupported,
+                OperatorDiagnostics.CompoundUnsupported(planOp.Name, "complex element target"));
             return;
         }
         if (compound.IsLifted
