@@ -235,12 +235,11 @@ public class Calc
     }
 
     [Fact]
-    public void InternalRefCall_ProducesJavaByRefLambda()
+    public void InternalRefCall_ProducesJavaByRefSlot()
     {
-        // C45 M5: the setter lambda emitted by ref-out-in (v => x = v) mutably
-        // captures the local, so closure-lift runs next (production order) and
-        // moves x onto a display class; the converter binds the accessor pair
-        // to the display class methods as ByRef.create(getter, setter).
+        // A one-shot ref argument is a synchronous copy-in/copy-out slot:
+        // ByRef.create(x) … x = ByRef.readbackInt(slot). No lambda over a
+        // mutable capture is emitted, so no closure-lift pass is needed.
         var result = ConvertRewritten(@"
 public class Calc
 {
@@ -250,13 +249,11 @@ public class Calc
         int x = 1;
         Bump(ref x);
     }
-}", closureLift: true);
+}");
         AssertSuccess(result);
-        AssertJavaContains(result, "ByRef.create(", "factory call");
-        AssertJavaContains(result, "::lambda_0", "getter accessor bound to the display class");
-        AssertJavaContains(result, "::lambda_1", "setter accessor bound to the display class");
-        AssertJavaContains(result, "_cs2jCap_x = v", "setter writes through the lifted capture");
-        AssertJavaContains(result, "v.getValue()", "body slot read");
+        AssertJavaContains(result, "ByRef.create(x)", "seeded copy-in slot");
+        AssertJavaContains(result, "x = ByRef.readbackInt(", "copy-back after the call");
+        AssertJavaDoesNotContain(result, "ByRef.create(() ->", "no getter accessor closure");
         AssertJavaDoesNotContain(result, "IntHolder");
         AssertJavaDoesNotContain(result, "ObjectHolder");
     }
@@ -626,7 +623,7 @@ public struct Acc
         Assert.DoesNotContain("=> _count", result.OutputCode);
         // Copy-in from the field + write-back after the call.
         Assert.Contains("ByRef<int>.Create(_total)", result.OutputCode);
-        Assert.Contains("_total = __ref", result.OutputCode);
+        Assert.Contains("_total = ByRef<int>.ReadbackInt(__ref", result.OutputCode);
 
         var rewrittenTree = CSharpSyntaxTree.ParseText(result.OutputCode + StructByRefStub);
         var rewrittenCompilation = CSharpCompilation.Create("refout-struct-field-out",
@@ -650,11 +647,14 @@ public struct Acc
     }
 
     [Fact]
-    public void ClassInstanceFieldRefArgument_KeepsAccessorLambda()
+    public void ClassInstanceFieldRefArgument_UsesCopyInOutSlot()
     {
-        // The copy-in/copy-out rewrite is scoped to value-type receivers:
-        // `this` of a class is safely captureable, so the alias-through-call
-        // accessor shape (writes visible to the callee immediately) must stay.
+        // Every one-shot ref argument is a synchronous copy-in/copy-out slot:
+        // the accessor closure (`Create(() => x, v => x = v)`) is a lambda over
+        // a mutable capture, which Java cannot express, and the callee reaches
+        // the target exclusively through the slot during the call. Ref locals,
+        // ref returns and ref foreach elements keep the accessor shape — they
+        // alias across statements and have no copy-back point.
         var source = @"
 public class Calc
 {
@@ -674,8 +674,9 @@ public class Calc
         var result = new RefOutInRewriter().Rewrite(source, compilation.GetSemanticModel(tree));
 
         Assert.True(result.Changed, "expected the preprocessor to rewrite the input");
-        Assert.Contains("() => _value", result.OutputCode);
-        Assert.Contains("v => _value = v", result.OutputCode);
+        Assert.Contains("ByRef<int>.Create(_value)", result.OutputCode);
+        Assert.Contains("_value = ByRef<int>.ReadbackInt(__ref", result.OutputCode);
+        Assert.DoesNotContain("() => _value", result.OutputCode);
 
         var rewritten = CompileWithByRefStub(result.OutputCode, "refout-class-field-out");
         var errors = rewritten.GetDiagnostics()

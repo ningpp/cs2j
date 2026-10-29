@@ -557,38 +557,28 @@ internal sealed class RefOutInStatementLifter
         if (expr is IdentifierNameSyntax || expr is MemberAccessExpressionSyntax)
         {
             var target = _owner.InjectSlotValues(Splice(expr)).ToString();
+            var targetType = _owner.GetTypeOf(expr) ?? paramTypeSymbol;
 
-            if (isOut)
-            {
-                // Slot + read-back: never captures the variable, so unassigned
-                // locals stay legal (no CS0165 through the getter closure).
-                var slot = Temp("__out");
-                var readbackType = _owner.GetTypeOf(expr) ?? paramTypeSymbol;
-                return (ParseStmt($"ByRef<{paramType}> {slot} = ByRef<{paramType}>.Create();"),
-                    ParseStmt(ReadbackStatement(target, slot, readbackType)),
-                    SyntaxFactory.Argument(Identifier(slot)));
-            }
-
-            // A getter/setter closure is only legal when the target is
-            // capturable. Ref-like captures (CS8175/CS9108) and `this` members
-            // of a value type (CS1673, e.g. a struct instance method passing
-            // its own field by ref) are not: read the target into a
-            // synchronous copy-in slot and write it back after the call — the
-            // same copy-in/copy-out shape the shadow-frame machinery uses for
-            // value-typed holders.
-            if (ContainsRefStructCapture(expr) || _owner.CapturesValueTypeThis(expr))
-            {
-                var slot = Temp("__ref");
-                return (ParseStmt($"ByRef<{paramType}> {slot} = ByRef<{paramType}>.Create({target});"),
-                    ParseStmt($"{target} = {slot}.Value;"),
-                    SyntaxFactory.Argument(Identifier(slot)));
-            }
-
-            var slot2 = Temp("__ref");
-            _owner.Stats.AccessorProxies++;
-            var valueName = RefOutInSyntaxRewriter.AccessorSetterParamName(target);
-            return (ParseStmt($"ByRef<{paramType}> {slot2} = ByRef<{paramType}>.Create(() => {target}, {valueName} => {target} = {valueName});"),
-                null, SyntaxFactory.Argument(Identifier(slot2)));
+            // Slot + copy-back, never a getter/setter closure. The slot is an
+            // ordinary local, so the rewritten tree holds no lambda over a
+            // mutable capture and maps 1:1 to Java
+            // (`ByRef.create(x)` … `x = readback(slot)`). The old accessor
+            // closure `Create(() => x, v => x = v)` aliased the target live,
+            // but a Java lambda cannot assign a captured local; that alias only
+            // worked when closure-lift rewrote the capture, which it does not
+            // do for C01 scaffolding. A synchronous one-shot call reaches the
+            // target exclusively through the slot, so the alias is unobservable
+            // here (ref locals, ref returns and ref foreach elements keep the
+            // accessor shape — they alias across statements and have no
+            // copy-back point).
+            // `out` omits the seed so unassigned locals stay legal (CS0165).
+            var slot = Temp(isOut ? "__out" : "__ref");
+            var ctor = isOut
+                ? $"ByRef<{paramType}>.Create()"
+                : $"ByRef<{paramType}>.Create({target})";
+            return (ParseStmt($"ByRef<{paramType}> {slot} = {ctor};"),
+                ParseStmt(ReadbackStatement(target, slot, targetType)),
+                SyntaxFactory.Argument(Identifier(slot)));
         }
 
         // (7) anything else — fail fast with a readable diagnostic

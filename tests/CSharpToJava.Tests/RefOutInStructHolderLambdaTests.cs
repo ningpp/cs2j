@@ -232,8 +232,9 @@ public class RefOutInStructHolderLambdaTests
         // The return expression is materialized BEFORE copy-out so its ++ lands.
         Assert.Contains("bool __ret", result.OutputCode);
         Assert.DoesNotContain("return ++__shadow", result.OutputCode);
-        // The internal call is lifted to an accessor proxy over the shadow.
-        Assert.Contains("ByRef<DemoNs.Sub>.Create(() => __shadow", result.OutputCode);
+        // The internal call reads the shadow into a copy-in slot and writes it
+        // back after the call (no lambda over the mutable capture).
+        Assert.Contains("ByRef<DemoNs.Sub>.Create(__shadow", result.OutputCode);
         Assert.Contains(".Helper(", result.OutputCode);
         Assert.DoesNotContain("ref s.Value", result.OutputCode);
         AssertNoBareRefHolderValue(result.OutputCode);
@@ -474,7 +475,7 @@ public class RefOutInStructHolderLambdaTests
         Assert.True(result.Changed);
         Assert.DoesNotContain(result.Diagnostics, d => d.Severity == RefOutInSeverity.Error);
         Assert.Contains("__shadow", result.OutputCode);
-        Assert.Contains("ByRef<DemoNs.Sub>.Create(() => __shadow", result.OutputCode);
+        Assert.Contains("ByRef<DemoNs.Sub>.Create(__shadow", result.OutputCode);
         AssertNoBareRefHolderValue(result.OutputCode);
         AssertOutputCompiles(result.OutputCode);
 
@@ -529,8 +530,8 @@ public class RefOutInStructHolderLambdaTests
         // return inside the local function and the nested lambda are barriers.
         var writebacks = Regex.Matches(result.OutputCode, @"s\.Value = __shadow").Count;
         Assert.Equal(1, writebacks);
-        // The lifted internal call closes its accessor lambdas over the shadow.
-        Assert.Contains("ByRef<DemoNs.Sub>.Create(() => __shadow", result.OutputCode);
+        // The lifted internal call copies the shadow into a slot and writes back.
+        Assert.Contains("ByRef<DemoNs.Sub>.Create(__shadow", result.OutputCode);
         AssertNoBareRefHolderValue(result.OutputCode);
         AssertOutputCompiles(result.OutputCode);
 

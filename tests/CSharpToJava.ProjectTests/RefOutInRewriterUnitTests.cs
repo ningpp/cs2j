@@ -583,12 +583,13 @@ public class C
     }
 }";
         var result = RewriteAndAssertCompiles(src);
-        Assert.Contains("ByRef<int>.Create(() => x, __cs2jRefValue => x = __cs2jRefValue)", result);
-        Assert.Contains("ByRef<int> __ref", result);   // ref → accessor proxy
+        Assert.Contains("ByRef<int> __ref0 = ByRef<int>.Create(x);", result);
+        Assert.Contains("x = ByRef<int>.ReadbackInt(__ref0);", result);
+        Assert.DoesNotContain("Create(() =>", result);
     }
 
     [Fact]
-    public void MemberChain_RefArg_AccessorProxy()
+    public void MemberChain_RefArg_UsesCopyInOutSlot()
     {
         var src = @"
 public class H { public int Value; public void Update(ref int v) { v++; } }
@@ -602,7 +603,9 @@ public class C
     }
 }";
         var result = RewriteAndAssertCompiles(src);
-        Assert.Contains("Create(() => h.Value, __cs2jRefValue => h.Value = __cs2jRefValue)", result);
+        Assert.Contains("ByRef<int> __ref0 = ByRef<int>.Create(h.Value);", result);
+        Assert.Contains("h.Value = ByRef<int>.ReadbackInt(__ref0);", result);
+        Assert.DoesNotContain("Create(() =>", result);
     }
 
     [Fact]
