@@ -288,6 +288,22 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     UnwrapErasedInterfaceCast(invocation, memberAccess, context)
                         ?? UnwrapExplicitDisposeCast(memberAccess, context), context);
                 var receiverText = receiver.ToInlineString();
+                // A field named like its type shadows the type in Java. When the
+                // accessed member is a static method of that type, qualify the
+                // receiver with the package so javac does not resolve the field.
+                if (memberAccess.Expression is IdentifierNameSyntax shadowedTypeIdentifier
+                    && context.CurrentEnclosingRoslynType?.GetMembers(shadowedTypeIdentifier.Identifier.Text)
+                        .OfType<IFieldSymbol>().FirstOrDefault() is { } shadowedField
+                    && shadowedField.Type.Name == shadowedTypeIdentifier.Identifier.Text
+                    && shadowedField.Type.GetMembers(originalName)
+                        .OfType<IMethodSymbol>().Any(m => m.IsStatic))
+                {
+                    var shadowedNamespace = shadowedField.Type.ContainingNamespace?.ToDisplayString();
+                    if (!string.IsNullOrWhiteSpace(shadowedNamespace))
+                    {
+                        receiverText = $"{context.NamespaceToPackage(shadowedNamespace)}.{shadowedField.Type.Name}";
+                    }
+                }
                 var argumentText = string.Join(", ", arguments.Select(a => a.ToInlineString()));
 
                 // Semantic precision overrides before the arity-based method mapping.
@@ -2974,7 +2990,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // (Comparator.comparing), including the descending reversal.
             var sortArgument = argumentText.TrimStart().StartsWith("Comparator.", StringComparison.Ordinal)
                 ? argumentText
-                : WrapSortKeySelectorText(name, argumentText, context);
+                : WrapSortKeySelectorTextWithWitness(
+                    name, argumentText, invocation, memberAccess, context);
             rendered = $"{orderStream}.sorted({sortArgument})";
             return true;
         }
@@ -4429,6 +4446,31 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return;
         var wrapped = WrapSortKeySelectorText(originalName, call.Arguments[0].ToInlineString(), context);
         call.Arguments[0] = new JavaRawExpression(wrapped);
+    }
+
+    private static string WrapSortKeySelectorTextWithWitness(
+        string originalName, string arguments, InvocationExpressionSyntax invocation,
+        MemberAccessExpressionSyntax receiverAccess, ConversionContext context)
+    {
+        // Comparator.comparing(...) used as a receiver of .reversed() has no
+        // target type, so javac infers the lambda parameter as Object. Supply
+        // the all-or-none type witness from the C# receiver element/key types.
+        if (invocation.ArgumentList.Arguments.Count == 1
+            && invocation.ArgumentList.Arguments[0].Expression is LambdaExpressionSyntax lambda
+            && context.GetTypeInfo(receiverAccess.Expression).Type is INamedTypeSymbol
+            {
+                TypeArguments.Length: 1
+            } source
+            && context.GetTypeInfo(lambda.Body).Type is { } keyType
+            && context.MapTypeBoxed(source.TypeArguments[0]) is { Length: > 0 } elementJava
+            && context.MapTypeBoxed(keyType) is { Length: > 0 } keyJava)
+        {
+            var descending = originalName is "OrderByDescending" or "ThenByDescending"
+                ? ".reversed()"
+                : string.Empty;
+            return $"Comparator.<{elementJava}, {keyJava}>comparing({arguments}){descending}";
+        }
+        return WrapSortKeySelectorText(originalName, arguments, context);
     }
 
     private static string WrapSortKeySelectorText(string originalName, string arguments, ConversionContext context)

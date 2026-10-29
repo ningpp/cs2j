@@ -55,6 +55,26 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return ObjectCreationTransformer.EmitDelegateMethodReference(node, bareMethod, context);
         }
 
+        // A field whose name matches its type name shadows that type in Java.
+        // When it is the receiver of a static member access, qualify the type
+        // (VisibilityVertex.Point.GreaterThanOrEqual → FQN.Point.greaterThanOrEqual).
+        if (symbol is IFieldSymbol { IsStatic: false } shadowedField
+            && node.Parent is MemberAccessExpressionSyntax shadowedAccess
+            && shadowedAccess.Expression == node
+            && shadowedField.Name == shadowedField.Type.Name
+            && (context.GetSymbolInfo(shadowedAccess).Symbol
+                    as IMethodSymbol
+                ?? context.GetSymbolInfo(shadowedAccess).CandidateSymbols
+                    .OfType<IMethodSymbol>().FirstOrDefault())
+                is { IsStatic: true })
+        {
+            var shadowedNamespace = shadowedField.Type.ContainingNamespace?.ToDisplayString();
+            if (!string.IsNullOrWhiteSpace(shadowedNamespace))
+            {
+                return $"{context.NamespaceToPackage(shadowedNamespace)}.{shadowedField.Type.Name}";
+            }
+        }
+
         // Assembly-scoped synthetic resource types (SR → <Project>SR) are renamed at
         // declaration time; a static-member receiver or bare type reference must use
         // the same renamed identifier or the simple-name reference dangles.
@@ -428,6 +448,21 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             ? mappedStaticReceiver
             : ExpressionTransformerFacade.Instance.Transform(node.Expression, context);
         var symbol = context.GetSymbolInfo(node).Symbol;
+        // A field named like the type shadows that type in Java (VisibilityVertex
+        // has a field `Point`); static member accesses through the type must be
+        // fully qualified so javac does not resolve the field.
+        if (symbol is { IsStatic: true } shadowedStaticMember
+            && node.Expression is IdentifierNameSyntax shadowedTypeName
+            && shadowedStaticMember.ContainingType is INamedTypeSymbol shadowedType
+            && context.CurrentEnclosingRoslynType?.GetMembers(shadowedTypeName.Identifier.Text)
+                .OfType<IFieldSymbol>().Any() == true)
+        {
+            var shadowedNamespace = shadowedType.ContainingNamespace?.ToDisplayString();
+            if (!string.IsNullOrWhiteSpace(shadowedNamespace))
+            {
+                receiver = $"{context.NamespaceToPackage(shadowedNamespace)}.{shadowedType.Name}";
+            }
+        }
         var member = ConversionContext.EscapeJavaKeyword(node.Name.Identifier.Text);
 
         // C# 元组元素 tuple.ItemN（含 System.Tuple<T1,...> 的 ItemN）→ vavr 访问器
