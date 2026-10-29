@@ -266,9 +266,9 @@
         },
         {
             "csharp": "System.Collections.Generic.HashSet`1",
-            "java": "HashSet",
+            "java": "CSharpHashSet",
             "imports": [
-                "java.util.HashSet"
+                "io.github.ningpp.compat.CSharpHashSet"
             ]
         },
         {
@@ -398,9 +398,9 @@
         },
         {
             "csharp": "System.Collections.Generic.ICollection`1",
-            "java": "CSharpIList",
+            "java": "CSharpICollection",
             "imports": [
-                "io.github.ningpp.compat.CSharpIList"
+                "io.github.ningpp.compat.CSharpICollection"
             ]
         },
         {
