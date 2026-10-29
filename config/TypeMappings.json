@@ -7913,7 +7913,7 @@
         {
             "type": "System.Math",
             "method": "Sign",
-            "javaMethod": "signum"
+            "javaMethod": "MathHelper.sign"
         },
         {
             "type": "System.Math",

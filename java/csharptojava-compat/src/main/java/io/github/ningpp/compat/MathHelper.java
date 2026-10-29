@@ -21,6 +21,23 @@ public class MathHelper {
         return Math.rint(value);
     }
 
+    /** C# Math.Sign(double): returns -1/0/1 (Java Math.signum returns a double). */
+    public static int sign(double value) {
+        return (int) Math.signum(value);
+    }
+
+    public static int sign(float value) {
+        return (int) Math.signum(value);
+    }
+
+    public static int sign(long value) {
+        return Long.signum(value);
+    }
+
+    public static int sign(int value) {
+        return Integer.signum(value);
+    }
+
     /** C# Math.Round(double, int): banker's rounding at the requested decimal scale. */
     public static double round(double value, int digits) {
         if (digits < 0 || digits > 15) {

@@ -250,6 +250,22 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
         return stream().collect(collector);
     }
 
+    /** C# Enumerable.GroupBy(keySelector): materialized grouping. */
+    default <K> CSharpDictionary<K, CSharpList<T>> collect(
+            java.util.function.Function<? super T, ? extends K> keySelector) {
+        CSharpDictionary<K, CSharpList<T>> result = new CSharpDictionary<>();
+        for (T element : this) {
+            K key = keySelector.apply(element);
+            CSharpList<T> bucket = result.get(key);
+            if (bucket == null) {
+                bucket = new CSharpList<>();
+                result.put(key, bucket);
+            }
+            bucket.add(element);
+        }
+        return result;
+    }
+
     /** C# Enumerable.Reverse(): a new reversed sequence (List.Reverse() is a
      * separate in-place void method on CSharpList, hence the distinct name). */
     default CSharpGenericIterable<T> reverseSequence() {
