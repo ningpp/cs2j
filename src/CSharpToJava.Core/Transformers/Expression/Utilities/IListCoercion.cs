@@ -38,7 +38,19 @@ internal static class IListCoercion
         // Only IList-family targets: all C# flavours map to CSharpIList[<T>].
         var mappedTarget = context.MapType(target);
         if (!mappedTarget.StartsWith("CSharpIList", StringComparison.Ordinal))
+        {
+            // ICollection<T> target receiving a CSharpIList value: the compat
+            // interfaces are parallel, so adapt through the typed view.
+            if (mappedTarget.StartsWith("CSharpICollection", StringComparison.Ordinal)
+                && context.GetTypeInfo(source).Type is { } sourceSymbol
+                && context.MapType(sourceSymbol).StartsWith("CSharpIList", StringComparison.Ordinal))
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpICollection");
+                rendered = $"CSharpICollection.fromTyped({text})";
+                return true;
+            }
             return false;
+        }
 
         // Already the adapter (e.g. a ternary whose arms were bridged): never
         // wrap the bridge again.

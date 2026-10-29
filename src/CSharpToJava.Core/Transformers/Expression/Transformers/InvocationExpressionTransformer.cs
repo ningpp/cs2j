@@ -3455,6 +3455,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return true;
             }
 
+            // double.ToString("0.00"): Java primitives cannot be dereferenced;
+            // route the C# numeric format through the culture-aware formatter.
+            if (args.Count == 1
+                && boxed is "Double" or "Float"
+                && args[0].Expression is LiteralExpressionSyntax numberFormat
+                && numberFormat.IsKind(SyntaxKind.StringLiteralExpression))
+            {
+                context.AddImport("io.github.ningpp.compat.StringHelper");
+                context.AddImport("io.github.ningpp.compat.CultureInfo");
+                rendered = "StringHelper.formatCs(CultureInfo.getInvariantCulture(), "
+                    + $"\"{{0:{numberFormat.Token.ValueText}}}\", {receiver})";
+                return true;
+            }
+
             var providerOnly = args.Count == 0
                 || (args.Count == 1
                     && !args[0].RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
