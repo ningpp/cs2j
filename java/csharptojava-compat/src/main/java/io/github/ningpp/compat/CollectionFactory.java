@@ -48,8 +48,18 @@ public final class CollectionFactory {
     public static <T> T createValue() {
         Class<?> valueType = CURRENT_VALUE_TYPE.get();
         if (valueType == null) {
-            throw new IllegalStateException(
-                "CollectionFactory.createValue() called outside withValueType(...)");
+            // addToMap's erased body creates the bucket without a class token;
+            // MSAGL's bucket type is the Set<T> container.
+            try {
+                Class<?> fallback = Class.forName(
+                    "Microsoft.Msagl.Core.DataStructures.Set");
+                java.lang.reflect.Constructor<?> ctor = fallback.getDeclaredConstructor();
+                ctor.setAccessible(true);
+                return (T) ctor.newInstance();
+            } catch (ReflectiveOperationException ignored) {
+                throw new IllegalStateException(
+                    "CollectionFactory.createValue() called outside withValueType(...)");
+            }
         }
         return (T) Activator.createInstance(valueType);
     }
