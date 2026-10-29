@@ -50,6 +50,7 @@ public class FileHelper {
     }
 
     private static InputStream openReadStream(String path) throws FileNotFoundException {
+        path = resolveTestResourcePath(path);
         try {
             return new FileInputStream(path);
         } catch (FileNotFoundException fileNotFound) {
@@ -57,6 +58,46 @@ public class FileHelper {
             if (resource != null) return resource;
             throw fileNotFound;
         }
+    }
+
+    private static String resolveTestResourcePath(String path) {
+        java.io.File file = new java.io.File(path);
+        if (file.exists()) {
+            return path;
+        }
+        String marker = java.io.File.separator + "src" + java.io.File.separator
+            + "test" + java.io.File.separator + "resources" + java.io.File.separator;
+        int index = path.indexOf(marker);
+        if (index >= 0) {
+            String prefix = path.substring(0, index + marker.length());
+            String suffix = path.substring(index + marker.length());
+            String candidate = prefix + "Resources" + java.io.File.separator + suffix;
+            if (new java.io.File(candidate).exists()) {
+                return candidate;
+            }
+            String geometry = prefix + "Resources" + java.io.File.separator
+                + "MSAGLGeometryGraphs" + java.io.File.separator
+                + new java.io.File(path).getName();
+            if (new java.io.File(geometry).exists()) {
+                return geometry;
+            }
+        }
+        String backslashMarker = "\\src\\test\\resources\\";
+        int backslashIndex = path.indexOf(backslashMarker);
+        if (backslashIndex >= 0) {
+            String prefix = path.substring(0, backslashIndex + backslashMarker.length());
+            String suffix = path.substring(backslashIndex + backslashMarker.length());
+            String candidate = prefix + "Resources\\" + suffix;
+            if (new java.io.File(candidate).exists()) {
+                return candidate;
+            }
+            String geometry = prefix + "Resources\\MSAGLGeometryGraphs\\"
+                + new java.io.File(path).getName();
+            if (new java.io.File(geometry).exists()) {
+                return geometry;
+            }
+        }
+        return path;
     }
 
     private static InputStream openClasspathResource(String path) {

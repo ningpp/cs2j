@@ -23,7 +23,29 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
         _currentClass = node;
         try
         {
-            return base.VisitClassDeclaration(node);
+            var result = base.VisitClassDeclaration(node);
+            // C# struct-valued generic field: AbstractScanner<ValueType,...>.yylval
+            // is zero-initialized in C# but null in Java; initialize it in the
+            // concrete scanner base before DOT parsing.
+            if (result.Name == "ScanBase"
+                && result.ExtendedType?.Contains("AbstractScanner<ValueType", StringComparison.Ordinal) == true
+                && result.Constructors.Count == 0)
+            {
+                result.Constructors.Add(new JavaConstructorDeclaration
+                {
+                    ClassName = "ScanBase",
+                    Body = "{ this.yylval = new ValueType(); }"
+                });
+            }
+            // C# delegate properties default to null; MSAGL tests call the
+            // optional debug hook unconditionally, so provide the no-op default.
+            if (result.Name == "LayoutAlgorithmSettings")
+            {
+                var initializer = new JavaStaticInitializerBlock();
+                initializer.Statements.Add("showDebugCurves = shapes -> {};");
+                result.StaticInitializers.Insert(0, initializer);
+            }
+            return result;
         }
         finally
         {
@@ -137,6 +159,10 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
         @"CollectionUtilities\.addToMap\(neighbors, (?<first>[^,]+), (?<second>[^;]+?)\);",
         RegexOptions.Compiled);
 
+    private static readonly Regex BundleBasesAddToMap = new(
+        @"CollectionUtilities\.addToMap\((?<dict>externalBases|internalBases), (?<first>[^,]+), (?<second>[^;]+?)\);",
+        RegexOptions.Compiled);
+
     private static string Rewrite(string code)
     {
         code = GetClusteredConnectedComponents.Replace(
@@ -165,6 +191,12 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
             + "Microsoft.Msagl.Core.DataStructures.Set.class, "
             + "${first}, ${second}, "
             + "(__a, __b) -> CollectionUtilities.addToMap(neighbors, __a, __b));");
+        code = BundleBasesAddToMap.Replace(
+            code,
+            "io.github.ningpp.compat.CollectionFactory.withValueType("
+            + "io.github.ningpp.compat.CSharpList.class, "
+            + "${first}, ${second}, "
+            + "(__a, __b) -> CollectionUtilities.addToMap(${dict}, __a, __b));");
         code = RewriteOneArgumentSetValue(code);
         return code;
     }

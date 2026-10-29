@@ -73,7 +73,9 @@ public class CSharpSortedDict<K, V> implements CSharpGenericIDictionary<K, V>, C
 
     @Override
     public V put(K key, V value) {
-        return map.put(key, value);
+        // C# indexer assignment expression yields the assigned value.
+        map.put(key, value);
+        return value;
     }
 
     @Override
