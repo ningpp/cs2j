@@ -72,9 +72,43 @@ public class StreamReader extends TextReader {
 
     private static InputStream open(String path) {
         try {
-            return new FileInputStream(path);
+            return new FileInputStream(resolveTestResourcePath(path));
         } catch (FileNotFoundException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    /**
+     * Test fixtures keep their payload under src/test/resources/Resources, while
+     * the converted MSTest deployment directory is src/test/resources. Resolve
+     * the physical file by inserting the missing Resources segment.
+     */
+    private static String resolveTestResourcePath(String path) {
+        java.io.File file = new java.io.File(path);
+        if (file.exists()) {
+            return path;
+        }
+        String marker = java.io.File.separator + "src" + java.io.File.separator
+            + "test" + java.io.File.separator + "resources" + java.io.File.separator;
+        int index = path.indexOf(marker);
+        if (index >= 0) {
+            String candidate = path.substring(0, index + marker.length())
+                + "Resources" + java.io.File.separator
+                + path.substring(index + marker.length());
+            if (new java.io.File(candidate).exists()) {
+                return candidate;
+            }
+        }
+        String backslashMarker = "\\src\\test\\resources\\";
+        int backslashIndex = path.indexOf(backslashMarker);
+        if (backslashIndex >= 0) {
+            String candidate = path.substring(0, backslashIndex + backslashMarker.length())
+                + "Resources\\"
+                + path.substring(backslashIndex + backslashMarker.length());
+            if (new java.io.File(candidate).exists()) {
+                return candidate;
+            }
+        }
+        return path;
     }
 }

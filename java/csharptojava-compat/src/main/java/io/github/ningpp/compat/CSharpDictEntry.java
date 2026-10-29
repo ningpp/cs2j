@@ -13,6 +13,7 @@ public final class CSharpDictEntry implements Map.Entry<Object, Object> {
 
     @Override public Object getKey() { return key; }
     @Override public Object getValue() { return value; }
+    public Object set(Object value) { return setValue(value); }
     @Override public Object setValue(Object value) {
         Object previous = this.value;
         this.value = value;

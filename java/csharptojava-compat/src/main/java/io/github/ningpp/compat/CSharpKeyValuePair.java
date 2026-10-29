@@ -28,7 +28,7 @@ public final class CSharpKeyValuePair<K, V> implements Map.Entry<K, V> {
         return value;
     }
 
-    @Override
+    public V set(V value) { return setValue(value); }
     public V setValue(V value) {
         V old = this.value;
         this.value = value;

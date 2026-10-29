@@ -40,6 +40,7 @@ public final class StrongBox<T> {
      *
      * @param value The value to hold.
      */
+    public T set(T value) { setValue(value); return value; }
     public void setValue(T value) {
         this.value = value;
     }

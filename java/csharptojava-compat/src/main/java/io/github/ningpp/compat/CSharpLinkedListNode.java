@@ -21,6 +21,7 @@ public class CSharpLinkedListNode<T> {
         return value;
     }
 
+    public T set(T value) { setValue(value); return value; }
     public void setValue(T value) {
         this.value = value;
     }
