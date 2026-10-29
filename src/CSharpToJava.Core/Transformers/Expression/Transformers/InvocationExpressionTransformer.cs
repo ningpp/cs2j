@@ -564,7 +564,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // the runtime TC to instantiate a new bucket. The call site knows
                 // the closed dictionary value type, so provide it through the
                 // CollectionFactory thread-local for the duration of the call.
-                if (originalName == "AddToMap"
+                if (originalName is "AddToMap" or "addToMap"
                     && (methodSymbol?.ContainingType?.Name == "CollectionUtilities"
                         || memberAccess.Expression is IdentifierNameSyntax
                             { Identifier.Text: "CollectionUtilities" })

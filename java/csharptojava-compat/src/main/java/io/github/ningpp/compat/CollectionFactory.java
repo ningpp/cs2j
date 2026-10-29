@@ -27,6 +27,23 @@ public final class CollectionFactory {
         }
     }
 
+    /** Two-argument variant avoids capturing mutable loop variables in a lambda. */
+    public static <A, B> void withValueType(
+            Class<?> valueType, A first, B second,
+            java.util.function.BiConsumer<A, B> action) {
+        Class<?> previous = CURRENT_VALUE_TYPE.get();
+        CURRENT_VALUE_TYPE.set(valueType);
+        try {
+            action.accept(first, second);
+        } finally {
+            if (previous == null) {
+                CURRENT_VALUE_TYPE.remove();
+            } else {
+                CURRENT_VALUE_TYPE.set(previous);
+            }
+        }
+    }
+
     @SuppressWarnings("unchecked")
     public static <T> T createValue() {
         Class<?> valueType = CURRENT_VALUE_TYPE.get();

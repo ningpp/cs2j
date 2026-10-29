@@ -25,7 +25,14 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
      */
     static Object unwrap(Object value) {
         if (value instanceof CSharpGenericIterable<?> iterable) {
-            return iterable.unwrap();
+            Object inner = iterable.unwrap();
+            return inner == value ? inner : unwrap(inner);
+        }
+        // An array-backed IList must unwrap to the original array (the runtime
+        // component type is preserved), otherwise a C# `(T[])enumerable` cast
+        // sees ArrayBackedListView instead of T[].
+        if (value.getClass().getName().contains("ArrayBackedListView")) {
+            return ((java.util.AbstractList<?>) value).toArray();
         }
         return value;
     }

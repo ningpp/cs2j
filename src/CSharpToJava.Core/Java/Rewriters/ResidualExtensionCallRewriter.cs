@@ -133,6 +133,10 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
         @"(?<field>[A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*\((?<type>[A-Za-z_$][A-Za-z0-9_$]*)\[\]\[\]\)\s*new Object\[(?<length>[^\]]+)\]\[\];",
         RegexOptions.Compiled);
 
+    private static readonly Regex MetroNeighborsAddToMap = new(
+        @"CollectionUtilities\.addToMap\(neighbors, (?<first>[^,]+), (?<second>[^;]+?)\);",
+        RegexOptions.Compiled);
+
     private static string Rewrite(string code)
     {
         code = GetClusteredConnectedComponents.Replace(
@@ -155,6 +159,12 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
             code,
             "${field} = (${type}[][]) io.github.ningpp.compat.CSharpArray"
             + ".newJaggedArray(this.__cs2j_class_${type}, ${length});");
+        code = MetroNeighborsAddToMap.Replace(
+            code,
+            "io.github.ningpp.compat.CollectionFactory.withValueType("
+            + "Microsoft.Msagl.Core.DataStructures.Set.class, "
+            + "${first}, ${second}, "
+            + "(__a, __b) -> CollectionUtilities.addToMap(neighbors, __a, __b));");
         code = RewriteOneArgumentSetValue(code);
         return code;
     }
