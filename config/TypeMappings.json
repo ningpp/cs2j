@@ -300,6 +300,48 @@
             ]
         },
         {
+            "csharp": "Microsoft.VisualStudio.TestTools.UnitTesting.Assert",
+            "java": "Assert",
+            "imports": [
+                "io.github.ningpp.compat.Assert"
+            ]
+        },
+        {
+            "csharp": "Microsoft.VisualStudio.TestTools.UnitTesting.CollectionAssert",
+            "java": "CollectionAssert",
+            "imports": [
+                "io.github.ningpp.compat.CollectionAssert"
+            ]
+        },
+        {
+            "csharp": "NUnit.Framework.Assert",
+            "java": "Assert",
+            "imports": [
+                "io.github.ningpp.compat.Assert"
+            ]
+        },
+        {
+            "csharp": "NUnit.Framework.CollectionAssert",
+            "java": "CollectionAssert",
+            "imports": [
+                "io.github.ningpp.compat.CollectionAssert"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.ISet`1",
+            "java": "CSharpISet",
+            "imports": [
+                "io.github.ningpp.compat.CSharpISet"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.SortedList`2",
+            "java": "CSharpSortedList",
+            "imports": [
+                "io.github.ningpp.compat.CSharpSortedList"
+            ]
+        },
+        {
             "csharp": "System.Collections.Stack",
             "java": "CSharpStack",
             "imports": [
