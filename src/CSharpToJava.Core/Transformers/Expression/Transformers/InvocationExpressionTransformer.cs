@@ -213,6 +213,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         a, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceDecimalArgument(
                         a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceBoxedFloatingArgument(
+                        a.Expression, text, invocationMethod, index, context);
                     text = ApplyIntegralNarrowing(text, a.Expression, invocationMethod, index, context);
                     return new JavaRawExpression(text);
                 })
@@ -906,6 +908,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     text = ArgumentTransformer.CoerceNullLiteralArgument(
                         a, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceDecimalArgument(
+                        a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceBoxedFloatingArgument(
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceNullTypeWitness(
                         a, text, invocationMethod, index, context);

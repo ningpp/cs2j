@@ -426,6 +426,70 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             || source.TypeKind == TypeKind.Enum;
 
     /// <summary>
+    /// True when a target slot declared as <c>double</c>/<c>float</c> is
+    /// represented by the Java wrapper type instead of the primitive: the slot
+    /// is a generic instantiation (a type parameter substituted with double —
+    /// <c>ByRef&lt;double&gt;.Value</c>, <c>List&lt;double&gt;.Add</c>,
+    /// <c>Dictionary&lt;double, V&gt;.ContainsKey</c>) or a
+    /// <c>Nullable&lt;double&gt;</c>. Java widens int→double only while the
+    /// target stays primitive; at these reference-typed slots the value must
+    /// be cast before javac will box it.
+    /// </summary>
+    public static bool IsBoxedFloatingSlot(ITypeSymbol? targetType, ITypeSymbol? originalDefinitionType)
+    {
+        var unwrapped = UnwrapNullable(targetType);
+        if (unwrapped?.SpecialType is not (SpecialType.System_Double or SpecialType.System_Single))
+            return false;
+        return originalDefinitionType is ITypeParameterSymbol
+            || targetType is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T };
+    }
+
+    /// <summary>
+    /// C# implicit integral → double/float conversion at a slot that Java
+    /// represents with the boxed wrapper. The C# conversion widens while the
+    /// value is still primitive and only then boxes; Java applies no widening
+    /// in a reference-typed invocation/assignment context, so the emitted
+    /// argument needs an explicit cast (<c>setValue(0)</c> →
+    /// <c>setValue((double) (0))</c>). Returns null when no coercion applies.
+    /// </summary>
+    public static string? TryCoerceIntegralToFloating(
+        ExpressionSyntax value, string text, ITypeSymbol? targetType, ConversionContext context)
+    {
+        var target = UnwrapNullable(targetType);
+        if (target?.SpecialType is not (SpecialType.System_Double or SpecialType.System_Single))
+            return null;
+
+        // The source must already be a Java primitive carrier: a nullable
+        // integral (Integer) cannot be widened by a (double) cast, so leave it
+        // to the dedicated nullable lowering.
+        var source = context.GetTypeInfo(value).Type;
+        if (source?.SpecialType is not (SpecialType.System_SByte
+            or SpecialType.System_Byte
+            or SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_Int32
+            or SpecialType.System_Int64
+            or SpecialType.System_Char))
+        {
+            // uint/ulong carriers are excluded: their Java int/long carrier may
+            // hold a wrapped bit pattern, so a direct (double) cast would not
+            // reproduce the C# unsigned value.
+            return null;
+        }
+
+        var cast = target.SpecialType == SpecialType.System_Single ? "float" : "double";
+        if (text.TrimStart().StartsWith($"({cast})", StringComparison.Ordinal))
+            return null;
+        return $"({cast}) ({text})";
+    }
+
+    private static ITypeSymbol? UnwrapNullable(ITypeSymbol? type)
+        => type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable
+           && nullable.TypeArguments.Length == 1
+            ? nullable.TypeArguments[0]
+            : type;
+
+    /// <summary>
     /// Implicit C# numeric → decimal conversion at an assignment/argument slot
     /// whose target type is System.Decimal (real chains: SchemaSetCompiler's
     /// <c>virtualSeq.MinOccurs = 1</c>, Exporter's <c>int minOccurs</c> into

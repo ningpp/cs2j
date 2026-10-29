@@ -80,6 +80,14 @@ public class ElementAccessTransformer : IIRExpressionTransformer
                 {
                     var targetIR = facade.TransformToIR(elemAccess.Expression, context);
                     var indexIR = facade.TransformToIR(arg, context);
+                    if (isMap && exprType is INamedTypeSymbol mapNamed
+                        && mapNamed.TypeArguments.Length >= 1
+                        && TypeOperationTransformer.TryCoerceIntegralToFloating(
+                            arg, indexIR.ToInlineString(), mapNamed.TypeArguments[0], context)
+                        is { } coercedIndex)
+                    {
+                        indexIR = new JavaRawExpression(coercedIndex);
+                    }
                     var methodName = isString ? "charAt"
                         : (isMap && IsCheckedDictionaryTypeName(namedFullName) ? "getChecked" : "get");
                     var call = new JavaMethodCallExpression { Target = targetIR, MethodName = methodName };
@@ -245,6 +253,10 @@ public class ElementAccessTransformer : IIRExpressionTransformer
                 else if (isList)
                     indexType = context.SemanticModel?.Compilation.GetSpecialType(SpecialType.System_Int32);
             }
+            // Map keys are boxed type arguments in Java: C# implicit integral →
+            // double on Dictionary<double, V>[intExpr] needs an explicit cast.
+            if (isMap)
+                idx = TypeOperationTransformer.TryCoerceIntegralToFloating(arg, idx, indexType, context) ?? idx;
             // Java arrays require int indices. C# allows long/ulong for array
             // indexing implicitly — narrow with an explicit (int) cast.
             if (isArray && context.SemanticModel != null)

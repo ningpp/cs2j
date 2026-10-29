@@ -132,7 +132,21 @@ public partial class StatementTransformer
             }
         }
         if (!declared)
-            sb.Append($"var {tmp} = {f.Transform(current, ctx)};");
+        {
+            // The chain's static type is the innermost target's type. Keep the
+            // Java temp primitive for a double/float chain: C# boxes 0 as 0.0
+            // there, while `var tmp = 0` would hold an int and the property
+            // setters on ByRef<Double> would reject it.
+            var chainPrimitive = ctx.GetTypeInfo(head).Type?.SpecialType switch
+            {
+                SpecialType.System_Double => "double",
+                SpecialType.System_Single => "float",
+                _ => null,
+            };
+            sb.Append(chainPrimitive == null
+                ? $"var {tmp} = {f.Transform(current, ctx)};"
+                : $"{chainPrimitive} {tmp} = {f.Transform(current, ctx)};");
+        }
 
         // 由内向外 = C# 链式赋值求值顺序。
         for (var i = targets.Count - 1; i >= 0; i--)

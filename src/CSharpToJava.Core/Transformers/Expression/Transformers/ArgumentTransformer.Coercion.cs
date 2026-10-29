@@ -232,6 +232,35 @@ public partial class ArgumentTransformer
         return coerced ?? text;
     }
 
+    /// <summary>
+    /// Direct invocation path (which bypasses <see cref="CoerceArgumentType"/>):
+    /// C# implicitly widens an integral argument to a double/float parameter,
+    /// but when the parameter is a generic instantiation the Java parameter is
+    /// the boxed wrapper (ByRef&lt;Double&gt;.setValue, List&lt;Double&gt;.add,
+    /// Dictionary&lt;Double, V&gt;.containsKey) — no int→Double conversion is
+    /// applied there, so the argument needs an explicit cast.
+    /// </summary>
+    public static string CoerceBoxedFloatingArgument(
+        ExpressionSyntax argument,
+        string text,
+        IMethodSymbol? method,
+        int index,
+        ConversionContext context)
+    {
+        if (method == null || index >= method.Parameters.Length)
+            return text;
+
+        var parameter = method.Parameters[index];
+        if (!TypeOperationTransformer.IsBoxedFloatingSlot(
+                parameter.Type, parameter.OriginalDefinition.Type))
+        {
+            return text;
+        }
+
+        return TypeOperationTransformer.TryCoerceIntegralToFloating(
+            argument, text, parameter.Type, context) ?? text;
+    }
+
     private static bool IsSpanOfT(ITypeSymbol? type, string name)
         => type is INamedTypeSymbol named
            && named.Name == name
@@ -360,6 +389,17 @@ public partial class ArgumentTransformer
             is { } decimalCoerced)
         {
             return decimalCoerced;
+        }
+
+        // Implicit C# integral → double/float conversion at a generic parameter
+        // slot: the Java parameter is the boxed wrapper, where javac applies no
+        // int→double widening (containsKey(Double) rejects an int key).
+        if (TypeOperationTransformer.IsBoxedFloatingSlot(
+                paramType, targetParam.OriginalDefinition.Type)
+            && TypeOperationTransformer.TryCoerceIntegralToFloating(
+                arg.Expression, transformedExpr, paramType, context) is { } floatingCoerced)
+        {
+            return floatingCoerced;
         }
 
         if (arg.Expression is ThisExpressionSyntax

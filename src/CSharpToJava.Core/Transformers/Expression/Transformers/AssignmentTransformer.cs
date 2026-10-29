@@ -202,6 +202,13 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // `el.MinOccurs = 0`、SchemaSetCompiler `virtualSeq.MinOccurs = 1`）：
         // setter 形参落 compat Decimal，数值须经 Decimal.valueOf 包装。
         right = TypeOperationTransformer.TryCoerceToDecimal(a.Right, right, p.Type, c) ?? right;
+        // 泛型实例化的 double/float 属性（ref-out-in 的 ByRef<double>.Value）：
+        // Java setter 形参是装箱 Double，int 实参须显式加宽后再装箱。
+        if (TypeOperationTransformer.IsBoxedFloatingSlot(p.Type, p.OriginalDefinition.Type))
+        {
+            right = TypeOperationTransformer.TryCoerceIntegralToFloating(
+                a.Right, right, p.Type, c) ?? right;
+        }
 
         // TypeMappings may rename the property's accessor pair (see
         // IdentifierExpressionTransformer.TransformMemberAccess for the read
@@ -273,8 +280,25 @@ public class AssignmentTransformer : IIRExpressionTransformer
     {
         var f = ExpressionTransformerFacade.Instance;
         var target = f.Transform(ea.Expression, c);
-        var args = string.Join(", ", ea.ArgumentList.Arguments.Select(x => f.Transform(x.Expression, c)));
+        // Dictionary/Map indexers are generic in Java: the key and value slots
+        // are the boxed wrappers, so C# implicit integral → double conversions
+        // (d[0] = v on Dictionary<double, V>) need an explicit cast.
+        var isMap = IsDictionary(ea.Expression, c);
+        var indexer = c.GetSymbolInfo(ea).Symbol as IPropertySymbol;
+        var args = string.Join(", ", ea.ArgumentList.Arguments.Select((x, i) =>
+        {
+            var text = f.Transform(x.Expression, c);
+            if (!isMap || indexer == null || i >= indexer.Parameters.Length)
+                return text;
+            return TypeOperationTransformer.TryCoerceIntegralToFloating(
+                x.Expression, text, indexer.Parameters[i].Type, c) ?? text;
+        }));
         var val = f.Transform(rhs, c);
+        if (compoundOp == null && isMap && indexer != null)
+        {
+            val = TypeOperationTransformer.TryCoerceIntegralToFloating(
+                rhs, val, indexer.Type, c) ?? val;
+        }
         if (compoundOp == null)
             return $"{target}.{setter}({args}, {val})";
         var compoundValue = $"{target}.{getter}({args}) {compoundOp[..^1]} {val}";
