@@ -452,11 +452,17 @@ public class ConversionContext
     /// </summary>
     public static string GetClassLiteral(ITypeSymbol typeSymbol, ConversionContext context)
     {
-        if (typeSymbol is ITypeParameterSymbol)
+        if (typeSymbol is ITypeParameterSymbol typeParameter)
         {
             // Java has no runtime token for an erased type parameter. Call sites that
             // carry a generic-deepen anchor render it explicitly; every other path
-            // degrades to Object.class (e.g. `new T[n]` on an erased element type).
+            // degrades to the constrained bound (or Object.class when unconstrained,
+            // e.g. `new T[n]` on an erased element type).
+            var bound = typeParameter.ConstraintTypes.FirstOrDefault();
+            if (bound is INamedTypeSymbol && bound.SpecialType != SpecialType.System_Object)
+            {
+                return GetClassLiteral(bound, context);
+            }
             return "Object.class";
         }
         if (typeSymbol.SpecialType == SpecialType.System_Int32) return "int.class";

@@ -34,6 +34,12 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
     @SuppressWarnings("unchecked")
     static <T> T tryAs(Object value, Class<T> type) {
         Object unwrapped = unwrap(value);
+        if (type == CSharpIList.class
+            && !(unwrapped instanceof CSharpIList)
+            && unwrapped instanceof Iterable<?>)
+        {
+            return (T) CSharpIList.fromAny(unwrapped);
+        }
         return type.isInstance(unwrapped) ? (T) unwrapped : null;
     }
 
@@ -174,6 +180,12 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
         }
         if (value instanceof CSharpGenericIterable) {
             return (CSharpGenericIterable) value;
+        }
+        // A GroupBy dictionary entry represents the C# IGrouping: its value is the
+        // group's element list when the grouping is used as IEnumerable.
+        if (value instanceof java.util.Map.Entry<?, ?> entry
+            && entry.getValue() instanceof Iterable<?> groupValues) {
+            return from(groupValues);
         }
         if (value instanceof Iterable) {
             return from((Iterable<?>) value);

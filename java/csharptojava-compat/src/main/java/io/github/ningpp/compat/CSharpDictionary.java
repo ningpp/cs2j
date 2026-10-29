@@ -191,9 +191,11 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
 
     @Override
     public V put(K key, V value) {
-        // C# keeps the key that is already stored; only the value is replaced.
+        // C# indexer assignment expression yields the assigned value (unlike
+        // java.util.Map.put, which yields the previous value).
         K stored = storedKey(key);
-        return map.put(stored == null ? key : stored, value);
+        map.put(stored == null ? key : stored, value);
+        return value;
     }
 
     @Override

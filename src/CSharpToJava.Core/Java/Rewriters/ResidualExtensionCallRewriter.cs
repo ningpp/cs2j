@@ -129,6 +129,10 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
         @"(?<call>rTreeQuery_[A-Za-z0-9_]+)\((?<first>[^,]+), (?<second>[A-Za-z_$][A-Za-z0-9_$]*),",
         RegexOptions.Compiled);
 
+    private static readonly Regex GenericJaggedArray = new(
+        @"(?<field>[A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*\((?<type>[A-Za-z_$][A-Za-z0-9_$]*)\[\]\[\]\)\s*new Object\[(?<length>[^\]]+)\]\[\];",
+        RegexOptions.Compiled);
+
     private static string Rewrite(string code)
     {
         code = GetClusteredConnectedComponents.Replace(
@@ -147,6 +151,10 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
         code = RTreeRefArgument.Replace(
             code,
             "${call}(${first}, new io.github.ningpp.compat.ObjectHolder<>(${second}),");
+        code = GenericJaggedArray.Replace(
+            code,
+            "${field} = (${type}[][]) io.github.ningpp.compat.CSharpArray"
+            + ".newJaggedArray(this.__cs2j_class_${type}, ${length});");
         return code;
     }
 

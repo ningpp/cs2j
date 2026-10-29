@@ -614,7 +614,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     {
         var left = Expr(c, n.Left);
         if (c.GetTypeInfo(n.Right).Type is ITypeParameterSymbol tp)
-            return $"{TypeParameterToken(n, tp)}.isInstance({left})"; // Java forbids instanceof T
+            return $"{TypeParameterToken(n, tp, c)}.isInstance({left})"; // Java forbids instanceof T
         // System.Array 装载的数组经 array-method 归一为 CSharpArray 视图；
         // `x is T[]` 的 instanceof 对 CSharpArray 恒为 false（且 javac 拒绝
         // CSharpArray→T[] 的不可转换比较），须经 tryAs 解包判定。
@@ -731,7 +731,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     }
     private static string TypeOf(TypeOfExpressionSyntax n, ConversionContext c)
     {
-        if (c.GetTypeInfo(n.Type).Type is ITypeParameterSymbol tp) return TypeParameterToken(n, tp);
+        if (c.GetTypeInfo(n.Type).Type is ITypeParameterSymbol tp) return TypeParameterToken(n, tp, c);
         // Unbound generic `typeof(X<>)` (real chain Types.IsOptionalValue's
         // `typeof(Nullable<>).GetGenericTypeDefinition()`): GetTypeInfo yields the
         // constructed definition, whose empty argument list otherwise falls through
@@ -843,7 +843,7 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     /// <c>Object.class</c> so the generated expression always references a
     /// declared symbol.
     /// </summary>
-    private static string TypeParameterToken(SyntaxNode site, ITypeParameterSymbol typeParameter)
+    private static string TypeParameterToken(SyntaxNode site, ITypeParameterSymbol typeParameter, ConversionContext context)
     {
         var anchorName = "__cs2j_token_" + typeParameter.Name;
         // Only locals injected into the enclosing executable scope are usable; a
@@ -858,13 +858,22 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             .OfType<VariableDeclaratorSyntax>()
             .FirstOrDefault(v => v.Identifier.Text == anchorName);
         if (anchor == null)
-            return "Object.class";
+            return TypeParameterBoundClassLiteral(typeParameter, context);
 
         // The anchor's own `= typeof(T)` must not reference the variable being declared.
         if (anchor.Initializer?.Span.Contains(site.Span) == true)
-            return "Object.class";
+            return TypeParameterBoundClassLiteral(typeParameter, context);
 
         return anchorName;
+    }
+
+    private static string TypeParameterBoundClassLiteral(
+        ITypeParameterSymbol typeParameter, ConversionContext context)
+    {
+        var bound = typeParameter.ConstraintTypes.FirstOrDefault();
+        return bound is INamedTypeSymbol && bound.SpecialType != SpecialType.System_Object
+            ? ConversionContext.GetClassLiteral(bound, context)
+            : "Object.class";
     }
     /// <summary>Primitives get zero, structs get new T(), Nullable/enum-default etc. as shown; otherwise null.</summary>
     internal static string GetDefaultValueForType(string typeName, ITypeSymbol? typeSymbol, ConversionContext context)

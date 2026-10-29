@@ -613,6 +613,11 @@ public final class CSharpArray implements Iterable<Object> {
      * @param length The number of elements in the array.
      * @return The newly created array as a CSharpArray view.
      */
+    /** Creates an n x 0 jagged array whose runtime component type is elementType. */
+    public static Object newJaggedArray(Class<?> elementType, int length) {
+        return java.lang.reflect.Array.newInstance(elementType, length, 0);
+    }
+
     public static CSharpArray createInstance(Class<?> elementType, int length) {
         if (elementType == null) {
             throw new ArgumentNullException("elementType");

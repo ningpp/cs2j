@@ -244,6 +244,30 @@ public interface CSharpIList<T> extends CSharpCollection {
      * IList.Add.
      */
     @SuppressWarnings({ "unchecked", "rawtypes" })
+    /** Materializes any iterable/array as a CSharpIList adapter. */
+    static CSharpIList fromAny(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof CSharpIList) {
+            return (CSharpIList) value;
+        }
+        CSharpList<Object> list = new CSharpList<>();
+        if (value.getClass().isArray()) {
+            int length = java.lang.reflect.Array.getLength(value);
+            for (int i = 0; i < length; i++) {
+                list.add(java.lang.reflect.Array.get(value, i));
+            }
+        } else if (value instanceof Iterable<?> iterable) {
+            for (Object item : iterable) {
+                list.add(item);
+            }
+        } else {
+            list.add(value);
+        }
+        return from(list);
+    }
+
     static CSharpIList from(CSharpGenericIList<?> list) {
         if (list == null) {
             return null;

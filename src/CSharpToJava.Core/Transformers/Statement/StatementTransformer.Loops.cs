@@ -108,6 +108,15 @@ public partial class StatementTransformer
         }
 
         var expression = exprTransformer.Transform(stmt.Expression, context);
+        // A residual LINQ Where/Select pipeline is a java.util.stream.Stream, not
+        // an Iterable; materialize it before the enhanced-for cast.
+        if (context.GetTypeInfo(stmt.Expression).Type is not IArrayTypeSymbol
+            && expression.Contains("StreamSupport.stream", StringComparison.Ordinal)
+            && !expression.Contains(".collect(", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            expression = $"CSharpGenericIterable.fromAnyTyped({expression})";
+        }
 
         var expressionType = context.GetTypeInfo(stmt.Expression).Type;
         if (expressionType?.SpecialType == SpecialType.System_String)
