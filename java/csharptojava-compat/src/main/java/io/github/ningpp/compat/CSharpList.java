@@ -259,6 +259,14 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
         for (T item : arr) add(item);
     }
 
+    /** C# List.AddRange(IEnumerable&lt;T&gt;) where the compat value is the erased IList view. */
+    @SuppressWarnings("unchecked")
+    public void addRange(CSharpIList<?> list) {
+        for (Object item : list) {
+            add((T) item);
+        }
+    }
+
     /** C# List&lt;byte&gt;.AddRange(byte[]) — boxes each byte as Integer. */
     public void addRange(byte[] arr) {
         for (byte item : arr) {

@@ -2855,6 +2855,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return true;
         }
 
+        if (argCount == 0 && name == "Reverse"
+            && context.GetTypeInfo(memberAccess.Expression).Type is IArrayTypeSymbol)
+        {
+            context.AddImport("io.github.ningpp.compat.ArrayHelper");
+            rendered = $"ArrayHelper.reverseSequence({receiver})";
+            return true;
+        }
+
         if (argCount == 0 && name == "AsEnumerable")
         {
             context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");

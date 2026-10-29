@@ -21,6 +21,14 @@ public class CSharpQueue<T> implements CSharpGenericIterable<T>, Cloneable {
         this.queue = new LinkedList<>(c);
     }
 
+    /** C# new Queue&lt;T&gt;(IEnumerable&lt;T&gt;) / Queue&lt;T&gt;(T[]). */
+    public CSharpQueue(T[] values) {
+        this.queue = new LinkedList<>();
+        for (T value : values) {
+            this.queue.addLast(value);
+        }
+    }
+
     public void enqueue(T item) {
         queue.addLast(item);
     }

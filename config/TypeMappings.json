@@ -2397,6 +2397,13 @@
             ]
         },
         {
+            "csharp": "System.Xml.XmlConvert",
+            "java": "XmlConvert",
+            "imports": [
+                "dotnet.xml.XmlConvert"
+            ]
+        },
+        {
             "csharp": "System.Xml.ReadState",
             "java": "ReadState",
             "imports": [

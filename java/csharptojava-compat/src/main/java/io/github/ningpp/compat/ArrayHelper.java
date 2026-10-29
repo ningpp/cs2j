@@ -344,6 +344,18 @@ public class ArrayHelper {
         sortParallel(keys, items);
     }
 
+    /** C# Enumerable.Reverse() on an array receiver (the array has no instance methods). */
+    public static Object reverseSequence(Object array) {
+        int length = java.lang.reflect.Array.getLength(array);
+        for (int i = 0; i < length / 2; i++) {
+            Object left = java.lang.reflect.Array.get(array, i);
+            Object right = java.lang.reflect.Array.get(array, length - 1 - i);
+            java.lang.reflect.Array.set(array, i, right);
+            java.lang.reflect.Array.set(array, length - 1 - i, left);
+        }
+        return array;
+    }
+
     /** C# Array.Sort(int[], Comparison&lt;int&gt;) / IComparer&lt;int&gt;. */
     public static void sort(int[] array, java.util.Comparator<Integer> comparator) {
         Integer[] boxed = new Integer[array.length];
