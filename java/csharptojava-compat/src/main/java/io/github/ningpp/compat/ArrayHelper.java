@@ -335,6 +335,24 @@ public class ArrayHelper {
         return copy;
     }
     /** Mirrors C# Array.Sort(double[] keys, int[] items): sorts keys ascending, reorders items to match. */
+    public static void sort(double[] keys, int[] items) {
+        sortParallel(keys, items);
+    }
+
+    /** Mirrors C# Array.Sort(double[] keys, T[] items): sorts keys ascending, reorders items to match. */
+    public static <T> void sort(double[] keys, T[] items) {
+        sortParallel(keys, items);
+    }
+
+    /** C# Array.Sort(int[], Comparison&lt;int&gt;) / IComparer&lt;int&gt;. */
+    public static void sort(int[] array, java.util.Comparator<Integer> comparator) {
+        Integer[] boxed = new Integer[array.length];
+        for (int i = 0; i < array.length; i++) boxed[i] = array[i];
+        Arrays.sort(boxed, comparator);
+        for (int i = 0; i < array.length; i++) array[i] = boxed[i];
+    }
+
+    /** Mirrors C# Array.Sort(double[] keys, int[] items): sorts keys ascending, reorders items to match. */
     public static void sortParallel(double[] keys, int[] items) {
         int n = keys.length;
         Integer[] indices = new Integer[n];
