@@ -583,6 +583,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     }
 
                     WrapSortKeySelectorInComparator(call, memberAccess.Name.Identifier.Text, context);
+
+                    // System.IO.TextWriter.Write/WriteLine 复合格式重载（IR 路径孪生，
+                    // 见字符串路径 TryBridgeTextWriterFormatCall 注释）。
+                    if (IsTextWriterFormatMappedCall(invocation, mappedName, context)
+                        && arguments.Count >= 2
+                        && context.GetTypeInfo(invocation.ArgumentList.Arguments[0].Expression).Type?.SpecialType
+                            == SpecialType.System_String)
+                    {
+                        context.AddImport("io.github.ningpp.compat.TextWriterHelper");
+                        var helper = mappedName == "println" ? "writeFormatLine" : "writeFormat";
+                        var joinedArguments = string.Join(", ",
+                            new[] { receiverText }.Concat(arguments.Select(a => a.ToInlineString())));
+                        return new JavaRawExpression($"TextWriterHelper.{helper}({joinedArguments})");
+                    }
+
                     return call;
                 }
 
@@ -1289,6 +1304,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     // StringHelper.formatCs（与 StringBuilder AppendFormat 桥接同一助手）。
                     if (TryBridgeConsoleFormatCall(node, mappedName, arguments, context, out var consoleFormatArgs))
                         arguments = consoleFormatArgs;
+
+                    // System.IO.TextWriter.Write/WriteLine(string format, args…)
+                    // （Console.Error/Console.Out 的成员解析到 TextWriter）映射
+                    // print/println 后同样 arity 失配；Java 面改走 TextWriterHelper。
+                    if (TryBridgeTextWriterFormatCall(node, mappedName, receiver, arguments, context, out var textWriterFormatCall))
+                        return textWriterFormatCall;
 
                     // LINQ Single/SingleOrDefault 映射到流方法 findAny，但具体化集合
                     // 接收器（接口映射常返回 java.util.List/CSharpList）没有 findAny
@@ -3626,6 +3647,50 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         bridgedArguments = $"StringHelper.formatCs({string.Join(", ", parts)})";
         return true;
     }
+
+    /// <summary>
+    /// System.IO.TextWriter.Write/WriteLine(string format, args…) → print/println
+    /// 桥接：Console.Error/Console.Out 的成员解析到 TextWriter（不是 Console），
+    /// Java PrintStream/PrintWriter 没有 (String, Object) 形态。改走 compat
+    /// TextWriterHelper.writeFormat/writeFormatLine（复合格式 + 流）。
+    /// 普通 Write(object)/WriteLine() 实参少于 2 个，不命中，保持原样。
+    /// </summary>
+    private static bool TryBridgeTextWriterFormatCall(
+        InvocationExpressionSyntax node,
+        string mappedName,
+        string receiver,
+        string arguments,
+        ConversionContext context,
+        out string bridgedCall)
+    {
+        bridgedCall = string.Empty;
+        if (!IsTextWriterFormatMappedCall(node, mappedName, context))
+            return false;
+
+        var parts = SplitTopLevelArguments(arguments);
+        if (parts.Count < 2)
+            return false;
+        if (context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type?.SpecialType
+            != SpecialType.System_String)
+            return false;
+
+        context.AddImport("io.github.ningpp.compat.TextWriterHelper");
+        var helper = mappedName == "println" ? "writeFormatLine" : "writeFormat";
+        bridgedCall = $"TextWriterHelper.{helper}({receiver}, {string.Join(", ", parts)})";
+        return true;
+    }
+
+    /// <summary>
+    /// 被调是否为映射到 print/println 的 System.IO.TextWriter 方法
+    /// （Console.Error/Console.Out 上的 Write/WriteLine 由它承载）。
+    /// </summary>
+    private static bool IsTextWriterFormatMappedCall(
+        InvocationExpressionSyntax invocation,
+        string mappedName,
+        ConversionContext context)
+        => mappedName is "println" or "print"
+           && context.GetSymbolInfo(invocation).Symbol is IMethodSymbol method
+           && method.ContainingType?.ToDisplayString() == "System.IO.TextWriter";
 
     /// <summary>
     /// 点分静态 compat 助手映射（如 System.Exception.InnerException →
