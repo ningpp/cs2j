@@ -834,8 +834,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             && delegateType.ContainingNamespace?.ToDisplayString() == "System"
             && ((delegateType.Name == "Func" && delegateType.TypeArguments.Length == 2
                  && delegateType.TypeArguments[1].SpecialType == SpecialType.System_Boolean)
+                || (delegateType.Name == "Func" && delegateType.TypeArguments.Length == 3
+                    && delegateType.TypeArguments[2].SpecialType == SpecialType.System_Boolean)
                 || (delegateType.Name == "Predicate" && delegateType.TypeArguments.Length == 1))
-            && methodSymbol.Parameters.Length == 1
+            && methodSymbol.Parameters.Length is 1 or 2
                 ? "test"
                 : DelegateTransformer.InferSamMethodName(
                     methodSymbol.ReturnsVoid, methodSymbol.Parameters.Length);
@@ -1391,8 +1393,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         && delegateType2.ContainingNamespace?.ToDisplayString() == "System"
                         && ((delegateType2.Name == "Func" && delegateType2.TypeArguments.Length == 2
                              && delegateType2.TypeArguments[1].SpecialType == SpecialType.System_Boolean)
+                            || (delegateType2.Name == "Func" && delegateType2.TypeArguments.Length == 3
+                                && delegateType2.TypeArguments[2].SpecialType == SpecialType.System_Boolean)
                             || (delegateType2.Name == "Predicate" && delegateType2.TypeArguments.Length == 1))
-                        && explicitDelegateInvoke.Parameters.Length == 1
+                        && explicitDelegateInvoke.Parameters.Length is 1 or 2
                             ? "test"
                             : DelegateTransformer.InferSamMethodName(
                                 explicitDelegateInvoke.ReturnsVoid, explicitDelegateInvoke.Parameters.Length);

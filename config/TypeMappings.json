@@ -6683,6 +6683,16 @@
             "javaMethod": "ReadState"
         },
         {
+            "type": "System.Xml.XmlTextReader",
+            "method": "LineNumber",
+            "javaMethod": "LineNumber"
+        },
+        {
+            "type": "System.Xml.XmlTextReader",
+            "method": "LinePosition",
+            "javaMethod": "LinePosition"
+        },
+        {
             "type": "System.Xml.XmlReaderSettings",
             "method": "IgnoreComments",
             "javaMethod": "IgnoreComments"
