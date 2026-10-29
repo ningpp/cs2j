@@ -49,6 +49,17 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
         return it.hasNext() ? it.next() : null;
     }
 
+    /**
+     * C# Enumerable.Any() without a predicate: true when the sequence has at
+     * least one element. The method mapping lowers {@code xs.Any()} to
+     * {@code anyMatch()}, but the java.util.stream shape requires a Predicate;
+     * this no-arg default keeps the C# contract on the erased iterable carrier
+     * (real chain: AGL tools/ArgsParser UsageString).
+     */
+    default boolean anyMatch() {
+        return iterator().hasNext();
+    }
+
     static <T> CSharpGenericIterable<T> from(Iterable<? extends T> iterable) {
         // C# IEnumerable<T> is a reference type: a null source must stay null.
         // Wrapping null in an anonymous CSharpGenericIterable would create a
