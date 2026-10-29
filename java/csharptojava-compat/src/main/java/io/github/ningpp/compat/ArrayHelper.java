@@ -543,9 +543,13 @@ public class ArrayHelper {
             // 私有嵌套的 struct 派生类（真实链 XmlNamespaceManager.NamespaceDeclaration）
             // 的构造器反射调用需要显式提权。
             ctor.setAccessible(true);
-            T defaultInstance = ctor.newInstance();
             if (length > 0) {
-                java.util.Arrays.fill(array, defaultInstance);
+                // C# arrays of structs hold independent value copies; filling
+                // every slot with one shared instance aliases mutable struct
+                // state (real chain: XmlWellFormedWriter.ElementScope stack).
+                for (int i = 0; i < length; i++) {
+                    array[i] = ctor.newInstance();
+                }
             }
         } catch (ReflectiveOperationException | IllegalArgumentException e) {
             // no parameterless constructor: keep the plain null-filled array
