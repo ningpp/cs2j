@@ -440,6 +440,25 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             c.AddImport("io.github.ningpp.compat.Decimal");
             return $"Decimal.array({length})";
         }
+        // C# `new E[n]` pre-fills every slot with default(E), which is the enum
+        // member with value 0 (or the first member for enums without a zero).
+        if (init == null && elemSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
+            && sizes.Count == 1 && sizes[0] is { Length: > 0 } enumLength)
+        {
+            var enumMembers = enumType.GetMembers().OfType<IFieldSymbol>()
+                .Where(field => field.HasConstantValue).ToList();
+            var zero = enumMembers.FirstOrDefault(field =>
+                    field.ConstantValue != null
+                    && System.Convert.ToInt64(field.ConstantValue) == 0)
+                ?? enumMembers.FirstOrDefault();
+            if (zero != null)
+            {
+                c.AddImport("io.github.ningpp.compat.ArrayHelper");
+                var enumClass = ConversionContext.GetClassLiteral(enumType, c);
+                return $"ArrayHelper.filledEnumArray({enumClass}, "
+                    + $"{c.MapType(enumType)}.{zero.Name}, {enumLength})";
+            }
+        }
         // 结构体元素默认实例填充（见 NeedsValueFill）。
         if (init == null && needsValueFill && elemSymbol != null && sizes.Count == 1
             && sizes[0] is { Length: > 0 } fillLength)

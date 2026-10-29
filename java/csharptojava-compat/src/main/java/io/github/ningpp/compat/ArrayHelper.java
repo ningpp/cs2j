@@ -535,6 +535,15 @@ public class ArrayHelper {
      * 一个共享默认实例（readonly-struct 形态的变更都产生新实例，共享仅用于
      * 默认读取）；类型无无参构造器时退回普通 null 数组（与旧发射一致）。
      */
+    /** C# `new E[n]` pre-fills with default(E) == (E)0; Java enum arrays are null. */
+    public static <T extends Enum<T>> T[] filledEnumArray(
+            Class<T> enumType, T zeroValue, int length) {
+        @SuppressWarnings("unchecked")
+        T[] array = (T[]) java.lang.reflect.Array.newInstance(enumType, length);
+        java.util.Arrays.fill(array, zeroValue);
+        return array;
+    }
+
     @SuppressWarnings("unchecked")
     public static <T> T[] filledValueArray(Class<T> elementType, int length) {
         T[] array = (T[]) java.lang.reflect.Array.newInstance(elementType, length);
