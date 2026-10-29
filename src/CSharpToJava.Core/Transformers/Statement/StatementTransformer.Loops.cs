@@ -111,7 +111,8 @@ public partial class StatementTransformer
         // A residual LINQ Where/Select pipeline is a java.util.stream.Stream, not
         // an Iterable; materialize it before the enhanced-for cast.
         if (context.GetTypeInfo(stmt.Expression).Type is not IArrayTypeSymbol
-            && expression.Contains("StreamSupport.stream", StringComparison.Ordinal)
+            && (expression.Contains("StreamSupport.stream", StringComparison.Ordinal)
+                || expression.Contains("Arrays.stream(", StringComparison.Ordinal))
             && !expression.Contains(".collect(", StringComparison.Ordinal))
         {
             context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");

@@ -632,26 +632,49 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         }
         return $"{left} instanceof {Rt(Map((TypeSyntax)n.Right, c))}";
     }
+    private static bool IsInConditionalBranch(SyntaxNode node)
+    {
+        foreach (var ancestor in node.Ancestors())
+        {
+            if (ancestor is ConditionalExpressionSyntax conditional)
+            {
+                if (conditional.WhenTrue.Span.Contains(node.Span)
+                    || conditional.WhenFalse.Span.Contains(node.Span))
+                {
+                    return true;
+                }
+            }
+            if (ancestor is StatementSyntax or MemberDeclarationSyntax)
+            {
+                break;
+            }
+        }
+        return false;
+    }
+
     private static string As(BinaryExpressionSyntax n, ConversionContext c)
     {
         var e = Expr(c, n.Left);
         if (n.Left is InvocationExpressionSyntax or ConditionalAccessExpressionSyntax
             or ElementAccessExpressionSyntax or AssignmentExpressionSyntax)
         {
-            var tmp = c.GenerateSyntheticName("_asExpr"); // hoist side effects, evaluate once
-            var hoisted = $"var {tmp} = {e};";
-            if (n.Right is ArrayTypeSyntax
-                && IsPropertyGetValueInvocation(n.Left))
+            if (!IsInConditionalBranch(n))
             {
-                // PropertyInfo.getValue emulates .NET's Array.ToString() by wrapping array
-                // results in an ArrayPropertyWrapper; C# `GetValue(...) as T[]` sees the raw
-                // runtime array, so the hoisted value unwraps before the instanceof/cast.
-                c.AddImport("io.github.ningpp.compat.PropertyInfo");
-                hoisted = $"var {tmp} = PropertyInfo.unwrapArrayValue({e});";
-            }
+                var tmp = c.GenerateSyntheticName("_asExpr"); // hoist side effects, evaluate once
+                var hoisted = $"var {tmp} = {e};";
+                if (n.Right is ArrayTypeSyntax
+                    && IsPropertyGetValueInvocation(n.Left))
+                {
+                    // PropertyInfo.getValue emulates .NET's Array.ToString() by wrapping array
+                    // results in an ArrayPropertyWrapper; C# `GetValue(...) as T[]` sees the raw
+                    // runtime array, so the hoisted value unwraps before the instanceof/cast.
+                    c.AddImport("io.github.ningpp.compat.PropertyInfo");
+                    hoisted = $"var {tmp} = PropertyInfo.unwrapArrayValue({e});";
+                }
 
-            c.AddPreStatement(hoisted);
-            e = tmp;
+                c.AddPreStatement(hoisted);
+                e = tmp;
+            }
         }
         var t = Map((TypeSyntax)n.Right, c);
         var asSrcType = c.GetTypeInfo(n.Left).Type ?? c.GetTypeInfo(n.Left).ConvertedType;

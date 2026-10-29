@@ -35,10 +35,10 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
     static <T> T tryAs(Object value, Class<T> type) {
         Object unwrapped = unwrap(value);
         if (type == CSharpIList.class
-            && !(unwrapped instanceof CSharpIList)
-            && unwrapped instanceof Iterable<?>)
+            && !(value instanceof CSharpIList)
+            && value instanceof Iterable<?>)
         {
-            return (T) CSharpIList.fromAny(unwrapped);
+            return (T) CSharpIList.fromAny(value);
         }
         return type.isInstance(unwrapped) ? (T) unwrapped : null;
     }
