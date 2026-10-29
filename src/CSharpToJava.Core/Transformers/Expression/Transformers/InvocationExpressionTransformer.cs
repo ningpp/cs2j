@@ -218,6 +218,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     text = ArgumentTransformer.CoerceBoxedFloatingArgument(
                         a.Expression, text, invocationMethod, index, context);
                     text = ApplyIntegralNarrowing(text, a.Expression, invocationMethod, index, context);
+                    if (invocationMethod?.Name == "setValue"
+                        && a.Expression is IdentifierNameSyntax methodGroupName
+                        && TryRenderMethodGroupReference(methodGroupName, context, out var groupReference))
+                    {
+                        text = groupReference;
+                    }
                     return new JavaRawExpression(text);
                 })
                 .ToList();
@@ -537,6 +543,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return new JavaRawExpression(primInstanceCallBeforeMap);
                 }
 
+                // System.Diagnostics.Debug/Trace.Write(format, args) maps to
+                // System.out.print/println, but Java has no two-string overload;
+                // route through TextWriterHelper.formatCs. The semantic owner can
+                // be missing after preprocessing, so match the syntax too.
+                if (originalName is "Write" or "WriteLine"
+                    && arguments.Count >= 2
+                    && context.GetTypeInfo(invocation.ArgumentList.Arguments[0].Expression).Type?.SpecialType
+                        == SpecialType.System_String
+                    && IsDebugTraceReceiver(memberAccess.Expression))
+                {
+                    context.AddImport("io.github.ningpp.compat.TextWriterHelper");
+                    var helper = originalName == "WriteLine" ? "writeFormatLine" : "writeFormat";
+                    var joined = string.Join(", ",
+                        new[] { "System.out" }.Concat(arguments.Select(a => a.ToInlineString())));
+                    return new JavaRawExpression($"TextWriterHelper.{helper}({joined})");
+                }
+
                 // System.Enum.TryParse<TEnum>(...) must pass the runtime enum class:
                 // EnumHelper.tryParse needs Class<T> to enumerate constants. The
                 // semantic symbol can be missing in post-preprocessed trees, so
@@ -737,6 +760,39 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             default:
                 return false;
         }
+    }
+
+    private static bool IsDebugTraceReceiver(ExpressionSyntax receiver)
+    {
+        var text = receiver.ToString();
+        return text is "Debug" or "Trace" or "System.Diagnostics.Debug" or "System.Diagnostics.Trace";
+    }
+
+    /// <summary>
+    /// Renders a bare method-group argument (ByRef&lt;Func&lt;...&gt;&gt;.setValue(Next))
+    /// as a Java method reference; post-preprocessing leaves the symbol unresolved.
+    /// </summary>
+    private static bool TryRenderMethodGroupReference(
+        IdentifierNameSyntax identifier, ConversionContext context, out string rendered)
+    {
+        rendered = string.Empty;
+        var enclosing = context.CurrentEnclosingRoslynType;
+        if (enclosing == null)
+            return false;
+        var method = context.GetSymbolInfo(identifier).Symbol as IMethodSymbol
+            ?? enclosing.GetMembers(identifier.Identifier.Text)
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(m => !m.IsGenericMethod && m.MethodKind == MethodKind.Ordinary);
+        if (method == null)
+            return false;
+        var owner = context.MapType(enclosing);
+        if (owner.Contains('<'))
+            owner = owner[..owner.IndexOf('<')];
+        var name = method.Name.Length == 0
+            ? method.Name
+            : char.ToLowerInvariant(method.Name[0]) + method.Name[1..];
+        rendered = $"{owner}::{name}";
+        return true;
     }
 
     /// <summary>
@@ -1293,6 +1349,25 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         == SpecialType.System_Array)
                 {
                     return $"{receiver}.unwrap().getClass()";
+                }
+
+                // ByRef<T>.setValue(Next) with a bare method group (IR path).
+                if (originalName == "setValue"
+                    && node.ArgumentList.Arguments.Count == 1
+                    && node.ArgumentList.Arguments[0].Expression is IdentifierNameSyntax setterGroup
+                    && TryRenderMethodGroupReference(setterGroup, context, out var setterReference))
+                {
+                    return $"{receiver}.setValue({setterReference})";
+                }
+
+                // Debug/Trace.Write/WriteLine(format, arg) on the IR path.
+                if (originalName is "Write" or "WriteLine"
+                    && arguments.Contains(',')
+                    && IsDebugTraceReceiver(memberAccess.Expression))
+                {
+                    context.AddImport("io.github.ningpp.compat.TextWriterHelper");
+                    var helper = originalName == "WriteLine" ? "writeFormatLine" : "writeFormat";
+                    return $"TextWriterHelper.{helper}(System.out, {arguments})";
                 }
 
                 // Enum.TryParse<TEnum>(...) needs the runtime enum class (IR path).
