@@ -1155,16 +1155,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     && TryGetEnumerableElementType(context.GetTypeInfo(memberAccess.Expression).Type, out var irToArrayElement))
                 {
                     var element = BoxPrimitive(context.MapType(irToArrayElement));
-                    var receiverMapped = context.MapType(context.GetTypeInfo(memberAccess.Expression).Type);
-                    var arrayFactory = receiverMapped.StartsWith("Stream", StringComparison.Ordinal)
-                        || receiverMapped.StartsWith("java.util.stream", StringComparison.Ordinal)
-                        || receiver.Contains("StreamSupport.stream", StringComparison.Ordinal)
-                        || receiver.Contains(".filter(", StringComparison.Ordinal)
-                        || receiver.Contains(".map(", StringComparison.Ordinal)
-                        ? $"{element}[]::new"
-                        : $"new {element}[0]";
+                    var toArrayStream = LooksLikeStreamPipeline(receiver)
+                        ? receiver
+                        : BuildStreamReceiver(receiver, memberAccess.Expression, context);
                     return WrapPrimitiveArrayUnbox(
-                        $"{receiver}.toArray({arrayFactory})",
+                        $"{toArrayStream}.toArray({element}[]::new)",
                         context.GetTypeInfo(node).Type, context);
                 }
 

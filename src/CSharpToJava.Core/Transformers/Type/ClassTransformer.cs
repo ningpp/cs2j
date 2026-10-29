@@ -333,7 +333,7 @@ public class ClassTransformer : ITypeTransformer
                         var t = context.GetTypeInfo(tc.Type).Type;
                         if (t != null)
                         {
-                            var bound = context.MapType(t);
+                            var bound = MapConstraintType(t, context);
                             if (!string.IsNullOrEmpty(bound) && bound != "Object") jtp.Bounds.Add(bound);
                         }
                         break;
@@ -356,6 +356,24 @@ public class ClassTransformer : ITypeTransformer
         context.Diagnostics.Warning(
             $"Generic constraint 'where {jtp.Name} : {constraint}' has no Java equivalent — constraint dropped",
             c.GetLocation(), code: "CS2J1002", category: "GenericConstraint");
+
+    /// <summary>
+    /// Maps a generic constraint. ICollection&lt;T&gt; is special: generated class
+    /// boundaries keep the erased CSharpIList family, but a `where TC : ICollection&lt;T&gt;`
+    /// bound must accept both CSharpList/CSharpHashSet and source collection classes,
+    /// which all implement the generic CSharpICollection&lt;T&gt; hierarchy.
+    /// </summary>
+    private static string MapConstraintType(ITypeSymbol type, ConversionContext context)
+    {
+        if (type is INamedTypeSymbol { TypeArguments.Length: 1 } named
+            && named.OriginalDefinition.MetadataName == "ICollection`1"
+            && named.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic")
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpICollection");
+            return $"CSharpICollection<{context.MapType(named.TypeArguments[0])}>";
+        }
+        return context.MapType(type);
+    }
 
     // ── 成员处理前的预扫描 ──────────────────────────────────────────────────────
 

@@ -207,7 +207,7 @@ public interface CSharpIList<T> extends CSharpCollection {
      * {@code get(0)} return Object, e.g. IntersectionInfo.Par0 call sites).
      */
     @SuppressWarnings("unchecked")
-    static <T> CSharpIList<T> from(CSharpIList<?> list) {
+    static <T> CSharpIList<T> from(CSharpIList<T> list) {
         return (CSharpIList<T>) list;
     }
 
