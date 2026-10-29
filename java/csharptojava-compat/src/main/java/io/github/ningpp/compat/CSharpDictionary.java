@@ -211,6 +211,16 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
         return get(key);
     }
 
+    /** C# Dictionary&lt;int,V&gt;.TryGetValue(key, out int): the IntHolder overload
+     * used when the converter lowers an integral out slot to a primitive holder. */
+    public boolean tryGetValue(K key, IntHolder result) {
+        if (!map.containsKey(key)) {
+            return false;
+        }
+        result.value = ((Number) map.get(key)).intValue();
+        return true;
+    }
+
     @Override
     public boolean getIsReadOnly() {
         return false;
