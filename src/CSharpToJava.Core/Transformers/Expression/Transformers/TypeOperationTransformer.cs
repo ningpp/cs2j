@@ -268,6 +268,13 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         // which does not compile (e.g. non-generic IEnumerator foreach lowering
         // emits `int item = (int)enumerator.Current`).
         if (srcSym is not null && sym is not null
+            && sym.SpecialType == SpecialType.System_Int32
+            && srcSym.SpecialType == SpecialType.System_Double)
+        {
+            return $"((Double)({e})).intValue()";
+        }
+
+        if (srcSym is not null && sym is not null
             && IsPrimitiveSpecialType(sym.SpecialType)
             && IsBoxedOrReferenceSource(srcSym))
         {

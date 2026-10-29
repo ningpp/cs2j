@@ -668,6 +668,16 @@ public partial class ArgumentTransformer
         if (!IsJavaPrimitiveTypeName(javaTarget) && javaTarget.EndsWith("[]", StringComparison.Ordinal))
             return $"({javaTarget}) {transformedExpr}";
 
+        // A raw generic carrier (CSharpList without type arguments) exposes
+        // Object from get()/getCurrent(); restore the declared parameter type.
+        if (context.GetTypeInfo(arg.Expression).Type?.SpecialType == SpecialType.System_Object
+            && javaTarget is not ("Object" or "var")
+            && !IsJavaPrimitiveTypeName(javaTarget)
+            && !transformedExpr.TrimStart().StartsWith("(", StringComparison.Ordinal))
+        {
+            return $"({javaTarget}) {transformedExpr}";
+        }
+
         return transformedExpr;
     }
 

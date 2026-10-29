@@ -68,10 +68,7 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
     public override JavaRawStatement VisitRawStatement(JavaRawStatement node)
     {
         node = base.VisitRawStatement(node);
-        node.Code = GetClusteredConnectedComponents.Replace(
-            node.Code,
-            "Microsoft.Msagl.Core.Layout.GraphConnectedComponents"
-            + ".getClusteredConnectedComponents(${receiver})");
+        node.Code = Rewrite(node.Code);
         return node;
     }
 
@@ -90,14 +87,35 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
         return node;
     }
 
-    public override JavaRawExpression VisitRawExpression(JavaRawExpression node)
+    private static readonly Regex StringBuilderClear = new(
+        @"(?<target>[A-Za-z_$][A-Za-z0-9_$.]*)\.length\(0\)",
+        RegexOptions.Compiled);
+
+    private static readonly Regex RawListPointArgument = new(
+        @"\.Center\((?<arg>[A-Za-z_$][A-Za-z0-9_$.]*\.get\(0\))\)",
+        RegexOptions.Compiled);
+
+    private static readonly Regex RawListPointAssignment = new(
+        @"(?<lhs>\bpos\s*=\s*)(?<rhs>[^;]*\.get\(0\))\s*;",
+        RegexOptions.Compiled);
+
+    private static string Rewrite(string code)
     {
-        var code = GetClusteredConnectedComponents.Replace(
-            node.Code,
+        code = GetClusteredConnectedComponents.Replace(
+            code,
             "Microsoft.Msagl.Core.Layout.GraphConnectedComponents"
             + ".getClusteredConnectedComponents(${receiver})");
-        if (code != node.Code)
-            node.Code = code;
+        code = StringBuilderClear.Replace(code, "${target}.setLength(0)");
+        code = RawListPointArgument.Replace(
+            code, ".Center((Microsoft.Msagl.Core.Geometry.Point) ${arg})");
+        code = RawListPointAssignment.Replace(
+            code, "${lhs}(Microsoft.Msagl.Core.Geometry.Point) (${rhs});");
+        return code;
+    }
+
+    public override JavaRawExpression VisitRawExpression(JavaRawExpression node)
+    {
+        node.Code = Rewrite(node.Code);
         return node;
     }
 }

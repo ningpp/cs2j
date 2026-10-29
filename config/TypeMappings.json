@@ -6827,6 +6827,36 @@
             "javaMethod": "SetCompat.overlaps"
         },
         {
+            "type": "System.Text.RegularExpressions.Match",
+            "method": "Success",
+            "javaMethod": "Success"
+        },
+        {
+            "type": "System.Text.RegularExpressions.Match",
+            "method": "Groups",
+            "javaMethod": "Groups"
+        },
+        {
+            "type": "System.Text.RegularExpressions.Group",
+            "method": "Success",
+            "javaMethod": "Success"
+        },
+        {
+            "type": "System.Text.RegularExpressions.Group",
+            "method": "Value",
+            "javaMethod": "Value"
+        },
+        {
+            "type": "System.Text.RegularExpressions.Capture",
+            "method": "Value",
+            "javaMethod": "Value"
+        },
+        {
+            "type": "System.Text.StringBuilder",
+            "method": "set_Length",
+            "javaMethod": "setLength"
+        },
+        {
             "type": "System.Text.StringBuilder",
             "method": "GetChunks",
             "javaMethod": "StringBuilderExtensions.getChunks"

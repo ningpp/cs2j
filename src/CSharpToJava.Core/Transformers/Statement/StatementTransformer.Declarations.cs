@@ -194,6 +194,21 @@ public partial class StatementTransformer
                 if (!string.IsNullOrWhiteSpace(mappedDelegate) && mappedDelegate != "var")
                     return mappedDelegate;
             }
+            // C# tuple locals map to Map.Entry; declaring them as `var` narrows
+            // Java to SimpleImmutableEntry and breaks later assignments from
+            // methods whose declared return type is Map.Entry.
+            if (first != null
+                && (context.GetDeclaredSymbol(first) as ILocalSymbol)?.Type is INamedTypeSymbol
+                {
+                    Name: "Tuple",
+                    ContainingNamespace: { } tupleNamespace
+                } tupleLocal
+                && tupleNamespace.ToDisplayString() == "System"
+                && context.MapType(tupleLocal) is { } mappedTuple
+                && mappedTuple.StartsWith("Map.Entry", StringComparison.Ordinal))
+            {
+                return mappedTuple;
+            }
             return "var";
         }
 

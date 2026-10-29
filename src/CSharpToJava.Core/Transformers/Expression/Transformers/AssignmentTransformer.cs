@@ -143,6 +143,28 @@ public class AssignmentTransformer : IIRExpressionTransformer
             rightText = $"({narrowTarget}) ({rightText})";
         }
 
+        var assignmentTargetType = context.GetTypeInfo(lhs).Type;
+        var assignmentTargetMapped = assignmentTargetType != null
+            ? context.MapType(assignmentTargetType)
+            : null;
+        if (op == "=" && assignmentTargetMapped is not null
+            && assignmentTargetMapped.StartsWith("AbstractMap.SimpleImmutableEntry", StringComparison.Ordinal)
+            && !rightText.TrimStart().StartsWith("new AbstractMap.SimpleImmutableEntry", StringComparison.Ordinal))
+        {
+            context.AddImport("java.util.AbstractMap");
+            rightText = $"new AbstractMap.SimpleImmutableEntry<>"
+                + $"({rightText}.getKey(), {rightText}.getValue())";
+        }
+        else if (op == "=" && assignmentTargetMapped is not null
+            && assignmentTargetMapped is not ("Object" or "var"
+                or "int" or "long" or "short" or "byte" or "char"
+                or "boolean" or "float" or "double")
+            && context.GetTypeInfo(rhs).Type?.SpecialType == SpecialType.System_Object
+            && !rightText.TrimStart().StartsWith("(", StringComparison.Ordinal))
+        {
+            rightText = $"({assignmentTargetMapped}) ({rightText})";
+        }
+
         return $"{f.Transform(lhs, context)} {op} {rightText}";
     }
 
