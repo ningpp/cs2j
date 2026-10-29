@@ -127,17 +127,24 @@ public partial class StatementTransformer
                 }
                 else
                 {
-                    ifSb2.Append($"{existingVarName} = {tvTarget}.get({tvKey});\n");
-                    ifSb2.Append($"if ({existingVarName} == null) {thenBody}");
+                    // Presence-based lowering: assigning dict.get() into a primitive
+                    // local before a null check cannot compile (int == null); the
+                    // containsKey form also preserves C# semantics for stored nulls.
+                    ifSb2.Append($"if (!{tvTarget}.containsKey({tvKey})) {thenBody}");
 
+                    string elseInner = $"{existingVarName} = {tvTarget}.get({tvKey});";
                     if (stmt.Else != null)
                     {
                         string elseBody;
                         if (stmt.Else.Statement is BlockSyntax tvIfElseBlock)
-                            elseBody = $"{{\n        {TransformBlock(tvIfElseBlock, context)}\n    }}";
+                            elseBody = TransformBlock(tvIfElseBlock, context);
                         else
-                            elseBody = $"{{ {tvStmtTransformer2.Transform(stmt.Else.Statement, context).ToString("")} }}";
-                        ifSb2.Append($" else {elseBody}");
+                            elseBody = tvStmtTransformer2.Transform(stmt.Else.Statement, context).ToString("");
+                        ifSb2.Append($" else {{\n        {elseInner}\n        {elseBody}\n    }}");
+                    }
+                    else
+                    {
+                        ifSb2.Append($" else {{\n        {elseInner}\n    }}");
                     }
                 }
 
