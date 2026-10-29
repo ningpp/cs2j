@@ -96,6 +96,11 @@ internal static class IterableCoercion
             if (!LooksLikeStreamPipeline(trimmed))
                 return false;
             context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            if (trimmed.Contains(".toArray(", StringComparison.Ordinal))
+            {
+                rendered = $"CSharpGenericIterable.fromAnyTyped({text})";
+                return true;
+            }
             if (trimmed.Contains(".collect(", StringComparison.Ordinal))
             {
                 rendered = $"CSharpGenericIterable.from({text})";

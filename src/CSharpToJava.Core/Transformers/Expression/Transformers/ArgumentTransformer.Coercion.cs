@@ -126,6 +126,14 @@ public partial class ArgumentTransformer
         if (text.StartsWith("CSharpGenericIterable.from(", StringComparison.Ordinal))
             return text;
 
+        // A .toArray(...) terminal already materialized a Java array; appending
+        // .collect(...) to an array cannot compile. Bridge the array instead.
+        if (text.Contains(".toArray(", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            return $"CSharpGenericIterable.fromAnyTyped({text})";
+        }
+
         // Already collected (e.g. the Concat/Union residual render appends its
         // own .collect(CSharpList.toCSharpList())): the expression already
         // yields an Iterable-shaped value — collecting again is invalid.
@@ -1196,6 +1204,11 @@ public partial class ArgumentTransformer
         context.AddImport("io.github.ningpp.compat.CSharpList");
         if (transformedExpr.Contains(".collect(", StringComparison.Ordinal))
             return transformedExpr;
+        if (transformedExpr.Contains(".toArray(", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            return $"CSharpGenericIterable.fromAnyTyped({transformedExpr})";
+        }
 
         // Only a Java Stream pipeline needs a collect() terminal. A plain
         // IEnumerable expression already maps to CSharpGenericIterable, and
