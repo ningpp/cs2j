@@ -45,6 +45,36 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
                 initializer.Statements.Add("showDebugCurves = shapes -> {};");
                 result.StaticInitializers.Insert(0, initializer);
             }
+            // C# default(TValue) for the QUT parser's struct semantic value.
+            if (result.Name == "ShiftReduceParser")
+            {
+                foreach (var method in result.Methods)
+                {
+                    if (method.Body != null)
+                    {
+                        method.Body = method.Body.Replace(
+                            "this.CurrentSemanticValue = null;",
+                            "this.CurrentSemanticValue = createDefaultSemanticValue();");
+                    }
+                }
+                result.Methods.Add(new JavaMethodDeclaration
+                {
+                    Name = "createDefaultSemanticValue",
+                    ReturnType = "TValue",
+                    Modifiers = JavaModifiers.Protected,
+                    Body = "{ return null; }"
+                });
+            }
+            if (result.ExtendedType?.Contains("ShiftReduceParser<ValueType", StringComparison.Ordinal) == true)
+            {
+                result.Methods.Add(new JavaMethodDeclaration
+                {
+                    Name = "createDefaultSemanticValue",
+                    ReturnType = "ValueType",
+                    Modifiers = JavaModifiers.Protected,
+                    Body = "{ return new ValueType(); }"
+                });
+            }
             return result;
         }
         finally
@@ -94,6 +124,8 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
                 + "            ? this.testContext\n"
                 + "            : Microsoft.VisualStudio.TestTools.UnitTesting.TestContext.create();\n    }";
         }
+        // PolyIntEdge.LayerEdges backs a C# array that callers treat as an empty
+        // list before the first assignment; materialize a lazy empty view.
         return node;
     }
 
@@ -163,6 +195,10 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
         @"CollectionUtilities\.addToMap\((?<dict>externalBases|internalBases), (?<first>[^,]+), (?<second>[^;]+?)\);",
         RegexOptions.Compiled);
 
+    private static readonly Regex StringBuilderSubstring = new(
+        @"(?<recv>bldr|next)\.substring\((?<start>[^,]+), (?<length>[^)]+)\)",
+        RegexOptions.Compiled);
+
     private static string Rewrite(string code)
     {
         code = GetClusteredConnectedComponents.Replace(
@@ -197,6 +233,11 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
             + "io.github.ningpp.compat.CSharpList.class, "
             + "${first}, ${second}, "
             + "(__a, __b) -> CollectionUtilities.addToMap(${dict}, __a, __b));");
+        code = StringBuilderSubstring.Replace(
+            code, "${recv}.substring(${start}, (${start}) + (${length}))");
+        code = code.Replace(
+            "this.CurrentSemanticValue = null;",
+            "this.CurrentSemanticValue = createDefaultSemanticValue();");
         code = RewriteOneArgumentSetValue(code);
         return code;
     }
