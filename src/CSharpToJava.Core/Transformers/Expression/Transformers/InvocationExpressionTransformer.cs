@@ -3149,11 +3149,29 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         var streamReceiver = receiverIsStream
             ? receiver
             : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+
+        // C# Select((item, index) => ...) has two selector parameters; Java's
+        // Stream.map takes a unary Function. Wrap the selector so it receives a
+        // running index (IndexedFunction), preserving source order.
+        if (name == "Select" && argCount == 1
+            && IsIndexedSelector(invocation.ArgumentList.Arguments[0].Expression, context))
+        {
+            context.AddImport("io.github.ningpp.compat.IndexedFunction");
+            rendered = $"{streamReceiver}.map(new IndexedFunction<>({argumentText}))";
+            return true;
+        }
+
         rendered = argCount == 0
             ? $"{streamReceiver}.{streamOperator}()"
             : $"{streamReceiver}.{streamOperator}({argumentText})";
         return true;
     }
+
+    private static bool IsIndexedSelector(ExpressionSyntax selector, ConversionContext context)
+        => selector is ParenthesizedLambdaExpressionSyntax { ParameterList.Parameters.Count: 2 }
+           || context.GetTypeInfo(selector).ConvertedType is INamedTypeSymbol
+               { Name: "Func", TypeArguments.Length: 3 }
+           || context.GetSymbolInfo(selector).Symbol is IMethodSymbol { Parameters.Length: 2 };
 
     /// <summary>
     /// Adds the configured imports for a static call receiver such as
