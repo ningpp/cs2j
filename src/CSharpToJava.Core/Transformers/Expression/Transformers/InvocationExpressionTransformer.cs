@@ -537,6 +537,28 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return new JavaRawExpression(primInstanceCallBeforeMap);
                 }
 
+                // System.Enum.TryParse<TEnum>(...) must pass the runtime enum class:
+                // EnumHelper.tryParse needs Class<T> to enumerate constants. The
+                // semantic symbol can be missing in post-preprocessed trees, so
+                // recover TEnum from the generic argument syntax as a fallback.
+                if (originalName == "TryParse"
+                    && (methodSymbol?.ContainingType?.ToDisplayString() == "System.Enum"
+                        || memberAccess.Expression is IdentifierNameSyntax { Identifier.Text: "Enum" }))
+                {
+                    var enumType = methodSymbol is { TypeArguments.Length: 1 }
+                        ? methodSymbol.TypeArguments[0]
+                        : memberAccess.Name is GenericNameSyntax { TypeArgumentList.Arguments.Count: 1 } genericTryParse
+                            ? context.GetTypeInfo(genericTryParse.TypeArgumentList.Arguments[0]).Type
+                            : null;
+                    if (enumType != null)
+                    {
+                        context.AddImport("io.github.ningpp.compat.EnumHelper");
+                        var enumClass = ConversionContext.GetClassLiteral(enumType, context);
+                        return new JavaRawExpression(
+                            $"EnumHelper.tryParse({argumentText}, {enumClass})");
+                    }
+                }
+
                 // Enumerable extension methods left behind by the procedural
                 // LINQ pass (delegate-typed arguments) must still become valid
                 // Java: wrap non-stream receivers and use Stream operations.
@@ -1271,6 +1293,27 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         == SpecialType.System_Array)
                 {
                     return $"{receiver}.unwrap().getClass()";
+                }
+
+                // Enum.TryParse<TEnum>(...) needs the runtime enum class (IR path).
+                if (originalName == "TryParse")
+                {
+                    var tryParseSymbol = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
+                    if (tryParseSymbol?.ContainingType?.ToDisplayString() == "System.Enum"
+                        || memberAccess.Expression is IdentifierNameSyntax { Identifier.Text: "Enum" })
+                    {
+                        var enumType = tryParseSymbol is { TypeArguments.Length: 1 }
+                            ? tryParseSymbol.TypeArguments[0]
+                            : memberAccess.Name is GenericNameSyntax { TypeArgumentList.Arguments.Count: 1 } genericTryParse
+                                ? context.GetTypeInfo(genericTryParse.TypeArgumentList.Arguments[0]).Type
+                                : null;
+                        if (enumType != null)
+                        {
+                            context.AddImport("io.github.ningpp.compat.EnumHelper");
+                            var enumClass = ConversionContext.GetClassLiteral(enumType, context);
+                            return $"EnumHelper.tryParse({arguments}, {enumClass})";
+                        }
+                    }
                 }
 
                 if (TryRenderEnumerableInvocation(
