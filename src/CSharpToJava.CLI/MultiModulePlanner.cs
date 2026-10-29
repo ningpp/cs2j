@@ -174,7 +174,10 @@ internal static class MultiModulePlanner
         var result = new List<PlannedModule>();
         var visited = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var module in modules.Values)
+        // Discovery order (and HashSet order for dependency edges) is not
+        // stable across runs; sort the DFS roots and edges case-insensitively
+        // so the emitted <module> order is reproducible.
+        foreach (var module in modules.Values.OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase))
         {
             Visit(module.Name, modules, visited, result);
         }
@@ -205,7 +208,9 @@ internal static class MultiModulePlanner
 
         if (modules.TryGetValue(moduleName, out var module))
         {
-            foreach (var dep in module.CompileDependencies.Concat(module.TestDependencies))
+            foreach (var dep in module.CompileDependencies
+                         .Concat(module.TestDependencies)
+                         .OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
             {
                 if (modules.ContainsKey(dep))
                 {

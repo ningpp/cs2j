@@ -680,4 +680,33 @@ public class PlanningTests
             }
         }
     }
+
+    [Fact]
+    public void MavenPomGenerator_GenerateRootBuildFile_SortsModulesCaseInsensitively()
+    {
+        var plan = new JavaWorkspacePlan
+        {
+            GroupId = "com.example",
+            ArtifactId = "demo-parent",
+            Version = "1.0-SNAPSHOT",
+            JavaVersion = "Java28",
+            Modules =
+            [
+                new JavaModulePlan { ModuleName = "qut-shiftreduceparser", IsTestOnly = false },
+                new JavaModulePlan { ModuleName = "automaticgraphlayout-drawing", IsTestOnly = false },
+                new JavaModulePlan { ModuleName = "AutomaticGraphLayout", IsTestOnly = false },
+                new JavaModulePlan { ModuleName = "argsparser", IsTestOnly = false },
+            ],
+        };
+
+        var pom = new MavenPomGenerator().GenerateRootBuildFile(plan, genParentPom: true);
+        var modules = System.Text.RegularExpressions.Regex
+            .Matches(pom, "<module>([^<]+)</module>")
+            .Select(m => m.Groups[1].Value)
+            .ToList();
+
+        Assert.Equal(
+            new[] { "argsparser", "AutomaticGraphLayout", "automaticgraphlayout-drawing", "qut-shiftreduceparser" },
+            modules);
+    }
 }

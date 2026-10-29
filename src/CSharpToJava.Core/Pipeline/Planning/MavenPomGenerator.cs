@@ -73,8 +73,12 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
     private static string GenerateParentPom(JavaWorkspacePlan plan)
     {
         int javaVer = ParseJavaVersion(plan.JavaVersion);
+        // Project discovery order varies between runs; the reactor module list
+        // must be reproducible, so emit it case-insensitively sorted.
         var moduleSection = string.Join(Environment.NewLine,
-            plan.Modules.Select(m => $"        <module>{m.ModuleName}</module>"));
+            plan.Modules
+                .OrderBy(m => m.ModuleName, StringComparer.OrdinalIgnoreCase)
+                .Select(m => $"        <module>{m.ModuleName}</module>"));
 
         return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
 <project xmlns=""http://maven.apache.org/POM/4.0.0""
