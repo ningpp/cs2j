@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -224,6 +224,18 @@ public class ControlFlowTransformer : IIRExpressionTransformer
                 bool falseIsArray = whenFalseType is IArrayTypeSymbol;
                 if (!(trueIsArray && falseIsArray))
                 {
+                    // An array arm cannot share a conditional type with a
+                    // CSharpGenericIterable arm; bridge it through the carrier.
+                    if (needsCSharpGenericIterable && trueIsArray && !falseIsArray)
+                    {
+                        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                        trueExpr = $"CSharpGenericIterable.fromAnyTyped({trueExpr})";
+                    }
+                    else if (needsCSharpGenericIterable && falseIsArray && !trueIsArray)
+                    {
+                        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                        falseExpr = $"CSharpGenericIterable.fromAnyTyped({falseExpr})";
+                    }
                     trueExpr = AdaptZeroArrayToEmptyIterable(trueExpr, context, needsCSharpGenericIterable);
                     falseExpr = AdaptZeroArrayToEmptyIterable(falseExpr, context, needsCSharpGenericIterable);
                 }

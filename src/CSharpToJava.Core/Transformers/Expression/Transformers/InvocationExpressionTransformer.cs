@@ -417,7 +417,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         ? receiverText
                         : BuildStreamReceiver(receiverText, memberAccess.Expression, context);
                     return new JavaRawExpression(WrapPrimitiveArrayUnbox(
-                        $"{toArrayStream}.toArray({element}[]::new)",
+                        $"{toArrayStream}.toArray("
+                        + BuildToArrayFactory(element, toArrayElement) + ")",
                         context.GetTypeInfo(invocation).Type, context));
                 }
 
@@ -1255,7 +1256,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         ? receiver
                         : BuildStreamReceiver(receiver, memberAccess.Expression, context);
                     return WrapPrimitiveArrayUnbox(
-                        $"{toArrayStream}.toArray({element}[]::new)",
+                        $"{toArrayStream}.toArray("
+                        + BuildToArrayFactory(element, irToArrayElement) + ")",
                         context.GetTypeInfo(node).Type, context);
                 }
 
@@ -2961,7 +2963,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var element = arrayType != null
                 ? BoxPrimitive(context.MapType(arrayType.ElementType))
                 : "Object";
-            var materialized = $"{arrayStream}.toArray({element}[]::new)";
+            var materialized = $"{arrayStream}.toArray("
+                + BuildToArrayFactory(element, arrayType?.ElementType) + ")";
             rendered = arrayType != null
                 ? WrapPrimitiveArrayUnbox(materialized, context.GetTypeInfo(invocation).Type, context)
                 : materialized;
@@ -4331,14 +4334,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
         foreach (var import in configuredImports)
             context.AddImport(import);
-        if (configuredImports.Count == 0)
+        var packageName = context.NamespaceToPackage(
+            type.ContainingNamespace?.ToDisplayString() ?? string.Empty);
+        if (configuredImports.Count == 0 && !string.IsNullOrEmpty(packageName))
         {
-            var package = context.NamespaceToPackage(
-                type.ContainingNamespace?.ToDisplayString() ?? string.Empty);
-            if (!string.IsNullOrEmpty(package))
-                context.AddImport($"{package}.{javaName}");
+            context.AddImport($"{packageName}.{javaName}");
         }
-        mappedReceiver = javaName;
+        // A field whose name equals the type name shadows it in Java; qualify
+        // the static receiver so javac resolves the type, not the field.
+        mappedReceiver = !string.IsNullOrEmpty(packageName)
+            && context.CurrentEnclosingRoslynType?.GetMembers(javaName)
+                .OfType<IFieldSymbol>().Any() == true
+                ? $"{packageName}.{javaName}"
+            : javaName;
         return true;
     }
 
@@ -4446,6 +4454,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return;
         var wrapped = WrapSortKeySelectorText(originalName, call.Arguments[0].ToInlineString(), context);
         call.Arguments[0] = new JavaRawExpression(wrapped);
+    }
+
+    private static string BuildToArrayFactory(string element, ITypeSymbol? elementSymbol)
+    {
+        // Java forbids `new T[n]` and `new Generic<A>[n]`. A raw component
+        // array (or Object[] for an unbounded type parameter) is legal and
+        // erases to the same runtime array class the caller expects.
+        if (elementSymbol is ITypeParameterSymbol)
+            return $"size -> ({element}[]) new Object[size]";
+        var angle = element.IndexOf('<');
+        if (angle > 0)
+            return $"size -> ({element}[]) new {element[..angle]}[size]";
+        return $"{element}[]::new";
     }
 
     private static string WrapSortKeySelectorTextWithWitness(
