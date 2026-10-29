@@ -310,6 +310,19 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return $"CSharpArray.tryAs({e}, {t}.class)";
         }
 
+        // T[] → System.Array（C# 数组的隐式上转经显式 (Array) 修饰落在此处）：
+        // Java 数组与 compat CSharpArray 是互不相关的类型，直接 (CSharpArray)
+        // 强转不可编译（真实链 QUT ShiftReduceParser 的
+        // Array.Copy((Array)this.array, (Array)objArray, n)）。经写通视图
+        // asArrayView 包装——compat 的 ArrayHelper.copy(Object,Object,int)
+        // 解包视图后即 System.arraycopy，与 C# Array.Copy 同语义。
+        if (sym?.SpecialType == SpecialType.System_Array
+            && srcSym is IArrayTypeSymbol)
+        {
+            c.AddImport("io.github.ningpp.compat.CSharpArray");
+            return $"CSharpArray.asArrayView({e})";
+        }
+
         // C# DateTimeOffset ← DateTime 隐式转换（元数据 op_Implicit，非源内
         // 声明，上面的 user-defined 分支不接；真实链 XmlDateTimeConverter 的
         // (DateTimeOffset)atomicValue.ValueAsDateTime()）。
