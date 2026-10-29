@@ -20,11 +20,15 @@ public final class Assert {
     }
 
     public static void isTrue(boolean condition, String format, Object... args) {
-        isTrue(condition, StringHelper.formatCs(format, args));
+        if (!condition) {
+            throw new AssertionError(StringHelper.formatCs(format, args));
+        }
     }
 
     public static void isFalse(boolean condition, String format, Object... args) {
-        isFalse(condition, StringHelper.formatCs(format, args));
+        if (condition) {
+            throw new AssertionError(StringHelper.formatCs(format, args));
+        }
     }
 
     public static void isFalse(boolean condition) {
@@ -64,7 +68,9 @@ public final class Assert {
     }
 
     public static void areEqual(Object expected, Object actual, String format, Object... args) {
-        areEqual(expected, actual, StringHelper.formatCs(format, args));
+        if (!Objects.equals(expected, actual)) {
+            throw new AssertionError(StringHelper.formatCs(format, args));
+        }
     }
 
     public static void areEqual(Object expected, Object actual, boolean ignoreCase,
