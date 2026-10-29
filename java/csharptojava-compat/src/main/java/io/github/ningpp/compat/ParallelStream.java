@@ -23,15 +23,14 @@ public class ParallelStream {
 
     /**
      * C# Parallel.ForEach(IEnumerable&lt;T&gt;, ParallelOptions, Action&lt;T&gt;).
-     * Generated compat collections erase to Iterable&lt;Object&gt;, so a typed
-     * Consumer cannot bind through the generic Iterable signature; this view
-     * accepts the erased pair and casts at the element boundary.
+     * Keep the type parameter tied between source and body so method references
+     * and implicit lambdas both infer the element type (a wildcard Consumer
+     * target rejects method references).
      */
-    @SuppressWarnings("unchecked")
-    public static void forEach(Iterable<?> source, Object options, java.util.function.Consumer<?> body) {
-        java.util.function.Consumer<Object> consumer = (java.util.function.Consumer<Object>) body;
-        for (Object item : source) {
-            consumer.accept(item);
+    public static <T> void forEach(Iterable<? extends T> source, Object options,
+                                   java.util.function.Consumer<T> body) {
+        for (T item : source) {
+            body.accept(item);
         }
     }
 }
