@@ -2954,7 +2954,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 : BuildStreamReceiver(receiver, memberAccess.Expression, context);
             rendered = name == "First"
                 ? $"{firstStream}.filter({argumentText}).findFirst().orElseThrow(() -> new IllegalStateException(\"The sequence did not contain a matching element.\"))"
-                : $"{firstStream}.filter({argumentText}).findFirst().orElse(null)";
+                : $"{firstStream}.filter({argumentText}).findFirst().orElse({PrimitiveDefaultLiteral(context.GetTypeInfo(invocation).Type) ?? "null"})";
             return true;
         }
 
@@ -2963,8 +2963,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var terminalStream = receiverIsStream
                 ? receiver
                 : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            var resultType = context.GetTypeInfo(invocation).Type;
             var orElse = name.EndsWith("OrDefault", StringComparison.Ordinal)
-                ? ".orElse(null)"
+                ? $".orElse({PrimitiveDefaultLiteral(resultType) ?? "null"})"
                 : ".orElseThrow()";
             rendered = name is "First" or "FirstOrDefault"
                 ? $"{terminalStream}.findFirst(){orElse}"
@@ -4798,4 +4799,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         return depth == 0 ? builder.ToString() : typeName;
     }
+
+    private static string? PrimitiveDefaultLiteral(ITypeSymbol? type) => type?.SpecialType switch
+    {
+        SpecialType.System_Int32 => "0",
+        SpecialType.System_Int64 => "0L",
+        SpecialType.System_Int16 => "(short)0",
+        SpecialType.System_Byte => "(byte)0",
+        SpecialType.System_Single => "0.0f",
+        SpecialType.System_Double => "0.0",
+        SpecialType.System_Boolean => "false",
+        SpecialType.System_Char => "'\\0'",
+        _ => null,
+    };
 }
