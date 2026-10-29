@@ -289,6 +289,23 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return $"CSharpArray.toPrimitiveArray({e}, {t}.class)";
         }
 
+        // IList<T>/IEnumerable<T> -> T[]: C# allows the explicit array cast, but
+        // CSharpIList/CSharpList are not Java arrays. Materialize through
+        // CSharpArray.toTypedArray (which now accepts Iterable sources).
+        if (sym is IArrayTypeSymbol { Rank: 1 } listArr
+            && srcSym is not IArrayTypeSymbol
+            && srcSym is not null
+            && c.MapType(srcSym) is var srcMapped
+            && (srcMapped.StartsWith("CSharpIList", StringComparison.Ordinal)
+                || srcMapped.StartsWith("CSharpList", StringComparison.Ordinal)
+                || srcMapped.StartsWith("CSharpGenericIterable", StringComparison.Ordinal)))
+        {
+            var targetArray = Map(n.Type, c);
+            var element = c.MapType(listArr.ElementType);
+            c.AddImport("io.github.ningpp.compat.CSharpArray");
+            return $"({targetArray}) CSharpArray.toTypedArray({e}, {element}.class)";
+        }
+
         // System.Array → T[]：源经 array-method 归一为 CSharpArray 视图（现在
         // 包括 CSharpArray.createInstance 的返回值），Java 不接受 CSharpArray→T[]
         // 的直接强转（javac 不可转换对；真实链解码器 `_buffer = (byte[])buffer`

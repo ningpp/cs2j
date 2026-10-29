@@ -81,6 +81,18 @@ public final class CSharpArray implements Iterable<Object> {
      * @return A new array of the requested component type holding the same elements.
      */
     public static Object toTypedArray(Object source, Class<?> componentType) {
+        if (!source.getClass().isArray()) {
+            java.util.List<Object> items = new java.util.ArrayList<>();
+            if (source instanceof Iterable<?> iterable) {
+                for (Object item : iterable) {
+                    items.add(item);
+                }
+            } else {
+                throw new IllegalArgumentException(
+                    "Cannot convert " + source.getClass().getName() + " to an array");
+            }
+            source = items.toArray();
+        }
         int length = Array.getLength(source);
         Object result = Array.newInstance(componentType, length);
         if (componentType.isPrimitive()) {
