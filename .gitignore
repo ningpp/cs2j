@@ -120,3 +120,4 @@ dumps/
 t-regex/
 t-xml/
 tmp/
+build-logs/
