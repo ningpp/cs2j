@@ -103,6 +103,10 @@ public class ClassTransformer : ITypeTransformer
         PrepareErasureConflictRenames(nodes, context);
         ProcessMembers(nodes, javaClass, context);
         LiftFieldInitializerStatements(javaClass);
+        // 集合类的成员形状以 compat 集合接口为准：C# 直译出的 void Add(T)/Contains(T)/
+        // IEnumerator<T> GetEnumerator() 与接口的擦除成员同签名却互不覆盖（javac 名称冲突/
+        // 未覆盖抽象方法），在此统一改写并补齐 SyncRoot/IsSynchronized。
+        CompatCollectionConformance.Apply(javaClass, symbol, context);
 
         // JUnit 测试类必须能被实例化；C# static 测试类（如 UriTests）原本会拿到
         // private 无参构造，将其放开为包级可见，否则 surefire 发现不到测试。
@@ -429,6 +433,21 @@ public class ClassTransformer : ITypeTransformer
 
                     var name = MethodTransformer.GetJavaMethodName(declaration.Identifier.Text, symbol, context);
                     var signature = string.Join(",", symbol.Parameters.Select(p => EraseType(context.MapType(p.Type))));
+
+                    // compat 集合接口的 remove 是 boolean 形状（Collection.remove(Object) 与
+                    // CSharpGenericIterable 的 default 同签名）：返回非 bool 的 C# Remove
+                    //（真实链 RbTree<T>.Remove → 被删节点）与接口成员同擦除签名但返回类型不
+                    // 兼容，永远无法覆盖，直接在类上声明就是 javac 硬错。改名让调用点绑定
+                    // 强类型方法，集合一致性后处理再补发 boolean 桥。
+                    if (symbol.Name == "Remove"
+                        && symbol.Parameters.Length == 1
+                        && symbol.ReturnType.SpecialType is not (SpecialType.System_Boolean or SpecialType.System_Void)
+                        && CompatCollectionConformance.ImplementsCompatCollection(symbol.ContainingType, context))
+                    {
+                        context.RegisterErasureConflictMethodName(symbol, name + "_2");
+                        continue;
+                    }
+
                     methods.Add((symbol, name, signature, null, false));
                 }
                 else if (member is PropertyDeclarationSyntax property)
