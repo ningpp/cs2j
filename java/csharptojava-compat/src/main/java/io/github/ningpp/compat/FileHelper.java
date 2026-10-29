@@ -65,6 +65,14 @@ public class FileHelper {
         if (file.exists()) {
             return path;
         }
+        if (path.endsWith(".msagl.geom")) {
+            java.nio.file.Path geometry = java.nio.file.Paths.get(
+                System.getProperty("user.dir"), "src", "test", "resources",
+                "Resources", "MSAGLGeometryGraphs", file.getName());
+            if (java.nio.file.Files.exists(geometry)) {
+                return geometry.toString();
+            }
+        }
         String marker = java.io.File.separator + "src" + java.io.File.separator
             + "test" + java.io.File.separator + "resources" + java.io.File.separator;
         int index = path.indexOf(marker);
