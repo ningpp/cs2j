@@ -33,6 +33,21 @@ public class MethodTransformer : IMemberTransformer
             return new JavaMemberCollection();
         }
 
+        // A public CompareTo(object) alongside CompareTo(T) clashes with the
+        // javac-generated Comparable<T>.compareTo(Object) bridge. The typed
+        // overload carries the same semantics for the generic interface.
+        if (sym is { Name: "CompareTo", Parameters.Length: 1 } objectCompare
+            && objectCompare.Parameters[0].Type.SpecialType == SpecialType.System_Object
+            && objectCompare.ContainingType.GetMembers("CompareTo")
+                .OfType<IMethodSymbol>()
+                .Any(candidate => !SymbolEqualityComparer.Default.Equals(candidate, objectCompare)
+                    && candidate.Parameters.Length == 1
+                    && candidate.Parameters[0].Type.SpecialType != SpecialType.System_Object))
+        {
+            ctx.LeaveMethod();
+            return new JavaMemberCollection();
+        }
+
         // C06 R8 opt-in FFM 白名单通道：unsafe-ffm 预处理把命中的
         // [DllImport]/[LibraryImport] extern 归一为带
         // [Cs2j.Generation.InteropFacade] 标记的响亮 C# stub；项目管线
