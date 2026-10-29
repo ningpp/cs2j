@@ -46,6 +46,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     {
         var symbol = context.GetSymbolInfo(node).Symbol;
 
+        // Bare method-group identifier used as a delegate value: Next, MinusY.
+        // Invocation sites are handled elsewhere; reaching an identifier with a
+        // method symbol means the value context is a delegate conversion.
+        if (symbol is IMethodSymbol { MethodKind: MethodKind.Ordinary } bareMethod
+            && !bareMethod.IsGenericMethod)
+        {
+            return ObjectCreationTransformer.EmitDelegateMethodReference(node, bareMethod, context);
+        }
+
         // Assembly-scoped synthetic resource types (SR → <Project>SR) are renamed at
         // declaration time; a static-member receiver or bare type reference must use
         // the same renamed identifier or the simple-name reference dangles.
