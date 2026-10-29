@@ -484,6 +484,8 @@ public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
         rewriters.Add(new Java.Rewriters.MathMethodRewriter());
         rewriters.Add(new Java.Rewriters.DelegateInvocationRewriter());
         rewriters.Add(new Java.Rewriters.GenericArrayCreationRewriter());
+        rewriters.Add(new Java.Rewriters.InterfaceWrapperBridgeRewriter());
+        rewriters.Add(new Java.Rewriters.ResidualExtensionCallRewriter());
         rewriters.Add(new Java.Rewriters.IntStreamBoxedRewriter());
         rewriters.Add(new Java.Rewriters.ArrayIterableConversionRewriter());
         rewriters.Add(new Java.Rewriters.CollectStreamRoundtripRewriter());

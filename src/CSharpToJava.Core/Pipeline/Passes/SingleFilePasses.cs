@@ -355,6 +355,8 @@ public sealed class SingleFileJavaEmitPass : ICs2jPass<SingleFilePassState>
         new MathMethodRewriter().VisitCompilationUnit(compilation);
         new DelegateInvocationRewriter().VisitCompilationUnit(compilation);
         new GenericArrayCreationRewriter().VisitCompilationUnit(compilation);
+        new InterfaceWrapperBridgeRewriter().VisitCompilationUnit(compilation);
+        new ResidualExtensionCallRewriter().VisitCompilationUnit(compilation);
         new IntStreamBoxedRewriter().VisitCompilationUnit(compilation);
         new ArrayIterableConversionRewriter().VisitCompilationUnit(compilation);
         new CollectStreamRoundtripRewriter().VisitCompilationUnit(compilation);
