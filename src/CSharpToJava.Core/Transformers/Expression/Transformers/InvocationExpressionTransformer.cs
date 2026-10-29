@@ -598,6 +598,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         return new JavaRawExpression($"TextWriterHelper.{helper}({joinedArguments})");
                     }
 
+                    // System.Diagnostics.Debug/Trace.Write/WriteLine 复合格式重载
+                    // （IR 路径孪生，见字符串路径 TryBridgeDebugTraceFormatCall 注释）。
+                    if (IsDebugTraceFormatMappedCall(invocation, mappedName, context)
+                        && arguments.Count >= 2
+                        && context.GetTypeInfo(invocation.ArgumentList.Arguments[0].Expression).Type?.SpecialType
+                            == SpecialType.System_String)
+                    {
+                        context.AddImport("io.github.ningpp.compat.TextWriterHelper");
+                        var helper = mappedName == "out.println" ? "writeFormatLine" : "writeFormat";
+                        var joinedArguments = string.Join(", ",
+                            new[] { "System.out" }.Concat(arguments.Select(a => a.ToInlineString())));
+                        return new JavaRawExpression($"TextWriterHelper.{helper}({joinedArguments})");
+                    }
+
                     return call;
                 }
 
@@ -1310,6 +1324,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     // print/println 后同样 arity 失配；Java 面改走 TextWriterHelper。
                     if (TryBridgeTextWriterFormatCall(node, mappedName, receiver, arguments, context, out var textWriterFormatCall))
                         return textWriterFormatCall;
+
+                    // System.Diagnostics.Debug/Trace.Write/WriteLine(string format,
+                    // params object[]) 同样映射 out.print/println（AGL ArgsParser
+                    // "cannot parse value" 现场）：Java PrintStream 没有
+                    // (String, Object[]) 形态，改走 TextWriterHelper（复合格式 + System.out）。
+                    if (TryBridgeDebugTraceFormatCall(node, mappedName, arguments, context, out var debugTraceFormatCall))
+                        return debugTraceFormatCall;
 
                     // LINQ Single/SingleOrDefault 映射到流方法 findAny，但具体化集合
                     // 接收器（接口映射常返回 java.util.List/CSharpList）没有 findAny
@@ -3691,6 +3712,55 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         => mappedName is "println" or "print"
            && context.GetSymbolInfo(invocation).Symbol is IMethodSymbol method
            && method.ContainingType?.ToDisplayString() == "System.IO.TextWriter";
+
+    /// <summary>
+    /// System.Diagnostics.Debug/Trace.Write/WriteLine(string format, params
+    /// object[] args) → print/println 桥接：两者都映射 out.println，Java
+    /// PrintStream 没有 (String, Object[]) 形态（AGL tools/ArgsParser
+    /// "for option '{0}' cannot parse value of '{1}'"）。改走 compat
+    /// TextWriterHelper.writeFormat/writeFormatLine（复合格式 + System.out，
+    /// 与 out.println 的既有落点一致）。
+    /// Debug/Trace 还有 WriteLine(string message, string category) 重载，
+    /// category 不是格式实参——按“末形参 IsParams”精确排除，不能按形状桥接。
+    /// </summary>
+    private static bool TryBridgeDebugTraceFormatCall(
+        InvocationExpressionSyntax node,
+        string mappedName,
+        string arguments,
+        ConversionContext context,
+        out string bridgedCall)
+    {
+        bridgedCall = string.Empty;
+        if (!IsDebugTraceFormatMappedCall(node, mappedName, context))
+            return false;
+
+        var parts = SplitTopLevelArguments(arguments);
+        if (parts.Count < 2)
+            return false;
+        if (context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type?.SpecialType
+            != SpecialType.System_String)
+            return false;
+
+        context.AddImport("io.github.ningpp.compat.TextWriterHelper");
+        var helper = mappedName == "out.println" ? "writeFormatLine" : "writeFormat";
+        bridgedCall = $"TextWriterHelper.{helper}(System.out, {string.Join(", ", parts)})";
+        return true;
+    }
+
+    /// <summary>
+    /// 被调是否为映射到 out.println/out.print 的 System.Diagnostics.Debug/Trace
+    /// 复合格式重载（末形参为 params object[]）。Console 走
+    /// IsConsoleFormatMappedCall，TextWriter 走 IsTextWriterFormatMappedCall。
+    /// </summary>
+    private static bool IsDebugTraceFormatMappedCall(
+        InvocationExpressionSyntax invocation,
+        string mappedName,
+        ConversionContext context)
+        => mappedName is "out.println" or "out.print"
+           && context.GetSymbolInfo(invocation).Symbol is IMethodSymbol method
+           && method.ContainingType?.ToDisplayString() is "System.Diagnostics.Debug" or "System.Diagnostics.Trace"
+           && method.Parameters.Length == 2
+           && method.Parameters[1].IsParams;
 
     /// <summary>
     /// 点分静态 compat 助手映射（如 System.Exception.InnerException →
