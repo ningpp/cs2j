@@ -80,6 +80,17 @@ internal static class IterableCoercion
                 return true;
             }
 
+            // Covariant element view: C# IEnumerable<Derived> converts to
+            // IEnumerable<Base>, but Java's carrier is invariant. Erase through
+            // fromAny at the slot (Cluster → Node, PolyIntEdge → Object, ...).
+            if (!string.Equals(srcMapped, context.MapType(target), StringComparison.Ordinal)
+                && !LooksLikeStreamPipeline(trimmed))
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                rendered = $"CSharpGenericIterable.fromAny({text})";
+                return true;
+            }
+
             // The value already has the carrier's Java type: only a LINQ chain
             // rendered as a Stream pipeline still needs materializing.
             if (!LooksLikeStreamPipeline(trimmed))
