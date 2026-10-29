@@ -425,7 +425,7 @@ public partial class StatementTransformer
 
         var body = innermost.Statement is BlockSyntax block
             ? $"{{\n        {TransformBlock(block, context)}\n    }}"
-            : $"{{ {new StatementTransformer().Transform(innermost.Statement, context)} }}";
+            : $"{{ {new StatementTransformer().Transform(innermost.Statement, context).ToString("")} }}";
 
         return new JavaStatementNode($"{prefix}try ({string.Join("; ", resources)}) {body}");
     }
@@ -475,7 +475,7 @@ public partial class StatementTransformer
         var expression = ExpressionTransformerFacade.Instance.Transform(stmt.Expression, context);
         var body = stmt.Statement is BlockSyntax block
             ? $"{{\n        {TransformBlock(block, context)}\n    }}"
-            : $"{{ {new StatementTransformer().Transform(stmt.Statement, context)} }}";
+            : $"{{ {new StatementTransformer().Transform(stmt.Statement, context).ToString("")} }}";
 
         // C29 lock 分型：System.Threading.Lock（.NET 9 专用锁对象）不能发成
         // synchronized(expr)——那锁的是 wrapper 实例的 intrinsic monitor，与其

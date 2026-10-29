@@ -768,6 +768,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             return false;
         }
+        // `new Func<...>(MethodGroup)(args)`：委托构造后立即调用（LINQ 通道
+        // Aggregate 的降糖产物正是这个形状）。Java 没有「调用方法引用」的表达式，
+        // `Owner::method(args)` 是语法错误；改发直接调用 `Owner.method(args)`。
+        if (callee is ObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 1 } creation
+            && creation.ArgumentList.Arguments[0].Expression
+                is IdentifierNameSyntax or MemberAccessExpressionSyntax
+            && context.GetSymbolInfo(creation.ArgumentList.Arguments[0].Expression).Symbol
+                is IMethodSymbol methodGroup)
+        {
+            var (owner, methodName) = ObjectCreationTransformer.ResolveDelegateTarget(
+                creation.ArgumentList.Arguments[0].Expression, methodGroup, context);
+            rendered = $"{owner}.{methodName}({argumentText})";
+            return true;
+        }
         // 裸名之外的三种委托表达式 callee（语义闸门已确证 DelegateInvoke 绑定）：
         // 成员访问（d.F(args)）、委托数组元素（Table[i](args)，回归 xml-tiny
         // LogicalExpr 的 s_CompXsltE[type1][type2](...)）、以及属性降糖后的 getter

@@ -216,6 +216,19 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     internal static string EmitDelegateMethodReference(
         ExpressionSyntax groupExpression, IMethodSymbol methodGroup, ConversionContext c)
     {
+        var (owner, methodName) = ResolveDelegateTarget(groupExpression, methodGroup, c);
+        return $"{owner}::{methodName}";
+    }
+
+    /// <summary>
+    /// Owner/method pair behind a method-group delegate reference. Shared by
+    /// the reference form (<c>Owner::method</c>) and the direct-call form
+    /// (<c>Owner.method(args)</c>) used when the construction is invoked
+    /// immediately — Java has no "call a method reference" expression.
+    /// </summary>
+    internal static (string Owner, string MethodName) ResolveDelegateTarget(
+        ExpressionSyntax groupExpression, IMethodSymbol methodGroup, ConversionContext c)
+    {
         string owner;
         if (groupExpression is MemberAccessExpressionSyntax memberAccess)
         {
@@ -235,7 +248,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         var methodName = methodGroup.Name.Length == 0
             ? methodGroup.Name
             : MapPrimitiveWrapperMethodGroupName(methodGroup, methodGroup.Name);
-        return $"{owner}::{methodName}";
+        return (owner, methodName);
     }
 
     /// <summary>
