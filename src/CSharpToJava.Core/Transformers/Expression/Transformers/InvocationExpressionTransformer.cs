@@ -560,6 +560,27 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return new JavaRawExpression(primInstanceCallBeforeMap);
                 }
 
+                // CollectionUtilities.AddToMap<TS,T,TC>: the erased body needs
+                // the runtime TC to instantiate a new bucket. The call site knows
+                // the closed dictionary value type, so provide it through the
+                // CollectionFactory thread-local for the duration of the call.
+                if (originalName == "AddToMap"
+                    && (methodSymbol?.ContainingType?.Name == "CollectionUtilities"
+                        || memberAccess.Expression is IdentifierNameSyntax
+                            { Identifier.Text: "CollectionUtilities" })
+                    && invocation.ArgumentList.Arguments.Count == 3
+                    && context.GetTypeInfo(invocation.ArgumentList.Arguments[0].Expression).Type
+                        is INamedTypeSymbol { TypeArguments.Length: 2 } addToMapDictionary
+                    && addToMapDictionary.TypeArguments[1] is not ITypeParameterSymbol)
+                {
+                    context.AddImport("io.github.ningpp.compat.CollectionFactory");
+                    var valueClass = ConversionContext.GetClassLiteral(
+                        addToMapDictionary.TypeArguments[1], context);
+                    return new JavaRawExpression(
+                        $"CollectionFactory.withValueType({valueClass}, "
+                        + $"() -> {receiverText}.addToMap({argumentText}))");
+                }
+
                 // System.Diagnostics.Debug/Trace.Write(format, args) maps to
                 // System.out.print/println, but Java has no two-string overload;
                 // route through TextWriterHelper.formatCs. The semantic owner can

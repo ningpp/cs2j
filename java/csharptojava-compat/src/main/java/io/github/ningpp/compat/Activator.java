@@ -12,6 +12,16 @@ public final class Activator {
     private Activator() {
     }
 
+    /**
+     * C# Activator.CreateInstance&lt;T&gt;() after erasure. The converter's
+     * CollectionUtilities call site supplies T via CollectionFactory; this
+     * no-arg overload is the only Java shape that preserves the C# generic
+     * arity.
+     */
+    public static <T> T createInstance() {
+        return CollectionFactory.createValue();
+    }
+
     public static <T> T createInstance(Class<T> type) {
         if (type == null) {
             throw new NullPointerException("type");
