@@ -1464,6 +1464,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         return $"{receiver}.get(0)";
                     }
 
+                    // GroupBy on a materialized array: Java arrays have no LINQ
+                    // surface, so bridge to the compat carrier before .collect.
+                    if (mappedName == "collect"
+                        && context.GetTypeInfo(memberAccess.Expression).Type is IArrayTypeSymbol arrayReceiver)
+                    {
+                        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                        var elementType = context.MapType(arrayReceiver.ElementType);
+                        receiver = $"CSharpGenericIterable.<{elementType}>fromAnyTyped({receiver})";
+                    }
+
                     return RenderMappedCall(mappedName, isStatic, receiver, arguments);
                 }
 
