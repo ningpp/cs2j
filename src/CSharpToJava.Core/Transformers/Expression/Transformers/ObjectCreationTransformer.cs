@@ -206,6 +206,10 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         var args = ArgumentTransformer.TransformArgumentList(
             al, c, ExpressionTransformerFacade.Instance, methodSymbol: constructor);
+        if (constructor != null && c.IsErasureConflictConstructor(constructor))
+        {
+            args = string.IsNullOrEmpty(args) ? "true" : $"{args}, true";
+        }
         return $"new {name}({args})";
     }
     /// <summary>

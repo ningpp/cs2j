@@ -100,6 +100,16 @@ public class ConstructorTransformer : IMemberTransformer
             javaCtor.Parameters.Add(javaParam);
         }
 
+        // Two C# constructors may erase to the same Java signature (e.g.
+        // Rectangle(IEnumerable<Point>) and Rectangle(IEnumerable<Rectangle>)).
+        // Java cannot rename constructors; give the later one a marker parameter
+        // and make ObjectCreationTransformer pass it at the resolved call sites.
+        if (ctorSymbol != null && HasEarlierErasedDuplicateConstructor(ctorSymbol, context))
+        {
+            javaCtor.Parameters.Add(new JavaParameter("boolean", "__cs2jCtorMarker"));
+            context.RegisterErasureConflictConstructor(ctorSymbol);
+        }
+
         // 处理初始值设定项
         if (ctorDecl.Initializer != null)
         {
@@ -393,4 +403,27 @@ public class ConstructorTransformer : IMemberTransformer
         return syntaxText == expectedName
             || syntaxText.EndsWith($".{expectedName}", StringComparison.Ordinal);
     }
+
+    private static bool HasEarlierErasedDuplicateConstructor(
+        IMethodSymbol ctor, ConversionContext context)
+    {
+        if (ctor.Locations.Length == 0)
+            return false;
+        var start = ctor.Locations[0].SourceSpan.Start;
+        var signature = ErasedConstructorSignature(ctor, context);
+        return ctor.ContainingType.InstanceConstructors.Any(other =>
+            !SymbolEqualityComparer.Default.Equals(other, ctor)
+            && other.Locations.Length > 0
+            && other.Locations[0].SourceSpan.Start < start
+            && ErasedConstructorSignature(other, context) == signature);
+    }
+
+    private static string ErasedConstructorSignature(
+        IMethodSymbol ctor, ConversionContext context)
+        => string.Join(",", ctor.Parameters.Select(parameter =>
+        {
+            var mapped = context.MapType(parameter.Type);
+            var angle = mapped.IndexOf('<');
+            return angle < 0 ? mapped : mapped[..angle];
+        }));
 }

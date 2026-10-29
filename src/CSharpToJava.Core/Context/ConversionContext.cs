@@ -405,6 +405,15 @@ public class ConversionContext
     private readonly Dictionary<ISymbol, string> _erasureRenamedMethods =
         new(SymbolEqualityComparer.Default);
 
+    private readonly HashSet<ISymbol> _erasureMarkerConstructors =
+        new(SymbolEqualityComparer.Default);
+
+    public void RegisterErasureConflictConstructor(IMethodSymbol constructor)
+        => _erasureMarkerConstructors.Add(constructor);
+
+    public bool IsErasureConflictConstructor(IMethodSymbol? constructor)
+        => constructor != null && _erasureMarkerConstructors.Contains(constructor);
+
     /// <summary>
     /// Records that a C# method overload was renamed because its Java erasure
     /// signature collides with an earlier overload. Call sites use this mapping to
