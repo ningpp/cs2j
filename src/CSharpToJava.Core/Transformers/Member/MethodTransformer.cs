@@ -8,6 +8,7 @@ using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression;
 using CSharpToJava.Core.Transformers.Type;
+using CSharpToJava.Core.Transformers.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Member;
 
@@ -87,6 +88,10 @@ public class MethodTransformer : IMemberTransformer
         BuildSignature(method, m.TypeParameterList, m.ConstraintClauses, m.ParameterList, ctx);
         TryRenameForErasureConflict(method, sym, ctx);
         BuildBody(method, m.Body, m.ExpressionBody, ctx);
+        // Java forbids static members from referencing class type parameters;
+        // re-declare the enclosing ones this static method uses as its own.
+        StaticMemberTypeParameterHelper.PromoteReferencedEnclosingTypeParameters(
+            method, m, sym?.IsStatic == true, sym, ctx);
         // Unimplemented C# partial method declarations have no body; the C# compiler
         // elides their calls. Emit an empty body so the Java declaration stays valid
         // (method.Body would otherwise render a bodyless, abstract-looking member).
@@ -174,6 +179,10 @@ public class MethodTransformer : IMemberTransformer
         {
             ctx.IsInAsyncContext = previousAsyncContext;
         }
+        // Hoisted local functions become static class methods when their outer
+        // member is static; the same Java type-parameter promotion applies.
+        StaticMemberTypeParameterHelper.PromoteReferencedEnclosingTypeParameters(
+            method, fn, isStatic, sym, ctx);
         return method;
     }
 

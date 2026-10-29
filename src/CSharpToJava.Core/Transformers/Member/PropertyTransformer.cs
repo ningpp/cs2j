@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis; using Microsoft.CodeAnalysis.CSharp; using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions; using CSharpToJava.Core.Comments; using CSharpToJava.Core.Context; using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression; using CSharpToJava.Core.Transformers.Expression.Utilities;
+using CSharpToJava.Core.Transformers.Utilities;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxKind;  namespace CSharpToJava.Core.Transformers.Member; 
 public class PropertyTransformer : IMemberTransformer {
 private const JavaModifiers Visibility = JavaModifiers.Public | JavaModifiers.Protected | JavaModifiers.Private; 
@@ -60,7 +61,7 @@ if (propType.StartsWith("CSharpGenericIterable<") || propType.StartsWith("CSharp
 else { ctx.AddImport("java.util.List"); m.ReturnType = $"List<{elem}>"; } var body = st.TransformBlock(getAccessor.Body, ctx);
 m.Body = $"CSharpList<{elem}> _yieldResult = new CSharpList<{elem}>();\n        {body}\n        return _yieldResult;";
 ctx.IsInYieldMethod = false; } else m.StructuredBody = st.TransformBlockToStructuredBody(getAccessor.Body, ctx); m.IsBodyExpression = false;
-} return m; }  JavaMethodDeclaration BuildSetter() {
+} StaticMemberTypeParameterHelper.PromoteReferencedEnclosingTypeParameters(m, p, isStatic, sym, ctx); return m; }  JavaMethodDeclaration BuildSetter() {
 string? bodyExpr = setAccessor?.ExpressionBody != null ? Expr(setAccessor.ExpressionBody.Expression, ctx) : null;
 var isExpr = bodyExpr != null; var hoisted = isExpr && (ctx.HasPendingPreStatements || ctx.HasPendingPostStatements);
 var m = new JavaMethodDeclaration { Name = "set" + Pascal(name) + HidingSuffix(sym), ReturnType = "void",
@@ -79,7 +80,7 @@ m.StructuredBody = new JavaMethodBody(stmts); m.Body = null; } else if (setAcces
 m.StructuredBody = new Transformers.Statement.StatementTransformer().TransformBlockToStructuredBody(setAccessor.Body, ctx);
 m.IsBodyExpression = false; } if (setAccessor?.IsKind(InitAccessorDeclaration) == true)
 m.LeadingComment = ConvertedCommentSet.JoinComments(m.LeadingComment, "/** @implNote Set during construction only (C# init accessor). */");
-return m; }  if (emit && hasGetter) result.Add(BuildGetter()); if (emit && hasSetter) result.Add(BuildSetter());
+StaticMemberTypeParameterHelper.PromoteReferencedEnclosingTypeParameters(m, p, isStatic, sym, ctx); return m; }  if (emit && hasGetter) result.Add(BuildGetter()); if (emit && hasSetter) result.Add(BuildSetter());
 var hoistedLocals = new Queue<LocalFunctionStatementSyntax>(ctx.MethodState.DrainHoistedLocalFunctions()); while (hoistedLocals.Count > 0) {
 var local = hoistedLocals.Dequeue(); result.Add(MethodTransformer.TransformLocalFunction(local, ctx));
 foreach (var nested in ctx.MethodState.DrainHoistedLocalFunctions()) hoistedLocals.Enqueue(nested); }
