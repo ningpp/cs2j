@@ -25,6 +25,11 @@ public class StreamWrapper implements AutoCloseable {
         this(null, null, null);
     }
 
+    /** C# File.OpenRead returns a Stream; wrap an already-open input stream. */
+    public StreamWrapper(InputStream in) {
+        this(in, null, null);
+    }
+
     protected StreamWrapper(InputStream in, OutputStream out) {
         this(in, out, null);
     }

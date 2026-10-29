@@ -8705,7 +8705,7 @@
         {
             "type": "System.IO.File",
             "method": "OpenRead",
-            "javaMethod": "openRead"
+            "javaMethod": "openReadWrapper"
         },
         {
             "type": "System.IO.File",

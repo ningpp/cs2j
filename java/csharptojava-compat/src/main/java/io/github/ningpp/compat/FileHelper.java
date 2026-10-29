@@ -28,6 +28,10 @@ public class FileHelper {
         try { return openReadStream(path); }
         catch (FileNotFoundException e) { throw new UncheckedIOException(e); }
     }
+    /** C# File.OpenRead returns Stream; preserve that surface for generated code. */
+    public static StreamWrapper openReadWrapper(String path) {
+        return new StreamWrapper(openRead(path));
+    }
     public static TextReader openText(String path) {
         try {
             InputStream fs = openReadStream(path);
