@@ -69,6 +69,17 @@ internal static class IterableCoercion
 
         if (srcIsIterable)
         {
+            // Non-generic IEnumerable target (CSharpGenericIterable<Object>):
+            // generic CSharpGenericIterable<T> is invariant, so erase through
+            // fromAny instead of emitting an invalid generic assignment.
+            if (target is INamedTypeSymbol { TypeArguments.Length: 0 }
+                && srcType is INamedTypeSymbol { TypeArguments.Length: > 0 })
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                rendered = $"CSharpGenericIterable.fromAny({text})";
+                return true;
+            }
+
             // The value already has the carrier's Java type: only a LINQ chain
             // rendered as a Stream pipeline still needs materializing.
             if (!LooksLikeStreamPipeline(trimmed))
