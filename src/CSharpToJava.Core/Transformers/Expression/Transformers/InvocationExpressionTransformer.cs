@@ -2892,6 +2892,67 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return true;
         }
 
+        if (argCount == 1 && name == "Sum")
+        {
+            var sumStream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            var sumType = context.GetTypeInfo(invocation).Type;
+            rendered = sumType?.SpecialType switch
+            {
+                SpecialType.System_Int64 => $"{sumStream}.mapToLong({argumentText}).sum()",
+                SpecialType.System_Double => $"{sumStream}.mapToDouble({argumentText}).sum()",
+                SpecialType.System_Single => $"(float) {sumStream}.mapToDouble({argumentText}).sum()",
+                _ => $"{sumStream}.mapToInt({argumentText}).sum()",
+            };
+            return true;
+        }
+
+        if (argCount == 1 && name == "Average")
+        {
+            var avgStream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            var avgType = context.GetTypeInfo(invocation).Type;
+            var avg = $"{avgStream}.mapToDouble({argumentText}).average().orElseThrow()";
+            rendered = avgType?.SpecialType == SpecialType.System_Single ? $"(float) {avg}" : avg;
+            return true;
+        }
+
+        if (name is "Max" or "Min")
+        {
+            var extremumStream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            if (argCount == 0)
+            {
+                rendered = $"{extremumStream}.{(name == "Max" ? "max" : "min")}(java.util.Comparator.naturalOrder()).orElseThrow()";
+                return true;
+            }
+            if (argCount == 1)
+            {
+                // Max(selector)/Min(selector) return the selected key value, not
+                // the source element: map first, then take the natural extremum.
+                rendered = $"{extremumStream}.map({argumentText}).{(name == "Max" ? "max" : "min")}(java.util.Comparator.naturalOrder()).orElseThrow()";
+                return true;
+            }
+        }
+
+        if (argCount == 0 && name == "OfType")
+        {
+            var ofTypeStream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            var target = context.GetTypeInfo(invocation).Type is INamedTypeSymbol { TypeArguments.Length: 1 } named
+                ? context.MapType(named.TypeArguments[0])
+                : null;
+            if (target != null)
+            {
+                rendered = $"{ofTypeStream}.filter({target}.class::isInstance).map({target}.class::cast)";
+                return true;
+            }
+        }
+
         if (argCount == 0 && name == "Average")
         {
             var avgStream = receiverIsStream
