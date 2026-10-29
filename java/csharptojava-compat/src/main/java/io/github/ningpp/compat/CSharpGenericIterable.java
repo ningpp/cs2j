@@ -276,6 +276,24 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
         return fromCollection(stream.collect(java.util.stream.Collectors.toList()));
     }
 
+    /**
+     * Dictionary-as-IEnumerable bridge: C# Dictionary implements
+     * IEnumerable&lt;KeyValuePair&lt;K,V&gt;&gt;, but the compat dictionary
+     * deliberately stays outside Collection to avoid add(Object) erasure
+     * clashes. Adapter used where a generated IEnumerable parameter receives a
+     * dictionary value.
+     */
+    static <K, V> CSharpGenericIterable<CSharpKeyValuePair<K, V>> fromEntries(
+            CSharpGenericIDictionary<K, V> dictionary) {
+        if (dictionary == null) {
+            return null;
+        }
+        @SuppressWarnings("unchecked")
+        CSharpIterable<CSharpKeyValuePair<K, V>> entries =
+                (CSharpIterable<CSharpKeyValuePair<K, V>>) (CSharpIterable<?>) dictionary;
+        return from(entries);
+    }
+
     /** C# List&lt;T&gt;.ToArray(): typed materialization distinct from Collection.toArray. */
     default <E> E[] toArrayCs(E[] array) {
         java.util.List<E> items = new java.util.ArrayList<>();

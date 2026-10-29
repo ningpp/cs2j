@@ -111,13 +111,17 @@ internal static class IterableCoercion
             return true;
         }
 
-        // Only bridge values C# accepts here, i.e. ones that already implement
-        // IEnumerable in the source. Dictionaries are excluded: their compat
-        // mapping is not a Java Iterable (the dictionary-specific entrySet
-        // bridge handles the KeyValuePair shape).
-        if (!IsEnumerableSource(srcType))
-            return false;
+        // A C# dictionary is IEnumerable<KeyValuePair<K,V>> but its compat
+        // mapping deliberately stays outside Collection; materialize it through
+        // the dedicated entry adapter when an IEnumerable slot receives it.
         if (IsGenericDictionary(srcType))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            rendered = $"CSharpGenericIterable.fromEntries({text})";
+            return true;
+        }
+
+        if (!IsEnumerableSource(srcType))
             return false;
 
         // Concrete collection classes (List<T> -> CSharpList, generated
