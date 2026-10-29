@@ -2834,10 +2834,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var orderStream = receiverIsStream
                 ? receiver
                 : BuildStreamReceiver(receiver, memberAccess.Expression, context);
-            // The argument is already rendered as a Comparator (the C# key
-            // selector is lowered before this hook); descending orders carry
-            // Comparator.reversed() on that comparator.
-            rendered = $"{orderStream}.sorted({argumentText})";
+            // The argument may already be a Comparator produced by an earlier
+            // stage; otherwise it is the C# key selector and must be wrapped
+            // (Comparator.comparing), including the descending reversal.
+            var sortArgument = argumentText.TrimStart().StartsWith("Comparator.", StringComparison.Ordinal)
+                ? argumentText
+                : WrapSortKeySelectorText(name, argumentText, context);
+            rendered = $"{orderStream}.sorted({sortArgument})";
             return true;
         }
 
