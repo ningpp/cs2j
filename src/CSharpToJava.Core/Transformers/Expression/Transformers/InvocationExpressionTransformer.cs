@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -373,6 +373,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     }
                 }
 
+                if (methodSymbol is { Name: "ToArray", Parameters.Length: 0 }
+                    && methodSymbol.ContainingType?.ToDisplayString() == "System.Linq.Enumerable"
+                    && context.GetTypeInfo(memberAccess.Expression).Type is IArrayTypeSymbol)
+                {
+                    // C# Enumerable.ToArray() on an already-materialized array is
+                    // a defensive copy; the array cannot receive a toArray() call.
+                    context.AddImport("java.util.Arrays");
+                    return new JavaRawExpression(
+                        $"Arrays.copyOf({receiverText}, {receiverText}.length)");
+                }
+
                 // Enumerable.ToArray<T>() on a compat iterable: Object[] would be
                 // emitted by the raw iterator; materialize a typed array instead.
                 if (methodSymbol is { Name: "ToArray", Parameters.Length: 0 }
@@ -380,16 +391,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     && TryGetEnumerableElementType(context.GetTypeInfo(memberAccess.Expression).Type, out var toArrayElement))
                 {
                     var element = BoxPrimitive(context.MapType(toArrayElement));
-                    var receiverMapped = context.MapType(context.GetTypeInfo(memberAccess.Expression).Type);
-                    var arrayFactory = receiverMapped.StartsWith("Stream", StringComparison.Ordinal)
-                        || receiverMapped.StartsWith("java.util.stream", StringComparison.Ordinal)
-                        || receiverText.Contains("StreamSupport.stream", StringComparison.Ordinal)
-                        || receiverText.Contains(".filter(", StringComparison.Ordinal)
-                        || receiverText.Contains(".map(", StringComparison.Ordinal)
-                        ? $"{element}[]::new"
-                        : $"new {element}[0]";
+                    var toArrayStream = LooksLikeStreamPipeline(receiverText)
+                        ? receiverText
+                        : BuildStreamReceiver(receiverText, memberAccess.Expression, context);
                     return new JavaRawExpression(WrapPrimitiveArrayUnbox(
-                        $"{receiverText}.toArray({arrayFactory})",
+                        $"{toArrayStream}.toArray({element}[]::new)",
                         context.GetTypeInfo(invocation).Type, context));
                 }
 
@@ -2752,6 +2758,153 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return true;
         }
 
+        // Residual LINQ terminal operators whose Java Stream surface differs in
+        // shape from the C# contract (Optional-returning findFirst/reduce, no
+        // no-arg anyMatch, ElementAt lowered to skip) or that must still flow
+        // through a stream built from an array/compat collection. Handle them
+        // before the name-only method table so a compat receiver never receives
+        // a raw Stream method.
+        if (argCount == 0 && name is "Any")
+        {
+            var anyStream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            rendered = $"{anyStream}.anyMatch(__cs2jItem -> true)";
+            return true;
+        }
+
+        if (argCount == 1 && name is "First" or "FirstOrDefault")
+        {
+            var firstStream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            rendered = name == "First"
+                ? $"{firstStream}.filter({argumentText}).findFirst().orElseThrow(() -> new IllegalStateException(\"The sequence did not contain a matching element.\"))"
+                : $"{firstStream}.filter({argumentText}).findFirst().orElse(null)";
+            return true;
+        }
+
+        if (argCount == 0 && name is "First" or "FirstOrDefault" or "Last" or "LastOrDefault")
+        {
+            var terminalStream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            var orElse = name.EndsWith("OrDefault", StringComparison.Ordinal)
+                ? ".orElse(null)"
+                : ".orElseThrow()";
+            rendered = name is "First" or "FirstOrDefault"
+                ? $"{terminalStream}.findFirst(){orElse}"
+                : $"{terminalStream}.reduce((__cs2jA, __cs2jB) -> __cs2jB){orElse}";
+            return true;
+        }
+
+        // Residual Enumerable.ToArray() whose binding was lost in the
+        // post-preprocessed tree: materialize a typed array through a stream
+        // (the compat carrier has no toArray(T[]) matching the C# surface).
+        if (argCount == 0 && name == "ToArray")
+        {
+            var arrayStream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            var arrayType = context.GetTypeInfo(invocation).Type as IArrayTypeSymbol;
+            var element = arrayType != null
+                ? BoxPrimitive(context.MapType(arrayType.ElementType))
+                : "Object";
+            var materialized = $"{arrayStream}.toArray({element}[]::new)";
+            rendered = arrayType != null
+                ? WrapPrimitiveArrayUnbox(materialized, context.GetTypeInfo(invocation).Type, context)
+                : materialized;
+            return true;
+        }
+
+        if (argCount == 1 && name is "ElementAt" or "ElementAtOrDefault")
+        {
+            var elementAtStream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            var index = ExpressionTransformerFacade.Instance.Transform(
+                invocation.ArgumentList.Arguments[0].Expression, context);
+            var orElse = name == "ElementAtOrDefault" ? ".orElse(null)" : ".orElseThrow()";
+            rendered = $"{elementAtStream}.skip({index}).findFirst(){orElse}";
+            return true;
+        }
+
+        if (argCount == 1 && name is "OrderBy" or "ThenBy" or "OrderByDescending" or "ThenByDescending")
+        {
+            var orderStream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            // The argument is already rendered as a Comparator (the C# key
+            // selector is lowered before this hook); descending orders carry
+            // Comparator.reversed() on that comparator.
+            rendered = $"{orderStream}.sorted({argumentText})";
+            return true;
+        }
+
+        if (argCount == 1 && name is "Take" or "TakeWhile" or "Skip" or "SkipWhile")
+        {
+            var windowStream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            var windowOp = name switch
+            {
+                "Take" => "limit",
+                "TakeWhile" => "takeWhile",
+                "Skip" => "skip",
+                _ => "dropWhile",
+            };
+            rendered = $"{windowStream}.{windowOp}({argumentText})";
+            return true;
+        }
+
+        if (argCount == 0 && name == "AsEnumerable")
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            rendered = $"CSharpGenericIterable.fromAnyTyped({receiver})";
+            return true;
+        }
+
+        // SelectMany lowers to Stream.flatMap, whose selector must return a
+        // Stream. C# selectors return IEnumerable (our compat carriers are
+        // Iterables/arrays), so adapt the selector result at the call site.
+        if (argCount == 1 && name == "SelectMany")
+        {
+            var flatMapStream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            rendered = $"{flatMapStream}.flatMap({BuildFlatMapSelector(argumentText, context)})";
+            return true;
+        }
+
+        if (argCount == 0 && name == "Sum")
+        {
+            var sumStream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            var sumType = context.GetTypeInfo(invocation).Type;
+            rendered = sumType?.SpecialType switch
+            {
+                SpecialType.System_Int32 => $"{sumStream}.mapToInt(__cs2jItem -> __cs2jItem).sum()",
+                SpecialType.System_Int64 => $"{sumStream}.mapToLong(__cs2jItem -> __cs2jItem).sum()",
+                SpecialType.System_Single => $"(float) {sumStream}.mapToDouble(__cs2jItem -> __cs2jItem).sum()",
+                SpecialType.System_Double => $"{sumStream}.mapToDouble(__cs2jItem -> __cs2jItem).sum()",
+                _ => null,
+            };
+            if (rendered != null)
+                return true;
+        }
+
+        if (argCount == 0 && name == "Average")
+        {
+            var avgStream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            var avgType = context.GetTypeInfo(invocation).Type;
+            var avg = $"{avgStream}.mapToDouble(__cs2jItem -> __cs2jItem).average().orElseThrow()";
+            rendered = avgType?.SpecialType == SpecialType.System_Single ? $"(float) {avg}" : avg;
+            return true;
+        }
+
         var streamOperator = (name, argCount) switch
         {
             ("Where", 1) => "filter",
@@ -2999,15 +3152,50 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             or "DeclaredConstructors" or "DeclaredMembers";
     }
 
+    /// <summary>
+    /// Adapts a SelectMany selector (method reference or lambda) so its result
+    /// (a C# IEnumerable carrier or array) becomes a Java Stream for flatMap.
+    /// </summary>
+    private static string BuildFlatMapSelector(string argumentText, ConversionContext context)
+    {
+        context.AddImport("java.util.stream.StreamSupport");
+        var trimmed = argumentText.Trim();
+        var methodRef = System.Text.RegularExpressions.Regex.Match(
+            trimmed,
+            @"^(?<qual>[A-Za-z_$][\w.$]*|this)::(?<name>[A-Za-z_$][\w$]*)$");
+        if (methodRef.Success)
+        {
+            var qualifier = methodRef.Groups["qual"].Value;
+            var methodName = methodRef.Groups["name"].Value;
+            return $"__cs2jItem -> StreamSupport.stream({qualifier}.{methodName}(__cs2jItem).spliterator(), false)";
+        }
+
+        var arrow = trimmed.IndexOf("->", StringComparison.Ordinal);
+        if (arrow > 0)
+        {
+            var parameters = trimmed[..arrow].Trim();
+            var body = trimmed[(arrow + 2)..].Trim();
+            if (!body.StartsWith("{", StringComparison.Ordinal))
+                return $"{parameters} -> StreamSupport.stream(({body}).spliterator(), false)";
+        }
+
+        return argumentText;
+    }
+
     private static bool LooksLikeStreamPipeline(string expression)
-        => expression.Contains(".stream(", StringComparison.Ordinal)
-            || expression.Contains(".filter(", StringComparison.Ordinal)
-            || expression.Contains(".map(", StringComparison.Ordinal)
-            || expression.Contains(".flatMap(", StringComparison.Ordinal)
-            || expression.Contains(".sorted(", StringComparison.Ordinal)
-            || expression.Contains(".distinct(", StringComparison.Ordinal)
-            || expression.Contains(".anyMatch(", StringComparison.Ordinal)
-            || expression.Contains(".allMatch(", StringComparison.Ordinal);
+        // A materialized pipeline (`.collect(...)` / `.toArray(...)`) is a
+        // collection/array again, not a Stream: wrapping it in Stream.concat or
+        // passing it to a Stream method needs the receiver rebuilt below.
+        => !expression.Contains(".collect(", StringComparison.Ordinal)
+            && !expression.Contains(".toArray(", StringComparison.Ordinal)
+            && (expression.Contains(".stream(", StringComparison.Ordinal)
+                || expression.Contains(".filter(", StringComparison.Ordinal)
+                || expression.Contains(".map(", StringComparison.Ordinal)
+                || expression.Contains(".flatMap(", StringComparison.Ordinal)
+                || expression.Contains(".sorted(", StringComparison.Ordinal)
+                || expression.Contains(".distinct(", StringComparison.Ordinal)
+                || expression.Contains(".anyMatch(", StringComparison.Ordinal)
+                || expression.Contains(".allMatch(", StringComparison.Ordinal));
 
     /// <summary>
     /// Receiver-type driven variant of <see cref="TryRenderPrimitiveInstanceCall"/>.

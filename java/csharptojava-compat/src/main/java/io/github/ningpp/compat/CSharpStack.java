@@ -1,7 +1,9 @@
 package io.github.ningpp.compat;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 
@@ -158,9 +160,18 @@ public class CSharpStack<T> implements CSharpICollection<T>, Cloneable {
     }
 
     @Override
-    public CSharpGenericEnumerator<T> iterator() {
-        // C# Stack enumerator iterates top-to-bottom (LIFO order)
+    public CSharpGenericEnumerator<T> iterator() {        // C# Stack enumerator iterates top-to-bottom (LIFO order)
         return CSharpGenericEnumerator.from(deque.descendingIterator());
+    }
+
+    /** C# Enumerable.Reverse() on a Stack: a new sequence in reverse enumeration order. */
+    public CSharpGenericIterable<T> reverseSequence() {
+        ArrayList<T> items = new ArrayList<>();
+        for (T item : this) {
+            items.add(item);
+        }
+        Collections.reverse(items);
+        return CSharpGenericIterable.fromCollection(items);
     }
 
     @Override

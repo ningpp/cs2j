@@ -1,4 +1,4 @@
-﻿{
+{
     "typeMappings": [
         {
             "csharp": "System.String",
@@ -220,6 +220,41 @@
             "java": "CSharpDictionary",
             "imports": [
                 "io.github.ningpp.compat.CSharpDictionary"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.Queue`1",
+            "java": "CSharpQueue",
+            "imports": [
+                "io.github.ningpp.compat.CSharpQueue"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.LinkedList`1",
+            "java": "CSharpLinkedList",
+            "imports": [
+                "io.github.ningpp.compat.CSharpLinkedList"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.LinkedListNode`1",
+            "java": "CSharpLinkedListNode",
+            "imports": [
+                "io.github.ningpp.compat.CSharpLinkedListNode"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.SortedDictionary`2",
+            "java": "CSharpSortedDict",
+            "imports": [
+                "io.github.ningpp.compat.CSharpSortedDict"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.SortedSet`1",
+            "java": "CSharpSortedSet",
+            "imports": [
+                "io.github.ningpp.compat.CSharpSortedSet"
             ]
         },
         {
@@ -502,6 +537,13 @@
             ]
         },
         {
+            "csharp": "System.Text.RegularExpressions.Regex",
+            "java": "Regex",
+            "imports": [
+                "dotnet.text.regularexpressions.Regex"
+            ]
+        },
+        {
             "csharp": "System.StringComparer",
             "java": "StringComparer",
             "imports": [
@@ -611,7 +653,9 @@
         {
             "csharp": "System.Diagnostics.Stopwatch",
             "java": "StopwatchHelper",
-            "imports": []
+            "imports": [
+                "io.github.ningpp.compat.StopwatchHelper"
+            ]
         },
         {
             "csharp": "System.Diagnostics.Process",
@@ -2346,6 +2390,13 @@
             ]
         },
         {
+            "csharp": "System.Xml.XmlNodeType",
+            "java": "XmlNodeType",
+            "imports": [
+                "dotnet.xml.XmlNodeType"
+            ]
+        },
+        {
             "csharp": "System.Xml.ReadState",
             "java": "ReadState",
             "imports": [
@@ -3982,7 +4033,9 @@
         {
             "csharp": "System.Threading.Tasks.Parallel",
             "java": "ParallelStream",
-            "imports": []
+            "imports": [
+                "io.github.ningpp.compat.ParallelStream"
+            ]
         },
         {
             "csharp": "System.Math",
@@ -6554,6 +6607,136 @@
     "methodMappings": [
         {
             "type": "System.Collections.Generic.List`1",
+            "method": "ToArray",
+            "javaMethod": "toArrayCs"
+        },
+        {
+            "type": "System.Linq.Enumerable",
+            "method": "Reverse",
+            "javaMethod": "reverseSequence"
+        },
+        {
+            "type": "System.Collections.Generic.HashSet`1",
+            "method": "CopyTo",
+            "javaMethod": "ArrayHelper.copyTo"
+        },
+        {
+            "type": "System.Diagnostics.Stopwatch",
+            "method": "GetTimestamp",
+            "javaMethod": "getTimestamp"
+        },
+        {
+            "type": "System.Diagnostics.Stopwatch",
+            "method": "Frequency",
+            "javaMethod": "Frequency"
+        },
+        {
+            "type": "System.Xml.XmlReader",
+            "method": "NodeType",
+            "javaMethod": "NodeType"
+        },
+        {
+            "type": "System.Xml.XmlReader",
+            "method": "Name",
+            "javaMethod": "Name"
+        },
+        {
+            "type": "System.Xml.XmlReader",
+            "method": "LocalName",
+            "javaMethod": "LocalName"
+        },
+        {
+            "type": "System.Xml.XmlReader",
+            "method": "IsEmptyElement",
+            "javaMethod": "IsEmptyElement"
+        },
+        {
+            "type": "System.Xml.XmlReader",
+            "method": "Value",
+            "javaMethod": "Value"
+        },
+        {
+            "type": "System.Xml.XmlReader",
+            "method": "Depth",
+            "javaMethod": "Depth"
+        },
+        {
+            "type": "System.Xml.XmlReader",
+            "method": "AttributeCount",
+            "javaMethod": "AttributeCount"
+        },
+        {
+            "type": "System.Xml.XmlReader",
+            "method": "ReadState",
+            "javaMethod": "ReadState"
+        },
+        {
+            "type": "System.Xml.XmlReaderSettings",
+            "method": "IgnoreComments",
+            "javaMethod": "IgnoreComments"
+        },
+        {
+            "type": "System.Xml.XmlReaderSettings",
+            "method": "IgnoreWhitespace",
+            "javaMethod": "IgnoreWhitespace"
+        },
+        {
+            "type": "System.Xml.XmlReaderSettings",
+            "method": "IgnoreProcessingInstructions",
+            "javaMethod": "IgnoreProcessingInstructions"
+        },
+        {
+            "type": "System.Xml.XmlReaderSettings",
+            "method": "CheckCharacters",
+            "javaMethod": "CheckCharacters"
+        },
+        {
+            "type": "System.Xml.XmlReaderSettings",
+            "method": "CloseInput",
+            "javaMethod": "CloseInput"
+        },
+        {
+            "type": "System.Xml.XmlReaderSettings",
+            "method": "ConformanceLevel",
+            "javaMethod": "ConformanceLevel"
+        },
+        {
+            "type": "System.Xml.XmlReaderSettings",
+            "method": "DtdProcessing",
+            "javaMethod": "DtdProcessing"
+        },
+        {
+            "type": "System.Xml.XmlWriterSettings",
+            "method": "Indent",
+            "javaMethod": "Indent"
+        },
+        {
+            "type": "System.Xml.XmlWriterSettings",
+            "method": "IndentChars",
+            "javaMethod": "IndentChars"
+        },
+        {
+            "type": "System.Xml.XmlWriterSettings",
+            "method": "NewLineChars",
+            "javaMethod": "NewLineChars"
+        },
+        {
+            "type": "System.Xml.XmlWriterSettings",
+            "method": "NewLineHandling",
+            "javaMethod": "NewLineHandling"
+        },
+        {
+            "type": "System.Xml.XmlWriterSettings",
+            "method": "OmitXmlDeclaration",
+            "javaMethod": "OmitXmlDeclaration"
+        },
+        {
+            "type": "System.Xml.XmlWriterSettings",
+            "method": "CloseOutput",
+            "javaMethod": "CloseOutput"
+        },
+        {
+            "type": "System.Collections.Generic.List`1",
             "method": "RemoveRange",
             "javaMethod": "_removeRange"
         },
@@ -7578,6 +7761,24 @@
             "type": "System.Threading.CancellationTokenSource",
             "method": "IsCancellationRequested",
             "javaMethod": "isCancellationRequested"
+        },
+        {
+            "type": "System.String",
+            "method": "ToString",
+            "javaMethod": "StringHelper.toString",
+            "signature": "1"
+        },
+        {
+            "type": "System.Math",
+            "method": "Log",
+            "javaMethod": "MathHelper.log",
+            "signature": "2"
+        },
+        {
+            "type": "System.Math",
+            "method": "Round",
+            "javaMethod": "MathHelper.round",
+            "signature": "2"
         },
         {
             "type": "System.Math",

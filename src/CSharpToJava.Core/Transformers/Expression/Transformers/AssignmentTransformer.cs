@@ -261,6 +261,19 @@ public class AssignmentTransformer : IIRExpressionTransformer
             ? c.TypeMappings.MapMethod(p.ContainingType.ToDisplayString(), p.Name)
             : null;
 
+        // Ported BCL types (dotnet.xml XmlReaderSettings/XmlWriterSettings) expose
+        // C#-style property setters as same-named methods: IgnoreComments = true
+        // is IgnoreComments(true), not setIgnoreComments(true). A non-bean mapped
+        // name is a direct setter method; helper-style mappings (dotted) keep the
+        // fallback below.
+        var directSetter = c.TypeMappings.MapMethod(p.ContainingType.ToDisplayString(), p.Name);
+        if (!string.IsNullOrEmpty(directSetter)
+            && !directSetter.Contains('.')
+            && !JavaNaming.IsBeanAccessorStyleName(directSetter))
+        {
+            return $"{receiver}{directSetter}({valueText})";
+        }
+
         // 分布在移植类上的 BCL 属性（System.Xml.XmlElement → dotnet.xml.XmlElement）：
         // 移植类的属性已被 member-desugar 展开为 set_InnerText 方法并发射成
         // InnerText(value)，Java bean setter setInnerText() 不存在（真实链

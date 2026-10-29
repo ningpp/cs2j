@@ -245,6 +245,54 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
         return CSharpGenericIterable.fromCollection(items);
     }
 
+    /** Materialize a residual LINQ stream terminal on the compat carrier. */
+    default <R, A> R collect(java.util.stream.Collector<? super T, A, R> collector) {
+        return stream().collect(collector);
+    }
+
+    /** C# Enumerable.Reverse(): a new reversed sequence (List.Reverse() is a
+     * separate in-place void method on CSharpList, hence the distinct name). */
+    default CSharpGenericIterable<T> reverseSequence() {
+        java.util.List<T> items = new java.util.ArrayList<>();
+        for (T item : this) {
+            items.add(item);
+        }
+        java.util.Collections.reverse(items);
+        return CSharpGenericIterable.fromCollection(items);
+    }
+
+    /** C# Enumerable.Any(predicate). */
+    default boolean anyMatch(java.util.function.Predicate<? super T> predicate) {
+        for (T item : this) {
+            if (predicate.test(item)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Materialize a residual Java Stream into the C# IEnumerable carrier. */
+    static <T> CSharpGenericIterable<T> from(java.util.stream.Stream<? extends T> stream) {
+        return fromCollection(stream.collect(java.util.stream.Collectors.toList()));
+    }
+
+    /** C# List&lt;T&gt;.ToArray(): typed materialization distinct from Collection.toArray. */
+    default <E> E[] toArrayCs(E[] array) {
+        java.util.List<E> items = new java.util.ArrayList<>();
+        for (T item : this) {
+            @SuppressWarnings("unchecked")
+            E cast = (E) item;
+            items.add(cast);
+        }
+        return items.toArray(array);
+    }
+
+    /** C# List&lt;T&gt;.ToArray() without an explicit array; E is inferred from the slot. */
+    @SuppressWarnings("unchecked")
+    default <E> E[] toArrayCs() {
+        return (E[]) toArray();
+    }
+
     // Default Collection implementations for lazy iterables
     @Override
     default int size() {

@@ -508,6 +508,15 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
         return -1; // ArrayList doesn't expose capacity
     }
 
+    /** C# List&lt;T&gt;.Capacity setter; ArrayList grows automatically, so only
+     * validate the lower bound and reserve when needed. */
+    public void setCapacity(int value) {
+        if (value < size()) {
+            throw new ArgumentOutOfRangeException("value");
+        }
+        ensureCapacity(value);
+    }
+
     @Override
     public CSharpList<T> clone() {
         return new CSharpList<>(this);

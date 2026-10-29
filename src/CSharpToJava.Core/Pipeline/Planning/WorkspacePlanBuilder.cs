@@ -61,13 +61,15 @@ public sealed class WorkspacePlanBuilder
     };
 
     /// <summary>
-    /// 默认依赖：vavr + jackson-databind + csharptojava-compat（当前所有项目都需要）。
+    /// 默认依赖：vavr + jackson-databind + csharptojava-compat + dotnet-text-regularexpressions
+    /// （Regex 类型映射指向移植版 dotnet.text.regularexpressions 包）。
     /// </summary>
     public static IReadOnlyList<JavaDependency> DefaultDependencies() =>
     [
         new() { GroupId = "io.vavr", ArtifactId = "vavr", Version = "0.10.4" },
         new() { GroupId = "com.fasterxml.jackson.core", ArtifactId = "jackson-databind", Version = "2.17.2" },
         new() { GroupId = "io.github.ningpp", ArtifactId = "csharptojava-compat", Version = "1.0-SNAPSHOT" },
+        new() { GroupId = "io.github.ningpp", ArtifactId = "dotnet-text-regularexpressions", Version = "0.0.1-SNAPSHOT" },
     ];
 
     public static IReadOnlyList<JavaDependency> DefaultDependenciesForModule(string groupId, string artifactId) =>

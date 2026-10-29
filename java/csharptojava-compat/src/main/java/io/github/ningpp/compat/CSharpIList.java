@@ -1,5 +1,14 @@
 package io.github.ningpp.compat;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.function.Function;
+import java.util.function.IntFunction;
+import java.util.function.Predicate;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
+
 /**
  * C# non-generic IList compat view.
  *
@@ -22,6 +31,164 @@ package io.github.ningpp.compat;
  * incompatible return type.</p>
  */
 public interface CSharpIList<T> extends CSharpCollection {
+    /**
+     * C# ICollection.CopyTo / Enumerable.ToArray materialization for the
+     * non-generic IList view. The erased hierarchy cannot extend Collection, so
+     * generated List&lt;T&gt;.ToArray() calls would otherwise find no overload.
+     */
+    default Object[] toArray() {
+        ArrayList<Object> items = new ArrayList<>();
+        for (Object item : this) {
+            items.add(item);
+        }
+        return items.toArray();
+    }
+
+    default <E> E[] toArray(IntFunction<E[]> generator) {
+        ArrayList<Object> items = new ArrayList<>();
+        for (Object item : this) {
+            items.add(item);
+        }
+        return items.toArray(generator.apply(items.size()));
+    }
+
+    /** C# List&lt;T&gt;.ToArray(): distinct name because the erased IList family
+     * cannot declare the same generic erasure as CSharpArrayList.toArray(T[]). */
+    default <E> E[] toArrayCs(E[] array) {
+        ArrayList<Object> items = new ArrayList<>();
+        for (Object item : this) {
+            items.add(item);
+        }
+        return items.toArray(array);
+    }
+
+    /** Zero-argument List&lt;T&gt;.ToArray(); E is inferred from the assignment slot. */
+    @SuppressWarnings("unchecked")
+    default <E> E[] toArrayCs() {
+        return (E[]) toArray();
+    }
+
+    /** C# Enumerable.ToList()/ToList on an IList-typed receiver. */
+    @SuppressWarnings("unchecked")
+    default CSharpList<T> toList() {
+        CSharpList<T> result = new CSharpList<>();
+        for (Object item : this) {
+            result.add((T) item);
+        }
+        return result;
+    }
+
+    /** C# Enumerable.OrderBy(): materialized stable sort. */
+    @SuppressWarnings("unchecked")
+    default CSharpGenericIterable<T> sorted(Comparator<? super T> comparator) {
+        CSharpList<T> items = toList();
+        items.sort(comparator);
+        return CSharpGenericIterable.fromCollection(items);
+    }
+
+    /** Materialize a residual LINQ stream terminal on an IList-typed receiver. */
+    default <R, A> R collect(Collector<? super T, A, R> collector) {
+        return toList().stream().collect(collector);
+    }
+
+    /** C# Enumerable.GroupBy(keySelector): materialized grouping. */
+    @SuppressWarnings("unchecked")
+    default <K> CSharpDictionary<K, CSharpList<T>> collect(Function<? super T, ? extends K> keySelector) {
+        CSharpDictionary<K, CSharpList<T>> result = new CSharpDictionary<>();
+        for (Object item : this) {
+            T element = (T) item;
+            K key = keySelector.apply(element);
+            CSharpList<T> bucket = result.get(key);
+            if (bucket == null) {
+                bucket = new CSharpList<>();
+                result.put(key, bucket);
+            }
+            bucket.add(element);
+        }
+        return result;
+    }
+
+    /** C# Enumerable.Max(selector). */
+    @SuppressWarnings("unchecked")
+    default <U extends Comparable<? super U>> T max(Function<? super T, ? extends U> selector) {
+        T best = null;
+        U bestKey = null;
+        for (Object item : this) {
+            T element = (T) item;
+            U key = selector.apply(element);
+            if (bestKey == null || key.compareTo(bestKey) > 0) {
+                best = element;
+                bestKey = key;
+            }
+        }
+        if (best == null) {
+            throw new IllegalStateException("The sequence did not contain any elements.");
+        }
+        return best;
+    }
+
+    /** C# Enumerable.Min(selector). */
+    @SuppressWarnings("unchecked")
+    default <U extends Comparable<? super U>> T min(Function<? super T, ? extends U> selector) {
+        T best = null;
+        U bestKey = null;
+        for (Object item : this) {
+            T element = (T) item;
+            U key = selector.apply(element);
+            if (bestKey == null || key.compareTo(bestKey) < 0) {
+                best = element;
+                bestKey = key;
+            }
+        }
+        if (best == null) {
+            throw new IllegalStateException("The sequence did not contain any elements.");
+        }
+        return best;
+    }
+
+    /** C# Enumerable.Max(comparator). */
+    @SuppressWarnings("unchecked")
+    default T max(Comparator<? super T> comparator) {
+        T best = null;
+        for (Object item : this) {
+            T element = (T) item;
+            if (best == null || comparator.compare(element, best) > 0) {
+                best = element;
+            }
+        }
+        if (best == null) {
+            throw new IllegalStateException("The sequence did not contain any elements.");
+        }
+        return best;
+    }
+
+    /** C# Enumerable.Min(comparator). */
+    @SuppressWarnings("unchecked")
+    default T min(Comparator<? super T> comparator) {
+        T best = null;
+        for (Object item : this) {
+            T element = (T) item;
+            if (best == null || comparator.compare(element, best) < 0) {
+                best = element;
+            }
+        }
+        if (best == null) {
+            throw new IllegalStateException("The sequence did not contain any elements.");
+        }
+        return best;
+    }
+
+    /** C# Enumerable.Any(predicate). */
+    @SuppressWarnings("unchecked")
+    default boolean anyMatch(Predicate<? super T> predicate) {
+        for (Object item : this) {
+            if (predicate.test((T) item)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     default int add(Object value) { throw new UnsupportedOperationException(); }
     default void clear() { throw new UnsupportedOperationException(); }
     default boolean contains(Object value) { throw new UnsupportedOperationException(); }
@@ -33,6 +200,16 @@ public interface CSharpIList<T> extends CSharpCollection {
     default Object removeAt(int index) { throw new UnsupportedOperationException(); }
     default T get(int index) { throw new UnsupportedOperationException(); }
     default Object set(int index, Object value) { throw new UnsupportedOperationException(); }
+
+    /**
+     * Typed identity bridge for an already-IList value: keeps the element type
+     * visible to generated {@code var} inference (a raw CSharpIList makes
+     * {@code get(0)} return Object, e.g. IntersectionInfo.Par0 call sites).
+     */
+    @SuppressWarnings("unchecked")
+    static <T> CSharpIList<T> from(CSharpIList<?> list) {
+        return (CSharpIList<T>) list;
+    }
 
     /**
      * Adapts a generic list (CSharpList / CSharpGenericIList) to the non-generic

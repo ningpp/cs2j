@@ -11,6 +11,11 @@ public final class Enumerable {
     private Enumerable() {
     }
 
+    /** C# Enumerable.Empty&lt;T&gt;(). */
+    public static <T> CSharpGenericIterable<T> empty() {
+        return CSharpGenericIterable.fromCollection(new CSharpList<>());
+    }
+
     /** C# Enumerable.Repeat&lt;T&gt;(element, count) — materialized; null/negative count is invalid in C#. */
     public static <T> CSharpGenericIterable<T> repeat(T element, int count) {
         if (count < 0) {

@@ -21,6 +21,20 @@ public class MathHelper {
         return Math.rint(value);
     }
 
+    /** C# Math.Round(double, int): banker's rounding at the requested decimal scale. */
+    public static double round(double value, int digits) {
+        if (digits < 0 || digits > 15) {
+            throw new ArgumentOutOfRangeException("digits");
+        }
+        double factor = Math.pow(10.0, digits);
+        return Math.rint(value * factor) / factor;
+    }
+
+    /** C# Math.Log(double, double): logarithm of value in the requested base. */
+    public static double log(double value, double baseValue) {
+        return Math.log(value) / Math.log(baseValue);
+    }
+
     public static double parseDouble(String s) {
         return parseNumber(() -> Double.parseDouble(s));
     }
