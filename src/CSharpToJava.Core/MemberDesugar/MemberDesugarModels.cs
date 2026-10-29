@@ -214,6 +214,7 @@ public sealed class MemberDesugarStatistics
     // FN-2 六分类计数。
     public int FinalizerEmpty { get; set; }
     public int FinalizerDisposePattern { get; set; }
+    public int FinalizerDisposeOwnedMember { get; set; }
     public int FinalizerSafeHandleOnly { get; set; }
     public int FinalizerNativeRelease { get; set; }
     public int FinalizerOther { get; set; }

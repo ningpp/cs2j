@@ -258,6 +258,86 @@ public class MemberDesugarFinalizerUnitTests
     }
 
     [Fact]
+    public void NullGuardedDisposeOfOwnedProperty_ClassifiedDisposeOwnedMember_Removed()
+    {
+        // AGL LayeredLayoutEngine: the finalizer's only statement releases an
+        // owned logger property — the DisposePattern family, not "Other".
+        var src = """
+            using System;
+
+            class SugiyamaLayoutLogger : IDisposable
+            {
+                public void Dispose() { }
+            }
+
+            class LayeredLayoutEngine
+            {
+                SugiyamaLayoutLogger SugiyamaLayoutLogger { get; set; }
+                ~LayeredLayoutEngine()
+                {
+                    if (SugiyamaLayoutLogger != null)
+                        SugiyamaLayoutLogger.Dispose();
+                }
+            }
+            """;
+        var (output, changed, stats, diags, plans) = RewriteFn(src, RemoveOptions(), ExtraFile);
+
+        Assert.Equal(FinalizerBodyKind.DisposeOwnedMember,
+            Plan(plans, "LayeredLayoutEngine")!.BodyKind);
+        Assert.True(changed);
+        Assert.DoesNotContain("~LayeredLayoutEngine", output);
+        Assert.True(HasCode(diags, MemberDesugarDiagnosticCode.FinalizerRemoved));
+        Assert.Equal(1, stats.FinalizersRemoved);
+        Assert.Equal(1, stats.FinalizerDisposeOwnedMember);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void UnguardedDisposeOfOwnedField_ClassifiedDisposeOwnedMember()
+    {
+        var src = """
+            using System;
+
+            class Logger : IDisposable
+            {
+                public void Dispose() { }
+            }
+
+            class C
+            {
+                private Logger _logger = new Logger();
+                ~C() { _logger.Dispose(); }
+            }
+            """;
+        var (_, _, stats, _, plans) = RewriteFn(src, null, ExtraFile);
+        Assert.Equal(FinalizerBodyKind.DisposeOwnedMember, Plan(plans, "C")!.BodyKind);
+        Assert.Equal(1, stats.FinalizerDisposeOwnedMember);
+    }
+
+    [Fact]
+    public void OwnedMemberFlush_StaysOther()
+    {
+        // Non-Dispose cleanup (flush/logging logic) is still the unsafe "Other" family.
+        var src = """
+            using System;
+
+            class Writer
+            {
+                public void Flush() { }
+            }
+
+            class C
+            {
+                private Writer _writer = new Writer();
+                ~C() { _writer.Flush(); }
+            }
+            """;
+        var (_, _, stats, _, plans) = RewriteFn(src, null, ExtraFile);
+        Assert.Equal(FinalizerBodyKind.Other, Plan(plans, "C")!.BodyKind);
+        Assert.Equal(1, stats.FinalizerOther);
+    }
+
+    [Fact]
     public void MixedPlainFieldAccess_ClassifiedOther()
     {
         var src = """

@@ -23,6 +23,12 @@ public enum FinalizerBodyKind
     /// <summary>唯一有效语句为 Dispose(false)/Dispose() 形态。</summary>
     DisposePattern,
 
+    /// <summary>唯一有效语句为自有成员（本类型实例字段/属性）的 Dispose() 调用，
+    /// 可带 null 守卫（AGL LayeredLayoutEngine 的日志器释放）。与 DisposePattern
+    /// 同属「终结器只做 Dispose」家族，但释放对象不是 this，故不要求
+    /// SuppressFinalize 配对。</summary>
+    DisposeOwnedMember,
+
     /// <summary>仅触碰 System.Runtime.InteropServices.SafeHandle/CriticalHandle 派生字段。</summary>
     SafeHandleOnly,
 

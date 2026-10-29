@@ -303,6 +303,7 @@ internal sealed class FinalizerRewriter : CSharpSyntaxRewriter
         {
             case FinalizerBodyKind.Empty: _stats.FinalizerEmpty++; break;
             case FinalizerBodyKind.DisposePattern: _stats.FinalizerDisposePattern++; break;
+            case FinalizerBodyKind.DisposeOwnedMember: _stats.FinalizerDisposeOwnedMember++; break;
             case FinalizerBodyKind.SafeHandleOnly: _stats.FinalizerSafeHandleOnly++; break;
             case FinalizerBodyKind.NativeRelease: _stats.FinalizerNativeRelease++; break;
             case FinalizerBodyKind.Extern: _stats.FinalizerExtern++; break;

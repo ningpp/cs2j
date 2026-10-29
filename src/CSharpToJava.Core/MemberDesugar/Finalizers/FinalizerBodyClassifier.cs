@@ -33,6 +33,9 @@ internal static class FinalizerBodyClassifier
         if (effective.Count == 1 && IsDisposePatternCall(effective[0], model, destructor))
             return FinalizerBodyKind.DisposePattern;
 
+        if (IsDisposeOwnedMember(effective, model, destructor))
+            return FinalizerBodyKind.DisposeOwnedMember;
+
         if (ContainsNativeRelease(effective, model))
             return degraded ? FinalizerBodyKind.Other : FinalizerBodyKind.NativeRelease;
 
@@ -71,6 +74,145 @@ internal static class FinalizerBodyClassifier
         if (args.Count == 1 && args[0].Expression.IsKind(SyntaxKind.FalseLiteralExpression))
             return true;            // Dispose(false)
         return false;
+    }
+
+    /// <summary>
+    /// 「释放自有成员」终结器体：唯一有效语句是接收者为本类型实例字段/属性的无参
+    /// <c>Dispose()</c> 调用，可被一个 null 守卫包裹：
+    /// <c>if (Logger != null) Logger.Dispose();</c>（AGL LayeredLayoutEngine）。
+    /// 只认 Dispose；flush/日志等其它清理逻辑仍落 Other。接收者允许是 C11 属性降糖
+    /// 后的 <c>get_X()</c> 访问器调用，保证重复运行/已降糖输入幂等。
+    /// </summary>
+    private static bool IsDisposeOwnedMember(
+        IReadOnlyList<StatementSyntax> effective, SemanticModel model, IMethodSymbol destructor)
+    {
+        if (effective.Count != 1) return false;
+
+        InvocationExpressionSyntax? disposeCall;
+        switch (effective[0])
+        {
+            case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax direct }:
+                disposeCall = direct;
+                break;
+            case IfStatementSyntax { Else: null } guard
+                when guard.Statement is ExpressionStatementSyntax
+                    { Expression: InvocationExpressionSyntax guarded }
+                    && guarded.Expression is MemberAccessExpressionSyntax guardedAccess
+                    && IsNullGuardOn(guard.Condition, guardedAccess.Expression, model):
+                disposeCall = guarded;
+                break;
+            default:
+                return false;
+        }
+
+        if (disposeCall.ArgumentList.Arguments.Count != 0) return false;
+        if (disposeCall.Expression is not MemberAccessExpressionSyntax memberAccess) return false;
+        if (model.GetSymbolInfo(disposeCall).Symbol is not IMethodSymbol { Name: "Dispose" }) return false;
+        return IsOwnedMemberReceiver(memberAccess.Expression, model, destructor);
+    }
+
+    private static bool IsNullGuardOn(
+        ExpressionSyntax condition, ExpressionSyntax disposed, SemanticModel model)
+    {
+        condition = UnwrapParentheses(condition);
+        switch (condition)
+        {
+            // if (!object.ReferenceEquals(x, null)) x.Dispose();
+            case PrefixUnaryExpressionSyntax { Operand: var operand }
+                when condition.IsKind(SyntaxKind.LogicalNotExpression):
+                return IsReferenceEqualsNullCheck(
+                    UnwrapParentheses(operand), disposed, model);
+
+            // if (x != null) / if (null != x)
+            case BinaryExpressionSyntax neq when neq.IsKind(SyntaxKind.NotEqualsExpression):
+                return (IsNullLiteral(neq.Left) && SameExpression(neq.Right, disposed, model))
+                    || (IsNullLiteral(neq.Right) && SameExpression(neq.Left, disposed, model));
+
+            // if (x is not null)
+            case IsPatternExpressionSyntax isPattern
+                when isPattern.Pattern is UnaryPatternSyntax
+                    { Pattern: ConstantPatternSyntax { Expression: var nullPattern } }:
+                return IsNullLiteral(nullPattern)
+                    && SameExpression(isPattern.Expression, disposed, model);
+
+            default:
+                return false;
+        }
+    }
+
+    private static ExpressionSyntax UnwrapParentheses(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax parenthesized)
+            expression = parenthesized.Expression;
+        return expression;
+    }
+
+    private static bool IsReferenceEqualsNullCheck(
+        ExpressionSyntax expression, ExpressionSyntax disposed, SemanticModel model)
+    {
+        if (expression is not InvocationExpressionSyntax { ArgumentList.Arguments.Count: 2 } invocation)
+            return false;
+        if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol { Name: "ReferenceEquals" } method
+            || method.ContainingType?.SpecialType != SpecialType.System_Object)
+            return false;
+        var first = invocation.ArgumentList.Arguments[0].Expression;
+        var second = invocation.ArgumentList.Arguments[1].Expression;
+        return (IsNullLiteral(second) && SameExpression(first, disposed, model))
+            || (IsNullLiteral(first) && SameExpression(second, disposed, model));
+    }
+
+    private static bool SameExpression(
+        ExpressionSyntax left, ExpressionSyntax right, SemanticModel model)
+    {
+        var leftSymbol = model.GetSymbolInfo(left).Symbol;
+        var rightSymbol = model.GetSymbolInfo(right).Symbol;
+        if (leftSymbol != null && rightSymbol != null)
+            return SymbolEqualityComparer.Default.Equals(leftSymbol, rightSymbol);
+        return string.Equals(left.ToString(), right.ToString(), StringComparison.Ordinal);
+    }
+
+    private static bool IsNullLiteral(ExpressionSyntax expression)
+        => expression.IsKind(SyntaxKind.NullLiteralExpression);
+
+    /// <summary>接收者必须是本类型的实例字段/属性（自有资源），不接受 this、静态成员
+    /// 或其它类型的成员链——那些形态没有「本对象持有的资源」这一释放语义。
+    /// SafeHandle/CriticalHandle 成员有自己的关键终结器，归 SafeHandleOnly 家族
+    /// （单文件降级时仍保守落 Other），不在本分类内接管。</summary>
+    private static bool IsOwnedMemberReceiver(
+        ExpressionSyntax receiver, SemanticModel model, IMethodSymbol destructor)
+    {
+        var containingType = destructor.ContainingType;
+        if (containingType == null) return false;
+
+        ITypeSymbol? memberType;
+        if (receiver is InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } getter
+            && model.GetSymbolInfo(getter).Symbol is IMethodSymbol { AssociatedSymbol: IPropertySymbol owner } accessor)
+        {
+            if (accessor.IsStatic
+                || !SymbolEqualityComparer.Default.Equals(owner.ContainingType, containingType))
+                return false;
+            memberType = owner.Type;
+        }
+        else
+        {
+            memberType = model.GetSymbolInfo(receiver).Symbol switch
+            {
+                IFieldSymbol { IsStatic: false } field
+                    when SymbolEqualityComparer.Default.Equals(field.ContainingType, containingType)
+                    => field.Type,
+                IPropertySymbol { IsStatic: false } property
+                    when SymbolEqualityComparer.Default.Equals(property.ContainingType, containingType)
+                    => property.Type,
+                _ => null,
+            };
+        }
+
+        if (memberType == null) return false;
+        var safeHandle = model.Compilation.GetTypeByMetadataName(
+            "System.Runtime.InteropServices.SafeHandle");
+        var criticalHandle = model.Compilation.GetTypeByMetadataName(
+            "System.Runtime.InteropServices.CriticalHandle");
+        return !IsHandleType(memberType, safeHandle, criticalHandle);
     }
 
     private static bool ContainsNativeRelease(

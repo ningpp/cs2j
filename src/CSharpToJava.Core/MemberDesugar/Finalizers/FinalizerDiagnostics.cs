@@ -99,6 +99,7 @@ internal static class FinalizerDiagnostics
     {
         FinalizerBodyKind.Empty => "Empty",
         FinalizerBodyKind.DisposePattern => "DisposePattern",
+        FinalizerBodyKind.DisposeOwnedMember => "DisposeOwnedMember",
         FinalizerBodyKind.SafeHandleOnly => "SafeHandleOnly",
         FinalizerBodyKind.NativeRelease => "NativeRelease",
         FinalizerBodyKind.Extern => "Extern",
