@@ -1457,6 +1457,19 @@ public class StringHelper {
     }
 
     /**
+     * Mirrors C# String.Format(IFormatProvider, format, args) when the provider is
+     * declared as IFormatProvider (the C# overload's parameter type). Only the
+     * compat CultureInfo carries a locale; other providers format like the
+     * invariant culture.
+     */
+    public static String formatCs(IFormatProvider provider, String format, Object... args) {
+        if (provider instanceof CultureInfo culture) {
+            return formatCs(culture.toLocale(), format, args);
+        }
+        return formatCs(format, args);
+    }
+
+    /**
      * Positional printf specs using a numeric conversion (d, x, X, o, f, e, g, a …).
      * formatCs only emits positional forms ({@code %1$X}); non-positional specs are
      * user-supplied Java formats and are left untouched.
