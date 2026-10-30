@@ -44,6 +44,27 @@ public abstract class ConversionTestBase
         });
     }
 
+    /// <summary>
+    /// Converts a C# source snippet keeping the LINQ channel's Java Stream
+    /// emission (the procedural LINQ rewrite is disabled). Stream pipelines have
+    /// a different receiver contract than the materialized procedural helpers, so
+    /// shapes that must stay Streams (e.g. an Enumerable chain consumed by
+    /// ToArray/ToList) need this path pinned explicitly.
+    /// </summary>
+    protected static ConversionResult ConvertStream(string sourceCode, string fileName = "Test.cs")
+    {
+        return Pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = sourceCode,
+            FileName = fileName,
+            Options = new ConversionOptions
+            {
+                TypeMappingConfigPath = ConfigPath,
+                EnableLinqRewrite = false,
+            },
+        });
+    }
+
     /// <summary>Asserts the conversion succeeded (no error diagnostics, emit succeeded).</summary>
     protected static void AssertSuccess(ConversionResult result, string? context = null)
     {

@@ -109,14 +109,16 @@ public partial class StatementTransformer
 
         var expression = exprTransformer.Transform(stmt.Expression, context);
         // A residual LINQ Where/Select pipeline is a java.util.stream.Stream, not
-        // an Iterable; materialize it before the enhanced-for cast.
+        // an Iterable; materialize it before the enhanced-for cast. The source of
+        // the pipeline may itself materialize a compat iterable (Enumerable.Range
+        // emits IntStream...collect(...)), so decide structurally: scanning the
+        // whole text for `.collect(` misclassifies the Stream and emits
+        // `(Iterable) (StreamSupport...)`, which fails at runtime with
+        // ClassCastException: ReferencePipeline cannot be cast to Iterable.
         if (context.GetTypeInfo(stmt.Expression).Type is not IArrayTypeSymbol
-            && (expression.Contains("StreamSupport.stream", StringComparison.Ordinal)
-                || expression.Contains("Arrays.stream(", StringComparison.Ordinal))
-            && !expression.Contains(".collect(", StringComparison.Ordinal))
+            && JavaStreamText.LooksLikeStreamPipeline(expression))
         {
-            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-            expression = $"CSharpGenericIterable.fromAnyTyped({expression})";
+            expression = JavaStreamText.MaterializeAsIterable(expression, context);
         }
 
         var expressionType = context.GetTypeInfo(stmt.Expression).Type;

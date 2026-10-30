@@ -95,4 +95,155 @@ public class LinqTests : ConversionTestBase
         AssertNoCSharpResidue(result);
     }
 
+    /// <summary>
+    /// Enumerable.Range materializes its compat source with
+    /// <c>IntStream.range(...).collect(...)</c>, which is nested inside the
+    /// StreamSupport.stream argument of the Select pipeline. The ToArray terminal
+    /// must still recognize the Select receiver as a Stream and call
+    /// <c>Stream.toArray(...)</c> on it, not wrap it in
+    /// <c>StreamSupport.stream((Iterable) …)</c>: the raw cast compiles but fails
+    /// at runtime with
+    /// <c>ClassCastException: ReferencePipeline cannot be cast to Iterable</c>.
+    /// </summary>
+    [Fact]
+    public void StreamPath_RangeSelectToArray_DoesNotCastStreamToIterable()
+    {
+        var result = ConvertStream(
+            "using System.Linq; class C { char[] M() { return Enumerable.Range(0, 100).Select(i => (char)i).ToArray(); } }");
+
+        AssertSuccess(result);
+        AssertNoCSharpResidue(result);
+        AssertJavaDoesNotContain(
+            result, "(Iterable) (StreamSupport.stream",
+            "The Select pipeline must stay a Stream for its ToArray terminal.");
+        AssertJavaDoesNotContain(
+            result, "spliterator(), false).toArray(Character[]::new)",
+            "ToArray must be called directly on the Select Stream, not on a re-wrapped copy.");
+        // The Range seed itself must still materialize its compat iterable.
+        AssertJavaContains(result, "CSharpList.toCSharpList()");
+        AssertJavaContains(result, ".map(");
+        AssertJavaContains(result, ".toArray(Character[]::new)");
+        AssertBalancedDelimiters(result.GeneratedCode);
+    }
+
+    public static IEnumerable<object[]> RangeStreamSnippets()
+    {
+        yield return new object[]
+        {
+            "ToArray",
+            "using System.Linq; class C { char[] M() { return Enumerable.Range(0, 100).Select(i => (char)i).ToArray(); } }",
+        };
+        yield return new object[]
+        {
+            "ToList",
+            "using System.Linq; class C { System.Collections.Generic.List<int> M() { return Enumerable.Range(0, 100).Select(i => i + 1).ToList(); } }",
+        };
+        yield return new object[]
+        {
+            "Count predicate",
+            "using System.Linq; class C { int M() { return Enumerable.Range(0, 100).Select(i => i + 1).Count(i => i > 10); } }",
+        };
+        yield return new object[]
+        {
+            "Where Select ToArray",
+            "using System.Linq; class C { int[] M() { return Enumerable.Range(0, 100).Where(i => i % 2 == 0).Select(i => i * 2).ToArray(); } }",
+        };
+        yield return new object[]
+        {
+            "String.Concat char array",
+            "using System; using System.Linq; class C { string M() { return string.Concat(Enumerable.Range(0, 100).Select(i => (char)i).ToArray()); } }",
+        };
+    }
+
+    /// <summary>
+    /// Regression matrix for stream terminals over an Enumerable.Range chain: every
+    /// terminal consumes the previous Stream directly. None of them may re-wrap the
+    /// pipeline in an Iterable cast.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(RangeStreamSnippets))]
+    public void StreamPath_RangeChains_KeepStreamsUnwrapped(string shape, string source)
+    {
+        var result = ConvertStream(source);
+
+        AssertSuccess(result);
+        AssertJavaDoesNotContain(
+            result, "(Iterable) (StreamSupport.stream",
+            $"{shape}: a Stream pipeline must not be cast to Iterable for a terminal operator.");
+        AssertJavaContains(result, "CSharpList.toCSharpList()");
+        AssertBalancedDelimiters(result.GeneratedCode);
+    }
+
+    /// <summary>
+    /// A residual foreach over a LINQ chain iterates a Stream, which is not an
+    /// Iterable: the enhanced-for source must be materialized before the re-type
+    /// cast rather than cast directly (runtime
+    /// <c>ClassCastException: ReferencePipeline cannot be cast to Iterable</c>).
+    /// </summary>
+    [Fact]
+    public void StreamPath_ForeachOverRangeSelect_MaterializesStreamBeforeCast()
+    {
+        var result = ConvertStream(
+            "using System.Linq; class C { int M() { int n = 0; foreach (var c in Enumerable.Range(0, 100).Select(i => (char)i)) { n += c; } return n; } }");
+
+        AssertSuccess(result);
+        AssertNoCSharpResidue(result);
+        AssertJavaDoesNotContain(result, "(Iterable) (StreamSupport.stream",
+            "foreach over a Stream must materialize it before the Iterable cast.");
+        AssertJavaContains(result, "CSharpGenericIterable.from(StreamSupport.stream");
+        AssertJavaContains(result, "CSharpList.toCSharpList()");
+        AssertBalancedDelimiters(result.GeneratedCode);
+    }
+
+    /// <summary>
+    /// Cheap "syntactically plausible" gate: emitted Java must have balanced
+    /// (), [], {} outside string/char literals. Catches dropped/mismatched
+    /// delimiters from expression rewrites without requiring a JDK.
+    /// </summary>
+    private static void AssertBalancedDelimiters(string java)
+    {
+        var expected = new Stack<char>();
+        var quote = '\0';
+        var escaped = false;
+
+        foreach (var ch in java)
+        {
+            if (quote != '\0')
+            {
+                if (escaped)
+                    escaped = false;
+                else if (ch == '\\')
+                    escaped = true;
+                else if (ch == quote)
+                    quote = '\0';
+                continue;
+            }
+
+            switch (ch)
+            {
+                case '"':
+                case '\'':
+                    quote = ch;
+                    break;
+                case '(':
+                    expected.Push(')');
+                    break;
+                case '[':
+                    expected.Push(']');
+                    break;
+                case '{':
+                    expected.Push('}');
+                    break;
+                case ')' or ']' or '}':
+                    Assert.True(
+                        expected.Count > 0 && expected.Pop() == ch,
+                        $"Unbalanced '{ch}' in generated Java:\n{java}");
+                    break;
+            }
+        }
+
+        Assert.True(expected.Count == 0,
+            $"Unclosed {expected.Count} delimiter(s) in generated Java:\n{java}");
+    }
+
 }

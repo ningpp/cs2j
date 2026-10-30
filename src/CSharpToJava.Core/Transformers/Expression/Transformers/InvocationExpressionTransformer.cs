@@ -3475,19 +3475,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     }
 
     private static bool LooksLikeStreamPipeline(string expression)
-        // A materialized pipeline (`.collect(...)` / `.toArray(...)`) is a
-        // collection/array again, not a Stream: wrapping it in Stream.concat or
-        // passing it to a Stream method needs the receiver rebuilt below.
-        => !expression.Contains(".collect(", StringComparison.Ordinal)
-            && !expression.Contains(".toArray(", StringComparison.Ordinal)
-            && (expression.Contains(".stream(", StringComparison.Ordinal)
-                || expression.Contains(".filter(", StringComparison.Ordinal)
-                || expression.Contains(".map(", StringComparison.Ordinal)
-                || expression.Contains(".flatMap(", StringComparison.Ordinal)
-                || expression.Contains(".sorted(", StringComparison.Ordinal)
-                || expression.Contains(".distinct(", StringComparison.Ordinal)
-                || expression.Contains(".anyMatch(", StringComparison.Ordinal)
-                || expression.Contains(".allMatch(", StringComparison.Ordinal));
+        // Structural top-level check. A substring scan for `.collect(` /
+        // `.toArray(` misclassifies a Stream whose source is itself a
+        // materialized compat iterable (e.g. the Enumerable.Range seed:
+        // StreamSupport.stream(...CSharpGenericIterable.from(
+        // IntStream.range(...).boxed().collect(...))...).map(...)), making the
+        // next operator wrap the Stream in an (Iterable) cast again.
+        // See JavaStreamText for the ClassCastException this prevents.
+        => JavaStreamText.LooksLikeStreamPipeline(expression);
 
     /// <summary>
     /// Receiver-type driven variant of <see cref="TryRenderPrimitiveInstanceCall"/>.
