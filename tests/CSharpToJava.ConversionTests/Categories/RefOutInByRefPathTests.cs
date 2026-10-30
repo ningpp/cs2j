@@ -472,6 +472,31 @@ public class Calc
     }
 
     [Fact]
+    public void ByRefValue_CompoundWriteWithBinaryRhs_KeepsCSharpGrouping()
+    {
+        // Real chain: System.Private.Uri.UnescapeOnly (ref int end) does
+        // `end -= pchIndex - pnew;`. Ref-out-in turns the parameter into
+        // ByRef<int> end / end.Value, and the converter's compound-write
+        // expansion must keep the C# grouping: end - (pchIndex - pnew).
+        // The old emission `end - pchIndex - pnew` returned -18 instead of 18
+        // for (end=20, pchIndex=20, pnew=18), which corrupted the Uri path
+        // length and crashed Compress (index 65517 on a 248-char array).
+        var result = ConvertRewritten(@"
+public class Calc
+{
+    private static void Shrink(char[] pch, ref int end, int pchIndex, int pnew)
+    {
+        end -= pchIndex - pnew;
+    }
+}");
+        AssertSuccess(result);
+        AssertJavaContains(result, "end.set(end.getValue() - (pchIndex - pnew))",
+            "ref parameter compound write must preserve the whole C# RHS grouping");
+        AssertJavaDoesNotContain(result, "end.getValue() - pchIndex - pnew",
+            "unparenthesized RHS re-associates (end - pchIndex) - pnew");
+    }
+
+    [Fact]
     public void ScopedByRefValue_Write_UsesReturningSetAlias()
     {
         // ScopedByRef<T> maps to the same compat ByRef class, so its writes use

@@ -207,6 +207,31 @@ public class AssignmentTransformer : IIRExpressionTransformer
         };
     }
 
+    /// <summary>
+    /// Renders the right operand of a compound assignment for the get/set
+    /// expansion <c>set(get() op right)</c>. C# evaluates <c>x op= rhs</c> as
+    /// <c>x = (T)(x op rhs)</c>, i.e. the whole RHS keeps its own grouping; a
+    /// bare Java <c>set(get() op rhs)</c> re-associates a non-atomic RHS:
+    /// <c>x -= a - b</c> would become <c>(x - a) - b</c> instead of
+    /// <c>x - (a - b)</c> (real chain: System.Private.Uri UnescapeOnly
+    /// <c>end.Value -= pchIndex - pnew</c> produced an out-of-range path
+    /// length and crashed Compress). Binary/conditional/assignment-shaped
+    /// operands therefore keep explicit parentheses; leaves (identifiers,
+    /// literals, calls, member access, casts, already-parenthesized text) bind
+    /// tighter than the compound operator and stay unchanged so existing
+    /// emitted shapes are preserved.
+    /// </summary>
+    private static string CompoundRightOperand(ExpressionSyntax rhs, string right)
+        => rhs is BinaryExpressionSyntax
+            or ConditionalExpressionSyntax
+            or AssignmentExpressionSyntax
+            or IsPatternExpressionSyntax
+            or SwitchExpressionSyntax
+            or RangeExpressionSyntax
+            or ThrowExpressionSyntax
+            ? $"({right})"
+            : right;
+
     // ── Property ────────────────────────────────────────────────────────────
 
     private static string Property(AssignmentExpressionSyntax a, string op, IPropertySymbol p, ConversionContext c)
@@ -247,7 +272,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
         {
             return op == "="
                 ? $"{receiver}set({right})"
-                : $"{receiver}set({receiver}getValue() {op[..^1]} {right})";
+                : $"{receiver}set({receiver}getValue() {op[..^1]} {CompoundRightOperand(a.Right, right)})";
         }
 
         // TypeMappings may rename the property's accessor pair (see
@@ -277,7 +302,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
         }
         if (op == "=")
             return PropertySetterCall(a.Left, p, right, c);
-        return $"{receiver}{setterName}({receiver}{getterName}() {op[..^1]} {right})";
+        return $"{receiver}{setterName}({receiver}{getterName}() {op[..^1]} {CompoundRightOperand(a.Right, right)})";
     }
 
     /// <summary>
@@ -388,7 +413,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
         }
         if (compoundOp == null)
             return $"{target}.{setter}({args}, {val})";
-        var compoundValue = $"{target}.{getter}({args}) {compoundOp[..^1]} {val}";
+        var compoundValue = $"{target}.{getter}({args}) {compoundOp[..^1]} {CompoundRightOperand(rhs, val)}";
         // 窄元素类型（char/byte/short）：Java 二元运算提升为 int，setter 需要原类型。
         var narrowElement = c.GetTypeInfo(ea).Type?.SpecialType switch
         {
