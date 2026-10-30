@@ -469,14 +469,10 @@ public class ClassTransformer : ITypeTransformer
                     //（真实链 RbTree<T>.Remove → 被删节点）与接口成员同擦除签名但返回类型不
                     // 兼容，永远无法覆盖，直接在类上声明就是 javac 硬错。改名让调用点绑定
                     // 强类型方法，集合一致性后处理再补发 boolean 桥。
-                    if (symbol.Name == "Remove"
-                        && symbol.Parameters.Length == 1
-                        && symbol.ReturnType.SpecialType is not (SpecialType.System_Boolean or SpecialType.System_Void)
-                        && CompatCollectionConformance.ImplementsCompatCollection(symbol.ContainingType, context))
-                    {
-                        context.RegisterErasureConflictMethodName(symbol, name + "_2");
-                        continue;
-                    }
+                    // 该 _2 后缀已由 MethodTransformer.GetJavaMethodName（经
+                    // CompatCollectionConformance.IsRenamableRemove）确定性推导，此处不得
+                    // 再注册 "_2"，否则会叠加成 remove_2_2；也不排除该成员参与下面的
+                    // 通用擦除冲突分组（组内改名仍走注册表，仅限本项目内）。
 
                     methods.Add((symbol, name, signature, null, false));
                 }

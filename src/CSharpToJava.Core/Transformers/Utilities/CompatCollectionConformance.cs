@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Member;
 using CSharpToJava.Core.Transformers.Statement;
 
 namespace CSharpToJava.Core.Transformers.Utilities;
@@ -28,6 +29,42 @@ internal static class CompatCollectionConformance
     /// <summary>C# 类型是否实现任一 compat 集合接口分支（供擦除冲突预扫描判定 Remove 改名）。</summary>
     public static bool ImplementsCompatCollection(INamedTypeSymbol? type, ConversionContext context)
         => GetBranch(null, type, context) != Branch.None;
+
+    /// <summary>
+    /// compat 集合实现类上必须改名的 C# <c>Remove</c>：参数恰好 1 个、返回类型既非
+    /// bool 也非 void。这类成员与 compat 接口的 <c>boolean remove(Object)</c> 擦除后
+    /// 同签名却返回类型不兼容，声明端统一发成 <c>remove_2</c>。
+    /// <para>
+    /// 判定只依赖符号本身（+ 类型映射配置），不依赖本项目 ConversionContext 的擦除
+    /// 冲突改名注册表：调用点可能属于另一个被单独转换的工程（新 Context、空注册表，
+    /// 真实链 dotnet-xml-document-tests 的 <c>target.remove(attr2)</c>），必须能自行
+    /// 推导出与声明端一致的名字。改动本判定时必须与
+    /// <see cref="MethodTransformer.GetJavaMethodName"/>（追加 "_2"）和
+    /// <see cref="EnsureRemoveBridge"/>（补 boolean 桥）保持一致。
+    /// </para>
+    /// </summary>
+    public static bool IsRenamableRemove(IMethodSymbol? method, ConversionContext context)
+    {
+        if (method is not { Name: "Remove", Parameters.Length: 1 })
+            return false;
+        // 显式接口实现（桥）保持映射接口成员形状，绝不改名。
+        if (method.MethodKind != MethodKind.Ordinary
+            || method.ExplicitInterfaceImplementations.Length > 0)
+        {
+            return false;
+        }
+        if (method.ReturnType.SpecialType
+            is SpecialType.System_Boolean or SpecialType.System_Void)
+        {
+            return false;
+        }
+        // 只对源码声明生效：元数据类型（List<T>、compat 宿主等）由 compat 提供 Java
+        // 成员，不能凭空派生 _2 后缀。
+        var owner = method.ContainingType;
+        if (owner == null || !owner.Locations.All(location => location.IsInSource))
+            return false;
+        return ImplementsCompatCollection(owner, context);
+    }
 
     public static void Apply(JavaClassDeclaration javaClass, INamedTypeSymbol? symbol, ConversionContext context)
     {
@@ -250,8 +287,8 @@ internal static class CompatCollectionConformance
 
     /// <summary>
     /// C# <c>bool Remove(T)</c> 之外形状（如 RbTree&lt;T&gt;.Remove 返回被删节点）无法充当
-    /// java.util.Collection.remove(Object) 的实现，预扫描已把它改名为 remove_N；这里补发
-    /// 接口形状的 boolean 桥，语义取 C# “删除成功” 即返回非 null。
+    /// java.util.Collection.remove(Object) 的实现，声明端已按确定性规则改名为 remove_2；
+    /// 这里补发接口形状的 boolean 桥，语义取 C# “删除成功” 即返回非 null。
     /// </summary>
     private static void EnsureRemoveBridge(
         JavaClassDeclaration javaClass, INamedTypeSymbol symbol, ConversionContext context)
@@ -263,7 +300,15 @@ internal static class CompatCollectionConformance
         {
             if (member.Parameters.Length != 1 || member.ReturnType.IsValueType)
                 continue;
-            if (!context.TryGetErasureConflictMethodName(member, out var renamed))
+
+            // 其余擦除冲突改名仍来自本项目注册表；compat 集合 Remove 的 _2 后缀则由
+            // 符号形状确定性推导（跨工程调用点用同一推导，不经过注册表）。
+            string renamed;
+            if (context.TryGetErasureConflictMethodName(member, out var registered))
+                renamed = registered;
+            else if (IsRenamableRemove(member, context))
+                renamed = MethodTransformer.GetJavaMethodName(member.Name, member, context);
+            else
                 continue;
 
             var castType = context.MapType(member.Parameters[0].Type);

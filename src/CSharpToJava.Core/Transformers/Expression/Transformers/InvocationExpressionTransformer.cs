@@ -8,6 +8,7 @@ using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
 using CSharpToJava.Core.Transformers.Type;
+using CSharpToJava.Core.Transformers.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -537,8 +538,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
                 // Erasure-conflict overloads were renamed at declaration time; bind
                 // this call to the renamed sibling instead of the shadowing one.
-                if (methodSymbol != null
-                    && context.TryGetErasureConflictMethodName(methodSymbol, out var conflictName))
+                // Compat-collection Remove is included here: its "_2" suffix is
+                // derived from the symbol so a cross-project call site (fresh
+                // registry) still binds to the declaration-side rename.
+                if (ConflictRenamedName(invocation, context) is { } conflictName)
                 {
                     var renamedCall = new JavaMethodCallExpression
                     {
@@ -1231,7 +1234,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
 
                 if (context.GetSymbolInfo(node).Symbol is IMethodSymbol conflictMethod
-                    && context.TryGetErasureConflictMethodName(conflictMethod, out var conflictName))
+                    && ConflictRenamedName(node, context) is { } conflictName)
                 {
                     return RenderMappedCall(conflictName, conflictMethod.IsStatic, receiver, arguments);
                 }
@@ -3847,14 +3850,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     }
 
     /// <summary>
-    /// Returns the renamed Java method when this invocation targets an overload that
-    /// was renamed to avoid a Java erasure clash, or null.
+    /// Returns the renamed Java method when this invocation targets a member that was
+    /// renamed to avoid a Java erasure clash, or null. Besides the per-project
+    /// <see cref="Context.ConversionContext.TryGetErasureConflictMethodName"/> registry,
+    /// the compat-collection <c>Remove</c> rename is derived from the symbol alone: the
+    /// call site may belong to another project converted with a fresh context (empty
+    /// registry), so it must reproduce the declaration-side <c>remove_2</c> name.
     /// </summary>
     private static string? ConflictRenamedName(InvocationExpressionSyntax invocation, ConversionContext context)
-        => context.GetSymbolInfo(invocation).Symbol is IMethodSymbol method
-           && context.TryGetErasureConflictMethodName(method, out var renamed)
-            ? renamed
+    {
+        if (context.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method)
+            return null;
+        if (context.TryGetErasureConflictMethodName(method, out var renamed))
+            return renamed;
+        return CompatCollectionConformance.IsRenamableRemove(method, context)
+            ? Member.MethodTransformer.GetJavaMethodName(method.Name, method, context)
             : null;
+    }
 
     /// <summary>
     /// <c>string.Create(int, TState, SpanAction&lt;char,TState&gt;)</c> →

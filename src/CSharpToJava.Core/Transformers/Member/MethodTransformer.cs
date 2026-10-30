@@ -856,7 +856,14 @@ public class MethodTransformer : IMemberTransformer
             ? ctx.TypeMappings.MapMethod(sym.ContainingType.ToDisplayString(), name) : null;
         if (string.IsNullOrEmpty(mapped))
             mapped = TryMapImplicitInterfaceImplementation(name, sym, ctx);
-        return !string.IsNullOrEmpty(mapped) ? mapped : JavaName(name);
+        var javaName = !string.IsNullOrEmpty(mapped) ? mapped : JavaName(name);
+        // compat 集合实现类的非 bool/void Remove 与接口的 boolean remove(Object)
+        // 擦除后同签名但返回类型不兼容，必须改名。后缀由符号形状确定性推导（与
+        // CompatCollectionConformance.IsRenamableRemove 同一判定）：声明端与调用
+        // 点（可能属于另一个单独转换的工程，注册表为空）必须得到同一个名字。
+        return sym != null && CompatCollectionConformance.IsRenamableRemove(sym, ctx)
+            ? javaName + "_2"
+            : javaName;
     }
 
     /// <summary>

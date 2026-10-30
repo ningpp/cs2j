@@ -16,6 +16,9 @@ public abstract class ConversionTestBase
     /// <summary>Resolved path to the default type-mapping configuration (copied next to the test assembly).</summary>
     private static readonly string ConfigPath = ResolveConfigPath();
 
+    /// <summary>Resolved path to the default type-mapping configuration, for project-pipeline tests.</summary>
+    protected static string TypeMappingConfigPath => ConfigPath;
+
     private static string ResolveConfigPath()
     {
         var candidates = new[]
