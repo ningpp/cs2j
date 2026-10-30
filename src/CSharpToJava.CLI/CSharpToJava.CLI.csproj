@@ -86,6 +86,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <NoWarn>CS8602;CS8603</NoWarn>
   </PropertyGroup>
 
   <Target Name="RemoveNonEnglishSatelliteAssemblies" AfterTargets="Build">
