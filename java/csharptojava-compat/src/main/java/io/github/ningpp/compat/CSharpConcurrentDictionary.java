@@ -47,6 +47,10 @@ public final class CSharpConcurrentDictionary<K, V> {
         return map.get(key);
     }
 
+    public boolean containsKey(K key) {
+        return map.containsKey(key);
+    }
+
     public void put(K key, V value) {
         map.put(key, value);
     }
