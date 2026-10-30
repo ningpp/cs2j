@@ -130,7 +130,9 @@ public class NumericBoundaryNullableJavaSmokeTests
         Assert.Contains("Nullable.value(a) == Nullable.value(b)", code);
         Assert.Contains("!Nullable.value(a)", code);
         Assert.Contains("Nullable.value(a)", code);
-        Assert.Contains(".ordinal()", code);
+        // Lifted enum→int conversions go through the null-tolerant ordinal helper
+        // (the sentinel -1 is modeled as a null enum reference).
+        Assert.Contains("EnumHelper.ordinalOrMinusOne(", code);
         Assert.Equal(0, CountOccurrences(code, "GetValueOrDefault"));
         Assert.DoesNotContain("getHasValue", code);
         Assert.DoesNotContain("?.", code);

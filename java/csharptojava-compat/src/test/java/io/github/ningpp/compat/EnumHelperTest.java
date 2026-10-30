@@ -9,6 +9,22 @@ class EnumHelperTest {
 
     enum Status { Open, Closed, Pending }
 
+    // ---- ordinalOrMinusOne ----
+
+    @Test
+    void ordinalOrMinusOne_nullSentinel_returnsMinusOne() {
+        // (DtdProcessing)(-1) is modeled as a null enum reference; reading it back
+        // as int must reproduce the C# sentinel value.
+        assertEquals(-1, EnumHelper.ordinalOrMinusOne(null));
+    }
+
+    @Test
+    void ordinalOrMinusOne_enumConstant_returnsOrdinal() {
+        assertEquals(0, EnumHelper.ordinalOrMinusOne(Color.Red));
+        assertEquals(1, EnumHelper.ordinalOrMinusOne(Color.Green));
+        assertEquals(2, EnumHelper.ordinalOrMinusOne(Color.Blue));
+    }
+
     // ---- tryParse (case-sensitive, 3-arg) ----
 
     @Test

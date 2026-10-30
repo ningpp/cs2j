@@ -93,7 +93,10 @@ public partial class StatementTransformer
                         localEnum.EnumUnderlyingType?.SpecialType ?? SpecialType.System_Int32);
                     initExprText = CSharpToJava.Core.Transformers.Type.EnumTransformer.IsValueEnum(localEnum)
                         ? $"{mappedEnum}.fromValue(({storage}){initExprText})"
-                        : $"{mappedEnum}.values()[{initExprText}]";
+                        : TypeOperationTransformer.IsOutOfRangeOrdinalConstant(
+                                variable.Initializer.Value, localEnum, context)
+                            ? $"({mappedEnum}) null"
+                            : $"{mappedEnum}.values()[{initExprText}]";
                 }
                 // 委托目标局部声明的方法组 → 方法引用（真实链
                 // ReflectionXmlSerializationReader 的

@@ -168,8 +168,9 @@ public class TypeOperationTransformer : IIRExpressionTransformer
 
         // Plain enum casts (including C# lifted Nullable<E> casts, which map to
         // the same Java enum reference type). Ordinal enums: (E)i ->
-        // E.values()[i], (int)e -> e.ordinal(). Value enums (explicit values /
-        // non-int underlying): fromValue/getValue.
+        // E.values()[i], (int)e -> EnumHelper.ordinalOrMinusOne(e) (null-safe,
+        // since an out-of-range sentinel such as (E)(-1) becomes null). Value
+        // enums (explicit values / non-int underlying): fromValue/getValue.
         if (TryUnwrapNullableEnum(sym, out var targetEnum))
         {
             // (E)null / (E?)null: the Java enum reference itself is nullable,
@@ -197,7 +198,11 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                     ? $"{e}.getValue()"
                     : $"{e}.ordinal()";
                 if (!richTarget)
+                {
+                    if (IsOutOfRangeOrdinalConstant(n.Expression, targetEnum, c))
+                        return $"({target}) null";
                     return $"{target}.values()[{sourceIndex}]";
+                }
                 return $"{target}.fromValue(({targetStorage}){sourceIndex})";
             }
             // C# unboxing from object is type-strict: `(E)obj` succeeds only when obj
@@ -207,17 +212,36 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 return $"({target})({e})";
             if (richTarget)
                 return $"{target}.fromValue(({targetStorage}){e})";
+            if (IsOutOfRangeOrdinalConstant(n.Expression, targetEnum, c))
+                return $"({target}) null";
             var index = srcSym?.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64
                 ? $"(int)({e})"
                 : e;
             return $"{target}.values()[{index}]";
         }
         if (TryUnwrapNullableEnum(srcSym, out var srcEnum))
-            e = EnumTransformer.IsIntConstantMetadataEnum(srcEnum)
-                ? e
-                : EnumTransformer.IsValueEnum(srcEnum)
-                    ? $"{e}.getValue()"
-                    : $"{e}.ordinal()";
+        {
+            // int-constant metadata enums already have a plain int Java carrier.
+            if (!EnumTransformer.IsIntConstantMetadataEnum(srcEnum))
+            {
+                if (EnumTransformer.IsValueEnum(srcEnum))
+                {
+                    e = $"{e}.getValue()";
+                }
+                else if (IsIntegralTarget(sym))
+                {
+                    // Ordinal enums have no -1 member, but C# uses out-of-range
+                    // values as sentinels. The null sentinel must read back as -1
+                    // (the old `e.ordinal()` threw NPE instead).
+                    c.AddImport("io.github.ningpp.compat.EnumHelper");
+                    e = $"EnumHelper.ordinalOrMinusOne({e})";
+                }
+                else
+                {
+                    e = $"{e}.ordinal()";
+                }
+            }
+        }
 
         // C# numeric-to-decimal conversions (C34 DC-9 operand promotion emits
         // them explicitly): Java has no primitive->reference cast, so they must
@@ -410,6 +434,47 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             _ => $"({Map(n.Type, c)})({e})"
         };
     }
+
+    /// <summary>
+    /// True when a cast operand is a compile-time integer constant outside the
+    /// ordinal domain of an ordinal enum (declared constants are exactly
+    /// <c>0..N-1</c>). C# code uses such values — typically <c>-1</c> — as an
+    /// "unset" sentinel; a Java enum has no corresponding constant, so
+    /// <c>values()[i]</c> would throw ArrayIndexOutOfBoundsException. Those
+    /// sentinels lower to a null enum reference.
+    /// </summary>
+    internal static bool IsOutOfRangeOrdinalConstant(
+        ExpressionSyntax operand, INamedTypeSymbol enumType, ConversionContext context)
+    {
+        var constant = context.GetConstantValue(operand);
+        if (!constant.HasValue || constant.Value is null)
+            return false;
+        long value;
+        try
+        {
+            value = Convert.ToInt64(constant.Value);
+        }
+        catch (Exception ex) when (ex is InvalidCastException or FormatException or OverflowException)
+        {
+            return false;
+        }
+        var declaredCount = enumType.GetMembers()
+            .OfType<IFieldSymbol>()
+            .Count(field => field is { IsConst: true, HasConstantValue: true });
+        return declaredCount > 0 && (value < 0 || value >= declaredCount);
+    }
+
+    /// <summary>Target Java primitive carriers of an integral enum→number cast.</summary>
+    private static bool IsIntegralTarget(ITypeSymbol? type)
+        => type?.SpecialType is SpecialType.System_Int32
+            or SpecialType.System_Int64
+            or SpecialType.System_Int16
+            or SpecialType.System_Byte
+            or SpecialType.System_SByte
+            or SpecialType.System_UInt16
+            or SpecialType.System_UInt32
+            or SpecialType.System_UInt64
+            or SpecialType.System_Char;
 
     /// <summary>
     /// Unwraps a type that is either an enum or a lifted <see cref="Nullable{T}"/>

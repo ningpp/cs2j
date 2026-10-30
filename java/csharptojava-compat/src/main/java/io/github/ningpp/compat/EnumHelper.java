@@ -1,6 +1,18 @@
 package io.github.ningpp.compat;
 
 public class EnumHelper {
+    /**
+     * Ordinal of an enum constant, tolerating the converter's null sentinel.
+     *
+     * <p>C# allows out-of-range enum values such as {@code (DtdProcessing)(-1)},
+     * commonly used as an "unset" sentinel. The Java representation of that value
+     * is {@code null} (a Java enum has no such constant), so reading it back as an
+     * integer must still yield -1 as in C#.</p>
+     */
+    public static int ordinalOrMinusOne(Enum<?> value) {
+        return value == null ? -1 : value.ordinal();
+    }
+
     /** Mirrors System.Enum.IsDefined(Type, String) — checks if a string name is a valid enum constant. */
     public static boolean isDefined(Class<?> enumType, String name) {
         if (enumType == null || !enumType.isEnum() || name == null) {
