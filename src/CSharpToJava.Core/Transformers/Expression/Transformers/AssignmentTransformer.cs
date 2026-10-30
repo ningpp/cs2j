@@ -237,6 +237,19 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 a.Right, right, p.Type, c) ?? right;
         }
 
+        // Cs2jByRef holder writes must use the value-returning compat alias
+        // `set(T)`: the prebuilt compat ABI's `setValue(T)` returns void, but
+        // generated code consumes holder writes in expression contexts
+        // (e.g. `while (start.set(start.getValue() + 1) < length)`). This is
+        // driven by the property symbol so user methods named SetValue are
+        // never rewritten.
+        if (IsCs2jByRefHolderValue(p))
+        {
+            return op == "="
+                ? $"{receiver}set({right})"
+                : $"{receiver}set({receiver}getValue() {op[..^1]} {right})";
+        }
+
         // TypeMappings may rename the property's accessor pair (see
         // IdentifierExpressionTransformer.TransformMemberAccess for the read
         // side); only bean-style method names apply to the setter — field-style
@@ -277,6 +290,10 @@ public class AssignmentTransformer : IIRExpressionTransformer
     {
         var f = ExpressionTransformerFacade.Instance;
         var receiver = left is MemberAccessExpressionSyntax ma ? f.Transform(ma.Expression, c) + "." : "";
+        // Scoped/chained writes use the same returning alias as Property(): the
+        // compat holder's bean setter is void, while the alias returns the value.
+        if (IsCs2jByRefHolderValue(p))
+            return $"{receiver}set({valueText})";
         var name = char.ToUpperInvariant(p.Name[0]) + p.Name[1..];
         var containingType = p.ContainingType.ToDisplayString();
         var mappedProperty = c.TypeMappings.MapMethod(containingType, p.Name);
@@ -326,6 +343,21 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
         var setterName = mappedPropertyName ?? ("set" + name);
         return $"{receiver}{setterName}({valueText})";
+    }
+
+    /// <summary>
+    /// True for the <c>Value</c> property of the Cs2jByRef holder family whose
+    /// Java compat class exposes the value-returning <c>set(T)</c> alias:
+    /// <c>ByRef&lt;T&gt;</c> and <c>ScopedByRef&lt;T&gt;</c>. The generic type is
+    /// matched through its original definition; <c>RefStructByRef&lt;T&gt;</c> is
+    /// deliberately excluded because its compat class has no <c>set</c> alias.
+    /// </summary>
+    internal static bool IsCs2jByRefHolderValue(IPropertySymbol? property)
+    {
+        if (property is not { Name: "Value" }) return false;
+        var definition = property.ContainingType?.OriginalDefinition;
+        return definition?.ContainingNamespace?.ToDisplayString() == "Cs2jByRef"
+            && definition.Name is "ByRef" or "ScopedByRef";
     }
 
     // ── Indexer ─────────────────────────────────────────────────────────────

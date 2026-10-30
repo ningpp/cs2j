@@ -252,64 +252,6 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
         code = code.Replace(
             "this.CurrentSemanticValue = null;",
             "this.CurrentSemanticValue = createDefaultSemanticValue();");
-        code = RewriteOneArgumentSetValue(code);
-        return code;
-    }
-
-    /// <summary>
-    /// ByRef.setValue has a void ABI for prebuilt dependency jars; generated
-    /// expression contexts use the value-returning ByRef.set alias. Only rewrite
-    /// calls with exactly one top-level argument (Set.setValue(T,int) keeps two).
-    /// </summary>
-    private static string RewriteOneArgumentSetValue(string code)
-    {
-        const string marker = ".setValue(";
-        var index = code.IndexOf(marker, StringComparison.Ordinal);
-        while (index >= 0)
-        {
-            var open = index + marker.Length - 1;
-            var depth = 0;
-            var comma = false;
-            var close = -1;
-            for (var i = open; i < code.Length; i++)
-            {
-                var ch = code[i];
-                if (ch == '(') depth++;
-                else if (ch == ')')
-                {
-                    depth--;
-                    if (depth == 0)
-                    {
-                        close = i;
-                        break;
-                    }
-                }
-                else if (ch == ',' && depth == 1)
-                {
-                    comma = true;
-                }
-                else if (ch is '"' or '\'')
-                {
-                    var quote = ch;
-                    i++;
-                    while (i < code.Length && code[i] != quote)
-                    {
-                        if (code[i] == '\\') i++;
-                        i++;
-                    }
-                }
-            }
-            if (close >= 0 && !comma)
-            {
-                code = code.Remove(index + 1, "setValue".Length)
-                    .Insert(index + 1, "set");
-                index = code.IndexOf(marker, index + 5, StringComparison.Ordinal);
-            }
-            else
-            {
-                index = code.IndexOf(marker, index + marker.Length, StringComparison.Ordinal);
-            }
-        }
         return code;
     }
 

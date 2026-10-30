@@ -140,7 +140,7 @@ public class Calc
         // Java compat library); Span.Length -> getLength().
         AssertJavaContains(result, "ByRef.create(__cs2jFrSrc, __cs2jFrI)", "span/index factory");
         AssertJavaContains(result, ".getLength()", "Span length accessor");
-        AssertJavaContains(result, "x.setValue(x.getValue() * 2)", "write through holder");
+        AssertJavaContains(result, "x.set(x.getValue() * 2)", "write through holder");
         AssertJavaDoesNotContain(result, "ScopedByRef");
         AssertJavaDoesNotContain(result, "IntHolder");
     }
@@ -436,7 +436,7 @@ public class Calc
     }
 
     [Fact]
-    public void ByRefValue_WriteUsesSetValue()
+    public void ByRefValue_WriteUsesReturningSetAlias()
     {
         var result = Convert(@"
 namespace Cs2jByRef { public abstract class ByRef<T> { public abstract T Value { get; set; } } }
@@ -446,8 +446,60 @@ public class Calc
     public int Read(Cs2jByRef.ByRef<int> v) { return v.Value; }
 }");
         AssertSuccess(result);
-        AssertJavaContains(result, "setValue(3)", "property write convention");
+        AssertJavaContains(result, "set(3)", "holder write uses the returning set alias");
         AssertJavaContains(result, "getValue()", "property read convention");
+        AssertJavaDoesNotContain(result, "setValue(", "the void ABI setter must not be emitted");
+    }
+
+    [Fact]
+    public void ByRefValue_WriteInExpressionContext_UsesReturningSetAlias()
+    {
+        // The compat ABI's setValue(T) returns void; a holder write consumed as
+        // a value must use the returning set(T) alias. Compound writes expand
+        // to set(getValue() op value) exactly like the old post-rewriter did,
+        // but only for Cs2jByRef holders.
+        var result = Convert(@"
+namespace Cs2jByRef { public abstract class ByRef<T> { public abstract T Value { get; set; } } }
+public class Calc
+{
+    public bool Bump(Cs2jByRef.ByRef<int> v, int delta)
+    {
+        return (v.Value += delta) > 0;
+    }
+}");
+        AssertSuccess(result);
+        AssertJavaContains(result, "v.set(v.getValue() + delta)", "compound holder write returns the assigned value");
+    }
+
+    [Fact]
+    public void ScopedByRefValue_Write_UsesReturningSetAlias()
+    {
+        // ScopedByRef<T> maps to the same compat ByRef class, so its writes use
+        // the returning set alias as well.
+        var result = Convert(@"
+namespace Cs2jByRef { public struct ScopedByRef<T> { public T Value { get; set; } } }
+public class Calc
+{
+    public void Direct(Cs2jByRef.ScopedByRef<int> v) { v.Value = 3; }
+}");
+        AssertSuccess(result);
+        AssertJavaContains(result, "ByRef<Integer>", "ScopedByRef maps to the compat ByRef");
+        AssertJavaContains(result, "set(3)", "ScopedByRef write uses the returning set alias");
+    }
+
+    [Fact]
+    public void RefStructByRef_Write_KeepsBeanSetter()
+    {
+        // The RefStructByRef compat class has no returning set alias; its writes
+        // must stay on the bean setter.
+        var result = Convert(@"
+namespace Cs2jByRef { public struct RefStructByRef<T> { public T Value { get; set; } } }
+public class Calc
+{
+    public void Direct(Cs2jByRef.RefStructByRef<int> v) { v.Value = 3; }
+}");
+        AssertSuccess(result);
+        AssertJavaContains(result, "setValue(3)", "RefStructByRef keeps the bean setter");
     }
 
     [Fact]

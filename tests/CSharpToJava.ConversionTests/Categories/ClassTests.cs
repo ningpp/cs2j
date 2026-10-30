@@ -311,4 +311,18 @@ public class ClassTests : ConversionTestBase
         AssertNoCSharpResidue(result);
         AssertJavaContains(result, "Tuple2");
     }
+
+    [Fact]
+    public void UserMethodNamedSetValue_IsNotRewrittenToSet()
+    {
+        // Methods legitimately named SetValue keep their own name; only the
+        // Cs2jByRef holder property write may use the returning `set` alias.
+        var result = Convert(@"
+class NodeData { public void SetValue(string s) { } }
+class C { void M(NodeData n) { n.SetValue(""x""); } }");
+        AssertConversion(result,
+            "public void setValue(String s) {",
+            "n.setValue(\"x\");");
+        AssertJavaDoesNotContain(result, "n.set(\"x\")", "user SetValue must not be rewritten to set");
+    }
 }

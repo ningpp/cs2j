@@ -253,6 +253,19 @@ public class LowerProperty : ILoweringPass
         var loweredValue = LowerExpression(value);
         var loweredTarget = LowerExpression(setProp.Target);
 
+        // Cs2jByRef holder writes use the value-returning compat alias (same rule
+        // as AssignmentTransformer.Property): the setValue ABI returns void.
+        if (Transformers.Expression.AssignmentTransformer.IsCs2jByRefHolderValue(propSymbol))
+        {
+            return new IrInvocationExpression
+            {
+                Target = loweredTarget,
+                MethodName = "set",
+                Arguments = { loweredValue },
+                Symbol = setProp.Symbol,
+            };
+        }
+
         // 读取侧映射可能是字段风格 getter（StringBuilder.Length → length），不能
         // 当作 setter 调用。显式访问器映射 set_<Name>（StringBuilder.set_Length →
         // setLength）优先于属性名映射。
