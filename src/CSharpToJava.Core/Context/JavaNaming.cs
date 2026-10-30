@@ -51,6 +51,15 @@ public static class JavaNaming
     }
 
     /// <summary>
+    /// TypeMappings 的读取侧映射可能是 Java 字段风格访问器（String/Array/StringBuilder
+    /// 的 Length→length、ICollection.Count→size、Enumerable.Count→count）。这类名字
+    /// 只用于读取（方法调用或无括号成员访问），绝不能当作 setter 方法名——例如
+    /// StringBuilder.Length = 61 必须落成 setLength(61)，而不是 length(61)。
+    /// </summary>
+    public static bool IsFieldStyleAccessorName(string? mappedName)
+        => mappedName is "length" or "size" or "count";
+
+    /// <summary>
     /// True when the property hides a base-class property with a Java-incompatible
     /// return type (C# `new`, no covariant override possible). Java forbids two
     /// same-name methods with unrelated return types in a hierarchy, so the derived

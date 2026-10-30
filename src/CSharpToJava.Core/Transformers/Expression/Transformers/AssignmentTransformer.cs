@@ -278,20 +278,35 @@ public class AssignmentTransformer : IIRExpressionTransformer
         var f = ExpressionTransformerFacade.Instance;
         var receiver = left is MemberAccessExpressionSyntax ma ? f.Transform(ma.Expression, c) + "." : "";
         var name = char.ToUpperInvariant(p.Name[0]) + p.Name[1..];
-        var mappedPropertyName = JavaNaming.IsBeanAccessorStyleName(
-                c.TypeMappings.MapMethod(p.ContainingType.ToDisplayString(), p.Name))
-            ? c.TypeMappings.MapMethod(p.ContainingType.ToDisplayString(), p.Name)
+        var containingType = p.ContainingType.ToDisplayString();
+        var mappedProperty = c.TypeMappings.MapMethod(containingType, p.Name);
+        var mappedPropertyName = JavaNaming.IsBeanAccessorStyleName(mappedProperty)
+            ? mappedProperty
             : null;
+
+        // 读取侧映射可能是字段风格 getter（StringBuilder.Length → length），它不能
+        // 当作 setter 调用；setter 的真实名字由显式访问器映射 set_<Name> 提供
+        // （StringBuilder.set_Length → setLength）。显式 setter 优先于属性名映射，
+        // 保证 sb.Length = 61 落成 sb.setLength(61)，而不是 sb.length(61)。
+        var explicitSetter = c.TypeMappings.MapMethod(containingType, "set_" + p.Name);
+        if (!string.IsNullOrEmpty(explicitSetter)
+            && !explicitSetter.Contains('.')
+            && !JavaNaming.IsFieldStyleAccessorName(explicitSetter))
+        {
+            return $"{receiver}{explicitSetter}({valueText})";
+        }
 
         // Ported BCL types (dotnet.xml XmlReaderSettings/XmlWriterSettings) expose
         // C#-style property setters as same-named methods: IgnoreComments = true
         // is IgnoreComments(true), not setIgnoreComments(true). A non-bean mapped
-        // name is a direct setter method; helper-style mappings (dotted) keep the
-        // fallback below.
-        var directSetter = c.TypeMappings.MapMethod(p.ContainingType.ToDisplayString(), p.Name);
+        // name is a direct setter method; field-style getter names (length/size/
+        // count) are read-only spellings, and helper-style mappings (dotted) keep
+        // the fallback below.
+        var directSetter = mappedProperty;
         if (!string.IsNullOrEmpty(directSetter)
             && !directSetter.Contains('.')
-            && !JavaNaming.IsBeanAccessorStyleName(directSetter))
+            && !JavaNaming.IsBeanAccessorStyleName(directSetter)
+            && !JavaNaming.IsFieldStyleAccessorName(directSetter))
         {
             return $"{receiver}{directSetter}({valueText})";
         }

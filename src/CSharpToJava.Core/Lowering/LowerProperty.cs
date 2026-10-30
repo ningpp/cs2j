@@ -253,9 +253,28 @@ public class LowerProperty : ILoweringPass
         var loweredValue = LowerExpression(value);
         var loweredTarget = LowerExpression(setProp.Target);
 
-        // Check TypeMappings for a configured setter name
+        // 读取侧映射可能是字段风格 getter（StringBuilder.Length → length），不能
+        // 当作 setter 调用。显式访问器映射 set_<Name>（StringBuilder.set_Length →
+        // setLength）优先于属性名映射。
+        var setterAccessor = "set_" + setProp.PropertyName;
+        var explicitSetter = TryMapPropertyName(propSymbol, setterAccessor);
+        if (explicitSetter != setterAccessor
+            && !JavaNaming.IsFieldStyleAccessorName(explicitSetter))
+        {
+            return new IrInvocationExpression
+            {
+                Target = loweredTarget,
+                MethodName = explicitSetter,
+                Arguments = { loweredValue },
+                Symbol = setProp.Symbol,
+            };
+        }
+
+        // Check TypeMappings for a configured setter name; a field-style mapped
+        // name is the read accessor spelling and must fall back to bean-style.
         var mappedMethod = TryMapPropertyName(propSymbol, setProp.PropertyName);
-        if (mappedMethod != setProp.PropertyName)
+        if (mappedMethod != setProp.PropertyName
+            && !JavaNaming.IsFieldStyleAccessorName(mappedMethod))
         {
             return new IrInvocationExpression
             {

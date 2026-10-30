@@ -28,4 +28,21 @@ public class StringBuilderTests : ConversionTestBase
         AssertConversion(result, "sb.setLength(0);");
     }
 
+    [Fact]
+    public void StringBuilderSetLength_NonZero_ConvertsToSetLength()
+    {
+        // Length's read-side mapping is field-style (length), which is getter-only;
+        // the explicit set_Length mapping must win (regression: sb.length(61)).
+        var result = Convert("class C { public void M() { var sb = new System.Text.StringBuilder(); sb.Length = 61; } }");
+        AssertConversion(result, "sb.setLength(61);");
+        AssertJavaDoesNotContain(result, "sb.length(61)");
+    }
+
+    [Fact]
+    public void StringBuilderCompoundSetLength_ConvertsToSetLengthWithLengthGetter()
+    {
+        var result = Convert("class C { public void M() { var sb = new System.Text.StringBuilder(); sb.Length += 9; } }");
+        AssertConversion(result, "sb.setLength(sb.length() + 9);");
+    }
+
 }
