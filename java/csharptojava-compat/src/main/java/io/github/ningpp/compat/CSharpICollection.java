@@ -143,7 +143,22 @@ public interface CSharpICollection<T> extends CSharpReadOnlyCollection<T> {
 
     default boolean add(T item) { throw new UnsupportedOperationException(); }
     default void clear() { throw new UnsupportedOperationException(); }
-    default boolean contains(Object o) { throw new UnsupportedOperationException(); }
+    /**
+     * C# ICollection&lt;T&gt;.Contains(T). Read-only compat views (e.g. the adapter
+     * returned by {@link #fromCSharpCollection}) have no backing
+     * java.util.Collection to delegate to, so the default scans the elements via
+     * iterator(). Mutation defaults above/below stay unsupported.
+     */
+    default boolean contains(Object o) {
+        CSharpGenericEnumerator<?> enumerator = iterator();
+        while (enumerator.moveNext()) {
+            Object item = enumerator.getCurrent();
+            if (item == null ? o == null : item.equals(o)) {
+                return true;
+            }
+        }
+        return false;
+    }
     default void copyTo(T[] array, int arrayIndex) { throw new UnsupportedOperationException(); }
     /**
      * C# ICollection.CopyTo(Array, int)：转换调用点把 T[] 实参包成 CSharpArray
