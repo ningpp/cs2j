@@ -35,15 +35,23 @@ internal static class IListCoercion
         if (target is not INamedTypeSymbol || context.SemanticModel == null)
             return false;
 
+        var trimmed = text.Trim();
+
         // Only IList-family targets: all C# flavours map to CSharpIList[<T>].
         var mappedTarget = context.MapType(target);
         if (!mappedTarget.StartsWith("CSharpIList", StringComparison.Ordinal))
         {
             // ICollection<T> target receiving a CSharpIList value: the compat
-            // interfaces are parallel, so adapt through the typed view.
+            // interfaces are parallel, so adapt through the typed view. The
+            // source is either declared as an IList-family interface (maps to
+            // CSharpIList) or a concrete class whose generated Java class
+            // implements CSharpIList (e.g. CaptureCollection : IList<Capture>);
+            // sources that already implement CSharpICollection<T> pass through.
             if (mappedTarget.StartsWith("CSharpICollection", StringComparison.Ordinal)
-                && context.GetTypeInfo(source).Type is { } sourceSymbol
-                && context.MapType(sourceSymbol).StartsWith("CSharpIList", StringComparison.Ordinal))
+                && !trimmed.StartsWith("CSharpICollection.fromTyped(", StringComparison.Ordinal)
+                && context.GetTypeInfo(source).Type is INamedTypeSymbol sourceSymbol
+                && (context.MapType(sourceSymbol).StartsWith("CSharpIList", StringComparison.Ordinal)
+                    || ImplementsGenericIListWithoutICollection(sourceSymbol)))
             {
                 context.AddImport("io.github.ningpp.compat.CSharpICollection");
                 rendered = $"CSharpICollection.fromTyped({text})";
@@ -54,7 +62,6 @@ internal static class IListCoercion
 
         // Already the adapter (e.g. a ternary whose arms were bridged): never
         // wrap the bridge again.
-        var trimmed = text.Trim();
         if (trimmed.StartsWith("CSharpIList.from(", StringComparison.Ordinal))
             return false;
 
@@ -153,6 +160,37 @@ internal static class IListCoercion
             }
 
             return false;
+    }
+
+    /// <summary>
+    /// True when the C# type implements the generic <c>IList&lt;T&gt;</c> /
+    /// <c>IReadOnlyList&lt;T&gt;</c> (both map to <c>CSharpIList</c>) but no
+    /// directly-declared <c>ICollection&lt;T&gt;</c> — the generated Java class
+    /// then implements only <c>CSharpIList</c>, the parallel hierarchy to
+    /// <c>CSharpICollection&lt;T&gt;</c>, so an <c>ICollection&lt;T&gt;</c> slot
+    /// needs the typed adapter. A class that directly declares
+    /// <c>ICollection&lt;T&gt;</c> is emitted implementing CSharpICollection
+    /// already (and metadata types such as <c>List&lt;T&gt;</c> declare it too),
+    /// so its assignment stays unchanged.
+    /// </summary>
+    private static bool ImplementsGenericIListWithoutICollection(INamedTypeSymbol sourceType)
+    {
+        var implementsGenericList = false;
+        foreach (var iface in sourceType.AllInterfaces)
+        {
+            if (iface.OriginalDefinition.ToDisplayString()
+                is "System.Collections.Generic.IList<T>" or "System.Collections.Generic.IReadOnlyList<T>")
+            {
+                implementsGenericList = true;
+                break;
+            }
+        }
+
+        if (!implementsGenericList)
+            return false;
+
+        return !sourceType.Interfaces.Any(i =>
+            i.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.ICollection<T>");
     }
 
     /// <summary>

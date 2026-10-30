@@ -188,6 +188,10 @@ public partial class ArgumentTransformer
     /// Shared IEnumerable-slot bridge (invocation + constructor argument paths):
     /// skipped for Java-side Collection parameters (addAll/addRange/... and the
     /// List/HashSet constructors), which the concrete value already satisfies.
+    /// C# arrays are the exception: they implement IEnumerable in C# but no Java
+    /// interface, so a collection constructor without an array overload (e.g.
+    /// <c>new CSharpHashSet&lt;char&gt;(charArray)</c>) still needs the iterable
+    /// adapter even though the constructor takes Collection.
     /// </summary>
     private static string CoerceIterableSlotType(
         string text,
@@ -195,8 +199,11 @@ public partial class ArgumentTransformer
         IParameterSymbol parameter,
         ConversionContext context)
     {
-        if (IsJavaMethodRequiringCollection(parameter.ContainingSymbol as IMethodSymbol, context)
-            || IsJavaCollectionConstructor(parameter.ContainingSymbol as IMethodSymbol))
+        if (IsJavaMethodRequiringCollection(parameter.ContainingSymbol as IMethodSymbol, context))
+            return text;
+
+        if (IsJavaCollectionConstructor(parameter.ContainingSymbol as IMethodSymbol)
+            && context.GetTypeInfo(argument).Type is not IArrayTypeSymbol)
             return text;
 
         return IterableCoercion.CoerceOrSame(argument, text, parameter.Type, context);

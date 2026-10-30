@@ -85,4 +85,122 @@ public class CollectionTests : ConversionTestBase
         AssertJavaContains(result, "s.set(1, s.get(1) + 2)");
         AssertJavaDoesNotContain(result, "this.this[]");
     }
+
+    [Fact]
+    public void ClassImplementingIList_AssignedToICollection_IsWrappedWithTypedAdapter()
+    {
+        // Bug A: a generated class implementing C# IList<T> renders as
+        // `implements CSharpIList<T>` (the parallel compat hierarchy), which is
+        // not assignable to a CSharpICollection<T> slot. The local-declaration
+        // position must route through CSharpICollection.fromTyped (real chain:
+        // CaptureCollectionTests' `ICollection<Capture> x = createCollection()`).
+        var result = Convert("""
+using System.Collections;
+using System.Collections.Generic;
+
+class Capture { }
+
+class CaptureList : IList<Capture>
+{
+    public Capture this[int index] { get { return null; } set { } }
+    public int Count { get { return 0; } }
+    public bool IsReadOnly { get { return true; } }
+    public void Add(Capture item) { }
+    public void Clear() { }
+    public bool Contains(Capture item) { return false; }
+    public void CopyTo(Capture[] array, int arrayIndex) { }
+    public IEnumerator<Capture> GetEnumerator() { return null; }
+    IEnumerator IEnumerable.GetEnumerator() { return null; }
+    public int IndexOf(Capture item) { return -1; }
+    public void Insert(int index, Capture item) { }
+    public void RemoveAt(int index) { }
+    public bool Remove(Capture item) { return false; }
+}
+
+class Host
+{
+    static CaptureList Create() { return new CaptureList(); }
+    static void Use()
+    {
+        ICollection<Capture> collection = Create();
+    }
+}
+""");
+
+        AssertSuccess(result);
+        AssertJavaContains(result, "public class CaptureList implements CSharpIList<Capture>");
+        AssertJavaContains(
+            result,
+            "CSharpICollection<Capture> collection = CSharpICollection.fromTyped(create());");
+    }
+
+    [Fact]
+    public void ClassImplementingICollection_AssignedToICollection_IsNotWrapped()
+    {
+        // Negative: a class that directly implements C# ICollection<T> is
+        // emitted as `implements CSharpICollection<T>` already, and a value
+        // statically typed ICollection<T> maps to CSharpICollection<T>; neither
+        // may be wrapped again (the adapter is not idempotent in text).
+        var result = Convert("""
+using System.Collections;
+using System.Collections.Generic;
+
+class Bag : ICollection<int>
+{
+    public void Add(int item) { }
+    public bool Contains(int item) { return false; }
+    public bool Remove(int item) { return false; }
+    public void CopyTo(int[] array, int arrayIndex) { }
+    public int Count { get { return 0; } }
+    public bool IsReadOnly { get { return true; } }
+    public IEnumerator<int> GetEnumerator() { return null; }
+    IEnumerator IEnumerable.GetEnumerator() { return null; }
+}
+
+class Host
+{
+    static Bag Create() { return new Bag(); }
+    static void Use(ICollection<int> source)
+    {
+        ICollection<int> fromClass = Create();
+        ICollection<int> fromInterface = source;
+    }
+}
+""");
+
+        AssertSuccess(result);
+        AssertJavaContains(result, "public class Bag implements CSharpICollection<Integer>");
+        AssertJavaContains(result, "CSharpICollection<Integer> fromClass = create();");
+        AssertJavaContains(result, "CSharpICollection<Integer> fromInterface = source;");
+        AssertJavaDoesNotContain(result, "CSharpICollection.fromTyped(");
+    }
+
+    [Fact]
+    public void HashSetFromPrimitiveArray_ArgumentIsAdaptedToIterable()
+    {
+        // Bug B: a C# array is IEnumerable<T> but a Java array implements no
+        // collection interface; CSharpHashSet has no char[] constructor, so the
+        // constructor argument needs the primitive-array iterable adapter.
+        var result = Convert(
+            "using System.Collections.Generic; class C { void M(char[] a) { var s = new HashSet<char>(a); } }");
+
+        AssertSuccess(result);
+        AssertJavaContains(
+            result,
+            "new CSharpHashSet<Character>(CSharpGenericIterable.<Character>fromAnyTyped(a))");
+        AssertJavaDoesNotContain(result, "new CSharpHashSet<Character>(a)");
+    }
+
+    [Fact]
+    public void HashSetFromReferenceArray_ArgumentUsesLiveArrayView()
+    {
+        // Same constructor coercion for reference arrays: the live array view
+        // is a java.util.Collection, which the CSharpHashSet constructor accepts.
+        var result = Convert(
+            "using System.Collections.Generic; class C { void M(string[] a) { var s = new HashSet<string>(a); } }");
+
+        AssertSuccess(result);
+        AssertJavaContains(result, "new CSharpHashSet<String>(ArrayHelper.asListView(a))");
+        AssertJavaDoesNotContain(result, "new CSharpHashSet<String>(a)");
+    }
 }
