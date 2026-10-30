@@ -102,6 +102,24 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
 {moduleSection}
     </modules>
 
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>3.10.4</version>
+                <configuration>
+                    <lineEnding>CRLF</lineEnding>
+                    <java>
+                        <googleJavaFormat>
+                            <version>1.35.0</version>
+                        </googleJavaFormat>
+                    </java>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
 </project>
 ";
     }
