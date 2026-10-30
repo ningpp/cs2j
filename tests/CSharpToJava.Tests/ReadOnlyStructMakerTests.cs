@@ -17,6 +17,18 @@ public partial class ReadOnlyStructMakerTests
             .MakeReadOnly(tree, compilation.GetSemanticModel(tree), options);
     }
 
+    private static IReadOnlyList<Diagnostic> GetCompileErrors(string source)
+    {
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("test_output",
+            new[] { tree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        return compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+    }
+
     [Fact]
     public void Options_Defaults()
     {
@@ -339,6 +351,140 @@ public partial class ReadOnlyStructMakerTests
         Assert.True(first.Changed);
         var second = RunMaker(first.OutputCode!);
         Assert.False(second.Changed);
+    }
+
+    [Fact]
+    public void PrivateSetter_CustomGetter_CtorAssignment_RewrittenToBackingField()
+    {
+        // Reproduces the SDK FacetsCompiler shape at L2: a custom getter wrapping a
+        // nullable backing field plus a private setter. Once the setter is removed the
+        // constructor assignment to the property is CS0200; it must be redirected to
+        // the backing field the setter wrote to.
+        var src = """
+        struct S {
+            private int? __retries;
+            private int Retries {
+                get { return __retries ?? 3; }
+                set { __retries = value; }
+            }
+            public S(int retries) { Retries = retries; }
+            public int Read() { return Retries; }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct S", result.OutputCode);
+        Assert.DoesNotContain("private set", result.OutputCode);
+        Assert.Contains("__retries = retries", result.OutputCode);
+        Assert.DoesNotContain("Retries = retries", result.OutputCode);
+        Assert.Empty(GetCompileErrors(result.OutputCode!));
+    }
+
+    [Fact]
+    public void PrivateSetter_ExpressionBodiedSetter_CtorAssignment_RewrittenToBackingField()
+    {
+        // Expression-bodied setters are the same plain backing-field write shape.
+        var src = """
+        struct S {
+            private int? __value;
+            public S(int value) { Value = value; }
+            private int Value {
+                get { return __value ?? 0; }
+                set => __value = value;
+            }
+            public int Read() { return Value; }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("readonly struct S", result.OutputCode);
+        Assert.Contains("__value = value", result.OutputCode);
+        Assert.DoesNotContain("Value = value", result.OutputCode);
+        Assert.Empty(GetCompileErrors(result.OutputCode!));
+    }
+
+    [Fact]
+    public void PrivateSetter_ValidationBody_NotConvertible()
+    {
+        // A private setter that does more than write a backing field cannot be removed
+        // by the L2 conversion without silently dropping its logic.
+        var src = """
+        struct S {
+            private int _limit;
+            private int Limit {
+                get { return _limit; }
+                private set {
+                    if (value < 0) throw new System.ArgumentOutOfRangeException(nameof(value));
+                    _limit = value;
+                }
+            }
+            public S(int limit) { Limit = limit; }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.False(result.Changed);
+        var diagnostic = Assert.Single(result.Diagnostics, d =>
+            d.Level == ConversionLevel.NotConvertible &&
+            d.Pattern == StructPattern.PrivateSetter);
+        Assert.Contains("plain backing-field write", diagnostic.Reason);
+    }
+
+    [Fact]
+    public void PrivateSetter_PropertyWrittenOutsideConstructor_NotConvertible()
+    {
+        // The setter is removed by L2 and only constructor assignments are redirected
+        // to the backing field. A write through a copy (`copy.X = x`) would become
+        // CS0200, so such structs must not be converted.
+        var src = """
+        struct S {
+            private int _x;
+            private int X {
+                get { return _x; }
+                set { _x = value; }
+            }
+            public S(int x) { X = x; }
+            public S CloneWith(int x) {
+                var copy = this;
+                copy.X = x;
+                return copy;
+            }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.False(result.Changed);
+        var diagnostic = Assert.Single(result.Diagnostics, d =>
+            d.Level == ConversionLevel.NotConvertible &&
+            d.Pattern == StructPattern.PrivateSetter);
+        Assert.Contains("outside constructors", diagnostic.Reason);
+    }
+
+    [Fact]
+    public void PrivateSetter_CtorLocalShadowsPropertyName_NotRewritten()
+    {
+        // The local in the constructor shadows the property name: the rewrite must
+        // leave the local assignment alone (semantic resolution).
+        var src = """
+        struct S {
+            private int _value;
+            private int? __target;
+            private int Target {
+                get { return __target ?? 0; }
+                private set { __target = value; }
+            }
+            public S(int v) {
+                int Target = v;
+                Target = Target + 1;
+                _value = Target;
+                __target = Target;
+            }
+            public int Read() { return _value + Target; }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains("Target = Target + 1", result.OutputCode);
+        Assert.DoesNotContain("__target = Target + 1", result.OutputCode);
+        Assert.Empty(GetCompileErrors(result.OutputCode!));
     }
 
     // === L3 Data Container Tests ===

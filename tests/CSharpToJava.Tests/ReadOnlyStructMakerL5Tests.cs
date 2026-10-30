@@ -310,4 +310,50 @@ public class ReadOnlyStructMakerL5Tests
         Assert.DoesNotContain("out Compass", result.OutputCode);
         Assert.DoesNotContain("newStatus", result.OutputCode);
     }
+
+    [Fact]
+    public void CtorAssignmentToPrivateSetterProperty_Unqualified_RewrittenToBackingField()
+    {
+        // Reproduces the SDK FacetsCompiler shape: L5 method migration removes the
+        // private setter, but the constructor assigns the property with an unqualified
+        // name (`Limit = limit;`). That assignment must be redirected to the setter's
+        // backing field or the rewritten struct fails with CS0200.
+        var src = """
+        struct Bag {
+            private int _count;
+            private int? __limit;
+            private bool _dirty;
+            private int Limit {
+                get { return __limit ?? 10; }
+                set { __limit = value; }
+            }
+            public Bag(int count, int limit) {
+                _count = count;
+                _dirty = false;
+                Limit = limit;
+            }
+            public void Add() { _count++; }
+            public int Total { get { return _count + Limit; } }
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Level == ConversionLevel.MethodMigrate);
+        Assert.Contains("readonly struct Bag", result.OutputCode);
+        Assert.Contains("__limit = limit", result.OutputCode);
+        Assert.DoesNotContain("Limit = limit", result.OutputCode);
+        Assert.Empty(GetCompileErrors(result.OutputCode!));
+    }
+
+    private static IReadOnlyList<Diagnostic> GetCompileErrors(string source)
+    {
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("test_output",
+            new[] { tree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        return compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+    }
 }

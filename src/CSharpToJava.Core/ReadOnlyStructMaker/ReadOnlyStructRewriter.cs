@@ -218,11 +218,32 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             (p.Modifiers.Any(m => m.IsKind(SyntaxKind.OutKeyword)) ? "out " : "") +
             (p.Type?.ToString() ?? "")));
 
-    private static StructDeclarationSyntax ApplyPropertyConvert(StructDeclarationSyntax node)
+    private StructDeclarationSyntax ApplyPropertyConvert(StructDeclarationSyntax node)
     {
-        // L2: remove 'private set' from accessors, then add readonly
-        var rewriter = new PrivateSetRemover();
-        var result = (StructDeclarationSyntax)rewriter.Visit(node)!;
+        // L2: remove private setters from accessors, then add readonly. A custom getter
+        // wrapping a backing field is still get-only after the setter is removed, so
+        // constructor assignments to the property become CS0200; redirect them to the
+        // backing fields first, while the original-tree semantic model still matches.
+        var privateSetterProps = PrivateSetterFacts.GetPrivateSetterProperties(node);
+        var fieldNames = PrivateSetterFacts.GetInstanceFieldNames(node);
+        var propToBackingField = new Dictionary<string, string>(StringComparer.Ordinal);
+        var propertiesToStrip = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (prop, setter) in privateSetterProps)
+        {
+            propertiesToStrip.Add(prop.Identifier.Text);
+            // Auto-properties are storage themselves: they stay assignable in ctors.
+            if (PrivateSetterFacts.IsAutoProperty(setter)) continue;
+            if (PrivateSetterFacts.TryGetPlainBackingFieldWrite(setter, fieldNames, out var backingField))
+                propToBackingField[prop.Identifier.Text] = backingField;
+        }
+
+        if (propToBackingField.Count > 0)
+        {
+            node = (StructDeclarationSyntax)new CtorPropertyToBackingFieldRewriter(
+                propToBackingField, _semanticModel).Visit(node)!;
+        }
+
+        var result = (StructDeclarationSyntax)new PrivateSetRemover(propertiesToStrip).Visit(node)!;
         return ApplyDirectAdd(result);
     }
 
@@ -1275,35 +1296,143 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
-    /// Rewrites constructor assignments to removed-setter properties into assignments
-    /// to their backing fields: <c>this.Weight = w;</c> → <c>this.borderWeight = w;</c>.
-    /// Only applies inside constructors (get-only auto-properties are assignable there,
-    /// but custom get-only properties are not — CS0200).
+    /// Rewrites assignments to removed-setter properties into assignments to their
+    /// backing fields: <c>this.Weight = w;</c> and (inside constructors) the
+    /// unqualified <c>Weight = w;</c> become <c>this.borderWeight = w;</c> /
+    /// <c>borderWeight = w;</c>. Get-only auto-properties stay assignable inside
+    /// constructors, but custom get-only properties are not (CS0200).
+    /// Unqualified targets are only rewritten when no constructor parameter/local with
+    /// the same name shadows the property; when a semantic model of the original tree
+    /// is available the assignment target is resolved to the property symbol instead.
     /// </summary>
     private sealed class CtorPropertyToBackingFieldRewriter : CSharpSyntaxRewriter
     {
         private readonly Dictionary<string, string> _propToField;
+        private readonly SemanticModel? _semanticModel;
+        private HashSet<string> _shadowedNames = new(StringComparer.Ordinal);
+        private bool _insideConstructor;
 
-        public CtorPropertyToBackingFieldRewriter(Dictionary<string, string> propToField)
+        public CtorPropertyToBackingFieldRewriter(Dictionary<string, string> propToField,
+            SemanticModel? semanticModel = null)
         {
             _propToField = propToField;
+            _semanticModel = semanticModel;
         }
 
         public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node) => node;
 
+        public override SyntaxNode? VisitConstructorDeclaration(ConstructorDeclarationSyntax node)
+        {
+            var previousInside = _insideConstructor;
+            var previousShadowed = _shadowedNames;
+            _insideConstructor = true;
+            _shadowedNames = CollectShadowedNames(node);
+            try
+            {
+                return base.VisitConstructorDeclaration(node);
+            }
+            finally
+            {
+                _insideConstructor = previousInside;
+                _shadowedNames = previousShadowed;
+            }
+        }
+
         public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
         {
-            if (node.IsKind(SyntaxKind.SimpleAssignmentExpression) &&
-                node.Left is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } ma &&
-                ma.Name is IdentifierNameSyntax propName &&
-                _propToField.TryGetValue(propName.Identifier.Text, out var backingField))
+            if (!node.IsKind(SyntaxKind.SimpleAssignmentExpression))
+                return base.VisitAssignmentExpression(node);
+
+            switch (node.Left)
             {
-                var newLeft = ma.WithName(
-                    SyntaxFactory.IdentifierName(backingField).WithTriviaFrom(propName));
-                return node.WithLeft(newLeft);
+                // Unqualified `Prop = value`: only inside constructors, and only when
+                // the name is not shadowed by a parameter/local of that constructor.
+                case IdentifierNameSyntax id
+                    when _insideConstructor &&
+                         _propToField.TryGetValue(id.Identifier.Text, out var backingField) &&
+                         !_shadowedNames.Contains(id.Identifier.Text) &&
+                         ResolvesToProperty(id, id.Identifier.Text):
+                    return node.WithLeft(
+                        SyntaxFactory.IdentifierName(backingField).WithTriviaFrom(id));
+
+                // Explicit `this.Prop = value` (existing L5 behavior).
+                case MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } ma
+                    when ma.Name is IdentifierNameSyntax propName &&
+                         _propToField.TryGetValue(propName.Identifier.Text, out var backingField) &&
+                         ResolvesToProperty(ma, propName.Identifier.Text):
+                    return node.WithLeft(ma.WithName(
+                        SyntaxFactory.IdentifierName(backingField).WithTriviaFrom(propName)));
             }
 
             return base.VisitAssignmentExpression(node);
+        }
+
+        /// <summary>
+        /// Verifies with the original-tree semantic model that the assignment target is
+        /// the property (not a local/parameter that shadows the name). Synthesized nodes
+        /// are not part of the model's tree; for those the caller's syntactic shadow
+        /// check is authoritative.
+        /// </summary>
+        private bool ResolvesToProperty(ExpressionSyntax target, string propertyName)
+        {
+            if (_semanticModel == null) return true;
+            try
+            {
+                var symbol = _semanticModel.GetSymbolInfo(target).Symbol;
+                return symbol is IPropertySymbol property && property.Name == propertyName;
+            }
+            catch (ArgumentException)
+            {
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Names declared anywhere in the constructor (parameters, locals, pattern
+        /// variables, query range variables, nested lambda/local-function parameters).
+        /// Any unqualified assignment to one of these names must not be rewritten.
+        /// </summary>
+        private static HashSet<string> CollectShadowedNames(ConstructorDeclarationSyntax ctor)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var p in ctor.ParameterList.Parameters)
+                names.Add(p.Identifier.Text);
+
+            foreach (var node in ctor.DescendantNodes())
+            {
+                switch (node)
+                {
+                    case VariableDeclaratorSyntax v:
+                        names.Add(v.Identifier.Text);
+                        break;
+                    case ParameterSyntax p:
+                        names.Add(p.Identifier.Text);
+                        break;
+                    case ForEachStatementSyntax f:
+                        names.Add(f.Identifier.Text);
+                        break;
+                    case CatchDeclarationSyntax c when c.Identifier.Text.Length > 0:
+                        names.Add(c.Identifier.Text);
+                        break;
+                    case SingleVariableDesignationSyntax d:
+                        names.Add(d.Identifier.Text);
+                        break;
+                    case FromClauseSyntax f:
+                        names.Add(f.Identifier.Text);
+                        break;
+                    case LetClauseSyntax l:
+                        names.Add(l.Identifier.Text);
+                        break;
+                    case JoinClauseSyntax j:
+                        names.Add(j.Identifier.Text);
+                        break;
+                    case QueryContinuationSyntax q:
+                        names.Add(q.Identifier.Text);
+                        break;
+                }
+            }
+
+            return names;
         }
     }
 
@@ -1361,12 +1490,25 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
 
     private sealed class PrivateSetRemover : CSharpSyntaxRewriter
     {
-        public override SyntaxNode? VisitAccessorList(AccessorListSyntax node)
+        private readonly IReadOnlySet<string> _privateSetterProperties;
+
+        public PrivateSetRemover(IReadOnlySet<string>? privateSetterProperties = null)
         {
-            // Remove private set accessors.
-            var accessors = node.Accessors.Where(a =>
+            _privateSetterProperties = privateSetterProperties ?? new HashSet<string>(StringComparer.Ordinal);
+        }
+
+        public override SyntaxNode? VisitPropertyDeclaration(PropertyDeclarationSyntax node)
+        {
+            if (node.AccessorList == null)
+                return base.VisitPropertyDeclaration(node);
+
+            // Remove private set accessors. A property that is itself private has an
+            // implicitly private setter (no accessor modifier), so the property name
+            // collected by the analyzer is used as well as an explicit `private set`.
+            var accessors = node.AccessorList.Accessors.Where(a =>
                 !(a.IsKind(SyntaxKind.SetAccessorDeclaration) &&
-                  a.Modifiers.Any(m => m.IsKind(SyntaxKind.PrivateKeyword)))).ToList();
+                  (a.Modifiers.Any(m => m.IsKind(SyntaxKind.PrivateKeyword)) ||
+                   _privateSetterProperties.Contains(node.Identifier.Text)))).ToList();
 
             // A `readonly` modifier on an accessor is only valid when the property
             // has both a get and a set accessor (CS8664). If the property became
@@ -1380,7 +1522,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                         : a).ToList();
             }
 
-            return node.WithAccessors(SyntaxFactory.List(accessors));
+            return node.WithAccessorList(node.AccessorList.WithAccessors(SyntaxFactory.List(accessors)));
         }
     }
 

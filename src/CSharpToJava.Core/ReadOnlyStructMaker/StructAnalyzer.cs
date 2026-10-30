@@ -380,8 +380,30 @@ internal sealed class StructAnalyzer
             // Pattern C: properties with private setters only (no public setters)
             if (mutableProperties.Count == 0 &&
                 properties.Any(p => p.SetMethod?.DeclaredAccessibility == Accessibility.Private))
+            {
+                // The L2 conversion removes the private setters. That is only safe when
+                // each non-auto setter is a plain backing-field write the constructor
+                // assignments can be redirected to; validation/extra logic would be
+                // silently dropped.
+                var privateSetterProps = PrivateSetterFacts.GetPrivateSetterProperties(syntax);
+                var fieldNames = PrivateSetterFacts.GetInstanceFieldNames(syntax);
+                foreach (var (_, setter) in privateSetterProps)
+                {
+                    if (PrivateSetterFacts.IsAutoProperty(setter)) continue;
+                    if (!PrivateSetterFacts.TryGetPlainBackingFieldWrite(setter, fieldNames, out _))
+                        return new(ConversionLevel.NotConvertible, StructPattern.PrivateSetter, false,
+                            "private setter body is not a plain backing-field write", name);
+                }
+
+                // Writes outside constructors (object initializers, writes to other
+                // instances) would still target a setter that no longer exists.
+                if (HasPrivateSetterPropertyWriteOutsideConstructors(symbol, syntax))
+                    return new(ConversionLevel.NotConvertible, StructPattern.PrivateSetter, false,
+                        "private setter property assigned outside constructors", name);
+
                 return new(ConversionLevel.PropertyConvert, StructPattern.PrivateSetter, true,
                     "all setters are private", name);
+            }
 
             // Pattern B: all fields already readonly, no mutable properties
             if (mutableProperties.Count == 0 && fields.Count > 0 && fields.All(f => f.IsReadOnly))
@@ -649,6 +671,65 @@ internal sealed class StructAnalyzer
             if (assign.Right is not IdentifierNameSyntax { Identifier.Text: "value" }) return true;
         }
         return false;
+    }
+
+    /// <summary>
+    /// True when a property whose setter is private is written outside the struct's
+    /// constructors (e.g. an object initializer in a method, or a write to another
+    /// instance). The L2 conversion removes those setters and only redirects
+    /// constructor assignments to backing fields, so such writes would become CS0200.
+    /// Direct <c>this.Prop = v</c> writes in methods already make the struct mutating
+    /// (L5); this guard covers the remaining non-mutating shapes.
+    /// </summary>
+    private bool HasPrivateSetterPropertyWriteOutsideConstructors(
+        INamedTypeSymbol symbol, StructDeclarationSyntax syntax)
+    {
+        foreach (var assignment in syntax.DescendantNodes().OfType<AssignmentExpressionSyntax>())
+        {
+            if (assignment.Ancestors().OfType<ConstructorDeclarationSyntax>().Any())
+                continue;
+            if (IsPrivateSetterPropertyOfStruct(assignment.Left, symbol))
+                return true;
+        }
+
+        foreach (var unary in syntax.DescendantNodes().OfType<PostfixUnaryExpressionSyntax>())
+        {
+            if (unary.Kind() is not (SyntaxKind.PostIncrementExpression or SyntaxKind.PostDecrementExpression))
+                continue;
+            if (unary.Ancestors().OfType<ConstructorDeclarationSyntax>().Any())
+                continue;
+            if (IsPrivateSetterPropertyOfStruct(unary.Operand, symbol))
+                return true;
+        }
+
+        foreach (var unary in syntax.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>())
+        {
+            if (unary.Kind() is not (SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression))
+                continue;
+            if (unary.Ancestors().OfType<ConstructorDeclarationSyntax>().Any())
+                continue;
+            if (IsPrivateSetterPropertyOfStruct(unary.Operand, symbol))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool IsPrivateSetterPropertyOfStruct(ExpressionSyntax target, INamedTypeSymbol symbol)
+    {
+        try
+        {
+            return _model.GetSymbolInfo(target).Symbol is IPropertySymbol property &&
+                   !property.IsStatic &&
+                   !property.IsIndexer &&
+                   property.SetMethod?.DeclaredAccessibility == Accessibility.Private &&
+                   SymbolEqualityComparer.Default.Equals(property.ContainingType, symbol);
+        }
+        catch (ArgumentException)
+        {
+            // Syntax not in this semantic model's tree — no evidence of a write.
+            return false;
+        }
     }
 
     /// <summary>
