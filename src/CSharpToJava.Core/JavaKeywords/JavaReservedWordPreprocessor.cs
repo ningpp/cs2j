@@ -157,14 +157,35 @@ public sealed partial class JavaReservedWordPreprocessor
 
     private static CompilationUnitSyntax ApplyRewriters(CompilationUnitSyntax root, RewriteContext context)
     {
-        var afterName = (CompilationUnitSyntax)new KeywordRenamingRewriter(context).Visit(root)!;
-        var afterOps = (CompilationUnitSyntax)new OperatorTrueFalseRewriter(context).Visit(afterName)!;
-        return afterOps;
+        // 快速路径：改名表为空时无需遍历整树（visitor 会为每个标识符触发绑定，
+        // 空表下全是白工，占本 pass 的大部分时间）。
+        var result = root;
+        if (context.Analysis.RenameTable.Count > 0)
+            result = (CompilationUnitSyntax)new KeywordRenamingRewriter(context).Visit(result)!;
+
+        var hasFeasibleOperatorPlan = false;
+        foreach (var plan in context.ActivePlans)
+        {
+            if (plan.Kind == JavaKeywordPlanKind.OperatorTrueFalse && plan.Feasible)
+            {
+                hasFeasibleOperatorPlan = true;
+                break;
+            }
+        }
+
+        if (hasFeasibleOperatorPlan)
+            result = (CompilationUnitSyntax)new OperatorTrueFalseRewriter(context).Visit(result)!;
+
+        return result;
     }
 
     internal static string? FormatAndValidate(CompilationUnitSyntax root)
+        => FormatAndValidateCore(root);
+
+    private static string? FormatAndValidateCore(CompilationUnitSyntax root)
     {
-        var candidates = new List<string>();
+        // 候选按"最精确 → 最保守"懒生成：只有当前候选解析失败才付下一个候选的代价。
+        // 整树 Formatter.Format 是最贵的一个，正常情况下不会被用到。
         using (var workspace = new AdhocWorkspace())
         {
             try
@@ -179,24 +200,40 @@ public sealed partial class JavaReservedWordPreprocessor
                     .OrderBy(s => s.Start)
                     .ToList();
                 if (spans.Count > 0)
-                    candidates.Add(Formatter.Format(root, spans, workspace).ToFullString());
+                {
+                    string? spanFormatted = null;
+                    try { spanFormatted = Formatter.Format(root, spans, workspace).ToFullString(); }
+                    catch { }
+                    if (spanFormatted != null && ParsesWithoutErrors(spanFormatted))
+                        return spanFormatted;
+                }
             }
             catch { }
-            try { candidates.Add(Formatter.Format(root, workspace).ToFullString()); }
-            catch { }
-        }
-        candidates.Add(root.ToFullString());
 
-        return candidates.FirstOrDefault(candidate =>
-        {
             try
             {
-                var reparsed = CSharpSyntaxTree.ParseText(
-                    candidate, new CSharpParseOptions(LanguageVersion.Latest));
-                return !reparsed.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error);
+                string? wholeFormatted = null;
+                try { wholeFormatted = Formatter.Format(root, workspace).ToFullString(); }
+                catch { }
+                if (wholeFormatted != null && ParsesWithoutErrors(wholeFormatted))
+                    return wholeFormatted;
             }
-            catch { return false; }
-        });
+            catch { }
+        }
+
+        var raw = root.ToFullString();
+        return ParsesWithoutErrors(raw) ? raw : null;
+    }
+
+    private static bool ParsesWithoutErrors(string candidate)
+    {
+        try
+        {
+            var reparsed = CSharpSyntaxTree.ParseText(
+                candidate, new CSharpParseOptions(LanguageVersion.Latest));
+            return !reparsed.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error);
+        }
+        catch { return false; }
     }
 
     // ----- 计划级回退支持（CLI 驱动使用） -----

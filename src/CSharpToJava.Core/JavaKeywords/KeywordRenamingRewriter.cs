@@ -24,13 +24,23 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
             _renamedOriginalNames.Add(JavaKeywordSyntaxFacts.StripAt(symbol.Name));
     }
 
+    /// <summary>
+    /// 文本预筛：重命名永远要求被绑定符号在改名表内，而符号名就是引用处标识符原文
+    /// （复合符号的构造形式/partial 各部分同名），因此标识符文本不在被改名原始名集合
+    /// 里的节点不可能产生改写。在调用 GetSymbolInfo/GetDeclaredSymbol 前先做这个纯字符
+    /// 串判定，避免为每个标识符触发绑定（整树绑定是本 pass 的主要开销）。
+    /// </summary>
+    private bool ShouldVisit(string? identifierText)
+        => identifierText != null
+           && _renamedOriginalNames.Contains(JavaKeywordSyntaxFacts.StripAt(identifierText));
+
     // ---- 声明点改名 ----
 
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
         var visited = (MethodDeclarationSyntax?)base.VisitMethodDeclaration(node);
         if (visited == null) return null;
-        if (TryGetNewNameForDeclaration(node, out var newName))
+        if (ShouldVisit(node.Identifier.Text) && TryGetNewNameForDeclaration(node, out var newName))
             visited = visited.WithIdentifier(
                 SyntaxFactory.Identifier(visited.Identifier.LeadingTrivia, newName, visited.Identifier.TrailingTrivia))
                 .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
@@ -41,7 +51,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (PropertyDeclarationSyntax?)base.VisitPropertyDeclaration(node);
         if (visited == null) return null;
-        if (TryGetNewNameForDeclaration(node, out var newName))
+        if (ShouldVisit(node.Identifier.Text) && TryGetNewNameForDeclaration(node, out var newName))
             visited = visited.WithIdentifier(
                 SyntaxFactory.Identifier(visited.Identifier.LeadingTrivia, newName, visited.Identifier.TrailingTrivia))
                 .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
@@ -52,7 +62,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (EventDeclarationSyntax?)base.VisitEventDeclaration(node);
         if (visited == null) return null;
-        if (TryGetNewNameForDeclaration(node, out var newName))
+        if (ShouldVisit(node.Identifier.Text) && TryGetNewNameForDeclaration(node, out var newName))
             visited = visited.WithIdentifier(
                 SyntaxFactory.Identifier(visited.Identifier.LeadingTrivia, newName, visited.Identifier.TrailingTrivia))
                 .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
@@ -63,6 +73,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (VariableDeclaratorSyntax?)base.VisitVariableDeclarator(node);
         if (visited == null) return null;
+        if (!ShouldVisit(node.Identifier.Text)) return visited;
         var symbol = _context.Model.GetDeclaredSymbol(node);
         if (symbol != null && _table.TryGetValue(symbol, out var newName))
         {
@@ -79,7 +90,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (ClassDeclarationSyntax?)base.VisitClassDeclaration(node);
         if (visited == null) return null;
-        if (TryGetNewNameForDeclaration(node, out var newName))
+        if (ShouldVisit(node.Identifier.Text) && TryGetNewNameForDeclaration(node, out var newName))
             visited = visited.WithIdentifier(
                 SyntaxFactory.Identifier(visited.Identifier.LeadingTrivia, newName, visited.Identifier.TrailingTrivia))
                 .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
@@ -90,7 +101,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (StructDeclarationSyntax?)base.VisitStructDeclaration(node);
         if (visited == null) return null;
-        if (TryGetNewNameForDeclaration(node, out var newName))
+        if (ShouldVisit(node.Identifier.Text) && TryGetNewNameForDeclaration(node, out var newName))
             visited = visited.WithIdentifier(
                 SyntaxFactory.Identifier(visited.Identifier.LeadingTrivia, newName, visited.Identifier.TrailingTrivia))
                 .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
@@ -101,7 +112,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (InterfaceDeclarationSyntax?)base.VisitInterfaceDeclaration(node);
         if (visited == null) return null;
-        if (TryGetNewNameForDeclaration(node, out var newName))
+        if (ShouldVisit(node.Identifier.Text) && TryGetNewNameForDeclaration(node, out var newName))
             visited = visited.WithIdentifier(
                 SyntaxFactory.Identifier(visited.Identifier.LeadingTrivia, newName, visited.Identifier.TrailingTrivia))
                 .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
@@ -112,7 +123,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (EnumDeclarationSyntax?)base.VisitEnumDeclaration(node);
         if (visited == null) return null;
-        if (TryGetNewNameForDeclaration(node, out var newName))
+        if (ShouldVisit(node.Identifier.Text) && TryGetNewNameForDeclaration(node, out var newName))
             visited = visited.WithIdentifier(
                 SyntaxFactory.Identifier(visited.Identifier.LeadingTrivia, newName, visited.Identifier.TrailingTrivia))
                 .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
@@ -123,7 +134,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (DelegateDeclarationSyntax?)base.VisitDelegateDeclaration(node);
         if (visited == null) return null;
-        if (TryGetNewNameForDeclaration(node, out var newName))
+        if (ShouldVisit(node.Identifier.Text) && TryGetNewNameForDeclaration(node, out var newName))
             visited = visited.WithIdentifier(
                 SyntaxFactory.Identifier(visited.Identifier.LeadingTrivia, newName, visited.Identifier.TrailingTrivia))
                 .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
@@ -134,7 +145,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (RecordDeclarationSyntax?)base.VisitRecordDeclaration(node);
         if (visited == null) return null;
-        if (TryGetNewNameForDeclaration(node, out var newName))
+        if (ShouldVisit(node.Identifier.Text) && TryGetNewNameForDeclaration(node, out var newName))
             visited = visited.WithIdentifier(
                 SyntaxFactory.Identifier(visited.Identifier.LeadingTrivia, newName, visited.Identifier.TrailingTrivia))
                 .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
@@ -145,6 +156,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (TypeParameterSyntax?)base.VisitTypeParameter(node);
         if (visited == null) return null;
+        if (!ShouldVisit(node.Identifier.Text)) return visited;
         var symbol = _context.Model.GetDeclaredSymbol(node);
         if (symbol != null && _table.TryGetValue(symbol, out var newName))
         {
@@ -159,6 +171,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (ParameterSyntax?)base.VisitParameter(node);
         if (visited == null) return null;
+        if (!ShouldVisit(node.Identifier.Text)) return visited;
         var symbol = _context.Model.GetDeclaredSymbol(node);
         if (symbol != null && _table.TryGetValue(symbol, out var newName))
         {
@@ -173,6 +186,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (LocalFunctionStatementSyntax?)base.VisitLocalFunctionStatement(node);
         if (visited == null) return null;
+        if (!ShouldVisit(node.Identifier.Text)) return visited;
         var symbol = _context.Model.GetDeclaredSymbol(node);
         if (symbol != null && _table.TryGetValue(symbol, out var newName))
         {
@@ -187,6 +201,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (ForEachStatementSyntax?)base.VisitForEachStatement(node);
         if (visited == null) return null;
+        if (!ShouldVisit(node.Identifier.Text)) return visited;
         var symbol = _context.Model.GetDeclaredSymbol(node);
         if (symbol != null && _table.TryGetValue(symbol, out var newName))
         {
@@ -201,7 +216,8 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (CatchDeclarationSyntax?)base.VisitCatchDeclaration(node);
         if (visited == null) return null;
-        if (visited.Identifier.IsKind(SyntaxKind.IdentifierToken))
+        if (visited.Identifier.IsKind(SyntaxKind.IdentifierToken)
+            && ShouldVisit(node.Identifier.Text))
         {
             var symbol = _context.Model.GetDeclaredSymbol(node);
             if (symbol != null && _table.TryGetValue(symbol, out var newName))
@@ -218,6 +234,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (SingleVariableDesignationSyntax?)base.VisitSingleVariableDesignation(node);
         if (visited == null) return null;
+        if (!ShouldVisit(node.Identifier.Text)) return visited;
         var symbol = _context.Model.GetDeclaredSymbol(node);
         if (symbol != null && _table.TryGetValue(symbol, out var newName))
         {
@@ -232,6 +249,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (NamespaceDeclarationSyntax?)base.VisitNamespaceDeclaration(node);
         if (visited == null) return null;
+        if (!ShouldVisit(node.Name.ToString())) return visited;
         var symbol = _context.Model.GetDeclaredSymbol(node);
         if (symbol != null && _table.TryGetValue(symbol, out var newName))
         {
@@ -245,6 +263,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (FileScopedNamespaceDeclarationSyntax?)base.VisitFileScopedNamespaceDeclaration(node);
         if (visited == null) return null;
+        if (!ShouldVisit(node.Name.ToString())) return visited;
         var symbol = _context.Model.GetDeclaredSymbol(node);
         if (symbol != null && _table.TryGetValue(symbol, out var newName))
         {
@@ -258,7 +277,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (UsingDirectiveSyntax?)base.VisitUsingDirective(node);
         if (visited == null) return null;
-        if (visited.Alias != null)
+        if (visited.Alias != null && ShouldVisit(visited.Alias.Name.Identifier.Text))
         {
             var symbol = _context.Model.GetDeclaredSymbol(visited.Alias);
             if (symbol != null && _table.TryGetValue(symbol, out var newName))
@@ -277,6 +296,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (IdentifierNameSyntax?)base.VisitIdentifierName(node);
         if (visited == null) return null;
+        if (!ShouldVisit(node.Identifier.ValueText)) return visited;
         return RenameIfBound(visited, node);
     }
 
@@ -284,6 +304,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (GenericNameSyntax?)base.VisitGenericName(node);
         if (visited == null) return null;
+        if (!ShouldVisit(node.Identifier.ValueText)) return visited;
         // Explicit type arguments (e.g. `Throws<T>(...)`) parse as
         // GenericNameSyntax, which the IdentifierNameSyntax visit never sees;
         // without this the declaration is renamed but the reference is not,
@@ -325,6 +346,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (QualifiedNameSyntax?)base.VisitQualifiedName(node);
         if (visited == null) return null;
+        if (!ShouldVisit(node.Right.Identifier.ValueText)) return visited;
         // 只改右段（Left 由成员访问/命名空间路径处理）
         var rightSymbol = _context.Model.GetSymbolInfo(node).Symbol;
         if (rightSymbol != null && TryLookupRename(rightSymbol, out var newName))
@@ -346,6 +368,7 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
     {
         var visited = (MemberAccessExpressionSyntax?)base.VisitMemberAccessExpression(node);
         if (visited == null) return null;
+        if (!ShouldVisit(node.Name.Identifier.ValueText)) return visited;
         // 改 Name 段
         var nameSymbol = _context.Model.GetSymbolInfo(node).Symbol;
         if (nameSymbol != null && TryLookupRename(nameSymbol, out var newName))
@@ -383,17 +406,11 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
                 var hasRenamed = false;
                 foreach (var id in origArg.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
                 {
-                    var origName = JavaKeywordSyntaxFacts.StripAt(id.Identifier.ValueText);
-                    // 检查改名表中是否有任何符号的原始名称匹配
-                    foreach (var (sym, _) in _table)
+                    if (ShouldVisit(id.Identifier.ValueText))
                     {
-                        if (JavaKeywordSyntaxFacts.StripAt(sym.Name) == origName)
-                        {
-                            hasRenamed = true;
-                            break;
-                        }
+                        hasRenamed = true;
+                        break;
                     }
-                    if (hasRenamed) break;
                 }
                 if (hasRenamed)
                 {
