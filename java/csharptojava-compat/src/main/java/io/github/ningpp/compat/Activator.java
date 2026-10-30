@@ -200,6 +200,11 @@ public final class Activator {
         if (args == null) {
             args = new Object[0];
         }
+        // The arguments exactly as the caller supplied them. The fallbacks below may
+        // rewrite `args`; token inference must inspect the original runtime value
+        // because a compat adapter's erased generic signature no longer names the
+        // element type.
+        Object[] originalArgs = args;
         try {
             // .NET's Activator.CreateInstance(Type, object[]) matches constructors whose
             // parameter types are assignment-compatible with the runtime argument types
@@ -248,27 +253,6 @@ public final class Activator {
                 }
             }
             Constructor<?> chosen = exact != null ? exact : assignable;
-            if (chosen != null) {
-                // The converter restores the original C# constructor signature alongside
-                // the injected-trailing-Class-token version (GD-CTORARR companions, e.g.
-                // CollectionDebuggerProxy(CSharpIList) delegating to
-                // CollectionDebuggerProxy(CSharpIList, Class)). On the JVM the restored
-                // companion cannot re-derive the runtime type token its C# form gets from
-                // typeof(T), so when the matched constructor has a token-augmented sibling
-                // (identical parameter prefix + trailing all-Class parameters), prefer the
-                // sibling: the inferred Class values reproduce the C# typeof(T) answer.
-                Constructor<?> sibling = findTokenAugmentedSibling(ctors, chosen);
-                if (sibling != null) {
-                    chosen = sibling;
-                    Object[] expanded = new Object[sibling.getParameterTypes().length];
-                    System.arraycopy(args, 0, expanded, 0, args.length);
-                    Class<?> inferred = inferElementType(args);
-                    for (int i = args.length; i < expanded.length; i++) {
-                        expanded[i] = inferred;
-                    }
-                    args = expanded;
-                }
-            }
             if (chosen == null) {
                 // DebuggerTypeProxy scenario: the argument is a C# collection whose list
                 // interfaces were dropped by Java erasure-conflict resolution (e.g.
@@ -347,6 +331,42 @@ public final class Activator {
                 }
             }
             if (chosen == null) {
+                // The compat collection hierarchies are parallel (CSharpCollection vs
+                // CSharpICollection), so a C# ICollection<T> parameter cannot receive a
+                // CSharpIList implementor or a plain java.util.Collection directly even
+                // though C# allows the assignment. Coerce through the compat adapter, but
+                // only after every direct constructor match (and the dictionary /
+                // Class-token fallbacks above) has failed.
+                AdaptedInvocation coerced = tryMatchWithCoercedArguments(ctors, args);
+                if (coerced != null) {
+                    chosen = coerced.constructor;
+                    args = coerced.arguments;
+                }
+            }
+            if (chosen != null) {
+                // The converter restores the original C# constructor signature alongside
+                // the injected-trailing-Class-token version (GD-CTORARR companions, e.g.
+                // CollectionDebuggerProxy(CSharpIList) delegating to
+                // CollectionDebuggerProxy(CSharpIList, Class)). On the JVM the restored
+                // companion cannot re-derive the runtime type token its C# form gets from
+                // typeof(T), so when the matched constructor has a token-augmented sibling
+                // (identical parameter prefix + trailing all-Class parameters), prefer the
+                // sibling: the inferred Class values reproduce the C# typeof(T) answer.
+                // Token inference reads the caller's original arguments: `args` may hold a
+                // compat adapter whose generic signature no longer names the element type.
+                Constructor<?> sibling = findTokenAugmentedSibling(ctors, chosen);
+                if (sibling != null) {
+                    chosen = sibling;
+                    Object[] expanded = new Object[sibling.getParameterTypes().length];
+                    System.arraycopy(args, 0, expanded, 0, args.length);
+                    Class<?> inferred = inferElementType(originalArgs);
+                    for (int i = args.length; i < expanded.length; i++) {
+                        expanded[i] = inferred;
+                    }
+                    args = expanded;
+                }
+            }
+            if (chosen == null) {
                 throw new RuntimeException("No matching constructor found for " + type.getName(), new NoSuchMethodException());
             }
             chosen.setAccessible(true);
@@ -358,6 +378,103 @@ public final class Activator {
             // InnerException is the original exception.
             throw new TargetInvocationException(null, e.getCause() == null ? e : e.getCause());
         }
+    }
+
+    /**
+     * A constructor plus the argument array to invoke it with. Produced by the
+     * coercion fallback, which may replace caller arguments with compat adapters.
+     */
+    private static final class AdaptedInvocation {
+        private final Constructor<?> constructor;
+        private final Object[] arguments;
+
+        private AdaptedInvocation(Constructor<?> constructor, Object[] arguments) {
+            this.constructor = constructor;
+            this.arguments = arguments;
+        }
+    }
+
+    /**
+     * Last-resort constructor match for the parallel compat collection hierarchies: a
+     * C# ICollection&lt;T&gt; parameter cannot receive a CSharpCollection value (e.g. a
+     * generated collection implementing only CSharpIList&lt;T&gt;) or a plain
+     * java.util.Collection because the Java interfaces are unrelated, even though C#
+     * allows a List&lt;T&gt;/array to flow into ICollection&lt;T&gt;. Scans the
+     * constructors whose arity matches and whose parameters all accept the arguments
+     * after {@link #coerceConstructorArgument} adaptation; the candidate needing the
+     * fewest adaptations wins (ties keep declaration order).
+     *
+     * @return the chosen constructor with its rewritten arguments, or null when no
+     *         constructor matches even with the known adapters
+     */
+    private static AdaptedInvocation tryMatchWithCoercedArguments(Constructor<?>[] ctors, Object[] args) {
+        AdaptedInvocation best = null;
+        int bestCoercions = Integer.MAX_VALUE;
+        for (Constructor<?> ctor : ctors) {
+            Class<?>[] params = ctor.getParameterTypes();
+            if (params.length != args.length) {
+                continue;
+            }
+            Object[] coerced = new Object[args.length];
+            int coercions = 0;
+            boolean matches = true;
+            for (int i = 0; i < params.length; i++) {
+                Object arg = args[i];
+                if (arg == null) {
+                    if (params[i].isPrimitive()) {
+                        matches = false;
+                        break;
+                    }
+                    continue;
+                }
+                Object candidate = coerceConstructorArgument(params[i], arg);
+                if (!isCompatible(params[i], candidate)) {
+                    matches = false;
+                    break;
+                }
+                coerced[i] = candidate;
+                if (candidate != arg) {
+                    coercions++;
+                }
+            }
+            if (matches && (best == null || coercions < bestCoercions)) {
+                best = new AdaptedInvocation(ctor, coerced);
+                bestCoercions = coercions;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Coerces one constructor argument to its declared parameter type through the compat
+     * adapters when the two collection hierarchies do not line up. The argument is
+     * returned unchanged when it already fits (or when no known adapter applies), so
+     * callers keep exact matching first and reach the adapter only in the no-match
+     * fallback.
+     */
+    private static Object coerceConstructorArgument(Class<?> parameterType, Object argument) {
+        if (isCompatible(parameterType, argument)) {
+            return argument;
+        }
+        if (isICollectionParameter(parameterType)
+            && (argument instanceof CSharpCollection || argument instanceof java.util.Collection)) {
+            return CSharpICollection.fromTyped(argument);
+        }
+        return argument;
+    }
+
+    /**
+     * True for the compat collection contracts a {@link CSharpICollection} adapter can
+     * fill: ICollection&lt;T&gt; itself (and its subinterfaces) plus the
+     * CSharpReadOnlyCollection / CSharpGenericIterable supertypes it implements.
+     * Object, Iterable and java.util.Collection are deliberately excluded: direct
+     * assignment already covers them, so adapting there would widen unrelated
+     * constructor slots.
+     */
+    private static boolean isICollectionParameter(Class<?> parameterType) {
+        return CSharpICollection.class.isAssignableFrom(parameterType)
+            || parameterType == CSharpReadOnlyCollection.class
+            || parameterType == CSharpGenericIterable.class;
     }
 
     /**
