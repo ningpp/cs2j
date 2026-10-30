@@ -40,6 +40,14 @@ internal static class CompatCollectionConformance
             if ((method.Modifiers & (JavaModifiers.Static | JavaModifiers.Abstract)) != 0)
                 continue;
 
+            // 非 public 的 C# 方法不是接口实现：private/protected 成员若按接口形状擦除
+            // 形参，会与继承来的 compat public 默认方法同擦除签名却降低可见性，javac 报
+            // “正在尝试分配更低的访问权限”（真实链 StringFunctions 的私有
+            // Contains(XPathNodeIterator)）。保留强类型形参只是合法重载；接口桥由
+            // 下面的 EnsureSyncMembers/EnsureRemoveBridge 以 public 补齐。
+            if ((method.Modifiers & (JavaModifiers.Private | JavaModifiers.Protected)) != 0)
+                continue;
+
             switch (method.Name)
             {
                 case "add":
@@ -152,12 +160,14 @@ internal static class CompatCollectionConformance
                 return;
             EraseParameter(method, 0);
             method.ReturnType = "int";
+            AdaptBareReturns(method, "0");
             AddTrailingReturn(method, "return 0;");
             return;
         }
 
         // CSharpGenericIterable<T>.add(T)：元素类型即 C# 形参类型，只需 void→boolean。
         method.ReturnType = "boolean";
+        AdaptBareReturns(method, "true");
         AddTrailingReturn(method, "return true;");
     }
 
@@ -188,6 +198,7 @@ internal static class CompatCollectionConformance
         if (method.ReturnType != "void")
             return;
         method.ReturnType = "Object";
+        AdaptBareReturns(method, "null");
         AddTrailingReturn(method, "return null;");
     }
 
@@ -370,6 +381,148 @@ internal static class CompatCollectionConformance
         }
 
         method.Body = $"{method.Body}\n{returnStatement}";
+    }
+
+    /// <summary>
+    /// void → 非 void 适配：C# 方法体里早退的裸 <c>return;</c> 在 Java 非 void 方法中是
+    /// “缺少返回值”。把返回类型改成 int/boolean/Object 时，同步把裸 return 改写为带默认
+    /// 值的 return。方法体可能来自两条路径：结构化语句（<see cref="JavaMethodBody"/>）或
+    /// 已渲染的原始字符串（if/for 等由语句转换器整体生成为多行文本），两条都要覆盖。
+    /// </summary>
+    private static void AdaptBareReturns(JavaMethodDeclaration method, string returnExpression)
+    {
+        if (method.StructuredBody != null)
+        {
+            RewriteBareReturnsInStatements(method.StructuredBody.Statements, returnExpression);
+            return;
+        }
+
+        if (!method.IsBodyExpression && method.Body != null)
+            method.Body = RewriteBareReturnsInText(method.Body, returnExpression);
+    }
+
+    private static void RewriteBareReturnsInStatements(
+        List<JavaStatement> statements, string returnExpression)
+    {
+        for (var i = 0; i < statements.Count; i++)
+            statements[i] = RewriteBareReturnsInStatement(statements[i], returnExpression);
+    }
+
+    /// <summary>
+    /// 递归处理结构化语句里的裸 return；刻意不进入表达式，避免误改 lambda 的 void 返回。
+    /// </summary>
+    private static JavaStatement RewriteBareReturnsInStatement(
+        JavaStatement statement, string returnExpression)
+    {
+        switch (statement)
+        {
+            case JavaReturnStatement { Expression: null } bare:
+                bare.Expression = new JavaRawExpression(returnExpression);
+                return bare;
+            case JavaRawStatement raw:
+                raw.Code = RewriteBareReturnsInText(raw.Code, returnExpression);
+                return raw;
+            case JavaBlockStatement block:
+                RewriteBareReturnsInStatements(block.Statements, returnExpression);
+                return block;
+            case JavaIfStatement ifStatement:
+                ifStatement.ThenBody =
+                    RewriteBareReturnsInStatement(ifStatement.ThenBody, returnExpression);
+                if (ifStatement.ElseBody != null)
+                    ifStatement.ElseBody =
+                        RewriteBareReturnsInStatement(ifStatement.ElseBody, returnExpression);
+                return ifStatement;
+            case JavaForEachStatement forEach:
+                forEach.Body = RewriteBareReturnsInStatement(forEach.Body, returnExpression);
+                return forEach;
+            case JavaForStatement forStatement:
+                forStatement.Body = RewriteBareReturnsInStatement(forStatement.Body, returnExpression);
+                return forStatement;
+            case JavaWhileStatement whileStatement:
+                whileStatement.Body = RewriteBareReturnsInStatement(whileStatement.Body, returnExpression);
+                return whileStatement;
+            case JavaDoWhileStatement doWhile:
+                doWhile.Body = RewriteBareReturnsInStatement(doWhile.Body, returnExpression);
+                return doWhile;
+            case JavaTryCatchStatement tryCatch:
+                RewriteBareReturnsInStatements(tryCatch.TryBody.Statements, returnExpression);
+                foreach (var catchClause in tryCatch.CatchClauses)
+                    RewriteBareReturnsInStatements(catchClause.Body.Statements, returnExpression);
+                if (tryCatch.FinallyBody != null)
+                    RewriteBareReturnsInStatements(tryCatch.FinallyBody.Statements, returnExpression);
+                return tryCatch;
+            case JavaSwitchStatement switchStatement:
+                foreach (var section in switchStatement.Sections)
+                    RewriteBareReturnsInStatements(section.Statements, returnExpression);
+                return switchStatement;
+            default:
+                return statement;
+        }
+    }
+
+    /// <summary>
+    /// 保守的行级文本改写：只把独占一行（可带缩进/行尾注释）的裸 <c>return;</c> 换成
+    /// <c>return &lt;expr&gt;;</c>，不触碰 <c>return &lt;expr&gt;;</c> 或 <c>returnValue</c>
+    /// 之类的标识符。生成语句文本按“一行一条语句”组织，该粒度足以覆盖早退 return。
+    /// 保留原换行风格（Split('\n') 后把行尾 '\r' 原样接回）。
+    /// </summary>
+    private static string RewriteBareReturnsInText(string code, string returnExpression)
+    {
+        if (code.IndexOf("return", StringComparison.Ordinal) < 0)
+            return code;
+
+        var lines = code.Split('\n');
+        var changed = false;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            var carriageReturn = line.EndsWith('\r') ? "\r" : string.Empty;
+            var text = carriageReturn.Length == 0 ? line : line[..^1];
+            if (!TryRewriteBareReturnLine(text, returnExpression, out var rewritten))
+                continue;
+            lines[i] = rewritten + carriageReturn;
+            changed = true;
+        }
+
+        return changed ? string.Join("\n", lines) : code;
+    }
+
+    private static bool TryRewriteBareReturnLine(
+        string line, string returnExpression, out string rewritten)
+    {
+        rewritten = line;
+
+        var indent = 0;
+        while (indent < line.Length && char.IsWhiteSpace(line[indent]))
+            indent++;
+        if (!line.AsSpan(indent).StartsWith("return", StringComparison.Ordinal))
+            return false;
+
+        var afterKeyword = indent + "return".Length;
+        if (afterKeyword < line.Length
+            && !char.IsWhiteSpace(line[afterKeyword])
+            && line[afterKeyword] != ';')
+        {
+            return false; // returnValue / returns 等标识符，不是 return 语句
+        }
+
+        var semicolon = afterKeyword;
+        while (semicolon < line.Length && char.IsWhiteSpace(line[semicolon]))
+            semicolon++;
+        if (semicolon >= line.Length || line[semicolon] != ';')
+            return false; // return <expr>;
+
+        var trailing = line[(semicolon + 1)..];
+        var trailingContent = trailing.TrimStart();
+        // 行尾只允许空白或行注释；其它内容（如内联 lambda 的 "});"）保持原样。
+        if (trailingContent.Length > 0
+            && !trailingContent.StartsWith("//", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        rewritten = line[..indent] + "return " + returnExpression + ";" + trailing;
+        return true;
     }
 
     private static bool EndsWithTerminalStatement(JavaMethodBody body)

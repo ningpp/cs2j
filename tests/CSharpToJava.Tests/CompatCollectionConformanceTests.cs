@@ -98,6 +98,147 @@ class MyTree<T> : IEnumerable<T>
         Assert.Contains("remove_2(", code, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// 真实链 XmlSchemaCollection.Add(XmlSchemaCollection) 的 C# 方法体带早退
+    /// <c>if (ReferenceEquals(this, schema)) return;</c>。void→int 适配后裸 return
+    /// 必须改成 <c>return 0;</c>，否则 javac 报“缺少返回值”。
+    /// </summary>
+    [Fact]
+    public void CollectionImplementor_AddWithEarlyReturn_ReturnsValueOnEveryPath()
+    {
+        var result = Convert(@"
+using System.Collections;
+
+class MyColl : ICollection
+{
+    public void Add(MyColl other)
+    {
+        if (object.ReferenceEquals(this, other))
+            return;
+    }
+
+    public int Count { get { return 0; } }
+    public bool IsSynchronized { get { return false; } }
+    public object SyncRoot { get { return this; } }
+    public void CopyTo(System.Array array, int index) { }
+    public IEnumerator GetEnumerator() { return null; }
+}");
+
+        var code = result.GeneratedCode;
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---\n" + code);
+
+        Assert.Contains("int add(Object", code, StringComparison.Ordinal);
+        // C# 早退的裸 return; 不能留在 void→int 适配后的方法体里。
+        Assert.DoesNotContain("return;", code, StringComparison.Ordinal);
+        Assert.Contains("return 0;", code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// void RemoveAt(int) → Object removeAt(int) 同样把早退的裸 return; 适配为
+    /// <c>return null;</c>。
+    /// </summary>
+    [Fact]
+    public void CollectionImplementor_RemoveAtWithEarlyReturn_ReturnsValueOnEveryPath()
+    {
+        var result = Convert(@"
+using System.Collections;
+
+class MyList : IList
+{
+    public object this[int index] { get { return null; } set { } }
+    public bool IsFixedSize { get { return false; } }
+    public bool IsReadOnly { get { return false; } }
+    public int Count { get { return 0; } }
+    public object SyncRoot { get { return this; } }
+    public bool IsSynchronized { get { return false; } }
+    public int Add(object value) { return 0; }
+    public void Clear() { }
+    public bool Contains(object value) { return false; }
+    public int IndexOf(object value) { return -1; }
+    public void Insert(int index, object value) { }
+    public void Remove(object value) { }
+    public void RemoveAt(int index)
+    {
+        if (index < 0)
+            return;
+    }
+    public void CopyTo(System.Array array, int index) { }
+    public IEnumerator GetEnumerator() { return null; }
+}");
+
+        var code = result.GeneratedCode;
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---\n" + code);
+
+        Assert.Contains("Object removeAt(int index)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("return;", code, StringComparison.Ordinal);
+        Assert.Contains("return null;", code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// ICollection&lt;T&gt; 当前映射为 CSharpICollection&lt;T&gt;（经 AllInterfaces 的
+    /// IEnumerable 走 CSharpGenericIterable 分支），void Add(T) → boolean add(T)；
+    /// 早退裸 return; 同样必须补 <c>return true;</c>。
+    /// </summary>
+    [Fact]
+    public void GenericCollectionImplementor_AddWithEarlyReturn_ReturnsValueOnEveryPath()
+    {
+        var result = Convert(@"
+using System.Collections;
+using System.Collections.Generic;
+
+class MyColl<T> : ICollection<T>
+{
+    private readonly List<T> _items = new List<T>();
+
+    public void Add(T item)
+    {
+        if (object.ReferenceEquals(item, this))
+            return;
+        _items.Add(item);
+    }
+    public bool Contains(T item) { return _items.Contains(item); }
+    public bool Remove(T item) { return _items.Remove(item); }
+    public void CopyTo(T[] array, int arrayIndex) { _items.CopyTo(array, arrayIndex); }
+    public int Count { get { return _items.Count; } }
+    public bool IsReadOnly { get { return false; } }
+    public IEnumerator<T> GetEnumerator() { return _items.GetEnumerator(); }
+    IEnumerator IEnumerable.GetEnumerator() { return _items.GetEnumerator(); }
+}");
+
+        var code = result.GeneratedCode;
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---\n" + code);
+
+        Assert.Contains("boolean add(T item)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("return;", code, StringComparison.Ordinal);
+        Assert.Contains("return true;", code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// 真实链 StringFunctions 的私有辅助方法 <c>bool Contains(XPathNodeIterator)</c>：
+    /// private C# 方法不是接口实现，形状对齐不能把它擦除成 <c>contains(Object)</c>，
+    /// 否则与继承的 compat 默认方法同签名却降为 private（javac 弱化访问权限错误）。
+    /// </summary>
+    [Fact]
+    public void EnumerableImplementor_PrivateContainsHelper_StaysTyped()
+    {
+        var result = Convert(@"
+using System.Collections;
+
+class StringFunctions : IEnumerable
+{
+    private bool Contains(string value) { return value != null; }
+
+    public IEnumerator GetEnumerator() { return null; }
+}");
+
+        var code = result.GeneratedCode;
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---\n" + code);
+
+        // 私有辅助方法保留强类型形参（合法重载），不得擦除为 Object。
+        Assert.Contains("private boolean contains(String value)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("contains(Object", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
