@@ -152,10 +152,13 @@ namespace Test {
 }
 ");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("settings.setIgnoreWhitespace(true)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("settings.setIgnoreComments(true)", result.GeneratedCode, StringComparison.Ordinal);
+        // dotnet-xml ports C#-style accessors: IgnoreWhitespace(boolean) / IgnoreComments(boolean)
+        Assert.Contains("settings.IgnoreWhitespace(true)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("settings.IgnoreComments(true)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("settings.getIgnoreWhitespace() = true", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("settings.getIgnoreComments() = true", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("setIgnoreWhitespace", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("setIgnoreComments", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     // ── Fix 4: Record equals/hashCode Objects import ────────────────────────
