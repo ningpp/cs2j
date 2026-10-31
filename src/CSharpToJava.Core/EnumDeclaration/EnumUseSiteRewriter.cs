@@ -613,12 +613,15 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
     {
         if (requests.Count == 0) return root;
 
-        var anchorEdits = new Dictionary<SyntaxNode, SyntaxNode>();
-        var infoByAnnotation = new Dictionary<SyntaxAnnotation, (SyntaxNode Anchor, string Declaration)>();
-
+        // 逐个请求在“当前”树上重新定位标记。父锚点（if）与子锚点（else if）
+        // 一次性 ReplaceNodes 时，父节点重建会让子节点的红色实例失效，子锚点的
+        // 注释随之丢失 → 第二个 is 站点的临时变量只使用不声明（CS0103/ED030）。
+        // 每次插入后整条祖先链都会重建，因此下一个请求必须从当前树重新找标记；
+        // 标记是 SyntaxAnnotation，跨重建保留在绿色节点上。
+        var current = root;
         foreach (var request in requests)
         {
-            var marked = root.GetAnnotatedNodes(request.Marker).FirstOrDefault();
+            var marked = current.GetAnnotatedNodes(request.Marker).FirstOrDefault();
             if (marked == null) continue;
 
             var anchor = marked.Parent;
@@ -631,29 +634,24 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
 
             var anchorAnnotation = new SyntaxAnnotation();
             var annotatedAnchor = anchor.WithAdditionalAnnotations(anchorAnnotation);
-            anchorEdits[anchor] = annotatedAnchor;
-            infoByAnnotation[anchorAnnotation] = (
-                annotatedAnchor,
-                $"{request.Type} {request.Name} = {request.Initializer};");
+            current = current.ReplaceNode(anchor, annotatedAnchor);
+
+            var pending = new List<IndexRange.TempLifter.PendingTemp>
+            {
+                new(
+                    ParseStatement($"{request.Type} {request.Name} = {request.Initializer};"),
+                    annotatedAnchor,
+                    0),
+            };
+            var anchorAnnotations = new Dictionary<SyntaxNode, SyntaxAnnotation>
+            {
+                [annotatedAnchor] = anchorAnnotation,
+            };
+
+            current = IndexRange.TempLifter.Apply(current, pending, anchorAnnotations);
         }
 
-        if (anchorEdits.Count == 0) return root;
-
-        var current = root.ReplaceNodes(anchorEdits.Keys, (oldNode, _) => anchorEdits[oldNode]);
-
-        var pending = new List<IndexRange.TempLifter.PendingTemp>();
-        var anchorAnnotations = new Dictionary<SyntaxNode, SyntaxAnnotation>();
-        var order = 0;
-        foreach (var (annotation, (_, declarationText)) in infoByAnnotation)
-        {
-            var anchor = current.GetAnnotatedNodes(annotation).FirstOrDefault();
-            if (anchor == null) continue;
-            anchorAnnotations[anchor] = annotation;
-            pending.Add(new IndexRange.TempLifter.PendingTemp(
-                ParseStatement(declarationText), anchor, order++));
-        }
-
-        return IndexRange.TempLifter.Apply(current, pending, anchorAnnotations);
+        return current;
     }
 
     /// <summary>switch/is 判定临时变量请求（声明由后置 Pass 插入）。</summary>
