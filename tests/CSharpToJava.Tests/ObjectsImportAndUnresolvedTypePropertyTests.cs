@@ -216,10 +216,11 @@ namespace Microsoft.Msagl.DebugHelpers.Persistence
 }
 ");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // Property access should use getter pattern
-        Assert.Contains("getXmlReader().getName()", result.GeneratedCode, StringComparison.Ordinal);
+        // dotnet-xml ports C#-style accessors: XmlReader.Name() has no getName() form
+        Assert.Contains("getXmlReader().Name()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("getName()", result.GeneratedCode, StringComparison.Ordinal);
         // String equality should use Objects.equals
-        Assert.Contains("Objects.equals(getXmlReader().getName(), \"graph\")", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Objects.equals(getXmlReader().Name(), \"graph\")", result.GeneratedCode, StringComparison.Ordinal);
         // Objects import should be present
         Assert.Contains("import java.util.Objects;", result.GeneratedCode, StringComparison.Ordinal);
         // XmlReader import should be present
