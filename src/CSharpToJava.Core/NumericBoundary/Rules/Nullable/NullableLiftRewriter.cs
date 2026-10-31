@@ -1065,25 +1065,20 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
         NullLiteralEqualityClassification classification)
     {
         _currentHoist = null;
-        var binaryOperation = (_model.GetOperation(original) as NBOp.IBinaryOperation)!;
         var isLeft = classification.NullableSide == original.Left;
         var visitedSide = isLeft ? visited.Left : visited.Right;
-        var sideOperation = isLeft ? binaryOperation.LeftOperand : binaryOperation.RightOperand;
 
-        var (ok, access) = PrepareOperand(
-            original,
-            originalOperand: isLeft ? original.Left : original.Right,
-            visitedOperand: visitedSide,
-            operandOperation: sideOperation,
-            sideNullable: true, isLeft);
-        if (!ok)
-        {
-            return null;
-        }
+        // `x == null` / `x != null` renders as `!x.HasValue` / `x.HasValue`:
+        // the operand is read exactly ONCE, so no single-evaluation temp is
+        // needed even when the operand is an unstable property chain sitting
+        // in an un-hoistable short-circuit/else-if condition (SDK json
+        // `state.Value.Current.NumberHandling == null`, CS2J5355).
+        var access = OperandAccess.Direct(
+            visitedSide, isNullablePosition: true);
 
         var rewritten = NullableLiftExpansion.NullLiteralEquality(access, classification.IsNotEquals);
         _stats.LiftedEqualityNullLiteralSites++;
-        return FinalizeSite(original, rewritten, _currentHoist);
+        return FinalizeSite(original, rewritten, hoist: null);
     }
 
     /// <summary>
