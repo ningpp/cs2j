@@ -157,17 +157,20 @@ public sealed class IteratorLoweringPreprocessor
         // formatted tree already carries the exact same statement structure as
         // a re-parse of its text, so the count is read straight off it instead
         // of paying a second full parse of the (potentially multi-megabyte) output.
-        var remainingYields = formatted.DescendantNodes()
+        var remainingYieldNodes = formatted.DescendantNodes()
             .OfType<YieldStatementSyntax>()
-            .Count();
+            .ToList();
+        var remainingYields = remainingYieldNodes.Count;
         stats.ResidualCount = remainingYields;
 
         if (remainingYields > 0 && options.Strict)
         {
+            var firstSpan = remainingYieldNodes[0].GetLocation().GetLineSpan().StartLinePosition;
             diagnostics.Add(new IteratorLoweringDiagnostic(
                 IteratorLoweringSeverity.Error,
                 IteratorLoweringDiagnosticCode.CS2J0402,
-                $"{remainingYields} residual yield statement(s) remaining after preprocessing."));
+                $"{remainingYields} residual yield statement(s) remaining after preprocessing " +
+                $"(first at line {firstSpan.Line + 1}, column {firstSpan.Character + 1})."));
         }
 
         return new IteratorLoweringFileResult(code, true, diagnostics, stats);

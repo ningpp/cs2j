@@ -35,43 +35,77 @@ internal sealed class IteratorStateMachineRewriter
         if (_infoByMember.Count == 0)
             return root;
 
+        // Rewrite top-level types recursively (deepest nested types first inside
+        // each recursive call) so iterator members declared in NESTED types are
+        // lowered too. The previous pre-order loop replaced the outer type first
+        // and then failed to find the stale nested-type instances in the rebuilt
+        // tree, silently leaving residual yields (SDK json
+        // CollectionTests.Dictionary.cs nested GetEnumerator iterator).
+        var topLevelTypes = root.DescendantNodes()
+            .OfType<TypeDeclarationSyntax>()
+            .Where(type => type.Ancestors().All(a => a is not TypeDeclarationSyntax))
+            .ToList();
+
         var newRoot = root;
-        foreach (var typeDecl in root.DescendantNodes().OfType<TypeDeclarationSyntax>().ToList())
+        foreach (var typeDecl in topLevelTypes)
         {
-            var plansForType = _infoByMember
-                .Where(kv => kv.Key.Parent == typeDecl)
-                .ToList();
-            if (plansForType.Count == 0) continue;
-
-            var newMembers = new List<MemberDeclarationSyntax>();
-            var nestedClasses = new List<MemberDeclarationSyntax>();
-
-            foreach (var member in typeDecl.Members)
+            var rewritten = RewriteType(typeDecl);
+            if (rewritten != null)
             {
-                if (_infoByMember.TryGetValue(member, out var info))
-                {
-                    if (member is MethodDeclarationSyntax method)
-                        newMembers.Add(RewriteMethodBody(method, info.Plan));
-                    else if (member is BasePropertyDeclarationSyntax property)
-                        newMembers.Add(RewritePropertyGetter(property, info));
-                    else
-                        newMembers.Add(member);
-                    nestedClasses.Add(BuildStateMachineClass(info));
-                }
-                else
-                {
-                    newMembers.Add(member);
-                }
+                newRoot = newRoot.ReplaceNode(typeDecl, rewritten);
             }
-
-            newMembers.AddRange(nestedClasses);
-
-            var newTypeDecl = typeDecl.WithMembers(List(newMembers));
-            newRoot = newRoot.ReplaceNode(typeDecl, newTypeDecl);
         }
 
         newRoot = EnsureUsings(newRoot);
         return newRoot;
+    }
+
+    /// <summary>
+    /// Bottom-up type rewrite: nested type declarations are rewritten first, then
+    /// the current type's planned members are replaced and their state-machine
+    /// classes appended. Returns null when neither this type nor its nested types
+    /// contain a plan.
+    /// </summary>
+    private TypeDeclarationSyntax? RewriteType(TypeDeclarationSyntax typeDecl)
+    {
+        var changed = false;
+        var newMembers = new List<MemberDeclarationSyntax>();
+        var nestedClasses = new List<MemberDeclarationSyntax>();
+
+        foreach (var member in typeDecl.Members)
+        {
+            if (member is TypeDeclarationSyntax nestedType)
+            {
+                var rewrittenNested = RewriteType(nestedType);
+                newMembers.Add(rewrittenNested ?? nestedType);
+                changed |= rewrittenNested != null;
+                continue;
+            }
+
+            if (!_infoByMember.TryGetValue(member, out var info))
+            {
+                newMembers.Add(member);
+                continue;
+            }
+
+            if (member is MethodDeclarationSyntax method)
+                newMembers.Add(RewriteMethodBody(method, info.Plan));
+            else if (member is BasePropertyDeclarationSyntax property)
+                newMembers.Add(RewritePropertyGetter(property, info));
+            else
+                newMembers.Add(member);
+
+            nestedClasses.Add(BuildStateMachineClass(info));
+            changed = true;
+        }
+
+        if (!changed)
+        {
+            return null;
+        }
+
+        newMembers.AddRange(nestedClasses);
+        return typeDecl.WithMembers(List(newMembers));
     }
 
     private static MethodDeclarationSyntax RewriteMethodBody(
