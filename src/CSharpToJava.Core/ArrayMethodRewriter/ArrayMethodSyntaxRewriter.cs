@@ -222,6 +222,19 @@ internal sealed class ArrayMethodSyntaxRewriter : CSharpSyntaxRewriter
         string methodName,
         InvocationExpressionSyntax visited)
     {
+        // A name + static array receiver type match is not enough: an array-typed
+        // receiver can bind to an EXTENSION method through an implicit span
+        // conversion (`char[] jsonChars; jsonChars.CopyTo(Span<char>)` binds to
+        // MemoryExtensions.CopyTo, one argument only). Treating it as the
+        // two-argument Array.CopyTo(Array, int) read visitedArgs[1] and aborted
+        // the pass with IndexOutOfRangeException (SDK json
+        // Utf8JsonReaderTests.ValueTextEquals.cs).
+        if (_semanticModel!.GetSymbolInfo(originalMae).Symbol is IMethodSymbol bound
+            && (bound.IsStatic || bound.MethodKind == MethodKind.ReducedExtension))
+        {
+            return visited;
+        }
+
         // 获取原始 receiver 的语义信息（在原始树上查）
         var arrayType = GetArrayTypeSymbol(originalMae.Expression);
         if (arrayType == null) return visited;
