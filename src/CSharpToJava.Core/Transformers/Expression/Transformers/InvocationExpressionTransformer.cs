@@ -2943,10 +2943,25 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // a raw Stream method.
         if (argCount == 0 && name is "Any")
         {
-            var anyStream = receiverIsStream
-                ? receiver
-                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
-            rendered = $"{anyStream}.anyMatch(__cs2jItem -> true)";
+            if (receiverIsStream)
+            {
+                rendered = $"{receiver}.anyMatch(__cs2jItem -> true)";
+                return true;
+            }
+            // Java arrays expose no anyMatch(); keep the stream terminal for
+            // them (C# arrays implement IEnumerable<T> but there is no carrier).
+            if (context.GetTypeInfo(memberAccess.Expression).Type is IArrayTypeSymbol)
+            {
+                var anyStream = BuildStreamReceiver(receiver, memberAccess.Expression, context);
+                rendered = $"{anyStream}.anyMatch(__cs2jItem -> true)";
+                return true;
+            }
+            // C# Enumerable.Any() without a predicate has no java.util.stream
+            // equivalent (anyMatch requires a Predicate); the compat carrier
+            // supplies a no-arg default. from() is an identity for an existing
+            // carrier and adapts collections/dictionaries to one.
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            rendered = $"CSharpGenericIterable.from({receiver}).anyMatch()";
             return true;
         }
 
