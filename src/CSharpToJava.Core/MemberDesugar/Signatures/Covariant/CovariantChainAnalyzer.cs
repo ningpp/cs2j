@@ -50,8 +50,11 @@ internal sealed class CovariantChainAnalyzer
 
                 var overridden = method.OverriddenMethod;
                 if (overridden == null) continue;
-                if (SymbolEqualityComparer.Default.Equals(method.ReturnType, overridden.ReturnType))
-                    continue; // 非协变
+                if (IsSameSignatureReturnType(
+                        method.ReturnType, overridden.ReturnType, method, overridden))
+                {
+                    continue; // 非协变（含方法类型参数按序号对应的同一签名）
+                }
 
                 chains.Add(new CovariantChain
                 {
@@ -87,6 +90,76 @@ internal sealed class CovariantChainAnalyzer
             return CovariantVerdict.Bridged;
 
         return CovariantVerdict.Retained;
+    }
+
+    /// <summary>
+    /// override 与基方法返回类型的「同一签名」判定。C# 的 override 签名同一性把
+    /// 派生方法的类型参数与基方法的类型参数按序号逐一对应，因此
+    /// <c>Action&lt;TCollection, object?&gt;</c> 覆盖 <c>Action&lt;TCollection, object?&gt;</c>
+    /// 并非协变——但两侧类型参数是不同的 Roslyn 符号，直接
+    /// <see cref="SymbolEqualityComparer.Default"/> 比较会误判为协变，进而落入 CR-3
+    /// 值类型/不可判分支（真实 SDK：MemberAccessor 的泛型方法族）。
+    /// </summary>
+    private static bool IsSameSignatureReturnType(
+        ITypeSymbol derived, ITypeSymbol baseReturn,
+        IMethodSymbol derivedMethod, IMethodSymbol baseMethod)
+    {
+        if (SymbolEqualityComparer.Default.Equals(derived, baseReturn)) return true;
+
+        switch (derived, baseReturn)
+        {
+            case (ITypeParameterSymbol d, ITypeParameterSymbol b):
+                return CorrespondsToOverride(d, b, derivedMethod, baseMethod);
+
+            case (IArrayTypeSymbol d, IArrayTypeSymbol b):
+                return d.Rank == b.Rank
+                    && IsSameSignatureReturnType(
+                        d.ElementType, b.ElementType, derivedMethod, baseMethod);
+
+            case (IPointerTypeSymbol d, IPointerTypeSymbol b):
+                return IsSameSignatureReturnType(
+                    d.PointedAtType, b.PointedAtType, derivedMethod, baseMethod);
+
+            case (INamedTypeSymbol d, INamedTypeSymbol b)
+                when SymbolEqualityComparer.Default.Equals(d.OriginalDefinition, b.OriginalDefinition):
+                if (d.TypeArguments.Length != b.TypeArguments.Length) return false;
+                for (int i = 0; i < d.TypeArguments.Length; i++)
+                {
+                    if (!IsSameSignatureReturnType(
+                            d.TypeArguments[i], b.TypeArguments[i], derivedMethod, baseMethod))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    private static bool CorrespondsToOverride(
+        ITypeParameterSymbol derived, ITypeParameterSymbol baseReturn,
+        IMethodSymbol derivedMethod, IMethodSymbol baseMethod)
+    {
+        if (derived.TypeParameterKind != TypeParameterKind.Method
+            || baseReturn.TypeParameterKind != TypeParameterKind.Method)
+        {
+            return false;
+        }
+
+        if (derived.DeclaringMethod is not { } derivedOwner
+            || baseReturn.DeclaringMethod is not { } baseOwner)
+        {
+            return false;
+        }
+
+        return SymbolEqualityComparer.Default.Equals(
+                   derivedOwner.OriginalDefinition, derivedMethod.OriginalDefinition)
+               && SymbolEqualityComparer.Default.Equals(
+                   baseOwner.OriginalDefinition, baseMethod.OriginalDefinition)
+               && derived.Ordinal == baseReturn.Ordinal;
     }
 
     /// <summary>C27 合成克隆对的识别扩展点（设计 §11：CR 规则识别并归 Retained，不重复桥接）。</summary>
