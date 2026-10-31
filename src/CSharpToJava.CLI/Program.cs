@@ -166,6 +166,29 @@ public class Program
                 return 1;
             }
 
+            if (opts.PreprocessOnly)
+            {
+                if (opts.NoPreprocess)
+                {
+                    Console.Error.WriteLine("Error: --preprocess-only cannot be combined with --no-preprocess.");
+                    return 1;
+                }
+
+                // Promotion moves the final staged tree into the destination root;
+                // refuse when that would overwrite the source tree itself.
+                var sourceRoot = ProjectPreprocessSource.ResolveLayout(opts.Source).SourceRoot;
+                if (string.Equals(
+                        NormalizeDirectoryPath(opts.Destination),
+                        NormalizeDirectoryPath(sourceRoot),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.Error.WriteLine(
+                        "Error: --preprocess-only requires a destination directory separate from the " +
+                        $"source tree (destination equals the source root '{sourceRoot}').");
+                    return 1;
+                }
+            }
+
             if (Directory.Exists(opts.Destination))
             {
                 if (!opts.Force)
@@ -384,6 +407,22 @@ public class Program
                 return 1;
             }
 
+            if (opts.PreprocessOnly)
+            {
+                // --preprocess-only: stop after the chain and hand the
+                // preprocessed C# project to the destination root.
+                if (chain.FinalIntermediateRoot == null)
+                {
+                    Console.WriteLine($"[preprocess-only] no passes ran; output: {chain.FinalSourcePath}");
+                    return 0;
+                }
+
+                PromotePreprocessedTree(opts.Destination, chain.FinalIntermediateRoot);
+                Console.WriteLine(
+                    $"Preprocessed C# project written to: {Path.GetFullPath(opts.Destination)}");
+                return 0;
+            }
+
             opts.Source = chain.FinalSourcePath;
             opts.EnabledPassIntermediateDirectoryNames = chain.ExecutedIntermediateDirectoryNames;
             var executedSupportLibraries = chain.ExecutedSupportLibraries;
@@ -591,6 +630,74 @@ public class Program
             }
             return 1;
         }
+    }
+
+    private static string NormalizeDirectoryPath(string path)
+        => Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+    /// <summary>
+    /// <c>--preprocess-only</c>: the chain leaves the final tree in a pass-named
+    /// subdirectory of the destination, so move the last pass' tree contents to
+    /// the destination root and drop every other intermediate artifact.
+    /// </summary>
+    private static void PromotePreprocessedTree(string destinationRoot, string finalIntermediateRoot)
+    {
+        var destination = NormalizeDirectoryPath(destinationRoot);
+        var staged = NormalizeDirectoryPath(finalIntermediateRoot);
+
+        if (!Directory.Exists(staged))
+        {
+            throw new DirectoryNotFoundException(
+                $"The preprocessed source tree was not found: {staged}");
+        }
+
+        if (string.Equals(destination, staged, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        // The intermediate tree is always a direct child of the destination
+        // (ProjectPassRunner builds <destination>/<pass-dir>); refuse anything
+        // else rather than risk deleting the staged tree during cleanup.
+        var stagedParent = Path.GetDirectoryName(staged);
+        if (stagedParent == null
+            || !string.Equals(NormalizeDirectoryPath(stagedParent), destination, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Unexpected staged preprocess tree location: {staged} (destination: {destination}).");
+        }
+
+        foreach (var entry in Directory.EnumerateFileSystemEntries(destination).ToList())
+        {
+            if (string.Equals(NormalizeDirectoryPath(entry), staged, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (Directory.Exists(entry))
+            {
+                Directory.Delete(entry, recursive: true);
+            }
+            else
+            {
+                File.Delete(entry);
+            }
+        }
+
+        foreach (var child in Directory.EnumerateFileSystemEntries(staged).ToList())
+        {
+            var target = Path.Combine(destination, Path.GetFileName(child));
+            if (Directory.Exists(child))
+            {
+                Directory.Move(child, target);
+            }
+            else
+            {
+                File.Move(child, target, overwrite: true);
+            }
+        }
+
+        Directory.Delete(staged, recursive: false);
     }
 
     private static async Task<int> ConvertFromProjectGraph(
@@ -5822,6 +5929,12 @@ class ConvertProjectOptions
                    "(use when the C# project has already been preprocessed; speeds up " +
                    "iterative debugging of the C#-to-Java conversion stage)")]
     public bool NoPreprocess { get; set; }
+
+    [Option("preprocess-only", Default = false,
+        HelpText = "Run only the preprocessing chain: write the preprocessed C# project into the " +
+                   "destination directory root and skip the C#-to-Java conversion " +
+                   "(cannot be combined with --no-preprocess)")]
+    public bool PreprocessOnly { get; set; }
 
     public bool UseRecords => !NoRecords;
     public bool GenerateJavaDoc => !NoJavaDoc;

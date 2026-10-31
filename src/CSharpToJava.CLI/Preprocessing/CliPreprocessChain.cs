@@ -180,6 +180,14 @@ internal sealed class CliChainResult
 {
     public required bool Success { get; init; }
     public required string FinalSourcePath { get; init; }
+
+    /// <summary>
+    /// Root directory of the last pass' intermediate tree (null when no pass
+    /// ran). <c>convert-project --preprocess-only</c> promotes this tree to the
+    /// destination root instead of converting it to Java.
+    /// </summary>
+    public string? FinalIntermediateRoot { get; init; }
+
     public bool UsingGotoPreprocessedSource { get; init; }
 
     /// <summary>eliminate-goto's own input path (its historical fingerprint source assignment).</summary>
@@ -315,6 +323,7 @@ internal static class CliPreprocessChain
         };
 
         var sourcePath = request.SourcePath;
+        string? finalIntermediateRoot = null;
         string? gotoRepointedSourcePath = null;
         string? gotoRepointedInputRoot = null;
         var usingGotoPreprocessedSource = false;
@@ -381,6 +390,7 @@ internal static class CliPreprocessChain
                 (run.Stages != null ? " | " + FormatStages(run.Stages) : ""));
 
             sourcePath = run.PreprocessedSourcePath;
+            finalIntermediateRoot = run.IntermediateRoot;
             if (adapter.RepointsFingerprintToPassInput)
             {
                 // eliminate-goto historically reassigned the fingerprint pointers.
@@ -400,6 +410,7 @@ internal static class CliPreprocessChain
         {
             Success = true,
             FinalSourcePath = sourcePath,
+            FinalIntermediateRoot = finalIntermediateRoot,
             UsingGotoPreprocessedSource = usingGotoPreprocessedSource,
             GotoRepointedSourcePath = gotoRepointedSourcePath,
             GotoRepointedInputRoot = gotoRepointedInputRoot,

@@ -145,6 +145,7 @@ dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -c Release -- 
 
 - 默认从当前工作目录的 `config/TypeMappings.json` 读取映射配置；建议在仓库根目录执行，或用 `-m` 显式指定。
 - `--unified-preprocessed-src` 让所有 pass 共用 `.cs2j-preprocessed-src` 目录，显著减少大型解决方案的磁盘占用。
+- `--preprocess-only` 只运行预处理链，把预处理后的 C# 工程直接写到目标目录根，不生成 Java；该输出可再用 `convert-project --no-preprocess -s <预处理目录>` 单独调试 C#→Java 阶段。
 - 首次转换会执行全部 42 个 pass；大型工程耗时较长属正常现象。
 
 ### 4. 构建并测试生成的 Java 工程
@@ -214,6 +215,7 @@ mvn -f out/pom.xml clean install
 | `--no-cache` | 不复用历史输出（默认 `true`，即默认基于指纹的复用是关闭的） |
 | `--unified-preprocessed-src` | 所有 pass 共用一个中间目录，节省磁盘 |
 | `--no-preprocess` | 跳过全部预处理 pass，直接转换已预处理的源码 |
+| `--preprocess-only` | 只运行预处理链：把预处理后的 C# 工程写到目标目录根，跳过 C#→Java 转换（不能与 `--no-preprocess` 组合） |
 | `--enable-pass` / `--disable-pass` | 按 pass id 显式启用/禁用（可用 `preprocess --list-passes` 查询 id） |
 | `--maven-group-id` | 生成工程的 groupId（默认 `io.github.ningpp`） |
 | `--maven-version` | 生成工程的版本（默认 `0.0.1-SNAPSHOT`） |
