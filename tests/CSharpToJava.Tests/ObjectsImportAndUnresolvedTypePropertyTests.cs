@@ -84,7 +84,7 @@ namespace Test {
     [Fact]
     public void UnresolvedType_PropertyAccess_WithObjectsEqualsImport()
     {
-        // Both fixes should work together: getter pattern + Objects.equals import
+        // Both fixes should work together: ported C#-style accessor + Objects.equals import
         var result = Convert(@"
 using System.Xml;
 namespace Test {
@@ -97,7 +97,9 @@ namespace Test {
 }
 ");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("getReader().getName()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("getReader().Name()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("getName()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Objects.equals(getReader().Name(), \"test\")", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("import java.util.Objects;", result.GeneratedCode, StringComparison.Ordinal);
     }
 
