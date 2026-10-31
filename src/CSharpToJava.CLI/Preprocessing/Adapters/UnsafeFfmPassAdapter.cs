@@ -92,6 +92,16 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
                 effective = diagnostic with { Severity = UnsafeFfmSeverity.Warning };
             }
 
+            // 逐文件拒绝（rollback）意味着原文逐字节保留：C# 中间树仍然可编译，
+            // 不受该拒绝影响。unsafe 构造的 Java 收口属于转换阶段的门禁，这里
+            // 只保证 C#→C# 预处理链可交付（SDK json 的 span-fixed/stackalloc/
+            // IntPtr 站点即此形态）。内部规则缺口 UF010 仍保持 Error。
+            if (!result.Changed
+                && diagnostic is { Severity: UnsafeFfmSeverity.Error, Code: not UnsafeFfmDiagnosticCode.UF010 })
+            {
+                effective = diagnostic with { Severity = UnsafeFfmSeverity.Warning };
+            }
+
             _diagnostics.Add(effective with { FilePath = context.RelativePath });
         }
 
