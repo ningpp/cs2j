@@ -414,7 +414,25 @@ internal sealed class RefOutInStatementLifter
         IMethodSymbol method, int index, ArgumentSyntax arg, bool isOut)
     {
         var expr = arg.Expression;
-        while (expr is ParenthesizedExpressionSyntax p) expr = p.Expression;
+        // 形参侧的 ref/out 站点常带括号或 null-forgiving 后缀（SDK
+        // JsonReaderHelper.Unescaping.cs: `out bytes!`）。逐步剥掉这两层纯
+        // 静态包装，否则会落到 (7) 的 unsupported shape 并让整个 pass 失败
+        // （CS2J3303）。
+        while (true)
+        {
+            if (expr is ParenthesizedExpressionSyntax p)
+            {
+                expr = p.Expression;
+                continue;
+            }
+            if (expr is PostfixUnaryExpressionSyntax s
+                && s.IsKind(SyntaxKind.SuppressNullableWarningExpression))
+            {
+                expr = s.Operand;
+                continue;
+            }
+            break;
+        }
         var paramTypeSymbol = method.Parameters[index].Type;
         var paramType = _owner.TypeDisplay(paramTypeSymbol);
 
@@ -512,6 +530,29 @@ internal sealed class RefOutInStatementLifter
         {
             return (null, null, SyntaxFactory.Argument(
                 expr.WithAdditionalAnnotations(DirectPassAnnotation)));
+        }
+
+        // (4c) ref-returning invocation (SDK json
+        // `IndexOfOrLessThan(ref MemoryMarshal.GetReference(span), ...)`):
+        // there is no storable local for the byref result, so seed a
+        // copy-in/copy-out slot from the call and write the slot value back
+        // through the same call. Ref-returning invocations are assignable
+        // variables, so the read-back is legal C#; a ref-readonly result only
+        // needs the copy-in.
+        if (expr is InvocationExpressionSyntax refInv
+            && useSym is IMethodSymbol refMethod
+            && (refMethod.RefKind == RefKind.Ref || refMethod.RefKind == RefKind.RefReadOnly))
+        {
+            var target = _owner.InjectSlotValues(Splice(refInv)).ToString();
+            var slot = Temp(isOut ? "__out" : "__ref");
+            var ctor = isOut
+                ? $"ByRef<{paramType}>.Create()"
+                : $"ByRef<{paramType}>.Create({target})";
+            var readback = refMethod.RefKind == RefKind.RefReadOnly
+                ? null
+                : ParseStmt(ReadbackStatement(target, slot, paramTypeSymbol));
+            return (ParseStmt($"ByRef<{paramType}> {slot} = {ctor};"),
+                readback, SyntaxFactory.Argument(Identifier(slot)));
         }
 
         // (5) element access
