@@ -37,17 +37,17 @@ class MyColl<T> : ICollection<T>
         var code = result.GeneratedCode;
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---\n" + code);
 
-        // C# void Add(T) → CSharpIList.add(Object) 返回插入位置。
-        Assert.Contains("int add(Object", code, StringComparison.Ordinal);
+        // C# ICollection<T> → CSharpICollection<T>，void Add(T) → boolean add(T)。
+        Assert.Contains("public boolean add(T item)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("int add(Object", code, StringComparison.Ordinal);
         // C# bool Contains(T)/Remove(T) → Object 形参（元素擦除）。
         Assert.Contains("boolean contains(Object", code, StringComparison.Ordinal);
         Assert.Contains("boolean remove(Object", code, StringComparison.Ordinal);
-        // CSharpCollection 要求 SyncRoot/IsSynchronized；C# ICollection<T> 无对应成员。
-        Assert.Contains("public Object getSyncRoot()", code, StringComparison.Ordinal);
-        Assert.Contains("public boolean getIsSynchronized()", code, StringComparison.Ordinal);
-        // CSharpCollection.iterator() 的元素类型擦除为 Object，声明类型实参无法实现。
-        Assert.Contains("public CSharpGenericEnumerator iterator()", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("CSharpGenericEnumerator<T> iterator()", code, StringComparison.Ordinal);
+        // CSharpICollection 要求 getCount()/getIsReadOnly()；SyncRoot/IsSynchronized 有默认实现。
+        Assert.Contains("public int getCount()", code, StringComparison.Ordinal);
+        Assert.Contains("public boolean getIsReadOnly()", code, StringComparison.Ordinal);
+        // 强类型 iterator() 是 CSharpReadOnlyCollection 原始返回的合法协变覆盖。
+        Assert.Contains("public CSharpGenericEnumerator<T> iterator()", code, StringComparison.Ordinal);
     }
 
     [Fact]
