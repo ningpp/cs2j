@@ -442,6 +442,13 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
             return SyntaxFactory.ReturnStatement(expression);
         }
 
+        if (plan.Anchor is ExpressionStatementSyntax exprOriginal)
+        {
+            var expression = exprOriginal.Expression
+                .ReplaceNode(plan.RootOriginal, nestedTernary);
+            return exprOriginal.WithExpression(expression);
+        }
+
         return SyntaxFactory.ReturnStatement(nestedTernary);
     }
 

@@ -456,7 +456,8 @@ internal static class ChainSegmentAnalyzer
         // ---- Multi-segment value: guarded prefetch + nested ternary (NC-2) ----
         if (plan.Segments.Count > 1)
         {
-            if (anchor is LocalDeclarationStatementSyntax or ReturnStatementSyntax)
+            if (anchor is LocalDeclarationStatementSyntax or ReturnStatementSyntax
+                or ExpressionStatementSyntax)
             {
                 LowerGuardedBlock(plan, context);
             }
