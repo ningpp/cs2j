@@ -766,7 +766,8 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
                 && IsConstructorFieldWrite(node, plan))
             {
                 _stats.WriteSitesRewritten++;
-                return BuildFieldStore(node.Left, plan.BackingFieldName, right);
+                return BuildFieldStore(node.Left, plan.BackingFieldName, right)
+                    .WithTriviaFrom(node);
             }
 
             // PD-6 值消费泛化：赋值表达式的值被外层消费（if 条件比较、方法实参、
@@ -795,11 +796,15 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
                 _hoisted.Add(tempDecl);
                 _hoisted.Add(ExprStmt(BuildSetterCall(node.Left, plan, tempIdent)));
                 return tempIdent
+                    .WithTriviaFrom(node)
                     .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
             }
 
             _stats.WriteSitesRewritten++;
-            return BuildSetterCall(node.Left, plan, right);
+            // 语句位替换必须带上原表达式的 trivia：首 token 的 leading trivia
+            // 可能挂着 #region/#if 等指令（真实 SDK：JsonNumberTestData 的静态
+            // 构造器），丢掉会让产物 reparse 报 CS1028/CS1038，整文件回滚。
+            return BuildSetterCall(node.Left, plan, right).WithTriviaFrom(node);
         }
 
         // 复合赋值：仅语句位 + 简单接收者在此处理；复杂接收者在语句级提升。
@@ -813,7 +818,7 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         _stats.CompoundSitesRewritten++;
         var read = BuildGetterExpression(node.Left, plan);
         return BuildSetterCall(node.Left, plan,
-            Binary(node.Kind(), node.OperatorToken.Kind(), read, right));
+            Binary(node.Kind(), node.OperatorToken.Kind(), read, right)).WithTriviaFrom(node);
     }
 
     public override SyntaxNode? VisitPostfixUnaryExpression(PostfixUnaryExpressionSyntax node)
@@ -830,7 +835,7 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
                 Binary(
                     increment ? SyntaxKind.AddAssignmentExpression : SyntaxKind.SubtractAssignmentExpression,
                     increment ? SyntaxKind.PlusToken : SyntaxKind.MinusToken,
-                    read, One()));
+                    read, One())).WithTriviaFrom(node);
         }
         return base.VisitPostfixUnaryExpression(node);
     }
@@ -849,7 +854,7 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
                 Binary(
                     increment ? SyntaxKind.AddAssignmentExpression : SyntaxKind.SubtractAssignmentExpression,
                     increment ? SyntaxKind.PlusToken : SyntaxKind.MinusToken,
-                    read, One()));
+                    read, One())).WithTriviaFrom(node);
         }
         return base.VisitPrefixUnaryExpression(node);
     }
