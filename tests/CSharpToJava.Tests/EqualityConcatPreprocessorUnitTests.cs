@@ -597,6 +597,26 @@ public class EqualityConcatPreprocessorUnitTests
         Assert.Contains("string.Concat(\"order:\", log)", result.OutputCode);
     }
 
+    [Fact]
+    public void PointerAddition_In_Cast_Is_Passed_Through_Without_NoteCrash()
+    {
+        // 真实 SDK（json 的 JsonWriterHelper.ToUtf8）：`char* pEnd =
+        // (char*)(chars + utf16Source.Length);`。指针加法绑定的是内置运算符，
+        // 其 ContainingType 为 null；分类器曾直接解引用 ContainingType.SpecialType
+        // 抛 NRE 中断整条链。指针运算不归本 pass，必须原样透传。
+        var src = """
+            unsafe class C
+            {
+                static char* M(byte* chars, int length) => (char*)(chars + length);
+            }
+            """;
+        var result = Preprocess(src);
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.DoesNotContain(result.Diagnostics,
+            d => d.Code == EqualityConcatDiagnosticCode.CS2J0470);
+    }
+
     private static int CountOccurrences(string text, string value)
     {
         var count = 0;

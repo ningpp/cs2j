@@ -261,6 +261,12 @@ internal static class SemanticKindClassifier
             {
                 var containingType = method.ContainingType;
 
+                // 指针算术等内置运算符没有 ContainingType（真实 SDK：
+                // `char* pEnd = (char*)(chars + utf16Source.Length);`）。这类站点
+                // 不归本 pass，直接透传，不得解引用 null 中断整条链。
+                if (containingType == null)
+                    return EqualityConcatKind.PredefinedOther;
+
                 if (containingType.SpecialType == SpecialType.System_String)
                 {
                     if (operatorKind == BinaryOperatorKind.Add && method.Name == "op_Addition")
