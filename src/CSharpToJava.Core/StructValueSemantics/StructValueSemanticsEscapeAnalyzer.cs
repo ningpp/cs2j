@@ -154,6 +154,17 @@ internal static class StructValueSemanticsEscapeAnalyzer
                 && (refKind.IsKind(SyntaxKind.RefKeyword) || refKind.IsKind(SyntaxKind.OutKeyword))
                 && RootsAtThisOrMutableField(argument.Expression, symbol, model))
             {
+                // System.Threading.Interlocked.* performs a one-shot atomic
+                // read/modify/write and never retains the reference, so a
+                // mutable-field ref/out argument cannot alias storage beyond
+                // the call (SDK json JsonDocument.MetadataDb:
+                // Interlocked.Exchange(ref _data, null!)). Treating it as an
+                // escape used to fail the whole pass with SV040.
+                if (IsAliasTransientAtomicCall(argument, model))
+                {
+                    continue;
+                }
+
                 code = StructValueSemanticsDiagnosticCode.SV040;
                 reason = "struct passes 'this' or a mutable instance field by ref/out; the callee can " +
                     "alias storage that a defensive Clone() cannot protect.";
@@ -723,6 +734,21 @@ internal static class StructValueSemanticsEscapeAnalyzer
             return SymbolEqualityComparer.Default.Equals(type.OriginalDefinition, self.OriginalDefinition);
         }
         return false;
+    }
+
+    /// <summary>
+    /// True for ref/out arguments of System.Threading.Interlocked.* — a
+    /// one-shot atomic read/modify/write that never retains the reference.
+    /// </summary>
+    private static bool IsAliasTransientAtomicCall(ArgumentSyntax argument, SemanticModel model)
+    {
+        if (argument.Parent is not ArgumentListSyntax { Parent: InvocationExpressionSyntax invocation })
+        {
+            return false;
+        }
+
+        return model.GetSymbolInfo(invocation).Symbol is IMethodSymbol callee
+            && callee.ContainingType?.ToDisplayString() == "System.Threading.Interlocked";
     }
 
     /// <summary>
