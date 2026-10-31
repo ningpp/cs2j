@@ -63,7 +63,7 @@ class Demo {
     public void UnresolvedType_PropertyAccess_GeneratesGetter()
     {
         // XmlReader is unresolved (System.Xml not referenced), but its property
-        // Name should still be converted to getName() instead of raw .Name
+        // Name must still be emitted as getter + ported accessor: getXmlReader().Name()
         var result = Convert(@"
 using System.Xml;
 namespace Test {
@@ -77,8 +77,10 @@ namespace Test {
 }
 ");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("getXmlReader().getName()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("getXmlReader().Name", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("getXmlReader().Name()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("getName()", result.GeneratedCode, StringComparison.Ordinal);
+        // Guard against falling back to raw field access (getXmlReader().Name;)
+        Assert.DoesNotContain("getXmlReader().Name;", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
