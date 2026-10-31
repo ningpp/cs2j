@@ -23,6 +23,7 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
     private readonly AsyncNormalizePreprocessor _preprocessor = new();
     private readonly List<AsyncNormalizeDiagnostic> _diagnostics = new();
     private readonly AsyncNormalizeStatistics _statistics = new();
+    private HashSet<string>? _testProjectDirectories;
 
     public AsyncNormalizePassAdapter(
         AsyncNormalizeOptions options,
@@ -102,9 +103,19 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
         var result = (AsyncNormalizeFileResult)pure.PassState!;
         MergeStatistics(result.Statistics);
 
+        // Test projects are .NET-side behaviour oracles, not Java conversion
+        // inputs: residual async constructs / async void members there stay
+        // valid C# and must not abort the C#→C# chain (same policy as the
+        // unsafe-ffm UF050 test-project downgrade). Production projects keep
+        // the Error gate.
+        var inTestProject = IsInTestProject(context.SourceFilePath);
         foreach (var diagnostic in result.Diagnostics)
         {
-            _diagnostics.Add(diagnostic with { FilePath = context.RelativePath });
+            var effective = inTestProject
+                && diagnostic.Severity == AsyncNormalizeSeverity.Error
+                ? diagnostic with { Severity = AsyncNormalizeSeverity.Warning }
+                : diagnostic;
+            _diagnostics.Add(effective with { FilePath = context.RelativePath });
         }
 
         if (_verbose)
@@ -115,6 +126,47 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
             Console.WriteLine($"[async-normalize] {status}: {context.RelativePath}");
         }
     }
+
+    /// <summary>Records test-project directories (see the merge-time downgrade).</summary>
+    public override Task OnTreePreparedAsync(PassTreeContext tree)
+    {
+        if (tree.ProjectGraph is { } graph)
+        {
+            _testProjectDirectories = graph.ProjectsInTopologicalOrder
+                .Where(p => p.Kind == ProjectKind.Test)
+                .Select(p => NormalizeDirectory(p.ProjectDirectory))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private bool IsInTestProject(string sourceFilePath)
+    {
+        if (_testProjectDirectories is not { Count: > 0 } roots)
+        {
+            return false;
+        }
+
+        var directory = NormalizeDirectory(Path.GetDirectoryName(sourceFilePath));
+        var current = new DirectoryInfo(directory);
+        while (current != null)
+        {
+            if (roots.Contains(NormalizeDirectory(current.FullName)))
+            {
+                return true;
+            }
+
+            current = current.Parent;
+        }
+
+        return false;
+    }
+
+    private static string NormalizeDirectory(string? path)
+        => path == null
+            ? string.Empty
+            : Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
     public override Task AfterFilesAsync(PassTreeContext tree)
     {
