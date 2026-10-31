@@ -55,7 +55,7 @@ public class PlanningTests
     }
 
     [Fact]
-    public void MavenPomGenerator_GenerateRootBuildFile_DoesNotIncludeSpotlessFormattingByDefault()
+    public void MavenPomGenerator_GenerateRootBuildFile_IncludesSpotlessFormattingByDefault()
     {
         var module = new JavaModulePlan
         {
@@ -75,8 +75,11 @@ public class PlanningTests
         var generator = new MavenPomGenerator();
         var pom = generator.GenerateRootBuildFile(plan, true);
 
-        Assert.DoesNotContain("spotless-maven-plugin", pom, StringComparison.Ordinal);
-        Assert.DoesNotContain("googleJavaFormat", pom, StringComparison.Ordinal);
+        Assert.Contains("<groupId>com.example</groupId>", pom, StringComparison.Ordinal);
+        Assert.Contains("<version>1.0-SNAPSHOT</version>", pom, StringComparison.Ordinal);
+        Assert.Contains("<artifactId>spotless-maven-plugin</artifactId>", pom, StringComparison.Ordinal);
+        Assert.Contains("<googleJavaFormat>", pom, StringComparison.Ordinal);
+        Assert.Contains("<lineEnding>CRLF</lineEnding>", pom, StringComparison.Ordinal);
     }
 
     [Fact]
