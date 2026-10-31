@@ -198,7 +198,14 @@ public class ClassTransformer : ITypeTransformer
                         InterfaceErasureKey(context.MapTypeForDeclarationHeader(baseInterface))
                             == InterfaceErasureKey(mapped)))
                 {
-                    continue;
+                    // __suppress__ 特判：C# 侧基类（如 System.Exception）自身实现了
+                    // ISerializable，但 Java 侧基类（RuntimeException）并不携带
+                    // __suppress__（compat 层的自定义标记接口），Java 的“基类已提供”
+                    // 去重前提不成立。仅当基类在源内声明且自身实现 ISerializable
+                    // （如 Base : ISerializable）时，生成出的 Java 基类才真正携带该
+                    // 接口，派生类此时才跳过以免重复。
+                    if (mapped != "__suppress__" || BaseCarriesSuppressOnJavaSide(baseWithInterfaces, context))
+                        continue;
                 }
                 // CollectionBase 基类（CSharpCollectionBase→CSharpIList→CSharpCollection
                 // →CSharpIterable→java.lang.Iterable）已提供 Iterable 分支；类自身再
@@ -249,6 +256,16 @@ public class ClassTransformer : ITypeTransformer
             }
         }
     }
+
+    /// <summary>
+    /// True when <paramref name="baseType"/> is declared in the converted sources and
+    /// itself implements ISerializable, so its generated Java form really implements
+    /// <c>__suppress__</c> and derived classes need not repeat the clause.
+    /// Metadata base types (System.Exception) are never considered to carry it.
+    /// </summary>
+    private static bool BaseCarriesSuppressOnJavaSide(INamedTypeSymbol baseType, ConversionContext context)
+        => !baseType.DeclaringSyntaxReferences.IsEmpty
+            && baseType.Interfaces.Any(iface => context.MapTypeForDeclarationHeader(iface) == "__suppress__");
 
     /// <summary>
     /// Erasure-style dedup key for an implemented interface reference:
