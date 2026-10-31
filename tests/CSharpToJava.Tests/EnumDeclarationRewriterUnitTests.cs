@@ -605,11 +605,15 @@ public class EnumDeclarationRewriterUnitTests
     }
 
     // ────────────────────────────────────────────────────────────────────────
-    // ED040：名字契约特性盘点（JsonStringEnumConverter / EnumMember）
+    // ED040：名字契约特性盘点（JsonStringEnumConverter / EnumMember）。
+    // 名字契约站点无法等价表达 → plan 不落地（保持真 enum），ED040 仅盘点，
+    // strict 也不升 Error（安全回退不是转换失败）。
     // ────────────────────────────────────────────────────────────────────────
 
-    [Fact]
-    public void JsonStringEnumConverterAttribute_IsED040_WithTypeAndAttributeNames()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void JsonStringEnumConverterAttribute_IsED040_AndKeepsRealEnum(bool strict)
     {
         var src = """
             using System;
@@ -626,19 +630,26 @@ public class EnumDeclarationRewriterUnitTests
             enum Color { Red = 1, Green = 2 }
             class C { static void M() { Console.WriteLine(Color.Red); } }
             """;
-        var (code, changed, _, diags) = Rewrite(src);
+        var (code, changed, _, diags) =
+            Rewrite(src, new EnumDeclarationOptions { Strict = strict });
 
-        Assert.True(changed);
+        Assert.False(changed);
+        Assert.Contains("enum Color", code);
+        Assert.DoesNotContain("sealed class Color", code);
         AssertOutputCompiles(code);
         var ed040 = Assert.Single(diags, d => d.Code == EnumDeclarationDiagnosticCode.ED040);
         Assert.Equal(EnumDeclarationSeverity.Warning, ed040.Severity);
         Assert.Contains("Color", ed040.Message);
         Assert.Contains("JsonConverter", ed040.Message);
         Assert.Contains("JsonStringEnumConverter", ed040.Message);
+        Assert.All(diags.Where(d => d.Code == EnumDeclarationDiagnosticCode.ED020),
+            d => Assert.Equal(EnumDeclarationSeverity.Warning, d.Severity));
     }
 
-    [Fact]
-    public void EnumMemberAttribute_OnMember_IsED040_WithTypeMemberAndAttributeNames()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EnumMemberAttribute_OnMember_IsED040_AndKeepsRealEnum(bool strict)
     {
         var src = """
             using System;
@@ -653,15 +664,20 @@ public class EnumDeclarationRewriterUnitTests
             enum Mode { [Stubs.EnumMember(Value = "on")] On = 1, Off = 2 }
             class C { static void M() { Console.WriteLine(Mode.On); } }
             """;
-        var (code, changed, _, diags) = Rewrite(src);
+        var (code, changed, _, diags) =
+            Rewrite(src, new EnumDeclarationOptions { Strict = strict });
 
-        Assert.True(changed);
+        Assert.False(changed);
+        Assert.Contains("enum Mode", code);
+        Assert.DoesNotContain("sealed class Mode", code);
         AssertOutputCompiles(code);
         var ed040 = Assert.Single(diags, d => d.Code == EnumDeclarationDiagnosticCode.ED040);
         Assert.Equal(EnumDeclarationSeverity.Warning, ed040.Severity);
         Assert.Contains("Mode", ed040.Message);
         Assert.Contains("On", ed040.Message);
         Assert.Contains("EnumMember", ed040.Message);
+        Assert.All(diags.Where(d => d.Code == EnumDeclarationDiagnosticCode.ED020),
+            d => Assert.Equal(EnumDeclarationSeverity.Warning, d.Severity));
     }
 
     // ────────────────────────────────────────────────────────────────────────

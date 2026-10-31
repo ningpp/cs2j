@@ -145,6 +145,28 @@ internal sealed class EnumDeclarationAnalyzer
             walker.Visit(root);
         }
 
+        // D10 / §7 原则：名字契约站点（序列化按名、EnumMember、XmlEnum、
+        // JsonConverter、FlagsAttribute 反射盘点）无法在 C# 侧等价表达，plan
+        // 一律不落地——保持真 enum，属性与线格式原样保留。ED040 仍是 Warning
+        // 盘点（严格模式下也不升级为 Error：安全回退不算转换失败，与 ED020
+        // 的既有口径一致）。此处置于使用点 walk 之后，因为反射 FlagsAttribute
+        // 站点是在 walk 期间才登记到 plan 上的。
+        foreach (var plan in analysis.Plans)
+        {
+            if (plan.Outcome != EnumPlanOutcome.Converted || plan.NameContractSites.Count == 0)
+            {
+                continue;
+            }
+
+            plan.Outcome = EnumPlanOutcome.Infeasible;
+            plan.FailCode = EnumDeclarationDiagnosticCode.ED020;
+            plan.FailReason = "enum carries name-contract serialization sites; on-by-name wire " +
+                "semantics cannot be auto-preserved, so the enum is kept as a real enum (D10).";
+            plan.FailLocation = plan.NameContractSites[0].Location;
+            plan.InfeasibleSites.Add(new EnumInfeasibleSite(
+                plan.FailLocation, plan.FailReason));
+        }
+
         // 3) 单文件模式跨文件判定（ED090）。
         if (_options.SingleFileMode)
         {

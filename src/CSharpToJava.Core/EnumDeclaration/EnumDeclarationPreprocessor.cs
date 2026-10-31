@@ -306,12 +306,17 @@ public sealed class EnumDeclarationPreprocessor
                 }
             }
 
-            // ED040 名字契约站点（strict 升 Error）。
+            // ED040 名字契约站点。名字契约 plan 一律不落地（保持真 enum，见
+            // Analyzer D10 收口），因此 strict 下也不再升 Error：安全回退不是
+            // 转换失败（与 ED020 / InfeasiblePlan_ED020_IsAlwaysAWarning 同口径）。
+            var ed040Severity = plan.Feasible && _options.Strict
+                ? EnumDeclarationSeverity.Error
+                : EnumDeclarationSeverity.Warning;
             foreach (var site in plan.NameContractSites)
             {
                 var span = site.Location.GetLineSpan().StartLinePosition;
                 diagnostics.Add(new EnumDeclarationDiagnostic(
-                    _options.Strict ? EnumDeclarationSeverity.Error : EnumDeclarationSeverity.Warning,
+                    ed040Severity,
                     EnumDeclarationDiagnosticCode.ED040,
                     site.Message,
                     site.Location.SourceTree?.FilePath,
