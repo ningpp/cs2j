@@ -134,8 +134,11 @@ namespace Test {
 }
 ");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("return reader.getIsEmptyElement();", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("reader.IsEmptyElement", result.GeneratedCode, StringComparison.Ordinal);
+        // dotnet-xml ports C#-style accessors: IsEmptyElement() has no getIsEmptyElement() form
+        Assert.Contains("return reader.IsEmptyElement();", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("getIsEmptyElement()", result.GeneratedCode, StringComparison.Ordinal);
+        // Guard against falling back to raw field access (reader.IsEmptyElement;)
+        Assert.DoesNotContain("reader.IsEmptyElement;", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
