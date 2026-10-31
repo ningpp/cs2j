@@ -6,8 +6,10 @@ using Xunit.Abstractions;
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// CSharpDictionary implements Iterable&lt;Map.Entry&gt; directly, so LINQ
-/// on dictionaries can use .stream() or .iterator() without .entrySet().
+/// CSharpDictionary exposes its entries through CSharpGenericIDictionary, not
+/// CSharpGenericIterable. A dictionary passed to a generated LINQ helper is
+/// bridged with CSharpGenericIterable.fromEntries(...); no .entrySet() is
+/// emitted at the call site.
 /// </summary>
 public class DictionaryLinqEntrySetTests
 {
@@ -40,9 +42,9 @@ class Sample {
         _out.WriteLine(r.GeneratedCode ?? "FAILED");
         Assert.True(r.Success);
         var code = r.GeneratedCode ?? "";
-        // CSharpDictionary implements Iterable<Map.Entry> directly, so it can be passed
-        // directly to the procedural LINQ helper without .entrySet()
-        Assert.Contains("getMovedKeys_ProceduralLinq1(fixedVars)", code);
+        // CSharpDictionary is not a CSharpGenericIterable, so it reaches the
+        // procedural LINQ helper through the fromEntries bridge, not .entrySet()
+        Assert.Contains("getMovedKeys_ProceduralLinq1(CSharpGenericIterable.fromEntries(fixedVars))", code);
         Assert.DoesNotContain(".entrySet()", code);
     }
 }
