@@ -1,5 +1,6 @@
-using CSharpToJava.Core.Context;
+﻿using CSharpToJava.Core.Context;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace CSharpToJava.Core.MemberDesugar;
 
@@ -31,6 +32,11 @@ internal static class BackingFieldNaming
                 var name = JavaNaming.EscapeJavaKeyword(camel);
                 while (IsTaken(name, prop, prop.ContainingType!)
                        || reserved.Contains(name)
+                       // camelCase 后的名字可能撞 C# 保留关键字：Java 关键字转义只覆盖
+                       // Java 侧（int → intValue），而 String/Object/Base 这类仅 C#
+                       // 保留的单词会原样留下（真实 SDK：`public string string;` 使
+                       // 本地解析校验失败、声明文件回滚而使用点仍被改写 → CS1061）。
+                       || IsCSharpReservedKeyword(name)
                        // set_X 的形参名固定为 value：带 setter 的后备字段不能与之重名，
                        // 否则合成体 value = value; 变成参数自赋值（字段永远不写入）。
                        || (name == "value" && prop.SetMethod != null))
@@ -41,6 +47,10 @@ internal static class BackingFieldNaming
         }
         return result;
     }
+
+    /// <summary>生成的标识符必须是合法 C# 标识符：保留关键字（string/object/base…）不能作字段名。</summary>
+    private static bool IsCSharpReservedKeyword(string name)
+        => SyntaxFacts.GetKeywordKind(name) != SyntaxKind.None;
 
     private static bool IsTaken(string name, IPropertySymbol prop, INamedTypeSymbol type)
         => type.GetMembers(name).Any(m =>
