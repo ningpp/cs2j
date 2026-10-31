@@ -8,7 +8,7 @@ namespace CSharpToJava.Tests;
 /// <summary>
 /// Regression tests for the second RegexCompiler/RegexInterpreter/RegexParser/
 /// RegexWriter error batch:
-/// 1. List&lt;T&gt;.ToArray() assigned to T[] needs an explicit (T[]) cast.
+/// 1. List&lt;T&gt;.ToArray() assigned to T[] maps to toArrayCs(), no bare (T[]) cast.
 /// 2. Negated TryGetValue with primitive out var must declare the boxed type so the
 ///    null check compiles.
 /// 3. Ref locals (ref int[]? x = ref arr[i]) must be declared with their type.
@@ -37,11 +37,10 @@ class P {
         _out.WriteLine(result.GeneratedCode ?? "FAILED");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var code = result.GeneratedCode ?? "";
-        // ToArray() on List<string> via conditional access (?.ToArray())
-        // must produce a typed array, not a bare cast that fails at runtime.
-        // Old: (String[]) (_capnamelist != null ? _capnamelist.toArray() : null)
-        // New: (_capnamelist != null ? _capnamelist.toArray(String[]::new) : null)
-        Assert.Contains("toArray(String[]::new)", code);
+        // ToArray() on List<string> maps to compat's toArrayCs() (TypeMappings.json
+        // List`1 ToArray -> toArrayCs). E is inferred from the String[] return
+        // slot, so a typed array is produced without a bare (String[]) cast.
+        Assert.Contains("_capnamelist.toArrayCs()", code);
         Assert.DoesNotContain("(String[])", code);
     }
 
