@@ -268,6 +268,19 @@ internal static class InitializerBindingAnalyzer
             }
 
             plan.Outcome = InitializerOutcome.TargetTypedNewExplicit;
+
+            // Nested non-initialized creations (e.g. new Ctor(inner) as a member
+            // value) don't need lowering themselves, but their emitted
+            // expressions (constructor arguments) may carry nested creations
+            // that MUST be planned; otherwise the strict residual gate counts
+            // them as unaccounted (CS2J0545) and aborts the file.
+            if (isNested)
+            {
+                var nestedSkip = PlanEmbeddedCreations(context, model, state, plan);
+                if (nestedSkip != null)
+                    plan.SkipCode = nestedSkip;
+            }
+
             return plan;
         }
 
