@@ -350,7 +350,7 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
         if (site is { Kind: SiteKind.DefensiveReceiver })
             return HoistDefensiveReceiver(site, expressionStatement);
 
-        return visited;
+        return HoistNestedDefensiveReceivers(expressionStatement);
     }
 
     // ── SV040-d：this 路由 + 方法级 copy-in/copy-out 持有者改写 ──
@@ -808,6 +808,67 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
         _statistics.SitesRewritten++;
 
         return SyntaxFactory.Block(tempDeclaration, callOnTemp)
+            .WithLeadingTrivia(statement.GetLeadingTrivia())
+            .WithTrailingTrivia(statement.GetTrailingTrivia())
+            .WithAdditionalAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation);
+    }
+
+    /// <summary>
+    /// VS-3 nested form: <c>Assert.False(e.MoveNext());</c> — the mutating call
+    /// sits in an argument of an expression statement, so the defensive copy
+    /// temp can still be hoisted in front of the statement:
+    /// <c>var __cs2jVc0 = e.Clone(); Assert.False(__cs2jVc0.MoveNext());</c>.
+    /// Only candidates the enumerator marked as statement-hoistable carry this
+    /// site; other expression positions (locals/return/conditions/lambdas)
+    /// stay SV043.
+    /// </summary>
+    private StatementSyntax HoistNestedDefensiveReceivers(ExpressionStatementSyntax statement)
+    {
+        if (_applicableSites.Count == 0) return statement;
+
+        var annotations = statement.DescendantNodes()
+            .SelectMany(node => node.GetAnnotations(
+                StructValueSemanticsSyntaxFacts.SiteAnnotationKind))
+            .Where(annotation => _siteByAnnotation.TryGetValue(annotation, out var site)
+                && site.Kind == SiteKind.DefensiveReceiver)
+            .ToList();
+        if (annotations.Count == 0) return statement;
+
+        var declarations = new List<StatementSyntax>();
+        var current = (StatementSyntax)statement;
+        foreach (var annotation in annotations)
+        {
+            var invocation = current.GetAnnotatedNodes(annotation)
+                .OfType<InvocationExpressionSyntax>()
+                .FirstOrDefault();
+            if (invocation?.Expression is not MemberAccessExpressionSyntax memberAccess)
+            {
+                continue;
+            }
+
+            var tempName = StructValueSemanticsSyntaxFacts.DefensiveCopyTempPrefix
+                + _defensiveTempCounter++.ToString();
+            declarations.Add(SyntaxFactory.LocalDeclarationStatement(
+                SyntaxFactory.VariableDeclaration(
+                    SyntaxFactory.IdentifierName("var"),
+                    SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(tempName))
+                            .WithInitializer(SyntaxFactory.EqualsValueClause(
+                                ValueCopyFacts.WrapClone(
+                                    memberAccess.Expression.WithoutTrivia()))))))
+                .WithAdditionalAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation));
+
+            var replacedInvocation = invocation.WithExpression(
+                memberAccess.WithExpression(SyntaxFactory.IdentifierName(tempName)));
+            current = current.ReplaceNode(invocation, replacedInvocation);
+
+            _statistics.DefensiveReceiverSites++;
+            _statistics.SitesRewritten++;
+        }
+
+        if (declarations.Count == 0) return statement;
+
+        return SyntaxFactory.Block(declarations.Concat(new[] { current }))
             .WithLeadingTrivia(statement.GetLeadingTrivia())
             .WithTrailingTrivia(statement.GetTrailingTrivia())
             .WithAdditionalAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation);

@@ -442,9 +442,35 @@ internal sealed class StructValueSemanticsSiteEnumerator
         if (IsDirectlyMutableStorage(receiver, model)) return; // C# 原位变异，无需防御副本
 
         // 接收者非左值 rvalue（调用/new 等）也提升：统一形态（设计 §4.3 VS-3）。
-        var statementPosition = invocation.Parent is ExpressionStatementSyntax;
+        // 直接语句 `r.Mutate();` 由 VisitExpressionStatement 处理；嵌套在表达式
+        // 语句的表达式位置（如 `Assert.False(e.MoveNext());`）时，临时变量声明
+        // 可以提升到该语句之前，因此同样可改写（SDK json Stream.ReadTests.cs）。
+        var statementPosition = invocation.Parent is ExpressionStatementSyntax
+            || CanHoistBeforeExpressionStatement(invocation);
         AddSite(plan, SiteKind.DefensiveReceiver, invocation, invocation,
             isStatementPosition: statementPosition);
+    }
+
+    /// <summary>
+    /// True when a temporary declaration for <paramref name="node"/> can be
+    /// hoisted immediately before the nearest enclosing
+    /// <see cref="ExpressionStatementSyntax"/>. Lambda/question boundaries
+    /// change evaluation timing and stop the walk; any other statement kind
+    /// (return/if/initializer/...) is not supported by the statement hoist.
+    /// </summary>
+    private static bool CanHoistBeforeExpressionStatement(SyntaxNode node)
+    {
+        for (var current = node.Parent; current != null; current = current.Parent)
+        {
+            if (current is ExpressionStatementSyntax) return true;
+            if (current is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax
+                or QueryExpressionSyntax or LocalFunctionStatementSyntax)
+            {
+                return false;
+            }
+            if (current is StatementSyntax) return false;
+        }
+        return false;
     }
 
     // VS-5 cast：(object)s / (IFoo)s 锚内部表达式；(S)o 拆箱锚 cast 本身（优先级锚点）。
