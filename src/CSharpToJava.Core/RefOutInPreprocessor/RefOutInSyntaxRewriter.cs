@@ -767,7 +767,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             return base.VisitIdentifierName(node);
 
         var name = node.Identifier.Text;
-        if (IsInDeclarationContext(node) || !IsHolderName(name))
+        if (IsInDeclarationContext(node) || !IsHolderName(name) || IsNameofOperand(node))
             return base.VisitIdentifierName(node);
 
         _stats.HoldersInjected++;
@@ -783,6 +783,23 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             SyntaxKind.SimpleMemberAccessExpression,
             node.WithAdditionalAnnotations(RefOutInStatementLifter.ValueInjectedAnnotation),
             SyntaxFactory.IdentifierName("Value"));
+    }
+
+    /// <summary>
+    /// True when <paramref name="node"/> is the direct bare operand of
+    /// <c>nameof(...)</c>. The operand text is the string value the compiler
+    /// bakes in, so renaming it to a shadow local (or appending <c>.Value</c>)
+    /// would change observable behaviour (e.g. the <c>ParamName</c> of an
+    /// <see cref="System.ArgumentOutOfRangeException"/>).
+    /// </summary>
+    internal static bool IsNameofOperand(IdentifierNameSyntax node)
+    {
+        return node.Parent is ArgumentSyntax arg
+            && ReferenceEquals(arg.Expression, node)
+            && arg.Parent is ArgumentListSyntax list
+            && list.Parent is InvocationExpressionSyntax inv
+            && inv.Expression is IdentifierNameSyntax callee
+            && callee.Identifier.ValueText == "nameof";
     }
 
     internal static bool IsInDeclarationContext(IdentifierNameSyntax node)
@@ -2990,7 +3007,8 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             if (node.HasAnnotation(RefOutInStatementLifter.ValueInjectedAnnotation)
                 || node.HasAnnotation(RefOutInStatementLifter.DirectPassAnnotation))
                 return node;
-            if (IsInDeclarationContext(node) || !_owner.IsHolderName(node.Identifier.Text))
+            if (IsInDeclarationContext(node) || !_owner.IsHolderName(node.Identifier.Text)
+                || IsNameofOperand(node))
                 return base.VisitIdentifierName(node);
             _owner._stats.HoldersInjected++;
             if (_owner.TryGetShadowName(node.Identifier.Text, out var shadowName))
