@@ -181,17 +181,25 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
         var processedInputs = new List<(string Relative, string Dest, SemanticModel Model, SyntaxNode InputRoot)>();
         var rolledBackFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        for (var i = 0; i < pairs.Count; i++)
+        // Performance: the per-file channel work is independent (each file gets
+        // its own semantic model and its own rewriter instance, and nothing in
+        // the pipeline mutates shared state), so it runs in parallel. Every
+        // observable side effect — statistics merge, diagnostic order, the
+        // processed-input list and the on-disk writes — is applied afterwards
+        // in file order, which keeps the result byte-identical to the
+        // sequential loop this replaces.
+        var treeByPath = IndexSyntaxTreesByPath(compilation);
+        var outcomes = new Stage2Outcome?[pairs.Count];
+        var stage2Failures = new Exception?[pairs.Count];
+        Parallel.For(0, pairs.Count, i =>
         {
-            var (source, relative, dest) = pairs[i];
-            var syntaxTree = compilation.SyntaxTrees.FirstOrDefault(t =>
-                string.Equals(t.FilePath, dest, StringComparison.OrdinalIgnoreCase));
-            if (syntaxTree == null)
+            var (_, relative, dest) = pairs[i];
+            if (!treeByPath.TryGetValue(dest, out var syntaxTree))
             {
-                continue;
+                return;
             }
 
-            var desugaredRoot = await syntaxTree.GetRootAsync();
+            var desugaredRoot = syntaxTree.GetRoot();
 
             // R9 fast-skip: files with neither a LINQ-operator invocation nor a
             // foreach cannot be touched by either LinqRewriter entry point, so
@@ -201,13 +209,11 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
             // List/array collections.)
             if (!MayBeRewritten(desugaredRoot))
             {
-                continue;
+                return;
             }
 
             var reportPath = relative.Replace('\\', '/');
             var semanticModel = compilation.GetSemanticModel(syntaxTree);
-            processedInputs.Add((relative, dest, semanticModel, desugaredRoot));
-            LinqChannelRewriteResult result;
             try
             {
                 var injected = Lc0011FaultInjector?.Invoke(reportPath);
@@ -216,12 +222,39 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
                     throw injected;
                 }
 
-                result = channel.ProcessFile(
+                var result = channel.ProcessFile(
                     semanticModel,
                     desugaredRoot,
                     reportPath);
+                outcomes[i] = new Stage2Outcome(
+                    semanticModel, desugaredRoot, result, null);
             }
             catch (LinqRouteInvariantException ex)
+            {
+                outcomes[i] = new Stage2Outcome(
+                    semanticModel, desugaredRoot, null, ex);
+            }
+            catch (Exception ex)
+            {
+                // Deferred so the pass still fails with the ORIGINAL exception
+                // type/message instead of Parallel.For's AggregateException.
+                stage2Failures[i] = ex;
+            }
+        });
+
+        RethrowFirstFailure(stage2Failures);
+
+        for (var i = 0; i < pairs.Count; i++)
+        {
+            if (outcomes[i] is not { } outcome)
+            {
+                continue;
+            }
+
+            var (source, relative, dest) = pairs[i];
+            var reportPath = relative.Replace('\\', '/');
+
+            if (outcome.Invariant is not null)
             {
                 // LC0011 (design §4.3/§6): the three-way gate lost a node and
                 // a preserved route reached the expansion branch / fabricated
@@ -230,11 +263,7 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
                 // the intermediate tree stays compilable, record the Error and
                 // fail the pass; other files are still processed in this run.
                 tree.ResetScratchFile(source, dest);
-                lock (_diagnostics)
-                {
-                    _diagnostics.Add(ex.ToDiagnostic());
-                }
-
+                _diagnostics.Add(outcome.Invariant.ToDiagnostic());
                 rolledBackFiles.Add(relative);
                 success = false;
                 if (_verbose)
@@ -245,11 +274,11 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
                 continue;
             }
 
+            var result = outcome.Result!;
+            processedInputs.Add((relative, dest, outcome.SemanticModel, outcome.InputRoot));
+
             _statistics.MergeFrom(result.Statistics);
-            lock (_diagnostics)
-            {
-                _diagnostics.AddRange(result.Diagnostics);
-            }
+            _diagnostics.AddRange(result.Diagnostics);
 
             if (!result.SyntacticallyIdempotent)
             {
@@ -300,35 +329,75 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
         if (processedInputs.Count > 0 && rolledBackFiles.Count < processedInputs.Count)
         {
             var outputCompilation = BuildIntermediateCompilation(tree, pairs);
-            foreach (var (relative, dest, inputModel, inputRoot) in processedInputs)
+            var outputTreeByPath = IndexSyntaxTreesByPath(outputCompilation);
+            var residualOutcomes = new ResidualOutcome?[processedInputs.Count];
+            var residualFailures = new Exception?[processedInputs.Count];
+            Parallel.For(0, processedInputs.Count, index =>
             {
+                var (relative, dest, inputModel, inputRoot) = processedInputs[index];
                 if (rolledBackFiles.Contains(relative))
                 {
-                    continue;
+                    return;
                 }
 
-                var outputTree = outputCompilation.SyntaxTrees.FirstOrDefault(t =>
-                    string.Equals(t.FilePath, dest, StringComparison.OrdinalIgnoreCase));
-                if (outputTree is null)
+                if (!outputTreeByPath.TryGetValue(dest, out var outputTree))
+                {
+                    return;
+                }
+
+                try
+                {
+                    var outputRoot = outputTree.GetRoot();
+                    var outputModel = outputCompilation.GetSemanticModel(outputTree);
+                    var reportPath = relative.Replace('\\', '/');
+
+                    // Gates ① + ⑤: rerunning stage 2 over the materialized
+                    // output must move nothing — any in-support-matrix
+                    // Enumerable chain left behind WOULD move, so a zero-diff
+                    // second pass is the residual=0 and idempotency proof.
+                    var secondPass = channel.ProcessFile(outputModel, outputRoot, reportPath);
+
+                    // Gates ②③④: preserved-call stream identity + helper placement.
+                    var findings = LinqChannelResidualScanner.ScanFile(
+                        inputModel,
+                        inputRoot,
+                        outputModel,
+                        outputRoot,
+                        reportPath,
+                        _options.Strict);
+
+                    residualOutcomes[index] = new ResidualOutcome(
+                        secondPass,
+                        findings,
+                        reportPath,
+                        secondPass.RewriteChanged
+                            || secondPass.SecondPassDesugaredCount != 0
+                            // A structurally unchanged rewrite hands back the very
+                            // node it was given; only then is the (strict, trivia-
+                            // sensitive) text comparison meaningful work.
+                            || (!ReferenceEquals(outputRoot, secondPass.RewrittenRoot)
+                                && !string.Equals(
+                                    outputRoot.ToFullString(),
+                                    secondPass.RewrittenRoot.ToFullString(),
+                                    StringComparison.Ordinal)));
+                }
+                catch (Exception ex)
+                {
+                    residualFailures[index] = ex;
+                }
+            });
+
+            RethrowFirstFailure(residualFailures);
+
+            for (var index = 0; index < residualOutcomes.Length; index++)
+            {
+                if (residualOutcomes[index] is not { } residual)
                 {
                     continue;
                 }
 
-                var outputRoot = await outputTree.GetRootAsync();
-                var outputModel = outputCompilation.GetSemanticModel(outputTree);
-                var reportPath = relative.Replace('\\', '/');
-
-                // Gates ① + ⑤: rerunning stage 2 over the materialized output
-                // must move nothing — any in-support-matrix Enumerable chain
-                // left behind WOULD move, so a zero-diff second pass is the
-                // residual=0 and idempotency proof.
-                var secondPass = channel.ProcessFile(outputModel, outputRoot, reportPath);
-                if (secondPass.RewriteChanged
-                    || secondPass.SecondPassDesugaredCount != 0
-                    || !string.Equals(
-                        outputRoot.ToFullString(),
-                        secondPass.RewrittenRoot.ToFullString(),
-                        StringComparison.Ordinal))
+                var secondPass = residual.SecondPass;
+                if (residual.IdempotencyMismatch)
                 {
                     _diagnostics.Add(new LinqChannelDiagnostic(
                         _options.Strict
@@ -341,25 +410,15 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
                         + secondPass.SecondPassDesugaredCount
                         + ") — an in-support-matrix Enumerable chain was left behind or the "
                         + "output is not a fixed point (design §7.10①⑤).",
-                        reportPath,
+                        residual.ReportPath,
                         null));
                 }
 
                 // Gates ②③④: preserved-call stream identity + helper placement.
-                var findings = LinqChannelResidualScanner.ScanFile(
-                    inputModel,
-                    inputRoot,
-                    outputModel,
-                    outputRoot,
-                    reportPath,
-                    _options.Strict);
-                if (findings.Count > 0)
+                if (residual.Findings.Count > 0)
                 {
-                    _statistics.ResidualFindings += findings.Count;
-                    lock (_diagnostics)
-                    {
-                        _diagnostics.AddRange(findings);
-                    }
+                    _statistics.ResidualFindings += residual.Findings.Count;
+                    _diagnostics.AddRange(residual.Findings);
                 }
             }
         }
@@ -545,6 +604,42 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
         }
     }
 
+    /// <summary>
+    /// Path-keyed view of a compilation's syntax trees. The per-file loops look
+    /// a file up by its destination path; a linear scan per file made that
+    /// O(files²) on whole-SDK trees, so the lookup is indexed once per
+    /// compilation instead.
+    /// </summary>
+    private static Dictionary<string, SyntaxTree> IndexSyntaxTreesByPath(CSharpCompilation compilation)
+    {
+        var byPath = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
+        foreach (var syntaxTree in compilation.SyntaxTrees)
+        {
+            byPath[syntaxTree.FilePath] = syntaxTree;
+        }
+
+        return byPath;
+    }
+
+    /// <summary>
+    /// Re-throws the first deferred per-file failure with its original stack
+    /// trace, so a parallelised loop fails exactly like the sequential one it
+    /// replaced (no <see cref="AggregateException"/> wrapper, deterministic
+    /// first-failure selection by file order).
+    /// </summary>
+    private static void RethrowFirstFailure(Exception?[] failures)
+    {
+        foreach (var failure in failures)
+        {
+            if (failure is not null)
+            {
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo
+                    .Capture(failure)
+                    .Throw();
+            }
+        }
+    }
+
     private static bool MayBeRewritten(SyntaxNode root)
     {
         foreach (var node in root.DescendantNodesAndSelf())
@@ -566,14 +661,20 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
         PassTreeContext tree,
         IReadOnlyList<(string Source, string Relative, string Dest)> pairs)
     {
-        var trees = new List<SyntaxTree>();
-        foreach (var (_, _, dest) in pairs)
+        // Parsing dominates this helper (the whole tree is re-parsed on every
+        // rebuild) and each file is independent, so the reads/parses fan out;
+        // the resulting tree order still follows `pairs`.
+        var parsed = new SyntaxTree[pairs.Count];
+        Parallel.For(0, pairs.Count, i =>
         {
-            trees.Add(CSharpSyntaxTree.ParseText(
-                File.ReadAllText(dest),
+            parsed[i] = CSharpSyntaxTree.ParseText(
+                File.ReadAllText(pairs[i].Dest),
                 CreateParseOptions(tree),
-                path: dest));
-        }
+                path: pairs[i].Dest);
+        });
+
+        var trees = new List<SyntaxTree>(parsed.Length + 1);
+        trees.AddRange(parsed);
 
         // Mirror SDK ImplicitUsings=enable (java-keywords precedent): one
         // synthesized tree per enabled project, appended compilation-only.
@@ -657,4 +758,18 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
 
         return references;
     }
+
+    /// <summary>Per-file result of the parallel stage-2 rewrite pass.</summary>
+    private sealed record Stage2Outcome(
+        SemanticModel SemanticModel,
+        SyntaxNode InputRoot,
+        LinqChannelRewriteResult? Result,
+        LinqRouteInvariantException? Invariant);
+
+    /// <summary>Per-file result of the parallel §7.10 residual gate pass.</summary>
+    private sealed record ResidualOutcome(
+        LinqChannelRewriteResult SecondPass,
+        List<LinqChannelDiagnostic> Findings,
+        string ReportPath,
+        bool IdempotencyMismatch);
 }

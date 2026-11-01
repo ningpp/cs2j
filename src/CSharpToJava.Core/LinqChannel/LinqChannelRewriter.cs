@@ -108,7 +108,11 @@ public sealed class LinqChannelRewriter
             DesugaredRoot = desugaredRoot,
             DesugaredChanged = false,
             RewrittenRoot = rewrittenRoot,
-            RewriteChanged = !rewrittenRoot.IsEquivalentTo(desugaredRoot),
+            // Reference equality is the common "nothing moved" outcome: Roslyn's
+            // rewriter returns the original node when no child changed, so the
+            // structural comparison can be skipped entirely.
+            RewriteChanged = !ReferenceEquals(rewrittenRoot, desugaredRoot)
+                && !rewrittenRoot.IsEquivalentTo(desugaredRoot),
             Statistics = statistics,
             Diagnostics = diagnostics,
             SecondPassDesugaredCount = secondPassDesugaredCount,
