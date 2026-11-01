@@ -26,6 +26,11 @@ public static class RefOutInPostVerifier
                 var symbol = model.GetDeclaredSymbol(method);
                 if (symbol == null) continue;
                 if (RefOutInAliasAnnotator.IsLocked(symbol)) continue;
+                // Deconstruction-protocol Deconstruct keeps native out params
+                // (the implicit tuple-deconstruction binding has no invocation
+                // node to lift), so they are not residual debt.
+                if (symbol is IMethodSymbol deconstruct
+                    && RefOutInAliasAnnotator.IsDeconstructionProtocol(deconstruct)) continue;
 
                 foreach (var param in symbol.Parameters)
                 {

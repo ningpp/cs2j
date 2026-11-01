@@ -133,6 +133,13 @@ internal sealed class RefOutInAliasAnnotator
         var cls = GetSymbolClass(method);
         if (cls != SymbolClass.Internal) return;
 
+        // Tuple deconstruction (`(a, b) = rhs`) binds the compiler-generated
+        // Deconstruct(out ...) invocation implicitly: there is no explicit
+        // InvocationExpressionSyntax for the statement lifter to rewrite.
+        // Re-signing Deconstruct to ByRef<T> therefore breaks the native
+        // deconstruction protocol (CS8129/CS1615), so keep its out params.
+        if (IsDeconstructionProtocol(method)) return;
+
         foreach (var param in method.Parameters)
         {
             var refKind = param.RefKind;
@@ -279,6 +286,18 @@ internal sealed class RefOutInAliasAnnotator
     /// </summary>
     internal static bool IsPointerType(ITypeSymbol type) =>
         type.TypeKind is TypeKind.Pointer or TypeKind.FunctionPointer;
+
+    /// <summary>
+    /// True for the language deconstruction protocol: an instance
+    /// <c>Deconstruct(out ...)</c> method. The compiler binds tuple
+    /// deconstruction to it implicitly, without an invocation node that the
+    /// statement lifter could rewrite, so its out params must stay native.
+    /// </summary>
+    internal static bool IsDeconstructionProtocol(IMethodSymbol method) =>
+        method.MethodKind == MethodKind.Ordinary
+        && !method.IsStatic
+        && method.Name == "Deconstruct"
+        && method.Parameters.Any(p => p.RefKind == RefKind.Out);
 
     internal static bool IsLocked(ISymbol symbol)
     {
