@@ -892,7 +892,12 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         if (resolved.ContainingType?.ToDisplayString() == "System.Threading.Interlocked")
             return false;
 
-        if (resolved.Parameters.Length != arguments.Count
+        // Fewer arguments than parameters is fine: omitted arguments can only
+        // be the trailing OPTIONAL ones (named arguments are rejected below),
+        // so the positional mapping used by the lifter still holds. BCL APIs
+        // such as Utf8Formatter.TryFormat(value, destination, out written,
+        // StandardFormat format = default) are called with only 3 arguments.
+        if (arguments.Count > resolved.Parameters.Length
             || resolved.Parameters.Any(p => p.IsParams)
             || arguments.Any(a => a.NameColon != null))
             return false;
