@@ -359,7 +359,7 @@ internal sealed class RefOutInStatementLifter
             // Read-backs are reversed before emission, so the receiver — the
             // first-evaluated (implicit) argument — is written back last.
             if (liftedReceiver.readback != null) readbacks.Insert(0, liftedReceiver.readback);
-            newArgs.Add(liftedReceiver.arg);
+            newArgs.Add(ByRefHolderArgument(liftedReceiver.arg, unreduced, 0));
             anyLifted = true;
 
             // Static target is generated syntax: it must never be run through
@@ -402,7 +402,7 @@ internal sealed class RefOutInStatementLifter
             var lifted = LiftArgument(method, i, arg, isOut);
             if (lifted.decl != null) _out.Add(lifted.decl);
             if (lifted.readback != null) readbacks.Add(lifted.readback);
-            newArgs.Add(lifted.arg);
+            newArgs.Add(ByRefHolderArgument(lifted.arg, method, i));
             anyLifted = true;
         }
 
@@ -450,6 +450,30 @@ internal sealed class RefOutInStatementLifter
     private (StatementSyntax? decl, StatementSyntax? readback, ArgumentSyntax arg) LiftArgument(
         IMethodSymbol method, int index, ArgumentSyntax arg, bool isOut)
         => LiftArgument(method, index, arg, arg.Expression, isOut);
+
+    /// <summary>
+    /// Adds the `ref` keyword to a lifted argument whose parameter is a
+    /// ref-struct holder. The declaration pass keeps ref-struct holders as
+    /// <c>ref Cs2jByRef.RefStructByRef&lt;T&gt;</c> (see
+    /// <c>RefOutInSyntaxRewriter.RewriteParameter</c>): the holder is itself a
+    /// ref struct, so a by-value parameter would copy its slot and swallow every
+    /// write the callee performs. Only INTERNAL (rewritten) declarations qualify
+    /// — a native/external callee keeps its own <c>ref</c>/<c>out</c> handling,
+    /// which the individual lift branches already emit.
+    /// </summary>
+    private ArgumentSyntax ByRefHolderArgument(
+        ArgumentSyntax argument, IMethodSymbol method, int index)
+    {
+        if (index >= method.Parameters.Length)
+            return argument;
+        var parameter = method.Parameters[index];
+        if (!parameter.Type.IsRefLikeType || !_owner.IsInternalCandidate(method))
+            return argument;
+        // The lifted argument is synthesized (no keyword) or the original one
+        // (still carrying ref/out); a holder binding is always `ref`.
+        return argument.WithRefKindKeyword(
+            SyntaxFactory.Token(SyntaxKind.RefKeyword).WithTrailingTrivia(SyntaxFactory.Space));
+    }
 
     /// <param name="arg">
     /// The original argument node at this position (its <c>ref</c>/<c>out</c>
@@ -574,6 +598,25 @@ internal sealed class RefOutInStatementLifter
         var argType = _owner.GetTypeOf(expr);
         if (argType != null && argType.IsRefLikeType)
         {
+            // A SHADOWED ref-struct holder parameter takes the direct-pass
+            // shape instead of a fresh slot: a `RefStructByRef<T>` local would
+            // give every value derived from it method-scope safe-to-escape, and
+            // a span-returning callee (JsonHelpers.GetSpan →
+            // `return JsonReaderHelper.GetUnescapedSpan(propertyName, idx)`)
+            // then fails CS8352/CS8347. Flush the shadow into the holder slot,
+            // pass the holder itself by reference (fix A), and re-read it.
+            if (expr is IdentifierNameSyntax shadowed
+                && _owner.GetSymbol(expr) is IParameterSymbol
+                && _owner.TryGetShadowName(shadowed.Identifier.Text, out var shadowName))
+            {
+                var holderName = shadowed.Identifier.Text;
+                var direct = SyntaxFactory.IdentifierName(holderName)
+                    .WithAdditionalAnnotations(DirectPassAnnotation);
+                return (ParseStmt($"{holderName}.Value = {shadowName};"),
+                    ParseStmt($"{shadowName} = {holderName}.Value;"),
+                    SyntaxFactory.Argument(direct));
+            }
+
             var t = _owner.TypeDisplay(argType);
             var slot = Temp(isOut ? "__out" : "__ref");
             var ctor = isOut

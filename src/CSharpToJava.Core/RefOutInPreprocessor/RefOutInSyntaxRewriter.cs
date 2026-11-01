@@ -490,7 +490,8 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             visited = visited.WithParameterList(newParams).WithReturnType(newReturnType);
 
             if (shadows.Count > 0)
-                visited = ApplyMethodShadows(visited, shadows, shadowReturnsVoid, shadowReturnType);
+                visited = ApplyMethodShadows(visited, shadows, shadowReturnsVoid, shadowReturnType,
+                    !symbol.ReturnsVoid && !refReturn && symbol.ReturnType.IsRefLikeType);
 
             if (signatureChanged) UsedHolder = true;
             return visited;
@@ -511,7 +512,8 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         MethodDeclarationSyntax node,
         IReadOnlyList<(string Holder, string Shadow, string Type, bool IsOut)> shadows,
         bool returnsVoid,
-        string? returnTypeDisplay)
+        string? returnTypeDisplay,
+        bool returnTypeIsRefLike)
     {
         BlockSyntax block;
         if (node.Body != null)
@@ -528,7 +530,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         }
 
         return node
-            .WithBody(BuildShadowBlock(block, shadows, returnsVoid, returnTypeDisplay))
+            .WithBody(BuildShadowBlock(block, shadows, returnsVoid, returnTypeDisplay, returnTypeIsRefLike))
             .WithExpressionBody(null)
             .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
     }
@@ -597,6 +599,17 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                 continue;
             newModifiers = newModifiers.Add(mod);
         }
+
+        // A ref-struct holder is itself a `ref struct`: passing it by value
+        // copies its `_slot` field, so every write the callee performs
+        // (`reader.Value = …`, the shadow copy-out) stays in the copy and the
+        // caller keeps the stale reader. The holder parameter must therefore
+        // stay a REFERENCE (`ref Cs2jByRef.RefStructByRef<T>`); all call sites
+        // add `ref` in RefOutInStatementLifter (the call was a ref/out call
+        // before the rewrite, so the keyword never leaks into by-value calls).
+        if (type.IsRefLikeType)
+            newModifiers = newModifiers.Add(
+                SyntaxFactory.Token(SyntaxKind.RefKeyword).WithTrailingTrivia(SyntaxFactory.Space));
 
         UsedHolder = true;
         return param.WithModifiers(newModifiers).WithType(newType);
@@ -1968,7 +1981,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             if (shadows.Count > 0)
                 visited = (SimpleLambdaExpressionSyntax)
                     ApplyValueShadows(visited, shadows, returnsVoid,
-                        DelegateReturnTypeDisplay(node));
+                        DelegateReturnTypeDisplay(node), DelegateReturnsRefLike(node));
             return visited;
         }
         finally
@@ -2027,7 +2040,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             if (shadows.Count > 0)
                 visited = (ParenthesizedLambdaExpressionSyntax)
                     ApplyValueShadows(visited, shadows, returnsVoid,
-                        DelegateReturnTypeDisplay(node));
+                        DelegateReturnTypeDisplay(node), DelegateReturnsRefLike(node));
             return visited;
         }
         finally
@@ -2039,13 +2052,13 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
 
     /// <summary>
     /// Builds the shadow-rename frame for one anonymous-function or member
-    /// visit: a value-typed (non-ref-like) held parameter whose OWN body has a
-    /// CS1612-shaped mutation (member/element assignment, ++/--, a ref/out
-    /// member-chain argument, or a mutating member call through the holder)
-    /// gets a private mutable local; other value holders and reference-type /
-    /// ref-like holders push a null sentinel so that the same name in this
-    /// frame is not redirected to an OUTER shadow. A read-only body needs no
-    /// frame at all.
+    /// visit: a value-typed held parameter (struct or ref struct) whose OWN
+    /// body has a mutation that cannot be expressed through the holder
+    /// property (member/element assignment, ++/--, a ref/out member-chain
+    /// argument, or a mutating member call through the holder) gets a private
+    /// mutable local; reference-type holders push a null sentinel so that the
+    /// same name in this frame is not redirected to an OUTER shadow. A
+    /// read-only body needs no frame at all.
     /// </summary>
     private Dictionary<string, string?>? PushHolderShadowFrame(
         IReadOnlyList<(string Name, IParameterSymbol Symbol)> holderParams,
@@ -2060,7 +2073,14 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         var frame = new Dictionary<string, string?>();
         foreach (var (name, symbol) in holderParams)
         {
-            if (symbol.Type.IsValueType && !symbol.Type.IsRefLikeType
+            // Ref-like holders need the shadow too: `T Value` on
+            // `RefStructByRef<T>` is a get/set PROPERTY, so `holder.Value.Read()`
+            // (or `holder.Advance()`, `holder[i] = …`, `holder.X = …`) mutates a
+            // copy of the ref struct that is discarded immediately. A private
+            // mutable local plus the copy-out at every return puts the mutation
+            // back into the holder slot, which fix (A) makes visible to the
+            // caller through the by-ref holder parameter.
+            if (symbol.Type.IsValueType
                 && BodyMutatesHolder(scanRoot, name, localFunctionsCapture))
             {
                 var shadow = "__shadow" + NextTemp();
@@ -2181,14 +2201,26 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         AnonymousFunctionExpressionSyntax node,
         IReadOnlyList<(string Holder, string Shadow, string Type, bool IsOut)> shadows,
         bool returnsVoid,
-        string? returnTypeDisplay)
+        string? returnTypeDisplay,
+        bool returnTypeIsRefLike)
     {
         if (node.Body is not BlockSyntax block)
             return node;   // defensive: forceBlock should have converted an expression body
 
         return node.WithBody(
-            BuildShadowBlock(block, shadows, returnsVoid, returnTypeDisplay));
+            BuildShadowBlock(block, shadows, returnsVoid, returnTypeDisplay, returnTypeIsRefLike));
     }
+
+    /// <summary>
+    /// True when the delegate's return type is a ref struct (a span). Such a
+    /// return value cannot be materialized into a local at all: assigning a
+    /// span to a local gives it method-scope safe-to-escape, so the following
+    /// <c>return</c> is CS8352 ("may expose referenced variables outside their
+    /// declaration scope") — the copy-out must then precede the return.
+    /// </summary>
+    private bool DelegateReturnsRefLike(AnonymousFunctionExpressionSyntax node)
+        => DelegateInvoke(node) is { } invoke && !invoke.ReturnsVoid
+            && invoke.ReturnType.IsRefLikeType;
 
     /// <summary>
     /// Builds a shadow frame block (shared by held lambdas and by method /
@@ -2201,7 +2233,8 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         BlockSyntax block,
         IReadOnlyList<(string Holder, string Shadow, string Type, bool IsOut)> shadows,
         bool returnsVoid,
-        string? returnTypeDisplay)
+        string? returnTypeDisplay,
+        bool returnTypeIsRefLike = false)
     {
         var statements = new List<StatementSyntax>();
         foreach (var shadow in shadows)
@@ -2211,7 +2244,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             .Select(s => BuildShadowWriteback(s.Holder, s.Shadow))
             .ToList<StatementSyntax>();
         var rewritten = (BlockSyntax)new ShadowReturnWriter(
-            writebacks, returnTypeDisplay, NextTemp).Visit(block)!;
+            writebacks, returnTypeDisplay, returnTypeIsRefLike, NextTemp).Visit(block)!;
         statements.AddRange(rewritten.Statements);
         if (returnsVoid)
             statements.AddRange(writebacks);
@@ -2273,15 +2306,18 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     {
         private readonly List<StatementSyntax> _writebacks;
         private readonly string? _returnTypeDisplay;
+        private readonly bool _returnTypeIsRefLike;
         private readonly Func<int> _nextTemp;
 
         public ShadowReturnWriter(
             List<StatementSyntax> writebacks,
             string? returnTypeDisplay,
+            bool returnTypeIsRefLike,
             Func<int> nextTemp)
         {
             _writebacks = writebacks;
             _returnTypeDisplay = returnTypeDisplay;
+            _returnTypeIsRefLike = returnTypeIsRefLike;
             _nextTemp = nextTemp;
         }
 
@@ -2293,7 +2329,10 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
         {
             var statements = new List<StatementSyntax>();
-            if (node.Expression != null && _returnTypeDisplay != null)
+            // A ref-struct (span) return value cannot be held in a local —
+            // CS8352 — so the copy-out goes first and the expression is
+            // returned directly.
+            if (node.Expression != null && _returnTypeDisplay != null && !_returnTypeIsRefLike)
             {
                 var temp = "__ret" + _nextTemp();
                 statements.Add(SyntaxFactory.LocalDeclarationStatement(
@@ -2426,7 +2465,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             if (shadows.Count > 0)
                 visited = (AnonymousMethodExpressionSyntax)
                     ApplyValueShadows(visited, shadows, returnsVoid,
-                        DelegateReturnTypeDisplay(node));
+                        DelegateReturnTypeDisplay(node), DelegateReturnsRefLike(node));
             return visited;
         }
         finally
@@ -2511,7 +2550,9 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                 }
 
                 visited = visited.WithBody(
-                    BuildShadowBlock(block, shadows, returnsVoid, returnTypeDisplay));
+                    BuildShadowBlock(block, shadows, returnsVoid, returnTypeDisplay,
+                        !symbol.ReturnsVoid && node.ReturnType is not RefTypeSyntax
+                        && symbol.ReturnType.IsRefLikeType));
             }
             return visited;
         }

@@ -163,7 +163,9 @@ public class RefOutInThrowStatementTests
             d => d.Severity == RefOutInSeverity.Error);
         Assert.DoesNotContain("ref r.Value", result.OutputCode);
         Assert.DoesNotContain("ref reader.Value", result.OutputCode);
-        Assert.Contains("Make(r)", result.OutputCode);
+        // The ref-struct holder parameter is `ref RefStructByRef<T>`: the
+        // argument must be the holder itself, by reference.
+        Assert.Contains("Make(ref r)", result.OutputCode);
 
         var asm = AssertOutputCompilesAndEmits(result.OutputCode);
         var run = asm.GetType("Demo")!

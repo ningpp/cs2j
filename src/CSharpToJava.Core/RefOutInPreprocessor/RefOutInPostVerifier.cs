@@ -39,6 +39,7 @@ public static class RefOutInPostVerifier
                     // intended rewrite result, not residual debt.
                     if (param.RefKind is RefKind.Ref or RefKind.Out
                         && !RefOutInAliasAnnotator.IsPointerType(param.Type)
+                        && !IsByRefHolderParameter(param)
                         && param.Locations.Any(l => l.IsInSource))
                         violations.Add(new ResidualViolation(tree.FilePath,
                             $"internal '{symbol.ToDisplayString()}' still declares ref/out parameter '{param.Name}'"));
@@ -79,6 +80,23 @@ public static class RefOutInPostVerifier
         }
         return violations;
     }
+
+    /// <summary>
+    /// A ref-struct holder parameter is <c>ref Cs2jByRef.RefStructByRef&lt;T&gt;</c>
+    /// BY DESIGN: <c>RefStructByRef&lt;T&gt;</c> is itself a ref struct, so a
+    /// by-value parameter would copy its slot and swallow every write the callee
+    /// performs on the reader. The <c>ref</c> here is the rewrite RESULT, not a
+    /// leftover native ref/out declaration.
+    /// </summary>
+    private static bool IsByRefHolderParameter(IParameterSymbol parameter) =>
+        parameter.RefKind == RefKind.Ref
+        && parameter.Type is INamedTypeSymbol holder
+        // The residual-gate compilation may not reference the Cs2jByRef support
+        // library, in which case this type binds to an error type (no
+        // IsRefLikeType / namespace): match on the name alone — the original
+        // sources can never declare a `ref RefStructByRef<T>` parameter, the
+        // type only exists after the rewrite.
+        && holder.Name == "RefStructByRef";
 }
 
 public sealed record ResidualViolation(string FilePath, string Message);

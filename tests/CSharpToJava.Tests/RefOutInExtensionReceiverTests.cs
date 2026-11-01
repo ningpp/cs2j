@@ -210,9 +210,10 @@ public class RefOutInExtensionReceiverTests
 
         Assert.True(result.Changed);
         Assert.DoesNotContain(result.Diagnostics, d => d.Severity == RefOutInSeverity.Error);
-        // Declaration side: `this ref MyReader` becomes a RefStructByRef holder.
-        Assert.Contains("GetPos(this Cs2jByRef.RefStructByRef<MyReader>", result.OutputCode);
-        Assert.Contains("ReadWithVerify(this Cs2jByRef.RefStructByRef<MyReader>", result.OutputCode);
+        // Declaration side: `this ref MyReader` becomes a ref-struct holder
+        // parameter that keeps reference semantics (`this ref <holder>`).
+        Assert.Contains("GetPos(this ref Cs2jByRef.RefStructByRef<MyReader>", result.OutputCode);
+        Assert.Contains("ReadWithVerify(this ref Cs2jByRef.RefStructByRef<MyReader>", result.OutputCode);
     }
 
     [Fact]
@@ -237,15 +238,20 @@ public class RefOutInExtensionReceiverTests
     }
 
     [Fact]
-    public void Holder_Receiver_Is_Passed_Directly_And_Ref_Struct_Local_Uses_Slot()
+    public void Holder_Receiver_Is_Never_Dereferenced_Through_Value_Property()
     {
         var result = Run(Source);
         AssertOutputCompiles(result.OutputCode);
 
-        // Holder receiver (`ref MyReader reader` param): passed through as the
-        // holder itself — never `reader.Value`.
-        Assert.Contains("global::JsonHelpersExt.GetPos(reader)", result.OutputCode);
+        // Holder receiver (`ref MyReader reader` param) whose body mutates it:
+        // the receiver is a RefStructByRef slot seeded from the holder's shadow
+        // local and passed BY REFERENCE — never `reader.Value` (a ref struct
+        // property return copy would swallow the callee's mutation).
         Assert.DoesNotContain("reader.Value.GetPos", result.OutputCode);
+        Assert.Matches(new System.Text.RegularExpressions.Regex(
+            @"global::JsonHelpersExt\.GetPos\(ref "), result.OutputCode);
+        Assert.Matches(new System.Text.RegularExpressions.Regex(
+            @"reader\.Value = __shadow\d+;"), result.OutputCode);
 
         // Ref struct local receiver: copy-in/copy-out slot.
         Assert.Contains("RefStructByRef<MyReader>", result.OutputCode);
@@ -261,9 +267,10 @@ public class RefOutInExtensionReceiverTests
 
         // __ref slots are `ref struct` values and cannot cross a reflective
         // call boundary, so only the parameterless entry points run.
-        // 7 proves the receiver was copied INTO the RefStructByRef slot (a
-        // broken copy-in would read default(MyReader).Position == 0).
-        Assert.Equal(7, InvokeInt(assembly, "ViaLocal"));
+        // 8 = 7 (copy-in of the receiver into the slot reached the MyReader
+        // ctor value) + 1 (ReadWithVerify's `this ref` mutation now flows back
+        // out of the holder: 7 would mean the copy-out was swallowed).
+        Assert.Equal(8, InvokeInt(assembly, "ViaLocal"));
         // Value-type receiver through ByRef<Counter>: the mutation reaches the
         // local through the copy-out read-back.
         Assert.Equal(1, InvokeInt(assembly, "ViaValueTypeLocal"));
