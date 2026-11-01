@@ -1678,6 +1678,37 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                         proxyExpr = expr;
                         proxyTypeName = "ByRef";
                     }
+                    else if (expr is InvocationExpressionSyntax externalRefCall
+                             && ResolveInvocation(externalRefCall) is { } externalCallee
+                             && (externalCallee.RefKind == RefKind.Ref
+                                 || externalCallee.RefKind == RefKind.RefReadOnly)
+                             && !IsInternalCandidate(externalCallee))
+                    {
+                        // External (metadata / locked-source) ref-returning
+                        // call: this pass never rewrites its declaration, so it
+                        // keeps the native `ref T` return — a ref local over it
+                        // must alias the returned location through a ref-field
+                        // holder (CS0029 otherwise).
+                        var liftedCall = _lifter.SpliceExpression(expr, out var hRefCall);
+                        var callText = InjectSlotValues(liftedCall).ToString();
+                        var callProxyTypeName = isReadOnly
+                            ? "ReadOnlyScopedByRef"
+                            : "ScopedByRef";
+                        var callProxyExpr = SyntaxFactory.ParseExpression(
+                            $"{callProxyTypeName}<{typeArgText}>.Create({(isReadOnly ? "in" : "ref")} {callText})");
+                        _stats.ScopedElementProxies++;
+                        if (hRefCall.Count > 0)
+                        {
+                            var declStatement = BuildProxyLocalDeclaration(
+                                callProxyTypeName, typeArgText,
+                                SyntaxFactory.SingletonSeparatedList(
+                                    declarator.WithInitializer(
+                                        SyntaxFactory.EqualsValueClause(callProxyExpr))));
+                            return SyntaxFactory.Block(hRefCall.Append(declStatement));
+                        }
+                        proxyTypeName = callProxyTypeName;
+                        proxyExpr = callProxyExpr;
+                    }
                     else if (expr is InvocationExpressionSyntax)
                     {
                         // ref-returning call: the callee already returns ByRef<T>
