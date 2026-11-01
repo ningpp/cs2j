@@ -524,7 +524,8 @@ internal sealed class RefOutInStatementLifter
         if (expr is IdentifierNameSyntax { Identifier.ValueText: "_" })
         {
             var slot = Temp("__out");
-            return (ParseStmt($"ByRef<{paramType}> {slot} = ByRef<{paramType}>.Create();"),
+            var (slotType, slotCreate) = OutSlot(paramTypeSymbol, paramType);
+            return (ParseStmt($"{slotType} {slot} = {slotCreate};"),
                 null, SyntaxFactory.Argument(Identifier(slot)));
         }
 
@@ -536,7 +537,8 @@ internal sealed class RefOutInStatementLifter
         if (expr is DeclarationExpressionSyntax { Designation: DiscardDesignationSyntax })
         {
             var discardSlot = Temp("__out");
-            return (ParseStmt($"ByRef<{paramType}> {discardSlot} = ByRef<{paramType}>.Create();"),
+            var (discardSlotType, discardSlotCreate) = OutSlot(paramTypeSymbol, paramType);
+            return (ParseStmt($"{discardSlotType} {discardSlot} = {discardSlotCreate};"),
                 null, SyntaxFactory.Argument(Identifier(discardSlot)));
         }
 
@@ -550,9 +552,14 @@ internal sealed class RefOutInStatementLifter
             _rootOut.Add(ParseStmt($"{paramType} {varName} = {defaultLit};")
                 .WithAdditionalAnnotations(RootDeclarationAnnotation));
             var slot = Temp("__out");
-            return (ParseStmt($"ByRef<{paramType}> {slot} = ByRef<{paramType}>.Create();"),
-                ParseStmt(ReadbackStatement(varName, slot, paramTypeSymbol)),
-                SyntaxFactory.Argument(Identifier(slot)));
+            var (slotType, slotCreate) = OutSlot(paramTypeSymbol, paramType);
+            // A ref struct target is assigned straight from the slot: the
+            // ReadbackX helpers only exist for primitive ByRef<T> slots.
+            var readback = ParseStmt(paramTypeSymbol.IsRefLikeType
+                ? $"{varName} = {slot}.Value;"
+                : ReadbackStatement(varName, slot, paramTypeSymbol));
+            return (ParseStmt($"{slotType} {slot} = {slotCreate};"),
+                readback, SyntaxFactory.Argument(Identifier(slot)));
         }
 
         // (4) ref struct typed argument → RefStructByRef slot (copy-in/copy-out;
@@ -674,6 +681,20 @@ internal sealed class RefOutInStatementLifter
         Report3303(expression, "unsupported ref/out argument shape");
         return (null, null, arg ?? SyntaxFactory.Argument(expression));
     }
+
+    /// <summary>
+    /// Out-slot type for a declaration/discard argument (<c>out T x</c>,
+    /// <c>out var x</c>, <c>out _</c>). A ref-struct parameter type
+    /// (<c>Utf8JsonReader</c>) cannot be a <c>ByRef&lt;T&gt;</c> type argument
+    /// (CS9244: <c>ByRef&lt;T&gt;</c> has no <c>allows ref struct</c>), and the
+    /// declaration pass already converted that parameter to
+    /// <c>RefStructByRef&lt;T&gt;</c>, so the slot must use the same holder or the
+    /// call fails with CS1503. Non-ref-struct parameters keep <c>ByRef&lt;T&gt;</c>.
+    /// </summary>
+    private static (string Type, string Create) OutSlot(ITypeSymbol paramTypeSymbol, string paramType)
+        => paramTypeSymbol.IsRefLikeType
+            ? ($"Cs2jByRef.RefStructByRef<{paramType}>", $"RefStructByRef<{paramType}>.Create()")
+            : ($"ByRef<{paramType}>", $"ByRef<{paramType}>.Create()");
 
     /// <summary>
     /// Java primitive mapped from a C# value type, keyed by the converter's
