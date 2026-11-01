@@ -1048,6 +1048,31 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         return HoistedBlock(stmts);
     }
 
+    public override SyntaxNode? VisitThrowStatement(ThrowStatementSyntax node)
+    {
+        // `throw;` (bare rethrow) carries no expression and is inert.
+        if (node.Expression == null)
+            return base.VisitThrowStatement(node);
+
+        var lifted = _lifter.SpliceExpression(node.Expression, out var hoisted);
+        var pending = _lifter.TakePendingReadbacks();
+        if (hoisted.Count == 0 && pending.Count == 0)
+        {
+            if (ReferenceEquals(lifted, node.Expression))
+                return base.VisitThrowStatement(node);
+            return node.WithExpression(InjectSlotValues(lifted));
+        }
+
+        // Same shape as VisitReturnStatement: the throw itself must carry the
+        // holder/remainder (never `ref <holder>.Value`, which is CS0206), so
+        // liftable arguments are hoisted before it.
+        var stmts = new List<StatementSyntax>();
+        stmts.AddRange(hoisted);
+        stmts.Add(node.WithExpression(InjectSlotValues(lifted)));
+        stmts.AddRange(pending);
+        return HoistedBlock(stmts);
+    }
+
     public override SyntaxNode? VisitIfStatement(IfStatementSyntax node)
     {
         var cond = _lifter.SpliceExpression(node.Condition, out var hoisted);
