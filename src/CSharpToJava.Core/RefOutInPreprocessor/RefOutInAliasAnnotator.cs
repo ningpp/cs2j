@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CSharpToJava.Core.RefOutInPreprocessor;
@@ -334,6 +335,17 @@ internal sealed class RefOutInAliasAnnotator
             }
         }
 
+        // Unsafe (pointer-domain) methods: a ref/out parameter here is a memory
+        // ADDRESS that the body walks with pointer arithmetic
+        // (`Unsafe.AsPointer(ref p)`, `Unsafe.AddByteOffset(ref p, n)`), not a
+        // ByRef<T> value slot. Copy-in/copy-out lifting would scan a stack copy
+        // and silently corrupt data, and the address form has no expressible
+        // ByRef shape either (it belongs to the deferred unsafe/FFM domain),
+        // so the whole member keeps its native ref/out signature and call sites.
+        if (method.Parameters.Any(p => p.RefKind is RefKind.Ref or RefKind.Out)
+            && IsUnsafeDeclaration(method))
+            return true;
+
         // Override chain → external
         var overridden = method.OverriddenMethod;
         while (overridden != null)
@@ -360,6 +372,33 @@ internal sealed class RefOutInAliasAnnotator
             }
         }
 
+        return false;
+    }
+
+    /// <summary>
+    /// True when the method is declared in an <c>unsafe</c> context: its own
+    /// declaration, an enclosing local function, or an enclosing type carries
+    /// the <c>unsafe</c> modifier. Declarations are matched syntactically
+    /// because <c>unsafe</c> is not part of the symbol model.
+    /// </summary>
+    private static bool IsUnsafeDeclaration(IMethodSymbol method)
+    {
+        for (ISymbol? current = method; current is IMethodSymbol or INamedTypeSymbol;
+             current = current.ContainingSymbol)
+        {
+            foreach (var reference in current.DeclaringSyntaxReferences)
+            {
+                var isUnsafe = reference.GetSyntax() switch
+                {
+                    MethodDeclarationSyntax m => m.Modifiers.Any(SyntaxKind.UnsafeKeyword),
+                    LocalFunctionStatementSyntax l => l.Modifiers.Any(SyntaxKind.UnsafeKeyword),
+                    ConstructorDeclarationSyntax c => c.Modifiers.Any(SyntaxKind.UnsafeKeyword),
+                    TypeDeclarationSyntax t => t.Modifiers.Any(SyntaxKind.UnsafeKeyword),
+                    _ => false,
+                };
+                if (isUnsafe) return true;
+            }
+        }
         return false;
     }
 
