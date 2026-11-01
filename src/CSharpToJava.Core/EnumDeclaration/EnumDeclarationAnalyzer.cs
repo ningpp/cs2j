@@ -1298,7 +1298,50 @@ internal sealed class EnumDeclarationAnalyzer
         {
             base.VisitTypeOfExpression(node);
             var plan = FeasiblePlan(_model.GetTypeInfo(node.Type).Type);
-            if (plan != null) Touch(plan, node);
+            if (plan == null) return;
+            Touch(plan, node);
+
+            // typeof(E) 只在 System.Enum 静态 API 的第一个实参位置能被改写成
+            // 不依赖运行时类型身份的等价调用（Enum.GetValues/GetNames/GetName/
+            // Parse/TryParse/IsDefined/Format/ToObject/GetUnderlyingType）。
+            // 出现在任何其它位置（特性实参、object[] 数据、字符串拼接、类型比较、
+            // 普通方法实参…）时，Type 值会逃逸到无法改写的代码里：归一后的
+            // enum-like class 不是 TypeKind.Enum，`Type.IsEnum` 为 false，反射驱动的
+            // 消费者（System.Text.Json 的 EnumConverterFactory、按 Type 调用的
+            // Enum.GetValues/GetNames…）会静默变成 object 路径 → 线格式/测试行为
+            // 改变。这类 plan 必须保持真 enum（ED020）。
+            if (IsRewritableEnumApiTypeArgument(node)) return;
+            Infeasible(plan, node,
+                $"enum '{plan.EnumShortName}' is exposed as a runtime System.Type value " +
+                "outside a System.Enum API argument; a normalized enum-like class is not " +
+                "TypeKind.Enum, so code observing that Type (Type.IsEnum, reflection-driven " +
+                "Enum APIs, serializers) would change behavior. The enum must remain a real enum.");
+        }
+
+        /// <summary>
+        /// typeof(E) 是否是 <c>System.Enum</c> 静态 API 的第一个实参（该调用的
+        /// Type 实参会被 <see cref="ClassifyEnumApi"/> 改写掉，运行时身份不外泄）。
+        /// </summary>
+        private bool IsRewritableEnumApiTypeArgument(TypeOfExpressionSyntax node)
+        {
+            if (node.Parent is not ArgumentSyntax { Expression: var expression } argument
+                || expression != node
+                || argument.Parent is not ArgumentListSyntax argumentList
+                || argumentList.Parent is not InvocationExpressionSyntax invocation
+                || _model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+                || !method.IsStatic
+                || method.ContainingType.ToDisplayString() != "System.Enum")
+            {
+                return false;
+            }
+
+            for (var i = 0; i < argumentList.Arguments.Count; i++)
+            {
+                if (argumentList.Arguments[i] != argument) continue;
+                return i == 0;
+            }
+
+            return false;
         }
 
         public override void VisitGenericName(GenericNameSyntax node)
