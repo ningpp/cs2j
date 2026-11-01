@@ -356,7 +356,10 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
 
     internal bool IsInternalCandidate(IMethodSymbol m) =>
         m.Locations.Any(l => l.IsInSource)
-        && Annotator.GetSymbolClass(m) != RefOutInAliasAnnotator.SymbolClass.Locked;
+        && Annotator.GetSymbolClass(m) != RefOutInAliasAnnotator.SymbolClass.Locked
+        // Pointer-domain bodies keep native ref locals AND their native
+        // ref/out signature: lifting the call site to ByRef would break it.
+        && !Annotator.IsPointerDomain(m);
 
     /// <summary>CD8 wiring (C9): true when the parameter keeps its <c>in</c> modifier.</summary>
     internal bool IsInKept(IMethodSymbol method, int index)
@@ -392,6 +395,11 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         var symbol = _semanticModel.GetDeclaredSymbol(node);
         if (symbol == null)
             return base.VisitMethodDeclaration(node);
+
+        // Pointer-domain bodies (ref locals walked through Unsafe/MemoryMarshal
+        // ref arguments) keep their native ref locals and pointer arithmetic.
+        if (_annotator.IsPointerDomain(symbol))
+            return node;
 
         _holderNameScopes.Push(new HashSet<string>());
         _liftedOutArgTargets.Push(node.Body != null
@@ -647,6 +655,9 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         var symbol = _semanticModel.GetDeclaredSymbol(node);
         if (symbol == null)
             return base.VisitConstructorDeclaration(node);
+
+        if (_annotator.IsPointerDomain(symbol))
+            return node;
 
         _holderNameScopes.Push(new HashSet<string>());
         _liftedOutArgTargets.Push(node.Body != null
@@ -2537,6 +2548,9 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         var symbol = _semanticModel.GetDeclaredSymbol(node);
         if (symbol == null)
             return base.VisitLocalFunctionStatement(node);
+
+        if (_annotator.IsPointerDomain(symbol))
+            return node;
 
         _holderNameScopes.Push(new HashSet<string>());
         _liftedOutArgTargets.Push(node.Body != null

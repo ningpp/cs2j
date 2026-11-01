@@ -27,9 +27,24 @@ internal sealed class RefOutInAliasAnnotator
     // CD8: `in` parameters kept because stripping would create an overload collision
     private readonly HashSet<IParameterSymbol> _inKeptParameters = new(SymbolEqualityComparer.Default);
 
+    // Pointer-domain methods: the body declares a ref local whose ADDRESS is
+    // handed to a pointer/alias API (Unsafe.* / MemoryMarshal.*). Rewriting
+    // that ref local to a ByRef/ScopedByRef proxy turns
+    // `Unsafe.Add(ref reference, n)` into a read of adjacent STACK memory (the
+    // proxy's copy-in temp), so the key depends on the caller's frame layout.
+    // Such a method must keep its native ref local and pointer arithmetic.
+    private readonly HashSet<ISymbol> _pointerDomainSymbols = new(SymbolEqualityComparer.Default);
+
     public IReadOnlySet<ISymbol> HolderSymbols => _holderSymbols;
     public IReadOnlySet<string> RefLocalNames => _refLocalNames;
     public IReadOnlySet<IParameterSymbol> InKeptParameters => _inKeptParameters;
+
+    /// <summary>
+    /// True when this method's body keeps native ref locals because it walks a
+    /// ref local's address with a pointer/alias API.
+    /// </summary>
+    public bool IsPointerDomain(ISymbol? symbol) =>
+        symbol != null && _pointerDomainSymbols.Contains(symbol);
 
     /// <summary>CD8 (C9): true when this in-parameter must keep its modifier.</summary>
     public bool IsInParameterKept(IParameterSymbol? parameter) =>
@@ -129,8 +144,91 @@ internal sealed class RefOutInAliasAnnotator
         return vd.Type is RefTypeSyntax;
     }
 
+    private static readonly string[] PointerDomainTypeNames =
+    {
+        "System.Runtime.CompilerServices.Unsafe",
+        "System.Runtime.InteropServices.MemoryMarshal",
+    };
+
+    /// <summary>
+    /// True when the method body declares a ref local AND hands that local's
+    /// ADDRESS (<c>ref x</c> as an argument) to a pointer/alias API
+    /// (<c>Unsafe.Add</c>, <c>Unsafe.ReadUnaligned</c>, … or a
+    /// <c>MemoryMarshal</c> member). The pass cannot express a ref-local
+    /// address through a ByRef/ScopedByRef proxy, so the whole method keeps
+    /// its native body.
+    /// </summary>
+    internal static bool IsPointerDomainMethod(IMethodSymbol method, SemanticModel model)
+    {
+        foreach (var reference in method.DeclaringSyntaxReferences)
+        {
+            SyntaxNode? body = reference.GetSyntax() switch
+            {
+                MethodDeclarationSyntax m => (SyntaxNode?)m.Body ?? m.ExpressionBody,
+                ConstructorDeclarationSyntax c => (SyntaxNode?)c.Body ?? c.ExpressionBody,
+                LocalFunctionStatementSyntax l => (SyntaxNode?)l.Body ?? l.ExpressionBody,
+                _ => null,
+            };
+            if (body != null && IsPointerDomainBody(body, model)) return true;
+        }
+        return false;
+    }
+
+    private static bool IsPointerDomainBody(SyntaxNode body, SemanticModel model)
+    {
+        bool hasRefLocal = body.DescendantNodes()
+            .OfType<VariableDeclarationSyntax>()
+            .Any(vd => IsRefVariableDeclaration(vd));
+        if (!hasRefLocal) return false;
+
+        foreach (var argument in body.DescendantNodes().OfType<ArgumentSyntax>())
+        {
+            // Only a `ref x` / `ref readonly x` ARGUMENT exposes the local's
+            // address; `x` used as a value or as a ref-local initializer
+            // (`ref byte y = ref GetReference(...)`) aliases legally through
+            // ScopedByRef and stays rewritable. Roslyn may surface the keyword
+            // either on the argument or as a RefExpressionSyntax.
+            if (argument.Expression is not RefExpressionSyntax
+                && !argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword))
+                continue;
+            var invocation = argument.Ancestors().OfType<InvocationExpressionSyntax>().FirstOrDefault();
+            if (invocation != null && IsPointerApiInvocation(invocation, model))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool IsPointerApiInvocation(InvocationExpressionSyntax invocation, SemanticModel model)
+    {
+        IMethodSymbol? target = null;
+        try { target = model.GetSymbolInfo(invocation).Symbol as IMethodSymbol; }
+        catch (ArgumentException) { }
+
+        if (target?.ContainingType is { } containingType)
+        {
+            var typeName = containingType.ToDisplayString();
+            return PointerDomainTypeNames.Any(prefix =>
+                typeName.StartsWith(prefix, StringComparison.Ordinal));
+        }
+
+        // The merged solution-graph model can fail to bind a generic Unsafe
+        // member; fall back to the receiver's simple name.
+        return invocation.Expression is MemberAccessExpressionSyntax memberAccess
+            && memberAccess.Expression is IdentifierNameSyntax receiver
+            && (receiver.Identifier.Text == "Unsafe" || receiver.Identifier.Text == "MemoryMarshal");
+    }
+
     private void ClassifyMethod(IMethodSymbol method)
     {
+        // Pointer-domain methods keep their whole body native (ref locals and
+        // Unsafe/MemoryMarshal ref arguments), so none of their ref/out
+        // parameters may become ByRef<T> holders either.
+        if (IsPointerDomainMethod(method, _semanticModel))
+        {
+            _pointerDomainSymbols.Add(method);
+            return;
+        }
+
         var cls = GetSymbolClass(method);
         if (cls != SymbolClass.Internal) return;
 

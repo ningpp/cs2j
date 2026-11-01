@@ -26,6 +26,10 @@ public static class RefOutInPostVerifier
                 var symbol = model.GetDeclaredSymbol(method);
                 if (symbol == null) continue;
                 if (RefOutInAliasAnnotator.IsLocked(symbol)) continue;
+                // Pointer-domain bodies keep their native ref locals and
+                // Unsafe/MemoryMarshal ref arguments BY DESIGN.
+                if (symbol is IMethodSymbol pointerDomain
+                    && RefOutInAliasAnnotator.IsPointerDomainMethod(pointerDomain, model)) continue;
                 // Deconstruction-protocol Deconstruct keeps native out params
                 // (the implicit tuple-deconstruction binding has no invocation
                 // node to lift), so they are not residual debt.
@@ -51,8 +55,11 @@ public static class RefOutInPostVerifier
 
             foreach (var local in root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>()
                          .Where(l => l.Declaration.Type is RefTypeSyntax))
+            {
+                if (IsWithinPointerDomain(local, model)) continue;
                 violations.Add(new ResidualViolation(tree.FilePath,
                     "ref local survived rewriting"));
+            }
 
             foreach (var field in root.DescendantNodes().OfType<FieldDeclarationSyntax>()
                          .Where(f => f.Declaration.Type is RefTypeSyntax))
@@ -62,6 +69,7 @@ public static class RefOutInPostVerifier
             foreach (var refExpr in root.DescendantNodes().OfType<RefExpressionSyntax>())
             {
                 if (refExpr.Ancestors().OfType<AnonymousFunctionExpressionSyntax>().Any()) continue;
+                if (IsWithinPointerDomain(refExpr, model)) continue;
                 var arg = refExpr.Ancestors().OfType<ArgumentSyntax>().FirstOrDefault();
                 if (arg != null)
                 {
@@ -79,6 +87,27 @@ public static class RefOutInPostVerifier
             }
         }
         return violations;
+    }
+
+    /// <summary>
+    /// True when <paramref name="node"/> sits inside a pointer-domain method
+    /// or local function, whose native ref locals are the intended output.
+    /// </summary>
+    private static bool IsWithinPointerDomain(SyntaxNode node, SemanticModel model)
+    {
+        foreach (var ancestor in node.Ancestors())
+        {
+            switch (ancestor)
+            {
+                case LocalFunctionStatementSyntax localFunction:
+                    return model.GetDeclaredSymbol(localFunction) is IMethodSymbol localSymbol
+                        && RefOutInAliasAnnotator.IsPointerDomainMethod(localSymbol, model);
+                case BaseMethodDeclarationSyntax member:
+                    return model.GetDeclaredSymbol(member) is IMethodSymbol methodSymbol
+                        && RefOutInAliasAnnotator.IsPointerDomainMethod(methodSymbol, model);
+            }
+        }
+        return false;
     }
 
     /// <summary>
