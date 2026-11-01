@@ -1,4 +1,4 @@
-using CSharpToJava.Core.LocalFunctionLift;
+﻿using CSharpToJava.Core.LocalFunctionLift;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -18,6 +18,7 @@ internal sealed class LocalFunctionLiftPassAdapter : ProjectPassAdapter
     private readonly bool _strict;
 
     private readonly LocalFunctionLiftPreprocessor _preprocessor = new();
+    private int _ambiguousNameSkips;
     private readonly List<LocalFunctionLiftDiagnostic> _diagnostics = new();
     private readonly LocalFunctionLiftStatistics _statistics = new();
 
@@ -57,6 +58,14 @@ internal sealed class LocalFunctionLiftPassAdapter : ProjectPassAdapter
 
         foreach (var diagnostic in result.Diagnostics)
         {
+            // AmbiguousName 跳过是整树编译把别的工程的 global using 泄漏进本文件
+            // 导致的绑定失败（工具链近似，不是源码缺陷）：这些局部函数有意保留，
+            // 由 residual 闸门按数量豁免，不得升成 Error 中断链。
+            if (diagnostic.Reason == LocalFunctionSkipReason.AmbiguousName)
+            {
+                _ambiguousNameSkips++;
+            }
+
             _diagnostics.Add(diagnostic with { FilePath = context.RelativePath });
         }
 
@@ -73,7 +82,10 @@ internal sealed class LocalFunctionLiftPassAdapter : ProjectPassAdapter
 
     public override Task AfterFilesAsync(PassTreeContext tree)
     {
-        var residualCount = CountResidualLocalFunctions(tree.IntermediateRoot);
+        // 有意保留（AmbiguousName）的局部函数不计入 residual：否则 strict 模式会把
+        // 工具链近似造成的跳过升成 Error，整链无法前进。
+        var residualCount = Math.Max(
+            0, CountResidualLocalFunctions(tree.IntermediateRoot) - _ambiguousNameSkips);
         _statistics.LocalFunctionsResidual = residualCount;
 
         if (residualCount > 0)

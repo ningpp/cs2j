@@ -60,8 +60,50 @@ internal sealed class LocalFunctionLiftAnalyzer
         // If a non-skipped local function calls a skipped local function,
         // it cannot be lifted because the skipped function remains local.
         CheckReferencesToSkippedLocalFunctions(plans);
+        CheckDuplicateNamesWithUnboundCallSites(root, plans);
 
         return plans;
+    }
+
+    /// <summary>
+    /// 同一宿主类型内重名局部函数且调用点绑定失败时整组保守跳过。
+    /// 重写器在符号缺失时按名字回退到唯一 plan；重名会让所有未绑定调用点
+    /// 指向同一个 plan（真实 SDK：GetDefaultSimpleConverters 与
+    /// GetDictionaryKeyConverters 都声明局部函数 Add，整树编译把
+    /// regular-expressions 工程的 global using System.ComponentModel 泄漏进
+    /// json 文件，使 new BooleanConverter() 二义 → Add(...) 绑定失败，18 个
+    /// Dictionary 调用被错误改写成 ConcurrentDictionary 版本 → CS1503）。
+    /// </summary>
+    private void CheckDuplicateNamesWithUnboundCallSites(
+        CompilationUnitSyntax root, List<LiftPlan> plans)
+    {
+        foreach (var group in plans
+                     .Where(p => !p.Skipped)
+                     .GroupBy(p => (Host: p.HostType, Name: p.Node.Identifier.Text)))
+        {
+            if (group.Count() < 2)
+            {
+                continue;
+            }
+
+            var name = group.Key.Name;
+            var hasUnbound = root.DescendantNodes()
+                .OfType<InvocationExpressionSyntax>()
+                .Any(invocation => invocation.Expression is IdentifierNameSyntax id
+                    && string.Equals(id.Identifier.Text, name, StringComparison.Ordinal)
+                    && _model.GetSymbolInfo(invocation).Symbol == null);
+            if (!hasUnbound)
+            {
+                continue;
+            }
+
+            foreach (var plan in group)
+            {
+                Skip(plan, LocalFunctionSkipReason.AmbiguousName,
+                    "another local function with the same name exists in this type and a call site " +
+                    "does not bind; the name-based fallback would target the wrong overload");
+            }
+        }
     }
 
     private LiftPlan AnalyzeOne(CompilationUnitSyntax root, LocalFunctionStatementSyntax localFn)

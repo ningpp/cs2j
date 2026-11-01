@@ -1,4 +1,4 @@
-namespace CSharpToJava.Core.LocalFunctionLift;
+﻿namespace CSharpToJava.Core.LocalFunctionLift;
 
 public enum LocalFunctionLiftSeverity { Info, Warning, Error }
 
@@ -7,7 +7,7 @@ public enum LocalFunctionSkipReason
     None, Iterator, NoBody, NoHostType, InterfaceHost, MethodGroupConversion,
     CheckedContext, UnsupportedCaptureType, RefCaptureUnavailable,
     EnclosingTypeParameterConflict, ParamsOrOptionalConflict,
-    NamedArgumentCallSite, ReferencesSkippedLocalFunction, InternalError,
+    NamedArgumentCallSite, ReferencesSkippedLocalFunction, InternalError, AmbiguousName,
 }
 
 public sealed record LocalFunctionLiftDiagnostic(
