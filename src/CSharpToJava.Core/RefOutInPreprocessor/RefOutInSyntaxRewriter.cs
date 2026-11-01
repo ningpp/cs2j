@@ -530,7 +530,8 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         }
 
         return node
-            .WithBody(BuildShadowBlock(block, shadows, returnsVoid, returnTypeDisplay, returnTypeIsRefLike))
+            .WithBody(BuildShadowBlock(block, shadows, returnsVoid, returnTypeDisplay, returnTypeIsRefLike,
+                exceptionSafe: true))
             .WithExpressionBody(null)
             .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
     }
@@ -547,7 +548,10 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         // statement; wrapping the lifted call in `return` is CS0127.
         if (node.ReturnType is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.VoidKeyword })
         {
-            stmts.Add(SyntaxFactory.ExpressionStatement(InjectSlotValues(lifted)));
+            // The void call (and its read-backs) may already be a hoisted
+            // try/finally statement under a ref copy-back.
+            if (!RefOutInStatementLifter.IsStatementOnlyExpression(lifted))
+                stmts.Add(SyntaxFactory.ExpressionStatement(InjectSlotValues(lifted)));
         }
         else
         {
@@ -682,13 +686,14 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                 if (visited.Body != null)
                 {
                     visited = visited.WithBody(
-                        BuildShadowBlock(visited.Body, shadows, returnsVoid: true, returnTypeDisplay: null));
+                        BuildShadowBlock(visited.Body, shadows, returnsVoid: true, returnTypeDisplay: null,
+                            exceptionSafe: true));
                 }
                 else if (visited.ExpressionBody != null)
                 {
                     var block = BlockFromShadowExpression(visited.ExpressionBody.Expression, returnsVoid: true);
                     visited = visited
-                        .WithBody(BuildShadowBlock(block, shadows, true, null))
+                        .WithBody(BuildShadowBlock(block, shadows, true, null, exceptionSafe: true))
                         .WithExpressionBody(null)
                         .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
                 }
@@ -1054,8 +1059,9 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         stmts.AddRange(hoisted);
         // A non-void lifted call is already materialized as 
         // in the hoisted statements — a bare temp statement would be CS0201.
-        if (!(lifted is IdentifierNameSyntax callTemp
-            && callTemp.Identifier.ValueText.StartsWith("__call", StringComparison.Ordinal)))
+        if (!RefOutInStatementLifter.IsStatementOnlyExpression(lifted)
+            && !(lifted is IdentifierNameSyntax callTemp
+                 && callTemp.Identifier.ValueText.StartsWith("__call", StringComparison.Ordinal)))
         {
             stmts.Add(SyntaxFactory.ExpressionStatement(InjectSlotValues(lifted)));
         }
@@ -1505,8 +1511,9 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             preStmts.AddRange(hoisted);
             // A non-void lifted call is already materialized as `var __callN = …`
             // among the hoisted statements — the bare temp would be CS0201.
-            if (!(liftedInit is IdentifierNameSyntax callTemp
-                && callTemp.Identifier.ValueText.StartsWith("__call", StringComparison.Ordinal)))
+            if (!RefOutInStatementLifter.IsStatementOnlyExpression(liftedInit)
+                && !(liftedInit is IdentifierNameSyntax callTemp
+                     && callTemp.Identifier.ValueText.StartsWith("__call", StringComparison.Ordinal)))
             {
                 preStmts.Add(SyntaxFactory.ExpressionStatement(InjectSlotValues(liftedInit)));
             }
@@ -1525,7 +1532,9 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                 incStmts.AddRange(hInc);
                 incStmts.AddRange(_lifter.TakePendingReadbacks());
             }
-            incExprs.Add(InjectSlotValues(liftedInc));
+            // A void ref-lifted incrementor was emitted as a statement already.
+            if (!RefOutInStatementLifter.IsStatementOnlyExpression(liftedInc))
+                incExprs.Add(InjectSlotValues(liftedInc));
         }
 
         // for (I; C; U) B  →  I; while (true) { C-splice; if (!C) break; B-wrapped; U-splice; }
@@ -2246,12 +2255,21 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     /// with holder names bound to the shadows, and copy-out before every own
     /// return plus at void fall-through.
     /// </summary>
+    /// <param name="exceptionSafe">
+    /// When true, the rewritten body runs inside <c>try { … } finally {
+    /// write-backs }</c>, so a throwing body still synchronizes the shadow into
+    /// the holder (a callee that swaps a ref-struct slot and then throws must
+    /// not leave the caller aliasing the old state). Lambdas keep the old
+    /// "exception skips copy-out" contract, so their shadow frame is built
+    /// without this wrapper.
+    /// </param>
     private BlockSyntax BuildShadowBlock(
         BlockSyntax block,
         IReadOnlyList<(string Holder, string Shadow, string Type, bool IsOut)> shadows,
         bool returnsVoid,
         string? returnTypeDisplay,
-        bool returnTypeIsRefLike = false)
+        bool returnTypeIsRefLike = false,
+        bool exceptionSafe = false)
     {
         var statements = new List<StatementSyntax>();
         foreach (var shadow in shadows)
@@ -2262,9 +2280,27 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             .ToList<StatementSyntax>();
         var rewritten = (BlockSyntax)new ShadowReturnWriter(
             writebacks, returnTypeDisplay, returnTypeIsRefLike, NextTemp).Visit(block)!;
-        statements.AddRange(rewritten.Statements);
-        if (returnsVoid)
-            statements.AddRange(writebacks);
+        if (exceptionSafe)
+        {
+            // The copy-out must also run when the body throws: a callee that
+            // mutated the shadow (e.g. MetadataDb.Enlarge swapping _data) then
+            // threw would otherwise leave the holder aliasing the OLD state,
+            // and the caller's exception handler (database.Dispose) would
+            // double-free the already-returned buffer. ShadowReturnWriter
+            // already emits the write-backs before every return; try/finally
+            // covers the throw path (and void fall-through), the duplicate
+            // assignment is idempotent.
+            statements.Add(SyntaxFactory.TryStatement(
+                SyntaxFactory.Block(rewritten.Statements),
+                SyntaxFactory.List<CatchClauseSyntax>(),
+                SyntaxFactory.FinallyClause(SyntaxFactory.Block(writebacks))));
+        }
+        else
+        {
+            statements.AddRange(rewritten.Statements);
+            if (returnsVoid)
+                statements.AddRange(writebacks);
+        }
 
         return SyntaxFactory.Block(statements);
     }
@@ -2417,7 +2453,8 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                 // in the hoisted statements; emitting `__callN;` would be CS0201
                 // (an identifier is not a valid statement expression). True void
                 // calls return the invocation itself and keep their statement.
-                if (!finalExpression.HasAnnotation(RefOutInStatementLifter.CallResultTempAnnotation))
+                if (!finalExpression.HasAnnotation(RefOutInStatementLifter.CallResultTempAnnotation)
+                    && !RefOutInStatementLifter.IsStatementOnlyExpression(finalExpression))
                 {
                     statements.Add(SyntaxFactory.ExpressionStatement(finalExpression));
                 }
@@ -2569,7 +2606,8 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                 visited = visited.WithBody(
                     BuildShadowBlock(block, shadows, returnsVoid, returnTypeDisplay,
                         !symbol.ReturnsVoid && node.ReturnType is not RefTypeSyntax
-                        && symbol.ReturnType.IsRefLikeType));
+                        && symbol.ReturnType.IsRefLikeType,
+                        exceptionSafe: true));
             }
             return visited;
         }

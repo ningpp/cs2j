@@ -36,6 +36,21 @@ internal sealed class RefOutInStatementLifter
     /// result must NOT emit <c>__callN;</c> as a statement (CS0201).
     /// </summary>
     internal static readonly SyntaxAnnotation CallResultTempAnnotation = new("Cs2jLiftedCallTemp");
+    /// <summary>
+    /// Marks the copy-back statement of a <c>ref</c> (non-<c>out</c>) argument.
+    /// Such a write-back must also run when the callee throws: the callee may
+    /// have mutated the aliased value before throwing (a ref-struct holder
+    /// swap, a struct member write). <c>out</c> read-backs stay on the normal
+    /// completion path only — the C# out contract is "assigned iff the call
+    /// returns".
+    /// </summary>
+    internal static readonly SyntaxAnnotation ExceptionSyncReadbackAnnotation = new("Cs2jExceptionSyncReadback");
+    /// <summary>
+    /// Marks the placeholder expression returned for a void lifted call whose
+    /// call statement (plus its try/finally read-backs) was already emitted as
+    /// a hoisted statement. Callers must not emit it as a statement.
+    /// </summary>
+    internal static readonly SyntaxAnnotation StatementOnlyExpressionAnnotation = new("Cs2jStatementOnlyExpression");
 
     private readonly RefOutInSyntaxRewriter _owner;
     private List<StatementSyntax> _out = new();
@@ -116,6 +131,13 @@ internal sealed class RefOutInStatementLifter
         _pendingReadbacks.Clear();
         return pending;
     }
+
+    /// <summary>
+    /// True when <paramref name="expr"/> is the placeholder of a void call
+    /// already emitted into the hoisted statements.
+    /// </summary>
+    internal static bool IsStatementOnlyExpression(ExpressionSyntax expr)
+        => expr.HasAnnotation(StatementOnlyExpressionAnnotation);
 
     public bool ContainsLiftable(ExpressionSyntax expr)
     {
@@ -358,7 +380,8 @@ internal sealed class RefOutInStatementLifter
             if (liftedReceiver.decl != null) _out.Add(liftedReceiver.decl);
             // Read-backs are reversed before emission, so the receiver — the
             // first-evaluated (implicit) argument — is written back last.
-            if (liftedReceiver.readback != null) readbacks.Insert(0, liftedReceiver.readback);
+            if (liftedReceiver.readback != null)
+                readbacks.Insert(0, MarkExceptionSyncReadback(liftedReceiver.readback, isOut: false));
             newArgs.Add(ByRefHolderArgument(liftedReceiver.arg, unreduced, 0));
             anyLifted = true;
 
@@ -401,7 +424,8 @@ internal sealed class RefOutInStatementLifter
 
             var lifted = LiftArgument(method, i, arg, isOut);
             if (lifted.decl != null) _out.Add(lifted.decl);
-            if (lifted.readback != null) readbacks.Add(lifted.readback);
+            if (lifted.readback != null)
+                readbacks.Add(MarkExceptionSyncReadback(lifted.readback, isOut));
             newArgs.Add(ByRefHolderArgument(lifted.arg, method, i));
             anyLifted = true;
         }
@@ -424,6 +448,20 @@ internal sealed class RefOutInStatementLifter
         readbacks.Reverse();
         if (method.ReturnsVoid)
         {
+            // A ref (non-out) copy-back must still run when the callee throws:
+            // the callee may have mutated the aliased value before throwing
+            // (e.g. MetadataDb.Enlarge swapping _data). The call statement and
+            // the out read-backs stay in try, the ref read-backs go to finally;
+            // the whole shape is emitted here and the placeholder must not be
+            // emitted as a statement by the caller.
+            if (ContainsRefReadback(readbacks))
+            {
+                _out.Add(BuildExceptionSafeCall(
+                    SyntaxFactory.ExpressionStatement(_owner.InjectSlotValues(newInvocation)),
+                    readbacks));
+                return Identifier("__statementOnly")
+                    .WithAdditionalAnnotations(StatementOnlyExpressionAnnotation);
+            }
             // The call statement itself is assembled by the caller (expression
             // statement / arrow body); read-backs must follow it, so they go to
             // the pending buffer.
@@ -432,6 +470,32 @@ internal sealed class RefOutInStatementLifter
         }
 
         var temp = Temp("__call");
+        // A ref-like (span) result is excluded: escape analysis only grants it
+        // caller-context safe-to-escape when the local is declared WITH the
+        // call as its initializer, so a "declare then assign in try" shape is
+        // CS9077/CS8347. Such calls keep the plain declaration and copy the
+        // read-backs after it (the callee's own finally still syncs the shadow).
+        if (ContainsRefReadback(readbacks) && !method.ReturnType.IsRefLikeType)
+        {
+            // Same exception-safety shape for a value-returning call: declare
+            // the result temp OUTSIDE the try (definite assignment), assign it
+            // and run the out read-backs in try, run the ref read-backs in
+            // finally. The original consumer statement follows the temp.
+            var tempType = method.RefKind is RefKind.Ref or RefKind.RefReadOnly
+                && _owner.IsInternalCandidate(method)
+                ? $"ByRef<{_owner.TypeDisplay(method.ReturnType)}>"   // rewritten internal ref return
+                : _owner.TypeDisplay(method.ReturnType);              // native/external ref T (copied)
+            var defaultLiteral = method.ReturnType.IsValueType ? "default" : "default!";
+            _out.Add(ParseStmt($"{tempType} {temp} = {defaultLiteral};"));
+            _out.Add(BuildExceptionSafeCall(
+                SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    Identifier(temp),
+                    newInvocation)),
+                readbacks));
+            return Identifier(temp).WithAdditionalAnnotations(CallResultTempAnnotation);
+        }
+
         // Build the declaration from syntax nodes instead of interpolating and
         // re-parsing: newInvocation REUSES original argument nodes (including
         // delegate lambdas), and a re-parse would detach them from the original
@@ -445,6 +509,29 @@ internal sealed class RefOutInStatementLifter
                         .WithInitializer(SyntaxFactory.EqualsValueClause(newInvocation))))));
         _out.AddRange(readbacks);
         return Identifier(temp).WithAdditionalAnnotations(CallResultTempAnnotation);
+    }
+
+    /// <summary>Tags a <c>ref</c> copy-back so the emission splits it into finally.</summary>
+    private static StatementSyntax MarkExceptionSyncReadback(StatementSyntax readback, bool isOut)
+        => isOut ? readback : readback.WithAdditionalAnnotations(ExceptionSyncReadbackAnnotation);
+
+    private static bool ContainsRefReadback(IReadOnlyList<StatementSyntax> readbacks)
+        => readbacks.Any(r => r.HasAnnotation(ExceptionSyncReadbackAnnotation));
+
+    /// <summary>
+    /// <c>try { callStatement; out-readbacks } finally { ref-readbacks }</c>
+    /// (no catch: the callee exception still propagates).
+    /// </summary>
+    private static TryStatementSyntax BuildExceptionSafeCall(
+        StatementSyntax callStatement, IReadOnlyList<StatementSyntax> readbacks)
+    {
+        var tryStatements = new List<StatementSyntax> { callStatement };
+        tryStatements.AddRange(readbacks.Where(r => !r.HasAnnotation(ExceptionSyncReadbackAnnotation)));
+        return SyntaxFactory.TryStatement(
+            SyntaxFactory.Block(tryStatements),
+            SyntaxFactory.List<CatchClauseSyntax>(),
+            SyntaxFactory.FinallyClause(
+                SyntaxFactory.Block(readbacks.Where(r => r.HasAnnotation(ExceptionSyncReadbackAnnotation)))));
     }
 
     private (StatementSyntax? decl, StatementSyntax? readback, ArgumentSyntax arg) LiftArgument(
