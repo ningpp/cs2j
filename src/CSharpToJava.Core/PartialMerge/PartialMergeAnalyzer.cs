@@ -146,6 +146,29 @@ internal sealed class PartialMergeAnalyzer
             }
         }
 
+        // Using-conflict gate (part-file directives that must be carried into the
+        // primary): a needed namespace using can make the primary file's existing
+        // simple names ambiguous (CS0104) even though each file compiled alone.
+        // The merge is then unsafe as-is → leave the group multi-part.
+        foreach (var group in units.Where(g =>
+                     g.Parts.Count > 1
+                     && !g.SkipBaseline && !g.SkipUnsupportedShape && !g.SkipEnclosingInactive))
+        {
+            var conflict = FindUsingConflict(compilation, group);
+            if (conflict == null)
+            {
+                continue;
+            }
+
+            group.SkipUnsupportedShape = true;
+            diagnostics.Add(new PartialMergeDiagnostic(
+                PartialMergeSeverity.Warning,
+                PartialMergeCodes.GroupRolledBack,
+                "group left multi-part: carrying the part using directive '" + conflict +
+                "' would make an existing name in the primary file ambiguous",
+                TypeFullName: group.TypeFullName));
+        }
+
         // Nested groups whose containing group is already inactive cannot be
         // merged (their merged node only rides a merged container): flag them so
         // they are neither built nor counted active. Re-run after M3 single-part
@@ -378,7 +401,9 @@ internal sealed class PartialMergeAnalyzer
                     var unit = part.Declaration.FirstAncestorOrSelf<CompilationUnitSyntax>()!;
                     foreach (var directive in unit.Usings)
                     {
-                        if (globalSeen.Add(UsingKey(directive)))
+                        if (!globalSeen.Add(UsingKey(directive))) continue;
+                        // 只带部件成员体真正用到的 using（见 PartUsesUsing）。
+                        if (PartUsesUsing(compilation, part.Declaration, directive))
                         {
                             globalMissing.Add(directive);
                         }
@@ -414,7 +439,10 @@ internal sealed class PartialMergeAnalyzer
                                 continue;
                             }
 
-                            bucket.Missing.Add(directive);
+                            if (PartUsesUsing(compilation, part.Declaration, directive))
+                            {
+                                bucket.Missing.Add(directive);
+                            }
                         }
                     }
                 }
@@ -528,6 +556,178 @@ internal sealed class PartialMergeAnalyzer
     private static BaseNamespaceDeclarationSyntax? EnclosingNamespace(
         BaseNamespaceDeclarationSyntax ns)
         => ns.Parent?.FirstAncestorOrSelf<BaseNamespaceDeclarationSyntax>();
+
+    /// <summary>
+    /// 只把部件成员体真正用到的 using 带进主文件。无条件带入会把部件文件里
+    /// 未使用的指令提升到合并文件（真实 SDK：JsonSerializerOptions.cs 的
+    /// <c>using System.ComponentModel;</c>），使主文件原有同名引用二义
+    /// （BooleanConverter 在 Serialization.Converters 与 System.ComponentModel
+    /// 之间 → CS0104，部分合并树 build 失败）。
+    /// 保守方向：别名/static/global/无法解析的指令、以及任何可能被间接使用
+    /// （扩展方法）的情形一律保留（true）。
+    /// </summary>
+    private static bool PartUsesUsing(
+        CSharpCompilation compilation,
+        TypeDeclarationSyntax part,
+        UsingDirectiveSyntax directive)
+    {
+        if (directive.Alias != null
+            || directive.StaticKeyword != default
+            || directive.GlobalKeyword != default
+            || directive.Name is null)
+        {
+            return true;
+        }
+
+        var ns = ResolveNamespace(compilation.GlobalNamespace, directive.Name);
+        if (ns == null)
+        {
+            return true; // 无法解析命名空间 → 不敢裁剪。
+        }
+
+        var provided = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var type in ns.GetTypeMembers())
+        {
+            provided.Add(type.Name);
+            // 特性短名：[Required] 绑定 RequiredAttribute，标识符里只出现短名。
+            if (type.Name.EndsWith("Attribute", StringComparison.Ordinal)
+                && type.Name.Length > "Attribute".Length)
+            {
+                provided.Add(type.Name[..^"Attribute".Length]);
+            }
+
+            foreach (var member in type.GetMembers())
+            {
+                if (member is IMethodSymbol { IsExtensionMethod: true })
+                {
+                    provided.Add(member.Name);
+                }
+            }
+        }
+
+        foreach (var node in part.DescendantNodes())
+        {
+            var name = node switch
+            {
+                IdentifierNameSyntax id => id.Identifier.ValueText,
+                GenericNameSyntax generic => generic.Identifier.ValueText,
+                _ => null,
+            };
+            if (name != null && provided.Contains(name))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 找出「必须携带进主文件的部件 using」中会与主文件现有简单名冲突的指令。
+    /// 返回冲突指令的命名空间名（无冲突 null）。每个文件单独编译时都合法，
+    /// 但合并后同一编译单位里两个 using 同时提供同名类型 → CS0104。
+    /// </summary>
+    private static string? FindUsingConflict(
+        CSharpCompilation compilation, TypeGroupPlan group)
+    {
+        var primary = group.Primary.Declaration;
+        var primaryUnit = primary.FirstAncestorOrSelf<CompilationUnitSyntax>()!;
+        var visible = new HashSet<string>(
+            primaryUnit.Usings.Select(UsingKey), StringComparer.Ordinal);
+        for (var ns = primary.FirstAncestorOrSelf<BaseNamespaceDeclarationSyntax>();
+             ns != null;
+             ns = EnclosingNamespace(ns))
+        {
+            foreach (var directive in ns.Usings)
+            {
+                visible.Add(UsingKey(directive));
+            }
+        }
+
+        var primaryNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var node in primary.DescendantNodes())
+        {
+            var name = node switch
+            {
+                IdentifierNameSyntax id => id.Identifier.ValueText,
+                GenericNameSyntax generic => generic.Identifier.ValueText,
+                _ => null,
+            };
+            if (name != null)
+            {
+                primaryNames.Add(name);
+            }
+        }
+
+        foreach (var part in group.Parts.Skip(1))
+        {
+            foreach (var directive in EnumerateUsings(part.Declaration))
+            {
+                if (directive.Alias != null
+                    || directive.StaticKeyword != default
+                    || directive.GlobalKeyword != default
+                    || directive.Name is null)
+                {
+                    continue;
+                }
+
+                if (visible.Contains(UsingKey(directive))) continue;
+                if (!PartUsesUsing(compilation, part.Declaration, directive)) continue;
+
+                var ns = ResolveNamespace(compilation.GlobalNamespace, directive.Name);
+                if (ns == null) continue;
+                foreach (var type in ns.GetTypeMembers())
+                {
+                    if (primaryNames.Contains(type.Name)
+                        || (type.Name.EndsWith("Attribute", StringComparison.Ordinal)
+                            && type.Name.Length > "Attribute".Length
+                            && primaryNames.Contains(type.Name[..^"Attribute".Length])))
+                    {
+                        return directive.Name.ToString();
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<UsingDirectiveSyntax> EnumerateUsings(TypeDeclarationSyntax part)
+    {
+        var unit = part.FirstAncestorOrSelf<CompilationUnitSyntax>()!;
+        foreach (var directive in unit.Usings)
+        {
+            yield return directive;
+        }
+
+        for (var ns = part.FirstAncestorOrSelf<BaseNamespaceDeclarationSyntax>();
+             ns != null;
+             ns = EnclosingNamespace(ns))
+        {
+            foreach (var directive in ns.Usings)
+            {
+                yield return directive;
+            }
+        }
+    }
+
+    private static INamespaceSymbol? ResolveNamespace(INamespaceSymbol global, NameSyntax name)
+    {
+        var current = global;
+        foreach (var part in name.ToString().Split('.'))
+        {
+            var next = current.GetNamespaceMembers()
+                .FirstOrDefault(member => string.Equals(member.Name, part, StringComparison.Ordinal));
+            if (next == null)
+            {
+                return null;
+            }
+
+            current = next;
+        }
+
+        return current;
+    }
 
     private static string UsingKey(UsingDirectiveSyntax directive)
     {
