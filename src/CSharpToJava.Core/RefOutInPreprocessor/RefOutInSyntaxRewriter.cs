@@ -2316,7 +2316,14 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             var finalExpression = InjectSlotValues(remainder);
             if (returnsVoid)
             {
-                statements.Add(SyntaxFactory.ExpressionStatement(finalExpression));
+                // A discarded non-void lifted call is already a `var __callN = …;`
+                // in the hoisted statements; emitting `__callN;` would be CS0201
+                // (an identifier is not a valid statement expression). True void
+                // calls return the invocation itself and keep their statement.
+                if (!finalExpression.HasAnnotation(RefOutInStatementLifter.CallResultTempAnnotation))
+                {
+                    statements.Add(SyntaxFactory.ExpressionStatement(finalExpression));
+                }
                 statements.AddRange(pending);
             }
             else

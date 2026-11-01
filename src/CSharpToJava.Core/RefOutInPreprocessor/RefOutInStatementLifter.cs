@@ -29,6 +29,13 @@ internal sealed class RefOutInStatementLifter
     /// hoisted statements must run where the condition is evaluated.
     /// </summary>
     internal static readonly SyntaxAnnotation RootDeclarationAnnotation = new("Cs2jRootDeclaration");
+    /// <summary>
+    /// Marks the temp identifier returned in place of a lifted NON-void call
+    /// whose result was already materialized as <c>var __callN = …;</c> in the
+    /// hoisted statements. A void-delegate lambda body that discarded the
+    /// result must NOT emit <c>__callN;</c> as a statement (CS0201).
+    /// </summary>
+    internal static readonly SyntaxAnnotation CallResultTempAnnotation = new("Cs2jLiftedCallTemp");
 
     private readonly RefOutInSyntaxRewriter _owner;
     private List<StatementSyntax> _out = new();
@@ -437,7 +444,7 @@ internal sealed class RefOutInStatementLifter
                     SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(temp))
                         .WithInitializer(SyntaxFactory.EqualsValueClause(newInvocation))))));
         _out.AddRange(readbacks);
-        return Identifier(temp);
+        return Identifier(temp).WithAdditionalAnnotations(CallResultTempAnnotation);
     }
 
     private (StatementSyntax? decl, StatementSyntax? readback, ArgumentSyntax arg) LiftArgument(
