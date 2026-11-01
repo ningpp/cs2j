@@ -333,6 +333,36 @@ internal sealed class RefOutInStatementLifter
         var readbacks = new List<StatementSyntax>();
         var newArgs = new List<ArgumentSyntax>();
         bool anyLifted = false;
+        ExpressionSyntax? staticCallee = null;
+
+        // Reduced extension invocation of a converted `this ref` parameter
+        // (`reader.GetSpan()`): the receiver is an IMPLICIT argument 0 (ref),
+        // not part of the ArgumentList, so the explicit loop below never sees
+        // it and the main rewriter would inject `reader.Value` as the
+        // receiver — CS1929 against the rewritten `RefStructByRef<T>`/ByRef<T>
+        // signature. Lift the receiver exactly like an explicit ref argument
+        // and rewrite the call to its static form `T.M(receiver, ...)`.
+        if (IsReducedExtensionOnLiftedReceiver(invocation, method)
+            && invocation.Expression is MemberAccessExpressionSyntax receiverAccess)
+        {
+            var unreduced = method.ReducedFrom!;
+            var liftedReceiver = LiftArgument(
+                unreduced, 0, null, receiverAccess.Expression, isOut: false);
+            if (liftedReceiver.decl != null) _out.Add(liftedReceiver.decl);
+            // Read-backs are reversed before emission, so the receiver — the
+            // first-evaluated (implicit) argument — is written back last.
+            if (liftedReceiver.readback != null) readbacks.Insert(0, liftedReceiver.readback);
+            newArgs.Add(liftedReceiver.arg);
+            anyLifted = true;
+
+            // Static target is generated syntax: it must never be run through
+            // holder slot injection.
+            staticCallee = SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                SyntaxFactory.ParseExpression(unreduced.ContainingType.ToDisplayString(
+                    SymbolDisplayFormat.FullyQualifiedFormat)),
+                receiverAccess.Name);
+        }
 
         for (int i = 0; i < invocation.ArgumentList.Arguments.Count; i++)
         {
@@ -380,7 +410,7 @@ internal sealed class RefOutInStatementLifter
         // member chain through a holder) must therefore be substituted here —
         // e.g. `pageNode[idxNode].GetSibling(out page)` (CS0021).
         var newInvocation = invocation
-            .WithExpression(Inject(invocation.Expression))
+            .WithExpression(staticCallee ?? Inject(invocation.Expression))
             .WithArgumentList(
                 SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(newArgs)));
 
@@ -412,8 +442,24 @@ internal sealed class RefOutInStatementLifter
 
     private (StatementSyntax? decl, StatementSyntax? readback, ArgumentSyntax arg) LiftArgument(
         IMethodSymbol method, int index, ArgumentSyntax arg, bool isOut)
+        => LiftArgument(method, index, arg, arg.Expression, isOut);
+
+    /// <param name="arg">
+    /// The original argument node at this position (its <c>ref</c>/<c>out</c>
+    /// keyword is preserved when the parameter keeps its native form); null for
+    /// the implicit receiver of a reduced extension invocation.
+    /// </param>
+    /// <param name="expression">
+    /// The lifted expression, passed separately from <paramref name="arg"/>:
+    /// wrapping an original node in a synthesized ArgumentSyntax RE-PARENTS it
+    /// (its SyntaxTree stops being the semantic tree), which makes every
+    /// semantic lookup on it throw — the reduced-extension receiver must stay
+    /// bound while the holder/ref-struct shapes are classified.
+    /// </param>
+    private (StatementSyntax? decl, StatementSyntax? readback, ArgumentSyntax arg) LiftArgument(
+        IMethodSymbol method, int index, ArgumentSyntax? arg, ExpressionSyntax expression, bool isOut)
     {
-        var expr = arg.Expression;
+        var expr = expression;
         // 形参侧的 ref/out 站点常带括号或 null-forgiving 后缀（SDK
         // JsonReaderHelper.Unescaping.cs: `out bytes!`）。逐步剥掉这两层纯
         // 静态包装，否则会落到 (7) 的 unsupported shape 并让整个 pass 失败
@@ -455,7 +501,9 @@ internal sealed class RefOutInStatementLifter
                     ? $"{holderTypeName} {temp};"
                     : $"{holderTypeName} {temp} = {holderText}.Value;"),
                 ParseStmt($"{holderText}.Value = {temp};"),
-                arg.WithExpression(Identifier(temp)));
+                arg != null
+                    ? arg.WithExpression(Identifier(temp))
+                    : SyntaxFactory.Argument(Identifier(temp)));
         }
 
         // (1) holder slot direct pass — internal callee now expects ByRef<T>/RefStructByRef<T>.
@@ -561,9 +609,9 @@ internal sealed class RefOutInStatementLifter
             var arrayType = _owner.GetTypeOf(elem.Expression) as IArrayTypeSymbol;
             if (arrayType != null && arrayType.Rank != 1)
             {
-                Report3303(arg.Expression,
+                Report3303(expression,
                     $"multi-dimensional array element ref (rank {arrayType.Rank}); only rank-1 array proxies are supported");
-                return (null, null, arg);
+                return (null, null, arg ?? SyntaxFactory.Argument(expression));
             }
 
             var baseExpr = _owner.InjectSlotValues(Splice(elem.Expression));
@@ -623,8 +671,8 @@ internal sealed class RefOutInStatementLifter
         }
 
         // (7) anything else — fail fast with a readable diagnostic
-        Report3303(arg.Expression, "unsupported ref/out argument shape");
-        return (null, null, arg);
+        Report3303(expression, "unsupported ref/out argument shape");
+        return (null, null, arg ?? SyntaxFactory.Argument(expression));
     }
 
     /// <summary>
@@ -717,6 +765,64 @@ internal sealed class RefOutInStatementLifter
         => TryGetLiftMethods(inv, out _);
 
     /// <summary>
+    /// True when <paramref name="inv"/> is a reduced extension invocation
+    /// (<c>reader.GetSpan()</c>) whose receiver binds to the declared
+    /// <c>this ref</c>/<c>this out</c> parameter that the declaration pass
+    /// converted to a <c>RefStructByRef&lt;T&gt;</c>/<c>ByRef&lt;T&gt;</c>
+    /// holder. Such a receiver is an implicit ref argument and must be lifted
+    /// together with the call. The receiver shape is restricted to identifiers
+    /// and member/element chains because the copy-out is an assignment back to
+    /// that expression.
+    /// <para>
+    /// The holder decision is taken from the DECLARED receiver parameter's own
+    /// ref kind rather than from <see cref="RefOutInAliasAnnotator.HolderSymbols"/>
+    /// (which is built per FILE): an extension declared in another file
+    /// (<c>JsonHelpers.GetSpan</c> in JsonHelpers.Date.cs vs the call sites in
+    /// the converters) is not in this file's holder set, yet its <c>this ref</c>
+    /// parameter is rewritten in the declaring file exactly by these same
+    /// annotator rules (internal in-source method, non-pointer ref/out).
+    /// </para>
+    /// </summary>
+    private bool IsReducedExtensionOnLiftedReceiver(
+        InvocationExpressionSyntax inv,
+        IMethodSymbol method)
+    {
+        if (method.MethodKind != MethodKind.ReducedExtension || method.ReducedFrom is not { } unreduced)
+            return false;
+        var receiverParam = unreduced.Parameters[0];
+        if (receiverParam.RefKind != RefKind.Ref && receiverParam.RefKind != RefKind.Out)
+            return false;
+        if (RefOutInAliasAnnotator.IsPointerType(receiverParam.Type))
+            return false;
+        if (!_owner.IsInternalCandidate(unreduced))
+            return false;
+        if (inv.Expression is not MemberAccessExpressionSyntax receiverAccess)
+            return false;
+        return IsLiftableReceiverShape(receiverAccess.Expression);
+    }
+
+    private static bool IsLiftableReceiverShape(ExpressionSyntax receiver)
+    {
+        while (true)
+        {
+            switch (receiver)
+            {
+                case ParenthesizedExpressionSyntax parenthesized:
+                    receiver = parenthesized.Expression;
+                    continue;
+                case PostfixUnaryExpressionSyntax suppressed
+                    when suppressed.IsKind(SyntaxKind.SuppressNullableWarningExpression):
+                    receiver = suppressed.Operand;
+                    continue;
+                default:
+                    return receiver is IdentifierNameSyntax
+                        or MemberAccessExpressionSyntax
+                        or ElementAccessExpressionSyntax;
+            }
+        }
+    }
+
+    /// <summary>
     /// Cached candidate resolution; a non-empty list means the call carries at
     /// least one ref/out argument and every candidate will be rewritten.
     /// </summary>
@@ -741,6 +847,18 @@ internal sealed class RefOutInStatementLifter
                     resolved = candidates;
                     break;
                 }
+            }
+
+            // A reduced extension invocation of a converted `this ref`
+            // parameter carries its ref receiver outside the ArgumentList;
+            // it must be lifted even with zero explicit ref/out arguments,
+            // otherwise the receiver keeps the raw value and the rewritten
+            // callee rejects it (CS1929).
+            if (resolved == null
+                && candidates.Count > 0
+                && candidates.All(m => IsReducedExtensionOnLiftedReceiver(inv, m)))
+            {
+                resolved = candidates;
             }
         }
         else if (_owner.TryGetExternalHolderRefMethod(inv, out var nativeCallee))
