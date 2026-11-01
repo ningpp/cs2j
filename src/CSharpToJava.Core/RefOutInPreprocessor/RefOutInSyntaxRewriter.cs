@@ -2479,6 +2479,17 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitArgument(ArgumentSyntax node)
     {
+        // CD8: the DECLARATION side strips `in` from internal in-parameters
+        // (unless the modifier is kept for an overload collision), so a call
+        // site that writes `in` explicitly must drop the keyword too. A call
+        // passing no ref/out argument is never statement-lifted, so this
+        // argument visit is the only place that can align it — otherwise the
+        // rewritten parameter matches a keyword-carrying argument (CS1615).
+        // The decision is taken BEFORE the visit: rebuilding the node with a
+        // new keyword detaches its children from the semantic tree.
+        bool stripInKeyword = ShouldStripCallSiteInKeyword(node);
+        var visited = base.VisitArgument(node);
+
         if (node.Expression is IdentifierNameSyntax id
             && (node.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
                 || node.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
@@ -2502,10 +2513,48 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                         $"'{target.ToDisplayString()}' — C# cannot express this through a holder (D3 §9.4)");
             }
         }
-        return base.VisitArgument(node);
+
+        if (stripInKeyword && visited is ArgumentSyntax rewrittenArgument)
+        {
+            return rewrittenArgument.WithRefKindKeyword(
+                SyntaxFactory.Token(SyntaxKind.None));
+        }
+
+        return visited;
     }
 
     // ── C4: ref-return proxies ──────────────────────────────────────────────
+
+    /// <summary>
+    /// True when an explicit call-site <c>in</c> keyword must be dropped to
+    /// match the rewritten declaration. Only internal source candidates whose
+    /// parameter at this position is <c>in</c> and was NOT kept for an
+    /// overload collision qualify: external (metadata/BCL) and locked callees
+    /// keep their native signature, and local functions keep their <c>in</c>
+    /// modifiers unchanged. Named arguments are not mapped positionally,
+    /// unresolved (detached fragment / ambiguous) invocations are left alone.
+    /// </summary>
+    private bool ShouldStripCallSiteInKeyword(ArgumentSyntax node)
+    {
+        if (!node.RefKindKeyword.IsKind(SyntaxKind.InKeyword)
+            || node.NameColon != null
+            || node.Parent is not ArgumentListSyntax list
+            || list.Parent is not InvocationExpressionSyntax invocation)
+            return false;
+
+        var method = ResolveInvocation(invocation);
+        if (method == null
+            || method.MethodKind == MethodKind.LocalFunction
+            || !IsInternalCandidate(method))
+            return false;
+
+        var index = list.Arguments.IndexOf(node);
+        if (index < 0 || index >= method.Parameters.Length)
+            return false;
+
+        return method.Parameters[index].RefKind == RefKind.In
+            && !IsInKept(method, index);
+    }
 
     private ExpressionSyntax BuildReturnProxy(ExpressionSyntax inner)
     {
