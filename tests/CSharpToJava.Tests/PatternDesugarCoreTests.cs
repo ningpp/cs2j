@@ -610,6 +610,33 @@ class C {
     }
 
     [Fact]
+    public void CatchFilter_SameNameDifferentTypes_GetsDistinctHoistedBindings()
+    {
+        // Legal C#: each catch clause has its own scope, so every clause may reuse
+        // `ex` with a different exception type. The merged chain is ONE scope, so
+        // the later differing-type clause must not reuse the first hoisted type —
+        // doing so emits wrong `is` tests/casts and breaks overload resolution at
+        // call sites that need the specific exception type (CS1503).
+        var result = Desugar("""
+class C {
+    static void TakeIo(System.IO.IOException io) { System.Console.WriteLine(io.Message); }
+    void M() {
+        try { System.Console.WriteLine(); }
+        catch (System.FormatException ex) when (ex.Message != null) { System.Console.WriteLine(ex.Message); }
+        catch (System.IO.IOException ex) when (ex.Message != null) { TakeIo(ex); }
+    }
+}
+""");
+        var text = Normalize(result.OutputCode);
+        Assert.Contains("System.FormatException ex;", text);
+        Assert.Contains("System.IO.IOException __cs2jCatch_0;", text);
+        Assert.Contains("__cs2jEx_0 is System.FormatException", text);
+        Assert.Contains("__cs2jEx_0 is System.IO.IOException", text);
+        Assert.Contains("TakeIo(__cs2jCatch_0)", text);
+        AssertCompilesAndClean(result);
+    }
+
+    [Fact]
     public void CatchFilter_MultiType_MultiFilter_OrderPreserved()
     {
         var result = Desugar("""

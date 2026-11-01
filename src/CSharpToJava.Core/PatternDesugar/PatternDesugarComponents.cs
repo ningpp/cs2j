@@ -129,6 +129,19 @@ internal sealed class CatchLoweringPlan
     {
         public required CatchClauseSyntax Clause { get; init; }
         public required string? OriginalVariableName { get; init; }
+
+        /// <summary>
+        /// Name this clause binds in the merged chain. Equals the original name
+        /// unless an earlier clause reuses the SAME name for a DIFFERENT exception
+        /// type: each C# catch has its own scope, but the merged chain hoists one
+        /// declaration per name, so the later clause gets a generated name and its
+        /// body/filter is renamed accordingly.
+        /// </summary>
+        public required string? LoweredVariableName { get; init; }
+
+        /// <summary>Hoisted binding info of this clause's own exception type.</summary>
+        public required BindingInfo? Binding { get; init; }
+
         public required bool IsTypeParameter { get; init; }
     }
 }
@@ -630,8 +643,18 @@ internal sealed class CatchClauseComponent : IPatternDesugarComponent
         {
             var clausePlan = plan.Clauses[i];
             var clause = clausePlan.Clause;
+            var needsRename = clausePlan.LoweredVariableName != null
+                && !string.Equals(
+                    clausePlan.LoweredVariableName,
+                    clausePlan.OriginalVariableName,
+                    StringComparison.Ordinal);
             var body = SyntaxFactory.Block(clause.Block.Statements
                 .Select(s => (StatementSyntax)rewriter.Visit(s)!).ToList());
+            if (needsRename)
+            {
+                body = (BlockSyntax)RenameIdentifier(
+                    clausePlan.OriginalVariableName!, clausePlan.LoweredVariableName!, body);
+            }
 
             if (clause.Declaration == null)
             {
@@ -640,13 +663,11 @@ internal sealed class CatchClauseComponent : IPatternDesugarComponent
             }
 
             ExpressionSyntax condition;
-            if (clausePlan.OriginalVariableName != null
-                && plan.Scope.AssignBindings.TryGetValue(
-                    clausePlan.OriginalVariableName, out var binding))
+            if (clausePlan is { LoweredVariableName: not null, Binding: not null })
             {
                 condition = PatternReducer.AssignBindingCondition(
-                    subject, binding.Type, clausePlan.OriginalVariableName,
-                    binding.SelfCompare, binding.CastThroughObject);
+                    subject, clausePlan.Binding.Type, clausePlan.LoweredVariableName,
+                    clausePlan.Binding.SelfCompare, clausePlan.Binding.CastThroughObject);
             }
             else
             {
@@ -655,9 +676,17 @@ internal sealed class CatchClauseComponent : IPatternDesugarComponent
 
             if (clause.Filter != null)
             {
+                var filterExpression = clause.Filter.FilterExpression.WithoutTrivia();
+                if (needsRename)
+                {
+                    filterExpression = (ExpressionSyntax)RenameIdentifier(
+                        clausePlan.OriginalVariableName!, clausePlan.LoweredVariableName!,
+                        filterExpression);
+                }
+
                 condition = SyntaxFactory.BinaryExpression(SyntaxKind.LogicalAndExpression,
                     condition,
-                    SyntaxFactory.ParenthesizedExpression(clause.Filter.FilterExpression.WithoutTrivia()));
+                    SyntaxFactory.ParenthesizedExpression(filterExpression));
                 filtersLowered++;
             }
             if (clausePlan.IsTypeParameter)
@@ -720,6 +749,8 @@ internal sealed class CatchClauseComponent : IPatternDesugarComponent
                     {
                         Clause = clauses[0],
                         OriginalVariableName = OriginalVariableName(clauses[0]),
+                        LoweredVariableName = OriginalVariableName(clauses[0]),
+                        Binding = null,
                         IsTypeParameter = false,
                     },
                 },
@@ -727,17 +758,49 @@ internal sealed class CatchClauseComponent : IPatternDesugarComponent
             return;
         }
 
-        // Hoisted bindings for every named clause variable (same name across
-        // clauses shares one declaration — condition assignment re-binds it).
+        // Hoisted bindings for every named clause variable. One merged chain lives
+        // in a single scope, so a name may be declared only once: clauses that
+        // repeat a name with the SAME type share the declaration (the condition
+        // re-binds it), while a repeat with a DIFFERENT type gets a generated
+        // name. Reusing the first type for the later clause would emit a wrong
+        // `is` test/cast and break call sites needing the specific exception type
+        // (e.g. ThrowHelper overloads).
         var scope = new LoweringScope();
+        var firstTypeByName = new Dictionary<string, string>(StringComparer.Ordinal);
+        var clauseNames = new Dictionary<CatchClauseSyntax, string?>();
+        var clauseBindings = new Dictionary<CatchClauseSyntax, BindingInfo?>();
         foreach (var clause in clauses)
         {
             var name = OriginalVariableName(clause);
-            if (name != null && clause.Declaration != null)
+            if (name == null || clause.Declaration == null)
             {
-                scope.AssignBindings.TryAdd(name,
-                    PatternDesugarAnalysis.DescribeBinding(clause.Declaration.Type, model));
+                clauseNames[clause] = null;
+                clauseBindings[clause] = null;
+                continue;
             }
+
+            var binding = PatternDesugarAnalysis.DescribeBinding(clause.Declaration.Type, model);
+            var typeKey = CatchTypeKey(clause.Declaration.Type, model);
+            if (firstTypeByName.TryGetValue(name, out var firstTypeKey))
+            {
+                if (firstTypeKey == typeKey)
+                {
+                    clauseNames[clause] = name;
+                    clauseBindings[clause] = scope.AssignBindings[name];
+                    continue;
+                }
+
+                var lowered = builder.Names.Next("__cs2jCatch");
+                clauseNames[clause] = lowered;
+                clauseBindings[clause] = binding;
+                scope.AssignBindings[lowered] = binding;
+                continue;
+            }
+
+            firstTypeByName[name] = typeKey;
+            clauseNames[clause] = name;
+            clauseBindings[clause] = binding;
+            scope.AssignBindings[name] = binding;
         }
 
         builder.CatchPlans[tryNode] = new CatchLoweringPlan
@@ -748,6 +811,8 @@ internal sealed class CatchClauseComponent : IPatternDesugarComponent
             {
                 Clause = c,
                 OriginalVariableName = OriginalVariableName(c),
+                LoweredVariableName = clauseNames[c],
+                Binding = clauseBindings[c],
                 IsTypeParameter = typeParamClauses.Contains(c),
             }).ToList(),
             SynthExceptionName = builder.Names.Next("__cs2jEx"),
@@ -761,4 +826,59 @@ internal sealed class CatchClauseComponent : IPatternDesugarComponent
            || string.IsNullOrEmpty(clause.Declaration.Identifier.ValueText)
             ? null
             : clause.Declaration.Identifier.ValueText;
+
+    /// <summary>
+    /// Identity key for a catch declaration type: the semantic symbol when the
+    /// model resolves it, otherwise its source text. Same key ⇒ the clauses may
+    /// share one hoisted declaration.
+    /// </summary>
+    private static string CatchTypeKey(TypeSyntax type, SemanticModel? model)
+    {
+        var symbol = model?.GetTypeInfo(type).Type;
+        return symbol is null or IErrorTypeSymbol
+            ? "syntax:" + type.ToString()
+            : "symbol:" + symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+    }
+
+    private static SyntaxNode RenameIdentifier(string from, string to, SyntaxNode node)
+        => new IdentifierRenamer(from, to).Visit(node)!;
+
+    /// <summary>
+    /// Renames simple-name references of a hoisted catch variable. Member names,
+    /// alias/qualified-name right sides, argument labels and goto labels are not
+    /// variable references and stay untouched.
+    /// </summary>
+    private sealed class IdentifierRenamer : CSharpSyntaxRewriter
+    {
+        private readonly string _from;
+        private readonly string _to;
+
+        public IdentifierRenamer(string from, string to)
+        {
+            _from = from;
+            _to = to;
+        }
+
+        public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
+        {
+            if (node.Identifier.ValueText != _from || IsNonVariableReference(node))
+                return base.VisitIdentifierName(node);
+
+            return node.WithIdentifier(SyntaxFactory.Identifier(
+                node.Identifier.LeadingTrivia, _to, node.Identifier.TrailingTrivia));
+        }
+
+        private static bool IsNonVariableReference(IdentifierNameSyntax node)
+            => node.Parent switch
+            {
+                MemberAccessExpressionSyntax member => member.Name == node,
+                MemberBindingExpressionSyntax => true,
+                QualifiedNameSyntax qualified => qualified.Right == node,
+                AliasQualifiedNameSyntax => true,
+                NameColonSyntax => true,
+                NameEqualsSyntax => true,
+                GotoStatementSyntax => true,
+                _ => false,
+            };
+    }
 }
