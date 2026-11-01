@@ -39,6 +39,96 @@ public class EnumDeclarationRuntimeTypeIdentityTests
         }
         """;
 
+    private const string PublicPropertySource = """
+        namespace Repro
+        {
+            [System.Flags]
+            public enum MemberTypeEnum : byte
+            {
+                None = 0,
+                A = 1,
+                B = 2
+            }
+
+            public class Payload
+            {
+                // Reflection-based serializers enumerate public members and pick the
+                // member converter by the runtime type (Type.IsEnum).
+                public MemberTypeEnum Mode { get; set; }
+            }
+        }
+        """;
+
+    private const string PublicFieldGenericSource = """
+        namespace Repro
+        {
+            [System.Flags]
+            public enum ElementEnum : short
+            {
+                None = 0,
+                A = 1,
+                B = 2
+            }
+
+            public class Payload
+            {
+                public System.Collections.Generic.List<ElementEnum> Items;
+            }
+        }
+        """;
+
+    private const string PrivateMemberOnlySource = """
+        namespace Repro
+        {
+            [System.Flags]
+            public enum InternalStateEnum : byte
+            {
+                None = 0,
+                A = 1,
+                B = 2
+            }
+
+            internal class Worker
+            {
+                private InternalStateEnum _state;
+
+                private void Advance(InternalStateEnum next)
+                {
+                    _state = next;
+                }
+            }
+        }
+        """;
+
+    private const string CrossFormPartnerSource = """
+        namespace Repro
+        {
+            [System.Flags]
+            public enum PublicEnum : byte
+            {
+                None = 0,
+                A = 1
+            }
+
+            [System.Flags]
+            public enum InternalEnum : byte
+            {
+                None = 0,
+                B = 2
+            }
+
+            public class Payload
+            {
+                public PublicEnum Mode { get; set; }
+            }
+
+            internal static class Converter
+            {
+                public static InternalEnum ToInternal(PublicEnum value) => (InternalEnum)value;
+            }
+        }
+        """;
+
     private const string RewritableApiSource = """
         namespace Repro
         {
@@ -87,8 +177,67 @@ public class EnumDeclarationRuntimeTypeIdentityTests
         AssertOutputCompiles(result.OutputCode);
     }
 
+    [Fact]
+    public void PublicPropertyType_KeepsEnumReal_ED020()
+    {
+        var (result, diags) = Rewrite(PublicPropertySource);
+
+        Assert.False(result.Changed,
+            "an enum used as a public property type is observable through reflection and must "
+            + "stay real.\n--- output ---\n" + result.OutputCode);
+        Assert.Contains("enum MemberTypeEnum", result.OutputCode);
+        Assert.Contains(diags, d =>
+            d.Code == EnumDeclarationDiagnosticCode.ED020
+            && d.Message.Contains("reflection-visible member"));
+    }
+
+    [Fact]
+    public void PublicFieldGenericElementType_KeepsEnumReal_ED020()
+    {
+        var (result, diags) = Rewrite(PublicFieldGenericSource);
+
+        Assert.False(result.Changed,
+            "an enum nested in a public field's declared type is serialized as an element type "
+            + "and must stay real.\n--- output ---\n" + result.OutputCode);
+        Assert.Contains("enum ElementEnum", result.OutputCode);
+        Assert.Contains(diags, d =>
+            d.Code == EnumDeclarationDiagnosticCode.ED020
+            && d.Message.Contains("reflection-visible member"));
+    }
+
+    [Fact]
+    public void PrivateFieldOnly_StillConverts()
+    {
+        var (result, diags) = Rewrite(PrivateMemberOnlySource);
+
+        Assert.True(result.Changed,
+            "private members are not part of the reflection-visible serialization surface; the "
+            + "plan must still land.\n--- output ---\n" + result.OutputCode);
+        Assert.Contains("sealed class InternalStateEnum", result.OutputCode);
+        Assert.DoesNotContain(diags, d =>
+            d.Code == EnumDeclarationDiagnosticCode.ED020
+            && d.Message.Contains("reflection-visible member"));
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void CrossFormCastPartner_KeepsEnumReal_ED020()
+    {
+        var (result, diags) = Rewrite(
+            CrossFormPartnerSource, new EnumDeclarationOptions { Strict = true });
+
+        Assert.False(result.Changed,
+            "an enum cast to/from an enum that stays real cannot keep the class form; strict mode "
+            + "rejects the integer-boxing bridge (ED012).\n--- output ---\n" + result.OutputCode);
+        Assert.Contains("enum InternalEnum", result.OutputCode);
+        Assert.Contains(diags, d =>
+            d.Code == EnumDeclarationDiagnosticCode.ED020
+            && d.Message.Contains("same form"));
+        Assert.DoesNotContain(diags, d => d.Code == EnumDeclarationDiagnosticCode.ED012);
+    }
+
     private static (EnumDeclarationFileResult Result, List<EnumDeclarationDiagnostic> Diags)
-        Rewrite(string source)
+        Rewrite(string source, EnumDeclarationOptions? options = null)
     {
         var tree = CSharpSyntaxTree.ParseText(source, ParseOptions, path: "Test.cs");
         var compilation = CSharpCompilation.Create(
@@ -96,7 +245,7 @@ public class EnumDeclarationRuntimeTypeIdentityTests
             new[] { tree },
             GetReferences(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
-        var preprocessor = new EnumDeclarationPreprocessor();
+        var preprocessor = new EnumDeclarationPreprocessor(options);
         var stats = new EnumDeclarationStatistics();
         var diags = new List<EnumDeclarationDiagnostic>();
         var result = preprocessor.RewriteFile(

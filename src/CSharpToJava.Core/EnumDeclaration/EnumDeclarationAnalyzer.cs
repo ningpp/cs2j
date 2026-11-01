@@ -183,6 +183,40 @@ internal sealed class EnumDeclarationAnalyzer
             }
         }
 
+        // 4) 跨形态强转一致性闭包。被改写 enum 与保持真 enum 之间的强转只能经
+        // 整数装箱桥（ED012）；strict 下 ED012 是 Error，因此强转两端的表示必须
+        // 一致：任一端保持真 enum 时，另一端也回退（不动点收敛，覆盖 A↔B↔C）。
+        // 非 strict 下 ED012 只是 Warning（设计 §6 允许桥接），保持转换。
+        var plansById = analysis.Plans.ToDictionary(p => p.Id, StringComparer.Ordinal);
+        var crossFormChanged = _options.Strict;
+        while (crossFormChanged)
+        {
+            crossFormChanged = false;
+            foreach (var plan in analysis.Plans)
+            {
+                if (plan.Outcome != EnumPlanOutcome.Converted) continue;
+                if (!analysis.CrossFormCastEdges.TryGetValue(plan.Id, out var partners)) continue;
+
+                var realPartner = partners.FirstOrDefault(partner =>
+                    !plansById.TryGetValue(partner, out var partnerPlan)
+                    || partnerPlan.Outcome != EnumPlanOutcome.Converted);
+                if (realPartner == null) continue;
+
+                var location = plan.Symbol.Locations.First(l => l.IsInSource);
+                var reason =
+                    $"enum '{plan.EnumQualifiedName}' is cast to or from enum '{realPartner}', " +
+                    "which stays a real enum; a cross-form cast can only be expressed through an " +
+                    "integer-boxing bridge (ED012), which is an error in strict mode. Both enums " +
+                    "must use the same form, so this enum must remain a real enum.";
+                plan.Outcome = EnumPlanOutcome.Infeasible;
+                plan.FailCode = EnumDeclarationDiagnosticCode.ED020;
+                plan.FailReason = reason;
+                plan.FailLocation = location;
+                plan.InfeasibleSites.Add(new EnumInfeasibleSite(location, reason));
+                crossFormChanged = true;
+            }
+        }
+
         analysis.Plans.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
         return analysis;
     }
@@ -347,6 +381,65 @@ internal sealed class EnumDeclarationAnalyzer
         }
 
         /// <summary>
+        /// 已落地 plan 在某个类型符号（含数组元素与泛型实参，任意深度）中的全部出现。
+        /// 成员声明类型 <c>List&lt;E&gt;</c>、<c>Dictionary&lt;E, int&gt;</c>、<c>E[]</c>、
+        /// <c>E?</c> 都把 E 暴露给反射驱动的成员转换器选择。
+        /// </summary>
+        private IEnumerable<EnumDeclarationPlan> FeasiblePlansIn(ITypeSymbol? type)
+        {
+            switch (type)
+            {
+                case IArrayTypeSymbol array:
+                    foreach (var plan in FeasiblePlansIn(array.ElementType)) yield return plan;
+                    yield break;
+                case INamedTypeSymbol named:
+                    if (named.TypeKind == TypeKind.Enum)
+                    {
+                        var plan = FeasiblePlan(named);
+                        if (plan != null) yield return plan;
+                        yield break;
+                    }
+                    foreach (var argument in named.TypeArguments)
+                    {
+                        foreach (var plan in FeasiblePlansIn(argument)) yield return plan;
+                    }
+                    yield break;
+            }
+        }
+
+        /// <summary>
+        /// 反射可见的成员形态：实例字段/属性，且声明可访问性为 public/protected。
+        /// 反射驱动的序列化/映射（System.Text.Json 的 EnumConverterFactory 等）按
+        /// 成员的运行时类型 <c>Type.IsEnum</c> 选转换器，归一后的 enum-like class
+        /// 会被当成普通对象 → 线格式/异常行为改变。内部/私有成员不在默认序列化
+        /// 面（也不在公共反射契约）内，仍按局部使用处理，避免把 plan 全部回退。
+        /// </summary>
+        private static bool IsReflectionVisibleInstanceMember(IPropertySymbol property)
+            => !property.IsStatic && IsReflectionVisibleAccessibility(property.DeclaredAccessibility);
+
+        private static bool IsReflectionVisibleInstanceMember(IFieldSymbol field)
+            => !field.IsStatic && IsReflectionVisibleAccessibility(field.DeclaredAccessibility);
+
+        private static bool IsReflectionVisibleAccessibility(Accessibility accessibility)
+            => accessibility is Accessibility.Public
+                or Accessibility.Protected
+                or Accessibility.ProtectedOrInternal;
+
+        private void MarkMemberShapeInfeasible(
+            ISymbol member, IEnumerable<EnumDeclarationPlan> plans, SyntaxNode site)
+        {
+            foreach (var plan in plans)
+            {
+                Infeasible(plan, site,
+                    $"enum '{plan.EnumShortName}' appears in the declared type of " +
+                    $"reflection-visible member '{member.ContainingType?.ToDisplayString()}.{member.Name}'; " +
+                    "reflection-based serializers pick the member converter from the runtime type " +
+                    "(Type.IsEnum), so a normalized enum-like class would change the wire behavior. " +
+                    "The enum must remain a real enum.");
+            }
+        }
+
+        /// <summary>
         /// 记录跨枚举成员初始化器依赖（D 的成员初值引用 S 的成员）。该耦合与
         /// plan 可行性无关：只要 D 最终保持真 enum，S 转换就会让初值丧失常量性。
         /// </summary>
@@ -368,6 +461,29 @@ internal sealed class EnumDeclarationAnalyzer
                 _analysis.InitializerDependencies[dependent] = set;
             }
             set.Add(source);
+        }
+
+        /// <summary>
+        /// 记录 enum↔enum 强转耦合（无向）。两端表示必须一致：strict 下
+        /// ED012 整数装箱桥是 Error，故任一端的回退都会强制另一端同步回退
+        /// （见 <see cref="EnumAnalysis.CrossFormCastEdges"/>）。
+        /// </summary>
+        private void RecordCrossFormCast(EnumDeclarationPlan plan, INamedTypeSymbol? otherEnum)
+        {
+            var other = otherEnum?.ToDisplayString();
+            if (other == null || other == plan.Id) return;
+            AddEdge(plan.Id, other);
+            AddEdge(other, plan.Id);
+
+            void AddEdge(string from, string to)
+            {
+                if (!_analysis.CrossFormCastEdges.TryGetValue(from, out var set))
+                {
+                    set = new HashSet<string>(StringComparer.Ordinal);
+                    _analysis.CrossFormCastEdges[from] = set;
+                }
+                set.Add(to);
+            }
         }
 
         private void Infeasible(
@@ -458,16 +574,21 @@ internal sealed class EnumDeclarationAnalyzer
         {
             base.VisitPropertyDeclaration(node);
             if (_model.GetDeclaredSymbol(node) is not IPropertySymbol property) return;
-            if (!IsAttributeClass(property.ContainingType)) return;
-
-            var plan = FeasiblePlan(property.Type);
-            if (plan != null)
+            if (IsAttributeClass(property.ContainingType))
             {
-                Infeasible(plan, node,
-                    $"enum '{plan.EnumShortName}' is a property type of attribute " +
-                    $"'{property.ContainingType.Name}'; named attribute arguments require compile-time " +
-                    "constant types, so the enum must remain a real enum (CS0181).");
+                var attributePlan = FeasiblePlan(property.Type);
+                if (attributePlan != null)
+                {
+                    Infeasible(attributePlan, node,
+                        $"enum '{attributePlan.EnumShortName}' is a property type of attribute " +
+                        $"'{property.ContainingType.Name}'; named attribute arguments require compile-time " +
+                        "constant types, so the enum must remain a real enum (CS0181).");
+                    return;
+                }
             }
+
+            if (!IsReflectionVisibleInstanceMember(property)) return;
+            MarkMemberShapeInfeasible(property, FeasiblePlansIn(property.Type).ToList(), node);
         }
 
         public override void VisitFieldDeclaration(FieldDeclarationSyntax node)
@@ -478,16 +599,21 @@ internal sealed class EnumDeclarationAnalyzer
             {
                 return;
             }
-            if (!IsAttributeClass(field.ContainingType)) return;
-
-            var plan = FeasiblePlan(field.Type);
-            if (plan != null)
+            if (IsAttributeClass(field.ContainingType))
             {
-                Infeasible(plan, node,
-                    $"enum '{plan.EnumShortName}' is a field type of attribute " +
-                    $"'{field.ContainingType.Name}'; named attribute arguments require compile-time " +
-                    "constant types, so the enum must remain a real enum (CS0181).");
+                var attributePlan = FeasiblePlan(field.Type);
+                if (attributePlan != null)
+                {
+                    Infeasible(attributePlan, node,
+                        $"enum '{attributePlan.EnumShortName}' is a field type of attribute " +
+                        $"'{field.ContainingType.Name}'; named attribute arguments require compile-time " +
+                        "constant types, so the enum must remain a real enum (CS0181).");
+                    return;
+                }
             }
+
+            if (!IsReflectionVisibleInstanceMember(field)) return;
+            MarkMemberShapeInfeasible(field, FeasiblePlansIn(field.Type).ToList(), node);
         }
 
         /// <summary>
@@ -610,6 +736,7 @@ internal sealed class EnumDeclarationAnalyzer
                         return;
                     }
                     targetPlan.CrossFormCastCount++;
+                    RecordCrossFormCast(targetPlan, sourceEnum);
                     Touch(targetPlan, node);
                     return;
                 }
@@ -645,6 +772,7 @@ internal sealed class EnumDeclarationAnalyzer
                 {
                     // 被改写 enum → 普通 enum 的跨形态。
                     sourcePlan.CrossFormCastCount++;
+                    RecordCrossFormCast(sourcePlan, targetEnum);
                 }
                 return;
             }

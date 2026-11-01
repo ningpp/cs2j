@@ -432,7 +432,7 @@ public class EnumDeclarationRewriterUnitTests
             {
                 [System.Flags]
                 public enum Kind { None = 0, A = 1, B = 2 }
-                public Kind K { get; set; }
+                internal Kind K { get; set; }
                 public int M() => K switch { Kind.A => 1, Kind.B => 2, _ => 0 };
             }
             """;
@@ -1627,8 +1627,8 @@ public class EnumDeclarationRewriterUnitTests
         {
             private E _f;
             private static E? _nf;
-            public E Auto { get; set; }
-            public E Assigned { get; set; } = E.A;
+            internal E Auto { get; set; }
+            internal E Assigned { get; set; } = E.A;
 
             void M()
             {
@@ -1642,16 +1642,16 @@ public class EnumDeclarationRewriterUnitTests
         {
             // Abstract/extern properties have no backing field here: an
             // initializer would be CS8050, so they must stay unseeded.
-            public abstract E AbstractProp { get; }
-            public E ConcreteAuto { get; set; }
+            internal abstract E AbstractProp { get; }
+            internal E ConcreteAuto { get; set; }
         }
         """;
         var (code, changed, _, diags) = Rewrite(src);
         Assert.True(changed, string.Join("\n", diags.Select(d => $"{d.Code}: {d.Message}")));
         Assert.Contains("_f = global::E.DEFAULT;", code);
         Assert.Contains("E x = global::E.DEFAULT;", code);
-        Assert.Contains("public E Auto { get; set; } = global::E.DEFAULT;", code);
-        Assert.Contains("public E ConcreteAuto { get; set; } = global::E.DEFAULT;", code);
+        Assert.Contains("internal E Auto { get; set; } = global::E.DEFAULT;", code);
+        Assert.Contains("internal E ConcreteAuto { get; set; } = global::E.DEFAULT;", code);
         Assert.DoesNotContain("AbstractProp { get; } =", code);
         // Nullable keeps the faithful null default; initialized decls untouched.
         Assert.DoesNotContain("_nf =", code);
@@ -1667,7 +1667,8 @@ public class EnumDeclarationRewriterUnitTests
         Assert.Equal((byte)0, fieldValue!.GetType().GetMethod("GetValue")!.Invoke(fieldValue, null));
         Assert.Null(cType.GetField(
             "_nf", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null));
-        var autoValue = cType.GetProperty("Auto")!.GetValue(instance);
+        var autoValue = cType.GetProperty(
+            "Auto", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(instance);
         Assert.NotNull(autoValue);
         Assert.Equal((byte)0, autoValue!.GetType().GetMethod("GetValue")!.Invoke(autoValue, null));
     }

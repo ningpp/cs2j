@@ -88,7 +88,7 @@ public class EnumDeclarationZeroDefaultUnitTests
             class C
             {
                 private E _f;
-                public E Auto { get; set; }
+                internal E Auto { get; set; }
             }
             """;
 
@@ -96,7 +96,7 @@ public class EnumDeclarationZeroDefaultUnitTests
 
         Assert.True(changed, string.Join("\n", diags.Select(d => $"{d.Code}: {d.Message}")));
         Assert.Contains("_f = global::E.DEFAULT;", code);
-        Assert.Contains("public E Auto { get; set; } = global::E.DEFAULT;", code);
+        Assert.Contains("internal E Auto { get; set; } = global::E.DEFAULT;", code);
         AssertOutputCompiles(code);
 
         var asm = EmitAssembly(code, "ed-zero-class-" + Guid.NewGuid().ToString("N"));
@@ -104,7 +104,8 @@ public class EnumDeclarationZeroDefaultUnitTests
         var instance = Activator.CreateInstance(cType)!;
         var field = cType.GetField("_f", BindingFlags.NonPublic | BindingFlags.Instance)!
             .GetValue(instance);
-        var auto = cType.GetProperty("Auto")!.GetValue(instance);
+        var auto = cType.GetProperty(
+            "Auto", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(instance);
         Assert.NotNull(field);
         Assert.NotNull(auto);
         Assert.Equal(0, GetUnderlyingValue(field!));
@@ -124,8 +125,8 @@ public class EnumDeclarationZeroDefaultUnitTests
             enum E : byte { None = 0, A = 1, B = 2 }
             struct S
             {
-                public E Prop { get; set; }
-                public E Field;
+                internal E Prop { get; set; }
+                internal E Field;
             }
             class C
             {
@@ -170,7 +171,7 @@ public class EnumDeclarationZeroDefaultUnitTests
         const string holderSource = """
             class Holder
             {
-                public E Prop { get; set; }
+                internal E Prop { get; set; }
             }
             """;
 
@@ -187,7 +188,7 @@ public class EnumDeclarationZeroDefaultUnitTests
 
         Assert.True(result.Changed,
             string.Join("\n", diags.Select(d => $"{d.Code}: {d.Message}")));
-        Assert.Contains("public E Prop { get; set; } = global::E.DEFAULT;", result.OutputCode);
+        Assert.Contains("internal E Prop { get; set; } = global::E.DEFAULT;", result.OutputCode);
 
         var enumResult = pp.RewriteFile(
             enumSource, compilation.GetSemanticModel(enumTree),

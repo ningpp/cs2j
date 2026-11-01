@@ -167,6 +167,15 @@ internal sealed class EnumAnalysis
     /// </summary>
     public Dictionary<string, HashSet<string>> InitializerDependencies { get; }
         = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 跨形态强转耦合（无向）：两端若一个被改写为 enum-like class、另一个保持真
+    /// enum，recast 只能经整数装箱桥（ED012）；strict 下 ED012 是 Error，所以
+    /// 强转两端的表示必须一致。键为枚举完全限定名（含无 plan 的真 enum），值为
+    /// 与之存在 enum↔enum 强转的另一端集合。
+    /// </summary>
+    public Dictionary<string, HashSet<string>> CrossFormCastEdges { get; }
+        = new(StringComparer.Ordinal);
 }
 
 internal static class EnumPlanBuilder2
