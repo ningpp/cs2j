@@ -949,6 +949,47 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
+    /// A switch section is NOT a <see cref="BlockSyntax"/>, so the hoisted
+    /// block produced by <see cref="VisitExpressionStatement"/> is flattened
+    /// here as well. A C# declaration-expression inside a section declares the
+    /// local in the SECTION's statement list, and later statements of the same
+    /// section see it; keeping the generated block would nest the root
+    /// declaration in a fresh scope and the following use became CS0103.
+    /// </summary>
+    public override SyntaxNode? VisitSwitchSection(SwitchSectionSyntax node)
+    {
+        var newLabels = new List<SwitchLabelSyntax>(node.Labels.Count);
+        bool changed = false;
+        foreach (var label in node.Labels)
+        {
+            var visitedLabel = (SwitchLabelSyntax)base.Visit(label)!;
+            newLabels.Add(visitedLabel);
+            changed |= !ReferenceEquals(visitedLabel, label);
+        }
+
+        var newStatements = new List<StatementSyntax>();
+        foreach (var stmt in node.Statements)
+        {
+            var visited = (StatementSyntax)base.Visit(stmt)!;
+            if (visited is BlockSyntax inner
+                && inner.HasAnnotation(RefOutInStatementLifter.HoistedBlockAnnotation))
+            {
+                newStatements.AddRange(inner.Statements);
+                changed = true;
+            }
+            else
+            {
+                newStatements.Add(visited);
+                changed |= !ReferenceEquals(visited, stmt);
+            }
+        }
+        if (!changed) return node;
+        return node
+            .WithLabels(SyntaxFactory.List(newLabels))
+            .WithStatements(SyntaxFactory.List(newStatements));
+    }
+
+    /// <summary>
     /// Top-level statements live outside any method declaration, so the
     /// method-scoped holder registry never sees their ref locals. Push a
     /// compilation-level scope seeded with the annotator's ref-local names.
