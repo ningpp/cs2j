@@ -4,7 +4,10 @@ namespace Cs2jByRef;
 
 public abstract class ByRef<T>
 {
-    public abstract T Value { get; set; }
+    // ref 返回属性：`holder.Value.X = v`、`holder.Value.MutatingMethod()`、
+    // `ref holder.Value` 直接作用于槽内存储，不产生 T 的拷贝。槽/数组元素两种
+    // 持有者均以 ref 字段暴露存储；调用方无需 shadow 局部，异常也自然传播。
+    public abstract ref T Value { get; }
 
     // out 临时槽（无 seed）
     public static ByRef<T> Create() => new SlotByRef<T>();
@@ -12,8 +15,6 @@ public abstract class ByRef<T>
     public static ByRef<T> Create(T initial) => new SlotByRef<T>(initial);
     // 数组元素别名：读写穿透到 array[index]
     public static ByRef<T> Create(T[] array, int index) => new ArrayElementByRef<T>(array, index);
-    // 字段/静态字段/值参成员链别名：访问器闭包，读写穿透
-    public static ByRef<T> Create(Func<T> getter, Action<T> setter) => new AccessorByRef<T>(getter, setter);
 
     // ── out 值类型读回（Java 半区 null→default 桥）───────────────────────────
     // C# out 合约保证被调方返回前必然赋值，值类型槽内只可能是写入值或 default(T)，
@@ -44,11 +45,7 @@ internal sealed class SlotByRef<T> : ByRef<T>
     private T _slot;
     public SlotByRef() { _slot = default; }
     public SlotByRef(T initial) { _slot = initial; }
-    public override T Value
-    {
-        get => _slot;
-        set => _slot = value;
-    }
+    public override ref T Value => ref _slot;
 }
 
 internal sealed class ArrayElementByRef<T> : ByRef<T>
@@ -56,23 +53,7 @@ internal sealed class ArrayElementByRef<T> : ByRef<T>
     private readonly T[] _array;
     private readonly int _index;
     public ArrayElementByRef(T[] array, int index) { _array = array; _index = index; }
-    public override T Value
-    {
-        get => _array[_index];
-        set => _array[_index] = value;
-    }
-}
-
-internal sealed class AccessorByRef<T> : ByRef<T>
-{
-    private readonly Func<T> _getter;
-    private readonly Action<T> _setter;
-    public AccessorByRef(Func<T> getter, Action<T> setter) { _getter = getter; _setter = setter; }
-    public override T Value
-    {
-        get => _getter();
-        set => _setter(value);
-    }
+    public override ref T Value => ref _array[_index];
 }
 
 /// <summary>

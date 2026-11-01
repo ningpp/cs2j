@@ -28,11 +28,9 @@ public class RefOutInDoWhileTests
         {
             public abstract class ByRef<T>
             {
-                public abstract T Value { get; set; }
+                public abstract ref T Value { get; }
                 public static ByRef<T> Create() => new SlotByRef<T>();
                 public static ByRef<T> Create(T value) => new SlotByRef<T>(value);
-                public static ByRef<T> Create(System.Func<T> getter, System.Action<T> setter)
-                    => new AccessorByRef<T>(getter, setter);
                 // out 值类型读回（与 src/Cs2jRefOutIn/ByRef.cs 的 ReadbackX 一致，Java 半区 null→default 桥）
                 public static int ReadbackInt(ByRef<int> slot) => slot.Value;
                 public static int ReadbackInt(ByRef<uint> slot) => (int)slot.Value;
@@ -52,15 +50,7 @@ public class RefOutInDoWhileTests
                 private T _slot = default!;
                 public SlotByRef() { }
                 public SlotByRef(T value) { _slot = value; }
-                public override T Value { get => _slot; set => _slot = value; }
-            }
-            internal sealed class AccessorByRef<T> : ByRef<T>
-            {
-                private readonly System.Func<T> _getter;
-                private readonly System.Action<T> _setter;
-                public AccessorByRef(System.Func<T> getter, System.Action<T> setter)
-                { _getter = getter; _setter = setter; }
-                public override T Value { get => _getter(); set => _setter(value); }
+                public override ref T Value => ref _slot;
             }
         }
         """;

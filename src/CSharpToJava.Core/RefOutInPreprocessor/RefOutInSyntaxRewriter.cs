@@ -485,7 +485,8 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             // Value-typed holders get a shadow copy-in/copy-out frame inside
             // the body (same CS1612 lowering as for held lambda parameters).
             shadowFrame = PushHolderShadowFrame(holderParams,
-                (SyntaxNode?)node.Body ?? node.ExpressionBody, true, out var shadows);
+                (SyntaxNode?)node.Body ?? node.ExpressionBody, true, out var shadows,
+                dropStructShadows: true);
             bool shadowReturnsVoid = symbol.ReturnsVoid;
             string? shadowReturnType = symbol.ReturnsVoid
                 ? null
@@ -688,7 +689,8 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             }
 
             shadowFrame = PushHolderShadowFrame(holderParams,
-                (SyntaxNode?)node.Body ?? node.ExpressionBody, true, out var shadows);
+                (SyntaxNode?)node.Body ?? node.ExpressionBody, true, out var shadows,
+                dropStructShadows: true);
             var newParams = SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(newParamList));
             var visited = (ConstructorDeclarationSyntax)base.VisitConstructorDeclaration(node)!;
             visited = visited.WithParameterList(newParams);
@@ -869,23 +871,11 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             return null;
 
         MarkHolderUsed();
-        ExpressionSyntax holder;
-        if (TryGetShadowName(holderId.Identifier.Text, out var shadowName))
-        {
-            // Inside a value-typed held-lambda frame the atomic op must target
-            // the shadow local; forward through an accessor proxy so results
-            // flow through copy-out.
-            var holderSym = GetSymbol(holderId);
-            var t = holderSym is IParameterSymbol ps ? TypeDisplay(ps.Type) : "object";
-            var valueName = AccessorSetterParamName(shadowName);
-            holder = SyntaxFactory.ParseExpression(
-                $"ByRef<{t}>.Create(() => {shadowName}, {valueName} => {shadowName} = {valueName})");
-        }
-        else
-        {
-            holder = SyntaxFactory.IdentifierName(holderId.Identifier)
-                .WithAdditionalAnnotations(RefOutInStatementLifter.DirectPassAnnotation);
-        }
+        // Value holders no longer carry a shadow frame (the only frame left,
+        // ref-like holders, can never be an Interlocked target), so the holder
+        // identifier is passed straight through.
+        var holder = SyntaxFactory.IdentifierName(holderId.Identifier)
+            .WithAdditionalAnnotations(RefOutInStatementLifter.DirectPassAnnotation);
 
         // Remaining arguments still need ordinary holder .Value injection.
         var arguments = new List<ArgumentSyntax> { SyntaxFactory.Argument(holder) };
@@ -2101,7 +2091,8 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         IReadOnlyList<(string Name, IParameterSymbol Symbol)> holderParams,
         SyntaxNode? scanRoot,
         bool localFunctionsCapture,
-        out List<(string Holder, string Shadow, string Type, bool IsOut)> shadows)
+        out List<(string Holder, string Shadow, string Type, bool IsOut)> shadows,
+        bool dropStructShadows = false)
     {
         shadows = new List<(string Holder, string Shadow, string Type, bool IsOut)>();
         if (holderParams.Count == 0 || scanRoot == null)
@@ -2110,14 +2101,27 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         var frame = new Dictionary<string, string?>();
         foreach (var (name, symbol) in holderParams)
         {
-            // Ref-like holders need the shadow too: `T Value` on
+            // Only REF-LIKE holders need a shadow: `T Value` on
             // `RefStructByRef<T>` is a get/set PROPERTY, so `holder.Value.Read()`
             // (or `holder.Advance()`, `holder[i] = …`, `holder.X = …`) mutates a
             // copy of the ref struct that is discarded immediately. A private
             // mutable local plus the copy-out at every return puts the mutation
             // back into the holder slot, which fix (A) makes visible to the
             // caller through the by-ref holder parameter.
-            if (symbol.Type.IsValueType
+            //
+            // Non-ref-like value holders (structs such as ReadStack,
+            // ReadStackFrame, MetadataDb) do NOT get a shadow in method /
+            // constructor / local-function frames: `ByRef<T>.Value` is a
+            // ref-returning property over the holder's own storage, so the
+            // body's member writes / mutating calls land in the slot directly,
+            // exceptions propagate without a try/finally copy-out, and the
+            // recursive call chain's frames shrink.
+            //
+            // Held LAMBDA frames keep the copy-in/copy-out lowering: their
+            // shadow also carries the "mutation through a captured delegate"
+            // semantics the lambda tests pin down.
+            if ((symbol.Type.IsRefLikeType
+                    || (!dropStructShadows && symbol.Type.IsValueType))
                 && BodyMutatesHolder(scanRoot, name, localFunctionsCapture))
             {
                 var shadow = "__shadow" + NextTemp();
@@ -2577,7 +2581,8 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             }
             bool anyHolder = holderParams.Count > 0;
             shadowFrame = PushHolderShadowFrame(holderParams,
-                (SyntaxNode?)node.Body ?? node.ExpressionBody, true, out var shadows);
+                (SyntaxNode?)node.Body ?? node.ExpressionBody, true, out var shadows,
+                dropStructShadows: true);
             bool returnsVoid = symbol.ReturnsVoid;
             string? returnTypeDisplay = symbol.ReturnsVoid
                 ? null
@@ -3001,10 +3006,13 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                 return ("ReadOnlyByRef", SyntaxFactory.ParseExpression(
                     $"ReadOnlyByRef<{typeDisplay}>.Create(() => {elemText})"));
             }
-            _stats.AccessorProxies++;
-            var elemValueName = AccessorSetterParamName(elemText);
-            return ("ByRef", SyntaxFactory.ParseExpression(
-                $"ByRef<{typeDisplay}>.Create(() => {elemText}, {elemValueName} => {elemText} = {elemValueName})"));
+            // Heap receiver (class/struct indexer): alias the element through a
+            // ref field. The source is a `ref` initializer, so the element is a
+            // real ref location; `ScopedByRef<T>.Value` is therefore a live alias
+            // (no getter/setter closure needed).
+            _stats.ScopedElementProxies++;
+            return ("ScopedByRef", SyntaxFactory.ParseExpression(
+                $"ScopedByRef<{typeDisplay}>.Create(ref {elemText})"));
         }
 
         // identifier / member chain / other lvalue shapes
@@ -3021,16 +3029,12 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             return ("ReadOnlyByRef", SyntaxFactory.ParseExpression(
                 $"ReadOnlyByRef<{typeDisplay}>.Create(() => {nameText})"));
         }
-        if (blocking)
-        {
-            _stats.ScopedElementProxies++;
-            return ("ScopedByRef", SyntaxFactory.ParseExpression(
-                $"ScopedByRef<{typeDisplay}>.Create(ref {nameText})"));
-        }
-        _stats.AccessorProxies++;
-        var nameValueName = AccessorSetterParamName(nameText);
-        return ("ByRef", SyntaxFactory.ParseExpression(
-            $"ByRef<{typeDisplay}>.Create(() => {nameText}, {nameValueName} => {nameText} = {nameValueName})"));
+        // A `ref` initializer over a plain lvalue (field/parameter/local, incl.
+        // the rewritten `holder.Value`) is itself a ref location, so alias it
+        // through a ref field instead of a getter/setter closure.
+        _stats.ScopedElementProxies++;
+        return ("ScopedByRef", SyntaxFactory.ParseExpression(
+            $"ScopedByRef<{typeDisplay}>.Create(ref {nameText})"));
     }
 
     private static ExpressionSyntax Negate(ExpressionSyntax e) =>

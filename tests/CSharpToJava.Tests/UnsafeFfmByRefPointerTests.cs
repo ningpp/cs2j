@@ -26,7 +26,7 @@ public class UnsafeFfmByRefPointerTests
         {
             public abstract class ByRef<T>
             {
-                public abstract T Value { get; set; }
+                public abstract ref T Value { get; }
                 public static ByRef<T> Create<T>(System.Func<T> getter, System.Action<T> setter) => null!;
             }
         }

@@ -36,7 +36,7 @@ public class RefOutInNamespaceShadowTests
         {
             public abstract class ByRef<T>
             {
-                public abstract T Value { get; set; }
+                public abstract ref T Value { get; }
                 public static ByRef<T> Create() => new SlotByRef<T>();
                 public static ByRef<T> Create(T value) => new SlotByRef<T>(value);
                 // out 值类型读回（与 src/Cs2jRefOutIn/ByRef.cs 的 ReadbackX 一致，Java 半区 null→default 桥）
@@ -58,7 +58,7 @@ public class RefOutInNamespaceShadowTests
                 private T _slot = default!;
                 public SlotByRef() { }
                 public SlotByRef(T value) { _slot = value; }
-                public override T Value { get => _slot; set => _slot = value; }
+                public override ref T Value => ref _slot;
             }
         }
         """;

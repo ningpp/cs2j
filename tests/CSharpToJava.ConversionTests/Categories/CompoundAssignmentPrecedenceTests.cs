@@ -24,7 +24,7 @@ public class CompoundAssignmentPrecedenceTests : ConversionTestBase
     public void ByRefValue_SubtractBinaryRhs_KeepsCSharpGrouping()
     {
         var result = Convert(@"
-namespace Cs2jByRef { public abstract class ByRef<T> { public abstract T Value { get; set; } } }
+namespace Cs2jByRef { public abstract class ByRef<T> { public abstract ref T Value { get; } } }
 public class Calc
 {
     public static void Shrink(Cs2jByRef.ByRef<int> end, int pchIndex, int pnew)
@@ -83,7 +83,7 @@ public class Calc
         // The precedence guard must not wrap leaf-like operands: existing emitted
         // shapes such as `v.set(v.getValue() + delta)` stay untouched.
         var result = Convert(@"
-namespace Cs2jByRef { public abstract class ByRef<T> { public abstract T Value { get; set; } } }
+namespace Cs2jByRef { public abstract class ByRef<T> { public abstract ref T Value { get; } } }
 public class Calc
 {
     public int Count { get; set; }

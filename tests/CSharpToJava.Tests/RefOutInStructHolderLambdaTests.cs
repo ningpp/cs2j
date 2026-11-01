@@ -40,11 +40,9 @@ public class RefOutInStructHolderLambdaTests
         {
             public abstract class ByRef<T>
             {
-                public abstract T Value { get; set; }
+                public abstract ref T Value { get; }
                 public static ByRef<T> Create() => new SlotByRef<T>();
                 public static ByRef<T> Create(T value) => new SlotByRef<T>(value);
-                public static ByRef<T> Create(System.Func<T> getter, System.Action<T> setter)
-                    => new AccessorByRef<T>(getter, setter);
                 // out 值类型读回（与 src/Cs2jRefOutIn/ByRef.cs 的 ReadbackX 一致，Java 半区 null→default 桥）
                 public static int ReadbackInt(ByRef<int> slot) => slot.Value;
                 public static int ReadbackInt(ByRef<uint> slot) => (int)slot.Value;
@@ -64,15 +62,7 @@ public class RefOutInStructHolderLambdaTests
                 private T _slot = default!;
                 public SlotByRef() { }
                 public SlotByRef(T value) { _slot = value; }
-                public override T Value { get => _slot; set => _slot = value; }
-            }
-            internal sealed class AccessorByRef<T> : ByRef<T>
-            {
-                private readonly System.Func<T> _getter;
-                private readonly System.Action<T> _setter;
-                public AccessorByRef(System.Func<T> getter, System.Action<T> setter)
-                { _getter = getter; _setter = setter; }
-                public override T Value { get => _getter(); set => _setter(value); }
+                public override ref T Value => ref _slot;
             }
         }
         """;
@@ -621,9 +611,9 @@ public class RefOutInStructHolderLambdaTests
     }
 
     // The same CS1612 family on ordinary method declarations: an internal
-    // method whose ref parameter was rewritten to ByRef<T> must lower its body
-    // to the same shadow frame (SegmentStringBuilder.Add pattern: a mutating
-    // method on a ByRef<T>.Value copy would otherwise lose _count updates).
+    // method whose ref parameter was rewritten to ByRef<T> writes through the
+    // ref-returning `Value` property directly (no shadow copy-in/copy-out local
+    // is needed, so the frame stays small).
     [Fact]
     public void Method_Body_Struct_Holder_Uses_Shadow_Frame()
     {
@@ -668,12 +658,10 @@ public class RefOutInStructHolderLambdaTests
         var result = Run(src);
         Assert.True(result.Changed);
         Assert.DoesNotContain(result.Diagnostics, d => d.Severity == RefOutInSeverity.Error);
-        Assert.Contains("DemoNs.State ", result.OutputCode);
-        Assert.Contains("__shadow", result.OutputCode);
-        Assert.Contains("= s.Value;", result.OutputCode);
-        Assert.Contains("s.Value = __shadow", result.OutputCode);
-        // Value return materialized before copy-out on both return sites.
-        Assert.Contains("int __ret", result.OutputCode);
+        Assert.Contains("ByRef<State> s", result.OutputCode);
+        Assert.Contains("s.Value.A += m", result.OutputCode);
+        Assert.Contains("s.Value.B.Bump(m)", result.OutputCode);
+        Assert.DoesNotContain("__shadow", result.OutputCode);
         AssertNoBareRefHolderValue(result.OutputCode);
         AssertOutputCompiles(result.OutputCode);
 
@@ -706,9 +694,8 @@ public class RefOutInStructHolderLambdaTests
         var result = Run(src);
         Assert.True(result.Changed);
         Assert.DoesNotContain(result.Diagnostics, d => d.Severity == RefOutInSeverity.Error);
-        Assert.Contains("__shadow", result.OutputCode);
-        Assert.Contains("int __ret", result.OutputCode);
-        Assert.Contains("s.Value = __shadow", result.OutputCode);
+        Assert.Contains("++s.Value.A", result.OutputCode);
+        Assert.DoesNotContain("__shadow", result.OutputCode);
         AssertNoBareRefHolderValue(result.OutputCode);
         AssertOutputCompiles(result.OutputCode);
 
@@ -747,9 +734,9 @@ public class RefOutInStructHolderLambdaTests
         var result = Run(src);
         Assert.True(result.Changed);
         Assert.DoesNotContain(result.Diagnostics, d => d.Severity == RefOutInSeverity.Error);
-        Assert.Contains("__shadow", result.OutputCode);
-        Assert.Contains("s.Value = __shadow", result.OutputCode);
-        Assert.Contains("int __ret", result.OutputCode);
+        Assert.Contains("s.Value.A += m", result.OutputCode);
+        Assert.Contains("s.Value.B.Bump(m)", result.OutputCode);
+        Assert.DoesNotContain("__shadow", result.OutputCode);
         AssertNoBareRefHolderValue(result.OutputCode);
         AssertOutputCompiles(result.OutputCode);
 

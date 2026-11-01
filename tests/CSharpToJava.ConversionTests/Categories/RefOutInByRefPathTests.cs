@@ -439,7 +439,7 @@ public class Calc
     public void ByRefValue_WriteUsesReturningSetAlias()
     {
         var result = Convert(@"
-namespace Cs2jByRef { public abstract class ByRef<T> { public abstract T Value { get; set; } } }
+namespace Cs2jByRef { public abstract class ByRef<T> { public abstract ref T Value { get; } } }
 public class Calc
 {
     public void Direct(Cs2jByRef.ByRef<int> v) { v.Value = 3; }
@@ -459,7 +459,7 @@ public class Calc
         // to set(getValue() op value) exactly like the old post-rewriter did,
         // but only for Cs2jByRef holders.
         var result = Convert(@"
-namespace Cs2jByRef { public abstract class ByRef<T> { public abstract T Value { get; set; } } }
+namespace Cs2jByRef { public abstract class ByRef<T> { public abstract ref T Value { get; } } }
 public class Calc
 {
     public bool Bump(Cs2jByRef.ByRef<int> v, int delta)
@@ -614,7 +614,7 @@ namespace Cs2jByRef
 {
     public abstract class ByRef<T>
     {
-        public abstract T Value { get; set; }
+        public abstract ref T Value { get; }
         public static ByRef<T> Create() => null;
         public static ByRef<T> Create(T initial) => null;
         public static ByRef<T> Create(System.Func<T> getter, System.Action<T> setter) => null;
@@ -777,31 +777,10 @@ namespace Cs2jByRef
         private T _value;
         public ByRef() { }
         public ByRef(T value) { _value = value; }
-        public virtual T Value
-        {
-            get => _value;
-            set => _value = value;
-        }
+        public ref T Value => ref _value;
         public static ByRef<T> Create() => new ByRef<T>();
         public static ByRef<T> Create(T initial) => new ByRef<T>(initial);
-        public static ByRef<T> Create(System.Func<T> getter, System.Action<T> setter)
-            => new Accessor<T>(getter, setter);
         public static int ReadbackInt(ByRef<int> slot) => slot.Value;
-        private sealed class Accessor<T> : ByRef<T>
-        {
-            private readonly System.Func<T> _getter;
-            private readonly System.Action<T> _setter;
-            public Accessor(System.Func<T> getter, System.Action<T> setter)
-            {
-                _getter = getter;
-                _setter = setter;
-            }
-            public override T Value
-            {
-                get => _getter();
-                set => _setter(value);
-            }
-        }
     }
 }";
 
