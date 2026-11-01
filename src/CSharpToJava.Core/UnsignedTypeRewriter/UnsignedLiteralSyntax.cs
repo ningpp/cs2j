@@ -201,6 +201,14 @@ internal static class UnsignedLiteralSyntax
             return LiteralType.Int;
         }
 
+        // 无后缀整数字面量按 C# 规则取 int,uint,long,ulong 中首个可表示类型:
+        // 值落在 (int.MaxValue, uint.MaxValue] 时是 uint,不是 long。若误判为
+        // long,十进制分支会补 L(uint→long),赋值回 uint 即 CS0266。
+        if (!hasL && value <= uint.MaxValue)
+        {
+            return LiteralType.UInt;
+        }
+
         if (hasL)
         {
             return value <= long.MaxValue ? LiteralType.Long : LiteralType.ULong;
