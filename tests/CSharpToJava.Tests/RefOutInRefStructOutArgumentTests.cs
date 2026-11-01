@@ -9,15 +9,12 @@ using Xunit;
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// Regression for CS9244/CS1503 in the ref/out/in pass: a declaration-form
-/// <c>out</c> argument whose PARAMETER type is a ref struct (SDK json
-/// <c>BuildSegmentedReader(out Utf8JsonReader reader, …)</c>) used to get a
-/// <c>ByRef&lt;Utf8JsonReader&gt;</c> slot. <c>ByRef&lt;T&gt;</c> has no
-/// <c>allows ref struct</c> constraint, so the slot itself was CS9244, and the
-/// declaration pass had already converted the parameter to
-/// <c>RefStructByRef&lt;Utf8JsonReader&gt;</c>, so the call was also CS1503.
-/// The slot must therefore be a <c>RefStructByRef&lt;T&gt;</c> with a plain
-/// <c>{target} = {slot}.Value;</c> read-back.
+/// Round 17: a declaration-form <c>out</c> argument whose PARAMETER type is a
+/// ref struct (SDK json <c>BuildSegmentedReader(out Utf8JsonReader reader, …)</c>)
+/// keeps its NATIVE <c>out</c> form. <c>RefStructByRef&lt;T&gt;</c> cannot alias
+/// a ref struct field (CS8170/CS9050), so no slot is allocated: the callee's
+/// <c>out MyReader r</c> signature and every <c>out T x</c> / <c>out var x</c> /
+/// <c>out _</c> call site stay unchanged.
 /// </summary>
 public class RefOutInRefStructOutArgumentTests
 {
@@ -148,49 +145,46 @@ public class RefOutInRefStructOutArgumentTests
     }
 
     [Fact]
-    public void RefStruct_Out_Declaration_Arguments_Use_RefStructByRef_Slots()
+    public void RefStruct_Out_Declaration_Arguments_StayNative()
     {
         var result = Run(Source);
 
         Assert.True(result.Changed);
         Assert.DoesNotContain(result.Diagnostics, d => d.Severity == RefOutInSeverity.Error);
 
-        // The slot holder must be RefStructByRef<MyReader>. A bare
-        // `ByRef<MyReader>` type argument is CS9244 even when qualified
-        // (negative look-behind keeps `RefStructByRef<MyReader>` out).
-        Assert.Contains("RefStructByRef<MyReader>", result.OutputCode);
+        // The declaration keeps `out MyReader r` and no holder type is emitted.
+        Assert.Contains("public static void Fill(out MyReader r)", result.OutputCode);
+        Assert.DoesNotContain("RefStructByRef", result.OutputCode);
         Assert.DoesNotMatch(new Regex(@"(?<![A-Za-z])ByRef<MyReader>"), result.OutputCode);
 
         AssertOutputCompiles(result.OutputCode);
     }
 
     [Fact]
-    public void RefStruct_Out_Discard_Does_Not_Emit_ByRef_Type_Argument()
+    public void RefStruct_Out_Discard_StaysNative()
     {
         var result = Run(Source);
 
         Assert.DoesNotContain(result.Diagnostics, d => d.Severity == RefOutInSeverity.Error);
+        Assert.Contains("Fill(out _)", result.OutputCode);
         Assert.DoesNotMatch(new Regex(@"(?<![A-Za-z])ByRef<MyReader>"), result.OutputCode);
         AssertOutputCompiles(result.OutputCode);
     }
 
     [Fact]
-    public void Lifted_RefStruct_Out_Arguments_Emit_With_Declared_Local_Read_Back()
+    public void RefStruct_Out_Arguments_Emit_And_Run_With_Native_Locals()
     {
         var result = Run(Source);
         var compilation = AssertOutputCompiles(result.OutputCode);
 
-        // Emit as well: CS9244 on a ByRef<T> type argument surfaces at
-        // declaration, but the slot must also be a valid IL local.
         var assembly = LoadAssembly(compilation);
-        // `Fill(out _)` executes the discard lift path; the slot is a ref-struct
-        // value that cannot cross the reflective boundary, so only this
-        // parameterless entry point is invoked.
         Assert.Equal(1, InvokeInt(assembly, "RunDiscard"));
 
-        // Both `out T x` and `out var x` write the slot value back into the
-        // declared local (the slot is never the target of the read-back).
-        Assert.Matches(new Regex(@"\br = __out\d+\.Value;"), result.OutputCode);
-        Assert.Matches(new Regex(@"\br2 = __out\d+\.Value;"), result.OutputCode);
+        // `out T x` and `out var x` declare the local directly: no slot and no
+        // read-back statement is generated.
+        Assert.Contains("Fill(out MyReader r)", result.OutputCode);
+        Assert.Contains("Fill(out var r2)", result.OutputCode);
+        Assert.DoesNotMatch(new Regex(@"\br = __out\d+\.Value;"), result.OutputCode);
+        Assert.DoesNotMatch(new Regex(@"\br2 = __out\d+\.Value;"), result.OutputCode);
     }
 }

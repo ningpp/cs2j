@@ -43,6 +43,10 @@ public static class RefOutInPostVerifier
                     // intended rewrite result, not residual debt.
                     if (param.RefKind is RefKind.Ref or RefKind.Out
                         && !RefOutInAliasAnnotator.IsPointerType(param.Type)
+                        // Ref-like (ref struct) types cannot be wrapped in a
+                        // holder (CS8170/CS9050): the native ref/out parameter
+                        // is the intended rewrite result.
+                        && !param.Type.IsRefLikeType
                         && !IsByRefHolderParameter(param)
                         && param.Locations.Any(l => l.IsInSource))
                         violations.Add(new ResidualViolation(tree.FilePath,
@@ -81,6 +85,21 @@ public static class RefOutInPostVerifier
                         && (target.Locations.All(l => !l.IsInSource)
                             || RefOutInAliasAnnotator.IsLocked(target)))
                         continue;   // external/locked residue is legitimate (CD1/CD3)
+
+                    // A ref argument bound to an internal callee's ref-like
+                    // (ref struct) ref/out parameter is the intended native
+                    // form: no holder can express it (CS8170/CS9050).
+                    if (target != null
+                        && arg.Parent is ArgumentListSyntax argList
+                        && argList.Parent is InvocationExpressionSyntax argumentInvocation
+                        && ReferenceEquals(argumentInvocation, inv))
+                    {
+                        var index = argList.Arguments.IndexOf(arg);
+                        if (index >= 0 && index < target.Parameters.Length
+                            && target.Parameters[index].Type.IsRefLikeType
+                            && target.Parameters[index].RefKind is RefKind.Ref or RefKind.Out)
+                            continue;
+                    }
                 }
                 violations.Add(new ResidualViolation(tree.FilePath,
                     "ref expression outside external/locked arguments survived"));

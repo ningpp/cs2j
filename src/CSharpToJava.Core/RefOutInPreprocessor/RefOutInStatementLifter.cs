@@ -422,6 +422,15 @@ internal sealed class RefOutInStatementLifter
                 continue;
             }
 
+            // Ref-like (ref struct) parameters also keep their native form
+            // (see RefOutInAliasAnnotator.ClassifyMethod): no holder exists for
+            // them, so the argument stays `ref`/`out value` untouched.
+            if (method.Parameters[i].Type.IsRefLikeType)
+            {
+                newArgs.Add(arg);
+                continue;
+            }
+
             var lifted = LiftArgument(method, i, arg, isOut);
             if (lifted.decl != null) _out.Add(lifted.decl);
             if (lifted.readback != null)
@@ -952,6 +961,10 @@ internal sealed class RefOutInStatementLifter
             return false;
         if (RefOutInAliasAnnotator.IsPointerType(receiverParam.Type))
             return false;
+        // A ref-like `this ref` receiver keeps its native form (the declaration
+        // pass never wraps it), so the reduced extension call stays native.
+        if (receiverParam.Type.IsRefLikeType)
+            return false;
         if (!_owner.IsInternalCandidate(unreduced))
             return false;
         if (inv.Expression is not MemberAccessExpressionSyntax receiverAccess)
@@ -997,14 +1010,27 @@ internal sealed class RefOutInStatementLifter
         IReadOnlyList<IMethodSymbol>? resolved = null;
         if (_owner.TryGetLiftMethods(inv, out var candidates))
         {
-            foreach (var arg in inv.ArgumentList.Arguments)
+            for (var i = 0; i < inv.ArgumentList.Arguments.Count; i++)
             {
-                if (arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
-                    || arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
+                var arg = inv.ArgumentList.Arguments[i];
+                if (!arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
+                    && !arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
                 {
-                    resolved = candidates;
-                    break;
+                    continue;
                 }
+
+                // A ref-like (ref struct) ref/out parameter keeps its native
+                // form: there is no holder to lift it into (CS8170/CS9050), so
+                // this argument never triggers statement lifting.
+                if (candidates.Count > 0
+                    && i < candidates[0].Parameters.Length
+                    && candidates[0].Parameters[i].Type.IsRefLikeType)
+                {
+                    continue;
+                }
+
+                resolved = candidates;
+                break;
             }
 
             // A reduced extension invocation of a converted `this ref`

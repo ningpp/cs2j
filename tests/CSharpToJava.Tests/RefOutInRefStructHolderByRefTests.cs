@@ -9,23 +9,13 @@ using Xunit;
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// Regression: a ref-struct holder
-/// (<c>Cs2jByRef.RefStructByRef&lt;T&gt;</c>, itself a ref struct) is a
-/// <c>ref struct</c>, so passing it BY VALUE copies its <c>_slot</c> field:
-/// every write the callee performs (<c>reader.Value = __shadow</c>, the
-/// <c>Value.Read()</c> mutation) stays in that copy and the caller keeps the
-/// stale reader. The emitted serializer read loop therefore never advanced
-/// (dotnet.text.json: "The JSON value could not be converted … Path: $",
-/// <c>ContinuationTests.ContinuationAtNullToken</c>).
-/// <para>
-/// Two halves are exercised here:
-/// (A) the holder parameter is <c>ref Cs2jByRef.RefStructByRef&lt;T&gt;</c> and
-///     every lifted call site passes <c>ref</c>;
-/// (B) the holder body gets a copy-in/copy-out shadow local
-///     (<c>T __shadowN = holder.Value; …; holder.Value = __shadowN;</c>) so
-///     member mutations land in the holder slot instead of a discarded
-///     property-return copy.
-/// </para>
+/// Round 17: a ref-like (ref struct) <c>ref</c>/<c>out</c> parameter keeps its
+/// NATIVE form. <c>RefStructByRef&lt;T&gt;</c> cannot return a ref to its own
+/// field (CS8170) and a ref field cannot point at a ref struct (CS9050), so a
+/// holder wrapper would have to copy the struct on every call/return — one
+/// shadow per recursive frame, which is what blew the default stack in
+/// dotnet.text.json's deep-nested reader. The correct intermediate form is the
+/// original signature (<c>Bump(ref Reader r)</c>) plus the untouched call site.
 /// </summary>
 public class RefOutInRefStructHolderByRefTests
 {
@@ -226,30 +216,30 @@ public class RefOutInRefStructHolderByRefTests
     }
 
     [Fact]
-    public void RefStructHolder_Parameter_IsPassedByRef()
+    public void RefLikeRef_Parameter_StaysNative()
     {
         var result = RewriteAndAssertClean(RefWriterSource);
 
-        // (A) the holder parameter keeps reference semantics.
-        Assert.Matches(new Regex(
-            @"static void Bump\(ref Cs2jByRef\.RefStructByRef<Reader> r\)"),
+        // (A) the ref-like parameter keeps its native `ref Reader` form.
+        Assert.Matches(new Regex(@"static void Bump\(ref Reader r\)"),
             result.OutputCode);
-        // (A) every call site adds `ref`.
-        Assert.Matches(new Regex(@"Bump\(ref [A-Za-z_][A-Za-z0-9_]*\)"), result.OutputCode);
+        // (A) the call site keeps its native `ref`.
+        Assert.Matches(new Regex(@"Bump\(ref r\)"), result.OutputCode);
+        Assert.DoesNotContain("RefStructByRef", result.OutputCode);
 
-        AssertOutputCompiles(result.OutputCode);
+        var compilation = AssertOutputCompiles(result.OutputCode);
+        Assert.Equal(1, InvokeRun(LoadAssembly(compilation)));
     }
 
     [Fact]
-    public void RefStructHolder_BodyMutation_UsesShadowCopyOut()
+    public void RefLikeRef_BodyMutation_NeedsNoShadow()
     {
         var result = RewriteAndAssertClean(RefWriterSource);
 
-        // (B) the mutation is applied to a shadow local that is written back
-        // into the holder slot before returning.
-        Assert.Matches(new Regex(@"Reader __shadow\d+ = r\.Value;"), result.OutputCode);
-        Assert.Matches(new Regex(@"__shadow\d+\.Advance\(\);"), result.OutputCode);
-        Assert.Matches(new Regex(@"r\.Value = __shadow\d+;"), result.OutputCode);
+        // (B) native `ref` aliases the caller's struct: no copy-in/copy-out.
+        Assert.DoesNotContain("__shadow", result.OutputCode);
+        Assert.DoesNotContain(".Value", result.OutputCode);
+        Assert.Matches(new Regex(@"r\.Advance\(\);"), result.OutputCode);
 
         var compilation = AssertOutputCompiles(result.OutputCode);
         var assembly = LoadAssembly(compilation);
@@ -257,15 +247,14 @@ public class RefOutInRefStructHolderByRefTests
     }
 
     [Fact]
-    public void RefStructHolder_OutParameter_WritesBackThroughHolder()
+    public void RefLikeOut_Parameter_StaysNative()
     {
         var result = RewriteAndAssertClean(OutRefStructSource);
 
-        Assert.Matches(new Regex(
-            @"static void Fill\(ref Cs2jByRef\.RefStructByRef<Reader> r\)"),
+        Assert.Matches(new Regex(@"static void Fill\(out Reader r\)"),
             result.OutputCode);
-        Assert.Matches(new Regex(@"Fill\(ref [A-Za-z_][A-Za-z0-9_]*\)"), result.OutputCode);
-        Assert.Matches(new Regex(@"r\.Value = __shadow\d+;"), result.OutputCode);
+        Assert.Matches(new Regex(@"Fill\(out Reader r\)"), result.OutputCode);
+        Assert.DoesNotContain("RefStructByRef", result.OutputCode);
 
         var compilation = AssertOutputCompiles(result.OutputCode);
         var assembly = LoadAssembly(compilation);
@@ -273,14 +262,13 @@ public class RefOutInRefStructHolderByRefTests
     }
 
     [Fact]
-    public void RefStructHolder_ReadOnlyBody_NeedsNoShadow()
+    public void RefLikeRef_ReadOnlyBody_NeedsNoShadow()
     {
         var result = RewriteAndAssertClean(ReadOnlySource);
 
-        Assert.Matches(new Regex(
-            @"static int Peek\(ref Cs2jByRef\.RefStructByRef<Reader> r\)"),
+        Assert.Matches(new Regex(@"static int Peek\(ref Reader r\)"),
             result.OutputCode);
-        // A read-only body binds straight to the holder value: no shadow frame.
+        // A read-only body binds straight to the native parameter: no shadow.
         Assert.DoesNotContain("__shadow", result.OutputCode);
 
         var compilation = AssertOutputCompiles(result.OutputCode);
@@ -289,15 +277,17 @@ public class RefOutInRefStructHolderByRefTests
     }
 
     [Fact]
-    public void RefStructHolder_SpanReturningCall_KeepsEscapeScope()
+    public void RefLikeThisRef_Extension_StaysNative()
     {
         var result = RewriteAndAssertClean(SpanReturningSource);
 
-        // The shadowed holder is flushed into its slot and passed BY REFERENCE:
-        // no `RefStructByRef<T>` local may sit between the holder and the span
-        // (that would give the span method-scope safe-to-escape → CS8352).
-        Assert.Matches(new Regex(@"GetData\(ref r\)"), result.OutputCode);
-        Assert.DoesNotMatch(new Regex(@"__ref\d+ = RefStructByRef<Reader>\.Create"), result.OutputCode);
+        // A ref-like `this ref` extension is NOT converted to a holder: the
+        // reduced extension call keeps its native receiver and drop-in scope.
+        Assert.Matches(new Regex(@"GetData\(this ref Reader r\)"),
+            result.OutputCode);
+        Assert.Matches(new Regex(@"r\.GetData\(\)"), result.OutputCode);
+        Assert.DoesNotContain("RefStructByRef", result.OutputCode);
+        Assert.DoesNotContain("global::Ext.GetData", result.OutputCode);
         // A span return value is never materialized into a `__ret` local.
         Assert.DoesNotContain("__ret", result.OutputCode);
 

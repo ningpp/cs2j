@@ -8,20 +8,13 @@ using Xunit;
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// Regression for CS1929 in the ref/out/in pass: an extension method declared
-/// with a converted <c>this ref</c> parameter
-/// (<c>public static int GetPos(this ref MyReader reader)</c> becomes
-/// <c>GetPos(this RefStructByRef&lt;MyReader&gt; reader)</c>) is invoked at call
-/// sites in REDUCED form (<c>reader.GetPos()</c>) — the receiver is an implicit
-/// argument 0, not part of the ArgumentList. Statement lifting ignored it and
-/// the main rewriter injected <c>reader.Value</c> as the receiver, so the call
-/// bound to the un-converted value type and produced
-/// "no member GetPos … best extension needs RefStructByRef" (CS1929).
-///
-/// The fix lifts the reduced receiver like an explicit ref argument and
-/// rewrites the call to its static form <c>Type.M(receiver, …)</c>, so the
-/// callee receives the holder directly (holder receiver), or a
-/// copy-in/copy-out slot (ref struct / value type receiver).
+/// Regression for CS1929 in the ref/out/in pass, and the round-17 native
+/// ref-like rule: a <c>this ref</c> extension parameter of a VALUE type
+/// (<c>GetPos(this ref Counter counter)</c>) is converted to a holder and its
+/// reduced call site (<c>counter.GetPos()</c>) is lifted to the static form
+/// <c>Type.M(receiver, …)</c>. A ref-like receiver (<c>this ref MyReader</c>)
+/// keeps its NATIVE form: <c>RefStructByRef&lt;T&gt;</c> cannot alias a ref
+/// struct (CS8170/CS9050), so the reduced call stays as written.
 /// </summary>
 public class RefOutInExtensionReceiverTests
 {
@@ -194,58 +187,56 @@ public class RefOutInExtensionReceiverTests
     }
 
     [Fact]
-    public void ThisRef_Extension_Declaration_Is_Rewritten_To_Holder_Parameter()
+    public void RefLikeThisRef_Extension_Declaration_Stays_Native()
     {
         var result = Run(Source);
 
         Assert.True(result.Changed);
         Assert.DoesNotContain(result.Diagnostics, d => d.Severity == RefOutInSeverity.Error);
-        // Declaration side: `this ref MyReader` becomes a ref-struct holder
-        // parameter that keeps reference semantics (`this ref <holder>`).
-        Assert.Contains("GetPos(this ref Cs2jByRef.RefStructByRef<MyReader>", result.OutputCode);
-        Assert.Contains("ReadWithVerify(this ref Cs2jByRef.RefStructByRef<MyReader>", result.OutputCode);
+        // Ref-like receiver: `this ref MyReader` keeps its native form.
+        Assert.Contains("GetPos(this ref MyReader", result.OutputCode);
+        Assert.Contains("ReadWithVerify(this ref MyReader", result.OutputCode);
+        Assert.DoesNotContain("RefStructByRef<MyReader>", result.OutputCode);
+        // Value-type receiver: still converted to a ByRef holder (its Value is
+        // a ref property, so the holder itself is passed by value).
+        Assert.Contains("Bump(this ByRef<Counter>", result.OutputCode);
     }
 
     [Fact]
-    public void Reduced_Extension_Receiver_Is_Lifted_And_Call_Becomes_Static()
+    public void RefLike_Receiver_Stays_Reduced_ValueType_Receiver_Is_Lifted()
     {
         var result = Run(Source);
 
         Assert.True(result.Changed);
         Assert.DoesNotContain(result.Diagnostics, d => d.Severity == RefOutInSeverity.Error);
 
-        // No reduced receiver form survives: CS1929 would come straight back.
-        Assert.DoesNotContain(".GetPos()", result.OutputCode);
-        Assert.DoesNotContain(".ReadWithVerify()", result.OutputCode);
-        Assert.DoesNotContain(".Bump()", result.OutputCode);
+        // A ref-like receiver keeps the native reduced extension call.
+        Assert.Contains(".GetPos()", result.OutputCode);
+        Assert.Contains(".ReadWithVerify()", result.OutputCode);
 
-        // Rewritten to the fully qualified static call.
-        Assert.Contains("global::JsonHelpersExt.GetPos(", result.OutputCode);
-        Assert.Contains("global::JsonHelpersExt.ReadWithVerify(", result.OutputCode);
+        // A value-type receiver is lifted to the fully qualified static call.
+        Assert.DoesNotContain(".Bump()", result.OutputCode);
         Assert.Contains("global::JsonHelpersExt.Bump(", result.OutputCode);
 
         AssertOutputCompiles(result.OutputCode);
     }
 
     [Fact]
-    public void Holder_Receiver_Is_Never_Dereferenced_Through_Value_Property()
+    public void RefLike_Receiver_Is_Never_Dereferenced_Through_Value_Property()
     {
         var result = Run(Source);
         AssertOutputCompiles(result.OutputCode);
 
-        // Holder receiver (`ref MyReader reader` param) whose body mutates it:
-        // the receiver is a RefStructByRef slot seeded from the holder's shadow
-        // local and passed BY REFERENCE — never `reader.Value` (a ref struct
-        // property return copy would swallow the callee's mutation).
+        // Ref-like receiver (`ref MyReader reader` param) is native: never
+        // dereferenced through a holder value property and never shadowed.
         Assert.DoesNotContain("reader.Value.GetPos", result.OutputCode);
-        Assert.Matches(new System.Text.RegularExpressions.Regex(
-            @"global::JsonHelpersExt\.GetPos\(ref "), result.OutputCode);
-        Assert.Matches(new System.Text.RegularExpressions.Regex(
-            @"reader\.Value = __shadow\d+;"), result.OutputCode);
+        Assert.DoesNotContain("__shadow", result.OutputCode);
+        Assert.DoesNotContain("RefStructByRef<MyReader>", result.OutputCode);
 
-        // Ref struct local receiver: copy-in/copy-out slot.
-        Assert.Contains("RefStructByRef<MyReader>", result.OutputCode);
-        Assert.Contains("= __ref", result.OutputCode);
+        // Value-type local receiver: copy-in/copy-out ByRef<Counter> slot.
+        Assert.Matches(new System.Text.RegularExpressions.Regex(
+            @"ByRef<Counter> __ref\d+ = ByRef<Counter>\.Create\(c\)"),
+            result.OutputCode);
     }
 
     [Fact]

@@ -250,18 +250,22 @@ internal sealed class RefOutInAliasAnnotator
                 if (IsPointerType(param.Type))
                     continue;
 
-                _holderSymbols.Add(param);
+                // Ref-like (ref struct) types have no expressible holder:
+                // RefStructByRef<T> cannot return a ref to its own field
+                // (CS8170) and a ref field cannot point at a ref struct
+                // (CS9050), so a holder wrapper would have to COPY the struct
+                // at every call/return (a shadow on every frame, O(depth) stack
+                // on deep recursion). Keeping the native `ref`/`out` ref-like
+                // parameter is the semantically correct, stack-minimal
+                // intermediate form.
                 if (param.Type.IsRefLikeType)
-                {
-                    _stats.RefStructParamsRewritten++;
-                }
+                    continue;
+
+                _holderSymbols.Add(param);
+                if (refKind == RefKind.Ref)
+                    _stats.RefParamsRewritten++;
                 else
-                {
-                    if (refKind == RefKind.Ref)
-                        _stats.RefParamsRewritten++;
-                    else
-                        _stats.OutParamsRewritten++;
-                }
+                    _stats.OutParamsRewritten++;
             }
             else if (refKind == RefKind.In)
             {
