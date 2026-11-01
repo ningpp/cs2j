@@ -57,6 +57,16 @@ public sealed class TupleToStructPreprocessorTests
         var allDiagnostics = new List<TupleToStructDiagnostic>();
         var outputs = new List<string>();
 
+        // 与 CLI 适配器一致：先扫描整个编译单元的 typeof(ValueTuple<...>)，再逐文件改写。
+        var runtimeObservedArities = new HashSet<int>();
+        foreach (var tree in trees)
+        {
+            runtimeObservedArities.UnionWith(
+                TupleToStructPreprocessor.FindRuntimeObservedTupleArities(tree.GetRoot()));
+        }
+
+        preprocessor.ObserveRuntimeValueTupleArities(runtimeObservedArities);
+
         for (var i = 0; i < trees.Length; i++)
         {
             var fileDiagnostics = new List<TupleToStructDiagnostic>();
@@ -296,6 +306,60 @@ public sealed class TupleToStructPreprocessorTests
         Assert.Contains("Cs2jTuples", result.Outputs[0]);
         Assert.Contains("TupleInt32String", result.StructFile ?? string.Empty);
         Assert.DoesNotContain("EntityType", result.StructFile ?? string.Empty);
+        AssertOutputCompiles(result.Outputs, result.StructFile);
+    }
+
+    [Fact]
+    public void RuntimeValueTupleIdentityObservation_KeepsMatchingAritiesNative()
+    {
+        // Regression for SDK json tests (Serialization/CustomConverterTests.NullableTypes):
+        // `type.GetGenericTypeDefinition() == typeof(ValueTuple<,>)` observes the runtime
+        // identity of 2-element tuples. After lowering to a Cs2jTuples struct the type is no
+        // longer generic ValueTuple, so a reflection-driven JsonConverterFactory's CanConvert
+        // returns false and System.Text.Json rejects the [JsonConverter] factory. Shapes whose
+        // arity is observed this way must stay native in that file.
+        var source = """
+            using System;
+
+            class C
+            {
+                private (int X, int Y) _pair;
+                private (int X, int Y, int Z) _triple;
+                // Outer arity 3 contains a denied arity-2 tuple: lowering the outer
+                // shape would reference a struct that is never emitted.
+                private (int A, (int B, int C), int D) _nested;
+
+                public (int X, int Y) Pair
+                {
+                    get => _pair;
+                    set => _pair = value;
+                }
+
+                public (int X, int Y, int Z) Triple => _triple;
+
+                static bool IsPair(Type type) =>
+                    type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ValueTuple<,>);
+
+                void Use()
+                {
+                    _pair = (1, 2);
+                    _triple = (3, 4, 5);
+                    Console.WriteLine(_pair.X + _pair.Y + _triple.Z);
+                    Console.WriteLine(IsPair(typeof(ValueTuple<int, int>)));
+                }
+            }
+            """;
+
+        var result = RunAll(source);
+
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == TupleToStructSeverity.Error));
+        // Arity 2 keeps native ValueTuple syntax (type, literal, element access).
+        Assert.DoesNotContain("Cs2jTuples.TupleInt32Int32(", result.Outputs[0]);
+        // An outer shape embedding a denied nested shape stays native too (no dangling struct).
+        Assert.Contains("(int B, int C)", result.Outputs[0]);
+        // Other arities are unaffected: the 3-element tuple still lowers.
+        Assert.Contains("Cs2jTuples.TupleInt32Int32Int32(", result.Outputs[0]);
+        Assert.NotNull(result.StructFile);
         AssertOutputCompiles(result.Outputs, result.StructFile);
     }
 

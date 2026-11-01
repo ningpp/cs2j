@@ -24,10 +24,85 @@ public sealed partial class TupleToStructPreprocessor
 
     private readonly TupleShapeRegistry _registry = new();
     private readonly TupleToStructOptions _options;
+    private readonly HashSet<int> _runtimeObservedArities = new();
 
     public TupleToStructPreprocessor(TupleToStructOptions? options = null)
     {
         _options = options ?? new TupleToStructOptions();
+    }
+
+    /// <summary>
+    /// 记录编译单元里通过 <c>typeof(ValueTuple&lt;...&gt;)</c> 观察值元组运行时身份的
+    /// 泛型元数。该元数的形状在所有文件里都保持原生 System.ValueTuple 语法：降级成生成
+    /// 的 struct 后运行时类型不再是泛型 ValueTuple，<c>Type.IsGenericType</c> /
+    /// <c>GetGenericTypeDefinition()</c> 驱动的反射消费者（如 System.Text.Json 的
+    /// JsonConverterFactory.CanConvert）会静默失配（语料 Json 测试
+    /// CustomConverterTests.NullableTypes）。必须在改写前由全编译单元扫描后设置，才能在
+    /// 同一元数的声明点与使用点之间保持一致（struct / ValueTuple 混用会 CS0029）。
+    /// </summary>
+    public void ObserveRuntimeValueTupleArities(IEnumerable<int> arities)
+    {
+        ArgumentNullException.ThrowIfNull(arities);
+        foreach (var arity in arities)
+        {
+            _runtimeObservedArities.Add(arity);
+        }
+    }
+
+    /// <summary>
+    /// 扫描语法树中 <c>typeof(ValueTuple&lt;...&gt;)</c>（含 <c>System.ValueTuple</c>
+    /// 限定写法与 <c>ValueTuple&lt;,&gt;</c> 省略参数写法）出现的泛型元数。
+    /// </summary>
+    public static IReadOnlyCollection<int> FindRuntimeObservedTupleArities(SyntaxNode root)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        var arities = new HashSet<int>();
+        foreach (var typeOf in root.DescendantNodes().OfType<TypeOfExpressionSyntax>())
+        {
+            if (FindValueTupleGenericName(typeOf.Type) is { } valueTuple)
+            {
+                arities.Add(valueTuple.TypeArgumentList.Arguments.Count);
+            }
+        }
+
+        return arities;
+    }
+
+    private static GenericNameSyntax? FindValueTupleGenericName(SyntaxNode type) => type switch
+    {
+        GenericNameSyntax generic when generic.Identifier.ValueText == "ValueTuple" => generic,
+        QualifiedNameSyntax qualified => FindValueTupleGenericName(qualified.Right),
+        AliasQualifiedNameSyntax alias => FindValueTupleGenericName(alias.Name),
+        _ => null,
+    };
+
+    /// <summary>逻辑元素个数 → ValueTuple 泛型元数（8 个以上元素经 TRest 嵌套，泛型元数为 8）。</summary>
+    internal static int RuntimeGenericArity(int logicalArity) => logicalArity >= 8 ? 8 : logicalArity;
+
+    private bool RuntimeIdentityDenied(TupleShape shape)
+        => RuntimeIdentityDenied(shape, _runtimeObservedArities);
+
+    /// <summary>
+    /// True when lowering this shape would change the runtime type identity that
+    /// <c>typeof(ValueTuple&lt;...&gt;)</c> checks observe for that generic arity.
+    /// Nested/tail shapes that keep native syntax keep the enclosing shape native
+    /// as well: the generated field/constructor would otherwise reference a struct
+    /// that is never emitted (dangling type).
+    /// </summary>
+    internal static bool RuntimeIdentityDenied(TupleShape shape, IReadOnlyCollection<int> observedArities)
+    {
+        if (observedArities.Contains(RuntimeGenericArity(shape.Arity)))
+        {
+            return true;
+        }
+
+        if (shape.Tail != null && RuntimeIdentityDenied(shape.Tail, observedArities))
+        {
+            return true;
+        }
+
+        return shape.Elements.Any(
+            element => element.IsTuple && RuntimeIdentityDenied(element.NestedShape!, observedArities));
     }
 
     /// <summary>生成 struct 集合文件内容；没有任何元组时返回 null。</summary>
@@ -35,15 +110,21 @@ public sealed partial class TupleToStructPreprocessor
     {
         // Shapes embedding private/protected types are never lowered and must
         // not be emitted either (their field types are unnameable here → CS0122).
+        // Shapes whose runtime ValueTuple identity is observed keep native syntax,
+        // so they must not be emitted either.
         var emittable = _registry.Shapes
-            .Where(shape => shape.IsEmittableFromTopLevel)
+            .Where(shape => shape.IsEmittableFromTopLevel && !RuntimeIdentityDenied(shape))
             .ToList();
         return emittable.Count == 0
             ? null
             : TupleStructFileContent.Generate(emittable, _options.NamespaceName);
     }
 
-    public IReadOnlyCollection<string> StructNames => _registry.Shapes.Select(s => s.Name).ToArray();
+    public IReadOnlyCollection<string> StructNames =>
+        _registry.Shapes
+            .Where(shape => !RuntimeIdentityDenied(shape))
+            .Select(shape => shape.Name)
+            .ToArray();
 
     /// <summary>
     /// 每个被改写文件用到的形状键（含嵌套/尾部形状闭包）。按编译单元生成 struct 文件时
@@ -103,7 +184,9 @@ public sealed partial class TupleToStructPreprocessor
     public string? GenerateStructFile(IEnumerable<string> shapeKeys)
     {
         var keys = new HashSet<string>(shapeKeys, StringComparer.Ordinal);
-        var shapes = _registry.Shapes.Where(shape => keys.Contains(shape.Key)).ToList();
+        var shapes = _registry.Shapes
+            .Where(shape => keys.Contains(shape.Key) && !RuntimeIdentityDenied(shape))
+            .ToList();
         return shapes.Count == 0
             ? null
             : TupleStructFileContent.Generate(shapes, _options.NamespaceName);
@@ -138,7 +221,7 @@ public sealed partial class TupleToStructPreprocessor
 
         var rewriter = new TupleSyntaxRewriter(
             semanticModel, _registry, _options.NamespaceName, statistics, diagnostics,
-            _shapesByFile, semanticModel.SyntaxTree.FilePath);
+            _shapesByFile, semanticModel.SyntaxTree.FilePath, _runtimeObservedArities);
         var newRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
 
         if (!rewriter.Changed)
@@ -442,6 +525,7 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
     private readonly List<TupleToStructDiagnostic> _diagnostics;
     private readonly Dictionary<string, HashSet<TupleShape>> _shapesByFile;
     private readonly string _filePath;
+    private readonly IReadOnlyCollection<int> _runtimeObservedArities;
 
     /// <summary>登记本文件用到的形状（生成按编译单元切分的 struct 文件时需要）。</summary>
     private TupleShape TrackShape(TupleShape shape)
@@ -465,22 +549,42 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
     /// can be hoisted to a generated top-level Cs2jTuples struct. Shapes embedding
     /// a private/protected nested type (e.g. a tuple used only inside the class that
     /// declares such a type) are invisible at the generated location; those sites
-    /// must keep native ValueTuple syntax. Returns null (warning once) for them.
+    /// must keep native ValueTuple syntax. The same holds for arities whose runtime
+    /// System.ValueTuple identity is observed in the compilation (typeof(ValueTuple&lt;...&gt;)),
+    /// where a generated struct would change Type.IsGenericType / generic-definition
+    /// comparisons. Returns null (warning once) for them.
     /// </summary>
     private TupleShape? GetEmittableShape(INamedTypeSymbol tupleType)
     {
         var shape = _registry.GetOrCreateShape(tupleType, _diagnostics);
-        if (shape.IsEmittableFromTopLevel)
+        if (!shape.IsEmittableFromTopLevel)
         {
-            return TrackShape(shape);
+            WarnOnce("shape-not-emittable:" + shape.Key,
+                "A tuple uses a private or protected type that is not accessible from " +
+                "the generated top-level tuple struct; the site was kept as a native " +
+                "System.ValueTuple.");
+            return null;
         }
 
-        WarnOnce("shape-not-emittable:" + shape.Key,
-            "A tuple uses a private or protected type that is not accessible from " +
-            "the generated top-level tuple struct; the site was kept as a native " +
-            "System.ValueTuple.");
-        return null;
+        if (KeepsRuntimeValueTupleIdentity(shape))
+        {
+            WarnOnce("shape-runtime-identity:" + shape.Key,
+                "This compilation observes the runtime System.ValueTuple identity of " +
+                $"{TupleToStructPreprocessor.RuntimeGenericArity(shape.Arity)}-element tuples " +
+                "(typeof(ValueTuple<...>)); the site was kept as a native System.ValueTuple " +
+                "so reflection-driven type checks keep matching.");
+            return null;
+        }
+
+        return TrackShape(shape);
     }
+
+    /// <summary>
+    /// True when lowering this shape would change the runtime type identity that
+    /// <c>typeof(ValueTuple&lt;...&gt;)</c> checks observe for that generic arity.
+    /// </summary>
+    private bool KeepsRuntimeValueTupleIdentity(TupleShape shape) =>
+        TupleToStructPreprocessor.RuntimeIdentityDenied(shape, _runtimeObservedArities);
 
     private readonly Dictionary<string, IReadOnlyList<StatementSyntax>> _expansions = new();
     private readonly Dictionary<ISymbol?, (string Temp, IReadOnlyList<string> Path)> _identifierRemap =
@@ -500,7 +604,8 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
         TupleToStructStatistics stats,
         List<TupleToStructDiagnostic> diagnostics,
         Dictionary<string, HashSet<TupleShape>> shapesByFile,
-        string filePath)
+        string filePath,
+        IReadOnlyCollection<int> runtimeObservedArities)
     {
         _model = model;
         _registry = registry;
@@ -509,6 +614,7 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
         _diagnostics = diagnostics;
         _shapesByFile = shapesByFile;
         _filePath = filePath;
+        _runtimeObservedArities = runtimeObservedArities;
     }
 
     // ------------------------------------------------------------------
@@ -785,7 +891,8 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
         {
             case INamedTypeSymbol { IsTupleType: true } tuple:
             {
-                if (!_registry.GetOrCreateShape(tuple, _diagnostics).IsEmittableFromTopLevel)
+                var shape = _registry.GetOrCreateShape(tuple, _diagnostics);
+                if (!shape.IsEmittableFromTopLevel || KeepsRuntimeValueTupleIdentity(shape))
                 {
                     return true;
                 }
@@ -908,11 +1015,11 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
 
         var tupleField = field.CorrespondingTupleField ?? field;
         var ordinal = int.Parse(Regex.Match(tupleField.Name, @"^Item(\d+)$").Groups[1].Value);
-        // Shapes kept native (inaccessible elements) keep their original
-        // .ItemN / named-element access — the warning is emitted by the type
-        // site; here returning null silently preserves the access.
+        // Shapes kept native (inaccessible elements or observed runtime ValueTuple
+        // identity) keep their original .ItemN / named-element access — the warning
+        // is emitted by the type site; here returning null silently preserves it.
         var shape = _registry.GetOrCreateShape(containingTuple, _diagnostics);
-        if (!shape.IsEmittableFromTopLevel)
+        if (!shape.IsEmittableFromTopLevel || KeepsRuntimeValueTupleIdentity(shape))
         {
             return null;
         }

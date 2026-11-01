@@ -87,6 +87,30 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
         };
     }
 
+    /// <summary>
+    /// typeof(ValueTuple&lt;...&gt;) 观察值元组的运行时身份。该泛型元数的形状必须在
+    /// 整个编译单元保持原生 System.ValueTuple：降级后的 struct 不再是泛型 ValueTuple，
+    /// <c>Type.IsGenericType</c> / <c>GetGenericTypeDefinition()</c> 驱动的反射消费者
+    /// （如 System.Text.Json 的 JsonConverterFactory.CanConvert）会静默失配。扫描全树后
+    /// 统一登记，保证同一元数的声明点与使用点形态一致。
+    /// </summary>
+    public override Task CompilationReadyAsync(CSharpCompilation compilation)
+    {
+        var arities = new HashSet<int>();
+        foreach (var syntaxTree in compilation.SyntaxTrees)
+        {
+            arities.UnionWith(
+                TupleToStructPreprocessor.FindRuntimeObservedTupleArities(syntaxTree.GetRoot()));
+        }
+
+        if (arities.Count > 0)
+        {
+            _preprocessor.ObserveRuntimeValueTupleArities(arities);
+        }
+
+        return Task.CompletedTask;
+    }
+
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
     {
         var fileDiagnostics = new List<TupleToStructDiagnostic>();
