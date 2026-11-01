@@ -129,6 +129,73 @@ public class EnumDeclarationRuntimeTypeIdentityTests
         }
         """;
 
+    private const string GenericMethodTypeArgumentSource = """
+        namespace Repro
+        {
+            [System.Flags]
+            public enum SerializedEnum : byte
+            {
+                None = 0,
+                A = 1,
+                B = 2
+            }
+
+            public static class Serializer
+            {
+                // TValue is inferred as SerializedEnum; the callee observes the
+                // runtime type (Type.IsEnum) rather than any source-level use.
+                public static string Serialize<TValue>(TValue value) => typeof(TValue).Name;
+            }
+
+            public static class Consumer
+            {
+                public static string Run(SerializedEnum value) => Serializer.Serialize(value);
+            }
+        }
+        """;
+
+    private const string GenericContainerTypeArgumentSource = """
+        namespace Repro
+        {
+            [System.Flags]
+            public enum ContainerEnum : byte
+            {
+                None = 0,
+                A = 1,
+                B = 2
+            }
+
+            public static class Consumer
+            {
+                public static int Run()
+                {
+                    var items = new System.Collections.Generic.List<ContainerEnum>();
+                    items.Add(ContainerEnum.A);
+                    return items.Count;
+                }
+            }
+        }
+        """;
+
+    private const string GenericEnumApiSource = """
+        namespace Repro
+        {
+            public enum GenericApiEnum : byte
+            {
+                A = 1,
+                B = 2
+            }
+
+            public static class ApiConsumer
+            {
+                public static GenericApiEnum[] Values()
+                {
+                    return System.Enum.GetValues<GenericApiEnum>();
+                }
+            }
+        }
+        """;
+
     private const string RewritableApiSource = """
         namespace Repro
         {
@@ -174,6 +241,49 @@ public class EnumDeclarationRuntimeTypeIdentityTests
         Assert.DoesNotContain(diags, d =>
             d.Code == EnumDeclarationDiagnosticCode.ED020
             && d.Message.Contains("runtime System.Type"));
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void GenericMethodTypeArgument_KeepsEnumReal_ED020()
+    {
+        var (result, diags) = Rewrite(GenericMethodTypeArgumentSource);
+
+        Assert.False(result.Changed,
+            "an enum inferred as a generic method's type argument is observed through "
+            + "Type.IsEnum by the callee and must stay real.\n--- output ---\n" + result.OutputCode);
+        Assert.Contains("enum SerializedEnum", result.OutputCode);
+        Assert.Contains(diags, d =>
+            d.Code == EnumDeclarationDiagnosticCode.ED020
+            && d.Message.Contains("type argument of generic method"));
+    }
+
+    [Fact]
+    public void GenericContainerTypeArgument_KeepsEnumReal_ED020()
+    {
+        var (result, diags) = Rewrite(GenericContainerTypeArgumentSource);
+
+        Assert.False(result.Changed,
+            "an enum used as a generic container's type argument is serialized by element "
+            + "runtime type and must stay real.\n--- output ---\n" + result.OutputCode);
+        Assert.Contains("enum ContainerEnum", result.OutputCode);
+        Assert.Contains(diags, d =>
+            d.Code == EnumDeclarationDiagnosticCode.ED020
+            && d.Message.Contains("type argument of generic type"));
+    }
+
+    [Fact]
+    public void GenericEnumApiTypeArgument_StillConverts()
+    {
+        var (result, diags) = Rewrite(GenericEnumApiSource);
+
+        Assert.True(result.Changed,
+            "System.Enum's rewritable generic API (GetValues<T>) never observes the runtime "
+            + "type identity; the plan must still land.\n--- output ---\n" + result.OutputCode);
+        Assert.Contains("sealed class GenericApiEnum", result.OutputCode);
+        Assert.DoesNotContain(diags, d =>
+            d.Code == EnumDeclarationDiagnosticCode.ED020
+            && d.Message.Contains("type argument of generic"));
         AssertOutputCompiles(result.OutputCode);
     }
 

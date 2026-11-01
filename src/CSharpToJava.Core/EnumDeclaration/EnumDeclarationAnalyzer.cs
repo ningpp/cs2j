@@ -572,7 +572,15 @@ internal sealed class EnumDeclarationAnalyzer
 
         public override void VisitPropertyDeclaration(PropertyDeclarationSyntax node)
         {
+            // 先做成员形态分类再访问子节点：声明类型里的泛型实参（List&lt;E&gt;）
+            // 也会被 VisitGenericName 命中（运行时类型身份暴露），但「反射可见成员」
+            // 是更具体的根因，应先行登记为 ED020 站点。
+            ClassifyPropertyDeclaration(node);
             base.VisitPropertyDeclaration(node);
+        }
+
+        private void ClassifyPropertyDeclaration(PropertyDeclarationSyntax node)
+        {
             if (_model.GetDeclaredSymbol(node) is not IPropertySymbol property) return;
             if (IsAttributeClass(property.ContainingType))
             {
@@ -593,7 +601,13 @@ internal sealed class EnumDeclarationAnalyzer
 
         public override void VisitFieldDeclaration(FieldDeclarationSyntax node)
         {
+            // 与属性同理：成员形态（反射可见性）先行于声明类型里的泛型实参分类。
+            ClassifyFieldDeclaration(node);
             base.VisitFieldDeclaration(node);
+        }
+
+        private void ClassifyFieldDeclaration(FieldDeclarationSyntax node)
+        {
             if (node.Declaration.Variables.FirstOrDefault() is not { } first
                 || _model.GetDeclaredSymbol(first) is not IFieldSymbol field)
             {
@@ -1015,9 +1029,42 @@ internal sealed class EnumDeclarationAnalyzer
                 }
             }
 
-            // 泛型实参绑定到 : struct, Enum / : Enum 约束（§4.3 可行性）。
+            // 泛型实参绑定到 : struct, Enum / : Enum 约束（§4.3 可行性），以及
+            // 泛型方法类型实参上的运行时类型身份暴露（归一后不再是 TypeKind.Enum）。
             if (method.TypeArguments.Length > 0)
+            {
                 CheckGenericConstraints(node, method);
+                MarkGenericTypeArgumentExposure(node, method.TypeArguments, $"method '{method.Name}'");
+            }
+        }
+
+        /// <summary>
+        /// E（可传递：穿过数组/Nullable/嵌套泛型实参）出现在泛型方法调用或泛型类型
+        /// 实例化的类型实参位置时，运行时类型身份由被调用方观察：归一后的
+        /// enum-like class 不是 <c>TypeKind.Enum</c>，泛型序列化（System.Text.Json
+        /// 的 <c>Serialize&lt;TValue&gt;(TValue)</c> 会把 <c>TValue</c> 推断成 E 或
+        /// <c>List&lt;E&gt;</c>）与 <c>Type.IsEnum</c> 驱动的转换器选择都会静默走对象
+        /// 路径（json 用例里 E 被序列化成 <c>{}</c>）→ ED020 保真 enum。
+        /// 唯一例外是 <see cref="System.Enum"/> 的可改写泛型 API（
+        /// GetValues/GetNames/GetName/Parse/TryParse/IsDefined…）：这些调用点在
+        /// <see cref="ClassifyEnumApi"/> 里被改写成不依赖运行时身份的形式，
+        /// <see cref="VisitInvocationExpression"/> 在到达本方法前已经 return。
+        /// </summary>
+        private void MarkGenericTypeArgumentExposure(
+            SyntaxNode node, IEnumerable<ITypeSymbol> typeArguments, string genericApi)
+        {
+            foreach (var argument in typeArguments)
+            {
+                foreach (var plan in FeasiblePlansIn(argument))
+                {
+                    Infeasible(plan, node,
+                        $"enum '{plan.EnumShortName}' is used as a type argument of generic " +
+                        $"{genericApi}; a normalized enum-like class is not TypeKind.Enum, so " +
+                        "code that observes the runtime type (Type.IsEnum, reflection-driven " +
+                        "serializers such as System.Text.Json's EnumConverterFactory) would " +
+                        "change behavior. The enum must remain a real enum.");
+                }
+            }
         }
 
         private void CheckGenericConstraints(SyntaxNode node, IMethodSymbol method)
@@ -1486,7 +1533,27 @@ internal sealed class EnumDeclarationAnalyzer
                         "explicit Nullable<E> over a rewritten enum is not supported by the "
                         + "enum-like class representation; use the nullable reference form E?.");
                 }
+                return;
             }
+
+            // 泛型类型实例化（new List<E>()、Dictionary<string, E>…）：E（含数组/
+            // Nullable/嵌套泛型实参，任意深度）作为泛型类型实参交给只看得见运行时
+            // 类型的容器/API（反射驱动的序列化器按元素运行时类型选转换器）→ ED020。
+            // 泛型方法调用的名字节点由 VisitInvocationExpression 统一处置（含
+            // System.Enum 可改写 API 豁免），这里跳过以免重复登记。
+            if (node.Parent is InvocationExpressionSyntax
+                || node.Parent is MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax })
+            {
+                return;
+            }
+            // GetSymbolInfo 优先：限定名右侧的 GenericName（System.Collections.
+            // Generic.List&lt;E&gt;）单独取 TypeInfo 时不一定给出构造类型，符号绑定
+            // 则稳定返回 INamedTypeSymbol。
+            var constructed = _model.GetSymbolInfo(node).Symbol as INamedTypeSymbol
+                ?? _model.GetTypeInfo(node).Type as INamedTypeSymbol;
+            if (constructed == null) return;
+            MarkGenericTypeArgumentExposure(
+                node, constructed.TypeArguments, $"type '{constructed.Name}'");
         }
 
         public override void VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node)
