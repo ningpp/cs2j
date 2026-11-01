@@ -54,25 +54,35 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
         if (elementType == null)
             return base.VisitForEachVariableStatement(node);
 
-        // Classify the element type.
+        // Classify the element type and resolve the components (.Key/.Value or
+        // .ItemN) used to unpack the designation.
         var family = ClassifyFamily(elementType);
+        List<(string Suffix, INamedTypeSymbol SubType)> components;
         switch (family)
         {
             case FamilyKind.KeyValuePair:
+                components = GetKvComponents(elementType);
                 break; // proceed to lowering
             case FamilyKind.Deconstruct:
                 AddInfoDiagnostic(node, "Deconstruct-based deconstruction skipped; handled by converter.");
                 _stats.ForeachDeconstructionsSkipped++;
                 return base.VisitForEachVariableStatement(node);
             case FamilyKind.Tuple:
-                AddInfoDiagnostic(node, "Tuple-based deconstruction skipped; run TupleToStruct first.");
-                _stats.ForeachDeconstructionsSkipped++;
-                return base.VisitForEachVariableStatement(node);
+                components = GetTupleComponents(elementType);
+                // Custom ITuple implementations or unusual generic shapes may
+                // not expose ItemN components: leave the site untouched.
+                if (components.Count == 0 || CountSlots(node.Variable) > components.Count)
+                {
+                    AddInfoDiagnostic(node, "Tuple-based deconstruction skipped; run TupleToStruct first.");
+                    _stats.ForeachDeconstructionsSkipped++;
+                    return base.VisitForEachVariableStatement(node);
+                }
+                break; // proceed to lowering
             default:
                 return base.VisitForEachVariableStatement(node);
         }
 
-        // KV family: lower it. Visit children first for nested deconstruction.
+        // Lower it. Visit children first for nested deconstruction.
         var visited = (ForEachVariableStatementSyntax?)base.VisitForEachVariableStatement(node);
         if (visited == null)
             return visited;
@@ -82,7 +92,7 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
 
         // Build the unpack statements.
         var unpackStatements = new List<StatementSyntax>();
-        UnpackVariable(visited.Variable, entryIdentifier, elementType, unpackStatements, visited);
+        UnpackVariable(visited.Variable, entryIdentifier, components, unpackStatements, visited);
 
         // Build the new foreach statement.
         var newForEach = SyntaxFactory.ForEachStatement(
@@ -177,15 +187,15 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
 
     private void UnpackVariable(
         ExpressionSyntax variable,
-        IdentifierNameSyntax accessorRoot,
-        INamedTypeSymbol currentType,
+        ExpressionSyntax accessorRoot,
+        List<(string Suffix, INamedTypeSymbol SubType)> components,
         List<StatementSyntax> statements,
         SyntaxNode scopeNode)
     {
         // DeclarationExpressionSyntax: var (x, y) form
         if (variable is DeclarationExpressionSyntax declaration)
         {
-            UnpackDesignation(declaration.Designation, accessorRoot, currentType, statements, scopeNode,
+            UnpackDesignation(declaration.Designation, accessorRoot, components, statements, scopeNode,
                 declaredTypeSyntax: declaration.Type);
             return;
         }
@@ -193,7 +203,6 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
         // TupleExpressionSyntax: (int x, int y) or (var x, var y) form
         if (variable is TupleExpressionSyntax tuple)
         {
-            var components = GetKvComponents(currentType);
             for (var i = 0; i < tuple.Arguments.Count && i < components.Count; i++)
             {
                 var (suffix, subType) = components[i];
@@ -217,8 +226,8 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
 
     private void UnpackDesignation(
         VariableDesignationSyntax designation,
-        IdentifierNameSyntax accessorRoot,
-        INamedTypeSymbol currentType,
+        ExpressionSyntax accessorRoot,
+        List<(string Suffix, INamedTypeSymbol SubType)> components,
         List<StatementSyntax> statements,
         SyntaxNode scopeNode,
         TypeSyntax? declaredTypeSyntax)
@@ -236,7 +245,6 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
         // ParenthesizedVariableDesignationSyntax: composite
         if (designation is ParenthesizedVariableDesignationSyntax parenthesized)
         {
-            var components = GetKvComponents(currentType);
             for (var i = 0; i < parenthesized.Variables.Count && i < components.Count; i++)
             {
                 var (suffix, subType) = components[i];
@@ -298,7 +306,7 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
                 var midName2 = FreshName("__entry_inner", scopeNode);
                 var midId2 = SyntaxFactory.IdentifierName(midName2);
                 statements.Add(MakeLocalDeclaration("var", midName2, accessor));
-                UnpackDesignation(child, midId2, subType, statements, scopeNode, null);
+                UnpackDesignation(child, midId2, GetKvComponents(subType), statements, scopeNode, null);
                 return;
             }
 
@@ -351,7 +359,7 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
         // TupleExpressionSyntax: nested tuple (rare in KV context)
         if (arg is TupleExpressionSyntax nestedTuple)
         {
-            UnpackVariable(nestedTuple, (IdentifierNameSyntax)accessor, subType, statements, scopeNode);
+            UnpackVariable(nestedTuple, accessor, GetComponentsFor(subType), statements, scopeNode);
             return;
         }
     }
@@ -386,15 +394,46 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
         {
             for (var i = 0; i < tupleType.TupleElements.Length; i++)
             {
-                result.Add(($"Item{i + 1}", (tupleType.TupleElements[i].Type as INamedTypeSymbol)!));
+                if (tupleType.TupleElements[i].Type is not INamedTypeSymbol elementType)
+                    return new List<(string, INamedTypeSymbol)>();
+                result.Add(($"Item{i + 1}", elementType));
             }
+            return result;
+        }
+
+        // Explicit ValueTuple<...> / System.Tuple<...> generic spelling: IsTupleType
+        // is false, so derive ItemN from the type arguments.
+        var defName = tupleType.OriginalDefinition.ToDisplayString();
+        if (!defName.StartsWith("System.ValueTuple<", StringComparison.Ordinal)
+            && !defName.StartsWith("System.Tuple<", StringComparison.Ordinal))
+            return result; // e.g. custom ITuple without accessible ItemN components
+
+        for (var i = 0; i < tupleType.TypeArguments.Length; i++)
+        {
+            if (tupleType.TypeArguments[i] is not INamedTypeSymbol elementType)
+                return new List<(string, INamedTypeSymbol)>();
+            result.Add(($"Item{i + 1}", elementType));
         }
         return result;
     }
 
+    private List<(string Suffix, INamedTypeSymbol SubType)> GetComponentsFor(INamedTypeSymbol type)
+        => ClassifyFamily(type) == FamilyKind.Tuple
+            ? GetTupleComponents(type)
+            : GetKvComponents(type);
+
     // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
+
+    private static int CountSlots(ExpressionSyntax variable)
+        => variable switch
+        {
+            DeclarationExpressionSyntax { Designation: ParenthesizedVariableDesignationSyntax parenthesized }
+                => parenthesized.Variables.Count,
+            TupleExpressionSyntax tuple => tuple.Arguments.Count,
+            _ => 1,
+        };
 
     private static string GetDeclarationType(TypeSyntax? declaredTypeSyntax)
     {

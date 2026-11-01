@@ -403,22 +403,149 @@ public class ForeachDeconstructionTests
     }
 
     // ===================================================================
+    // 17. Tuple family: foreach (var (x, y) in IEnumerable<(int, string)>)
+    // ===================================================================
+
+    [Fact]
+    public void Lowers_TupleFamily_VarDesignation()
+    {
+        var src = """
+            using System.Collections.Generic;
+            class C {
+                void M(IEnumerable<(int, string)> src) {
+                    foreach (var (x, y) in src) {
+                        string text = x + y;
+                    }
+                }
+            }
+            """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("var x = __entry.Item1", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("var y = __entry.Item2", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    // ===================================================================
+    // 18. Tuple family: explicit types from source annotations
+    // ===================================================================
+
+    [Fact]
+    public void Lowers_TupleFamily_ExplicitTypesFromSource()
+    {
+        var src = """
+            using System;
+            using System.Collections.Generic;
+            class C {
+                void M(IEnumerable<(Type, string)> src) {
+                    foreach ((Type dictionaryType, string testJson) in src) {
+                        object d = dictionaryType;
+                        string s = testJson;
+                    }
+                }
+            }
+            """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("Type dictionaryType = __entry.Item1", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("string testJson = __entry.Item2", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    // ===================================================================
+    // 19. Tuple family: nested designation + discard
+    // ===================================================================
+
+    [Fact]
+    public void Lowers_TupleFamily_NestedDesignation()
+    {
+        var src = """
+            using System.Collections.Generic;
+            class C {
+                void M(IEnumerable<(int, (int, int))> src) {
+                    foreach (var (x, (y, z)) in src) {
+                        int sum = x + y + z;
+                    }
+                }
+            }
+            """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("var x = __entry.Item1", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("var __entry_inner = __entry.Item2", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("var y = __entry_inner.Item1", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("var z = __entry_inner.Item2", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Lowers_TupleFamily_Discard_NotDeclared()
+    {
+        var src = """
+            using System.Collections.Generic;
+            class C {
+                void M(IEnumerable<(int, string)> src) {
+                    foreach ((int a, _) in src) {
+                        int n = a;
+                    }
+                }
+            }
+            """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("int a = __entry.Item1", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("__entry.Item2", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    // ===================================================================
+    // 20. Tuple family: explicit ValueTuple<...> spelling is lowered too
+    // ===================================================================
+
+    [Fact]
+    public void Lowers_TupleFamily_ExplicitValueTupleGeneric()
+    {
+        var src = """
+            using System;
+            using System.Collections.Generic;
+            class C {
+                void M(IEnumerable<ValueTuple<int, string>> src) {
+                    foreach (var (x, y) in src) {
+                        System.Console.WriteLine(x + y);
+                    }
+                }
+            }
+            """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("var x = __entry.Item1", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("var y = __entry.Item2", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    // ===================================================================
     // Helpers
     // ===================================================================
+
+    private static readonly MetadataReference[] References =
+    {
+        MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(Dictionary<,>).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(System.Collections.Concurrent.ConcurrentDictionary<,>).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(SortedDictionary<,>).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(System.Threading.Tasks.Task).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(System.Runtime.CompilerServices.ITuple).Assembly.Location),
+    };
 
     private static ForeachDeconstructionResult Preprocess(string source)
     {
         var tree = CSharpSyntaxTree.ParseText(source);
-        var references = new[]
-        {
-            MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(Dictionary<,>).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(System.Collections.Concurrent.ConcurrentDictionary<,>).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(SortedDictionary<,>).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(System.Threading.Tasks.Task).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(System.Runtime.CompilerServices.ITuple).Assembly.Location),
-        };
+        var references = References;
         var compilation = CSharpCompilation.Create(
             "foreach-deconstruction-test",
             new[] { tree },
@@ -434,5 +561,18 @@ public class ForeachDeconstructionTests
         var errors = tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         Assert.True(errors.Count == 0,
             $"Syntax errors in output:\n{string.Join("\n", errors.Select(e => e.ToString()))}\n--- Code ---\n{code}");
+    }
+
+    private static void AssertCompiles(string code)
+    {
+        var tree = CSharpSyntaxTree.ParseText(code);
+        var compilation = CSharpCompilation.Create(
+            "foreach-deconstruction-output",
+            new[] { tree },
+            References,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            $"Compile errors in output:\n{string.Join("\n", errors.Select(e => e.ToString()))}\n--- Code ---\n{code}");
     }
 }
