@@ -417,7 +417,7 @@ public class Program
                     return 0;
                 }
 
-                PromotePreprocessedTree(opts.Destination, chain.FinalIntermediateRoot);
+                PromotePreprocessedTree(opts.Destination, chain.FinalIntermediateRoot, opts.KeepIntermediate);
                 Console.WriteLine(
                     $"Preprocessed C# project written to: {Path.GetFullPath(opts.Destination)}");
                 return 0;
@@ -637,10 +637,11 @@ public class Program
 
     /// <summary>
     /// <c>--preprocess-only</c>: the chain leaves the final tree in a pass-named
-    /// subdirectory of the destination, so move the last pass' tree contents to
-    /// the destination root and drop every other intermediate artifact.
+    /// subdirectory of the destination. By default, move the last pass' tree contents to
+    /// the destination root and drop every other intermediate artifact. With
+    /// <c>--keep-intermediate</c>, leave every pass-named subdirectory in place (no promotion).
     /// </summary>
-    private static void PromotePreprocessedTree(string destinationRoot, string finalIntermediateRoot)
+    private static void PromotePreprocessedTree(string destinationRoot, string finalIntermediateRoot, bool keepIntermediate = false)
     {
         var destination = NormalizeDirectoryPath(destinationRoot);
         var staged = NormalizeDirectoryPath(finalIntermediateRoot);
@@ -667,37 +668,40 @@ public class Program
                 $"Unexpected staged preprocess tree location: {staged} (destination: {destination}).");
         }
 
-        foreach (var entry in Directory.EnumerateFileSystemEntries(destination).ToList())
+        if (!keepIntermediate)
         {
-            if (string.Equals(NormalizeDirectoryPath(entry), staged, StringComparison.OrdinalIgnoreCase))
+            foreach (var entry in Directory.EnumerateFileSystemEntries(destination).ToList())
             {
-                continue;
+                if (string.Equals(NormalizeDirectoryPath(entry), staged, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (Directory.Exists(entry))
+                {
+                    Directory.Delete(entry, recursive: true);
+                }
+                else
+                {
+                    File.Delete(entry);
+                }
             }
 
-            if (Directory.Exists(entry))
+            foreach (var child in Directory.EnumerateFileSystemEntries(staged).ToList())
             {
-                Directory.Delete(entry, recursive: true);
+                var target = Path.Combine(destination, Path.GetFileName(child));
+                if (Directory.Exists(child))
+                {
+                    Directory.Move(child, target);
+                }
+                else
+                {
+                    File.Move(child, target, overwrite: true);
+                }
             }
-            else
-            {
-                File.Delete(entry);
-            }
+
+            Directory.Delete(staged, recursive: false);
         }
-
-        foreach (var child in Directory.EnumerateFileSystemEntries(staged).ToList())
-        {
-            var target = Path.Combine(destination, Path.GetFileName(child));
-            if (Directory.Exists(child))
-            {
-                Directory.Move(child, target);
-            }
-            else
-            {
-                File.Move(child, target, overwrite: true);
-            }
-        }
-
-        Directory.Delete(staged, recursive: false);
     }
 
     private static async Task<int> ConvertFromProjectGraph(
@@ -5935,6 +5939,11 @@ class ConvertProjectOptions
                    "destination directory root and skip the C#-to-Java conversion " +
                    "(cannot be combined with --no-preprocess)")]
     public bool PreprocessOnly { get; set; }
+
+    [Option("keep-intermediate", Default = false,
+        HelpText = "When used with --preprocess-only, keep all per-pass intermediate directories " +
+                   "under the destination instead of deleting them after promoting the final tree")]
+    public bool KeepIntermediate { get; set; }
 
     public bool UseRecords => !NoRecords;
     public bool GenerateJavaDoc => !NoJavaDoc;
