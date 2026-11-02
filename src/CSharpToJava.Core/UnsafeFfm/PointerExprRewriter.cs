@@ -489,14 +489,16 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
     // ---- UF040 降级域：元数据指针方法 → 同名托管数组+索引重载 ----
 
     /// <summary>
-    /// stackalloc 降级游标作为实参外发到元数据/外部指针方法（典型：
+    /// 可证游标（stackalloc 降级种子，或全部指针实参根均为 R3 已降级的
+    /// fixed/Pinned 游标）作为实参外发到元数据/外部指针方法（典型：
     /// <c>Encoding.UTF8.GetBytes(char*, int, byte*, int)</c> 不安全重载）时，
     /// 把每个白名单指针形参位的实参展开为「数组实参 + int 索引实参」，其余
     /// 实参照常访问，并在被调声明类型的同名方法中按展开后形参类型序列匹配
-    /// 全托管数组重载（6 参 GetBytes 形态）重建调用。
-    /// <para>门控：至少一个指针实参的根符号溯源到 prescan 登记的 stackalloc
-    /// 种子（含其同槽别名，按 R3 源槽判定）；既有 fixed/形参 int 索引通道
-    /// （信号⑧）不经本方法，行为不变。</para>
+    /// 全托管数组重载（数组 + 索引形态）重建调用。
+    /// <para>门控：① 至少一个指针实参的根符号溯源到 prescan 登记的 stackalloc
+    /// 种子（含其同槽别名，按 R3 源槽判定）；或 ② 全部指针实参的指针根均
+    /// 可证为 R3 已降级游标（有伴生数组 + int 索引）。其它既有 fixed/形参
+    /// int 索引通道（信号⑧）不经本方法，行为不变。</para>
     /// <para>后备：展开全匹配失败时，若缓冲指针实参根为零不变种子，允许消去
     /// 其后紧邻的 int 容量实参（5 参 GetBytes 形态）再匹配。全部失败不静默
     /// 吞错——返回 handled=true + error，调用方发 UF020。</para>
@@ -528,9 +530,13 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
             p => p.Type is IPointerTypeSymbol));
         if (candidates.Count == 0) return false;
 
-        // 门控：至少一个指针实参的根符号溯源到 prescan 登记的 stackalloc
-        // 降级种子（含其同槽别名，按 R3 源槽判定）。fixed/形参可证游标外发
-        // 元数据方法的形态仍走既有信号⑧ VisitArgument int 索引通道，行为不变。
+        // 门控①：至少一个指针实参的根符号溯源到 prescan 登记的 stackalloc
+        // 降级种子（含其同槽别名，按 R3 源槽判定）。
+        // 门控②：全部指针实参的指针根均可证为 R3 已降级的 fixed/Pinned/
+        // stackalloc 游标（伴生数组 + int 索引）。典型如两个 fixed 游标同时
+        // 外发 BCL 原地重载（GetBytes(char*, int, byte*, int)），既无
+        // stackalloc 种子也无配对形参 offset，靠本门控进入托管重载展开。
+        // 门控未命中且无配对 offset 时维持既有行为。
         var hasStackAllocCursorArg = false;
         foreach (var argument in node.ArgumentList.Arguments)
         {
@@ -545,12 +551,15 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
             }
         }
 
-        // 降级 fallback：上门控未命中但至少一个 int 型实参（已被先前 visit
+        var hasOnlyProvableCursorArgs = !hasStackAllocCursorArg
+            && AllPointerArgsProvablyCursorBacked(node.ArgumentList.Arguments);
+
+        // 降级 fallback：上门控均未命中但至少一个 int 型实参（已被先前 visit
         // 降至 int）的 originating symbols 溯源到被 R5 配对形参的 offset 变量
         // （如 pInputIndex）。 此时仍尝试托管重载展开——以「数组 + offset 变量」
         // 替换指针位。 仅当确实存在此类 offset 实参时才接管，避免对其他方法产生
         // 副作用。 展开失败同样吞错并保真原文（与 stackalloc 域一致）。
-        if (!hasStackAllocCursorArg)
+        if (!hasStackAllocCursorArg && !hasOnlyProvableCursorArgs)
         {
             if (!HasPairedParameterOffsetArg(node.ArgumentList.Arguments))
                 return false;
@@ -585,12 +594,12 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
                 return true;
             }
 
-            firstError ??= $"metadata pointer method '{method.Name}' receives a stackalloc cursor " +
+            firstError ??= $"metadata pointer method '{method.Name}' receives a provable cursor " +
                 "but no same-named managed overload taking arrays and indexes matches the expanded " +
                 "arguments; the original file was preserved.";
         }
 
-        error = firstError ?? "metadata pointer call with a stackalloc cursor cannot be resolved "
+        error = firstError ?? "metadata pointer call with a provable cursor cannot be resolved "
             + "to a managed array overload; the original file was preserved.";
         return true;
     }
@@ -1011,6 +1020,42 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
             && _stackAllocCursorSymbols.Any(seed =>
                 _loweredArrayMap.TryGetValue(seed, out var seedInfo)
                 && seedInfo.SourceSlot == info.SourceSlot);
+    }
+
+    /// <summary>
+    /// 全部指针实参的指针源根是否均可证为 R3 已降级游标（fixed/Pinned/
+    /// stackalloc 及其别名局部）：每个指针根都在
+    /// <see cref="FixedStatementRewriter.LoweredArrayMap"/> 中登记了伴生数组，
+    /// 且至少存在一个指针实参。纯 int 偏移操作数不参与判定。
+    /// </summary>
+    private bool AllPointerArgsProvablyCursorBacked(
+        IReadOnlyList<ArgumentSyntax> arguments)
+    {
+        var sawPointerArg = false;
+        foreach (var argument in arguments)
+        {
+            if (!IsOldPointerTyped(argument.Expression)) continue;
+
+            sawPointerArg = true;
+            var roots = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+            CollectOriginatingSymbols(argument.Expression, roots);
+
+            var pointerRoots = roots.Where(IsOldPointerSymbol).ToList();
+            if (pointerRoots.Count == 0) return false;
+            foreach (var root in pointerRoots)
+            {
+                if (IsStackAllocSlotRoot(root)) continue;
+                if (_loweredArrayMap.TryGetValue(root, out var info)
+                    && info.ArrayName.Length > 0)
+                {
+                    continue;
+                }
+
+                return false;
+            }
+        }
+
+        return sawPointerArg;
     }
 
     /// <summary>根是否为 prescan 判定全程索引恒 0 的 stackalloc 种子。</summary>

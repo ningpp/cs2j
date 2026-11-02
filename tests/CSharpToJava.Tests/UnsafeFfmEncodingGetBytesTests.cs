@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.RegularExpressions;
 using CSharpToJava.Core.UnsafeFfm;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -109,6 +110,43 @@ public class UnsafeFfmEncodingGetBytesTests
             string.Join("\n", result.Diagnostics));
         Assert.False(result.HasErrors, "Unexpected UF020:\n" +
             string.Join("\n", result.Diagnostics));
+    }
+
+    /// <summary>
+    /// 两个指针实参都是 fixed 游标、且没有任何配对形参 offset：
+    /// BCL 原地 4 参 <c>GetBytes(char*, int, byte*, int)</c> 应展开为托管
+    /// 数组重载 <c>GetBytes(char[], int, int, byte[], int)</c>（两个游标均零
+    /// 不变，尾部容量位按既有零不变规则消去）。
+    /// </summary>
+    [Fact]
+    public void DoubleFixedCursor_NoPairedParam_ExpandsToManagedArrays()
+    {
+        var src = """
+            using System.Text;
+            unsafe class C
+            {
+                static int Encode(byte[] utf8Data, string overwriteJson)
+                {
+                    fixed (byte* dataPtr = utf8Data)
+                    fixed (char* inputPtr = overwriteJson)
+                    {
+                        return Encoding.UTF8.GetBytes(
+                            inputPtr, overwriteJson.Length, dataPtr, utf8Data.Length);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+        Assert.True(result.Changed, "Expected managed array expansion:\n" +
+            string.Join("\n", result.Diagnostics));
+        Assert.False(result.HasErrors, "Unexpected UF020:\n" +
+            string.Join("\n", result.Diagnostics));
+
+        var compact = Regex.Replace(result.OutputCode, "\\s+", " ");
+        Assert.DoesNotContain("GetBytes(inputPtr", compact);
+        Assert.Contains("GetBytes(_inputPtr_array, inputPtr", compact);
+        Assert.Contains("_dataPtr_array, dataPtr", compact);
     }
 
     /// <summary>
