@@ -327,22 +327,23 @@ internal static class DecimalTypeFacts
         };
     }
 
-    // ── const-decimal planning (DC-12) ──
+    // ── const planning (DC-12) ──
 
     /// <summary>
-    /// Enumerate every const-decimal declarator (field or local) together with
-    /// its initializer value expression.
+    /// Enumerate every const declarator (field or local) together with its
+    /// initializer value expression. The declared type is deliberately not
+    /// restricted to decimal: a const of ANY type (bool, string, ...) can hold
+    /// an owned decimal operator whose rewrite becomes a runtime BCL call.
     /// </summary>
     public static IEnumerable<(SyntaxNode Declarator, ISymbol Symbol, ExpressionSyntax Value)>
-        EnumerateConstDecimalDeclarators(SemanticModel model, SyntaxNode root)
+        EnumerateConstDeclarators(SemanticModel model, SyntaxNode root)
     {
         foreach (var field in root.DescendantNodes().OfType<FieldDeclarationSyntax>())
         {
             foreach (var variable in field.Declaration.Variables)
             {
                 if (variable.Initializer?.Value is { } value
-                    && model.GetDeclaredSymbol(variable) is IFieldSymbol { IsConst: true } fieldSymbol
-                    && IsDecimalType(fieldSymbol.Type))
+                    && model.GetDeclaredSymbol(variable) is IFieldSymbol { IsConst: true } fieldSymbol)
                 {
                     yield return (variable, fieldSymbol, value);
                 }
@@ -354,8 +355,7 @@ internal static class DecimalTypeFacts
             foreach (var variable in local.Declaration.Variables)
             {
                 if (variable.Initializer?.Value is { } value
-                    && model.GetDeclaredSymbol(variable) is ILocalSymbol { IsConst: true } localSymbol
-                    && IsDecimalType(localSymbol.Type))
+                    && model.GetDeclaredSymbol(variable) is ILocalSymbol { IsConst: true } localSymbol)
                 {
                     yield return (variable, localSymbol, value);
                 }

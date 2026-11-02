@@ -6,7 +6,7 @@ namespace CSharpToJava.Core.NumericBoundary.Rules.DecimalOps;
 /// <summary>
 /// Planning helpers for C34: hoist-anchor classification (DC-11, same whitelist
 /// discipline as the C15 postfix hoist), collision-free temporary names, the
-/// const-decimal downgrade fixpoint (DC-12) and E09 support-surface detection.
+/// const downgrade fixpoint (DC-12) and E09 support-surface detection.
 /// </summary>
 internal static class DecimalOpAnalyzer
 {
@@ -131,18 +131,19 @@ internal static class DecimalOpAnalyzer
         return expression;
     }
 
-    // ── const-decimal downgrade planning (DC-12) ──
+    // ── const downgrade planning (DC-12) ──
 
     /// <summary>
-    /// Compute the set of const-decimal declarators that must be downgraded:
-    /// seed = initializer holds a built-in decimal operator C34 rewrites;
-    /// cascade = another const decimal references a seeded symbol. Pure
-    /// literal constants stay <c>const</c>.
+    /// Compute the set of const declarators that must be downgraded:
+    /// seed = initializer of ANY declared type holds a built-in decimal operator
+    /// C34 rewrites (the rewrite becomes a runtime BCL call, so the declarator
+    /// can no longer stay a compile-time constant); cascade = another const
+    /// references a seeded symbol. Pure literal constants stay <c>const</c>.
     /// </summary>
     public static HashSet<SyntaxNode> PlanConstDowngrades(SemanticModel model, SyntaxNode root)
     {
         var declarators = DecimalTypeFacts
-            .EnumerateConstDecimalDeclarators(model, root)
+            .EnumerateConstDeclarators(model, root)
             .ToList();
 
         var seeded = new HashSet<SyntaxNode>();
