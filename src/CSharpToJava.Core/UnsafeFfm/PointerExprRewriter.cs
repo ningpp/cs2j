@@ -110,6 +110,23 @@ internal sealed class PointerExprRewriter : CSharpSyntaxRewriter
     public bool HasErrors =>
         Diagnostics.Any(d => d.Severity == UnsafeFfmSeverity.Error);
 
+    // ---- 继承外部指针签名而保留的成员：整子树原样跳过 ----
+
+    /// <summary>
+    /// R5 因继承外部指针签名而保留的成员（override/接口实现）内部仍是指针
+    /// 语义：*p/p[i]/p±n 等表达式不得索引化，否则与保留的签名不一致。
+    /// </summary>
+    public override SyntaxNode? Visit(SyntaxNode? node)
+    {
+        if (node != null
+            && node.HasAnnotation(PointerSignatureRewriter.PreservedPointerSignatureAnnotation))
+        {
+            return node;
+        }
+
+        return base.Visit(node);
+    }
+
     // ---- 配对方法域 ----
 
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)

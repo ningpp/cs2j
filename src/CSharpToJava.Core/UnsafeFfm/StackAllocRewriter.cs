@@ -54,6 +54,23 @@ internal sealed class StackAllocRewriter : CSharpSyntaxRewriter
     public bool HasErrors =>
         Diagnostics.Any(d => d.Severity == UnsafeFfmSeverity.Error);
 
+    // ---- 继承外部指针签名而保留的成员：整子树原样跳过 ----
+
+    /// <summary>
+    /// R5 因继承外部指针签名而保留的成员（override/接口实现）内部仍是指针
+    /// 语义：其 stackalloc/fixed 等构造不得改写为托管形态。
+    /// </summary>
+    public override SyntaxNode? Visit(SyntaxNode? node)
+    {
+        if (node != null
+            && node.HasAnnotation(PointerSignatureRewriter.PreservedPointerSignatureAnnotation))
+        {
+            return node;
+        }
+
+        return base.Visit(node);
+    }
+
     // ---- 显式 stackalloc ----
 
     public override SyntaxNode? VisitStackAllocArrayCreationExpression(

@@ -29,6 +29,14 @@ namespace CSharpToJava.Core.UnsafeFfm;
 /// </summary>
 internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
 {
+    /// <summary>
+    /// 因继承外部指针签名而保留指针形态的成员声明标记。R3/R6 跳过其子树
+    ///（保持内部指针表达式原样），末端 residual 闸门放行其内的指针语法。
+    /// 这类成员维持 unsafe 上下文（工程本身 AllowUnsafeBlocks）。
+    /// </summary>
+    internal static readonly SyntaxAnnotation PreservedPointerSignatureAnnotation =
+        new("Cs2jUnsafeFfmPreservedPointerSignature");
+
     private readonly SemanticModel _model;
     private readonly HashSet<IFieldSymbol> _rewrittenFields;
     private readonly UnsafeFfmStatistics _statistics;
@@ -82,6 +90,13 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
+        if (TryPreserveSignature(node))
+        {
+            return node
+                .WithModifiers(AddUnsafeModifier(node.Modifiers))
+                .WithAdditionalAnnotations(PreservedPointerSignatureAnnotation);
+        }
+
         if (GetCurrentPlan(node) is { } paired)
             return ApplyPairedMethod(node, paired);
 
@@ -96,6 +111,13 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node)
     {
+        if (TryPreserveSignature(node))
+        {
+            return node
+                .WithModifiers(AddUnsafeModifier(node.Modifiers))
+                .WithAdditionalAnnotations(PreservedPointerSignatureAnnotation);
+        }
+
         if (GetCurrentPlan(node) is { } paired)
         {
             var local = (LocalFunctionStatementSyntax)VisitPairedBody(
@@ -301,6 +323,13 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitOperatorDeclaration(OperatorDeclarationSyntax node)
     {
+        if (TryPreserveSignature(node))
+        {
+            return node
+                .WithModifiers(AddUnsafeModifier(node.Modifiers))
+                .WithAdditionalAnnotations(PreservedPointerSignatureAnnotation);
+        }
+
         var parameterRewrites = PlanParameterRewrites(
             node.ParameterList.Parameters, node.ParameterList);
         var returnPlan = PlanTypeRewrite(node.ReturnType);
@@ -317,6 +346,13 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitConversionOperatorDeclaration(ConversionOperatorDeclarationSyntax node)
     {
+        if (TryPreserveSignature(node))
+        {
+            return node
+                .WithModifiers(AddUnsafeModifier(node.Modifiers))
+                .WithAdditionalAnnotations(PreservedPointerSignatureAnnotation);
+        }
+
         // 转换运算符只有「目标类型」（如 operator byte*(...)），无返回类型写法。
         var targetPlan = PlanTypeRewrite(node.Type);
         var parameterRewrites = PlanParameterRewrites(
@@ -351,6 +387,13 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitConstructorDeclaration(ConstructorDeclarationSyntax node)
     {
+        if (TryPreserveSignature(node))
+        {
+            return node
+                .WithModifiers(AddUnsafeModifier(node.Modifiers))
+                .WithAdditionalAnnotations(PreservedPointerSignatureAnnotation);
+        }
+
         var parameterRewrites = PlanParameterRewrites(
             node.ParameterList.Parameters, node.ParameterList);
 
@@ -361,6 +404,13 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitIndexerDeclaration(IndexerDeclarationSyntax node)
     {
+        if (TryPreserveSignature(node))
+        {
+            return node
+                .WithModifiers(AddUnsafeModifier(node.Modifiers))
+                .WithAdditionalAnnotations(PreservedPointerSignatureAnnotation);
+        }
+
         var parameterRewrites = PlanParameterRewrites(
             node.ParameterList.Parameters, node.ParameterList);
         var returnPlan = PlanTypeRewrite(node.Type);
@@ -736,6 +786,134 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
         return node.WithDeclaration(node.Declaration
             .WithType(BuildArrayType(currentPointer))
             .WithVariables(SeparatedList(newVariables)));
+    }
+
+    // ---- 继承签名一致性：外部基类/接口成员仍为指针时保留原签名 ----
+
+    /// <summary>
+    /// 成员签名是否必须保留指针形态。判定链：
+    /// 语法预筛（签名含指针类型语法）→ 该成员为 override / 显式接口实现 /
+    /// 隐式接口实现，且对应的基类/接口成员不会被本 pass 改写（外部元数据，
+    /// 或自身也因同样的外部继承关系被保留）。只有两侧一致改写时才继续
+    /// 归一为数组，避免外部基类成员仍为 char* 时产生 CS0115/CS0534。
+    /// </summary>
+    private bool TryPreserveSignature(SyntaxNode node)
+    {
+        if (!SignatureHasPointerSyntax(node)) return false;
+
+        var original = _resolver.Resolve(node);
+        var symbol = original == null ? null : _model.GetDeclaredSymbol(original);
+        return symbol != null && SignatureRequiresPreservation(symbol, 0);
+    }
+
+    private static bool SignatureHasPointerSyntax(SyntaxNode node) => node switch
+    {
+        MethodDeclarationSyntax method => method.ReturnType is PointerTypeSyntax
+            || method.ParameterList.Parameters.Any(p => p.Type is PointerTypeSyntax),
+        LocalFunctionStatementSyntax local => local.ReturnType is PointerTypeSyntax
+            || local.ParameterList.Parameters.Any(p => p.Type is PointerTypeSyntax),
+        OperatorDeclarationSyntax op => op.ReturnType is PointerTypeSyntax
+            || op.ParameterList.Parameters.Any(p => p.Type is PointerTypeSyntax),
+        ConversionOperatorDeclarationSyntax conversion => conversion.Type is PointerTypeSyntax
+            || conversion.ParameterList.Parameters.Any(p => p.Type is PointerTypeSyntax),
+        ConstructorDeclarationSyntax constructor =>
+            constructor.ParameterList.Parameters.Any(p => p.Type is PointerTypeSyntax),
+        IndexerDeclarationSyntax indexer => indexer.Type is PointerTypeSyntax
+            || indexer.ParameterList.Parameters.Any(p => p.Type is PointerTypeSyntax),
+        DelegateDeclarationSyntax @delegate => @delegate.ReturnType is PointerTypeSyntax
+            || @delegate.ParameterList.Parameters.Any(p => p.Type is PointerTypeSyntax),
+        _ => false,
+    };
+
+    private static bool SignatureUsesPointer(ISymbol symbol) => symbol switch
+    {
+        IMethodSymbol method => method.ReturnType is IPointerTypeSymbol
+            || method.Parameters.Any(p => p.Type is IPointerTypeSymbol),
+        IPropertySymbol property => property.Type is IPointerTypeSymbol
+            || property.Parameters.Any(p => p.Type is IPointerTypeSymbol),
+        _ => false,
+    };
+
+    /// <summary>
+    /// 成员是否有任一对侧成员（被重写/被实现的基类或接口成员）仍保持指针
+    /// 签名且不会被本 pass 改写。深度上限防御继承/接口图环路。
+    /// </summary>
+    private static bool SignatureRequiresPreservation(ISymbol symbol, int depth)
+    {
+        if (depth > 8 || !SignatureUsesPointer(symbol)) return false;
+
+        foreach (var paired in GetPairedSignatureOwners(symbol))
+        {
+            if (!SignatureWillBeRewritten(paired, depth + 1)) return true;
+        }
+
+        return false;
+    }
+
+    private static bool SignatureWillBeRewritten(ISymbol symbol, int depth)
+    {
+        // 外部元数据成员不参与本 pass：其指针签名保持原样。
+        if (symbol.DeclaringSyntaxReferences.Length == 0) return false;
+
+        // 源码成员默认由 R5 改写（两侧一致）；若其自身也因继承外部指针签名
+        // 而保留，则派生成员同样必须保留。
+        return !SignatureRequiresPreservation(symbol, depth);
+    }
+
+    private static IEnumerable<ISymbol> GetPairedSignatureOwners(ISymbol symbol)
+    {
+        switch (symbol)
+        {
+            case IMethodSymbol method:
+                if (method.OverriddenMethod != null) yield return method.OverriddenMethod;
+                foreach (var explicitImplementation in method.ExplicitInterfaceImplementations)
+                    yield return explicitImplementation;
+                // 显式实现已完整给出接口成员；跳过隐式扫描。
+                if (method.ExplicitInterfaceImplementations.Length > 0) yield break;
+                break;
+
+            case IPropertySymbol property:
+                if (property.OverriddenProperty != null) yield return property.OverriddenProperty;
+                foreach (var explicitImplementation in property.ExplicitInterfaceImplementations)
+                    yield return explicitImplementation;
+                if (property.ExplicitInterfaceImplementations.Length > 0) yield break;
+                break;
+
+            default:
+                yield break;
+        }
+
+        foreach (var implicitOwner in GetImplicitInterfaceOwners(symbol))
+            yield return implicitOwner;
+    }
+
+    private static IEnumerable<ISymbol> GetImplicitInterfaceOwners(ISymbol symbol)
+    {
+        var containingType = symbol.ContainingType;
+        if (containingType == null) yield break;
+
+        foreach (var interfaceType in containingType.AllInterfaces)
+        {
+            foreach (var interfaceMember in interfaceType.GetMembers())
+            {
+                if (interfaceMember.Kind != symbol.Kind) continue;
+
+                var implementation =
+                    containingType.FindImplementationForInterfaceMember(interfaceMember);
+                if (implementation != null
+                    && SymbolEqualityComparer.Default.Equals(implementation, symbol))
+                {
+                    yield return interfaceMember;
+                }
+            }
+        }
+    }
+
+    /// <summary>补回 R1 剥除的 unsafe 上下文（指针签名保留时必需）。</summary>
+    private static SyntaxTokenList AddUnsafeModifier(SyntaxTokenList modifiers)
+    {
+        if (modifiers.Any(SyntaxKind.UnsafeKeyword)) return modifiers;
+        return modifiers.Add(Token(SyntaxKind.UnsafeKeyword).WithTrailingTrivia(Space));
     }
 
     // ---- 改写计划 ----

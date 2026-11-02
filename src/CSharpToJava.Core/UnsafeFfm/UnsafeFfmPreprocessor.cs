@@ -996,7 +996,8 @@ public sealed class UnsafeFfmPreprocessor
     /// </summary>
     private static bool HasFixedResidual(CompilationUnitSyntax root, out string reason)
     {
-        if (root.DescendantNodes().OfType<FixedStatementSyntax>().Any())
+        if (root.DescendantNodes().OfType<FixedStatementSyntax>()
+            .Any(f => !IsInPreservedPointerSignature(f)))
         {
             reason = "the rewritten tree still contains a fixed statement";
             return true;
@@ -1086,28 +1087,32 @@ public sealed class UnsafeFfmPreprocessor
     /// </summary>
     private static bool HasPointerResidual(CompilationUnitSyntax root, out string reason)
     {
-        if (root.DescendantNodes().OfType<PointerTypeSyntax>().Any())
+        if (root.DescendantNodes().OfType<PointerTypeSyntax>()
+            .Any(n => !IsInPreservedPointerSignature(n)))
         {
             reason = "the rewritten tree still contains a pointer type";
             return true;
         }
 
-        if (root.DescendantNodes().OfType<FunctionPointerTypeSyntax>().Any())
+        if (root.DescendantNodes().OfType<FunctionPointerTypeSyntax>()
+            .Any(n => !IsInPreservedPointerSignature(n)))
         {
             reason = "the rewritten tree still contains a function pointer type";
             return true;
         }
 
         if (root.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>()
-            .Any(p => p.Kind() is SyntaxKind.AddressOfExpression
-                or SyntaxKind.PointerIndirectionExpression))
+            .Any(p => (p.Kind() is SyntaxKind.AddressOfExpression
+                or SyntaxKind.PointerIndirectionExpression)
+                && !IsInPreservedPointerSignature(p)))
         {
             reason = "the rewritten tree still contains an address-of or pointer indirection expression";
             return true;
         }
 
         if (root.DescendantNodes().OfType<MemberAccessExpressionSyntax>()
-            .Any(m => m.Kind() == SyntaxKind.PointerMemberAccessExpression))
+            .Any(m => m.Kind() == SyntaxKind.PointerMemberAccessExpression
+                && !IsInPreservedPointerSignature(m)))
         {
             reason = "the rewritten tree still contains a pointer member access (p->m)";
             return true;
@@ -1116,6 +1121,15 @@ public sealed class UnsafeFfmPreprocessor
         reason = string.Empty;
         return false;
     }
+
+    /// <summary>
+    /// 节点是否位于「因继承外部指针签名而保留」的成员子树内。这类成员的
+    /// 指针签名与指针表达式原样保留（维持 unsafe 上下文），不属于 R5/R6
+    /// 规则缺口，residual 闸门应放行。
+    /// </summary>
+    private static bool IsInPreservedPointerSignature(SyntaxNode node)
+        => node.Ancestors().Any(a =>
+            a.HasAnnotation(PointerSignatureRewriter.PreservedPointerSignatureAnnotation));
 
     /// <summary>
     /// 取声明直接所属命名空间名（含 file-scoped 与块形式）；全局命名空间返回 null。
