@@ -518,6 +518,23 @@ internal sealed class IncrementTargetAnalyzer
             ?? symbolInfo.CandidateSymbols.OfType<IPropertySymbol>().FirstOrDefault();
         if (boundProperty != null)
         {
+            // C01 holder fast path: the ref-out-in pass emits `holder.Value++`
+            // on Cs2jByRef.ByRef<T>/ScopedByRef<T>. Their `Value` is ref
+            // returning (ByRef) or a plain get/set property (ScopedByRef), but
+            // the Java half already lowers built-in signed numeric property
+            // increments to getValue()/setValue(...). Leave the site native:
+            // no rewrite, no owned statistics, no CS2J5340/CS2J5341. User-
+            // defined ref properties and non-direct-map value types (decimal,
+            // unsigned, enum, …) keep the original strict behaviour.
+            if (!isChecked
+                && IsC01HolderValueProperty(boundProperty)
+                && IsJavaDirectMapIncrementValueType(operandType))
+            {
+                return NewClassification(
+                    kind, TargetKind.NotOwned, ArithmeticCore.DirectMap, isChecked,
+                    Liftability.NotNeeded, operand, boundProperty);
+            }
+
             var propertyTarget = boundProperty.RefKind != RefKind.None
                 ? TargetKind.RefReturning
                 : TargetKind.Property;
@@ -629,6 +646,40 @@ internal sealed class IncrementTargetAnalyzer
     }
 
     private static bool IsEventSymbol(ISymbol? symbol) => symbol is IEventSymbol;
+
+    /// <summary>
+    /// The <c>Value</c> property of the Cs2jByRef holder family (<c>ByRef&lt;T&gt;</c>
+    /// / <c>ScopedByRef&lt;T&gt;</c>) that the ref-out-in pass emits. Matched through
+    /// the generic original definition; <c>ReadOnlyByRef&lt;T&gt;</c> /
+    /// <c>RefStructByRef&lt;T&gt;</c> are deliberately not exempted.
+    /// </summary>
+    internal static bool IsC01HolderValueProperty(IPropertySymbol property)
+    {
+        if (property.Name != "Value")
+        {
+            return false;
+        }
+
+        var definition = property.ContainingType?.OriginalDefinition;
+        return definition?.ContainingNamespace?.ToDisplayString() == "Cs2jByRef"
+            && definition.Name is "ByRef" or "ScopedByRef";
+    }
+
+    /// <summary>
+    /// Value types whose property increment the converter lowers directly to
+    /// <c>getValue()</c> + <c>setValue(...)</c>
+    /// (<c>UnaryExpressionTransformer.TryLowerPropertyIncrement</c>): the built-in
+    /// signed numeric domains only. Byte/ushort/uint/ulong, decimal, enum and
+    /// nint are intentionally absent.
+    /// </summary>
+    internal static bool IsJavaDirectMapIncrementValueType(ITypeSymbol? type) =>
+        type?.SpecialType is SpecialType.System_SByte
+            or SpecialType.System_Int16
+            or SpecialType.System_Char
+            or SpecialType.System_Int32
+            or SpecialType.System_Int64
+            or SpecialType.System_Single
+            or SpecialType.System_Double;
 
     private bool IsTrueArrayElement(ExpressionSyntax operand, out ITypeSymbol? elementType)
     {
