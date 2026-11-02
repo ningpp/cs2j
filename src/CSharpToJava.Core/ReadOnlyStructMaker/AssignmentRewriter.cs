@@ -9,14 +9,18 @@ namespace CSharpToJava.Core.ReadOnlyStructMaker;
 ///   obj.Field = v   -> obj = obj.WithField(v)
 ///   obj.Field op= v -> obj = obj.WithField(obj.Field op v)
 ///   obj.Field++ / -- (statement level) -> obj = obj.WithField(obj.Field +/- 1)
+/// Tuple/deconstruction assignments whose targets include such members are
+/// rewritten the same way, evaluating the right-hand elements first:
+///   (obj.X, obj.Y) = (v1, v2) -> obj = obj.WithX(v1).WithY(v2)
 /// For L3 (DataContainer) structs the write is instead reconstructed through
 /// their full constructor:
 ///   obj.Prop = v    -> obj = new S(p1: obj.P1, ..., p: v, ...)
+///   (obj.X, obj.Y) = (v1, v2) -> obj = new S(p1: obj.P1, ..., x: v1, y: v2, ...)
 /// All other nodes are returned unchanged. Target confirmation is semantic.
-/// Anything more complex (tuple assignments, chained assignments, embedded
-/// assignment values, unary mutations nested in expressions, object initializers,
-/// read getter rewrites, casts) is not handled here and must be normalized by
-/// earlier preprocessing passes.
+/// Anything more complex (chained assignments, embedded assignment values,
+/// unary mutations nested in expressions, object initializers, read getter
+/// rewrites, casts) is not handled here and must be normalized by earlier
+/// preprocessing passes.
 /// </summary>
 public sealed class AssignmentRewriter : CSharpSyntaxRewriter
 {
@@ -88,6 +92,9 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     /// <summary>Deterministic temp name for hoisted value-position reads.</summary>
     internal string NextHoistTempName(string fieldName)
         => "__cs2jOld" + char.ToUpperInvariant(fieldName[0]) + fieldName.Substring(1) + "_" + (_hoistCounter++);
+
+    /// <summary>Deterministic temp name for tuple-assignment RHS evaluation.</summary>
+    internal string NextTupleTempName() => "__cs2jTuple" + (_hoistCounter++);
 
     /// <summary>
     /// 语义解析目标字段访问：<c>receiver.F</c>（F ∈ 目标字段，receiver 为可赋值
@@ -315,6 +322,188 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         }
     }
 
+    public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)
+    {
+        // Deconstruction assignment statements: (obj.X, obj.Y) = (...). A block is
+        // returned because the write-back needs a temp/assignment sequence; a block
+        // is valid wherever a statement is (including embedded if/loop bodies).
+        if (node.Expression is AssignmentExpressionSyntax assignment
+            && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            && assignment.Left is TupleExpressionSyntax leftTuple
+            && TryRewriteTupleAssignment(assignment, leftTuple, node) is { } replacement)
+        {
+            return replacement;
+        }
+
+        return base.VisitExpressionStatement(node);
+    }
+
+    /// <summary>
+    /// Rewrites a tuple assignment whose targets include external writes to target
+    /// readonly-struct members. Returns null (statement unchanged) whenever any
+    /// target is a nested designation or the right-hand side cannot be evaluated
+    /// element-wise — partial rewrites would be wrong.
+    /// </summary>
+    private BlockSyntax? TryRewriteTupleAssignment(
+        AssignmentExpressionSyntax assignment, TupleExpressionSyntax leftTuple,
+        ExpressionStatementSyntax statement)
+    {
+        var targets = new List<(ExpressionSyntax Target, MemberAccessExpressionSyntax? Access, string? StructName)>();
+        foreach (var argument in leftTuple.Arguments)
+        {
+            switch (argument.Expression)
+            {
+                case IdentifierNameSyntax:
+                case ElementAccessExpressionSyntax:
+                    targets.Add((argument.Expression, null, null));
+                    break;
+                case MemberAccessExpressionSyntax:
+                    var access = TryResolveTargetAccess(argument.Expression, out var structName);
+                    targets.Add((argument.Expression, access,
+                        access == null ? null : structName));
+                    break;
+                default:
+                    return null; // nested designation or unsupported target
+            }
+        }
+
+        // Nothing to rewrite: keep unrelated tuple assignments untouched.
+        if (targets.All(t => t.Access == null))
+            return null;
+
+        // Right-hand side: evaluate every element first, in source order.
+        var values = new List<(ExpressionSyntax Value, bool NeedsTemp)>();
+        string? tupleTempName = null;
+        if (assignment.Right is TupleExpressionSyntax rightTuple)
+        {
+            if (rightTuple.Arguments.Count != targets.Count)
+                return null;
+            foreach (var argument in rightTuple.Arguments)
+            {
+                var value = (ExpressionSyntax)Visit(argument.Expression)!;
+                values.Add((value, NeedsTemp(value)));
+            }
+        }
+        else
+        {
+            // Only a semantically-known ValueTuple can be decomposed element-wise.
+            if (_semanticModel == null)
+                return null;
+            INamedTypeSymbol? tupleType;
+            try
+            {
+                tupleType = _semanticModel.GetTypeInfo(assignment.Right).Type as INamedTypeSymbol;
+            }
+            catch (ArgumentException)
+            {
+                return null; // synthesized node not present in the modeled tree
+            }
+            if (tupleType == null || !tupleType.IsTupleType
+                || tupleType.TupleElements.Length != targets.Count)
+            {
+                return null;
+            }
+
+            tupleTempName = NextTupleTempName();
+            var tupleId = SyntaxFactory.IdentifierName(tupleTempName);
+            values.AddRange(Enumerable.Range(1, targets.Count).Select(i =>
+                ((ExpressionSyntax)SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    tupleId.WithoutTrivia(),
+                    SyntaxFactory.IdentifierName("Item" + i)), false)));
+        }
+
+        var statements = new List<StatementSyntax>();
+        if (tupleTempName != null)
+        {
+            statements.Add(SyntaxFactory.LocalDeclarationStatement(
+                SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName("var"))
+                    .WithVariables(SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.VariableDeclarator(tupleTempName)
+                            .WithInitializer(SyntaxFactory.EqualsValueClause(
+                                (ExpressionSyntax)Visit(assignment.Right)!))))));
+        }
+
+        var receiverTexts = targets.Where(t => t.Access != null)
+            .Select(t => t.Access!.Expression.WithoutTrivia().ToString())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var targetIndexes = Enumerable.Range(0, targets.Count)
+            .Where(i => targets[i].Access != null)
+            .ToList();
+        // Same receiver for every target: one chain/constructor expression is
+        // enough — the whole RHS and all member reads happen before the write.
+        var singleReceiverChain = receiverTexts.Count == 1
+                                  && targetIndexes.Count == targets.Count
+                                  && tupleTempName == null;
+
+        if (singleReceiverChain)
+        {
+            var writes = targetIndexes
+                .Select(i => (targets[i].Access!.Name.Identifier.Text, values[i].Value))
+                .ToList();
+            statements.Add(SyntaxFactory.ExpressionStatement(BuildMultiWriteAssignment(
+                targets[targetIndexes[0]].StructName!, targets[targetIndexes[0]].Access!.Expression,
+                writes, statement)));
+        }
+        else
+        {
+            // Hoist non-trivial elements so the whole RHS is evaluated before the
+            // first write; receivers may differ, and source order must be preserved.
+            for (var i = 0; i < values.Count; i++)
+            {
+                if (!values[i].NeedsTemp)
+                    continue;
+                var tempName = NextTupleTempName();
+                statements.Add(SyntaxFactory.LocalDeclarationStatement(
+                    SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName("var"))
+                        .WithVariables(SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.VariableDeclarator(tempName)
+                                .WithInitializer(SyntaxFactory.EqualsValueClause(values[i].Value))))));
+                values[i] = (SyntaxFactory.IdentifierName(tempName), false);
+            }
+
+            for (var i = 0; i < targets.Count; i++)
+            {
+                var (target, access, structName) = targets[i];
+                if (access != null)
+                {
+                    statements.Add(SyntaxFactory.ExpressionStatement(
+                        BuildWriteAssignment(structName!, access.Expression,
+                            access.Name.Identifier.Text, values[i].Value, statement)));
+                }
+                else
+                {
+                    statements.Add(SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.AssignmentExpression(
+                            SyntaxKind.SimpleAssignmentExpression,
+                            target.WithoutTrivia(),
+                            values[i].Value.WithoutTrivia())));
+                }
+            }
+        }
+
+        // Move the original statement's outer trivia onto the block's boundaries.
+        var cleaned = statements.Select(s => s.WithoutTrivia()).ToList();
+        cleaned[0] = cleaned[0].WithLeadingTrivia(statement.GetLeadingTrivia());
+        cleaned[^1] = cleaned[^1].WithTrailingTrivia(statement.GetTrailingTrivia());
+        return SyntaxFactory.Block(cleaned);
+    }
+
+    /// <summary>
+    /// True when an element value must be captured in a temp so that all
+    /// right-hand evaluations precede any write. Literals, simple identifiers and
+    /// lambdas are effect-free to defer; <c>default</c> is inline-only because
+    /// <c>var t = default;</c> does not compile.
+    /// </summary>
+    private static bool NeedsTemp(ExpressionSyntax expression)
+        => expression is not (LiteralExpressionSyntax
+            or IdentifierNameSyntax
+            or ThisExpressionSyntax
+            or DefaultExpressionSyntax
+            or SimpleLambdaExpressionSyntax
+            or ParenthesizedLambdaExpressionSyntax);
+
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
         // Statement-level member writes only.
@@ -450,19 +639,60 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         string structName, ExpressionSyntax receiver, string memberName,
         ExpressionSyntax value, SyntaxNode triviaFrom)
         => _l3Structs.ContainsKey(structName)
-            ? BuildL3ConstructorAssignment(structName, receiver, memberName, value, triviaFrom)
+            ? BuildL3ConstructorAssignment(structName, receiver,
+                new Dictionary<string, ExpressionSyntax>(StringComparer.Ordinal)
+                {
+                    [memberName] = value,
+                }, triviaFrom)
             : BuildWithWriteAssignment(receiver, memberName, value, triviaFrom);
+
+    /// <summary>
+    /// Multiple simultaneous writes to one receiver:
+    ///   L3  -> receiver = new S(p1: receiver.P1, ..., x: vx, y: vy, ...)
+    ///   L4  -> receiver = receiver.WithX(vx).WithY(vy)
+    /// Sub-members not in <paramref name="writes"/> are copied from the old value.
+    /// </summary>
+    private AssignmentExpressionSyntax BuildMultiWriteAssignment(
+        string structName, ExpressionSyntax receiver,
+        IReadOnlyList<(string Member, ExpressionSyntax Value)> writes,
+        SyntaxNode triviaFrom)
+    {
+        if (_l3Structs.ContainsKey(structName))
+        {
+            var writeMap = new Dictionary<string, ExpressionSyntax>(StringComparer.Ordinal);
+            foreach (var (member, value) in writes)
+                writeMap[member] = value;
+            return BuildL3ConstructorAssignment(structName, receiver, writeMap, triviaFrom);
+        }
+
+        ExpressionSyntax chain = receiver.WithoutTrivia();
+        foreach (var (member, value) in writes)
+        {
+            chain = SyntaxFactory.InvocationExpression(
+                SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    chain.WithoutTrivia(),
+                    SyntaxFactory.IdentifierName("With" + member)),
+                SyntaxFactory.ArgumentList(
+                    SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(value))));
+        }
+
+        return SyntaxFactory.AssignmentExpression(
+            SyntaxKind.SimpleAssignmentExpression,
+            receiver.WithoutTrivia(),
+            chain).WithTriviaFrom(triviaFrom);
+    }
 
     /// <summary>
     /// receiver.Member = value  ->  receiver = new S(p1: receiver.P1, ..., pm: value, ...)
     /// Every constructor parameter maps to its state property (case-insensitive,
-    /// underscores stripped); the written member carries the new value and all
+    /// underscores stripped); the written members carry the new values and all
     /// other members are copied from the receiver. Non-state parameters
     /// (e.g. the <c>__cs2jTag</c> discriminator) receive <c>0</c>.
     /// </summary>
     private AssignmentExpressionSyntax BuildL3ConstructorAssignment(
-        string structName, ExpressionSyntax receiver, string memberName,
-        ExpressionSyntax value, SyntaxNode triviaFrom)
+        string structName, ExpressionSyntax receiver,
+        IReadOnlyDictionary<string, ExpressionSyntax> writes, SyntaxNode triviaFrom)
     {
         var arguments = new List<ArgumentSyntax>();
         var (_, ctorParams) = _l3Structs[structName];
@@ -475,9 +705,9 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
                 argumentValue = SyntaxFactory.LiteralExpression(
                     SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0));
             }
-            else if (mappedProperty == memberName)
+            else if (writes.TryGetValue(mappedProperty, out var written) && written != null)
             {
-                argumentValue = value;
+                argumentValue = written;
             }
             else
             {
