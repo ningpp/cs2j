@@ -597,6 +597,17 @@ internal static class ReadOnlyStructPassEngine
         publicProps = getOnlyProps
             .Where(p => !p.StartsWith("_", StringComparison.Ordinal))
             .ToHashSet(StringComparer.Ordinal);
+
+        // A get-only surface made up exclusively of underscore-prefixed members is
+        // the L4 field→property shape (internal/public fields converted to get-only
+        // auto-properties), not a data container: there is no public property to
+        // reconstruct by name. Classifying it as L3 registers an empty writable
+        // surface, so external writes emitted by earlier passes (`tmp._f = v`,
+        // Utf8JsonReader.CurrentState) survive as CS0200. Leave it to the L4
+        // WithXxx write path instead.
+        if (publicProps.Count == 0)
+            return false;
+
         ctorParams = matchingCtor.ParameterList.Parameters
             .Select(p => p.Identifier.Text)
             .ToList();
