@@ -350,7 +350,7 @@ public sealed class UnsafeFfmPreprocessor
         }
 
         // R1 始终先跑（unsafe 基座，无独立开关）。
-        var newRoot = (CompilationUnitSyntax)new UnsafeContextStripper(statistics).Visit(root)!;
+        var newRoot = (CompilationUnitSyntax)new UnsafeContextStripper(statistics, semanticModel).Visit(root)!;
 
         // R1 残留自检：unsafe 块/unsafe 修饰符残留即规则缺口，UF010 拒绝。
         if (HasUnsafeContextResidual(newRoot))

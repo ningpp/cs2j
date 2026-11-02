@@ -12,6 +12,10 @@ namespace CSharpToJava.Core.UnsafeFfm;
 /// <item>一切可带 unsafe 修饰符的声明——class/struct/interface/record、方法、
 /// 字段（含 event field）、构造函数、局部函数，以及终结器/运算符/转换运算符/
 /// 属性/索引器/事件声明——剥除 unsafe 修饰符。</item>
+/// <item>剥除 unsafe 后失去编译许可的 <c>sizeof(非预定义尺寸 struct)</c>
+/// （CS0233）改写为安全上下文可用的
+/// <c>System.Runtime.CompilerServices.Unsafe.SizeOf&lt;T&gt;()</c>，返回值
+/// 与 sizeof 同为 int；基元/枚举等预定义尺寸类型保持 sizeof 原样。</item>
 /// </list>
 /// unsafe 仅是编译许可、不产生运行时语义，故剥除无语义变化。剥除计数实时
 /// 写入调用方提供的 <see cref="UnsafeFfmStatistics"/>。输出不含任何
@@ -20,10 +24,12 @@ namespace CSharpToJava.Core.UnsafeFfm;
 internal sealed class UnsafeContextStripper : CSharpSyntaxRewriter
 {
     private readonly UnsafeFfmStatistics _statistics;
+    private readonly SemanticModel _semanticModel;
 
-    public UnsafeContextStripper(UnsafeFfmStatistics statistics)
+    public UnsafeContextStripper(UnsafeFfmStatistics statistics, SemanticModel semanticModel)
     {
         _statistics = statistics;
+        _semanticModel = semanticModel;
     }
 
     // ---- unsafe 块 ----
@@ -43,6 +49,57 @@ internal sealed class UnsafeContextStripper : CSharpSyntaxRewriter
             .Concat(block.GetLeadingTrivia());
         return block.WithLeadingTrivia(mergedLeading);
     }
+
+    // ---- sizeof(非预定义尺寸 struct) → Unsafe.SizeOf<T>() ----
+
+    public override SyntaxNode? VisitSizeOfExpression(SizeOfExpressionSyntax node)
+    {
+        var visited = (SizeOfExpressionSyntax)base.VisitSizeOfExpression(node)!;
+
+        // 可编译输入中的 sizeof(非基元类型) 必然位于 unsafe 上下文；剥除
+        // unsafe 后该表达式不再有编译许可（CS0233）。struct 改写成安全
+        // 上下文可用的 Unsafe.SizeOf<T>()（同为 int 结果）。
+        if (!NeedsSafeSizeOf(node.Type)) return visited;
+
+        _statistics.UnsafeSizeOfExpressionsRewritten++;
+        var invocation = SyntaxFactory.InvocationExpression(
+            SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                SyntaxFactory.ParseExpression("global::System.Runtime.CompilerServices.Unsafe"),
+                SyntaxFactory.GenericName(
+                    SyntaxFactory.Identifier("SizeOf"),
+                    SyntaxFactory.TypeArgumentList(
+                        SyntaxFactory.SingletonSeparatedList(visited.Type.WithoutTrivia())))));
+        return invocation.WithTriviaFrom(visited);
+    }
+
+    /// <summary>
+    /// 仅非预定义尺寸的 struct 需要改写：基元/枚举（含 decimal）的 sizeof
+    /// 在安全上下文本来就合法；指针/函数指针/类型参数不是 INamedTypeSymbol。
+    /// IntPtr/nint 等虽为 SpecialType 但无预定义尺寸，同样需要改写。
+    /// </summary>
+    private bool NeedsSafeSizeOf(TypeSyntax typeSyntax)
+    {
+        var type = _semanticModel.GetTypeInfo(typeSyntax).Type;
+        if (type is not INamedTypeSymbol named) return false;
+        if (named.TypeKind is TypeKind.Enum or not TypeKind.Struct) return false;
+        return !HasPredefinedSize(named.SpecialType);
+    }
+
+    private static bool HasPredefinedSize(SpecialType specialType) =>
+        specialType is SpecialType.System_Boolean
+            or SpecialType.System_SByte
+            or SpecialType.System_Byte
+            or SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_Int32
+            or SpecialType.System_UInt32
+            or SpecialType.System_Int64
+            or SpecialType.System_UInt64
+            or SpecialType.System_Char
+            or SpecialType.System_Single
+            or SpecialType.System_Double
+            or SpecialType.System_Decimal;
 
     // ---- 类型声明（class/struct/interface/record）----
 

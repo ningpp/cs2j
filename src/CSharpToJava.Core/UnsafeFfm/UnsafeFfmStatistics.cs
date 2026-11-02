@@ -47,6 +47,12 @@ public sealed class UnsafeFfmStatistics
     /// </summary>
     public int UnsafeOtherModifiersStripped { get; set; }
 
+    /// <summary>
+    /// unsafe 剥除后改成安全上下文可用 <c>Unsafe.SizeOf&lt;T&gt;()</c> 的
+    /// sizeof(非预定义尺寸 struct) 表达式数。
+    /// </summary>
+    public int UnsafeSizeOfExpressionsRewritten { get; set; }
+
     /// <summary>各位置 unsafe 修饰符剥除总数。</summary>
     public int UnsafeModifiersStripped =>
         UnsafeTypeModifiersStripped
