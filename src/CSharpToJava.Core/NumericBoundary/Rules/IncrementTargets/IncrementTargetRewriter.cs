@@ -996,7 +996,27 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
             {
                 var name = Names.Receiver(site);
                 AddTempRole(IncrementTargetDiagnostics.TempRoleReceiver);
-                temps.Add(IncrementTargetSyntaxFacts.VarDeclaration(name, visitedReceiver));
+
+                // A struct receiver is a STORAGE LOCATION, not a value to copy:
+                // `state.Current.Index++` must increment state.Current itself.
+                // A plain `var` temp would detach a copy and silently drop the
+                // write, so value-type receivers are single-evaluated into a
+                // ref local alias (the receiver is necessarily a variable, as
+                // C# rejects ++ on a member of a non-variable struct value).
+                var receiverType = _model.GetTypeInfo(visitedReceiver).Type;
+                if (receiverType is { IsValueType: true })
+                {
+                    temps.Add(IncrementTargetSyntaxFacts.RefLocalDeclaration(
+                        name,
+                        ParseTypeName(receiverType.ToDisplayString(
+                            SymbolDisplayFormat.FullyQualifiedFormat)),
+                        effective));
+                }
+                else
+                {
+                    temps.Add(IncrementTargetSyntaxFacts.VarDeclaration(name, visitedReceiver));
+                }
+
                 return ReceiverRef.TempNamed(name);
             }
         }

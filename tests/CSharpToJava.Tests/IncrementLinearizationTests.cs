@@ -513,6 +513,48 @@ public class IncrementLinearizationTests
     }
 
     [Fact]
+    public void Struct_Valued_Receiver_Is_Aliased_By_Ref_Not_Copied()
+    {
+        // Regression: `state.Current.Index++` where State/Frame are structs.
+        // The receiver temp must alias the struct storage (ref local); a plain
+        // `var` copy increments a detached copy and silently loses the write
+        // (json WriteStack.Current.PropertyIndex++ in WriteMetadata).
+        const string src = """
+            public struct Frame
+            {
+                public int Index;
+            }
+            public struct State
+            {
+                public Frame Current;
+            }
+            public static class Demo
+            {
+                public static string Run()
+                {
+                    var state = new State();
+                    state.Current.Index++;
+                    state.Current.Index++;
+                    return state.Current.Index.ToString();
+                }
+            }
+            """;
+        var expected = Invoke(src);
+        var (output, diagnostics, changed) = RunRule(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diagnostics, d => d.Severity == NumericBoundarySeverity.Error);
+
+        var compact = Compact(output);
+        Assert.Contains("ref", compact);
+        Assert.DoesNotContain("Index++", compact);
+
+        var actual = Invoke(output);
+        Assert.Equal(expected, actual);
+        Assert.Equal("2", actual);
+    }
+
+    [Fact]
     public void Prefix_Indexer_Inside_Local_Decl_Keeps_Declared_Name_In_Scope()
     {
         // ContentValidator.cs regression (CS2J5361 -> CS2J5367 strict gate):
