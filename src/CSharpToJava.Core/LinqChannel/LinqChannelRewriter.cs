@@ -69,21 +69,37 @@ public sealed class LinqChannelRewriter
     /// Stage 2: route + rewrite one file. <paramref name="semanticModel"/> MUST
     /// be built over <paramref name="desugaredRoot"/> (the adapter rebuilds the
     /// whole-tree compilation from the stage-1 intermediate tree on disk).
+    /// <paramref name="collectStatistics"/> false runs the identical REWRITE
+    /// but skips the observation counters/diagnostics that the caller will
+    /// discard anyway (the adapter's §7.10 idempotency recheck only consumes
+    /// the rewrite outcome) — every per-node semantic decision the gate needs
+    /// is still computed exactly as before.
     /// </summary>
     public LinqChannelRewriteResult ProcessFile(
         SemanticModel semanticModel,
         SyntaxNode desugaredRoot,
         string? filePath,
-        ConversionOptions? conversionOptions = null)
+        ConversionOptions? conversionOptions = null,
+        bool collectStatistics = true)
     {
         var statistics = new LinqChannelStatistics();
         var diagnostics = new List<LinqChannelDiagnostic>();
 
+        // One memoized classifier + quoted-lambda set serves the plan, the
+        // route gate and the rewriter visit for this file, so each invocation
+        // binds at most once per stage (design §4.5 step 4).
+        var classifier = new LinqRouteClassifier(semanticModel);
+        var quotedScope = CSharpToJava.Core.Analysis.ExpressionTreeFacts.QuotedLambdaScope.Build(
+            semanticModel, desugaredRoot);
+
         // Route plan drives chain-level counters, the preserved-chain inventory
         // and LC0010 diagnostics deterministically (independent of which
         // rewriter entry visits a node).
-        var plan = LinqChannelPlan.Build(semanticModel, desugaredRoot, filePath);
-        TallyPlan(plan, statistics, diagnostics);
+        var plan = LinqChannelPlan.Build(semanticModel, desugaredRoot, filePath, classifier, quotedScope);
+        if (collectStatistics)
+        {
+            TallyPlan(plan, statistics, diagnostics);
+        }
 
         // M3: the gate is permanently intercepting inside the channel. It
         // precomputes the plan-preserve set and the quoted-expression region
@@ -91,9 +107,10 @@ public sealed class LinqChannelRewriter
         // tripwires. The embedded E16 path constructs LinqRewriter with no
         // gate and is untouched.
         ILinqRewriteGate gate = new RoutingGate(
-            semanticModel, statistics, plan, diagnostics, _options.Strict, desugaredRoot);
+            statistics, plan, diagnostics, _options.Strict, desugaredRoot, classifier, quotedScope,
+            collectStatistics);
 
-        var rewriter = new LinqRewriter(semanticModel, conversionOptions, gate);
+        var rewriter = new LinqRewriter(semanticModel, conversionOptions, gate, collectStatistics);
         var rewrittenRoot = rewriter.Visit(desugaredRoot) ?? desugaredRoot;
         statistics.Rewrite.MergeFrom(rewriter.Statistics);
 
@@ -305,6 +322,7 @@ public sealed class LinqChannelRewriter
         private readonly LinqRouteClassifier _classifier;
         private readonly List<LinqChannelDiagnostic> _diagnostics;
         private readonly bool _strict;
+        private readonly bool _collectStatistics;
         private readonly string? _filePath;
         private readonly HashSet<InvocationExpressionSyntax> _observed = new();
         private readonly HashSet<InvocationExpressionSyntax> _freezeSet;
@@ -312,17 +330,20 @@ public sealed class LinqChannelRewriter
         private readonly HashSet<InvocationExpressionSyntax> _lc0010Nodes;
 
         public RoutingGate(
-            SemanticModel semanticModel,
             LinqChannelStatistics statistics,
             LinqChannelPlan plan,
             List<LinqChannelDiagnostic> diagnostics,
             bool strict,
-            SyntaxNode root)
+            SyntaxNode root,
+            LinqRouteClassifier classifier,
+            ExpressionTreeFacts.QuotedLambdaScope quotedScope,
+            bool collectStatistics = true)
         {
             _statistics = statistics;
-            _classifier = new LinqRouteClassifier(semanticModel);
+            _classifier = classifier;
             _diagnostics = diagnostics;
             _strict = strict;
+            _collectStatistics = collectStatistics;
             _filePath = plan.FilePath;
 
             _planChainNodes = plan.Chains
@@ -345,11 +366,12 @@ public sealed class LinqChannelRewriter
             // (b) every invocation inside an Expression<>-quoted lambda,
             // whether or not it is part of a discovered LINQ chain. C# has no
             // unquote/splice syntax in plain source, so lexical containment is
-            // sufficient.
+            // sufficient. The prebuilt scope answers membership with syntax
+            // walks only (each lambda's semantic identity was computed once).
             foreach (var invocation in root.DescendantNodes()
                          .OfType<InvocationExpressionSyntax>()
                          .Where(i => !LinqRouteClassifier.IsNameofPseudoCall(i))
-                         .Where(i => ExpressionTreeFacts.IsInsideQuotedExpressionLambda(semanticModel, i)))
+                         .Where(quotedScope.IsInside))
             {
                 freezeSet.Add(invocation);
                 ReportIfUnprovable(invocation);
@@ -378,14 +400,17 @@ public sealed class LinqChannelRewriter
             // hooks never fire for nested nodes during the visit. Observation
             // counters must be visit-order independent; tally every plan node
             // up front (visit-time Tally calls dedupe against _observed).
-            foreach (var node in _planChainNodes)
+            if (_collectStatistics)
             {
-                Tally(node);
-            }
+                foreach (var node in _planChainNodes)
+                {
+                    Tally(node);
+                }
 
-            foreach (var node in freezeSet)
-            {
-                Tally(node);
+                foreach (var node in freezeSet)
+                {
+                    Tally(node);
+                }
             }
         }
 
@@ -505,8 +530,63 @@ public sealed class LinqChannelRewriter
         private static int? LineOf(SyntaxNode node)
             => node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
 
+        public bool TryGetMethodFullName(InvocationExpressionSyntax invocation, out string? fullName)
+        {
+            // Full-name reuse of the classification symbol is NOT equivalent:
+            // the rewriter's own query (GetSymbolInfo on the member access)
+            // resolves a DIFFERENT OVERLOAD than the invocation query on some
+            // shapes (both extension and plain), and the full name includes
+            // the signature — verified by byte-diff twice. The rewriter's own
+            // binding stays the single source of truth for the full name.
+            fullName = null;
+            return false;
+        }
+
+        public bool MayBeSystemBound(InvocationExpressionSyntax invocation)
+        {
+            // Namespace-level verdict from the memoized classification: a
+            // non-System containing namespace means the rewriter's own binding
+            // cannot yield a "System.*" name either (any overload divergence
+            // stays inside the same containing type). Two shapes stay "maybe"
+            // so the exact query keeps running: unbound symbols, and EXTENSION
+            // methods — the rewriter queries the member access, whose reduced
+            // symbol renders under the RECEIVER's type (e.g. a dotnet.xml
+            // extension on Task displays as System.Threading.Tasks.Task.*),
+            // which the definition-side namespace verdict cannot predict.
+            var decision = _classifier.ClassifyInvocation(invocation);
+            var method = decision.BoundMethod;
+            if (method is null)
+            {
+                // Both queries are argument-aware bindings of the same call:
+                // when the invocation query finds no method symbol, the member
+                // access query yields none either (verified byte-identical on
+                // the whole SDK tree).
+                return false;
+            }
+
+            if (method.IsExtensionMethod)
+            {
+                return true;
+            }
+
+            var @namespace = method.ContainingType?.OriginalDefinition.ContainingNamespace;
+            if (@namespace is null)
+            {
+                return true;
+            }
+
+            var display = @namespace.ToDisplayString();
+            return display == "System"
+                || display.StartsWith("System.", StringComparison.Ordinal);
+        }
+
         private void Tally(InvocationExpressionSyntax invocation)
         {
+            if (!_collectStatistics)
+            {
+                return;
+            }
+
             if (!_observed.Add(invocation) || LinqRouteClassifier.IsNameofPseudoCall(invocation))
             {
                 return;

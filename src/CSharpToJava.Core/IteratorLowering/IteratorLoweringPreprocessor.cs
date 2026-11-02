@@ -12,9 +12,11 @@ namespace CSharpToJava.Core.IteratorLowering;
 public sealed class IteratorLoweringPreprocessor
 {
     /// <summary>
-    /// A block is pre-formatted statement-by-statement once it holds at least
-    /// this many statements. Small blocks are cheap to format in context and
-    /// stay with the whole-tree formatter.
+    /// A statement list is pre-formatted once it holds at least this many
+    /// statements. Smaller lists stay with the whole-tree formatter: isolated
+    /// formatting of tiny nested lists (state-machine case bodies) is NOT
+    /// byte-equivalent (verified by byte-diff), and in-context formatting of
+    /// small lists is cheap.
     /// </summary>
     private const int ChunkedBlockMinStatements = 8;
 
@@ -173,88 +175,127 @@ public sealed class IteratorLoweringPreprocessor
                 $"(first at line {firstSpan.Line + 1}, column {firstSpan.Character + 1})."));
         }
 
-        return new IteratorLoweringFileResult(code, true, diagnostics, stats);
+        return new IteratorLoweringFileResult(code, true, diagnostics, stats, formatted);
     }
 
     /// <summary>
-    /// Formats the rewritten tree. The synthesized state machines are large,
-    /// wholly trivia-less subtrees: a single whole-tree <see cref="Formatter"/>
-    /// pass synthesizes whitespace for every trivia-less token and its cost is
-    /// super-linear in that token count. Instead, each large fully-synthesized
-    /// statement list is formatted in isolation (cheap, small trees) and spliced
-    /// back carrying canonical trivia, so the final whole-tree pass only fills
-    /// the few remaining gaps and runs in near-linear time. The output text is
-    /// byte-for-byte identical to the single whole-tree pass.
+    /// Formats a rewritten tree whose synthesized subtrees are wholly
+    /// trivia-less: each large fully-synthesized statement list is formatted
+    /// in isolation (cheap, small trees, in parallel across blocks) and
+    /// spliced back carrying canonical trivia, so the final whole-tree pass
+    /// only fills the few remaining gaps and runs in near-linear time. The
+    /// output text is byte-for-byte identical to the single whole-tree pass
+    /// (the isolated format of an all-synthesized block is exact). Shared
+    /// with the goto eliminator, whose state machines have the same shape.
     /// </summary>
-    private static CompilationUnitSyntax FormatSynthesized(
+    internal static CompilationUnitSyntax FormatSynthesized(
         CompilationUnitSyntax root, Microsoft.CodeAnalysis.Workspace workspace)
     {
-        var replacements = new Dictionary<SyntaxNode, SyntaxNode>();
-        foreach (var annotated in root.GetAnnotatedNodes(IteratorStateMachineRewriter.Annotation))
-        {
-            CollectSynthesizedChunks(annotated, replacements, workspace);
-        }
+        // Collect the qualifying statement lists first, then pre-format them
+        // in parallel: lists never nest (the walk stops at a handled one) and
+        // replacements are statement-level, so per-list results are disjoint
+        // and order-independent — the merged replacement map, and therefore
+        // the formatted tree, is identical to the sequential pass. Both flat
+        // blocks AND switch sections qualify: the state machines emit their
+        // case bodies as section statement lists, which the whole-tree
+        // formatter handles super-linearly when left trivia-less.
+        var lists = new List<IReadOnlyList<StatementSyntax>>();
+        CollectSynthesizedStatementLists(root, lists);
 
+        var replacements = new Dictionary<SyntaxNode, SyntaxNode>();
+        if (lists.Count > 0)
+        {
+            var merged = new object();
+            System.Threading.Tasks.Parallel.ForEach(lists, statements =>
+            {
+                var local = new Dictionary<SyntaxNode, SyntaxNode>();
+                ReplaceSynthesizedStatements(statements, local, new AdhocWorkspace());
+                lock (merged)
+                {
+                    foreach (var pair in local)
+                    {
+                        replacements[pair.Key] = pair.Value;
+                    }
+                }
+            });
+        }
         var prepared = replacements.Count > 0
             ? root.ReplaceNodes(
                 replacements.Keys,
                 (original, _) => replacements[original])
             : (SyntaxNode)root;
+        // Whole-tree pass (span-limited formatting of the annotated regions is
+        // NOT equivalent: the formatter also normalizes untouched source
+        // regions — verified by byte-diff against the baseline tree).
         return (CompilationUnitSyntax)Formatter.Format(prepared, workspace);
     }
 
+    /// <summary>A child node is a qualifying list when it is a flat block or
+    /// switch-section statement list of fully-synthesized statements.</summary>
+    private static bool TryGetQualifyingList(SyntaxNode child, out IReadOnlyList<StatementSyntax> statements)
+    {
+        statements = child switch
+        {
+            BlockSyntax block when block.Statements.Count >= ChunkedBlockMinStatements => block.Statements,
+            SwitchSectionSyntax section when section.Statements.Count >= ChunkedBlockMinStatements => section.Statements,
+            _ => [],
+        };
+
+        return statements is { Count: > 0 } && statements.All(IsSynthesizedStatement);
+    }
+
     /// <summary>
-    /// Walks the annotated (rewritten / synthesized) subtrees looking for the
-    /// large flat statement lists the iterator lowering emits; descends no
-    /// further once a block is handled, since the statements inside it are
-    /// formatted as a unit.
+    /// Walks the tree looking for the large flat synthesized statement lists
+    /// the rewriters emit — method-body blocks and switch-section bodies;
+    /// descends no further once a list is handled, since the statements inside
+    /// it are formatted as a unit.
     /// </summary>
-    private static void CollectSynthesizedChunks(
+    private static void CollectSynthesizedStatementLists(
         SyntaxNode node,
-        Dictionary<SyntaxNode, SyntaxNode> replacements,
-        Microsoft.CodeAnalysis.Workspace workspace)
+        List<IReadOnlyList<StatementSyntax>> lists)
     {
         foreach (var child in node.ChildNodes())
         {
-            if (child is BlockSyntax block
-                && block.Statements.Count >= ChunkedBlockMinStatements)
+            // Only lists whose every statement is produced by SyntaxFactory
+            // (no comment / explicit newline trivia copied from the source)
+            // are pre-formatted: their in-context layout is fully derivable
+            // from the node shape, so isolated formatting is exact. Lists
+            // that embed preserved original layout are left untouched for
+            // the whole-tree formatter to keep their existing line breaks.
+            if (TryGetQualifyingList(child, out var statements))
             {
-                // Only blocks whose every statement is produced by SyntaxFactory
-                // (no comment / explicit newline trivia copied from the source)
-                // are pre-formatted: their in-context layout is fully derivable
-                // from the node shape, so isolated formatting is exact. Blocks
-                // that embed preserved original layout are left untouched for
-                // the whole-tree formatter to keep their existing line breaks.
-                if (block.Statements.All(IsSynthesizedStatement))
-                {
-                    ReplaceSynthesizedStatements(block, replacements, workspace);
-                }
+                lists.Add(statements);
                 continue;
             }
 
-            CollectSynthesizedChunks(child, replacements, workspace);
+            CollectSynthesizedStatementLists(child, lists);
         }
     }
 
     private static void ReplaceSynthesizedStatements(
-        BlockSyntax block,
+        IReadOnlyList<StatementSyntax> statements,
         Dictionary<SyntaxNode, SyntaxNode> replacements,
         Microsoft.CodeAnalysis.Workspace workspace)
     {
-        StatementSyntax? previous = null;
-        foreach (var statement in block.Statements)
+        // Each statement's probe pairs it with the PREVIOUS ORIGINAL statement
+        // (not the previous output), so every iteration is independent and the
+        // loop fans out; results are per-statement replacements whose merge
+        // order is irrelevant. The probe inputs and the extracted trivia are
+        // exactly those of the sequential pass.
+        for (var i = 0; i < statements.Count; i++)
         {
+            var statement = statements[i];
             // Formatting the statement together with its predecessor in a
             // throw-away block lets the formatter pick the canonical separator
             // (blank line or not) between the two, which is read back off the
             // second statement's leading trivia.
-            var probe = previous == null
+            var probe = i == 0
                 ? (SyntaxNode)statement
-                : SyntaxFactory.Block(previous, statement);
-            var text = Formatter.Format(probe, workspace).ToFullString();
+                : SyntaxFactory.Block(statements[i - 1], statement);
+            var text = Formatter.Format(probe, new AdhocWorkspace()).ToFullString();
 
             StatementSyntax? parsed;
-            if (previous == null)
+            if (i == 0)
             {
                 parsed = SyntaxFactory.ParseStatement(text);
                 if (parsed is { ContainsDiagnostics: false })
@@ -290,8 +331,6 @@ public sealed class IteratorLoweringPreprocessor
                 parsed = parsed.ReplaceToken(last, last.WithTrailingTrivia());
                 replacements[statement] = parsed;
             }
-
-            previous = statement;
         }
     }
 
@@ -329,7 +368,11 @@ public sealed record IteratorLoweringFileResult(
     string OutputCode,
     bool Changed,
     IReadOnlyList<IteratorLoweringDiagnostic> Diagnostics,
-    IteratorLoweringStatistics Statistics);
+    IteratorLoweringStatistics Statistics,
+    // Formatted output tree (null when unchanged). Lets an in-process caller
+    // chain the goto eliminator without re-parsing the output text; a
+    // re-parse of OutputCode produces an equivalent tree.
+    CompilationUnitSyntax? FormattedRoot = null);
 
 /// <summary>
 /// M4b: rewrites bare <c>return;</c> statements inside yielding method bodies

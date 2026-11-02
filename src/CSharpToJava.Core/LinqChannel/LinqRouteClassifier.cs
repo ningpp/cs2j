@@ -47,9 +47,29 @@ public sealed class LinqRouteClassifier
 
     private readonly SemanticModel _semantic;
 
+    // Per-node decision memo: one classifier instance serves one (model, root)
+    // pair, and the same invocation is classified by the plan build, the route
+    // gate and (in the residual scan) the signature stream — each hit after
+    // the first is a dictionary lookup instead of a fresh round of
+    // GetSymbolInfo/GetTypeInfo binding queries.
+    private readonly Dictionary<InvocationExpressionSyntax, LinqRouteDecision> _invocationDecisions = new();
+    private readonly Dictionary<ExpressionSyntax, LinqRouteDecision> _argumentDecisions = new();
+
     public LinqRouteClassifier(SemanticModel semantic) => _semantic = semantic;
 
     public LinqRouteDecision ClassifyInvocation(InvocationExpressionSyntax invocation)
+    {
+        if (_invocationDecisions.TryGetValue(invocation, out var cached))
+        {
+            return cached;
+        }
+
+        var decision = ClassifyInvocationCore(invocation);
+        _invocationDecisions[invocation] = decision;
+        return decision;
+    }
+
+    private LinqRouteDecision ClassifyInvocationCore(InvocationExpressionSyntax invocation)
     {
         // M0 finding: nameof(...) is syntactically an InvocationExpression but
         // a compiler pseudo-function (GetSymbolInfo is always null). Drop it
@@ -133,6 +153,18 @@ public sealed class LinqRouteClassifier
     }
 
     public LinqRouteDecision ClassifyArgument(ExpressionSyntax argument)
+    {
+        if (_argumentDecisions.TryGetValue(argument, out var cached))
+        {
+            return cached;
+        }
+
+        var decision = ClassifyArgumentCore(argument);
+        _argumentDecisions[argument] = decision;
+        return decision;
+    }
+
+    private LinqRouteDecision ClassifyArgumentCore(ExpressionSyntax argument)
     {
         var convertedType = _semantic.GetTypeInfo(argument).ConvertedType;
         if (IsExpressionType(convertedType))

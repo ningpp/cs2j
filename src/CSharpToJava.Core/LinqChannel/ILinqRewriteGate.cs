@@ -77,4 +77,33 @@ public interface ILinqRewriteGate
     /// null-gate path never calls this and keeps the fallback byte-identical.
     /// </summary>
     void GuardSyntaxNameFallback(InvocationExpressionSyntax invocation, string syntaxName);
+
+    /// <summary>
+    /// Channel-mode identity fast path for <c>GetMethodFullName</c>: answers
+    /// with the bound method's OriginalDefinition display string (null when
+    /// unbound), reusing the gate's memoized classification so the rewriter
+    /// needs no separate <c>GetSymbolInfo</c> round for the same node.
+    /// Returns false when the gate cannot answer (default; observe-only
+    /// fakes fall back to the rewriter's own binding, which is exact).
+    /// The returned value must equal what
+    /// <c>GetSymbolInfo(invocation.Expression).Symbol?.OriginalDefinition
+    /// .ToDisplayString()</c> would produce.
+    /// </summary>
+    bool TryGetMethodFullName(InvocationExpressionSyntax invocation, out string? fullName)
+    {
+        fullName = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Cheap statistical pre-filter for the rewriter's unsupported-operator
+    /// tally: false when the gate's memoized classification proves the bound
+    /// method lives under a non-System namespace, in which case the full name
+    /// cannot start with "System." and the rewriter may skip its own binding
+    /// round for this node. True (the default) when unknown — callers then
+    /// run the exact query as before. Overload divergence between the two
+    /// symbol queries never changes the containing type, so the namespace
+    /// verdict is stable either way.
+    /// </summary>
+    bool MayBeSystemBound(InvocationExpressionSyntax invocation) => true;
 }

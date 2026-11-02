@@ -47,16 +47,24 @@ public sealed class LinqChannelPlan
     /// M3: chains whose outermost node is lexically inside a quoted
     /// expression-tree lambda are flagged <see cref="ChainEntry.InsideQuotedLambda"/>
     /// (design §4.4 third route — no node inside a quote may be rewritten).
+    /// <paramref name="classifier"/>/<paramref name="quotedScope"/> let a
+    /// caller share one memoized classifier and quoted-lambda set across the
+    /// plan, the route gate and the residual scan of the same file.
     /// </summary>
-    public static LinqChannelPlan Build(SemanticModel semanticModel, SyntaxNode root, string? filePath)
+    public static LinqChannelPlan Build(
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        string? filePath,
+        LinqRouteClassifier? classifier = null,
+        ExpressionTreeFacts.QuotedLambdaScope? quotedScope = null)
     {
-        var classifier = new LinqRouteClassifier(semanticModel);
+        classifier ??= new LinqRouteClassifier(semanticModel);
+        quotedScope ??= ExpressionTreeFacts.QuotedLambdaScope.Build(semanticModel, root);
         var entries = new List<ChainEntry>();
         foreach (var chain in LinqRouteClassifier.FindChains(root))
         {
             var decision = classifier.ClassifyChain(chain);
-            var insideQuoted = ExpressionTreeFacts.IsInsideQuotedExpressionLambda(
-                semanticModel, chain[0]);
+            var insideQuoted = quotedScope.IsInside(chain[0]);
             entries.Add(new ChainEntry(chain, decision, insideQuoted));
         }
 

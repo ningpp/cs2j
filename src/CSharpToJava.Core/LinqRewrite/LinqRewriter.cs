@@ -38,15 +38,17 @@ namespace CSharpToJava.Core.LinqRewrite
     {
         private SemanticModel semantic;
         private readonly ConversionOptions? _options;
+        private readonly bool _collectStatistics;
 
-        
         public LinqRewriter(SemanticModel semantic, ConversionOptions? options = null,
-            CSharpToJava.Core.LinqChannel.ILinqRewriteGate? gate = null)
+            CSharpToJava.Core.LinqChannel.ILinqRewriteGate? gate = null,
+            bool collectStatistics = true)
         {
             this.semantic = semantic;
             this._options = options;
             // C26 D13 seam: null (all existing call sites) = zero behavior change.
             this._linqChannelGate = gate;
+            this._collectStatistics = collectStatistics;
         }
 
         /// <summary>
@@ -71,6 +73,39 @@ namespace CSharpToJava.Core.LinqRewrite
         }
 
         private readonly static List<string> KnownMethods;
+
+        // Syntactic pre-filter set (see TryVisitInvocationExpression): the
+        // known LINQ operator names plus "ForEach" (List<T>.ForEach /
+        // IEnumerable<T>.ForEach are the only supported non-operator member
+        // names across KnownMethods and the ComputeMethodFullName fallback).
+        private static readonly HashSet<string> SupportedMemberNames = new(
+            CSharpToJava.Core.LinqChannel.LinqRouteClassifier.KnownOperatorNames
+                .Concat(new[] { "ForEach" }),
+            StringComparer.Ordinal);
+
+        /// <summary>
+        /// Unsupported-operator tally shared by the syntactic pre-filter branch
+        /// and the else-branch of TryVisitInvocationExpression: records every
+        /// bound member whose full name lives under System.*. The channel gate
+        /// first answers a cheap namespace-level "maybe" so provably non-System
+        /// calls skip the binding round entirely (embedded E16 keeps querying).
+        /// </summary>
+        private void RecordEncounteredOperatorName(InvocationExpressionSyntax node)
+        {
+            if (_linqChannelGate is not null && !_linqChannelGate.MayBeSystemBound(node))
+            {
+                return;
+            }
+
+            // Track unsupported method if it looks like a LINQ operator
+            var methodFullName = GetMethodFullName(node);
+            if (methodFullName != null && methodFullName.StartsWith("System."))
+            {
+                var lineNumber = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                Statistics.EncounteredOperators.Add(new LinqOperatorOccurrence(methodFullName, lineNumber, false));
+            }
+        }
+
         public override SyntaxNode VisitInvocationExpression(InvocationExpressionSyntax node)
         {
             // C26 D13/M2 intercept gate: the preserve decision is taken before
@@ -141,7 +176,42 @@ namespace CSharpToJava.Core.LinqRewrite
             var memberAccess = node.Expression as MemberAccessExpressionSyntax;
             if (memberAccess != null)
             {
-                var symbol = semantic.GetSymbolInfo(memberAccess).Symbol as IMethodSymbol;
+                // Syntactic pre-filter: every KnownMethods entry and every
+                // fallback arm in ComputeMethodFullName carries a LINQ operator
+                // member name (plus List/IEnumerable.ForEach), so a member name
+                // outside that set can never pass IsSupportedMethod and the
+                // rewrite path below is unreachable.
+                if (!SupportedMemberNames.Contains(memberAccess.Name.Identifier.Text))
+                {
+                    if (!_collectStatistics)
+                    {
+                        // Caller discards statistics (§7.10 idempotency recheck):
+                        // no rewrite is possible and nothing is observed.
+                        return null;
+                    }
+
+                    // Owner gate first, exactly as the supported path below:
+                    // invocations outside any method/ctor/property/accessor
+                    // context (field initializers, enum initializers) have no
+                    // owner and were never observed or recorded there.
+                    var hasOwner = node.AncestorsAndSelf().FirstOrDefault(x =>
+                        x is BaseMethodDeclarationSyntax || x is LocalFunctionStatementSyntax
+                        || x is AccessorDeclarationSyntax || x is PropertyDeclarationSyntax) != null;
+                    if (!hasOwner)
+                    {
+                        return null;
+                    }
+
+                    // Owner bookkeeping only feeds extracted-helper naming on
+                    // the rewrite path, which cannot be entered here; the
+                    // observe seam still runs, and the unsupported-operator
+                    // tally keeps recording System.* bindings exactly as the
+                    // else-branch below does.
+                    LinqChannelObserveInvocation(node);
+                    RecordEncounteredOperatorName(node);
+                    return null;
+                }
+
                 // Find the enclosing member: method, local function, operator, property getter,
                 // constructor, or expression-bodied property.  Extracted helpers are named after
                 // this owner.  BaseMethodDeclarationSyntax covers MethodDeclarationSyntax,
@@ -499,12 +569,10 @@ namespace CSharpToJava.Core.LinqRewrite
                 }
                 else
                 {
-                    // Track unsupported method if it looks like a LINQ operator
-                    var methodFullName = GetMethodFullName(node);
-                    if (methodFullName != null && methodFullName.StartsWith("System."))
+                    if (_collectStatistics)
                     {
-                        var lineNumber = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-                        Statistics.EncounteredOperators.Add(new LinqOperatorOccurrence(methodFullName, lineNumber, false));
+                        // Track unsupported method if it looks like a LINQ operator
+                        RecordEncounteredOperatorName(node);
                     }
                 }
             }
@@ -829,9 +897,64 @@ namespace CSharpToJava.Core.LinqRewrite
             return GetSymbolType(x.Symbol);
         }
 
-        private string GetMethodFullName(InvocationExpressionSyntax invocation)
+        // Per-node memo for GetMethodFullName: the same invocation is asked
+        // for its identity by IsSupportedMethod, the chain backtracking, the
+        // unsupported-operator tally and the foreach-rewrap entry; each hit
+        // after the first skips a GetSymbolInfo + display-string + normalize
+        // round. One rewriter instance serves one file, so node keys are stable.
+        private readonly Dictionary<InvocationExpressionSyntax, string?> _methodFullNameCache = new();
+
+        // Static normalization pattern for GetMethodFullName (compiled once);
+        // identical semantics to the previous per-call Regex.Replace.
+        private static readonly System.Text.RegularExpressions.Regex CollectionHostNormalizeRegex =
+            new(@"^System\.Collections\.Generic\.\w+<TSource>\.",
+                System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        private string? GetMethodFullName(InvocationExpressionSyntax invocation)
         {
-            var n = (semantic.GetSymbolInfo(invocation.Expression).Symbol as IMethodSymbol)?.OriginalDefinition.ToDisplayString();
+            if (_methodFullNameCache.TryGetValue(invocation, out var cached))
+            {
+                return cached;
+            }
+
+            var name = ComputeMethodFullName(invocation);
+            _methodFullNameCache[invocation] = name;
+            return name;
+        }
+
+        // Symbol-keyed display cache shared across rewriter instances: every
+        // per-file model comes from the same merged compilation, so the same
+        // bound symbol instance recurs at hundreds of call sites (e.g.
+        // Debug.Assert) and OriginalDefinition.ToDisplayString is a pure
+        // function of the symbol — computed once per distinct method.
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<ISymbol, string>
+            DisplayStringBySymbol = new(SymbolEqualityComparer.Default);
+
+        private static string? DisplayOriginalDefinition(ISymbol? symbol)
+            => symbol is null
+                ? null
+                : DisplayStringBySymbol.GetOrAdd(
+                    symbol,
+                    static s => s.OriginalDefinition.ToDisplayString());
+
+        private string? ComputeMethodFullName(InvocationExpressionSyntax invocation)
+        {
+            string? n;
+            if (_linqChannelGate is not null
+                && _linqChannelGate.TryGetMethodFullName(invocation, out var gateName))
+            {
+                // Channel fast path: the gate's memoized classification already
+                // holds the bound symbol for this node (its observe hook runs
+                // before every rewriter entry), so skip the rewriter's own
+                // GetSymbolInfo round. gateName equals what the binding below
+                // would produce (null included, which feeds the fallback).
+                n = gateName;
+            }
+            else
+            {
+                n = DisplayOriginalDefinition(
+                    semantic.GetSymbolInfo(invocation.Expression).Symbol as IMethodSymbol);
+            }
             if (n == AggregateMethod && IsAggregateInvocationWithSeed(invocation))
                 n = AggregateWithSeedMethod;
 
@@ -918,10 +1041,7 @@ namespace CSharpToJava.Core.LinqRewrite
             {
                 // Normalize any collection type (List, ICollection, IList, ISet, etc.)
                 // to IEnumerable<TSource> so the method identity matches KnownMethods.
-                n = System.Text.RegularExpressions.Regex.Replace(
-                    n,
-                    @"^System\.Collections\.Generic\.\w+<TSource>\.",
-                    ienumerableOfTsource + ".");
+                n = CollectionHostNormalizeRegex.Replace(n, ienumerableOfTsource + ".");
                 n = n.Replace("TSource[]", ienumerableOfTsource);
             }
 

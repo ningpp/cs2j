@@ -62,8 +62,16 @@ public static class LinqChannelResidualScanner
             ? LinqChannelDiagnosticSeverity.Error
             : LinqChannelDiagnosticSeverity.Warning;
 
-        var inputSignatures = PreservedSignatureStream(inputModel, inputRoot);
-        var outputSignatures = PreservedSignatureStream(outputModel, outputRoot);
+        // One memoized classifier + quoted-lambda scope per model: the
+        // signature stream, the plan rebuild inside ExpandedTypeKeys and any
+        // re-classification then reuse the same per-node decisions.
+        var inputClassifier = new LinqRouteClassifier(inputModel);
+        var inputScope = ExpressionTreeFacts.QuotedLambdaScope.Build(inputModel, inputRoot);
+        var outputClassifier = new LinqRouteClassifier(outputModel);
+        var outputScope = ExpressionTreeFacts.QuotedLambdaScope.Build(outputModel, outputRoot);
+
+        var inputSignatures = PreservedSignatureStream(inputModel, inputRoot, inputClassifier, inputScope);
+        var outputSignatures = PreservedSignatureStream(outputModel, outputRoot, outputClassifier, outputScope);
         if (!inputSignatures.SequenceEqual(outputSignatures))
         {
             diagnostics.Add(new LinqChannelDiagnostic(
@@ -77,7 +85,7 @@ public static class LinqChannelResidualScanner
                 FirstDivergenceLine(inputRoot, outputRoot)));
         }
 
-        var expandedInputTypes = ExpandedTypeKeys(inputModel, inputRoot);
+        var expandedInputTypes = ExpandedTypeKeys(inputModel, inputRoot, inputClassifier, inputScope);
         foreach (var type in outputRoot.DescendantNodes().OfType<TypeDeclarationSyntax>())
         {
             if (!TypeDeclaresProceduralHelper(type))
@@ -107,15 +115,27 @@ public static class LinqChannelResidualScanner
 
     // ---- gates ②③: preserved signature stream --------------------------------
 
-    private static List<string> PreservedSignatureStream(SemanticModel model, SyntaxNode root)
+    private static List<string> PreservedSignatureStream(
+        SemanticModel model,
+        SyntaxNode root,
+        LinqRouteClassifier classifier,
+        ExpressionTreeFacts.QuotedLambdaScope quotedScope)
     {
-        var classifier = new LinqRouteClassifier(model);
         var signatures = new List<string>();
         foreach (var invocation in root.DescendantNodes()
                      .OfType<InvocationExpressionSyntax>()
                      .Where(i => !LinqRouteClassifier.IsNameofPseudoCall(i)))
         {
-            var insideQuote = ExpressionTreeFacts.IsInsideQuotedExpressionLambda(model, invocation);
+            var insideQuote = quotedScope.IsInside(invocation);
+            // Only operator-named or quoted-region invocations can enter the
+            // stream below (the Queryable host only exposes operators; every
+            // quoted invocation is recorded regardless of name), so plain
+            // invocations skip the classification round entirely.
+            if (!insideQuote && !HasOperatorIdentifier(invocation))
+            {
+                continue;
+            }
+
             var decision = classifier.ClassifyInvocation(invocation);
             if (decision.Kind != LinqRouteKind.Queryable && !insideQuote)
             {
@@ -140,6 +160,22 @@ public static class LinqChannelResidualScanner
         return signatures;
     }
 
+    /// <summary>
+    /// True when the invocation's called member name is a known LINQ operator,
+    /// in either member-access (<c>x.Where(..)</c>) or plain-identifier
+    /// (<c>using static System.Linq.Enumerable;</c>) form. Covers the
+    /// skip-filter above; quoted-region invocations bypass it entirely.
+    /// </summary>
+    private static bool HasOperatorIdentifier(InvocationExpressionSyntax invocation) =>
+        invocation.Expression switch
+        {
+            MemberAccessExpressionSyntax memberAccess =>
+                LinqRouteClassifier.KnownOperatorNames.Contains(memberAccess.Name.Identifier.Text),
+            IdentifierNameSyntax identifier =>
+                LinqRouteClassifier.KnownOperatorNames.Contains(identifier.Identifier.Text),
+            _ => false,
+        };
+
     private static int? FirstDivergenceLine(SyntaxNode inputRoot, SyntaxNode outputRoot)
     {
         // Diagnostic anchoring only: prefer the first Queryable/quoted call in
@@ -150,10 +186,14 @@ public static class LinqChannelResidualScanner
 
     // ---- gate ④: helper placement --------------------------------------------
 
-    private static HashSet<string> ExpandedTypeKeys(SemanticModel model, SyntaxNode root)
+    private static HashSet<string> ExpandedTypeKeys(
+        SemanticModel model,
+        SyntaxNode root,
+        LinqRouteClassifier classifier,
+        ExpressionTreeFacts.QuotedLambdaScope quotedScope)
     {
         var keys = new HashSet<string>(StringComparer.Ordinal);
-        var plan = LinqChannelPlan.Build(model, root, filePath: null);
+        var plan = LinqChannelPlan.Build(model, root, filePath: null, classifier, quotedScope);
         foreach (var chain in plan.Chains)
         {
             if (chain.Decision.Route != LinqChainRoute.Expandable || chain.InsideQuotedLambda)

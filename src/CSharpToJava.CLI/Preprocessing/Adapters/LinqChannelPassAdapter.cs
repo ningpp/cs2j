@@ -117,6 +117,7 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
                 Dest: Path.Combine(intermediateRoot, Path.GetRelativePath(sourceRoot, file))))
             .ToList();
 
+        var desugarSw = System.Diagnostics.Stopwatch.StartNew();
         foreach (var asset in tree.SourceFiles)
         {
             if (asset.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
@@ -142,19 +143,33 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
         var parseOptions = CreateParseOptions(tree);
         var stage1Changed = new bool[pairs.Count];
         var stage1Desugared = new int[pairs.Count];
+        // Stage-1 trees are captured in memory so the stage-2 compilation can
+        // be assembled without re-reading/re-parsing every file: unchanged
+        // files reuse the tree parsed over the pristine bytes, changed files
+        // wrap the desugared root (CSharpSyntaxTree.Create does no parsing).
+        var stage1Trees = new SyntaxTree[pairs.Count];
 
         // ---- stage 1: whole-tree query desugaring (pure syntax) ----
+        // The prepare step's strict syntax gate already parsed every .cs file
+        // under the SAME parse options and cached the trees (source-path
+        // keyed); reuse them instead of re-parsing the whole tree — an entry
+        // is only reused for byte-identical content, and the destination path
+        // is stamped on via WithFilePath (a cheap path-only clone).
+        var parseSignature = ParsedTreeCache.Signature(parseOptions);
         Parallel.For(0, pairs.Count, i =>
         {
             var (source, _, dest) = pairs[i];
             Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
 
             var originalText = File.ReadAllText(source);
-            var originalRoot = CSharpSyntaxTree.ParseText(
-                originalText, parseOptions, path: dest).GetRoot();
+            var originalTree = ParsedTreeCache.TryGet(parseSignature, source, originalText, out var cached)
+                ? cached.WithFilePath(dest)
+                : CSharpSyntaxTree.ParseText(originalText, parseOptions, path: dest);
+            var originalRoot = originalTree.GetRoot();
             var (desugaredRoot, desugaredCount) = LinqChannelRewriter.DesugarQueries(originalRoot);
             stage1Desugared[i] = desugaredCount;
-            stage1Changed[i] = !desugaredRoot.IsEquivalentTo(originalRoot);
+            stage1Changed[i] = !ReferenceEquals(desugaredRoot, originalRoot)
+                && !desugaredRoot.IsEquivalentTo(originalRoot);
 
             if (stage1Changed[i])
             {
@@ -162,17 +177,23 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
                     dest,
                     desugaredRoot.ToFullString(),
                     new UTF8Encoding(FileStartsWithBom(source)));
+                stage1Trees[i] = CSharpSyntaxTree.Create(
+                    (CompilationUnitSyntax)desugaredRoot, parseOptions, path: dest);
             }
             else
             {
                 tree.ResetScratchFile(source, dest);
+                stage1Trees[i] = originalTree;
             }
         });
 
         _desugaredQueryCount = stage1Desugared.Sum();
+        desugarSw.Stop();
+        context.Timings["desugar"] = desugarSw.Elapsed;
 
         // ---- stage 2: recompile the desugared tree, route + rewrite per file ----
-        var compilation = BuildIntermediateCompilation(tree, pairs);
+        var compileSw = System.Diagnostics.Stopwatch.StartNew();
+        var compilation = CreateCompilation(stage1Trees, BuildGlobalUsingsTree(tree));
         var channel = new LinqChannelRewriter(_options);
         var success = true;
 
@@ -189,6 +210,9 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
         // in file order, which keeps the result byte-identical to the
         // sequential loop this replaces.
         var treeByPath = IndexSyntaxTreesByPath(compilation);
+        compileSw.Stop();
+        context.Timings["compile"] = compileSw.Elapsed;
+        var stage2Sw = System.Diagnostics.Stopwatch.StartNew();
         var outcomes = new Stage2Outcome?[pairs.Count];
         var stage2Failures = new Exception?[pairs.Count];
         Parallel.For(0, pairs.Count, i =>
@@ -323,13 +347,51 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
             }
         }
 
+        stage2Sw.Stop();
+        context.Timings["stage2"] = stage2Sw.Elapsed;
+        var residualSw = System.Diagnostics.Stopwatch.StartNew();
+
         // ---- §7.10 AfterFiles residual gates (whole-tree recompile) ----
         // Files rolled back to their ORIGINAL source by LC0011 are excluded
         // (they intentionally never went through stage 1/stage 2).
+        //
+        // Incremental rebuild: only files the stage-2 rewrite changed (plus
+        // LC0011 rollbacks restored to their original bytes) differ from the
+        // stage-2 compilation, so replace just those trees instead of
+        // re-reading and re-parsing the whole tree. Replaced trees are built
+        // from the in-memory rewritten roots (CSharpSyntaxTree.Create performs
+        // no parsing), and their text is exactly the bytes written to disk.
+        var postChannelCompilation = compilation;
+        for (var i = 0; i < pairs.Count; i++)
+        {
+            if (!treeByPath.TryGetValue(pairs[i].Dest, out var oldTree))
+            {
+                continue;
+            }
+
+            SyntaxTree? newTree = null;
+            if (rolledBackFiles.Contains(pairs[i].Relative))
+            {
+                newTree = CSharpSyntaxTree.ParseText(
+                    File.ReadAllText(pairs[i].Dest), parseOptions, path: pairs[i].Dest);
+            }
+            else if (outcomes[i]?.Result is { RewriteChanged: true } rewritten)
+            {
+                newTree = CSharpSyntaxTree.Create(
+                    (CompilationUnitSyntax)rewritten.RewrittenRoot, parseOptions, path: pairs[i].Dest);
+            }
+
+            if (newTree is not null)
+            {
+                postChannelCompilation = postChannelCompilation.ReplaceSyntaxTree(oldTree, newTree);
+            }
+        }
+
+        var postChannelTreeByPath = IndexSyntaxTreesByPath(postChannelCompilation);
+
         if (processedInputs.Count > 0 && rolledBackFiles.Count < processedInputs.Count)
         {
-            var outputCompilation = BuildIntermediateCompilation(tree, pairs);
-            var outputTreeByPath = IndexSyntaxTreesByPath(outputCompilation);
+            var outputTreeByPath = postChannelTreeByPath;
             var residualOutcomes = new ResidualOutcome?[processedInputs.Count];
             var residualFailures = new Exception?[processedInputs.Count];
             Parallel.For(0, processedInputs.Count, index =>
@@ -348,14 +410,18 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
                 try
                 {
                     var outputRoot = outputTree.GetRoot();
-                    var outputModel = outputCompilation.GetSemanticModel(outputTree);
+                    var outputModel = postChannelCompilation.GetSemanticModel(outputTree);
                     var reportPath = relative.Replace('\\', '/');
 
                     // Gates ① + ⑤: rerunning stage 2 over the materialized
                     // output must move nothing — any in-support-matrix
                     // Enumerable chain left behind WOULD move, so a zero-diff
                     // second pass is the residual=0 and idempotency proof.
-                    var secondPass = channel.ProcessFile(outputModel, outputRoot, reportPath);
+                    // Statistics are collected:false — this pass's counters
+                    // are discarded by the caller; only the rewrite outcome
+                    // (RewriteChanged / SecondPassDesugaredCount) is consumed.
+                    var secondPass = channel.ProcessFile(
+                        outputModel, outputRoot, reportPath, collectStatistics: false);
 
                     // Gates ②③④: preserved-call stream identity + helper placement.
                     var findings = LinqChannelResidualScanner.ScanFile(
@@ -423,22 +489,69 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
             }
         }
 
+        residualSw.Stop();
+        context.Timings["residual"] = residualSw.Elapsed;
+        var lowerSw = System.Diagnostics.Stopwatch.StartNew();
+        var closureLiftSw = System.Diagnostics.Stopwatch.StartNew();
+
         // The stock procedural LINQ rewriter emits iterator methods
         // (`..._ProceduralLinqN`) with `yield return` statements. The
         // iterator-lowering pass has already run earlier in the chain (it must
         // precede eliminate-goto), so those freshly generated iterators would
         // otherwise reach the Java converter as residual yield. Lower them on
         // the materialized stage-2 output before the verification step.
+        var loweringCompilation = postChannelCompilation;
+        var loweringTreeByPath = postChannelTreeByPath;
+
+        // The verification restore only touches obj/ assets and never the .cs
+        // tree, so it overlaps the tail rewriting phases below instead of
+        // serializing after them; the exit code is consumed exactly as before
+        // (the report is already on disk, and diagnostics / verify / cleanup
+        // all happen after the await).
+        var restoreTask = System.Threading.Tasks.Task.Run(() => context.Restore());
+
         if (processedInputs.Count > 0)
         {
             // The procedural rewriter also emits lambdas (e.g. a projection
             // nested inside a yielding foreach). Lift those closure shapes the
-            // same way the earlier closure-lift pass would have, then rebuild
-            // the semantic picture for the state-machine analysis.
-            LiftGeneratedClosures(tree, pairs, processedInputs, rolledBackFiles);
-            var loweringCompilation = BuildIntermediateCompilation(tree, pairs);
-            LowerGeneratedIterators(loweringCompilation, processedInputs, rolledBackFiles);
+            // same way the earlier closure-lift pass would have, then refresh
+            // the semantic picture for the state-machine analysis. The lift
+            // runs over the SAME compilation as the residual gates (nothing
+            // was written in between), and only its changed trees are swapped
+            // into the lowering compilation — no full-tree re-parse.
+            var lifted = LiftGeneratedClosures(
+                tree,
+                processedInputs,
+                rolledBackFiles,
+                postChannelCompilation,
+                postChannelTreeByPath);
+
+            foreach (var (liftedDest, liftedCode) in lifted)
+            {
+                loweringCompilation = loweringCompilation.ReplaceSyntaxTree(
+                    loweringTreeByPath[liftedDest],
+                    CSharpSyntaxTree.ParseText(liftedCode, parseOptions, path: liftedDest));
+            }
+
+            if (lifted.Count > 0)
+            {
+                loweringTreeByPath = IndexSyntaxTreesByPath(loweringCompilation);
+            }
         }
+
+        closureLiftSw.Stop();
+        context.Timings["closure-lift"] = closureLiftSw.Elapsed;
+        var iteratorLowerSw = System.Diagnostics.Stopwatch.StartNew();
+        if (processedInputs.Count > 0)
+        {
+            LowerGeneratedIterators(
+                loweringCompilation, loweringTreeByPath, processedInputs, rolledBackFiles);
+        }
+
+        iteratorLowerSw.Stop();
+        context.Timings["iterator-lower"] = iteratorLowerSw.Elapsed;
+        lowerSw.Stop();
+        context.Timings["lower"] = lowerSw.Elapsed;
 
         // The stock rewriter sees post-desugar trees, so its
         // DesugaredQueryCount does not include stage 1; fold the stage-1
@@ -463,7 +576,8 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
         }
 
         // ---- restore + verify + cleanup ----
-        var restoreExitCode = context.Restore();
+        var restoreVerifySw = System.Diagnostics.Stopwatch.StartNew();
+        var restoreExitCode = await restoreTask;
         if (restoreExitCode == 0)
         {
             var verified = await context.VerifyBuildAndTestsAsync();
@@ -478,6 +592,8 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
         }
 
         ProjectPassRunner.DeleteBuildOutputs(intermediateRoot);
+        restoreVerifySw.Stop();
+        context.Timings["restore-verify"] = restoreVerifySw.Elapsed;
         // Strict LC0010/LC0012/LC0040 errors make the pass fail even when the
         // build verification itself succeeded (ProjectPassRunner also ANDs in
         // HasErrors; this keeps context.Success consistent on its own).
@@ -524,82 +640,232 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
             .Select(d => d.ToMsBuildString())
             .ToList();
 
+    private static CompilationUnitSyntax ParseCompilationUnit(string code)
+        => (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(code).GetRoot();
+
+    /// <summary>
+    /// Conservative host-identity key for the closure-lift parallelism
+    /// partition: the namespace chain plus the nested type-name chain of the
+    /// declaration. Two files whose semantic host keys (fully qualified type
+    /// displays) are equal necessarily produce equal chain keys, so grouping
+    /// by chain key never splits files that must share one naming table.
+    /// </summary>
+    private static string TypeChainKey(BaseTypeDeclarationSyntax type)
+    {
+        var typeChain = new Stack<string>();
+        for (var node = (SyntaxNode?)type; node is BaseTypeDeclarationSyntax decl; node = decl.Parent)
+        {
+            typeChain.Push(decl.Identifier.Text);
+        }
+
+        var namespaces = new List<string>();
+        for (var node = type.Parent; node is not null; node = node.Parent)
+        {
+            if (node is BaseNamespaceDeclarationSyntax ns)
+            {
+                namespaces.Add(ns.Name.ToString());
+            }
+        }
+
+        namespaces.Reverse();
+        return string.Join(".", namespaces) + ":" + string.Join("+", typeChain);
+    }
+
     /// <summary>
     /// Lifts lambdas emitted by the procedural LINQ rewriter in files that
     /// still contain `yield`. Those files were closure-lifted before this pass
     /// ran, so the generated shapes have not been through that stage.
+    /// Deterministic naming requires files that may share a host TYPE (partial
+    /// parts) to be lifted in file order through one naming table — so files
+    /// are grouped by their declared type-name sets (a conservative superset
+    /// of semantic host keys) and the groups run in parallel, each with its
+    /// own table and original file order inside. Groups never share a host,
+    /// so the merged result equals the single-table sequential run.
+    /// Returns the (destination, output) pairs that changed so the caller can
+    /// swap just those trees into the next compilation.
     /// </summary>
-    private void LiftGeneratedClosures(
+    private List<(string Dest, string OutputCode)> LiftGeneratedClosures(
         PassTreeContext tree,
-        IReadOnlyList<(string Source, string Relative, string Dest)> pairs,
         IReadOnlyList<(string Relative, string Dest, SemanticModel Model, SyntaxNode InputRoot)> processedInputs,
-        IReadOnlySet<string> rolledBackFiles)
+        IReadOnlySet<string> rolledBackFiles,
+        CSharpCompilation compilation,
+        IReadOnlyDictionary<string, SyntaxTree> treeByPath)
     {
-        var compilation = BuildIntermediateCompilation(tree, pairs);
-        var preprocessor = new ClosureLiftPreprocessor();
-
-        foreach (var (relative, dest, _, _) in processedInputs)
+        // Candidates: still-yield files with a tree in the compilation.
+        var candidates = new List<(string Relative, string Dest, string Text, SyntaxTree Tree)>();
+        for (var i = 0; i < processedInputs.Count; i++)
         {
+            var (relative, dest, _, _) = processedInputs[i];
             if (rolledBackFiles.Contains(relative)) continue;
 
             var text = File.ReadAllText(dest);
             if (!text.Contains("yield", StringComparison.Ordinal)) continue;
 
-            var treeNode = compilation.SyntaxTrees.FirstOrDefault(t =>
-                string.Equals(t.FilePath, dest, StringComparison.OrdinalIgnoreCase));
-            if (treeNode == null) continue;
+            if (!treeByPath.TryGetValue(dest, out var treeNode)) continue;
 
-            var result = preprocessor.Preprocess(
-                text, compilation.GetSemanticModel(treeNode),
-                new ClosureLiftOptions(Strict: false));
-            if (!result.Changed) continue;
-
-            File.WriteAllText(dest, result.OutputCode, new UTF8Encoding(FileStartsWithBom(dest)));
+            candidates.Add((relative, dest, text, treeNode));
         }
+
+        if (candidates.Count == 0)
+        {
+            return new List<(string Dest, string OutputCode)>();
+        }
+
+        // Union-find over full type-chain keys (namespace chain + nested type
+        // chain): two files can share a semantic host type only when both
+        // chains match, so chain keys are a safe — and much finer — partition
+        // than simple names (the same type name in different namespaces no
+        // longer serializes unrelated files).
+        var parent = new int[candidates.Count];
+        for (var i = 0; i < parent.Length; i++) parent[i] = i;
+        int Find(int x) { while (parent[x] != x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
+        void Union(int a, int b) { a = Find(a); b = Find(b); if (a != b) parent[b] = a; }
+
+        var namesByCandidate = new List<HashSet<string>>(candidates.Count);
+        foreach (var (_, _, _, syntaxTree) in candidates)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var type in syntaxTree.GetRoot().DescendantNodes()
+                         .OfType<BaseTypeDeclarationSyntax>())
+            {
+                names.Add(TypeChainKey(type));
+            }
+
+            namesByCandidate.Add(names);
+        }
+
+        var firstByName = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (var i = 0; i < candidates.Count; i++)
+        {
+            foreach (var name in namesByCandidate[i])
+            {
+                if (firstByName.TryGetValue(name, out var other))
+                {
+                    Union(i, other);
+                }
+                else
+                {
+                    firstByName[name] = i;
+                }
+            }
+        }
+
+        var groups = new Dictionary<int, List<int>>();
+        for (var i = 0; i < candidates.Count; i++)
+        {
+            var root = Find(i);
+            if (!groups.TryGetValue(root, out var list)) groups[root] = list = new List<int>();
+            list.Add(i); // ascending order == original file order within the group
+        }
+
+        var lifted = new (string Dest, string OutputCode)?[candidates.Count];
+        Parallel.ForEach(groups.Values, groupIndices =>
+        {
+            // One preprocessor (naming table) per group; groups are disjoint
+            // by host-name, and file order inside the group is preserved.
+            var preprocessor = new ClosureLiftPreprocessor();
+            foreach (var index in groupIndices)
+            {
+                var candidate = candidates[index];
+                var result = preprocessor.Preprocess(
+                    candidate.Text,
+                    compilation.GetSemanticModel(candidate.Tree),
+                    new ClosureLiftOptions(Strict: false));
+                if (result.Changed)
+                {
+                    lifted[index] = (candidate.Dest, result.OutputCode);
+                }
+            }
+        });
+
+        var changed = new List<(string Dest, string OutputCode)>();
+        for (var i = 0; i < candidates.Count; i++)
+        {
+            if (lifted[i] is { } pair)
+            {
+                File.WriteAllText(pair.Dest, pair.OutputCode, new UTF8Encoding(FileStartsWithBom(pair.Dest)));
+                changed.Add(pair);
+            }
+        }
+
+        return changed;
     }
 
     /// <summary>
     /// Runs the iterator-lowering preprocessor over stage-2 files that still
     /// contain `yield` (the procedural LINQ rewriter's generated iterators).
     /// Original yields were handled by the earlier iterator-lowering pass;
-    /// only output written by this pass can reach here.
+    /// only output written by this pass can reach here. The per-file work is
+    /// independent (stateless preprocessors, one semantic model per file, one
+    /// distinct destination file each), so it fans out; observable effects
+    /// (writes, verbose lines) are applied in file order afterwards.
     /// </summary>
     private void LowerGeneratedIterators(
         CSharpCompilation compilation,
+        IReadOnlyDictionary<string, SyntaxTree> treeByPath,
         IReadOnlyList<(string Relative, string Dest, SemanticModel Model, SyntaxNode InputRoot)> processedInputs,
         IReadOnlySet<string> rolledBackFiles)
     {
-        var preprocessor = new IteratorLoweringPreprocessor();
+        var loweringOutputs = new (string Relative, string Output, int MembersLowered)?[processedInputs.Count];
+        var failures = new Exception?[processedInputs.Count];
+        // Stateless per call; one shared instance avoids per-file allocation.
         var gotoEliminator = new GotoEliminator();
-        foreach (var (relative, dest, _, _) in processedInputs)
+        Parallel.For(0, processedInputs.Count, index =>
         {
-            if (rolledBackFiles.Contains(relative)) continue;
+            var (relative, dest, _, _) = processedInputs[index];
+            if (rolledBackFiles.Contains(relative)) return;
 
             var text = File.ReadAllText(dest);
-            if (!text.Contains("yield", StringComparison.Ordinal)) continue;
+            if (!text.Contains("yield", StringComparison.Ordinal)) return;
 
-            var tree = compilation.SyntaxTrees.FirstOrDefault(t =>
-                string.Equals(t.FilePath, dest, StringComparison.OrdinalIgnoreCase));
-            if (tree == null) continue;
+            if (!treeByPath.TryGetValue(dest, out var treeNode)) return;
 
-            var model = compilation.GetSemanticModel(tree);
-            var result = preprocessor.Preprocess(text, model, new IteratorLoweringOptions());
-            if (!result.Changed) continue;
+            try
+            {
+                var model = compilation.GetSemanticModel(treeNode);
+                var preprocessor = new IteratorLoweringPreprocessor();
+                var result = preprocessor.Preprocess(text, model, new IteratorLoweringOptions());
+                if (!result.Changed) return;
 
-            // The state machine emits goto/labels; the goto pass already ran
-            // before linq-channel, so consume them here as it normally would
-            // immediately after iterator-lowering.
-            var output = result.OutputCode;
-            var gotoResult = gotoEliminator.Eliminate(
-                output, new GotoEliminatorOptions(Verbose: false, Strict: false));
-            if (gotoResult.Changed) output = gotoResult.OutputCode;
+                // The state machine emits goto/labels; the goto pass already ran
+                // before linq-channel, so consume them here as it normally would
+                // immediately after iterator-lowering.
+                // Node-level chaining: the lowering output tree is handed over
+                // directly (a re-parse of OutputCode is an equivalent tree), so
+                // the goto eliminator skips re-parsing these large files.
+                var output = result.OutputCode;
+                var gotoResult = gotoEliminator.Eliminate(
+                    result.FormattedRoot ?? ParseCompilationUnit(output),
+                    new GotoEliminatorOptions(Verbose: false, Strict: false));
+                if (gotoResult.Changed)
+                {
+                    output = gotoResult.OutputCode;
+                }
 
-            File.WriteAllText(dest, output, new UTF8Encoding(FileStartsWithBom(dest)));
+                loweringOutputs[index] = (relative, output, result.Statistics.IteratorMembersLowered);
+            }
+            catch (Exception ex)
+            {
+                failures[index] = ex;
+            }
+        });
+
+        RethrowFirstFailure(failures);
+
+        for (var index = 0; index < loweringOutputs.Length; index++)
+        {
+            if (loweringOutputs[index] is not { } lowered)
+            {
+                continue;
+            }
+
+            var (_, dest, _, _) = processedInputs[index];
+            File.WriteAllText(dest, lowered.Output, new UTF8Encoding(FileStartsWithBom(dest)));
             if (_verbose)
             {
                 Console.WriteLine(
-                    $"[linq-channel] iterator lowering: {relative} " +
-                    $"({result.Statistics.IteratorMembersLowered} member(s))");
+                    $"[linq-channel] iterator lowering: {lowered.Relative} " +
+                    $"({lowered.MembersLowered} member(s))");
             }
         }
     }
@@ -657,27 +923,15 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
         return false;
     }
 
-    private CSharpCompilation BuildIntermediateCompilation(
-        PassTreeContext tree,
-        IReadOnlyList<(string Source, string Relative, string Dest)> pairs)
+    /// <summary>
+    /// Mirror SDK ImplicitUsings=enable (java-keywords precedent): one
+    /// synthesized tree per enabled project, appended compilation-only.
+    /// Built once per pass and shared by every compilation derived from it
+    /// (the tree is immutable, and reuse keeps incremental
+    /// ReplaceSyntaxTree chains referencing identical tree objects).
+    /// </summary>
+    private SyntaxTree? BuildGlobalUsingsTree(PassTreeContext tree)
     {
-        // Parsing dominates this helper (the whole tree is re-parsed on every
-        // rebuild) and each file is independent, so the reads/parses fan out;
-        // the resulting tree order still follows `pairs`.
-        var parsed = new SyntaxTree[pairs.Count];
-        Parallel.For(0, pairs.Count, i =>
-        {
-            parsed[i] = CSharpSyntaxTree.ParseText(
-                File.ReadAllText(pairs[i].Dest),
-                CreateParseOptions(tree),
-                path: pairs[i].Dest);
-        });
-
-        var trees = new List<SyntaxTree>(parsed.Length + 1);
-        trees.AddRange(parsed);
-
-        // Mirror SDK ImplicitUsings=enable (java-keywords precedent): one
-        // synthesized tree per enabled project, appended compilation-only.
         var globalUsings = new StringBuilder();
         foreach (var projectFile in tree.Layout.ProjectFiles
                      .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
@@ -693,17 +947,31 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
             }
         }
 
-        if (globalUsings.Length > 0)
+        if (globalUsings.Length == 0)
         {
-            trees.Add(CSharpSyntaxTree.ParseText(
-                globalUsings.ToString(),
-                CreateParseOptions(tree),
-                path: "__cs2j_global_usings.g.cs"));
+            return null;
+        }
+
+        return CSharpSyntaxTree.ParseText(
+            globalUsings.ToString(),
+            CreateParseOptions(tree),
+            path: "__cs2j_global_usings.g.cs");
+    }
+
+    private CSharpCompilation CreateCompilation(
+        IReadOnlyList<SyntaxTree> trees,
+        SyntaxTree? globalUsingsTree)
+    {
+        var allTrees = new List<SyntaxTree>(trees.Count + 1);
+        allTrees.AddRange(trees);
+        if (globalUsingsTree is not null)
+        {
+            allTrees.Add(globalUsingsTree);
         }
 
         return CSharpCompilation.Create(
             CompilationName,
-            trees,
+            allTrees,
             GetMetadataReferences(),
             CreateCompilationOptions());
     }

@@ -67,6 +67,74 @@ public static class ExpressionTreeFacts
         => FindEnclosingQuotedLambda(model, node) is not null;
 
     /// <summary>
+    /// Precomputed per-file quoted-lambda set. Answers the same
+    /// <see cref="IsInsideQuotedExpressionLambda"/> question as
+    /// <see cref="FindEnclosingQuotedLambda"/> but evaluates each lambda's
+    /// semantic predicates exactly once instead of once per queried
+    /// descendant; membership tests afterwards are pure syntax walks.
+    /// </summary>
+    public sealed class QuotedLambdaScope
+    {
+        private readonly HashSet<LambdaExpressionSyntax> _quotedLambdas;
+
+        private QuotedLambdaScope(HashSet<LambdaExpressionSyntax> quotedLambdas)
+            => _quotedLambdas = quotedLambdas;
+
+        public static QuotedLambdaScope Build(SemanticModel model, SyntaxNode root)
+        {
+            var quoted = new HashSet<LambdaExpressionSyntax>();
+            foreach (var lambda in root.DescendantNodes().OfType<LambdaExpressionSyntax>())
+            {
+                // Same predicates (and evaluation order) as
+                // FindEnclosingQuotedLambda per ancestor lambda, with one
+                // provable short-circuit: when the lambda HAS a concrete
+                // converted type that is not Expression<>, the argument-site
+                // query cannot add anything — at an argument site the bound
+                // parameter type IS the converted type, and away from one the
+                // query is false anyway.
+                var converted = model.GetTypeInfo(lambda).ConvertedType;
+                if (converted is not null)
+                {
+                    var display = converted.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                    if (display.StartsWith(
+                            "global::System.Linq.Expressions.Expression<",
+                            StringComparison.Ordinal))
+                    {
+                        quoted.Add(lambda);
+                    }
+
+                    continue;
+                }
+
+                if (LambdaArgumentSiteConvertsToExpression(model, lambda))
+                {
+                    quoted.Add(lambda);
+                }
+            }
+
+            return new QuotedLambdaScope(quoted);
+        }
+
+        /// <summary>
+        /// True when <paramref name="node"/> sits lexically inside any quoted
+        /// lambda (equivalent to <see cref="IsInsideQuotedExpressionLambda"/>
+        /// for non-lambda nodes, which is every LINQ call-site use).
+        /// </summary>
+        public bool IsInside(SyntaxNode node)
+        {
+            for (var ancestor = node.Parent; ancestor is not null; ancestor = ancestor.Parent)
+            {
+                if (ancestor is LambdaExpressionSyntax lambda && _quotedLambdas.Contains(lambda))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Ancillary "ancestor call argument site" query (design §4.4): true when
     /// <paramref name="lambda"/> is passed as an argument whose bound
     /// parameter type is <c>Expression&lt;TDelegate&gt;</c>. Covers shapes
