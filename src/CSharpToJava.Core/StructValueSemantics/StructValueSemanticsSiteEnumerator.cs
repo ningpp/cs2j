@@ -724,7 +724,10 @@ internal sealed class StructValueSemanticsSiteEnumerator
             case IFieldSymbol { IsReadOnly: false }:
                 return true;
             case IPropertySymbol property when !property.IsIndexer:
-                return property.SetMethod is { IsInitOnly: false } && !property.ReturnsByRefReadonly;
+                // 可写 ref 返回属性（`ref T Value => ref _field;`）没有 setter，
+                // 但调用方拿到的是存储位置本身，变异仍原位生效；ref readonly 才需副本。
+                return property.RefKind == RefKind.Ref
+                    || (property.SetMethod is { IsInitOnly: false } && !property.ReturnsByRefReadonly);
             case ILocalSymbol local when local.RefKind == RefKind.None:
                 // foreach 迭代变量是只读副本槽（C# 禁止赋值，变异不回写源元素）；
                 // is-pattern 声明变量是普通可写局部（拆箱已产生独立副本，对其变异
@@ -737,7 +740,8 @@ internal sealed class StructValueSemanticsSiteEnumerator
             var receiverType = model.GetTypeInfo(elementAccess.Expression).Type;
             if (receiverType is IArrayTypeSymbol) return true; // VS-4c：数组槽直改合法
             if (model.GetSymbolInfo(elementAccess).Symbol is IPropertySymbol indexer)
-                return indexer.SetMethod is { IsInitOnly: false };
+                return indexer.RefKind == RefKind.Ref
+                    || indexer.SetMethod is { IsInitOnly: false };
         }
 
         return false;
