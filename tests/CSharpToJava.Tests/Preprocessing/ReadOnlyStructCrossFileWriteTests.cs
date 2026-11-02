@@ -167,6 +167,90 @@ public class ReadOnlyStructCrossFileWriteTests
         Assert.Contains("state: __cs2jTuple", rewritten);
     }
 
+    // make-readonly converts structs with mutating methods (L5) / public fields (L4)
+    // into get-only properties plus a full constructor and one copy-with helper per
+    // member. That output is shape-identical to an L3 data container, so external
+    // single-member writes were reconstructed through the full constructor (every
+    // other member read again at the call site). For a struct mutated at every
+    // recursion level (ReadStackFrame during streaming deserialization) that
+    // inflated each recursive frame and overflowed the stack at depth 324. A pure
+    // copy-with helper is semantically identical to the reconstruction and only
+    // reads the receiver once, so it must be preferred.
+    private const string ConvertedWithMethodsStructSource = """
+        namespace N
+        {
+            public readonly struct Frame
+            {
+                internal int Index { get; }
+                internal object? State { get; }
+
+                internal Frame(int index, object? state)
+                {
+                    Index = index;
+                    State = state;
+                }
+
+                internal Frame WithIndex(int index) => new Frame(index: index, state: this.State);
+                internal Frame WithState(object? state) => new Frame(index: this.Index, state: state);
+            }
+        }
+        """;
+
+    private const string SingleWriteUserSource = """
+        namespace N
+        {
+            internal static class User
+            {
+                internal static Frame Build(Frame frame, int count)
+                {
+                    frame.Index = count;
+                    return frame;
+                }
+            }
+        }
+        """;
+
+    [Fact]
+    public async Task SingleWrite_ToStructWithCopyWithHelper_StaysCopyWithCall()
+    {
+        var rewritten = await RunCrossFileRewriteAsync(ConvertedWithMethodsStructSource, SingleWriteUserSource);
+
+        Assert.Contains("frame = frame.WithIndex(count)", rewritten);
+        Assert.DoesNotContain("new Frame(", rewritten);
+    }
+
+    // Safety invariant: only helpers that are provably a pure copy-with are used.
+    // A hand-written WithIndex that ignores its parameter (here: keeps the old
+    // Index) is not equivalent to assigning Index, so the constructor
+    // reconstruction must remain.
+    private const string ImpureWithStructSource = """
+        namespace N
+        {
+            public readonly struct Frame
+            {
+                internal int Index { get; }
+                internal object? State { get; }
+
+                internal Frame(int index, object? state)
+                {
+                    Index = index;
+                    State = state;
+                }
+
+                internal Frame WithIndex(int index) => new Frame(index: this.Index, state: this.State);
+            }
+        }
+        """;
+
+    [Fact]
+    public async Task SingleWrite_ToStructWithNonCopyWithHelper_KeepsConstructorReconstruction()
+    {
+        var rewritten = await RunCrossFileRewriteAsync(ImpureWithStructSource, SingleWriteUserSource);
+
+        Assert.Contains("frame = new Frame(index: count, state: frame.State)", rewritten);
+        Assert.DoesNotContain("frame = frame.WithIndex(count)", rewritten);
+    }
+
     private static async Task<string> RunCrossFileRewriteAsync(
         string structSource, string userSource)
     {

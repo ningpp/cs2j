@@ -398,6 +398,16 @@ internal static class ReadOnlyStructPassEngine
         // per-struct predicates, so they share a single walk over the struct-bearing
         // output trees (identical results to the former two passes).
         var l3Eligible = new HashSet<string>(StringComparer.Ordinal);
+        // Struct name -> members for which the struct exposes a provably pure
+        // copy-with method (WithXxx). Both the make-readonly L4/L5 conversion and
+        // the L3 data-container conversion generate these helpers. A write to such
+        // a member is expressed as `receiver = receiver.WithXxx(v)` rather than a
+        // full constructor reconstruction: the two are semantically identical, but
+        // the WithXxx call reads the receiver once instead of once per constructor
+        // parameter. Structs mutated on deep recursive paths (e.g. ReadStackFrame
+        // during streaming deserialization) overflowed the stack when every field
+        // write was expanded into a 17-argument constructor call.
+        var withCopyMembers = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         foreach (var (file, tree) in outputTrees)
         {
             if (!structTextFiles.Contains(file)) continue;
@@ -406,6 +416,15 @@ internal static class ReadOnlyStructPassEngine
             {
                 if (TryGetL3DataContainerInfo(structDecl, out _, out _))
                     l3Eligible.Add(structDecl.Identifier.Text);
+
+                var members = withCopyMembers.TryGetValue(structDecl.Identifier.Text, out var existingMembers)
+                    ? existingMembers
+                    : withCopyMembers[structDecl.Identifier.Text] = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var method in structDecl.Members.OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>())
+                {
+                    if (TryGetCopyWithMember(structDecl, method, out var memberName))
+                        members.Add(memberName);
+                }
 
                 var structName = structDecl.Identifier.Text;
                 var privateFields = structDecl.Members
@@ -541,7 +560,7 @@ internal static class ReadOnlyStructPassEngine
             var root = tree.GetRoot();
             var model = outputCompilation.GetSemanticModel(tree);
             var rewriter = new AssignmentRewriter(publicFieldStructs, model, l5StructNames, withChainStructs, l3Structs,
-                qualifiedNames: qualifiedNames);
+                qualifiedNames: qualifiedNames, withCopyMembers: withCopyMembers);
             rewriter.BuildVariableTypeMap(root);
             var newRoot = rewriter.Visit(root);
             if (newRoot != null && !ReferenceEquals(newRoot, root) && newRoot.ToFullString() != root.ToFullString())
@@ -613,6 +632,110 @@ internal static class ReadOnlyStructPassEngine
             .ToList();
         return true;
     }
+
+    /// <summary>
+    /// Recognises a WithXxx method that is provably a pure copy-with helper:
+    /// <code>
+    /// S WithX(T x) => new S(p1: this.P1, ..., pX: x, ...);
+    /// </code>
+    /// Exactly one constructor argument is the method's parameter; every other
+    /// argument copies a member of <c>this</c> unchanged (constant discriminator
+    /// tags such as <c>__cs2jTag: 0</c> are allowed). The argument fed by the
+    /// parameter must map back to <paramref name="memberName"/> (the suffix of the
+    /// method name), so the method is equivalent to `receiver.Member = v` and the
+    /// write can be expressed as `receiver = receiver.WithMember(v)`.
+    /// Hand-written helpers that compute, validate or drop state fail this
+    /// predicate and keep the full-constructor reconstruction.
+    /// </summary>
+    private static bool TryGetCopyWithMember(
+        Microsoft.CodeAnalysis.CSharp.Syntax.StructDeclarationSyntax structDecl,
+        Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax method,
+        out string memberName)
+    {
+        memberName = string.Empty;
+
+        var name = method.Identifier.Text;
+        if (!name.StartsWith("With", StringComparison.Ordinal) || name.Length == 4)
+            return false;
+        if (method.ParameterList.Parameters.Count != 1)
+            return false;
+
+        // The call site is outside the struct (or in another type/assembly), so
+        // only explicitly public/internal helpers are callable there. Struct
+        // members default to private; generated helpers always carry a modifier.
+        if (!method.Modifiers.Any(m =>
+                m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.PublicKeyword) ||
+                m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.InternalKeyword)))
+            return false;
+
+        var structName = structDecl.Identifier.Text;
+        if (!IsStructType(method.ReturnType, structName))
+            return false;
+
+        var creation = method.ExpressionBody?.Expression as Microsoft.CodeAnalysis.CSharp.Syntax.ObjectCreationExpressionSyntax;
+        if (creation == null &&
+            method.Body is { Statements.Count: 1 } &&
+            method.Body.Statements[0] is Microsoft.CodeAnalysis.CSharp.Syntax.ReturnStatementSyntax
+            {
+                Expression: Microsoft.CodeAnalysis.CSharp.Syntax.ObjectCreationExpressionSyntax returned,
+            })
+        {
+            creation = returned;
+        }
+        if (creation == null || creation.ArgumentList == null || !IsStructType(creation.Type, structName))
+            return false;
+
+        var parameterName = method.ParameterList.Parameters[0].Identifier.Text;
+        var suffix = name.Substring(4);
+        string? parameterArgument = null;
+        var parameterArgumentCount = 0;
+
+        foreach (var argument in creation.ArgumentList.Arguments)
+        {
+            if (argument.NameColon == null)
+                return false;
+
+            var argumentName = argument.NameColon.Name.Identifier.Text;
+            switch (argument.Expression)
+            {
+                case Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax identifier
+                    when identifier.Identifier.Text == parameterName:
+                    parameterArgumentCount++;
+                    parameterArgument = argumentName;
+                    break;
+                case Microsoft.CodeAnalysis.CSharp.Syntax.MemberAccessExpressionSyntax
+                    {
+                        Expression: Microsoft.CodeAnalysis.CSharp.Syntax.ThisExpressionSyntax,
+                    }:
+                case Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax:
+                    // Copied member / constant discriminator tag.
+                    break;
+                default:
+                    return false;
+            }
+        }
+
+        if (parameterArgumentCount != 1 || parameterArgument == null)
+            return false;
+
+        // The parameter must land on the member named by the method suffix
+        // (constructor parameters may differ by case or an underscore prefix).
+        static string Normalize(string value) =>
+            value.TrimStart('_');
+
+        if (!string.Equals(Normalize(parameterArgument), Normalize(suffix), StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        memberName = suffix;
+        return true;
+    }
+
+    private static bool IsStructType(
+        Microsoft.CodeAnalysis.CSharp.Syntax.TypeSyntax type, string structName)
+        => type is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax identifier
+            ? identifier.Identifier.Text == structName
+            : type is Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax generic
+              && generic.Identifier.Text == structName;
 
     /// <summary>
     /// Cross-file pass: replaces ref/out arguments that target fields of readonly structs

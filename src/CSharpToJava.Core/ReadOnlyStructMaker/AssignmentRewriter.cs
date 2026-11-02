@@ -30,6 +30,7 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<string, string> _variableTypes = new();
     private readonly Dictionary<string, HashSet<string>> _qualifiedNames = new(StringComparer.Ordinal);
     private readonly IReadOnlyDictionary<string, (HashSet<string> Props, List<string> CtorParams)> _l3Structs;
+    private readonly IReadOnlyDictionary<string, HashSet<string>> _withCopyMembers;
 
     public AssignmentRewriter(
         Dictionary<string, HashSet<string>> structFields,
@@ -37,12 +38,15 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         IReadOnlySet<string>? propertyAccessStructs = null,
         IReadOnlySet<string>? withChainStructs = null,
         IReadOnlyDictionary<string, (HashSet<string> Props, List<string> CtorParams)>? l3Structs = null,
-        IReadOnlyDictionary<string, HashSet<string>>? qualifiedNames = null)
+        IReadOnlyDictionary<string, HashSet<string>>? qualifiedNames = null,
+        IReadOnlyDictionary<string, HashSet<string>>? withCopyMembers = null)
     {
         _structFields = structFields;
         _semanticModel = semanticModel;
         _l3Structs = l3Structs
             ?? new Dictionary<string, (HashSet<string> Props, List<string> CtorParams)>();
+        _withCopyMembers = withCopyMembers
+            ?? new Dictionary<string, HashSet<string>>();
         if (qualifiedNames != null)
         {
             foreach (var kvp in qualifiedNames)
@@ -55,6 +59,19 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         foreach (var field in fields)
             _targetFieldNames.Add(field);
     }
+
+    /// <summary>
+    /// True when <paramref name="structName"/> exposes a provably pure copy-with
+    /// method for <paramref name="memberName"/> (see
+    /// <c>ReadOnlyStructPassEngine.TryGetCopyWithMember</c>). Such a method
+    /// returns a copy of the receiver with only that member replaced, so
+    /// <c>receiver.Member = v</c> can be expressed as
+    /// <c>receiver = receiver.WithMember(v)</c> instead of repeating every
+    /// member read in a full constructor call.
+    /// </summary>
+    private bool HasCopyWithMember(string structName, string memberName)
+        => _withCopyMembers.TryGetValue(structName, out var members)
+           && members.Contains(memberName);
 
     /// <summary>
     /// Builds a map of variable names to their declared types. Must be called
@@ -633,12 +650,17 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
 
     /// <summary>
     /// Dispatches the write to the L3 constructor reconstruction when the target
-    /// is a DataContainer struct, otherwise to the WithXxx chain shape.
+    /// is a DataContainer struct, otherwise to the WithXxx chain shape. A
+    /// struct that exposes a provably pure copy-with method for the written
+    /// member always takes the WithXxx shape: it is semantically identical to
+    /// reconstructing through the full constructor, but keeps the call site
+    /// small (one receiver read instead of one per constructor parameter),
+    /// which matters for structs mutated on deep recursive paths.
     /// </summary>
     private AssignmentExpressionSyntax BuildWriteAssignment(
         string structName, ExpressionSyntax receiver, string memberName,
         ExpressionSyntax value, SyntaxNode triviaFrom)
-        => _l3Structs.ContainsKey(structName)
+        => _l3Structs.ContainsKey(structName) && !HasCopyWithMember(structName, memberName)
             ? BuildL3ConstructorAssignment(structName, receiver,
                 new Dictionary<string, ExpressionSyntax>(StringComparer.Ordinal)
                 {
