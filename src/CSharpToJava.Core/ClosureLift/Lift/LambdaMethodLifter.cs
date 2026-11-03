@@ -388,6 +388,76 @@ internal static class LambdaMethodLifter
             return base.VisitIdentifierName(node);
         }
 
+        /// <summary>
+        /// ④-bis implicit-this instance GENERIC method call (`M&lt;T&gt;(...)`):
+        /// the name node is a <see cref="GenericNameSyntax"/>, which the identifier
+        /// rewrite below never sees; without this the migrated method keeps a
+        /// receiver-less call (CS0120).
+        /// </summary>
+        public override SyntaxNode? VisitGenericName(GenericNameSyntax node)
+        {
+            var visited = (GenericNameSyntax?)base.VisitGenericName(node);
+            if (visited == null)
+                return null;
+
+            if (_context.HasHostThis
+                && _context.InstanceMemberNames.Contains(visited.Identifier.ValueText)
+                && IsMemberNamePosition(visited))
+            {
+                return SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.ParseExpression(
+                            _context.HostThisPath + ClosureLiftNaming.ThisFieldName),
+                        visited.WithTriviaFrom(node))
+                    .WithTriviaFrom(node);
+            }
+
+            return visited;
+        }
+
+        /// <summary>
+        /// Positions where a simple name denotes a member of the implicit receiver
+        /// (read or write), not a type reference or a qualified access's member name.
+        /// </summary>
+        private static bool IsMemberNamePosition(SimpleNameSyntax node)
+        {
+            if (node.Parent is NameColonSyntax || CaptureClassification.IsInsideNameOf(node))
+                return false;
+            if (node.Parent is MemberAccessExpressionSyntax member && member.Name == node)
+                return false;
+            if (node.Parent is MemberBindingExpressionSyntax binding && binding.Name == node)
+                return false;
+            if (node.Parent is NameEqualsSyntax)
+                return false;
+
+            // Type contexts: typeof(T), sizeof(T), default(T), new T(), (T)x,
+            // x as T, x is T u, T[] — a name in these positions denotes a type.
+            if (node.Parent is TypeOfExpressionSyntax
+                or SizeOfExpressionSyntax
+                or DefaultExpressionSyntax
+                or ArrayTypeSyntax
+                or GenericNameSyntax
+                or QualifiedNameSyntax
+                or TypeArgumentListSyntax
+                or DeclarationPatternSyntax)
+            {
+                return false;
+            }
+
+            if (node.Parent is CastExpressionSyntax cast && cast.Type == node)
+                return false;
+            if (node.Parent is ObjectCreationExpressionSyntax creation && creation.Type == node)
+                return false;
+            if (node.Parent is BinaryExpressionSyntax binary
+                && (binary.IsKind(SyntaxKind.IsExpression) || binary.IsKind(SyntaxKind.AsExpression))
+                && binary.Right == node)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         /// <summary>Positions that are ordinary variable accesses (read or write).</summary>
         private static bool IsVariableAccessPosition(IdentifierNameSyntax node)
         {

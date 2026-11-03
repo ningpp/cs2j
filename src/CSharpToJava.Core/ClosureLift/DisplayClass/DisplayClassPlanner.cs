@@ -1046,8 +1046,12 @@ internal static class DisplayClassPlanner
                 continue;
             }
 
-            if (node is not IdentifierNameSyntax identifier)
+            // GenericName is included: an implicit-this call to a generic instance
+            // method (`M<T>(...)`) is a `GenericNameSyntax` node, and missing it
+            // leaves the migrated body referring to a receiver-less method (CS0120).
+            if (node is not (IdentifierNameSyntax or GenericNameSyntax))
                 continue;
+            var identifier = (SimpleNameSyntax)node;
             if (identifier.Parent is NameColonSyntax || CaptureClassification.IsInsideNameOf(identifier))
                 continue;
             if (identifier.Parent is MemberAccessExpressionSyntax member && member.Name == identifier)
