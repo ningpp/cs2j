@@ -93,6 +93,11 @@ internal static class PropertyDiagnostics
            $"it into accessor methods would remove the member from System.Text.Json's " +
            $"reflection surface; {RetainSuffix}.";
 
+    public static string RetainedTypeUniformity(string name)
+        => $"property '{name}' shares its type with a member that must stay a property; " +
+           $"expanding it would reorder the type's System.Text.Json members (properties " +
+           $"enumerate before fields); {RetainSuffix}.";
+
     public static string RetainedAttributeClass(string name)
         => $"'{name}' is a property of a System.Attribute subclass referenced by name from " +
            $"attribute named arguments, which cannot be rewritten into method calls " +

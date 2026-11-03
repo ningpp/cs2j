@@ -347,6 +347,33 @@ internal sealed class PropertyRule : IMemberDesugarRule
         // ---- 层次一致性（决策 8 + 回退闭环）：override 链 / 接口实现必须同拆或同留 ----
         EnforceHierarchyCoherence(candidates, failures, retained, userSkipped, siteFailures, context);
 
+        // ---- 类型级成员面一致性（序列化消费面）----
+        // STJ 的类缓存先枚举 PropertyInfo、再枚举 FieldInfo：同一类型里只要有一个成员
+        // 仍以属性形态存在（保留 / 声明门禁失败 / 站点不可行 / 用户跳过），其余属性
+        // 脱糖成字段后会被排到它之后，序列化成员顺序整体改变（真实链 json：
+        // EnumConverterTests.ConvertEnumUsingAttributes 的 WeekEnd 因 [LowerCaseEnum]
+        // 不可路由而保留，WorkStart/WorkEnd 变成字段 → JSON 变成 WeekEnd 领先）。
+        // 序列化消费面上，类型里既有属性形态成员时其余候选属性一并保留。
+        var remainingPropertyTypes = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        void AddRemainingType(IPropertySymbol prop)
+        {
+            if (prop.ContainingType != null)
+                remainingPropertyTypes.Add(prop.ContainingType.OriginalDefinition);
+        }
+        foreach (var prop in retained.Keys) AddRemainingType(prop);
+        foreach (var prop in failures.Keys) AddRemainingType(prop);
+        foreach (var prop in siteFailures.Keys) AddRemainingType(prop);
+        foreach (var prop in userSkipped.Keys) AddRemainingType(prop);
+
+        foreach (var (prop, (decl, model)) in candidates.ToList())
+        {
+            if (!remainingPropertyTypes.Contains(prop.ContainingType.OriginalDefinition)) continue;
+            if (!SerializationMemberMetadata.IsJsonSerializationInScope(model, decl)) continue;
+            candidates.Remove(prop);
+            fieldKeywordInfos.Remove(prop);
+            retained[prop] = (decl, PropertyDiagnostics.RetainedTypeUniformity(prop.Name));
+        }
+
         // ---- 阶段 3：后备字段命名 + plan 产出 ----
         // C50：field-backed 属性（IsAutoProperty=false）也必须进命名分配，名字与
         // 「同一属性若写成 auto 属性」逐字符相同（设计决策 2）。

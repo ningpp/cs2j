@@ -26,11 +26,18 @@ namespace dto
     {
         public int Id { get; set; }
         public string Name { get; set; }
-        public string Lazy { get; private set; }
         private string Secret { get; set; }
         public static int Cache { get; set; }
         [JsonInclude] public int Marked { get; set; }
         [JsonPropertyName("renamed")] public string Original { get; set; }
+    }
+
+    // 同一类型里存在「必须保持属性形态」的成员（public getter + private setter）时，
+    // 其余属性一并保留：STJ 先枚举属性再枚举字段，混排会改变成员顺序。
+    public class MixedDto
+    {
+        public int Id { get; set; }
+        public string Lazy { get; private set; }
     }
 }
 """;
@@ -103,6 +110,9 @@ namespace dto
         // 字段形态无法表达「只序列化不反序列化」，整属性保留是该语义的最小保真。
         Assert.Contains("publicstringLazy{get;privateset;}", compact, StringComparison.Ordinal);
         Assert.DoesNotContain("get_Lazy", output, StringComparison.Ordinal);
+
+        // MixedDto 有属性形态成员后，其余属性一并保留（类型级成员面一致性）。
+        Assert.Contains("publicintId{get;set;}", compact, StringComparison.Ordinal);
 
         // 非 public / static 属性原本就不参与 STJ 序列化，不补标记。
         Assert.DoesNotContain(

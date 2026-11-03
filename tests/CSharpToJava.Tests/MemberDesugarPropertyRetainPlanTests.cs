@@ -585,4 +585,55 @@ public class MemberDesugarPropertyRetainPlanTests
         Assert.Equal(0, stats.PlansSkipped);
         Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
     }
+
+    // 场景 11：类型级成员面一致性——STJ 先枚举属性再枚举字段，同一类型里只要有一个
+    // 属性形态成员（这里 [PropertyOnly] 特性不可路由到字段 → 声明门禁失败），其余
+    // 属性脱糖成字段会被排到它后面（真实链 json：ConvertEnumUsingAttributes 的 JSON
+    // 顺序变成 WeekEnd 领先）。序列化消费面上整类型属性一并保留。
+    [Fact]
+    public void TypeWithRemainingProperty_RetainsSiblingPropertiesInJsonScope()
+    {
+        const string src = """
+            using System;
+            using System.Text.Json.Serialization;
+
+            namespace Probe
+            {
+                [AttributeUsage(AttributeTargets.Property)]
+                public sealed class PropertyOnlyAttribute : Attribute
+                {
+                }
+
+                public class WeekDto
+                {
+                    [PropertyOnly]
+                    public DayOfWeek WorkStart { get; set; }
+
+                    public DayOfWeek WorkEnd { get; set; }
+                }
+
+                public class PlainDto
+                {
+                    public DayOfWeek Holiday { get; set; }
+                }
+            }
+            """;
+
+        var (outCode, stats, diags) = RewriteFirstFile("Uniformity.cs", src);
+
+        AssertNoResidualProperty(diags);
+
+        Assert.Contains("public DayOfWeek WorkStart { get; set; }",
+            outCode, StringComparison.Ordinal);
+        Assert.Contains("public DayOfWeek WorkEnd { get; set; }",
+            outCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_WorkStart", outCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_WorkEnd", outCode, StringComparison.Ordinal);
+
+        // 没有属性形态成员的类型照常去糖。
+        Assert.Contains("get_Holiday", outCode, StringComparison.Ordinal);
+
+        // WorkStart 的不可路由特性触发声明门禁失败（Plan 记为跳过），属预期诊断。
+        Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
+    }
 }
