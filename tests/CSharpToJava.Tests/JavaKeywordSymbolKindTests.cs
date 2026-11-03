@@ -98,4 +98,36 @@ public class JavaKeywordSymbolKindTests
         Assert.DoesNotContain("@class", output, StringComparison.Ordinal);
         Assert.Equal(1, stats.SymbolsRenamed);
     }
+
+    [Fact]
+    public void Constructor_Parameter_Verbatim_Int_IsNotRenamed()
+    {
+        // 形参名是 C# 元数据契约：System.Text.Json 按参数名匹配属性名（Int），
+        // 改名会让构造器绑定失败。Java 侧由输出阶段 EscapeJavaKeyword 自理。
+        var sourceCode =
+            "public class ClassWrapper_For_Int_String { public int Int { get; } " +
+            "public ClassWrapper_For_Int_String(int @int) { Int = @int; } }";
+        var (output, stats) = Rewrite(sourceCode);
+        Assert.Equal(sourceCode, output);
+        Assert.Equal(0, stats.SymbolsRenamed);
+    }
+
+    [Fact]
+    public void Method_Parameter_Verbatim_Class_IsNotRenamed()
+    {
+        var sourceCode = "public class C { public int M(int @class) { return @class; } }";
+        var (output, stats) = Rewrite(sourceCode);
+        Assert.Equal(sourceCode, output);
+        Assert.Equal(0, stats.SymbolsRenamed);
+    }
+
+    [Fact]
+    public void Method_StillRenamed_While_Its_Parameter_IsKept()
+    {
+        var sourceCode = "public class C { public int @float(int @int) { return @int; } }";
+        var (output, stats) = Rewrite(sourceCode);
+        Assert.Contains("int floatValue(int @int)", output, StringComparison.Ordinal);
+        Assert.Contains("return @int;", output, StringComparison.Ordinal);
+        Assert.Equal(1, stats.SymbolsRenamed);
+    }
 }

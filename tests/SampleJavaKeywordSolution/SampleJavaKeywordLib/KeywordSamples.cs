@@ -1,4 +1,4 @@
-namespace SampleJavaKeywordLib;
+﻿namespace SampleJavaKeywordLib;
 
 // JK-0: 判定谓词——名称本身或 decap 后是 Java 关键字
 // JK-1: 方法改名
@@ -7,7 +7,7 @@ public class KeywordSamples
     // JK-1: 方法名是 Java 关键字（True → TrueValue）
     public void True() { }
 
-    // JK-2: 属性改名（Null → NullValue）
+    // 属性名是序列化/反射契约，转换器不 decap：Null 保持原样
     public int Null { get; set; }
 
     // JK-2: 字段改名（assert → assertValue）
@@ -23,10 +23,10 @@ public class KeywordSamples
         return yield;
     }
 
-    // JK-2: 参数改名（True → TrueValue）
+    // 形参不改名（C# 元数据契约：命名实参/反射/JSON 构造器绑定）
     public void N(int True) => _ = True;
 
-    // JK-3: 类型改名（Null → NullValue）
+    // 类型名不 decap：Null 保持原样
     // 见下方 Null 类型
 
     // JK-4a: nameof 字面量化
@@ -45,7 +45,7 @@ public class KeywordSamples
     }
 }
 
-// JK-3: 类型名是 Java 关键字（Null → NullValue）
+// 类型名不 decap（decap 命中只对方法名种类生效）：Null 保持原样
 public class Null
 {
     public int Value { get; set; }

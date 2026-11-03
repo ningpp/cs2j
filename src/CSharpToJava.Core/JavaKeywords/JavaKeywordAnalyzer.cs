@@ -140,10 +140,13 @@ internal sealed class JavaKeywordAnalyzer
                     symbol = model.GetDeclaredSymbol(svd);
                     name = svd.Identifier.Text;
                     break;
-                case ParameterSyntax p:
-                    symbol = model.GetDeclaredSymbol(p);
-                    name = p.Identifier.Text;
-                    break;
+                case ParameterSyntax:
+                    // JK-0：形参名是 C# 元数据契约（命名实参、反射、JSON 构造器
+                    // 按参数名绑定属性），改名会破坏语义。Java 侧的保留字规避由
+                    // 输出阶段独立 escape（MethodTransformer/ConstructorTransformer
+                    // 的 EscapeJavaKeyword(param.Identifier.Text)），不依赖预处理。
+                    // 因此参数不进改名候选表，引用点也因查表落空而保持原名。
+                    continue;
                 case ForEachStatementSyntax fe:
                     symbol = model.GetDeclaredSymbol(fe);
                     name = fe.Identifier.Text;

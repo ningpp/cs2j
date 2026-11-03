@@ -135,8 +135,9 @@ NewName(name) = strip(name) + "Value"
 ```
 
 - 保留字表（含 `true/false/null/_/yield` 及 `abstract…while` 全表）只存在于 `JavaNaming.IsJavaKeyword`，本特性不复制、不改写。
-- 判定**按符号种类分流**：`strip` 精确命中保留字对所有种类生效；`decap` 命中只对转换器会首字母小写的种类生效——普通方法、局部函数、显式接口实现（[MethodTransformer.JavaName](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L1336-L1345)、`GetLocalFunctionJavaName`）。字段/属性/形参/局部/类型/命名空间的名字在 C#→C# 中间树里是 JSON 序列化、反射和公开 API 的契约，转换器也不会 decap；若仅因 decap 命中就改名（如把 `JsonElementClass.True` 改成 `TrueValue`），会破坏按原字段名匹配的序列化/反序列化与反射行为，故这些种类只在 `strip` 精确命中时改名。
-- JK-3 的局部/形参/类型改名规则仍然成立，但限定于**精确**保留字（如 `@class`、`_`、`yield`）；PascalCase 的 `True`/`Float`/`Class` 等只对方法名种类生效。
+- 判定**按符号种类分流**：`strip` 精确命中保留字对所有种类生效；`decap` 命中只对转换器会首字母小写的种类生效——普通方法、局部函数、显式接口实现（[MethodTransformer.JavaName](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L1336-L1345)、`GetLocalFunctionJavaName`）。字段/属性/局部/类型/命名空间的名字在 C#→C# 中间树里是 JSON 序列化、反射和公开 API 的契约，转换器也不会 decap；若仅因 decap 命中就改名（如把 `JsonElementClass.True` 改成 `TrueValue`），会破坏按原字段名匹配的序列化/反序列化与反射行为，故这些种类只在 `strip` 精确命中时改名。
+- **形参（`IParameterSymbol`）完全不参与改名**（精确命中也不改，如 `void M(int @int)` 保持 `@int`）：形参名是 C# 元数据契约——命名实参调用、反射参数名、`System.Text.Json` 按参数名与属性名绑定构造器实参都依赖它；改名会让 `(int @int)` 的构造器无法再绑定属性 `Int`，反序列化抛 "Each parameter ... must bind to an object property or field"。Java 侧的保留字规避不依赖预处理：输出阶段对实参名独立 escape（`MethodTransformer`/`ConstructorTransformer`/`OperatorTransformer`/`FieldTransformer`/`StatementTransformer.Declarations` 里的 `EscapeJavaKeyword(...)`）。因此 `CollectRenameCandidates` 跳过 `ParameterSyntax`，引用点因查表落空同样保持原名（含 `@this` 等）。
+- JK-3 的局部变量/类型改名规则仍然成立，但限定于**精确**保留字（如 `@class`、`_`、`yield`）；PascalCase 的 `True`/`Float`/`Class` 等只对方法名种类生效。
 - 不命中示例：`NULL`（decap 为 `nULL`，非保留字）、`WHILE`（`wHILE`）、`foo`、`@Foo`（剥后 `Foo`/`foo` 均非保留字）。
 - 命中示例与新名：
 
@@ -150,6 +151,7 @@ NewName(name) = strip(name) + "Value"
 | `FALSE`（字段，全大写） | 字段 | FALSE | fALSE ❌ | 不改名（decap 不命中且种类不 decap） |
 | `@event` | 方法 | event | event ✅ | `eventValue` |
 | `@true` | 方法 | true | true ✅ | `trueValue` |
+| `@int` / `@class` | 形参 | int / class | int / class ✅ | 不改名（形参是 C# 元数据契约；Java 侧输出时独立 escape） |
 | `_` | 任意声明种类 | _ | _ ✅ | `_Value` |
 | `yield` | 局部变量 | yield | yield ✅ | `yieldValue` |
 
@@ -165,19 +167,18 @@ NewName(name) = strip(name) + "Value"
 | 属性 | `IPropertySymbol`（含显式接口实现、索引器除外——索引器无用户标识符） | |
 | 字段 | `IFieldSymbol`（显式声明字段、枚举成员、字段式事件的后备、`fixed` 缓冲区、常量） | 隐式自动属性后备字段不改（隐式名，随属性转换链路处理） |
 | 事件 | `IEventSymbol`（`event D E;` 字段式与 `add/remove` 式） | |
-| 局部/变量 | `ILocalSymbol`（局部变量、模式变量、`out var`、解构变量、catch 变量、using 变量）、LINQ 范围变量（`IRangeVariableSymbol`） | 丢弃 `_` 无符号，天然跳过；名为 `_` 的真实参数/变量是符号，正常改 |
-| 形参 | `IParameterSymbol`（含 lambda/局部函数/匿名方法/索引器/属性访问器形参） | |
+| 局部/变量 | `ILocalSymbol`（局部变量、模式变量、`out var`、解构变量、catch 变量、using 变量）、LINQ 范围变量（`IRangeVariableSymbol`） | 丢弃 `_` 无符号，天然跳过；名为 `_` 的真实变量是符号，正常改 |
 | 类型 | `INamedTypeSymbol`（class/struct/record/interface/enum/delegate，含嵌套）、`ITypeParameterSymbol` | 构造函数、静态构造、终结符的名称标识符随类型名同步改写 |
 | 命名空间段 | `INamespaceSymbol` 的源内段（块限定式 `namespace A.B.C` 与文件作用域式） | 段以符号为键独立改名；`global::` 前缀不动 |
 | using 别名 | `IAliasSymbol`（`using assert = ...;`） | 别名声明点与所有引用点同步 |
 
-**不纳入改名的种类**（静态不可声明为用户标识符或下游自管）：goto 标签（`ILabelSymbol`）、元组元素名、匿名类型成员名（含推断与显式 `@x =`）、预处理宏、XML doc 文本。
+**不纳入改名的种类**（静态不可声明为用户标识符、下游自管或属于 C# 元数据契约）：形参（`IParameterSymbol`，含 lambda/局部函数/匿名方法/索引器/属性访问器形参，见 §4.1）、goto 标签（`ILabelSymbol`）、元组元素名、匿名类型成员名（含推断与显式 `@x =`）、预处理宏、XML doc 文本。
 
 **引用点改写（一律以语义绑定为准，禁止按文本替换）**：
 
 - JK-1 成员名 `True/False/Null/assert/…`：方法/属性/字段/事件的调用、成员访问、委托/方法组绑定（`Func<T> f = obj.True;`）、事件订阅/退订、字段地址（`&`）等所有绑定到该符号的 `IdentifierNameSyntax` / `MemberAccessExpressionSyntax.Name` / `QualifiedNameSyntax` 右段。
 - JK-2 逐字标识符 `@event/@object/@true/…`：剥 `@` 后逃逸，所有引用点的 `@` 一并去除（Java 中 `@` 是注解符号；C# 中间树内新名非关键字，无需 `@`）。
-- JK-3 局部变量/形参/类型（含类型形参、嵌套类型、命名空间段、别名）同理；引用点包括 `base.M()`（绑定基类符号）、`new Null()`、类型约束、`typeof(Null)`、`is Null`/`as Null`、数组元素类型 `Null[]`、可空 `Null?` 等所有类型语法位置（经语义模型反查到同一符号的 NameSyntax/IdentifierToken）。
+- JK-3 局部变量/类型（含类型形参、嵌套类型、命名空间段、别名）同理；引用点包括 `base.M()`（绑定基类符号）、`new Null()`、类型约束、`typeof(Null)`、`is Null`/`as Null`、数组元素类型 `Null[]`、可空 `Null?` 等所有类型语法位置（经语义模型反查到同一符号的 NameSyntax/IdentifierToken）。形参不改名（§4.1），其引用点同样保持原名。
 - JK-4 同一符号所有出现使用同一新名（全编译一张 `ISymbol→newName` 表，遍历时查表，绝不逐处重新派生）。
 - JK-4a **nameof（字符串值保持原样）**：`nameof(...)` 参数（含限定链 `C.True`、`Ns.assert.C`）中任一段绑定到被改名符号时，把整个 `nameof(...)` 表达式替换为**原名常量字符串字面量**（即 nameof 自身的常量值：参数最右一段剥 `@` 后的原文，如 `nameof(C.True)→"True"`、`nameof(@event)→"event"`）。字符串字面量在特性实参等常量上下文同样合法。绑定不到被改名符号的 nameof 不动。
 - 重载组：组内每个命中的成员独立建表项，新名一致（`True` 组全部 → `TrueValue`），签名不变故重载关系保持。
@@ -279,7 +280,8 @@ public static bool operator false(Foo x) => BODY;  →   public static bool IsFa
 | 逐字 `@event/@object/@true/@null` 等 | 剥 `@` 逃逸，引用点去 `@` | JK-2 |
 | `@_` / 真名 `_` | `_Value`（丢弃模式无符号，跳过） | JK-0/3 |
 | `yield` 标识符 | `yieldValue` | JK-0 |
-| 局部/形参/catch/using/模式/out var/解构/LINQ 范围变量 | 改名同步 | JK-3 |
+| 局部/catch/using/模式/out var/解构/LINQ 范围变量 | 改名同步 | JK-3 |
+| 形参（`@int`/`@class`） | 不改名（C# 元数据契约；Java 侧输出时独立 escape） | JK-0 |
 | 类型形参 `<assert>`、嵌套类型、delegate/enum/interface/record | 改名同步，ctor/终结符标识符随类型 | JK-3 |
 | 命名空间段 `namespace x.assert`（块式/文件作用域） | 段改名 + using/限定名/别名同步 | JK-3 |
 | using 别名 `using assert = …` | 别名与引用同步 | JK-3 |

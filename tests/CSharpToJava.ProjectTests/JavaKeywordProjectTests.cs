@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using CSharpToJava.CLI;
 using CSharpToJava.Core.JavaKeywords;
 
@@ -36,19 +36,21 @@ public class JavaKeywordProjectTests
             var keywordSamples = await File.ReadAllTextAsync(
                 Path.Combine(result.IntermediateRoot, "SampleJavaKeywordLib", "KeywordSamples.cs"));
             Assert.Contains("void TrueValue()", keywordSamples);
-            Assert.Contains("int NullValue { get; set; }", keywordSamples);
+            // 属性/类型名是 C# 序列化与反射契约，转换器不 decap：Null 保持原样
+            Assert.Contains("int Null { get; set; }", keywordSamples);
             Assert.Contains("int assertValue = 42", keywordSamples);
             Assert.Contains("event System.Action? classValue", keywordSamples);
             // Note: @class in comments is not rewritten by the syntax rewriter;
             // only check the declaration and reference sites.
             Assert.Contains("classValue?.Invoke()", keywordSamples);
 
-            // JK-2: 局部变量和参数改名
+            // JK-2: 局部变量改名；形参不改名（C# 元数据契约）
             Assert.Contains("int yieldValue = 1", keywordSamples);
-            Assert.Contains("int TrueValue", keywordSamples);
+            Assert.Contains("public void N(int True)", keywordSamples);
 
-            // JK-3: 类型改名
-            Assert.Contains("class NullValue", keywordSamples);
+            // 类型名不 decap（decap 命中只对方法名生效）
+            Assert.Contains("public class Null", keywordSamples);
+            Assert.DoesNotContain("class NullValue", keywordSamples);
 
             // JK-4a: nameof 字面量化
             Assert.Contains("\"True\"", keywordSamples);
@@ -59,7 +61,7 @@ public class JavaKeywordProjectTests
 
             // JK-4c: 引用识别——调用点改名
             Assert.Contains("TrueValue2()", keywordSamples);
-            Assert.Contains("NullValue", keywordSamples);
+            Assert.Contains("var n = Null;", keywordSamples);
             Assert.Contains("assertValue", keywordSamples);
             Assert.Contains("classValue", keywordSamples);
 
@@ -82,8 +84,8 @@ public class JavaKeywordProjectTests
             var appProgram = await File.ReadAllTextAsync(
                 Path.Combine(result.IntermediateRoot, "SampleJavaKeywordApp", "Program.cs"));
             Assert.Contains("lib.TrueValue()", appProgram);
-            Assert.Contains("lib.NullValue", appProgram);
-            Assert.Contains("new NullValue()", appProgram);
+            Assert.Contains("lib.Null", appProgram);
+            Assert.Contains("new Null()", appProgram);
 
             // 整树重编译成功
             var buildExitCode = await RunDotNetBuildAsync(result.PreprocessedSourcePath);

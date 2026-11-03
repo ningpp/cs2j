@@ -146,14 +146,13 @@ public class JavaKeywordRewriterUnitTests
     }
 
     [Fact]
-    public void Rename_Property_Null_To_NullValue()
+    public void Property_Null_IsNotRenamed()
     {
+        // 属性名是序列化/反射契约，转换器不对属性 decap；decap 命中只对方法名种类生效。
         var src = "public class C { public int Null { get; set; } public void M() => _ = Null; }";
         var (output, stats, _) = Rewrite(src);
-        Assert.Contains("int NullValue { get; set; }", output);
-        Assert.Contains("_ = NullValue", output);
-        Assert.Equal(1, stats.SymbolsRenamed);
-        AssertOutputCompiles(output);
+        Assert.Equal(src, output);
+        Assert.Equal(0, stats.SymbolsRenamed);
     }
 
     [Fact]
@@ -198,23 +197,24 @@ public class JavaKeywordRewriterUnitTests
     }
 
     [Fact]
-    public void Rename_Parameter_True_To_TrueValue()
+    public void Parameter_True_IsNotRenamed()
     {
+        // JK-0：形参名是 C# 元数据契约（命名实参/反射/JSON 构造器按参数名绑定属性），
+        // 预处理不改名；Java 侧由输出阶段 EscapeJavaKeyword 自理。
         var src = "public class C { public void M(int True) => _ = True; }";
         var (output, stats, _) = Rewrite(src);
-        Assert.Contains("int TrueValue", output);
-        Assert.Contains("_ = TrueValue", output);
-        AssertOutputCompiles(output);
+        Assert.Equal(src, output);
+        Assert.Equal(0, stats.SymbolsRenamed);
     }
 
     [Fact]
-    public void Rename_Type_Null_To_NullValue()
+    public void Type_Null_IsNotRenamed()
     {
+        // 类型名不 decap（decap 命中只对方法名种类生效），故 Null 保持原样。
         var src = "public class Null { } public class C { public Null? M() => null; }";
         var (output, stats, _) = Rewrite(src);
-        Assert.Contains("class NullValue", output);
-        Assert.Contains("NullValue? M()", output);
-        AssertOutputCompiles(output);
+        Assert.Equal(src, output);
+        Assert.Equal(0, stats.SymbolsRenamed);
     }
 
     [Fact]
