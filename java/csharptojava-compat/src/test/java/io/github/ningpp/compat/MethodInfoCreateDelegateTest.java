@@ -34,7 +34,7 @@ class MethodInfoCreateDelegateTest {
 
     @Test
     void instanceMethod_BindsWithTarget() throws Exception {
-        MethodInfo method = TypeHelper.getMethod(MethodInfoCreateDelegateTest.class, "sum");
+        MethodInfo method = TypeHelper.getMethod(MethodInfoCreateDelegateTest.class, "sum", int.class, int.class);
         TwoArg add = method.createDelegate(TwoArg.class, this);
         assertEquals(5, add.add(2, 3));
     }
