@@ -53,6 +53,50 @@ internal static class PropertyFacts
         => node.IsKind(SyntaxKind.FieldExpression)
            || (node is IdentifierNameSyntax id && id.Identifier.ValueText == "field");
 
+    /// <summary>
+    /// 合并整树编译的歧义简单名回退：CLI 分析编译把所有工程的语法树并入一个
+    /// <c>CSharpCompilation</c>，任一工程的 <c>global using</c> 因而对整个编译生效
+    /// （如 json 测试工程的 <c>global using dotnet.text.json;</c>）。xml-tiny 的
+    /// <c>MS.Internal.Xml.XPath</c> 文件只用 <c>using dotnet.xml;</c> 引入 <c>SR</c>，
+    /// 此时 <c>SR</c> 在 <c>dotnet.xml.SR</c> 与 <c>dotnet.text.json.SR</c> 之间二义
+    /// （CS0104），成员访问的 GetSymbolInfo 返回全空（Symbol 与 CandidateSymbols 都没有）。
+    /// 真实 msbuild 按工程隔离不存在该歧义，故按「接收者候选类型 + 成员名」回退解析，
+    /// 且仅在候选集合（isKnownProperty）命中且唯一时采纳；符号绑定成功一律优先。
+    /// </summary>
+    internal static bool TryResolveAmbiguousMemberAccess(
+        ExpressionSyntax node, SemanticModel model,
+        Func<IPropertySymbol, bool> isKnownProperty,
+        out IPropertySymbol property)
+    {
+        property = null!;
+        if (node is not MemberAccessExpressionSyntax access) return false;
+
+        var info = model.GetSymbolInfo(node);
+        if (info.Symbol != null || info.CandidateSymbols.Length > 0) return false;
+        var receiver = model.GetSymbolInfo(access.Expression);
+        if (receiver.Symbol != null || receiver.CandidateSymbols.Length == 0) return false;
+
+        IPropertySymbol? match = null;
+        foreach (var candidate in receiver.CandidateSymbols)
+        {
+            if (candidate is not INamedTypeSymbol type) continue;
+            foreach (var member in type.GetMembers(access.Name.Identifier.ValueText))
+            {
+                if (member is not IPropertySymbol { IsIndexer: false } prop) continue;
+                if (!prop.IsDefinition) prop = prop.OriginalDefinition;
+                if (!isKnownProperty(prop)) continue;
+                // 多个候选类型都提供同名且已登记的属性时无法判定意图，保守放弃。
+                if (match != null && !SymbolEqualityComparer.Default.Equals(match, prop))
+                    return false;
+                match = prop;
+            }
+        }
+
+        if (match == null) return false;
+        property = match;
+        return true;
+    }
+
     /// <summary>位置 record 参数属性（CS2J5123）：位置落在 record 参数上（无属性声明节点）。</summary>
     public static bool IsPositionalRecordProperty(IPropertySymbol prop)
         => prop.ContainingType is { IsRecord: true }

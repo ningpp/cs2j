@@ -1252,6 +1252,16 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         // 真实绑定一律不拦——含新发主 ctor 的 : base(X)）时，按名 + 接收者类型链回退。
         if (symbolInfo.Symbol != null || symbolInfo.CandidateSymbols.Length > 0)
             return false;
+        // 合并整树编译里跨工程 global using 造成简单名接收者二义（CS0104）时，成员访问
+        // 完全绑定不到符号；按接收者候选类型 + 成员名回退到本文件的活动 plan（唯一命中）。
+        if (PropertyFacts.TryResolveAmbiguousMemberAccess(
+                node, _model,
+                candidate => _active.ContainsKey(PropertyPlan.SiteKey(candidate)),
+                out var ambiguous))
+        {
+            plan = _active[PropertyPlan.SiteKey(ambiguous)];
+            return true;
+        }
         return TryPositionalFallback(node, out plan);
     }
 

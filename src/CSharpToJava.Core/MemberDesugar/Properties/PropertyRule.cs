@@ -853,7 +853,19 @@ internal sealed class PropertyRule : IMemberDesugarRule
 
         if (node is not (IdentifierNameSyntax or MemberAccessExpressionSyntax or MemberBindingExpressionSyntax))
             return false;
-        if (model.GetSymbolInfo(node).Symbol is not IPropertySymbol p) return false;
+        var symbolInfo = model.GetSymbolInfo(node);
+        if (symbolInfo.Symbol is not IPropertySymbol p)
+        {
+            // 合并整树编译里跨工程 global using 造成简单名接收者二义（CS0104）时，
+            // 成员访问完全绑定不到符号（C46/PD 记账不能因此漏站点）。回退按
+            // 接收者候选类型 + 成员名解析，且只认已进候选集合的属性。
+            if (!PropertyFacts.TryResolveAmbiguousMemberAccess(
+                    node, model,
+                    candidate => candidates.ContainsKey(candidate)
+                                 || positionalProps?.Contains(candidate) == true,
+                    out p))
+                return false;
+        }
         // 构造泛型（Box<string>.Value）要归一到定义符号（Box<T>.Value）才能命中候选。
         if (!p.IsDefinition) p = p.OriginalDefinition;
         if (candidates.ContainsKey(p) || positionalProps?.Contains(p) == true)
