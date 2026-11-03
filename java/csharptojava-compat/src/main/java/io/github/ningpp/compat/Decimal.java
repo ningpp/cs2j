@@ -423,10 +423,12 @@ public final class Decimal implements Comparable<Decimal> {
     }
 
     public String toStringPlain() {
-        // C# decimal.ToString strips trailing zeros (e.g. 0.000050 → "0.00005"),
-        // but BigDecimal.toPlainString() preserves them. Use stripTrailingZeros
-        // to match C# behavior (real chain: XmlConvert.ToString(decimal)).
-        return value.stripTrailingZeros().toPlainString();
+        // C# decimal.ToString() (default "G" format without a precision
+        // specifier) preserves the scale's trailing zeros: decimal.Parse(
+        // "1.00").ToString() is "1.00" and an underflowed parse is 0E-28,
+        // which prints 28 fractional zeros. canonicalize() keeps the scale
+        // within [0, 28], so toPlainString() never emits exponent notation.
+        return value.toPlainString();
     }
 
     @Override
