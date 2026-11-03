@@ -65,14 +65,23 @@ internal sealed class ReflectionRetentionIndex
             ?? _compilation.SyntaxTrees.ToList();
         var direct = new ConcurrentBag<INamedTypeSymbol>();
         var pending = new ConcurrentBag<ISymbol>();
+        var perTreeInvocations =
+            new List<(string Name, InvocationExpressionSyntax Invocation)>?[trees.Count];
 
         Parallel.For(0, trees.Count, i =>
         {
             var tree = trees[i];
             if (!tree.TryGetRoot(out var root)) return;
             var model = _compilation.GetSemanticModel(tree);
+            var invocations = new List<(string, InvocationExpressionSyntax)>();
             foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
+                // 一次遍历同时建立「方法名 → 调用点」索引：泛型形参→实参追踪会沿
+                // helper 链（getProperty<T> → verify<T> → VerifyIgnore<T>）逐层递归，
+                // 调用点的方法名无法预先知道，必须全量索引。
+                if (InvokedMemberName(invocation) is { } invokedName)
+                    invocations.Add((invokedName, invocation));
+
                 if (invocation.Expression is not MemberAccessExpressionSyntax access) continue;
                 if (!IsMemberLookupName(access.Name.Identifier.ValueText)) continue;
                 if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
@@ -86,20 +95,12 @@ internal sealed class ReflectionRetentionIndex
                     new HashSet<ISymbol>(SymbolEqualityComparer.Default), 0);
                 foreach (var type in sink) direct.Add(type);
             }
+            perTreeInvocations[i] = invocations;
         });
 
-        // 第二波：Type 参数 / 泛型参数的候选类型要跨调用点、特性数据源解析。
-        var methodNames = pending
-            .Select(symbol => symbol switch
-            {
-                IParameterSymbol parameter => parameter.ContainingSymbol?.Name,
-                ITypeParameterSymbol typeParameter => typeParameter.DeclaringMethod?.Name,
-                _ => null,
-            })
-            .Where(name => !string.IsNullOrEmpty(name))
-            .ToHashSet(StringComparer.Ordinal)!;
-        var calls = BuildCallIndex(trees, methodNames);
+        var calls = MergeInvocationIndex(trees, perTreeInvocations);
 
+        // 第二波：Type 参数 / 泛型参数的候选类型要跨调用点、特性数据源解析。
         foreach (var symbol in pending.Distinct(SymbolEqualityComparer.Default))
         {
             var sink = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
@@ -417,34 +418,21 @@ internal sealed class ReflectionRetentionIndex
         _ => name.ToString(),
     };
 
-    // ---- 调用点索引（只收集待解析方法名，避免全量绑定）----
+    // ---- 调用点索引（一次遍历收集全部方法名 → 调用点，按需取桶）----
 
     private static Dictionary<string, List<(SyntaxTree Tree, InvocationExpressionSyntax Invocation)>>
-        BuildCallIndex(IReadOnlyList<SyntaxTree> trees, HashSet<string> methodNames)
+        MergeInvocationIndex(
+            IReadOnlyList<SyntaxTree> trees,
+            IReadOnlyList<List<(string Name, InvocationExpressionSyntax Invocation)>?> perTree)
     {
         var result = new Dictionary<string, List<(SyntaxTree, InvocationExpressionSyntax)>>(
             StringComparer.Ordinal);
-        if (methodNames.Count == 0) return result;
-
-        var perTree = new List<(string Name, SyntaxTree Tree, InvocationExpressionSyntax Invocation)>?[trees.Count];
-        Parallel.For(0, trees.Count, i =>
+        for (var i = 0; i < trees.Count; i++)
         {
-            var tree = trees[i];
-            if (!tree.TryGetRoot(out var root)) return;
-            List<(string, SyntaxTree, InvocationExpressionSyntax)>? local = null;
-            foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
-            {
-                var name = InvokedMemberName(invocation);
-                if (name == null || !methodNames.Contains(name)) continue;
-                (local ??= new()).Add((name, tree, invocation));
-            }
-            perTree[i] = local;
-        });
-
-        foreach (var local in perTree)
-        {
+            var local = perTree[i];
             if (local == null) continue;
-            foreach (var (name, tree, invocation) in local)
+            var tree = trees[i];
+            foreach (var (name, invocation) in local)
             {
                 if (!result.TryGetValue(name, out var bucket))
                     result[name] = bucket = new List<(SyntaxTree, InvocationExpressionSyntax)>();
@@ -458,6 +446,9 @@ internal sealed class ReflectionRetentionIndex
     {
         MemberAccessExpressionSyntax access => access.Name.Identifier.ValueText,
         IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+        // 无限定泛型调用（helper 链 `Verify<T>(...)`/`GetProperty<T>(...)`）走 GenericName，
+        // 遗漏会让类型参数→调用点实参追踪断链。
+        GenericNameSyntax generic => generic.Identifier.ValueText,
         _ => null,
     };
 

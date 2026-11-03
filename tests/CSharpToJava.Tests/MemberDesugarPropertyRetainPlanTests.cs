@@ -455,4 +455,69 @@ public class MemberDesugarPropertyRetainPlanTests
         Assert.Equal(0, stats.PlansSkipped);
         Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
     }
+
+    // 场景 9：泛型 helper 链上的反射接收者解析（真实链 json：
+    // VerifyIgnore<T> → verify<T> → getProperty<T> → T.GetType().GetProperty(name)）。
+    // 方法类型参数必须沿调用点实参逐层追踪到具体类型。
+    [Fact]
+    public void GenericHelperChain_RetainsCallSiteTypesWithoutResidualGate()
+    {
+        const string src = """
+            using System.Collections.Generic;
+
+            namespace Probe
+            {
+                public class DictionaryDto
+                {
+                    public IDictionary<string, int> Parsed1 { get; set; }
+                }
+
+                public class PlainDto
+                {
+                    public IDictionary<string, int> Other { get; set; }
+                }
+
+                public static class Helper
+                {
+                    private static IDictionary<string, int> GetProperty<T>(T obj, string name)
+                        => (IDictionary<string, int>)obj.GetType().GetProperty(name).GetValue(obj);
+
+                    private static void Verify<T>(bool skip1, bool skip2, bool skip3, T obj)
+                    {
+                        _ = GetProperty<T>(obj, "Parsed1");
+                    }
+
+                    private static void VerifyIgnore<T>(bool skip1, bool skip2, bool skip3, bool addMissing)
+                    {
+                        T obj = default!;
+                        Verify<T>(skip1, skip2, skip3, obj);
+                    }
+
+                    private static void VerifyIgnore<T>(bool skip1, bool skip2, bool skip3)
+                    {
+                        VerifyIgnore<T>(skip1, skip2, skip3, false);
+                    }
+
+                    public static void Run()
+                    {
+                        VerifyIgnore<DictionaryDto>(false, false, true);
+                    }
+                }
+            }
+            """;
+
+        var (outCode, stats, diags) = RewriteFirstFile("Helper.cs", src);
+
+        AssertNoResidualProperty(diags);
+
+        Assert.Contains("public IDictionary<string, int> Parsed1 { get; set; }",
+            outCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Parsed1", outCode, StringComparison.Ordinal);
+
+        // 链外类型照常去糖。
+        Assert.Contains("get_Other", outCode, StringComparison.Ordinal);
+
+        Assert.Equal(0, stats.PlansSkipped);
+        Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
+    }
 }
