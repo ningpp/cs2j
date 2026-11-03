@@ -177,6 +177,51 @@ internal static class PropertyFacts
     private const string AnonymousLiftNamespace = "Cs2jAnonymous";
     private const string AnonymousLiftTypePrefix = "Anon_";
 
+    /// <summary>继承链上出现同名属性的属性集合（override / new-slot / 隐式 hiding）。
+    /// 这类成员的原语义依赖 CLR 成员名相同：STJ 用 memberInfo.Name 判定 hiding，C46 NH
+    /// 改名后 JSON 名与遮蔽判断整体失真；且成员降形为字段后会把 FieldInfo 喂给
+    /// JsonClassInfo.PropertyIsVirtual(PropertyInfo)（null 解引用）。整链属性保留。</summary>
+    public static IReadOnlySet<IPropertySymbol> CollectInheritanceNameCollisions(
+        IEnumerable<IPropertySymbol> properties)
+    {
+        var result = new HashSet<IPropertySymbol>(SymbolEqualityComparer.Default);
+        var groups = properties
+            .Where(p => !p.IsIndexer && p.ExplicitInterfaceImplementations.Length == 0)
+            .GroupBy(p => p.Name, StringComparer.Ordinal)
+            .Where(group => group.Count() > 1);
+        foreach (var group in groups)
+        {
+            var list = group.ToList();
+            for (var i = 0; i < list.Count; i++)
+            {
+                for (var j = i + 1; j < list.Count; j++)
+                {
+                    if (IsInBaseChain(list[i].ContainingType, list[j].ContainingType)
+                        || IsInBaseChain(list[j].ContainingType, list[i].ContainingType))
+                    {
+                        result.Add(list[i]);
+                        result.Add(list[j]);
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    private static bool IsInBaseChain(INamedTypeSymbol? baseType, INamedTypeSymbol? derivedType)
+    {
+        if (baseType == null || derivedType == null) return false;
+        for (var current = derivedType; current != null; current = current.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(
+                    current.OriginalDefinition, baseType.OriginalDefinition))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /// <summary>无 setter 的 public 自动属性（get-only）：降形为 public readonly 字段后，
     /// System.Text.Json 会改用 IgnoreReadOnlyFields/IncludeFields 判定它，而不是原来的
     /// IgnoreReadOnlyProperties（真实链 PropertyVisibilityTests.IgnoreReadOnlyProperties /

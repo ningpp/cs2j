@@ -23,6 +23,10 @@ internal sealed class PropertyRule : IMemberDesugarRule
         // 运行时按名反射（System.Type.GetProperty/GetField/GetMember）命中的类型：
         // 其属性（含基类）必须保持属性形态，否则 PropertyInfo 整体消失。
         var reflectiveTypes = ReflectionRetentionIndex.For(context.Compilation);
+        // 继承链同名属性（override / new-slot / 隐式 hiding）：整链保留，避免 NH 改名
+        // 改变序列化成员名与 STJ 的遮蔽判定。
+        var inheritanceNameCollisions =
+            PropertyFacts.CollectInheritanceNameCollisions(context.SourceProperties);
 
         // ---- 阶段 1：声明收集 + 声明级闸门 ----
         var candidates = new Dictionary<IPropertySymbol, (PropertyDeclarationSyntax Decl, SemanticModel Model)>(
@@ -104,6 +108,15 @@ internal sealed class PropertyRule : IMemberDesugarRule
                 {
                     retained[prop] = (decl, PropertyDiagnostics.RetainedReflectiveLookup(
                         prop.ContainingType!.Name, prop.Name));
+                    continue;
+                }
+
+                // 继承链同名属性（override / new-slot / 隐式 hiding）：STJ 依赖 CLR 成员名
+                // 相同判定 hiding，C46 NH 改名会让序列化名与遮蔽语义整体失真（真实链 json：
+                // Serialize_NewSlot*、JsonSerializerTests.NewProperty*、HiddenPropertiesIgnored_*）。
+                if (inheritanceNameCollisions.Contains(prop))
+                {
+                    retained[prop] = (decl, PropertyDiagnostics.RetainedInheritanceHidden(prop.Name));
                     continue;
                 }
 

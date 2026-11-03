@@ -83,6 +83,11 @@ internal static class PropertyDiagnostics
            $"member from System.Text.Json's reflection surface so deserialization stops " +
            $"writing it; {RetainSuffix}.";
 
+    public static string RetainedInheritanceHidden(string name)
+        => $"property '{name}' participates in an inheritance hiding/override chain; renaming it " +
+           $"through the C46 hiding rule would change the serialized member name and " +
+           $"System.Text.Json's hiding detection; {RetainSuffix}.";
+
     public static string RetainedAttributeClass(string name)
         => $"'{name}' is a property of a System.Attribute subclass referenced by name from " +
            $"attribute named arguments, which cannot be rewritten into method calls " +

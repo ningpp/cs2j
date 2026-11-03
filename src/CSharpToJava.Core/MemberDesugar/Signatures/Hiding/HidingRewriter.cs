@@ -101,10 +101,24 @@ internal sealed class HidingRewriter : CSharpSyntaxRewriter
         }
         if (!renamed) return visited;
 
-        return visited
+        var result = visited
             .WithDeclaration(visited.Declaration.WithVariables(SyntaxFactory.SeparatedList(variables)))
             .WithModifiers(RemoveNew(visited.Modifiers))
             .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+
+        // 序列化成员名保真：public 实例字段改名后，字段名就是 STJ/Newtonsoft 眼里的成员名，
+        // 补 [JsonPropertyName(原名)]（工程内可解析该特性时）避免 JSON 名跟着变成 X_cs2jNew。
+        if (visited.Declaration.Variables.Count == 1
+            && _model.GetDeclaredSymbol(originalVariables[0]) is IFieldSymbol renamedField)
+        {
+            var nameAttribute = Properties.SerializationMemberMetadata.BuildJsonPropertyName(
+                _model, node, renamedField, originalVariables[0].Identifier.ValueText,
+                node.AttributeLists);
+            if (nameAttribute != null)
+                result = result.WithAttributeLists(result.AttributeLists.Insert(0, nameAttribute));
+        }
+
+        return result;
     }
 
     // ---- 站点侧（NH-1/NH-2/NH-4 静态绑定改名 + 决策 15 闸门）----
@@ -136,7 +150,12 @@ internal sealed class HidingRewriter : CSharpSyntaxRewriter
         var info = _model.GetSymbolInfo(node);
         if (info.Symbol is { } bound)
         {
-            if (_rename.TryGetValue(NhPlan.SiteKey(bound), out var newName))
+            // 属性符号的站点绝不按 NH 表改名：NH 只改名访问器方法与后备字段，属性站点由
+            // C11 改写成 get_/set_ 调用后再按访问器回退表命中。保留/跳过的属性仍以属性形态
+            // 存在，其 SiteKey 与「后备字段同名 key」（preserve 命名下同名）相撞，若在此
+            // 改名会把站点改成不存在的 `X_cs2jNew`（真实链 json：IsTransient_cs2jNew）。
+            if (bound is not IPropertySymbol
+                && _rename.TryGetValue(NhPlan.SiteKey(bound), out var newName))
                 return Rename(visited, newName);
             // 同文件使用点：C11–C13 已在本文件展开访问器方法对，站点直接绑定到合成方法
             // （声明文件即本文件，故不会像跨文件那样绑定失败）——plan 键是索引器/属性符号，
@@ -149,7 +168,8 @@ internal sealed class HidingRewriter : CSharpSyntaxRewriter
 
         // 绑定失败（Symbol 为 null，可能带错误恢复候选）：候选符号（如 nameof/方法组）若命中改名表则沿用。
         var candidate = SignatureSyntaxFacts.BoundSymbol(_model, node);
-        if (candidate != null && _rename.TryGetValue(NhPlan.SiteKey(candidate), out var candidateName))
+        if (candidate is not IPropertySymbol
+            && candidate != null && _rename.TryGetValue(NhPlan.SiteKey(candidate), out var candidateName))
             return Rename(visited, candidateName);
 
         // M4c 回退：C11–C13 在跨文件使用点合成的访问器调用（d.get_Name()/d.set_Name(...) 等）
@@ -187,6 +207,8 @@ internal sealed class HidingRewriter : CSharpSyntaxRewriter
         if (node.Parent is MemberAccessExpressionSyntax or MemberBindingExpressionSyntax)
             return visited;
         if (_model.GetSymbolInfo(node).Symbol is not { } bound) return visited;
+        // 同上：属性符号站点保留属性名下不改（NH 只改访问器/字段）。
+        if (bound is IPropertySymbol) return visited;
         if (!_rename.TryGetValue(NhPlan.SiteKey(bound), out var newName)) return visited;
         _stats.SignatureCallSitesRewritten++;
         return visited.WithIdentifier(IdentifierWithTrivia(visited.Identifier, newName));

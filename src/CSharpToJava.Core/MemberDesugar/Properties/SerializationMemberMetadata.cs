@@ -30,8 +30,8 @@ namespace CSharpToJava.Core.MemberDesugar.Properties;
 /// </summary>
 internal static class SerializationMemberMetadata
 {
-    private const string AttributeShortName = "JsonInclude";
-    private const string AttributeMetadataName = ".JsonIncludeAttribute";
+    private const string IncludeShortName = "JsonInclude";
+    private const string PropertyNameShortName = "JsonPropertyName";
 
     private static readonly ConditionalWeakTable<Compilation, ScopeCache> Caches = new();
 
@@ -63,10 +63,10 @@ internal static class SerializationMemberMetadata
             return null;
         }
         if (emittedFieldAttributes.Any(list =>
-                list.Attributes.Any(attribute => IsAttribute(attribute, AttributeShortName))))
+                list.Attributes.Any(attribute => IsAttribute(attribute, IncludeShortName))))
             return null;
 
-        var attributeType = ResolveAttributeType(model, bindingDecl);
+        var attributeType = ResolveAttributeType(model, bindingDecl, IncludeShortName);
         if (attributeType == null) return null;
 
         return SyntaxFactory.AttributeList(
@@ -74,6 +74,41 @@ internal static class SerializationMemberMetadata
                 SyntaxFactory.Attribute(
                     SyntaxFactory.ParseName("global::" + attributeType.ToDisplayString()),
                     SyntaxFactory.AttributeArgumentList())));
+    }
+
+    /// <summary>
+    /// 为「因 C# hiding 改名」的 public 字段补 [JsonPropertyName("原名")]：字段名就是 STJ
+    /// 默认 JSON 名（或 IncludeFields/Newtonsoft 的成员名），改名会把序列化名字一起改掉
+    /// （真实链 json：ClassWithNewSlotField.MyString_cs2jNew 序列化成
+    /// "MyString_cs2jNew"）。仅公开实例字段发射（STJ 只枚举 public 成员），且工程内可
+    /// 解析到 JsonPropertyNameAttribute 才发射。
+    /// </summary>
+    public static AttributeListSyntax? BuildJsonPropertyName(
+        SemanticModel model,
+        FieldDeclarationSyntax bindingField,
+        IFieldSymbol field,
+        string originalName,
+        IEnumerable<AttributeListSyntax> emittedFieldAttributes)
+    {
+        if (field.IsStatic || field.DeclaredAccessibility != Accessibility.Public) return null;
+        if (bindingField.Declaration.Variables.Count != 1) return null;
+        if (emittedFieldAttributes.Any(list =>
+                list.Attributes.Any(attribute => IsAttribute(attribute, PropertyNameShortName))))
+            return null;
+
+        var attributeType = ResolveAttributeType(model, bindingField, PropertyNameShortName);
+        if (attributeType == null) return null;
+
+        return SyntaxFactory.AttributeList(
+            SyntaxFactory.SingletonSeparatedList(
+                SyntaxFactory.Attribute(
+                    SyntaxFactory.ParseName("global::" + attributeType.ToDisplayString()),
+                    SyntaxFactory.AttributeArgumentList(
+                        SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.AttributeArgument(
+                                SyntaxFactory.LiteralExpression(
+                                    SyntaxKind.StringLiteralExpression,
+                                    SyntaxFactory.Literal(originalName))))))));
     }
 
     private static bool IsAttribute(AttributeSyntax attribute, string shortName)
@@ -89,13 +124,15 @@ internal static class SerializationMemberMetadata
                || name == shortName + "Attribute";
     }
 
-    private static ITypeSymbol? ResolveAttributeType(SemanticModel model, SyntaxNode anchor)
+    private static ITypeSymbol? ResolveAttributeType(
+        SemanticModel model, SyntaxNode anchor, string shortName)
     {
         var compilation = model.Compilation;
+        var metadataSuffix = "." + shortName + "Attribute";
         foreach (var ns in NamespacesInScope(model, anchor))
         {
             if (ns.Length == 0) continue;
-            var candidate = compilation.GetTypeByMetadataName(ns + AttributeMetadataName);
+            var candidate = compilation.GetTypeByMetadataName(ns + metadataSuffix);
             if (candidate is { TypeKind: TypeKind.Class, DeclaredAccessibility: Accessibility.Public })
                 return candidate;
         }

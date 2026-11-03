@@ -347,4 +347,51 @@ public class MemberDesugarPropertyRetainPlanTests
         Assert.Equal(0, stats.PlansSkipped);
         Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
     }
+
+    // 场景 7：继承链同名属性（override / new-slot / 隐式 hiding）整链保留。
+    // C46 NH 会改名，序列化名与 STJ 的 hiding 判定都依赖 CLR 成员名相同。
+    [Fact]
+    public void InheritanceHiddenProperties_RetainedWithoutResidualGate()
+    {
+        const string src = """
+            namespace Probe
+            {
+                public class BaseDto
+                {
+                    public virtual int Value { get; set; }
+                }
+
+                public class NewSlotDto : BaseDto
+                {
+                    public new int Value { get; set; }
+                }
+
+                public class OverrideDto : BaseDto
+                {
+                    public override int Value { get; set; }
+                }
+
+                public class PlainDto
+                {
+                    public int Other { get; set; }
+                }
+            }
+            """;
+
+        var (outCode, stats, diags) = RewriteFirstFile("Hidden.cs", src);
+
+        AssertNoResidualProperty(diags);
+
+        Assert.Contains("public virtual int Value { get; set; }", outCode, StringComparison.Ordinal);
+        Assert.Contains("public new int Value { get; set; }", outCode, StringComparison.Ordinal);
+        Assert.Contains("public override int Value { get; set; }", outCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Value", outCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("Value_cs2jNew", outCode, StringComparison.Ordinal);
+
+        // 无继承同名冲突的类型照常去糖。
+        Assert.Contains("get_Other", outCode, StringComparison.Ordinal);
+
+        Assert.Equal(0, stats.PlansSkipped);
+        Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
+    }
 }

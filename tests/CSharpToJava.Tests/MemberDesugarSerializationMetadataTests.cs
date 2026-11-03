@@ -192,6 +192,60 @@ namespace Cs2jAnonymous
         Assert.Equal("y", dto.GetProperty("Name")!.GetValue(parsed));
     }
 
+    private static string RewriteWithSignatures(string src, string filePath)
+    {
+        var tree = CSharpSyntaxTree.ParseText(src, ParseOptions, filePath);
+        var compilation = CSharpCompilation.Create(
+            "member-desugar-hiding-rename",
+            new[] { tree },
+            ProjectCompilationBuilder.GetMetadataReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var options = new MemberDesugarOptions
+        {
+            Signatures = new CSharpToJava.Core.MemberDesugar.Signatures.SignatureOptions
+            {
+                Enabled = true,
+            },
+        };
+        var preprocessor = new MemberDesugarPreprocessor(options);
+        var stats = new MemberDesugarStatistics();
+        var diags = new List<MemberDesugarDiagnostic>();
+        var result = preprocessor.RewriteFile(
+            src, compilation.GetSemanticModel(tree), stats, diags);
+        Assert.True(diags.All(d => d.Severity != MemberDesugarSeverity.Error),
+            "unexpected error diagnostics: " + string.Join(";", diags));
+        return result.OutputCode;
+    }
+
+    [Fact]
+    public void RenamedHiddenField_KeepsSerializedNameThroughJsonPropertyName()
+    {
+        // C46 NH 会把隐藏字段改名成 X_cs2jNew；字段名即 STJ 成员名，必须补原名。
+        const string src = """
+using System.Text.Json.Serialization;
+
+namespace dto
+{
+    public class HiddenBase
+    {
+        internal string Value = "base";
+    }
+
+    public class HiddenDerived : HiddenBase
+    {
+        [JsonInclude]
+        public new string Value = "derived";
+    }
+}
+""";
+        var output = RewriteWithSignatures(src, "HiddenField.cs");
+        var compact = Compact(output);
+        Assert.Contains("Value_cs2jNew", compact, StringComparison.Ordinal);
+        Assert.Contains(
+            "[global::System.Text.Json.Serialization.JsonPropertyNameAttribute(\"Value\")]",
+            compact, StringComparison.Ordinal);
+    }
+
     private static string Serialize(Type type, object value, System.Text.Json.JsonSerializerOptions? options)
         => (string)typeof(System.Text.Json.JsonSerializer)
             .GetMethod("Serialize", new[]
