@@ -43,8 +43,10 @@ class CSharpDictionaryTest {
     void put_overwritesAndReturns() {
         CSharpDictionary<String, Integer> dict = new CSharpDictionary<>();
         dict.put("a", 1);
-        Integer old = dict.put("a", 10);
-        assertEquals(1, old);
+        // C# indexer assignment (dict["a"] = 10) yields the assigned value,
+        // not the previous value as java.util.Map.put does.
+        Integer assigned = dict.put("a", 10);
+        assertEquals(10, assigned);
         assertEquals(10, dict.get("a"));
     }
 
