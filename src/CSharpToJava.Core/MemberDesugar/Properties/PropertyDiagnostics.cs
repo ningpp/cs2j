@@ -63,6 +63,11 @@ internal static class PropertyDiagnostics
            $"backing field would turn a one-directional serialization member into a " +
            $"read/write one; {RetainSuffix}.";
 
+    public static string RetainedAnonymousTypeLift(string name)
+        => $"property '{name}' belongs to an anonymous-type-lift generated class whose " +
+           $"read-only property shape is the serializer-visible contract (C21 D1/D4); " +
+           $"{RetainSuffix}.";
+
     public static string RetainedAttributeClass(string name)
         => $"'{name}' is a property of a System.Attribute subclass referenced by name from " +
            $"attribute named arguments, which cannot be rewritten into method calls " +

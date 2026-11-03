@@ -160,6 +160,38 @@ namespace dto
         Assert.Contains("publicintId;", Compact(output), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void AnonymousTypeLiftDto_StaysSerializableThroughSystemTextJson()
+    {
+        // C21 生成的只读属性是序列化可见契约；生成文件位于 solution root，无法按工程
+        // 作用域补 [JsonInclude]，因此保留属性形态（真实链 text.json 11 例）。
+        const string src = """
+namespace Cs2jAnonymous
+{
+    internal sealed class Anon_Name_String
+    {
+        public string Name { get; }
+
+        public Anon_Name_String(string name)
+        {
+            Name = name;
+        }
+    }
+}
+""";
+        var output = Rewrite(src, "_Cs2jAnonymousTypes.cs");
+        Assert.Contains("public string Name { get; }", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Name", output, StringComparison.Ordinal);
+
+        var assembly = CompileToAssembly(output);
+        var dto = assembly.GetType("Cs2jAnonymous.Anon_Name_String")!;
+        var instance = Activator.CreateInstance(dto, "x")!;
+        Assert.Equal("{\"Name\":\"x\"}", Serialize(dto, instance, options: null));
+
+        var parsed = Deserialize(dto, "{\"Name\":\"y\"}", options: null);
+        Assert.Equal("y", dto.GetProperty("Name")!.GetValue(parsed));
+    }
+
     private static string Serialize(Type type, object value, System.Text.Json.JsonSerializerOptions? options)
         => (string)typeof(System.Text.Json.JsonSerializer)
             .GetMethod("Serialize", new[]

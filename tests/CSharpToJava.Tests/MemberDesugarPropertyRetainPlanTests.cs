@@ -146,4 +146,50 @@ public class MemberDesugarPropertyRetainPlanTests
         Assert.Equal(0, stats.PlansSkipped);
         Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
     }
+
+    // 场景 3：C21 匿名类型提升产物（Cs2jAnonymous/Anon_*）保持「只读属性」生成契约。
+    // 生成文件落在 solution root，[JsonInclude] 的工程作用域无从判定；降形会让
+    // STJ 的按名序列化与构造器参数绑定整体失效（真实链 text.json 11 例）。
+    [Fact]
+    public void AnonymousTypeLiftProperty_RetainedWithoutResidualGate()
+    {
+        const string src = """
+            namespace Cs2jAnonymous
+            {
+                internal sealed class Anon_Name_String
+                {
+                    public global::System.String Name { get; }
+
+                    public Anon_Name_String(global::System.String name)
+                    {
+                        Name = name;
+                    }
+
+                    public override global::System.Boolean Equals(global::System.Object obj) => false;
+                }
+            }
+
+            namespace N
+            {
+                public class Plain
+                {
+                    public int Value { get; set; }
+                }
+            }
+            """;
+
+        var (outCode, stats, diags) = RewriteFirstFile("_Cs2jAnonymousTypes.cs", src);
+
+        AssertNoResidualProperty(diags);
+
+        // 生成契约的只读属性原样保留（使用点 Name/构造器赋值不再改成 get_Name()）。
+        Assert.Contains("public global::System.String Name { get; }", outCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Name", outCode, StringComparison.Ordinal);
+
+        // 普通类型上的属性照常去糖（证明重写器确实运行过）。
+        Assert.Contains("get_Value", outCode, StringComparison.Ordinal);
+
+        Assert.Equal(0, stats.PlansSkipped);
+        Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
+    }
 }

@@ -161,6 +161,22 @@ internal static class PropertyFacts
         return false;
     }
 
+    /// <summary>C21 匿名类型提升产物（<c>Cs2jAnonymous</c> 命名空间，类型名 <c>Anon_*</c>）。
+    /// 设计 D1/D4 约定生成形态为「internal sealed class + 只读属性」，且语义保持明确包含
+    /// 按名序列化。降形为 public readonly 字段后 STJ 默认不枚举字段、构造器参数也绑不到；
+    /// 而生成文件落在 solution root（不属于任何工程目录），[JsonInclude] 的工程作用域
+    /// 无法判定，因此整属性保留才是该生成契约的保真形态。</summary>
+    public static bool IsAnonymousTypeLiftProperty(IPropertySymbol prop)
+    {
+        var type = prop.ContainingType;
+        return type != null
+               && type.ContainingNamespace?.ToDisplayString() == AnonymousLiftNamespace
+               && type.Name.StartsWith(AnonymousLiftTypePrefix, StringComparison.Ordinal);
+    }
+
+    private const string AnonymousLiftNamespace = "Cs2jAnonymous";
+    private const string AnonymousLiftTypePrefix = "Anon_";
+
     /// <summary>
     /// MSTest 框架契约属性：测试运行器按「属性名 TestContext」反射注入
     /// <c>Microsoft.VisualStudio.TestTools.UnitTesting.TestContext</c> 实例。

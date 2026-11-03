@@ -80,6 +80,15 @@ internal sealed class PropertyRule : IMemberDesugarRule
                     continue;
                 }
 
+                // C21 匿名类型提升产物：生成契约为「internal sealed class + 只读属性」，
+                // 语义保持含按名序列化；生成文件在 solution root（不属任何工程目录），
+                // [JsonInclude] 的工程作用域无法判定。整属性保留保住该反射/序列化面。
+                if (PropertyFacts.IsAnonymousTypeLiftProperty(prop))
+                {
+                    retained[prop] = (decl, PropertyDiagnostics.RetainedAnonymousTypeLift(prop.Name));
+                    continue;
+                }
+
                 // 实现“元数据接口”（BCL/外部程序集，或不参与本次编译的项目）属性的成员
                 // 不能展开成 get_X/set_X 方法：接口本体不经过本 pass 降形，展开后类不再
                 // 以属性实现该接口槽（CS0535/CS0470；显式实现更是 CS0683）。显式与隐式
