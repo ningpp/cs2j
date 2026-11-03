@@ -38,12 +38,12 @@ public class MemberDesugarKeywordBackingFieldTests
         const string src = """
             public class ClassWrapper
             {
-                public string String { get; }
-                public object Object { get; }
-                public ClassWrapper(string @string, object @object)
+                public string @string { get; }
+                public object @object { get; }
+                public ClassWrapper(string stringArgument, object objectArgument)
                 {
-                    String = @string;
-                    Object = @object;
+                    @string = stringArgument;
+                    @object = objectArgument;
                 }
             }
             """;

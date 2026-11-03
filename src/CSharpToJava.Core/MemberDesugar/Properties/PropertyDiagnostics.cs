@@ -58,6 +58,11 @@ internal static class PropertyDiagnostics
            $"(partial + non-partial); expanding it would collide with the mirror " +
            $"declaration's accessor slots (CS0082/CS0111); {RetainSuffix}.";
 
+    public static string RetainedAsymmetricAccessors(string name)
+        => $"property '{name}' has a non-public accessor; expanding it into a public writable " +
+           $"backing field would turn a one-directional serialization member into a " +
+           $"read/write one; {RetainSuffix}.";
+
     public static string RetainedAttributeClass(string name)
         => $"'{name}' is a property of a System.Attribute subclass referenced by name from " +
            $"attribute named arguments, which cannot be rewritten into method calls " +

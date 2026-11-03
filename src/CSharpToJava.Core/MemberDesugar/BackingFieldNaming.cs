@@ -11,9 +11,13 @@ namespace CSharpToJava.Core.MemberDesugar;
 /// 名字一律取声明标识符：显式接口实现的符号 Name 是 "IFoo.X" 形态，不是合法标识符。</summary>
 internal static class BackingFieldNaming
 {
-    /// <summary>为待生成后备字段一次性算定名字：同类型按源序，首声明者保留裸名、后撞者加 Value。</summary>
+    /// <summary>为待生成后备字段一次性算定名字：同类型按源序，首声明者保留裸名、后撞者加 Value。
+    /// <paramref name="preserveDeclarationName"/> 为 true 时字段名直接取声明标识符原样（不做
+    /// camelCase），保住户成员的反射/序列化名字面量（分工见
+    /// <see cref="SerializationMemberMetadata"/>）。</summary>
     public static IReadOnlyDictionary<IPropertySymbol, string> Assign(
-        IEnumerable<(IPropertySymbol Prop, string DeclName)> propertiesNeedingFields)
+        IEnumerable<(IPropertySymbol Prop, string DeclName)> propertiesNeedingFields,
+        bool preserveDeclarationName = false)
     {
         var result = new Dictionary<IPropertySymbol, string>(SymbolEqualityComparer.Default);
         foreach (var group in propertiesNeedingFields
@@ -26,10 +30,12 @@ internal static class BackingFieldNaming
                          .OrderBy(p => p.Prop.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? int.MaxValue)
                          .ThenBy(p => p.DeclName, StringComparer.Ordinal))
             {
-                var camel = declName.Length > 0
-                    ? char.ToLowerInvariant(declName[0]) + declName[1..]
-                    : declName;
-                var name = JavaNaming.EscapeJavaKeyword(camel);
+                // PD-5/序列化面：默认 camelCase（与转换器既有的 Java 字段名派生一致）；
+                // preserve 模式保留声明原名（首字母大小写不折叠）。
+                var baseName = preserveDeclarationName || declName.Length == 0
+                    ? declName
+                    : char.ToLowerInvariant(declName[0]) + declName[1..];
+                var name = JavaNaming.EscapeJavaKeyword(baseName);
                 while (IsTaken(name, prop, prop.ContainingType!)
                        || reserved.Contains(name)
                        // camelCase 后的名字可能撞 C# 保留关键字：Java 关键字转义只覆盖

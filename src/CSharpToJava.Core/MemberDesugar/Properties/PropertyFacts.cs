@@ -146,6 +146,21 @@ internal static class PropertyFacts
     public static bool IsInterfaceMember(IPropertySymbol prop)
         => prop.ContainingType is { TypeKind: TypeKind.Interface };
 
+    /// <summary>public 属性上存在非 public 访问器（如 public getter + private setter，
+    /// 或 private getter + public setter）：STJ 把这类属性当单向成员（只序列化或只反序列化）。
+    /// 降形为 public 可写字段 + [JsonInclude] 会变成双向可写，字段形态无法表达访问器级
+    /// 可见性，故整属性保留（声明与使用点都不动）。</summary>
+    public static bool HasAsymmetricAccessorVisibility(IPropertySymbol prop)
+    {
+        if (prop.DeclaredAccessibility != Accessibility.Public) return false;
+        foreach (var accessor in new[] { prop.GetMethod, prop.SetMethod })
+        {
+            if (accessor != null && accessor.DeclaredAccessibility != Accessibility.Public)
+                return true;
+        }
+        return false;
+    }
+
     /// <summary>
     /// MSTest 框架契约属性：测试运行器按「属性名 TestContext」反射注入
     /// <c>Microsoft.VisualStudio.TestTools.UnitTesting.TestContext</c> 实例。

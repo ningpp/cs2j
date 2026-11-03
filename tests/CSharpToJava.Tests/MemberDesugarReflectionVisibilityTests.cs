@@ -94,7 +94,8 @@ namespace dto
         Assert.NotEmpty(serializableMembers);
 
         var fields = serializableMembers.OfType<FieldInfo>().ToDictionary(f => f.Name);
-        foreach (var name in new[] { "id", "name", "items", "note", "kind", "count" })
+        // 后备字段保留声明原名（序列化成员名保真），不做 camelCase。
+        foreach (var name in new[] { "Id", "Name", "Items", "Note", "Kind", "Count" })
         {
             Assert.True(fields.ContainsKey(name),
                 $"public backing field '{name}' missing from public reflection surface");
@@ -103,17 +104,17 @@ namespace dto
         }
 
         // init 放宽为普通 set 后字段必须可写（XmlSerializer 反序列化要写它）。
-        Assert.False(fields["note"].IsInitOnly, "init-widened backing field 'note' must stay mutable");
+        Assert.False(fields["Note"].IsInitOnly, "init-widened backing field 'Note' must stay mutable");
 
         // static 自动属性 → public static 字段。
-        var staticField = dto.GetField("cacheSize",
+        var staticField = dto.GetField("CacheSize",
             BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.Static)!;
         Assert.NotNull(staticField);
         Assert.True(staticField.IsPublic && staticField.IsStatic);
 
         // 公共字段 + get_/set_ 方法协作自洽（round-trip 语义）。
         var instance = Activator.CreateInstance(dto)!;
-        var idField = dto.GetField("id", BindingFlags.Public | BindingFlags.Instance)!;
+        var idField = dto.GetField("Id", BindingFlags.Public | BindingFlags.Instance)!;
         idField.SetValue(instance, 7);
         Assert.Equal(7, dto.GetMethod("get_Id", BindingFlags.Public | BindingFlags.Instance)!
             .Invoke(instance, null));
@@ -129,21 +130,21 @@ namespace dto
         AssertCompiles(output);
         var dto = CompileToAssembly(output).GetType("dto.SimpleDto")!;
 
-        // [XmlAttribute]（属性级默认路由）→ public 后备字段 id 上可反射读取。
-        var idField = dto.GetField("id", BindingFlags.Public | BindingFlags.Instance)!;
+        // [XmlAttribute]（属性级默认路由）→ public 后备字段 Id 上可反射读取。
+        var idField = dto.GetField("Id", BindingFlags.Public | BindingFlags.Instance)!;
         var attrData = idField.GetCustomAttributesData()
             .Single(a => a.AttributeType.Name == "XmlAttributeAttribute");
         Assert.Equal("id", attrData.ConstructorArguments[0].Value);
 
-        // [XmlIgnore] 同样落在 public 后备字段 name 上。
-        var nameField = dto.GetField("name", BindingFlags.Public | BindingFlags.Instance)!;
+        // [XmlIgnore] 同样落在 public 后备字段 Name 上。
+        var nameField = dto.GetField("Name", BindingFlags.Public | BindingFlags.Instance)!;
         Assert.Contains(nameField.GetCustomAttributesData(),
             a => a.AttributeType.Name == "XmlIgnoreAttribute");
 
-        // 源码层：特性紧贴 public 字段声明（驼峰后备字段）。
+        // 源码层：特性紧贴 public 字段声明（原名后备字段）。
         var compact = Compact(output);
-        Assert.Contains("[XmlAttribute(\"id\")]publicintid;", compact, StringComparison.Ordinal);
-        Assert.Contains("[XmlIgnore]publicstringname;", compact, StringComparison.Ordinal);
+        Assert.Contains("[XmlAttribute(\"id\")]publicintId;", compact, StringComparison.Ordinal);
+        Assert.Contains("[XmlIgnore]publicstringName;", compact, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -172,7 +173,7 @@ namespace dto
         Assert.NotEmpty(members);
 
         var field = Assert.IsType<FieldInfo>(
-            Assert.Single(members, m => m.Name == "tag"), exactMatch: false);
+            Assert.Single(members, m => m.Name == "Tag"), exactMatch: false);
         Assert.True(field.IsPublic);
         Assert.True(field.IsInitOnly, "get-only auto property must map to a readonly public field");
 

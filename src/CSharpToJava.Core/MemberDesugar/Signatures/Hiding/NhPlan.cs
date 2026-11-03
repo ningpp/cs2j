@@ -241,8 +241,13 @@ internal static class NhPlanBuilder
         var decl = prop.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
             as PropertyDeclarationSyntax;
         if (decl == null || !Properties.PropertyFacts.NeedsBackingField(decl, prop)) return;
-        if (!BackingFieldNaming.Assign(new[] { (prop, prop.Name) }).TryGetValue(prop, out var fieldName))
+        // 与 PropertyRule 同一命名形态（preserve 声明原名），否则重命名键对不上合成字段。
+        if (!BackingFieldNaming.Assign(
+                new[] { (prop, prop.Name) }, preserveDeclarationName: true)
+            .TryGetValue(prop, out var fieldName))
+        {
             return;
+        }
         var key = $"{prop.ContainingType.ToDisplayString()}::{fieldName}";
         if (draft.Renames.ContainsKey(key)) return;
         draft.Renames[key] = ReserveName(prop.ContainingType, fieldName, reservations);

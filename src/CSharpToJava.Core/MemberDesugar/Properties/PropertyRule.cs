@@ -69,6 +69,17 @@ internal sealed class PropertyRule : IMemberDesugarRule
                     continue;
                 }
 
+                // 访问器可见性不对称（public getter + 非 public setter 等）：STJ 眼里是
+                // 单向成员（只序列化/只反序列化），降形为 public 可写字段 + [JsonInclude]
+                // 会变成双向（真实链：PropertyVisibilityTests.PrivateSetterPublicGetter /
+                // ExtensionDataCanHaveNonPublicSetter 反序列化新红）。字段形态表达不了
+                // 访问器级可见性 → 整属性保留。
+                if (PropertyFacts.HasAsymmetricAccessorVisibility(prop))
+                {
+                    retained[prop] = (decl, PropertyDiagnostics.RetainedAsymmetricAccessors(prop.Name));
+                    continue;
+                }
+
                 // 实现“元数据接口”（BCL/外部程序集，或不参与本次编译的项目）属性的成员
                 // 不能展开成 get_X/set_X 方法：接口本体不经过本 pass 降形，展开后类不再
                 // 以属性实现该接口槽（CS0535/CS0470；显式实现更是 CS0683）。显式与隐式
@@ -279,11 +290,14 @@ internal sealed class PropertyRule : IMemberDesugarRule
         // ---- 阶段 3：后备字段命名 + plan 产出 ----
         // C50：field-backed 属性（IsAutoProperty=false）也必须进命名分配，名字与
         // 「同一属性若写成 auto 属性」逐字符相同（设计决策 2）。
+        // preserve 模式：后备字段沿用声明原名（不做 camelCase），保住 STJ/反射/命名策略
+        // 眼里的原成员名（序列化面见 SerializationMemberMetadata）。
         var fieldNames = BackingFieldNaming.Assign(
             candidates.Where(kv => siteFailures.ContainsKey(kv.Key) == false
                                    && (PropertyFacts.NeedsBackingField(kv.Value.Decl, kv.Key)
                                        || fieldKeywordInfos.ContainsKey(kv.Key)))
-                .Select(kv => (kv.Key, kv.Value.Decl.Identifier.ValueText)));
+                .Select(kv => (kv.Key, kv.Value.Decl.Identifier.ValueText)),
+            preserveDeclarationName: true);
 
         foreach (var (prop, declModel) in candidates)
         {

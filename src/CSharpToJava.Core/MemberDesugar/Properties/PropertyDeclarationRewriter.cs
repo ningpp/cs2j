@@ -168,6 +168,12 @@ internal sealed class PropertyDeclarationExpander
                 attrLists.Add(decl.AttributeLists[i].WithTarget(null)); // 落到字段上即默认目标
         }
 
+        // 序列化成员面保真：public 属性的后备字段补 [JsonInclude]（字段名已按原名保留，
+        // 见 SerializationMemberMetadata 的分工说明）。特性不可解析的工程静默跳过。
+        var includeAttribute = SerializationMemberMetadata.BuildJsonInclude(
+            _model, bindingDecl, attrLists);
+        if (includeAttribute != null) attrLists.Insert(0, includeAttribute);
+
         var field = SyntaxFactory.FieldDeclaration(
             SyntaxFactory.List(attrLists),
             SyntaxFactory.TokenList(mods),

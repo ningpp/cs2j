@@ -146,8 +146,14 @@ internal static class FieldKeywordNormalizer
         var declaration = SyntaxFactory.VariableDeclaration(typeSyntax)
             .WithVariables(SyntaxFactory.SeparatedList(new[] { declarator }));
 
+        // 与 C11 PD-2/PD-10 同款序列化面：public 属性后备字段补 [JsonInclude]。
+        var fieldAttributes = attributeLists.ToList();
+        var includeAttribute = SerializationMemberMetadata.BuildJsonInclude(
+            model, decl, fieldAttributes);
+        if (includeAttribute != null) fieldAttributes.Insert(0, includeAttribute);
+
         return (FieldDeclarationSyntax)SyntaxFactory.FieldDeclaration(
-                SyntaxFactory.List(attributeLists),
+                SyntaxFactory.List(fieldAttributes),
                 SyntaxFactory.TokenList(mods),
                 declaration,
                 SyntaxFactory.Token(SyntaxKind.SemicolonToken))
