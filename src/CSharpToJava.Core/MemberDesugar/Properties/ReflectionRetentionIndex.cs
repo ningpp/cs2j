@@ -38,6 +38,11 @@ internal sealed class ReflectionRetentionIndex
         "GetProperties", "GetFields", "GetMembers",
     };
 
+    private static readonly string[] MemberEnumerationMethods =
+    {
+        "GetProperties", "GetFields", "GetMembers",
+    };
+
     private static readonly ConditionalWeakTable<Compilation, ReflectionRetentionIndex> Caches = new();
 
     private readonly Compilation _compilation;
@@ -65,6 +70,13 @@ internal sealed class ReflectionRetentionIndex
             ?? _compilation.SyntaxTrees.ToList();
         var direct = new ConcurrentBag<INamedTypeSymbol>();
         var pending = new ConcurrentBag<ISymbol>();
+        // 整型枚举（GetProperties/GetFields/GetMembers）站点：状态机里常见
+        // `_cs2jCap_type.GetProperties(...)[0]`，接收者是无初始化器的字段，只能靠
+        // 「同文件 typeof 候选」兜底（真实链 json：InvalidJsonForTypeShouldFail 的
+        // `[0]` 越界）。
+        var enumerationSites = new ConcurrentBag<(SyntaxTree Tree, ExpressionSyntax Receiver)>();
+        var typeOfsByFile = new ConcurrentDictionary<string, ConcurrentBag<INamedTypeSymbol>>(
+            StringComparer.Ordinal);
         var perTreeInvocations =
             new List<(string Name, InvocationExpressionSyntax Invocation)>?[trees.Count];
 
@@ -74,8 +86,21 @@ internal sealed class ReflectionRetentionIndex
             if (!tree.TryGetRoot(out var root)) return;
             var model = _compilation.GetSemanticModel(tree);
             var invocations = new List<(string, InvocationExpressionSyntax)>();
-            foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+            foreach (var node in root.DescendantNodes())
             {
+                if (node is TypeOfExpressionSyntax typeOf)
+                {
+                    if (model.GetTypeInfo(typeOf.Type).Type is INamedTypeSymbol named
+                        && named.Locations.Any(location => location.IsInSource))
+                    {
+                        typeOfsByFile.GetOrAdd(tree.FilePath, _ => new ConcurrentBag<INamedTypeSymbol>())
+                            .Add(named.OriginalDefinition);
+                    }
+                    continue;
+                }
+
+                if (node is not InvocationExpressionSyntax invocation) continue;
+
                 // 一次遍历同时建立「方法名 → 调用点」索引：泛型形参→实参追踪会沿
                 // helper 链（getProperty<T> → verify<T> → VerifyIgnore<T>）逐层递归，
                 // 调用点的方法名无法预先知道，必须全量索引。
@@ -87,6 +112,12 @@ internal sealed class ReflectionRetentionIndex
                 if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
                     || method.ContainingType?.ToDisplayString() != SystemTypeFullName)
                 {
+                    continue;
+                }
+
+                if (IsEnumerationName(access.Name.Identifier.ValueText))
+                {
+                    enumerationSites.Add((tree, access.Expression));
                     continue;
                 }
 
@@ -117,6 +148,35 @@ internal sealed class ReflectionRetentionIndex
             foreach (var type in sink) direct.Add(type);
         }
 
+        // 第三波：整型枚举站点。接收者解析得到具体类型就直接保留；解析不到（状态机
+        // 捕获字段等）时按保守方向保留**同文件** `typeof(...)` 的源内类型——枚举结果
+        // 的成员面正是这些候选类型在运行时传入的对象。
+        foreach (var (tree, receiver) in enumerationSites)
+        {
+            var model = _compilation.GetSemanticModel(tree);
+            var sink = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+            var visiting = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+            ResolveCandidates(receiver, model, sink, symbol =>
+                {
+                    switch (symbol)
+                    {
+                        case IParameterSymbol parameter:
+                            ResolveParameter(parameter, calls, sink, visiting, 0);
+                            break;
+                        case ITypeParameterSymbol typeParameter:
+                            ResolveTypeParameter(typeParameter, calls, sink, visiting, 0);
+                            break;
+                    }
+                }, visiting, 0);
+
+            if (sink.Count == 0
+                && typeOfsByFile.TryGetValue(tree.FilePath, out var typeOfs))
+            {
+                foreach (var type in typeOfs) sink.Add(type);
+            }
+            foreach (var type in sink) direct.Add(type);
+        }
+
         // Type.GetProperty 默认搜索继承来的 public 属性，基类属性也必须保持属性形态。
         foreach (var type in direct)
         {
@@ -130,6 +190,9 @@ internal sealed class ReflectionRetentionIndex
 
     private static bool IsMemberLookupName(string name)
         => MemberLookupMethods.Contains(name, StringComparer.Ordinal);
+
+    private static bool IsEnumerationName(string name)
+        => MemberEnumerationMethods.Contains(name, StringComparer.Ordinal);
 
     // ---- 接收者解析 ----
 

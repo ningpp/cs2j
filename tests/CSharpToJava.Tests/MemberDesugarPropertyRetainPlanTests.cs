@@ -520,4 +520,69 @@ public class MemberDesugarPropertyRetainPlanTests
         Assert.Equal(0, stats.PlansSkipped);
         Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
     }
+
+    // 场景 10：状态机（iterator lowering）捕获字段上的整型枚举——`_type` 无初始化器、
+    // 由构造器赋值，接收者解析不到具体类型，退化为「同文件 typeof 源内类型」保守保留。
+    // 真实链 json：InvalidJsonForTypeShouldFail 的 `GetProperties(...)[0]` 越界。
+    [Fact]
+    public void UnresolvedEnumerationReceiver_FallsBackToSameFileTypeOfs()
+    {
+        const string src = """
+            using System;
+            using System.Reflection;
+
+            namespace Probe
+            {
+                public class DtoA
+                {
+                    public string Value { get; set; }
+                }
+
+                public class DtoB
+                {
+                    public int Size { get; set; }
+                }
+
+                public class DtoUnrelated
+                {
+                    public int Other { get; set; }
+                }
+
+                public sealed class StateMachine
+                {
+                    private readonly Type _type;
+
+                    public StateMachine(Type type) { _type = type; }
+
+                    public PropertyInfo First()
+                        => _type.GetProperties(
+                            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)[0];
+                }
+
+                public static class Uses
+                {
+                    public static void Run()
+                    {
+                        _ = new StateMachine(typeof(DtoA));
+                        _ = new StateMachine(typeof(DtoB)).First();
+                    }
+                }
+            }
+            """;
+
+        var (outCode, stats, diags) = RewriteFirstFile("StateMachine.cs", src);
+
+        AssertNoResidualProperty(diags);
+
+        Assert.Contains("public string Value { get; set; }", outCode, StringComparison.Ordinal);
+        Assert.Contains("public int Size { get; set; }", outCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Value", outCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Size", outCode, StringComparison.Ordinal);
+
+        // 未出现在 typeof 的类型照常去糖。
+        Assert.Contains("get_Other", outCode, StringComparison.Ordinal);
+
+        Assert.Equal(0, stats.PlansSkipped);
+        Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
+    }
 }
