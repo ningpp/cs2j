@@ -994,32 +994,119 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
                 return new ReceiverRef.Identifier { Name = identifier.Identifier.Text };
             default:
             {
-                var name = Names.Receiver(site);
-                AddTempRole(IncrementTargetDiagnostics.TempRoleReceiver);
-
                 // A struct receiver is a STORAGE LOCATION, not a value to copy:
                 // `state.Current.Index++` must increment state.Current itself.
                 // A plain `var` temp would detach a copy and silently drop the
-                // write, so value-type receivers are single-evaluated into a
-                // ref local alias (the receiver is necessarily a variable, as
-                // C# rejects ++ on a member of a non-variable struct value).
+                // write; a `ref` alias preserves it in C# but no downstream
+                // pass can lower a ref local (ref-out-in, the ref/out/in
+                // owner, runs BEFORE numeric-boundary), so the Java converter
+                // rejects it. Value-type receivers are therefore lowered to an
+                // inline storage spine: effectful segments become plain temps
+                // (reference copies) and every storage segment stays inline,
+                // so the read and the write address the original storage.
                 var receiverType = _model.GetTypeInfo(visitedReceiver).Type;
                 if (receiverType is { IsValueType: true })
                 {
-                    temps.Add(IncrementTargetSyntaxFacts.RefLocalDeclaration(
-                        name,
-                        ParseTypeName(receiverType.ToDisplayString(
-                            SymbolDisplayFormat.FullyQualifiedFormat)),
-                        effective));
-                }
-                else
-                {
-                    temps.Add(IncrementTargetSyntaxFacts.VarDeclaration(name, visitedReceiver));
+                    var spine = LowerStructReceiverSpine(site, visitedReceiver, temps);
+                    return new ReceiverRef.StorageChain { Text = spine.ToString() };
                 }
 
+                var name = Names.Receiver(site);
+                AddTempRole(IncrementTargetDiagnostics.TempRoleReceiver);
+                temps.Add(IncrementTargetSyntaxFacts.VarDeclaration(name, visitedReceiver));
                 return ReceiverRef.TempNamed(name);
             }
         }
+    }
+
+    /// <summary>
+    /// Rebuild a value-typed receiver so the read and the write both address
+    /// the original storage without a ref local (Java has no ref locals and no
+    /// downstream pass lowers them):
+    /// <list type="bullet">
+    /// <item>fields, ref-returning members and array elements are storage
+    /// locations — re-evaluating them yields the same location, so they stay
+    /// inline;</item>
+    /// <item>calls, by-value property reads and element-access arguments can
+    /// have observable effects — they are evaluated once into a plain temp.
+    /// Such a segment is never struct-valued (C# rejects <c>++</c> on a member
+    /// of a non-variable struct value), so the copy cannot detach the
+    /// storage.</item>
+    /// </list>
+    /// </summary>
+    private ExpressionSyntax LowerStructReceiverSpine(
+        int site, ExpressionSyntax receiver, List<StatementSyntax> temps)
+    {
+        var effective = IncrementTargetSyntaxFacts.UnwrapParens(receiver);
+        switch (effective)
+        {
+            case ThisExpressionSyntax:
+            case BaseExpressionSyntax:
+            case IdentifierNameSyntax:
+                return effective;
+
+            case MemberAccessExpressionSyntax memberAccess:
+            {
+                var inner = LowerStructReceiverSpine(site, memberAccess.Expression, temps);
+                var rebuilt = memberAccess.WithExpression(inner);
+                var symbol = _model.GetSymbolInfo(memberAccess).Symbol;
+                return symbol is IFieldSymbol
+                    || symbol is IPropertySymbol { RefKind: not RefKind.None }
+                    ? rebuilt
+                    : HoistReceiverSegment(site, rebuilt, temps);
+            }
+
+            case ElementAccessExpressionSyntax elementAccess:
+            {
+                var inner = LowerStructReceiverSpine(site, elementAccess.Expression, temps);
+                var arguments = new List<ArgumentSyntax>(elementAccess.ArgumentList.Arguments.Count);
+                for (var d = 0; d < elementAccess.ArgumentList.Arguments.Count; d++)
+                {
+                    var argument = elementAccess.ArgumentList.Arguments[d];
+                    if (argument.Expression.DescendantNodesAndSelf().Any(IsPotentialEffect))
+                    {
+                        var name = Names.Argument(site, d);
+                        AddTempRole(IncrementTargetDiagnostics.TempRoleIndexArg);
+                        temps.Add(IncrementTargetSyntaxFacts.VarDeclaration(name, argument.Expression));
+                        arguments.Add(argument.WithExpression(IdentifierName(name)));
+                    }
+                    else
+                    {
+                        arguments.Add(argument);
+                    }
+                }
+
+                // Array elements (and ref-returning indexers) are storage
+                // locations; their pure indices are re-evaluated harmlessly.
+                return elementAccess
+                    .WithExpression(inner)
+                    .WithArgumentList(BracketedArgumentList(SeparatedList(arguments)));
+            }
+
+            case InvocationExpressionSyntax invocation:
+                // A ref-returning call denotes the same location on every read;
+                // anything else is a by-value factory whose result is a
+                // reference the temp may copy safely.
+                return _model.GetSymbolInfo(invocation).Symbol
+                    is IMethodSymbol { RefKind: not RefKind.None }
+                    ? invocation
+                    : HoistReceiverSegment(site, invocation, temps);
+
+            default:
+                // Not a C# variable receiver shape (the compiler rejects ++ on
+                // those), so keep the expression verbatim rather than
+                // inventing semantics for it.
+                return effective;
+        }
+    }
+
+    private ExpressionSyntax HoistReceiverSegment(
+        int site, ExpressionSyntax segment, List<StatementSyntax> temps)
+    {
+        var name = Names.Receiver(site);
+        AddTempRole(IncrementTargetDiagnostics.TempRoleReceiver);
+        temps.Add(IncrementTargetSyntaxFacts.VarDeclaration(name, segment));
+        return IdentifierName(name);
     }
 
     private void CountSite(IncrementTargetClassification classification)

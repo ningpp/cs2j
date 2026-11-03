@@ -27,6 +27,19 @@ internal abstract class ReceiverRef
         public required string Name { get; init; }
     }
 
+    /// <summary>
+    /// Inlined storage chain (e.g. <c>state.Current</c>): the receiver is a
+    /// re-evaluable variable location, so both the read and the write address
+    /// the original storage without any temporary (and without a ref local,
+    /// which no downstream pass could lower). Held as text because
+    /// <see cref="TargetDescriptor.BuildAccess"/> must hand out a fresh node
+    /// per occurrence.
+    /// </summary>
+    public sealed class StorageChain : ReceiverRef
+    {
+        public required string Text { get; init; }
+    }
+
     /// <summary>Static member: receiver is a type name (e.g. <c>SomeType.StaticProp</c>).</summary>
     public sealed class StaticType : ReceiverRef
     {
@@ -116,6 +129,7 @@ internal abstract class TargetDescriptor
         ReceiverRef.This => ThisExpression(),
         ReceiverRef.Base => BaseExpression(),
         ReceiverRef.Identifier id => IdentifierName(id.Name),
+        ReceiverRef.StorageChain chain => ParseExpression(chain.Text),
         ReceiverRef.StaticType type => ParseName(type.TypeDisplay),
         _ => throw new InvalidOperationException(),
     };

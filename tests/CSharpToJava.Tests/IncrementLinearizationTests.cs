@@ -513,12 +513,14 @@ public class IncrementLinearizationTests
     }
 
     [Fact]
-    public void Struct_Valued_Receiver_Is_Aliased_By_Ref_Not_Copied()
+    public void Struct_Valued_Receiver_Is_Inlined_Not_Copied_Or_Aliased()
     {
         // Regression: `state.Current.Index++` where State/Frame are structs.
-        // The receiver temp must alias the struct storage (ref local); a plain
-        // `var` copy increments a detached copy and silently loses the write
-        // (json WriteStack.Current.PropertyIndex++ in WriteMetadata).
+        // A plain `var` receiver temp would increment a detached copy and
+        // silently lose the write; a `ref` alias would survive into the Java
+        // converter (ref-out-in runs before numeric-boundary and no downstream
+        // pass lowers ref locals). The read and the write therefore re-evaluate
+        // the same storage spine in place.
         const string src = """
             public struct Frame
             {
@@ -546,12 +548,63 @@ public class IncrementLinearizationTests
         Assert.DoesNotContain(diagnostics, d => d.Severity == NumericBoundarySeverity.Error);
 
         var compact = Compact(output);
-        Assert.Contains("ref", compact);
+        Assert.Contains("state.Current.Index=state.Current.Index+1", compact);
+        Assert.DoesNotContain("ref", compact);
+        Assert.DoesNotContain("__cs2j_inc_r", compact);
         Assert.DoesNotContain("Index++", compact);
 
         var actual = Invoke(output);
         Assert.Equal(expected, actual);
         Assert.Equal("2", actual);
+    }
+
+    [Fact]
+    public void Struct_Receiver_Spine_Hoists_Only_Effectful_Segments()
+    {
+        // SDK shapes: `context.CurrentState` (class field), `_stack[_top]`
+        // (array element) and `GetState().Current` (effectful factory root).
+        // Only the factory/index segment may be hoisted; the struct storage
+        // itself must never be copied or aliased by a ref local.
+        const string src = """
+            public struct Frame
+            {
+                public int Index;
+            }
+            public class State
+            {
+                public Frame Current;
+            }
+            public static class Demo
+            {
+                private static readonly State _state = new State();
+                private static State GetState() => _state;
+                private static int Next() => 0;
+                public static string Run()
+                {
+                    State[] arr = new State[2];
+                    arr[0] = _state;
+                    arr[1] = _state;
+                    GetState().Current.Index++;
+                    arr[Next()].Current.Index++;
+                    return GetState().Current.Index + "|" + arr[0].Current.Index;
+                }
+            }
+            """;
+        var expected = Invoke(src);
+        var (output, diagnostics, changed) = RunRule(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diagnostics, d => d.Severity == NumericBoundarySeverity.Error);
+
+        var compact = Compact(output);
+        Assert.Contains("var__cs2j_inc_r1=GetState();", compact);
+        Assert.Contains("__cs2j_inc_r1.Current.Index=__cs2j_inc_r1.Current.Index+1", compact);
+        Assert.Contains("var__cs2j_inc_a2_0=Next();", compact);
+        Assert.Contains("arr[__cs2j_inc_a2_0].Current.Index=arr[__cs2j_inc_a2_0].Current.Index+1", compact);
+        Assert.DoesNotContain("ref", compact);
+
+        var actual = Invoke(output);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
