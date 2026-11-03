@@ -399,13 +399,16 @@ internal sealed class JavaKeywordsPassAdapter : ProjectPassAdapter
     /// 后者经项目级 &lt;Using /&gt; 进入作用域）会让调用点绑定失败、调用点改名残留。
     /// 此处以「文件所属 csproj 目录」划区，用各项目自身的 global usings 重建小编译，
     /// 供 JK-4d 作用域化重绑定。作用域编译懒构建（仅实际触发回退的项目付费）。
+    /// 作用域还必须带上该项目的 <c>ProjectReference</c> 闭包源码：调用点实参的类型
+    /// （如 <c>RegexCompilationInfo</c>）往往来自被引用的项目，缺了它实参 lambda 的
+    /// 返回类型退化，重载解析只能给出候选集合，回退会改动错误的重载名。
     /// </summary>
-    private static IJavaKeywordScopedBindingFallback BuildProjectScopedBindingFallback(
+    internal static IJavaKeywordScopedBindingFallback BuildProjectScopedBindingFallback(
         CSharpCompilation compilation,
         ProjectPreprocessSourceLayout layout,
         string intermediateRoot)
     {
-        var projects = new List<(string ProjectDir, string Usings)>();
+        var projects = new List<(string ProjectDir, string ProjectFile, string Usings)>();
         foreach (var projectFile in layout.ProjectFiles
                      .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
         {
@@ -413,7 +416,7 @@ internal sealed class JavaKeywordsPassAdapter : ProjectPassAdapter
                 intermediateRoot, Path.GetRelativePath(layout.SourceRoot, projectFile));
             var projectDir = Path.GetFullPath(Path.GetDirectoryName(intermediateProjectFile)!);
             var usings = ImplicitGlobalUsings.BuildForProject(intermediateProjectFile, intermediateRoot) ?? string.Empty;
-            projects.Add((projectDir, usings));
+            projects.Add((projectDir, intermediateProjectFile, usings));
         }
 
         // 嵌套 csproj 时最长目录前缀优先。
@@ -424,14 +427,16 @@ internal sealed class JavaKeywordsPassAdapter : ProjectPassAdapter
     private sealed class ProjectScopedBindingFallback : IJavaKeywordScopedBindingFallback
     {
         private readonly CSharpCompilation _compilation;
-        private readonly List<(string ProjectDir, string Usings)> _projects;
+        private readonly List<(string ProjectDir, string ProjectFile, string Usings)> _projects;
         private readonly Dictionary<string, CSharpCompilation> _scopedCache =
+            new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, IReadOnlyList<string>> _closureCache =
             new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<SyntaxTree, SemanticModel> _modelCache = new();
 
         public ProjectScopedBindingFallback(
             CSharpCompilation compilation,
-            List<(string ProjectDir, string Usings)> projects)
+            List<(string ProjectDir, string ProjectFile, string Usings)> projects)
         {
             _compilation = compilation;
             _projects = projects;
@@ -441,24 +446,28 @@ internal sealed class JavaKeywordsPassAdapter : ProjectPassAdapter
         {
             if (_modelCache.TryGetValue(tree, out var cachedModel)) return cachedModel;
 
-            string? projectDir = null, usings = null;
-            foreach (var (dir, usingText) in _projects)
+            string? projectDir = null, projectFile = null, usings = null;
+            foreach (var (dir, file, usingText) in _projects)
             {
                 if (IsUnderDir(tree.FilePath, dir))
                 {
                     projectDir = dir;
+                    projectFile = file;
                     usings = usingText;
                     break;
                 }
             }
-            if (projectDir == null) return null;
+            if (projectDir == null || projectFile == null) return null;
 
             if (!_scopedCache.TryGetValue(projectDir, out var scoped))
             {
+                var dirs = new List<string> { projectDir };
+                dirs.AddRange(GetProjectReferenceClosure(projectFile));
+
                 var trees = new List<SyntaxTree>();
                 foreach (var candidate in _compilation.SyntaxTrees)
                 {
-                    if (IsUnderDir(candidate.FilePath, projectDir)) trees.Add(candidate);
+                    if (dirs.Any(dir => IsUnderDir(candidate.FilePath, dir))) trees.Add(candidate);
                 }
                 if (usings.Length > 0)
                 {
@@ -478,6 +487,34 @@ internal sealed class JavaKeywordsPassAdapter : ProjectPassAdapter
             var model = scoped.GetSemanticModel(tree);
             _modelCache[tree] = model;
             return model;
+        }
+
+        /// <summary>项目 <c>ProjectReference</c> 的传递闭包（各被引用项目目录）。</summary>
+        private IReadOnlyList<string> GetProjectReferenceClosure(string projectFile)
+        {
+            if (_closureCache.TryGetValue(projectFile, out var cached)) return cached;
+
+            var dirs = new List<string>();
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                Path.GetFullPath(projectFile),
+            };
+            var pending = new Queue<string>();
+            pending.Enqueue(projectFile);
+            while (pending.Count > 0)
+            {
+                foreach (var reference in ProjectCompileSet.ReadProjectReferences(pending.Dequeue()))
+                {
+                    var full = Path.GetFullPath(reference);
+                    if (!visited.Add(full)) continue;
+                    var dir = Path.GetDirectoryName(full);
+                    if (dir != null) dirs.Add(dir);
+                    pending.Enqueue(full);
+                }
+            }
+
+            _closureCache[projectFile] = dirs;
+            return dirs;
         }
 
         private static bool IsUnderDir(string path, string dir)
