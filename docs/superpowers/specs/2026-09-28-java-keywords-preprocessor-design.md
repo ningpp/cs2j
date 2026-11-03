@@ -82,7 +82,7 @@ config\JavaKeywordsOverrides.json  # { "force": ["Ns.Type"], "skip": ["Ns.Type"]
 ### 3.2 三阶段数据流
 
 1. **分析**（首次 `RewriteFile`/`BindCompilation` 时基于 `Compilation` 构建一次并缓存）：
-   - 遍历编译中全部**源内声明符号**（`IsInSource`，partial 多部件按符号天然合并），对每个名字 `NeedsEscape` 命中的符号登记一条改名候选。
+   - 遍历编译中全部**源内声明符号**（`IsInSource`，partial 多部件按符号天然合并），对每个名字按符号种类判定 `NeedsEscape(symbol, name)` 命中的符号登记一条改名候选。
    - 以 `ISymbol`（`SymbolEqualityComparer.Default`）为键建立**全编译唯一改名表** `ISymbol → newName`，新名经碰撞消歧（§4.2 JK-4b），同一符号在所有文件、所有出现（声明 + 引用）同查一表。
    - 枚举每个声明了 `operator true`/`operator false`（C# 强制成对声明，CS0216/0217）的类型；用语义模型（`SemanticModel.GetOperation`/`GetSymbolInfo`/`GetTypeInfo`）找出编译器**实际绑定**这两个运算符的全部使用点并分类；含不可行站点（§4.3 JK-8）的类型判 Infeasible。
    - 编译方式与 record-readonly 相同：`CSharpParseOptions(LanguageVersion.Latest)` + 合成 `__cs2j_global_usings.g.cs`（`ImplicitGlobalUsings.BuildForProject`）+ `ProjectUnsignedTypePreprocessor.GetBasicReferences()`，`allowUnsafe: true` 的 DLL 编译。
@@ -124,30 +124,36 @@ config\JavaKeywordsOverrides.json  # { "force": ["Ns.Type"], "skip": ["Ns.Type"]
 ```
 strip(name)  = name 以 '@' 开头则去首字符，否则原样            // 与 EscapeJavaKeyword 同款剥前缀
 decap(s)     = s.Length > 0 ? char.ToLowerInvariant(s[0]) + s[1..] : s   // 与转换器 MethodTransformer.JavaName 同款
-NeedsEscape(name):
+NeedsEscape(symbol, name):
     s = strip(name)
-    return EscapeJavaKeyword(s) != s || EscapeJavaKeyword(decap(s)) != decap(s)
+    return EscapeJavaKeyword(s) != s                    // 精确命中：所有符号种类
+        || (IsDecappedMethodName(symbol)
+            && EscapeJavaKeyword(decap(s)) != decap(s)) // decap 命中：仅方法名种类
+IsDecappedMethodName(symbol):
+    symbol is IMethodSymbol { MethodKind ∈ { Ordinary, LocalFunction, ExplicitInterfaceImplementation } }
 NewName(name) = strip(name) + "Value"
 ```
 
 - 保留字表（含 `true/false/null/_/yield` 及 `abstract…while` 全表）只存在于 `JavaNaming.IsJavaKeyword`，本特性不复制、不改写。
-- `decap` 分支用于捕获转换器会首字母小写的种类：`True→true→trueValue`、`Assert→assert→assertValue`。谓词对所有符号种类**统一**适用（JK-3 明确要求局部/形参/类型同理），代价是类型/局部等 Java 本可接受的 PascalCase 名字（如 `class Assert`）也会被改名——这是确定性的安全超逼近，零语义风险（仅多一些改名）。
+- 判定**按符号种类分流**：`strip` 精确命中保留字对所有种类生效；`decap` 命中只对转换器会首字母小写的种类生效——普通方法、局部函数、显式接口实现（[MethodTransformer.JavaName](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L1336-L1345)、`GetLocalFunctionJavaName`）。字段/属性/形参/局部/类型/命名空间的名字在 C#→C# 中间树里是 JSON 序列化、反射和公开 API 的契约，转换器也不会 decap；若仅因 decap 命中就改名（如把 `JsonElementClass.True` 改成 `TrueValue`），会破坏按原字段名匹配的序列化/反序列化与反射行为，故这些种类只在 `strip` 精确命中时改名。
+- JK-3 的局部/形参/类型改名规则仍然成立，但限定于**精确**保留字（如 `@class`、`_`、`yield`）；PascalCase 的 `True`/`Float`/`Class` 等只对方法名种类生效。
 - 不命中示例：`NULL`（decap 为 `nULL`，非保留字）、`WHILE`（`wHILE`）、`foo`、`@Foo`（剥后 `Foo`/`foo` 均非保留字）。
 - 命中示例与新名：
 
-| 原名 | strip | decap(strip) | 新名 |
-|---|---|---|---|
-| `True` | True | true ✅ | `TrueValue` |
-| `FALSE`（字段，全大写） | FALSE | fALSE ❌ | 不改名（转换器字段不 decap，Java 标识符 `FALSE` 合法；统一谓词下 decap 不命中） |
-| `Null` | Null | null ✅ | `NullValue` |
-| `assert` | assert | assert ✅ | `assertValue` |
-| `Assert` | Assert | assert ✅ | `AssertValue` |
-| `@event` | event | event ✅ | `eventValue` |
-| `@true` | true | true ✅ | `trueValue` |
-| `_` | _ | _ ✅ | `_Value` |
-| `yield` | yield | yield ✅ | `yieldValue` |
+| 原名 | 符号种类 | strip | decap(strip) | 新名 |
+|---|---|---|---|---|
+| `True` | 方法 / 局部函数 | True | true ✅（种类 decap） | `TrueValue` |
+| `Assert` | 方法 | Assert | assert ✅（种类 decap） | `AssertValue` |
+| `True` / `Float` / `Int` / `Class` | 字段 / 属性 | True… | true… ✅（种类不 decap） | 不改名（保持 C# 契约；Java 标识符合法） |
+| `@class` | 字段 | class | class ✅ | `classValue` |
+| `assert` | 字段 | assert | assert ✅ | `assertValue` |
+| `FALSE`（字段，全大写） | 字段 | FALSE | fALSE ❌ | 不改名（decap 不命中且种类不 decap） |
+| `@event` | 方法 | event | event ✅ | `eventValue` |
+| `@true` | 方法 | true | true ✅ | `trueValue` |
+| `_` | 任意声明种类 | _ | _ ✅ | `_Value` |
+| `yield` | 局部变量 | yield | yield ✅ | `yieldValue` |
 
-> 注：上表 `FALSE` 行为是统一谓词的必然推论；是否改名只取决于"转换器派生出的 Java 名是否为保留字"，而各符号种类的转换器派生可能不同（方法 decap、字段不 decap）。统一谓词是**超集**（只多改名、不漏改名），满足"下游永不产出保留字"的总目标；碰撞消歧保证超集改名不破坏编译。
+> 注：是否改名取决于"该符号种类在转换器里派生出的 Java 名是否为保留字"。精确命中对所有种类都改；decap 命中只代表方法名会变成保留字，因此只对方法名种类改。这样既保证下游方法名永不产出保留字，又避免字段/属性的 PascalCase 名字被误改而破坏序列化、反射和公开 API 契约。
 
 ### 4.2 Java 保留字标识符逃逸（JK-1~JK-4，始终必做）
 

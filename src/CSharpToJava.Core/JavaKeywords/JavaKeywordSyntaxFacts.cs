@@ -22,13 +22,37 @@ internal static class JavaKeywordSyntaxFacts
         => s.Length > 0 ? char.ToLowerInvariant(s[0]) + s[1..] : s;
 
     /// <summary>
-    /// JK-0：strip(name) 或 decap(strip(name)) 任一是 Java 关键字即命中。
+    /// JK-0（纯名字谓词）：strip(name) 或 decap(strip(name)) 任一是 Java 关键字即命中。
+    /// 仅用于调用点/partial 回退判断；声明点候选收集须用按符号种类分流的
+    /// <see cref="NeedsEscape(ISymbol, string)"/>。
     /// </summary>
     public static bool NeedsEscape(string name)
     {
         var s = StripAt(name);
         return JavaNaming.IsJavaKeyword(s) || JavaNaming.IsJavaKeyword(Decap(s));
     }
+
+    /// <summary>
+    /// JK-0（按符号种类分流）：strip(name) 命中保留字对所有种类生效；
+    /// decap(strip(name)) 命中仅对转换器会首字母小写的种类生效——普通方法、
+    /// 局部函数、显式接口实现。字段/属性/形参/局部/类型的名字是 C# 侧的
+    /// 序列化、反射与公开 API 契约，转换器不会 decap，故不能因 decap 命中而改名。
+    /// </summary>
+    public static bool NeedsEscape(ISymbol symbol, string name)
+    {
+        var s = StripAt(name);
+        if (JavaNaming.IsJavaKeyword(s)) return true;
+        return IsDecappedMethodName(symbol) && JavaNaming.IsJavaKeyword(Decap(s));
+    }
+
+    /// <summary>转换器仅对方法名做首字母小写（MethodTransformer.JavaName / GetLocalFunctionJavaName）。</summary>
+    public static bool IsDecappedMethodName(ISymbol symbol)
+        => symbol is IMethodSymbol
+        {
+            MethodKind: MethodKind.Ordinary
+                or MethodKind.LocalFunction
+                or MethodKind.ExplicitInterfaceImplementation,
+        };
 
     /// <summary>JR-0 新名 = strip(name) + "Value"（与 EscapeJavaKeyword 完全一致）。</summary>
     public static string NewName(string name)

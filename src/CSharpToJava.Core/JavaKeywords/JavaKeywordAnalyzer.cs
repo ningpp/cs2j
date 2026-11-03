@@ -154,7 +154,7 @@ internal sealed class JavaKeywordAnalyzer
                     break;
             }
 
-            if (symbol != null && name != null && JavaKeywordSyntaxFacts.NeedsEscape(name))
+            if (symbol != null && name != null && JavaKeywordSyntaxFacts.NeedsEscape(symbol, name))
             {
                 // 跳过隐式声明的符号（如自动属性后备字段）
                 if (symbol.IsImplicitlyDeclared) continue;
