@@ -68,6 +68,11 @@ internal static class PropertyDiagnostics
            $"read-only property shape is the serializer-visible contract (C21 D1/D4); " +
            $"{RetainSuffix}.";
 
+    public static string RetainedReflectiveLookup(string typeName, string propertyName)
+        => $"property '{propertyName}' is declared on type '{typeName}', whose members are " +
+           $"looked up by name through System.Type.GetProperty/GetField/GetMember; " +
+           $"expanding it would remove the reflected PropertyInfo; {RetainSuffix}.";
+
     public static string RetainedAttributeClass(string name)
         => $"'{name}' is a property of a System.Attribute subclass referenced by name from " +
            $"attribute named arguments, which cannot be rewritten into method calls " +

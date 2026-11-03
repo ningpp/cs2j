@@ -20,6 +20,9 @@ internal sealed class PropertyRule : IMemberDesugarRule
     public void Analyze(MemberDesugarAnalysisContext context, MemberDesugarPlanBuilder builder)
     {
         var options = context.Options;
+        // 运行时按名反射（System.Type.GetProperty/GetField/GetMember）命中的类型：
+        // 其属性（含基类）必须保持属性形态，否则 PropertyInfo 整体消失。
+        var reflectiveTypes = ReflectionRetentionIndex.For(context.Compilation);
 
         // ---- 阶段 1：声明收集 + 声明级闸门 ----
         var candidates = new Dictionary<IPropertySymbol, (PropertyDeclarationSyntax Decl, SemanticModel Model)>(
@@ -77,6 +80,16 @@ internal sealed class PropertyRule : IMemberDesugarRule
                 if (PropertyFacts.HasAsymmetricAccessorVisibility(prop))
                 {
                     retained[prop] = (decl, PropertyDiagnostics.RetainedAsymmetricAccessors(prop.Name));
+                    continue;
+                }
+
+                // 反射按名查找（真实链 json：EnumTests `GetType().GetProperty(name)` 58 例、
+                // 构造器/多态/扩展数据的 `typeof(T).GetProperty` 等）。降形后运行时拿不到
+                // PropertyInfo，整类型（含基类）的属性一并保留，保住反射契约。
+                if (reflectiveTypes.Contains(prop.ContainingType))
+                {
+                    retained[prop] = (decl, PropertyDiagnostics.RetainedReflectiveLookup(
+                        prop.ContainingType!.Name, prop.Name));
                     continue;
                 }
 

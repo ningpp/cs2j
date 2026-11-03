@@ -192,4 +192,115 @@ public class MemberDesugarPropertyRetainPlanTests
         Assert.Equal(0, stats.PlansSkipped);
         Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
     }
+
+    // 场景 4：运行时按名反射（System.Type.GetProperty）命中的类型整体保留。
+    // 真实链 json：EnumTests.GetProperty(testClass.GetType().GetProperty(name)) 58 例，
+    // 以及 typeof(T).GetProperty / [InlineData] Type 参数等反射族。
+    [Fact]
+    public void ReflectivelyLookedUpTypes_RetainedWithoutResidualGate()
+    {
+        const string src = """
+            using System;
+
+            namespace Probe
+            {
+                [AttributeUsage(AttributeTargets.Method)]
+                public sealed class InlineDataAttribute : Attribute
+                {
+                    public InlineDataAttribute(object data) { }
+                }
+
+                public class BaseDto
+                {
+                    public int BaseValue { get; set; }
+                }
+
+                public class SimpleDto : BaseDto
+                {
+                    public int Value { get; set; }
+                }
+
+                public class UnrelatedDto
+                {
+                    public int Age { get; set; }
+                }
+
+                public static class Sites
+                {
+                    public static object ByInstance(SimpleDto dto, string name)
+                        => dto.GetType().GetProperty(name).GetValue(dto);
+
+                    public static object ByType(string name)
+                        => typeof(SimpleDto).GetProperty(name).GetValue(null);
+
+                    [InlineData(typeof(SimpleDto))]
+                    public static object ByTypeParameter(Type type, string name)
+                        => type.GetProperty(name).GetValue(null);
+                }
+            }
+            """;
+
+        var (outCode, stats, diags) = RewriteFirstFile("Sites.cs", src);
+
+        AssertNoResidualProperty(diags);
+
+        // 反射命中类型（含基类）保持原属性声明与原名成员访问。
+        Assert.Contains("public int Value { get; set; }", outCode, StringComparison.Ordinal);
+        Assert.Contains("public int BaseValue { get; set; }", outCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Value", outCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_BaseValue", outCode, StringComparison.Ordinal);
+        Assert.Contains("dto.GetType()", outCode, StringComparison.Ordinal);
+
+        // 未被反射命中的类型照常去糖。
+        Assert.Contains("get_Age", outCode, StringComparison.Ordinal);
+
+        Assert.Equal(0, stats.PlansSkipped);
+        Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
+    }
+
+    // 场景 5：Type 参数经 [MemberData(nameof(...))] 数据源注入 typeof(T)（真实链 json：
+    // PropertyVisibilityTests.JsonIgnoreCondition*/ExtensionData 一组，数据源是生成的
+    // 嵌套 iterator 类，typeof(...) 写在 MoveNext 里）。
+    [Fact]
+    public void MemberDataInjectedTypes_RetainedWithoutResidualGate()
+    {
+        const string src = """
+            using System;
+            using System.Collections.Generic;
+
+            namespace Probe
+            {
+                [AttributeUsage(AttributeTargets.Method)]
+                public sealed class MemberDataAttribute : Attribute
+                {
+                    public MemberDataAttribute(string name) { }
+                }
+
+                public class SimpleDto
+                {
+                    public int Value { get; set; }
+                }
+
+                public static class Holder
+                {
+                    [MemberData(nameof(Data))]
+                    public static object Check(Type type, string name)
+                        => type.GetProperty(name).GetValue(null);
+
+                    private static IEnumerable<object[]> Data() => new[]
+                    {
+                        new object[] { typeof(SimpleDto) },
+                    };
+                }
+            }
+            """;
+
+        var (outCode, stats, diags) = RewriteFirstFile("Holder.cs", src);
+
+        AssertNoResidualProperty(diags);
+        Assert.Contains("public int Value { get; set; }", outCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Value", outCode, StringComparison.Ordinal);
+        Assert.Equal(0, stats.PlansSkipped);
+        Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
+    }
 }
