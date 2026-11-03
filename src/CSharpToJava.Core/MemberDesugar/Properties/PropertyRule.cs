@@ -140,6 +140,17 @@ internal sealed class PropertyRule : IMemberDesugarRule
                     continue;
                 }
 
+                // 接口属性：STJ 按「声明类型」解析成员面，接口属性降形成接口方法后接口的
+                // PropertyInfo 为空 → 声明类型为接口的成员序列化成 {}（真实链 json：
+                // CustomObjectConverterTests.AssertShouldSerializeTest 的 Thing:{}）。
+                // 序列化消费面保留接口属性，实现类经层次一致性同留（否则 CS0535）。
+                if (prop.ContainingType is { TypeKind: TypeKind.Interface }
+                    && SerializationMemberMetadata.IsJsonSerializationInScope(model, decl))
+                {
+                    retained[prop] = (decl, PropertyDiagnostics.RetainedInterfaceProperty(prop.Name));
+                    continue;
+                }
+
                 // 实现“元数据接口”（BCL/外部程序集，或不参与本次编译的项目）属性的成员
                 // 不能展开成 get_X/set_X 方法：接口本体不经过本 pass 降形，展开后类不再
                 // 以属性实现该接口槽（CS0535/CS0470；显式实现更是 CS0683）。显式与隐式
@@ -890,8 +901,9 @@ internal sealed class PropertyRule : IMemberDesugarRule
             foreach (var (prop, info) in demoted)
             {
                 candidates.Remove(prop);
-                siteFailures[prop] = (MemberDesugarDiagnosticCode.PropertyRetained,
-                    PropertyDiagnostics.RetainedOverrideChain(prop.Name));
+                // 语义性保留（声明与使用点都不动）：产 Retained plan，而不是无 plan 的
+                // 站点失败——后者会让 residual 闸门报 CS2J5112。
+                retained[prop] = (info.Decl, PropertyDiagnostics.RetainedOverrideChain(prop.Name));
             }
         } while (changed);
     }

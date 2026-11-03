@@ -98,6 +98,11 @@ internal static class PropertyDiagnostics
            $"expanding it would reorder the type's System.Text.Json members (properties " +
            $"enumerate before fields); {RetainSuffix}.";
 
+    public static string RetainedInterfaceProperty(string name)
+        => $"interface property '{name}' is serialized through its declared interface type; " +
+           $"expanding it into interface accessor methods would drop the interface's " +
+           $"PropertyInfo surface and serialize such members as {{}}; {RetainSuffix}.";
+
     public static string RetainedAttributeClass(string name)
         => $"'{name}' is a property of a System.Attribute subclass referenced by name from " +
            $"attribute named arguments, which cannot be rewritten into method calls " +

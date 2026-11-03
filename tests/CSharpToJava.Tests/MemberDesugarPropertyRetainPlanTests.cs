@@ -636,4 +636,46 @@ public class MemberDesugarPropertyRetainPlanTests
         // WorkStart 的不可路由特性触发声明门禁失败（Plan 记为跳过），属预期诊断。
         Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
     }
+
+    // 场景 12：接口属性在序列化消费面保留——STJ 按声明类型（接口）解析成员面，接口属性
+    // 降形成接口方法后接口 PropertyInfo 为空，声明类型为接口的成员序列化成 {}（真实链
+    // json：CustomObjectConverterTests.AssertShouldSerializeTest 的 Thing:{}）。
+    // 实现类经层次一致性同留，避免 CS0535。
+    [Fact]
+    public void InterfacePropertyInJsonScope_RetainsInterfaceAndImplementation()
+    {
+        const string src = """
+            using System.Text.Json.Serialization;
+
+            namespace Probe
+            {
+                public interface IThing
+                {
+                    int Number { get; set; }
+                }
+
+                public class ThingDto : IThing
+                {
+                    public int Number { get; set; }
+                }
+
+                public class PlainDto
+                {
+                    public int Value { get; set; }
+                }
+            }
+            """;
+
+        var (outCode, stats, diags) = RewriteFirstFile("Interface.cs", src);
+
+        AssertNoResidualProperty(diags);
+
+        Assert.Contains("int Number { get; set; }", outCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Number", outCode, StringComparison.Ordinal);
+
+        // 非接口成员照常去糖。
+        Assert.Contains("get_Value", outCode, StringComparison.Ordinal);
+
+        Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
+    }
 }
