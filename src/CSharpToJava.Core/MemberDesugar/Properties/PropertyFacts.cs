@@ -177,6 +177,23 @@ internal static class PropertyFacts
     private const string AnonymousLiftNamespace = "Cs2jAnonymous";
     private const string AnonymousLiftTypePrefix = "Anon_";
 
+    /// <summary>无 setter 的 public 自动属性（get-only）：降形为 public readonly 字段后，
+    /// System.Text.Json 会改用 IgnoreReadOnlyFields/IncludeFields 判定它，而不是原来的
+    /// IgnoreReadOnlyProperties（真实链 PropertyVisibilityTests.IgnoreReadOnlyProperties /
+    /// IgnoreCondition*WinsOver_IgnoreReadOnly*）。整属性保留，只读契约原样。</summary>
+    public static bool IsReadOnlyAutoProperty(PropertyDeclarationSyntax decl, IPropertySymbol prop)
+        => prop.DeclaredAccessibility == Accessibility.Public
+           && prop.SetMethod == null
+           && IsAutoProperty(decl, prop);
+
+    /// <summary>无 getter 的 public 可写属性（write-only，通常是带体 full 属性）：降形后
+    /// 只剩 set_X 方法，成员从 STJ 反射面消失，反序列化不再写入（真实链
+    /// PropertyVisibilityTests.NoGetter）。整属性保留。</summary>
+    public static bool IsWriteOnlyProperty(IPropertySymbol prop)
+        => prop.DeclaredAccessibility == Accessibility.Public
+           && prop.GetMethod == null
+           && prop.SetMethod != null;
+
     /// <summary>
     /// MSTest 框架契约属性：测试运行器按「属性名 TestContext」反射注入
     /// <c>Microsoft.VisualStudio.TestTools.UnitTesting.TestContext</c> 实例。

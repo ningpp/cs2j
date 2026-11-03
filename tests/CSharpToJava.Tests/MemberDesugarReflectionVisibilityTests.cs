@@ -148,7 +148,7 @@ namespace dto
     }
 
     [Fact]
-    public void GetOnlyAutoProperty_ReadOnlyPublicFieldStaysReflectable()
+    public void GetOnlyAutoProperty_RetainedToKeepPropertyReflectionSurface()
     {
         var src = """
 using System;
@@ -158,27 +158,24 @@ namespace dto
     public class GetOnlyDto
     {
         public int Tag { get; } = 42;
+        public int Decoy { get; set; }
     }
 }
 """;
-        var output = Rewrite(src, desugarMarker: "get_Tag");
+        // get-only 自动属性整体保留：降形为 public readonly 字段会让 STJ 的
+        // IgnoreReadOnlyProperties 失效（改由 IgnoreReadOnlyFields 判定）。
+        var output = Rewrite(src, desugarMarker: "get_Decoy");
+        Assert.Contains("public int Tag { get; }", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Tag", output, StringComparison.Ordinal);
         AssertCompiles(output);
         var dtoType = CompileToAssembly(output).GetType("dto.GetOnlyDto")!;
 
-        var members = dtoType.GetMembers(
-                BindingFlags.DeclaredOnly | BindingFlags.Public |
-                BindingFlags.Instance | BindingFlags.Static)
-            .Where(m => m is FieldInfo or PropertyInfo)
-            .ToList();
-        Assert.NotEmpty(members);
-
-        var field = Assert.IsType<FieldInfo>(
-            Assert.Single(members, m => m.Name == "Tag"), exactMatch: false);
-        Assert.True(field.IsPublic);
-        Assert.True(field.IsInitOnly, "get-only auto property must map to a readonly public field");
+        var property = dtoType.GetProperty("Tag", BindingFlags.Public | BindingFlags.Instance)!;
+        Assert.NotNull(property);
+        Assert.Null(dtoType.GetField("Tag", BindingFlags.Public | BindingFlags.Instance));
 
         var instance = Activator.CreateInstance(dtoType)!;
-        Assert.Equal(42, field.GetValue(instance));
+        Assert.Equal(42, property.GetValue(instance));
     }
 
     private static string Compact(string code)

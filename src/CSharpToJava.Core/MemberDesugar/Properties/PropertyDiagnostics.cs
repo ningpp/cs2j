@@ -73,6 +73,16 @@ internal static class PropertyDiagnostics
            $"looked up by name through System.Type.GetProperty/GetField/GetMember; " +
            $"expanding it would remove the reflected PropertyInfo; {RetainSuffix}.";
 
+    public static string RetainedReadOnlyAutoProperty(string name)
+        => $"property '{name}' is a get-only auto property; expanding it into a public readonly " +
+           $"field would make System.Text.Json apply IgnoreReadOnlyFields instead of " +
+           $"IgnoreReadOnlyProperties; {RetainSuffix}.";
+
+    public static string RetainedWriteOnlyProperty(string name)
+        => $"property '{name}' has no getter; expanding it into a set_X method would remove the " +
+           $"member from System.Text.Json's reflection surface so deserialization stops " +
+           $"writing it; {RetainSuffix}.";
+
     public static string RetainedAttributeClass(string name)
         => $"'{name}' is a property of a System.Attribute subclass referenced by name from " +
            $"attribute named arguments, which cannot be rewritten into method calls " +

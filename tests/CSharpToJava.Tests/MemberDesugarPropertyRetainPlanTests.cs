@@ -303,4 +303,48 @@ public class MemberDesugarPropertyRetainPlanTests
         Assert.Equal(0, stats.PlansSkipped);
         Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
     }
+
+    // 场景 6：只读/只写属性的序列化契约（真实链 PropertyVisibilityTests：
+    // IgnoreReadOnlyProperties / IgnoreCondition*WinsOver_IgnoreReadOnly* / NoGetter）。
+    [Fact]
+    public void ReadOnlyAndWriteOnlyProperties_RetainedWithoutResidualGate()
+    {
+        const string src = """
+            namespace Probe
+            {
+                public class ReadOnlyDto
+                {
+                    public int Value { get; } = 1;
+                    public int Settable { get; set; }
+                }
+
+                public class WriteOnlyDto
+                {
+                    private string _value = "";
+
+                    public string Value { set { _value = value; } }
+
+                    public string Read() => _value;
+                }
+            }
+            """;
+
+        var (outCode, stats, diags) = RewriteFirstFile("Visibility.cs", src);
+
+        AssertNoResidualProperty(diags);
+
+        // get-only 自动属性保留（否则 readonly 字段让 IgnoreReadOnlyProperties 失效）。
+        Assert.Contains("public int Value { get; } = 1;", outCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Value", outCode, StringComparison.Ordinal);
+
+        // 无 getter 的写属性保留（否则成员从 STJ 反射面消失，反序列化不再写入）。
+        Assert.Contains("public string Value { set { _value = value; } }", outCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("set_Value", outCode, StringComparison.Ordinal);
+
+        // 普通可读写属性照常去糖。
+        Assert.Contains("get_Settable", outCode, StringComparison.Ordinal);
+
+        Assert.Equal(0, stats.PlansSkipped);
+        Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
+    }
 }

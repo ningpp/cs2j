@@ -38,8 +38,8 @@ public class MemberDesugarKeywordBackingFieldTests
         const string src = """
             public class ClassWrapper
             {
-                public string @string { get; }
-                public object @object { get; }
+                public string @string { get; set; }
+                public object @object { get; set; }
                 public ClassWrapper(string stringArgument, object objectArgument)
                 {
                     @string = stringArgument;

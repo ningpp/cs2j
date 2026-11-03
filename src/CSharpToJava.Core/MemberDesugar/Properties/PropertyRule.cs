@@ -83,6 +83,20 @@ internal sealed class PropertyRule : IMemberDesugarRule
                     continue;
                 }
 
+                // 只读/只写属性的序列化契约：get-only 自动属性降形为 public readonly 字段后，
+                // STJ 改由 IgnoreReadOnlyFields 判定（IgnoreReadOnlyProperties 失效）；无 getter
+                // 的属性降形后成员从反射面消失。两类都整属性保留。
+                if (PropertyFacts.IsReadOnlyAutoProperty(decl, prop))
+                {
+                    retained[prop] = (decl, PropertyDiagnostics.RetainedReadOnlyAutoProperty(prop.Name));
+                    continue;
+                }
+                if (PropertyFacts.IsWriteOnlyProperty(prop))
+                {
+                    retained[prop] = (decl, PropertyDiagnostics.RetainedWriteOnlyProperty(prop.Name));
+                    continue;
+                }
+
                 // 反射按名查找（真实链 json：EnumTests `GetType().GetProperty(name)` 58 例、
                 // 构造器/多态/扩展数据的 `typeof(T).GetProperty` 等）。降形后运行时拿不到
                 // PropertyInfo，整类型（含基类）的属性一并保留，保住反射契约。
