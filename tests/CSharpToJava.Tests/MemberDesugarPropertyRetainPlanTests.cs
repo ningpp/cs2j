@@ -394,4 +394,53 @@ public class MemberDesugarPropertyRetainPlanTests
         Assert.Equal(0, stats.PlansSkipped);
         Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
     }
+
+    // 场景 8：STJ 消费面内的 full（非自动）属性保留——没有后备字段可挂 [JsonInclude]，
+    // 降形成方法会让成员整体消失出反射面（真实链 json：集合 getter / 显式后备字段往返）。
+    [Fact]
+    public void FullPropertyInJsonScope_RetainedWithoutResidualGate()
+    {
+        const string withJsonScope = """
+            using System.Text.Json.Serialization;
+
+            namespace Probe
+            {
+                public class Dto
+                {
+                    private string _items = "";
+
+                    public string Items { get => _items; set => _items = value; }
+
+                    public int Computed => 1;
+                }
+            }
+            """;
+
+        var (jsonOut, stats, diags) = RewriteFirstFile("JsonScope.cs", withJsonScope);
+        AssertNoResidualProperty(diags);
+        Assert.Contains("public string Items { get => _items; set => _items = value; }",
+            jsonOut, StringComparison.Ordinal);
+        Assert.Contains("public int Computed => 1;", jsonOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Items", jsonOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Computed", jsonOut, StringComparison.Ordinal);
+
+        // 非序列化消费面：维持 PD-2「访问器 → 方法」归约。
+        const string plain = """
+            namespace Plain
+            {
+                public class Dto
+                {
+                    private string _value = "";
+
+                    public string Value { get => _value; set => _value = value; }
+                }
+            }
+            """;
+
+        var (plainOut, _, _) = RewriteFirstFile("PlainScope.cs", plain);
+        Assert.Contains("get_Value", plainOut, StringComparison.Ordinal);
+
+        Assert.Equal(0, stats.PlansSkipped);
+        Assert.False(stats.SkippedByReason.ContainsKey(ResidualCode));
+    }
 }

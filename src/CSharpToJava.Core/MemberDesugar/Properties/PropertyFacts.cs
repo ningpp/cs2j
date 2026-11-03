@@ -177,6 +177,20 @@ internal static class PropertyFacts
     private const string AnonymousLiftNamespace = "Cs2jAnonymous";
     private const string AnonymousLiftTypePrefix = "Anon_";
 
+    /// <summary>full（非自动）属性：存在访问器体或表达式体，降形后没有后备字段、成员整体
+    /// 从反射面消失。序列化消费面上必须保留属性形态（见
+    /// SerializationMemberMetadata.IsJsonSerializationInScope）。field 关键字形态由 C50
+    /// 归一，不在此列；abstract/接口属性另有规则。</summary>
+    public static bool IsFullProperty(PropertyDeclarationSyntax decl, IPropertySymbol prop)
+    {
+        if (prop.IsAbstract || prop.ContainingType is { TypeKind: TypeKind.Interface }) return false;
+        if (decl.AccessorList == null) return decl.ExpressionBody != null;
+        var accessors = decl.AccessorList.Accessors;
+        if (!accessors.Any(a => a.Body != null || a.ExpressionBody != null)) return false;
+        return !accessors.Any(a =>
+            a.DescendantNodes().OfType<FieldExpressionSyntax>().Any());
+    }
+
     /// <summary>继承链上出现同名属性的属性集合（override / new-slot / 隐式 hiding）。
     /// 这类成员的原语义依赖 CLR 成员名相同：STJ 用 memberInfo.Name 判定 hiding，C46 NH
     /// 改名后 JSON 名与遮蔽判断整体失真；且成员降形为字段后会把 FieldInfo 喂给

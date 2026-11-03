@@ -76,6 +76,14 @@ internal static class SerializationMemberMetadata
                     SyntaxFactory.AttributeArgumentList())));
     }
 
+    /// <summary>文件/工程是否处在 System.Text.Json 消费面（能解析到 STJ 注解命名空间）。
+    /// full（非自动）属性没有后备字段可挂 [JsonInclude]，降形会整体消失出反射面；仅在
+    /// 序列化消费面保留属性形态，其它工程维持 PD-2 的「访问器 → 方法」归约。
+    /// </summary>
+    public static bool IsJsonSerializationInScope(SemanticModel model, SyntaxNode anchor)
+        => ResolveAttributeType(model, anchor, IncludeShortName) != null
+           || ResolveAttributeType(model, anchor, PropertyNameShortName) != null;
+
     /// <summary>
     /// 为「因 C# hiding 改名」的 public 字段补 [JsonPropertyName("原名")]：字段名就是 STJ
     /// 默认 JSON 名（或 IncludeFields/Newtonsoft 的成员名），改名会把序列化名字一起改掉

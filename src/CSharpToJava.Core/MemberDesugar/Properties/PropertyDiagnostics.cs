@@ -88,6 +88,11 @@ internal static class PropertyDiagnostics
            $"through the C46 hiding rule would change the serialized member name and " +
            $"System.Text.Json's hiding detection; {RetainSuffix}.";
 
+    public static string RetainedFullProperty(string name)
+        => $"property '{name}' is a non-auto (full) property with no backing field; expanding " +
+           $"it into accessor methods would remove the member from System.Text.Json's " +
+           $"reflection surface; {RetainSuffix}.";
+
     public static string RetainedAttributeClass(string name)
         => $"'{name}' is a property of a System.Attribute subclass referenced by name from " +
            $"attribute named arguments, which cannot be rewritten into method calls " +

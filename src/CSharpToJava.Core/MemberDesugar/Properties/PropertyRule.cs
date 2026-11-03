@@ -129,6 +129,17 @@ internal sealed class PropertyRule : IMemberDesugarRule
                     continue;
                 }
 
+                // full（非自动）属性没有后备字段：降形成方法后成员整体从 STJ 反射面消失
+                // （真实链 json：ArrayTests.ClassWithNonNullEnumerableGettersIsParsed、
+                // CollectionTests.DoesNotCall_CollectionPropertyGetter_*、Client/Dealer
+                // 的显式后备字段往返）。序列化消费面保留属性形态；其它工程维持 PD-2 归约。
+                if (PropertyFacts.IsFullProperty(decl, prop)
+                    && SerializationMemberMetadata.IsJsonSerializationInScope(model, decl))
+                {
+                    retained[prop] = (decl, PropertyDiagnostics.RetainedFullProperty(prop.Name));
+                    continue;
+                }
+
                 // 实现“元数据接口”（BCL/外部程序集，或不参与本次编译的项目）属性的成员
                 // 不能展开成 get_X/set_X 方法：接口本体不经过本 pass 降形，展开后类不再
                 // 以属性实现该接口槽（CS0535/CS0470；显式实现更是 CS0683）。显式与隐式
