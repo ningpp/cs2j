@@ -201,6 +201,7 @@ public class MemberDesugarPropertyRetainPlanTests
     {
         const string src = """
             using System;
+            using System.Reflection;
 
             namespace Probe
             {
@@ -220,6 +221,12 @@ public class MemberDesugarPropertyRetainPlanTests
                     public int Value { get; set; }
                 }
 
+                // 仅通过 GetProperties 整型枚举访问：属性数（STJ 缓存回退字典阈值）也是契约。
+                public class EnumOnlyDto
+                {
+                    public int Count { get; set; }
+                }
+
                 public class UnrelatedDto
                 {
                     public int Age { get; set; }
@@ -232,6 +239,9 @@ public class MemberDesugarPropertyRetainPlanTests
 
                     public static object ByType(string name)
                         => typeof(SimpleDto).GetProperty(name).GetValue(null);
+
+                    public static PropertyInfo[] All()
+                        => typeof(EnumOnlyDto).GetProperties(BindingFlags.Instance | BindingFlags.Public);
 
                     [InlineData(typeof(SimpleDto))]
                     public static object ByTypeParameter(Type type, string name)
@@ -247,8 +257,10 @@ public class MemberDesugarPropertyRetainPlanTests
         // 反射命中类型（含基类）保持原属性声明与原名成员访问。
         Assert.Contains("public int Value { get; set; }", outCode, StringComparison.Ordinal);
         Assert.Contains("public int BaseValue { get; set; }", outCode, StringComparison.Ordinal);
+        Assert.Contains("public int Count { get; set; }", outCode, StringComparison.Ordinal);
         Assert.DoesNotContain("get_Value", outCode, StringComparison.Ordinal);
         Assert.DoesNotContain("get_BaseValue", outCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Count", outCode, StringComparison.Ordinal);
         Assert.Contains("dto.GetType()", outCode, StringComparison.Ordinal);
 
         // 未被反射命中的类型照常去糖。

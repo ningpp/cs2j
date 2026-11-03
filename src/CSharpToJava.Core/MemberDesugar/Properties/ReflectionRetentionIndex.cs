@@ -12,6 +12,10 @@ namespace CSharpToJava.Core.MemberDesugar.Properties;
 /// 工程 EnumTests 的 <c>testClass.GetType().GetProperty(name)</c> 58 例、构造器/多态/
 /// 扩展数据等反射族）。语义安全的做法是把**被按名反射查找的类型（含基类）的全部属性
 /// 整体保留**（Retained plan，声明与使用点都不动）。
+/// 整型枚举（<c>GetProperties()/GetFields()/GetMembers()</c> 及 BindingFlags 重载）同样
+/// 依赖 PropertyInfo 集合的成员面：json 测试的
+/// <c>typeof(...).GetProperties(Instance|Public).Length &gt; 32</c> 是 STJ 缓存回退字典的
+/// 前置条件，脱糖后属性数骤降会让该路径断言直接失败。
 ///
 /// 接收者解析规则（宁多保留、不漏）：
 /// <list type="bullet">
@@ -27,7 +31,12 @@ internal sealed class ReflectionRetentionIndex
 {
     private const string SystemTypeFullName = "System.Type";
     private const int MaxDepth = 6;
-    private static readonly string[] MemberLookupMethods = { "GetProperty", "GetField", "GetMember" };
+    private static readonly string[] MemberLookupMethods =
+    {
+        "GetProperty", "GetField", "GetMember",
+        // 整型枚举（含 BindingFlags 重载）：成员面包含 PropertyInfo 集合。
+        "GetProperties", "GetFields", "GetMembers",
+    };
 
     private static readonly ConditionalWeakTable<Compilation, ReflectionRetentionIndex> Caches = new();
 
