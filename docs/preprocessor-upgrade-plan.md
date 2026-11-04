@@ -726,6 +726,9 @@ dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- 
 | tuple 局部声明规范化 | 完成 | `tuple` pass `var` 化 | `NORM-TUPLE-LOCAL 1 → 0` |
 | 外部 Unsafe ref 局部降级 | 完成 | `unsafe-ref-lowering` pass | `NORM-REF-LOCAL 1 → 0` |
 | 纯数据 ref struct 去 ref + audit 跳过 support lib | 完成 | `ref-struct-lowering` pass | `NORM-REF-STRUCT 5 → 1`（只剩 `Utf8JsonReader`） |
+| `using` 资源表达式 ref 读回提升 | 完成 | `using-resource-lift` pass | JsonDocumentTests 的 7 处 using 门禁消除 |
+| 指针解引用 → 元素访问 | 完成 | `pointer-deref-index` pass | `NORM-POINTER-OP 26 → 2`（只剩 `&` address-of）；Utf8JsonWriterTests 转换通过 |
+| 新审计探针（pointer-local / unsafe-block / fixed） | 完成 | `Normalization/Probes` | 新增 3 个 NORM code，准确定位硬域 |
 
 **全量转换对照**（同一 `csharp-sdk.sln`、同一命令）：
 
@@ -733,17 +736,17 @@ dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- 
 |------|------|
 | 初始 | 1961 succeeded / 15 failed |
 | 修复 async/enum/stackalloc/tuple/ref-local 后 | 1971 succeeded / 5 failed（该轮尚未包含 ref-struct pass） |
-| 单元回归 | `CSharpToJava.Tests` 4353 通过 / 0 失败 / 9 跳过 |
+| json-only 复跑（含 ref-struct / using-resource / pointer-deref） | 624 succeeded / **2 failed** |
+| 单元回归 | `CSharpToJava.Tests` 4377 通过 / 0 失败 / 9 跳过（最新全量） |
 
-剩余 5 个失败集中在两个硬域：
+剩余 2 个失败已收敛到两个硬域：
 
 1. `Utf8JsonReader`（ref-only ref struct）：Span/ref 字段无法在 Java 中直接表达；需要 compat 类型映射或显式不支持域决策。
-2. `JsonWriterHelper.Date.cs`（fixed + Span 指针算术）：`fixed` over `MemoryMarshal.GetReference` + `int*`/指针差值，属于 C06 指针 lowering 的深水区。
-3. `Utf8JsonWriterTests`（外部 `JavaScriptEncoder` 指针签名 override）：需要托管 shim 或显式不支持域。
-4. `JsonDocumentTests`（`using` 资源表达式中的 ref 读回）：需要把 `using (T x = expr)` 的资源表达式提升为临时变量（小改动，但与 `Utf8JsonReader` 类型可用性相关）。
-5. `InvalidTypeTests`（`MyRefStruct` 已由 ref-struct pass 降级；同文件仍有 `typeof(int*)` / `IntPtr` 指针声明，需要 NORM 指针类型探针）。
+2. `JsonWriterHelper.Date.cs`（fixed + Span 指针算术）：`fixed` over `MemoryMarshal.GetReference` + `int*`/指针差值，属于 C06 指针 lowering 的深水区；`pointer-deref-index` 已消除其中 24 个解引用，但 fixed/address-of/指针差仍保留。
 
-下一步建议：先补 `NORM-POINTER-TYPE`/`NORM-UNSAFE-BLOCK` 探针把剩余硬域纳入报告，再决定 ref struct 的域策略；最后按 M5 做单树/增量与 pass 报告落盘。
+已消除的失败：async lambda、enum 算术、stackalloc、tuple 局部、ref local、ref struct（MyRefStruct）、using ref 读回、外部指针 override 解引用。
+
+下一步需要针对这两个硬域做**域策略**：要么提供 `Utf8JsonReader`/`JsonWriterHelper.Date.cs` 的 compat/托管实现并映射，要么把它们登记为 `DeclaredUnsupported` 并在 Java 转换前 fail-fast（当前 audit 已能给出文件/行/owner）。另外 M5 的单树/增量/每 pass 报告仍未落地。
 
 ---
 
