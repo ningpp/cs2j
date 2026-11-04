@@ -172,6 +172,31 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
             _packageReferences = EnumeratePackageReferences(tree.IntermediateRoot);
         }
 
+        // In a convert-project chain the pass input is the previous pass's
+        // intermediate tree, which carries no obj/project.assets.json: the
+        // spine only restores after the rewrite phase. Enumerating an
+        // unrestored tree therefore yields zero references even though it has a
+        // project graph, and package-declared delegate targets (xUnit generic
+        // helpers) never bind. Restore here (the spine's later restore is an
+        // incremental no-op) and re-enumerate so the standard compilation built
+        // right after this sees the package assemblies. Single-file /
+        // loose-directory layouts have nothing to restore and keep the
+        // conservative CS2J1290 path.
+        if (_packageReferences.Count == 0
+            && tree.ProjectGraph != null
+            && tree.Layout.ProjectFiles.Count > 0)
+        {
+            var restoreExitCode = ProjectPassRunner.Restore(this, tree);
+            if (restoreExitCode == 0)
+            {
+                _packageReferences = EnumeratePackageReferences(tree.IntermediateRoot);
+                if (_packageReferences.Count == 0)
+                {
+                    _packageReferences = EnumeratePackageReferences(tree.Layout.SourceRoot);
+                }
+            }
+        }
+
         if (_verbose && _packageReferences.Count > 0)
         {
             Console.WriteLine(
