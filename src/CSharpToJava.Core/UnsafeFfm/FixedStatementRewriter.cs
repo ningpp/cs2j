@@ -1532,17 +1532,23 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
             string? sourceSlot = null;
             string? nullCompanionArray = null;
             ExpressionSyntax? newInitializer = null;
+            // default(T*) 只是「尚未确定来源」的空游标：在后续赋值建立可证
+            // provenance 前保持未解析，解引用/传参仍按既有规则拒绝（UF020）。
+            var unresolvedUntilAssigned = false;
 
             if (rawInitializer != null)
             {
                 var initializer = UnwrapParenthesized(rawInitializer);
+                var defaultPointerInitializer = IsDefaultPointerInitializer(initializer);
 
-                if (initializer.IsKind(SyntaxKind.NullLiteralExpression))
+                if (initializer.IsKind(SyntaxKind.NullLiteralExpression)
+                    || defaultPointerInitializer)
                 {
                     arrayName = MakeGeneratedName(declarator.Identifier.ValueText, "array", node);
                     sourceSlot = arrayName;
-                    // null 初值游标：伴生数组的 null 状态即「指针为空」的托管
-                    // 表示，登记供 p == null 归一与指针赋值同步改写使用。
+                    // 空指针初值游标（null 字面量或 default(T*) 零地址）：
+                    // 伴生数组的 null 状态即「指针为空」的托管表示，登记供
+                    // p == null 归一与指针赋值同步改写使用。
                     nullCompanionArray = arrayName;
                     var nullArrayLocal = ArrayLocal(arrayName, elementTypeSyntax,
                         PostfixUnaryExpression(
@@ -1562,6 +1568,7 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                     }
 
                     newInitializer = ZeroLiteral();
+                    unresolvedUntilAssigned = defaultPointerInitializer;
                 }
                 else if (TryResolvePointer(initializer,
                              out var sourceArray, out var indexExpression, out _))
@@ -1614,7 +1621,7 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
             {
                 ArrayName = arrayName ?? string.Empty,
                 SourceSlot = sourceSlot ?? (arrayName ?? string.Empty),
-                Resolved = arrayName != null,
+                Resolved = arrayName != null && !unresolvedUntilAssigned,
                 NullCompanionArray = nullCompanionArray,
             };
         }
@@ -1630,6 +1637,24 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
         }
 
         return newStatement;
+    }
+
+    /// <summary>
+    /// <c>default(T*)</c>（含目标类型为指针的裸 <c>default</c>）是零地址空指针的
+    /// 另一种写法，与 <c>null</c> 初值同义：复用 null 伴生数组路径。目标类型非
+    /// 指针的 <c>default</c>（如 <c>default(IntPtr)</c>）不在此判定内。
+    /// </summary>
+    private bool IsDefaultPointerInitializer(ExpressionSyntax initializer)
+    {
+        if (!initializer.IsKind(SyntaxKind.DefaultExpression)
+            && !initializer.IsKind(SyntaxKind.DefaultLiteralExpression))
+        {
+            return false;
+        }
+
+        var typeInfo = TypeInfoFor(initializer);
+        return typeInfo.Type is IPointerTypeSymbol
+            || typeInfo.ConvertedType is IPointerTypeSymbol;
     }
 
     /// <summary>

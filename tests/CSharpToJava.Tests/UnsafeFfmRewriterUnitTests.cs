@@ -657,6 +657,93 @@ public class UnsafeFfmRewriterUnitTests
     }
 
     [Fact]
+    public void FixedStatement_DefaultPointerInitializer_ReassignedToFrame_Lowered()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte[] arr)
+                {
+                    fixed (byte* p = arr)
+                    {
+                        byte* q = default;
+                        q = p;
+                        q[0] = 1;
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors, string.Join("\n", result.Diagnostics));
+        // default(byte*) 零地址与 null 同义：伴生数组 + 同名 int 索引，后续
+        // 赋值为可证游标 p 时同步伴生数组并建立 provenance。
+        Assert.Contains("byte[] _q_array = null!;", result.OutputCode);
+        Assert.Contains("int q = 0;", result.OutputCode);
+        Assert.Contains("_q_array = _p_array;", result.OutputCode);
+        Assert.Contains("_p_array[(q) + (0)] = 1;", result.OutputCode);
+        Assert.DoesNotContain("default", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void FixedStatement_DefaultTypedCharPointerInitializer_ReassignedToFrame_Lowered()
+    {
+        var src = """
+            unsafe class C
+            {
+                static char M(char[] arr)
+                {
+                    fixed (char* p = arr)
+                    {
+                        char* q = default(char*);
+                        q = p;
+                        return q[0];
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors, string.Join("\n", result.Diagnostics));
+        Assert.Contains("char[] _q_array = null!;", result.OutputCode);
+        Assert.Contains("int q = 0;", result.OutputCode);
+        Assert.Contains("_q_array = _p_array;", result.OutputCode);
+        Assert.Contains("return _p_array[(q) + (0)];", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void FixedStatement_DefaultPointerInitializer_UnassignedDeref_Rejected_UF020()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte[] arr)
+                {
+                    fixed (byte* p = arr)
+                    {
+                        byte* q = default;
+                        q[0] = 1;
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        // 未赋值的 default 游标没有可证 provenance：解引用仍按既有规则拒绝。
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF020);
+        Assert.Equal(1, result.Statistics.Uf020Rejections);
+    }
+
+    [Fact]
     public void FixedStatement_String_ReadNormalizedToCharArray()
     {
         var src = """
