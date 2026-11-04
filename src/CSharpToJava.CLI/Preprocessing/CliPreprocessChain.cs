@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using CSharpToJava.Core.DynamicDesugar;
 using CSharpToJava.Core.EqualityConcat;
 using CSharpToJava.Core.ExpressionDesugar;
@@ -239,6 +240,36 @@ internal static class CliPreprocessChain
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var chainStopwatch = Stopwatch.StartNew();
+        var passReports = new List<PassReportEntry>();
+
+        void WriteReport(bool success)
+        {
+            chainStopwatch.Stop();
+            var report = new PreprocessReport(
+                SchemaVersion: 1,
+                Profile: request.Profile,
+                Source: Path.GetFullPath(request.SourcePath),
+                Destination: Path.GetFullPath(request.DestinationRoot),
+                Success: success,
+                TotalSeconds: PreprocessReportWriter.RoundSeconds(chainStopwatch.Elapsed),
+                Passes: passReports.ToList());
+
+            try
+            {
+                PreprocessReportWriter.Write(
+                    PreprocessReportWriter.DefaultPath(request.DestinationRoot),
+                    report);
+            }
+            catch (Exception ex)
+            {
+                // Reporting is observability only: a write failure must not
+                // change the chain exit code.
+                Console.Error.WriteLine(
+                    $"[Warning] failed to write preprocess report: {ex.Message}");
+            }
+        }
+
         var registry = PassCatalog.BuildRegistry();
         var plan = PassPlanResolver.Resolve(
             registry,
@@ -256,6 +287,7 @@ internal static class CliPreprocessChain
                 Console.Error.WriteLine(planError);
             }
 
+            WriteReport(success: false);
             return Failed(request.SourcePath, emptyNames, emptyLibraries);
         }
 
@@ -350,6 +382,7 @@ internal static class CliPreprocessChain
             {
                 // Enabled stub: fail loudly before touching the filesystem.
                 Console.Error.WriteLine(ProjectPassRunner.StubMessage(pass));
+                WriteReport(success: false);
                 return Failed(sourcePath, executedIntermediateDirectoryNames, executedSupportLibraries);
             }
 
@@ -362,15 +395,35 @@ internal static class CliPreprocessChain
                 Console.WriteLine(startLine);
             }
 
-            var run = await ProjectPassRunner.RunAsync(
-                adapter,
-                new ProjectPassRunRequest
-                {
-                    SourcePath = sourcePath,
-                    DestinationRoot = request.DestinationRoot,
-                    Force = request.Force,
-                    UseUnifiedIntermediateDirectory = request.UseUnifiedIntermediateDirectory,
-                });
+            var passStopwatch = Stopwatch.StartNew();
+            ProjectPassRunResult run;
+            try
+            {
+                run = await ProjectPassRunner.RunAsync(
+                    adapter,
+                    new ProjectPassRunRequest
+                    {
+                        SourcePath = sourcePath,
+                        DestinationRoot = request.DestinationRoot,
+                        Force = request.Force,
+                        UseUnifiedIntermediateDirectory = request.UseUnifiedIntermediateDirectory,
+                    });
+            }
+            catch (Exception ex)
+            {
+                // A thrown pass failure still gets a failed entry before the
+                // CLI's outer handler turns it into exit code 1.
+                passReports.Add(new PassReportEntry(
+                    Id: pass.Id,
+                    Status: "failed",
+                    TotalSeconds: PreprocessReportWriter.RoundSeconds(passStopwatch.Elapsed),
+                    Stages: new Dictionary<string, double>(),
+                    Summary: string.Empty,
+                    Diagnostics: new[] { ex.Message },
+                    IntermediateDirectory: null));
+                WriteReport(success: false);
+                throw;
+            }
 
             var preludeLine = adapter.BuildChainVerbosePrelude(
                 sourceBeforePass, run.PreprocessedSourcePath);
@@ -385,10 +438,20 @@ internal static class CliPreprocessChain
                 Console.WriteLine(summaryLine);
             }
 
-            foreach (var diagnosticLine in adapter.BuildChainDiagnosticLines(request.Verbose))
+            var diagnosticLines = adapter.BuildChainDiagnosticLines(request.Verbose).ToList();
+            foreach (var diagnosticLine in diagnosticLines)
             {
                 Console.Error.WriteLine(diagnosticLine);
             }
+
+            passReports.Add(new PassReportEntry(
+                Id: pass.Id,
+                Status: run.Success ? "ok" : "failed",
+                TotalSeconds: PreprocessReportWriter.RoundSeconds(run.TotalElapsed),
+                Stages: ToStageSeconds(run.Stages),
+                Summary: summaryLine ?? string.Empty,
+                Diagnostics: diagnosticLines,
+                IntermediateDirectory: Path.GetFileName(run.IntermediateRoot)));
 
             if (!run.Success)
             {
@@ -398,6 +461,7 @@ internal static class CliPreprocessChain
                     Console.Error.WriteLine(failureBanner);
                 }
 
+                WriteReport(success: false);
                 return Failed(sourcePath, executedIntermediateDirectoryNames, executedSupportLibraries);
             }
 
@@ -422,6 +486,7 @@ internal static class CliPreprocessChain
             }
         }
 
+        WriteReport(success: true);
         return new CliChainResult
         {
             Success = true,
@@ -437,6 +502,23 @@ internal static class CliPreprocessChain
 
     private static string FormatStages(IReadOnlyDictionary<string, TimeSpan> stages)
         => string.Join(", ", stages.Select(kv => $"{kv.Key}={kv.Value.TotalSeconds:F2}s"));
+
+    private static Dictionary<string, double> ToStageSeconds(
+        IReadOnlyDictionary<string, TimeSpan>? stages)
+    {
+        var seconds = new Dictionary<string, double>(StringComparer.Ordinal);
+        if (stages is null)
+        {
+            return seconds;
+        }
+
+        foreach (var (name, elapsed) in stages)
+        {
+            seconds[name] = PreprocessReportWriter.RoundSeconds(elapsed);
+        }
+
+        return seconds;
+    }
 
     private static CliChainResult Failed(
         string sourcePath,
