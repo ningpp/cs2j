@@ -306,6 +306,16 @@ internal static class AsyncNormalizeAnalyzer
 
         if (invoke == null)
         {
+            if (IsExpressionTreeType(convertedType))
+            {
+                diagnostics.Add(DiagnosticAt(
+                    AsyncNormalizeDiagnosticCode.CS2J1807, lambda,
+                    $"async lambda is converted to expression tree '{convertedType!.ToDisplayString()}'; " +
+                    "async lambdas cannot be represented in an expression tree, so the lightweight " +
+                    "normalizer leaves the node untouched."));
+                return;
+            }
+
             diagnostics.Add(DiagnosticAt(
                 AsyncNormalizeDiagnosticCode.CS2J1807, lambda,
                 "target delegate type of the async lambda cannot be bound from the SemanticModel " +
@@ -363,21 +373,22 @@ internal static class AsyncNormalizeAnalyzer
         var capture = AsyncLambdaCaptureAnalysis.Classify(
             model, body, lambdaMethodSymbol, hostTypeSymbol);
 
+        var parameters = BuildLambdaParameters(lambdaParameters, invoke.Parameters);
+
+        IReadOnlyList<LambdaCapturePlan> captures = Array.Empty<LambdaCapturePlan>();
         if (capture.Kind == AsyncLambdaCaptureKind.CapturedLocals)
         {
-            capturedDeferred++;
-            var names = string.Join(", ", capture.CapturedVariables.Select(static s => s.Name));
-            diagnostics.Add(DiagnosticAt(
-                AsyncNormalizeDiagnosticCode.CS2J1802, lambda,
-                $"async lambda captures outer local/parameter/range variable(s) ({names}). C# " +
-                "closures capture variables (not values); until closure-lift (C45) provides the " +
-                "display-class layout this cannot be lifted equivalently. Manual fix: extract a " +
-                "named method taking the captured values as explicit parameters, or wait for " +
-                "closure-lift."));
-            return;
+            var deferReason = ValidateCapturedLift(
+                model, lambda, body, invoke, convertedType!, capture, parameters);
+            if (deferReason != null)
+            {
+                AddCapturedDefer(lambda, capture, deferReason, diagnostics, ref capturedDeferred);
+                return;
+            }
+
+            captures = BuildCapturePlans(model, body, capture);
         }
 
-        var parameters = BuildLambdaParameters(lambdaParameters, invoke.Parameters);
         var needsWrapper = invoke.ReturnsVoid;
         var returnTypeDisplay = needsWrapper
             ? TaskDisplayName
@@ -387,7 +398,30 @@ internal static class AsyncNormalizeAnalyzer
         var delegateDisplay = convertedType!.ToDisplayString(
             AsyncLambdaCaptureAnalysis.GlobalFullyQualifiedFormat);
 
-        var (typeParameters, constraints) = ResolveGenericCarry(parameters, returnTypeDisplay, body);
+        // 捕获形参的类型同样可能引用外层方法/类型的类型参数，必须参与泛型携带判定。
+        var carryParameters = parameters;
+        if (captures.Count > 0)
+        {
+            var combined = new List<LambdaParameterPlan>(parameters.Count + captures.Count);
+            combined.AddRange(captures.Select(static c =>
+                new LambdaParameterPlan(c.Name, c.TypeDisplay, RefKind.None)));
+            combined.AddRange(parameters);
+            carryParameters = combined;
+        }
+
+        var (typeParameters, constraints) = ResolveGenericCarry(
+            carryParameters, returnTypeDisplay, body);
+
+        if (captures.Count > 0
+            && captures.Any(c => typeParameters.Contains(c.Name, StringComparer.Ordinal)))
+        {
+            AddCapturedDefer(
+                lambda, capture,
+                $"capture name '{captures.First(c => typeParameters.Contains(c.Name, StringComparer.Ordinal)).Name}' " +
+                "collides with a carried type parameter.",
+                diagnostics, ref capturedDeferred);
+            return;
+        }
 
         var liftedName = AsyncNormalizeNaming.ResolveUniqueName(
             AsyncNormalizeNaming.GetLiftedMethodName(hostMemberName, index), usedNames);
@@ -406,17 +440,339 @@ internal static class AsyncNormalizeAnalyzer
             index,
             liftedName,
             wrapperName,
-            IsStatic: capture.Kind == AsyncLambdaCaptureKind.ZeroCapture,
+            IsStatic: capture.Kind != AsyncLambdaCaptureKind.ThisOnly,
             NeedsWrapper: needsWrapper,
             convertedType,
             delegateDisplay,
             parameters,
+            captures,
             returnTypeDisplay,
             expressionBodyNeedsReturn,
             capture.Kind,
             typeParameters,
             constraints,
             CaptureLayout.Empty));
+    }
+
+    // ── D3(d)：安全捕获提升（保守等价性前置校验） ──
+
+    /// <summary>
+    /// 捕获型 async lambda 的提升前置条件。全部通过才返回 null；任何一项无法证明等价
+    /// 都返回原因（调用方按 CS2J1802 defer 原样保留）。
+    /// </summary>
+    private static string? ValidateCapturedLift(
+        SemanticModel model,
+        LambdaExpressionSyntax lambda,
+        SyntaxNode body,
+        IMethodSymbol invoke,
+        INamedTypeSymbol convertedType,
+        AsyncLambdaCaptureAnalysis.CaptureResult capture,
+        IReadOnlyList<LambdaParameterPlan> parameters)
+    {
+        if (invoke.ReturnsVoid)
+            return "the target delegate returns void (async void has no lifted async equivalent).";
+
+        if (!IsSupportedTaskReturnType(invoke.ReturnType))
+        {
+            return $"the target delegate returns '{invoke.ReturnType.ToDisplayString()}', which is " +
+                "not Task/Task<T>/ValueTask/ValueTask<T>.";
+        }
+
+        if (IsExpressionTreeType(convertedType))
+            return "the target delegate is an expression tree.";
+
+        if (capture.HasThis)
+            return "the lambda also captures 'this', which cannot be passed as a value parameter.";
+
+        foreach (var symbol in capture.CapturedVariables)
+        {
+            switch (symbol)
+            {
+                case ILocalSymbol { RefKind: RefKind.None }:
+                case IParameterSymbol { RefKind: RefKind.None }:
+                case IRangeVariableSymbol:
+                    break;
+                default:
+                    return $"capture '{symbol.Name}' is not a local/parameter/range variable, " +
+                        "or it is passed by ref.";
+            }
+
+            var type = GetCapturedSymbolType(model, symbol, body);
+            if (type == null)
+                return $"the type of capture '{symbol.Name}' cannot be resolved.";
+            if (!type.IsReferenceType)
+            {
+                return $"capture '{symbol.Name}' has non-reference type " +
+                    $"'{type.ToDisplayString(AsyncLambdaCaptureAnalysis.GlobalFullyQualifiedFormat)}'; " +
+                    "value types are not lifted.";
+            }
+        }
+
+        var captureNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var symbol in capture.CapturedVariables)
+        {
+            if (!captureNames.Add(symbol.Name))
+                return $"duplicate capture name '{symbol.Name}'.";
+        }
+
+        foreach (var parameter in parameters)
+        {
+            if (captureNames.Contains(parameter.Name))
+                return $"capture name '{parameter.Name}' collides with a lambda parameter.";
+        }
+
+        var writtenInside = CollectWrittenInside(model, body, lambda);
+        if (writtenInside == null)
+            return "data flow analysis is unavailable for the lambda body.";
+        if (capture.CapturedVariables.Any(writtenInside.Contains))
+            return "a captured variable is written inside the lambda body.";
+
+        var scope = FindEnclosingMemberBody(lambda);
+        if (scope == null)
+            return "the enclosing member body cannot be located.";
+
+        var writtenInScope = CollectWrittenSymbols(scope, model);
+        foreach (var symbol in capture.CapturedVariables)
+        {
+            if (writtenInScope.Contains(symbol))
+            {
+                return $"capture '{symbol.Name}' is assigned (or passed by ref/out) in the " +
+                    "enclosing member; a value parameter would not observe later assignments.";
+            }
+        }
+
+        return null;
+    }
+
+    private static void AddCapturedDefer(
+        LambdaExpressionSyntax lambda,
+        AsyncLambdaCaptureAnalysis.CaptureResult capture,
+        string reason,
+        List<AsyncNormalizeDiagnostic> diagnostics,
+        ref int capturedDeferred)
+    {
+        capturedDeferred++;
+        var names = string.Join(", ", capture.CapturedVariables.Select(static s => s.Name));
+        diagnostics.Add(DiagnosticAt(
+            AsyncNormalizeDiagnosticCode.CS2J1802, lambda,
+            $"async lambda captures outer local/parameter/range variable(s) ({names}). This " +
+            $"shape cannot be lifted equivalently: {reason} Manual fix: extract a named method " +
+            "taking the captured values as explicit parameters, or pass the captured value " +
+            "explicitly through the async lambda."));
+    }
+
+    private static IReadOnlyList<LambdaCapturePlan> BuildCapturePlans(
+        SemanticModel model,
+        SyntaxNode body,
+        AsyncLambdaCaptureAnalysis.CaptureResult capture)
+    {
+        var entries = new List<(int Position, string Name, string TypeDisplay)>(
+            capture.CapturedVariables.Count);
+
+        foreach (var symbol in capture.CapturedVariables)
+        {
+            var type = GetCapturedSymbolType(model, symbol, body)!;
+            var position = symbol.Locations
+                .FirstOrDefault(location => location.IsInSource)?.SourceSpan.Start
+                ?? int.MaxValue;
+            entries.Add((
+                position,
+                symbol.Name,
+                type.ToDisplayString(AsyncLambdaCaptureAnalysis.GlobalFullyQualifiedFormat)));
+        }
+
+        // 顺序稳定：源声明位置优先，同位（理论上不可达）按名字兜底。
+        entries.Sort(static (left, right) =>
+        {
+            var byPosition = left.Position.CompareTo(right.Position);
+            return byPosition != 0
+                ? byPosition
+                : string.CompareOrdinal(left.Name, right.Name);
+        });
+
+        return entries
+            .Select(static entry => new LambdaCapturePlan(entry.Name, entry.TypeDisplay))
+            .ToArray();
+    }
+
+    /// <summary>
+    /// 捕获符号的类型：局部/形参直接取符号；foreach/查询 range 变量没有类型面，
+    /// 从其在 lambda 体内的首个绑定标识符取 SemanticModel 类型。
+    /// </summary>
+    private static ITypeSymbol? GetCapturedSymbolType(
+        SemanticModel model,
+        ISymbol symbol,
+        SyntaxNode body)
+    {
+        switch (symbol)
+        {
+            case ILocalSymbol local:
+                return local.Type;
+            case IParameterSymbol parameter:
+                return parameter.Type;
+        }
+
+        foreach (var identifier in body.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+        {
+            if (SymbolEqualityComparer.Default.Equals(
+                    model.GetSymbolInfo(identifier).Symbol, symbol))
+            {
+                return model.GetTypeInfo(identifier).Type;
+            }
+        }
+
+        return null;
+    }
+
+    private static HashSet<ISymbol>? CollectWrittenInside(
+        SemanticModel model,
+        SyntaxNode body,
+        LambdaExpressionSyntax lambda)
+    {
+        DataFlowAnalysis? dataFlow;
+        try
+        {
+            dataFlow = model.AnalyzeDataFlow(body);
+        }
+        catch (ArgumentException)
+        {
+            dataFlow = null;
+        }
+
+        if (dataFlow is not { Succeeded: true })
+        {
+            try
+            {
+                dataFlow = model.AnalyzeDataFlow(lambda);
+            }
+            catch (ArgumentException)
+            {
+                dataFlow = null;
+            }
+        }
+
+        if (dataFlow is not { Succeeded: true })
+            return null;
+
+        return new HashSet<ISymbol>(dataFlow.WrittenInside, SymbolEqualityComparer.Default);
+    }
+
+    /// <summary>
+    /// 外层成员体内对符号的全部写入：普通/复合赋值左值、前缀/后缀 ++/--、ref/out 实参、
+    /// ref 表达式的目标。变量声明符的初始值不是 <c>AssignmentExpressionSyntax</c>，天然不计。
+    /// </summary>
+    private static HashSet<ISymbol> CollectWrittenSymbols(SyntaxNode scope, SemanticModel model)
+    {
+        var written = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+        void AddTarget(ExpressionSyntax expression)
+        {
+            switch (expression)
+            {
+                case IdentifierNameSyntax identifier:
+                    var symbol = model.GetSymbolInfo(identifier).Symbol;
+                    if (symbol != null)
+                        written.Add(symbol);
+                    break;
+
+                case ParenthesizedExpressionSyntax parenthesized:
+                    AddTarget(parenthesized.Expression);
+                    break;
+
+                case TupleExpressionSyntax tuple:
+                    foreach (var argument in tuple.Arguments)
+                        AddTarget(argument.Expression);
+                    break;
+            }
+        }
+
+        foreach (var node in scope.DescendantNodesAndSelf())
+        {
+            switch (node)
+            {
+                case AssignmentExpressionSyntax assignment:
+                    AddTarget(assignment.Left);
+                    break;
+
+                case PrefixUnaryExpressionSyntax prefix
+                    when prefix.IsKind(SyntaxKind.PreIncrementExpression)
+                        || prefix.IsKind(SyntaxKind.PreDecrementExpression):
+                    AddTarget(prefix.Operand);
+                    break;
+
+                case PostfixUnaryExpressionSyntax postfix
+                    when postfix.IsKind(SyntaxKind.PostIncrementExpression)
+                        || postfix.IsKind(SyntaxKind.PostDecrementExpression):
+                    AddTarget(postfix.Operand);
+                    break;
+
+                case ArgumentSyntax argument
+                    when argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
+                        || argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword):
+                    AddTarget(argument.Expression);
+                    break;
+
+                case RefExpressionSyntax refExpression:
+                    AddTarget(refExpression.Expression);
+                    break;
+            }
+        }
+
+        return written;
+    }
+
+    /// <summary>
+    /// 捕获 lambda 的最近/最外层成员体（到类型声明为止，故嵌套局部函数内的写入也会覆盖）。
+    /// </summary>
+    private static SyntaxNode? FindEnclosingMemberBody(LambdaExpressionSyntax lambda)
+    {
+        SyntaxNode? body = null;
+        foreach (var ancestor in lambda.Ancestors())
+        {
+            if (ancestor is TypeDeclarationSyntax)
+                break;
+
+            var candidate = ancestor switch
+            {
+                MethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody,
+                ConstructorDeclarationSyntax constructor =>
+                    (SyntaxNode?)constructor.Body ?? constructor.ExpressionBody,
+                DestructorDeclarationSyntax destructor =>
+                    (SyntaxNode?)destructor.Body ?? destructor.ExpressionBody,
+                OperatorDeclarationSyntax @operator =>
+                    (SyntaxNode?)@operator.Body ?? @operator.ExpressionBody,
+                ConversionOperatorDeclarationSyntax conversion =>
+                    (SyntaxNode?)conversion.Body ?? conversion.ExpressionBody,
+                AccessorDeclarationSyntax accessor =>
+                    (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody,
+                LocalFunctionStatementSyntax localFunction =>
+                    (SyntaxNode?)localFunction.Body ?? localFunction.ExpressionBody,
+                PropertyDeclarationSyntax property => property.ExpressionBody,
+                IndexerDeclarationSyntax indexer => indexer.ExpressionBody,
+                _ => null,
+            };
+            if (candidate != null)
+                body = candidate;
+        }
+
+        return body;
+    }
+
+    private static bool IsSupportedTaskReturnType(ITypeSymbol type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return false;
+        var definition = named.OriginalDefinition;
+        if (definition.ContainingNamespace?.ToDisplayString() != "System.Threading.Tasks")
+            return false;
+        return definition is { Name: "Task" or "ValueTask", Arity: <= 1 };
+    }
+
+    private static bool IsExpressionTreeType(INamedTypeSymbol? type)
+    {
+        if (type?.OriginalDefinition is not { Name: "Expression", Arity: 1 } definition)
+            return false;
+        return definition.ContainingNamespace?.ToDisplayString() == "System.Linq.Expressions";
     }
 
     private static IReadOnlyList<LambdaParameterPlan> BuildLambdaParameters(
@@ -556,6 +912,7 @@ internal static class AsyncNormalizeAnalyzer
             DelegateType: null,
             DelegateTypeDisplay: null,
             parameters,
+            Captures: Array.Empty<LambdaCapturePlan>(),
             returnTypeDisplay,
             expressionBodyNeedsReturn,
             capture.Kind,

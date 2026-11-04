@@ -13,7 +13,11 @@ internal enum AsyncLambdaCaptureKind
     /// <summary>仅捕获 this：提为 <c>private async</c> 实例方法（D3(b)）。</summary>
     ThisOnly,
 
-    /// <summary>捕获局部/形参/foreach 迭代变量：v1 CS2J1802 defer（D3(d)）。</summary>
+    /// <summary>
+    /// 捕获局部/形参/foreach 迭代变量：安全捕获（引用类型、无写入、无 this）提为
+    /// <c>private static async</c> + 捕获形参 + 非 async 包装 lambda；不满足安全条件仍
+    /// CS2J1802 defer（D3(d)）。
+    /// </summary>
     CapturedLocals,
 }
 
@@ -22,6 +26,15 @@ internal sealed record LambdaParameterPlan(
     string Name,
     string TypeDisplay,
     RefKind RefKind);
+
+/// <summary>
+/// 一个被捕获外层变量的冻结渲染信息（D3(d) 安全捕获提升）。
+/// <see cref="Name"/> 沿用源符号名，<see cref="TypeDisplay"/> 用 global:: 全限定渲染；
+/// 捕获按源声明位置排序后作为提升方法的前置形参。
+/// </summary>
+internal sealed record LambdaCapturePlan(
+    string Name,
+    string TypeDisplay);
 
 /// <summary>
 /// 捕获布局（设计 §4.4 D12）：被捕获 <see cref="ISymbol"/> → 合成字段名只读表。
@@ -83,6 +96,12 @@ internal sealed record LambdaLiftPlan(
 
     /// <summary>提升方法形参（名来自源码，类型来自符号）。</summary>
     IReadOnlyList<LambdaParameterPlan> Parameters,
+
+    /// <summary>
+    /// 被捕获外层变量（前置形参）；非 <see cref="AsyncLambdaCaptureKind.CapturedLocals"/>
+    /// 计划为空。顺序按源声明位置冻结，Lifter 只按此顺序发射形参与 wrapper 实参。
+    /// </summary>
+    IReadOnlyList<LambdaCapturePlan> Captures,
 
     /// <summary>提升方法返回类型渲染：void 委托为 Task，其余为委托 Invoke 返回类型（Task/Task&lt;T&gt;）。</summary>
     string LiftedReturnTypeDisplay,

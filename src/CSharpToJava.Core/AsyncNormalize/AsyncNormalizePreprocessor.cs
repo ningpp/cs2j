@@ -311,6 +311,10 @@ public sealed class AsyncNormalizePreprocessor
                     stats.AsyncLambdasLiftedVoidWrapper++;
                     stats.WrappersGenerated++;
                 }
+                else if (plan.CaptureKind == AsyncLambdaCaptureKind.CapturedLocals)
+                {
+                    stats.AsyncLambdasLiftedCapturedLocals++;
+                }
                 else if (plan.IsStatic)
                 {
                     stats.AsyncLambdasLiftedZeroCapture++;

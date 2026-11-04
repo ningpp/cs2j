@@ -273,14 +273,53 @@ internal sealed class AsyncLambdaLifter : CSharpSyntaxRewriter
 
     // ── 合成节点构造 ──
 
-    private static ObjectCreationExpressionSyntax BuildDelegateCreation(LambdaLiftPlan plan)
+    private static ExpressionSyntax BuildDelegateCreation(LambdaLiftPlan plan)
     {
+        if (plan.Captures.Count > 0)
+            return BuildCapturingWrapperLambda(plan);
+
         var methodGroup = BuildMethodGroup(plan, plan.CallSiteMethodName);
         return SyntaxFactory.ObjectCreationExpression(
             SyntaxFactory.ParseTypeName(plan.DelegateTypeDisplay!),
             SyntaxFactory.ArgumentList(
                 SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(methodGroup))),
             initializer: null);
+    }
+
+    /// <summary>
+    /// 安全捕获提升的调用点：非 async 包装 lambda，按原 lambda 形参签名调用提升方法，
+    /// 捕获值作为前置实参。返回类型由调用表达式推断，wrapper 不带 async。
+    /// </summary>
+    private static ParenthesizedLambdaExpressionSyntax BuildCapturingWrapperLambda(
+        LambdaLiftPlan plan)
+    {
+        var arguments = new List<ArgumentSyntax>(plan.Captures.Count + plan.Parameters.Count);
+        arguments.AddRange(plan.Captures.Select(static capture =>
+            SyntaxFactory.Argument(SyntaxFactory.IdentifierName(capture.Name))));
+        arguments.AddRange(plan.Parameters.Select(static parameter => BuildForwardArgument(parameter)));
+
+        var invocation = SyntaxFactory.InvocationExpression(
+            BuildMethodGroup(plan),
+            SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments)));
+
+        return SyntaxFactory.ParenthesizedLambdaExpression(
+            SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(
+                plan.Parameters.Select(BuildParameterSyntax))),
+            invocation);
+    }
+
+    private static ArgumentSyntax BuildForwardArgument(LambdaParameterPlan parameter)
+    {
+        var argument = SyntaxFactory.Argument(SyntaxFactory.IdentifierName(parameter.Name));
+        return parameter.RefKind switch
+        {
+            RefKind.Ref => argument.WithRefKindKeyword(SyntaxFactory.Token(SyntaxKind.RefKeyword)),
+            RefKind.Out => argument.WithRefKindKeyword(SyntaxFactory.Token(SyntaxKind.OutKeyword)),
+            RefKind.In => argument.WithRefKindKeyword(SyntaxFactory.Token(SyntaxKind.InKeyword)),
+            RefKind.RefReadOnlyParameter => argument.WithRefKindKeyword(
+                SyntaxFactory.Token(SyntaxKind.InKeyword)),
+            _ => argument,
+        };
     }
 
     /// <summary>提升方法/包装方法的方法组表达式；泛型方法显式带类型参数，保证目标类型可推断失败时也可编译。</summary>
@@ -307,7 +346,12 @@ internal sealed class AsyncLambdaLifter : CSharpSyntaxRewriter
             modifiers.Add(SyntaxFactory.Token(SyntaxKind.StaticKeyword));
         modifiers.Add(SyntaxFactory.Token(SyntaxKind.AsyncKeyword));
 
-        var parameters = plan.Parameters.Select(BuildParameterSyntax).ToList();
+        var parameters = plan.Captures
+            .Select(static capture => new LambdaParameterPlan(
+                capture.Name, capture.TypeDisplay, RefKind.None))
+            .Concat(plan.Parameters)
+            .Select(BuildParameterSyntax)
+            .ToList();
         var body = BuildMovedBody(plan);
 
         var method = SyntaxFactory.MethodDeclaration(

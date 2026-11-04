@@ -43,6 +43,12 @@ public sealed class AsyncNormalizeStatistics
     /// <summary>仅捕获 this、提为 private async 实例方法的 async lambda 数（D3(b)）。</summary>
     public int AsyncLambdasLiftedThisOnly;
 
+    /// <summary>
+    /// 安全捕获外层局部/形参/foreach 变量、提为 private static async 方法 + 非 async
+    /// 包装 lambda 的 async lambda 数（D3(d) 安全子集）。
+    /// </summary>
+    public int AsyncLambdasLiftedCapturedLocals;
+
     /// <summary>void 返回委托（async void lambda）经 Task 方法 + 同步 wrapper 提升的站点数（D3(c)）。</summary>
     public int AsyncLambdasLiftedVoidWrapper;
 

@@ -26,7 +26,8 @@ internal static class AsyncLambdaCaptureAnalysis
 
     public sealed record CaptureResult(
         AsyncLambdaCaptureKind Kind,
-        IReadOnlyList<ISymbol> CapturedVariables);
+        IReadOnlyList<ISymbol> CapturedVariables,
+        bool HasThis);
 
     public static CaptureResult Classify(
         SemanticModel model,
@@ -52,6 +53,21 @@ internal static class AsyncLambdaCaptureAnalysis
 
         if (dataFlowWorks)
         {
+            // Roslyn 对 expression-bodied lambda 的 AnalyzeDataFlow 可能把**同一成员内
+            // 兄弟 lambda** 的捕获并集一并报告（真实 SDK 语料已观察到：两个 using 块的
+            // stream/options 同时出现在各自的 Captured）。按 lambda 体内实际绑定引用的
+            // 符号过滤，并按符号去重，避免把兄弟 lambda 的捕获当成自己的。
+            var referenced = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+            foreach (var identifier in body.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+            {
+                if (identifier.Parent is NameColonSyntax)
+                    continue;
+                var bound = model.GetSymbolInfo(identifier).Symbol;
+                if (bound != null)
+                    referenced.Add(bound);
+            }
+
+            var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
             foreach (var symbol in dataFlow!.Captured)
             {
                 if (symbol is IParameterSymbol { IsThis: true })
@@ -60,8 +76,12 @@ internal static class AsyncLambdaCaptureAnalysis
                     continue;
                 }
 
-                if (symbol is ILocalSymbol or IParameterSymbol or IRangeVariableSymbol)
+                if ((symbol is ILocalSymbol or IParameterSymbol or IRangeVariableSymbol)
+                    && referenced.Contains(symbol)
+                    && seen.Add(symbol))
+                {
                     captured.Add(symbol);
+                }
             }
 
             return new CaptureResult(
@@ -70,7 +90,8 @@ internal static class AsyncLambdaCaptureAnalysis
                     : hasThis
                         ? AsyncLambdaCaptureKind.ThisOnly
                         : AsyncLambdaCaptureKind.ZeroCapture,
-                captured);
+                captured,
+                hasThis);
         }
 
         return ClassifySyntactically(model, body, boundaryMethod, hostTypeSymbol);
@@ -123,7 +144,7 @@ internal static class AsyncLambdaCaptureAnalysis
             : hasThis
                 ? AsyncLambdaCaptureKind.ThisOnly
                 : AsyncLambdaCaptureKind.ZeroCapture;
-        return new CaptureResult(kind, captured);
+        return new CaptureResult(kind, captured, hasThis);
     }
 
     private static bool HostTypeContains(INamedTypeSymbol hostType, INamedTypeSymbol? memberType)

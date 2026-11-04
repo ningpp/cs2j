@@ -356,12 +356,14 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
         var lambdasLifted =
             _statistics.AsyncLambdasLiftedZeroCapture
             + _statistics.AsyncLambdasLiftedThisOnly
-            + _statistics.AsyncLambdasLiftedVoidWrapper;
+            + _statistics.AsyncLambdasLiftedVoidWrapper
+            + _statistics.AsyncLambdasLiftedCapturedLocals;
         var awaitUsingExpanded =
             _statistics.AwaitUsingStatementsExpanded
             + _statistics.AwaitUsingDeclarationsExpanded;
         // C18 段后追加 C38 分项（0 也输出，保持摘要可 grep 的稳定形态）。
-        return $"async-normalize: {lambdasLifted} lambda(s) lifted, " +
+        return $"async-normalize: {lambdasLifted} lambda(s) lifted " +
+               $"({_statistics.AsyncLambdasLiftedCapturedLocals} captured), " +
                $"{_statistics.WrappersGenerated} wrapper(s), " +
                $"{_statistics.ConfigureAwaitStripped} ConfigureAwait stripped, " +
                $"{_statistics.AwaitSites} await-site(s) kept, " +
@@ -401,6 +403,7 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
 
         _statistics.AsyncLambdasLiftedZeroCapture += source.AsyncLambdasLiftedZeroCapture;
         _statistics.AsyncLambdasLiftedThisOnly += source.AsyncLambdasLiftedThisOnly;
+        _statistics.AsyncLambdasLiftedCapturedLocals += source.AsyncLambdasLiftedCapturedLocals;
         _statistics.AsyncLambdasLiftedVoidWrapper += source.AsyncLambdasLiftedVoidWrapper;
         _statistics.AsyncLocalFunctionsLifted += source.AsyncLocalFunctionsLifted;
         _statistics.WrappersGenerated += source.WrappersGenerated;
