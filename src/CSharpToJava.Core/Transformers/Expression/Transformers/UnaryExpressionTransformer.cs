@@ -269,9 +269,20 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
             return false;
         var getter = mapped ?? "get" + char.ToUpperInvariant(property.Name[0]) + property.Name[1..];
         var setter = mapped ?? "set" + char.ToUpperInvariant(property.Name[0]) + property.Name[1..];
-        var temp = context.GenerateSyntheticName("_inc");
         var arith = op == "++" ? "+" : "-";
 
+        if (context.InlinePropertyIncrement)
+        {
+            // for 头（condition/incrementors）语境：预语句会被 Drain 到循环前执行一次，
+            // 因此改为自包含表达式 setX(getX() ± 1)，前缀/后缀在此语境下等价
+            // （表达式值只作为语句使用）。
+            var getterExpr = $"{receiver}{getter}() {arith} 1";
+            var argument = narrowingCast.Length == 0 ? getterExpr : $"{narrowingCast}({getterExpr})";
+            lowered = $"{receiver}{setter}({argument})";
+            return true;
+        }
+
+        var temp = context.GenerateSyntheticName("_inc");
         context.AddPreStatement($"var {temp} = {receiver}{getter}();");
         if (isPostfix)
         {

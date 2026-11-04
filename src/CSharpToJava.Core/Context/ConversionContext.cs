@@ -244,6 +244,12 @@ public class ConversionContext
     /// </summary>
     public bool IsInStaticMember { get; set; }
     /// <summary>
+    /// True while converting a for-statement header (condition/incrementors), where
+    /// pending pre-statements would be hoisted out of the loop. Property increment
+    /// lowering then emits a self-contained setter call instead of a temp variable.
+    /// </summary>
+    public bool InlinePropertyIncrement { get; set; }
+    /// <summary>
     /// Set during method/class attribute processing when the current test class
     /// needs @ExtendWith(MSTestExtension.class) for deployment items, TestContext
     /// parameter injection, or lifecycle support.

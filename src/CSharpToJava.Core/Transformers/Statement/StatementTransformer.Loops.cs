@@ -67,10 +67,23 @@ public partial class StatementTransformer
             initializers = string.Join(", ", stmt.Initializers.Select(i => exprTransformer.Transform(i, context)));
         }
 
-        var condition = stmt.Condition != null
-            ? exprTransformer.Transform(stmt.Condition, context)
-            : "true";
-        var incrementors = string.Join(", ", stmt.Incrementors.Select(i => exprTransformer.Transform(i, context)));
+        // for 头的 condition/incrementors 转换产生的预语句会被 Drain 到循环外
+        // （只执行一次），故在此区间要求属性自增降级输出自包含表达式。
+        var previousInlinePropertyIncrement = context.InlinePropertyIncrement;
+        string condition;
+        string incrementors;
+        context.InlinePropertyIncrement = true;
+        try
+        {
+            condition = stmt.Condition != null
+                ? exprTransformer.Transform(stmt.Condition, context)
+                : "true";
+            incrementors = string.Join(", ", stmt.Incrementors.Select(i => exprTransformer.Transform(i, context)));
+        }
+        finally
+        {
+            context.InlinePropertyIncrement = previousInlinePropertyIncrement;
+        }
 
         var pendingPre = context.HasPendingPreStatements ? context.DrainPreStatements() : new List<string>();
         RejectConditionPostStatements(context, "for");
