@@ -469,6 +469,11 @@ public sealed class CompatMethodReplacementTests
         "<script>&'",
         "中文\u0001tail",
         "a\u007Fb",
+        "a\uD801b",
+        "a\uDC37b",
+        "a\uD801\uDC37b",
+        "x\U0001F600y",
+        "\uD801\uDC00\uDE6D a",
     };
 
     [Fact]

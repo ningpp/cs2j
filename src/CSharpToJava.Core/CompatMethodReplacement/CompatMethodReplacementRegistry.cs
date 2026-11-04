@@ -388,12 +388,41 @@ public sealed class CompatMethodReplacementRegistry
                 var __encoder = object.ReferenceEquals(encoder, null)
                     ? global::System.Text.Encodings.Web.JavaScriptEncoder.Default
                     : encoder;
-                for (int __i = 0; __i < value.Length; __i++)
+                int __i = 0;
+                while (__i < value.Length)
                 {
-                    if (__encoder.WillEncode((int)value[__i]))
+                    int __scalar = (int)value[__i];
+                    if (__scalar >= 0xD800 && __scalar <= 0xDBFF)
+                    {
+                        if (__i + 1 < value.Length
+                            && (int)value[__i + 1] >= 0xDC00
+                            && (int)value[__i + 1] <= 0xDFFF)
+                        {
+                            __scalar = 0x10000 + ((__scalar - 0xD800) << 10)
+                                + ((int)value[__i + 1] - 0xDC00);
+                            if (__encoder.WillEncode(__scalar))
+                            {
+                                return __i;
+                            }
+
+                            __i += 2;
+                            continue;
+                        }
+
+                        return __i;
+                    }
+
+                    if (__scalar >= 0xDC00 && __scalar <= 0xDFFF)
                     {
                         return __i;
                     }
+
+                    if (__encoder.WillEncode(__scalar))
+                    {
+                        return __i;
+                    }
+
+                    __i++;
                 }
 
                 return -1;
@@ -401,7 +430,10 @@ public sealed class CompatMethodReplacementRegistry
             Description =
                 "Replaces the char-span fixed/pointer scan " +
                 "(FindFirstCharacterToEncode(char*, int)) with a managed " +
-                "per-character WillEncode loop. The empty-span guard keeps the " +
+                "surrogate-aware WillEncode loop: a valid surrogate pair is " +
+                "checked as its combined scalar (returning the high-surrogate " +
+                "index), and an unpaired surrogate is reported as needing " +
+                "escaping at its own index. The empty-span guard keeps the " +
                 "original semantics for encoders that dereference the pointer " +
                 "even when the length is zero.",
         },
