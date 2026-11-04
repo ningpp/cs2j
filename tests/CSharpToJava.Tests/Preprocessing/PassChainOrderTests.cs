@@ -62,11 +62,17 @@ public sealed class PassChainOrderTests
         // tiebreak pins using-resource-lift -> fixed-span-to-array -> unsigned.
         // It must stay before unsafe-ffm so R3 can consume fixed over array.
         PassIds.FixedSpanToArray,
+        // Expression pre-pass over the code-registered known-method table. It
+        // is declared right after fixed-span-to-array and anchors it, so the
+        // Kahn tiebreak pins fixed-span-to-array -> compat-method-replacement ->
+        // pointer-diff-inline -> unsigned. It must stay before unsafe-ffm so the
+        // replaced transcoder body carries no fixed/pointer code.
+        PassIds.CompatMethodReplacement,
         // Expression pre-pass over ref-out-in's output. It inlines file-local
         // same-type pointer-difference helpers before unsafe-ffm so the helper
         // pointer arguments no longer escape (UF020). RunAfter ref-out-in and
-        // physically declared right after fixed-span-to-array, so the Kahn
-        // declaration-order tiebreak pins fixed-span-to-array ->
+        // physically declared right after compat-method-replacement, so the Kahn
+        // declaration-order tiebreak pins compat-method-replacement ->
         // pointer-diff-inline -> unsigned.
         PassIds.PointerDiffInline,
         PassIds.Unsigned,
@@ -834,6 +840,7 @@ public sealed class PassChainOrderTests
                 && id != PassIds.UnsafeRefLowering
                 && id != PassIds.UsingResourceLift
                 && id != PassIds.FixedSpanToArray
+                && id != PassIds.CompatMethodReplacement
                 && id != PassIds.PointerDiffInline
                 && id != PassStubCatalog.Ids.ExpressionDesugar
                 && id != PassStubCatalog.Ids.LexicalNormalize

@@ -21,6 +21,7 @@ internal static class PassIds
     public const string UnsafeRefLowering = "unsafe-ref-lowering";
     public const string UsingResourceLift = "using-resource-lift";
     public const string FixedSpanToArray = "fixed-span-to-array";
+    public const string CompatMethodReplacement = "compat-method-replacement";
     public const string PointerDiffInline = "pointer-diff-inline";
     public const string Unsigned = "unsigned";
     public const string Generic = "generic";
@@ -343,6 +344,44 @@ internal static class PassCatalog
             catalogItems: "C06",
             // The pass owns no NORM code itself: it feeds NORM-FIXED into
             // unsafe-ffm, which remains the residual owner.
+            contract: new PassContract(
+                Consumes: Array.Empty<string>(),
+                Produces: Array.Empty<string>(),
+                Preconditions: Array.Empty<string>(),
+                Postconditions: Array.Empty<string>(),
+                MayLeave: Array.Empty<string>(),
+                Owners: Array.Empty<string>(),
+                Policy: ResidualPolicy.Fail,
+                Idempotent: true,
+                RequiresWholeTree: true)),
+        new(
+            PassIds.CompatMethodReplacement,
+            "Compat method replacement",
+            ".cs2j-compat-method-replacement-src",
+            PassStage.Expression,
+            PassStatus.Implemented,
+            // Independent Expression pre-pass fed by the code-registered
+            // known-method replacement table. It only rewrites the body of an
+            // exactly-matching known method (symbol based: namespace + type +
+            // name + parameter types) and preserves every other overload with
+            // CMR001, so default-on is safe. It must stay before unsafe-ffm so
+            // the transcoder's array fixed statements disappear before R3 runs.
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.FixedSpanToArray },
+            supportLibrary: PassSupportLibrary.None,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Replace the body of code-registered known methods (fully-qualified " +
+                "signature table) with their managed implementation; e.g. " +
+                "JsonWriterHelper.ToUtf8's pointer transcoder becomes " +
+                "Encoding.UTF8.GetEncoder().Convert over materialized arrays, freeing " +
+                "unsafe-ffm R3 to lower the residual array fixed statements. Unmatched " +
+                "near misses stay verbatim with CMR001 for normalization-audit.",
+            catalogItems: "C06",
+            // The pass owns no NORM code itself: it removes NORM-FIXED /
+            // NORM-POINTER-* presence upstream of unsafe-ffm, which remains the
+            // residual owner.
             contract: new PassContract(
                 Consumes: Array.Empty<string>(),
                 Produces: Array.Empty<string>(),

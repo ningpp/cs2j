@@ -5,6 +5,7 @@ using CSharpToJava.Core.AttributeNormalize;
 using CSharpToJava.Core.ClosureLift;
 using CSharpToJava.Core.ConcurrencyNormalize;
 using CSharpToJava.Core.ClosedMetadata;
+using CSharpToJava.Core.CompatMethodReplacement;
 using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.Core.DynamicDesugar;
@@ -426,6 +427,16 @@ internal static class PassChainFactory
             // statements into fixed over a managed array before unsafe-ffm.
             PassIds.FixedSpanToArray => new FixedSpanToArrayPassAdapter(
                 new FixedSpanToArrayOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
+
+            // Independent expression pre-pass that replaces the body of
+            // code-registered known methods with managed implementations.
+            PassIds.CompatMethodReplacement => new CompatMethodReplacementPassAdapter(
+                new CompatMethodReplacementOptions(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,
