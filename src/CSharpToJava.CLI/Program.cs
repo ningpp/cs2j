@@ -166,6 +166,14 @@ public class Program
                 return 1;
             }
 
+            if (!TryNormalizeProfile(opts.Profile, out var profile, out var profileError))
+            {
+                Console.Error.WriteLine(profileError);
+                return 1;
+            }
+
+            var auditEnabledByProfile = profile is "java-ready" or "audit";
+
             if (opts.PreprocessOnly)
             {
                 if (opts.NoPreprocess)
@@ -229,6 +237,13 @@ public class Program
             CliChainResult chain;
             if (opts.NoPreprocess)
             {
+                if (auditEnabledByProfile)
+                {
+                    Console.Error.WriteLine(
+                        $"[Warning] --no-preprocess skips the preprocess chain; " +
+                        $"--profile {profile} is ignored (no chain to audit).");
+                }
+
                 if (opts.Verbose)
                 {
                     Console.WriteLine("--no-preprocess: skipping all preprocessing passes; converting source directly.");
@@ -255,6 +270,21 @@ public class Program
             }
             else
             {
+                // java-ready/audit append normalization-audit to whatever the
+                // user selected; an explicit --disable-pass still wins (the
+                // pass is then left out instead of tripping the resolver's
+                // enable/disable conflict).
+                IEnumerable<string>? enablePassIds = opts.EnablePasses;
+                if (auditEnabledByProfile
+                    && !(opts.DisablePasses?.Contains(
+                        PassIds.NormalizationAudit, StringComparer.Ordinal) ?? false))
+                {
+                    enablePassIds = (enablePassIds ?? Array.Empty<string>())
+                        .Concat(new[] { PassIds.NormalizationAudit })
+                        .Distinct(StringComparer.Ordinal)
+                        .ToList();
+                }
+
                 chain = await CliPreprocessChain.RunAsync(new CliChainRequest
                 {
                 SourcePath = opts.Source,
@@ -383,8 +413,11 @@ public class Program
                     opts.PlatformReportOnly, opts.PlatformMode, opts.PlatformStrict, opts.PlatformConfig),
                 DynamicDesugarOptionsFactory = () => BuildDynamicDesugarOptions(
                     opts.DynamicReportOnly, opts.DynamicMode, opts.DynamicStrict, opts.DynamicAuditManifest),
+                Profile = profile,
+                ResidualAuditEnforce = profile != "audit",
+                ResidualReportPath = opts.ResidualReportPath,
                 LegacyToggles = PassChainFactory.BuildLegacyToggles(opts),
-                EnablePassIds = opts.EnablePasses,
+                EnablePassIds = enablePassIds,
                 DisablePassIds = opts.DisablePasses,
                 EnableDecimalOps = opts.DecimalOpsEffective,
                 ParamsCollections = paramsCollectionsOptions,
@@ -4011,6 +4044,26 @@ public class Program
     }
 
     /// <summary>
+    /// Normalizes and validates the <c>--profile</c> value shared by
+    /// <c>convert-project</c> and <c>preprocess</c>. On an unknown value the
+    /// returned error is a ready-to-print stderr line.
+    /// </summary>
+    internal static bool TryNormalizeProfile(string? raw, out string profile, out string error)
+    {
+        var normalized = (raw ?? "default").Trim().ToLowerInvariant();
+        if (normalized is not ("default" or "java-ready" or "audit"))
+        {
+            profile = string.Empty;
+            error = $"Error: unknown preprocess profile '{raw}'. Use default|java-ready|audit.";
+            return false;
+        }
+
+        profile = normalized;
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
     /// Generic <c>preprocess</c> verb: lists the catalog (<c>--list-passes</c>) or
     /// runs the default chain / an explicitly selected set of registered passes
     /// against a project or solution without performing Java conversion.
@@ -4042,11 +4095,9 @@ public class Program
                 return 1;
             }
 
-            var profile = (opts.Profile ?? "default").Trim().ToLowerInvariant();
-            if (profile is not ("default" or "java-ready" or "audit"))
+            if (!TryNormalizeProfile(opts.Profile, out var profile, out var profileError))
             {
-                Console.Error.WriteLine(
-                    $"Error: unknown preprocess profile '{opts.Profile}'. Use default|java-ready|audit.");
+                Console.Error.WriteLine(profileError);
                 return 1;
             }
 
@@ -5958,6 +6009,16 @@ class ConvertProjectOptions
     [Option("disable-pass", Required = false, Separator = ',',
         HelpText = "Disable a preprocess pass by id, overriding defaults and legacy flags (repeatable or comma-separated; use the 'preprocess --list-passes' verb for ids)")]
     public IEnumerable<string>? DisablePasses { get; set; }
+
+    [Option("profile", Default = "default",
+        HelpText = "Preprocess profile: default|java-ready|audit. java-ready and audit both append " +
+                   "normalization-audit to the chain; java-ready fails on NORM-* residuals, audit only reports them")]
+    public string Profile { get; set; } = "default";
+
+    [Option("residual-report", Required = false,
+        HelpText = "Path to the normalization-audit residual report JSON " +
+                   "(default: <destination>/preprocess-residual-report.json; relative paths resolve against the destination)")]
+    public string? ResidualReportPath { get; set; }
 
     [Option("extern-whitelist", Required = false,
         HelpText = "unsafe-ffm (C06) opt-in: path to the FFM extern whitelist JSON; whitelisted " +
