@@ -52,6 +52,11 @@ public sealed class PassChainOrderTests
         // and declared directly after it, so the Kahn declaration-order
         // tiebreak pins ref-out-in -> unsafe-ref-lowering -> unsigned.
         PassIds.UnsafeRefLowering,
+        // Control-flow post-pass over ref-out-in's residual `using (... ref/out ...)`
+        // resource expressions. RunAfter=ref-out-in and physically declared right
+        // after unsafe-ref-lowering, so the Kahn declaration-order tiebreak pins
+        // the slot unsafe-ref-lowering -> using-resource-lift -> unsigned.
+        PassIds.UsingResourceLift,
         PassIds.Unsigned,
         PassStubCatalog.Ids.NumericBoundary,
         PassIds.Generic,
@@ -808,6 +813,7 @@ public sealed class PassChainOrderTests
                 && id != PassIds.StackAllocLowering
                 && id != PassIds.RefStructLowering
                 && id != PassIds.UnsafeRefLowering
+                && id != PassIds.UsingResourceLift
                 && id != PassStubCatalog.Ids.ExpressionDesugar
                 && id != PassStubCatalog.Ids.LexicalNormalize
                 && id != PassStubCatalog.Ids.PartialMerge

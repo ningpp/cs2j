@@ -18,6 +18,7 @@ internal static class PassIds
     public const string StripDefault = "strip-default";
     public const string RefOutIn = "ref-out-in";
     public const string UnsafeRefLowering = "unsafe-ref-lowering";
+    public const string UsingResourceLift = "using-resource-lift";
     public const string Unsigned = "unsigned";
     public const string Generic = "generic";
     public const string ThreadStatic = "thread-static";
@@ -270,6 +271,27 @@ internal static class PassCatalog
             description: "Lower `ref T x = ref MemoryMarshal.GetReference(span)` plus its " +
                 "Unsafe.ReadUnaligned/Unsafe.Add reads to MemoryMarshal.Read and span indexing; " +
                 "unprovable locals stay verbatim with URL001 for normalization-audit."),
+        new(
+            PassIds.UsingResourceLift,
+            "Using resource lift",
+            ".cs2j-using-resource-lift-src",
+            PassStage.ControlFlow,
+            PassStatus.Implemented,
+            // Independent control-flow post-pass over ref-out-in's residual
+            // `using (... ref/out ...)` resource expressions. Safe to run by
+            // default: it only moves resource expressions Java's statement gate
+            // rejects into ordinary local declarations and preserves every
+            // other using statement verbatim.
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.RefOutIn },
+            supportLibrary: PassSupportLibrary.None,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Lift using resource expressions that contain ref/out read-backs " +
+                "(or ByRef<T> factory calls) into a preceding local declaration, so the " +
+                "Java using statement gate sees a plain identifier resource; await using, " +
+                "using declarations and multiple-variable declarations stay verbatim."),
         new(
             PassIds.Unsigned,
             "Unsigned types",
