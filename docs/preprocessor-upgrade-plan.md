@@ -729,6 +729,7 @@ dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- 
 | `using` 资源表达式 ref 读回提升 | 完成 | `using-resource-lift` pass | JsonDocumentTests 的 7 处 using 门禁消除 |
 | 指针解引用 → 元素访问 | 完成 | `pointer-deref-index` pass | `NORM-POINTER-OP 26 → 2`（只剩 `&` address-of）；Utf8JsonWriterTests 转换通过 |
 | 新审计探针（pointer-local / unsafe-block / fixed） | 完成 | `Normalization/Probes` | 新增 3 个 NORM code，准确定位硬域 |
+| 每 pass 执行报告 | 完成 | `preprocess-report.json` | pass 状态/耗时/stages/诊断落盘；失败路径也写 |
 
 **全量转换对照**（同一 `csharp-sdk.sln`、同一命令）：
 
