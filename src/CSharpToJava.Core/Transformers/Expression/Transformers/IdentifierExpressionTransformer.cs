@@ -249,6 +249,36 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         return false;
     }
 
+    /// <summary>
+    /// Removes trailing Java generic arguments from a type receiver
+    /// (<c>pkg.Outer&lt;K, List&lt;V&gt;&gt;</c> → <c>pkg.Outer</c>). Static member
+    /// access is only legal through the raw type in Java, so the truncation is
+    /// always safe there. Returns the input unchanged when no paired '&lt;' is
+    /// found (e.g. the receiver is not actually parameterized).
+    /// </summary>
+    private static string StripTrailingGenericArguments(string receiver)
+    {
+        if (!receiver.EndsWith(">", System.StringComparison.Ordinal))
+            return receiver;
+
+        var depth = 0;
+        for (var i = receiver.Length - 1; i >= 0; i--)
+        {
+            if (receiver[i] == '>')
+            {
+                depth++;
+            }
+            else if (receiver[i] == '<')
+            {
+                depth--;
+                if (depth == 0)
+                    return receiver.Substring(0, i);
+            }
+        }
+
+        return receiver;
+    }
+
     // ── Member access ───────────────────────────────────────────────────────
 
     private static string TransformMemberAccess(MemberAccessExpressionSyntax node, ConversionContext context)
@@ -448,6 +478,14 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             ? mappedStaticReceiver
             : ExpressionTransformerFacade.Instance.Transform(node.Expression, context);
         var symbol = context.GetSymbolInfo(node).Symbol;
+        // Java forbids accessing static members through a parameterized type:
+        // ReadOnlySpan<int>.getEmpty() is illegal, ReadOnlySpan.getEmpty() is not.
+        // Type-qualified static accesses therefore always use the raw receiver.
+        if (symbol is { IsStatic: true }
+            && context.GetSymbolInfo(node.Expression).Symbol is INamedTypeSymbol)
+        {
+            receiver = StripTrailingGenericArguments(receiver);
+        }
         // A field named like the type shadows that type in Java (VisibilityVertex
         // has a field `Point`); static member accesses through the type must be
         // fully qualified so javac does not resolve the field.
