@@ -23,6 +23,14 @@ public sealed class TupleToStructStatistics
     public int CastsRewritten { get; set; }
     public int ImplicitConversionsRewritten { get; set; }
     public int ComparisonsRewritten { get; set; }
+
+    /// <summary>
+    /// 局部声明由显式元组类型改写为 <c>var</c> 的次数。仅针对 tuple pass 最终仍保留
+    /// 原生 <c>TupleTypeSyntax</c> 的局部声明（Java 门禁只卡局部声明的元组类型）；
+    /// 已被降级为 Cs2jTuples struct 的声明不计入。
+    /// </summary>
+    public int TupleLocalsNormalizedToVar { get; set; }
+
     public int StructsGenerated { get; set; }
 }
 

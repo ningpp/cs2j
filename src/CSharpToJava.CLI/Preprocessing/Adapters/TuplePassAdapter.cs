@@ -178,6 +178,7 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
            $"{_statistics.TupleTypesReplaced} types, " +
            $"{_statistics.TupleLiteralsRewritten} literals, " +
            $"{_statistics.DeconstructionsExpanded} deconstructions, " +
+           $"{_statistics.TupleLocalsNormalizedToVar} tuple locals -> var, " +
            $"{_statistics.StructsGenerated} structs generated";
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)

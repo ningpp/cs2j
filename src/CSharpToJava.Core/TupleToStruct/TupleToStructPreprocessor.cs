@@ -224,13 +224,23 @@ public sealed partial class TupleToStructPreprocessor
             _shapesByFile, semanticModel.SyntaxTree.FilePath, _runtimeObservedArities);
         var newRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
 
-        if (!rewriter.Changed)
+        if (rewriter.Changed)
+        {
+            newRoot = (CompilationUnitSyntax)new StatementSplicer(rewriter.Expansions).Visit(newRoot)!;
+        }
+
+        // 全部 tuple 改写完成后再做局部声明归一化：已经降级为 Cs2jTuples struct 的
+        // 声明不再是 TupleTypeSyntax，只有刻意保留原生 ValueTuple 的局部声明会命中。
+        // 该步骤独立于 rewriter.Changed —— 一个文件可能只含被保留的元组语法，
+        // 不触发任何其它改写，却仍需消除局部声明里的 TupleTypeSyntax。
+        var normalizer = new TupleLocalDeclarationNormalizer(statistics);
+        newRoot = (CompilationUnitSyntax)normalizer.Visit(newRoot)!;
+
+        if (!rewriter.Changed && !normalizer.Changed)
         {
             statistics.FilesSkippedClean++;
             return new TupleToStructFileResult { OutputCode = sourceCode, Changed = false };
         }
-
-        newRoot = (CompilationUnitSyntax)new StatementSplicer(rewriter.Expansions).Visit(newRoot)!;
 
         var outputCode = FormatAndValidate(newRoot);
         if (outputCode == null)
@@ -482,6 +492,86 @@ public sealed partial class TupleToStructPreprocessor
 
             return _expansions.TryGetValue(annotation.Data, out expanded!);
         }
+    }
+
+    /// <summary>
+    /// 消除局部声明中残存的 <see cref="TupleTypeSyntax"/>。Java 门禁
+    /// (StatementTransformer.TransformLocalDeclaration) 只要局部声明类型是元组类型就
+    /// 报 "deconstruction local declaration"，即便它只是一个普通元组类型变量。
+    /// <c>(T1, T2) name = init;</c> 改写为 <c>var name = init;</c>；无初始化器时改写为
+    /// <c>var name = default((T1, T2));</c>。推断出的类型仍是 System.ValueTuple，
+    /// 语义与运行时反射身份（typeof(ValueTuple&lt;...&gt;)）不变。
+    /// 只在所有其它 tuple 改写之后运行：已降级为 Cs2jTuples struct 的声明不再是
+    /// TupleTypeSyntax，因此不会被命中。多变量声明与具名元素保持原样（拆分会改变
+    /// 求值顺序/作用域；<c>default((int x, int y))</c> 不是合法表达式）。
+    /// </summary>
+    private sealed class TupleLocalDeclarationNormalizer : CSharpSyntaxRewriter
+    {
+        private readonly TupleToStructStatistics _stats;
+
+        public TupleLocalDeclarationNormalizer(TupleToStructStatistics stats)
+        {
+            _stats = stats;
+        }
+
+        public bool Changed { get; private set; }
+
+        public override SyntaxNode? VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
+        {
+            var updated = (LocalDeclarationStatementSyntax)base.VisitLocalDeclarationStatement(node)!;
+
+            if (updated.Declaration.Type is not TupleTypeSyntax tupleType
+                || updated.Declaration.Variables.Count != 1)
+            {
+                return updated;
+            }
+
+            // const 局部不能是元组类型；遇到时不改动（防御性，正常源码不会出现）。
+            if (updated.Modifiers.Any(m => m.IsKind(SyntaxKind.ConstKeyword)))
+            {
+                return updated;
+            }
+
+            // 具名元素无法表示为 default((T1 a, T2 b))（不是合法表达式），必须原样保留。
+            if (tupleType.Elements.Any(e => !e.Identifier.IsKind(SyntaxKind.None)))
+            {
+                return updated;
+            }
+
+            var declarator = updated.Declaration.Variables[0];
+            if (declarator.Initializer == null)
+            {
+                declarator = declarator.WithInitializer(
+                    SyntaxFactory.EqualsValueClause(BuildDefaultTupleExpression(tupleType)));
+            }
+            else if (declarator.Initializer.Value.IsKind(SyntaxKind.DefaultLiteralExpression))
+            {
+                // `var v = default;` 没有目标类型（CS8716）：把无类型 default 字面量
+                // 换成带元组类型的 default((T1, T2))。
+                declarator = declarator.WithInitializer(
+                    SyntaxFactory.EqualsValueClause(
+                        BuildDefaultTupleExpression(tupleType)
+                            .WithTriviaFrom(declarator.Initializer.Value)));
+            }
+
+            var varType = SyntaxFactory.IdentifierName("var").WithTriviaFrom(tupleType);
+            Changed = true;
+            _stats.TupleLocalsNormalizedToVar++;
+            return updated
+                .WithDeclaration(updated.Declaration
+                    .WithType(varType)
+                    .WithVariables(SyntaxFactory.SingletonSeparatedList(declarator)))
+                .WithAdditionalAnnotations(s_rewriteAnnotation);
+        }
+
+        /// <summary>构造 <c>default((Element1, Element2, ...))</c>（元素名已保证不存在）。</summary>
+        private static ExpressionSyntax BuildDefaultTupleExpression(TupleTypeSyntax tupleType)
+            => SyntaxFactory.DefaultExpression(
+                SyntaxFactory.TupleType(
+                    SyntaxFactory.SeparatedList(
+                        tupleType.Elements.Select(
+                            element => SyntaxFactory.TupleElement(
+                                element.Type.WithoutTrivia(), default)))));
     }
 }
 

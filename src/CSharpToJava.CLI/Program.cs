@@ -4675,6 +4675,7 @@ public class Program
             $"{preprocessResult.Statistics.TupleTypesReplaced} types, " +
             $"{preprocessResult.Statistics.TupleLiteralsRewritten} literals, " +
             $"{preprocessResult.Statistics.DeconstructionsExpanded} deconstructions, " +
+            $"{preprocessResult.Statistics.TupleLocalsNormalizedToVar} tuple locals -> var, " +
             $"{preprocessResult.Statistics.StructsGenerated} structs generated");
 
         foreach (var diagnostic in preprocessResult.Diagnostics)
