@@ -356,6 +356,44 @@ public sealed class RefStructSpanFieldMemoryLiftTests
         Assert.Equal(4, type.GetProperty("Len")!.GetValue(instance));
     }
 
+    // ── 9b. helper 保留 span default 语义（Utf8JsonReader.ValueSpan == default）──
+
+    [Fact]
+    public void ToMemoryHelper_PreservesDefaultSpanSemantics()
+    {
+        const string src = """
+            using System;
+            public ref struct R
+            {
+                public ReadOnlySpan<byte> Value { get; private set; }
+                public R(ReadOnlySpan<byte> value) { Value = value; }
+                public bool ValueIsDefault() => Value == default;
+                public static R MakeDefault() => new R(default);
+                public static R MakeFromBytes(byte[] bytes) => new R(bytes);
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("span == default ? default :", result.OutputCode);
+
+        AssertOutputCompiles(result.OutputCode);
+
+        var assembly = LoadAssembly(result.OutputCode);
+        var type = assembly.GetType("R", throwOnError: true)!;
+        var isDefault = type.GetMethod("ValueIsDefault", BindingFlags.Public | BindingFlags.Instance)!;
+        var makeDefault = type.GetMethod("MakeDefault", BindingFlags.Public | BindingFlags.Static)!;
+        var makeFromBytes = type.GetMethod("MakeFromBytes", BindingFlags.Public | BindingFlags.Static)!;
+
+        var defaultInstance = makeDefault.Invoke(null, null)!;
+        var bytesInstance = makeFromBytes.Invoke(null, new object?[] { new byte[] { 1, 2 } })!;
+
+        Assert.True((bool)isDefault.Invoke(defaultInstance, null)!);
+        Assert.False((bool)isDefault.Invoke(bytesInstance, null)!);
+    }
+
     [Fact]
     public void UntypedDefaultAssignment_IsRewrittenWithoutHelper_AndCompiles()
     {

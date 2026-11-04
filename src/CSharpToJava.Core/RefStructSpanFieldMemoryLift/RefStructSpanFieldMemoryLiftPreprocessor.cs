@@ -14,7 +14,8 @@ namespace CSharpToJava.Core.RefStructSpanFieldMemoryLift;
 /// field plus a same-named span property, every simple assignment to the field
 /// is rewritten through <c>__cs2j_ToMemory(...)</c>, and the <c>ref</c>
 /// modifier is removed. This is what lets <c>Utf8JsonReader</c> stop being a
-/// ref struct.
+/// ref struct. The shared helper keeps <c>default</c> spans as <c>default</c>
+/// memory so the lifted span property still compares equal to <c>default</c>.
 /// </para>
 /// <para>
 /// The transformation is conservative: a declaration is preserved (RSM001)
@@ -838,6 +839,7 @@ public sealed class RefStructSpanFieldMemoryLiftPreprocessor
             "private static global::System.ReadOnlyMemory<TCs2jValue> " +
             "__cs2j_ToMemory<TCs2jValue>(" +
             "global::System.ReadOnlySpan<TCs2jValue> span) => " +
+            "span == default ? default : " +
             "new global::System.ReadOnlyMemory<TCs2jValue>(span.ToArray());";
 
         var helper = SyntaxFactory.ParseMemberDeclaration(helperText)!;
