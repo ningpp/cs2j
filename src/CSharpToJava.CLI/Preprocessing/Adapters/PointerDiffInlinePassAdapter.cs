@@ -120,6 +120,7 @@ internal sealed class PointerDiffInlinePassAdapter : ProjectPassAdapter
            $"{_statistics.FilesSkippedClean} clean, " +
            $"{_statistics.PointerDiffMethodsInlined} helper(s) inlined, " +
            $"{_statistics.PointerDiffCallSitesInlined} call site(s) rewritten, " +
+           $"{_statistics.PointerDiffMethodsRemovedUnused} unused helper(s) removed, " +
            $"{_statistics.PointerDiffMethodsPreserved} preserved (PDI001)";
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
@@ -134,6 +135,7 @@ internal sealed class PointerDiffInlinePassAdapter : ProjectPassAdapter
         _statistics.FilesTransformed += source.FilesTransformed;
         _statistics.FilesSkippedClean += source.FilesSkippedClean;
         _statistics.PointerDiffMethodsInlined += source.PointerDiffMethodsInlined;
+        _statistics.PointerDiffMethodsRemovedUnused += source.PointerDiffMethodsRemovedUnused;
         _statistics.PointerDiffCallSitesInlined += source.PointerDiffCallSitesInlined;
         _statistics.PointerDiffMethodsPreserved += source.PointerDiffMethodsPreserved;
     }

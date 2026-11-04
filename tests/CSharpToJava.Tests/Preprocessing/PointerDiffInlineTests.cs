@@ -217,6 +217,127 @@ public sealed class PointerDiffInlineTests
         Assert.Equal(0, second.Statistics.PointerDiffMethodsInlined);
     }
 
+    // ── 6b. 零调用点且全编译无引用 → 即使没有内联也删除声明 ──
+
+    [Fact]
+    public void ZeroCallSiteHelper_WithNoReference_IsRemoved()
+    {
+        const string src = """
+            unsafe class C
+            {
+                private static int PtrDiff(byte* a, byte* b) => (int)(a - b);
+
+                static void M() { }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.DoesNotContain("PtrDiff", result.OutputCode);
+        Assert.Contains("static void M()", result.OutputCode);
+        Assert.Equal(0, result.Statistics.PointerDiffCallSitesInlined);
+        Assert.Equal(0, result.Statistics.PointerDiffMethodsInlined);
+        Assert.Equal(1, result.Statistics.PointerDiffMethodsRemovedUnused);
+        Assert.Equal(0, result.Statistics.PointerDiffMethodsPreserved);
+        Assert.Empty(result.Diagnostics);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    // ── 6c. 零调用点但存在 nameof / 字符串/反射名 → 保留 + PDI001 ──
+
+    [Fact]
+    public void ZeroCallSiteHelper_WithNameOfOrStringReference_IsPreserved_WithPDI001()
+    {
+        const string nameOfSource = """
+            unsafe class C
+            {
+                private static int PtrDiff(byte* a, byte* b) => (int)(a - b);
+
+                static string M() => nameof(PtrDiff);
+            }
+            """;
+
+        const string stringSource = """
+            unsafe class C
+            {
+                private static int PtrDiff(byte* a, byte* b) => (int)(a - b);
+
+                static string M() => "PtrDiff";
+            }
+            """;
+
+        foreach (var src in new[] { nameOfSource, stringSource })
+        {
+            var result = Run(src);
+
+            Assert.False(result.Changed);
+            Assert.Equal(src, result.OutputCode);
+            Assert.Contains("PtrDiff", result.OutputCode);
+            Assert.Equal(0, result.Statistics.PointerDiffCallSitesInlined);
+            Assert.Equal(0, result.Statistics.PointerDiffMethodsRemovedUnused);
+            Assert.Equal(1, result.Statistics.PointerDiffMethodsPreserved);
+            Assert.Contains(result.Diagnostics, d =>
+                d.Code == PointerDiffInlineDiagnosticCode.PDI001
+                && d.Message.Contains("possible reference", StringComparison.Ordinal));
+            AssertOutputCompiles(result.OutputCode);
+        }
+    }
+
+    // ── 6d. 零调用点的非差分 helper → 不删除，仍由 PDI001 保留 ──
+
+    [Fact]
+    public void ZeroCallSiteNonDifferenceHelper_IsPreserved_WithPDI001()
+    {
+        const string src = """
+            unsafe class C
+            {
+                private static int AddOffset(byte* a, byte* b) => (int)((a + 1) - b);
+
+                static void M() { }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Equal(0, result.Statistics.PointerDiffMethodsRemovedUnused);
+        Assert.Equal(1, result.Statistics.PointerDiffMethodsPreserved);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Code == PointerDiffInlineDiagnosticCode.PDI001
+            && d.Message.Contains("preserved", StringComparison.Ordinal));
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    // ── 6e. 零调用点删除路径幂等 ──
+
+    [Fact]
+    public void ZeroCallSiteRemoval_IsIdempotent()
+    {
+        const string src = """
+            unsafe class C
+            {
+                private static int PtrDiff(byte* a, byte* b) => (int)(a - b);
+
+                static void M() { }
+            }
+            """;
+
+        var first = Run(src);
+        Assert.True(first.Changed);
+
+        var second = new PointerDiffInlinePreprocessor()
+            .RewriteFile(first.OutputCode, ParseWithSemantics(first.OutputCode));
+
+        Assert.False(second.Changed);
+        Assert.Equal(first.OutputCode, second.OutputCode);
+        Assert.Equal(0, second.Statistics.PointerDiffCallSitesInlined);
+        Assert.Equal(0, second.Statistics.PointerDiffMethodsInlined);
+        Assert.Equal(0, second.Statistics.PointerDiffMethodsRemovedUnused);
+    }
+
     // ── 7. 注册：fixed-span-to-array 之后、unsigned/unsafe-ffm 之前，默认开启 ──
 
     [Fact]

@@ -21,11 +21,14 @@ namespace CSharpToJava.Core.PointerDiffInline;
 /// An eligible call <c>PtrDiff(x, y)</c> becomes <c>(int)(x - y)</c> (the cast
 /// follows the helper's return type), and the declaration is removed once no
 /// reference (call site, method group, <c>nameof</c>, reflection string or
-/// cross-file identifier) remains. Only private static source methods with two
-/// same-element-type pointer parameters and an integral return type are
-/// considered; every other two-pointer helper is preserved with PDI001. Clean
-/// files are byte-for-byte identical and re-running the pass on its own output
-/// is a no-op (idempotent).
+/// cross-file identifier) remains. A helper with no call site at all (for
+/// example because an earlier pass replaced its only caller) is also removed
+/// when the whole compilation contains no reference to it; if any possible
+/// reference remains it is preserved with PDI001. Only private static source
+/// methods with two same-element-type pointer parameters and an integral return
+/// type are considered; every other two-pointer helper is preserved with
+/// PDI001. Clean files are byte-for-byte identical and re-running the pass on
+/// its own output is a no-op (idempotent).
 /// </summary>
 public sealed class PointerDiffInlinePreprocessor
 {
@@ -70,20 +73,50 @@ public sealed class PointerDiffInlinePreprocessor
         }
 
         var deletable = new HashSet<MethodDeclarationSyntax>();
+        var unusedDeletable = new HashSet<MethodDeclarationSyntax>();
         foreach (var candidate in candidates)
         {
-            // Only delete a helper once at least one call site in this file was
-            // actually inlined and no other reference remains anywhere in the
-            // compilation.
-            if (HasInlinableCallSiteAndNoOtherReference(candidate, root, semanticModel))
+            var references = AnalyzeReferences(candidate, root, semanticModel);
+
+            // Existing path: at least one call site in this file was actually
+            // inlined and no other reference remains anywhere in the compilation.
+            if (references.InlinableCallSites > 0 && !references.HasOtherReference)
+            {
                 deletable.Add(candidate.Declaration);
+                continue;
+            }
+
+            // New path: the helper has no call site at all (for example because
+            // an earlier pass replaced its only caller), so there is nothing to
+            // inline. Dropping the declaration is safe only when the whole
+            // compilation provably never names it.
+            if (!references.HasAnyCallSite)
+            {
+                if (!references.HasOtherReference)
+                {
+                    unusedDeletable.Add(candidate.Declaration);
+                    continue;
+                }
+
+                diagnostics.Add(new PointerDiffInlineDiagnostic(
+                    PointerDiffInlineSeverity.Warning,
+                    PointerDiffInlineDiagnosticCode.PDI001,
+                    "pointer-diff helper preserved: it has no call sites, but a possible " +
+                    "reference (nameof, method group, string/reflection name or cross-file " +
+                    "identifier) remains.",
+                    filePath,
+                    candidate.Declaration.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
+                    candidate.Declaration.GetLocation().GetLineSpan().StartLinePosition.Character + 1));
+            }
         }
 
-        var rewriter = new InlineRewriter(semanticModel, candidates, deletable, statistics);
+        var rewriter = new InlineRewriter(
+            semanticModel, candidates, deletable, unusedDeletable, statistics);
         var newRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
 
         statistics.PointerDiffCallSitesInlined = rewriter.CallSitesInlined;
-        statistics.PointerDiffMethodsInlined = rewriter.MethodsRemoved;
+        statistics.PointerDiffMethodsInlined = rewriter.MethodsRemoved - rewriter.UnusedMethodsRemoved;
+        statistics.PointerDiffMethodsRemovedUnused = rewriter.UnusedMethodsRemoved;
         statistics.PointerDiffMethodsPreserved = inScopeCount - rewriter.MethodsRemoved;
 
         if (rewriter.CallSitesInlined == 0 && rewriter.MethodsRemoved == 0)
@@ -98,6 +131,7 @@ public sealed class PointerDiffInlinePreprocessor
             statistics.FilesSkippedClean++;
             statistics.PointerDiffCallSitesInlined = 0;
             statistics.PointerDiffMethodsInlined = 0;
+            statistics.PointerDiffMethodsRemovedUnused = 0;
             statistics.PointerDiffMethodsPreserved = inScopeCount;
             diagnostics.Add(new PointerDiffInlineDiagnostic(
                 PointerDiffInlineSeverity.Warning,
@@ -439,62 +473,92 @@ public sealed class PointerDiffInlinePreprocessor
 
     // ---- reference analysis ----
 
-    private static bool HasInlinableCallSiteAndNoOtherReference(
+    private sealed record ReferenceState(
+        int InlinableCallSites,
+        bool HasAnyCallSite,
+        bool HasOtherReference);
+
+    /// <summary>
+    /// Classifies every reference to <paramref name="candidate"/> inside the
+    /// whole compilation. Inlinable call sites are rewritable; any other
+    /// invocation, identifier (method group, delegate creation, <c>nameof</c>),
+    /// string/reflection occurrence or cross-file same-name token counts as an
+    /// uncertain reference. A candidate with no call site and no other
+    /// reference is provably dead code.
+    /// </summary>
+    private static ReferenceState AnalyzeReferences(
         Candidate candidate,
         CompilationUnitSyntax root,
         SemanticModel model)
     {
         var inlinableSites = 0;
-        var hasRemainingReference = false;
+        var hasAnyCallSite = false;
+        var hasOtherReference = false;
 
         foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
         {
+            // nameof(...) is a reference, not a call site: never inline it and
+            // let the identifier scan below classify it conservatively.
+            if (IsNameOfExpression(invocation))
+                continue;
+
             if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol resolved
                 || !SymbolEqualityComparer.Default.Equals(resolved, candidate.Symbol))
             {
                 continue;
             }
 
+            hasAnyCallSite = true;
             if (IsInlinableInvocation(invocation, model))
                 inlinableSites++;
             else
-                hasRemainingReference = true;
+                hasOtherReference = true;
         }
 
-        if (inlinableSites == 0 || hasRemainingReference)
-            return false;
-
-        foreach (var identifier in root.DescendantNodes().OfType<IdentifierNameSyntax>())
+        if (!hasOtherReference)
         {
-            if (identifier.Identifier.ValueText != candidate.Symbol.Name)
-                continue;
-
-            // Method declaration names (the helper's own and any same-named
-            // overload) are definitions, not references.
-            if (identifier.Parent is MethodDeclarationSyntax declaration
-                && declaration.Identifier == identifier.Identifier)
+            foreach (var identifier in root.DescendantNodes().OfType<IdentifierNameSyntax>())
             {
-                continue;
+                if (identifier.Identifier.ValueText != candidate.Symbol.Name)
+                    continue;
+
+                // Method declaration names (the helper's own and any same-named
+                // overload) are definitions, not references.
+                if (identifier.Parent is MethodDeclarationSyntax declaration
+                    && declaration.Identifier == identifier.Identifier)
+                {
+                    continue;
+                }
+
+                // An invocation name that this pass rewrites is not a remaining
+                // reference; method groups / nameof() / delegate creations / other
+                // ordinary uses are.
+                if (IsNameOfInlinableInvocation(identifier, model))
+                    continue;
+
+                hasOtherReference = true;
+                break;
             }
-
-            // An invocation name that this pass rewrites is not a remaining
-            // reference; method groups / nameof() / delegate creations / other
-            // ordinary uses are.
-            if (IsNameOfInlinableInvocation(identifier, model))
-                continue;
-
-            hasRemainingReference = true;
-            break;
         }
 
-        if (hasRemainingReference)
-            return false;
+        if (!hasOtherReference && ContainsNameReference(root, candidate.Symbol.Name))
+            hasOtherReference = true;
 
-        if (ContainsNameReference(root, candidate.Symbol.Name))
-            return false;
+        if (!hasOtherReference && HasReferenceInOtherTrees(candidate.Symbol, model))
+            hasOtherReference = true;
 
-        return !HasReferenceInOtherTrees(candidate.Symbol, model);
+        return new ReferenceState(inlinableSites, hasAnyCallSite, hasOtherReference);
     }
+
+    /// <summary>
+    /// <c>nameof(x)</c> is syntactically an invocation expression; it must never
+    /// be treated as a call site (or inlined), so the identifier inside it is
+    /// counted as an ordinary reference instead.
+    /// </summary>
+    private static bool IsNameOfExpression(InvocationExpressionSyntax invocation)
+        => invocation.Expression is IdentifierNameSyntax identifier
+           && identifier.Identifier.ValueText == "nameof"
+           && invocation.ArgumentList.Arguments.Count == 1;
 
     private static bool IsNameOfInlinableInvocation(IdentifierNameSyntax identifier, SemanticModel model)
     {
@@ -604,30 +668,36 @@ public sealed class PointerDiffInlinePreprocessor
         private readonly SemanticModel _model;
         private readonly IReadOnlyList<Candidate> _candidates;
         private readonly HashSet<MethodDeclarationSyntax> _deletable;
+        private readonly HashSet<MethodDeclarationSyntax> _unusedDeletable;
         private readonly PointerDiffInlineStatistics _statistics;
 
         public InlineRewriter(
             SemanticModel model,
             IReadOnlyList<Candidate> candidates,
             HashSet<MethodDeclarationSyntax> deletable,
+            HashSet<MethodDeclarationSyntax> unusedDeletable,
             PointerDiffInlineStatistics statistics)
         {
             _model = model;
             _candidates = candidates;
             _deletable = deletable;
+            _unusedDeletable = unusedDeletable;
             _statistics = statistics;
         }
 
         public int CallSitesInlined { get; private set; }
         public int MethodsRemoved { get; private set; }
+        public int UnusedMethodsRemoved { get; private set; }
 
         public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
         {
-            if (_deletable.Contains(node))
+            if (_deletable.Contains(node) || _unusedDeletable.Contains(node))
             {
                 // The helper's body is a pure pointer difference, so it cannot
                 // contain a call site that still needs visiting.
                 MethodsRemoved++;
+                if (_unusedDeletable.Contains(node))
+                    UnusedMethodsRemoved++;
                 return null;
             }
 

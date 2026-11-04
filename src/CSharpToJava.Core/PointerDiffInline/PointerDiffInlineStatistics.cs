@@ -10,6 +10,13 @@ public sealed class PointerDiffInlineStatistics
     /// <summary>Pointer-difference helper declarations inlined and then removed.</summary>
     public int PointerDiffMethodsInlined { get; set; }
 
+    /// <summary>
+    /// Pointer-difference helper declarations removed because the whole
+    /// compilation contains no reference to them, even though this pass inlined
+    /// no call site (for example when an earlier pass replaced the only caller).
+    /// </summary>
+    public int PointerDiffMethodsRemovedUnused { get; set; }
+
     /// <summary>Helper invocation call sites rewritten to <c>(R)(a - b)</c>.</summary>
     public int PointerDiffCallSitesInlined { get; set; }
 
