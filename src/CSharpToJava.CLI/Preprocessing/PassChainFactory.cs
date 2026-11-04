@@ -13,6 +13,7 @@ using CSharpToJava.Core.EqualityConcat;
 using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.ExtensionMethodResolve;
 using CSharpToJava.Core.ExtensionMethodResolve.Declarations;
+using CSharpToJava.Core.FixedSpanToArray;
 using CSharpToJava.Core.ForeachDeconstruction;
 using CSharpToJava.Core.ForeachSource;
 using CSharpToJava.Core.GenericPreprocess;
@@ -414,6 +415,16 @@ internal static class PassChainFactory
             // `using (... ref/out ...)` resource expressions.
             PassIds.UsingResourceLift => new UsingResourceLiftPassAdapter(
                 new UsingResourceLiftOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
+
+            // Independent ABI pre-pass that materializes span-backed fixed
+            // statements into fixed over a managed array before unsafe-ffm.
+            PassIds.FixedSpanToArray => new FixedSpanToArrayPassAdapter(
+                new FixedSpanToArrayOptions(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,

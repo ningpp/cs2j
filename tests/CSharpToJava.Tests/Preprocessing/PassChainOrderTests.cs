@@ -57,6 +57,11 @@ public sealed class PassChainOrderTests
         // after unsafe-ref-lowering, so the Kahn declaration-order tiebreak pins
         // the slot unsafe-ref-lowering -> using-resource-lift -> unsigned.
         PassIds.UsingResourceLift,
+        // ABI pre-pass over span-backed fixed statements. RunAfter ref-out-in +
+        // using-resource-lift and declared directly before unsigned, so the Kahn
+        // tiebreak pins using-resource-lift -> fixed-span-to-array -> unsigned.
+        // It must stay before unsafe-ffm so R3 can consume fixed over array.
+        PassIds.FixedSpanToArray,
         PassIds.Unsigned,
         PassStubCatalog.Ids.NumericBoundary,
         PassIds.Generic,
@@ -821,6 +826,7 @@ public sealed class PassChainOrderTests
                 && id != PassIds.PointerDerefIndex
                 && id != PassIds.UnsafeRefLowering
                 && id != PassIds.UsingResourceLift
+                && id != PassIds.FixedSpanToArray
                 && id != PassStubCatalog.Ids.ExpressionDesugar
                 && id != PassStubCatalog.Ids.LexicalNormalize
                 && id != PassStubCatalog.Ids.PartialMerge

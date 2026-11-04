@@ -20,6 +20,7 @@ internal static class PassIds
     public const string RefOutIn = "ref-out-in";
     public const string UnsafeRefLowering = "unsafe-ref-lowering";
     public const string UsingResourceLift = "using-resource-lift";
+    public const string FixedSpanToArray = "fixed-span-to-array";
     public const string Unsigned = "unsigned";
     public const string Generic = "generic";
     public const string ThreadStatic = "thread-static";
@@ -305,6 +306,42 @@ internal static class PassCatalog
                 "Java using statement gate sees a plain identifier resource; await using, " +
                 "using declarations and multiple-variable declarations stay verbatim.",
             // This pass moves using resource expressions; it owns no NORM code.
+            contract: new PassContract(
+                Consumes: Array.Empty<string>(),
+                Produces: Array.Empty<string>(),
+                Preconditions: Array.Empty<string>(),
+                Postconditions: Array.Empty<string>(),
+                MayLeave: Array.Empty<string>(),
+                Owners: Array.Empty<string>(),
+                Policy: ResidualPolicy.Fail,
+                Idempotent: true,
+                RequiresWholeTree: true)),
+        new(
+            PassIds.FixedSpanToArray,
+            "Fixed span to array",
+            ".cs2j-fixed-span-to-array-src",
+            PassStage.Abi,
+            PassStatus.Implemented,
+            // Independent ABI pre-pass over unsafe-ffm's span-backed fixed
+            // statements. It only changes the fixed source from a span /
+            // MemoryMarshal.GetReference(span) to a materialized array (plus a
+            // try/finally write-back for writable spans), so unsafe-ffm R3's
+            // existing array path can lower the pointer. Every other fixed
+            // source is preserved and unprovable span shapes stay verbatim with
+            // FSA001, making default-on safe.
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.RefOutIn, PassIds.UsingResourceLift },
+            supportLibrary: PassSupportLibrary.None,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Materialize Span/ReadOnlySpan-backed fixed statements into fixed over " +
+                "a managed array (try/finally write-back for writable spans) so unsafe-ffm R3 " +
+                "can lower the pointer through its existing array path; unprovable shapes stay " +
+                "verbatim with FSA001 for normalization-audit.",
+            catalogItems: "C06",
+            // The pass owns no NORM code itself: it feeds NORM-FIXED into
+            // unsafe-ffm, which remains the residual owner.
             contract: new PassContract(
                 Consumes: Array.Empty<string>(),
                 Produces: Array.Empty<string>(),
