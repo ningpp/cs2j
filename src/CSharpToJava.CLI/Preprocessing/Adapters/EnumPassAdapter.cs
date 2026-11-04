@@ -172,6 +172,7 @@ internal sealed class EnumPassAdapter : ProjectPassAdapter
         _statistics.CompoundAssignRewritten += source.CompoundAssignRewritten;
         _statistics.HasFlagRewritten += source.HasFlagRewritten;
         _statistics.NullableLiftedRewritten += source.NullableLiftedRewritten;
+        _statistics.PlainEnumArithmeticRewritten += source.PlainEnumArithmeticRewritten;
         _statistics.SkippedUnsupported += source.SkippedUnsupported;
         _statistics.ResidualCount += source.ResidualCount;
     }

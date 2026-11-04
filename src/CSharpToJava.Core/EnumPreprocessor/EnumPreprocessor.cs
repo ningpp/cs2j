@@ -92,11 +92,15 @@ public sealed class EnumPreprocessor
                  || b.IsKind(SyntaxKind.GreaterThanExpression)
                  || b.IsKind(SyntaxKind.GreaterThanOrEqualExpression)
                  || b.IsKind(SyntaxKind.AddExpression)
-                 || b.IsKind(SyntaxKind.SubtractExpression)))
+                 || b.IsKind(SyntaxKind.SubtractExpression)
+                 || b.IsKind(SyntaxKind.IsExpression)))
             || (n is AssignmentExpressionSyntax a &&
                 (a.IsKind(SyntaxKind.OrAssignmentExpression)
                  || a.IsKind(SyntaxKind.AndAssignmentExpression)
-                 || a.IsKind(SyntaxKind.ExclusiveOrAssignmentExpression)))
+                 || a.IsKind(SyntaxKind.ExclusiveOrAssignmentExpression)
+                 || a.IsKind(SyntaxKind.AddAssignmentExpression)
+                 || a.IsKind(SyntaxKind.SubtractAssignmentExpression)))
+            || n is IsPatternExpressionSyntax
             || (n is PrefixUnaryExpressionSyntax p
                 && p.IsKind(SyntaxKind.BitwiseNotExpression))
             || (n is InvocationExpressionSyntax i && IsHasFlagCall(i)));

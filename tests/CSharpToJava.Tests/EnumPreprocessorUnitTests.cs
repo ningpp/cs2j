@@ -477,12 +477,12 @@ public class EnumPreprocessorUnitTests
     }
 
     [Fact]
-    public void Enum_Member_Initializer_Is_Preserved()
+    public void Enum_Member_Initializer_Is_Lowered_To_Underlying_Casts()
     {
         // Enum member initializers bind member references as the enum's
-        // underlying integer type, so A | B is integer arithmetic by spec.
-        // Rewriting it produces invalid nested E | int code; it must be
-        // preserved byte-for-byte instead.
+        // underlying integer type; the Java gate still sees enum-typed
+        // operands, so the operands are lowered to (U) constants. The result
+        // must NOT be wrapped in (E): member values are underlying constants.
         var src = """
         enum E {
             A = 1,
@@ -491,9 +491,12 @@ public class EnumPreprocessorUnitTests
         }
         """;
         var result = Preprocess(src);
-        Assert.False(result.Changed);
-        Assert.Equal(src, result.OutputCode);
-        Assert.Equal(0, result.Statistics.ResidualCount);
+        Assert.True(result.Changed);
+        var code = Squish(result.OutputCode);
+        Assert.Contains("AB = (int)A | (int)B", code);
+        Assert.DoesNotContain("(E)", code);
+        Assert.DoesNotContain("unchecked", code);
+        Assert.Empty(CompileErrors(result.OutputCode));
     }
 
     [Fact]
@@ -577,11 +580,12 @@ public class EnumPreprocessorUnitTests
     }
 
     [Fact]
-    public void Enum_Member_Initializer_Bitwise_Binds_As_Underlying_And_Is_Preserved()
+    public void Enum_Member_Initializer_Bitwise_Lowers_Operands_Without_Enum_Cast()
     {
         // Inside an enum declaration member initializers bind to the
-        // underlying integer operators; rewriting them nests (E) casts back
-        // under bitwise operators and yields invalid E | int code (CS0019).
+        // underlying integer operators; enum member operands must be lowered
+        // to (U) constants so the Java gate no longer sees enum operands, but
+        // the result must stay a plain underlying constant (no (E) wrapper).
         var src = """
         [System.Flags]
         enum E
@@ -594,14 +598,18 @@ public class EnumPreprocessorUnitTests
         }
         """;
         var result = Preprocess(src);
-        Assert.False(result.Changed);
-        Assert.Equal(src, result.OutputCode);
+        Assert.True(result.Changed);
+        var code = Squish(result.OutputCode);
+        Assert.Contains("C = (int)A | (int)B", code);
+        Assert.Contains("D = (int)A & ~B", code);
+        Assert.DoesNotContain("(E)", code);
+        Assert.DoesNotContain("unchecked", code);
         Assert.Equal(0, result.Statistics.ResidualCount);
         Assert.Empty(CompileErrors(result.OutputCode));
     }
 
     [Fact]
-    public void Enum_Member_Initializer_And_Method_Code_Mix_Only_Method_Code_Rewrites()
+    public void Enum_Member_Initializer_And_Method_Code_Mix_Both_Are_Lowered()
     {
         var src = """
         [System.Flags]
@@ -623,11 +631,11 @@ public class EnumPreprocessorUnitTests
         Assert.True(result.Changed);
         var code = Squish(result.OutputCode);
 
-        // Enum initializer expressions survive verbatim.
-        Assert.Contains("C = A | B", code);
-        Assert.Contains("D = A & ~B", code);
-        Assert.Contains("All = A | B | C", code);
-        // Method code is lowered as before.
+        // Enum initializer operands are lowered to (U) constants.
+        Assert.Contains("C = (int)A | (int)B", code);
+        Assert.Contains("D = (int)A & ~B", code);
+        Assert.Contains("All = (int)A | (int)B | (int)C", code);
+        // Method code is lowered with the (E) round-trip as before.
         Assert.Contains("((E)((int)E.A | (int)E.B))", code);
         Assert.Equal(0, result.Statistics.ResidualCount);
         Assert.Empty(CompileErrors(result.OutputCode));
@@ -942,10 +950,9 @@ public class EnumPreprocessorUnitTests
         Assert.Empty(CompileErrors(result.OutputCode));
     }
 
-    // 算术站点只降 plain（底层 int 且 0..n-1 对齐）enum：值形态 enum 的 +/- 站点
-    // 由 enum-declaration 的 Deferred 判定交给 numeric-boundary 族，本 pass 不碰。
+    // 算术站点覆盖所有源内声明 enum：显式值/非对齐 enum 的 E-E 也降为 (U) 减法。
     [Fact]
-    public void NonOrdinal_Enum_Subtraction_Is_Not_Lowered_By_This_Pass()
+    public void NonOrdinal_Enum_Subtraction_Is_Lowered_To_Int_Casts()
     {
         var src = """
         enum Weird { A = 5, B = 9 }
@@ -956,8 +963,9 @@ public class EnumPreprocessorUnitTests
         """;
         var result = Preprocess(src);
 
-        Assert.False(result.Changed);
-        Assert.Contains("w - Weird.A", result.OutputCode);
+        Assert.True(result.Changed);
+        Assert.Contains("(int)w - (int)Weird.A", result.OutputCode);
+        Assert.Empty(CompileErrors(result.OutputCode));
     }
 
     // 可空 enum vs null 字面量是 HasValue 判空（Java 引用判空直译），绝不能降为

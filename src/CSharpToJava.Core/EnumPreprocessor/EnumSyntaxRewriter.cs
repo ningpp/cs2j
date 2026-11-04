@@ -101,6 +101,26 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
+    /// True for enums declared in source. External metadata enums are left
+    /// untouched: their arithmetic/use sites are owned by the compat surface,
+    /// not by this pass.
+    /// </summary>
+    private static bool IsSourceDeclaredEnum(INamedTypeSymbol? enumType)
+        => enumType is { TypeKind: TypeKind.Enum }
+           && enumType.DeclaringSyntaxReferences.Length > 0;
+
+    private static bool IsIntegralType(ITypeSymbol? type)
+        => type is not null && type.SpecialType is SpecialType.System_SByte
+            or SpecialType.System_Byte
+            or SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_Int32
+            or SpecialType.System_UInt32
+            or SpecialType.System_Int64
+            or SpecialType.System_UInt64
+            or SpecialType.System_Char;
+
+    /// <summary>
     /// 普通真 enum（plain real enum）：源内声明、底层 int、成员常量值与声明序对齐
     /// （0..n-1）。最终侧把它直译为 Java enum（仅 ==/!= 合法），算术/关系二元运算
     /// 必须在本 pass 降为 (int) 形态。判定口径与 Transformers 的
@@ -417,6 +437,24 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
 
         var kind = node.Kind();
 
+        // 枚举成员初始化器里的二元表达式：成员引用在该上下文按底层整数绑定，
+        // node 自身类型是底层整数而不是 enum。这里只把 enum 成员操作数降为
+        // (U) 常量 cast，不回挂 (E)：enum 成员值必须是底层类型常量，
+        // unchecked((E)...) / (E) 都不能出现在此处。
+        if (IsInEnumMemberInitializer(node)
+            && RewriteEnumMemberInitializerBinary(node, left, right) is { } memberInit)
+        {
+            return memberInit;
+        }
+
+        // 经典 is 表达式 p is E.M（语法树是 IsExpression）：Java 侧只认同类
+        // enum 的 ==/!=，因此降为 p == E.M。外部元数据 enum 保持原样。
+        if (kind is SyntaxKind.IsExpression
+            && RewriteEnumIsExpression(node, left, right) is { } isExpr)
+        {
+            return isExpr;
+        }
+
         // Equality / relational with an enum operand: lower the enum operand to its
         // underlying (ordinal) integer type. The Java-conversion gate
         // (BinaryExpressionTransformer.EnsureDirectBinaryOperands) allows only
@@ -431,13 +469,18 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         }
 
         // 算术站点（E - E / E + i）：Java enum 不能参与算术，必须在预处理期降为
-        // 底层 int 形态。只对 plain 真 enum 生效——值形态 enum 的 +/- 站点由
-        // enum-declaration 的 Deferred 判定交给 numeric-boundary 族（C15/C17），
-        // 本 pass 让位；否则 (int) 直译面会与其 getValue()/fromValue() 终态冲突。
-        if (kind is SyntaxKind.SubtractExpression or SyntaxKind.AddExpression
-            && RewritePlainEnumArithmetic(node, left, right) is { } arith)
+        // 底层整数形态。plain 真 enum 走既有口径；其余源内声明 enum（非 int 底层、
+        // 显式/非对齐值）走通用分支。外部元数据 enum 保持原样。
+        if (kind is SyntaxKind.SubtractExpression or SyntaxKind.AddExpression)
         {
-            return arith;
+            if (RewritePlainEnumArithmetic(node, left, right) is { } arith)
+            {
+                return arith;
+            }
+            if (RewriteSourceEnumArithmetic(node, left, right) is { } sourceArith)
+            {
+                return sourceArith;
+            }
         }
 
         // Only handle enum bitwise operations
@@ -489,10 +532,12 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
             _ => throw new InvalidOperationException(),
         };
 
-        // Outer (E) cast — skip if parent is already (E) cast
+        // Outer (E) cast — skip if parent is already (E) cast. 窄底层必须用
+        // unchecked 包裹：C# 位运算本身从不溢出检查，而 (E)(intExpr) 的窄化
+        // cast 在 checked 上下文会抛异常，unchecked 保住原语义。
         var result = ShouldSkipOuterCast(node)
             ? innerOp
-            : CastToEnum(innerOp, enumType, node);
+            : MaybeUnchecked(CastToEnum(innerOp, enumType, node), enumType);
 
         // Update stats
         switch (node.Kind())
@@ -503,6 +548,255 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         }
         IncrementRewrite();
         return EnsureParenthesized(result);
+    }
+
+    // ── is pattern（x is not E.M） ──
+
+    public override SyntaxNode? VisitIsPatternExpression(IsPatternExpressionSyntax node)
+    {
+        ExpressionSyntax? originalConstant = null;
+        var negated = false;
+        UnaryPatternSyntax? notPattern = null;
+        if (node.Pattern is ConstantPatternSyntax constant)
+        {
+            originalConstant = constant.Expression;
+        }
+        else if (node.Pattern is UnaryPatternSyntax unary
+                 && unary.Pattern is ConstantPatternSyntax inner
+                 && unary.OperatorToken.IsKind(SyntaxKind.NotKeyword))
+        {
+            originalConstant = inner.Expression;
+            negated = true;
+            notPattern = unary;
+        }
+
+        if (originalConstant == null)
+            return base.VisitIsPatternExpression(node);
+
+        var enumType = GetEnumType(node.Expression);
+        if (!IsSourceDeclaredEnum(enumType) || IsNullableEnum(node.Expression))
+            return base.VisitIsPatternExpression(node);
+
+        var symbol = _semanticModel?.GetSymbolInfo(StripParentheses(originalConstant)).Symbol;
+        if (symbol is not IFieldSymbol field
+            || !SymbolEqualityComparer.Default.Equals(field.ContainingType, enumType))
+        {
+            return base.VisitIsPatternExpression(node);
+        }
+
+        var visitedExpr = (ExpressionSyntax?)Visit(node.Expression) ?? node.Expression;
+        var visitedConstant = (ExpressionSyntax?)Visit(originalConstant) ?? originalConstant;
+
+        var token = SyntaxFactory.Token(negated
+            ? SyntaxKind.ExclamationEqualsToken
+            : SyntaxKind.EqualsEqualsToken);
+        token = token
+            .WithLeadingTrivia(node.IsKeyword.LeadingTrivia)
+            .WithTrailingTrivia(
+                notPattern != null
+                    ? notPattern.OperatorToken.TrailingTrivia
+                    : node.IsKeyword.TrailingTrivia);
+
+        IncrementRewrite();
+        return SyntaxFactory.BinaryExpression(
+            negated ? SyntaxKind.NotEqualsExpression : SyntaxKind.EqualsExpression,
+            visitedExpr,
+            token,
+            visitedConstant);
+    }
+
+    private bool IsInCheckedContext(SyntaxNode node)
+        => node.Ancestors().Any(a =>
+            (a is CheckedExpressionSyntax ce && ce.IsKind(SyntaxKind.CheckedExpression))
+            || (a is CheckedStatementSyntax cs && cs.IsKind(SyntaxKind.CheckedStatement)));
+
+    private static bool IsInEnumMemberInitializer(SyntaxNode node)
+        => node.Ancestors().OfType<EqualsValueClauseSyntax>()
+            .Any(eq => eq.Parent is EnumMemberDeclarationSyntax);
+
+    /// <summary>
+    /// 把枚举成员初始化器内的 enum 成员操作数降为 (U) 常量 cast。
+    /// 初始化器上下文里成员引用本身已是底层整数常量，不能再回挂 (E)
+    /// （成员值必须是底层类型常量）。返回 null 表示无需改写。
+    /// 幂等：第二轮操作数已是 cast 表达式，识别不到 enum 成员符号。
+    /// </summary>
+    private BinaryExpressionSyntax? RewriteEnumMemberInitializerBinary(
+        BinaryExpressionSyntax node, ExpressionSyntax left, ExpressionSyntax right)
+    {
+        var kind = node.Kind();
+        if (kind is not (SyntaxKind.BitwiseOrExpression
+            or SyntaxKind.BitwiseAndExpression
+            or SyntaxKind.ExclusiveOrExpression
+            or SyntaxKind.AddExpression
+            or SyntaxKind.SubtractExpression))
+        {
+            return null;
+        }
+
+        var newLeft = CastEnumMemberToUnderlying(node.Left, left) ?? left;
+        var newRight = CastEnumMemberToUnderlying(node.Right, right) ?? right;
+        if (newLeft == left && newRight == right)
+            return null;
+
+        var rebuilt = (BinaryExpressionSyntax)node.Update(
+            newLeft, node.OperatorToken, newRight);
+        CountBinaryRewrite(kind);
+        IncrementRewrite();
+        return rebuilt;
+    }
+
+    private ExpressionSyntax? CastEnumMemberToUnderlying(
+        ExpressionSyntax original, ExpressionSyntax visited)
+    {
+        var stripped = StripParentheses(original);
+        if (stripped is CastExpressionSyntax) return null;
+        if (_semanticModel?.GetSymbolInfo(stripped).Symbol is not IFieldSymbol field)
+            return null;
+        if (field.ContainingType is not { TypeKind: TypeKind.Enum } enumType)
+            return null;
+        if (!IsSourceDeclaredEnum(enumType)) return null;
+        var underlying = GetUnderlyingType(enumType);
+        if (underlying == null) return null;
+        return CastToUnderlying(visited, underlying);
+    }
+
+    /// <summary>
+    /// p is E.M → p == E.M。只处理左值同 enum 类型、右值为该 enum 成员常量
+    /// 的经典 IsExpression；p is E（类型测试）与外部元数据 enum 保持原样。
+    /// </summary>
+    private BinaryExpressionSyntax? RewriteEnumIsExpression(
+        BinaryExpressionSyntax node, ExpressionSyntax left, ExpressionSyntax right)
+    {
+        var enumType = GetEnumType(node.Left);
+        if (!IsSourceDeclaredEnum(enumType) || IsNullableEnum(node.Left))
+            return null;
+
+        var symbol = _semanticModel?.GetSymbolInfo(StripParentheses(node.Right)).Symbol;
+        if (symbol is not IFieldSymbol field
+            || !SymbolEqualityComparer.Default.Equals(field.ContainingType, enumType))
+        {
+            return null;
+        }
+
+        var token = SyntaxFactory.Token(SyntaxKind.EqualsEqualsToken)
+            .WithLeadingTrivia(node.OperatorToken.LeadingTrivia)
+            .WithTrailingTrivia(node.OperatorToken.TrailingTrivia);
+        IncrementRewrite();
+        return SyntaxFactory.BinaryExpression(
+            SyntaxKind.EqualsExpression, left, token, right);
+    }
+
+    /// <summary>
+    /// 所有源内声明 enum 的算术降级（plain 路径之后的通用分支）：
+    /// <list type="bullet">
+    /// <item><c>E - E</c> → <c>(U)a - (U)b</c>（结果为 U，不再回挂 (E)；
+    /// 窄底层用 <c>unchecked((U)(...))</c> 保住按底层宽度回绕的语义）。</item>
+    /// <item><c>E +/- n</c> / <c>n +/- E</c> → <c>(E)((U)e +/- n)</c> /
+    /// <c>(E)(n +/- (U)e)</c>（窄底层 <c>unchecked</c>）。</item>
+    /// </list>
+    /// 结果为 enum 才回挂 (E)，结果为整数时只保留 (U)。无法由语义模型确认
+    /// 结果类型的站点不改写（宁可 residual，也不产出坏代码）。
+    /// </summary>
+    private SyntaxNode? RewriteSourceEnumArithmetic(
+        BinaryExpressionSyntax node, ExpressionSyntax left, ExpressionSyntax right)
+    {
+        // 与 plain 路径一致：checked 上下文内原 enum 算术的溢出语义与降级后的
+        // 整数算术不同，保持原样由后续 gate 处理。
+        if (IsInCheckedContext(node))
+            return null;
+
+        var kind = node.Kind();
+        var leftEnum = GetEnumType(node.Left);
+        var rightEnum = GetEnumType(node.Right);
+
+        // E - E → (U)a - (U)b
+        if (kind is SyntaxKind.SubtractExpression
+            && leftEnum != null && rightEnum != null)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(leftEnum, rightEnum)
+                || !IsSourceDeclaredEnum(leftEnum)
+                || IsNullableEnum(node.Left) || IsNullableEnum(node.Right))
+            {
+                return null;
+            }
+
+            var resultType = _semanticModel?.GetTypeInfo(node).Type;
+            if (!IsIntegralType(resultType))
+                return null;
+
+            var underlying = GetUnderlyingType(leftEnum);
+            if (underlying == null) return null;
+
+            var l = CastEnumToUnderlying(left, node.Left, leftEnum);
+            var r = CastEnumToUnderlying(right, node.Right, leftEnum);
+            var sub = SyntaxFactory.BinaryExpression(
+                SyntaxKind.SubtractExpression, l, node.OperatorToken, r);
+
+            ExpressionSyntax result = IsNarrowType(leftEnum)
+                ? SyntaxFactory.CheckedExpression(
+                    SyntaxKind.UncheckedExpression, CastToUnderlying(sub, underlying))
+                : sub;
+
+            _stats.PlainEnumArithmeticRewritten++;
+            IncrementRewrite();
+            return EnsureParenthesized(result);
+        }
+
+        // 恰一侧 enum、另一侧整数：E +/- n / n +/- E。E + E 不是合法 C#。
+        if (leftEnum != null && rightEnum != null)
+            return null;
+
+        var enumSideIsLeft = leftEnum != null;
+        var enumSide = enumSideIsLeft ? node.Left : node.Right;
+        var otherSide = enumSideIsLeft ? node.Right : node.Left;
+        var enumType = enumSideIsLeft ? leftEnum : rightEnum;
+        if (enumType == null || !IsSourceDeclaredEnum(enumType)
+            || IsNullableEnum(enumSide))
+        {
+            return null;
+        }
+
+        var otherType = _semanticModel?.GetTypeInfo(otherSide).Type;
+        if (!IsIntegralType(otherType))
+            return null;
+
+        var nodeType = _semanticModel?.GetTypeInfo(node).Type;
+        if (nodeType == null
+            || !nodeType.Equals(enumType, SymbolEqualityComparer.Default))
+        {
+            return null;
+        }
+
+        var enumUnderlying = GetUnderlyingType(enumType);
+        if (enumUnderlying == null) return null;
+
+        var visitedEnum = enumSideIsLeft ? left : right;
+        var visitedOther = enumSideIsLeft ? right : left;
+        var castedEnum = CastToUnderlying(visitedEnum, enumUnderlying);
+        var inner = enumSideIsLeft
+            ? SyntaxFactory.BinaryExpression(kind, castedEnum, node.OperatorToken, visitedOther)
+            : SyntaxFactory.BinaryExpression(kind, visitedOther, node.OperatorToken, castedEnum);
+
+        ExpressionSyntax enumResult = CastToEnum(inner, enumType, node);
+        if (IsNarrowType(enumType))
+        {
+            enumResult = SyntaxFactory.CheckedExpression(
+                SyntaxKind.UncheckedExpression, enumResult);
+        }
+
+        _stats.PlainEnumArithmeticRewritten++;
+        IncrementRewrite();
+        return EnsureParenthesized(enumResult);
+    }
+
+    private void CountBinaryRewrite(SyntaxKind kind)
+    {
+        switch (kind)
+        {
+            case SyntaxKind.BitwiseOrExpression: _stats.BitwiseOrRewritten++; break;
+            case SyntaxKind.BitwiseAndExpression: _stats.BitwiseAndRewritten++; break;
+            case SyntaxKind.ExclusiveOrExpression: _stats.BitwiseXorRewritten++; break;
+        }
     }
 
     /// <summary>
@@ -521,9 +815,7 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         // C# 的 E - E / E + i 按规范永不溢出检查（E-E 在底层域无检查计算）；降为
         // (int) 算术后在 checked 上下文里可能新抛 OverflowException，语义漂移——
         // checked 上下文内的算术站点保持原样。
-        if (node.Ancestors().Any(a =>
-                (a is CheckedExpressionSyntax ce && ce.IsKind(SyntaxKind.CheckedExpression))
-                || (a is CheckedStatementSyntax cs && cs.IsKind(SyntaxKind.CheckedStatement))))
+        if (IsInCheckedContext(node))
         {
             return null;
         }
@@ -889,9 +1181,12 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         var visitedRight = (ExpressionSyntax?)Visit(node.Right);
         var right = visitedRight ?? node.Right;
 
-        if (!node.IsKind(SyntaxKind.OrAssignmentExpression)
-            && !node.IsKind(SyntaxKind.AndAssignmentExpression)
-            && !node.IsKind(SyntaxKind.ExclusiveOrAssignmentExpression))
+        var isBitwiseCompound = node.IsKind(SyntaxKind.OrAssignmentExpression)
+            || node.IsKind(SyntaxKind.AndAssignmentExpression)
+            || node.IsKind(SyntaxKind.ExclusiveOrAssignmentExpression);
+        var isArithmeticCompound = node.IsKind(SyntaxKind.AddAssignmentExpression)
+            || node.IsKind(SyntaxKind.SubtractAssignmentExpression);
+        if (!isBitwiseCompound && !isArithmeticCompound)
             return node.Update(left, node.OperatorToken, right);
 
         // Compound assignment to enum — only rewrite if target is stable
@@ -899,11 +1194,29 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         if (enumType == null)
             return node.Update(left, node.OperatorToken, right);
 
+        // 算术复合赋值（E += n / E -= n）只处理源内声明 enum；checked 上下文
+        // 的溢出语义变化不做降级。
+        if (isArithmeticCompound
+            && (!IsSourceDeclaredEnum(enumType) || IsInCheckedContext(node)))
+        {
+            return node.Update(left, node.OperatorToken, right);
+        }
+
         var underlying = GetUnderlyingType(enumType);
         if (underlying == null)
         {
             AddWarning($"Cannot resolve underlying type for enum '{enumType.Name}' in compound assignment; skipping.");
             return node.Update(left, node.OperatorToken, right);
+        }
+
+        // 算术复合赋值的右操作数必须是整数（E += E / E += string 不降级）。
+        if (isArithmeticCompound)
+        {
+            if (GetEnumType(node.Right) != null
+                || !IsIntegralType(_semanticModel?.GetTypeInfo(node.Right).Type))
+            {
+                return node.Update(left, node.OperatorToken, right);
+            }
         }
 
         // Nullable compound assignments read the target up to three times;
@@ -915,6 +1228,11 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         var nullableTarget = IsNullableEnum(node.Left);
         if (nullableTarget)
         {
+            if (isArithmeticCompound)
+            {
+                // 可空 enum 的 lifted 算术不在本 pass 承诺范围，保持原样。
+                return node.Update(left, node.OperatorToken, right);
+            }
             if (!IsStableReference(node.Left))
             {
                 AddWarning($"Nullable enum compound assignment target is not a stable reference; skipping rewrite.");
@@ -932,6 +1250,8 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
             SyntaxKind.OrAssignmentExpression => (SyntaxKind.BitwiseOrExpression, SyntaxFactory.Token(SyntaxKind.BarToken)),
             SyntaxKind.AndAssignmentExpression => (SyntaxKind.BitwiseAndExpression, SyntaxFactory.Token(SyntaxKind.AmpersandToken)),
             SyntaxKind.ExclusiveOrAssignmentExpression => (SyntaxKind.ExclusiveOrExpression, SyntaxFactory.Token(SyntaxKind.CaretToken)),
+            SyntaxKind.AddAssignmentExpression => (SyntaxKind.AddExpression, SyntaxFactory.Token(SyntaxKind.PlusToken)),
+            SyntaxKind.SubtractAssignmentExpression => (SyntaxKind.SubtractExpression, SyntaxFactory.Token(SyntaxKind.MinusToken)),
             _ => throw new InvalidOperationException(),
         };
 
@@ -978,7 +1298,8 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         var rightCasted2 = MaybeCastToUnderlying(right, node.Right, enumType, underlying);
 
         var binExpr = SyntaxFactory.BinaryExpression(binKind, leftCasted2, binToken, rightCasted2);
-        var castedResult = CastToEnum(binExpr, enumType, node);
+        var castedResult = MaybeUnchecked(
+            CastToEnum(binExpr, enumType, node), enumType);
 
         _stats.CompoundAssignRewritten++;
         IncrementRewrite();
