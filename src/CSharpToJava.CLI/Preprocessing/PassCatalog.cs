@@ -33,6 +33,7 @@ internal static class PassIds
     public const string MemberDesugar = "member-desugar";
     public const string JavaKeywords = "java-keywords";
     public const string ExtensionMethods = "extension-methods";
+    public const string NormalizationAudit = "normalization-audit";
 }
 
 /// <summary>
@@ -678,6 +679,21 @@ internal static class PassCatalog
                 PassStubCatalog.Ids.EqualityConcat,
             },
             description: "Rename identifiers clashing with Java reserved words; runs last before conversion."),
+        new(
+            PassIds.NormalizationAudit,
+            "Normalization readiness audit",
+            ".cs2j-normalization-audit-src",
+            PassStage.FinalNaming,
+            PassStatus.Implemented,
+            // M0-b: opt-in only via --profile java-ready|audit (and explicit
+            // --enable-pass); flip to default-on once the residual corpus is
+            // zero and the owners have consumed their NORM-* codes.
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.JavaKeywords },
+            needsSemanticModel: true,
+            verifyBuildByDefault: false,
+            verifyTestsByDefault: false,
+            description: "Read-only final-tree audit: scans NORM-* residuals, writes preprocess-residual-report.json; --profile java-ready enforces it."),
     };
 
     private static readonly Dictionary<string, PassDescriptor> ById =

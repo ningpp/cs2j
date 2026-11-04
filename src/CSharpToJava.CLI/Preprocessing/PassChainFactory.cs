@@ -188,6 +188,24 @@ internal sealed class PassChainConfiguration
     /// only when the extension-methods pass runs.
     /// </summary>
     public Func<ExtensionBlockOptions?>? ExtensionBlockOptionsFactory { get; init; }
+
+    /// <summary>
+    /// Every enabled pass id in the locked execution order. normalization-audit
+    /// records this verbatim in the residual report.
+    /// </summary>
+    public IReadOnlyList<string> EnabledPassIdsInOrder { get; init; } = Array.Empty<string>();
+
+    /// <summary>Preprocess profile (default|java-ready|audit), recorded in the residual report.</summary>
+    public string Profile { get; init; } = "default";
+
+    /// <summary>
+    /// When true a NORM-* residual with policy Fail makes normalization-audit
+    /// fail the chain (java-ready). Audit profile sets false.
+    /// </summary>
+    public bool ResidualAuditEnforce { get; init; } = true;
+
+    /// <summary>Explicit residual-report path; null = &lt;destination&gt;/preprocess-residual-report.json.</summary>
+    public string? ResidualReportPath { get; init; }
 }
 
 /// <summary>
@@ -570,6 +588,15 @@ internal static class PassChainFactory
 
             PassIds.JavaKeywords => new JavaKeywordsPassAdapter(
                 config.JavaKeywordOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes),
+
+            PassIds.NormalizationAudit => new NormalizationAuditPassAdapter(
+                config.EnabledPassIdsInOrder,
+                config.Profile,
+                config.ResidualAuditEnforce,
+                config.ResidualReportPath,
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),

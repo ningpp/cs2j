@@ -4042,6 +4042,16 @@ public class Program
                 return 1;
             }
 
+            var profile = (opts.Profile ?? "default").Trim().ToLowerInvariant();
+            if (profile is not ("default" or "java-ready" or "audit"))
+            {
+                Console.Error.WriteLine(
+                    $"Error: unknown preprocess profile '{opts.Profile}'. Use default|java-ready|audit.");
+                return 1;
+            }
+
+            var auditEnabledByProfile = profile is "java-ready" or "audit";
+
             // Explicit --pass selection means "run exactly these ids"; without it
             // the descriptor defaults (convert-project chain) are used.
             IReadOnlyDictionary<string, bool>? legacyToggles = null;
@@ -4050,6 +4060,17 @@ public class Program
             {
                 legacyToggles = PassChainFactory.BuildAllDisabledToggles(PassCatalog.BuildRegistry());
                 enablePassIds = opts.Passes.Concat(opts.EnablePasses ?? Array.Empty<string>()).ToList();
+            }
+
+            // M0-b: java-ready/audit append normalization-audit to whatever the
+            // user selected (including an explicit --pass list); the locked
+            // order still places it after java-keywords.
+            if (auditEnabledByProfile)
+            {
+                enablePassIds = (enablePassIds ?? Array.Empty<string>())
+                    .Concat(new[] { PassIds.NormalizationAudit })
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
             }
 
             // Validate ids before creating any output directory.
@@ -4203,6 +4224,9 @@ public class Program
                     opts.PlatformReportOnly, opts.PlatformMode, opts.PlatformStrict, opts.PlatformConfig),
                 DynamicDesugarOptionsFactory = () => BuildDynamicDesugarOptions(
                     opts.DynamicReportOnly, opts.DynamicMode, opts.DynamicStrict, opts.DynamicAuditManifest),
+                Profile = profile,
+                ResidualAuditEnforce = profile != "audit",
+                ResidualReportPath = opts.ResidualReportPath,
                 LegacyToggles = legacyToggles,
                 EnablePassIds = enablePassIds,
                 DisablePassIds = opts.DisablePasses,
@@ -5207,6 +5231,17 @@ class PreprocessVerbOptions
     [Option("disable-pass", Required = false, Separator = ',',
         HelpText = "Disable a pass id (repeatable or comma-separated)")]
     public IEnumerable<string>? DisablePasses { get; set; }
+
+    [Option("profile", Default = "default",
+        HelpText = "Preprocess profile: default|java-ready|audit. java-ready and audit both append " +
+                   "normalization-audit to the selected passes (even when --pass is explicit); " +
+                   "java-ready fails on NORM-* residuals, audit only reports them")]
+    public string Profile { get; set; } = "default";
+
+    [Option("residual-report", Required = false,
+        HelpText = "Path to the normalization-audit residual report JSON " +
+                   "(default: <destination>/preprocess-residual-report.json; relative paths resolve against the destination)")]
+    public string? ResidualReportPath { get; set; }
 
     [Option("extern-whitelist", Required = false,
         HelpText = "unsafe-ffm (C06) opt-in: path to the FFM extern whitelist JSON; whitelisted " +

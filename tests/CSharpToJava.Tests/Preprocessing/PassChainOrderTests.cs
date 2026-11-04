@@ -114,11 +114,16 @@ public sealed class PassChainOrderTests
         // platform-isolation -> dynamic-desugar -> java-keywords.
         PassStubCatalog.Ids.DynamicDesugar,
         PassIds.JavaKeywords,
+        // M0-b: normalization-audit is the final read-only gate. It stays
+        // default-off (enabled only through --profile java-ready|audit or an
+        // explicit --enable-pass) until the residual corpus reaches zero.
+        PassIds.NormalizationAudit,
     ];
 
     // All-preprocessors-default-on policy: every implemented pass is
     // default-enabled; --disable-pass / legacy --no-xxx flags opt out.
-    private static readonly string[] EnabledByDefault = LockedChain;
+    // normalization-audit is the one exception (opt-in until M0 exit).
+    private static readonly string[] EnabledByDefault = LockedChain[..^1];
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -148,25 +153,27 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
-    public void Java_keywords_remains_the_last_pass_with_stubs_registered()
+    public void NormalizationAudit_is_the_last_implemented_pass_but_java_keywords_stays_last_by_default()
     {
         var registry = PassCatalog.BuildRegistry();
 
-        // Stubs never execute; the naming pass is the tail of the executable
-        // Implemented chain and of the resolved default plan. Until the C25
-        // flip the dynamic-desugar stub's late declaration position also
-        // pinned java-keywords after the residual linq-channel stub in the
-        // full Ordered list; with dynamic Implemented (declared before the
-        // Stubs block), the Kahn declaration-order tiebreak lets
-        // java-keywords precede not-anchored stubs — the executed-plan
-        // guarantee below is the contract that matters.
+        // Stubs never execute; normalization-audit is the tail of the
+        // executable Implemented chain. The default plan (audit opt-in only)
+        // still ends at java-keywords.
         Assert.Equal(
-            PassIds.JavaKeywords,
+            PassIds.NormalizationAudit,
             registry.Ordered.Last(pass => pass.Status == PassStatus.Implemented).Id);
 
         var plan = PassPlanResolver.Resolve(registry);
         Assert.True(plan.IsValid);
+        Assert.DoesNotContain(plan.Enabled, pass => pass.Id == PassIds.NormalizationAudit);
         Assert.Equal(PassIds.JavaKeywords, plan.Enabled[^1].Id);
+
+        // Explicitly enabled audit sorts after java-keywords.
+        var auditPlan = PassPlanResolver.Resolve(
+            registry, enablePassIds: new[] { PassIds.NormalizationAudit });
+        Assert.True(auditPlan.IsValid);
+        Assert.Equal(PassIds.NormalizationAudit, auditPlan.Enabled[^1].Id);
     }
 
     [Fact]
@@ -792,7 +799,8 @@ public sealed class PassChainOrderTests
                 && id != PassIds.ClosedMetadata
                 && id != PassIds.AnonymousTypeLift
                 && id != PassStubCatalog.Ids.AsyncNormalize
-                && id != PassIds.AttributeNormalize)
+                && id != PassIds.AttributeNormalize
+                && id != PassIds.NormalizationAudit)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }

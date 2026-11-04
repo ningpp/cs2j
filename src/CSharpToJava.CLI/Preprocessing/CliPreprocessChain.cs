@@ -169,6 +169,18 @@ internal sealed class CliChainRequest
     /// --materialize-extension-blocks; embedded chains may also set it.
     /// </summary>
     public Func<ExtensionBlockOptions?>? ExtensionBlockOptionsFactory { get; init; }
+
+    /// <summary>Preprocess profile (default|java-ready|audit); recorded in the residual report.</summary>
+    public string Profile { get; init; } = "default";
+
+    /// <summary>
+    /// java-ready enforces residual failures; audit only reports them. Ignored
+    /// when normalization-audit is not in the plan.
+    /// </summary>
+    public bool ResidualAuditEnforce { get; init; } = true;
+
+    /// <summary>Explicit residual-report path (relative paths resolve against the destination).</summary>
+    public string? ResidualReportPath { get; init; }
 }
 
 /// <summary>
@@ -290,6 +302,10 @@ internal static class CliPreprocessChain
             Strict = request.Strict,
             TupleNamespace = request.TupleNamespace,
             EnabledPassIds = plan.Enabled.Select(pass => pass.Id).ToHashSet(StringComparer.Ordinal),
+            EnabledPassIdsInOrder = plan.Enabled.Select(pass => pass.Id).ToList(),
+            Profile = request.Profile,
+            ResidualAuditEnforce = request.ResidualAuditEnforce,
+            ResidualReportPath = request.ResidualReportPath,
             MakerOptionsFactory = request.MakerOptionsFactory,
             RecordReadOnlyOptionsFactory = request.RecordReadOnlyOptionsFactory,
             JavaKeywordOptionsFactory = request.JavaKeywordOptionsFactory,
