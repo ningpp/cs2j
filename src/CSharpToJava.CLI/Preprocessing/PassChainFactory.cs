@@ -30,6 +30,7 @@ using CSharpToJava.Core.PatternDesugar;
 using CSharpToJava.Core.PartialMerge;
 using CSharpToJava.Core.PlatformIsolation;
 using CSharpToJava.Core.PointerDerefIndex;
+using CSharpToJava.Core.PointerDiffInline;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
@@ -425,6 +426,16 @@ internal static class PassChainFactory
             // statements into fixed over a managed array before unsafe-ffm.
             PassIds.FixedSpanToArray => new FixedSpanToArrayPassAdapter(
                 new FixedSpanToArrayOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
+
+            // Independent expression pre-pass that inlines same-type pointer
+            // difference helpers before unsafe-ffm.
+            PassIds.PointerDiffInline => new PointerDiffInlinePassAdapter(
+                new PointerDiffInlineOptions(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,

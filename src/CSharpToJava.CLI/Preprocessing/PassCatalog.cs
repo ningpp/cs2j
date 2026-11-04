@@ -21,6 +21,7 @@ internal static class PassIds
     public const string UnsafeRefLowering = "unsafe-ref-lowering";
     public const string UsingResourceLift = "using-resource-lift";
     public const string FixedSpanToArray = "fixed-span-to-array";
+    public const string PointerDiffInline = "pointer-diff-inline";
     public const string Unsigned = "unsigned";
     public const string Generic = "generic";
     public const string ThreadStatic = "thread-static";
@@ -342,6 +343,41 @@ internal static class PassCatalog
             catalogItems: "C06",
             // The pass owns no NORM code itself: it feeds NORM-FIXED into
             // unsafe-ffm, which remains the residual owner.
+            contract: new PassContract(
+                Consumes: Array.Empty<string>(),
+                Produces: Array.Empty<string>(),
+                Preconditions: Array.Empty<string>(),
+                Postconditions: Array.Empty<string>(),
+                MayLeave: Array.Empty<string>(),
+                Owners: Array.Empty<string>(),
+                Policy: ResidualPolicy.Fail,
+                Idempotent: true,
+                RequiresWholeTree: true)),
+        new(
+            PassIds.PointerDiffInline,
+            "Pointer difference inline",
+            ".cs2j-pointer-diff-inline-src",
+            PassStage.Expression,
+            PassStatus.Implemented,
+            // Independent expression pre-pass over ref-out-in's output. It
+            // only inlines file-local private static helpers whose body is a
+            // provable same-type pointer difference and preserves every other
+            // two-pointer helper with PDI001, so default-on is safe. It must
+            // stay before unsafe-ffm so the pointer arguments no longer escape
+            // into a helper call (UF020).
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.RefOutIn },
+            supportLibrary: PassSupportLibrary.None,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Inline file-local same-type pointer-difference helpers " +
+                "(`PtrDiff(left, right)`) at their call sites to `(R)(left - right)` and " +
+                "remove the helper declaration when unreferenced; other two-pointer helpers " +
+                "stay verbatim with PDI001 for normalization-audit.",
+            catalogItems: "C06",
+            // The pass owns no NORM code itself: it feeds NORM-POINTER-OP
+            // presence reduction into unsafe-ffm, which remains the owner.
             contract: new PassContract(
                 Consumes: Array.Empty<string>(),
                 Produces: Array.Empty<string>(),

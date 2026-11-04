@@ -62,6 +62,13 @@ public sealed class PassChainOrderTests
         // tiebreak pins using-resource-lift -> fixed-span-to-array -> unsigned.
         // It must stay before unsafe-ffm so R3 can consume fixed over array.
         PassIds.FixedSpanToArray,
+        // Expression pre-pass over ref-out-in's output. It inlines file-local
+        // same-type pointer-difference helpers before unsafe-ffm so the helper
+        // pointer arguments no longer escape (UF020). RunAfter ref-out-in and
+        // physically declared right after fixed-span-to-array, so the Kahn
+        // declaration-order tiebreak pins fixed-span-to-array ->
+        // pointer-diff-inline -> unsigned.
+        PassIds.PointerDiffInline,
         PassIds.Unsigned,
         PassStubCatalog.Ids.NumericBoundary,
         PassIds.Generic,
@@ -827,6 +834,7 @@ public sealed class PassChainOrderTests
                 && id != PassIds.UnsafeRefLowering
                 && id != PassIds.UsingResourceLift
                 && id != PassIds.FixedSpanToArray
+                && id != PassIds.PointerDiffInline
                 && id != PassStubCatalog.Ids.ExpressionDesugar
                 && id != PassStubCatalog.Ids.LexicalNormalize
                 && id != PassStubCatalog.Ids.PartialMerge
