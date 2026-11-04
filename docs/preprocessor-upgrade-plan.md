@@ -734,6 +734,7 @@ dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- 
 | 报告路径与清理保留 | 完成 | `--report`、`GetPreservedDestinationFileNames` | 自定义报告路径；fresh conversion 不再删除报告 |
 | Pass Contract 元数据 | 完成（第一阶段） | `PassContract`、`PassConstructIds` | 6 个新 pass 声明 Consumes/Postconditions；一致性测试 5 个 |
 | 覆盖统计（byCode/byOwner） | 完成 | `ResidualReportSummary.ByCode/ByOwner` | 报告可按 code/owner 汇总，和 residuals 总数对齐 |
+| fixed over Span → 数组固定 | 完成 | `fixed-span-to-array` pass | 3 个 span/getReference fixed 全部变为数组 fixed；`NORM-FIXED` 仍为 3（等待 unsafe-ffm R3/R6 完成数组固定指针降级） |
 
 **全量转换对照**（同一 `csharp-sdk.sln`、同一命令）：
 
