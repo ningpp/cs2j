@@ -917,8 +917,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (methodSymbol is not { MethodKind: MethodKind.DelegateInvoke })
             return false;
         var callee = invocation.Expression;
-        while (callee is ParenthesizedExpressionSyntax parenthesized)
-            callee = parenthesized.Expression;
+        // 剥除括号外壳与 `!` 空抑制（C# 的 `Get!(obj)`：被调用者是
+        // PostfixUnaryExpressionSyntax，而非标识符/成员访问）。必须剥离后再
+        // Transform，否则仍会渲染出 `!`；后面的 Invoke 排除逻辑也基于剥离后的形状。
+        while (true)
+        {
+            if (callee is ParenthesizedExpressionSyntax parenthesized)
+                callee = parenthesized.Expression;
+            else if (callee is PostfixUnaryExpressionSyntax postfix
+                     && postfix.IsKind(SyntaxKind.SuppressNullableWarningExpression))
+                callee = postfix.Operand;
+            else
+                break;
+        }
         if (callee is MemberAccessExpressionSyntax
             {
                 Name: IdentifierNameSyntax invokedName
