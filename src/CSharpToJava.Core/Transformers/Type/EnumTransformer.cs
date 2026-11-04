@@ -257,6 +257,11 @@ public class EnumTransformer : ITypeTransformer
         "System.Globalization.NumberStyles",
         "System.Globalization.DateTimeStyles",
         "System.StringSplitOptions",
+        // trimming/反射分析 flags 枚举：compat 以 int 常量提供（见
+        // compat/DynamicallyAccessedMemberTypes.java）。成员值非序数对齐，
+        // 若不列入会按 value enum 发出 `values()[547]`（真实链 dotnet-text-json
+        // JsonSerializer.${MembersAccessedOnRead/Write} 4 处找不到符号 类）。
+        "System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes",
     };
 
     public static bool IsIntConstantMetadataEnum(INamedTypeSymbol? enumSymbol)

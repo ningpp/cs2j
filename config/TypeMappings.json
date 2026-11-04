@@ -265,6 +265,34 @@
             ]
         },
         {
+            "csharp": "System.Collections.Concurrent.ConcurrentQueue`1",
+            "java": "ConcurrentQueue",
+            "imports": [
+                "io.github.ningpp.compat.ConcurrentQueue"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Concurrent.ConcurrentQueue",
+            "java": "ConcurrentQueue",
+            "imports": [
+                "io.github.ningpp.compat.ConcurrentQueue"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Concurrent.ConcurrentStack`1",
+            "java": "ConcurrentStack",
+            "imports": [
+                "io.github.ningpp.compat.ConcurrentStack"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Concurrent.ConcurrentStack",
+            "java": "ConcurrentStack",
+            "imports": [
+                "io.github.ningpp.compat.ConcurrentStack"
+            ]
+        },
+        {
             "csharp": "System.Collections.Generic.HashSet`1",
             "java": "CSharpHashSet",
             "imports": [
@@ -906,10 +934,45 @@
             ]
         },
         {
+            "csharp": "System.Buffers.SequencePosition",
+            "java": "SequencePosition",
+            "imports": [
+                "io.github.ningpp.compat.SequencePosition"
+            ]
+        },
+        {
+            "csharp": "System.SequencePosition",
+            "java": "SequencePosition",
+            "imports": [
+                "io.github.ningpp.compat.SequencePosition"
+            ]
+        },
+        {
             "csharp": "System.Text.Encodings.Web.TextEncoderSettings",
             "java": "TextEncoderSettings",
             "imports": [
                 "io.github.ningpp.compat.TextEncoderSettings"
+            ]
+        },
+        {
+            "csharp": "System.Text.Encodings.Web.JavaScriptEncoder",
+            "java": "JavaScriptEncoder",
+            "imports": [
+                "io.github.ningpp.compat.JavaScriptEncoder"
+            ]
+        },
+        {
+            "csharp": "System.Resources.ResourceManager",
+            "java": "ResourceManager",
+            "imports": [
+                "io.github.ningpp.compat.ResourceManager"
+            ]
+        },
+        {
+            "csharp": "System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes",
+            "java": "DynamicallyAccessedMemberTypes",
+            "imports": [
+                "io.github.ningpp.compat.DynamicallyAccessedMemberTypes"
             ]
         },
         {
