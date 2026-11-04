@@ -17,6 +17,7 @@ internal static class PassIds
     public const string PatternDesugar = "pattern-desugar";
     public const string StripDefault = "strip-default";
     public const string RefOutIn = "ref-out-in";
+    public const string UnsafeRefLowering = "unsafe-ref-lowering";
     public const string Unsigned = "unsigned";
     public const string Generic = "generic";
     public const string ThreadStatic = "thread-static";
@@ -248,6 +249,26 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Box ref/out/in parameters through the RefOutIn support project.",
             catalogItems: "C01"),
+        new(
+            PassIds.UnsafeRefLowering,
+            "Unsafe ref lowering",
+            ".cs2j-unsafe-ref-lowering-src",
+            PassStage.Abi,
+            PassStatus.Implemented,
+            // Independent ABI post-pass over ref-out-in's residual
+            // `ref T x = ref MemoryMarshal.GetReference(span)` shape. Safe to
+            // run by default: it only rewrites the ref-local + Unsafe intrinsic
+            // reads Java can never accept and preserves every unprovable site
+            // verbatim with URL001.
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.RefOutIn },
+            supportLibrary: PassSupportLibrary.None,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Lower `ref T x = ref MemoryMarshal.GetReference(span)` plus its " +
+                "Unsafe.ReadUnaligned/Unsafe.Add reads to MemoryMarshal.Read and span indexing; " +
+                "unprovable locals stay verbatim with URL001 for normalization-audit."),
         new(
             PassIds.Unsigned,
             "Unsigned types",

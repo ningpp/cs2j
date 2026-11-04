@@ -38,6 +38,7 @@ using CSharpToJava.Core.TupleToStruct;
 using CSharpToJava.Core.ThreadStaticRewrite;
 using CSharpToJava.Core.UnsignedTypeRewriter;
 using CSharpToJava.Core.UnsafeFfm;
+using CSharpToJava.Core.UnsafeRefLowering;
 using CSharpToJava.Core.VarianceAudit;
 using CSharpToJava.CLI.Preprocessing.Adapters;
 using Microsoft.CodeAnalysis;
@@ -391,6 +392,16 @@ internal static class PassChainFactory
 
             PassIds.RefOutIn => new RefOutInPassAdapter(
                 new RefOutInRewriterOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
+
+            // Independent ABI post-pass over ref-out-in's residual
+            // `ref T x = ref MemoryMarshal.GetReference(span)` shape.
+            PassIds.UnsafeRefLowering => new UnsafeRefLoweringPassAdapter(
+                new UnsafeRefLoweringOptions(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,

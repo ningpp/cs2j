@@ -10,7 +10,7 @@ namespace CSharpToJava.Core.Normalization;
 internal sealed class RefLocalResidualProbe : IResidualProbe
 {
     internal const string ResidualCode = "NORM-REF-LOCAL";
-    internal const string Owner = "ref-out-in";
+    internal const string Owner = "unsafe-ref-lowering";
     internal const ResidualPolicy Policy = ResidualPolicy.Fail;
     internal const string Gate = "ref local declaration";
 

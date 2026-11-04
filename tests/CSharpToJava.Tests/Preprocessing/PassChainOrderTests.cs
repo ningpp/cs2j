@@ -47,6 +47,11 @@ public sealed class PassChainOrderTests
         PassIds.PatternDesugar,
         PassIds.StripDefault,
         PassIds.RefOutIn,
+        // ABI post-pass over ref-out-in's residual MemoryMarshal.GetReference
+        // ref-local + Unsafe.ReadUnaligned/Unsafe.Add shape. RunAfter=ref-out-in
+        // and declared directly after it, so the Kahn declaration-order
+        // tiebreak pins ref-out-in -> unsafe-ref-lowering -> unsigned.
+        PassIds.UnsafeRefLowering,
         PassIds.Unsigned,
         PassStubCatalog.Ids.NumericBoundary,
         PassIds.Generic,
@@ -794,6 +799,7 @@ public sealed class PassChainOrderTests
                 && id != PassIds.ThreadStatic
                 && id != PassStubCatalog.Ids.UnsafeFfm
                 && id != PassIds.StackAllocLowering
+                && id != PassIds.UnsafeRefLowering
                 && id != PassStubCatalog.Ids.ExpressionDesugar
                 && id != PassStubCatalog.Ids.LexicalNormalize
                 && id != PassStubCatalog.Ids.PartialMerge

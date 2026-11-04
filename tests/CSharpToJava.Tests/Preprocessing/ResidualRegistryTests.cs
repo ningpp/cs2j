@@ -76,6 +76,10 @@ public sealed class ResidualRegistryTests
             Assert.False(string.IsNullOrWhiteSpace(descriptor.JavaGate));
             Assert.Equal(ResidualPolicy.Fail, descriptor.Policy);
         });
+        // NORM-REF-LOCAL is owned by the dedicated unsafe-ref-lowering ABI pass.
+        Assert.Equal(
+            "unsafe-ref-lowering",
+            registry.Descriptors.Single(d => d.Code == "NORM-REF-LOCAL").OwnerPassId);
     }
 
     [Theory]
