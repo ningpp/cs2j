@@ -732,6 +732,8 @@ dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- 
 | 每 pass 执行报告 | 完成 | `preprocess-report.json` | pass 状态/耗时/stages/诊断落盘；失败路径也写 |
 | `convert-project` 接入 java-ready 闸门 | 完成 | `--profile java-ready` / `audit` | 转换前 audit；java-ready 在硬残留处 fail-fast |
 | 报告路径与清理保留 | 完成 | `--report`、`GetPreservedDestinationFileNames` | 自定义报告路径；fresh conversion 不再删除报告 |
+| Pass Contract 元数据 | 完成（第一阶段） | `PassContract`、`PassConstructIds` | 6 个新 pass 声明 Consumes/Postconditions；一致性测试 5 个 |
+| 覆盖统计（byCode/byOwner） | 完成 | `ResidualReportSummary.ByCode/ByOwner` | 报告可按 code/owner 汇总，和 residuals 总数对齐 |
 
 **全量转换对照**（同一 `csharp-sdk.sln`、同一命令）：
 
@@ -740,7 +742,7 @@ dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- 
 | 初始 | 1961 succeeded / 15 failed |
 | 修复 async/enum/stackalloc/tuple/ref-local 后 | 1971 succeeded / 5 failed（该轮尚未包含 ref-struct pass） |
 | json-only 复跑（含 ref-struct / using-resource / pointer-deref） | 624 succeeded / **2 failed** |
-| 单元回归 | `CSharpToJava.Tests` 4377 通过 / 0 失败 / 9 跳过（最新全量） |
+| 单元回归 | `CSharpToJava.Tests` 4390 通过 / 0 失败 / 9 跳过（最新全量） |
 
 剩余 2 个失败已收敛到两个硬域：
 
