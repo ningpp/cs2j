@@ -18,6 +18,17 @@ internal static class PreprocessReportWriter
     public static string DefaultPath(string destinationRoot)
         => Path.Combine(destinationRoot, DefaultFileName);
 
+    /// <summary>
+    /// Resolves an explicit report path: absolute paths are used as-is;
+    /// relative paths resolve against <paramref name="destinationRoot"/>.
+    /// A null/empty path keeps the historical destination-root default.
+    /// </summary>
+    public static string ResolvePath(string destinationRoot, string? reportPath)
+        => reportPath is { Length: > 0 } path
+            ? Path.GetFullPath(
+                Path.IsPathRooted(path) ? path : Path.Combine(destinationRoot, path))
+            : Path.GetFullPath(DefaultPath(destinationRoot));
+
     public static void Write(string path, PreprocessReport report)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);

@@ -185,6 +185,47 @@ public sealed class PreprocessReportWriterTests
         }
     }
 
+    [Fact]
+    public void ResolvePath_keeps_the_default_destination_report()
+    {
+        var destination = Path.GetFullPath(
+            Path.Combine(Path.GetTempPath(), "cs2j-report-path-default"));
+
+        Assert.Equal(
+            Path.Combine(destination, PreprocessReportWriter.DefaultFileName),
+            PreprocessReportWriter.ResolvePath(destination, null));
+        Assert.Equal(
+            Path.Combine(destination, PreprocessReportWriter.DefaultFileName),
+            PreprocessReportWriter.ResolvePath(destination, string.Empty));
+    }
+
+    [Fact]
+    public void ResolvePath_resolves_relative_report_against_the_destination()
+    {
+        var destination = Path.GetFullPath(
+            Path.Combine(Path.GetTempPath(), "cs2j-report-path-relative"));
+
+        Assert.Equal(
+            Path.Combine(destination, "custom-report.json"),
+            PreprocessReportWriter.ResolvePath(destination, "custom-report.json"));
+        Assert.Equal(
+            Path.Combine(destination, "custom", "report.json"),
+            PreprocessReportWriter.ResolvePath(destination, Path.Combine("custom", "report.json")));
+    }
+
+    [Fact]
+    public void ResolvePath_uses_an_absolute_report_path_as_is()
+    {
+        var destination = Path.GetFullPath(
+            Path.Combine(Path.GetTempPath(), "cs2j-report-path-absolute-dest"));
+        var absoluteReport = Path.GetFullPath(
+            Path.Combine(Path.GetTempPath(), "cs2j-report-path-absolute", "report.json"));
+
+        Assert.Equal(
+            absoluteReport,
+            PreprocessReportWriter.ResolvePath(destination, absoluteReport));
+    }
+
     private static string CreateTempDirectory(string prefix)
     {
         var directory = Path.Combine(

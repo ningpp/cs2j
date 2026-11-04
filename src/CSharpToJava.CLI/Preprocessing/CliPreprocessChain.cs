@@ -182,6 +182,9 @@ internal sealed class CliChainRequest
 
     /// <summary>Explicit residual-report path (relative paths resolve against the destination).</summary>
     public string? ResidualReportPath { get; init; }
+
+    /// <summary>Explicit preprocess-report path (relative paths resolve against the destination).</summary>
+    public string? ReportPath { get; init; }
 }
 
 /// <summary>
@@ -258,7 +261,7 @@ internal static class CliPreprocessChain
             try
             {
                 PreprocessReportWriter.Write(
-                    PreprocessReportWriter.DefaultPath(request.DestinationRoot),
+                    PreprocessReportWriter.ResolvePath(request.DestinationRoot, request.ReportPath),
                     report);
             }
             catch (Exception ex)

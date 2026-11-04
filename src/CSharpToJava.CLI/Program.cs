@@ -417,6 +417,7 @@ public class Program
                 Profile = profile,
                 ResidualAuditEnforce = profile != "audit",
                 ResidualReportPath = opts.ResidualReportPath,
+                ReportPath = opts.ReportPath,
                 LegacyToggles = PassChainFactory.BuildLegacyToggles(opts),
                 EnablePassIds = enablePassIds,
                 DisablePassIds = opts.DisablePasses,
@@ -1301,6 +1302,22 @@ public class Program
             if (!string.IsNullOrEmpty(fileName))
             {
                 preserved.Add(fileName);
+            }
+        }
+
+        // An explicit relative --report path written into the destination root is
+        // likewise produced before cleanup; keep that root-level file. Absolute
+        // paths live outside this cleanup's scope by definition.
+        if (opts.ReportPath is { Length: > 0 } reportPath && !Path.IsPathRooted(reportPath))
+        {
+            var reportDirectory = Path.GetDirectoryName(reportPath);
+            if (string.IsNullOrEmpty(reportDirectory) || reportDirectory == ".")
+            {
+                var fileName = Path.GetFileName(reportPath);
+                if (!string.IsNullOrEmpty(fileName))
+                {
+                    preserved.Add(fileName);
+                }
             }
         }
 
@@ -4325,6 +4342,7 @@ public class Program
                 Profile = profile,
                 ResidualAuditEnforce = profile != "audit",
                 ResidualReportPath = opts.ResidualReportPath,
+                ReportPath = opts.ReportPath,
                 LegacyToggles = legacyToggles,
                 EnablePassIds = enablePassIds,
                 DisablePassIds = opts.DisablePasses,
@@ -5342,6 +5360,11 @@ class PreprocessVerbOptions
                    "(default: <destination>/preprocess-residual-report.json; relative paths resolve against the destination)")]
     public string? ResidualReportPath { get; set; }
 
+    [Option("report", Required = false,
+        HelpText = "Path to the per-pass preprocess report JSON " +
+                   "(default: <destination>/preprocess-report.json; relative paths resolve against the destination)")]
+    public string? ReportPath { get; set; }
+
     [Option("extern-whitelist", Required = false,
         HelpText = "unsafe-ffm (C06) opt-in: path to the FFM extern whitelist JSON; whitelisted " +
                    "[DllImport]/[LibraryImport] methods are lowered to FFM facades, all other extern stays UF060")]
@@ -6066,6 +6089,11 @@ class ConvertProjectOptions
         HelpText = "Path to the normalization-audit residual report JSON " +
                    "(default: <destination>/preprocess-residual-report.json; relative paths resolve against the destination)")]
     public string? ResidualReportPath { get; set; }
+
+    [Option("report", Required = false,
+        HelpText = "Path to the per-pass preprocess report JSON " +
+                   "(default: <destination>/preprocess-report.json; relative paths resolve against the destination)")]
+    public string? ReportPath { get; set; }
 
     [Option("extern-whitelist", Required = false,
         HelpText = "unsafe-ffm (C06) opt-in: path to the FFM extern whitelist JSON; whitelisted " +
