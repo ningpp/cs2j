@@ -32,6 +32,7 @@ using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
 using CSharpToJava.Core.RefOutInPreprocessor;
+using CSharpToJava.Core.StackAllocLowering;
 using CSharpToJava.Core.StructValueSemantics;
 using CSharpToJava.Core.TupleToStruct;
 using CSharpToJava.Core.ThreadStaticRewrite;
@@ -514,6 +515,17 @@ internal static class PassChainFactory
 
             PassStubCatalog.Ids.UnsafeFfm => new UnsafeFfmPassAdapter(
                 config.UnsafeFfmOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
+
+            // Independent read-only post-pass over unsafe-ffm's residual
+            // stackalloc sites. No options factory: the default option set
+            // (both lowering families on) is the only supported configuration.
+            PassIds.StackAllocLowering => new StackAllocLoweringPassAdapter(
+                new StackAllocLoweringOptions(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,

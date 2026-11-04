@@ -4,13 +4,13 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.Core.Normalization;
 
 /// <summary>
-/// NORM-STACKALLOC：显式与隐式 stackalloc 都必须由 unsafe-ffm 预处理器降低。
-/// 对应门禁：ObjectCreationTransformer.NewStackAlloc。
+/// NORM-STACKALLOC：显式与隐式 stackalloc 都必须由 stackalloc-lowering（在
+/// unsafe-ffm 之后）降低。对应门禁：ObjectCreationTransformer.NewStackAlloc。
 /// </summary>
 internal sealed class StackAllocResidualProbe : IResidualProbe
 {
     internal const string ResidualCode = "NORM-STACKALLOC";
-    internal const string Owner = "unsafe-ffm";
+    internal const string Owner = "stackalloc-lowering";
     internal const ResidualPolicy Policy = ResidualPolicy.Fail;
     internal const string Gate = "stackalloc array creation";
 

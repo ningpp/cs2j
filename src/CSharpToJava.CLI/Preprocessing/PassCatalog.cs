@@ -33,6 +33,7 @@ internal static class PassIds
     public const string MemberDesugar = "member-desugar";
     public const string JavaKeywords = "java-keywords";
     public const string ExtensionMethods = "extension-methods";
+    public const string StackAllocLowering = "stackalloc-lowering";
     public const string NormalizationAudit = "normalization-audit";
 }
 
@@ -435,6 +436,27 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Strip unsafe blocks and unsafe modifiers from types/members/local functions " +
                 "(C06 M0; fixed buffers, stackalloc, pointers and extern normalization follow in later milestones).",
+            catalogItems: "C06"),
+        new(
+            PassIds.StackAllocLowering,
+            "Stackalloc lowering",
+            ".cs2j-stackalloc-lowering-src",
+            PassStage.Abi,
+            PassStatus.Implemented,
+            // Independent read-only post-pass over unsafe-ffm's residual
+            // stackalloc sites. Safe to run by default: it only rewrites
+            // constructs Java can never accept and never changes code that
+            // unsafe-ffm already lowered.
+            defaultEnabled: true,
+            runAfterIds: new[] { PassStubCatalog.Ids.UnsafeFfm },
+            supportLibrary: PassSupportLibrary.None,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Read-only post-pass over unsafe-ffm residuals: lower leftover " +
+                "Span/ReadOnlySpan-target stackalloc and the provable pointer-local + " +
+                "Span-construction shape to heap arrays; unprovable bare-pointer sites stay " +
+                "verbatim with SL001 for normalization-audit.",
             catalogItems: "C06"),
         new(
             PassStubCatalog.Ids.ClosureLift,

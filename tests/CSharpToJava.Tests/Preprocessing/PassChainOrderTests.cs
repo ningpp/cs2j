@@ -73,6 +73,12 @@ public sealed class PassChainOrderTests
         PassIds.AttributeNormalize,
         PassIds.StructValueSemantics,
         PassStubCatalog.Ids.UnsafeFfm,
+        // M2: stackalloc-lowering is an independent read-only post-pass over
+        // unsafe-ffm residuals. RunAfter=unsafe-ffm and physically declared
+        // right after it, so the Kahn declaration-order tiebreak pins the slot
+        // unsafe-ffm -> stackalloc-lowering -> closure-lift. Default-on is safe:
+        // it only rewrites constructs Java can never accept.
+        PassIds.StackAllocLowering,
         PassStubCatalog.Ids.ClosureLift,
         // C04 iterator-lowering flipped to DEFAULT-ON on 2026-10-11 under the
         // all-preprocessors-default-on policy.
@@ -121,8 +127,8 @@ public sealed class PassChainOrderTests
     ];
 
     // All-preprocessors-default-on policy: every implemented pass is
-    // default-enabled; --disable-pass / legacy --no-xxx flags opt out.
-    // normalization-audit is the one exception (opt-in until M0 exit).
+    // default-enabled except normalization-audit (the trailing opt-in
+    // read-only gate); --disable-pass / legacy --no-xxx flags opt out.
     private static readonly string[] EnabledByDefault = LockedChain[..^1];
 
     [Fact]
@@ -787,6 +793,7 @@ public sealed class PassChainOrderTests
                 && id != PassIds.EnumDeclaration
                 && id != PassIds.ThreadStatic
                 && id != PassStubCatalog.Ids.UnsafeFfm
+                && id != PassIds.StackAllocLowering
                 && id != PassStubCatalog.Ids.ExpressionDesugar
                 && id != PassStubCatalog.Ids.LexicalNormalize
                 && id != PassStubCatalog.Ids.PartialMerge

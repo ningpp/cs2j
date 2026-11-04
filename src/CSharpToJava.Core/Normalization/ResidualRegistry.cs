@@ -11,7 +11,7 @@ public sealed class ResidualRegistry
     private static readonly ResidualDescriptor[] DefaultDescriptors =
     {
         new("NORM-ENUM-ARITH", "enum-declaration", ResidualPolicy.Fail, EnumArithmeticResidualProbe.Gate),
-        new("NORM-STACKALLOC", "unsafe-ffm", ResidualPolicy.Fail, StackAllocResidualProbe.Gate),
+        new("NORM-STACKALLOC", "stackalloc-lowering", ResidualPolicy.Fail, StackAllocResidualProbe.Gate),
         new("NORM-REF-STRUCT", "unsafe-ffm", ResidualPolicy.Fail, RefStructResidualProbe.Gate),
         new("NORM-REF-LOCAL", "ref-out-in", ResidualPolicy.Fail, RefLocalResidualProbe.Gate),
         new("NORM-ASYNC-LAMBDA", "async-normalize", ResidualPolicy.Fail, AsyncLambdaResidualProbe.Gate),
