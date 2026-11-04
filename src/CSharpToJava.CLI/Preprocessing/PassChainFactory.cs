@@ -543,6 +543,14 @@ internal static class PassChainFactory
                 config.VerifyBuild,
                 config.VerifyTests),
 
+            // Independent read-only post-pass over stackalloc-lowering's output.
+            PassIds.RefStructLowering => new RefStructLoweringPassAdapter(
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
+
             PassStubCatalog.Ids.PartialMerge => new PartialMergePassAdapter(
                 new PartialMergeOptions
                 {

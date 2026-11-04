@@ -6,13 +6,13 @@ namespace CSharpToJava.Core.Normalization;
 
 /// <summary>
 /// NORM-REF-STRUCT：声明处带 ref 修饰符的 struct（含 readonly ref struct）
-/// 必须由 unsafe-ffm 预处理器降低。只扫声明，不扫使用点。
+/// 必须由 ref-struct-lowering 预处理器降低。只扫声明，不扫使用点。
 /// 对应门禁：StructTransformer.TransformCore。
 /// </summary>
 internal sealed class RefStructResidualProbe : IResidualProbe
 {
     internal const string ResidualCode = "NORM-REF-STRUCT";
-    internal const string Owner = "unsafe-ffm";
+    internal const string Owner = "ref-struct-lowering";
     internal const ResidualPolicy Policy = ResidualPolicy.Fail;
     internal const string Gate = "ref struct declaration";
 

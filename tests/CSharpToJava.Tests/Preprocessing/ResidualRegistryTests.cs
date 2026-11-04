@@ -80,6 +80,10 @@ public sealed class ResidualRegistryTests
         Assert.Equal(
             "unsafe-ref-lowering",
             registry.Descriptors.Single(d => d.Code == "NORM-REF-LOCAL").OwnerPassId);
+        // NORM-REF-STRUCT is owned by the dedicated ref-struct-lowering pass.
+        Assert.Equal(
+            "ref-struct-lowering",
+            registry.Descriptors.Single(d => d.Code == "NORM-REF-STRUCT").OwnerPassId);
     }
 
     [Theory]

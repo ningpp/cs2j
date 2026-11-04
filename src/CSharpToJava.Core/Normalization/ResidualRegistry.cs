@@ -12,7 +12,7 @@ public sealed class ResidualRegistry
     {
         new("NORM-ENUM-ARITH", "enum-declaration", ResidualPolicy.Fail, EnumArithmeticResidualProbe.Gate),
         new("NORM-STACKALLOC", "stackalloc-lowering", ResidualPolicy.Fail, StackAllocResidualProbe.Gate),
-        new("NORM-REF-STRUCT", "unsafe-ffm", ResidualPolicy.Fail, RefStructResidualProbe.Gate),
+        new("NORM-REF-STRUCT", "ref-struct-lowering", ResidualPolicy.Fail, RefStructResidualProbe.Gate),
         new("NORM-REF-LOCAL", "unsafe-ref-lowering", ResidualPolicy.Fail, RefLocalResidualProbe.Gate),
         new("NORM-ASYNC-LAMBDA", "async-normalize", ResidualPolicy.Fail, AsyncLambdaResidualProbe.Gate),
         new("NORM-TUPLE-LOCAL", "tuple", ResidualPolicy.Fail, TupleLocalResidualProbe.Gate),

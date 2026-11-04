@@ -35,6 +35,7 @@ internal static class PassIds
     public const string JavaKeywords = "java-keywords";
     public const string ExtensionMethods = "extension-methods";
     public const string StackAllocLowering = "stackalloc-lowering";
+    public const string RefStructLowering = "ref-struct-lowering";
     public const string NormalizationAudit = "normalization-audit";
 }
 
@@ -478,6 +479,28 @@ internal static class PassCatalog
                 "Span/ReadOnlySpan-target stackalloc and the provable pointer-local + " +
                 "Span-construction shape to heap arrays; unprovable bare-pointer sites stay " +
                 "verbatim with SL001 for normalization-audit.",
+            catalogItems: "C06"),
+        new(
+            PassIds.RefStructLowering,
+            "Ref struct lowering",
+            ".cs2j-ref-struct-lowering-src",
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            // Independent read-only post-pass over stackalloc-lowering's output.
+            // Safe to run by default: it only removes the `ref` modifier from
+            // structs without any ref-only member and preserves every other
+            // declaration verbatim with RSL001.
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.StackAllocLowering },
+            supportLibrary: PassSupportLibrary.None,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Read-only post-pass over stackalloc-lowering residuals: remove the " +
+                "`ref` modifier from user ref struct declarations without any ref-only member " +
+                "(pointer/function-pointer/ref field, ref-returning member, Span/ReadOnlySpan/" +
+                "Memory/ref-like type, or nested ref struct); every other declaration stays " +
+                "verbatim with RSL001 for normalization-audit.",
             catalogItems: "C06"),
         new(
             PassStubCatalog.Ids.ClosureLift,

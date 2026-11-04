@@ -81,9 +81,16 @@ public sealed class PassChainOrderTests
         // M2: stackalloc-lowering is an independent read-only post-pass over
         // unsafe-ffm residuals. RunAfter=unsafe-ffm and physically declared
         // right after it, so the Kahn declaration-order tiebreak pins the slot
-        // unsafe-ffm -> stackalloc-lowering -> closure-lift. Default-on is safe:
-        // it only rewrites constructs Java can never accept.
+        // unsafe-ffm -> stackalloc-lowering -> ref-struct-lowering -> closure-lift.
+        // Default-on is safe: it only rewrites constructs Java can never accept.
         PassIds.StackAllocLowering,
+        // M2: ref-struct-lowering is an independent read-only post-pass over
+        // stackalloc-lowering's output. RunAfter=stackalloc-lowering and
+        // physically declared right after it, so the Kahn declaration-order
+        // tiebreak pins the slot stackalloc-lowering -> ref-struct-lowering ->
+        // closure-lift. Default-on is safe: it only removes the `ref` modifier
+        // from structs without any ref-only member.
+        PassIds.RefStructLowering,
         PassStubCatalog.Ids.ClosureLift,
         // C04 iterator-lowering flipped to DEFAULT-ON on 2026-10-11 under the
         // all-preprocessors-default-on policy.
@@ -799,6 +806,7 @@ public sealed class PassChainOrderTests
                 && id != PassIds.ThreadStatic
                 && id != PassStubCatalog.Ids.UnsafeFfm
                 && id != PassIds.StackAllocLowering
+                && id != PassIds.RefStructLowering
                 && id != PassIds.UnsafeRefLowering
                 && id != PassStubCatalog.Ids.ExpressionDesugar
                 && id != PassStubCatalog.Ids.LexicalNormalize

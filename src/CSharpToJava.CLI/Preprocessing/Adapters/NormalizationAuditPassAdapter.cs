@@ -26,7 +26,22 @@ internal sealed class NormalizationAuditPassAdapter : ProjectPassAdapter
     private readonly bool _filterUnsupportedProjects;
     private readonly IReadOnlyCollection<string>? _compatNamespacePrefixes;
 
+    /// <summary>
+    /// Top-level directories of the pass-injected support libraries. These are
+    /// symbol sources only: the Java converter filters them out, so their
+    /// residual shapes are not user-code normalization debt.
+    /// </summary>
+    private static readonly string[] SupportLibraryTopLevelDirectories =
+    {
+        "Cs2jRefOutIn",
+        "Cs2jPrelude",
+        "Cs2jUnsignedMath",
+        "Cs2jArray",
+        "Cs2jTuples",
+    };
+
     private readonly List<ResidualHit> _hits = new();
+    private int _skippedSupportLibraryFiles;
 
     public NormalizationAuditPassAdapter(
         IReadOnlyList<string> chain,
@@ -60,6 +75,14 @@ internal sealed class NormalizationAuditPassAdapter : ProjectPassAdapter
 
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
     {
+        // Injected support libraries never reach the Java converter, so their
+        // ref structs/stackalloc shapes are not user-code residual debt.
+        if (IsSupportLibraryRelativePath(context.RelativePath))
+        {
+            _skippedSupportLibraryFiles++;
+            return Task.FromResult<PassFileRewrite?>(null);
+        }
+
         var model = context.SemanticModel
             ?? throw new InvalidOperationException(
                 "normalization-audit requires a semantic model for every file.");
@@ -68,6 +91,25 @@ internal sealed class NormalizationAuditPassAdapter : ProjectPassAdapter
 
         // Read-only: the runner copies every file byte-for-byte.
         return Task.FromResult<PassFileRewrite?>(null);
+    }
+
+    /// <summary>
+    /// True when the file's top-level tree directory is an injected support
+    /// library project. Path separators and casing are normalized.
+    /// </summary>
+    internal static bool IsSupportLibraryRelativePath(string relativePath)
+    {
+        var normalized = relativePath.Replace('\\', '/');
+        while (normalized.StartsWith("./", StringComparison.Ordinal))
+        {
+            normalized = normalized[2..];
+        }
+
+        var separator = normalized.IndexOf('/');
+        var topLevel = separator >= 0 ? normalized[..separator] : normalized;
+
+        return SupportLibraryTopLevelDirectories.Any(directory =>
+            string.Equals(directory, topLevel, StringComparison.OrdinalIgnoreCase));
     }
 
     public override Task AfterFilesAsync(PassTreeContext tree)
@@ -129,7 +171,10 @@ internal sealed class NormalizationAuditPassAdapter : ProjectPassAdapter
             .GroupBy(hit => hit.Code)
             .OrderBy(group => group.Key, StringComparer.Ordinal)
             .Select(group => $"{group.Key}={group.Count()}"));
-        return $"normalization-audit: {_hits.Count} residual(s) across {distinctFiles} file(s) ({breakdown})";
+        var skipped = _skippedSupportLibraryFiles > 0
+            ? $", {_skippedSupportLibraryFiles} support-library file(s) skipped"
+            : string.Empty;
+        return $"normalization-audit: {_hits.Count} residual(s) across {distinctFiles} file(s) ({breakdown}){skipped}";
     }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
