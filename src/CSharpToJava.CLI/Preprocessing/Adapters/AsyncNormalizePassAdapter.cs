@@ -1,5 +1,6 @@
 using CSharpToJava.Core.AsyncNormalize;
 using CSharpToJava.Core.Preprocessing;
+using Microsoft.CodeAnalysis;
 
 namespace CSharpToJava.CLI.Preprocessing.Adapters;
 
@@ -24,6 +25,14 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
     private readonly List<AsyncNormalizeDiagnostic> _diagnostics = new();
     private readonly AsyncNormalizeStatistics _statistics = new();
     private HashSet<string>? _testProjectDirectories;
+
+    /// <summary>
+    /// Restored NuGet compile assemblies of the target solution, enumerated read-only
+    /// from <c>obj/project.assets.json</c> in <see cref="OnTreePreparedAsync"/>.
+    /// xUnit generic helpers (e.g. <c>Assert.ThrowsAsync&lt;T&gt;</c>) only bind an
+    /// async lambda's delegate type when the package assemblies are visible.
+    /// </summary>
+    private IReadOnlyList<MetadataReference> _packageReferences = Array.Empty<MetadataReference>();
 
     public AsyncNormalizePassAdapter(
         AsyncNormalizeOptions options,
@@ -127,7 +136,14 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
         }
     }
 
-    /// <summary>Records test-project directories (see the merge-time downgrade).</summary>
+    /// <summary>
+    /// Records test-project directories (see the merge-time downgrade) and
+    /// enumerates the target solution's restored NuGet compile assemblies so the
+    /// semantic model can bind delegate targets declared in package assemblies
+    /// (xUnit generic helpers). Enumeration is read-only: no restore is triggered
+    /// here (the spine restores after the rewrite phase; restoring per pass would
+    /// add a full restore cycle to every pass).
+    /// </summary>
     public override Task OnTreePreparedAsync(PassTreeContext tree)
     {
         if (tree.ProjectGraph is { } graph)
@@ -138,7 +154,100 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
 
+        // The original source tree normally carries the restore artifacts; an
+        // intermediate tree only has them when the source itself was already an
+        // intermediate (unified-directory chain).
+        _packageReferences = EnumeratePackageReferences(tree.Layout.SourceRoot);
+        if (_packageReferences.Count == 0)
+        {
+            _packageReferences = EnumeratePackageReferences(tree.IntermediateRoot);
+        }
+
+        if (_verbose && _packageReferences.Count > 0)
+        {
+            Console.WriteLine(
+                $"[async-normalize] binding with {_packageReferences.Count} restored package reference(s)");
+        }
+
         return Task.CompletedTask;
+    }
+
+    private static IReadOnlyList<MetadataReference> EnumeratePackageReferences(string root)
+    {
+        if (!Directory.Exists(root))
+        {
+            return Array.Empty<MetadataReference>();
+        }
+
+        var references = RestorePackageReferenceEnumerator.Enumerate(root, out _);
+        if (references.Count == 0)
+        {
+            return references;
+        }
+
+        // The merged pass compilation unions every project's restored packages, so
+        // different projects can contribute different versions of the same
+        // assembly (this SDK restores xunit.assert 2.6.6 / 2.9.0 / 2.9.2 / 2.9.3).
+        // Referencing two assemblies with the same simple name makes their types
+        // ambiguous (CS0433: Xunit.Assert exists in both), so overload resolution
+        // never binds the generic Assert helper and the async lambda's delegate
+        // target stays null. Keep one assembly per simple name (highest version).
+        var bySimpleName = new Dictionary<string, (Version Version, MetadataReference Reference)>(
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var reference in references)
+        {
+            var path = reference.Display ?? string.Empty;
+            var simpleName = Path.GetFileNameWithoutExtension(path);
+            var version = ParsePackageVersion(path) ?? new Version(0, 0);
+            if (!bySimpleName.TryGetValue(simpleName, out var existing)
+                || version > existing.Version)
+            {
+                bySimpleName[simpleName] = (version, reference);
+            }
+        }
+
+        return bySimpleName.Values.Select(entry => entry.Reference).ToList();
+    }
+
+    /// <summary>
+    /// Extracts the package version directory (e.g. <c>…/xunit.assert/2.9.3/lib/…</c>)
+    /// from a restored assembly path; null when the path carries no version segment.
+    /// </summary>
+    private static Version? ParsePackageVersion(string path)
+    {
+        foreach (var segment in path.Split(
+                     Path.DirectorySeparatorChar,
+                     Path.AltDirectorySeparatorChar,
+                     StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!char.IsDigit(segment[0]))
+            {
+                continue;
+            }
+
+            var numeric = segment.Split('-', '+')[0];
+            if (Version.TryParse(numeric, out var version))
+            {
+                return version;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// TPA runtime assemblies plus the restored NuGet compile assemblies (one per
+    /// assembly simple name, see <see cref="EnumeratePackageReferences"/>).
+    /// </summary>
+    public override IReadOnlyCollection<MetadataReference> GetMetadataReferences()
+    {
+        var references = new List<MetadataReference>(base.GetMetadataReferences());
+        if (_packageReferences.Count > 0)
+        {
+            references.AddRange(_packageReferences);
+        }
+
+        return references;
     }
 
     private bool IsInTestProject(string sourceFilePath)
