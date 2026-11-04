@@ -1,3 +1,4 @@
+using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis;
 
 namespace CSharpToJava.Core.Normalization;
@@ -10,16 +11,16 @@ public sealed class ResidualRegistry
 {
     private static readonly ResidualDescriptor[] DefaultDescriptors =
     {
-        new("NORM-ENUM-ARITH", "enum-declaration", ResidualPolicy.Fail, EnumArithmeticResidualProbe.Gate),
-        new("NORM-STACKALLOC", "stackalloc-lowering", ResidualPolicy.Fail, StackAllocResidualProbe.Gate),
-        new("NORM-REF-STRUCT", "ref-struct-lowering", ResidualPolicy.Fail, RefStructResidualProbe.Gate),
-        new("NORM-REF-LOCAL", "unsafe-ref-lowering", ResidualPolicy.Fail, RefLocalResidualProbe.Gate),
-        new("NORM-ASYNC-LAMBDA", "async-normalize", ResidualPolicy.Fail, AsyncLambdaResidualProbe.Gate),
-        new("NORM-TUPLE-LOCAL", "tuple", ResidualPolicy.Fail, TupleLocalResidualProbe.Gate),
-        new("NORM-POINTER-OP", "unsafe-ffm", ResidualPolicy.Fail, PointerOperatorResidualProbe.Gate),
-        new("NORM-POINTER-LOCAL", "unsafe-ffm", ResidualPolicy.Fail, PointerLocalResidualProbe.Gate),
-        new("NORM-UNSAFE-BLOCK", "unsafe-ffm", ResidualPolicy.Fail, UnsafeBlockResidualProbe.Gate),
-        new("NORM-FIXED", "unsafe-ffm", ResidualPolicy.Fail, FixedStatementResidualProbe.Gate),
+        new(PassConstructIds.EnumArithmetic, "enum-declaration", ResidualPolicy.Fail, EnumArithmeticResidualProbe.Gate),
+        new(PassConstructIds.StackAlloc, "stackalloc-lowering", ResidualPolicy.Fail, StackAllocResidualProbe.Gate),
+        new(PassConstructIds.RefStruct, "ref-struct-lowering", ResidualPolicy.Fail, RefStructResidualProbe.Gate),
+        new(PassConstructIds.RefLocal, "unsafe-ref-lowering", ResidualPolicy.Fail, RefLocalResidualProbe.Gate),
+        new(PassConstructIds.AsyncLambda, "async-normalize", ResidualPolicy.Fail, AsyncLambdaResidualProbe.Gate),
+        new(PassConstructIds.TupleLocal, "tuple", ResidualPolicy.Fail, TupleLocalResidualProbe.Gate),
+        new(PassConstructIds.PointerOp, "unsafe-ffm", ResidualPolicy.Fail, PointerOperatorResidualProbe.Gate),
+        new(PassConstructIds.PointerLocal, "unsafe-ffm", ResidualPolicy.Fail, PointerLocalResidualProbe.Gate),
+        new(PassConstructIds.UnsafeBlock, "unsafe-ffm", ResidualPolicy.Fail, UnsafeBlockResidualProbe.Gate),
+        new(PassConstructIds.FixedStatement, "unsafe-ffm", ResidualPolicy.Fail, FixedStatementResidualProbe.Gate),
     };
 
     private readonly IReadOnlyList<ResidualDescriptor> _descriptors;

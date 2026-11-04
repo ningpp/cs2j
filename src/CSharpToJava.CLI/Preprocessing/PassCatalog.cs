@@ -1,3 +1,4 @@
+using CSharpToJava.Core.Normalization;
 using CSharpToJava.Core.Preprocessing;
 
 namespace CSharpToJava.CLI.Preprocessing;
@@ -271,7 +272,17 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Lower `ref T x = ref MemoryMarshal.GetReference(span)` plus its " +
                 "Unsafe.ReadUnaligned/Unsafe.Add reads to MemoryMarshal.Read and span indexing; " +
-                "unprovable locals stay verbatim with URL001 for normalization-audit."),
+                "unprovable locals stay verbatim with URL001 for normalization-audit.",
+            contract: new PassContract(
+                Consumes: new[] { PassConstructIds.RefLocal },
+                Produces: Array.Empty<string>(),
+                Preconditions: Array.Empty<string>(),
+                Postconditions: new[] { PassConstructIds.RefLocal },
+                MayLeave: Array.Empty<string>(),
+                Owners: Array.Empty<string>(),
+                Policy: ResidualPolicy.Fail,
+                Idempotent: true,
+                RequiresWholeTree: true)),
         new(
             PassIds.UsingResourceLift,
             "Using resource lift",
@@ -292,7 +303,18 @@ internal static class PassCatalog
             description: "Lift using resource expressions that contain ref/out read-backs " +
                 "(or ByRef<T> factory calls) into a preceding local declaration, so the " +
                 "Java using statement gate sees a plain identifier resource; await using, " +
-                "using declarations and multiple-variable declarations stay verbatim."),
+                "using declarations and multiple-variable declarations stay verbatim.",
+            // This pass moves using resource expressions; it owns no NORM code.
+            contract: new PassContract(
+                Consumes: Array.Empty<string>(),
+                Produces: Array.Empty<string>(),
+                Preconditions: Array.Empty<string>(),
+                Postconditions: Array.Empty<string>(),
+                MayLeave: Array.Empty<string>(),
+                Owners: Array.Empty<string>(),
+                Policy: ResidualPolicy.Fail,
+                Idempotent: true,
+                RequiresWholeTree: true)),
         new(
             PassIds.Unsigned,
             "Unsigned types",
@@ -502,7 +524,20 @@ internal static class PassCatalog
                 "Span/ReadOnlySpan-target stackalloc and the provable pointer-local + " +
                 "Span-construction shape to heap arrays; unprovable bare-pointer sites stay " +
                 "verbatim with SL001 for normalization-audit.",
-            catalogItems: "C06"),
+            catalogItems: "C06",
+            // It lowers stackalloc and also unwraps unsafe blocks left over from
+            // unsafe-ffm. Residual bare-pointer locals (NORM-POINTER-LOCAL) are
+            // not claimed here: they stay verbatim for normalization-audit.
+            contract: new PassContract(
+                Consumes: new[] { PassConstructIds.StackAlloc, PassConstructIds.UnsafeBlock },
+                Produces: Array.Empty<string>(),
+                Preconditions: Array.Empty<string>(),
+                Postconditions: new[] { PassConstructIds.StackAlloc, PassConstructIds.UnsafeBlock },
+                MayLeave: Array.Empty<string>(),
+                Owners: Array.Empty<string>(),
+                Policy: ResidualPolicy.Fail,
+                Idempotent: true,
+                RequiresWholeTree: true)),
         new(
             PassIds.RefStructLowering,
             "Ref struct lowering",
@@ -524,7 +559,19 @@ internal static class PassCatalog
                 "(pointer/function-pointer/ref field, ref-returning member, Span/ReadOnlySpan/" +
                 "Memory/ref-like type, or nested ref struct); every other declaration stays " +
                 "verbatim with RSL001 for normalization-audit.",
-            catalogItems: "C06"),
+            catalogItems: "C06",
+            // Ref-only struct declarations intentionally stay behind: MayLeave
+            // records that residual NORM-REF-STRUCT is expected, not a failure.
+            contract: new PassContract(
+                Consumes: new[] { PassConstructIds.RefStruct },
+                Produces: Array.Empty<string>(),
+                Preconditions: Array.Empty<string>(),
+                Postconditions: new[] { PassConstructIds.RefStruct },
+                MayLeave: new[] { PassConstructIds.RefStruct },
+                Owners: Array.Empty<string>(),
+                Policy: ResidualPolicy.Fail,
+                Idempotent: true,
+                RequiresWholeTree: true)),
         new(
             PassIds.PointerDerefIndex,
             "Pointer deref indexing",
@@ -545,7 +592,21 @@ internal static class PassCatalog
                 "pointer indirection `*p` / `*(p + k)` / `*(T*)expr` to pointer element " +
                 "access `p[0]` / `p[k]` / `((T*)expr)[0]`; side-effect receivers and " +
                 "unprovable shapes stay verbatim with PDI001 for normalization-audit.",
-            catalogItems: "C06"),
+            catalogItems: "C06",
+            // Only the `*` subset is consumed. Address-of `&` and residual `*`
+            // share the same NORM-POINTER-OP code, so the code is also declared
+            // in MayLeave to mark the partial residue (it cannot be distinguished
+            // at the construct-id granularity).
+            contract: new PassContract(
+                Consumes: new[] { PassConstructIds.PointerOp },
+                Produces: Array.Empty<string>(),
+                Preconditions: Array.Empty<string>(),
+                Postconditions: new[] { PassConstructIds.PointerOp },
+                MayLeave: new[] { PassConstructIds.PointerOp },
+                Owners: Array.Empty<string>(),
+                Policy: ResidualPolicy.Fail,
+                Idempotent: true,
+                RequiresWholeTree: true)),
         new(
             PassStubCatalog.Ids.ClosureLift,
             "Closure/display class lift",
@@ -803,7 +864,19 @@ internal static class PassCatalog
             needsSemanticModel: true,
             verifyBuildByDefault: false,
             verifyTestsByDefault: false,
-            description: "Read-only final-tree audit: scans NORM-* residuals, writes preprocess-residual-report.json; --profile java-ready enforces it."),
+            description: "Read-only final-tree audit: scans NORM-* residuals, writes preprocess-residual-report.json; --profile java-ready enforces it.",
+            // Read-only audit: it consumes and produces nothing, and any
+            // residual hit is a hard readiness failure.
+            contract: new PassContract(
+                Consumes: Array.Empty<string>(),
+                Produces: Array.Empty<string>(),
+                Preconditions: Array.Empty<string>(),
+                Postconditions: Array.Empty<string>(),
+                MayLeave: Array.Empty<string>(),
+                Owners: Array.Empty<string>(),
+                Policy: ResidualPolicy.Fail,
+                Idempotent: true,
+                RequiresWholeTree: true)),
     };
 
     private static readonly Dictionary<string, PassDescriptor> ById =

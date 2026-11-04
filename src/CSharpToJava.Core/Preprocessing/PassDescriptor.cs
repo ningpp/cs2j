@@ -77,7 +77,8 @@ public sealed record PassDescriptor
         bool verifyBuildByDefault = false,
         bool verifyTestsByDefault = false,
         string? description = null,
-        string? catalogItems = null)
+        string? catalogItems = null,
+        PassContract? contract = null)
     {
         if (string.IsNullOrWhiteSpace(id))
             throw new ArgumentException("Pass id is required.", nameof(id));
@@ -99,6 +100,7 @@ public sealed record PassDescriptor
         VerifyTestsByDefault = verifyTestsByDefault;
         Description = description;
         CatalogItems = catalogItems;
+        Contract = contract;
     }
 
     /// <summary>Stable kebab-case identifier; equals the CLI <c>--enable-pass</c> / <c>--pass</c> name.</summary>
@@ -139,4 +141,10 @@ public sealed record PassDescriptor
 
     /// <summary>Preprocessor-catalog candidate ids covered by this pass (e.g. "C03, C37"), informational.</summary>
     public string? CatalogItems { get; }
+
+    /// <summary>
+    /// Optional machine-readable residual contract. Null means the pass declares
+    /// no NORM construct ownership; it is never rendered by <c>--list-passes</c>.
+    /// </summary>
+    public PassContract? Contract { get; init; }
 }
