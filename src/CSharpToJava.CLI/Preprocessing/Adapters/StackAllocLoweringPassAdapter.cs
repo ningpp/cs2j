@@ -121,6 +121,7 @@ internal sealed class StackAllocLoweringPassAdapter : ProjectPassAdapter
            $"({_statistics.SpanTargetSitesLowered} span, " +
            $"{_statistics.PointerLocalSitesLowered} pointer local, " +
            $"{_statistics.SpanConstructionsRewritten} span construction(s) rewritten), " +
+           $"{_statistics.UnsafeBlocksUnwrapped} unsafe block(s) unwrapped, " +
            $"{_statistics.RejectedSites} rejected (SL001)";
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
@@ -137,6 +138,7 @@ internal sealed class StackAllocLoweringPassAdapter : ProjectPassAdapter
         _statistics.SpanTargetSitesLowered += source.SpanTargetSitesLowered;
         _statistics.PointerLocalSitesLowered += source.PointerLocalSitesLowered;
         _statistics.SpanConstructionsRewritten += source.SpanConstructionsRewritten;
+        _statistics.UnsafeBlocksUnwrapped += source.UnsafeBlocksUnwrapped;
         _statistics.RejectedSites += source.RejectedSites;
     }
 }

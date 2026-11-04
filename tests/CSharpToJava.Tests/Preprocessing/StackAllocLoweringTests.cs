@@ -210,7 +210,195 @@ public sealed class StackAllocLoweringTests
         Assert.Equal(0, second.Statistics.PointerLocalSitesLowered);
     }
 
-    // ── 7. 注册/顺序：unsafe-ffm 之后、closure-lift 之前，默认开启 ──
+    // ── 7. 降级完成后，已无 unsafe 构造的 unsafe 块被剥离 ──
+
+    [Fact]
+    public void UnsafeBlock_AfterStackAllocLowering_IsUnwrapped_AndOutputCompiles()
+    {
+        const string src = """
+            using System;
+            class C
+            {
+                static void M(int n)
+                {
+                    unsafe
+                    {
+                        char* p = stackalloc char[n];
+                        var s = new Span<char>(p, n);
+                        s[0] = 'x';
+                    }
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.DoesNotContain("unsafe", result.OutputCode);
+        Assert.DoesNotContain("stackalloc", result.OutputCode);
+        Assert.Contains("char[] p = new char[n];", result.OutputCode);
+        Assert.Contains("new Span<char>(p, 0, n)", result.OutputCode);
+        Assert.Equal(1, result.Statistics.PointerLocalSitesLowered);
+        Assert.Equal(1, result.Statistics.SpanConstructionsRewritten);
+        Assert.Equal(1, result.Statistics.UnsafeBlocksUnwrapped);
+        Assert.Equal(0, result.Statistics.RejectedSites);
+        AssertOutputCompiles(result.OutputCode);
+        AssertNoStackAllocResidual(result.OutputCode);
+    }
+
+    // ── 8. 反例：stackalloc 保留 → unsafe 块也必须保留 ──
+
+    [Fact]
+    public void UnsafeBlock_WithPreservedStackAllocAndDereference_IsKept_AndOutputCompiles()
+    {
+        const string src = """
+            class C
+            {
+                static void M(int n)
+                {
+                    unsafe
+                    {
+                        char* p = stackalloc char[n];
+                        *p = 'x';
+                    }
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Contains("unsafe", result.OutputCode);
+        Assert.Contains("stackalloc", result.OutputCode);
+        Assert.Equal(1, result.Statistics.RejectedSites);
+        Assert.Equal(0, result.Statistics.UnsafeBlocksUnwrapped);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    // ── 9. 无 unsafe 构造的 unsafe 块 → 剥离且幂等 ──
+
+    [Fact]
+    public void UnsafeBlock_WithoutUnsafeConstructs_IsUnwrapped_AndIsIdempotent()
+    {
+        const string src = """
+            class C
+            {
+                static void M()
+                {
+                    unsafe
+                    {
+                        int x = 1;
+                        System.Console.WriteLine(x);
+                    }
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.DoesNotContain("unsafe", result.OutputCode);
+        Assert.Contains("int x = 1;", result.OutputCode);
+        Assert.Equal(1, result.Statistics.UnsafeBlocksUnwrapped);
+        AssertOutputCompiles(result.OutputCode);
+
+        var second = Run(result.OutputCode);
+        Assert.False(second.Changed);
+        Assert.Equal(result.OutputCode, second.OutputCode);
+        Assert.Equal(0, second.Statistics.UnsafeBlocksUnwrapped);
+    }
+
+    // ── 10. 嵌套 unsafe：内层干净时两层都剥离；内层仍需 unsafe 时都保留 ──
+
+    [Fact]
+    public void NestedUnsafeBlocks_UnwrapWhenClean_AndStayWhenInnerStillNeedsUnsafe()
+    {
+        const string cleanSrc = """
+            class C
+            {
+                static void M()
+                {
+                    unsafe
+                    {
+                        int a = 1;
+                        unsafe
+                        {
+                            int b = 2;
+                            System.Console.WriteLine(a + b);
+                        }
+                    }
+                }
+            }
+            """;
+
+        var clean = Run(cleanSrc);
+
+        Assert.True(clean.Changed);
+        Assert.DoesNotContain("unsafe", clean.OutputCode);
+        Assert.Equal(2, clean.Statistics.UnsafeBlocksUnwrapped);
+        AssertOutputCompiles(clean.OutputCode);
+
+        const string unsafeInnerSrc = """
+            class C
+            {
+                static void M(int n)
+                {
+                    unsafe
+                    {
+                        unsafe
+                        {
+                            char* p = stackalloc char[n];
+                            *p = 'x';
+                        }
+                    }
+                }
+            }
+            """;
+
+        var kept = Run(unsafeInnerSrc);
+
+        Assert.False(kept.Changed);
+        Assert.Equal(unsafeInnerSrc, kept.OutputCode);
+        Assert.Contains("unsafe", kept.OutputCode);
+        Assert.Equal(0, kept.Statistics.UnsafeBlocksUnwrapped);
+        AssertOutputCompiles(kept.OutputCode);
+    }
+
+    // ── 11. fixed 仍需 unsafe → 外层块保留 ──
+
+    [Fact]
+    public void UnsafeBlock_ContainingFixed_IsKept_AndOutputCompiles()
+    {
+        const string src = """
+            class C
+            {
+                static void M(char[] arr)
+                {
+                    unsafe
+                    {
+                        fixed (char* q = arr)
+                        {
+                            q[0] = 'a';
+                        }
+                    }
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Contains("unsafe", result.OutputCode);
+        Assert.Contains("fixed", result.OutputCode);
+        Assert.Equal(0, result.Statistics.UnsafeBlocksUnwrapped);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    // ── 12. 注册/顺序：unsafe-ffm 之后、closure-lift 之前，默认开启 ──
 
     [Fact]
     public void Registry_slots_after_unsafe_ffm_before_closure_lift_and_is_default_on()

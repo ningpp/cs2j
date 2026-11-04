@@ -16,6 +16,12 @@ public sealed class StackAllocLoweringStatistics
     /// <summary><c>new Span&lt;T&gt;(ptr, n)</c> → <c>new Span&lt;T&gt;(ptr, 0, n)</c> 改写数。</summary>
     public int SpanConstructionsRewritten { get; set; }
 
+    /// <summary>
+    /// 改写后不再包含任何 unsafe 构造、由 <c>unsafe { ... }</c> 退化为普通
+    /// <c>{ ... }</c> 的块数。
+    /// </summary>
+    public int UnsafeBlocksUnwrapped { get; set; }
+
     /// <summary>无法安全降级、原文保留的站点数（SL001）。</summary>
     public int RejectedSites { get; set; }
 

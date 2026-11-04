@@ -25,6 +25,10 @@ namespace CSharpToJava.Core.StackAllocLowering;
 /// Every other bare-pointer stackalloc site (arithmetic, dereference, passing,
 /// field store, return, unprovable) is preserved verbatim and reported as
 /// SL001; <c>normalization-audit</c> keeps reporting NORM-STACKALLOC for it.
+/// After all stackalloc rewrites the pass also unwraps <c>unsafe { ... }</c>
+/// blocks whose rewritten body no longer contains any unsafe-only syntax
+/// (pointer/function-pointer types, <c>fixed</c>, stackalloc, address-of /
+/// pointer indirection, or a nested unsafe block that must stay).
 /// Clean files are returned byte-for-byte and re-running the pass on its own
 /// output is a no-op (idempotent).
 /// </summary>
@@ -63,21 +67,23 @@ public sealed class StackAllocLoweringPreprocessor
         var replacements = new List<(SyntaxNode Original, SyntaxNode Replacement)>();
         CollectReplacements(root, semanticModel, filePath, statistics, diagnostics, replacements);
 
-        if (replacements.Count == 0)
+        // 1) stackalloc 改写。
+        var newRoot = root;
+        if (replacements.Count > 0)
         {
-            statistics.FilesSkippedClean++;
-            return Rollback(sourceCode, statistics, diagnostics);
+            var map = new Dictionary<SyntaxNode, SyntaxNode>(
+                replacements.Count, ReferenceEqualityComparer.Instance);
+            foreach (var pair in replacements)
+            {
+                map[pair.Original] = pair.Replacement;
+            }
+
+            newRoot = (CompilationUnitSyntax)root.ReplaceNodes(
+                map.Keys, (original, _) => map[original]);
         }
 
-        var map = new Dictionary<SyntaxNode, SyntaxNode>(
-            replacements.Count, ReferenceEqualityComparer.Instance);
-        foreach (var pair in replacements)
-        {
-            map[pair.Original] = pair.Replacement;
-        }
-
-        var newRoot = (CompilationUnitSyntax)root.ReplaceNodes(
-            map.Keys, (original, _) => map[original]);
+        // 2) 所有 stackalloc 改写完成后，再剥离已不含 unsafe 构造的 unsafe 块。
+        newRoot = (CompilationUnitSyntax)new UnsafeBlockUnwrapper(statistics).Visit(newRoot)!;
 
         if (newRoot.IsEquivalentTo(root))
         {
@@ -590,5 +596,64 @@ public sealed class StackAllocLoweringPreprocessor
                 return false;
             }
         });
+    }
+
+    /// <summary>
+    /// 剥除 <see cref="UnsafeStatementSyntax"/>：仅当（后序处理后的）块内已不含
+    /// 任何需要 unsafe 的语法时，才把 <c>unsafe { ... }</c> 退化为普通
+    /// <c>{ ... }</c>。指针/函数指针类型、<c>fixed</c>、显式/隐式 stackalloc、
+    /// 取址/指针解引用，以及仍需保留的内层 unsafe 块均视为需要 unsafe；
+    /// 不依据 unsafe 关键字本身判断。后序确保内层先处理，外层随后可一并剥离。
+    /// </summary>
+    private sealed class UnsafeBlockUnwrapper : CSharpSyntaxRewriter
+    {
+        private readonly StackAllocLoweringStatistics _statistics;
+
+        public UnsafeBlockUnwrapper(StackAllocLoweringStatistics statistics)
+        {
+            _statistics = statistics;
+        }
+
+        public override SyntaxNode? VisitUnsafeStatement(UnsafeStatementSyntax node)
+        {
+            var visited = (UnsafeStatementSyntax)base.VisitUnsafeStatement(node)!;
+            if (ContainsUnsafeOnlySyntax(visited.Block))
+            {
+                return visited;
+            }
+
+            _statistics.UnsafeBlocksUnwrapped++;
+
+            // unsafe keyword 的 trivia（缩进/换行/注释）并入 Block 前导，
+            // 保持源码排版；格式化阶段会统一整理。
+            var block = visited.Block;
+            var mergedLeading = visited.UnsafeKeyword.LeadingTrivia
+                .Concat(visited.UnsafeKeyword.TrailingTrivia)
+                .Concat(block.GetLeadingTrivia());
+            return block.WithLeadingTrivia(mergedLeading);
+        }
+
+        private static bool ContainsUnsafeOnlySyntax(SyntaxNode block)
+        {
+            foreach (var descendant in block.DescendantNodes())
+            {
+                switch (descendant)
+                {
+                    case PointerTypeSyntax:
+                    case FunctionPointerTypeSyntax:
+                    case FixedStatementSyntax:
+                    case StackAllocArrayCreationExpressionSyntax:
+                    case ImplicitStackAllocArrayCreationExpressionSyntax:
+                    case UnsafeStatementSyntax:
+                        return true;
+                    case PrefixUnaryExpressionSyntax prefix
+                        when prefix.IsKind(SyntaxKind.AddressOfExpression)
+                             || prefix.IsKind(SyntaxKind.PointerIndirectionExpression):
+                        return true;
+                }
+            }
+
+            return false;
+        }
     }
 }
