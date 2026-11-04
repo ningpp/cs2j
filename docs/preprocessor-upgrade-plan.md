@@ -730,6 +730,8 @@ dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- 
 | 指针解引用 → 元素访问 | 完成 | `pointer-deref-index` pass | `NORM-POINTER-OP 26 → 2`（只剩 `&` address-of）；Utf8JsonWriterTests 转换通过 |
 | 新审计探针（pointer-local / unsafe-block / fixed） | 完成 | `Normalization/Probes` | 新增 3 个 NORM code，准确定位硬域 |
 | 每 pass 执行报告 | 完成 | `preprocess-report.json` | pass 状态/耗时/stages/诊断落盘；失败路径也写 |
+| `convert-project` 接入 java-ready 闸门 | 完成 | `--profile java-ready` / `audit` | 转换前 audit；java-ready 在硬残留处 fail-fast |
+| 报告路径与清理保留 | 完成 | `--report`、`GetPreservedDestinationFileNames` | 自定义报告路径；fresh conversion 不再删除报告 |
 
 **全量转换对照**（同一 `csharp-sdk.sln`、同一命令）：
 
