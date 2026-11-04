@@ -17,12 +17,15 @@ namespace CSharpToJava.Core.CompatMethodReplacement;
 /// managed implementation. Signature, attributes and modifiers (including
 /// <c>unsafe</c>, which <c>unsafe-ffm</c> removes later) are preserved.
 /// <para>
-/// The built-in entry replaces
+/// The built-in entries replace
 /// <c>System.Text.Json.JsonWriterHelper.ToUtf8(ReadOnlySpan&lt;byte&gt;, Span&lt;byte&gt;, out int, out int)</c>
 /// — a pointer-based UTF-16→UTF-8 transcoder — with an
-/// <c>Encoding.UTF8.GetEncoder().Convert</c> implementation. That removes the
-/// method's two array <c>fixed</c> statements and their pointer arithmetic so
-/// <c>unsafe-ffm</c> R3 can lower the remaining array fixed statements.
+/// <c>Encoding.UTF8.GetEncoder().Convert</c> implementation, and the char-span
+/// <c>JsonWriterHelper.NeedsEscaping(ReadOnlySpan&lt;char&gt;, JavaScriptEncoder?)</c>
+/// — a <c>fixed (char*)</c> scan through
+/// <c>FindFirstCharacterToEncode(char*, int)</c> — with a managed per-character
+/// <c>WillEncode</c> loop. That removes those methods' <c>fixed</c> statements
+/// and pointer arguments so <c>unsafe-ffm</c> no longer has to reject them.
 /// </para>
 /// <para>
 /// Only exact symbol matches are rewritten; same-named overloads, same-named

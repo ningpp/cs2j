@@ -366,6 +366,45 @@ public sealed class CompatMethodReplacementRegistry
                 "stopping at the first unpaired surrogate (InvalidData) so the " +
                 "valid prefix is written without replacement characters.",
         },
+        new CompatMethodReplacementEntry
+        {
+            Key = "System.Text.Json.JsonWriterHelper.NeedsEscaping(" +
+                  "System.ReadOnlySpan<char>, System.Text.Encodings.Web.JavaScriptEncoder)",
+            ContainingNamespace = "System.Text.Json",
+            ContainingTypeName = "JsonWriterHelper",
+            MethodName = "NeedsEscaping",
+            ReturnTypeName = "int",
+            Parameters = new[]
+            {
+                new CompatMethodParameter("value", "ReadOnlySpan<char>"),
+                new CompatMethodParameter("encoder", "JavaScriptEncoder"),
+            },
+            BodyTemplate = """
+                if (value.IsEmpty)
+                {
+                    return -1;
+                }
+
+                var __encoder = object.ReferenceEquals(encoder, null)
+                    ? global::System.Text.Encodings.Web.JavaScriptEncoder.Default
+                    : encoder;
+                for (int __i = 0; __i < value.Length; __i++)
+                {
+                    if (__encoder.WillEncode((int)value[__i]))
+                    {
+                        return __i;
+                    }
+                }
+
+                return -1;
+                """,
+            Description =
+                "Replaces the char-span fixed/pointer scan " +
+                "(FindFirstCharacterToEncode(char*, int)) with a managed " +
+                "per-character WillEncode loop. The empty-span guard keeps the " +
+                "original semantics for encoders that dereference the pointer " +
+                "even when the length is zero.",
+        },
     ]);
 
     public CompatMethodReplacementRegistry(IReadOnlyList<CompatMethodReplacementEntry> entries)
@@ -374,7 +413,10 @@ public sealed class CompatMethodReplacementRegistry
         Entries = entries;
     }
 
-    /// <summary>The built-in table (currently one entry: JsonWriterHelper.ToUtf8).</summary>
+    /// <summary>
+    /// The built-in table: <c>JsonWriterHelper.ToUtf8</c> and the char-span
+    /// <c>JsonWriterHelper.NeedsEscaping</c> pointer scan.
+    /// </summary>
     public static CompatMethodReplacementRegistry Default => DefaultRegistry;
 
     public IReadOnlyList<CompatMethodReplacementEntry> Entries { get; }

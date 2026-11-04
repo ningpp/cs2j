@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text;
+using System.Text.Encodings.Web;
 using CSharpToJava.CLI.Preprocessing;
 using CSharpToJava.Core.CompatMethodReplacement;
 using CSharpToJava.Core.Preprocessing;
@@ -123,6 +124,122 @@ public sealed class CompatMethodReplacementTests
         Assert.DoesNotContain("Encoding.UTF8.GetEncoder()", result.OutputCode);
     }
 
+    // ── 2b. NeedsEscaping：精确签名 → WillEncode 扫描，无 fixed/pointer ──
+
+    [Fact]
+    public void NeedsEscaping_exact_signature_replaces_the_fixed_pointer_body_with_the_managed_scan()
+    {
+        const string src = """
+            using System;
+            using System.Text.Encodings.Web;
+
+            namespace System.Text.Json
+            {
+                internal static class JsonWriterHelper
+                {
+                    public static unsafe int NeedsEscaping(ReadOnlySpan<char> value, JavaScriptEncoder? encoder)
+                    {
+                        if (value.IsEmpty)
+                        {
+                            return -1;
+                        }
+
+                        fixed (char* ptr = value)
+                        {
+                            var ___t2 = encoder;
+                            return ((!object.ReferenceEquals(___t2, null) ? ___t2 : JavaScriptEncoder.Default))
+                                .FindFirstCharacterToEncode(ptr, value.Length);
+                        }
+                    }
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Equal(1, result.Statistics.MethodsReplaced);
+        Assert.Equal(0, result.Statistics.SignatureMismatches);
+        Assert.Contains("WillEncode", result.OutputCode);
+        Assert.Contains("compat-method-replacement", result.OutputCode);
+        Assert.DoesNotContain("fixed", result.OutputCode);
+        Assert.DoesNotContain("FindFirstCharacterToEncode", result.OutputCode);
+        Assert.DoesNotContain("char*", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void NeedsEscaping_parameter_names_are_substituted_from_the_declaration()
+    {
+        const string src = """
+            using System;
+            using System.Text.Encodings.Web;
+
+            namespace System.Text.Json
+            {
+                internal static class JsonWriterHelper
+                {
+                    public static unsafe int NeedsEscaping(ReadOnlySpan<char> chars, JavaScriptEncoder? enc)
+                    {
+                        if (chars.IsEmpty)
+                        {
+                            return -1;
+                        }
+
+                        fixed (char* ptr = chars)
+                        {
+                            var ___t2 = enc;
+                            return ((!object.ReferenceEquals(___t2, null) ? ___t2 : JavaScriptEncoder.Default))
+                                .FindFirstCharacterToEncode(ptr, chars.Length);
+                        }
+                    }
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.MethodsReplaced);
+        Assert.Contains("chars.IsEmpty", result.OutputCode);
+        Assert.Contains("object.ReferenceEquals(enc, null)", result.OutputCode);
+        Assert.DoesNotContain("value.IsEmpty", result.OutputCode);
+        Assert.DoesNotContain("ReferenceEquals(encoder, null)", result.OutputCode);
+        Assert.DoesNotContain("fixed", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void NeedsEscaping_signature_mismatch_is_preserved_with_CMR001()
+    {
+        const string src = """
+            using System;
+            using System.Text.Encodings.Web;
+
+            namespace System.Text.Json
+            {
+                internal static class JsonWriterHelper
+                {
+                    public static int NeedsEscaping(ReadOnlySpan<byte> value, JavaScriptEncoder? encoder)
+                    {
+                        return -1;
+                    }
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Equal(0, result.Statistics.MethodsReplaced);
+        Assert.Equal(1, result.Statistics.SignatureMismatches);
+        var mismatch = Assert.Single(result.Diagnostics);
+        Assert.Equal(CompatMethodReplacementDiagnosticCode.CMR001, mismatch.Code);
+        Assert.Contains("ReadOnlySpan<char>", mismatch.Message);
+    }
+
     // ── 3. 幂等：第二次无变化 ──
 
     [Fact]
@@ -155,6 +272,48 @@ public sealed class CompatMethodReplacementTests
 
         var first = Run(src);
         Assert.True(first.Changed);
+        AssertOutputCompiles(first.OutputCode);
+
+        var second = Run(first.OutputCode);
+
+        Assert.False(second.Changed);
+        Assert.Equal(first.OutputCode, second.OutputCode);
+        Assert.Equal(0, second.Statistics.MethodsReplaced);
+        Assert.Equal(1, second.Statistics.MethodsAlreadyReplaced);
+    }
+
+    [Fact]
+    public void NeedsEscaping_rewrite_is_idempotent()
+    {
+        const string src = """
+            using System;
+            using System.Text.Encodings.Web;
+
+            namespace System.Text.Json
+            {
+                internal static class JsonWriterHelper
+                {
+                    public static unsafe int NeedsEscaping(ReadOnlySpan<char> value, JavaScriptEncoder? encoder)
+                    {
+                        if (value.IsEmpty)
+                        {
+                            return -1;
+                        }
+
+                        fixed (char* ptr = value)
+                        {
+                            var ___t2 = encoder;
+                            return ((!object.ReferenceEquals(___t2, null) ? ___t2 : JavaScriptEncoder.Default))
+                                .FindFirstCharacterToEncode(ptr, value.Length);
+                        }
+                    }
+                }
+            }
+            """;
+
+        var first = Run(src);
+        Assert.True(first.Changed);
+        Assert.Equal(1, first.Statistics.MethodsReplaced);
         AssertOutputCompiles(first.OutputCode);
 
         var second = Run(first.OutputCode);
@@ -234,7 +393,7 @@ public sealed class CompatMethodReplacementTests
         var method = LoadRuntimeConverter();
 
         const string prefix = "中文编码";
-        var utf16 = Encoding.Unicode.GetBytes(prefix + (char)0xD800 + "tail");
+        var utf16 = GetUtf16Bytes(prefix + (char)0xD800 + "tail");
         var expectedPrefix = Encoding.UTF8.GetBytes(prefix);
         var destination = new byte[Math.Max(1, expectedPrefix.Length - 1)];
         var args = new object[] { utf16, destination, 0, 0 };
@@ -243,6 +402,131 @@ public sealed class CompatMethodReplacementTests
 
         Assert.Equal((int)OperationStatus.DestinationTooSmall, status);
         Assert.True((int)args[3] <= destination.Length);
+    }
+
+    // ── 4c. NeedsEscaping：替换体与原 FindFirstCharacterToEncode 逐字符结果一致 ──
+
+    private const string NeedsEscapingRuntimeSource = """
+        using System;
+        using System.Text.Encodings.Web;
+
+        namespace System.Text.Json
+        {
+            internal static class JsonWriterHelper
+            {
+                public static unsafe int NeedsEscaping(ReadOnlySpan<char> value, JavaScriptEncoder? encoder)
+                {
+                    if (value.IsEmpty)
+                    {
+                        return -1;
+                    }
+
+                    fixed (char* ptr = value)
+                    {
+                        var ___t2 = encoder;
+                        return ((!object.ReferenceEquals(___t2, null) ? ___t2 : JavaScriptEncoder.Default))
+                            .FindFirstCharacterToEncode(ptr, value.Length);
+                    }
+                }
+
+                public static int RunReplacement(string text, JavaScriptEncoder? encoder)
+                    => NeedsEscaping(text.AsSpan(), encoder);
+            }
+        }
+
+        namespace CompatRuntime
+        {
+            internal static class OriginalNeedsEscaping
+            {
+                public static unsafe int Run(string text, JavaScriptEncoder? encoder)
+                {
+                    if (text.Length == 0)
+                    {
+                        return -1;
+                    }
+
+                    fixed (char* ptr = text)
+                    {
+                        var ___t2 = encoder;
+                        return ((!object.ReferenceEquals(___t2, null) ? ___t2 : JavaScriptEncoder.Default))
+                            .FindFirstCharacterToEncode(ptr, text.Length);
+                    }
+                }
+            }
+        }
+        """;
+
+    private static readonly string[] NeedsEscapingTexts =
+    {
+        "plain ascii",
+        "Hello, cs2j!",
+        "中文编码测试",
+        "中文 mixed ASCII",
+        "\u0000abc",
+        "abc\u0001def",
+        "\t\r\n",
+        "\"quoted\\slash\"",
+        "<script>&'",
+        "中文\u0001tail",
+        "a\u007Fb",
+    };
+
+    [Fact]
+    public void NeedsEscaping_replacement_matches_the_original_encoder_scan()
+    {
+        var result = Run(NeedsEscapingRuntimeSource);
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.MethodsReplaced);
+        AssertOutputCompiles(result.OutputCode);
+
+        var assembly = LoadAssembly(result.OutputCode);
+        var replacement = assembly.GetType("System.Text.Json.JsonWriterHelper")!
+            .GetMethod("RunReplacement", BindingFlags.Public | BindingFlags.Static)!;
+        var original = assembly.GetType("CompatRuntime.OriginalNeedsEscaping")!
+            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
+
+        foreach (var encoder in new JavaScriptEncoder?[]
+                 {
+                     JavaScriptEncoder.Default,
+                     JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                     null,
+                 })
+        {
+            foreach (var text in NeedsEscapingTexts)
+            {
+                var expected = (int)original.Invoke(null, new object?[] { text, encoder })!;
+                var actual = (int)replacement.Invoke(null, new object?[] { text, encoder })!;
+                Assert.Equal(expected, actual);
+            }
+
+            Assert.Equal(
+                -1,
+                (int)replacement.Invoke(null, new object?[] { string.Empty, encoder })!);
+        }
+    }
+
+    [Fact]
+    public void NeedsEscaping_empty_span_returns_minus_one_and_null_encoder_uses_the_default()
+    {
+        var result = Run(NeedsEscapingRuntimeSource);
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+
+        var assembly = LoadAssembly(result.OutputCode);
+        var replacement = assembly.GetType("System.Text.Json.JsonWriterHelper")!
+            .GetMethod("RunReplacement", BindingFlags.Public | BindingFlags.Static)!;
+
+        Assert.Equal(
+            -1,
+            (int)replacement.Invoke(null, new object?[] { string.Empty, JavaScriptEncoder.Default })!);
+        Assert.Equal(
+            -1,
+            (int)replacement.Invoke(null, new object?[] { string.Empty, null })!);
+
+        // 无 encoder → JavaScriptEncoder.Default：控制字符/中文需要转义，纯 ASCII 不需要。
+        Assert.Equal(0, (int)replacement.Invoke(null, new object?[] { "\u0001abc", null })!);
+        Assert.Equal(0, (int)replacement.Invoke(null, new object?[] { "中文abc", null })!);
+        Assert.Equal(-1, (int)replacement.Invoke(null, new object?[] { "abc", null })!);
     }
 
     // ── 5. 注册：fixed-span-to-array 之后、pointer-diff-inline/unsigned/unsafe-ffm 之前，默认开启 ──
@@ -286,19 +570,33 @@ public sealed class CompatMethodReplacementTests
     }
 
     [Fact]
-    public void Default_registry_is_extensible_and_carries_the_json_writer_helper_entry()
+    public void Default_registry_is_extensible_and_carries_the_json_writer_helper_entries()
     {
         var registry = CompatMethodReplacementRegistry.Default;
-        var entry = Assert.Single(registry.Entries);
+        Assert.Equal(2, registry.Entries.Count);
+
+        var toUtf8 = registry.Entries[0];
         Assert.Equal(
             "System.Text.Json.JsonWriterHelper.ToUtf8(" +
             "System.ReadOnlySpan<byte>, System.Span<byte>, out int, out int)",
-            entry.Key);
-        Assert.Equal("JsonWriterHelper", entry.ContainingTypeName);
-        Assert.Equal(4, entry.Parameters.Count);
+            toUtf8.Key);
+        Assert.Equal("JsonWriterHelper", toUtf8.ContainingTypeName);
+        Assert.Equal(4, toUtf8.Parameters.Count);
 
-        var extended = registry.WithAdditionalEntries(entry with { Key = entry.Key + "#copy" });
-        Assert.Equal(2, extended.Entries.Count);
+        var needsEscaping = registry.Entries[1];
+        Assert.Equal(
+            "System.Text.Json.JsonWriterHelper.NeedsEscaping(" +
+            "System.ReadOnlySpan<char>, System.Text.Encodings.Web.JavaScriptEncoder)",
+            needsEscaping.Key);
+        Assert.Equal("JsonWriterHelper", needsEscaping.ContainingTypeName);
+        Assert.Equal("NeedsEscaping", needsEscaping.MethodName);
+        Assert.Equal("int", needsEscaping.ReturnTypeName);
+        Assert.Equal(2, needsEscaping.Parameters.Count);
+        Assert.Equal("ReadOnlySpan<char>", needsEscaping.Parameters[0].TypeName);
+        Assert.Equal("JavaScriptEncoder", needsEscaping.Parameters[1].TypeName);
+
+        var extended = registry.WithAdditionalEntries(toUtf8 with { Key = toUtf8.Key + "#copy" });
+        Assert.Equal(3, extended.Entries.Count);
     }
 
     // ── helpers ──
@@ -317,7 +615,7 @@ public sealed class CompatMethodReplacementTests
         char unpairedSurrogate,
         string suffix)
     {
-        var utf16 = Encoding.Unicode.GetBytes(prefix + unpairedSurrogate + suffix);
+        var utf16 = GetUtf16Bytes(prefix + unpairedSurrogate + suffix);
         var expectedPrefix = Encoding.UTF8.GetBytes(prefix);
         var destination = new byte[expectedPrefix.Length + 16];
         var args = new object[] { utf16, destination, 0, 0 };
@@ -328,6 +626,23 @@ public sealed class CompatMethodReplacementTests
         Assert.Equal(prefix.Length * 2, (int)args[2]);
         Assert.Equal(expectedPrefix.Length, (int)args[3]);
         Assert.Equal(expectedPrefix, destination.AsSpan(0, (int)args[3]).ToArray());
+    }
+
+    /// <summary>
+    /// UTF-16LE bytes without encoder fallback. <c>Encoding.Unicode.GetBytes</c>
+    /// replaces an unpaired surrogate with U+FFFD, so it cannot feed the invalid
+    /// surrogate cases this class exercises.
+    /// </summary>
+    private static byte[] GetUtf16Bytes(string text)
+    {
+        var bytes = new byte[text.Length * 2];
+        for (var i = 0; i < text.Length; i++)
+        {
+            bytes[i * 2] = (byte)(text[i] & 0xFF);
+            bytes[i * 2 + 1] = (byte)(text[i] >> 8);
+        }
+
+        return bytes;
     }
 
     private static void AssertTranscodes(MethodInfo method, string text)
@@ -346,16 +661,25 @@ public sealed class CompatMethodReplacementTests
     }
 
     private static MethodInfo LoadMethod(string outputCode, string typeName, string methodName)
+        => LoadAssembly(outputCode).GetType(typeName)!
+            .GetMethod(methodName, BindingFlags.Public | BindingFlags.Static)!;
+
+    private static int _assemblyNameSuffix;
+
+    private static Assembly LoadAssembly(string outputCode)
     {
-        var compilation = CompileOutput(outputCode);
+        // Each emitted assembly gets a unique identity: the default load context
+        // rejects a second assembly with the same simple name.
+        var compilation = CompileOutput(
+            outputCode,
+            "compat-method-replacement-output-" +
+            System.Threading.Interlocked.Increment(ref _assemblyNameSuffix));
         using var ms = new MemoryStream();
         var emit = compilation.Emit(ms);
         Assert.True(emit.Success,
             "emit failed:\n" + string.Join("\n",
                 emit.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)));
-        var assembly = AssemblyLoadContext.Default.LoadFromStream(new MemoryStream(ms.ToArray()));
-        return assembly.GetType(typeName)!
-            .GetMethod(methodName, BindingFlags.Public | BindingFlags.Static)!;
+        return AssemblyLoadContext.Default.LoadFromStream(new MemoryStream(ms.ToArray()));
     }
 
     private static SemanticModel ParseWithSemantics(string source)
@@ -382,11 +706,13 @@ public sealed class CompatMethodReplacementTests
         return compilation;
     }
 
-    private static Compilation CompileOutput(string output)
+    private static Compilation CompileOutput(
+        string output,
+        string assemblyName = "compat-method-replacement-output")
     {
         var tree = CSharpSyntaxTree.ParseText(output, ParseOptions);
         return CSharpCompilation.Create(
-            "compat-method-replacement-output",
+            assemblyName,
             new[] { tree },
             GetReferences(),
             new CSharpCompilationOptions(
