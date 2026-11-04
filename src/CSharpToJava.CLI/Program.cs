@@ -18,6 +18,7 @@ using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.TypeMapping;
 using CSharpToJava.Core.Workspace;
 using CSharpToJava.Core.Preprocessing;
+using CSharpToJava.Core.Normalization;
 using CSharpToJava.CLI.Preprocessing;
 using System.Text.Json;
 
@@ -766,7 +767,10 @@ public class Program
 
         if (opts.Force && Directory.Exists(opts.Destination) && !outputSession.HasPreviousManifest)
         {
-            ClearDestinationForFreshConversion(opts.Destination, GetPreservedDestinationDirectories(opts));
+            ClearDestinationForFreshConversion(
+                opts.Destination,
+                GetPreservedDestinationDirectories(opts),
+                GetPreservedDestinationFileNames(opts));
         }
 
         int successCount = 0;
@@ -989,7 +993,10 @@ public class Program
 
         if (opts.Force && Directory.Exists(opts.Destination) && !outputSession.HasPreviousManifest)
         {
-            ClearDestinationForFreshConversion(opts.Destination, GetPreservedDestinationDirectories(opts));
+            ClearDestinationForFreshConversion(
+                opts.Destination,
+                GetPreservedDestinationDirectories(opts),
+                GetPreservedDestinationFileNames(opts));
         }
 
         int successCount = 0;
@@ -1228,7 +1235,8 @@ public class Program
 
     internal static void ClearDestinationForFreshConversion(
         string destinationRoot,
-        IReadOnlySet<string>? preservedDirectoryNames = null)
+        IReadOnlySet<string>? preservedDirectoryNames = null,
+        IReadOnlySet<string>? preservedFileNames = null)
     {
         if (!Directory.Exists(destinationRoot))
         {
@@ -1246,6 +1254,11 @@ public class Program
 
         foreach (var file in Directory.EnumerateFiles(fullDestinationPath))
         {
+            if (preservedFileNames?.Contains(Path.GetFileName(file)) == true)
+            {
+                continue;
+            }
+
             File.Delete(file);
         }
 
@@ -1258,6 +1271,40 @@ public class Program
 
             Directory.Delete(directory, recursive: true);
         }
+    }
+
+    private static IReadOnlySet<string> GetPreservedDestinationFileNames(ConvertProjectOptions opts)
+    {
+        var preserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // The preprocess chain writes its report into the destination root before
+        // the fresh-conversion cleanup runs; keep it so the run stays inspectable.
+        preserved.Add(PreprocessReportWriter.DefaultFileName);
+
+        var profile = opts.Profile;
+        var relativeResidualReportPath = opts.ResidualReportPath is { Length: > 0 } path
+            && !Path.IsPathRooted(path);
+
+        // java-ready/audit always run normalization-audit; an explicit relative
+        // path also lands under the destination.
+        if (string.Equals(profile, "java-ready", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(profile, "audit", StringComparison.OrdinalIgnoreCase)
+            || relativeResidualReportPath)
+        {
+            preserved.Add(ResidualReportWriter.DefaultFileName);
+        }
+
+        // Preserve the actual root-level file when an explicit relative report
+        // path names one (subdirectory paths are outside this cleanup's scope).
+        if (relativeResidualReportPath)
+        {
+            var fileName = Path.GetFileName(opts.ResidualReportPath);
+            if (!string.IsNullOrEmpty(fileName))
+            {
+                preserved.Add(fileName);
+            }
+        }
+
+        return preserved;
     }
 
     private static IReadOnlySet<string>? GetPreservedDestinationDirectories(ConvertProjectOptions opts)
