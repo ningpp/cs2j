@@ -37,6 +37,7 @@ internal static class PassIds
     public const string ExtensionMethods = "extension-methods";
     public const string StackAllocLowering = "stackalloc-lowering";
     public const string RefStructLowering = "ref-struct-lowering";
+    public const string PointerDerefIndex = "pointer-deref-index";
     public const string NormalizationAudit = "normalization-audit";
 }
 
@@ -523,6 +524,27 @@ internal static class PassCatalog
                 "(pointer/function-pointer/ref field, ref-returning member, Span/ReadOnlySpan/" +
                 "Memory/ref-like type, or nested ref struct); every other declaration stays " +
                 "verbatim with RSL001 for normalization-audit.",
+            catalogItems: "C06"),
+        new(
+            PassIds.PointerDerefIndex,
+            "Pointer deref indexing",
+            ".cs2j-pointer-deref-index-src",
+            PassStage.Expression,
+            PassStatus.Implemented,
+            // Independent read-only expression post-pass over unsafe-ffm's
+            // preserved pointer-dereference sites. Safe to run by default: it
+            // only rewrites provable pointer indirection into pointer element
+            // access and preserves every other site verbatim with PDI001.
+            defaultEnabled: true,
+            runAfterIds: new[] { PassStubCatalog.Ids.UnsafeFfm },
+            supportLibrary: PassSupportLibrary.None,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Read-only post-pass over unsafe-ffm residuals: lower provable " +
+                "pointer indirection `*p` / `*(p + k)` / `*(T*)expr` to pointer element " +
+                "access `p[0]` / `p[k]` / `((T*)expr)[0]`; side-effect receivers and " +
+                "unprovable shapes stay verbatim with PDI001 for normalization-audit.",
             catalogItems: "C06"),
         new(
             PassStubCatalog.Ids.ClosureLift,

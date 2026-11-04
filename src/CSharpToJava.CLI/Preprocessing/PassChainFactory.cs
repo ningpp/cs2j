@@ -28,6 +28,7 @@ using CSharpToJava.Core.NumericBoundary;
 using CSharpToJava.Core.PatternDesugar;
 using CSharpToJava.Core.PartialMerge;
 using CSharpToJava.Core.PlatformIsolation;
+using CSharpToJava.Core.PointerDerefIndex;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
@@ -556,6 +557,16 @@ internal static class PassChainFactory
 
             // Independent read-only post-pass over stackalloc-lowering's output.
             PassIds.RefStructLowering => new RefStructLoweringPassAdapter(
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
+
+            // Independent read-only expression post-pass over unsafe-ffm's
+            // preserved pointer dereferences (`*p`, `*(p + k)`, `*(T*)expr`).
+            PassIds.PointerDerefIndex => new PointerDerefIndexPassAdapter(
+                new PointerDerefIndexOptions(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,

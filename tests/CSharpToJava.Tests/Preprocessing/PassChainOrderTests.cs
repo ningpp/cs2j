@@ -96,6 +96,12 @@ public sealed class PassChainOrderTests
         // closure-lift. Default-on is safe: it only removes the `ref` modifier
         // from structs without any ref-only member.
         PassIds.RefStructLowering,
+        // M3: pointer-deref-index is an independent read-only expression
+        // post-pass over unsafe-ffm's preserved pointer dereferences. It
+        // anchors unsafe-ffm and is physically declared right after
+        // ref-struct-lowering, so the Kahn declaration-order tiebreak pins the
+        // slot ref-struct-lowering -> pointer-deref-index -> closure-lift.
+        PassIds.PointerDerefIndex,
         PassStubCatalog.Ids.ClosureLift,
         // C04 iterator-lowering flipped to DEFAULT-ON on 2026-10-11 under the
         // all-preprocessors-default-on policy.
@@ -812,6 +818,7 @@ public sealed class PassChainOrderTests
                 && id != PassStubCatalog.Ids.UnsafeFfm
                 && id != PassIds.StackAllocLowering
                 && id != PassIds.RefStructLowering
+                && id != PassIds.PointerDerefIndex
                 && id != PassIds.UnsafeRefLowering
                 && id != PassIds.UsingResourceLift
                 && id != PassStubCatalog.Ids.ExpressionDesugar
