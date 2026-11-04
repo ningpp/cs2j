@@ -89,7 +89,16 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
     /// </summary>
     public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
     {
-        var result = _preprocessor.Preprocess(context.SourceCode, context.SemanticModel, _options);
+        // Node-level isolation: a test-project file may contain an async void
+        // member (CS2J1803) plus independent, safely liftable async lambdas.
+        // Enable partial rewrite for that file so the Error gate only keeps the
+        // un-normalizable node, not the whole file. The option is immutable per
+        // call, keeping the parallel rewrite path race-free.
+        var inTestProject = IsInTestProject(context.SourceFilePath);
+        var options = inTestProject && !_options.AllowPartialRewriteOnError
+            ? _options with { AllowPartialRewriteOnError = true }
+            : _options;
+        var result = _preprocessor.Preprocess(context.SourceCode, context.SemanticModel, options);
         var rewrite = result.Changed
             ? new PassFileRewrite { OutputCode = result.OutputCode, Changed = true }
             : null;
@@ -406,6 +415,7 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
         _statistics.AsyncLambdasLiftedCapturedLocals += source.AsyncLambdasLiftedCapturedLocals;
         _statistics.AsyncLambdasLiftedVoidWrapper += source.AsyncLambdasLiftedVoidWrapper;
         _statistics.AsyncLocalFunctionsLifted += source.AsyncLocalFunctionsLifted;
+        _statistics.AsyncLambdasLiftedInPartialRewrite += source.AsyncLambdasLiftedInPartialRewrite;
         _statistics.WrappersGenerated += source.WrappersGenerated;
         _statistics.CapturedAsyncLambdasDeferred += source.CapturedAsyncLambdasDeferred;
 

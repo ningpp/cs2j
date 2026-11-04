@@ -70,8 +70,12 @@ public sealed class AsyncNormalizePreprocessor
         }
 
         // 严格模式：任何 Error 级 skip 诊断 → 本文件整体不改写（Changed=false、
-        // FilesDirtyNoRewrite、诊断照旧返回，树仍可编译）。
+        // FilesDirtyNoRewrite、诊断照旧返回，树仍可编译）。partial 模式只放开已计划的
+        // lambda/局部函数提升，ConfigureAwait 剥离与 async-stream 改写仍按 hasErrorSkip 短路。
         var hasErrorSkip = diagnostics.Any(d => d.Severity == AsyncNormalizeSeverity.Error);
+        var partialRewrite = hasErrorSkip && options.AllowPartialRewriteOnError;
+        var liftActive = options.LiftAsyncLambdas
+            && (!hasErrorSkip || options.AllowPartialRewriteOnError);
 
         var newRoot = root;
         var liftChanged = false;
@@ -82,7 +86,7 @@ public sealed class AsyncNormalizePreprocessor
             ? new ConfigureAwaitStripper()
             : null;
 
-        if (!hasErrorSkip && options.LiftAsyncLambdas && analysis.Plans.Count > 0)
+        if (liftActive && analysis.Plans.Count > 0)
         {
             // 非严格：skip 节点原样保留，挂内存 skip 标注供 residual 白名单识别。
             var lifter = new AsyncLambdaLifter(
@@ -92,7 +96,7 @@ public sealed class AsyncNormalizePreprocessor
             newRoot = (CompilationUnitSyntax)lifter.Visit(root)!;
             liftChanged = lifter.Changed;
         }
-        else if (!hasErrorSkip && options.LiftAsyncLambdas && !options.Strict)
+        else if (liftActive && !options.Strict)
         {
             // 无计划但可能有 skip 节点（全部 defer）：仍走一遍 rewriter 挂内存 skip 标注，
             // 文本不变（annotation 不渲染），仅供 residual 闸门白名单使用。
@@ -295,11 +299,16 @@ public sealed class AsyncNormalizePreprocessor
             }
         }
 
-        // 严格模式任何 Error 都导致整文件不改写：计划虽已分析但未执行，提升桶必须保持 0。
-        if (!hasErrorSkip)
+        // 严格模式任何 Error 默认导致整文件不改写：计划虽已分析但未执行，提升桶必须
+        // 保持 0；AllowPartialRewriteOnError 下已计划节点确实被提升，照实计数，并单独
+        // 记录 partial 模式生效量（供适配器/单测断言节点级隔离）。
+        if (liftActive)
         {
             foreach (var plan in analysis.Plans)
             {
+                if (partialRewrite)
+                    stats.AsyncLambdasLiftedInPartialRewrite++;
+
                 if (plan.IsLocalFunction)
                 {
                     stats.AsyncLocalFunctionsLifted++;

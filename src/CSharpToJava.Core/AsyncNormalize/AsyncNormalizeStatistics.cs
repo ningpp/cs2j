@@ -55,6 +55,13 @@ public sealed class AsyncNormalizeStatistics
     /// <summary>残余 async 局部函数提升为类型级方法的数量（D4）。</summary>
     public int AsyncLocalFunctionsLifted;
 
+    /// <summary>
+    /// 在 partial 模式（<see cref="AsyncNormalizeOptions.AllowPartialRewriteOnError"/>）
+    /// 下、同文件已有 Error 级 skip 诊断时仍被提升的 async lambda/局部函数站点数。
+    /// 非 partial 路径恒 0。
+    /// </summary>
+    public int AsyncLambdasLiftedInPartialRewrite;
+
     /// <summary>合成的 _w 同步丢弃 wrapper 数（与 VoidWrapper 站点 1:1）。</summary>
     public int WrappersGenerated;
 

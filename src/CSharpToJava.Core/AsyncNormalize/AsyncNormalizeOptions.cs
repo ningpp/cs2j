@@ -9,12 +9,18 @@ namespace CSharpToJava.Core.AsyncNormalize;
 /// <param name="LiftAsyncLambdas">async lambda 提升总开关（1b 阶段起消费；1a 仅保留选项面）。</param>
 /// <param name="StripConfigureAwait">是否把 <c>ConfigureAwait(bool)</c> 归一剥离为 receiver（非严格模式也照剥）。</param>
 /// <param name="RejectAsyncVoid">是否对用户书写的 async void 方法/局部函数发 CS2J1803。</param>
+/// <param name="AllowPartialRewriteOnError">
+/// true 时即使同文件已有 Error 级 skip 诊断（典型是用户 async void 的 CS2J1803），
+/// 仍执行已计划的 async lambda/局部函数提升；其余规则（ConfigureAwait 剥离、
+/// async-stream 改写）保持整文件短路。默认 false（逐字节保持既有 all-or-nothing 行为）。
+/// </param>
 public sealed record AsyncNormalizeOptions(
     bool Strict = true,
     AsyncNormalizeMode Mode = AsyncNormalizeMode.Lightweight,
     bool LiftAsyncLambdas = true,
     bool StripConfigureAwait = true,
-    bool RejectAsyncVoid = true)
+    bool RejectAsyncVoid = true,
+    bool AllowPartialRewriteOnError = false)
 {
     /// <summary>
     /// C38 异步流子域总闸（设计 D10，仅代码面、不暴露 CLI）。pass 自身默认关，
