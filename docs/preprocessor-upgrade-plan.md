@@ -709,6 +709,44 @@ dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- 
 
 ---
 
+## 8. 实施进度（2026-11-04）
+
+本方案已按“一个修复、一次验证、一次提交”的方式落地了 M0 与 M1、M2 的大部分内容。当前状态如下（验证命令均为 Release）：
+
+| 项 | 状态 | 关键提交/产物 | 验证证据 |
+|----|------|---------------|----------|
+| NORM 残留契约 + 7 个只读探针 | 完成 | `src/CSharpToJava.Core/Normalization/` | `ResidualRegistryTests` 17 通过 |
+| `normalization-audit` 只读 pass + `--profile java-ready` / `audit` + 残留报告 | 完成 | `NormalizationAuditPassAdapter`、`preprocess-residual-report.json` | fixture 上 `java-ready` 退出 1、`audit` 退出 0；SDK 最终树可审计 |
+| pass 级/链末 Java-readiness 闸门 | 完成 | 审计报告与 CLI profile | 全链 audit 可定位 7 类残留 |
+| async lambda 委托目标绑定（NuGet 引用） | 完成 | `AsyncNormalizePassAdapter` 枚举/按需 restore restored 包 | 全链 25 skipped → 4 skipped |
+| 安全捕获 async lambda 提升 | 完成 | `AsyncLambdaLifter` 捕获参数 + 非 async wrapper | 10 个捕获 lambda 提升；6 个原失败文件无 async lambda |
+| async 节点级隔离 | 完成 | `AllowPartialRewriteOnError`（测试工程） | 21 lifted / 4 residual（只剩 async void） |
+| enum 算术/`is`/成员初始化器降级 | 完成 | `EnumSyntaxRewriter` 通用源 enum 分支 | SDK 最终树 `NORM-ENUM-ARITH 43 → 0` |
+| stackalloc 降级 + unsafe 块清理 | 完成 | `stackalloc-lowering` pass | `NORM-STACKALLOC 73 → 0`；json tests 0 编译错误 |
+| tuple 局部声明规范化 | 完成 | `tuple` pass `var` 化 | `NORM-TUPLE-LOCAL 1 → 0` |
+| 外部 Unsafe ref 局部降级 | 完成 | `unsafe-ref-lowering` pass | `NORM-REF-LOCAL 1 → 0` |
+| 纯数据 ref struct 去 ref + audit 跳过 support lib | 完成 | `ref-struct-lowering` pass | `NORM-REF-STRUCT 5 → 1`（只剩 `Utf8JsonReader`） |
+
+**全量转换对照**（同一 `csharp-sdk.sln`、同一命令）：
+
+| 阶段 | 结果 |
+|------|------|
+| 初始 | 1961 succeeded / 15 failed |
+| 修复 async/enum/stackalloc/tuple/ref-local 后 | 1971 succeeded / 5 failed（该轮尚未包含 ref-struct pass） |
+| 单元回归 | `CSharpToJava.Tests` 4353 通过 / 0 失败 / 9 跳过 |
+
+剩余 5 个失败集中在两个硬域：
+
+1. `Utf8JsonReader`（ref-only ref struct）：Span/ref 字段无法在 Java 中直接表达；需要 compat 类型映射或显式不支持域决策。
+2. `JsonWriterHelper.Date.cs`（fixed + Span 指针算术）：`fixed` over `MemoryMarshal.GetReference` + `int*`/指针差值，属于 C06 指针 lowering 的深水区。
+3. `Utf8JsonWriterTests`（外部 `JavaScriptEncoder` 指针签名 override）：需要托管 shim 或显式不支持域。
+4. `JsonDocumentTests`（`using` 资源表达式中的 ref 读回）：需要把 `using (T x = expr)` 的资源表达式提升为临时变量（小改动，但与 `Utf8JsonReader` 类型可用性相关）。
+5. `InvalidTypeTests`（`MyRefStruct` 已由 ref-struct pass 降级；同文件仍有 `typeof(int*)` / `IntPtr` 指针声明，需要 NORM 指针类型探针）。
+
+下一步建议：先补 `NORM-POINTER-TYPE`/`NORM-UNSAFE-BLOCK` 探针把剩余硬域纳入报告，再决定 ref struct 的域策略；最后按 M5 做单树/增量与 pass 报告落盘。
+
+---
+
 ## 附录 A：证据索引
 
 | 证据 | 位置 |
