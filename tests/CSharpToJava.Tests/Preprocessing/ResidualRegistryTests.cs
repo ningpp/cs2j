@@ -6,7 +6,7 @@ using Xunit;
 namespace CSharpToJava.Tests.Preprocessing;
 
 /// <summary>
-/// M0-a：NORM 残留契约与 7 个只读探针的注册表契约、正负样例与扫描顺序。
+/// M0-a：NORM 残留契约与 10 个只读探针的注册表契约、正负样例与扫描顺序。
 /// </summary>
 public sealed class ResidualRegistryTests
 {
@@ -46,12 +46,12 @@ public sealed class ResidualRegistryTests
     }
 
     [Fact]
-    public void CreateDefault_Registers_Seven_Unique_Residual_Codes()
+    public void CreateDefault_Registers_Ten_Unique_Residual_Codes()
     {
         var registry = ResidualRegistry.CreateDefault();
 
-        Assert.Equal(7, registry.Descriptors.Count);
-        Assert.Equal(7, registry.Probes.Count);
+        Assert.Equal(10, registry.Descriptors.Count);
+        Assert.Equal(10, registry.Probes.Count);
         Assert.Equal(
             new[]
             {
@@ -62,6 +62,9 @@ public sealed class ResidualRegistryTests
                 "NORM-ASYNC-LAMBDA",
                 "NORM-TUPLE-LOCAL",
                 "NORM-POINTER-OP",
+                "NORM-POINTER-LOCAL",
+                "NORM-UNSAFE-BLOCK",
+                "NORM-FIXED",
             },
             registry.Descriptors.Select(d => d.Code).ToArray());
         Assert.Equal(
@@ -84,6 +87,16 @@ public sealed class ResidualRegistryTests
         Assert.Equal(
             "ref-struct-lowering",
             registry.Descriptors.Single(d => d.Code == "NORM-REF-STRUCT").OwnerPassId);
+        // Hard unsafe/fixed/pointer declarations are owned by unsafe-ffm.
+        Assert.Equal(
+            "unsafe-ffm",
+            registry.Descriptors.Single(d => d.Code == "NORM-POINTER-LOCAL").OwnerPassId);
+        Assert.Equal(
+            "unsafe-ffm",
+            registry.Descriptors.Single(d => d.Code == "NORM-UNSAFE-BLOCK").OwnerPassId);
+        Assert.Equal(
+            "unsafe-ffm",
+            registry.Descriptors.Single(d => d.Code == "NORM-FIXED").OwnerPassId);
     }
 
     [Theory]
@@ -103,6 +116,12 @@ public sealed class ResidualRegistryTests
         "class C { void M() { (int, int) v = default; } }")]
     [InlineData("NORM-POINTER-OP",
         "unsafe class C { int M(char* p) => *p; }")]
+    [InlineData("NORM-POINTER-LOCAL",
+        "unsafe class C { void M() { int* p = null; } }")]
+    [InlineData("NORM-POINTER-LOCAL",
+        "unsafe class C { void M(int* q) { var p = q; } }")]
+    [InlineData("NORM-UNSAFE-BLOCK",
+        "unsafe class C { void M() { unsafe { } } }")]
     public void Probe_Reports_Single_Hit_With_OneBased_Location(string code, string source)
     {
         var hit = Assert.Single(Scan(source));
@@ -115,6 +134,22 @@ public sealed class ResidualRegistryTests
         Assert.True(hit.Snippet.Length <= 120);
     }
 
+    [Fact]
+    public void Fixed_Statement_Reports_Fixed_And_Pointer_Local_Hits()
+    {
+        const string source = "unsafe class C { void M(int[] a) { fixed (int* p = a) { } } }";
+
+        var hits = Scan(source);
+
+        Assert.Equal(2, hits.Count);
+        Assert.Equal(
+            new[] { "NORM-POINTER-LOCAL", "NORM-FIXED" },
+            hits.Select(h => h.Code).ToArray());
+        Assert.All(hits, hit => Assert.Equal(1, hit.Line));
+        var pointerHit = Assert.Single(hits, h => h.Code == "NORM-POINTER-LOCAL");
+        Assert.Contains("'p'", pointerHit.Reason);
+    }
+
     [Theory]
     [InlineData("class C { void M() { System.Action a = () => { }; } }")]
     [InlineData("class C { bool M(int a, int b) => (a - b) > 0; }")]
@@ -123,6 +158,9 @@ public sealed class ResidualRegistryTests
     [InlineData("class C { void M() { int x = 1; } }")]
     [InlineData("class C { void M() { string s = string.Empty; } }")]
     [InlineData("class C { int M(int x) => -x; }")]
+    [InlineData("unsafe class C { void M() { int x = 1; } }")]
+    [InlineData("class C { void M() { using (var s = new System.IO.MemoryStream()) { } } }")]
+    [InlineData("class C { void M(int[] a) { foreach (var x in a) { } } }")]
     public void Probes_Report_No_Hits_For_Non_Residual_Shapes(string source)
     {
         Assert.Empty(Scan(source));
@@ -144,6 +182,9 @@ public sealed class ResidualRegistryTests
                     bool q = (a - b) > 0;
                     int x = *p;
                     System.Func<System.Threading.Tasks.Task> f = async () => await System.Threading.Tasks.Task.CompletedTask;
+                    int* lp = null;
+                    unsafe { }
+                    fixed (int* fp = null) { }
                 }
             }
             """;
@@ -160,6 +201,10 @@ public sealed class ResidualRegistryTests
                 ("NORM-ASYNC-LAMBDA", 12),
                 ("NORM-TUPLE-LOCAL", 9),
                 ("NORM-POINTER-OP", 11),
+                ("NORM-POINTER-LOCAL", 13),
+                ("NORM-POINTER-LOCAL", 15),
+                ("NORM-UNSAFE-BLOCK", 14),
+                ("NORM-FIXED", 15),
             },
             hits.Select(h => (h.Code, h.Line)).ToArray());
     }

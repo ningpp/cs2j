@@ -17,6 +17,9 @@ public sealed class ResidualRegistry
         new("NORM-ASYNC-LAMBDA", "async-normalize", ResidualPolicy.Fail, AsyncLambdaResidualProbe.Gate),
         new("NORM-TUPLE-LOCAL", "tuple", ResidualPolicy.Fail, TupleLocalResidualProbe.Gate),
         new("NORM-POINTER-OP", "unsafe-ffm", ResidualPolicy.Fail, PointerOperatorResidualProbe.Gate),
+        new("NORM-POINTER-LOCAL", "unsafe-ffm", ResidualPolicy.Fail, PointerLocalResidualProbe.Gate),
+        new("NORM-UNSAFE-BLOCK", "unsafe-ffm", ResidualPolicy.Fail, UnsafeBlockResidualProbe.Gate),
+        new("NORM-FIXED", "unsafe-ffm", ResidualPolicy.Fail, FixedStatementResidualProbe.Gate),
     };
 
     private readonly IReadOnlyList<ResidualDescriptor> _descriptors;
@@ -45,6 +48,9 @@ public sealed class ResidualRegistry
             new AsyncLambdaResidualProbe(),
             new TupleLocalResidualProbe(),
             new PointerOperatorResidualProbe(),
+            new PointerLocalResidualProbe(),
+            new UnsafeBlockResidualProbe(),
+            new FixedStatementResidualProbe(),
         };
 
         return new ResidualRegistry(DefaultDescriptors, probes);
