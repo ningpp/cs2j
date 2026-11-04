@@ -17,7 +17,18 @@ public sealed record ResidualReportSummary(
     int FilesScanned,
     int Residuals,
     int Errors,
-    int Warnings);
+    int Warnings)
+{
+    /// <summary>
+    /// 按残留 code 聚合的计数（coverage matrix 的最小形态）。空报告时为空的只读字典。
+    /// </summary>
+    public IReadOnlyDictionary<string, int> ByCode { get; init; } = new Dictionary<string, int>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 按 owner pass id 聚合的计数。空报告时为空的只读字典。
+    /// </summary>
+    public IReadOnlyDictionary<string, int> ByOwner { get; init; } = new Dictionary<string, int>(StringComparer.Ordinal);
+}
 
 public sealed record ResidualReportEntry(
     string Code,
@@ -54,12 +65,30 @@ public static class ResidualReportWriter
                 .ThenBy(entry => entry.Code, StringComparer.Ordinal)
                 .ThenBy(entry => entry.Snippet, StringComparer.Ordinal)
                 .ToList(),
+            // 字典键按 ordinal 排序，保证 summary.byCode / summary.byOwner
+            // 的 JSON 输出顺序跨运行稳定。
+            Summary = report.Summary with
+            {
+                ByCode = SortByKey(report.Summary.ByCode),
+                ByOwner = SortByKey(report.Summary.ByOwner),
+            },
         };
 
         File.WriteAllText(
             path,
             JsonSerializer.Serialize(sorted, SerializerOptions),
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+    }
+
+    private static IReadOnlyDictionary<string, int> SortByKey(IReadOnlyDictionary<string, int> counts)
+    {
+        var sortedCounts = new SortedDictionary<string, int>(StringComparer.Ordinal);
+        foreach (var pair in counts)
+        {
+            sortedCounts[pair.Key] = pair.Value;
+        }
+
+        return sortedCounts;
     }
 
     private static JsonSerializerOptions CreateOptions()

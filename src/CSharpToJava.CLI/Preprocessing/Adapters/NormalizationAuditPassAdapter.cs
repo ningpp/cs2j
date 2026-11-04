@@ -123,7 +123,11 @@ internal sealed class NormalizationAuditPassAdapter : ProjectPassAdapter
                 FilesScanned: tree.CsFiles.Count,
                 Residuals: _hits.Count,
                 Errors: _failOnResidual ? failHits : 0,
-                Warnings: _failOnResidual ? 0 : _hits.Count),
+                Warnings: _failOnResidual ? 0 : _hits.Count)
+            {
+                ByCode = CountBy(_hits, hit => hit.Code),
+                ByOwner = CountBy(_hits, hit => hit.OwnerPassId),
+            },
             Residuals: _hits.Select(hit => new ResidualReportEntry(
                 Code: hit.Code,
                 File: hit.FilePath,
@@ -192,6 +196,20 @@ internal sealed class NormalizationAuditPassAdapter : ProjectPassAdapter
         }
 
         return lines;
+    }
+
+    private static IReadOnlyDictionary<string, int> CountBy(
+        IEnumerable<ResidualHit> hits,
+        Func<ResidualHit, string> keySelector)
+    {
+        var counts = new SortedDictionary<string, int>(StringComparer.Ordinal);
+        foreach (var hit in hits)
+        {
+            var key = keySelector(hit);
+            counts[key] = counts.TryGetValue(key, out var count) ? count + 1 : 1;
+        }
+
+        return counts;
     }
 
     private string ResolveReportPath(string destinationRoot)
