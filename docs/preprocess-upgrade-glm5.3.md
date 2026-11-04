@@ -1,12 +1,12 @@
 # Preprocessor 泛型能力升级方案（GLM-5.3）
 
-> 版本：2026-11-04 **v3**（GLM-5.3 分析版；v3 **换源**：json 语料更换为 .NET Runtime 10.0.12 真实 System.Text.Json 源码并修正 v1/v2 的语料时代错位，新增 W-09/W-10 缺口与对应修复项；v2 刷新基线至 52 pass / json 0 失败并吸收四份同行方案实测增量，采纳/不采纳清单见附录 D）
-> 基线：`D:\code\cs2j`，分支 `dev-202611`，HEAD `6b57a210`（**52 个 Implemented pass**，工作树干净）
+> 版本：2026-11-05 **v4**（GLM-5.3 分析版；v4 **吸收 deepseek 1017 版设计层**——v2 只吸收其经核证的论断，本版进一步吸收其结构化设计：GNC 泛型构造目录（附录 E GC-01~GC-35）、CN-01~12/VR-01~08/GI-01~11/EB-01~06 完整规则表与 GD-MTOK-2 触发集、消费面三 profile 细则、三规则族 pass 化决策、插入顺序兼容性细则、验收命令/指标矩阵/一致性测试、报告 schema 与一页纸清单（§7.0/§7.1-6/7、附录 F/G）；v3 **换源**：json 语料更换为 .NET Runtime 10.0.12 真实 System.Text.Json 源码并修正 v1/v2 的语料时代错位，新增 W-09/W-10 缺口与对应修复项；v2 刷新基线至 52 pass / json 0 失败并吸收四份同行方案实测增量，采纳/不采纳清单见附录 D）
+> 基线：`D:\code\cs2j`，分支 `dev-202611`，HEAD `6b57a210`（**52 个 Implemented pass**，工作树干净；v4 编辑时点 HEAD `fab1c483`，仅 Java 修复与文档提交，pass 数复核仍 52）
 > 语料证据（v3 口径）：
 > - **json 主语料 [v3 更换]**：`D:\runtime-10.0.12\src\libraries\System.Text.Json`（.NET Runtime 10.0.12 **真实源码**；库本体 352 .cs = src 308 + gen 20 + Common 24，另有 tests 333 .cs；本版完成**静态普查**，全链运行统计待 M0 重跑——v2 及之前的全部 json 运行数据均在旧语料上测得，见 §3.2 换源说明）
 > - json 旧语料（v1/v2 用，**时代错位已确认**）：`D:\csharp-sdk\json`——实为 .NET 3.x 时代 STJ 布局（`JsonClassInfo`/`ReflectionEmitMemberAccessor`，无 `JsonTypeInfo`），341 .cs；其全链日志（`D:\cs\20261104-json.log`、`20261104-json-final.log` 626/0）**测的是这份旧语料**
 > - `D:\YamlDotNet-18.0.0`（18.0.0，261 .cs，**实测**）；`D:\cs\cs-sdk-78e810c6` 历史中间树与审计报告；`D:\cs\yaml-lib-probe.log` 等 6 份 YamlDotNet 运行日志
-> 同行方案：`C:\Users\15097\Desktop\V202611042101` 目录下 deepseek-flash-4.1 / kimi3.1-pro / longcat2.5 / seed-evolving 四份同题文档（v2 吸收其经本仓代码/日志核证的论断，附录 D 全量对照；v3 的换源发现为本文档独立增量，四份均基于旧语料）
+> 同行方案：`C:\Users\15097\Desktop\V202611042101` 目录下 deepseek-flash-4.1 / kimi3.1-pro / longcat2.5 / seed-evolving 四份同题文档（v2 吸收其经本仓代码/日志核证的论断、v4 另吸收 deepseek 版设计层，附录 D 全量对照；v3 的换源发现为本文档独立增量，四份均基于旧语料）
 > **范围硬约束：本方案只升级 C# → C# 预处理链（preprocessor），一切改写产物仍是可编译、可测试的 C#；不修改 C# → Java 转换器，不生成 Java。Java 侧事实仅用于界定"降级目标子集"。**
 
 ---
@@ -61,7 +61,7 @@
 **核心判断**：v1 的"泛型归约零审计"判断仍然成立（10 探针全非泛型），但 v2 新增两个更紧迫的事实——(a) 已落地的泛型补偿机制（GD-FIELD/CM）自带正确性缺陷，json 语料恰好未触发（单字段、无 `List<string?>` 键差、泛型测试方法少）；(b) **合成层**（closure/tuple/local-function/async 的提升与生成）在 C#→C# 阶段丢约束/丢 arity，错误在中间树就爆发（CS0246/CS0308/CS0453），不再等到 Java。升级方案五层（继承 v1 框架，重排优先级——**先修正确性，再扩能力**）：
 
 ```text
-L0 契约层   NORM-GENERIC-* 探针族扩容（合并四方案探针分野，~17 码）+ CS2J14xx 新诊断段 + 撞号迁移
+L0 契约层   NORM-GENERIC-* 探针族扩容（合并四方案探针分野，~19 码 [v4 拆出 VARIANCE-USE]）+ CS2J14xx 新诊断段 + 撞号迁移
             + PassContract 推广（9 字段已落地、10 pass 已挂载；补 VerificationProfile 字段与派生断言）
 L1 编译层   真实引用集 spine 化（含打开 W-04 一行注释）+ degraded 显式化 + 引用画像报告
             + [v3] csproj Compile/TFM/外部源求值进输入模型（W-10/G-26，rt10 硬前置）
@@ -70,6 +70,8 @@ L2 验证层   四路差分验收（A 原库原测 / B 预处理库+原测 / C �
 L3 能力层   V 层缺陷修复（GD-FIELD 规范形/CM 键修/闭包补锚）+ S 层合成债统一解析器
             + v1 的 P1-R1~R8 / P2-R1~R3 规则族 + 消费面配置化（ClosedTypeConsumerSurfaces.json）
             + [v3] compat 注册表漂移探测与条目版本锚（W-09/G-25）
+            + [v4] 三规则族 pass 化：generic-intrinsic-lower（GI）/variance-use-site-normalize（VR）
+              /generic-reflection-audit（RG 只读面）——规则表 §6.4、插入序 §6.5、构造目录附录 E
 L4 性能层   统一中间树默认化 + 增量缓存 + 选择性 verify（M5 未竟，泛型整树 pass 收益最大）
 ```
 
@@ -83,9 +85,9 @@ L4 性能层   统一中间树默认化 + 增量缓存 + 选择性 verify（M5 �
 
 ## 1. 文档定位与阅读路径
 
-- 本文件是 `docs/preprocessor-upgrade-plan.md`（2026-11-01 版，下称"v1 方案"）的**泛型专题续篇**；本文档自身的 2026-11-04 首版称"v1 版"，v2 刷新版后本次版本称 **v3**。v3 相对 v2 的变更：**json 主语料更换为 `D:\runtime-10.0.12` Runtime 10 真源**（旧语料确认为 .NET 3.x 时代 STJ，v2 全部 json 运行数据降级为旧语料历史基线，§3.2.1）；静态普查按真源重测（§3.2.2，泛型密度 2-7× 放大）；新增 **W-09**（compat 注册表签名漂移，ToUtf8 条目在 rt10 零匹配）与 **W-10**（csproj 门控 Compile/外部共享源 → L1 硬前置）两项缺口及修复项；§5 增补 G-25/G-26；验收 json 口径切换至 rt10（§7.1）。v2 相对首版的变更：基线 48→52 pass、json 2 失败→0 失败、新增 V/S/W 三层缺口体系（替代单一的 G 矩阵结论）、YamlDotNet 推测画像→实测、吸收四份同行方案经核证增量（附录 D 全量对照）。
+- 本文件是 `docs/preprocessor-upgrade-plan.md`（2026-11-01 版，下称"v1 方案"）的**泛型专题续篇**；本文档自身的 2026-11-04 首版称"v1 版"，v2 刷新版后本次版本称 **v4**。v4 相对 v3 的变更：**吸收 deepseek 1017 版的设计层**（v2 仅吸收其论断层）——§6.4-R2 收录 CN-01~12 全表与 GD-MTOK-2 触发集、R3 补消费面三 profile 与 CM-ENUM-5/6、CM-LINK-2、CM-STRICT 及单 pass bind 修复、R4/R7/R8 收录 VR/GI/EB 与状态机残余规则表并落三规则族 pass 化（generic-intrinsic-lower / variance-use-site-normalize / generic-reflection-audit）、§6.5 扩为完整插入序与兼容性细则、§6.3 增 VARIANCE-USE 探针（18→19 码）与测试工程双 policy/报告 schema 条目、§7 增验收命令（§7.0）与指标矩阵/一致性测试（§7.1-6/7）、新增附录 E（GC-01~35 构造登记目录）/F（报告 schema）/G（一页纸执行清单）。v3 相对 v2 的变更：**json 主语料更换为 `D:\runtime-10.0.12` Runtime 10 真源**（旧语料确认为 .NET 3.x 时代 STJ，v2 全部 json 运行数据降级为旧语料历史基线，§3.2.1）；静态普查按真源重测（§3.2.2，泛型密度 2-7× 放大）；新增 **W-09**（compat 注册表签名漂移，ToUtf8 条目在 rt10 零匹配）与 **W-10**（csproj 门控 Compile/外部共享源 → L1 硬前置）两项缺口及修复项；§5 增补 G-25/G-26；验收 json 口径切换至 rt10（§7.1）。v2 相对首版的变更：基线 48→52 pass、json 2 失败→0 失败、新增 V/S/W 三层缺口体系（替代单一的 G 矩阵结论）、YamlDotNet 推测画像→实测、吸收四份同行方案经核证增量（附录 D 全量对照）。
 - v1 方案的 §5.3 Pass Contract v2、§5.9 性能层、M5 波次继承不变；其"42 pass"表述按 52 刷新。
-- §2 现状全景；§3 需求模型+双语料实证；§4 逐 pass（52 个，含泛型交互修正）；§5 缺口矩阵（G-01~G-15 修正 + G-16~G-24 新增）；§6 升级设计；§7 验收；§8 波次与风险；附录 A 诊断码 / B 证据 / C 边界 / D 同行方案对照。
+- §2 现状全景；§3 需求模型+双语料实证；§4 逐 pass（52 个，含泛型交互修正）；§5 缺口矩阵（G-01~G-15 修正 + G-16~G-27 新增）；§6 升级设计；§7 验收（含 §7.0 命令与 §7.1-6 指标矩阵）；§8 波次与风险；附录 A 诊断码 / B 证据 / C 边界 / D 同行方案对照 / E 泛型构造登记目录 / F 报告 schema / G 一页纸执行清单。
 - 代码引用以 HEAD `6b57a210` 为准；`src/CSharpToJava.Core/` 省写为 `Core/`，`src/CSharpToJava.CLI/` 省写为 `CLI/`，`java/csharptojava-compat/src/main/java/io/github/ningpp/compat/` 省写为 `compat/`。
 
 ---
@@ -547,7 +549,7 @@ v1 表继续有效，增补：`_Cs2jGenericHolders.<Project>.cs`（GD-FIELD hold
 ---
 
 
-## 5. 缺口矩阵（G-01~G-15 修正 + G-16~G-24 新增）
+## 5. 缺口矩阵（G-01~G-15 修正 + G-16~G-24 新增 + G-25~G-27 v3 增补）
 
 > 威胁形态：T1=Java 编译失败、T2=单元测试行为错误（隐性最危险）、T3=能力空白需域决策、T4=低危观测。v2 对 v1 行的**状态修正**以 ← 标注；新行 G-16 起为 v2 新增（来源标注 D/K/L/S = deepseek/kimi/longcat/seed 方案）。
 
@@ -615,7 +617,7 @@ M0 止血（先于一切扩能力）：V-01..V-08 缺陷修复 + S-03/04/05 最�
                           + [v3] W-09 compat 漂移修复 + W-10 rt10 基线重跑与 Compile 求值最小接线
 M1 契约与审计：L0 探针族 + PassContract 泛型族挂载 + 报告 v1.1（互链/统计/引用画像）
 M2 编译层：L1 真实引用 spine + degraded 显式化（W-10 完备化在此收口）
-M3 能力层：S 层统一解析器 + v1 P1-R1~R8 + 消费面配置化 + G-02c/R2 扩面
+M3 能力层：S 层统一解析器 + v1 P1-R1~R8 + 消费面配置化 + G-02c/R2 扩面 + [v4] 三新 pass 化（generic-intrinsic-lower/variance-use-site-normalize/generic-reflection-audit）
 M4 域决策：static abstract / 运行时合成 / Expression / 型变域（DeclaredUnsupported 或立项）
 M5 性能：统一树默认 + 增量 + 选择性 verify + 文档自动生成（descriptor+contract → preprocessor-matrix.md）
 ```
@@ -631,6 +633,7 @@ M5 性能：统一树默认 + 增量 + 选择性 verify + 文档自动生成（d
 | NORM-GENERIC-STATIC-ABSTRACT | 接口 static abstract/virtual 成员 | expression-desugar（守门转登记） | Fail | v1 |
 | NORM-GENERIC-ATTRIBUTE | 泛型 attribute 声明/应用 | expression-desugar 0587 | Fail（声明） | v1 |
 | NORM-GENERIC-VARIANCE-DECL | `out/in` 声明（复用 VA001） | variance-audit | PreserveAndWarn | v1 |
+| NORM-GENERIC-VARIANCE-USE | 型变使用点未分类/未改写/未登记（VR pass 残差；v4 自 VARIANCE-DECL 拆出） | variance-use-site-normalize | Fail | D |
 | NORM-GENERIC-REFLECT | `MakeGeneric*/GetGeneric*/GetGenericTypeDefinition` 调用点（含 `typeof(T)`/`typeof(X<>)` 接收者链） | closed-metadata | PreserveAndWarn | v1+D |
 | NORM-GENERIC-COMPARATOR | `EqualityComparer<T>.Default`/`Comparer<T>.Default` | equality-concat R4 | PreserveAndWarn→Fail | v1 |
 | NORM-GENERIC-UNSAFE-INTRINSIC | `Unsafe.As<,>/BitCast<,>/Cast<,>/WriteUnaligned<>/SizeOf<>()` 实参含类型参数 | unsafe-ref-lowering | PreserveAndWarn | v1+D |
@@ -652,6 +655,8 @@ M5 性能：统一树默认 + 增量 + 选择性 verify + 文档自动生成（d
 3. **CS2J14xx 新诊断段**（1401 token/1402 static/1403 值语义/1404 型变/1405 闭型/1406 反射/1407 内在函数/1408 桥接/1409 不支持域）；**撞号迁移**：CS2J1203 保留给 closed-metadata，extension-methods 迁 19xx、thread-static 迁 16xx，报告留 `legacyCode` 一个版本；12xx/13xx 撞段一并消歧。
 4. **`SYNTH-*` 内部构造命名空间**（SYNTH-token-anchor/SYNTH-generic-holder/SYNTH-ctor-class-token）：生成物只进 Produces/跨 pass 校验，不进 NORM 审计。
 5. PassContract 三步推广：M1 挂泛型族四 pass + 残差相关的 local-function-lift/ref-out-in/foreach-deconstruction/linq-channel；M2 补产物类 `Produces`（跨 pass 顺序依赖可机检，如 tuple→foreach-deconstruction 的 5420 关系变 Precondition）；M3 全量 + 注册期四校验（MayLeave owner 在链中且在其后、每 NORM 码恰一 owner、Postconditions 构造 ID 存在、Idempotent=true 必有幂等测试）+ `VerificationProfile` 字段补齐。
+6. **测试工程双 policy 显式化**（[v4] 吸收 deepseek §6.5）：泛型探针在测试工程（`ProjectKind.Test`）默认 `PreserveAndWarn`、`--strict-tests` 时与生产一致（生产恒 Fail）——json 37×1101 集中在测试工程、Yaml 行为预言机依赖测试工程可跑，双 policy 是"行为预言机"与"Java 产物门禁"两类目标的显式分离（风险 13 的设计化承接，沿用 unsafe-ffm UF050 测试工程降级先例）。
+7. **报告 schema v1.1 定稿**（[v4]，全文见附录 F）：`preprocess-report.json` 增加 per-pass `generic.constructs` 计数（按附录 E GC-ID 聚合）与 `residuals[]` 六字段（code/file/line/owner/policy/reason）；`generic-reflection-audit` 产出独立 `generic-reflection-report.json`；报告无时间戳、字段排序确定（§7.1-1 幂等验收依赖）。
 
 ### 6.4 L3 能力层（规则族）
 
@@ -675,7 +680,25 @@ M5 性能：统一树默认 + 增量 + 选择性 verify + 文档自动生成（d
 
 **R2 v1 首版 P1-R1~R8 全部保留**（修订三处）：
 
-- P1-R1 `generic-constraint`：新增第四条规则——**`Enum.Parse<T>/GetValues<T>/GetNames<T>/TryParse<T>` → 非泛型重载**（CN-09）与 **`Delegate.Combine<T>/Remove<T>` → CsPrelude 非泛型**（CN-10）；并补设计注意（CN-01/CN-04 附注）：default 类降级**不得经 Activator**（struct 自定义构造器语义坑）；`T?` 显式化必须连带 `.Value`/构造改写（TypeMappings 的 Nullable→Optional 与解包路径混用风险）。
+- P1-R1 `generic-constraint`（新 pass，插 `generic` 之后 `thread-static` 之前，§6.5）——**CN 规则全表 [v4 自 deepseek CN-01~12 吸收 + v1 附注合并]**：
+
+| 规则 | 输入 | 输出 | 诊断 |
+|------|------|------|------|
+| CN-01 | `default(T)` 且 T 有 `struct/unmanaged/Enum` 约束 | 零值语义表达式（**不得经 Activator**，附注 1） | CS2J1403 |
+| CN-02 | `default(T)` 且 T 仅引用约束/无约束 | `default` 字面量保留；`==/!=` 或推断实参上下文保留原形 | — |
+| CN-03 | `new T()` 且 T 有 `new()` 约束 | `Activator.CreateInstance<T>(typeof(T))`（token 由 GD-MTOK-2 注入） | CS2J1403 |
+| CN-04 | `T?` 且 T 有 `struct` 约束 | `Nullable<T>` 显式化 + **连带 `.Value`/构造/`null` 比较改写**（附注 2） | CS2J1403 |
+| CN-05 | `T?` 引用/无约束 | 保留（Java null 语义承接） | — |
+| CN-06 | 值语义 T 装箱（`(object)t`/`IComparable` 调用） | 显式 `(object)t` 保留；需包装类型时 `Cs2jGenerics.box<T>`（不新增库则 `(object)`） | CS2J1403 |
+| CN-07 | `new T[n]`（一维，type param 元素） | `(T[])Array.CreateInstance(typeof(T), n)` + token | CS2J1403 |
+| CN-08 | `new T[,]` 多维/jagged | 暂不支持 → CS2J1409 / `DeclaredUnsupported` | CS2J1409 |
+| CN-09 | `Enum.Parse<T>/GetValues<T>/GetNames<T>/TryParse<T>` | `Enum.Parse(typeof(T), …)` 等非泛型重载 + token | CS2J1403 |
+| CN-10 | `Delegate.Combine<T>/Remove<T>` | `CsPrelude.Combine/Remove`（非泛型） | — |
+| CN-11 | `where T : Enum` + enum-like class 使用点 | 交 `enum-declaration` Infeasible 保留真 enum | CS2J1409 |
+| CN-12 | 无依赖站点的不可表达约束 | 约束文本保留（Java 侧 CS2J1002 告警），G-06/G-18 PreserveAndWarn | CS2J1403 |
+
+  附注 1（CN-01，v2 已核证）：`Activator.CreateInstance<T>()` 对带自定义无参构造器的 struct 会调构造器，与 `default(T)` 零值**不等价**——零值语义改用受控 helper（`Cs2jGenericDefaults.DefaultOf<T>(typeof(T))`，需单独 Java 映射验收）或 `(T)Array.CreateInstance(typeof(T), 1).GetValue(0)`；普通 struct 可经 Activator。附注 2（CN-04，v2 已核证）：TypeMappings 把 `Nullable<T>` 映射 `java.util.Optional` 而 Java 侧 `GetDefaultValueForType` 对 Nullable 返回 `null`——只写 `Nullable<T>` 不改 `.Value`/构造会产出 Optional 与 null 混用代码（V-08 关联），改不动的站点登记 `DeclaredUnsupported`。幂等：CN 产物不再匹配原形状（`Activator.CreateInstance<T>(typeof(T))` 非 `new T()`、`Nullable<T>` 非 `T?`）；单文件任一 CS2J1403 Error → 整文件回退（strict 文件级回退沿用）。
+- P1-R1b **GD-MTOK-2**（generic-deepen 扩展，[v4] 吸收）：GD-MTOK 尾参 token 注入的触发集从 `typeof(T)` 站点扩展到 CN 产物值语义站点——`Activator.CreateInstance<T>(typeof(T))`（CN-01/03）、`Nullable<T>` 构造/`HasValue`/`Value`（CN-04）、`Enum.Parse(typeof(T), …)`（CN-09）、`sizeof(T)`/`Marshal.SizeOf<T>()`/`Unsafe.SizeOf<T>()`（G-12a/GI 域）。算法复用 `MethodTokenPlan` 工作表：方法自有 type param → 追加尾参 `Type __cs2j_token_<T>` + 全调用点补 `typeof(具体实参)`；类级 → 复用 GD-CTORARR 构造器 token 字段（无构造函数/静态上下文 → CS2J1401）；闭包 → 先 GD-NEST-2；调用点不可见（外部程序集/方法组/反射）→ CS2J1406 或 `DeclaredUnsupported`。
 - P1-R5 `make-generic-static`：升级为 **RG-0~4 反射分级**框架的 RG-0 层（吸收 kimi L4）：RG-0 静态闭合→闭型工厂（P1-R5 原案）；RG-1 token 可传播→tokenized invoker；RG-2 运行时开放→统一注册工厂（CM-DYN 收口）；RG-3 不可判定→readiness 失败或人工 provider；RG-4 表达式/延迟→移到实际执行边界。配套 `RuntimeTypeQueryPlan`（IsAssignableFrom/接口映射/查询顺序）与 `MemberMetadataPlan`（BindingFlags/发现顺序/Invoke 差分）。
 - P1-R6 pattern-desugar：补 C37 组件注册与 list pattern reducer（v1 已有）；relational-CompareTo 物化规则不变。
 
@@ -683,7 +706,22 @@ M5 性能：统一树默认 + 增量 + 选择性 verify + 文档自动生成（d
 
 `config/ClosedTypeConsumerSurfaces.json`：条目 `{assembly, type, methods[], genericArgPolicy, requiresGuard}`；Core 只实现"按符号匹配配置条目"，**库名只出现在 JSON**（M3 验收含 grep 守门测试：`Core/` 中不得出现 `YamlDotNet`/`JsonSerializer` 字样——后者从 `ClosedMetadataCollector.cs:42` 的硬编码常量迁出）。内置两组描述（STJ/YamlDotNet）+ `GenericReflectionProfile`（MakeGeneric 实参枚举，CM-ENUM-5；GetGenericArguments 只登记读取面不注册防无界膨胀，CM-ENUM-6）。
 
-**R4 v1 首版 P2-R1~R3 保留**（variance use-site 锚点 opt-in + 安全五条件与嵌套 VR-03 递归规则、Expression 域（增补 Yaml 元数据面维度）、extension 推断实参物化）。
+[v4 细则吸收] 消费面匹配按 deepseek `IClosedTypeConsumerProfile` 三件套落地（Core 内接口 + JSON 供数据）：①`StjProfile`——现 5 入口迁出为首批条目；②`YamlDotNetProfile`——入口取**实测存在**的反射消费面（deepseek 原稿的 `GenericCollectionTypeResolver` 文件不存在，按 §3.3 核证替换）：`IYamlTypeConverter.Accepts(Type)` 实现点、`TypeConverterCache` 的 `MakeGenericType/GetGenericArguments`、`DefaultObjectFactory/ObjectFactoryBase` 的 `Activator.CreateInstance(Type)`、`EnumerableNodeDeserializer/DictionaryNodeDeserializer/CollectionNodeDeserializer` 的 `MakeGeneric*` 调用点、静态 builder 路径（`StaticSerializerBuilder/StaticDeserializerBuilder`，第二消费者，§3.3 链 2）；③`GenericReflectionProfile`——`System.Type` 反射 API 保守白名单。配套 CM 规则：**CM-ENUM-5**（`MakeGenericType` receiver+实参枚举闭型，不可证 → CM-DYN）、**CM-ENUM-6**（`GetGenericArguments` 只登记读取面不注册，防无界膨胀）、**CM-LINK-2**（Yaml 入口插 bootstrap guard，形态同 `__cs2j_ensure_closed_types`）、**CM-STRICT**（java-ready 下 `CS2J1220` 转 Error、`CS2J1210` 动态闭型 → `DeclaredUnsupported` 带文件/行/原因）。**单 pass 修复**（W-06 关联的顺序依赖崩溃，Yaml 20 次 `_compilation` null）：`CompilationReadyAsync` 先 `BindCompilation` 再检查链前置（缺 generic-deepen → 干净报 CS2J1205 而非空引用崩溃；`RewriteFile` 对未 bind 树返回 null 不改写）。
+
+**R4 v1 首版 P2-R1~R3 保留并 pass 化 [v4]**：variance use-site 从 opt-in 锚点升级为链末 pass `variance-use-site-normalize`（Expression，`member-desugar/linq-channel/equality-concat` 之后、`java-keywords` 之前，§6.5）——直接复用 `VarianceAuditAnalysis.UseSites` + `UseSiteSafetyClassifier` 分类结果（**禁止两套分析漂移**；163/66/475 为旧语料类型引用站位分类，非全部需改写；实际改写集 = VA010/011/015 转换 + 221 数组 + 53 unsafe）。**VR 规则全表**：
+
+| 规则 | 输入 | 输出 |
+|------|------|------|
+| VR-01 | 隐式 `IEnumerable<Derived>` → `IEnumerable<Base>`（producer） | `(IEnumerable<Base>)(object)expr` |
+| VR-02 | 隐式 `Func<Base,R>` → `Func<Derived,R>`（consumer） | `(Func<Derived,R>)(object)expr` |
+| VR-03 | 嵌套 `IEnumerable<List<Derived>>` → `IEnumerable<List<Base>>` | 递归 cast；中间层 invariant → `DeclaredUnsupported` |
+| VR-04 | 数组 `Derived[]` → `Base[]` | 保留原样（Java 数组协变）；逐站点验证元素映射无装箱差异 |
+| VR-05 | `Both` 流向（旧语料 475 位点类；rt10 待重跑） | 仅当 type argument 两侧只出现在方法签名且无 mutable 成员才改写；否则 Unsafe 登记 |
+| VR-06 | 值类型实参（`int` → `object`） | `DeclaredUnsupported`（装箱/擦除不等价） |
+| VR-07 | 泛型委托方法组转换 | 先显式 lambda（与 delegate/closure-lift 协同）再 cast |
+| VR-08 | 动态/未绑定类型 | `DeclaredUnsupported` + `NORM-GENERIC-VARIANCE-USE` |
+
+安全五条件不变（引用类型实参/raw 同型或 Java 映射子类型（`ConversionContext.MapType` 验证）/读取传参位不写回/不跨 `ref|out|in` 与 Span/Memory ref-like/改写后仍可编译（per-file 后校验））；Java 侧看到的是 unchecked cast，只读流向下运行时语义与 C# 协变一致。Expression 域（增补 Yaml 元数据面维度）、extension 推断实参物化（P2-R2/R3）保留不变。诊断：`CS2J1404`（无法分类/改写）+ 报告记 VR-xx/源目标/方向/安全理由。
 
 **R5 晚期链重排（决策点，kimi L6 提案——本方案列为决策而非直接采纳）**
 
@@ -691,19 +729,72 @@ M5 性能：统一树默认 + 增量 + 选择性 verify + 文档自动生成（d
 
 **R6 CLI 旋钮补齐**（修 G-24 相关）：`--generic-deepen-overrides/--generic-deepen-strict/--closed-metadata-strict` 暴露既有 options；`RunAfterIds` 增"启用依赖"语义（`--pass generic-deepen` 自动补跑 generic，或至少硬报错替代静默空跑——closed-metadata 已有 CS2J1205 先例）。
 
-### 6.5 顺序与契约调整
+**R7 泛型内在函数 pass 化 `generic-intrinsic-lower` [v4 吸收 deepseek GI-01~11]**
 
-新 pass / 规则插入点（v1 首版不变 + 增量）：
+新 Abi pass，插 `pointer-deref-index` 之后、`closure-lift` 之前（§6.5）。与 `unsafe-ref-lowering` 分工：后者保留现有窄形（`ref T x = ref MemoryMarshal.GetReference(span)` + `Unsafe.ReadUnaligned/Add`，具体值类型 U/byte span）且**先行**；新 pass 只处理 residual scanner 记录的未改写站点（不双写）。失败站点 `URL001` 迁移 `NORM-GENERIC-UNSAFE-INTRINSIC`，java-ready 下 Fail。
+
+| 规则 | 输入 | 输出 | 条件 |
+|------|------|------|------|
+| GI-01 | `Unsafe.As<TFrom,TTo>(ref x)`，双实参具体值类型 | compat `Unsafe.As` 调用（TypeMappings 已有 Unsafe 映射） | 布局兼容可证 |
+| GI-02 | `Unsafe.As<TFrom,TTo>(ref x)` 含 type param | token + `Unsafe.As(ref x, typeof(TFrom), typeof(TTo))` 或 `DeclaredUnsupported` | token 可达 |
+| GI-03 | `Unsafe.BitCast<TFrom,TTo>(x)` | 显式 `(TTo)(object)x`（同宽值类型）或 compat | 可证同宽/无引用 |
+| GI-04 | `Unsafe.SizeOf<T>()` | `sizeof(具体类型)` 或 compat `SizeOf(typeof(T))` | 值类型可证 |
+| GI-05 | `MemoryMarshal.Read<T>(span)` | compat 调用（已有映射） | T 具体值类型 |
+| GI-06 | `MemoryMarshal.GetReference<T>(span)` | `unsafe-ref-lowering` 优先；未命中 → compat | 元素类型可证 |
+| GI-07 | `MemoryMarshal.Cast<TFrom,TTo>(span)` | compat 调用 | 同宽值类型 |
+| GI-08 | `MemoryMarshal.GetArrayDataReference<T>(array)` | compat 或 `array[0]` 引用适配 | 元素可证 |
+| GI-09 | `sizeof(T)` | `sizeof(具体类型)` 或 token helper（接 GD-MTOK-2） | T 具体值类型 |
+| GI-10 | `Marshal.SizeOf<T>()`/`PtrToStructure<T>` | compat 映射或 `DeclaredUnsupported` | 平台/布局域 |
+| GI-11 | `Unsafe.Add<T>(ref x, n)` | 现有规则优先；其余 `x[n]`/`span[n]` | 元素类型可证 |
+
+开放约束（Q4）：允许近似的类型族（int/long/float/double/byte/char 同宽族）需与 compat 维护者对齐后写入条件列；未对齐前一律 `DeclaredUnsupported`。Yaml 实测 0 命中（该语料不触发），json 旧语料 26 MemoryMarshal/2 Unsafe/1 sizeof(T) 为主要验收面，rt10 重跑复核。
+
+**R8 擦除桥接与状态机/record/attribute 残余规则 [v4 吸收 deepseek EB/AS/IT/RR/RW/AT/SA]**
+
+member-desugar C46 泛型族从"保守跳过 + NORM-ERASURE-COVARIANCE 登记"升级为确定性规则（无法证明仍走登记）：
+
+| 规则 | Owner | 输入 → 输出 |
+|------|-------|------------|
+| EB-01 | member-desugar | 同类型内擦除同名同签名（`M<T>(T)` vs `M(int)`）→ 重命名 + 生成桥接转发，保留公共 API 形状 |
+| EB-02 | member-desugar | 泛型接口槽位歧义（CS2J5197）→ `OriginalDefinition` + 构造实参确定性选槽；不可选 → `DeclaredUnsupported` |
+| EB-03 | member-desugar | 协变返回 × 擦除（CS2J5196）→ 桥接方法转发目标擦除类型（"deferred to C02 review"自此有承接者） |
+| EB-04 | member-desugar | 显式泛型接口实现 → public bridge + private implementation |
+| EB-05 | record-readonly | 泛型接口方法 ripple（RR070）→ 扩展 ripple 计划；不可证 → `DeclaredUnsupported` |
+| EB-06 | member-desugar | 泛型 `with` 接收者（CS2J5223）→ 用站点闭合类型生成 clone；开放泛型 → `DeclaredUnsupported` |
+| AS-01 | async-normalize | 泛型 async 局部函数：提升后重声明 method type params + constraints；CS2J1844 从"无 owner"→ Fail/DeclaredUnsupported |
+| AS-02 | async-normalize | 泛型 `Task<T>`/`ValueTask<T>` token；`IAsyncEnumerable<T>` 擦除登记（rt10 13 文件新面） |
+| IT-01 | iterator-lowering | 泛型状态机 `where` 子句重声明核对；`IEnumerator<T>` 擦除 |
+| AT-01 | attribute-normalize | 泛型 attribute 扫描 → `DeclaredUnsupported`（Java annotation 不支持泛型） |
+| SA-01 | member-desugar/generic-deepen | 接口 static abstract/generic math → CS2J1409 登记（json/Yaml 实测 0 命中，可判定性兜底） |
+
+### 6.5 顺序与契约调整 [v4 扩充：完整插入序 + 兼容性细则]
+
+新 pass / 规则插入点（**粗体为新增**；其余 52 pass 相对位置不变，M0 缺陷修复全部原地不动顺序）：
 
 ```text
-unsigned → generic → generic-constraint (新, R2)
-                       ↓
-            thread-static → generic-deepen → closed-metadata (+R3 消费面配置化)
-                                              ↓
-                                   variance-audit (+P2-R1 opt-in 二轮)
-...（既有 52 pass 顺序不变；M0 的缺陷修复全部原地，不动顺序）
-java-keywords → normalization-audit (+§6.3 十八探针族)
+unsigned → generic → **generic-constraint**（R2/CN）
+            → thread-static → generic-deepen（+GD-MTOK-2/NEST-2/STATIC-3/扩作用域）
+            → closed-metadata（+R3 消费面配置化/CM-STRICT）
+            → variance-audit（只读基线，保持原位）
+...（record-readonly … unsafe-ffm → stackalloc-lowering → ref-struct-lowering
+   → ref-struct-span-field-memory-lift → pointer-deref-index 相对位置均不变）
+pointer-deref-index → **generic-intrinsic-lower**（R7/GI，RunAfter: pointer-deref-index）
+closure-lift → iterator-lowering → async-normalize（+AS-01/02）→ extension-methods
+   → eliminate-goto → member-desugar（+R8/EB）→ linq-channel → concurrency-normalize
+   → equality-concat
+equality-concat → **variance-use-site-normalize**（R4/VR，RunAfter: member-desugar, linq-channel, equality-concat）
+   → platform-isolation → dynamic-desugar → java-keywords
+java-keywords → **generic-reflection-audit**（RG 只读面，RunAfter: java-keywords）
+   → normalization-audit（+§6.3 十九探针族）
 ```
+
+兼容性细则（吸收 deepseek §8.9，52 pass 版改写）：
+
+- `RunAfterIds` **只增不减**：旧锚点全部保留，既有拓扑断言与 `--list-passes` 快照仅因新增条目更新（快照测试随波次提交）。
+- `generic-deepen` 的 RunAfter 追加 `generic-constraint`；`thread-static` 仍锚 `generic`——Kahn tie-break 按声明序保持 generic → generic-constraint → thread-static → generic-deepen。
+- `closure-lift` 追加锚 `generic-intrinsic-lower`（内在函数先降、闭包后提升）；`java-keywords` 追加锚 `variance-use-site-normalize`（型变改写先于命名改写）；`normalization-audit` 追加锚 `generic-reflection-audit`。
+- 新 pass 默认开启（all-preprocessors-default-on 策略），`--disable-pass` 可关；`generic-reflection-audit` 只读不改写、可先行合入。
+- 单 pass 依赖显式化（R6）：`--pass closed-metadata` 自动补跑 generic-deepen 或硬报 CS2J1205；同规则适用于新 pass 对 generic-constraint/generic-deepen 的依赖。
 
 ### 6.6 L1/L2/L4 层
 
@@ -716,6 +807,40 @@ java-keywords → normalization-audit (+§6.3 十八探针族)
 ---
 
 ## 7. 验收标准
+
+### 7.0 验收与复现命令 [v4 新增]
+
+```powershell
+# pass 链（顺序即执行序；52 条 + 新增条目随波次更新快照）
+dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess --list-passes
+
+# json 主语料（rt10 真源；M0 基线重跑 + 各波次回归统一入口）
+dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-java-ready --unified-preprocessed-src --profile java-ready
+
+# YamlDotNet 库项目（链鲁棒性回归：W-06 修复后必须跑完）
+dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\YamlDotNet-18.0.0\YamlDotNet\YamlDotNet.csproj `
+  -d D:\cs\yaml-lib-java-ready --unified-preprocessed-src --profile java-ready
+
+# YamlDotNet 解决方案（partial-merge 白名单/降级验证）
+dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\YamlDotNet-18.0.0\YamlDotNet.sln `
+  -d D:\cs\yaml-sln-java-ready --unified-preprocessed-src --profile java-ready
+
+# 单 pass 复跑（泛型能力定位；closed-metadata 单 pass 修复后的崩溃回归）
+dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\YamlDotNet-18.0.0\YamlDotNet\YamlDotNet.csproj -d D:\cs\yaml-gd-only `
+  --pass generic-deepen --no-verify-build --no-verify-tests
+
+# 下游 Java 验收（超出本方案实施范围，最终目标门）
+dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- convert-project `
+  -s <rt10-java-ready 的 .sln> -d <java 输出> --no-verify-build --no-verify-tests
+# 之后对生成 Maven 工程执行 mvn compile + JUnit
+```
+
+> rt10 全链初始基线（各 pass 统计/残差分布）由 M0 建立；上表即 M0 与各波次的统一入口，报告落 `-d` 目录（schema 见附录 F）。
 
 ### 7.1 预处理侧验收（本方案实施范围）
 
@@ -742,6 +867,23 @@ java-keywords → normalization-audit (+§6.3 十八探针族)
 | G-26 [v3] | rt10 `System.Text.Json.csproj`（文件级 TFM Condition + 外部共享源） | 预处理输入树 = csproj Compile 求值结果：net10 变体恰好一份 `JsonReaderHelper` 实现、共享源（HexConverter/ValueStringBuilder 等）在树内、无重复成员 |
 | G-27 [v3] | `get => field ?? GetOrCreateSingleton(ref field, X)`；`ref struct S(Options o){ ReadOnlySpan<byte> _b; }`；`using A = System.ValueTuple<int, string?>;`；`Combine(params ReadOnlySpan<IJsonTypeInfoResolver?>)` | 依次：backing 字段物化且 `ref` 实参改写正确；主构造参数物化 + Span 字段可提升；别名解析出元组形状进 tuple 槽位；params-span 声明物化 + 调用点展开（K2 既有路径的真源盖章） |
 
+6. **指标矩阵（升级前 → 升级后目标）[v4 新增]**——"前"列除注明外均为**旧语料历史基线**（§3.2.3），rt10 重跑后逐项替换：
+
+| 指标 | 升级前 | 升级后目标 |
+|------|--------|-----------|
+| 默认链可完成（Yaml 库 / Yaml 解决方案） | 否（`?? []`）/ 否（CS2J2018） | 双语料均跑完（W-06 保守化 + partial-merge 白名单/降级） |
+| json `CS2J1101` / `CS2J1106`（旧语料） | 37 / 3 | 0 或全部 `DeclaredUnsupported`（GD-NEST-2/STATIC-3 + L1 引用集） |
+| json closed-metadata 残留 / dynamic 未登记（旧语料） | 281 / 369 | 0（CM-STRICT + profile 化） |
+| json variance-audit 未处置位点（旧语料） | 704 位点 / 221 数组 / 53 unsafe | 全部分类：已改写 / 安全免改 / `DeclaredUnsupported`（VR） |
+| json 约束依赖位点（旧语料） | 3 default / 8 new / 5 nullable | 0 未处置（CN + GD-MTOK-2） |
+| Yaml `generic`/`generic-deepen` 链内真实执行 | 否（链中止；单 pass 才见 2 `new T()` / 100 anchors） | 默认链内执行且全部 token 化 |
+| `--pass closed-metadata` 单跑（Yaml） | `_compilation` null ×20 崩溃 | 干净报 CS2J1205 或跑完（R3 单 pass 修复） |
+| C# 中间树 build/test（两语料） | 局部可过 | 全链 0 error / 0 failure（B 路差分） |
+| java-ready 泛型 Fail 残留 | 0 探针（无门） | 0（`DeclaredUnsupported` 除外，带 owner/文件/行/原因） |
+| [v3] rt10 全链基线 | 未建立 | M0 建立（§3.2.3"rt10 重跑关注点"逐项落档） |
+
+7. **一致性/回归与性能门 [v4 新增]**：每条新规则带正/负 fixture（触发/不触发）+ 幂等测试（二次运行逐字节一致）+ 回退测试（strict Error 整文件不变）；`--list-passes` 快照随波次更新；`PassContractConsistencyTests` 扩展断言——附录 E 每个 GC-ID 至少一个 owner、每个 `MayLeave` 有 `Owners`、每个 Deferred 承接者拓扑可达（位于生产者之后）、Java 侧 42 个 `CS2J normalization required` 构造点至少映射一个 NORM 探针（人工映射表 + 测试）；性能门：统一树默认后 Yaml 库全链耗时 ≤ 现状 1.5×（真实引用集成本对冲），增量缓存命中率 ≥ 80%（二次运行）。
+
 ### 7.2 下游验收衔接（超出本方案实施范围，口径说明）
 
 "转换后可正确编译、全部单元测试跑通"的完整验收 = §7.1 + 下游两步（**[v3] `convert-project` 两语料 0 失败——json 口径为 rt10 真源**、Maven 工程 `mvn compile` + JUnit 全绿）。涉及 Java 侧的协调项收窄为三条（v2 更新）：`Cs2jPrelude.EqualityOps` methodMapping 一条；`EqualityComparer<T>/Comparer<T>` 类型映射（R4 落地后不再必需）；`ClosedMetadataRegistrationGenerator.cs:9-11` 过时注释清理（机制已闭环）。
@@ -755,10 +897,10 @@ java-keywords → normalization-audit (+§6.3 十八探针族)
 | 波次 | 内容 | 退出标准 | 风险 |
 |------|------|---------|------|
 | M0 止血 | §6.4-R0 全部（V/S/W 修复）+ fixed-span 边界加固 + **[v3] W-09 compat 漂移修复 + W-10 的 rt10 基线重跑与 Compile 求值最小接线** | 8 个 V 缺陷各有一条红→绿 fixture；37×1101→0（json 旧语料口径）；Yaml 库默认链跑通（W-06 的 null-coalesce 保守化）；撞号迁移完成且 `legacyCode` 兼容；**[v3] rt10 真源全链可跑完并产出新基线日志（重跑关注点逐项落档 §3.2.3）；ToUtf8 漂移探测红→绿** | 中（V-01 修正是行为变更，需同步修 fixture 预期并声明"singleton identity 不再作为兼容行为保留"；[v3] rt10 重跑可能暴露旧语料未见的失败——这正是换源目的，新失败清单进 M1-M3 排程而非回滚换源） |
-| M1 契约与审计 | §6.3 十八探针 + CS2J14xx + 泛型族挂契约 + 报告 v1.1 + 残差快照入库 + 探针盲区巡逻测试 | 两语料 `--profile audit` 产出全量泛型残差守恒式；快照 ratchet 生效 | 低 |
+| M1 契约与审计 | §6.3 十九探针 + CS2J14xx + 泛型族挂契约 + 报告 v1.1（附录 F schema）+ 残差快照入库 + 探针盲区巡逻测试 | 两语料 `--profile audit` 产出全量泛型残差守恒式；快照 ratchet 生效 | 低 |
 | M2 编译层 | L1 spine + degraded + 引用画像 + W-04 打开（W-10 的 Compile/TFM/外部源求值在此完备） | 两语料四个语义 pass degraded=0；variance-audit 跳过文件数旧语料口径 126→0、**[v3] rt10 口径重测归零** | 中（编译成本，按工程分组+缓存对冲） |
-| M3 能力层 | R1 统一解析器 + R2（P1-R1~R8 修订版）+ R3 消费面配置化 + G-02c/R2 GD 扩面 + R6 CLI 旋钮 | §7.2 样例表全绿；grep 守门通过；B 路差分两语料通过 | 中-高（R1 迁移面大；先止血序） |
-| M4 域决策 | static abstract（G-07）/ 运行时合成（G-04c RG-2 级）/ Expression 域（G-23，含 Yaml 元数据面）/ 型变域（G-05）/ 晚期链重排（R5 决策） | 每域 DeclaredUnsupported 登记（owner/原因/fail-fast）或立项文档 | 高（产品决策） |
+| M3 能力层 | R1 统一解析器 + R2（P1-R1~R8 修订版 + CN 全表/GD-MTOK-2）+ R3 消费面三 profile（CM-STRICT/单 pass 修复）+ R4 pass 化（variance-use-site-normalize）+ R7（generic-intrinsic-lower）+ R8（EB/状态机残余）+ G-02c GD 扩面 + R6 CLI 旋钮 | §7.1-5 样例表与 §7.1-6 指标表逐项绿；grep 守门通过；B 路差分两语料通过；`--list-passes` 快照含 4 新 pass 且拓扑断言通过 | 中-高（R1 迁移面大；先止血序） |
+| M4 域决策 | static abstract（G-07）/ 运行时合成（G-04c RG-2 级）/ Expression 域（G-23，含 Yaml 元数据面）/ 型变 Unsafe 流向子集（G-05，VR-05/06 登记面）/ 晚期链重排（R5 决策）/ 开放问题 Q1-Q12 裁决（§8.2） | 每域 DeclaredUnsupported 登记（owner/原因/fail-fast）或立项文档 | 高（产品决策） |
 | M5 性能与文档 | 统一树默认 + 增量 + 选择性 verify + `preprocessor-matrix.md` 自动生成 + 覆盖矩阵 JSON | 整树复制 52→1；链总时长劣化 ≤10%；文档由 descriptor+contract 生成 | 中 |
 
 ### 8.2 风险与开放问题（v2 修订）
@@ -773,14 +915,32 @@ v1 首版风险 1-7 继续有效（T? 显式化波及面/探针翻转节奏/GD �
 13. **测试工程 vs 生产工程残留策略**：测试工程是行为预言机不是 Java 产物输入；泛型探针在测试工程上的 policy 应显式配置（生产 Fail / 测试默认 PreserveAndWarn 的双 policy），而非散落 adapter。
 14. **种子演进纪律**（吸收 seed）：每波绑定语料与量化门；残差只许减不许增；反例 fixture 与规则同生；红→绿留痕（PR 必带残差证据/红绿测名/种子前后统计）。
 15. **[v3] 换源冲击管理**：rt10 真源重跑预计产生旧语料没有的失败清单（NRT 泛型实参 452 处对 V-05、`new()` 约束 18 处对 R3、IAsyncEnumerable 13 文件对 async-normalize、csproj 门控对 L1）。纪律：新失败**只登记排程，不回滚换源、不在 M0 内顺手扩能力**；旧语料 626/0 只作历史对照。若 rt10 重跑在 M0 内不可达（如 restore 依赖内部源），先落 `tools/PreprocessCorpusProbe` 级别的静态 Compile 求值报告，链重跑顺延至 M0.5 并在 §3.2.3 落档缺口。
+16. **[v4] pass 化扩面风险**：四个新条目（generic-constraint/generic-intrinsic-lower/variance-use-site-normalize/generic-reflection-audit）改变 `--list-passes` 快照与拓扑 tie-break。缓解沿用 §6.5 细则（RunAfterIds 只增不减、快照随波次提交、每 pass 正/负/幂等 fixture）；`generic-reflection-audit` 只读可先行合入，其余三 pass 按依赖序（generic-constraint → GI → VR）逐个进入。
+
+**开放问题清单 [v4 编号化，源自 deepseek Q1-Q12 经本仓语境改写]**：
+
+| Q | 问题 | 本方案缺省立场 |
+|---|------|--------------|
+| Q1 | 值语义补偿是否接受 Activator/反射成本（vs 闭型特化 vs DeclaredUnsupported） | 先 token + compat（CN 表），热点语料收集后再闭型特化，C 兜底 |
+| Q2 | `Both` 流向是否生成只读 wrapper（新 support 类型）而非 cast | 不生成；VR-05 仅可证安全才改写，其余登记（产品决策留 M4） |
+| Q3 | YamlDotNet 专用 profile vs 通用白名单 | JSON 配置 + 通用符号匹配器，Yaml 条目只是首批数据（R3） |
+| Q4 | 内在函数允许近似的类型族（int/long/float/double/byte/char？） | 与 compat 维护者对齐后写进 GI 条件列；未对齐前全 `DeclaredUnsupported` |
+| Q5 | 是否把 closure-lift 提前到 generic-deepen 之前（37×1101 另一解法） | 不提前；GD-NEST-2 包块体已闭环，链重排归 R5 决策 |
+| Q6 | 是否持久化 compilation 缓存 | 不持久化（Roslyn 不可序列化）；引用集 hash 缓存即可 |
+| Q7 | 测试工程泛型残留是否排除出 java-ready | 双 policy：测试默认 PreserveAndWarn、`--strict-tests` 对齐生产（§6.3-6） |
+| Q8 | 撞号迁移 `legacyCode` 兼容窗口 | 一个版本（随 M0） |
+| Q9 | Java 门禁消息是否改从共享 catalog 读取 | 本方案不改 Java 侧；作为长期建议登记 |
+| Q10 | java-ready 严格化是否翻转为默认 | CI/验收 profile 先行，稳定后决策 |
+| Q11 | static abstract/generic math 是否纳入"任意库"承诺 | 不纳入；AT/SA 规则只保证可判定登记 |
+| Q12 | 本方案是否同时交付 Java compat 缺失映射清单 | 只输出 inventory（generic-reflection-audit 报告），不改 Java（§7.2 协调项口径） |
 
 ---
 
-## 附录 A：诊断码与 NORM 码索引（v2 修订）
+## 附录 A：诊断码与 NORM 码索引（v2 修订，v4 增补）
 
 **既有泛型相关码**：CS2J11xx（generic-deepen：1100 整树回滚/1101 不可判站点 [v2：含嵌套闭包 token 不可达，json 37 实测]/1102 partial 族不可闭合 [v2：含静态泛型属性/事件停用]/1103 静态字段不可改写/1104 pattern 不可提升/1105 catch 前置失败/1106 调用点在编译外 [v2：调用点闭型不可见 3 实测]/1110 表达式树站点/1120 残留/1130-1131 verify 失败/1190 plan 非自包含）；CS2J1001/1002/1003（Java 侧）；CS2J0585/0586/0587（expression-desugar 新语法守门）；CS2J5175/5116/5119/5198（member-desugar generic math/签名）；UF021/UF040/UF061（泛型指针/stackalloc/extern 拒绝）；URL001；CS2J3301-3305/3320；**[v2 撞号警示]** CS2J1203 三义（closed-metadata/extension-methods×2/thread-static）与 12xx/13xx 撞段；CS2J5196（"deferred to C02 review" 无承接者）、CS2J5223（开放泛型 with 接收者）、RR070（泛型接口 ripple）；CS2J5420（foreach-source 解构硬门，放大 S-07）；CS2J0601/0604/0607/0608（params 集合谱系）。
 
-**本方案新增**：§6.3 十八个 NORM 码 + CS2J14xx 诊断段（1401-1409）+ `generic-constraint` pass 专属码（GC01xx 段）+ `SYNTH-*` 内部构造命名空间 + **[v3] compat 漂移探测码（CMR0xx 段新码："声明类型在语料中存在但条目零匹配"）**。
+**本方案新增**：§6.3 十九个 NORM 码（[v4] 拆出 VARIANCE-USE）+ CS2J14xx 诊断段（1401-1409）+ `generic-constraint` pass 专属码（GC01xx 段）+ `SYNTH-*` 内部构造命名空间 + **[v3] compat 漂移探测码（CMR0xx 段新码："声明类型在语料中存在但条目零匹配"）** + **[v4] 新 pass 规则码落位**：GI 域 → CS2J1407/NORM-GENERIC-UNSAFE-INTRINSIC、VR 域 → CS2J1404/NORM-GENERIC-VARIANCE-USE、reflection-audit → CS2J1406/NORM-GENERIC-REFLECT（GC-ID 对应关系见附录 E）。
 
 ## 附录 B：证据索引（v2 修订）
 
@@ -823,13 +983,13 @@ v1 首版风险 1-7 继续有效（T? 显式化波及面/探针翻转节奏/GD �
 - 不修改 Java 侧代码/映射（协调项清单收窄为 §7.2 三条）。
 - 不把"C# 中间树可编译"等同"Java 可转换"，也不把"转换成功"等同"测试全绿"——三层各有独立门（I1-I3 / §7.1 / §7.2）。
 
-## 附录 D：同行方案采纳对照（v2 新增）
+## 附录 D：同行方案采纳对照（v2 新增，v4 增补设计层）
 
 > 四份同行方案（`C:\Users\15097\Desktop\V202611042101`）与本方案（v1 首版）同题。v2 的取舍原则：**论断先核证、增量再吸收、冲突以本仓代码为准**。
 
 **已采纳（经核证）**
 
-- deepseek：YamlDotNet 语料实测与"默认链在泛型 pass 前中止"方法论发现（W-06）；STJ 运行统计分母（§3.2）；GAP-01（编译环境 P0）/GAP-05（37×1101）/GAP-15（契约）/GAP-16（链鲁棒性）→ G-17/G-18/G-24；CS2J14xx 诊断段与撞号迁移；CN-09/10 规则与 CN-01/04 设计坑；GD-NEST-2/GD-STATIC-3；RG-0~4 反射分级（经 kimi 版本）。
+- deepseek：YamlDotNet 语料实测与"默认链在泛型 pass 前中止"方法论发现（W-06）；STJ 运行统计分母（§3.2）；GAP-01（编译环境 P0）/GAP-05（37×1101）/GAP-15（契约）/GAP-16（链鲁棒性）→ G-17/G-18/G-24；CS2J14xx 诊断段与撞号迁移；CN-09/10 规则与 CN-01/04 设计坑；GD-NEST-2/GD-STATIC-3；RG-0~4 反射分级（经 kimi 版本）。**[v4 增补设计层]**：GNC 构造目录（附录 E GC-01~35，GC-06 静态属性行按本仓核证改写）；CN-01~12 全表与 GD-MTOK-2 触发集（§6.4-R2）；`IClosedTypeConsumerProfile` 三件套与 CM-ENUM-5/6、CM-LINK-2、CM-STRICT、单 pass bind 修复（§6.4-R3，Yaml profile 文件名按实测替换）；VR-01~08/GI-01~11/EB-01~06 与 AS/IT/RR/RW/AT/SA 规则表（§6.4-R4/R7/R8）；插入顺序兼容性细则（§6.5）；三规则族 pass 化决策；指标矩阵/一致性测试明细/报告 schema（§7.0/§7.1-6/7、附录 F）；`--strict-tests` 双 policy（§6.3-6）；开放问题 Q1-Q12（§8.2）；一页纸执行清单（附录 G）。
 - kimi：P0 缺陷清单 9 条（V-01/02/04/05/06/08 与 GD-03/CM-03 归并进 V 层）；YamlDotNet NRT 运行时反射链/双 builder/Expression 元数据面（§3.3）；四路差分与 21 类行为反例（§7）；java-ready 严格化 10 条（§6.6 L2）；`StaticGenericStatePlan` 规范形；晚期链重排（作为 R5 决策点）；`MsBuildProject` probe 上移与 TFM/符号配置三不一致。
 - longcat：G-02c 修正（is/as 二元式不改写，V-07）；closed-metadata D2 已接线（W-07，修正 v1 论断）；VA020-027 审计码已有（W-01 修正 G-06 缺口性质）；GD-ISAS-EXPR 降级形态（§7.2 样例）；params 谱系（G-21）；Expression 三策略分散与 GroupBy 恒冻结（§4.2）；enum 算术 owner/cast 顺序契约（§8.2.14 种子纪律关联）；报告 schema v2 要点。
 - seed：R1-R9 运行时信息分类学（§3.1）；合成层约束债 GEN-GAP-05/06/09/10（S 层，含三处实锤）；`SyntheticTypeParameterResolver`（R1）；探针族 12 码与 TOKEN-SITE 作用域式检测、degraded 口径、SYNTH-\* 命名空间（§6.3）；PassContract 三步推广；种子演进方法学（波次门/ratchet/反例 fixture/盲区巡逻/grep 守门，§6.6/§8）；`ClosedTypeConsumerSurfaces.json`（R3）；产物契约冻结（前缀常量集中+键同构）。
@@ -841,3 +1001,125 @@ v1 首版风险 1-7 继续有效（T? 显式化波及面/探针翻转节奏/GD �
 - kimi/deepseek 基线漂移：两者分别基于 `361c8214`/`060e17ff`/`4bc8ea9e`，pass 数 49/48/48 均已过时（当前 52）；本方案以 HEAD `6b57a210` 重对全部行号。
 
 **双方互补确认**：v1 首版独有的 P1-R3（泛型 attribute 降级）/P1-R4（EqualityOps）/P1-R5（make-generic-static 闭型物化）/P1-R6（pattern CompareTo+C37）/P1-R8（collection-expr 泛型 Add）/P2-R3（推断实参物化）与 TypeMappings 映射面分析，四份同行方案均无等价具体规则，全部保留。
+
+## 附录 E：泛型构造登记目录（GC-01~GC-35）[v4 新增，吸收 deepseek GNC 目录并经本仓核证改写]
+
+> 编号沿用 deepseek GNC G-01~G-35 加 **GC-** 前缀（一一对应，便于两文档互查），与本文 §5 缺口矩阵 G-xx **无关**。"当前 owner"按本仓 HEAD 现状核证（GC-06 静态属性行依 V 层核证修正 deepseek 的"无载体"论断；GC-22/23 反射行并入 RG-0~4 分级）。本目录是 PassContract v2 挂载（Consumes/MayLeave 用 GC-ID）与 `normalization-audit` 探针登记的机器可读底册；"目标 policy"即 `ResidualPolicy` 三值。**探针微调项**：GC-04/06 需将 `NORM-GENERIC-STATIC-FIELD` 扩域为 `STATIC-MEMBER`（或并列 `STATIC-METHOD`）——随 M1 落地，扩域前后码集快照同步。
+
+| GC-ID | 构造 | Java 门禁/后果 | 当前 owner（现状） | 目标 owner → policy | NORM/诊断 |
+|-------|------|---------------|-------------------|--------------------|-----------|
+| GC-01 | 泛型类型/方法/局部函数 type parameter 声明 | bounds 映射，可表达 | 各改写 pass | 保留 | — |
+| GC-02 | 方法体内 `typeof(T)` | `Class<T>` token | generic-deepen GD-ANCHOR | Fail | TOKEN-SITE |
+| GC-03 | 嵌套闭包内 `typeof(T)`/`is T` | token 不可达 | GD-NEST → GD-NEST-2 修 | Fail | TOKEN-SITE |
+| GC-04 | 引用类 type param 的静态方法 | 需提升 + 自有 type param | GD-STATIC（GD-STATIC-3 修调用点闭型） | Fail | STATIC-MEMBER/CS2J1106 |
+| GC-05 | 引用类 type param 的静态字段 | `FieldTransformer` 硬失败 | GD-FIELD（V-01/02/03 修复后达规范形） | Fail | STATIC-FIELD |
+| GC-06 | 静态泛型属性 | **Java 侧 `PropertyTransformer` 已有提升**（deepseek"无载体"不成立）；C# 侧 GD 停用 CS2J1102 | generic-deepen + member-desugar | Fail / PreserveAndWarn | STATIC-MEMBER/CS2J1102 |
+| GC-07 | 泛型类型内 `new T[]` | 构造器 token | GD-CTORARR（-2 扩多站点/初始化器） | Fail | CS2J1120 |
+| GC-08 | `catch (T)` | `StatementTransformer` 硬失败 | GD-CATCH | Fail | CATCH |
+| GC-09 | `is T v` 声明模式（if 上下文） | 仅具体类型 | GD-ISAS-B | Fail | TOKEN-SITE |
+| GC-10 | `is T`/`as T` 二元式 | 需 `Class<T>` token | **V-07 两侧均不改写** → G-02c/R2 扩面 | Fail | TOKEN-SITE |
+| GC-11 | `default(T)`（值语义 T） | Java null 兜底（V-08） | generic（部分）→ generic-constraint CN-01/02 | Fail | CONSTRAINT 关联/CS2J1403 |
+| GC-12 | `new T()` | Activator 无 token 退化 | generic + CN-03 + GD-MTOK-2 | Fail | CS2J1403 |
+| GC-13 | `T?`/`Nullable<T>` | Optional 映射混用 | CN-04/05（连带 `.Value`/构造改写） | Fail（struct 约束）/保留（引用） | CONSTRAINT |
+| GC-14 | `new T[n]`/`new T[,]` | `Array.CreateInstance` + token | generic（一维）+ CN-07；多维 CN-08 | Fail / DeclaredUnsupported | ARRAY |
+| GC-15 | 值语义 T 装箱/拆箱 | 包装类型差异 | CN-06 | Fail / DeclaredUnsupported | CONSTRAINT |
+| GC-16 | `where T : struct/unmanaged/Enum/Delegate` | CS2J1002 丢弃 | variance-audit 审计 + CN 改写 | Fail（有依赖站点）/ PreserveAndWarn | CONSTRAINT |
+| GC-17 | `where T : new()` | 无构造约束 | variance-audit + CN-03 | 同上 | CONSTRAINT |
+| GC-18 | `where T : notnull/class/default` | 编译期可丢弃 | CN-12 | PreserveAndWarn | CONSTRAINT |
+| GC-19 | `out/in` 声明型变 | CS2J1003 丢弃 | variance-audit | DeclaredUnsupported（C# 无通配符语法，靠使用点改写） | VARIANCE-DECL |
+| GC-20 | 构造泛型引用转换使用点 | Java invariant 编译失败 | 无 → variance-use-site-normalize（VR） | Fail | VARIANCE-USE |
+| GC-21 | 数组型变 `T[]` → `U[]` | Java 数组协变多数可编译 | variance-audit 逐站点验证 | PreserveAndWarn | VARIANCE-USE |
+| GC-22 | `MakeGeneric*`/`GetGeneric*` 反射 | 擦除不可重建实参 | closed-metadata + RG-0~4 + generic-reflection-audit | Fail / DeclaredUnsupported | REFLECT |
+| GC-23 | 闭型注册/消费者 link | `closedCacheKey` | closed-metadata（profile 化 + CM-LINK-2） | Fail | REFLECT/CS2J1220 |
+| GC-24 | `Unsafe.*`/`MemoryMarshal.*`/`sizeof(T)` | 无内存重解释/布局保证 | unsafe-ref-lowering（窄）→ generic-intrinsic-lower（GI） | Fail / DeclaredUnsupported | UNSAFE-INTRINSIC |
+| GC-25 | 擦除同名同签名冲突 | Java 同擦除 | JavaNaming `_erasure_N` 已接 + EB-01/03/04 | Fail（bridge 或登记） | ERASURE-COVARIANCE |
+| GC-26 | 泛型接口槽位歧义 | CS2J5197 跳过 | member-desugar EB-02 | Fail / DeclaredUnsupported | ERASURE-COVARIANCE |
+| GC-27 | 泛型 record `with`/clone | CS2J5223 跳过 | record-readonly/member-desugar EB-05/06 | Fail / DeclaredUnsupported | ERASURE-COVARIANCE |
+| GC-28 | 泛型 async/iterator 状态机 | type params/约束重声明 | async-normalize/iterator-lowering（S-08/IT-01） | Fail | CS2J1844 → owner 化 |
+| GC-29 | 泛型 attribute | Java annotation 不支持 | attribute-normalize AT-01 | DeclaredUnsupported | ATTRIBUTE |
+| GC-30 | 接口 static abstract/generic math | Java 无 static abstract | member-desugar SA-01 | DeclaredUnsupported | STATIC-ABSTRACT |
+| GC-31 | 泛型 delegate/匿名方法 | functional interface（丢型变） | delegate/closure-lift + VR-07 | PreserveAndWarn + 使用点改写 | VARIANCE-USE |
+| GC-32 | 泛型匿名类型 | 生成泛型类 + 约束 | anonymous-type-lift（已携带约束） | Fail | — |
+| GC-33 | 开放泛型 tuple | 生成泛型 struct | tuple（S-04 约束债修复） | Fail | DECONSTRUCT 关联 |
+| GC-34 | 泛型 enum 约束/类型实参 | enum-like 不满足 `Enum` 约束 | enum-declaration Infeasible | PreserveAndWarn（保留真 enum） | ENUM-OP 关联 |
+| GC-35 | type param 名撞 Java 关键字 | 编译失败 | java-keywords | Fail | — |
+
+一致性断言素材（§7.1-7）：每个 GC-ID 至少一个 owner；GC-ID × NORM 码对应表入库 `PassConstructIds`；Java 侧 42 个 `CS2J normalization required` 构造点逐个映射到 GC-ID（人工映射表 + 测试防漂移）。
+
+## 附录 F：报告 schema（v4 定稿目标）[v4 新增]
+
+`preprocess-report.json` 增补 `generic` 段（per-pass 构造计数按附录 E GC-ID 聚合）：
+
+```json
+{
+  "schemaVersion": 1,
+  "profile": "java-ready",
+  "chain": ["conditional", "...", "normalization-audit"],
+  "summary": { "files": 261, "residuals": 0, "errors": 0, "warnings": 0 },
+  "passes": [
+    {
+      "id": "generic-deepen",
+      "status": "ok",
+      "filesScanned": 261,
+      "filesChanged": 27,
+      "constructs": {
+        "GC-02": { "rewritten": 100, "residual": 0 },
+        "GC-04": { "rewritten": 1, "residual": 0 }
+      },
+      "diagnostics": { "CS2J1401": 0, "CS2J1402": 0 }
+    }
+  ],
+  "generic": {
+    "constructs": {
+      "GC-11": { "fail": 0, "preserve": 0, "unsupported": 0 },
+      "GC-20": { "fail": 0, "preserve": 0, "unsupported": 2 }
+    },
+    "owners": { "generic-deepen": { "filesChanged": 27, "residuals": 0 } }
+  }
+}
+```
+
+`preprocess-residual-report.json` 的 `residuals[]` 条目六字段（code/file/line/owner/policy/reason）：
+
+```json
+{
+  "code": "NORM-GENERIC-VARIANCE-USE",
+  "file": "YamlDotNet/Serialization/NodeDeserializers/CollectionNodeDeserializer.cs",
+  "line": 0,
+  "owner": "variance-use-site-normalize",
+  "policy": "DeclaredUnsupported",
+  "reason": "value-type type argument"
+}
+```
+
+`generic-reflection-audit` 独立产物 `generic-reflection-report.json`（行号为占位，以实测报告为准——deepseek 原稿示例把 `MakeGenericType` 错配到 `TypeConverterCache.cs:39`，该行实为 `?? []` 构造）：
+
+```json
+{
+  "schemaVersion": 1,
+  "sites": [
+    {
+      "file": "YamlDotNet/Serialization/Utilities/TypeConverterCache.cs",
+      "line": 0,
+      "api": "MakeGenericType",
+      "receiverType": "System.Collections.Generic.List`1",
+      "typeArguments": ["T"],
+      "closed": false,
+      "policy": "DeclaredUnsupported",
+      "reason": "runtime-bound type parameter T"
+    }
+  ]
+}
+```
+
+> 报告无时间戳、字段排序确定（§7.1-1 幂等验收依赖）；`configuration`/TFM/引用集 hash 记入报告头（L2 严格化要求）；两份报告互链（generic 段 ↔ residuals 的 owner/filesChanged 对账）。
+
+## 附录 G：一页纸执行清单 [v4 新增]
+
+1. **M0 止血先行**：V-01..V-08/S-03/04/05/W-01/03/04/06/09 修复 + rt10 基线重跑（W-10 最小接线）——不动 pass 顺序、不扩能力。
+2. **M1 契约**：十九探针 + CS2J14xx + 撞号迁移（`legacyCode` 一个版本）+ 泛型族挂契约 + 报告 v1.1（附录 F schema）+ 残差快照 ratchet。
+3. **M2 编译层**：真实引用 spine + degraded 显式化 + csproj Compile/TFM/外部源求值完备（W-10 收口）。
+4. **M3 能力层**：统一解析器（S 层）→ generic-constraint（CN 全表）+ GD-MTOK-2 → 消费面三 profile（CM-STRICT）→ generic-intrinsic-lower（GI）→ variance-use-site-normalize（VR）→ generic-reflection-audit（RG）→ EB/AS/IT/RR/RW/AT/SA 残余规则；`--list-passes` 快照含 4 新 pass。
+5. **M4 域决策**：static abstract / 运行时合成 RG-2+ / Expression / 型变 Unsafe 子集 / 晚期链重排（R5）/ Q1-Q12 裁决——每域 DeclaredUnsupported 登记（owner/原因/fail-fast）或立项。
+6. **M5 性能与文档**：统一树默认（整树拷贝 52→1）+ 增量缓存（≥80% 命中）+ 选择性 verify + `preprocessor-matrix.md` 自动生成（descriptor + contract 派生）。
+7. **纪律**：每次只提交一个波次；每波以"fixture 正/负/幂等/回退 + 双语料 B 路 build/test + 报告（附录 F schema）"为退出门；任何泛型残留必须带 owner/policy/文件/行/原因，否则不得合入；残差只许减不许增（ratchet）。
