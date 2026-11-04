@@ -15,7 +15,9 @@ internal static class PassListFormatter
         var lines = new List<string>
         {
             "# cs2j preprocess passes (rows are in locked execution order)",
-            "# id                        stage        status        default  run-after",
+            // The id column must fit the longest registered id
+            // (ref-struct-span-field-memory-lift, 32 chars).
+            "# id" + new string(' ', 30) + "stage        status        default  run-after",
         };
 
         foreach (var pass in registry.Ordered)
@@ -25,7 +27,7 @@ internal static class PassListFormatter
                 : string.Join(",", pass.RunAfterIds);
 
             var line = new StringBuilder()
-                .Append(pass.Id.PadRight(28))
+                .Append(pass.Id.PadRight(34))
                 .Append(pass.Stage.ToString().PadRight(13))
                 .Append(pass.Status.ToString().PadRight(14))
                 .Append((pass.DefaultEnabled ? "on" : "off").PadRight(9))

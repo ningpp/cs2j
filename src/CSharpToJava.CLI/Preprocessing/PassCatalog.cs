@@ -41,6 +41,7 @@ internal static class PassIds
     public const string ExtensionMethods = "extension-methods";
     public const string StackAllocLowering = "stackalloc-lowering";
     public const string RefStructLowering = "ref-struct-lowering";
+    public const string RefStructSpanFieldMemoryLift = "ref-struct-span-field-memory-lift";
     public const string PointerDerefIndex = "pointer-deref-index";
     public const string NormalizationAudit = "normalization-audit";
 }
@@ -674,6 +675,42 @@ internal static class PassCatalog
             catalogItems: "C06",
             // Ref-only struct declarations intentionally stay behind: MayLeave
             // records that residual NORM-REF-STRUCT is expected, not a failure.
+            contract: new PassContract(
+                Consumes: new[] { PassConstructIds.RefStruct },
+                Produces: Array.Empty<string>(),
+                Preconditions: Array.Empty<string>(),
+                Postconditions: new[] { PassConstructIds.RefStruct },
+                MayLeave: new[] { PassConstructIds.RefStruct },
+                Owners: Array.Empty<string>(),
+                Policy: ResidualPolicy.Fail,
+                Idempotent: true,
+                RequiresWholeTree: true)),
+        new(
+            PassIds.RefStructSpanFieldMemoryLift,
+            "Ref struct span field memory lift",
+            ".cs2j-ref-struct-span-field-memory-lift-src",
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            // Independent read-only post-pass over ref-struct-lowering's
+            // output. Safe to run by default: it only rewrites ref structs
+            // whose sole ref-only storage is ReadOnlySpan fields/auto-properties
+            // and preserves every other declaration verbatim with RSM001.
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.RefStructLowering },
+            supportLibrary: PassSupportLibrary.None,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Read-only post-pass over ref-struct-lowering residuals: replace " +
+                "ReadOnlySpan<T> fields/auto-properties of a ref struct with " +
+                "ReadOnlyMemory<T> storage plus a same-named span property (assignments go " +
+                "through the injected __cs2j_ToMemory helper) and drop the `ref` modifier; " +
+                "writable Span/ref/pointer fields and unsafe references keep the struct " +
+                "verbatim with RSM001 for normalization-audit.",
+            catalogItems: "C06",
+            // NORM-REF-STRUCT stays owned by ref-struct-lowering (the audit
+            // owner); this pass consumes the same construct and may leave
+            // ref-only structs behind, so MayLeave records the shared residue.
             contract: new PassContract(
                 Consumes: new[] { PassConstructIds.RefStruct },
                 Produces: Array.Empty<string>(),

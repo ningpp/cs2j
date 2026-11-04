@@ -596,6 +596,16 @@ internal static class PassChainFactory
                 config.VerifyBuild,
                 config.VerifyTests),
 
+            // Independent read-only post-pass over ref-struct-lowering's
+            // output: ReadOnlySpan fields/auto-properties become ReadOnlyMemory
+            // storage plus a same-named span property.
+            PassIds.RefStructSpanFieldMemoryLift => new RefStructSpanFieldMemoryLiftPassAdapter(
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
+
             // Independent read-only expression post-pass over unsafe-ffm's
             // preserved pointer dereferences (`*p`, `*(p + k)`, `*(T*)expr`).
             PassIds.PointerDerefIndex => new PointerDerefIndexPassAdapter(
