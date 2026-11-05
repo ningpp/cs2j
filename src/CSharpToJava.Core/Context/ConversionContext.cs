@@ -987,6 +987,70 @@ public class ConversionContext
     }
 
     /// <summary>
+    /// True when <paramref name="property"/> belongs to an external ported Java type
+    /// (e.g. the <c>dotnet.xml</c> jar) and member-desugar retains the property instead of
+    /// expanding it into <c>get_X</c> accessor methods. The retained declaration is emitted
+    /// as a Java bean getter (<c>getXxx()</c>), so a TypeMappings row that spells the pre-retention
+    /// C11 accessor form (<c>Xxx()</c>) must not win at external use sites.
+    ///
+    /// <para>Abstract, virtual and override properties are retained (override chains are kept
+    /// consistent), and a property implementing an interface member is retained with the
+    /// interface declaration. Plain get-only properties without either shape stay expanded
+    /// (<c>Capture.Value()</c>), so this predicate is deliberately narrower than
+    /// “no setter”.</para>
+    /// </summary>
+    public bool IsExternallyRetainedProperty(IPropertySymbol? property)
+    {
+        if (property == null || property.IsStatic) return false;
+        var containingType = property.ContainingType;
+        if (containingType == null) return false;
+
+        // Source-declared ports are resolved by ExposesCSharpStyleProperty /
+        // TryGetSourceDeclaredBeanGetter from the actual declaration shape.
+        if (IsMappedTypeDeclaredInSource(containingType)) return false;
+
+        if (property.IsAbstract || property.IsVirtual || property.IsOverride) return true;
+
+        foreach (var iface in containingType.AllInterfaces)
+        {
+            if (iface.GetMembers(property.Name).OfType<IPropertySymbol>().Any(p => !p.IsIndexer))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// True when the Java type that <paramref name="containingType"/> maps onto is declared
+    /// in this compilation's source (a port being converted alongside its consumers).
+    /// </summary>
+    private bool IsMappedTypeDeclaredInSource(ITypeSymbol containingType)
+    {
+        var mapped = MapType(containingType);
+        if (string.IsNullOrWhiteSpace(mapped) || mapped.Contains('<') || mapped.Contains('['))
+            return false;
+
+        string qualified;
+        if (mapped.Contains('.'))
+        {
+            qualified = mapped;
+        }
+        else
+        {
+            var ns = containingType.ContainingNamespace?.ToDisplayString() ?? string.Empty;
+            var package = TypeMappings.MapNamespace(ns) ?? ns;
+            qualified = string.IsNullOrEmpty(package) ? mapped : $"{package}.{mapped}";
+        }
+
+        if (_mapsToSourceTypeCache.TryGetValue(qualified, out var cached))
+            return cached;
+
+        var resolved = SemanticModel?.Compilation.GetTypeByMetadataName(qualified);
+        var isSource = resolved != null && resolved.Locations.Any(l => l.IsInSource);
+        _mapsToSourceTypeCache[qualified] = isSource;
+        return isSource;
+    }
+
+    /// <summary>
     /// True when <paramref name="containingType"/> (a BCL type such as
     /// <c>System.Xml.XmlNodeList</c>) maps onto a type declared in this compilation's
     /// source AND that ported class carries an <c>Item(int)</c> method in the

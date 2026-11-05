@@ -63,7 +63,7 @@ class Demo {
     public void UnresolvedType_PropertyAccess_GeneratesGetter()
     {
         // XmlReader is unresolved (System.Xml not referenced), but its property
-        // Name must still be emitted as getter + ported accessor: getXmlReader().Name()
+        // Name must still be emitted as the ported bean getter: getXmlReader().getName()
         var result = Convert(@"
 using System.Xml;
 namespace Test {
@@ -77,8 +77,8 @@ namespace Test {
 }
 ");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("getXmlReader().Name()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("getName()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("getXmlReader().getName()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("getXmlReader().Name()", result.GeneratedCode, StringComparison.Ordinal);
         // Guard against falling back to raw field access (getXmlReader().Name;)
         Assert.DoesNotContain("getXmlReader().Name;", result.GeneratedCode, StringComparison.Ordinal);
     }
@@ -86,7 +86,7 @@ namespace Test {
     [Fact]
     public void UnresolvedType_PropertyAccess_WithObjectsEqualsImport()
     {
-        // Both fixes should work together: ported C#-style accessor + Objects.equals import
+        // Both fixes should work together: ported bean getter + Objects.equals import
         var result = Convert(@"
 using System.Xml;
 namespace Test {
@@ -99,9 +99,9 @@ namespace Test {
 }
 ");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("getReader().Name()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("getName()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Objects.equals(getReader().Name(), \"test\")", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("getReader().getName()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("getReader().Name()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Objects.equals(getReader().getName(), \"test\")", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("import java.util.Objects;", result.GeneratedCode, StringComparison.Ordinal);
     }
 
@@ -136,9 +136,9 @@ namespace Test {
 }
 ");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        // dotnet-xml ports C#-style accessors: IsEmptyElement() has no getIsEmptyElement() form
-        Assert.Contains("return reader.IsEmptyElement();", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("getIsEmptyElement()", result.GeneratedCode, StringComparison.Ordinal);
+        // dotnet-xml retains this property: the ported declaration is the bean getter getIsEmptyElement()
+        Assert.Contains("return reader.getIsEmptyElement();", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("reader.IsEmptyElement()", result.GeneratedCode, StringComparison.Ordinal);
         // Guard against falling back to raw field access (reader.IsEmptyElement;)
         Assert.DoesNotContain("reader.IsEmptyElement;", result.GeneratedCode, StringComparison.Ordinal);
     }
@@ -223,11 +223,11 @@ namespace Microsoft.Msagl.DebugHelpers.Persistence
 }
 ");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // dotnet-xml ports C#-style accessors: XmlReader.Name() has no getName() form
-        Assert.Contains("getXmlReader().Name()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("getName()", result.GeneratedCode, StringComparison.Ordinal);
+        // dotnet-xml retains this property: the ported declaration is the bean getter getName()
+        Assert.Contains("getXmlReader().getName()", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("getXmlReader().Name()", result.GeneratedCode, StringComparison.Ordinal);
         // String equality should use Objects.equals
-        Assert.Contains("Objects.equals(getXmlReader().Name(), \"graph\")", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("Objects.equals(getXmlReader().getName(), \"graph\")", result.GeneratedCode, StringComparison.Ordinal);
         // Objects import should be present
         Assert.Contains("import java.util.Objects;", result.GeneratedCode, StringComparison.Ordinal);
         // XmlReader import should be present

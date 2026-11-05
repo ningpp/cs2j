@@ -656,6 +656,18 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return $"{receiver}.{sourceBeanGetter}()";
             }
 
+            // 外部移植类型（dotnet-xml 等 jar）的抽象/虚/接口实现属性在 member-desugar
+            // 里属于保留族，Java 声明侧是 bean getter；映射表中的同名访问器条目是
+            // pre-retention 遗留，必须让默认 getXxx 推导生效。
+            if (!property.IsStatic
+                && mappedProperty is { Length: > 0 }
+                && string.Equals(mappedProperty, property.Name, StringComparison.Ordinal)
+                && !mappedProperty.Contains('(')
+                && context.IsExternallyRetainedProperty(property))
+            {
+                return $"{receiver}.{JavaNaming.GetPropertyGetterName(property.Name)}()";
+            }
+
             // Non-bean mapped member names (Thread.CurrentThread → currentThread)
             // keep the mapped owner/receiver and become a call.
             if (!string.IsNullOrEmpty(mappedProperty)

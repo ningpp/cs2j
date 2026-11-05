@@ -6748,56 +6748,6 @@
             "javaMethod": "Frequency"
         },
         {
-            "type": "System.Xml.XmlReader",
-            "method": "NodeType",
-            "javaMethod": "NodeType"
-        },
-        {
-            "type": "System.Xml.XmlReader",
-            "method": "Name",
-            "javaMethod": "Name"
-        },
-        {
-            "type": "System.Xml.XmlReader",
-            "method": "LocalName",
-            "javaMethod": "LocalName"
-        },
-        {
-            "type": "System.Xml.XmlReader",
-            "method": "IsEmptyElement",
-            "javaMethod": "IsEmptyElement"
-        },
-        {
-            "type": "System.Xml.XmlReader",
-            "method": "Value",
-            "javaMethod": "Value"
-        },
-        {
-            "type": "System.Xml.XmlReader",
-            "method": "Depth",
-            "javaMethod": "Depth"
-        },
-        {
-            "type": "System.Xml.XmlReader",
-            "method": "AttributeCount",
-            "javaMethod": "AttributeCount"
-        },
-        {
-            "type": "System.Xml.XmlReader",
-            "method": "ReadState",
-            "javaMethod": "ReadState"
-        },
-        {
-            "type": "System.Xml.XmlTextReader",
-            "method": "LineNumber",
-            "javaMethod": "LineNumber"
-        },
-        {
-            "type": "System.Xml.XmlTextReader",
-            "method": "LinePosition",
-            "javaMethod": "LinePosition"
-        },
-        {
             "type": "System.Xml.XmlReaderSettings",
             "method": "IgnoreComments",
             "javaMethod": "IgnoreComments"
