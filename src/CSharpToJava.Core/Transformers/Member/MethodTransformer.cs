@@ -511,7 +511,7 @@ public class MethodTransformer : IMemberTransformer
             return providers;
 
         var inlineRows = attributes
-            .Where(a => IsAttribute(a, "InlineData"))
+            .Where(a => IsAttribute(a, "InlineData") || IsAttribute(a, "DataRow"))
             .Select(a => a.ArgumentList?.Arguments.Select(x => x.Expression).ToList() ?? new List<ExpressionSyntax>())
             .ToList();
         var memberDataAttrs = attributes.Where(a => IsAttribute(a, "MemberData")).ToList();

@@ -59,6 +59,33 @@ public class JUnitTestAnnotationConversionTests
         }
         """;
 
+    private const string MstestSource = """
+        using System;
+        using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+        namespace Microsoft.VisualStudio.TestTools.UnitTesting
+        {
+            public class TestMethodAttribute : Attribute { }
+            public class DataTestMethodAttribute : Attribute { }
+            public class DataRowAttribute : Attribute { public DataRowAttribute(params object[] data) { } }
+        }
+
+        public class MstestSampleTests
+        {
+            [TestMethod]
+            public void Plain() { }
+
+            [DataTestMethod]
+            [DataRow(1)]
+            [DataRow(2)]
+            public void Single(int weight) { }
+
+            [DataTestMethod]
+            [DataRow(1.0, "a")]
+            public void Pair(double weight, string text) { }
+        }
+        """;
+
     private static async Task<string> ConvertAsync(string source)
     {
         var results = await new ProjectConversionPipeline(new ConversionOptions())
@@ -120,6 +147,32 @@ public class JUnitTestAnnotationConversionTests
         var linuxMethod = code[Math.Max(0, code.IndexOf("linuxOnly(", StringComparison.Ordinal) - 120)..];
         Assert.Contains("@Disabled", linuxMethod);
         Assert.Contains("@ParameterizedTest", linuxMethod);
+    }
+
+    [Fact]
+    public async Task DataTestMethod_DataRows_EmitMethodSourceProvider()
+    {
+        var code = await ConvertAsync(MstestSource);
+
+        Assert.Contains("@ParameterizedTest", code);
+        Assert.Contains("@MethodSource(\"__cs2jData_single\")", code);
+        Assert.Contains("private static java.util.stream.Stream<Arguments> __cs2jData_single()", code);
+        Assert.Contains("Arguments.of(1)", code);
+        Assert.Contains("Arguments.of(2)", code);
+        Assert.Contains("@MethodSource(\"__cs2jData_pair\")", code);
+        Assert.Contains("private static java.util.stream.Stream<Arguments> __cs2jData_pair()", code);
+        Assert.Contains("Arguments.of(1.0, \"a\")", code);
+    }
+
+    [Fact]
+    public async Task TestMethod_StaysPlainJUnitTest()
+    {
+        var code = await ConvertAsync(MstestSource);
+
+        var plainIndex = code.IndexOf("plain(", StringComparison.Ordinal);
+        var plainMethod = code[Math.Max(0, plainIndex - 120)..Math.Min(code.Length, plainIndex + 30)];
+        Assert.Contains("@Test", plainMethod);
+        Assert.DoesNotContain("@ParameterizedTest", plainMethod);
     }
 
     [Fact]
