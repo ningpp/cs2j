@@ -70,13 +70,20 @@ public partial class StatementTransformer
                 // 视图（真实链 XmlSchemaSet 的 chameleonKeys 读取 Hashtable.Keys）。
                 initExprText = IListCoercion.CoerceOrSame(
                     variable.Initializer.Value, initExprText, localType, context);
-                // JsonConvert.DeserializeObject<T> erases to Object in Java;
-                // restore the declared local type so member access resolves.
-                if (initExprText.StartsWith("JsonConvert.deserializeObject(", StringComparison.Ordinal))
+                // JsonConvert.DeserializeObject<T> erases its type argument in Java;
+                // route the call through the typed compat entry and restore the
+                // declared local type so member access resolves.
+                if (initExprText.TrimStart().StartsWith("JsonConvert.deserializeObject(", StringComparison.Ordinal))
                 {
+                    if (JsonDeserializeRewrite.TryRewriteTypedJsonDeserialize(initExprText, localType, context) is { } typedJson)
+                        initExprText = typedJson;
                     var mappedLocal = context.MapType(localType);
-                    if (mappedLocal is not ("Object" or "var"))
+                    if (mappedLocal is not ("Object" or "var"
+                        or "int" or "long" or "short" or "byte" or "char"
+                        or "boolean" or "float" or "double"))
+                    {
                         initExprText = $"({mappedLocal}) {initExprText}";
+                    }
                 }
                 // 常量数字 → 枚举局部（`RegexOptions optionsLast = 0;`）：C# 允许
                 // 隐式常量转换，Java 枚举是类，必须 fromValue/values() 包装。
@@ -112,6 +119,18 @@ public partial class StatementTransformer
                 // class implementing only non-generic interfaces).
                 initExprText = IterableCoercion.CoerceOrSame(
                     variable.Initializer.Value, initExprText, localType, context);
+                // 泛型 JSON 包装器（RoutingTestSupport.LoadJson<T>）：Java 泛型方法内
+                // 无法指名 T，DeserializeObject<T> 的 (T) 强转被擦除，返回的是通用
+                // CSharpDictionary/CSharpList<Object>。调用点用已闭合的局部类型重定型。
+                if (stmt.Declaration.Variables.Count == 1
+                    && JsonDeserializeRewrite.TryWrapGenericJsonDeserializeCall(
+                        variable.Initializer.Value, initExprText, localType, context) is { } retypedJson)
+                {
+                    initExprText = retypedJson;
+                    var mappedGenericJson = context.MapType(localType);
+                    if (javaType == "var" && mappedGenericJson is not ("Object" or "var"))
+                        javaType = mappedGenericJson;
+                }
             }
 
             // 无初始化器的引用类型局部：Java 没有 C# 的 definite-assignment 流分析，

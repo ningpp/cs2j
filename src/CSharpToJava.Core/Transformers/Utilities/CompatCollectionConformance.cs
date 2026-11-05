@@ -97,6 +97,18 @@ internal static class CompatCollectionConformance
                 case "removeAt":
                     NormalizeRemoveAt(method);
                     break;
+                case "set":
+                    NormalizeSecondParameter(method);
+                    break;
+                case "insert":
+                    NormalizeSecondParameter(method);
+                    break;
+                case "copyTo":
+                    NormalizeFirstParameter(method);
+                    break;
+                case "indexOf":
+                    NormalizeFirstParameter(method);
+                    break;
                 case "iterator":
                     if (branch == Branch.Collection)
                         NormalizeIterator(method, context);
@@ -237,6 +249,32 @@ internal static class CompatCollectionConformance
         method.ReturnType = "Object";
         AdaptBareReturns(method, "null");
         AddTrailingReturn(method, "return null;");
+    }
+
+    /// <summary>
+    /// C# <c>T this[int]</c> setter / <c>Insert(int, T)</c> / <c>IndexOf(T)</c> /
+    /// <c>CopyTo(T[], int)</c> 的强类型形参与 compat 接口的 Object 形参同擦除
+    /// 却不覆盖：调用点经 CSharpIList 静态类型会落回接口 default（抛
+    /// UnsupportedOperationException 或做通用拷贝），而不是类自己的 C# 语义
+    /// （真实链 SimpleNodeCollection 的 indexer set、LgNodeCollection.CopyTo 应
+    /// 抛 NotImplementedException）。形参擦除为 Object 才能虚分发。
+    /// </summary>
+    private static void NormalizeSecondParameter(JavaMethodDeclaration method)
+    {
+        if (method.Parameters.Count != 2)
+            return;
+        if (method.Parameters[1].Type == "Object")
+            return;
+        EraseParameter(method, 1);
+    }
+
+    private static void NormalizeFirstParameter(JavaMethodDeclaration method)
+    {
+        if (method.Parameters.Count != 2 && method.Parameters.Count != 1)
+            return;
+        if (method.Parameters[0].Type == "Object")
+            return;
+        EraseParameter(method, 0);
     }
 
     /// <summary>

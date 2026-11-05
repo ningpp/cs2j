@@ -213,11 +213,11 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
         RegexOptions.Compiled);
 
     private static readonly Regex MetroNeighborsAddToMap = new(
-        @"CollectionUtilities\.addToMap\(neighbors, (?<first>[^,]+), (?<second>[^;]+?)\);",
+        @"(?<!-> )CollectionUtilities\.addToMap\(neighbors, (?<first>[^,]+), (?<second>[^;]+?)\);",
         RegexOptions.Compiled);
 
     private static readonly Regex BundleBasesAddToMap = new(
-        @"CollectionUtilities\.addToMap\((?<dict>externalBases|internalBases), (?<first>[^,]+), (?<second>[^;]+?)\);",
+        @"(?<!-> )CollectionUtilities\.addToMap\((?<dict>externalBases|internalBases), (?<first>[^,]+), (?<second>[^;]+?)\);",
         RegexOptions.Compiled);
 
     private static readonly Regex StringBuilderSubstring = new(

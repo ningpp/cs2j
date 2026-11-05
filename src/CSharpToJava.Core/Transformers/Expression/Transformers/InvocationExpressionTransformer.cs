@@ -568,21 +568,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // the runtime TC to instantiate a new bucket. The call site knows
                 // the closed dictionary value type, so provide it through the
                 // CollectionFactory thread-local for the duration of the call.
-                if (originalName is "AddToMap" or "addToMap"
-                    && (methodSymbol?.ContainingType?.Name == "CollectionUtilities"
-                        || memberAccess.Expression is IdentifierNameSyntax
-                            { Identifier.Text: "CollectionUtilities" })
-                    && invocation.ArgumentList.Arguments.Count == 3
-                    && context.GetTypeInfo(invocation.ArgumentList.Arguments[0].Expression).Type
-                        is INamedTypeSymbol { TypeArguments.Length: 2 } addToMapDictionary
-                    && addToMapDictionary.TypeArguments[1] is not ITypeParameterSymbol)
+                // Arguments are passed by value (not captured): loop variables may
+                // be reassigned, which javac rejects for captured locals.
+                if (TryRenderCollectionAddToMapValueType(
+                        invocation, memberAccess, methodSymbol, receiverText,
+                        arguments.Select(a => a.ToInlineString()).ToList(),
+                        context, out var addToMapValueType))
                 {
-                    context.AddImport("io.github.ningpp.compat.CollectionFactory");
-                    var valueClass = ConversionContext.GetClassLiteral(
-                        addToMapDictionary.TypeArguments[1], context);
-                    return new JavaRawExpression(
-                        $"CollectionFactory.withValueType({valueClass}, "
-                        + $"() -> {receiverText}.addToMap({argumentText}))");
+                    return new JavaRawExpression(addToMapValueType);
                 }
 
                 // System.Diagnostics.Debug/Trace.Write(format, args) maps to
@@ -1257,6 +1250,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
                 var memberMethodForOverrides = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
                 AddReceiverTypeImports(memberAccess.Expression, context);
+
+                // CollectionUtilities.AddToMap<TS,T,TC> statement calls (the text
+                // path); the erased bucket factory needs the call site's closed
+                // value type, otherwise the fallback Set is cast to CSharpList.
+                // Arguments are passed by value so reassigned loop variables never
+                // need to be captured by a lambda.
+                if (TryRenderCollectionAddToMapValueType(
+                        node, memberAccess, memberMethodForOverrides, receiver,
+                        SplitTopLevelArguments(arguments),
+                        context, out var addToMapCall))
+                {
+                    return addToMapCall;
+                }
+
                 if (memberMethodForOverrides is { IsStatic: true }
                     && TryMapStaticReceiver(memberAccess.Expression, context, out var mappedStaticReceiver))
                 {
@@ -1997,8 +2004,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return false;
 
         var javaElementType = context.MapType(elementType);
-        var classLiteral = ConversionContext.GetClassLiteral(elementType, context);
         context.AddImport("io.github.ningpp.compat.CSharpArray");
+        if (elementType is ITypeParameterSymbol)
+        {
+            // The element erased to a type parameter, so no Class literal exists.
+            // Re-shape the Object[] answer with the runtime element class: every
+            // element is a T instance by C#, so the resulting array is assignable
+            // to the concrete T[] a call site checkcasts to.
+            wrapped = $"({javaElementType}[]) CSharpArray.toTypedArrayRuntime({rendered})";
+            return true;
+        }
+
+        var classLiteral = ConversionContext.GetClassLiteral(elementType, context);
         wrapped = $"({javaElementType}[]) CSharpArray.toTypedArray({rendered}, {classLiteral})";
         return true;
     }
@@ -2046,6 +2063,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return false;
 
         var typeArgument = containingType.TypeArguments[ordinal];
+        if (typeArgument is ITypeParameterSymbol)
+        {
+            // Erased to the enclosing generic method's type parameter: the caller
+            // re-shapes the runtime array (CSharpArray.toTypedArrayRuntime).
+            elementType = typeArgument;
+            return true;
+        }
         if (!IsConcreteArrayElementType(typeArgument))
             return false;
 
@@ -2065,6 +2089,54 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             && named.TypeArguments.All(IsConcreteArrayElementType),
         _ => type.TypeKind is not (TypeKind.Error or TypeKind.Unknown)
     };
+
+    /// <summary>
+    /// <c>CollectionUtilities.AddToMap&lt;TS,T,TC&gt;(dictionary, key, value)</c>:
+    /// Java erases <c>TC</c>, so the helper body creates the bucket through
+    /// <c>Activator.createInstance()</c> → <c>CollectionFactory</c>, whose fallback
+    /// is MSAGL's <c>Set</c>. The call site knows the closed dictionary value type,
+    /// so publish it through the CollectionFactory thread-local for the duration
+    /// of the call. Without it a <c>Dictionary&lt;K, List&lt;V&gt;&gt;</c> slot ends up
+    /// holding a Set and the caller's CSharpList/CSharpHashSet cast throws
+    /// ClassCastException.
+    /// </summary>
+    private static bool TryRenderCollectionAddToMapValueType(
+        InvocationExpressionSyntax invocation,
+        MemberAccessExpressionSyntax memberAccess,
+        IMethodSymbol? methodSymbol,
+        string receiverText,
+        IReadOnlyList<string> argumentTexts,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+        if (memberAccess.Name.Identifier.Text is not ("AddToMap" or "addToMap"))
+            return false;
+        if (methodSymbol?.ContainingType?.Name != "CollectionUtilities"
+            && memberAccess.Expression is not IdentifierNameSyntax { Identifier.Text: "CollectionUtilities" })
+        {
+            return false;
+        }
+        if (invocation.ArgumentList.Arguments.Count != 3 || argumentTexts.Count != 3)
+            return false;
+
+        var dictionaryType = context.GetTypeInfo(invocation.ArgumentList.Arguments[0].Expression).Type;
+        if (dictionaryType is not INamedTypeSymbol { TypeArguments.Length: 2 } dictionary)
+            return false;
+
+        var valueType = dictionary.TypeArguments[1];
+        if (valueType is ITypeParameterSymbol || !IsConcreteArrayElementType(valueType))
+            return false;
+
+        context.AddImport("io.github.ningpp.compat.CollectionFactory");
+        var valueClass = ConversionContext.GetClassLiteral(valueType, context);
+        // Pass the dictionary/key/value by value: the lambda body only refers to
+        // its own parameters, so reassigned loop variables are never captured.
+        rendered = $"CollectionFactory.withValueType({valueClass}, "
+            + $"{argumentTexts[0]}, {argumentTexts[1]}, {argumentTexts[2]}, "
+            + $"(__a, __b, __c) -> {receiverText}.addToMap(__a, __b, __c))";
+        return true;
+    }
 
     /// <summary>
     /// Renders an invocation receiver as Java source, erasing type arguments when the

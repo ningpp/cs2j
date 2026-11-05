@@ -11,9 +11,14 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerBuilder;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Compat for Newtonsoft.Json.JsonConvert — uses Jackson for JSON deserialization.
@@ -94,6 +99,85 @@ public class JsonConvert {
         } catch (Exception e) {
             throw new RuntimeException("JSON deserialize list error: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Re-types a generic structure that a generic JSON helper answered for
+     * {@code JsonConvert.DeserializeObject<T>}. The helper's {@code (T)} cast is
+     * erased in Java (a generic method cannot name {@code T}), so it returns the
+     * generic {@code CSharpDictionary}/{@code CSharpList<Object>} shape; the
+     * caller knows the closed type and converts it through Jackson here.
+     *
+     * @param value the generic value returned by the helper
+     * @param rawClass the closed raw class (CSharpList for List-family targets)
+     * @param elementClasses optional element class for one-level collections
+     */
+    public static Object convertToType(Object value, Class<?> rawClass, Class<?>... elementClasses) {
+        if (value == null || rawClass == null) {
+            return value;
+        }
+        try {
+            JavaType target = elementClasses == null || elementClasses.length == 0
+                    ? _mapper.getTypeFactory().constructType(rawClass)
+                    : _mapper.getTypeFactory().constructCollectionType(
+                            rawClass.asSubclass(java.util.Collection.class), elementClasses[0]);
+            return _mapper.convertValue(toPlainValue(value), target);
+        } catch (Exception e) {
+            throw new RuntimeException("JSON retype error: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Rewrites compat containers into plain JDK containers before Jackson gets to
+     * see them.
+     *
+     * <p>Passing a {@link CSharpDictionary} straight to {@code convertValue} made
+     * Jackson serialize it as a bean; {@link CSharpGenericIDictionary#getSyncRoot()}
+     * returns {@code this}, so the bean property {@code sync_root} closed a
+     * self-reference and every retype failed with
+     * "Direct self-reference leading to cycle". Plain {@code LinkedHashMap}/{@code
+     * ArrayList} have no such bean properties and keep the JSON member order.</p>
+     */
+    private static Object toPlainValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof CSharpGenericIDictionary<?, ?> dict) {
+            LinkedHashMap<String, Object> out = new LinkedHashMap<>();
+            for (CSharpKeyValuePair<?, ?> pair : dict) {
+                out.put(String.valueOf(pair.getKey()), toPlainValue(pair.getValue()));
+            }
+            return out;
+        }
+        if (value instanceof Map<?, ?> map) {
+            LinkedHashMap<String, Object> out = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                out.put(String.valueOf(entry.getKey()), toPlainValue(entry.getValue()));
+            }
+            return out;
+        }
+        if (value instanceof CSharpKeyValuePair<?, ?> pair) {
+            LinkedHashMap<String, Object> out = new LinkedHashMap<>();
+            out.put("Key", toPlainValue(pair.getKey()));
+            out.put("Value", toPlainValue(pair.getValue()));
+            return out;
+        }
+        if (value.getClass().isArray()) {
+            int length = Array.getLength(value);
+            ArrayList<Object> out = new ArrayList<>(length);
+            for (int i = 0; i < length; i++) {
+                out.add(toPlainValue(Array.get(value, i)));
+            }
+            return out;
+        }
+        if (value instanceof Iterable<?> iterable) {
+            ArrayList<Object> out = new ArrayList<>();
+            for (Object element : iterable) {
+                out.add(toPlainValue(element));
+            }
+            return out;
+        }
+        return value;
     }
 
     private static Object convertToGeneric(String json) {
@@ -226,10 +310,16 @@ public class JsonConvert {
     }
 
     /**
-     * For each bean property, add a SECOND property binding for the camelCase
-     * form of the name. The SNAKE_CASE naming strategy already provides the
-     * snake_case binding; this modifier adds the camelCase binding so that
-     * JSON files using either naming convention are deserialized correctly.
+     * For each bean property, add extra bindings for every naming convention the
+     * JSON test data uses. The SNAKE_CASE naming strategy already provides the
+     * snake_case binding; this modifier also registers the member's own spelling
+     * and its lowerCamelCase form.
+     *
+     * <p>The lowerCamel alias is what makes the C#-shaped PascalCase fields (for
+     * example {@code public int NodeCount;}) accept a {@code nodeCount} key: the
+     * member name is {@code NodeCount}, so the existing alias only covered
+     * {@code NodeCount} and {@code node_count}, leaving {@code NodeCount} at its
+     * default {@code 0}.</p>
      */
     static class SnakeCaseDualModifier extends BeanDeserializerModifier {
         @Override
@@ -239,9 +329,12 @@ public class JsonConvert {
             // Jackson 2.x. Collect them so we can iterate twice.
             final List<com.fasterxml.jackson.databind.deser.SettableBeanProperty> orig =
                     new ArrayList<>();
+            final Set<String> known = new HashSet<>();
             for (java.util.Iterator<com.fasterxml.jackson.databind.deser.SettableBeanProperty> it =
                          builder.getProperties(); it.hasNext(); ) {
-                orig.add(it.next());
+                com.fasterxml.jackson.databind.deser.SettableBeanProperty prop = it.next();
+                orig.add(prop);
+                known.add(prop.getName());
             }
             for (com.fasterxml.jackson.databind.deser.SettableBeanProperty prop : orig) {
                 String snakeName = prop.getName(); // JSON name after strategy (snake_case)
@@ -258,26 +351,56 @@ public class JsonConvert {
                                 && memberName.length() > 3) {
                             javaName = Character.toLowerCase(memberName.charAt(3)) + memberName.substring(4);
                         } else {
-                            javaName = memberName; // Field name
+                            javaName = memberName; // Field name (may be PascalCase)
                         }
                     }
                 }
-                if (javaName == null || javaName.equals(snakeName)) {
+                if (javaName == null) {
                     continue;
                 }
-                // Check if the camelCase JSON name is already in the builder
-                boolean alreadyHas = false;
-                for (com.fasterxml.jackson.databind.deser.SettableBeanProperty p : orig) {
-                    if (javaName.equals(p.getName())) {
-                        alreadyHas = true;
-                        break;
-                    }
-                }
-                if (!alreadyHas) {
-                    builder.addOrReplaceProperty(prop.withSimpleName(javaName), false);
-                }
+                addAlias(builder, prop, snakeName, javaName, known);
+                addAlias(builder, prop, snakeName, lowerCamelCase(javaName), known);
             }
             return builder;
+        }
+
+        private static void addAlias(BeanDeserializerBuilder builder,
+                com.fasterxml.jackson.databind.deser.SettableBeanProperty prop,
+                String canonicalName, String alias, Set<String> known) {
+            if (alias == null || alias.isEmpty() || alias.equals(canonicalName)
+                    || known.contains(alias)) {
+                return;
+            }
+            builder.addOrReplaceProperty(prop.withSimpleName(alias), false);
+            known.add(alias);
+        }
+
+        /**
+         * Same mangling Jackson's LOWER_CAMEL_CASE strategy applies: lower-case the
+         * leading run of upper-case characters ({@code NodeCount} → {@code nodeCount},
+         * {@code URL} → {@code url}).
+         */
+        private static String lowerCamelCase(String name) {
+            if (name == null || name.isEmpty()) {
+                return name;
+            }
+            char c0 = name.charAt(0);
+            char c1 = Character.toLowerCase(c0);
+            if (c0 == c1) {
+                return name;
+            }
+            StringBuilder sb = new StringBuilder(name.length());
+            sb.append(c1);
+            for (int i = 1; i < name.length(); i++) {
+                char c = name.charAt(i);
+                char lower = Character.toLowerCase(c);
+                if (c == lower) {
+                    sb.append(name, i, name.length());
+                    break;
+                }
+                sb.append(lower);
+            }
+            return sb.toString();
         }
     }
 }

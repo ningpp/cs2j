@@ -482,6 +482,22 @@ public class MethodTransformer : IMemberTransformer
             .Select(a => NormalizeAttributeName(a.Name.ToString()))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        if (names.Contains("ClassInitialize"))
+        {
+            // MSTest 类级初始化 → JUnit @BeforeAll。TestContext 形参由
+            // MSTestExtension 的参数解析器注入。
+            AddAnnotationOnce(javaMethod, "BeforeAll", ctx, "org.junit.jupiter.api.BeforeAll");
+            ctx.CurrentClassNeedsMSTestExtension = true;
+            return providers;
+        }
+
+        if (names.Contains("ClassCleanup"))
+        {
+            AddAnnotationOnce(javaMethod, "AfterAll", ctx, "org.junit.jupiter.api.AfterAll");
+            ctx.CurrentClassNeedsMSTestExtension = true;
+            return providers;
+        }
+
         if (names.Contains("TestInitialize"))
         {
             AddAnnotationOnce(javaMethod, "BeforeEach", ctx, "org.junit.jupiter.api.BeforeEach");
@@ -532,6 +548,10 @@ public class MethodTransformer : IMemberTransformer
 
         if (disabled)
             AddAnnotationOnce(javaMethod, "Disabled", ctx, "org.junit.jupiter.api.Disabled");
+
+        var expectedException = attributes.FirstOrDefault(a => IsAttribute(a, "ExpectedException"));
+        if (expectedException != null)
+            WrapExpectedException(javaMethod, expectedException, ctx);
 
         // Fact 方法上的 InlineData/MemberData 在 xUnit 里同样不生效；只有 Theory 需要数据源。
         if (!isTheory || (inlineRows.Count == 0 && memberDataAttrs.Count == 0 && classDataAttrs.Count == 0 && xmlTestsAttrs.Count == 0))
@@ -588,6 +608,73 @@ public class MethodTransformer : IMemberTransformer
         method.Annotations.Add(new JavaAnnotation(annotation));
         ctx.AddImport(import);
     }
+
+    /// <summary>
+    /// MSTest <c>[ExpectedException(typeof(X))]</c>：JUnit 5 没有 expected 属性，
+    /// 把方法体包进 <c>Assertions.assertThrows(X.class, () -&gt; { ... })</c>。
+    /// </summary>
+    private static void WrapExpectedException(
+        JavaMethodDeclaration method, AttributeSyntax attribute, ConversionContext ctx)
+    {
+        var first = attribute.ArgumentList?.Arguments.FirstOrDefault();
+        if (first?.Expression is not TypeOfExpressionSyntax typeOf)
+            return;
+
+        var javaType = ResolveExpectedExceptionJavaType(typeOf, ctx);
+        if (javaType == null)
+            return;
+
+        string body;
+        if (method.StructuredBody != null)
+        {
+            body = method.StructuredBody.ToBodyString();
+            method.StructuredBody = null;
+        }
+        else
+        {
+            body = method.Body ?? string.Empty;
+        }
+
+        method.IsBodyExpression = false;
+        method.Body =
+            $"org.junit.jupiter.api.Assertions.assertThrows({javaType}.class, () -> {{\n{body}\n}});";
+    }
+
+    private static string? ResolveExpectedExceptionJavaType(
+        TypeOfExpressionSyntax typeOf, ConversionContext ctx)
+    {
+        var symbol = ctx.GetTypeInfo(typeOf.Type).Type as INamedTypeSymbol;
+        var name = symbol?.Name ?? typeOf.Type.ToString();
+        if (ExpectedExceptionJavaTypes.TryGetValue(name, out var mapped))
+            return mapped;
+
+        if (symbol is { TypeKind: not TypeKind.Error })
+            return ctx.MapType(symbol);
+
+        return name;
+    }
+
+    /// <summary>
+    /// .NET exception → Java exception，与 <c>ExceptionApiRewriter</c> 的
+    /// throw/catch 映射保持一致，使 assertThrows 的类字面量编译且能捕获。
+    /// </summary>
+    private static readonly Dictionary<string, string> ExpectedExceptionJavaTypes = new(StringComparer.Ordinal)
+    {
+        ["NotImplementedException"] = "UnsupportedOperationException",
+        ["NotSupportedException"] = "UnsupportedOperationException",
+        ["PlatformNotSupportedException"] = "UnsupportedOperationException",
+        ["InvalidOperationException"] = "IllegalStateException",
+        ["ObjectDisposedException"] = "IllegalStateException",
+        ["ArgumentException"] = "IllegalArgumentException",
+        ["ArgumentNullException"] = "IllegalArgumentException",
+        ["ArgumentOutOfRangeException"] = "IllegalArgumentException",
+        ["FormatException"] = "IllegalArgumentException",
+        ["InvalidDataException"] = "IllegalArgumentException",
+        ["OverflowException"] = "ArithmeticException",
+        ["NotFiniteNumberException"] = "ArithmeticException",
+        ["OperationCanceledException"] = "java.util.concurrent.CancellationException",
+        ["TaskCanceledException"] = "java.util.concurrent.CancellationException",
+    };
 
     private static string UniqueProviderName(string methodName, ConversionContext ctx)
     {

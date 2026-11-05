@@ -1,5 +1,9 @@
 package io.github.ningpp.compat;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Objects;
 
 /** Minimal NUnit-style Assert surface used by converted test code. */
@@ -68,19 +72,19 @@ public final class Assert {
     }
 
     public static void areEqual(Object expected, Object actual) {
-        if (!Objects.equals(expected, actual)) {
+        if (!valuesEqual(expected, actual)) {
             throw new AssertionError("Expected: " + expected + " but was: " + actual);
         }
     }
 
     public static void areEqual(Object expected, Object actual, String message) {
-        if (!Objects.equals(expected, actual)) {
+        if (!valuesEqual(expected, actual)) {
             throw new AssertionError(message + " Expected: " + expected + " but was: " + actual);
         }
     }
 
     public static void areEqual(Object expected, Object actual, String format, Object... args) {
-        if (!Objects.equals(expected, actual)) {
+        if (!valuesEqual(expected, actual)) {
             throw new AssertionError(StringHelper.formatCs(format, args));
         }
     }
@@ -109,13 +113,13 @@ public final class Assert {
     }
 
     public static void areNotEqual(Object expected, Object actual) {
-        if (Objects.equals(expected, actual)) {
+        if (valuesEqual(expected, actual)) {
             throw new AssertionError("Expected values to differ: " + actual);
         }
     }
 
     public static void areNotEqual(Object expected, Object actual, String message) {
-        if (Objects.equals(expected, actual)) {
+        if (valuesEqual(expected, actual)) {
             throw new AssertionError(message);
         }
     }
@@ -142,6 +146,108 @@ public final class Assert {
         if (Math.abs(expected - actual) > tolerance) {
             throw new AssertionError(StringHelper.formatCs(format, args));
         }
+    }
+
+    /**
+     * Mirrors NUnit's {@code Assert.AreEqual} value semantics for converted code:
+     * numeric values compare across Java wrapper types (e.g. {@code int} vs
+     * {@code long}, which NUnit treats as equal), and C# structs (marked with
+     * {@link CompatValueType}) compare field-wise when they do not override
+     * {@code equals}, exactly like {@code ValueType.Equals}.
+     */
+    private static boolean valuesEqual(Object expected, Object actual) {
+        if (expected == actual) {
+            return true;
+        }
+        if (expected == null || actual == null) {
+            return false;
+        }
+        if (expected instanceof Number left && actual instanceof Number right) {
+            return numericEquals(left, right);
+        }
+        if (Objects.equals(expected, actual)) {
+            return true;
+        }
+        return structEquals(expected, actual);
+    }
+
+    private static boolean numericEquals(Number left, Number right) {
+        if (left instanceof BigDecimal || right instanceof BigDecimal
+                || left instanceof BigInteger || right instanceof BigInteger
+                || left instanceof Double || right instanceof Double
+                || left instanceof Float || right instanceof Float) {
+            if (left instanceof Double || right instanceof Double
+                    || left instanceof Float || right instanceof Float) {
+                double l = left.doubleValue();
+                double r = right.doubleValue();
+                if (Double.isNaN(l) || Double.isNaN(r)) {
+                    return Double.isNaN(l) && Double.isNaN(r);
+                }
+                return l == r;
+            }
+            return new BigDecimal(left.toString()).compareTo(new BigDecimal(right.toString())) == 0;
+        }
+        return left.longValue() == right.longValue();
+    }
+
+    private static boolean structEquals(Object expected, Object actual) {
+        Class<?> type = expected.getClass();
+        if (type != actual.getClass() || !type.isAnnotationPresent(CompatValueType.class)) {
+            return false;
+        }
+        // Explicit/overridden equals already ran through Objects.equals above.
+        if (hasOwnEquals(type)) {
+            return false;
+        }
+        return fieldsEqual(expected, actual, type);
+    }
+
+    private static boolean hasOwnEquals(Class<?> type) {
+        try {
+            return type.getMethod("equals", Object.class).getDeclaringClass() != Object.class;
+        } catch (NoSuchMethodException ignored) {
+            return false;
+        }
+    }
+
+    private static boolean fieldsEqual(Object left, Object right, Class<?> type) {
+        Class<?> current = type;
+        while (current != null && current != Object.class) {
+            for (Field field : current.getDeclaredFields()) {
+                if (Modifier.isStatic(field.getModifiers()) || field.isSynthetic()) {
+                    continue;
+                }
+                try {
+                    field.setAccessible(true);
+                    if (!fieldValuesEqual(field.get(left), field.get(right))) {
+                        return false;
+                    }
+                } catch (ReflectiveOperationException | RuntimeException ignored) {
+                    return false;
+                }
+            }
+            current = current.getSuperclass();
+        }
+        return true;
+    }
+
+    private static boolean fieldValuesEqual(Object left, Object right) {
+        if (left == right) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        if (left instanceof Number l && right instanceof Number r) {
+            return numericEquals(l, r);
+        }
+        Class<?> type = left.getClass();
+        if (type == right.getClass()
+                && type.isAnnotationPresent(CompatValueType.class)
+                && !hasOwnEquals(type)) {
+            return fieldsEqual(left, right, type);
+        }
+        return Objects.equals(left, right);
     }
 
     public static void areSame(Object expected, Object actual) {

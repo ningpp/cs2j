@@ -388,19 +388,50 @@ internal static class StructCloneHelper
     }
 
     /// <summary>
+    /// Name of the generated field-wise copy method for structs that declare their own
+    /// parameterless <c>Clone()</c> (which occupies Java <c>clone()</c>).
+    /// </summary>
+    internal const string ValueCopyMethodName = "__cs2jValueCopy";
+
+    /// <summary>
+    /// The copy call a value-semantics site must use for <paramref name="type"/>. Normally
+    /// that is the generated <c>clone()</c>; for a struct whose own C# <c>Clone()</c> was
+    /// renamed to <c>clone()</c>, calling it would reuse the user's conversion (which may
+    /// normalize/reshape the value) instead of a verbatim field copy.
+    /// </summary>
+    public static string ValueCopyCall(ITypeSymbol? type)
+    {
+        if (IsUserDefinedStruct(type)
+            && type is INamedTypeSymbol named
+            && (HasParameterless(named, "Clone") || HasParameterless(named, "clone")))
+        {
+            return "." + ValueCopyMethodName + "()";
+        }
+        return ".clone()";
+    }
+
+    private static bool HasParameterless(INamedTypeSymbol type, string name)
+        => type.GetMembers(name).OfType<IMethodSymbol>()
+            .Any(m => !m.IsStatic && m.Parameters.Length == 0);
+
+    /// <summary>
     /// Appends .clone() to the transformed expression, handling complex expressions
     /// that need parenthesizing.
     /// </summary>
-    public static string BuildCloneExpression(ExpressionSyntax originalSyntax, string transformedExpression)
+    public static string BuildCloneExpression(
+        ExpressionSyntax originalSyntax,
+        string transformedExpression,
+        ITypeSymbol? type = null)
     {
         var trimmed = transformedExpression.Trim();
         if (trimmed.Length == 0)
             return transformedExpression;
 
+        var suffix = ValueCopyCall(type);
         if (CanCallCloneDirectly(originalSyntax))
-            return $"{transformedExpression}.clone()";
+            return $"{transformedExpression}{suffix}";
 
-        return $"(({transformedExpression})).clone()";
+        return $"(({transformedExpression})){suffix}";
     }
 
     /// <summary>
@@ -456,8 +487,10 @@ internal static class StructCloneHelper
         if (IsThisInsideOwnCloneMethod(exprNode))
             return transformedExpr;
 
-        // Skip if the expression already ends with .clone()
-        if (transformedExpr.TrimEnd().EndsWith(".clone()"))
+        // Skip if the expression already produced a copy
+        var trimmedExpr = transformedExpr.TrimEnd();
+        if (trimmedExpr.EndsWith(".clone()")
+            || trimmedExpr.EndsWith("." + ValueCopyMethodName + "()"))
             return transformedExpr;
 
         // Await/Result results (x.join()) lose their generic type in Java and surface as
@@ -471,10 +504,10 @@ internal static class StructCloneHelper
             if (!string.IsNullOrWhiteSpace(mappedStruct) && mappedStruct != "Object")
             {
                 context.AddImportsForTypePublic(exprType.ToDisplayString());
-                return $"(({mappedStruct}) {transformedExpr}).clone()";
+                return $"(({mappedStruct}) {transformedExpr}){ValueCopyCall(exprType)}";
             }
         }
 
-        return BuildCloneExpression(exprNode, transformedExpr);
+        return BuildCloneExpression(exprNode, transformedExpr, exprType);
     }
 }

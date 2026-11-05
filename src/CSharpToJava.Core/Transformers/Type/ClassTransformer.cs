@@ -107,6 +107,9 @@ public class ClassTransformer : ITypeTransformer
         // IEnumerator<T> GetEnumerator() 与接口的擦除成员同签名却互不覆盖（javac 名称冲突/
         // 未覆盖抽象方法），在此统一改写并补齐 SyncRoot/IsSynchronized。
         CompatCollectionConformance.Apply(javaClass, symbol, context);
+        // MSTest [DeploymentItem] → 运行时部署注解；方法转换期间登记的
+        // TestContext/ClassInitialize 需求在此统一补 @ExtendWith。
+        MSTestClassMetadataEmitter.Emit(javaClass, symbol, nodes, context);
 
         // JUnit 测试类必须能被实例化；C# static 测试类（如 UriTests）原本会拿到
         // private 无参构造，将其放开为包级可见，否则 surefire 发现不到测试。
@@ -532,15 +535,68 @@ public class ClassTransformer : ITypeTransformer
                 if (accessorOwner != null
                     && !AccessorCallsMethod(accessorOwner, method.Symbol, context))
                 {
-                    // Bean accessor wins unless its body delegates to this method
-                    // (e.g. `LocalPath => GetLocalPath()`), in which case the method
-                    // must stay separately callable and gets the _N suffix.
-                    continue;
+                    // Bean accessor wins when the colliding method is only a trivial
+                    // `this.X = value` alias of the same property. A method with real
+                    // behaviour (e.g. Obstacle.SetConvexHull clears Clump/IsRectangle
+                    // before storing the hull) must stay callable under a _N suffix;
+                    // dropping it silently lost those side effects and left overlapped
+                    // obstacles with a non-null convex hull (rectilinear clump failures).
+                    if (IsSimpleAccessorAssignment(accessorOwner, method.Symbol, context))
+                        continue;
                 }
 
                 context.RegisterErasureConflictMethodName(method.Symbol, $"{group.Key.Name}_{suffix++}");
             }
         }
+    }
+
+    /// <summary>
+    /// True when <paramref name="method"/> only assigns its single parameter to the
+    /// property backing slot, i.e. it is a hand-written duplicate of the bean setter
+    /// and can be dropped in favour of the accessor.
+    /// </summary>
+    private static bool IsSimpleAccessorAssignment(
+        PropertyDeclarationSyntax property, IMethodSymbol method, ConversionContext context)
+    {
+        if (method.Parameters.Length != 1)
+            return false;
+
+        var declaration = method.DeclaringSyntaxReferences
+            .Select(reference => reference.GetSyntax())
+            .OfType<MethodDeclarationSyntax>()
+            .FirstOrDefault();
+        if (declaration == null)
+            return false;
+
+        var model = context.GetSemanticModelForTree(declaration.SyntaxTree) ?? context.SemanticModel;
+        if (model == null)
+            return false;
+
+        AssignmentExpressionSyntax? assignment = declaration.Body is { Statements.Count: 1 } body
+            && body.Statements[0] is ExpressionStatementSyntax statement
+            && statement.Expression is AssignmentExpressionSyntax bodyAssignment
+                ? bodyAssignment
+                : declaration.ExpressionBody?.Expression as AssignmentExpressionSyntax;
+        if (assignment == null || !assignment.IsKind(SyntaxKind.SimpleAssignmentExpression))
+            return false;
+
+        if (assignment.Right is not IdentifierNameSyntax right
+            || model.GetSymbolInfo(right).Symbol is not IParameterSymbol parameter
+            || !SymbolEqualityComparer.Default.Equals(parameter, method.Parameters[0]))
+        {
+            return false;
+        }
+
+        var propertySymbol = model.GetDeclaredSymbol(property) as IPropertySymbol;
+        if (propertySymbol == null)
+            return false;
+
+        return model.GetSymbolInfo(assignment.Left).Symbol switch
+        {
+            IPropertySymbol target => SymbolEqualityComparer.Default.Equals(target, propertySymbol),
+            IFieldSymbol target => SymbolEqualityComparer.Default.Equals(target.AssociatedSymbol, propertySymbol),
+            _ => false,
+        };
     }
 
     /// <summary>Whether the property getter/setter body invokes <paramref name="method"/>.</summary>

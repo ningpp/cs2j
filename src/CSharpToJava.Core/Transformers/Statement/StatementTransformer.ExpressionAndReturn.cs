@@ -322,12 +322,17 @@ public partial class StatementTransformer
         var retType = ResolveReturnTargetType(stmt, ctx);
         var srcType = ctx.GetTypeInfo(stmt.Expression).Type;
 
-        // JsonConvert.DeserializeObject<T> erases to Object in Java; restore the
-        // declared return type so member access on the result resolves (same
-        // bridge as the local-declaration position).
+        // JsonConvert.DeserializeObject<T> erases its type argument in Java, so the
+        // no-type compat entry answers a generic structure (CSharpDictionary /
+        // CSharpList<Object>) and the caller's cast to the DTO fails at runtime.
+        // Route the call through the typed compat entry, then restore the declared
+        // return type (the compat entry is declared Object-returning) so member
+        // access on the result resolves.
         if (retType != null
             && expr.TrimStart().StartsWith("JsonConvert.deserializeObject(", StringComparison.Ordinal))
         {
+            if (JsonDeserializeRewrite.TryRewriteTypedJsonDeserialize(expr, retType, ctx) is { } typedJson)
+                expr = typedJson;
             var mappedReturn = ctx.MapType(retType);
             if (mappedReturn is not ("Object" or "var"
                 or "int" or "long" or "short" or "byte" or "char"

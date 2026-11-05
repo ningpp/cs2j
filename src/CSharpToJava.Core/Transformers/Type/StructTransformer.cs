@@ -93,6 +93,11 @@ public class StructTransformer : ITypeTransformer
         // （struct 语料如 SegmentStringBuilder 的 [DebuggerDisplay] 同样可被反射读）。
         DebuggerMetadataAnnotationEmitter.Emit(javaClass, structSymbol, context);
 
+        // 运行时标记：该 Java class 来自 C# struct（值类型）。没有源码 Equals 的
+        // struct 由 compat Assert 逐字段比较（ValueType.Equals 语义）。
+        context.AddImport("io.github.ningpp.compat.CompatValueType");
+        javaClass.Annotations.Add(new JavaAnnotation("CompatValueType"));
+
         // 处理成员。
         context.EnterType(javaClass);
 
@@ -276,20 +281,38 @@ public class StructTransformer : ITypeTransformer
     /// </summary>
     private static void EnsureCloneSupport(JavaClassDeclaration javaClass)
     {
-        if (javaClass.Methods.Any(m => m.Name == "clone" && m.Parameters.Count == 0))
-            return;
-
-        if (!javaClass.ImplementedTypes.Contains("Cloneable"))
-            javaClass.ImplementedTypes.Add("Cloneable");
-
         var selfType = javaClass.TypeParameters.Count == 0
             ? javaClass.Name
             : $"{javaClass.Name}<{string.Join(", ", javaClass.TypeParameters.Select(tp => tp.Name))}>";
 
+        if (!javaClass.ImplementedTypes.Contains("Cloneable"))
+            javaClass.ImplementedTypes.Add("Cloneable");
+
+        var generatedClone = !javaClass.Methods.Any(m => m.Name == "clone" && m.Parameters.Count == 0);
+        if (generatedClone)
+        {
+            javaClass.Methods.Add(new JavaMethodDeclaration
+            {
+                Name = "clone",
+                Modifiers = JavaModifiers.Public | JavaModifiers.Override,
+                ReturnType = selfType,
+                Body = $"try {{\nreturn ({selfType}) super.clone();\n}} catch (CloneNotSupportedException e) {{\nthrow new AssertionError(e);\n}}",
+            });
+            return;
+        }
+
+        // A C# struct may declare its own Clone() method, which occupies Java clone(). That
+        // method is a user conversion, not necessarily a faithful field copy — e.g.
+        // Rectangle.Clone() rebuilds from LeftTop/RightBottom, which normalizes an empty
+        // rectangle. Implicit C# value copies must copy the fields verbatim, so value-copy
+        // sites use a separate super.clone()-backed method (see StructCloneHelper).
+        if (javaClass.Methods.Any(m => m.Name == StructCloneHelper.ValueCopyMethodName))
+            return;
+
         javaClass.Methods.Add(new JavaMethodDeclaration
         {
-            Name = "clone",
-            Modifiers = JavaModifiers.Public | JavaModifiers.Override,
+            Name = StructCloneHelper.ValueCopyMethodName,
+            Modifiers = JavaModifiers.Public,
             ReturnType = selfType,
             Body = $"try {{\nreturn ({selfType}) super.clone();\n}} catch (CloneNotSupportedException e) {{\nthrow new AssertionError(e);\n}}",
         });

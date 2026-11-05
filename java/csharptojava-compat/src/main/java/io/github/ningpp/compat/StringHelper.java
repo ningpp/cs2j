@@ -1543,7 +1543,12 @@ public class StringHelper {
             return;
         }
 
-        if (value instanceof Iterable<?> iterable) {
+        // C# string.Concat(IEnumerable<char>/IEnumerable<string>) flattens the sequence.
+        // A converted project type that merely implements IEnumerable (e.g. an edge class
+        // with an iterator) is NOT such an argument: string.Concat(object) calls its
+        // ToString(). Only the compat collection family (and java.util collections) are
+        // treated as sequences; anything else falls through to toString below.
+        if (value instanceof Iterable<?> iterable && isConcatSequence(value)) {
             for (Object item : iterable) {
                 appendConcatValue(builder, item);
             }
@@ -1594,6 +1599,18 @@ public class StringHelper {
         }
 
         builder.append(value);
+    }
+
+    /**
+     * True for sequence-shaped values that C# string.Concat(IEnumerable) actually
+     * flattens: the compat collection adapters and JDK collections. Project types that
+     * implement Iterable only because they were converted from IEnumerable are
+     * reference objects whose ToString() the C# overload resolution selected.
+     */
+    private static boolean isConcatSequence(Object value) {
+        String className = value.getClass().getName();
+        return className.startsWith("io.github.ningpp.compat.")
+            || className.startsWith("java.");
     }
 
     private static String joinArray(String separator, Object[] values) {

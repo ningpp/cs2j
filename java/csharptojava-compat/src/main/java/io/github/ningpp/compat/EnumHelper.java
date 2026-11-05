@@ -15,8 +15,14 @@ public class EnumHelper {
 
     /** Mirrors System.Enum.IsDefined(Type, String) — checks if a string name is a valid enum constant. */
     public static boolean isDefined(Class<?> enumType, String name) {
-        if (enumType == null || !enumType.isEnum() || name == null) {
+        if (enumType == null || name == null) {
             return false;
+        }
+        if (!enumType.isEnum()) {
+            // C# enums with explicit non-sequential values are emitted as pseudo-enum
+            // classes (static constants + values()/name()), not Java enums. Enum.IsDefined
+            // must still see their constant names.
+            return isPseudoEnumNameDefined(enumType, name);
         }
         for (Object constant : enumType.getEnumConstants()) {
             if (isSyntheticUnmapped(constant)) continue;
@@ -25,6 +31,33 @@ public class EnumHelper {
             }
         }
         return false;
+    }
+
+    private static boolean isPseudoEnumNameDefined(Class<?> enumType, String name) {
+        try {
+            var valuesMethod = enumType.getMethod("values");
+            Object[] constants = (Object[]) valuesMethod.invoke(null);
+            for (Object constant : constants) {
+                String constantName = pseudoEnumName(constant);
+                if (constantName == null || "_UNMAPPED".equals(constantName)) continue;
+                if (constantName.equals(name)) {
+                    return true;
+                }
+            }
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // Not a converter-generated pseudo-enum; Enum.IsDefined has no constants to match.
+        }
+        return false;
+    }
+
+    private static String pseudoEnumName(Object constant) {
+        if (constant == null) return null;
+        if (constant instanceof Enum<?> e) return e.name();
+        try {
+            return (String) constant.getClass().getMethod("name").invoke(constant);
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            return constant.toString();
+        }
     }
 
     /** Mirrors System.Enum.IsDefined(Type, Object) where Object is an enum constant of the same type. */

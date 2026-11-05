@@ -109,6 +109,70 @@ public final class CSharpArray implements Iterable<Object> {
         return result;
     }
 
+    /**
+     * Re-shapes an {@code Object[]} answer of {@code List<T>.ToArray()} into an array
+     * whose runtime component type is the common class of the elements. C# erases
+     * {@code T} in {@code T[] ToArray<T>(...)} so the generic helper answers
+     * {@code Object[]}, and the concrete call site's checkcast to {@code T[]}
+     * (e.g. {@code VisibilityVertex[]}) throws ClassCastException. C# only stores
+     * {@code T} instances in the list, so the common class of the elements is at
+     * least {@code T}: the resulting array is always assignable to {@code T[]}.
+     * An empty source has no runtime element to inspect and keeps {@code Object[]}.
+     *
+     * @param source An array or {@link Iterable} holding the elements.
+     * @return A new array shaped by the runtime element class.
+     */
+    public static Object toTypedArrayRuntime(Object source) {
+        if (source == null) {
+            return null;
+        }
+        Object[] items;
+        if (source.getClass().isArray()) {
+            int length = Array.getLength(source);
+            items = new Object[length];
+            for (int i = 0; i < length; i++) {
+                items[i] = Array.get(source, i);
+            }
+        } else if (source instanceof Iterable<?> iterable) {
+            java.util.List<Object> collected = new java.util.ArrayList<>();
+            for (Object item : iterable) {
+                collected.add(item);
+            }
+            items = collected.toArray();
+        } else {
+            throw new IllegalArgumentException(
+                "Cannot convert " + source.getClass().getName() + " to an array");
+        }
+        Class<?> componentType = runtimeComponentType(items);
+        if (componentType == null) {
+            return items;
+        }
+        Object result = Array.newInstance(componentType, items.length);
+        System.arraycopy(items, 0, result, 0, items.length);
+        return result;
+    }
+
+    /** Most-derived class every non-null element is an instance of, or null when there is none. */
+    private static Class<?> runtimeComponentType(Object[] items) {
+        Class<?> componentType = null;
+        for (Object item : items) {
+            if (item == null) {
+                continue;
+            }
+            if (componentType == null) {
+                componentType = item.getClass();
+                continue;
+            }
+            while (!componentType.isInstance(item)) {
+                componentType = componentType.getSuperclass();
+                if (componentType == null) {
+                    return Object.class;
+                }
+            }
+        }
+        return componentType;
+    }
+
     public static <T> int binarySearch(T[] array, Object value, Comparator<? super Object> comparer) {
         Objects.requireNonNull(array, "array");
         Objects.requireNonNull(comparer, "comparer");

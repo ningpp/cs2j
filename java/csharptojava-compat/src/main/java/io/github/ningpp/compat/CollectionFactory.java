@@ -44,6 +44,31 @@ public final class CollectionFactory {
         }
     }
 
+    /**
+     * Three-argument variant (dictionary, key, value) avoids capturing mutable
+     * loop variables in a lambda: the call site's variables are passed by value.
+     */
+    public static <A, B, C> void withValueType(
+            Class<?> valueType, A first, B second, C third,
+            TriConsumer<A, B, C> action) {
+        Class<?> previous = CURRENT_VALUE_TYPE.get();
+        CURRENT_VALUE_TYPE.set(valueType);
+        try {
+            action.accept(first, second, third);
+        } finally {
+            if (previous == null) {
+                CURRENT_VALUE_TYPE.remove();
+            } else {
+                CURRENT_VALUE_TYPE.set(previous);
+            }
+        }
+    }
+
+    @FunctionalInterface
+    public interface TriConsumer<A, B, C> {
+        void accept(A a, B b, C c);
+    }
+
     @SuppressWarnings("unchecked")
     public static <T> T createValue() {
         Class<?> valueType = CURRENT_VALUE_TYPE.get();

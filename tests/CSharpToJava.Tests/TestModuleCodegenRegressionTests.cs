@@ -143,7 +143,10 @@ public class TestModuleCodegenRegressionTests
             }
             """);
 
-        AssertConverted(result, "(CSharpList<Foo>) JsonConvert.deserializeObject");
+        // The erased DeserializeObject<T> call is rewritten to the typed compat
+        // entry so the DTO type survives at runtime (CSharpDictionary → Foo would
+        // otherwise throw ClassCastException); the cast still restores the slot type.
+        AssertConverted(result, "(CSharpList<Foo>) JsonConvert.deserializeList(json, Foo.class)");
     }
 
     [Fact]

@@ -261,6 +261,6 @@ public partial class ArgumentTransformer
         if (StructCloneHelper.IsThisInsideOwnCloneMethod(arg.Expression))
             return transformedExpr;
 
-        return StructCloneHelper.BuildCloneExpression(arg.Expression, transformedExpr);
+        return StructCloneHelper.BuildCloneExpression(arg.Expression, transformedExpr, argType);
     }
 }

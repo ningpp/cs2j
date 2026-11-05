@@ -694,6 +694,22 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
     private SyntaxNode ApplyExpressionSite(ValueCopySite site, SyntaxNode visited)
     {
         var expression = (ExpressionSyntax)visited;
+
+        // 条件表达式按分支判新鲜值：`c ? property : new S()` 的 new 分支本身就是
+        // 独立值，整体包裹会把新鲜的空结构体再按用户 Clone() 重建（真实链
+        // Node.BoundingBox 返回 CreateAnEmptyBox()，Rectangle.Clone() 从角点
+        // 重建会把空盒变成非空）。只包裹需要副本的分支。
+        if (expression is ConditionalExpressionSyntax conditional)
+        {
+            var whenTrue = WrapConditionalBranch(conditional.WhenTrue);
+            var whenFalse = WrapConditionalBranch(conditional.WhenFalse);
+            CountExpressionSite(site, conditional);
+            return conditional
+                .WithWhenTrue(whenTrue)
+                .WithWhenFalse(whenFalse)
+                .WithAdditionalAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation);
+        }
+
         var wrapped = ValueCopyFacts.WrapClone(expression)
             .WithLeadingTrivia(expression.GetLeadingTrivia())
             .WithTrailingTrivia(expression.GetTrailingTrivia())
@@ -701,6 +717,14 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
 
         CountExpressionSite(site, (ExpressionSyntax)site.Anchor);
         return wrapped;
+    }
+
+    private static ExpressionSyntax WrapConditionalBranch(ExpressionSyntax branch)
+    {
+        branch = (ExpressionSyntax)branch.WithoutTrivia();
+        if (ValueCopyFacts.IsFreshValue(branch))
+            return branch;
+        return ValueCopyFacts.WrapClone(branch);
     }
 
     private void CountExpressionSite(ValueCopySite site, ExpressionSyntax original)

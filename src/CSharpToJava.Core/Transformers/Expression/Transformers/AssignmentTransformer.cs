@@ -100,6 +100,16 @@ public class AssignmentTransformer : IIRExpressionTransformer
             return compoundCall;
 
         var rightText = f.Transform(rhs, context);
+        // JsonConvert.DeserializeObject<T> / 泛型 JSON 包装器在 Java 侧擦除类型实参，
+        // 直接赋值给已知目标类型（字段/局部）会把通用结构在运行期强转成 DTO；
+        // 赋值槽位与局部声明/返回位一致地重定型为类型化 compat 入口。
+        if (op == "="
+            && context.GetTypeInfo(lhs).Type is { } jsonTargetType
+            && JsonDeserializeRewrite.RetypeAssignmentValue(
+                rhs, rightText, jsonTargetType, context) is { } typedJsonValue)
+        {
+            rightText = typedJsonValue;
+        }
         // C# 允许方法组直接赋给兼容委托（真实链 XmlReaderSettings：
         // `_addValidationFunc = AddValidationInternal;`）。标识符转换器只会发出
         // 原名（javac: 找不到符号 变量 AddValidationInternal），委托目标存在时
@@ -253,7 +263,11 @@ public class AssignmentTransformer : IIRExpressionTransformer
 
         return targetType?.SpecialType switch
         {
-            SpecialType.System_Byte => "byte",
+            // C# byte 是无符号 0..255，而标量 byte 映射为 Java int（TypeMappingService），
+            // 不能再套 Java 的有符号 (byte) 强转：那会把 128..255 变成 -128..-1
+            // （真实链 Drawing.Color 的 A/R/G/B 字段、DebugCurve.Transparency）。
+            // 只有 C# byte[] 元素保持 Java byte[] 时仍需 (byte) 收窄（上面分支处理）。
+            SpecialType.System_Byte => null,
             SpecialType.System_SByte => "byte",
             SpecialType.System_Int16 => "short",
             SpecialType.System_Char => "char",
@@ -304,6 +318,10 @@ public class AssignmentTransformer : IIRExpressionTransformer
         var receiver = a.Left is MemberAccessExpressionSyntax ma ? f.Transform(ma.Expression, c) + "." : "";
         var name = char.ToUpperInvariant(p.Name[0]) + p.Name[1..];
         var right = f.Transform(a.Right, c);
+        // JsonConvert.DeserializeObject<T> / 泛型 JSON 包装器：属性 setter 槽位同样
+        // 用已闭合的属性类型重定型（与字段/局部声明/返回位一致）。
+        if (op == "=")
+            right = JsonDeserializeRewrite.RetypeAssignmentValue(a.Right, right, p.Type, c) ?? right;
         // IList 家族属性赋值槽位：与字段/参数/返回位一致，List<T>/T[] 值
         // 须包 CSharpIList.from 适配视图（真实链 BalloonLayout
         // `NonTreeEdges = tree.NonTreeEdges;`）。

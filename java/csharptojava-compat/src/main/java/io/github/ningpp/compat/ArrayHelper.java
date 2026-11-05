@@ -654,7 +654,11 @@ public class ArrayHelper {
      * first argument arrives as the wrapper instead of a plain Object[].
      */
     public static void clear(CSharpArray array, int index, int length) {
-        CSharpArray.clear(array, index, length);
+        // The wrapper only carries the backing array; Array.Clear operates on the array
+        // itself, so unwrap before dispatching to the element-type-aware overload.
+        // Passing the wrapper straight through made Array.getLength reject it
+        // ("Argument is not an array").
+        CSharpArray.clear(array == null ? null : array.unwrap(), index, length);
     }
 
     /**
