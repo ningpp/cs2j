@@ -174,6 +174,23 @@ class DecimalTest {
         assertThrows(NumberFormatException.class, () -> Decimal.valueOf(Double.POSITIVE_INFINITY));
     }
 
+    @Test
+    void valueOfDouble_matchesCSharpDecimalConversion() {
+        // C# rounds double -> decimal to 15 significant digits (banker's
+        // rounding). BigDecimal.valueOf(0.00005) carries an extra fractional
+        // digit from Double.toString("5.0E-5") and would yield "0.000050".
+        assertEquals("0.00005", Decimal.valueOf(0.00005d).toString());
+        assertEquals("0.0000000000000000000000001", Decimal.valueOf(1e-25).toString());
+        assertEquals("145896.233422154", Decimal.valueOf(145896.233422154d).toString());
+        assertEquals("-4582.24", Decimal.valueOf(-4582.24d).toString());
+        assertEquals("0.1", Decimal.valueOf(0.1d).toString());
+        assertEquals("0.3", Decimal.valueOf(0.30000000000000004d).toString());
+        assertEquals("1", Decimal.valueOf(1.0000000000000002d).toString());
+        assertEquals("123456789012346", Decimal.valueOf(123456789012345.6d).toString());
+        assertEquals("0.0000000000000000000000000001", Decimal.valueOf(1e-28d).toString());
+        assertEquals("0", Decimal.valueOf(1e-29d).toString());
+    }
+
     /**
      * C# decimal is a 96-bit mantissa with a scale of at most 28, so the BCL parser
      * rejects an exponent that cannot fit by comparing integers

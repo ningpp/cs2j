@@ -2,6 +2,7 @@ package io.github.ningpp.compat;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.Locale;
 import java.util.Objects;
@@ -478,11 +479,35 @@ public final class Decimal implements Comparable<Decimal> {
         return Objects.requireNonNull(value, "value");
     }
 
+    /**
+     * Mirrors C# Decimal(double): the double is rounded to 15 significant
+     * digits with banker's rounding and the result keeps the minimal scale,
+     * dropping fractional trailing zeros. {@link BigDecimal#valueOf(double)}
+     * alone is not enough because it keeps the extra digit of
+     * Double.toString("5.0E-5"), making 0.00005 print as "0.000050" instead
+     * of C#'s "0.00005".
+     */
     private static BigDecimal fromDouble(double value) {
         if (!Double.isFinite(value)) {
             throw new NumberFormatException("Value was either too large or too small for a Decimal.");
         }
-        return BigDecimal.valueOf(value);
+        BigDecimal rounded = BigDecimal.valueOf(value)
+            .round(new MathContext(15, RoundingMode.HALF_EVEN));
+        BigInteger unscaled = rounded.unscaledValue();
+        int scale = rounded.scale();
+        while (scale > 0 && unscaled.mod(BigInteger.TEN).signum() == 0) {
+            unscaled = unscaled.divide(BigInteger.TEN);
+            scale--;
+        }
+        BigDecimal result = new BigDecimal(unscaled, scale);
+        if (result.scale() > MAX_SCALE) {
+            // C# rounds sub-28-decimal values to zero instead of producing 0E-28.
+            result = result.setScale(MAX_SCALE, RoundingMode.HALF_EVEN);
+            if (result.signum() == 0) {
+                return BigDecimal.ZERO;
+            }
+        }
+        return result;
     }
 
     private static String normalizeNumberString(String value, int style) {
