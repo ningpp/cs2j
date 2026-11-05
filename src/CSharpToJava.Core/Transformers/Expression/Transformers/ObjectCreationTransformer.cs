@@ -223,8 +223,43 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     internal static string EmitDelegateMethodReference(
         ExpressionSyntax groupExpression, IMethodSymbol methodGroup, ConversionContext c)
     {
+        // Primitive-wrapper method groups need the invocation-side name table
+        // (int.Parse → Integer::parseInt) and double.IsNaN must avoid the
+        // instance/static overload ambiguity of the plain reference.
+        if (TryRenderPrimitiveStaticMethodGroup(methodGroup, c, out var primitiveReference))
+            return primitiveReference;
         var (owner, methodName) = ResolveDelegateTarget(groupExpression, methodGroup, c);
         return $"{owner}::{methodName}";
+    }
+
+    /// <summary>
+    /// Static method groups declared on the primitive wrappers (int.Parse,
+    /// double.IsNaN) map through the invocation-side name table instead of
+    /// plain camel-casing. Java's java.lang.Double exposes both an instance
+    /// <c>isNaN()</c> and a static <c>isNaN(double)</c>, so <c>Double::isNaN</c>
+    /// is an ambiguous method reference — IsNaN lowers to an implicit-parameter
+    /// lambda, which binds against both Predicate&lt;Double&gt; and DoublePredicate.
+    /// </summary>
+    internal static bool TryRenderPrimitiveStaticMethodGroup(
+        IMethodSymbol methodGroup, ConversionContext c, out string rendered)
+    {
+        rendered = string.Empty;
+        if (!methodGroup.IsStatic || methodGroup.ContainingType is not { } ownerType)
+            return false;
+        var wrapper = PrimitiveWrapperName(ownerType.SpecialType);
+        if (wrapper == null)
+            return false;
+
+        if (ownerType.SpecialType == SpecialType.System_Double && methodGroup.Name == "IsNaN")
+        {
+            var parameter = c.GenerateSyntheticName("__cs2jV");
+            rendered = $"({parameter} -> Double.isNaN({parameter}))";
+            return true;
+        }
+
+        var name = MapPrimitiveWrapperMethodGroupName(methodGroup, methodGroup.Name);
+        rendered = $"{wrapper}::{name}";
+        return true;
     }
 
     /// <summary>
@@ -327,6 +362,34 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 "IsInfinity" => "isInfinite",
                 "IsNaN" => "isNaN",
                 "IsFinite" => "isFinite",
+                "Parse" => methodGroup.ContainingType.SpecialType == SpecialType.System_Single
+                    ? "parseFloat"
+                    : "parseDouble",
+                _ => null
+            };
+            if (mapped != null)
+                return mapped;
+        }
+        else if (methodGroup.ContainingType is
+                 {
+                     SpecialType: SpecialType.System_Int32 or SpecialType.System_Int64
+                         or SpecialType.System_Int16 or SpecialType.System_SByte
+                         or SpecialType.System_Byte or SpecialType.System_UInt16
+                         or SpecialType.System_UInt32 or SpecialType.System_UInt64
+                         or SpecialType.System_Boolean
+                 })
+        {
+            var mapped = name switch
+            {
+                "Parse" => methodGroup.ContainingType.SpecialType switch
+                {
+                    SpecialType.System_Int32 or SpecialType.System_Byte
+                        or SpecialType.System_UInt16 or SpecialType.System_UInt32 => "parseInt",
+                    SpecialType.System_Int64 or SpecialType.System_UInt64 => "parseLong",
+                    SpecialType.System_Int16 => "parseShort",
+                    SpecialType.System_SByte => "parseByte",
+                    _ => "parseBoolean",
+                },
                 _ => null
             };
             if (mapped != null)

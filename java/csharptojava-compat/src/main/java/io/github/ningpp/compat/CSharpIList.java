@@ -251,6 +251,26 @@ public interface CSharpIList<T> extends CSharpCollection {
     }
 
     /**
+     * C# array covariance: a <c>List&lt;T&gt;[]</c> assigns to an
+     * <c>IList&lt;T&gt;[]</c> slot, but the compat element types
+     * {@link CSharpList} and {@link CSharpIList} are unrelated, so
+     * <c>CSharpList&lt;T&gt;[]</c> cannot reach <c>CSharpIList&lt;T&gt;[]</c>.
+     * Adapts element-wise into a CSharpIList array (real chain: MSAGL
+     * referenceMaxMinPivots receiving buildAdjacency's List&lt;Tuple&gt;[]).
+     */
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    static <T> CSharpIList<T>[] fromArray(CSharpList<T>[] lists) {
+        if (lists == null) {
+            return null;
+        }
+        CSharpIList<T>[] result = (CSharpIList<T>[]) new CSharpIList<?>[lists.length];
+        for (int i = 0; i < lists.length; i++) {
+            result[i] = lists[i] == null ? null : (CSharpIList<T>) from(lists[i]);
+        }
+        return result;
+    }
+
+    /**
      * Adapts a generic list (CSharpList / CSharpGenericIList) to the non-generic
      * C# IList surface. C# allows passing a List&lt;T&gt; where IList is expected;
      * the Java interfaces are unrelated, so the converter wraps the argument or

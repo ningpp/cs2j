@@ -186,6 +186,23 @@ public partial class StatementTransformer
             {
                 return typeParam.Name;
             }
+            // 显式泛型实参的调用（`var x = Helper.LoadJson<List<Case>>(path)`）：Java 的
+            // `var` 无法从调用本身推断泛型方法的 T（`static <T> T loadJson(...)` 会推断为
+            // Object），必须写出 C# 绑定器已经替换好的具体类型。仅限定在带显式 `<...>`
+            // 实参的调用上，普通 `var` 仍交给 Java 推断。
+            if (first?.Initializer?.Value is InvocationExpressionSyntax genericInitializer
+                && HasExplicitGenericTypeArguments(genericInitializer))
+            {
+                var inferredType = context.GetTypeInfo(genericInitializer).Type
+                    ?? (context.GetDeclaredSymbol(first) as ILocalSymbol)?.Type;
+                if (inferredType is { } concrete
+                    && concrete is not ITypeParameterSymbol
+                    && context.MapType(concrete) is { Length: > 0 } mappedInferred
+                    && mappedInferred is not ("Object" or "var"))
+                {
+                    return mappedInferred;
+                }
+            }
             // Java's `var` cannot infer a target type for a bare method reference
             // (e.g. `var projection = cond ? A::f : B::g`); use the mapped
             // functional interface so the conditional has an explicit target.
@@ -238,6 +255,20 @@ public partial class StatementTransformer
 
         return javaType;
     }
+
+    /// <summary>
+    /// True when the invocation spells out its generic type arguments
+    /// (<c>LoadJson&lt;List&lt;Case&gt;&gt;</c> / <c>obj.Method&lt;T&gt;()</c>) — the
+    /// only case where a Java side must restate the substituted type because
+    /// <c>var</c> cannot infer a generic method's type parameter from the call.
+    /// </summary>
+    private static bool HasExplicitGenericTypeArguments(InvocationExpressionSyntax invocation)
+        => invocation.Expression switch
+        {
+            GenericNameSyntax => true,
+            MemberAccessExpressionSyntax { Name: GenericNameSyntax } => true,
+            _ => false,
+        };
 
     private JavaSyntaxNode TransformYieldReturn(YieldStatementSyntax? stmt, ConversionContext context)
         => throw new NotSupportedException(

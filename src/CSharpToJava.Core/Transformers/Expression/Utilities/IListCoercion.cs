@@ -32,7 +32,29 @@ internal static class IListCoercion
         out string rendered)
     {
         rendered = text;
-        if (target is not INamedTypeSymbol || context.SemanticModel == null)
+        if (target is not INamedTypeSymbol && target is not IArrayTypeSymbol)
+            return false;
+        if (context.SemanticModel == null)
+            return false;
+
+        // C# array covariance: List<T>[] assigns to an IList<T>[] slot, but the
+        // compat element types CSharpList<T> and CSharpIList<T> are unrelated,
+        // so the array needs an element-wise adapter (real chain: MSAGL
+        // InitialLayoutByClusterTest passing buildAdjacency's List<Tuple>[] to
+        // referenceMaxMinPivots(IList<Tuple>[])).
+        if (target is IArrayTypeSymbol { Rank: 1 } iListArrayTarget
+            && context.MapType(iListArrayTarget.ElementType)
+                .StartsWith("CSharpIList<", StringComparison.Ordinal)
+            && context.GetTypeInfo(source).Type is IArrayTypeSymbol { Rank: 1 } listArraySource
+            && context.MapType(listArraySource.ElementType)
+                .StartsWith("CSharpList<", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpIList");
+            rendered = $"CSharpIList.fromArray({text})";
+            return true;
+        }
+
+        if (target is not INamedTypeSymbol)
             return false;
 
         var trimmed = text.Trim();

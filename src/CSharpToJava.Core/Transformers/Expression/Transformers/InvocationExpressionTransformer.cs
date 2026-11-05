@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -826,6 +827,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 .FirstOrDefault(m => !m.IsGenericMethod && m.MethodKind == MethodKind.Ordinary);
         if (method == null)
             return false;
+        // Static primitive-wrapper groups (int.Parse, double.IsNaN) have their
+        // own owner/name table — and Double.IsNaN must lower to a lambda.
+        if (ObjectCreationTransformer.TryRenderPrimitiveStaticMethodGroup(method, context, out rendered))
+            return true;
         var owner = context.MapType(enclosing);
         if (owner.Contains('<'))
             owner = owner[..owner.IndexOf('<')];
@@ -3150,7 +3155,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (IsIndexedSelector(invocation.ArgumentList.Arguments[0].Expression, context))
             {
                 context.AddImport("io.github.ningpp.compat.IndexedFlatMapFunction");
-                rendered = $"{flatMapStream}.flatMap(new IndexedFlatMapFunction<>({argumentText}))";
+                // Explicit type arguments: the constructor takes BiFunction<T,
+                // Integer, ?>, so a diamond leaves R = Object and the subsequent
+                // min(Comparator.naturalOrder()) fails (Object is not Comparable).
+                var flatMapTypeArguments = BuildIndexedFlatMapTypeArguments(
+                    invocation, memberAccess, symbol, context);
+                rendered = $"{flatMapStream}.flatMap(new IndexedFlatMapFunction{flatMapTypeArguments}({argumentText}))";
             }
             else
             {
@@ -3297,6 +3307,69 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
            || context.GetTypeInfo(selector).ConvertedType is INamedTypeSymbol
                { Name: "Func", TypeArguments.Length: 3 }
            || context.GetSymbolInfo(selector).Symbol is IMethodSymbol { Parameters.Length: 2 };
+
+    /// <summary>
+    /// Explicit type arguments for <c>IndexedFlatMapFunction&lt;T, R&gt;</c>.
+    /// The constructor parameter is <c>BiFunction&lt;T, Integer, ?&gt;</c>, so a
+    /// diamond cannot infer R: R stays Object and a following
+    /// <c>min(Comparator.naturalOrder())</c> rejects it (Object is not Comparable).
+    /// T comes from the bound SelectMany method's TSource (receiver element type as
+    /// fallback), R from TResult (the selector's returned sequence as fallback).
+    /// Unknown types degrade to Object — the call must never emit a diamond.
+    /// </summary>
+    private static string BuildIndexedFlatMapTypeArguments(
+        InvocationExpressionSyntax invocation,
+        MemberAccessExpressionSyntax memberAccess,
+        IMethodSymbol? symbol,
+        ConversionContext context)
+    {
+        ITypeSymbol? input = null;
+        ITypeSymbol? result = null;
+        ImmutableArray<ITypeSymbol>? typeArguments = symbol is { TypeArguments.Length: >= 2 }
+            ? symbol.TypeArguments
+            : symbol?.ReducedFrom?.TypeArguments;
+        if (typeArguments.HasValue && typeArguments.Value.Length >= 2)
+        {
+            input = typeArguments.Value[0];
+            result = typeArguments.Value[1];
+        }
+
+        input ??= GetSequenceElementType(context.GetTypeInfo(memberAccess.Expression).Type);
+
+        if (result == null)
+        {
+            var selector = invocation.ArgumentList.Arguments[0].Expression;
+            var converted = context.GetTypeInfo(selector).ConvertedType;
+            // A delegate-shaped selector (Func&lt;T, int, IEnumerable&lt;R&gt;&gt;):
+            // the last type argument is the returned sequence, not the element.
+            if (converted is INamedTypeSymbol { TypeArguments.Length: >= 2 } selectorDelegate)
+                result = GetSequenceElementType(selectorDelegate.TypeArguments[^1]);
+            if (result == null && context.GetSymbolInfo(selector).Symbol is IMethodSymbol selectorMethod)
+                result = GetSequenceElementType(selectorMethod.ReturnType);
+            result ??= GetSequenceElementType(context.GetTypeInfo(invocation).Type);
+        }
+
+        var inputType = input is null or ITypeParameterSymbol
+            ? "Object"
+            : context.MapTypeBoxed(input);
+        var resultType = result is null or ITypeParameterSymbol
+            ? "Object"
+            : context.MapTypeBoxed(result);
+        return $"<{EnsureLegalTypeArgument(inputType)}, {EnsureLegalTypeArgument(resultType)}>";
+    }
+
+    private static ITypeSymbol? GetSequenceElementType(ITypeSymbol? type) => type switch
+    {
+        IArrayTypeSymbol { Rank: 1 } array => array.ElementType,
+        INamedTypeSymbol { TypeArguments.Length: 1 } single => single.TypeArguments[0],
+        _ => null,
+    };
+
+    /// <summary>Java generics cannot hold primitives, bare wildcards, or the C# `var` placeholder.</summary>
+    private static string EnsureLegalTypeArgument(string mapped)
+        => string.IsNullOrWhiteSpace(mapped) || mapped == "var" || mapped.Contains('?')
+            ? "Object"
+            : mapped;
 
     /// <summary>
     /// Adds the configured imports for a static call receiver such as

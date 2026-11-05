@@ -191,9 +191,12 @@ public class FileHelper {
         return new StreamWrapper(create(path));
     }
     public static boolean exists(String path) { return new File(path).exists(); }
-    /** Mirrors File.Delete(path): no checked exception, missing files are a no-op. */
-    public static void delete(String path) {
-        try { Files.deleteIfExists(Paths.get(path)); }
-        catch (IOException e) { throw new UncheckedIOException(e); }
+    /**
+     * Mirrors File.Delete(path): missing files are a no-op, and IOException stays
+     * checked so callers inside a C# try/catch (IOException) keep that catch valid.
+     * Bare call sites are wrapped by the converter with an UncheckedIOException rethrow.
+     */
+    public static void delete(String path) throws IOException {
+        Files.deleteIfExists(Paths.get(path));
     }
 }

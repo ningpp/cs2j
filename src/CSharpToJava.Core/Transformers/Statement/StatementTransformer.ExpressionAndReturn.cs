@@ -82,11 +82,74 @@ public partial class StatementTransformer
 
         var expr = f.Transform(e, ctx);
 
+        // C# 没有受检异常，而 compat 的 FileHelper.delete 保留 checked IOException
+        // 以维持 C# File.Delete 的“可能抛 IOException”语义。未被 IO catch 覆盖的
+        // 表达式语句必须就地包成 unchecked 重抛，否则 javac 报“未报告的异常”。
+        if (e is InvocationExpressionSyntax checkedInv
+            && IsCheckedCompatInvocation(checkedInv, ctx)
+            && !IsInsideIOExceptionHandler(stmt, ctx))
+        {
+            return WithPending(ctx,
+                $"try {{ {expr}; }} catch (java.io.IOException __cs2jIoEx) {{ throw new java.io.UncheckedIOException(__cs2jIoEx); }}");
+        }
+
         // 三元不能作语句，整体三元转 if-else（如裸标记位条件）
         if (TryParseTernaryStatement(expr, out var c, out var t, out var el))
             return new JavaStatementNode($"if ({c}) {{\n{t};\n}} else {{\n{el};\n}}");
 
         return new JavaStatementNode(EmitWithPending(ctx, IsBareReadExpression(expr) ? "" : expr + ";"));
+    }
+
+    /// <summary>
+    /// compat 层中声明 checked IOException 的方法（Java 全名）。
+    /// 当前只有 <c>io.github.ningpp.compat.FileHelper.delete</c>（对应 C# <c>System.IO.File.Delete</c>）。
+    /// </summary>
+    private static readonly HashSet<string> CheckedCompatMethods = new()
+    {
+        "io.github.ningpp.compat.FileHelper.delete",
+    };
+
+    private static bool IsCheckedCompatInvocation(InvocationExpressionSyntax inv, ConversionContext ctx)
+    {
+        if (ctx.SemanticModel == null || ctx.GetSymbolInfo(inv).Symbol is not IMethodSymbol m)
+            return false;
+        var containingType = m.ContainingType?.ToDisplayString();
+        if (containingType != "System.IO.File" || m.Name != "Delete")
+            return false;
+        // System.IO.File.Delete has no explicit method-mapping row; the emit path
+        // derives `delete` from the default PascalCase→camelCase rename.
+        var mapped = ctx.TypeMappings.MapMethod(containingType, m.Name, m.Parameters.Length)
+            ?? (char.ToLowerInvariant(m.Name[0]) + m.Name[1..]);
+        return CheckedCompatMethods.Contains($"io.github.ningpp.compat.FileHelper.{mapped}");
+    }
+
+    /// <summary>
+    /// 语句是否位于某个 try 块中，且该 try 的 catch 声明 IOException：
+    /// 此时 checked IOException 会被该 catch 就地捕获，无需再包裹。
+    /// finally / catch 体中的调用不受该 try 的 catch 保护，需继续向上查找。
+    /// </summary>
+    private static bool IsInsideIOExceptionHandler(StatementSyntax stmt, ConversionContext ctx)
+    {
+        foreach (var ancestor in stmt.Ancestors())
+        {
+            if (ancestor is not TryStatementSyntax tryStatement
+                || !tryStatement.Catches.Any(c => CatchDeclaresIOException(c, ctx)))
+                continue;
+            var child = stmt.Ancestors().FirstOrDefault(a => a.Parent == tryStatement);
+            if (child is BlockSyntax block && block == tryStatement.Block)
+                return true;
+        }
+        return false;
+    }
+
+    private static bool CatchDeclaresIOException(CatchClauseSyntax catchClause, ConversionContext ctx)
+    {
+        var typeSyntax = catchClause.Declaration?.Type;
+        if (typeSyntax == null) return false;
+        if (ctx.SemanticModel != null)
+            return ctx.GetTypeInfo(typeSyntax).Type?.ToDisplayString() == "System.IO.IOException";
+        var text = typeSyntax.ToString().Trim();
+        return text is "IOException" or "System.IO.IOException" or "global::System.IO.IOException";
     }
 
     private int _chainTempCounter;
