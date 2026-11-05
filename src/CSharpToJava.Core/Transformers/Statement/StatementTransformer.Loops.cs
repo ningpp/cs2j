@@ -214,7 +214,19 @@ public partial class StatementTransformer
                 "double" => "Double",
                 _ => javaType,
             };
-            iterableExpression = $"(Iterable<{iterableElement}>)(Iterable) ({expression})";
+            if (IsIGroupingType(expressionType))
+            {
+                // C# IGrouping<K,V> iterates its values, but the Java mapping is a
+                // Map.Entry (runtime CSharpKeyValuePair), which is not Iterable. The
+                // element-typed cast below would throw ClassCastException; adapt to
+                // the entry's value list through the compat bridge instead.
+                context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                iterableExpression = $"CSharpGenericIterable.<{iterableElement}>fromAnyTyped({expression})";
+            }
+            else
+            {
+                iterableExpression = $"(Iterable<{iterableElement}>)(Iterable) ({expression})";
+            }
         }
         return new JavaStatementNode(
             $"{preamble}for ({javaType} {identifier} : {iterableExpression}) {body}");
@@ -223,6 +235,15 @@ public partial class StatementTransformer
     private JavaSyntaxNode TransformForEachVariableStatement(ForEachVariableStatementSyntax stmt, ConversionContext context)
         => throw new NotSupportedException(
             "CS2J normalization required: deconstructing foreach must be lowered by a preprocessor before Java conversion.");
+
+    /// <summary>
+    /// True when the bound C# type is <c>System.Linq.IGrouping&lt;K,V&gt;</c>, which
+    /// maps to a Java <c>Map.Entry</c> rather than an Iterable.
+    /// </summary>
+    private static bool IsIGroupingType(ITypeSymbol? type)
+        => type is INamedTypeSymbol named
+           && named.OriginalDefinition?.ToDisplayString()
+               .StartsWith("System.Linq.IGrouping<", StringComparison.Ordinal) == true;
 
     /// <summary>
     /// True for foreach sources that are C# IEnumerable but render as a JAVA ARRAY:

@@ -3553,6 +3553,26 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 : $"Arrays.stream({receiverText})";
         }
 
+        // C# IGrouping<K,V> maps to Java Map.Entry<K,CSharpList<V>>, whose runtime
+        // object is a CSharpKeyValuePair: the grouping itself is not Iterable (its
+        // elements live in the entry's value), so the element-typed re-type cast
+        // below would throw ClassCastException at runtime. Adapt through the compat
+        // bridge, which unwraps the entry value (real chain:
+        // RecoveryLayeredLayoutEngine's layers[i].ToArray()).
+        if (receiverType is INamedTypeSymbol groupingReceiver
+            && groupingReceiver.OriginalDefinition?.ToDisplayString()
+                .StartsWith("System.Linq.IGrouping<", StringComparison.Ordinal) == true
+            && groupingReceiver.TypeArguments.Length == 2)
+        {
+            var groupingElement = BoxPrimitive(context.MapType(groupingReceiver.TypeArguments[1]));
+            if (!string.IsNullOrWhiteSpace(groupingElement) && groupingElement is not ("Object" or "var"))
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                context.AddImport("java.util.stream.StreamSupport");
+                return $"StreamSupport.stream(CSharpGenericIterable.<{groupingElement}>fromAnyTyped({receiverText}).spliterator(), false)";
+            }
+        }
+
         context.AddImport("java.util.stream.StreamSupport");
         // Compat collection interfaces erase the element type: a generated
         // ICollection<T>/IList<T> class implements CSharpIList<T> extends the
