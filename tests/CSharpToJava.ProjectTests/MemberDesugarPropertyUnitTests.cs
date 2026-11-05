@@ -324,13 +324,15 @@ public class MemberDesugarPropertyUnitTests
     // 语料回归（csharp-sdk regular-expressions Capture.Index）：访问器
     // `private protected set` 是复合可访问性，降形为方法时必须整体平移，
     // 只取首个 token 会误降为 private（派生类调用 CS0122）。
+    // 属性用 internal：public 属性 + 非 public 访问器按 STJ 单向成员契约整体保留
+    // （HasAsymmetricAccessorVisibility），不会触发本降形路径。
     [Fact]
     public void SetAccessor_PrivateProtected_PreservesCompoundAccessibility()
     {
         var src = """
             internal class B
             {
-                public int Index { get; private protected set; }
+                internal int Index { get; private protected set; }
             }
 
             internal sealed class D : B

@@ -949,6 +949,44 @@ public class ConversionContext
     }
 
     /// <summary>
+    /// True when <paramref name="containingType"/> maps onto a type declared in this
+    /// compilation's source and that source type STILL declares the C# property
+    /// (member-desugar retained it, e.g. public get-only auto properties such as
+    /// <c>System.Xml.XmlReader.LocalName</c>). The Java declaration then carries the
+    /// bean getter <c>getXxx()</c>; a stale TypeMappings row spelling the C11 accessor
+    /// form (<c>X()</c>) from the pre-retention era must not win at use sites.
+    /// </summary>
+    public bool TryGetSourceDeclaredBeanGetter(
+        ITypeSymbol? containingType, string propertyName, out string getterName)
+    {
+        getterName = string.Empty;
+        if (containingType == null || string.IsNullOrEmpty(propertyName)) return false;
+        var mapped = MapType(containingType);
+        if (string.IsNullOrWhiteSpace(mapped) || mapped.Contains('<') || mapped.Contains('['))
+            return false;
+
+        string qualified;
+        if (mapped.Contains('.'))
+        {
+            qualified = mapped;
+        }
+        else
+        {
+            var ns = containingType.ContainingNamespace?.ToDisplayString() ?? string.Empty;
+            var package = TypeMappings.MapNamespace(ns) ?? ns;
+            qualified = string.IsNullOrEmpty(package) ? mapped : $"{package}.{mapped}";
+        }
+
+        var resolved = SemanticModel?.Compilation.GetTypeByMetadataName(qualified);
+        if (resolved == null || !resolved.Locations.Any(l => l.IsInSource))
+            return false;
+        if (!resolved.GetMembers(propertyName).OfType<IPropertySymbol>().Any(p => !p.IsIndexer))
+            return false;
+        getterName = JavaNaming.GetPropertyGetterName(propertyName);
+        return true;
+    }
+
+    /// <summary>
     /// True when <paramref name="containingType"/> (a BCL type such as
     /// <c>System.Xml.XmlNodeList</c>) maps onto a type declared in this compilation's
     /// source AND that ported class carries an <c>Item(int)</c> method in the

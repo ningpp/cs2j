@@ -598,8 +598,23 @@ public class ClassTransformer : ITypeTransformer
                     if (partialNested.TryGetValue(nestedKey, out var existing))
                     {
                         // partial 嵌套类型的后续出现：把成员并入已生成的 Java 类型（按签名去重）。
-                        foreach (var m in ((TypeDeclarationSyntax)member).Members)
-                            ProcessMember(m, existing, context);
+                        // 必须把 CurrentType/CurrentEnclosingRoslynType 切到嵌套类型：成员变换器
+                        // 按 CurrentType 做擦除冲突改名（嵌套类成员的 Java 签名与外层同名方法
+                        // 互不冲突），留在外层会把 parsePIAsync 等实现方法误改名为 _2，
+                        // 使类不再覆盖接口方法（真实链 DtdParserProxy/IDtdParserAdapter）。
+                        var previousEnclosing = context.CurrentEnclosingRoslynType;
+                        context.CurrentEnclosingRoslynType = nestedSymbol;
+                        context.EnterType(existing);
+                        try
+                        {
+                            foreach (var m in ((TypeDeclarationSyntax)member).Members)
+                                ProcessMember(m, existing, context);
+                        }
+                        finally
+                        {
+                            context.LeaveType();
+                            context.CurrentEnclosingRoslynType = previousEnclosing;
+                        }
                         continue;
                     }
                     ProcessMember(member, javaClass, context);

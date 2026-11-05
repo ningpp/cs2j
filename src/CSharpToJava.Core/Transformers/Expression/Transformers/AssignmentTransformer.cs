@@ -261,6 +261,14 @@ public class AssignmentTransformer : IIRExpressionTransformer
             right = TypeOperationTransformer.TryCoerceIntegralToFloating(
                 a.Right, right, p.Type, c) ?? right;
         }
+        // 非泛型 IDictionary 属性槽位：C# Dictionary<K,V> 实现 IDictionary，但
+        // compat 的 CSharpDictionary 与 CSharpIDictionary 无继承关系，需适配视图
+        // （真实链保留属性 DerivedRegex.Caps = new Dictionary<string,string>()）。
+        if (p.SetMethod is { } dictionarySetter)
+        {
+            right = ArgumentTransformer.CoerceNonGenericDictionaryBridge(
+                a.Right, right, dictionarySetter, 0, c);
+        }
 
         // Cs2jByRef holder writes must use the value-returning compat alias
         // `set(T)`: the prebuilt compat ABI's `setValue(T)` returns void, but

@@ -6959,7 +6959,7 @@
         {
             "type": "System.Text.RegularExpressions.Capture",
             "method": "Length",
-            "javaMethod": "Length"
+            "javaMethod": "getLength"
         },
         {
             "type": "System.Text.StringBuilder",
@@ -7315,7 +7315,7 @@
         {
             "type": "System.Text.RegularExpressions.Capture",
             "method": "Index",
-            "javaMethod": "Index"
+            "javaMethod": "getIndex"
         },
         {
             "type": "System.String",

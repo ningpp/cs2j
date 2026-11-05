@@ -59,6 +59,33 @@ public class Sample
     /// </summary>
 
     /// <summary>
+    /// 枚举成员名与 java.lang.String 同名时（真实链 XPathResultType.String / LexKind.String），
+    /// 类内静态字段遮蔽类型名：fromValue 的兜底必须发 java.lang.String.valueOf(value)，
+    /// 否则解析成字段上的 valueOf(String) 并把 int 实参误报为「int 无法转换为 String」。
+    /// </summary>
+    [Fact]
+    public void EnumMemberNamedString_FromValueFallback_QualifiesJavaLangString()
+    {
+        var result = Convert(@"
+public enum LexKind
+{
+    Unknown = 0,
+    String = 1,
+    Eof = 5
+}
+
+public class Sample
+{
+    public LexKind FromInt(int value)
+    {
+        return (LexKind)value;
+    }
+}");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("java.lang.String.valueOf(value)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Flags enums are emitted as primitive int constants in Java. A const flags field
     /// initialized with an explicit cast must stay a bare integer literal, not wrapped
     /// with a non-existent int.fromValue(...) call.

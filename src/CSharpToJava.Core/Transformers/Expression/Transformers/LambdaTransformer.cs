@@ -72,6 +72,11 @@ public class LambdaTransformer : IIRExpressionTransformer
         if (node.Block != null)
             return BuildBlockBodyLambda(node, paramStr, parameters, paramRenames, context);
 
+        if (node.ExpressionBody is AssignmentExpressionSyntax assignmentBody
+            && assignmentBody.IsKind(SyntaxKind.SimpleAssignmentExpression))
+            return BuildAssignmentExpressionBodyLambda(
+                node, assignmentBody, paramStr, paramRenames, context);
+
         if (node.ExpressionBody != null)
             return BuildExpressionBodyLambda(node, paramStr, paramRenames, context);
 
@@ -163,6 +168,54 @@ public class LambdaTransformer : IIRExpressionTransformer
             body = Regex.Replace(body, $@"\b{Regex.Escape(oldName)}\b", newName);
 
         return $"{paramStr} -> {{\n        {body}\n    }}";
+    }
+
+    /// <summary>
+    /// 表达式体为赋值的 lambda（<c>() =&gt; r.Caps = null</c> 传给 Func&lt;object&gt;）：
+    /// C# 赋值表达式的值是赋入值，Java 赋值没有值（属性 setter 还是 void）。
+    /// 目标委托返回值时展开为块体（赋值 + 按左值重读），Action 目标只保留赋值。
+    /// </summary>
+    private string BuildAssignmentExpressionBodyLambda(
+        LambdaExpressionSyntax node,
+        AssignmentExpressionSyntax assignment,
+        string paramStr,
+        Dictionary<string, string> paramRenames,
+        ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var statement = facade.Transform(assignment, context).TrimEnd(';');
+        var preBefore = context.HasPendingPreStatements
+            ? context.DrainPreStatements().ToList()
+            : new List<string>();
+        // 赋值表达式的值 = 赋入值：按值位置重读左值（属性 → getX()）。
+        var value = IdentifierExpressionTransformer.TransformAssignmentTargetAsValue(
+            assignment.Left, context);
+        var preAfter = context.HasPendingPreStatements
+            ? context.DrainPreStatements().ToList()
+            : new List<string>();
+
+        foreach (var (oldName, newName) in paramRenames)
+        {
+            statement = Regex.Replace(statement, $@"\b{Regex.Escape(oldName)}\b", newName);
+            value = Regex.Replace(value, $@"\b{Regex.Escape(oldName)}\b", newName);
+        }
+
+        var lines = new List<string>();
+        lines.AddRange(preBefore.Select(s => s.TrimEnd(';') + ";"));
+        lines.Add(statement + ";");
+        lines.AddRange(preAfter.Select(s => s.TrimEnd(';') + ";"));
+
+        if (LambdaReturnsValue(node, context))
+            lines.Add($"return {value};");
+
+        return $"{paramStr} -> {{\n        {string.Join("\n        ", lines)}\n    }}";
+    }
+
+    private static bool LambdaReturnsValue(LambdaExpressionSyntax node, ConversionContext context)
+    {
+        if (context.SemanticModel == null) return true;
+        var converted = context.GetTypeInfo(node).ConvertedType as INamedTypeSymbol;
+        return converted?.DelegateInvokeMethod?.ReturnsVoid != true;
     }
 
     private string BuildExpressionBodyLambda(

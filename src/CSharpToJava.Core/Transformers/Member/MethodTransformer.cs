@@ -345,6 +345,11 @@ public class MethodTransformer : IMemberTransformer
         {
             jm.Body = $"throw {facade.Transform(thrown.Expression, ctx)};";
         }
+        else if (arrow?.Expression is AssignmentExpressionSyntax assignmentBody
+            && assignmentBody.IsKind(SyntaxKind.SimpleAssignmentExpression))
+        {
+            BuildAssignmentExpressionBody(jm, assignmentBody, ctx);
+        }
         else if (arrow != null)
         {
             var expr = facade.Transform(arrow.Expression, ctx);
@@ -386,6 +391,44 @@ public class MethodTransformer : IMemberTransformer
                 jm.IsBodyExpression = true;
             }
         }
+    }
+
+    /// <summary>
+    /// C# 表达式体为赋值（<c>T M() =&gt; P = v;</c>）：赋值表达式的值就是赋入值，
+    /// 但 Java 赋值没有值（展开后的属性 setter 还是 void）。展开为块体：先执行
+    /// 赋值语句，再按左值重新读取（属性走 getter）作为返回值。真实链
+    /// closure-lift 生成的 <c>object Lambda_...() =&gt; Regex.CacheSize = -1;</c>
+    /// （保留属性不再由 member-desugar 展开为值保持的 C# 块体）。
+    /// </summary>
+    private static void BuildAssignmentExpressionBody(
+        JavaMethodDeclaration jm, AssignmentExpressionSyntax assignment, ConversionContext ctx)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var statement = facade.Transform(assignment, ctx).TrimEnd(';');
+        var preBefore = ctx.HasPendingPreStatements ? ctx.DrainPreStatements().ToList() : new List<string>();
+        // 赋值表达式的值 = 赋入值：按值位置重读左值（属性 → getX()）。
+        var value = IdentifierExpressionTransformer
+            .TransformAssignmentTargetAsValue(assignment.Left, ctx);
+        var preAfter = ctx.HasPendingPreStatements ? ctx.DrainPreStatements().ToList() : new List<string>();
+
+        var lines = new List<string>();
+        lines.AddRange(preBefore.Select(s => s.TrimEnd(';') + ";"));
+        lines.Add(statement + ";");
+        lines.AddRange(preAfter.Select(s => s.TrimEnd(';') + ";"));
+        if (jm.ReturnType == "void")
+        {
+            jm.Body = string.Join("\n", lines);
+            jm.IsBodyExpression = false;
+            return;
+        }
+        if (ctx.IsInAsyncContext)
+        {
+            ctx.AddImport("java.util.concurrent.CompletableFuture");
+            value = $"CompletableFuture.completedFuture({value})";
+        }
+        lines.Add($"return {value};");
+        jm.Body = string.Join("\n", lines);
+        jm.IsBodyExpression = false;
     }
 
     /// <summary>

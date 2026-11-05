@@ -42,7 +42,20 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
     // ── IdentifierName ──────────────────────────────────────────────────────
 
-    private static string TransformIdentifier(IdentifierNameSyntax node, ConversionContext context)
+    /// <summary>
+    /// 赋值表达式的值等于赋入值：把赋值左值按“值位置”重新渲染。左值节点的父节点
+    /// 是赋值，常规读路径会按写入位置跳过属性 getter（直接返回 raw 名字），
+    /// 表达式体方法 / 值 lambda 需要真实的读取形态（属性 → getX()）。
+    /// </summary>
+    internal static string TransformAssignmentTargetAsValue(ExpressionSyntax left, ConversionContext context)
+        => left switch
+        {
+            IdentifierNameSyntax id => TransformIdentifier(id, context, asValue: true),
+            MemberAccessExpressionSyntax ma => TransformMemberAccess(ma, context, asValue: true),
+            _ => ExpressionTransformerFacade.Instance.Transform(left, context),
+        };
+
+    private static string TransformIdentifier(IdentifierNameSyntax node, ConversionContext context, bool asValue = false)
     {
         var symbol = context.GetSymbolInfo(node).Symbol;
 
@@ -163,10 +176,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             return $"this.{fieldName}";
         }
 
-        // Property accessed by value → getXxx()
+        // Property accessed by value → getXxx()；与声明侧同一命名规则（首字母大写），
+        // 否则小写属性名（真实链 QName.prefix）读成 getprefix() 而声明是 getPrefix()。
         if (symbol is IPropertySymbol p
-            && !(node.Parent is AssignmentExpressionSyntax a && a.Left == node))
-            return $"get{p.Name}()";
+            && (asValue || !(node.Parent is AssignmentExpressionSyntax a && a.Left == node)))
+            return $"{JavaNaming.GetPropertyGetterName(ConversionContext.EscapeJavaKeyword(p.Name))}()";
         // Declared holder parameters (ref/out wrapped into IntHolder/ObjectHolder<...>
         // by ConvertParameter) read through `.value` at every expression position:
         // the declaration-side lowering only rewrites plain `=` assignments, so
@@ -281,7 +295,8 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
     // ── Member access ───────────────────────────────────────────────────────
 
-    private static string TransformMemberAccess(MemberAccessExpressionSyntax node, ConversionContext context)
+    private static string TransformMemberAccess(
+        MemberAccessExpressionSyntax node, ConversionContext context, bool asValue = false)
     {
         // Implicit method-group conversion: `SomeType.Method` passed directly as
         // a delegate argument (no explicit `new Func(...)`) → Java method ref.
@@ -565,7 +580,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
         // Property (read) → getXxx()
         if (symbol is IPropertySymbol property
-            && !(node.Parent is AssignmentExpressionSyntax a && a.Left == node))
+            && (asValue || !(node.Parent is AssignmentExpressionSyntax a && a.Left == node)))
         {
             // C# IntPtr/nint is reported with the alias display "nint".
             if (property.Name == "Size"
@@ -628,6 +643,19 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                     return $"{mappedProperty}({receiver})";
                 return $"{mappedProperty}()";
             }
+            // 源内移植类型（System.Xml.XmlReader → dotnet.xml.XmlReader）以声明侧
+            // 真实形态为准：属性仍以属性符号存在时（member-desugar 保留族/只读自动
+            // 属性）Java 发射 bean getter，映射表里的 C11 访问器名（LocalName()）已过期。
+            if (!property.IsStatic
+                && mappedProperty is { Length: > 0 }
+                && !JavaNaming.IsBeanAccessorStyleName(mappedProperty)
+                && !mappedProperty.Contains('(')
+                && context.TryGetSourceDeclaredBeanGetter(
+                    property.ContainingType, property.Name, out var sourceBeanGetter))
+            {
+                return $"{receiver}.{sourceBeanGetter}()";
+            }
+
             // Non-bean mapped member names (Thread.CurrentThread → currentThread)
             // keep the mapped owner/receiver and become a call.
             if (!string.IsNullOrEmpty(mappedProperty)
@@ -689,12 +717,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return $"{receiver}.{member}()";
             }
 
-            // C11 访问器形态：setter 可访问性是 private protected（Java 无法表达）时，
-            // member-desugar 在声明项目把属性展开成 get_X/set_X 方法，Java 侧渲染为
-            // X()/X(v)。plan 按项目计算，跨项目使用点不经使用点改写，只能按访问器
-            // 形态发 X()——否则 getXxx() 找不到符号（真实链 Capture.Index/Length 被
-            // dotnet-xml 的 XmlConvert 读取 6 站）。
-            if (property.SetMethod is { DeclaredAccessibility: Accessibility.ProtectedAndInternal })
+            // C11 访问器形态：member-desugar 展开属性时，Java 侧渲染为 X()/X(v)。
+            // 展开只发生在属性声明可访问性非 public 时——public 属性 + 非 public 访问器
+            // 按「STJ 单向序列化成员」契约整体保留（HasAsymmetricAccessorVisibility），
+            // 声明侧发射 bean getter，使用点必须同形发 getXxx()。因此这里要求
+            // 声明可访问性非 public 且属性不在源内（源内仍以属性符号可见时说明声明
+            // 未展开，例如单文件管线或保留族），否则会把 Capture.Index/Length 的
+            // getIndex()/getLength() 错发成 Index()/Length()（真实链 csharp-sdk
+            // regular-expressions 29 处「找不到符号 方法 Length()/Index()」）。
+            if (property.SetMethod is { DeclaredAccessibility: Accessibility.ProtectedAndInternal }
+                && property.DeclaredAccessibility != Accessibility.Public
+                && property.DeclaringSyntaxReferences.Length == 0)
             {
                 return $"{receiver}.{member}()";
             }

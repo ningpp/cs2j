@@ -36,4 +36,44 @@ public class Capture
         Assert.Contains("protected void setIndex(int", code);
         Assert.DoesNotContain("private void setIndex(int", code);
     }
+
+    /// <summary>
+    /// 读取侧回归（csharp-sdk regular-expressions）：'public int Length { get; private protected set; }'
+    /// 仍是属性声明，Java 侧发射 bean getter getLength()；成员访问必须发同一形态。
+    /// 之前按「private protected set ⇒ C11 访问器形态」无条件发 Length()/Index()，
+    /// 导致 RegexRunner/Regex/RegexReplacement/MatchCollection 29 处
+    /// 「找不到符号 方法 Length()/Index()」。
+    /// </summary>
+    [Fact]
+    public void PrivateProtectedProperty_MemberAccess_EmitsBeanGetter()
+    {
+        var pipeline = new ConversionPipeline();
+        var result = pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = @"
+public class Capture
+{
+    public int Index { get; private protected set; }
+    public int Length { get; private protected set; }
+}
+
+public class Runner
+{
+    public int Measure(Capture capture)
+    {
+        return capture.Index + capture.Length;
+    }
+}",
+            FileName = "Test.cs",
+            Options = new ConversionOptions(),
+        });
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains("capture.getIndex()", code);
+        Assert.Contains("capture.getLength()", code);
+        Assert.DoesNotContain("capture.Index()", code);
+        Assert.DoesNotContain("capture.Length()", code);
+    }
 }

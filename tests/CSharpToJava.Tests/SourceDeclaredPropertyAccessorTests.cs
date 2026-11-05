@@ -43,6 +43,41 @@ class Host
         Assert.DoesNotContain("getAttributeCount()", code);
     }
 
+    /// <summary>
+    /// 源内移植类仍以属性声明保留该成员时（member-desugar 的只读自动属性保留族，
+    /// 真实链 dotnet.xml.XmlReader.LocalName/Value/NodeType），Java 声明侧发射
+    /// bean getter；映射表里历史遗留的 C11 访问器名（LocalName()）不得覆盖声明形态。
+    /// </summary>
+    [Fact]
+    public void RetainedPropertyOnSourceDeclaredPort_EmitsBeanGetter()
+    {
+        var result = Convert("""
+namespace dotnet.xml
+{
+    public abstract class XmlReader
+    {
+        public abstract string LocalName { get; }
+        public abstract int AttributeCount { get; }
+    }
+}
+
+class Host
+{
+    public static string Use(System.Xml.XmlReader reader)
+    {
+        return reader.LocalName + reader.AttributeCount;
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode;
+        Assert.Contains("reader.getLocalName()", code);
+        Assert.Contains("reader.getAttributeCount()", code);
+        Assert.DoesNotContain("reader.LocalName()", code);
+        Assert.DoesNotContain("reader.AttributeCount()", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

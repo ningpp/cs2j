@@ -179,8 +179,11 @@ public class EnumTransformer : ITypeTransformer
         var fromValue = new StringBuilder();
         foreach (var (memberName, value) in members)
             fromValue.AppendLine($"if (value == {RenderLiteral(value, storage)}) return {memberName};");
+        // 值类枚举成员可能含名为 String 的常量（XPathResultType/LexKind）：类内
+        // 该静态字段会遮蔽 java.lang.String，`String.valueOf(...)` 会被解析成
+        // 字段上的 valueOf，进而把 int 实参塞给 valueOf(String)。全名限定避开遮蔽。
         fromValue.AppendLine(
-            $"return new {name}(String.valueOf(value), -1, value);");
+            $"return new {name}(java.lang.String.valueOf(value), -1, value);");
 
         javaClass.Methods.Add(new JavaMethodDeclaration
         {

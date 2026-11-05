@@ -12,6 +12,30 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class GetterPreStatementLeakTests
 {
+    /// <summary>
+    /// C# 小写属性名（真实链 dotnet.xml.QName.prefix）的无接收者读取必须与声明侧
+    /// 同一命名规则（getPrefix()）；直接用 get+原名会发 getprefix() 找不到符号。
+    /// </summary>
+    [Fact]
+    public void LowercaseProperty_UnqualifiedRead_UsesCapitalizedBeanGetter()
+    {
+        var result = Convert(@"
+class QName
+{
+    public string prefix { get; }
+
+    public override string ToString()
+    {
+        return prefix.Length == 0 ? """" : prefix;
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode ?? "";
+        Assert.Contains("getPrefix()", code);
+        Assert.DoesNotContain("getprefix()", code);
+    }
+
     [Fact]
     public void CoalesceAssignmentInExpressionGetter_DoesNotLeakIntoNextField()
     {
