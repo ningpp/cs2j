@@ -41,9 +41,20 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
             // optional debug hook unconditionally, so provide the no-op default.
             if (result.Name == "LayoutAlgorithmSettings")
             {
-                var initializer = new JavaStaticInitializerBlock();
-                initializer.Statements.Add("showDebugCurves = shapes -> {};");
-                result.StaticInitializers.Insert(0, initializer);
+                // The backing field's Java name follows the current member-desugar shape
+                // (static auto properties expand to e.g. `ShowDebugCurves`). Resolve the
+                // actual static field instead of assuming the old camelCase name.
+                var debugCurvesField = result.Fields.FirstOrDefault(field =>
+                    (field.Modifiers & JavaModifiers.Static) != 0
+                    && (field.Name == "ShowDebugCurves" || field.Name == "showDebugCurves")
+                    && (field.Type == "ShowDebugCurves"
+                        || field.Type.EndsWith(".ShowDebugCurves", StringComparison.Ordinal)));
+                if (debugCurvesField != null)
+                {
+                    var initializer = new JavaStaticInitializerBlock();
+                    initializer.Statements.Add($"{debugCurvesField.Name} = shapes -> {{}};");
+                    result.StaticInitializers.Insert(0, initializer);
+                }
             }
             // C# default(TValue) for the QUT parser's struct semantic value.
             if (result.Name == "ShiftReduceParser")

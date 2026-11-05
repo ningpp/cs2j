@@ -106,6 +106,16 @@ class CSharpDictionaryTest {
         assertNull(dict.tryGetValue("z"));
     }
 
+    @Test
+    void tryGetValue_doubleHolder_existingAndMissing() {
+        CSharpDictionary<String, Double> dict = new CSharpDictionary<>();
+        dict.put("a", 3.5);
+        DoubleHolder holder = new DoubleHolder();
+        assertTrue(dict.tryGetValue("a", holder));
+        assertEquals(3.5, holder.value, 0.0);
+        assertFalse(dict.tryGetValue("z", new DoubleHolder()));
+    }
+
     // ---- TryAdd ----
 
     @Test

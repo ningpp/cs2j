@@ -733,6 +733,24 @@ public class ArrayHelper {
         return Arrays.copyOfRange(array, offset, offset + count);
     }
 
+    /**
+     * C# Enumerable.Contains on an array receiver: arrays have no
+     * {@code contains} method in Java, and primitive arrays cannot use the
+     * generic overloads. Reflection boxes primitive elements automatically.
+     */
+    public static boolean contains(Object array, Object value) {
+        if (array == null) {
+            return false;
+        }
+        int length = java.lang.reflect.Array.getLength(array);
+        for (int i = 0; i < length; i++) {
+            if (Objects.equals(java.lang.reflect.Array.get(array, i), value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static <T> int indexOf(T[] array, Object value) {
         for (int i = 0; i < array.length; i++) {
             if (Objects.equals(array[i], value)) return i;

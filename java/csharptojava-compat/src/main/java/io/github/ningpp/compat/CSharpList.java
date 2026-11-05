@@ -51,6 +51,20 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
     }
 
     /**
+     * C# {@code new List<T>(IList<T> values)}: the non-generic IList view erases
+     * its element type to Object, so the CSharpIterable constructor cannot prove
+     * element compatibility for a typed list slot.
+     */
+    @SuppressWarnings("unchecked")
+    public CSharpList(CSharpIList<?> values) {
+        if (values != null) {
+            for (Object value : values) {
+                add((T) value);
+            }
+        }
+    }
+
+    /**
      * C# {@code new List<T>(T[] values)}: a C# array implements {@code IEnumerable<T>},
      * so the collection-constructor overload accepts it; a Java reference array is not
      * a {@link Collection}, so it needs its own constructor.

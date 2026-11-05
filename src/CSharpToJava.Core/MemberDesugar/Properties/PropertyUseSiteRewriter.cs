@@ -324,7 +324,7 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         out BlockSyntax block)
     {
         block = null!;
-        var sites = new List<(AssignmentExpressionSyntax Assign, PropertyPlan Plan)>();
+        var sites = new List<(AssignmentExpressionSyntax Assign, PropertyPlan? Plan)>();
 
         // 最外层非属性目标（`local = a.P = v`）保留赋值形态，从其右侧进入链。
         AssignmentExpressionSyntax? outerNonSite = null;
@@ -342,6 +342,16 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
             if (TryGetPlan(assign.Left, out var plan) && plan.HasSetter)
             {
                 sites.Add((assign, plan));
+                current = assign.Right;
+                value = current;
+                continue;
+            }
+
+            // 保留属性站点（override 链/显式属性 Retained）：使用点保持 C# 语法，
+            // 但转换后仍是 void setter，值消费时同样必须提升。
+            if (IsRetainedSettableProperty(assign.Left))
+            {
+                sites.Add((assign, null));
                 current = assign.Right;
                 value = current;
                 continue;
@@ -376,8 +386,23 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         {
             tempDecl,
         };
-        foreach (var (assign, plan) in sites.AsEnumerable().Reverse())
-            lifted.Add(SyntaxFactory.ExpressionStatement(BuildSetterCall(assign.Left, plan, tempIdent)));
+        foreach (var (assign, sitePlan) in sites.AsEnumerable().Reverse())
+        {
+            if (sitePlan != null)
+            {
+                lifted.Add(SyntaxFactory.ExpressionStatement(
+                    BuildSetterCall(assign.Left, sitePlan, tempIdent)));
+            }
+            else
+            {
+                // Retained 属性保持赋值形态，后续常规转换落成 setter 调用。
+                lifted.Add(SyntaxFactory.ExpressionStatement(
+                    SyntaxFactory.AssignmentExpression(
+                        SyntaxKind.SimpleAssignmentExpression,
+                        (ExpressionSyntax)Visit(assign.Left)!,
+                        tempIdent.WithLeadingTrivia(SyntaxFactory.Space))));
+            }
+        }
 
         if (outerNonSite != null)
             lifted.Add(SyntaxFactory.ExpressionStatement(
@@ -1266,6 +1291,20 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
+    /// override 链 / 显式属性被 PropertyRule 判 Retained：使用点保持 C# 语法（
+    /// 不在 _active 里），但转换后仍是 void setter，赋值表达式的值被消费时同样
+    /// 必须提升，否则内层赋值留在临时初始化器里、降形后初始化器为 void。
+    /// </summary>
+    private bool IsRetainedSettableProperty(ExpressionSyntax left)
+    {
+        if (left is not (IdentifierNameSyntax or MemberAccessExpressionSyntax)) return false;
+        if (_model.GetSymbolInfo(left).Symbol is not IPropertySymbol { SetMethod: not null } prop)
+            return false;
+        if (!prop.IsDefinition) prop = prop.OriginalDefinition;
+        return !_active.ContainsKey(PropertyPlan.SiteKey(prop));
+    }
+
+    /// <summary>
     /// 位置属性残余使用点回退认领：IdentifierName 取其所在类型为接收者；
     /// MemberAccess 取左接收者静态类型；MemberBinding 取条件接收表达式类型。
     /// 类型比较走 OriginalDefinition 显示串（跨编译稳定，构造泛型归一），
@@ -1483,12 +1522,14 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
                 })));
 
     /// <summary>null/default 临时声明类型：站点绑定类型优先（泛型属性声明的
-    /// TypeDisplay 可能是裸类型参数名 T，不能作显式类型），退回符号类型显示。</summary>
-    private string NullTempTypeDisplay((AssignmentExpressionSyntax Assign, PropertyPlan Plan) innermost)
+    /// TypeDisplay 可能是裸类型参数名 T，不能作显式类型），退回符号类型显示；
+    /// 保留属性站点（plan 为空）只有绑定类型可用，取不到时退回 object。</summary>
+    private string NullTempTypeDisplay((AssignmentExpressionSyntax Assign, PropertyPlan? Plan) innermost)
     {
         if (_model.GetTypeInfo(innermost.Assign.Left).Type is { } bound
             && bound.TypeKind != TypeKind.Error)
             return bound.ToDisplayString();
+        if (innermost.Plan is null) return "object";
         var declared = innermost.Plan.Property.Type;
         if (declared.TypeKind == TypeKind.TypeParameter) return "object";
         return declared.ToDisplayString();

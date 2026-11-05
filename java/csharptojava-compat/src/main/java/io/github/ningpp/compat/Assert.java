@@ -47,12 +47,24 @@ public final class Assert {
         isTrue(value == null, message);
     }
 
+    public static void isNull(Object value, String format, Object... args) {
+        if (value != null) {
+            throw new AssertionError(StringHelper.formatCs(format, args));
+        }
+    }
+
     public static void isNotNull(Object value) {
         isTrue(value != null);
     }
 
     public static void isNotNull(Object value, String message) {
         isTrue(value != null, message);
+    }
+
+    public static void isNotNull(Object value, String format, Object... args) {
+        if (value == null) {
+            throw new AssertionError(StringHelper.formatCs(format, args));
+        }
     }
 
     public static void areEqual(Object expected, Object actual) {
@@ -108,6 +120,30 @@ public final class Assert {
         }
     }
 
+    public static void areNotEqual(double expected, double actual, double tolerance) {
+        if (Math.abs(expected - actual) <= tolerance) {
+            throw new AssertionError("Expected: " + expected + " and: " + actual + " to differ by at most " + tolerance);
+        }
+    }
+
+    public static void areNotEqual(double expected, double actual, double tolerance, String message) {
+        if (Math.abs(expected - actual) <= tolerance) {
+            throw new AssertionError(message + " Expected: " + expected + " and: " + actual + " to differ by at most " + tolerance);
+        }
+    }
+
+    public static void areNotEqual(double expected, double actual, double tolerance, String format, Object... args) {
+        if (Math.abs(expected - actual) <= tolerance) {
+            throw new AssertionError(StringHelper.formatCs(format, args));
+        }
+    }
+
+    public static void areEqual(double expected, double actual, double tolerance, String format, Object... args) {
+        if (Math.abs(expected - actual) > tolerance) {
+            throw new AssertionError(StringHelper.formatCs(format, args));
+        }
+    }
+
     public static void areSame(Object expected, Object actual) {
         if (expected != actual) {
             throw new AssertionError("Expected same instance");
@@ -120,11 +156,67 @@ public final class Assert {
         }
     }
 
+    public static void areNotSame(Object expected, Object actual) {
+        if (expected == actual) {
+            throw new AssertionError("Expected different instances of: " + actual);
+        }
+    }
+
+    public static void areNotSame(Object expected, Object actual, String message) {
+        if (expected == actual) {
+            throw new AssertionError(message);
+        }
+    }
+
+    /** NUnit {@code Assert.IsInstanceOfType(object, Type)}. */
+    public static void isInstanceOfType(Object value, Class<?> expectedType) {
+        if (expectedType == null || !expectedType.isInstance(value)) {
+            throw new AssertionError(
+                "Expected an instance of " + (expectedType == null ? "null" : expectedType.getName())
+                + " but was: " + (value == null ? "null" : value.getClass().getName()));
+        }
+    }
+
+    /** NUnit {@code Assert.IsInstanceOfType(object)} — any non-null object qualifies. */
+    public static void isInstanceOfType(Object value) {
+        if (value == null) {
+            throw new AssertionError("Expected an instance but was null");
+        }
+    }
+
+    /** NUnit {@code Assert.Inconclusive(message)}. */
+    public static void inconclusive(String message) {
+        throw new AssertionError(message);
+    }
+
+    /** NUnit {@code Assert.Throws}: fails when the action completes normally. */
+    public static Exception throwsException(ThrowingRunnable action) {
+        try {
+            action.run();
+        } catch (Exception e) {
+            return e;
+        }
+        throw new AssertionError("Expected an exception but none was thrown");
+    }
+
+    /**
+     * An action that may throw a checked exception, so lambdas passed to
+     * {@link #throwsException(ThrowingRunnable)} compile without a wrapper.
+     */
+    @FunctionalInterface
+    public interface ThrowingRunnable {
+        void run() throws Exception;
+    }
+
     public static void fail() {
         throw new AssertionError("Assert.Fail");
     }
 
     public static void fail(String message) {
         throw new AssertionError(message);
+    }
+
+    public static void fail(String format, Object... args) {
+        throw new AssertionError(StringHelper.formatCs(format, args));
     }
 }

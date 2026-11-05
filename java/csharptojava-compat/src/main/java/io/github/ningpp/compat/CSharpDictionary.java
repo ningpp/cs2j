@@ -11,6 +11,19 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
     private final LinkedHashMap<K, V> map;
     private final CSharpGenericEqualityComparer<K> comparer;
 
+    /** C# Enumerable.ToDictionary(): a CSharpDictionary collected from a Stream. */
+    public static <K, V, T> java.util.stream.Collector<T, ?, CSharpDictionary<K, V>> toCSharpMap(
+            java.util.function.Function<? super T, ? extends K> key,
+            java.util.function.Function<? super T, ? extends V> value) {
+        return java.util.stream.Collector.of(
+            CSharpDictionary::new,
+            (map, item) -> map.put(key.apply(item), value.apply(item)),
+            (a, b) -> {
+                a.map.putAll(b.map);
+                return a;
+            });
+    }
+
     public CSharpDictionary() {
         this.map = new LinkedHashMap<>();
         this.comparer = null;
@@ -220,6 +233,16 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
             return false;
         }
         result.value = ((Number) map.get(key)).intValue();
+        return true;
+    }
+
+    /** C# Dictionary&lt;K,double&gt;.TryGetValue(key, out double): the DoubleHolder
+     * overload used when the converter lowers a floating out slot to a holder. */
+    public boolean tryGetValue(K key, DoubleHolder result) {
+        if (!map.containsKey(key)) {
+            return false;
+        }
+        result.value = ((Number) map.get(key)).doubleValue();
         return true;
     }
 

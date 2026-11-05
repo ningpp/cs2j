@@ -610,7 +610,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             if (property.Name == "Length"
                 && context.GetTypeInfo(node.Expression).Type is IArrayTypeSymbol)
             {
-                return $"{receiver}.length";
+                // A cast-shaped receiver (`(T[]) CSharpArray.toTypedArray(...)`)
+                // binds `.length` to the cast's operand without the extra parens.
+                return receiver.TrimStart().StartsWith("(", StringComparison.Ordinal)
+                    ? $"({receiver}).length"
+                    : $"{receiver}.length";
             }
 
             // C# string.Length -> java.lang.String.length(). Keyed on the semantic
@@ -845,6 +849,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         var configKey = context.TypeMappings.HasTypeMapping(display) ? display
             : context.TypeMappings.HasTypeMapping(fqn) ? fqn
             : null;
+        // Metadata generics are keyed by the backtick name (Comparer`1) while
+        // Roslyn spellings for a constructed type carry the type arguments.
+        if (configKey == null && type.TypeArguments.Length > 0)
+        {
+            var ns = type.ContainingNamespace?.ToDisplayString();
+            var metadataKey = string.IsNullOrWhiteSpace(ns)
+                ? type.OriginalDefinition.MetadataName
+                : $"{ns}.{type.OriginalDefinition.MetadataName}";
+            if (context.TypeMappings.HasTypeMapping(metadataKey))
+                configKey = metadataKey;
+        }
         if (configKey == null)
         {
             return false;

@@ -177,7 +177,8 @@ field.Initializer = $"new {propType}()"; } else if (sym?.Type is INamedTypeSymbo
 field.Initializer = $"{ctx.MapType(enumType)}.values()[0]"; } } 
 private static void InitExpression(JavaFieldDeclaration field, PropertyDeclarationSyntax p, IPropertySymbol? sym, string fieldName, bool isStatic, ConversionContext ctx)
 { field.Initializer = Expr(p.Initializer!.Value, ctx);
-field.Initializer = IterableCoercion.CoerceOrSame(p.Initializer.Value, field.Initializer, sym?.Type, ctx); if (sym?.Type is INamedTypeSymbol iter
+field.Initializer = IterableCoercion.CoerceOrSame(p.Initializer.Value, field.Initializer, sym?.Type, ctx); if (field.Initializer != null)
+field.Initializer = IListCoercion.CoerceOrSame(p.Initializer.Value, field.Initializer, sym?.Type, ctx); if (sym?.Type is INamedTypeSymbol iter
 && (iter.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>" || iter.ToDisplayString() == "System.Collections.IEnumerable")
 && ctx.SemanticModel != null && ctx.GetTypeInfo(p.Initializer.Value).Type is IArrayTypeSymbol && ctx.HasPendingPreStatements) {
 var stmts = ctx.DrainBranchScopedPreStatements().Concat(ctx.DrainPreStatements()).ToList();

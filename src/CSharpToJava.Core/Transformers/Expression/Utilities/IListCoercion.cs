@@ -72,14 +72,22 @@ internal static class IListCoercion
         // FunctionQuery/StringFunctions copy constructors `_args = tmp`,
         // RootAction passing UseAttributeSetsAction.UsedSets to an ICollection
         // parameter, XmlListConverter.ToList returning its object[] buffer).
-        // Java primitive arrays (int[] etc.) have no reference T[] to view, so
-        // they stay on the caller's boxed-stream handling.
-        if (context.GetTypeInfo(source).Type is IArrayTypeSymbol { Rank: 1 } arraySource
-            && !IsJavaPrimitiveMapped(context.MapType(arraySource.ElementType)))
+        // Java primitive arrays (int[] etc.) have no reference T[] to view; the
+        // reflection-backed fromAny adapter boxes each element instead.
+        if (context.GetTypeInfo(source).Type is IArrayTypeSymbol { Rank: 1 } arraySource)
         {
-            context.AddImport("io.github.ningpp.compat.ArrayHelper");
             context.AddImport("io.github.ningpp.compat.CSharpIList");
-            rendered = $"CSharpIList.from(ArrayHelper.asListView({text}))";
+            if (IsJavaPrimitiveMapped(context.MapType(arraySource.ElementType)))
+            {
+                // Java primitive arrays (int[] etc.) are neither Collection nor
+                // Iterable; the reflection-backed fromAny adapter boxes each element.
+                rendered = $"CSharpIList.fromAny({text})";
+            }
+            else
+            {
+                context.AddImport("io.github.ningpp.compat.ArrayHelper");
+                rendered = $"CSharpIList.from(ArrayHelper.asListView({text}))";
+            }
             return true;
         }
 

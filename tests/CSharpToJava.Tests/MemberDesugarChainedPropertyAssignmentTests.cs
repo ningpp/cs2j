@@ -71,6 +71,31 @@ class ByRef<T>
         get { return _value; }
         set { _value = value; }
     }
+}
+
+abstract class BBoxBase
+{
+    public abstract string Box { get; set; }
+}
+class BBoxImpl : BBoxBase
+{
+    private string _box;
+    public override string Box
+    {
+        get { return _box; }
+        set { _box = value; }
+    }
+}
+class ChainReceiver
+{
+    public string After { get; set; }
+}
+class RetainedChainUse
+{
+    void M(ChainReceiver u, BBoxImpl d, string v)
+    {
+        u.After = d.Box = v;
+    }
 }";
 
     [Fact]
@@ -118,6 +143,22 @@ class ByRef<T>
         Assert.DoesNotContain("T __cs2j_pval", code, StringComparison.Ordinal);
         Assert.Contains("string __cs2j_pval", code, StringComparison.Ordinal);
         Assert.Contains("set_Raw(", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ChainedRetainedProperty_ValueIsLiftedBeforeSetter()
+    {
+        var code = Rewrite();
+
+        // 内层 override 链属性被 Retained（使用点保持 C# 语法），但转换后仍是 void
+        // setter：整段赋值表达式不能留在临时初始化器里（`var __pval = d.Box = v;`
+        // 内层赋值降为 setter 后初始化器为 void，Java 无法推断类型）。
+        Assert.DoesNotContain("= d.Box = v;", code, StringComparison.Ordinal);
+
+        // 内层保留属性站点发射为原样赋值语句，读回同一临时。
+        Assert.Matches(@"d\.Box = __cs2j_pval\d+;", code);
+        // 外层已展开属性的 setter 调用仍在，消费临时。
+        Assert.Matches(@"set_After\(__cs2j_pval\d+\)", code);
     }
 
     private static string Rewrite()

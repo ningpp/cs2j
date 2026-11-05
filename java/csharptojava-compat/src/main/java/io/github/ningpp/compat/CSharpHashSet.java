@@ -11,6 +11,19 @@ public class CSharpHashSet<T> implements CSharpISet<T>, Cloneable {
     private final LinkedHashSet<T> set;
     private final CSharpGenericEqualityComparer<T> comparer;
 
+    /** C# Enumerable.ToHashSet(): a CSharpHashSet collected from a Stream. */
+    public static <T> java.util.stream.Collector<T, ?, CSharpHashSet<T>> toCSharpHashSet() {
+        return java.util.stream.Collector.of(
+            CSharpHashSet::new,
+            CSharpHashSet::add,
+            (a, b) -> {
+                for (T value : b) {
+                    a.add(value);
+                }
+                return a;
+            });
+    }
+
     public CSharpHashSet() {
         this.set = new LinkedHashSet<>();
         this.comparer = null;

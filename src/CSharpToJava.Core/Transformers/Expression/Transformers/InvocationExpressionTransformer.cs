@@ -2888,6 +2888,44 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return true;
         }
 
+        if (name == "ToHashSet" && argCount == 0)
+        {
+            var stream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            context.AddImport("io.github.ningpp.compat.CSharpHashSet");
+            rendered = $"{stream}.collect(CSharpHashSet.toCSharpHashSet())";
+            return true;
+        }
+
+        // C# ToDictionary(key, value[, comparer]) maps to the compat collector:
+        // a plain Java map is not a CSharpDictionary, and Lifecycle targets
+        // (CSharpList / Stream) expose no toMap. The comparer overload is
+        // dropped — insertion order is preserved by the compat map.
+        if (name == "ToDictionary" && argCount is 2 or 3)
+        {
+            var stream = receiverIsStream
+                ? receiver
+                : BuildStreamReceiver(receiver, memberAccess.Expression, context);
+            var keySelector = ExpressionTransformerFacade.Instance.Transform(
+                invocation.ArgumentList.Arguments[0].Expression, context);
+            var valueSelector = ExpressionTransformerFacade.Instance.Transform(
+                invocation.ArgumentList.Arguments[1].Expression, context);
+            context.AddImport("io.github.ningpp.compat.CSharpDictionary");
+            rendered = $"{stream}.collect(CSharpDictionary.toCSharpMap({keySelector}, {valueSelector}))";
+            return true;
+        }
+
+        // Enumerable.Contains on an array receiver: Java arrays expose no
+        // contains method (and primitive arrays have no generic fallback).
+        if (name == "Contains" && argCount == 1
+            && context.GetTypeInfo(memberAccess.Expression).Type is IArrayTypeSymbol)
+        {
+            context.AddImport("io.github.ningpp.compat.ArrayHelper");
+            rendered = $"ArrayHelper.contains({receiver}, {argumentText})";
+            return true;
+        }
+
         if ((name == "Concat" || name == "Union") && argCount == 1)
         {
             var first = receiverIsStream
@@ -3106,7 +3144,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var flatMapStream = receiverIsStream
                 ? receiver
                 : BuildStreamReceiver(receiver, memberAccess.Expression, context);
-            rendered = $"{flatMapStream}.flatMap({BuildFlatMapSelector(argumentText, context)})";
+            // C# SelectMany((item, index) => ...) has a two-parameter selector;
+            // Java's flatMap wants a unary Function, so the index-aware adapter
+            // feeds the running index and bridges the selector result to a Stream.
+            if (IsIndexedSelector(invocation.ArgumentList.Arguments[0].Expression, context))
+            {
+                context.AddImport("io.github.ningpp.compat.IndexedFlatMapFunction");
+                rendered = $"{flatMapStream}.flatMap(new IndexedFlatMapFunction<>({argumentText}))";
+            }
+            else
+            {
+                rendered = $"{flatMapStream}.flatMap({BuildFlatMapSelector(argumentText, context)})";
+            }
             return true;
         }
 

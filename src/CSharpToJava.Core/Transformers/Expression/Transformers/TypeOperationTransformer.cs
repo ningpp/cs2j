@@ -134,6 +134,17 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return $"CSharpGenericIterable.<{element}>fromAnyTyped({e})";
         }
 
+        // C# casts to the non-generic IEnumerable also become compat adapters:
+        // a Java cast to CSharpGenericIterable<Object> is not convertible from the
+        // generated collection classes (real chain: ((IEnumerable)tree).
+        // GetEnumerator()).
+        if (sym is INamedTypeSymbol { Name: "IEnumerable", TypeArguments.Length: 0 } nonGenericEnumerable
+            && nonGenericEnumerable.ContainingNamespace?.ToDisplayString() == "System.Collections")
+        {
+            c.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            return $"CSharpGenericIterable.fromAny({e})";
+        }
+
         // C# 从 IEnumerable 家族向具体集合/数组的向下转换（C# 语义是运行时类型
         // 检查）：兼容载体是独立接口，生成集合类并不实现它，Java 侧两个映射类型
         // 不可转换。先经适配器还原原始值再落 Java 强转（真实链 MSAGL

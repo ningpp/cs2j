@@ -259,6 +259,21 @@ public partial class StatementTransformer
         var retType = ResolveReturnTargetType(stmt, ctx);
         var srcType = ctx.GetTypeInfo(stmt.Expression).Type;
 
+        // JsonConvert.DeserializeObject<T> erases to Object in Java; restore the
+        // declared return type so member access on the result resolves (same
+        // bridge as the local-declaration position).
+        if (retType != null
+            && expr.TrimStart().StartsWith("JsonConvert.deserializeObject(", StringComparison.Ordinal))
+        {
+            var mappedReturn = ctx.MapType(retType);
+            if (mappedReturn is not ("Object" or "var"
+                or "int" or "long" or "short" or "byte" or "char"
+                or "boolean" or "float" or "double"))
+            {
+                expr = $"({mappedReturn}) {expr}";
+            }
+        }
+
         // list?.ToArray() 条件访问返回数组：裸 toArray() 是 Object[]，需类型化 generator（原始元素走 stream）
         if (srcType is IArrayTypeSymbol srcArr && retType is IArrayTypeSymbol
             && expr.Contains(".toArray()", StringComparison.Ordinal)

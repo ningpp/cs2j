@@ -219,7 +219,7 @@ public class FieldTransformer : IMemberTransformer
                 && fieldTypeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
                 && !CSharpToJava.Core.Transformers.Type.EnumTransformer.IsIntConstantMetadataEnum(enumType))
             {
-                javaField.Initializer = $"{context.MapType(enumType)}.values()[0]";
+                javaField.Initializer = $"{context.MapTypeAvoidingMemberShadow(enumType, javaField.Name)}.values()[0]";
             }
             else if (variable.Initializer == null
                 && fieldTypeSymbol?.SpecialType == SpecialType.System_Decimal)
@@ -310,7 +310,7 @@ public class FieldTransformer : IMemberTransformer
                     if (fieldTypeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumFieldType
                         && !CSharpToJava.Core.Transformers.Type.EnumTransformer.IsIntConstantMetadataEnum(enumFieldType))
                     {
-                        var javaEnumType = context.MapType(enumFieldType);
+                        var javaEnumType = context.MapTypeAvoidingMemberShadow(enumFieldType, javaField.Name);
                         javaField.Initializer = $"{javaEnumType}.values()[{javaField.Initializer}]";
                     }
                 }

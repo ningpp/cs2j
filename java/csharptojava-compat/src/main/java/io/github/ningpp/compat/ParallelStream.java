@@ -33,4 +33,13 @@ public class ParallelStream {
             body.accept(item);
         }
     }
+
+    /**
+     * C# Parallel.ForEach(IEnumerable&lt;T&gt;, Action&lt;T&gt;) — two-argument
+     * overload without ParallelOptions.
+     */
+    public static <T> void forEach(Iterable<? extends T> source,
+                                   java.util.function.Consumer<T> body) {
+        forEach(source, null, body);
+    }
 }

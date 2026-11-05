@@ -356,6 +356,55 @@
             ]
         },
         {
+            "csharp": "Microsoft.VisualStudio.TestTools.UnitTesting.StringAssert",
+            "java": "StringAssert",
+            "imports": [
+                "io.github.ningpp.compat.StringAssert"
+            ]
+        },
+        {
+            "csharp": "NUnit.Framework.StringAssert",
+            "java": "StringAssert",
+            "imports": [
+                "io.github.ningpp.compat.StringAssert"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.PriorityQueue`2",
+            "java": "CSharpPriorityQueue",
+            "imports": [
+                "io.github.ningpp.compat.CSharpPriorityQueue"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.Comparer`1",
+            "java": "Comparer",
+            "imports": [
+                "io.github.ningpp.compat.Comparer"
+            ]
+        },
+        {
+            "csharp": "System.AppContext",
+            "java": "AppContext",
+            "imports": [
+                "io.github.ningpp.compat.AppContext"
+            ]
+        },
+        {
+            "csharp": "Newtonsoft.Json.Serialization.DefaultContractResolver",
+            "java": "DefaultContractResolver",
+            "imports": [
+                "io.github.ningpp.compat.DefaultContractResolver"
+            ]
+        },
+        {
+            "csharp": "Newtonsoft.Json.Serialization.SnakeCaseNamingStrategy",
+            "java": "SnakeCaseNamingStrategy",
+            "imports": [
+                "io.github.ningpp.compat.SnakeCaseNamingStrategy"
+            ]
+        },
+        {
             "csharp": "System.Collections.Generic.ISet`1",
             "java": "CSharpISet",
             "imports": [
@@ -7673,6 +7722,11 @@
             "type": "System.Enum",
             "method": "Format",
             "javaMethod": "EnumHelper.format"
+        },
+        {
+            "type": "System.Enum",
+            "method": "IsDefined",
+            "javaMethod": "EnumHelper.isDefined"
         },
         {
             "type": "System.Enum",

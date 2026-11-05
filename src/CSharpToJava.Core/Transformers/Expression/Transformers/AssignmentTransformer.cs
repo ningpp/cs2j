@@ -93,6 +93,12 @@ public class AssignmentTransformer : IIRExpressionTransformer
         if (op == "=" && symbol is IParameterSymbol { RefKind: RefKind.Out or RefKind.Ref } param)
             return $"{ConversionContext.EscapeJavaKeyword(param.Name)}.value = {f.Transform(rhs, context)}";
 
+        // C# user-defined compound assignment (sum += c) lowers to
+        // sum = Type.add(sum, c): Java has no operator overloading, and the
+        // compat/system operator methods are static.
+        if (op != "=" && TryRenderUserDefinedCompound(a, op, context, out var compoundCall))
+            return compoundCall;
+
         var rightText = f.Transform(rhs, context);
         // C# 允许方法组直接赋给兼容委托（真实链 XmlReaderSettings：
         // `_addValidationFunc = AddValidationInternal;`）。标识符转换器只会发出
@@ -166,6 +172,54 @@ public class AssignmentTransformer : IIRExpressionTransformer
         }
 
         return $"{f.Transform(lhs, context)} {op} {rightText}";
+    }
+
+    /// <summary>
+    /// Lowers a compound assignment on a user-defined operator type into the
+    /// static operator-method call (<c>left = Type.add(left, right)</c>). Only
+    /// simple identifiers/member accesses qualify: repeated evaluation of an
+    /// indexer/no-op would change C# semantics.
+    /// </summary>
+    private static bool TryRenderUserDefinedCompound(
+        AssignmentExpressionSyntax a, string op, ConversionContext context, out string rendered)
+    {
+        rendered = string.Empty;
+        var opSymbol = op switch
+        {
+            "+=" => "op_Addition",
+            "-=" => "op_Subtraction",
+            "*=" => "op_Multiply",
+            "/=" => "op_Division",
+            "%=" => "op_Modulus",
+            "&=" => "op_BitwiseAnd",
+            "|=" => "op_BitwiseOr",
+            "^=" => "op_ExclusiveOr",
+            "<<=" => "op_LeftShift",
+            ">>=" => "op_RightShift",
+            _ => null,
+        };
+        if (opSymbol == null)
+            return false;
+        if (a.Left is not (IdentifierNameSyntax or MemberAccessExpressionSyntax))
+            return false;
+
+        if (context.GetTypeInfo(a.Left).Type is not INamedTypeSymbol lhsType)
+            return false;
+        if (!lhsType.GetMembers(opSymbol).OfType<IMethodSymbol>()
+                .Any(m => m.IsStatic && m.Parameters.Length == 2))
+        {
+            return false;
+        }
+
+        var f = ExpressionTransformerFacade.Instance;
+        var left = f.Transform(a.Left, context);
+        var right = f.Transform(a.Right, context);
+        var owner = context.MapType(lhsType);
+        var method = OperatorTransformer.OpSymbolToJavaName.TryGetValue(opSymbol, out var javaName)
+            ? javaName
+            : opSymbol;
+        rendered = $"{left} = {owner}.{method}({left}, {right})";
+        return true;
     }
 
     /// <summary>
@@ -250,6 +304,10 @@ public class AssignmentTransformer : IIRExpressionTransformer
         var receiver = a.Left is MemberAccessExpressionSyntax ma ? f.Transform(ma.Expression, c) + "." : "";
         var name = char.ToUpperInvariant(p.Name[0]) + p.Name[1..];
         var right = f.Transform(a.Right, c);
+        // IList 家族属性赋值槽位：与字段/参数/返回位一致，List<T>/T[] 值
+        // 须包 CSharpIList.from 适配视图（真实链 BalloonLayout
+        // `NonTreeEdges = tree.NonTreeEdges;`）。
+        right = IListCoercion.CoerceOrSame(a.Right, right, p.Type, c);
         // C# 隐式数值 → decimal 属性赋值（真实链 XmlSchemaInference
         // `el.MinOccurs = 0`、SchemaSetCompiler `virtualSeq.MinOccurs = 1`）：
         // setter 形参落 compat Decimal，数值须经 Decimal.valueOf 包装。

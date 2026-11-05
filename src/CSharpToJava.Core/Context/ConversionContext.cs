@@ -896,6 +896,54 @@ public class ConversionContext
         return QualifyMappedTypeIfCurrentTypeNameCollides(typeSymbol, result);
     }
 
+    /// <summary>
+    /// Maps <paramref name="typeSymbol"/> for a field initializer while avoiding the
+    /// simple-name shadowing trap. In Java the scope of a field declaration includes
+    /// its own initializer (JLS 6.3), so a field named after its enum type — e.g. the
+    /// preprocessed MSAGL source <c>public Direction Direction;</c> — makes
+    /// <c>Direction.values()[0]</c> resolve <c>Direction</c> to the field itself
+    /// ("self-reference in initializer"). When the member name equals the first
+    /// identifier segment of the mapped type name, emit the namespace-qualified
+    /// form (<c>Demo.Direction.values()[0]</c>) so the initializer binds to the type.
+    /// </summary>
+    public string MapTypeAvoidingMemberShadow(ITypeSymbol typeSymbol, string memberName)
+    {
+        var mapped = MapType(typeSymbol);
+        if (typeSymbol is not INamedTypeSymbol named || string.IsNullOrEmpty(memberName))
+            return mapped;
+
+        // Generic arguments are irrelevant to the shadowing question; compare only
+        // the raw base name (the erased identifier sequence before '<').
+        var baseName = mapped;
+        var genericStart = baseName.IndexOf('<');
+        if (genericStart >= 0)
+            baseName = baseName.Substring(0, genericStart);
+
+        if (named.ContainingType != null && !baseName.Contains('.'))
+        {
+            mapped = MapType(named.ContainingType) + "." + mapped;
+            baseName = mapped;
+            genericStart = baseName.IndexOf('<');
+            if (genericStart >= 0)
+                baseName = baseName.Substring(0, genericStart);
+        }
+
+        var dotIndex = baseName.IndexOf('.');
+        var firstSegment = dotIndex < 0 ? baseName : baseName.Substring(0, dotIndex);
+        if (!string.Equals(firstSegment, memberName, StringComparison.Ordinal))
+            return mapped;
+
+        var ns = named.ContainingNamespace?.ToDisplayString();
+        var package = NamespaceToPackage(ns ?? string.Empty);
+        if (string.IsNullOrEmpty(package)
+            || mapped.StartsWith(package + ".", StringComparison.Ordinal))
+        {
+            return mapped;
+        }
+
+        return $"{package}.{mapped}";
+    }
+
     private readonly Dictionary<string, bool> _mapsToSourceTypeCache = new(StringComparer.Ordinal);
     private readonly Dictionary<(string TypeName, string PropertyName), bool> _cSharpStylePropertyCache = new();
 
@@ -1590,6 +1638,16 @@ public class ConversionContext
 
     private string? BuildImportName(ITypeSymbol targetType, string mappedType)
     {
+        // `using Tuple = System.Tuple;` names the non-generic runtime wrapper,
+        // which has no Java counterpart: the mappings used at expression sites
+        // point at Map.Entry/Map.entry, so emitting `dotnet.system.Tuple` would
+        // import a package that does not exist.
+        if (targetType is INamedTypeSymbol { Name: "Tuple", IsGenericType: false }
+            && targetType.ContainingNamespace?.ToDisplayString() == "System")
+        {
+            return null;
+        }
+
         var bareMappedType = StripTypeArguments(mappedType);
         if (bareMappedType.Contains('.'))
             return bareMappedType;
