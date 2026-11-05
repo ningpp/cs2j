@@ -101,6 +101,29 @@ class Test
         Assert.Contains("case FuncType.FuncA:", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// `using Tuple = System.Tuple;` names the non-generic runtime wrapper,
+    /// which has no Java counterpart. The alias must not produce the bogus
+    /// fallback import `dotnet.system.Tuple` (real chain: MSAGL test module).
+    /// </summary>
+    [Fact]
+    public void UsingAlias_NonGenericSystemTuple_DoesNotEmitBogusImport()
+    {
+        var result = Convert(@"
+using System;
+using Tuple = System.Tuple;
+class Test
+{
+    object M()
+    {
+        return Tuple.Create(1, ""x"");
+    }
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.DoesNotContain("import dotnet.system.Tuple;", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -879,8 +879,16 @@ public class TypeMappingService
                 // 会劫持同简名的 compat 导入并直接拒编（真实链 dotnet-uri 的
                 // KeyNotFoundException）。此类命名空间类型走各自的 compat 类型
                 // 映射导入，不经命名空间门。
+                // 非泛型 System.Tuple 同样没有 Java 对应物（表达式站点映射到
+                // Map.Entry/Map.entry）：兜底命名空间映射会生成不存在的
+                // dotnet.system.Tuple 包（MSAGL 测试模块的
+                // `using Tuple = System.Tuple;`），与 BuildImportName 的守卫一致。
+                var isNonGenericSystemTuple =
+                    typeSymbol is INamedTypeSymbol { Name: "Tuple", IsGenericType: false }
+                    && string.Equals(ns, "System", StringComparison.Ordinal);
                 if (!string.IsNullOrEmpty(javaPackage)
-                    && !javaPackage.StartsWith("dotnet.System.", StringComparison.Ordinal))
+                    && !javaPackage.StartsWith("dotnet.System.", StringComparison.Ordinal)
+                    && !isNonGenericSystemTuple)
                 {
                     // 源内定义类型登记为 source-defined：其包可能是未映射
                     // System.* 命名空间的恒等形态（package System.Text 的

@@ -472,12 +472,23 @@ internal static class ExpressionDesugarTempLifter
         if (lambda.Body is not ExpressionSyntax expression)
             return current;
 
-        var allStatements = new List<StatementSyntax>(statements)
+        var returnsValue = LambdaReturnsValue(originalLambda ?? lambda, model);
+        var allStatements = new List<StatementSyntax>(statements);
+
+        if (returnsValue)
         {
-            LambdaReturnsValue(originalLambda ?? lambda, model)
-                ? SyntaxFactory.ReturnStatement(expression)
-                : SyntaxFactory.ExpressionStatement(expression),
-        };
+            allStatements.Add(SyntaxFactory.ReturnStatement(expression));
+        }
+        else if (expression is not IdentifierNameSyntax)
+        {
+            allStatements.Add(SyntaxFactory.ExpressionStatement(expression));
+        }
+
+        // A bare identifier tail is the C24-lifted temp (`__ed_N`) standing in
+        // for the object creation; `__ed_N;` is not a legal C# expression
+        // statement, and the lifted declaration + member assignments above
+        // already carry every side effect, so the tail is simply dropped.
+
         var block = SyntaxFactory.Block(SyntaxFactory.List(allStatements));
 
         // WithBlock keeps the old expression body node in place (it surfaces as
@@ -496,6 +507,26 @@ internal static class ExpressionDesugarTempLifter
     }
 
     /// <summary>
+    /// Assertion APIs whose callback argument is executed as a void delegate:
+    /// the callback's value is discarded no matter which overload (Action or
+    /// Func&lt;object&gt;) the compiler binds. Recognized by name so the
+    /// decision stays deterministic when the test framework metadata is absent
+    /// from the preprocessing compilation.
+    /// </summary>
+    private static readonly HashSet<string> VoidCallbackAssertionMethods =
+        new(StringComparer.Ordinal)
+        {
+            "ThrowsException",
+            "ThrowsExceptionAsync",
+            "Throws",
+            "ThrowsAsync",
+            "DoesNotThrow",
+            "DoesNotThrowAsync",
+            "Catch",
+            "CatchAsync",
+        };
+
+    /// <summary>
     /// True when the expression-bodied lambda's converted delegate type
     /// (Action vs Func/...) returns a value — the tail statement must then be
     /// <c>return …</c>; a void delegate gets a plain expression statement.
@@ -510,6 +541,9 @@ internal static class ExpressionDesugarTempLifter
     private static bool LambdaReturnsValue(
         AnonymousFunctionExpressionSyntax lambda, SemanticModel? model)
     {
+        if (IsVoidCallbackAssertionArgument(lambda, model))
+            return false;
+
         if (model == null)
             return BodyReturnsValue(null, lambda);
 
@@ -523,6 +557,58 @@ internal static class ExpressionDesugarTempLifter
         }
 
         return BodyReturnsValue(model, lambda);
+    }
+
+    /// <summary>
+    /// True when the lambda is an argument of an invocation whose method name
+    /// belongs to <see cref="VoidCallbackAssertionMethods"/> (e.g.
+    /// <c>Assert.ThrowsException&lt;T&gt;(() =&gt; new Foo { X = 1 })</c>).
+    /// Casts/parentheses around the lambda are skipped; other arguments before
+    /// the lambda do not matter because the enclosing invocation is inspected.
+    /// </summary>
+    private static bool IsVoidCallbackAssertionArgument(
+        AnonymousFunctionExpressionSyntax lambda, SemanticModel? model)
+    {
+        var invocation = EnclosingInvocation(lambda);
+        if (invocation == null)
+            return false;
+
+        var name = ResolveInvocationMethodName(invocation, model);
+        return name != null && VoidCallbackAssertionMethods.Contains(name);
+    }
+
+    private static InvocationExpressionSyntax? EnclosingInvocation(
+        AnonymousFunctionExpressionSyntax lambda)
+    {
+        SyntaxNode? node = lambda.Parent;
+        while (node is ParenthesizedExpressionSyntax or CastExpressionSyntax)
+            node = node.Parent;
+
+        return node is ArgumentSyntax
+        {
+            Parent.Parent: InvocationExpressionSyntax invocation,
+        }
+            ? invocation
+            : null;
+    }
+
+    /// <summary>
+    /// Bound method symbol first (handles generic assertion methods); syntactic
+    /// method spelling is the fallback when the call does not bind.
+    /// </summary>
+    private static string? ResolveInvocationMethodName(
+        InvocationExpressionSyntax invocation, SemanticModel? model)
+    {
+        if (model?.GetSymbolInfo(invocation).Symbol is IMethodSymbol method)
+            return method.Name;
+
+        return invocation.Expression switch
+        {
+            MemberAccessExpressionSyntax member => member.Name.Identifier.Text,
+            IdentifierNameSyntax identifier => identifier.Identifier.Text,
+            GenericNameSyntax generic => generic.Identifier.Text,
+            _ => null,
+        };
     }
 
     /// <summary>

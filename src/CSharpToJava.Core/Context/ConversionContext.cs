@@ -1636,7 +1636,7 @@ public class ConversionContext
         return registered;
     }
 
-    private string? BuildImportName(ITypeSymbol targetType, string mappedType)
+    internal string? BuildImportName(ITypeSymbol targetType, string mappedType)
     {
         // `using Tuple = System.Tuple;` names the non-generic runtime wrapper,
         // which has no Java counterpart: the mappings used at expression sites

@@ -262,20 +262,14 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
         // 注册别名
         if (_context.RegisterUsingAlias(aliasName, typeSymbol, location))
         {
-            // 为目标类型添加必要的导入
-            var javaType = _context.MapType(typeSymbol);
-
-            // 从完全限定类型名提取包名（如果需要）
-            var lastDotIndex = javaType.LastIndexOf('.');
-            if (lastDotIndex > 0)
+            // 为目标类型添加必要的导入。复用 BuildImportName：别名导入必须
+            // 遵守与类型使用点相同的守卫（非泛型 System.Tuple 无 Java 对应物，
+            // 不能退化成不存在的 dotnet.system.Tuple 包），并保留嵌套类型
+            // （如 java.util.Map.Entry）的完整导入名。
+            var importName = _context.BuildImportName(typeSymbol, _context.MapType(typeSymbol));
+            if (!string.IsNullOrWhiteSpace(importName))
             {
-                var packageName = javaType.Substring(0, lastDotIndex);
-
-                // 检查是否需要添加导入（排除 java.lang）
-                if (!packageName.StartsWith("java.lang"))
-                {
-                    _context.AddImport(javaType);
-                }
+                _context.AddImport(importName!);
             }
         }
     }
