@@ -72,6 +72,40 @@ class Test
         Assert.Contains("sideEffect()", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void DiscardAssignmentInAssertCallback_DoesNotReturn_UndeclaredValue()
+    {
+        var result = Convert("""
+#pragma warning disable
+using System;
+
+class Test
+{
+    static void Run(SomeEnumerator enumerator)
+    {
+        Assert.ThrowsException<NotImplementedException>(() => _ = enumerator.Current);
+    }
+}
+
+class SomeEnumerator
+{
+    public int Current => 42;
+}
+""");
+
+        _out.WriteLine(result.GeneratedCode ?? "FAILED");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode ?? "";
+
+        // `_` is reserved in Java: neither an undeclared `_Value` nor a return
+        // of the discard target may survive.
+        Assert.DoesNotContain("_Value", code, StringComparison.Ordinal);
+        Assert.Contains("throwsException", code, StringComparison.Ordinal);
+        Assert.Contains("getCurrent()", code, StringComparison.Ordinal);
+        // The callback tail must not re-read the discard target.
+        Assert.DoesNotContain("return _", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

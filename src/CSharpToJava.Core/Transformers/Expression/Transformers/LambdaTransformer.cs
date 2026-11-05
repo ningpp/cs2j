@@ -187,9 +187,19 @@ public class LambdaTransformer : IIRExpressionTransformer
         var preBefore = context.HasPendingPreStatements
             ? context.DrainPreStatements().ToList()
             : new List<string>();
+        // A discard target (`_ = expr`, e.g. `Assert.ThrowsException(() => _ =
+        // obj.Prop)`) has no value to re-read: the emitted assignment already
+        // reduces to the RHS call, and reading the target would produce an
+        // undeclared `_Value` (Java reserves `_`).
+        var isDiscardTarget = assignment.Left is IdentifierNameSyntax
+        {
+            Identifier.ValueText: "_",
+        };
         // 赋值表达式的值 = 赋入值：按值位置重读左值（属性 → getX()）。
-        var value = IdentifierExpressionTransformer.TransformAssignmentTargetAsValue(
-            assignment.Left, context);
+        var value = isDiscardTarget
+            ? null
+            : IdentifierExpressionTransformer.TransformAssignmentTargetAsValue(
+                assignment.Left, context);
         var preAfter = context.HasPendingPreStatements
             ? context.DrainPreStatements().ToList()
             : new List<string>();
@@ -197,7 +207,8 @@ public class LambdaTransformer : IIRExpressionTransformer
         foreach (var (oldName, newName) in paramRenames)
         {
             statement = Regex.Replace(statement, $@"\b{Regex.Escape(oldName)}\b", newName);
-            value = Regex.Replace(value, $@"\b{Regex.Escape(oldName)}\b", newName);
+            if (value != null)
+                value = Regex.Replace(value, $@"\b{Regex.Escape(oldName)}\b", newName);
         }
 
         var lines = new List<string>();
@@ -205,7 +216,7 @@ public class LambdaTransformer : IIRExpressionTransformer
         lines.Add(statement + ";");
         lines.AddRange(preAfter.Select(s => s.TrimEnd(';') + ";"));
 
-        if (LambdaReturnsValue(node, context))
+        if (value != null && LambdaReturnsValue(node, context))
             lines.Add($"return {value};");
 
         return $"{paramStr} -> {{\n        {string.Join("\n        ", lines)}\n    }}";

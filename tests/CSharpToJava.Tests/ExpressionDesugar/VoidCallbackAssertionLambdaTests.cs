@@ -94,6 +94,31 @@ public sealed class VoidCallbackAssertionLambdaTests
         }
         """;
 
+    /// <summary>
+    /// Discard-assignment tail (<c>() =&gt; _ = obj.Prop</c>) inside an assertion
+    /// callback. The initializer makes the desugar pass rewrite this lambda (the
+    /// tail then assigns the lifted <c>__ed_N</c> temp to the discard), which is
+    /// the void-tail path that used to render <c>_ = …;</c> — Java reserved
+    /// <c>_</c>, so it became an undeclared <c>_Value</c>.
+    /// </summary>
+    private const string DiscardAssignmentSource = """
+        #pragma warning disable
+        using System;
+
+        public sealed class Foo
+        {
+            public int X { get; set; }
+        }
+
+        public static class Sample
+        {
+            public static void M()
+            {
+                Assert.ThrowsException<Exception>(() => _ = new Foo { X = 1 }.X);
+            }
+        }
+        """;
+
     [Fact]
     public void AssertThrowsExceptionCallback_DoesNotReturnLiftedTemp()
     {
@@ -138,6 +163,19 @@ public sealed class VoidCallbackAssertionLambdaTests
         Assert.Contains("__ed_", result.OutputCode, StringComparison.Ordinal);
         Assert.DoesNotContain("return __ed", result.OutputCode, StringComparison.Ordinal);
         AssertNoBareLiftedTempStatement(result.OutputCode);
+    }
+
+    [Fact]
+    public void DiscardAssignmentTail_IsMaterializedAsDiscardTemp()
+    {
+        var result = Run(DiscardAssignmentSource);
+        var code = result.OutputCode;
+
+        Assert.True(result.Changed,
+            string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        Assert.Contains("var __cs2jDiscard", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("_ =", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("return _", code, StringComparison.Ordinal);
     }
 
     /// <summary>`__ed_N;` is not a legal C# statement; the tail must be omitted.</summary>

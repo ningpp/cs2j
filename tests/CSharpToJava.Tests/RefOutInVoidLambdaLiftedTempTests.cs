@@ -94,6 +94,62 @@ public class RefOutInVoidLambdaLiftedTempTests
         return new RefOutInRewriter().Rewrite(Source, model);
     }
 
+    /// <summary>
+    /// The preprocessing compilation carries no MSTest metadata: <c>Assert</c>
+    /// does not bind, so the callback's converted delegate type is unknown and
+    /// the lifted <c>__callN</c> temp used to be returned from a callback that
+    /// the assertion API discards.
+    /// </summary>
+    private const string AssertCallbackSource = """
+        #pragma warning disable
+        using System;
+
+        public struct Router
+        {
+            public bool RouteEdgeToPort(out int v) { v = 0; return true; }
+        }
+
+        public static class H
+        {
+            public static void M(Router router)
+            {
+                Assert.ThrowsException<ArgumentNullException>(
+                    () => router.RouteEdgeToPort(out _));
+            }
+        }
+        """;
+
+    private static RefOutInRewriterResult RunAssertCallback()
+    {
+        var tree = CSharpSyntaxTree.ParseText(AssertCallbackSource, ParseOptions);
+        var compilation = CSharpCompilation.Create(
+            "roi-void-assert-temp-" + Guid.NewGuid().ToString("N"),
+            new[] { tree },
+            GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        return new RefOutInRewriter().Rewrite(AssertCallbackSource, model);
+    }
+
+    [Fact]
+    public void AssertThrowsException_OutDiscard_Lambda_Does_Not_Return_Lifted_Temp()
+    {
+        var result = RunAssertCallback();
+
+        Assert.True(result.Changed,
+            string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        Assert.DoesNotContain("out _", result.OutputCode);
+        Assert.Contains("__call", result.OutputCode);
+
+        var outputTree = CSharpSyntaxTree.ParseText(result.OutputCode, ParseOptions);
+        var callbackReturns = outputTree.GetRoot().DescendantNodes()
+            .OfType<AnonymousFunctionExpressionSyntax>()
+            .SelectMany(l => l.DescendantNodes().OfType<ReturnStatementSyntax>())
+            .ToList();
+        Assert.Empty(callbackReturns);
+        Assert.DoesNotContain("return __call", result.OutputCode);
+    }
+
     private static Compilation AssertOutputCompiles(string code)
     {
         var tree = CSharpSyntaxTree.ParseText(code, ParseOptions);

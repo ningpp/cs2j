@@ -3318,6 +3318,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         var simpleName = receiverExpression switch
         {
             IdentifierNameSyntax id => id.Identifier.Text,
+            // Generic static receiver (`Comparer<T>.Create(...)`): Java erases
+            // the type arguments at the call site, so the import must still
+            // register from the receiver's simple name.
+            GenericNameSyntax generic => generic.Identifier.Text,
             MemberAccessExpressionSyntax ma => ma.Name.Identifier.Text,
             QualifiedNameSyntax q => q.Right.Identifier.Text,
             _ => null
@@ -3325,7 +3329,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (string.IsNullOrEmpty(simpleName))
             return;
 
-        var configKey = context.TypeMappings.FindConfigKeyBySimpleName(simpleName);
+        var configKey = receiverSymbol is INamedTypeSymbol boundReceiver
+            && !boundReceiver.ContainingNamespace.IsGlobalNamespace
+                // Simple-name lookup is ambiguous when several mapped types share
+                // it (Comparer vs CSharpComparer); the bound symbol disambiguates.
+                ? ResolveConfigKeyForBoundType(boundReceiver, context)
+                : context.TypeMappings.FindConfigKeyBySimpleName(simpleName);
         if (configKey == null)
             return;
 
@@ -3342,6 +3351,24 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         foreach (var import in context.TypeMappings.GetRequiredImports(configKey))
             context.AddImport(import);
+    }
+
+    /// <summary>
+    /// The config row that maps exactly <paramref name="type"/> (namespace +
+    /// metadata name), falling back to an arity-aware simple-name lookup for
+    /// rows recorded with a short name. Ambiguity is resolved by the bound
+    /// symbol: <c>System.Collections.Generic.Comparer&lt;T&gt;</c> and
+    /// <c>System.Collections.Comparer</c> share the simple name "Comparer".
+    /// </summary>
+    private static string? ResolveConfigKeyForBoundType(
+        INamedTypeSymbol type, ConversionContext context)
+    {
+        var qualified = $"{type.ContainingNamespace.ToDisplayString()}.{type.MetadataName}";
+        if (context.TypeMappings.HasTypeMapping(qualified))
+            return qualified;
+
+        return context.TypeMappings.FindConfigKeyBySimpleName(type.Name, type.Arity)
+            ?? context.TypeMappings.FindConfigKeyBySimpleName(type.Name);
     }
 
     /// <summary>

@@ -62,4 +62,21 @@ class FileHelperTest {
             assertEquals("classpath payload", new String(stream.readAllBytes(), StandardCharsets.UTF_8).trim());
         }
     }
+
+    /** C# File.Delete(path) declares no checked exception and ignores missing files. */
+    @Test
+    void delete_HasNoCheckedException_AndIsNoOpForMissingFile() throws IOException {
+        Path tmp = Files.createTempFile("delete-noop", ".txt");
+        deleteWithoutCheckedException(tmp.toString());
+        assertFalse(Files.exists(tmp));
+
+        // Deleting an already-missing file must not throw (File.Delete semantics).
+        deleteWithoutCheckedException(tmp.toString());
+        deleteWithoutCheckedException("definitely-not-there.txt");
+    }
+
+    /** Compiles only when FileHelper.delete declares no checked exception. */
+    private static void deleteWithoutCheckedException(String path) {
+        FileHelper.delete(path);
+    }
 }

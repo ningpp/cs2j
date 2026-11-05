@@ -191,5 +191,9 @@ public class FileHelper {
         return new StreamWrapper(create(path));
     }
     public static boolean exists(String path) { return new File(path).exists(); }
-    public static void delete(String path) throws IOException { Files.delete(Paths.get(path)); }
+    /** Mirrors File.Delete(path): no checked exception, missing files are a no-op. */
+    public static void delete(String path) {
+        try { Files.deleteIfExists(Paths.get(path)); }
+        catch (IOException e) { throw new UncheckedIOException(e); }
+    }
 }

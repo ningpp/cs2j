@@ -1,3 +1,4 @@
+using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -2444,8 +2445,13 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             return node;
         }
 
-        var returnsVoid = (_semanticModel.GetTypeInfo(node).ConvertedType as INamedTypeSymbol)
-            ?.DelegateInvokeMethod?.ReturnsVoid ?? false;
+        // The assert callbacks discard their result; when the preprocessing
+        // compilation has no MSTest metadata the converted delegate cannot be
+        // resolved (ConvertedType == null) and the lambda would be mistaken for
+        // a value-returning one, emitting an illegal `return __callN`.
+        var returnsVoid = VoidCallbackAssertionFacts.IsVoidCallbackAssertionArgument(node, _semanticModel)
+            || ((_semanticModel.GetTypeInfo(node).ConvertedType as INamedTypeSymbol)
+                ?.DelegateInvokeMethod?.ReturnsVoid ?? false);
 
         _lifter.EnterFragmentLambdaVisit();
         try

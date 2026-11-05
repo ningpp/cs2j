@@ -77,6 +77,19 @@ class CompatTestModuleSurfaceTest {
     }
 
     @Test
+    void collectionAssertAreEquivalentAcceptsMessageFormatArguments() {
+        // C# AreEquivalent(expected, actual, message, params object[]): arrays are
+        // not Iterable, so this binds the (Object, Object, String, Object...) row.
+        AssertionError error = assertThrows(AssertionError.class,
+            () -> CollectionAssert.areEquivalent(
+                new int[] {1, 2}, new int[] {1, 3}, "case {0} mismatch", 7));
+        assertTrue(error.getMessage().startsWith("case 7 "), error.getMessage());
+
+        CollectionAssert.areEquivalent(
+            new int[] {1, 2}, new int[] {2, 1}, "case {0} ok", 7);
+    }
+
+    @Test
     void comparerDefaultAndCreate() {
         Comparator<Integer> natural = Comparer.getDefault();
         assertEquals(-1, natural.compare(1, 2));

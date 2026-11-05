@@ -358,6 +358,17 @@ public partial class StatementTransformer
             }
         }
 
+        // 数组→IReadOnlyList/Collection 的复制分支产出 CSharpList，而这两个
+        // 目标映射到 CSharpIList（平行接口，CSharpList 不实现它）：补适配视图
+        // （真实链 MultipoleCoefficientsTest.GetCoefficients 返回 TupleDoubleDouble[]）。
+        if (expr.TrimStart().StartsWith("new CSharpList<", StringComparison.Ordinal)
+            && retType != null
+            && ctx.MapType(retType).StartsWith("CSharpIList", StringComparison.Ordinal))
+        {
+            ctx.AddImport("io.github.ningpp.compat.CSharpIList");
+            expr = $"CSharpIList.from({expr})";
+        }
+
         if (ctx.GetTypeInfo(stmt.Expression).Type is INamedTypeSymbol dn
             && (dn.Name is "Dictionary" or "SortedDictionary" or "IDictionary" || dn.AllInterfaces.Any(i => i.Name == "IDictionary"))
             && retType is INamedTypeSymbol en && en.Name is "IEnumerable" or "ICollection" or "IList" or "Iterable"

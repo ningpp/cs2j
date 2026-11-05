@@ -241,6 +241,44 @@ public class TestModuleCodegenRegressionTests
         Assert.Contains("import io.github.ningpp.compat.Comparer;", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ComparerCreate_StaticReceiver_AddsCompatImport()
+    {
+        var result = Convert("""
+            using System.Collections.Generic;
+
+            class Sample
+            {
+                public static SortedSet<int> M()
+                {
+                    return new SortedSet<int>(Comparer<int>.Create((a, b) => a - b));
+                }
+            }
+            """);
+
+        AssertConverted(result, "Comparer.create(");
+        Assert.Contains("import io.github.ningpp.compat.Comparer;", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReadOnlyListReturn_FromArray_WrapsCSharpListInCSharpIList()
+    {
+        var result = Convert("""
+            using System.Collections.Generic;
+
+            class Sample
+            {
+                public static IReadOnlyList<int> M(int[] values)
+                {
+                    return values;
+                }
+            }
+            """);
+
+        AssertConverted(result, "return CSharpIList.from(");
+        Assert.Contains("import io.github.ningpp.compat.CSharpIList;", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static void AssertConverted(ConversionResult result, string expected)
     {
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);

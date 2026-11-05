@@ -69,6 +69,30 @@ public final class CollectionAssert {
         }
     }
 
+    /**
+     * NUnit {@code CollectionAssert.AreEquivalent(expected, actual, message,
+     * params object[])}: the trailing arguments are format arguments for
+     * {@code message}.
+     */
+    public static void areEquivalent(
+            Object expected, Object actual, String message, Object... parameters) {
+        areEquivalent(expected, actual, formatMessage(message, parameters));
+    }
+
+    private static String formatMessage(String message, Object[] parameters) {
+        if (message == null || parameters == null || parameters.length == 0) {
+            return message;
+        }
+        try {
+            // NUnit messages are .NET composite format strings (`{0}`), not Java's `%s`.
+            return StringHelper.formatCs(message, parameters);
+        } catch (RuntimeException e) {
+            // Not a valid format string (plain text with braces/percent signs):
+            // keep the raw text rather than masking the assertion result.
+            return message;
+        }
+    }
+
     /** NUnit {@code CollectionAssert.AreNotEqual}: ordered element comparison. */
     public static void areNotEqual(Object expected, Object actual) {
         areNotEqual(expected, actual, null);

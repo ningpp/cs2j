@@ -1,3 +1,4 @@
+using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -479,6 +480,14 @@ internal static class ExpressionDesugarTempLifter
         {
             allStatements.Add(SyntaxFactory.ReturnStatement(expression));
         }
+        else if (TryRewriteDiscardAssignment(expression, lambda, out var discardDeclaration))
+        {
+            // `_ = rhs;` is a discard assignment. The identifier `_` is not a
+            // real local, so the Java side would render it as `_Value` (and a
+            // value-returning tail would additionally emit `return _Value`).
+            // Materialize the side effect as a uniquely named temp instead.
+            allStatements.Add(discardDeclaration!);
+        }
         else if (expression is not IdentifierNameSyntax)
         {
             allStatements.Add(SyntaxFactory.ExpressionStatement(expression));
@@ -507,26 +516,6 @@ internal static class ExpressionDesugarTempLifter
     }
 
     /// <summary>
-    /// Assertion APIs whose callback argument is executed as a void delegate:
-    /// the callback's value is discarded no matter which overload (Action or
-    /// Func&lt;object&gt;) the compiler binds. Recognized by name so the
-    /// decision stays deterministic when the test framework metadata is absent
-    /// from the preprocessing compilation.
-    /// </summary>
-    private static readonly HashSet<string> VoidCallbackAssertionMethods =
-        new(StringComparer.Ordinal)
-        {
-            "ThrowsException",
-            "ThrowsExceptionAsync",
-            "Throws",
-            "ThrowsAsync",
-            "DoesNotThrow",
-            "DoesNotThrowAsync",
-            "Catch",
-            "CatchAsync",
-        };
-
-    /// <summary>
     /// True when the expression-bodied lambda's converted delegate type
     /// (Action vs Func/...) returns a value — the tail statement must then be
     /// <c>return …</c>; a void delegate gets a plain expression statement.
@@ -541,7 +530,7 @@ internal static class ExpressionDesugarTempLifter
     private static bool LambdaReturnsValue(
         AnonymousFunctionExpressionSyntax lambda, SemanticModel? model)
     {
-        if (IsVoidCallbackAssertionArgument(lambda, model))
+        if (VoidCallbackAssertionFacts.IsVoidCallbackAssertionArgument(lambda, model))
             return false;
 
         if (model == null)
@@ -560,55 +549,36 @@ internal static class ExpressionDesugarTempLifter
     }
 
     /// <summary>
-    /// True when the lambda is an argument of an invocation whose method name
-    /// belongs to <see cref="VoidCallbackAssertionMethods"/> (e.g.
-    /// <c>Assert.ThrowsException&lt;T&gt;(() =&gt; new Foo { X = 1 })</c>).
-    /// Casts/parentheses around the lambda are skipped; other arguments before
-    /// the lambda do not matter because the enclosing invocation is inspected.
+    /// Rewrites a void-lambda tail that is a discard assignment
+    /// (<c>_ = rhs</c>) into <c>var __cs2jDiscardN = rhs;</c>. The temp name is
+    /// unique in the file so repeated discard tails cannot collide.
     /// </summary>
-    private static bool IsVoidCallbackAssertionArgument(
-        AnonymousFunctionExpressionSyntax lambda, SemanticModel? model)
+    private static bool TryRewriteDiscardAssignment(
+        ExpressionSyntax expression,
+        AnonymousFunctionExpressionSyntax lambda,
+        out StatementSyntax? declaration)
     {
-        var invocation = EnclosingInvocation(lambda);
-        if (invocation == null)
+        declaration = null;
+        if (expression is not AssignmentExpressionSyntax assignment
+            || !assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            || assignment.Left is not IdentifierNameSyntax
+            {
+                Identifier.Text: "_",
+            })
+        {
             return false;
-
-        var name = ResolveInvocationMethodName(invocation, model);
-        return name != null && VoidCallbackAssertionMethods.Contains(name);
-    }
-
-    private static InvocationExpressionSyntax? EnclosingInvocation(
-        AnonymousFunctionExpressionSyntax lambda)
-    {
-        SyntaxNode? node = lambda.Parent;
-        while (node is ParenthesizedExpressionSyntax or CastExpressionSyntax)
-            node = node.Parent;
-
-        return node is ArgumentSyntax
-        {
-            Parent.Parent: InvocationExpressionSyntax invocation,
         }
-            ? invocation
-            : null;
-    }
 
-    /// <summary>
-    /// Bound method symbol first (handles generic assertion methods); syntactic
-    /// method spelling is the fallback when the call does not bind.
-    /// </summary>
-    private static string? ResolveInvocationMethodName(
-        InvocationExpressionSyntax invocation, SemanticModel? model)
-    {
-        if (model?.GetSymbolInfo(invocation).Symbol is IMethodSymbol method)
-            return method.Name;
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var token in lambda.AncestorsAndSelf().Last().DescendantTokens())
+            used.Add(token.ValueText);
 
-        return invocation.Expression switch
-        {
-            MemberAccessExpressionSyntax member => member.Name.Identifier.Text,
-            IdentifierNameSyntax identifier => identifier.Identifier.Text,
-            GenericNameSyntax generic => generic.Identifier.Text,
-            _ => null,
-        };
+        var index = 0;
+        while (used.Contains($"__cs2jDiscard{index}"))
+            index++;
+
+        declaration = DeclareVar($"__cs2jDiscard{index}", assignment.Right);
+        return true;
     }
 
     /// <summary>

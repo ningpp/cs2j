@@ -228,6 +228,27 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
         return (CSharpGenericIterable<T>) fromAny(value);
     }
 
+    /**
+     * C# Enumerable.ElementAt(int): the element at the given zero-based index,
+     * throwing IndexOutOfBoundsException when the sequence is too short.
+     */
+    default T get(int index) {
+        if (index < 0) {
+            throw new IndexOutOfBoundsException("Index " + index + " is out of range.");
+        }
+        java.util.Iterator<T> iterator = iterator();
+        for (int i = 0; i <= index; i++) {
+            if (!iterator.hasNext()) {
+                throw new IndexOutOfBoundsException("Index " + index + " is out of range.");
+            }
+            if (i == index) {
+                return iterator.next();
+            }
+            iterator.next();
+        }
+        throw new IndexOutOfBoundsException("Index " + index + " is out of range.");
+    }
+
     /** C# Enumerable.FirstOrDefault(predicate) — null when no element matches. */
     default T findAny(java.util.function.Predicate<T> predicate) {
         for (T element : this) {

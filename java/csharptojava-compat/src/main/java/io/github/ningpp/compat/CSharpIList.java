@@ -203,6 +203,20 @@ public interface CSharpIList<T> extends CSharpCollection {
         return best;
     }
 
+    /**
+     * C# Enumerable.FirstOrDefault(predicate) on an IList-typed receiver:
+     * the first matching element, or null when none matches.
+     */
+    @SuppressWarnings("unchecked")
+    default T findAny(Predicate<T> predicate) {
+        for (Object item : this) {
+            if (predicate.test((T) item)) {
+                return (T) item;
+            }
+        }
+        return null;
+    }
+
     /** C# Enumerable.Any(predicate). */
     @SuppressWarnings("unchecked")
     default boolean anyMatch(Predicate<? super T> predicate) {
