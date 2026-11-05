@@ -16,11 +16,29 @@ public partial class StatementTransformer
         var exprTransformer = ExpressionTransformerFacade.Instance;
         var condition = exprTransformer.Transform(stmt.Condition, context);
 
-        var preamble = DrainPendingStatementsAsPreamble(context);
+        var conditionPre = context.HasPendingPreStatements
+            ? context.DrainPreStatements()
+            : new List<string>();
         RejectConditionPostStatements(context, "while");
 
-        var body = TransformLoopBody(stmt.Statement, bodyPostInjection: null, context);
-        return new JavaStatementNode($"{preamble}while ({condition}) {body}");
+        // 条件中的属性自增降级成「读临时量 → 写回」预语句，必须随每次条件求值
+        // 执行。放在 while 之前只会执行一次，条件随后读取冻结的临时量（真实链
+        // XsdDateTime.Parser.parseTime 的 `while (++start.Value < _length)` 因此
+        // 变成死循环）。按 C# 的求值顺序线性化到循环体顶部：
+        //     while (true) { <读改写>; if (!(C')) break; body }
+        // continue 重新执行读改写与测试，break 直接离开循环，与原语义一致。
+        if (conditionPre.Count > 0)
+        {
+            var prelude = string.Join(
+                "\n        ",
+                conditionPre.Select(s => s.TrimEnd(';') + ";")
+                    .Append($"if (!({condition})) break;"));
+            var loopBody = TransformLoopBody(stmt.Statement, bodyPrelude: prelude, context);
+            return new JavaStatementNode($"while (true) {loopBody}");
+        }
+
+        var body = TransformLoopBody(stmt.Statement, bodyPrelude: null, context);
+        return new JavaStatementNode($"while ({condition}) {body}");
     }
 
     private JavaSyntaxNode TransformDoStatement(DoStatementSyntax stmt, ConversionContext context)
@@ -90,7 +108,7 @@ public partial class StatementTransformer
 
         var preamble = string.Concat(pendingPre.Select(s => s.TrimEnd(';') + ";\n"));
 
-        var body = TransformLoopBody(stmt.Statement, bodyPostInjection: null, context);
+        var body = TransformLoopBody(stmt.Statement, bodyPrelude: null, context);
         return new JavaStatementNode($"{preamble}for ({initializers}; {condition}; {incrementors}) {body}");
     }
 
@@ -174,7 +192,7 @@ public partial class StatementTransformer
 
         // Captured foreach variable lowering (display class or per-iteration
         // holder) is owned by the closure-lift preprocessor; nothing to inject here.
-        var body = TransformLoopBody(stmt.Statement, bodyPostInjection: null, context);
+        var body = TransformLoopBody(stmt.Statement, bodyPrelude: null, context);
         // Compat collection interfaces expose a raw iterator (the generated classes
         // bridge generic/non-generic GetEnumerator), so an enhanced-for over them
         // yields Object. Re-type the iterable to the C# element type; javac then
@@ -294,18 +312,23 @@ public partial class StatementTransformer
         }
     }
 
-    private string TransformLoopBody(StatementSyntax statement, string? bodyPostInjection, ConversionContext context)
+    /// <summary>
+    /// Loop body text; <paramref name="bodyPrelude"/> is emitted before the
+    /// original body statements (inside the loop, so it runs per iteration —
+    /// e.g. the read-modify-write sequence of a condition-side increment).
+    /// </summary>
+    private string TransformLoopBody(StatementSyntax statement, string? bodyPrelude, ConversionContext context)
     {
         if (statement is BlockSyntax block)
         {
             var bodyStr = TransformBlock(block, context);
-            var prefix = bodyPostInjection != null ? bodyPostInjection + "\n        " : "";
+            var prefix = bodyPrelude != null ? bodyPrelude + "\n        " : "";
             return $"{{\n        {prefix}{bodyStr}\n    }}";
         }
 
         var bodyText = new StatementTransformer().Transform(statement, context).ToString("");
-        if (bodyPostInjection != null)
-            return $"{{\n        {bodyPostInjection}\n        {bodyText}\n    }}";
+        if (bodyPrelude != null)
+            return $"{{\n        {bodyPrelude}\n        {bodyText}\n    }}";
         return $"{{\n        {bodyText}\n    }}";
     }
 
