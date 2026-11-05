@@ -627,6 +627,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return new JavaRawExpression(enumerableCall);
                 }
 
+                // Non-generic enumerable receiver (e.g. TraceListenerCollection) is
+                // not recognized as an Enumerable pipeline: keep OfType<T> runtime-
+                // typed so the compat collection filters instead of unchecked-casting.
+                if (TryRenderOfTypeWithClassLiteral(
+                        invocation, receiverText, originalName, arguments.Count, context,
+                        out var typedOfTypeCall))
+                {
+                    return new JavaRawExpression(typedOfTypeCall);
+                }
+
                 var (mappedName, isStatic) =
                     TryResolveMappedName(invocation, memberAccess.Name.Identifier.Text, context);
 
@@ -1460,6 +1470,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         node, memberAccess, receiver, arguments, context, out var enumerableCall))
                 {
                     return enumerableCall;
+                }
+
+                // Non-generic enumerable receiver (e.g. TraceListenerCollection) is
+                // not recognized as an Enumerable pipeline: keep OfType<T> runtime-
+                // typed so the compat collection filters instead of unchecked-casting.
+                if (TryRenderOfTypeWithClassLiteral(
+                        node, receiver, originalName, node.ArgumentList.Arguments.Count,
+                        context, out var typedOfTypeCall))
+                {
+                    return typedOfTypeCall;
                 }
 
                 var (mappedName, isStatic) = TryResolveMappedName(node, originalName, context);
@@ -3371,6 +3391,56 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         rendered = argCount == 0
             ? $"{streamReceiver}.{streamOperator}()"
             : $"{streamReceiver}.{streamOperator}({argumentText})";
+        return true;
+    }
+
+    /// <summary>
+    /// C# <c>Enumerable.OfType&lt;T&gt;()</c> (0 args) on a receiver that is not a
+    /// generic IEnumerable leaves the erased no-arg <c>ofType()</c> behind,
+    /// which merely unchecked-casts every element. When T maps to a concrete
+    /// Java type, pass its class literal so the compat collection filters —
+    /// otherwise a mixed list blows up as ArrayStoreException on the following
+    /// typed ToArray.
+    /// </summary>
+    private static bool TryRenderOfTypeWithClassLiteral(
+        InvocationExpressionSyntax invocation,
+        string receiver,
+        string originalName,
+        int argumentCount,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+        if (originalName != "OfType" || argumentCount != 0
+            || LooksLikeStreamPipeline(receiver))
+        {
+            return false;
+        }
+
+        ITypeSymbol? elementType =
+            context.GetSymbolInfo(invocation).Symbol is IMethodSymbol { TypeArguments.Length: 1 } method
+                ? method.TypeArguments[0]
+                : null;
+        elementType ??= context.GetTypeInfo(invocation).Type switch
+        {
+            IArrayTypeSymbol array => array.ElementType,
+            INamedTypeSymbol { TypeArguments.Length: 1 } named => named.TypeArguments[0],
+            _ => null,
+        };
+        if (elementType is null
+            && invocation.Expression is MemberAccessExpressionSyntax { Name: GenericNameSyntax genericName }
+            && genericName.TypeArgumentList.Arguments.Count == 1)
+        {
+            elementType = context.GetTypeInfo(genericName.TypeArgumentList.Arguments[0]).Type;
+        }
+        if (elementType is null or ITypeParameterSymbol)
+            return false;
+
+        var mapped = context.MapType(elementType);
+        if (string.IsNullOrEmpty(mapped) || mapped is "Object" or "var")
+            return false;
+
+        rendered = $"{receiver}.ofType({ConversionContext.GetClassLiteral(elementType, context)})";
         return true;
     }
 
