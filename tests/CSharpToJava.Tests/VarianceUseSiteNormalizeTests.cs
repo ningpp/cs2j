@@ -6,6 +6,7 @@ using CSharpToJava.Core.LinqChannel;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
+using CSharpToJava.Core.VarianceAudit;
 using CSharpToJava.Core.VarianceUseSite;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -246,6 +247,25 @@ public sealed class VarianceUseSiteNormalizeTests
         Assert.Equal(
             VarianceUseSiteNormalizePreprocessor.VariancePairKind.ValueType,
             VarianceUseSiteNormalizePreprocessor.ClassifyPair(source, target));
+    }
+
+    [Fact]
+    public void Value_type_array_covariance_stays_vr06_unsafe()
+    {
+        var compilation = Compile("class C { }");
+        var intArray = compilation.CreateArrayTypeSymbol(
+            compilation.GetSpecialType(SpecialType.System_Int32));
+        var objectArray = compilation.CreateArrayTypeSymbol(
+            compilation.GetSpecialType(SpecialType.System_Object));
+
+        Assert.Equal(
+            ArrayElementMapping.BoxingDifference,
+            UseSiteSafetyClassifier.ClassifyArrayElementMapping(intArray, objectArray));
+
+        var decision = VarianceUseSiteNormalizePreprocessor.ClassifyPairDecision(intArray, objectArray);
+        Assert.Equal(VarianceUseSiteRules.ValueTypeArgument, decision.Rule);
+        Assert.Equal(VarianceUseSiteActions.DeclaredUnsupported, decision.Action);
+        Assert.Contains("boxing", decision.Reason);
     }
 
     [Fact]

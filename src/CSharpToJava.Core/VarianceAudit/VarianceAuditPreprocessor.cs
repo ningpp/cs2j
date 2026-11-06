@@ -115,6 +115,15 @@ public sealed class VarianceAuditPreprocessor
 
         foreach (var conversion in conversions)
         {
+            // VR-04: Java reference arrays are covariant, so a reference-element
+            // array conversion is legal as-is (the element mapping was verified to
+            // have no boxing difference). It stays a counted, non-blocking site.
+            if (conversion.Direction == VarianceConversionDirection.Array
+                && conversion.ArrayElementMappingSafe)
+            {
+                continue;
+            }
+
             audit.Diagnostics.Add(new VarianceAuditDiagnostic(
                 Gate(conversion.Code, VarianceSeverity.Warning), conversion.Code, conversion.Message,
                 path, conversion.Line, conversion.Column));
@@ -396,6 +405,7 @@ public sealed class VarianceAuditPreprocessor
             VarianceConversionsCovariant: Statistics.VarianceConversionsCovariant,
             VarianceConversionsContravariant: Statistics.VarianceConversionsContravariant,
             VarianceConversionsArray: Statistics.VarianceConversionsArray,
+            VarianceConversionsArraySafe: Statistics.VarianceConversionsArraySafe,
             NestedCompositionSites: Statistics.NestedCompositionSites,
             UnsafeUseSites: Statistics.UnsafeUseSites,
             ConstraintsStruct: Statistics.ConstraintsStruct,
@@ -507,6 +517,7 @@ internal sealed record VarianceReportTotals(
     int VarianceConversionsCovariant,
     int VarianceConversionsContravariant,
     int VarianceConversionsArray,
+    int VarianceConversionsArraySafe,
     int NestedCompositionSites,
     int UnsafeUseSites,
     int ConstraintsStruct,

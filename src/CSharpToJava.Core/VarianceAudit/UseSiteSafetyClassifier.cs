@@ -31,7 +31,22 @@ public sealed record VarianceConversionFinding(
     string Message,
     string? FilePath = null,
     int Line = 0,
-    int Column = 0);
+    int Column = 0,
+    bool ArrayElementMappingSafe = false);
+
+/// <summary>
+/// Element-mapping verdict for an array-to-array conversion, shared by the C33 audit
+/// and the R4 use-site pass (VR-04/VR-06). Java arrays are covariant, so reference
+/// elements with no boxing difference are safe as-is; value-type elements change the
+/// representation and stay unsafe.
+/// </summary>
+internal enum ArrayElementMapping
+{
+    NotArray,
+    SafeReference,
+    BoxingDifference,
+    UnrelatedReference,
+}
 
 /// <summary>
 /// Use-site safety classification (design D3②/D3a/D8/D11). Refines position flows with a
@@ -252,13 +267,15 @@ internal sealed class UseSiteSafetyClassifier
 
             var matched = byKey.TryGetValue((use.FilePath ?? string.Empty, use.Line, use.Column), out var finding);
             var classification = matched
-                ? (finding!.Resolved
-                   && finding.Direction is VarianceConversionDirection.Covariant
-                       or VarianceConversionDirection.Contravariant
-                       or VarianceConversionDirection.Array
-                   && finding.Flow != UseFlow.Both
-                    ? VarianceClassification.NeedsWildcard
-                    : VarianceClassification.Unsafe)
+                ? finding!.Direction == VarianceConversionDirection.Array && finding.ArrayElementMappingSafe
+                    ? VarianceClassification.Safe
+                    : finding.Resolved
+                      && finding.Direction is VarianceConversionDirection.Covariant
+                          or VarianceConversionDirection.Contravariant
+                          or VarianceConversionDirection.Array
+                      && finding.Flow != UseFlow.Both
+                        ? VarianceClassification.NeedsWildcard
+                        : VarianceClassification.Unsafe
                 : mutabilityExpansion || unresolved
                     ? VarianceClassification.Unsafe
                     : VarianceClassification.Safe;
@@ -893,6 +910,9 @@ internal sealed class UseSiteSafetyClassifier
             var sourceText = sourceType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "<method group>";
             var targetText = targetType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
             var span = targetNode.GetLocation().GetLineSpan().StartLinePosition;
+            var arraySafe = direction == VarianceConversionDirection.Array
+                && sourceType != null
+                && ClassifyArrayElementMapping(sourceType, targetType) == ArrayElementMapping.SafeReference;
             _findings.Add(new VarianceConversionFinding(
                 Code: code,
                 Direction: direction,
@@ -903,7 +923,8 @@ internal sealed class UseSiteSafetyClassifier
                 Message: ConversionMessage(code, direction, flow, sourceText, targetText),
                 FilePath: _model.SyntaxTree.FilePath,
                 Line: span.Line + 1,
-                Column: span.Character + 1));
+                Column: span.Character + 1,
+                ArrayElementMappingSafe: arraySafe));
         }
     }
 
@@ -937,6 +958,65 @@ internal sealed class UseSiteSafetyClassifier
     /// </summary>
     private const int MaxVarianceCompositionDepth = 16;
 
+    /// <summary>
+    /// Single source of truth for array-covariance safety (VR-04/VR-06): an array
+    /// conversion is safe only when both sides keep the same rank and every element
+    /// layer is reference-to-reference with a subtype relation, i.e. no boxing
+    /// difference. The VR pass and the audit both call this helper.
+    /// </summary>
+    internal static ArrayElementMapping ClassifyArrayElementMapping(
+        ITypeSymbol source,
+        ITypeSymbol target)
+    {
+        if (source is not IArrayTypeSymbol sourceArray
+            || target is not IArrayTypeSymbol targetArray)
+        {
+            return ArrayElementMapping.NotArray;
+        }
+
+        if (sourceArray.Rank != targetArray.Rank)
+        {
+            return ArrayElementMapping.BoxingDifference;
+        }
+
+        return ClassifyArrayElements(sourceArray.ElementType, targetArray.ElementType, depth: 0);
+    }
+
+    private static ArrayElementMapping ClassifyArrayElements(
+        ITypeSymbol sourceElement,
+        ITypeSymbol targetElement,
+        int depth)
+    {
+        if (depth > MaxVarianceCompositionDepth)
+        {
+            return ArrayElementMapping.UnrelatedReference;
+        }
+
+        // A value-type element on either side means the Java mapping boxes/unboxes,
+        // so the conversion is never a pure reference-array covariance (VR-06).
+        if (!sourceElement.IsReferenceType || !targetElement.IsReferenceType)
+        {
+            return ArrayElementMapping.BoxingDifference;
+        }
+
+        // Jagged arrays recurse: 'string[][]' -> 'object[][]' is still reference-only.
+        if (sourceElement is IArrayTypeSymbol sourceNested
+            && targetElement is IArrayTypeSymbol targetNested)
+        {
+            if (sourceNested.Rank != targetNested.Rank)
+            {
+                return ArrayElementMapping.BoxingDifference;
+            }
+
+            return ClassifyArrayElements(
+                sourceNested.ElementType, targetNested.ElementType, depth + 1);
+        }
+
+        return IsDerivedFrom(sourceElement, targetElement)
+            ? ArrayElementMapping.SafeReference
+            : ArrayElementMapping.UnrelatedReference;
+    }
+
     private static VarianceConversionDirection ComparePair(
         ITypeSymbol source,
         ITypeSymbol target,
@@ -947,16 +1027,9 @@ internal sealed class UseSiteSafetyClassifier
             return VarianceConversionDirection.None;
         }
 
-        if (target is IArrayTypeSymbol targetArray && source is IArrayTypeSymbol sourceArray)
+        if (target is IArrayTypeSymbol && source is IArrayTypeSymbol)
         {
-            if (targetArray.Rank != sourceArray.Rank
-                || !targetArray.ElementType.IsReferenceType
-                || !sourceArray.ElementType.IsReferenceType)
-            {
-                return VarianceConversionDirection.None;
-            }
-
-            return IsDerivedFrom(sourceArray.ElementType, targetArray.ElementType)
+            return ClassifyArrayElementMapping(source, target) == ArrayElementMapping.SafeReference
                 ? VarianceConversionDirection.Array
                 : VarianceConversionDirection.None;
         }
@@ -1245,6 +1318,8 @@ internal sealed class UseSiteSafetyClassifier
             findings.Count(f => f.Direction == VarianceConversionDirection.Contravariant);
         _statistics.VarianceConversionsArray =
             findings.Count(f => f.Direction == VarianceConversionDirection.Array);
+        _statistics.VarianceConversionsArraySafe =
+            findings.Count(f => f.Direction == VarianceConversionDirection.Array && f.ArrayElementMappingSafe);
 
         _statistics.UseSitesProducer = analysis.UseSites.Count(u => u.Flow == UseFlow.Producer);
         _statistics.UseSitesConsumer = analysis.UseSites.Count(u => u.Flow == UseFlow.Consumer);

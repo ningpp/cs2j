@@ -387,6 +387,81 @@ public sealed class VarianceAuditUnitTests
         Assert.True(preprocessor.Statistics.UnsafeUseSites >= 1);
     }
 
+    // ---- R4 VR-04: reference-array covariance is legal Java and stays non-blocking ----
+
+    [Fact]
+    public void Reference_array_covariance_is_not_strict_gated()
+    {
+        const string source =
+            "class Base { } class Derived : Base { } "
+            + "class C { static void M(Base[] x) { } static void N(Derived[] s) { M(s); } }";
+        var compilation = Compile(source);
+        var preprocessor = new VarianceAuditPreprocessor(new VarianceAuditOptions { Strict = true });
+        preprocessor.BindCompilation(compilation);
+
+        var audit = AuditOf(preprocessor, compilation);
+
+        Assert.DoesNotContain(audit.Diagnostics, d => d.Severity == VarianceSeverity.Error);
+        Assert.Equal(0, CountCode(audit, VarianceCodes.CovariantConversionSite));
+        Assert.Equal(0, CountCode(audit, VarianceCodes.BothConversionSite));
+        Assert.Equal(1, preprocessor.Statistics.VarianceConversionsArray);
+        Assert.Equal(1, preprocessor.Statistics.VarianceConversionsArraySafe);
+    }
+
+    [Fact]
+    public void String_and_Type_array_covariance_is_not_strict_gated()
+    {
+        const string source =
+            "using System; class C { static void M(object[] x) { } "
+            + "static void N(string[] s) { M(s); } static void P(Type[] t) { M(t); } }";
+        var compilation = Compile(source);
+        var preprocessor = new VarianceAuditPreprocessor(new VarianceAuditOptions { Strict = true });
+        preprocessor.BindCompilation(compilation);
+
+        var audit = AuditOf(preprocessor, compilation);
+
+        Assert.DoesNotContain(audit.Diagnostics, d => d.Severity == VarianceSeverity.Error);
+        Assert.Equal(0, CountCode(audit, VarianceCodes.CovariantConversionSite));
+        Assert.Equal(0, CountCode(audit, VarianceCodes.BothConversionSite));
+        Assert.Equal(2, preprocessor.Statistics.VarianceConversionsArray);
+        Assert.Equal(2, preprocessor.Statistics.VarianceConversionsArraySafe);
+    }
+
+    [Fact]
+    public void Value_type_array_elements_remain_unsafe()
+    {
+        var compilation = Compile("class C { }");
+        var intArray = compilation.CreateArrayTypeSymbol(
+            compilation.GetSpecialType(SpecialType.System_Int32));
+        var stringArray = compilation.CreateArrayTypeSymbol(
+            compilation.GetSpecialType(SpecialType.System_String));
+        var objectArray = compilation.CreateArrayTypeSymbol(
+            compilation.GetSpecialType(SpecialType.System_Object));
+
+        Assert.Equal(
+            ArrayElementMapping.SafeReference,
+            UseSiteSafetyClassifier.ClassifyArrayElementMapping(stringArray, objectArray));
+        Assert.Equal(
+            ArrayElementMapping.BoxingDifference,
+            UseSiteSafetyClassifier.ClassifyArrayElementMapping(intArray, objectArray));
+    }
+
+    [Fact]
+    public void Non_array_covariant_conversion_stays_strict_gated()
+    {
+        const string source =
+            "using System.Collections.Generic; "
+            + "class C { void M(IEnumerable<object> x) { } void N(IEnumerable<string> s) { M(s); } }";
+        var compilation = Compile(source);
+        var preprocessor = new VarianceAuditPreprocessor(new VarianceAuditOptions { Strict = true });
+        preprocessor.BindCompilation(compilation);
+
+        var audit = AuditOf(preprocessor, compilation);
+
+        var diagnostic = Assert.Single(audit.Diagnostics, d => d.Code == VarianceCodes.CovariantConversionSite);
+        Assert.Equal(VarianceSeverity.Error, diagnostic.Severity);
+    }
+
     [Fact]
     public void Mapped_readonly_to_mutable_reports_va012_with_member_names()
     {

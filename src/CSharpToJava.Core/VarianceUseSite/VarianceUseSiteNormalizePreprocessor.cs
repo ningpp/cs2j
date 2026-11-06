@@ -1272,19 +1272,17 @@ public sealed class VarianceUseSiteNormalizePreprocessor
         var layers = new List<string>();
         nestedLayers = layers;
 
-        if (target is IArrayTypeSymbol targetArray && source is IArrayTypeSymbol sourceArray)
+        if (target is IArrayTypeSymbol && source is IArrayTypeSymbol)
         {
-            if (targetArray.Rank != sourceArray.Rank
-                || !targetArray.ElementType.IsReferenceType
-                || !sourceArray.ElementType.IsReferenceType)
+            // Single source of truth: the audit's array-element mapping verdict
+            // decides VR-04 preservation vs VR-06 boxing unsafety.
+            return UseSiteSafetyClassifier.ClassifyArrayElementMapping(source, target) switch
             {
-                return VariancePairKind.ValueType;
-            }
-
-            return UseSiteSafetyClassifier.IsDerivedFrom(
-                sourceArray.ElementType, targetArray.ElementType)
-                ? VariancePairKind.Array
-                : VariancePairKind.NestedInvariant;
+                ArrayElementMapping.SafeReference => VariancePairKind.Array,
+                ArrayElementMapping.BoxingDifference => VariancePairKind.ValueType,
+                ArrayElementMapping.UnrelatedReference => VariancePairKind.NestedInvariant,
+                _ => VariancePairKind.None,
+            };
         }
 
         if (target is not INamedTypeSymbol targetNamed
@@ -1597,7 +1595,21 @@ public sealed class VarianceUseSiteNormalizePreprocessor
     private static PendingSite PreservedArraySite(
         VarianceConversionFinding finding,
         string path)
-        => Preserved(
+    {
+        if (!finding.ArrayElementMappingSafe)
+        {
+            return Unsupported(
+                VarianceUseSiteRules.ValueTypeArgument,
+                finding.SourceType,
+                finding.TargetType,
+                finding.Direction,
+                "array element mapping has a boxing difference; Java array covariance cannot preserve it (VR-06)",
+                path,
+                finding.Line,
+                finding.Column);
+        }
+
+        return Preserved(
             VarianceUseSiteRules.ArrayCovariance,
             finding.SourceType,
             finding.TargetType,
@@ -1606,6 +1618,7 @@ public sealed class VarianceUseSiteNormalizePreprocessor
             path,
             finding.Line,
             finding.Column);
+    }
 
     private static PendingSite Preserved(
         string rule,

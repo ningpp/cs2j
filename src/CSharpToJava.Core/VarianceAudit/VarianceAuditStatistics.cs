@@ -27,6 +27,9 @@ public sealed class VarianceAuditStatistics
     public int VarianceConversionsContravariant;
     public int VarianceConversionsArray;
 
+    /// <summary>Array conversions whose element mapping is reference-only (VR-04, kept as-is).</summary>
+    public int VarianceConversionsArraySafe;
+
     public int NestedCompositionSites;
     public int UnsafeUseSites;
 
@@ -75,6 +78,7 @@ public sealed class VarianceAuditStatistics
         VarianceConversionsCovariant += source.VarianceConversionsCovariant;
         VarianceConversionsContravariant += source.VarianceConversionsContravariant;
         VarianceConversionsArray += source.VarianceConversionsArray;
+        VarianceConversionsArraySafe += source.VarianceConversionsArraySafe;
         NestedCompositionSites += source.NestedCompositionSites;
         UnsafeUseSites += source.UnsafeUseSites;
         ConstraintsStruct += source.ConstraintsStruct;
