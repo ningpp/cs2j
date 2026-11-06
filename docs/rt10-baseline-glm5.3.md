@@ -111,3 +111,71 @@ probe3 的 TFM Warning 群本次为 0。
 - `D:\cs\rt10-probe3-v8fix.log`（旧基线：372/116、301 条 TFM 警告）
 - `D:\runtime-10.0.12\src\libraries\System.Text.Json\src`（源 unsafe/fixed 统计）
 - `D:\cs\rt10-baseline-w10\.cs2j-preprocessed-src`（输出 unsafe/fixed 统计）
+
+## 8. 第二次重跑（HEAD `ffab1880`）
+
+### 8.1 运行口径
+
+- 运行日期：2026-11-06（Asia/Shanghai）；仓库 HEAD：`ffab1880`（本轮两个修复提交：
+  `05d1f8e5` 表达式体 void 成员 `?.` 降低、`ffab1880` 可构造集合类型 T6；工作树干净）。
+- 代码前置：全量单测 4705 通过 / 9 跳过 / 0 失败；ProjectTests 仅 `dotnet build` 验证。
+- 源不变：`D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj`；
+  目标：`D:\cs\rt10-baseline-w10b`；unified 中间树 `D:\cs\rt10-baseline-w10b\.cs2j-preprocessed-src`。
+- 命令（与 §1 同参数，仅换目标目录与日志）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10b --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests
+```
+
+- 结果：进程退出码 **1**（链中止，非超时/崩溃）。证据文件：
+  `D:\cs\rt10-baseline-w10b.log`（进程输出）、`D:\cs\rt10-baseline-w10b\preprocess-report.json`
+  （report `success=false`、`totalSeconds=31.873`、**10** 个 pass）。
+
+### 8.2 每个 pass 的实测（来源：preprocess-report.json 的 `status`/`summary`）
+
+| # | pass | 状态 | 实测 summary（原样节选） |
+|---|------|------|--------------------------|
+| 1 | conditional | ok | `strip-conditional: 66 transformed, 286 clean, 372 directives removed, 103 disabled blocks removed` |
+| 2 | lexical-normalize | ok | `0 transformed, 352 clean, 0 #line removed, ...` |
+| 3 | partial-merge | ok | `10 group(s) merged, 0 partial member pair(s) collapsed` |
+| 4 | local-function-lift | ok | `28 transformed, 324 clean, 59 lifted, 0 skipped, 0 residual` |
+| 5 | null-coalesce | ok | `59 transformed, 293 clean, 98 ?? rewritten, 100 ??= rewritten, 98 temp vars, 57 arrow bodies expanded, 0 residual` |
+| 6 | expression-desugar | **ok** | `107 transformed, 209 clean, 36 dirty-no-rewrite; coll: 35 sites (array 9/mutable 15/iface 0/span 8/builder 0/unknown 0), spread 3 (addrange 3), empty 16, nested 1, lifted 2, skipped 0, residual 0; nc: 180 member/call, 0 idx, 24 invoke, 56 void, 42 inline, 83 lifted, 32 coalesce, 0 deferred-c51, 164 temps, 0 skipped, 0 residual, assign=0` |
+| 7 | enum | ok | `85 transformed, 107 clean, 160 dirty-no-rewrite, 125 bitwise, 1 ~, 6 compound, 1 HasFlag, 0 lifted, 4 enum-arith, 0 residual` |
+| 8 | enum-declaration | ok | `6 enum(s) rewritten (flags=0, non-int=5, explicit=4), 20 file(s), 0 plan(s) rolled back, 0 kept real (numeric-boundary), 0 residual` |
+| 9 | delegate | ok | `1 transformed, 351 clean, 0 combine, 0 remove, 0 compound, 5 anonymous method, 0 skipped, 0 residual` |
+| 10 | tuple-to-struct | **failed** | `16 transformed, 338 clean, 25 types, 36 literals, 10 deconstructions, 0 tuple locals -> var, 20 structs generated` |
+
+### 8.3 与第一次（§2，expression-desugar 6 Error）的差异
+
+- **expression-desugar 已通过**：`status=ok`，0 条 Error；`coll` 的 `unknown` 与 `skipped` 均为 **0**，
+  `nc` 的 `skipped`/`residual` 均为 **0**。第一次的 6 条 Error（CS2J0558×3、CS2J0581×3）全部消失。
+- 文件级差异：`107 transformed / 209 clean / 36 dirty-no-rewrite`（第一次为 `102/209/41`）；
+  因不再原子回滚，多出的 5 个文件完成改写。
+- 中间树核对（`D:\cs\rt10-baseline-w10b\.cs2j-preprocessed-src`）：
+  - `DefaultJsonTypeInfoResolver.Helpers.cs` 的 `ClearMemberAccessorCaches` 已转为块体：
+    `var __ed_s0 = s_memberAccessor; if (__ed_s0 != null) { __ed_s0.Clear(); }`；
+  - `JsonPolymorphismOptions.cs` 的 `VerifyMutable` / `OnCollectionModifying` 同样转为块体（`__ed_s0` / `__ed_s2` 单次求值）；
+  - `EnumConverter.cs:494` → `JsonArray enumValues = new global::System.Text.Json.Nodes.JsonArray();`；
+  - `JsonSchema.cs:271` → `new global::System.Text.Json.Nodes.JsonArray()`；
+  - `JsonPrimitiveConverter.cs:57` → `new global::System.Text.Json.Nodes.JsonArray(new global::System.Text.Json.Nodes.JsonNode[] { (JsonNode)"NaN", ... })`。
+- **新的中止点**：第 10 个 pass `tuple-to-struct`（`id=tuple`，`status=failed`）。错误原文：
+  `[Error] src\System\Text\Json\Serialization\Metadata\PolymorphicTypeResolver.cs: tuple rewrite produced invalid C# syntax; the original file was preserved.`
+  另有 8 条 Warning：`gen\JsonSourceGenerator.Roslyn4.0.cs: Tuple element type could not be resolved (missing reference?); it was replaced with object.`
+  该失败与本次两个修复无关（第一次运行未到达该 pass）；该文件已被原样保留，链在此退出。
+- 未到达的后续 pass：`anonymous-type-lift` 及其后的全部 pass。
+
+### 8.4 TFM 警告
+
+- `D:\cs\rt10-baseline-w10b.log` 中 `skipped unresolvable TFM value` 计数仍为 **0**
+  （`Select-String ... | Measure-Object`）；conditional pass 的 `diagnostics` 为空。
+- conditional 的 `372 directives / 103 disabled blocks` 与第一次一致，net10 符号集求值未回退。
+
+### 8.5 来源文件
+
+- `D:\cs\rt10-baseline-w10b.log`（进程输出，0 条 TFM 警告）
+- `D:\cs\rt10-baseline-w10b\preprocess-report.json`（10 个 pass、`success=false`、`totalSeconds=31.873`）
+- `D:\cs\rt10-baseline-w10b\.cs2j-preprocessed-src`（改写后的中间源，含上述 3 + 3 处落点）
