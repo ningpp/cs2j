@@ -90,6 +90,7 @@ public sealed class GenericDeepenPreprocessor
 
         var staticMethodsByNode = new Dictionary<SyntaxNode, StaticMethodPlan>();
         var staticCallSites = new Dictionary<SyntaxNode, StaticMethodCallSitePlan>();
+        var methodGroupSites = new Dictionary<SyntaxNode, StaticMethodGroupSitePlan>();
         foreach (var plan in _analysis.StaticMethods)
         {
             if (plan.Declaration.SyntaxTree == model.SyntaxTree)
@@ -102,6 +103,14 @@ public sealed class GenericDeepenPreprocessor
                 if (callSite.Invocation.SyntaxTree == model.SyntaxTree)
                 {
                     staticCallSites[callSite.Invocation] = callSite;
+                }
+            }
+
+            foreach (var groupSite in plan.MethodGroupSites)
+            {
+                if (groupSite.Reference.SyntaxTree == model.SyntaxTree)
+                {
+                    methodGroupSites[groupSite.Reference] = groupSite;
                 }
             }
         }
@@ -175,6 +184,7 @@ public sealed class GenericDeepenPreprocessor
             && typeTestsByNode.Count == 0
             && fieldDeclRemovals.Count == 0 && fieldUsages.Count == 0
             && staticMethodsByNode.Count == 0 && staticCallSites.Count == 0
+            && methodGroupSites.Count == 0
             && ctorTokensByType.Count == 0 && ctorTokenSites.Count == 0 && ctorTokenCallSites.Count == 0
             && methodTokensByNode.Count == 0 && methodTokenSites.Count == 0 && methodTokenCallSites.Count == 0)
         {
@@ -186,7 +196,7 @@ public sealed class GenericDeepenPreprocessor
         var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
         var rewriter = new GenericDeepenRewriter(
             anchorsByNode, closuresByNode, patternsByNode, catchesByNode, typeTestsByNode, fieldDeclRemovals, fieldUsages,
-            staticMethodsByNode, staticCallSites, ctorTokensByType, ctorTokenSites, ctorTokenCallSites,
+            staticMethodsByNode, staticCallSites, methodGroupSites, ctorTokensByType, ctorTokenSites, ctorTokenCallSites,
             methodTokensByNode, methodTokenSites, methodTokenCallSites,
             stats, diagnostics, model);
         var newRoot = rewriter.Visit(root);

@@ -16,6 +16,7 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<SyntaxNode, StaticFieldUsagePlan> _fieldUsages;
     private readonly Dictionary<SyntaxNode, StaticMethodPlan> _staticMethodsByNode;
     private readonly Dictionary<SyntaxNode, StaticMethodCallSitePlan> _staticCallSites;
+    private readonly Dictionary<SyntaxNode, StaticMethodGroupSitePlan> _methodGroupSites;
     private readonly Dictionary<SyntaxNode, ConstructorTokenPlan> _ctorTokensByType;
     private readonly Dictionary<SyntaxNode, GenericDeepenParamRef> _ctorTokenSites;
     private readonly Dictionary<SyntaxNode, IReadOnlyList<string>> _ctorTokenCallSites;
@@ -36,6 +37,7 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         Dictionary<SyntaxNode, StaticFieldUsagePlan> fieldUsages,
         Dictionary<SyntaxNode, StaticMethodPlan> staticMethodsByNode,
         Dictionary<SyntaxNode, StaticMethodCallSitePlan> staticCallSites,
+        Dictionary<SyntaxNode, StaticMethodGroupSitePlan> methodGroupSites,
         Dictionary<SyntaxNode, ConstructorTokenPlan> ctorTokensByType,
         Dictionary<SyntaxNode, GenericDeepenParamRef> ctorTokenSites,
         Dictionary<SyntaxNode, IReadOnlyList<string>> ctorTokenCallSites,
@@ -55,6 +57,7 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         _fieldUsages = fieldUsages;
         _staticMethodsByNode = staticMethodsByNode;
         _staticCallSites = staticCallSites;
+        _methodGroupSites = methodGroupSites;
         _ctorTokensByType = ctorTokensByType;
         _ctorTokenSites = ctorTokenSites;
         _ctorTokenCallSites = ctorTokenCallSites;
@@ -75,6 +78,12 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
     {
+        if (_methodGroupSites.TryGetValue(node, out var groupSite))
+        {
+            var receiver = (ExpressionSyntax?)(Visit(node.Expression) ?? node.Expression);
+            return BuildMethodGroupLambda(node, groupSite, receiver);
+        }
+
         if (node.Name is IdentifierNameSyntax name && _fieldUsages.TryGetValue(name, out var usage))
         {
             // The receiver (closed type construction) is dropped: the resolved type
@@ -87,6 +96,11 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
     {
+        if (_methodGroupSites.TryGetValue(node, out var groupSite))
+        {
+            return BuildMethodGroupLambda(node, groupSite, receiver: null);
+        }
+
         // Name position of a member access is handled by VisitMemberAccessExpression;
         // receiver position (Latest.ToString()) still needs the accessor.
         if (_fieldUsages.ContainsKey(node)
@@ -96,6 +110,22 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         }
 
         return base.VisitIdentifierName(node);
+    }
+
+    /// <summary>
+    /// GD-STATIC method group: hoisting turns the method into a generic method, so a
+    /// delegate conversion has no inference site left. The reference becomes a lambda
+    /// with the target delegate's parameter shape that spells the closed type argument.
+    /// </summary>
+    private static ExpressionSyntax BuildMethodGroupLambda(
+        SyntaxNode reference, StaticMethodGroupSitePlan site, ExpressionSyntax? receiver)
+    {
+        var parameters = string.Join(", ", site.ParameterNames);
+        var callee = (receiver == null ? string.Empty : receiver + ".")
+            + site.MethodName
+            + "<" + string.Join(", ", site.TypeArgumentTexts) + ">";
+        return SyntaxFactory.ParseExpression($"({parameters}) => {callee}({parameters})")
+            .WithTriviaFrom(reference);
     }
 
     public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)

@@ -112,7 +112,25 @@ public sealed class StaticMethodPlan
     public required IReadOnlyList<GenericDeepenParamRef> Params { get; init; }
     public required IReadOnlyList<string> ConstraintTexts { get; init; }
     public required IReadOnlyList<StaticMethodCallSitePlan> CallSites { get; init; }
+    /// <summary>
+    /// Delegate-conversion (method group) references. Hoisting turns the method into a
+    /// generic method, so the conversion would no longer be inferable; each reference is
+    /// rewritten to a lambda that keeps the target delegate's shape and spells the closed
+    /// type argument explicitly.
+    /// </summary>
+    public required IReadOnlyList<StaticMethodGroupSitePlan> MethodGroupSites { get; init; }
     public string FilePath => Declaration.SyntaxTree.FilePath;
+}
+
+/// <summary>One method-group reference of a hoisted static method, replaced by a shape-preserving lambda.</summary>
+public sealed class StaticMethodGroupSitePlan
+{
+    /// <summary>The identifier or member-access expression to replace.</summary>
+    public required SyntaxNode Reference { get; init; }
+    public required string MethodName { get; init; }
+    public required IReadOnlyList<string> TypeArgumentTexts { get; init; }
+    /// <summary>Lambda parameter names taken from the target delegate's Invoke method.</summary>
+    public required IReadOnlyList<string> ParameterNames { get; init; }
 }
 
 /// <summary>
@@ -1178,25 +1196,16 @@ public sealed class GenericDeepenAnalyzer
 
         ReportStaticPropertyGaps();
 
-        // Candidate pool: static ordinary methods in generic types without own type parameters.
+        // Candidate pool: static ordinary methods in generic types.
         var pool = new List<(IMethodSymbol Method, MethodDeclarationSyntax Declaration,
             List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> Visible)>();
+        var methodGroupRefs = new Dictionary<IMethodSymbol, List<IdentifierNameSyntax>>(SymbolEqualityComparer.Default);
         foreach (var (method, declaration) in _methodDecls)
         {
             if (method.MethodKind != MethodKind.Ordinary || !method.IsStatic) continue;
 
             var visible = CollectVisibleClassParams(method);
             if (visible.Count == 0) continue;
-
-            if (method.TypeParameters.Length > 0)
-            {
-                _diagnostics.Add(new GenericDeepenDiagnostic(
-                    GenericDeepenSeverity.Warning, GenericDeepenRule.StaticMember, GenericDeepenCodes.StaticFamilyNotClosable,
-                    $"Static method '{method.ToDisplayString()}' has its own type parameters on top of the enclosing class parameters; hoisting would collide, the method is left in place.",
-                    declaration.SyntaxTree.FilePath,
-                    declaration.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
-                continue;
-            }
 
             var isStaticAbstract = declaration.Modifiers.Any(m =>
                 m.IsKind(SyntaxKind.AbstractKeyword) || m.IsKind(SyntaxKind.VirtualKeyword));
@@ -1221,29 +1230,24 @@ public sealed class GenericDeepenAnalyzer
                 continue;
             }
 
-            if (HasMethodGroupReference(method))
-            {
-                _diagnostics.Add(new GenericDeepenDiagnostic(
-                    GenericDeepenSeverity.Warning, GenericDeepenRule.StaticMember, GenericDeepenCodes.StaticFamilyNotClosable,
-                    $"Static method '{method.ToDisplayString()}' is referenced as a method group (delegate conversion) somewhere; hoisting would change the delegate shape, the method is left in place.",
-                    declaration.SyntaxTree.FilePath,
-                    declaration.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
-                continue;
-            }
-
+            methodGroupRefs[method] = CollectMethodGroupIdentifiers(method);
             pool.Add((method, declaration, visible));
         }
 
         // Fixpoint: a static method referencing class params (signature, body, or a call
         // into an already-planned hoisted method with a class-param type argument) gets hoisted.
+        // A method that ALSO has its own type parameters cannot be hoisted (the two lists
+        // would collide); the collision is only reported when hoisting is actually needed,
+        // so an untouched static generic method is not a false positive.
         var planned = new Dictionary<IMethodSymbol, SortedSet<GenericDeepenParamRef>>(SymbolEqualityComparer.Default);
+        var ownTypeParamBlocked = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
         bool changed;
         do
         {
             changed = false;
             foreach (var (method, declaration, visible) in pool)
             {
-                if (planned.ContainsKey(method)) continue;
+                if (planned.ContainsKey(method) || ownTypeParamBlocked.Contains(method)) continue;
 
                 var referenced = new List<GenericDeepenParamRef>();
                 CollectTypeReferences(method.ReturnType, visible, referenced);
@@ -1280,6 +1284,18 @@ public sealed class GenericDeepenAnalyzer
                 }
 
                 if (referenced.Count == 0) continue;
+
+                if (method.TypeParameters.Length > 0)
+                {
+                    ownTypeParamBlocked.Add(method);
+                    _diagnostics.Add(new GenericDeepenDiagnostic(
+                        GenericDeepenSeverity.Warning, GenericDeepenRule.StaticMember, GenericDeepenCodes.StaticFamilyNotClosable,
+                        $"Static method '{method.ToDisplayString()}' has its own type parameters on top of the enclosing class parameters; hoisting would collide, the method is left in place.",
+                        declaration.SyntaxTree.FilePath,
+                        declaration.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                    continue;
+                }
+
                 var set = new SortedSet<GenericDeepenParamRef>(ParamRefComparer.Instance);
                 foreach (var reference in referenced)
                 {
@@ -1296,6 +1312,12 @@ public sealed class GenericDeepenAnalyzer
         {
             if (!planned.TryGetValue(method, out var referenced)) continue;
 
+            var methodGroupSites = BuildMethodGroupSitePlans(method, referenced.ToList(), methodGroupRefs[method]);
+            if (methodGroupSites == null)
+            {
+                continue;
+            }
+
             var callSites = CollectStaticMethodCallSites(method, declaration, referenced);
             if (callSites == null)
             {
@@ -1309,6 +1331,7 @@ public sealed class GenericDeepenAnalyzer
                 Params = referenced.ToList(),
                 ConstraintTexts = CollectConstraintTexts(declaration, referenced),
                 CallSites = callSites,
+                MethodGroupSites = methodGroupSites,
             });
         }
 
@@ -1385,16 +1408,24 @@ public sealed class GenericDeepenAnalyzer
 
     /// <summary>Any reference to the method outside an invocation operand (delegate/method-group conversion).</summary>
     private bool HasMethodGroupReference(IMethodSymbol method)
+        => CollectMethodGroupIdentifiers(method).Count > 0;
+
+    /// <summary>
+    /// Every identifier bound to the method that is NOT an invocation operand or a
+    /// <c>nameof</c> argument — i.e. every method-group (delegate conversion) reference.
+    /// </summary>
+    private List<IdentifierNameSyntax> CollectMethodGroupIdentifiers(IMethodSymbol method)
     {
         EnsureNameIndex();
+        var sites = new List<IdentifierNameSyntax>();
         foreach (var identifier in IdentifierSitesBoundTo(method.Name, method))
         {
             if (IsWithinNameOf(identifier)) continue;
             if (IsInvocationOperand(identifier)) continue;
-            return true;
+            sites.Add(identifier);
         }
 
-        return false;
+        return sites;
     }
 
     private static bool IsInvocationOperand(IdentifierNameSyntax identifier)
@@ -1427,17 +1458,15 @@ public sealed class GenericDeepenAnalyzer
             var generic = memberAccess.Expression.DescendantNodesAndSelf()
                 .OfType<GenericNameSyntax>()
                 .FirstOrDefault(g => chainNames.Contains(g.Identifier.ValueText));
-            if (generic == null)
+            if (generic != null)
             {
-                return null;
-            }
+                foreach (var param in referenced)
+                {
+                    texts.Add(generic.TypeArgumentList.Arguments[param.Ordinal].ToString());
+                }
 
-            foreach (var param in referenced)
-            {
-                texts.Add(generic.TypeArgumentList.Arguments[param.Ordinal].ToString());
+                return texts;
             }
-
-            return texts;
         }
 
         if (invocation.Expression is IdentifierNameSyntax)
@@ -1455,6 +1484,62 @@ public sealed class GenericDeepenAnalyzer
                 }
 
                 return texts;
+            }
+        }
+
+        // Fallback: the BOUND callee's containing type is the construction the compiler
+        // actually resolved. This covers receivers with no syntax construction — most
+        // notably an implicit `this`/base static call from a derived class
+        // (ByteConverter : JsonPrimitiveConverter<byte>), where the closed arguments only
+        // exist in the base-list substitution.
+        return RenderClosedReferenceTypeArguments(invocation, referenced);
+    }
+
+    /// <summary>
+    /// Renders the referenced type parameters from the constructed containing type of the
+    /// bound callee of <paramref name="reference"/> (an identifier or member access).
+    /// Null when the reference does not bind or a parameter cannot be mapped.
+    /// </summary>
+    private IReadOnlyList<string>? RenderClosedReferenceTypeArguments(
+        ExpressionSyntax reference, IEnumerable<GenericDeepenParamRef> referenced)
+    {
+        var model = _compilation.GetSemanticModel(reference.SyntaxTree);
+        if (model.GetSymbolInfo(reference).Symbol is not IMethodSymbol callee)
+        {
+            return null;
+        }
+
+        var texts = new List<string>();
+        foreach (var param in referenced)
+        {
+            var text = FindTypeArgumentText(model, callee.ContainingType, param, reference.SpanStart);
+            if (text == null)
+            {
+                return null;
+            }
+
+            texts.Add(text);
+        }
+
+        return texts;
+    }
+
+    /// <summary>
+    /// Maps one hoisted parameter onto the constructed type argument of the callee's
+    /// containing chain. Type-parameter names are unique along a C# type chain (a nested
+    /// type may not redeclare an enclosing type parameter's name), so the name is the
+    /// stable key across the original/constructed views.
+    /// </summary>
+    private static string? FindTypeArgumentText(
+        SemanticModel model, INamedTypeSymbol? constructed, GenericDeepenParamRef param, int position)
+    {
+        for (var type = constructed; type != null; type = type.ContainingType)
+        {
+            var original = type.OriginalDefinition;
+            for (var i = 0; i < original.TypeParameters.Length && i < type.TypeArguments.Length; i++)
+            {
+                if (original.TypeParameters[i].Name != param.Name) continue;
+                return type.TypeArguments[i].ToMinimalDisplayString(model, position);
             }
         }
 
@@ -1487,6 +1572,86 @@ public sealed class GenericDeepenAnalyzer
         }
 
         return sites;
+    }
+
+    /// <summary>
+    /// Plans one lambda wrapper per method-group reference: the target delegate fixes the
+    /// parameter shape, the closed class type arguments are rendered from the reference's
+    /// own binding. Null (after registering CS2J1102 at the exact site) means the reference
+    /// cannot be preserved and the method must stay in place.
+    /// </summary>
+    private List<StaticMethodGroupSitePlan>? BuildMethodGroupSitePlans(
+        IMethodSymbol method,
+        IReadOnlyList<GenericDeepenParamRef> referenced,
+        IReadOnlyList<IdentifierNameSyntax> identifiers)
+    {
+        var sites = new List<StaticMethodGroupSitePlan>();
+        foreach (var identifier in identifiers)
+        {
+            var model = _compilation.GetSemanticModel(identifier.SyntaxTree);
+            var invoke = (model.GetTypeInfo(identifier).ConvertedType as INamedTypeSymbol)?.DelegateInvokeMethod;
+            if (invoke == null || invoke.Parameters.Any(parameter => parameter.RefKind != RefKind.None))
+            {
+                ReportMethodGroupGap(method, identifier,
+                    "does not bind to a plain (non-ref) delegate target");
+                return null;
+            }
+
+            var reference = identifier.Parent is MemberAccessExpressionSyntax member && member.Name == identifier
+                ? (SyntaxNode)member
+                : identifier;
+            var typeArgs = RenderClosedReferenceTypeArguments((ExpressionSyntax)reference, referenced);
+            if (typeArgs == null)
+            {
+                ReportMethodGroupGap(method, identifier,
+                    "does not reveal the closed type construction");
+                return null;
+            }
+
+            sites.Add(new StaticMethodGroupSitePlan
+            {
+                Reference = reference,
+                MethodName = method.Name,
+                TypeArgumentTexts = typeArgs,
+                ParameterNames = BuildLambdaParameterNames(invoke),
+            });
+        }
+
+        return sites;
+    }
+
+    private void ReportMethodGroupGap(IMethodSymbol method, SyntaxNode site, string reason)
+        => _diagnostics.Add(new GenericDeepenDiagnostic(
+            GenericDeepenSeverity.Warning, GenericDeepenRule.StaticMember, GenericDeepenCodes.StaticFamilyNotClosable,
+            $"Method-group reference '{site}' of hoisted static method '{method.ToDisplayString()}' {reason}; "
+            + "the delegate shape cannot be preserved, the method is left in place.",
+            site.SyntaxTree.FilePath, site.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+
+    /// <summary>Lambda parameter names mirroring the target delegate's Invoke method.</summary>
+    private static IReadOnlyList<string> BuildLambdaParameterNames(IMethodSymbol invoke)
+    {
+        var names = new List<string>();
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < invoke.Parameters.Length; i++)
+        {
+            var name = invoke.Parameters[i].Name;
+            if (name.Length == 0 || name == "_" || !used.Add(name))
+            {
+                name = "p" + i;
+                while (!used.Add(name))
+                {
+                    name += "_";
+                }
+            }
+            else if (SyntaxFacts.GetKeywordKind(name) != SyntaxKind.None)
+            {
+                name = "@" + name;
+            }
+
+            names.Add(name);
+        }
+
+        return names;
     }
 
     // ---- phase 1: per-tree walk ----

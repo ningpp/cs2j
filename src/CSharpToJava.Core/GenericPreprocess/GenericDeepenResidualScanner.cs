@@ -49,7 +49,7 @@ public static class GenericDeepenResidualScanner
             findings.AddRange(local);
         }
 
-        ScanForwardNeedChain(rewritten, findings, activeTreePaths);
+        ScanForwardNeedChain(rewritten, findings, activeTreePaths, BuildHoistedStaticParams(analysis));
 
         // The rule only compares members of an override/interface family, so it needs
         // a family with two or more generic members to be able to fire at all.
@@ -256,8 +256,32 @@ public static class GenericDeepenResidualScanner
         public readonly List<(int CallerOrdinal, IMethodSymbol Callee, int CalleeOrdinal)> Edges = new();
     }
 
+    /// <summary>
+    /// GD-STATIC hoisted methods keyed by the rewritten symbol's (containing type, name,
+    /// parameter count): the hoisted class type parameters are carried by the method's
+    /// own type-parameter list after the rewrite. Forwarding them is the hoisting
+    /// contract (every call site spells them), not an unanchored residual chain.
+    /// </summary>
+    private static Dictionary<string, HashSet<string>> BuildHoistedStaticParams(GenericDeepenAnalysis analysis)
+    {
+        var result = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        foreach (var plan in analysis.StaticMethods)
+        {
+            result[HoistedMethodKey(plan.Method)] = plan.Params
+                .Select(param => param.Name)
+                .ToHashSet(StringComparer.Ordinal);
+        }
+
+        return result;
+    }
+
+    private static string HoistedMethodKey(IMethodSymbol method)
+        => (method.ContainingType?.ToDisplayString() ?? string.Empty) + "|" + method.Name + "|"
+            + method.Parameters.Length;
+
     private static void ScanForwardNeedChain(
-        Compilation compilation, List<Finding> findings, IReadOnlySet<string>? activeTreePaths)
+        Compilation compilation, List<Finding> findings, IReadOnlySet<string>? activeTreePaths,
+        Dictionary<string, HashSet<string>> hoistedStaticParams)
     {
         var treeSet = new HashSet<SyntaxTree>(compilation.SyntaxTrees);
         var groups = new Dictionary<IMethodSymbol, ForwardGroup>(SymbolEqualityComparer.Default);
@@ -344,11 +368,13 @@ public static class GenericDeepenResidualScanner
 
         foreach (var (symbol, group) in groups)
         {
+            hoistedStaticParams.TryGetValue(HoistedMethodKey(symbol), out var hoistedParams);
             foreach (var ordinal in need[symbol])
             {
                 if (group.DirectNeed.Contains(ordinal)) continue;
                 if (ordinal >= symbol.TypeParameters.Length) continue;
                 var name = symbol.TypeParameters[ordinal].Name;
+                if (hoistedParams != null && hoistedParams.Contains(name)) continue;
                 if (group.AnchoredNames.Contains(name)) continue;
 
                 var declaration = group.Declarations[0];
