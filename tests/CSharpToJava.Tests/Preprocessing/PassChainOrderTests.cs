@@ -1255,9 +1255,7 @@ public sealed class PassChainOrderTests
     {
         var registry = PassCatalog.BuildRegistry();
         var expansion = PassDependencyClosure.Expand(
-            registry, new[] { PassIds.GenericDeepen }, autoEnableDependencies: true);
-
-        Assert.True(expansion.IsSatisfied);
+            registry, new[] { PassIds.GenericDeepen });
 
         var ids = expansion.EnabledIds.ToList();
         Assert.Contains(PassIds.GenericDeepen, ids);
@@ -1283,21 +1281,34 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
-    public void R6_dependency_without_unified_tree_is_a_hard_error()
+    public void R6_explicit_pass_without_unified_tree_auto_enables_generic_before_generic_deepen()
     {
+        // The preprocess verb disables every descriptor for an explicit --pass
+        // selection, then enables the ids plus the auto-enabled closure. No
+        // --unified-preprocessed-src here: the chain still threads each pass'
+        // output tree into the next, so the dependency must be appended instead
+        // of rejected (the historical hard error broke existing CLI usage).
+        var registry = PassCatalog.BuildRegistry();
         var expansion = PassDependencyClosure.Expand(
-            PassCatalog.BuildRegistry(), new[] { PassIds.GenericDeepen }, autoEnableDependencies: false);
+            registry, new[] { PassIds.GenericDeepen });
 
-        Assert.False(expansion.IsSatisfied);
-        var missing = expansion.Missing
-            .Single(dependency => dependency.PassId == PassIds.GenericDeepen);
-        Assert.Equal(PassIds.Generic, missing.DependencyId);
+        var autoEnabled = expansion.AutoEnabled.Single(
+            dependency => dependency.PassId == PassIds.GenericDeepen
+                          && dependency.DependencyId == PassIds.Generic);
+        Assert.Equal(
+            $"auto-enabled dependency '{PassIds.Generic}' for '{PassIds.GenericDeepen}' (RunAfterIds)",
+            PassDependencyExpansion.DescribeAutoEnabled(autoEnabled));
 
-        var message = PassDependencyExpansion.DescribeMissing(missing);
-        Assert.Contains(
-            $"pass '{PassIds.GenericDeepen}' requires '{PassIds.Generic}' (RunAfterIds)", message);
-        Assert.Contains("--unified-preprocessed-src", message);
-        Assert.Contains($"add --pass {PassIds.Generic}", message);
+        var plan = PassPlanResolver.Resolve(
+            registry,
+            PassChainFactory.BuildAllDisabledToggles(registry),
+            expansion.EnabledIds);
+        Assert.True(plan.IsValid);
+
+        var planned = plan.Enabled.Select(pass => pass.Id).ToList();
+        Assert.Contains(PassIds.Generic, planned);
+        Assert.Contains(PassIds.GenericDeepen, planned);
+        Assert.True(planned.IndexOf(PassIds.Generic) < planned.IndexOf(PassIds.GenericDeepen));
     }
 
     [Fact]
@@ -1305,10 +1316,8 @@ public sealed class PassChainOrderTests
     {
         var expansion = PassDependencyClosure.Expand(
             PassCatalog.BuildRegistry(),
-            new[] { PassIds.Generic, PassIds.GenericDeepen },
-            autoEnableDependencies: true);
+            new[] { PassIds.Generic, PassIds.GenericDeepen });
 
-        Assert.True(expansion.IsSatisfied);
         Assert.DoesNotContain(
             expansion.AutoEnabled,
             dependency => dependency.DependencyId == PassIds.Generic);
@@ -1321,7 +1330,7 @@ public sealed class PassChainOrderTests
     {
         var registry = PassCatalog.BuildRegistry();
         var expansion = PassDependencyClosure.Expand(
-            registry, new[] { PassIds.GenericDeepen }, autoEnableDependencies: true);
+            registry, new[] { PassIds.GenericDeepen });
 
         var plan = PassPlanResolver.Resolve(
             registry,
@@ -1340,7 +1349,7 @@ public sealed class PassChainOrderTests
     public void R6_unknown_explicit_id_survives_the_dependency_expansion()
     {
         var expansion = PassDependencyClosure.Expand(
-            PassCatalog.BuildRegistry(), new[] { "no-such-pass" }, autoEnableDependencies: true);
+            PassCatalog.BuildRegistry(), new[] { "no-such-pass" });
 
         Assert.Contains("no-such-pass", expansion.EnabledIds);
 

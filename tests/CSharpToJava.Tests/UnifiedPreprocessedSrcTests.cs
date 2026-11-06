@@ -53,6 +53,46 @@ public sealed class UnifiedPreprocessedSrcTests
         }
     }
 
+    [Fact]
+    public async Task Preprocess_ExplicitPassWithoutUnifiedFlag_AutoRunsRunAfterDependencies()
+    {
+        // Historical behavior: explicit --pass without --unified-preprocessed-src
+        // was rejected when a RunAfterIds prerequisite was missing. The chain
+        // threads each pass' output tree into the next, so the prerequisite is
+        // now auto-enabled in every mode (existing ProjectTests CLI usage).
+        var tempRoot = CreateTempDirectory();
+        var sourceRoot = Path.Combine(tempRoot, "source");
+        var destinationRoot = Path.Combine(tempRoot, "out");
+        Directory.CreateDirectory(sourceRoot);
+
+        try
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(sourceRoot, "Sample.cs"),
+                "class Sample { int M(int x) { return x + 1; } }");
+
+            var exit = await Program.MainImpl([
+                "preprocess",
+                "-s", sourceRoot,
+                "-d", destinationRoot,
+                "--pass", "generic-deepen",
+                "--no-verify-build",
+                "--no-verify-tests",
+            ]);
+
+            Assert.Equal(0, exit);
+
+            // Both the requested pass and its auto-enabled prerequisite ran.
+            Assert.True(Directory.Exists(Path.Combine(destinationRoot, ".cs2j-generic-src")));
+            Assert.True(Directory.Exists(Path.Combine(destinationRoot, ".cs2j-generic-deepen-src")));
+            Assert.False(Directory.Exists(Path.Combine(destinationRoot, UnifiedDirectoryName)));
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
     [SlowE2EFact(26.9)]
     public async Task ConvertProject_UnifiedFlag_UsesSingleIntermediateDirectory()
     {

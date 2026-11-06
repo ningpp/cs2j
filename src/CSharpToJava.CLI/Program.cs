@@ -4232,26 +4232,14 @@ public class Program
             }
 
             // R6 (upgrade plan §6.4): an explicit --pass selection must also run
-            // its transitive RunAfterIds prerequisites. With --unified-preprocessed-src
-            // the missing prerequisites are appended in locked order (the shared
-            // tree carries each pass' output to the next); without it the
-            // dependent pass would silently read the unprocessed source tree, so
-            // the invocation fails instead of no-op'ing.
+            // its transitive RunAfterIds prerequisites. The chain feeds each pass'
+            // output tree to the next (CliPreprocessChain reassigns sourcePath per
+            // pass), so the missing prerequisites are always appended in locked
+            // topological order — with or without --unified-preprocessed-src.
             if (explicitPassSelection)
             {
                 var expansion = PassDependencyClosure.Expand(
-                    PassCatalog.BuildRegistry(), enablePassIds!, opts.UnifiedPreprocessedSrc);
-                if (!expansion.IsSatisfied)
-                {
-                    foreach (var dependency in expansion.Missing)
-                    {
-                        Console.Error.WriteLine(
-                            PassDependencyExpansion.DescribeMissing(dependency));
-                    }
-
-                    return 1;
-                }
-
+                    PassCatalog.BuildRegistry(), enablePassIds!);
                 foreach (var dependency in expansion.AutoEnabled)
                 {
                     Console.Error.WriteLine(

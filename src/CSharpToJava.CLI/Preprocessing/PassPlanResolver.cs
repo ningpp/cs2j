@@ -120,16 +120,6 @@ internal sealed class PassDependencyExpansion
     /// <summary>Prerequisites that were newly auto-enabled, with the pass that required them.</summary>
     public required IReadOnlyList<PassDependency> AutoEnabled { get; init; }
 
-    /// <summary>Prerequisites that are absent and could not (or were not allowed to) be auto-enabled.</summary>
-    public required IReadOnlyList<PassDependency> Missing { get; init; }
-
-    public bool IsSatisfied => Missing.Count == 0;
-
-    /// <summary>Exact diagnostic text used by both CLI entry points.</summary>
-    public static string DescribeMissing(PassDependency dependency)
-        => $"pass '{dependency.PassId}' requires '{dependency.DependencyId}' (RunAfterIds); " +
-           $"add --pass {dependency.DependencyId} or use --unified-preprocessed-src to auto-run dependencies";
-
     /// <summary>Exact auto-enable trace line emitted on stderr.</summary>
     public static string DescribeAutoEnabled(PassDependency dependency)
         => $"auto-enabled dependency '{dependency.DependencyId}' for '{dependency.PassId}' (RunAfterIds)";
@@ -137,17 +127,15 @@ internal sealed class PassDependencyExpansion
 
 /// <summary>
 /// Expands an explicit pass selection into its transitive <c>RunAfterIds</c>
-/// dependency closure. With a unified intermediate tree the missing
-/// prerequisites can be appended (the shared tree carries each pass' output to
-/// the next); without it the caller must fail loudly instead of running the
-/// dependent pass against an unprocessed source tree.
+/// dependency closure. Missing prerequisites are always auto-enabled: the chain
+/// feeds each pass' output tree to the next, so appending them in locked
+/// topological order is safe with or without a unified intermediate tree.
 /// </summary>
 internal static class PassDependencyClosure
 {
     public static PassDependencyExpansion Expand(
         PassRegistry registry,
-        IEnumerable<string> explicitEnableIds,
-        bool autoEnableDependencies)
+        IEnumerable<string> explicitEnableIds)
     {
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(explicitEnableIds);
@@ -164,7 +152,6 @@ internal static class PassDependencyClosure
 
         var enabledSet = new HashSet<string>(requestedSet, StringComparer.Ordinal);
         var autoEnabled = new List<PassDependency>();
-        var missing = new List<PassDependency>();
         var visited = new HashSet<string>(StringComparer.Ordinal);
         var recorded = new HashSet<PassDependency>();
         var queue = new Queue<string>(requested);
@@ -199,16 +186,9 @@ internal static class PassDependencyClosure
                     continue;
                 }
 
-                if (autoEnableDependencies)
+                if (enabledSet.Add(dependencyId))
                 {
-                    if (enabledSet.Add(dependencyId))
-                    {
-                        autoEnabled.Add(dependency);
-                    }
-                }
-                else
-                {
-                    missing.Add(dependency);
+                    autoEnabled.Add(dependency);
                 }
             }
         }
@@ -226,7 +206,6 @@ internal static class PassDependencyClosure
         {
             EnabledIds = ordered,
             AutoEnabled = autoEnabled,
-            Missing = missing,
         };
     }
 }
