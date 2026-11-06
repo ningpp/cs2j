@@ -810,6 +810,17 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
             return base.VisitTupleExpression(node);
         }
 
+        if (node.Parent is ForEachVariableStatementSyntax foreachStatement
+            && foreachStatement.Variable == node)
+        {
+            // foreach 的解构声明列表不是值元组字面量：元素类型可能是带
+            // Deconstruct 的非元组类型（如 JsonDerivedType），此时该节点只是
+            // 解构语法。把它当元组字面量改写成 struct 构造会产出非法 foreach
+            // 头（Type a 变成构造参数），整文件因此回滚。元组元素类型由
+            // VisitForEachVariableStatement 的展开分支处理，不会走到这里。
+            return base.VisitTupleExpression(node);
+        }
+
         var info = _model.GetTypeInfo(node);
         var symbol = info.ConvertedType is INamedTypeSymbol { IsTupleType: true } converted
             ? converted

@@ -440,4 +440,83 @@ public sealed class TupleToStructPreprocessorTests
         // The struct itself must stay compilable in isolation.
         AssertOutputCompiles(System.Array.Empty<string>(), result.StructFile);
     }
+
+    [Fact]
+    public void ForeachDeconstruction_OverNonTupleStruct_KeepsDeconstructionSyntax()
+    {
+        // rt10 System.Text.Json PolymorphicTypeResolver.cs:
+        //   foreach ((Type derivedType, object? typeDiscriminator) in polymorphismOptions.DerivedTypes)
+        // deconstructs JsonDerivedType — a struct with a Deconstruct method, NOT a
+        // ValueTuple. The parenthesized list still parses as a TupleExpressionSyntax
+        // whose natural type is a tuple, so it was rewritten as a tuple literal:
+        //   foreach (newglobal::Cs2jTuples.TupleTypeObject(Type derivedType, object? typeDiscriminator) in ...)
+        // which is unparsable. Deconstruction targets must never be lowered as values.
+        var source = """
+            using System;
+            using System.Collections.Generic;
+
+            class PolymorphicTypeResolver
+            {
+                public readonly struct JsonDerivedType
+                {
+                    private readonly Type _type;
+                    private readonly object? _discriminator;
+
+                    public JsonDerivedType(Type type, object? discriminator)
+                    {
+                        _type = type;
+                        _discriminator = discriminator;
+                    }
+
+                    public void Deconstruct(out Type derivedType, out object? typeDiscriminator)
+                    {
+                        derivedType = _type;
+                        typeDiscriminator = _discriminator;
+                    }
+                }
+
+                private sealed class DerivedJsonTypeInfo
+                {
+                    public DerivedJsonTypeInfo(object? discriminator, int value)
+                    {
+                        Discriminator = discriminator;
+                        Value = value;
+                    }
+
+                    public object? Discriminator { get; }
+                    public int Value { get; }
+                }
+
+                private readonly List<JsonDerivedType> _derivedTypes = new();
+                private readonly Dictionary<object, DerivedJsonTypeInfo> _map = new();
+
+                public (int Count, bool Any) Stats { get; private set; }
+
+                public void Process()
+                {
+                    bool any = false;
+                    foreach ((Type derivedType, object? typeDiscriminator) in _derivedTypes)
+                    {
+                        DerivedJsonTypeInfo holder = new(typeDiscriminator, 1);
+                        _map[derivedType] = holder;
+                        any = any || holder.Value > 0;
+                    }
+
+                    Stats = (_map.Count, any);
+                }
+            }
+            """;
+
+        var result = RunAll(source);
+
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == TupleToStructSeverity.Error));
+        // The deconstruction pattern is preserved verbatim: it is not a tuple literal.
+        Assert.Contains(
+            "foreach ((Type derivedType, object? typeDiscriminator) in _derivedTypes)",
+            result.Outputs[0]);
+        // Ordinary tuple sites in the same file still lower to the generated struct.
+        Assert.Contains("Cs2jTuples.TupleInt32Boolean", result.Outputs[0]);
+        Assert.NotNull(result.StructFile);
+        AssertOutputCompiles(result.Outputs, result.StructFile);
+    }
 }
