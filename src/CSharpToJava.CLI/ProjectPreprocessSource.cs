@@ -326,6 +326,16 @@ internal static class ProjectPreprocessSource
                         // semantic model cannot resolve those external types.
                         var csprojContent = await File.ReadAllTextAsync(projectFile);
                         var fixedContent = FixPackageDowngrades(csprojContent);
+                        // The intermediate tree flattens the repository's MSBuild
+                        // directory files and has no eng/ directory, so repo version
+                        // properties ($(SystemBuffersVersion) …) evaluate to empty
+                        // and restore fails with NU1015. Pin every property-based
+                        // PackageReference/PackageVersion version to the literal
+                        // resolved by MSBuild on the ORIGINAL project.
+                        var versions = ResolveProjectPackageVersions(projectFile, csprojContent);
+                        fixedContent = PinPackageReferenceVersionProperties(
+                            fixedContent, versions, Path.GetDirectoryName(projectFile)!);
+                        fixedContent = PinPackageReferenceVersions(fixedContent, versions);
                         await File.WriteAllTextAsync(destinationFile, fixedContent, new System.Text.UTF8Encoding(false));
                     }
                     else
@@ -374,9 +384,20 @@ internal static class ProjectPreprocessSource
         }
 
         if (!needsSave) return csprojContent;
-        using var sw = new System.IO.StringWriter();
+        using var sw = new Utf8StringWriter();
         doc.Save(sw);
         return sw.ToString();
+    }
+
+    /// <summary>
+    /// A <see cref="System.IO.StringWriter"/> that reports UTF-8 so XDocument
+    /// emits <c>encoding="utf-8"</c> in the XML declaration. A plain StringWriter
+    /// reports UTF-16, and the resulting string written back as UTF-8 (no BOM)
+    /// makes later XML loads fail with "There is no Unicode byte order mark."
+    /// </summary>
+    private sealed class Utf8StringWriter : System.IO.StringWriter
+    {
+        public override System.Text.Encoding Encoding => System.Text.Encoding.UTF8;
     }
 
     private static bool IsOlderThan(string versionAttr, string targetVersion)
@@ -395,12 +416,440 @@ internal static class ProjectPreprocessSource
         }
     }
 
+    /// <summary>
+    /// Returns the MSBuild-evaluated PackageReference versions for an original
+    /// project only when the project (or a sibling props/targets file that
+    /// versions packages) actually needs them. Evaluation failure/null leaves
+    /// the original markup untouched.
+    /// </summary>
+    internal static IReadOnlyDictionary<string, string>? ResolveProjectPackageVersions(
+        string projectFile,
+        string csprojContent)
+    {
+        if (!NeedsPackageVersionResolution(csprojContent))
+        {
+            var projectDirectory = Path.GetDirectoryName(projectFile);
+            if (projectDirectory == null
+                || !DirectoryMsBuildFilesNeedPackageVersionResolution(projectDirectory))
+            {
+                return null;
+            }
+        }
+
+        return MsBuildCompileEvaluator.TryEvaluatePackageReferences(projectFile);
+    }
+
+    /// <summary>True when a file contains a property-based package version.</summary>
+    internal static bool NeedsPackageVersionResolution(string content)
+        => content.Contains("PackageReference", StringComparison.OrdinalIgnoreCase)
+           && content.Contains("Version=\"$(", StringComparison.Ordinal);
+
+    private static bool DirectoryMsBuildFilesNeedPackageVersionResolution(string directory)
+    {
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(directory, "*.props")
+                         .Concat(Directory.EnumerateFiles(directory, "*.targets")))
+            {
+                if (FileContentNeedsPackageVersionResolution(file))
+                {
+                    return true;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // A directory we cannot enumerate simply needs no pinning.
+        }
+
+        return false;
+    }
+
+    private static bool FileContentNeedsPackageVersionResolution(string file)
+    {
+        try
+        {
+            return NeedsPackageVersionResolution(File.ReadAllText(file));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Replaces property definitions used as PackageReference versions
+    /// (e.g. <c>&lt;RoslynApiVersion&gt;$(MicrosoftCodeAnalysisVersion_4_4)&lt;/RoslynApiVersion&gt;</c>)
+    /// with the evaluated literal for the owning project. Shared targets files
+    /// such as System.Text.Json.SourceGeneration.targets set their version from a
+    /// per-project property, so pinning the property (not the shared file) keeps
+    /// each generator on its own Roslyn version.
+    /// </summary>
+    internal static string PinPackageReferenceVersionProperties(
+        string projectContent,
+        IReadOnlyDictionary<string, string>? versions,
+        string projectDirectory)
+    {
+        if (versions == null || versions.Count == 0)
+        {
+            return projectContent;
+        }
+
+        var propertyPackages = CollectVersionPropertyPackageMap(projectDirectory);
+        if (propertyPackages.Count == 0)
+        {
+            return projectContent;
+        }
+
+        System.Xml.Linq.XDocument doc;
+        try
+        {
+            doc = System.Xml.Linq.XDocument.Parse(
+                projectContent, System.Xml.Linq.LoadOptions.PreserveWhitespace);
+        }
+        catch (System.Xml.XmlException)
+        {
+            return projectContent;
+        }
+
+        var changed = false;
+        foreach (var propertyGroup in doc.Descendants("PropertyGroup"))
+        {
+            foreach (var property in propertyGroup.Elements())
+            {
+                if (!propertyPackages.TryGetValue(property.Name.LocalName, out var packageIdentity)
+                    || !property.Value.Contains("$(", StringComparison.Ordinal)
+                    || !versions.TryGetValue(packageIdentity, out var version)
+                    || string.IsNullOrWhiteSpace(version))
+                {
+                    continue;
+                }
+
+                property.Value = version;
+                changed = true;
+            }
+        }
+
+        if (!changed)
+        {
+            return projectContent;
+        }
+
+        using var writer = new Utf8StringWriter();
+        doc.Save(writer, System.Xml.Linq.SaveOptions.DisableFormatting);
+        return writer.ToString();
+    }
+
+    /// <summary>
+    /// Maps <c>$(PropertyName)</c> → package Identity for every PackageReference
+    /// in the props/targets files of one project directory.
+    /// </summary>
+    internal static IReadOnlyDictionary<string, string> CollectVersionPropertyPackageMap(string directory)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        string[] files;
+        try
+        {
+            files = Directory.EnumerateFiles(directory)
+                .Where(file => file.EndsWith(".props", StringComparison.OrdinalIgnoreCase)
+                               || file.EndsWith(".targets", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return map;
+        }
+
+        foreach (var file in files)
+        {
+            System.Xml.Linq.XDocument doc;
+            try
+            {
+                doc = System.Xml.Linq.XDocument.Load(file);
+            }
+            catch (Exception ex) when (ex is System.Xml.XmlException or IOException or UnauthorizedAccessException)
+            {
+                continue;
+            }
+
+            foreach (var packageReference in doc.Descendants("PackageReference"))
+            {
+                var identity = packageReference.Attribute("Include")?.Value?.Trim();
+                var version = packageReference.Attribute("Version")?.Value?.Trim();
+                if (string.IsNullOrEmpty(identity)
+                    || string.IsNullOrEmpty(version)
+                    || !version.StartsWith("$(", StringComparison.Ordinal)
+                    || !version.EndsWith(')'))
+                {
+                    continue;
+                }
+
+                var propertyName = version[2..^1].Trim();
+                if (propertyName.Length == 0
+                    || propertyName.Contains('$')
+                    || propertyName.Contains('('))
+                {
+                    continue;
+                }
+
+                map.TryAdd(propertyName, identity);
+            }
+        }
+
+        return map;
+    }
+
+    /// <summary>
+    /// Pins every <c>PackageReference</c>/<c>PackageVersion</c> whose Version is a
+    /// property expression to the evaluated literal. Literal versions and
+    /// identities without a resolved version are left untouched.
+    /// </summary>
+    internal static string PinPackageReferenceVersions(
+        string content,
+        IReadOnlyDictionary<string, string>? versions)
+    {
+        if (versions == null
+            || versions.Count == 0
+            || !content.Contains("$(", StringComparison.Ordinal))
+        {
+            return content;
+        }
+
+        System.Xml.Linq.XDocument doc;
+        try
+        {
+            doc = System.Xml.Linq.XDocument.Parse(content, System.Xml.Linq.LoadOptions.PreserveWhitespace);
+        }
+        catch (System.Xml.XmlException)
+        {
+            return content;
+        }
+
+        var changed = false;
+        foreach (var element in doc.Descendants())
+        {
+            if (element.Name.LocalName is not ("PackageReference" or "PackageVersion"))
+            {
+                continue;
+            }
+
+            var identity = element.Attribute("Include")?.Value?.Trim();
+            var versionAttribute = element.Attribute("Version");
+            if (string.IsNullOrEmpty(identity)
+                || versionAttribute == null
+                || !versionAttribute.Value.Contains("$(", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!versions.TryGetValue(identity, out var literal)
+                || string.IsNullOrWhiteSpace(literal))
+            {
+                continue;
+            }
+
+            versionAttribute.Value = literal;
+            changed = true;
+        }
+
+        if (!changed)
+        {
+            return content;
+        }
+
+        using var writer = new Utf8StringWriter();
+        doc.Save(writer, System.Xml.Linq.SaveOptions.DisableFormatting);
+        return writer.ToString();
+    }
+
+    /// <summary>
+    /// Drops <c>&lt;Import&gt;</c> elements whose target does not exist relative to
+    /// the intermediate directory (the flattened copy has no eng/ tree and no
+    /// repository-root Directory.Build.props, so those imports would fail with
+    /// MSB4019). SDK-style imports and imports that resolve are kept.
+    /// When imports were removed, implicitly-defined PackageReferences in the
+    /// same file are dropped as well: they exist only to feed build tasks from
+    /// those eng imports, so keeping them makes restore demand uncached Arcade
+    /// task packages for tasks that no longer run.
+    /// </summary>
+    internal static string RemoveMissingImports(string content, string baseDirectory)
+    {
+        if (content.IndexOf("<Import", StringComparison.OrdinalIgnoreCase) < 0)
+        {
+            return content;
+        }
+
+        System.Xml.Linq.XDocument doc;
+        try
+        {
+            doc = System.Xml.Linq.XDocument.Parse(content, System.Xml.Linq.LoadOptions.PreserveWhitespace);
+        }
+        catch (System.Xml.XmlException)
+        {
+            return content;
+        }
+
+        var properties = CollectLiteralProperties(doc, baseDirectory);
+        var removed = false;
+        foreach (var import in doc.Descendants("Import").ToList())
+        {
+            if (import.Attribute("Sdk") != null)
+            {
+                continue;
+            }
+
+            var projectAttribute = import.Attribute("Project");
+            if (projectAttribute == null)
+            {
+                continue;
+            }
+
+            if (ImportTargetExists(projectAttribute.Value, baseDirectory, properties))
+            {
+                continue;
+            }
+
+            import.Remove();
+            removed = true;
+        }
+
+        if (!removed)
+        {
+            return content;
+        }
+
+        foreach (var packageReference in doc.Descendants("PackageReference").ToList())
+        {
+            if (string.Equals(
+                    packageReference.Attribute("IsImplicitlyDefined")?.Value?.Trim(),
+                    "true",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                packageReference.Remove();
+            }
+        }
+
+        using var writer = new Utf8StringWriter();
+        doc.Save(writer, System.Xml.Linq.SaveOptions.DisableFormatting);
+        return writer.ToString();
+    }
+
+    private static Dictionary<string, string> CollectLiteralProperties(
+        System.Xml.Linq.XDocument doc,
+        string baseDirectory)
+    {
+        var properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var propertyGroup in doc.Descendants("PropertyGroup"))
+        {
+            foreach (var property in propertyGroup.Elements())
+            {
+                var value = property.Value.Trim();
+                if (value.Length > 0)
+                {
+                    properties[property.Name.LocalName] = value;
+                }
+            }
+        }
+
+        // Two expansion passes resolve sibling property references and
+        // $(MSBuildThisFileDirectory) (which points at the flattened copy).
+        for (var pass = 0; pass < 2; pass++)
+        {
+            foreach (var name in properties.Keys.ToList())
+            {
+                var value = properties[name].Replace(
+                    "$(MSBuildThisFileDirectory)",
+                    EnsureTrailingSeparator(baseDirectory),
+                    StringComparison.OrdinalIgnoreCase);
+                foreach (var pair in properties)
+                {
+                    value = value.Replace(
+                        "$(" + pair.Key + ")", pair.Value, StringComparison.OrdinalIgnoreCase);
+                }
+
+                properties[name] = value;
+            }
+        }
+
+        return properties;
+    }
+
+    private static bool ImportTargetExists(
+        string rawPath,
+        string baseDirectory,
+        IReadOnlyDictionary<string, string> properties)
+    {
+        var expanded = rawPath.Replace(
+            "$(MSBuildThisFileDirectory)",
+            EnsureTrailingSeparator(baseDirectory),
+            StringComparison.OrdinalIgnoreCase);
+        foreach (var pair in properties)
+        {
+            expanded = expanded.Replace(
+                "$(" + pair.Key + ")", pair.Value, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // An unresolved property means the target cannot be located in the
+        // intermediate tree — treat it as missing rather than leaving a latent
+        // MSB4019 behind.
+        if (expanded.Contains("$(", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        try
+        {
+            var fullPath = Path.GetFullPath(Path.Combine(
+                baseDirectory, expanded.Replace('\\', Path.DirectorySeparatorChar)));
+            return File.Exists(fullPath);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    private static string EnsureTrailingSeparator(string directory)
+        => directory.EndsWith(Path.DirectorySeparatorChar)
+           || directory.EndsWith(Path.AltDirectorySeparatorChar)
+            ? directory
+            : directory + Path.DirectorySeparatorChar;
+
+    /// <summary>
+    /// True for files tree preparation writes itself: project files and the
+    /// MSBuild directory files living directly in the source root (flattened to
+    /// the intermediate root). The per-pass asset copy must skip these so it
+    /// does not overwrite the package-version pinning with pristine bytes.
+    /// </summary>
+    internal static bool IsPreparedProjectOrMsBuildFile(string file, string sourceRoot)
+    {
+        if (file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (!MsBuildDirectoryFileNames.Contains(Path.GetFileName(file), StringComparer.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var directory = Path.GetDirectoryName(Path.GetFullPath(file));
+        return directory != null
+               && string.Equals(
+                   directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                   Path.GetFullPath(sourceRoot).TrimEnd(
+                       Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                   StringComparison.OrdinalIgnoreCase);
+    }
+
     internal static void CopyAncestorMsBuildDirectoryFiles(
         string sourceRoot,
         string intermediateRoot,
         string logPrefix,
-        bool verbose)
+        bool verbose,
+        string? evaluationProjectPath = null)
     {
+        var copies = new List<(string Source, string Destination)>();
         foreach (var fileName in MsBuildDirectoryFileNames)
         {
             var current = Path.GetFullPath(sourceRoot);
@@ -428,17 +877,64 @@ internal static class ProjectPreprocessSource
                 continue;
             }
 
-            var destination = Path.Combine(intermediateRoot, fileName);
-            File.Copy(found, destination, overwrite: true);
-            if (verbose)
-            {
-                Console.WriteLine($"{logPrefix} Copied MSBuild directory file: {found} -> {destination}");
-            }
+            copies.Add((found, Path.Combine(intermediateRoot, fileName)));
+        }
 
-            CopyMsBuildThisFileDirectoryReferences(found, intermediateRoot, logPrefix, verbose);
+        // Only pay for the MSBuild evaluation when one of the flattened files
+        // actually versions a package through a repository property.
+        IReadOnlyDictionary<string, string>? packageVersions = null;
+        if (evaluationProjectPath != null
+            && copies.Any(copy => FileContentNeedsPackageVersionResolution(copy.Source)))
+        {
+            packageVersions = MsBuildCompileEvaluator.TryEvaluatePackageReferences(evaluationProjectPath);
+        }
+
+        foreach (var (source, destination) in copies)
+        {
+            CopyMsBuildDirectoryFile(
+                source, destination, packageVersions, intermediateRoot, logPrefix, verbose);
+            CopyMsBuildThisFileDirectoryReferences(source, intermediateRoot, logPrefix, verbose);
         }
 
         EnsurePreserializedResourceSupport(intermediateRoot, logPrefix, verbose);
+    }
+
+    private static void CopyMsBuildDirectoryFile(
+        string sourceFile,
+        string destinationFile,
+        IReadOnlyDictionary<string, string>? packageVersions,
+        string intermediateRoot,
+        string logPrefix,
+        bool verbose)
+    {
+        string content;
+        try
+        {
+            content = File.ReadAllText(sourceFile);
+        }
+        catch (IOException)
+        {
+            File.Copy(sourceFile, destinationFile, overwrite: true);
+            return;
+        }
+
+        var rewritten = PinPackageReferenceVersions(content, packageVersions);
+        rewritten = RemoveMissingImports(rewritten, intermediateRoot);
+
+        if (string.Equals(rewritten, content, StringComparison.Ordinal))
+        {
+            // Byte-exact copy keeps nuget.config and untouched props/targets intact.
+            File.Copy(sourceFile, destinationFile, overwrite: true);
+        }
+        else
+        {
+            File.WriteAllText(destinationFile, rewritten, new System.Text.UTF8Encoding(false));
+        }
+
+        if (verbose)
+        {
+            Console.WriteLine($"{logPrefix} Copied MSBuild directory file: {sourceFile} -> {destinationFile}");
+        }
     }
 
     internal static string MapToIntermediate(ProjectPreprocessSourceLayout layout, string intermediateRoot)

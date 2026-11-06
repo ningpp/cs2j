@@ -30,6 +30,16 @@ internal static class MsBuildCompileEvaluator
     /// <summary>测试注入缝；生产路径保持为 null。</summary>
     internal static Func<string, MsBuildCompileEvaluation?>? EvaluationOverride { get; set; }
 
+    /// <summary>
+    /// PackageReference 求值的独立测试注入缝（与 <see cref="EvaluationOverride"/>
+    /// 的编译集求值互不复用）。
+    /// </summary>
+    internal static Func<string, IReadOnlyDictionary<string, string>?>? PackageReferenceEvaluationOverride { get; set; }
+
+    private static readonly object PackageReferenceCacheGate = new();
+    private static readonly Dictionary<string, IReadOnlyDictionary<string, string>?> PackageReferenceCache =
+        new(StringComparer.OrdinalIgnoreCase);
+
     internal static MsBuildCompileEvaluation? TryEvaluate(string projectPath)
     {
         if (EvaluationOverride != null)
@@ -256,6 +266,167 @@ internal static class MsBuildCompileEvaluator
             };
         }
         catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 用 MSBuild 真实求值解析项目的 <c>PackageReference</c> 版本（Identity → Version），
+    /// 供中间树在缺失 eng/*.props 时把 <c>Version="$(...)"</c> 钉成字面值。任何异常/
+    /// 超时/非 0 退出都返回 null；结果按项目路径 + 文件写入时间缓存。
+    /// </summary>
+    internal static IReadOnlyDictionary<string, string>? TryEvaluatePackageReferences(string projectPath)
+    {
+        if (PackageReferenceEvaluationOverride != null)
+        {
+            return PackageReferenceEvaluationOverride(projectPath);
+        }
+
+        string fullPath;
+        long ticks;
+        try
+        {
+            fullPath = Path.GetFullPath(projectPath);
+            if (!File.Exists(fullPath))
+            {
+                return null;
+            }
+
+            ticks = File.GetLastWriteTimeUtc(fullPath).Ticks;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+
+        var cacheKey = fullPath + "|" + ticks.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        lock (PackageReferenceCacheGate)
+        {
+            if (PackageReferenceCache.TryGetValue(cacheKey, out var cached))
+            {
+                return cached;
+            }
+        }
+
+        var evaluation = EvaluatePackageReferencesCore(fullPath);
+
+        lock (PackageReferenceCacheGate)
+        {
+            PackageReferenceCache[cacheKey] = evaluation;
+        }
+
+        return evaluation;
+    }
+
+    private static IReadOnlyDictionary<string, string>? EvaluatePackageReferencesCore(string projectPath)
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo(
+                "dotnet",
+                $"msbuild \"{projectPath}\" -getItem:PackageReference --nologo")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+
+            using var process = Process.Start(startInfo);
+            if (process == null)
+            {
+                return null;
+            }
+
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+
+            if (!process.WaitForExit((int)EvaluationTimeout.TotalMilliseconds))
+            {
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch (Exception)
+                {
+                    // 超时后的清理尽力而为。
+                }
+
+                return null;
+            }
+
+            var stdout = stdoutTask.GetAwaiter().GetResult();
+            _ = stderrTask.GetAwaiter().GetResult();
+
+            if (process.ExitCode != 0)
+            {
+                return null;
+            }
+
+            return ParsePackageReferenceJson(stdout);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 解析 <c>-getItem:PackageReference</c> 的 JSON 输出。Identity 为包名，
+    /// Version 取同层元数据；版本为空或仍是未求值的属性表达式时丢弃该项。
+    /// </summary>
+    internal static IReadOnlyDictionary<string, string>? ParsePackageReferenceJson(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            if (!document.RootElement.TryGetProperty("Items", out var items)
+                || items.ValueKind != JsonValueKind.Object
+                || !items.TryGetProperty("PackageReference", out var packageReferences)
+                || packageReferences.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            var versions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in packageReferences.EnumerateArray())
+            {
+                if (!item.TryGetProperty("Identity", out var identityElement)
+                    || identityElement.ValueKind != JsonValueKind.String)
+                {
+                    continue;
+                }
+
+                var identity = identityElement.GetString();
+                if (string.IsNullOrWhiteSpace(identity))
+                {
+                    continue;
+                }
+
+                if (!item.TryGetProperty("Version", out var versionElement)
+                    || versionElement.ValueKind != JsonValueKind.String)
+                {
+                    continue;
+                }
+
+                var version = versionElement.GetString();
+                if (string.IsNullOrWhiteSpace(version) || version.Contains("$(", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                versions[identity.Trim()] = version.Trim();
+            }
+
+            return versions.Count == 0 ? null : versions;
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or KeyNotFoundException)
         {
             return null;
         }

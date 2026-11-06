@@ -178,6 +178,19 @@ internal static class ProjectPassRunner
         // type resolution, surfacing as spurious strict-gate errors.
         sourceFiles = ProjectPreprocessSource.FilterToGraphMembers(
             sourceFiles, projectGraph, layout, exclusionInfo);
+
+        if (!inPlace)
+        {
+            // Tree preparation already wrote the project files and the flattened
+            // MSBuild directory files — with package versions pinned to literals
+            // for the intermediate tree (NU1015). The per-pass asset copy must
+            // not replace them with the pristine source bytes.
+            sourceFiles = sourceFiles
+                .Where(file => !ProjectPreprocessSource.IsPreparedProjectOrMsBuildFile(
+                    file, sourceRoot))
+                .ToList();
+        }
+
         var csFiles = sourceFiles
             .Where(file => file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
             .ToList();
@@ -207,7 +220,9 @@ internal static class ProjectPassRunner
             await ProjectPreprocessSource.CopyProjectFilesAsync(
                 layout, sourceRoot, intermediateRoot, exclusionInfo);
             ProjectPreprocessSource.CopyAncestorMsBuildDirectoryFiles(
-                sourceRoot, intermediateRoot, adapter.LogPrefix, adapter.Verbose);
+                sourceRoot, intermediateRoot, adapter.LogPrefix, adapter.Verbose,
+                layout.ProjectFiles.FirstOrDefault(file =>
+                    file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)));
         }
 
         return tree;
