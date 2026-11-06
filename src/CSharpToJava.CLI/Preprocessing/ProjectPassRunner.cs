@@ -218,7 +218,8 @@ internal static class ProjectPassRunner
         if (!inPlace)
         {
             await ProjectPreprocessSource.CopyProjectFilesAsync(
-                layout, sourceRoot, intermediateRoot, exclusionInfo);
+                layout, sourceRoot, intermediateRoot, exclusionInfo,
+                message => Console.Error.WriteLine($"{adapter.LogPrefix} {message}"));
             ProjectPreprocessSource.CopyAncestorMsBuildDirectoryFiles(
                 sourceRoot, intermediateRoot, adapter.LogPrefix, adapter.Verbose,
                 layout.ProjectFiles.FirstOrDefault(file =>

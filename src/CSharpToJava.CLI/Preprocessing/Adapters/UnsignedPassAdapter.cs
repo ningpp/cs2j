@@ -160,10 +160,7 @@ internal sealed class UnsignedPassAdapter : ProjectPassAdapter
         if (_statistics.OperatorsRewritten > 0 || _statistics.CastsRewritten > 0)
         {
             await Cs2jUnsignedMathInjection.ReleaseAndInjectAsync(
-                tree,
-                _rewrittenSourceFiles,
-                message => _diagnostics.Add(
-                    new UnsignedTypeRewriterDiagnostic(UnsignedTypeSeverity.Warning, message)));
+                tree, _rewrittenSourceFiles);
         }
     }
 

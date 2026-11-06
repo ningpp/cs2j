@@ -15,15 +15,12 @@ internal static class Cs2jUnsignedMathInjection
     /// <summary>
     /// Release the embedded Cs2jUnsignedMath project into the intermediate tree
     /// root and inject a ProjectReference into every host project that compiles
-    /// at least one rewritten source file.
+    /// at least one rewritten source file. The support project multi-targets
+    /// netstandard2.0 and net10.0, so every supported host can reference it.
     /// </summary>
-    /// <param name="addWarning">
-    /// Receives the TFM-below-net10 warning text (one per host project that needs it).
-    /// </param>
     public static async Task ReleaseAndInjectAsync(
         PassTreeContext tree,
-        IReadOnlyList<string> rewrittenSourceFiles,
-        Action<string> addWarning)
+        IReadOnlyList<string> rewrittenSourceFiles)
     {
         ThrowOnNameCollision(tree.Layout);
 
@@ -34,7 +31,7 @@ internal static class Cs2jUnsignedMathInjection
             tree.Layout, tree.Exclusion, rewrittenSourceFiles, tree.ProjectGraph);
         EnsureExtensionProjectReferences(
             tree.SourceRoot, tree.IntermediateRoot, tree.Layout, tree.Exclusion,
-            hostProjectDirectories, addWarning);
+            hostProjectDirectories);
     }
 
     /// <summary>扫描源树中本 CLI 早前释放的支撑库目录（任意深度）。</summary>
@@ -99,35 +96,12 @@ internal static class Cs2jUnsignedMathInjection
     private static string NormalizeLineEndings(string text) =>
         text.Replace("\r\n", "\n").Replace("\r", "\n");
 
-    /// <summary>
-    /// host TFM 低于 net10.0 时构建前告警（NU1201 会推迟到用户 dotnet build
-    /// 中间树时才暴露，这里提前给出两条出路）。
-    /// </summary>
-    private static void WarnWhenTargetFrameworkBelowNet10(
-        XElement root,
-        string projectFilePath,
-        Action<string> addWarning)
-    {
-        var tfm = ProjectUnsignedTypePreprocessor.GetFirstTargetFramework(root);
-        if (ProjectUnsignedTypePreprocessor.IsTargetFrameworkAtLeastNet10(tfm))
-        {
-            return;
-        }
-
-        addWarning(
-            $"{projectFilePath}: target framework '{tfm ?? "(none)"}' is below net10.0; the injected " +
-            $"reference to {Cs2jUnsignedMathProject.ProjectFileName} (net10.0) will fail to restore/build " +
-            "with NU1201. Upgrade the host TargetFramework to net10.0+, or report the case so " +
-            "Cs2jUnsignedMath can multi-target.");
-    }
-
     private static void EnsureExtensionProjectReferences(
         string sourceRoot,
         string intermediateRoot,
         ProjectPreprocessSourceLayout layout,
         SupportedProjectFiltering.ExclusionInfo exclusionInfo,
-        IReadOnlySet<string> hostProjectDirectories,
-        Action<string> addWarning)
+        IReadOnlySet<string> hostProjectDirectories)
     {
         var libProjectPath = Path.Combine(
             intermediateRoot,
@@ -152,15 +126,14 @@ internal static class Cs2jUnsignedMathInjection
                 intermediateRoot,
                 Path.GetRelativePath(sourceRoot, projectFile));
             EnsureExtensionProjectReference(
-                destinationProjectFile, libProjectPath, intermediateRoot, addWarning);
+                destinationProjectFile, libProjectPath, intermediateRoot);
         }
     }
 
     private static void EnsureExtensionProjectReference(
         string projectFilePath,
         string libProjectPath,
-        string intermediateRoot,
-        Action<string> addWarning)
+        string intermediateRoot)
     {
         if (!File.Exists(projectFilePath))
         {
@@ -227,8 +200,6 @@ internal static class Cs2jUnsignedMathInjection
             new XElement("ItemGroup",
                 new XElement("ProjectReference", new XAttribute("Include", relativeInclude))),
             new XText(Environment.NewLine));
-
-        WarnWhenTargetFrameworkBelowNet10(root, projectFilePath, addWarning);
 
         document.Save(projectFilePath, SaveOptions.DisableFormatting);
     }

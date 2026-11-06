@@ -290,7 +290,8 @@ internal static class ProjectPreprocessSource
         ProjectPreprocessSourceLayout layout,
         string sourceRoot,
         string intermediateRoot,
-        SupportedProjectFiltering.ExclusionInfo exclusionInfo)
+        SupportedProjectFiltering.ExclusionInfo exclusionInfo,
+        Action<string>? addWarning = null)
     {
         foreach (var projectFile in layout.ProjectFiles)
         {
@@ -336,6 +337,14 @@ internal static class ProjectPreprocessSource
                         fixedContent = PinPackageReferenceVersionProperties(
                             fixedContent, versions, Path.GetDirectoryName(projectFile)!);
                         fixedContent = PinPackageReferenceVersions(fixedContent, versions);
+                        // The intermediate tree flattens the repository's MSBuild
+                        // directory files and has no eng/, so TFM properties such as
+                        // $(NetCoreAppCurrent) evaluate to empty and a multi-target
+                        // project collapses to the first literal entry (rt10 fell back
+                        // to netstandard2.0). Pin the single TFM evaluated on the
+                        // ORIGINAL project so the injected net10.0 support projects
+                        // remain referenceable (NU1201).
+                        fixedContent = PinTargetFramework(fixedContent, projectFile, addWarning);
                         await File.WriteAllTextAsync(destinationFile, fixedContent, new System.Text.UTF8Encoding(false));
                     }
                     else
@@ -661,6 +670,119 @@ internal static class ProjectPreprocessSource
         doc.Save(writer, System.Xml.Linq.SaveOptions.DisableFormatting);
         return writer.ToString();
     }
+
+    /// <summary>
+    /// Pins <c>TargetFramework(s)</c> to the single literal resolved by MSBuild on
+    /// the ORIGINAL project. The intermediate tree flattens the repository's
+    /// MSBuild directory files (and drops eng/), so properties such as
+    /// <c>$(NetCoreAppCurrent)</c> evaluate to empty; a multi-target project then
+    /// collapses to its first literal entry — rt10's <c>System.Text.Json</c>
+    /// became netstandard2.0 and could not reference the injected net10.0 support
+    /// projects (NU1201). Multi-target declarations are rewritten to a single
+    /// <c>&lt;TargetFramework&gt;</c>; projects that already declare one literal
+    /// TFM are left byte-identical. Evaluation failure keeps the original markup
+    /// and reports a warning.
+    /// </summary>
+    internal static string PinTargetFramework(
+        string content,
+        string projectFile,
+        Action<string>? addWarning = null)
+    {
+        System.Xml.Linq.XDocument doc;
+        try
+        {
+            doc = System.Xml.Linq.XDocument.Parse(
+                content, System.Xml.Linq.LoadOptions.PreserveWhitespace);
+        }
+        catch (System.Xml.XmlException)
+        {
+            return content;
+        }
+
+        var frameworkElements = doc.Descendants()
+            .Where(element => element.Name.LocalName is "TargetFramework" or "TargetFrameworks")
+            .ToList();
+        if (frameworkElements.Count == 0)
+        {
+            return content;
+        }
+
+        // Already specialized to one literal TFM: keep the original bytes.
+        if (frameworkElements.Count == 1
+            && frameworkElements[0].Name.LocalName == "TargetFramework"
+            && !ContainsPropertyExpression(frameworkElements[0].Value))
+        {
+            return content;
+        }
+
+        string? resolved;
+        if (frameworkElements.All(element => !ContainsPropertyExpression(element.Value)))
+        {
+            resolved = FirstTargetFrameworkItem(frameworkElements.Select(element => element.Value));
+        }
+        else
+        {
+            var evaluation = MsBuildCompileEvaluator.TryEvaluate(projectFile);
+            resolved = NullIfEmpty(evaluation?.TargetFramework)
+                       ?? FirstTargetFrameworkItem(
+                           evaluation?.TargetFrameworks is { } frameworks
+                               ? new[] { frameworks }
+                               : null);
+            if (resolved == null)
+            {
+                addWarning?.Invoke(
+                    $"{projectFile}: MSBuild target-framework evaluation failed; kept the original " +
+                    "TargetFramework(s) markup. A multi-target project will collapse to its first " +
+                    "literal entry in the intermediate tree and may fail restore with NU1201.");
+                return content;
+            }
+        }
+
+        if (resolved == null)
+        {
+            return content;
+        }
+
+        var first = frameworkElements[0];
+        var replacement = new System.Xml.Linq.XElement(
+            "TargetFramework", first.Attributes(), resolved);
+        first.ReplaceWith(replacement);
+        foreach (var element in frameworkElements.Skip(1))
+        {
+            element.Remove();
+        }
+
+        using var writer = new Utf8StringWriter();
+        doc.Save(writer, System.Xml.Linq.SaveOptions.DisableFormatting);
+        return writer.ToString();
+    }
+
+    private static bool ContainsPropertyExpression(string value)
+        => value.Contains("$(", StringComparison.Ordinal);
+
+    private static string? FirstTargetFrameworkItem(IEnumerable<string>? values)
+    {
+        if (values == null)
+        {
+            return null;
+        }
+
+        foreach (var value in values)
+        {
+            foreach (var item in value.Split(';', StringSplitOptions.TrimEntries))
+            {
+                if (item.Length > 0)
+                {
+                    return item;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static string? NullIfEmpty(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     /// <summary>
     /// Drops <c>&lt;Import&gt;</c> elements whose target does not exist relative to

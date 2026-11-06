@@ -237,12 +237,7 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
         }
 
         await Cs2jUnsignedMathInjection.ReleaseAndInjectAsync(
-            tree,
-            _rewrittenSourceFiles,
-            message => _diagnostics.Add(new NumericBoundaryDiagnostic(
-                NumericBoundarySeverity.Warning,
-                PreprocessDiagnosticCodes.NumericBoundaryCheckedSiteInfo,
-                message)));
+            tree, _rewrittenSourceFiles);
     }
 
     /// <summary>

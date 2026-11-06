@@ -449,7 +449,7 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
         }
     }
 
-    private static void EnsureExtensionProjectReference(
+    internal static void EnsureExtensionProjectReference(
         string projectFilePath, string libProjectPath, string intermediateRoot,
         List<RefOutInRewriterDiagnostic> diagnostics)
     {
@@ -489,6 +489,26 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
             var resolved = Path.GetFullPath(Path.Combine(projectDir, include!));
             if (PathsEqual(resolved, libProjectPath))
                 refEl.Remove();
+        }
+
+        // A host below net10.0 cannot consume the net10.0-only Cs2jRefOutIn
+        // project (ref fields / `allows ref struct` do not compile for
+        // netstandard2.0). Never inject a reference that would fail restore with
+        // NU1201; skip it with an explicit warning so a host that really uses
+        // Cs2jByRef fails its later build (CS0246) rather than silently passing.
+        var hostTargetFramework = ProjectUnsignedTypePreprocessor.GetFirstTargetFramework(root);
+        if (!Cs2jRefOutInProject.CanBeReferencedBy(hostTargetFramework))
+        {
+            diagnostics.Add(new RefOutInRewriterDiagnostic(
+                "ROI103",
+                $"{projectFilePath}: target framework '{hostTargetFramework ?? "(none)"}' cannot " +
+                $"reference {Cs2jRefOutInProject.ProjectFileName} (net10.0-only: the support library " +
+                "uses ref fields and `allows ref struct`, which do not compile for netstandard2.0). " +
+                "The support ProjectReference was skipped; a host that actually uses Cs2jByRef types " +
+                "will fail its build with CS0246 instead of silently producing an unbuildable tree.",
+                RefOutInSeverity.Warning));
+            document.Save(projectFilePath, SaveOptions.DisableFormatting);
+            return;
         }
 
         var relativeInclude = Path.GetRelativePath(projectDir, libProjectPath);
