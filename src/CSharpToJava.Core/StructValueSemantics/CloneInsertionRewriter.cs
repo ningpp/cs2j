@@ -23,6 +23,9 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
 
     private readonly Dictionary<SyntaxAnnotation, ValueCopySite> _siteByAnnotation = new();
     private readonly HashSet<ValueCopySite> _applicableSites = new(ReferenceEqualityComparer.Instance);
+    // target-typed `default` 字面量标注 → 原模型上的静态类型：包裹/提升到无目标类型
+    // 位置前据此展开为 default(T)，否则产生 CS8716。
+    private readonly Dictionary<SyntaxAnnotation, ITypeSymbol> _defaultTypeByAnnotation = new();
     private int _chainedTempCounter;
     private int _defensiveTempCounter;
 
@@ -66,6 +69,27 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
     /// </summary>
     public CompilationUnitSyntax Rewrite(CompilationUnitSyntax root)
     {
+        // target-typed `default` 字面量与其静态类型（按节点标注，遍历期按标注找回）。
+        var defaultAnnotations =
+            new Dictionary<LiteralExpressionSyntax, SyntaxAnnotation>(ReferenceEqualityComparer.Instance);
+        foreach (var literal in root.DescendantNodes()
+                     .OfType<LiteralExpressionSyntax>()
+                     .Where(literal => literal.IsKind(SyntaxKind.DefaultLiteralExpression)))
+        {
+            var converted = _model.GetTypeInfo(literal).ConvertedType;
+            if (converted == null
+                || converted.TypeKind == TypeKind.Error
+                || converted.SpecialType == SpecialType.System_Void)
+            {
+                continue;
+            }
+
+            var annotation = new SyntaxAnnotation(
+                StructValueSemanticsSyntaxFacts.DefaultLiteralAnnotationKind);
+            _defaultTypeByAnnotation[annotation] = converted;
+            defaultAnnotations[literal] = annotation;
+        }
+
         // 同一原始节点可能既是 clone 站点又是 this 路由节点 → 按节点聚合多个标注。
         var annotationsByNode =
             new Dictionary<SyntaxNode, List<SyntaxAnnotation>>(ReferenceEqualityComparer.Instance);
@@ -114,6 +138,7 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
 
         var replaceableNodes = annotationsByNode.Keys
             .Concat(shimDeclarations.Keys.Cast<SyntaxNode>())
+            .Concat(defaultAnnotations.Keys.Cast<SyntaxNode>())
             .Distinct()
             .ToList();
 
@@ -129,10 +154,16 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
                         shimDeclarations[originalDeclaration]);
                 }
 
+                var annotated = partiallyRewritten;
                 if (annotationsByNode.TryGetValue(original, out var annotations))
-                    return partiallyRewritten.WithAdditionalAnnotations(annotations);
+                    annotated = annotated.WithAdditionalAnnotations(annotations);
+                if (original is LiteralExpressionSyntax literal
+                    && defaultAnnotations.TryGetValue(literal, out var defaultAnnotation))
+                {
+                    annotated = annotated.WithAdditionalAnnotations(defaultAnnotation);
+                }
 
-                return partiallyRewritten;
+                return annotated;
             });
         }
 
@@ -617,12 +648,15 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
         var tempName = StructValueSemanticsSyntaxFacts.ThisAssignTempPrefix
             + _thisAssignmentTempCounter++.ToString();
 
-        // var t = default; 无法推断类型（CS8716），裸 default 字面量须显式目标类型。
-        var rhs = UnwrapParens(assignment.Right).IsKind(SyntaxKind.DefaultLiteralExpression)
-            ? SyntaxFactory.DefaultExpression(
+        // var t = default; 无法推断类型（CS8716），裸 default 字面量（含条件/switch 臂内）
+        // 须显式目标类型；原模型给出的静态类型优先，取不到时退回 plan 自身类型。
+        var rhs = ExpandTargetTypedDefaults(assignment.Right.WithoutTrivia());
+        if (UnwrapParens(rhs).IsKind(SyntaxKind.DefaultLiteralExpression))
+        {
+            rhs = SyntaxFactory.DefaultExpression(
                 SyntaxFactory.ParseTypeName(
-                    plan.Symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)))
-            : assignment.Right.WithoutTrivia();
+                    plan.Symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)));
+        }
 
         var statements = new List<StatementSyntax>
         {
@@ -710,7 +744,7 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
                 .WithAdditionalAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation);
         }
 
-        var wrapped = ValueCopyFacts.WrapClone(expression)
+        var wrapped = ValueCopyFacts.WrapClone(ExpandTargetTypedDefaults(expression))
             .WithLeadingTrivia(expression.GetLeadingTrivia())
             .WithTrailingTrivia(expression.GetTrailingTrivia())
             .WithAdditionalAnnotations(StructValueSemanticsSyntaxFacts.RewriteAnnotation);
@@ -719,12 +753,48 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
         return wrapped;
     }
 
-    private static ExpressionSyntax WrapConditionalBranch(ExpressionSyntax branch)
+    private ExpressionSyntax WrapConditionalBranch(ExpressionSyntax branch)
     {
         branch = (ExpressionSyntax)branch.WithoutTrivia();
         if (ValueCopyFacts.IsFreshValue(branch))
             return branch;
-        return ValueCopyFacts.WrapClone(branch);
+        return ValueCopyFacts.WrapClone(ExpandTargetTypedDefaults(branch));
+    }
+
+    /// <summary>
+    /// 把原模型上 target-typed 的 <c>default</c> 字面量展开为 <c>default(T)</c>。
+    /// clone 包裹（<c>(…).Clone()</c>）与临时提升（<c>var t = …;</c>）都会剥掉外层目标类型，
+    /// 使条件/switch/?? 等臂内的裸 <c>default</c> 失去目标类型（CS8716）；展开后语义不变。
+    /// 未出现在原模型中的合成节点保持原样。
+    /// </summary>
+    private ExpressionSyntax ExpandTargetTypedDefaults(ExpressionSyntax expression)
+    {
+        if (_defaultTypeByAnnotation.Count == 0) return expression;
+
+        var literals = expression.DescendantNodesAndSelf()
+            .OfType<LiteralExpressionSyntax>()
+            .Where(literal => FindDefaultType(literal) != null)
+            .ToList();
+        if (literals.Count == 0) return expression;
+
+        return expression.ReplaceNodes(literals, (original, _) =>
+        {
+            var type = FindDefaultType(original)!;
+            return (ExpressionSyntax)SyntaxFactory.DefaultExpression(
+                    SyntaxFactory.ParseTypeName(
+                        type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)))
+                .WithTriviaFrom(original);
+        });
+    }
+
+    private ITypeSymbol? FindDefaultType(SyntaxNode node)
+    {
+        foreach (var annotation in node.GetAnnotations(
+                     StructValueSemanticsSyntaxFacts.DefaultLiteralAnnotationKind))
+        {
+            if (_defaultTypeByAnnotation.TryGetValue(annotation, out var type)) return type;
+        }
+        return null;
     }
 
     private void CountExpressionSite(ValueCopySite site, ExpressionSyntax original)
@@ -774,7 +844,8 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
                 SyntaxFactory.IdentifierName("var"),
                 SyntaxFactory.SingletonSeparatedList(
                     SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(tempName))
-                        .WithInitializer(SyntaxFactory.EqualsValueClause(sourceValue.WithoutTrivia())))));
+                        .WithInitializer(SyntaxFactory.EqualsValueClause(
+                            ExpandTargetTypedDefaults(sourceValue.WithoutTrivia()))))));
 
         var statements = new List<StatementSyntax> { tempDeclaration };
         for (var i = targets.Count - 1; i >= 0; i--)

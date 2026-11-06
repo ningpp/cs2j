@@ -36,8 +36,7 @@ internal sealed class ValueCopyFacts
     /// </summary>
     public static bool IsFreshValue(ExpressionSyntax expression)
     {
-        while (expression is ParenthesizedExpressionSyntax paren)
-            expression = paren.Expression;
+        expression = PeelTransparentWrappers(expression);
 
         return expression is ObjectCreationExpressionSyntax
             or ImplicitObjectCreationExpressionSyntax
@@ -46,6 +45,25 @@ internal sealed class ValueCopyFacts
             or PrefixUnaryExpressionSyntax
             or DefaultExpressionSyntax
             or LiteralExpressionSyntax;
+    }
+
+    /// <summary>剥掉不改变值身份/求值次数的透明包装：括号与 null 包容 <c>!</c>（<c>default!</c> 仍是新鲜 default）。</summary>
+    private static ExpressionSyntax PeelTransparentWrappers(ExpressionSyntax expression)
+    {
+        while (true)
+        {
+            switch (expression)
+            {
+                case ParenthesizedExpressionSyntax paren:
+                    expression = paren.Expression;
+                    continue;
+                case PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.SuppressNullableWarningExpression } suppress:
+                    expression = suppress.Operand;
+                    continue;
+                default:
+                    return expression;
+            }
+        }
     }
 
     /// <summary>
@@ -96,12 +114,11 @@ internal sealed class ValueCopyFacts
         if (argument.NameColon?.Name.Identifier.ValueText is { } name)
             return parameters.FirstOrDefault(p => p.Name == name);
 
-        var index = argumentList.Arguments
-            .Where(a => a.NameColon == null)
-            .TakeWhile(a => a != argument)
-            .Count();
+        // 位置实参按其在实参表中的序号映射（C# 要求位置实参与其形参位次一致）；
+        // 不能只数「无 NameColon 的实参」——`M(a, b: x, c)` 中 c 是第 3 个实参而非第 2 个。
+        var index = argumentList.Arguments.IndexOf(argument);
 
-        return index < parameters.Length ? parameters[index] : null;
+        return index >= 0 && index < parameters.Length ? parameters[index] : null;
     }
 
     /// <summary>

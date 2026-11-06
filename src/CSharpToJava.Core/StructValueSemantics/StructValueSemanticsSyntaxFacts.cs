@@ -25,6 +25,12 @@ internal static class StructValueSemanticsSyntaxFacts
     public const string ThisAssignmentMemberAnnotationKind = "Cs2jStructValueSemanticsThisAssignmentMember";
 
     /// <summary>
+    /// target-typed <c>default</c> 字面量在改写树上的标注种类（每节点一个独立标注实例，
+    /// 对应原模型上的静态类型）：包裹/提升到无目标类型位置前据此展开为 <c>default(T)</c>。
+    /// </summary>
+    public const string DefaultLiteralAnnotationKind = "Cs2jStructValueSemanticsDefaultLiteral";
+
+    /// <summary>
     /// SV041 消解：构造函数/访问器/方法中 <c>this = expr</c> 字段式展开承接右值的
     /// 局部临时变量前缀（所有权在展开块内转移给 this，块外即死）。
     /// </summary>

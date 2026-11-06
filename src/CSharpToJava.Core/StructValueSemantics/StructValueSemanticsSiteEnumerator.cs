@@ -842,12 +842,10 @@ internal sealed class StructValueSemanticsSiteEnumerator
         if (argument.NameColon?.Name.Identifier.ValueText is { } name)
             return parameters.FirstOrDefault(p => p.Name == name);
 
-        var index = argumentList.Arguments
-            .Where(a => a.NameColon == null)
-            .TakeWhile(a => a != argument)
-            .Count();
+        // 位置实参按其在实参表中的序号映射（与 ValueCopyFacts.ResolveArgumentParameter 同口径）。
+        var index = argumentList.Arguments.IndexOf(argument);
 
-        if (index < parameters.Length) return parameters[index];
+        if (index >= 0 && index < parameters.Length) return parameters[index];
         // params 展开形调用（string.Format("{0}", s)）实参归到 params 数组形参。
         if (parameters.Length > 0 && parameters[^1].IsParams)
             return parameters[^1];

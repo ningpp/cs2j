@@ -702,6 +702,45 @@ public class StructValueSemanticsThisAssignmentTests
         Assert.DoesNotContain("set =>", output);
     }
 
+    [Fact]
+    public void Constructor_ThisAssignConditionalWithDefaultArm_ExpandsTargetTypedDefault()
+    {
+        var run = Analyze("""
+            namespace Lib;
+            public struct Box
+            {
+                public int X;
+                public Box(int x) { X = x; }
+                public Box(bool whole, Box other)
+                {
+                    if (whole)
+                    {
+                        this = whole ? default : other;
+                    }
+                    else
+                    {
+                        X = other.X;
+                    }
+                }
+            }
+            """);
+
+        Assert.True(Plan(run).IsActive);
+        AssertOutputCompiles(run.Output);
+        var output = Normalized(run.Output);
+        Assert.Contains("var __cs2jTa0 =", output);
+        Assert.Contains("default(global::Lib.Box)", output);
+        Assert.DoesNotContain("default!.Clone", output);
+
+        var assembly = EmitAssembly(run.Output);
+        var type = assembly.GetType("Lib.Box")!;
+        var other = Activator.CreateInstance(type, 5)!;
+        var whole = Activator.CreateInstance(type, true, other);
+        Assert.Equal(0, type.GetField("X")!.GetValue(whole));
+        var partial = Activator.CreateInstance(type, false, other);
+        Assert.Equal(5, type.GetField("X")!.GetValue(partial));
+    }
+
     // ---------- base 访问方法：字段式展开 ----------
 
     [Fact]
