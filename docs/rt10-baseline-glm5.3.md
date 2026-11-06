@@ -1816,3 +1816,139 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
 - 运行日志：`D:\cs\rt10-baseline-w10q.log`、`D:\cs\rt10-baseline-w10p.log`
   （临时产物，未入库）。
 
+## 22. R9/CN-01/GD-MTOK-2 值类型 default 零值构造实测（HEAD `b54f6329` + 本轮 `c8602b6e`）
+
+### 22.1 运行口径
+
+- 运行日期：2026-11-07（Asia/Shanghai）；基线 HEAD：`b54f6329`，代码+测试提交
+  `c8602b6e`（本轮工作树）。
+- 背景：§21 复跑后 strict Error 36 条，其中 `VA027=11` 全部是值类型约束类型参数上的
+  `default`（5 处 `EnumConverter.cs`、1 处 `NullableConverter.cs`、5 处
+  `FSharpValueOptionConverter.cs`），Java 侧 `GetDefaultValueForType` 对擦除类型参数
+  一律渲染 `null` 并报 CS2J1403。
+- 本轮口径：在 `generic` pass 中把 `where T : struct/unmanaged/Enum`（含
+  `where T : U` 传递闭包）上的显式 `default(T)` 与 target-typed `default` 改写为
+  `((T)global::System.Activator.CreateInstance(typeof(T)))`；随后由 generic-deepen
+  的 `typeof(T)` 锚点（`__cs2j_token_T`）提供运行时类型，Activator compat 已实现
+  值类型零值语义。
+- 安全排除保持原节点（不新增静默）：表达式树、attribute/parameter 默认值/enum
+  初始化器/const/case/goto case/常量模式、`nameof`、`ref`/`out`/`in` 实参；
+  这些站点若仍依赖值语义，继续走既有 CS2J1403。
+- 代码前置：全量单测 **4791 通过 / 9 跳过 / 0 失败**（基线 4783 + 本轮 8 条）。
+- 命令（`preprocess` 无 `--force`，新目录/日志）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10r --unified-preprocessed-src --profile java-ready `
+  --no-verify-build --no-verify-tests *>&1 | Tee-Object D:\cs\rt10-baseline-w10r.log
+```
+
+### 22.2 generic pass 实测
+
+- summary 原样：
+  `generic: 7 transformed, 354 clean (16 default(T) encountered, 2 rewritten, 0 nullability tests folded, 11 value defaults rewritten, 2 new T(), 1 new T[n])`。
+- `ValueDefaultsRewritten=11`，与 §21 的 11 条 VA027 站点一一对应，全部是
+  target-typed `default`：EnumConverter 5（`:105`/`:256`/`:313`/`:395`/`:445`）、
+  NullableConverter 1（`:39`）、FSharpValueOptionConverter 5（`:39`/`:55`/`:61`/`:90`/`:119`）。
+- 预处理树实测形态（`D:\cs\rt10-baseline-w10r\.cs2j-preprocessed-src`）：
+
+```
+EnumConverter.cs:105      T result = ((T)global::System.Activator.CreateInstance(typeof(T)));
+EnumConverter.cs:256      return ((T)global::System.Activator.CreateInstance(typeof(T)));
+NullableConverter.cs:39   T element = ((T)global::System.Activator.CreateInstance(typeof(T)));
+FSharpValueOptionConverter.cs:61  if (value.Equals(((TValueOption)global::System.Activator.CreateInstance(typeof(TValueOption)))))
+```
+
+- generic-deepen 在相应实例方法内注入 `__cs2j_token_T`/`__cs2j_token_TValueOption`
+  锚点（anchors 254 → **265**，+11），Java 侧 `TypeParameterToken` 将这些
+  `typeof(T)` 渲染为锚点变量；`mtok` 相关计数维持 1/1/1，residual 仍 0。
+- 16 处显式 `default(T)` 中仅 2 处按原逻辑改写为 `default` 字面量；其余 14 处
+  均为 `default(T) is null` / `is not null` 判定（V-08 与既有跳过规则保护，
+  约束无法静态判定时保持原样），不属值语义 `default` 用法。最终树代码内残留的
+  14 处显式站点全部是这类 null 判定，值语义站点为 0。
+
+### 22.3 variance-audit 结果
+
+- 结论：**仍未通过**（strict gate），strict Error 36 → **25 条**，`VA027 归零`；
+  中止点仍为第 28 个 pass `variance-audit`（VA030）。
+- summary 原样：
+  `variance-audit: 0 variant declaration(s), 324 use site(s) (39/18/267), 87 variance conversion(s), 13 unsafe; 56 constraints (struct/unmanaged/new/...); report=variance-audit-report.json`。
+- 剩余 strict Error 分布：`VA020=24、VA021=1`，另有 `VA030=1`（聚合门，
+  原文 `strict variance gate: 25 unsafe site(s) [VA020=24, VA021=1]`）。
+- totals 实测（`variance-audit-report.json`）：`useSitesTotal=324`
+  （39/18/267）、`metadataVariantTypesUsed=10`、`unsafeUseSites=13`、
+  `varianceConversionsArray=87`（safe=87）、`nestedCompositionSites=105`、
+  `constraintsStruct=24`、`constraintsUnmanaged=1`、`constraintDependentDefaultSites=0`
+  （§21 为 11）、`constraintDependentNewSites=2`、`constraintDependentBoxingSites=12`、
+  `constraintDependentArraySites=1`、`constraintDependentNullableSites=9`。
+- 任务 B 判定：24 条 VA020 中 **18 条全部依赖计数为 0**（占多数），但仍有 6 条
+  带依赖（boxing 8/4、array 1、nullable 1/1/7）加 VA021 1 条；即使把零依赖站点
+  降级，variance-audit 仍会因这 7 条 strict Error 中止，未满足"消除后可继续"的
+  执行条件，故本轮不实施 B，保持 Error，留待后续口径与实现一起处理。
+
+### 22.4 各 pass summary（28 个，variance-audit 中止）
+
+```
+1  conditional                ok      strip-conditional: 66 transformed, 286 clean, 372 directives removed, 103 disabled blocks removed
+2  lexical-normalize          ok      lexical-normalize: 0 transformed, 352 clean, 0 #line removed, 0 extern-alias site(s), 0 global using(s), 0 file-scoped normalized, 0 raw (0 multi), 0 u8 (0 bytes), 0 verbatim, 0 esc, 0 interpolated skipped (r 0/v 0/i 0)
+3  partial-merge              ok      partial-merge: 10 group(s) merged, 0 partial member pair(s) collapsed
+4  local-function-lift        ok      local-function-lift: 28 transformed, 324 clean, 59 lifted, 0 skipped, 0 residual
+5  null-coalesce              ok      null-coalesce: 59 transformed, 293 clean, 98 ?? rewritten, 100 ??= rewritten, 98 temp vars, 57 arrow bodies expanded, 0 residual
+6  expression-desugar         ok      expression-desugar: 107 transformed, 209 clean, 36 dirty-no-rewrite; coll: 35 sites (array 9/mutable 15/iface 0/span 8/builder 0/unknown 0), spread 3 (addrange 3/span-foreach 0/enum-foreach 0), empty 16, nested 1, lifted 2, skipped 0, residual 0; guard: static-abstract 0 decl/0 call, generic-attr 0 decl/0 app, scoped 129 param/24 local; interp: 218 sites, concat 162, format 4 (align 0/fmt 3/iformattable 1), fold 25, formattable-kept 0, exprtree-skip 0, handler err0|keep27, temps 63, residual 0; init: 67 obj, 1 coll (single 1/multi 0/ext 0/params 0/fluent 0), 1 dict-index, 126 target-new, 0/0 nested, 38 ctx-stmts, 144 temps, 163 skipped (2 non-strict kept), 96 residual; nc: 180 member/call, 0 idx, 24 invoke (event 0/delegate 24), 56 void, 42 inline, 83 lifted, 32 coalesce, 0 deferred-c51, 164 temps, 0 skipped, 0 residual, assign= 0 member/0 idx, 0 compound/0 event, 0 coalesce, 0 value, 0 chain, 0 rhs-nc, 0 temps, 0 residual
+7  enum                       ok      enum: 85 transformed, 107 clean, 160 dirty-no-rewrite, 125 bitwise, 1 ~, 6 compound, 1 HasFlag, 0 lifted, 4 enum-arith, 0 residual
+8  enum-declaration           ok      enum-declaration: 6 enum(s) rewritten (flags=0, non-int=5, explicit=4), 20 file(s), 0 plan(s) rolled back, 0 kept real (numeric-boundary), 0 residual
+9  delegate                   ok      delegate: 1 transformed, 351 clean, 0 combine, 0 remove, 0 compound, 5 anonymous method, 0 skipped, 0 residual
+10 tuple                      ok      tuple-to-struct: 16 transformed, 338 clean, 25 types, 35 literals, 10 deconstructions, 0 tuple locals -> var, 19 structs generated
+11 anonymous-type-lift        ok      anonymous-type-lift: 0 transformed, 358 clean, 0 creations rewritten, 0 shapes (0 generic, 0 dynamic), 0 types generated, 0 residual
+12 foreach-deconstruction     ok      foreach-deconstruction: 0 transformed, 358 clean, 0 lowered, 1 skipped
+13 foreach-source             ok      foreach-source: 9 transformed, 349 clean, 0 string site(s) wrapped, 0 tuple residual(s), 0 other/KV residual(s), 1 deconstruct(s) lowered, 2 duck enumerator(s) lowered (ext 0, direct 0, struct 2, dispose 0 [boxed 0], no-dispose 2, dynamic 0), 7 span index loop(s), 0 ref index loop(s), 0 ref-readonly index loop(s), 0 ref-Current enumerator(s) [5485 0, 5486 0, residual ref 0], 0 unresolved site(s), 0 residual enumerator site(s), 0 error(s)
+14 pattern-desugar            ok      pattern-desugar: 15 transformed, 307 clean, 36 dirty-no-rewrite, 17 pattern-switch, 0 non-int-switch, 1 catch-filter, 0 catch-T, 8 govs, 0 end-labels, 0 skipped, 0 residual
+15 strip-default              ok      strip-default: 97 transformed, 261 clean, 195 declarations stripped, 176 overloads generated
+16 ref-out-in                 ok      ref-out-in: 208 transformed, 150 clean, 245 ref params, 241 out params, 717 call sites lifted, 153 locked members
+17 unsafe-ref-lowering        ok      unsafe-ref-lowering: 0 transformed, 360 clean, 0 ref local(s) lowered (0 read, 0 add), 1 rejected (URL001)
+18 using-resource-lift        ok      using-resource-lift: 0 transformed, 360 clean, 0 resource(s) lifted, 0 preserved (USL001)
+19 fixed-span-to-array        ok      fixed-span-to-array: 1 transformed, 359 clean, 1 span fixed statement(s) lowered, 0 preserved (FSA001)
+20 compat-method-replacement  ok      compat-method-replacement: 2 transformed, 358 clean, 2 method(s) replaced, 0 already replaced, 2 signature mismatch(es) (CMR001), 0 drifted entr(y/ies) (CMR020), 1 unused table entry(ies)
+21 pointer-diff-inline        ok      pointer-diff-inline: 0 transformed, 360 clean, 0 helper(s) inlined, 0 call site(s) rewritten, 0 unused helper(s) removed, 0 preserved (PDI001)
+22 unsigned                   ok      unsigned-type: 129 transformed, 231 clean, 2269 types replaced, 195 operators rewritten, 3 literals rewritten
+23 numeric-boundary           ok      numeric-boundary: 360 file(s), 9 binary/0 unary/13 conversion/0 increment site(s) explicitized, 338 unchecked expr(s)/0 block(s) stripped, 92 constant(s) materialized, 0 error(s); decimal-ops: 0 binary/0 comparison/0 unary/0 compound site(s), 0 promotion(s), 0 const downgraded, 0 temp(s), 291 deferred; increment-targets: 392 property/0 indexer/0 enum-array/1 simple site(s), 1 unsigned helper call(s), 387 postfix lifted/0 prefix inlined, 387 temp(s), 0 deferred; nullable-lift: 3 rel/134 eq/4 conv site(s), 11 temp(s)
+24 generic                    ok      generic: 7 transformed, 354 clean (16 default(T) encountered, 2 rewritten, 0 nullability tests folded, 11 value defaults rewritten, 2 new T(), 1 new T[n])
+25 thread-static              ok      thread-static: 1 transformed, 360 clean (1 fields rewritten, 0 skipped, 8 reads, 2 writes, 0 compound, 0 increments, 0 struct lifts, 0 initializers, 0 plan rollback(s), 0 residual)
+26 generic-deepen             ok      generic-deepen: 158 transformed, 203 clean (265 anchors, 16 nested propagations, 4 patterns, 7 type tests, 0 catches, 28 static methods, 17 field accesses, 542 call sites, 0 expression-tree skips, 0 plans skipped, 0 ctor-token types, 0 ctor-token sites, 0 ctor-token call sites, 1 mtok methods, 1 mtok sites, 1 mtok call sites, 0 residuals)
+27 closed-metadata            ok      closed-metadata: 388 registered (1975 enumerated, 1587 deduplicated, 3 register files, 0 consumer sites linked, 443 dynamic sites skipped, 0 residuals)
+28 variance-audit             failed  variance-audit: 0 variant declaration(s), 324 use site(s) (39/18/267), 87 variance conversion(s), 13 unsafe; 56 constraints (struct/unmanaged/new/...); report=variance-audit-report.json
+```
+
+### 22.5 TFM 警告
+
+- 日志中 `skipped unresolvable TFM value` 计数为 **0**（与 §2–§21 一致）。
+- warning 行共 48 条（含折行续行），与 §21 相同，仍为 ED020/CS2J1107/CS2J2001/
+  CMR001/URL001 等基线既有提示；本轮未引入新类目。
+
+### 22.6 单测（先红后绿）
+
+- `tests/CSharpToJava.Tests/GenericPreprocessTests.cs` 新增 8 条：
+  - 显式 `default(T)`（赋值/返回/`Equals` 实参）改写为 Activator 形式；
+  - target-typed `default`（局部/返回）改写；
+  - `Enum` 与 `unmanaged` 约束改写；
+  - `where T : U where U : struct` 传递闭包改写（无语义模型路径）；
+  - 负例：`where T : class` / 无约束的 target-typed `default` 不改写；
+  - 表达式树内不改写；
+  - 参数默认值上下文不改写。
+- 红：临时回退 `GenericPreprocessor.cs` 后实测 8 条中 **6 条失败**（全部正例及
+  表达式树/参数默认值保护），恢复后 8 条通过。
+- 全量：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+  → **4791 通过 / 9 跳过 / 0 失败**（1 m 50 s）。
+- 未执行 `CSharpToJava.ProjectTests` 与 `CSharpToJava.ConversionTests`；
+  ProjectTests 未运行。
+
+### 22.7 来源文件
+
+- `D:\cs\rt10-baseline-w10r\preprocess-report.json`（`success=false`，
+  `totalSeconds=62.587`，28 个 pass；第 28 个 `variance-audit` 为 `failed`）。
+- `D:\cs\rt10-baseline-w10r\.cs2j-preprocessed-src\variance-audit-report.json`
+  （totals：`unsafeUseSites=13`、`constraintDependentDefaultSites=0`、VA027=0）。
+- 运行日志：`D:\cs\rt10-baseline-w10r.log`（临时产物，未入库）。
+
