@@ -179,3 +179,85 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
 - `D:\cs\rt10-baseline-w10b.log`（进程输出，0 条 TFM 警告）
 - `D:\cs\rt10-baseline-w10b\preprocess-report.json`（10 个 pass、`success=false`、`totalSeconds=31.873`）
 - `D:\cs\rt10-baseline-w10b\.cs2j-preprocessed-src`（改写后的中间源，含上述 3 + 3 处落点）
+
+## 9. 第三次重跑（HEAD `36e8cfbb`，tuple-to-struct 通过）
+
+### 9.1 运行口径
+
+- 运行日期：2026-11-06（Asia/Shanghai）；仓库代码 HEAD：`36e8cfbb`
+  （`fix(tuple): foreach 解构目标不再被当成元组字面量改写`）。
+- 代码前置：全量单测 4706 通过 / 9 跳过 / 0 失败（基线 4705 + 新增 1 条 tuple 单测）。
+- 源不变：`D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj`；
+  目标：`D:\cs\rt10-baseline-w10c`；unified 中间树
+  `D:\cs\rt10-baseline-w10c\.cs2j-preprocessed-src`。
+- 命令（与 §8.1 同参数，仅换目标目录与日志；**注意 `preprocess` 动词没有 `--force`
+  选项**，传入会被命令行解析器拒绝并以退出码 1 静默结束，故按 §8.1 原样调用）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10c --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests
+```
+
+- 结果：进程退出码 **1**（链中止，非超时/崩溃）。证据文件：
+  `D:\cs\rt10-baseline-w10c.log`（stdout）、`D:\cs\rt10-baseline-w10c.err`（stderr）、
+  `D:\cs\rt10-baseline-w10c\preprocess-report.json`（`success=false`、
+  `totalSeconds=31.848`、**13** 个 pass）。
+
+### 9.2 每个 pass 的实测（来源：preprocess-report.json 的 `status`/`summary`）
+
+| # | pass | 状态 | 实测 summary（原样节选） |
+|---|------|------|--------------------------|
+| 1 | conditional | ok | `strip-conditional: 66 transformed, 286 clean, 372 directives removed, 103 disabled blocks removed` |
+| 2 | lexical-normalize | ok | `0 transformed, 352 clean, 0 #line removed, ...` |
+| 3 | partial-merge | ok | `10 group(s) merged, 0 partial member pair(s) collapsed` |
+| 4 | local-function-lift | ok | `28 transformed, 324 clean, 59 lifted, 0 skipped, 0 residual` |
+| 5 | null-coalesce | ok | `59 transformed, 293 clean, 98 ?? rewritten, 100 ??= rewritten, 98 temp vars, 57 arrow bodies expanded, 0 residual` |
+| 6 | expression-desugar | ok | `107 transformed, 209 clean, 36 dirty-no-rewrite; ...; nc: 180 member/call, 24 invoke, 56 void, 42 inline, 83 lifted, 32 coalesce, 164 temps, 0 skipped, 0 residual` |
+| 7 | enum | ok | `85 transformed, 107 clean, 160 dirty-no-rewrite, 125 bitwise, 1 ~, 6 compound, 1 HasFlag, 0 lifted, 4 enum-arith, 0 residual` |
+| 8 | enum-declaration | ok | `6 enum(s) rewritten (flags=0, non-int=5, explicit=4), 20 file(s), 0 plan(s) rolled back, 0 kept real (numeric-boundary), 0 residual` |
+| 9 | delegate | ok | `1 transformed, 351 clean, 0 combine, 0 remove, 0 compound, 5 anonymous method, 0 skipped, 0 residual` |
+| 10 | tuple-to-struct | **ok（本轮修复）** | `16 transformed, 338 clean, 25 types, 35 literals, 10 deconstructions, 0 tuple locals -> var, 19 structs generated` |
+| 11 | anonymous-type-lift | ok | `0 transformed, 358 clean, 0 creations rewritten, 0 shapes (0 generic, 0 dynamic), 0 types generated, 0 residual` |
+| 12 | foreach-deconstruction | ok | `0 transformed, 358 clean, 0 lowered, 1 skipped` |
+| 13 | foreach-source | **failed** | `9 transformed, 349 clean, 0 tuple residual(s), 1 deconstruct(s) lowered, 2 duck enumerator(s) lowered, 7 span index loop(s), 0 residual enumerator site(s), 1 error(s)` |
+
+### 9.3 tuple-to-struct 通过证据
+
+- §8 的唯一 Error（`PolymorphicTypeResolver.cs: tuple rewrite produced invalid C# syntax`）
+  已消失；本 pass `status=ok`，无 Error/Warning 中的 invalid-syntax 条目。
+- summary 变化：元组字面量 36 → **35**、生成 struct 20 → **19**。差额正是被错误计入
+  字面量的 `(Type derivedType, object? typeDiscriminator)` 解构模式（原先注册并生成了
+  `TupleTypeObject`，现已不再注册）。
+- 中间树核对：`PolymorphicTypeResolver.cs` 的原始解构在 tuple pass 中原样保留，随后由
+  `foreach-deconstruction` / `foreach-source` 正确降级为：
+
+```
+foreach (var __cs2jFsEntry in polymorphismOptions.DerivedTypes)
+{
+    __cs2jFsEntry.Deconstruct(out Type derivedType, out object? typeDiscriminator);
+    ...
+}
+```
+
+  即 `JsonDerivedType.Deconstruct` 语义不变，不再出现 `newglobal::Cs2jTuples.TupleTypeObject(...)`
+  形式的非法 foreach 头。
+
+### 9.4 新中止点
+
+- 第 13 个 pass `foreach-source`（`status=failed`），错误原文（stderr）：
+  `gen\JsonSourceGenerator.Emitter.cs(787,17): error CS2J5457: [FA] foreach over a non-array/non-string/non-IEnumerable source has an incomplete enumerator binding (no usable GetEnumerator/MoveNext/Current symbols); the node at this site is left unchanged.`
+- 该中止点此前被 tuple 失败遮蔽（§8 在第 10 个 pass 退出），与本轮 tuple 修复无关。
+
+### 9.5 TFM 警告
+
+- `D:\cs\rt10-baseline-w10c.log` / `.err` 中 `skipped unresolvable TFM value` 计数为 **0**；
+  conditional 的 `372 directives / 103 disabled blocks` 与 §2/§8 一致。
+
+### 9.6 来源文件
+
+- `D:\cs\rt10-baseline-w10c.log`（进程 stdout，13 个 pass 摘要）
+- `D:\cs\rt10-baseline-w10c.err`（stderr：32 条 `warning `、1 条 error CS2J5457、61 条 `[Warning]`）
+- `D:\cs\rt10-baseline-w10c\preprocess-report.json`（13 个 pass、`success=false`、`totalSeconds=31.848`）
+- `D:\cs\rt10-baseline-w10c\.cs2j-preprocessed-src`（改写后的中间源）
