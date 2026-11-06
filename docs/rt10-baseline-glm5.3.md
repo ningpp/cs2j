@@ -2496,3 +2496,126 @@ were rolled back.
   （保留中间树的探针运行，临时产物，未入库）。
 - `D:\cs\rt10-tfm-restore.log`（四个项目分别 restore exit 0 证据，临时产物，未入库）。
 
+## 27. 修复 struct-value-semantics 的 CS8716（w10w，代码 `29480986`）
+
+### 27.1 运行口径
+
+- 运行日期：2026-11-07（Asia/Shanghai）；修复前 HEAD：`57ba228b`；本轮代码提交：`29480986`。
+- 环境：Windows；.NET SDK `10.0.300`。
+- 源：`D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj`；
+  全链目标：`D:\cs\rt10-baseline-w10w`；unified 中间树
+  `D:\cs\rt10-baseline-w10w\.cs2j-preprocessed-src`。
+- 全链命令（与 §26 相同，仅换目标目录）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10w --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests
+```
+
+### 27.2 根因（插桩实测）
+
+失败路径临时把候选树与新增诊断落盘到 `%TEMP%\cs2j-sv030`（仅本地，未入库），
+得到两条新增错误（`errors.txt`）：
+
+```
+CS8716: There is no target type for the default literal.
+  file=...\src\System\Text\Json\Document\JsonDocument.Parse.cs line=744 col=35
+  node=DefaultLiteralExpression text=[default]
+  line=[            MetadataDb database = default!.Clone();]
+CS1061: 'CancellationToken' does not contain a definition for 'Clone' ...
+  file=...\src\System\Text\Json\Serialization\Metadata\JsonTypeInfoOfT.ReadHelper.cs line=153 col=157
+  line=[            T? result = await DeserializeAsync<PipeReadBufferState, PipeReader>(utf8Json,
+         bufferState: new PipeReadBufferState(utf8Json), cancellationToken.Clone()).ConfigureAwait(false);]
+```
+
+- 根因 A：前序 pass 把 `MetadataDb database;` 改成了 `MetadataDb database = default!;`；
+  `default!` 是 `PostfixUnaryExpressionSyntax`（`SuppressNullableWarning`），
+  `ValueCopyFacts.IsFreshValue` 只剥括号未剥 `!` → 判为非新鲜值 → VS-1b 包裹 clone；
+  包裹后裸 `default` 不再处于目标类型位置 → CS8716。
+- 根因 B：该调用第三个实参是**位置实参**，前面是命名实参 `bufferState:`；
+  `ResolveParameter`（站点枚举）与 `ResolveArgumentParameter`（适用性裁决）都用
+  「无 `NameColon` 的实参个数」求形参序号，把 `cancellationToken` 映射到第 1 个形参
+  `bufferState`（`PipeReadBufferState`，活跃 struct）→ 对该实参插 clone →
+  `cancellationToken.Clone()` → CS1061。
+- 两条错误所在文件均被多个 plan 触碰，`TryAttributeDiagnostic` 无法归属唯一 plan，
+  故整树回退报 SV030（非单计划失败）。
+
+### 27.3 修复
+
+- A1 `ValueCopyFacts.IsFreshValue`：新增透明包装剥离（括号 + null 包容 `!`）。
+  `default!` 与 `default` 同判为新鲜值（零值本身即独立值），不再插 clone；
+  剥离的两种包装都不改变求值次数与值身份，既有 clone 时机不变。
+- A2 `CloneInsertionRewriter`：`Rewrite` 阶段遍历原树，为每个 target-typed 的
+  `default` 字面量追加标注并把原模型 `ConvertedType` 记入表；在 clone 包裹
+  （`ApplyExpressionSite`，含条件分支）与临时提升（`this = …` 字段式展开、
+  链式赋值 `var t = …`）之前，按标注展开为 `default(global::…全名)`。
+  标注按**节点**而非 Span 定位：重写器产出的游离节点 Span 会平移
+  （实测同一字面量 `[195..202)` → `[322..329)`），按 Span 匹配会全部落空。
+- B `StructValueSemanticsSiteEnumerator.ResolveParameter` 与
+  `ValueCopyFacts.ResolveArgumentParameter` 改为
+  `argumentList.Arguments.IndexOf(argument)`（C# 要求位置实参与其形参位次一致；
+  `M(a, b: x, c)` 中 `c` 是第 3 个实参而非第 2 个）。
+
+### 27.4 全链实测
+
+- 进程退出码 **1**；report `success=false`、`totalSeconds=75.51`、**41 个 pass**。
+- **struct-value-semantics 通过**（第 34 个 pass，`ok`）：
+  `struct-value-semantics: 30 struct(s) planned, 30 shim(s) generated, 55 site(s) rewritten, 0 skipped, 0 rolled back`，
+  **SV030 / CS8716 不再出现**。
+- 后续 pass 逐项 `ok`：
+
+| # | pass | summary |
+|---|------|---------|
+| 35 | unsafe-ffm | 0 unsafe block、1 unsafe modifier stripped；115 explicit stackalloc；19 rejection（UF021=14, UF040=1, UF050=1, UF052=4, UF051=2, UF055=1）；45 file(s) |
+| 36 | stackalloc-lowering | 4 transformed, 360 clean, 12 site(s) lowered (12 span) |
+| 37 | ref-struct-lowering | 1 transformed, 363 clean, 1 ref struct lowered, 4 preserved (RSL001) |
+| 38 | ref-struct-span-field-memory-lift | 1 transformed, 363 clean, 1 lowered, 2 span field lifted, 3 preserved (RSM001) |
+| 39 | pointer-deref-index | 0 transformed, 364 clean, 0 deref rewritten, 0 preserved |
+| 40 | closure-lift | 22 transformed, 342 clean, 1 holder class, 1 capture lifted, 30 display class, 61 lambda method, 61 delegate site, 5 discard parameter, 13 stmt lambda residual (13 accounted) |
+
+- 新中止点：**iterator-lowering**（第 41 个 pass，`failed`；CS2J0401，Error）：
+
+```
+[Error] src\System\Text\Json\Serialization\JsonSerializer.Read.Pipe.cs: Cannot resolve iterator element type for 'createAsyncEnumerableFromArray'.
+[Error] src\System\Text\Json\Serialization\JsonSerializer.Read.Stream.cs: Cannot resolve iterator element type for 'createAsyncEnumerableFromArray2'.
+[Error] src\System\Text\Json\Serialization\Converters\Collection\IAsyncEnumerableOfTConverter.cs: Cannot resolve iterator element type for 'GetAsyncEnumerator'.
+```
+
+  该 pass summary：`iterator-lowering: 1 member(s) lowered, 1 yield-return, 0 yield-break,
+  2 hoisted, 1 enumerator(s), 1 protected region(s), 0 using region(s), 0 lock(s),
+  3 skipped, 0 residual`。三条均为 `async IAsyncEnumerable<T?>` 局部函数/成员的返回类型
+  解析失败，与本轮 struct 值语义改动无因果关系（判据是方法返回类型，不依赖 clone 插入）。
+- TFM 警告（`is below net10` / NETSDK 系列）计数 **0**。
+
+### 27.5 单测与回归
+
+- 新增 5 条：
+  - `tests/CSharpToJava.Tests/StructValueSemanticsTargetTypedDefaultTests.cs` 4 条：
+    switch 表达式实参含 `default` 臂 → 输出 `default(global::Lib.Box)` 且可编译；
+    条件表达式实参含 `default` 臂（分支级 clone，回归护栏）；命名实参后接位置实参
+    → 不产生 `token.Clone()`；`Box box = default!;` 视为新鲜值、不插 clone。
+  - `tests/CSharpToJava.Tests/Preprocessing/StructValueSemanticsThisAssignmentTests.cs`
+    新增构造函数 `this = whole ? default : other;` → `var __cs2jTa0 = whole ? default(global::Lib.Box) : other.Clone();`
+    并做运行时断言（true 分支整体清零，false 分支只写 `X`）。
+- 红灯（回退新代码后确认失败）：
+  - 回退 `src/` 全部改动 → switch、命名实参、构造函数 3 条失败（`Not found: "default(global::Lib.Box)"`）；
+  - 仅回退 `ValueCopyFacts.cs` → `default!` 那条失败（输出变成
+    `Box box = default(global::Lib.Box)!.Clone();`，说明 A2 会兜底但 A1 才是避免无谓 clone 的修复）；
+  - 条件表达式那条两侧均绿，属既有行为护栏。
+- 全量：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj` →
+  **4837 通过 / 9 跳过 / 0 失败**（§26 基线 4832/9/0，净增 5）。
+- 中间出现过一次 `SourceTextIoTests.AtomicWrite_CreatesParent_ReplacesDestination_AndLeavesNoTempFile`
+  失败（`System.IO.IOException : 无法删除要被替换的文件。`，`File.Replace` 抖动），
+  单跑该用例通过、复跑全量全绿；与本改动无关。
+- `tests/CSharpToJava.ProjectTests`、`tests/CSharpToJava.ConversionTests` 未运行。
+
+### 27.6 来源文件
+
+- `D:\cs\rt10-baseline-w10w\preprocess-report.json`（`success=false`、
+  `totalSeconds=75.51`、41 个 pass；第 34 个 `struct-value-semantics` 为 `ok`，
+  第 41 个 `iterator-lowering` 为 `failed`）。
+- `D:\cs\rt10-baseline-w10w.log`（全链输出，临时产物，未入库）。
+- `%TEMP%\cs2j-sv030\errors.txt` 与同目录候选文件（SV030 插桩证据，临时产物，未入库）。
+
