@@ -15,12 +15,14 @@ public static class ProjectSymbolResolver
         string filePath,
         string configuration = "Release",
         string? tfm = null,
-        IEnumerable<string>? extraDefines = null)
+        IEnumerable<string>? extraDefines = null,
+        string? resolvedTfm = null)
     {
         var warnings = new List<string>();
         var symbols = new List<string>();
         var project = FindNearestProject(Path.GetDirectoryName(Path.GetFullPath(filePath)));
         var tfms = new List<string>();
+        var externalTfm = FirstNonEmpty(tfm) ?? FirstNonEmpty(resolvedTfm);
 
         if (project != null)
         {
@@ -30,7 +32,14 @@ public static class ProjectSymbolResolver
             }
 
             ApplyDefineConstants(project, configuration, symbols, warnings);
-            tfms = ReadTfms(project, configuration, warnings);
+            // An explicitly supplied TFM (CLI --tfm) or one already resolved by
+            // MSBuild evaluation is authoritative: never fall back to the XML
+            // read, which would emit "skipped unresolvable TFM value" for
+            // repository macros such as $(NetCoreAppCurrent).
+            if (externalTfm == null)
+            {
+                tfms = ReadTfms(project, configuration, warnings, out _);
+            }
         }
 
         // SDK-style projects define DEBUG for the Debug configuration through
@@ -42,7 +51,7 @@ public static class ProjectSymbolResolver
             symbols.Add("DEBUG");
         }
 
-        var chosenTfm = PickTfm(tfms, tfm);
+        var chosenTfm = PickTfm(tfms, externalTfm);
         if (chosenTfm != null && !TrySynthesizeTfmSymbols(chosenTfm, symbols))
         {
             warnings.Add($"unrecognized TFM '{chosenTfm}'");
@@ -209,8 +218,19 @@ public static class ProjectSymbolResolver
         return false;
     }
 
-    private static List<string> ReadTfms(string projectPath, string configuration, List<string> warnings)
+    /// <summary>
+    /// 纯 XML 读取项目声明的 TFM 列表。<paramref name="unresolved"/> 表示读到
+    /// 含 <c>$(</c> 的原始值（例如运行时仓库的 <c>$(NetCoreAppCurrent)</c>）；
+    /// 此时调用方应升级到 MSBuild 真实求值，而不是静默丢弃全部 TFM。
+    /// <paramref name="warnings"/> 为 null 时只做探测、不产生告警。
+    /// </summary>
+    internal static List<string> ReadTfms(
+        string projectPath,
+        string configuration,
+        List<string>? warnings,
+        out bool unresolved)
     {
+        unresolved = false;
         var result = new List<string>();
         var document = LoadDocument(projectPath, warnings);
         if (document?.Root == null)
@@ -242,7 +262,8 @@ public static class ProjectSymbolResolver
 
                 if (value.Contains("$(", StringComparison.Ordinal))
                 {
-                    warnings.Add($"skipped unresolvable TFM value '{value}' in {projectPath}");
+                    unresolved = true;
+                    warnings?.Add($"skipped unresolvable TFM value '{value}' in {projectPath}");
                     continue;
                 }
 
@@ -338,7 +359,7 @@ public static class ProjectSymbolResolver
         return false;
     }
 
-    private static XDocument? LoadDocument(string path, List<string> warnings)
+    private static XDocument? LoadDocument(string path, List<string>? warnings)
     {
         try
         {
@@ -346,10 +367,13 @@ public static class ProjectSymbolResolver
         }
         catch (Exception exception)
         {
-            warnings.Add($"cannot read {path}: {exception.Message}");
+            warnings?.Add($"cannot read {path}: {exception.Message}");
             return null;
         }
     }
+
+    private static string? FirstNonEmpty(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static IEnumerable<XElement> ChildrenNamed(XContainer parent, string localName) =>
         parent.Elements().Where(element => element.Name.LocalName.Equals(localName, StringComparison.OrdinalIgnoreCase));

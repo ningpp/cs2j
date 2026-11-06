@@ -243,6 +243,27 @@ public sealed class ProjectSymbolResolverTests : IDisposable
         Assert.Contains("$(ComputedTfm)", warning, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ResolvedTfm_SkipsUnresolvableProjectTfm_AndSynthesizesModernSymbols()
+    {
+        var file = WriteFile("App/Code.cs");
+        WriteFile("App/App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFrameworks>$(NetCoreAppCurrent);netstandard2.0</TargetFrameworks></PropertyGroup>
+            </Project>
+            """);
+
+        var result = ProjectSymbolResolver.ResolveForFile(file, resolvedTfm: "net10.0");
+
+        Assert.Contains("NET", result.Symbols);
+        Assert.Contains("NET10_0", result.Symbols);
+        Assert.Contains("NET10_0_OR_GREATER", result.Symbols);
+        Assert.Contains("NETCOREAPP", result.Symbols);
+        Assert.DoesNotContain(
+            result.Warnings,
+            warning => warning.Contains("skipped unresolvable TFM value", StringComparison.Ordinal));
+    }
+
     private static IReadOnlyList<string> Synthesize(string tfm)
     {
         var symbols = new List<string>();

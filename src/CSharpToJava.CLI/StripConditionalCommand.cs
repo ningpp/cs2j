@@ -159,15 +159,19 @@ internal static class StripConditionalCommand
 
         async Task<ProjectSymbols> SymbolsForFileAsync(string file, string relativePath)
         {
-            var projectPath = FindNearestProjectPath(Path.GetDirectoryName(file)!);
+            var projectPath = ProjectSymbolResolver.FindNearestProject(Path.GetDirectoryName(file)!);
             var cacheKey = projectPath ?? "<no-project>";
             if (!symbolCache.TryGetValue(cacheKey, out var symbols))
             {
+                var resolvedTfm = string.IsNullOrWhiteSpace(options.Tfm) && projectPath != null
+                    ? ResolvedProjectTfm.Resolve(projectPath, options.Configuration)
+                    : null;
                 symbols = ProjectSymbolResolver.ResolveForFile(
                     file,
                     options.Configuration,
                     options.Tfm,
-                    extraDefines);
+                    extraDefines,
+                    resolvedTfm);
                 symbolCache.Add(cacheKey, symbols);
             }
 
@@ -286,29 +290,6 @@ internal static class StripConditionalCommand
         var parent = Path.GetDirectoryName(Path.GetFullPath(destinationPath))!;
         Directory.CreateDirectory(parent);
         File.Copy(sourcePath, destinationPath, overwrite: true);
-    }
-
-    private static string? FindNearestProjectPath(string startDirectory)
-    {
-        var directory = Path.GetFullPath(startDirectory);
-        while (true)
-        {
-            var project = Directory.EnumerateFiles(directory, "*.csproj")
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .FirstOrDefault();
-            if (project != null)
-            {
-                return Path.GetFullPath(project);
-            }
-
-            var parent = Directory.GetParent(directory)?.FullName;
-            if (parent == null)
-            {
-                return null;
-            }
-
-            directory = parent;
-        }
     }
 
     private static IEnumerable<string> EnumerateFilesSkippingRoot(string sourceRoot, string? skipRoot)

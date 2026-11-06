@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using CSharpToJava.Core.ConditionalDirectiveStrip;
 using CSharpToJava.Core.Preprocessing;
 
@@ -19,6 +20,14 @@ internal sealed class ConditionalPassAdapter : ProjectPassAdapter
     private readonly bool _removeRegions;
 
     private readonly List<string> _diagnostics = new();
+
+    /// <summary>
+    /// Per-directory nearest-project lookup cache. Files in the same directory
+    /// all resolve to the same csproj; parallel rewrite shares this map.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, string?> _projectByDirectory =
+        new(StringComparer.OrdinalIgnoreCase);
+
     private int _filesTransformed;
     private int _filesSkippedClean;
     private int _directivesRemoved;
@@ -80,8 +89,16 @@ internal sealed class ConditionalPassAdapter : ProjectPassAdapter
 
     public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
     {
+        // Without an explicit --tfm, an unresolvable project TFM (e.g.
+        // $(NetCoreAppCurrent)) is upgraded through MSBuild evaluation once per
+        // project, then passed in so ResolveForFile never re-reads the XML and
+        // never emits "skipped unresolvable TFM value".
+        var resolvedTfm = string.IsNullOrWhiteSpace(_tfm)
+            ? ResolveProjectTfm(context.SourceFilePath)
+            : null;
+
         var symbols = ProjectSymbolResolver.ResolveForFile(
-            context.SourceFilePath, _configuration, _tfm);
+            context.SourceFilePath, _configuration, _tfm, resolvedTfm: resolvedTfm);
 
         var diagnosticLines = new List<string>(symbols.Warnings.Count);
         foreach (var warning in symbols.Warnings)
@@ -117,6 +134,25 @@ internal sealed class ConditionalPassAdapter : ProjectPassAdapter
                 result.Statistics.DirectivesRemoved,
                 result.Statistics.DisabledBranchesRemoved),
         });
+    }
+
+    private string? ResolveProjectTfm(string filePath)
+    {
+        string directory;
+        try
+        {
+            directory = Path.GetDirectoryName(Path.GetFullPath(filePath))!;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+
+        var projectPath = _projectByDirectory.GetOrAdd(
+            directory, static path => ProjectSymbolResolver.FindNearestProject(path));
+        return projectPath == null
+            ? null
+            : ResolvedProjectTfm.Resolve(projectPath, _configuration);
     }
 
     public override void MergeFilePureResult(PassFilePureResult pure)
