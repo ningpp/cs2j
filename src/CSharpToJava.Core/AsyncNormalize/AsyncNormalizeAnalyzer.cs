@@ -1048,28 +1048,53 @@ internal static class AsyncNormalizeAnalyzer
             TypeParameterListSyntax? ownTypeParameterList = null,
             SyntaxList<TypeParameterConstraintClauseSyntax> ownConstraintClauses = default)
     {
-        var typeParameters = new List<string>();
-        var constraints = new List<TypeParameterConstraintClauseSyntax>();
-        var seenTypes = new HashSet<string>(StringComparer.Ordinal);
-
-        if (ownTypeParameterList != null)
-        {
-            foreach (var tp in ownTypeParameterList.Parameters)
-            {
-                if (seenTypes.Add(tp.Identifier.ValueText))
-                    typeParameters.Add(tp.Identifier.ValueText);
-            }
-            foreach (var clause in ownConstraintClauses)
-                constraints.Add(clause);
-        }
+        var ownNames = ownTypeParameterList?.Parameters
+            .Select(p => p.Identifier.ValueText)
+            .Where(n => n.Length > 0)
+            .ToList() ?? new List<string>();
 
         // 体节点 → 类型声明之间的方法/局部函数祖先，按外层→内层。
-        // 对局部函数候选，其自身的类型参数已由 ownTypeParameterList 登记，seenTypes 去重兜底。
+        // 对局部函数候选，其自身的类型参数已由 ownTypeParameterList 登记。
         var ancestors = body.Ancestors()
             .TakeWhile(static a => a is not TypeDeclarationSyntax)
             .Where(static a => a is MethodDeclarationSyntax or LocalFunctionStatementSyntax)
             .Reverse()
             .ToList();
+
+        // 规范声明顺序：own 形参在前，随后按外层→内层、声明顺序追加；
+        // 与本地形参同名者视为遮蔽，不重复登记。
+        var available = new List<string>(ownNames);
+        var ancestorOwner = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal);
+        foreach (var ancestor in ancestors)
+        {
+            var ancestorTypeParameters = ancestor is MethodDeclarationSyntax m
+                ? m.TypeParameterList
+                : ((LocalFunctionStatementSyntax)ancestor).TypeParameterList;
+            if (ancestorTypeParameters == null)
+                continue;
+
+            foreach (var tp in ancestorTypeParameters.Parameters)
+            {
+                var name = tp.Identifier.ValueText;
+                if (available.Contains(name))
+                    continue;
+                available.Add(name);
+                ancestorOwner[name] = ancestor;
+            }
+        }
+
+        TypeParameterConstraintClauseSyntax? ClauseFor(string name)
+        {
+            var own = ownConstraintClauses.FirstOrDefault(c => c.Name.Identifier.ValueText == name);
+            if (own != null)
+                return own;
+            if (!ancestorOwner.TryGetValue(name, out var owner))
+                return null;
+            var clauses = owner is MethodDeclarationSyntax method
+                ? method.ConstraintClauses
+                : ((LocalFunctionStatementSyntax)owner).ConstraintClauses;
+            return clauses.FirstOrDefault(c => c.Name.Identifier.ValueText == name);
+        }
 
         // 体内/签名实际使用到的标识符名集合。
         var usedIdentifiers = new HashSet<string>(StringComparer.Ordinal);
@@ -1089,32 +1114,44 @@ internal static class AsyncNormalizeAnalyzer
             usedIdentifiers.Add(id.Identifier.ValueText);
         }
 
-        foreach (var ancestor in ancestors)
+        // S-08: carry = own 形参 + 使用到的外层形参，闭包于约束子句引用
+        // （`where T : IFoo<U>` 会把 U 一并携带），否则提升方法签名命名未
+        // 声明类型参数（CS0246）。
+        var availableSet = new HashSet<string>(available, StringComparer.Ordinal);
+        var carried = new HashSet<string>(ownNames, StringComparer.Ordinal);
+        foreach (var name in available.Skip(ownNames.Count))
         {
-            var ancestorTypeParameters = ancestor is MethodDeclarationSyntax m
-                ? m.TypeParameterList
-                : ((LocalFunctionStatementSyntax)ancestor).TypeParameterList;
-            if (ancestorTypeParameters == null)
-                continue;
+            if (usedIdentifiers.Contains(name))
+                carried.Add(name);
+        }
 
-            var ancestorConstraints = ancestor is MethodDeclarationSyntax m2
-                ? m2.ConstraintClauses
-                : ((LocalFunctionStatementSyntax)ancestor).ConstraintClauses;
-
-            foreach (var tp in ancestorTypeParameters.Parameters)
+        bool changed;
+        do
+        {
+            changed = false;
+            foreach (var name in carried.ToList())
             {
-                var tpName = tp.Identifier.ValueText;
-                if (!seenTypes.Add(tpName))
-                    continue;
-                if (!usedIdentifiers.Contains(tpName))
+                if (ClauseFor(name) is not { } clause)
                     continue;
 
-                typeParameters.Add(tpName);
-                var clause = ancestorConstraints.FirstOrDefault(c =>
-                    c.Name.Identifier.ValueText == tpName);
-                if (clause != null)
-                    constraints.Add(clause);
+                foreach (var id in clause.DescendantNodes().OfType<IdentifierNameSyntax>())
+                {
+                    var referenced = id.Identifier.ValueText;
+                    if (!availableSet.Contains(referenced))
+                        continue;
+                    if (carried.Add(referenced))
+                        changed = true;
+                }
             }
+        }
+        while (changed);
+
+        var typeParameters = available.Where(carried.Contains).ToList();
+        var constraints = new List<TypeParameterConstraintClauseSyntax>();
+        foreach (var name in typeParameters)
+        {
+            if (ClauseFor(name) is { } clause)
+                constraints.Add(clause);
         }
 
         return (typeParameters, constraints);
