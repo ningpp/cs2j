@@ -42,6 +42,17 @@ internal static class IteratorLoweringAnalyzer
             var symbol = semanticModel.GetDeclaredSymbol(method);
             if (symbol == null) continue;
 
+            // Async iterators (`async IAsyncEnumerable<T>`/`IAsyncEnumerator<T>`
+            // with yield) are async streams, owned by the later async-normalize
+            // pass (C18/C38). Leave them untouched here instead of failing to
+            // resolve a synchronous iterator element type (CS2J0401); rewriting
+            // them as synchronous state machines would change their semantics.
+            if (IsAsyncIterator(symbol, method))
+            {
+                skipMemberKeys.Add(GetMemberKey(method));
+                continue;
+            }
+
             // Check return type: IEnumerable<T>, IEnumerator<T>, IEnumerable, IEnumerator
             var elementType = ResolveElementType(symbol.ReturnType);
             if (elementType == null)
@@ -119,6 +130,15 @@ internal static class IteratorLoweringAnalyzer
             _ => "Property",
         };
 
+        // Defensive parity with the method path: an async/async-stream getter is
+        // owned by async-normalize (C18/C38) and must not be lowered as a
+        // synchronous iterator nor reported as an unresolved element type.
+        if (IsAsyncIterator(symbol, property))
+        {
+            skipMemberKeys.Add(GetMemberKey(property));
+            return;
+        }
+
         var elementType = ResolveElementType(symbol.ReturnType);
         if (elementType == null)
         {
@@ -149,6 +169,29 @@ internal static class IteratorLoweringAnalyzer
             getter.Body, symbol, semanticModel, className,
             memberName, property, parameterList, getter));
         memberIndex++;
+    }
+
+    /// <summary>
+    /// An async iterator returns <c>IAsyncEnumerable&lt;T&gt;</c>/
+    /// <c>IAsyncEnumerator&lt;T&gt;</c> (normally with an <c>async</c> modifier)
+    /// and is lowered by async-normalize (C18/C38) after this pass, never by
+    /// the synchronous state-machine lowering.
+    /// </summary>
+    private static bool IsAsyncIterator(IMethodSymbol symbol, SyntaxNode member)
+    {
+        var hasAsyncModifier = member switch
+        {
+            MethodDeclarationSyntax method => method.Modifiers.Any(SyntaxKind.AsyncKeyword),
+            BasePropertyDeclarationSyntax property => property.Modifiers.Any(SyntaxKind.AsyncKeyword),
+            _ => false,
+        };
+        if (hasAsyncModifier) return true;
+
+        if (symbol.ReturnType is not INamedTypeSymbol named) return false;
+
+        return named.OriginalDefinition.ToDisplayString() is
+            "System.Collections.Generic.IAsyncEnumerable<T>"
+            or "System.Collections.Generic.IAsyncEnumerator<T>";
     }
 
     private static string? ResolveElementType(ITypeSymbol returnType)
