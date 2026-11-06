@@ -1033,4 +1033,170 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
 - 对照：`D:\cs\rt10-baseline-w10i\preprocess-report.json`（numeric-boundary
   5 条 CS2J5355，23 个 pass）。
 
+## 16. 第十次重跑（HEAD `add6af02` + 本轮 generic-deepen 修复）
 
+### 16.1 运行口径
+
+- 运行日期：2026-11-06/07（Asia/Shanghai，跨零点）；基线 HEAD：`add6af02`，
+  叠加本轮 generic-deepen（GD-STATIC / 残留门）工作树改动（运行时尚在工作树，
+  尚未提交）。
+- 代码前置：全量单测 **4749 通过 / 9 跳过 / 0 失败**（§15 基线 4741 +
+  本轮新增 8 条，见 §16.7）。
+- 修复内容（4 族，均为真实降低，未改 strict / 未降级为 Warning）：
+  1. **隐式基类静态调用（CS2J1106）**：`RenderMethodTypeArguments` 在语法路径
+     都给不出构造时，回退到**绑定符号的 constructed containing type**，按类型
+     参数名在 containing 链上取闭型实参
+     （`FindTypeArgumentText` + `ToMinimalDisplayString`），覆盖
+     `ByteConverter : JsonPrimitiveConverter<byte>` 这类基列表替换。
+  2. **方法组引用（CS2J1102）**：`HasMethodGroupReference` 的拒绝门改为
+     `CollectMethodGroupIdentifiers` 收集站点，提升后把每个引用改写成
+     **保形 lambda**（参数形状取自目标委托的 Invoke，闭型实参显式拼进调用）；
+     委托形状不可保时在**精确站点**报 CS2J1102 并保留方法。
+  3. **静态方法自带类型参数（CS2J1102）**：冲突诊断从候选池前移到
+     fixpoint 内——只有方法**确实需要提升**（签名/体/已提升被调用的类参数实参）
+     时才报；不引用外围类参数的静态泛型方法不再误报。
+  4. **残留门（CS2J1120）**：`GenericDeepenResidualScanner` 对 GD-STATIC
+     提升计划中的方法（按 containing 类型 + 方法名 + 参数个数匹配）豁免
+     **被提升的类类型参数**的 `forward-only-without-anchor` 判定——提升本身
+     就在每个调用点显式给出该参数。
+- 源不变：`D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj`；
+  目标：`D:\cs\rt10-baseline-w10k`；unified 中间树
+  `D:\cs\rt10-baseline-w10k\.cs2j-preprocessed-src`（目标目录运行时不存在，未用 `--force`）。
+- 命令（与 §15.1 同参数，仅换目标目录与日志）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10k --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests `
+  *>&1 | Tee-Object D:\cs\rt10-baseline-w10k.log
+```
+
+- 结果：`D:\cs\rt10-baseline-w10k\preprocess-report.json` 为
+  `success=false`、`totalSeconds=55.5`、**27** 个 pass；日志 528 行；退出码 1。
+- 与 §15 的关键差异：`generic-deepen` 首次 `status=ok`（8 条 Error 全部消除），
+  链路因此继续执行第 27 个 pass `closed-metadata`，最终停在该 pass（§16.5）。
+
+### 16.2 每个 pass 的实测（来源：preprocess-report.json 的 `status`/`summary`/`totalSeconds`）
+
+| # | pass | 状态 | 秒 | 实测 summary（原样节选） |
+|---|------|------|----|--------------------------|
+| 1 | conditional | ok | 6.049 | `strip-conditional: 66 transformed, 286 clean, 372 directives removed, 103 disabled blocks removed` |
+| 2 | lexical-normalize | ok | 1.456 | `0 transformed, 352 clean, ... 0 interpolated skipped (r 0/v 0/i 0)` |
+| 3 | partial-merge | ok | 3.526 | `10 group(s) merged, 0 partial member pair(s) collapsed` |
+| 4 | local-function-lift | ok | 4.735 | `28 transformed, 324 clean, 59 lifted, 0 skipped, 0 residual` |
+| 5 | null-coalesce | ok | 0.849 | `59 transformed, 293 clean, 98 ?? rewritten, 100 ??= rewritten, 98 temp vars, 57 arrow bodies expanded, 0 residual` |
+| 6 | expression-desugar | ok | 2.127 | `107 transformed, 209 clean, 36 dirty-no-rewrite; ... residual 0`（init 段 96 residual） |
+| 7 | enum | ok | 1.576 | `85 transformed, 107 clean, 160 dirty-no-rewrite, 125 bitwise, 1 ~, 6 compound, 1 HasFlag, 0 lifted, 4 enum-arith, 0 residual` |
+| 8 | enum-declaration | ok | 6.166 | `6 enum(s) rewritten (flags=0, non-int=5, explicit=4), 20 file(s), 0 plan(s) rolled back, 0 kept real (numeric-boundary), 0 residual` |
+| 9 | delegate | ok | 0.663 | `1 transformed, 351 clean, 0 combine, 0 remove, 0 compound, 5 anonymous method, 0 skipped, 0 residual` |
+| 10 | tuple | ok | 6.525 | `tuple-to-struct: 16 transformed, 338 clean, 25 types, 35 literals, 10 deconstructions, 0 tuple locals -> var, 19 structs generated` |
+| 11 | anonymous-type-lift | ok | 0.947 | `0 transformed, 358 clean, 0 creations rewritten, 0 shapes (0 generic, 0 dynamic), 0 types generated, 0 residual` |
+| 12 | foreach-deconstruction | ok | 0.200 | `0 transformed, 358 clean, 0 lowered, 1 skipped` |
+| 13 | foreach-source | ok | 0.430 | `9 transformed, 349 clean, ..., 7 span index loop(s), 0 unresolved site(s), 0 error(s)` |
+| 14 | pattern-desugar | ok | 0.409 | `15 transformed, 307 clean, 36 dirty-no-rewrite, 17 pattern-switch, 0 non-int-switch, 1 catch-filter, 0 catch-T, 8 govs, 0 end-labels, 0 skipped, 0 residual` |
+| 15 | strip-default | ok | 2.928 | `97 transformed, 261 clean, 195 declarations stripped, 176 overloads generated` |
+| 16 | ref-out-in | ok | 1.651 | `208 transformed, 150 clean, 245 ref params, 241 out params, 717 call sites lifted, 153 locked members` |
+| 17 | unsafe-ref-lowering | ok | 1.210 | `0 transformed, 360 clean, 0 ref local(s) lowered (0 read, 0 add), 1 rejected (URL001)` |
+| 18 | using-resource-lift | ok | 0.217 | `0 transformed, 360 clean, 0 resource(s) lifted, 0 preserved (USL001)` |
+| 19 | fixed-span-to-array | ok | 0.238 | `1 transformed, 359 clean, 1 span fixed statement(s) lowered, 0 preserved (FSA001)` |
+| 20 | compat-method-replacement | ok | 0.238 | `2 transformed, 358 clean, 2 method(s) replaced, 0 already replaced, 2 signature mismatch(es) (CMR001), 0 drifted entr(y/ies) (CMR020), 1 unused table entry(ies)` |
+| 21 | pointer-diff-inline | ok | 0.283 | `0 transformed, 360 clean, 0 helper(s) inlined, 0 call site(s) rewritten, 0 unused helper(s) removed, 0 preserved (PDI001)` |
+| 22 | unsigned | ok | 0.662 | `unsigned-type: 129 transformed, 231 clean, 2269 types replaced, 195 operators rewritten, 3 literals rewritten` |
+| 23 | numeric-boundary | ok | 3.296 | `numeric-boundary: 360 file(s), 9 binary/0 unary/13 conversion/0 increment site(s) explicitized, 338 unchecked expr(s)/0 block(s) stripped, 92 constant(s) materialized, 0 error(s); ... nullable-lift: 3 rel/134 eq/4 conv site(s), 11 temp(s)` |
+| 24 | generic | ok | 1.546 | `7 transformed, 354 clean (16 default(T) encountered, 16 rewritten, 0 nullability tests folded, 2 new T(), 1 new T[n])` |
+| 25 | thread-static | ok | 0.641 | `1 transformed, 360 clean (1 fields rewritten, 0 skipped, 8 reads, 2 writes, 0 compound, 0 increments, 0 struct lifts, 0 initializers, 0 plan rollback(s), 0 residual)` |
+| 26 | generic-deepen | **ok** | 4.106 | `158 transformed, 203 clean (254 anchors, 16 nested propagations, 4 patterns, 7 type tests, 0 catches, 28 static methods, 17 field accesses, 542 call sites, 0 expression-tree skips, 0 plans skipped, 0 ctor-token types, 0 ctor-token sites, 0 ctor-token call sites, 1 mtok methods, 1 mtok sites, 1 mtok call sites, 0 residuals)` |
+| 27 | closed-metadata | **failed** | 2.780 | `388 registered (1975 enumerated, 1587 deduplicated, 3 register files, 0 consumer sites linked, 443 dynamic sites skipped, 139 residuals)` |
+
+- 第 1–26 个 pass 全部 `ok`；`generic-deepen` 的 transformed 由 147 升到 158、
+  static methods 23 → 28、call sites 526 → 542、residuals 1 → 0（本轮新增
+  提升的 5 个方法与 16 个调用点）。
+
+### 16.3 generic-deepen 8 条 Error 的逐条状态
+
+| 族 | 原报错 | 站点 | 本轮状态 |
+|----|--------|------|----------|
+| 1 | CS2J1106 ×2 | `ByteConverter.cs:61` 的 `GetSchemaForNumericType(...)`；`JsonValueOfTPrimitive.cs:25` 的 `DetermineValueKind(value)` | **消除**（0 条），见 §16.4 |
+| 2 | CS2J1102 ×3 | `JsonPropertyInfoOfT.cs:144/149/154` 三个静态方法的 method group 引用 | **消除**（0 条），5 处引用改写为 lambda |
+| 3 | CS2J1102 ×2 | `ObjectWithParameterizedConstructorConverter.Small.cs:63` 的 `TryRead<TArg>`；`JsonDictionaryConverter.cs:99` 的 `GetConverter<T>` | **消除**（0 条）：二者均不引用外围类参数，无需提升，不再误报 |
+| 4 | CS2J1120 ×1 | `EnumConverter.cs:617` 的 `ResolveEnumFields<T>` `forward-only-without-anchor` | **消除**（0 条）：提升方法携带的提升参数由调用点显式给出，残留门豁免 |
+
+- `generic-deepen` 的 report diagnostics 中 CS2J1102/CS2J1106/CS2J1120 命中
+  均为 **0**；仍为 12 条 CS2J1107（Anchor 警告，与 §15 同集合）与 9 条
+  CS2J2001（partial-merge 警告），均为 Warning，不阻断。
+
+### 16.4 修复后的实际产物（逐站点）
+
+- `src\System\Text\Json\Serialization\Converters\Value\ByteConverter.cs:59`：
+  `GetSchemaForNumericType<byte>(JsonSchemaType.Integer, numberHandling, isIeeeFloatingPoint: false);`
+- `src\System\Text\Json\Nodes\JsonValueOfTPrimitive.cs:24`：
+  `_valueKind = DetermineValueKind<TValue>(value);`
+- `src\System\Text\Json\Serialization\Metadata\JsonPropertyInfoOfT.cs:155/160/165`：
+  三个方法提升为 `private static bool shouldSerializeIgnoreConditionNever<T>(object _, T? value)`
+  （`...Always<T>` / `...WhenWritingDefault<T>` 同形）；`:438/441/446/456/460`
+  五处引用改写为
+  `ShouldSerialize = (arg1, arg2) => shouldSerializeIgnoreConditionNever<T>(arg1, arg2);`
+  （`arg1`/`arg2` 取自 `Func<object, T?, bool>` 的 Invoke 参数名）。
+- `ObjectWithParameterizedConstructorConverter.Small.cs:63` 的
+  `private static bool TryRead<TArg>(...)` 与 `JsonDictionaryConverter.cs:95` 的
+  `protected static JsonConverter<T> GetConverter<T>(JsonTypeInfo typeInfo)`
+  保持原样（未提升、未加诊断），既有调用 `GetConverter<TKey>(...)` /
+  `GetConverter<TValue>(...)` 不变。
+- `src\System\Text\Json\Serialization\Converters\Value\EnumConverter.cs`：
+  `getFields<T>()`（:57）、`ResolveEnumFields<T>(namingPolicy)`（:617）、
+  调用点 `ResolveEnumFields<T>(namingPolicy)`（:70）、体内
+  `getFields<T>()`（:624）——提升后不再触发残留；`ResolveEnumFields<T>` 体内
+  无自用 token 锚点，语义与 §15 相同。
+
+### 16.5 新中止点
+
+- `generic-deepen` 通过后链路继续执行到第 27 个 pass `closed-metadata`
+  （`status=failed`），report 共 **1** 条 Error：
+  `CS2J1220: [Residual] 139 residual site(s) of rule 'bare-typeof-passthrough'
+  remain after the closed-metadata rewrite (D:\cs\rt10-baseline-w10k\.cs2j-preprocessed-src\Common\ReflectionExtensions.cs:223,
+  ...\gen\Helpers\KnownTypeSymbols.cs:25, ...:28); the post-rewrite gate requires zero (design §5.4).`
+- 该 pass 自身为 `388 registered / 1975 enumerated / 1587 deduplicated /
+  0 consumer sites linked / 443 dynamic sites skipped / 139 residuals`。
+- 站点为源级开放泛型 `typeof(...)` 透传（例：`ReflectionExtensions.cs:223`
+  的 `typeof(KeyValuePair<,>)`、`KnownTypeSymbols.cs:25/28` 的
+  `typeof(IList<>)` / `typeof(ICollection<>)`）；`ContainsGenericConstruction`
+  把 unbound generic 记为泛型构造。**该 pass 首次被执行**（§15 在第 26 个 pass
+  中止），与本轮 generic-deepen 改动无交集（本轮只新增 `typeof(T)` 锚点与
+  闭型非泛型 token 实参），如实记为**新暴露的既有缺口**，本轮不处理。
+- 本轮未修改 closed-metadata，也未降级其诊断。
+
+### 16.6 TFM 警告
+
+- 日志中 `skipped unresolvable TFM value` 计数为 **0**（与 §2–§15 一致）。
+- `target framework '...' is below net10.0` 提示共 **8** 行，与 §15（w10j）
+  完全相同（`gen/*.csproj` 3 个 + `src/System.Text.Json.csproj`，由
+  Cs2jUnsignedMath 注入），本轮**未新增**。
+- 日志计数：`warning ` 文本行 48 条、`[Warning]` 前缀行 69 条；` error `
+  文本行 1 条（`closed-metadata` 的 CS2J1220）。
+
+### 16.7 单测（先红后绿证据）
+
+- `GenericDeepenTests` 新增 8 条（每族 1 正例 + 1 相邻负例）：
+  `StaticMethod_ImplicitBaseStaticCall_UsesClosedConstruction`、
+  `StaticMethod_ImplicitBaseStaticCall_DoesNotDoubleApplyExplicitReceiver`、
+  `StaticMethod_MethodGroupReference_IsWrappedInShapePreservingLambda`、
+  `StaticMethod_MethodGroupOfNonHoistedMethod_IsLeftVerbatim`、
+  `StaticMethodWithOwnTypeParams_NoClassParamReference_IsLeftInPlace`、
+  `StaticMethodWithOwnTypeParams_ClassParamThroughHoistedCallee_StillReportsCS2J1102`、
+  `Residual_HoistedStaticForwarder_HasNoFinding`、
+  `Residual_UnhoistedStaticGenericForwarder_StillCounts`。
+- 红：仅加测试、不改源码运行 `GenericDeepenTests` → **5 failed / 113 passed**
+  （族 1×2、族 2 正例、族 3 正例、族 4 正例）；恢复源码后 **118/118 通过**。
+- 全量：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+  → **4749 通过 / 9 跳过 / 0 失败**（1 m 47 s）。
+- 未执行 `CSharpToJava.ProjectTests` 与 `CSharpToJava.ConversionTests`。
+
+### 16.8 来源文件
+
+- `D:\cs\rt10-baseline-w10k\preprocess-report.json`（schemaVersion 1，
+  `success=false`，`totalSeconds=55.5`，27 个 pass）。
+- `D:\cs\rt10-baseline-w10k.log`（528 行）。
+- 中间树：`D:\cs\rt10-baseline-w10k\.cs2j-preprocessed-src`。
+- 对照：`D:\cs\rt10-baseline-w10j\preprocess-report.json`（generic-deepen
+  8 条 Error，26 个 pass）。
