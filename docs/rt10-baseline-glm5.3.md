@@ -2619,3 +2619,86 @@ CS1061: 'CancellationToken' does not contain a definition for 'Clone' ...
 - `D:\cs\rt10-baseline-w10w.log`（全链输出，临时产物，未入库）。
 - `%TEMP%\cs2j-sv030\errors.txt` 与同目录候选文件（SV030 插桩证据，临时产物，未入库）。
 
+## 28. 修复 iterator-lowering 的 async 迭代器 CS2J0401 误报（w10x，代码 `dc6279c5`）
+
+### 28.1 运行口径
+
+- 运行日期：2026-11-07（Asia/Shanghai）；基线 HEAD：`fabe1b96`，本轮代码+测试
+  提交：`dc6279c5`。
+- 环境：Windows；.NET SDK `10.0.300`。
+- 源：`D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj`；
+  全链目标：`D:\cs\rt10-baseline-w10x`；unified 中间树
+  `D:\cs\rt10-baseline-w10x\.cs2j-preprocessed-src`。
+- 全链命令（`preprocess` 无 `--force`，与 §27 相同，仅换目标目录）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10x --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests
+```
+
+### 28.2 修复
+
+- 归属：async 迭代器返回 `IAsyncEnumerable<T>`/`IAsyncEnumerator<T>`（通常带
+  `async` 修饰符），由 C18/C38 `async-normalize` 处理；`iterator-lowering`（C04）
+  运行在其之前，只能低同步迭代器。
+- `IteratorLoweringAnalyzer` 在 method 循环中新增 `IsAsyncIterator` 判定：语法上带
+  `async` 修饰符，或语义返回类型为 `IAsyncEnumerable<T>`/`IAsyncEnumerator<T>`，
+  命中即跳过（不解析同步元素类型、不产生 CS2J0401、不改写）；property/indexer
+  getter 路径同样加该防御。
+- 同步迭代器（`IEnumerable<T>`/`IEnumerator<T>`/非泛型两接口）路径不变。
+
+### 28.3 全链实测
+
+- 进程退出码 **1**；report `success=false`、`totalSeconds=77.85`、**42 个 pass**
+  （41 个 `ok`，第 42 个 `async-normalize` 为 `failed`）。
+- **iterator-lowering 通过**（第 41 个 pass，`ok`，无诊断）：
+  `iterator-lowering: 1 member(s) lowered, 1 yield-return, 0 yield-break, 2 hoisted, 1 enumerator(s), 1 protected region(s), 0 using region(s), 0 lock(s), 0 skipped, 0 residual`。
+  三条 CS2J0401 不再出现。
+- 后续 pass：
+
+| # | pass | status | summary |
+|---|------|--------|---------|
+| 41 | iterator-lowering | ok | `iterator-lowering: 1 member(s) lowered, 1 yield-return, 0 yield-break, 2 hoisted, 1 enumerator(s), 1 protected region(s), 0 using region(s), 0 lock(s), 0 skipped, 0 residual` |
+| 42 | async-normalize | failed | `async-normalize: 0 lambda(s) lifted (0 captured), 0 wrapper(s), 19 ConfigureAwait stripped, 25 await-site(s) kept, 1 skipped, 0 await-foreach, 0 await-using, 102 async-type sites, 0 async-iterator rejected, 3 async-iterator lowered, 5 residual` |
+
+- 第 1–40 个 pass 均 `ok`；与 §27 相比 `transformed`/`clean` 计数一致，仅
+  closure-lift 的 summary 计数在两次运行间有抖动（w10w report：29 display class /
+  58 lambda method / 16 stmt residual；w10x：30 / 59 / 15），与本轮改动无因果关系。
+- unified 中间树中三个异步迭代器均由 `async-normalize` 处理：`createAsyncEnumerableFromArray`
+  → `Cs2jAsyncEnumerable_JsonSerializer_0<T>`，`GetAsyncEnumerator` →
+  `Cs2jAsyncIterator_BufferedAsyncEnumerable_0`（`iterator-lowering` 未改写）。
+- 新中止点：**async-normalize**（第 42 个 pass，`failed`），2 条 Error：
+
+```
+[Error] src\System\Text\Json\Serialization\Metadata\JsonTypeInfoOfT.WriteHelpers.cs: ConfigureAwait(ConfigureAwaitOptions) cannot be normalized: the options form (e.g. SuppressThrowing) has no Java-side equivalent.
+[Error] src\System\Text\Json\Serialization\Metadata\JsonTypeInfoOfT.WriteHelpers.cs: 5 residual async construct(s) remain after async normalization (un-annotated async lambda/local function, ConfigureAwait call(s), or un-exempted async void member(s)).
+```
+
+  对应诊断码：前者 `CS2J1808`（`ConfigureAwait(ConfigureAwaitOptions)` 形态），
+  后者为 strict 残留闸门 `CS2J1810`。
+- TFM 警告（`skipped unresolvable TFM value` / `is below net10` / NETSDK 系列）
+  计数 **0**。
+
+### 28.4 单测与回归
+
+- 新增 4 条（`tests/CSharpToJava.Tests/IteratorLowering/AsyncIteratorOwnershipTests.cs`）：
+  - `static async IAsyncEnumerable<T?> M(...)` + `yield return` → 无 CS2J0401、
+    `Changed=false`、输出与输入逐字相同；
+  - `public async IAsyncEnumerator<TElement> GetAsyncEnumerator(...)` → 同上；
+  - 同步 `IEnumerable<int>` 迭代器照常 lowering（无残留 `yield return`，输出可编译）；
+  - 非 async 但返回 `IAsyncEnumerable<int>`（CS1624 非法形态）→ 同样跳过、不阻断。
+- 先红后绿：回退 `IteratorLoweringAnalyzer.cs` 后 4 条中 **3 条失败、1 条通过**
+  （同步迭代器回归用例通过）；恢复后 4/4 通过。
+- 全量：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj` →
+  **4841 通过 / 9 跳过 / 0 失败**（§27 基线 4837/9/0，净增 4）。
+- `tests/CSharpToJava.ProjectTests`、`tests/CSharpToJava.ConversionTests` 未运行。
+
+### 28.5 来源文件
+
+- `D:\cs\rt10-baseline-w10x\preprocess-report.json`（`success=false`、
+  `totalSeconds=77.85`、42 个 pass；第 41 个 `iterator-lowering` 为 `ok`，
+  第 42 个 `async-normalize` 为 `failed`）。
+- `D:\cs\rt10-baseline-w10x.log`（全链输出，临时产物，未入库）。
+
