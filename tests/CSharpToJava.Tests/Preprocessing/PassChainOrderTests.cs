@@ -156,6 +156,12 @@ public sealed class PassChainOrderTests
         // 与 equality-concat 互无 RunAfter 约束，相对次序由注册表声明序锁定。
         PassIds.ConcurrencyNormalize,
         PassIds.EqualityConcat,
+        // C33 R4: chain-tail Expression pass fed by the variance-audit
+        // inventory/classifier. Anchors member-desugar + linq-channel +
+        // equality-concat and is declared right after equality-concat, so the
+        // Kahn declaration-order tiebreak pins the slot
+        // equality-concat -> variance-use-site-normalize -> platform-isolation.
+        PassIds.VarianceUseSiteNormalize,
         // C42 platform-isolation is Implemented; it anchors eliminate-goto and
         // stays before java-keywords (§3.3). M3 adds a RunAfter edge on
         // unsafe-ffm (already locked earlier at slot 77): the edge is consistent
@@ -860,6 +866,7 @@ public sealed class PassChainOrderTests
                 && id != PassIds.ExtensionMethods
                 && id != PassIds.ConcurrencyNormalize
                 && id != PassIds.VarianceAudit
+                && id != PassIds.VarianceUseSiteNormalize
                 && id != PassIds.PlatformIsolation
                 && id != PassIds.DynamicDesugar
                 && id != PassIds.ClosedMetadata

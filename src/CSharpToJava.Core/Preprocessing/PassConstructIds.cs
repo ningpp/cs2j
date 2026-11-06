@@ -17,4 +17,10 @@ public static class PassConstructIds
     public const string PointerLocal = "NORM-POINTER-LOCAL";
     public const string UnsafeBlock = "NORM-UNSAFE-BLOCK";
     public const string FixedStatement = "NORM-FIXED";
+
+    /// <summary>
+    /// 型变使用点未分类/未改写（VR pass 残差，方案 §6.4-R4/R2 NORM-GENERIC-*）。
+    /// Owner: <c>variance-use-site-normalize</c>。
+    /// </summary>
+    public const string GenericVarianceUse = "NORM-GENERIC-VARIANCE-USE";
 }

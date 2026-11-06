@@ -45,6 +45,7 @@ using CSharpToJava.Core.UnsafeFfm;
 using CSharpToJava.Core.UnsafeRefLowering;
 using CSharpToJava.Core.UsingResourceLift;
 using CSharpToJava.Core.VarianceAudit;
+using CSharpToJava.Core.VarianceUseSite;
 using CSharpToJava.CLI.Preprocessing.Adapters;
 using Microsoft.CodeAnalysis;
 using CoreGenericPreprocessOptions = CSharpToJava.Core.GenericPreprocess.GenericPreprocessOptions;
@@ -763,6 +764,16 @@ internal static class PassChainFactory
                 config.VerifyBuild,
                 config.VerifyTests,
                 config.Strict),
+
+            // C33 R4: chain-tail variance use-site rewrite, fed by the shared
+            // variance-audit inventory/classifier (no second analysis).
+            PassIds.VarianceUseSiteNormalize => new VarianceUseSiteNormalizePassAdapter(
+                new VarianceUseSiteNormalizeOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
 
             // C36 expression-desugar has no convert-project legacy toggle; the
             // descriptor default (on) drives it and --disable-pass opts out

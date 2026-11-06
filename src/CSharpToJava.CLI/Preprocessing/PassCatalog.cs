@@ -61,6 +61,7 @@ internal static class PassIds
     public const string LinqChannel = "linq-channel";
     public const string ConcurrencyNormalize = "concurrency-normalize";
     public const string EqualityConcat = "equality-concat";
+    public const string VarianceUseSiteNormalize = "variance-use-site-normalize";
     public const string PlatformIsolation = "platform-isolation";
     public const string DynamicDesugar = "dynamic-desugar";
     public const string JavaKeywords = "java-keywords";
@@ -949,6 +950,44 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Materialize string ==/!= and + call sites, (object) escapes, delegate value equality and record == by symbol-bound semantics.",
             catalogItems: "C47"),
+        new(
+            PassIds.VarianceUseSiteNormalize,
+            "Variance use-site normalization",
+            ".cs2j-variance-use-site-normalize-src",
+            PassStage.Expression,
+            PassStatus.Implemented,
+            // C33 R4: the variance use-site rewrite is a chain-tail Expression
+            // pass. It reuses VarianceAuditAnalysis.UseSites +
+            // UseSiteSafetyClassifier verbatim (no second variance analysis) and
+            // only rewrites sites the shared classifier accepted.
+            defaultEnabled: true,
+            runAfterIds: new[]
+            {
+                PassIds.MemberDesugar,
+                PassIds.LinqChannel,
+                PassIds.EqualityConcat,
+            },
+            supportLibrary: PassSupportLibrary.None,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Rewrite C# variance use sites into explicit unchecked casts " +
+                "((IEnumerable<Base>)(object)expr / (Func<Derived,R>)(object)expr) for " +
+                "Java's invariant generics; preserve reference-array covariance (VR-04) and " +
+                "declare unsupported value-type/nested/both-flow/dynamic sites with CS2J1404.",
+            catalogItems: "C33",
+            // VR-01/02 consume provable variance conversions; VR-03/05/06/07/08
+            // may leave NORM-GENERIC-VARIANCE-USE behind as DeclaredUnsupported.
+            contract: new PassContract(
+                Consumes: new[] { PassConstructIds.GenericVarianceUse },
+                Produces: Array.Empty<string>(),
+                Preconditions: Array.Empty<string>(),
+                Postconditions: new[] { PassConstructIds.GenericVarianceUse },
+                MayLeave: new[] { PassConstructIds.GenericVarianceUse },
+                Owners: Array.Empty<string>(),
+                Policy: ResidualPolicy.Fail,
+                Idempotent: true,
+                RequiresWholeTree: true)),
         new(
             PassIds.PlatformIsolation,
             "Platform boundary isolation",

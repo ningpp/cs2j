@@ -928,7 +928,7 @@ internal sealed class UseSiteSafetyClassifier
         }
     }
 
-    private static VarianceConversionDirection ComparePair(ITypeSymbol source, ITypeSymbol target)
+    internal static VarianceConversionDirection ComparePair(ITypeSymbol source, ITypeSymbol target)
     {
         if (target is IArrayTypeSymbol targetArray && source is IArrayTypeSymbol sourceArray)
         {
@@ -1070,7 +1070,7 @@ internal sealed class UseSiteSafetyClassifier
         return mapped ? VarianceConversionDirection.None : VarianceConversionDirection.Unresolved;
     }
 
-    private static bool IsDerivedFrom(ITypeSymbol derived, ITypeSymbol baseType)
+    internal static bool IsDerivedFrom(ITypeSymbol derived, ITypeSymbol baseType)
     {
         if (SymbolEqualityComparer.Default.Equals(derived, baseType))
         {
