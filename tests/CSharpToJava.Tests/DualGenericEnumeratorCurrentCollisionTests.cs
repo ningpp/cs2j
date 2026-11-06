@@ -96,6 +96,42 @@ public class ItemCollection : IEnumerable<Item>
         Assert.DoesNotContain("Object getCurrent() { return getCurrent(); }", code.Replace("\r", "").Replace("\n", ""));
     }
 
+    /// <summary>
+    /// SuccEnumerator 形态：泛型 Current 是隐式实现，非泛型 IEnumerator.Current 是
+    /// 显式实现且体不同（抛 NotImplementedException）。两体不能合并：非泛型槽必须
+    /// 保留自己的实现体（getCurrentNonGeneric），不能被泛型实现静默替换。
+    /// </summary>
+    [Fact]
+    public void ExplicitNonGenericCurrentBodyIsPreserved()
+    {
+        var result = Convert(@"
+using System.Collections;
+using System.Collections.Generic;
+
+public class Item { public int Value; }
+
+public class Enumerator : IEnumerator<int>
+{
+    private IEnumerator _edges;
+
+    public Enumerator(IEnumerator edges) { _edges = edges; }
+
+    public bool MoveNext() => _edges.MoveNext();
+    public void Reset() { _edges.Reset(); }
+    public void Dispose() { }
+
+    public int Current => ((Item)_edges.Current).Value;
+
+    object IEnumerator.Current => throw new System.NotImplementedException();
+}");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = (result.GeneratedCode ?? "").Replace("\r", "");
+
+        Assert.Contains("getCurrentNonGeneric()", code);
+        Assert.Contains("throw new UnsupportedOperationException()", code);
+        Assert.Contains("Integer getCurrent()", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

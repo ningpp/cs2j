@@ -15,6 +15,17 @@ public interface CSharpEnumerator {
     boolean moveNext();
     Object getCurrent();
 
+    /**
+     * Slot for the non-generic {@code System.Collections.IEnumerator.Current} property.
+     * C# allows a class to implement {@code IEnumerator<T>.Current} and
+     * {@code IEnumerator.Current} with different bodies (the latter as an explicit
+     * interface implementation), but Java has a single {@code getCurrent()} signature.
+     * Generated code therefore gives the non-generic member its own name; enumerators
+     * that only implement {@code IEnumerator<T>.Current} inherit this bridge, so the two
+     * C# slots keep their own bodies instead of one silently replacing the other.
+     */
+    default Object getCurrentNonGeneric() { return getCurrent(); }
+
     default void reset() {
         throw new UnsupportedOperationException("Reset is not supported");
     }

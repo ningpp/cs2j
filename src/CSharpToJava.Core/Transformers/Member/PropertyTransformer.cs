@@ -29,8 +29,14 @@ var field = new JavaFieldDeclaration { Name = fieldName, Type = propType, Modifi
 InitDefault(field, p, sym, typeInfo, propType, fieldName, isStatic, needsField, ctx);
 if (p.Initializer != null) InitExpression(field, p, sym, fieldName, isStatic, ctx);
 if (needsField) { ApplyXml(p, field, ctx); result.Add(field); } var emit = !isHiding || pureBase || (needsField && IsAutoProperty(p)); 
+// C# 允许同一类型把非泛型 System.Collections.IEnumerator.Current 作为显式实现单独给体，
+// 与 IEnumerator<T>.Current 并存；Java 只有一个 getCurrent() 签名，两体合并会丢弃一个。
+// 非泛型槽改用独立名 getCurrentNonGeneric()（compat 侧默认桥接到 getCurrent()）。
+var getterName = specialEncoding ? "getPreambleSpan" : JavaNaming.GetPropertyGetterName(name) + HidingSuffix(sym);
+if (!specialEncoding && explicitImpl && IsNonGenericEnumeratorCurrent(sym) && HasSiblingCurrentProperty(sym!, p.Identifier.Text))
+    getterName = "getCurrentNonGeneric";
 JavaMethodDeclaration BuildGetter() { var src = p.ExpressionBody?.Expression ?? getAccessor?.ExpressionBody?.Expression;
-var m = new JavaMethodDeclaration { Name = specialEncoding ? "getPreambleSpan" : JavaNaming.GetPropertyGetterName(name) + HidingSuffix(sym),
+var m = new JavaMethodDeclaration { Name = getterName,
 ReturnType = propType, Modifiers = AccessorModifiers(p.Modifiers, getAccessor?.Modifiers ?? default, baseMods, false, ctx),
 LeadingComment = comments, Body = p.ExpressionBody != null ? Expr(p.ExpressionBody.Expression, ctx)
 : getAccessor?.ExpressionBody != null ? Expr(getAccessor.ExpressionBody.Expression, ctx)
@@ -106,6 +112,18 @@ if (m.HasFlag(JavaModifiers.Private)) return m & ~JavaModifiers.Public & ~JavaMo
 if (m.HasFlag(JavaModifiers.Protected)) return m & ~JavaModifiers.Public; return m; } 
 private static bool HasVisibility(SyntaxTokenList t) => t.Any(m =>
 m.IsKind(PublicKeyword) || m.IsKind(ProtectedKeyword) || m.IsKind(PrivateKeyword) || m.IsKind(InternalKeyword));
+/// <summary>
+/// 该属性是否显式实现了非泛型 <c>System.Collections.IEnumerator.Current</c>。
+/// 非泛型槽与泛型 <c>IEnumerator&lt;T&gt;.Current</c> 在 Java 侧同名同参，须分开命名。
+/// </summary>
+private static bool IsNonGenericEnumeratorCurrent(IPropertySymbol? p) => p != null
+&& p.ExplicitInterfaceImplementations.Any(i => i.Name == "Current"
+&& i.ContainingType?.ToDisplayString() == "System.Collections.IEnumerator");
+/// <summary>同一类型是否还有另一个同名属性（显式实现的 Name 带接口前缀，按后缀匹配）。</summary>
+private static bool HasSiblingCurrentProperty(IPropertySymbol p, string simpleName) => p.ContainingType != null
+&& p.ContainingType.GetMembers().OfType<IPropertySymbol>()
+.Any(other => !SymbolEqualityComparer.Default.Equals(other, p)
+&& (other.Name == simpleName || other.Name.EndsWith("." + simpleName, StringComparison.Ordinal)));
 private static string Camel(string n) => n.Length == 0 ? n : char.ToLower(n[0]) + n[1..];
 private static string Pascal(string n) => n.Length == 0 ? n : char.ToUpperInvariant(n[0]) + n[1..];
 private static string HidingSuffix(IPropertySymbol? p) => p != null && JavaNaming.IsIncompatibleTypeHidingProperty(p) ? "_newSlot" : "";

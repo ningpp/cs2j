@@ -6767,6 +6767,16 @@
     ],
     "methodMappings": [
         {
+            "type": "System.Collections.IEnumerator",
+            "method": "Current",
+            "javaMethod": "getCurrentNonGeneric"
+        },
+        {
+            "type": "System.Collections.IEnumerator",
+            "method": "get_Current",
+            "javaMethod": "getCurrentNonGeneric"
+        },
+        {
             "type": "System.Collections.Generic.List`1",
             "method": "Remove",
             "javaMethod": "removeValue"

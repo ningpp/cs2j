@@ -558,6 +558,8 @@ public class ClassTransformer : ITypeTransformer
     private static bool IsSimpleAccessorAssignment(
         PropertyDeclarationSyntax property, IMethodSymbol method, ConversionContext context)
     {
+        if (method.Parameters.Length == 0)
+            return IsSimpleAccessorRead(property, method, context);
         if (method.Parameters.Length != 1)
             return false;
 
@@ -592,6 +594,44 @@ public class ClassTransformer : ITypeTransformer
             return false;
 
         return model.GetSymbolInfo(assignment.Left).Symbol switch
+        {
+            IPropertySymbol target => SymbolEqualityComparer.Default.Equals(target, propertySymbol),
+            IFieldSymbol target => SymbolEqualityComparer.Default.Equals(target.AssociatedSymbol, propertySymbol),
+            _ => false,
+        };
+    }
+
+    /// <summary>
+    /// True when <paramref name="method"/> only returns the property value (or
+    /// its backing field), i.e. it is a hand-written duplicate of the bean getter
+    /// and can be dropped in favour of the accessor.
+    /// </summary>
+    private static bool IsSimpleAccessorRead(
+        PropertyDeclarationSyntax property, IMethodSymbol method, ConversionContext context)
+    {
+        var declaration = method.DeclaringSyntaxReferences
+            .Select(reference => reference.GetSyntax())
+            .OfType<MethodDeclarationSyntax>()
+            .FirstOrDefault();
+        if (declaration == null)
+            return false;
+
+        var model = context.GetSemanticModelForTree(declaration.SyntaxTree) ?? context.SemanticModel;
+        if (model == null)
+            return false;
+
+        var returned = declaration.Body is { Statements.Count: 1 } body
+            && body.Statements[0] is ReturnStatementSyntax returnStatement
+                ? returnStatement.Expression
+                : declaration.ExpressionBody?.Expression;
+        if (returned == null)
+            return false;
+
+        var propertySymbol = model.GetDeclaredSymbol(property) as IPropertySymbol;
+        if (propertySymbol == null)
+            return false;
+
+        return model.GetSymbolInfo(returned).Symbol switch
         {
             IPropertySymbol target => SymbolEqualityComparer.Default.Equals(target, propertySymbol),
             IFieldSymbol target => SymbolEqualityComparer.Default.Equals(target.AssociatedSymbol, propertySymbol),
