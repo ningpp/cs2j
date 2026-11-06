@@ -48,6 +48,15 @@ public sealed class VarianceAuditStatistics
     public int ConstraintDependentArraySites;
     public int ConstraintDependentNullableSites;
 
+    /// <summary>Nullable value operations (.HasValue/.Value/GetValueOrDefault/??) not lifted by C22.</summary>
+    public int ConstraintDependentNullableValueSites;
+
+    /// <summary>struct/unmanaged constraints whose dependent sites no longer rely on value semantics.</summary>
+    public int ConstraintLazySites;
+
+    /// <summary>struct/unmanaged constraints with at least one real value-semantics dependent site.</summary>
+    public int ConstraintUnsafeSites;
+
     public int BaselineErrorFilesSkipped;
     public int ReportsWritten;
 
@@ -92,6 +101,9 @@ public sealed class VarianceAuditStatistics
         ConstraintDependentBoxingSites += source.ConstraintDependentBoxingSites;
         ConstraintDependentArraySites += source.ConstraintDependentArraySites;
         ConstraintDependentNullableSites += source.ConstraintDependentNullableSites;
+        ConstraintDependentNullableValueSites += source.ConstraintDependentNullableValueSites;
+        ConstraintLazySites += source.ConstraintLazySites;
+        ConstraintUnsafeSites += source.ConstraintUnsafeSites;
         BaselineErrorFilesSkipped += source.BaselineErrorFilesSkipped;
         ReportsWritten += source.ReportsWritten;
     }

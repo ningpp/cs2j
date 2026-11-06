@@ -67,6 +67,12 @@ public enum ConstraintKind
 }
 
 /// <summary>A constraint on a type parameter and its semantic dependency profile (design D5a/D5b).</summary>
+/// <remarks>
+/// <see cref="Judgment"/> is only meaningful for the value-type constraints (struct/unmanaged):
+/// <c>lazy</c> means no dependent site still relies on value semantics, so Java erasure cannot
+/// change observable behavior and the constraint must not gate strict mode; <c>unsafe</c> means at
+/// least one dependent site still does. <see cref="Rationale"/> records the per-bucket evidence.
+/// </remarks>
 public sealed record VarianceConstraintSite(
     string Kind,
     string TypeParameterName,
@@ -79,16 +85,28 @@ public sealed record VarianceConstraintSite(
     int ActivatorSites,
     string? FilePath = null,
     int Line = 0,
-    int Column = 0);
+    int Column = 0,
+    bool IncludesEnum = false,
+    int DependentNullableValueSites = 0,
+    int SafeDependentSites = 0,
+    int UnsafeDependentSites = 0,
+    string Judgment = "",
+    string Rationale = "");
 
 /// <summary>A per-site diagnostic target discovered while auditing a constraint (VA023/VA027, design D5b).</summary>
+/// <remarks>
+/// <see cref="Safe"/> sites are report-only: they were classified as not depending on value
+/// semantics (nullable type use, enum boxing/array) and never become a diagnostic.
+/// </remarks>
 public sealed record VarianceConstraintDependentSite(
     string Code,
     string Message,
     string TypeParameterName,
     string? FilePath = null,
     int Line = 0,
-    int Column = 0);
+    int Column = 0,
+    bool Safe = false,
+    string? Rationale = null);
 
 /// <summary>
 /// Whole-tree inventory produced by one <see cref="VarianceAuditPreprocessor.Analyze"/>

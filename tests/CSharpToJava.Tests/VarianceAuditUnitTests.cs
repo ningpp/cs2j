@@ -592,6 +592,162 @@ public sealed class VarianceAuditUnitTests
         Assert.Equal(0, preprocessor.Statistics.ConstraintsStruct);
     }
 
+    // ---- R9: value-semantics classification (lazy vs unsafe) ----
+    //
+    // Criterion: a struct/unmanaged constraint is 'lazy' when no dependent site still relies
+    // on value semantics. It then only restricts callers, and every caller is already-compiled
+    // C#, so Java erasure changes no observable behavior and strict mode must not gate it.
+    // Enum boxing/array sites are excused only when the constraint symbol names System.Enum;
+    // nullable type uses are safe, unlifted nullable value operations are not.
+
+    private static (VarianceAuditPreprocessor Preprocessor, VarianceAuditAnalysis Analysis, CSharpCompilation Compilation)
+        AnalyzeStrict(string source)
+    {
+        var compilation = Compile(source);
+        var preprocessor = new VarianceAuditPreprocessor(new VarianceAuditOptions { Strict = true });
+        preprocessor.BindCompilation(compilation);
+        return (preprocessor, preprocessor.Analyze(), compilation);
+    }
+
+    [Fact]
+    public void Zero_dependency_struct_constraint_is_lazy_and_not_strict_gated()
+    {
+        const string source = "class C { void M<T>() where T : struct { } }";
+        var (preprocessor, analysis, compilation) = AnalyzeStrict(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal("struct", site.Kind);
+        Assert.Equal(0, site.UnsafeDependentSites);
+        Assert.Equal("lazy", site.Judgment);
+
+        var audit = AuditOf(preprocessor, compilation);
+        var diagnostic = Assert.Single(audit.Diagnostics, d => d.Code == VarianceCodes.StructConstraint);
+        Assert.Equal(VarianceSeverity.Info, diagnostic.Severity);
+        Assert.DoesNotContain(audit.Diagnostics, d => d.Severity == VarianceSeverity.Error);
+        Assert.Equal(1, preprocessor.Statistics.ConstraintLazySites);
+        Assert.Equal(0, preprocessor.Statistics.ConstraintUnsafeSites);
+    }
+
+    [Fact]
+    public void Enum_struct_constraint_excuses_boxing_and_array_dependencies()
+    {
+        const string source =
+            "class C { "
+            + "static object Box<T>(T value) where T : struct, System.Enum => (object)value; "
+            + "static T[] Values<T>() where T : struct, System.Enum => System.Enum.GetValues<T>(); }";
+        var (preprocessor, analysis, compilation) = AnalyzeStrict(source);
+
+        Assert.Equal(2, analysis.ConstraintSites.Count);
+        Assert.All(analysis.ConstraintSites, site =>
+        {
+            Assert.True(site.IncludesEnum);
+            Assert.Equal(0, site.UnsafeDependentSites);
+            Assert.Equal("lazy", site.Judgment);
+        });
+        Assert.Contains(analysis.ConstraintSites, site => site.DependentBoxingSites == 1);
+        Assert.Contains(analysis.ConstraintSites, site => site.DependentArraySites == 1);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.DoesNotContain(audit.Diagnostics, d => d.Severity == VarianceSeverity.Error);
+    }
+
+    [Fact]
+    public void Non_enum_struct_constraint_keeps_boxing_dependency_unsafe()
+    {
+        const string source = "class C { static object Box<T>(T value) where T : struct => (object)value; }";
+        var (_, analysis, _) = AnalyzeStrict(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.False(site.IncludesEnum);
+        Assert.Equal(1, site.DependentBoxingSites);
+        Assert.Equal(1, site.UnsafeDependentSites);
+        Assert.Equal("unsafe", site.Judgment);
+    }
+
+    [Fact]
+    public void Nullable_type_use_only_is_safe()
+    {
+        const string source = "class C { T? Echo<T>(T? value) where T : struct => value; }";
+        var (preprocessor, analysis, compilation) = AnalyzeStrict(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal(2, site.DependentNullableSites);
+        Assert.Equal(0, site.DependentNullableValueSites);
+        Assert.Equal(0, site.UnsafeDependentSites);
+        Assert.Equal("lazy", site.Judgment);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.DoesNotContain(audit.Diagnostics, d => d.Severity == VarianceSeverity.Error);
+        Assert.Contains(analysis.ConstraintDependentSites, dependent => dependent.Safe);
+    }
+
+    [Fact]
+    public void Unlifted_nullable_value_operation_stays_strict_error()
+    {
+        const string source = "class C { bool Has<T>(T? value) where T : struct => value.HasValue; }";
+        var (preprocessor, analysis, compilation) = AnalyzeStrict(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal(1, site.DependentNullableValueSites);
+        Assert.Equal(1, site.UnsafeDependentSites);
+        Assert.Equal("unsafe", site.Judgment);
+
+        var audit = AuditOf(preprocessor, compilation);
+        var dependent = Assert.Single(audit.Diagnostics, d => d.Message.Contains("nullable value operation"));
+        Assert.Equal(VarianceSeverity.Error, dependent.Severity);
+
+        using var document = JsonDocument.Parse(preprocessor.BuildReportJson());
+        var reported = document.RootElement.GetProperty("constraintDependentSites").EnumerateArray()
+            .Where(entry => !entry.GetProperty("safe").GetBoolean())
+            .Select(entry => entry.GetProperty("rationale").GetString())
+            .ToList();
+        Assert.Contains(reported, rationale => rationale == "unlifted nullable value operation");
+    }
+
+    [Fact]
+    public void Coalesce_on_nullable_parameter_is_detected_as_value_operation()
+    {
+        const string source = "class C { T Pick<T>(T? value, T fallback) where T : struct => value ?? fallback; }";
+        var (_, analysis, _) = AnalyzeStrict(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal(1, site.DependentNullableValueSites);
+        Assert.Equal("unsafe", site.Judgment);
+    }
+
+    [Fact]
+    public void Unmanaged_without_interop_dependency_is_lazy()
+    {
+        const string source = "class C { void M<T>() where T : unmanaged { } }";
+        var (preprocessor, analysis, compilation) = AnalyzeStrict(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal("lazy", site.Judgment);
+        Assert.Equal(0, site.UnsafeDependentSites);
+
+        var audit = AuditOf(preprocessor, compilation);
+        var diagnostic = Assert.Single(audit.Diagnostics, d => d.Code == VarianceCodes.UnmanagedConstraint);
+        Assert.Equal(VarianceSeverity.Info, diagnostic.Severity);
+        Assert.DoesNotContain(audit.Diagnostics, d => d.Severity == VarianceSeverity.Error);
+    }
+
+    [Fact]
+    public void Unmanaged_with_sizeof_dependency_stays_strict_error()
+    {
+        const string source = "unsafe class C { static int Size<T>() where T : unmanaged => sizeof(T); }";
+        var (preprocessor, analysis, compilation) = AnalyzeStrict(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal(1, site.UnsafeDependentSites);
+        Assert.Equal("unsafe", site.Judgment);
+
+        var audit = AuditOf(preprocessor, compilation);
+        var dependent = Assert.Single(
+            audit.Diagnostics,
+            d => d.Message.StartsWith("pointer/sizeof/marshal/Unsafe site", StringComparison.Ordinal));
+        Assert.Equal(VarianceSeverity.Error, dependent.Severity);
+    }
+
     [Fact]
     public void New_constraint_associates_activator_sites()
     {

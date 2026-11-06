@@ -80,6 +80,9 @@ internal sealed class ConstraintAuditor
         _statistics.ConstraintDependentBoxingSites += result.DependentBoxing;
         _statistics.ConstraintDependentArraySites += result.DependentArrays;
         _statistics.ConstraintDependentNullableSites += result.DependentNullables;
+        _statistics.ConstraintDependentNullableValueSites += result.DependentNullableValueSites;
+        _statistics.ConstraintLazySites += result.ConstraintsLazy;
+        _statistics.ConstraintUnsafeSites += result.ConstraintsUnsafe;
     }
 
     private static TreeAuditResult AuditTree(SemanticModel model)
@@ -159,8 +162,15 @@ internal sealed class ConstraintAuditor
 
         var valueType = kinds.Contains(ConstraintKind.Struct) || kinds.Contains(ConstraintKind.Unmanaged);
         var construction = kinds.Contains(ConstraintKind.New) || valueType;
+
+        // 'System.Enum' is resolved through the symbol's constraint types, never by name/text.
+        // Enum values are immutable value types: a boxed copy is observationally identical to a
+        // Java enum reference, and a Java enum array element is immutable too. Boxing/array
+        // dependencies are therefore excused only when the constraint actually names System.Enum.
+        var includesEnum = valueType && parameter.ConstraintTypes.Any(IsSystemEnum);
+
         var dependents = construction
-            ? result.Candidates.Match(parameter)
+            ? result.Candidates.Match(parameter, includesEnum)
             : Dependents.Empty;
         if (!valueType)
         {
@@ -169,9 +179,23 @@ internal sealed class ConstraintAuditor
             dependents = dependents.ConstructionOnly();
         }
 
+        var safeSites = dependents.SafeBoxing + dependents.SafeArray + dependents.Nullable;
+        var unsafeSites = dependents.Default
+            + Math.Max(0, dependents.New - dependents.Activator)
+            + (dependents.Boxing - dependents.SafeBoxing)
+            + (dependents.Array - dependents.SafeArray)
+            + dependents.NullableValueOperations
+            + dependents.UnmanagedLayout;
+        var judgment = valueType ? (unsafeSites == 0 ? "lazy" : "unsafe") : string.Empty;
+        var rationale = valueType
+            ? BuildRationale(kinds, dependents, unsafeSites)
+            : string.Empty;
+
         foreach (var kind in kinds)
         {
-            AddConstraintSite(model, parameter, declaringName, kind, dependents, result);
+            AddConstraintSite(
+                model, parameter, declaringName, kind, dependents, includesEnum,
+                safeSites, unsafeSites, judgment, rationale, result);
         }
 
         if (valueType || kinds.Contains(ConstraintKind.New))
@@ -183,6 +207,86 @@ internal sealed class ConstraintAuditor
             result.DependentNullables += dependents.Nullable;
             result.DependentSites.AddRange(dependents.Diagnostics);
         }
+
+        if (valueType)
+        {
+            if (unsafeSites == 0)
+            {
+                result.ConstraintsLazy++;
+            }
+            else
+            {
+                result.ConstraintsUnsafe++;
+            }
+
+            result.DependentNullableValueSites += dependents.NullableValueOperations;
+        }
+    }
+
+    private static bool IsSystemEnum(ITypeSymbol type)
+        => type is INamedTypeSymbol named && named.SpecialType == SpecialType.System_Enum;
+
+    /// <summary>
+    /// Explains the value-semantics verdict for one struct/unmanaged constraint. A <c>lazy</c>
+    /// verdict is only possible when every dependent bucket is either empty or excused
+    /// (enum boxing/array, nullable type use): the constraint then only restricts callers, all of
+    /// which are already-compiled C#, so Java erasure changes no observable behavior.
+    /// </summary>
+    private static string BuildRationale(
+        IReadOnlyCollection<ConstraintKind> kinds,
+        Dependents dependents,
+        int unsafeSites)
+    {
+        var notes = new List<string>();
+        if (dependents.Default > 0)
+        {
+            notes.Add($"{dependents.Default} default(T)/default site(s) expect a zero-value instance, which Java erasure renders as null");
+        }
+
+        var residualNew = Math.Max(0, dependents.New - dependents.Activator);
+        if (residualNew > 0)
+        {
+            notes.Add($"{residualNew} residual new T() site(s) are not covered by E10");
+        }
+
+        if (dependents.SafeBoxing > 0 || dependents.SafeArray > 0)
+        {
+            notes.Add($"{dependents.SafeBoxing} boxing-site(s) and {dependents.SafeArray} array-site(s) are excused because the constraint names System.Enum (symbol-resolved): enum values are immutable value types, a boxed copy and a Java enum reference are observationally indistinguishable, and Java enum array elements are immutable");
+        }
+
+        var unsafeBoxing = dependents.Boxing - dependents.SafeBoxing;
+        var unsafeArray = dependents.Array - dependents.SafeArray;
+        if (unsafeBoxing > 0 || unsafeArray > 0)
+        {
+            notes.Add($"{unsafeBoxing} non-enum boxing-site(s) and {unsafeArray} non-enum array-site(s) still observe value identity");
+        }
+
+        if (dependents.Nullable > 0)
+        {
+            notes.Add($"{dependents.Nullable} nullable type-use site(s) are safe: the T? occurrence only names a parameter/return/field/local/base type, and under Java reference erasure null means 'no value' while a struct instance itself is never null");
+        }
+
+        if (dependents.NullableValueOperations > 0)
+        {
+            notes.Add($"{dependents.NullableValueOperations} nullable value-operation site(s) (.HasValue/.Value/GetValueOrDefault/??) remain in the intermediate tree; nullable-lift/C22 did not rewrite them to equivalent null checks");
+        }
+
+        if (kinds.Contains(ConstraintKind.Unmanaged))
+        {
+            notes.Add(dependents.UnmanagedLayout == 0
+                ? "no pointer/sizeof/marshal/Unsafe dependent site: the constraint only restricts generic substitution"
+                : $"{dependents.UnmanagedLayout} pointer/sizeof/marshal/Unsafe site(s) assume an unmanaged value layout");
+        }
+
+        if (notes.Count == 0)
+        {
+            notes.Add("no dependent site found");
+        }
+
+        var prefix = unsafeSites == 0
+            ? "judged lazy: the constraint only restricts callers, and every caller is already-compiled C#; with no value-semantics dependent site, Java erasure changes no observable behavior"
+            : $"judged unsafe: {unsafeSites} dependent site(s) still rely on value semantics";
+        return prefix + " (" + string.Join("; ", notes) + ")";
     }
 
     private static void AddConstraintSite(
@@ -191,6 +295,11 @@ internal sealed class ConstraintAuditor
         string declaringName,
         ConstraintKind kind,
         Dependents dependents,
+        bool includesEnum,
+        int safeSites,
+        int unsafeSites,
+        string judgment,
+        string rationale,
         TreeAuditResult result)
     {
         var location = parameter.Locations.FirstOrDefault(candidate => candidate.IsInSource);
@@ -207,7 +316,13 @@ internal sealed class ConstraintAuditor
             ActivatorSites: dependents.Activator,
             FilePath: model.SyntaxTree.FilePath,
             Line: (span?.Line ?? 0) + 1,
-            Column: (span?.Character ?? 0) + 1));
+            Column: (span?.Character ?? 0) + 1,
+            IncludesEnum: includesEnum,
+            DependentNullableValueSites: dependents.NullableValueOperations,
+            SafeDependentSites: safeSites,
+            UnsafeDependentSites: unsafeSites,
+            Judgment: judgment,
+            Rationale: rationale));
 
         switch (kind)
         {
@@ -386,6 +501,10 @@ internal sealed class ConstraintAuditor
         public int DependentBoxing;
         public int DependentArrays;
         public int DependentNullables;
+        public int DependentNullableValueSites;
+
+        public int ConstraintsLazy;
+        public int ConstraintsUnsafe;
 
         public DependentCandidates Candidates => _candidates ??= DependentCandidates.Build(Model);
     }
@@ -402,7 +521,9 @@ internal sealed class ConstraintAuditor
         private readonly List<(ITypeSymbol Type, ObjectCreationExpressionSyntax Creation)> _news = new();
         private readonly List<ITypeSymbol> _activators = new();
         private readonly List<ITypeSymbol> _arrayElements = new();
-        private readonly List<ITypeSymbol> _nullableArguments = new();
+        private readonly List<(ITypeSymbol Type, SyntaxNode Node)> _nullableArguments = new();
+        private readonly List<(ITypeSymbol Type, SyntaxNode Node)> _nullableValueOperations = new();
+        private readonly List<(ITypeSymbol Type, SyntaxNode Node)> _unmanagedLayout = new();
         private readonly List<ITypeSymbol> _boxing = new();
 
         // One entry per ==/!= node (never two: matching either operand counted once).
@@ -446,6 +567,24 @@ internal sealed class ConstraintAuditor
                     case InvocationExpressionSyntax invocation when IsActivatorCreateInstance(model, invocation, out var typeArgument):
                         candidates._activators.Add(typeArgument!);
                         break;
+                    case InvocationExpressionSyntax invocation
+                        when TryGetInteropTypeArgument(model, invocation, out var interopType):
+                        candidates._unmanagedLayout.Add((interopType!, invocation));
+                        break;
+                    case PointerTypeSyntax pointer:
+                        if (model.GetTypeInfo(pointer.ElementType).Type is { } pointee)
+                        {
+                            candidates._unmanagedLayout.Add((pointee, pointer));
+                        }
+
+                        break;
+                    case SizeOfExpressionSyntax sizeOf:
+                        if (model.GetTypeInfo(sizeOf.Type).Type is { } sized)
+                        {
+                            candidates._unmanagedLayout.Add((sized, sizeOf));
+                        }
+
+                        break;
                     case ArrayTypeSyntax array:
                         if (model.GetTypeInfo(array).Type is IArrayTypeSymbol arraySymbol)
                         {
@@ -458,6 +597,13 @@ internal sealed class ConstraintAuditor
                         break;
                     case GenericNameSyntax generic when generic.Identifier.ValueText == "Nullable":
                         AddNullableCandidate(model, generic, candidates);
+                        break;
+                    case MemberAccessExpressionSyntax member
+                        when member.Name.Identifier.ValueText is "HasValue" or "Value" or "GetValueOrDefault":
+                        AddNullableValueOperation(model, member.Expression, member, candidates);
+                        break;
+                    case BinaryExpressionSyntax coalesce when coalesce.IsKind(SyntaxKind.CoalesceExpression):
+                        AddNullableValueOperation(model, coalesce.Left, coalesce, candidates);
                         break;
                     case CastExpressionSyntax cast
                         when TypeMatches(model, cast.Expression, out var expressionType)
@@ -492,11 +638,62 @@ internal sealed class ConstraintAuditor
                 && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T
                 && named.TypeArguments.Length == 1)
             {
-                candidates._nullableArguments.Add(named.TypeArguments[0]);
+                candidates._nullableArguments.Add((named.TypeArguments[0], node));
             }
         }
 
-        public Dependents Match(ITypeParameterSymbol parameter)
+        /// <summary>
+        /// Records a value-semantics use of <c>T?</c> (member access or <c>??</c>) only when the
+        /// receiver/left operand is really <see cref="System.Nullable{T}"/>; <c>ByRef&lt;T?&gt;.Value</c>
+        /// and other wrappers are not nullable unwrapping and must stay out of this bucket.
+        /// </summary>
+        private static void AddNullableValueOperation(
+            SemanticModel model,
+            SyntaxNode expression,
+            SyntaxNode node,
+            DependentCandidates candidates)
+        {
+            if (model.GetTypeInfo(expression).Type is INamedTypeSymbol named
+                && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T
+                && named.TypeArguments.Length == 1)
+            {
+                candidates._nullableValueOperations.Add((named.TypeArguments[0], node));
+            }
+        }
+
+        /// <summary>
+        /// Pointer/sizeof/marshal/Unsafe sites that assume an unmanaged layout. Only the type
+        /// argument of the interop call is matched here; <c>sizeof(T)</c> and <c>T*</c> are
+        /// collected by their own syntax cases.
+        /// </summary>
+        private static bool TryGetInteropTypeArgument(
+            SemanticModel model,
+            InvocationExpressionSyntax invocation,
+            out ITypeSymbol? type)
+        {
+            type = null;
+            if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+                || method.ContainingType?.ToDisplayString() is not (
+                    "System.Runtime.InteropServices.Marshal"
+                    or "System.Runtime.InteropServices.MemoryMarshal"
+                    or "System.Runtime.CompilerServices.Unsafe"))
+            {
+                return false;
+            }
+
+            foreach (var argument in method.TypeArguments)
+            {
+                if (argument is ITypeParameterSymbol)
+                {
+                    type = argument;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public Dependents Match(ITypeParameterSymbol parameter, bool includesEnum)
         {
             var diagnostics = new List<VarianceConstraintDependentSite>();
             var defaults = 0;
@@ -504,6 +701,8 @@ internal sealed class ConstraintAuditor
             var boxing = 0;
             var arrays = 0;
             var nullables = 0;
+            var nullableValueOperations = 0;
+            var unmanagedLayout = 0;
             var activators = 0;
 
             foreach (var (type, node) in _defaults)
@@ -511,7 +710,9 @@ internal sealed class ConstraintAuditor
                 if (SymbolEqualityComparer.Default.Equals(type, parameter))
                 {
                     defaults++;
-                    diagnostics.Add(Dependent(VarianceCodes.DefaultOnValueTypeConstraint, DefaultMessage(parameter), parameter, node));
+                    diagnostics.Add(Dependent(
+                        VarianceCodes.DefaultOnValueTypeConstraint, DefaultMessage(parameter), parameter, node,
+                        rationale: "default(T) expects a zero-value instance; Java erasure renders it as null"));
                 }
             }
 
@@ -520,7 +721,9 @@ internal sealed class ConstraintAuditor
                 if (SymbolEqualityComparer.Default.Equals(convertedType, parameter))
                 {
                     defaults++;
-                    diagnostics.Add(Dependent(VarianceCodes.DefaultOnValueTypeConstraint, DefaultMessage(parameter), parameter, node));
+                    diagnostics.Add(Dependent(
+                        VarianceCodes.DefaultOnValueTypeConstraint, DefaultMessage(parameter), parameter, node,
+                        rationale: "default expects a zero-value instance; Java erasure renders it as null"));
                 }
             }
 
@@ -536,7 +739,8 @@ internal sealed class ConstraintAuditor
                 {
                     diagnostics.Add(Dependent(
                         VarianceCodes.ResidualNewTSite,
-                        ResidualNewMessage(parameter), parameter, creation));
+                        ResidualNewMessage(parameter), parameter, creation,
+                        rationale: "residual new T() form is not rewritten by E10"));
                 }
             }
 
@@ -557,11 +761,48 @@ internal sealed class ConstraintAuditor
                 }
             }
 
-            foreach (var argument in _nullableArguments)
+            foreach (var (argument, node) in _nullableArguments)
             {
                 if (SymbolEqualityComparer.Default.Equals(argument, parameter))
                 {
                     nullables++;
+                    diagnostics.Add(Dependent(
+                        VarianceCodes.ValueTypeDependentSite,
+                        $"nullable type-use site on '{parameter.Name}?': the T? occurrence only names a parameter, "
+                        + "return, field, local or base type; under Java reference erasure null means 'no value' and a "
+                        + "non-null instance always has a value, so the type use itself is safe",
+                        parameter, node,
+                        safe: true,
+                        rationale: "type-use-only T?; null/no-value equivalence under reference erasure"));
+                }
+            }
+
+            foreach (var (type, node) in _nullableValueOperations)
+            {
+                if (SymbolEqualityComparer.Default.Equals(type, parameter))
+                {
+                    nullableValueOperations++;
+                    diagnostics.Add(Dependent(
+                        VarianceCodes.StructConstraint,
+                        $"nullable value operation '{OperationWord(node)}' on '{parameter.Name}?': the intermediate tree "
+                        + "still uses Nullable<T> value semantics and nullable-lift/C22 has not rewritten this site to an "
+                        + "equivalent null check; Java reference erasure is not proven safe here",
+                        parameter, node,
+                        rationale: "unlifted nullable value operation"));
+                }
+            }
+
+            foreach (var (type, node) in _unmanagedLayout)
+            {
+                if (SymbolEqualityComparer.Default.Equals(type, parameter))
+                {
+                    unmanagedLayout++;
+                    diagnostics.Add(Dependent(
+                        VarianceCodes.UnmanagedConstraint,
+                        $"pointer/sizeof/marshal/Unsafe site on unmanaged-constrained '{parameter.Name}': the site "
+                        + "assumes an unmanaged value layout that Java erasure does not preserve",
+                        parameter, node,
+                        rationale: "unmanaged layout dependency"));
                 }
             }
 
@@ -582,8 +823,22 @@ internal sealed class ConstraintAuditor
                 }
             }
 
-            return new Dependents(defaults, news, boxing, arrays, nullables, activators, diagnostics);
+            // Enum boxing/array sites are safe only when the constraint symbol actually names
+            // System.Enum; every other struct constraint keeps the original (unsafe) treatment.
+            var safeBoxing = includesEnum ? boxing : 0;
+            var safeArray = includesEnum ? arrays : 0;
+
+            return new Dependents(
+                defaults, news, boxing, arrays, nullables, activators,
+                safeBoxing, safeArray, nullableValueOperations, unmanagedLayout, diagnostics);
         }
+
+        private static string OperationWord(SyntaxNode node) => node switch
+        {
+            MemberAccessExpressionSyntax member => member.Name.Identifier.ValueText,
+            BinaryExpressionSyntax => "??",
+            _ => "value operation",
+        };
 
         private static bool TypeMatches(SemanticModel model, SyntaxNode node, out ITypeSymbol? type)
         {
@@ -616,7 +871,9 @@ internal sealed class ConstraintAuditor
             string code,
             string message,
             ITypeParameterSymbol parameter,
-            SyntaxNode node)
+            SyntaxNode node,
+            bool safe = false,
+            string? rationale = null)
         {
             var span = node.GetLocation().GetLineSpan().StartLinePosition;
             return new VarianceConstraintDependentSite(
@@ -625,7 +882,9 @@ internal sealed class ConstraintAuditor
                 TypeParameterName: parameter.Name,
                 FilePath: node.SyntaxTree.FilePath,
                 Line: span.Line + 1,
-                Column: span.Character + 1);
+                Column: span.Character + 1,
+                Safe: safe,
+                Rationale: rationale);
         }
     }
 
@@ -636,9 +895,14 @@ internal sealed class ConstraintAuditor
         int Array,
         int Nullable,
         int Activator,
+        int SafeBoxing,
+        int SafeArray,
+        int NullableValueOperations,
+        int UnmanagedLayout,
         List<VarianceConstraintDependentSite> Diagnostics)
     {
-        public static Dependents Empty { get; } = new(0, 0, 0, 0, 0, 0, new List<VarianceConstraintDependentSite>());
+        public static Dependents Empty { get; } = new(
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, new List<VarianceConstraintDependentSite>());
 
         /// <summary>Keeps only construction/Activator facts (drops value-semantics buckets) for 'new()'-only constraints.</summary>
         public Dependents ConstructionOnly() => new(
@@ -648,6 +912,10 @@ internal sealed class ConstraintAuditor
             0,
             0,
             Activator,
+            0,
+            0,
+            0,
+            0,
             Diagnostics.Where(d => d.Code == VarianceCodes.ResidualNewTSite).ToList());
     }
 }

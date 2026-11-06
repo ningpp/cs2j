@@ -131,6 +131,12 @@ public sealed class VarianceAuditPreprocessor
 
         foreach (var dependent in dependents)
         {
+            // Safe sites (nullable type use) are report-only evidence; they never gate.
+            if (dependent.Safe)
+            {
+                continue;
+            }
+
             audit.Diagnostics.Add(new VarianceAuditDiagnostic(
                 Gate(dependent.Code, VarianceSeverity.Warning), dependent.Code, dependent.Message,
                 path, dependent.Line, dependent.Column));
@@ -139,7 +145,14 @@ public sealed class VarianceAuditPreprocessor
         foreach (var constraint in constraints)
         {
             var (code, severity) = ConstraintCode(constraint.Kind);
-            severity = Gate(code, severity);
+
+            // A struct/unmanaged constraint whose dependent sites were all classified safe
+            // is lazy: it only restricts callers (already-compiled C#), so Java erasure
+            // changes no observable behavior and it must not gate strict mode. The site is
+            // still reported (Info) with its counts and rationale.
+            var lazy = constraint.Kind is "struct" or "unmanaged"
+                       && constraint.UnsafeDependentSites == 0;
+            severity = lazy ? VarianceSeverity.Info : Gate(code, severity);
             if (severity == VarianceSeverity.Info && !_options.ReportInfo)
             {
                 continue;
@@ -245,11 +258,12 @@ public sealed class VarianceAuditPreprocessor
         "struct" => $"type parameter '{site.TypeParameterName}' constrains to 'struct'; Java erases the value-type "
                     + $"constraint and keeps only reference semantics; {site.DependentDefaultSites} default-site(s), "
                     + $"{site.DependentNewSites} construction-site(s), {site.DependentBoxingSites} boxing-site(s), "
-                    + $"{site.DependentArraySites} array-site(s), {site.DependentNullableSites} nullable-site(s) depend "
-                    + "on value semantics; redesign the constraint or its use sites",
-        "unmanaged" => $"type parameter '{site.TypeParameterName}' constrains to 'unmanaged'; this currently emits no "
-                       + "diagnostic at all, yet pointer/sizeof/marshalling sites assume an unmanaged layout "
-                       + "(cross-ref C06 unsafe-ffm); review before conversion",
+                    + $"{site.DependentArraySites} array-site(s), {site.DependentNullableSites} nullable-site(s) "
+                    + $"({site.DependentNullableValueSites} value-operation) depend on value semantics; "
+                    + $"judgment={site.Judgment}: {site.Rationale}",
+        "unmanaged" => $"type parameter '{site.TypeParameterName}' constrains to 'unmanaged'; Java erases the "
+                       + "constraint, yet pointer/sizeof/marshalling sites would assume an unmanaged layout "
+                       + $"(cross-ref C06 unsafe-ffm); judgment={site.Judgment}: {site.Rationale}",
         "new" => $"type parameter '{site.TypeParameterName}' declares 'new()'; construction is handled by E10 "
                  + $"(global::System.Activator.CreateInstance<T>()), {site.ActivatorSites} such site(s) found; failure "
                  + "mode is runtime reflection, not compile time",
@@ -299,6 +313,9 @@ public sealed class VarianceAuditPreprocessor
         var constraints = analysis.ConstraintSites
             .Select(site => site with { FilePath = Relativize(root, site.FilePath) })
             .ToList();
+        var dependents = analysis.ConstraintDependentSites
+            .Select(site => site with { FilePath = Relativize(root, site.FilePath) })
+            .ToList();
         declarations.Sort((a, b) => VarianceSiteInventory.Compare(
             a.FilePath, a.Line, a.Column, a.TypeName + "|" + a.TypeParameterName,
             b.FilePath, b.Line, b.Column, b.TypeName + "|" + b.TypeParameterName));
@@ -308,6 +325,9 @@ public sealed class VarianceAuditPreprocessor
         constraints.Sort((a, b) => VarianceSiteInventory.Compare(
             a.FilePath, a.Line, a.Column, a.Kind + "|" + a.TypeParameterName,
             b.FilePath, b.Line, b.Column, b.Kind + "|" + b.TypeParameterName));
+        dependents.Sort((a, b) => VarianceSiteInventory.Compare(
+            a.FilePath, a.Line, a.Column, a.Code + "|" + a.TypeParameterName,
+            b.FilePath, b.Line, b.Column, b.Code + "|" + b.TypeParameterName));
 
         var report = new VarianceAuditReport(
             SchemaVersion: 1,
@@ -317,6 +337,7 @@ public sealed class VarianceAuditPreprocessor
             DeclarationSites: declarations,
             UseSites: uses,
             ConstraintSites: constraints,
+            ConstraintDependentSites: dependents,
             Totals: BuildReportTotals());
 
         return JsonSerializer.Serialize(report, ReportJsonOptions);
@@ -340,6 +361,7 @@ public sealed class VarianceAuditPreprocessor
         var directories = analysis.DeclarationSites.Select(site => site.FilePath)
             .Concat(analysis.UseSites.Select(site => site.FilePath))
             .Concat(analysis.ConstraintSites.Select(site => site.FilePath))
+            .Concat(analysis.ConstraintDependentSites.Select(site => site.FilePath))
             .Where(path => !string.IsNullOrEmpty(path))
             .Select(path => path!.Replace('\\', '/').Split('/'))
             .Where(parts => parts.Length > 1)
@@ -419,6 +441,9 @@ public sealed class VarianceAuditPreprocessor
             ConstraintDependentBoxingSites: Statistics.ConstraintDependentBoxingSites,
             ConstraintDependentArraySites: Statistics.ConstraintDependentArraySites,
             ConstraintDependentNullableSites: Statistics.ConstraintDependentNullableSites,
+            ConstraintDependentNullableValueSites: Statistics.ConstraintDependentNullableValueSites,
+            ConstraintLazySites: Statistics.ConstraintLazySites,
+            ConstraintUnsafeSites: Statistics.ConstraintUnsafeSites,
             BaselineErrorFilesSkipped: Statistics.BaselineErrorFilesSkipped,
             ReportsWritten: Statistics.ReportsWritten);
 }
@@ -496,6 +521,7 @@ internal sealed record VarianceAuditReport(
     IReadOnlyList<VariantDeclarationRecord> DeclarationSites,
     IReadOnlyList<VarianceUseRecord> UseSites,
     IReadOnlyList<VarianceConstraintSite> ConstraintSites,
+    IReadOnlyList<VarianceConstraintDependentSite> ConstraintDependentSites,
     VarianceReportTotals Totals);
 
 internal sealed record VariancePassPresent(bool Generic, bool GenericDeepen);
@@ -531,5 +557,8 @@ internal sealed record VarianceReportTotals(
     int ConstraintDependentBoxingSites,
     int ConstraintDependentArraySites,
     int ConstraintDependentNullableSites,
+    int ConstraintDependentNullableValueSites,
+    int ConstraintLazySites,
+    int ConstraintUnsafeSites,
     int BaselineErrorFilesSkipped,
     int ReportsWritten);
