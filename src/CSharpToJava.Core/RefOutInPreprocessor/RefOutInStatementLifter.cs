@@ -205,11 +205,34 @@ internal sealed class RefOutInStatementLifter
             return bin.WithLeft(left);
 
         bool isAnd = bin.IsKind(SyntaxKind.LogicalAndExpression);
+
+        // Splice the right operand first, in isolation: when its lifts need no
+        // hoisted statement the whole `left && right` expression can stay in
+        // place. That is required whenever the right side declares a pattern
+        // variable (rt10 `… Resolve(...) is JsonConverter polymorphicConverter`)
+        // — a statement split would scope the variable to the generated block.
+        var rootCountBeforeRight = _rootOut.Count;
+        var pendingCountBeforeRight = _pendingReadbacks.Count;
+        PushScope();
+        var rightValue = Inject(Splice(bin.Right));
+        var rightStatements = _out;
+        var rightPending = _pendingReadbacks;
+        _out = _scope.Pop();
+
+        if (rightStatements.Count == 0
+            && rightPending.Count == 0
+            && _rootOut.Count == rootCountBeforeRight
+            && _pendingReadbacks.Count == pendingCountBeforeRight)
+        {
+            return bin.WithLeft(left).WithRight(rightValue);
+        }
+
         var temp = Temp("__sc");
         _out.Add(ParseStmt($"bool {temp} = {(isAnd ? "false" : "true")};"));
         PushScope();
-        var rightValue = Inject(Splice(bin.Right));
-        _out.Add(ParseStmt($"{temp} = {rightValue};"));
+        _out.AddRange(rightStatements);
+        _out.Add(ParseStmt($"{temp} = {Text(rightValue)};"));
+        _out.AddRange(rightPending);
         var conditional = PopScope();
 
         // The gate may be an already-spliced partial expression that reuses
@@ -229,7 +252,7 @@ internal sealed class RefOutInStatementLifter
 
         var typeName = TypeNameOf(bin) ?? "object";
         var temp = Temp("__cs");
-        _out.Add(ParseStmt($"{typeName} {temp} = {Inject(left)};"));
+        _out.Add(ParseStmt($"{typeName} {temp} = {Text(Inject(left))};"));
         PushScope();
         var rightValue = Inject(Splice(bin.Right));
         _out.Add(BranchAssignment(temp, rightValue));
@@ -250,7 +273,7 @@ internal sealed class RefOutInStatementLifter
     private static StatementSyntax BranchAssignment(string temp, ExpressionSyntax value)
         => value is ThrowExpressionSyntax throwExpression
             ? SyntaxFactory.ThrowStatement(throwExpression.Expression)
-            : ParseStmt($"{temp} = {value};");
+            : ParseStmt($"{temp} = {Text(value)};");
 
     private ExpressionSyntax SpliceConditional(ConditionalExpressionSyntax cond)
     {
@@ -363,6 +386,9 @@ internal sealed class RefOutInStatementLifter
         var newArgs = new List<ArgumentSyntax>();
         bool anyLifted = false;
         ExpressionSyntax? staticCallee = null;
+        var outBefore = _out.Count;
+        var rootBefore = _rootOut.Count;
+        var pendingBefore = _pendingReadbacks.Count;
 
         // Reduced extension invocation of a converted `this ref` parameter
         // (`reader.GetSpan()`): the receiver is an IMPLICIT argument 0 (ref),
@@ -441,6 +467,47 @@ internal sealed class RefOutInStatementLifter
 
         if (!anyLifted)
             return invocation;
+
+        var hoistedAnything = _out.Count != outBefore
+            || _rootOut.Count != rootBefore
+            || _pendingReadbacks.Count != pendingBefore
+            || readbacks.Count > 0;
+
+        // No slot/read-back was needed (every lifted argument was a holder
+        // direct pass, or a native ref-struct/pointer parameter): the call can
+        // stay exactly where it is. This keeps an enclosing `is T v` pattern
+        // (rt10 `Resolve(...) is JsonConverter polymorphicConverter`) in the
+        // original condition — hoisting the call into a generated statement
+        // would declare `v` inside that statement's block and the following
+        // `if (__sc) { …v… }` becomes CS0103.
+        if (!hoistedAnything)
+        {
+            _owner.Stats.CallSitesLifted++;
+            _owner.MarkHolderUsed();
+            return invocation
+                .WithExpression(staticCallee ?? Inject(invocation.Expression))
+                .WithArgumentList(
+                    SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(newArgs)));
+        }
+
+        // A null-conditional invocation (`receiver?.M(ref holder)`) is the
+        // WhenNotNull of a ConditionalAccessExpressionSyntax: its callee is a
+        // MemberBindingExpressionSyntax whose receiver lives in the PARENT
+        // node. Hoisting the call would (a) drop the receiver (`.M(...)`,
+        // CS1525) and (b) leave the parent `?` with a non-binding WhenNotNull
+        // (CS1525). Since the argument lift needed statements, this site is
+        // outside the pass contract: report it precisely and leave the source
+        // call untouched.
+        if (invocation.Expression is MemberBindingExpressionSyntax)
+        {
+            _out.RemoveRange(outBefore, _out.Count - outBefore);
+            _rootOut.RemoveRange(rootBefore, _rootOut.Count - rootBefore);
+            _pendingReadbacks.RemoveRange(
+                pendingBefore, _pendingReadbacks.Count - pendingBefore);
+            Report3303(invocation,
+                "null-conditional ('?.') call needs a hoisted ref/out slot; rewrite it as an explicit null check first");
+            return invocation;
+        }
 
         _owner.Stats.CallSitesLifted++;
         _owner.MarkHolderUsed();
@@ -719,7 +786,7 @@ internal sealed class RefOutInStatementLifter
                 ? $"RefStructByRef<{t}>.Create()"
                 : $"RefStructByRef<{t}>.Create({_owner.InjectSlotValues(Splice(expr))})";
             return (ParseStmt($"Cs2jByRef.RefStructByRef<{t}> {slot} = {ctor};"),
-                ParseStmt($"{_owner.InjectSlotValues(expr)} = {slot}.Value;"),
+                ParseStmt($"{Text(_owner.InjectSlotValues(expr))} = {slot}.Value;"),
                 SyntaxFactory.Argument(Identifier(slot)));
         }
 
@@ -795,8 +862,15 @@ internal sealed class RefOutInStatementLifter
                 readback, SyntaxFactory.Argument(Identifier(slot)));
         }
 
-        // (6) plain identifier or member chain
-        if (expr is IdentifierNameSyntax || expr is MemberAccessExpressionSyntax)
+        // (6) plain identifier or member chain. The C# 14 `field` contextual
+        // keyword is its own FieldExpressionSyntax node (not an
+        // IdentifierNameSyntax), but inside an accessor it denotes the
+        // synthesized backing field and is a legal assignable variable, so it
+        // takes the same copy-in/copy-out slot shape. `ref field` is reachable
+        // here because the member-desugar pass (the `field` owner) runs later
+        // in the chain.
+        if (expr is IdentifierNameSyntax || expr is MemberAccessExpressionSyntax
+            || expr is FieldExpressionSyntax)
         {
             var target = _owner.InjectSlotValues(Splice(expr)).ToString();
             var targetType = _owner.GetTypeOf(expr) ?? paramTypeSymbol;
@@ -1090,6 +1164,17 @@ internal sealed class RefOutInStatementLifter
             SyntaxFactory.ParenthesizedExpression(e));
 
     private static StatementSyntax ParseStmt(string text) => SyntaxFactory.ParseStatement(text);
+
+    /// <summary>
+    /// Text of an expression fragment for a generated statement built by string
+    /// interpolation. Interpolation uses <c>ToString()</c>, which drops trivia:
+    /// a lifted-call temp substituted as the left operand of an <c>is</c>/<c>as</c>
+    /// pattern renders as <c>__call7is JsonConverter</c> and re-parses as one
+    /// identifier (CS1002, rt10 System.Text.Json converters). Normalizing
+    /// restores the required token separators while keeping one expression.
+    /// </summary>
+    private static string Text(ExpressionSyntax expression)
+        => expression.NormalizeWhitespace().ToFullString();
 
     private string Temp(string prefix) => $"{prefix}{_owner.NextTemp()}";
 
