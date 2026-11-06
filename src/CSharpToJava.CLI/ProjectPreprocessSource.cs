@@ -129,7 +129,27 @@ internal static class ProjectPreprocessSource
         ProjectGraph? projectGraph,
         ProjectPreprocessSourceLayout layout,
         SupportedProjectFiltering.ExclusionInfo exclusionInfo)
+        => FilterToGraphMembers(files, projectGraph, layout, exclusionInfo, out _);
+
+    /// <summary>
+    /// Same as the four-argument overload, additionally reporting the graph
+    /// projects' compiled source files that live OUTSIDE
+    /// <see cref="ProjectPreprocessSourceLayout.SourceRoot"/> (runtime shared
+    /// sources linked through <c>&lt;Compile Include&gt;</c>). Those files can
+    /// never be mirrored into the intermediate tree (the tree only spans the
+    /// source root), but the whole-tree analysis compilation must still see
+    /// their declarations — see
+    /// <c>PassTreeContext.ExternalSharedCompileFiles</c>.
+    /// </summary>
+    internal static List<string> FilterToGraphMembers(
+        IEnumerable<string> files,
+        ProjectGraph? projectGraph,
+        ProjectPreprocessSourceLayout layout,
+        SupportedProjectFiltering.ExclusionInfo exclusionInfo,
+        out IReadOnlyList<string> externalSharedCompileFiles)
     {
+        externalSharedCompileFiles = Array.Empty<string>();
+
         var fullFiles = files.Select(Path.GetFullPath).ToList();
 
         if (projectGraph == null)
@@ -197,6 +217,9 @@ internal static class ProjectPreprocessSource
             }
         }
 
+        externalSharedCompileFiles = CollectExternalSharedCompileFiles(
+            includedProjects, layout.SourceRoot);
+
         return fullFiles
             .Where(full =>
             {
@@ -240,6 +263,65 @@ internal static class ProjectPreprocessSource
                     entry.Set is null || !entry.Set.DefaultItemsInEffect);
             })
             .ToList();
+    }
+
+    /// <summary>
+    /// Source files that the given projects compile through
+    /// <c>&lt;Compile Include&gt;</c> but that live OUTSIDE
+    /// <paramref name="sourceRoot"/> (runtime shared sources such as
+    /// <c>Common/src/SourceGenerators/TypeRef.cs</c>). They are never mirrored
+    /// into the intermediate tree, so the whole-tree analysis compilation adds
+    /// them as analysis-only syntax trees.
+    /// </summary>
+    internal static IReadOnlyList<string> CollectExternalSharedCompileFiles(
+        IEnumerable<DiscoveredProject> includedProjects,
+        string sourceRoot)
+    {
+        var external = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var project in includedProjects)
+        {
+            var fullSet = ProjectCompileSet.ComputeCompiledSet(
+                project.ProjectFilePath, sourceRoot,
+                includeDefaultItems: true, allowMsBuildEvaluation: true);
+            if (fullSet == null)
+            {
+                continue;
+            }
+
+            foreach (var compiledFile in fullSet.Files)
+            {
+                var fullCompiledFile = Path.GetFullPath(compiledFile);
+                if (fullCompiledFile.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                    && !IsSameOrDescendantPath(fullCompiledFile, sourceRoot))
+                {
+                    external.Add(fullCompiledFile);
+                }
+            }
+        }
+
+        return external.ToList();
+    }
+
+    /// <summary>
+    /// Graph-scoped overload of
+    /// <see cref="CollectExternalSharedCompileFiles(IEnumerable{DiscoveredProject}, string)"/>:
+    /// excluded projects (tests, unsupported SDKs) contribute no analysis sources.
+    /// </summary>
+    internal static IReadOnlyList<string> CollectExternalSharedCompileFiles(
+        ProjectGraph? projectGraph,
+        string sourceRoot,
+        SupportedProjectFiltering.ExclusionInfo exclusionInfo)
+    {
+        if (projectGraph == null)
+        {
+            return Array.Empty<string>();
+        }
+
+        return CollectExternalSharedCompileFiles(
+            projectGraph.ProjectsInTopologicalOrder.Where(
+                project => !SupportedProjectFiltering.IsUnderExcludedProject(
+                    project.ProjectFilePath, exclusionInfo)),
+            sourceRoot);
     }
 
     internal static IEnumerable<string> EnumerateSourceFiles(

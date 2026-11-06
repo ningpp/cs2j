@@ -63,6 +63,13 @@ internal sealed class EnumPassAdapter : ProjectPassAdapter
     /// </summary>
     public override bool SupportsParallelFileRewrite => true;
 
+    /// <summary>
+    /// Source generators' <c>TypeRef</c> and the other runtime shared sources are
+    /// linked from outside the source root; without them enum-typed member chains
+    /// bind as error types and the `is E.M` normalization silently skips.
+    /// </summary>
+    public override bool IncludesExternalSharedCompileSources => true;
+
     public override async Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
     {
         // Single source of truth for both spines: rewrite purely, then merge.

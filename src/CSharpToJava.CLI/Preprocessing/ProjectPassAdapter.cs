@@ -22,6 +22,16 @@ internal sealed class ProjectPassRunRequest
     /// tree copy per pass.
     /// </summary>
     public bool UseUnifiedIntermediateDirectory { get; init; }
+
+    /// <summary>
+    /// Entry path of the chain's FIRST pass (the user-supplied project /
+    /// solution). Later passes in a unified chain receive the intermediate
+    /// tree as <see cref="SourcePath"/>, whose flattened MSBuild files cannot
+    /// resolve repository properties such as <c>$(CommonPath)</c>; linked
+    /// shared sources for the whole-tree analysis compilation must therefore
+    /// be evaluated against this original entry, not the intermediate copy.
+    /// </summary>
+    public string? OriginalSourcePath { get; init; }
 }
 
 /// <summary>
@@ -107,6 +117,20 @@ internal sealed class PassTreeContext
     public required SupportedProjectFiltering.ExclusionInfo Exclusion { get; init; }
     public required IReadOnlyList<string> SourceFiles { get; init; }
     public required IReadOnlyList<string> CsFiles { get; init; }
+
+    /// <summary>
+    /// Source files that a graph project compiles through
+    /// <c>&lt;Compile Include&gt;</c> but that live OUTSIDE <see cref="SourceRoot"/>
+    /// (runtime shared sources such as <c>Common/src/System/SR.cs</c> or
+    /// <c>Common/src/SourceGenerators/TypeRef.cs</c>). They are never copied into
+    /// the intermediate tree — the tree only mirrors the source root — so the
+    /// whole-tree analysis compilation adds them as analysis-only syntax trees;
+    /// otherwise every type they declare (notably the source generators'
+    /// <c>TypeRef</c>) stays unresolved and semantic passes silently skip their
+    /// use sites. Deduplicated by full path: several graph projects link the
+    /// same shared file, and a single declaration must reach the compilation.
+    /// </summary>
+    public required IReadOnlyList<string> ExternalSharedCompileFiles { get; init; }
 
     /// <summary>
     /// True when <see cref="SourceRoot"/> and <see cref="IntermediateRoot"/> are
@@ -369,6 +393,19 @@ internal abstract class ProjectPassAdapter
     public virtual string CompilationName => Descriptor.Id + "-preprocess";
 
     /// <summary>
+    /// When true, <see cref="CreateAdditionalSyntaxTrees"/> also adds the graph
+    /// projects' external shared compile items
+    /// (<see cref="PassTreeContext.ExternalSharedCompileFiles"/>) so their type
+    /// declarations resolve in the analysis compilation. Opt-in: most passes do
+    /// not need them, and a suddenly-resolved <c>ref struct</c> (e.g.
+    /// <c>ValueStringBuilder</c>) would change unrelated pass decisions. The
+    /// enum and normalization-audit passes need them — without the source
+    /// generators' <c>TypeRef</c>, enum-typed member chains stay error types and
+    /// both the rewrite and the residual classification silently miss sites.
+    /// </summary>
+    public virtual bool IncludesExternalSharedCompileSources => false;
+
+    /// <summary>
     /// Extra syntax trees (e.g. synthesized global usings) added to the
     /// whole-tree analysis compilation. A real build realizes
     /// <c>ImplicitUsings=enable</c> and <c>&lt;Using Include="…"/&gt;</c>
@@ -382,6 +419,25 @@ internal abstract class ProjectPassAdapter
     /// </summary>
     public virtual IReadOnlyList<SyntaxTree> CreateAdditionalSyntaxTrees(PassTreeContext tree)
     {
+        var parseOptions = CreateParseOptions(tree);
+        var extraTrees = new List<SyntaxTree>(tree.ExternalSharedCompileFiles.Count + 1);
+        if (IncludesExternalSharedCompileSources)
+        {
+            foreach (var file in tree.ExternalSharedCompileFiles)
+            {
+                try
+                {
+                    extraTrees.Add(CSharpSyntaxTree.ParseText(
+                        File.ReadAllText(file), parseOptions, path: file));
+                }
+                catch (IOException)
+                {
+                    // An unreadable shared source simply stays unresolved; the
+                    // pass' own diagnostics report the resulting bind failures.
+                }
+            }
+        }
+
         var globalUsings = new System.Text.StringBuilder();
         foreach (var projectFile in tree.Layout.ProjectFiles
                      .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
@@ -396,18 +452,15 @@ internal abstract class ProjectPassAdapter
             }
         }
 
-        if (globalUsings.Length == 0)
+        if (globalUsings.Length > 0)
         {
-            return Array.Empty<SyntaxTree>();
-        }
-
-        return new[]
-        {
-            CSharpSyntaxTree.ParseText(
+            extraTrees.Add(CSharpSyntaxTree.ParseText(
                 globalUsings.ToString(),
                 new CSharpParseOptions(LanguageVersion.Latest),
-                path: "__cs2j_global_usings.g.cs"),
-        };
+                path: "__cs2j_global_usings.g.cs"));
+        }
+
+        return extraTrees;
     }
 
     // ---- hooks ----

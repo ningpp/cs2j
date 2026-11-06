@@ -413,6 +413,7 @@ internal static class CliPreprocessChain
                     new ProjectPassRunRequest
                     {
                         SourcePath = sourcePath,
+                        OriginalSourcePath = request.SourcePath,
                         DestinationRoot = request.DestinationRoot,
                         Force = request.Force,
                         UseUnifiedIntermediateDirectory = request.UseUnifiedIntermediateDirectory,

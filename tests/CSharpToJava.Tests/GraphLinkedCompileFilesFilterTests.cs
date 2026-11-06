@@ -454,6 +454,45 @@ public sealed class GraphLinkedCompileFilesFilterTests : IDisposable
     }
 
     [Fact]
+    public void ExternalSharedCompileItems_OutsideSourceRoot_AreReportedForAnalysis()
+    {
+        // Runtime shared sources (Common/src/SourceGenerators/TypeRef.cs,
+        // Common/src/System/SR.cs, …) are compiled by graph projects through
+        // <Compile Include="…"> but live outside the entry's source root, so the
+        // intermediate tree can never mirror them. The filter must still report
+        // them so the whole-tree analysis compilation can add their
+        // declarations; otherwise types like TypeRef stay unresolved. Items the
+        // evaluated compile set excludes (losing TFM variant) stay out.
+        var csproj = WriteProject(
+            Path.Combine("json", "src"),
+            "System.Text.Json",
+            SdkProject(
+                "<Compile Include=\"Local.cs\" />",
+                "<Compile Include=\"..\\..\\shared\\TypeRef.cs\" />",
+                "<Compile Include=\"..\\..\\shared\\V.netstandard.cs\" Condition=\"'1' == '2'\" />"));
+
+        var local = WriteFile("json", "src", "Local.cs");
+        var shared = WriteFile("shared", "TypeRef.cs");
+        var tfmVariant = WriteFile("shared", "V.netstandard.cs");
+
+        var layout = new ProjectPreprocessSourceLayout(
+            Path.Combine(_sourceRoot, "json"), csproj, new[] { csproj });
+
+        var result = ProjectPreprocessSource.FilterToGraphMembers(
+            new[] { csproj, local },
+            SingleGraph(Project(csproj)), layout,
+            new SupportedProjectFiltering.ExclusionInfo(),
+            out var externalShared);
+
+        Assert.Contains(local, result);
+        Assert.DoesNotContain(shared, result);
+        // Reported for the analysis compilation; the compile-set-excluded TFM
+        // variant stays out.
+        Assert.Equal(new[] { shared }, externalShared);
+        Assert.DoesNotContain(tfmVariant, externalShared);
+    }
+
+    [Fact]
     public void UnparseableProject_FilesUnderProjectDirectory_AreKeptConservatively()
     {
         // fullSet == null (root element is not <Project>): no compile set can be

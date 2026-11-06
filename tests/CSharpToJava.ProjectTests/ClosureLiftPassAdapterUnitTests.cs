@@ -37,6 +37,7 @@ public sealed class ClosureLiftPassAdapterUnitTests
             Exclusion = new SupportedProjectFiltering.ExclusionInfo(),
             SourceFiles = Array.Empty<string>(),
             CsFiles = Array.Empty<string>(),
+            ExternalSharedCompileFiles = Array.Empty<string>(),
             InPlace = false,
             Snapshot = new InPlaceSourceSnapshot(enabled: false),
         };

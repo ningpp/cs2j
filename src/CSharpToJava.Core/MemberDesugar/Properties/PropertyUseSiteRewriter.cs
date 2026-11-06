@@ -888,6 +888,13 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
     {
+        // 扩展属性模式的成员路径（`x is { A.B: 1 }` 中 `A.B`）是模式的名称部分，
+        // 不是属性读站点：改写为 `get_A().B` 会产出非法模式语法（CS1003），整文件
+        // 本地解析校验失败并被保留（JsonValue/JsonSchemaExporter）。模式路径保留
+        // 原名；属性声明若因此去糖而失配，由整树验证回滚对应 plan（一致性兜底）。
+        if (IsInsidePatternMemberPath(node))
+            return base.VisitMemberAccessExpression(node);
+
         // 条件访问接收者形态：a?.X.M() → a?.get_X().M()
         if (node.Expression is MemberBindingExpressionSyntax binding
             && TryGetPlan(binding, out var bindingPlan))
@@ -1024,6 +1031,10 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         // 替换会把 NameEquals 的 Name 槽塞成 InvocationExpression，默认
         // VisitNameEquals 的无条件强转随即抛 InvalidCastException。
         if (node.Parent is NameEqualsSyntax or NameColonSyntax)
+            return base.VisitIdentifierName(node);
+
+        // 扩展属性模式的成员路径（同上）：模式名称位不能变成 get_X() 调用。
+        if (IsInsidePatternMemberPath(node))
             return base.VisitIdentifierName(node);
 
         // 成员访问的「名称槽」（a.Property 中的 Property）由
@@ -1366,6 +1377,26 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
 
     private static bool IsDirectAssignmentLeft(SyntaxNode node)
         => node.Parent is AssignmentExpressionSyntax a && ReferenceEquals(a.Left, node);
+
+    /// <summary>
+    /// True when the node is a segment of an extended property-pattern path
+    /// (<c>x is { A.B: 1 }</c> — the <c>A.B</c> inside the expression-colon).
+    /// Those names are pattern syntax, not property read sites: replacing a
+    /// segment with <c>get_A()</c> produces an unparsable pattern (CS1003) and
+    /// the whole file is preserved.
+    /// </summary>
+    private static bool IsInsidePatternMemberPath(SyntaxNode node)
+    {
+        for (var current = node; current?.Parent != null; current = current.Parent)
+        {
+            if (current.Parent is ExpressionColonSyntax colon
+                && colon.Expression.Span.Contains(node.Span))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 
     private static ExpressionSyntax? UnwrapParentheses(ExpressionSyntax? expression)
     {

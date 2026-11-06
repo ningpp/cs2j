@@ -101,6 +101,64 @@ internal static class ProjectPassRunner
     // ---- stage 1: tree preparation ----
 
     /// <summary>
+    /// Cache of the chain's external shared compile files, keyed by the
+    /// ORIGINAL entry path. Only the first pass of a unified chain evaluates
+    /// the user-supplied project graph; its result is reused by every later
+    /// pass whose <see cref="ProjectPassRunRequest.SourcePath"/> already points
+    /// into the intermediate tree (whose flattened MSBuild files cannot resolve
+    /// repository paths such as <c>$(CommonPath)</c>).
+    /// </summary>
+    private static readonly ConcurrentDictionary<string, IReadOnlyList<string>>
+        ExternalSharedCompileFileCache = new(StringComparer.OrdinalIgnoreCase);
+
+    private static IReadOnlyList<string> ResolveExternalSharedCompileFiles(
+        ProjectPassRunRequest request,
+        IReadOnlyList<string> currentExternalSharedCompileFiles,
+        ProjectPassAdapter adapter)
+    {
+        if (string.IsNullOrWhiteSpace(request.OriginalSourcePath))
+        {
+            return currentExternalSharedCompileFiles;
+        }
+
+        var originalPath = Path.GetFullPath(request.OriginalSourcePath);
+        if (string.Equals(
+                originalPath, Path.GetFullPath(request.SourcePath),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            ExternalSharedCompileFileCache[originalPath] = currentExternalSharedCompileFiles;
+            return currentExternalSharedCompileFiles;
+        }
+
+        if (ExternalSharedCompileFileCache.TryGetValue(originalPath, out var cached))
+        {
+            return cached;
+        }
+
+        try
+        {
+            var originalLayout = ProjectPreprocessSource.ResolveLayout(originalPath);
+            var originalGraph = ProjectPreprocessSource.TryLoadProjectGraph(
+                originalLayout, adapter.Verbose);
+            var originalExclusion = adapter.FilterUnsupportedProjects
+                ? SupportedProjectFiltering.ComputeExclusions(
+                    originalGraph, adapter.Verbose,
+                    adapter.CompatNamespacePrefixes, originalLayout.SourceRoot)
+                : new SupportedProjectFiltering.ExclusionInfo();
+            var files = ProjectPreprocessSource.CollectExternalSharedCompileFiles(
+                originalGraph, originalLayout.SourceRoot, originalExclusion);
+            ExternalSharedCompileFileCache[originalPath] = files;
+            return files;
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException)
+        {
+            // Fall back to the current graph's view; a missing shared source
+            // only degrades type resolution, never the tree itself.
+            return currentExternalSharedCompileFiles;
+        }
+    }
+
+    /// <summary>
     /// Physical intermediate directory name for a run: the shared unified
     /// directory when the request opted in, otherwise the pass' own name.
     /// </summary>
@@ -177,7 +235,7 @@ internal static class ProjectPassRunner
         // the .sln) are compiled with the pass' basic metadata set and fail
         // type resolution, surfacing as spurious strict-gate errors.
         sourceFiles = ProjectPreprocessSource.FilterToGraphMembers(
-            sourceFiles, projectGraph, layout, exclusionInfo);
+            sourceFiles, projectGraph, layout, exclusionInfo, out var externalSharedCompileFiles);
 
         if (!inPlace)
         {
@@ -205,6 +263,8 @@ internal static class ProjectPassRunner
             Exclusion = exclusionInfo,
             SourceFiles = sourceFiles,
             CsFiles = csFiles,
+            ExternalSharedCompileFiles = ResolveExternalSharedCompileFiles(
+                request, externalSharedCompileFiles, adapter),
             InPlace = inPlace,
             Snapshot = new InPlaceSourceSnapshot(inPlace),
         };

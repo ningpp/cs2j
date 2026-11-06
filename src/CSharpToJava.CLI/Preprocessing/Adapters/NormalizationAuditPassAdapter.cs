@@ -73,6 +73,14 @@ internal sealed class NormalizationAuditPassAdapter : ProjectPassAdapter
     public override bool VerifyTests => false;
     public override bool DeleteBuildOutputsAfterRestore => false;
 
+    /// <summary>
+    /// The audit's semantic model must match the most complete analysis
+    /// compilation: external shared compile items (source generators' TypeRef)
+    /// resolve enum-typed member chains that would otherwise look like error
+    /// types and be classified from an incomplete picture.
+    /// </summary>
+    public override bool IncludesExternalSharedCompileSources => true;
+
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
     {
         // Injected support libraries never reach the Java converter, so their
