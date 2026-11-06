@@ -130,6 +130,38 @@ internal static class NullConditionalSyntaxFacts
         } && name.StartsWith("___t", StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// True when <paramref name="anchor"/> can host a lowered void chain:
+    /// an expression statement, or the expression body of a void member
+    /// (method / local function / constructor / destructor / set-style
+    /// accessor). A void arrow body is lifted into a block body whose
+    /// statements are the lowered guard chain.
+    /// </summary>
+    public static bool IsVoidStatementAnchor(SyntaxNode? anchor)
+        => anchor is ExpressionStatementSyntax
+           || (anchor is ArrowExpressionClauseSyntax arrow
+               && IsVoidArrowMember(arrow));
+
+    /// <summary>True for an expression-bodied member that produces no value.</summary>
+    public static bool IsVoidArrowMember(ArrowExpressionClauseSyntax arrow)
+        => arrow.Parent switch
+        {
+            MethodDeclarationSyntax method => IsVoid(method.ReturnType),
+            LocalFunctionStatementSyntax local => IsVoid(local.ReturnType),
+            ConstructorDeclarationSyntax => true,
+            DestructorDeclarationSyntax => true,
+            AccessorDeclarationSyntax accessor =>
+                accessor.IsKind(SyntaxKind.SetAccessorDeclaration)
+                || accessor.IsKind(SyntaxKind.InitAccessorDeclaration)
+                || accessor.IsKind(SyntaxKind.AddAccessorDeclaration)
+                || accessor.IsKind(SyntaxKind.RemoveAccessorDeclaration),
+            _ => false,
+        };
+
+    private static bool IsVoid(TypeSyntax returnType)
+        => returnType is PredefinedTypeSyntax predefined
+           && predefined.Keyword.IsKind(SyntaxKind.VoidKeyword);
+
     /// <summary>True for the three residual node kinds NC-12 tracks.</summary>
     public static bool IsResidualNode(SyntaxNode node)
         => node is ConditionalAccessExpressionSyntax

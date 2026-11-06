@@ -188,7 +188,7 @@ internal static class NullConditionalAssignmentRule
         }
         else if (plan.ContextKind == NullConditionalContextKind.VoidStatement)
         {
-            if (plan.Anchor is not ExpressionStatementSyntax)
+            if (!NullConditionalSyntaxFacts.IsVoidStatementAnchor(plan.Anchor))
             {
                 var code = plan.Anchor == null
                     ? NullConditionalDiagnosticCodes.CS2J0557
@@ -301,7 +301,7 @@ internal static class NullConditionalAssignmentRule
     {
         if (plan.ContextKind == NullConditionalContextKind.VoidStatement)
         {
-            if (plan.Anchor is ExpressionStatementSyntax)
+            if (NullConditionalSyntaxFacts.IsVoidStatementAnchor(plan.Anchor))
             {
                 plan.Outcome = ChainOutcome.Lowered;
                 plan.Shape = NullConditionalLoweringShape.StatementIf;

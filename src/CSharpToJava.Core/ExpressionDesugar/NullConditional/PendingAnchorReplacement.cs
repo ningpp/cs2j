@@ -24,8 +24,11 @@ internal sealed record PendingAnchorReplacement(
 /// a direct statement of a <see cref="BlockSyntax"/> the replacement sequence
 /// is spliced flat into that block; otherwise (embedded statement or
 /// switch-section statement) the sequence is wrapped in one block, preserving
-/// scope and evaluation order. Runs inside the rule's own Rewrite, before the
-/// family TempLifter.
+/// scope and evaluation order. A void expression-bodied member
+/// (<see cref="ArrowExpressionClauseSyntax"/>) is converted to a block body
+/// whose statements are the lowered chain (the arrow expression itself was the
+/// whole chain, so no tail statement remains). Runs inside the rule's own
+/// Rewrite, before the family TempLifter.
 /// </summary>
 internal static class PendingAnchorReplacementApplicator
 {
@@ -41,6 +44,13 @@ internal static class PendingAnchorReplacementApplicator
         {
             var anchorNode = current.GetAnnotatedNodes(entry.Marker)
                 .FirstOrDefault();
+
+            if (anchorNode is ArrowExpressionClauseSyntax arrow)
+            {
+                current = ExpandVoidArrowBody(current, arrow, entry);
+                continue;
+            }
+
             if (anchorNode is not StatementSyntax anchor)
                 continue;
 
@@ -64,5 +74,57 @@ internal static class PendingAnchorReplacementApplicator
         }
 
         return (CompilationUnitSyntax)current;
+    }
+
+    /// <summary>
+    /// Converts an expression-bodied void member into a block body containing
+    /// the lowered guard chain. Annotations carried by the arrow clause (family
+    /// lift anchors stamped by this or another rule on the same expression)
+    /// move to the first replacement statement so a later family lift still
+    /// splices its pending declarations before the guard chain.
+    /// </summary>
+    private static SyntaxNode ExpandVoidArrowBody(
+        SyntaxNode current,
+        ArrowExpressionClauseSyntax arrow,
+        PendingAnchorReplacement entry)
+    {
+        var statements = entry.Statements;
+        var carried = arrow
+            .GetAnnotations(ExpressionDesugarTempLifter.AnchorAnnotationKind)
+            .ToArray();
+        if (carried.Length > 0)
+        {
+            var withAnnotations = new List<StatementSyntax>(statements.Count)
+            {
+                statements[0].WithAdditionalAnnotations(carried),
+            };
+            for (var i = 1; i < statements.Count; i++)
+                withAnnotations.Add(statements[i]);
+            statements = withAnnotations;
+        }
+
+        var block = SyntaxFactory.Block(SyntaxFactory.List(statements));
+        var member = arrow.Parent!;
+        SyntaxNode updated = member switch
+        {
+            MethodDeclarationSyntax method => method.WithExpressionBody(null)
+                .WithSemicolonToken(default).WithBody(block),
+            LocalFunctionStatementSyntax local => local.WithExpressionBody(null)
+                .WithSemicolonToken(default).WithBody(block),
+            ConstructorDeclarationSyntax constructor =>
+                constructor.WithExpressionBody(null)
+                    .WithSemicolonToken(default).WithBody(block),
+            DestructorDeclarationSyntax destructor => destructor
+                .WithExpressionBody(null).WithSemicolonToken(default)
+                .WithBody(block),
+            AccessorDeclarationSyntax accessor => accessor
+                .WithExpressionBody(null).WithSemicolonToken(default)
+                .WithBody(block),
+            _ => member,
+        };
+
+        return ReferenceEquals(updated, member)
+            ? current
+            : current.ReplaceNode(member, updated);
     }
 }

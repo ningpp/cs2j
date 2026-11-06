@@ -318,10 +318,11 @@ internal static class ChainSegmentAnalyzer
         if (current is ExpressionStatementSyntax)
             return NullConditionalContextKind.VoidStatement;
 
-        // Expression-bodied void method: public void M() => a?.M2();
-        if (current is ArrowExpressionClauseSyntax { Parent: MethodDeclarationSyntax method }
-            && method.ReturnType is PredefinedTypeSyntax predefined
-            && predefined.Keyword.Kind() == SyntaxKind.VoidKeyword)
+        // Expression-bodied void member: public void M() => a?.M2();
+        // (methods, local functions, constructors/destructors and set-style
+        // accessors; the arrow is converted to a block body by the lowering).
+        if (current is ArrowExpressionClauseSyntax arrow
+            && NullConditionalSyntaxFacts.IsVoidArrowMember(arrow))
         {
             return NullConditionalContextKind.VoidStatement;
         }
@@ -427,14 +428,14 @@ internal static class ChainSegmentAnalyzer
         // ---- Void/statement context: segment temps + nested if (NC-3 void, NC-5 void, NC-8) ----
         if (isVoid)
         {
-            if (anchor is ExpressionStatementSyntax)
+            if (NullConditionalSyntaxFacts.IsVoidStatementAnchor(anchor))
             {
                 LowerStatementIf(plan, context);
             }
             else
             {
-                // No spliceable expression-statement anchor (arrow-bodied void,
-                // field initializer...): keep the site with a pointer.
+                // No spliceable statement/void-arrow anchor (field initializer,
+                // non-void arrow...): keep the site with a pointer.
                 var code = anchor == null
                     ? NullConditionalDiagnosticCodes.CS2J0557
                     : NullConditionalDiagnosticCodes.CS2J0558;
