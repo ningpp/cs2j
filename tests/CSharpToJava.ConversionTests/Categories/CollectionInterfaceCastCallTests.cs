@@ -73,9 +73,11 @@ public class CollectionInterfaceCastCallTests : ConversionTestBase
         // ((IList<string>)this).IndexOf(item) inside the generic Contains and the
         // object-flavor IndexOf bridge must compile to direct typed calls; an
         // interface-bound indexOf would re-enter indexOf(Object) recursively.
+        // The typed overload is renamed indexOf_2 so that erasing it to
+        // indexOf(Object) below does not collide with this instanceof-guarded bridge.
         AssertJavaContains(result,
             "public boolean contains(String item) { return this.indexOf(item) >= 0; }");
         AssertJavaContains(result,
-            "public int indexOf(Object value) { return (value instanceof String other ? this.indexOf(other) : -1); }");
+            "public int indexOf(Object value) { return (value instanceof String other ? this.indexOf_2(other) : -1); }");
     }
 }

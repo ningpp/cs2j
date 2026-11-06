@@ -72,6 +72,12 @@ internal static class CompatCollectionConformance
         if (branch == Branch.None)
             return;
 
+        // 先消解擦除碰撞：下面统一擦除形参后，强类型重载会与非泛型接口实现
+        // （已是 Object 形参）同签名。碰撞组里的强类型方法改名后再照常擦除。
+        var renamedEraseIndexes = branch == Branch.Collection
+            ? ResolveErasureCollisions(javaClass)
+            : new Dictionary<string, int>(StringComparer.Ordinal);
+
         foreach (var method in javaClass.Methods.ToList())
         {
             if ((method.Modifiers & (JavaModifiers.Static | JavaModifiers.Abstract)) != 0)
@@ -84,6 +90,12 @@ internal static class CompatCollectionConformance
             // 下面的 EnsureSyncMembers/EnsureRemoveBridge 以 public 补齐。
             if ((method.Modifiers & (JavaModifiers.Private | JavaModifiers.Protected)) != 0)
                 continue;
+
+            if (renamedEraseIndexes.TryGetValue(method.Name, out var erasedIndex))
+            {
+                NormalizeParameterAt(method, erasedIndex);
+                continue;
+            }
 
             switch (method.Name)
             {
@@ -104,6 +116,10 @@ internal static class CompatCollectionConformance
                     NormalizeSecondParameter(method);
                     break;
                 case "copyTo":
+                    // CSharpCollection 同时声明 copyTo(Object,int) 与 copyTo(CSharpArray,int)；
+                    // 类自有的 CopyTo(Array,int) 保留强类型形参才能让接口默认方法虚分派进来。
+                    if (method.Parameters.Count > 0 && method.Parameters[0].Type == "CSharpArray")
+                        break;
                     NormalizeFirstParameter(method);
                     break;
                 case "indexOf":
@@ -275,6 +291,122 @@ internal static class CompatCollectionConformance
         if (method.Parameters[0].Type == "Object")
             return;
         EraseParameter(method, 0);
+    }
+
+    private static void NormalizeParameterAt(JavaMethodDeclaration method, int index)
+    {
+        if (method.Parameters.Count <= index)
+            return;
+        if (method.Parameters[index].Type == "Object")
+            return;
+        EraseParameter(method, index);
+    }
+
+    // ── 擦除碰撞消解 ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 与 <see cref="NormalizeFirstParameter"/>/<see cref="NormalizeSecondParameter"/>
+    /// 对应的擦除位置：这些名字的方法会把该下标的形参擦除为 Object。
+    /// </summary>
+    private static readonly (string Name, int EraseIndex)[] ErasureCollisionSlots =
+    {
+        ("indexOf", 0),
+        ("copyTo", 0),
+        ("insert", 1),
+        ("set", 1),
+    };
+
+    /// <summary>
+    /// C# 类同时实现 <c>IList&lt;T&gt;</c> 与 <c>IList</c> 时，两侧成员都直译成同名方法：
+    /// 强类型那个会被统一擦除成 Object 形参，与非泛型实现（本就 Object 形参、带
+    /// instanceof 类型守卫）擦除后同签名，javac 报“已在类中定义了方法”。这里把组内的
+    /// 强类型方法改名为类内唯一的 <c>{Name}_{n}</c>（后续归一化循环照常擦除其形参），
+    /// 保留非泛型实现作为 Object 形参入口，形状与语义都不丢。
+    /// </summary>
+    /// <returns>被改名的方法名 → 该方法的擦除下标（供归一化循环擦除形参）。</returns>
+    private static Dictionary<string, int> ResolveErasureCollisions(JavaClassDeclaration javaClass)
+    {
+        var renamedEraseIndexes = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var (name, eraseIndex) in ErasureCollisionSlots)
+        {
+            // 与归一化循环的可改名/可见性过滤保持一致：static/abstract 与 non-public 成员
+            // 不会被归一化（也不会擦除形参），给它们改名只会断掉按旧名渲染的类内调用。
+            var groups = javaClass.Methods
+                .Where(m => m.Name == name && IsNormalizable(m))
+                .GroupBy(m => m.Parameters.Count);
+
+            foreach (var group in groups)
+            {
+                var methods = group.ToList();
+                if (methods.Count < 2)
+                    continue;
+
+                // 非泛型 IList 显式实现提升来的 Object 形参方法：保留原名，作为接口入口。
+                var adapter = methods.FirstOrDefault(m =>
+                    m.Parameters.Count > eraseIndex && m.Parameters[eraseIndex].Type == "Object");
+                if (adapter == null)
+                    continue;
+
+                foreach (var method in methods)
+                {
+                    if (ReferenceEquals(method, adapter) || method.Parameters.Count <= eraseIndex)
+                        continue;
+
+                    var parameterType = method.Parameters[eraseIndex].Type;
+                    if (parameterType is "Object" or "CSharpArray")
+                        continue;
+
+                    var newName = UniqueMethodName(javaClass, name);
+                    RenameAdapterDelegation(adapter, name, newName);
+                    method.Name = newName;
+                    renamedEraseIndexes[newName] = eraseIndex;
+                }
+            }
+        }
+
+        return renamedEraseIndexes;
+    }
+
+    /// <summary>与 <see cref="Apply"/> 归一化循环的过滤条件一致：非 static/abstract 且 public。</summary>
+    private static bool IsNormalizable(JavaMethodDeclaration method)
+        => (method.Modifiers & (JavaModifiers.Static | JavaModifiers.Abstract)) == 0
+           && (method.Modifiers & (JavaModifiers.Private | JavaModifiers.Protected)) == 0;
+
+    private static string UniqueMethodName(JavaClassDeclaration javaClass, string baseName)
+    {
+        var suffix = 2;
+        while (javaClass.Methods.Any(m => m.Name == $"{baseName}_{suffix}"))
+            suffix++;
+        return $"{baseName}_{suffix}";
+    }
+
+    /// <summary>
+    /// 强类型方法改名后，非泛型适配器体内原先委托给它的 <c>this.{原名}(</c> 必须跟着改，
+    /// 否则会重新绑定到适配器自身（无限递归）。
+    /// </summary>
+    private static void RenameAdapterDelegation(
+        JavaMethodDeclaration adapter, string oldName, string newName)
+    {
+        var oldCall = $"this.{oldName}(";
+        var newCall = $"this.{newName}(";
+
+        if (adapter.StructuredBody != null)
+        {
+            var rendered = adapter.StructuredBody.ToBodyString();
+            if (rendered.IndexOf(oldCall, StringComparison.Ordinal) >= 0)
+            {
+                adapter.Body = rendered.Replace(oldCall, newCall, StringComparison.Ordinal);
+                adapter.IsBodyExpression = false;
+                adapter.StructuredBody = null;
+                return;
+            }
+        }
+
+        if (adapter.Body == null || adapter.Body.IndexOf(oldCall, StringComparison.Ordinal) < 0)
+            return;
+
+        adapter.Body = adapter.Body.Replace(oldCall, newCall, StringComparison.Ordinal);
     }
 
     /// <summary>
