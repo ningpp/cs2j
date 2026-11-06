@@ -137,6 +137,48 @@ public sealed class EnumArithmeticLoweringTests
         Assert.Empty(CompileErrors(result.OutputCode));
     }
 
+    [Fact]
+    public void Is_Metadata_Enum_Member_Is_Lowered_To_Equality()
+    {
+        // BCL (metadata) enums are mapped to the compat constant surface, so
+        // `is <member>` constant patterns must lower exactly like source enums:
+        // the Java gate only accepts same-enum ==/!=.
+        var src = """
+        using System;
+        class C
+        {
+            bool M(DayOfWeek value) => value is DayOfWeek.Monday;
+            bool N(DayOfWeek value) => value is not DayOfWeek.Friday;
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("value == DayOfWeek.Monday", result.OutputCode);
+        Assert.Contains("value != DayOfWeek.Friday", result.OutputCode);
+        Assert.DoesNotContain(" is ", result.OutputCode);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void Is_Constant_Pattern_On_NonEnum_Or_Nullable_Left_Is_Untouched()
+    {
+        var src = """
+        using System;
+        class C
+        {
+            bool TypeTest(object value) => value is DayOfWeek;
+            bool Nullable(DayOfWeek? value) => value is DayOfWeek.Monday;
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Contains("value is DayOfWeek", result.OutputCode);
+        Assert.Contains("value is DayOfWeek.Monday", result.OutputCode);
+    }
+
     // ── 4) narrow underlying bitwise / arithmetic ──
 
     [Fact]

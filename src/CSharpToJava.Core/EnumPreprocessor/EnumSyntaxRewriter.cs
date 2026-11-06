@@ -573,8 +573,15 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         if (originalConstant == null)
             return base.VisitIsPatternExpression(node);
 
+        // `expr is not E.M` → `expr != E.M` / `expr is E.M` → `expr == E.M`.
+        // The constant must bind to a member of the same enum the left side is
+        // typed as. Metadata (BCL) enums are included: their use sites are
+        // lowered to the compat constant surface too, and the Java gate accepts
+        // same-enum ==/!=. Nullable left operands keep the pattern: `E?` is not
+        // an enum-typed operand for the downstream gate, so the rewrite would
+        // only move the residual.
         var enumType = GetEnumType(node.Expression);
-        if (!IsSourceDeclaredEnum(enumType) || IsNullableEnum(node.Expression))
+        if (enumType == null || IsNullableEnum(node.Expression))
             return base.VisitIsPatternExpression(node);
 
         var symbol = _semanticModel?.GetSymbolInfo(StripParentheses(originalConstant)).Symbol;
@@ -662,13 +669,15 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
 
     /// <summary>
     /// p is E.M → p == E.M。只处理左值同 enum 类型、右值为该 enum 成员常量
-    /// 的经典 IsExpression；p is E（类型测试）与外部元数据 enum 保持原样。
+    /// 的经典 IsExpression；p is E（类型测试）与可空左值保持原样。
+    /// 外部元数据 enum 同样改写：Java 侧只允许同类 enum 的 ==/!=，兼容常量面
+    /// 已把成员映射为常量，常量模式残留会被门禁硬失败。
     /// </summary>
     private BinaryExpressionSyntax? RewriteEnumIsExpression(
         BinaryExpressionSyntax node, ExpressionSyntax left, ExpressionSyntax right)
     {
         var enumType = GetEnumType(node.Left);
-        if (!IsSourceDeclaredEnum(enumType) || IsNullableEnum(node.Left))
+        if (enumType == null || IsNullableEnum(node.Left))
             return null;
 
         var symbol = _semanticModel?.GetSymbolInfo(StripParentheses(node.Right)).Symbol;
