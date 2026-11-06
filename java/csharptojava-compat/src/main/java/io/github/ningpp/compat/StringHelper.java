@@ -21,6 +21,41 @@ public class StringHelper {
         return builder.toString();
     }
 
+    /**
+     * Mirrors C# {@code string.Concat(IEnumerable<char>)} and
+     * {@code string.Concat(IEnumerable<string>)}: the sequence is flattened, not
+     * rendered through {@code ToString()}.
+     *
+     * <p>{@link #concat(Object...)} has to guess from the runtime class whether an
+     * argument is "a sequence" (compat/JDK collection) or "an object" (C#
+     * {@code Concat(object)}). A converted C# iterator lives in the caller's own
+     * package, so that guess misses it and the whole sequence becomes
+     * {@code Type@hash}. The converter therefore binds the sequence overload
+     * statically (from the C# parameter type) and calls this method, which flattens
+     * whatever the argument materializes to.</p>
+     */
+    public static String concatIterable(Object values) {
+        if (values == null) {
+            return "";
+        }
+
+        StringBuilder builder = new StringBuilder();
+        if (values instanceof Iterable<?> iterable) {
+            for (Object item : iterable) {
+                appendConcatValue(builder, item);
+            }
+            return builder.toString();
+        }
+        if (values instanceof java.util.stream.Stream<?> stream) {
+            stream.forEach(item -> appendConcatValue(builder, item));
+            return builder.toString();
+        }
+
+        // Already materialized (e.g. a string or char array): normal concat rules.
+        appendConcatValue(builder, values);
+        return builder.toString();
+    }
+
     public static String join(String separator, ReadOnlySpan<Character> first,
             String a, String b, String c, String d, String e) {
         return String.join(separator, spanText(first), a, b, c, d, e);

@@ -485,6 +485,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         $"StringHelper.split({receiverText}, {argumentText})");
                 }
 
+                // C# string.Concat(IEnumerable<char>) / Concat(IEnumerable<string>):
+                // bind the sequence-flattening overload statically (see helper).
+                if (TryRenderStringConcatSequence(methodSymbol, argumentText, context, out var concatSequenceCall))
+                {
+                    return new JavaRawExpression(concatSequenceCall);
+                }
+
                 // Extension-method resolution may lower MemberInfo.GetCustomAttribute<T>()
                 // to an instance call; Java erases T, so restore the inferred cast
                 // before the result is used (…getCustomAttribute().State).
@@ -1365,6 +1372,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 {
                     context.AddImport("io.github.ningpp.compat.StringHelper");
                     return $"StringHelper.split({receiver}, {arguments})";
+                }
+
+                // C# string.Concat(IEnumerable<char>) / Concat(IEnumerable<string>):
+                // IR 路径孪生（见上方 IR 路径同名分支）。
+                if (TryRenderStringConcatSequence(memberMethodForOverrides, arguments, context, out var concatSequenceCallText))
+                {
+                    return concatSequenceCallText;
                 }
 
                 if (memberMethodForOverrides is { Name: "GetCustomAttribute" })
@@ -4758,6 +4772,41 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 .OfType<IFieldSymbol>().Any() == true
                 ? $"{packageName}.{javaName}"
             : javaName;
+        return true;
+    }
+
+    /// <summary>
+    /// Matches C# <c>string.Concat(IEnumerable&lt;char&gt;)</c> /
+    /// <c>string.Concat(IEnumerable&lt;string&gt;)</c> and renders
+    /// <c>StringHelper.concatIterable(arg)</c>.
+    /// <para>The sequence overload flattens the elements, while <c>Concat(object)</c>
+    /// calls ToString(). The erased <c>StringHelper.concat(Object...)</c> can only
+    /// guess that from the runtime class and misses converted iterators (their
+    /// iterator class lives in the caller's package), so bind the flattening
+    /// overload from the C# parameter type instead.</para>
+    /// </summary>
+    private static bool TryRenderStringConcatSequence(
+        IMethodSymbol? methodSymbol,
+        string argumentText,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+
+        if (methodSymbol is not { Name: "Concat", IsStatic: true, Parameters.Length: 1 }
+            || methodSymbol.ContainingType?.SpecialType != SpecialType.System_String
+            || methodSymbol.Parameters[0].Type is not INamedTypeSymbol concatEnumerable
+            || concatEnumerable.Name != "IEnumerable"
+            || concatEnumerable.ContainingNamespace?.ToDisplayString() != "System.Collections.Generic"
+            || concatEnumerable.TypeArguments.Length != 1
+            || concatEnumerable.TypeArguments[0].SpecialType
+                is not (SpecialType.System_Char or SpecialType.System_String))
+        {
+            return false;
+        }
+
+        context.AddImport("io.github.ningpp.compat.StringHelper");
+        rendered = $"StringHelper.concatIterable({argumentText})";
         return true;
     }
 
