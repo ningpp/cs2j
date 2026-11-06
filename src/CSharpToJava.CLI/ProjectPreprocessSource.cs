@@ -175,7 +175,8 @@ internal static class ProjectPreprocessSource
             }
 
             var fullSet = ProjectCompileSet.ComputeCompiledSet(
-                project.ProjectFilePath, layout.SourceRoot, includeDefaultItems: true);
+                project.ProjectFilePath, layout.SourceRoot,
+                includeDefaultItems: true, allowMsBuildEvaluation: true);
             compiledSets.Add((project.ProjectDirectory, fullSet));
             if (fullSet != null)
             {
