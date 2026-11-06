@@ -2702,3 +2702,140 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
   第 42 个 `async-normalize` 为 `failed`）。
 - `D:\cs\rt10-baseline-w10x.log`（全链输出，临时产物，未入库）。
 
+## 29. 修复 async-normalize 的 ConfigureAwaitOptions CS2J1808/CS2J1810（w10y，代码 `44473e76`）
+
+### 29.1 运行口径
+
+- 运行日期：2026-11-07（Asia/Shanghai）；基线 HEAD：`4506e403`，本轮代码+测试
+  提交：`44473e76`。
+- 环境：Windows；.NET SDK `10.0.300`。
+- 源：`D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj`；
+  全链目标：`D:\cs\rt10-baseline-w10y`；unified 中间树
+  `D:\cs\rt10-baseline-w10y\.cs2j-preprocessed-src`。
+- 全链命令（`preprocess` 无 `--force`，与 §28 相同，仅换目标目录）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10y --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests
+```
+
+### 29.2 修复
+
+- 可归一化判定（`AsyncShapeClassifier.IsNormalizableOptionsAwait`）：调用必须经
+  SemanticModel 符号绑定为 `System.Threading.Tasks.Task`/`ValueTask(T)` 的
+  `ConfigureAwait(ConfigureAwaitOptions)`，且
+  ① 调用是 `AwaitExpression` 的操作数；② 该 await 整体是
+  `ExpressionStatementSyntax`（独立 `await ...;`，结果未使用）；
+  ③ options 实参为编译期常量（可证明是否含 `SuppressThrowing` 位 `2`）。
+- 归一化（`ConfigureAwaitStripper.TryRewriteOptionsStatement`，由
+  `AwaitShapeRewriter` 与 `AsyncLambdaLifter` 共用）：
+  - options 含 `SuppressThrowing` → `try { await <task>; } catch { }`（等待并吞掉
+    任务异常与取消，与 options 形态语义一致）；
+  - options 不含 `SuppressThrowing`（`None`/`ContinueOnCapturedContext`/
+    `ForceYielding`）→ `await <task>`（等价于剥离 `ConfigureAwait(false)`，
+    Java 无 SynchronizationContext）。
+- 不满足独立 await 语句（结果被使用、嵌套在表达式中）、options 非常量、
+  自定义同名扩展（receiver 非 Task/ValueTask）→ 保持原诊断
+  `CS2J1808` Error，不改写。
+- Analyzer 仅对可归一化站点放行；`JsonTypeInfoOfT.WriteHelpers.cs` 的
+  `await state.PendingTask.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);`
+  归一化后不再进入 residual 闸门，`CS2J1810` 随之消失。
+
+### 29.3 全链实测（w10y）
+
+- 进程退出码 **1**；report `success=false`、`totalSeconds=104.748`、**53 个 pass**
+  （第 1–52 个 `ok`，第 53 个 `normalization-audit` 为 `failed`）。
+- **async-normalize 通过**（第 42 个 pass，`ok`、无诊断）：
+
+```
+async-normalize: 0 lambda(s) lifted (0 captured), 0 wrapper(s), 23 ConfigureAwait stripped, 25 await-site(s) kept, 0 skipped, 0 await-foreach, 0 await-using, 62 async-type sites, 0 async-iterator rejected, 0 async-iterator lowered, 0 residual
+```
+
+  `CS2J1808`、`CS2J1810` 均不再出现，residual 归零。
+- 后续 pass：
+
+| # | pass | status | summary |
+|---|------|--------|---------|
+| 42 | async-normalize | ok | `async-normalize: 0 lambda(s) lifted (0 captured), 0 wrapper(s), 23 ConfigureAwait stripped, 25 await-site(s) kept, 0 skipped, 0 await-foreach, 0 await-using, 62 async-type sites, 0 async-iterator rejected, 0 async-iterator lowered, 0 residual` |
+| 43 | extension-methods | ok | `extension-methods: 455 rewritten, 280 clean (463 reduced bound, 7 LINQ-owned skipped, 187 user + 0 support in-compilation, 267 external hosts [211 mapped/56 unmapped], 68/68 ref/in receivers, 0 null-conditional lifted, 1 groups rewritten, 0 in expression trees, 0 ET rollbacks, 0 single-file deferred, 2 mixed-LINQ chain sites conservatively skipped, 0/0 host override skip/force, 0 files rolled back, 15 skipped, 2 residuals)` |
+| 44 | eliminate-goto | ok | `eliminate-goto: 11 transformed, 353 clean, 155 goto(s) eliminated` |
+| 45 | member-desugar | ok | `member-desugar: 848 propert(y/ies) planned, 159 field(s) generated, 2235 read/153 write/1 compound site(s) rewritten, 5 initializer(s), 6 indexer(s) planned, 0 index read/1 write/0 compound site(s) rewritten, 0 index initializer(s), 0 event(s) planned (0 field(s), 0+/0- subscribe, 0 in-class combine, 0 nameof), 101 skipped, 0 rolled back, 4 residual, 0 indexer residual, 0 event residual \| operators: 20 planned, 0 binary/0 unary/0 compound/0 conversion site(s), 0 lifted, 0 gate-retained, 0 deferred(++/--), 236 metadata-only, 0 operator-residual \| finalizers: 0 detected (empty 0/dispose-pattern 0/dispose-owned-member 0/safe-handle 0/native 0/other 0/extern 0), 0 reported, 0 removed (0 forced; sidecar: none), 0 blocked, 0 residual, 0 resurrection-site(s) \| signatures: 4 explicit promoted, 0 displaced renamed, 0 dual-interface merged, 0 call-site(s) rewritten, 0 hide renamed, 0 hide bridged, 0 covariant bridge(s), 0 covariant renamed, 0 reflection-warned, 0 residual \| field-keyword: 1 properties normalized, 0 auto accessor(s) expanded, 2 reference(s), 0 field-attribute(s), 0 initializer(s), 0 residual \| records: 0 plan(s) (0 record class), 0 clone factor(ies), 0 with-site(s) (0 class/0 empty), 0 property/0 field assignment(s), 0 temp(s), 0 residual` |
+| 46 | linq-channel | ok | `linq-channel: 339 chains expanded (0 methods), 0 queryable chains preserved, 0 expression-arg sites, 0 groupby chains preserved, 51 ambiguous, 1 skipped, 0 queries desugared` |
+| 47 | concurrency-normalize | ok | `concurrency-normalize: 0 transformed, 364 clean, 25 lock, 0 enter-exit, 0 try-enter, 0 wait, 0 pulse, 0 skipped, 0 residual` |
+| 48 | equality-concat | ok | `equality-concat: 140 transformed, 142 clean, 118 string-eq, 662 object-ref, 42 concat chains, 10 compound, 62 delegate, 10 record, 0 temps, 0 residual` |
+| 49 | variance-use-site-normalize | ok | `variance-use-site-normalize: 0 transformed, 364 clean, 0 rewritten [-], 88 preserved [VR-04=88], 1 unsupported [VR-05=1], 0 rollback` |
+| 50 | platform-isolation | ok | `platform-isolation: 0 site(s) (UI 0, platform 0, probes 0, interop 0); reject=0, stub=0, facade=0, suppressed=0, residual=0; mode=Report` |
+| 51 | dynamic-desugar | ok | `dynamic-desugar: 0 site(s) (0 proven, 0 unprovable, 0 manifest-suppressed), 0 declaration(s) concretized, 0 residual; mode=Audit` |
+| 52 | java-keywords | ok | `java-keywords: 0 symbol(s) renamed, 0 operator type(s) downgraded, 0 boolean site(s) rewritten, 0 nameof(s) literalized, 0 plan(s) skipped, 0 plan(s) rolled back` |
+| 53 | normalization-audit | failed | `normalization-audit: 31 residual(s) across 12 file(s) (NORM-ENUM-ARITH=30, NORM-REF-LOCAL=1), 3 support-library file(s) skipped` |
+
+- 新中止点：**normalization-audit**（第 53 个 pass，`failed`），31 条 residual
+  （`NORM-ENUM-ARITH`=30、`NORM-REF-LOCAL`=1），前 20 条 Error 原文：
+
+```
+[Error] src\System\Text\Json\Serialization\Metadata\DefaultJsonTypeInfoResolver.Helpers.cs(410,17): NORM-ENUM-ARITH enum operand in binary operator 'is'
+[Error] src\System\Text\Json\Serialization\Metadata\DefaultJsonTypeInfoResolver.Helpers.cs(416,30): NORM-ENUM-ARITH enum operand in binary operator 'is'
+[Error] src\System\Text\Json\Serialization\Metadata\JsonPropertyInfo.cs(914,42): NORM-ENUM-ARITH enum operand in binary operator 'is'
+[Error] src\System\Text\Json\Serialization\Metadata\JsonTypeInfo.Cache.cs(1342,25): NORM-ENUM-ARITH enum operand in binary operator 'is'
+[Error] src\System\Text\Json\Reader\JsonReaderHelper.netstandard.cs(23,13): NORM-REF-LOCAL ref local must be lowered by a preprocessor before Java conversion
+[Error] src\System\Text\Json\Nodes\JsonValue.cs(233,21): NORM-ENUM-ARITH enum operand in binary operator '=='
+[Error] src\System\Text\Json\Nodes\JsonValue.cs(237,27): NORM-ENUM-ARITH enum operand in binary operator '=='
+[Error] src\System\Text\Json\Nodes\JsonValue.cs(237,66): NORM-ENUM-ARITH enum operand in binary operator '=='
+[Error] gen\JsonSourceGenerator.Emitter.cs(641,25): NORM-ENUM-ARITH enum operand in binary operator 'is'
+[Error] gen\JsonSourceGenerator.Emitter.cs(973,25): NORM-ENUM-ARITH enum operand in binary operator 'is'
+[Error] gen\JsonSourceGenerator.Emitter.cs(999,25): NORM-ENUM-ARITH enum operand in binary operator 'is'
+[Error] gen\JsonSourceGenerator.Parser.cs(547,30): NORM-ENUM-ARITH enum operand in binary operator 'is'
+[Error] gen\JsonSourceGenerator.Parser.cs(1280,33): NORM-ENUM-ARITH enum operand in binary operator 'is'
+[Error] gen\JsonSourceGenerator.Parser.cs(1299,33): NORM-ENUM-ARITH enum operand in binary operator 'is'
+[Error] gen\JsonSourceGenerator.Parser.cs(1324,29): NORM-ENUM-ARITH enum operand in binary operator 'is'
+[Error] gen\JsonSourceGenerator.Parser.cs(1562,21): NORM-ENUM-ARITH enum operand in binary operator 'is'
+[Error] gen\JsonSourceGenerator.Parser.cs(1567,21): NORM-ENUM-ARITH enum operand in binary operator 'is'
+[Error] gen\JsonSourceGenerator.Parser.cs(1625,173): NORM-ENUM-ARITH enum operand in binary operator 'is'
+[Error] gen\Model\PropertyGenerationSpec.cs(186,17): NORM-ENUM-ARITH enum operand in binary operator 'is'
+[Error] gen\Model\SourceGenerationOptionsSpec.cs(74,55): NORM-ENUM-ARITH enum operand in binary operator 'is'
+... (11 more)
+```
+
+- TFM 警告（`skipped unresolvable TFM value` / `is below net10` / NETSDK 系列）
+  计数 **0**。
+- 连续复跑对照（同命令、目标 `D:\cs\rt10-baseline-w10z`，`totalSeconds=105.834`）：
+  第 42 个 `async-normalize` 为 `ok`，summary 为
+  `0 lambda(s) lifted (0 captured), 0 wrapper(s), 25 ConfigureAwait stripped, 25 await-site(s) kept, 0 skipped, 0 await-foreach, 0 await-using, 102 async-type sites, 0 async-iterator rejected, 3 async-iterator lowered, 0 residual`
+  （相对 §28 的 19 stripped/102 sites/3 lowered，恰好新增本文件 6 个站点）；
+  第 53 个 `normalization-audit` 仍为 `failed`，31 条 residual 与 w10y 完全相同。
+  w10y 中第 42 个 pass 的 `23 stripped/62 sites/0 lowered` 在相同输入上未复现，
+  表现为两次运行间的绑定面抖动；两次运行的 `async-normalize` 均为 `ok`、
+  residual 均为 0，且新中止点一致。
+
+### 29.4 单测与回归
+
+- 新增 4 条（`tests/CSharpToJava.Tests/Preprocessing/AsyncNormalizeConfigureAwaitOptionsTests.cs`）：
+  - 独立 `await t.ConfigureAwait(SuppressThrowing);` → `try { await t; } catch { }`，
+    无 `CS2J1808`、`residual=0`、`ConfigureAwaitStripped=1`，输出可解析且可编译；
+  - `int value = await t.ConfigureAwait(SuppressThrowing);`（结果被使用）→ 仍
+    `CS2J1808` Error、输入逐字保留；
+  - 独立 `await t.ConfigureAwait(ContinueOnCapturedContext);` → 剥离为
+    `await t;`、无 try/catch、无 `CS2J1808`；
+  - 自定义同名 `ConfigureAwait(this Foo, ConfigureAwaitOptions)` 扩展 → 不改写、
+    无 `CS2J1808`、`ConfigureAwaitStripped=0`。
+- 先红后绿：实现前 4 条中 **2 条失败、2 条通过**（两个负例通过）；实现后 4/4 通过。
+- 同步更新 `tests/CSharpToJava.ProjectTests/AsyncNormalizeUnitTests.cs` 中两条
+  依赖旧行为（options 形态必报错）的断言为归一化后断言。
+- 全量：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj` →
+  **4845 通过 / 9 跳过 / 0 失败**（§28 基线 4841/9/0，净增 4）。
+- `tests/CSharpToJava.ProjectTests` 仅执行 `dotnet build`（成功）；
+  `tests/CSharpToJava.ProjectTests`、`tests/CSharpToJava.ConversionTests` 未运行。
+
+### 29.5 来源文件
+
+- `D:\cs\rt10-baseline-w10y\preprocess-report.json`（`success=false`、
+  `totalSeconds=104.748`、53 个 pass；第 42 个 `async-normalize` 为 `ok`，
+  第 53 个 `normalization-audit` 为 `failed`）。
+- `D:\cs\rt10-baseline-w10y.log`（全链输出，临时产物，未入库）。
+- `D:\cs\rt10-baseline-w10z\preprocess-report.json` / `.log`（同命令复跑对照，
+  第 42 个 `async-normalize` 为 `ok`，`25 stripped/102 sites/3 lowered/0 residual`；
+  第 53 个 `normalization-audit` 同上）。
+
+
