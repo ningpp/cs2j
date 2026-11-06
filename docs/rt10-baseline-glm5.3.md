@@ -2243,3 +2243,155 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
   `constraintDependentNullableValueSites=0`）。
 - 运行日志：`D:\cs\rt10-baseline-w10t.log`（临时产物，未入库）。
 
+## 25. 修复 record-readonly 的 NU1015（w10u，代码 `87eb43c0`）
+
+基线 HEAD `9a8bff3e`，工作树干净。§24 止于 record-readonly 的 `RR020`
+（`dotnet restore` exit 1，NU1015）。
+
+### 25.1 复现与精确归因（修复前，w10t）
+
+在 `D:\cs\rt10-baseline-w10t\.cs2j-preprocessed-src\src` 执行
+`dotnet restore System.Text.Json.csproj -v minimal` → **exit 1**，错误全部为
+NU1015（日志中无 MSB4025）：
+
+| 项目 | 未指定版本的 PackageReference |
+|---|---|
+| `src/System.Text.Json.csproj` | `Microsoft.DotNet.Build.Tasks.TargetFramework`、`System.Buffers`、`System.Memory`、`System.Runtime.CompilerServices.Unsafe`、`System.Threading.Tasks.Extensions` |
+| `gen/…Roslyn4.0.csproj`、`gen/…Roslyn4.4.csproj` | 上述 + `Microsoft.CodeAnalysis.CSharp.Workspaces` |
+| `Cs2jPrelude`、`Cs2jRefOutIn`、`Cs2jUnsignedMath` | `Microsoft.DotNet.Build.Tasks.TargetFramework` |
+
+- restore 日志中**没有** MSB4019：NuGet 求值把缺失 import 记为
+  `由于文件不存在，项目“D:\cs\Directory.Build.props”不由 (15,3) 处的 … 导入`
+  并继续；而普通 MSBuild 求值（`dotnet msbuild System.Text.Json.csproj
+  -getProperty:…`）会报 `MSB4019: 找不到导入的项目“D:\cs\Directory.Build.props”`
+  （扁平 props 的 `..\..\Directory.Build.props`）与 `…\NetCoreAppLibrary.props`。
+- 原始项目求值（`dotnet msbuild <原始项目> -getItem:PackageReference`）实测：
+  `System.Buffers=4.6.1`、`System.Memory=4.6.3`、
+  `System.Threading.Tasks.Extensions=4.6.3`、
+  `System.Runtime.CompilerServices.Unsafe=6.1.2`、
+  `Microsoft.DotNet.Build.Tasks.TargetFramework=10.0.0-beta.26411.108`；
+  `Microsoft.CodeAnalysis.CSharp.Workspaces` 分别为 `3.11.0` / `4.0.1` / `4.4.0`。
+
+### 25.2 修复（代码 `87eb43c0`）
+
+- `MsBuildCompileEvaluator.TryEvaluatePackageReferences`：运行
+  `dotnet msbuild <proj> -getItem:PackageReference --nologo`，解析
+  `Items.PackageReference` 的 `Identity`/`Version`；按项目路径 + 写入时间缓存，
+  120s 超时，异常/非 0 退出返回 `null`；新增独立测试缝
+  `PackageReferenceEvaluationOverride`（不复用 `EvaluationOverride`）。
+- 复制 csproj：对 `Version="$(` 的 `PackageReference`/`PackageVersion` 用原始项目
+  求值结果钉成字面值；求值失败保留原文。共享 targets 中由项目属性驱动的版本
+  （`RoslynApiVersion`）不改写共享文件，而是把每个项目的该属性钉成其自身求值
+  版本（3.11.0 / 4.0.1 / 4.4.0），避免三个 Roslyn 生成器互相污染。
+- 扁平 `Directory.Build.props/targets`：移除目标不存在的 `<Import>`（保留其余
+  属性与 SDK import），修复 MSB4019；移除 Import 后一并移除
+  `IsImplicitlyDefined="true"` 的 PackageReference——它们只服务于被移除的 eng
+  targets，保留会让 restore 去下载本机未缓存的 Arcade 构建任务包（实测缓存仅有
+  `microsoft.dotnet.build.tasks.targetframework/8.0.0-beta.26371.5`）。
+- 树准备写出的 csproj 与根部 MSBuild 目录文件不再被逐 pass 的资源拷贝覆盖
+  （新增 `IsPreparedProjectOrMsBuildFile` 过滤）。
+- XDocument 回写改用报告 UTF-8 的 `StringWriter`：原先声明写成
+  `encoding="utf-16"` 而文件按 UTF-8 无 BOM 写入，后续 XML 读取报
+  `Error: There is no Unicode byte order mark. Cannot switch to Unicode.`
+  （该错误曾使 normalization-audit 直接中止）。
+
+### 25.3 修复前后实测
+
+- **修复前**（w10t）：29 个 pass，第 29 个 record-readonly `failed`，
+  `error RR020`，根因 NU1015。
+- **单 pass E2E**（新目录 `D:\cs\rt10-restore-check4`，`--pass record-readonly`）：
+  record-readonly `ok`（`total: 6.64s`），随后对中间树执行
+  `dotnet restore System.Text.Json.csproj` → **exit 0**，关键行：
+  - `已还原 D:\cs\rt10-restore-check4\.cs2j-preprocessed-src\src\System.Text.Json.csproj (用时 143 毫秒)。`
+  - `已还原 D:\cs\rt10-restore-check4\.cs2j-preprocessed-src\gen\System.Text.Json.SourceGeneration.Roslyn4.4.csproj (用时 169 毫秒)。`
+  - 中间树实测钉死值：`System.Buffers 4.6.1`、`System.Memory 4.6.3`、
+    `System.Threading.Tasks.Extensions 4.6.3`、`System.Runtime.CompilerServices.Unsafe 6.1.2`、
+    `<RoslynApiVersion>4.4.0</RoslynApiVersion>`；`Directory.Build.targets` 中
+    PackageReference 计数为 0。
+  - `System.ValueTuple` 仍保留 `$(SystemValueTupleVersion)`：其条件组仅
+    `.NETFramework`，当前中间树 TFM 为 netstandard2.0，不参与恢复。
+
+### 25.4 rt10 全链复跑（w10u）
+
+命令（`preprocess` 无 `--force`，新目录/日志）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10u --unified-preprocessed-src --profile java-ready `
+  --no-verify-build --no-verify-tests *>&1 | Tee-Object D:\cs\rt10-baseline-w10u.log
+```
+
+- 29 个 pass：前 28 个 `ok`（含 `variance-audit`），record-readonly `failed`。
+- **NU1015 计数 0**；新的中止点是 **NU1201**（`RR020` 计数 1，restore exit 1）：
+  ```
+  error NU1201: 项目 Cs2jPrelude 与 netstandard2.0 (.NETStandard,Version=v2.0) 不兼容。 项目 Cs2jPrelude 支持: net10.0 (.NETCoreApp,Version=v10.0)
+  error NU1201: 项目 Cs2jRefOutIn 与 netstandard2.0 …
+  error NU1201: 项目 Cs2jUnsignedMath 与 netstandard2.0 …
+  ```
+  （`src/System.Text.Json.csproj` 与 `gen/…Roslyn4.4.csproj` 各 3 条）
+- 归因：仓库 TFM 属性（`NetCoreAppCurrent/Previous/Minimum`、
+  `NetCoreAppToolCurrent`）随扁平 props 丢失，主项目与 gen 项目塌缩为
+  `netstandard2.0`；注入的 `Cs2j*` 支撑项目固定 `net10.0` → 项目引用不兼容。
+  这是 NU1015 之后的独立根因；本轮未改 TFM（会改变前 28 个 pass 读到的条件编译
+  符号），留待后续处理。
+- TFM 警告：`skipped unresolvable TFM value` 计数 **0**。
+- report：`success=false`，`totalSeconds=60.14`。
+
+### 25.5 各 pass summary（29 个，record-readonly 中止）
+
+```
+1  conditional               ok      strip-conditional: 66 transformed, 286 clean, 372 directives removed, 103 disabled blocks removed
+2  lexical-normalize         ok      lexical-normalize: 0 transformed, 344 clean, 0 #line removed, 0 extern-alias site(s), 0 global using(s), 0 file-scoped normalized, 0 raw (0 multi), 0 u8 (0 bytes), 0 verbatim, 0 esc, 0 interpolated skipped (r 0/v 0/i 0)
+3  partial-merge             ok      partial-merge: 11 group(s) merged, 0 partial member pair(s) collapsed
+4  local-function-lift       ok      local-function-lift: 28 transformed, 316 clean, 59 lifted, 0 skipped, 0 residual
+5  null-coalesce             ok      null-coalesce: 59 transformed, 285 clean, 98 ?? rewritten, 100 ??= rewritten, 98 temp vars, 57 arrow bodies expanded, 0 residual
+6  expression-desugar        ok      expression-desugar: 105 transformed, 204 clean, 35 dirty-no-rewrite; coll: 35 sites (array 9/mutable 15/iface 0/span 8/builder 0/unknown 0), spread 3 (addrange 3/span-foreach 0/enum-foreach 0), empty 16, nested 1, lifted 2, skipped 0, residual 0; guard: static-abstract 0 decl/0 call, generic-attr 0 decl/0 app, scoped 129 param/21 local; interp: 218 sites, concat 162, format 4 (align 0/fmt 3/iformattable 1), fold 25, formattable-kept 0, exprtree-skip 0, handler err0|keep27, temps 63, residual 0; init: 65 obj, 1 coll (single 1/multi 0/ext 0/params 0/fluent 0), 1 dict-index, 124 target-new, 0/0 nested, 36 ctx-stmts, 142 temps, 161 skipped (2 non-strict kept), 96 residual; nc: 180 member/call, 0 idx, 24 invoke (event 0/delegate 24), 56 void, 42 inline, 83 lifted, 32 coalesce, 0 deferred-c51, 164 temps, 0 skipped, 0 residual, assign= 0 member/0 idx, 0 compound/0 event, 0 coalesce, 0 value, 0 chain, 0 rhs-nc, 0 temps, 0 residual
+7  enum                      ok      enum: 82 transformed, 105 clean, 157 dirty-no-rewrite, 116 bitwise, 1 ~, 6 compound, 1 HasFlag, 0 lifted, 4 enum-arith, 0 residual
+8  enum-declaration          ok      enum-declaration: 6 enum(s) rewritten (flags=0, non-int=5, explicit=4), 20 file(s), 0 plan(s) rolled back, 0 kept real (numeric-boundary), 0 residual
+9  delegate                  ok      delegate: 1 transformed, 343 clean, 0 combine, 0 remove, 0 compound, 5 anonymous method, 0 skipped, 0 residual
+10 tuple                     ok      tuple-to-struct: 16 transformed, 330 clean, 25 types, 35 literals, 10 deconstructions, 0 tuple locals -> var, 19 structs generated
+11 anonymous-type-lift       ok      anonymous-type-lift: 0 transformed, 350 clean, 0 creations rewritten, 0 shapes (0 generic, 0 dynamic), 0 types generated, 0 residual
+12 foreach-deconstruction    ok      foreach-deconstruction: 0 transformed, 350 clean, 0 lowered, 1 skipped
+13 foreach-source            ok      foreach-source: 9 transformed, 341 clean, 0 string site(s) wrapped, 0 tuple residual(s), 0 other/KV residual(s), 1 deconstruct(s) lowered, 2 duck enumerator(s) lowered (ext 0, direct 0, struct 2, dispose 0 [boxed 0], no-dispose 2, dynamic 0), 7 span index loop(s), 0 ref index loop(s), 0 ref-readonly index loop(s), 0 ref-Current enumerator(s) [5485 0, 5486 0, residual ref 0], 0 unresolved site(s), 0 residual enumerator site(s), 0 error(s)
+14 pattern-desugar           ok      pattern-desugar: 15 transformed, 299 clean, 36 dirty-no-rewrite, 17 pattern-switch, 0 non-int-switch, 1 catch-filter, 0 catch-T, 8 govs, 0 end-labels, 0 skipped, 0 residual
+15 strip-default             ok      strip-default: 94 transformed, 256 clean, 195 declarations stripped, 176 overloads generated
+16 ref-out-in                ok      ref-out-in: 202 transformed, 148 clean, 245 ref params, 236 out params, 702 call sites lifted, 153 locked members
+17 unsafe-ref-lowering       ok      unsafe-ref-lowering: 0 transformed, 352 clean, 0 ref local(s) lowered (0 read, 0 add), 1 rejected (URL001)
+18 using-resource-lift       ok      using-resource-lift: 0 transformed, 352 clean, 0 resource(s) lifted, 0 preserved (USL001)
+19 fixed-span-to-array       ok      fixed-span-to-array: 1 transformed, 351 clean, 1 span fixed statement(s) lowered, 0 preserved (FSA001)
+20 compat-method-replacement ok      compat-method-replacement: 2 transformed, 350 clean, 2 method(s) replaced, 0 already replaced, 2 signature mismatch(es) (CMR001), 0 drifted entr(y/ies) (CMR020), 1 unused table entry(ies)
+21 pointer-diff-inline       ok      pointer-diff-inline: 0 transformed, 352 clean, 0 helper(s) inlined, 0 call site(s) rewritten, 0 unused helper(s) removed, 0 preserved (PDI001)
+22 unsigned                  ok      unsigned-type: 123 transformed, 229 clean, 2206 types replaced, 195 operators rewritten, 3 literals rewritten
+23 numeric-boundary          ok      numeric-boundary: 352 file(s), 9 binary/0 unary/13 conversion/0 increment site(s) explicitized, 338 unchecked expr(s)/0 block(s) stripped, 92 constant(s) materialized, 0 error(s); decimal-ops: 0 binary/0 comparison/0 unary/0 compound site(s), 0 promotion(s), 0 const downgraded, 0 temp(s), 289 deferred; increment-targets: 392 property/0 indexer/0 enum-array/1 simple site(s), 1 unsigned helper call(s), 387 postfix lifted/0 prefix inlined, 387 temp(s), 0 deferred; nullable-lift: 3 rel/134 eq/4 conv site(s), 11 temp(s)
+24 generic                   ok      generic: 7 transformed, 346 clean (16 default(T) encountered, 2 rewritten, 0 nullability tests folded, 11 value defaults rewritten, 2 new T(), 1 new T[n])
+25 thread-static             ok      thread-static: 1 transformed, 352 clean (1 fields rewritten, 0 skipped, 8 reads, 2 writes, 0 compound, 0 increments, 0 struct lifts, 0 initializers, 0 plan rollback(s), 0 residual)
+26 generic-deepen            ok      generic-deepen: 154 transformed, 199 clean (265 anchors, 16 nested propagations, 4 patterns, 7 type tests, 0 catches, 28 static methods, 17 field accesses, 526 call sites, 0 expression-tree skips, 0 plans skipped, 0 ctor-token types, 0 ctor-token sites, 0 ctor-token call sites, 1 mtok methods, 1 mtok sites, 1 mtok call sites, 0 residuals)
+27 closed-metadata           ok      closed-metadata: 382 registered (1959 enumerated, 1577 deduplicated, 3 register files, 0 consumer sites linked, 443 dynamic sites skipped, 0 residuals)
+28 variance-audit            ok      variance-audit: 0 variant declaration(s), 323 use site(s) (39/18/266), 87 variance conversion(s), 13 unsafe; 56 constraints (struct/unmanaged/new/...); report=variance-audit-report.json
+29 record-readonly           failed  record-readonly: 0 struct(s), 0 class(es) converted, 0 skipped, 0 plan(s) rolled back, 0 site(s), 0 method(s), 0 interface ripple(s)
+```
+
+### 25.6 单测与回归
+
+- `tests/CSharpToJava.Tests/ProjectPreprocessPackageVersionTests.cs` 新增 14 条
+  （全部离线，经 `PackageReferenceEvaluationOverride` 注入，不启动 msbuild）：
+  属性版本钉死、求值 null 保留原文、字面版本不改写、`PackageVersion` 中央管理
+  形态、共享 targets 属性联动、缺失 import 剔除（存在保留 / 缺失移除 / 未解析
+  属性剔除 / 隐式包引用联动）、`-getItem` JSON 解析、树准备文件过滤。
+- 红灯：临时让 `PinPackageReferenceVersions` 直接返回原文 →
+  **4 失败 / 10 通过**；恢复后 14 条全绿。
+- 全量：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj` →
+  **4822 通过 / 9 跳过 / 0 失败**（§24 基线 4808/9/0，净增 14）。
+- `tests/CSharpToJava.ProjectTests` 仅 `dotnet build`：**0 错误**（未运行）。
+
+### 25.7 来源文件
+
+- `D:\cs\rt10-baseline-w10u\preprocess-report.json`（`success=false`，
+  `totalSeconds=60.14`，29 个 pass；第 28 个 `variance-audit` 为 `ok`，
+  第 29 个 `record-readonly` 为 `failed`）。
+- `D:\cs\rt10-baseline-w10u.log`（临时产物，未入库）。
+- `D:\cs\rt10-restore-check4.log`、`D:\cs\rt10-check4-restore.log`
+  （单 pass + restore exit 0 证据，临时产物，未入库）。
+
