@@ -261,3 +261,113 @@ foreach (var __cs2jFsEntry in polymorphismOptions.DerivedTypes)
 - `D:\cs\rt10-baseline-w10c.err`（stderr：32 条 `warning `、1 条 error CS2J5457、61 条 `[Warning]`）
 - `D:\cs\rt10-baseline-w10c\preprocess-report.json`（13 个 pass、`success=false`、`totalSeconds=31.848`）
 - `D:\cs\rt10-baseline-w10c\.cs2j-preprocessed-src`（改写后的中间源）
+
+## 10. 第四次重跑（HEAD `2af1843f`，foreach-source 通过）
+
+### 10.1 运行口径
+
+- 运行日期：2026-11-06（Asia/Shanghai）；仓库代码 HEAD：`2af1843f`
+  （`fix(foreach-source): Nullable<T> 源按底层值类型归类，消除 CS2J5457 误报`）。
+- 代码前置：全量单测 **4710 通过 / 9 跳过 / 0 失败**（基线 4706 + 新增 4 条
+  nullable foreach-source 单测）。
+- 源不变：`D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj`；
+  目标：`D:\cs\rt10-baseline-w10d`；unified 中间树
+  `D:\cs\rt10-baseline-w10d\.cs2j-preprocessed-src`（运行时目录不存在，无需 `--force`）。
+- 命令（与 §9.1 同参数，仅换目标目录与日志；stdout/stderr 合并进同一日志）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10d --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests `
+  *>&1 | Tee-Object D:\cs\rt10-baseline-w10d.log
+```
+
+- 结果：进程退出码 **1**（链在更后面的 pass 中止，非超时/崩溃）。证据：
+  `D:\cs\rt10-baseline-w10d.log`（417 行）、
+  `D:\cs\rt10-baseline-w10d\preprocess-report.json`（`success=false`、
+  `totalSeconds=33.481`、**14** 个 pass）。
+
+### 10.2 每个 pass 的实测（来源：preprocess-report.json 的 `status`/`summary`/`totalSeconds`）
+
+| # | pass | 状态 | 秒 | 实测 summary（原样节选） |
+|---|------|------|----|--------------------------|
+| 1 | conditional | ok | 5.812 | `strip-conditional: 66 transformed, 286 clean, 372 directives removed, 103 disabled blocks removed` |
+| 2 | lexical-normalize | ok | 1.446 | `0 transformed, 352 clean, 0 #line removed, ...` |
+| 3 | partial-merge | ok | 3.220 | `10 group(s) merged, 0 partial member pair(s) collapsed`（9 条 CS2J2001 warning，同 §9） |
+| 4 | local-function-lift | ok | 4.588 | `28 transformed, 324 clean, 59 lifted, 0 skipped, 0 residual` |
+| 5 | null-coalesce | ok | 0.858 | `59 transformed, 293 clean, 98 ?? rewritten, 100 ??= rewritten, 98 temp vars, 57 arrow bodies expanded, 0 residual` |
+| 6 | expression-desugar | ok | 1.697 | `107 transformed, 209 clean, 36 dirty-no-rewrite; ...; nc: 180 member/call, 24 invoke, 56 void, 42 inline, 83 lifted, 32 coalesce, 164 temps, 0 skipped, 0 residual` |
+| 7 | enum | ok | 1.193 | `85 transformed, 107 clean, 160 dirty-no-rewrite, 125 bitwise, 1 ~, 6 compound, 1 HasFlag, 0 lifted, 4 enum-arith, 0 residual` |
+| 8 | enum-declaration | ok | 5.493 | `6 enum(s) rewritten (flags=0, non-int=5, explicit=4), 20 file(s), 0 plan(s) rolled back, 0 kept real (numeric-boundary), 0 residual` |
+| 9 | delegate | ok | 0.691 | `1 transformed, 351 clean, 0 combine, 0 remove, 0 compound, 5 anonymous method, 0 skipped, 0 residual` |
+| 10 | tuple-to-struct | ok | 6.520 | `16 transformed, 338 clean, 25 types, 35 literals, 10 deconstructions, 0 tuple locals -> var, 19 structs generated` |
+| 11 | anonymous-type-lift | ok | 0.894 | `0 transformed, 358 clean, 0 creations rewritten, 0 shapes (0 generic, 0 dynamic), 0 types generated, 0 residual` |
+| 12 | foreach-deconstruction | ok | 0.201 | `0 transformed, 358 clean, 0 lowered, 1 skipped` |
+| 13 | foreach-source | **ok（本轮修复）** | 0.432 | `9 transformed, 349 clean, 0 tuple residual(s), 1 deconstruct(s) lowered, 2 duck enumerator(s) lowered (ext 0, direct 0, struct 2, dispose 0 [boxed 0], no-dispose 2, dynamic 0), 7 span index loop(s), 0 unresolved site(s), 0 residual enumerator site(s), 0 error(s)` |
+| 14 | pattern-desugar | **failed** | 0.406 | `12 transformed, 307 clean, 39 dirty-no-rewrite, 14 pattern-switch, 0 non-int-switch, 1 catch-filter, 0 catch-T, 6 govs, 0 end-labels, 3 skipped, 0 residual` |
+
+- 与 §9.2 逐条对比：第 1–12 个 pass 的 summary 逐字一致；唯一差异是第 13 个
+  `foreach-source` 的 `1 unresolved site(s), 1 error(s)` → `0 unresolved site(s),
+  0 error(s)`（`9 transformed / 349 clean / 2 duck / 7 span` 等计数不变）。
+  第 14 个 `pattern-desugar` 在 §9 从未运行（链在第 13 个 pass 中止）。
+
+### 10.3 foreach-source 通过：根因与证据
+
+- 站点不变：`gen\JsonSourceGenerator.Emitter.cs:787` 在 w10c 与 w10d 两棵中间树中
+  逐字相同，均为 `foreach (int i in typeGenSpec.FastPathPropertyIndices)`；
+  本 pass 对该文件无改写，也无任何诊断。
+- 实测根因（与 §9.4 的初步判断不同）：`ImmutableEquatableArray<T>` 的源文件
+  `src/libraries/Common/src/SourceGenerators/ImmutableEquatableArray.cs` 由
+  `gen/System.Text.Json.SourceGeneration.targets` 的
+  `<Compile Include="$(CommonPath)\SourceGenerators\...">` 链接进来，物理位置在
+  枚举根（`...\System.Text.Json`）之外，因此**不在中间树的 358 个 .cs 文件里**
+  （pass 的 `9 transformed + 349 clean = 358` 与中间树 .cs 数完全相等）。
+  用这 358 个文件 + 链的 TPA 引用集重建 compilation 后实测该站点：
+  - 表达式类型 `ImmutableEquatableArray<int>?`，`TypeKind=Struct`、
+    `OriginalDefinition=System.Nullable<T>`；
+  - 底层 `ImmutableEquatableArray<int>` 的 `TypeKind=**Error**`
+    （同文件有 `CS0246: SourceGenerators / SourceWriter / TypeRef` 未解析）；
+  - `ForEachStatementInfo` 的 GetEnumerator/MoveNext/Current 全为 null。
+  即：`Nullable<T>` 包装把“未解析类型”的 `TypeKind.Error` 藏在了 Struct 之下，
+  旧的 `IsErrorType` 只看顶层 kind，于是把该站点当成“真正的非 IEnumerable 源”
+  报 CS2J5457。修复后 `IsErrorType` 看穿 `Nullable<T>`，站点走既有的
+  error-type 直通路径（`SitesPassedThrough`，无诊断、无改写）。
+- 同类潜在缺陷一并修复：若 T 可解析且实现 IEnumerable（如 `struct E :
+  IEnumerable<int>` + `E?`），旧分类同样因 `ImplementsIEnumerable(Nullable<T>)`
+  为 false 而进入 lower 分支，产出
+  `var __cs2jFaSrc = source; var __cs2jFaE = __cs2jFaSrc.GetEnumerator();`
+  （源局部类型为 `E?`）——实测 `error CS1061: “E?”未包含“GetEnumerator”的定义`。
+  现归为 converter-owned，原样保留（不做 `.Value` 改写）。
+- 剩余形态：`struct T` 仅有鸭子枚举器时的 `T?` 源无法用
+  GetEnumerator/while 骨架表达（`T?.GetEnumerator()` 不绑定），改为精确诊断
+  **CS2J5458**；实测该形态 C# 在 null 时抛 `InvalidOperationException`
+  （编译器经 `Nullable<T>.Value` 求值，不是 NullReferenceException）。rt10 中
+  不存在该形态（本 pass 的 diagnostics 为空，无 CS2J5458）。
+
+### 10.4 新中止点
+
+- 第 14 个 pass `pattern-desugar`（`status=failed`，0.406s），3 条 Error（stderr/日志原文）：
+
+```
+[Error] src\System\Text\Json\Serialization\JsonConverterOfT.ReadCore.cs: PD010: is-pattern inside a when guard is reduced by C37 (D:\cs\rt10-baseline-w10d\.cs2j-preprocessed-src\src\System\Text\Json\Serialization\JsonConverterOfT.ReadCore.cs:74,47)
+[Error] src\System\Text\Json\Serialization\JsonSerializer.Read.HandleMetadata.cs: PD010: is-pattern inside a when guard is reduced by C37 (D:\cs\rt10-baseline-w10d\.cs2j-preprocessed-src\src\System\Text\Json\Serialization\JsonSerializer.Read.HandleMetadata.cs:363,28)
+[Error] src\System\Text\Json\Nodes\JsonNode.To.cs: PD010: property subpattern without an explicit member name (D:\cs\rt10-baseline-w10d\.cs2j-preprocessed-src\src\System\Text\Json\Nodes\JsonNode.To.cs:49,47)
+```
+
+- 该中止点此前被 §9 的 foreach-source 失败遮蔽（§9 在第 13 个 pass 退出）。
+
+### 10.5 TFM 警告
+
+- `D:\cs\rt10-baseline-w10d.log` 中 `skipped unresolvable TFM value` 计数为 **0**；
+  `TFM/NETSDK/targetFramework/MSB` 关键字命中数亦为 **0**。
+- conditional 的 `372 directives / 103 disabled blocks` 与 §2/§8/§9 一致。
+- 日志计数：`warning ` 行 32 条（与 §9.6 相同）、`[Warning]` 前缀行 8 条
+  （tuple 元素类型未解析）、`[Error]` 行 3 条（PD010）。
+
+### 10.6 来源文件
+
+- `D:\cs\rt10-baseline-w10d.log`（stdout+stderr 合并，417 行）
+- `D:\cs\rt10-baseline-w10d\preprocess-report.json`（14 个 pass、`success=false`、`totalSeconds=33.481`）
+- `D:\cs\rt10-baseline-w10d\.cs2j-preprocessed-src`（改写后的中间源）
+
