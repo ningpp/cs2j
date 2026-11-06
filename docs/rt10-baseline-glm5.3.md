@@ -3061,5 +3061,83 @@ generator 项目 + 注入支撑库）经 53 个预处理 pass 全链处理，
 - `D:\cs\rt10-baseline-w10z7.log`（全链输出，临时产物，未入库）。
 - `D:\cs\full-test-w10z7.log`（全量单测 4859/9/0，临时产物，未入库）。
 
+## 32. R3 消费面配置化：closed-metadata 库名迁出 Core（w10r3 复跑）
+
+### 32.1 代码前置
+
+- 代码提交 `6f4c0601`（父提交 `f6f91492`）。
+- 新增 `config/ClosedTypeConsumerSurfaces.json`：`systemTextJson`（2 条，
+  `Serialize/SerializeAsync/Deserialize/DeserializeAsync` 与
+  `GetTypeInfo`）、`yaml`（10 条，`IYamlTypeConverter.Accepts`、
+  `TypeConverterCache` 的 `MakeGenericType/GetGenericArguments`、
+  `DefaultObjectFactory/ObjectFactoryBase`、三个
+  `*NodeDeserializer`、`StaticSerializerBuilder/StaticDeserializerBuilder`）、
+  `genericReflection`（`System.Type` 的 5 个保守白名单方法）；顶层
+  `contextBaseTypes` 与 `sourceGenAttributes`。每条含
+  `assembly/type/methods/genericArgPolicy/requiresGuard/executionKind`。
+- 新增 `Core/ClosedMetadata/ConsumerSurfaces/`：`IClosedTypeConsumerProfile`
+  三件套（接口 + JSON 数据模型 + 符号匹配实现）、
+  `ClosedTypeConsumerSurfaces.Load/LoadDefault`（缺失、不可读、JSON 损坏、
+  缺 profile 均抛 `ClosedTypeConsumerSurfaceConfigurationException`）。
+- `ClosedMetadataCollector` 删除 STJ 三个全名常量与
+  `SerializerMethodNames`，`IsSerializerEntry/IsSourceGenContext/
+  IsJsonSerializableAttributeName` 改为 profile 匹配；
+  `ClosedMetadataResidualScanner`、`ClosedMetadataConsumptionLinker` 与
+  `ClosedMetadataPreprocessor` 改为注入同一 profile。
+- CLI 两入口新增 `--closed-metadata-consumer-surfaces`（默认
+  `config/ClosedTypeConsumerSurfaces.json`）；CLI 与三个测试项目 csproj
+  均复制该配置。
+
+### 32.2 grep 守门（Core 库名字面量）
+
+- 新增 `ClosedMetadataConsumerSurfaceGuardTests`：扫描
+  `src/CSharpToJava.Core/**/*.cs`（排除 `bin/obj`），`YamlDotNet` 命中
+  **0**；`JsonSerializer` 在 `ClosedMetadata/` 子树命中 **0**。
+- 子系统外 24 个文件为既有、与本任务无关的 STJ 运行时/报告序列化代码
+  （如 `JavaWorkspacePlanJsonSerializer`、`TypeMappingRegistry`、各
+  `*Report`），在守门测试中以**逐文件显式白名单 + 理由 + 失效校验**
+  （`SerializerNameWhitelist_HasNoStaleEntries`）保留；未使用目录级静默
+  豁免，`ClosedMetadata/` 内任何命中仍直接失败。
+
+### 32.3 回归
+
+- `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj` →
+  **4868 通过 / 9 跳过 / 0 失败**（§31 基线 4859/9/0，净增 9 个 R3 用例）。
+- `tests/CSharpToJava.ProjectTests` 仅执行 `dotnet build`（成功，0 错误）；
+  ProjectTests、ConversionTests 未运行。
+
+### 32.4 rt10 全链复跑（行为保持证据）
+
+命令与 §31.2 相同，目标目录 `D:\cs\rt10-baseline-w10r3`：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10r3 --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests `
+  *>&1 | Tee-Object D:\cs\rt10-baseline-w10r3.log
+```
+
+- 进程退出码 0；report `success=true`、`totalSeconds=99.085`、
+  **53 个 pass 全部 `ok`**；residual report `residuals=0`、`errors=0`、
+  `warnings=0`（`byCode`/`byOwner` 为空）。
+- TFM 警告（`skipped unresolvable TFM value` / `is below net10` /
+  `NETSDK` / `target-framework evaluation failed`）计数 **0**。
+- `closed-metadata` summary 与 w10z7 基线**逐项相同**：
+  `387 registered (1973 enumerated, 1586 deduplicated, 3 register files,
+  0 consumer sites linked, 438 dynamic sites skipped, 0 residuals)`，
+  `status=ok`，`totalSeconds=2.612`（基线 2.801）。
+- 其余关键 summary 同样与 §31.2 一致，例如 `member-desugar` 848 planned、
+  159 field(s) generated、2230 read/153 write/1 compound、101 skipped、
+  0 rolled back、4 residual；`normalization-audit` 0 residual。
+
+### 32.5 来源文件
+
+- `D:\cs\rt10-baseline-w10r3\preprocess-report.json`（`success=true`、
+  `totalSeconds=99.085`、53 个 pass 全 `ok`）。
+- `D:\cs\rt10-baseline-w10r3\preprocess-residual-report.json`（0 条残留）。
+- `D:\cs\rt10-baseline-w10r3.log`（全链输出，临时产物，未入库）。
+- `D:\cs\full-test-w10r3.log`（全量单测 4868/9/0，临时产物，未入库）。
+
 
 
