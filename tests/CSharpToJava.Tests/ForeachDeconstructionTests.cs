@@ -337,6 +337,53 @@ public class ForeachDeconstructionTests
     }
 
     // ===================================================================
+    // S-07 (upgrade plan §6.4-R0): open-generic components
+    // ===================================================================
+
+    [Fact]
+    public void Lowers_OpenGenericKv_ComponentTypeParameters()
+    {
+        // KeyValuePair<TKey, TValue> elements: the components are TYPE PARAMETERS,
+        // not named types. The former INamedTypeSymbol cast kept the whole site
+        // (and the downstream CS2J5420 gate then rejected the file).
+        var src = """
+            using System.Collections.Generic;
+            class C {
+                void M<TKey, TValue>(Dictionary<TKey, TValue> d) {
+                    foreach (var (k, v) in d) {
+                        System.Console.WriteLine(k!.ToString() + v!.ToString());
+                    }
+                }
+            }
+            """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("__entry.Key", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("__entry.Value", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    [Fact]
+    public void Lowers_OpenGenericTuple_ComponentTypeParameters()
+    {
+        var src = """
+            using System.Collections.Generic;
+            class C {
+                void M<TFirst, TSecond>(IEnumerable<(TFirst First, TSecond Second)> items) {
+                    foreach (var (a, b) in items) {
+                        System.Console.WriteLine(a!.ToString() + b!.ToString());
+                    }
+                }
+            }
+            """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("__entry.Item1", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("__entry.Item2", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    // ===================================================================
     // 15. SortedDictionary / ConcurrentDictionary: KV lowering
     // ===================================================================
 

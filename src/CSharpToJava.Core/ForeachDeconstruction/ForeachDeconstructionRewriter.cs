@@ -57,7 +57,7 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
         // Classify the element type and resolve the components (.Key/.Value or
         // .ItemN) used to unpack the designation.
         var family = ClassifyFamily(elementType);
-        List<(string Suffix, INamedTypeSymbol SubType)> components;
+        List<(string Suffix, ITypeSymbol SubType)> components;
         switch (family)
         {
             case FamilyKind.KeyValuePair:
@@ -120,6 +120,9 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
     // -----------------------------------------------------------------------
 
     private enum FamilyKind { KeyValuePair, Deconstruct, Tuple, Other }
+
+    private FamilyKind ClassifyFamily(ITypeSymbol elementType)
+        => elementType is INamedTypeSymbol named ? ClassifyFamily(named) : FamilyKind.Other;
 
     private FamilyKind ClassifyFamily(INamedTypeSymbol elementType)
     {
@@ -188,7 +191,7 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
     private void UnpackVariable(
         ExpressionSyntax variable,
         ExpressionSyntax accessorRoot,
-        List<(string Suffix, INamedTypeSymbol SubType)> components,
+        List<(string Suffix, ITypeSymbol SubType)> components,
         List<StatementSyntax> statements,
         SyntaxNode scopeNode)
     {
@@ -227,7 +230,7 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
     private void UnpackDesignation(
         VariableDesignationSyntax designation,
         ExpressionSyntax accessorRoot,
-        List<(string Suffix, INamedTypeSymbol SubType)> components,
+        List<(string Suffix, ITypeSymbol SubType)> components,
         List<StatementSyntax> statements,
         SyntaxNode scopeNode,
         TypeSyntax? declaredTypeSyntax)
@@ -262,7 +265,7 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
     private void UnpackDesignationChild(
         VariableDesignationSyntax child,
         ExpressionSyntax accessor,
-        INamedTypeSymbol subType,
+        ITypeSymbol subType,
         List<StatementSyntax> statements,
         SyntaxNode scopeNode)
     {
@@ -323,7 +326,7 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
     private void UnpackTupleArgument(
         ExpressionSyntax arg,
         ExpressionSyntax accessor,
-        INamedTypeSymbol subType,
+        ITypeSymbol subType,
         List<StatementSyntax> statements,
         SyntaxNode scopeNode)
     {
@@ -368,56 +371,57 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
     // Component accessors
     // -----------------------------------------------------------------------
 
-    private static List<(string Suffix, INamedTypeSymbol SubType)> GetKvComponents(INamedTypeSymbol kvType)
+    private static List<(string Suffix, ITypeSymbol SubType)> GetKvComponents(ITypeSymbol kvType)
     {
+        if (kvType is not INamedTypeSymbol named)
+            return new List<(string, ITypeSymbol)>();
+
         // Find the KeyValuePair<K,V> among the type or its interfaces.
-        INamedTypeSymbol? kv = null;
-        if (IsKeyValuePair(kvType))
-            kv = kvType;
-        else
-            kv = kvType.AllInterfaces.FirstOrDefault(IsKeyValuePair);
+        var kv = IsKeyValuePair(named) ? named : named.AllInterfaces.FirstOrDefault(IsKeyValuePair);
 
         if (kv == null || kv.TypeArguments.Length != 2)
-            return new List<(string, INamedTypeSymbol)>();
+            return new List<(string, ITypeSymbol)>();
 
-        return new List<(string, INamedTypeSymbol)>
+        return new List<(string, ITypeSymbol)>
         {
-            ("Key", (kv.TypeArguments[0] as INamedTypeSymbol)!),
-            ("Value", (kv.TypeArguments[1] as INamedTypeSymbol)!),
+            // S-07: the component may be a type parameter / array as well as a
+            // named type — the former `as INamedTypeSymbol` cast dropped the whole
+            // site for open-generic KeyValuePair<K,V> / (T1, T2) element types.
+            ("Key", kv.TypeArguments[0]),
+            ("Value", kv.TypeArguments[1]),
         };
     }
 
-    private static List<(string Suffix, INamedTypeSymbol SubType)> GetTupleComponents(INamedTypeSymbol tupleType)
+    private static List<(string Suffix, ITypeSymbol SubType)> GetTupleComponents(ITypeSymbol tupleType)
     {
-        var result = new List<(string, INamedTypeSymbol)>();
-        if (tupleType.IsTupleType)
+        if (tupleType is not INamedTypeSymbol tuple)
+            return new List<(string, ITypeSymbol)>();
+
+        var result = new List<(string, ITypeSymbol)>();
+        if (tuple.IsTupleType)
         {
-            for (var i = 0; i < tupleType.TupleElements.Length; i++)
+            for (var i = 0; i < tuple.TupleElements.Length; i++)
             {
-                if (tupleType.TupleElements[i].Type is not INamedTypeSymbol elementType)
-                    return new List<(string, INamedTypeSymbol)>();
-                result.Add(($"Item{i + 1}", elementType));
+                result.Add(($"Item{i + 1}", tuple.TupleElements[i].Type));
             }
             return result;
         }
 
         // Explicit ValueTuple<...> / System.Tuple<...> generic spelling: IsTupleType
         // is false, so derive ItemN from the type arguments.
-        var defName = tupleType.OriginalDefinition.ToDisplayString();
+        var defName = tuple.OriginalDefinition.ToDisplayString();
         if (!defName.StartsWith("System.ValueTuple<", StringComparison.Ordinal)
             && !defName.StartsWith("System.Tuple<", StringComparison.Ordinal))
             return result; // e.g. custom ITuple without accessible ItemN components
 
-        for (var i = 0; i < tupleType.TypeArguments.Length; i++)
+        for (var i = 0; i < tuple.TypeArguments.Length; i++)
         {
-            if (tupleType.TypeArguments[i] is not INamedTypeSymbol elementType)
-                return new List<(string, INamedTypeSymbol)>();
-            result.Add(($"Item{i + 1}", elementType));
+            result.Add(($"Item{i + 1}", tuple.TypeArguments[i]));
         }
         return result;
     }
 
-    private List<(string Suffix, INamedTypeSymbol SubType)> GetComponentsFor(INamedTypeSymbol type)
+    private List<(string Suffix, ITypeSymbol SubType)> GetComponentsFor(ITypeSymbol type)
         => ClassifyFamily(type) == FamilyKind.Tuple
             ? GetTupleComponents(type)
             : GetKvComponents(type);
