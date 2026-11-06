@@ -144,8 +144,20 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
 
     // CSharpGenericIList / CSharpICollection methods
 
+    /** Mirrors the C# List&lt;T&gt;.CopyTo(T[], int) argument checks. */
     @Override
     public void copyTo(T[] array, int arrayIndex) {
+        if (array == null) {
+            throw new ArgumentNullException("array");
+        }
+        if (arrayIndex < 0) {
+            throw new ArgumentOutOfRangeException("arrayIndex");
+        }
+        if (array.length - arrayIndex < size()) {
+            throw new ArgumentException(
+                "Destination array was not long enough. Check the destination index, length, and the array's lower bounds.",
+                "destinationArray");
+        }
         for (int i = 0; i < size(); i++) {
             array[arrayIndex + i] = get(i);
         }
@@ -175,6 +187,17 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
      * performing auto-unboxing. Mirrors the C# List&lt;int&gt;.CopyTo(int[]) pattern.
      */
     public void copyTo(int[] array, int arrayIndex) {
+        if (array == null) {
+            throw new ArgumentNullException("array");
+        }
+        if (arrayIndex < 0) {
+            throw new ArgumentOutOfRangeException("arrayIndex");
+        }
+        if (array.length - arrayIndex < size()) {
+            throw new ArgumentException(
+                "Destination array was not long enough. Check the destination index, length, and the array's lower bounds.",
+                "destinationArray");
+        }
         for (int i = 0; i < size(); i++) {
             array[arrayIndex + i] = (Integer) get(i);
         }
