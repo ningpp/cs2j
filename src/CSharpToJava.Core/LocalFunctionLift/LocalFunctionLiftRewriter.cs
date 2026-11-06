@@ -379,17 +379,30 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         var newExpression = RewriteCallExpression(visited.Expression, plan);
 
         // If the hoisted method needs explicit type arguments (because it uses
-        // enclosing method type parameters), and the call expression is a
-        // simple IdentifierName (not already a GenericName), convert it to a
-        // GenericName with the enclosing type parameters as type arguments.
-        if (plan.NeedsExplicitTypeArguments && newExpression is IdentifierNameSyntax)
+        // enclosing method type parameters), supply them at the call site. The
+        // lifted method declares its own parameters first, then the carried
+        // enclosing ones, so an explicit list must be extended in that order —
+        // otherwise the call site arity disagrees with the declaration (S-05 ③).
+        if (plan.NeedsExplicitTypeArguments)
         {
-            var typeArgs = SyntaxFactory.SeparatedList(
-                plan.EnclosingTypeParams.Select(tp =>
-                    SyntaxFactory.ParseTypeName(tp)));
-            newExpression = SyntaxFactory.GenericName(
-                SyntaxFactory.Identifier(plan.NewName),
-                SyntaxFactory.TypeArgumentList(typeArgs));
+            var enclosingArgs = plan.EnclosingTypeParams
+                .Select(tp => SyntaxFactory.ParseTypeName(tp))
+                .ToList();
+            if (enclosingArgs.Count > 0)
+            {
+                if (newExpression is IdentifierNameSyntax)
+                {
+                    newExpression = SyntaxFactory.GenericName(
+                        SyntaxFactory.Identifier(plan.NewName),
+                        SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(enclosingArgs)));
+                }
+                else if (newExpression is GenericNameSyntax genericName)
+                {
+                    newExpression = genericName.WithTypeArgumentList(
+                        SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(
+                            genericName.TypeArgumentList.Arguments.Concat(enclosingArgs))));
+                }
+            }
         }
 
         var newArgs = RewriteCallArguments(visited.ArgumentList, plan);
@@ -755,20 +768,16 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
                 typeParams.Add(tp);
         }
 
-        var enclosingMethodParams = GetEnclosingMethodTypeParameters(localFn);
+        var enclosingMethodParams = plan.EnclosingTypeParams;
         if (enclosingMethodParams.Count > 0)
         {
-            // Only add enclosing method type parameters that are actually
-            // used in the local function's body, parameter types, or return
-            // type. Adding unused type parameters would break type inference
-            // at call sites.
-            var usedTypeParams = GetTypeParametersUsedInLocalFunction(localFn);
-
+            // The analyzer already resolved which enclosing method type parameters
+            // the lifted method must redeclare — used by the body/signature, or
+            // reachable through a carried `where` clause (S-05 ②). The same list is
+            // what call sites pass as explicit type arguments, so arity always agrees.
             foreach (var tpName in enclosingMethodParams)
             {
                 if (typeParams.Any(tp => tp.Identifier.Text == tpName))
-                    continue;
-                if (!usedTypeParams.Contains(tpName))
                     continue;
 
                 typeParams.Add(SyntaxFactory.TypeParameter(
@@ -883,22 +892,51 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
     private static SyntaxList<TypeParameterConstraintClauseSyntax> BuildConstraintClauses(LiftPlan plan)
     {
         var localFn = plan.Node;
+        var declared = DeclaredTypeParameterNames(plan);
         var clauses = new List<TypeParameterConstraintClauseSyntax>();
 
-        if (localFn.ConstraintClauses != null)
+        // S-05 ①: only clauses for parameters the lifted method actually declares.
+        // Copying the enclosing method's whole list emitted `where` clauses for
+        // parameters that are not in scope (dangling constraint clauses).
+        foreach (var clause in localFn.ConstraintClauses)
         {
-            foreach (var clause in localFn.ConstraintClauses)
+            if (declared.Contains(clause.Name.Identifier.Text))
                 clauses.Add(clause);
         }
 
         var enclosingMethod = FindEnclosingMethod(plan.Node);
-        if (enclosingMethod?.ConstraintClauses != null)
+        if (enclosingMethod != null)
         {
             foreach (var clause in enclosingMethod.ConstraintClauses)
-                clauses.Add(clause);
+            {
+                // A local function parameter of the same name shadows the enclosing
+                // one (CS0693); the enclosing clause must not be copied.
+                if (declared.Contains(clause.Name.Identifier.Text)
+                    && !localFn.ConstraintClauses.Any(c => c.Name.Identifier.Text == clause.Name.Identifier.Text))
+                {
+                    clauses.Add(clause);
+                }
+            }
         }
 
         return SyntaxFactory.List(clauses);
+    }
+
+    /// <summary>
+    /// S-05: the type parameter names the lifted method declares. The analyzer's
+    /// <see cref="LiftPlan.EnclosingTypeParams"/> already includes the transitive
+    /// closure over constraint references (`where T : IFoo&lt;U&gt;` carries U) and is
+    /// what the call sites pass as explicit type arguments, so declaration and
+    /// call sites cannot disagree on arity.
+    /// </summary>
+    private static HashSet<string> DeclaredTypeParameterNames(LiftPlan plan)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var tp in plan.Node.TypeParameterList?.Parameters ?? Enumerable.Empty<TypeParameterSyntax>())
+            names.Add(tp.Identifier.Text);
+        foreach (var name in plan.EnclosingTypeParams)
+            names.Add(name);
+        return names;
     }
 
     private static MethodDeclarationSyntax? FindEnclosingMethod(LocalFunctionStatementSyntax localFn)

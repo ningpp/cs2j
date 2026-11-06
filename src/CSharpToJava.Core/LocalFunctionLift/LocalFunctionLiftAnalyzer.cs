@@ -272,13 +272,44 @@ internal sealed class LocalFunctionLiftAnalyzer
             }
 
             // Determine which enclosing type params are used by the local function
-            // but not in its own type parameter list.
-            var usedEnclosingParams = new List<string>();
-            foreach (var tp in enclosingTypeParams)
+            // but not in its own type parameter list, then close over constraint
+            // clauses: `where T : IFoo<U>` forces U to be carried as well, or the
+            // lifted signature names an undeclared parameter (S-05 ②).
+            var carried = new HashSet<string>(
+                enclosingTypeParams.Where(tp => !ownTypeParams.Contains(tp) && typeIdentifiers.Contains(tp)),
+                StringComparer.Ordinal);
+            var enclosingSet = enclosingTypeParams.ToHashSet(StringComparer.Ordinal);
+            var enclosingMethod = FindEnclosingMethod(localFn);
+            TypeParameterConstraintClauseSyntax? ClauseFor(string name)
+                => localFn.ConstraintClauses.FirstOrDefault(c => c.Name.Identifier.Text == name)
+                   ?? enclosingMethod?.ConstraintClauses
+                       .FirstOrDefault(c => c.Name.Identifier.Text == name);
+
+            bool clauseChanged;
+            do
             {
-                if (!ownTypeParams.Contains(tp) && typeIdentifiers.Contains(tp))
-                    usedEnclosingParams.Add(tp);
+                clauseChanged = false;
+                // Clauses of the local function's OWN parameters can name enclosing
+                // parameters too (`int Local<U>(U u) where U : IComparable<T>`), so
+                // the closure starts from both sets.
+                foreach (var name in carried.Concat(ownTypeParams).ToList())
+                {
+                    if (ClauseFor(name) is not { } clause)
+                        continue;
+
+                    foreach (var id in clause.DescendantNodes().OfType<IdentifierNameSyntax>())
+                    {
+                        var referenced = id.Identifier.Text;
+                        if (ownTypeParams.Contains(referenced) || !enclosingSet.Contains(referenced))
+                            continue;
+                        if (carried.Add(referenced))
+                            clauseChanged = true;
+                    }
+                }
             }
+            while (clauseChanged);
+
+            var usedEnclosingParams = enclosingTypeParams.Where(carried.Contains).ToList();
 
             if (usedEnclosingParams.Count > 0)
             {
@@ -755,6 +786,20 @@ internal sealed class LocalFunctionLiftAnalyzer
                 return true;
         }
         return false;
+    }
+
+    private static MethodDeclarationSyntax? FindEnclosingMethod(LocalFunctionStatementSyntax localFn)
+    {
+        SyntaxNode? current = localFn.Parent;
+        while (current != null)
+        {
+            if (current is MethodDeclarationSyntax method)
+                return method;
+            if (current is TypeDeclarationSyntax)
+                return null;
+            current = current.Parent;
+        }
+        return null;
     }
 
     private static List<string> GetEnclosingMethodTypeParameters(
