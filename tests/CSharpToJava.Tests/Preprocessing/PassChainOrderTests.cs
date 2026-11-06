@@ -1,4 +1,5 @@
 using CSharpToJava.CLI;
+using CommandLine;
 using CSharpToJava.CLI.Preprocessing;
 using CSharpToJava.Core.JavaKeywords;
 using CSharpToJava.Core.LinqChannel;
@@ -1158,5 +1159,199 @@ public sealed class PassChainOrderTests
                 PassIds.ConcurrencyNormalize,
             },
             plan.Enabled.Select(pass => pass.Id).ToArray());
+    }
+
+    // ---- R6: CLI knobs + RunAfterIds enablement dependency (plan §6.4) ----
+
+    private static PassChainConfiguration CreateR6ChainConfig(
+        bool javaReady = false,
+        bool genericDeepenStrict = false,
+        string? genericDeepenOverrides = null,
+        bool closedMetadataStrict = false)
+        => new()
+        {
+            JavaReady = javaReady,
+            GenericDeepenStrict = genericDeepenStrict,
+            GenericDeepenOverridesPath = genericDeepenOverrides,
+            ClosedMetadataStrict = closedMetadataStrict,
+            MakerOptionsFactory = () => new ReadOnlyStructMakerOptions(),
+            RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
+            JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
+            MemberDesugarOptionsFactory = () => new CSharpToJava.Core.MemberDesugar.MemberDesugarOptions(),
+            StructValueSemanticsOptionsFactory = () => new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
+            VarianceAuditOptionsFactory = () => new CSharpToJava.Core.VarianceAudit.VarianceAuditOptions(),
+            EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions(),
+            LexicalNormalizeOptionsFactory = () => new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions(),
+            EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
+            UnsafeFfmOptionsFactory = () => new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
+            ExpressionDesugarOptionsFactory = () => new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions(),
+            LinqChannelOptionsFactory = () => new LinqChannelOptions(),
+        };
+
+    [Fact]
+    public void R6_new_switches_parse_on_both_entry_points()
+    {
+        var args = new[]
+        {
+            "--generic-deepen-overrides", "config/generic-deepen-overrides.json",
+            "--generic-deepen-strict",
+            "--closed-metadata-strict",
+        };
+
+        var preprocess = CommandLine.Parser.Default
+            .ParseArguments<CSharpToJava.CLI.PreprocessVerbOptions>(args)
+            .MapResult(options => options, _ => throw new InvalidOperationException("preprocess parse failed"));
+        Assert.Equal("config/generic-deepen-overrides.json", preprocess.GenericDeepenOverridesPath);
+        Assert.True(preprocess.GenericDeepenStrict);
+        Assert.True(preprocess.ClosedMetadataStrict);
+
+        var convert = CommandLine.Parser.Default
+            .ParseArguments<CSharpToJava.CLI.ConvertProjectOptions>(
+                args.Concat(new[] { "-s", "src", "-d", "dst" }))
+            .MapResult(options => options, _ => throw new InvalidOperationException("convert-project parse failed"));
+        Assert.Equal("config/generic-deepen-overrides.json", convert.GenericDeepenOverridesPath);
+        Assert.True(convert.GenericDeepenStrict);
+        Assert.True(convert.ClosedMetadataStrict);
+    }
+
+    [Fact]
+    public void R6_strict_switches_reach_the_pass_options_and_cannot_weaken_the_profile()
+    {
+        // Default profile + explicit strict opt-ins.
+        var explicitStrict = CreateR6ChainConfig(
+            genericDeepenStrict: true,
+            genericDeepenOverrides: "gd.json",
+            closedMetadataStrict: true);
+        var deepen = (CSharpToJava.CLI.Preprocessing.Adapters.GenericDeepenPassAdapter)
+            PassChainFactory.CreateAdapter(PassIds.GenericDeepen, explicitStrict);
+        Assert.True(deepen.Options.Strict);
+        Assert.Equal("gd.json", deepen.Options.OverridesPath);
+
+        var closed = (CSharpToJava.CLI.Preprocessing.Adapters.ClosedMetadataPassAdapter)
+            PassChainFactory.CreateAdapter(PassIds.ClosedMetadata, explicitStrict);
+        Assert.True(closed.Options.Strict);
+
+        // Default profile without the switch stays non-strict.
+        var relaxed = CreateR6ChainConfig();
+        var relaxedDeepen = (CSharpToJava.CLI.Preprocessing.Adapters.GenericDeepenPassAdapter)
+            PassChainFactory.CreateAdapter(PassIds.GenericDeepen, relaxed);
+        Assert.False(relaxedDeepen.Options.Strict);
+        var relaxedClosed = (CSharpToJava.CLI.Preprocessing.Adapters.ClosedMetadataPassAdapter)
+            PassChainFactory.CreateAdapter(PassIds.ClosedMetadata, relaxed);
+        Assert.False(relaxedClosed.Options.Strict);
+
+        // java-ready implies strict regardless of the switch (on only).
+        var javaReady = CreateR6ChainConfig(javaReady: true);
+        var javaReadyDeepen = (CSharpToJava.CLI.Preprocessing.Adapters.GenericDeepenPassAdapter)
+            PassChainFactory.CreateAdapter(PassIds.GenericDeepen, javaReady);
+        Assert.True(javaReadyDeepen.Options.Strict);
+        var javaReadyClosed = (CSharpToJava.CLI.Preprocessing.Adapters.ClosedMetadataPassAdapter)
+            PassChainFactory.CreateAdapter(PassIds.ClosedMetadata, javaReady);
+        Assert.True(javaReadyClosed.Options.Strict);
+    }
+
+    [Fact]
+    public void R6_dependency_closure_auto_enables_transitive_run_after_ids_in_topological_order()
+    {
+        var registry = PassCatalog.BuildRegistry();
+        var expansion = PassDependencyClosure.Expand(
+            registry, new[] { PassIds.GenericDeepen }, autoEnableDependencies: true);
+
+        Assert.True(expansion.IsSatisfied);
+
+        var ids = expansion.EnabledIds.ToList();
+        Assert.Contains(PassIds.GenericDeepen, ids);
+        Assert.Contains(PassIds.Generic, ids);
+        // Transitive prerequisite of generic: unsigned.
+        Assert.Contains(PassIds.Unsigned, ids);
+        Assert.Contains(
+            expansion.AutoEnabled,
+            dependency => dependency.PassId == PassIds.GenericDeepen
+                          && dependency.DependencyId == PassIds.Generic);
+        Assert.True(ids.IndexOf(PassIds.Unsigned) < ids.IndexOf(PassIds.Generic));
+        Assert.True(ids.IndexOf(PassIds.Generic) < ids.IndexOf(PassIds.GenericDeepen));
+
+        // The expanded selection resolves to a plan that actually runs generic
+        // before generic-deepen.
+        var plan = PassPlanResolver.Resolve(
+            registry,
+            PassChainFactory.BuildAllDisabledToggles(registry),
+            expansion.EnabledIds);
+        Assert.True(plan.IsValid);
+        var planned = plan.Enabled.Select(pass => pass.Id).ToList();
+        Assert.True(planned.IndexOf(PassIds.Generic) < planned.IndexOf(PassIds.GenericDeepen));
+    }
+
+    [Fact]
+    public void R6_dependency_without_unified_tree_is_a_hard_error()
+    {
+        var expansion = PassDependencyClosure.Expand(
+            PassCatalog.BuildRegistry(), new[] { PassIds.GenericDeepen }, autoEnableDependencies: false);
+
+        Assert.False(expansion.IsSatisfied);
+        var missing = expansion.Missing
+            .Single(dependency => dependency.PassId == PassIds.GenericDeepen);
+        Assert.Equal(PassIds.Generic, missing.DependencyId);
+
+        var message = PassDependencyExpansion.DescribeMissing(missing);
+        Assert.Contains(
+            $"pass '{PassIds.GenericDeepen}' requires '{PassIds.Generic}' (RunAfterIds)", message);
+        Assert.Contains("--unified-preprocessed-src", message);
+        Assert.Contains($"add --pass {PassIds.Generic}", message);
+    }
+
+    [Fact]
+    public void R6_existing_dependency_is_not_added_twice()
+    {
+        var expansion = PassDependencyClosure.Expand(
+            PassCatalog.BuildRegistry(),
+            new[] { PassIds.Generic, PassIds.GenericDeepen },
+            autoEnableDependencies: true);
+
+        Assert.True(expansion.IsSatisfied);
+        Assert.DoesNotContain(
+            expansion.AutoEnabled,
+            dependency => dependency.DependencyId == PassIds.Generic);
+        Assert.Single(expansion.EnabledIds.Where(id => id == PassIds.Generic));
+        Assert.Single(expansion.EnabledIds.Where(id => id == PassIds.GenericDeepen));
+    }
+
+    [Fact]
+    public void R6_auto_enabled_dependency_conflicting_with_disable_pass_fails_in_the_resolver()
+    {
+        var registry = PassCatalog.BuildRegistry();
+        var expansion = PassDependencyClosure.Expand(
+            registry, new[] { PassIds.GenericDeepen }, autoEnableDependencies: true);
+
+        var plan = PassPlanResolver.Resolve(
+            registry,
+            PassChainFactory.BuildAllDisabledToggles(registry),
+            expansion.EnabledIds,
+            disablePassIds: new[] { PassIds.Generic });
+
+        Assert.False(plan.IsValid);
+        Assert.Contains(
+            plan.Errors,
+            error => error.Contains(PreprocessDiagnosticCodes.PassToggleConflict)
+                     && error.Contains($"pass '{PassIds.Generic}'"));
+    }
+
+    [Fact]
+    public void R6_unknown_explicit_id_survives_the_dependency_expansion()
+    {
+        var expansion = PassDependencyClosure.Expand(
+            PassCatalog.BuildRegistry(), new[] { "no-such-pass" }, autoEnableDependencies: true);
+
+        Assert.Contains("no-such-pass", expansion.EnabledIds);
+
+        var plan = PassPlanResolver.Resolve(
+            PassCatalog.BuildRegistry(),
+            PassChainFactory.BuildAllDisabledToggles(PassCatalog.BuildRegistry()),
+            expansion.EnabledIds);
+        Assert.False(plan.IsValid);
+        Assert.Contains(
+            plan.Errors,
+            error => error.Contains(PreprocessDiagnosticCodes.UnknownPass)
+                     && error.Contains("no-such-pass"));
     }
 }

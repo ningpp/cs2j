@@ -437,6 +437,9 @@ public class Program
                 ExtensionOverridesPath = opts.ExtensionOverridesPath,
                 ClosedMetadataOverridesPath = opts.ClosedMetadataOverridesPath,
                 ClosedMetadataConsumerSurfacesPath = opts.ClosedMetadataConsumerSurfacesPath,
+                GenericDeepenOverridesPath = opts.GenericDeepenOverridesPath,
+                GenericDeepenStrict = opts.GenericDeepenStrict,
+                ClosedMetadataStrict = opts.ClosedMetadataStrict,
                 // C49: materialization is default-on; --no-materialize-
                 // extension-blocks leaves the factory null, restoring the
                 // classic CS2J1906 extension-block gate byte-for-byte.
@@ -4221,10 +4224,41 @@ public class Program
             // the descriptor defaults (convert-project chain) are used.
             IReadOnlyDictionary<string, bool>? legacyToggles = null;
             IEnumerable<string>? enablePassIds = opts.EnablePasses;
-            if (opts.Passes != null && opts.Passes.Any())
+            var explicitPassSelection = opts.Passes != null && opts.Passes.Any();
+            if (explicitPassSelection)
             {
                 legacyToggles = PassChainFactory.BuildAllDisabledToggles(PassCatalog.BuildRegistry());
-                enablePassIds = opts.Passes.Concat(opts.EnablePasses ?? Array.Empty<string>()).ToList();
+                enablePassIds = opts.Passes!.Concat(opts.EnablePasses ?? Array.Empty<string>()).ToList();
+            }
+
+            // R6 (upgrade plan §6.4): an explicit --pass selection must also run
+            // its transitive RunAfterIds prerequisites. With --unified-preprocessed-src
+            // the missing prerequisites are appended in locked order (the shared
+            // tree carries each pass' output to the next); without it the
+            // dependent pass would silently read the unprocessed source tree, so
+            // the invocation fails instead of no-op'ing.
+            if (explicitPassSelection)
+            {
+                var expansion = PassDependencyClosure.Expand(
+                    PassCatalog.BuildRegistry(), enablePassIds!, opts.UnifiedPreprocessedSrc);
+                if (!expansion.IsSatisfied)
+                {
+                    foreach (var dependency in expansion.Missing)
+                    {
+                        Console.Error.WriteLine(
+                            PassDependencyExpansion.DescribeMissing(dependency));
+                    }
+
+                    return 1;
+                }
+
+                foreach (var dependency in expansion.AutoEnabled)
+                {
+                    Console.Error.WriteLine(
+                        PassDependencyExpansion.DescribeAutoEnabled(dependency));
+                }
+
+                enablePassIds = expansion.EnabledIds;
             }
 
             // M0-b: java-ready/audit append normalization-audit to whatever the
@@ -4403,6 +4437,9 @@ public class Program
                 ExtensionOverridesPath = opts.ExtensionOverridesPath,
                 ClosedMetadataOverridesPath = opts.ClosedMetadataOverridesPath,
                 ClosedMetadataConsumerSurfacesPath = opts.ClosedMetadataConsumerSurfacesPath,
+                GenericDeepenOverridesPath = opts.GenericDeepenOverridesPath,
+                GenericDeepenStrict = opts.GenericDeepenStrict,
+                ClosedMetadataStrict = opts.ClosedMetadataStrict,
                 // C49: materialization is default-on; --no-materialize-
                 // extension-blocks leaves the factory null, restoring the
                 // classic CS2J1906 extension-block gate byte-for-byte.
@@ -5591,6 +5628,20 @@ class PreprocessVerbOptions
         HelpText = "Path to ClosedTypeConsumerSurfaces.json (configurable serializer/reflection consumer surfaces, upgrade plan R3; default: config/ClosedTypeConsumerSurfaces.json)")]
     public string? ClosedMetadataConsumerSurfacesPath { get; set; }
 
+    [Option("generic-deepen-overrides", Required = false,
+        HelpText = "Path to the generic-deepen (C02) skip/force overrides JSON (same shape as the closed-metadata gate)")]
+    public string? GenericDeepenOverridesPath { get; set; }
+
+    [Option("generic-deepen-strict", Default = false,
+        HelpText = "generic-deepen (C02): escalate residual-scan findings and downgradeable warnings to errors " +
+                   "(profile java-ready/audit already implies strict; this switch only turns it on)")]
+    public bool GenericDeepenStrict { get; set; }
+
+    [Option("closed-metadata-strict", Default = false,
+        HelpText = "closed-metadata (C30): escalate the residual gate and downgradeable diagnostics to errors " +
+                   "(profile java-ready/audit already implies strict; this switch only turns it on)")]
+    public bool ClosedMetadataStrict { get; set; }
+
     [Option("materialize-extension-blocks", Default = true,
         HelpText = "Enable C49 C# 14 extension-block materialization inside the extension-methods pass " +
                    "(extension blocks -> classic static-class members plus explicit call sites; default on; --no-materialize-extension-blocks keeps the CS2J1906 gate)")]
@@ -6095,6 +6146,20 @@ class ConvertProjectOptions
     [Option("closed-metadata-consumer-surfaces", Required = false,
         HelpText = "Path to ClosedTypeConsumerSurfaces.json (configurable serializer/reflection consumer surfaces, upgrade plan R3; default: config/ClosedTypeConsumerSurfaces.json)")]
     public string? ClosedMetadataConsumerSurfacesPath { get; set; }
+
+    [Option("generic-deepen-overrides", Required = false,
+        HelpText = "Path to the generic-deepen (C02) skip/force overrides JSON (same shape as the closed-metadata gate)")]
+    public string? GenericDeepenOverridesPath { get; set; }
+
+    [Option("generic-deepen-strict", Default = false,
+        HelpText = "generic-deepen (C02): escalate residual-scan findings and downgradeable warnings to errors " +
+                   "(profile java-ready/audit already implies strict; this switch only turns it on)")]
+    public bool GenericDeepenStrict { get; set; }
+
+    [Option("closed-metadata-strict", Default = false,
+        HelpText = "closed-metadata (C30): escalate the residual gate and downgradeable diagnostics to errors " +
+                   "(profile java-ready/audit already implies strict; this switch only turns it on)")]
+    public bool ClosedMetadataStrict { get; set; }
 
     [Option("materialize-extension-blocks", Default = true,
         HelpText = "Enable C49 C# 14 extension-block materialization inside the extension-methods pass " +

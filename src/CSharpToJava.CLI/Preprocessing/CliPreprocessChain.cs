@@ -167,6 +167,21 @@ internal sealed class CliChainRequest
     /// <summary>R3: configurable closed-type consumer surfaces JSON path (null = default config).</summary>
     public string? ClosedMetadataConsumerSurfacesPath { get; init; }
 
+    /// <summary>R6: generic-deepen (C02) skip/force overrides JSON path (null = none).</summary>
+    public string? GenericDeepenOverridesPath { get; init; }
+
+    /// <summary>
+    /// R6: explicit generic-deepen strict opt-in. The java-ready/audit profile
+    /// already implies strict; this switch can only turn it on, never off.
+    /// </summary>
+    public bool GenericDeepenStrict { get; init; }
+
+    /// <summary>
+    /// R6: explicit closed-metadata strict opt-in. The java-ready/audit profile
+    /// already implies strict; this switch can only turn it on, never off.
+    /// </summary>
+    public bool ClosedMetadataStrict { get; init; }
+
     /// <summary>
     /// C49 M2: extension-block materialization policy factory (null =
     /// classic CS2J1906 behavior). Both CLI entry points supply it from
@@ -380,6 +395,9 @@ internal static class CliPreprocessChain
             ExtensionOverridesPath = request.ExtensionOverridesPath,
             ClosedMetadataOverridesPath = request.ClosedMetadataOverridesPath,
             ClosedMetadataConsumerSurfacesPath = request.ClosedMetadataConsumerSurfacesPath,
+            GenericDeepenOverridesPath = request.GenericDeepenOverridesPath,
+            GenericDeepenStrict = request.GenericDeepenStrict,
+            ClosedMetadataStrict = request.ClosedMetadataStrict,
             ExtensionBlockOptionsFactory = request.ExtensionBlockOptionsFactory,
         };
 

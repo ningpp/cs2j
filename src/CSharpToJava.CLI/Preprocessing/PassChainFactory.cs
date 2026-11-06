@@ -191,6 +191,21 @@ internal sealed class PassChainConfiguration
     /// <summary>R3: path to the closed-type consumer surfaces JSON (null = default config).</summary>
     public string? ClosedMetadataConsumerSurfacesPath { get; init; }
 
+    /// <summary>R6: path to the generic-deepen (C02) skip/force overrides JSON (null = none).</summary>
+    public string? GenericDeepenOverridesPath { get; init; }
+
+    /// <summary>
+    /// R6: explicit generic-deepen strict opt-in (java-ready/audit already make
+    /// it strict; the switch can only turn strict on).
+    /// </summary>
+    public bool GenericDeepenStrict { get; init; }
+
+    /// <summary>
+    /// R6: explicit closed-metadata strict opt-in (java-ready/audit already make
+    /// it strict; the switch can only turn strict on).
+    /// </summary>
+    public bool ClosedMetadataStrict { get; init; }
+
     /// <summary>
     /// C49 M2: factory for extension-block materialization policy. Null
     /// (default) keeps the classic CS2J1906 gate bit-for-bit unchanged; the
@@ -502,8 +517,10 @@ internal static class PassChainFactory
                 {
                     // W-01: java-ready/audit make the generic family strict
                     // (residual scan findings escalate); the default profile
-                    // keeps the historical non-strict behavior.
-                    Strict = config.JavaReady,
+                    // keeps the historical non-strict behavior. R6 exposes the
+                    // explicit --generic-deepen-strict opt-in on top (on only).
+                    Strict = config.JavaReady || config.GenericDeepenStrict,
+                    OverridesPath = config.GenericDeepenOverridesPath,
                 },
                 config.Verbose,
                 config.FilterUnsupportedProjects,
@@ -542,8 +559,9 @@ internal static class PassChainFactory
                     ConsumerSurfaceConfigPath = config.ClosedMetadataConsumerSurfacesPath,
                     // W-01: java-ready/audit escalate the residual gate and
                     // downgradeable diagnostics (CM-STRICT); default keeps
-                    // the historical Warning pass-through.
-                    Strict = config.JavaReady,
+                    // the historical Warning pass-through. R6 exposes the
+                    // explicit --closed-metadata-strict opt-in on top (on only).
+                    Strict = config.JavaReady || config.ClosedMetadataStrict,
                 },
                 config.Verbose,
                 config.FilterUnsupportedProjects,
