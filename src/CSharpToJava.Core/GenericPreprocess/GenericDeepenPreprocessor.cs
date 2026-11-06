@@ -133,6 +133,16 @@ public sealed class GenericDeepenPreprocessor
             }
         }
 
+        // V-07: `x is T` / `x as T` binary lowerings for this tree.
+        var typeTestsByNode = new Dictionary<SyntaxNode, TypeTestPlan>();
+        foreach (var plan in _analysis.TypeTests)
+        {
+            if (plan.Expression.SyntaxTree == model.SyntaxTree)
+            {
+                typeTestsByNode[plan.Expression] = plan;
+            }
+        }
+
         var methodTokensByNode = new Dictionary<SyntaxNode, MethodTokenPlan>();
         var methodTokenSites = new Dictionary<SyntaxNode, string>();
         var methodTokenCallSites = new Dictionary<SyntaxNode, IReadOnlyList<string>>();
@@ -162,6 +172,7 @@ public sealed class GenericDeepenPreprocessor
 
         if (anchorsByNode.Count == 0 && closuresByNode.Count == 0
             && patternsByNode.Count == 0 && catchesByNode.Count == 0
+            && typeTestsByNode.Count == 0
             && fieldDeclRemovals.Count == 0 && fieldUsages.Count == 0
             && staticMethodsByNode.Count == 0 && staticCallSites.Count == 0
             && ctorTokensByType.Count == 0 && ctorTokenSites.Count == 0 && ctorTokenCallSites.Count == 0
@@ -174,7 +185,7 @@ public sealed class GenericDeepenPreprocessor
 
         var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
         var rewriter = new GenericDeepenRewriter(
-            anchorsByNode, closuresByNode, patternsByNode, catchesByNode, fieldDeclRemovals, fieldUsages,
+            anchorsByNode, closuresByNode, patternsByNode, catchesByNode, typeTestsByNode, fieldDeclRemovals, fieldUsages,
             staticMethodsByNode, staticCallSites, ctorTokensByType, ctorTokenSites, ctorTokenCallSites,
             methodTokensByNode, methodTokenSites, methodTokenCallSites,
             stats, diagnostics, model);

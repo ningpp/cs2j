@@ -45,6 +45,18 @@ public static class GenericDeepenCodes
     /// </summary>
     public const string AnchorMemberNotMaterializable = "CS2J1107";
 
+    /// <summary>
+    /// V-07 (upgrade plan §6.4-R0/GD-ISAS-EXPR): an <c>as T</c> cast to a type
+    /// parameter whose receiver cannot be re-evaluated without observable side
+    /// effects (method call, property, indexer, ...). The canonical lowering
+    /// <c>typeof(T).IsInstanceOfType(x) ? (T)(object)x : default</c> would evaluate
+    /// the receiver twice, so the expression is left VERBATIM and the degradation
+    /// is REGISTERED here — the Java side has no type-parameter branch for
+    /// <c>as</c>, so strict (java-ready) escalates this Warning to Error instead of
+    /// emitting an illegal <c>instanceof T</c>.
+    /// </summary>
+    public const string AsCastReceiverNotRepeatable = "CS2J1108";
+
     public const string ExpressionTreeSite = "CS2J1110";
     public const string ResidualFound = "CS2J1120";
     public const string RestoreOrBuildFailed = "CS2J1130";

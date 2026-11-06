@@ -12,6 +12,12 @@ public sealed class GenericDeepenStatistics
     public int AnchorsReconciledFromE10;
     public int IsAsSitesCovered;
     public int TypeParamPatternsRewritten;
+
+    /// <summary>V-07: `x is T` / `x as T` binary forms lowered to token-based tests.</summary>
+    public int TypeTestsRewritten;
+
+    /// <summary>V-07: `x as T` sites left verbatim (non-repeatable receiver, CS2J1108).</summary>
+    public int AsSitesSkippedNonRepeatable;
     public int CatchTypeParamsRewritten;
     public int StaticMethodsRewritten;
     public int StaticFieldHoldersGenerated;
@@ -42,6 +48,8 @@ public sealed class GenericDeepenStatistics
         AnchorsReconciledFromE10 += source.AnchorsReconciledFromE10;
         IsAsSitesCovered += source.IsAsSitesCovered;
         TypeParamPatternsRewritten += source.TypeParamPatternsRewritten;
+        TypeTestsRewritten += source.TypeTestsRewritten;
+        AsSitesSkippedNonRepeatable += source.AsSitesSkippedNonRepeatable;
         CatchTypeParamsRewritten += source.CatchTypeParamsRewritten;
         StaticMethodsRewritten += source.StaticMethodsRewritten;
         StaticFieldHoldersGenerated += source.StaticFieldHoldersGenerated;
@@ -68,6 +76,7 @@ public sealed class GenericDeepenStatistics
         => $"generic-deepen: {FilesTransformed} transformed, {FilesSkippedClean} clean " +
            $"({TokenAnchorsInserted} anchors, {NestedPropagations} nested propagations, " +
            $"{TypeParamPatternsRewritten} patterns, " +
+           $"{TypeTestsRewritten} type tests, " +
            $"{CatchTypeParamsRewritten} catches, {StaticMethodsRewritten} static methods, " +
            $"{StaticFieldAccessesRewritten} field accesses, {CallSitesUpdated} call sites, " +
            $"{ExpressionTreeSitesSkipped} expression-tree skips, {PlansSkipped} plans skipped, " +

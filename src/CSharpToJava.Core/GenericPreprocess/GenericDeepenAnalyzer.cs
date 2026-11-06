@@ -158,6 +158,7 @@ public sealed class GenericDeepenAnalysis
     public required IReadOnlyList<TokenAnchorPlan> Anchors { get; init; }
     public required IReadOnlyList<ClosureAnchorPlan> ClosureAnchors { get; init; }
     public required IReadOnlyList<TypeParamPatternPlan> Patterns { get; init; }
+    public required IReadOnlyList<TypeTestPlan> TypeTests { get; init; }
     public required IReadOnlyList<CatchTypeParamPlan> Catches { get; init; }
     public required IReadOnlyList<StaticFieldPlan> StaticFields { get; init; }
     public required IReadOnlyList<StaticMethodPlan> StaticMethods { get; init; }
@@ -188,6 +189,7 @@ public sealed class GenericDeepenAnalysis
         Anchors = Array.Empty<TokenAnchorPlan>(),
         ClosureAnchors = Array.Empty<ClosureAnchorPlan>(),
         Patterns = Array.Empty<TypeParamPatternPlan>(),
+        TypeTests = Array.Empty<TypeTestPlan>(),
         Catches = Array.Empty<CatchTypeParamPlan>(),
         StaticFields = Array.Empty<StaticFieldPlan>(),
         StaticMethods = Array.Empty<StaticMethodPlan>(),
@@ -209,6 +211,18 @@ public sealed class TypeParamPatternPlan
     public required string VariableName { get; init; }
     public required string TempName { get; init; }
     public required bool IsDiscard { get; init; }
+}
+
+/// <summary>
+/// V-07 (GD-ISAS-EXPR): `x is T` / `x as T` binary form over a type parameter,
+/// lowered to the token-based runtime test the Java side already understands
+/// (<c>Type.IsInstanceOfType</c> → <c>Class.isInstance</c>).
+/// </summary>
+public sealed class TypeTestPlan
+{
+    public required BinaryExpressionSyntax Expression { get; init; }
+    public required GenericDeepenParamRef Param { get; init; }
+    public required bool IsAs { get; init; }
 }
 
 /// <summary>`catch (T e)` clause lowered to a filtered catch over Exception (GD-CATCH).</summary>
@@ -278,6 +292,7 @@ public sealed class GenericDeepenAnalyzer
         new(SymbolEqualityComparer.Default);
 
     private readonly List<TypeParamPatternPlan> _patterns = new();
+    private readonly List<TypeTestPlan> _typeTests = new();
     private readonly List<CatchTypeParamPlan> _catches = new();
     private int _patternTempCounter;
 
@@ -331,6 +346,7 @@ public sealed class GenericDeepenAnalyzer
                 Anchors = Array.Empty<TokenAnchorPlan>(),
                 ClosureAnchors = Array.Empty<ClosureAnchorPlan>(),
                 Patterns = Array.Empty<TypeParamPatternPlan>(),
+                TypeTests = Array.Empty<TypeTestPlan>(),
                 Catches = Array.Empty<CatchTypeParamPlan>(),
                 StaticFields = Array.Empty<StaticFieldPlan>(),
                 StaticMethods = Array.Empty<StaticMethodPlan>(),
@@ -451,6 +467,9 @@ public sealed class GenericDeepenAnalyzer
         _patterns.Sort((a, b) => string.CompareOrdinal(a.If.SyntaxTree.FilePath, b.If.SyntaxTree.FilePath) != 0
             ? string.CompareOrdinal(a.If.SyntaxTree.FilePath, b.If.SyntaxTree.FilePath)
             : a.If.SpanStart.CompareTo(b.If.SpanStart));
+        _typeTests.Sort((a, b) => string.CompareOrdinal(a.Expression.SyntaxTree.FilePath, b.Expression.SyntaxTree.FilePath) != 0
+            ? string.CompareOrdinal(a.Expression.SyntaxTree.FilePath, b.Expression.SyntaxTree.FilePath)
+            : a.Expression.SpanStart.CompareTo(b.Expression.SpanStart));
         _catches.Sort((a, b) => string.CompareOrdinal(a.Clause.SyntaxTree.FilePath, b.Clause.SyntaxTree.FilePath) != 0
             ? string.CompareOrdinal(a.Clause.SyntaxTree.FilePath, b.Clause.SyntaxTree.FilePath)
             : a.Clause.SpanStart.CompareTo(b.Clause.SpanStart));
@@ -460,6 +479,7 @@ public sealed class GenericDeepenAnalyzer
             Anchors = anchors,
             ClosureAnchors = closureAnchors,
             Patterns = _patterns,
+            TypeTests = _typeTests,
             Catches = _catches,
             StaticFields = _staticFields,
             StaticMethods = _staticMethods,
@@ -2076,6 +2096,7 @@ public sealed class GenericDeepenAnalyzer
                         && ResolveTypeParameter(model, rightType, visible, declaration) is { } binaryRef)
                     {
                         RegisterTokenSite(method, declaration, model, binary, binaryRef.Symbol, binaryRef.Ref, needs);
+                        CollectTypeTest(binary, binaryRef.Ref, model);
                     }
 
                     break;
@@ -2090,6 +2111,75 @@ public sealed class GenericDeepenAnalyzer
 
         return needs;
     }
+
+    /// <summary>
+    /// V-07 (upgrade plan §6.4-R0/GD-ISAS-EXPR): plan the lowering of a binary
+    /// <c>x is T</c> / <c>x as T</c> over a type parameter.
+    /// <para>
+    /// <c>is</c> always lowers safely: <c>typeof(T).IsInstanceOfType(x)</c> evaluates
+    /// the receiver exactly once. <c>as</c> lowers to
+    /// <c>typeof(T).IsInstanceOfType(x) ? (T)(object)x : default</c>, which reads the
+    /// receiver twice — acceptable only when a second read is observably identical
+    /// (local/parameter/field reads and <c>this</c>). Anything else (call, property,
+    /// indexer) stays verbatim and is REGISTERED as CS2J1108 instead of being
+    /// silently counted as covered: the Java side has no type-parameter branch for
+    /// <c>as</c>, so java-ready escalates the registration to Error.
+    /// </para>
+    /// </summary>
+    private void CollectTypeTest(BinaryExpressionSyntax binary, GenericDeepenParamRef paramRef, SemanticModel model)
+    {
+        if (!_options.RewriteIsAsPatterns)
+        {
+            return;
+        }
+
+        if (CSharpToJava.Core.Analysis.ExpressionTreeFacts.IsInsideQuotedExpressionLambda(model, binary))
+        {
+            // Quoted trees are preserved as-is (GD-EXPRTREE); the token site is already
+            // registered as an expression-tree skip by RegisterTokenSite.
+            return;
+        }
+
+        var isAs = binary.IsKind(SyntaxKind.AsExpression);
+        if (isAs && !IsRepeatableReceiver(binary.Left, model))
+        {
+            _analysisStats.AsSitesSkippedNonRepeatable++;
+            _diagnostics.Add(new GenericDeepenDiagnostic(
+                GenericDeepenSeverity.Warning, GenericDeepenRule.IsAs, GenericDeepenCodes.AsCastReceiverNotRepeatable,
+                $"as-cast to type parameter '{paramRef.Name}' has a receiver '{binary.Left}' that cannot be "
+                + "re-evaluated without observable side effects; the expression is left verbatim "
+                + "(lowering to IsInstanceOfType would evaluate the receiver twice).",
+                binary.SyntaxTree.FilePath,
+                binary.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+            return;
+        }
+
+        _typeTests.Add(new TypeTestPlan
+        {
+            Expression = binary,
+            Param = paramRef,
+            IsAs = isAs,
+        });
+    }
+
+    /// <summary>
+    /// Whether reading <paramref name="expression"/> twice within one evaluation is
+    /// observably identical: locals, parameters, fields (on a repeatable receiver)
+    /// and <c>this</c>. Properties/indexers/calls are excluded — a getter may have
+    /// side effects, so the V-07 <c>as</c> lowering must not duplicate them.
+    /// </summary>
+    private static bool IsRepeatableReceiver(ExpressionSyntax expression, SemanticModel model)
+        => expression switch
+        {
+            IdentifierNameSyntax identifier =>
+                model.GetSymbolInfo(identifier).Symbol is ILocalSymbol or IParameterSymbol or IFieldSymbol,
+            ThisExpressionSyntax => true,
+            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax name } access =>
+                model.GetSymbolInfo(name).Symbol is IFieldSymbol
+                && IsRepeatableReceiver(access.Expression, model),
+            ParenthesizedExpressionSyntax parenthesized => IsRepeatableReceiver(parenthesized.Expression, model),
+            _ => false,
+        };
 
     /// <summary>
     /// Resolves a type syntax used at a token site to its type parameter. Besides the

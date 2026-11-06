@@ -10,6 +10,7 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<SyntaxNode, TokenAnchorPlan> _anchorsByNode;
     private readonly Dictionary<SyntaxNode, ClosureAnchorPlan> _closuresByNode;
     private readonly Dictionary<SyntaxNode, TypeParamPatternPlan> _patternsByNode;
+    private readonly Dictionary<SyntaxNode, TypeTestPlan> _typeTestsByNode;
     private readonly Dictionary<SyntaxNode, CatchTypeParamPlan> _catchesByNode;
     private readonly HashSet<SyntaxNode> _fieldDeclRemovals;
     private readonly Dictionary<SyntaxNode, StaticFieldUsagePlan> _fieldUsages;
@@ -30,6 +31,7 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         Dictionary<SyntaxNode, ClosureAnchorPlan> closuresByNode,
         Dictionary<SyntaxNode, TypeParamPatternPlan> patternsByNode,
         Dictionary<SyntaxNode, CatchTypeParamPlan> catchesByNode,
+        Dictionary<SyntaxNode, TypeTestPlan> typeTestsByNode,
         HashSet<SyntaxNode> fieldDeclRemovals,
         Dictionary<SyntaxNode, StaticFieldUsagePlan> fieldUsages,
         Dictionary<SyntaxNode, StaticMethodPlan> staticMethodsByNode,
@@ -47,6 +49,7 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         _anchorsByNode = anchorsByNode;
         _closuresByNode = closuresByNode;
         _patternsByNode = patternsByNode;
+        _typeTestsByNode = typeTestsByNode;
         _catchesByNode = catchesByNode;
         _fieldDeclRemovals = fieldDeclRemovals;
         _fieldUsages = fieldUsages;
@@ -173,6 +176,35 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         // Block wrapper: the temp and the if share one scope; else-chains keep their
         // semantics because the else stays attached to the inner if.
         return SyntaxFactory.Block(tempDeclaration, newIf);
+    }
+
+    /// <summary>
+    /// V-07 (GD-ISAS-EXPR): lower <c>x is T</c> / <c>x as T</c> over a type parameter
+    /// into the token-based runtime test the Java side already maps
+    /// (<c>Type.IsInstanceOfType</c> → <c>Class.isInstance</c>). <c>is</c> evaluates
+    /// the receiver once; <c>as</c> only reaches this point when the analyzer proved
+    /// the receiver repeatable (everything else stays verbatim with CS2J1108), so the
+    /// canonical conditional does not duplicate observable side effects.
+    /// </summary>
+    public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
+    {
+        var visited = (BinaryExpressionSyntax)base.VisitBinaryExpression(node)!;
+        if (!_typeTestsByNode.TryGetValue(node, out var plan))
+        {
+            return visited;
+        }
+
+        var receiver = visited.Left.ToString();
+        var name = plan.Param.Name;
+        _stats.TypeTestsRewritten++;
+
+        var lowered = plan.IsAs
+            // `(T)(object)x` keeps the reference/boxing conversion explicit; `default`
+            // is correct here because `as T` only binds reference/nullable types.
+            ? $"(typeof({name}).IsInstanceOfType({receiver}) ? ({name})(object){receiver} : default)"
+            : $"typeof({name}).IsInstanceOfType({receiver})";
+
+        return SyntaxFactory.ParseExpression(lowered).WithTriviaFrom(visited);
     }
 
     public override SyntaxNode? VisitCatchClause(CatchClauseSyntax node)
