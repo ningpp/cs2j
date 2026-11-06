@@ -164,20 +164,30 @@ internal static class ProjectPreprocessSource
         var compiledByAny = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var project in includedProjects)
         {
-            var explicitOnly = ProjectCompileSet.ComputeCompiledFiles(
-                project.ProjectFilePath, layout.SourceRoot, includeDefaultItems: false);
-            if (explicitOnly != null)
-            {
-                foreach (var compiledFile in explicitOnly)
-                {
-                    explicitlyCompiled.Add(Path.GetFullPath(compiledFile));
-                }
-            }
-
             var fullSet = ProjectCompileSet.ComputeCompiledSet(
                 project.ProjectFilePath, layout.SourceRoot,
                 includeDefaultItems: true, allowMsBuildEvaluation: true);
             compiledSets.Add((project.ProjectDirectory, fullSet));
+
+            // When the authoritative compile set is available it already names
+            // every explicitly linked source. Falling back to the syntax-only
+            // explicit set in that case would re-admit TFM-conditional items
+            // that the evaluated TFM excludes (e.g. a *.netstandard.cs variant
+            // next to the selected *.net8.cs), so only use it for projects that
+            // could not be parsed at all.
+            if (fullSet == null)
+            {
+                var explicitOnly = ProjectCompileSet.ComputeCompiledFiles(
+                    project.ProjectFilePath, layout.SourceRoot, includeDefaultItems: false);
+                if (explicitOnly != null)
+                {
+                    foreach (var compiledFile in explicitOnly)
+                    {
+                        explicitlyCompiled.Add(Path.GetFullPath(compiledFile));
+                    }
+                }
+            }
+
             if (fullSet != null)
             {
                 foreach (var compiledFile in fullSet.Files)

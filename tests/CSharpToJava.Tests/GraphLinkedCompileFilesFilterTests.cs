@@ -370,6 +370,113 @@ public sealed class GraphLinkedCompileFilesFilterTests : IDisposable
     }
 
     [Fact]
+    public void TfmSpecificCompileItem_NotInAuthoritativeCompileSet_IsExcluded()
+    {
+        // Regression for JsonReaderHelper.netstandard.cs leaking into the net10
+        // input tree: the syntactic explicit-only set cannot evaluate the TFM
+        // Condition when TargetFrameworks depends on an unresolved SDK property,
+        // so it picks the raw (netstandard) branch. Once the authoritative
+        // MSBuild/TFM evaluation is available, its compile set is the only
+        // source of truth and the losing TFM variant must be dropped.
+        var csproj = WriteProject(
+            Path.Combine("json", "src"),
+            "System.Text.Json",
+            """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFrameworks>$(NetCoreAppCurrent);netstandard2.0</TargetFrameworks>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+              </PropertyGroup>
+              <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETCoreApp'">
+                <Compile Include="V.net8.cs" />
+              </ItemGroup>
+              <ItemGroup Condition="'$(TargetFrameworkIdentifier)' != '.NETCoreApp'">
+                <Compile Include="V.netstandard.cs" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        var net8Variant = WriteFile("json", "src", "V.net8.cs");
+        var netstandardVariant = WriteFile("json", "src", "V.netstandard.cs");
+
+        var layout = new ProjectPreprocessSourceLayout(
+            _sourceRoot, csproj, new[] { csproj });
+
+        try
+        {
+            MsBuildCompileEvaluator.EvaluationOverride = path =>
+            {
+                Assert.Equal(csproj, Path.GetFullPath(path));
+                return new MsBuildCompileEvaluation
+                {
+                    Files = new[] { net8Variant },
+                    TargetFramework = "net10.0",
+                };
+            };
+
+            var result = ProjectPreprocessSource.FilterToGraphMembers(
+                new[] { csproj, net8Variant, netstandardVariant },
+                SingleGraph(Project(csproj)), layout,
+                new SupportedProjectFiltering.ExclusionInfo());
+
+            Assert.Contains(net8Variant, result);
+            Assert.DoesNotContain(netstandardVariant, result);
+        }
+        finally
+        {
+            MsBuildCompileEvaluator.EvaluationOverride = null;
+        }
+    }
+
+    [Fact]
+    public void ExplicitSharedSource_OutsideProjectDirectory_IsKeptFromAuthoritativeSet()
+    {
+        // The authoritative compile set (not the explicit-only syntax set) must
+        // still carry explicitly linked shared source outside the project dir.
+        var csproj = WriteProject(
+            Path.Combine("uri", "tests", "UnitTests"),
+            "dotnet-uri-unit-tests",
+            SdkProject(
+                "<Compile Include=\"..\\Common\\System\\ThreadCultureChange.cs\" Link=\"Common\\ThreadCultureChange.cs\" />"));
+
+        var shared = WriteFile("uri", "tests", "Common", "System", "ThreadCultureChange.cs");
+        var foreign = WriteFile("other", "src", "NotLinked.cs");
+
+        var layout = new ProjectPreprocessSourceLayout(
+            _sourceRoot, csproj, new[] { csproj });
+
+        var result = ProjectPreprocessSource.FilterToGraphMembers(
+            new[] { csproj, shared, foreign }, SingleGraph(Project(csproj)), layout,
+            new SupportedProjectFiltering.ExclusionInfo());
+
+        Assert.Contains(shared, result);
+        Assert.DoesNotContain(foreign, result);
+    }
+
+    [Fact]
+    public void UnparseableProject_FilesUnderProjectDirectory_AreKeptConservatively()
+    {
+        // fullSet == null (root element is not <Project>): no compile set can be
+        // trusted, so files under the project directory stay in scope.
+        var csproj = WriteProject(
+            Path.Combine("broken", "src"),
+            "broken",
+            "<NotAProject><ItemGroup><Compile Include=\"Kept.cs\" /></ItemGroup></NotAProject>");
+
+        var kept = WriteFile("broken", "src", "Kept.cs");
+
+        var layout = new ProjectPreprocessSourceLayout(
+            _sourceRoot, csproj, new[] { csproj });
+
+        var result = ProjectPreprocessSource.FilterToGraphMembers(
+            new[] { csproj, kept }, SingleGraph(Project(csproj)), layout,
+            new SupportedProjectFiltering.ExclusionInfo());
+
+        Assert.Contains(kept, result);
+        Assert.Contains(csproj, result);
+    }
+
+    [Fact]
     public void ComputeCompiledFiles_WithoutDefaultItems_ResolvesOnlyExplicitIncludes()
     {
         var csproj = WriteProject(
