@@ -166,6 +166,16 @@ internal static class CollectionExprDiagnostics
         "No known concrete construction form for collection target '{0}' ({1}). " +
         "Site left unchanged.";
 
+    /// <summary>
+    /// T6 CS2J0581 variant: a spread-bearing site targeted at a constructible
+    /// concrete class/struct. This increment emits only the single array/span
+    /// constructor argument; the spread has no AddRange/foreach form here.
+    /// </summary>
+    public const string ConstructibleSpreadMessage =
+        "Collection target '{0}' is constructed through a single " +
+        "T[]/ReadOnlySpan<T> constructor parameter; spread elements are not " +
+        "supported by this lowering yet. Site left unchanged.";
+
     public const string SpreadNotEnumerableMessage =
         "Spread source is not enumerable or its static type cannot be determined; no " +
         "AddRange/foreach expansion is possible. Site left unchanged.";

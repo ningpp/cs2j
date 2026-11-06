@@ -19,7 +19,8 @@ internal sealed record TargetResolution(
     INamedTypeSymbol? ConstructedType = null,
     IMethodSymbol? BuilderFactory = null,
     string? BuilderResolveError = null,
-    string? BaselineNote = null);
+    string? BaselineNote = null,
+    IMethodSymbol? ConstructibleConstructor = null);
 
 /// <summary>
 /// Classifies a collection-expression site by
@@ -132,6 +133,8 @@ internal static class TargetTypeResolver
                         BaselineNote: InterfaceBaselineNote);
             }
 
+            var currentAssembly = model.Compilation.Assembly;
+
             // T3: concrete addable class/struct only. The classic collection
             // initializer emitted by the zero-temp form (and the native
             // collection-expression binding itself) requires
@@ -141,7 +144,6 @@ internal static class TargetTypeResolver
                 && !named.IsStatic && !named.IsAbstract
                 && ImplementsNonGenericEnumerable(named))
             {
-                var currentAssembly = model.Compilation.Assembly;
                 if (HasAccessibleParameterlessConstructor(named, currentAssembly)
                     && TryFindPatternAdd(
                         (CSharpCompilation)model.Compilation,
@@ -151,6 +153,43 @@ internal static class TargetTypeResolver
                     return new TargetResolution(
                         TargetKind.MutableConcrete, converted, false,
                         TargetElementType: elementType, AddMethod: addMethod);
+                }
+            }
+
+            // T6: concrete class/struct T3 did not accept, but constructible
+            // through the C# 12 collection-expression constructor shapes
+            // (rt10 JsonArray: `JsonArray(JsonNodeOptions? options = null)`,
+            // `JsonArray(params JsonNode?[] items)`,
+            // `JsonArray(params ReadOnlySpan<JsonNode?> items)`). The target
+            // must still implement System.Collections.IEnumerable: the
+            // baseline compiler rejects every other class/struct with CS9174,
+            // so this branch never invents construction semantics for types
+            // the language itself cannot target.
+            if (named.TypeKind is TypeKind.Class or TypeKind.Struct
+                && !named.IsStatic && !named.IsAbstract
+                && ImplementsNonGenericEnumerable(named)
+                && IsAccessible(named, currentAssembly))
+            {
+                if (node.Elements.Count == 0)
+                {
+                    if (TryFindNoRequiredArgumentConstructor(
+                            named, currentAssembly, out var emptyConstructor))
+                    {
+                        return new TargetResolution(
+                            TargetKind.ConstructibleClass, converted, false,
+                            ConstructedType: named,
+                            ConstructibleConstructor: emptyConstructor);
+                    }
+                }
+                else if (TryFindConstructibleElementsConstructor(
+                             named, currentAssembly,
+                             out var elementsConstructor, out var constructibleElement))
+                {
+                    return new TargetResolution(
+                        TargetKind.ConstructibleClass, converted, false,
+                        TargetElementType: constructibleElement,
+                        ConstructedType: named,
+                        ConstructibleConstructor: elementsConstructor);
                 }
             }
         }
@@ -242,12 +281,122 @@ internal static class TargetTypeResolver
                 symbol.ContainingAssembly, currentAssembly),
         };
 
+    /// <summary>
+    /// T6 constructor accessibility. Unlike <see cref="IsAccessible"/> (which
+    /// treats every same-assembly symbol as reachable for the pattern check),
+    /// private/protected constructors can never be invoked from an arbitrary
+    /// collection-expression site, so they are rejected here rather than
+    /// emitting output that fails CS0122.
+    /// </summary>
+    private static bool IsConstructibleConstructorAccessible(
+        IMethodSymbol constructor, IAssemblySymbol currentAssembly)
+        => constructor.DeclaredAccessibility switch
+        {
+            Accessibility.Public => true,
+            Accessibility.NotApplicable => true,
+            Accessibility.Internal
+                or Accessibility.ProtectedOrInternal =>
+                SymbolEqualityComparer.Default.Equals(
+                    constructor.ContainingAssembly, currentAssembly),
+            _ => false,
+        };
+
     private static bool HasAccessibleParameterlessConstructor(
         INamedTypeSymbol named, IAssemblySymbol currentAssembly)
         => named.InstanceConstructors.Any(ctor =>
             ctor.Parameters.Length == 0
             && (ctor.IsImplicitlyDeclared
                 || IsAccessible(ctor, currentAssembly)));
+
+    /// <summary>
+    /// T6 empty site: an accessible instance constructor that can be invoked
+    /// with no arguments — either genuinely parameterless, every parameter
+    /// optional (<c>JsonArray(JsonNodeOptions? options = null)</c>), or a lone
+    /// <c>params</c> parameter.
+    /// </summary>
+    private static bool TryFindNoRequiredArgumentConstructor(
+        INamedTypeSymbol named,
+        IAssemblySymbol currentAssembly,
+        out IMethodSymbol? constructor)
+    {
+        foreach (var candidate in named.InstanceConstructors)
+        {
+            if (!IsConstructibleConstructorAccessible(candidate, currentAssembly)
+                || candidate.Parameters.Length > 0
+                   && !candidate.Parameters.All(static parameter =>
+                       parameter.IsOptional || parameter.HasExplicitDefaultValue)
+                   && !(candidate.Parameters.Length == 1
+                        && candidate.Parameters[0].IsParams))
+            {
+                continue;
+            }
+
+            constructor = candidate;
+            return true;
+        }
+
+        constructor = null;
+        return false;
+    }
+
+    /// <summary>
+    /// T6 non-empty site: an accessible instance constructor with exactly one
+    /// parameter that is a rank-1 array (<c>T[]</c>, params or plain) or
+    /// <c>ReadOnlySpan&lt;T&gt;</c> (params or plain). The element type is the
+    /// parameter's element type; the emitter passes a <c>new TElem[]{ ... }</c>
+    /// argument and relies on the array→ReadOnlySpan implicit conversion.
+    /// </summary>
+    private static bool TryFindConstructibleElementsConstructor(
+        INamedTypeSymbol named,
+        IAssemblySymbol currentAssembly,
+        out IMethodSymbol? constructor,
+        out ITypeSymbol? elementType)
+    {
+        constructor = null;
+        elementType = null;
+
+        foreach (var candidate in named.InstanceConstructors)
+        {
+            if (candidate.Parameters.Length != 1
+                || !IsConstructibleConstructorAccessible(
+                    candidate, currentAssembly))
+            {
+                continue;
+            }
+
+            var parameter = candidate.Parameters[0];
+            var candidateElement = parameter.Type switch
+            {
+                IArrayTypeSymbol { Rank: 1 } array => array.ElementType,
+                INamedTypeSymbol span
+                    when span.OriginalDefinition.ToDisplayString()
+                         == "System.ReadOnlySpan<T>"
+                         && span.TypeArguments is { Length: 1 } arguments
+                    => arguments[0],
+                _ => null,
+            };
+            if (IsMissingOrError(candidateElement))
+                continue;
+
+            // Prefer the params array shape: a new T[] argument binds to it by
+            // identity (a params ReadOnlySpan<T> overload would bind through
+            // the array→span conversion). Element type and order are unchanged.
+            if (parameter.IsParams && parameter.Type is IArrayTypeSymbol)
+            {
+                constructor = candidate;
+                elementType = candidateElement;
+                return true;
+            }
+
+            if (constructor == null)
+            {
+                constructor = candidate;
+                elementType = candidateElement;
+            }
+        }
+
+        return constructor != null;
+    }
 
     /// <summary>
     /// Finds the collection-pattern Add: an accessible, non-generic instance

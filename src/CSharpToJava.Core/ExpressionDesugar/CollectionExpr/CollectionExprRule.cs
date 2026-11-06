@@ -276,6 +276,20 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
             }
         }
 
+        // T6: spread lowering is not part of this increment. The constructible
+        // constructor receives ONE array/span argument, so an AddRange/foreach
+        // expansion has no target form; keep an explicit 0581 skip (paired
+        // with the site's spread nodes) instead of silently dropping them.
+        if (skipCode == null
+            && resolution.Kind == TargetKind.ConstructibleClass
+            && containsSpread)
+        {
+            skipCode = CollectionExprDiagnosticCodes.CS2J0581;
+            skipMessage = string.Format(
+                CollectionExprDiagnostics.ConstructibleSpreadMessage,
+                resolution.ConvertedType!.ToDisplayString());
+        }
+
         // CE-9: ref struct elements can never reach a heap array (baseline
         // CS9244/CS0611; defensive 0582 locked by a custom ref struct fixture).
         if (skipCode == null
@@ -347,6 +361,8 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
             stats.InterfaceConstructSites++;
         if (resolution.Kind == TargetKind.CollectionBuilder)
             stats.BuilderFactoryEmitted++;
+        if (resolution.Kind == TargetKind.ConstructibleClass)
+            stats.ConstructibleConstructSites++;
 
         // CE-9: every Span site actually rewritten to a heap array gets the
         // stack->heap Info (C06 owns the true stack form).
@@ -387,6 +403,12 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
                 // empty site -> Create(new TElem[]{}).
                 case TargetKind.CollectionBuilder:
                     plan.Outcome = CollectionExprOutcome.ZeroTempBuilderFactory;
+                    break;
+
+                // T6: new global::T() / new global::T(new TElem[]{...}).
+                case TargetKind.ConstructibleClass:
+                    plan.Outcome =
+                        CollectionExprOutcome.ZeroTempConstructibleCollection;
                     break;
 
                 default:

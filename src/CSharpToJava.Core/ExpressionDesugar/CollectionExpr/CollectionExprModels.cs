@@ -23,7 +23,16 @@ public enum TargetKind
     /// <summary>T5: type carrying [CollectionBuilder] (v1 rejects 0580; M2 emits the factory).</summary>
     CollectionBuilder,
 
-    /// <summary>T6: error type, missing target, table-out type.</summary>
+    /// <summary>
+    /// T6: concrete class/struct that T3 did not accept but that exposes the
+    /// C# 12 constructible-collection constructor shapes (no-required-parameter
+    /// constructor for <c>[]</c>; a single <c>T[]</c>/<c>ReadOnlySpan&lt;T&gt;</c>
+    /// parameter for <c>[e0, ...]</c>). Emitted as
+    /// <c>new T()</c> / <c>new T(new TElem[]{ ... })</c>.
+    /// </summary>
+    ConstructibleClass,
+
+    /// <summary>T7: error type, missing target, table-out type.</summary>
     Unknown,
 }
 
@@ -78,6 +87,12 @@ public enum CollectionExprOutcome
 
     /// <summary>global::Builder.Create&lt;...&gt;(new TElem[]{...}) zero-temp builder factory call.</summary>
     ZeroTempBuilderFactory,
+
+    /// <summary>
+    /// <c>new T()</c> / <c>new T(new TElem[]{...})</c> for a constructible
+    /// concrete class/struct (T6).
+    /// </summary>
+    ZeroTempConstructibleCollection,
 
     /// <summary>__ed_n temp + Add/AddRange/foreach statement sequence (+ ToArray for array/Span/builder targets).</summary>
     StatementSequence,

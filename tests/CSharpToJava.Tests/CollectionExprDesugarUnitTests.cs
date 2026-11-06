@@ -2722,4 +2722,224 @@ public class CollectionExprDesugarUnitTests
             toArray.DescendantNodes().OfType<LiteralExpressionSyntax>(),
             l => l.Token.ValueText is "128" or "200");
     }
+
+    // ==================================================================
+    // T6: constructible concrete class/struct (rt10 JsonArray).
+    // T3 rejects these because its "parameterless constructor" test requires
+    // zero PARAMETERS while C# 12 accepts any constructor invocable with no
+    // arguments; the constructible forms cover the remaining shapes:
+    //   []      -> new T()
+    //   [e0..]  -> new T(new TElem[]{ e0, ... })
+    // Every positive fixture still implements System.Collections.IEnumerable,
+    // exactly like the baseline compiler requires (otherwise CS9174).
+    // ==================================================================
+
+    private const string ConstructibleOptionalCtorSource = """
+        using System.Collections;
+        using System.Collections.Generic;
+
+        public sealed class OptBag : IEnumerable<int>
+        {
+            public int Seed { get; private set; }
+            public OptBag(int seed = 0) { Seed = seed; }
+            public IEnumerator<int> GetEnumerator() { yield break; }
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        public static class Probe
+        {
+            public static OptBag Empty() => [];
+        }
+        """;
+
+    private const string ConstructibleArrayCtorSource = """
+        using System.Collections;
+        using System.Collections.Generic;
+
+        public sealed class ArrayBag : IEnumerable<int>
+        {
+            public int Count;
+            public ArrayBag(int seed = 0) { Count = seed; }
+            public ArrayBag(params int[] items) { Count = items.Length; }
+            public void Add(int item) { Count++; }
+            public IEnumerator<int> GetEnumerator() { yield break; }
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        public static class Probe
+        {
+            public static ArrayBag Build() => [1, 2, 3];
+        }
+        """;
+
+    private const string ConstructibleSpanCtorSource = """
+        using System;
+        using System.Collections;
+        using System.Collections.Generic;
+
+        public sealed class SpanBag : IEnumerable<int>
+        {
+            public int Count;
+            public SpanBag(int seed = 0) { Count = seed; }
+            public SpanBag(params ReadOnlySpan<int> items) { Count = items.Length; }
+            public void Add(int item) { Count++; }
+            public IEnumerator<int> GetEnumerator() { yield break; }
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        public static class Probe
+        {
+            public static SpanBag Build() => [4, 5];
+        }
+        """;
+
+    [Fact]
+    public void T6_EmptyTarget_OptionalParameterCtor_EmitsNewT()
+    {
+        var result = Preprocess(ConstructibleOptionalCtorSource);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var stats = result.Statistics.CollectionExpr;
+        Assert.Equal(1, stats.ByTargetConstructibleClass);
+        Assert.Equal(1, stats.ConstructibleConstructSites);
+        Assert.False(stats.SkippedByReason.ContainsKey(
+            CollectionExprDiagnosticCodes.CS2J0581));
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("new global::OptBag()", normalized);
+    }
+
+    [Fact]
+    public void T6_NonEmptyTarget_ParamsArrayCtor_EmitsArrayArgument()
+    {
+        var result = Preprocess(ConstructibleArrayCtorSource);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var stats = result.Statistics.CollectionExpr;
+        Assert.Equal(1, stats.ByTargetConstructibleClass);
+        Assert.Equal(1, stats.ConstructibleConstructSites);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("new global::ArrayBag(new", normalized);
+        Assert.Matches(
+            @"new (int|global::System\.Int32)\[\] \{ 1, 2, 3 \}", normalized);
+    }
+
+    [Fact]
+    public void T6_NonEmptyTarget_ParamsReadOnlySpanCtor_EmitsArrayArgument()
+    {
+        var result = Preprocess(ConstructibleSpanCtorSource);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var stats = result.Statistics.CollectionExpr;
+        Assert.Equal(1, stats.ByTargetConstructibleClass);
+        Assert.Equal(1, stats.ConstructibleConstructSites);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("new global::SpanBag(new", normalized);
+        Assert.Matches(
+            @"new (int|global::System\.Int32)\[\] \{ 4, 5 \}", normalized);
+    }
+
+    [Fact]
+    public void T6_PrivateConstructor_Still0581()
+    {
+        const string source = """
+            using System.Collections;
+            using System.Collections.Generic;
+
+            public sealed class PrivateBag : IEnumerable<int>
+            {
+                private PrivateBag() { }
+                public IEnumerator<int> GetEnumerator() { yield break; }
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+
+            public static class Probe
+            {
+                public static PrivateBag Empty() => [];
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.False(result.Changed);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(ExpressionDesugarSeverity.Error, diagnostic.Severity);
+        Assert.Equal(CollectionExprDiagnosticCodes.CS2J0581, diagnostic.Code);
+        Assert.Equal(1,
+            result.Statistics.CollectionExpr.SkippedByReason[
+                CollectionExprDiagnosticCodes.CS2J0581]);
+        Assert.Equal(0, result.Statistics.CollectionExpr.ConstructibleConstructSites);
+    }
+
+    [Fact]
+    public void T6_AbstractClass_Still0581()
+    {
+        const string source = """
+            using System.Collections;
+            using System.Collections.Generic;
+
+            public abstract class AbstractBag : IEnumerable<int>
+            {
+                protected AbstractBag() { }
+                public IEnumerator<int> GetEnumerator() { yield break; }
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+
+            public static class Probe
+            {
+                public static AbstractBag Empty() => [];
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.False(result.Changed);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(ExpressionDesugarSeverity.Error, diagnostic.Severity);
+        Assert.Equal(CollectionExprDiagnosticCodes.CS2J0581, diagnostic.Code);
+        Assert.Equal(0, result.Statistics.CollectionExpr.ConstructibleConstructSites);
+    }
+
+    [Fact]
+    public void T6_SpreadOnConstructibleTarget_IsExplicit0581Skip()
+    {
+        const string source = """
+            using System.Collections;
+            using System.Collections.Generic;
+
+            public sealed class ArrayBag : IEnumerable<int>
+            {
+                public int Count;
+                public ArrayBag(int seed = 0) { Count = seed; }
+                public ArrayBag(params int[] items) { Count = items.Length; }
+                public void Add(int item) { Count++; }
+                public IEnumerator<int> GetEnumerator() { yield break; }
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+
+            public static class Probe
+            {
+                public static ArrayBag Build(int[] extra) => [.. extra];
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.False(result.Changed);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(CollectionExprDiagnosticCodes.CS2J0581, diagnostic.Code);
+        Assert.Contains("spread elements are not supported", diagnostic.Message);
+        var stats = result.Statistics.CollectionExpr;
+        Assert.Equal(1,
+            stats.SkippedByReason[CollectionExprDiagnosticCodes.CS2J0581]);
+        Assert.Equal(1, stats.SkippedSpreadElements);
+    }
 }

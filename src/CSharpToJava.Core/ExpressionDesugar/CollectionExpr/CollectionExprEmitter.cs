@@ -99,6 +99,31 @@ internal static class CollectionExprEmitter
     }
 
     /// <summary>
+    /// T6 constructible concrete class/struct: an empty site emits
+    /// <c>new global::T()</c> (the no-required-parameter constructor); a
+    /// non-empty site emits <c>new global::T(new TElem[]{ e0, ... })</c>,
+    /// which binds to the single <c>T[]</c>/<c>ReadOnlySpan&lt;T&gt;</c>
+    /// parameter (array elements are passed through in source order).
+    /// </summary>
+    public static ExpressionSyntax BuildConstructibleCollection(
+        INamedTypeSymbol targetType,
+        ITypeSymbol? elementType,
+        IReadOnlyList<ExpressionSyntax> elements)
+    {
+        var creation = SyntaxFactory.ObjectCreationExpression(GlobalType(targetType))
+            .WithArgumentList(SyntaxFactory.ArgumentList());
+
+        if (elements.Count == 0)
+            return creation;
+
+        return creation.WithArgumentList(
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.SingletonSeparatedList(
+                    SyntaxFactory.Argument(
+                        BuildZeroTempArray(elementType!, elements)))));
+    }
+
+    /// <summary>
     /// CE-10: <c>global::BuilderType.CreateMethod&lt;TypeArgs&gt;(arg)</c>
     /// where arg is a zero-temp <c>new TElem[]{...}</c> (implicit array →
     /// ReadOnlySpan&lt;TElem&gt; conversion binds at the call). The factory

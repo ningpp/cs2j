@@ -101,6 +101,17 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
                 return replacement;
             }
 
+            case CollectionExprOutcome.ZeroTempConstructibleCollection:
+            {
+                RewriteCount++;
+                var replacement = CollectionExprEmitter.BuildConstructibleCollection(
+                    plan.EffectiveConstructedType!,
+                    plan.TargetElementType,
+                    CollectionExprEmitter.ExtractExpressions(visited.Elements));
+                CountEmittedInitializerNodes(replacement, visited);
+                return replacement;
+            }
+
             case CollectionExprOutcome.StatementSequence:
                 return LowerStatement(plan, visited);
 

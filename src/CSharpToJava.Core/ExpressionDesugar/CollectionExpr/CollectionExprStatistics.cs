@@ -27,6 +27,7 @@ public sealed class CollectionExprStatistics
     public int ByTargetMutableConcrete;
     public int ByTargetInterface;
     public int ByTargetCollectionBuilder;
+    public int ByTargetConstructibleClass;
     public int ByTargetUnknown;
 
     // ---- Spread (SpreadElements total + expansion buckets) ----
@@ -56,6 +57,12 @@ public sealed class CollectionExprStatistics
     /// factory call (the 0580-retained bucket is tracked in SkippedByReason).
     /// </summary>
     public int BuilderFactoryEmitted;
+
+    /// <summary>
+    /// T6: concrete class/struct sites emitted through a constructible
+    /// collection constructor (no-required-parameter / array / span).
+    /// </summary>
+    public int ConstructibleConstructSites;
 
     public int StatementLiftedSites;
 
@@ -91,6 +98,7 @@ public sealed class CollectionExprStatistics
             case TargetKind.MutableConcrete: ByTargetMutableConcrete++; break;
             case TargetKind.Interface: ByTargetInterface++; break;
             case TargetKind.CollectionBuilder: ByTargetCollectionBuilder++; break;
+            case TargetKind.ConstructibleClass: ByTargetConstructibleClass++; break;
             default: ByTargetUnknown++; break;
         }
     }
@@ -115,6 +123,7 @@ public sealed class CollectionExprStatistics
         ByTargetMutableConcrete += other.ByTargetMutableConcrete;
         ByTargetInterface += other.ByTargetInterface;
         ByTargetCollectionBuilder += other.ByTargetCollectionBuilder;
+        ByTargetConstructibleClass += other.ByTargetConstructibleClass;
         ByTargetUnknown += other.ByTargetUnknown;
         SpreadElements += other.SpreadElements;
         SpreadAddRange += other.SpreadAddRange;
@@ -127,6 +136,7 @@ public sealed class CollectionExprStatistics
         BuilderSites += other.BuilderSites;
         InterfaceConstructSites += other.InterfaceConstructSites;
         BuilderFactoryEmitted += other.BuilderFactoryEmitted;
+        ConstructibleConstructSites += other.ConstructibleConstructSites;
         StatementLiftedSites += other.StatementLiftedSites;
         SkippedSpreadElements += other.SkippedSpreadElements;
         GuardStaticAbstractDeclarations += other.GuardStaticAbstractDeclarations;
