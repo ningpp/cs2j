@@ -180,6 +180,24 @@ internal sealed class AsyncLambdaLifter : CSharpSyntaxRewriter
         return visited;
     }
 
+    public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)
+    {
+        // 独立 await 表达式语句上的 ConfigureAwait(ConfigureAwaitOptions)：与二趟
+        // AwaitShapeRewriter 共用同一归一化逻辑；提升方法体在 Prepare 中经原始子树访问，
+        // 因此外提后的体同样覆盖。
+        if (_configureAwait != null && BelongsToBoundTree(node)
+            && node.Expression is AwaitExpressionSyntax
+            && _configureAwait.TryRewriteOptionsStatement(
+                _model, node, out var rewritten, out var suppressThrowing))
+        {
+            Changed = true;
+            _configureAwait.RecordOptions(node, suppressThrowing);
+            return rewritten!.WithTriviaFrom(node);
+        }
+
+        return base.VisitExpressionStatement(node);
+    }
+
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
         // 剥离判定必须在原始节点上做（本遍历从原始树起步，node 可被原 SemanticModel 绑定；
@@ -207,6 +225,9 @@ internal sealed class AsyncLambdaLifter : CSharpSyntaxRewriter
 
         return visited;
     }
+
+    private bool BelongsToBoundTree(SyntaxNode node)
+        => node.SyntaxTree != null && ReferenceEquals(node.SyntaxTree, _model.SyntaxTree);
 
     public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
     {

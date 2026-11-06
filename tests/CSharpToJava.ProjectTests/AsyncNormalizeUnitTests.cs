@@ -290,7 +290,7 @@ class C {
     // ── 7. ConfigureAwaitOptions / 强类型 Configured*Awaitable ──
 
     [Fact]
-    public void ConfigureAwaitOptions_Strict_Error_Unchanged()
+    public void ConfigureAwaitOptions_StandaloneAwait_SuppressThrowing_NormalizedToTryCatch()
     {
         const string src = @"
 using System.Threading.Tasks;
@@ -301,16 +301,19 @@ class C {
 }";
         var result = Run(src);
 
-        Assert.False(result.Changed);
-        Assert.Equal(src, result.OutputCode);
-        Assert.Contains(result.Diagnostics, d =>
-            d.Severity == AsyncNormalizeSeverity.Error
-            && d.Code == AsyncNormalizeDiagnosticCode.CS2J1808);
-        Assert.Equal(1, result.Statistics.FilesDirtyNoRewrite);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("ConfigureAwait", result.OutputCode);
+        Assert.Contains("try", result.OutputCode);
+        Assert.Contains("catch", result.OutputCode);
+        Assert.Contains("await Task.CompletedTask;", result.OutputCode);
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Code == AsyncNormalizeDiagnosticCode.CS2J1808);
+        Assert.Equal(1, result.Statistics.ConfigureAwaitStripped);
+        Assert.Equal(0, result.Statistics.ResidualCount);
     }
 
     [Fact]
-    public void ConfigureAwaitOptions_NonStrict_Warning()
+    public void ConfigureAwaitOptions_NonStrict_StandaloneAwait_Normalized()
     {
         const string src = @"
 using System.Threading.Tasks;
@@ -321,10 +324,12 @@ class C {
 }";
         var result = Run(src, new AsyncNormalizeOptions { Strict = false });
 
-        Assert.False(result.Changed);
-        Assert.Contains(result.Diagnostics, d =>
-            d.Severity == AsyncNormalizeSeverity.Warning
-            && d.Code == AsyncNormalizeDiagnosticCode.CS2J1808);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("ConfigureAwait", result.OutputCode);
+        Assert.Contains("try", result.OutputCode);
+        Assert.Contains("catch", result.OutputCode);
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Code == AsyncNormalizeDiagnosticCode.CS2J1808);
         Assert.DoesNotContain(result.Diagnostics, d => d.Severity == AsyncNormalizeSeverity.Error);
     }
 

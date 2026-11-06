@@ -20,6 +20,7 @@ internal static class AsyncShapeClassifier
     private const string ConfiguredValueTaskAwaitableGenericName = "System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable<TResult>";
     private const string NotifyCompletionName = "System.Runtime.CompilerServices.INotifyCompletion";
     private const string CriticalNotifyCompletionName = "System.Runtime.CompilerServices.ICriticalNotifyCompletion";
+    private const int SuppressThrowingFlag = 2;
 
     /// <summary>
     /// 判定类型是否为已知 task-like：Task / Task&lt;T&gt; / ValueTask / ValueTask&lt;T&gt;。
@@ -87,6 +88,45 @@ internal static class AsyncShapeClassifier
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// options 形态可语义等价归一化的判定：必须是独立 await 表达式语句
+    /// （<c>await t.ConfigureAwait(options);</c> 的结果未被使用），且 options 实参是
+    /// 编译期常量（可证明是否含 <c>SuppressThrowing</c>）。非独立形态、非常量 options
+    /// 一律不可归一化，由 Analyzer 保持 CS2J1808。
+    /// </summary>
+    public static bool IsNormalizableOptionsAwait(
+        SemanticModel model,
+        InvocationExpressionSyntax invocation,
+        out bool suppressThrowing)
+    {
+        suppressThrowing = false;
+
+        if (!IsConfigureAwaitBool(model, invocation, out var isOptionsForm) || !isOptionsForm)
+            return false;
+
+        if (invocation.Parent is not AwaitExpressionSyntax awaitExpression)
+            return false;
+        if (awaitExpression.Parent is not ExpressionStatementSyntax statement
+            || statement.Expression != awaitExpression)
+            return false;
+
+        var argument = invocation.ArgumentList.Arguments[0];
+        var constant = model.GetConstantValue(argument.Expression);
+        if (!constant.HasValue || constant.Value == null)
+            return false;
+
+        int flags;
+        if (constant.Value is int intValue)
+            flags = intValue;
+        else if (constant.Value.GetType().IsEnum)
+            flags = Convert.ToInt32(constant.Value);
+        else
+            return false;
+
+        suppressThrowing = (flags & SuppressThrowingFlag) != 0;
+        return true;
     }
 
     /// <summary>await 表达式的被 await 表达式是否为 dynamic（SemanticModel 无法确定 awaiter 契约，D15②）。</summary>

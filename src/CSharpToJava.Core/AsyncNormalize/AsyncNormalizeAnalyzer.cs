@@ -93,17 +93,24 @@ internal static class AsyncNormalizeAnalyzer
             }
         }
 
-        // ③ ConfigureAwait 调用：options 形态 → CS2J1808；bool 形态交 AwaitShapeRewriter 剥离
+        // ③ ConfigureAwait 调用：可归一化的独立 await options 形态放行（由 rewriter 改写）；
+        //    其余 options 形态 → CS2J1808；bool 形态交 AwaitShapeRewriter 剥离。
         foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
         {
             if (!AsyncShapeClassifier.IsConfigureAwaitBool(model, invocation, out var isOptionsForm))
                 continue;
             if (isOptionsForm)
             {
+                // 独立 await 表达式语句 + options 为编译期常量：无 SuppressThrowing → 剥离为
+                // ConfigureAwait(false)；含 SuppressThrowing → try { await ... } catch { }。
+                if (AsyncShapeClassifier.IsNormalizableOptionsAwait(model, invocation, out _))
+                    continue;
+
                 diagnostics.Add(DiagnosticAt(
                     AsyncNormalizeDiagnosticCode.CS2J1808, invocation,
                     "ConfigureAwait(ConfigureAwaitOptions) cannot be normalized: the options form " +
-                    "(e.g. SuppressThrowing) has no Java-side equivalent."));
+                    "(e.g. SuppressThrowing) has no Java-side equivalent unless it is a standalone " +
+                    "'await ...;' statement with a constant options value."));
             }
         }
 
