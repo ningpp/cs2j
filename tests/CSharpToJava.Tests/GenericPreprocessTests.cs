@@ -2222,8 +2222,173 @@ public class GenericPreprocessTests(ITestOutputHelper output)
     }
 
     // ===================================================================
+    // CN-01/GD-MTOK-2: value-type-constrained `default` → real zero value.
+    // ===================================================================
+
+    [Fact]
+    public void ValueTypeDefault_ExplicitDefaultT_RewrittenToActivator()
+    {
+        var result = Preprocess("""
+            class C<T> where T : struct
+            {
+                public T A() { T x = default(T); return default(T); }
+                public bool B(T y) => y.Equals(default(T));
+            }
+            """);
+
+        Assert.True(result.Changed);
+        Assert.Equal(3, result.Statistics.ValueDefaultsRewritten);
+        Assert.DoesNotContain("default(T)", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains(
+            "(T)global::System.Activator.CreateInstance(typeof(T))",
+            result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    [Fact]
+    public void ValueTypeDefault_TargetTypedDefault_RewrittenToActivator()
+    {
+        var result = Preprocess("""
+            class C<T> where T : struct
+            {
+                public T M()
+                {
+                    T result = default;
+                    return default;
+                }
+            }
+            """);
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.ValueDefaultsRewritten);
+        Assert.DoesNotContain("default;", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains(
+            "(T)global::System.Activator.CreateInstance(typeof(T))",
+            result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    [Fact]
+    public void ValueTypeDefault_EnumAndUnmanagedConstraints_Rewritten()
+    {
+        var result = Preprocess("""
+            using System;
+            class C
+            {
+                public T A<T>() where T : Enum => default(T);
+                public U B<U>() where U : unmanaged => default;
+            }
+            """);
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.ValueDefaultsRewritten);
+        Assert.DoesNotContain("default(T)", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    [Fact]
+    public void ValueTypeDefault_TransitiveConstraintChain_Rewritten()
+    {
+        // `where T : U where U : struct` makes T a value type as well. The
+        // model-less overload exercises the syntactic closure walk.
+        var result = new GenericPreprocessor().Preprocess(
+            """
+            class C
+            {
+                public T M<T, U>() where T : U where U : struct => default(T);
+            }
+            """,
+            (SemanticModel?)null);
+
+        Assert.Equal(1, result.Statistics.ValueDefaultsRewritten);
+        Assert.DoesNotContain("default(T)", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    [Fact]
+    public void ValueTypeDefault_ClassConstrainedTargetTypedDefault_NotRewritten()
+    {
+        var result = Preprocess("""
+            class C<T> where T : class
+            {
+                public T M() => default;
+            }
+            """);
+
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.ValueDefaultsRewritten);
+        Assert.Contains("=> default;", result.OutputCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ValueTypeDefault_UnconstrainedTargetTypedDefault_NotRewritten()
+    {
+        var result = Preprocess("""
+            class C<T>
+            {
+                public T M() => default;
+            }
+            """);
+
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.ValueDefaultsRewritten);
+        Assert.Contains("=> default;", result.OutputCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ValueTypeDefault_InsideExpressionTree_NotRewritten()
+    {
+        var result = PreprocessWithExpressionTrees("""
+            using System;
+            using System.Linq.Expressions;
+            class C
+            {
+                public Expression<Func<T>> F<T>() where T : struct => () => default(T);
+            }
+            """);
+
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.ValueDefaultsRewritten);
+        Assert.Equal(0, result.Statistics.DefaultExpressionsRewritten);
+        Assert.Contains("default(T)", result.OutputCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ValueTypeDefault_ParameterDefaultValue_NotRewritten()
+    {
+        var result = Preprocess("""
+            class C<T> where T : struct
+            {
+                public void M(T x = default(T)) { }
+            }
+            """);
+
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.ValueDefaultsRewritten);
+        Assert.Equal(0, result.Statistics.DefaultExpressionsRewritten);
+        Assert.Contains("default(T)", result.OutputCode, StringComparison.Ordinal);
+    }
+
+    // ===================================================================
     // Helpers
     // ===================================================================
+
+    private static GenericPreprocessResult PreprocessWithExpressionTrees(string source)
+    {
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("generic-test",
+            new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(List<>).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(System.Linq.Expressions.Expression).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var preprocessor = new GenericPreprocessor();
+        return preprocessor.Preprocess(source, compilation.GetSemanticModel(tree));
+    }
 
     private static GenericPreprocessResult Preprocess(string source)
     {

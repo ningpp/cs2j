@@ -4722,6 +4722,7 @@ public class Program
             $"{preprocessResult.Statistics.FilesSkippedClean} clean " +
             $"({preprocessResult.Statistics.DefaultExpressionsEncountered} default(T) encountered, " +
             $"{preprocessResult.Statistics.DefaultExpressionsRewritten} rewritten, " +
+            $"{preprocessResult.Statistics.ValueDefaultsRewritten} value defaults rewritten, " +
             $"{preprocessResult.Statistics.NewTypeParamRewritten} new T(), " +
             $"{preprocessResult.Statistics.NewTypeParamArrayRewritten} new T[n])");
 

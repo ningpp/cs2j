@@ -33,7 +33,16 @@ public sealed class GenericPreprocessor
         var stats = new GenericPreprocessStatistics();
         stats.FilesScanned = 1;
 
-        var tree = CSharpSyntaxTree.ParseText(sourceCode);
+        // Reuse the caller's tree when it describes the same text: the supplied
+        // SemanticModel only answers questions about its own tree, and CN-01 needs
+        // symbol-level constraint facts (target-typed `default` has no other way to
+        // name its converted type). When the text differs (stale model) fall back
+        // to a fresh parse, which keeps the historical syntactic-only behaviour.
+        var tree = semanticModel != null
+            && string.Equals(
+                semanticModel.SyntaxTree.GetText().ToString(), sourceCode, StringComparison.Ordinal)
+            ? semanticModel.SyntaxTree
+            : CSharpSyntaxTree.ParseText(sourceCode);
         var root = (CompilationUnitSyntax)tree.GetRoot();
 
         var rewriter = new GenericSyntaxRewriter(semanticModel, options, stats);
@@ -122,6 +131,28 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
         if (!_options.RewriteDefaultExpression)
             return visited;
 
+        // V-08 owns the `default(T) is null` / `is not null` shape: rewriting the
+        // operand to a non-null zero-value expression first would make the fold
+        // see a different node, and folding the wrong test is a semantic error.
+        if (node.Parent is IsPatternExpressionSyntax)
+            return visited;
+
+        // CN-01: a value-type-constrained parameter has a real zero value, so
+        // rewrite even in context 1/2 where the bare `default` literal would be
+        // ambiguous or break type inference. Method calls are allowed in normal
+        // expression positions; constant/non-callable positions and quoted
+        // expression trees keep the original node (CS2J1403 still audits them).
+        if (ResolveTypeParameterValueSemantics(node.Type, node) == true)
+        {
+            if (IsInsideQuotedExpressionLambda(node)
+                || IsNonCallableConstantContext(node))
+            {
+                return visited;
+            }
+
+            return RewriteValueTypeDefault(node.Type).WithTriviaFrom(node);
+        }
+
         // Context 2: argument to a generic method call without explicit type
         // arguments — bare `default` would break type inference (CS0411).
         if (IsArgumentToGenericMethodWithoutTypeArgs(node))
@@ -141,6 +172,147 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
         // Context 3: safe context — bare `default` literal.
         return SyntaxFactory.LiteralExpression(SyntaxKind.DefaultLiteralExpression)
             .WithTriviaFrom(node);
+    }
+
+    // -----------------------------------------------------------------------
+    // CN-01/GD-MTOK-2: target-typed `default`.
+    //
+    // `T value = default;` / `return default;` / `pair.Value = default;` carry
+    // no TypeSyntax, so the converted type must come from the semantic model.
+    // Only a value-type-constrained type parameter (struct/unmanaged/Enum, or a
+    // chain to one) is rewritten; reference-typed and unconstrained parameters
+    // keep the erased `null` (correct for reference types, audited by CS2J1403
+    // for the undecided cases).
+    // -----------------------------------------------------------------------
+    public override SyntaxNode? VisitLiteralExpression(LiteralExpressionSyntax node)
+    {
+        var visited = base.VisitLiteralExpression(node);
+
+        if (!_options.RewriteDefaultExpression
+            || !node.IsKind(SyntaxKind.DefaultLiteralExpression)
+            || _model == null
+            || node.Parent is IsPatternExpressionSyntax
+            || IsInsideQuotedExpressionLambda(node)
+            || IsNonCallableConstantContext(node))
+        {
+            return visited;
+        }
+
+        ITypeParameterSymbol? typeParameter;
+        try
+        {
+            typeParameter = _model.GetTypeInfo(node).ConvertedType as ITypeParameterSymbol;
+        }
+        catch (ArgumentException)
+        {
+            // Node not part of this model's tree (stale model).
+            return visited;
+        }
+
+        if (typeParameter == null || !HasValueSemantics(typeParameter))
+            return visited;
+
+        Changed = true;
+        _stats.ValueDefaultsRewritten++;
+        return BuildValueTypeDefault(typeParameter.Name).WithTriviaFrom(node);
+    }
+
+    /// <summary>
+    /// Builds <c>((T)global::System.Activator.CreateInstance(typeof(T)))</c>.
+    /// <c>global::</c> is mandatory for the same reason as in
+    /// <see cref="VisitObjectCreationExpression"/>: projects whose own namespace
+    /// shadows <c>System</c> would otherwise resolve a different type (CS0234).
+    /// The outer parentheses keep the cast safe when the original expression is
+    /// the receiver of a member access/call or an operand of an operator.
+    /// </summary>
+    private ExpressionSyntax RewriteValueTypeDefault(TypeSyntax type)
+    {
+        var typeName = type.WithoutTrivia().ToString();
+
+        // Prefer the symbol spelling (a parenthesized/aliased type parameter is
+        // still just its name on the Java side) when the model can answer.
+        if (_model != null)
+        {
+            try
+            {
+                if (_model.GetSymbolInfo(type).Symbol is ITypeParameterSymbol typeParameter)
+                    typeName = typeParameter.Name;
+            }
+            catch (ArgumentException)
+            {
+            }
+        }
+
+        Changed = true;
+        _stats.ValueDefaultsRewritten++;
+        return BuildValueTypeDefault(typeName);
+    }
+
+    private static ParenthesizedExpressionSyntax BuildValueTypeDefault(string typeName)
+    {
+        var typeSyntax = SyntaxFactory.ParseTypeName(typeName);
+        var invocation = SyntaxFactory.InvocationExpression(
+            SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                SyntaxFactory.ParseName("global::System.Activator"),
+                SyntaxFactory.IdentifierName("CreateInstance")),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.SingletonSeparatedList(
+                    SyntaxFactory.Argument(SyntaxFactory.TypeOfExpression(typeSyntax)))));
+
+        return SyntaxFactory.ParenthesizedExpression(
+            SyntaxFactory.CastExpression(typeSyntax, invocation));
+    }
+
+    /// <summary>
+    /// True when <paramref name="node"/> is inside a quoted
+    /// <c>Expression&lt;TDelegate&gt;</c> lambda. The node shape is part of the
+    /// program's observable data there, so it must stay intact (GD-EXPRTREE).
+    /// </summary>
+    private bool IsInsideQuotedExpressionLambda(SyntaxNode node)
+        => _model != null
+            && CSharpToJava.Core.Analysis.ExpressionTreeFacts.IsInsideQuotedExpressionLambda(_model, node);
+
+    /// <summary>
+    /// Contexts that require a compile-time constant (or otherwise forbid a method
+    /// call), where the Activator form cannot be substituted: attribute arguments,
+    /// parameter default values, enum-member initializers, <c>const</c> field/local
+    /// initializers, <c>case</c>/<c>goto case</c> labels, constant patterns,
+    /// <c>nameof</c> arguments, and <c>ref</c>/<c>out</c>/<c>in</c> arguments.
+    /// </summary>
+    private static bool IsNonCallableConstantContext(SyntaxNode node)
+    {
+        foreach (var ancestor in node.Ancestors())
+        {
+            switch (ancestor)
+            {
+                case AttributeArgumentSyntax:
+                case CaseSwitchLabelSyntax:
+                case CasePatternSwitchLabelSyntax:
+                case ConstantPatternSyntax:
+                case EnumMemberDeclarationSyntax:
+                case ParameterSyntax:
+                case GotoStatementSyntax:
+                    return true;
+                case LocalDeclarationStatementSyntax local
+                    when local.Modifiers.Any(SyntaxKind.ConstKeyword):
+                case FieldDeclarationSyntax field
+                    when field.Modifiers.Any(SyntaxKind.ConstKeyword):
+                    return true;
+                case InvocationExpressionSyntax invocation when IsNameOfInvocation(invocation):
+                    return true;
+                case ArgumentSyntax argument
+                    when !argument.RefOrOutKeyword.IsKind(SyntaxKind.None):
+                    return true;
+                case TypeDeclarationSyntax:
+                case MethodDeclarationSyntax:
+                case LocalFunctionStatementSyntax:
+                case CompilationUnitSyntax:
+                    return false;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -397,17 +569,37 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
     /// <summary>
     /// Whether <c>default(T)</c> is null for every legal instantiation, decided from
     /// the declaring member's constraint clause; null when the constraints do not
-    /// decide it (unconstrained, interface-only, notnull, or <c>T : U</c> chains).
+    /// decide it (unconstrained, interface-only, notnull). A <c>T : U</c> chain is
+    /// followed to the nearest declaration of <c>U</c>.
     /// <para>
-    /// This is deliberately syntactic: <see cref="GenericPreprocessor.Preprocess(string, SemanticModel?, GenericPreprocessOptions?)"/>
-    /// reparses the source, so the supplied model belongs to a different tree and
-    /// cannot answer symbol questions for these nodes. The fold only fires when the
-    /// enclosing member/type declares the name as its own type parameter with a
-    /// deciding constraint, so a real type called <c>T</c> is never folded.
+    /// The fold only fires when the enclosing member/type declares the name as its
+    /// own type parameter with a deciding constraint, so a real type called
+    /// <c>T</c> is never folded. When the semantic model is usable,
+    /// <see cref="VisitDefaultExpression"/> prefers the symbol-level answer; this
+    /// syntactic path keeps the model-less API and stale-model fallback working.
     /// </para>
     /// </summary>
     private static bool? ResolveDeclaredConstraintNullability(string name, SyntaxNode site)
+        => ResolveDeclaredConstraintValueSemantics(
+            name, site, new HashSet<string>(StringComparer.Ordinal)) is { } isValueType
+                ? !isValueType
+                : null;
+
+    /// <summary>
+    /// Whether every legal instantiation of <paramref name="name"/> is a value type
+    /// (<c>struct</c>/<c>unmanaged</c>/<c>Enum</c>, directly or through a
+    /// <c>where T : U</c> chain); false when it is a reference type
+    /// (<c>class</c> or a chain to one); null when the constraints do not decide.
+    /// </summary>
+    private static bool? ResolveDeclaredConstraintValueSemantics(
+        string name, SyntaxNode site, HashSet<string> visiting)
     {
+        // Illegal cycles (CS0454) must not recurse forever; undecided is the safe answer.
+        if (!visiting.Add(name))
+        {
+            return null;
+        }
+
         foreach (var ancestor in site.Ancestors())
         {
             var (typeParameters, constraints) = ancestor switch
@@ -429,33 +621,119 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
             }
 
             var clause = constraints.FirstOrDefault(c => c.Name.Identifier.ValueText == name);
-            return clause == null ? null : ClassifyConstraints(clause.Constraints);
+            return clause == null
+                ? null
+                : ClassifyConstraints(clause.Constraints, site, visiting);
         }
 
         return null;
     }
 
-    private static bool? ClassifyConstraints(SeparatedSyntaxList<TypeParameterConstraintSyntax> constraints)
+    private static bool? ClassifyConstraints(
+        SeparatedSyntaxList<TypeParameterConstraintSyntax> constraints,
+        SyntaxNode site,
+        HashSet<string> visiting)
     {
+        bool? referenceType = null;
         foreach (var constraint in constraints)
         {
             switch (constraint)
             {
-                // struct / unmanaged → value type → default is never null.
+                // struct → value type.
                 case ClassOrStructConstraintSyntax classOrStruct
                     when classOrStruct.IsKind(SyntaxKind.StructConstraint):
-                    return false;
-                // class / class? → reference type → default is always null.
+                    return true;
+                // class / class? → reference type.
                 case ClassOrStructConstraintSyntax classOrStruct
                     when classOrStruct.IsKind(SyntaxKind.ClassConstraint):
-                    return true;
-                // where T : Enum — enums are value types.
-                case TypeConstraintSyntax { Type: var constraintType }
-                    when constraintType.ToString() is "Enum" or "System.Enum" or "global::System.Enum":
-                    return false;
+                    referenceType = false;
+                    break;
+                case TypeConstraintSyntax { Type: var constraintType }:
+                    var text = constraintType.WithoutTrivia().ToString()
+                        .Replace(" ", string.Empty);
+                    if (text is "unmanaged" or "Enum" or "System.Enum" or "global::System.Enum"
+                        or "ValueType" or "System.ValueType" or "global::System.ValueType")
+                    {
+                        return true;
+                    }
+
+                    if (text is "notnull")
+                    {
+                        break;
+                    }
+
+                    // where T : U — follow the chain to U's own constraints. A name
+                    // that is not a type parameter (interface or class constraint)
+                    // stays undecided, never a guess.
+                    var chained = ResolveDeclaredConstraintValueSemantics(
+                        text, site, new HashSet<string>(visiting, StringComparer.Ordinal));
+                    if (chained == true)
+                    {
+                        return true;
+                    }
+
+                    if (chained == false)
+                    {
+                        referenceType = false;
+                    }
+
+                    break;
             }
         }
 
-        return null;
+        return referenceType;
     }
+
+    /// <summary>
+    /// Symbol-first value-type classification for a <c>default</c> site's target
+    /// type, falling back to the declaring constraint clause when the supplied
+    /// model cannot answer (model-less API or stale model).
+    /// </summary>
+    private bool? ResolveTypeParameterValueSemantics(TypeSyntax type, SyntaxNode site)
+    {
+        if (_model != null)
+        {
+            try
+            {
+                var symbol = _model.GetSymbolInfo(type).Symbol;
+                if (symbol is ITypeParameterSymbol typeParameter)
+                {
+                    return HasValueSemantics(typeParameter);
+                }
+
+                if (symbol is INamedTypeSymbol)
+                {
+                    return false;
+                }
+            }
+            catch (ArgumentException)
+            {
+                // Node not part of this model's tree (stale model).
+            }
+        }
+
+        return type is IdentifierNameSyntax identifier
+            ? ResolveDeclaredConstraintValueSemantics(
+                identifier.Identifier.ValueText,
+                site,
+                new HashSet<string>(StringComparer.Ordinal))
+            : null;
+    }
+
+    /// <summary>
+    /// Mirrors the converter's <c>HasValueSemantics</c> (TypeOperationTransformer):
+    /// struct/unmanaged constraints, an <c>Enum</c>/<c>ValueType</c> constraint, or a
+    /// chain to such a parameter.
+    /// </summary>
+    private static bool HasValueSemantics(ITypeParameterSymbol typeParameter)
+        => typeParameter.HasValueTypeConstraint
+            || typeParameter.HasUnmanagedTypeConstraint
+            || typeParameter.ConstraintTypes.Any(t =>
+                t.SpecialType is SpecialType.System_Enum or SpecialType.System_ValueType)
+            || typeParameter.ConstraintTypes.OfType<ITypeParameterSymbol>()
+                .Any(HasValueSemantics);
+
+    private static bool IsNameOfInvocation(InvocationExpressionSyntax invocation)
+        => invocation.Expression is IdentifierNameSyntax identifier
+            && identifier.Identifier.ValueText == "nameof";
 }

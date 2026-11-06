@@ -43,6 +43,14 @@ public sealed class GenericPreprocessStatistics
     /// (struct/unmanaged/Enum → never null; class → always null).
     /// </summary>
     public int DefaultNullabilityTestsFolded;
+
+    /// <summary>
+    /// CN-01/GD-MTOK-2: value-type-constrained type-parameter <c>default</c> sites
+    /// (explicit <c>default(T)</c> and target-typed <c>default</c>) rewritten to
+    /// <c>(T)Activator.CreateInstance(typeof(T))</c> so the Java side receives a
+    /// real zero-value token instead of an erased <c>null</c>.
+    /// </summary>
+    public int ValueDefaultsRewritten;
     public int NewTypeParamRewritten;
     public int NewTypeParamArrayRewritten;
     public int TypeOfExpressionsSeen;
