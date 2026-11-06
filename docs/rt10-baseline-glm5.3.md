@@ -1361,3 +1361,99 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
   `CMDBG` 记录；同一构建关闭插桩后即本轮正式产物）。
 - 对照：`D:\cs\rt10-baseline-w10k\preprocess-report.json`（§16，139 residuals）。
 
+
+## 18. R4 单 pass 实测：`variance-use-site-normalize`（HEAD `953f1a9b` + 本轮 VR 实现）
+
+### 18.1 运行口径
+
+- 运行日期：2026-11-07（Asia/Shanghai）；基线 HEAD：`953f1a9b`，叠加本轮新增
+  `variance-use-site-normalize` pass（运行时尚在工作树，尚未提交）。
+- 代码前置：全量单测 **4766 通过 / 9 跳过 / 0 失败**（§17 基线 4752 + 本轮
+  VR 新增 14 条）。
+- 全链仍会在第 29 个 pass `variance-audit` 中止（见 §17.6；本轮未改该门），
+  因此本节用**单 pass** 运行新 pass，源树为未经前置 pass 改写的 rt10 原始源码。
+- 源：`D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj`；
+  目标：`D:\cs\rt10-vr-w10m`；中间树
+  `D:\cs\rt10-vr-w10m\.cs2j-variance-use-site-normalize-src`。
+- 命令：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-vr-w10m --pass variance-use-site-normalize --no-verify-build --no-verify-tests
+```
+
+- 结果：`preprocess-report.json` 为 `success=true`、`totalSeconds=4.735`、
+  1 个 pass；该 pass `status=ok`，summary 原样为
+  `variance-use-site-normalize: 0 transformed, 352 clean, 0 rewritten [-], 60 preserved [VR-04=60], 6 unsupported [VR-05=1,VR-07=5], 0 rollback`。
+- pass 内阶段耗时：`total=4.72s | compile=0.08s, rewrite=1.92s, prepare=2.68s, execute=2.04s`。
+
+### 18.2 站点分布（`variance-use-site-normalize-report.json`）
+
+| 项 | 实测 |
+|----|------|
+| `filesScanned` / `filesTransformed` / `filesSkippedClean` | 352 / **0** / 352 |
+| `sitesTotal` | **66** |
+| `sitesRewritten` | **0** |
+| `sitesPreserved` | **60**（VR-04=60） |
+| `sitesDeclaredUnsupported` | **6**（VR-05=1，VR-07=5） |
+| `filesRolledBack` | **0** |
+| VR-01 / VR-02 / VR-03 / VR-06 / VR-08 | 0 / 0 / 0 / 0 / 0 |
+
+- VR-04 的 60 条全部为引用类型数组边（含 23 条同型/仅可空注解差异的边，
+  如 `object[] -> object[]`、`object[] -> object?[]`）；按规则保留原样，未改写。
+- 6 条 `DeclaredUnsupported` 全部带 `CS2J1404` 与
+  `NORM-GENERIC-VARIANCE-USE`，逐条为：
+  - `Serialization\Metadata\JsonPropertyInfoOfT.cs` 408/412/418/428/433：
+    `VR-07`，`<method group> -> Func<object, T?, bool>`（泛型委托方法组，需先显式 lambda）；
+  - `Schema\JsonSchemaExporter.cs:445:63`：`VR-05`，`string[] -> string[]`
+    落在 `ref/out/in` 实参位（写回不可排除，安全条件 3/4）。
+- 本语料原始树上，共享 C33 分析没有产出 VR-01/VR-02 的具名 producer/consumer
+  转换边（66 条中 60 条数组 + 5 条方法组 + 1 条 ref 数组），因此本次实测改写数为
+  0；VR-01/VR-02 的改写由单测覆盖（§18.3），未用不安全改写充数。
+- 无整文件回滚（`filesRolledBack=0`），即所有文件均通过逐文件解析/语义后校验或
+  无需改写。
+
+### 18.3 单测（先红后绿证据）
+
+- 新增 `tests/CSharpToJava.Tests/VarianceUseSiteNormalizeTests.cs`（14 条）：
+  - VR-01 实参/返回值、VR-02 委托实参：改写为 `(T)(object)expr`，输出再编译
+    错误数为 0；
+  - Both 流向本地初始化（局部随后作为实参使用）：`VR-05` +
+    `CS2J1404`，源码逐字节不变；
+  - VR-04：引用数组站点保留且登记 `Preserved`；同型 `object[] -> object[]`
+    边（无候选表达式）同样登记为 VR-04，不得误报为 unsupported；
+  - VR-06/VR-03：`ClassifyPair` 直接用例（`IEnumerable<int>` →
+    `IEnumerable<object>`、`IEnumerable<List<string>>` →
+    `IEnumerable<List<object>>`）；
+  - VR-08：`dynamic` 实参 → `DeclaredUnsupported` + `CS2J1404` +
+    `NORM-GENERIC-VARIANCE-USE`；
+  - 幂等（二次运行零改动）、干净文件字节保留、报告 JSON 形状；
+  - 注册表单测：描述符（Expression、default-on、RunAfter
+    member-desugar/linq-channel/equality-concat、rules=C33）、锁定槽位
+    `equality-concat < variance-use-site-normalize < platform-isolation`、
+    `--list-passes` 行、`PassChainFactory` 适配器与验证默认值。
+- 红：实现修正前该测试类实测 **7 失败 / 6 通过**（站点收集为空与 cast 未落地）；
+  修正 `ReplaceNodes` 改写与未改写路径的记录返回后 **14/14 通过**。
+- 全量：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+  → **4766 通过 / 9 跳过 / 0 失败**（1 m 48 s）。
+- 未执行 `CSharpToJava.ProjectTests` 与 `CSharpToJava.ConversionTests`。
+
+### 18.4 契约与开关
+
+- `--list-passes` 实测新增行：
+  `variance-use-site-normalize       Expression   Implemented   on       member-desugar,linq-channel,equality-concat  rules=C33`
+  （位于 `equality-concat` 之后、`platform-isolation` 之前）。
+- 默认链包含（`default` profile 与 `java-ready` 均按 default-on 进入计划）；
+  Contract 声明 `Consumes/Postconditions/MayLeave = NORM-GENERIC-VARIANCE-USE`、
+  `Policy=Fail`、`Idempotent=true`、`RequiresWholeTree=true`。
+- 未新增 CLI 旋钮；未改 `docs/preprocess-upgrade-glm5.3.md`。
+
+### 18.5 来源文件
+
+- `D:\cs\rt10-vr-w10m\preprocess-report.json`（schemaVersion 1，
+  `success=true`，`totalSeconds=4.735`，1 个 pass）。
+- `D:\cs\rt10-vr-w10m\.cs2j-variance-use-site-normalize-src\variance-use-site-normalize-report.json`
+  （66 站点：60 preserved + 6 unsupported）。
+- 运行日志：本轮工作树根目录 `rt10-vr.log`（临时产物，未入库）。
