@@ -1457,3 +1457,94 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
 - `D:\cs\rt10-vr-w10m\.cs2j-variance-use-site-normalize-src\variance-use-site-normalize-report.json`
   （66 站点：60 preserved + 6 unsupported）。
 - 运行日志：本轮工作树根目录 `rt10-vr.log`（临时产物，未入库）。
+
+
+## 19. R4 VR-03/05/07 扩展单 pass 实测（HEAD `576569c2` + 本轮实现）
+
+### 19.1 运行口径
+
+- 运行日期：2026-11-07（Asia/Shanghai）；基线 HEAD：`576569c2`，叠加本轮
+  VR-03/05/07 实现（运行时尚在工作树，尚未提交）。
+- 代码前置：全量单测 **4775 通过 / 9 跳过 / 0 失败**（§18 基线 4766 + 本轮
+  新增 9 条；VR 测试类 23/23）。
+- 全链仍在 `variance-audit` 门中止，故两处均用**单 pass** 运行。
+- 源 1（rt10 原始源）：
+  `D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj`
+  → 目标 `D:\cs\rt10-vr-w10n`。
+- 源 2（上一次全链中间树，更接近链末真实形态）：
+  `D:\cs\rt10-baseline-w10l\.cs2j-preprocessed-src` → 目标
+  `D:\cs\rt10-vr-chain-w10n`。
+- 命令：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-vr-w10n --pass variance-use-site-normalize --no-verify-build --no-verify-tests
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\cs\rt10-baseline-w10l\.cs2j-preprocessed-src `
+  -d D:\cs\rt10-vr-chain-w10n --pass variance-use-site-normalize --no-verify-build --no-verify-tests
+```
+
+### 19.2 rt10 原始源
+
+- `preprocess-report.json`：`success=true`、`totalSeconds=4.738`、1 个 pass。
+- summary 原样：
+  `variance-use-site-normalize: 0 transformed, 352 clean, 0 rewritten [-], 60 preserved [VR-04=60], 6 unsupported [VR-05=1,VR-07=5], 0 rollback`。
+- 报告 totals：`filesScanned=352`、`filesTransformed=0`、`filesSkippedClean=352`、
+  `filesRolledBack=0`、`sitesTotal=66`、`sitesRewritten=0`、`sitesPreserved=60`、
+  `sitesDeclaredUnsupported=6`。
+- 规则分布：VR-03=0、VR-05=1（DeclaredUnsupported）、VR-07=5
+  （DeclaredUnsupported）；VR-04=60（Preserved）；VR-01/02/06/08=0。
+- 6 条 `DeclaredUnsupported` 均带 `CS2J1404` + `NORM-GENERIC-VARIANCE-USE`：
+  - `Serialization\Metadata\JsonPropertyInfoOfT.cs` 408/412/418/428/433：VR-07，
+    `<method group> -> Func<object, T?, bool>`，原因为方法组签名含未绑定类型参数
+    （`T?`），显式 lambda 无法绑定，按规则 `DeclaredUnsupported`（未做不安全改写）；
+  - `Schema\JsonSchemaExporter.cs:445:63`：VR-05，`string[] -> string[]` 落在
+    `ref/out/in` 实参位（安全条件 3/4）。
+- 改写数 0、回滚 0。
+
+### 19.3 全链中间树
+
+- `preprocess-report.json`：`success=true`、`totalSeconds=4.161`、1 个 pass。
+- summary 原样：
+  `variance-use-site-normalize: 0 transformed, 366 clean, 0 rewritten [-], 86 preserved [VR-04=86], 1 unsupported [VR-05=1], 0 rollback`。
+- 报告 totals：`filesScanned=366`、`filesTransformed=0`、`filesSkippedClean=366`、
+  `filesRolledBack=0`、`sitesTotal=87`、`sitesRewritten=0`、`sitesPreserved=86`、
+  `sitesDeclaredUnsupported=1`。
+- 规则分布：VR-03=0、VR-05=1（`Schema\JsonSchemaExporter.cs:451:100`，
+  `string[] -> string[]`，ref 实参位）、VR-04=86（Preserved）；VR-01/02/06/07/08=0。
+- 该树中上一轮的 5 条 VR-07 方法组站点不再出现（前置 pass 已改变其形状）；
+  改写数 0、回滚 0。
+
+### 19.4 单测（先红后绿）
+
+- `tests/CSharpToJava.Tests/VarianceUseSiteNormalizeTests.cs` 由 14 条扩到
+  **23 条**，新增 9 条：
+  - VR-03：嵌套协变改写（`IEnumerable<IEnumerable<Derived>>` →
+    `IEnumerable<IEnumerable<Base>>`）、逆变委托内嵌套改写、嵌套 invariant 中间层
+    （`IEnumerable<List<string>>` → `IEnumerable<List<object>>`）判定为
+    `DeclaredUnsupported`/VR-03；
+  - VR-05：Both 流向仅签名位（实参 + 返回值、只读、无 mutable 映射）改写；
+    mutable 映射（`IReadOnlyList<T>`）负例保持 `DeclaredUnsupported`；
+  - VR-07：方法组 → 显式 lambda → 方差 cast 改写（输出再编译错误数 0）；
+    自定义 `Fn<in T,R>` 委托负例 `DeclaredUnsupported`；
+  - VR-03/VR-07 输出幂等（二次运行零改动）、嵌套 `ClassifyPair` 分类。
+- 红：临时回退三条规则的实现后实测 **7 失败 / 16 通过**（VR-03/05/07 正例与幂等
+  用例失败）；恢复实现后 **23/23 通过**。
+- 全量：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+  → **4775 通过 / 9 跳过 / 0 失败**（1 m 47 s）。
+- 未执行 `CSharpToJava.ProjectTests` 与 `CSharpToJava.ConversionTests`。
+
+### 19.5 来源文件
+
+- `D:\cs\rt10-vr-w10n\preprocess-report.json`（`success=true`，
+  `totalSeconds=4.738`，1 个 pass）。
+- `D:\cs\rt10-vr-w10n\.cs2j-variance-use-site-normalize-src\variance-use-site-normalize-report.json`
+  （66 站点：60 preserved + 6 unsupported）。
+- `D:\cs\rt10-vr-chain-w10n\preprocess-report.json`（`success=true`，
+  `totalSeconds=4.161`，1 个 pass）。
+- `D:\cs\rt10-vr-chain-w10n\.cs2j-variance-use-site-normalize-src\variance-use-site-normalize-report.json`
+  （87 站点：86 preserved + 1 unsupported）。
+- 运行日志：工作树根目录 `rt10-vr-w10n.log`、`rt10-vr-chain-w10n.log`
+  （临时产物，未入库）。
