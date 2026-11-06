@@ -8,6 +8,7 @@ using CSharpToJava.Core.CompatMethodReplacement;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Xunit;
 
 namespace CSharpToJava.Tests.Preprocessing;
@@ -807,6 +808,177 @@ public sealed class CompatMethodReplacementTests
             "entry drifted");
 
         Assert.StartsWith("error CMR020:", diagnostic.ToMsBuildString(), StringComparison.Ordinal);
+    }
+
+    // ── 7. ref-out-in 提升后的 holder 签名归一化 + 模板 .Value 适配 ──
+
+    private static CompatMethodReplacementEntry Rt10ToUtf8Entry
+        => CompatMethodReplacementRegistry.Default.Entries[0];
+
+    /// <summary>
+    /// 语义模型里的 <c>JsonWriterHelper.ToUtf8</c> 声明：参数文本由调用方给出，
+    /// 以便逐项比较 <see cref="CompatMethodReplacementEntry.Matches"/> 对
+    /// <c>Cs2jByRef</c> holder 的归一化行为。
+    /// </summary>
+    private static IMethodSymbol ToUtf8Symbol(string parameters)
+    {
+        var src = $$"""
+            using System;
+            using System.Buffers;
+            using Cs2jByRef;
+
+            namespace System.Text.Json
+            {
+                internal static class JsonWriterHelper
+                {
+                    public static OperationStatus ToUtf8({{parameters}}) => OperationStatus.Done;
+                }
+            }
+
+            namespace Cs2jByRef
+            {
+                public sealed class ByRef<T> { }
+                public sealed class ReadOnlyByRef<T> { }
+                public sealed class ScopedByRef<T> { }
+                public sealed class ReadOnlyScopedByRef<T> { }
+                public sealed class RefStructByRef<T> { }
+            }
+            """;
+        var model = ParseWithSemantics(src);
+        var declaration = model.SyntaxTree.GetRoot()
+            .DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.ValueText == "ToUtf8");
+        return (IMethodSymbol)model.GetDeclaredSymbol(declaration)!;
+    }
+
+    private static CompatMethodReplacementEntry WithRefKind(CompatParameterRefKind refKind)
+        => Rt10ToUtf8Entry with
+        {
+            Parameters = new[]
+            {
+                Rt10ToUtf8Entry.Parameters[0],
+                Rt10ToUtf8Entry.Parameters[1],
+                new CompatMethodParameter("written", "int", refKind),
+            },
+        };
+
+    [Fact]
+    public void Matches_normalizes_a_writable_byref_holder_to_the_registered_out_parameter()
+    {
+        var symbol = ToUtf8Symbol(
+            "ReadOnlySpan<char> source, Span<byte> destination, ByRef<int> written");
+
+        Assert.True(Rt10ToUtf8Entry.Matches(symbol, out var reason), reason);
+        Assert.Null(reason);
+    }
+
+    [Fact]
+    public void Matches_normalizes_a_writable_byref_holder_to_the_registered_ref_parameter()
+    {
+        var symbol = ToUtf8Symbol(
+            "ReadOnlySpan<char> source, Span<byte> destination, ByRef<int> written");
+
+        Assert.True(
+            WithRefKind(CompatParameterRefKind.Ref).Matches(symbol, out var reason),
+            reason);
+    }
+
+    [Fact]
+    public void Matches_normalizes_a_readonly_byref_holder_to_the_registered_in_parameter()
+    {
+        var symbol = ToUtf8Symbol(
+            "ReadOnlySpan<char> source, Span<byte> destination, ReadOnlyByRef<int> written");
+
+        Assert.True(
+            WithRefKind(CompatParameterRefKind.In).Matches(symbol, out var reason),
+            reason);
+    }
+
+    [Fact]
+    public void Matches_rejects_a_holder_whose_carried_type_differs()
+    {
+        var symbol = ToUtf8Symbol(
+            "ReadOnlySpan<char> source, Span<byte> destination, ByRef<string> written");
+
+        Assert.False(Rt10ToUtf8Entry.Matches(symbol, out var reason));
+        Assert.Contains("string", reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Matches_rejects_a_holder_signature_with_a_different_parameter_count()
+    {
+        var symbol = ToUtf8Symbol("ReadOnlySpan<char> source, Span<byte> destination");
+
+        Assert.False(Rt10ToUtf8Entry.Matches(symbol, out var reason));
+        Assert.Contains("2 parameter(s), not 3", reason, StringComparison.Ordinal);
+    }
+
+    private const string LiftedRt10Source = """
+        using System;
+        using System.Buffers;
+        using Cs2jByRef;
+
+        namespace Cs2jByRef
+        {
+            public abstract class ByRef<T>
+            {
+                public abstract ref T Value { get; }
+            }
+        }
+
+        namespace System.Text.Json
+        {
+            internal static class JsonWriterHelper
+            {
+                public static unsafe OperationStatus ToUtf8(
+                    ReadOnlySpan<char> source,
+                    Span<byte> destination,
+                    ByRef<int> written)
+                {
+                    written.Value = 0;
+                    fixed (char* pSrc = source)
+                    {
+                        return OperationStatus.Done;
+                    }
+                }
+            }
+        }
+        """;
+
+    [Fact]
+    public void Lifted_out_parameter_holder_matches_and_the_template_writes_through_Value()
+    {
+        // rt10 实测形态：ref-out-in 先把 `out int written` 提升成
+        // `ByRef<int> written`，compat-method-replacement 必须仍能命中，
+        // 且模板里的 `written = 0;` 要改写成 `written.Value = 0;`。
+        var result = Run(LiftedRt10Source);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Equal(1, result.Statistics.MethodsReplaced);
+        Assert.Equal(0, result.Statistics.SignatureMismatches);
+        Assert.Contains("written.Value = 0;", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("written.Value = bytesUsed;", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("written.Value.Value", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("fixed", result.OutputCode, StringComparison.Ordinal);
+        AssertOutputCompiles(result.OutputCode);
+
+        var drifted = CompatMethodReplacementDriftDetector.DetectDriftedEntries(
+            CompatMethodReplacementRegistry.Default,
+            result.Statistics.MatchedEntryKeys,
+            result.Statistics.DeclaredTypeKeys);
+        Assert.DoesNotContain(drifted, entry => entry.MethodName == "ToUtf8");
+    }
+
+    [Fact]
+    public void Plain_out_parameter_keeps_the_direct_assignment_form()
+    {
+        var result = Run(Rt10RuntimeSource);
+
+        Assert.Contains("written = 0;", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("written = bytesUsed;", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("written.Value", result.OutputCode, StringComparison.Ordinal);
     }
 
     // ── helpers ──

@@ -12,6 +12,19 @@ public enum CompatParameterRefKind
 }
 
 /// <summary>
+/// Role of a <c>Cs2jByRef</c> holder parameter after the ref-out-in pass:
+/// <see cref="Writable"/> (<c>ByRef&lt;T&gt;</c>, <c>ScopedByRef&lt;T&gt;</c>,
+/// <c>RefStructByRef&lt;T&gt;</c>) can stand in for a <c>ref</c> or <c>out</c>
+/// parameter, <see cref="ReadOnly"/> (<c>ReadOnlyByRef&lt;T&gt;</c>,
+/// <c>ReadOnlyScopedByRef&lt;T&gt;</c>) for an <c>in</c> parameter.
+/// </summary>
+internal enum CompatRefHolderRole
+{
+    Writable,
+    ReadOnly,
+}
+
+/// <summary>
 /// One known-method parameter: the name is a placeholder token the replacement
 /// body may reference (<c>utf16Source</c> in a C# body template maps to the
 /// declaration's actual parameter name at rewrite time), and <see cref="TypeName"/>
@@ -173,6 +186,37 @@ public sealed record CompatMethodReplacementEntry
         {
             var expected = Parameters[i];
             var actual = method.Parameters[i];
+
+            // ref-out-in runs earlier in the chain and lifts `ref`/`out`/`in`
+            // parameters to Cs2jByRef holders (`ByRef<T>`, `ReadOnlyByRef<T>`,
+            // …). The registry keys stay in ORIGINAL C# shape, so a lifted
+            // declaration must be normalized back before comparing (otherwise
+            // every lifted out parameter reads as ref kind None and the entry
+            // matches nothing — the rt10 ToUtf8 CMR020 drift).
+            if (TryUnwrapRefHolder(actual.Type, out var holderRole, out var carriedType))
+            {
+                var actualTypeName = CompatTypeName.Canonical(actual.Type);
+                var carriedTypeName = CompatTypeName.Canonical(carriedType);
+                if (!string.Equals(carriedTypeName, expected.TypeName, StringComparison.Ordinal))
+                {
+                    mismatchReason =
+                        $"parameter {i} ('{actual.Name}') is a '{actualTypeName}' holder for " +
+                        $"'{carriedTypeName}', not '{expected.TypeName}'.";
+                    return false;
+                }
+
+                if (!AcceptsExpectedRefKind(holderRole, expected.RefKind))
+                {
+                    mismatchReason =
+                        $"parameter {i} ('{actual.Name}') is a '{actualTypeName}' holder " +
+                        $"({RoleDescription(holderRole)}), which cannot represent the expected " +
+                        $"{expected.RefKind} parameter.";
+                    return false;
+                }
+
+                continue;
+            }
+
             var actualRefKind = ToCompatRefKind(actual.RefKind);
             if (actualRefKind != expected.RefKind)
             {
@@ -181,11 +225,11 @@ public sealed record CompatMethodReplacementEntry
                 return false;
             }
 
-            var actualTypeName = CompatTypeName.Canonical(actual.Type);
-            if (!string.Equals(actualTypeName, expected.TypeName, StringComparison.Ordinal))
+            var plainTypeName = CompatTypeName.Canonical(actual.Type);
+            if (!string.Equals(plainTypeName, expected.TypeName, StringComparison.Ordinal))
             {
                 mismatchReason =
-                    $"parameter {i} ('{actual.Name}') is '{actualTypeName}', not '{expected.TypeName}'.";
+                    $"parameter {i} ('{actual.Name}') is '{plainTypeName}', not '{expected.TypeName}'.";
                 return false;
             }
         }
@@ -211,6 +255,17 @@ public sealed record CompatMethodReplacementEntry
             ", ",
             method.Parameters.Select(parameter =>
             {
+                if (TryUnwrapRefHolder(parameter.Type, out var holderRole, out var carriedType))
+                {
+                    // Render the ORIGINAL parameter shape (the holder carries
+                    // the semantic type). A read/write holder does not record
+                    // whether the source said `ref` or `out`, so it renders as
+                    // `ref`; either entry ref kind still matches it (Matches).
+                    var liftedPrefix =
+                        holderRole == CompatRefHolderRole.Writable ? "ref " : "in ";
+                    return liftedPrefix + CompatTypeName.Canonical(carriedType);
+                }
+
                 var prefix = ToCompatRefKind(parameter.RefKind) switch
                 {
                     CompatParameterRefKind.Ref => "ref ",
@@ -222,6 +277,63 @@ public sealed record CompatMethodReplacementEntry
             }));
         return $"{GetNamespaceName(method)}.{method.ContainingType?.Name}.{method.Name}({parameters})";
     }
+
+    /// <summary>Namespace of the ref-out-in holder proxies.</summary>
+    internal const string RefHolderNamespace = "Cs2jByRef";
+
+    /// <summary>
+    /// Recognizes a single-type-argument <c>Cs2jByRef</c> holder produced by the
+    /// ref-out-in pass and yields the role the proxy plays plus the carried
+    /// (semantic) type the registry keys are written against.
+    /// </summary>
+    internal static bool TryUnwrapRefHolder(
+        ITypeSymbol type,
+        out CompatRefHolderRole role,
+        out ITypeSymbol carriedType)
+    {
+        role = CompatRefHolderRole.Writable;
+        carriedType = type;
+
+        if (type is not INamedTypeSymbol named || named.TypeArguments.Length != 1)
+            return false;
+
+        var ns = named.ContainingNamespace;
+        if (ns is null
+            || ns.IsGlobalNamespace
+            || !string.Equals(ns.ToDisplayString(), RefHolderNamespace, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        switch (named.Name)
+        {
+            case "ByRef":
+            case "ScopedByRef":
+            case "RefStructByRef":
+                role = CompatRefHolderRole.Writable;
+                break;
+            case "ReadOnlyByRef":
+            case "ReadOnlyScopedByRef":
+                role = CompatRefHolderRole.ReadOnly;
+                break;
+            default:
+                return false;
+        }
+
+        carriedType = named.TypeArguments[0];
+        return true;
+    }
+
+    /// <summary>Whether a lifted holder can stand in for an expected ref kind.</summary>
+    private static bool AcceptsExpectedRefKind(
+        CompatRefHolderRole role,
+        CompatParameterRefKind expected)
+        => role == CompatRefHolderRole.Writable
+            ? expected is CompatParameterRefKind.Ref or CompatParameterRefKind.Out
+            : expected is CompatParameterRefKind.In;
+
+    private static string RoleDescription(CompatRefHolderRole role)
+        => role == CompatRefHolderRole.Writable ? "read/write proxy" : "read-only proxy";
 
     private static string GetNamespaceName(IMethodSymbol method)
     {

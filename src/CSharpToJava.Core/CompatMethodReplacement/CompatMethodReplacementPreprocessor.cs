@@ -306,7 +306,10 @@ public sealed class CompatMethodReplacementPreprocessor
     /// <summary>
     /// Replace each declared placeholder name (whole-identifier match) with the
     /// matched method's actual parameter name, so a parameter rename cannot
-    /// produce a body that references undeclared identifiers.
+    /// produce a body that references undeclared identifiers. Parameters the
+    /// ref-out-in pass lifted to a <c>Cs2jByRef</c> holder are referenced
+    /// through <c>.Value</c> (the proxy is not the value), including an
+    /// already-present <c>name.Value</c> so it never becomes <c>name.Value.Value</c>.
     /// </summary>
     private static string SubstituteParameterNames(
         string template,
@@ -317,7 +320,18 @@ public sealed class CompatMethodReplacementPreprocessor
         for (var i = 0; i < declaredParameters.Count; i++)
         {
             var declaredName = declaredParameters[i].Name;
-            var actualName = symbol.Parameters[i].Name;
+            var actual = symbol.Parameters[i];
+            var actualName = actual.Name;
+
+            if (CompatMethodReplacementEntry.TryUnwrapRefHolder(actual.Type, out _, out _))
+            {
+                result = Regex.Replace(
+                    result,
+                    @"\b" + Regex.Escape(declaredName) + @"\b(?:\s*\.\s*Value\b)?",
+                    _ => actualName + ".Value");
+                continue;
+            }
+
             if (string.Equals(declaredName, actualName, StringComparison.Ordinal))
                 continue;
 
