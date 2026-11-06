@@ -598,7 +598,9 @@ public sealed class VarianceAuditUnitTests
     // on value semantics. It then only restricts callers, and every caller is already-compiled
     // C#, so Java erasure changes no observable behavior and strict mode must not gate it.
     // Enum boxing/array sites are excused only when the constraint symbol names System.Enum;
-    // nullable type uses are safe, unlifted nullable value operations are not.
+    // nullable type uses are safe, and nullable value operations are safe only when their
+    // Java mapping is equivalent (HasValue/??/zero-argument GetValueOrDefault, or a .Value
+    // dominated by a same-receiver null guard); everything else stays unsafe.
 
     private static (VarianceAuditPreprocessor Preprocessor, VarianceAuditAnalysis Analysis, CSharpCompilation Compilation)
         AnalyzeStrict(string source)
@@ -682,9 +684,9 @@ public sealed class VarianceAuditUnitTests
     }
 
     [Fact]
-    public void Unlifted_nullable_value_operation_stays_strict_error()
+    public void Unguarded_nullable_value_operation_stays_strict_error()
     {
-        const string source = "class C { bool Has<T>(T? value) where T : struct => value.HasValue; }";
+        const string source = "class C { T Unwrap<T>(T? value) where T : struct => value.Value; }";
         var (preprocessor, analysis, compilation) = AnalyzeStrict(source);
 
         var site = Assert.Single(analysis.ConstraintSites);
@@ -701,18 +703,186 @@ public sealed class VarianceAuditUnitTests
             .Where(entry => !entry.GetProperty("safe").GetBoolean())
             .Select(entry => entry.GetProperty("rationale").GetString())
             .ToList();
-        Assert.Contains(reported, rationale => rationale == "unlifted nullable value operation");
+        Assert.Contains(reported, rationale => rationale != null && rationale.Contains("unguarded nullable .Value"));
     }
 
     [Fact]
-    public void Coalesce_on_nullable_parameter_is_detected_as_value_operation()
+    public void HasValue_is_safe()
     {
-        const string source = "class C { T Pick<T>(T? value, T fallback) where T : struct => value ?? fallback; }";
+        const string source = "class C { bool Has<T>(T? value) where T : struct => value.HasValue; }";
+        var (preprocessor, analysis, compilation) = AnalyzeStrict(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal(0, site.DependentNullableValueSites);
+        Assert.Equal(0, site.UnsafeDependentSites);
+        Assert.Equal("lazy", site.Judgment);
+        Assert.Contains(analysis.ConstraintDependentSites, dependent => dependent.Safe);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.DoesNotContain(audit.Diagnostics, d => d.Severity == VarianceSeverity.Error);
+    }
+
+    [Fact]
+    public void Nullable_value_after_early_exit_null_guard_is_safe()
+    {
+        const string source =
+            "class C { T Unwrap<T>(T? value) where T : struct { "
+            + "if (value is null) { throw new System.InvalidOperationException(); } "
+            + "return value.Value; } }";
+        var (preprocessor, analysis, compilation) = AnalyzeStrict(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal(0, site.DependentNullableValueSites);
+        Assert.Equal(0, site.UnsafeDependentSites);
+        Assert.Equal("lazy", site.Judgment);
+
+        var dependent = Assert.Single(
+            analysis.ConstraintDependentSites, d => d.Safe && d.Rationale!.Contains("dominated"));
+        Assert.Contains("dominated after a same-receiver 'is null' early-exit guard", dependent.Rationale);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.DoesNotContain(audit.Diagnostics, d => d.Severity == VarianceSeverity.Error);
+    }
+
+    [Fact]
+    public void Nullable_value_in_has_value_true_branch_is_safe()
+    {
+        const string source =
+            "class C { T Unwrap<T>(T? value) where T : struct { "
+            + "if (value.HasValue) { return value.Value; } "
+            + "throw new System.InvalidOperationException(); } }";
+        var (preprocessor, analysis, compilation) = AnalyzeStrict(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal(0, site.DependentNullableValueSites);
+        Assert.Equal(0, site.UnsafeDependentSites);
+        Assert.Equal("lazy", site.Judgment);
+
+        var dependent = Assert.Single(
+            analysis.ConstraintDependentSites, d => d.Safe && d.Rationale!.Contains("dominated"));
+        Assert.Contains("dominated by the true branch of a same-receiver 'HasValue' check", dependent.Rationale);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.DoesNotContain(audit.Diagnostics, d => d.Severity == VarianceSeverity.Error);
+    }
+
+    [Fact]
+    public void Nullable_value_in_negated_has_value_else_branch_is_safe()
+    {
+        const string source =
+            "class C { T Unwrap<T>(T? value) where T : struct { "
+            + "if (!value.HasValue) { throw new System.InvalidOperationException(); } "
+            + "else { return value.Value; } } }";
+        var (preprocessor, analysis, compilation) = AnalyzeStrict(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal(0, site.DependentNullableValueSites);
+        Assert.Equal(0, site.UnsafeDependentSites);
+        Assert.Equal("lazy", site.Judgment);
+
+        var dependent = Assert.Single(
+            analysis.ConstraintDependentSites, d => d.Safe && d.Rationale!.Contains("dominated"));
+        Assert.Contains("dominated by the else branch of a same-receiver 'HasValue' check", dependent.Rationale);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.DoesNotContain(audit.Diagnostics, d => d.Severity == VarianceSeverity.Error);
+    }
+
+    [Fact]
+    public void Nullable_value_in_conditional_arm_is_safe()
+    {
+        const string source =
+            "class C { T Pick<T>(T? value, T fallback) where T : struct "
+            + "=> value.HasValue ? value.Value : fallback; }";
+        var (preprocessor, analysis, compilation) = AnalyzeStrict(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal(0, site.DependentNullableValueSites);
+        Assert.Equal(0, site.UnsafeDependentSites);
+        Assert.Equal("lazy", site.Judgment);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.DoesNotContain(audit.Diagnostics, d => d.Severity == VarianceSeverity.Error);
+    }
+
+    [Fact]
+    public void Nullable_value_guard_on_a_different_receiver_is_not_dominating()
+    {
+        const string source =
+            "class C { T Pick<T>(T? a, T? b) where T : struct { "
+            + "if (a.HasValue) { return b.Value; } "
+            + "throw new System.InvalidOperationException(); } }";
+        var (preprocessor, analysis, compilation) = AnalyzeStrict(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal(1, site.DependentNullableValueSites);
+        Assert.Equal(1, site.UnsafeDependentSites);
+        Assert.Equal("unsafe", site.Judgment);
+
+        var audit = AuditOf(preprocessor, compilation);
+        var dependent = Assert.Single(audit.Diagnostics, d => d.Message.Contains("nullable value operation"));
+        Assert.Equal(VarianceSeverity.Error, dependent.Severity);
+        Assert.Contains("nullable value operation 'Value'", dependent.Message);
+    }
+
+    [Fact]
+    public void Nullable_value_guard_is_invalidated_by_a_receiver_write()
+    {
+        const string source =
+            "class C { T Unwrap<T>(T? value) where T : struct { "
+            + "if (value is null) { throw new System.InvalidOperationException(); } "
+            + "value = null; return value.Value; } }";
         var (_, analysis, _) = AnalyzeStrict(source);
 
         var site = Assert.Single(analysis.ConstraintSites);
         Assert.Equal(1, site.DependentNullableValueSites);
         Assert.Equal("unsafe", site.Judgment);
+    }
+
+    [Fact]
+    public void GetValueOrDefault_zero_argument_on_nullable_type_parameter_is_safe()
+    {
+        const string source = "class C { T Get<T>(T? value) where T : struct => value.GetValueOrDefault(); }";
+        var (preprocessor, analysis, compilation) = AnalyzeStrict(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal(0, site.DependentNullableValueSites);
+        Assert.Equal(0, site.UnsafeDependentSites);
+        Assert.Equal("lazy", site.Judgment);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.DoesNotContain(audit.Diagnostics, d => d.Severity == VarianceSeverity.Error);
+    }
+
+    [Fact]
+    public void GetValueOrDefault_with_default_argument_stays_strict_error()
+    {
+        const string source =
+            "class C { T Get<T>(T? value, T fallback) where T : struct => value.GetValueOrDefault(fallback); }";
+        var (preprocessor, analysis, compilation) = AnalyzeStrict(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal(1, site.DependentNullableValueSites);
+        Assert.Equal(1, site.UnsafeDependentSites);
+        Assert.Equal("unsafe", site.Judgment);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Contains(audit.Diagnostics, d => d.Severity == VarianceSeverity.Error);
+    }
+
+    [Fact]
+    public void Coalesce_on_nullable_parameter_is_safe()
+    {
+        const string source = "class C { T Pick<T>(T? value, T fallback) where T : struct => value ?? fallback; }";
+        var (preprocessor, analysis, compilation) = AnalyzeStrict(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal(0, site.DependentNullableValueSites);
+        Assert.Equal(0, site.UnsafeDependentSites);
+        Assert.Equal("lazy", site.Judgment);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.DoesNotContain(audit.Diagnostics, d => d.Severity == VarianceSeverity.Error);
     }
 
     [Fact]

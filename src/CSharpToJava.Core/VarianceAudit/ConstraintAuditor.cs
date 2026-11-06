@@ -179,7 +179,8 @@ internal sealed class ConstraintAuditor
             dependents = dependents.ConstructionOnly();
         }
 
-        var safeSites = dependents.SafeBoxing + dependents.SafeArray + dependents.Nullable;
+        var safeSites = dependents.SafeBoxing + dependents.SafeArray + dependents.Nullable
+            + dependents.SafeNullableValueOperations;
         var unsafeSites = dependents.Default
             + Math.Max(0, dependents.New - dependents.Activator)
             + (dependents.Boxing - dependents.SafeBoxing)
@@ -266,9 +267,14 @@ internal sealed class ConstraintAuditor
             notes.Add($"{dependents.Nullable} nullable type-use site(s) are safe: the T? occurrence only names a parameter/return/field/local/base type, and under Java reference erasure null means 'no value' while a struct instance itself is never null");
         }
 
+        if (dependents.SafeNullableValueOperations > 0)
+        {
+            notes.Add($"{dependents.SafeNullableValueOperations} nullable value-operation site(s) are safe: HasValue maps to a receiver != null check, ?? maps to a null ternary, a dominating same-receiver null guard makes .Value the post-guard unwrap, and zero-argument GetValueOrDefault() on T? maps to the receiver");
+        }
+
         if (dependents.NullableValueOperations > 0)
         {
-            notes.Add($"{dependents.NullableValueOperations} nullable value-operation site(s) (.HasValue/.Value/GetValueOrDefault/??) remain in the intermediate tree; nullable-lift/C22 did not rewrite them to equivalent null checks");
+            notes.Add($"{dependents.NullableValueOperations} unguarded nullable value-operation site(s) (.Value without a dominating same-receiver HasValue/null guard, or an unproven GetValueOrDefault form) still rely on C#'s throw-on-null semantics");
         }
 
         if (kinds.Contains(ConstraintKind.Unmanaged))
@@ -522,7 +528,7 @@ internal sealed class ConstraintAuditor
         private readonly List<ITypeSymbol> _activators = new();
         private readonly List<ITypeSymbol> _arrayElements = new();
         private readonly List<(ITypeSymbol Type, SyntaxNode Node)> _nullableArguments = new();
-        private readonly List<(ITypeSymbol Type, SyntaxNode Node)> _nullableValueOperations = new();
+        private readonly List<(ITypeSymbol Type, SyntaxNode Node, bool Safe, string Rationale)> _nullableValueOperations = new();
         private readonly List<(ITypeSymbol Type, SyntaxNode Node)> _unmanagedLayout = new();
         private readonly List<ITypeSymbol> _boxing = new();
 
@@ -646,6 +652,8 @@ internal sealed class ConstraintAuditor
         /// Records a value-semantics use of <c>T?</c> (member access or <c>??</c>) only when the
         /// receiver/left operand is really <see cref="System.Nullable{T}"/>; <c>ByRef&lt;T?&gt;.Value</c>
         /// and other wrappers are not nullable unwrapping and must stay out of this bucket.
+        /// Each site is classified here (where the semantic model is available) as safe or
+        /// unsafe; unsafe sites keep the original Error treatment.
         /// </summary>
         private static void AddNullableValueOperation(
             SemanticModel model,
@@ -653,13 +661,364 @@ internal sealed class ConstraintAuditor
             SyntaxNode node,
             DependentCandidates candidates)
         {
-            if (model.GetTypeInfo(expression).Type is INamedTypeSymbol named
-                && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T
-                && named.TypeArguments.Length == 1)
+            if (model.GetTypeInfo(expression).Type is not INamedTypeSymbol named
+                || named.OriginalDefinition.SpecialType != SpecialType.System_Nullable_T
+                || named.TypeArguments.Length != 1)
             {
-                candidates._nullableValueOperations.Add((named.TypeArguments[0], node));
+                return;
+            }
+
+            var (safe, rationale) = ClassifyNullableValueOperation(model, node, named);
+            candidates._nullableValueOperations.Add((named.TypeArguments[0], node, safe, rationale));
+        }
+
+        /// <summary>
+        /// Java mapping of the nullable member surface (C22/README):
+        /// <c>HasValue</c> → <c>receiver != null</c>; guarded <c>Value</c> → the post-guard unwrap
+        /// (<c>io.github.ningpp.compat.Nullable.value</c> for primitives, the receiver itself for
+        /// reference-mapped value types); zero-argument <c>GetValueOrDefault()</c> on <c>T?</c> →
+        /// the receiver itself (null is <c>default(T)</c> under erasure); <c>??</c> → a
+        /// <c>receiver != null ? receiver : fallback</c> ternary. An unguarded <c>.Value</c>
+        /// (C# throws; Java primitive unbox throws, reference-mapped receiver does not) and any
+        /// other <c>GetValueOrDefault</c> form stay unsafe.
+        /// </summary>
+        private static (bool Safe, string Rationale) ClassifyNullableValueOperation(
+            SemanticModel model,
+            SyntaxNode node,
+            INamedTypeSymbol nullable)
+        {
+            switch (node)
+            {
+                case MemberAccessExpressionSyntax { Name.Identifier.ValueText: "HasValue" }:
+                    return (true,
+                        "HasValue maps to a receiver != null null check; null/no-value equivalence holds");
+
+                case MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Value" } member:
+                    if (HasDominatingNonNullGuard(model, member.Expression, member, out var evidence))
+                    {
+                        return (true,
+                            $"{evidence}; the guarded .Value is the post-guard unwrap (compat Nullable.value "
+                            + "for primitives, the receiver itself for reference-mapped value types)");
+                    }
+
+                    return (false,
+                        "unguarded nullable .Value: no dominating same-receiver HasValue/null check proves "
+                        + "the receiver non-null, so C#'s throw-on-null and the Java mapping are not equivalent");
+
+                case MemberAccessExpressionSyntax { Name.Identifier.ValueText: "GetValueOrDefault" } member:
+                    if (IsZeroArgumentInvocation(member)
+                        && nullable.TypeArguments[0].TypeKind == TypeKind.TypeParameter)
+                    {
+                        return (true,
+                            "zero-argument GetValueOrDefault() on T? maps to the receiver itself; null is "
+                            + "default(T) under reference erasure");
+                    }
+
+                    return (false,
+                        "GetValueOrDefault form is not proven equivalent at this site; only the zero-argument "
+                        + "T? form maps to the receiver (other forms need the C22 lift)");
+
+                case BinaryExpressionSyntax coalesce when coalesce.IsKind(SyntaxKind.CoalesceExpression):
+                    return (true,
+                        "?? maps to a receiver != null ? receiver : fallback ternary, equivalent to "
+                        + "HasValue ? Value : fallback");
+
+                default:
+                    return (false, "unclassified nullable value operation");
             }
         }
+
+        private static bool IsZeroArgumentInvocation(MemberAccessExpressionSyntax member)
+            => member.Parent is InvocationExpressionSyntax invocation
+               && invocation.Expression == member
+               && invocation.ArgumentList.Arguments.Count == 0;
+
+        /// <summary>
+        /// Symbol-level dominance check: the site must sit in a branch guarded by a null test on
+        /// the <em>same</em> receiver symbol. Supported forms are the true branch of
+        /// <c>if (x.HasValue)</c>/<c>if (x != null)</c>/<c>if (x is not null)</c>, the else branch of
+        /// their negations, the corresponding conditional-expression arm, and the code after an
+        /// early-exit guard (<c>if (x is null) return;</c>). Merely seeing <c>HasValue</c> for a
+        /// different receiver, or anywhere outside a dominating position, does not qualify.
+        /// A preceding statement that writes to the receiver ends the search.
+        /// </summary>
+        private static bool HasDominatingNonNullGuard(
+            SemanticModel model,
+            ExpressionSyntax receiver,
+            SyntaxNode site,
+            out string evidence)
+        {
+            evidence = string.Empty;
+            var receiverSymbol = model.GetSymbolInfo(receiver).Symbol;
+            if (receiverSymbol is null)
+            {
+                return false;
+            }
+
+            foreach (var ancestor in site.Ancestors())
+            {
+                switch (ancestor)
+                {
+                    case IfStatementSyntax ifStatement:
+                        if (ifStatement.Statement.Span.Contains(site.Span)
+                            && TryNonNullGuard(model, ifStatement.Condition, whenTrue: true, out var thenReceiver, out var thenForm)
+                            && SymbolEqualityComparer.Default.Equals(receiverSymbol, thenReceiver))
+                        {
+                            evidence = $"dominated by the true branch of a same-receiver '{thenForm}' check";
+                            return true;
+                        }
+
+                        if (ifStatement.Else is { Statement: var elseStatement }
+                            && elseStatement.Span.Contains(site.Span)
+                            && TryNonNullGuard(model, ifStatement.Condition, whenTrue: false, out var elseReceiver, out var elseForm)
+                            && SymbolEqualityComparer.Default.Equals(receiverSymbol, elseReceiver))
+                        {
+                            evidence = $"dominated by the else branch of a same-receiver '{elseForm}' check";
+                            return true;
+                        }
+
+                        break;
+
+                    case ConditionalExpressionSyntax conditional:
+                        if (conditional.WhenTrue.Span.Contains(site.Span)
+                            && TryNonNullGuard(model, conditional.Condition, whenTrue: true, out var trueReceiver, out var trueForm)
+                            && SymbolEqualityComparer.Default.Equals(receiverSymbol, trueReceiver))
+                        {
+                            evidence = $"dominated by the true arm of a same-receiver '{trueForm}' conditional";
+                            return true;
+                        }
+
+                        if (conditional.WhenFalse.Span.Contains(site.Span)
+                            && TryNonNullGuard(model, conditional.Condition, whenTrue: false, out var falseReceiver, out var falseForm)
+                            && SymbolEqualityComparer.Default.Equals(receiverSymbol, falseReceiver))
+                        {
+                            evidence = $"dominated by the false arm of a same-receiver '{falseForm}' conditional";
+                            return true;
+                        }
+
+                        break;
+
+                    case BlockSyntax block:
+                        var containing = block.Statements.FirstOrDefault(statement => statement.Span.Contains(site.Span));
+                        if (containing is null)
+                        {
+                            break;
+                        }
+
+                        var index = block.Statements.IndexOf(containing);
+                        for (var i = index - 1; i >= 0; i--)
+                        {
+                            var previous = block.Statements[i];
+                            if (WritesTo(model, previous, receiverSymbol))
+                            {
+                                break;
+                            }
+
+                            if (previous is IfStatementSyntax { Else: null, Statement: var guardedBody } earlyExit
+                                && AlwaysExits(guardedBody)
+                                && TryNonNullGuard(model, earlyExit.Condition, whenTrue: false, out var exitReceiver, out var exitForm)
+                                && SymbolEqualityComparer.Default.Equals(receiverSymbol, exitReceiver))
+                            {
+                                evidence = $"dominated after a same-receiver '{exitForm}' early-exit guard";
+                                return true;
+                            }
+                        }
+
+                        break;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// True when <paramref name="condition"/> being <paramref name="whenTrue"/> proves that the
+        /// tested receiver is non-null. Only simple null predicates (and an AND conjunction in the
+        /// true branch) qualify; disjunctions and unknown forms are rejected.
+        /// </summary>
+        private static bool TryNonNullGuard(
+            SemanticModel model,
+            ExpressionSyntax condition,
+            bool whenTrue,
+            out ISymbol? receiver,
+            out string form)
+        {
+            receiver = null;
+            form = string.Empty;
+
+            switch (condition)
+            {
+                case ParenthesizedExpressionSyntax parenthesized:
+                    return TryNonNullGuard(model, parenthesized.Expression, whenTrue, out receiver, out form);
+
+                case PrefixUnaryExpressionSyntax not when not.IsKind(SyntaxKind.LogicalNotExpression):
+                    return TryNonNullGuard(model, not.Operand, !whenTrue, out receiver, out form);
+
+                case IsPatternExpressionSyntax isPattern:
+                    if (!TryNullPattern(isPattern.Pattern, out var assertsNull) || assertsNull == whenTrue)
+                    {
+                        return false;
+                    }
+
+                    receiver = model.GetSymbolInfo(isPattern.Expression).Symbol;
+                    form = assertsNull ? "is null" : "is not null";
+                    return receiver != null;
+
+                case BinaryExpressionSyntax conjunction
+                    when conjunction.IsKind(SyntaxKind.LogicalAndExpression) && whenTrue:
+                    if (TryNonNullGuard(model, conjunction.Left, whenTrue: true, out receiver, out form)
+                        || TryNonNullGuard(model, conjunction.Right, whenTrue: true, out receiver, out form))
+                    {
+                        return true;
+                    }
+
+                    receiver = null;
+                    form = string.Empty;
+                    return false;
+
+                case BinaryExpressionSyntax equality
+                    when equality.IsKind(SyntaxKind.EqualsExpression) || equality.IsKind(SyntaxKind.NotEqualsExpression):
+                    return TryEqualityNonNullGuard(model, equality, whenTrue, out receiver, out form);
+
+                case MemberAccessExpressionSyntax { Name.Identifier.ValueText: "HasValue" } member when whenTrue:
+                    receiver = model.GetSymbolInfo(member.Expression).Symbol;
+                    form = "HasValue";
+                    return receiver != null;
+
+                default:
+                    return false;
+            }
+        }
+
+        private static bool TryNullPattern(PatternSyntax pattern, out bool assertsNull)
+        {
+            assertsNull = false;
+            switch (pattern)
+            {
+                case ConstantPatternSyntax { Expression: LiteralExpressionSyntax literal }
+                    when literal.IsKind(SyntaxKind.NullLiteralExpression):
+                    assertsNull = true;
+                    return true;
+
+                case UnaryPatternSyntax { Pattern: ConstantPatternSyntax { Expression: LiteralExpressionSyntax literal } }
+                    when literal.IsKind(SyntaxKind.NullLiteralExpression):
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        private static bool TryEqualityNonNullGuard(
+            SemanticModel model,
+            BinaryExpressionSyntax equality,
+            bool whenTrue,
+            out ISymbol? receiver,
+            out string form)
+        {
+            receiver = null;
+            form = string.Empty;
+            var isEquals = equality.IsKind(SyntaxKind.EqualsExpression);
+
+            var other = IsNullLiteral(equality.Right) ? equality.Left
+                : IsNullLiteral(equality.Left) ? equality.Right
+                : null;
+            if (other != null)
+            {
+                // 'x == null' proves non-null when false; 'x != null' proves it when true.
+                if (isEquals == whenTrue)
+                {
+                    return false;
+                }
+
+                receiver = model.GetSymbolInfo(other).Symbol;
+                form = isEquals ? "== null" : "!= null";
+                return receiver != null;
+            }
+
+            if (TryMatchHasValueComparison(equality.Left, equality.Right, out var hasValue, out var expected)
+                || TryMatchHasValueComparison(equality.Right, equality.Left, out hasValue, out expected))
+            {
+                var hasValueWhenTrue = isEquals ? expected : !expected;
+                if (hasValueWhenTrue != whenTrue)
+                {
+                    return false;
+                }
+
+                receiver = model.GetSymbolInfo(hasValue!.Expression).Symbol;
+                form = "HasValue";
+                return receiver != null;
+            }
+
+            return false;
+        }
+
+        private static bool TryMatchHasValueComparison(
+            ExpressionSyntax left,
+            ExpressionSyntax right,
+            out MemberAccessExpressionSyntax? hasValue,
+            out bool expected)
+        {
+            hasValue = null;
+            expected = false;
+            if (left is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "HasValue" } member
+                && right is LiteralExpressionSyntax literal
+                && literal.Token.Value is bool value)
+            {
+                hasValue = member;
+                expected = value;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsNullLiteral(ExpressionSyntax expression)
+            => expression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.NullLiteralExpression);
+
+        /// <summary>
+        /// A preceding statement invalidates an earlier guard when it can change the receiver:
+        /// assignment, increment/decrement, or a ref/out argument.
+        /// </summary>
+        private static bool WritesTo(SemanticModel model, StatementSyntax statement, ISymbol receiver)
+        {
+            foreach (var node in statement.DescendantNodesAndSelf())
+            {
+                switch (node)
+                {
+                    case AssignmentExpressionSyntax assignment
+                        when SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(assignment.Left).Symbol, receiver):
+                        return true;
+
+                    case PrefixUnaryExpressionSyntax prefix
+                        when (prefix.IsKind(SyntaxKind.PreIncrementExpression) || prefix.IsKind(SyntaxKind.PreDecrementExpression))
+                             && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(prefix.Operand).Symbol, receiver):
+                        return true;
+
+                    case PostfixUnaryExpressionSyntax postfix
+                        when (postfix.IsKind(SyntaxKind.PostIncrementExpression) || postfix.IsKind(SyntaxKind.PostDecrementExpression))
+                             && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(postfix.Operand).Symbol, receiver):
+                        return true;
+
+                    case ArgumentSyntax argument
+                        when argument.RefKindKeyword.Kind() is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword
+                             && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(argument.Expression).Symbol, receiver):
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool AlwaysExits(StatementSyntax statement) => statement switch
+        {
+            ReturnStatementSyntax or ThrowStatementSyntax or ContinueStatementSyntax
+                or BreakStatementSyntax or GotoStatementSyntax => true,
+            BlockSyntax block => block.Statements.Count > 0 && AlwaysExits(block.Statements[^1]),
+            IfStatementSyntax { Else: { } elseClause } ifStatement
+                => AlwaysExits(ifStatement.Statement) && AlwaysExits(elseClause.Statement),
+            _ => false,
+        };
 
         /// <summary>
         /// Pointer/sizeof/marshal/Unsafe sites that assume an unmanaged layout. Only the type
@@ -702,6 +1061,7 @@ internal sealed class ConstraintAuditor
             var arrays = 0;
             var nullables = 0;
             var nullableValueOperations = 0;
+            var safeNullableValueOperations = 0;
             var unmanagedLayout = 0;
             var activators = 0;
 
@@ -777,19 +1137,32 @@ internal sealed class ConstraintAuditor
                 }
             }
 
-            foreach (var (type, node) in _nullableValueOperations)
+            foreach (var (type, node, safe, rationale) in _nullableValueOperations)
             {
-                if (SymbolEqualityComparer.Default.Equals(type, parameter))
+                if (!SymbolEqualityComparer.Default.Equals(type, parameter))
                 {
-                    nullableValueOperations++;
+                    continue;
+                }
+
+                if (safe)
+                {
+                    safeNullableValueOperations++;
                     diagnostics.Add(Dependent(
                         VarianceCodes.StructConstraint,
-                        $"nullable value operation '{OperationWord(node)}' on '{parameter.Name}?': the intermediate tree "
-                        + "still uses Nullable<T> value semantics and nullable-lift/C22 has not rewritten this site to an "
-                        + "equivalent null check; Java reference erasure is not proven safe here",
+                        $"nullable value operation '{OperationWord(node)}' on '{parameter.Name}?': {rationale}",
                         parameter, node,
-                        rationale: "unlifted nullable value operation"));
+                        safe: true,
+                        rationale: rationale));
+                    continue;
                 }
+
+                nullableValueOperations++;
+                diagnostics.Add(Dependent(
+                    VarianceCodes.StructConstraint,
+                    $"nullable value operation '{OperationWord(node)}' on '{parameter.Name}?': {rationale}; "
+                    + "Java reference erasure is not proven safe here",
+                    parameter, node,
+                    rationale: rationale));
             }
 
             foreach (var (type, node) in _unmanagedLayout)
@@ -830,7 +1203,8 @@ internal sealed class ConstraintAuditor
 
             return new Dependents(
                 defaults, news, boxing, arrays, nullables, activators,
-                safeBoxing, safeArray, nullableValueOperations, unmanagedLayout, diagnostics);
+                safeBoxing, safeArray, nullableValueOperations, safeNullableValueOperations,
+                unmanagedLayout, diagnostics);
         }
 
         private static string OperationWord(SyntaxNode node) => node switch
@@ -898,11 +1272,12 @@ internal sealed class ConstraintAuditor
         int SafeBoxing,
         int SafeArray,
         int NullableValueOperations,
+        int SafeNullableValueOperations,
         int UnmanagedLayout,
         List<VarianceConstraintDependentSite> Diagnostics)
     {
         public static Dependents Empty { get; } = new(
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, new List<VarianceConstraintDependentSite>());
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, new List<VarianceConstraintDependentSite>());
 
         /// <summary>Keeps only construction/Activator facts (drops value-semantics buckets) for 'new()'-only constraints.</summary>
         public Dependents ConstructionOnly() => new(
@@ -912,6 +1287,7 @@ internal sealed class ConstraintAuditor
             0,
             0,
             Activator,
+            0,
             0,
             0,
             0,
