@@ -3,7 +3,7 @@ using System.Diagnostics;
 namespace CSharpToJava.ProjectTests;
 
 /// <summary>
-/// C19 M3 project-level coverage for CS2J1290 (design §4.2-5/§6): a loose
+/// C19 M3 project-level coverage for CS2J1990 (design §4.2-5/§6): a loose
 /// directory without any csproj runs the pass in single-file conservative
 /// mode — an extension-like call that fails overload resolution (here a
 /// class-constrained generic invoked on an int) cannot be distinguished from
@@ -62,12 +62,12 @@ public class ExtensionMethodSingleFileProjectTests
             var stderr = await stderrTask;
 
             Assert.True(process.ExitCode == 0,
-                $"CS2J1290 is Warning-grade (never strict); exit must be 0.\nstderr: {stderr}");
+                $"CS2J1990 is Warning-grade (never strict); exit must be 0.\nstderr: {stderr}");
 
             // Warning identifies the site and the conservative rationale.
-            Assert.Contains("CS2J1290", stderr);
+            Assert.Contains("CS2J1990", stderr);
             Assert.Contains("x.NeedsClass()", stderr);
-            Assert.DoesNotContain("CS2J1202", stderr);
+            Assert.DoesNotContain("CS2J1902", stderr);
 
             // Summary carries the single-file counter.
             Assert.Contains("1 single-file deferred", stdout);

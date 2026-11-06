@@ -8,8 +8,8 @@ using Xunit;
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// Tests for the Core rollback loop (CS2J1206 single-plan exclusion and
-/// CS2J1200 whole-run rollback). Compile errors are injected by a test
+/// Tests for the Core rollback loop (CS2J1606 single-plan exclusion and
+/// CS2J1600 whole-run rollback). Compile errors are injected by a test
 /// validator and located inside the candidate output, mirroring the CLI
 /// adapter's recompile-and-diff callback without touching the file system.
 /// </summary>

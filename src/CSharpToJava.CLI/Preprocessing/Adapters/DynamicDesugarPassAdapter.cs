@@ -63,7 +63,7 @@ internal sealed class DynamicDesugarPassAdapter : ProjectPassAdapter
     }
 
     public override PassDescriptor Descriptor =>
-        PassCatalog.ImplementedById(PassStubCatalog.Ids.DynamicDesugar);
+        PassCatalog.ImplementedById(PassIds.DynamicDesugar);
 
     public override string LogPrefix => "[dynamic-desugar]";
     public override bool Verbose => _verbose;

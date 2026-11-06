@@ -104,18 +104,74 @@ internal sealed class NullCoalescePassAdapter : ProjectPassAdapter
     public override Task AfterFilesAsync(PassTreeContext tree)
     {
         // Historical behavior: the per-file residual accumulator is replaced by a
-        // fresh scan of the written intermediate tree.
-        var residualCount = CountResidualNullCoalesce(tree.IntermediateRoot);
-        _statistics.ResidualCount = residualCount;
+        // fresh scan of the written intermediate tree. W-06 (upgrade plan
+        // §4.3/G-18, sequential-failure policy): residual sites carrying a
+        // collection expression are OWNED downstream — expression-desugar (C36)
+        // lowers the collection syntax and the converter's coalesce path renders
+        // the operator — so they are deferred with a Warning (file/line list)
+        // instead of aborting the chain as a strict Error before the later
+        // passes (and the generic passes) ever run. The classifier is the SAME
+        // single implementation the per-file post-check uses.
+        var deferredSites = new List<(string File, int Line)>();
+        var strictResidual = 0;
+        var residualTotal = 0;
 
-        if (residualCount > 0)
+        foreach (var csFile in Directory.EnumerateFiles(
+                     tree.IntermediateRoot, "*.cs", SearchOption.AllDirectories))
+        {
+            var root = CSharpSyntaxTree.ParseText(File.ReadAllText(csFile)).GetRoot();
+            foreach (var node in root.DescendantNodes().Where(n =>
+                         n is BinaryExpressionSyntax b
+                             && b.IsKind(SyntaxKind.CoalesceExpression)
+                         || n is AssignmentExpressionSyntax a
+                             && a.IsKind(SyntaxKind.CoalesceAssignmentExpression)))
+            {
+                residualTotal++;
+                if (NullCoalesceRewriter.IsOwnedDownstream(node))
+                {
+                    int line;
+                    try
+                    {
+                        line = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+                    }
+                    catch
+                    {
+                        line = 0;
+                    }
+
+                    deferredSites.Add((
+                        Path.GetRelativePath(tree.SourceRoot, csFile), line));
+                }
+                else
+                {
+                    strictResidual++;
+                }
+            }
+        }
+
+        _statistics.ResidualCount = residualTotal;
+        _statistics.DeferredDownstreamSites = deferredSites.Count;
+
+        if (deferredSites.Count > 0)
+        {
+            var locationList = string.Join(
+                ", ",
+                deferredSites.Take(5).Select(site => $"{site.File}:{site.Line}"));
+            _diagnostics.Add(new NullCoalesceDiagnostic(
+                NullCoalesceSeverity.Warning,
+                $"{deferredSites.Count} ??/??= site(s) deferred to later passes (the collection " +
+                "expression is owned by expression-desugar; the converter's coalesce path renders " +
+                $"the operator): {locationList}{(deferredSites.Count > 5 ? " …" : "")}."));
+        }
+
+        if (strictResidual > 0)
         {
             var severity = _strict
                 ? NullCoalesceSeverity.Error
                 : NullCoalesceSeverity.Warning;
             _diagnostics.Add(new NullCoalesceDiagnostic(
                 severity,
-                $"{residualCount} residual ??/??= operator(s) remaining after preprocessing."));
+                $"{strictResidual} residual ??/??= operator(s) remaining after preprocessing."));
         }
 
         return Task.CompletedTask;
@@ -140,13 +196,22 @@ internal sealed class NullCoalescePassAdapter : ProjectPassAdapter
         => _diagnostics.Any(d => d.Severity == NullCoalesceSeverity.Error);
 
     public override string BuildChainSummaryLine()
-        => $"null-coalesce: {_statistics.FilesTransformed} transformed, " +
-           $"{_statistics.FilesSkippedClean} clean, " +
-           $"{_statistics.NullCoalescingRewritten} ?? rewritten, " +
-           $"{_statistics.NullCoalescingAssignRewritten} ??= rewritten, " +
-           $"{_statistics.TempVariablesGenerated} temp vars, " +
-           $"{_statistics.ExpressionBodiesExpanded} arrow bodies expanded, " +
-           $"{_statistics.ResidualCount} residual";
+    {
+        var line = $"null-coalesce: {_statistics.FilesTransformed} transformed, " +
+                   $"{_statistics.FilesSkippedClean} clean, " +
+                   $"{_statistics.NullCoalescingRewritten} ?? rewritten, " +
+                   $"{_statistics.NullCoalescingAssignRewritten} ??= rewritten, " +
+                   $"{_statistics.TempVariablesGenerated} temp vars, " +
+                   $"{_statistics.ExpressionBodiesExpanded} arrow bodies expanded, " +
+                   $"{_statistics.ResidualCount} residual";
+
+        // W-06: the deferred segment appears only when a deferral happened,
+        // keeping no-deferral runs byte-identical.
+        if (_statistics.DeferredDownstreamSites > 0)
+            line += $", {_statistics.DeferredDownstreamSites} deferred-downstream";
+
+        return line;
+    }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
         => _diagnostics.Select(d =>
@@ -154,22 +219,6 @@ internal sealed class NullCoalescePassAdapter : ProjectPassAdapter
             var prefix = d.FilePath != null ? $"{d.FilePath}: " : "";
             return $"[{d.Severity}] {prefix}{d.Message}";
         }).ToList();
-
-    private static int CountResidualNullCoalesce(string intermediateRoot)
-    {
-        var count = 0;
-        foreach (var csFile in Directory.EnumerateFiles(
-                     intermediateRoot, "*.cs", SearchOption.AllDirectories))
-        {
-            var root = CSharpSyntaxTree.ParseText(File.ReadAllText(csFile)).GetRoot();
-            count += root.DescendantNodes().Count(n =>
-                n is BinaryExpressionSyntax b && b.IsKind(SyntaxKind.CoalesceExpression)
-                || n is AssignmentExpressionSyntax a
-                    && a.IsKind(SyntaxKind.CoalesceAssignmentExpression));
-        }
-
-        return count;
-    }
 
     private void MergeStatistics(NullCoalesceStatistics source)
     {
@@ -183,5 +232,6 @@ internal sealed class NullCoalescePassAdapter : ProjectPassAdapter
         _statistics.SkippedUnsupported += source.SkippedUnsupported;
         _statistics.ExpressionBodiesExpanded += source.ExpressionBodiesExpanded;
         _statistics.ResidualCount += source.ResidualCount;
+        _statistics.DeferredDownstreamSites += source.DeferredDownstreamSites;
     }
 }

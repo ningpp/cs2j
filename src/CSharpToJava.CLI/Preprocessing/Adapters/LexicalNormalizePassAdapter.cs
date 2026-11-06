@@ -46,7 +46,7 @@ internal sealed class LexicalNormalizePassAdapter : ProjectPassAdapter
     }
 
     public override PassDescriptor Descriptor =>
-        PassCatalog.ImplementedById(PassStubCatalog.Ids.LexicalNormalize);
+        PassCatalog.ImplementedById(PassIds.LexicalNormalize);
 
     public override bool Verbose => _verbose;
     public override bool FilterUnsupportedProjects => _filterUnsupportedProjects;

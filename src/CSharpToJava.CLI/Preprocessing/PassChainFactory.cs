@@ -189,7 +189,7 @@ internal sealed class PassChainConfiguration
 
     /// <summary>
     /// C49 M2: factory for extension-block materialization policy. Null
-    /// (default) keeps the classic CS2J1206 gate bit-for-bit unchanged; the
+    /// (default) keeps the classic CS2J1906 gate bit-for-bit unchanged; the
     /// CLI --materialize-extension-blocks switch (both entry points) and
     /// embedded test chains opt in by returning a non-null policy. Invoked
     /// only when the extension-methods pass runs.
@@ -204,6 +204,18 @@ internal sealed class PassChainConfiguration
 
     /// <summary>Preprocess profile (default|java-ready|audit), recorded in the residual report.</summary>
     public string Profile { get; init; } = "default";
+
+    /// <summary>
+    /// W-01 (upgrade plan §6.4-R0): true when the run carries the java-ready or
+    /// audit profile. The GENERIC family (generic-deepen / closed-metadata) and
+    /// the variance-audit constraint gate then run STRICT, so the profile's
+    /// semantic guarantee is actually enforced instead of silently downgraded
+    /// to Warnings — historically java-ready ≠ strict because these options
+    /// were constructed without any strict/profile input. Computed once by
+    /// <c>CliPreprocessChain</c> from the profile; the default profile keeps
+    /// the historical non-strict behavior.
+    /// </summary>
+    public bool JavaReady { get; init; }
 
     /// <summary>
     /// When true a NORM-* residual with policy Fail makes normalization-audit
@@ -234,13 +246,13 @@ internal static class PassChainFactory
             [PassIds.Delegate] = opts.DelegatePreprocess,
             [PassIds.Tuple] = opts.TupleToStruct,
             [PassIds.ForeachDeconstruction] = opts.ForeachDeconstruction,
-            [PassStubCatalog.Ids.ForeachSource] = opts.ForeachSource,
+            [PassIds.ForeachSource] = opts.ForeachSource,
             [PassIds.StripDefault] = opts.StripDefault,
             [PassIds.RefOutIn] = opts.RefOutIn,
             [PassIds.Unsigned] = opts.UnsignedType,
             // M4: numeric-boundary defaults ON in the open gate (design §8);
             // disable explicitly with --disable-pass numeric-boundary.
-            [PassStubCatalog.Ids.NumericBoundary] = true,
+            [PassIds.NumericBoundary] = true,
             [PassIds.Generic] = opts.GenericPreprocess,
             [PassIds.RecordReadOnly] = opts.RecordReadOnly,
             [PassIds.ArrayMethod] = opts.ArrayMethod,
@@ -251,20 +263,20 @@ internal static class PassChainFactory
             // the all-preprocessors-default-on policy). The --no-iterator-lowering
             // kill switch opts out and --enable-pass/--disable-pass win at the
             // resolver.
-            [PassStubCatalog.Ids.IteratorLowering] =
-                PassCatalog.ImplementedById(PassStubCatalog.Ids.IteratorLowering).DefaultEnabled
+            [PassIds.IteratorLowering] =
+                PassCatalog.ImplementedById(PassIds.IteratorLowering).DefaultEnabled
                 && opts.IteratorLowering,
             [PassIds.EliminateGoto] = opts.EliminateGoto,
             [PassIds.MemberDesugar] = opts.MemberDesugar,
             [PassIds.JavaKeywords] = opts.JavaKeywords,
             // C47 equality-concat defaults ON in the open gate;
             // disable explicitly with --no-equality-concat / --disable-pass.
-            [PassStubCatalog.Ids.EqualityConcat] = opts.EqualityConcatEffective,
+            [PassIds.EqualityConcat] = opts.EqualityConcatEffective,
             // C26 M4 (2026-10-06): linq-channel flipped default-on; the legacy
             // --no-linq-rewrite kill switch maps to the registry toggle
             // (--enable-pass/--disable-pass still win at the resolver).
-            [PassStubCatalog.Ids.LinqChannel] =
-                PassCatalog.ImplementedById(PassStubCatalog.Ids.LinqChannel).DefaultEnabled
+            [PassIds.LinqChannel] =
+                PassCatalog.ImplementedById(PassIds.LinqChannel).DefaultEnabled
                 && opts.EnableLinqRewrite,
         };
 
@@ -297,7 +309,7 @@ internal static class PassChainFactory
                 tfm: null,
                 removeRegions: false),
 
-            PassStubCatalog.Ids.LexicalNormalize => new LexicalNormalizePassAdapter(
+            PassIds.LexicalNormalize => new LexicalNormalizePassAdapter(
                 config.LexicalNormalizeOptionsFactory(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
@@ -371,7 +383,7 @@ internal static class PassChainFactory
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
 
-            PassStubCatalog.Ids.ForeachSource => new ForeachSourcePassAdapter(
+            PassIds.ForeachSource => new ForeachSourcePassAdapter(
                 new ForeachSourceOptions(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
@@ -459,7 +471,7 @@ internal static class PassChainFactory
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
 
-            PassStubCatalog.Ids.NumericBoundary => new NumericBoundaryPassAdapter(
+            PassIds.NumericBoundary => new NumericBoundaryPassAdapter(
                 new NumericBoundaryOptions
                 {
                     EnabledPassIds = config.EnabledPassIds,
@@ -482,7 +494,13 @@ internal static class PassChainFactory
                 config.VerifyTests),
 
             PassIds.GenericDeepen => new GenericDeepenPassAdapter(
-                new GenericDeepenOptions(),
+                new GenericDeepenOptions
+                {
+                    // W-01: java-ready/audit make the generic family strict
+                    // (residual scan findings escalate); the default profile
+                    // keeps the historical non-strict behavior.
+                    Strict = config.JavaReady,
+                },
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,
@@ -506,7 +524,8 @@ internal static class PassChainFactory
                 config.VerifyTests),
 
             PassIds.VarianceAudit => new VarianceAuditPassAdapter(
-                config.VarianceAuditOptionsFactory(),
+                WireVarianceAuditJavaReadyStrict(
+                    config.VarianceAuditOptionsFactory(), config),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
@@ -516,6 +535,10 @@ internal static class PassChainFactory
                 {
                     EnabledPassIds = config.EnabledPassIds,
                     OverridesPath = config.ClosedMetadataOverridesPath,
+                    // W-01: java-ready/audit escalate the residual gate and
+                    // downgradeable diagnostics (CM-STRICT); default keeps
+                    // the historical Warning pass-through.
+                    Strict = config.JavaReady,
                 },
                 config.Verbose,
                 config.FilterUnsupportedProjects,
@@ -569,7 +592,7 @@ internal static class PassChainFactory
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
 
-            PassStubCatalog.Ids.UnsafeFfm => new UnsafeFfmPassAdapter(
+            PassIds.UnsafeFfm => new UnsafeFfmPassAdapter(
                 config.UnsafeFfmOptionsFactory(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
@@ -616,7 +639,7 @@ internal static class PassChainFactory
                 config.VerifyBuild,
                 config.VerifyTests),
 
-            PassStubCatalog.Ids.PartialMerge => new PartialMergePassAdapter(
+            PassIds.PartialMerge => new PartialMergePassAdapter(
                 new PartialMergeOptions
                 {
                     AssumeNoGeneratedPartial = config.PartialMergeAssumeNoGenerated,
@@ -627,7 +650,7 @@ internal static class PassChainFactory
                 config.VerifyBuild,
                 config.VerifyTests),
 
-            PassStubCatalog.Ids.ClosureLift => new ClosureLiftPassAdapter(
+            PassIds.ClosureLift => new ClosureLiftPassAdapter(
                 new ClosureLiftOptions(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
@@ -636,7 +659,7 @@ internal static class PassChainFactory
                 config.VerifyTests,
                 config.Strict),
 
-            PassStubCatalog.Ids.IteratorLowering => new IteratorLoweringPassAdapter(
+            PassIds.IteratorLowering => new IteratorLoweringPassAdapter(
                 new IteratorLoweringOptions(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
@@ -649,7 +672,7 @@ internal static class PassChainFactory
             // descriptor default (off, long-term opt-in) drives it and
             // --enable-pass/--pass opts in (concurrency-normalize /
             // platform-isolation registry-default precedent).
-            PassStubCatalog.Ids.AsyncNormalize => new AsyncNormalizePassAdapter(
+            PassIds.AsyncNormalize => new AsyncNormalizePassAdapter(
                 new AsyncNormalizeOptions(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
@@ -706,7 +729,7 @@ internal static class PassChainFactory
             // C26 has no convert-project legacy toggle; the descriptor
             // default (off) drives it and --enable-pass linq-channel opts in
             // (platform-isolation / anonymous-type-lift precedent).
-            PassStubCatalog.Ids.LinqChannel => new LinqChannelPassAdapter(
+            PassIds.LinqChannel => new LinqChannelPassAdapter(
                 config.LinqChannelOptionsFactory(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
@@ -723,7 +746,7 @@ internal static class PassChainFactory
             // parameter both receive false so CS2J2910/2911/2920/2921 stay
             // Warnings; a future --concurrency-strict opt-in can restore the
             // strict CI gate (linq-channel precedent).
-            PassStubCatalog.Ids.ConcurrencyNormalize => new ConcurrencyNormalizePassAdapter(
+            PassIds.ConcurrencyNormalize => new ConcurrencyNormalizePassAdapter(
                 new ConcurrencyOptions { Strict = false },
                 config.Verbose,
                 config.FilterUnsupportedProjects,
@@ -732,7 +755,7 @@ internal static class PassChainFactory
                 config.VerifyTests,
                 strict: false),
 
-            PassStubCatalog.Ids.EqualityConcat => new EqualityConcatPassAdapter(
+            PassIds.EqualityConcat => new EqualityConcatPassAdapter(
                 config.EqualityConcatOptionsFactory(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
@@ -747,7 +770,7 @@ internal static class PassChainFactory
             // default chain and rescues preserved init-only initializer sites
             // (widens init→set + PD-8 lifting), so the C24 rule downgrades
             // init-only CS2J0531 to a Warning in that chain composition.
-            PassStubCatalog.Ids.ExpressionDesugar => new ExpressionDesugarPassAdapter(
+            PassIds.ExpressionDesugar => new ExpressionDesugarPassAdapter(
                 config.ExpressionDesugarOptionsFactory(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
@@ -759,7 +782,7 @@ internal static class PassChainFactory
 
             // C42 platform-isolation has no convert-project legacy toggle; the
             // descriptor default (off) drives it and --enable-pass opts in.
-            PassStubCatalog.Ids.PlatformIsolation => new PlatformIsolationPassAdapter(
+            PassIds.PlatformIsolation => new PlatformIsolationPassAdapter(
                 config.PlatformIsolationOptionsFactory(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
@@ -771,7 +794,7 @@ internal static class PassChainFactory
             // descriptor default (off, long-term opt-in per design §3.2/§8)
             // drives it and --enable-pass opts in. M1 ships the Audit-mode
             // adapter only (zero rewrites).
-            PassStubCatalog.Ids.DynamicDesugar => new DynamicDesugarPassAdapter(
+            PassIds.DynamicDesugar => new DynamicDesugarPassAdapter(
                 config.DynamicDesugarOptionsFactory(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
@@ -787,6 +810,23 @@ internal static class PassChainFactory
         // for passes we never call this on).
         adapter.ApplyVerificationConfig(config.VerifyBuild, config.VerifyTests);
         return adapter;
+    }
+
+    /// <summary>
+    /// W-01 (upgrade plan §6.4-R0): under java-ready/audit the variance-audit
+    /// constraint gate runs strict — the already strict-gated codes
+    /// (VA020/021/023/027, the constraint audit's "definite semantic error"
+    /// verdicts) become Errors instead of report-only Warnings, so the profile
+    /// actually enforces the constraint semantics it promises. The default
+    /// profile keeps the historical report-only behavior; an explicitly
+    /// strict run stays strict.
+    /// </summary>
+    private static VarianceAuditOptions WireVarianceAuditJavaReadyStrict(
+        VarianceAuditOptions options,
+        PassChainConfiguration config)
+    {
+        options.Strict = options.Strict || config.JavaReady;
+        return options;
     }
 
     /// <summary>

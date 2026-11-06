@@ -40,7 +40,7 @@ internal sealed class ForeachSourcePassAdapter : ProjectPassAdapter
     }
 
     public override PassDescriptor Descriptor
-        => PassCatalog.ImplementedById(PassStubCatalog.Ids.ForeachSource);
+        => PassCatalog.ImplementedById(PassIds.ForeachSource);
 
     public override bool Verbose => _verbose;
     public override bool FilterUnsupportedProjects => _filterUnsupportedProjects;

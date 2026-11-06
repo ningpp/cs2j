@@ -17,7 +17,7 @@ namespace CSharpToJava.Tests;
 /// Observed and locked for M5 default-on review:
 /// - the converter consumes explicitized sites as ordinary static calls in
 ///   every scenario (Success, host-qualified Java invocation present);
-/// - unmapped external hosts are reported preprocess-time as CS2J1203;
+/// - unmapped external hosts are reported preprocess-time as CS2J1903;
 /// - the former M5 gap (namespaced host emitted as a dotted name chain) is
 ///   closed: same-compilation namespace hosts now land via a single-type
 ///   import with simple-name call sites.

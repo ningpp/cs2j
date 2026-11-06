@@ -46,8 +46,11 @@ internal static class RestorePackageReferenceEnumerator
             }
             catch (JsonException)
             {
-                // Malformed restore output: ignore this project; restore failure
-                // is reported separately via CS2J1230.
+                // Malformed restore output: ignore this project; restore
+                // failure is reported separately by the owning pass's
+                // restore-failed diagnostic (W-03: the 12xx code family was
+                // split per pass — extension-methods CS2J1930, thread-static
+                // CS2J1630, closed-metadata CS2J1230).
             }
         }
 

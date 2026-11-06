@@ -4,7 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.Core.ExtensionMethodResolve;
 
 /// <summary>
-/// EM-REF defensiveness (CS2J1204): a <c>this ref</c> / <c>this scoped ref</c>
+/// EM-REF defensiveness (CS2J1904): a <c>this ref</c> / <c>this scoped ref</c>
 /// receiver can only be rewritten as <c>Host.M(ref r, ...)</c> when the source
 /// receiver expression is a provably writable lvalue the compiler itself
 /// accepted as a ref argument. <c>this in</c> accepts any expression (rvalues

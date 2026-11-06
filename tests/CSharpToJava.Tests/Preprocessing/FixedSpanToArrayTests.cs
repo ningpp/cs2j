@@ -275,7 +275,7 @@ public sealed class FixedSpanToArrayTests
         var usingLift = ordered.IndexOf(PassIds.UsingResourceLift);
         var fixedSpan = ordered.IndexOf(PassIds.FixedSpanToArray);
         var unsigned = ordered.IndexOf(PassIds.Unsigned);
-        var unsafeFfm = ordered.IndexOf(PassStubCatalog.Ids.UnsafeFfm);
+        var unsafeFfm = ordered.IndexOf(PassIds.UnsafeFfm);
 
         Assert.True(usingLift >= 0 && fixedSpan >= 0 && unsigned >= 0 && unsafeFfm >= 0);
         Assert.True(usingLift < fixedSpan,

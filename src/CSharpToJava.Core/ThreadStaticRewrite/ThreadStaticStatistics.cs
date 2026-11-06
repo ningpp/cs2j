@@ -33,7 +33,7 @@ public sealed class ThreadStaticStatistics
     /// <summary>Validation rounds executed by the rollback loop (1 when no rollback happened).</summary>
     public int RollbackRounds;
 
-    /// <summary>1 when the run ended in a CS2J1200 whole-run rollback, otherwise 0.</summary>
+    /// <summary>1 when the run ended in a CS2J1600 whole-run rollback, otherwise 0.</summary>
     public int WholeRunRolledBack;
 
     public void Merge(ThreadStaticStatistics source)
@@ -73,6 +73,6 @@ public sealed class ThreadStaticStatistics
             $"{CompoundSitesRewritten} compound, {IncrementSitesRewritten} increments, " +
             $"{StructTempLifts} struct lifts, {InitializersNormalized} initializers, " +
             $"{PlansRolledBack} plan rollback(s), {ResidualThreadStaticAttributes} residual)";
-        return WholeRunRolledBack > 0 ? line + " [WHOLE RUN ROLLED BACK: CS2J1200]" : line;
+        return WholeRunRolledBack > 0 ? line + " [WHOLE RUN ROLLED BACK: CS2J1600]" : line;
     }
 }

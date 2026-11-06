@@ -30,13 +30,13 @@ public sealed class ExtensionMethodResolveStatistics
     /// <summary>Null-conditional chains (<c>r?.M()</c>) lifted into temps + conditional static calls (EM-COND).</summary>
     public int ConditionalChainsLifted;
 
-    /// <summary>Null-conditional chains left on CS2J1205/assert-only (EM-COND).</summary>
+    /// <summary>Null-conditional chains left on CS2J1905/assert-only (EM-COND).</summary>
     public int ConditionalChainsDeferred;
 
     /// <summary>Reduced method groups rewritten into capture lambdas (EM-GROUP).</summary>
     public int GroupSitesRewritten;
 
-    /// <summary>Reduced method groups left on CS2J1207 (EM-GROUP).</summary>
+    /// <summary>Reduced method groups left on CS2J1907 (EM-GROUP).</summary>
     public int GroupSitesDeferred;
 
     /// <summary>Reduced LINQ-host sites skipped untouched (EM-LINQ).</summary>
@@ -48,7 +48,7 @@ public sealed class ExtensionMethodResolveStatistics
     /// <summary>External-host sites with a known Java landing (TypeMappings hit, silent).</summary>
     public int ExternalHostMappedSites;
 
-    /// <summary>External-host sites without a Java landing (CS2J1203 reported).</summary>
+    /// <summary>External-host sites without a Java landing (CS2J1903 reported).</summary>
     public int ExternalHostUnmappedSites;
 
     /// <summary>Bound reduced sites whose host is source inside the merged compilation (user + support).</summary>
@@ -60,13 +60,13 @@ public sealed class ExtensionMethodResolveStatistics
     /// <summary>User-host subset (<see cref="InCompilationHostSites"/> minus support).</summary>
     public int InCompilationUserHostSites;
 
-    /// <summary>Extension-like sites conservatively skipped in single-file mode (CS2J1290).</summary>
+    /// <summary>Extension-like sites conservatively skipped in single-file mode (CS2J1990).</summary>
     public int SingleFileDeferredSites;
 
     /// <summary>Rewritten sites located inside an Expression&lt;&gt; lambda (EM-EXPRTREE).</summary>
     public int ExpressionTreeSitesChecked;
 
-    /// <summary>Expression-tree sites rolled back to the sugar after the identity assertion failed (CS2J1210).</summary>
+    /// <summary>Expression-tree sites rolled back to the sugar after the identity assertion failed (CS2J1910).</summary>
     public int ExpressionTreeRollbacks;
 
     /// <summary>

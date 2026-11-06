@@ -67,7 +67,7 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
     }
 
     public override PassDescriptor Descriptor =>
-        PassCatalog.ImplementedById(PassStubCatalog.Ids.PlatformIsolation);
+        PassCatalog.ImplementedById(PassIds.PlatformIsolation);
     public override bool Verbose => _verbose;
     public override bool FilterUnsupportedProjects => _filterUnsupportedProjects;
     public override IReadOnlyCollection<string>? CompatNamespacePrefixes =>

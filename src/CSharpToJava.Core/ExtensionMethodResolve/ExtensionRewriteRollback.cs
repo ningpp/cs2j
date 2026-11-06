@@ -17,7 +17,7 @@ public enum ExtensionRollbackVerdict
     /// <summary>All new errors attribute to exactly one rewritten file: revert that file only.</summary>
     ExcludeFiles,
 
-    /// <summary>Attribution is impossible/multi-file (CS2J1200): replay every rewritten file from the originals.</summary>
+    /// <summary>Attribution is impossible/multi-file (CS2J1900): replay every rewritten file from the originals.</summary>
     WholeTreeRollback,
 }
 
@@ -25,7 +25,7 @@ public enum ExtensionRollbackVerdict
 /// Result of <see cref="ExtensionRewriteRollback.Plan"/>: the verdict, the
 /// single file to revert (when <see cref="ExtensionRollbackVerdict.ExcludeFiles"/>)
 /// and the diffed new error set (observability; the adapter emits EM001 Info
-/// per error plus CS2J1200 on whole-tree rollback).
+/// per error plus CS2J1900 on whole-tree rollback).
 /// </summary>
 public sealed record ExtensionRollbackPlan(
     ExtensionRollbackVerdict Verdict,
@@ -51,7 +51,7 @@ public sealed record ExtensionRollbackPlan(
 /// <item>every new error locates in ONE file that this pass rewrote →
 /// revert exactly that file (all of its rewrites), replay the original copy;</item>
 /// <item>an unlocated error, an error in a file the pass did not rewrite, or
-/// errors spread over multiple files → whole-tree rollback (CS2J1200).</item>
+/// errors spread over multiple files → whole-tree rollback (CS2J1900).</item>
 /// </list>
 /// Reverted files must be byte-identical copies of the inputs (the caller
 /// performs the File.Copy replay); residual scans exclude them.

@@ -24,7 +24,7 @@ namespace CSharpToJava.Tests.Preprocessing;
 ///    directly to the Ordinary method inside the TypeKind.Extension container.
 /// ④ C#15 extension indexers parse (preview only) as IndexerDeclarationSyntax
 ///    inside the block; under Latest they are syntax errors — the rejection
-///    (CS2J1209) is driven by SyntaxKind + node classification.
+///    (CS2J1909) is driven by SyntaxKind + node classification.
 /// </summary>
 public sealed class ExtensionBlockM1ProbeTests
 {
@@ -561,7 +561,7 @@ public sealed class ExtensionBlockM1ProbeTests
     /// Roslyn 5.0.0 pin: extension indexers PARSE (as IndexerDeclarationSyntax
     /// inside the block) under Latest and Preview, but are rejected at compile
     /// with CS9282 under BOTH — the feature lands in a later Roslyn line. C49
-    /// therefore always rejects block indexers with CS2J1209 regardless of the
+    /// therefore always rejects block indexers with CS2J1909 regardless of the
     /// incoming language version.
     /// </summary>
     [Fact]

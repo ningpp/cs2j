@@ -227,7 +227,7 @@ public sealed class PointerDerefIndexTests
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
         Assert.True(descriptor.DefaultEnabled);
         Assert.Equal(PassStage.Expression, descriptor.Stage);
-        Assert.Equal(new[] { PassStubCatalog.Ids.UnsafeFfm }, descriptor.RunAfterIds);
+        Assert.Equal(new[] { PassIds.UnsafeFfm }, descriptor.RunAfterIds);
         Assert.True(descriptor.NeedsSemanticModel);
         Assert.Equal(PassSupportLibrary.None, descriptor.SupportLibrary);
         Assert.Equal(".cs2j-pointer-deref-index-src", descriptor.IntermediateDirectoryName);
@@ -235,11 +235,11 @@ public sealed class PointerDerefIndexTests
         var plan = PassPlanResolver.Resolve(registry);
         Assert.True(plan.IsValid);
         var ordered = plan.Enabled.Select(pass => pass.Id).ToList();
-        var unsafeFfm = ordered.IndexOf(PassStubCatalog.Ids.UnsafeFfm);
+        var unsafeFfm = ordered.IndexOf(PassIds.UnsafeFfm);
         var stackAlloc = ordered.IndexOf(PassIds.StackAllocLowering);
         var refStruct = ordered.IndexOf(PassIds.RefStructLowering);
         var pointerDeref = ordered.IndexOf(PassIds.PointerDerefIndex);
-        var closure = ordered.IndexOf(PassStubCatalog.Ids.ClosureLift);
+        var closure = ordered.IndexOf(PassIds.ClosureLift);
 
         Assert.True(unsafeFfm >= 0 && stackAlloc >= 0 && refStruct >= 0
             && pointerDeref >= 0 && closure >= 0);

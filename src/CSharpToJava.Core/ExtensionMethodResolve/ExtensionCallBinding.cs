@@ -33,7 +33,7 @@ public enum ExternalHostMappingKind
     Mapped,
 
     /// <summary>
-    /// No Java landing found in TypeMappings; CS2J1203 is reported
+    /// No Java landing found in TypeMappings; CS2J1903 is reported
     /// (Warning, Error under strict) while the rewrite still happens.
     /// </summary>
     Unknown,

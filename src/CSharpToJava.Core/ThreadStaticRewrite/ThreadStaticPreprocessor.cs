@@ -306,8 +306,8 @@ internal delegate IReadOnlyList<ThreadStaticCompileError> ThreadStaticCompileVal
 /// TS rollback loop (design §4.3 / §7.4). Every round replays from the ORIGINAL
 /// sources with the cumulative excluded-plan set, rewrites, and recompiles.
 /// New errors attributed to exactly one active plan exclude that plan
-/// (CS2J1206); anything unattributable (zero or multiple owners) rolls back
-/// the whole run to the original bytes (CS2J1200).
+/// (CS2J1606); anything unattributable (zero or multiple owners) rolls back
+/// the whole run to the original bytes (CS2J1600).
 /// </summary>
 internal static class ThreadStaticRollbackRunner
 {

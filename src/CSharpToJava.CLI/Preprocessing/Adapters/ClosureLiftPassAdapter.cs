@@ -49,7 +49,7 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
     }
 
     public override PassDescriptor Descriptor
-        => PassCatalog.ImplementedById(PassStubCatalog.Ids.ClosureLift);
+        => PassCatalog.ImplementedById(PassIds.ClosureLift);
     public override bool Verbose => _verbose;
     public override bool FilterUnsupportedProjects => _filterUnsupportedProjects;
     public override IReadOnlyCollection<string>? CompatNamespacePrefixes => _compatNamespacePrefixes;

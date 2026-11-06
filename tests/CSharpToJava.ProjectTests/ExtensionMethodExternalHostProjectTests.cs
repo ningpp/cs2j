@@ -8,7 +8,7 @@ namespace CSharpToJava.ProjectTests;
 /// NuGet feed by this harness and consumed via PackageReference, so it reaches
 /// the merged binding compilation purely as metadata:
 /// - the unmapped synthetic host site is still explicitized and reports
-///   CS2J1203 (Warning → exit 0);
+///   CS2J1903 (Warning → exit 0);
 /// - the BCL System.MemoryExtensions site is graded Mapped via the shipped
 ///   TypeMappings.json and stays silent;
 /// - the summary line carries the external [mapped/unmapped] counters.
@@ -85,7 +85,7 @@ public class ExtensionMethodExternalHostProjectTests
                 "--pass", "extension-methods", "--verbose");
 
             Assert.True(exit == 0,
-                $"CS2J1203 is Warning-grade; preprocess must exit 0.\nstderr: {stderr}\nstdout tail: {stdout[^Math.Min(2000, stdout.Length)..]}");
+                $"CS2J1903 is Warning-grade; preprocess must exit 0.\nstderr: {stderr}\nstdout tail: {stdout[^Math.Min(2000, stdout.Length)..]}");
 
             // 3) Both metadata-host sites are explicitized.
             var intermediateRoot = Path.Combine(destination, ".cs2j-extension-methods-src");
@@ -97,11 +97,11 @@ public class ExtensionMethodExternalHostProjectTests
                 program);
             Assert.Contains("global::System.MemoryExtensions.AsSpan(\"abc\")", program);
 
-            // 4) Exactly one CS2J1203 — the synthetic host; MemoryExtensions is
+            // 4) Exactly one CS2J1903 — the synthetic host; MemoryExtensions is
             //    graded Mapped and produces none.
             var lines1203 = stderr
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-                .Where(l => l.Contains("CS2J1203", StringComparison.Ordinal))
+                .Where(l => l.Contains("CS2J1903", StringComparison.Ordinal))
                 .ToList();
             Assert.Single(lines1203);
             Assert.Contains("ExtHosts.MetadataStringExtensions", lines1203[0]);

@@ -30,7 +30,7 @@ public class StaticGenericFieldTests
     public void ThreadStatic_InstanceField_DirectConversion_PassesThrough()
     {
         // The CLR ignores [ThreadStatic] on instance fields; the thread-static
-        // preprocessor leaves them untouched (CS2J1201) and the converter must
+        // preprocessor leaves them untouched (CS2J1601) and the converter must
         // keep emitting an ordinary field with the attribute governed/stripped.
         var result = Convert(ThreadStaticUsing + """
             public class State

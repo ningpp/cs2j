@@ -6,8 +6,8 @@ namespace CSharpToJava.Tests;
 
 /// <summary>
 /// M3 Core tests (design §4.2/§5.1/§6): external-metadata host mapping
-/// grading (CS2J1203), InCompilationSupport vs InCompilationUser split,
-/// single-file CS2J1290 conservative path, and the verbose EM001 detail line.
+/// grading (CS2J1903), InCompilationSupport vs InCompilationUser split,
+/// single-file CS2J1990 conservative path, and the verbose EM001 detail line.
 /// </summary>
 public sealed class ExtensionMethodResolveM3Tests
 {
@@ -83,7 +83,7 @@ public sealed class ExtensionMethodResolveM3Tests
         return (compilation, model, preprocessor.RewriteFile(model));
     }
 
-    // ── EM-EXTERNAL / CS2J1203 ────────────────────────────────────────────────
+    // ── EM-EXTERNAL / CS2J1903 ────────────────────────────────────────────────
 
     [Fact]
     public void ExternalMetadataHost_UnknownMapper_Reports1203Warning_ButStillRewrites()
@@ -269,7 +269,7 @@ public sealed class ExtensionMethodResolveM3Tests
         Assert.Equal(1, result.Statistics.InCompilationUserHostSites);
     }
 
-    // ── CS2J1290 single-file conservative path ────────────────────────────────
+    // ── CS2J1990 single-file conservative path ────────────────────────────────
 
     private const string UnboundCandidateSource = """
         namespace N

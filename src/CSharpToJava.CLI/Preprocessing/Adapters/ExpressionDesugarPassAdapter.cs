@@ -89,7 +89,7 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
     }
 
     public override PassDescriptor Descriptor =>
-        PassCatalog.ImplementedById(PassStubCatalog.Ids.ExpressionDesugar);
+        PassCatalog.ImplementedById(PassIds.ExpressionDesugar);
     public override bool Verbose => _verbose;
     public override bool FilterUnsupportedProjects => _filterUnsupportedProjects;
     public override IReadOnlyCollection<string>? CompatNamespacePrefixes =>

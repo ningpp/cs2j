@@ -88,13 +88,41 @@ internal sealed class CompatMethodReplacementPassAdapter : ProjectPassAdapter
 
     public override Task AfterFilesAsync(PassTreeContext tree)
     {
+        // W-09 drift gate (upgrade plan §6.4-R0): an entry family whose
+        // declaring type EXISTS in the processed corpus (symbol level) but
+        // whose signatures matched nothing means the library drifted away
+        // from the table (the rt10 ToUtf8 3-param rewrite was invisible for
+        // exactly this reason). Error severity — a silent no-op replacement
+        // is forbidden. Judged per FAMILY so intentionally retained legacy
+        // signatures (e.g. the 3.x 4-param ToUtf8 sibling) do not trip when
+        // a sibling matched.
+        var driftedEntryKeys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var entry in CompatMethodReplacementDriftDetector.DetectDriftedEntries(
+                     _options.Registry,
+                     _statistics.MatchedEntryKeys,
+                     _statistics.DeclaredTypeKeys))
+        {
+            driftedEntryKeys.Add(entry.Key);
+            _statistics.EntryDrifts++;
+            _diagnostics.Add(new CompatMethodReplacementDiagnostic(
+                CompatMethodReplacementSeverity.Error,
+                CompatMethodReplacementDiagnosticCode.CMR020,
+                $"compat method replacement entry '{entry.Key}' drifted: its declaring type " +
+                $"'{entry.ContainingNamespace}.{entry.ContainingTypeName}' is declared in the " +
+                "processed file set but no declaration matched the registered signature. " +
+                "Update the entry (or register the new signature) — a silent no-op " +
+                "replacement is forbidden."));
+        }
+
         // "Entry not found": a registered known method exists in the table but
-        // never matched any declaration in the processed file set.
+        // never matched any declaration in the processed file set. Drifted
+        // entries already carry the harder CMR020 Error above.
         if (_options.ReportUnusedEntries)
         {
             foreach (var entry in _options.Registry.Entries)
             {
-                if (_statistics.MatchedEntryKeys.Contains(entry.Key))
+                if (_statistics.MatchedEntryKeys.Contains(entry.Key)
+                    || driftedEntryKeys.Contains(entry.Key))
                     continue;
 
                 _statistics.EntriesUnused++;
@@ -139,6 +167,7 @@ internal sealed class CompatMethodReplacementPassAdapter : ProjectPassAdapter
            $"{_statistics.MethodsReplaced} method(s) replaced, " +
            $"{_statistics.MethodsAlreadyReplaced} already replaced, " +
            $"{_statistics.SignatureMismatches} signature mismatch(es) (CMR001), " +
+           $"{_statistics.EntryDrifts} drifted entr(y/ies) (CMR020), " +
            $"{_statistics.EntriesUnused} unused table entry(ies)";
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)

@@ -65,7 +65,7 @@ internal sealed class ExtensionBlockMetadataIndex
 /// semantically, builds member/site plans, and synthesizes C19
 /// <see cref="ExtensionConditionalPlan"/>s for liftable null-conditional block
 /// method/property sites. Unsupported members (indexers, other kinds) get
-/// CS2J1209; non-liftable sites are paired diagnostics and stay sugar.
+/// CS2J1909; non-liftable sites are paired diagnostics and stay sugar.
 /// </summary>
 internal sealed class ExtensionBlockAnalyzer
 {

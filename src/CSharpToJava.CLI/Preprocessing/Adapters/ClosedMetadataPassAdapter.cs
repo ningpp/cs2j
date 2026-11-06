@@ -257,6 +257,9 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
     public ClosedMetadataStatistics Statistics => _statistics;
     public IReadOnlyList<ClosedMetadataDiagnostic> Diagnostics => _diagnostics;
 
+    /// <summary>Options the adapter runs with (W-01 wiring visibility for tests).</summary>
+    internal ClosedMetadataOptions Options => _options;
+
     public override Task CompilationReadyAsync(CSharpCompilation compilation)
     {
         // Chain hard dependency (design §4.4): registration must read the final

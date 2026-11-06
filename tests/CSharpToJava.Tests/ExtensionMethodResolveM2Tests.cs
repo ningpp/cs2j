@@ -9,7 +9,7 @@ namespace CSharpToJava.Tests;
 
 /// <summary>
 /// M2 tests for extension-method explicitness: EM-REF (ref/in/scoped),
-/// EM-GROUP (capture lambdas + CS2J1207), EM-COND (single-evaluation temps
+/// EM-GROUP (capture lambdas + CS2J1907), EM-COND (single-evaluation temps
 /// and guards), EM-EXPRTREE (identity assertion + per-site rollback), and
 /// residual gates 2/4. Rewrites are asserted textually, recompiled, and,
 /// where useful, executed.

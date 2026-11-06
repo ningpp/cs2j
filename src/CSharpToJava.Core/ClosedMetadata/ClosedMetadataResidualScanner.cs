@@ -196,8 +196,10 @@ public static class ClosedMetadataResidualScanner
         HashSet<(string Rule, StatementSyntax Statement)> reportedStatements)
     {
         // Dynamic sites are CM-DYN territory (CS2J1210), and sites without a
-        // reachable holder are unservable by construction.
-        if (method.TypeArguments.Any(type => type is ITypeParameterSymbol))
+        // reachable holder are unservable by construction. V-06: the RECURSIVE
+        // shared predicate — the linker and this scanner filter through the
+        // same detector the collector classifies CM-DYN sites with.
+        if (method.TypeArguments.Any(ClosedMetadataCollector.MentionsTypeParameter))
         {
             return;
         }

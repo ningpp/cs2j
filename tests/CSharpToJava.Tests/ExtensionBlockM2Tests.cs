@@ -13,8 +13,8 @@ namespace CSharpToJava.Tests;
 /// sites; EMD-STATIC materializes block static methods/properties and
 /// rewrites receiver-type-name qualified sites with explicit block type
 /// arguments; two-level n+m generic mapping with constraints; receiver
-/// ref/in/scoped/ref-readonly argument forms; CS2J1211 pointer gate;
-/// CS2J1208 chain gate. Every positive case is recompiled clean and run a
+/// ref/in/scoped/ref-readonly argument forms; CS2J1911 pointer gate;
+/// CS2J1908 chain gate. Every positive case is recompiled clean and run a
 /// second time with zero diff.
 /// </summary>
 public sealed class ExtensionBlockM2Tests
@@ -991,10 +991,10 @@ public sealed class ExtensionBlockM2Tests
             d => d.Severity == DiagnosticSeverity.Error);
     }
 
-    // ── Pointer receiver: CS2J1211 ─────────────────────────────────────────
+    // ── Pointer receiver: CS2J1911 ─────────────────────────────────────────
 
     [Fact]
-    public void PointerReceiver_BlockRejectedWithCS2J1211_FileUnchanged()
+    public void PointerReceiver_BlockRejectedWithCS2J1911_FileUnchanged()
     {
         const string source = """
             namespace N
@@ -1019,10 +1019,10 @@ public sealed class ExtensionBlockM2Tests
                  && d.Code == ExtensionBlockCodes.UnsupportedReceiver);
     }
 
-    // ── CS2J1208 gate ─────────────────────────────────────────────────────
+    // ── CS2J1908 gate ─────────────────────────────────────────────────────
 
     [Fact]
-    public void Gate_OperatorWithoutMemberDesugarChain_CS2J1208()
+    public void Gate_OperatorWithoutMemberDesugarChain_CS2J1908()
     {
         const string source = """
             namespace N
@@ -1166,10 +1166,10 @@ public sealed class ExtensionBlockM2Tests
                  && d.Code == ExtensionBlockCodes.Unsupported);
     }
 
-    // ── Indexer member: CS2J1209 ──────────────────────────────────────────
+    // ── Indexer member: CS2J1909 ──────────────────────────────────────────
 
     [Fact]
-    public void IndexerMember_RejectedWithCS2J1209_BlockRetained()
+    public void IndexerMember_RejectedWithCS2J1909_BlockRetained()
     {
         const string source = """
             namespace N
@@ -1189,7 +1189,7 @@ public sealed class ExtensionBlockM2Tests
         var (compilation, model, tree) = CompileOne(source);
         var result = RunBlockRewrite(compilation, model);
 
-        // CS2J1209: indexer members are out of scope; the whole block is left
+        // CS2J1909: indexer members are out of scope; the whole block is left
         // as valid extension sugar (nothing is half-materialized).
         Assert.False(result.Changed);
         Assert.Equal(tree.GetCompilationUnitRoot().ToFullString(), result.OutputCode);

@@ -455,7 +455,7 @@ public sealed class LinqChannelRewriter
         }
 
         /// <summary>
-        /// M3 LC0012 (CS2J1303): a quoted-tree site the channel cannot prove
+        /// M3 LC0012 (CS2J1703): a quoted-tree site the channel cannot prove
         /// identity for. BCL surface (<c>System.*</c> — Enumerable/Queryable
         /// operators, String/DateTime/… instance methods, the
         /// System.Linq.Expressions.Expression builder API) keeps its

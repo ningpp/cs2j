@@ -1232,4 +1232,125 @@ public class NullCoalesceRewriterUnitTests
         var instance = System.Activator.CreateInstance(type);
         return (int)type.GetMethod("Run")!.Invoke(instance, null)!;
     }
+
+    // ---- W-06 (upgrade plan §4.3/G-18): sequential-failure policy ----
+
+    /// <summary>
+    /// Preprocess with explicit options and Preview language (collection
+    /// expressions require C# 12 syntax).
+    /// </summary>
+    private static NullCoalesceResult PreprocessWith(
+        string source, NullCoalesceOptions options)
+    {
+        var tree = CSharpSyntaxTree.ParseText(
+            source, new CSharpParseOptions(LanguageVersion.Preview));
+        var compilation = CSharpCompilation.Create("null-coalesce-w06",
+            new[] { tree },
+            CompileReferences,
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                allowUnsafe: true,
+                nullableContextOptions: NullableContextOptions.Enable));
+        var model = compilation.GetSemanticModel(tree);
+        return new NullCoalesceRewriter().Preprocess(source, model, options);
+    }
+
+    /// <summary>
+    /// The exact YamlDotNet TypeConverterCache.cs:39 shape (W-06): a
+    /// constructor initializer has no statement anchor, so the site stays
+    /// residual — but its RHS is a collection expression owned by
+    /// expression-desugar (C36), so strict mode must DEFER it to later passes
+    /// instead of aborting the chain as an Error before the generic passes
+    /// ever run.
+    /// </summary>
+    [Fact]
+    public void ConstructorInitializer_CoalesceWithCollectionExpression_IsDeferred_NotStrictError()
+    {
+        var result = PreprocessWith("""
+            class C {
+                private readonly int[] _items;
+                public C(int[]? items) : this(items ?? []) { }
+                public C(int[] items) { _items = items; }
+            }
+            """, new NullCoalesceOptions(Strict: true));
+
+        Assert.Equal(1, result.Statistics.ResidualCount);
+        Assert.Equal(1, result.Statistics.DeferredDownstreamSites);
+        Assert.DoesNotContain(
+            result.Diagnostics, d => d.Severity == NullCoalesceSeverity.Error);
+        Assert.Contains(
+            result.Diagnostics,
+            d => d.Message.Contains("deferred to later passes", StringComparison.Ordinal));
+        // The site itself is preserved verbatim for the downstream owner.
+        Assert.Contains("items ?? []", result.OutputCode, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The plan's G-18 minimal sample: a field-initializer coalesce with a
+    /// collection-expression RHS defers even under strict options.
+    /// </summary>
+    [Fact]
+    public void FieldInitializer_CoalesceWithCollectionExpression_IsDeferred_EvenInStrictMode()
+    {
+        var result = PreprocessWith("""
+            class C {
+                private readonly int[] _items = Get() ?? [];
+                static int[]? Get() => null;
+            }
+            """, new NullCoalesceOptions(Strict: true));
+
+        Assert.Equal(1, result.Statistics.ResidualCount);
+        Assert.Equal(1, result.Statistics.DeferredDownstreamSites);
+        Assert.DoesNotContain(
+            result.Diagnostics, d => d.Severity == NullCoalesceSeverity.Error);
+    }
+
+    /// <summary>
+    /// Regression guard for the strict gate itself: a residual site WITHOUT a
+    /// collection expression (nothing downstream owns it) still escalates to
+    /// Error under strict options.
+    /// </summary>
+    [Fact]
+    public void StrictMode_CoalesceWithoutCollectionExpression_StillErrors()
+    {
+        var result = PreprocessWith("""
+            class C {
+                private readonly string _s = Get() ?? "fallback";
+                static string? Get() => null;
+            }
+            """, new NullCoalesceOptions(Strict: true));
+
+        Assert.Equal(1, result.Statistics.ResidualCount);
+        Assert.Equal(0, result.Statistics.DeferredDownstreamSites);
+        Assert.Contains(
+            result.Diagnostics,
+            d => d.Severity == NullCoalesceSeverity.Error
+                 && d.Message.Contains("residual", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The shared W-06 classifier (one implementation for the per-file
+    /// post-check and the adapter's whole-tree gate): only collection
+    /// expressions count as downstream-owned — arrays/normal RHS do not.
+    /// </summary>
+    [Fact]
+    public void IsOwnedDownstream_OnlyCollectionExpressions_Qualify()
+    {
+        SyntaxNode FindCoalesce(string source, SyntaxKind kind)
+        {
+            var root = CSharpSyntaxTree
+                .ParseText(source, new CSharpParseOptions(LanguageVersion.Preview))
+                .GetCompilationUnitRoot();
+            return root.DescendantNodes().First(n => n.IsKind(kind));
+        }
+
+        Assert.True(NullCoalesceRewriter.IsOwnedDownstream(
+            FindCoalesce("var x = y ?? [];", SyntaxKind.CoalesceExpression)));
+        Assert.True(NullCoalesceRewriter.IsOwnedDownstream(
+            FindCoalesce("var x = y ?? [1, 2];", SyntaxKind.CoalesceExpression)));
+        Assert.False(NullCoalesceRewriter.IsOwnedDownstream(
+            FindCoalesce("var x = y ?? new int[0];", SyntaxKind.CoalesceExpression)));
+        Assert.False(NullCoalesceRewriter.IsOwnedDownstream(
+            FindCoalesce("var x = y ?? \"s\";", SyntaxKind.CoalesceExpression)));
+    }
 }

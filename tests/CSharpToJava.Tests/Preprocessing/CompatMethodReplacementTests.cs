@@ -559,7 +559,7 @@ public sealed class CompatMethodReplacementTests
         var compat = ordered.IndexOf(PassIds.CompatMethodReplacement);
         var pointerDiff = ordered.IndexOf(PassIds.PointerDiffInline);
         var unsigned = ordered.IndexOf(PassIds.Unsigned);
-        var unsafeFfm = ordered.IndexOf(PassStubCatalog.Ids.UnsafeFfm);
+        var unsafeFfm = ordered.IndexOf(PassIds.UnsafeFfm);
 
         Assert.True(fixedSpan >= 0 && compat >= 0 && pointerDiff >= 0
             && unsigned >= 0 && unsafeFfm >= 0);
@@ -578,17 +578,36 @@ public sealed class CompatMethodReplacementTests
     public void Default_registry_is_extensible_and_carries_the_json_writer_helper_entries()
     {
         var registry = CompatMethodReplacementRegistry.Default;
-        Assert.Equal(2, registry.Entries.Count);
+        Assert.Equal(3, registry.Entries.Count);
 
-        var toUtf8 = registry.Entries[0];
+        // W-09: the ToUtf8 family carries BOTH the Runtime 10 3-param
+        // char-span signature (first, current corpus generation) and the
+        // legacy 3.x 4-param byte-span form (family sibling).
+        var toUtf8Rt10 = registry.Entries[0];
+        Assert.Equal(
+            "System.Text.Json.JsonWriterHelper.ToUtf8(" +
+            "System.ReadOnlySpan<char>, System.Span<byte>, out int)",
+            toUtf8Rt10.Key);
+        Assert.Equal("JsonWriterHelper", toUtf8Rt10.ContainingTypeName);
+        Assert.Equal(3, toUtf8Rt10.Parameters.Count);
+        Assert.Equal("ReadOnlySpan<char>", toUtf8Rt10.Parameters[0].TypeName);
+        Assert.Equal(CompatParameterRefKind.Out, toUtf8Rt10.Parameters[2].RefKind);
+
+        var toUtf8Legacy = registry.Entries[1];
         Assert.Equal(
             "System.Text.Json.JsonWriterHelper.ToUtf8(" +
             "System.ReadOnlySpan<byte>, System.Span<byte>, out int, out int)",
-            toUtf8.Key);
-        Assert.Equal("JsonWriterHelper", toUtf8.ContainingTypeName);
-        Assert.Equal(4, toUtf8.Parameters.Count);
+            toUtf8Legacy.Key);
+        Assert.Equal("JsonWriterHelper", toUtf8Legacy.ContainingTypeName);
+        Assert.Equal(4, toUtf8Legacy.Parameters.Count);
 
-        var needsEscaping = registry.Entries[1];
+        // Family invariants: alternate signatures of the same known method
+        // share the family/type keys the drift gate groups by.
+        Assert.Equal(toUtf8Rt10.FamilyKey, toUtf8Legacy.FamilyKey);
+        Assert.Equal(toUtf8Rt10.DeclaredTypeKey, toUtf8Legacy.DeclaredTypeKey);
+        Assert.Equal("System.Text.Json|JsonWriterHelper", toUtf8Rt10.DeclaredTypeKey);
+
+        var needsEscaping = registry.Entries[2];
         Assert.Equal(
             "System.Text.Json.JsonWriterHelper.NeedsEscaping(" +
             "System.ReadOnlySpan<char>, System.Text.Encodings.Web.JavaScriptEncoder)",
@@ -600,8 +619,194 @@ public sealed class CompatMethodReplacementTests
         Assert.Equal("ReadOnlySpan<char>", needsEscaping.Parameters[0].TypeName);
         Assert.Equal("JavaScriptEncoder", needsEscaping.Parameters[1].TypeName);
 
-        var extended = registry.WithAdditionalEntries(toUtf8 with { Key = toUtf8.Key + "#copy" });
-        Assert.Equal(3, extended.Entries.Count);
+        var extended = registry.WithAdditionalEntries(toUtf8Rt10 with { Key = toUtf8Rt10.Key + "#copy" });
+        Assert.Equal(4, extended.Entries.Count);
+    }
+
+    // ── 6. W-09（升级方案 §6.4-R0）：rt10 3 参 char-span 签名 + 漂移探测 ──
+
+    private const string Rt10RuntimeSource = """
+        using System;
+        using System.Buffers;
+
+        namespace System.Text.Json
+        {
+            internal static class JsonWriterHelper
+            {
+                public static unsafe OperationStatus ToUtf8(
+                    ReadOnlySpan<char> source,
+                    Span<byte> destination,
+                    out int written)
+                {
+                    written = 0;
+                    fixed (char* pSrc = source)
+                    {
+                        return OperationStatus.Done;
+                    }
+                }
+
+                public static int Run(string text, byte[] destination, out int written)
+                    => (int)ToUtf8(text, destination, out written);
+            }
+        }
+        """;
+
+    [Fact]
+    public void Rt10_char_span_signature_is_replaced_with_the_managed_encoder()
+    {
+        // W-09 红→绿核心样本：Runtime 10 的
+        // ToUtf8(ReadOnlySpan<char>, Span<byte>, out int)（JsonWriterHelper.cs:291）
+        // 在旧注册表下零匹配静默空转；新条目必须命中并置换。
+        var result = Run(Rt10RuntimeSource);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Equal(1, result.Statistics.MethodsReplaced);
+        Assert.Equal(0, result.Statistics.SignatureMismatches);
+        Assert.Contains("Encoding.UTF8.GetEncoder()", result.OutputCode);
+        Assert.Contains("out bool completed", result.OutputCode);
+        Assert.Contains("cs2j-compat-method-replacement", result.OutputCode);
+        Assert.DoesNotContain("fixed", result.OutputCode);
+        Assert.DoesNotContain("char*", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Rt10_replacement_transcodes_and_validates_surrogates()
+    {
+        var method = LoadMethod(
+            Rt10RuntimeSourceRun(), "System.Text.Json.JsonWriterHelper", "Run");
+
+        // ASCII / 中文：与 Encoding.UTF8 逐字节一致。
+        AssertRt10Transcodes(method, "Hello, cs2j!");
+        AssertRt10Transcodes(method, "中文编码测试 — UTF-16 → UTF-8");
+
+        // 目的缓冲过小 → DestinationTooSmall，不越界。
+        var text = "中文编码测试";
+        var expected = Encoding.UTF8.GetBytes(text);
+        var small = new byte[Math.Max(1, expected.Length - 2)];
+        var args = new object?[] { text, small, 0 };
+        var status = (int)method.Invoke(null, args)!;
+        Assert.Equal((int)OperationStatus.DestinationTooSmall, status);
+        Assert.True((int)args[2]! <= small.Length);
+
+        // 未配对代理 → InvalidData，合法前缀照常写出。
+        var prefix = "ab";
+        var invalidArgs = new object?[] { prefix + "\uD800", new byte[16], 0 };
+        Assert.Equal(
+            (int)OperationStatus.InvalidData,
+            (int)method.Invoke(null, invalidArgs)!);
+        Assert.Equal(Encoding.UTF8.GetBytes(prefix).Length, (int)invalidArgs[2]!);
+    }
+
+    private static string Rt10RuntimeSourceRun()
+    {
+        var result = Run(Rt10RuntimeSource);
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        return result.OutputCode;
+    }
+
+    private static void AssertRt10Transcodes(MethodInfo method, string text)
+    {
+        var expected = Encoding.UTF8.GetBytes(text);
+        var destination = new byte[expected.Length + 8];
+        var args = new object?[] { text, destination, 0 };
+
+        var status = (int)method.Invoke(null, args)!;
+
+        Assert.Equal((int)OperationStatus.Done, status);
+        Assert.Equal(expected.Length, (int)args[2]!);
+        Assert.Equal(expected, destination.AsSpan(0, (int)args[2]!).ToArray());
+    }
+
+    [Fact]
+    public void Drift_detector_flags_families_whose_type_exists_but_nothing_matched()
+    {
+        // W-09 漂移红测：JsonWriterHelper 存在于语料，但 ToUtf8 是一个表外
+        // 签名（2 参）——修复前该文件静默通过（零匹配 + 近失警告），修复后
+        // 整树门必须把整个家族标记为漂移（Error 级 CMR020 的输入）。
+        const string src = """
+            using System;
+            using System.Buffers;
+
+            namespace System.Text.Json
+            {
+                internal static class JsonWriterHelper
+                {
+                    public static OperationStatus ToUtf8(ReadOnlySpan<char> source, Span<byte> destination)
+                        => OperationStatus.Done;
+                }
+            }
+            """;
+        var result = Run(src);
+
+        // 文件内视角：身份命中但签名不符 → 近失警告（原有行为）。
+        Assert.False(result.Changed);
+        Assert.Contains(
+            result.Diagnostics, d => d.Code == CompatMethodReplacementDiagnosticCode.CMR001);
+        Assert.Contains(
+            result.Statistics.DeclaredTypeKeys,
+            key => key == "System.Text.Json|JsonWriterHelper");
+        Assert.Empty(result.Statistics.MatchedEntryKeys);
+
+        // 整树视角：类型在语料中存在 + 家族零匹配 → 漂移（含 NeedsEscaping
+        // 家族——同声明类型存在而方法缺失，按 §6.4-R0 的类型级口径同样计漂移）。
+        var drifted = CompatMethodReplacementDriftDetector.DetectDriftedEntries(
+            CompatMethodReplacementRegistry.Default,
+            result.Statistics.MatchedEntryKeys,
+            result.Statistics.DeclaredTypeKeys);
+        Assert.Contains(drifted, entry => entry.MethodName == "ToUtf8");
+        Assert.Contains(drifted, entry => entry.MethodName == "NeedsEscaping");
+    }
+
+    [Fact]
+    public void Drift_detector_ignores_families_with_a_matched_sibling_signature()
+    {
+        // rt10 形态：3 参条目命中后，保留的 3.x 4 参兄弟条目不算漂移。
+        var result = Run(Rt10RuntimeSource);
+
+        var drifted = CompatMethodReplacementDriftDetector.DetectDriftedEntries(
+            CompatMethodReplacementRegistry.Default,
+            result.Statistics.MatchedEntryKeys,
+            result.Statistics.DeclaredTypeKeys);
+        Assert.DoesNotContain(drifted, entry => entry.MethodName == "ToUtf8");
+    }
+
+    [Fact]
+    public void Drift_detector_ignores_entries_when_the_declaring_type_is_absent()
+    {
+        // YamlDotNet 形态：语料完全没有 JsonWriterHelper → 不漂移（沿用
+        // CMR001 unused 警告路径），类型键记录的是语料自身类型。
+        var result = Run("""
+            namespace YamlDotNet.Serialization
+            {
+                internal static class TypeConverterBuilding
+                {
+                    public static int M() => 1;
+                }
+            }
+            """);
+
+        var drifted = CompatMethodReplacementDriftDetector.DetectDriftedEntries(
+            CompatMethodReplacementRegistry.Default,
+            result.Statistics.MatchedEntryKeys,
+            result.Statistics.DeclaredTypeKeys);
+        Assert.Empty(drifted);
+        Assert.Contains(
+            result.Statistics.DeclaredTypeKeys,
+            key => key == "YamlDotNet.Serialization|TypeConverterBuilding");
+    }
+
+    [Fact]
+    public void Drift_diagnostic_renders_as_error_CMR020()
+    {
+        var diagnostic = new CompatMethodReplacementDiagnostic(
+            CompatMethodReplacementSeverity.Error,
+            CompatMethodReplacementDiagnosticCode.CMR020,
+            "entry drifted");
+
+        Assert.StartsWith("error CMR020:", diagnostic.ToMsBuildString(), StringComparison.Ordinal);
     }
 
     // ── helpers ──

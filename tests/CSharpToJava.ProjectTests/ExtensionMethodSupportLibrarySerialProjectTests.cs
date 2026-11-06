@@ -11,8 +11,8 @@ namespace CSharpToJava.ProjectTests;
 ///   intermediate tree still builds through the runner's verification;
 /// - the injected support-library directory survives into the
 ///   extension-methods intermediate tree;
-/// - the C19 pass introduces no binding warnings (CS2J1201/1202/1203) and no
-///   CS2J1220 residuals on these merged trees.
+/// - the C19 pass introduces no binding warnings (CS2J1901/1202/1203) and no
+///   CS2J1920 residuals on these merged trees.
 ///
 /// The array-method sample is the documented exception: its support pass
 /// intentionally emits flattened multidim foreach shapes that are not
@@ -133,10 +133,10 @@ public class ExtensionMethodSupportLibrarySerialProjectTests
             // C19 cleanliness: no unresolved bindings, no unmapped external
             // hosts, no residuals introduced by the serial run.
             Assert.Contains("extension-methods:", stdout);
-            Assert.DoesNotContain("CS2J1201", stderr);
-            Assert.DoesNotContain("CS2J1202", stderr);
-            Assert.DoesNotContain("CS2J1203", stderr);
-            Assert.DoesNotContain("CS2J1220", stderr);
+            Assert.DoesNotContain("CS2J1901", stderr);
+            Assert.DoesNotContain("CS2J1902", stderr);
+            Assert.DoesNotContain("CS2J1903", stderr);
+            Assert.DoesNotContain("CS2J1920", stderr);
             Assert.Contains("0 residuals)", stdout);
         }
         finally

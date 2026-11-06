@@ -74,7 +74,7 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
         _verifyTests = verifyTests;
     }
 
-    public override PassDescriptor Descriptor => PassCatalog.ImplementedById(PassStubCatalog.Ids.LinqChannel);
+    public override PassDescriptor Descriptor => PassCatalog.ImplementedById(PassIds.LinqChannel);
     public override bool Verbose => _verbose;
     public override bool FilterUnsupportedProjects => _filterUnsupportedProjects;
     public override IReadOnlyCollection<string>? CompatNamespacePrefixes => _compatNamespacePrefixes;
@@ -102,7 +102,11 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
         // The pass' own verification restore runs at the END of ExecuteAsync, so
         // refresh the assets here first; failures are left to that final
         // (reporting) restore so the diagnostics are not duplicated.
-        // EnsureEnhancedReferences(tree); // NEGATIVE-CHECK (temporary)
+        // W-04 (upgrade plan §6.4-R0): the temporary NEGATIVE-CHECK comment was
+        // removed — the enhanced reference set is live on every project graph
+        // run; the sibling async-normalize/extension-methods passes already
+        // shipped the same behavior.
+        EnsureEnhancedReferences(tree);
 
         // Only .cs files participate; non-.cs project files were already copied
         // by CopyProjectFilesAsync during tree preparation, but intermediate-tree

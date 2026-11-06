@@ -30,19 +30,19 @@ public sealed class PassStubCatalogTests
     [Fact]
     public void PlatformIsolation_IsImplemented_AndNotAStub()
     {
-        var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.PlatformIsolation);
+        var descriptor = PassCatalog.ImplementedById(PassIds.PlatformIsolation);
 
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
         Assert.True(descriptor.DefaultEnabled);
         Assert.Equal(".cs2j-platform-isolation-src", descriptor.IntermediateDirectoryName);
         Assert.Equal("C42", descriptor.CatalogItems);
-        Assert.DoesNotContain(Stubs, stub => stub.Id == PassStubCatalog.Ids.PlatformIsolation);
+        Assert.DoesNotContain(Stubs, stub => stub.Id == PassIds.PlatformIsolation);
     }
 
     [Fact]
     public void DynamicDesugar_IsImplemented_AndNotAStub()
     {
-        var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.DynamicDesugar);
+        var descriptor = PassCatalog.ImplementedById(PassIds.DynamicDesugar);
 
         // C25 M1 flipped the stub to Implemented; AUDIT was flipped
         // default-on 2026-10-06 after the §8 audit gates (Rewrite stays
@@ -51,7 +51,7 @@ public sealed class PassStubCatalogTests
         Assert.True(descriptor.DefaultEnabled);
         Assert.Equal(".cs2j-dynamic-desugar-src", descriptor.IntermediateDirectoryName);
         Assert.Equal("C25", descriptor.CatalogItems);
-        Assert.DoesNotContain(Stubs, stub => stub.Id == PassStubCatalog.Ids.DynamicDesugar);
+        Assert.DoesNotContain(Stubs, stub => stub.Id == PassIds.DynamicDesugar);
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public sealed class PassStubCatalogTests
     [Fact]
     public void LinqChannel_IsImplemented_AndNotAStub()
     {
-        var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.LinqChannel);
+        var descriptor = PassCatalog.ImplementedById(PassIds.LinqChannel);
 
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
         Assert.True(descriptor.DefaultEnabled, "C26 M4 flipped linq-channel default-on (2026-10-06)");
@@ -103,7 +103,7 @@ public sealed class PassStubCatalogTests
         Assert.True(descriptor.VerifyBuildByDefault);
         Assert.True(descriptor.VerifyTestsByDefault);
         Assert.Equal(PassSupportLibrary.None, descriptor.SupportLibrary);
-        Assert.DoesNotContain(Stubs, stub => stub.Id == PassStubCatalog.Ids.LinqChannel);
+        Assert.DoesNotContain(Stubs, stub => stub.Id == PassIds.LinqChannel);
         Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.LinqChannelPassAdapter));
     }
 
@@ -115,16 +115,16 @@ public sealed class PassStubCatalogTests
         // M4 (2026-10-06): default-on — the baseline plan contains the channel.
         var baseline = PassPlanResolver.Resolve(registry);
         Assert.True(baseline.IsValid);
-        Assert.Contains(baseline.Enabled, pass => pass.Id == PassStubCatalog.Ids.LinqChannel);
+        Assert.Contains(baseline.Enabled, pass => pass.Id == PassIds.LinqChannel);
 
         // Standalone --pass selection still plans the single id as Implemented.
         var enabled = PassPlanResolver.Resolve(
             registry,
             PassChainFactory.BuildAllDisabledToggles(registry),
-            enablePassIds: new[] { PassStubCatalog.Ids.LinqChannel });
+            enablePassIds: new[] { PassIds.LinqChannel });
         Assert.True(enabled.IsValid);
         var entry = Assert.Single(enabled.Enabled);
-        Assert.Equal(PassStubCatalog.Ids.LinqChannel, entry.Id);
+        Assert.Equal(PassIds.LinqChannel, entry.Id);
         Assert.Equal(PassStatus.Implemented, entry.Status);
     }
 

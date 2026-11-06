@@ -26,7 +26,7 @@ namespace CSharpToJava.ProjectTests;
 /// (the App's concurrency tests are the .NET-side behavior gate), while these
 /// facts additionally pin the holder shape, the synthesized FirstThreadFaithful
 /// static constructor, TS-5 struct lifts, byte/BOM preservation, statistics,
-/// the two skip controls (CS2J1201/CS2J1204), and the zero-CS2J1220 residual
+/// the two skip controls (CS2J1601/CS2J1604), and the zero-CS2J1620 residual
 /// gate. The pass stays default-off.
 /// </summary>
 [Collection("ThreadStaticSerial")]
@@ -85,7 +85,7 @@ public sealed class ThreadStaticProjectTests
             ExpressionDesugarOptionsFactory = () => new ExpressionDesugarOptions(),
             LegacyToggles = toggles,
             EnablePassIds = enableThreadStatic ? new[] { PassId } : null,
-            // The two skip controls (CS2J1201 instance / CS2J1204 generic
+            // The two skip controls (CS2J1601 instance / CS2J1604 generic
             // container) are intentional Warnings on this .NET-side gate.
             Strict = false,
             VerifyBuild = verify,
@@ -192,7 +192,7 @@ public sealed class ThreadStaticProjectTests
             {
                 if (relativePath.EndsWith("SkipControls.cs", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Both skip controls retain their attribute (CS2J1201 + CS2J1204).
+                    // Both skip controls retain their attribute (CS2J1601 + CS2J1604).
                     // Drop inline comment tails (the pragma note mentions the attribute
                     // by name) so only real attribute applications are counted.
                     var codeOnly = Regex.Replace(text, @"//[^\r\n]*", string.Empty);
@@ -327,7 +327,7 @@ public sealed class ThreadStaticProjectTests
             Assert.Equal(0, stats.InfeasibleSites);
 
             // Residual gate: precisely the two registered skip controls remain,
-            // both owned by inactive plans — zero unowned, zero CS2J1220.
+            // both owned by inactive plans — zero unowned, zero CS2J1620.
             Assert.Equal(2, stats.ResidualThreadStaticAttributes);
             Assert.Equal(2, stats.OwnedResidualAttributes);
             Assert.Equal(0, stats.UnownedResidualAttributes);

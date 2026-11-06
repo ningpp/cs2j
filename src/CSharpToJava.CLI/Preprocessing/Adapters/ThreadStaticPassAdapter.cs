@@ -11,8 +11,8 @@ namespace CSharpToJava.CLI.Preprocessing.Adapters;
 /// Adapter for the thread-static (C09) pass. Drives its own whole-tree
 /// iteration like RecordReadOnlyPassAdapter: each round replays the originals,
 /// runs the Core rollback loop (rewrite → recompile → attribute new errors →
-/// exclude one plan or CS2J1200 whole-run rollback), then reconciles residual
-/// [ThreadStatic] attributes against the final plan set (CS2J1220 gate).
+/// exclude one plan or CS2J1600 whole-run rollback), then reconciles residual
+/// [ThreadStatic] attributes against the final plan set (CS2J1620 gate).
 /// Tree preparation and restore reuse the runner stage helpers.
 /// </summary>
 internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
@@ -195,9 +195,9 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
 
     /// <summary>
     /// Residual gate (design §4.2 step 5 / §7.4): residual attributes owned by an
-    /// inactive plan (CS2J1201/1202/1203/1204/1205/1290) are expected and only
+    /// inactive plan (CS2J1601/1202/1203/1204/1205/1290) are expected and only
     /// surface as verbose info; unowned residual attributes mean the rewrite
-    /// dropped a field and are reported CS2J1220 (Warning, Error under --strict).
+    /// dropped a field and are reported CS2J1620 (Warning, Error under --strict).
     /// </summary>
     private void RunResidualScan(ThreadStaticRollbackResult result)
     {

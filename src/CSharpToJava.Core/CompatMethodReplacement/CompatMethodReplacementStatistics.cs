@@ -19,8 +19,21 @@ public sealed class CompatMethodReplacementStatistics
     /// <summary>Registry entries that never matched a declaration in the processed file set.</summary>
     public int EntriesUnused { get; set; }
 
+    /// <summary>
+    /// Registry families whose declaring type exists in the corpus (symbol
+    /// level) but whose signatures matched nothing (W-09 drift detection).
+    /// </summary>
+    public int EntryDrifts { get; set; }
+
     /// <summary>Keys of the registry entries that matched at least one declaration.</summary>
     public HashSet<string> MatchedEntryKeys { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Normalized <c>namespace|type</c> keys of every containing type of every
+    /// method declaration the rewriter visited — the symbol-level evidence
+    /// for drift detection ("the entry's declaring type exists in the corpus").
+    /// </summary>
+    public HashSet<string> DeclaredTypeKeys { get; } = new(StringComparer.Ordinal);
 
     /// <summary>Merge another file's statistics into this accumulator.</summary>
     public void MergeFrom(CompatMethodReplacementStatistics source)
@@ -34,5 +47,6 @@ public sealed class CompatMethodReplacementStatistics
         MethodsAlreadyReplaced += source.MethodsAlreadyReplaced;
         SignatureMismatches += source.SignatureMismatches;
         MatchedEntryKeys.UnionWith(source.MatchedEntryKeys);
+        DeclaredTypeKeys.UnionWith(source.DeclaredTypeKeys);
     }
 }

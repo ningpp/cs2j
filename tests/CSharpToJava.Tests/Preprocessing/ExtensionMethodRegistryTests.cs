@@ -60,7 +60,7 @@ public sealed class ExtensionMethodRegistryTests
             PassIds.Unsigned,
             PassIds.ArrayMethod,
             PassIds.MakeReadonly,
-            PassStubCatalog.Ids.IteratorLowering,
+            PassIds.IteratorLowering,
         }, descriptor.RunAfterIds);
     }
 
@@ -72,8 +72,8 @@ public sealed class ExtensionMethodRegistryTests
         Assert.True(index > 1, "extension-methods must be registered");
         // C18 flip inserted default-on async-normalize between iterator-lowering
         // and extension-methods: iterator-lowering -> async-normalize -> EM -> goto.
-        Assert.Equal(PassStubCatalog.Ids.AsyncNormalize, ordered[index - 1]);
-        Assert.Equal(PassStubCatalog.Ids.IteratorLowering, ordered[index - 2]);
+        Assert.Equal(PassIds.AsyncNormalize, ordered[index - 1]);
+        Assert.Equal(PassIds.IteratorLowering, ordered[index - 2]);
         Assert.Equal(PassIds.EliminateGoto, ordered[index + 1]);
     }
 
@@ -103,7 +103,7 @@ public sealed class ExtensionMethodRegistryTests
 
         // The C26 linq-channel descriptor (Implemented as of M1) keeps its
         // anchor after the merged extension-methods pass.
-        var linqChannel = registry.Require(PassStubCatalog.Ids.LinqChannel);
+        var linqChannel = registry.Require(PassIds.LinqChannel);
         Assert.Equal(PassStatus.Implemented, linqChannel.Status);
         Assert.Contains(PassIds.ExtensionMethods, linqChannel.RunAfterIds);
     }
@@ -128,14 +128,14 @@ public sealed class ExtensionMethodRegistryTests
         Assert.True(baseline.IsValid);
         Assert.Contains(baseline.Enabled, p => p.Id == PassIds.ExtensionMethods);
         // C18 async-normalize is default-on and precedes EM.
-        Assert.Contains(baseline.Enabled, p => p.Id == PassStubCatalog.Ids.AsyncNormalize);
+        Assert.Contains(baseline.Enabled, p => p.Id == PassIds.AsyncNormalize);
 
         // Locked slot: make-readonly → iterator-lowering → async-normalize
         // → extension-methods → eliminate-goto.
         var ordered = registry.Ordered.Select(p => p.Id).ToList();
         var index = ordered.IndexOf(PassIds.ExtensionMethods);
-        Assert.Equal(PassStubCatalog.Ids.AsyncNormalize, ordered[index - 1]);
-        Assert.Equal(PassStubCatalog.Ids.IteratorLowering, ordered[index - 2]);
+        Assert.Equal(PassIds.AsyncNormalize, ordered[index - 1]);
+        Assert.Equal(PassIds.IteratorLowering, ordered[index - 2]);
         Assert.Equal(PassIds.EliminateGoto, ordered[index + 1]);
     }
 }

@@ -19,7 +19,7 @@ namespace CSharpToJava.Tests;
 /// 3. Expression-tree boundary: property/operator sites inside
 ///    <c>Expression&lt;&gt;</c> are skipped with paired diagnostics;
 ///    method sites are rewritten and identity-asserted.
-/// 4. External-assembly extension members are report-only (CS2J1203);
+/// 4. External-assembly extension members are report-only (CS2J1903);
 ///    C49 never synthesizes companion declarations from names.
 /// 5. Multiple blocks / partial hosts coexist; strict escalates deferred
 ///    Warnings to Errors.

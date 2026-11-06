@@ -163,8 +163,8 @@ public sealed class LinqChannelPassProjectTests
             // The intermediate build verification already ran inside the
             // chain (verify build is part of the pass); assert no error
             // diagnostics leaked into stderr.
-            Assert.DoesNotContain("CS2J1351", errorCapture.ToString());
-            Assert.DoesNotContain("CS2J1350", errorCapture.ToString());
+            Assert.DoesNotContain("CS2J1751", errorCapture.ToString());
+            Assert.DoesNotContain("CS2J1750", errorCapture.ToString());
         }
         finally
         {

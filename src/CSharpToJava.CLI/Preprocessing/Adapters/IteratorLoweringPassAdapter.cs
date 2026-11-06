@@ -40,7 +40,7 @@ internal sealed class IteratorLoweringPassAdapter : ProjectPassAdapter
     }
 
     public override PassDescriptor Descriptor =>
-        PassCatalog.ImplementedById(PassStubCatalog.Ids.IteratorLowering);
+        PassCatalog.ImplementedById(PassIds.IteratorLowering);
     public override bool Verbose => _verbose;
     public override bool FilterUnsupportedProjects => _filterUnsupportedProjects;
     public override IReadOnlyCollection<string>? CompatNamespacePrefixes => _compatNamespacePrefixes;

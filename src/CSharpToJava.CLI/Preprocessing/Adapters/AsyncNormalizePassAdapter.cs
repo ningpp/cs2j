@@ -53,7 +53,7 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
     }
 
     public override PassDescriptor Descriptor =>
-        PassCatalog.ImplementedById(PassStubCatalog.Ids.AsyncNormalize);
+        PassCatalog.ImplementedById(PassIds.AsyncNormalize);
     public override bool Verbose => _verbose;
     public override bool FilterUnsupportedProjects => _filterUnsupportedProjects;
     public override IReadOnlyCollection<string>? CompatNamespacePrefixes => _compatNamespacePrefixes;
@@ -181,7 +181,7 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
         // incremental no-op) and re-enumerate so the standard compilation built
         // right after this sees the package assemblies. Single-file /
         // loose-directory layouts have nothing to restore and keep the
-        // conservative CS2J1290 path.
+        // conservative CS2J1990 path.
         if (_packageReferences.Count == 0
             && tree.ProjectGraph != null
             && tree.Layout.ProjectFiles.Count > 0)

@@ -11,10 +11,10 @@ public sealed class ThreadStaticResidualLocation
     /// <summary>Display name of the field carrying the residual attribute.</summary>
     public required string FieldDisplayName { get; init; }
 
-    /// <summary>Id of the skipped plan owning this residual (CS2J1201/1202/1203/1204/1205/1290); null when unowned.</summary>
+    /// <summary>Id of the skipped plan owning this residual (CS2J1601/1202/1203/1204/1205/1290); null when unowned.</summary>
     public string? OwnerPlanId { get; init; }
 
-    /// <summary>Fail code of the owning skipped plan; null for unowned residuals (gate CS2J1220).</summary>
+    /// <summary>Fail code of the owning skipped plan; null for unowned residuals (gate CS2J1620).</summary>
     public string? OwnerCode { get; init; }
 }
 
@@ -22,7 +22,7 @@ public sealed class ThreadStaticResidualLocation
 /// Structured residual gate result (design §4.2 step 5 / §7.4): every residual
 /// attribute that corresponds to a Skipped plan is "owned" and harmless; residual
 /// attributes without a matching skipped plan mean the rewrite dropped a field and
-/// are reported CS2J1220.
+/// are reported CS2J1620.
 /// </summary>
 public sealed class ThreadStaticResidualReport
 {

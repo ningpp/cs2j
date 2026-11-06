@@ -28,7 +28,7 @@ public sealed record ExtensionRewrittenSiteKey(
 /// (1) remaining reduced invocations (LINQ-host set exempt, plus diagnostic-
 ///     paired exempt sites; chain exempts match by span containment) — must be 0;
 /// (2) remaining reduced method groups (non-call member access) — paired with
-///     CS2J1207 exempts, otherwise residual;
+///     CS2J1907 exempts, otherwise residual;
 /// (3) rewritten-site rebinding identity: rebound <c>OriginalDefinition</c> and
 ///     parameter sequence must match the pre-rewrite unreduced symbol;
 /// (4) expression-tree shape: no statement-shaped nodes inside an
@@ -308,7 +308,7 @@ public static class ExtensionMethodResidualScanner
             }
 
             // Gate 2: non-call member access still binding as (or offering) a
-            // reduced extension method group. CS2J1207-paired exempts only.
+            // reduced extension method group. CS2J1907-paired exempts only.
             var groups = new List<MemberAccessExpressionSyntax>();
             foreach (var memberAccess in memberAccessNodes)
             {
@@ -506,7 +506,7 @@ public static class ExtensionMethodResidualScanner
                     }
                 }
 
-                // (c) Reduced method groups inside ET are banned (CS2J1207 exempt).
+                // (c) Reduced method groups inside ET are banned (CS2J1907 exempt).
                 foreach (var memberAccess in lambda.DescendantNodes().OfType<MemberAccessExpressionSyntax>())
                 {
                     if (memberAccess.Parent is InvocationExpressionSyntax parentInvocation

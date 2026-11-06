@@ -168,7 +168,7 @@ public sealed class RefStructLoweringTests
         var ordered = plan.Enabled.Select(pass => pass.Id).ToList();
         var stackAlloc = ordered.IndexOf(PassIds.StackAllocLowering);
         var refStruct = ordered.IndexOf(PassIds.RefStructLowering);
-        var closure = ordered.IndexOf(PassStubCatalog.Ids.ClosureLift);
+        var closure = ordered.IndexOf(PassIds.ClosureLift);
 
         Assert.True(stackAlloc >= 0 && refStruct >= 0 && closure >= 0);
         Assert.True(stackAlloc < refStruct, "ref-struct-lowering must run after stackalloc-lowering");

@@ -56,7 +56,7 @@ public sealed class ExtensionBlockStatistics
     public int UnsupportedMembers { get; set; }
     public int SitesSkippedExpressionTree { get; set; }
 
-    /// <summary>M2: blocks rejected for non-materializable receivers (CS2J1211).</summary>
+    /// <summary>M2: blocks rejected for non-materializable receivers (CS2J1911).</summary>
     public int UnsupportedReceivers { get; set; }
 
     public int GateErrors { get; set; }
@@ -65,7 +65,7 @@ public sealed class ExtensionBlockStatistics
     /// <summary>M3: block method-group sites converted to capture lambdas.</summary>
     public int GroupsRewritten { get; set; }
 
-    /// <summary>M3: extension-member sites reported from external metadata (CS2J1203).</summary>
+    /// <summary>M3: extension-member sites reported from external metadata (CS2J1903).</summary>
     public int ExternalMetadataSites { get; set; }
 
     /// <summary>M3: block operator sites skipped inside Expression&lt;TDelegate&gt;.</summary>

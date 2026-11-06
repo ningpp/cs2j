@@ -409,7 +409,7 @@ public sealed class StackAllocLoweringTests
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
         Assert.True(descriptor.DefaultEnabled);
         Assert.Equal(PassStage.Abi, descriptor.Stage);
-        Assert.Equal(new[] { PassStubCatalog.Ids.UnsafeFfm }, descriptor.RunAfterIds);
+        Assert.Equal(new[] { PassIds.UnsafeFfm }, descriptor.RunAfterIds);
         Assert.True(descriptor.NeedsSemanticModel);
         Assert.Equal(PassSupportLibrary.None, descriptor.SupportLibrary);
         Assert.Equal(".cs2j-stackalloc-lowering-src", descriptor.IntermediateDirectoryName);
@@ -417,9 +417,9 @@ public sealed class StackAllocLoweringTests
         var plan = PassPlanResolver.Resolve(registry);
         Assert.True(plan.IsValid);
         var ordered = plan.Enabled.Select(pass => pass.Id).ToList();
-        var unsafeFfm = ordered.IndexOf(PassStubCatalog.Ids.UnsafeFfm);
+        var unsafeFfm = ordered.IndexOf(PassIds.UnsafeFfm);
         var lowering = ordered.IndexOf(PassIds.StackAllocLowering);
-        var closure = ordered.IndexOf(PassStubCatalog.Ids.ClosureLift);
+        var closure = ordered.IndexOf(PassIds.ClosureLift);
 
         Assert.True(unsafeFfm >= 0 && lowering >= 0 && closure >= 0);
         Assert.True(unsafeFfm < lowering, "stackalloc-lowering must run after unsafe-ffm");

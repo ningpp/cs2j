@@ -275,7 +275,7 @@ public sealed class RefStructSpanFieldMemoryLiftTests
         var refStruct = ordered.IndexOf(PassIds.RefStructLowering);
         var lift = ordered.IndexOf(PassIds.RefStructSpanFieldMemoryLift);
         var pointerDeref = ordered.IndexOf(PassIds.PointerDerefIndex);
-        var closure = ordered.IndexOf(PassStubCatalog.Ids.ClosureLift);
+        var closure = ordered.IndexOf(PassIds.ClosureLift);
 
         Assert.True(refStruct >= 0 && lift >= 0 && pointerDeref >= 0 && closure >= 0);
         Assert.True(refStruct < lift, "span-field-memory-lift must run after ref-struct-lowering");

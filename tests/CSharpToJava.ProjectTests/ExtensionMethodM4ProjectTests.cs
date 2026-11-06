@@ -15,7 +15,7 @@ namespace CSharpToJava.ProjectTests;
 /// C19 M4 project-level closing coverage (design §9):
 /// 1. build-failure rollback drills: one attributed file is replayed
 ///    byte-for-byte (run still succeeds, EM001 trace) vs whole-tree rollback
-///    (CS2J1200, run fails, every rewritten file reverted);
+///    (CS2J1900, run fails, every rewritten file reverted);
 /// 2. strict E2E: the 1203 Warning-only external-host fixture becomes an
 ///    Error-grade failure under --extension-methods-strict;
 /// 3. host overrides CLI: skip keeps sugar with EM001; malformed payloads
@@ -120,7 +120,7 @@ public class ExtensionMethodM4ProjectTests
     }
 
     [Fact]
-    public async Task BrokenRewrite_AttributedToMultipleFiles_WholeTreeRollback_CS2J1200()
+    public async Task BrokenRewrite_AttributedToMultipleFiles_WholeTreeRollback_CS2J1900()
     {
         var workDir = Path.Combine(Path.GetTempPath(), "cs2j-m4-rb2-" + Guid.NewGuid().ToString("N"));
         var projectDir = Path.Combine(workDir, "RollbackProj");
@@ -148,7 +148,7 @@ public class ExtensionMethodM4ProjectTests
                 Force = true,
             });
 
-            Assert.False(run.Success, "CS2J1200 is Error-grade; the run must fail");
+            Assert.False(run.Success, "CS2J1900 is Error-grade; the run must fail");
             Assert.Contains(adapter.Diagnostics,
                 d => d.Code == ExtensionMethodCodes.WholeTreeRollback
                      && d.Severity == ExtensionSeverity.Error);
@@ -232,7 +232,7 @@ public class ExtensionMethodM4ProjectTests
             Assert.NotEqual(0, exit);
             var lines1203 = stderr
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-                .Where(l => l.Contains("CS2J1203", StringComparison.Ordinal)).ToList();
+                .Where(l => l.Contains("CS2J1903", StringComparison.Ordinal)).ToList();
             Assert.NotEmpty(lines1203);
             Assert.Contains(lines1203, l => l.Contains("error", StringComparison.OrdinalIgnoreCase));
         }

@@ -175,6 +175,15 @@ public class Program
 
             var auditEnabledByProfile = profile is "java-ready" or "audit";
 
+            // W-11/G-28 (upgrade plan §6.4-R0): the shared helper rejects the
+            // request before the destination directory is created; the check
+            // is byte-identical on the preprocess verb.
+            if (TryRejectRequiredPassDisable(profile, opts.DisablePasses, out var requiredPassError))
+            {
+                Console.Error.WriteLine(requiredPassError);
+                return 1;
+            }
+
             if (opts.PreprocessOnly)
             {
                 if (opts.NoPreprocess)
@@ -272,13 +281,12 @@ public class Program
             else
             {
                 // java-ready/audit append normalization-audit to whatever the
-                // user selected; an explicit --disable-pass still wins (the
-                // pass is then left out instead of tripping the resolver's
-                // enable/disable conflict).
+                // user selected. Disabling the audit under those profiles was
+                // already rejected above (W-11), so the append here is
+                // unconditional and cannot trip the resolver's
+                // enable/disable conflict.
                 IEnumerable<string>? enablePassIds = opts.EnablePasses;
-                if (auditEnabledByProfile
-                    && !(opts.DisablePasses?.Contains(
-                        PassIds.NormalizationAudit, StringComparer.Ordinal) ?? false))
+                if (auditEnabledByProfile)
                 {
                     enablePassIds = (enablePassIds ?? Array.Empty<string>())
                         .Concat(new[] { PassIds.NormalizationAudit })
@@ -430,7 +438,7 @@ public class Program
                 ClosedMetadataOverridesPath = opts.ClosedMetadataOverridesPath,
                 // C49: materialization is default-on; --no-materialize-
                 // extension-blocks leaves the factory null, restoring the
-                // classic CS2J1206 extension-block gate byte-for-byte.
+                // classic CS2J1906 extension-block gate byte-for-byte.
                 ExtensionBlockOptionsFactory = () => BuildExtensionBlockOptions(
                     opts.MaterializeExtensionBlocks && !opts.NoMaterializeExtensionBlocks,
                     opts.ExtensionMethodStrict),
@@ -3849,7 +3857,7 @@ public class Program
     /// <summary>
     /// C49 policy for the extension-methods pass. Returns null when the
     /// --no-materialize-extension-blocks kill switch opts out, keeping the
-    /// classic CS2J1206 extension-block gate byte-for-byte; with the
+    /// classic CS2J1906 extension-block gate byte-for-byte; with the
     /// default-on materialization policy, every EMD subrule is enabled and
     /// strictness follows --extension-methods-strict.
     /// The EMD-PROP/EMD-OP member-desugar chain gate is evaluated by the
@@ -4128,6 +4136,35 @@ public class Program
     }
 
     /// <summary>
+    /// W-11/G-28 (upgrade plan §6.4-R0): shared profile×disable validation for
+    /// BOTH entry points (<c>convert-project</c> and <c>preprocess</c>).
+    /// java-ready/audit make <c>normalization-audit</c> a REQUIRED pass, so
+    /// disabling it under those profiles is a configuration error reported
+    /// identically from either verb — the same profile no longer yields
+    /// "silently allowed" on one entry point and a resolver conflict on the
+    /// other. Returns true (with a ready-to-print stderr line) when the
+    /// request must be rejected.
+    /// </summary>
+    internal static bool TryRejectRequiredPassDisable(
+        string profile,
+        IEnumerable<string>? disablePasses,
+        out string error)
+    {
+        if (profile is "java-ready" or "audit"
+            && disablePasses?.Contains(PassIds.NormalizationAudit, StringComparer.Ordinal) == true)
+        {
+            error =
+                $"Error: --profile {profile} requires pass '{PassIds.NormalizationAudit}'; " +
+                "it cannot be disabled via --disable-pass. Use --profile default to run " +
+                "without the audit.";
+            return true;
+        }
+
+        error = string.Empty;
+        return false;
+    }
+
+    /// <summary>
     /// Generic <c>preprocess</c> verb: lists the catalog (<c>--list-passes</c>) or
     /// runs the default chain / an explicitly selected set of registered passes
     /// against a project or solution without performing Java conversion.
@@ -4166,6 +4203,18 @@ public class Program
             }
 
             var auditEnabledByProfile = profile is "java-ready" or "audit";
+
+            // W-11/G-28 (upgrade plan §6.4-R0): identical check to the
+            // convert-project entry (shared helper) — java-ready/audit make
+            // normalization-audit a REQUIRED pass, so disabling it is a
+            // configuration error on BOTH entry points instead of the
+            // historical "unconditional append → resolver conflict" failure
+            // that only this verb had.
+            if (TryRejectRequiredPassDisable(profile, opts.DisablePasses, out var requiredPassError))
+            {
+                Console.Error.WriteLine(requiredPassError);
+                return 1;
+            }
 
             // Explicit --pass selection means "run exactly these ids"; without it
             // the descriptor defaults (convert-project chain) are used.
@@ -4271,7 +4320,7 @@ public class Program
                 {
                     var lnLiteralsActive = opts.LnNormalizeLiterals
                         || (opts.Passes?.Contains(
-                                PassStubCatalog.Ids.LexicalNormalize,
+                                PassIds.LexicalNormalize,
                                 StringComparer.Ordinal) ?? false);
                     return new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions
                     {
@@ -4354,7 +4403,7 @@ public class Program
                 ClosedMetadataOverridesPath = opts.ClosedMetadataOverridesPath,
                 // C49: materialization is default-on; --no-materialize-
                 // extension-blocks leaves the factory null, restoring the
-                // classic CS2J1206 extension-block gate byte-for-byte.
+                // classic CS2J1906 extension-block gate byte-for-byte.
                 ExtensionBlockOptionsFactory = () => BuildExtensionBlockOptions(
                     opts.MaterializeExtensionBlocks && !opts.NoMaterializeExtensionBlocks,
                     opts.ExtensionMethodStrict),
@@ -4671,7 +4720,8 @@ public class Program
         Console.WriteLine(
             $"generic: {preprocessResult.Statistics.FilesTransformed} transformed, " +
             $"{preprocessResult.Statistics.FilesSkippedClean} clean " +
-            $"({preprocessResult.Statistics.DefaultExpressionsRewritten} default(T), " +
+            $"({preprocessResult.Statistics.DefaultExpressionsEncountered} default(T) encountered, " +
+            $"{preprocessResult.Statistics.DefaultExpressionsRewritten} rewritten, " +
             $"{preprocessResult.Statistics.NewTypeParamRewritten} new T(), " +
             $"{preprocessResult.Statistics.NewTypeParamArrayRewritten} new T[n])");
 
@@ -5399,7 +5449,7 @@ class PreprocessVerbOptions
     public bool NoLocalFunctionStrict { get; set; }
 
     [Option("linq-channel-strict", Default = false,
-        HelpText = "linq-channel pass (C26): escalate CS2J1301/1303/1340 warnings to errors (default off; " +
+        HelpText = "linq-channel pass (C26): escalate CS2J1701/1703/1740 warnings to errors (default off; " +
                    "the conservative-preservation and residual diagnostics stay warnings)")]
     public bool LinqChannelStrict { get; set; }
 
@@ -5511,7 +5561,7 @@ class PreprocessVerbOptions
     public string? StructValueSemanticsOverrides { get; set; }
 
     [Option("extension-methods-strict", Default = false,
-        HelpText = "extension-methods pass (C19): escalate CS2J1201-1207/1210/1220 warnings to errors (default off; M4)")]
+        HelpText = "extension-methods pass (C19): escalate CS2J1901-1907/1910/1920 warnings to errors (default off; M4)")]
     public bool ExtensionMethodStrict { get; set; }
 
     [Option("partial-merge-assume-no-generated", Default = false,
@@ -5536,11 +5586,11 @@ class PreprocessVerbOptions
 
     [Option("materialize-extension-blocks", Default = true,
         HelpText = "Enable C49 C# 14 extension-block materialization inside the extension-methods pass " +
-                   "(extension blocks -> classic static-class members plus explicit call sites; default on; --no-materialize-extension-blocks keeps the CS2J1206 gate)")]
+                   "(extension blocks -> classic static-class members plus explicit call sites; default on; --no-materialize-extension-blocks keeps the CS2J1906 gate)")]
     public bool MaterializeExtensionBlocks { get; set; }
 
     [Option("no-materialize-extension-blocks", Default = false,
-        HelpText = "Negation switch for C49 extension-block materialization: keep the classic CS2J1206 block gate with zero materialization")]
+        HelpText = "Negation switch for C49 extension-block materialization: keep the classic CS2J1906 block gate with zero materialization")]
     public bool NoMaterializeExtensionBlocks { get; set; }
 
     [Option("no-decimal-ops", Default = false,
@@ -5899,7 +5949,7 @@ class ConvertProjectOptions
     public bool NoLocalFunctionStrict { get; set; }
 
     [Option("linq-channel-strict", Default = false,
-        HelpText = "linq-channel pass (C26): escalate CS2J1301/1303/1340 warnings to errors (default off; " +
+        HelpText = "linq-channel pass (C26): escalate CS2J1701/1703/1740 warnings to errors (default off; " +
                    "the conservative-preservation and residual diagnostics stay warnings)")]
     public bool LinqChannelStrict { get; set; }
 
@@ -6020,7 +6070,7 @@ class ConvertProjectOptions
     public string? StructValueSemanticsOverrides { get; set; }
 
     [Option("extension-methods-strict", Default = false,
-        HelpText = "extension-methods pass (C19): escalate CS2J1201-1207/1210/1220 warnings to errors (default off; M4)")]
+        HelpText = "extension-methods pass (C19): escalate CS2J1901-1907/1910/1920 warnings to errors (default off; M4)")]
     public bool ExtensionMethodStrict { get; set; }
 
     [Option("partial-merge-assume-no-generated", Default = false,
@@ -6037,11 +6087,11 @@ class ConvertProjectOptions
 
     [Option("materialize-extension-blocks", Default = true,
         HelpText = "Enable C49 C# 14 extension-block materialization inside the extension-methods pass " +
-                   "(extension blocks -> classic static-class members plus explicit call sites; default on; --no-materialize-extension-blocks keeps the CS2J1206 gate)")]
+                   "(extension blocks -> classic static-class members plus explicit call sites; default on; --no-materialize-extension-blocks keeps the CS2J1906 gate)")]
     public bool MaterializeExtensionBlocks { get; set; }
 
     [Option("no-materialize-extension-blocks", Default = false,
-        HelpText = "Negation switch for C49 extension-block materialization: keep the classic CS2J1206 block gate with zero materialization")]
+        HelpText = "Negation switch for C49 extension-block materialization: keep the classic CS2J1906 block gate with zero materialization")]
     public bool NoMaterializeExtensionBlocks { get; set; }
 
     [Option("no-array-method", Default = false,

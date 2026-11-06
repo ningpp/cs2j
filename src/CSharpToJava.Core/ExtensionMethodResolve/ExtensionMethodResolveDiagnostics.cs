@@ -59,47 +59,78 @@ public sealed record ExtensionDiagnostic(
     }
 }
 
-/// <summary>CS2J12xx / EM001 diagnostic codes for the extension-methods pass (design §6).</summary>
+/// <summary>
+/// CS2J19xx / EM001 diagnostic codes for the extension-methods pass (design
+/// §6). W-03 (upgrade plan §6.3-3): the family migrated from the CS2J12xx
+/// segment — where <c>ExternalHostNoMapping</c>'s CS2J1203 collided four
+/// ways with closed-metadata (the code's rightful owner), thread-static and
+/// the extension-block sub-family — to CS2J19xx. Report consumers matching
+/// the old codes get a one-version transition window via
+/// <see cref="LegacyCodeOf"/>.
+/// </summary>
 public static class ExtensionMethodCodes
 {
     /// <summary>New whole-tree validation error unattributable to one file → full run rollback.</summary>
-    public const string WholeTreeRollback = "CS2J1200";
+    public const string WholeTreeRollback = "CS2J1900";
 
     /// <summary>Ambiguous extension resolution (CandidateReason.Ambiguous); site left unchanged.</summary>
-    public const string Ambiguous = "CS2J1201";
+    public const string Ambiguous = "CS2J1901";
 
     /// <summary>Extension-like sugar unbound (None/OverloadResolutionFailure/incomplete references); site unchanged.</summary>
-    public const string Unbound = "CS2J1202";
+    public const string Unbound = "CS2J1902";
 
     /// <summary>Metadata host without a Java landing mapping.</summary>
-    public const string ExternalHostNoMapping = "CS2J1203";
+    public const string ExternalHostNoMapping = "CS2J1903";
 
     /// <summary>Defensive: ref/in modifier cannot be proven semantically compatible with the argument.</summary>
-    public const string RefMismatch = "CS2J1204";
+    public const string RefMismatch = "CS2J1904";
 
     /// <summary>Null-conditional extension call r?.M() not lifted by v1 (only for shapes the probe proves un-liftable).</summary>
-    public const string NullConditional = "CS2J1205";
+    public const string NullConditional = "CS2J1905";
 
     /// <summary>C# 14 extension block / extension property / extension operator (classic form之外); always Error; points to C49/C52.</summary>
-    public const string CSharp14ExtensionBlock = "CS2J1206";
+    public const string CSharp14ExtensionBlock = "CS2J1906";
 
     /// <summary>Reduced extension method group (non-call member access) not rewritten in v1.</summary>
-    public const string ReducedMethodGroup = "CS2J1207";
+    public const string ReducedMethodGroup = "CS2J1907";
 
     /// <summary>Expression-tree identity assertion failed; the single site rolls back to the sugar.</summary>
-    public const string ExpressionTreeIdentityFailed = "CS2J1210";
+    public const string ExpressionTreeIdentityFailed = "CS2J1910";
 
     /// <summary>Residual gate found a remaining shape above whitelist (design §4.5).</summary>
-    public const string ResidualFound = "CS2J1220";
+    public const string ResidualFound = "CS2J1920";
 
     /// <summary>Intermediate-tree restore/build failed.</summary>
-    public const string RestoreOrBuildFailed = "CS2J1230";
+    public const string RestoreOrBuildFailed = "CS2J1930";
 
     /// <summary>Intermediate-tree tests failed.</summary>
-    public const string TestsFailed = "CS2J1231";
+    public const string TestsFailed = "CS2J1931";
 
     /// <summary>Single-file mode: binding incomplete due to missing references; conservatively skipped.</summary>
-    public const string SingleFileIncompleteBinding = "CS2J1290";
+    public const string SingleFileIncompleteBinding = "CS2J1990";
+
+    /// <summary>
+    /// W-03 one-version transition window: the pre-migration CS2J12xx code a
+    /// migrated code replaced, or null for the EM001 info code and unknown
+    /// inputs.
+    /// </summary>
+    public static string? LegacyCodeOf(string code) => code switch
+    {
+        WholeTreeRollback => "CS2J1200",
+        Ambiguous => "CS2J1201",
+        Unbound => "CS2J1202",
+        ExternalHostNoMapping => "CS2J1203",
+        RefMismatch => "CS2J1204",
+        NullConditional => "CS2J1205",
+        CSharp14ExtensionBlock => "CS2J1206",
+        ReducedMethodGroup => "CS2J1207",
+        ExpressionTreeIdentityFailed => "CS2J1210",
+        ResidualFound => "CS2J1220",
+        RestoreOrBuildFailed => "CS2J1230",
+        TestsFailed => "CS2J1231",
+        SingleFileIncompleteBinding => "CS2J1290",
+        _ => null,
+    };
 
     /// <summary>Per-site detail (host full name, classification, chain/generic/ref flags); verbose only.</summary>
     public const string Info = "EM001";

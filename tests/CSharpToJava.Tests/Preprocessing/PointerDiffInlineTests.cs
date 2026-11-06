@@ -361,7 +361,7 @@ public sealed class PointerDiffInlineTests
         var fixedSpan = ordered.IndexOf(PassIds.FixedSpanToArray);
         var pointerDiff = ordered.IndexOf(PassIds.PointerDiffInline);
         var unsigned = ordered.IndexOf(PassIds.Unsigned);
-        var unsafeFfm = ordered.IndexOf(PassStubCatalog.Ids.UnsafeFfm);
+        var unsafeFfm = ordered.IndexOf(PassIds.UnsafeFfm);
 
         Assert.True(refOutIn >= 0 && fixedSpan >= 0 && pointerDiff >= 0
             && unsigned >= 0 && unsafeFfm >= 0);

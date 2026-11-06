@@ -37,7 +37,7 @@ public sealed record ExtensionMethodResolveOptions
     /// <summary>
     /// Rewrite reduced calls whose host comes from metadata (BCL/NuGet) instead
     /// of from the merged compilation (EM-EXTERNAL). Even when rewritten, hosts
-    /// without a Java mapping are reported via CS2J1203 (M3).
+    /// without a Java mapping are reported via CS2J1903 (M3).
     /// </summary>
     public bool RewriteExternalMetadataHosts { get; init; } = true;
 
@@ -78,7 +78,7 @@ public sealed record ExtensionMethodResolveOptions
     /// M3 (EM-EXTERNAL, design §4.2-3): grades an external (metadata-only)
     /// extension host for Java-landing availability. The CLI adapter supplies
     /// a TypeMappings-backed implementation; Core never loads TypeMappings.
-    /// Null means "grading unavailable" — no CS2J1203 is emitted and the site
+    /// Null means "grading unavailable" — no CS2J1903 is emitted and the site
     /// is rewritten silently (keeps the M1/M2 behavior for Core-only tests).
     /// </summary>
     public Func<INamedTypeSymbol, ExternalHostMappingKind>? ExternalHostMapper { get; init; }
@@ -94,10 +94,10 @@ public sealed record ExtensionMethodResolveOptions
     public Func<INamedTypeSymbol, bool>? IsSupportLibraryHost { get; init; }
 
     /// <summary>
-    /// M3 (CS2J1290, design §4.2-5): true in single-file/loose-directory mode
+    /// M3 (CS2J1990, design §4.2-5): true in single-file/loose-directory mode
     /// where no project graph (and therefore no restore/NuGet reference set) is
     /// available. Extension-like calls that fail to bind are conservatively
-    /// left unchanged and reported as CS2J1290 Warning instead of CS2J1202.
+    /// left unchanged and reported as CS2J1990 Warning instead of CS2J1902.
     /// </summary>
     public bool SingleFileIncompleteReferences { get; init; }
 }

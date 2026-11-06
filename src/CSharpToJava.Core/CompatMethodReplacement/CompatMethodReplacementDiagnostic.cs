@@ -16,6 +16,10 @@ public enum CompatMethodReplacementSeverity
 /// ref-kind set, or the entry never matched any declaration in the file set.</item>
 /// <item><c>CMR010</c>: the pass itself failed (for example local parse
 /// validation of the rewritten output).</item>
+/// <item><c>CMR020</c>: registry drift (W-09, upgrade plan §6.4-R0) — the
+/// entry's declaring type EXISTS in the processed corpus (symbol level) but
+/// no declaration matched the registered signature. A library upgrade
+/// silently invalidated the entry; the pass fails instead of no-op'ing.</item>
 /// </list>
 /// </summary>
 public enum CompatMethodReplacementDiagnosticCode
@@ -25,6 +29,13 @@ public enum CompatMethodReplacementDiagnosticCode
 
     /// <summary>Pass-internal failure such as local parse validation.</summary>
     CMR010,
+
+    /// <summary>
+    /// Registry drift: the declaring type is declared in the corpus but the
+    /// registered signature matched nothing (library upgraded away from the
+    /// entry). Error severity — a silent no-op replacement is forbidden.
+    /// </summary>
+    CMR020,
 }
 
 /// <summary>One compat-method-replacement diagnostic, surfaced through the adapter's existing channel.</summary>

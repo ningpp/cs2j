@@ -44,7 +44,7 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
     }
 
     public override PassDescriptor Descriptor =>
-        PassCatalog.ImplementedById(PassStubCatalog.Ids.PartialMerge);
+        PassCatalog.ImplementedById(PassIds.PartialMerge);
 
     public override bool Verbose => _verbose;
     public override bool HasErrors

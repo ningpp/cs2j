@@ -190,7 +190,7 @@ public sealed class LinqChannelM3CliProjectTests
     // ---- verify failure -------------------------------------------------------
 
     [Fact]
-    public async Task VerifyBuildFailure_ExitsNonZero_AndReportsCs2j1351()
+    public async Task VerifyBuildFailure_ExitsNonZero_AndReportsCs2j1751()
     {
         var dir = CreateProject("Broken.csproj", """
             public static class Broken
@@ -208,7 +208,7 @@ public sealed class LinqChannelM3CliProjectTests
                 "--no-verify-tests");
 
             Assert.NotEqual(0, exit);
-            Assert.Contains("CS2J1351", stderr);
+            Assert.Contains("CS2J1751", stderr);
         }
         finally
         {
@@ -263,7 +263,7 @@ public sealed class LinqChannelM3CliProjectTests
                 "-d", defaultOut,
                 "--no-verify-tests");
             Assert.True(defaultExit == 0, defaultErr);
-            Assert.Contains("warning CS2J1303", defaultErr);
+            Assert.Contains("warning CS2J1703", defaultErr);
 
             // The channel's own opt-in escalates the same LC0012 to an Error.
             var (strictExit, _, strictErr) = await RunCliAsync(
@@ -273,7 +273,7 @@ public sealed class LinqChannelM3CliProjectTests
                 "--linq-channel-strict",
                 "--no-verify-tests");
             Assert.NotEqual(0, strictExit);
-            Assert.Contains("error CS2J1303", strictErr);
+            Assert.Contains("error CS2J1703", strictErr);
         }
         finally
         {
@@ -290,7 +290,7 @@ public sealed class LinqChannelM3CliProjectTests
         // metadata-only symbols such as xunit's `Assert` stay unbound and any
         // member whose name coincides with a LINQ operator (`Assert.Contains`,
         // `Assert.All`, `Assert.Single`) is then falsely routed Ambiguous
-        // (CS2J1301). The adapter must merge the restored NuGet compile
+        // (CS2J1701). The adapter must merge the restored NuGet compile
         // assemblies (extension-methods M3 ruling 2 precedent) so the binding
         // picture matches a real per-project build.
         var dir = Path.Combine(Path.GetTempPath(), "cs2j-c26-pkgref-" + Guid.NewGuid().ToString("N"));
@@ -338,7 +338,7 @@ public sealed class LinqChannelM3CliProjectTests
                 "--no-verify-build", "--no-verify-tests");
 
             Assert.True(exit == 0, stderr);
-            Assert.DoesNotContain("CS2J1301", stderr);
+            Assert.DoesNotContain("CS2J1701", stderr);
 
             var reportPath = Path.Combine(outDir, IntermediateDirName, ReportFileName);
             Assert.True(File.Exists(reportPath), "channel report must be materialized");
@@ -430,7 +430,7 @@ public sealed class LinqChannelM3CliProjectTests
 
             Assert.False(result.Success, "an LC0011 rollback must fail the pass");
             Assert.Contains(IntermediateDirName, result.ExecutedIntermediateDirectoryNames);
-            Assert.Contains("CS2J1302", errorCapture.ToString());
+            Assert.Contains("CS2J1702", errorCapture.ToString());
 
             var rolledBack = Path.Combine(outputDir, IntermediateDirName, "Tools.cs");
             Assert.True(File.Exists(rolledBack));

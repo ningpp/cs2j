@@ -4,6 +4,10 @@ namespace CSharpToJava.Core.ExtensionMethodResolve.Declarations;
 /// Diagnostic codes used by C49 M1 extension-block materialization. All
 /// diagnostics reuse the extension-pass <c>ExtensionDiagnostic</c> record
 /// (rule <c>Ext14</c>); only codes M1 actually emits are declared here.
+/// W-03 (upgrade plan §6.3-3): migrated from the CS2J12xx segment (where
+/// <c>ExternalMetadata</c>'s CS2J1203 collided four ways) to the
+/// extension-family CS2J19xx band; see <see cref="LegacyCodeOf"/> for the
+/// one-version transition window.
 /// </summary>
 public static class ExtensionBlockCodes
 {
@@ -12,49 +16,67 @@ public static class ExtensionBlockCodes
     /// chain to be enabled downstream; when the chain is unavailable the
     /// block materialization is refused (no unconsumable output is produced).
     /// </summary>
-    public const string PropertyChainGate = "CS2J1208";
+    public const string PropertyChainGate = "CS2J1908";
 
     /// <summary>
     /// Unsupported extension-block construct: an indexer inside a block (the
     /// Roslyn 5.0 form always compiles with CS9282 — no legal materialization
     /// target) or another block member kind M2 does not materialize.
     /// </summary>
-    public const string Unsupported = "CS2J1209";
+    public const string Unsupported = "CS2J1909";
 
     /// <summary>
     /// Probe-confirmed receiver shape that cannot be materialized (e.g. a
     /// pointer receiver CS0214/CS1103): the whole extension block is left
     /// unchanged.
     /// </summary>
-    public const string UnsupportedReceiver = "CS2J1211";
+    public const string UnsupportedReceiver = "CS2J1911";
 
     /// <summary>
     /// Post-rewrite recompile signature collision (CS0102/CS0111 attributed
     /// to an EMD plan): the plan group rolls back. Code declared by M2; the
     /// candidate-vs-baseline error diff is the detection path.
     /// </summary>
-    public const string SignatureCollision = "CS2J1212";
+    public const string SignatureCollision = "CS2J1912";
 
     /// <summary>
     /// Startup parse self-check failed: the minimal extension-block fragment
     /// does not parse under the current Roslyn (block support missing); the
     /// pass cannot run and blocks are left unchanged.
     /// </summary>
-    public const string ParseProbeFailed = "CS2J1213";
+    public const string ParseProbeFailed = "CS2J1913";
 
     /// <summary>
     /// M3: post-rewrite identity assertion failed (design §4.6): a rewritten
     /// block site does not rebind to the generated host member; the plan is
     /// reported/rolled back. Warning by default; strict upgrades to Error.
     /// </summary>
-    public const string IdentityFailed = "CS2J1222";
+    public const string IdentityFailed = "CS2J1922";
 
     /// <summary>
     /// M3: an extension member declared in an external assembly (metadata
     /// only) has no in-compilation declaration C49 can materialize; the site
     /// is report-only. Same diagnostic family as the C19 metadata boundary.
+    /// W-03: the pre-migration CS2J1203 mapped to 1914 (not 1903) because
+    /// 1903 is the extension-methods family's ExternalHostNoMapping.
     /// </summary>
-    public const string ExternalMetadata = "CS2J1203";
+    public const string ExternalMetadata = "CS2J1914";
+
+    /// <summary>
+    /// W-03 one-version transition window: the pre-migration CS2J12xx code a
+    /// migrated code replaced, or null for unknown inputs.
+    /// </summary>
+    public static string? LegacyCodeOf(string code) => code switch
+    {
+        PropertyChainGate => "CS2J1208",
+        Unsupported => "CS2J1209",
+        UnsupportedReceiver => "CS2J1211",
+        SignatureCollision => "CS2J1212",
+        ParseProbeFailed => "CS2J1213",
+        IdentityFailed => "CS2J1222",
+        ExternalMetadata => "CS2J1203",
+        _ => null,
+    };
 }
 
 /// <summary>Message templates for C49 M1 diagnostics.</summary>
@@ -116,7 +138,7 @@ internal static class ExtensionBlockMessages
         "Null-conditional '++'/'--' over a C# 14 extension property is rejected by Roslyn (CS1059); C49 M3 leaves "
         + "the sugar with this paired diagnostic.";
 
-    /// <summary>External-assembly extension member report (CS2J1203 family).</summary>
+    /// <summary>External-assembly extension member report (CS2J1903 family).</summary>
     public static string ExternalMetadataSite(string assembly, string member)
         => $"C# 14 extension member '{member}' is declared in external assembly '{assembly}' which has no in-compilation "
            + "extension block; C49 M3 reports the site and does not synthesize companion declarations.";

@@ -17,10 +17,12 @@ namespace CSharpToJava.Core.CompatMethodReplacement;
 /// managed implementation. Signature, attributes and modifiers (including
 /// <c>unsafe</c>, which <c>unsafe-ffm</c> removes later) are preserved.
 /// <para>
-/// The built-in entries replace
-/// <c>System.Text.Json.JsonWriterHelper.ToUtf8(ReadOnlySpan&lt;byte&gt;, Span&lt;byte&gt;, out int, out int)</c>
-/// — a pointer-based UTF-16→UTF-8 transcoder — with an
-/// <c>Encoding.UTF8.GetEncoder().Convert</c> implementation, and the char-span
+/// The built-in entries replace the <c>JsonWriterHelper.ToUtf8</c> family —
+/// the Runtime 10 form
+/// <c>ToUtf8(ReadOnlySpan&lt;char&gt;, Span&lt;byte&gt;, out int)</c>
+/// (pointer/Utf8.FromUtf16 transcoder) and the legacy 3.x 4-param byte-span
+/// form — with an <c>Encoding.UTF8.GetEncoder().Convert</c> implementation,
+/// and the char-span
 /// <c>JsonWriterHelper.NeedsEscaping(ReadOnlySpan&lt;char&gt;, JavaScriptEncoder?)</c>
 /// — a <c>fixed (char*)</c> scan through
 /// <c>FindFirstCharacterToEncode(char*, int)</c> — with a managed per-character
@@ -33,7 +35,10 @@ namespace CSharpToJava.Core.CompatMethodReplacement;
 /// CMR001 for a near miss. The replacement body carries a
 /// <c>cs2j-compat-method-replacement</c> marker comment, so re-running the pass
 /// on its own output is a no-op (idempotent). Clean files are byte-for-byte
-/// identical.
+/// identical. The adapter additionally runs the W-09 drift gate
+/// (<see cref="CompatMethodReplacementDriftDetector"/>): an entry family whose
+/// declaring type exists in the corpus but matched nothing is a CMR020 Error,
+/// so a library upgrade can never silently invalidate the table.
 /// </para>
 /// </summary>
 public sealed class CompatMethodReplacementPreprocessor
@@ -139,6 +144,12 @@ public sealed class CompatMethodReplacementPreprocessor
         {
             if (_model.GetDeclaredSymbol(node) is not IMethodSymbol symbol)
                 return base.VisitMethodDeclaration(node);
+
+            // W-09 drift evidence: every visited method's containing type is
+            // recorded (normalized namespace|type) so the whole-tree gate can
+            // distinguish "entry unused because the corpus lacks the library"
+            // from "the declaring type exists but the signature drifted".
+            _statistics.DeclaredTypeKeys.Add(CompatMethodReplacementEntry.TypeKeyFor(symbol));
 
             var identityMatches = _registry.Entries
                 .Where(entry => entry.MatchesDeclarationIdentity(symbol))

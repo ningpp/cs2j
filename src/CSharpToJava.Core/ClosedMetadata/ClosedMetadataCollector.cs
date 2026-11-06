@@ -590,7 +590,21 @@ public sealed class ClosedMetadataCollector
             siteLocation?.GetLineSpan().StartLinePosition.Line + 1));
     }
 
-    private static bool MentionsTypeParameter(ITypeSymbol type) => type switch
+    /// <summary>
+    /// V-06 (upgrade plan §6.4-R0): the SINGLE recursive type-parameter
+    /// detector shared by the collector (CM-DYN classification), the consumer
+    /// linker and the residual scanner. A type "mentions" a type parameter
+    /// when the parameter appears anywhere — as the type itself, as an array
+    /// element or nested inside generic type arguments — because every such
+    /// shape is runtime-erased and cannot be covered by declaration-driven
+    /// registration. The linker/scanner previously checked only the TOP-LEVEL
+    /// argument (<c>is ITypeParameterSymbol</c>), so <c>Deserialize&lt;List&lt;T&gt;&gt;</c>
+    /// and <c>Deserialize&lt;T&gt;&gt;</c> took different paths through the two
+    /// components, and a MIXED closure like <c>Deserialize&lt;Pair&lt;UserDto, T&gt;&gt;</c>
+    /// slipped past the filter and produced a partial holder guard for a site
+    /// the collector had already classified as dynamic.
+    /// </summary>
+    internal static bool MentionsTypeParameter(ITypeSymbol type) => type switch
     {
         ITypeParameterSymbol => true,
         IArrayTypeSymbol array => MentionsTypeParameter(array.ElementType),

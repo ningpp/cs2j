@@ -58,6 +58,9 @@ internal sealed class GenericDeepenPassAdapter : ProjectPassAdapter
     public GenericDeepenStatistics Statistics => _statistics;
     public IReadOnlyList<GenericDeepenDiagnostic> Diagnostics => _diagnostics;
 
+    /// <summary>Options the adapter runs with (W-01 wiring visibility for tests).</summary>
+    internal GenericDeepenOptions Options => _options;
+
     public override Task CompilationReadyAsync(CSharpCompilation compilation)
     {
         _preprocessor.BindCompilation(compilation);

@@ -18,8 +18,8 @@ public sealed class AsyncNormalizeOrderTests
         var ordered = PassCatalog.BuildRegistry().Ordered.ToList();
 
         var makeReadonly = ordered.FindIndex(p => p.Id == PassIds.MakeReadonly);
-        var iterator = ordered.FindIndex(p => p.Id == PassStubCatalog.Ids.IteratorLowering);
-        var asyncNormalize = ordered.FindIndex(p => p.Id == PassStubCatalog.Ids.AsyncNormalize);
+        var iterator = ordered.FindIndex(p => p.Id == PassIds.IteratorLowering);
+        var asyncNormalize = ordered.FindIndex(p => p.Id == PassIds.AsyncNormalize);
         var eliminateGoto = ordered.FindIndex(p => p.Id == PassIds.EliminateGoto);
 
         Assert.True(makeReadonly >= 0 && iterator >= 0 && asyncNormalize >= 0 && eliminateGoto >= 0);
@@ -43,11 +43,11 @@ public sealed class AsyncNormalizeOrderTests
         var stubs = PassCatalog.BuildRegistry().WhereStatus(PassStatus.Stub).ToArray();
 
         Assert.Equal(0, stubs.Length);
-        Assert.DoesNotContain(stubs, p => p.Id == PassStubCatalog.Ids.AsyncNormalize);
+        Assert.DoesNotContain(stubs, p => p.Id == PassIds.AsyncNormalize);
         Assert.DoesNotContain(stubs, p => p.Id == PassIds.ThreadStatic);
         Assert.DoesNotContain(stubs, p => p.Id == PassIds.AttributeNormalize);
-        Assert.DoesNotContain(stubs, p => p.Id == PassStubCatalog.Ids.DynamicDesugar);
-        Assert.DoesNotContain(stubs, p => p.Id == PassStubCatalog.Ids.LinqChannel);
+        Assert.DoesNotContain(stubs, p => p.Id == PassIds.DynamicDesugar);
+        Assert.DoesNotContain(stubs, p => p.Id == PassIds.LinqChannel);
     }
 
     [Fact]
@@ -58,25 +58,25 @@ public sealed class AsyncNormalizeOrderTests
         var baseline = PassPlanResolver.Resolve(registry);
         Assert.True(baseline.IsValid);
         Assert.Contains(
-            baseline.Enabled, p => p.Id == PassStubCatalog.Ids.AsyncNormalize);
+            baseline.Enabled, p => p.Id == PassIds.AsyncNormalize);
 
         // Explicit opt-in with every toggle off still plans it as Implemented.
         var allOff = PassChainFactory.BuildAllDisabledToggles(registry);
         var plan = PassPlanResolver.Resolve(
             registry,
             allOff,
-            enablePassIds: new[] { PassStubCatalog.Ids.AsyncNormalize });
+            enablePassIds: new[] { PassIds.AsyncNormalize });
 
         Assert.True(plan.IsValid);
         var planned = Assert.Single(plan.Enabled);
-        Assert.Equal(PassStubCatalog.Ids.AsyncNormalize, planned.Id);
+        Assert.Equal(PassIds.AsyncNormalize, planned.Id);
         Assert.Equal(PassStatus.Implemented, planned.Status);
     }
 
     [Fact]
     public void Implemented_descriptor_is_default_on_semantic_verified_StateMachine_C18()
     {
-        var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.AsyncNormalize);
+        var descriptor = PassCatalog.ImplementedById(PassIds.AsyncNormalize);
 
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
         Assert.True(descriptor.DefaultEnabled);

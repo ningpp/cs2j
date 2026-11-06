@@ -89,7 +89,7 @@ internal sealed record ExtensionConditionalPlan
 
     public required bool Liftable { get; internal set; }
 
-    /// <summary>CS2J1205 / internal reason when not liftable; null on liftable plans.</summary>
+    /// <summary>CS2J1905 / internal reason when not liftable; null on liftable plans.</summary>
     public string? SkipCode { get; internal set; }
 
     /// <summary>Human-readable skip detail (diagnostics only).</summary>
@@ -114,7 +114,7 @@ internal sealed record ExtensionConditionalPlan
 /// EM-GROUP plan for one <c>r.M</c> non-call member access bound as a reduced
 /// extension method group. Rewritable groups become capture lambdas
 /// <c>(p...) => global::Host.M(r, p...)</c>; everything undecidable
-/// (ambiguous/non-matching/no target type/no safe capture) carries CS2J1207.
+/// (ambiguous/non-matching/no target type/no safe capture) carries CS2J1907.
 /// </summary>
 internal sealed record ExtensionGroupPlan
 {
@@ -141,7 +141,7 @@ internal sealed record ExtensionGroupPlan
     /// <summary>Generated lambda parameter names, in delegate Invoke order.</summary>
     public required IReadOnlyList<string> LambdaParameterNames { get; init; }
 
-    /// <summary>Null when rewritable; CS2J1207 (or internal reason) otherwise.</summary>
+    /// <summary>Null when rewritable; CS2J1907 (or internal reason) otherwise.</summary>
     public string? SkipCode { get; init; }
 
     /// <summary>Human-readable skip detail (diagnostics only).</summary>
@@ -177,19 +177,19 @@ internal sealed record ExtensionGroupPlan
 /// <summary>Why a residual sugar node is legitimately present after the rewrite (diagnostic-paired).</summary>
 public enum ExtensionExemptKind
 {
-    /// <summary>EM-REF receiver could not be proven a writable lvalue (CS2J1204).</summary>
+    /// <summary>EM-REF receiver could not be proven a writable lvalue (CS2J1904).</summary>
     RefReceiverMismatch,
 
-    /// <summary>Null-conditional chain not liftable (CS2J1205).</summary>
+    /// <summary>Null-conditional chain not liftable (CS2J1905).</summary>
     NullConditionalUnliftable,
 
     /// <summary>Null-conditional chain inside an expression tree: assert-only, never lifted.</summary>
     ExprTreeNullConditional,
 
-    /// <summary>Reduced method group not rewritten (CS2J1207).</summary>
+    /// <summary>Reduced method group not rewritten (CS2J1907).</summary>
     ReducedMethodGroup,
 
-    /// <summary>Expression-tree site rolled back to the sugar (CS2J1210).</summary>
+    /// <summary>Expression-tree site rolled back to the sugar (CS2J1910).</summary>
     ExprTreeRollback,
 
     /// <summary>M4 EM-LINQ: user extension site on a chain mixed with LINQ-owned calls; chain kept sugar.</summary>

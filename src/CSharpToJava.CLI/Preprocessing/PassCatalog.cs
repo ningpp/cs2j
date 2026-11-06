@@ -3,18 +3,29 @@ using CSharpToJava.Core.Preprocessing;
 
 namespace CSharpToJava.CLI.Preprocessing;
 
-/// <summary>Stable kebab-case pass identifiers shared by the CLI and the registry.</summary>
+/// <summary>
+/// Stable kebab-case pass identifiers shared by the CLI and the registry.
+/// SINGLE source of truth for pass identity (upgrade plan 附录 I.5 step 1):
+/// the former <c>PassStubCatalog.Ids</c> duplicate constant set was merged
+/// here, one constant per registered pass, listed in locked chain order
+/// (§2.1 of the upgrade plan). New passes get their constant here and only
+/// here.
+/// </summary>
 internal static class PassIds
 {
     public const string Conditional = "conditional";
+    public const string LexicalNormalize = "lexical-normalize";
+    public const string PartialMerge = "partial-merge";
     public const string LocalFunctionLift = "local-function-lift";
     public const string NullCoalesce = "null-coalesce";
+    public const string ExpressionDesugar = "expression-desugar";
     public const string Enum = "enum";
     public const string EnumDeclaration = "enum-declaration";
     public const string Delegate = "delegate";
     public const string Tuple = "tuple";
     public const string AnonymousTypeLift = "anonymous-type-lift";
     public const string ForeachDeconstruction = "foreach-deconstruction";
+    public const string ForeachSource = "foreach-source";
     public const string PatternDesugar = "pattern-desugar";
     public const string StripDefault = "strip-default";
     public const string RefOutIn = "ref-out-in";
@@ -24,25 +35,35 @@ internal static class PassIds
     public const string CompatMethodReplacement = "compat-method-replacement";
     public const string PointerDiffInline = "pointer-diff-inline";
     public const string Unsigned = "unsigned";
+    public const string NumericBoundary = "numeric-boundary";
     public const string Generic = "generic";
     public const string ThreadStatic = "thread-static";
     public const string GenericDeepen = "generic-deepen";
-    public const string VarianceAudit = "variance-audit";
     public const string ClosedMetadata = "closed-metadata";
+    public const string VarianceAudit = "variance-audit";
     public const string RecordReadOnly = "record-readonly";
     public const string ArrayMethod = "array-method";
     public const string IndexRange = "index-range";
     public const string MakeReadonly = "make-readonly";
     public const string AttributeNormalize = "attribute-normalize";
     public const string StructValueSemantics = "struct-value-semantics";
-    public const string EliminateGoto = "eliminate-goto";
-    public const string MemberDesugar = "member-desugar";
-    public const string JavaKeywords = "java-keywords";
-    public const string ExtensionMethods = "extension-methods";
+    public const string UnsafeFfm = "unsafe-ffm";
     public const string StackAllocLowering = "stackalloc-lowering";
     public const string RefStructLowering = "ref-struct-lowering";
     public const string RefStructSpanFieldMemoryLift = "ref-struct-span-field-memory-lift";
     public const string PointerDerefIndex = "pointer-deref-index";
+    public const string ClosureLift = "closure-lift";
+    public const string IteratorLowering = "iterator-lowering";
+    public const string AsyncNormalize = "async-normalize";
+    public const string ExtensionMethods = "extension-methods";
+    public const string EliminateGoto = "eliminate-goto";
+    public const string MemberDesugar = "member-desugar";
+    public const string LinqChannel = "linq-channel";
+    public const string ConcurrencyNormalize = "concurrency-normalize";
+    public const string EqualityConcat = "equality-concat";
+    public const string PlatformIsolation = "platform-isolation";
+    public const string DynamicDesugar = "dynamic-desugar";
+    public const string JavaKeywords = "java-keywords";
     public const string NormalizationAudit = "normalization-audit";
 }
 
@@ -65,7 +86,7 @@ internal static class PassCatalog
             needsSemanticModel: false,
             description: "Strip/adapt C# preprocessor directives (text pass with per-file symbol resolution)."),
         new(
-            PassStubCatalog.Ids.LexicalNormalize,
+            PassIds.LexicalNormalize,
             "Lexical normalization",
             ".cs2j-lexical-normalize-src",
             PassStage.Lexical,
@@ -78,7 +99,7 @@ internal static class PassCatalog
             description: "Strip #line directives, audit #error/extern-alias/global-using forms and optionally normalize file-scoped namespaces (--ln-normalize-file-scoped); C43 raw/u8/verbatim/\\e literal normalization is opt-in via --ln-normalize-literals (P0 rule-level default-off, C43 design §8 sdk profile gate).",
             catalogItems: "C28, C43"),
         new(
-            PassStubCatalog.Ids.PartialMerge,
+            PassIds.PartialMerge,
             "Partial type merge",
             ".cs2j-partial-merge-src",
             PassStage.Lexical,
@@ -86,7 +107,7 @@ internal static class PassCatalog
             // Flipped to DEFAULT-ON under the all-preprocessors-default-on policy;
             // --disable-pass partial-merge opts out.
             defaultEnabled: true,
-            runAfterIds: new[] { PassIds.Conditional, PassStubCatalog.Ids.LexicalNormalize },
+            runAfterIds: new[] { PassIds.Conditional, PassIds.LexicalNormalize },
             needsSemanticModel: true,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
@@ -99,7 +120,7 @@ internal static class PassCatalog
             PassStage.Declarative,
             PassStatus.Implemented,
             defaultEnabled: true,
-            runAfterIds: new[] { PassIds.Conditional, PassStubCatalog.Ids.PartialMerge },
+            runAfterIds: new[] { PassIds.Conditional, PassIds.PartialMerge },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
             description: "Lift local functions to class-level private static methods."),
@@ -115,7 +136,7 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Rewrite ?? / ??= expressions into Java-compatible forms."),
         new(
-            PassStubCatalog.Ids.ExpressionDesugar,
+            PassIds.ExpressionDesugar,
             "Expression desugaring",
             ".cs2j-expression-desugar-src",
             PassStage.Expression,
@@ -209,7 +230,7 @@ internal static class PassCatalog
             runAfterIds: new[] { PassIds.Tuple },
             description: "Desugar foreach deconstruction into indexer loops."),
         new(
-            PassStubCatalog.Ids.ForeachSource,
+            PassIds.ForeachSource,
             "Foreach source rewrite",
             ".cs2j-foreach-source-src",
             PassStage.ControlFlow,
@@ -251,7 +272,7 @@ internal static class PassCatalog
             PassStage.Abi,
             PassStatus.Implemented,
             defaultEnabled: true,
-            runAfterIds: new[] { PassIds.StripDefault, PassStubCatalog.Ids.ForeachSource },
+            runAfterIds: new[] { PassIds.StripDefault, PassIds.ForeachSource },
             supportLibrary: PassSupportLibrary.Cs2jRefOutIn,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
@@ -439,7 +460,7 @@ internal static class PassCatalog
             supportLibrary: PassSupportLibrary.Cs2jUnsignedMath,
             description: "Map unsigned integer types and math to the unsigned support project."),
         new(
-            PassStubCatalog.Ids.NumericBoundary,
+            PassIds.NumericBoundary,
             "Numeric boundary explicitization",
             ".cs2j-numeric-boundary-src",
             PassStage.Expression,
@@ -605,7 +626,7 @@ internal static class PassCatalog
             description: "Make struct copy/mutation/readonly boundaries explicit with defensive clones.",
             catalogItems: "C07"),
         new(
-            PassStubCatalog.Ids.UnsafeFfm,
+            PassIds.UnsafeFfm,
             "Unsafe to FFM",
             ".cs2j-unsafe-ffm-src",
             PassStage.Abi,
@@ -628,7 +649,7 @@ internal static class PassCatalog
             // constructs Java can never accept and never changes code that
             // unsafe-ffm already lowered.
             defaultEnabled: true,
-            runAfterIds: new[] { PassStubCatalog.Ids.UnsafeFfm },
+            runAfterIds: new[] { PassIds.UnsafeFfm },
             supportLibrary: PassSupportLibrary.None,
             needsSemanticModel: true,
             verifyBuildByDefault: true,
@@ -732,7 +753,7 @@ internal static class PassCatalog
             // only rewrites provable pointer indirection into pointer element
             // access and preserves every other site verbatim with PDI001.
             defaultEnabled: true,
-            runAfterIds: new[] { PassStubCatalog.Ids.UnsafeFfm },
+            runAfterIds: new[] { PassIds.UnsafeFfm },
             supportLibrary: PassSupportLibrary.None,
             needsSemanticModel: true,
             verifyBuildByDefault: true,
@@ -757,7 +778,7 @@ internal static class PassCatalog
                 Idempotent: true,
                 RequiresWholeTree: true)),
         new(
-            PassStubCatalog.Ids.ClosureLift,
+            PassIds.ClosureLift,
             "Closure/display class lift",
             ".cs2j-closure-lift-src",
             PassStage.StateMachine,
@@ -771,7 +792,7 @@ internal static class PassCatalog
             description: "Lift mutably captured locals/parameters into deterministic private holder classes (C32 M2) and lift lambdas/anonymous methods into display classes plus named methods (C45 M1-M3).",
             catalogItems: "C32, C45"),
         new(
-            PassStubCatalog.Ids.IteratorLowering,
+            PassIds.IteratorLowering,
             "Iterator lowering",
             ".cs2j-iterator-lowering-src",
             PassStage.StateMachine,
@@ -788,13 +809,13 @@ internal static class PassCatalog
             // member-access guards. Unsupported forms skip with
             // CS2J0402/CS2J0403/CS2J0404/CS2J0405/CS2J0406 diagnostics.
             defaultEnabled: true,
-            runAfterIds: new[] { PassIds.MakeReadonly, PassStubCatalog.Ids.ClosureLift },
+            runAfterIds: new[] { PassIds.MakeReadonly, PassIds.ClosureLift },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
             description: "Analyze C# iterator methods and lower the supported subset into explicit state machine classes (M1); try-finally protected regions with full Dispose/yield-break cleanup chains (M2); using statement/declaration and lock normalization (M3); non-crossing ref struct/ref local/pointer locals kept as MoveNext locals, yield-bearing switch flattening and struct-iterator by-value this capture (M4). Unsupported forms skip with CS2J0402/CS2J0403/CS2J0404/CS2J0405/CS2J0406 diagnostics.",
             catalogItems: "C04"),
         new(
-            PassStubCatalog.Ids.AsyncNormalize,
+            PassIds.AsyncNormalize,
             "Async normalization",
             ".cs2j-async-normalize-src",
             PassStage.StateMachine,
@@ -809,7 +830,7 @@ internal static class PassCatalog
             // iterator-lowering so the Kahn declaration-order tiebreak locks
             // the slot: iterator-lowering -> async-normalize ->
             // extension-methods -> eliminate-goto.
-            runAfterIds: new[] { PassIds.MakeReadonly, PassStubCatalog.Ids.ClosureLift },
+            runAfterIds: new[] { PassIds.MakeReadonly, PassIds.ClosureLift },
             needsSemanticModel: true,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
@@ -834,7 +855,7 @@ internal static class PassCatalog
                 PassIds.Unsigned,
                 PassIds.ArrayMethod,
                 PassIds.MakeReadonly,
-                PassStubCatalog.Ids.IteratorLowering,
+                PassIds.IteratorLowering,
             },
             needsSemanticModel: true,
             verifyBuildByDefault: true,
@@ -848,7 +869,7 @@ internal static class PassCatalog
             PassStage.ControlFlow,
             PassStatus.Implemented,
             defaultEnabled: true,
-            runAfterIds: new[] { PassIds.MakeReadonly, PassStubCatalog.Ids.IteratorLowering },
+            runAfterIds: new[] { PassIds.MakeReadonly, PassIds.IteratorLowering },
             needsSemanticModel: false,
             description: "Eliminate goto/labeled statements into structured loops (syntax pass)."),
         new(
@@ -858,13 +879,13 @@ internal static class PassCatalog
             PassStage.Declarative,
             PassStatus.Implemented,
             defaultEnabled: true,
-            runAfterIds: new[] { PassIds.StructValueSemantics, PassStubCatalog.Ids.ClosureLift },
+            runAfterIds: new[] { PassIds.StructValueSemantics, PassIds.ClosureLift },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
             description: "Desugar properties (C11), indexers (C12), events (C13), operators (C14), finalizers (C39), signatures (C46), the field keyword (C50) and record with/init/required (C27) into backing fields plus explicit methods/members.",
             catalogItems: "C11, C12, C13, C14, C39, C46, C50, C27"),
         new(
-            PassStubCatalog.Ids.LinqChannel,
+            PassIds.LinqChannel,
             "LINQ channelization",
             ".cs2j-linq-channel-src",
             PassStage.ControlFlow,
@@ -894,7 +915,7 @@ internal static class PassCatalog
                          "IQueryable three-way routing gate in observe-only mode.",
             catalogItems: "C26"),
         new(
-            PassStubCatalog.Ids.ConcurrencyNormalize,
+            PassIds.ConcurrencyNormalize,
             "Concurrency normalization",
             ".cs2j-concurrency-normalize-src",
             PassStage.Declarative,
@@ -914,7 +935,7 @@ internal static class PassCatalog
                          "compat Volatile VarHandle bridge, and System.Threading.Lock 分型 (enter/try/finally instead of synchronized).",
             catalogItems: "C29"),
         new(
-            PassStubCatalog.Ids.EqualityConcat,
+            PassIds.EqualityConcat,
             "Equality/concat call-site materialization",
             ".cs2j-equality-concat-src",
             PassStage.Expression,
@@ -929,7 +950,7 @@ internal static class PassCatalog
             description: "Materialize string ==/!= and + call sites, (object) escapes, delegate value equality and record == by symbol-bound semantics.",
             catalogItems: "C47"),
         new(
-            PassStubCatalog.Ids.PlatformIsolation,
+            PassIds.PlatformIsolation,
             "Platform boundary isolation",
             ".cs2j-platform-isolation-src",
             PassStage.Abi,
@@ -940,7 +961,7 @@ internal static class PassCatalog
             // unsafe-ffm; the locked chain already orders it there (§3.2/附录裁决2).
             // Declaration order here keeps platform -> concurrency -> dynamic
             // (the late stubs) and stays before java-keywords.
-            runAfterIds: new[] { PassIds.EliminateGoto, PassStubCatalog.Ids.UnsafeFfm },
+            runAfterIds: new[] { PassIds.EliminateGoto, PassIds.UnsafeFfm },
             needsSemanticModel: true,
             // The adapter closes verification in Report mode (M1); the dual-on
             // default applies to the M2 Stub/Facade apply modes (§3.1).
@@ -951,7 +972,7 @@ internal static class PassCatalog
                          "apply modes, M2/M3).",
             catalogItems: "C42"),
         new(
-            PassStubCatalog.Ids.DynamicDesugar,
+            PassIds.DynamicDesugar,
             "Dynamic desugaring",
             ".cs2j-dynamic-desugar-src",
             PassStage.Abi,
@@ -992,11 +1013,11 @@ internal static class PassCatalog
             runAfterIds: new[]
             {
                 PassIds.EliminateGoto,
-                PassStubCatalog.Ids.PlatformIsolation,
-                PassStubCatalog.Ids.ConcurrencyNormalize,
-                PassStubCatalog.Ids.DynamicDesugar,
+                PassIds.PlatformIsolation,
+                PassIds.ConcurrencyNormalize,
+                PassIds.DynamicDesugar,
                 PassIds.ExtensionMethods,
-                PassStubCatalog.Ids.EqualityConcat,
+                PassIds.EqualityConcat,
             },
             description: "Rename identifiers clashing with Java reserved words; runs last before conversion."),
         new(

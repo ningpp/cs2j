@@ -305,7 +305,7 @@ internal sealed class ThreadStaticAnalyzer
         }
 
         // Mutable struct member mutation (TS-5): when statement-level temp lifting
-        // is feasible the site carries its lift anchor; otherwise CS2J1203 skips the plan.
+        // is feasible the site carries its lift anchor; otherwise CS2J1603 skips the plan.
         if (IsMutableValueType(candidate.Field.Type)
             && TryDetectMutableStructMutation(access, out var liftAnchor))
         {

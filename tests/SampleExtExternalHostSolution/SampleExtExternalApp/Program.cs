@@ -5,7 +5,7 @@ class Program
 {
     static int Main()
     {
-        // External metadata host with no TypeMappings landing → CS2J1203,
+        // External metadata host with no TypeMappings landing → CS2J1903,
         // but the site is still explicitized.
         Console.WriteLine("hi".ShoutMetadata());
 

@@ -49,6 +49,9 @@ internal sealed class VarianceAuditPassAdapter : ProjectPassAdapter
     public VarianceAuditStatistics Statistics => _preprocessor.Statistics;
     public IReadOnlyList<VarianceAuditDiagnostic> Diagnostics => _diagnostics;
 
+    /// <summary>Options the adapter runs with (W-01 wiring visibility for tests).</summary>
+    internal VarianceAuditOptions Options => _options;
+
     public override CSharpParseOptions CreateParseOptions(PassTreeContext tree)
         => new(LanguageVersion.Latest);
 

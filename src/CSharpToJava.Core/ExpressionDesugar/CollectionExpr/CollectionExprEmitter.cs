@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.ExpressionDesugar;
+using CSharpToJava.Core.ExpressionDesugar.Initializers;
 
 namespace CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
 
@@ -11,10 +12,19 @@ namespace CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
 /// site (<c>__ed_n.ToArray()</c> for array/Span targets; <c>__ed_n</c> for
 /// concrete targets) and the per-spread expansion buckets for statistics.
 /// </summary>
+/// <param name="EmittedInitializerNodes">
+/// C24-residual initializer nodes this emission introduces (the
+/// <c>var __ed_n = new List&lt;T&gt;(){}</c> temp declaration's empty
+/// collection initializer). The C24 whole-tree gate pairs on-disk residuals
+/// by count, and C24 analyzes before C36 rewrites, so the rewriter reports
+/// this back through <c>InitializerStatistics.EmittedByCollectionExprNodes</c>
+/// (W-17②/G-41: cross-pass emitted nodes were silently unpaired).
+/// </param>
 internal sealed record StatementEmission(
     IReadOnlyList<StatementSyntax> Statements,
     ExpressionSyntax Reference,
-    IReadOnlyList<SpreadExpansion> Expansions);
+    IReadOnlyList<SpreadExpansion> Expansions,
+    int EmittedInitializerNodes = 0);
 
 /// <summary>
 /// Emission for C36 (CE-2/3/4/7/10; design §4):
@@ -259,7 +269,11 @@ internal static class CollectionExprEmitter
             reference = tempId;
         }
 
-        return new StatementEmission(statements, reference, expansions);
+        return new StatementEmission(
+            statements,
+            reference,
+            expansions,
+            InitializerSyntaxFacts.CountResidualNodes(tempCreation));
     }
 
     /// <summary><c>temp.ToArray()</c> (List&lt;T&gt;, BCL-only; no System.Linq).</summary>

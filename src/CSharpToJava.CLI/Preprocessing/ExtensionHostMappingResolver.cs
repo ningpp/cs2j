@@ -16,7 +16,7 @@ namespace CSharpToJava.CLI.Preprocessing;
 ///
 /// If the mapping configuration cannot be loaded, the conservative grader
 /// returns <see cref="ExternalHostMappingKind.Unknown"/> for every host: the
-/// run stays loud (CS2J1203 per unmapped site) instead of silently pretending
+/// run stays loud (CS2J1903 per unmapped site) instead of silently pretending
 /// every metadata host is covered.
 /// </summary>
 internal static class ExtensionHostMappingResolver

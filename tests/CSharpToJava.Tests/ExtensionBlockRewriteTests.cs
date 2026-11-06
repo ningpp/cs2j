@@ -14,8 +14,8 @@ namespace CSharpToJava.Tests;
 /// EMD-PROP materializes block instance extension properties as strict
 /// <c>get_X</c>/<c>set_X</c> static method pairs. Every positive case is
 /// textually asserted, recompiled clean, rebound for host identity, and run a
-/// second time with zero diff. Rejection cases assert CS2J1209 / CS2J1208 /
-/// CS2J1213 / CS2J1206 and unchanged files.
+/// second time with zero diff. Rejection cases assert CS2J1909 / CS2J1908 /
+/// CS2J1913 / CS2J1906 and unchanged files.
 /// </summary>
 public sealed class ExtensionBlockRewriteTests
 {
@@ -723,7 +723,7 @@ public sealed class ExtensionBlockRewriteTests
     // ── Rejection surfaces ──────────────────────────────────────────────────
 
     [Fact]
-    public void Reject_BlockIndexer_UnconditionalCS2J1209()
+    public void Reject_BlockIndexer_UnconditionalCS2J1909()
     {
         const string source = """
             namespace N
@@ -745,11 +745,11 @@ public sealed class ExtensionBlockRewriteTests
         Assert.Equal(tree.GetCompilationUnitRoot().ToFullString(), result.OutputCode);
         Assert.Contains(result.Diagnostics,
             d => d.Severity == ExtensionSeverity.Error && d.Code == ExtensionBlockCodes.Unsupported);
-        Assert.DoesNotContain(result.Diagnostics, d => d.Code == "CS2J1206");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == "CS2J1906");
     }
 
     [Fact]
-    public void Reject_PropertyChainMissing_CS2J1208()
+    public void Reject_PropertyChainMissing_CS2J1908()
     {
         const string source = """
             namespace N
@@ -771,7 +771,7 @@ public sealed class ExtensionBlockRewriteTests
         Assert.Equal(tree.GetCompilationUnitRoot().ToFullString(), result.OutputCode);
         Assert.Contains(result.Diagnostics,
             d => d.Severity == ExtensionSeverity.Error && d.Code == ExtensionBlockCodes.PropertyChainGate);
-        Assert.DoesNotContain(result.Diagnostics, d => d.Code == "CS2J1206");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == "CS2J1906");
     }
 
     [Fact]
@@ -783,7 +783,7 @@ public sealed class ExtensionBlockRewriteTests
     }
 
     [Fact]
-    public void Default_MaterializationOff_KeepsCS2J1206AndFileUnchanged()
+    public void Default_MaterializationOff_KeepsCS2J1906AndFileUnchanged()
     {
         const string source = """
             namespace N
@@ -807,7 +807,7 @@ public sealed class ExtensionBlockRewriteTests
         Assert.False(result.Changed);
         Assert.Equal(tree.GetCompilationUnitRoot().ToFullString(), result.OutputCode);
         Assert.Contains(result.Diagnostics,
-            d => d.Severity == ExtensionSeverity.Error && d.Code == "CS2J1206");
+            d => d.Severity == ExtensionSeverity.Error && d.Code == "CS2J1906");
         Assert.DoesNotContain(result.Diagnostics, d => d.Code == ExtensionBlockCodes.Unsupported);
     }
 

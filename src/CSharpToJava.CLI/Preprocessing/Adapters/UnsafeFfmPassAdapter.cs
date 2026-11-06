@@ -56,7 +56,7 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
     }
 
     public override PassDescriptor Descriptor =>
-        PassCatalog.ImplementedById(PassStubCatalog.Ids.UnsafeFfm);
+        PassCatalog.ImplementedById(PassIds.UnsafeFfm);
     public override bool Verbose => _verbose;
     public override bool FilterUnsupportedProjects => _filterUnsupportedProjects;
     public override IReadOnlyCollection<string>? CompatNamespacePrefixes =>

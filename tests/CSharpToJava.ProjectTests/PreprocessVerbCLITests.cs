@@ -365,7 +365,7 @@ public class Runner
 
         try
         {
-            // member-desugar rides along: the EMD-PROP/EMD-OP CS2J1208 gate
+            // member-desugar rides along: the EMD-PROP/EMD-OP CS2J1908 gate
             // requires its consumption chain on the enabled pass set.
             var (exit, _, stderr) = await RunCliAsync(
                 "preprocess", "--pass", "extension-methods,member-desugar",
@@ -379,7 +379,7 @@ public class Runner
                 Path.Combine(destDir, ".cs2j-extension-methods-src", "Class1.cs"));
             // C49 reached explicitly through the CLI flag (the rule is
             // default-on; the flag stays for positive coverage, while
-            // --no-materialize-extension-blocks keeps CS2J1206): the block
+            // --no-materialize-extension-blocks keeps CS2J1906): the block
             // is gone, the member is a classic this-parameter static method
             // and the receiver call site is an explicit global:: host call.
             Assert.DoesNotMatch(new Regex(@"\bextension\s*\("), rewritten);

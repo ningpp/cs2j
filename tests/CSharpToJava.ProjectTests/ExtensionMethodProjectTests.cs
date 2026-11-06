@@ -186,7 +186,7 @@ public class ExtensionMethodProjectTests
                 $"summary must show user-only in-compilation split. stdout tail: {stdout[^Math.Min(1000, stdout.Length)..]}");
             Assert.True(int.Parse(match.Groups["user"].Value) > 0,
                 "cross-project Lib/App sites must be counted as user in-compilation");
-            Assert.DoesNotContain("CS2J1203", stderr);
+            Assert.DoesNotContain("CS2J1903", stderr);
         }
         finally
         {

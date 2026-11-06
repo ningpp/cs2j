@@ -12,17 +12,17 @@ namespace CSharpToJava.Core.ExtensionMethodResolve;
 ///
 /// M2 coverage:
 /// - ordinary member-access reduced calls, including <c>this ref</c>/<c>this
-/// /// in</c> receivers (EM-REF: ref/in argument emission, CS2J1204 only when
+/// /// in</c> receivers (EM-REF: ref/in argument emission, CS2J1904 only when
 ///   the argument lvalue cannot be proven);
 /// - null-conditional reduced chains (<c>r?.M()</c>/<c>r?.Go()?.Chain()</c>):
 ///   EM-COND lift plans (single-evaluation temps + conditional static calls);
-///   CS2J1205 for shapes proven not safely liftable; assert-only inside
+///   CS2J1905 for shapes proven not safely liftable; assert-only inside
 ///   expression trees;
 /// - non-call member access reduced method groups (EM-GROUP): capture-lambda
 ///   plans when the delegate target and safe receiver capture are provable;
-///   CS2J1207 for ambiguous/unmatched/interleaved shapes;
+///   CS2J1907 for ambiguous/unmatched/interleaved shapes;
 /// - expression-tree flag for the identity assertion in the rewriter;
-/// - C#14 extension blocks stay an unconditional syntax gate (CS2J1206).
+/// - C#14 extension blocks stay an unconditional syntax gate (CS2J1906).
 /// </summary>
 internal sealed class ExtensionCallBinder
 {
@@ -71,7 +71,7 @@ internal sealed class ExtensionCallBinder
     /// <summary>
     /// Whether the tree declares an <c>extension</c> block; null when the caller
     /// did not pre-compute it (the guard then walks the tree as before). A
-    /// definitively false value lets the CS2J1206 gate skip its whole-tree sweep.
+    /// definitively false value lets the CS2J1906 gate skip its whole-tree sweep.
     /// </summary>
     private bool? HasExtensionBlocks { get; }
 
@@ -86,7 +86,7 @@ internal sealed class ExtensionCallBinder
     public IReadOnlySet<string>? ExtensionMethodNames { get; }
 
     /// <summary>
-    /// When true, the unconditional CS2J1206 syntax gate for extension blocks
+    /// When true, the unconditional CS2J1906 syntax gate for extension blocks
     /// is suppressed because C49 materialization takes over for this tree.
     /// Every other behavior is unchanged.
     /// </summary>
@@ -539,7 +539,7 @@ internal sealed class ExtensionCallBinder
 
         if (extensionCandidates.Count > 0)
         {
-            // CS2J1290 (design §4.2-5): in single-file/loose-directory mode the
+            // CS2J1990 (design §4.2-5): in single-file/loose-directory mode the
             // compilation has no project/NuGet reference set, so a failed bind
             // with extension candidates cannot be distinguished from a true
             // reference gap. Conservatively leave the site unchanged and warn;
@@ -603,7 +603,7 @@ internal sealed class ExtensionCallBinder
         };
 
         // LINQ-owned spine: mixed or pure LINQ chains stay sugar for E16/C26;
-        // gate 1 exempts them via the host set, no CS2J1205.
+        // gate 1 exempts them via the host set, no CS2J1905.
         if (spineCalls.Any(c => Options.LinqHostSet.Contains(c.Unreduced.ContainingType.ToDisplayString())))
         {
             _statistics.LinqOwnedSkipped++;
@@ -898,7 +898,7 @@ internal sealed class ExtensionCallBinder
             chosenReduced = null;
 
             // nameof(r.M) and other non-conversion contexts: no rewrite, no
-            // CS2J1207 — there is no delegate conversion taking place.
+            // CS2J1907 — there is no delegate conversion taking place.
             if (info.CandidateReason == CandidateReason.MemberGroup)
             {
                 return;

@@ -61,7 +61,7 @@ internal static class PassPlanResolver
         foreach (var id in conflicts)
         {
             errors.Add(
-                $"{PreprocessDiagnosticCodes.UnknownPass}: pass '{id}' cannot be both enabled and disabled.");
+                $"{PreprocessDiagnosticCodes.PassToggleConflict}: pass '{id}' cannot be both enabled and disabled.");
         }
 
         var enabledDescriptors = new List<PassDescriptor>();

@@ -40,27 +40,55 @@ public sealed record ThreadStaticDiagnostic(
     }
 }
 
-/// <summary>CS2J12xx diagnostic codes for the thread-static pass (spec §6; codes are append-only).</summary>
+/// <summary>
+/// CS2J16xx diagnostic codes for the thread-static pass (spec §6; codes are
+/// append-only). W-03 (upgrade plan §6.3-3): the family migrated from the
+/// CS2J12xx segment — where <c>CS2J1203</c> collided four ways with
+/// closed-metadata/extension-methods/extension-block — to CS2J16xx.
+/// Report consumers matching the old codes get a one-version transition
+/// window via <see cref="LegacyCodeOf"/>.
+/// </summary>
 public static class ThreadStaticCodes
 {
-    public const string WholeTreeRollback = "CS2J1200";
-    public const string UnsupportedAttributePosition = "CS2J1201";
-    public const string InfeasibleSite = "CS2J1202";
-    public const string StructMutationNotLiftable = "CS2J1203";
-    public const string GenericContainerUnsupported = "CS2J1204";
-    public const string ExpressionTreeSite = "CS2J1205";
+    public const string WholeTreeRollback = "CS2J1600";
+    public const string UnsupportedAttributePosition = "CS2J1601";
+    public const string InfeasibleSite = "CS2J1602";
+    public const string StructMutationNotLiftable = "CS2J1603";
+    public const string GenericContainerUnsupported = "CS2J1604";
+    public const string ExpressionTreeSite = "CS2J1605";
 
     /// <summary>
     /// One field plan was excluded after the post-rewrite recompile attributed a
     /// new error to it; the plan was replayed from the original sources (M2).
     /// Appended to the §6 table (codes are append-only).
     /// </summary>
-    public const string PlanRolledBack = "CS2J1206";
+    public const string PlanRolledBack = "CS2J1606";
 
-    public const string ResidualFound = "CS2J1220";
-    public const string RestoreOrBuildFailed = "CS2J1230";
-    public const string TestsFailed = "CS2J1231";
-    public const string PlanNotSelfContained = "CS2J1290";
+    public const string ResidualFound = "CS2J1620";
+    public const string RestoreOrBuildFailed = "CS2J1630";
+    public const string TestsFailed = "CS2J1631";
+    public const string PlanNotSelfContained = "CS2J1690";
     public const string FieldRewritten = "TS001";
     public const string InitializerNormalized = "TS002";
+
+    /// <summary>
+    /// W-03 one-version transition window: the pre-migration CS2J12xx code a
+    /// migrated code replaced, or null for codes that had no 12xx ancestor
+    /// (TS001/TS002) or unknown inputs.
+    /// </summary>
+    public static string? LegacyCodeOf(string code) => code switch
+    {
+        WholeTreeRollback => "CS2J1200",
+        UnsupportedAttributePosition => "CS2J1201",
+        InfeasibleSite => "CS2J1202",
+        StructMutationNotLiftable => "CS2J1203",
+        GenericContainerUnsupported => "CS2J1204",
+        ExpressionTreeSite => "CS2J1205",
+        PlanRolledBack => "CS2J1206",
+        ResidualFound => "CS2J1220",
+        RestoreOrBuildFailed => "CS2J1230",
+        TestsFailed => "CS2J1231",
+        PlanNotSelfContained => "CS2J1290",
+        _ => null,
+    };
 }

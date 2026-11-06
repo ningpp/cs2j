@@ -162,23 +162,23 @@ public sealed class ExtensionMethodResolveTests
             "r?.M() not lifted",
             "Program.cs",
             12);
-        Assert.Equal("Program.cs(12): error CS2J1205: [Cond] r?.M() not lifted", diagnostic.ToString());
+        Assert.Equal("Program.cs(12): error CS2J1905: [Cond] r?.M() not lifted", diagnostic.ToString());
 
         // Codes table (design §6) stays stable: downstream diagnostic routing
         // relies on the exact literals.
-        Assert.Equal("CS2J1200", ExtensionMethodCodes.WholeTreeRollback);
-        Assert.Equal("CS2J1201", ExtensionMethodCodes.Ambiguous);
-        Assert.Equal("CS2J1202", ExtensionMethodCodes.Unbound);
-        Assert.Equal("CS2J1203", ExtensionMethodCodes.ExternalHostNoMapping);
-        Assert.Equal("CS2J1204", ExtensionMethodCodes.RefMismatch);
-        Assert.Equal("CS2J1205", ExtensionMethodCodes.NullConditional);
-        Assert.Equal("CS2J1206", ExtensionMethodCodes.CSharp14ExtensionBlock);
-        Assert.Equal("CS2J1207", ExtensionMethodCodes.ReducedMethodGroup);
-        Assert.Equal("CS2J1210", ExtensionMethodCodes.ExpressionTreeIdentityFailed);
-        Assert.Equal("CS2J1220", ExtensionMethodCodes.ResidualFound);
-        Assert.Equal("CS2J1230", ExtensionMethodCodes.RestoreOrBuildFailed);
-        Assert.Equal("CS2J1231", ExtensionMethodCodes.TestsFailed);
-        Assert.Equal("CS2J1290", ExtensionMethodCodes.SingleFileIncompleteBinding);
+        Assert.Equal("CS2J1900", ExtensionMethodCodes.WholeTreeRollback);
+        Assert.Equal("CS2J1901", ExtensionMethodCodes.Ambiguous);
+        Assert.Equal("CS2J1902", ExtensionMethodCodes.Unbound);
+        Assert.Equal("CS2J1903", ExtensionMethodCodes.ExternalHostNoMapping);
+        Assert.Equal("CS2J1904", ExtensionMethodCodes.RefMismatch);
+        Assert.Equal("CS2J1905", ExtensionMethodCodes.NullConditional);
+        Assert.Equal("CS2J1906", ExtensionMethodCodes.CSharp14ExtensionBlock);
+        Assert.Equal("CS2J1907", ExtensionMethodCodes.ReducedMethodGroup);
+        Assert.Equal("CS2J1910", ExtensionMethodCodes.ExpressionTreeIdentityFailed);
+        Assert.Equal("CS2J1920", ExtensionMethodCodes.ResidualFound);
+        Assert.Equal("CS2J1930", ExtensionMethodCodes.RestoreOrBuildFailed);
+        Assert.Equal("CS2J1931", ExtensionMethodCodes.TestsFailed);
+        Assert.Equal("CS2J1990", ExtensionMethodCodes.SingleFileIncompleteBinding);
         Assert.Equal("EM001", ExtensionMethodCodes.Info);
     }
 }

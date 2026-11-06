@@ -4,7 +4,7 @@ using Microsoft.CodeAnalysis.CSharp;
 namespace CSharpToJava.Core.ExtensionMethodResolve.Declarations;
 
 /// <summary>
-/// CS2J1213 startup parse self-check: parses a minimal C#14 extension-block
+/// CS2J1913 startup parse self-check: parses a minimal C#14 extension-block
 /// fragment with the bound Roslyn and requires zero parse errors plus one
 /// recognized block node. Runs once before block analysis; a failure means the
 /// pass cannot run, so every block is left unchanged. The seams accept an

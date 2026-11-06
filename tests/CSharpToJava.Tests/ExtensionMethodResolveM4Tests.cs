@@ -13,7 +13,7 @@ namespace CSharpToJava.Tests;
 /// 1. EM-LINQ finalization — LinqHostSet is extend-only and mixed
 ///    user/LINQ fluent chains are conservatively kept as sugar (EM001);
 /// 2. host force/skip overrides + additional LINQ hosts;
-/// 3. strict per-code matrix (CS2J1201/1202/1203/1204/1205/1207/1210/1220);
+/// 3. strict per-code matrix (CS2J1901/1202/1203/1204/1205/1207/1210/1220);
 /// 4. the pure build-failure rollback planner + the broken-rewrite injection
 ///    hook and byte-replay attribution;
 /// 5. residual gates 1-6 including the new gate 5 (this-modifier
@@ -745,10 +745,10 @@ public sealed class ExtensionMethodResolveM4Tests
 
         string[] neverEscalated =
         {
-            ExtensionMethodCodes.CSharp14ExtensionBlock, // CS2J1206 always Error anyway
+            ExtensionMethodCodes.CSharp14ExtensionBlock, // CS2J1906 always Error anyway
             ExtensionMethodCodes.RestoreOrBuildFailed,
             ExtensionMethodCodes.TestsFailed,
-            ExtensionMethodCodes.SingleFileIncompleteBinding, // CS2J1290 permanent Warning
+            ExtensionMethodCodes.SingleFileIncompleteBinding, // CS2J1990 permanent Warning
         };
         Assert.All(neverEscalated, code => Assert.False(ExtensionMethodResolvePolicy.IsStrictEscalated(code)));
 

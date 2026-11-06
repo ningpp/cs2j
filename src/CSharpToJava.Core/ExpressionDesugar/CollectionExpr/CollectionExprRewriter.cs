@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.ExpressionDesugar;
+using CSharpToJava.Core.ExpressionDesugar.Initializers;
 
 namespace CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
 
@@ -68,25 +69,37 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
         switch (plan.Outcome)
         {
             case CollectionExprOutcome.ZeroTempArray:
+            {
                 RewriteCount++;
-                return CollectionExprEmitter.BuildZeroTempArray(
+                var replacement = CollectionExprEmitter.BuildZeroTempArray(
                     plan.TargetElementType!,
                     CollectionExprEmitter.ExtractExpressions(visited.Elements));
+                CountEmittedInitializerNodes(replacement, visited);
+                return replacement;
+            }
 
             case CollectionExprOutcome.ZeroTempMutableCollection:
+            {
                 RewriteCount++;
                 // T4 interface plans carry the selected List<T> here; T3
                 // plans carry the converted concrete type itself.
-                return CollectionExprEmitter.BuildZeroTempCollection(
+                var replacement = CollectionExprEmitter.BuildZeroTempCollection(
                     plan.EffectiveConstructedType!,
                     CollectionExprEmitter.ExtractExpressions(visited.Elements));
+                CountEmittedInitializerNodes(replacement, visited);
+                return replacement;
+            }
 
             case CollectionExprOutcome.ZeroTempBuilderFactory:
+            {
                 RewriteCount++;
-                return CollectionExprEmitter.BuildBuilderFactory(
+                var replacement = CollectionExprEmitter.BuildBuilderFactory(
                     plan.BuilderFactory!,
                     plan.TargetElementType!,
                     CollectionExprEmitter.ExtractExpressions(visited.Elements));
+                CountEmittedInitializerNodes(replacement, visited);
+                return replacement;
+            }
 
             case CollectionExprOutcome.StatementSequence:
                 return LowerStatement(plan, visited);
@@ -97,6 +110,29 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
                 return visited.WithAdditionalAnnotations(
                     ExpressionDesugarSyntaxFacts.ExplainedAnnotation);
         }
+    }
+
+    /// <summary>
+    /// W-17②/G-41 (upgrade plan §6.4-R0): C24's whole-tree gate counts every
+    /// on-disk initializer node of the three residual kinds, but C24 analyzes
+    /// BEFORE this rule rewrites on the shared progressive tree — so the
+    /// initializer syntax C36 EMITS (<c>new C&lt;T&gt;(){ … }</c> wrappers)
+    /// was silently unpaired and failed the chain as "residual without
+    /// accounting" (the rt10 JsonSchemaExporter/PropertyRefCacheBuilder
+    /// CS2J0545 aborts). Count the NET-NEW residual nodes the replacement
+    /// introduces over the visited node: already-rewritten elements carry
+    /// their own counts (inner emissions were counted at their replacement;
+    /// original initializer-bearing creations are deferred-paired by C24), so
+    /// the diff isolates exactly the wrapper this emission adds. Array forms
+    /// contribute zero (the ArrayInitializer kind is excluded from C24's
+    /// residual kinds).
+    /// </summary>
+    private void CountEmittedInitializerNodes(SyntaxNode replacement, SyntaxNode visited)
+    {
+        var netNew = InitializerSyntaxFacts.CountResidualNodes(replacement)
+                     - InitializerSyntaxFacts.CountResidualNodes(visited);
+        if (netNew > 0)
+            _context.Statistics.Initializers.EmittedByCollectionExprNodes += netNew;
     }
 
     /// <summary>
@@ -139,6 +175,17 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
             _context.SemanticModel!,
             plan,
             visited.Elements);
+
+        // W-17②/G-41: the lifted <c>var __ed_n = new List<T>(){}</c> temp
+        // declaration emits residual initializer syntax C24's analyze-time
+        // pairing cannot see (C24 runs first); report it for the whole-tree
+        // gate. Element expressions carried into the Add statements were
+        // either already counted (inner emissions) or deferred-paired by C24
+        // (original initializer-bearing creations), so only the temp
+        // declaration's own nodes are reported here.
+        if (emission.EmittedInitializerNodes > 0)
+            _context.Statistics.Initializers.EmittedByCollectionExprNodes +=
+                emission.EmittedInitializerNodes;
 
         Pending.Add(new ExpressionDesugarTempLifter.PendingTemp(
             emission.Statements, anchor, plan.LiftOrder));

@@ -84,6 +84,38 @@ public sealed record CompatMethodReplacementEntry
            && string.Equals(method.ContainingType?.Name, ContainingTypeName, StringComparison.Ordinal);
 
     /// <summary>
+    /// Normalized <c>namespace|type</c> key of this entry's declaring type —
+    /// the drift-detection evidence unit ("the type exists in the corpus").
+    /// Shares the <c>dotnet → System</c> normalization with
+    /// <see cref="Matches"/> so intermediate-tree copies match source-tree
+    /// declarations.
+    /// </summary>
+    public string DeclaredTypeKey
+        => $"{NormalizeNamespace(ContainingNamespace)}|{ContainingTypeName}";
+
+    /// <summary>
+    /// Family key (namespace + type + method name): entries of one family are
+    /// alternate signatures of the SAME known method (e.g. the Runtime 10
+    /// 3-param <c>ToUtf8</c> and the legacy 3.x 4-param form). Drift is judged
+    /// per family — a matched sibling signature means the family is healthy,
+    /// not drifted.
+    /// </summary>
+    public string FamilyKey
+        => $"{NormalizeNamespace(ContainingNamespace)}|{ContainingTypeName}|{MethodName}";
+
+    /// <summary>
+    /// Computes the <see cref="DeclaredTypeKey"/> form for an actual method
+    /// declaration's containing type (same normalization), so the rewriter's
+    /// observations and the entries' keys stay one computation.
+    /// </summary>
+    public static string TypeKeyFor(IMethodSymbol method)
+    {
+        var ns = method.ContainingType?.ContainingNamespace;
+        var nsName = ns is null || ns.IsGlobalNamespace ? string.Empty : ns.ToDisplayString();
+        return $"{NormalizeNamespace(nsName)}|{method.ContainingType?.Name}";
+    }
+
+    /// <summary>
     /// Full symbol match: namespace, containing type, name, static-ness,
     /// parameter count/types/ref-kinds and (when declared) the return type.
     /// </summary>
@@ -301,6 +333,79 @@ public sealed class CompatMethodReplacementRegistry
 {
     private static readonly CompatMethodReplacementRegistry DefaultRegistry = new(
     [
+        // Runtime 10 signature (W-09 fix, upgrade plan §6.4-R0): rt10 moved the
+        // pointer transcoder to JsonWriterHelper.cs:291 as
+        // ToUtf8(ReadOnlySpan<char>, Span<byte>, out int written) — the legacy
+        // 3.x 4-param byte-span entry below matched nothing on rt10 and the
+        // mismatch was only ever visible as a CMR001 near-miss warning. Both
+        // signatures stay registered as one FAMILY (same namespace/type/
+        // method), so each corpus generation gets its replacement and drift
+        // detection (CMR020) judges the family as a whole.
+        new CompatMethodReplacementEntry
+        {
+            Key = "System.Text.Json.JsonWriterHelper.ToUtf8(" +
+                  "System.ReadOnlySpan<char>, System.Span<byte>, out int)",
+            ContainingNamespace = "System.Text.Json",
+            ContainingTypeName = "JsonWriterHelper",
+            MethodName = "ToUtf8",
+            ReturnTypeName = "OperationStatus",
+            Parameters = new[]
+            {
+                new CompatMethodParameter("source", "ReadOnlySpan<char>"),
+                new CompatMethodParameter("destination", "Span<byte>"),
+                new CompatMethodParameter("written", "int", CompatParameterRefKind.Out),
+            },
+            BodyTemplate = """
+                written = 0;
+                var sourceArray = source.ToArray();
+                var destArray = destination.ToArray();
+                int invalidIndex = -1;
+                for (int i = 0; i < sourceArray.Length; i++)
+                {
+                    char current = sourceArray[i];
+                    if (current >= 0xD800 && current <= 0xDBFF)
+                    {
+                        if (i + 1 >= sourceArray.Length
+                            || (sourceArray[i + 1] < 0xDC00 || sourceArray[i + 1] > 0xDFFF))
+                        {
+                            invalidIndex = i;
+                            break;
+                        }
+
+                        i++;
+                    }
+                    else if (current >= 0xDC00 && current <= 0xDFFF)
+                    {
+                        invalidIndex = i;
+                        break;
+                    }
+                }
+
+                int charLimit = invalidIndex < 0 ? sourceArray.Length : invalidIndex;
+                var encoder = global::System.Text.Encoding.UTF8.GetEncoder();
+                encoder.Convert(sourceArray, 0, charLimit, destArray, 0, destArray.Length, true,
+                    out int charsUsed, out int bytesUsed, out bool completed);
+                global::System.MemoryExtensions.AsSpan(destArray, 0, bytesUsed).CopyTo(destination);
+                written = bytesUsed;
+                if (!completed)
+                {
+                    return global::System.Buffers.OperationStatus.DestinationTooSmall;
+                }
+
+                return invalidIndex < 0
+                    ? global::System.Buffers.OperationStatus.Done
+                    : global::System.Buffers.OperationStatus.InvalidData;
+                """,
+            Description =
+                "Runtime 10 form (JsonWriterHelper.cs:291): replaces the " +
+                "pointer/Utf8.FromUtf16 transcoder with " +
+                "Encoding.UTF8.GetEncoder().Convert over materialized arrays, " +
+                "stopping at the first unpaired surrogate (InvalidData) so the " +
+                "valid prefix is written without replacement characters.",
+        },
+        // Legacy .NET 3.x-era signature (D:\\csharp-sdk\\json's
+        // JsonWriterHelper.Transcoding.cs:28) kept as a family sibling so the
+        // old corpus keeps its replacement until that corpus retires.
         new CompatMethodReplacementEntry
         {
             Key = "System.Text.Json.JsonWriterHelper.ToUtf8(" +

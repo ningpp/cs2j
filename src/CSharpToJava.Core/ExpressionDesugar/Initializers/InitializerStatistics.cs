@@ -91,11 +91,28 @@ public sealed class InitializerStatistics
     public int DeferredResidualNodes;
 
     /// <summary>
-    /// Total residual nodes the rule legitimately leaves on disk: explained
-    /// preserved sites plus coexistence-deferred sites. Lowered sites emit no
-    /// initializer syntax, so they contribute zero.
+    /// Residual initializer nodes EMITTED by the sibling C36
+    /// collection-expression rule's lowering (the
+    /// <c>new C&lt;T&gt;(){ e0, … }</c> wrapper and the
+    /// <c>var __ed_n = new List&lt;T&gt;(){}</c> temp declaration). C24 analyzes
+    /// BEFORE C36 rewrites on the shared progressive tree, so its
+    /// analyze-time pairing cannot see these nodes; counting them here keeps
+    /// the whole-tree gate's "every on-disk residual is paired" invariant
+    /// truthful. Without it, cross-pass generated nodes are silently
+    /// unpaired — the rt10 JsonSchemaExporter/PropertyRefCacheBuilder
+    /// CS2J0545 aborts (W-17②/G-41, upgrade plan §6.4-R0: per-file accounting
+    /// undercounts cross-pass generated nodes).
     /// </summary>
-    public int PairedResidualNodes => PreservedResidualNodes + DeferredResidualNodes;
+    public int EmittedByCollectionExprNodes;
+
+    /// <summary>
+    /// Total residual nodes the rule legitimately leaves on disk: explained
+    /// preserved sites plus coexistence-deferred sites plus C36-emitted
+    /// initializer syntax. Lowered sites emit no initializer syntax, so they
+    /// contribute zero.
+    /// </summary>
+    public int PairedResidualNodes
+        => PreservedResidualNodes + DeferredResidualNodes + EmittedByCollectionExprNodes;
 
     // ---- Context lowering (bucket by context name) ----
 
@@ -155,6 +172,7 @@ public sealed class InitializerStatistics
         CoexistenceDeferredSites += other.CoexistenceDeferredSites;
         PreservedResidualNodes += other.PreservedResidualNodes;
         DeferredResidualNodes += other.DeferredResidualNodes;
+        EmittedByCollectionExprNodes += other.EmittedByCollectionExprNodes;
         ContextLoweredSites += other.ContextLoweredSites;
         ResidualInitializerCount += other.ResidualInitializerCount;
         MergeBuckets(ContextLowered, other.ContextLowered);

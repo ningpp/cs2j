@@ -133,7 +133,8 @@ internal sealed class GenericPassAdapter : ProjectPassAdapter
     public override string BuildChainSummaryLine()
         => $"generic: {_statistics.FilesTransformed} transformed, " +
            $"{_statistics.FilesSkippedClean} clean " +
-           $"({_statistics.DefaultExpressionsRewritten} default(T), " +
+           $"({_statistics.DefaultExpressionsEncountered} default(T) encountered, " +
+           $"{_statistics.DefaultExpressionsRewritten} rewritten, " +
            $"{_statistics.NewTypeParamRewritten} new T(), " +
            $"{_statistics.NewTypeParamArrayRewritten} new T[n])";
 
@@ -148,6 +149,7 @@ internal sealed class GenericPassAdapter : ProjectPassAdapter
         _statistics.FilesScanned += source.FilesScanned;
         _statistics.FilesTransformed += source.FilesTransformed;
         _statistics.FilesSkippedClean += source.FilesSkippedClean;
+        _statistics.DefaultExpressionsEncountered += source.DefaultExpressionsEncountered;
         _statistics.DefaultExpressionsRewritten += source.DefaultExpressionsRewritten;
         _statistics.NewTypeParamRewritten += source.NewTypeParamRewritten;
         _statistics.NewTypeParamArrayRewritten += source.NewTypeParamArrayRewritten;

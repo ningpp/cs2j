@@ -23,7 +23,7 @@ namespace CSharpToJava.Tests.Preprocessing;
 ///    them as synthetic TypeKind.Extension containers whose members are
 ///    MethodKind.Ordinary, and call sites bind DIRECTLY to those Ordinary
 ///    methods (ReducedFrom == null) — so a ReducedExtension-keyed binder
-///    silently misses them; v1 reports CS2J1206 and C49 owns the lowering.
+///    silently misses them; v1 reports CS2J1906 and C49 owns the lowering.
 /// ④ LinqRewriter's method table is keyed by the REDUCED display string; the
 ///    explicit static form (what C19 emits) misses the table and is not
 ///    rewritten — EM-LINQ exclusion is mandatory and LINQ reordering after C19
@@ -282,7 +282,7 @@ public sealed class ExtensionMethodProbeTests
             // the 3.Double() call site binds DIRECTLY to that Ordinary method
             // — NOT MethodKind.ReducedExtension, ReducedFrom is null. So an M1
             // binder keyed on ReducedExtension silently misses every C#14 block
-            // site: CS2J1206 (Error in v1) plus residual detection must
+            // site: CS2J1906 (Error in v1) plus residual detection must
             // classify via ContainingType.TypeKind == Extension, not MethodKind.
             var model = compilation.GetSemanticModel(tree);
             var doubleSymbol = tree.GetCompilationUnitRoot().DescendantNodes()

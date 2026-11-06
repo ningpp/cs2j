@@ -14,6 +14,14 @@ public static class PreprocessDiagnosticCodes
     /// <summary>Unknown pass id supplied via <c>--enable-pass</c> / <c>--disable-pass</c> / <c>--pass</c>.</summary>
     public const string UnknownPass = "CS2J9002";
 
+    /// <summary>
+    /// A pass id was supplied via both <c>--enable-pass</c> and
+    /// <c>--disable-pass</c> in one request. Used to share its own code with
+    /// <see cref="UnknownPass"/> (upgrade plan §6.4-R0/W-11: profile×disable
+    /// conflicts must be independently attributable in reports).
+    /// </summary>
+    public const string PassToggleConflict = "CS2J9003";
+
     // ── CS2J53xx numeric-boundary family (C15 checked/unchecked, design §4.5) ──
     // CS2J5300-5309: family-shared (restore/build/test/single-file gates).
     // CS2J5310-5329: C15 checked/unchecked.

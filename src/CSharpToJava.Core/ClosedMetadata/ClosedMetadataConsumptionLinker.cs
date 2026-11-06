@@ -64,7 +64,11 @@ public sealed class ClosedMetadataConsumptionLinker
             if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
                 || !ClosedMetadataCollector.IsSerializerEntry(method)
                 || !method.IsGenericMethod
-                || method.TypeArguments.Any(IsTypeParameter))
+                // V-06: the RECURSIVE shared predicate (collector's CM-DYN
+                // classification) — not a top-level-only check, so
+                // Deserialize<List<T>> and Deserialize<T> take one path and a
+                // mixed closure (Pair<UserDto, T>) never gets a partial guard.
+                || method.TypeArguments.Any(ClosedMetadataCollector.MentionsTypeParameter))
             {
                 continue;
             }
@@ -125,8 +129,6 @@ public sealed class ClosedMetadataConsumptionLinker
     private SortedSet<string> ResolveHolderNames(ImmutableArray<ITypeSymbol> typeArguments)
         => ClosedMetadataGuardResolver.ResolveHolderNames(
             typeArguments, _holderByRecordKey, _holderNames, _selfHolderName, _holderNameByPath);
-
-    private static bool IsTypeParameter(ITypeSymbol type) => type is ITypeParameterSymbol;
 
     private static ExpressionStatementSyntax GuardStatement(string holderName)
         => ExpressionStatement(

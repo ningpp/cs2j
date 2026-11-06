@@ -9,9 +9,9 @@ namespace CSharpToJava.ProjectTests;
 ///     blocks are valid C# 14 preview source);
 ///   * with the --no-materialize-extension-blocks kill switch (the
 ///     pre-flip default policy), extension blocks still hit the classic
-///     CS2J1206 syntax gate and nothing is half-materialized;
+///     CS2J1906 syntax gate and nothing is half-materialized;
 ///   * the indexer negative sample ships with the fixture (indexer rejection
-///     CS2J1209 itself is asserted at the analyzer level in the unit tests).
+///     CS2J1909 itself is asserted at the analyzer level in the unit tests).
 /// </summary>
 public class ExtensionMembersProjectTests
 {
@@ -95,7 +95,7 @@ public class ExtensionMembersProjectTests
         {
             // C49 materialization is default-on now; the --no-materialize-
             // extension-blocks kill switch must keep the extension-methods
-            // pass on its classic CS2J1206 gate for extension blocks.
+            // pass on its classic CS2J1906 gate for extension blocks.
             var (exit, stdout, stderr) = await RunCliAsync(
                 "preprocess", "-s", solutionPath, "-d", destination,
                 "--pass", "extension-methods,member-desugar",
@@ -103,7 +103,7 @@ public class ExtensionMembersProjectTests
 
             Assert.NotEqual(0, exit);
             var combined = stdout + "\n" + stderr;
-            Assert.Contains("CS2J1206", combined);
+            Assert.Contains("CS2J1906", combined);
             // The block declarations must not be partially materialized: no
             // synthesized 'this global::' receiver parameters anywhere.
             var materialized = Directory

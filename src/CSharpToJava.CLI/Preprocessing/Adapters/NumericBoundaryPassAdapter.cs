@@ -49,7 +49,7 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
     }
 
     public override PassDescriptor Descriptor
-        => PassCatalog.ImplementedById(PassStubCatalog.Ids.NumericBoundary);
+        => PassCatalog.ImplementedById(PassIds.NumericBoundary);
 
     public override bool Verbose => _verbose;
     public override bool FilterUnsupportedProjects => _filterUnsupportedProjects;

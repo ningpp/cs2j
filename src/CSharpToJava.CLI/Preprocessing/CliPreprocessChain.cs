@@ -166,7 +166,7 @@ internal sealed class CliChainRequest
 
     /// <summary>
     /// C49 M2: extension-block materialization policy factory (null =
-    /// classic CS2J1206 behavior). Both CLI entry points supply it from
+    /// classic CS2J1906 behavior). Both CLI entry points supply it from
     /// --materialize-extension-blocks; embedded chains may also set it.
     /// </summary>
     public Func<ExtensionBlockOptions?>? ExtensionBlockOptionsFactory { get; init; }
@@ -327,6 +327,11 @@ internal static class CliPreprocessChain
         var chainHasGeneric = plan.Enabled.Any(pass => pass.Id == PassIds.Generic);
         var chainHasGenericDeepen = plan.Enabled.Any(pass => pass.Id == PassIds.GenericDeepen);
 
+        // W-01 (upgrade plan §6.4-R0): java-ready/audit make the generic family
+        // (generic-deepen / closed-metadata) and the variance-audit constraint
+        // gate strict — one evaluation point for the whole chain.
+        var javaReady = request.Profile is "java-ready" or "audit";
+
         var config = new PassChainConfiguration
         {
             Verbose = request.Verbose,
@@ -339,6 +344,7 @@ internal static class CliPreprocessChain
             EnabledPassIds = plan.Enabled.Select(pass => pass.Id).ToHashSet(StringComparer.Ordinal),
             EnabledPassIdsInOrder = plan.Enabled.Select(pass => pass.Id).ToList(),
             Profile = request.Profile,
+            JavaReady = javaReady,
             ResidualAuditEnforce = request.ResidualAuditEnforce,
             ResidualReportPath = request.ResidualReportPath,
             MakerOptionsFactory = request.MakerOptionsFactory,

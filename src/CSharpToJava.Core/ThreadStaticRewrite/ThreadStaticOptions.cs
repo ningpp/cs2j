@@ -23,10 +23,10 @@ public enum ThreadStaticInitializerPolicy
 /// <summary>How field accesses inside expression-tree lambdas (<c>Expression&lt;...&gt;</c>) are handled.</summary>
 public enum ThreadStaticExpressionTreePolicy
 {
-    /// <summary>Skip the whole field plan with CS2J1205 Warning (Error under --strict).</summary>
+    /// <summary>Skip the whole field plan with CS2J1605 Warning (Error under --strict).</summary>
     Skip,
 
-    /// <summary>Skip the whole field plan and report CS2J1205 as an Error.</summary>
+    /// <summary>Skip the whole field plan and report CS2J1605 as an Error.</summary>
     Error,
 }
 

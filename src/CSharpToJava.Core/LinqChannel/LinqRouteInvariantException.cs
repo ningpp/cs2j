@@ -1,7 +1,7 @@
 namespace CSharpToJava.Core.LinqChannel;
 
 /// <summary>
-/// LC0011 (CS2J1302) hard route invariant violation (design §6, §4.3):
+/// LC0011 (CS2J1702) hard route invariant violation (design §6, §4.3):
 /// <list type="bullet">
 /// <item>a node whose route decision is Queryable/Expression/Mixed/Ambiguous
 /// reached the stock rewriter's expansion branch, or</item>

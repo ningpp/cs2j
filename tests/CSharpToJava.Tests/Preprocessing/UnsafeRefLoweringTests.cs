@@ -215,7 +215,7 @@ public sealed class UnsafeRefLoweringTests
         var refOutIn = ordered.IndexOf(PassIds.RefOutIn);
         var lowering = ordered.IndexOf(PassIds.UnsafeRefLowering);
         var unsigned = ordered.IndexOf(PassIds.Unsigned);
-        var unsafeFfm = ordered.IndexOf(PassStubCatalog.Ids.UnsafeFfm);
+        var unsafeFfm = ordered.IndexOf(PassIds.UnsafeFfm);
 
         Assert.True(refOutIn >= 0 && lowering >= 0 && unsigned >= 0 && unsafeFfm >= 0);
         Assert.True(refOutIn < lowering, "unsafe-ref-lowering must run after ref-out-in");

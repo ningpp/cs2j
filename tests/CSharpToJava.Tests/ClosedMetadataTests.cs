@@ -118,12 +118,75 @@ public class ClosedMetadataTests
             """);
 
         // List<short>[] contributes the array closure + its element closure;
-        // List<short?> and Dictionary<string, List<int>>[] contribute theirs. The
-        // Nullable<short> argument keeps its Annotated marker ("?") in the key.
+        // List<short?> and Dictionary<string, List<int>>[] contribute theirs.
+        // V-05: the annotation marker is STRIPPED from the key — Nullable<short>
+        // keys by its real generic closure shape, without "?".
         Assert.Contains(analysis.ClosedTypes, r => r.Key.SortText.Contains("List<T>(short)[0]"));
-        Assert.Contains(analysis.ClosedTypes, r => r.Key.SortText.Contains("Nullable<T>(short)?"));
+        Assert.Contains(analysis.ClosedTypes, r => r.Key.SortText.Contains("Nullable<T>(short)"));
+        Assert.DoesNotContain(analysis.ClosedTypes, r => r.Key.SortText.Contains("?"));
         Assert.Equal(2, analysis.ClosedTypes.Count(r => r.Key.SortText.EndsWith("[0]", StringComparison.Ordinal)));
         Assert.True(analysis.ClosedTypes.Count >= 5, $"expected >=5 records, got {analysis.ClosedTypes.Count}: {string.Join("|", analysis.ClosedTypes.Select(r => r.Key.SortText))}");
+    }
+
+    // ---- V-05 (upgrade plan §6.4-R0): NRT annotations never split keys ----
+
+    [Fact]
+    public void NrtAnnotatedClosure_CollapsesWithTheUnannotatedClosure()
+    {
+        // List<string> and List<string?> are ONE runtime type: the nullable
+        // reference annotation is compile-time only (the Java-side
+        // closedCacheKey is derived from runtime classes and cannot
+        // distinguish them). Before V-05 this produced two records / two
+        // registrations for one type.
+        var (analysis, _) = RunDetailed("""
+            #nullable enable
+            using System.Collections.Generic;
+            public class Dto {
+                public List<string> Plain;
+                public List<string?> Annotated;
+                public Dictionary<string, object?> Mixed;
+            }
+            """);
+
+        Assert.Single(analysis.ClosedTypes, r =>
+            r.TypeText == "global::System.Collections.Generic.List<string>");
+        Assert.Single(analysis.ClosedTypes, r =>
+            r.TypeText == "global::System.Collections.Generic.Dictionary<string, object>");
+        Assert.DoesNotContain(analysis.ClosedTypes, r => r.Key.SortText.Contains("?"));
+    }
+
+    [Fact]
+    public void ValueTypeNullableClosure_StaysDistinctFromTheUnwrappedType()
+    {
+        // int? is the real generic closure Nullable<int>: it MUST stay a
+        // distinct key from int (and from a reference-annotated string, which
+        // collapses with string).
+        var (analysis, _) = RunDetailed("""
+            #nullable enable
+            using System.Collections.Generic;
+            public class Dto {
+                public List<int> Ints;
+                public List<int?> MaybeInts;
+            }
+            """);
+
+        var keyTexts = analysis.ClosedTypes.Select(r => r.Key.SortText).ToList();
+        Assert.Contains("global::System.Collections.Generic.List<T>(int)", keyTexts);
+        Assert.Contains(
+            keyTexts,
+            key => key.Contains("Nullable<T>(int)", StringComparison.Ordinal));
+        Assert.DoesNotContain(keyTexts, key => key.Contains("?", StringComparison.Ordinal));
+
+        // The unwrapped closure and the Nullable closure are two identities
+        // (the nested Nullable<int> closure is registered as its own record
+        // too, so match the List keys precisely).
+        var plain = keyTexts.Single(key =>
+            key == "global::System.Collections.Generic.List<T>(int)");
+        var maybe = keyTexts.Single(key =>
+            key.StartsWith(
+                "global::System.Collections.Generic.List<T>(global::System.Nullable",
+                StringComparison.Ordinal));
+        Assert.NotEqual(plain, maybe);
     }
 
     // ---- CM-ENUM-2: explicit typeof sites (M3 scope) ----
@@ -539,6 +602,10 @@ public class ClosedMetadataTests
             public class Dto {
                 public System.Collections.Generic.List<short> Items = new();
             }
+            public class Wrapper<TA, TB> {
+                public TA? First;
+                public TB? Second;
+            }
         }
         """;
 
@@ -608,6 +675,71 @@ public class ClosedMetadataTests
             < result.OutputCode.IndexOf("JsonSerializer.Deserialize", StringComparison.Ordinal));
         Assert.Equal(1, result.Statistics.ConsumerSitesLinked);
         AssertCompilesSeparately(StjFakes, LinkLibSource, result.OutputCode, LibHolderStub);
+    }
+
+    // ---- V-06 (upgrade plan §6.4-R0): recursive type-parameter detection ----
+
+    [Fact]
+    public void LinkGuard_MixedClosureOverTypeParameter_NeverGetsAPartialGuard()
+    {
+        // Deserialize<Wrapper<Dto, T>> mentions a type parameter NESTED in the
+        // argument. Before V-06 the linker's top-level-only check let it
+        // through and ResolveHolderNames produced a PARTIAL holder set (the
+        // Dto holder) for a site the collector had already classified as a
+        // dynamic CM-DYN site — an untruthful guard. The recursive shared
+        // predicate must skip the whole site.
+        var (compilation, preprocessor, appTree) = BuildLinkedWithApp("""
+            using LibNs;
+            using System.Text.Json;
+            namespace AppNs {
+                public class Runner {
+                    public Wrapper<Dto, T>? RoundTrip<T>(string json) {
+                        return JsonSerializer.Deserialize<Wrapper<Dto, T>>(json);
+                    }
+                }
+            }
+            """);
+
+        // Consistency precondition: the collector classifies the site as a
+        // dynamic CM-DYN site (recursive detection).
+        Assert.True(preprocessor.Analysis.Statistics.DynamicSitesSkipped >= 1,
+            "the mixed closure must be classified dynamic by the collector");
+
+        var result = preprocessor.RewriteFile(
+            compilation.GetSemanticModel(appTree),
+            ClosedMetadataRegistrationGenerator.HolderTypeName("App"));
+
+        // No guard at all — clean copy or unchanged file, never a partial one.
+        Assert.True(result is null || !result.OutputCode.Contains(
+            "__cs2j_register_closed_types();", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void LinkGuard_NestedTypeParameterClosure_IsSkippedLikeTheTopLevelForm()
+    {
+        // Deserialize<List<T>> (nested) and Deserialize<T> (top-level) must
+        // take ONE path: both are runtime-erased sites the linker cannot
+        // serve, regardless of where the parameter appears.
+        var (compilation, preprocessor, appTree) = BuildLinkedWithApp("""
+            using System.Text.Json;
+            namespace AppNs {
+                public class Runner {
+                    public System.Collections.Generic.List<T>? RoundTripNested<T>(string json) {
+                        return JsonSerializer.Deserialize<System.Collections.Generic.List<T>>(json);
+                    }
+                    public T? RoundTripTopLevel<T>(string json) where T : class {
+                        return JsonSerializer.Deserialize<T>(json);
+                    }
+                }
+            }
+            """);
+
+        var result = preprocessor.RewriteFile(
+            compilation.GetSemanticModel(appTree),
+            ClosedMetadataRegistrationGenerator.HolderTypeName("App"));
+
+        Assert.True(result is null || !result.OutputCode.Contains(
+            "__cs2j_register_closed_types();", StringComparison.Ordinal));
     }
 
     [Fact]

@@ -46,7 +46,7 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
     /// <summary>M4 drill seam: force selected sites to emit non-compiling code (tests only).</summary>
     private readonly Func<Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax, IMethodSymbol, bool>? _forceBrokenRewrite;
 
-    /// <summary>C49 policy: null keeps the classic CS2J1206 behavior byte-for-byte.</summary>
+    /// <summary>C49 policy: null keeps the classic CS2J1906 behavior byte-for-byte.</summary>
     private readonly ExtensionBlockOptions? _blockOptions;
 
     /// <summary>Whether the member-desugar consumption chain runs downstream (EMD-PROP gate input).</summary>
@@ -175,7 +175,7 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         };
 
         // No project graph → nothing to restore; unbound extension-like sites
-        // take the conservative CS2J1290 path.
+        // take the conservative CS2J1990 path.
         if (!singleFile)
         {
             var restoreExitCode = ProjectPassRunner.Restore(this, tree);
@@ -191,7 +191,7 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         }
         else if (_verbose)
         {
-            Console.WriteLine("[extension-methods] single-file/loose-directory layout: CS2J1290 conservative mode armed");
+            Console.WriteLine("[extension-methods] single-file/loose-directory layout: CS2J1990 conservative mode armed");
         }
 
         return Task.CompletedTask;
@@ -387,7 +387,7 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
 
         // M4 §4.4-4: candidate-vs-baseline compile-error diff with file
         // attribution; unique rewritten file → replay that file; otherwise
-        // whole-tree rollback + CS2J1200.
+        // whole-tree rollback + CS2J1900.
         var rewrittenDest = MapRewrittenToDestination(tree);
         var candidateKeys = BuildCandidateErrorKeys(candidate, rewrittenDest);
         var baselineSubset = BuildLazyBaselineErrors(candidateKeys);
@@ -528,7 +528,7 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
             .Take(5)
             .Select(e => $"{Path.GetFileName(e.File)}({e.Id}): {e.Message}"));
         Console.Error.WriteLine(
-            "[extension-methods] whole-tree rollback (CS2J1200): new compile error(s) could not be attributed to a "
+            "[extension-methods] whole-tree rollback (CS2J1900): new compile error(s) could not be attributed to a "
             + $"single rewritten file; every rewritten file was replayed from the originals. First errors: {detail}");
 
         _diagnostics.Add(new ExtensionDiagnostic(
@@ -536,7 +536,7 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
             ExtensionRule.Infra,
             ExtensionMethodCodes.WholeTreeRollback,
             "The rewritten candidate introduced compile error(s) that could not be attributed uniquely to one rewritten "
-            + $"file [{detail}]; all changes from this run were rolled back to the original inputs (CS2J1200).",
+            + $"file [{detail}]; all changes from this run were rolled back to the original inputs (CS2J1900).",
             root));
     }
 
@@ -608,7 +608,7 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         // Directory.EnumerateFiles (a different order) re-attributes those
         // duplicates to different files and the baseline-vs-candidate diff then
         // reports pre-existing duplicates as NEW compile errors, forcing a
-        // spurious whole-tree rollback (CS2J1200).
+        // spurious whole-tree rollback (CS2J1900).
         foreach (var sourceFile in tree.CsFiles)
         {
             var relativePath = Path.GetRelativePath(tree.SourceRoot, sourceFile);
@@ -827,7 +827,7 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         return files;
     }
 
-    // Design §6: CS2J1230 is Error for both restore and build failures; CS2J1231 for test failures.
+    // Design §6: CS2J1930 is Error for both restore and build failures; CS2J1931 for test failures.
 
     public override void OnRestoreFailed(int exitCode, string restoreTarget)
         => _diagnostics.Add(new ExtensionDiagnostic(

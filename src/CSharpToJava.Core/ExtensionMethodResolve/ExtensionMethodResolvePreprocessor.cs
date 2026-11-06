@@ -137,7 +137,7 @@ public sealed class ExtensionMethodResolvePreprocessor
         /// <summary>C49 block analysis for this tree when materialization runs; null otherwise.</summary>
         public BlockAnalysisResult? BlockAnalysis { get; init; }
 
-        /// <summary>CS2J1213/CS2J1208 diagnostics produced at the analyze entry (before block analysis).</summary>
+        /// <summary>CS2J1913/CS2J1908 diagnostics produced at the analyze entry (before block analysis).</summary>
         public required IReadOnlyList<ExtensionDiagnostic> BlockEntryDiagnostics { get; init; }
     }
 
@@ -224,10 +224,10 @@ public sealed class ExtensionMethodResolvePreprocessor
     /// <summary>
     /// Whole-tree analysis with C49 extension-block policy.
     /// <paramref name="blockOptions"/> null keeps the classic behavior: every
-    /// extension block hits CS2J1206 and nothing about the classic pass
+    /// extension block hits CS2J1906 and nothing about the classic pass
     /// changes. When <see cref="ExtensionBlockOptions.MaterializeExtensionBlocks"/>
-    /// is true, the parse self-check (CS2J1213), the property chain gate
-    /// (CS2J1208), and the block analysis run, and the classic block gate is
+    /// is true, the parse self-check (CS2J1913), the property chain gate
+    /// (CS2J1908), and the block analysis run, and the classic block gate is
     /// suppressed for materialized trees.
     /// </summary>
     public void Analyze(
@@ -309,7 +309,7 @@ public sealed class ExtensionMethodResolvePreprocessor
 
                 var materialize = blockOptions?.MaterializeExtensionBlocks == true;
                 // The block declaration probe is shared with the binder's
-                // CS2J1206 gate, which then skips its own whole-tree sweep when
+                // CS2J1906 gate, which then skips its own whole-tree sweep when
                 // the tree carries none (the common case).
                 var hasBlocks = syntaxIndex.HasExtensionBlockDeclaration;
 
@@ -357,7 +357,7 @@ public sealed class ExtensionMethodResolvePreprocessor
                         // No blocks declared in THIS file, but it may consume
                         // extension members from an external assembly
                         // (decision appendix 5): still run the analyzer so the
-                        // report-only CS2J1203 boundary scan can fire.
+                        // report-only CS2J1903 boundary scan can fire.
                         var analyzer = new ExtensionBlockAnalyzer(
                             model, blockOptions!, metadataIndex, hasBlocks, syntaxIndex);
                         blockAnalysis = analyzer.Analyze();
