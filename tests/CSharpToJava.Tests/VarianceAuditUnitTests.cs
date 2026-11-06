@@ -489,6 +489,53 @@ public sealed class VarianceAuditUnitTests
     }
 
     [Fact]
+    public void Mapped_async_enumerable_producer_has_no_va012()
+    {
+        const string source =
+            "using System.Collections.Generic; "
+            + "class Base { } class Derived : Base { } "
+            + "class C { IAsyncEnumerable<Derived> Get() => null; }";
+        var compilation = Compile(source);
+        var preprocessor = new VarianceAuditPreprocessor(new VarianceAuditOptions { Strict = true });
+        preprocessor.BindCompilation(compilation);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Equal(0, CountCode(audit, VarianceCodes.MappedMutabilityExpansion));
+        Assert.DoesNotContain(audit.Diagnostics, d => d.Severity == VarianceSeverity.Error);
+    }
+
+    [Fact]
+    public void Mapped_async_enumerator_producer_has_no_va012()
+    {
+        const string source =
+            "using System.Collections.Generic; "
+            + "class Base { } class Derived : Base { } "
+            + "class C { IAsyncEnumerator<Derived> Get() => null; }";
+        var compilation = Compile(source);
+        var preprocessor = new VarianceAuditPreprocessor(new VarianceAuditOptions { Strict = true });
+        preprocessor.BindCompilation(compilation);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Equal(0, CountCode(audit, VarianceCodes.MappedMutabilityExpansion));
+        Assert.DoesNotContain(audit.Diagnostics, d => d.Severity == VarianceSeverity.Error);
+    }
+
+    [Fact]
+    public void Unmapped_metadata_variant_interface_stays_conservatively_mutable()
+    {
+        const string source =
+            "using System.Linq; "
+            + "class Base { } class Derived : Base { } "
+            + "class C { IQueryable<Derived> Get() => null; }";
+        var (preprocessor, _, compilation) = Analyze(source);
+
+        var audit = AuditOf(preprocessor, compilation);
+        var diagnostic = Assert.Single(audit.Diagnostics, d => d.Code == VarianceCodes.MappedMutabilityExpansion);
+        Assert.Contains("(unmapped metadata variant type)", diagnostic.Message);
+        Assert.Contains("(unmapped)", diagnostic.Message);
+    }
+
+    [Fact]
     public void Mapped_mutability_check_can_be_disabled()
     {
         const string source =

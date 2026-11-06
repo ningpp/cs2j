@@ -9,7 +9,9 @@ namespace CSharpToJava.Core.VarianceAudit;
 /// facade": Java code can mutate what C# declared read-only.
 ///
 /// Seed data: <c>config/TypeMappings.json</c> does not carry BCL collection interfaces
-/// (verified 2026-10-03 — no <c>IEnumerable</c>/<c>IReadOnly*</c> entry), so the seed is
+/// (verified 2026-10-03 — no <c>IEnumerable</c>/<c>IReadOnly*</c> entry; the only entries
+/// are <c>IAsyncEnumerable`1</c>/<c>IAsyncEnumerator`1</c> → the read-only compat
+/// <c>io.github.ningpp.compat.AsyncEnumerable</c>/<c>AsyncEnumerator</c>), so the seed is
 /// derived from BCL common knowledge (the mapping the converter/compat layer emits for
 /// these interfaces) and documented here. Types absent from the table that come from
 /// metadata and declare variance are conservatively treated as "possibly expanding"
@@ -107,6 +109,10 @@ public sealed class TypeMutabilityTable
     {
         yield return Seed("System.Collections.Generic.IEnumerable`1", "java.lang.Iterable", None);
         yield return Seed("System.Collections.Generic.IEnumerator`1", "java.util.Iterator", None);
+        yield return Seed("System.Collections.Generic.IAsyncEnumerable`1",
+            "io.github.ningpp.compat.AsyncEnumerable", None);
+        yield return Seed("System.Collections.Generic.IAsyncEnumerator`1",
+            "io.github.ningpp.compat.AsyncEnumerator", None);
         yield return Seed("System.Collections.Generic.IReadOnlyCollection`1", "java.util.List",
             new[] { "add", "set", "remove", "clear", "addAll", "removeAll" });
         yield return Seed("System.Collections.Generic.IReadOnlyList`1", "java.util.List",
