@@ -1,14 +1,15 @@
-# Preprocessor 泛型能力升级方案（GLM-5.3）
+# Preprocessor Java 友好规范子集与泛型能力升级方案（GLM-5.3）
 
-> 版本：2026-11-06 **v6**（**面向 Java 侧净简化的回灌版**——基线刷新至 HEAD `8268251a`（V/S/W 逐条复核时点为 `a60afc75`；其后 `8268251a` 仅为 Java codegen 枚举器擦除碰撞修复，恰为 J-02 再添实证，不影响复核行号），V/S/W 共 32 条（V8+S8+W16）逐条复核**全部仍成立**（S-05 细化为"机制半在、过滤/闭包/调用点三残留"，V-04/V-08/W-01/W-03 等行号漂移订正、CS2J1203 实测为**一码四义**、HolderSyntaxGenerator 路径订正，详见各条与附录 B）；v5 后 15 个提交（2 预处理 + 13 Java/compat；编辑过程中新增的 `8268251a` 枚举器 Current 擦除碰撞修复已并入 J-02 证据）成为新证据源，据此新增**层面 J：Java 承接复杂度回灌**（J-01~J-07：渲染期文本重建闭型 / 集合擦除一致性 Java 后处理 / 约 1666 行强制适配网 / 条件副作用 Java 线性化 / BCL 重载逐案补丁 / fail-fast 口径分裂 / 生成物反向依赖 Java 逐名特判）、缺口 **G-33~G-39** 与 **W-15/W-16**、不变量 **I10**（能力层新规则必须指认被消除的 Java 侧机制）、**R11 JE-01~07 吸收规则族**（含两个候选新 pass `collection-shape-normalize`/`condition-effect-linearize`）、探针 **21→23 码**（+COLLECTION-SHAPE/+CONDITION-EFFECT）、§7.1-8 **Java 侧净简化对账门**与附录 H **Java 复杂度普查底册**；v6 仍**不修改 Java 转换器**——JE 规则以"对应 Java 特例在真实语料上成为死代码（可删）"为验收，删除动作归 §7.2 下游协调项）。
+> 版本：2026-11-06 **v7**（**Java 友好规范子集与下游退休闭环版**——把 v6 的“Java 减负规则清单”升级为可执行的两阶段架构：定义 **JCS-1（Java-friendly C# Subset v1）**、新增版本化 `preprocess-manifest.json` 能力握手、最终树语义闭包、`inventory → shadow → enforce → retire → ratchet` 补偿分支退休协议与总复杂度账本；新增缺口 **G-40~G-44**、设计 **R12~R15**、试点 **JE-08~JE-10**，探针 **23→26 码**（+CALL-SHAPE/+VALUE-COPY/+SEMANTIC-CLOSURE）；修订 I10，避免“每条规则都必须删 Java 代码”的教条；将 JE-04 扩到 byref/out 条件求值顺序，将 struct 值拷贝与调用形状列为高价值垂直切片；明确 `--no-preprocess` 在 java-ready 下不得再以 Warning 绕过能力校验。v7 不重跑语料、不刷新 v6 的运行统计，新增代码事实均按当前 HEAD 复核）
+> 2026-11-06 **v6**（**面向 Java 侧净简化的回灌版**——基线刷新至 HEAD `8268251a`（V/S/W 逐条复核时点为 `a60afc75`；其后 `8268251a` 仅为 Java codegen 枚举器擦除碰撞修复，恰为 J-02 再添实证，不影响复核行号），V/S/W 共 32 条（V8+S8+W16）逐条复核**全部仍成立**（S-05 细化为"机制半在、过滤/闭包/调用点三残留"，V-04/V-08/W-01/W-03 等行号漂移订正、CS2J1203 实测为**一码四义**、HolderSyntaxGenerator 路径订正，详见各条与附录 B）；v5 后 15 个提交（2 预处理 + 13 Java/compat；编辑过程中新增的 `8268251a` 枚举器 Current 擦除碰撞修复已并入 J-02 证据）成为新证据源，据此新增**层面 J：Java 承接复杂度回灌**（J-01~J-07：渲染期文本重建闭型 / 集合擦除一致性 Java 后处理 / 约 1666 行强制适配网 / 条件副作用 Java 线性化 / BCL 重载逐案补丁 / fail-fast 口径分裂 / 生成物反向依赖 Java 逐名特判）、缺口 **G-33~G-39** 与 **W-15/W-16**、不变量 **I10**（能力层新规则必须指认被消除的 Java 侧机制）、**R11 JE-01~07 吸收规则族**（含两个候选新 pass `collection-shape-normalize`/`condition-effect-linearize`）、探针 **21→23 码**（+COLLECTION-SHAPE/+CONDITION-EFFECT）、§7.1-8 **Java 侧净简化对账门**与附录 H **Java 复杂度普查底册**；v6 仍**不修改 Java 转换器**——JE 规则以"对应 Java 特例在真实语料上成为死代码（可删）"为验收，删除动作归 §7.2 下游协调项）。
 > 2026-11-05 **v5**（GLM-5.3 分析版；v5 **吸收 kimi 3.1 pro 版设计层**——v2 仅吸收其经核证的论断（P0 缺陷清单/语料语义链/四路差分），本版进一步吸收其框架缺口与结构化设计并逐项核证：两入口 profile×disable 语义分裂（W-11）、源生成器输出物化（R9/CM-05）、消费面执行时序模型 execution kind（R3 扩/CM-03/CM-LINK-3）、逐项目 compilation 工作区（L1 扩/W-14）、ApiManifest 与 ABI diff（R10/GD-06）、GD-MTOK 可见性分级、TypeParameterId 声明 owner 身份、GD-FIELD holder 并发与双检锁证明、探针 19→21 码（+SOURCE-GENERATOR/PUBLIC-ABI）、行为反例 12→16 类（+并发/NRT 反射行为/类型关系查询/成员发现）、per-TFM 验收纪律，采纳/不采纳清单见附录 D；v4 **吸收 deepseek 1017 版设计层**——v2 只吸收其经核证的论断，本版进一步吸收其结构化设计：GNC 泛型构造目录（附录 E GC-01~GC-35）、CN-01~12/VR-01~08/GI-01~11/EB-01~06 完整规则表与 GD-MTOK-2 触发集、消费面三 profile 细则、三规则族 pass 化决策、插入顺序兼容性细则、验收命令/指标矩阵/一致性测试、报告 schema 与一页纸清单（§7.0/§7.1-6/7、附录 F/G）；v3 **换源**：json 语料更换为 .NET Runtime 10.0.12 真实 System.Text.Json 源码并修正 v1/v2 的语料时代错位，新增 W-09/W-10 缺口与对应修复项；v2 刷新基线至 52 pass / json 0 失败并吸收四份同行方案实测增量，采纳/不采纳清单见附录 D）
-> 基线：`D:\code\cs2j`，分支 `dev-202611`，HEAD `8268251a`（**仍 52 个 Implemented pass**，`PassCatalog.cs:56-1030` 实测 52 条 descriptor，工作树除本文档外干净；**v6 复核时点 `a60afc75`**：v5 文档提交（9ee2fc26）之后 14 个提交——2 个预处理修复（2aa7aa8f/51e505cd：断言回调 lambda void 语义脱糖、丢弃赋值、别名导入，落点 expression-desugar/ref-out-in/struct-value-semantics 与新增 `VoidCallbackAssertionFacts`）+ 12 个 Java/compat 修复（详见 §3.5）；**文档定稿时再增 `8268251a`**（泛型/非泛型 `IEnumerator.Current` 擦除碰撞→`getCurrentNonGeneric` 独立命名，纯 Java codegen/compat/test 改动，J-02 同族第 6 个证据）；**GenericPreprocess/ClosedMetadata/Preprocessing 目录自 9ee2fc26 起零提交**，V/S/W 共 32 条经逐条代码复核全部仍成立；v5 编辑时点 HEAD `7e575512`，v4 时点 `fab1c483`，更早基线 `6b57a210`）
+> 基线：`D:\code\cs2j`，分支 `dev-202611`，HEAD `a1cb6633`（v7 文档起点；`a1cb6633` 为 v6 文档提交，**代码事实基线仍为 `8268251a`**，其间无产品代码变更；**仍 52 个 Implemented pass**，`PassCatalog.cs:56-1030` 实测 52 条 descriptor，工作树除本文档外干净；**v6 复核时点 `a60afc75`**：v5 文档提交（9ee2fc26）之后 14 个提交——2 个预处理修复（2aa7aa8f/51e505cd：断言回调 lambda void 语义脱糖、丢弃赋值、别名导入，落点 expression-desugar/ref-out-in/struct-value-semantics 与新增 `VoidCallbackAssertionFacts`）+ 12 个 Java/compat 修复（详见 §3.5）；**文档定稿时再增 `8268251a`**（泛型/非泛型 `IEnumerator.Current` 擦除碰撞→`getCurrentNonGeneric` 独立命名，纯 Java codegen/compat/test 改动，J-02 同族第 6 个证据）；**GenericPreprocess/ClosedMetadata/Preprocessing 目录自 9ee2fc26 起零提交**，V/S/W 共 32 条经逐条代码复核全部仍成立；v5 编辑时点 HEAD `7e575512`，v4 时点 `fab1c483`，更早基线 `6b57a210`）
 > 语料证据（v3 口径）：
 > - **json 主语料 [v3 更换]**：`D:\runtime-10.0.12\src\libraries\System.Text.Json`（.NET Runtime 10.0.12 **真实源码**；库本体 352 .cs = src 308 + gen 20 + Common 24，另有 tests 333 .cs；本版完成**静态普查**，全链运行统计待 M0 重跑——v2 及之前的全部 json 运行数据均在旧语料上测得，见 §3.2 换源说明）
 > - json 旧语料（v1/v2 用，**时代错位已确认**）：`D:\csharp-sdk\json`——实为 .NET 3.x 时代 STJ 布局（`JsonClassInfo`/`ReflectionEmitMemberAccessor`，无 `JsonTypeInfo`），341 .cs；其全链日志（`D:\cs\20261104-json.log`、`20261104-json-final.log` 626/0）**测的是这份旧语料**
 > - `D:\YamlDotNet-18.0.0`（18.0.0，261 .cs，**实测**）；`D:\cs\cs-sdk-78e810c6` 历史中间树与审计报告；`D:\cs\yaml-lib-probe.log` 等 6 份 YamlDotNet 运行日志
 > 同行方案：`C:\Users\15097\Desktop\V202611042101` 目录下 deepseek-flash-4.1 / kimi3.1-pro / longcat2.5 / seed-evolving 四份同题文档（v2 吸收其经本仓代码/日志核证的论断、v4 另吸收 deepseek 版设计层，附录 D 全量对照；v3 的换源发现为本文档独立增量，四份均基于旧语料）
-> **范围硬约束：本方案只升级 C# → C# 预处理链（preprocessor），一切改写产物仍是可编译、可测试的 C#；不修改 C# → Java 转换器，不生成 Java。Java 侧事实用于两件事：界定"降级目标子集"（v1-v5）与 [v6] 指认"可被预处理消除的 Java 侧复杂度"（I10/层面 J/R11——以 Java 特例成为死代码为验收，删除动作属 §7.2 下游配套项，不在本方案改动内）。**
+> **范围与验收边界 [v7 修订]：本方案主体只升级 C# → C# 预处理链，预处理产物仍是可编译、可测试的 C#，不是 Java，也不在预处理 PR 中修改 Java 转换器。但“下游瘦身”不再是可无限推迟的超范围事项：每个 JE/JCS 垂直切片由“预处理 PR + 配套 Java 删除/收缩 PR + 同一组行为验收”共同闭环，允许分 PR，不允许只完成前半段就宣告规则完成。Java 侧仅承担目标语法、映射与 compat 运行时职责；不得再在渲染后补做已声明由 JCS-1 保证的 C# 语义决策。**
 
 ---
 
@@ -79,14 +80,17 @@
 | J-06 | **fail-fast 口径分裂**（W-16）：统一构造点 15 处 + 裸 `NotSupportedException` 54 处；旧底册 42 不可复现 | 预处理探针的反向枚举（"有 Java 门无 NORM 探针"）缺准确底册；部分裸 throw 是 IR 不支持而非预处理责任，两者未分类 |
 | J-07 | **预处理生成物反向依赖 Java 逐名特判**：tuple/anonymous/holder 生成的 C# 发射 `EqualityComparer<T>.Default.Equals/GetHashCode`，Java 侧在 `InvocationExpressionTransformer.cs:790-815` 硬编码降为 `Objects.equals/hashCode`；`EqualityComparer<T>` 静态类本身在 TypeMappings 仍无映射（G-11 半修） | 生成物与 Java 侧之间是**口头契约**：哪些生成标识符有 Java 特判承接无清单、无机检、不进 api-manifest；生成物改形状即破 Java 侧（v5 后已发生一次：2aa7aa8f 修的别名导入即生成形状漂移） |
 
-**核心判断（v6 续）**：v1-v5 的五层缺口（V 正确性 / S 合成债 / W 接线 / G 泛型规则 / 框架层）全部继续成立且经 a60afc75 复核未变；v6 新增第六个事实——**"Java 0 失败"之后，复杂度的主要存量已从"转换不过"转移到"Java 转换器内的 C# 语义模拟器"**（J-01~J-03 可计部分 2691 行＝293+732+1666，另加 J-04 分散在 Statement 层的线性化位点；且 v5 后的修复密度证明它们仍在高频长肉）。这部分复杂度天然属于预处理：决策点有符号、产物可被 `dotnet build`/B 路差分验证、规则可条目化。升级方向由此增加一条硬原则（I10）：**L3 能力层每条新规则必须指认一个被消除的 Java 侧机制，并以该机制在真实语料上成为死代码为验收**；M0 正确性修复不受此限。
+**核心判断（v6 续）**：v1-v5 的五层缺口（V 正确性 / S 合成债 / W 接线 / G 泛型规则 / 框架层）全部继续成立且经 a60afc75 复核未变；v6 新增第六个事实——**"Java 0 失败"之后，复杂度的主要存量已从"转换不过"转移到"Java 转换器内的 C# 语义模拟器"**（J-01~J-03 可计部分 2691 行＝293+732+1666，另加 J-04 分散在 Statement 层的线性化位点；且 v5 后的修复密度证明它们仍在高频长肉）。这部分复杂度天然属于预处理：决策点有符号、产物可被 `dotnet build`/B 路差分验证、规则可条目化。升级方向由此增加一条硬原则（I10）：**JE/JCS 减负规则必须指认将被退休的 Java JM 分支，并以最终树 guaranteed + 配套负 diff 为验收**；[v7] M0 正确性、通用语法、框架/审计/性能工作不强制寻找可删代码，但不得新增下游语义补偿。
 
-**核心判断**：v1 的"泛型归约零审计"判断仍然成立（10 探针全非泛型），但 v2 新增两个更紧迫的事实——(a) 已落地的泛型补偿机制（GD-FIELD/CM）自带正确性缺陷，json 语料恰好未触发（单字段、无 `List<string?>` 键差、泛型测试方法少）；(b) **合成层**（closure/tuple/local-function/async 的提升与生成）在 C#→C# 阶段丢约束/丢 arity，错误在中间树就爆发（CS0246/CS0308/CS0453），不再等到 Java。[v5] v3/v4 之后再补第三个事实——**框架层**（而非泛型规则层）缺口：同名 profile 两条 CLI 入口语义分裂（W-11）、源生成器输出不物化使 B/C 路测试工程无法编译（W-12）、消费面 guard 只保证词法相邻而非执行时序（W-13）、合并 compilation 丢失项目边界且签名改写无 ABI 清单（W-14）——"java-ready"的可信度当前还依赖入口选择与树组织方式，而非仅依赖泛型规则完备性。升级方案五层（继承 v1 框架，重排优先级——**先修正确性，再扩能力**）：
+**核心判断**：v1 的"泛型归约零审计"判断仍然成立（10 探针全非泛型），但 v2 新增两个更紧迫的事实——(a) 已落地的泛型补偿机制（GD-FIELD/CM）自带正确性缺陷，json 语料恰好未触发（单字段、无 `List<string?>` 键差、泛型测试方法少）；(b) **合成层**（closure/tuple/local-function/async 的提升与生成）在 C#→C# 阶段丢约束/丢 arity，错误在中间树就爆发（CS0246/CS0308/CS0453），不再等到 Java。[v5] v3/v4 之后再补第三个事实——**框架层**（而非泛型规则层）缺口：同名 profile 两条 CLI 入口语义分裂（W-11）、源生成器输出不物化使 B/C 路测试工程无法编译（W-12）、消费面 guard 只保证词法相邻而非执行时序（W-13）、合并 compilation 丢失项目边界且签名改写无 ABI 清单（W-14）——"java-ready"的可信度当前还依赖入口选择与树组织方式，而非仅依赖泛型规则完备性。升级方案为**目标层 + 五层执行**（继承 v1 框架，v7 重排——先修正确性，再以垂直切片兑现下游简化）：
 
 ```text
-L0 契约层   NORM-GENERIC-* 探针族扩容（合并四方案探针分野，~23 码 [v4 拆出 VARIANCE-USE；v5 增 SOURCE-GENERATOR/PUBLIC-ABI；v6 增 COLLECTION-SHAPE/CONDITION-EFFECT]）
+目标层      JCS-1 最终树后条件 + preprocess-manifest 能力握手 + JM 退休账本 [v7]
+L0 契约层   NORM 探针族扩容（26 码 [v4 VARIANCE-USE；v5 SOURCE-GENERATOR/PUBLIC-ABI；
+            v6 COLLECTION-SHAPE/CONDITION-EFFECT；v7 CALL-SHAPE/VALUE-COPY/SEMANTIC-CLOSURE]）
             + CS2J14xx 新诊断段 + 撞号迁移（CS2J1203 实测一码四义，v6 订正）
-            + PassContract 推广（9 字段已落地、10 pass 已挂载；补 VerificationProfile 字段与派生断言）
+            + PassContract 推广（9 字段已落地、10 pass 已挂载；补 VerificationProfile 与派生断言；
+              v7 增 CapabilityIds/Phase/FinalizerFor，支撑最终闭包）
 L1 编译层   真实引用集 spine 化（含打开 W-04 一行注释）+ degraded 显式化 + 引用画像报告
             + [v3] csproj Compile/TFM/外部源求值进输入模型（W-10/G-26，rt10 硬前置）
             + [v5] 源生成器输出物化（R9/W-12）+ 逐项目 compilation 工作区终态（W-14a，M3 决策点）
@@ -94,6 +98,7 @@ L2 验证层   四路差分验收（A 原库原测 / B 预处理库+原测 / C �
             + 残差 ratchet（只许减不许增）+ java-ready 严格化（W-01 strict 接线/不可绕过/幂等逐字节）
             + [v5] ABI diff 门禁（api-manifest.json 无未批准项，R10）+ 两入口 profile 语义统一（W-11）
             + [v6] Java 侧净简化对账门（JE 规则须附 transformer/compat 负 diff，W-15；fail-fast 底册归一，W-16）
+            + [v7] manifest 正负握手 + 最终树语义闭包 + JM enforce/retire/ratchet + 总复杂度账本
 L3 能力层   V 层缺陷修复（GD-FIELD 规范形/CM 键修/闭包补锚）+ S 层合成债统一解析器
             + v1 的 P1-R1~R8 / P2-R1~R3 规则族 + 消费面配置化（ClosedTypeConsumerSurfaces.json）
             + [v3] compat 注册表漂移探测与条目版本锚（W-09/G-25）
@@ -103,23 +108,94 @@ L3 能力层   V 层缺陷修复（GD-FIELD 规范形/CM 键修/闭包补锚）+
             + [v6] **Java 减负吸收族 R11（JE-01~07）**：闭型消费扩面/集合一致性 C# 侧桥接
               /collection-shape-normalize/condition-effect-linearize/BCL 重载条目化
               /fail-fast 归一/生成物 Java-中立——每条指认被删除的 Java 机制（附录 H）
+            + [v7] R12~R15：JCS manifest/最终闭包/退休协议 + JE-08 byref-out 条件
+              /JE-09 调用形状/JE-10 struct 值拷贝；按 VS-1~VS-5 独立退场
 L4 性能层   统一中间树默认化 + 增量缓存 + 选择性 verify（M5 未竟，泛型整树 pass 收益最大）
 ```
 
 验收目标（详见 §7）：**[v3] `D:\runtime-10.0.12` 的 System.Text.Json 全模块（src + gen + Common，rt10 真源）**与 `YamlDotNet 18.0.0` 经本链 `--profile java-ready` 预处理后：
 
-1. `preprocess-residual-report.json` 中泛型类 `NORM-GENERIC-*` 计数为 0（或全部 `DeclaredUnsupported` 且带 owner/文件/行/原因）；
+1. `preprocess-residual-report.json` 中泛型类 `NORM-GENERIC-*` 与本切片 JCS 探针计数为 0（未立项观测族可 PreserveAndWarn，但必须带 owner/文件/行/原因；必要 capability 不得 partial/unsupported）；
 2. **四路差分中 B 路**（预处理后的库 + 原测试工程）`dotnet build`/`dotnet test` 零失败——"预处理语义等价"的最强可执行代理指标；
-3. （下游口径，超出本方案实施范围）Java 转换产物 `mvn compile` 通过、JUnit 全绿。
+3. Java 转换产物 `mvn compile` 通过、JUnit 全绿；**[v7] 已被本切片指认的 Java 补偿分支完成删除/收缩，而不是仅证明“可以删除”。**
+
+### 0.1 v7 总纲：从规则堆叠升级为两阶段能力契约
+
+v6 的 V/S/W/J 证据与 R0~R11 规则继续作为实施底册，但主路径作三项改变：
+
+1. **目标从“pass 跑完”改为“最终树满足 JCS-1”**。pass 数、改写数和 0 Java 失败都只是过程指标；只有最终 C# 树上可机检的后条件，才能授权下游删除补偿逻辑。
+2. **交付单位从“单条预处理规则”改为“垂直切片”**。一个切片必须同时包含 C# 改写、最终树审计、版本化能力声明、Java 负 diff、C#/Java 双侧行为等价与回滚开关。
+3. **完成定义从“预处理合入”改为“Java 补偿退休”**。允许分 PR 与短暂双形态窗口，但不允许无限期冻结；冻结必须有 owner、原因、复审波次和覆盖缺口。
+
+#### 0.1.1 JCS-1：Java 友好 C# 规范子集
+
+JCS-1 **不是另一套 IR，也不是把所有 C# 语法都展开**；它仍是普通 C# 源码。它按构造族规定“转换器可以假设什么”，未声明保证的语法仍可由 Java 通用路径承接。每个能力只有 `guaranteed / partial / unsupported` 三态：只有最终树 `guaranteed` 且残差为 0 的能力可以触发 Java 分支退休；`partial` 必须保留下游兜底并列出残留，`unsupported` 在 java-ready 下失败。
+
+| 能力 ID | 最终 C# 树后条件 | Java 侧保留职责 |
+|---------|------------------|-----------------|
+| `JCS.WORKSPACE` | 输入由 project × TFM × configuration 求值；Compile、引用、条件符号、外部共享源与源生成输出完整且去重；无 degraded | 不重建项目语义，不猜测缺源/缺引用 |
+| `JCS.SYMBOL` | 语义分析基于健康 compilation；公开 ABI 变化与全部生成符号登记；声明端/调用端使用同一符号身份 | 名称映射、import、Java 可见性与目标语法发射 |
+| `JCS.CALL` | 委托调用、方法组、扩展调用、命名/可选/params 实参及需要显式化的泛型实参已按 C# 重载决议定型；无语法级“猜 callee” | **BCL/compat 成员映射仍归 Java**；只渲染已定型调用，不再重复 C# 重载决议 |
+| `JCS.EVAL` | 条件、短路链、实参、ref/out 读回与属性/索引器读改写的求值顺序已显式化；无跨语句悬挂的 pre/post-statement 决策 | 只发射语句与控制流，不重排 C# 副作用 |
+| `JCS.VALUE` | 用户 struct 在赋值、实参、返回、字段/数组元素按值读取等值拷贝槽位已插入受控 copy，或明确登记免拷原因/不支持；copy 方法与调用点同计划生成 | 将 copy 调用映射到 Java 方法；不再自行判断何处需要 C# 值拷贝 |
+| `JCS.GENERIC` | 类型 token、闭型元数据、约束携带、静态泛型状态与反射消费面符合 R0~R10 后条件 | 擦除后的 Java 类型渲染、compat TypeHelper 运行时 |
+| `JCS.CONVERSION` | 已被 JE-02/JE-03 接受的数组/集合/Span 形状转换在源树显式存在；声明端与调用端桥接一致 | compat 适配器运行时与未覆盖开放世界兜底；已退休分支不得再命中 |
+| `JCS.CLOSURE` | 晚期 closure/async/iterator/member/tuple 等生成物经过**最终树**语义闭包扫描；没有早先 pass 已消除、后续 pass 又生成的无 owner 构造 | 消费稳定生成形状，不按私有命名逆向恢复语义 |
+
+**能力声明不得靠 pass 名称推断。** 例如执行过 `struct-value-semantics` 不等于 `JCS.VALUE=guaranteed`；只有最终树扫描证明目标槽位无残差、计划无未登记 skip，才可声明保证。
+
+#### 0.1.2 职责分界：消除重复决策，而不是搬运代码
+
+| 层 |  owns | 明确不做什么 |
+|----|-------|--------------|
+| preprocess | C# 语义决策、求值顺序、源级显式转换、生成物计划、最终树残差与能力证明 | 不生成 Java 字符串；不复制 TypeMappings；不承接纯 Java 命名/导入 |
+| Java converter | Java 语法与类型渲染、BCL→compat 映射、命名、import、目标版本适配 | 对已 `guaranteed` 的构造不再做 C# 语义推断、文本手术或声明/调用点二次协商 |
+| compat runtime | 运行时集合、反射、文本、数值、异步等 .NET 行为 | 不承担本可在编译期消除的源码形状推断 |
+| `Core/Analysis` 共享事实 | 类型参数身份、值拷贝、调用形状、求值顺序等跨阶段事实的**单一实现** | 不由 preprocess 反向调用 `Transformers/*Helper`，也不再“移植一份”后各自漂移 |
+
+现有 `StructValueSemantics/ValueCopyFacts.cs` 自述“口径移植 `StructCloneHelper`”，同时 `StructValueSemanticsAnalyzer.cs` 又直接调用 `Transformers.StructCloneHelper`（当前 `:77`），说明职责方向已经倒置。v7 要求先把共享事实上移到 `Core/Analysis`，再谈删除 Java 分支；否则只是把同一套判断复制到两个阶段。
+
+#### 0.1.3 两阶段握手与防绕过
+
+```text
+原 C# / csproj / sln(x)
+  → 求值工作区 → JCS pass 链 → 最终树语义闭包
+  → preprocessed C# + preprocess-manifest.json + api-manifest.json + residual report
+  → 转换器启动时校验 subsetVersion / capabilities / inputHash / contractHash
+  → 简化后的 Java renderer + compat runtime
+
+每个已接受能力：
+inventory → shadow → enforce → retire → ratchet
+基线立账    双跑对比   禁回退    删除兜底   永久防复发
+```
+
+- `preprocess-manifest.json` 是**能力与身份握手**，不是承载隐藏类型信息的旁路 IR；Java 发射所需的语义必须已经体现在 C# 源码或可编译生成物中。
+- 正常 `convert-project` 链内直接传递同一握手对象并落盘；`--no-preprocess` 消费已有树时必须重新读取并校验 manifest。java-ready 下缺失、过期、hash 不匹配、必要能力非 guaranteed 均为配置错误，取代当前 `Program.cs:239-246` 的“Warning 后忽略 profile”。default profile 仍允许原始树转换，但报告 `subsetStatus=unverified`；**尚未 retire 的 JM 兜底保持启用，遇到已 retire 构造则以 CS2J1410 明确要求先 preprocess**，不承诺无预处理的原始树永远走旧补偿路径。
+- Java 侧为补偿分支建立稳定 `JM-*` ID（不再只用易漂移的 `文件:行号`）；每个 ID 映射到所需 capability、退休状态和覆盖语料。enforce 阶段该分支命中即失败，retire 阶段删除，ratchet 阶段禁止同义分支回流。
+
+#### 0.1.4 首批垂直切片与优先级
+
+通用泛型债不必全部完成才允许 Java 瘦身。除真实依赖外，以下切片可独立交付、独立退休，避免 v6 把所有 JE 都堵在一个巨型 M3 末尾：
+
+| 切片 | 内容 | 首选理由 | 退场条件 |
+|------|------|----------|----------|
+| VS-0 契约 | JCS-1、manifest、JM 底账、总复杂度账本、最终树闭包 | 所有后续删除的共同前置 | 缺/旧/假 manifest 在 java-ready 下不可绕过 |
+| VS-1 求值顺序 | JE-04 + JE-08：循环/条件副作用、byref/out 读回与 out-var 作用域 | 已有死循环与条件读回实证；C# 编译器和 B 路可直接验证 | Loops 与 Conditionals 被指认 JM 分支 retire，红绿行为夹具全绿 |
+| VS-2 struct 值拷贝 | JE-10：共享 ValueCopyFacts、补齐槽位、声明/调用点同计划 | 已有 preprocess 机制，迁移成本低于新造 pass；可消除双实现 | Java 不再决定拷贝站点，仅渲染 copy 调用；alias/ref/override 反例全绿 |
+| VS-3 调用形状 | JE-09：delegate Invoke/方法组/可选命名参数/params/泛型推断显式化；JE-01 闭型消费按依赖并行 | 直接收缩巨型 Invocation 枢纽中的 C# 语义分支，且不触碰纯 BCL 映射 | 被指认 JM 分支 retire；BCL 映射行数不作为“瘦身”伪造收益 |
+| VS-4 集合与转换 | JE-02 先行；JE-03 按 array/list、IEnumerable、Span、IGrouping 分族验收 | 732 行后处理与适配网收益大，但开放世界风险也最大 | 每个形状族独立 guaranteed→retire；不得一次声明整个 coercion 网可删 |
+| VS-5 泛型纵深 | R0~R10 未完成项与其余 JE | 继续作为任意泛型密集库基础能力 | 按原 V/S/W/G 门与四路差分退场 |
+
+`condition-effect-linearize` 与 `collection-shape-normalize` 不再是“一个大开关覆盖全部形状”的候选 mega-pass：前者复用统一 `EvaluationOrderFacts` 按循环、if/短路、byref/out 分规则开启；后者按转换族分别登记 capability 与残差。未证明的形状继续走原路径，不阻断已证明切片退休。
 
 ---
 
 ## 1. 文档定位与阅读路径
 
-- 本文件是 `docs/preprocessor-upgrade-plan.md`（2026-11-01 版，下称"v1 方案"）的**泛型专题续篇**；本文档自身的 2026-11-04 首版称"v1 版"，v2 刷新版后依次为 v3/v4/v5，本次版本称 **v6**。v6 相对 v5 的变更（**主题：面向 Java 侧净简化的回灌**）：①基线刷新至 HEAD `8268251a`（52 pass 不变；v5 后 15 提交＝2 预处理+13 Java/compat，GenericPreprocess/ClosedMetadata/Preprocessing 零提交；V/S/W 复核时点 a60afc75，定稿时新增的 8268251a 为 J-02 再添实证），V-01..V-08/S-01..S-08/W-01..W-16 共 32 条**逐条代码复核仍成立**，S-05 细化（`BuildConstraintClauses` 初版即在且已接线，但不滤未携带形参/仍按名匹配/无约束闭包，`LocalFunctionLiftRewriter.cs:535,760-779`）、V-04（`GenericDeepenRewriter.cs:734-745`）/V-08（`:978-1002`，类型参数兜底 `null` 在 `:1002`）/V-07（Java `RuntimeClassName` 对 ITypeParameterSymbol 返回 null，`:69-70`；as 兜底 `:800`）/W-01（`PassChainFactory.cs:485,515-519`）行号订正、W-03 订正为**一码四义**（+`ExtensionBlockDiagnostics.cs:57`）、S-03 的 HolderSyntaxGenerator 路径订正（实为 `Core/ClosureLift/HolderSyntaxGenerator.cs:70-76`，非 `Lift/` 子目录）；②新增 **§3.5 Java 承接复杂度普查**与**层面 J（J-01~J-07）**、缺口 **G-33~G-39/W-15/W-16**（§5）、不变量 **I10**（§6.1）；③新增 **R11 JE-01~07 吸收规则族**（§6.4）与两个候选新 pass（插入序 §6.5）、探针 21→23 码（§6.3）；④L2 增 **Java 侧净简化对账门**（§6.6）、§7.1-8 对账指标与样例行、M0/M3 波次与风险 18/Q14/Q15 联动、附录 B 补证、新增**附录 H Java 复杂度普查底册**。v5 相对 v4 的变更：**吸收 kimi 3.1 pro 版的设计层与论断增量**（v2 仅吸收其论断层，逐项核证见附录 D）——§0/§5 新增 **W-11~W-14/G-28~G-32** 五项框架缺口（两入口 profile×disable 分裂、源生成器输出未物化、消费面 guard 无执行时序、项目边界丢失、ABI 变更无清单）；§6.4 R0 增 GD-MTOK 可见性分级/TypeParameterId 声明 owner/holder 并发证明/计数器与事实源修正；R3 增 execution kind 与 CM-LINK-3；新增 **R9（源生成器物化）/R10（ApiManifest 与 ABI diff）**；§6.3 探针 19→21 码；§6.1 增 I9；§6.6 L1/L2 增逐项目 compilation 终态与 ABI 门禁；§7.1-3 行为反例 12→16 类、§7.1-5/6 样例与指标增行、§7.0 增 per-TFM 纪律；§8.1/§8.2 波次与风险/Q13 对应更新。v4 相对 v3 的变更：**吸收 deepseek 1017 版的设计层**（v2 仅吸收其论断层）——§6.4-R2 收录 CN-01~12 全表与 GD-MTOK-2 触发集、R3 补消费面三 profile 与 CM-ENUM-5/6、CM-LINK-2、CM-STRICT 及单 pass bind 修复、R4/R7/R8 收录 VR/GI/EB 与状态机残余规则表并落三规则族 pass 化（generic-intrinsic-lower / variance-use-site-normalize / generic-reflection-audit）、§6.5 扩为完整插入序与兼容性细则、§6.3 增 VARIANCE-USE 探针（18→19 码）与测试工程双 policy/报告 schema 条目、§7 增验收命令（§7.0）与指标矩阵/一致性测试（§7.1-6/7）、新增附录 E（GC-01~35 构造登记目录）/F（报告 schema）/G（一页纸执行清单）。v3 相对 v2 的变更：**json 主语料更换为 `D:\runtime-10.0.12` Runtime 10 真源**（旧语料确认为 .NET 3.x 时代 STJ，v2 全部 json 运行数据降级为旧语料历史基线，§3.2.1）；静态普查按真源重测（§3.2.2，泛型密度 2-7× 放大）；新增 **W-09**（compat 注册表签名漂移，ToUtf8 条目在 rt10 零匹配）与 **W-10**（csproj 门控 Compile/外部共享源 → L1 硬前置）两项缺口及修复项；§5 增补 G-25/G-26；验收 json 口径切换至 rt10（§7.1）。v2 相对首版的变更：基线 48→52 pass、json 2 失败→0 失败、新增 V/S/W 三层缺口体系（替代单一的 G 矩阵结论）、YamlDotNet 推测画像→实测、吸收四份同行方案经核证增量（附录 D 全量对照）。
+- 本文件是 `docs/preprocessor-upgrade-plan.md`（2026-11-01 版，下称"v1 方案"）的**预处理能力升级主方案**；首版聚焦泛型，本次 **v7** 扩展为“JCS-1 规范子集 + 两阶段能力握手 + Java 补偿退休”。v7 相对 v6 的核心增量：①新增 §0.1 总纲与 JCS.WORKSPACE/SYMBOL/CALL/EVAL/VALUE/GENERIC/CONVERSION/CLOSURE 八族后条件；②新增 R12 manifest、R13 最终树语义闭包与共享事实、R14 五态退休协议、R15 JE-08~JE-10；③修订 I10 与实施边界，按垂直切片而非巨型 M3 交付；④探针扩至 26 码、报告升版并新增复杂度/覆盖/hit 对账；⑤将 `--no-preprocess` 的 java-ready 绕过列为硬修复项。更早历史保留如下：v6 相对 v5 的变更（**主题：面向 Java 侧净简化的回灌**）：①基线刷新至 HEAD `8268251a`（52 pass 不变；v5 后 15 提交＝2 预处理+13 Java/compat，GenericPreprocess/ClosedMetadata/Preprocessing 零提交；V/S/W 复核时点 a60afc75，定稿时新增的 8268251a 为 J-02 再添实证），V-01..V-08/S-01..S-08/W-01..W-16 共 32 条**逐条代码复核仍成立**，S-05 细化（`BuildConstraintClauses` 初版即在且已接线，但不滤未携带形参/仍按名匹配/无约束闭包，`LocalFunctionLiftRewriter.cs:535,760-779`）、V-04（`GenericDeepenRewriter.cs:734-745`）/V-08（`:978-1002`，类型参数兜底 `null` 在 `:1002`）/V-07（Java `RuntimeClassName` 对 ITypeParameterSymbol 返回 null，`:69-70`；as 兜底 `:800`）/W-01（`PassChainFactory.cs:485,515-519`）行号订正、W-03 订正为**一码四义**（+`ExtensionBlockDiagnostics.cs:57`）、S-03 的 HolderSyntaxGenerator 路径订正（实为 `Core/ClosureLift/HolderSyntaxGenerator.cs:70-76`，非 `Lift/` 子目录）；②新增 **§3.5 Java 承接复杂度普查**与**层面 J（J-01~J-07）**、缺口 **G-33~G-39/W-15/W-16**（§5）、不变量 **I10**（§6.1）；③新增 **R11 JE-01~07 吸收规则族**（§6.4）与两个候选新 pass（插入序 §6.5）、探针 21→23 码（§6.3）；④L2 增 **Java 侧净简化对账门**（§6.6）、§7.1-8 对账指标与样例行、M0/M3 波次与风险 18/Q14/Q15 联动、附录 B 补证、新增**附录 H Java 复杂度普查底册**。v5 相对 v4 的变更：**吸收 kimi 3.1 pro 版的设计层与论断增量**（v2 仅吸收其论断层，逐项核证见附录 D）——§0/§5 新增 **W-11~W-14/G-28~G-32** 五项框架缺口（两入口 profile×disable 分裂、源生成器输出未物化、消费面 guard 无执行时序、项目边界丢失、ABI 变更无清单）；§6.4 R0 增 GD-MTOK 可见性分级/TypeParameterId 声明 owner/holder 并发证明/计数器与事实源修正；R3 增 execution kind 与 CM-LINK-3；新增 **R9（源生成器物化）/R10（ApiManifest 与 ABI diff）**；§6.3 探针 19→21 码；§6.1 增 I9；§6.6 L1/L2 增逐项目 compilation 终态与 ABI 门禁；§7.1-3 行为反例 12→16 类、§7.1-5/6 样例与指标增行、§7.0 增 per-TFM 纪律；§8.1/§8.2 波次与风险/Q13 对应更新。v4 相对 v3 的变更：**吸收 deepseek 1017 版的设计层**（v2 仅吸收其论断层）——§6.4-R2 收录 CN-01~12 全表与 GD-MTOK-2 触发集、R3 补消费面三 profile 与 CM-ENUM-5/6、CM-LINK-2、CM-STRICT 及单 pass bind 修复、R4/R7/R8 收录 VR/GI/EB 与状态机残余规则表并落三规则族 pass 化（generic-intrinsic-lower / variance-use-site-normalize / generic-reflection-audit）、§6.5 扩为完整插入序与兼容性细则、§6.3 增 VARIANCE-USE 探针（18→19 码）与测试工程双 policy/报告 schema 条目、§7 增验收命令（§7.0）与指标矩阵/一致性测试（§7.1-6/7）、新增附录 E（GC-01~35 构造登记目录）/F（报告 schema）/G（一页纸执行清单）。v3 相对 v2 的变更：**json 主语料更换为 `D:\runtime-10.0.12` Runtime 10 真源**（旧语料确认为 .NET 3.x 时代 STJ，v2 全部 json 运行数据降级为旧语料历史基线，§3.2.1）；静态普查按真源重测（§3.2.2，泛型密度 2-7× 放大）；新增 **W-09**（compat 注册表签名漂移，ToUtf8 条目在 rt10 零匹配）与 **W-10**（csproj 门控 Compile/外部共享源 → L1 硬前置）两项缺口及修复项；§5 增补 G-25/G-26；验收 json 口径切换至 rt10（§7.1）。v2 相对首版的变更：基线 48→52 pass、json 2 失败→0 失败、新增 V/S/W 三层缺口体系（替代单一的 G 矩阵结论）、YamlDotNet 推测画像→实测、吸收四份同行方案经核证增量（附录 D 全量对照）。
 - v1 方案的 §5.3 Pass Contract v2、§5.9 性能层、M5 波次继承不变；其"42 pass"表述按 52 刷新。
-- §2 现状全景；§3 需求模型+双语料实证（**[v6] §3.5 Java 承接复杂度普查**）；§4 逐 pass（52 个，含泛型交互修正）；§5 缺口矩阵（G-01~G-15 修正 + G-16~G-27 + **G-28~G-32 v5 + G-33~G-39 v6**）；§6 升级设计；§7 验收（含 §7.0 命令、§7.1-6 指标矩阵、**§7.1-8 [v6] Java 侧净简化对账**）；§8 波次与风险；附录 A 诊断码 / B 证据 / C 边界 / D 同行方案对照 / E 泛型构造登记目录 / F 报告 schema / G 一页纸执行清单 / **H [v6] Java 复杂度普查底册**。
-- 代码引用以复核时点 HEAD `a60afc75` 为准（当前 HEAD `8268251a` 仅多一个 Java codegen 提交，V/S/W 证据文件与行号不受影响）；历史引用的 `6b57a210`/`7e575512` 行号在本版已逐条复核或订正；`src/CSharpToJava.Core/` 省写为 `Core/`，`src/CSharpToJava.CLI/` 省写为 `CLI/`，`java/csharptojava-compat/src/main/java/io/github/ningpp/compat/` 省写为 `compat/`。
+- **先读 §0.1 的 v7 主方案**；§2 现状全景；§3 需求模型+双语料实证与 Java 复杂度普查；§4 逐 pass；§5 缺口矩阵（至 **G-44**）；§6 升级设计（R0~R15，**R12~R15 是 v7 主路径**）；§7 验收；§8 垂直切片波次与风险；附录 A 诊断码 / B 证据 / C 边界 / D 历史方案对照 / E 泛型构造目录 / F 报告与 manifest schema / G 执行清单 / H Java 复杂度底册。
+- v6 的 V/S/W 代码引用保留其复核时点 `a60afc75`/`8268251a`；**v7 新增事实按 HEAD `a1cb6633` 复核**，包括 `Program.cs:239-246`、`StatementTransformer.Conditionals.cs:373-433`、`StructValueSemanticsAnalyzer.cs:77`、`StructCloneHelper.cs:100-180` 与 `InvocationExpressionTransformer.cs:790-924`。历史行号只作定位证据，退休对账改用稳定 JM-ID；`src/CSharpToJava.Core/` 省写为 `Core/`，`src/CSharpToJava.CLI/` 省写为 `CLI/`，`java/csharptojava-compat/src/main/java/io/github/ningpp/compat/` 省写为 `compat/`。
 
 ---
 
@@ -446,7 +522,7 @@ v1 首版结论不变（static abstract/自声明型变/泛型 attribute/`allows
 
 **attribute-normalize**（`Core/AttributeNormalize/`）
 - 输入：`Caller*` 调用点、JSON/序列化/PInvoke 属性盘点。输出：注入 `Caller*` 实参、属性清单。
-- 泛型交互：属性参数 `typeof(X<>)` 取泛型定义裸类名（`KnownAttributeCatalog.cs:441`）。缺口 G-08：泛型 attribute 降级归 P1-R3（expression-desugar 0587 只守门不降级）。**[v2]** 审计只挂 TPA 引用（AN004 NuGet 黑洞）且盘点不落 JSON——归 L1/报告 v1.1。
+- 泛型交互：属性参数 `typeof(X<>)` 取泛型定义裸类名（`KnownAttributeCatalog.cs:441`）。缺口 G-08：泛型 attribute 降级归 P1-R3（expression-desugar 0587 只守门不降级）。**[v2]** 审计只挂 TPA 引用（AN004 NuGet 黑洞）且盘点不落 JSON——归 L1/报告 v2。
 
 **member-desugar**（`Core/MemberDesugar/`）
 - 输入：属性/索引器/事件/运算符/finalizer/签名/`field` 关键字/record `with/init/required`。输出：backing field + 显式方法/成员。
@@ -618,7 +694,7 @@ v1 表继续有效，增补：`_Cs2jGenericHolders.<Project>.cs`（GD-FIELD hold
 ---
 
 
-## 5. 缺口矩阵（G-01~G-15 修正 + G-16~G-24 新增 + G-25~G-27 v3 增补 + G-28~G-32 v5 增补 + G-33~G-39 v6 增补）
+## 5. 缺口矩阵（G-01~G-15 修正 + G-16~G-24 新增 + G-25~G-27 v3 + G-28~G-32 v5 + G-33~G-39 v6 + G-40~G-44 v7）
 
 > 威胁形态：T1=Java 编译失败、T2=单元测试行为错误（隐性最危险）、T3=能力空白需域决策、T4=低危观测。v2 对 v1 行的**状态修正**以 ← 标注；新行 G-16 起为 v2 新增（来源标注 D/K/L/S = deepseek/kimi/longcat/seed 方案）。
 
@@ -672,8 +748,13 @@ v1 表继续有效，增补：`_Cs2jGenericHolders.<Project>.cs`（GD-FIELD hold
 | G-37 | **BCL 重载决议/值语义差异逐案 Java 补丁**（J-05：string.Concat 展平/checked IO/Decimal 尾零/bean getter，一案一 commit） | Java 侧特判 + compat | **[v6]** JE-05：高频族条目化进 compat-method-replacement 式注册表（保守，M4 决策），不做通用重载重写 | T2/T4 |
 | G-38 | **fail-fast 口径分裂、探针底册漂移**（J-06/W-16：15 统一门 + 54 裸 throw；42 旧口径不可复现） | 框架（L0） | **[v6]** JE-06：裸 throw 分类归一（预处理责任 vs IR 不支持），盲区巡逻按新底册（附录 H）重测 | T3/T4 |
 | G-39 | **预处理生成物反向依赖 Java 逐名特判**（J-07：tuple `EqualityComparer<T>.Default.*`→Objects.* 硬编码；生成形状漂移曾破 Java（2aa7aa8f）） | Java 调用渲染特判 | **[v6]** JE-07：生成物改发 Cs2jPrelude 中立 helper，剩余隐含契约登记进 R10 api-manifest，加生成物×特判一致性测试 | T2 |
+| G-40 | **预处理结果无版本化能力握手，已有树可绕过 profile**（`Program.cs:239-246`：`--no-preprocess` 遇 java-ready/audit 仅 Warning 并忽略 profile；报告只记录 pass，不记录最终树 capability/inputHash，转换器无法知道哪个兜底可删） | 框架 + 转换入口 | **[v7]** R12：JCS-1 + `preprocess-manifest.json` + JM-ID；java-ready 下缺/旧/假 manifest 硬失败，default 原始树标 unverified | T2 |
+| G-41 | **早期消除不等于最终树消除**（52 pass 串行生成新形状，R5 只把晚期重排列为开放决策；最终 normalization-audit 与具体能力声明之间无守恒关系） | 框架/链编排 | **[v7]** R13：最终树语义闭包、Produces→owner 守恒、按能力 finalizer；能力只按最终树授予 | T2 |
+| G-42 | **共享语义事实双实现与反向依赖**（`StructValueSemantics/ValueCopyFacts.cs:11` 自述移植 `StructCloneHelper`；`StructValueSemanticsAnalyzer.cs:77` 又直接调用 Transformers 侧 helper） | preprocess ↔ Transformers 双向耦合 | **[v7]** R13/JE-10：事实唯一实现上移 `Core/Analysis`；先消灭重复决策，再删除 Java 拷贝站点判断 | T2/T4 |
+| G-43 | **byref/out 条件的求值顺序与 out-var 作用域仍在 Java 发射层修复**（`StatementTransformer.Conditionals.cs:373-433`：短路逐操作数 temp/read-back、悬挂 post-statement、if 前读回；超出 v6 JE-04 的属性 ++/-- 范围） | Java StatementTransformer | **[v7]** JE-08：纳入 EvaluationOrderFacts 与 JE-04 同一切片；C# 侧规范形 + 短路/异常/作用域反例 | T2 |
+| G-44 | **调用形状决策集中在巨型 Java 调用枢纽**（`InvocationExpressionTransformer.cs:790-924` 等同时处理生成物 comparer、方法组、隐式 delegate Invoke；另有大量纯 BCL 映射，不能一概前移） | Java Invocation transformer + 既有 delegate/strip-default/extension pass 未形成统一后条件 | **[v7]** JE-09：只前移 C# 调用决议与形状，BCL/compat 映射保留 Java；按 JM-ID 分支退休，不以整文件行数作目标 | T1/T2 |
 
-矩阵结论（v6，在 v2 三条上 v3 增补第四条、v5 增补第五条、v6 增补第六条）：
+矩阵结论（v7，在 v2 三条上 v3/v5/v6/v7 各增补一条）：
 
 1. **T2 仍是主威胁**，且 v2 新增了 T1 级别的合成层缺口（G-09/G-13/G-16/G-18）——错误提前到 C# 中间树/链执行阶段爆发。
 2. **"已接"需要重新定义**：v1 的"已接"= 机制存在；v2 起要求"机制存在 + 无正确性缺陷 + 残差可对账"（G-02a/G-03/G-09/G-13 四行的修正是本次最重要的认识更新）。
@@ -681,6 +762,7 @@ v1 表继续有效，增补：`_Cs2jGenericHolders.<Project>.cs`（GD-FIELD hold
 4. **[v3] 语料真实性是第 0 类缺口**：v2 的运气成分比想象的更大——json 语料本身是 3.x 时代布局（G-25 的签名漂移、V-05 键分裂面 63 vs 452、`new()` 约束 1 vs 18 全部因此被低估）。任何"已接"结论在语料换代（3.x→10）后必须以真源重验，本条同时是附录 C"不为单一语料写死特判"的反向纪律：**也不允许单一旧语料固化机制**（compat 条目按旧签名拟合即此病）。
 5. **[v5] 框架层缺口与泛型规则缺口同等威胁 java-ready 语义**：G-28~G-32 表明"profile 成功"当前还依赖 CLI 入口选择（W-11）、树是否包含生成源码（W-12）、消费是否延迟执行（W-13）、项目边界是否被合并抹平（W-14a）、签名改写是否有账可查（W-14b）。kimi 的"profile 名称本身不是完整证明"论断经核证成立——这些缺口不修，泛型规则层的清零结论仍可被框架层的静默放行抵消。
 6. **[v6] "0 失败"之后，主战场是 Java 转换器内的 C# 语义模拟器**（G-33~G-39/J 层）：v5 后 14 个提交证明该模拟器仍以每周数个补丁的速度增长，其中最脆弱的部分（渲染后文本手术、文本层控制流线性化）恰恰是预处理侧有符号、可编译验证、可差分却缺位的形状。能力层立项标准由此增加一条反向证据（I10）：**新规则必须同时给出"消除哪个 Java 机制"的指认与负 diff 验收**——否则扩能力只增加中间树复杂度，不兑现"简化转译"的总目标。
+7. **[v7] 没有能力握手与退休协议，负 diff 仍不可执行**（G-40~G-44）：`--no-preprocess` 可绕过 profile，早期 pass 无法证明最终树，值拷贝事实已出现双实现，Conditionals/Invocation 仍在 Java 侧做 C# 语义决策。v7 因此把“已接”再升级为：**最终树 guaranteed + 转换器校验握手 + 指认 JM 分支 retire + 总复杂度无同构搬迁**。行数只作辅助，不再单独代表简化。
 
 ---
 
@@ -693,31 +775,40 @@ v1 首版 I1-I6 全部继承（I1 每中间树可编译 / I2 可测试 / I3 无�
 - **I7 补偿正确性**：GD-FIELD/CM 等既有补偿机制的输出必须满足规范形（per-closed-type 恰一份、readonly 至多初始化一次、声明类型 cctor 先于首读、异常按 CLR 模型缓存重抛、生成成员不重复）——通过 §6.4-R0 的 `StaticGenericStatePlan` 与行为反例测试锁定。
 - **I8 合成保真**：任何提升/合成族 pass 产出的 C# 必须携带源约束与 arity（统一解析器出口校验），CS0246/CS0308/CS0453 类中间树错误归零。
 - **I9 框架一致性 [v5]**：同名 profile/开关在所有 CLI 入口语义一致（W-11）；预处理输入树包含 csproj 求值所得的全部编译输入（含源生成输出，W-12/R9）；对公开签名的任何改写都在 `api-manifest.json` 中可对账（W-14b/R10）——java-ready 的成立不依赖入口选择、树组织方式或"无账可查的签名改写"。
-- **I10 Java 侧净简化导向 [v6]**：L3 能力层**新增/扩展的每条改写规则必须在立项时指认一个被消除的 Java 侧机制**（文件:行号或 compat 入口，附录 H 底册），并在验收时证明该机制在目标语料上成为死代码（对应 Java 分支不可达/删除后转换产物逐字节或测试等价）；指认不出 Java 侧机制的规则不予立项（纯 C# 可编译性修复与 M0 正确性项不受此限）。配套度量：每波次报告 Java transformer/compat 与被简化机制相关的**净行数变化**（允许持平，不允许以"预处理扩了、Java 没瘦"结案）。
+- **I10 Java 侧净简化导向 [v6，v7 修订]**：**JE/JCS 减负规则**在立项时必须指认稳定 JM-ID、所需 capability 与退休验收；落地时完成对应 Java 分支删除/收缩，或登记有到期波次的覆盖冻结。M0 正确性修复、通用 C# 语法覆盖、框架/审计/性能工作**不强制寻找可删 Java 代码**，但不得新增下游语义补偿；不得仅因“没有行数可删”否决必要正确性工作。每波次同时报告 Java、preprocess、compat、共享 Analysis 的复杂度变化，防止把同一决策原样搬家。
+- **I11 JCS 能力可信 [v7]**：能力只由最终 C# 树后条件授予，不由“某 pass 执行过”推断；manifest 的 subsetVersion、capability、inputHash、contractHash 必须与实际输入一致。java-ready 的所有入口（含 `--no-preprocess`）都执行同一校验，无法校验即失败。
+- **I12 单一语义 owner [v7]**：每类 C# 语义决策只有一个实现和一个结果 owner。preprocess 不得引用 `Transformers` 获取事实，Java 不得对已 guaranteed 构造重新推断；共享事实只放 `Core/Analysis`。BCL→compat 映射、Java 命名与发射始终归 Java，不为追求删行数而倒置职责。
+- **I13 最终树语义闭包 [v7]**：`Consumes/Produces/MayLeave/Owners` 必须形成守恒；任何晚期生成构造要么被后续 finalizer 接管，要么成为残差。能力审计在最后命名与所有结构生成之后运行，禁止用早期 0 残差掩盖晚期再生。
+- **I14 可逆退休 [v7]**：每个 Java 补偿分支按 inventory/shadow/enforce/retire/ratchet 迁移；enforce 前保留可回滚路径，enforce 后命中旧分支即失败，retire 后以测试禁止同义实现回流。冻结只覆盖明确残差，不得作为默认终态。
+- **I15 总复杂度与行为双重不回归 [v7]**：同时度量目标 Java 分支数/命中数、preprocess 与 compat 增量、共享事实重复数、残差率、构建/测试行为。Java 行数下降但决策表复制到 preprocess、compat 变厚或测试数下降，均不算完成。
 
-### 6.2 五层总览与优先级重排
+### 6.2 目标层 + 五层执行（v7 重排）
 
 ```text
-M0 止血（先于一切扩能力）：V-01..V-08 缺陷修复 + S-03/04/05 最小修复（S-05 按 v6 三残留细化修）+ W-01/W-04 接线 + W-03 撞号迁移（四义）
-                          + [v3] W-09 compat 漂移修复 + W-10 rt10 基线重跑与 Compile 求值最小接线
-                          + [v5] W-11 两入口统一 + 计数器口径拆分 + GD-MTOK 可见性分级/TypeParameterId
-                            owner 身份/holder 并发证明/计划原子提交（R0 v5 项，原地不动顺序）
-M1 契约与审计：L0 探针族（23 码）+ PassContract 泛型族挂载 + 报告 v1.1（互链/统计/引用画像）
-                          + [v6] JE-06 fail-fast 底册归一（54 裸 throw 分类）入盲区巡逻
-M2 编译层：L1 真实引用 spine + degraded 显式化（W-10 完备化在此收口）+ [v5] R9 源生成物化最小接线
-M3 能力层：S 层统一解析器 + v1 P1-R1~R8 + 消费面配置化（+execution kind/CM-LINK-3）+ G-02c/R2 扩面
-          + [v4] 三新 pass 化（generic-intrinsic-lower/variance-use-site-normalize/generic-reflection-audit）
-          + [v5] R10 ApiManifest/ABI diff + 逐项目 compilation 决策（Q13）
-          + [v6] **R11 JE 吸收族**：JE-01 闭型消费扩面 / JE-02 集合一致性 C# 桥接 / JE-03+JE-04
-            两候选新 pass / JE-07 生成物中立化——每条附 Java 负 diff（I10）
+目标层 JCS-1：§0.1.1 八族最终树后条件 + §0.1.2 职责分界
+            输出 preprocessed C# + preprocess-manifest + api-manifest + residual/complexity ledger
+            只有 guaranteed capability 能授权 Java JM 分支退休
+
+M0 止血（先于扩能力）：V-01..V-08 + S-03/04/05 + W-01/W-04 + W-03 撞号迁移
+                          + W-09/W-10/rt10 基线 + W-11 两入口统一 + R0 正确性项
+M1 契约与审计：L0 探针族（26 码）+ PassContract 泛型族挂载 + 报告 v2（互链/统计/引用画像）
+                          + JE-06 fail-fast 底册 + [v7] R12 manifest/JM 底账 + R14 退休协议
+M2 编译与共享事实：L1 真实引用 spine + degraded 显式化 + R9 源生成物化
+                          + [v7] R13 最终树语义闭包 + Core/Analysis 单一事实实现
+M3 垂直切片能力层：[v7] VS-1 求值顺序（JE-04/08）→ VS-2 struct 值拷贝（JE-10）
+                          → VS-3 调用形状（JE-09，JE-01 按依赖并行）→ VS-4 集合分族（JE-02/03）
+                          每片独立 shadow/enforce/retire，不等待整个泛型 backlog
+          泛型纵深轨道：R1~R10 + JE-05/06/07 继续按依赖交付，作为 VS-5；只阻塞真实依赖切片
 M4 域决策：static abstract / 运行时合成 / Expression / 型变域（DeclaredUnsupported 或立项）
-          + [v6] JE-05 BCL 重载条目化（Q14）+ 两候选 pass 排序（Q15）
+                          + JE-05 BCL 条目化（Q14）+ 剩余形状族与晚期顺序裁决（Q15）
 M5 性能：统一树默认 + 增量 + 选择性 verify + 文档自动生成（descriptor+contract → preprocessor-matrix.md）
 ```
 
+**v7 排程原则**：M0/M1/M2 只交付对应切片的必要前置，不要求“所有泛型工作完成”才启动 VS-1；M3 的退场单位是 VS 而非整个规则包。某个形状族被卡住时保持 `partial` 并冻结相应 JM 分支，其他已 guaranteed 形状仍可退休。
+
 ### 6.3 L0 契约层：探针族、诊断段、撞号迁移
 
-**探针族扩容**（合并 v1 首版 9 码与 seed 方案 12 码，两套几乎互补；统一命名 `NORM-GENERIC-*`，除注明的沿用 v1；v5 增 2 码至 21，**v6 再增 2 码至 23**——新增两条非泛型域的"Java 回灌"探针 COLLECTION-SHAPE/CONDITION-EFFECT，因其与 JE 规则族同族立项；kimi 的 REFLECTION-QUERY/MEMBER-METADATA 语义并入 REFLECT 扩域、SOURCE-GENERATOR/PUBLIC-ABI 独立成码）：
+**探针族扩容**（合并 v1 首版 9 码与 seed 方案 12 码，两套几乎互补；统一命名 `NORM-GENERIC-*`，非泛型 JCS 构造使用 `NORM-*`；v5 增至 21、v6 增至 23，**v7 再增 3 码至 26**：CALL-SHAPE/VALUE-COPY/SEMANTIC-CLOSURE；CONDITION-EFFECT 同步扩到 JE-08 的 byref/out 条件序列）：
 
 | Code | 扫描形状 | Owner | 初期 Policy | 来源 |
 |------|---------|-------|------------|------|
@@ -743,17 +834,20 @@ M5 性能：统一树默认 + 增量 + 选择性 verify + 文档自动生成（d
 | NORM-SOURCE-GENERATOR | 生成源码缺失/重复/过期/归属不明（generator 未执行、inputHash 不一致、生成器本体混入分析树） | 框架（L1/R9） | Fail | K |
 | NORM-PUBLIC-ABI | manifest 外的公开签名变化（未登记的 tail-param/promote/stub/bridge/rename）；manifest 内 `pending` 未批准条目 | 框架（R10） | Fail（java-ready 下） | K |
 | NORM-COLLECTION-SHAPE [v6] | 跨形状隐式转换站点（数组/IList/IEnumerable/Span/IGrouping 互转，实参/返回/赋值槽位）未被 `collection-shape-normalize` 显式化（JE-03 残留；与 IListCoercion/IterableCoercion 分支一一对照建底册） | collection-shape-normalize（M3 候选） | PreserveAndWarn→Fail | J-03 |
-| NORM-CONDITION-EFFECT [v6] | 条件位置（while/for/do/if/`?:`）含副作用表达式（属性/索引器/字段自增、丢弃赋值、out 实参、触发读改写的调用）未线性化（JE-04 残留；a2d3a6f0 死循环为红测原型） | condition-effect-linearize（M3 候选） | PreserveAndWarn→Fail | J-04 |
+| NORM-CONDITION-EFFECT [v6/v7] | 条件位置（while/for/do/if/`?:`/短路链）含副作用表达式、ref/out 实参或悬挂读回未线性化；含 out-var 跨 if 作用域（JE-04/JE-08 残留） | condition-effect-linearize + ref-out-in（共享 EvaluationOrderFacts） | PreserveAndWarn→Fail | J-04/G-43 |
+| NORM-CALL-SHAPE [v7] | 已选 JCS.CALL 形状仍依赖 Java 猜 callee/调用形状：隐式 delegate Invoke、未定型方法组、命名/可选/params 实参、需显式化的泛型实参；纯 BCL 映射不计残差 | delegate/strip-default/extension-methods + 最终 call-shape 审计 | PreserveAndWarn→Fail | G-44 |
+| NORM-VALUE-COPY [v7] | 用户 struct 值拷贝槽位无 copy、无免拷证明且未 DeclaredUnsupported；copy shim 与调用点计划不一致；preprocess 仍调用 Transformers 侧事实即契约测试失败 | struct-value-semantics + Core/Analysis ValueCopyFacts | PreserveAndWarn→Fail | G-42 |
+| NORM-SEMANTIC-CLOSURE [v7] | 最终树出现由晚期 pass 再生成、但无后续 owner/finalizer 的已登记构造；Produces 与最终残差不守恒 | 框架（最终语义闭包） | Fail（对应 capability 请求 guaranteed 时） | G-41 |
 
-配套纪律（吸收四方案）：
+配套纪律（吸收四方案，v7 增补能力授予）：
 
 1. **每码正/负 fixture 成对**（触发/不触发）；`PassContractConsistencyTests` 的计数断言改为**对常量集的派生断言**（每加码不改数）。
 2. **degraded 探针口径**：纯语法可判的探针不依赖绑定；需符号的探针在绑定失败时标 `degraded`、**不得计为 0 残差**（防 L1 未覆盖时假阴性）。
-3. **CS2J14xx 新诊断段**（1401 token/1402 static/1403 值语义/1404 型变/1405 闭型/1406 反射/1407 内在函数/1408 桥接/1409 不支持域）；**撞号迁移**：CS2J1203 保留给 closed-metadata，extension-methods 迁 19xx、thread-static 迁 16xx，报告留 `legacyCode` 一个版本；12xx/13xx 撞段一并消歧。
+3. **CS2J14xx 新诊断段**（1401 token/1402 static/1403 值语义/1404 型变/1405 闭型/1406 反射/1407 内在函数/1408 桥接/1409 不支持域；**[v7]** 1410 manifest/入口握手失败、1411 call-shape、1412 value-copy、1413 semantic-closure）；**撞号迁移**：CS2J1203 保留给 closed-metadata，extension-methods 迁 19xx、thread-static 迁 16xx，报告留 `legacyCode` 一个版本；12xx/13xx 撞段一并消歧。
 4. **`SYNTH-*` 内部构造命名空间**（SYNTH-token-anchor/SYNTH-generic-holder/SYNTH-ctor-class-token）：生成物只进 Produces/跨 pass 校验，不进 NORM 审计。
-5. PassContract 三步推广：M1 挂泛型族四 pass + 残差相关的 local-function-lift/ref-out-in/foreach-deconstruction/linq-channel；M2 补产物类 `Produces`（跨 pass 顺序依赖可机检，如 tuple→foreach-deconstruction 的 5420 关系变 Precondition）；M3 全量 + 注册期四校验（MayLeave owner 在链中且在其后、每 NORM 码恰一 owner、Postconditions 构造 ID 存在、Idempotent=true 必有幂等测试）+ `VerificationProfile` 字段补齐。
+5. PassContract 三步推广：M1 挂泛型族四 pass + 残差相关的 local-function-lift/ref-out-in/foreach-deconstruction/linq-channel；M2 补产物类 `Produces`（跨 pass 顺序依赖可机检，如 tuple→foreach-deconstruction 的 5420 关系变 Precondition）；M3 全量 + 注册期四校验（MayLeave owner 在链中且在其后、每 NORM 码恰一 owner、Postconditions 构造 ID 存在、Idempotent=true 必有幂等测试）+ `VerificationProfile` 字段补齐。**[v7]** 增加 `CapabilityIds` 与 `Phase/FinalizerFor` 元数据（可独立小步扩展，不另建平行 contract）；`PassCatalog`/`PassStubCatalog` 先统一 ID 事实源，contractHash 由规范化后的 contract 计算。
 6. **测试工程双 policy 显式化**（[v4] 吸收 deepseek §6.5）：泛型探针在测试工程（`ProjectKind.Test`）默认 `PreserveAndWarn`、`--strict-tests` 时与生产一致（生产恒 Fail）——json 37×1101 集中在测试工程、Yaml 行为预言机依赖测试工程可跑，双 policy 是"行为预言机"与"Java 产物门禁"两类目标的显式分离（风险 13 的设计化承接，沿用 unsafe-ffm UF050 测试工程降级先例）。
-7. **报告 schema v1.1 定稿**（[v4]，全文见附录 F）：`preprocess-report.json` 增加 per-pass `generic.constructs` 计数（按附录 E GC-ID 聚合）与 `residuals[]` 六字段（code/file/line/owner/policy/reason）；`generic-reflection-audit` 产出独立 `generic-reflection-report.json`；报告无时间戳、字段排序确定（§7.1-1 幂等验收依赖）。
+7. **报告 schema v2 定稿 [v7 升版]**（附录 F）：保留 per-pass constructs 与六字段 residual，新增 JCS capabilities、manifest 引用、JM 退休状态、fallback hits、preprocess/compat/Analysis 复杂度增量；`preprocess-manifest.json` 独立承载握手。所有报告无时间戳、字段排序确定；`guaranteed` 必须由最终树 residual=0、degraded=0、必需 finalizer 已执行三项派生，禁止手写。
 
 ### 6.4 L3 能力层（规则族）
 
@@ -775,7 +869,7 @@ M5 性能：统一树默认 + 增量 + 选择性 verify + 文档自动生成（d
 - **TypeParameterId 声明 owner 身份**（强化 V-03 修复，[v5] kimi GD-05）：参数身份从 (kind, ordinal) 升格为 `(containingSymbol 完整嵌套链, parameterKind, ordinal)`，其 `IEqualityComparer` 与 `IComparable`（及 record 默认 equality）**必须同一身份语义**——修 SortedSet/List 去重分裂的根因而非只统一比较器；override/interface family 的槽位映射另用 `FamilySlot` 键，禁止与参数身份混用。
 - **GD-FIELD holder 并发与初始化协议证明**（补 kimi GD-03 未竟项，[v5]）：`StaticGenericStatePlan` 增两项硬要求——①holder 内 `Dictionary` 的"先无锁读、再加锁写"双检需**独立线程安全证明**，不能照搬双重检查锁模式（不可证即换 `Lazy<T>`/锁协议并加并发压测：多线程读写/初始化同一闭型仅一次初始化、无损坏/丢失/重复发布）；②初始化异常按 CLR 静态构造模型缓存并重抛（含递归进入策略），先写后读场景保证声明类型 cctor 与字段初始化器先于首次写执行。
 - **GD 计划原子提交强化**（补 kimi GD-07，[v5]）：CS2J1190（plan 非自包含）从"事后诊断"升级为**事前协议**——先生成并验证完整 artifact plan（holder/调用点/项目归属/名称解析全部就绪）再统一提交变更；任一要素缺失即整计划失败回滚，源树保持不变（杜绝"字段声明已删除但 holder 未生成"的中间态落地）。
-- **`generic` 计数器口径拆分**（修 §4.3 v5 事实）：`DefaultExpressionsRewritten` 拆为 `Encountered`/`Rewritten` 双计数，报告 v1.1 同步（M0 顺手，报告消费者零破坏——旧字段保留一个版本并标注 deprecated）。
+- **`generic` 计数器口径拆分**（修 §4.3 v5 事实）：`DefaultExpressionsRewritten` 拆为 `Encountered`/`Rewritten` 双计数，报告 v2 同步（M0 顺手，报告消费者零破坏——旧字段保留一个版本并标注 deprecated）。
 
 **R1 合成层统一解析器 `SyntheticTypeParameterResolver`（修 G-16/S 层，seed 方案核心设计）**
 
@@ -898,7 +992,7 @@ member-desugar C46 泛型族从"保守跳过 + NORM-ERASURE-COVARIANCE 登记"�
 
 **R11 Java 减负吸收规则族 JE-01~07 [v6 新增；修 J-01~J-07/G-33~G-39/W-15/W-16]**
 
-> 立项纪律（I10）：每条规则的"被消除 Java 机制"列即立项指认；落地 PR 必须附三段证据——①预处理红→绿 fixture；②B 路差分两语料通过；③**Java 侧负 diff 或"零改动"的显式论证**（删除被指认分支/文件后 convert-project 产物与 JUnit 结果等价；暂时无法删除的，登记为"依赖冻结"进 api-manifest 并注明到期波次）。不新增第 5 个 pass 之外的 pass：只有 JE-03/JE-04 两个候选（§6.5），其余全部扩展既有 pass/配置。
+> 立项纪律（I10，v7 修订）：每条规则的“被消除 Java 机制”列必须进一步分配稳定 JM-ID 与 capability。垂直切片按 §7.1-8 六件套验收；shadow 阶段允许 Java 零改动用于双跑，但不能据此退场，最终必须 retire 或对精确 partial 形状冻结并注明 reviewWave。JE-03/JE-04 仍是仅有的两个候选新 pass（§6.5），其余扩展既有 pass/配置；JE-08~JE-10 同样复用既有 pass + finalizer。
 
 | 规则 | owner（落点） | 输入 → C# 侧输出 | 被消除的 Java 机制（I10 指认） | 诊断/残留 |
 |------|--------------|------------------|-------------------------------|-----------|
@@ -910,9 +1004,50 @@ member-desugar C46 泛型族从"保守跳过 + NORM-ERASURE-COVARIANCE 登记"�
 | JE-06 | 框架/L0（**不改写**，M1 先行） | 54 处裸 `throw new NotSupportedException` 逐个分类：①预处理应消解 → 接入 `NormalizationRequired.At` 并在盲区巡逻底册映射到 NORM 探针；②IR 本身不支持 → 迁移到独立 `IrNotSupportedException`（消息可区分），明确不属预处理责任；③误报防御 → 保留并加注释。底册＝附录 H 的 69 点清单 | 盲区巡逻底册从不可复现的"42"刷新为实测 69 点分类表；探针映射测试有准确输入；W-16 关闭 | 无新探针；一致性测试扩断言 |
 | JE-07 | tuple/anonymous/holder 生成物 + R10 manifest（M3 随 R10） | ①生成物中的 `EqualityComparer<T>.Default.Equals/GetHashCode` 改发 `Cs2jPrelude`（或既有 Cs2jTuples 助手）的**Java 中立 helper 形状**（compat 提供唯一入口），不再依赖 Java 按名识别；②枚举全部 `__cs2j_*`/`Cs2j*` 生成标识符与 Java 侧逐名特判（InvocationExpressionTransformer:790-815 等），不能中立化的登记 api-manifest 的 `generatedContract` 类条目；③一致性测试：生成物标识符集合 × Java 特判表必须可对账（生成物形状变更如 2aa7aa8f 类事故在编译期暴露） | `InvocationExpressionTransformer.cs:790-815` 的 EqualityComparer→Objects 特判删除；G-11 残余（用户态 EqualityComparer 静态类）由 TypeMappings 一条映射关闭（归 §7.2 协调项） | NORM-PUBLIC-ABI 扩子域；生成物契约机检 |
 
-**JE 与既有规则族的关系**：JE-01 是 R3 消费面配置化的**数据+槽位**延伸（机制不新，扩 profile 与闭型物化时机）；JE-02 是 R8 EB 规则的**接口实现一致性**延伸；JE-03/JE-04 是仅有的两个候选新 pass；JE-05 复用 compat 注册表；JE-06 是 L0 底册工作；JE-07 是 R10 manifest 的生成物子域。R11 与 R5（晚期链重排）正交：JE-03/JE-04 若立项，其在链上的位置同样面临"晚生成代码"问题，插入序按 §6.5 锚定并在 M3 量化后决定是否随 R5 重排。
+**JE 与既有规则族的关系**：JE-01 是 R3 消费面配置化的**数据+槽位**延伸（机制不新，扩 profile 与闭型物化时机）；JE-02 是 R8 EB 规则的**接口实现一致性**延伸；JE-03/JE-04 是仅有的两个候选新 pass；JE-05 复用 compat 注册表；JE-06 是 L0 底册工作；JE-07 是 R10 manifest 的生成物子域。R11 与 R5（晚期链重排）正交：JE-03/JE-04 若立项，其在链上的位置同样面临"晚生成代码"问题，插入序按 §6.5 锚定并在 M3 量化后决定是否随 R5 重排。**[v7] 是否退休不再只由插入序和 on/off diff 决定，必须经 R12~R14 的能力握手与状态机。**
 
-### 6.5 顺序与契约调整 [v4 扩充：完整插入序 + 兼容性细则]
+**R12 JCS-1 manifest 与两阶段握手 [v7，修 G-40]**
+
+1. **产物与最小字段**：最终树根部写 `preprocess-manifest.json`，包含 `schemaVersion`、`subsetVersion="JCS-1"`、`profile`、`solutionVariant{configuration,projects[],tfms[]}`、`passPlan[{id,contractHash}]`、聚合 `contractHash`、`inputHash`、`capabilities[]`、`artifacts{apiManifest,residualReport,complexityLedger}`。完整示例见附录 F。
+2. **hash 口径**：`inputHash` 是**最终预处理树的消费者 hash**，覆盖最终 Compile 源文件内容、项目图/TFM/条件符号、解析后引用集、物化生成文件与 support source；聚合 `contractHash` 由排序后的 pass ID、启用配置与规范化 PassContract 派生。`--no-preprocess` 因此只依赖已有最终树及其项目资产即可重算，不需要原始源码。原始源码 fingerprint 继续归现有增量缓存，不与消费者 inputHash 混用。任何最终源文件或 contract 变化都使握手失效；时间戳和机器相关绝对路径不得入 hash。
+3. **能力派生**：每项 `{id,status,constructs[],finalizers[],residuals[],evidenceHash}`。`guaranteed` 只由最终树扫描派生，要求目标构造 residual=0、degraded=0、声明的 finalizer 全部成功；`partial` 必须列出残余 construct/file/owner，`unsupported` 必须给原因。禁止 adapter 自己硬编码 `"guaranteed"`。
+4. **消费者需求目录**：Java 侧以静态 `JavaConversionRequirements`（代码或受审 JSON，单一事实源）声明每个 profile 所需 JCS capability、每个 JM 分支的 `requiredCapability` 与退休状态。启动转换时先校验，再构造 ConversionContext；不得在转换中途才发现握手不符。
+5. **入口一致性**：正常链内直接传握手对象；`--no-preprocess` 从已有树读取并重算 inputHash。java-ready 下缺失、版本不兼容、hash 不符、finalizer 缺失或必要能力非 guaranteed → CS2J1410 且退出 1；default 原始树可继续转换但 `subsetStatus=unverified`：未退休 JM 兜底保留，命中已退休 JM 构造则提示先 preprocess。`--preprocess-only` 同样落 manifest，不能只提升源码而丢报告。
+6. **兼容与边界**：JCS major version 必须精确匹配；新增可选 capability 向后兼容，改变既有后条件则升 major。manifest 不携带“某表达式应渲染成什么 Java”的指令，不复制 TypeMappings/SemanticModel，避免形成难以验证的旁路 IR。
+
+**R13 最终树语义闭包与共享事实 [v7，修 G-41/G-42，替代 R5 的纯顺序争论]**
+
+- **闭包算法**：①在所有结构生成与命名 pass 后重新枚举最终树构造；②将每个构造映射到 `Consumes/MayLeave/Owners` 与 capability；③对声明了 `FinalizerFor` 的 pass 按拓扑序**各有界执行一次**，不做全链不动点循环；④重建 project/TFM compilation 并执行 build/residual audit；⑤仍有未接管构造则 `NORM-SEMANTIC-CLOSURE`，能力只能 partial/unsupported。finalizer 自身产生的新构造必须登记到本轮后续 owner，否则失败。
+- **与现有执行器衔接**：当前 `ProjectPassRunner.BuildStandardCompilation`（`:282-312`）按单 compilation 建树、`NeedsSemanticModel` 才绑定（`:321-341`），所以“早前 pass 已绑定”不能代表最终树。R13 复用同一 parse/compile spine 和引用画像，不另写一套审计编译器；逐项目 compilation 是解决方案级正确性的必要演进，单项目切片不被其阻塞。
+- **R5 的处理**：不再把“整体晚期重排”作为前置豪赌。先由闭包报告量化晚生成构造及 owner 缺失；能靠现有 finalizer 接管的保持顺序，确需移动 generic-deepen 的构造族做 dual-order 影子实验，对比 C#/Java 产物与行为后按 capability 小步迁移。
+- **共享事实唯一化**：`TypeParameterBindingAnalyzer` 已有可复用先例；新增/迁移 `ValueCopyFacts`、`EvaluationOrderFacts`、`CallShapeFacts` 到 `Core/Analysis`，输入只依赖 Roslyn abstractions。preprocess 与 Java 都可调用同一事实层，但**调用站点决策由 JCS owner 作出**；Java 对 guaranteed 构造只消费结果。依赖方向测试禁止 `Core/*Preprocess*` → `Core/Transformers`。
+- **原子性**：finalizer 以计划为单位，所有生成文件、调用点和 manifest 更新一起提交；编译/审计失败回滚该计划，不能留下“声明已改、调用点未改、manifest 却仍 guaranteed”的半成品。
+
+**R14 Java 补偿分支退休协议与总复杂度账本 [v7，落实 I14/I15]**
+
+| 状态 | 必做动作 | 退场证据 | 回滚/兼容 |
+|------|----------|----------|-----------|
+| `inventory` | 给目标 Java 分支/文本手术/语法 fallback 分配 JM-ID；记录静态决策点、语料 hits、owner、所需 capability | 附录 H 可由代码派生，行号漂移不影响 ID；基线测试与 hits 落账 | 旧行为不变 |
+| `shadow` | preprocess opt-in 改写；旧 Java 路径仍启用；做 C# B 路、Java 产物 diff、JUnit/测试数对比 | 目标形状覆盖率、未覆盖残差、行为等价与性能记录齐全；能力至多 partial | 单 capability kill switch 回到旧路径 |
+| `enforce` | 最终树能力升 guaranteed；java-ready 默认走新形状；旧 JM 分支加“命中即 CS2J1410”断言 | 双语料及 fixture 旧分支 0 hits；`--no-preprocess` 正确/错误 manifest 正负测试通过 | default+unverified 仍允许旧路径；严格模式不可绕过 |
+| `retire` | 配套 Java PR 删除/收缩 JM 分支，移除不再需要的 import/helper/文本修复 | Java 负 diff、preprocess/compat/Analysis 增量、转换产物与 JUnit 等价同时合入 | 通过配对 revert 恢复上一状态，不留半删声明/调用点 |
+| `ratchet` | 删除临时命中断言，保留契约/残差/防回流测试 | 新 JM 分支无 capability/owner 不得合入；目标 residual/hits 只许减 | 长期门，不再保留双实现 |
+
+`frozen` 不是第六个退休阶段，而是 `partial` 能力的覆盖注记：必须有 JM-ID、未覆盖构造、owner、原因与 reviewWave；一旦对应语料/规则补齐就回到 shadow/enforce。不得用 frozen 将整个文件永久排除在对账外。
+
+**总复杂度账本**至少包含：`targetedJmCount/retiredCount`、`javaSemanticDecisionBranches`、`renderedTextRewriteSites`、`syntaxFallbackSites`、`fallbackHitsBefore/After`、`preprocessRulesAdded`、`compatEntryPointsAdded`、`sharedFactImplementations`、各层物理行数 delta、残差率与测试数。完成判据为：目标 JM 退休率 100%、enforce 后旧路径 hits=0、共享事实重复实现=0、测试数与行为不回归；**不要求每个正确性切片总行数都为负，但要求没有同构决策表跨层复制，且被指认 Java 机制真实净下降。**
+
+**R15 v7 新增垂直切片 JE-08~JE-10 [修 G-42~G-44]**
+
+| 规则 | owner/输出形状 | 退休的 Java 机制 | 必过反例与边界 |
+|------|----------------|------------------|----------------|
+| JE-08 byref/out 条件序列 | `ref-out-in` + JE-04 共享 `EvaluationOrderFacts`：hoist out-var 声明到 C# 词法作用域；按短路 AST 用 bool temp/嵌套 if 保持懒求值；holder 声明、调用、读回放在同一已执行分支；循环 continue 前先恢复下一轮条件求值 | `StatementTransformer.Conditionals.cs:373-433` 的逐操作数 BuildShortCircuitCondition、悬挂 post 收口、if 前 temp/read-back 分支；与 JE-04 的 Loops 分支同片退休 | `!Try(out x) \|\| x.P`、and/or 混合、异常、out-var 在 if 后使用、do/while/for、continue/break；表达式树不重写，不可证形状 residual |
+| JE-09 调用形状规范化 | 复用 delegate/strip-default/extension-methods/params 能力，补统一 `CallShapeFacts` 与最终审计：显式 `.Invoke()`、方法组→已定型 lambda/静态调用、扩展→静态调用、命名/可选参数→按决议位置实参、params→显式数组/集合、必要泛型实参显式化；需要保持实参求值顺序时先提取 temp | `InvocationExpressionTransformer.cs:790-924` 中方法组/隐式 delegate Invoke 等 C# 形状分支及其他登记 JM 分支；**纯 BCL/String/compat 映射不移交也不计入删除目标** | 可选+命名+params 组合、扩展泛型推断、方法组型变、委托空值/条件访问、ref/out 与实参副作用顺序、public ABI 不变；不能证明则保留原调用形状 |
+| JE-10 struct 值拷贝收口 | `Core/Analysis/ValueCopyFacts` 唯一实现 + 既有 struct-value-semantics 计划：赋值、实参、返回、字段/数组元素、属性 getter、操作数等槽位显式 copy；copy ctor/shim/调用点原子生成；免拷必须带 `FreshValue/Immutable/NoAlias` 等机器可读理由 | `StructCloneHelper` 在 Argument/Assignment/Return/Statement 中的**站点判断**退休，helper 仅保留 Java copy 调用渲染所需的窄工具；不是机械删除全部 450 行 | alias 写入、数组元素、属性返回、用户 Clone 与字段级 value-copy 区分（`StructCloneHelper.cs:390-445`）、override family ref 参数一致（`:100-180`）、this 赋值、构造器/递归 struct、异常路径 |
+
+JE-03/JE-04 与 R15 的实施粒度统一为“共享 facts + 小规则 + 独立 capability”：不要求为 JE-09 再建默认 mega-pass；最终 call-shape/value-copy/closure 审计是只读 finalizer。任何切片不得借“Java 友好”之名把 BCL 映射表、Java 擦除命名或 compat 运行时搬入 preprocess。
+
+### 6.5 顺序与契约调整 [v4 扩充：完整插入序 + 兼容性细则；v7 增能力闭包]
 
 新 pass / 规则插入点（**粗体为新增**；其余 52 pass 相对位置不变，M0 缺陷修复全部原地不动顺序）：
 
@@ -930,9 +1065,11 @@ closure-lift → iterator-lowering → async-normalize（+AS-01/02）→ extensi
    → equality-concat
 equality-concat → **collection-shape-normalize**（[v6] JE-03 候选，RunAfter: linq-channel, extension-methods, array-method, equality-concat；跨形状适配在扩展方法/LINQ 定型后）
    → **variance-use-site-normalize**（R4/VR，RunAfter: member-desugar, linq-channel, equality-concat）
-   → platform-isolation → dynamic-desugar → java-keywords
-java-keywords → **generic-reflection-audit**（RG 只读面，RunAfter: java-keywords）
-   → normalization-audit（+§6.3 二十三探针族）
+   → platform-isolation → dynamic-desugar
+   → **semantic-finalizers**（[v7] R13：按 capability 有界执行 JE-04/08/09/10 等 finalizer；不是新 mega-pass）
+   → java-keywords → **generic-reflection-audit**（RG 只读面，RunAfter: java-keywords）
+   → normalization-audit（+§6.3 二十六探针族 + 最终树能力审计）
+   → **manifest emission**（[v7] R12 框架产物，不是 pass；只在审计成功后写 guaranteed）
 ```
 
 兼容性细则（吸收 deepseek §8.9，52 pass 版改写）：
@@ -942,7 +1079,8 @@ java-keywords → **generic-reflection-audit**（RG 只读面，RunAfter: java-k
 - `closure-lift` 追加锚 `generic-intrinsic-lower`（内在函数先降、闭包后提升）；`java-keywords` 追加锚 `variance-use-site-normalize`（型变改写先于命名改写）；`normalization-audit` 追加锚 `generic-reflection-audit`。
 - 新 pass 默认开启（all-preprocessors-default-on 策略），`--disable-pass` 可关；`generic-reflection-audit` 只读不改写、可先行合入。
 - 单 pass 依赖显式化（R6）：`--pass closed-metadata` 自动补跑 generic-deepen 或硬报 CS2J1205；同规则适用于新 pass 对 generic-constraint/generic-deepen 的依赖。
-- **[v6] 两候选 pass 的立项闸**：`condition-effect-linearize`/`collection-shape-normalize` 不随 M3 直接进默认链——先以 `--enable-pass` opt-in 落一个波次（各自正/负/幂等/回退 fixture + 真实语料覆盖率统计 + I10 的 Java 负 diff），下一波动默认翻转；其探针初期 `PreserveAndWarn`，翻转同波转 Fail。两者都标注 `RequiresWholeTree`（跨文件符号/槽位判定），在 M5 统一树默认前接受整树拷贝成本。
+- **[v6/v7] 两候选 pass 的立项闸**：`condition-effect-linearize`/`collection-shape-normalize` 先 opt-in，不直接进默认链；v7 进一步要求**按形状族/capability 独立翻转**，而不是整个 pass 一次默认开启。每族完成正/负/幂等/回退 fixture、真实语料覆盖率、R14 五态退休后才把对应残翻转 Fail；未覆盖族保持 PreserveAndWarn + Java 兜底。两者标注 `RequiresWholeTree`，在 M5 统一树默认前接受整树成本。
+- **[v7] finalizer 顺序**：JE-08/09/10 复用既有 pass，不改变其原顺序；最终只读审计/有界 finalizer 必须 RunAfter 所有相关 Produces owner，并位于 java-keywords 与最终 normalization-audit 之前。finalizer 生成的公开形状仍须进入 java-keywords/ABI/闭包审计；manifest emission 不得作为可被 `--enable-pass` 选择的伪 pass。
 
 ### 6.6 L1/L2/L4 层
 
@@ -950,6 +1088,7 @@ java-keywords → **generic-reflection-audit**（RG 只读面，RunAfter: java-k
 
 **L2 验证层**：四路差分（A 原库原测 / **B 预处理库+原测**（不可省——只跑 C 会让两侧同步改错）/ C 双预处理 / D 原库+预处理测）；残差 ratchet（`preprocess-residual-report.json` 快照入库、"只许减不许增"、更新需评审）；java-ready 严格化（必需 pass 不可 `--disable-pass` 绕过、baseline-error=0 且非 degraded、目标域内 DeclaredUnsupported 也须 0、skip/force override 带 owner/理由/到期复审、二次全链输出逐字节一致、报告记 configuration/TFM/引用 hash）；探针"盲区巡逻"一致性测试（凡有 Java 硬门禁而无 NORM 探针的构造 → 测试失败，反向枚举驱动登记）。**[v5 增量]** java-ready 严格化追加三条件：①两入口 profile 语义统一后必需 pass 排除一律配置错误（W-11/R0）；②ABI diff 无未批准项（R10 `api-manifest.json`）；③B/C 路涉及的测试工程源生成输出已物化（R9）否则该工程计 degraded。
 **[v6 增量] ④Java 侧净简化对账门（W-15/I10）**：每个 JE 规则波次产出对账记录（入报告附录 F 的 `javaSimplification` 段）——被指认机制（文件:行号区间/分支标识）、预处理 on/off 两跑的 convert-project 产物 diff、该机制删除/收缩的行数与 JUnit 结果对比；规则合入但对应 Java 机制**无正当理由未删除**则波次不退场（正当理由仅限：真实语料未覆盖到的形状保留兜底，须登记到期波次）。⑤**fail-fast 底册归一**（W-16/JE-06）：M1 起 69 个 throw 点全部分类（预处理责任/IR 不支持/防御），盲区巡逻测试对底册做派生断言——新增裸 throw 而不归类即 CI 失败。
+**[v7 增量] ⑥握手的正/负门**：正常链、`preprocess-only` 与 `--no-preprocess` 对同一树得到同一 JCS 结论；缺失/篡改/过期 manifest、错误 TFM、contractHash 不符、必要 capability=partial 在 java-ready 下全部 CS2J1410；default 原始树明确 unverified 且保留兜底。⑦**最终树闭包门**：对“早期 pass 消除、晚期 pass 再生成”的构造有专测；最终树 residual 与 Produces/Owners 守恒，finalizer 失败时计划原子回滚。⑧**退休与总复杂度门**：以 JM-ID 取代单纯行号对账，逐切片检查 enforce hits=0、retire 负 diff、ratchet 防回流，并同时报告 preprocess/compat/Analysis 增量与共享事实重复数；只报 Java 删行、不报新增决策实现不得退场。
 
 **L4 性能层**：v1 首版不变（统一树默认化 + 增量缓存键含 solutionVariant/referenceSetHash/generatorHash + 选择性 verify + pass 级并行需 Contract 数据依赖判定）；增补：残差 gate 不得用另一套引用和 parse options 重编译出"第二种事实"；新增全树 pass 不得使链总时长劣化超 10%。
 
@@ -983,10 +1122,16 @@ dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- 
   -s D:\YamlDotNet-18.0.0\YamlDotNet\YamlDotNet.csproj -d D:\cs\yaml-gd-only `
   --pass generic-deepen --no-verify-build --no-verify-tests
 
-# 下游 Java 验收（超出本方案实施范围，最终目标门）
+# 下游 Java 验收（与所在垂直切片配对，最终目标门）
 dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- convert-project `
   -s <rt10-java-ready 的 .sln> -d <java 输出> --no-verify-build --no-verify-tests
 # 之后对生成 Maven 工程执行 mvn compile + JUnit
+
+# [v7/R12] 已有树握手：java-ready 不再忽略 profile；启动时校验 preprocess-manifest.json
+dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- convert-project `
+  -s D:\cs\rt10-java-ready -d <java 输出> --no-preprocess --profile java-ready `
+  --no-verify-build --no-verify-tests
+# 负例由 manifest contract tests 覆盖：缺失/篡改/过期/hash 不符/partial 必需能力 => CS2J1410 + 退出 1
 ```
 
 > rt10 全链初始基线（各 pass 统计/残差分布）由 M0 建立；上表即 M0 与各波次的统一入口，报告落 `-d` 目录（schema 见附录 F）。
@@ -1000,12 +1145,12 @@ dotnet test <最终中间树>\YamlDotNet.Test\YamlDotNet.Test.csproj -c Release 
 dotnet test <最终中间树>\tests\dotnet.text.json-tests.csproj -c Release
 ```
 
-### 7.1 预处理侧验收（本方案实施范围）
+### 7.1 JCS 垂直切片验收（预处理 + 配套下游）
 
-1. **审计清零**（java-ready profile）：**[v3] json 语料口径切换为 `D:\runtime-10.0.12` 真源** + YamlDotNet 库项目两语料，退出码 0；泛型探针 `Fail` 策略码为 0；`PreserveAndWarn` 观测码有计数且带 owner/后果（一个波次观测期后逐个翻转 Fail 并清零）；`NORM-PROJECT-DEGRADED` = 0（无 TPA 降级）。
+1. **审计与能力清零**（java-ready profile）：**[v3] json 语料口径切换为 `D:\runtime-10.0.12` 真源** + YamlDotNet 库项目两语料，退出码 0；泛型探针与本切片 JCS 探针的 `Fail` 策略码为 0；`PreserveAndWarn` 观测码有计数且带 owner/后果；`NORM-PROJECT-DEGRADED` = 0。**[v7]** 本切片必需 capability 全为 guaranteed，最终树无 SEMANTIC-CLOSURE 残差；partial/unsupported 不得被报告成 0 残差。
 2. **四路差分**：B 路（预处理库 + 原测）`dotnet build`/`dotnet test` 零失败——两语料分别执行；**比较转换前后测试数量**，防止被跳过/未生成的测试误记为通过。
-3. **行为反例测试**（吸收 kimi 21 类中的核心 16 类——v5 增补并发/NRT 反射行为/类型关系查询/成员发现四类，**v6 再增条件线性化/生成物契约两类共 18 类**，每类一个 xUnit fixture）：per-closed-type 恰一份静态、readonly 至多初始化一次、静态 cctor 恰一次、先写后读副作用、abstract/接口分派不变、`Outer<T>.Inner<U>` 与 `Outer<T>.Inner<T>` 双形态、CRTP 收敛、public 泛型成员经 MethodInfo/Activator 调用、NRT 键同轨（`List<string>` 与 `List<string?>` 同一注册）、约束传递闭包（`IFoo<U>` 携 U）、合成物幂等（二次运行逐字节一致）、多 TFM 独立通过；**[v5 增四类]** ①并发（多线程读写/初始化同一闭型：恰一次初始化、无损坏/丢失/重复发布——R0 holder 并发证明的行为面）、②NRT 反射元数据行为（`NullableAttribute/NullableContextAttribute` flags 保留或等价重建，Yaml `AcceptsNull→AllowNulls→空值异常` 链行为一致——G-22 的运行时证明）、③类型关系查询（泛型基类/接口的 `IsAssignableFrom`/接口映射/unknown `Type` 的查询结果与遍历顺序一致）、④成员发现与访问（new/override 成员集合与顺序、`DeclaredOnly`/`BindingFlags` 过滤、`MethodInfo.Invoke` 参数绑定/`TargetInvocationException` 包装差分）；**[v6 增两类]** ⑤条件副作用线性化等价（`while`/for/do/`?:`/`&&` 链中属性与索引器读改写，continue/break/异常路径与原 C# 逐次求值一致——红测原型 a2d3a6f0 的 XsdDateTime `while (++start.Value < _length)` 死循环）、⑥生成物 Java-中立契约（tuple/holder 生成物不依赖 Java 逐名特判：改发 prelude helper 后双跑转换产物一致；生成物标识符×Java 特判对账表无机检外项）。
-4. **回归**：三测试工程全绿；**[v3] json 基线：rt10 真源全链 Java 转换 0 失败（M0 重跑建立新基线；旧语料 626/0 仅作历史对照，不再作为回归门）**；`Core/` 无库名特判（grep 守门：`YamlDotNet`、`System.Text.Json.JsonSerializer` 零命中——后者指消费面常量迁出后）。
+3. **行为反例测试**（吸收 kimi 21 类中的核心 16 类——v5 增补并发/NRT 反射行为/类型关系查询/成员发现四类，**v6 再增条件线性化/生成物契约两类共 18 类，v7 再增 byref-out 条件/调用形状/struct alias/manifest 与最终闭包四类共 22 类**，每类一个 xUnit fixture）：per-closed-type 恰一份静态、readonly 至多初始化一次、静态 cctor 恰一次、先写后读副作用、abstract/接口分派不变、`Outer<T>.Inner<U>` 与 `Outer<T>.Inner<T>` 双形态、CRTP 收敛、public 泛型成员经 MethodInfo/Activator 调用、NRT 键同轨（`List<string>` 与 `List<string?>` 同一注册）、约束传递闭包（`IFoo<U>` 携 U）、合成物幂等（二次运行逐字节一致）、多 TFM 独立通过；**[v5 增四类]** ①并发（多线程读写/初始化同一闭型：恰一次初始化、无损坏/丢失/重复发布——R0 holder 并发证明的行为面）、②NRT 反射元数据行为（`NullableAttribute/NullableContextAttribute` flags 保留或等价重建，Yaml `AcceptsNull→AllowNulls→空值异常` 链行为一致——G-22 的运行时证明）、③类型关系查询（泛型基类/接口的 `IsAssignableFrom`/接口映射/unknown `Type` 的查询结果与遍历顺序一致）、④成员发现与访问（new/override 成员集合与顺序、`DeclaredOnly`/`BindingFlags` 过滤、`MethodInfo.Invoke` 参数绑定/`TargetInvocationException` 包装差分）；**[v6 增两类]** ⑤条件副作用线性化等价（`while`/for/do/`?:`/`&&` 链中属性与索引器读改写，continue/break/异常路径与原 C# 逐次求值一致——红测原型 a2d3a6f0 的 XsdDateTime `while (++start.Value < _length)` 死循环）、⑥生成物 Java-中立契约（tuple/holder 生成物不依赖 Java 逐名特判：改发 prelude helper 后双跑转换产物一致；生成物标识符×Java 特判对账表无机检外项）；**[v7 增四类]** ⑦byref/out 条件序列（`!Try(out x)||x.P`、短路嵌套、if 后 out-var、异常/continue，JE-08）、⑧调用形状（delegate null/条件访问、方法组型变、可选+命名+params、实参副作用顺序，JE-09）、⑨struct alias 与 copy 计划（数组/字段/属性/override family/用户 Clone 与字段 copy 不混用，JE-10）、⑩manifest 与最终闭包（已有树正/负握手、晚生成构造再接管、finalizer 原子回滚，R12/R13）。
+4. **回归**：三测试工程全绿；**[v3] json 基线：rt10 真源全链 Java 转换 0 失败（M0 重跑建立新基线；旧语料 626/0 仅作历史对照，不再作为回归门）**；`Core/` 无库名特判（grep 守门：`YamlDotNet`、`System.Text.Json.JsonSerializer` 零命中——后者指消费面常量迁出后）。**[v7]** 增加依赖方向守门：preprocess 命名空间不得引用 `Core.Transformers` 获取语义事实；ValueCopyFacts/EvaluationOrderFacts/CallShapeFacts 每类恰一个共享实现。
 5. **每类缺口的最小验收样例**（v1 首版 §7.2 表基础上 v2 修正、v3 增补 rt10 行）：
 
 | 缺口 | 最小输入 | 期望最终树 |
@@ -1036,6 +1181,11 @@ dotnet test <最终中间树>\tests\dotnet.text.json-tests.csproj -c Release
 | G-37 [v6] | `string.Concat(chars)`（chars 为 IEnumerable<char>）、checked IO 调用 | 经条目注册表解析为唯一签名；a60afc75/f271d4ad 对应 Java 特判分支零命中或登记冻结 |
 | G-38 [v6] | 69 个 throw 点底册 | 每个点有分类标签（预处理责任/IR/防御）；盲区巡逻测试对底册派生断言通过 |
 | G-39 [v6] | tuple struct 的 `EqualityComparer<__P0>.Default.Equals` 生成物 | 改发 Cs2jPrelude/助手中立形状；Java `:790-815` 特判删除；生成物×特判对账表无表外项 |
+| G-40 [v7] | 对同一已有树分别走正常链与 `--no-preprocess --profile java-ready`；再删除/篡改 manifest 或改一个源文件 | 正例两入口 capability/inputHash 结论一致；负例均 CS2J1410，不再 Warning 忽略 profile；default 原始树标 unverified |
+| G-41 [v7] | 早期 generic-deepen 后，由晚期 closure/tuple/member pass 再生成一个 `typeof(T)`/待 copy 构造 | 最终闭包发现并交给有界 finalizer；无 owner 时 NORM-SEMANTIC-CLOSURE，capability 不得 guaranteed；失败计划逐字节回滚 |
+| G-42 [v7] | struct 含用户 `Clone()`、数组元素与 override family ref 参数；扫描依赖方向 | 字段级 value-copy 与用户 Clone 不混用；所有槽位 copy/免拷理由可审计；preprocess 不再引用 Transformers.StructCloneHelper |
+| G-43 [v7] | `if (!TryGetTarget(out var repl) \|\| !repl.Pattern.HasValue) { … }`；if 后继续读 repl | out-var 作用域正确，右侧仅在前侧求值成功后执行；holder read-back 不提前、不悬挂；Conditionals 指认 JM 分支 0 hits 后 retire |
+| G-44 [v7] | `Action a = null; a?.Invoke()`；`M(x: 1, values: new[]{2,3})`；泛型扩展方法组 | C# 调用形状显式且求值顺序不变；BCL 映射仍由 Java 负责；仅登记的 call-shape JM 分支退休 |
 
 6. **指标矩阵（升级前 → 升级后目标）[v4 新增]**——"前"列除注明外均为**旧语料历史基线**（§3.2.3），rt10 重跑后逐项替换：
 
@@ -1060,36 +1210,47 @@ dotnet test <最终中间树>\tests\dotnet.text.json-tests.csproj -c Release
 | [v6] fail-fast 口径 | 统一门 15 + 裸 throw 54（旧底册 42 不可复现） | 69 点全分类；新增裸 throw 不归 CI 失败；映射到 NORM 探针的点 100% |
 | [v6] 生成物×Java 特判对账 | 口头契约（tuple EqualityComparer 等 ≥1 处硬编码） | JE-07 后表外特判 0；改形状类事故（2aa7aa8f 型）编译期暴露 |
 | [v6] JE 规则的 Java 负 diff 兑现率 | 无此指标（W-15） | 每条已落地 JE 规则有对账记录；"合入但未瘦身"规则数 = 0（冻结项除外，带到期波次） |
+| [v7] manifest 入口一致性 | `--no-preprocess` + java-ready 仅 Warning 并忽略 profile | 正常/已有树入口同结论；缺/旧/假 manifest 与必要 partial 100% 阻断；unverified 仅存在 default |
+| [v7] 最终树闭包 | 只有早期 pass 残差；晚生成构造无守恒 | 目标 capability 的 Produces→owner 覆盖 100%；SEMANTIC-CLOSURE=0；finalizer 原子回滚测试全绿 |
+| [v7] JE-08 Conditionals 序列化 | Java `:373-433` 负责短路/read-back/out-var 收口 | 指认 JM 分支 enforce hits=0 并 retire；短路/异常/作用域行为等价 |
+| [v7] JE-09 call-shape | C# 调用形状分支混在 4785 行 Invocation 枢纽 | 登记 JM 分支退休率 100%；纯 BCL 映射不计入目标；CallShapeFacts 单实现 |
+| [v7] JE-10 value-copy | 事实“移植一份”且 preprocess 调 Transformers helper | 共享事实实现数 2→1；目标槽位残差 0；Java 不再决定 copy 站点，alias 测试无回归 |
+| [v7] 总复杂度与退休 | 只有 Java 行数，无 JM hits/跨层成本 | 每个 VS targeted JM 退休率 100%、旧路径 hits=0；preprocess/compat/Analysis 增量全落账，无同构决策表复制 |
 
-7. **一致性/回归与性能门 [v4 新增，v6 修订底册]**：每条新规则带正/负 fixture（触发/不触发）+ 幂等测试（二次运行逐字节一致）+ 回退测试（strict Error 整文件不变）；`--list-passes` 快照随波次更新；`PassContractConsistencyTests` 扩展断言——附录 E 每个 GC-ID 至少一个 owner、每个 `MayLeave` 有 `Owners`、每个 Deferred 承接者拓扑可达（位于生产者之后）、**[v6] Java 侧 fail-fast 点按 a60afc75 实测 69 点底册（附录 H，取代旧"42 点"口径）至少映射一个 NORM 探针或标注 IR-不支持分类**（JE-06 分类表 + 派生断言测试）；性能门：统一树默认后 Yaml 库全链耗时 ≤ 现状 1.5×（真实引用集成本对冲），增量缓存命中率 ≥ 80%（二次运行）。
-8. **Java 侧净简化对账 [v6 新增，I10/W-15 的执行门]**：每条 JE 规则在波次退出门出示四件套——①被指认 Java 机制的删除/收缩 PR（或冻结登记 + 到期波次）；②同一语料预处理 on/off 两跑的 convert-project Java 产物 diff（预期 diff 恰好落在被消除机制的输出形状上）；③转换后 JUnit 结果逐项等价（测试数/通过数一致）；④对账记录写入 `preprocess-report.json` 的 `javaSimplification` 段（附录 F）。**任一 JE 规则没有完成本项不得宣告该波次退场**；M3 结束时附录 H 底册的 J-01~J-04 机制规模（可计基线 2691 行 + J-04 分散位点）必须净下降，下降量与规则覆盖率在报告中同时给出。
+7. **一致性/回归与性能门 [v4 新增，v7 扩契约]**：每条新规则带正/负 fixture + 幂等测试 + 回退测试；`--list-passes` 快照随波次更新；`PassContractConsistencyTests` 扩展断言——每个 GC-ID 至少一个 owner、每个 MayLeave 有 Owners、Deferred 承接者拓扑可达、69 个 fail-fast 点映射 NORM 或 IR 分类。**[v7]** 新增派生断言：每个 guaranteed capability 有最终树证据、每个 JM 有 requiredCapability/状态/owner、manifest hash 可重算、finalizer 有界且拓扑可达、preprocess→Transformers 事实依赖为 0、退休 JM 不得复活。性能门沿用：Yaml 全链耗时 ≤ 现状 1.5×，增量缓存命中率 ≥ 80%（二次运行）；缓存键增加 subsetVersion/inputHash/contractHash。
+8. **Java 侧净简化对账 [v6/v7]**：每条 JE/JCS 切片出示六件套——①最终树红→绿 fixture 与 guaranteed capability；②C# B 路差分；③preprocess on/off 的 Java 产物 diff；④指认 JM 分支 enforce 0 hits + 配套删除/收缩 PR；⑤JUnit 数量与结果等价；⑥`javaSimplification` 与总复杂度账本（含 preprocess/compat/Analysis 增量）。**冻结只允许精确到 partial 形状，不能豁免整个文件或整个切片。**每个 VS 独立退场；其 targeted JM 退休率必须 100%，其他未立项 JM 不阻塞。J-01~J-04 既有底册继续跟踪净下降，JE-08~JE-10 按新增行单独验收。
+9. **握手与已有树验收 [v7]**：同一预处理后树经正常链和 `--no-preprocess` 转换时，Java 产物与测试结果一致；缺 manifest、错误 subsetVersion、修改任一输入文件/TFM/pass 配置、伪造 guaranteed、缺 finalizer、必需 capability=partial 都有独立负例并以 CS2J1410 失败。default 原始树转换仍需通过兼容测试：未退休兜底没有被误删，已退休构造给出明确的“请先 preprocess”诊断而非 javac 错误。
 
-### 7.2 下游验收衔接（超出本方案实施范围，口径说明）
+### 7.2 下游配套验收（垂直切片完成条件，v7 修订）
 
-"转换后可正确编译、全部单元测试跑通"的完整验收 = §7.1 + 下游两步（**[v3] `convert-project` 两语料 0 失败——json 口径为 rt10 真源**、Maven 工程 `mvn compile` + JUnit 全绿）。涉及 Java 侧的协调项：v2 三条继续有效——`Cs2jPrelude.EqualityOps` methodMapping 一条；`EqualityComparer<T>/Comparer<T>` 类型映射（**[v6] 半修：Comparer 已映射，仅余 EqualityComparer 静态类一条**；R4/JE-07 落地后不再必需）；`ClosedMetadataRegistrationGenerator.cs:9-11` 过时注释清理（机制已闭环）。**[v6] 新增第四类协调项：JE 规则对应的 Java 侧删除**（JsonDeserializeRewrite/CompatCollectionConformance 整文件删除、coercion 与 Loops 线性化分支收缩、InvocationExpressionTransformer:790-815 特判删除、54 裸 throw 分类迁移）——这些删除**不是**预处理 PR 的内容，但每条 JE 规则的验收（§7.1-8）以其在配套下游 PR 中落地为完成条件；本方案仍不直接修改 Java 转换器。
+完整验收 = §7.1 + `convert-project` 两语料 0 失败 + Maven `mvn compile`/JUnit 全绿 + 所在切片的 JM 分支退休。既有协调项继续有效：`Cs2jPrelude.EqualityOps` methodMapping、剩余 `EqualityComparer<T>` 映射、`ClosedMetadataRegistrationGenerator.cs:9-11` 过时注释清理。**[v7]** Java 侧改动分为两类：①纯 Java 职责保留并简化（BCL/compat 映射、命名、import、渲染）；②已 guaranteed 构造的补偿删除/收缩（JsonDeserializeRewrite、CompatCollectionConformance、coercion、Loops/Conditionals、call-shape、value-copy 站点判断、生成物特判）。预处理 PR 不直接承担这些 Java 修改，但**配套 Java PR 与 R14 retire/ratchet 证据是垂直切片的一部分，不再称为“超出方案”**。
 
 ---
 
 ## 8. 实施波次与风险
 
-### 8.1 波次（v2 重排：先止血、再契约、后能力；每波带进入/退出门）
+### 8.1 波次与垂直切片（v7：先契约，再逐片退休；每片独立进入/退场）
 
 | 波次 | 内容 | 退出标准 | 风险 |
 |------|------|---------|------|
 | M0 止血 | §6.4-R0 全部（V/S/W 修复）+ fixed-span 边界加固 + **[v3] W-09 compat 漂移修复 + W-10 的 rt10 基线重跑与 Compile 求值最小接线** + **[v5] W-11 两入口统一（含冲突独立诊断码）+ 计数器口径拆分 + GD-MTOK 可见性分级/TypeParameterId owner 身份/holder 并发压测/计划原子提交（R0 v5 项）** + **[v6] S-05 按"过滤/闭包/调用点"三残留细化修；V/S/W 复核订正随修复落盘（CS2J1203 四义迁移、HolderSyntaxGenerator 路径、V-04/V-07/V-08 行号）** | 8 个 V 缺陷各有一条红→绿 fixture；37×1101→0（json 旧语料口径）；Yaml 库默认链跑通（W-06 的 null-coalesce 保守化）；撞号迁移完成且 `legacyCode` 兼容；**[v3] rt10 真源全链可跑完并产出新基线日志（重跑关注点逐项落档 §3.2.3）；ToUtf8 漂移探测红→绿**；**[v5] W-11 两条命令同报配置错误；并发/先写后读反例红→绿；GD 计划缺失要素时源树逐字节不变** | 中（V-01 修正是行为变更，需同步修 fixture 预期并声明"singleton identity 不再作为兼容行为保留"；[v3] rt10 重跑可能暴露旧语料未见的失败——这正是换源目的，新失败清单进 M1-M3 排程而非回滚换源） |
-| M1 契约与审计 | §6.3 二十三探针（[v6] +COLLECTION-SHAPE/+CONDITION-EFFECT）+ CS2J14xx + 泛型族挂契约 + 报告 v1.1（附录 F schema，含 javaSimplification 段）+ 残差快照入库 + 探针盲区巡逻测试 + **[v6] JE-06 fail-fast 69 点底册分类归一（W-16）** | 两语料 `--profile audit` 产出全量泛型残差守恒式；快照 ratchet 生效；**69 点全分类、新增裸 throw 不归类即 CI 失败** | 低 |
-| M2 编译层 | L1 spine + degraded + 引用画像 + W-04 打开（W-10 的 Compile/TFM/外部源求值在此完备）+ **[v5] R9 源生成物化最小接线（测试工程生成输出物化 + `NORM-SOURCE-GENERATOR` 探针）** | 两语料四个语义 pass degraded=0；variance-audit 跳过文件数旧语料口径 126→0、**[v3] rt10 口径重测归零**；**[v5] rt10 tests/YamlDotNet.Test 生成源码恰一份，B 路测试工程可进入 build** | 中（编译成本，按工程分组+缓存对冲；[v5] 生成器执行成本同受缓存对冲——inputHash 未变不重跑） |
-| M3 能力层 | R1 统一解析器 + R2（P1-R1~R8 修订版 + CN 全表/GD-MTOK-2 + **[v5]** 可见性分级）+ R3 消费面三 profile（CM-STRICT/单 pass 修复 + **[v5]** execution kind/CM-LINK-3）+ R4 pass 化（variance-use-site-normalize）+ R7（generic-intrinsic-lower）+ R8（EB/状态机残余）+ G-02c GD 扩面 + R6 CLI 旋钮 + **[v5] R10 ApiManifest/ABI diff + 逐项目 compilation 决策（Q13）** + **[v6] R11 JE 吸收族：JE-01 Newtonsoft 槽位闭型物化（随 R3）、JE-02 集合一致性 C# 桥接（随 R8）、JE-03/JE-04 两候选 pass（opt-in 波次）、JE-07 生成物中立化（随 R10）** | §7.1-5 样例表与 §7.1-6 指标表逐项绿；grep 守门通过；B 路差分两语料通过；`--list-passes` 快照含 4+2 新 pass 且拓扑断言通过；**[v5] java-ready 下 ABI manifest pending/未登记=0；deferred 消费 guard 位于执行入口**；**[v6] §7.1-8 每条 JE 四件套齐全（Java 负 diff/产物 diff/JUnit 等价/报告段），J-01~J-04 机制（>3000 行）净下降；两候选 pass 覆盖率与负 diff 不达标不翻默认** | 中-高（R1 迁移面大；先止血序；[v5] Q13 若立项则动 CliPreprocessChain 编译单元组织——先出量化报告再决策；[v6] JE 删除在 Java 侧配套 PR，协调不当会有一版"预处理已改、Java 未删"的双形态窗口——用冻结登记与到期波次管理） |
-| M4 域决策 | static abstract（G-07）/ 运行时合成（G-04c RG-2 级）/ Expression 域（G-23，含 Yaml 元数据面）/ 型变 Unsafe 流向子集（G-05，VR-05/06 登记面）/ 晚期链重排（R5 决策）/ 开放问题 Q1-Q15 裁决（§8.2，**[v6] +Q14 JE-05 条目化 / +Q15 两候选 pass 排序**）/ **[v6] JE-05 BCL 重载条目注册表（若 Q14 裁决通过）** | 每域 DeclaredUnsupported 登记（owner/原因/fail-fast）或立项文档 | 高（产品决策） |
+| M1 / VS-0 契约与审计 | §6.3 **二十六探针** + CS2J1401~1413 + 泛型族挂契约 + **报告 v2** + 残差快照 + JE-06 fail-fast 分类 + **R12 JCS-1/manifest/JavaConversionRequirements + R14 JM 底账与退休协议** | 两语料 audit 产出残差守恒式；manifest 正负测试与三入口一致性通过；缺/旧/假握手在 java-ready 下 CS2J1410；每个目标 JM 有 requiredCapability/owner/hits 基线；default 原始树兼容测试全绿 | 中（hash 口径过大导致频繁失效或过小导致假 guaranteed；先用 contract tests 锁定） |
+| M2 编译与共享事实 | L1 spine + degraded + 引用画像 + W-04 + Compile/TFM/外部源求值 + R9 源生成物化 + **R13 最终树闭包 + ValueCopy/EvaluationOrder/CallShape 共享事实上移** | 目标语义 pass degraded=0；生成源码恰一份；晚生成构造红→绿；finalizer 失败原子回滚；preprocess→Transformers 事实依赖为 0；每类共享事实恰一实现 | 中-高（编译成本与依赖迁移半径；按 capability 小步迁移，禁止一次改全链顺序） |
+| M3 / VS-1 求值顺序 | JE-04 + JE-08；共享 EvaluationOrderFacts；Loops 与 Conditionals 指认 JM 按 R14 迁移 | §7.1 G-36/G-43 全绿；短路/out-var/异常/continue 行为等价；目标 capability guaranteed；指认 JM enforce 0 hits、retire 负 diff、ratchet 防回流 | 高（求值顺序坑密度高；按循环、if/短路、byref/out 分规则开启，失败只回滚对应 capability） |
+| M3 / VS-2 struct 值拷贝 | JE-10；ValueCopyFacts 单实现；copy shim 与槽位计划原子生成；StructCloneHelper 站点判断逐步退休 | G-42 与 alias/override/数组/属性/用户 Clone 反例全绿；共享事实实现数 2→1；Java 仅渲染 copy，不再决定站点 | 高（alias 与公共 ABI；不可证计划 DeclaredUnsupported，禁止乐观免拷） |
+| M3 / VS-3 调用形状与闭型 | JE-09 + JE-01（按 R3 依赖并行）；JE-07 生成物中立化随 R10 收尾 | G-33/G-39/G-44 全绿；delegate/方法组/可选命名 params 行为等价；指认 JM 退休；**BCL 映射不计入删除收益** | 中-高（调用形状组合多；只前移 C# 决议，避免复制 TypeMappings） |
+| M3 / VS-4 集合与转换 | JE-02 先行；JE-03 按 array/list、IEnumerable、Span、IGrouping 分族；每族独立 capability | 每族完成 shadow/enforce/retire 后独立退场；目标 JM hits=0；未覆盖族保持 partial + 冻结原因，不拖住其他族 | 高（开放世界与擦除冲突；禁止一次删除整个 coercion 兜底） |
+| M3 / VS-5 泛型纵深 | R1 统一解析器 + R2~R10 未完成项 + JE-05/06 及剩余泛型 G 缺口；Q13 按解决方案证据裁决 | 对应 §7.1 样例/指标逐项绿；ABI pending/unregistered=0；B 路差分通过；**不作为 VS-1~VS-4 的整体前置** | 中-高（迁移面大，按构造族独立交付与退场） |
+| M4 域决策 | static abstract / 运行时合成 / Expression / 型变 Unsafe 子集 / 需要整体晚期重排的剩余构造（R13 证据驱动）/ 开放问题 Q1-Q18 / JE-05 BCL 条目化（Q14） | 每域 DeclaredUnsupported（owner/原因/fail-fast）或立项文档；不再把整体重排作为默认答案 | 高（产品决策） |
 | M5 性能与文档 | 统一树默认 + 增量 + 选择性 verify + `preprocessor-matrix.md` 自动生成 + 覆盖矩阵 JSON | 整树复制 52→1；链总时长劣化 ≤10%；文档由 descriptor+contract 生成 | 中 |
 
-### 8.2 风险与开放问题（v2 修订）
+### 8.2 风险与开放问题（v2~v7 修订）
 
 v1 首版风险 1-7 继续有效（T? 显式化波及面/探针翻转节奏/GD 死角/make-generic-static 程序集边界/双重桥接/Yaml Expression 域/映射协调项——第 7 条已收窄见 §7.2），v2 增补：
 
 8. **V-01 修复是行为变更**：从"每访问一次构造一次"改为"per-closed-type 单例"会改变依赖旧行为的（错误）代码路径；需在 M0 中声明"singleton identity 不作为兼容行为保留"并全量跑 B 路差分。
 9. **R1 统一解析器的迁移半径**：五个消费 pass 逐一迁移期间新旧并存，需 per-pass feature flag + 双跑 diff（on/off 各一次，证明变化只在目标形状——参照 C09/C10 翻转惯例）。
-10. **晚期链重排 vs 原地扩展**（R5）：两案各有盲区（重排动 StateMachine/Abi 边界；原地扩展漏"晚生成泛型代码"）；M3 之前先量化后者规模再决策。
+10. **晚期链重排 vs 最终闭包 [v7 修订]**：整体重排动 StateMachine/Abi 边界，原地扩展可能漏晚生成代码；先由 R13 最终闭包量化并有界接管，只对无法接管的构造族做 dual-order 实验，不再默认二选一。
 11. **公开静态泛型字段是 ABI×erasure 交叉硬点**（kimi 决策点）：删字段破坏反射/API，保留可能不可表达；逐字段四选一（保留+holder/降级/DeclaredUnsupported/重构），不得默认删除。
 12. **多 TFM 输出语义**：Yaml 5 TFM——"输出一棵树"要求 csproj 同步特化或按 variant 分目录，不得混用（kimi 决策点 11.5）。
 13. **测试工程 vs 生产工程残留策略**：测试工程是行为预言机不是 Java 产物输入；泛型探针在测试工程上的 policy 应显式配置（生产 Fail / 测试默认 PreserveAndWarn 的双 policy），而非散落 adapter。
@@ -1097,7 +1258,11 @@ v1 首版风险 1-7 继续有效（T? 显式化波及面/探针翻转节奏/GD �
 15. **[v3] 换源冲击管理**：rt10 真源重跑预计产生旧语料没有的失败清单（NRT 泛型实参 452 处对 V-05、`new()` 约束 18 处对 R3、IAsyncEnumerable 13 文件对 async-normalize、csproj 门控对 L1）。纪律：新失败**只登记排程，不回滚换源、不在 M0 内顺手扩能力**；旧语料 626/0 只作历史对照。若 rt10 重跑在 M0 内不可达（如 restore 依赖内部源），先落 `tools/PreprocessCorpusProbe` 级别的静态 Compile 求值报告，链重跑顺延至 M0.5 并在 §3.2.3 落档缺口。
 16. **[v4] pass 化扩面风险**：四个新条目（generic-constraint/generic-intrinsic-lower/variance-use-site-normalize/generic-reflection-audit）改变 `--list-passes` 快照与拓扑 tie-break。缓解沿用 §6.5 细则（RunAfterIds 只增不减、快照随波次提交、每 pass 正/负/幂等 fixture）；`generic-reflection-audit` 只读可先行合入，其余三 pass 按依赖序（generic-constraint → GI → VR）逐个进入。
 17. **[v5] R9/R10 的双生成与登记成本**：①源生成物化与真实 build 各执行一遍生成器，中间树物化文件可能与 build 产物重复/竞争——去重键 `(generator, project, tfm, inputHash)` 必须先于物化合入定型，且 `--no-verify-build` 路径下无 build 对账（物化正确性只靠 inputHash，需独立 fixture）；②R10 ApiManifest 依赖各 pass 改写点主动登记——漏登记即静默（探针 `NORM-PUBLIC-ABI` 的"manifest 外变化"检测需要改写前后符号 diff，成本高于普通探针），首版先覆盖 GD-MTOK/GD-STATIC/V-04/EB/java-keywords 五类高价值改写点，其余渐进。
-18. **[v6] JE 族的特有风险**：①**双形态窗口**——预处理改写先行、Java 特例删除在后，窗口期内新旧两条路径并存可能产出二义渲染；纪律：JE-01/02/07 类改写先以 opt-in/影子模式跑双份产物 diff，Java 删除 PR 与翻转同批；②**负 diff 不可教条**——部分 coercion 分支防御的是真实语料未出现的形状（开放世界），I10 允许"冻结保留+到期波次"，禁止为凑行数指标删除防御分支；③**条件线性化的语义坑密度高**（短路运算符/条件中的 ref 赋值/迭代器与异步上下文），JE-04 必须先有求值顺序等价的形式化判据（夹具覆盖 continue/break/异常/嵌套）再动默认链，重蹈 a2d3a6f0 式死循环即回滚；④W-15 表明两阶段联调目前靠人肉——JE 波次若没有 §7.1-8 四件套硬性退场，极可能复制 2aa7aa8f/51e505cd 式的多落点同批救火。
+18. **[v6] JE 族的特有风险**：①**双形态窗口**——预处理改写先行、Java 特例删除在后，窗口期内新旧两条路径并存可能产出二义渲染；纪律：JE-01/02/07 类改写先以 opt-in/影子模式跑双份产物 diff，Java 删除 PR 与翻转同批；②**负 diff 不可教条**——部分 coercion 分支防御的是真实语料未出现的形状（开放世界），I10 允许"冻结保留+到期波次"，禁止为凑行数指标删除防御分支；③**条件线性化的语义坑密度高**（短路运算符/条件中的 ref 赋值/迭代器与异步上下文），JE-04 必须先有求值顺序等价的形式化判据（夹具覆盖 continue/break/异常/嵌套）再动默认链，重蹈 a2d3a6f0 式死循环即回滚；④W-15 表明两阶段联调目前靠人肉——JE 波次若没有 §7.1-8 六件套硬性退场，极可能复制 2aa7aa8f/51e505cd 式的多落点同批救火。
+19. **[v7] manifest 假保证与 hash 漂移**：漏把源生成物/support source/pass 配置纳入 inputHash，会让旧树被误认为兼容；把无关时间戳/绝对路径纳入又会造成持续失效。必须用字段级 hash fixture、篡改负例和确定性序列化锁定；guaranteed 只能由最终树派生，manifest 不得成为隐藏语义旁路。
+20. **[v7] finalizer 再入与半提交**：finalizer 可能再生成同类构造或与前序 pass 相互触发。R13 限定每 finalizer 每轮一次、声明 Produces/Owners、拓扑执行、计划原子提交；出现无 owner 新构造即 SEMANTIC-CLOSURE 失败，不做无限不动点循环。
+21. **[v7] 调用/值拷贝切片语义半径**：JE-09 容易误碰 BCL 映射，JE-10 容易把 alias 当 fresh value。按 JM-ID 精确划界，BCL 映射继续 Java 负责；不可证调用/拷贝保持原形状或 DeclaredUnsupported，不能为退休率强行改写。
+22. **[v7] retire 的兼容窗口**：删除旧分支后，default 原始树或 partial 输入会失去该形状的兜底。退休仅限 guaranteed 路径；enforce 前提供单 capability kill switch，default+unverified 在退休前保留旧路径，退休后命中已退休构造必须清晰提示先 preprocess（其他形状照常转换）；配套 revert 必须能同时恢复声明端和调用端。
 
 **开放问题清单 [v4 编号化，源自 deepseek Q1-Q12 经本仓语境改写]**：
 
@@ -1107,30 +1272,35 @@ v1 首版风险 1-7 继续有效（T? 显式化波及面/探针翻转节奏/GD �
 | Q2 | `Both` 流向是否生成只读 wrapper（新 support 类型）而非 cast | 不生成；VR-05 仅可证安全才改写，其余登记（产品决策留 M4） |
 | Q3 | YamlDotNet 专用 profile vs 通用白名单 | JSON 配置 + 通用符号匹配器，Yaml 条目只是首批数据（R3） |
 | Q4 | 内在函数允许近似的类型族（int/long/float/double/byte/char？） | 与 compat 维护者对齐后写进 GI 条件列；未对齐前全 `DeclaredUnsupported` |
-| Q5 | 是否把 closure-lift 提前到 generic-deepen 之前（37×1101 另一解法） | 不提前；GD-NEST-2 包块体已闭环，链重排归 R5 决策 |
+| Q5 | 是否把 closure-lift 提前到 generic-deepen 之前（37×1101 另一解法） | 不默认提前；先 GD-NEST-2 + R13 最终闭包，只有闭包证明无法接管的构造族才做 dual-order 迁移 |
 | Q6 | 是否持久化 compilation 缓存 | 不持久化（Roslyn 不可序列化）；引用集 hash 缓存即可 |
 | Q7 | 测试工程泛型残留是否排除出 java-ready | 双 policy：测试默认 PreserveAndWarn、`--strict-tests` 对齐生产（§6.3-6） |
 | Q8 | 撞号迁移 `legacyCode` 兼容窗口 | 一个版本（随 M0） |
-| Q9 | Java 门禁消息是否改从共享 catalog 读取 | 本方案不改 Java 侧；作为长期建议登记 |
+| Q9 | Java 门禁消息是否改从共享 catalog 读取 | 是，纳入 R12/R14 配套 Java PR：JM-ID、requiredCapability、诊断与退休状态来自同一 JavaConversionRequirements，不再散落字符串 |
 | Q10 | java-ready 严格化是否翻转为默认 | CI/验收 profile 先行，稳定后决策 |
 | Q11 | static abstract/generic math 是否纳入"任意库"承诺 | 不纳入；AT/SA 规则只保证可判定登记 |
-| Q12 | 本方案是否同时交付 Java compat 缺失映射清单 | 只输出 inventory（generic-reflection-audit 报告），不改 Java（§7.2 协调项口径） |
+| Q12 | 本方案是否同时交付 Java compat 缺失映射清单 | 先输出 inventory；所在 VS 必需的映射/compat 改动随配套 Java PR 交付，非必要项不借机扩张 |
 | Q13 [v5] | 是否落地逐项目 compilation 工作区（kimi 列为 L0 硬规则，本方案列 M3 决策点） | 单项目主路径不受影响；M3 前先量化合并 compilation 在解决方案级语料上的绑定假阴/假阳性规模（variance-audit 126 跳过文件为样本），量化收益小于迁移成本则维持合并 compilation + 文档记录边界 |
 | Q14 [v6] | JE-05 是否把 BCL 重载/值语义差异条目化进 compat-method-replacement 注册表 | 保守立项：仅收录有提交证据的高频族（string.Concat 序列展平/checked IO/Decimal 转换），每条带漂移探测；不做通用重载决议重写；M4 按语料增益裁决 |
-| Q15 [v6] | JE-03/JE-04 两候选 pass 的排序与默认翻转时机 | 先 opt-in 一个波次收集覆盖率与 Java 负 diff；JE-04（已有真实死循环红测、形状边界清晰）先于 JE-03（适配网形状开放、覆盖率风险高）；负 diff 不达标不翻转 |
+| Q15 [v6/v7] | JE-03/JE-04 两候选 pass 的排序与默认翻转时机 | JE-04/JE-08 所在 VS-1 先行；JE-03 在 JE-02 后按转换族推进。每族独立完成 R14 后翻 guaranteed，不做整个 pass 一次性默认翻转 |
+| Q16 [v7] | manifest 是否对所有转换强制 | java-ready/audit 强制；default 允许原始树并标 unverified，保留未退休兜底；命中已退休构造则要求先 preprocess。已有树只有 inputHash/contractHash 均可重算才可复用 |
+| Q17 [v7] | 是否设统一“Java 行数下降百分比”硬指标 | 不设拍脑袋百分比；每个 VS 立项时冻结 targeted JM 集合，退场要求该集合退休率 100%、旧路径 hits=0、无同构事实复制，同时公开各层行数/分支增量 |
+| Q18 [v7] | JE-08~JE-10 是否必须等 R1~R10 全部完成 | 不必；只满足各自真实依赖。默认 VS-1→VS-2→VS-3，JE-01 与 JE-07 可按闭型/manifest 依赖并行，VS-5 泛型纵深独立推进 |
 
 ---
 
-## 附录 A：诊断码与 NORM 码索引（v2 修订，v4 增补，v5 增补，v6 增补）
+## 附录 A：诊断码与 NORM 码索引（v2~v7 增补）
 
 **既有泛型相关码**：CS2J11xx（generic-deepen：1100 整树回滚/1101 不可判站点 [v2：含嵌套闭包 token 不可达，json 37 实测]/1102 partial 族不可闭合 [v2：含静态泛型属性/事件停用]/1103 静态字段不可改写/1104 pattern 不可提升/1105 catch 前置失败/1106 调用点在编译外 [v2：调用点闭型不可见 3 实测]/1110 表达式树站点/1120 残留/1130-1131 verify 失败/1190 plan 非自包含）；CS2J1001/1002/1003（Java 侧）；CS2J0585/0586/0587（expression-desugar 新语法守门）；CS2J5175/5116/5119/5198（member-desugar generic math/签名）；UF021/UF040/UF061（泛型指针/stackalloc/extern 拒绝）；URL001；CS2J3301-3305/3320；**[v2 撞号警示，v6 订正为一码四义]** CS2J1203（closed-metadata `ClosedMetadataDiagnostics.cs:55`/extension-methods `ExtensionMethodResolveDiagnostics.cs:75`/extension-block `ExtensionBlockDiagnostics.cs:57`/thread-static `ThreadStaticDiagnostics.cs:49`）与 12xx/13xx 撞段；CS2J5196（"deferred to C02 review" 无承接者）、CS2J5223（开放泛型 with 接收者）、RR070（泛型接口 ripple）；CS2J5420（foreach-source 解构硬门，放大 S-07）；CS2J0601/0604/0607/0608（params 集合谱系）。
 
-**本方案新增**：§6.3 二十三个 NORM 码（[v4] 拆出 VARIANCE-USE；[v5] 增 SOURCE-GENERATOR/PUBLIC-ABI，REFLECT 扩域吸收 kimi REFLECTION-QUERY/MEMBER-METADATA 语义；**[v6] 增 COLLECTION-SHAPE/CONDITION-EFFECT 两 JE 域码，非泛型域但与 JE 规则族同册**）+ CS2J14xx 诊断段（1401-1409）+ `generic-constraint` pass 专属码（GC01xx 段）+ `SYNTH-*` 内部构造命名空间 + **[v3] compat 漂移探测码（CMR0xx 段新码："声明类型在语料中存在但条目零匹配"；[v6] JE-05 BCL 条目复用此段）** + **[v4] 新 pass 规则码落位**：GI 域 → CS2J1407/NORM-GENERIC-UNSAFE-INTRINSIC、VR 域 → CS2J1404/NORM-GENERIC-VARIANCE-USE、reflection-audit → CS2J1406/NORM-GENERIC-REFLECT（GC-ID 对应关系见附录 E）+ **[v5] profile×disable 冲突独立诊断码**（现复用 `UnknownPass`，`PassPlanResolver.cs:60-65`；随 W-11 修复迁移 14xx 段）+ **[v6] JE-02 集合桥接复用 CS2J1408（bridge 域），JE-06 不产新码（裸 throw 分类为工程治理）；两候选 pass 名：`condition-effect-linearize`/`collection-shape-normalize`**。
+**本方案新增**：§6.3 **二十六个 NORM 码**（v6 增 COLLECTION-SHAPE/CONDITION-EFFECT；**v7 增 CALL-SHAPE/VALUE-COPY/SEMANTIC-CLOSURE**，CONDITION-EFFECT 扩 byref/out）+ CS2J14xx 诊断段（**1401~1413**；1410 manifest/握手、1411 call-shape、1412 value-copy、1413 semantic-closure）+ `generic-constraint` 专属 GC01xx + `SYNTH-*` 内部构造命名空间 + CMR0xx compat 漂移码。GI→1407、VR→1404、reflection→1406、JE-02→1408；profile×disable 冲突迁入独立码；JE-06 不新增诊断码。两候选 pass 名保持 `condition-effect-linearize`/`collection-shape-normalize`，JE-08~JE-10 复用既有 pass + 最终 finalizer，不新增默认 mega-pass。
 
-## 附录 B：证据索引（v2 修订，v5 增补，v6 增补）
+## 附录 B：证据索引（v2~v7 增补）
 
 | 证据 | 位置 |
 |------|------|
+| **[v7] 握手绕过与新增复杂度证据** | `CLI/Program.cs:239-246`（`--no-preprocess` 对 java-ready/audit 仅 Warning 并忽略 profile）；`PreprocessReport.cs:10-30`（现报告只有 run/pass/timing/summary/diagnostics，无 capability/hash）；`Core/Preprocessing/PassContract.cs:18-27`（现有九字段，无 CapabilityIds/Phase/FinalizerFor）；`ProjectPassRunner.cs:282-341`（按需单 compilation 绑定） |
+| **[v7] JE-08~JE-10 代码事实** | `StatementTransformer.Conditionals.cs:373-433`（短路/out-var/read-back）；`InvocationExpressionTransformer.cs:790-924`（comparer/方法组/隐式 delegate Invoke）；`StructValueSemantics/ValueCopyFacts.cs:11`（移植自述）与 `StructValueSemanticsAnalyzer.cs:77`（调用 Transformers.StructCloneHelper）；`StructCloneHelper.cs:100-180,390-445`（override family 与用户 Clone/value-copy 区分） |
 | **[v6] v5 后提交基线** | `git log --oneline 9ee2fc26..8268251a`（共 15：2 预处理 2aa7aa8f/51e505cd；13 Java/compat：8268251a/a60afc75/bd3966a2/b5adaaea/69b4db22/0dd5258a/0a183e9a/eeafaa17/f271d4ad/b8e29847/48571b2f/e8e69c94/a2d3a6f0/107f0747——复核时点 a60afc75 为前 14 个，8268251a 定稿时新增）；GenericPreprocess/ClosedMetadata/Preprocessing 目录区间内零提交；8268251a＝泛型/非泛型 IEnumerator.Current 擦除碰撞（`getCurrentNonGeneric` 改名 + compat/TypeMappings 桥接） |
 | **[v6] V/S/W 逐条复核记录** | V-01 `GenericDeepenHolderGenerator.cs:52-56`（fixture `SampleGenericDeepenTests/RuntimeBehaviorTests.cs:18-27`）；V-02 同文件 `:63-65`；V-03 `GenericDeepenAnalyzer.cs:10-18,284-292`；V-04 `GenericDeepenRewriter.cs:734-745`；V-05 `ClosedTypeKey.cs:70-73`；V-06 collector `:593-599` vs linker `ClosedMetadataConsumptionLinker.cs:129`；V-07 analyzer `:1953-1961` + Java `TypeOperationTransformer.cs:69-70,778-800`；V-08 `:978-1002`（兜底 `:1002`）；S-01 `:1418-1432`；S-02 `:2058-2067`；S-03 `ClosureLift/HolderSyntaxGenerator.cs:70-76`（**非 Lift/ 子目录**）/`DisplayClassSyntaxEmitter.cs:122-128`/`LambdaMethodLifter.cs:516`；S-04 `TupleStructFileContent.cs:44-55`；S-05 `LocalFunctionLiftRewriter.cs:234-289,535,624-662,760-779`；S-06 `ThreadStaticAnalyzer.cs:560-563`；S-07 `ForeachDeconstructionRewriter.cs:383-417`；S-08 `AsyncNormalizeAnalyzer.cs:1044-1121`；W-01 `PassChainFactory.cs:485,515-519`；W-02 `ResidualRegistry.cs:12-24`（10 条）；W-04 `LinqChannelPassAdapter.cs:105`；W-11 `Program.cs:279-287 vs 4183-4189`；W-12 `ClosedMetadataCollector.cs:19-20,120-149`；W-13 linker `:62-95`；W-14 `ProjectPassRunner.cs:282-312`；计数器 `GenericPreprocessor.cs:115-116`；52 pass＝`PassCatalog.cs:56-1030` descriptor 计数 |
 | **[v6] J 层机制规模** | `JsonDeserializeRewrite.cs`（293 行，0dd5258a 新增）；`Utilities/CompatCollectionConformance.cs`（732）；`ArgumentTransformer.Coercion.cs`（1098）/`IListCoercion.cs`（266）/`IterableCoercion.cs`（217）/`SpanCoercion.cs`（85）；`InvocationExpressionTransformer.cs`（4785）；`StructCloneHelper.cs`（450）；`Context/JavaNaming.cs`（498）；`StaticMemberTypeParameterHelper.cs`（148）；条件线性化 `StatementTransformer.Loops.cs`（a2d3a6f0，红测 XsdDateTime `while (++start.Value < _length)`）；tuple 特判 `InvocationExpressionTransformer.cs:790-815`；fail-fast 15＝`UnaryExpressionTransformer.cs`(14)+`BinaryExpressionTransformer.cs`(1)，裸 throw 54 散 18 文件（附录 H 底册）；G-11 半修：TypeMappings:380（Comparer）+ `Comparer.java:12`，EqualityComparer 静态类无条目 |
@@ -1167,15 +1337,16 @@ v1 首版风险 1-7 继续有效（T? 显式化波及面/探针翻转节奏/GD �
 | GD 规则族/holder/残留门 | `Core/GenericPreprocess/`（v1 首版 §4.6 引用集合有效，命名修正见 §4.2） |
 | 同行方案四份 | `C:\Users\15097\Desktop\V202611042101\preprocess-upgrade-{deepseek-flash-4.1-1017, kimi3.1-pro, longcat2.5, seed-evolving}.md` |
 
-## 附录 C：本方案不做的事（v2 修订）
+## 附录 C：本方案不做的事（v2/v7 修订）
 
 - 不改 52 个既有 pass 的外部行为与 CLI 开关语义（M0 缺陷修复除外——V-01 行为变更显式声明；新增规则全部增量或 opt-in）。
-- 不把 Java 转换器规则搬进 preprocess；Java 侧事实只用于界定降级目标子集与一致性测试。
+- 不把**纯 Java 职责**搬进 preprocess：BCL/compat 映射、Java 擦除命名、import、目标语法发射与 compat 运行时仍归 Java；只有 C# 语义决策与源形状规范化前移。
 - 不为单一语料写死特判：M3 后 `Core/` 无库名（grep 守门）；消费面/compat 条目全部走配置。**[v3] 反向纪律：机制不得按旧语料形态固化**——compat 条目/消费面常量/守门规则必须锚定语料版本并可随版本换代（G-25 教训：ToUtf8 条目按 3.x 签名拟合即失效）。
 - 不在本方案内承诺 static abstract（G-07）、运行时合成 R2+（G-04c）、Expression 域（G-23）、晚期链重排（R5）的落地——以 NORM 登记 + 域决策文档交付。
-- 不修改 Java 侧代码/映射（协调项见 §7.2：v2 三条 + [v6] 第四类"JE 对应的 Java 删除配套 PR"）。
+- 预处理 PR 不直接修改 Java 侧代码/映射；但每个 JE/JCS 垂直切片必须包含配套 Java 删除/收缩 PR 与退休证据（§7.2/R14），不得把“跨阶段未完成”包装成范围外。
 - 不把"C# 中间树可编译"等同"Java 可转换"，也不把"转换成功"等同"测试全绿"——三层各有独立门（I1-I3 / §7.1 / §7.2）。
-- **[v6] 不为扩能力而扩能力（I10 反向纪律）**：L3 每条新规则必须指认被消除的 Java 侧机制并以负 diff 验收（§7.1-8）；指认不出的规则不予立项。对应地，**也不要求所有 Java 复杂度都搬进预处理**——开放世界防御分支（coercion 兜底等语料未证明的形状）允许冻结保留，只要求登记与到期复审，禁止用行数指标诱导删除防御代码。预处理 PR 不直接删除 Java 代码（删除归 §7.2 第四类协调项），但以其可删除为规则完成的证明条件。
+- **[v6/v7] 不为扩能力而扩能力，也不为删行数而删防御**：JE/JCS 减负规则必须指认 JM-ID 并退休；正确性、通用语法、框架/审计/性能工作不强制寻找 Java 负 diff。开放世界防御分支可对精确 partial 形状冻结保留并到期复审，禁止整文件永久豁免。Java 行数下降但同构决策表复制到 preprocess/compat，仍不算完成。
+- **[v7] 不引入旁路 IR 或渲染后修复**：manifest 只承载身份、能力和证据，不承载 Java 渲染指令/SemanticModel/TypeMappings；JCS 所需语义必须体现在可编译 C# 中。禁止新增 rendered-Java 文本手术，禁止用无限不动点或 mega-pass 掩盖 pass owner 不清。
 
 ## 附录 D：同行方案采纳对照（v2 新增，v4 增补 deepseek 设计层，v5 增补 kimi 设计层）
 
@@ -1241,14 +1412,16 @@ v1 首版风险 1-7 继续有效（T? 显式化波及面/探针翻转节奏/GD �
 
 一致性断言素材（§7.1-7）：每个 GC-ID 至少一个 owner；GC-ID × NORM 码对应表入库 `PassConstructIds`；**[v6] Java 侧 fail-fast 点按附录 H 实测 69 点底册（15 经统一构造点 + 54 裸 throw）逐个映射到 GC-ID 或标注 IR-不支持（JE-06 分类）**（人工映射表 + 测试防漂移）。
 
-## 附录 F：报告 schema（v4 定稿目标）[v4 新增]
+## 附录 F：报告与握手 schema（v7 / report v2 / manifest v1）
 
-`preprocess-report.json` 增补 `generic` 段（per-pass 构造计数按附录 E GC-ID 聚合）：
+`preprocess-report.json` 升版为 **schemaVersion=2**，保留 per-pass 构造计数并引用 JCS manifest、JM 退休与复杂度账本：
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "profile": "java-ready",
+  "manifest": "preprocess-manifest.json",
+  "subsetStatus": "verified",
   "chain": ["conditional", "...", "normalization-audit"],
   "summary": { "files": 261, "residuals": 0, "errors": 0, "warnings": 0 },
   "passes": [
@@ -1273,6 +1446,48 @@ v1 首版风险 1-7 继续有效（T? 显式化波及面/探针翻转节奏/GD �
   }
 }
 ```
+
+**[v7] `preprocess-manifest.json`（R12 握手产物；示例只展示必需形状，hash 为占位）**：
+
+```json
+{
+  "schemaVersion": 1,
+  "subsetVersion": "JCS-1",
+  "profile": "java-ready",
+  "solutionVariant": {
+    "configuration": "Release",
+    "projects": [{ "path": "YamlDotNet/YamlDotNet.csproj", "tfm": "net10.0" }]
+  },
+  "passPlan": [{ "id": "struct-value-semantics", "contractHash": "sha256:…" }],
+  "contractHash": "sha256:…",
+  "inputHash": "sha256:…",
+  "capabilities": [
+    {
+      "id": "JCS.VALUE",
+      "status": "guaranteed",
+      "constructs": ["struct-value-copy-site"],
+      "finalizers": ["struct-value-semantics/finalize"],
+      "residuals": [],
+      "evidenceHash": "sha256:…"
+    },
+    {
+      "id": "JCS.CONVERSION",
+      "status": "partial",
+      "constructs": ["span-to-enumerable"],
+      "finalizers": [],
+      "residuals": [{ "file": "…", "owner": "collection-shape-normalize", "reason": "open-world" }],
+      "evidenceHash": "sha256:…"
+    }
+  ],
+  "artifacts": {
+    "apiManifest": "api-manifest.json",
+    "residualReport": "preprocess-residual-report.json",
+    "complexityLedger": "preprocess-report.json#javaSimplification"
+  }
+}
+```
+
+> `guaranteed` 由最终树证据派生；示例中的 partial capability 若被 JavaConversionRequirements 标记为当前 profile 必需，则整个 java-ready 转换必须以 CS2J1410 拒绝，而不是自动降级为 Warning。
 
 `preprocess-residual-report.json` 的 `residuals[]` 条目六字段（code/file/line/owner/policy/reason）：
 
@@ -1330,45 +1545,59 @@ v1 首版风险 1-7 继续有效（T? 显式化波及面/探针翻转节奏/GD �
 
 `preprocess-report.json` 头部增 `sourceGenerators` 段（R9：每工程生成器名/inputHash/物化文件数/去重状态）与 `profileEntryPoints` 段（W-11：两入口统一后的 profile 解析记录）；`abiChanges` 统计引用 `api-manifest.json` 的 summary——java-ready 下 `pending`/`unregistered` 非 0 即失败（§6.6 L2）。
 
-**[v6] `javaSimplification` 段（JE 规则对账，I10/W-15 产物，§7.1-8 四件套之④）**：
+**[v7] `javaSimplification` 与总复杂度账本（R14；JM-ID 取代单纯行号对账）**：
 
 ```json
 {
   "javaSimplification": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "rules": [
       {
-        "rule": "JE-01",
-        "wave": "M3",
-        "targetMechanism": "Transformers/JsonDeserializeRewrite.cs:1-293",
-        "status": "deleted",
-        "javaLinesDelta": -293,
+        "rule": "JE-08",
+        "slice": "VS-1",
+        "capability": "JCS.EVAL",
+        "targetMechanismIds": ["JM-EVAL-IF-BYREF"],
+        "targetMechanism": "Transformers/Statement/StatementTransformer.Conditionals.cs:373-433",
+        "retirementState": "retire",
+        "javaLinesDelta": -60,
+        "preprocessLinesDelta": 180,
+        "compatLinesDelta": 0,
+        "analysisLinesDelta": 95,
         "javaDiffCommit": "<配套下游 PR commit>",
+        "fallbackHits": { "before": 17, "duringEnforce": 0 },
+        "sharedFactImplementations": { "before": 2, "after": 1 },
         "productDiff": { "corpus": "agl", "changedFiles": 12, "expectedShapeOnly": true },
         "junit": { "testsBefore": 4102, "testsAfter": 4102, "failedBefore": 0, "failedAfter": 0 },
         "freeze": null
       }
     ],
-    "summary": { "rulesLanded": 0, "rulesWithDebt": 0, "totalJavaLinesDelta": 0 }
+    "summary": {
+      "targetedJmCount": 1,
+      "retiredJmCount": 1,
+      "rulesWithDebt": 0,
+      "totalJavaLinesDelta": -60,
+      "duplicateSemanticFactImplementations": 0
+    }
   }
 }
 ```
 
-> `status` 三态：`deleted`（机制已删/分支已删）/`shrunk`（部分收缩，须给覆盖率）/`frozen`（语料未覆盖形状保留兜底，`freeze` 带 reason/owner/reviewWave）。`rulesWithDebt > 0`（合入但既无删除也无冻结）时波次不得退场。段无时间戳、字段排序确定，与全报告幂等纪律一致。
+> `retirementState` 使用 R14 的 `inventory/shadow/enforce/retire/ratchet`；`frozen` 只作为 partial 能力的注记，`freeze` 必须含 JM-ID、uncoveredConstruct、reason、owner、reviewWave。行数只是账本一维，不能替代 targeted JM 退休率、fallback hits、共享事实重复数和行为等价。`rulesWithDebt>0`、目标 JM 未退休或 shared fact 仍重复时，所在 VS 不得退场。示例数字仅展示 schema，不是新增实测结果。
 
-## 附录 G：一页纸执行清单 [v4 新增]
+## 附录 G：一页纸执行清单（v7）
 
-1. **M0 止血先行**：V-01..V-08/S-03/04/05/W-01/03/04/06/09 修复 + rt10 基线重跑（W-10 最小接线）+ **[v5] W-11 两入口统一 + 计数器拆分 + GD-MTOK 可见性分级/TypeParameterId owner/holder 并发压测/计划原子提交**——不动 pass 顺序、不扩能力。
-2. **M1 契约**：二十三探针（[v6] +COLLECTION-SHAPE/+CONDITION-EFFECT）+ CS2J14xx + 撞号迁移（`legacyCode` 一个版本）+ 泛型族挂契约 + 报告 v1.1（附录 F schema）+ 残差快照 ratchet + **[v6] JE-06：69 个 fail-fast 点全分类，裸 throw 不归类即 CI 失败**。
-3. **M2 编译层**：真实引用 spine + degraded 显式化 + csproj Compile/TFM/外部源求值完备（W-10 收口）+ **[v5] R9 源生成物化最小接线（测试工程生成输出 + NORM-SOURCE-GENERATOR）**。
-4. **M3 能力层**：统一解析器（S 层）→ generic-constraint（CN 全表）+ GD-MTOK-2（**[v5]** 含可见性分级）→ 消费面三 profile（CM-STRICT + **[v5]** execution kind/CM-LINK-3）→ generic-intrinsic-lower（GI）→ variance-use-site-normalize（VR）→ generic-reflection-audit（RG）→ EB/AS/IT/RR/RW/AT/SA 残余规则 → **[v5] R10 ApiManifest/ABI diff + Q13 逐项目 compilation 决策** → **[v6] R11/JE 族：JE-01 闭型消费扩面（随 R3）→ JE-02 集合一致性桥（随 EB）→ JE-04/JE-03 两候选 pass（opt-in 先行、Q15 排序）→ JE-07 生成物中立化（随 R10）**；`--list-passes` 快照含 4+2 新 pass。
-5. **M4 域决策**：static abstract / 运行时合成 RG-2+ / Expression / 型变 Unsafe 子集 / 晚期链重排（R5）/ Q1-Q15 裁决（**[v6] Q14 JE-05 条目化、Q15 候选 pass 翻转**）——每域 DeclaredUnsupported 登记（owner/原因/fail-fast）或立项。
-6. **M5 性能与文档**：统一树默认（整树拷贝 52→1）+ 增量缓存（≥80% 命中）+ 选择性 verify + `preprocessor-matrix.md` 自动生成（descriptor + contract 派生）+ **[v5] PassIds/PassStubCatalog 事实源合并**。
-7. **纪律**：每次只提交一个波次；每波以"fixture 正/负/幂等/回退 + 双语料 B 路 build/test + 报告（附录 F schema）"为退出门；任何泛型残留必须带 owner/policy/文件/行/原因，否则不得合入；残差只许减不许增（ratchet）；**[v5] 换 TFM 必须重新 preprocess（§7.0 per-TFM 纪律），java-ready 下 ABI manifest pending/unregistered 必须为 0**；**[v6] JE 规则波次另加 §7.1-8 四件套退出门（Java 负 diff + 产物 diff + JUnit 等价 + javaSimplification 段）——"预处理扩了、Java 没瘦"不得退场；防御分支只许冻结（带到期波次）不许为指标硬删**。
+1. **M0 正确性止血**：完成当前切片依赖的 V/S/W 修复与 rt10 基线；不把全部泛型 backlog 当成 Java 瘦身的总前置。
+2. **VS-0 先立契约**：冻结 JCS-1 后条件与职责分界；落地二十六探针、CS2J1401~1413、report v2、`preprocess-manifest.json`、JavaConversionRequirements、JM-ID 与 R14 状态机；`--no-preprocess` 正负握手先通过。
+3. **M2 建可信工作区**：真实 Compile/TFM/引用/源生成输入 + degraded=0；R13 最终闭包有界执行、原子回滚；ValueCopy/EvaluationOrder/CallShape 事实唯一化，禁止 preprocess→Transformers 依赖。
+4. **VS-1 求值顺序**：JE-04/JE-08 分规则 shadow；短路、out-var、异常、continue/break 全绿后 enforce；Loops/Conditionals 指认 JM 0 hits 再 retire，最后 ratchet。
+5. **VS-2/VS-3 值拷贝与调用**：JE-10 先消除双事实再收槽位；JE-09 只规范化 C# 调用形状，JE-01/JE-07 按依赖并行；BCL 映射/Java 命名不搬入 preprocess。
+6. **VS-4/VS-5 分族推进**：JE-02 先行，JE-03 按 array/list、IEnumerable、Span、IGrouping 独立 guaranteed→retire；泛型 R1~R10 与其余 JE 作为 VS-5 按真实依赖推进，未覆盖形状保持 partial。
+7. **M4/M5 收尾**：域决策只产出立项或 DeclaredUnsupported；整体链重排须由 R13 证据触发；统一树/增量缓存键包含 subsetVersion/inputHash/contractHash，文档由 descriptor+contract 派生。
+8. **每片同一退出门**：正/负/幂等/回退 fixture + 双语料 B 路 + Java 产物 diff + JUnit 数量/结果等价 + guaranteed manifest + 指认 JM retire + 总复杂度账本 + 防回流测试。每次只交付一个可回滚 VS；冻结精确到形状且有 owner/reviewWave；**“预处理扩了、Java 没瘦”或“Java 瘦了、决策复制到别的层”都不得退场**。
 
-## 附录 H：Java 侧复杂度普查底册（v6 新增，a60afc75 实测；8268251a 增补一行）
+## 附录 H：Java 侧复杂度普查与 JM 退休底册（v7 扩展）
 
-> I10/JE 规则的指认底册与 JE-06 分类工作单。行数为物理行数（2026-11-06 实测）；"归属"列：P=预处理责任（映射到 NORM 探针/JE 规则）、I=IR 不支持（迁 IrNotSupportedException）、D=防御保留（注释+复审）。JE-06 需逐点完成 P/I/D 归类并把归属写进盲区巡逻测试的派生断言。
+> I10/JE 规则的指认底册与 JE-06 分类工作单。行数为 v6 在 2026-11-06 的物理行数快照，v7 新增行只作代码定位、未重测全仓行数；退休主键改为稳定 JM-ID。fail-fast 的 P/I/D 分类继续有效：P=预处理责任、I=IR 不支持、D=防御保留。
 
 **H.1 机制级底册（J 层）**
 
@@ -1381,13 +1610,27 @@ v1 首版风险 1-7 继续有效（T? 显式化波及面/探针翻转节奏/GD �
 | Iterable 适配 | `Transformers/Expression/Utilities/IterableCoercion.cs` | 217 | 0a183e9a/69b4db22 | JE-03 | 分支收缩 |
 | Span 适配 | `Transformers/Expression/Utilities/SpanCoercion.cs` | 85 | — | JE-03 | 分支收缩 |
 | 条件副作用线性化 | `Transformers/Statement/StatementTransformer.Loops.cs`（while 段） | 分散 | a2d3a6f0（死循环） | JE-04 | 删除重写 |
+| [v7] byref/out 条件序列与 out-var 收口 | `Transformers/Statement/StatementTransformer.Conditionals.cs:373-433` | 分散 | 当前代码实存短路/read-back/悬挂 post 处理 | JE-08 | 指认 JM 分支退休 |
 | BCL 重载/值语义特判 | Invocation/TypeOperation/Assignment/StructCloneHelper 等分散位点 | 分散 | a60afc75/e8e69c94/f271d4ad | JE-05 | 条目收编 |
 | 生成物逐名特判 | `InvocationExpressionTransformer.cs:790-815`（EqualityComparer→Objects） | 26 | 2aa7aa8f（生成形状漂移） | JE-07 | 删除+manifest |
 | fail-fast 统一点 | `UnaryExpressionTransformer.cs`×14、`BinaryExpressionTransformer.cs`×1 | 15 点 | — | — | 已归一 |
 | fail-fast 裸 throw | 18 文件 54 点（Lambda 6/ElementAccess 4/ObjectCreation 3/Unary 3/ControlFlow 2/Assignment 1/Binary 1/Invocation 1/Literal 1/Query 1/String 1/TypeOperation 1；Statement.SwitchAndResource 12/Declarations 7/Loops 5；Class 2/Struct 1/Field 2） | 54 点 | — | JE-06 | P/I/D 全分类 |
-| 调用渲染枢纽 | `InvocationExpressionTransformer.cs` | 4785 | v5 后 +394 | JE-01/03/07 间接受益 | 规模只许降 |
-| struct clone/值语义 | `Transformers/StructCloneHelper.cs` | 450 | 0dd5258a | 观测（struct-value-semantics 扩面候选，不在本版承诺） | 观测 |
+| 调用渲染枢纽 | `InvocationExpressionTransformer.cs` | 4785 | v5 后 +394；方法组/隐式 delegate Invoke 实存 | JE-01/03/07 +[v7] JE-09 | 只退休 C# 形状 JM；纯 BCL 映射保留，不以整文件行数作目标 |
+| struct clone/值语义 | `Transformers/StructCloneHelper.cs` + preprocess `ValueCopyFacts` 双实现 | 450+ | `ValueCopyFacts.cs:11` 移植自述；`StructValueSemanticsAnalyzer.cs:77` 反向调用 | [v7] JE-10 | 共享事实 2→1；copy 站点判断退休，窄渲染工具可保留 |
 | 擦除命名模型 | `Context/JavaNaming.cs` | 498 | 持续 | 不吸收（Java 侧本质职责；EB 规则减少其触发面） | 观测 |
 | 静态成员提升 | `Transformers/Utilities/StaticMemberTypeParameterHelper.cs` | 148 | — | 不吸收（GD-STATIC 完全覆盖后可评估收缩） | 观测 |
 
-**H.2 使用纪律**：①本表是 v6 时点快照，每个波次结束重测行数（入 `javaSimplification.summary`）；②"观测"行不是 JE 承诺，防止 I10 被反向滥用成"Java 什么都该预处理做"（附录 C 反向纪律）；③新进入 Transformers 的"C# 形状补偿"代码在 PR 评审时必须标注 H 底册编号或显式声明"纯 Java 职责"——防止 J 层机制无账增长（W-15 的过程性预防）。
+**H.2 使用纪律 [v7]**：①每个 VS 立项时冻结 targeted JM 子集，退场只要求该子集退休率 100%，不以整文件/全仓百分比代替；②每波重测行数、语义分支数与 hits，连同 preprocess/compat/Analysis 增量写入 `javaSimplification`；③“观测”行不是承诺，纯 Java 命名/映射/渲染不得为凑指标前移；④新进入 Transformers 的 C# 形状补偿必须分配 JM-ID、requiredCapability 与 owner，或显式声明纯 Java 职责，否则 CI 失败。
+
+**H.3 v7 初始 JM-ID 对照（实施时入 JavaConversionRequirements；行号仅初始定位）**
+
+| JM-ID | 初始位置 | capability / 规则 | 退休验收 |
+|---------|----------|-------------------|----------|
+| `JM-EVAL-WHILE-EFFECT` | `StatementTransformer.Loops.cs` while 条件线性化 | JCS.EVAL / JE-04 | 目标循环形状 enforce 0 hits 后删除 |
+| `JM-EVAL-IF-BYREF` | `StatementTransformer.Conditionals.cs:373-433` | JCS.EVAL / JE-08 | 短路/out-var/read-back 反例全绿，指认分支删除 |
+| `JM-CALL-METHOD-GROUP` | `InvocationExpressionTransformer.cs:827+` | JCS.CALL / JE-09 | 已选方法组形状在 C# 定型后删除对应分支 |
+| `JM-CALL-DELEGATE-INVOKE` | `InvocationExpressionTransformer.cs:924+` | JCS.CALL / JE-09 | 显式 Invoke 后不再由 Java 猜隐式调用 |
+| `JM-VALUE-COPY-SITE` | `StructCloneHelper` 及 Argument/Assignment/Return 调用点 | JCS.VALUE / JE-10 | Java 站点判断删除；共享 ValueCopyFacts 单实现 |
+| `JM-GENERATED-EQUALITY-COMPARER` | `InvocationExpressionTransformer.cs:790-815` | JCS.SYMBOL / JE-07 | 生成物中立 helper 后删除逐名特判 |
+
+> JM-ID 一旦发布不得随重构改名；位置可更新，语义变化则新建 ID 并保留退休历史。以上只是首批种子，J-01~J-03 等既有机制在各自 VS 立项时同样补 JM-ID。
