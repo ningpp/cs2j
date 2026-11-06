@@ -48,6 +48,16 @@ internal sealed class SpanIndexLoopRule : IForeachSourceRule
             return null;
         }
 
+        // Nullable<Span<T>>/Nullable<ReadOnlySpan<T>> cannot be declared in C#
+        // (ref structs cannot be type arguments); defensive only: an
+        // error-tolerant nullable wrapper is never claimed here, because the
+        // cached-source index loop reads .Length/this[] directly on the temp
+        // and a T? temp exposes neither.
+        if (ForeachSourceAnalyzer.UnwrapNullableValueType(collectionType) != null)
+        {
+            return null;
+        }
+
         if (!ForeachSourceAnalyzer.IsSpanType(collectionType))
         {
             return null;

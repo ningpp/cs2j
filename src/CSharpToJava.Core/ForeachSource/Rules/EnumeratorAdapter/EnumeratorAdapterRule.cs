@@ -24,6 +24,14 @@ namespace CSharpToJava.Core.ForeachSource;
 /// A dynamic-dispatch site is diagnosed CS2J5456 and left untouched; an
 /// incomplete binding on a non-IEnumerable, non-span source is diagnosed
 /// CS2J5457 and left untouched (decision 11).
+///
+/// <c>Nullable&lt;T&gt;</c> sources are classified by their underlying value
+/// type T (C# binds foreach over a nullable struct against T through
+/// <c>Nullable&lt;T&gt;.Value</c>). A nullable struct implementing IEnumerable
+/// therefore stays converter-owned exactly like a non-nullable one; a nullable
+/// duck enumerator is diagnosed CS2J5458 instead of being lowered, because the
+/// enumerator skeleton would have to emit <c>T?.GetEnumerator()</c>, which does
+/// not compile.
 /// </summary>
 internal sealed class EnumeratorAdapterRule : IForeachSourceRule
 {
@@ -51,13 +59,23 @@ internal sealed class EnumeratorAdapterRule : IForeachSourceRule
             return null;
         }
 
+        // Nullable<T> sources are classified by the underlying value type T:
+        // C# binds `foreach (x in nullableStruct)` against T (it evaluates
+        // nullable.Value), while Nullable<T> itself implements no interface,
+        // so a wrapper-level check would misclassify every nullable struct.
+        // An unresolved T was already filtered by IsErrorType above.
+        var underlyingType = ForeachSourceAnalyzer.UnwrapNullableValueType(collectionType);
+        var sourceType = underlyingType ?? collectionType;
+
         // Arrays and IEnumerable/IEnumerable<T> sources are owned by the
-        // converter (zero collateral damage, decision 3).
-        if (collectionType is IArrayTypeSymbol)
+        // converter (zero collateral damage, decision 3). The same holds for a
+        // nullable struct that implements IEnumerable: the node is kept
+        // verbatim (no `.Value` rewrite — that would not be equivalent).
+        if (sourceType is IArrayTypeSymbol)
         {
             return null;
         }
-        if (ForeachSourceAnalyzer.ImplementsIEnumerable(collectionType, site.Model.Compilation))
+        if (ForeachSourceAnalyzer.ImplementsIEnumerable(sourceType, site.Model.Compilation))
         {
             return null;
         }
@@ -65,7 +83,9 @@ internal sealed class EnumeratorAdapterRule : IForeachSourceRule
         // Decision 9: Span<T>/ReadOnlySpan<T> always lower to an index loop;
         // SpanIndexLoopRule is registered immediately after this rule. The two
         // rules are mutually exclusive via this explicit exclusion.
-        if (ForeachSourceAnalyzer.IsSpanType(collectionType))
+        // Nullable<Span<T>> is not a legal C# type; the unwrapped check is
+        // defensive only.
+        if (ForeachSourceAnalyzer.IsSpanType(sourceType))
         {
             return null;
         }
@@ -73,7 +93,7 @@ internal sealed class EnumeratorAdapterRule : IForeachSourceRule
         // Decision 11: dynamic dispatch cannot be lowered statically. Classified
         // from the collection type so it works even when the foreach info could
         // not be resolved for the dynamic node.
-        if (ForeachSourceAnalyzer.IsDynamic(collectionType) || (binding?.IsDynamic ?? false))
+        if (ForeachSourceAnalyzer.IsDynamic(sourceType) || (binding?.IsDynamic ?? false))
         {
             context.Statistics.DynamicForeachSites++;
             var severity = site.Options.Strict
@@ -110,6 +130,32 @@ internal sealed class EnumeratorAdapterRule : IForeachSourceRule
                 "[FA] foreach over a non-array/non-string/non-IEnumerable source has an incomplete " +
                 "enumerator binding (no usable GetEnumerator/MoveNext/Current symbols); the node at " +
                 "this site is left unchanged.",
+                node);
+            return ForeachSourceRuleOutcome.KeepUnchanged;
+        }
+
+        // Nullable value-type duck source: C# lets `foreach (x in nullableDuck)`
+        // compile and reads the underlying value first (probe-pinned on
+        // Roslyn 5.0 / net10: the source is evaluated into a T? temp and
+        // T?.Value is read, so a null source throws InvalidOperationException
+        // — not NullReferenceException — before GetEnumerator runs). The
+        // enumerator skeleton cannot express that: `__cs2jFaSrc` is typed T?
+        // and `T?.GetEnumerator()` does not compile (member lookup does not
+        // fall back to T), so rewriting here would emit uncompilable code.
+        // Diagnose precisely instead of the generic "non-IEnumerable" 5457.
+        if (underlyingType != null)
+        {
+            context.Statistics.UnresolvedForeachSites++;
+            var nullableSeverity = site.Options.Strict
+                ? ForeachSourceSeverity.Error
+                : ForeachSourceSeverity.Warning;
+            context.Report(
+                nullableSeverity,
+                PreprocessDiagnosticCodes.ForeachSourceNullableDuckEnumerator,
+                "[FA] foreach source is a Nullable<T> value type whose underlying struct exposes a " +
+                "pattern enumerator; C# evaluates the source through Nullable<T>.Value " +
+                "(InvalidOperationException when null), which the GetEnumerator/while skeleton cannot " +
+                "express without emitting uncompilable code on T?; the node at this site is left unchanged.",
                 node);
             return ForeachSourceRuleOutcome.KeepUnchanged;
         }

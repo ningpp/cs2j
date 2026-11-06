@@ -112,7 +112,7 @@ public sealed class ForeachSourceStatistics
     /// <summary>dynamic-dispatched foreach sites left untouched with CS2J5456.</summary>
     public int DynamicForeachSites;
 
-    /// <summary>Non-IEnumerable foreach sites whose binding is too incomplete to lower (CS2J5457; M2).</summary>
+    /// <summary>Non-IEnumerable foreach sites left unchanged: incomplete binding (CS2J5457) or a Nullable&lt;T&gt; duck-enumerator source whose nullable-specific evaluation cannot be reproduced (CS2J5458).</summary>
     public int UnresolvedForeachSites;
 
     /// <summary>FS-5 residual: bare non-array/non-string/non-IEnumerable plain foreach with a valid binding (CS2J5470; M2 gate).</summary>

@@ -995,6 +995,175 @@ public class ForeachSourceC40RewriterUnitTests
     }
 
     // ===================================================================
+    // rt10: Nullable<T> sources are classified by the underlying value type.
+    // C# binds `foreach (x in nullableStruct)` against T (through
+    // Nullable<T>.Value), so a nullable struct that implements IEnumerable is
+    // converter-owned exactly like the non-nullable form. Before the fix the
+    // classifier looked at the Nullable wrapper only and rewrote the site into
+    // `T?.GetEnumerator()` (uncompilable, CS1061).
+    // ===================================================================
+
+    [Fact]
+    public void Nullable_struct_IEnumerable_source_is_converter_owned_and_unchanged()
+    {
+        var src = """
+            using System.Collections;
+            using System.Collections.Generic;
+            struct NullableEnumerable : IEnumerable<int>
+            {
+                public Enumerator GetEnumerator() => default;
+                IEnumerator<int> IEnumerable<int>.GetEnumerator() => null;
+                IEnumerator IEnumerable.GetEnumerator() => null;
+                public struct Enumerator
+                {
+                    private int _i;
+                    public int Current => _i;
+                    public bool MoveNext() => ++_i <= 2;
+                }
+            }
+            class C
+            {
+                void M(NullableEnumerable? source)
+                {
+                    foreach (int i in source) { Use(i); }
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src, strict: true);
+
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.DuckEnumeratorSitesLowered);
+        Assert.Equal(0, result.Statistics.UnresolvedForeachSites);
+        Assert.Equal(0, result.Statistics.ResidualEnumeratorSites);
+        Assert.Equal(0, result.Statistics.SpanIndexLoopSites);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Severity == ForeachSourceSeverity.Error);
+        Assert.DoesNotContain(result.Diagnostics,
+            d => d.Code == PreprocessDiagnosticCodes.ForeachSourceUnresolvedForeach);
+        Assert.DoesNotContain(result.Diagnostics,
+            d => d.Code == PreprocessDiagnosticCodes.ForeachSourceNullableDuckEnumerator);
+        // Verbatim: no `.Value` rewrite, no enumerator skeleton.
+        Assert.Contains("foreach (int i in source)", result.OutputCode);
+        Assert.DoesNotContain("__cs2jFa", result.OutputCode);
+        AssertNoErrors(result);
+    }
+
+    // rt10's exact shape: the Nullable type argument could not be resolved in
+    // the pass compilation (linked <Compile Include> sources outside the
+    // enumerated tree). Roslyn still reports a Nullable<T> struct symbol over
+    // an error type, so the old top-level kind check classified the site as a
+    // genuine non-IEnumerable foreach and raised CS2J5457. Unresolved sources
+    // take the normal error-type pass-through instead (no signal, no rewrite).
+    [Fact]
+    public void Nullable_of_unresolved_type_is_passed_through_without_CS5457()
+    {
+        var src = """
+            class C
+            {
+                void M(MissingType? source)
+                {
+                    foreach (int i in source) { Use(i); }
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src, strict: true);
+
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.UnresolvedForeachSites);
+        Assert.Equal(0, result.Statistics.ResidualEnumeratorSites);
+        Assert.Equal(1, result.Statistics.SitesPassedThrough);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Severity == ForeachSourceSeverity.Error);
+        Assert.DoesNotContain(result.Diagnostics,
+            d => d.Code == PreprocessDiagnosticCodes.ForeachSourceUnresolvedForeach);
+        Assert.Contains("foreach (int i in source)", result.OutputCode);
+        Assert.DoesNotContain("__cs2jFa", result.OutputCode);
+    }
+
+    // Control group: a genuinely non-enumerable struct keeps the conservative
+    // CS2J5457 terminal, whether or not it is wrapped in Nullable<T>.
+    [Fact]
+    public void Plain_struct_without_GetEnumerator_still_reports_CS5457()
+    {
+        var src = """
+            struct NotEnumerable { }
+            class C
+            {
+                void M(NotEnumerable n, NotEnumerable? maybe)
+                {
+                    foreach (var x in n) { Use(x); }
+                    foreach (var y in maybe) { Use(y); }
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(2, result.Statistics.UnresolvedForeachSites);
+        Assert.Equal(2, result.Diagnostics.Count(
+            d => d.Code == PreprocessDiagnosticCodes.ForeachSourceUnresolvedForeach
+                 && d.Severity == ForeachSourceSeverity.Warning));
+        Assert.Equal(0, result.Statistics.DuckEnumeratorSitesLowered);
+        Assert.DoesNotContain("__cs2jFa", result.OutputCode);
+
+        var strict = Preprocess(src, strict: true);
+        Assert.Equal(2, strict.Diagnostics.Count(
+            d => d.Code == PreprocessDiagnosticCodes.ForeachSourceUnresolvedForeach
+                 && d.Severity == ForeachSourceSeverity.Error));
+    }
+
+    // Nullable duck enumerator: C# evaluates Nullable<T>.Value (probe-pinned
+    // on net10: a null source throws InvalidOperationException before
+    // GetEnumerator, a non-null source iterates the struct enumerator). The
+    // enumerator skeleton types the source local as T?, where `.GetEnumerator()`
+    // does not bind, so the site is diagnosed CS2J5458 and left unchanged
+    // instead of being rewritten into uncompilable code.
+    [Fact]
+    public void Nullable_duck_enumerator_is_diagnosed_precisely_not_lowered()
+    {
+        var src = """
+            struct DuckEnumerator
+            {
+                private int _i;
+                public int Current => _i;
+                public bool MoveNext() => ++_i <= 2;
+            }
+            struct Duck
+            {
+                public DuckEnumerator GetEnumerator() => new DuckEnumerator();
+            }
+            class C
+            {
+                void M(Duck? source)
+                {
+                    foreach (var x in source) { Use(x); }
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.DuckEnumeratorSitesLowered);
+        Assert.Equal(0, result.Statistics.ResidualEnumeratorSites);
+        Assert.Equal(1, result.Statistics.UnresolvedForeachSites);
+        var diag = Assert.Single(result.Diagnostics,
+            d => d.Code == PreprocessDiagnosticCodes.ForeachSourceNullableDuckEnumerator);
+        Assert.Equal(ForeachSourceSeverity.Warning, diag.Severity);
+        Assert.Contains("Nullable<T>", diag.Message);
+        Assert.Contains("InvalidOperationException", diag.Message);
+        Assert.DoesNotContain("__cs2jFa", result.OutputCode);
+        Assert.Contains("foreach (var x in source)", result.OutputCode);
+        AssertNoErrors(result);
+
+        var strict = Preprocess(src, strict: true);
+        var strictDiag = Assert.Single(strict.Diagnostics,
+            d => d.Code == PreprocessDiagnosticCodes.ForeachSourceNullableDuckEnumerator);
+        Assert.Equal(ForeachSourceSeverity.Error, strictDiag.Severity);
+    }
+
+    // ===================================================================
     // M2 CS2J5470: residual gate stays at zero for every handled shape.
     // A genuine escape site cannot be produced from compilable C# (FA claims
     // every valid non-IEnumerable binding, FA-5 claims spans), so the gate is

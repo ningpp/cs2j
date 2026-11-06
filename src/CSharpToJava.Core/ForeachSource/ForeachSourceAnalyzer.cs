@@ -43,8 +43,35 @@ internal static class ForeachSourceAnalyzer
     public static bool IsString(ITypeSymbol? type)
         => type?.SpecialType == SpecialType.System_String;
 
+    /// <summary>
+    /// Error-typed sources are not classified at all (the pass leaves them
+    /// unchanged). <c>Nullable&lt;T&gt;</c> is included: when the type argument
+    /// could not be resolved Roslyn still reports the constructed
+    /// <c>Nullable</c> symbol (<see cref="TypeKind.Struct"/>) over an error
+    /// type, so a top-level kind check alone would misread an unresolved
+    /// source as a genuine non-IEnumerable site (rt10
+    /// <c>ImmutableEquatableArray&lt;int&gt;?</c>, CS2J5457 false positive).
+    /// </summary>
     public static bool IsErrorType(ITypeSymbol? type)
-        => type is { TypeKind: TypeKind.Error };
+        => type is { TypeKind: TypeKind.Error }
+           || UnwrapNullableValueType(type) is { TypeKind: TypeKind.Error };
+
+    /// <summary>
+    /// Underlying value type of <c>Nullable&lt;T&gt;</c>; null for every other
+    /// type. C# binds <c>foreach (x in nullableStruct)</c> against the
+    /// underlying T (the compiler reads <c>nullable.Value</c> first), so any
+    /// rule that classifies a source by its type must look through the
+    /// nullable wrapper — <see cref="ImplementsIEnumerable"/> is false for the
+    /// wrapper itself because Nullable implements no interfaces.
+    /// </summary>
+    public static ITypeSymbol? UnwrapNullableValueType(ITypeSymbol? type)
+        => type is INamedTypeSymbol
+           {
+               OriginalDefinition.SpecialType: SpecialType.System_Nullable_T,
+               TypeArguments.Length: 1,
+           } named
+            ? named.TypeArguments[0]
+            : null;
 
     public static bool IsDynamic(ITypeSymbol? type)
         => type is { TypeKind: TypeKind.Dynamic };
@@ -110,10 +137,15 @@ internal static class ForeachSourceAnalyzer
         ForeachBinding? binding,
         Compilation compilation)
     {
-        if (expressionType is IArrayTypeSymbol
-            || IsString(expressionType)
-            || IsDynamic(expressionType)
-            || ImplementsIEnumerable(expressionType, compilation))
+        // Nullable<T> sources are classified by T (see UnwrapNullableValueType):
+        // a nullable struct that implements IEnumerable is converter-owned and
+        // must not be counted by the residual gate.
+        var sourceType = UnwrapNullableValueType(expressionType) ?? expressionType;
+
+        if (sourceType is IArrayTypeSymbol
+            || IsString(sourceType)
+            || IsDynamic(sourceType)
+            || ImplementsIEnumerable(sourceType, compilation))
         {
             return false;
         }

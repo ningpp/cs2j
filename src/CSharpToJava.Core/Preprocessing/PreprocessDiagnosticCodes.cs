@@ -243,6 +243,9 @@ public static class PreprocessDiagnosticCodes
     /// <summary>C40: non-array/non-string/non-IEnumerable foreach site whose binding is too incomplete to lower (Warning; Error in strict mode).</summary>
     public const string ForeachSourceUnresolvedForeach = "CS2J5457";
 
+    /// <summary>C40: foreach over a Nullable&lt;T&gt; whose underlying struct only exposes a pattern enumerator — the skeleton cannot reproduce the compiler's T?.Value evaluation, so the node is left unchanged (Warning; Error in strict mode).</summary>
+    public const string ForeachSourceNullableDuckEnumerator = "CS2J5458";
+
     /// <summary>C40 FA-5: plain foreach over Span&lt;T&gt;/ReadOnlySpan&lt;T&gt; lowered to an index loop (Info).</summary>
     public const string ForeachSourceSpanIndexLoop = "CS2J5460";
 
