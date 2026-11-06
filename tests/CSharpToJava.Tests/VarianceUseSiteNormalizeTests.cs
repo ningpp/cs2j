@@ -265,6 +265,260 @@ public sealed class VarianceUseSiteNormalizeTests
             VarianceUseSiteNormalizePreprocessor.ClassifyPair(source, target));
     }
 
+    [Fact]
+    public void Nested_variant_composition_is_classified_as_VR03_rewritable()
+    {
+        var compilation = Compile("using System.Collections.Generic; class C { }");
+        var enumerable = compilation.GetTypeByMetadataName(
+            "System.Collections.Generic.IEnumerable`1")!;
+        var obj = compilation.GetSpecialType(SpecialType.System_Object);
+        var str = compilation.GetSpecialType(SpecialType.System_String);
+        var source = enumerable.Construct(enumerable.Construct(str));
+        var target = enumerable.Construct(enumerable.Construct(obj));
+
+        Assert.Equal(
+            VarianceUseSiteNormalizePreprocessor.VariancePairKind.NestedVariant,
+            VarianceUseSiteNormalizePreprocessor.ClassifyPair(source, target));
+    }
+
+    // ---- VR-03 nested variance rewrite / invariant middle ----
+
+    [Fact]
+    public void Nested_covariant_composition_is_rewritten_with_a_recursive_cast()
+    {
+        const string source = """
+            using System.Collections.Generic;
+            class Base { }
+            class Derived : Base { }
+            class C
+            {
+                static void M(IEnumerable<IEnumerable<Base>> x) { }
+                static void N(IEnumerable<IEnumerable<Derived>> s) { M(s); }
+            }
+            """;
+
+        var (result, pass) = Run(source);
+
+        Assert.True(result.Changed);
+        Assert.Contains("(object)s", result.OutputCode);
+        Assert.Equal(0, ErrorCount(result.OutputCode));
+
+        var site = Assert.Single(result.Sites);
+        Assert.Equal(VarianceUseSiteRules.NestedInvariant, site.Rule);
+        Assert.Equal(VarianceUseSiteActions.Rewritten, site.Action);
+        Assert.True(site.Rewritten);
+        Assert.Contains("nested variance composition", site.Safety);
+        Assert.Contains("IEnumerable<Derived>->IEnumerable<Base>", site.Safety);
+        Assert.Equal(
+            1, pass.Statistics.RewrittenByRule[VarianceUseSiteRules.NestedInvariant]);
+    }
+
+    [Fact]
+    public void Nested_composition_under_a_contravariant_delegate_is_rewritten()
+    {
+        const string source = """
+            using System;
+            using System.Collections.Generic;
+            class Base { }
+            class Derived : Base { }
+            class C
+            {
+                static void M(Func<IEnumerable<Derived>, string> f) { }
+                static void N(Func<IEnumerable<Base>, string> g) { M(g); }
+            }
+            """;
+
+        var (result, _) = Run(source);
+
+        Assert.True(result.Changed);
+        Assert.Contains("(object)g", result.OutputCode);
+        Assert.Equal(0, ErrorCount(result.OutputCode));
+
+        var site = Assert.Single(result.Sites);
+        Assert.Equal(VarianceUseSiteRules.NestedInvariant, site.Rule);
+        Assert.Equal(VarianceUseSiteActions.Rewritten, site.Action);
+    }
+
+    [Fact]
+    public void Nested_invariant_middle_layer_is_declared_unsupported()
+    {
+        // List<T> is invariant, so the middle layer cannot be crossed by a recursive
+        // cast even though the outer IEnumerable is covariant. C# itself forbids that
+        // implicit conversion, so no compilable source site can carry it: the pair
+        // decision is asserted directly (same style as the VR-03/VR-06 pair tests).
+        var compilation = Compile("using System.Collections.Generic; class C { }");
+        var enumerable = compilation.GetTypeByMetadataName(
+            "System.Collections.Generic.IEnumerable`1")!;
+        var list = compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
+        var obj = compilation.GetSpecialType(SpecialType.System_Object);
+        var str = compilation.GetSpecialType(SpecialType.System_String);
+        var source = enumerable.Construct(list.Construct(str));
+        var target = enumerable.Construct(list.Construct(obj));
+
+        var decision = VarianceUseSiteNormalizePreprocessor.ClassifyPairDecision(source, target);
+
+        Assert.Equal(VarianceUseSiteRules.NestedInvariant, decision.Rule);
+        Assert.Equal(VarianceUseSiteActions.DeclaredUnsupported, decision.Action);
+        Assert.Contains("invariant", decision.Reason);
+    }
+
+    // ---- VR-05 Both flow ----
+
+    [Fact]
+    public void Both_flow_signature_only_local_is_rewritten_as_VR05()
+    {
+        const string source = """
+            using System.Collections.Generic;
+            class C
+            {
+                static void Consume(IEnumerable<object> x) { }
+                static IEnumerable<object> N(IEnumerable<string> s)
+                {
+                    IEnumerable<object> o = s;
+                    Consume(o);
+                    return o;
+                }
+            }
+            """;
+
+        var (result, pass) = Run(source);
+
+        Assert.True(result.Changed);
+        Assert.Contains("(object)s", result.OutputCode);
+        Assert.Equal(0, ErrorCount(result.OutputCode));
+
+        var site = Assert.Single(result.Sites);
+        Assert.Equal(VarianceUseSiteRules.BothFlow, site.Rule);
+        Assert.Equal(VarianceUseSiteActions.Rewritten, site.Action);
+        Assert.Contains("signature", site.Safety);
+        Assert.Equal(1, pass.Statistics.RewrittenByRule[VarianceUseSiteRules.BothFlow]);
+    }
+
+    [Fact]
+    public void Both_flow_with_mutable_mapped_target_stays_declared_unsupported()
+    {
+        const string source = """
+            using System.Collections.Generic;
+            class C
+            {
+                static void Consume(IReadOnlyList<object> x) { }
+                static IReadOnlyList<object> N(IReadOnlyList<string> s)
+                {
+                    IReadOnlyList<object> o = s;
+                    Consume(o);
+                    return o;
+                }
+            }
+            """;
+
+        var (result, _) = Run(source);
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        var site = Assert.Single(result.Sites);
+        Assert.Equal(VarianceUseSiteRules.BothFlow, site.Rule);
+        Assert.Equal(VarianceUseSiteActions.DeclaredUnsupported, site.Action);
+        Assert.Equal(nameof(VarianceUseSiteDiagnosticCode.CS2J1404), site.Code);
+        Assert.Contains("mutating", site.Reason);
+    }
+
+    // ---- VR-07 method group conversion ----
+
+    [Fact]
+    public void Method_group_conversion_is_rewritten_to_an_explicit_lambda_then_cast()
+    {
+        const string source = """
+            using System;
+            class Base { }
+            class Derived : Base { }
+            class C
+            {
+                static string M(Base b) => b.ToString();
+                static void Take(Func<Derived, string> f) { }
+                static void N() { Take(M); }
+            }
+            """;
+
+        var (result, pass) = Run(source);
+
+        Assert.True(result.Changed);
+        Assert.Contains("global::Base b) => M(b)", result.OutputCode);
+        Assert.Contains("(object)", result.OutputCode);
+        Assert.Equal(0, ErrorCount(result.OutputCode));
+
+        var site = Assert.Single(result.Sites);
+        Assert.Equal(VarianceUseSiteRules.MethodGroupConversion, site.Rule);
+        Assert.Equal(VarianceUseSiteActions.Rewritten, site.Action);
+        Assert.True(site.Rewritten);
+        Assert.Equal(
+            1, pass.Statistics.RewrittenByRule[VarianceUseSiteRules.MethodGroupConversion]);
+    }
+
+    [Fact]
+    public void Method_group_into_a_custom_delegate_is_declared_unsupported()
+    {
+        const string source = """
+            delegate R Fn<in T, R>(T t);
+            class Base { }
+            class Derived : Base { }
+            class C
+            {
+                static string M(Base b) => b.ToString();
+                static void Take(Fn<Derived, string> f) { }
+                static void N() { Take(M); }
+            }
+            """;
+
+        var (result, _) = Run(source);
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        var site = Assert.Single(result.Sites);
+        Assert.Equal(VarianceUseSiteRules.MethodGroupConversion, site.Rule);
+        Assert.Equal(VarianceUseSiteActions.DeclaredUnsupported, site.Action);
+        Assert.Equal(nameof(VarianceUseSiteDiagnosticCode.CS2J1404), site.Code);
+        Assert.Contains("non-Func/Action", site.Reason);
+    }
+
+    [Fact]
+    public void Vr03_and_vr07_outputs_are_fixed_points()
+    {
+        const string nested = """
+            using System.Collections.Generic;
+            class Base { }
+            class Derived : Base { }
+            class C
+            {
+                static void M(IEnumerable<IEnumerable<Base>> x) { }
+                static void N(IEnumerable<IEnumerable<Derived>> s) { M(s); }
+            }
+            """;
+        var (nestedFirst, _) = Run(nested);
+        Assert.True(nestedFirst.Changed);
+        var (nestedSecond, _) = Run(nestedFirst.OutputCode);
+        Assert.False(nestedSecond.Changed);
+        Assert.Equal(nestedFirst.OutputCode, nestedSecond.OutputCode);
+        Assert.Empty(nestedSecond.Sites);
+
+        const string methodGroup = """
+            using System;
+            class Base { }
+            class Derived : Base { }
+            class C
+            {
+                static string M(Base b) => b.ToString();
+                static void Take(Func<Derived, string> f) { }
+                static void N() { Take(M); }
+            }
+            """;
+        var (groupFirst, _) = Run(methodGroup);
+        Assert.True(groupFirst.Changed);
+        var (groupSecond, _) = Run(groupFirst.OutputCode);
+        Assert.False(groupSecond.Changed);
+        Assert.Equal(groupFirst.OutputCode, groupSecond.OutputCode);
+        Assert.Empty(groupSecond.Sites);
+    }
+
     // ---- VR-08 dynamic/unbound ----
 
     [Fact]

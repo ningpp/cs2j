@@ -929,7 +929,24 @@ internal sealed class UseSiteSafetyClassifier
     }
 
     internal static VarianceConversionDirection ComparePair(ITypeSymbol source, ITypeSymbol target)
+        => ComparePair(source, target, depth: 0);
+
+    /// <summary>
+    /// Composition depth cap: type arguments are finite, the guard only protects
+    /// against pathological recursive metadata.
+    /// </summary>
+    private const int MaxVarianceCompositionDepth = 16;
+
+    private static VarianceConversionDirection ComparePair(
+        ITypeSymbol source,
+        ITypeSymbol target,
+        int depth)
     {
+        if (depth > MaxVarianceCompositionDepth)
+        {
+            return VarianceConversionDirection.None;
+        }
+
         if (target is IArrayTypeSymbol targetArray && source is IArrayTypeSymbol sourceArray)
         {
             if (targetArray.Rank != sourceArray.Rank
@@ -959,31 +976,58 @@ internal sealed class UseSiteSafetyClassifier
 
         var covariant = false;
         var contravariant = false;
+        var invariantMiddle = false;
         var count = Math.Min(sourceNamed.TypeArguments.Length, original.TypeParameters.Length);
         for (var i = 0; i < count; i++)
         {
-            var parameter = original.TypeParameters[i];
-            if (parameter.Variance == Microsoft.CodeAnalysis.VarianceKind.None)
-            {
-                continue;
-            }
-
             var sourceArgument = sourceNamed.TypeArguments[i];
             var targetArgument = targetNamed.TypeArguments[i];
-            if (SymbolEqualityComparer.Default.Equals(sourceArgument, targetArgument)
-                || !sourceArgument.IsReferenceType
-                || !targetArgument.IsReferenceType)
+            if (SymbolEqualityComparer.Default.Equals(sourceArgument, targetArgument))
             {
                 continue;
             }
 
+            var parameter = original.TypeParameters[i];
+            if (!sourceArgument.IsReferenceType || !targetArgument.IsReferenceType)
+            {
+                // Value-type variance conversions are not legal in C#; VR-06 owns them.
+                continue;
+            }
+
+            // Nested composition (VR-03): the argument pair may itself be a variant
+            // conversion. Recursion keeps this one classifier authoritative. An out
+            // parameter needs source -> target convertible; an in parameter needs the
+            // reverse. The overall direction stays the outer parameter's variance.
             if (parameter.Variance == Microsoft.CodeAnalysis.VarianceKind.Out)
             {
-                covariant |= IsDerivedFrom(sourceArgument, targetArgument);
+                if (IsDerivedFrom(sourceArgument, targetArgument)
+                    || IsVarianceConvertible(sourceArgument, targetArgument, depth))
+                {
+                    covariant = true;
+                }
+                else
+                {
+                    invariantMiddle |= IsSameGenericConstruction(sourceArgument, targetArgument);
+                }
+            }
+            else if (parameter.Variance == Microsoft.CodeAnalysis.VarianceKind.In)
+            {
+                if (IsDerivedFrom(targetArgument, sourceArgument)
+                    || IsVarianceConvertible(targetArgument, sourceArgument, depth))
+                {
+                    contravariant = true;
+                }
+                else
+                {
+                    invariantMiddle |= IsSameGenericConstruction(sourceArgument, targetArgument);
+                }
             }
             else
             {
-                contravariant |= IsDerivedFrom(targetArgument, sourceArgument);
+                // An invariant type argument that differs is never variance-convertible;
+                // keep it visible only for a nested generic construction so the VR-03
+                // negative case surfaces as DeclaredUnsupported, not as noise.
+                invariantMiddle |= IsSameGenericConstruction(sourceArgument, targetArgument);
             }
         }
 
@@ -997,8 +1041,43 @@ internal sealed class UseSiteSafetyClassifier
             return VarianceConversionDirection.Covariant;
         }
 
-        return contravariant ? VarianceConversionDirection.Contravariant : VarianceConversionDirection.None;
+        if (contravariant)
+        {
+            return VarianceConversionDirection.Contravariant;
+        }
+
+        // A nested invariant layer cannot be crossed safely; reporting it as an unsafe
+        // (Both) edge lets the VR pass declare the exact VR-03 site unsupported instead
+        // of silently dropping it. Unrelated type arguments stay None.
+        return invariantMiddle
+            ? VarianceConversionDirection.Both
+            : VarianceConversionDirection.None;
     }
+
+    /// <summary>
+    /// True when <paramref name="source"/> is implicitly reference-convertible to
+    /// <paramref name="target"/> either by subtyping or by a (possibly nested) variance
+    /// conversion. <c>Both</c> is deliberately excluded: it marks an unprovable
+    /// composition that the VR pass must declare unsupported.
+    /// </summary>
+    private static bool IsVarianceConvertible(ITypeSymbol source, ITypeSymbol target, int depth)
+        => IsDerivedFrom(source, target)
+           || ComparePair(source, target, depth + 1) is
+               VarianceConversionDirection.Covariant
+               or VarianceConversionDirection.Contravariant
+               or VarianceConversionDirection.Array;
+
+    /// <summary>
+    /// True when both types are closed constructions of the same generic definition
+    /// with at least one type argument, i.e. a layer that would have to be crossed by
+    /// a recursive variance cast.
+    /// </summary>
+    private static bool IsSameGenericConstruction(ITypeSymbol source, ITypeSymbol target)
+        => source is INamedTypeSymbol sourceNamed
+           && target is INamedTypeSymbol targetNamed
+           && sourceNamed.TypeArguments.Length > 0
+           && SymbolEqualityComparer.Default.Equals(
+               sourceNamed.OriginalDefinition, targetNamed.OriginalDefinition);
 
     private static VarianceConversionDirection CompareMethodGroup(IMethodSymbol? method, INamedTypeSymbol delegateType)
     {

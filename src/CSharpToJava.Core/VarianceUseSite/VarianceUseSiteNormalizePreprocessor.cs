@@ -192,12 +192,12 @@ public sealed class VarianceUseSiteNormalizePreprocessor
             return Unchanged(sourceCode, diagnostics, Array.Empty<VarianceUseSiteRecord>());
         }
 
-        var rewriteMap = new Dictionary<ExpressionSyntax, ITypeSymbol>();
+        var rewriteMap = new Dictionary<ExpressionSyntax, Func<ExpressionSyntax, ExpressionSyntax>>();
         foreach (var site in pending)
         {
-            if (site.TargetType != null)
+            if (site.Rewriter != null)
             {
-                rewriteMap.TryAdd(site.Expression!, site.TargetType);
+                rewriteMap.TryAdd(site.Expression!, site.Rewriter);
             }
         }
 
@@ -210,7 +210,7 @@ public sealed class VarianceUseSiteNormalizePreprocessor
 
         var newRoot = (CompilationUnitSyntax)root.ReplaceNodes(
             rewriteMap.Keys,
-            (original, _) => BuildCast(original, rewriteMap[original]));
+            (original, _) => rewriteMap[original](original));
         var outputCode = newRoot.ToFullString();
 
         var failure = ValidateRewrittenFile(model, newRoot, outputCode);
@@ -218,7 +218,7 @@ public sealed class VarianceUseSiteNormalizePreprocessor
         {
             Statistics.FilesRolledBack++;
             var rolledBack = pending
-                .Select(site => site.TargetType == null
+                .Select(site => site.Rewriter == null
                     ? site.Record
                     : site.Record with
                     {
@@ -364,18 +364,19 @@ public sealed class VarianceUseSiteNormalizePreprocessor
 
         if (sourceType == null)
         {
-            var nullRule = finding.SourceType == "<method group>"
-                           || model.GetSymbolInfo(expression).Symbol is IMethodSymbol
-                ? VarianceUseSiteRules.MethodGroupConversion
-                : VarianceUseSiteRules.DynamicOrUnbound;
+            if (finding.SourceType == "<method group>"
+                || model.GetSymbolInfo(expression).Symbol is IMethodSymbol)
+            {
+                return ClassifyMethodGroup(
+                    finding, candidate, targetType, model, path, line, column);
+            }
+
             return Unsupported(
-                nullRule,
+                VarianceUseSiteRules.DynamicOrUnbound,
                 finding.SourceType,
                 finding.TargetType,
                 direction,
-                nullRule == VarianceUseSiteRules.MethodGroupConversion
-                    ? "generic delegate method-group conversion requires an explicit lambda before the cast (VR-07)"
-                    : "source expression type is unbound/dynamic (VR-08)",
+                "source expression type is unbound/dynamic (VR-08)",
                 path,
                 line,
                 column,
@@ -456,16 +457,19 @@ public sealed class VarianceUseSiteNormalizePreprocessor
                 expression);
         }
 
-        var pair = ClassifyPair(sourceType, targetType);
-        var (rule, expectedDirection) = pair switch
+        var pair = ClassifyPair(sourceType, targetType, out var nestedLayers);
+        var composedDirection = pair == VariancePairKind.NestedVariant
+            ? UseSiteSafetyClassifier.ComparePair(sourceType, targetType)
+            : direction;
+        var rule = pair switch
         {
-            VariancePairKind.Covariant => (VarianceUseSiteRules.ProducerConversion, VarianceConversionDirection.Covariant),
-            VariancePairKind.Contravariant => (VarianceUseSiteRules.ConsumerConversion, VarianceConversionDirection.Contravariant),
-            VariancePairKind.Array => (VarianceUseSiteRules.ArrayCovariance, VarianceConversionDirection.Array),
-            VariancePairKind.NestedInvariant => (VarianceUseSiteRules.NestedInvariant, direction),
-            VariancePairKind.ValueType => (VarianceUseSiteRules.ValueTypeArgument, direction),
-            VariancePairKind.Both => (VarianceUseSiteRules.BothFlow, direction),
-            _ => (VarianceUseSiteRules.BothFlow, direction),
+            VariancePairKind.Covariant => VarianceUseSiteRules.ProducerConversion,
+            VariancePairKind.Contravariant => VarianceUseSiteRules.ConsumerConversion,
+            VariancePairKind.Array => VarianceUseSiteRules.ArrayCovariance,
+            VariancePairKind.NestedVariant => VarianceUseSiteRules.NestedInvariant,
+            VariancePairKind.NestedInvariant => VarianceUseSiteRules.NestedInvariant,
+            VariancePairKind.ValueType => VarianceUseSiteRules.ValueTypeArgument,
+            _ => VarianceUseSiteRules.BothFlow,
         };
 
         switch (pair)
@@ -478,7 +482,8 @@ public sealed class VarianceUseSiteNormalizePreprocessor
             case VariancePairKind.NestedInvariant:
                 return Unsupported(
                     rule, Disp(sourceType), Disp(targetType), direction,
-                    "nested invariant type argument between variant layers (VR-03)",
+                    "nested invariant type argument between variant layers; a recursive cast would " +
+                    "break type safety on the Java side (VR-03)",
                     path, line, column, expression);
             case VariancePairKind.Both:
                 return Unsupported(
@@ -501,6 +506,13 @@ public sealed class VarianceUseSiteNormalizePreprocessor
 
         // Keep the shared audit authoritative: the re-derived pair must agree with
         // the VA010/VA011 direction the classifier recorded.
+        var expectedDirection = pair switch
+        {
+            VariancePairKind.Covariant => VarianceConversionDirection.Covariant,
+            VariancePairKind.Contravariant => VarianceConversionDirection.Contravariant,
+            VariancePairKind.NestedVariant => composedDirection,
+            _ => direction,
+        };
         if (finding.Direction != expectedDirection
             || UseSiteSafetyClassifier.ComparePair(sourceType, targetType) != expectedDirection)
         {
@@ -510,16 +522,25 @@ public sealed class VarianceUseSiteNormalizePreprocessor
                 path, line, column, expression);
         }
 
+        var bothSafe = false;
+        string? bothSafety = null;
         if (use is { Flow: UseFlow.Both })
         {
-            return Unsupported(
-                VarianceUseSiteRules.BothFlow,
-                Disp(sourceType), Disp(targetType), direction,
-                "shared classifier refines this site to Both; read-only flow is not proven (VR-05)",
-                path, line, column, expression);
+            if (!TryProveSignatureOnlyBoth(candidate, sourceType, targetType, model, out var bothReason))
+            {
+                return Unsupported(
+                    VarianceUseSiteRules.BothFlow,
+                    Disp(sourceType), Disp(targetType), direction, bothReason,
+                    path, line, column, expression);
+            }
+
+            // VR-05: the type arguments on both sides only cross method signatures
+            // (argument/return) and neither mapped type exposes mutating members.
+            bothSafe = true;
+            bothSafety = bothReason;
         }
 
-        if (candidate.Position is SitePosition.Initializer or SitePosition.Assignment)
+        if (!bothSafe && candidate.Position is SitePosition.Initializer or SitePosition.Assignment)
         {
             if (!TryProveReadOnlyLocal(candidate, use, out var localReason))
             {
@@ -529,7 +550,7 @@ public sealed class VarianceUseSiteNormalizePreprocessor
                     path, line, column, expression);
             }
         }
-        else if (use != null)
+        else if (!bothSafe && use != null)
         {
             var expectedFlow = candidate.Position == SitePosition.Argument
                 ? UseFlow.Consumer
@@ -553,7 +574,9 @@ public sealed class VarianceUseSiteNormalizePreprocessor
                 path, line, column, expression);
         }
 
-        if (!JavaRawTypeMatches(sourceType, targetType))
+        if (!JavaRawTypeMatches(sourceType, targetType)
+            || (pair == VariancePairKind.NestedVariant
+                && !NestedLayersMapStable(sourceType, targetType)))
         {
             return Unsupported(
                 rule, Disp(sourceType), Disp(targetType), direction,
@@ -561,15 +584,28 @@ public sealed class VarianceUseSiteNormalizePreprocessor
                 path, line, column, expression);
         }
 
-        var safety = pair == VariancePairKind.Contravariant
-            ? "reference type arguments; same raw delegate type (MapType-stable); read-only argument position; " +
-              "not ref/out/in or ref-like; per-file parse+semantics revalidated"
-            : "reference type arguments; same raw type (MapType-stable); read-only producer position; " +
-              "no mutating mapped member; not ref/out/in or ref-like; per-file parse+semantics revalidated";
+        var safety = bothSafe
+            ? bothSafety! + "; target mapping has no mutating member; per-file parse+semantics revalidated (VR-05)"
+            : pair switch
+            {
+                VariancePairKind.NestedVariant =>
+                    "nested variance composition proven read-only at every layer ["
+                    + string.Join(" ∘ ", nestedLayers)
+                    + "]; reference type arguments; same raw outer type (MapType-stable); "
+                    + "no mutating mapped member; not ref/out/in or ref-like; "
+                    + "per-file parse+semantics revalidated (VR-03)",
+                VariancePairKind.Contravariant =>
+                    "reference type arguments; same raw delegate type (MapType-stable); read-only argument position; " +
+                    "not ref/out/in or ref-like; per-file parse+semantics revalidated",
+                _ =>
+                    "reference type arguments; same raw type (MapType-stable); read-only producer position; " +
+                    "no mutating mapped member; not ref/out/in or ref-like; per-file parse+semantics revalidated",
+            };
 
+        var finalRule = bothSafe ? VarianceUseSiteRules.BothFlow : rule;
         return new PendingSite(
             new VarianceUseSiteRecord(
-                Rule: rule,
+                Rule: finalRule,
                 SourceType: Disp(sourceType),
                 TargetType: Disp(targetType),
                 Direction: direction.ToString(),
@@ -582,7 +618,389 @@ public sealed class VarianceUseSiteNormalizePreprocessor
                 Line: line,
                 Column: column),
             expression,
-            targetType);
+            original => BuildCast(original, targetType));
+    }
+
+    /// <summary>
+    /// VR-07: a method-group conversion into a generic delegate is first materialized
+    /// as an explicit lambda bound to the method's natural <c>Func</c>/<c>Action</c>
+    /// shape, then variance-cast to the converted delegate type. The target delegate
+    /// shape never changes; when no <c>Func</c>/<c>Action</c> shape can be proven the
+    /// site is <c>DeclaredUnsupported</c>.
+    /// </summary>
+    private PendingSite ClassifyMethodGroup(
+        VarianceConversionFinding finding,
+        SourceCandidate candidate,
+        ITypeSymbol? targetType,
+        SemanticModel model,
+        string path,
+        int line,
+        int column)
+    {
+        var expression = candidate.Expression;
+        var method = model.GetSymbolInfo(expression).Symbol as IMethodSymbol;
+        if (method == null)
+        {
+            return Unsupported(
+                VarianceUseSiteRules.MethodGroupConversion,
+                "<method group>", finding.TargetType, finding.Direction,
+                "method group symbol could not be bound (VR-07)",
+                path, line, column, expression);
+        }
+
+        if (IsRefOrOutOrInArgument(expression))
+        {
+            return Unsupported(
+                VarianceUseSiteRules.MethodGroupConversion,
+                "<method group>", finding.TargetType, finding.Direction,
+                "method group site crosses a ref/out/in argument (safety condition 3/4)",
+                path, line, column, expression);
+        }
+
+        if (targetType is not INamedTypeSymbol targetDelegate
+            || targetDelegate.TypeKind != TypeKind.Delegate)
+        {
+            return Unsupported(
+                VarianceUseSiteRules.MethodGroupConversion,
+                "<method group>", finding.TargetType, finding.Direction,
+                "method group conversion target is not a bound delegate type (VR-07)",
+                path, line, column, expression);
+        }
+
+        if (!IsFuncOrActionDelegate(targetDelegate))
+        {
+            return Unsupported(
+                VarianceUseSiteRules.MethodGroupConversion,
+                "<method group>", Disp(targetDelegate), finding.Direction,
+                "non-Func/Action generic delegate cannot preserve its shape through an explicit lambda (VR-07)",
+                path, line, column, expression);
+        }
+
+        if (method.ReturnsByRef || method.ReturnsByRefReadonly
+            || method.Parameters.Any(parameter => parameter.RefKind != RefKind.None))
+        {
+            return Unsupported(
+                VarianceUseSiteRules.MethodGroupConversion,
+                "<method group>", Disp(targetDelegate), finding.Direction,
+                "method group uses ref/out/in; an explicit lambda cannot preserve the delegate shape (VR-07)",
+                path, line, column, expression);
+        }
+
+        var signatureTypes = method.Parameters.Select(parameter => parameter.Type)
+            .Append(method.ReturnType)
+            .ToList();
+        if (signatureTypes.Any(ContainsTypeParameter) || signatureTypes.Any(IsRefLikeOrPointer))
+        {
+            return Unsupported(
+                VarianceUseSiteRules.MethodGroupConversion,
+                "<method group>", Disp(targetDelegate), finding.Direction,
+                "method group parameter/return types are not explicitly bindable in a lambda (VR-07)",
+                path, line, column, expression);
+        }
+
+        var natural = ConstructNaturalDelegate(method);
+        if (natural == null)
+        {
+            return Unsupported(
+                VarianceUseSiteRules.MethodGroupConversion,
+                "<method group>", Disp(targetDelegate), finding.Direction,
+                "no natural Func/Action delegate can be built from the method signature (VR-07)",
+                path, line, column, expression);
+        }
+
+        var relation = UseSiteSafetyClassifier.ComparePair(natural, targetDelegate);
+        var needsVarianceCast = relation is VarianceConversionDirection.Covariant
+            or VarianceConversionDirection.Contravariant
+            or VarianceConversionDirection.Array;
+        if (!needsVarianceCast
+            && !SymbolEqualityComparer.Default.Equals(natural, targetDelegate))
+        {
+            return Unsupported(
+                VarianceUseSiteRules.MethodGroupConversion,
+                "<method group>", Disp(targetDelegate), finding.Direction,
+                "method group needs a delegate shape change that no variance cast can preserve (VR-07)",
+                path, line, column, expression);
+        }
+
+        if (!JavaRawTypeMatches(natural, targetDelegate))
+        {
+            return Unsupported(
+                VarianceUseSiteRules.MethodGroupConversion,
+                "<method group>", Disp(targetDelegate), finding.Direction,
+                "Java raw mapping verification failed for the lambda delegate shape (safety condition 2)",
+                path, line, column, expression);
+        }
+
+        var safety = needsVarianceCast
+            ? $"explicit lambda bound to the natural signature delegate {Disp(natural)}, then " +
+              $"variance cast to {Disp(targetDelegate)}; target delegate shape unchanged; " +
+              "lambda parameter types explicit; per-file parse+semantics revalidated (VR-07)"
+            : $"explicit lambda bound to the target delegate {Disp(targetDelegate)}; " +
+              "no variance cast needed; target delegate shape unchanged; " +
+              "lambda parameter types explicit; per-file parse+semantics revalidated (VR-07)";
+
+        return new PendingSite(
+            new VarianceUseSiteRecord(
+                Rule: VarianceUseSiteRules.MethodGroupConversion,
+                SourceType: "<method group>",
+                TargetType: Disp(targetDelegate),
+                Direction: finding.Direction.ToString(),
+                Safety: safety,
+                Action: VarianceUseSiteActions.Rewritten,
+                Rewritten: true,
+                Code: null,
+                Reason: null,
+                FilePath: path,
+                Line: line,
+                Column: column),
+            expression,
+            original => BuildMethodGroupCast(
+                original, method, natural, targetDelegate, needsVarianceCast));
+    }
+
+    private static bool IsFuncOrActionDelegate(INamedTypeSymbol type)
+    {
+        if (!TypeMutabilityTable.TryGetMetadataKey(type.OriginalDefinition, out var key))
+        {
+            return false;
+        }
+
+        return key == "System.Action"
+               || key.StartsWith("System.Action`", StringComparison.Ordinal)
+               || key.StartsWith("System.Func`", StringComparison.Ordinal);
+    }
+
+    private INamedTypeSymbol? ConstructNaturalDelegate(IMethodSymbol method)
+    {
+        if (_compilation == null)
+        {
+            return null;
+        }
+
+        var returnsVoid = method.ReturnsVoid;
+        var arity = method.Parameters.Length + (returnsVoid ? 0 : 1);
+        string metadataName;
+        if (returnsVoid && arity == 0)
+        {
+            metadataName = "System.Action";
+        }
+        else
+        {
+            metadataName = returnsVoid ? $"System.Action`{arity}" : $"System.Func`{arity}";
+        }
+
+        var definition = _compilation.GetTypeByMetadataName(metadataName);
+        if (definition == null)
+        {
+            return null;
+        }
+
+        var arguments = method.Parameters.Select(parameter => parameter.Type).Cast<ITypeSymbol>().ToList();
+        if (!returnsVoid)
+        {
+            arguments.Add(method.ReturnType);
+        }
+
+        try
+        {
+            return definition.Construct(arguments.ToArray());
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool ContainsTypeParameter(ITypeSymbol type) => type switch
+    {
+        ITypeParameterSymbol => true,
+        IArrayTypeSymbol array => ContainsTypeParameter(array.ElementType),
+        INamedTypeSymbol named => named.TypeArguments.Any(ContainsTypeParameter),
+        _ => false,
+    };
+
+    private static ExpressionSyntax BuildMethodGroupCast(
+        ExpressionSyntax methodGroup,
+        IMethodSymbol method,
+        ITypeSymbol natural,
+        ITypeSymbol targetDelegate,
+        bool needsVarianceCast)
+    {
+        // A lambda is not a cast operand by itself; parenthesize it so the emitted
+        // text is (Func<Base,R>)((Base x) => M(x)).
+        var lambda = ParenthesizedExpression(BuildExplicitLambda(methodGroup, method));
+        var inner = CastExpression(
+            ParseTypeName(natural.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)),
+            lambda);
+        ExpressionSyntax expression = needsVarianceCast
+            ? CastExpression(PredefinedType(Token(SyntaxKind.ObjectKeyword)), inner)
+            : inner;
+        return CastExpression(
+                ParseTypeName(targetDelegate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)),
+                expression)
+            .NormalizeWhitespace()
+            .WithTriviaFrom(methodGroup);
+    }
+
+    private static ExpressionSyntax BuildExplicitLambda(
+        ExpressionSyntax methodGroup,
+        IMethodSymbol method)
+    {
+        var parameters = method.Parameters;
+        var arguments = parameters
+            .Select(parameter => Argument(IdentifierName(EscapeIdentifier(parameter.Name))))
+            .ToArray();
+        var target = NeedsOperandParentheses(methodGroup)
+            ? ParenthesizedExpression(methodGroup.WithoutTrivia())
+            : methodGroup.WithoutTrivia();
+        var invocation = InvocationExpression(
+            target, ArgumentList(SeparatedList(arguments)));
+        var lambdaParameters = parameters
+            .Select(parameter => Parameter(Identifier(EscapeIdentifier(parameter.Name)))
+                .WithType(ParseTypeName(
+                    parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))));
+        return ParenthesizedLambdaExpression(
+            ParameterList(SeparatedList(lambdaParameters)), invocation);
+    }
+
+    private static string EscapeIdentifier(string name)
+        => SyntaxFacts.GetKeywordKind(name) != SyntaxKind.None
+           || SyntaxFacts.GetContextualKeywordKind(name) != SyntaxKind.None
+            ? "@" + name
+            : name;
+
+    /// <summary>
+    /// VR-05 predicate for a Both-flow site: every use of the conversion target local
+    /// must cross a method signature (argument or return) with both a producer and a
+    /// consumer edge, no write-back/ref/out/in, and neither mapped type may expose a
+    /// mutating member. Anything else stays <c>DeclaredUnsupported</c>.
+    /// </summary>
+    private bool TryProveSignatureOnlyBoth(
+        SourceCandidate candidate,
+        ITypeSymbol sourceType,
+        ITypeSymbol targetType,
+        SemanticModel model,
+        out string reason)
+    {
+        if (candidate.TargetSymbol is not ILocalSymbol local)
+        {
+            reason = "both-flow site has no local backing; type arguments are not confined to method signatures (VR-05)";
+            return false;
+        }
+
+        var container = candidate.Expression.Ancestors().FirstOrDefault(
+            ancestor => ancestor is MethodDeclarationSyntax or LocalFunctionStatementSyntax);
+        if (container == null)
+        {
+            reason = "both-flow site is not enclosed by a method signature scope (VR-05)";
+            return false;
+        }
+
+        if (IsMutatingTarget(targetType) || IsMutatingTarget(sourceType))
+        {
+            reason = "a mapped type exposes mutating member(s); the both-flow boundary is not read-only (VR-05)";
+            return false;
+        }
+
+        var producer = false;
+        var consumer = false;
+        foreach (var identifier in container.DescendantNodes().OfType<IdentifierNameSyntax>())
+        {
+            if (!SymbolEqualityComparer.Default.Equals(
+                    model.GetSymbolInfo(identifier).Symbol, local))
+            {
+                continue;
+            }
+
+            switch (identifier.Parent)
+            {
+                case ReturnStatementSyntax:
+                case ArrowExpressionClauseSyntax:
+                    producer = true;
+                    break;
+                case ArgumentSyntax argument
+                    when argument.RefKindKeyword.Kind() == SyntaxKind.None:
+                    if (argument.Expression == identifier)
+                    {
+                        consumer = true;
+                        break;
+                    }
+
+                    reason = "both-flow local escapes into a non-signature argument position (VR-05)";
+                    return false;
+                default:
+                    reason = "both-flow local is written back or escapes into a non-signature position (VR-05)";
+                    return false;
+            }
+        }
+
+        if (!producer || !consumer)
+        {
+            reason = "both-flow local does not cross both a parameter and a return signature (VR-05)";
+            return false;
+        }
+
+        reason = "type arguments cross method signature positions only (argument + return), no write-back";
+        return true;
+    }
+
+    /// <summary>
+    /// Safety condition 2 for VR-03: every nested variant layer must keep the same raw
+    /// generic definition so the mapped Java type stays identical at each layer.
+    /// </summary>
+    private static bool NestedLayersMapStable(ITypeSymbol source, ITypeSymbol target)
+    {
+        if (source is not INamedTypeSymbol sourceNamed || target is not INamedTypeSymbol targetNamed)
+        {
+            return false;
+        }
+
+        if (!SymbolEqualityComparer.Default.Equals(
+                sourceNamed.OriginalDefinition, targetNamed.OriginalDefinition))
+        {
+            return false;
+        }
+
+        var count = Math.Min(
+            sourceNamed.TypeArguments.Length, targetNamed.TypeArguments.Length);
+        for (var i = 0; i < count; i++)
+        {
+            var sourceArgument = sourceNamed.TypeArguments[i];
+            var targetArgument = targetNamed.TypeArguments[i];
+            if (SymbolEqualityComparer.Default.Equals(sourceArgument, targetArgument))
+            {
+                continue;
+            }
+
+            if (!sourceArgument.IsReferenceType || !targetArgument.IsReferenceType)
+            {
+                return false;
+            }
+
+            if (sourceArgument is INamedTypeSymbol sourceNested
+                && targetArgument is INamedTypeSymbol targetNested
+                && SymbolEqualityComparer.Default.Equals(
+                    sourceNested.OriginalDefinition, targetNested.OriginalDefinition)
+                && sourceNested.TypeArguments.Length > 0)
+            {
+                if (!NestedLayersMapStable(sourceArgument, targetArgument))
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            // Leaf layer: a plain reference subtype (or array) pair needs no raw check;
+            // an unrelated pair was already refused by ClassifyPair.
+            if (!UseSiteSafetyClassifier.IsDerivedFrom(sourceArgument, targetArgument)
+                && !UseSiteSafetyClassifier.IsDerivedFrom(targetArgument, sourceArgument))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool TryProveReadOnlyLocal(
@@ -827,6 +1245,7 @@ public sealed class VarianceUseSiteNormalizePreprocessor
         Contravariant,
         Array,
         Both,
+        NestedVariant,
         NestedInvariant,
         ValueType,
     }
@@ -838,7 +1257,21 @@ public sealed class VarianceUseSiteNormalizePreprocessor
     /// rule. Exposed internally for direct unit tests of the value-type rule.
     /// </summary>
     internal static VariancePairKind ClassifyPair(ITypeSymbol source, ITypeSymbol target)
+        => ClassifyPair(source, target, out _);
+
+    /// <summary>
+    /// Same as <see cref="ClassifyPair(ITypeSymbol,ITypeSymbol)"/> and additionally
+    /// reports the proven nested layer chain (VR-03) so the report can justify each
+    /// recursive cast layer.
+    /// </summary>
+    internal static VariancePairKind ClassifyPair(
+        ITypeSymbol source,
+        ITypeSymbol target,
+        out IReadOnlyList<string> nestedLayers)
     {
+        var layers = new List<string>();
+        nestedLayers = layers;
+
         if (target is IArrayTypeSymbol targetArray && source is IArrayTypeSymbol sourceArray)
         {
             if (targetArray.Rank != sourceArray.Rank
@@ -870,6 +1303,7 @@ public sealed class VarianceUseSiteNormalizePreprocessor
         var contravariant = false;
         var valueType = false;
         var invariant = false;
+        var nested = false;
         var count = Math.Min(sourceNamed.TypeArguments.Length, original.TypeParameters.Length);
         for (var i = 0; i < count; i++)
         {
@@ -887,11 +1321,14 @@ public sealed class VarianceUseSiteNormalizePreprocessor
             }
 
             var parameter = original.TypeParameters[i];
+            var isNestedLayer = IsNestedVariantConstruction(sourceArgument, targetArgument);
             if (parameter.Variance == Microsoft.CodeAnalysis.VarianceKind.Out)
             {
-                if (UseSiteSafetyClassifier.IsDerivedFrom(sourceArgument, targetArgument))
+                if (ArgumentConvertible(sourceArgument, targetArgument))
                 {
                     covariant = true;
+                    nested |= isNestedLayer;
+                    AddLayer(layers, parameter, sourceArgument, targetArgument);
                 }
                 else
                 {
@@ -900,9 +1337,11 @@ public sealed class VarianceUseSiteNormalizePreprocessor
             }
             else if (parameter.Variance == Microsoft.CodeAnalysis.VarianceKind.In)
             {
-                if (UseSiteSafetyClassifier.IsDerivedFrom(targetArgument, sourceArgument))
+                if (ArgumentConvertible(targetArgument, sourceArgument))
                 {
                     contravariant = true;
+                    nested |= isNestedLayer;
+                    AddLayer(layers, parameter, sourceArgument, targetArgument);
                 }
                 else
                 {
@@ -932,10 +1371,99 @@ public sealed class VarianceUseSiteNormalizePreprocessor
 
         if (covariant)
         {
-            return VariancePairKind.Covariant;
+            return nested ? VariancePairKind.NestedVariant : VariancePairKind.Covariant;
         }
 
-        return contravariant ? VariancePairKind.Contravariant : VariancePairKind.None;
+        if (contravariant)
+        {
+            return nested ? VariancePairKind.NestedVariant : VariancePairKind.Contravariant;
+        }
+
+        return VariancePairKind.None;
+    }
+
+    private static void AddLayer(
+        List<string> layers,
+        ITypeParameterSymbol parameter,
+        ITypeSymbol sourceArgument,
+        ITypeSymbol targetArgument)
+    {
+        if (!IsNestedVariantConstruction(sourceArgument, targetArgument))
+        {
+            return;
+        }
+
+        var variance = parameter.Variance == Microsoft.CodeAnalysis.VarianceKind.Out
+            ? "out"
+            : parameter.Variance == Microsoft.CodeAnalysis.VarianceKind.In
+                ? "in"
+                : "invariant";
+        layers.Add(
+            $"{parameter.Name}<{variance}>:{Disp(sourceArgument)}->{Disp(targetArgument)}");
+    }
+
+    private static bool IsNestedVariantConstruction(ITypeSymbol source, ITypeSymbol target)
+        => source is INamedTypeSymbol sourceNamed
+           && target is INamedTypeSymbol targetNamed
+           && sourceNamed.TypeArguments.Length > 0
+           && SymbolEqualityComparer.Default.Equals(
+               sourceNamed.OriginalDefinition, targetNamed.OriginalDefinition)
+           && sourceNamed.OriginalDefinition.TypeParameters.Any(
+               parameter => parameter.Variance != Microsoft.CodeAnalysis.VarianceKind.None);
+
+    /// <summary>Implicit reference conversion by subtyping or variance (VR-03 recursive).</summary>
+    private static bool ArgumentConvertible(ITypeSymbol source, ITypeSymbol target)
+        => UseSiteSafetyClassifier.IsDerivedFrom(source, target)
+           || UseSiteSafetyClassifier.ComparePair(source, target) is
+               VarianceConversionDirection.Covariant
+               or VarianceConversionDirection.Contravariant
+               or VarianceConversionDirection.Array;
+
+    /// <summary>
+    /// Pair-level VR decision table, exposed internally so the VR-03 nested-invariant
+    /// negative can be asserted directly: an invariant middle layer is never an
+    /// implicit conversion in C#, so no compilable source site can carry it.
+    /// </summary>
+    internal static (string Rule, string Action, string Reason) ClassifyPairDecision(
+        ITypeSymbol source,
+        ITypeSymbol target)
+    {
+        var pair = ClassifyPair(source, target);
+        return pair switch
+        {
+            VariancePairKind.Covariant => (
+                VarianceUseSiteRules.ProducerConversion,
+                VarianceUseSiteActions.Rewritten,
+                "reference type arguments; read-only producer position"),
+            VariancePairKind.Contravariant => (
+                VarianceUseSiteRules.ConsumerConversion,
+                VarianceUseSiteActions.Rewritten,
+                "reference type arguments; read-only consumer position"),
+            VariancePairKind.Array => (
+                VarianceUseSiteRules.ArrayCovariance,
+                VarianceUseSiteActions.Preserved,
+                "Java reference arrays are covariant (VR-04)"),
+            VariancePairKind.NestedVariant => (
+                VarianceUseSiteRules.NestedInvariant,
+                VarianceUseSiteActions.Rewritten,
+                "nested variance composition proven read-only at every layer (VR-03)"),
+            VariancePairKind.NestedInvariant => (
+                VarianceUseSiteRules.NestedInvariant,
+                VarianceUseSiteActions.DeclaredUnsupported,
+                "nested invariant type argument between variant layers (VR-03)"),
+            VariancePairKind.ValueType => (
+                VarianceUseSiteRules.ValueTypeArgument,
+                VarianceUseSiteActions.DeclaredUnsupported,
+                "value-type type argument: boxing/erasure semantics differ (VR-06)"),
+            VariancePairKind.Both => (
+                VarianceUseSiteRules.BothFlow,
+                VarianceUseSiteActions.DeclaredUnsupported,
+                "both-direction variance flow (VR-05)"),
+            _ => (
+                VarianceUseSiteRules.BothFlow,
+                VarianceUseSiteActions.DeclaredUnsupported,
+                "variance direction could not be re-derived (VR-05)"),
+        };
     }
 
     // ---- emission, validation, rollback ----
@@ -1109,7 +1637,7 @@ public sealed class VarianceUseSiteNormalizePreprocessor
     private sealed record PendingSite(
         VarianceUseSiteRecord Record,
         ExpressionSyntax? Expression,
-        ITypeSymbol? TargetType);
+        Func<ExpressionSyntax, ExpressionSyntax>? Rewriter = null);
 
     private enum SitePosition
     {
