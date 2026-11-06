@@ -2395,3 +2395,104 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
 - `D:\cs\rt10-restore-check4.log`、`D:\cs\rt10-check4-restore.log`
   （单 pass + restore exit 0 证据，临时产物，未入库）。
 
+## 26. 修复 record-readonly 的 NU1201（w10v，代码 `7900efaa`）
+
+### 26.1 运行口径
+
+- 运行日期：2026-11-07（Asia/Shanghai）；修复前 HEAD：`52d7bb72`；本轮代码提交：`7900efaa`。
+- 环境：Windows；.NET SDK `10.0.300`。
+- 源：`D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj`；
+  全链目标：`D:\cs\rt10-baseline-w10v`；unified 中间树
+  `D:\cs\rt10-baseline-w10v\.cs2j-preprocessed-src`。
+- 全链命令：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10v --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests
+```
+
+### 26.2 根因与修复
+
+- 根因：中间树扁平化仓库 `Directory.Build.props` 且没有 `eng/`，`$(NetCoreAppCurrent)`
+  等属性求值为空；多目标主项目塌缩为 `netstandard2.0`，无法引用注入的 net10.0 支撑项目
+  `Cs2jPrelude` / `Cs2jRefOutIn` / `Cs2jUnsignedMath`，restore 报 NU1201，record-readonly
+  以 RR020 中止。
+- 修复 A：`ProjectPreprocessSource.CopyProjectFilesAsync` 复制 csproj 时新增
+  `PinTargetFramework`，用**原始项目**的 MSBuild 求值结果把 `TargetFramework(s)` 钉成单一
+  字面值（优先 `TargetFramework`，否则取 `TargetFrameworks` 首个非空项）；多目标声明改写为
+  单个 `<TargetFramework>`。求值失败保留原文并打 Warning；已单目标字面值项目不改写。
+- 修复 B：`Cs2jPrelude` 与 `Cs2jUnsignedMath` 改为多目标
+  `<TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks>`（两者 `-f netstandard2.0`
+  实测 0 错误）；`Cs2jRefOutIn` 因 ref 字段/`allows ref struct` 无法降到 netstandard2.0，
+  保持 net10.0 单目标，并在注入时对低于 net10.0 的宿主**跳过** ProjectReference、写入显式
+  Warning（代码侧 ID `ROI103`），不再产生 NU1201 恢复失败，也不静默跳过。
+- 同时把 gen 项目 TFM 一并钉死：Roslyn4.4 由塌缩的 `netstandard2.0` 变为求值结果 `net10.0`，
+  Roslyn3.11/4.0 按原文保持 `netstandard2.0`。
+
+### 26.3 中间树实测（探针树 `D:\cs\rt10-tfm-check2`）
+
+- 主项目：`<TargetFramework>net10.0</TargetFramework>`。
+- gen：Roslyn4.4 `net10.0`；Roslyn3.11/4.0 `netstandard2.0`。
+- 支撑项目：`Cs2jPrelude`/`Cs2jUnsignedMath` 均为
+  `<TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks>`；`Cs2jRefOutIn` 为 `net10.0`。
+- 引用注入：主项目与 gen Roslyn4.4 均含 Cs2jPrelude/Cs2jRefOutIn/Cs2jUnsignedMath；
+  gen Roslyn3.11/4.0 只含 Cs2jPrelude/Cs2jUnsignedMath（Cs2jRefOutIn 按策略跳过）。
+- 分别 restore（`D:\cs\rt10-tfm-restore.log`）：
+
+| 项目 | exit | NU1201 | NU1015 |
+|------|------|--------|--------|
+| `src\System.Text.Json.csproj` | 0 | 0 | 0 |
+| `gen\...Roslyn3.11.csproj` | 0 | 0 | 0 |
+| `gen\...Roslyn4.0.csproj` | 0 | 0 | 0 |
+| `gen\...Roslyn4.4.csproj` | 0 | 0 | 0 |
+
+- 跳过策略的警告落到 ref-out-in 的 `diagnostics`：report 中 2 条 Warning
+  （Roslyn3.11、Roslyn4.0），原文均含 “The support ProjectReference was skipped;
+  a host that actually uses Cs2jByRef types will fail its build with CS0246”。
+  gen Roslyn3.11 实际 build 未成功（中间树 import 形状导致 MSB4019），不存在静默假成功。
+
+### 26.4 全链复跑
+
+- 进程退出码 **1**；report `success=false`、`totalSeconds=72.376`、**34 个 pass**。
+- **record-readonly 通过**（第 33 个 pass，`ok`：
+  `0 struct(s), 0 class(es) converted, 0 skipped, 0 plan(s) rolled back, 0 site(s),
+  0 method(s), 0 interface ripple(s)`），**RR020 不再出现**。
+- 新中止点：**struct-value-semantics**（第 34 个 pass，`failed`）：
+
+```
+D:\cs\rt10-baseline-w10v\.cs2j-preprocessed-src\src\System\Text\Json\Document\JsonDocument.Parse.cs(744,35):
+error SV030: whole-tree validation failed and the new error could not be attributed to a single
+struct plan (CS8716: There is no target type for the default literal.); all changes from this run
+were rolled back.
+```
+
+- 该 pass summary：`struct-value-semantics: 0 struct(s) planned, 0 shim(s) generated,
+  0 site(s) rewritten, 0 skipped, 0 rolled back`（SV030 为整树校验失败，非单计划失败）。
+- NU1201 / NU1015 计数均为 **0**；`is below net10` TFM 警告计数为 **0**（w10u 为 4）。
+
+### 26.5 单测与回归
+
+- 新增 `tests/CSharpToJava.Tests/ProjectPreprocessTargetFrameworkTests.cs` 共 10 条，
+  全部离线（经 `MsBuildCompileEvaluator.EvaluationOverride` 注入假求值，不启动 msbuild）：
+  宏 TFM 钉死、`TargetFrameworks` 首项回退、求值失败保留原文、已单目标不改写且不调用求值、
+  字面多目标折叠、netstandard2.0 宿主跳过 Cs2jRefOutIn 并告警、net10.0 宿主正常注入、
+  旧失效引用被移除、两个支撑库多目标断言、`CanBeReferencedBy` 判定。
+- 全量：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj` →
+  **4832 通过 / 9 跳过 / 0 失败**（§25 基线 4822/9/0，净增 10）。
+- `tests/CSharpToJava.ProjectTests` 仅 `dotnet build`：**0 错误**（未运行）。
+- 支撑库构建实测：`Cs2jPrelude`、`Cs2jUnsignedMath` 的 `netstandard2.0` 目标均 0 错误；
+  `Cs2jRefOutIn` 在临时副本上以 netstandard2.0 构建失败（CS9240/CS9064/CS0246），
+  故保持 net10.0 单目标。
+
+### 26.6 来源文件
+
+- `D:\cs\rt10-baseline-w10v\preprocess-report.json`（`success=false`、
+  `totalSeconds=72.376`、34 个 pass；第 33 个 `record-readonly` 为 `ok`，
+  第 34 个 `struct-value-semantics` 为 `failed`）。
+- `D:\cs\rt10-baseline-w10v.log`（全链输出，临时产物，未入库）。
+- `D:\cs\rt10-tfm-check2\preprocess-report.json`、`D:\cs\rt10-tfm-check2.log`
+  （保留中间树的探针运行，临时产物，未入库）。
+- `D:\cs\rt10-tfm-restore.log`（四个项目分别 restore exit 0 证据，临时产物，未入库）。
+
