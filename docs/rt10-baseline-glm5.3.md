@@ -2939,4 +2939,127 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
 - `D:\cs\rt10-baseline-w10z6.log`（全链输出，临时产物，未入库）。
 - `D:\cs\cs2j-fulltest-w10z5.log`（全量单测 4850/9/0，临时产物，未入库）。
 
+## 31. 清零剩余 17 条 `NORM-ENUM-ARITH`：首次 rt10 全链基线建立（w10z7 复跑）
+
+### 31.1 代码前置
+
+- 提交 A `3f216981`（`fix(enum): 可空 enum 常量模式归一化 + 影子命名空间成员解析`）：
+  - **可空左值（7 条）**：`x is E.M` / `x is not E.M`（`x: E?`）改写为
+    `object.Equals(x, E.M)` / `!object.Equals(x, E.M)`。单次求值、null 安全
+    （null → false / true，与常量模式一致），Java 侧渲染为
+    `Objects.equals(...)`。**不能**用提升 `==`：numeric-boundary 的 enum-domain
+    提升相等会对不稳定操作数（属性读）要求可提升的临时变量，初始化器/短路
+    上下文直接 CS2J5355（首轮实测 `SourceGenerationOptionsSpec.cs:74`
+    `Defaults == JsonSerializerDefaults.Web` 即失败）。
+  - **`Accessibility` 5 条（原归因“重复 Roslyn 引用”不成立）**：pass 编译集里
+    `Microsoft.CodeAnalysis.Accessibility` 的 TypeKind 为 Enum、左值绑定完整，
+    但右侧常量无绑定符号。真实原因是 parser 把 `x is E.M` 的右侧保留在**类型
+    位置**，而 `GetBasicReferences` 注入的 WindowsDesktop 载体带来顶层
+    `Accessibility` 命名空间（Accessibility.dll），在类型名位置遮蔽了枚举类型
+    （CS0234）。`GetSpeculativeSymbolInfo` 在同一位置仍按类型绑定、同样失败，
+    故新增按左值枚举类型限定的解析回退：绑定符号 → 推测绑定 → 名称匹配
+    （限定符文本须指向该枚举且成员唯一），名称回退路径输出
+    `global::Microsoft.CodeAnalysis.Accessibility.Public` 全限定成员引用，
+    保证中间树自身仍可绑定。
+  - NORM-ENUM-ARITH 探针：可空 enum 与同类 enum 的 `==` / `!=`（enum pass
+    归一化产物）与可空 enum 对 `null` 的判空不再计为残留；不同枚举之间的
+    比较仍报残留（收紧了原先“两侧都是 enum 即放行”的口径）。
+- 提交 B `892eb08e`（`fix(member-desugar): 属性模式路径不重写 + 分析编译纳入目录外共享源`）：
+  - **`JsonValue.cs` 3 条（原归因 member-desugar 整文件保留，成立）**：根因是
+    扩展属性模式路径 `o is { A.B: true }` 中的 `A.B` 被当作普通属性读改写成
+    `get_A().B`，产出非法模式语法（CS1003），本地解析校验失败后整文件被保留；
+    其他文件里该属性声明已去糖，留下悬空的 `element.ValueKind` 读站点，
+    枚举 switch 临时变量因此在审计编译集中变成 error 类型。
+    `PropertyUseSiteRewriter` 现跳过表达式冒号内的模式成员路径，两个文件
+    （`JsonValue.cs`、`JsonSchemaExporter.cs`）不再回滚，`__cs2jGov_0` 正常绑定为
+    `JsonValueKind`（两侧同类 enum 的 `==`，探针放行）。
+  - **`TypeRef` 2 条（原归因“被 `135cb324` 过滤误删”不成立）**：`TypeRef.cs` 等
+    运行时共享源物理位置在 sourceRoot 之外，枚举/审计编译从未包含其声明（更早
+    的 w10z3/4/5 基线同样没有）。现于树准备阶段收集图项目的权威编译集成员中
+    “位于 sourceRoot 之外”的 `.cs`（按全路径去重），由 `enum` 与
+    `normalization-audit` 以 analysis-only 语法树加入整树分析编译；
+    该能力按 pass 选择开启（`IncludesExternalSharedCompileSources`），避免
+    `ValueStringBuilder` 等 ref struct 类型突然解析改变 ref-out-in 等 pass 判定。
+  - unified 链的第 2+ 个 pass 的 `SourcePath` 已指向中间树，扁平化后的 MSBuild
+    文件无法解析 `$(CommonPath)`（实测解析成 `D:\code\cs2j\Common\...`）。新增
+    `ProjectPassRunRequest.OriginalSourcePath`（由 `CliPreprocessChain` 恒定传入
+    用户入口），按原始入口求值一次并在进程内缓存复用。
+- 单测净增 9 条：
+  - `EnumArithmeticLoweringTests`：可空源内/元数据 enum 的 `is` / `is not` →
+    `object.Equals` 正例、`object` 左值与跨枚举常量负例、影子命名空间常量
+    改写为全限定引用（+4）。
+  - `ResidualRegistryTests`：可空 enum 同类 `==`/`!=` 与判空不再计残留（+3）。
+  - `GraphLinkedCompileFilesFilterTests`：sourceRoot 之外的显式编译项被报告为
+    分析源、被编译集排除的 TFM 变体不报告（+1）。
+  - `MemberDesugarPropertyPatternUseSiteTests`：扩展属性模式路径不重写、
+    产物可解析（+1）。
+
+### 31.2 复跑口径与结果
+
+- 运行时 HEAD `892eb08e`（工作树干净）。
+- 命令（与 §30 相同，无 `--force`，目标目录先清空）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10z7 --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests `
+  *>&1 | Tee-Object D:\cs\rt10-baseline-w10z7.log
+```
+
+- 进程退出码 **0**；report `success=true`、`totalSeconds=98.810`、
+  **53 个 pass 全部 `ok`**；residual report `residuals=0`（`byCode`/`byOwner`
+  为空）。
+- 关键 summary：
+  - `enum`：`90 transformed, 107 clean, 153 dirty-no-rewrite, 125 bitwise,
+    1 ~, 6 compound, 1 HasFlag, 0 lifted, 4 enum-arith, 0 residual`。
+  - `member-desugar`：`848 planned, 159 field(s) generated, 2232 read/153 write/
+    1 compound, ..., 101 skipped, 0 rolled back, 4 residual`（与 §30 的
+    `4 residual` 持平；本任务不涉及该 residual 类别）。
+  - `normalization-audit`：`0 residual(s) across 0 file(s) (), 3 support-library
+    file(s) skipped`。
+- TFM 警告（`skipped unresolvable TFM value` / `is below net10` / `NETSDK` /
+  `target-framework evaluation failed`）计数 **0**。
+
+### 31.3 清零后的关键形态（中间树实测）
+
+- `gen\Model\SourceGenerationOptionsSpec.cs:74`：
+  `Defaults is JsonSerializerDefaults.Web` →
+  `(object.Equals(get_Defaults(), JsonSerializerDefaults.Web) ? ...)`。
+- `gen\Helpers\RoslynExtensions.cs:355` 与 `gen\JsonSourceGenerator.Parser.cs`
+  的 5 处：
+  `ctor.DeclaredAccessibility is Accessibility.Public` →
+  `ctor.DeclaredAccessibility == global::Microsoft.CodeAnalysis.Accessibility.Public`
+  （全限定成员引用，影子命名空间不再影响绑定）。
+- `gen\Model\TypeGenerationSpec.cs:122/134/137/138`（`TypeRef` 解析后）：
+  `...SpecialType is SpecialType.System_Object` → `==`，
+  `is not SpecialType.System_Object` → `!=`。
+- `src\System\Text\Json\Nodes\JsonValue.cs:232-237`：
+  `var __cs2jGov_0 = element.get_ValueKind();` + `__cs2jGov_0 == JsonValueKind.Null`
+  / `== JsonValueKind.Object` / `== JsonValueKind.Array`，两侧同类 enum。
+
+### 31.4 首次 rt10 全链基线建立
+
+**首次 rt10 全链基线建立**：`System.Text.Json`（net10.0，src + 3 个 source
+generator 项目 + 注入支撑库）经 53 个预处理 pass 全链处理，
+`success=true`、53/53 `ok`、residual **0**、TFM 警告 **0**、墙钟 ≈98.8s，
+代码 HEAD `892eb08e`。§30 的 17 条 `NORM-ENUM-ARITH` 全部按根因在 owner
+（enum pass / member-desugar + 分析编译引用面）修复，未放宽审计口径。
+
+### 31.5 回归
+
+- `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj` →
+  **4859 通过 / 9 跳过 / 0 失败**（§30 基线 4850/9/0，净增 9）。
+- `tests/CSharpToJava.ProjectTests` 仅执行 `dotnet build`（成功，0 错误）；
+  ProjectTests、ConversionTests 未运行。
+
+### 31.6 来源文件
+
+- `D:\cs\rt10-baseline-w10z7\preprocess-report.json`（`success=true`、
+  `totalSeconds=98.810`、53 个 pass 全 `ok`）。
+- `D:\cs\rt10-baseline-w10z7\preprocess-residual-report.json`（0 条残留）。
+- `D:\cs\rt10-baseline-w10z7.log`（全链输出，临时产物，未入库）。
+- `D:\cs\full-test-w10z7.log`（全量单测 4859/9/0，临时产物，未入库）。
+
+
 
