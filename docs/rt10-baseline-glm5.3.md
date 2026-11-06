@@ -586,3 +586,118 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
 - `D:\cs\rt10-baseline-w10f.log`（442 行）。
 - 中间树：`D:\cs\rt10-baseline-w10f\.cs2j-preprocessed-src`。
 
+## 13. 第七次重跑（HEAD `28c393ba` + 工作树修复，compat-method-replacement 通过）
+
+### 13.1 运行口径
+
+- 运行日期：2026-11-06（Asia/Shanghai）；基线 HEAD：`28c393ba`，叠加本次
+  compat-method-replacement 修复的工作树改动（尚未提交时运行）。
+- 代码前置：全量单测 **4727 通过 / 9 跳过 / 0 失败**（§12 基线 4720 + 新增
+  7 条 compat-method-replacement 单测：5 条 holder 签名归一化 + 1 条
+  holder 集成 + 1 条普通 `out` 回归）。
+- 修复内容：`CompatMethodReplacementEntry.Matches` 在比较前把
+  `Cs2jByRef.{ByRef,ScopedByRef,RefStructByRef}<T>` 归一为「`ref` 或 `out` +
+  `T`」、`{ReadOnlyByRef,ReadOnlyScopedByRef}<T>` 归一为「`in` + `T`」
+  （`Describe` 同步渲染回原形）；`SubstituteParameterNames` 对 holder 参数把
+  模板引用改写为 `name.Value`（已有 `.Value` 不重复追加）。
+- 源不变：`D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj`；
+  目标：`D:\cs\rt10-baseline-w10g`；unified 中间树
+  `D:\cs\rt10-baseline-w10g\.cs2j-preprocessed-src`（目标目录运行时不存在，无需 `--force`）。
+- 命令（与 §12.1 同参数，仅换目标目录与日志）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10g --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests `
+  *>&1 | Tee-Object D:\cs\rt10-baseline-w10g.log
+```
+
+- 结果：`D:\cs\rt10-baseline-w10g\preprocess-report.json` 为 `success=false`、
+  `totalSeconds=44.502`、**23** 个 pass（比 §12 多跑 3 个 pass）；日志 516 行。
+
+### 13.2 每个 pass 的实测（来源：preprocess-report.json 的 `status`/`summary`/`totalSeconds`）
+
+| # | pass | 状态 | 秒 | 实测 summary（原样节选） |
+|---|------|------|----|--------------------------|
+| 1 | conditional | ok | 5.746 | `strip-conditional: 66 transformed, 286 clean, 372 directives removed, 103 disabled blocks removed` |
+| 2 | lexical-normalize | ok | 1.453 | `0 transformed, 352 clean, 0 #line removed, 0 extern-alias site(s), ...` |
+| 3 | partial-merge | ok | 3.304 | `10 group(s) merged, 0 partial member pair(s) collapsed`（9 条 CS2J2001 warning，同 §9–§12） |
+| 4 | local-function-lift | ok | 4.912 | `28 transformed, 324 clean, 59 lifted, 0 skipped, 0 residual` |
+| 5 | null-coalesce | ok | 0.906 | `59 transformed, 293 clean, 98 ?? rewritten, 100 ??= rewritten, 98 temp vars, 57 arrow bodies expanded, 0 residual` |
+| 6 | expression-desugar | ok | 2.063 | `107 transformed, 209 clean, 36 dirty-no-rewrite; ...; nc: 180 member/call, 24 invoke, 56 void, 42 inline, 83 lifted, 32 coalesce, 164 temps, 0 skipped, 0 residual` |
+| 7 | enum | ok | 1.462 | `85 transformed, 107 clean, 160 dirty-no-rewrite, 125 bitwise, 1 ~, 6 compound, 1 HasFlag, 0 lifted, 4 enum-arith, 0 residual` |
+| 8 | enum-declaration | ok | 5.896 | `6 enum(s) rewritten (flags=0, non-int=5, explicit=4), 20 file(s), 0 plan(s) rolled back, 0 kept real (numeric-boundary), 0 residual` |
+| 9 | delegate | ok | 0.6 | `1 transformed, 351 clean, 0 combine, 0 remove, 0 compound, 5 anonymous method, 0 skipped, 0 residual` |
+| 10 | tuple | ok | 6.03 | `tuple-to-struct: 16 transformed, 338 clean, 25 types, 35 literals, 10 deconstructions, 0 tuple locals -> var, 19 structs generated` |
+| 11 | anonymous-type-lift | ok | 0.896 | `0 transformed, 358 clean, 0 creations rewritten, 0 shapes (0 generic, 0 dynamic), 0 types generated, 0 residual` |
+| 12 | foreach-deconstruction | ok | 0.234 | `0 transformed, 358 clean, 0 lowered, 1 skipped` |
+| 13 | foreach-source | ok | 0.417 | `9 transformed, 349 clean, 0 string site(s) wrapped, 0 tuple residual(s), 0 other/KV residual(s), 1 deconstruct(s) lowered, 2 duck enumerator(s) lowered (ext 0, direct 0, struct 2, dispose 0 [boxed 0], no-dispose 2, dynamic 0), 7 span index loop(s), 0 unresolved site(s), 0 residual enumerator site(s), 0 error(s)` |
+| 14 | pattern-desugar | ok | 0.41 | `15 transformed, 307 clean, 36 dirty-no-rewrite, 17 pattern-switch, 0 non-int-switch, 1 catch-filter, 0 catch-T, 8 govs, 0 end-labels, 0 skipped, 0 residual` |
+| 15 | strip-default | ok | 2.846 | `97 transformed, 261 clean, 195 declarations stripped, 176 overloads generated` |
+| 16 | ref-out-in | ok | 1.561 | `208 transformed, 150 clean, 245 ref params, 241 out params, 717 call sites lifted, 153 locked members` |
+| 17 | unsafe-ref-lowering | ok | 1.168 | `0 transformed, 360 clean, 0 ref local(s) lowered (0 read, 0 add), 1 rejected (URL001)` |
+| 18 | using-resource-lift | ok | 0.198 | `0 transformed, 360 clean, 0 resource(s) lifted, 0 preserved (USL001)` |
+| 19 | fixed-span-to-array | ok | 0.234 | `1 transformed, 359 clean, 1 span fixed statement(s) lowered, 0 preserved (FSA001)` |
+| 20 | compat-method-replacement | **ok（本轮修复）** | 0.228 | `2 transformed, 358 clean, 2 method(s) replaced, 0 already replaced, 2 signature mismatch(es) (CMR001), 0 drifted entr(y/ies) (CMR020), 1 unused table entry(ies)` |
+| 21 | pointer-diff-inline | ok | 0.278 | `0 transformed, 360 clean, 0 helper(s) inlined, 0 call site(s) rewritten, 0 unused helper(s) removed, 0 preserved (PDI001)` |
+| 22 | unsigned | ok | 0.688 | `unsigned-type: 129 transformed, 231 clean, 2269 types replaced, 195 operators rewritten, 3 literals rewritten`（4 条 Cs2jUnsignedMath TFM warning） |
+| 23 | numeric-boundary | **failed** | 2.931 | `numeric-boundary: 360 file(s), 9 binary/0 unary/13 conversion/0 increment site(s) explicitized, 338 unchecked expr(s)/0 block(s) stripped, 92 constant(s) materialized, 16 error(s); decimal-ops: ... 314 deferred; increment-targets: ...; nullable-lift: 3 rel/121 eq/2 conv site(s), 1 temp(s), 15 deferred` |
+
+- 与 §12.2 对照：第 1–19 个 pass 的 `transformed`/`clean` 计数一致（个别
+  summary 因 `28c393ba` 新增计数器而变长，如 foreach-source 的 string/ref
+  计数）；第 20 个 `compat-method-replacement` 由 failed 转为 ok；第 21–23 个
+  pass 在 §12 从未运行。
+
+### 13.3 compat-method-replacement 通过证据
+
+- diagnostics 中 **0** 条 CMR020（§12.4 的 2 条 Error 全部消失）；summary 的
+  `2 drifted entr(y/ies) (CMR020)` → `0 drifted entr(y/ies) (CMR020)`。
+- `2 method(s) replaced` 且 `2 transformed`：`JsonWriterHelper.ToUtf8`
+  （3 参、`out int` 已被 ref-out-in 提升为 `ByRef<int>`）与原本就命中的
+  `JsonWriterHelper.NeedsEscaping`。
+- 中间树证据（逐字）：
+  - `src\System\Text\Json\Writer\JsonWriterHelper.cs:266`：
+    `// cs2j-compat-method-replacement: System.Text.Json.JsonWriterHelper.ToUtf8(System.ReadOnlySpan<char>, System.Span<byte>, out int)`
+  - 同文件签名保持提升后的形态（证明是真正替换而非跳过）：
+    `internal static OperationStatus ToUtf8(ReadOnlySpan<char> source, Span<global::System.Byte> destination, ByRef<int> written)`
+  - 同文件 body 内的写回（模板 `written = 0;` → `written.Value = 0;`）：
+    `written.Value = 0;`、`written.Value = bytesUsed;`
+- 剩余 2 条 CMR001 与本修复无关（`JsonWriterHelper.Escaping.cs:286/290`）：
+  rt10 的 `NeedsEscaping` 声明是 `NeedsEscaping(byte)`（1 参）与
+  `NeedsEscaping(ReadOnlySpan<byte>, JavaScriptEncoder)`，注册条目是
+  `ReadOnlySpan<char>` 版本；`1 unused table entry` 为 3.x 遗留的 4 参
+  `ToUtf8` 兄弟条目（同 family 已命中，按 W-09 口径不计漂移）。
+
+### 13.4 新中止点
+
+- 第 23 个 pass `numeric-boundary`（`status=failed`，2.931s），共 **16** 条
+  Error + 4 条 Warning：
+  - `CS2J5339` ×1：`Utf8JsonWriter.WriteValues.StringSegment.cs(532,26)`，
+    `value-consumed increment/decrement 'BytesPending++' has no safe single-execution hoist anchor ...`
+  - `CS2J5355` ×13：`[NL-2] lifted Nullable<T> site '...' has an unstable operand but
+    sits in an anchor-free or conditional/short-circuit/initializer context ...`
+    （`JsonSerializer.Read.HandleMetadata.cs:352`、`JsonPropertyInfo.cs:624/656` 等）。
+  - `CS2J5357` ×2：`[NL-14] residual built-in lifted Nullable<T> site(s) survived in
+    user-scope output: _canUseFastPathSerializationLogic; strict mode fails`。
+- 4 条 Warning 均为 `target framework '...' is below net10.0`（unsigned pass 注入
+  `Cs2jUnsignedMath.csproj` 的提示，链推进到第 22 个 pass 后才出现）。
+- 该中止点此前被 §12 的 compat-method-replacement 失败遮蔽（§12 在第 20 个 pass 退出）。
+
+### 13.5 TFM 警告
+
+- 日志中 `skipped unresolvable TFM value` 计数为 **0**（与 §2–§12 一致）。
+- 因链首次运行到 `unsigned`/`numeric-boundary`，日志新增 8 行
+  `target framework '...' is below net10.0` 提示（`gen/*.csproj` 3 个 +
+  `src/System.Text.Json.csproj`，unsigned 与 numeric-boundary 各报 4 条），
+  属 Cs2jUnsignedMath 注入的已知提示，不阻断本 pass 之外的环节。
+- 日志计数：`warning ` 行 36 条、`[Warning]` 前缀行 69 条、`[Error]` 行 16 条
+  （全部来自 numeric-boundary）。
+
+### 13.6 来源文件
+
+- `D:\cs\rt10-baseline-w10g\preprocess-report.json`（schemaVersion 1，
+  `success=false`，`totalSeconds=44.502`，23 个 pass）。
+- `D:\cs\rt10-baseline-w10g.log`（516 行）。
+- 中间树：`D:\cs\rt10-baseline-w10g\.cs2j-preprocessed-src`。
+
