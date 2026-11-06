@@ -1164,6 +1164,17 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             return FinalizeSite(original, distributed, hoist: null);
         }
 
+        // `bool? == true` / `!= true` over an anchor-free source conditional:
+        // the two-valued literal lane distributes the test into the arms
+        // instead of hoisting the whole operand (a field initializer or a
+        // short-circuit arm cannot host a temporary).
+        var booleanTrue = TryRewriteBooleanTrueEquality(
+            original, visited, classification);
+        if (booleanTrue != null)
+        {
+            return FinalizeSite(original, booleanTrue, hoist: null);
+        }
+
         var (leftOk, leftAccess) = PrepareOperand(
             original, original.Left, visited.Left, operation.LeftOperand,
             sideNullable: classification.LeftNullable, isLeft: true);
@@ -1365,6 +1376,143 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             && NullableLiftSyntaxFacts.UnwrapParens(cast.Expression)
                 .IsKind(SyntaxKind.NullLiteralExpression);
     }
+
+    // ── bool? == true / != true anchor-free lane ──
+
+    /// <summary>
+    /// Two-valued <c>bool?</c> literal lane: <c>x == true</c> is
+    /// <c>x.GetValueOrDefault()</c> and <c>x != true</c> is its negation
+    /// (<c>null</c> and <c>false</c> both compare unequal to <c>true</c>).
+    /// Only the <c>true</c> literal is two-valued — <c>== false</c>/<c>!= false</c>
+    /// flip for a null operand and stay on the hoisting path.
+    /// <para>
+    /// Reached only when the ordinary one-sided HasValue guard cannot hoist:
+    /// a stable operand or a hoistable context keeps the existing output.
+    /// Anchor-free source conditionals distribute the test into their arms
+    /// (<c>(c ? v : (bool?)null) == true</c> → <c>c ? &lt;v == true&gt; : false</c>),
+    /// so the conditional's own condition and live arm keep the source
+    /// evaluation order and short-circuiting; the leaf <c>bool?</c> renders the
+    /// ordinary <c>HasValue</c>/<c>Value</c> test (identical to the one-sided
+    /// guard read of a stable reference).
+    /// </para>
+    /// </summary>
+    private ExpressionSyntax? TryRewriteBooleanTrueEquality(
+        BinaryExpressionSyntax original,
+        BinaryExpressionSyntax visited,
+        LiftedBinaryClassification classification)
+    {
+        if (!NullableLiftAnalyzer.IsBooleanTrueLiteralComparison(original, classification))
+        {
+            return null;
+        }
+
+        var nullableIsLeft = !NullableLiftAnalyzer.IsTrueLiteral(original.Left);
+        var originalSide = nullableIsLeft ? original.Left : original.Right;
+        var visitedSide = nullableIsLeft ? visited.Left : visited.Right;
+
+        if (!NullableLiftAnalyzer.IsNullableType(_model.GetTypeInfo(originalSide).Type))
+        {
+            return null;
+        }
+
+        if (_analyzer.IsStableReference(originalSide) || IsHoistableSite(originalSide))
+        {
+            return null;
+        }
+
+        var expanded = ExpandBooleanTrueTest(
+            visitedSide, negate: original.IsKind(SyntaxKind.NotEqualsExpression));
+        if (expanded == null)
+        {
+            return null;
+        }
+
+        _stats.LiftedEqualityOneSidedSites++;
+        return expanded;
+    }
+
+    /// <summary>
+    /// Renders <c>expression == true</c> (or its negation) as a plain
+    /// <c>bool</c> test. A source conditional with one semantically-null arm
+    /// distributes: the null arm becomes the literal <c>false</c> (true for the
+    /// negated form), the live arm recurses. A leaf <c>bool?</c> reads
+    /// <c>HasValue</c>/<c>Value</c> exactly like the NL-6 expansion.
+    /// </summary>
+    private ExpressionSyntax? ExpandBooleanTrueTest(ExpressionSyntax expression, bool negate)
+    {
+        var unwrapped = NullableLiftSyntaxFacts.UnwrapParens(expression);
+
+        if (unwrapped is ConditionalExpressionSyntax conditional
+            && IsNullArm(conditional.WhenTrue) != IsNullArm(conditional.WhenFalse))
+        {
+            var liveArm = IsNullArm(conditional.WhenTrue)
+                ? conditional.WhenFalse
+                : conditional.WhenTrue;
+            var live = ExpandBooleanTrueTest(liveArm, negate);
+            if (live == null)
+            {
+                return null;
+            }
+
+            return ParenthesizedExpression(
+                ConditionalExpression(
+                    conditional.Condition.WithoutTrivia(),
+                    AsMemberReceiver(live.WithoutTrivia()),
+                    LiteralExpression(negate
+                        ? SyntaxKind.TrueLiteralExpression
+                        : SyntaxKind.FalseLiteralExpression)));
+        }
+
+        if (unwrapped is ConditionalExpressionSyntax)
+        {
+            // Neither arm is null: the two-valued identity does not distribute.
+            return null;
+        }
+
+        // A `(bool?)e` wrap over a non-nullable bool is never null, so
+        // `(bool?)e == true` is exactly `e` (read once, no HasValue/Value).
+        if (unwrapped is CastExpressionSyntax cast
+            && cast.SyntaxTree == _model.SyntaxTree
+            && NullableLiftAnalyzer.IsNullableType(_model.GetTypeInfo(cast).Type)
+            && _model.GetTypeInfo(cast.Expression).ConvertedType
+                is { SpecialType: SpecialType.System_Boolean })
+        {
+            var operand = AsMemberReceiver(cast.Expression.WithoutTrivia());
+            return negate
+                ? PrefixUnaryExpression(
+                    SyntaxKind.LogicalNotExpression,
+                    Token(SyntaxKind.ExclamationToken),
+                    operand)
+                : operand;
+        }
+
+        var boolType = _model.Compilation.GetSpecialType(SpecialType.System_Boolean);
+        var access = OperandAccess.Direct(
+            AsMemberReceiver(unwrapped), isNullablePosition: true);
+        var test = NullableLiftExpansion.GetValueOrDefault(access, boolType);
+        return negate
+            ? PrefixUnaryExpression(
+                SyntaxKind.LogicalNotExpression,
+                Token(SyntaxKind.ExclamationToken),
+                test)
+            : test;
+    }
+
+    /// <summary>
+    /// Parenthesizes a member-access receiver when it is not already an atom
+    /// (a conditional or a cast, e.g. <c>(bool?)v.HasValue</c>, would otherwise
+    /// bind the member access inside the operand).
+    /// </summary>
+    private static ExpressionSyntax AsMemberReceiver(ExpressionSyntax expression) =>
+        expression is IdentifierNameSyntax
+            or MemberAccessExpressionSyntax
+            or InvocationExpressionSyntax
+            or ElementAccessExpressionSyntax
+            or ParenthesizedExpressionSyntax
+            or ThisExpressionSyntax
+            or BaseExpressionSyntax
+            ? expression
+            : ParenthesizedExpression(expression.WithoutTrivia());
 
     /// <summary>
     /// Shared NL-4 equality rendering for numeric and enum domains: selects
@@ -1798,11 +1946,7 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             return _currentHoist;
         }
 
-        var anchor = NullableLiftSyntaxFacts.FindAnchorStatement(site);
-        if (anchor == null
-            || !NullableLiftSyntaxFacts.IsWhitelistedAnchor(anchor)
-            || !NullableLiftSyntaxFacts.IsLiftableContext(site, anchor)
-            || !CanHostDeclarations(anchor))
+        if (!IsHoistableSite(site))
         {
             ReportSiteError(site,
                 PreprocessDiagnosticCodes.NullableLiftComplexTarget,
@@ -1813,9 +1957,24 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
 
         _currentHoist = new HoistState(
             ++_sequence,
-            anchor,
+            NullableLiftSyntaxFacts.FindAnchorStatement(site)!,
             new SyntaxAnnotation(NullableLiftSyntaxFacts.HoistAnnotationKind));
         return _currentHoist;
+    }
+
+    /// <summary>
+    /// True when <paramref name="site"/> has a whitelisted anchor statement
+    /// that can host a spliced declaration and the path to that anchor crosses
+    /// no conditional/short-circuit arm (the <see cref="EnsureHoist"/> gate,
+    /// without reporting diagnostics).
+    /// </summary>
+    private bool IsHoistableSite(ExpressionSyntax site)
+    {
+        var anchor = NullableLiftSyntaxFacts.FindAnchorStatement(site);
+        return anchor != null
+            && NullableLiftSyntaxFacts.IsWhitelistedAnchor(anchor)
+            && NullableLiftSyntaxFacts.IsLiftableContext(site, anchor)
+            && CanHostDeclarations(anchor);
     }
 
     /// <summary>

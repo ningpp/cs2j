@@ -78,6 +78,27 @@ internal sealed class NullableLiftRule : INumericBoundaryRule
             }
         }
 
+        // If-condition conjunction linearization (CS2J5355): a lifted site in
+        // the right arm of `if (A && B)` gains an inner if/an assignment
+        // statement anchor inside the block guarded by A, keeping the source
+        // short-circuit order and frequency. Speculative like the lambda
+        // linearizer: any residual site below still rolls the file back.
+        var conjunctionAnalyzer = new NullableLiftAnalyzer(
+            context.SemanticModel!, context.Options, context.GetSharedAnalyzer());
+        var conjunctionRoot = NullableIfConjunctionLinearizer.Linearize(
+            context.Root, context.SemanticModel!, conjunctionAnalyzer, out var conjunctionLinearized);
+        if (conjunctionLinearized && context.RebindModel(conjunctionRoot) == null)
+        {
+            context.Diagnostics.Add(new NumericBoundaryDiagnostic(
+                NumericBoundarySeverity.Error,
+                PreprocessDiagnosticCodes.NumericBoundaryBuildFailed,
+                "numeric-boundary rule 'nullable-lift' produced a tree that fails to reparse while " +
+                "linearizing if conditions; the original file was preserved " +
+                $"({PreprocessDiagnosticCodes.NumericBoundaryBuildFailed})."));
+            context.Stats.ErrorsByReason[PreprocessDiagnosticCodes.NumericBoundaryBuildFailed] = 1;
+            return new NumericBoundaryRuleResult(originalRoot, MadeChanges: false);
+        }
+
         var analyzer = new NullableLiftAnalyzer(
             context.SemanticModel, context.Options, context.GetSharedAnalyzer());
 

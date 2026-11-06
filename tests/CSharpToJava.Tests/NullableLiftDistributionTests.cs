@@ -306,8 +306,11 @@ public class NullableLiftDistributionTests
     }
 
     [Fact]
-    public void UnstableNullableProperty_In_ShortCircuit_If_Condition_Still_Reports_CS2J5355()
+    public void UnstableNullableProperty_In_ShortCircuit_If_Condition_Is_Linearized()
     {
+        // The conjunction is split at the lifted right arm: `if (isFirst) {
+        // var __cs2j_n_a1 = spec.Mode; if (...) ... }`, so the property read
+        // keeps the source short-circuit frequency and is hoisted once.
         const string src = """
             public enum Mode { Off = 0, On = 1, Always = 2 }
 
@@ -333,12 +336,20 @@ public class NullableLiftDistributionTests
                 public static string Run() => Probe(new Spec(Mode.On), true);
             }
             """;
-        var (_, diagnostics, changed) = RunRule(src);
+        var expected = Invoke(src);
+        var (output, diagnostics, changed) = RunRule(src);
 
-        Assert.False(changed);
-        Assert.Contains(diagnostics,
-            d => d.Severity == NumericBoundarySeverity.Error
-                && d.Code == PreprocessDiagnosticCodes.NullableLiftComplexTarget);
+        Assert.True(changed);
+        Assert.DoesNotContain(diagnostics,
+            d => d.Severity == NumericBoundarySeverity.Error);
+
+        var compact = Compact(output);
+        Assert.Contains("var__cs2j_n_a1=spec.Mode", compact);
+        Assert.Contains("__cs2j_n_a1.HasValue", compact);
+        Assert.DoesNotContain("spec.Mode!=Mode.Always", compact);
+
+        Assert.Equal(expected, Invoke(output));
+        Assert.Equal("n", Invoke(output));
     }
 
     // ── B-2: the whole conditional left operand is hoisted as one temp ──
@@ -412,7 +423,7 @@ public class NullableLiftDistributionTests
     }
 
     [Fact]
-    public void Conditional_Left_Operand_In_ShortCircuit_Right_Still_Reports_CS2J5355()
+    public void Conditional_Left_Operand_In_ShortCircuit_Right_Is_TwoValued_Without_Hoist()
     {
         const string src = """
             public sealed class Options
@@ -437,12 +448,20 @@ public class NullableLiftDistributionTests
                 public static string Run() => Probe(new Options(true), false);
             }
             """;
-        var (_, diagnostics, changed) = RunRule(src);
+        var expected = Invoke(src);
+        var (output, diagnostics, changed) = RunRule(src);
 
-        Assert.False(changed);
-        Assert.Contains(diagnostics,
-            d => d.Severity == NumericBoundarySeverity.Error
-                && d.Code == PreprocessDiagnosticCodes.NullableLiftComplexTarget);
+        // `null == true` is false exactly like `false == true`, so the
+        // short-circuit right arm expands to the two-valued HasValue/Value
+        // test without any hoisted temporary.
+        Assert.True(changed);
+        Assert.DoesNotContain(diagnostics,
+            d => d.Severity == NumericBoundarySeverity.Error);
+        Assert.Contains("HasValue", output);
+        Assert.DoesNotContain("__cs2j_n_", output);
+
+        Assert.Equal(expected, Invoke(output));
+        Assert.Equal("Y", Invoke(output));
     }
 
     // ── implicit T? → T unwrap in return position (CS2J5357) ──

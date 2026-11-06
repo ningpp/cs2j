@@ -334,6 +334,32 @@ internal sealed class NullableLiftAnalyzer
             leftNullable, rightNullable, hasNullLiteral);
     }
 
+    /// <summary>
+    /// The <c>bool? == true</c> / <c>bool? != true</c> literal comparison:
+    /// exactly one operand is the <c>true</c> literal. Unlike the
+    /// <c>== false</c>/<c>!= false</c> forms (where a null operand flips the
+    /// result), the <c>true</c> forms are two-valued — a null operand behaves
+    /// exactly like <c>false</c> — so they can be explicitized without a
+    /// single-evaluation temporary.
+    /// </summary>
+    public static bool IsBooleanTrueLiteralComparison(
+        BinaryExpressionSyntax syntax, LiftedBinaryClassification classification)
+    {
+        if (classification.Flavor != LiftedBinaryFlavor.Equality
+            || classification.Domain != NullableValueDomain.Bool)
+        {
+            return false;
+        }
+
+        return IsTrueLiteral(syntax.Left) != IsTrueLiteral(syntax.Right);
+    }
+
+    /// <summary>True when the expression is the literal <c>true</c> (parens stripped).</summary>
+    public static bool IsTrueLiteral(ExpressionSyntax expression) =>
+        NullableLiftSyntaxFacts.UnwrapParens(expression)
+            is LiteralExpressionSyntax literal
+        && literal.IsKind(SyntaxKind.TrueLiteralExpression);
+
     private static LiftedBinaryFlavor ClassifyBinaryFlavor(
         NBOp.BinaryOperatorKind kind, NullableValueDomain domain)
     {
