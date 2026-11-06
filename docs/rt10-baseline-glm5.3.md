@@ -1200,3 +1200,164 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
 - 中间树：`D:\cs\rt10-baseline-w10k\.cs2j-preprocessed-src`。
 - 对照：`D:\cs\rt10-baseline-w10j\preprocess-report.json`（generic-deepen
   8 条 Error，26 个 pass）。
+
+## 17. 第十一次重跑（HEAD `f95bfc25` + 本轮 closed-metadata 规则 3 口径对齐）
+
+### 17.1 运行口径
+
+- 运行日期：2026-11-07（Asia/Shanghai）；基线 HEAD：`f95bfc25`，叠加本轮
+  closed-metadata 规则 3 修复（运行时尚在工作树，尚未提交）。
+- 代码前置：全量单测 **4752 通过 / 9 跳过 / 0 失败**（§16 基线 4749 +
+  本轮净增 3 条，见 §17.7）。
+- 修复内容（2 条，均未改 strict、未把 Error 降级为 Warning）：
+  1. **未绑定构造归 CM-DYN**：`ClosedMetadataResidualScanner.ScanTypeOfNodes`
+     在 `ContainsGenericConstruction` 之后跳过
+     `ClosedMetadataCollector.ContainsUnboundGenericConstruction`（新增：递归
+     `INamedTypeSymbol.IsUnboundGenericType`，含未绑定泛型数组元素）与
+     `MentionsTypeParameter`（同一递归检测器，V-06 既有口径）。二者都是收集器
+     的 CM-DYN 动态站点（CS2J1210），不可闭化、本来就不登记，规则 3 不再重复
+     计数。`typeof(IList<>)` 的 `IsDefinition=false`（≠ 开放定义），仅靠
+     `ContainsGenericConstruction` 无法区分，这是原 139 条的 85 条来源。
+  2. **已登记闭型不算泄漏**：规则 3 与收集器改为**同一事实源**——用
+     `analysis.ClosedTypes` 的 `ClosedTypeKey.SortText` 集合判定；沿
+     `ClosedMetadataGuardResolver.EnumerateTypeClosure` 检查该 `typeof` 提及的
+     **每一层闭型**（嵌套实参、`List<short>[]` 这类泛型元素数组本身），全部
+     有记录才放行，任一缺失仍报 `bare-typeof-passthrough`。判定不依赖
+     holder 可达性（见 §17.5 的观察）。
+- 源不变：`D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj`；
+  目标：`D:\cs\rt10-baseline-w10l`；unified 中间树
+  `D:\cs\rt10-baseline-w10l\.cs2j-preprocessed-src`（目标目录运行前不存在，
+  未用 `--force`）。
+- 命令（与 §16.1 同参数，仅换目标目录与日志）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10l --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests `
+  *>&1 | Tee-Object D:\cs\rt10-baseline-w10l.log
+```
+
+- 结果：`D:\cs\rt10-baseline-w10l\preprocess-report.json` 为
+  `success=false`、`totalSeconds=56.789`、**28** 个 pass；日志 995 行；退出码 1。
+- 与 §16 的关键差异：`closed-metadata` 由 `failed` 变 **`ok`**（139 →
+  **0** residuals），链路因此首次进入第 29 个 pass `variance-audit` 并停在那里
+  （§17.6）。
+
+### 17.2 第 27–29 个 pass 的实测（`preprocess-report.json`）
+
+| # | pass | 状态 | 秒 | 实测 summary（原样节选） |
+|---|------|------|----|--------------------------|
+| 27 | generic-deepen | ok | 4.427 | `158 transformed, 203 clean (... 542 call sites, ... 0 residuals)`（与 §16 同） |
+| 28 | closed-metadata | **ok** | 2.572 | `388 registered (1975 enumerated, 1587 deduplicated, 3 register files, 0 consumer sites linked, 443 dynamic sites skipped, 0 residuals)` |
+| 29 | variance-audit | **failed** | 1.922 | `0 variant declaration(s), 324 use site(s) (39/18/267), 87 variance conversion(s), 65 unsafe; 56 constraints (struct/unmanaged/new/...); report=variance-audit-report.json` |
+
+- 第 1–27 个 pass 全部 `ok`，与 §16.2 一致（本轮只改 residual 判定，不改任何
+  改写产物；`closed-metadata` 的改写计数 388/1975/1587/3/0/443 与 §16 完全相同）。
+- `CS2J1220` 在日志与 report 中均为 **0** 次（`Select-String CS2J1220` 计数 0）；
+  `closed-metadata` 的 `residuals` 汇总为 **0**。
+
+### 17.3 原 139 条的实测分类（修复依据）
+
+在同一语料上以环境变量门控的临时插桩（`CMDBG|文件:行|类型|分类`，仅统计用，
+已随本轮提交移除）逐条记录，记录总数 **139**，与 §16.5 的残留数逐条对齐：
+
+| 分类 | 条数 | 判定依据 | 代表站点 |
+|------|------|----------|----------|
+| 未绑定构造（unbound） | **85** | `IsUnboundGenericType=true` 且 `IsDefinition=false` | `IEnumerableConverterFactory.cs` 31、`gen\Helpers\KnownTypeSymbols.cs` 29（`typeof(IList<>)`/`typeof(ICollection<>)`/`typeof(Dictionary<,>)`）、`FSharpTypeConverterFactory.cs` 5、`MemoryConverterFactory.cs` 5、`ObjectConverterFactory.cs` 3、`JsonTypeInfo.Cache.cs` 2、`IAsyncEnumerableConverterFactory.cs` 2、其余 6 个文件各 1（含 `Common\ReflectionExtensions.cs:223` 的 `typeof(KeyValuePair<,>)`） |
+| 提及类型参数（CM-DYN） | **13** | `MentionsTypeParameter=true`（收集器已按 CM-DYN 报 CS2J1210，不登记） | `List<TElement>` ×3、`Dictionary<TKey,TValue>` ×2、`IEnumerable<KeyValuePair<TKey,TValue>>`、`IAsyncEnumerable<TElement>`、`HashSet<TElement>`、`IEnumerable<TElement>`、`Func<...,TCollection>` ×2、`Cs2jTuples.TupleT0T1<...>` 与 `TupleT0T1T2<...>` 各 1；文件为 3 个 Reflection*Accessor 各 2 + 7 个转换器文件各 1 |
+| 已登记闭型（registered） | **41** | `analysis.ClosedTypes` 中存在对应 `ClosedTypeKey` | `Nullable<T>` 系 38（`long?` 6，`DateTime?`/`DateTimeOffset?`/`ulong?`/`sbyte?`/`bool?`/`Guid?`/`char?`/`short?`/`decimal?`/`int?`/`double?`/`uint?`/`ushort?`/`byte?`/`float?` 各 2）；`List<object?>` 2；`IDictionary<string,object>`、`Dictionary<string,object?>`、`IDictionary<string,JsonElement>` 各 1；站点分布 `JsonValueOfJsonPrimitive.cs` 16、`JsonValueOfElement.cs` 16、`JsonException.cs` 4、`JsonTypeInfo.Cache.cs` 2、`IListConverter.cs`/`IEnumerableConverter.cs`/`IDictionaryConverter.cs` 各 1 |
+| 未登记闭型（unregistered） | **0** | 上二者之外的闭型 | — |
+
+- 结论：139 = 85（CM-DYN 未绑定）+ 13（CM-DYN 类型参数）+ 41（已登记）+
+  0（未登记）。前两类不是闭型（规则 3 无法也不应修），第三类有 Java 侧元数据，
+  本质是**规则 3 与收集器口径不一致的误报**；真正"未登记闭型"在 rt10 为 0。
+- 修复后同类实测：同一插桩的复跑（§17.5）仍记录 139 个候选，分类变为
+  unbound 85 / mentions-type-param 13 / registered 41 / unregistered 0，
+  residual 0——即全部 139 条按类归零，没有"整体放行"。
+
+### 17.4 口径对齐的实现要点
+
+- `ClosedMetadataCollector.ContainsUnboundGenericConstruction`：
+  `INamedTypeSymbol.IsUnboundGenericType`，数组递归到元素类型；与
+  `MentionsTypeParameter` 一起构成规则 3 的 CM-DYN 豁免面（与规则 1/4 同一
+  检测器族）。
+- `ClosedMetadataResidualScanner.IsRegisteredClosedConstruction`：用
+  `ClosedTypeKey.Create` + `analysis.ClosedTypes` 键集合；数组层单独查
+  `ClosedTypeKey.Create(array)`（`VisitSiteType` 会登记 `List<short>[]` 本身）。
+  任一闭层缺记录 → 仍报 finding，消息改为
+  `... is not registered (its closure would silently flow into Java erasure)`。
+- 未改 `Strict` 语义：residual finding 在 strict 下仍为 Error，非 strict 仍为
+  Warning；未新增 skip/force 条目，未用 overrides 消音。
+- 未改 `docs/preprocess-upgrade-glm5.3.md` 的 G-04a 行（该行"未绑定 typeof →
+  登记"的历史措辞与收集器现状不符，本文按 §17.3 的实测口径记录，不回改计划文档）。
+
+### 17.5 修复后统计与一个既有观察
+
+- `closed-metadata`：388 registered / 1975 enumerated / 1587 deduplicated /
+  3 register files / **0 consumer sites linked** / 443 dynamic sites skipped /
+  **0 residuals**；与修复前逐项相同（本轮只改 gate 判定）。
+- **既有观察（本轮未改）**：`consumer sites linked` 恒为 0，根因在
+  `ClosedMetadataPassAdapter.ResolveHolderName` 的目录缓存——它对"本目录无
+  csproj"写入 `null`，后续同目录文件命中该负缓存后直接返回 `null`，不再向上
+  找祖先项目；实测 `BuildHolderByRecordKey` 只得到 **33/388** 条记录的 holder
+  （33 条全在 `gen/*` 源码生成器项目），即 CM-LINK 对多数文件的 guard 插入被
+  跳过。规则 3 本轮改用 analysis 记录键判定，不受该缺陷影响；该缺陷与
+  §16.5 的 139 条无因果关系，留待后续独立修复。
+
+### 17.6 新中止点（第 29 个 pass）
+
+- `variance-audit`（`status=failed`，只读审计、不重写源码）报
+  `VA030: strict variance gate: 144 unsafe site(s) [VA010=44, VA012=21,
+  VA015=43, VA020=24, VA021=1, VA027=11]; no source was rewritten`。
+- 该 pass 的 report `diagnostics` 为 145 条字符串（144 条站点 + 1 条 VA030 汇总），
+  样例：`gen\Helpers\SourceGeneratorHelpers.cs(13,48): error VA020`（`TEnum`
+  `struct` 约束）、`Common\ReflectionExtensions.cs(232,13): error VA015`、
+  `Common\ReflectionExtensions.cs(332/339): error VA010`（`Type[]` 协变）。
+- 与本轮改动无因果关系：§16 链路在 `closed-metadata` 即中止，从未到达该 pass；
+  本轮只把门往下推进了一个 pass，未改 variance-audit 的任何代码/开关。
+
+### 17.7 单测（先红后绿证据）
+
+- `ClosedMetadataTests` 规则 3 用例调整为与新口径一致（48 → 51 条）：
+  `ResidualRule3_UnboundGenericTypeOf_HasNoFinding`（`typeof(IList<>)` /
+  `typeof(Dictionary<,>)` / `typeof(KeyValuePair<,>)` / `typeof(IList<>[])`）、
+  `ResidualRule3_RegisteredClosedTypeOf_HasNoFinding`（`typeof(List<int>)` 与
+  `typeof(List<List<short>>)`，前者由字段 CM-ENUM-1 登记）、
+  `ResidualRule3_UnregisteredClosedTypeOf_IsFinding`（负例：关闭 CM-ENUM-2 让
+  该闭型确实无记录 → 仍报 1 条）、
+  `ResidualRule3_InsideSourceGenContext_IsExcluded`；
+  `ResidualRule3_InsideGeneratedRegistrationFile_IsExcluded` 与
+  `ResidualRule3_JsonSerializablePayload_IsExcluded` 既有豁免不变。
+  同步更新 `ResidualRule1_NonGenericTypeOverload_IsFinding_AdjacentGuardClearsIt`
+  的规则 3 断言（1 → 0）与 `ResidualOverrides_ForceType_...`（该用例显式关闭
+  CM-ENUM-2 以保留"skip 抑制 + CLO001 Info"路径）。
+- 红：仅回退两个源码文件（保留测试）运行
+  `dotnet test --filter FullyQualifiedName~ClosedMetadataTests`
+  → **3 失败 / 48 通过**（未绑定、已登记、规则 1 用例的规则 3 断言）；
+  负例与源生成/特性豁免均保持通过。恢复源码后 **51/51 通过**。
+- 全量：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+  → **4752 通过 / 9 跳过 / 0 失败**（1 m 50 s）。
+- 未执行 `CSharpToJava.ProjectTests` 与 `CSharpToJava.ConversionTests`。
+
+### 17.8 TFM 警告
+
+- 日志中 `skipped unresolvable TFM value` 计数为 **0**（与 §2–§16 一致）。
+- `target framework '...' is below net10.0` 共 **8** 行，与 §16 相同，未新增。
+- 日志计数：`warning ` 文本行 48 条、`[Warning]` 前缀行 69 条；` error ` 文本行
+  146 条（其中 `error VAxxx` 站点行 140 条、`error VA030` 汇总 1 条，余为消息
+  文本中的 "semantic error" 字样/换行续行）。variance-audit 的 report
+  `diagnostics` 为 **145** 条（144 站点 + VA030 汇总），比日志可见站点行多 4 条
+  （VA010 42/44、VA015 41/43），以 report 为准。
+
+### 17.9 来源文件
+
+- `D:\cs\rt10-baseline-w10l\preprocess-report.json`（schemaVersion 1，
+  `success=false`，`totalSeconds=56.789`，28 个 pass）。
+- `D:\cs\rt10-baseline-w10l.log`（995 行）。
+- 中间树：`D:\cs\rt10-baseline-w10l\.cs2j-preprocessed-src`（3 个
+  `_Cs2jClosedTypes.*.cs` 注册文件）。
+- 分类实测：`D:\cs\rt10-baseline-w10l-prefix4.log`（临时插桩运行，139 条
+  `CMDBG` 记录；同一构建关闭插桩后即本轮正式产物）。
+- 对照：`D:\cs\rt10-baseline-w10k\preprocess-report.json`（§16，139 residuals）。
+
