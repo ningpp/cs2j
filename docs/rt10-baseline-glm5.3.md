@@ -371,3 +371,112 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
 - `D:\cs\rt10-baseline-w10d\preprocess-report.json`（14 个 pass、`success=false`、`totalSeconds=33.481`）
 - `D:\cs\rt10-baseline-w10d\.cs2j-preprocessed-src`（改写后的中间源）
 
+## 11. 第五次重跑（HEAD `e7107779`，pattern-desugar 通过）
+
+### 11.1 运行口径
+
+- 运行日期：2026-11-06（Asia/Shanghai）；仓库代码 HEAD：`e7107779`
+  （`fix(pattern-desugar): 放行 guard 中的 is null/not null，支持 C# 10 扩展属性模式`）。
+- 代码前置：全量单测 **4715 通过 / 9 跳过 / 0 失败**（基线 4710 + 新增 5 条
+  pattern-desugar 单测）。
+- 源不变：`D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj`；
+  目标：`D:\cs\rt10-baseline-w10e`；unified 中间树
+  `D:\cs\rt10-baseline-w10e\.cs2j-preprocessed-src`（目标目录运行时不存在，无需 `--force`）。
+- 命令（与 §10.1 同参数，仅换目标目录与日志）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10e --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests `
+  *>&1 | Tee-Object D:\cs\rt10-baseline-w10e.log
+```
+
+- 结果：进程退出码 **1**（链在更后面的 pass 中止，非超时/崩溃）。证据：
+  `D:\cs\rt10-baseline-w10e.log`（546 行）、
+  `D:\cs\rt10-baseline-w10e\preprocess-report.json`（`success=false`、
+  `totalSeconds=38.138`、**16** 个 pass）。
+- 单 pass 复核（独立目录、无 `--force`）：同一源 + `--pass pattern-desugar`，
+  目标 `D:\cs\rt10-pd-w10e1`，`success=true`、`totalSeconds=4.155`，summary：
+  `pattern-desugar: 15 transformed, 298 clean, 39 dirty-no-rewrite, 17 pattern-switch, 0 non-int-switch, 1 catch-filter, 0 catch-T, 8 govs, 0 end-labels, 0 skipped, 0 residual`。
+
+### 11.2 每个 pass 的实测（来源：preprocess-report.json 的 `status`/`summary`/`totalSeconds`）
+
+| # | pass | 状态 | 秒 | 实测 summary（原样节选） |
+|---|------|------|----|--------------------------|
+| 1 | conditional | ok | 5.552 | `strip-conditional: 66 transformed, 286 clean, 372 directives removed, 103 disabled blocks removed` |
+| 2 | lexical-normalize | ok | 1.448 | `0 transformed, 352 clean, 0 #line removed, ...` |
+| 3 | partial-merge | ok | 3.240 | `10 group(s) merged, 0 partial member pair(s) collapsed`（9 条 CS2J2001 warning，同 §9/§10） |
+| 4 | local-function-lift | ok | 4.616 | `28 transformed, 324 clean, 59 lifted, 0 skipped, 0 residual` |
+| 5 | null-coalesce | ok | 0.965 | `59 transformed, 293 clean, 98 ?? rewritten, 100 ??= rewritten, 98 temp vars, 57 arrow bodies expanded, 0 residual` |
+| 6 | expression-desugar | ok | 1.846 | `107 transformed, 209 clean, 36 dirty-no-rewrite; ...; nc: 180 member/call, 24 invoke, 56 void, 42 inline, 83 lifted, 32 coalesce, 164 temps, 0 skipped, 0 residual` |
+| 7 | enum | ok | 1.312 | `85 transformed, 107 clean, 160 dirty-no-rewrite, 125 bitwise, 1 ~, 6 compound, 1 HasFlag, 0 lifted, 4 enum-arith, 0 residual` |
+| 8 | enum-declaration | ok | 5.749 | `6 enum(s) rewritten (flags=0, non-int=5, explicit=4), 20 file(s), 0 plan(s) rolled back, 0 kept real (numeric-boundary), 0 residual` |
+| 9 | delegate | ok | 0.656 | `1 transformed, 351 clean, 0 combine, 0 remove, 0 compound, 5 anonymous method, 0 skipped, 0 residual` |
+| 10 | tuple | ok | 6.360 | `tuple-to-struct: 16 transformed, 338 clean, 25 types, 35 literals, 10 deconstructions, 0 tuple locals -> var, 19 structs generated` |
+| 11 | anonymous-type-lift | ok | 0.897 | `0 transformed, 358 clean, 0 creations rewritten, 0 shapes (0 generic, 0 dynamic), 0 types generated, 0 residual` |
+| 12 | foreach-deconstruction | ok | 0.192 | `0 transformed, 358 clean, 0 lowered, 1 skipped` |
+| 13 | foreach-source | ok | 0.473 | `9 transformed, 349 clean, 0 tuple residual(s), 1 deconstruct(s) lowered, 2 duck enumerator(s) lowered (ext 0, direct 0, struct 2, dispose 0 [boxed 0], no-dispose 2, dynamic 0), 7 span index loop(s), 0 unresolved site(s), 0 residual enumerator site(s), 0 error(s)` |
+| 14 | pattern-desugar | **ok（本轮修复）** | 0.428 | `15 transformed, 307 clean, 36 dirty-no-rewrite, 17 pattern-switch, 0 non-int-switch, 1 catch-filter, 0 catch-T, 8 govs, 0 end-labels, 0 skipped, 0 residual` |
+| 15 | strip-default | ok | 2.807 | `97 transformed, 261 clean, 195 declarations stripped, 176 overloads generated` |
+| 16 | ref-out-in | **failed** | 1.566 | `204 transformed, 154 clean, 245 ref params, 241 out params, 717 call sites lifted, 153 locked members` |
+
+- 与 §10.2 逐条对比：第 1–13 个 pass 的 summary 逐字一致（仅耗时数值不同）；
+  第 14 个 `pattern-desugar` 由 failed 转为 ok；第 15 个 `strip-default` 在 §10 从未运行
+  （链在第 14 个 pass 中止）。
+
+### 11.3 pattern-desugar 通过证据
+
+- §10.4 的 3 条 PD010 全部消失：本轮日志中 `PD010` 命中 **0** 次。
+- summary 变化：`transformed 12 → 15`、`pattern-switch 14 → 17`、`govs 6 → 8`、
+  `dirty-no-rewrite 39 → 36`、`skipped 3 → 0`、`residual 0 → 0`；`clean` 保持 307
+  （3 个原被拒文件从 dirty 转入 transformed）。
+- 三处实测输出（中间树原文，逐字）：
+  - `src\System\Text\Json\Nodes\JsonNode.To.cs:61`
+    （C# 10 扩展属性模式 `Value.ValueKind`，两段路径，中间段为值类型无 null 守卫）：
+    `else if ((__cs2jGov_0 is JsonValueOfElement && (jsonElement = (JsonValueOfElement)__cs2jGov_0) != null && jsonElement.Value.ValueKind == JsonValueKind.String))`
+  - `src\System\Text\Json\Serialization\JsonConverterOfT.ReadCore.cs:69`
+    （guard 中的 `is null` 原样保留，未改写成 `== null`）：
+    `else if (ex is JsonException && (jsonEx = (JsonException)ex) != null && (jsonEx.Path is null))`
+  - `src\System\Text\Json\Serialization\JsonSerializer.Read.HandleMetadata.cs:369`
+    （guard 整体原样保留；前序 pass 已把 `?.` 展开成三元，条件仍是 `is null`）：
+    `else if (__cs2jGov_0 == 5 && ((resolver != null ? resolver.CustomTypeDiscriminatorPropertyNameUtf8 : null) is null && propertyName.SequenceEqual("$type"u8)))`
+- 注：单 pass 复核处理的是**原始源**（该站点原文为
+  `resolver?.CustomTypeDiscriminatorPropertyNameUtf8 is null`），全链中间树中该表达式
+  已被前序 pass 展开为三元；两种形态均在 guard 中原样保留，`0 residual`。
+
+### 11.4 新中止点
+
+- 第 16 个 pass `ref-out-in`（`status=failed`，1.566s），summary：
+  `ref-out-in: 204 transformed, 154 clean, 245 ref params, 241 out params, 717 call sites lifted, 153 locked members`。
+- 该 pass 共 46 条 Error（report `diagnostics` 计数），全部为文本消息、无 CS2J 错误码：
+  - **3** 条 `cannot construct a legal ByRef proxy here: unsupported ref/out argument shape`
+    （`src\System\Text\Json\Serialization\JsonSerializerOptions.cs`）；
+  - **8** 条 `ref/out/in rewrite produced invalid C# syntax; the original file was preserved.`
+    （4 个文件各 2 条：`JsonCollectionConverter.cs`、`JsonDictionaryConverter.cs`、
+    `ObjectDefaultConverter.cs`、`ObjectWithParameterizedConstructorConverter.cs`）；
+  - **35** 条 `internal '…' still declares ref/out parameter 'state'` 形式的锁定成员报错。
+- 示例（报告原文节选）：
+
+```
+[Error] ObjectDefaultConverter.cs: internal 'System.Text.Json.Serialization.Converters.ObjectDefaultConverter<T>.ReadAheadPropertyValue(scoped ref System.Text.Json.ReadStack, ref System.Text.Json.Utf8JsonReader, System.Text.Json.Serialization.Metadata.JsonPropertyInfo)' still declares ref/out parameter 'state'
+```
+
+- 该中止点此前被 §10 的 pattern-desugar 失败遮蔽（§10 在第 14 个 pass 退出）。
+
+### 11.5 TFM 警告
+
+- `D:\cs\rt10-baseline-w10e.log` 中 `skipped unresolvable TFM value` 计数为 **0**；
+  `TFM|NETSDK|targetFramework|MSB` 关键字命中数亦为 **0**。
+- conditional 的 `66 transformed / 286 clean / 372 directives / 103 disabled blocks`
+  与 §2/§8/§9/§10 一致。
+- 日志计数：`warning ` 行 32 条（与 §9/§10 相同）、`[Warning]` 前缀行 8 条、
+  `[Error]` 行 46 条（全部来自 ref-out-in，无 PD010）。
+
+### 11.6 来源文件
+
+- `D:\cs\rt10-baseline-w10e.log`（stdout+stderr 合并，546 行）
+- `D:\cs\rt10-baseline-w10e\preprocess-report.json`（16 个 pass、`success=false`、`totalSeconds=38.138`）
+- `D:\cs\rt10-baseline-w10e\.cs2j-preprocessed-src`（改写后的中间源）
+- `D:\cs\rt10-pd-w10e1\preprocess-report.json`（单 pass 复核：`success=true`、`totalSeconds=4.155`）
+
