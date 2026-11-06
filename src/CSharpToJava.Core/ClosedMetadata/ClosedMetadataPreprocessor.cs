@@ -1,3 +1,4 @@
+using CSharpToJava.Core.ClosedMetadata.ConsumerSurfaces;
 using Microsoft.CodeAnalysis;
 
 namespace CSharpToJava.Core.ClosedMetadata;
@@ -20,6 +21,7 @@ public sealed class ClosedMetadataPreprocessor
 {
     private Compilation? _compilation;
     private ClosedMetadataOptions _options = new();
+    private ClosedTypeConsumerSurfaces? _surfaces;
     private ClosedMetadataAnalysis _analysis = ClosedMetadataAnalysis.Empty;
     private IReadOnlyList<ClosedMetadataGeneratedFile> _generatedFiles = Array.Empty<ClosedMetadataGeneratedFile>();
 
@@ -39,6 +41,7 @@ public sealed class ClosedMetadataPreprocessor
         ArgumentNullException.ThrowIfNull(options);
 
         _options = options;
+        _surfaces = options.ResolveConsumerSurfaces();
         var collector = new ClosedMetadataCollector(_compilation, options);
         return _analysis = collector.Analyze();
     }
@@ -60,7 +63,9 @@ public sealed class ClosedMetadataPreprocessor
             return null;
         }
 
-        var linker = new ClosedMetadataConsumptionLinker(_analysis, HolderNameResolver, selfHolderName);
+        var surfaces = _surfaces ?? _options.ResolveConsumerSurfaces();
+        var linker = new ClosedMetadataConsumptionLinker(
+            _analysis, surfaces, HolderNameResolver, selfHolderName);
         return linker.LinkFile(model);
     }
 
@@ -171,7 +176,8 @@ public sealed class ClosedMetadataPreprocessor
         }
 
         return ClosedMetadataResidualScanner.Scan(
-            rewritten, _analysis, HolderNameResolver, _options, overrides);
+            rewritten, _analysis, HolderNameResolver, _options,
+            _surfaces ?? _options.ResolveConsumerSurfaces(), overrides);
     }
 
     private static string? ExtractRegistrationKey(string line)

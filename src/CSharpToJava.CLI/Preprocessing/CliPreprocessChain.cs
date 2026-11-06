@@ -164,6 +164,9 @@ internal sealed class CliChainRequest
     /// <summary>M4c: closed-metadata residual-gate overrides JSON path (null = none).</summary>
     public string? ClosedMetadataOverridesPath { get; init; }
 
+    /// <summary>R3: configurable closed-type consumer surfaces JSON path (null = default config).</summary>
+    public string? ClosedMetadataConsumerSurfacesPath { get; init; }
+
     /// <summary>
     /// C49 M2: extension-block materialization policy factory (null =
     /// classic CS2J1906 behavior). Both CLI entry points supply it from
@@ -376,6 +379,7 @@ internal static class CliPreprocessChain
             PartialMergeAssumeNoGenerated = request.PartialMergeAssumeNoGenerated,
             ExtensionOverridesPath = request.ExtensionOverridesPath,
             ClosedMetadataOverridesPath = request.ClosedMetadataOverridesPath,
+            ClosedMetadataConsumerSurfacesPath = request.ClosedMetadataConsumerSurfacesPath,
             ExtensionBlockOptionsFactory = request.ExtensionBlockOptionsFactory,
         };
 

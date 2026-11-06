@@ -436,6 +436,7 @@ public class Program
                 PartialMergeAssumeNoGenerated = opts.PartialMergeAssumeNoGenerated,
                 ExtensionOverridesPath = opts.ExtensionOverridesPath,
                 ClosedMetadataOverridesPath = opts.ClosedMetadataOverridesPath,
+                ClosedMetadataConsumerSurfacesPath = opts.ClosedMetadataConsumerSurfacesPath,
                 // C49: materialization is default-on; --no-materialize-
                 // extension-blocks leaves the factory null, restoring the
                 // classic CS2J1906 extension-block gate byte-for-byte.
@@ -4401,6 +4402,7 @@ public class Program
                 PartialMergeAssumeNoGenerated = opts.PartialMergeAssumeNoGenerated,
                 ExtensionOverridesPath = opts.ExtensionOverridesPath,
                 ClosedMetadataOverridesPath = opts.ClosedMetadataOverridesPath,
+                ClosedMetadataConsumerSurfacesPath = opts.ClosedMetadataConsumerSurfacesPath,
                 // C49: materialization is default-on; --no-materialize-
                 // extension-blocks leaves the factory null, restoring the
                 // classic CS2J1906 extension-block gate byte-for-byte.
@@ -5585,6 +5587,10 @@ class PreprocessVerbOptions
         HelpText = "Path to closed-metadata (C30) residual-gate overrides JSON: {\"skip\":[\"Full.TypeOr.Member\"],\"force\":[...]}; entries are fully-qualified type/member names and leave CLO001 traces")]
     public string? ClosedMetadataOverridesPath { get; set; }
 
+    [Option("closed-metadata-consumer-surfaces", Required = false,
+        HelpText = "Path to ClosedTypeConsumerSurfaces.json (configurable serializer/reflection consumer surfaces, upgrade plan R3; default: config/ClosedTypeConsumerSurfaces.json)")]
+    public string? ClosedMetadataConsumerSurfacesPath { get; set; }
+
     [Option("materialize-extension-blocks", Default = true,
         HelpText = "Enable C49 C# 14 extension-block materialization inside the extension-methods pass " +
                    "(extension blocks -> classic static-class members plus explicit call sites; default on; --no-materialize-extension-blocks keeps the CS2J1906 gate)")]
@@ -6085,6 +6091,10 @@ class ConvertProjectOptions
     [Option("closed-metadata-overrides", Required = false,
         HelpText = "Path to closed-metadata (C30) residual-gate overrides JSON: {\"skip\":[\"Full.TypeOr.Member\"],\"force\":[...]}; entries are fully-qualified type/member names and leave CLO001 traces")]
     public string? ClosedMetadataOverridesPath { get; set; }
+
+    [Option("closed-metadata-consumer-surfaces", Required = false,
+        HelpText = "Path to ClosedTypeConsumerSurfaces.json (configurable serializer/reflection consumer surfaces, upgrade plan R3; default: config/ClosedTypeConsumerSurfaces.json)")]
+    public string? ClosedMetadataConsumerSurfacesPath { get; set; }
 
     [Option("materialize-extension-blocks", Default = true,
         HelpText = "Enable C49 C# 14 extension-block materialization inside the extension-methods pass " +

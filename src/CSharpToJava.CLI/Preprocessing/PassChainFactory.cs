@@ -188,6 +188,9 @@ internal sealed class PassChainConfiguration
     /// <summary>M4c: path to the closed-metadata residual-gate overrides JSON (null = none).</summary>
     public string? ClosedMetadataOverridesPath { get; init; }
 
+    /// <summary>R3: path to the closed-type consumer surfaces JSON (null = default config).</summary>
+    public string? ClosedMetadataConsumerSurfacesPath { get; init; }
+
     /// <summary>
     /// C49 M2: factory for extension-block materialization policy. Null
     /// (default) keeps the classic CS2J1906 gate bit-for-bit unchanged; the
@@ -536,6 +539,7 @@ internal static class PassChainFactory
                 {
                     EnabledPassIds = config.EnabledPassIds,
                     OverridesPath = config.ClosedMetadataOverridesPath,
+                    ConsumerSurfaceConfigPath = config.ClosedMetadataConsumerSurfacesPath,
                     // W-01: java-ready/audit escalate the residual gate and
                     // downgradeable diagnostics (CM-STRICT); default keeps
                     // the historical Warning pass-through.

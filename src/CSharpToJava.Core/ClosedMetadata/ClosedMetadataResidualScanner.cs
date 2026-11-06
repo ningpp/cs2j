@@ -1,3 +1,4 @@
+using CSharpToJava.Core.ClosedMetadata.ConsumerSurfaces;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -26,7 +27,7 @@ namespace CSharpToJava.Core.ClosedMetadata;
 /// <item><term>rewrite-forbidden-zone</term><description>
 /// rule 6 — structural self-check: a bootstrap guard appearing inside an
 /// expression tree (<c>Expression&lt;...&gt;</c> lambda) or a
-/// JsonSerializerContext-derived type; must always be zero.</description></item>
+/// source-generation context-derived type; must always be zero.</description></item>
 /// </list>
 /// Findings carry CS2J1220 (Warning; strict Error). Explicit skip/force
 /// overrides suppress a finding and leave a CLO001 Info trace.
@@ -52,12 +53,14 @@ public static class ClosedMetadataResidualScanner
         ClosedMetadataAnalysis analysis,
         Func<string, string?> holderNameByPath,
         ClosedMetadataOptions options,
+        ClosedTypeConsumerSurfaces surfaces,
         ClosedMetadataOverrides? overrides = null)
     {
         ArgumentNullException.ThrowIfNull(rewritten);
         ArgumentNullException.ThrowIfNull(analysis);
         ArgumentNullException.ThrowIfNull(holderNameByPath);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(surfaces);
 
         var holderByRecordKey = ClosedMetadataGuardResolver.BuildHolderByRecordKey(
             analysis, holderNameByPath, out var holderNames);
@@ -84,10 +87,10 @@ public static class ClosedMetadataResidualScanner
             var model = rewritten.GetSemanticModel(tree);
             var selfHolder = holderNameByPath(tree.FilePath);
 
-            ScanTypeOfNodes(root, model, registeredRecordKeys, findings, infos, overrides);
+            ScanTypeOfNodes(root, model, registeredRecordKeys, findings, infos, overrides, surfaces);
             ScanSerializerEntries(root, model, selfHolder, holderNameByPath,
-                holderByRecordKey, holderNames, findings, infos, overrides, reportedStatements);
-            ScanGuardLeaks(root, model, findings);
+                holderByRecordKey, holderNames, findings, infos, overrides, reportedStatements, surfaces);
+            ScanGuardLeaks(root, model, findings, surfaces);
         }
 
         var counts = findings
@@ -119,19 +122,20 @@ public static class ClosedMetadataResidualScanner
         HashSet<string> registeredRecordKeys,
         List<Finding> findings,
         List<ClosedMetadataDiagnostic> infos,
-        ClosedMetadataOverrides? overrides)
+        ClosedMetadataOverrides? overrides,
+        ClosedTypeConsumerSurfaces surfaces)
     {
         foreach (var typeofExpression in root.DescendantNodes().OfType<TypeOfExpressionSyntax>())
         {
-            // CM-SRCGEN: the AOT [JsonSerializable(typeof(...))] declaration form is
+            // CM-SRCGEN: the AOT source-generation declaration form is
             // already owned by CS2J1204 — not a passthrough leak.
             if (typeofExpression.FirstAncestorOrSelf<AttributeSyntax>() is { } attribute
-                && ClosedMetadataCollector.IsJsonSerializableAttributeName(attribute.Name.ToString()))
+                && surfaces.IsSourceGenAttributeName(attribute.Name.ToString()))
             {
                 continue;
             }
 
-            if (IsInsideSourceGenContext(model, typeofExpression.SpanStart))
+            if (IsInsideSourceGenContext(model, typeofExpression.SpanStart, surfaces))
             {
                 continue;
             }
@@ -236,12 +240,13 @@ public static class ClosedMetadataResidualScanner
         List<Finding> findings,
         List<ClosedMetadataDiagnostic> infos,
         ClosedMetadataOverrides? overrides,
-        HashSet<(string Rule, StatementSyntax Statement)> reportedStatements)
+        HashSet<(string Rule, StatementSyntax Statement)> reportedStatements,
+        ClosedTypeConsumerSurfaces surfaces)
     {
         foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
         {
             if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
-                || !ClosedMetadataCollector.IsSerializerEntry(method))
+                || !surfaces.SystemTextJson.IsEntry(method))
             {
                 continue;
             }
@@ -383,7 +388,11 @@ public static class ClosedMetadataResidualScanner
 
     // ---- rule 6: guard leaks into expression trees / source-gen contexts ----
 
-    private static void ScanGuardLeaks(SyntaxNode root, SemanticModel model, List<Finding> findings)
+    private static void ScanGuardLeaks(
+        SyntaxNode root,
+        SemanticModel model,
+        List<Finding> findings,
+        ClosedTypeConsumerSurfaces surfaces)
     {
         foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
         {
@@ -392,11 +401,11 @@ public static class ClosedMetadataResidualScanner
                 continue;
             }
 
-            if (IsInsideSourceGenContext(model, invocation.SpanStart))
+            if (IsInsideSourceGenContext(model, invocation.SpanStart, surfaces))
             {
                 findings.Add(new Finding(
                     ForbiddenZoneRewriteRule, invocation.GetLocation(),
-                    "bootstrap guard emitted inside a JsonSerializerContext-derived (AOT) type"));
+                    "bootstrap guard emitted inside a source-generation context-derived (AOT) type"));
                 continue;
             }
 
@@ -528,12 +537,15 @@ public static class ClosedMetadataResidualScanner
         => invocation.Expression is MemberAccessExpressionSyntax memberAccess
             && memberAccess.Name.Identifier.Text == ClosedMetadataRegistrationGenerator.BootstrapMethodName;
 
-    private static bool IsInsideSourceGenContext(SemanticModel model, int position)
+    private static bool IsInsideSourceGenContext(
+        SemanticModel model,
+        int position,
+        ClosedTypeConsumerSurfaces surfaces)
     {
         var current = model.GetEnclosingSymbol(position)?.ContainingType;
         while (current is not null)
         {
-            if (ClosedMetadataCollector.IsSourceGenContext(current))
+            if (surfaces.IsContextBaseType(current))
             {
                 return true;
             }

@@ -584,7 +584,7 @@ internal sealed class StructAnalyzer
     /// serialization/mapping processing. Such types have their members written by
     /// serializers at runtime, so converting them to readonly breaks deserialization.
     /// Covers [Serializable], [DataContract], XML/JSON serializers, and custom
-    /// serializer-marker attributes such as YamlDotNet's [YamlSerializable].
+    /// serializer-marker attributes such as the YAML library's [YamlSerializable].
     /// </summary>
     private static bool HasSerializationAttribute(INamedTypeSymbol symbol)
     {

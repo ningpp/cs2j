@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Globalization;
+using CSharpToJava.Core.ClosedMetadata.ConsumerSurfaces;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -13,7 +14,7 @@ namespace CSharpToJava.Core.ClosedMetadata;
 /// serializer-entry call statement the registration set can serve:
 /// <code>
 /// global::__Cs2jClosedTypes_&lt;Owner&gt;.__cs2j_register_closed_types();
-/// JsonSerializer.Serialize(value);
+/// serializerEntry(value);
 /// </code>
 /// Target selection is restricted to holders guaranteed reachable from the consumer
 /// project so the intermediate tree always compiles:
@@ -31,6 +32,7 @@ public sealed class ClosedMetadataConsumptionLinker
     private const string GuardAnnotationKind = "cs2j-cm-guard";
 
     private readonly ClosedMetadataAnalysis _analysis;
+    private readonly ClosedTypeConsumerSurfaces _surfaces;
     private readonly Func<string, string?> _holderNameByPath;
     private readonly string? _selfHolderName;
     private readonly Dictionary<string, string> _holderByRecordKey = new(StringComparer.Ordinal);
@@ -38,10 +40,12 @@ public sealed class ClosedMetadataConsumptionLinker
 
     public ClosedMetadataConsumptionLinker(
         ClosedMetadataAnalysis analysis,
+        ClosedTypeConsumerSurfaces surfaces,
         Func<string, string?> holderNameByPath,
         string? selfHolderName)
     {
         _analysis = analysis;
+        _surfaces = surfaces;
         _holderNameByPath = holderNameByPath;
         _selfHolderName = selfHolderName;
         _holderByRecordKey = ClosedMetadataGuardResolver.BuildHolderByRecordKey(
@@ -62,7 +66,7 @@ public sealed class ClosedMetadataConsumptionLinker
         foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
         {
             if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
-                || !ClosedMetadataCollector.IsSerializerEntry(method)
+                || !_surfaces.SystemTextJson.IsEntry(method)
                 || !method.IsGenericMethod
                 // V-06: the RECURSIVE shared predicate (collector's CM-DYN
                 // classification) — not a top-level-only check, so

@@ -1,3 +1,5 @@
+using CSharpToJava.Core.ClosedMetadata.ConsumerSurfaces;
+
 namespace CSharpToJava.Core.ClosedMetadata;
 
 /// <summary>
@@ -25,7 +27,7 @@ public sealed record ClosedMetadataOptions
     /// <summary>CM-ENUM-2: explicit <c>typeof</c>/<c>default</c>/cast/<c>new</c> closed-type sites.</summary>
     public bool RegisterExplicitTypeOfSites { get; init; } = true;
 
-    /// <summary>CM-ENUM-3: type arguments at serializer call sites (JsonSerializer family).</summary>
+    /// <summary>CM-ENUM-3: type arguments at serializer call sites (configured entry family).</summary>
     public bool RegisterSerializerCallSites { get; init; } = true;
 
     /// <summary>CM-ENUM-4: closed types from override/interface implementation family signatures.</summary>
@@ -47,6 +49,25 @@ public sealed record ClosedMetadataOptions
 
     /// <summary>Optional per-type/member skip+force overrides file path (design §6.3).</summary>
     public string? OverridesPath { get; init; }
+
+    /// <summary>
+    /// Path to the configurable closed-type consumer surfaces JSON
+    /// (upgrade plan §6.4-R3). Null resolves the canonical
+    /// <c>config/ClosedTypeConsumerSurfaces.json</c>; tests may inject an
+    /// in-memory <see cref="ConsumerSurfaceConfig"/> instead.
+    /// </summary>
+    public string? ConsumerSurfaceConfigPath { get; init; }
+
+    /// <summary>
+    /// In-memory consumer surfaces. When set, <see cref="ConsumerSurfaceConfigPath"/>
+    /// is ignored; when both are null the canonical configuration is loaded
+    /// (missing/corrupt files raise, never a silent empty profile).
+    /// </summary>
+    public ClosedTypeConsumerSurfaces? ConsumerSurfaceConfig { get; init; }
+
+    /// <summary>Resolves the effective consumer surfaces for this option set.</summary>
+    public ClosedTypeConsumerSurfaces ResolveConsumerSurfaces()
+        => ConsumerSurfaceConfig ?? ClosedTypeConsumerSurfaces.LoadDefault(ConsumerSurfaceConfigPath);
 
     /// <summary>
     /// Ids of every pass enabled in the running chain. The CLI adapter reads this

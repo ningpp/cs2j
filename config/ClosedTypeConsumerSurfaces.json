@@ -1,0 +1,158 @@
+{
+  "profiles": {
+    "systemTextJson": {
+      "entries": [
+        {
+          "assembly": "System.Text.Json",
+          "type": "System.Text.Json.JsonSerializer",
+          "methods": [ "Serialize", "SerializeAsync", "Deserialize", "DeserializeAsync" ],
+          "genericArgPolicy": "TypeArguments",
+          "requiresGuard": true,
+          "executionKind": "Immediate"
+        },
+        {
+          "assembly": "System.Text.Json",
+          "type": "System.Text.Json.JsonSerializerOptions",
+          "methods": [ "GetTypeInfo" ],
+          "genericArgPolicy": "TypeArguments",
+          "requiresGuard": true,
+          "executionKind": "Immediate"
+        }
+      ]
+    },
+    "yaml": {
+      "entries": [
+        {
+          "assembly": "YamlDotNet",
+          "type": "YamlDotNet.Serialization.IYamlTypeConverter",
+          "methods": [ "Accepts" ],
+          "genericArgPolicy": "None",
+          "requiresGuard": true,
+          "executionKind": "Immediate"
+        },
+        {
+          "assembly": "YamlDotNet",
+          "type": "YamlDotNet.Serialization.TypeConverterCache",
+          "methods": [ "MakeGenericType" ],
+          "genericArgPolicy": "MakeGeneric",
+          "requiresGuard": true,
+          "executionKind": "Immediate"
+        },
+        {
+          "assembly": "YamlDotNet",
+          "type": "YamlDotNet.Serialization.TypeConverterCache",
+          "methods": [ "GetGenericArguments" ],
+          "genericArgPolicy": "ReadOnly",
+          "requiresGuard": false,
+          "executionKind": "Immediate"
+        },
+        {
+          "assembly": "YamlDotNet",
+          "type": "YamlDotNet.Serialization.ObjectFactories.DefaultObjectFactory",
+          "methods": [ "Create" ],
+          "genericArgPolicy": "None",
+          "requiresGuard": true,
+          "executionKind": "Factory"
+        },
+        {
+          "assembly": "YamlDotNet",
+          "type": "YamlDotNet.Serialization.ObjectFactories.ObjectFactoryBase",
+          "methods": [ "Create" ],
+          "genericArgPolicy": "None",
+          "requiresGuard": true,
+          "executionKind": "Factory"
+        },
+        {
+          "assembly": "YamlDotNet",
+          "type": "YamlDotNet.Serialization.NodeDeserializers.EnumerableNodeDeserializer",
+          "methods": [ "Deserialize" ],
+          "genericArgPolicy": "MakeGeneric",
+          "requiresGuard": true,
+          "executionKind": "Immediate"
+        },
+        {
+          "assembly": "YamlDotNet",
+          "type": "YamlDotNet.Serialization.NodeDeserializers.DictionaryNodeDeserializer",
+          "methods": [ "Deserialize" ],
+          "genericArgPolicy": "MakeGeneric",
+          "requiresGuard": true,
+          "executionKind": "Immediate"
+        },
+        {
+          "assembly": "YamlDotNet",
+          "type": "YamlDotNet.Serialization.NodeDeserializers.CollectionNodeDeserializer",
+          "methods": [ "Deserialize" ],
+          "genericArgPolicy": "MakeGeneric",
+          "requiresGuard": true,
+          "executionKind": "Immediate"
+        },
+        {
+          "assembly": "YamlDotNet",
+          "type": "YamlDotNet.Serialization.StaticSerializerBuilder",
+          "methods": [ "BuildValueSerializer" ],
+          "genericArgPolicy": "None",
+          "requiresGuard": true,
+          "executionKind": "Factory"
+        },
+        {
+          "assembly": "YamlDotNet",
+          "type": "YamlDotNet.Serialization.StaticDeserializerBuilder",
+          "methods": [ "BuildValueDeserializer" ],
+          "genericArgPolicy": "None",
+          "requiresGuard": true,
+          "executionKind": "Factory"
+        }
+      ]
+    },
+    "genericReflection": {
+      "entries": [
+        {
+          "assembly": "System.Private.CoreLib",
+          "type": "System.Type",
+          "methods": [ "MakeGenericType" ],
+          "genericArgPolicy": "MakeGeneric",
+          "requiresGuard": false,
+          "executionKind": "Immediate"
+        },
+        {
+          "assembly": "System.Private.CoreLib",
+          "type": "System.Type",
+          "methods": [ "MakeGenericMethod" ],
+          "genericArgPolicy": "MakeGeneric",
+          "requiresGuard": false,
+          "executionKind": "Immediate"
+        },
+        {
+          "assembly": "System.Private.CoreLib",
+          "type": "System.Type",
+          "methods": [ "GetGenericTypeDefinition" ],
+          "genericArgPolicy": "ReadOnly",
+          "requiresGuard": false,
+          "executionKind": "Immediate"
+        },
+        {
+          "assembly": "System.Private.CoreLib",
+          "type": "System.Type",
+          "methods": [ "IsGenericType" ],
+          "genericArgPolicy": "ReadOnly",
+          "requiresGuard": false,
+          "executionKind": "Immediate"
+        },
+        {
+          "assembly": "System.Private.CoreLib",
+          "type": "System.Type",
+          "methods": [ "GetGenericArguments" ],
+          "genericArgPolicy": "ReadOnly",
+          "requiresGuard": false,
+          "executionKind": "Immediate"
+        }
+      ]
+    }
+  },
+  "contextBaseTypes": [
+    "System.Text.Json.Serialization.JsonSerializerContext"
+  ],
+  "sourceGenAttributes": [
+    "JsonSerializable"
+  ]
+}

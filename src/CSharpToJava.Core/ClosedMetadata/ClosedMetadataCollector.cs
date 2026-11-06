@@ -1,3 +1,4 @@
+using CSharpToJava.Core.ClosedMetadata.ConsumerSurfaces;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -10,14 +11,14 @@ namespace CSharpToJava.Core.ClosedMetadata;
 /// - CM-ENUM-1: closed types in field/property/event/member signatures;
 /// - CM-ENUM-2: explicit <c>typeof(闭型)</c> sites (default/cast/new forms bind the
 ///   same type symbols and reach registration transitively through their members);
-/// - CM-ENUM-3: concrete type arguments of the JsonSerializer/options entry family;
+/// - CM-ENUM-3: concrete type arguments of the configured serializer entry family;
 /// - CM-ENUM-4: concrete generic constructions of base types and implemented
 ///   interfaces (covers JsonConverter&lt;T&gt; families and override/interface closure
 ///   signatures — all family members are visited anyway and deduped by key).
 /// Shapes with no decidable Java target (pointer/function-pointer) raise CS2J1203,
 /// arguments mentioning an unbound type parameter raise CS2J1210 (CM-DYN) and are
-/// counted but never registered, and JsonSerializerContext/[JsonSerializable] AOT
-/// shapes raise CS2J1204 and are excluded (CM-SRCGEN). Results are deduplicated
+/// counted but never registered, and source-generation context/AOT shapes raise
+/// CS2J1204 and are excluded (CM-SRCGEN). Results are deduplicated
 /// compilation-wide and ordered by the normalized key (CM-REG).
 /// </summary>
 public sealed class ClosedMetadataCollector
@@ -34,25 +35,17 @@ public sealed class ClosedMetadataCollector
     /// <summary>CM-ENUM-4: closed generic constructions in base/interface families.</summary>
     public const string SignatureSitesRule = "CM-ENUM-4";
 
-    private const string JsonSerializerFullName = "System.Text.Json.JsonSerializer";
-    private const string JsonSerializerOptionsFullName = "System.Text.Json.JsonSerializerOptions";
-    private const string JsonSerializerContextFullName = "System.Text.Json.Serialization.JsonSerializerContext";
-    private const string JsonSerializableAttributeName = "JsonSerializableAttribute";
-
-    private static readonly HashSet<string> SerializerMethodNames = new(StringComparer.Ordinal)
-    {
-        "Serialize", "SerializeAsync", "Deserialize", "DeserializeAsync",
-    };
-
     private readonly Compilation _compilation;
     private readonly ClosedMetadataOptions _options;
+    private readonly ClosedTypeConsumerSurfaces _surfaces;
     private readonly List<ClosedMetadataDiagnostic> _diagnostics = new();
     private readonly Dictionary<ClosedTypeKey, ClosedTypeRecord> _records = new();
     private readonly ClosedMetadataStatistics _statistics = new();
 
     /// <summary>
-    /// Types deriving (at any depth) from JsonSerializerContext. Their members are the
-    /// AOT source-generation surface (CM-SRCGEN): excluded from registration. Populated
+    /// Types deriving (at any depth) from a configured source-generation context
+    /// base type. Their members are the AOT source-generation surface (CM-SRCGEN):
+    /// excluded from registration. Populated
     /// during the CM-ENUM-1 symbol walk and consumed by the CM-ENUM-2 syntax walk.
     /// </summary>
     private readonly HashSet<INamedTypeSymbol> _sourceGenContexts =
@@ -64,6 +57,7 @@ public sealed class ClosedMetadataCollector
     {
         _compilation = compilation;
         _options = options;
+        _surfaces = options.ResolveConsumerSurfaces();
     }
 
     public ClosedMetadataAnalysis Analyze()
@@ -126,8 +120,8 @@ public sealed class ClosedMetadataCollector
                 ClosedMetadataSeverity.Warning,
                 ClosedMetadataRule.SourceGeneration,
                 ClosedMetadataCodes.SourceGeneratedContext,
-                $"Type '{type.ToDisplayString()}' derives from JsonSerializerContext; the source-generated " +
-                "AOT surface is outside the closed-metadata served set (CM-SRCGEN) and its closures are not registered.",
+                $"Type '{type.ToDisplayString()}' derives from a configured source-generation context base type; " +
+                "the AOT surface is outside the closed-metadata served set (CM-SRCGEN) and its closures are not registered.",
                 SourceLocation(type)?.SourceTree?.FilePath,
                 SourceLocation(type)?.GetLineSpan().StartLinePosition.Line + 1));
             return;
@@ -272,37 +266,16 @@ public sealed class ClosedMetadataCollector
     }
 
     /// <summary>
-    /// D8 phase-1 consumer surface: the JsonSerializer static entry family plus
-    /// JsonSerializerOptions.GetTypeInfo. Shared by CM-ENUM-3 (enumeration) and the
-    /// CM-LINK consumer linker (guard insertion) so the two never drift apart.
+    /// D8 phase-1 consumer surface: the configured serializer entry family.
+    /// Shared by CM-ENUM-3 (enumeration) and the CM-LINK consumer linker (guard
+    /// insertion) so the two never drift apart.
     /// </summary>
-    internal static bool IsSerializerEntry(IMethodSymbol method)
-    {
-        var containing = method.ContainingType?.ToDisplayString();
-        if (containing == JsonSerializerFullName)
-        {
-            return SerializerMethodNames.Contains(method.Name);
-        }
+    internal bool IsSerializerEntry(IMethodSymbol method)
+        => _surfaces.SystemTextJson.IsEntry(method);
 
-        return containing == JsonSerializerOptionsFullName && method.Name == "GetTypeInfo";
-    }
-
-    /// <summary>Whether the type derives (at any depth) from JsonSerializerContext (CM-SRCGEN).</summary>
-    internal static bool IsSourceGenContext(INamedTypeSymbol type)
-    {
-        var current = type.BaseType;
-        while (current is not null)
-        {
-            if (current.ToDisplayString() == JsonSerializerContextFullName)
-            {
-                return true;
-            }
-
-            current = current.BaseType;
-        }
-
-        return false;
-    }
+    /// <summary>Whether the type derives (at any depth) from a configured source-generation context base type (CM-SRCGEN).</summary>
+    internal bool IsSourceGenContext(INamedTypeSymbol type)
+        => _surfaces.IsContextBaseType(type);
 
     private bool IsOrInsideSourceGenContext(INamedTypeSymbol type)
     {
@@ -326,11 +299,11 @@ public sealed class ClosedMetadataCollector
         return false;
     }
 
-    private static bool HasJsonSerializableAttribute(ISymbol symbol, out Location? location)
+    private bool HasJsonSerializableAttribute(ISymbol symbol, out Location? location)
     {
         foreach (var attribute in symbol.GetAttributes())
         {
-            if (attribute.AttributeClass?.Name == JsonSerializableAttributeName)
+            if (_surfaces.IsSourceGenAttributeName(attribute.AttributeClass?.Name ?? string.Empty))
             {
                 location = attribute.ApplicationSyntaxReference?.GetSyntax().GetLocation();
                 return true;
@@ -347,16 +320,14 @@ public sealed class ClosedMetadataCollector
             ClosedMetadataSeverity.Warning,
             ClosedMetadataRule.SourceGeneration,
             ClosedMetadataCodes.SourceGeneratedContext,
-            $"'{ownerDisplay}' carries a [JsonSerializable] AOT declaration; the source-generated surface is " +
+            $"'{ownerDisplay}' carries a source-generation AOT declaration attribute; the generated surface is " +
             "outside the closed-metadata served set (CM-SRCGEN) and the payload is not registered.",
             location?.SourceTree?.FilePath,
             location?.GetLineSpan().StartLinePosition.Line + 1));
     }
 
-    internal static bool IsJsonSerializableAttributeName(string name)
-        => name is "JsonSerializable" or "JsonSerializableAttribute"
-            || name.EndsWith(".JsonSerializable", StringComparison.Ordinal)
-            || name.EndsWith(".JsonSerializableAttribute", StringComparison.Ordinal);
+    internal bool IsJsonSerializableAttributeName(string name)
+        => _surfaces.IsSourceGenAttributeName(name);
 
     private void VisitSiteType(ITypeSymbol? type, string rule, string siteName, Location? siteLocation)
     {
