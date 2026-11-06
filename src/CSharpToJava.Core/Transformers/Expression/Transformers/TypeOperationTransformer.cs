@@ -28,11 +28,11 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         BinaryExpressionSyntax x when x.IsKind(SyntaxKind.AsExpression) => As(x, c),
         IsPatternExpressionSyntax x => IsPattern(x, c),
         TypeOfExpressionSyntax x => TypeOf(x, c),
-        DefaultExpressionSyntax x => GetDefaultValueForType(Map(x.Type, c), c.GetTypeInfo(x.Type).Type, c),
+        DefaultExpressionSyntax x => GetDefaultValueForType(Map(x.Type, c), c.GetTypeInfo(x.Type).Type, c, x),
         CheckedExpressionSyntax x => (x.IsKind(SyntaxKind.CheckedExpression) ? "/* checked */ " : "") + Expr(c, x.Expression),
         SizeOfExpressionSyntax x => SizeOf(x, c),
         _ when n.IsKind(SyntaxKind.DefaultLiteralExpression) =>
-            c.GetTypeInfo(n).ConvertedType is { } t ? GetDefaultValueForType(c.MapType(t), t, c) : "null",
+            c.GetTypeInfo(n).ConvertedType is { } t ? GetDefaultValueForType(c.MapType(t), t, c, n) : "null",
         _ => throw new NotSupportedException($"Type operation kind {n.Kind()} not supported.")
     };
     private static string Expr(ConversionContext c, ExpressionSyntax n) => ExpressionTransformerFacade.Instance.Transform(n, c);
@@ -975,9 +975,32 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             : "Object.class";
     }
     /// <summary>Primitives get zero, structs get new T(), Nullable/enum-default etc. as shown; otherwise null.</summary>
-    internal static string GetDefaultValueForType(string typeName, ITypeSymbol? typeSymbol, ConversionContext context)
+    internal static string GetDefaultValueForType(
+        string typeName, ITypeSymbol? typeSymbol, ConversionContext context, SyntaxNode? site = null)
     {
         if (typeSymbol is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T }) return "null";
+
+        // V-08 (upgrade plan §6.4-R0/CN-01): an erased type parameter has no Java
+        // zero value, so this renders null. For a VALUE-type constraint that is a
+        // definite semantic error (default(int) is 0, not null) — register it
+        // instead of silently emitting wrong code. The statically decidable
+        // `default(T) is null` / `is not null` tests are folded away upstream by
+        // the generic pass; the remaining value sites need the closed-type
+        // metadata work (CN-01/GD-MTOK-2) to receive a real token.
+        if (typeSymbol is ITypeParameterSymbol typeParameter)
+        {
+            if (HasValueSemantics(typeParameter))
+            {
+                context.Diagnostics.Warning(
+                    $"default({typeParameter.Name}) has value-type constraints "
+                    + $"('{typeParameter.ToDisplayString()}') and Java renders it as null; "
+                    + "the erased type parameter has no zero value (CN-01)",
+                    site?.GetLocation(), code: "CS2J1403", category: "GenericConstraint");
+            }
+
+            return "null";
+        }
+
         var zero = typeName switch
         {
             "int" => "0", "long" => "0L", "short" => "(short)0", "byte" => "0",
@@ -1001,6 +1024,16 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         if (typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } en) return $"{en.Name}.values()[0]";
         return "null";
     }
+    /// <summary>
+    /// Whether every legal instantiation of the type parameter is a value type
+    /// (struct/unmanaged/Enum constraint, directly or through a parent parameter).
+    /// </summary>
+    private static bool HasValueSemantics(ITypeParameterSymbol typeParameter)
+        => typeParameter.HasValueTypeConstraint
+            || typeParameter.ConstraintTypes.Any(t => t.SpecialType == SpecialType.System_Enum)
+            || typeParameter.ConstraintTypes.OfType<ITypeParameterSymbol>()
+                .Any(HasValueSemantics);
+
     private static string SizeOf(SizeOfExpressionSyntax n, ConversionContext c) => c.GetTypeInfo(n.Type).Type?.SpecialType switch
     {
         SpecialType.System_Boolean or SpecialType.System_SByte => "1",

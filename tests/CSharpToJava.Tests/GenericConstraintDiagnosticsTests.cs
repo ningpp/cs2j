@@ -115,4 +115,51 @@ delegate TResult Converter<in TInput, out TResult>(TInput input);
         Assert.True(varianceDiags.Count >= 2,
             $"Expected >=2 CS2J1003 diagnostics for in+out, got {varianceDiags.Count}");
     }
+
+    /// <summary>
+    /// V-08 (upgrade plan §6.4-R0/CN-01): an erased value-type-constrained type
+    /// parameter has no Java zero value, so <c>default(T)</c> renders as null —
+    /// a DEFINITE semantic error (default(int) is 0). It must be registered as
+    /// CS2J1403 instead of silently emitting wrong code; the closed-type metadata
+    /// work (CN-01/GD-MTOK-2) is the eventual replacement.
+    /// </summary>
+    [Fact]
+    public void DefaultOfStructConstrainedTypeParameter_RegistersCS2J1403()
+    {
+        var pipeline = new ConversionPipeline();
+        var result = pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = @"
+class C
+{
+    public T Zero<T>() where T : struct { return default(T); }
+}",
+            FileName = "C.cs",
+            Options = new ConversionOptions(),
+        });
+
+        Assert.Contains(result.Diagnostics, d => d.Code == "CS2J1403" && d.Category == "GenericConstraint");
+    }
+
+    /// <summary>
+    /// V-08 negative: for a reference-type-constrained parameter null IS the C#
+    /// default, so no registration is expected.
+    /// </summary>
+    [Fact]
+    public void DefaultOfClassConstrainedTypeParameter_NoCS2J1403()
+    {
+        var pipeline = new ConversionPipeline();
+        var result = pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = @"
+class C
+{
+    public T Zero<T>() where T : class { return default(T); }
+}",
+            FileName = "C.cs",
+            Options = new ConversionOptions(),
+        });
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == "CS2J1403");
+    }
 }

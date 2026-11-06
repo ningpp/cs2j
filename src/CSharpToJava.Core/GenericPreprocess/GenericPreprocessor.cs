@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -324,5 +325,137 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
     {
         // The element type is arrayType.ElementType (may itself be T).
         return IsTypeParameterType(arrayType.ElementType);
+    }
+
+    // -----------------------------------------------------------------------
+    // V-08 (upgrade plan §6.4-R0/CN-01): `default(T) is null` / `is not null`.
+    //
+    // The Java converter renders `default(T)` as `null` for every type parameter
+    // (there is no erased zero value). For a value-type constraint that is a
+    // definite semantic error, and the null TEST is worse: `default(T) is null`
+    // becomes `null == null`, i.e. always true — but C# says false whenever T is
+    // a non-nullable value type.
+    //
+    // The constraint decides the answer statically in two cases, so the test can
+    // be folded away here (sound for any instantiation, and it removes the wrong
+    // Java output entirely):
+    //   where T : struct / unmanaged / Enum  → default(T) is never null
+    //   where T : class                      → default(T) is always null
+    // Unconstrained / interface-only / `notnull` parameters stay untouched —
+    // deciding those needs the closed-type metadata work (CN-01/GD-MTOK-2).
+    // -----------------------------------------------------------------------
+    public override SyntaxNode? VisitIsPatternExpression(IsPatternExpressionSyntax node)
+    {
+        var visited = base.VisitIsPatternExpression(node);
+
+        if (!_options.RewriteDefaultExpression
+            || node.Expression is not DefaultExpressionSyntax { Type: IdentifierNameSyntax name }
+            || !TryGetNullTest(node.Pattern, out var testsForNull)
+            || ResolveDeclaredConstraintNullability(name.Identifier.ValueText, node) is not { } defaultIsNull)
+        {
+            return visited;
+        }
+
+        // Inside a quoted expression tree the node shape is preserved (GD-EXPRTREE):
+        // folding would change the tree the program observes.
+        if (_model != null
+            && CSharpToJava.Core.Analysis.ExpressionTreeFacts.IsInsideQuotedExpressionLambda(_model, node))
+        {
+            return visited;
+        }
+
+        var value = testsForNull ? defaultIsNull : !defaultIsNull;
+        Changed = true;
+        _stats.DefaultNullabilityTestsFolded++;
+        return SyntaxFactory.LiteralExpression(
+                value ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression)
+            .WithTriviaFrom(node);
+    }
+
+    /// <summary>Recognizes `is null` and `is not null` patterns (only those two).</summary>
+    private static bool TryGetNullTest(PatternSyntax pattern, out bool testsForNull)
+    {
+        testsForNull = true;
+        if (pattern is ConstantPatternSyntax { Expression: LiteralExpressionSyntax literal }
+            && literal.IsKind(SyntaxKind.NullLiteralExpression))
+        {
+            return true;
+        }
+
+        if (pattern is UnaryPatternSyntax unary
+            && unary.OperatorToken.IsKind(SyntaxKind.NotKeyword))
+        {
+            testsForNull = false;
+            return unary.Pattern is ConstantPatternSyntax { Expression: LiteralExpressionSyntax inner }
+                && inner.IsKind(SyntaxKind.NullLiteralExpression);
+        }
+
+        testsForNull = true;
+        return false;
+    }
+
+    /// <summary>
+    /// Whether <c>default(T)</c> is null for every legal instantiation, decided from
+    /// the declaring member's constraint clause; null when the constraints do not
+    /// decide it (unconstrained, interface-only, notnull, or <c>T : U</c> chains).
+    /// <para>
+    /// This is deliberately syntactic: <see cref="GenericPreprocessor.Preprocess(string, SemanticModel?, GenericPreprocessOptions?)"/>
+    /// reparses the source, so the supplied model belongs to a different tree and
+    /// cannot answer symbol questions for these nodes. The fold only fires when the
+    /// enclosing member/type declares the name as its own type parameter with a
+    /// deciding constraint, so a real type called <c>T</c> is never folded.
+    /// </para>
+    /// </summary>
+    private static bool? ResolveDeclaredConstraintNullability(string name, SyntaxNode site)
+    {
+        foreach (var ancestor in site.Ancestors())
+        {
+            var (typeParameters, constraints) = ancestor switch
+            {
+                MethodDeclarationSyntax method => (method.TypeParameterList, method.ConstraintClauses),
+                LocalFunctionStatementSyntax local => (local.TypeParameterList, local.ConstraintClauses),
+                ClassDeclarationSyntax type => (type.TypeParameterList, type.ConstraintClauses),
+                StructDeclarationSyntax type => (type.TypeParameterList, type.ConstraintClauses),
+                InterfaceDeclarationSyntax type => (type.TypeParameterList, type.ConstraintClauses),
+                RecordDeclarationSyntax type => (type.TypeParameterList, type.ConstraintClauses),
+                DelegateDeclarationSyntax type => (type.TypeParameterList, type.ConstraintClauses),
+                _ => (null, default),
+            };
+
+            if (typeParameters == null
+                || !typeParameters.Parameters.Any(p => p.Identifier.ValueText == name))
+            {
+                continue;
+            }
+
+            var clause = constraints.FirstOrDefault(c => c.Name.Identifier.ValueText == name);
+            return clause == null ? null : ClassifyConstraints(clause.Constraints);
+        }
+
+        return null;
+    }
+
+    private static bool? ClassifyConstraints(SeparatedSyntaxList<TypeParameterConstraintSyntax> constraints)
+    {
+        foreach (var constraint in constraints)
+        {
+            switch (constraint)
+            {
+                // struct / unmanaged → value type → default is never null.
+                case ClassOrStructConstraintSyntax classOrStruct
+                    when classOrStruct.IsKind(SyntaxKind.StructConstraint):
+                    return false;
+                // class / class? → reference type → default is always null.
+                case ClassOrStructConstraintSyntax classOrStruct
+                    when classOrStruct.IsKind(SyntaxKind.ClassConstraint):
+                    return true;
+                // where T : Enum — enums are value types.
+                case TypeConstraintSyntax { Type: var constraintType }
+                    when constraintType.ToString() is "Enum" or "System.Enum" or "global::System.Enum":
+                    return false;
+            }
+        }
+
+        return null;
     }
 }

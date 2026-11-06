@@ -2160,6 +2160,68 @@ public class GenericPreprocessTests(ITestOutputHelper output)
     }
 
     // ===================================================================
+    // V-08 (upgrade plan §6.4-R0/CN-01): `default(T) is null` / `is not null`
+    // — folded when the constraint decides nullability.
+    // ===================================================================
+
+    [Fact]
+    public void DefaultOfStructConstrainedT_IsNullTest_FoldsToFalse()
+    {
+        var result = Preprocess("""
+            class C { public bool F<T>() where T : struct { return default(T) is null; } }
+            """);
+        Assert.True(result.Changed);
+        Assert.Contains("return false;", result.OutputCode);
+        Assert.DoesNotContain("is null", result.OutputCode);
+        Assert.Equal(1, result.Statistics.DefaultNullabilityTestsFolded);
+    }
+
+    [Fact]
+    public void DefaultOfStructConstrainedT_IsNotNullTest_FoldsToTrue()
+    {
+        var result = Preprocess("""
+            class C { public bool F<T>() where T : struct { return default(T) is not null; } }
+            """);
+        Assert.True(result.Changed);
+        Assert.Contains("return true;", result.OutputCode);
+        Assert.DoesNotContain("is not null", result.OutputCode);
+        Assert.Equal(1, result.Statistics.DefaultNullabilityTestsFolded);
+    }
+
+    [Fact]
+    public void DefaultOfEnumConstrainedT_IsNullTest_FoldsToFalse()
+    {
+        var result = Preprocess("""
+            using System;
+            class C { public bool F<T>() where T : Enum { return default(T) is null; } }
+            """);
+        Assert.Contains("return false;", result.OutputCode);
+        Assert.Equal(1, result.Statistics.DefaultNullabilityTestsFolded);
+    }
+
+    [Fact]
+    public void DefaultOfClassConstrainedT_IsNullTest_FoldsToTrue()
+    {
+        var result = Preprocess("""
+            class C { public bool F<T>() where T : class { return default(T) is null; } }
+            """);
+        Assert.Contains("return true;", result.OutputCode);
+        Assert.Equal(1, result.Statistics.DefaultNullabilityTestsFolded);
+    }
+
+    [Fact]
+    public void DefaultOfUnconstrainedT_IsNullTest_IsNotFolded()
+    {
+        // The runtime answer depends on the closed type argument: deciding it needs
+        // the closed-type metadata work (CN-01/GD-MTOK-2), so the test is preserved.
+        var result = Preprocess("""
+            class C { public bool F<T>() { return default(T) is null; } }
+            """);
+        Assert.Contains("is null", result.OutputCode);
+        Assert.Equal(0, result.Statistics.DefaultNullabilityTestsFolded);
+    }
+
+    // ===================================================================
     // Helpers
     // ===================================================================
 

@@ -135,6 +135,7 @@ internal sealed class GenericPassAdapter : ProjectPassAdapter
            $"{_statistics.FilesSkippedClean} clean " +
            $"({_statistics.DefaultExpressionsEncountered} default(T) encountered, " +
            $"{_statistics.DefaultExpressionsRewritten} rewritten, " +
+           $"{_statistics.DefaultNullabilityTestsFolded} nullability tests folded, " +
            $"{_statistics.NewTypeParamRewritten} new T(), " +
            $"{_statistics.NewTypeParamArrayRewritten} new T[n])";
 
@@ -151,6 +152,7 @@ internal sealed class GenericPassAdapter : ProjectPassAdapter
         _statistics.FilesSkippedClean += source.FilesSkippedClean;
         _statistics.DefaultExpressionsEncountered += source.DefaultExpressionsEncountered;
         _statistics.DefaultExpressionsRewritten += source.DefaultExpressionsRewritten;
+        _statistics.DefaultNullabilityTestsFolded += source.DefaultNullabilityTestsFolded;
         _statistics.NewTypeParamRewritten += source.NewTypeParamRewritten;
         _statistics.NewTypeParamArrayRewritten += source.NewTypeParamArrayRewritten;
         _statistics.TypeOfExpressionsSeen += source.TypeOfExpressionsSeen;

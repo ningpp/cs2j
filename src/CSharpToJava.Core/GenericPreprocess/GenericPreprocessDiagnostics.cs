@@ -36,6 +36,13 @@ public sealed class GenericPreprocessStatistics
 
     /// <summary>Only the <c>default(T)</c> sites actually rewritten to <c>default</c>.</summary>
     public int DefaultExpressionsRewritten;
+
+    /// <summary>
+    /// V-08: <c>default(T) is null</c> / <c>is not null</c> tests folded to a
+    /// boolean literal because the type parameter's constraint decides nullability
+    /// (struct/unmanaged/Enum → never null; class → always null).
+    /// </summary>
+    public int DefaultNullabilityTestsFolded;
     public int NewTypeParamRewritten;
     public int NewTypeParamArrayRewritten;
     public int TypeOfExpressionsSeen;
