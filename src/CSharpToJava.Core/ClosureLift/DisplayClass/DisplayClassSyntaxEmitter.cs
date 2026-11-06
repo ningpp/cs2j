@@ -119,12 +119,20 @@ internal sealed class DisplayClassSyntaxEmitter
 
         // D19: method type parameters are redeclared as the class's own arity
         // (same C32 rule); host-type parameters are already in nested-class scope.
+        // S-03: the redeclaration must carry the original `where` clauses, or
+        // bodies that rely on a constraint (constraint-member calls, struct-only
+        // operations) stop compiling inside the synthesized class.
         if (group.MethodTypeParameters.Count > 0)
         {
             declaration = declaration.WithTypeParameterList(
                 SyntaxFactory.TypeParameterList(
                     SyntaxFactory.SeparatedList(
                         group.MethodTypeParameters.Select(SyntaxFactory.TypeParameter))));
+            if (group.MethodConstraintClauses.Count > 0)
+            {
+                declaration = declaration.WithConstraintClauses(
+                    SyntaxFactory.List(group.MethodConstraintClauses.Select(Clause => Clause.WithoutTrivia())));
+            }
         }
 
         return declaration;

@@ -80,6 +80,18 @@ internal sealed class DisplayClassPlan
     /// </summary>
     public IReadOnlyList<string> MethodTypeParameters { get; init; } = Array.Empty<string>();
 
+    /// <summary>
+    /// S-03 (upgrade plan §6.4-R0): the redeclared method type parameters lose
+    /// their `where` clauses when the holder is emitted, so any body/field usage
+    /// that relies on a constraint (calling a constrained interface member,
+    /// `struct`-only operations) fails to compile in the synthesized class.
+    /// Carries the ORIGINAL clauses, filtered to the parameters actually
+    /// redeclared (a clause for a parameter the holder does not declare would be
+    /// a dangling `where`).
+    /// </summary>
+    public IReadOnlyList<TypeParameterConstraintClauseSyntax> MethodConstraintClauses { get; init; }
+        = Array.Empty<TypeParameterConstraintClauseSyntax>();
+
     /// <summary>Generic suffix for the holder class name ("&lt;T1,T2&gt;"), or "".</summary>
     public string TypeArgumentSuffix =>
         MethodTypeParameters.Count == 0 ? string.Empty : "<" + string.Join(",", MethodTypeParameters) + ">";

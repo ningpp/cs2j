@@ -67,12 +67,20 @@ internal sealed class HolderSyntaxGenerator
 
         // Generic method capture: the nested holder cannot see method arity from
         // its class-level nesting position, so redeclare the same parameters.
+        // S-03: the redeclaration carries the original `where` clauses (filtered
+        // to the redeclared parameters) — dropping them breaks constraint-member
+        // usage inside the holder.
         if (group.MethodTypeParameters.Count > 0)
         {
             declaration = declaration.WithTypeParameterList(
                 SyntaxFactory.TypeParameterList(
                     SyntaxFactory.SeparatedList(
                         group.MethodTypeParameters.Select(SyntaxFactory.TypeParameter))));
+            if (group.MethodConstraintClauses.Count > 0)
+            {
+                declaration = declaration.WithConstraintClauses(
+                    SyntaxFactory.List(group.MethodConstraintClauses.Select(clause => clause.WithoutTrivia())));
+            }
         }
 
         return declaration;

@@ -71,6 +71,8 @@ internal static class HolderPlanner
                         .Select(s => s.ForeachLoop)
                         .FirstOrDefault(loop => loop != null),
                     MethodTypeParameters = methodTypeParameters,
+                    MethodConstraintClauses =
+                        CollectMethodConstraintClauses(member.Routine, methodTypeParameters),
                 };
 
                 var usedFieldNames = new HashSet<string>(StringComparer.Ordinal);
@@ -296,6 +298,28 @@ internal static class HolderPlanner
                 .Where(t => t.Length > 0)
                 .ToArray()
             : Array.Empty<string>();
+
+    /// <summary>
+    /// S-03: constraint clauses for the method type parameters a holder/display
+    /// class redeclares. Only clauses naming a redeclared parameter are carried —
+    /// copying the routine's whole list would emit `where` clauses for parameters
+    /// the synthesized type does not declare.
+    /// </summary>
+    internal static IReadOnlyList<TypeParameterConstraintClauseSyntax> CollectMethodConstraintClauses(
+        SyntaxNode routine,
+        IReadOnlyList<string> methodTypeParameters)
+    {
+        if (methodTypeParameters.Count == 0
+            || routine is not MethodDeclarationSyntax { ConstraintClauses.Count: > 0 } method)
+        {
+            return Array.Empty<TypeParameterConstraintClauseSyntax>();
+        }
+
+        var carried = new HashSet<string>(methodTypeParameters, StringComparer.Ordinal);
+        return method.ConstraintClauses
+            .Where(clause => carried.Contains(clause.Name.Identifier.Text))
+            .ToArray();
+    }
 
     /// <summary>
     /// Seed set for per-routine instance reservation (M1 shape, unchanged):

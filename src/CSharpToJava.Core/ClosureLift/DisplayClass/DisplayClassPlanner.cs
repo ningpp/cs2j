@@ -713,6 +713,7 @@ internal static class DisplayClassPlanner
             PerIteration = false,
             ArrayForm = false,
             MethodTypeParameters = methodTypeParameters,
+            MethodConstraintClauses = HolderPlanner.CollectMethodConstraintClauses(f.Routine!, methodTypeParameters),
             ClassTypeParameters = CollectClassTypeParameters(f.HostType!, methodTypeParameters),
             ScopeAnchor = f.ScopeBlock,
         };
@@ -749,6 +750,7 @@ internal static class DisplayClassPlanner
                 ArrayForm = original.ArrayForm,
                 PerIterationLoop = original.PerIterationLoop,
                 MethodTypeParameters = original.MethodTypeParameters,
+                MethodConstraintClauses = original.MethodConstraintClauses,
                 ClassTypeParameters = CollectClassTypeParameters(original.HostType, original.MethodTypeParameters),
             };
             copy.UsedFieldNames.UnionWith(original.Symbols.Select(static s => s.FieldName));
