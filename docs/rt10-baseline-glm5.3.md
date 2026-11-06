@@ -856,4 +856,181 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
 - 中间对照：`D:\cs\rt10-baseline-w10h\preprocess-report.json`（7 条 Error）与
   `D:\cs\rt10-baseline-w10h.log`。
 
+## 15. 第九次重跑（HEAD `398acbd6` + 本轮 numeric-boundary 清零）
+
+### 15.1 运行口径
+
+- 运行日期：2026-11-06（Asia/Shanghai）；基线 HEAD：`398acbd6`，叠加本轮
+  numeric-boundary（C22 nullable-lift）工作树改动（运行时尚在工作树，尚未提交）。
+- 代码前置：全量单测 **4741 通过 / 9 跳过 / 0 失败**（§14 基线 4735 +
+  本轮新增 6 条 `NullableConditionalArmLiftingTests`：`bool? == true` 在
+  `||` 右操作数（三态 + 短路）、字段初始化器（无锚点）、嵌套条件 arm 单次
+  求值、`== false` 负例、`else if (A && B)` 含 else、三段 `&&` 无 else）。
+- 修复内容（3 条 lane，均为真实降低，未改 strict / 未降级为 Warning）：
+  1. **S1 `bool? == true` / `!= true`**（`NullableLiftRewriter`
+     `TryRewriteBooleanTrueEquality` / `ExpandBooleanTrueTest`）：`true`
+     字面量是二值形态（null 与 false 同真值），普通一侧 HasValue guard
+     无法 hoist 时把测试分发进源条件表达式的 arm（null arm → `false`，
+     `!=` 时 → `true`）；叶 `bool?` 走 NL-6 的 HasValue/Value 展开，
+     `(bool?)e`（e 为非可空 bool）直接折叠为 `e`，保持单次求值。
+     `== false` / `!= false` 不适用（null 时结果翻转），仍走 hoisting。
+  2. **S2 `if (A && B)` 合取线性化**（新增
+     `NullableIfConjunctionLinearizer`）：在首个需要 hoist 的合取分量处
+     拆分 —— 无 else 时改为嵌套 if；有 else 时改为
+     `bool __cs2j_n_scN = false; if (A) { <temps>; __cs2j_n_scN = B; } if (__cs2j_n_scN) body else otherwise;`，
+     A/B/body/otherwise 各自只求值一次，短路频率与求值顺序不变。
+  3. **S3 `||` 右操作数**：由 S1 直接消除（站点 1 的 RHS 不再含 lifted
+     站点），未新增 return 线性化。
+- 源不变：`D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj`；
+  目标：`D:\cs\rt10-baseline-w10j`；unified 中间树
+  `D:\cs\rt10-baseline-w10j\.cs2j-preprocessed-src`（目标目录运行时不存在，无需 `--force`）。
+- 命令（与 §14.1 同参数，仅换目标目录与日志）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10j --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests `
+  *>&1 | Tee-Object D:\cs\rt10-baseline-w10j.log
+```
+
+- 结果：`D:\cs\rt10-baseline-w10j\preprocess-report.json` 为
+  `success=false`、`totalSeconds=52.208`、**26** 个 pass；日志 554 行。
+- 与 §14 的关键差异：numeric-boundary 首次 `status=ok`，链路因此继续执行
+  `generic` / `thread-static` / `generic-deepen` 三个 pass，最终停在
+  `generic-deepen`（§15.5）。
+
+### 15.2 每个 pass 的实测（来源：preprocess-report.json 的 `status`/`summary`/`totalSeconds`）
+
+| # | pass | 状态 | 秒 | 实测 summary（原样节选） |
+|---|------|------|----|--------------------------|
+| 1 | conditional | ok | 6.118 | `strip-conditional: 66 transformed, 286 clean, 372 directives removed, 103 disabled blocks removed` |
+| 2 | lexical-normalize | ok | 1.130 | `0 transformed, 352 clean, 0 #line removed, 0 extern-alias site(s), ...` |
+| 3 | partial-merge | ok | 3.321 | `10 group(s) merged, 0 partial member pair(s) collapsed` |
+| 4 | local-function-lift | ok | 4.767 | `28 transformed, 324 clean, 59 lifted, 0 skipped, 0 residual` |
+| 5 | null-coalesce | ok | 1.118 | `59 transformed, 293 clean, 98 ?? rewritten, 100 ??= rewritten, 98 temp vars, 57 arrow bodies expanded, 0 residual` |
+| 6 | expression-desugar | ok | 1.927 | `107 transformed, 209 clean, 36 dirty-no-rewrite; ...` |
+| 7 | enum | ok | 1.317 | `85 transformed, 107 clean, 160 dirty-no-rewrite, 125 bitwise, 1 ~, 6 compound, 1 HasFlag, 0 lifted, 4 enum-arith, 0 residual` |
+| 8 | enum-declaration | ok | 6.482 | `6 enum(s) rewritten (flags=0, non-int=5, explicit=4), 20 file(s), 0 plan(s) rolled back, 0 kept real (numeric-boundary), 0 residual` |
+| 9 | delegate | ok | 0.544 | `1 transformed, 351 clean, 0 combine, 0 remove, 0 compound, 5 anonymous method, 0 skipped, 0 residual` |
+| 10 | tuple | ok | 6.231 | `tuple-to-struct: 16 transformed, 338 clean, 25 types, 35 literals, 10 deconstructions, 0 tuple locals -> var, 19 structs generated` |
+| 11 | anonymous-type-lift | ok | 0.936 | `0 transformed, 358 clean, 0 creations rewritten, 0 shapes (0 generic, 0 dynamic), 0 types generated, 0 residual` |
+| 12 | foreach-deconstruction | ok | 0.200 | `0 transformed, 358 clean, 0 lowered, 1 skipped` |
+| 13 | foreach-source | ok | 0.641 | `9 transformed, 349 clean, ..., 7 span index loop(s), 0 unresolved site(s), 0 error(s)` |
+| 14 | pattern-desugar | ok | 0.406 | `15 transformed, 307 clean, 36 dirty-no-rewrite, 17 pattern-switch, 0 non-int-switch, 1 catch-filter, 0 catch-T, 8 govs, 0 end-labels, 0 skipped, 0 residual` |
+| 15 | strip-default | ok | 2.835 | `97 transformed, 261 clean, 195 declarations stripped, 176 overloads generated` |
+| 16 | ref-out-in | ok | 1.645 | `208 transformed, 150 clean, 245 ref params, 241 out params, 717 call sites lifted, 153 locked members` |
+| 17 | unsafe-ref-lowering | ok | 1.211 | `0 transformed, 360 clean, 0 ref local(s) lowered (0 read, 0 add), 1 rejected (URL001)` |
+| 18 | using-resource-lift | ok | 0.216 | `0 transformed, 360 clean, 0 resource(s) lifted, 0 preserved (USL001)` |
+| 19 | fixed-span-to-array | ok | 0.245 | `1 transformed, 359 clean, 1 span fixed statement(s) lowered, 0 preserved (FSA001)` |
+| 20 | compat-method-replacement | ok | 0.238 | `2 transformed, 358 clean, 2 method(s) replaced, 0 already replaced, 2 signature mismatch(es) (CMR001), 0 drifted entr(y/ies) (CMR020), 1 unused table entry(ies)` |
+| 21 | pointer-diff-inline | ok | 0.276 | `0 transformed, 360 clean, 0 helper(s) inlined, 0 call site(s) rewritten, 0 unused helper(s) removed, 0 preserved (PDI001)` |
+| 22 | unsigned | ok | 0.624 | `unsigned-type: 129 transformed, 231 clean, 2269 types replaced, 195 operators rewritten, 3 literals rewritten` |
+| 23 | numeric-boundary | **ok** | 3.402 | `numeric-boundary: 360 file(s), 9 binary/0 unary/13 conversion/0 increment site(s) explicitized, 338 unchecked expr(s)/0 block(s) stripped, 92 constant(s) materialized, 0 error(s); decimal-ops: ... 291 deferred; increment-targets: 392 property/0 indexer/0 enum-array/1 simple site(s), 1 unsigned helper call(s), 387 postfix lifted/0 prefix inlined, 387 temp(s), 0 deferred; nullable-lift: 3 rel/134 eq/4 conv site(s), 11 temp(s)` |
+| 24 | generic | ok | 1.354 | `7 transformed, 354 clean (16 default(T) encountered, 16 rewritten, 0 nullability tests folded, 2 new T(), 1 new T[n])` |
+| 25 | thread-static | ok | 0.653 | `1 transformed, 360 clean (1 fields rewritten, 0 skipped, 8 reads, 2 writes, 0 compound, 0 increments, 0 struct lifts, 0 initializers, 0 plan rollback(s), 0 residual)` |
+| 26 | generic-deepen | **failed** | 4.326 | `147 transformed, 214 clean (254 anchors, 16 nested propagations, 4 patterns, 7 type tests, 0 catches, 23 static methods, 17 field accesses, 526 call sites, 0 expression-tree skips, 0 plans skipped, 0 ctor-token types, 0 ctor-token sites, 0 ctor-token call sites, 1 mtok methods, 1 mtok sites, 1 mtok call sites, 1 residuals)` |
+
+- 第 1–25 个 pass 全部 `ok`；`transformed`/`clean` 计数与 §14 一致（时间随
+  机器负载浮动，`numeric-boundary` 3.402s vs §14 2.865s）。
+
+### 15.3 numeric-boundary 前后对照
+
+| 诊断码 | §14（w10i） | 本轮（w10j） | 变化 |
+|--------|-------------|--------------|------|
+| CS2J5339 | 0 | **0** | — |
+| CS2J5355 | 5 | **0** | 5 条站点全部消除 |
+| CS2J5357 | 0 | **0** | — |
+| 合计 Error | 5 | **0** | — |
+
+- 统计面（summary 原文）：`nullable-lift: 3 rel/134 eq/4 conv site(s),
+  11 temp(s)`（§14 为 `3 rel/129 eq/4 conv, 9 temp, 5 deferred`）：
+  eq 桶 +5（S1 的 5 条站点计入 one-sided equality），temp +2（S2 的两条
+  合取右臂各 hoist 一个枚举属性临时），deferred 5 → 0。
+- `CS2J5355`/`CS2J5357` 在整份日志中均为 **0** 次命中。
+
+### 15.4 五条站点的实际产物
+
+- `src\System\Text\Json\Serialization\JsonSerializer.Read.HandleMetadata.cs`
+  （`||` 右操作数）：`(... || ((__ed_s2 != null ? (__ed_s3 != null ?
+  __ed_s3.AsSpan().SequenceEqual(propertyName) : false) : false)));`
+  —— 分发到条件 arm + `(bool?)e` 折叠，`SequenceEqual` 单次求值，无临时。
+- `src\System\Text\Json\Serialization\Metadata\JsonPropertyInfo.cs(624)`
+  （`else if` 合取右臂）：`else if (NumberHandling.HasValue) { { var
+  __cs2j_n_a1 = NumberHandling; if (!(__cs2j_n_a1.HasValue &&
+  __cs2j_n_a1.Value == JsonNumberHandling.Strict)) { throw ... } } }`。
+- `gen\JsonSourceGenerator.Parser.cs(834)`（`if` 合取右臂）：
+  `if (!isPolymorphic.Value) { { var __cs2j_n_a2 = typeToGenerate.Mode; if
+  ((__cs2j_n_a2.HasValue && __cs2j_n_a2.Value == ...Serialization)) { ... } } }`。
+- `gen\JsonSourceGenerator.Parser.cs(1065)`（字段初始化器）：
+  `new((options != null ? (options.PropertyNameCaseInsensitive.HasValue ?
+  options.PropertyNameCaseInsensitive.Value : default(bool)) : false) ?
+  StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal)` —— 无锚点
+  需求，属性为生成型 auto-property（纯读）。
+- `gen\Model\PropertyGenerationSpec.cs(175)`（`&&` 链末 `!= true`）：
+  `if (!IsProperty && !HasJsonInclude && (__ed_s0 != null ?
+  (!(__ed_s0.IncludeFields.HasValue ? __ed_s0.IncludeFields.Value :
+  default(bool))) : true))` —— `null != true` 为 true，与原语义一致。
+
+### 15.5 新中止点
+
+- numeric-boundary 通过后链路继续执行到第 26 个 pass `generic-deepen`
+  （`status=failed`），新增中止点为该 pass 的静态成员/generic-deepen
+  报错，report 共 **8** 条 Error：
+  - `CS2J1102` ×5：`JsonPropertyInfoOfT.cs:144/149/154` 的
+    `shouldSerializeIgnoreConditionNever/Always/WhenWritingDefault`
+    （以 method group 形式被委托转换引用，hoist 会改变委托形状）、
+    `ObjectWithParameterizedConstructorConverter.Small.cs:63` 的
+    `TryRead<TArg>` 与 `JsonDictionaryConverter.cs:99` 的
+    `GetConverter<T>`（方法自有类型参数与外围类参数冲突）。
+  - `CS2J1106` ×2：`ByteConverter.cs:61` 的 `GetSchemaForNumericType(...)`
+    与 `JsonValueOfTPrimitive.cs:25` 的 `DetermineValueKind(value)`
+    （调用点未揭示封闭类型构造）。
+  - `CS2J1120` ×1：`EnumConverter.cs:617` 的
+    `forward-only-without-anchor` 残留 1 条。
+- 同时该 pass 有 `CS2J1107` ×12（Anchor 警告）与 `CS2J2001` ×9（partial
+  merge 冲突警告），均为 Warning，不阻断。
+- 本轮未修改上述 pass，也未降级其诊断。
+
+### 15.6 TFM 警告
+
+- 日志中 `skipped unresolvable TFM value` 计数为 **0**（与 §2–§14 一致）。
+- `target framework '...' is below net10.0` 提示与 §14 相同（`gen/*.csproj`
+  3 个 + `src/System.Text.Json.csproj`，由 Cs2jUnsignedMath 注入），
+  本轮**未新增** TFM 警告。
+- 日志计数（控制台折行使文本行数不等于诊断数，诊断总数以 report 为准）：
+  `warning ` 文本行 48 条、`[Warning]` 前缀行 69 条；Error 全部来自
+  `generic-deepen`（report 8 条），numeric-boundary 为 0 条。
+
+### 15.7 单测（先红后绿证据）
+
+- `NullableConditionalArmLiftingTests`（新增 6 条）：
+  - 红：临时 `git stash` 三处源码改动（`NullableLiftAnalyzer` /
+    `NullableLiftRewriter` / `NullableLiftRule`）并移出新增
+    `NullableIfConjunctionLinearizer` → 4 条正例失败
+    （`BooleanTrue_In_ShortCircuit_Right_Is_TwoValued_And_ShortCircuits`、
+    `BooleanTrue_In_Field_Initializer_Distributes_Without_Anchor`、
+    `Conjunction_In_ElseIf_With_Else_Keeps_Order_Frequency_And_Else`、
+    `Conjunction_If_Without_Else_Nests_And_Preserves_Frequency`；4 failed /
+    1 passed，`BooleanFalse_Literal_Stays_On_The_Hoisting_Path` 负例两态
+    均绿）；恢复后 6/6 通过。第 6 条
+    `BooleanTrue_Over_Non_Nullable_Bool_Arm_Reads_Once` 覆盖 S1 内的
+    `(bool?)e` 折叠（在红检查之后补入）。
+- `NullableLiftDistributionTests`：原两条「仍报 CS2J5355」的结构性负例
+  （`UnstableNullableProperty_In_ShortCircuit_If_Condition_...`、
+  `Conditional_Left_Operand_In_ShortCircuit_Right_...`）按新能力改为正例
+  断言（无 Error、临时 hoist 一次 / 无临时、三态行为一致）。
+- 全量：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+  → **4741 通过 / 9 跳过 / 0 失败**（1 m 47 s）。
+- 未执行 `CSharpToJava.ProjectTests` 与 `CSharpToJava.ConversionTests`。
+
+### 15.8 来源文件
+
+- `D:\cs\rt10-baseline-w10j\preprocess-report.json`（schemaVersion 1，
+  `success=false`，`totalSeconds=52.208`，26 个 pass）。
+- `D:\cs\rt10-baseline-w10j.log`（554 行）。
+- 中间树：`D:\cs\rt10-baseline-w10j\.cs2j-preprocessed-src`。
+- 对照：`D:\cs\rt10-baseline-w10i\preprocess-report.json`（numeric-boundary
+  5 条 CS2J5355，23 个 pass）。
+
 
