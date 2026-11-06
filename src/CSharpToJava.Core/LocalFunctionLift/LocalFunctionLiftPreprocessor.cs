@@ -61,6 +61,31 @@ public sealed class LocalFunctionLiftPreprocessor
         rewriter.PrepareMethodDeclarations();
         var newRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
 
+        // V-09 atomicity: a plan whose declaration sits in a container no
+        // removal channel covers must not land half-rewritten (new method +
+        // renamed call sites + surviving declaration). Roll the whole file
+        // back to the source text; the residual gate then reports the local
+        // function instead of a broken tree.
+        if (rewriter.UnremovablePlans.Count > 0)
+        {
+            foreach (var plan in rewriter.UnremovablePlans)
+            {
+                var location = plan.Node.GetLocation();
+                var line = location.GetLineSpan().StartLinePosition.Line + 1;
+                diagnostics.Add(new LocalFunctionLiftDiagnostic(
+                    LocalFunctionLiftSeverity.Warning,
+                    $"local function '{plan.Node.Identifier.Text}' at line {line} cannot be lifted from its declaration container; the file was rolled back (V-09 atomicity)."));
+            }
+
+            stats.FilesSkippedClean = 1;
+            // Lifted count was already incremented by PrepareMethodDeclarations
+            // for these plans; undo it so the statistics stay truthful.
+            stats.LocalFunctionsLifted = Math.Max(
+                0, stats.LocalFunctionsLifted - rewriter.UnremovablePlans.Count);
+            return new LocalFunctionLiftResult(
+                sourceCode, false, diagnostics, stats);
+        }
+
         if (!rewriter.Changed)
         {
             stats.FilesSkippedClean = 1;

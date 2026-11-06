@@ -21,8 +21,19 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<ISymbol, LiftPlan> _symbolToPlan;
     private readonly Dictionary<string, LiftPlan> _nameToPlan;
     private readonly Dictionary<TypeDeclarationSyntax, List<MethodDeclarationSyntax>> _methodsToInsert;
+    private readonly List<LiftPlan> _unremovablePlans = new();
 
     public bool Changed { get; private set; }
+
+    /// <summary>
+    /// V-09 atomicity guard: non-skipped lift plans whose declaration lives in
+    /// a statement container this rewriter cannot remove from (anything other
+    /// than BlockSyntax / SwitchSectionSyntax). The preprocessor must roll the
+    /// whole file back when this is non-empty — otherwise the class-level
+    /// method and rewritten call sites land while the original declaration
+    /// stays, which is exactly the half-rewritten tree shape V-09 caught.
+    /// </summary>
+    public IReadOnlyList<LiftPlan> UnremovablePlans => _unremovablePlans;
 
     public LocalFunctionLiftRewriter(
         SemanticModel model,
@@ -203,6 +214,118 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         }
 
         return visited;
+    }
+
+    // V-09: local functions declared directly inside a switch section (the
+    // section's statement list, NOT a nested BlockSyntax) were lifted — the
+    // class-level method was generated and every call site was rewritten —
+    // but the original declaration survived, producing a half-rewritten tree
+    // that only the strict residual count caught (rt10 JsonElement.DeepEquals).
+    // Mirror the VisitBlock removal channel for SwitchSectionSyntax.Statements.
+    public override SyntaxNode? VisitSwitchSection(SwitchSectionSyntax node)
+    {
+        var nonSkippedNodes = new HashSet<SyntaxNode>(
+            _plans.Where(p => !p.Skipped)
+                  .Select(p => (SyntaxNode)p.Node));
+
+        var indicesToRemove = new HashSet<int>();
+        for (var i = 0; i < node.Statements.Count; i++)
+        {
+            if (node.Statements[i] is LocalFunctionStatementSyntax localFn
+                && nonSkippedNodes.Contains(localFn))
+            {
+                indicesToRemove.Add(i);
+            }
+        }
+
+        var visited = (SwitchSectionSyntax?)base.VisitSwitchSection(node);
+        if (visited == null)
+            return null;
+
+        if (indicesToRemove.Count == 0)
+            return visited;
+
+        if (visited.Statements.Count == node.Statements.Count)
+        {
+            var newStatements = new List<StatementSyntax>();
+            for (var i = 0; i < visited.Statements.Count; i++)
+            {
+                if (indicesToRemove.Contains(i))
+                {
+                    Changed = true;
+                    continue;
+                }
+                newStatements.Add(visited.Statements[i]);
+            }
+            return visited.WithStatements(SyntaxFactory.List(newStatements));
+        }
+
+        // Fallback: match by SpanStart (same rationale as VisitBlock).
+        var nonSkippedKeys = new HashSet<(int start, int length)>(
+            _plans.Where(p => !p.Skipped)
+                  .Select(p => (p.Node.SpanStart, p.Node.Span.Length)));
+
+        var fallbackStatements = new List<StatementSyntax>();
+        foreach (var statement in visited.Statements)
+        {
+            if (statement is LocalFunctionStatementSyntax localFn)
+            {
+                var key = (localFn.SpanStart, localFn.Span.Length);
+                if (nonSkippedKeys.Contains(key))
+                {
+                    Changed = true;
+                    continue;
+                }
+            }
+            fallbackStatements.Add(statement);
+        }
+
+        if (fallbackStatements.Count != visited.Statements.Count)
+        {
+            visited = visited.WithStatements(SyntaxFactory.List(fallbackStatements));
+        }
+
+        return visited;
+    }
+
+    public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node)
+    {
+        var visited = (LocalFunctionStatementSyntax?)base.VisitLocalFunctionStatement(node);
+
+        // V-09 atomicity: for a non-skipped plan the class-level method has
+        // already been generated (PrepareMethodDeclarations) and call sites
+        // are being rewritten, so this declaration MUST live in a container a
+        // removal channel above (VisitBlock / VisitSwitchSection) can strip it
+        // from. Anything else (top-level statements, future syntax surfaces)
+        // would land the rewrite half-done: new method + renamed calls but the
+        // original declaration still in the tree — exactly the strict residual
+        // failure shape V-09 caught on rt10 (JsonElement.DeepEquals). Record
+        // the plan; the preprocessor rolls the whole file back when non-empty.
+        if (_nameToPlan.TryGetValue(node.Identifier.Text, out var plan)
+            && !plan.Skipped
+            && ReferenceEquals(plan.Node, node)
+            && FindRemovableStatementContainer(node) is not (BlockSyntax or SwitchSectionSyntax))
+        {
+            _unremovablePlans.Add(plan);
+        }
+
+        return visited;
+    }
+
+    private static SyntaxNode? FindRemovableStatementContainer(LocalFunctionStatementSyntax localFn)
+    {
+        // Walk outward to the nearest statement-list owner. Wrapping statements
+        // (if/for/lock bodies) put the local function in an inner BlockSyntax,
+        // which the VisitBlock channel already handles.
+        for (var current = localFn.Parent; current != null; current = current.Parent)
+        {
+            if (current is BlockSyntax or SwitchSectionSyntax or CompilationUnitSyntax)
+                return current;
+            if (current is StatementSyntax)
+                continue;
+            return current;
+        }
+        return null;
     }
 
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)

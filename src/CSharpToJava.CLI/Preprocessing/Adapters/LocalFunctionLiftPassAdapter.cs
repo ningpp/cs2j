@@ -84,8 +84,9 @@ internal sealed class LocalFunctionLiftPassAdapter : ProjectPassAdapter
     {
         // 有意保留（AmbiguousName）的局部函数不计入 residual：否则 strict 模式会把
         // 工具链近似造成的跳过升成 Error，整链无法前进。
+        var residualLocations = new List<string>();
         var residualCount = Math.Max(
-            0, CountResidualLocalFunctions(tree.IntermediateRoot) - _ambiguousNameSkips);
+            0, CountResidualLocalFunctions(tree.IntermediateRoot, residualLocations) - _ambiguousNameSkips);
         _statistics.LocalFunctionsResidual = residualCount;
 
         if (residualCount > 0)
@@ -93,9 +94,19 @@ internal sealed class LocalFunctionLiftPassAdapter : ProjectPassAdapter
             var severity = _strict
                 ? LocalFunctionLiftSeverity.Error
                 : LocalFunctionLiftSeverity.Warning;
+            // V-09: aggregate residuals must point at the surviving
+            // declarations — "[Error] :0: 2 residual" gave no way to locate
+            // them without grepping the intermediate tree by hand.
+            var shown = residualLocations.Take(5).ToList();
+            var suffix = shown.Count > 0
+                ? " Locations: " + string.Join("; ", shown)
+                  + (residualLocations.Count > shown.Count
+                      ? $" (and {residualLocations.Count - shown.Count} more)"
+                      : string.Empty)
+                : string.Empty;
             _diagnostics.Add(new LocalFunctionLiftDiagnostic(
                 severity,
-                $"{residualCount} residual local function(s) remaining after preprocessing.",
+                $"{residualCount} residual local function(s) remaining after preprocessing.{suffix}",
                 null, 0, LocalFunctionSkipReason.None));
         }
 
@@ -132,16 +143,23 @@ internal sealed class LocalFunctionLiftPassAdapter : ProjectPassAdapter
             .Select(d => $"[{d.Severity}] {d.FilePath}:{d.Line}: {d.Message}")
             .ToList();
 
-    private static int CountResidualLocalFunctions(string intermediateRoot)
+    private static int CountResidualLocalFunctions(
+        string intermediateRoot, List<string> locations)
     {
         var count = 0;
         foreach (var csFile in Directory.EnumerateFiles(
                      intermediateRoot, "*.cs", SearchOption.AllDirectories))
         {
             var content = File.ReadAllText(csFile);
-            var root = CSharpSyntaxTree.ParseText(content).GetRoot();
-            count += root.DescendantNodes()
-                .OfType<LocalFunctionStatementSyntax>().Count();
+            var tree = CSharpSyntaxTree.ParseText(content);
+            var root = tree.GetRoot();
+            foreach (var localFn in root.DescendantNodes()
+                .OfType<LocalFunctionStatementSyntax>())
+            {
+                count++;
+                var line = tree.GetLineSpan(localFn.Span).StartLinePosition.Line + 1;
+                locations.Add($"{csFile}({line}): {localFn.Identifier.Text}");
+            }
         }
 
         return count;

@@ -268,6 +268,118 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
+    // V-09: local functions declared directly inside a switch section
+    // (the rt10 JsonElement.DeepEquals shape — switch statement, section
+    // statement list, NOT a nested block). Before the fix the class-level
+    // method was generated and every call site was renamed while the
+    // original declaration survived: a half-rewritten tree that only the
+    // strict residual count caught.
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void SwitchSectionLocalFunction_DeclarationRemovedAfterLift()
+    {
+        var src = """
+        class C {
+            bool DeepEquals(int kind, int a, int b) {
+                switch (kind) {
+                    case 1:
+                        return NameEquals(a, b);
+                    default:
+                        return NameEquals(a, b);
+                        static bool NameEquals(int l, int r) { return l == r; }
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains("private static bool nameEquals(int l, int r)", result.OutputCode);
+        Assert.Contains("nameEquals(a, b)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    [Fact]
+    public void SwitchSectionLocalFunction_InCaseLabel_Removed()
+    {
+        var src = """
+        class C {
+            int M(int kind) {
+                switch (kind) {
+                    case 0:
+                        return Compute(1);
+                        static int Compute(int x) { return x * 2; }
+                    default:
+                        return 0;
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("private static int compute(int x)", result.OutputCode);
+        Assert.Contains("compute(1)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    [Fact]
+    public void SwitchSectionLocalFunctions_MultipleSections_AllRemoved()
+    {
+        var src = """
+        class C {
+            int M(int kind) {
+                switch (kind) {
+                    case 0:
+                        return Twice(1);
+                        static int Twice(int x) { return x * 2; }
+                    case 1:
+                        return Triple(1);
+                        static int Triple(int x) { return x * 3; }
+                    default:
+                        return 0;
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.Equal(2, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains("private static int twice(int x)", result.OutputCode);
+        Assert.Contains("private static int triple(int x)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    [Fact]
+    public void SwitchSectionLocalFunction_InsideNestedBlock_StillLifted()
+    {
+        // Regression guard: a local function inside a block nested in a
+        // switch section always went through the VisitBlock channel.
+        var src = """
+        class C {
+            int M(int kind) {
+                switch (kind) {
+                    case 0:
+                        {
+                            return Compute(1);
+                            static int Compute(int x) { return x * 2; }
+                        }
+                    default:
+                        return 0;
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("private static int compute(int x)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 
