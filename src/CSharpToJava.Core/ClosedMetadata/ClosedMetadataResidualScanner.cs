@@ -13,9 +13,12 @@ namespace CSharpToJava.Core.ClosedMetadata;
 /// <c>Type</c> overloads with a bare <c>typeof(闭型)</c> argument, without an
 /// adjacent guard proving registration reachability;</description></item>
 /// <item><term>bare-typeof-passthrough</term><description>
-/// rule 3 — bare <c>typeof(closed construction)</c> nodes outside the generated
-/// registration files (CM-SRCGEN AOT zones excluded, CS2J1204 owns them),
-/// i.e. shapes that would silently flow into Java erasure;</description></item>
+/// rule 3 — bare <c>typeof(闭型)</c> nodes outside the generated registration
+/// files whose closed construction was NOT registered (CM-SRCGEN AOT zones
+/// excluded, CS2J1204 owns them; unbound/dynamic constructions are CM-DYN,
+/// CS2J1210). A closure that the collector did register carries Java-side
+/// metadata, so its bare <c>typeof</c> resolves through the closed registry
+/// instead of silently flowing into Java erasure;</description></item>
 /// <item><term>unguarded-consumer-entry</term><description>
 /// rule 4 — generic D8 entries the linker could serve but that carry no
 /// adjacent bootstrap guard, including the shapes M4b deliberately defers
@@ -33,7 +36,7 @@ public static class ClosedMetadataResidualScanner
     /// <summary>Rule 1: erased-Type reflection consumption without a reachable registration.</summary>
     public const string ErasedTypeConsumptionRule = "erased-type-consumption";
 
-    /// <summary>Rule 3: bare typeof(closed) passthrough outside registration files.</summary>
+    /// <summary>Rule 3: bare typeof(闭型) whose closure was never registered, outside registration files.</summary>
     public const string BareTypeOfPassthroughRule = "bare-typeof-passthrough";
 
     /// <summary>Rule 4: servable consumer entry without an adjacent bootstrap guard.</summary>
@@ -58,6 +61,11 @@ public static class ClosedMetadataResidualScanner
 
         var holderByRecordKey = ClosedMetadataGuardResolver.BuildHolderByRecordKey(
             analysis, holderNameByPath, out var holderNames);
+        // Rule 3's registration fact source is the analysis record set itself: a
+        // record is what the registration generator emits, independent of which
+        // holder (if any) the guard machinery can reach from a consumer file.
+        var registeredRecordKeys = new HashSet<string>(
+            analysis.ClosedTypes.Select(record => record.Key.SortText), StringComparer.Ordinal);
 
         var findings = new List<Finding>();
         var infos = new List<ClosedMetadataDiagnostic>();
@@ -76,7 +84,7 @@ public static class ClosedMetadataResidualScanner
             var model = rewritten.GetSemanticModel(tree);
             var selfHolder = holderNameByPath(tree.FilePath);
 
-            ScanTypeOfNodes(root, model, findings, infos, overrides);
+            ScanTypeOfNodes(root, model, registeredRecordKeys, findings, infos, overrides);
             ScanSerializerEntries(root, model, selfHolder, holderNameByPath,
                 holderByRecordKey, holderNames, findings, infos, overrides, reportedStatements);
             ScanGuardLeaks(root, model, findings);
@@ -108,6 +116,7 @@ public static class ClosedMetadataResidualScanner
     private static void ScanTypeOfNodes(
         SyntaxNode root,
         SemanticModel model,
+        HashSet<string> registeredRecordKeys,
         List<Finding> findings,
         List<ClosedMetadataDiagnostic> infos,
         ClosedMetadataOverrides? overrides)
@@ -133,6 +142,25 @@ public static class ClosedMetadataResidualScanner
                 continue;
             }
 
+            // CM-DYN: an unbound construction (typeof(IList<>)/typeof(Dictionary<,>))
+            // has no closed argument list and can never be registered; a shape that
+            // mentions a type parameter is runtime-erased by construction. Both are
+            // owned by the collector's dynamic-site rule (CS2J1210), so reporting
+            // them here would double-count a class this rule cannot fix.
+            if (ClosedMetadataCollector.ContainsUnboundGenericConstruction(type)
+                || ClosedMetadataCollector.MentionsTypeParameter(type))
+            {
+                continue;
+            }
+
+            // Same fact source as the collector (V-06 precedent): a closure the
+            // analysis registered has Java-side metadata and does not silently
+            // disappear into erasure, so only an UNREGISTERED closure is a leak.
+            if (IsRegisteredClosedConstruction(type, registeredRecordKeys))
+            {
+                continue;
+            }
+
             var member = model.GetEnclosingSymbol(typeofExpression.SpanStart);
             if (overrides is not null
                 && overrides.IsSuppressed(member, new[] { type }, out var entry, out var force))
@@ -144,8 +172,56 @@ public static class ClosedMetadataResidualScanner
 
             findings.Add(new Finding(
                 BareTypeOfPassthroughRule, typeofExpression.GetLocation(),
-                $"bare typeof({type.ToDisplayString()}) outside the generated registration files"));
+                $"bare typeof({type.ToDisplayString()}) outside the generated registration files is not " +
+                "registered (its closure would silently flow into Java erasure)"));
         }
+    }
+
+    /// <summary>
+    /// Whether every closed construction the <paramref name="type"/> mentions (nested
+    /// generic arguments and generic-element arrays included) has an analysis record —
+    /// i.e. the registration generator emitted Java-side metadata for the whole shape.
+    /// </summary>
+    private static bool IsRegisteredClosedConstruction(
+        ITypeSymbol type,
+        HashSet<string> registeredRecordKeys)
+    {
+        var sawClosedConstruction = false;
+        foreach (var candidate in ClosedMetadataGuardResolver.EnumerateTypeClosure(type))
+        {
+            if (!ClosedMetadataCollector.ContainsGenericConstruction(candidate))
+            {
+                continue;
+            }
+
+            if (candidate is IArrayTypeSymbol array)
+            {
+                // VisitSiteType registers the array itself (List<short>[]), not just
+                // the element layer, so the array's own key must be present too.
+                sawClosedConstruction = true;
+                if (ClosedTypeKey.Create(array) is not { } arrayKey
+                    || !registeredRecordKeys.Contains(arrayKey.SortText))
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (candidate is not INamedTypeSymbol { IsDefinition: false, IsUnboundGenericType: false } named)
+            {
+                continue;
+            }
+
+            sawClosedConstruction = true;
+            if (ClosedTypeKey.Create(named) is not { } key
+                || !registeredRecordKeys.Contains(key.SortText))
+            {
+                return false;
+            }
+        }
+
+        return sawClosedConstruction;
     }
 
     // ---- rules 1 + 4: serializer entry coverage ----

@@ -620,6 +620,22 @@ public sealed class ClosedMetadataCollector
         _ => false,
     };
 
+    /// <summary>
+    /// True when the type mentions an UNBOUND generic construction
+    /// (<c>typeof(IList&lt;&gt;)</c>, <c>typeof(Dictionary&lt;,&gt;)</c>, also as an array
+    /// element). Such a shape has no closed argument list, so it can never be
+    /// registered; the collector owns it as a dynamic site (CM-DYN, CS2J1210).
+    /// Note that <c>IsDefinition</c> is false for an unbound construction — it is a
+    /// distinct symbol from the open definition — so
+    /// <see cref="ContainsGenericConstruction"/> alone cannot tell them apart.
+    /// </summary>
+    internal static bool ContainsUnboundGenericConstruction(ITypeSymbol type) => type switch
+    {
+        INamedTypeSymbol named => named.IsUnboundGenericType,
+        IArrayTypeSymbol array => ContainsUnboundGenericConstruction(array.ElementType),
+        _ => false,
+    };
+
     private static Location? SourceLocation(ISymbol symbol)
         => symbol.Locations.FirstOrDefault(location => location.IsInSource);
 }

@@ -1044,15 +1044,74 @@ public class ClosedMetadataTests
     }
 
     [Fact]
-    public void ResidualRule3_BareTypeOfClosedConstruction_IsFinding()
+    public void ResidualRule3_UnboundGenericTypeOf_HasNoFinding()
     {
+        // Unbound constructions (IsUnboundGenericType, IsDefinition == false) have no
+        // closed argument list and are never registrable; the collector classifies
+        // them as a dynamic site (CM-DYN, CS2J1210), so rule 3 must not double-report.
+        var source = """
+            using System.Collections.Generic;
+            public class C {
+                public object A() => typeof(IList<>);
+                public object B() => typeof(Dictionary<,>);
+                public object D() => typeof(KeyValuePair<,>);
+                public object E() => typeof(IList<>[]);
+            }
+            """;
+        var residual = ScanRewritten([("App.cs", source)]);
+
+        Assert.Equal(0, RuleCount(residual, ClosedMetadataResidualScanner.BareTypeOfPassthroughRule));
+    }
+
+    [Fact]
+    public void ResidualRule3_RegisteredClosedTypeOf_HasNoFinding()
+    {
+        // The closure carries Java-side metadata (CM-ENUM-1 field / CM-ENUM-2 typeof
+        // record), so the bare typeof resolves through the closed registry instead of
+        // silently flowing into Java erasure.
+        var source = """
+            using System.Collections.Generic;
+            public class Dto { public List<int> Items = new(); }
+            public class C {
+                public object M() => typeof(List<int>);
+                public object N() => typeof(List<List<short>>);
+            }
+            """;
+        var residual = ScanRewritten([("App.cs", source)]);
+
+        Assert.Equal(0, RuleCount(residual, ClosedMetadataResidualScanner.BareTypeOfPassthroughRule));
+    }
+
+    [Fact]
+    public void ResidualRule3_UnregisteredClosedTypeOf_IsFinding()
+    {
+        // Negative: the analysis did not register this closure (models a rewritten-tree
+        // closure the record set does not cover), so the passthrough is still a leak.
         var source = """
             using System.Collections.Generic;
             public class C { public object M() => typeof(List<List<short>>); }
             """;
-        var residual = ScanRewritten([("App.cs", source)]);
+        var residual = ScanRewritten(
+            [("App.cs", source)],
+            options: new ClosedMetadataOptions { RegisterExplicitTypeOfSites = false });
 
         Assert.Equal(1, RuleCount(residual, ClosedMetadataResidualScanner.BareTypeOfPassthroughRule));
+    }
+
+    [Fact]
+    public void ResidualRule3_InsideSourceGenContext_IsExcluded()
+    {
+        var source = """
+            using System.Collections.Generic;
+            using System.Text.Json.Serialization;
+            """ + StjFakes + """
+            public sealed class MyContext : JsonSerializerContext {
+                public object M() => typeof(List<List<short>>);
+            }
+            """;
+        var residual = ScanRewritten([("App.cs", source)]);
+
+        Assert.Equal(0, RuleCount(residual, ClosedMetadataResidualScanner.BareTypeOfPassthroughRule));
     }
 
     [Fact]
@@ -1103,8 +1162,9 @@ public class ClosedMetadataTests
         var residual = ScanRewritten([("App.cs", unguarded)]);
 
         Assert.Equal(1, RuleCount(residual, ClosedMetadataResidualScanner.ErasedTypeConsumptionRule));
-        // The bare typeof node is independently reported on rule 3.
-        Assert.Equal(1, RuleCount(residual, ClosedMetadataResidualScanner.BareTypeOfPassthroughRule));
+        // Rule 3 stays clean: List<int> is a registered closure (CM-ENUM-2 records this
+        // very typeof site), so only the erased-overload consumption is a finding.
+        Assert.Equal(0, RuleCount(residual, ClosedMetadataResidualScanner.BareTypeOfPassthroughRule));
 
         var guarded = """
             using System;
@@ -1124,7 +1184,7 @@ public class ClosedMetadataTests
         var guardedResidual = ScanRewritten([("App.cs", guarded)]);
 
         Assert.Equal(0, RuleCount(guardedResidual, ClosedMetadataResidualScanner.ErasedTypeConsumptionRule));
-        Assert.Equal(1, RuleCount(guardedResidual, ClosedMetadataResidualScanner.BareTypeOfPassthroughRule));
+        Assert.Equal(0, RuleCount(guardedResidual, ClosedMetadataResidualScanner.BareTypeOfPassthroughRule));
     }
 
     [Fact]
@@ -1235,6 +1295,9 @@ public class ClosedMetadataTests
                 """;
             var suppressed = ScanRewritten(
                 [("App.cs", bareTypeOf)],
+                // ENUM-2 off leaves the closure unregistered, so rule 3 fires and the
+                // skip override is what suppresses it (CLO001 Info trace).
+                options: new ClosedMetadataOptions { RegisterExplicitTypeOfSites = false },
                 overrides: loaded);
             Assert.Equal(0, RuleCount(suppressed, ClosedMetadataResidualScanner.BareTypeOfPassthroughRule));
             Assert.Contains(suppressed.Diagnostics, d => d.Code == ClosedMetadataCodes.Info);
