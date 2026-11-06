@@ -232,10 +232,10 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
             return visited;
         }
 
-        if (plan.MaterializeBody)
-        {
-            return MaterializeStubBody(visited, plan);
-        }
+        // V-04 (upgrade plan §6.4-R0): bodiless (abstract/interface) members
+        // are never materialized here — the analyzer registers them as
+        // CS2J1107 and leaves them verbatim, so every anchored plan has a
+        // body.
 
         visited = WrapExpressionBody(visited);
         if (visited.Body == null)
@@ -251,6 +251,105 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
 
         var newBody = visited.Body.WithStatements(visited.Body.Statements.InsertRange(0, toInsert));
         return visited.WithBody(newBody);
+    }
+
+    // ---- S-01 (upgrade plan §6.4-R0): token anchors in the other executable
+    // member kinds — constructors, operators, conversion operators and
+    // property/event accessors. The Java side already supports typeof tokens
+    // in these scopes; the anchors are inserted at the block start exactly
+    // like method anchors. Bodiless members carry no anchor plan (the
+    // analyzer registers them as CS2J1107 instead of materializing). ----
+
+    public override SyntaxNode? VisitConstructorDeclaration(ConstructorDeclarationSyntax node)
+    {
+        var visited = (ConstructorDeclarationSyntax)base.VisitConstructorDeclaration(node)!;
+        return InsertMemberAnchors(node, visited, visited.Body, static (v, body) => v.WithBody(body));
+    }
+
+    public override SyntaxNode? VisitOperatorDeclaration(OperatorDeclarationSyntax node)
+    {
+        var visited = (OperatorDeclarationSyntax)base.VisitOperatorDeclaration(node)!;
+        visited = WrapOperatorExpressionBody(visited);
+        return InsertMemberAnchors(node, visited, visited.Body, static (v, body) => v.WithBody(body));
+    }
+
+    public override SyntaxNode? VisitConversionOperatorDeclaration(ConversionOperatorDeclarationSyntax node)
+    {
+        var visited = (ConversionOperatorDeclarationSyntax)base.VisitConversionOperatorDeclaration(node)!;
+        if (visited.Body == null && visited.ExpressionBody != null)
+        {
+            var @return = SyntaxFactory.ReturnStatement(visited.ExpressionBody.Expression);
+            visited = visited
+                .WithBody(SyntaxFactory.Block(@return))
+                .WithExpressionBody(null)
+                .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
+        }
+
+        return InsertMemberAnchors(node, visited, visited.Body, static (v, body) => v.WithBody(body));
+    }
+
+    public override SyntaxNode? VisitAccessorDeclaration(AccessorDeclarationSyntax node)
+    {
+        var visited = (AccessorDeclarationSyntax)base.VisitAccessorDeclaration(node)!;
+        visited = WrapAccessorExpressionBody(visited);
+        return InsertMemberAnchors(node, visited, visited.Body, static (v, body) => v.WithBody(body));
+    }
+
+    /// <summary>
+    /// S-01: insert the plan's anchor statements at the start of a member's
+    /// block body (mirrors the method path: reconcile existing anchors, then
+    /// one strong-typed token local per remaining parameter).
+    /// </summary>
+    private T InsertMemberAnchors<T>(
+        SyntaxNode original,
+        T visited,
+        BlockSyntax? body,
+        Func<T, BlockSyntax, T> withBody)
+        where T : SyntaxNode
+    {
+        if (body == null || !_anchorsByNode.TryGetValue(original, out var plan))
+        {
+            return visited;
+        }
+
+        var toInsert = BuildAnchorStatements(original, body, plan.Params);
+        if (toInsert.Count == 0)
+        {
+            return visited;
+        }
+
+        return withBody(visited, body.WithStatements(body.Statements.InsertRange(0, toInsert)));
+    }
+
+    private static OperatorDeclarationSyntax WrapOperatorExpressionBody(
+        OperatorDeclarationSyntax declaration)
+    {
+        if (declaration.Body != null || declaration.ExpressionBody == null) return declaration;
+        var @return = SyntaxFactory.ReturnStatement(declaration.ExpressionBody.Expression);
+        return declaration
+            .WithBody(SyntaxFactory.Block(@return))
+            .WithExpressionBody(null)
+            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
+    }
+
+    /// <summary>
+    /// S-01: an expression-bodied accessor is wrapped into a block body so
+    /// the anchor statements have a statement slot — <c>get => e;</c> becomes
+    /// <c>get { return e; }</c>, non-get accessors become expression
+    /// statements.
+    /// </summary>
+    private static AccessorDeclarationSyntax WrapAccessorExpressionBody(
+        AccessorDeclarationSyntax accessor)
+    {
+        if (accessor.Body != null || accessor.ExpressionBody == null) return accessor;
+        var expression = accessor.ExpressionBody.Expression;
+        StatementSyntax statement = accessor.Keyword.IsKind(SyntaxKind.GetKeyword)
+            ? SyntaxFactory.ReturnStatement(expression)
+            : SyntaxFactory.ExpressionStatement(expression);
+        return accessor
+            .WithBody(SyntaxFactory.Block(statement))
+            .WithExpressionBody(null)
+            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
     }
 
     // ---- GD-CTORARR: constructor token parameters for new T[] allocations ----
@@ -564,9 +663,15 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
             return visited;
         }
 
-        // The analyzer only plans expression lambdas whose converted delegate is known.
+        // The analyzer plans an expression lambda when the converted delegate
+        // resolves (invoke method decides return-ness), or — S-02 (upgrade
+        // plan §6.4-R0/GD-NEST-2) — when the body form alone decides it: a
+        // non-statement-form body is necessarily value-returning (the `??`
+        // fallback below mirrors that deterministic rule; the analyzer never
+        // plans the ambiguous mixed case).
         var returnsVoid = (_model.GetTypeInfo(original).ConvertedType as INamedTypeSymbol)
-            ?.DelegateInvokeMethod?.ReturnsVoid ?? true;
+            ?.DelegateInvokeMethod?.ReturnsVoid
+            ?? GenericDeepenSyntaxFacts.CanBeExpressionStatement(expressionBody);
         var statement = WrapExpressionStatement(expressionBody, returnsVoid);
         var wrapped = SyntaxFactory.Block(new SyntaxList<StatementSyntax>(statement));
         var wrappedAnchors = BuildAnchorStatements(original, wrapped, plan.Params);
@@ -725,44 +830,6 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
                 SyntaxFactory.Comment($"// __cs2j: token anchor ({paramText})"),
                 SyntaxFactory.ElasticMarker)
             .WithTrailingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);
-
-    /// <summary>
-    /// Abstract/interface member whose family needs the token: materialize a stub body
-    /// (E10 precedent — abstract becomes virtual; interface members gain a default body
-    /// that throws, so no caller ever executes it).
-    /// </summary>
-    private MethodDeclarationSyntax MaterializeStubBody(MethodDeclarationSyntax method, TokenAnchorPlan plan)
-    {
-        var statements = new List<StatementSyntax>();
-        foreach (var param in plan.Params)
-        {
-            // A bare `typeof(T);` is not a valid statement (CS0201); use the anchor
-            // declaration form so the converter's typeof-scanner still sees the token.
-            statements.Add(CreateAnchorStatement(
-                GenericDeepenSyntaxFacts.AnchorVariableName(param.Name), param.Name));
-        }
-
-        statements.Add(SyntaxFactory.ParseStatement("throw new global::System.NotImplementedException();")
-            .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed));
-
-        var result = method
-            .WithBody(SyntaxFactory.Block(statements))
-            .WithExpressionBody(null)
-            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
-
-        var isAbstract = result.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword));
-        if (isAbstract && !plan.IsInterfaceMember)
-        {
-            var modifiers = SyntaxFactory.TokenList(result.Modifiers.Select(m =>
-                    m.IsKind(SyntaxKind.AbstractKeyword)
-                        ? SyntaxFactory.Token(SyntaxKind.VirtualKeyword).WithTriviaFrom(m)
-                        : m));
-            result = result.WithModifiers(modifiers);
-        }
-
-        _stats.TokenAnchorsInserted += plan.Params.Count;
-        return result;
-    }
 
     private static MethodDeclarationSyntax WrapExpressionBody(MethodDeclarationSyntax method)
     {

@@ -44,6 +44,7 @@ public class GenericPreprocessTests(ITestOutputHelper output)
     {
         var s = new GenericPreprocessStatistics();
         Assert.Equal(0, s.FilesTransformed);
+        Assert.Equal(0, s.DefaultExpressionsEncountered);
         Assert.Equal(0, s.DefaultExpressionsRewritten);
     }
 
@@ -76,6 +77,7 @@ public class GenericPreprocessTests(ITestOutputHelper output)
         """;
         var result = Preprocess(src);
         Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.DefaultExpressionsEncountered);
         Assert.Equal(1, result.Statistics.DefaultExpressionsRewritten);
         Assert.DoesNotContain("default(T)", result.OutputCode, StringComparison.Ordinal);
         Assert.Contains("default", result.OutputCode, StringComparison.Ordinal);
@@ -121,7 +123,9 @@ public class GenericPreprocessTests(ITestOutputHelper output)
         }
         """;
         var result = Preprocess(src);
-        Assert.Equal(1, result.Statistics.DefaultExpressionsRewritten);
+        // Counted as encountered, but NOT rewritten (type-inference context).
+        Assert.Equal(1, result.Statistics.DefaultExpressionsEncountered);
+        Assert.Equal(0, result.Statistics.DefaultExpressionsRewritten);
         Assert.Contains("default(T)", result.OutputCode, StringComparison.Ordinal);
         AssertNoSyntaxErrors(result.OutputCode);
     }
@@ -152,7 +156,9 @@ public class GenericPreprocessTests(ITestOutputHelper output)
         }
         """;
         var result = Preprocess(src);
-        Assert.Equal(1, result.Statistics.DefaultExpressionsRewritten);
+        // Counted as encountered, but NOT rewritten (== null context).
+        Assert.Equal(1, result.Statistics.DefaultExpressionsEncountered);
+        Assert.Equal(0, result.Statistics.DefaultExpressionsRewritten);
         Assert.Contains("default(T)", result.OutputCode, StringComparison.Ordinal);
         AssertNoSyntaxErrors(result.OutputCode);
     }
@@ -193,8 +199,10 @@ public class GenericPreprocessTests(ITestOutputHelper output)
         }
         """;
         var result = Preprocess(src);
-        // default(T) is counted, but NOT rewritten because it's in == null context.
-        Assert.True(result.Statistics.DefaultExpressionsRewritten >= 1);
+        // default(T) is counted as encountered, but NOT rewritten because
+        // it's in == null context.
+        Assert.True(result.Statistics.DefaultExpressionsEncountered >= 1);
+        Assert.Equal(0, result.Statistics.DefaultExpressionsRewritten);
         Assert.Contains("default(T)", result.OutputCode, StringComparison.Ordinal);
         AssertNoSyntaxErrors(result.OutputCode);
     }
@@ -230,7 +238,9 @@ public class GenericPreprocessTests(ITestOutputHelper output)
         }
         """;
         var result = Preprocess(src);
-        Assert.True(result.Statistics.DefaultExpressionsRewritten >= 1);
+        // Counted as encountered, but NOT rewritten (!= null context).
+        Assert.True(result.Statistics.DefaultExpressionsEncountered >= 1);
+        Assert.Equal(0, result.Statistics.DefaultExpressionsRewritten);
         Assert.Contains("default(T)", result.OutputCode, StringComparison.Ordinal);
         AssertNoSyntaxErrors(result.OutputCode);
     }
@@ -617,7 +627,10 @@ public class GenericPreprocessTests(ITestOutputHelper output)
         }
         """;
         var result = Preprocess(src);
-        Assert.True(result.Statistics.DefaultExpressionsRewritten >= 3);
+        // 4 default(T) sites encountered; 2 rewritten (GetValue + T value),
+        // 2 kept (both == null contexts).
+        Assert.Equal(4, result.Statistics.DefaultExpressionsEncountered);
+        Assert.Equal(2, result.Statistics.DefaultExpressionsRewritten);
         // default(T) == null must NOT be rewritten.
         Assert.Contains("default(T) == null", result.OutputCode, StringComparison.Ordinal);
         // But T value = default(T) SHOULD be rewritten to `T value = default;`.
@@ -800,8 +813,10 @@ public class GenericPreprocessTests(ITestOutputHelper output)
         Assert.Equal(1, result.Statistics.NewTypeParamRewritten);
         // new T[n] rewritten.
         Assert.Equal(1, result.Statistics.NewTypeParamArrayRewritten);
-        // default(T) counted (some rewritten, some not).
-        Assert.True(result.Statistics.DefaultExpressionsRewritten >= 3);
+        // default(T) counted: 3 encountered (field init, GetDefault, == null
+        // ternary), 2 rewritten, 1 kept in the == null context.
+        Assert.Equal(3, result.Statistics.DefaultExpressionsEncountered);
+        Assert.Equal(2, result.Statistics.DefaultExpressionsRewritten);
         // typeof(T), is T, as T tracked.
         Assert.Equal(1, result.Statistics.TypeOfExpressionsSeen);
         Assert.Equal(1, result.Statistics.IsTypeParamSeen);
@@ -1157,8 +1172,10 @@ public class GenericPreprocessTests(ITestOutputHelper output)
         }
         """;
         var result = Preprocess(src);
-        // default(T) is counted but NOT rewritten (type inference context).
-        Assert.True(result.Statistics.DefaultExpressionsRewritten >= 1);
+        // default(T) is counted as encountered but NOT rewritten
+        // (type-inference context).
+        Assert.True(result.Statistics.DefaultExpressionsEncountered >= 1);
+        Assert.Equal(0, result.Statistics.DefaultExpressionsRewritten);
         Assert.Contains("default(T)", result.OutputCode, StringComparison.Ordinal);
         AssertNoSyntaxErrors(result.OutputCode);
     }
@@ -2159,6 +2176,68 @@ public class GenericPreprocessTests(ITestOutputHelper output)
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var preprocessor = new GenericPreprocessor();
         return preprocessor.Preprocess(source, compilation.GetSemanticModel(tree));
+    }
+
+    private static GenericPreprocessResult PreprocessWithOptions(
+        string source, GenericPreprocessOptions options)
+    {
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("generic-test",
+            new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(List<>).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var preprocessor = new GenericPreprocessor();
+        return preprocessor.Preprocess(source, compilation.GetSemanticModel(tree), options);
+    }
+
+    [Fact]
+    public void Statistics_DefaultT_CounterSplit_EncounteredAndRewrittenAreIndependent()
+    {
+        // §6.4-R0 counter split (upgrade plan): DefaultExpressionsEncountered
+        // counts every type-parameter default(T) site; DefaultExpressionsRewritten
+        // counts only actual rewrites. One rewritten site + one == null site
+        // must yield encountered=2 / rewritten=1 — the historical single
+        // counter reported 2 under the misleading "Rewritten" name.
+        var src = """
+        class C<T> where T : class
+        {
+            public T Get() => default(T);
+            public bool IsNull() => default(T) == null;
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.DefaultExpressionsEncountered);
+        Assert.Equal(1, result.Statistics.DefaultExpressionsRewritten);
+        // The return-position site is rewritten; the == null site is kept.
+        Assert.Contains("public T Get() => default;", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("default(T) == null", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    [Fact]
+    public void Statistics_DefaultT_RewriteDisabled_StillCountsEncountered()
+    {
+        // With RewriteDefaultExpression off nothing is rewritten, but the
+        // encountered counter still audits the site inventory.
+        var src = """
+        class C<T>
+        {
+            public T Get() => default(T);
+        }
+        """;
+        var result = PreprocessWithOptions(src, new GenericPreprocessOptions
+        {
+            RewriteDefaultExpression = false,
+        });
+        Assert.False(result.Changed);
+        Assert.Equal(1, result.Statistics.DefaultExpressionsEncountered);
+        Assert.Equal(0, result.Statistics.DefaultExpressionsRewritten);
+        Assert.Contains("default(T)", result.OutputCode, StringComparison.Ordinal);
     }
 
     private static void AssertNoSyntaxErrors(string code)

@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CSharpToJava.Core.GenericPreprocess;
@@ -78,12 +79,34 @@ public static class GenericDeepenSyntaxFacts
     internal static bool IsPredefinedTypeName(string name) => name switch
     {
         "bool" or "byte" or "sbyte" or "char" or "decimal" or "double" or "float"
-        or "int" or "uint" or "long" or "ulong" or "short" or "ushort"
-        or "object" or "string" or "void" or "dynamic" or "var"
-        or "Boolean" or "Byte" or "SByte" or "Char" or "Decimal" or "Double"
-        or "Single" or "Int32" or "UInt32" or "Int64" or "UInt64"
-        or "Int16" or "UInt16" or "Object" or "String" or "Void"
-        => true,
+            or "int" or "uint" or "long" or "ulong" or "short" or "ushort"
+            or "object" or "string" or "void" or "dynamic" or "var"
+            or "Boolean" or "Byte" or "SByte" or "Char" or "Decimal" or "Double"
+            or "Single" or "Int32" or "UInt32" or "Int64" or "UInt64"
+            or "Int16" or "UInt16" or "Object" or "String" or "Void"
+            => true,
+        _ => false,
+    };
+
+    /// <summary>
+    /// S-02 (upgrade plan §6.4-R0): whether the expression is one of the C#
+    /// statement-expression forms (assignment, call, increment, decrement,
+    /// await, object creation — the CS0201 set). An expression-bodied lambda
+    /// whose body is NOT statement-form is necessarily value-returning (an
+    /// Action-converted expression lambda cannot carry it), so wrapping it as
+    /// <c>x => { return e; }</c> is deterministic without knowing the delegate
+    /// — the basis for anchoring expression lambdas whose converted type the
+    /// pass cannot resolve (incomplete reference set, the W-08 gap).
+    /// </summary>
+    internal static bool CanBeExpressionStatement(ExpressionSyntax expression) => expression switch
+    {
+        InvocationExpressionSyntax => true,
+        AssignmentExpressionSyntax => true,
+        PostfixUnaryExpressionSyntax => true,
+        PrefixUnaryExpressionSyntax prefix => prefix.IsKind(SyntaxKind.PreIncrementExpression)
+            || prefix.IsKind(SyntaxKind.PreDecrementExpression),
+        AwaitExpressionSyntax => true,
+        ObjectCreationExpressionSyntax => true,
         _ => false,
     };
 }

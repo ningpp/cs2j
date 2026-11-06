@@ -34,6 +34,17 @@ public static class GenericDeepenCodes
     public const string PatternNotLiftable = "CS2J1104";
     public const string CatchLoweringPreconditionFailed = "CS2J1105";
     public const string CallSiteOutsideCompilation = "CS2J1106";
+
+    /// <summary>
+    /// V-04 (upgrade plan §6.4-R0): a bodiless (abstract/interface) family
+    /// member needs a token anchor, but materializing a stub body would
+    /// mutate the public ABI (abstract→virtual, interface DIM with a
+    /// throwing body). The member is left VERBATIM and the degradation is
+    /// REGISTERED with this Warning (never escalated by strict mode — it is
+    /// a declared limitation, not a correctness failure).
+    /// </summary>
+    public const string AnchorMemberNotMaterializable = "CS2J1107";
+
     public const string ExpressionTreeSite = "CS2J1110";
     public const string ResidualFound = "CS2J1120";
     public const string RestoreOrBuildFailed = "CS2J1130";

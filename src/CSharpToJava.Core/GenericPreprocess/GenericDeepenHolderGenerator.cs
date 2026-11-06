@@ -24,6 +24,20 @@ public static class GenericDeepenHolderGenerator
             sb.AppendLine("[global::System.Runtime.CompilerServices.CompilerGenerated]");
             sb.AppendLine($"public static class {group.Key.HolderTypeName}");
             sb.AppendLine("{");
+
+            // V-02 (upgrade plan §6.4-R0): the gate/store sync primitives are
+            // HOLDER-LEVEL singletons emitted once per holder type. They used
+            // to be emitted per FIELD inside AppendAccessors, so a containing
+            // type with two or more stateful static generic fields produced
+            // duplicate __cs2j_gate/__cs2j_store members (CS0102 —
+            // uncompilable generated code). V-01: EVERY accessor form is now
+            // cached (singleton identity), so every non-empty holder carries
+            // the pair.
+            sb.AppendLine("    private static readonly object __cs2j_gate = new object();");
+            sb.AppendLine("    private static readonly global::System.Collections.Generic.Dictionary<string, object> __cs2j_store =");
+            sb.AppendLine("        new global::System.Collections.Generic.Dictionary<string, object>();");
+            sb.AppendLine();
+
             var first = true;
             foreach (var plan in group)
             {
@@ -49,21 +63,19 @@ public static class GenericDeepenHolderGenerator
             ? ""
             : " " + string.Join(" ", plan.ConstraintTexts);
 
-        if (plan.IsSingletonForm)
-        {
-            sb.AppendLine($"    public static {plan.FieldTypeText} __cs2j_get_{plan.FieldName}<{typeParams}>({tokenParams}){constraints}");
-            sb.AppendLine($"        => {plan.InitializerText};");
-            return;
-        }
-
         // Key: AssemblyQualifiedName concat of the token params — the per-closed-type slot.
         var key = string.Join(" + \"|\" + ",
             plan.Params.Select(p => $"__cs2j_token_{p.Name}.AssemblyQualifiedName"));
+
+        // V-01 (upgrade plan §6.4-R0): the getter is a CACHED per-closed-type
+        // slot for EVERY plan form. The singleton form used to be an
+        // expression-bodied `=> InitializerText` accessor, which re-executed
+        // the initializer on every call and broke `static readonly` singleton
+        // identity (two accesses returned distinct instances). Singleton
+        // identity is no longer a compatibility behavior (plan risk 8): the
+        // cached getter constructs exactly once per closed type, and mutable
+        // fields additionally expose the setter.
         var factory = plan.InitializerText ?? $"default({plan.FieldTypeText})";
-        sb.AppendLine("    private static readonly object __cs2j_gate = new object();");
-        sb.AppendLine("    private static readonly global::System.Collections.Generic.Dictionary<string, object> __cs2j_store =");
-        sb.AppendLine("        new global::System.Collections.Generic.Dictionary<string, object>();");
-        sb.AppendLine();
         sb.AppendLine($"    public static {plan.FieldTypeText} __cs2j_get_{plan.FieldName}<{typeParams}>({tokenParams}){constraints}");
         sb.AppendLine("    {");
         sb.AppendLine("        var __cs2j_key = " + key + ";");

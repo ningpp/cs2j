@@ -6,7 +6,21 @@ namespace CSharpToJava.Core.GenericPreprocess;
 
 public enum GenericDeepenParamKind { ClassTypeParameter, MethodTypeParameter }
 
-/// <summary>Type parameter referenced by (kind, ordinal) so family members with renamed parameters stay comparable.</summary>
+/// <summary>
+/// Type parameter reference identity: (kind, ordinal, name).
+/// <para>
+/// V-03 (upgrade plan §6.4-R0): <see cref="CompareTo"/>, the record's
+/// Equals/GetHashCode and every default-comparer collection share ONE
+/// identity semantics. Historically CompareTo compared only (kind, ordinal)
+/// while the record equality included Name, so a SortedSet (CompareTo) and a
+/// List/HashSet (Equals) deduplicated the same refs differently — the
+/// SortedSet/List split. Collections that intentionally identify RENAMED
+/// same-slot parameters (family sync: a base method's T and an override's
+/// TValue are one logical parameter) project to (kind, ordinal) via the
+/// explicit <c>ParamRefComparer</c> — the family-slot semantics — never via
+/// the default comparer.
+/// </para>
+/// </summary>
 public sealed record GenericDeepenParamRef(GenericDeepenParamKind Kind, int Ordinal, string Name)
     : IComparable<GenericDeepenParamRef>
 {
@@ -14,19 +28,26 @@ public sealed record GenericDeepenParamRef(GenericDeepenParamKind Kind, int Ordi
     {
         if (other == null) return 1;
         var kind = Kind.CompareTo(other.Kind);
-        return kind != 0 ? kind : Ordinal.CompareTo(other.Ordinal);
+        if (kind != 0) return kind;
+        var ordinal = Ordinal.CompareTo(other.Ordinal);
+        return ordinal != 0 ? ordinal : string.CompareOrdinal(Name, other.Name);
     }
 }
 
-/// <summary>Anchor plan for one method: the ordered type parameters whose runtime tokens the Java side needs.</summary>
+/// <summary>Anchor plan for one executable member: the ordered type parameters whose runtime tokens the Java side needs.</summary>
 public sealed class TokenAnchorPlan
 {
     public required IMethodSymbol Method { get; init; }
-    public required MethodDeclarationSyntax Declaration { get; init; }
+
+    /// <summary>
+    /// The member declaration carrying the anchor. S-01 (upgrade plan
+    /// §6.4-R0): besides methods this can be a constructor, operator,
+    /// conversion operator or accessor declaration — the Java side already
+    /// supports typeof tokens in those member scopes; the preprocess side
+    /// now anchors them too.
+    /// </summary>
+    public required SyntaxNode Declaration { get; init; }
     public required IReadOnlyList<GenericDeepenParamRef> Params { get; init; }
-    /// <summary>Member without a body (abstract/interface): materialize a stub body carrying typeof statements (E10 precedent).</summary>
-    public bool MaterializeBody { get; init; }
-    public bool IsInterfaceMember { get; init; }
     public bool FromFamilySync { get; init; }
     public string FilePath => Declaration.SyntaxTree.FilePath;
 }
@@ -266,29 +287,26 @@ public sealed class GenericDeepenAnalyzer
         GenericDeepenParamRef CallerParam,
         InvocationExpressionSyntax Invocation);
 
+    /// <summary>
+    /// FAMILY-SLOT projection (kind, ordinal): the deliberate identity method
+    /// family sync uses — a base method's T and an override's TValue at the
+    /// same slot are one logical parameter. V-03: this is an explicit
+    /// PROJECTION, not the record's identity; the record's own
+    /// CompareTo/Equals now agree on (kind, ordinal, name), so collections
+    /// that must NOT collapse distinct-named same-slot parameters (closure
+    /// needs: method F&lt;T&gt;'s T #0 and nested local function A&lt;U&gt;'s U #0)
+    /// use the default comparer instead.
+    /// </summary>
     private sealed class ParamRefComparer : IComparer<GenericDeepenParamRef>
     {
         public static readonly ParamRefComparer Instance = new();
 
         public int Compare(GenericDeepenParamRef? x, GenericDeepenParamRef? y)
-            => (x ?? throw new ArgumentNullException(nameof(x))).CompareTo(y);
-    }
-
-    /// <summary>
-    /// Closure layers can simultaneously carry parameters that are distinct by name
-    /// but share a (kind, ordinal) slot — e.g. method <c>F&lt;T&gt;</c>'s T #0 and nested
-    /// local function <c>A&lt;U&gt;</c>'s U #0 inside one closure set. Method-level
-    /// family sync intentionally identifies parameters by (kind, ordinal) alone;
-    /// closure plans must not collapse same-ordinal differently-named parameters.
-    /// </summary>
-    private sealed class NamedParamRefComparer : IComparer<GenericDeepenParamRef>
-    {
-        public static readonly NamedParamRefComparer Instance = new();
-
-        public int Compare(GenericDeepenParamRef? x, GenericDeepenParamRef? y)
         {
-            var baseCompare = ParamRefComparer.Instance.Compare(x, y);
-            return baseCompare != 0 ? baseCompare : string.CompareOrdinal(x!.Name, y!.Name);
+            ArgumentNullException.ThrowIfNull(x);
+            ArgumentNullException.ThrowIfNull(y);
+            var kind = x.Kind.CompareTo(y.Kind);
+            return kind != 0 ? kind : x.Ordinal.CompareTo(y.Ordinal);
         }
     }
 
@@ -350,15 +368,28 @@ public sealed class GenericDeepenAnalyzer
         foreach (var (method, needs) in _needs)
         {
             if (needs.Count == 0) continue;
-            if (!_methodDecls.TryGetValue(method, out var declaration)) continue;
+
+            // S-01: the declaration may be a method or one of the other
+            // executable member kinds (ctor/operator/accessor).
+            SyntaxNode declaration;
+            if (_methodDecls.TryGetValue(method, out var methodDecl))
+            {
+                declaration = methodDecl;
+            }
+            else if (!_memberDecls.TryGetValue(method, out declaration!))
+            {
+                continue;
+            }
+
             // GD-MTOK: a threaded method's token reaches it as an injected parameter,
             // so the anchor local (which the Java side degrades to Object.class for a
             // method type parameter) must not be inserted alongside it.
             if (threadedMethods.Contains(method)) continue;
 
-            var isInterface = method.ContainingType?.TypeKind == TypeKind.Interface;
-            var hasBody = declaration.Body != null || declaration.ExpressionBody != null;
-            var isPartial = declaration.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword));
+            var (declaredBody, declaredExpressionBody) = MemberBodies(declaration);
+            var hasBody = declaredBody != null || declaredExpressionBody != null;
+            var isPartial = declaration is MethodDeclarationSyntax partialMethod
+                && partialMethod.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword));
             if (isPartial && !hasBody)
             {
                 _diagnostics.Add(new GenericDeepenDiagnostic(
@@ -370,13 +401,32 @@ public sealed class GenericDeepenAnalyzer
                 continue;
             }
 
+            // V-04 (upgrade plan §6.4-R0): a bodiless (abstract/interface)
+            // family member is left VERBATIM — materializing a stub body
+            // would mutate the public ABI (abstract→virtual; interface
+            // members gaining a throwing default body). The anchor's only
+            // consumer is the Java side's per-body typeof scan, and a
+            // throwing stub body is dead code for it; the family's members
+            // WITH bodies keep their anchors. The degradation is registered
+            // as CS2J1107 (Warning; never escalated by strict mode).
+            if (!hasBody)
+            {
+                _diagnostics.Add(new GenericDeepenDiagnostic(
+                    GenericDeepenSeverity.Warning, GenericDeepenRule.Anchor,
+                    GenericDeepenCodes.AnchorMemberNotMaterializable,
+                    $"Bodiless member '{method.ToDisplayString()}' needs a token anchor but materializing a stub " +
+                    "body would mutate the public ABI (abstract→virtual / interface default body); the member is " +
+                    "left verbatim and the family's concrete members carry the anchors.",
+                    declaration.SyntaxTree.FilePath,
+                    declaration.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                continue;
+            }
+
             anchors.Add(new TokenAnchorPlan
             {
                 Method = method,
                 Declaration = declaration,
                 Params = needs.ToList(),
-                MaterializeBody = !hasBody,
-                IsInterfaceMember = isInterface,
             });
         }
 
@@ -483,6 +533,12 @@ public sealed class GenericDeepenAnalyzer
         {
             var severity = diagnostic.Severity switch
             {
+                // V-04: a registered degradation (bodiless family member left
+                // verbatim), not a correctness failure — strict mode keeps it
+                // a Warning.
+                GenericDeepenSeverity.Warning
+                    when diagnostic.Code == GenericDeepenCodes.AnchorMemberNotMaterializable =>
+                    GenericDeepenSeverity.Warning,
                 GenericDeepenSeverity.Warning => GenericDeepenSeverity.Error,
                 GenericDeepenSeverity.Info when diagnostic.Code == GenericDeepenCodes.ExpressionTreeSite =>
                     GenericDeepenSeverity.Warning,
@@ -1415,6 +1471,19 @@ public sealed class GenericDeepenAnalyzer
 
     // ---- phase 1: per-tree walk ----
 
+    /// <summary>
+    /// S-01 (upgrade plan §6.4-R0): declarations of the OTHER executable
+    /// member kinds — constructors, operators, conversion operators and
+    /// property/event accessors — whose bodies can carry direct token needs.
+    /// The Java side already supports typeof tokens in these member scopes;
+    /// the preprocess side anchors them through the same pipeline as
+    /// methods. Method-family/hoisting/MTOK bookkeeping stays keyed on
+    /// <see cref="_methodDecls"/> (methods only) — this map exists purely
+    /// so the anchor-construction loop can find the member's declaration.
+    /// </summary>
+    private readonly Dictionary<IMethodSymbol, SyntaxNode> _memberDecls =
+        new(SymbolEqualityComparer.Default);
+
     private void WalkTree(SyntaxTree tree)
     {
         var model = _compilation.GetSemanticModel(tree);
@@ -1426,6 +1495,19 @@ public sealed class GenericDeepenAnalyzer
             var original = symbol.OriginalDefinition;
             _methodDecls[original] = md;
             foreach (var need in CollectDirectNeeds(symbol, md, model))
+            {
+                AddNeed(original, need);
+            }
+        }
+
+        // S-01: the same direct-need collection over every other executable
+        // member kind (ctor/operator/conversion operator/accessor).
+        foreach (var member in EnumerateNonMethodExecutableMembers(root))
+        {
+            if (model.GetDeclaredSymbol(member) is not IMethodSymbol symbol) continue;
+            var original = symbol.OriginalDefinition;
+            _memberDecls[original] = member;
+            foreach (var need in CollectDirectNeeds(symbol, member, model))
             {
                 AddNeed(original, need);
             }
@@ -1444,6 +1526,27 @@ public sealed class GenericDeepenAnalyzer
             foreach (var typeOf in root.DescendantNodes().OfType<TypeOfExpressionSyntax>())
             {
                 CollectConstructorArrayTokenNeed(typeOf, model);
+            }
+        }
+    }
+
+    /// <summary>
+    /// S-01: every executable member declaration that is NOT a method —
+    /// constructors, operators, conversion operators and accessors. Methods
+    /// are walked separately (they feed <see cref="_methodDecls"/>).
+    /// </summary>
+    private static IEnumerable<SyntaxNode> EnumerateNonMethodExecutableMembers(SyntaxNode root)
+    {
+        foreach (var node in root.DescendantNodes())
+        {
+            switch (node)
+            {
+                case ConstructorDeclarationSyntax:
+                case OperatorDeclarationSyntax:
+                case ConversionOperatorDeclarationSyntax:
+                case AccessorDeclarationSyntax:
+                    yield return node;
+                    break;
             }
         }
     }
@@ -1927,17 +2030,34 @@ public sealed class GenericDeepenAnalyzer
         return plans;
     }
 
+    /// <summary>
+    /// S-01 (upgrade plan §6.4-R0): the (block, expression) bodies of any
+    /// executable member kind — method, constructor, operator, conversion
+    /// operator or accessor.
+    /// </summary>
+    private static (BlockSyntax? Body, ArrowExpressionClauseSyntax? ExpressionBody) MemberBodies(
+        SyntaxNode member) => member switch
+    {
+        MethodDeclarationSyntax m => (m.Body, m.ExpressionBody),
+        ConstructorDeclarationSyntax c => (c.Body, c.ExpressionBody),
+        OperatorDeclarationSyntax o => (o.Body, o.ExpressionBody),
+        ConversionOperatorDeclarationSyntax o => (o.Body, o.ExpressionBody),
+        AccessorDeclarationSyntax a => (a.Body, a.ExpressionBody),
+        _ => (null, null),
+    };
+
     private IEnumerable<GenericDeepenParamRef> CollectDirectNeeds(
-        IMethodSymbol method, MethodDeclarationSyntax declaration, SemanticModel model)
+        IMethodSymbol method, SyntaxNode declaration, SemanticModel model)
     {
         var needs = new SortedSet<GenericDeepenParamRef>(ParamRefComparer.Instance);
         var visible = CollectVisibleParams(method);
-        if (declaration.Body == null && declaration.ExpressionBody == null)
+        var (body, expressionBody) = MemberBodies(declaration);
+        if (body == null && expressionBody == null)
         {
             return needs;
         }
 
-        var bodyNodes = (declaration.Body ?? (SyntaxNode)declaration.ExpressionBody!).DescendantNodes().ToList();
+        var bodyNodes = (body ?? (SyntaxNode)expressionBody!).DescendantNodes().ToList();
         foreach (var node in bodyNodes)
         {
             switch (node)
@@ -1981,7 +2101,7 @@ public sealed class GenericDeepenAnalyzer
         SemanticModel model,
         TypeSyntax type,
         List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> visible,
-        MethodDeclarationSyntax declaration)
+        SyntaxNode declaration)
     {
         var syntax = type;
         if (syntax is NullableTypeSyntax nullable) syntax = nullable.ElementType;
@@ -2013,7 +2133,7 @@ public sealed class GenericDeepenAnalyzer
     /// </summary>
     private void RegisterTokenSite(
         IMethodSymbol method,
-        MethodDeclarationSyntax declaration,
+        SyntaxNode declaration,
         SemanticModel model,
         SyntaxNode site,
         ITypeParameterSymbol tp,
@@ -2069,7 +2189,10 @@ public sealed class GenericDeepenAnalyzer
 
             if (!_closureNeeds.TryGetValue(closure, out var set))
             {
-                set = new SortedSet<GenericDeepenParamRef>(NamedParamRefComparer.Instance);
+                // Default comparer = the record's full identity (kind, ordinal,
+                // name): distinct-named same-slot parameters stay distinct
+                // (V-03 — the former NamedParamRefComparer local patch).
+                set = new SortedSet<GenericDeepenParamRef>();
                 _closureNeeds[closure] = set;
             }
 
@@ -2090,7 +2213,7 @@ public sealed class GenericDeepenAnalyzer
     /// </summary>
     private static List<SyntaxNode> ClosureChain(
         SyntaxNode site,
-        MethodDeclarationSyntax declaration,
+        SyntaxNode declaration,
         LocalFunctionStatementSyntax? ownerClosure)
     {
         var chain = new List<SyntaxNode>();
@@ -2133,6 +2256,20 @@ public sealed class GenericDeepenAnalyzer
     /// A closure can host anchor statements when it already has a block body, or
     /// when its expression body can deterministically be wrapped (local function
     /// with a spelled return type, or a lambda bound to a known delegate).
+    /// <para>
+    /// S-02 (upgrade plan §6.4-R0/GD-NEST-2): an expression-bodied lambda whose
+    /// converted type is unresolvable (incomplete reference set — the W-08 gap —
+    /// or a non-delegate conversion such as boxing the natural delegate type)
+    /// is still insertable whenever the BODY FORM alone decides the wrap:
+    /// a non-statement-form body is necessarily value-returning
+    /// (<see cref="GenericDeepenSyntaxFacts.CanBeExpressionStatement"/>), and a
+    /// statically void statement-form body is necessarily Action-converted.
+    /// Only the mixed case (non-void statement-form body without a delegate)
+    /// stays undecidable and reports CS2J1101 — historically ALL unresolvable
+    /// cases were skipped, which left nested-closure tokens silently
+    /// unreachable (the 37×CS2J1101 json evidence) while the residual counter
+    /// still reported 0.
+    /// </para>
     /// </summary>
     private static bool IsClosureAnchorInsertable(SyntaxNode closure, SemanticModel model)
     {
@@ -2149,17 +2286,57 @@ public sealed class GenericDeepenAnalyzer
             case LambdaExpressionSyntax { Block: not null }:
                 return true;
             case LambdaExpressionSyntax lambda:
-                // Expression-bodied lambda: wrapping needs the delegate's return-ness.
-                // A dynamic/unbound conversion gives no INamedTypeSymbol here.
-                if (model.GetTypeInfo(lambda).ConvertedType is not INamedTypeSymbol converted)
+                if (model.GetTypeInfo(lambda).ConvertedType is INamedTypeSymbol converted)
                 {
-                    return false;
+                    if (converted.DelegateInvokeMethod != null)
+                    {
+                        return true;
+                    }
+
+                    // A quoted Expression<TDelegate> conversion can never host
+                    // statements; anything else (e.g. boxing the natural
+                    // delegate type to object) falls through to the body-form
+                    // rule.
+                    if (IsQuotedExpressionType(converted))
+                    {
+                        return false;
+                    }
                 }
 
-                return converted.DelegateInvokeMethod != null;
+                return LambdaWrapIsDeterministic(lambda, model);
             default:
                 return false;
         }
+    }
+
+    private static bool IsQuotedExpressionType(INamedTypeSymbol type)
+        => type is { MetadataName: "Expression`1", ContainingNamespace: { Name: "Expressions" } }
+            && type.ContainingNamespace.ContainingNamespace is
+            { Name: "Linq", ContainingNamespace: { Name: "System" } };
+
+    /// <summary>
+    /// S-02: whether the lambda's expression-body wrap is decidable from the
+    /// body form alone (see <see cref="IsClosureAnchorInsertable"/>).
+    /// </summary>
+    private static bool LambdaWrapIsDeterministic(LambdaExpressionSyntax lambda, SemanticModel model)
+    {
+        if (lambda.ExpressionBody is not { } expression)
+        {
+            return false;
+        }
+
+        if (!GenericDeepenSyntaxFacts.CanBeExpressionStatement(expression))
+        {
+            // A value-producing non-statement form cannot appear in an
+            // Action-converted expression lambda → necessarily Func-like →
+            // the `return` wrap is deterministic.
+            return true;
+        }
+
+        // Statement-form body: deterministic only when statically void
+        // (Action). A non-void statement form is ambiguous (Action statement
+        // vs Func return) without the delegate.
+        return model.GetTypeInfo(expression).Type?.SpecialType == SpecialType.System_Void;
     }
 
     private void ReportExpressionTreeSite(SemanticModel model, SyntaxNode site)
@@ -2178,7 +2355,7 @@ public sealed class GenericDeepenAnalyzer
 
     private void CollectPattern(
         IMethodSymbol method,
-        MethodDeclarationSyntax declaration,
+        SyntaxNode declaration,
         IsPatternExpressionSyntax pattern,
         SemanticModel model,
         List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> visible,
@@ -2248,7 +2425,7 @@ public sealed class GenericDeepenAnalyzer
 
     private void CollectCatch(
         IMethodSymbol method,
-        MethodDeclarationSyntax declaration,
+        SyntaxNode declaration,
         CatchClauseSyntax clause,
         SemanticModel model,
         List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> visible,
@@ -2583,7 +2760,10 @@ public sealed class GenericDeepenAnalyzer
 
             if (!_closureNeeds.TryGetValue(closure, out var set))
             {
-                set = new SortedSet<GenericDeepenParamRef>(NamedParamRefComparer.Instance);
+                // Default comparer = the record's full identity (kind, ordinal,
+                // name): distinct-named same-slot parameters stay distinct
+                // (V-03 — the former NamedParamRefComparer local patch).
+                set = new SortedSet<GenericDeepenParamRef>();
                 _closureNeeds[closure] = set;
             }
 

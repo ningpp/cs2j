@@ -24,6 +24,17 @@ public sealed class GenericPreprocessStatistics
     public int FilesScanned;
     public int FilesTransformed;
     public int FilesSkippedClean;
+
+    /// <summary>
+    /// Every <c>default(T)</c> site whose target type is a type parameter,
+    /// counted regardless of whether the rewriter actually rewrote it. This
+    /// is the semantics the single <c>DefaultExpressionsRewritten</c> counter
+    /// had before the split (upgrade plan §6.4-R0: the old name said
+    /// Rewritten but counted Encountered).
+    /// </summary>
+    public int DefaultExpressionsEncountered;
+
+    /// <summary>Only the <c>default(T)</c> sites actually rewritten to <c>default</c>.</summary>
     public int DefaultExpressionsRewritten;
     public int NewTypeParamRewritten;
     public int NewTypeParamArrayRewritten;

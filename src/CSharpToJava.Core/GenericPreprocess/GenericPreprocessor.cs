@@ -112,8 +112,11 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
         if (!IsTypeParameterType(node.Type))
             return visited;
 
-        // Count the occurrence regardless of whether we rewrite.
-        _stats.DefaultExpressionsRewritten++;
+        // Count the occurrence regardless of whether we rewrite: the
+        // encountered/rewritten pair keeps the summary auditable (the old
+        // single counter was named Rewritten but counted Encountered —
+        // upgrade plan §6.4-R0 counter split).
+        _stats.DefaultExpressionsEncountered++;
 
         if (!_options.RewriteDefaultExpression)
             return visited;
@@ -132,6 +135,7 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
             return visited;
 
         Changed = true;
+        _stats.DefaultExpressionsRewritten++;
 
         // Context 3: safe context — bare `default` literal.
         return SyntaxFactory.LiteralExpression(SyntaxKind.DefaultLiteralExpression)
