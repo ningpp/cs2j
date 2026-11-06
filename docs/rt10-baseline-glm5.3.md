@@ -1548,3 +1548,158 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
   （87 站点：86 preserved + 1 unsupported）。
 - 运行日志：工作树根目录 `rt10-vr-w10n.log`、`rt10-vr-chain-w10n.log`
   （临时产物，未入库）。
+
+
+## 20. R4 VR-04 数组协变口径纠正实测（HEAD `1d3cb3c3` + 本轮实现）
+
+### 20.1 运行口径
+
+- 运行日期：2026-11-07（Asia/Shanghai）；基线 HEAD：`1d3cb3c3`，叠加本轮
+  数组协变口径纠正（运行时尚在工作树；代码+测试随后提交 `2de46933`）。
+- 背景：rt10 全链此前止于 `variance-audit`，共 145 条 strict Error
+  （VA010×44、VA015×43、VA012×21、VA020×24、VA021×1、VA027×11、VA030×1），
+  其中 VA010/VA015 全部为数组转换。方案 §6.4-R4/VR-04 规定引用元素数组
+  `Derived[] → Base[]` 保留原样（Java 数组协变），逐站点验证元素映射无装箱
+  差异；审计此前把数组站点按 VA010/VA015 拦截，与 VR pass 的 VR-04 实现冲突。
+- 代码前置：全量单测 **4780 通过 / 9 跳过 / 0 失败**（基线 4775 + 本轮 5 条）。
+- 命令（`preprocess` 无 `--force`，新目录/日志）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10o --unified-preprocessed-src --profile java-ready `
+  --no-verify-build --no-verify-tests *>&1 | Tee-Object D:\cs\rt10-baseline-w10o.log
+```
+
+### 20.2 variance-audit 结果
+
+- 结论：**仍未通过**（strict gate），但 strict Error 从 145 条降为 **57 条**，
+  `VA010/VA015 归零`；中止点仍为第 28 个 pass `variance-audit`（VA030）。
+- summary 原样：
+  `variance-audit: 0 variant declaration(s), 324 use site(s) (39/18/267), 87 variance conversion(s), 34 unsafe; 56 constraints (struct/unmanaged/new/...); report=variance-audit-report.json`。
+- 剩余 strict Error 分布：`VA012=21、VA020=24、VA021=1、VA027=11`，另有
+  `VA030=1`（聚合门）。
+- 不在本轮范围、保持原样：VA012（mapped mutability）、VA020/021/027（约束）。
+- 87 个数组站点全部 `Direction=Array` 且 `ArrayElementMappingSafe=true`：
+  totals 实测 `varianceConversionsArray=87`、`varianceConversionsArraySafe=87`、
+  `varianceConversionsCovariant=0`、`varianceConversionsContravariant=0`；
+  审计不再产生 VA010/VA015，strict 下同样不产生 Error；`unsafeUseSites=34`
+  只剩 VA012/约束类站点。
+
+### 20.3 87 个数组站点的分类结果
+
+VR 单 pass 复跑（源 = 本轮全链中间树
+`D:\cs\rt10-baseline-w10o\.cs2j-preprocessed-src`）实测 87 个数组站点：
+`VR-04 preserved=86`、`VR-05 unsupported=1`。唯一例外是
+`src\System\Text\Json\Schema\JsonSchemaExporter.cs:451:100` 的
+`string[] -> string[]` 落在 `ref/out/in` 实参位，按安全条件 3/4 拒绝改写
+（与元素映射无关）；审计侧仍判 `Array` 安全、不报 Error。
+
+| 源数组类型 | 站点数 |
+|------------|--------|
+| `Type[]` | 20 |
+| `object[]` | 15 |
+| `EnumFieldInfo[]` | 7 |
+| `string[]` | 6 |
+| `ParameterInfo[]` | 5 |
+| `Action<JsonTypeInfo>[]` | 4 |
+| `object?[]` | 3 |
+| `JsonParameterInfoValues[]` | 3 |
+| `WeakReference<CachingContext>?[]` | 2 |
+| `ConfigurationState[]` | 2 |
+| `JsonPropertyInfo[]` | 2 |
+| `SourceConstructFlags[]` | 2 |
+| `ConsumeNumberResult[]` | 2 |
+| `MethodInfo[]` | 2 |
+| `ConsumeTokenResult[]` | 2 |
+| `ConverterStrategy[]` | 2 |
+| `EnclosingContainerType[]` | 2 |
+| `JsonNode?[]` | 1 |
+| `ConstructorInfo[]` | 1 |
+| `JsonParameterInfo[]` | 1 |
+| `WeakReference<CachingContext>[]` | 1 |
+| `JsonConverterFactory[]` | 1 |
+| `JsonNode[]` | 1 |
+| **合计** | **87** |
+
+- 全部站点满足：同秩、两侧元素均为引用类型、源元素可隐式引用转换到目标元素
+  （子类型关系），即元素映射无装箱差异，符合 VR-04 保留条件。
+- 值类型元素（如 `int[] -> object[]`）不在上述 87 站点内：C# 本身不允许该
+  隐式数组协变，实测审计不产生此类 finding。共享判定实测
+  `ClassifyArrayElementMapping(int[], object[]) = BoxingDifference`，VR 侧
+  仍归 VR-06 `DeclaredUnsupported`（单测覆盖），未放行。
+
+### 20.4 各 pass summary（28 个，variance-audit 中止）
+
+```
+1  conditional                ok      strip-conditional: 66 transformed, 286 clean, 372 directives removed, 103 disabled blocks removed
+2  lexical-normalize          ok      lexical-normalize: 0 transformed, 352 clean, 0 #line removed, 0 extern-alias site(s), 0 global using(s), 0 file-scoped normalized, 0 raw (0 multi), 0 u8 (0 bytes), 0 verbatim, 0 esc, 0 interpolated skipped (r 0/v 0/i 0)
+3  partial-merge              ok      partial-merge: 10 group(s) merged, 0 partial member pair(s) collapsed
+4  local-function-lift        ok      local-function-lift: 28 transformed, 324 clean, 59 lifted, 0 skipped, 0 residual
+5  null-coalesce              ok      null-coalesce: 59 transformed, 293 clean, 98 ?? rewritten, 100 ??= rewritten, 98 temp vars, 57 arrow bodies expanded, 0 residual
+6  expression-desugar         ok      expression-desugar: 107 transformed, 209 clean, 36 dirty-no-rewrite; coll: 35 sites (array 9/mutable 15/iface 0/span 8/builder 0/unknown 0), spread 3 (addrange 3/span-foreach 0/enum-foreach 0), empty 16, nested 1, lifted 2, skipped 0, residual 0; guard: static-abstract 0 decl/0 call, generic-attr 0 decl/0 app, scoped 129 param/24 local; interp: 218 sites, concat 162, format 4 (align 0/fmt 3/iformattable 1), fold 25, formattable-kept 0, exprtree-skip 0, handler err0|keep27, temps 63, residual 0; init: 67 obj, 1 coll (single 1/multi 0/ext 0/params 0/fluent 0), 1 dict-index, 126 target-new, 0/0 nested, 38 ctx-stmts, 144 temps, 163 skipped (2 non-strict kept), 96 residual; nc: 180 member/call, 0 idx, 24 invoke (event 0/delegate 24), 56 void, 42 inline, 83 lifted, 32 coalesce, 0 deferred-c51, 164 temps, 0 skipped, 0 residual, assign= 0 member/0 idx, 0 compound/0 event, 0 coalesce, 0 value, 0 chain, 0 rhs-nc, 0 temps, 0 residual
+7  enum                       ok      enum: 85 transformed, 107 clean, 160 dirty-no-rewrite, 125 bitwise, 1 ~, 6 compound, 1 HasFlag, 0 lifted, 4 enum-arith, 0 residual
+8  enum-declaration           ok      enum-declaration: 6 enum(s) rewritten (flags=0, non-int=5, explicit=4), 20 file(s), 0 plan(s) rolled back, 0 kept real (numeric-boundary), 0 residual
+9  delegate                   ok      delegate: 1 transformed, 351 clean, 0 combine, 0 remove, 0 compound, 5 anonymous method, 0 skipped, 0 residual
+10 tuple                      ok      tuple-to-struct: 16 transformed, 338 clean, 25 types, 35 literals, 10 deconstructions, 0 tuple locals -> var, 19 structs generated
+11 anonymous-type-lift        ok      anonymous-type-lift: 0 transformed, 358 clean, 0 creations rewritten, 0 shapes (0 generic, 0 dynamic), 0 types generated, 0 residual
+12 foreach-deconstruction     ok      foreach-deconstruction: 0 transformed, 358 clean, 0 lowered, 1 skipped
+13 foreach-source             ok      foreach-source: 9 transformed, 349 clean, 0 string site(s) wrapped, 0 tuple residual(s), 0 other/KV residual(s), 1 deconstruct(s) lowered, 2 duck enumerator(s) lowered (ext 0, direct 0, struct 2, dispose 0 [boxed 0], no-dispose 2, dynamic 0), 7 span index loop(s), 0 ref index loop(s), 0 ref-readonly index loop(s), 0 ref-Current enumerator(s) [5485 0, 5486 0, residual ref 0], 0 unresolved site(s), 0 residual enumerator site(s), 0 error(s)
+14 pattern-desugar            ok      pattern-desugar: 15 transformed, 307 clean, 36 dirty-no-rewrite, 17 pattern-switch, 0 non-int-switch, 1 catch-filter, 0 catch-T, 8 govs, 0 end-labels, 0 skipped, 0 residual
+15 strip-default              ok      strip-default: 97 transformed, 261 clean, 195 declarations stripped, 176 overloads generated
+16 ref-out-in                 ok      ref-out-in: 208 transformed, 150 clean, 245 ref params, 241 out params, 717 call sites lifted, 153 locked members
+17 unsafe-ref-lowering        ok      unsafe-ref-lowering: 0 transformed, 360 clean, 0 ref local(s) lowered (0 read, 0 add), 1 rejected (URL001)
+18 using-resource-lift        ok      using-resource-lift: 0 transformed, 360 clean, 0 resource(s) lifted, 0 preserved (USL001)
+19 fixed-span-to-array        ok      fixed-span-to-array: 1 transformed, 359 clean, 1 span fixed statement(s) lowered, 0 preserved (FSA001)
+20 compat-method-replacement  ok      compat-method-replacement: 2 transformed, 358 clean, 2 method(s) replaced, 0 already replaced, 2 signature mismatch(es) (CMR001), 0 drifted entr(y/ies) (CMR020), 1 unused table entry(ies)
+21 pointer-diff-inline        ok      pointer-diff-inline: 0 transformed, 360 clean, 0 helper(s) inlined, 0 call site(s) rewritten, 0 unused helper(s) removed, 0 preserved (PDI001)
+22 unsigned                   ok      unsigned-type: 129 transformed, 231 clean, 2269 types replaced, 195 operators rewritten, 3 literals rewritten
+23 numeric-boundary           ok      numeric-boundary: 360 file(s), 9 binary/0 unary/13 conversion/0 increment site(s) explicitized, 338 unchecked expr(s)/0 block(s) stripped, 92 constant(s) materialized, 0 error(s); decimal-ops: 0 binary/0 comparison/0 unary/0 compound site(s), 0 promotion(s), 0 const downgraded, 0 temp(s), 291 deferred; increment-targets: 392 property/0 indexer/0 enum-array/1 simple site(s), 1 unsigned helper call(s), 387 postfix lifted/0 prefix inlined, 387 temp(s), 0 deferred; nullable-lift: 3 rel/134 eq/4 conv site(s), 11 temp(s)
+24 generic                    ok      generic: 7 transformed, 354 clean (16 default(T) encountered, 16 rewritten, 0 nullability tests folded, 2 new T(), 1 new T[n])
+25 thread-static              ok      thread-static: 1 transformed, 360 clean (1 fields rewritten, 0 skipped, 8 reads, 2 writes, 0 compound, 0 increments, 0 struct lifts, 0 initializers, 0 plan rollback(s), 0 residual)
+26 generic-deepen             ok      generic-deepen: 158 transformed, 203 clean (254 anchors, 16 nested propagations, 4 patterns, 7 type tests, 0 catches, 28 static methods, 17 field accesses, 542 call sites, 0 expression-tree skips, 0 plans skipped, 0 ctor-token types, 0 ctor-token sites, 0 ctor-token call sites, 1 mtok methods, 1 mtok sites, 1 mtok call sites, 0 residuals)
+27 closed-metadata            ok      closed-metadata: 388 registered (1975 enumerated, 1587 deduplicated, 3 register files, 0 consumer sites linked, 443 dynamic sites skipped, 0 residuals)
+28 variance-audit             failed  variance-audit: 0 variant declaration(s), 324 use site(s) (39/18/267), 87 variance conversion(s), 34 unsafe; 56 constraints (struct/unmanaged/new/...); report=variance-audit-report.json
+```
+
+### 20.5 TFM 警告
+
+- 日志中 `skipped unresolvable TFM value` 计数为 **0**（与 §2–§19 一致）。
+- warning 行共 38 条，为基线既有的审计/归因提示（CS2J2001、ED020、
+  CS2J1107、CMR001、URL001 等），非本轮引入。
+- 另有 4 条已知 `Cs2jUnsignedMath.csproj`（netstandard2.0）`[Warning]` 提示，
+  与 §13 相同，不是 TFM 解析失败。
+
+### 20.6 单测（先红后绿）
+
+- `tests/CSharpToJava.Tests/VarianceAuditUnitTests.cs` 新增 4 条：
+  - `Derived[] → Base[]` 在 `--variance-strict` 下无 Error、无 VA010/VA015，
+    统计 `VarianceConversionsArray=1`、`VarianceConversionsArraySafe=1`；
+  - `string[] → object[]`、`Type[] → object[]` 同上（2/2）；
+  - `ClassifyArrayElementMapping(string[], object[]) = SafeReference`，
+    `int[] → object[] = BoxingDifference`（仍不安全）；
+  - 非数组 `IEnumerable<string> → IEnumerable<object>` 在 strict 下仍为
+    Error 级 VA010（行为不回归）。
+- `tests/CSharpToJava.Tests/VarianceUseSiteNormalizeTests.cs` 新增 1 条：
+  `int[] → object[]` 判定 `BoxingDifference`，VR 侧仍为 VR-06
+  `DeclaredUnsupported`。
+- 红：实现前 3 条新用例实测 **2 失败 / 1 通过**（两条数组正例因 strict
+  VA010/VA015 失败，非数组回归通过）；实现+补断言后相关 7 条全过。
+- 全量：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+  → **4780 通过 / 9 跳过 / 0 失败**（1 m 49 s）。
+- 未执行 `CSharpToJava.ProjectTests` 与 `CSharpToJava.ConversionTests`；
+  ProjectTests 仅按要求未运行。
+
+### 20.7 来源文件
+
+- `D:\cs\rt10-baseline-w10o\preprocess-report.json`（`success=false`，
+  `totalSeconds=58.278`，28 个 pass；第 28 个 `variance-audit` 为 `failed`）。
+- `D:\cs\rt10-baseline-w10o\.cs2j-preprocessed-src\variance-audit-report.json`
+  （totals：87 个数组转换全部 safe）。
+- `D:\cs\rt10-vr-w10o\preprocess-report.json`（VR 单 pass，`success=true`）。
+- `D:\cs\rt10-vr-w10o\.cs2j-variance-use-site-normalize-src\variance-use-site-normalize-report.json`
+  （87 站点：86 VR-04 preserved + 1 VR-05 unsupported）。
+- 运行日志：`D:\cs\rt10-baseline-w10o.log`、`D:\cs\rt10-vr-w10o.log`
+  （临时产物，未入库）。
+
