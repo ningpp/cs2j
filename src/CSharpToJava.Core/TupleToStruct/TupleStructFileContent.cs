@@ -52,7 +52,15 @@ internal static partial class TupleStructFileContent
         sb.AppendLine();
         sb.Append("    ").Append(accessibility).Append(" struct ")
             .Append(shape.Name).Append(genericParams)
-            .Append(" : global::System.IEquatable<").Append(selfRef).AppendLine(">");
+            .Append(" : global::System.IEquatable<").Append(selfRef).Append(">");
+        // S-04: `Nullable<__Pn>` elements force `where __Pn : struct` on the
+        // generated struct; without the clause the field is CS0453.
+        foreach (var slot in shape.ValueTypeSlots)
+        {
+            sb.Append(" where __P").Append(slot).Append(" : struct");
+        }
+
+        sb.AppendLine();
         sb.AppendLine("    {");
 
         var fieldCount = Math.Min(shape.Arity, 7);

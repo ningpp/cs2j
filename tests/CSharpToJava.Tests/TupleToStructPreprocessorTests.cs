@@ -110,6 +110,63 @@ public sealed class TupleToStructPreprocessorTests
     }
 
     [Fact]
+    public void NullableTypeParameterElement_EmitsStructConstraint()
+    {
+        // S-04 (upgrade plan §6.4-R0): `(T, T?)` over a struct-constrained type
+        // parameter yields a Nullable<__P0> field on the generated struct, which is
+        // CS0453 unless the struct redeclares `where __P0 : struct`.
+        var source = """
+            class Holder
+            {
+                public (T Value, T? Maybe) Pair<T>(T value, T? maybe) where T : struct
+                    => (value, maybe);
+            }
+            """;
+        var result = RunAll(source);
+
+        Assert.NotNull(result.StructFile);
+        Assert.Contains("where __P0 : struct", result.StructFile);
+        Assert.True(result.Outputs.Any(o => o.Contains("Cs2jTuple")) || result.Statistics.StructsGenerated > 0,
+            "the tuple should have been lowered to a generated struct");
+        AssertOutputCompiles(result.Outputs, result.StructFile);
+    }
+
+    [Fact]
+    public void PlainTypeParameterElement_DoesNotEmitStructConstraint()
+    {
+        var source = """
+            class Holder
+            {
+                public (T First, T Second) Pair<T>(T a, T b) => (a, b);
+            }
+            """;
+        var result = RunAll(source);
+
+        Assert.NotNull(result.StructFile);
+        Assert.DoesNotContain("where __P0", result.StructFile);
+        AssertOutputCompiles(result.Outputs, result.StructFile);
+    }
+
+    [Fact]
+    public void NestedGenericArgument_DoesNotLeakStructConstraint()
+    {
+        // `SomeStruct<T>` inside a Nullable is still not a type-parameter-as-struct:
+        // T may be a reference type, so no `where __P0 : struct` may be invented.
+        var source = """
+            struct Box<T> { public T Value; }
+            class Holder
+            {
+                public (Box<int>? First, T Second) Pair<T>(Box<int>? a, T b) => (a, b);
+            }
+            """;
+        var result = RunAll(source);
+
+        Assert.NotNull(result.StructFile);
+        Assert.DoesNotContain("where __P0 : struct", result.StructFile);
+        AssertOutputCompiles(result.Outputs, result.StructFile);
+    }
+
+    [Fact]
     public void NamedElementAccess_InFileWithoutTupleSyntax_IsRewrittenToItemN()
     {
         // Regression for CS1061 in RegexInterpreter.cs: _code.LeadingCharClasses[0].CharClass

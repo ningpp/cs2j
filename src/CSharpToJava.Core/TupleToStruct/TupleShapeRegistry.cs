@@ -14,7 +14,17 @@ internal sealed class SlotAssigner
     private readonly Dictionary<ITypeParameterSymbol, int> _slots =
         new(SymbolEqualityComparer.Default);
 
+    private readonly HashSet<int> _valueTypeSlots = new();
+
     public int Count => _slots.Count;
+
+    /// <summary>
+    /// S-04 (upgrade plan §6.4-R0): slots that must be redeclared with
+    /// <c>where __Pn : struct</c> — assigned when the parameter appears inside
+    /// <c>Nullable&lt;T&gt;</c>. Without the clause the generated struct's
+    /// <c>Nullable&lt;__Pn&gt;</c> field is CS0453.
+    /// </summary>
+    public IReadOnlyCollection<int> ValueTypeSlots => _valueTypeSlots;
 
     public int GetOrAdd(ITypeParameterSymbol parameter)
     {
@@ -27,6 +37,8 @@ internal sealed class SlotAssigner
         _slots[parameter] = slot;
         return slot;
     }
+
+    public void RequireValueType(int slot) => _valueTypeSlots.Add(slot);
 }
 
 /// <summary>One element of a tuple shape: closed/open type, type-parameter slot, or nested tuple.</summary>
@@ -93,6 +105,12 @@ internal sealed class TupleShape
 
     /// <summary>Number of generic parameters on the generated struct.</summary>
     public int GenericArity { get; init; }
+
+    /// <summary>
+    /// S-04: slots that need a <c>where __Pn : struct</c> clause on the generated
+    /// struct because they are used inside <c>Nullable&lt;__Pn&gt;</c>.
+    /// </summary>
+    public IReadOnlyList<int> ValueTypeSlots { get; init; } = Array.Empty<int>();
 
     /// <summary>For arity &gt;= 8: shape of the <c>Rest</c> tail struct (elements 8..N).</summary>
     public TupleShape? Tail { get; init; }
@@ -219,6 +237,7 @@ internal sealed partial class TupleShapeRegistry
             Elements = elements,
             Name = MakeUniqueName(mangledNames),
             GenericArity = slots.Count,
+            ValueTypeSlots = slots.ValueTypeSlots.OrderBy(static i => i).ToArray(),
             Tail = tail,
             TailArgSlots = tailArgSlots,
             IsPubliclyAccessible = publiclyAccessible,
@@ -292,7 +311,8 @@ internal sealed partial class TupleShapeRegistry
     internal string BuildDisplayTemplate(
         ITypeSymbol type,
         SlotAssigner slots,
-        List<TupleToStructDiagnostic> diagnostics)
+        List<TupleToStructDiagnostic> diagnostics,
+        bool requiresValueType = false)
     {
         switch (type)
         {
@@ -304,7 +324,17 @@ internal sealed partial class TupleShapeRegistry
                 return "global::System.Object";
 
             case ITypeParameterSymbol parameter:
-                return "{" + slots.GetOrAdd(parameter) + "}";
+            {
+                var slot = slots.GetOrAdd(parameter);
+                if (requiresValueType)
+                {
+                    // S-04: `Nullable<T>` over a type parameter needs `where T : struct`
+                    // on the generated struct.
+                    slots.RequireValueType(slot);
+                }
+
+                return "{" + slot + "}";
+            }
 
             case IArrayTypeSymbol array:
                 return BuildDisplayTemplate(array.ElementType, slots, diagnostics)
@@ -341,8 +371,13 @@ internal sealed partial class TupleShapeRegistry
                     return prefix + name;
                 }
 
+                // S-04: `T?` over a type parameter is Nullable<T>; its argument must
+                // be a value type, so the generated struct needs `where __Pn : struct`.
+                // The flag is one-shot: it must NOT leak into other generic arguments
+                // (Nullable<SomeStruct<T>> does not make T a value type).
+                var argumentRequiresValueType = definition.SpecialType == SpecialType.System_Nullable_T;
                 var args = named.TypeArguments
-                    .Select(arg => BuildDisplayTemplate(arg, slots, diagnostics));
+                    .Select(arg => BuildDisplayTemplate(arg, slots, diagnostics, argumentRequiresValueType));
                 return prefix + name + "<" + string.Join(", ", args) + ">";
             }
 
