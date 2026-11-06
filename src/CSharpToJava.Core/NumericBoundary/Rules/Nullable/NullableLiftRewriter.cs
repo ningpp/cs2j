@@ -1567,6 +1567,66 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
 
     // ── NL-7/NL-8 nullable conversions (decision 13) ──
 
+    /// <summary>
+    /// NL-7 unwrap in RETURN position. The null-coalesce pass lowers
+    /// <c>return _field ??= value;</c> (StringSegment
+    /// <c>_canUseFastPathSerializationLogic ??= …</c>) to <c>if (_field ==
+    /// null) { _field = value; } return _field;</c>; the trailing return then
+    /// reads the still-nullable storage into a non-nullable member. No syntax
+    /// node carries a conversion, so <see cref="VisitCastExpression"/> never
+    /// sees it and the NL-14 residual gate reports CS2J5357. Append
+    /// <c>.Value</c> (the lowering guarantees the storage was assigned first).
+    /// Only nullable-typed return expressions in a NON-nullable return slot are
+    /// touched; every legal source shape has a conversion node or already
+    /// matches, so this lane is inert on valid input.
+    /// </summary>
+    public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
+    {
+        var visited = (ReturnStatementSyntax)base.VisitReturnStatement(node)!;
+
+        if (node.Expression == null || _analyzer.IsWithinExpressionTree(node))
+        {
+            return visited;
+        }
+
+        var returnType = GetEnclosingReturnType(node);
+        if (returnType == null || NullableLiftAnalyzer.IsNullableType(returnType))
+        {
+            return visited;
+        }
+
+        var expressionType = _model.GetTypeInfo(node.Expression).Type;
+        if (!NullableLiftAnalyzer.TryUnwrapNullable(expressionType, out var underlying)
+            || underlying == null
+            || !SymbolEqualityComparer.Default.Equals(underlying, returnType))
+        {
+            return visited;
+        }
+
+        _currentHoist = null;
+        var (ok, sourceAccess) = PrepareOperand(
+            node.Expression, node.Expression, visited.Expression, operandOperation: null,
+            sideNullable: true, isLeft: true);
+        if (!ok)
+        {
+            return visited;
+        }
+
+        var rewritten = NullableLiftExpansion.UnwrapValue(sourceAccess, returnType, underlying);
+        _stats.UnwrapConversions++;
+        var expression = FinalizeSite(node.Expression, rewritten, _currentHoist);
+        return visited.WithExpression(expression);
+    }
+
+    /// <summary>Declared return type of the member/accessor/lambda enclosing a return statement.</summary>
+    private ITypeSymbol? GetEnclosingReturnType(ReturnStatementSyntax node)
+        => _model.GetEnclosingSymbol(node.SpanStart) switch
+        {
+            IMethodSymbol method => method.ReturnType,
+            IPropertySymbol property => property.Type,
+            _ => null,
+        };
+
     public override SyntaxNode? VisitCastExpression(CastExpressionSyntax node)
     {
         var visited = (CastExpressionSyntax)base.VisitCastExpression(node)!;

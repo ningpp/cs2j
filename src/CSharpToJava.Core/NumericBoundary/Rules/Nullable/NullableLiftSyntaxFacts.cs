@@ -81,8 +81,14 @@ internal static class NullableLiftSyntaxFacts
     /// True when <paramref name="anchor"/> is an unconditional statement that
     /// can host hoisted declarations directly before it (same whitelist spirit
     /// as C17 decision 14 / E03 lifter): expression statements, local
-    /// declarations (outside for/using/fixed initializers), return/throw and
-    /// yield-return statements. M1 may extend the set with evidence.
+    /// declarations (outside for/using/fixed initializers), return/throw,
+    /// yield-return and <c>if</c>/<c>else if</c> statements. An <c>if</c>
+    /// condition is evaluated exactly once whenever the statement runs, so a
+    /// site reached through its always-evaluated slots keeps the anchor's
+    /// execution frequency; Pass2 wraps the <c>if</c> in a block
+    /// (<c>{ temps; if (...) ... }</c>, also valid in an <c>else</c> slot).
+    /// Loop conditions (<c>while</c>/<c>do</c>/<c>for</c>) stay excluded — they
+    /// re-evaluate per iteration, so a hoist would read the operand too early.
     /// </summary>
     public static bool IsWhitelistedAnchor(StatementSyntax anchor)
     {
@@ -95,6 +101,7 @@ internal static class NullableLiftSyntaxFacts
                     (ForStatementSyntax or UsingStatementSyntax or FixedStatementSyntax);
             case ReturnStatementSyntax:
             case ThrowStatementSyntax:
+            case IfStatementSyntax:
                 return true;
             case YieldStatementSyntax yield:
                 return yield.ReturnOrBreakKeyword.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.YieldKeyword);

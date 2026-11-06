@@ -429,6 +429,20 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
         reason = IncrementTargetDiagnostics.ReasonNoAnchor;
         var anchor = IncrementTargetSyntaxFacts.FindAnchorStatement(sites[0].Node)!;
 
+        // `container[index++] = value;` (StringSegment
+        // `_memory.Span[BytesPending++] = Quote`): the postfix's old value is
+        // consumed as the element index of the assignment target. The index
+        // read/write pair can be spliced immediately before the statement when
+        // every OTHER effect that textually precedes it is a pure member
+        // access inside the indexed receiver chain (see
+        // IsIndexAssignmentOrderSafe).
+        var indexTarget = FindIndexAssignmentPostfixTarget(sites, out var indexSite);
+        if (indexTarget != null
+            && IsIndexAssignmentOrderSafe(anchor, indexSite, indexTarget))
+        {
+            return false;
+        }
+
         // ① Foreign side effects: only a disjoint effect that an owned site
         // TEXTUALLY FOLLOWS is a hazard — its read/write materialization would
         // move ahead of that effect. Effects after the site are harmless (the
@@ -478,6 +492,149 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
                         return true;
                     }
                 }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Shape probe for the element-index postfix lane: a single value-consumed
+    /// postfix whose old value IS the index argument of an element access that
+    /// is the left side of a simple assignment expression statement
+    /// (<c>target[index++] = value;</c>). The postfix's own target must be a
+    /// simple storage location (no receiver/index temps) so the spliced
+    /// read/write pair is a plain <c>var o = read; write = o + 1;</c>.
+    /// </summary>
+    private ElementAccessExpressionSyntax? FindIndexAssignmentPostfixTarget(
+        List<(ExpressionSyntax Node, IncrementTargetClassification C)> sites,
+        out ExpressionSyntax site)
+    {
+        site = sites[0].Node;
+        if (sites.Count != 1
+            || sites[0].C.Lift != Liftability.LiftablePostfix
+            || sites[0].C.Target is not (TargetKind.SimpleDirect or TargetKind.Property)
+            || HoistInitializerRoots(site, sites[0].C).Any())
+        {
+            return null;
+        }
+
+        SyntaxNode? current = site;
+        while (current != null)
+        {
+            var parent = current.Parent;
+            switch (parent)
+            {
+                case ParenthesizedExpressionSyntax:
+                    current = parent;
+                    continue;
+                case ArgumentSyntax argument
+                    when argument.Parent is BracketedArgumentListSyntax arguments
+                        && arguments.Parent is ElementAccessExpressionSyntax elementAccess
+                        && arguments.Arguments.Contains(argument):
+                    return IsSimpleAssignmentTarget(elementAccess) ? elementAccess : null;
+                case AnonymousFunctionExpressionSyntax:
+                case LocalFunctionStatementSyntax:
+                case QueryExpressionSyntax:
+                case InitializerExpressionSyntax:
+                case ConditionalExpressionSyntax:
+                case SwitchExpressionSyntax:
+                case InterpolationSyntax:
+                    return null;
+                default:
+                    current = parent;
+                    continue;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>True when the element access is (parens allowed) the LHS of a simple assignment expression statement.</summary>
+    private static bool IsSimpleAssignmentTarget(ElementAccessExpressionSyntax elementAccess)
+    {
+        ExpressionSyntax left = elementAccess;
+        while (left.Parent is ParenthesizedExpressionSyntax parenthesized
+            && parenthesized.Expression == left)
+        {
+            left = parenthesized;
+        }
+
+        return left.Parent is AssignmentExpressionSyntax assignment
+            && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            && assignment.Left == left
+            && assignment.Parent is ExpressionStatementSyntax;
+    }
+
+    /// <summary>
+    /// Exact ordering for the element-index postfix lane. The spliced
+    /// read/write pair runs immediately before the statement, so it must not
+    /// cross a value-consuming effect: every potential effect that textually
+    /// precedes the site must sit inside the indexed receiver chain, and that
+    /// chain may contain only member/index reads (invocation, object creation,
+    /// assignment and ++/-- inside it are rejected). The receiver then runs
+    /// after the index update instead of before it; this lane is limited to
+    /// that reorder (a receiver whose getter reads the incremented storage is
+    /// out of scope, as for every other hoisted plan).
+    /// </summary>
+    private bool IsIndexAssignmentOrderSafe(
+        StatementSyntax anchor,
+        ExpressionSyntax site,
+        ElementAccessExpressionSyntax elementAccess)
+    {
+        var receiver = elementAccess.Expression;
+        if (ContainsHardEffect(receiver))
+        {
+            return false;
+        }
+
+        foreach (var candidate in anchor.DescendantNodes())
+        {
+            if (!IsPotentialEffect(candidate))
+            {
+                continue;
+            }
+
+            if (candidate.Span.Contains(site.Span) || site.Span.Contains(candidate.Span))
+            {
+                continue;
+            }
+
+            if (site.SpanStart >= candidate.Span.End)
+            {
+                // Runs after the site's read/write pair in both shapes.
+                continue;
+            }
+
+            if (!receiver.Span.Contains(candidate.Span))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool ContainsHardEffect(ExpressionSyntax expression)
+    {
+        foreach (var node in expression.DescendantNodesAndSelf())
+        {
+            switch (node)
+            {
+                case InvocationExpressionSyntax:
+                case ObjectCreationExpressionSyntax:
+                case ImplicitObjectCreationExpressionSyntax:
+                case AssignmentExpressionSyntax:
+                case AwaitExpressionSyntax:
+                case ThrowExpressionSyntax:
+                    return true;
+                case PrefixUnaryExpressionSyntax prefix
+                    when prefix.Kind() is SyntaxKind.PreIncrementExpression
+                        or SyntaxKind.PreDecrementExpression:
+                case PostfixUnaryExpressionSyntax postfix
+                    when postfix.Kind() is SyntaxKind.PostIncrementExpression
+                        or SyntaxKind.PostDecrementExpression:
+                    return true;
             }
         }
 

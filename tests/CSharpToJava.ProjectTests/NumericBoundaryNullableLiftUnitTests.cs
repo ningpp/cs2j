@@ -1058,7 +1058,9 @@ public class NumericBoundaryNullableLiftUnitTests
     [InlineData("x++;", true)]
     [InlineData("return x;", true)]
     [InlineData("throw ex;", true)]
-    [InlineData("if (x) { }", false)]
+    [InlineData("if (x) { }", true)]
+    [InlineData("if (x) { } else if (y) { }", true)]
+    [InlineData("while (x) { }", false)]
     public void SyntaxFacts_AnchorWhitelist_Skeletons(string statement, bool whitelisted)
     {
         var node = SyntaxFactory.ParseStatement(statement);

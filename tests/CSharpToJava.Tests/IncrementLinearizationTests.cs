@@ -649,4 +649,120 @@ public class IncrementLinearizationTests
         Assert.Equal(expected, actual);
         Assert.Equal("max|min|mid", actual);
     }
+
+    // ── element-index postfix assignment target ──
+
+    private const string SpanIndexPostfixSource = """
+        using System;
+        using System.Text;
+
+        public sealed class Writer
+        {
+            private Memory<byte> _memory;
+
+            public Writer(byte[] buffer) { _memory = buffer; }
+
+            public int BytesPending { get; private set; }
+
+            public void Append(byte value)
+            {
+                if (_memory.Length == BytesPending)
+                {
+                    throw new InvalidOperationException("full");
+                }
+
+                _memory.Span[BytesPending++] = value;
+            }
+
+            public string Snapshot()
+            {
+                var sb = new StringBuilder();
+                for (int i = 0; i < BytesPending; i++)
+                {
+                    sb.Append((char)_memory.Span[i]);
+                }
+
+                return sb.Append('/').Append(BytesPending).ToString();
+            }
+        }
+
+        public static class Demo
+        {
+            public static string Run()
+            {
+                var writer = new Writer(new byte[8]);
+                writer.Append((byte)'a');
+                writer.Append((byte)'b');
+                writer.Append((byte)'c');
+                return writer.Snapshot();
+            }
+        }
+        """;
+
+    [Fact]
+    public void Span_Element_Index_Postfix_Linearizes_Before_Statement()
+    {
+        var expected = Invoke(SpanIndexPostfixSource);
+        var (output, diagnostics, changed) = RunRule(SpanIndexPostfixSource);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diagnostics, d => d.Severity == NumericBoundarySeverity.Error);
+
+        // The old value is read once into a temp, the property write follows,
+        // and the element access consumes the temp as its index.
+        var compact = Compact(output);
+        Assert.Contains("var__cs2j_inc_o1=BytesPending;", compact);
+        Assert.Contains("BytesPending=__cs2j_inc_o1+1;", compact);
+        Assert.Contains("_memory.Span[__cs2j_inc_o1]=value", compact);
+        Assert.DoesNotContain("BytesPending++", compact);
+
+        var actual = Invoke(output);
+        Assert.Equal(expected, actual);
+        Assert.Equal("abc/3", actual);
+    }
+
+    [Fact]
+    public void Span_Element_Index_Postfix_With_Invocation_Receiver_Still_Reports_CS2J5339()
+    {
+        // The receiver `GetMemory().Span` contains an invocation: splicing the
+        // index read/write ahead of it would reorder a side effect, so the
+        // site stays anchor-less.
+        const string src = """
+            using System;
+
+            public sealed class Writer
+            {
+                private Memory<byte> _memory;
+
+                public Writer(byte[] buffer) { _memory = buffer; }
+
+                public int BytesPending { get; private set; }
+
+                public void Append(byte value)
+                {
+                    GetMemory().Span[BytesPending++] = value;
+                }
+
+                private Memory<byte> GetMemory() => _memory;
+
+                public static string Run()
+                {
+                    var writer = new Writer(new byte[4]);
+                    writer.Append((byte)'a');
+                    return writer.BytesPending.ToString();
+                }
+            }
+
+            public static class Demo
+            {
+                public static string Run() => Writer.Run();
+            }
+            """;
+        var (_, diagnostics, changed) = RunRule(src);
+
+        Assert.False(changed);
+        Assert.Contains(diagnostics,
+            d => d.Severity == NumericBoundarySeverity.Error
+                && d.Code == PreprocessDiagnosticCodes.IncrementTargetNoAnchor);
+    }
 }
