@@ -3139,5 +3139,87 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
 - `D:\cs\rt10-baseline-w10r3.log`（全链输出，临时产物，未入库）。
 - `D:\cs\full-test-w10r3.log`（全量单测 4868/9/0，临时产物，未入库）。
 
+## 33. R6 CLI 旋钮补齐 + RunAfterIds 启用依赖（w10r6 复跑）
+
+### 33.1 代码前置
+
+- 代码提交 `8057e972`（父提交 `904afb7a`）。
+- 两个 CLI 入口（`preprocess` / `convert-project`）新增三个选项，经
+  `CliChainRequest` → `PassChainConfiguration` 透传到既有 options：
+  `--generic-deepen-overrides <path>` → `GenericDeepenOptions.OverridesPath`；
+  `--generic-deepen-strict` → `GenericDeepenOptions.Strict`；
+  `--closed-metadata-strict` → `ClosedMetadataOptions.Strict`。
+- strict 语义：`Strict = JavaReady || <显式开关>`，即 java-ready/audit profile
+  已隐含 strict，显式开关只能开启、不能关闭；默认 profile 下不传开关保持
+  非 strict。
+- 显式 `--pass` 选择新增 `RunAfterIds` 启用依赖闭包（`PassDependencyClosure`）：
+  - 开启 `--unified-preprocessed-src`：把缺失的前置 pass 按 `PassRegistry.Ordered`
+    的锁定拓扑序自动加入启用集合（去重），并在 stderr 输出
+    `auto-enabled dependency 'Q' for 'P' (RunAfterIds)`；
+  - 未开启统一目录：硬报错退出 1，消息形如
+    `pass 'P' requires 'Q' (RunAfterIds); add --pass Q or use --unified-preprocessed-src to auto-run dependencies`，
+    不再静默空跑；
+  - `--disable-pass` 与自动补跑项的冲突仍由 `PassPlanResolver` 的 CS2J9002 规则
+    判定；未知 pass id 仍保留在启用集合中交由 resolver 报 CS2J9002；
+  - `--profile java-ready|audit` 追加 `normalization-audit` 的逻辑不变（在闭包
+    扩展之后追加）。
+
+### 33.2 单测（先红后绿）
+
+- `tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs` 新增 7 个 R6
+  用例：两入口选项解析、strict 开关接线与 profile 不可弱化、传递闭包自动补跑
+  且拓扑序正确、无统一目录硬报错消息、已含依赖不重复添加、`--disable-pass`
+  冲突走既有 resolver 规则、未知 id 仍报 CS2J9002。
+- 先红：临时把闭包自动补跑分支置为不可达，7 个用例中 **3 失败 / 4 通过**；
+  恢复实现后 **7 通过 / 0 失败**。
+- 全量回归：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+  → **4875 通过 / 9 跳过 / 0 失败**（§32.3 基线 4868/9/0，净增 7 个 R6 用例）。
+- `tests/CSharpToJava.ProjectTests` 仅执行 `dotnet build`（成功，0 错误）；
+  ProjectTests、ConversionTests 未运行。
+
+### 33.3 CLI 行为实测（小样本探针）
+
+- 非统一目录：`preprocess -s <probe>\src -d <probe>\out-plain --pass generic-deepen
+  --no-verify-build --no-verify-tests` → 退出码 **1**，stderr 首条为
+  `pass 'generic-deepen' requires 'generic' (RunAfterIds); add --pass generic or use --unified-preprocessed-src to auto-run dependencies`，
+  并继续列出 `generic→unsigned→ref-out-in→strip-default/foreach-source→…→conditional`
+  的传递缺失链。
+- 统一目录：同输入加 `--unified-preprocessed-src` → 退出码 **0**，
+  stderr 输出 **15** 条 `auto-enabled dependency '…'`（首两条为
+  `generic for generic-deepen`、`unsigned for generic`），`generic-deepen`
+  实际执行并输出中间树。
+
+### 33.4 rt10 全链复跑（行为保持证据）
+
+命令与 §32.4 相同，目标目录 `D:\cs\rt10-baseline-w10r6`：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10r6 --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests `
+  *>&1 | Tee-Object D:\cs\rt10-baseline-w10r6.log
+```
+
+- report `success=true`、`totalSeconds=98.425`、**53 个 pass 全部 `ok`**；
+  residual report `residuals=0`、`errors=0`、`warnings=0`。
+- TFM 警告（`skipped unresolvable TFM value` / `is below net10` / `NETSDK` /
+  `target-framework evaluation failed`）计数 **0**。
+- 关键 summary 与 §32.4 基线一致：`generic` 7 transformed/349 clean、
+  `generic-deepen` 158 transformed/198 clean（0 residuals）、
+  `closed-metadata` 387 registered（1973 enumerated、1586 deduplicated、
+  3 register files、0 consumer sites linked、438 dynamic sites skipped、
+  0 residuals）、`normalization-audit` 0 residual。
+
+### 33.5 来源文件
+
+- `D:\cs\rt10-baseline-w10r6\preprocess-report.json`（`success=true`、
+  `totalSeconds=98.425`、53 个 pass 全 `ok`）。
+- `D:\cs\rt10-baseline-w10r6\preprocess-residual-report.json`（0 条残留）。
+- `D:\cs\rt10-baseline-w10r6.log`（全链输出，临时产物，未入库）。
+- `D:\cs\r6-probe\plain.log`、`D:\cs\r6-probe\unified.log`（CLI 行为探针，
+  临时产物，未入库）。
+
+
 
 
