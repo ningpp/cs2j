@@ -26,16 +26,29 @@ internal sealed class EnumArithmeticResidualProbe : IResidualProbe
             if (node is not BinaryExpressionSyntax binary)
                 continue;
 
-            var leftIsEnum = model.GetTypeInfo(binary.Left).Type?.TypeKind == TypeKind.Enum;
-            var rightIsEnum = model.GetTypeInfo(binary.Right).Type?.TypeKind == TypeKind.Enum;
-            if (!leftIsEnum && !rightIsEnum)
+            var leftEnum = EnumTypeOrNullable(model.GetTypeInfo(binary.Left).Type);
+            var rightEnum = EnumTypeOrNullable(model.GetTypeInfo(binary.Right).Type);
+            if (leftEnum == null && rightEnum == null)
                 continue;
 
-            // 同类 enum 的 == / != 在 Java 中合法，不需要预处理器降低。
-            if (binary.Kind() is SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression
-                && leftIsEnum && rightIsEnum)
+            if (binary.Kind() is SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression)
             {
-                continue;
+                // 可空 enum 与 null 字面量是 HasValue 判空（Java 引用判空直译），
+                // 枚举 pass 有意保留，不构成 enum 操作数残留。
+                if (binary.Left.IsKind(SyntaxKind.NullLiteralExpression)
+                    || binary.Right.IsKind(SyntaxKind.NullLiteralExpression))
+                {
+                    continue;
+                }
+
+                // 同类 enum 的 == / != 在 Java 中合法（引用相等）；可空 <c>E?</c>
+                // 与 <c>E</c> 的提升相等语义相同（null 与非 null 常量比较分别为
+                // false / true），enum pass 归一化后的产物即此形态。
+                if (leftEnum != null && rightEnum != null
+                    && SymbolEqualityComparer.Default.Equals(leftEnum, rightEnum))
+                {
+                    continue;
+                }
             }
 
             yield return ResidualHitFactory.Create(
@@ -46,5 +59,28 @@ internal sealed class EnumArithmeticResidualProbe : IResidualProbe
                 binary,
                 $"enum operand in binary operator '{binary.OperatorToken.Text}'");
         }
+    }
+
+    /// <summary>
+    /// Returns the enum type of <paramref name="type"/>, unwrapping
+    /// <c>Nullable&lt;E&gt;</c>; null for non-enum types.
+    /// </summary>
+    private static INamedTypeSymbol? EnumTypeOrNullable(ITypeSymbol? type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return null;
+
+        if (named.TypeKind == TypeKind.Enum)
+            return named;
+
+        if (named.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T
+            && named.TypeArguments.Length == 1
+            && named.TypeArguments[0] is INamedTypeSymbol inner
+            && inner.TypeKind == TypeKind.Enum)
+        {
+            return inner;
+        }
+
+        return null;
     }
 }

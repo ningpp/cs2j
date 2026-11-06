@@ -61,8 +61,139 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         return null;
     }
 
+    /// <summary>Result of resolving the enum member on the right of an is-test.</summary>
+    /// <param name="Field">The resolved enum member.</param>
+    /// <param name="NeedsQualifiedName">
+    /// True when the source tokens do not bind as an expression (the compiler
+    /// read them in type-name position and a same-named namespace shadowed the
+    /// enum), so the emitted member reference must be fully qualified.
+    /// </param>
+    private readonly record struct EnumMemberResolution(
+        IFieldSymbol Field, bool NeedsQualifiedName);
+
     /// <summary>
-    /// Returns true if the expression's static type is a nullable enum (E?).
+    /// Resolves the constant on the right of <c>x is E.M</c> / <c>x == E.M</c> to
+    /// a field of <paramref name="enumType"/>. Prefers the bound symbol.
+    /// <para>
+    /// Fallback: the parser keeps <c>x is E.M</c> as an IsExpression, so the
+    /// binder reads <c>E.M</c> in TYPE position. When a same-named namespace is
+    /// visible (the WindowsDesktop payload contributes a top-level
+    /// <c>Accessibility</c> namespace, shadowing
+    /// <c>Microsoft.CodeAnalysis.Accessibility</c> used by the source-generator
+    /// project), type binding fails with CS0234 and GetSymbolInfo is empty even
+    /// though the enum type itself (left operand) bound fine. The tokens are
+    /// then re-bound speculatively as an EXPRESSION, and as a last resort
+    /// matched by name against the left operand's enum type (the qualifier text
+    /// must denote that enum and the member must be unique) — the
+    /// constant-pattern reading is the only legal one at that position.
+    /// </para>
+    /// </summary>
+    private EnumMemberResolution? ResolveEnumMemberConstant(
+        ExpressionSyntax constant, INamedTypeSymbol enumType)
+    {
+        if (_semanticModel == null) return null;
+        var stripped = StripParentheses(constant);
+
+        var symbol = _semanticModel.GetSymbolInfo(stripped).Symbol;
+        if (symbol is IFieldSymbol bound)
+        {
+            return SymbolEqualityComparer.Default.Equals(bound.ContainingType, enumType)
+                ? new EnumMemberResolution(bound, NeedsQualifiedName: false)
+                : null;
+        }
+        // A type test (`x is T`) never becomes a constant comparison; a bound
+        // non-type, non-namespace symbol is a genuinely different constant.
+        // A namespace symbol is exactly the shadowed-qualifier case.
+        if (symbol is not null and not INamespaceSymbol)
+            return null;
+
+        // The speculative binding runs in the same (type-position) context, so it
+        // fails for exactly the same token stream. Fall back to a name match
+        // scoped to the left operand's enum type.
+        var speculative = _semanticModel.GetSpeculativeSymbolInfo(
+            stripped.SpanStart, stripped, SpeculativeBindingOption.BindAsExpression);
+        if (speculative.Symbol is IFieldSymbol speculativeField)
+        {
+            return SymbolEqualityComparer.Default.Equals(
+                speculativeField.ContainingType, enumType)
+                ? new EnumMemberResolution(speculativeField, NeedsQualifiedName: false)
+                : null;
+        }
+        if (speculative.Symbol is not null and not INamespaceSymbol)
+            return null;
+
+        var byName = ResolveEnumMemberByName(stripped, enumType);
+        return byName == null
+            ? null
+            : new EnumMemberResolution(byName, NeedsQualifiedName: true);
+    }
+
+    /// <summary>
+    /// Fully qualified member reference (<c>global::Ns.E.M</c>) for a resolved
+    /// enum constant whose source tokens do not bind (shadowed qualifier).
+    /// </summary>
+    private static ExpressionSyntax EnumMemberExpression(
+        INamedTypeSymbol enumType, IFieldSymbol field)
+        => SyntaxFactory.ParseExpression(
+            enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+            + "." + field.Name);
+
+    /// <summary>
+    /// Name-based fallback for <see cref="ResolveEnumMemberConstant"/>: the
+    /// constant syntax is <c>E.M</c> (or <c>Ns.E.M</c>), <c>E</c> textually
+    /// denotes <paramref name="enumType"/>, and <c>M</c> is a unique constant
+    /// field of that enum. Only reached after both semantic bindings failed
+    /// because the compiler chose the type-name reading of the <c>is</c>
+    /// right-hand side.
+    /// </summary>
+    private IFieldSymbol? ResolveEnumMemberByName(
+        ExpressionSyntax constant, INamedTypeSymbol enumType)
+    {
+        if (_semanticModel == null)
+            return null;
+
+        return constant switch
+        {
+            // Expression form: `Accessibility.Public` (x == E.M and patterns).
+            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax name } ma
+                => Match(ma.Expression.ToString(), name.Identifier.ValueText),
+            // Type-name form: the parser keeps the RHS of an IsExpression in type
+            // position, so `Accessibility.Public` arrives as a QualifiedName.
+            QualifiedNameSyntax { Right: IdentifierNameSyntax name } qualified
+                => Match(qualified.Left.ToString(), name.Identifier.ValueText),
+            _ => null,
+        };
+
+        IFieldSymbol? Match(string qualifier, string memberName)
+        {
+            var squashed = Squash(qualifier).Replace("::", ".", StringComparison.Ordinal);
+            var expected = new[]
+            {
+                Squash(enumType.Name),
+                Squash(enumType.ToDisplayString()),
+                Squash(enumType.ToMinimalDisplayString(
+                    _semanticModel, constant.SpanStart,
+                    SymbolDisplayFormat.MinimallyQualifiedFormat)),
+            };
+            var denotesEnum = expected.Contains(squashed, StringComparer.Ordinal)
+                              || squashed.EndsWith(
+                                  "." + Squash(enumType.Name), StringComparison.Ordinal);
+            if (!denotesEnum)
+                return null;
+
+            var fields = enumType.GetMembers(memberName)
+                .OfType<IFieldSymbol>()
+                .Where(f => f.HasConstantValue)
+                .ToList();
+            return fields.Count == 1 ? fields[0] : null;
+        }
+
+        static string Squash(string text)
+            => string.Concat(text.Where(c => !char.IsWhiteSpace(c)));
+    }
+
+    /// <summary>
+    /// True when the expression's static type is a nullable enum (E?).
     /// </summary>
     private bool IsNullableEnum(ExpressionSyntax expr)
     {
@@ -577,22 +708,33 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         // The constant must bind to a member of the same enum the left side is
         // typed as. Metadata (BCL) enums are included: their use sites are
         // lowered to the compat constant surface too, and the Java gate accepts
-        // same-enum ==/!=. Nullable left operands keep the pattern: `E?` is not
-        // an enum-typed operand for the downstream gate, so the rewrite would
-        // only move the residual.
+        // same-enum ==/!=.
+        //
+        // Nullable left operands (`E?`) cannot use lifted `==`: numeric-boundary
+        // owns lifted enum equality and needs a single-evaluation temporary for
+        // an unstable operand, which an initializer/short-circuit context cannot
+        // host (CS2J5355). `object.Equals(x, E.M)` reads `x` once, is null-safe
+        // (null → false), and Java renders it as Objects.equals(...) — exactly
+        // the constant-pattern semantics.
+        var nullableLeft = IsNullableEnum(node.Expression);
         var enumType = GetEnumType(node.Expression);
-        if (enumType == null || IsNullableEnum(node.Expression))
+        var resolution = enumType == null
+            ? null
+            : ResolveEnumMemberConstant(originalConstant, enumType);
+        if (enumType == null || resolution is not { } resolved)
             return base.VisitIsPatternExpression(node);
-
-        var symbol = _semanticModel?.GetSymbolInfo(StripParentheses(originalConstant)).Symbol;
-        if (symbol is not IFieldSymbol field
-            || !SymbolEqualityComparer.Default.Equals(field.ContainingType, enumType))
-        {
-            return base.VisitIsPatternExpression(node);
-        }
 
         var visitedExpr = (ExpressionSyntax?)Visit(node.Expression) ?? node.Expression;
-        var visitedConstant = (ExpressionSyntax?)Visit(originalConstant) ?? originalConstant;
+        var visitedConstant = resolved.NeedsQualifiedName
+            ? EnumMemberExpression(enumType, resolved.Field)
+            : (ExpressionSyntax?)Visit(originalConstant) ?? originalConstant;
+
+        if (nullableLeft)
+        {
+            IncrementRewrite();
+            return NegateIf(EnumEqualsInvocation(visitedExpr, visitedConstant), negated)
+                .WithTriviaFrom(node);
+        }
 
         var token = SyntaxFactory.Token(negated
             ? SyntaxKind.ExclamationEqualsToken
@@ -611,6 +753,29 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
             token,
             visitedConstant);
     }
+
+    /// <summary><c>object.Equals(left, right)</c> — null-safe, single-evaluation
+    /// equality used for nullable enum constant patterns.</summary>
+    private static InvocationExpressionSyntax EnumEqualsInvocation(
+        ExpressionSyntax left, ExpressionSyntax right)
+        => SyntaxFactory.InvocationExpression(
+            SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.ObjectKeyword)),
+                SyntaxFactory.IdentifierName("Equals")),
+            SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(new[]
+            {
+                SyntaxFactory.Argument(left),
+                SyntaxFactory.Argument(right),
+            })));
+
+    private static ExpressionSyntax NegateIf(ExpressionSyntax expression, bool negate)
+        => negate
+            ? SyntaxFactory.PrefixUnaryExpression(
+                SyntaxKind.LogicalNotExpression,
+                SyntaxFactory.Token(SyntaxKind.ExclamationToken),
+                expression)
+            : expression;
 
     private bool IsInCheckedContext(SyntaxNode node)
         => node.Ancestors().Any(a =>
@@ -668,31 +833,37 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
-    /// p is E.M → p == E.M。只处理左值同 enum 类型、右值为该 enum 成员常量
-    /// 的经典 IsExpression；p is E（类型测试）与可空左值保持原样。
+    /// p is E.M → p == E.M。处理左值同 enum 类型、右值为该 enum 成员常量的
+    /// 经典 IsExpression；p is E（类型测试）保持原样。
+    /// 可空左值（<c>E?</c>）改为 <c>object.Equals(p, E.M)</c>：单次求值、null 安全
+    /// （null → false），与常量模式语义一致；若用提升 <c>==</c>，numeric-boundary
+    /// 会在不可提升上下文（初始化器/短路）报 CS2J5355。
     /// 外部元数据 enum 同样改写：Java 侧只允许同类 enum 的 ==/!=，兼容常量面
     /// 已把成员映射为常量，常量模式残留会被门禁硬失败。
     /// </summary>
-    private BinaryExpressionSyntax? RewriteEnumIsExpression(
+    private ExpressionSyntax? RewriteEnumIsExpression(
         BinaryExpressionSyntax node, ExpressionSyntax left, ExpressionSyntax right)
     {
         var enumType = GetEnumType(node.Left);
-        if (enumType == null || IsNullableEnum(node.Left))
+        var resolution = enumType == null
+            ? null
+            : ResolveEnumMemberConstant(node.Right, enumType);
+        if (enumType == null || resolution is not { } resolved)
             return null;
 
-        var symbol = _semanticModel?.GetSymbolInfo(StripParentheses(node.Right)).Symbol;
-        if (symbol is not IFieldSymbol field
-            || !SymbolEqualityComparer.Default.Equals(field.ContainingType, enumType))
-        {
-            return null;
-        }
+        var member = resolved.NeedsQualifiedName
+            ? EnumMemberExpression(enumType, resolved.Field)
+            : right;
+
+        IncrementRewrite();
+        if (IsNullableEnum(node.Left))
+            return EnumEqualsInvocation(left, member).WithTriviaFrom(node);
 
         var token = SyntaxFactory.Token(SyntaxKind.EqualsEqualsToken)
             .WithLeadingTrivia(node.OperatorToken.LeadingTrivia)
             .WithTrailingTrivia(node.OperatorToken.TrailingTrivia);
-        IncrementRewrite();
         return SyntaxFactory.BinaryExpression(
-            SyntaxKind.EqualsExpression, left, token, right);
+            SyntaxKind.EqualsExpression, left, token, member);
     }
 
     /// <summary>

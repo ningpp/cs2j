@@ -161,14 +161,14 @@ public sealed class EnumArithmeticLoweringTests
     }
 
     [Fact]
-    public void Is_Constant_Pattern_On_NonEnum_Or_Nullable_Left_Is_Untouched()
+    public void Is_Constant_Pattern_On_NonEnum_Left_Is_Untouched()
     {
         var src = """
         using System;
         class C
         {
             bool TypeTest(object value) => value is DayOfWeek;
-            bool Nullable(DayOfWeek? value) => value is DayOfWeek.Monday;
+            bool ConstantOnObject(object value) => value is DayOfWeek.Monday;
         }
         """;
         var result = Preprocess(src);
@@ -177,6 +177,111 @@ public sealed class EnumArithmeticLoweringTests
         Assert.Equal(src, result.OutputCode);
         Assert.Contains("value is DayOfWeek", result.OutputCode);
         Assert.Contains("value is DayOfWeek.Monday", result.OutputCode);
+    }
+
+    [Fact]
+    public void Nullable_Enum_Is_Member_Is_Lowered_To_Object_Equals()
+    {
+        // `E? x; x is E.A` is a constant pattern on a nullable operand,
+        // rewritten to object.Equals(x, E.A): single evaluation of x,
+        // null-safe (null → false) and Java-rendered as Objects.equals.
+        // Lifted `==` would make numeric-boundary demand a hoistable temporary
+        // (CS2J5355) in initializer/short-circuit contexts.
+        var src = """
+        enum E { A, B }
+        class C
+        {
+            bool IsA(E? x) => x is E.A;
+            bool IsNotA(E? x) => x is not E.A;
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("object.Equals(x, E.A)", result.OutputCode);
+        Assert.Contains("!object.Equals(x, E.A)", result.OutputCode);
+        Assert.DoesNotContain(" is E.A", result.OutputCode);
+        Assert.DoesNotContain(" is not E.A", result.OutputCode);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void Nullable_Enum_Is_Member_On_Metadata_Enum_Is_Lowered_Too()
+    {
+        var src = """
+        using System;
+        class C
+        {
+            bool M(DayOfWeek? value) => value is DayOfWeek.Monday;
+            bool N(DayOfWeek? value) => value is not DayOfWeek.Friday;
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("object.Equals(value, DayOfWeek.Monday)", result.OutputCode);
+        Assert.Contains("!object.Equals(value, DayOfWeek.Friday)", result.OutputCode);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void Nullable_Enum_Is_Other_Enum_Member_Is_Untouched()
+    {
+        // Cross-enum constant: the member does not belong to the left operand's
+        // enum type, so the site is not a same-enum test and stays untouched.
+        var src = """
+        enum E { A }
+        enum F { A }
+        class C
+        {
+            bool M(object value) => value is F.A;
+            bool N(E value) => value is E.A;
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("value is F.A", result.OutputCode);
+        Assert.Contains("value == E.A", result.OutputCode);
+    }
+
+    [Fact]
+    public void Is_Enum_Member_Shadowed_By_SameNamed_Namespace_Is_Lowered()
+    {
+        // The parser keeps the RHS of `x is E.M` in TYPE position. When a
+        // same-named namespace is in scope — the WindowsDesktop payload adds a
+        // top-level `Accessibility` namespace that shadows
+        // Microsoft.CodeAnalysis.Accessibility used by source-generator
+        // projects — type binding fails (CS0234) and GetSymbolInfo is empty.
+        // The tokens are re-bound speculatively as an expression, which is the
+        // only legal reading of a constant pattern.
+        var src = """
+        using Microsoft.CodeAnalysis;
+        namespace Accessibility { }
+        class C
+        {
+            bool M(IMethodSymbol m) => m.DeclaredAccessibility is Accessibility.Public;
+        }
+        """;
+        var tree = CSharpSyntaxTree.ParseText(src, new CSharpParseOptions(LanguageVersion.Latest));
+        // Full framework reference set: with a bare object/Console set the
+        // metadata enum surfaces as an error type and the left operand cannot
+        // be classified at all (CS0012 on Enum/IEquatable).
+        var compilation = CSharpCompilation.Create(
+            "enum-ambiguous-constant-test",
+            new[] { tree },
+            CSharpToJava.CLI.ProjectUnsignedTypePreprocessor.GetBasicReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var result = new EnumPreprocessorImpl().Preprocess(
+            src, compilation.GetSemanticModel(tree));
+
+        Assert.True(result.Changed);
+        // The shadowed qualifier cannot bind in expression position either, so
+        // the emitted member reference is fully qualified.
+        Assert.Contains(
+            "m.DeclaredAccessibility == global::Microsoft.CodeAnalysis.Accessibility.Public",
+            result.OutputCode);
+        Assert.DoesNotContain(" is Accessibility.Public", result.OutputCode);
     }
 
     // ── 4) narrow underlying bitwise / arithmetic ──

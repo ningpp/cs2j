@@ -154,6 +154,12 @@ public sealed class ResidualRegistryTests
     [InlineData("class C { void M() { System.Action a = () => { }; } }")]
     [InlineData("class C { bool M(int a, int b) => (a - b) > 0; }")]
     [InlineData("enum E { A } class C { bool M(E a, E b) => a == b; }")]
+    // 可空枚举与同类枚举成员比较：enum pass 归一化后的形态（提升相等语义与
+    // 常量模式一致，null 分别得 false/true），Java 引用相等直译合法。
+    [InlineData("enum E { A } class C { bool M(E? a) => a == E.A; }")]
+    [InlineData("enum E { A } class C { bool M(E? a) => a != E.A; }")]
+    // 可空枚举判空：Java 引用判空直译，不属于 enum 操作数残留。
+    [InlineData("enum E { A } class C { bool M(E? a) => a != null; }")]
     [InlineData("struct S { }")]
     [InlineData("class C { void M() { int x = 1; } }")]
     [InlineData("class C { void M() { string s = string.Empty; } }")]
