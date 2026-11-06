@@ -2838,4 +2838,105 @@ async-normalize: 0 lambda(s) lifted (0 captured), 0 wrapper(s), 23 ConfigureAwai
   第 42 个 `async-normalize` 为 `ok`，`25 stripped/102 sites/3 lowered/0 residual`；
   第 53 个 `normalization-audit` 同上）。
 
+## 30. 输入树 TFM 过滤 + 枚举 `is` 模式归一化（w10z6 复跑）
+
+### 30.1 代码前置
+
+- 提交 A `135cb324`（`fix(preprocess): 输入树以权威编译集排除 TFM 专用文件`）：
+  `ProjectPreprocessSource.FilterToGraphMembers` 在权威编译集
+  （`allowMsBuildEvaluation: true`）可用时不再合并语法 explicit-only 集合，
+  仅在项目完全无法解析（`fullSet == null`）时回退。未选中 TFM 的
+  `JsonReaderHelper.netstandard.cs` 因此不会进入 net10 输入树。
+- 提交 B `bf9a2877`（`fix(enum): is/is not 枚举常量模式归一化为 ==/!=`）：
+  `EnumSyntaxRewriter` 的 `IsExpression` / `IsPatternExpression` 常量模式不再
+  要求 enum 源内声明；左侧类型为该枚举（非可空）且右侧绑定到同枚举成员常量时
+  改写为 `==` / `!=`。`object`、可空左值与跨类型常量保持原样。
+- 单测净增 5 条：
+  - `EnumArithmeticLoweringTests`：元数据 enum（`DayOfWeek`）的 `is` / `is not`
+    改写；`object` 类型测试与 `DayOfWeek?` 常量模式不改写（负例）。
+  - `GraphLinkedCompileFilesFilterTests`：多 TFM 条件项仅保留权威编译集命中的
+    `V.net8.cs`；项目目录外显式共享源仍保留；不可解析项目按目录保守保留。
+- 先红后绿：暂存 A/B 实现后两条正例失败
+  （`TfmSpecificCompileItem_NotInAuthoritativeCompileSet_IsExcluded`、
+  `Is_Metadata_Enum_Member_Is_Lowered_To_Equality`），恢复后相关 26/26 通过。
+- 全量：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj` →
+  **4850 通过 / 9 跳过 / 0 失败**（§29 基线 4845/9/0，净增 5）。
+- `tests/CSharpToJava.ProjectTests` 仅执行 `dotnet build`（成功）；
+  ProjectTests、ConversionTests 未运行。
+
+### 30.2 复跑口径与结果
+
+- 运行时 HEAD `dd8b23f1`，工作树包含提交 A/B 的改动（随后分别提交为
+  `135cb324`、`bf9a2877`）。
+- 命令（与 §29 相同，无 `--force`）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10z6 --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests `
+  *>&1 | Tee-Object D:\cs\rt10-baseline-w10z6.log
+```
+
+- 进程退出码 **1**；report `success=false`、`totalSeconds=100.184`、
+  **53 个 pass**（52 个 `ok`，第 53 个 `normalization-audit` 为 `failed`）；
+  墙钟耗时 101.63s。
+- pass 顺序与状态：
+  `conditional`、`lexical-normalize`、`partial-merge`、`local-function-lift`、
+  `null-coalesce`、`expression-desugar`、`enum`、`enum-declaration`、`delegate`、
+  `tuple`、`anonymous-type-lift`、`foreach-deconstruction`、`foreach-source`、
+  `pattern-desugar`、`strip-default`、`ref-out-in`、`unsafe-ref-lowering`、
+  `using-resource-lift`、`fixed-span-to-array`、`compat-method-replacement`、
+  `pointer-diff-inline`、`unsigned`、`numeric-boundary`、`generic`、
+  `thread-static`、`generic-deepen`、`closed-metadata`、`variance-audit`、
+  `record-readonly`、`array-method`、`index-range`、`make-readonly`、
+  `attribute-normalize`、`struct-value-semantics`、`unsafe-ffm`、
+  `stackalloc-lowering`、`ref-struct-lowering`、
+  `ref-struct-span-field-memory-lift`、`pointer-deref-index`、`closure-lift`、
+  `iterator-lowering`、`async-normalize`、`extension-methods`、
+  `eliminate-goto`、`member-desugar`、`linq-channel`、
+  `concurrency-normalize`、`equality-concat`、
+  `variance-use-site-normalize`、`platform-isolation`、`dynamic-desugar`、
+  `java-keywords` 全部 `ok`，`normalization-audit` `failed`。
+- 关键 summary：
+  - `enum`: `87 transformed, 107 clean, 156 dirty-no-rewrite, 125 bitwise,
+    1 ~, 6 compound, 1 HasFlag, 0 lifted, 4 enum-arith, 0 residual`。
+  - `member-desugar`: `848 propert(y/ies) planned, 159 field(s) generated,
+    2233 read/153 write/1 compound site(s) rewritten, ..., 4 residual`。
+  - `normalization-audit`: `17 residual(s) across 9 file(s)
+    (NORM-ENUM-ARITH=17), 3 support-library file(s) skipped`。
+- TFM 警告（`skipped unresolvable TFM value` / `is below net10` / `NETSDK`）
+  计数 **0**。
+
+### 30.3 残留变化与归因
+
+- **NORM-REF-LOCAL：1 → 0**。`JsonReaderHelper.netstandard.cs` 已不在输入树，
+  提交 A 生效。
+- **NORM-ENUM-ARITH：30 → 17**，已消除 13 条（均为元数据 enum 的
+  `x is E.M` 且语义绑定完整）：
+  - `Common\JsonSeparatorNamingPolicy.cs:151`（`UnicodeCategory`）；
+  - `gen\Helpers\RoslynExtensions.cs` 的 `NullableAnnotation`（2 处）、
+    `TypeKind.Interface`（3 处）、`SpecialType.System_Nullable_T`（1 处）；
+  - `gen\JsonSourceGenerator.Parser.cs` 的 `TypeKind.Enum`、
+    `SpecialType.System_Boolean`、`SpecialType.System_Char`；
+  - `src\...\DefaultJsonTypeInfoResolver.Helpers.cs` 的 `MemberTypes`（2 处）。
+- 剩余 17 条按根因分类：
+  | 类别 | 数量 | 站点/原因 |
+  |------|------|-----------|
+  | 可空 enum 左值 | 7 | `JsonIgnoreCondition?`（Emitter 641、PropertyGenerationSpec 186、JsonPropertyInfo 914）、`JsonPrimitiveTypeKind?`（Emitter 973/999）、`JsonSerializerDefaults?`（SourceGenerationOptionsSpec 74）、`JsonUnmappedMemberHandling?`（JsonTypeInfo.Cache 1342）。按本 pass 口径（可空左值保持原样）不改写；改写为 `==` 仍会被 residual 探针按非 enum 左值命中。 |
+  | `Accessibility` 符号不完整 | 5 | RoslynExtensions 355、Parser 1280/1299/1324/1625。pass 编译集中该元数据 enum 的 `TypeKind` 为 `Class` 且 `Accessibility.Public` 无绑定符号（重复 Roslyn 引用导致），左值不满足 enum 判定；改写为 `==` 后探针仍按左值非 enum 命中，故保持原样。 |
+  | 左值类型缺失 | 2 | TypeGenerationSpec 122/137。`property.get_PropertyType()` 的 `TypeRef` 类型不在输入树（未进入编译集），左值在 pass 编译集中为 error 类型，无法确认 enum 身份。 |
+  | 成员属性改写失败 | 3 | `JsonValue.cs` 233/237 的 `==`。该文件 member-desugar 本地解析校验失败（CS2J5101）被整体保留，`element.ValueKind` 未改写为 `get_ValueKind()`，左值在审计编译集中不可绑定。 |
+- 因此本次**未建立“首次 rt10 全链”基线**：第 53 个 pass 仍 `failed`，
+  最后残留为上述 17 条 `NORM-ENUM-ARITH`。
+
+### 30.4 来源文件
+
+- `D:\cs\rt10-baseline-w10z6\preprocess-report.json`（`success=false`、
+  `totalSeconds=100.184`、53 个 pass、52 ok / 1 failed）。
+- `D:\cs\rt10-baseline-w10z6\preprocess-residual-report.json`（17 条
+  `NORM-ENUM-ARITH`）。
+- `D:\cs\rt10-baseline-w10z6.log`（全链输出，临时产物，未入库）。
+- `D:\cs\cs2j-fulltest-w10z5.log`（全量单测 4850/9/0，临时产物，未入库）。
+
 
