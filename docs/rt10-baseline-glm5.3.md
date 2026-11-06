@@ -1703,3 +1703,116 @@ VR 单 pass 复跑（源 = 本轮全链中间树
 - 运行日志：`D:\cs\rt10-baseline-w10o.log`、`D:\cs\rt10-vr-w10o.log`
   （临时产物，未入库）。
 
+## 21. R4 VA012 异步枚举接口误报修复实测（HEAD `540b6dfd` + 本轮，代码 `b40d9290`）
+
+### 21.1 运行口径
+
+- 运行日期：2026-11-07（Asia/Shanghai）；基线 HEAD：`540b6dfd`，叠加本轮
+  `TypeMutabilityTable` 种子修复（运行时在工作树；代码+测试随后提交 `b40d9290`）。
+- 背景：§20 复跑后剩 57 条 strict Error，其中 VA012×21 全部是
+  `IAsyncEnumerable<T?>` 的 producer 站点，消息为
+  `use site 'IAsyncEnumerable<T?>' is Producer-classified and its Java mapping` +
+  `(unmapped metadata variant type) exposes mutating member(s) ...`。根因：
+  `TypeMutabilityTable.Seeds()` 未收录 ``IAsyncEnumerable`1``，该元数据变体接口
+  经 `IsConservativelyMutable` 落入保守 `(unmapped)` 分支；而
+  `config/TypeMappings.json` 已把它映射到只读 compat 接口
+  `io.github.ningpp.compat.AsyncEnumerable`（仅 `getAsyncEnumerator`）。
+- 代码前置：全量单测 **4783 通过 / 9 跳过 / 0 失败**（基线 4780 + 本轮 3 条）。
+- 命令（`preprocess` 无 `--force`，新目录/日志）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10q --unified-preprocessed-src --profile java-ready `
+  --no-verify-build --no-verify-tests *>&1 | Tee-Object D:\cs\rt10-baseline-w10q.log
+```
+
+- 中间实测（`D:\cs\rt10-baseline-w10p`，仅补 ``IAsyncEnumerable`1`` 种子）：VA012
+  由 21 降至 **1**，剩余一条为 `IAsyncEnumerator<TElement>`
+  （`src\System\Text\Json\Serialization\Converters\Collection\IAsyncEnumerableOfTConverter.cs:139`）。
+  该接口同为 covariant 元数据接口且同样未收录，故一并补入
+  ``IAsyncEnumerator`1`` → `io.github.ningpp.compat.AsyncEnumerator`（Java 侧仅
+  `moveNextAsync`/`getCurrent`，无 mutating 成员）。下列数据取自补全后的 `w10q` 复跑。
+
+### 21.2 variance-audit 结果
+
+- 结论：**仍未通过**（strict gate），strict Error 57 → **36 条**，`VA012 归零`；
+  中止点仍为第 28 个 pass `variance-audit`（VA030）。
+- summary 原样：
+  `variance-audit: 0 variant declaration(s), 324 use site(s) (39/18/267), 87 variance conversion(s), 13 unsafe; 56 constraints (struct/unmanaged/new/...); report=variance-audit-report.json`。
+- 剩余 strict Error 分布：`VA020=24、VA021=1、VA027=11`，另有 `VA030=1`（聚合门，
+  原文 `strict variance gate: 36 unsafe site(s) [VA020=24, VA021=1, VA027=11]`）。
+- totals 实测（`variance-audit-report.json`）：`useSitesTotal=324`
+  （producer/consumer/both = 39/18/267）、`metadataVariantTypesUsed=10`、
+  `unsafeUseSites=13`（§20 为 34，正好减去 21 个 VA012）、
+  `varianceConversionsArray=87`、`varianceConversionsArraySafe=87`、
+  `varianceConversionsCovariant=0`、`varianceConversionsContravariant=0`、
+  `nestedCompositionSites=105`、`constraintsStruct=24`、`constraintsUnmanaged=1`。
+- 不在本轮范围、保持原样：VA020/021/027（约束类）。
+
+### 21.3 各 pass summary（28 个，variance-audit 中止）
+
+```
+1  conditional                ok      strip-conditional: 66 transformed, 286 clean, 372 directives removed, 103 disabled blocks removed
+2  lexical-normalize          ok      lexical-normalize: 0 transformed, 352 clean, 0 #line removed, 0 extern-alias site(s), 0 global using(s), 0 file-scoped normalized, 0 raw (0 multi), 0 u8 (0 bytes), 0 verbatim, 0 esc, 0 interpolated skipped (r 0/v 0/i 0)
+3  partial-merge              ok      partial-merge: 10 group(s) merged, 0 partial member pair(s) collapsed
+4  local-function-lift        ok      local-function-lift: 28 transformed, 324 clean, 59 lifted, 0 skipped, 0 residual
+5  null-coalesce              ok      null-coalesce: 59 transformed, 293 clean, 98 ?? rewritten, 100 ??= rewritten, 98 temp vars, 57 arrow bodies expanded, 0 residual
+6  expression-desugar         ok      expression-desugar: 107 transformed, 209 clean, 36 dirty-no-rewrite; coll: 35 sites (array 9/mutable 15/iface 0/span 8/builder 0/unknown 0), spread 3 (addrange 3/span-foreach 0/enum-foreach 0), empty 16, nested 1, lifted 2, skipped 0, residual 0; guard: static-abstract 0 decl/0 call, generic-attr 0 decl/0 app, scoped 129 param/24 local; interp: 218 sites, concat 162, format 4 (align 0/fmt 3/iformattable 1), fold 25, formattable-kept 0, exprtree-skip 0, handler err0|keep27, temps 63, residual 0; init: 67 obj, 1 coll (single 1/multi 0/ext 0/params 0/fluent 0), 1 dict-index, 126 target-new, 0/0 nested, 38 ctx-stmts, 144 temps, 163 skipped (2 non-strict kept), 96 residual; nc: 180 member/call, 0 idx, 24 invoke (event 0/delegate 24), 56 void, 42 inline, 83 lifted, 32 coalesce, 0 deferred-c51, 164 temps, 0 skipped, 0 residual, assign= 0 member/0 idx, 0 compound/0 event, 0 coalesce, 0 value, 0 chain, 0 rhs-nc, 0 temps, 0 residual
+7  enum                       ok      enum: 85 transformed, 107 clean, 160 dirty-no-rewrite, 125 bitwise, 1 ~, 6 compound, 1 HasFlag, 0 lifted, 4 enum-arith, 0 residual
+8  enum-declaration           ok      enum-declaration: 6 enum(s) rewritten (flags=0, non-int=5, explicit=4), 20 file(s), 0 plan(s) rolled back, 0 kept real (numeric-boundary), 0 residual
+9  delegate                   ok      delegate: 1 transformed, 351 clean, 0 combine, 0 remove, 0 compound, 5 anonymous method, 0 skipped, 0 residual
+10 tuple                      ok      tuple-to-struct: 16 transformed, 338 clean, 25 types, 35 literals, 10 deconstructions, 0 tuple locals -> var, 19 structs generated
+11 anonymous-type-lift        ok      anonymous-type-lift: 0 transformed, 358 clean, 0 creations rewritten, 0 shapes (0 generic, 0 dynamic), 0 types generated, 0 residual
+12 foreach-deconstruction     ok      foreach-deconstruction: 0 transformed, 358 clean, 0 lowered, 1 skipped
+13 foreach-source             ok      foreach-source: 9 transformed, 349 clean, 0 string site(s) wrapped, 0 tuple residual(s), 0 other/KV residual(s), 1 deconstruct(s) lowered, 2 duck enumerator(s) lowered (ext 0, direct 0, struct 2, dispose 0 [boxed 0], no-dispose 2, dynamic 0), 7 span index loop(s), 0 ref index loop(s), 0 ref-readonly index loop(s), 0 ref-Current enumerator(s) [5485 0, 5486 0, residual ref 0], 0 unresolved site(s), 0 residual enumerator site(s), 0 error(s)
+14 pattern-desugar            ok      pattern-desugar: 15 transformed, 307 clean, 36 dirty-no-rewrite, 17 pattern-switch, 0 non-int-switch, 1 catch-filter, 0 catch-T, 8 govs, 0 end-labels, 0 skipped, 0 residual
+15 strip-default              ok      strip-default: 97 transformed, 261 clean, 195 declarations stripped, 176 overloads generated
+16 ref-out-in                 ok      ref-out-in: 208 transformed, 150 clean, 245 ref params, 241 out params, 717 call sites lifted, 153 locked members
+17 unsafe-ref-lowering        ok      unsafe-ref-lowering: 0 transformed, 360 clean, 0 ref local(s) lowered (0 read, 0 add), 1 rejected (URL001)
+18 using-resource-lift        ok      using-resource-lift: 0 transformed, 360 clean, 0 resource(s) lifted, 0 preserved (USL001)
+19 fixed-span-to-array        ok      fixed-span-to-array: 1 transformed, 359 clean, 1 span fixed statement(s) lowered, 0 preserved (FSA001)
+20 compat-method-replacement  ok      compat-method-replacement: 2 transformed, 358 clean, 2 method(s) replaced, 0 already replaced, 2 signature mismatch(es) (CMR001), 0 drifted entr(y/ies) (CMR020), 1 unused table entry(ies)
+21 pointer-diff-inline        ok      pointer-diff-inline: 0 transformed, 360 clean, 0 helper(s) inlined, 0 call site(s) rewritten, 0 unused helper(s) removed, 0 preserved (PDI001)
+22 unsigned                   ok      unsigned-type: 129 transformed, 231 clean, 2269 types replaced, 195 operators rewritten, 3 literals rewritten
+23 numeric-boundary           ok      numeric-boundary: 360 file(s), 9 binary/0 unary/13 conversion/0 increment site(s) explicitized, 338 unchecked expr(s)/0 block(s) stripped, 92 constant(s) materialized, 0 error(s); decimal-ops: 0 binary/0 comparison/0 unary/0 compound site(s), 0 promotion(s), 0 const downgraded, 0 temp(s), 291 deferred; increment-targets: 392 property/0 indexer/0 enum-array/1 simple site(s), 1 unsigned helper call(s), 387 postfix lifted/0 prefix inlined, 387 temp(s), 0 deferred; nullable-lift: 3 rel/134 eq/4 conv site(s), 11 temp(s)
+24 generic                    ok      generic: 7 transformed, 354 clean (16 default(T) encountered, 16 rewritten, 0 nullability tests folded, 2 new T(), 1 new T[n])
+25 thread-static              ok      thread-static: 1 transformed, 360 clean (1 fields rewritten, 0 skipped, 8 reads, 2 writes, 0 compound, 0 increments, 0 struct lifts, 0 initializers, 0 plan rollback(s), 0 residual)
+26 generic-deepen             ok      generic-deepen: 158 transformed, 203 clean (254 anchors, 16 nested propagations, 4 patterns, 7 type tests, 0 catches, 28 static methods, 17 field accesses, 542 call sites, 0 expression-tree skips, 0 plans skipped, 0 ctor-token types, 0 ctor-token sites, 0 ctor-token call sites, 1 mtok methods, 1 mtok sites, 1 mtok call sites, 0 residuals)
+27 closed-metadata            ok      closed-metadata: 388 registered (1975 enumerated, 1587 deduplicated, 3 register files, 0 consumer sites linked, 443 dynamic sites skipped, 0 residuals)
+28 variance-audit             failed  variance-audit: 0 variant declaration(s), 324 use site(s) (39/18/267), 87 variance conversion(s), 13 unsafe; 56 constraints (struct/unmanaged/new/...); report=variance-audit-report.json
+```
+
+### 21.4 TFM 警告
+
+- 日志中 `skipped unresolvable TFM value` 计数为 **0**（与 §2–§20 一致）。
+- warning 行共 48 条（含折行续行），归类仍为基线既有提示：
+  ED020/CS2J1107/CS2J2001/CMR001/URL001，本轮未引入新类目。
+
+### 21.5 单测（先红后绿）
+
+- `tests/CSharpToJava.Tests/VarianceAuditUnitTests.cs` 新增 3 条：
+  - `IAsyncEnumerable<Derived>` producer 站点在 strict 下无 VA012、无 Error；
+  - `IAsyncEnumerator<Derived>` producer 站点同上（对应 21.1 的中间残留）；
+  - 负例：未收录的元数据变体接口 `IQueryable<Derived>` producer 站点仍报 1 条
+    VA012，消息含 `(unmapped metadata variant type)`/`(unmapped)`，保守行为不回归。
+- 红：种子修复前实测 `Mapped_async_enumerable_producer_has_no_va012` 失败
+  （`Expected: 0 / Actual: 1`），负例通过；补种子后相关 2 条转绿。
+  `IAsyncEnumerator` 一条由 rt10 中间复跑（`w10p`，VA012=1）先行证实，补种子后转绿。
+- 全量：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+  → **4783 通过 / 9 跳过 / 0 失败**（1 m 49 s）。
+- 未执行 `CSharpToJava.ProjectTests` 与 `CSharpToJava.ConversionTests`；
+  ProjectTests 未运行。
+
+### 21.6 来源文件
+
+- `D:\cs\rt10-baseline-w10q\preprocess-report.json`（`success=false`，
+  `totalSeconds=56.703`，28 个 pass；第 28 个 `variance-audit` 为 `failed`）。
+- `D:\cs\rt10-baseline-w10q\.cs2j-preprocessed-src\variance-audit-report.json`
+  （totals：`unsafeUseSites=13`，VA012=0）。
+- `D:\cs\rt10-baseline-w10p\preprocess-report.json`（中间态：仅补
+  ``IAsyncEnumerable`1`` 种子，VA012=1）。
+- 运行日志：`D:\cs\rt10-baseline-w10q.log`、`D:\cs\rt10-baseline-w10p.log`
+  （临时产物，未入库）。
+
