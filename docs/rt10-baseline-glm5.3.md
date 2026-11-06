@@ -2147,7 +2147,8 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
 | `NullableConverter.cs:111` | `WriteNumberWithCustomHandling` 同形 else 分支 | safe | 同上 |
 
 约束站点 `NullableConverter.cs:8`（`struct T`）：依赖计数
-`D/N/B/A/Nul/NulVal = 0/0/0/0/9/0`，`judgment=lazy`、`unsafeDependentSites=0`。
+`D/N/B/A/Nul/NulVal = 0/0/0/0/7/0`，`safeDependentSites=10`（7 条 `T?` 类型使用 +
+3 条守卫后的 `.Value`）、`judgment=lazy`、`unsafeDependentSites=0`。
 
 ### 24.3 rt10 结果
 
