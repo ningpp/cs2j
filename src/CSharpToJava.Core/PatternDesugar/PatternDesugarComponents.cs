@@ -443,6 +443,42 @@ internal sealed class SwitchStatementComponent : IPatternDesugarComponent
             .WithCloseBraceToken(block.CloseBraceToken.WithTrailingTrivia(sw.GetTrailingTrivia()));
     }
 
+    /// <summary>
+    /// True when every is-pattern in the guard is `is null` / `is not null`
+    /// (parentheses allowed around pattern and operand). Those are ordinary null
+    /// checks and stay verbatim — rewriting them to `== null` would change
+    /// overloaded-operator semantics.
+    /// </summary>
+    private static bool IsNullOnlyGuard(ExpressionSyntax guard)
+    {
+        foreach (var isPattern in guard.DescendantNodesAndSelf().OfType<IsPatternExpressionSyntax>())
+        {
+            if (!IsNullConstantPattern(isPattern.Pattern))
+                return false;
+        }
+        return true;
+    }
+
+    private static bool IsNullConstantPattern(PatternSyntax pattern)
+    {
+        pattern = UnwrapParenthesizedPattern(pattern);
+        if (pattern is UnaryPatternSyntax unary)
+        {
+            if (!unary.OperatorToken.IsKind(SyntaxKind.NotKeyword))
+                return false;
+            pattern = UnwrapParenthesizedPattern(unary.Pattern);
+        }
+        return pattern is ConstantPatternSyntax constant
+               && constant.Expression.IsKind(SyntaxKind.NullLiteralExpression);
+    }
+
+    private static PatternSyntax UnwrapParenthesizedPattern(PatternSyntax pattern)
+    {
+        while (pattern is ParenthesizedPatternSyntax parenthesized)
+            pattern = parenthesized.Pattern;
+        return pattern;
+    }
+
     private static void AnalyzeSwitch(SwitchStatementSyntax sw, SemanticModel? model, PatternDesugarPlanBuilder builder)
     {
         var sections = sw.Sections.ToList();
@@ -488,12 +524,13 @@ internal sealed class SwitchStatementComponent : IPatternDesugarComponent
             return;
         }
 
-        // D7: guards are preserved verbatim; any is-pattern inside a guard would
-        // reach the converter's expression-side fallbacks — refuse until C37.
+        // D7 (narrowed): guards are preserved verbatim. `is null` / `is not null`
+        // are plain null comparisons — no type/recursive/declaration pattern is
+        // introduced — so they lower with the switch; any other is-pattern still
+        // needs C37.
         foreach (var label in sections.SelectMany(s => s.Labels).OfType<CasePatternSwitchLabelSyntax>())
         {
-            if (label.WhenClause != null
-                && label.WhenClause.Condition.DescendantNodesAndSelf().Any(n => n is IsPatternExpressionSyntax))
+            if (label.WhenClause != null && !IsNullOnlyGuard(label.WhenClause.Condition))
             {
                 builder.ReportUnsupported(PatternDesugarCodes.UnsupportedPattern,
                     "PD010: is-pattern inside a when guard is reduced by C37", label.WhenClause);

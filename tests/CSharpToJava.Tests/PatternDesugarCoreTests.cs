@@ -362,6 +362,118 @@ class C {
         AssertCompilesAndClean(result);
     }
 
+    // ── C# 10 extended property patterns (`A.B: …`) ───────────────────────
+
+    private const string BoxPathTypes = """
+class Holder { public Leaf A { get; } }
+class Leaf { public int B { get; set; } }
+""";
+
+    [Fact]
+    public void PatternSwitch_ExtendedPropertyPattern_TwoSegments()
+    {
+        var result = Desugar($$"""
+class C {
+    void M(object o) {
+        switch (o) {
+            case Holder { A.B: 1 } x:
+                System.Console.WriteLine(x);
+                break;
+        }
+    }
+}
+{{BoxPathTypes}}
+""");
+        var text = Normalize(result.OutputCode);
+        Assert.Contains("x.A != null && x.A.B == 1", text);
+        AssertCompilesAndClean(result);
+    }
+
+    [Fact]
+    public void PatternSwitch_ExtendedPropertyPattern_ThreeSegments_NullGuardsEveryReference()
+    {
+        var result = Desugar("""
+class C {
+    void M(object o) {
+        switch (o) {
+            case Box { A.B.Flag: true } x:
+                System.Console.WriteLine(x);
+                break;
+        }
+    }
+}
+class Box { public Middle A { get; } }
+class Middle { public Inner B { get; } }
+class Inner { public bool Flag { get; set; } }
+""");
+        var text = Normalize(result.OutputCode);
+        Assert.Contains("x.A != null && x.A.B != null && x.A.B.Flag == true", text);
+        AssertCompilesAndClean(result);
+    }
+
+    [Fact]
+    public void PatternSwitch_ExtendedPropertyPattern_NullableIntermediate_GoesThroughValue()
+    {
+        var result = Desugar("""
+class C {
+    void M(object o) {
+        switch (o) {
+            case Box2 { A.B: 1 } x:
+                System.Console.WriteLine(x);
+                break;
+        }
+    }
+}
+class Box2 { public Leaf2? A { get; } }
+struct Leaf2 { public int B { get; set; } }
+""");
+        var text = Normalize(result.OutputCode);
+        Assert.Contains("x.A != null && x.A.Value.B == 1", text);
+        AssertCompilesAndClean(result);
+    }
+
+    [Fact]
+    public void PatternSwitch_WhenGuard_NullChecks_ArePreservedVerbatim()
+    {
+        var result = Desugar("""
+class C {
+    void M(object o) {
+        switch (o) {
+            case System.Exception ex when ex.Message is null:
+                System.Console.WriteLine("no message");
+                break;
+            case System.ArgumentException arg when arg.ParamName is not null:
+                System.Console.WriteLine(arg.ParamName);
+                break;
+        }
+    }
+}
+""");
+        var text = Normalize(result.OutputCode);
+        Assert.Contains("(ex.Message is null)", text);
+        Assert.Contains("(arg.ParamName is not null)", text);
+        Assert.DoesNotContain("== null", text);
+        Assert.DoesNotContain("switch", text);
+        AssertCompilesAndClean(result);
+    }
+
+    [Fact]
+    public void GuardWithNonNullIsPattern_StillReportsPD010()
+    {
+        var result = Desugar("""
+class C {
+    void M(object o) {
+        switch (o) {
+            case object p when p is int n: System.Console.WriteLine(n); break;
+        }
+    }
+}
+""");
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == PatternDesugarCodes.UnsupportedPattern
+            && d.Message.Contains("when guard"));
+    }
+
     [Fact]
     public void PatternSwitch_ObjectGoverning_ConstantUsesTypeTestForm()
     {

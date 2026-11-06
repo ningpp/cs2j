@@ -50,6 +50,27 @@ internal sealed record PatternReductionContext(
         }
     }
 
+    /// <summary>
+    /// Model lookup for a type syntax inside the original tree (declared type of a
+    /// recursive pattern). Detached synthesized nodes return null instead of throwing.
+    /// </summary>
+    public ITypeSymbol? SafeTypeOfType(TypeSyntax type)
+    {
+        if (Model == null)
+            return null;
+        try
+        {
+            if (Model.GetSymbolInfo(type).Symbol is ITypeSymbol symbol)
+                return symbol is IErrorTypeSymbol ? null : symbol;
+            var info = Model.GetTypeInfo(type).Type;
+            return info is null or IErrorTypeSymbol ? null : info;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
     public void Report(string code, PatternDesugarSeverity severity, string message, SyntaxNode node)
     {
         var span = node.GetLocation().GetLineSpan();
@@ -210,6 +231,41 @@ internal static class PatternReducer
     internal static bool IsReferenceLike(ITypeSymbol? type)
         => type != null
            && (type.IsReferenceType || type.TypeKind == TypeKind.TypeParameter);
+
+    /// <summary>
+    /// Member path of one property subpattern: `Name:`, `Name`, or a C# 10 extended
+    /// path (`A.B.C`). Null when the subpattern has no statically known member name.
+    /// </summary>
+    internal static IReadOnlyList<string>? GetPropertyPath(SubpatternSyntax sub)
+    {
+        if (sub.NameColon != null)
+            return new[] { sub.NameColon.Name.Identifier.ValueText };
+
+        return sub.ExpressionColon?.Expression switch
+        {
+            IdentifierNameSyntax identifier => new[] { identifier.Identifier.ValueText },
+            MemberAccessExpressionSyntax member => MemberAccessPath(member),
+            _ => null,
+        };
+    }
+
+    private static IReadOnlyList<string>? MemberAccessPath(MemberAccessExpressionSyntax member)
+    {
+        var segments = new List<string>();
+        ExpressionSyntax current = member;
+        while (current is MemberAccessExpressionSyntax access
+               && access.IsKind(SyntaxKind.SimpleMemberAccessExpression)
+               && access.Name is IdentifierNameSyntax name)
+        {
+            segments.Add(name.Identifier.ValueText);
+            current = access.Expression;
+        }
+        if (current is not IdentifierNameSyntax root)
+            return null; // `this.X` / `base.X` / qualified paths are out of scope
+        segments.Add(root.Identifier.ValueText);
+        segments.Reverse();
+        return segments;
+    }
 
     internal static ITypeSymbol? GetMemberType(ITypeSymbol? type, string name)
     {
@@ -600,9 +656,8 @@ internal sealed class RecursivePatternReducer : IPatternReducer
         {
             foreach (var sub in recursive.PropertyPatternClause.Subpatterns)
             {
-                var memberName = sub.NameColon?.Name.Identifier.ValueText
-                    ?? (sub.ExpressionColon?.Expression as IdentifierNameSyntax)?.Identifier.ValueText;
-                if (memberName == null)
+                var path = PatternReducer.GetPropertyPath(sub);
+                if (path == null)
                 {
                     ctx.Report(PatternDesugarCodes.UnsupportedPattern,
                         ctx.Options.Strict ? PatternDesugarSeverity.Error : PatternDesugarSeverity.Warning,
@@ -610,17 +665,51 @@ internal sealed class RecursivePatternReducer : IPatternReducer
                     return PatternReducer.NotSupported();
                 }
 
-                var memberType = PatternReducer.GetMemberType(subjectType, memberName);
-                var memberExpression = SyntaxFactory.MemberAccessExpression(
-                    SyntaxKind.SimpleMemberAccessExpression,
-                    baseExpression,
-                    SyntaxFactory.IdentifierName(memberName));
+                // Extended property patterns (`A.B: 1`, C# 10): the declared pattern
+                // type owns the first member — the governing type may be object.
+                var currentType = subjectType;
+                if (path.Count > 1 && recursive.Type != null)
+                    currentType = ctx.SafeTypeOfType(recursive.Type) ?? subjectType;
+                var memberExpression = baseExpression;
+
+                for (var i = 0; i < path.Count - 1; i++)
+                {
+                    var stepType = PatternReducer.GetMemberType(currentType, path[i]);
+                    if (stepType == null)
+                    {
+                        ctx.Report(PatternDesugarCodes.UnsupportedPattern,
+                            ctx.Options.Strict ? PatternDesugarSeverity.Error : PatternDesugarSeverity.Warning,
+                            $"PD010: extended property pattern member '{string.Join(".", path.Take(i + 1))}' cannot be resolved",
+                            sub);
+                        return PatternReducer.NotSupported();
+                    }
+
+                    memberExpression = MemberAccess(memberExpression, path[i]);
+                    if (PatternReducer.IsNullable(stepType))
+                    {
+                        // `S?` intermediate: null-guard, then descend through .Value.
+                        conditions.Add(PatternReducer.NotNull(memberExpression));
+                        memberExpression = MemberAccess(memberExpression, "Value");
+                        currentType = ((INamedTypeSymbol)stepType).TypeArguments[0];
+                    }
+                    else
+                    {
+                        // Reference-typed intermediate members must be null-guarded before use.
+                        if (PatternReducer.IsReferenceLike(stepType))
+                            conditions.Add(PatternReducer.NotNull(memberExpression));
+                        currentType = stepType;
+                    }
+                }
+
+                var memberName = path[^1];
+                var memberType = PatternReducer.GetMemberType(currentType, memberName);
+                memberExpression = MemberAccess(memberExpression, memberName);
 
                 var subReduction = PatternReducer.Reduce(sub.Pattern, memberExpression, memberType, ctx);
                 if (!subReduction.Supported)
                     return PatternReducer.NotSupported();
 
-                // Reference-typed intermediate members must be null-guarded before use.
+                // Reference-typed members must be null-guarded before use.
                 if (PatternReducer.IsReferenceLike(memberType))
                     conditions.Add(PatternReducer.NotNull(memberExpression));
                 conditions.Add(subReduction.Condition!);
@@ -635,4 +724,10 @@ internal sealed class RecursivePatternReducer : IPatternReducer
         return new PatternReduction(
             SyntaxFactory.ParenthesizedExpression(joined), Array.Empty<StatementSyntax>(), true);
     }
+
+    private static ExpressionSyntax MemberAccess(ExpressionSyntax target, string name) =>
+        SyntaxFactory.MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression,
+            target,
+            SyntaxFactory.IdentifierName(name));
 }
