@@ -480,3 +480,109 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
 - `D:\cs\rt10-baseline-w10e\.cs2j-preprocessed-src`（改写后的中间源）
 - `D:\cs\rt10-pd-w10e1\preprocess-report.json`（单 pass 复核：`success=true`、`totalSeconds=4.155`）
 
+## 12. 第六次重跑（HEAD `2461172a`，ref-out-in 通过）
+
+### 12.1 运行口径
+
+- 运行日期：2026-11-06（Asia/Shanghai）；仓库代码 HEAD：`2461172a`
+  （`docs(rt10): 落档第五次真源重跑（pattern-desugar 通过，新中止点 ref-out-in）`）。
+- 代码前置：全量单测 **4720 通过 / 9 跳过 / 0 失败**（基线 4715 + 新增 5 条
+  ref-out-in 单测）。
+- 源不变：`D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj`；
+  目标：`D:\cs\rt10-baseline-w10f`；unified 中间树
+  `D:\cs\rt10-baseline-w10f\.cs2j-preprocessed-src`（目标目录运行时不存在，无需 `--force`）。
+- 命令（与 §11.1 同参数，仅换目标目录与日志）：
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w10f --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests `
+  *>&1 | Tee-Object D:\cs\rt10-baseline-w10f.log
+```
+
+- 结果：进程退出码 **1**（链在更后面的 pass 中止，非超时/崩溃）。证据：
+  `D:\cs\rt10-baseline-w10f.log`（442 行）、
+  `D:\cs\rt10-baseline-w10f\preprocess-report.json`（`success=false`、
+  `totalSeconds=41.356`、**20** 个 pass）。
+
+### 12.2 每个 pass 的实测（来源：preprocess-report.json 的 `status`/`summary`/`totalSeconds`）
+
+| # | pass | 状态 | 秒 | 实测 summary（原样节选） |
+|---|------|------|----|--------------------------|
+| 1 | conditional | ok | 5.639 | `strip-conditional: 66 transformed, 286 clean, 372 directives removed, 103 disabled blocks removed` |
+| 2 | lexical-normalize | ok | 1.401 | `0 transformed, 352 clean, 0 #line removed, ...` |
+| 3 | partial-merge | ok | 3.382 | `10 group(s) merged, 0 partial member pair(s) collapsed`（9 条 CS2J2001 warning，同 §9–§11） |
+| 4 | local-function-lift | ok | 4.596 | `28 transformed, 324 clean, 59 lifted, 0 skipped, 0 residual` |
+| 5 | null-coalesce | ok | 0.873 | `59 transformed, 293 clean, 98 ?? rewritten, 100 ??= rewritten, 98 temp vars, 57 arrow bodies expanded, 0 residual` |
+| 6 | expression-desugar | ok | 2.701 | `107 transformed, 209 clean, 36 dirty-no-rewrite; ...; nc: 180 member/call, 24 invoke, 56 void, 42 inline, 83 lifted, 32 coalesce, 164 temps, 0 skipped, 0 residual` |
+| 7 | enum | ok | 1.489 | `85 transformed, 107 clean, 160 dirty-no-rewrite, 125 bitwise, 1 ~, 6 compound, 1 HasFlag, 0 lifted, 4 enum-arith, 0 residual` |
+| 8 | enum-declaration | ok | 6.131 | `6 enum(s) rewritten (flags=0, non-int=5, explicit=4), 20 file(s), 0 plan(s) rolled back, 0 kept real (numeric-boundary), 0 residual` |
+| 9 | delegate | ok | 0.603 | `1 transformed, 351 clean, 0 combine, 0 remove, 0 compound, 5 anonymous method, 0 skipped, 0 residual` |
+| 10 | tuple | ok | 6.171 | `tuple-to-struct: 16 transformed, 338 clean, 25 types, 35 literals, 10 deconstructions, 0 tuple locals -> var, 19 structs generated` |
+| 11 | anonymous-type-lift | ok | 0.883 | `0 transformed, 358 clean, 0 creations rewritten, 0 shapes (0 generic, 0 dynamic), 0 types generated, 0 residual` |
+| 12 | foreach-deconstruction | ok | 0.272 | `0 transformed, 358 clean, 0 lowered, 1 skipped` |
+| 13 | foreach-source | ok | 0.537 | `9 transformed, 349 clean, 0 tuple residual(s), 1 deconstruct(s) lowered, 2 duck enumerator(s) lowered (ext 0, direct 0, struct 2, dispose 0 [boxed 0], no-dispose 2, dynamic 0), 7 span index loop(s), 0 unresolved site(s), 0 residual enumerator site(s), 0 error(s)` |
+| 14 | pattern-desugar | ok | 0.423 | `15 transformed, 307 clean, 36 dirty-no-rewrite, 17 pattern-switch, 0 non-int-switch, 1 catch-filter, 0 catch-T, 8 govs, 0 end-labels, 0 skipped, 0 residual` |
+| 15 | strip-default | ok | 2.779 | `97 transformed, 261 clean, 195 declarations stripped, 176 overloads generated` |
+| 16 | ref-out-in | **ok（本轮修复）** | 1.577 | `208 transformed, 150 clean, 245 ref params, 241 out params, 717 call sites lifted, 153 locked members` |
+| 17 | unsafe-ref-lowering | ok | 1.190 | `0 transformed, 360 clean, 0 ref local(s) lowered (0 read, 0 add), 1 rejected (URL001)` |
+| 18 | using-resource-lift | ok | 0.208 | `0 transformed, 360 clean, 0 resource(s) lifted, 0 preserved (USL001)` |
+| 19 | fixed-span-to-array | ok | 0.231 | `1 transformed, 359 clean, 1 span fixed statement(s) lowered, 0 preserved (FSA001)` |
+| 20 | compat-method-replacement | **failed** | 0.233 | `1 transformed, 359 clean, 1 method(s) replaced, 0 already replaced, 3 signature mismatch(es) (CMR001), 2 drifted entr(y/ies) (CMR020), 0 unused table entry(ies)` |
+
+- 与 §11.2 逐条对比：第 1–15 个 pass 的 summary 逐字一致（仅耗时数值不同）；
+  第 16 个 `ref-out-in` 由 failed 转为 ok；第 17–20 个 pass 在 §11 从未运行。
+
+### 12.3 ref-out-in 通过证据
+
+- diagnostics **0** 条（§11.4 的 46 条全部消失：invalid C# 0、unproxyable 0、
+  residual `still declares` 0）。
+- summary 变化：`transformed 204 → 208`、`clean 154 → 150`；`245 ref params`、
+  `241 out params`、`717 call sites lifted`、`153 locked members` 不变。
+- 三个根因（前两个共同表现为语句拆分，第三个是 C# 14 节点形态）：
+  1. **生成语句插值丢 trivia**：短路右侧被提升为
+     `__scN = __callM is JsonConverter polymorphicConverter;` 时用字符串插值
+     `ToString()` 拼语句，`__callM` 与 `is` 粘成单个标识符（CS1002）。修复为
+     生成语句前对表达式片段 `NormalizeWhitespace()`（`RefOutInStatementLifter.Text`）。
+  2. **`is T v` 模式变量作用域**：holder-only 的 ref 调用无需 slot 时仍被提升成
+     `var __callM = …;`，模式变量被声明在生成语句的块内，随后的
+     `if (__scN) { … v … }` 变 CS0103。修复为“无 hoist 即原地改写”
+     （`LiftInvocation`），短路表达式整体保留；需要 hoist 的 `?.` 调用改为
+     CS2J3303 精确诊断并保留源调用。
+  3. **`ref field`（C# 14）**：`field` 是 `FieldExpressionSyntax` 而非
+     `IdentifierNameSyntax`，落入 `unsupported ref/out argument shape`。修复为在
+     `LiftArgument` 的标识符/成员链分支中接受 `FieldExpressionSyntax`，生成
+     `ByRef<T>.Create(field)` + 写回 `field = __refN.Value`（ref 写回进 finally）。
+- 中间树证据（逐字）：
+  - `src\System\Text\Json\Serialization\Converters\Collection\JsonCollectionConverter.cs:171`
+    （`is` 模式与模式变量保持在原 if 条件内）：
+    `ResolvePolymorphicConverter(jsonTypeInfo, state) is JsonConverter polymorphicConverter)`
+  - `src\System\Text\Json\Serialization\JsonSerializerOptions.cs:53-61`
+    （`ref field` 的 copy-in/copy-out）：
+    `ByRef<System.Text.Json.JsonSerializerOptions?> __ref1 = ByRef<...>.Create(field);`
+    `try { __call2 = GetOrCreateSingleton(__ref1, ...); } finally { field = __ref1.Value; }`
+- TFM 警告：日志中 **0** 次（`(?i)TFM` 命中 0）。warning 行共 97 条，均为
+  `[Warning]` 预处理提示（interpolated-string handler、`scoped` 保留、
+  tuple 元素类型回退等）与 CMR001/URL001，不阻断链。
+
+### 12.4 新中止点
+
+- 第 20 个 pass `compat-method-replacement`（`status=failed`，0.233s），共
+  **2** 条 Error（CMR020）+ **3** 条 warning（CMR001）：
+  - `error CMR020: compat method replacement entry 'System.Text.Json.JsonWriterHelper.ToUtf8(System.ReadOnlySpan<char>, System.Span<byte>, out int)' drifted: ... no declaration matched the registered signature.`
+  - `error CMR020: compat method replacement entry 'System.Text.Json.JsonWriterHelper.ToUtf8(System.ReadOnlySpan<byte>, System.Span<byte>, out int, out int)' drifted: ...`
+  - `warning CMR001: ... did not match declaration 'System.Text.Json.JsonWriterHelper.ToUtf8(ReadOnlySpan<char>, Span<byte>, ByRef<int>)': parameter 2 ('written') has ref kind None, not Out.`
+  - 另 2 条 CMR001 为 `JsonWriterHelper.NeedsEscaping` 的注册签名与声明不匹配
+    （与 ref-out-in 无关）。
+- 根因方向（下一轮）：ref-out-in 已把 `out int` 改写为 `ByRef<int>`，compat 注册表
+  仍按原生 `out int` 匹配；需要让注册表识别改写后的 holder 签名（或在其后按
+  `ByRef<T>` 重新登记），本轮未修。
+
+### 12.5 来源文件
+
+- `D:\cs\rt10-baseline-w10f\preprocess-report.json`（schemaVersion 1，
+  `success=false`，`totalSeconds=41.356`）。
+- `D:\cs\rt10-baseline-w10f.log`（442 行）。
+- 中间树：`D:\cs\rt10-baseline-w10f\.cs2j-preprocessed-src`。
+
