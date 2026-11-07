@@ -321,6 +321,14 @@ public class ArrayHelper {
         return copy;
     }
 
+    /** LINQ projections over byte[] box elements as Integer, not Byte. */
+    public static byte[] toByteArray(Integer[] items) {
+        if (items == null) return null;
+        byte[] copy = new byte[items.length];
+        for (int i = 0; i < items.length; i++) copy[i] = items[i] == null ? 0 : items[i].byteValue();
+        return copy;
+    }
+
     public static short[] toShortArray(Short[] items) {
         if (items == null) return null;
         short[] copy = new short[items.length];
@@ -777,6 +785,48 @@ public class ArrayHelper {
         for (int i = array.length - 1; i >= 0; i--) {
             if (Objects.equals(array[i], value)) return i;
         }
+        return -1;
+    }
+
+    // C# Array.IndexOf works on primitive arrays; Java generics cannot (T[] is
+    // a reference-type array), so provide the primitive overloads explicitly.
+    public static int indexOf(char[] array, char value) {
+        for (int i = 0; i < array.length; i++) if (array[i] == value) return i;
+        return -1;
+    }
+
+    public static int indexOf(int[] array, int value) {
+        for (int i = 0; i < array.length; i++) if (array[i] == value) return i;
+        return -1;
+    }
+
+    public static int indexOf(long[] array, long value) {
+        for (int i = 0; i < array.length; i++) if (array[i] == value) return i;
+        return -1;
+    }
+
+    public static int indexOf(short[] array, short value) {
+        for (int i = 0; i < array.length; i++) if (array[i] == value) return i;
+        return -1;
+    }
+
+    public static int indexOf(byte[] array, byte value) {
+        for (int i = 0; i < array.length; i++) if (array[i] == value) return i;
+        return -1;
+    }
+
+    public static int indexOf(boolean[] array, boolean value) {
+        for (int i = 0; i < array.length; i++) if (array[i] == value) return i;
+        return -1;
+    }
+
+    public static int indexOf(float[] array, float value) {
+        for (int i = 0; i < array.length; i++) if (array[i] == value) return i;
+        return -1;
+    }
+
+    public static int indexOf(double[] array, double value) {
+        for (int i = 0; i < array.length; i++) if (array[i] == value) return i;
         return -1;
     }
 

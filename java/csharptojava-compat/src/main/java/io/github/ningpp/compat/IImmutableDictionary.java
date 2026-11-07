@@ -11,9 +11,22 @@ import java.util.Set;
  * Iterable&lt;CSharpKeyValuePair&lt;K,V&gt;&gt; which clashes with Map.Entry iteration.
  */
 public interface IImmutableDictionary<K, V> {
-    int size();
+    /** C# IReadOnlyCollection&lt;K,V&gt;.Count surface used through this interface. */
+    default int getCount() {
+        return size();
+    }
 
-    boolean isEmpty();
+    default int size() {
+        int count = 0;
+        for (K ignored : getKeys()) {
+            count++;
+        }
+        return count;
+    }
+
+    default CSharpGenericEnumerator<CSharpKeyValuePair<K, V>> pairIterator() {
+        return iterator();
+    }
 
     boolean containsKey(K key);
 
@@ -69,6 +82,15 @@ public interface IImmutableDictionary<K, V> {
             list.add(new CSharpKeyValuePair<>(key, get(key)));
         }
         return CSharpGenericEnumerator.from(list.iterator());
+    }
+
+    /** C# IImmutableDictionary.Clear() — an empty dictionary (converter name). */
+    default IImmutableDictionary<K, V> clearCSharp() {
+        return new ImmutableDictionary<>();
+    }
+
+    default boolean isEmpty() {
+        return getCount() == 0;
     }
 
     default IImmutableDictionary<K, V> removeCSharp(K key) {

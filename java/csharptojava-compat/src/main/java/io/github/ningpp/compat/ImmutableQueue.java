@@ -86,8 +86,8 @@ public class ImmutableQueue<T> implements IImmutableQueue<T> {
     }
 
     @Override
-    public java.util.Iterator<T> iterator() {
-        return items.iterator();
+    public CSharpGenericEnumerator<T> iterator() {
+        return CSharpGenericEnumerator.from(items.iterator());
     }
 
     @Override

@@ -26,6 +26,7 @@ public final class IntegerHelper {
     public static final int RoundtripKind = 128;
 
     // System.StringSplitOptions
+    public static final int None = 0;
     public static final int RemoveEmptyEntries = 1;
 
     // dotnet.xml (XmlPreloadedResolver)

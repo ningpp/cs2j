@@ -32,6 +32,14 @@ public class Encoding {
     private final boolean throwOnInvalidBytes;
 
     /**
+     * Mirrors C# {@code new UTF8Encoding(bool encoderShouldEmitUtf8Identifier)}.
+     */
+    public Encoding(boolean encoderShouldEmitUtf8Identifier) {
+        this(StandardCharsets.UTF_8, 65001, true,
+                "�", defaultEncoderReplacement(StandardCharsets.UTF_8), false);
+    }
+
+    /**
      * Mirrors C# {@code new UTF8Encoding(bool encoderShouldEmitUtf8Identifier,
      * bool throwOnInvalidBytes)} — converted ctor call sites bind here; the
      * encoding is UTF-8 (code page 65001) and invalid byte sequences throw.

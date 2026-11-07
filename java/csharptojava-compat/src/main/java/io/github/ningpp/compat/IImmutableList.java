@@ -6,10 +6,25 @@ import java.util.List;
 /**
  * Compat for System.Collections.Immutable.IImmutableList&lt;T&gt;.
  */
-public interface IImmutableList<T> extends Iterable<T> {
-    int size();
+public interface IImmutableList<T> extends CSharpIterable<T> {
+    /**
+     * C# IReadOnlyCollection&lt;T&gt;.Count: converter-generated wrappers emit the
+     * C# property as {@code getCount()}, while the inherited {@link java.util.Collection}
+     * surface requires {@code size()}. Delegate so either override satisfies both.
+     */
+    default int size() {
+        return getCount();
+    }
 
-    boolean isEmpty();
+    /** C# IReadOnlyCollection&lt;T&gt;.Count surface used through this interface. */
+    default int getCount() {
+        return size();
+    }
+
+    /** Converter-generated wrappers only expose size()/getCount(); default keeps them concrete. */
+    default boolean isEmpty() {
+        return getCount() == 0;
+    }
 
     T get(int index);
 

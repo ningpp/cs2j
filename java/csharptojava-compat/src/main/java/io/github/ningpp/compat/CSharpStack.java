@@ -25,6 +25,17 @@ public class CSharpStack<T> implements CSharpICollection<T>, Cloneable {
         }
     }
 
+    /** C# new Stack&lt;T&gt;(IEnumerable&lt;T&gt;) via the compat IList view. */
+    @SuppressWarnings("unchecked")
+    public CSharpStack(CSharpIList<?> source) {
+        this.deque = new ArrayDeque<>();
+        if (source != null) {
+            for (Object item : source) {
+                deque.addLast((T) item);
+            }
+        }
+    }
+
     public void push(T item) {
         deque.addLast(item);
     }

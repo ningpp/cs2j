@@ -126,7 +126,7 @@ public class ImmutableHashSet<T> implements IImmutableSet<T> {
         return items.isEmpty();
     }
 
-    public boolean contains(T item) {
+    public boolean contains(Object item) {
         return items.contains(item);
     }
 
@@ -298,8 +298,8 @@ public class ImmutableHashSet<T> implements IImmutableSet<T> {
     }
 
     @Override
-    public java.util.Iterator<T> iterator() {
-        return items.iterator();
+    public CSharpGenericEnumerator<T> iterator() {
+        return CSharpGenericEnumerator.from(items.iterator());
     }
 
     @Override

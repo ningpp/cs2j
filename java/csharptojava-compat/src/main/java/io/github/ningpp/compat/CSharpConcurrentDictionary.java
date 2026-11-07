@@ -27,6 +27,16 @@ public final class CSharpConcurrentDictionary<K, V> {
         }
     }
 
+    /** C# ConcurrentDictionary(IEnumerable&lt;KeyValuePair&lt;K,V&gt;&gt;) overload. */
+    public CSharpConcurrentDictionary(CSharpGenericIterable<CSharpKeyValuePair<K, V>> entries) {
+        this.map = new ConcurrentHashMap<>();
+        if (entries != null) {
+            for (CSharpKeyValuePair<K, V> pair : entries) {
+                this.map.put(pair.getKey(), pair.getValue());
+            }
+        }
+    }
+
     public boolean tryAdd(K key, V value) {
         return map.putIfAbsent(key, value) == null;
     }

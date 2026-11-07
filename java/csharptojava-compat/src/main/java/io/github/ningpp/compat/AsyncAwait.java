@@ -43,6 +43,16 @@ public final class AsyncAwait {
         }
     }
 
+    /** C# {@code new Task(Action<object>, object)}: schedules the action immediately. */
+    public static CompletableFuture<Void> run(java.util.function.Consumer<Object> action, Object state) {
+        return CompletableFuture.runAsync(() -> action.accept(state));
+    }
+
+    /** C# {@code Task.Start()}: the compat run() already scheduled the work. */
+    public static void start(CompletableFuture<?> task) {
+        // no-op: AsyncAwait.run schedules eagerly, like Task.Start() would
+    }
+
     @SuppressWarnings("unchecked")
     private static <E extends Throwable> void throwUnchecked(Throwable throwable) throws E {
         throw (E) throwable;

@@ -15,6 +15,12 @@ import java.util.Set;
 public class ImmutableSortedDictionary<K, V> implements IImmutableDictionary<K, V>, CSharpReadOnlyDict<K, V> {
     private final TreeMap<K, V> items;
 
+    /** Both superinterfaces provide pairIterator(); pick the read-only view. */
+    @Override
+    public CSharpGenericEnumerator<CSharpKeyValuePair<K, V>> pairIterator() {
+        return CSharpReadOnlyDict.super.pairIterator();
+    }
+
     public ImmutableSortedDictionary() {
         this.items = new TreeMap<>();
     }
@@ -39,13 +45,22 @@ public class ImmutableSortedDictionary<K, V> implements IImmutableDictionary<K, 
         return new ImmutableSortedDictionary<>(map);
     }
 
+    public static <K, V> ImmutableSortedDictionary<K, V> createRange(
+            CSharpGenericIterable<? extends Map.Entry<K, V>> source) {
+        Map<K, V> map = new java.util.LinkedHashMap<>();
+        for (Map.Entry<K, V> entry : source) {
+            map.put(entry.getKey(), entry.getValue());
+        }
+        return new ImmutableSortedDictionary<K, V>(new java.util.TreeMap<K, V>(map));
+    }
+
     /**
      * C#-named CreateRange used by the JSON immutable-dictionary factory, which
      * looks up a static generic method literally named "CreateRange" taking one
      * IEnumerable to build the deserialized instance.
      */
     public static <K, V> ImmutableSortedDictionary<K, V> CreateRange(CSharpGenericIterable<Map.Entry<K, V>> source) {
-        return createRange(source);
+        return createRange((Iterable<Map.Entry<K, V>>) source);
     }
 
     public int size() {

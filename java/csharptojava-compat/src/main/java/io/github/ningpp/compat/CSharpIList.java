@@ -302,7 +302,7 @@ public interface CSharpIList<T> extends CSharpCollection {
         return from(list);
     }
 
-    static CSharpIList from(CSharpGenericIList<?> list) {
+    private static CSharpIList fromGeneric(CSharpGenericIList<?> list) {
         if (list == null) {
             return null;
         }
@@ -383,6 +383,31 @@ public interface CSharpIList<T> extends CSharpCollection {
     }
 
     /**
+     * Runtime bridge from any C# collection shape to the non-generic IList
+     * surface. A concrete overload set (CSharpCollection / CSharpICollection)
+     * made calls such as {@code CSharpIList.from(Deserialize<T>(...))} ambiguous
+     * — the unconstrained generic argument is applicable to every overload.
+     */
+    static CSharpIList from(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof CSharpIList) {
+            return (CSharpIList) value;
+        }
+        if (value instanceof CSharpGenericIList) {
+            return fromGeneric((CSharpGenericIList<?>) value);
+        }
+        if (value instanceof CSharpCollection) {
+            return fromCollection((CSharpCollection) value);
+        }
+        if (value instanceof CSharpICollection) {
+            return fromICollection((CSharpICollection<?>) value);
+        }
+        return fromAny(value);
+    }
+
+    /**
      * Adapts a CSharpICollection value (the views returned by the compat
      * SortedList.Values / Hashtable.Keys / IDictionary member mappings) to the
      * non-generic C# IList surface. A C# System.Collections.ICollection value
@@ -407,7 +432,7 @@ public interface CSharpIList<T> extends CSharpCollection {
      * back to the interface defaults (UnsupportedOperationException / false).
      */
     @SuppressWarnings("unchecked")
-    static CSharpIList from(CSharpCollection collection) {
+    private static CSharpIList fromCollection(CSharpCollection collection) {
         if (collection instanceof CSharpIList) {
             return (CSharpIList) collection;
         }
@@ -439,7 +464,7 @@ public interface CSharpIList<T> extends CSharpCollection {
         };
     }
 
-    static CSharpIList from(CSharpICollection<?> collection) {
+    private static CSharpIList fromICollection(CSharpICollection<?> collection) {
         if (collection == null) {
             return null;
         }

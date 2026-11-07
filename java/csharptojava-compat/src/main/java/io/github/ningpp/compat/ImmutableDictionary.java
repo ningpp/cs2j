@@ -17,6 +17,12 @@ import java.util.Set;
 public class ImmutableDictionary<K, V> implements IImmutableDictionary<K, V>, CSharpReadOnlyDict<K, V> {
     private final Map<K, V> items;
 
+    /** Both superinterfaces provide pairIterator(); pick the read-only view. */
+    @Override
+    public CSharpGenericEnumerator<CSharpKeyValuePair<K, V>> pairIterator() {
+        return CSharpReadOnlyDict.super.pairIterator();
+    }
+
     /** C# ImmutableDictionary.Empty — the empty singleton. */
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static final ImmutableDictionary Empty = new ImmutableDictionary();
@@ -43,7 +49,8 @@ public class ImmutableDictionary<K, V> implements IImmutableDictionary<K, V>, CS
         return new ImmutableDictionary<>(map);
     }
 
-    public static <K, V> ImmutableDictionary<K, V> createRange(CSharpGenericIterable<Map.Entry<K, V>> source) {
+    public static <K, V> ImmutableDictionary<K, V> createRange(
+            CSharpGenericIterable<? extends Map.Entry<K, V>> source) {
         Map<K, V> map = new LinkedHashMap<>();
         for (Map.Entry<K, V> entry : source) {
             map.put(entry.getKey(), entry.getValue());
@@ -65,7 +72,7 @@ public class ImmutableDictionary<K, V> implements IImmutableDictionary<K, V>, CS
      * IEnumerable to build the deserialized instance.
      */
     public static <K, V> ImmutableDictionary<K, V> CreateRange(CSharpGenericIterable<Map.Entry<K, V>> source) {
-        return createRange(source);
+        return createRange((Iterable<Map.Entry<K, V>>) source);
     }
 
     public int size() {
@@ -127,6 +134,15 @@ public class ImmutableDictionary<K, V> implements IImmutableDictionary<K, V>, CS
 
     public V tryGetValue(K key) {
         return items.get(key);
+    }
+
+    /** C# IImmutableDictionary.TryGetValue(K, out V). */
+    public boolean tryGetValue(K key, ObjectHolder<V> value) {
+        if (items.containsKey(key)) {
+            value.value = items.get(key);
+            return true;
+        }
+        return false;
     }
 
     public boolean tryGetKey(K equalKey, ObjectHolder<K> actualKey) {

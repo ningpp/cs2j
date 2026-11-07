@@ -27,6 +27,15 @@ public interface CSharpICollection<T> extends CSharpReadOnlyCollection<T> {
         throw new IllegalArgumentException("Unsupported collection type: " + collection.getClass().getName());
     }
 
+    /** C# array → ICollection&lt;T&gt; (arrays implement the generic collection interfaces). */
+    static <T> CSharpICollection<T> fromArray(T[] items) {
+        CSharpList<T> list = new CSharpList<>();
+        if (items != null) {
+            java.util.Collections.addAll(list, items);
+        }
+        return list;
+    }
+
     @SuppressWarnings("unchecked")
     static CSharpICollection<Object> fromJavaCollection(java.util.Collection<?> collection) {
         java.util.Collection<Object> backing = (java.util.Collection<Object>) collection;

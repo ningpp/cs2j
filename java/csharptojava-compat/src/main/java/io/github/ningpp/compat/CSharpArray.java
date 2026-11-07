@@ -32,6 +32,14 @@ public final class CSharpArray implements Iterable<Object> {
     }
 
     /**
+     * Class token for {@code T[]} where {@code T} is an erased type parameter:
+     * Java forbids {@code T[].class}, so derive it from the reified element token.
+     */
+    public static Class<?> arrayType(Class<?> elementType) {
+        return Array.newInstance(elementType, 0).getClass();
+    }
+
+    /**
      * C# System.Array argument view for ICollection.CopyTo call sites: a
      * CSharpArray wrapper passes through, null stays null so the destination's
      * own null check reports ArgumentNullException, and a plain Java array is

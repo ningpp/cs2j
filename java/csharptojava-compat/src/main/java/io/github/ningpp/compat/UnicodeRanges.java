@@ -368,8 +368,13 @@ public final class UnicodeRanges {
     };
     }
 
-    /** Mirrors UnicodeRanges.All — the full range of code points. */
-    public static UnicodeRange[] getAll() {
+    /** Mirrors C# UnicodeRanges.All — a single range covering every code point. */
+    public static UnicodeRange getAll() {
+        return new UnicodeRange(0, 0x110000);
+    }
+
+    /** Raw allowed-range table kept for callers that need the enumerated form. */
+    public static UnicodeRange[] getAllRanges() {
         return new UnicodeRange[] {
         UnicodeRange.create('\u0020', '\u0021'),
         UnicodeRange.create('\u0023', '\u0025'),

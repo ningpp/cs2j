@@ -3,7 +3,7 @@ package io.github.ningpp.compat;
 /**
  * Compat for System.Collections.Immutable.IImmutableStack&lt;T&gt;.
  */
-public interface IImmutableStack<T> extends Iterable<T> {
+public interface IImmutableStack<T> extends CSharpIterable<T> {
     default int size() {
         int count = 0;
         for (T ignored : this) {

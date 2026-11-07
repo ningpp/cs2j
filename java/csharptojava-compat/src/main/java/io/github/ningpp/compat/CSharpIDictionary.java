@@ -12,24 +12,58 @@ public interface CSharpIDictionary extends CSharpCollection {
     boolean getIsFixedSize();
     boolean getIsReadOnly();
     /** Default implementations so converter-generated classes that emit getKeys()/
-     * getValues() returning CSharpICollection&lt;?&gt; still compile. */
-    default CSharpICollection<?> getKeys() {
+     * getValues() returning either CSharpIList (non-generic ICollection) or
+     * CSharpICollection&lt;?&gt; still compile: the generic return type is inferred
+     * from the assignment/property slot, the erasure is Iterable. */
+    @SuppressWarnings("unchecked")
+    default <T extends Iterable<?>> T getKeys() {
         CSharpArrayList list = new CSharpArrayList();
         for (Object item : this) {
             if (item instanceof Map.Entry<?, ?> entry) {
                 list.add(entry.getKey());
             }
         }
-        return CSharpICollection.from(list);
+        return (T) list;
     }
-    default CSharpICollection<?> getValues() {
+    @SuppressWarnings("unchecked")
+    default <T extends Iterable<?>> T getValues() {
         CSharpArrayList list = new CSharpArrayList();
         for (Object item : this) {
             if (item instanceof Map.Entry<?, ?> entry) {
                 list.add(entry.getValue());
             }
         }
-        return CSharpICollection.from(list);
+        return (T) list;
+    }
+
+    /**
+     * Enumeration view over the key/value pairs. A generated non-generic
+     * IDictionary implementation declares only {@code GetEnumerator()} returning
+     * IDictionaryEnumerator (emitted as {@code dictEnumerator()}), so the
+     * CSharpCollection.iterator() slot still needs a concrete implementation.
+     */
+    default CSharpGenericEnumerator iterator() {
+        CSharpList<CSharpDictEntry> entries = new CSharpList<>();
+        java.util.Iterator<?> keys = ((Iterable<?>) getKeys()).iterator();
+        while (keys.hasNext()) {
+            Object key = keys.next();
+            entries.add(new CSharpDictEntry(key, get(key)));
+        }
+        return entries.iterator();
+    }
+
+    /**
+     * C# IDictionary.GetEnumerator() view. The generic enumerator face satisfies
+     * the CSharpCollection iterator slot, while dictionary-typed call sites need
+     * the non-generic dictionary face as well; Generic&lt;CSharpDictEntry&gt;
+     * implements both.
+     */
+    @SuppressWarnings("unchecked")
+    default CSharpDictEnumerator.Generic<CSharpDictEntry> dictEnumerator() {
+        // Generic<CSharpDictEntry> also realizes the non-generic face; the converter
+        // shapes every generated IDictionary.GetEnumerator implementation to it.
+        return CSharpDictEnumerator.from(
+            (CSharpGenericEnumerator<CSharpKeyValuePair<Object, Object>>) (CSharpGenericEnumerator) iterator());
     }
     void remove(Object key);
     Object get(Object key);

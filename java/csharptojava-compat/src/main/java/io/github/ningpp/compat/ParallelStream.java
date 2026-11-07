@@ -15,7 +15,14 @@ public class ParallelStream {
         }
     }
 
-    public static void forValue(int startInclusive, int endExclusive, java.util.function.Consumer<Integer> body) {
+    /**
+     * Boxed-action shape (C# Action&lt;object&gt;/Action&lt;Integer&gt; lambdas). Kept
+     * under a distinct name: an overload forValue(..., Consumer&lt;Integer&gt;)
+     * makes every `Parallel.For(0, n, obj::methodWithIntParam)` method reference
+     * ambiguous against the IntConsumer overload.
+     */
+    public static void forValueBoxed(int startInclusive, int endExclusive,
+                                     java.util.function.Consumer<Integer> body) {
         for (int i = startInclusive; i < endExclusive; i++) {
             body.accept(i);
         }

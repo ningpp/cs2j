@@ -12,6 +12,15 @@ public class CSharpObjQueue implements CSharpIterable<Object>, Cloneable {
     public CSharpObjQueue() {}
     public CSharpObjQueue(Collection<?> c) { queue.addAll(c); }
 
+    /** C# new Queue(IEnumerable) via the compat non-generic IList view. */
+    public CSharpObjQueue(CSharpIList source) {
+        if (source != null) {
+            for (Object item : source) {
+                queue.addLast(item);
+            }
+        }
+    }
+
     public void enqueue(Object obj) { queue.addLast(obj); }
     public Object dequeue() {
         if (queue.isEmpty()) throw new NoSuchElementException("Queue is empty");

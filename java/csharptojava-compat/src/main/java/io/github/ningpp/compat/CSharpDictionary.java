@@ -11,6 +11,12 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
     private final LinkedHashMap<K, V> map;
     private final CSharpGenericEqualityComparer<K> comparer;
 
+    /** Both superinterfaces provide pairIterator(); pick the read-only view. */
+    @Override
+    public CSharpGenericEnumerator<CSharpKeyValuePair<K, V>> pairIterator() {
+        return CSharpReadOnlyDict.super.pairIterator();
+    }
+
     /** C# Enumerable.ToDictionary(): a CSharpDictionary collected from a Stream. */
     public static <K, V, T> java.util.stream.Collector<T, ?, CSharpDictionary<K, V>> toCSharpMap(
             java.util.function.Function<? super T, ? extends K> key,

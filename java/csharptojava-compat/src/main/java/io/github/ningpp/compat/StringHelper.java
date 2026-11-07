@@ -574,6 +574,21 @@ public class StringHelper {
         return builder;
     }
 
+    /** C# StringBuilder.Insert(int, string, int): inserts the value repeatCount times. */
+    public static StringBuilder insert(StringBuilder builder, int offset, String value, int repeatCount) {
+        if (builder == null) throw new NullPointerException("builder");
+        if (repeatCount < 0) throw new ArgumentOutOfRangeException("count");
+        validateStringBuilderOffset(builder, offset);
+        if (value != null && repeatCount > 0) {
+            StringBuilder repeated = new StringBuilder(value.length() * repeatCount);
+            for (int i = 0; i < repeatCount; i++) {
+                repeated.append(value);
+            }
+            builder.insert(offset, repeated);
+        }
+        return builder;
+    }
+
     public static StringBuilder remove(StringBuilder builder, int startIndex, int count) {
         if (builder == null) throw new NullPointerException("builder");
         validateRange(builder.length(), startIndex, count);
@@ -836,11 +851,38 @@ public class StringHelper {
         return s.split(regex);
     }
 
+    /** Mirrors C# String.Split(string[], StringSplitOptions). */
+    public static String[] split(String s, String[] separators) {
+        return split(s, separators, IntegerHelper.None);
+    }
+
+    /** Mirrors C# String.Split(string[], StringSplitOptions). */
+    public static String[] split(String s, String[] separators, int options) {
+        if (s == null) return null;
+        String regex = stringArrayToRegex(separators);
+        if (options == IntegerHelper.RemoveEmptyEntries) {
+            return java.util.Arrays.stream(s.split(regex))
+                    .filter(x -> !x.isEmpty())
+                    .toArray(String[]::new);
+        }
+        return s.split(regex, -1);
+    }
+
+    private static String stringArrayToRegex(String[] separators) {
+        if (separators == null || separators.length == 0) return "";
+        StringBuilder pattern = new StringBuilder();
+        for (String separator : separators) {
+            if (separator == null || separator.isEmpty()) continue;
+            if (pattern.length() > 0) pattern.append('|');
+            pattern.append(java.util.regex.Pattern.quote(separator));
+        }
+        return pattern.toString();
+    }
+
     /** Converts a char array to a regex character class, e.g. {' ', '\t'} → "[ \\t]" */
     private static String charArrayToRegex(char[] chars) {
         if (chars == null || chars.length == 0) return "";
         StringBuilder sb = new StringBuilder();
-        sb.append('[');
         for (char c : chars) {
             if (c == '\\' || c == '^' || c == '-' || c == ']' || c == '[') {
                 sb.append('\\');

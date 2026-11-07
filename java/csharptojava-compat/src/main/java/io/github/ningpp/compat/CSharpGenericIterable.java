@@ -291,6 +291,19 @@ public interface CSharpGenericIterable<T> extends Collection<T> {
         return stream().collect(collector);
     }
 
+    /**
+     * C# Enumerable.Select over an Iterable-typed receiver (e.g. a string's
+     * characters): Java's Iterable has no {@code map}, so materialize the
+     * projected view.
+     */
+    default <U> CSharpGenericIterable<U> map(java.util.function.Function<? super T, ? extends U> mapper) {
+        java.util.List<U> items = new java.util.ArrayList<>();
+        for (T item : this) {
+            items.add(mapper.apply(item));
+        }
+        return CSharpGenericIterable.fromCollection(items);
+    }
+
     /** C# Enumerable.GroupBy(keySelector): materialized grouping. */
     default <K> CSharpDictionary<K, CSharpList<T>> collect(
             java.util.function.Function<? super T, ? extends K> keySelector) {

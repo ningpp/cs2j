@@ -16,6 +16,17 @@ public class ReadOnlyCollection<T> extends ArrayList<T> implements CSharpReadOnl
         super(c);
     }
 
+    /** C# new ReadOnlyCollection&lt;T&gt;(IList&lt;T&gt;) over the compat IList view. */
+    @SuppressWarnings("unchecked")
+    public ReadOnlyCollection(CSharpIList<?> source) {
+        super();
+        if (source != null) {
+            for (Object item : source) {
+                add((T) item);
+            }
+        }
+    }
+
     @Override
     public int getCount() {
         return size();

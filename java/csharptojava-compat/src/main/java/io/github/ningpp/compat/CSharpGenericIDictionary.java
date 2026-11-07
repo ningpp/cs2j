@@ -37,6 +37,11 @@ public interface CSharpGenericIDictionary<K, V> extends CSharpIterable<CSharpKey
     }
     V get(K key);
 
+    /** Typed enumeration face used by generated `foreach`/IDictionaryEnumerator sites. */
+    default CSharpGenericEnumerator<CSharpKeyValuePair<K, V>> pairIterator() {
+        return iterator();
+    }
+
     /**
      * Mirrors Dictionary&lt;TKey, TValue&gt;.get_Item: throws KeyNotFoundException
      * when the key is absent. Emitted for C# indexer reads (dict[key]).

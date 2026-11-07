@@ -5,12 +5,27 @@ import java.util.Objects;
 /**
  * Compat for System.Collections.Immutable.IImmutableSet&lt;T&gt;.
  */
-public interface IImmutableSet<T> extends Iterable<T> {
-    int size();
+public interface IImmutableSet<T> extends CSharpIterable<T> {
+    /**
+     * C# IReadOnlyCollection&lt;T&gt;.Count: converter-generated wrappers emit the
+     * C# property as {@code getCount()}, while the inherited {@link java.util.Collection}
+     * surface requires {@code size()}. Delegate so either override satisfies both.
+     */
+    default int size() {
+        return getCount();
+    }
 
-    boolean isEmpty();
+    /** C# IReadOnlyCollection&lt;T&gt;.Count surface used through this interface. */
+    default int getCount() {
+        return size();
+    }
 
-    boolean contains(T item);
+    /** Converter-generated wrappers only expose size()/getCount(); default keeps them concrete. */
+    default boolean isEmpty() {
+        return getCount() == 0;
+    }
+
+    boolean contains(Object item);
 
     default IImmutableSet<T> add(T value) {
         return this;

@@ -59,8 +59,10 @@ public class CSharpHashtable implements CSharpIDictionary, Cloneable {
     }
 
     /** C# Hashtable.GetEnumerator() — exposes Key/Value/Entry via IDictionaryEnumerator. */
-    public CSharpDictEnumerator dictEnumerator() {
-        return CSharpDictEnumerator.from(iterator());
+    @SuppressWarnings("unchecked")
+    public CSharpDictEnumerator.Generic<CSharpDictEntry> dictEnumerator() {
+        return CSharpDictEnumerator.from(
+            (CSharpGenericEnumerator<CSharpKeyValuePair<Object, Object>>) (CSharpGenericEnumerator) iterator());
     }
     @Override public CSharpHashtable clone() {
         return new CSharpHashtable(map);

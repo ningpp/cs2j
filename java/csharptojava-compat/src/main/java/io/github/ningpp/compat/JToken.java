@@ -162,6 +162,13 @@ public class JToken implements Iterable<JToken> {
         writer.writeRaw(raw);
     }
 
+    /** C# JToken.WriteTo(JsonWriter, params JsonConverter[]) — converters ignored. */
+    public void writeTo(Object writer, Object... converters) {
+        if (writer instanceof JsonTextWriter jsonTextWriter) {
+            writeTo(jsonTextWriter);
+        }
+    }
+
     /** C# JToken indexer — obj["propertyName"] returns the child token or null. */
     public JToken get(String propertyName) {
         if (raw == null || raw.length() < 3) {

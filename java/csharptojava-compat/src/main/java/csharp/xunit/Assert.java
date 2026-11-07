@@ -1071,6 +1071,11 @@ public final class Assert {
      * `return __result;` when the C# expression lambda uses object initializers).
      */
     public static <T extends Throwable> T throws_(Class<T> exceptionType, String paramName,
+                                                  Runnable testCode) {
+        return throws_(exceptionType, testCode);
+    }
+
+    public static <T extends Throwable> T throws_(Class<T> exceptionType, String paramName,
                                                   java.util.function.Supplier<?> testCode) {
         T ex = throws_(exceptionType, testCode);
         // Verify paramName matches if the exception has a parameter name
