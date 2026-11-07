@@ -3871,3 +3871,105 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
 - 结论：本轮**未**达到"Maven 全绿"。后续波次首要门 = 清零 `dotnet-text-json`
   编译错误 + 上述 xml 测试错误，再重跑同一命令；不得跳过/删减测试过关。
 - ProjectTests / ConversionTests 未运行（ProjectTests 仅 `dotnet build`）。
+
+## §41 w20 波次：json 源模块清零与兼容层扩展
+
+### 41.1 本轮目标与结果
+
+目标仍是 Maven 全绿（0 编译错误、0 单测失败）。本轮把 `dotnet-text-json` 源模块
+从 494 个唯一编译错误降到 0，`dotnet-uri` 保持 SUCCESS；`dotnet-text-json-tests`
+在 json 单 sln 下仍有 1204 条编译错误（见 41.5），全量 csharp-sdk 的验证见 41.6。
+因此**本波次仍未达到全绿**，验收命令需继续迭代。
+
+`D:\csharp-sdk\json\System.Text.Json.sln` 转换（w20x）：
+
+```
+Conversion complete (MSBuild): 629 succeeded, 0 failed, 3 resources copied, modules=4
+```
+
+Maven Reactor（`mvn clean package -e -fae`，cwd=D:\cs\cs2j-json-w20x）：
+
+- parent SUCCESS
+- dotnet-uri SUCCESS
+- dotnet-text-json SUCCESS
+- dotnet-text-json-tests FAILURE（1204 条 `[ERROR] *.java:[..]`，测试工程专属问题）
+
+### 41.2 已修复的根因
+
+1. `Memory<T>` 语义缺失：`System.Memory\`1` 原先与 `ReadOnlyMemory\`1` 共用
+   `ReadOnlyMemory`，`getSpan()` 返回只读视图。新增 compat `Memory<T>`（可写
+   `getSpan(): Span<T>`、`slice/toArray/toByteArray/copyTo/clear`），映射
+   `System.Memory\`1 → Memory`；`ReadOnlyMemory` 保持只读并新增
+   `asReadOnlyMemory()` 身份桥。`ArrayBufferWriter/IBufferWriter/PipeWriter.GetMemory`
+   改回 C# 契约 `Memory<T>`。消除 202 条 `ReadOnlySpan → Span`。
+2. `Span<T>` 与 `ReadOnlySpan<T>` 无继承关系：改为 `Span extends ReadOnlySpan`，
+   并让 `MemoryExtensions.asSpan(byte[]/char[])` 返回可写 `Span`，消除剩余
+   `ReadOnlySpan → Span` 及参数位不匹配。
+3. 数组元素类型：`CSharpArray.toTypedArray` 的 class literal 统一走
+   `ConversionContext.GetArrayComponentClassLiteral`（C# byte → `byte.class`），
+   修复 `int[] → byte[]`、`byte[]/char[] → Object[]`（`ArrayPool.returnValue`
+   增加 byte[]/char[]/int[] 重载）。
+4. ref-struct 参数：Java 声明仍包成 `ObjectHolder<T>`，但只读实参走值路径。
+   现在 `ref` 调用点仅在实参语法带 `ref` 且声明保留 `ref` 时走 holder；
+   `Utf8JsonReader` 转发（`JsonHelpers.readWithVerify` 等）全部按 holder 传递。
+   消除 118 条 `Utf8JsonReader → ObjectHolder`。
+5. Java 擦除覆盖：泛型基类 `T` 参数在派生类被值类型替换时，override 参数/返回值
+   改用盒装包装类（`Integer/Long/Byte/Short/Character/Float/Double`），修复
+   `write/read/readWithQuotes/readNumberWithCustomHandling` 一族。
+6. 擦除冲突命名：`ClassTransformer` 预扫描不再给 override 抢注 `_N`；
+   `MethodTransformer` 让 override 跟随基类实际名字，非 override 让出基类名；
+   调用点新增 `TryPredictErasureConflictName` 回放同一算法（修复
+   `serialize_2/_3`、`tryGetProperty_2`、`nameEquals_2`、`valueTextEquals_2` 等）。
+7. 兼容层缺口：`System.Buffers.BuffersExtensions/OperationStatus`、
+   `ParameterInfo.Position/HasDefaultValue/DefaultValue`、`Exception.set_Source`、
+   `Type.IsPointer/IsByRefLike`、`bool.TrueString/FalseString`、
+   `ConcurrentDictionary.GetOrAdd`、`MemoryMarshal.cast(ReadOnlySpan)`、
+   `Utf8Parser` Decimal/UUID 重载、`ArrayHelper.resize(byte[]/int[])`、
+   `StreamWrapper` CancellationToken 的 read/write/flush、`Dictionary.set`、
+   `ImmutableArray/List/Stack/Queue/Dictionary/HashSet` 等类型映射。
+8. `Unsafe.As<T,TTo>` / `Unsafe.ReadUnaligned<Vector<byte>>` 结果类型、
+   `MemoryMarshal.Read<T>` 的 class token、`Utf8Parser.TryParse` 重载改名、
+   `BuffersExtensions.ToArray<byte>` → `toByteArray` 均在调用点按语义还原。
+9. 指针收窄：`IntPtr/nint/指针 → int` 显式发射 `(int)`，修复
+   `JsonReaderHelper` 的 `(int)(byte*)index` 18 条。
+10. null-coalescing 枚举：`Nullable<enum>` 分支不再被 `fromValue((int)...)` 二次包裹；
+    新增 enum→int 的兜底 `getValue()/ordinalOrMinusOne`。
+
+### 41.3 新增/调整用例
+
+- compat 新增 `MemorySpanViewTest`（可写 span 视图回写、slice、clear 三个用例）。
+- `ArrayBufferWriterGetMemoryViewTest`、`ArrayBufferWriterGrowthTest`、
+  `MemoryExtensionsTest`、`ReadOnlyMemoryByteCtorTest` 的 `GetMemory/asMemory`
+  期望类型改为 `Memory`（C# 契约）。
+- `MemoryFieldDefaultInitializerTests` 期望改为 `Memory<Integer> _memory = new Memory<Integer>();`。
+
+### 41.4 单测
+
+- `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`（Release）
+  → **4978 通过 / 9 跳过 / 0 失败**（4987 总计）。
+- compat `mvn test` 通过（含新增 `MemorySpanViewTest`）。
+- ProjectTests / ConversionTests 未运行；ProjectTests 亦未构建。
+
+### 41.5 json 测试模块剩余问题（1204 条）
+
+`dotnet-text-json-tests` 是 w19 未能触及的工程（json 源模块先失败）。剩余主要簇：
+`找不到符号` 约 500（`writeString_N` 重载名不一致、`SampleEnumInt64` 等测试
+共享类型、`dotnet.text.regularexpressions`/`dotnet.System.Collections.Specialized`
+在本 sln 中不存在——全量 sln 由 regex/collections 模块提供）、
+`UnicodeRange[] → UnicodeRange` 64、`FixedSizedBufferWriter` 构造器 50、
+`Encoding(boolean)` 40、`JToken → String` 36、`CSharpDictionary → CSharpIDictionary` 26、
+`CSharpStack(CSharpIList)` 14 等。按约束未跳过/删除/禁用任何测试。
+
+### 41.6 全量 csharp-sdk
+
+全量转换在本轮末尾再次启动（输出 `D:\cs\cs2j-sdk-w20`）；w19 的 21 模块
+`1984 succeeded` 基线保持不变。由于环境单次命令超时，w20 全量结果未在本节
+落定，需重跑 `mvn clean package -e` 后补齐 Reactor 摘要。
+
+### 41.7 结论
+
+- json 源模块（`dotnet-text-json`）已达成 0 编译错误，是本波次最大进展。
+- 距离"Maven 全绿"仍差两个面：json 测试模块的 1204 条编译错误，以及
+  xml 测试模块的 `String → Double/Number` 既有债。
+- 下一波次首要门不变：先清 `dotnet-text-json-tests` 与 xml 测试错误，再全量
+  重跑，不得跳过/删减测试。
