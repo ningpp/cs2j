@@ -59,6 +59,31 @@ public class RecordTransformer : ITypeTransformer
     }
 
     /// <summary>
+    /// True when the C# record is emitted as a Java record (positional shape only).
+    /// Java record components are the only instance fields allowed, so records with
+    /// extra property/field members fall back to the immutable-class shape and expose
+    /// bean getters (getXxx). Use-site member access must follow the same shape:
+    /// component accessors (prop()) only exist for records emitted as Java records.
+    /// </summary>
+    public static bool IsEmittedAsJavaRecord(INamedTypeSymbol record, ConversionContext context)
+    {
+        if (!record.IsRecord || record.TypeKind != TypeKind.Class || record.IsAbstract)
+            return false;
+        if (!context.Options.UseRecords || context.Options.TargetJavaVersion < JavaVersion.Java28)
+            return false;
+        foreach (var reference in record.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is RecordDeclarationSyntax declaration
+                && declaration.Members.Any(static m =>
+                    m is PropertyDeclarationSyntax or FieldDeclarationSyntax))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// <summary>
     /// 转换已合并的 partial record 声明（项目级模式）。
     /// 合成的 MergedSyntax 成员节点脱离任何语法树（detached），语义查询
     /// （GetTypeInfo/GetDeclaredSymbol 及表达式变换）会抛 "Syntax node is not

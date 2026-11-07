@@ -15,10 +15,12 @@ var sym = ctx.GetDeclaredSymbol(p) as IPropertySymbol; var explicitImpl = p.Expl
 // answers CSharpICollection<K>, which is unrelated to CSharpIList. Declare the
 // wildcard generic face so the delegating body type-checks and the generic
 // CSharpIDictionary.getKeys() default still infers its T.
+var keysValuesWildcard = false;
 if (sym is { Name: "Keys" or "Values" }
     && typeInfo.Type?.ToDisplayString() == "System.Collections.ICollection")
 {
     propType = "CSharpICollection<?>";
+    keysValuesWildcard = true;
     ctx.AddImport("io.github.ningpp.compat.CSharpICollection");
 }
 var name = ConversionContext.EscapeJavaKeyword(explicitImpl ? p.Identifier.Text : sym?.Name ?? p.Identifier.Text);
@@ -65,7 +67,9 @@ if (specialEncoding && typeInfo.Type?.ToDisplayString() == "System.ReadOnlySpan<
 m.Body = MethodTransformer.WrapExpressionBodyForIterableReturn(m.Body!, src, p.Type, ctx);
 if (!specialEncoding)
     m.Body = SpanCoercion.CoerceOrSame(src, m.Body!, ctx.GetTypeInfo(src).ConvertedType ?? typeInfo.Type, ctx);
-m.Body = IListCoercion.CoerceOrSame(src, m.Body!, typeInfo.Type, ctx);
+m.Body = keysValuesWildcard
+    ? CoerceCollectionCarrier(src, m.Body!, ctx)
+    : IListCoercion.CoerceOrSame(src, m.Body!, typeInfo.Type, ctx);
 m.Body = IterableCoercion.CoerceOrSame(src, m.Body!, typeInfo.Type, ctx);
 m.Body = StructCloneHelper.CloneStructValueIfNeeded(src, m.Body!, typeInfo.Type, ctx);
 if (ctx.HasPendingPreStatements || ctx.HasPendingPostStatements) {
@@ -141,6 +145,28 @@ private static bool HasSiblingCurrentProperty(IPropertySymbol p, string simpleNa
 && (other.Name == simpleName || other.Name.EndsWith("." + simpleName, StringComparison.Ordinal)));
 private static string Camel(string n) => n.Length == 0 ? n : char.ToLower(n[0]) + n[1..];
 private static string Pascal(string n) => n.Length == 0 ? n : char.ToUpperInvariant(n[0]) + n[1..];
+
+/// <summary>
+/// Keys/Values 的属性类型被压成 <c>CSharpICollection&lt;?&gt;</c>（见 Transform，
+/// 非泛型 ICollection 与 CSharpIList 不相交）：委托体要么是 compat 字典的
+/// <c>getKeys()/getValues()</c>（泛型 <c>&lt;T extends Iterable&lt;?&gt;&gt; T</c>，
+/// 目标槽位直接给出 T），要么是 List/ICollection 值。这里按声明的载体类型收敛，
+/// 不能再走 IListCoercion（会把值包成 CSharpIList，与 CSharpICollection 不兼容）。
+/// </summary>
+private static string CoerceCollectionCarrier(
+ExpressionSyntax? src, string text, ConversionContext ctx)
+{
+var trimmed = text.Trim();
+if (trimmed.EndsWith(".getKeys()", StringComparison.Ordinal)
+|| trimmed.EndsWith(".getValues()", StringComparison.Ordinal)
+|| trimmed.StartsWith("CSharpICollection.", StringComparison.Ordinal))
+return text;
+if (src != null && ctx.GetTypeInfo(src).Type is INamedTypeSymbol source
+&& ctx.MapType(source).StartsWith("CSharpICollection", StringComparison.Ordinal))
+return text;
+ctx.AddImport("io.github.ningpp.compat.CSharpICollection");
+return $"CSharpICollection.from({text})";
+}
 private static string HidingSuffix(IPropertySymbol? p) => p != null && JavaNaming.IsIncompatibleTypeHidingProperty(p) ? "_newSlot" : "";
 private static string Expr(ExpressionSyntax e, ConversionContext c) => ExpressionTransformerFacade.Instance.Transform(e, c);
 private static bool IsEmpty(AccessorDeclarationSyntax? a) => a?.Body == null && a?.ExpressionBody == null;

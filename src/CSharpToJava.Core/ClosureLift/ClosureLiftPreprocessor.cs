@@ -46,6 +46,25 @@ public sealed class ClosureLiftPreprocessor
         // idempotent instead of advancing it (M1 repeated-run / M2 round-trip).
         _naming.BeginFile(tree.FilePath + "\0" + sourceCode);
 
+        // 二次运行的输入里已有首轮发射的 display class：把类名登记进命名表，
+        // 新组不会撞名（见 ClosureLiftNaming.SeedExistingClassName）。
+        foreach (var declaration in root.DescendantNodes().OfType<ClassDeclarationSyntax>())
+        {
+            if (!declaration.Identifier.Text.StartsWith(
+                    "Cs2jDisplayClass", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var hostType = declaration.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+            if (hostType == null)
+                continue;
+
+            _naming.SeedExistingClassName(
+                HolderPlanner.HostTypeKey(resolvedModel, hostType),
+                declaration.Identifier.Text);
+        }
+
         // Fast path: no lambdas and no residual anonymous methods (E05 output).
         if (!root.DescendantNodes().Any(n =>
                 n is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax))

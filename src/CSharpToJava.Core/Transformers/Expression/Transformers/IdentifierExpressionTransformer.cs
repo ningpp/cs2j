@@ -596,10 +596,17 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (symbol is IPropertySymbol property
             && (asValue || !(node.Parent is AssignmentExpressionSyntax a && a.Left == node)))
         {
+            // 泛型调用结果（JsonSerializer.Deserialize<T>(json).Prop）在无目标槽位时被
+            // Java 推断成 Object：成员访问前强转回 C# 结果类型。
+            receiver = Utilities.GenericInvocationReceiverCoercion.CoerceOrSame(
+                node.Expression, receiver, context);
             // Java records expose positional components through a method named after
             // the component (prop()), not through the bean getter the C# property
-            // name would suggest (getProp()).
-            if (property.ContainingType is INamedTypeSymbol { IsRecord: true }
+            // name would suggest (getProp()). Records that fell back to the immutable
+            // class shape (extra property/field members, abstract, record struct) keep
+            // bean getters, so the component rule must follow the emitted shape.
+            if (property.ContainingType is INamedTypeSymbol recordType
+                && Transformers.Type.RecordTransformer.IsEmittedAsJavaRecord(recordType, context)
                 && (property.IsImplicitlyDeclared
                     || property.DeclaringSyntaxReferences.All(r => r.GetSyntax() is not PropertyDeclarationSyntax)))
             {

@@ -45,6 +45,29 @@ internal sealed class ClosureLiftNaming
             perFile.Remove(fileKey);
     }
 
+    /// <summary>
+    /// 把输入里已存在的 display class 名登记进当前文件的预留集合。二次运行
+    /// （linq-channel 对含 yield 文件重跑）必须复用首轮已发射的类名空间，否则
+    /// 新组会再次分配到同名类，输出出现两个同名嵌套类（CS0102；下游 Java 侧
+    /// 合并后构造器多一个 `_cs2jThis` 实参、旧实例构造点失配）。
+    /// </summary>
+    public void SeedExistingClassName(string hostTypeKey, string className)
+    {
+        if (!_classNamesByHostByFile.TryGetValue(hostTypeKey, out var perFile))
+        {
+            perFile = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            _classNamesByHostByFile[hostTypeKey] = perFile;
+        }
+
+        if (!perFile.TryGetValue(_currentFileKey, out var currentFileUsed))
+        {
+            currentFileUsed = new HashSet<string>(StringComparer.Ordinal);
+            perFile[_currentFileKey] = currentFileUsed;
+        }
+
+        currentFileUsed.Add(className);
+    }
+
     /// <summary>Reserve Cs2jDisplayClass_&lt;member&gt;_&lt;n&gt; for one group inside a host type.</summary>
     public string ReserveClassName(string hostTypeKey, string hostMemberName)
     {

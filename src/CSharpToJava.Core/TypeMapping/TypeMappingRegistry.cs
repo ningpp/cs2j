@@ -434,7 +434,35 @@ public class TypeMappingRegistry
     }
 
     /// <summary>
-    /// Resolves the best matching method entry from a list, using <paramref name="paramCount"/>
+    /// 接收者类型无法绑定时的兜底映射：按「方法映射条目的类型简名 == 接收者标识符」
+    /// 检索映射。转换编译只引用框架程序集（测试框架 xunit 等不在其中），
+    /// <c>Assert.Throws&lt;T&gt;(...)</c> 这类调用没有方法符号，默认只做 Pascal→camel
+    /// 改名；<c>Throws</c> 撞上 Java 关键字 <c>throws</c> 又被转义成 <c>throwsValue</c>，
+    /// 与 compat 的 <c>throws_</c> 不符。仅当候选映射唯一时返回，避免同简名的
+    /// MSTest/NUnit Assert 混淆。
+    /// </summary>
+    public string? MapMethodByReceiverSimpleName(string receiverSimpleName, string methodName)
+    {
+        string? result = null;
+        foreach (var (key, entryList) in _methodMappings)
+        {
+            if (key.MethodName != methodName) continue;
+            var lastDot = key.TypeName.LastIndexOf('.');
+            var simpleName = lastDot >= 0 ? key.TypeName[(lastDot + 1)..] : key.TypeName;
+            if (!string.Equals(simpleName, receiverSimpleName, StringComparison.Ordinal)) continue;
+
+            var resolved = ResolveMethodEntry(entryList, paramCount: null);
+            if (resolved == null) continue;
+            if (result != null && !string.Equals(result, resolved.JavaMethodName, StringComparison.Ordinal))
+                return null; // ambiguous: leave the default camelCase rendering.
+            result = resolved.JavaMethodName;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// 解析最佳匹配的方法映射条目
     /// to disambiguate when the <see cref="MethodMappingEntry.Signature"/> field is present.
     /// Falls back to the first entry without a signature constraint.
     /// </summary>

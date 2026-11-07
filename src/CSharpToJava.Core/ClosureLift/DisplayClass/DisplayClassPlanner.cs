@@ -970,6 +970,25 @@ internal static class DisplayClassPlanner
         if (bodyRoot == null)
             return LambdaFacts.Skipped("no body", routine, routineName, hostType, null);
 
+        // 二次 closure-lift（linq-channel 对含 yield 文件整树重跑）会把上一轮
+        // 已处理文件里遗留的残余 lambda 再提升一次：这些 lambda 的捕获访问已是
+        // `__cs2jClosureN._cs2jCap_x` 字段形态，重新规划会再分配一个同名类
+        // （C# CS0102 / 下游 javac 构造器实参不匹配），且新类里没有这些字段
+        // （javac 找不到符号 __cs2jClosureN）。它们保持内联即可：捕获的局部
+        // 变量要么已是提升字段、要么是 effectively-final，Java lambda 原生支持。
+        if (lambda.DescendantNodes(DescendNotIntoLocalFunctions)
+            .OfType<MemberAccessExpressionSyntax>()
+            .Any(static access => access.Expression is IdentifierNameSyntax
+                {
+                    Identifier.ValueText: var root
+                }
+                && (root.StartsWith("__cs2jClosure", StringComparison.Ordinal)
+                    || root.StartsWith("__cs2jArr_", StringComparison.Ordinal))))
+        {
+            return LambdaFacts.Skipped(
+                "already-lifted closure residual", routine, routineName, hostType, NearestBlock(lambda));
+        }
+
         var lambdaSymbol = model.GetSymbolInfo(lambda).Symbol as IMethodSymbol;
         // The LAMBDA node is the walk root: a bare expression body (`() => x`)
         // would hide its own root identifier from DescendantNodes() (M1 note).

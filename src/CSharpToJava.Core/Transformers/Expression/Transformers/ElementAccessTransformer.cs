@@ -163,6 +163,9 @@ public class ElementAccessTransformer : IIRExpressionTransformer
         }
 
         var expr = facade.Transform(node.Expression, context);
+        // 泛型调用结果（STJ 的 `Deserialize<string[]>(json)`）在无目标槽位时被
+        // Java 推断成 Object：索引前强转回 C# 结果类型（数组则恢复数组形状）。
+        expr = GenericInvocationReceiverCoercion.CoerceOrSame(node.Expression, expr, context);
         // Await receivers ((await helper.Load<T[]>(...))[0]) lose their generic type in
         // Java (join() → Object). Cast the receiver back to the array type so indexing
         // compiles: ((Point_3D[]) x.join())[0]. The await may be wrapped in parens.

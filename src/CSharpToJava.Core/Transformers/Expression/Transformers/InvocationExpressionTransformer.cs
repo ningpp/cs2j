@@ -991,9 +991,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
 
                 AddStaticReceiverTypeImports(memberAccess.Expression, context);
-                call.MethodName = WellKnownMethodName(
+                call.MethodName = ResolveFallbackMethodName(
                     memberAccess.Name.Identifier.Text,
-                    context.GetSymbolInfo(node).Symbol as IMethodSymbol);
+                    context.GetSymbolInfo(node).Symbol as IMethodSymbol,
+                    memberAccess.Expression,
+                    context);
 
                 foreach (var argument in arguments)
                     call.Arguments.Add(argument);
@@ -1990,7 +1992,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     context.AddImport("io.github.ningpp.compat.ArrayHelper");
                     return $"ArrayHelper.contains({receiver}, {arguments})";
                 }
-                var renderedCall = $"{receiver}.{WellKnownMethodName(originalName, context.GetSymbolInfo(node).Symbol as IMethodSymbol)}({arguments})";
+                var renderedCall = $"{receiver}.{ResolveFallbackMethodName(originalName, context.GetSymbolInfo(node).Symbol as IMethodSymbol, memberAccess.Expression, context)}({arguments})";
                 // 显式 d.Invoke(args)：MethodKind.DelegateInvoke 的常规成员路径把
                 // Invoke 驼峰成 invoke，但委托形态的 SAM 名是 accept/apply/run/get
                 // （见 DelegateTransformer.InferSamMethodName，声明侧一致）；javac:
@@ -4583,9 +4585,25 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return false;
         if (generic.TypeArgumentList.Arguments.Count != 1)
             return false;
-        if (context.GetSymbolInfo(node).Symbol is not IMethodSymbol { IsStatic: true } method
-            || method.ContainingType?.ToDisplayString() != "Xunit.Assert")
+        var assertSymbol = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
+        if (assertSymbol?.ContainingType is { } assertOwner
+            && assertOwner.TypeKind != TypeKind.Error)
+        {
+            if (!assertSymbol.IsStatic
+                || assertOwner.ToDisplayString() != "Xunit.Assert")
+            {
+                return false;
+            }
+        }
+        else if (node.Expression is not MemberAccessExpressionSyntax assertAccess
+                 || !(assertAccess.Expression is IdentifierNameSyntax { Identifier.Text: "Assert" }
+                      || context.GetTypeInfo(assertAccess.Expression).Type?.ToDisplayString() == "Xunit.Assert"))
+        {
+            // 编译只引用框架程序集时 xunit 不在引用集内：Assert 可能没有方法符号，
+            // 也可能只有接收者类型可解析。两种形态都仍把类型实参作为 Class 字面量
+            // 保留（与已绑定时同一契约）。
             return false;
+        }
         var typeArgument = context.GetTypeInfo(generic.TypeArgumentList.Arguments[0]).Type;
         if (typeArgument == null
             || typeArgument is ITypeParameterSymbol or IErrorTypeSymbol)
@@ -4916,6 +4934,53 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
         return WellKnownMethodName(name);
     }
+
+    /// <summary>
+    /// 成员调用「无映射名」回退点的方法名解析：先用被调符号查 TypeMappings
+    /// （外部 API 的方法映射在这些回退点也必须生效，否则 Throws 会被 Java 关键字
+    /// 转义成 throwsValue），符号缺失/为 ErrorType 时按接收者标识符与映射条目
+    /// 类型简名兜底（xunit 等外部引用通常不在转换编译的引用集中），最后才落
+    /// WellKnownMethodName + Pascal→camel。
+    /// </summary>
+    private static string ResolveFallbackMethodName(
+        string name,
+        IMethodSymbol? method,
+        ExpressionSyntax? receiver,
+        ConversionContext context)
+    {
+        // C# 对 base 的调用是非虚基类调用（Java super.toString()）：System.Object.ToString
+        // 的方法映射会把它发成 Convert.toString(super)，既非法 Java 也丢非虚语义。
+        if (name == "ToString" && receiver is BaseExpressionSyntax)
+            return WellKnownMethodName(name, method);
+
+        if (method?.ContainingType is { } owner && owner.TypeKind != TypeKind.Error)
+        {
+            var mapped = context.TypeMappings.MapMethod(
+                    owner.ToDisplayString(), name, method.Parameters.Length)
+                ?? context.TypeMappings.MapMethod(
+                    $"{owner.ContainingNamespace}.{owner.Name}", name, method.Parameters.Length);
+            if (IsPlainMethodName(mapped))
+                return mapped!;
+        }
+
+        if (receiver is IdentifierNameSyntax receiverName
+            && context.TypeMappings.MapMethodByReceiverSimpleName(
+                receiverName.Identifier.Text, name) is { } byReceiverName
+            && IsPlainMethodName(byReceiverName))
+        {
+            return byReceiverName;
+        }
+
+        return WellKnownMethodName(name, method);
+    }
+
+    /// <summary>
+    /// 带点的映射名（TypeHelper.getCustomAttributes 等）是静态 compat 助手，必须由
+    /// ApplyMappedName / RenderMappedCall 把接收者挪成首参；「无映射名」回退点只会
+    /// 拼成 receiver.method(...)，直接采用会生成 memberInfo.TypeHelper.xxx（非法 Java）。
+    /// </summary>
+    private static bool IsPlainMethodName(string? mappedName)
+        => mappedName != null && !mappedName.Contains('.');
 
     private static string WellKnownMethodName(string name)
     {
@@ -5596,8 +5661,49 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     {
         if (context.SemanticModel == null)
             return (null, false);
-        if (context.GetSymbolInfo(invocation).Symbol is not IMethodSymbol methodSymbol)
+        var invocationSymbol = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        if (invocationSymbol == null
+            || invocationSymbol.ContainingType is null or { TypeKind: TypeKind.Error })
+        {
+            // 转换编译不含测试框架等外部引用（xunit 等）：调用可能完全没有方法符号，
+            // 也可能绑定到 ErrorType 上的方法符号。此时按接收者静态类型（已绑定时）
+            // 或接收者标识符（未绑定时）查方法映射：Assert.Throws<T>(...) 必须落到
+            // compat 的 throws_，而不是关键字转义后的 throwsValue。
+            var (fallbackName, fallbackStatic) = TryResolveMappedNameFromReceiver(
+                invocation, originalName, invocationSymbol);
+            if (fallbackName != null)
+                return (fallbackName, fallbackStatic);
+            if (invocationSymbol == null)
+                return (null, false);
+        }
+
+        var methodSymbol = invocationSymbol!;
+
+        // 局部函数：按接收者查方法映射（TypeMappings 行）。
+        (string? Name, bool IsStatic) TryResolveMappedNameFromReceiver(
+            InvocationExpressionSyntax target, string name, IMethodSymbol? symbol)
+        {
+            if (target.Expression is not MemberAccessExpressionSyntax access)
+                return (null, false);
+            var receiverType = context.GetTypeInfo(access.Expression).Type;
+            if (receiverType is INamedTypeSymbol { TypeKind: not TypeKind.Error } namedReceiver)
+            {
+                var mapped = context.TypeMappings.MapMethod(
+                        namedReceiver.ToDisplayString(), name, target.ArgumentList.Arguments.Count)
+                    ?? context.TypeMappings.MapMethod(
+                        $"{namedReceiver.ContainingNamespace}.{namedReceiver.Name}", name,
+                        target.ArgumentList.Arguments.Count);
+                if (mapped != null)
+                    return (mapped, symbol?.IsStatic ?? true);
+            }
+            if (access.Expression is IdentifierNameSyntax receiverName
+                && context.TypeMappings.MapMethodByReceiverSimpleName(
+                    receiverName.Identifier.Text, name) is { } byName)
+            {
+                return (byName, false);
+            }
             return (null, false);
+        }
 
         // base.ToString() 的 Java 形态是 super.toString()（C# 对 base 的调用是
         // 非虚基类调用）。System.Object.ToString 的方法映射会把 base 接收器发成

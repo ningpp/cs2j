@@ -493,7 +493,49 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 return sizeExpr;
             })).ToList();
         return EmitArray(elem, sizes, n.Initializer, c, es?.TypeKind == TypeKind.TypeParameter,
-            elemSymbol: es, needsValueFill: NeedsValueFill(es, init: n.Initializer != null));
+            elemSymbol: es, needsValueFill: NeedsValueFill(es, init: n.Initializer != null),
+            covarianceTarget: ArrayCovarianceTarget(n, sizes.Count, c));
+    }
+
+    /// <summary>
+    /// C# 数组协变：<c>ICollection[] x = new List&lt;int&gt;[2];</c> 的目标槽元素类型与
+    /// 创建元素类型不同（映射后 CSharpIList vs CSharpList）。Java 数组虽也协变，但
+    /// compat 的 CSharpIList / CSharpList 两个家族互不相交——把 CSharpIList[] 强转
+    /// 到 CSharpList[] 只会在运行时抛 ArrayStoreException/ClassCastException。按目标
+    /// 数组类型分配（目标元素类型的擦除）是等价且可编译的：数组元素只会被赋成目标
+    /// 类型的值，元素访问也走目标接口。
+    /// </summary>
+    private static string? ArrayCovarianceTarget(
+        ArrayCreationExpressionSyntax n, int rank, ConversionContext c)
+    {
+        if (c.GetTypeInfo(n).ConvertedType is not IArrayTypeSymbol { Rank: > 0 } converted
+            || converted.Rank != rank
+            || converted.ElementType is ITypeParameterSymbol
+            || c.GetTypeInfo(n).Type is not IArrayTypeSymbol created)
+        {
+            return null;
+        }
+
+        var mappedTarget = c.MapType(converted);
+        var mappedCreated = c.MapType(created);
+        if (string.IsNullOrWhiteSpace(mappedTarget)
+            || mappedTarget == mappedCreated
+            || mappedTarget == "Object"
+            || !mappedTarget.EndsWith("[]", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        // 只有目标元素类型可作 Java 数组分量（非泛型/非通配）时才能按目标分配；
+        // 泛型元素（CSharpIList<T>[]、CSharpGenericIterable<T>[]）不能 `new`，
+        // 保持原有 `(T[]) new Raw[]` 强转 + IListCoercion 适配。
+        var elementName = mappedTarget;
+        for (var i = 0; i < rank && elementName.EndsWith("[]", StringComparison.Ordinal); i++)
+            elementName = elementName[..^2];
+        if (elementName.Contains('<'))
+            return null;
+
+        return mappedTarget;
     }
     private string NewImplicitArray(ImplicitArrayCreationExpressionSyntax n, ConversionContext c)
     {
@@ -534,7 +576,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
            };
     private static string EmitArray(string elem, List<string> sizes, InitializerExpressionSyntax? init,
         ConversionContext c, bool typeParam = false,
-        ITypeSymbol? elemSymbol = null, bool needsValueFill = false)
+        ITypeSymbol? elemSymbol = null, bool needsValueFill = false,
+        string? covarianceTarget = null)
     {
         // C# decimal[] elements default to 0m; Java Decimal reference arrays
         // start as null. Allocate through the compat factory which fills with
@@ -583,9 +626,21 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             return base64Body;
         }
         var sb = new StringBuilder();
-        if (typeParam || gen > 0)
-            sb.Append('(').Append(elem).Append(string.Concat(Enumerable.Repeat("[]", sizes.Count))).Append(") ");
-        sb.Append("new ").Append(typeParam ? "Object" : gen > 0 ? elem[..gen] : elem);
+        if (covarianceTarget != null && !typeParam)
+        {
+            // 协变目标（见 ArrayCovarianceTarget）：直接按目标元素类型分配，
+            // 不需要 `(T[]) new Raw[]` 强转。
+            var targetBase = covarianceTarget;
+            for (var i = 0; i < sizes.Count && targetBase.EndsWith("[]", StringComparison.Ordinal); i++)
+                targetBase = targetBase[..^2];
+            sb.Append("new ").Append(targetBase);
+        }
+        else
+        {
+            if (typeParam || gen > 0)
+                sb.Append('(').Append(elem).Append(string.Concat(Enumerable.Repeat("[]", sizes.Count))).Append(") ");
+            sb.Append("new ").Append(typeParam ? "Object" : gen > 0 ? elem[..gen] : elem);
+        }
         for (var i = 0; i < sizes.Count; i++)
             sb.Append('[').Append(init == null ? sizes[i] : "").Append(']');
         if (init != null) sb.Append(ArrayBody(init, elem, c));
