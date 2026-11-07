@@ -3696,3 +3696,103 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
   （:892）、`TupleToStruct/TupleStructFileContent`、`AnonymousTypeLift/AnonymousTypeFileContent.RenderConstraintClauses`
   （:231）。迁移时需把 `SyntheticTypeParameterPlan.Diagnostics` 接入各自诊断通道，
   并处理 `NotExpressible` 的保守 skip/登记。
+
+## 39. R1b：async-normalize / local-function-lift 迁移到统一解析器（w17 复跑）
+
+### 39.1 范围与边界
+
+- 按 `docs/preprocess-upgrade-glm5.3.md` 行 913-915（R1 五件套）实现 **R1b 切片**：
+  只把 `async-normalize` 与 `local-function-lift` 的类型参数携带逻辑迁移到
+  `Core/Analysis/SyntheticTypeParameterResolver`。
+- **R1c 待迁移**：`TupleToStruct/TupleStructFileContent` 与
+  `AnonymousTypeLift/AnonymousTypeFileContent.RenderConstraintClauses`（tuple /
+  anonymous-type-lift）；本轮未改其实现。
+- 不新增 pass、不改 54 pass 链序、不改 manifest/closure report schema、
+  不实现 R7/R13-full/R14-runtime。
+
+### 39.2 async-normalize 迁移
+
+- 删除 `AsyncNormalizeAnalyzer.ResolveGenericCarry` 的名称扫描实现，lambda 与
+  async local function 两个调用点统一改为 `SyntheticTypeParameterResolver.Resolve`：
+  - lambda：零捕获时由解析器从 `ConvertedType` 取委托签名；安全捕获时把委托
+    形参/返回类型与捕获符号类型一并作为 `signatureTypes`（捕获形参的类型同样
+    可能引用外层方法类型参数）。
+  - async local function：传入 own `TypeParameterList`/`ConstraintClauses`、
+    形参符号类型与返回类型；宿主类级形参不是候选，因此不会重复声明。
+- 保持 `LambdaLiftPlan.MethodTypeParameters`（声明）与 `ConstraintClauses`
+  （where）的发射形状；新增 `CallSiteTypeArguments` 承载解析器 ④ 的输出：
+  签名可见时为空（由目标委托/实参推断），任一带入参数不可推断时列出完整
+  有序集，避免 CS0411。
+- `NotExpressible`（STP001，含 degraded 绑定）映射为既有 async 诊断并保守回退：
+  lambda → `CS2J1807`、async local function → `CS2J1804`，节点原样保留，
+  绝不产出缺约束的提升方法（S-03）。
+- 约束闭包（`where T : IFoo<U>` 必携 U）完全由解析器不动点保证（S-08）。
+
+### 39.3 local-function-lift 迁移
+
+- `LocalFunctionLiftAnalyzer` 删除按名字收集 + Gate #9 名称冲突跳过，改为一次
+  `SyntheticTypeParameterResolver.Resolve`：own 形参在前，外层方法/局部函数按
+  宿主声明顺序追加，约束引用递归闭包；`LiftPlan.EnclosingTypeParams` 取非 own
+  的 `RenderName`，调用点显式类型实参的既有扩展行为不变。
+- `LocalFunctionLiftRewriter.BuildTypeParameterList` /
+  `BuildConstraintClauses` / `DeclaredTypeParameterNames` 改为消费
+  `LiftPlan.TypeParameterPlan`：
+  - 只发射 `Parameters` 对应的约束，同名遮蔽使用 `StableName`（按 ordinal 消歧）；
+  - `NotExpressible` 在 analyzer 阶段即 `Skip`（`EnclosingTypeParameterConflict`
+    + 可对账 Warning），rewriter 侧再防御性跳过，不产出悬挂 `where` 子句（S-03）；
+  - 既有 `LiftPlan` 字段（`EnclosingTypeParams`/`NeedsExplicitTypeArguments`）
+    保持兼容，仅新增 `TypeParameterPlan`。
+- 宿主类级形参不进入候选（④）；同名遮蔽不再整函数跳过，而是由解析器去重后
+  正常提升（S-05）。
+
+### 39.4 单测
+
+新增 9 个用例（红→绿）：
+
+- `tests/CSharpToJava.Tests/Preprocessing/AsyncNormalizeResolverMigrationTests.cs`（5）：
+  async lambda 约束闭包 `<T,U>` + `where T : IFoo<U>`；async local function
+  own+外层闭包且类级形参不重声明；lambda/async local function 的
+  `NotExpressible` 保守回退（CS2J1807/CS2J1804）；解析器 ④ 契约
+  （签名可见 `TypeArguments` 为空、约束-only 全列）。
+- `tests/CSharpToJava.Tests/LocalFunctionLiftResolverMigrationTests.cs`（4）：
+  外层约束闭包、类级形参不重声明、同名遮蔽仅声明一次且可提升、
+  `NotExpressible` 跳过且无悬挂 where。
+- 端到端 fixture 均用 Roslyn 重编译断言 0 Error；既有 async /
+  local-function-lift 58 个用例全绿。
+- 全量 `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+  → **4974 通过 / 9 跳过 / 0 失败**（§38 基线 4965 + 9）。
+
+### 39.5 rt10 全链复跑（w17）
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w17 --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests
+```
+
+- `success=true`、`totalSeconds=117.503`、**54/54 pass `ok`**、manifest
+  `passPlan=54`、`subsetVersion=JCS-1`、`subsetStatus=verified`、`capabilities=8`；
+  residual report `residuals=0 / errors=0 / warnings=0`。
+- local-function-lift：`28 transformed, 322 clean, 59 lifted, 0 skipped, 0 residual`
+  （与 w16 产物逐项一致；§38 未列该 pass 明细）。
+- async-normalize：`0 lambda(s) lifted (0 captured), 0 wrapper(s),
+  23 ConfigureAwait stripped, 25 await-site(s) kept, 0 skipped, 0 residual`，
+  与 §38 一致（rt10 无被提升的 async lambda/local function，故 R1b 不改写产物）。
+- closure-lift：本轮两次运行分别为 `30 display class(es), 61 lambda method(s),
+  61 delegate site(s), 0 quoted skipped, 13 stmt residual`（w17b）与
+  `29/60/60/1/14`（w17）；两者唯一树差异为 `gen/JsonSourceGenerator.Parser.cs`
+  中一个方法组是否物化 display class，语义等价。该差异在**同一份代码**的两次
+  运行间可复现（w17 vs w17b），属 §28 已记录的绑定面抖动，与 R1b 迁移无关；
+  w17b 与 §38 逐项一致。
+- 闭包报告仍为 `constructCount=688 / unownedCount=177 / finalizerCount=0`、
+  `isClosed=false`，与 §38 逐项一致；manifest 八字段未变。
+
+### 39.6 与 §38 对照与后续
+
+- 产物数字零变化：54 pass、residual 0/0/0、closure 688/177/0、manifest 八字段；
+  local-function-lift / async-normalize summary 与 w16 一致，无 S-xx 形状消除。
+- 单测 4965 → 4974（+9），无回归；ProjectTests/ConversionTests 未运行
+  （ProjectTests 仅 `dotnet build`）。
+- **R1c 待迁移**：tuple（`TupleStructFileContent`）与 anonymous-type-lift
+  （`RenderConstraintClauses`）；迁移后需同样接入 `NotExpressible` 保守回退。
