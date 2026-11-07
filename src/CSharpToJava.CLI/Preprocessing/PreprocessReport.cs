@@ -20,7 +20,9 @@ internal sealed record PreprocessReport(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     string? Manifest = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? SubsetStatus = null);
+    string? SubsetStatus = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? SemanticClosure = null);
 
 /// <summary>
 /// One executed pass. <see cref="Status"/> is <c>ok</c> or <c>failed</c>;

@@ -28,22 +28,7 @@ internal static class PreprocessManifestEmitter
         ArgumentNullException.ThrowIfNull(passReports);
 
         var root = Path.GetFullPath(finalTreeRoot);
-        var reportsById = passReports
-            .GroupBy(report => report.Id, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
-
-        var scanPasses = enabledPasses
-            .Select(pass =>
-            {
-                reportsById.TryGetValue(pass.Id, out var report);
-                return new JcsCapabilityScanPass(
-                    pass.Id,
-                    pass.Contract,
-                    Succeeded: report is null
-                        || string.Equals(report.Status, "ok", StringComparison.Ordinal),
-                    Diagnostics: report?.Diagnostics ?? Array.Empty<string>());
-            })
-            .ToList();
+        var scanPasses = BuildScanPasses(enabledPasses, passReports);
 
         var variant = ManifestSolutionVariant.FromTree(root, configuration);
         var capabilities = JcsCapabilityScanner.Scan(root, scanPasses, profile);
@@ -72,6 +57,36 @@ internal static class PreprocessManifestEmitter
 
         PreprocessManifestWriter.Write(root, manifest);
         return manifest;
+    }
+
+    /// <summary>
+    /// Projects the executed plan + pass reports onto the scanner-facing
+    /// capability passes. Shared by the manifest emitter and the R13 closure
+    /// scanner so both read one "enabled and succeeded" fact source.
+    /// </summary>
+    public static IReadOnlyList<JcsCapabilityScanPass> BuildScanPasses(
+        IReadOnlyList<PassDescriptor> enabledPasses,
+        IReadOnlyList<PassReportEntry> passReports)
+    {
+        ArgumentNullException.ThrowIfNull(enabledPasses);
+        ArgumentNullException.ThrowIfNull(passReports);
+
+        var reportsById = passReports
+            .GroupBy(report => report.Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+
+        return enabledPasses
+            .Select(pass =>
+            {
+                reportsById.TryGetValue(pass.Id, out var report);
+                return new JcsCapabilityScanPass(
+                    pass.Id,
+                    pass.Contract,
+                    Succeeded: report is null
+                        || string.Equals(report.Status, "ok", StringComparison.Ordinal),
+                    Diagnostics: report?.Diagnostics ?? Array.Empty<string>());
+            })
+            .ToList();
     }
 
     private static ManifestArtifacts BuildArtifacts(

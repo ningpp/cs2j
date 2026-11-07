@@ -29,4 +29,11 @@ public static class PassConstructIds
     /// NORM-GENERIC-CONSTRAINT）。Owner: <c>generic-constraint</c>。
     /// </summary>
     public const string GenericConstraint = "NORM-GENERIC-CONSTRAINT";
+
+    /// <summary>
+    /// 最终树语义闭包残差（R13，方案 §6.4-R13）：构造枚举后没有已启用且成功的
+    /// owner pass 接管的残留（或 finalizer 声明本身非法）。本首版只登记，不改变
+    /// 链行为；owner 能力仍由 finalizer/后续 VS 切片接管。
+    /// </summary>
+    public const string SemanticClosure = "NORM-SEMANTIC-CLOSURE";
 }

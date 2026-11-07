@@ -22,6 +22,12 @@ public static class PreprocessDiagnosticCodes
     public const string ManifestHandshakeFailed = "CS2J1410";
 
     /// <summary>
+    /// R13: the final-tree semantic closure scan/报告无法完成（扫描或写盘异常）。
+    /// 未接管构造本身只登记 NORM-SEMANTIC-CLOSURE，不让链失败。
+    /// </summary>
+    public const string SemanticClosure = "CS2J1413";
+
+    /// <summary>
     /// A pass id was supplied via both <c>--enable-pass</c> and
     /// <c>--disable-pass</c> in one request. Used to share its own code with
     /// <see cref="UnknownPass"/> (upgrade plan §6.4-R0/W-11: profile×disable

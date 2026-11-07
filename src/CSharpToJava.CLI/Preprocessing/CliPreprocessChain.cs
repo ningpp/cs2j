@@ -273,6 +273,7 @@ internal static class CliPreprocessChain
         var passReports = new List<PassReportEntry>();
         string? manifestFileName = null;
         string? subsetStatus = null;
+        string? semanticClosureFileName = null;
 
         void WriteReport(bool success)
         {
@@ -286,7 +287,8 @@ internal static class CliPreprocessChain
                 TotalSeconds: PreprocessReportWriter.RoundSeconds(chainStopwatch.Elapsed),
                 Passes: passReports.ToList(),
                 Manifest: manifestFileName,
-                SubsetStatus: subsetStatus);
+                SubsetStatus: subsetStatus,
+                SemanticClosure: semanticClosureFileName);
 
             try
             {
@@ -556,6 +558,26 @@ internal static class CliPreprocessChain
                 Console.Error.WriteLine(
                     $"{PreprocessDiagnosticCodes.ManifestHandshakeFailed}: " +
                     $"failed to emit preprocess manifest for '{finalIntermediateRoot}': {ex.Message}");
+                WriteReport(success: false);
+                return Failed(
+                    sourcePath,
+                    executedIntermediateDirectoryNames,
+                    executedSupportLibraries);
+            }
+
+            try
+            {
+                var closurePasses = PreprocessManifestEmitter.BuildScanPasses(
+                    plan.Enabled, passReports);
+                var closure = SemanticClosureScanner.Scan(finalIntermediateRoot, closurePasses);
+                PreprocessClosureReportWriter.Write(finalIntermediateRoot, closure);
+                semanticClosureFileName = PreprocessClosureReportWriter.DefaultFileName;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(
+                    $"{PreprocessDiagnosticCodes.SemanticClosure}: " +
+                    $"failed to scan semantic closure for '{finalIntermediateRoot}': {ex.Message}");
                 WriteReport(success: false);
                 return Failed(
                     sourcePath,

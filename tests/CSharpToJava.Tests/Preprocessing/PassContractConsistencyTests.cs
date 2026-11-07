@@ -26,7 +26,7 @@ public sealed class PassContractConsistencyTests
     {
         var ids = DeclaredConstructIds();
 
-        Assert.Equal(12, ids.Length);
+        Assert.Equal(13, ids.Length);
         Assert.Equal(ids.Length, ids.Distinct(StringComparer.Ordinal).Count());
         Assert.All(ids, id => Assert.StartsWith("NORM-", id, StringComparison.Ordinal));
     }

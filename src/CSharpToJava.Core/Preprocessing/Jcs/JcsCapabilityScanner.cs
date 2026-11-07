@@ -391,33 +391,9 @@ public static class JcsCapabilityScanner
         string relative,
         TreeScan scan)
     {
-        foreach (var node in condition.DescendantNodesAndSelf())
+        if (JcsConditionFacts.TryFindViolation(condition, out _, out var violation))
         {
-            var violation = node switch
-            {
-                PostfixUnaryExpressionSyntax postfix
-                    when postfix.IsKind(SyntaxKind.PostIncrementExpression)
-                        || postfix.IsKind(SyntaxKind.PostDecrementExpression)
-                    => "increment/decrement in condition",
-                PrefixUnaryExpressionSyntax prefix
-                    when prefix.IsKind(SyntaxKind.PreIncrementExpression)
-                        || prefix.IsKind(SyntaxKind.PreDecrementExpression)
-                    => "increment/decrement in condition",
-                AssignmentExpressionSyntax => "assignment in condition",
-                ArgumentSyntax argument
-                    when argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
-                        || argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
-                    => "out/ref argument in condition",
-                DeclarationExpressionSyntax declaration when declaration.Type is RefTypeSyntax
-                    => "ref declaration in condition",
-                _ => null,
-            };
-
-            if (violation is not null)
-            {
-                scan.EvalViolations.Add(new ScanResidual(relative, ScanOwner, violation));
-                break;
-            }
+            scan.EvalViolations.Add(new ScanResidual(relative, ScanOwner, violation!));
         }
     }
 
