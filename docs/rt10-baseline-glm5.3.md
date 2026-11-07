@@ -3494,3 +3494,109 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
   `NORM-SEMANTIC-CLOSURE`，为 VS-1/VS-2 的 finalizer 与 JE-04/JE-09 提供
   可达基线。
 - 全量单测 4929 → 4945（+16），无回归。
+
+## 37. R14 VS-0 第 5 步首版：JmRegistry 数据入库 + 双向文件级对账门（w15 复跑）
+
+### 37.1 范围与边界
+
+- Core 新增 `src/CSharpToJava.Core/Preprocessing/Jcs/JmRegistry.cs`：
+  `JmRetirementState` 六态（`Inventory/Shadow/Enforce/Retire/Ratchet/Frozen`，
+  `Frozen` 只是 partial 覆盖注记，不是第六阶段）、`JmEntry`、按 JmId ordinal
+  排序的 `JmRegistry.Default`（11 条）、`CoverageFiles`、`RetiredStates`
+  （`Retire`/`Ratchet`）与 `IsRetired`、只读 `Validate()`。
+- CLI `JavaConversionRequirements` 增加 `RetiredJmIds`（从注册表过滤
+  `Retire`/`Ratchet`，ordinal 排序）、`IsJmRetired`、`RequiredCapabilityForJm`
+  （未知 JM-ID → null）。**未接入任何运行时门禁**；`--no-preprocess` 的已退休
+  命中门禁（CS2J1410）留待后续波次。
+- 本轮只做数据与只读对账：不改任何 pass 行为、不改 54 pass 链序、不改
+  manifest 八字段 schema、不改 R12/R13 产物。`Hits` 首版均为 0（尚未实测
+  语料命中，待后续波次回填）。
+
+### 37.2 11 条 JM 数据
+
+> H.3 表格注记“扩容至 12 个”，但表格实际只有 11 行；本轮以表格 11 行为准，
+> 该差异已由单测与本节固定。
+
+| JM-ID | LocationFile | capability / 规则 | 初始退休态 |
+|-------|--------------|-------------------|------------|
+| `JM-CALL-DELEGATE-INVOKE` | `InvocationExpressionTransformer.cs` | JCS.CALL / JE-09 | Inventory |
+| `JM-CALL-METHOD-GROUP` | `InvocationExpressionTransformer.cs` | JCS.CALL / JE-09 | Inventory |
+| `JM-CALL-RAW-RECEIVER-RENDER` | `IdentifierExpressionTransformer.cs` | JCS.CALL / JE-09 | Ratchet |
+| `JM-COERCION-COLLECTION-BRIDGE` | `ArgumentTransformer.Coercion.cs` | JCS.CONVERSION / JE-03 | Inventory |
+| `JM-COLLECTION-CONFORMANCE` | `CompatCollectionConformance.cs` | JCS.CONVERSION / JE-02 | Inventory |
+| `JM-EVAL-GETTER-PRE-STATEMENT` | `StatementTransformer.Loops.cs` | JCS.EVAL / JE-04 | Inventory |
+| `JM-EVAL-IF-BYREF` | `StatementTransformer.Conditionals.cs` | JCS.EVAL / JE-08 | Inventory |
+| `JM-EVAL-WHILE-EFFECT` | `StatementTransformer.Loops.cs` | JCS.EVAL / JE-04 | Inventory |
+| `JM-GENERATED-EQUALITY-COMPARER` | `InvocationExpressionTransformer.cs` | JCS.SYMBOL / JE-07 | Inventory |
+| `JM-JSON-DESERIALIZE-TEXT-REWRITE` | `JsonDeserializeRewrite.cs` | JCS.GENERIC / JE-01 | Inventory |
+| `JM-VALUE-COPY-SITE` | `StructCloneHelper.cs` | JCS.VALUE / JE-10 | Inventory |
+
+- 每条含稳定 `Anchors`（方法/成员名 token），用于文件级对账；行号漂移不影响
+  JM-ID。多文件方法族（getter 预语句、collection/iterable/span 桥接）以
+  `InitialLocation` 记录次要文件，`LocationFile` 取主落点。
+- **路径修正（H.3 漂移）**：`JM-CALL-RAW-RECEIVER-RENDER` 的实际实现
+  `StripTrailingGenericArguments` 已位于
+  `Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs:273,498-502`，
+  不再在 `InvocationExpressionTransformer.cs`；本轮按真实路径登记。
+  `InvocationExpressionTransformer.cs` 因此仍覆盖 3 条 JM（method-group /
+  delegate-invoke / generated-equality）。
+
+### 37.3 双向文件级对账门
+
+- `CoverageFiles` 为 11 条涉及的 distinct `LocationFile` 集合，共 **8 个文件**
+  （`InvocationExpressionTransformer.cs` 覆盖 3 条，`Loops.cs` 覆盖 2 条，其余
+  6 条各占一个文件）。
+- `Validate()` 返回错误列表（不抛异常）：ID 唯一、`RequiredCapability` 可
+  `JcsCapabilityIds.TryParse`、`Rule` 匹配 `^JE-\d{2}$`、`LocationFile` 非空、
+  `Anchors` 非空、文件在仓库中存在、文件内至少一个 Anchor 文本存在，
+  以及 `CoverageFiles` 与条目文件集合双向一致（无未登记文件、无悬空条目）。
+- 任一新增未登记文件或删除/移动已登记文件都会让 `Validate()` 非空；单测覆盖
+  双向不一致、非法能力、空 anchors、不存在文件、重复 ID 与坏 Rule。
+
+### 37.4 退休态现状
+
+- 10 条 `Inventory` + 1 条 `Ratchet`（`JM-CALL-RAW-RECEIVER-RENDER`）；
+  `Retire` 为 **0** 条——本轮没有任何 Java 补偿分支被真正删除。
+- `Ratchet` 是长期防回流门，不是已删除实现；因此 `RetiredJmIds` 当前恰为
+  `["JM-CALL-RAW-RECEIVER-RENDER"]`，且没有任何运行时门禁消费它。
+  （任务描述中的“当前为空”与 H.3 将该条登记为 ratchet 巡逻冲突；本轮以
+  H.3/验证步骤“仅 Ratchet 1 条”为准，并在单测注明。）
+
+### 37.5 单测
+
+- 新增 `tests/CSharpToJava.Tests/Preprocessing/JmRegistryTests.cs`，12 个用例：
+  11 条精确集合/唯一/ordinal 排序、能力与 Rule 格式、退休态合法与 Hits=0、
+  文件/锚点存在、CoverageFiles 双向一致、默认 `Validate()` 空错误、
+  内存非法条目（非法能力/空 anchors/不存在文件）、重复 ID/坏 Rule、
+  CoverageFiles 双向不一致、`RetiredJmIds` 与注册表一致、`RequiredCapabilityForJm`
+  正/负例。
+- 先红（缺 `JmRegistry`/`JmRetirementState` 编译失败）后绿；R12/R13 既有断言未改。
+- 全量 `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+  → **4957 通过 / 9 跳过 / 0 失败**（§36 基线 4945 + 12）。
+  首轮全量曾出现 1 次与本次改动无关的并行静态 override 竞争
+  （`ProjectPreprocessTargetFrameworkTests`），单独复跑该测试类 10/10 通过，
+  再次全量复跑 0 失败。
+  `CSharpToJava.ProjectTests`/`CSharpToJava.ConversionTests` 未运行。
+
+### 37.6 rt10 全链复跑
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w15 --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests
+```
+
+- `success=true`、`totalSeconds=143.079`、**54/54 pass `ok`**、residual report
+  `residuals=0 / errors=0 / warnings=0`、`passPlan=54`、`subsetStatus=verified`。
+- `capabilities=8`，能力三态与 §36 完全一致；manifest 八字段未变。
+- 闭包报告仍为 `constructCount=688 / unownedCount=177 / finalizerCount=0`、
+  `isClosed=false`，与 §36 逐项一致。
+
+### 37.7 与 §36 对照
+
+- 产物数字零变化：54 pass、`success=true`、residual 0/0/0、manifest 八字段、
+  闭包报告 688/177/0 全部保持。本轮新增的是源码侧注册表数据与只读校验门，
+  不进入 preprocess 链，也不写任何新 artifact。
+- 全量单测 4945 → 4957（+12），无回归；`RetiredJmIds` 当前只有 1 条 Ratchet
+  防回流登记，`Retire` 为 0，VS-1~VS-4 的退休动作尚未发生。
