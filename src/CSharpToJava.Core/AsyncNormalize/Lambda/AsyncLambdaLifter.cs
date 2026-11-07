@@ -347,13 +347,13 @@ internal sealed class AsyncLambdaLifter : CSharpSyntaxRewriter
     private static ExpressionSyntax BuildMethodGroup(LambdaLiftPlan plan, string? methodNameOverride = null)
     {
         var name = methodNameOverride ?? plan.LiftedMethodName;
-        if (plan.MethodTypeParameters.Count == 0)
+        if (plan.CallSiteTypeArguments.Count == 0)
             return SyntaxFactory.IdentifierName(name);
 
         return SyntaxFactory.GenericName(
             SyntaxFactory.Identifier(name),
             SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(
-                plan.MethodTypeParameters.Select(static tp =>
+                plan.CallSiteTypeArguments.Select(static tp =>
                     (TypeSyntax)SyntaxFactory.IdentifierName(tp)))));
     }
 

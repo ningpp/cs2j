@@ -1,4 +1,5 @@
 using CSharpToJava.Core.AsyncNormalize.Lambda;
+using CSharpToJava.Core.Analysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -405,19 +406,25 @@ internal static class AsyncNormalizeAnalyzer
         var delegateDisplay = convertedType!.ToDisplayString(
             AsyncLambdaCaptureAnalysis.GlobalFullyQualifiedFormat);
 
-        // 捕获形参的类型同样可能引用外层方法/类型的类型参数，必须参与泛型携带判定。
-        var carryParameters = parameters;
-        if (captures.Count > 0)
+        // R1b：类型参数携带交给统一解析器（S-08 约束闭包、S-03 三态）。
+        // 捕获形参的类型同样可能引用外层方法/类型的类型参数，故并入签名类型集。
+        var signatureTypes = BuildLambdaSignatureTypes(model, invoke, capture, body);
+        var typeParameterPlan = SyntheticTypeParameterResolver.Resolve(
+            model, lambda, body: body, signatureTypes: signatureTypes);
+
+        if (typeParameterPlan.Diagnostics.Any(static d =>
+                d.Code == SyntheticTypeParameterResolver.NotExpressibleCode))
         {
-            var combined = new List<LambdaParameterPlan>(parameters.Count + captures.Count);
-            combined.AddRange(captures.Select(static c =>
-                new LambdaParameterPlan(c.Name, c.TypeDisplay, RefKind.None)));
-            combined.AddRange(parameters);
-            carryParameters = combined;
+            diagnostics.Add(DiagnosticAt(
+                AsyncNormalizeDiagnosticCode.CS2J1807, lambda,
+                "async lambda carries type parameter(s) whose constraints cannot be reproduced " +
+                "safely by the lifted method: " +
+                FirstNotExpressibleMessage(typeParameterPlan) +
+                " The lambda is left unchanged (conservative fallback)."));
+            return;
         }
 
-        var (typeParameters, constraints) = ResolveGenericCarry(
-            carryParameters, returnTypeDisplay, body);
+        var (typeParameters, constraints) = MapTypeParameterPlan(typeParameterPlan);
 
         if (captures.Count > 0
             && captures.Any(c => typeParameters.Contains(c.Name, StringComparer.Ordinal)))
@@ -457,6 +464,7 @@ internal static class AsyncNormalizeAnalyzer
             expressionBodyNeedsReturn,
             capture.Kind,
             typeParameters,
+            typeParameterPlan.TypeArguments,
             constraints,
             CaptureLayout.Empty));
     }
@@ -898,10 +906,33 @@ internal static class AsyncNormalizeAnalyzer
 
         var returnTypeDisplay = localFunction.ReturnType.ToString();
         var expressionBodyNeedsReturn = symbol.ReturnType is INamedTypeSymbol { IsGenericType: true };
-        var (typeParameters, constraints) = ResolveGenericCarry(
-            parameters, returnTypeDisplay, body,
+
+        // R1b：own 形参 + 外层方法/局部函数闭包交给统一解析器（宿主类级形参不重复声明）。
+        var signatureTypes = new List<ITypeSymbol?>(localFunction.ParameterList.Parameters.Count + 1);
+        foreach (var parameter in localFunction.ParameterList.Parameters)
+            signatureTypes.Add((model.GetDeclaredSymbol(parameter) as IParameterSymbol)?.Type);
+        signatureTypes.Add(symbol.ReturnType);
+
+        var typeParameterPlan = SyntheticTypeParameterResolver.Resolve(
+            model, localFunction,
             ownTypeParameterList: localFunction.TypeParameterList,
-            ownConstraintClauses: localFunction.ConstraintClauses);
+            ownConstraintClauses: localFunction.ConstraintClauses,
+            body: body,
+            signatureTypes: signatureTypes);
+
+        if (typeParameterPlan.Diagnostics.Any(static d =>
+                d.Code == SyntheticTypeParameterResolver.NotExpressibleCode))
+        {
+            diagnostics.Add(DiagnosticAt(
+                AsyncNormalizeDiagnosticCode.CS2J1804, localFunction,
+                $"residual async local function '{symbol.Name}' carries type parameter(s) whose " +
+                "constraints cannot be reproduced safely by the lifted method: " +
+                FirstNotExpressibleMessage(typeParameterPlan) +
+                " It is left unchanged (conservative fallback)."));
+            return;
+        }
+
+        var (typeParameters, constraints) = MapTypeParameterPlan(typeParameterPlan);
 
         var liftedName = AsyncNormalizeNaming.ResolveUniqueName(
             AsyncNormalizeNaming.GetLiftedMethodName(hostMemberName, index), usedNames);
@@ -924,6 +955,7 @@ internal static class AsyncNormalizeAnalyzer
             expressionBodyNeedsReturn,
             capture.Kind,
             typeParameters,
+            typeParameterPlan.TypeArguments,
             constraints,
             CaptureLayout.Empty));
     }
@@ -1045,123 +1077,68 @@ internal static class AsyncNormalizeAnalyzer
         }
     }
 
-    // ── 泛型携带（设计 §4.2：外层方法类型参数前置） ──
+    // ── 泛型携带（R1b：统一解析器 SyntheticTypeParameterResolver） ──
 
-    private static (IReadOnlyList<string> TypeParameters, IReadOnlyList<TypeParameterConstraintClauseSyntax> Constraints)
-        ResolveGenericCarry(
-            IReadOnlyList<LambdaParameterPlan> parameters,
-            string returnTypeDisplay,
-            SyntaxNode body,
-            TypeParameterListSyntax? ownTypeParameterList = null,
-            SyntaxList<TypeParameterConstraintClauseSyntax> ownConstraintClauses = default)
+    /// <summary>
+    /// S-08 约束闭包 + 三态由统一解析器给出；这里只做 LambdaLiftPlan 的形状映射。
+    /// </summary>
+    private static (IReadOnlyList<string> TypeParameters,
+                    IReadOnlyList<TypeParameterConstraintClauseSyntax> Constraints)
+        MapTypeParameterPlan(SyntheticTypeParameterPlan plan)
     {
-        var ownNames = ownTypeParameterList?.Parameters
-            .Select(p => p.Identifier.ValueText)
-            .Where(n => n.Length > 0)
-            .ToList() ?? new List<string>();
-
-        // 体节点 → 类型声明之间的方法/局部函数祖先，按外层→内层。
-        // 对局部函数候选，其自身的类型参数已由 ownTypeParameterList 登记。
-        var ancestors = body.Ancestors()
-            .TakeWhile(static a => a is not TypeDeclarationSyntax)
-            .Where(static a => a is MethodDeclarationSyntax or LocalFunctionStatementSyntax)
-            .Reverse()
-            .ToList();
-
-        // 规范声明顺序：own 形参在前，随后按外层→内层、声明顺序追加；
-        // 与本地形参同名者视为遮蔽，不重复登记。
-        var available = new List<string>(ownNames);
-        var ancestorOwner = new Dictionary<string, SyntaxNode>(StringComparer.Ordinal);
-        foreach (var ancestor in ancestors)
+        var typeParameters = new List<string>(plan.Parameters.Count);
+        var constraints = new List<TypeParameterConstraintClauseSyntax>();
+        foreach (var parameter in plan.Parameters)
         {
-            var ancestorTypeParameters = ancestor is MethodDeclarationSyntax m
-                ? m.TypeParameterList
-                : ((LocalFunctionStatementSyntax)ancestor).TypeParameterList;
-            if (ancestorTypeParameters == null)
+            // NotExpressible 已由调用方保守回退；防御性跳过，绝不静默丢弃后继续发射。
+            if (parameter.State == SyntheticTypeParameterState.NotExpressible)
                 continue;
 
-            foreach (var tp in ancestorTypeParameters.Parameters)
-            {
-                var name = tp.Identifier.ValueText;
-                if (available.Contains(name))
-                    continue;
-                available.Add(name);
-                ancestorOwner[name] = ancestor;
-            }
-        }
-
-        TypeParameterConstraintClauseSyntax? ClauseFor(string name)
-        {
-            var own = ownConstraintClauses.FirstOrDefault(c => c.Name.Identifier.ValueText == name);
-            if (own != null)
-                return own;
-            if (!ancestorOwner.TryGetValue(name, out var owner))
-                return null;
-            var clauses = owner is MethodDeclarationSyntax method
-                ? method.ConstraintClauses
-                : ((LocalFunctionStatementSyntax)owner).ConstraintClauses;
-            return clauses.FirstOrDefault(c => c.Name.Identifier.ValueText == name);
-        }
-
-        // 体内/签名实际使用到的标识符名集合。
-        var usedIdentifiers = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var id in body.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
-            usedIdentifiers.Add(id.Identifier.ValueText);
-        foreach (var p in parameters)
-        {
-            foreach (var id in SyntaxFactory.ParseTypeName(p.TypeDisplay).DescendantNodesAndSelf()
-                         .OfType<IdentifierNameSyntax>())
-            {
-                usedIdentifiers.Add(id.Identifier.ValueText);
-            }
-        }
-        foreach (var id in SyntaxFactory.ParseTypeName(returnTypeDisplay).DescendantNodesAndSelf()
-                     .OfType<IdentifierNameSyntax>())
-        {
-            usedIdentifiers.Add(id.Identifier.ValueText);
-        }
-
-        // S-08: carry = own 形参 + 使用到的外层形参，闭包于约束子句引用
-        // （`where T : IFoo<U>` 会把 U 一并携带），否则提升方法签名命名未
-        // 声明类型参数（CS0246）。
-        var availableSet = new HashSet<string>(available, StringComparer.Ordinal);
-        var carried = new HashSet<string>(ownNames, StringComparer.Ordinal);
-        foreach (var name in available.Skip(ownNames.Count))
-        {
-            if (usedIdentifiers.Contains(name))
-                carried.Add(name);
-        }
-
-        bool changed;
-        do
-        {
-            changed = false;
-            foreach (var name in carried.ToList())
-            {
-                if (ClauseFor(name) is not { } clause)
-                    continue;
-
-                foreach (var id in clause.DescendantNodes().OfType<IdentifierNameSyntax>())
-                {
-                    var referenced = id.Identifier.ValueText;
-                    if (!availableSet.Contains(referenced))
-                        continue;
-                    if (carried.Add(referenced))
-                        changed = true;
-                }
-            }
-        }
-        while (changed);
-
-        var typeParameters = available.Where(carried.Contains).ToList();
-        var constraints = new List<TypeParameterConstraintClauseSyntax>();
-        foreach (var name in typeParameters)
-        {
-            if (ClauseFor(name) is { } clause)
-                constraints.Add(clause);
+            typeParameters.Add(parameter.RenderName);
+            if (parameter.Constraint is { } clause)
+                constraints.Add(RenameConstraintClause(clause, parameter.RenderName));
         }
 
         return (typeParameters, constraints);
+    }
+
+    private static TypeParameterConstraintClauseSyntax RenameConstraintClause(
+        TypeParameterConstraintClauseSyntax clause,
+        string renderName)
+        => string.Equals(clause.Name.Identifier.ValueText, renderName, StringComparison.Ordinal)
+            ? clause
+            : clause.WithName(
+                SyntaxFactory.IdentifierName(renderName).WithTriviaFrom(clause.Name));
+
+    private static string FirstNotExpressibleMessage(SyntheticTypeParameterPlan plan)
+        => plan.Diagnostics.FirstOrDefault(static d =>
+               d.Code == SyntheticTypeParameterResolver.NotExpressibleCode)?.Message
+           ?? "an unknown constraint";
+
+    /// <summary>
+    /// Lambda 的签名类型集：委托 ConvertedType 的形参/返回类型；有安全捕获时追加捕获
+    /// 符号的类型（其类型也可能引用外层方法类型参数）。零捕获返回 null，让解析器
+    /// 自行从 ConvertedType 派生。
+    /// </summary>
+    private static IReadOnlyList<ITypeSymbol?>? BuildLambdaSignatureTypes(
+        SemanticModel model,
+        IMethodSymbol invoke,
+        AsyncLambdaCaptureAnalysis.CaptureResult capture,
+        SyntaxNode body)
+    {
+        if (capture.Kind != AsyncLambdaCaptureKind.CapturedLocals
+            || capture.CapturedVariables.Count == 0)
+        {
+            return null;
+        }
+
+        var types = new List<ITypeSymbol?>(invoke.Parameters.Length + 1 + capture.CapturedVariables.Count);
+        foreach (var parameter in invoke.Parameters)
+            types.Add(parameter.Type);
+        types.Add(invoke.ReturnType);
+        foreach (var symbol in capture.CapturedVariables)
+            types.Add(GetCapturedSymbolType(model, symbol, body));
+        return types;
     }
 
     // ── 候选枚举 / 宿主解析 ──

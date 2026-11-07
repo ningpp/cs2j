@@ -1,3 +1,4 @@
+using CSharpToJava.Core.Analysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -759,6 +760,21 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
     private static TypeParameterListSyntax? BuildTypeParameterList(LiftPlan plan)
     {
+        // R1b: the unified resolver owns declaration order and shadowing names
+        // (own first, then enclosing closure; host type parameters excluded).
+        if (plan.TypeParameterPlan is { } resolverPlan)
+        {
+            if (resolverPlan.Parameters.Count == 0)
+                return null;
+
+            return SyntaxFactory.TypeParameterList(SyntaxFactory.SeparatedList(
+                resolverPlan.Parameters.Select(static parameter =>
+                    SyntaxFactory.TypeParameter(
+                        SyntaxFactory.List<AttributeListSyntax>(),
+                        default,
+                        SyntaxFactory.Identifier(parameter.RenderName)))));
+        }
+
         var localFn = plan.Node;
         var typeParams = new List<TypeParameterSyntax>();
 
@@ -891,6 +907,23 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
     private static SyntaxList<TypeParameterConstraintClauseSyntax> BuildConstraintClauses(LiftPlan plan)
     {
+        // R1b: emit exactly the resolver plan's constraints, never a clause for a
+        // parameter the lifted method does not declare. NotExpressible parameters
+        // are skipped defensively (the analyzer already conservatively skips them).
+        if (plan.TypeParameterPlan is { } resolverPlan)
+        {
+            var resolved = new List<TypeParameterConstraintClauseSyntax>();
+            foreach (var parameter in resolverPlan.Parameters)
+            {
+                if (parameter.State == SyntheticTypeParameterState.NotExpressible)
+                    continue;
+                if (parameter.Constraint is { } clause)
+                    resolved.Add(RenameConstraintClause(clause, parameter.RenderName));
+            }
+
+            return SyntaxFactory.List(resolved);
+        }
+
         var localFn = plan.Node;
         var declared = DeclaredTypeParameterNames(plan);
         var clauses = new List<TypeParameterConstraintClauseSyntax>();
@@ -931,6 +964,14 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
     /// </summary>
     private static HashSet<string> DeclaredTypeParameterNames(LiftPlan plan)
     {
+        if (plan.TypeParameterPlan is { } resolverPlan)
+        {
+            return resolverPlan.Parameters
+                .Where(static p => p.State != SyntheticTypeParameterState.NotExpressible)
+                .Select(static p => p.RenderName)
+                .ToHashSet(StringComparer.Ordinal);
+        }
+
         var names = new HashSet<string>(StringComparer.Ordinal);
         foreach (var tp in plan.Node.TypeParameterList?.Parameters ?? Enumerable.Empty<TypeParameterSyntax>())
             names.Add(tp.Identifier.Text);
@@ -938,6 +979,14 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             names.Add(name);
         return names;
     }
+
+    private static TypeParameterConstraintClauseSyntax RenameConstraintClause(
+        TypeParameterConstraintClauseSyntax clause,
+        string renderName)
+        => string.Equals(clause.Name.Identifier.Text, renderName, StringComparison.Ordinal)
+            ? clause
+            : clause.WithName(
+                SyntaxFactory.IdentifierName(renderName).WithTriviaFrom(clause.Name));
 
     private static MethodDeclarationSyntax? FindEnclosingMethod(LocalFunctionStatementSyntax localFn)
     {

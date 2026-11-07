@@ -321,8 +321,9 @@ class C
             "private static async global::System.Threading.Tasks.Task<T> Cs2jAsync_M_0<T>()",
             result.OutputCode);
         Assert.Contains("where T : class", result.OutputCode);
+        // R1b：T 在目标委托签名中可见，调用点不再附加多余的显式类型实参（解析器 ④）。
         Assert.Contains(
-            "new global::System.Func<global::System.Threading.Tasks.Task<T>>(Cs2jAsync_M_0<T>)",
+            "new global::System.Func<global::System.Threading.Tasks.Task<T>>(Cs2jAsync_M_0)",
             result.OutputCode);
         Assert.Equal(1, result.Statistics.AsyncLambdasLiftedZeroCapture);
         Assert.Equal(0, result.Statistics.ResidualCount);

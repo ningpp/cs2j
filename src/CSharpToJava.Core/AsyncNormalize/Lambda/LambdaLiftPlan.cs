@@ -118,6 +118,12 @@ internal sealed record LambdaLiftPlan(
     /// <summary>提升方法需携带的泛型参数名（外层方法类型参数前置、去重、仅保留实际使用的）。</summary>
     IReadOnlyList<string> MethodTypeParameters,
 
+    /// <summary>
+    /// R1b: 调用点显式类型实参（统一解析器 ④）。签名可见时为空（交给目标委托/实参推断），
+    /// 任一带入参数不可从签名推断时列出完整有序集，避免 CS0411。
+    /// </summary>
+    IReadOnlyList<string> CallSiteTypeArguments,
+
     /// <summary>与 <see cref="MethodTypeParameters"/> 配套的 where 约束子句（已按参数过滤）。</summary>
     IReadOnlyList<TypeParameterConstraintClauseSyntax> ConstraintClauses,
 

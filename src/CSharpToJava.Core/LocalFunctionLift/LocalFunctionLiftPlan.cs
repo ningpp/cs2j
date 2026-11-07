@@ -1,3 +1,4 @@
+using CSharpToJava.Core.Analysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -19,6 +20,12 @@ internal sealed class LiftPlan
     public LocalFunctionSkipReason SkipReason = LocalFunctionSkipReason.None;
     public List<string> EnclosingTypeParams = new();  // type params from enclosing method
     public bool NeedsExplicitTypeArguments;  // true if hoisted method is generic and call sites need <TArgs>
+    /// <summary>
+    /// R1b: unified resolver plan (own + enclosing closure, three-state
+    /// expressibility, stable shadowing names). The rewriter emits declarations,
+    /// constraints and call-site names from this plan when present.
+    /// </summary>
+    public SyntheticTypeParameterPlan? TypeParameterPlan;
 }
 
 /// <summary>

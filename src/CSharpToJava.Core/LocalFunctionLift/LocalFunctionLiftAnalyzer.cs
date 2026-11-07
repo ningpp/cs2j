@@ -232,90 +232,42 @@ internal sealed class LocalFunctionLiftAnalyzer
         // the original parameter names which remain unchanged. C# allows
         // mixing positional and named arguments as long as positionals come first.
 
-        // Gate #9: Enclosing type parameter conflict
-        var enclosingTypeParams = GetEnclosingMethodTypeParameters(localFn);
-        if (enclosingTypeParams.Count > 0)
+        // R1b：类型参数携带（own + 外层方法/局部函数约束闭包、宿主类级形参不重复声明）
+        // 交给统一解析器 SyntheticTypeParameterResolver；同名遮蔽由 StableName 消歧。
+        var body = (SyntaxNode?)localFn.Body ?? localFn.ExpressionBody;
+        var signatureTypes = new List<ITypeSymbol?>(localFn.ParameterList.Parameters.Count + 1);
+        foreach (var parameter in localFn.ParameterList.Parameters)
+            signatureTypes.Add((_model.GetDeclaredSymbol(parameter) as IParameterSymbol)?.Type);
+        signatureTypes.Add(symbol!.ReturnType);
+
+        var typeParameterPlan = SyntheticTypeParameterResolver.Resolve(
+            _model, localFn,
+            ownTypeParameterList: localFn.TypeParameterList,
+            ownConstraintClauses: localFn.ConstraintClauses,
+            body: body,
+            signatureTypes: signatureTypes);
+
+        // S-03：任一携带形参无法安全表达 → 保守跳过（不产出悬挂 where 子句）。
+        if (typeParameterPlan.Parameters.Any(static p =>
+                p.State == SyntheticTypeParameterState.NotExpressible))
         {
-            var localTypeParams = localFn.TypeParameterList?.Parameters
-                .Select(p => p.Identifier.Text).ToList() ?? new List<string>();
-            var conflicts = enclosingTypeParams.Where(tp => localTypeParams.Contains(tp)).ToList();
-            if (conflicts.Count > 0)
-            {
-                Skip(plan, LocalFunctionSkipReason.EnclosingTypeParameterConflict,
-                    $"enclosing method type parameter(s) conflict: {string.Join(", ", conflicts)}");
-                return plan;
-            }
+            var reasons = string.Join("; ", typeParameterPlan.Diagnostics
+                .Where(static d => d.Code == SyntheticTypeParameterResolver.NotExpressibleCode)
+                .Select(static d => d.Message));
+            Skip(plan, LocalFunctionSkipReason.EnclosingTypeParameterConflict,
+                $"type parameter constraints cannot be reproduced safely: {reasons}");
+            return plan;
         }
 
-        // Gate #9b (disabled): Local function uses enclosing method type parameters.
-        // We now support this — the rewriter will add explicit type arguments
-        // at call sites to avoid type inference failures.
-        if (enclosingTypeParams.Count > 0)
+        plan.TypeParameterPlan = typeParameterPlan;
+        var carriedEnclosing = typeParameterPlan.Parameters
+            .Where(static p => p.Origin != SyntheticTypeParameterOrigin.Own)
+            .Select(static p => p.RenderName)
+            .ToList();
+        if (carriedEnclosing.Count > 0)
         {
-            var ownTypeParams = localFn.TypeParameterList?.Parameters
-                .Select(p => p.Identifier.Text)
-                .ToHashSet(StringComparer.Ordinal) ?? new HashSet<string>(StringComparer.Ordinal);
-
-            // Collect all identifier names used in the local function
-            var typeIdentifiers = new HashSet<string>(StringComparer.Ordinal);
-            if (localFn.ParameterList != null)
-            {
-                foreach (var param in localFn.ParameterList.Parameters)
-                    CollectIdentifierNames(param.Type, typeIdentifiers);
-            }
-            CollectIdentifierNames(localFn.ReturnType, typeIdentifiers);
-            var body = (SyntaxNode?)localFn.Body ?? localFn.ExpressionBody;
-            if (body != null)
-            {
-                foreach (var id in body.DescendantNodes().OfType<IdentifierNameSyntax>())
-                    typeIdentifiers.Add(id.Identifier.Text);
-            }
-
-            // Determine which enclosing type params are used by the local function
-            // but not in its own type parameter list, then close over constraint
-            // clauses: `where T : IFoo<U>` forces U to be carried as well, or the
-            // lifted signature names an undeclared parameter (S-05 ②).
-            var carried = new HashSet<string>(
-                enclosingTypeParams.Where(tp => !ownTypeParams.Contains(tp) && typeIdentifiers.Contains(tp)),
-                StringComparer.Ordinal);
-            var enclosingSet = enclosingTypeParams.ToHashSet(StringComparer.Ordinal);
-            var enclosingMethod = FindEnclosingMethod(localFn);
-            TypeParameterConstraintClauseSyntax? ClauseFor(string name)
-                => localFn.ConstraintClauses.FirstOrDefault(c => c.Name.Identifier.Text == name)
-                   ?? enclosingMethod?.ConstraintClauses
-                       .FirstOrDefault(c => c.Name.Identifier.Text == name);
-
-            bool clauseChanged;
-            do
-            {
-                clauseChanged = false;
-                // Clauses of the local function's OWN parameters can name enclosing
-                // parameters too (`int Local<U>(U u) where U : IComparable<T>`), so
-                // the closure starts from both sets.
-                foreach (var name in carried.Concat(ownTypeParams).ToList())
-                {
-                    if (ClauseFor(name) is not { } clause)
-                        continue;
-
-                    foreach (var id in clause.DescendantNodes().OfType<IdentifierNameSyntax>())
-                    {
-                        var referenced = id.Identifier.Text;
-                        if (ownTypeParams.Contains(referenced) || !enclosingSet.Contains(referenced))
-                            continue;
-                        if (carried.Add(referenced))
-                            clauseChanged = true;
-                    }
-                }
-            }
-            while (clauseChanged);
-
-            var usedEnclosingParams = enclosingTypeParams.Where(carried.Contains).ToList();
-
-            if (usedEnclosingParams.Count > 0)
-            {
-                plan.EnclosingTypeParams = usedEnclosingParams;
-                plan.NeedsExplicitTypeArguments = true;
-            }
+            plan.EnclosingTypeParams = carriedEnclosing;
+            plan.NeedsExplicitTypeArguments = true;
         }
 
         return plan;
