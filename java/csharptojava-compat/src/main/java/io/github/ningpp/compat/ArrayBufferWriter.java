@@ -69,9 +69,9 @@ public class ArrayBufferWriter<T> implements IBufferWriter<T> {
         return buffer.length;
     }
 
-    /** Mirrors ArrayBufferWriter&lt;T&gt;.GetMemory(int sizeHint). */
+    /** Mirrors ArrayBufferWriter&lt;T&gt;.GetMemory(int sizeHint) — writable Memory view. */
     @Override
-    public ReadOnlyMemory<T> getMemory(int sizeHint) {
+    public Memory<T> getMemory(int sizeHint) {
         int hint = Math.max(sizeHint, 1);
         EnsureCapacity(hint);
         // Return a view starting at the written offset, matching C# semantics: the caller
@@ -80,7 +80,7 @@ public class ArrayBufferWriter<T> implements IBufferWriter<T> {
         // class comment) stay O(hint) instead of O(capacity).
         int freeCapacity = buffer.length - written;
         int windowLength = Math.min(freeCapacity, Math.max(hint, DEFAULT_BUFFER_SIZE));
-        return new ReadOnlyMemory<>(buffer, written, windowLength);
+        return new Memory<>(buffer, written, windowLength);
     }
 
     /** Mirrors ArrayBufferWriter&lt;T&gt;.Advance(int count). */

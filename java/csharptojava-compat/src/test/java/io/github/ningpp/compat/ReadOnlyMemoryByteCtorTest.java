@@ -38,7 +38,7 @@ public class ReadOnlyMemoryByteCtorTest {
     @Test
     public void byteSliceMemory_isViewNotCopy() {
         byte[] data = new byte[] { 1, 2, 3, 4, 5 };
-        ReadOnlyMemory<Integer> memory = MemoryExtensions.asMemory(data, 1, 3);
+        Memory<Integer> memory = MemoryExtensions.asMemory(data, 1, 3);
         assertEquals(3, memory.length());
         // The span returned by getSpan() must write back into the original array
         // (StreamWrapper.readAsync writes through it), not into a discarded copy.

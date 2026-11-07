@@ -570,7 +570,8 @@ public class ArrayHelper {
         }
         return array;
     }
-    /**
+
+    /**
      * Large embedded byte[] initializers (whole test-resource files inlined by the
      * C# source) exceed javac's 64KB per-method bytecode limit, so the converter
      * emits a base64 payload instead; this decodes it back to the exact bytes.
@@ -697,6 +698,16 @@ public class ArrayHelper {
         int copyLen = Math.min(array.length, newSize);
         System.arraycopy(array, 0, result, 0, copyLen);
         return result;
+    }
+
+    /** Mirrors Array.Resize(ref byte[], int) — primitive byte[] carrier. */
+    public static byte[] resize(byte[] array, int newSize) {
+        return java.util.Arrays.copyOf(array, newSize);
+    }
+
+    /** Mirrors Array.Resize(ref int[], int) — primitive int[] carrier. */
+    public static int[] resize(int[] array, int newSize) {
+        return java.util.Arrays.copyOf(array, newSize);
     }
 
     // ---- C31 range slices (copy semantics)----

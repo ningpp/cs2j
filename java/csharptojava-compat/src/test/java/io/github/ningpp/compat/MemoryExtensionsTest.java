@@ -10,7 +10,7 @@ class MemoryExtensionsTest {
     @Test
     void asMemory_byteArray_returnsIntegerMemory() {
         byte[] data = { 1, 2, 3, 4, 5 };
-        ReadOnlyMemory<Integer> memory = MemoryExtensions.asMemory(data);
+        Memory<Integer> memory = MemoryExtensions.asMemory(data);
         assertEquals(5, memory.length());
         assertEquals(Integer.valueOf(2), memory.getSpan().get(1));
         assertArrayEquals(new byte[] { 1, 2, 3, 4, 5 }, memory.toByteArray());
@@ -19,11 +19,11 @@ class MemoryExtensionsTest {
     @Test
     void asMemory_byteArray_slices() {
         byte[] data = { 1, 2, 3, 4, 5 };
-        ReadOnlyMemory<Integer> fromStart = MemoryExtensions.asMemory(data, 2);
+        Memory<Integer> fromStart = MemoryExtensions.asMemory(data, 2);
         assertEquals(3, fromStart.length());
         assertEquals(Integer.valueOf(3), fromStart.getSpan().get(0));
 
-        ReadOnlyMemory<Integer> slice = MemoryExtensions.asMemory(data, 1, 3);
+        Memory<Integer> slice = MemoryExtensions.asMemory(data, 1, 3);
         assertEquals(3, slice.length());
         assertEquals(Integer.valueOf(4), slice.getSpan().get(2));
     }
@@ -31,7 +31,7 @@ class MemoryExtensionsTest {
     @Test
     void asMemory_charArray_sliceFromStart() {
         char[] data = { 'a', 'b', 'c', 'd' };
-        ReadOnlyMemory<Character> memory = MemoryExtensions.asMemory(data, 1);
+        Memory<Character> memory = MemoryExtensions.asMemory(data, 1);
         assertEquals(3, memory.length());
         assertEquals(Character.valueOf('b'), memory.getSpan().get(0));
     }
@@ -39,14 +39,14 @@ class MemoryExtensionsTest {
     @Test
     void asMemory_genericArrayOverloads() {
         String[] data = { "a", "b", "c" };
-        ReadOnlyMemory<String> whole = MemoryExtensions.asMemory(data);
+        Memory<String> whole = MemoryExtensions.asMemory(data);
         assertEquals(3, whole.length());
 
-        ReadOnlyMemory<String> fromStart = MemoryExtensions.asMemory(data, 1);
+        Memory<String> fromStart = MemoryExtensions.asMemory(data, 1);
         assertEquals(2, fromStart.length());
         assertEquals("c", fromStart.getSpan().get(1));
 
-        ReadOnlyMemory<String> slice = MemoryExtensions.asMemory(data, 0, 2);
+        Memory<String> slice = MemoryExtensions.asMemory(data, 0, 2);
         assertEquals(2, slice.length());
     }
 

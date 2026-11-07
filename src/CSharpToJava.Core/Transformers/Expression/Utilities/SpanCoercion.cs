@@ -27,12 +27,41 @@ internal static class SpanCoercion
         rendered = text;
         if (target is not INamedTypeSymbol { TypeArguments.Length: 1 } span
             || span.ContainingNamespace?.ToDisplayString() != "System"
-            || span.Name is not ("Span" or "ReadOnlySpan"))
+            || span.Name is not ("Span" or "ReadOnlySpan" or "Memory" or "ReadOnlyMemory"))
         {
             return false;
         }
 
         var sourceType = context.GetTypeInfo(source).Type;
+
+        // Memory<T>/ReadOnlyMemory<T>: array → new Memory<T>(array), Memory →
+        // ReadOnlyMemory via asReadOnlyMemory().
+        if (span.Name is "Memory" or "ReadOnlyMemory")
+        {
+            if (source is ConditionalExpressionSyntax)
+                return false;
+            if (sourceType is INamedTypeSymbol sameMemory
+                && sameMemory.Name == span.Name
+                && sameMemory.ContainingNamespace?.ToDisplayString() == "System")
+            {
+                return false;
+            }
+            if (sourceType is IArrayTypeSymbol { Rank: 1 })
+            {
+                context.AddImport($"io.github.ningpp.compat.{span.Name}");
+                rendered = $"new {span.Name}<{GenericBoxElement(span.TypeArguments[0], context)}>({text})";
+                return true;
+            }
+            if (span.Name == "ReadOnlyMemory"
+                && sourceType is INamedTypeSymbol { Name: "Memory" } memorySource
+                && memorySource.ContainingNamespace?.ToDisplayString() == "System")
+            {
+                context.AddImport("io.github.ningpp.compat.ReadOnlyMemory");
+                rendered = $"{text}.asReadOnlyMemory()";
+                return true;
+            }
+            return false;
+        }
 
         // Ternary arms are bridged individually by ControlFlowTransformer, so the
         // whole conditional must not be wrapped again (avoids asSpan(asSpan(...))).
@@ -75,6 +104,24 @@ internal static class SpanCoercion
         }
 
         return false;
+    }
+
+    private static string GenericBoxElement(ITypeSymbol element, ConversionContext context)
+    {
+        // Generic element carriers: byte/ushort/uint widen to the Java int carrier.
+        var mapped = context.MapType(element);
+        return mapped switch
+        {
+            "char" => "Character",
+            "int" => "Integer",
+            "long" => "Long",
+            "short" => "Short",
+            "byte" => "Integer",
+            "boolean" => "Boolean",
+            "float" => "Float",
+            "double" => "Double",
+            _ => mapped,
+        };
     }
 
     private static string BoxElement(ITypeSymbol element, ConversionContext context)

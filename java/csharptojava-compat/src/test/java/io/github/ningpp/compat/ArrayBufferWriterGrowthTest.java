@@ -81,7 +81,7 @@ class ArrayBufferWriterGrowthTest {
         for (int round = 0; round < 200; round++) {
             int hint = hints[round % hints.length];
             int minimum = Math.max(hint, 1);
-            ReadOnlyMemory<Integer> memory = writer.getMemory(hint);
+            Memory<Integer> memory = writer.getMemory(hint);
 
             assertTrue(memory.getLength() >= minimum,
                     "window must satisfy sizeHint: length=" + memory.getLength() + ", sizeHint=" + hint);
@@ -140,7 +140,7 @@ class ArrayBufferWriterGrowthTest {
 
         long start = System.nanoTime();
         for (int i = 0; i < chunks; i++) {
-            ReadOnlyMemory<Integer> memory = writer.getMemory(chunk);
+            Memory<Integer> memory = writer.getMemory(chunk);
             maxWindow = Math.max(maxWindow, memory.getLength());
             Span<Integer> window = new Span<>(memory.getSpan());
             for (int j = 0; j < chunk; j++) {

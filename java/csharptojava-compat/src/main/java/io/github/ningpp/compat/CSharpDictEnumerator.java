@@ -23,10 +23,23 @@ public interface CSharpDictEnumerator extends CSharpEnumerator {
      * CSharpIDictionary bridge whose iterator returns DictEntry objects). Both
      * are handled at runtime to avoid ClassCastException from generic erasure.
      */
+    /**
+     * A dictionary enumerator that is simultaneously a typed generic enumerator.
+     * Generated code stores dictionary enumerators in
+     * CSharpGenericEnumerator-typed state slots while still reading keys/values
+     * through the non-generic dictionary view, so both faces must be declared on
+     * one type.
+     */
+    interface Generic<T> extends CSharpGenericEnumerator<T>, CSharpDictEnumerator {
+        @Override
+        T getCurrent();
+    }
+
     @SuppressWarnings("unchecked")
-    static CSharpDictEnumerator from(CSharpGenericEnumerator<? extends CSharpKeyValuePair<?, ?>> enumerator) {
-        return new CSharpDictEnumerator() {
+    static Generic<CSharpDictEntry> from(CSharpGenericEnumerator<? extends CSharpKeyValuePair<?, ?>> enumerator) {
+        return new Generic<CSharpDictEntry>() {
             @Override public boolean moveNext() { return enumerator.moveNext(); }
+            @Override public CSharpDictEntry getCurrent() { return getEntry(); }
             @Override public CSharpDictEntry getEntry() {
                 Object current = enumerator.getCurrent();
                 if (current instanceof CSharpDictEntry entry) {

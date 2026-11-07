@@ -5,6 +5,11 @@ import java.util.Map.Entry;
 
 public interface CSharpGenericIDictionary<K, V> extends CSharpIterable<CSharpKeyValuePair<K, V>> {
     void add(K key, V value);
+
+    /** C# indexer setter shape {@code dict[key] = value}. */
+    default void set(K key, V value) {
+        add(key, value);
+    }
     /** Default implementation so converter-generated classes that emit containsKey(K)
      * (erasing to a different signature) still compile. */
     default boolean containsKey(K key) {

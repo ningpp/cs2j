@@ -122,6 +122,25 @@ public class AssignmentTransformer : IIRExpressionTransformer
         }
         rightText = SpanCoercion.CoerceOrSame(
             rhs, rightText, context.GetTypeInfo(lhs).Type, context);
+        // IDictionaryEnumerator → IEnumerator slot: the Java dictionary enumerator
+        // face is a non-generic CSharpDictEnumerator, while the slot is the erased
+        // CSharpGenericEnumerator. Bridge through the compat adapter.
+        if (op == "="
+            && context.GetTypeInfo(lhs).Type?.ToDisplayString().TrimEnd('?') == "System.Collections.IEnumerator"
+            && context.GetTypeInfo(rhs).Type?.ToDisplayString().TrimEnd('?') == "System.Collections.IDictionaryEnumerator")
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");
+            rightText = $"CSharpGenericEnumerator.fromEnumerator({rightText})";
+        }
+        // The Java dictionary carrier's iterator() answers the generic enumerator,
+        // while an IDictionaryEnumerator-typed slot needs the dictionary view.
+        if (op == "="
+            && context.GetTypeInfo(lhs).Type?.ToDisplayString().TrimEnd('?') == "System.Collections.IDictionaryEnumerator"
+            && rightText.EndsWith(".iterator()", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpDictEnumerator");
+            rightText = $"CSharpDictEnumerator.from({rightText})";
+        }
         // IList 家族赋值槽位：与参数/声明/返回位一致的适配视图
         // （真实链 FunctionQuery/StringFunctions 克隆构造器 `_args = tmp`）。
         rightText = IListCoercion.CoerceOrSame(
@@ -364,8 +383,9 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // never rewritten.
         if (IsCs2jByRefHolderValue(p))
         {
+            var slotValue = BoxByRefSlotValue(p, right);
             return op == "="
-                ? $"{receiver}set({right})"
+                ? $"{receiver}set({slotValue})"
                 : $"{receiver}set({receiver}getValue() {op[..^1]} {CompoundRightOperand(a.Right, right)})";
         }
 
@@ -412,7 +432,7 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // Scoped/chained writes use the same returning alias as Property(): the
         // compat holder's bean setter is void, while the alias returns the value.
         if (IsCs2jByRefHolderValue(p))
-            return $"{receiver}set({valueText})";
+            return $"{receiver}set({BoxByRefSlotValue(p, valueText)})";
         var name = char.ToUpperInvariant(p.Name[0]) + p.Name[1..];
         var containingType = p.ContainingType.ToDisplayString();
         var mappedProperty = c.TypeMappings.MapMethod(containingType, p.Name);
@@ -425,11 +445,19 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // （StringBuilder.set_Length → setLength）。显式 setter 优先于属性名映射，
         // 保证 sb.Length = 61 落成 sb.setLength(61)，而不是 sb.length(61)。
         var explicitSetter = c.TypeMappings.MapMethod(containingType, "set_" + p.Name);
-        if (!string.IsNullOrEmpty(explicitSetter)
-            && !explicitSetter.Contains('.')
-            && !JavaNaming.IsFieldStyleAccessorName(explicitSetter))
+        if (!string.IsNullOrEmpty(explicitSetter))
         {
-            return $"{receiver}{explicitSetter}({valueText})";
+            // Helper-style mapping (e.g. Exception.Source → ExceptionCompat.setSource):
+            // the mapped method is static and takes the receiver as its first argument.
+            if (explicitSetter.Contains('.'))
+            {
+                var target = receiver.Length > 0 ? receiver[..^1] : "this";
+                return $"{explicitSetter}({target}, {valueText})";
+            }
+            if (!JavaNaming.IsFieldStyleAccessorName(explicitSetter))
+            {
+                return $"{receiver}{explicitSetter}({valueText})";
+            }
         }
 
         // Ported BCL types (dotnet.xml XmlReaderSettings/XmlWriterSettings) expose
@@ -477,6 +505,33 @@ public class AssignmentTransformer : IIRExpressionTransformer
         var definition = property.ContainingType?.OriginalDefinition;
         return definition?.ContainingNamespace?.ToDisplayString() == "Cs2jByRef"
             && definition.Name is "ByRef" or "ScopedByRef";
+    }
+
+    /// <summary>
+    /// Boxes a primitive value written into a ByRef&lt;T&gt; slot. Java does not
+    /// widen an int to Long/Byte/Short through autoboxing, so `ref long` writes
+    /// (rendered ByRef&lt;Long&gt;.set(0)) need the matching wrapper/ narrowing.
+    /// </summary>
+    private static string BoxByRefSlotValue(IPropertySymbol property, string valueText)
+    {
+        var containing = property.ContainingType;
+        if (containing == null || containing.TypeArguments.Length != 1)
+            return valueText;
+        if (containing.OriginalDefinition?.ContainingNamespace?.ToDisplayString() != "Cs2jByRef")
+            return valueText;
+        if (containing.OriginalDefinition.Name is not ("ByRef" or "ScopedByRef" or "RefStructByRef"))
+            return valueText;
+
+        return containing.TypeArguments[0].SpecialType switch
+        {
+            SpecialType.System_Int64 => $"Long.valueOf({valueText})",
+            SpecialType.System_UInt64 => $"Long.valueOf({valueText})",
+            SpecialType.System_Int16 => $"(short)({valueText})",
+            SpecialType.System_SByte => $"(byte)({valueText})",
+            SpecialType.System_Double => $"Double.valueOf({valueText})",
+            SpecialType.System_Single => $"Float.valueOf({valueText})",
+            _ => valueText
+        };
     }
 
     // ── Indexer ─────────────────────────────────────────────────────────────

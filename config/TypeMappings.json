@@ -195,6 +195,106 @@
             ]
         },
         {
+            "csharp": "System.Collections.Immutable.ImmutableArray`1",
+            "java": "ImmutableArray",
+            "imports": ["io.github.ningpp.compat.ImmutableArray"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableArray",
+            "java": "ImmutableArray",
+            "imports": ["io.github.ningpp.compat.ImmutableArray"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.IImmutableList`1",
+            "java": "IImmutableList",
+            "imports": ["io.github.ningpp.compat.IImmutableList"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableList`1",
+            "java": "ImmutableList",
+            "imports": ["io.github.ningpp.compat.ImmutableList"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableList",
+            "java": "ImmutableList",
+            "imports": ["io.github.ningpp.compat.ImmutableList"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.IImmutableSet`1",
+            "java": "IImmutableSet",
+            "imports": ["io.github.ningpp.compat.IImmutableSet"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableHashSet`1",
+            "java": "ImmutableHashSet",
+            "imports": ["io.github.ningpp.compat.ImmutableHashSet"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableHashSet",
+            "java": "ImmutableHashSet",
+            "imports": ["io.github.ningpp.compat.ImmutableHashSet"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableSortedSet`1",
+            "java": "ImmutableSortedSet",
+            "imports": ["io.github.ningpp.compat.ImmutableSortedSet"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.IImmutableQueue`1",
+            "java": "IImmutableQueue",
+            "imports": ["io.github.ningpp.compat.IImmutableQueue"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableQueue`1",
+            "java": "ImmutableQueue",
+            "imports": ["io.github.ningpp.compat.ImmutableQueue"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableQueue",
+            "java": "ImmutableQueue",
+            "imports": ["io.github.ningpp.compat.ImmutableQueue"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.IImmutableStack`1",
+            "java": "IImmutableStack",
+            "imports": ["io.github.ningpp.compat.IImmutableStack"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableStack`1",
+            "java": "ImmutableStack",
+            "imports": ["io.github.ningpp.compat.ImmutableStack"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableStack",
+            "java": "ImmutableStack",
+            "imports": ["io.github.ningpp.compat.ImmutableStack"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.IImmutableDictionary`2",
+            "java": "IImmutableDictionary",
+            "imports": ["io.github.ningpp.compat.IImmutableDictionary"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableDictionary`2",
+            "java": "ImmutableDictionary",
+            "imports": ["io.github.ningpp.compat.ImmutableDictionary"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableDictionary",
+            "java": "ImmutableDictionary",
+            "imports": ["io.github.ningpp.compat.ImmutableDictionary"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableSortedDictionary`2",
+            "java": "ImmutableSortedDictionary",
+            "imports": ["io.github.ningpp.compat.ImmutableSortedDictionary"]
+        },
+        {
+            "csharp": "System.Collections.Immutable.ImmutableSortedDictionary",
+            "java": "ImmutableSortedDictionary",
+            "imports": ["io.github.ningpp.compat.ImmutableSortedDictionary"]
+        },
+        {
             "csharp": "System.Collections.IEnumerable",
             "java": "CSharpGenericIterable<Object>",
             "imports": [
@@ -906,6 +1006,50 @@
             ]
         },
         {
+            "csharp": "System.Buffers.ArrayBufferWriter`1",
+            "java": "ArrayBufferWriter",
+            "imports": ["io.github.ningpp.compat.ArrayBufferWriter"]
+        },
+        {
+            "csharp": "System.Buffers.IBufferWriter`1",
+            "java": "IBufferWriter",
+            "imports": ["io.github.ningpp.compat.IBufferWriter"]
+        },
+        {
+            "csharp": "System.Buffers.ReadOnlySequence`1",
+            "java": "ReadOnlySequence",
+            "imports": ["io.github.ningpp.compat.ReadOnlySequence"]
+        },
+        {
+            "csharp": "System.Buffers.ReadOnlySequence",
+            "java": "ReadOnlySequence",
+            "imports": ["io.github.ningpp.compat.ReadOnlySequence"]
+        },
+        {
+            "csharp": "System.IO.Pipelines.PipeWriter",
+            "java": "PipeWriter",
+            "imports": ["io.github.ningpp.compat.PipeWriter"]
+        },
+        {
+            "csharp": "System.OperatingSystem",
+            "java": "OperatingSystem",
+            "imports": ["io.github.ningpp.compat.OperatingSystem"]
+        },
+        {
+            "csharp": "System.Buffers.BuffersExtensions",
+            "java": "BuffersExtensions",
+            "imports": [
+                "io.github.ningpp.compat.BuffersExtensions"
+            ]
+        },
+        {
+            "csharp": "System.Buffers.OperationStatus",
+            "java": "OperationStatus",
+            "imports": [
+                "io.github.ningpp.compat.OperationStatus"
+            ]
+        },
+        {
             "csharp": "System.ReadOnlySpan`1",
             "java": "ReadOnlySpan",
             "imports": [
@@ -914,9 +1058,9 @@
         },
         {
             "csharp": "System.Memory`1",
-            "java": "ReadOnlyMemory",
+            "java": "Memory",
             "imports": [
-                "io.github.ningpp.compat.ReadOnlyMemory"
+                "io.github.ningpp.compat.Memory"
             ]
         },
         {
@@ -6916,6 +7060,36 @@
             "javaMethod": "ReflectionHelper.isOptionalParameter"
         },
         {
+            "type": "System.Reflection.ParameterInfo",
+            "method": "Position",
+            "javaMethod": "ReflectionHelper.getPosition"
+        },
+        {
+            "type": "System.Reflection.ParameterInfo",
+            "method": "get_Position",
+            "javaMethod": "ReflectionHelper.getPosition"
+        },
+        {
+            "type": "System.Reflection.ParameterInfo",
+            "method": "HasDefaultValue",
+            "javaMethod": "ReflectionHelper.getHasDefaultValue"
+        },
+        {
+            "type": "System.Reflection.ParameterInfo",
+            "method": "get_HasDefaultValue",
+            "javaMethod": "ReflectionHelper.getHasDefaultValue"
+        },
+        {
+            "type": "System.Reflection.ParameterInfo",
+            "method": "DefaultValue",
+            "javaMethod": "ReflectionHelper.getDefaultValue"
+        },
+        {
+            "type": "System.Reflection.ParameterInfo",
+            "method": "get_DefaultValue",
+            "javaMethod": "ReflectionHelper.getDefaultValue"
+        },
+        {
             "type": "System.Collections.Generic.HashSet`1",
             "method": "Overlaps",
             "javaMethod": "SetCompat.overlaps"
@@ -8996,6 +9170,16 @@
             "type": "System.Exception",
             "method": "InnerException",
             "javaMethod": "ExceptionCompat.getInnerException"
+        },
+        {
+            "type": "System.Exception",
+            "method": "set_Source",
+            "javaMethod": "ExceptionCompat.setSource"
+        },
+        {
+            "type": "System.Exception",
+            "method": "Source",
+            "javaMethod": "ExceptionCompat.getSource"
         },
         {
             "type": "System.Exception",

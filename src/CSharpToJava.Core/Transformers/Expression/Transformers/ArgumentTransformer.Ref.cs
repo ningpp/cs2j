@@ -58,11 +58,11 @@ public partial class ArgumentTransformer
         if (expr is IdentifierNameSyntax ident)
             return WrapIdentifierHolder(arg, ident, context, parameter, isOut: true);
 
-        if (arg.Expression is MemberAccessExpressionSyntax or ElementAccessExpressionSyntax)
-            return WrapMemberHolder(arg.Expression, context, transformer, "_outArgHolder");
+        if (expr is MemberAccessExpressionSyntax or ElementAccessExpressionSyntax)
+            return WrapMemberHolder(expr, context, transformer, "_outArgHolder");
 
         context.Diagnostics.Warning("out parameter has no direct Java equivalent", arg.GetLocation());
-        return $"/* out */ {transformer.Transform(arg.Expression, context)}";
+        return $"/* out */ {transformer.Transform(expr, context)}";
     }
 
     private static string TransformRefArgument(
@@ -72,7 +72,15 @@ public partial class ArgumentTransformer
         IExpressionTransformer transformer,
         IParameterSymbol? parameter)
     {
-        if (parameter != null && StructCloneHelper.IsRefParamEffectivelyReadOnlyInHierarchy(
+        // The lowered C# tree spells `ref` at every call site that still needs a
+        // holder. A missing keyword means the parameter was already normalized to
+        // a value/ByRef form (or the binding is stale), so pass by value.
+        if (arg.RefKindKeyword.Kind() == SyntaxKind.None)
+            return transformer.Transform(expr, context);
+
+        if (parameter != null
+            && !IsDeclaredWithRefKeyword(parameter)
+            && StructCloneHelper.IsRefParamEffectivelyReadOnlyInHierarchy(
                 parameter, context.SemanticModel?.Compilation))
         {
             if (parameter.ContainingSymbol is IMethodSymbol { MethodKind: MethodKind.LocalFunction }
@@ -116,6 +124,37 @@ public partial class ArgumentTransformer
 
         context.Diagnostics.Warning("ref argument with complex expression has no direct Java equivalent; passing by value", arg.GetLocation());
         return transformed;
+    }
+
+    /// <summary>
+    /// True when the parameter is still declared with a <c>ref</c>/<c>out</c>
+    /// modifier in the lowered C# tree — i.e. its Java declaration is a holder.
+    /// Metadata-only declarations are treated the same way (Java wraps them).
+    /// </summary>
+    private static bool IsDeclaredWithRefKeyword(IParameterSymbol parameter)
+    {
+        if (parameter.ContainingSymbol is not IMethodSymbol method)
+            return true;
+        if (method.DeclaringSyntaxReferences.Length == 0)
+            return true;
+
+        foreach (var reference in method.DeclaringSyntaxReferences)
+        {
+            BaseParameterListSyntax? parameterList = reference.GetSyntax() switch
+            {
+                MethodDeclarationSyntax m => m.ParameterList,
+                LocalFunctionStatementSyntax l => l.ParameterList,
+                ConstructorDeclarationSyntax c => c.ParameterList,
+                OperatorDeclarationSyntax o => o.ParameterList,
+                ConversionOperatorDeclarationSyntax co => co.ParameterList,
+                _ => null
+            };
+            if (parameterList == null || parameter.Ordinal >= parameterList.Parameters.Count)
+                continue;
+            return parameterList.Parameters[parameter.Ordinal].Modifiers.Any(
+                m => m.IsKind(SyntaxKind.RefKeyword) || m.IsKind(SyntaxKind.OutKeyword));
+        }
+        return true;
     }
 
     /// <summary>

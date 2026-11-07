@@ -286,10 +286,14 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
         return candidate;
     }
 
-    /** Iterates the single segment — mirrors C# foreach over a ReadOnlySequence. */
+    /**
+     * Iterates the sequence — mirrors C# foreach over a ReadOnlySequence. The
+     * returned enumerator exposes both the .NET protocol (MoveNext/Current via
+     * moveNext/getCurrent) and the Java Iterator bridge.
+     */
     @Override
-    public Iterator<ReadOnlyMemory<T>> iterator() {
-        return new Iterator<>() {
+    public CSharpGenericEnumerator<ReadOnlyMemory<T>> iterator() {
+        return CSharpGenericEnumerator.from(new Iterator<>() {
             private boolean consumed = false;
 
             @Override
@@ -303,6 +307,6 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
                 consumed = true;
                 return getFirst();
             }
-        };
+        });
     }
 }

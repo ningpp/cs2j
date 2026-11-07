@@ -281,6 +281,37 @@ public final class Utf8Parser {
         return false;
     }
 
+    /**
+     * Overload-name bridge for the decimal shape. The value parameter is ByRef
+     * (not ObjectHolder) so it does not clash with the Guid overload after
+     * generic erasure — ObjectHolder extends ByRef, so call sites still bind.
+     */
+    public static boolean tryParse(ReadOnlySpan<Integer> source, ByRef<Decimal> value, IntHolder bytesConsumed, char standardFormat) {
+        String text = spanToString(source).trim();
+        if (text.isEmpty()) return false;
+        try {
+            value.setValue(Decimal.parse(text));
+            bytesConsumed.value = text.length();
+            return true;
+        } catch (IllegalArgumentException | ArithmeticException e) {
+            if (text.indexOf('e') < 0 && text.indexOf('E') < 0) {
+                return false;
+            }
+            try {
+                value.setValue(Decimal.parseExponent(text));
+                bytesConsumed.value = text.length();
+                return true;
+            } catch (IllegalArgumentException | ArithmeticException ex) {
+                return false;
+            }
+        }
+    }
+
+    /** Overload-name bridge: the converter may emit the shared TryParse name for the UUID shape. */
+    public static boolean tryParse(ReadOnlySpan<Integer> source, ObjectHolder<UUID> value, IntHolder bytesConsumed, char standardFormat) {
+        return tryParseUuid(source, value, bytesConsumed, standardFormat);
+    }
+
     /** Mirrors Utf8Parser.TryParse(ReadOnlySpan&lt;byte&gt;, out UUID, out int, char standardFormat). */
     public static boolean tryParseUuid(ReadOnlySpan<Integer> source, ObjectHolder<UUID> value, IntHolder bytesConsumed, char standardFormat) {
         String text = spanToString(source);

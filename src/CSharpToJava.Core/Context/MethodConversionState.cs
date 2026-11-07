@@ -136,6 +136,28 @@ public class MethodConversionState
     // paired-pointer index slots `pSrcIndex++` / `pSrc[pSrcIndex]`).
     private readonly HashSet<IParameterSymbol> _holderValueParams = new(SymbolEqualityComparer.Default);
 
+    // Parameters emitted as Object to match an erased generic base signature
+    // (`JsonConverter<T>.Write(..., T value, ...)`), with the boxed wrapper the
+    // body must cast back to before using the value as a primitive.
+    private readonly Dictionary<IParameterSymbol, string> _boxedOverrideParams =
+        new(SymbolEqualityComparer.Default);
+
+    /// <summary>Registers a parameter emitted as Object for an erased generic override.</summary>
+    public void RegisterBoxedOverrideParam(IParameterSymbol parameter, string wrapperType)
+        => _boxedOverrideParams[parameter] = wrapperType;
+
+    /// <summary>True when the given parameter is an Object-shaped generic override slot.</summary>
+    public bool TryGetBoxedOverrideParam(IParameterSymbol? parameter, out string wrapperType)
+    {
+        if (parameter != null && _boxedOverrideParams.TryGetValue(parameter, out var wrapper))
+        {
+            wrapperType = wrapper;
+            return true;
+        }
+        wrapperType = string.Empty;
+        return false;
+    }
+
     /// <summary>Registers a parameter that is declared as a Java holder type.</summary>
     public void RegisterHolderValueParam(IParameterSymbol parameter)
         => _holderValueParams.Add(parameter);
@@ -538,6 +560,7 @@ public class MethodConversionState
         _outHolderAllocCounts.Clear();
         _readOnlyRefStructParams.Clear();
         _holderValueParams.Clear();
+        _boxedOverrideParams.Clear();
         _shortCircuitDepth = 0;
         _shortCircuitDeferredSideEffects.Clear();
         _renamedLocals.Clear();

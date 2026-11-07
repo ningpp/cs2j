@@ -63,6 +63,15 @@ public class Unsafe {
      * method), the numeric value is extracted instead of attempting a direct
      * cast (which would fail because Java enums are not Numbers).
      */
+    /**
+     * C# {@code Unsafe.As<MemberInfo, FieldInfo>} shape: a member known at compile
+     * time to be a field. Returning FieldInfo keeps a following getFieldType()
+     * call resolvable (e.g. JsonClassInfo.getMemberType).
+     */
+    public static FieldInfo as(MemberInfo member) {
+        return member instanceof FieldInfo field ? field : null;
+    }
+
     @SuppressWarnings("unchecked")
     public static <T> T as(Object value) {
         if (value instanceof Enum<?> e) {

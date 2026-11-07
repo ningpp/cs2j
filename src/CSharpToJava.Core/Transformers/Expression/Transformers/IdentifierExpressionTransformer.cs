@@ -193,6 +193,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         {
             return $"{ConversionContext.EscapeJavaKeyword(node.Identifier.Text)}.value";
         }
+        if (symbol is IParameterSymbol boxedParam
+            && context.MethodState.TryGetBoxedOverrideParam(boxedParam, out var boxedWrapper))
+        {
+            return $"(({boxedWrapper}) {ConversionContext.EscapeJavaKeyword(node.Identifier.Text)})";
+        }
         // Local / parameter / field / default → just the name
         return ConversionContext.EscapeJavaKeyword(node.Identifier.Text);
     }
@@ -379,6 +384,15 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             && emptyField.ContainingType?.SpecialType == SpecialType.System_String)
         {
             return "\"\"";
+        }
+
+        // System.Boolean.TrueString/FalseString have no java.lang.Boolean constants.
+        if (context.GetSymbolInfo(node).Symbol
+            is IFieldSymbol { IsStatic: true } boolField
+            && boolField.ContainingType?.SpecialType == SpecialType.System_Boolean
+            && boolField.Name is "TrueString" or "FalseString")
+        {
+            return boolField.Name == "TrueString" ? "\"True\"" : "\"False\"";
         }
 
         // System.Guid.Empty：Guid 映射 compat UUID（宿主 java.util.UUID 无 Empty 字段），
@@ -597,6 +611,14 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             {
                 context.AddImport("io.github.ningpp.compat.TypeHelper");
                 return $"TypeHelper.getGenericTypeArguments({receiver})";
+            }
+            if (property.ContainingType?.ToDisplayString() == "System.Type"
+                && property.Name is "IsPointer" or "IsByRefLike")
+            {
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                return property.Name == "IsPointer"
+                    ? $"TypeHelper.getIsPointer({receiver})"
+                    : $"TypeHelper.getIsByRefLike({receiver})";
             }
             // C22: System.Nullable<T> surfaces — HasValue is a reference null
             // check and Value is a guarded unbox on the Java wrapper (the C22

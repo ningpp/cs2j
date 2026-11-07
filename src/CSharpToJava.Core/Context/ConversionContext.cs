@@ -456,6 +456,33 @@ public class ConversionContext
     /// fallback is retained only for the experimental HIR pipeline which manages
     /// its own token declarations.
     /// </summary>
+    /// <summary>
+    /// Java element spelling for an array's component type. C# byte[] stays Java
+    /// byte[] (System.Byte maps to int in non-array positions), and sbyte[] stays
+    /// the int[] carrier.
+    /// </summary>
+    public static string GetArrayElementType(ITypeSymbol elementType, ConversionContext context)
+    {
+        if (elementType.SpecialType == SpecialType.System_Byte)
+            return "byte";
+        if (elementType.SpecialType == SpecialType.System_SByte)
+            return "int";
+        return context.MapType(elementType);
+    }
+
+    /// <summary>
+    /// Class literal matching {@link #GetArrayElementType}: byte.class for C#
+    /// byte, int.class for sbyte, otherwise the normal class literal.
+    /// </summary>
+    public static string GetArrayComponentClassLiteral(ITypeSymbol elementType, ConversionContext context)
+    {
+        if (elementType.SpecialType == SpecialType.System_Byte)
+            return "byte.class";
+        if (elementType.SpecialType == SpecialType.System_SByte)
+            return "int.class";
+        return GetClassLiteral(elementType, context);
+    }
+
     public static string GetClassLiteral(ITypeSymbol typeSymbol, ConversionContext context)
     {
         if (typeSymbol is ITypeParameterSymbol typeParameter)

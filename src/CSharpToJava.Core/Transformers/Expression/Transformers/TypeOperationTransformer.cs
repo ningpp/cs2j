@@ -343,9 +343,8 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 || srcMapped.StartsWith("CSharpGenericIterable", StringComparison.Ordinal)))
         {
             var targetArray = Map(n.Type, c);
-            var element = c.MapType(listArr.ElementType);
             c.AddImport("io.github.ningpp.compat.CSharpArray");
-            return $"({targetArray}) CSharpArray.toTypedArray({e}, {element}.class)";
+            return $"({targetArray}) CSharpArray.toTypedArray({e}, {ConversionContext.GetArrayComponentClassLiteral(listArr.ElementType, c)})";
         }
 
         // System.Array → T[]：源经 array-method 归一为 CSharpArray 视图（现在
@@ -420,6 +419,25 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         {
             c.AddImport("io.github.ningpp.compat.UnsignedMath");
             return $"UnsignedMath.toUInt64Decimal({e})";
+        }
+
+        // Enum-valued expressions whose symbol binding was rewritten (e.g. the
+        // null-coalescing enum assignment in WriteStack) still need the numeric
+        // extraction before an (int) cast; Java enums are classes.
+        if (sym?.SpecialType == SpecialType.System_Int32
+            && srcSym?.TypeKind != TypeKind.Enum)
+        {
+            var exprType = c.GetTypeInfo(n.Expression).Type;
+            INamedTypeSymbol? enumExpr = exprType is INamedTypeSymbol { TypeKind: TypeKind.Enum } directEnum
+                ? directEnum
+                : TryUnwrapNullableEnum(exprType, out var nullableEnum) ? nullableEnum : null;
+            if (enumExpr != null)
+            {
+                if (EnumTransformer.IsValueEnum(enumExpr))
+                    return $"{e}.getValue()";
+                c.AddImport("io.github.ningpp.compat.EnumHelper");
+                return $"EnumHelper.ordinalOrMinusOne({e})";
+            }
         }
 
         return sym?.SpecialType switch
@@ -516,10 +534,16 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     /// all other int casts (byte/short/char/int widening) are implicit.
     /// </summary>
     private static bool NeedsExplicitIntCast(ITypeSymbol? source)
-        => source?.SpecialType is SpecialType.System_Single
+        => source is IPointerTypeSymbol
+            || source?.SpecialType is SpecialType.System_Single
             or SpecialType.System_Double
             or SpecialType.System_Int64
-            or SpecialType.System_UInt64;
+            or SpecialType.System_UInt64
+            // IntPtr/nint and UIntPtr/nuint lower to the Java long carrier, so a
+            // narrowing to int needs the explicit cast (real chain: the pointer
+            // arithmetic in JsonReaderHelper.Unescaping `(int)(byte*)index`).
+            or SpecialType.System_IntPtr
+            or SpecialType.System_UIntPtr;
 
     private static bool IsPrimitiveSpecialType(SpecialType special)
         => special is SpecialType.System_Boolean

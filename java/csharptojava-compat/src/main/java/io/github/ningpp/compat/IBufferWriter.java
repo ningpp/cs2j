@@ -5,8 +5,8 @@ package io.github.ningpp.compat;
  */
 public interface IBufferWriter<T> {
 
-    /** Mirrors IBufferWriter&lt;T&gt;.GetMemory(int sizeHint). */
-    ReadOnlyMemory<T> getMemory(int sizeHint);
+    /** Mirrors IBufferWriter&lt;T&gt;.GetMemory(int sizeHint) — a writable Memory view. */
+    Memory<T> getMemory(int sizeHint);
 
     /** Mirrors IBufferWriter&lt;T&gt;.Advance(int count). */
     void advance(int count);

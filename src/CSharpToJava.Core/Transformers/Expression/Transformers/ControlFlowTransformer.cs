@@ -125,6 +125,14 @@ public class ControlFlowTransformer : IIRExpressionTransformer
     {
         if (context.GetTypeInfo(branch).Type?.TypeKind == TypeKind.Enum)
             return text;
+        // Nullable<enum> arms already carry the enum carrier (Nullable erases to
+        // the enum class), so wrapping them again would cast the enum to int.
+        if (context.GetTypeInfo(branch).Type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullableBranch
+            && nullableBranch.TypeArguments.Length == 1
+            && nullableBranch.TypeArguments[0].TypeKind == TypeKind.Enum)
+        {
+            return text;
+        }
         // Int-constant 元数据枚举（BindingFlags/TypeAttributes 等）Java 侧是 int，
         // 数字臂无需包装。
         if (CSharpToJava.Core.Transformers.Type.EnumTransformer.IsIntConstantMetadataEnum(target))

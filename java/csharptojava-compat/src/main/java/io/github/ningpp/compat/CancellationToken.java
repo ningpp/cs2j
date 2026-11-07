@@ -26,8 +26,8 @@ public class CancellationToken {
     private final CopyOnWriteArrayList<CancellationTokenRegistration> registrations =
         new CopyOnWriteArrayList<>();
 
-    /** Package-private: tokens are minted by CancellationTokenSource or via {@link #getNone()}. */
-    CancellationToken() {
+    /** Creates a token that can never be cancelled — mirrors new CancellationToken(). */
+    public CancellationToken() {
     }
 
     /**

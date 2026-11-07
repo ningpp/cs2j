@@ -592,6 +592,24 @@ public class MemoryMarshal {
         return Span.castToInt32(span);
     }
 
+    /**
+     * Mirrors MemoryMarshal.Cast&lt;byte, char&gt;(ReadOnlySpan&lt;byte&gt;): a
+     * UTF-16 little-endian char view over the read-only byte span.
+     */
+    public static ReadOnlySpan<Character> cast(ReadOnlySpan<Integer> span) {
+        if (span == null) {
+            return new ReadOnlySpan<>();
+        }
+        int length = span.length() / 2;
+        Character[] chars = new Character[length];
+        for (int i = 0; i < length; i++) {
+            int low = span.get(i * 2) & 0xFF;
+            int high = span.get(i * 2 + 1) & 0xFF;
+            chars[i] = (char) (low | (high << 8));
+        }
+        return new ReadOnlySpan<>(chars);
+    }
+
     /** Mirrors MemoryMarshal.Write&lt;T&gt;(Span&lt;byte&gt;, ref T) — writes the value as little-endian bytes. */
     public static <T> void write(Span<Integer> span, ObjectHolder<T> value) {
         writeValue(span, value.value);

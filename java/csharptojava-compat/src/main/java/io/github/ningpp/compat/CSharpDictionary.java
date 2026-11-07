@@ -211,6 +211,11 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
         return value;
     }
 
+    /** C# indexer setter shape {@code dict[key] = value} emitted as set(key, value). */
+    public void set(K key, V value) {
+        put(key, value);
+    }
+
     @Override
     public CSharpICollection<K> getKeys() {
         return new KeyCollection<>(this);

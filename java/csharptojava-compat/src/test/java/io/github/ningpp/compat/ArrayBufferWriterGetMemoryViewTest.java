@@ -11,7 +11,7 @@ class ArrayBufferWriterGetMemoryViewTest {
     @Test
     void writesThroughGetMemoryAreVisibleInWrittenSpan() {
         ArrayBufferWriter<Integer> writer = new ArrayBufferWriter<>(4);
-        ReadOnlyMemory<Integer> memory = writer.getMemory(2);
+        Memory<Integer> memory = writer.getMemory(2);
         Span<Integer> span = new Span<>(memory.getSpan());
         span.set(0, 65);
         span.set(1, 66);

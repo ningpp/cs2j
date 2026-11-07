@@ -77,6 +77,51 @@ public final class ArrayPool<T> {
     }
 
     /**
+     * Returns a char[] to the pool — primitive-array overload so an erased
+     * {@code ArrayPool.getShared().returnValue(charArray)} call binds here
+     * instead of the generic {@code T[]} overload (which infers Object[]).
+     */
+    public void returnValue(char[] array) {
+        if (array == null) {
+            throw new NullPointerException("array");
+        }
+    }
+
+    /** Primitive byte[] overload of {@link #returnValue(Object[])}. */
+    public void returnValue(byte[] array) {
+        if (array == null) {
+            throw new NullPointerException("array");
+        }
+    }
+
+    /** Primitive int[] overload of {@link #returnValue(Object[])}. */
+    public void returnValue(int[] array) {
+        if (array == null) {
+            throw new NullPointerException("array");
+        }
+    }
+
+    /** Primitive byte[] overload of {@link #returnValue(Object[], boolean)}. */
+    public void returnValue(byte[] array, boolean clearArray) {
+        if (array == null) {
+            throw new NullPointerException("array");
+        }
+        if (clearArray) {
+            java.util.Arrays.fill(array, (byte) 0);
+        }
+    }
+
+    /** Primitive char[] overload of {@link #returnValue(Object[], boolean)}. */
+    public void returnValue(char[] array, boolean clearArray) {
+        if (array == null) {
+            throw new NullPointerException("array");
+        }
+        if (clearArray) {
+            java.util.Arrays.fill(array, '\0');
+        }
+    }
+
+    /**
      * Returns an array to the pool, optionally clearing its contents first.
      */
     public void returnValue(T[] array, boolean clearArray) {

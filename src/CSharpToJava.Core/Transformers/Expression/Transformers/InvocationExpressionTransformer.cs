@@ -42,10 +42,252 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // makes the runtime component type Object for an unbounded T. Call sites
         // that know the constructed receiver type re-materialize a typed array
         // so assignment/return/argument positions all stay ClassCastException-free.
-        return node is InvocationExpressionSyntax invocation
-               && TryWrapSpecializedGenericArrayResult(invocation, rendered, context, out var wrapped)
-            ? wrapped
-            : rendered;
+        if (node is InvocationExpressionSyntax invocation)
+        {
+            if (TryWrapSpecializedGenericArrayResult(invocation, rendered, context, out var wrapped))
+                return wrapped;
+            if (TryWrapUnsafeAsResult(invocation, rendered, context, out var unsafeAs))
+                return unsafeAs;
+            if (TryMaterializeMemoryMarshalReadTypeArgument(invocation, rendered, context, out var marshalRead))
+                return marshalRead;
+            if (TryRenameUtf8ParserCall(invocation, rendered, context, out var parserCall))
+                return parserCall;
+            if (TryRenameUnsafeReadUnalignedVector(invocation, rendered, context, out var vectorRead))
+                return vectorRead;
+            if (TryRenameBuffersToByteArray(invocation, rendered, context, out var byteArrayCall))
+                return byteArrayCall;
+            if (TryApplyErasureConflictRename(invocation, rendered, context, out var conflictCall))
+                return conflictCall;
+        }
+        return rendered;
+    }
+
+    /** Mirrors Unsafe.ReadUnaligned&lt;Vector&lt;byte&gt;&gt; with the compat vector overload. */
+    private static bool TryRenameUnsafeReadUnalignedVector(
+        InvocationExpressionSyntax invocation,
+        string rendered,
+        ConversionContext context,
+        out string renamed)
+    {
+        renamed = string.Empty;
+        if (context.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+            || method.Name != "ReadUnaligned"
+            || method.TypeArguments.Length != 1
+            || method.ContainingType?.ToDisplayString() != "System.Runtime.CompilerServices.Unsafe")
+        {
+            return false;
+        }
+        var target = method.TypeArguments[0];
+        if (target is not INamedTypeSymbol named
+            || named.OriginalDefinition.ToDisplayString() != "System.Numerics.Vector<T>"
+            || named.TypeArguments.Length != 1
+            || named.TypeArguments[0].SpecialType != SpecialType.System_Byte)
+        {
+            return false;
+        }
+        if (!TryRenameRenderedCall(rendered, "readUnaligned", "readUnalignedVector", out renamed))
+            return false;
+        context.AddImport("io.github.ningpp.compat.Unsafe");
+        return true;
+    }
+
+    /** BuffersExtensions.ToArray&lt;byte&gt; → compat toByteArray (primitive byte[]). */
+    private static bool TryRenameBuffersToByteArray(
+        InvocationExpressionSyntax invocation,
+        string rendered,
+        ConversionContext context,
+        out string renamed)
+    {
+        renamed = string.Empty;
+        if (context.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+            || method.Name != "ToArray"
+            || method.TypeArguments.Length != 1
+            || method.TypeArguments[0].SpecialType != SpecialType.System_Byte
+            || method.ContainingType?.ToDisplayString() != "System.Buffers.BuffersExtensions")
+        {
+            return false;
+        }
+        return TryRenameRenderedCall(rendered, "toArray", "toByteArray", out renamed);
+    }
+
+    /** Applies the erasure-conflict rename registered by the declaration side. */
+    private static bool TryApplyErasureConflictRename(
+        InvocationExpressionSyntax invocation,
+        string rendered,
+        ConversionContext context,
+        out string renamed)
+    {
+        renamed = string.Empty;
+        if (context.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method)
+            return false;
+        var target = ConflictRenamedName(invocation, context);
+        if (target == null)
+            return false;
+        var original = Member.MethodTransformer.GetJavaMethodName(method.Name, method, context);
+        if (original == target)
+            return false;
+        return TryRenameRenderedCall(rendered, original, target, out renamed);
+    }
+
+    /// <summary>Renames the rendered invocation's method token (receiver-qualified or bare).</summary>
+    private static bool IsPrimitiveSpecialType(SpecialType special)
+        => special is SpecialType.System_Boolean
+            or SpecialType.System_Int32 or SpecialType.System_Int64
+            or SpecialType.System_Int16 or SpecialType.System_SByte
+            or SpecialType.System_Byte or SpecialType.System_Char
+            or SpecialType.System_Single or SpecialType.System_Double;
+
+    private static bool TryRenameRenderedCall(
+        string rendered, string original, string targetName, out string renamed)
+    {
+        var marker = "." + original + "(";
+        int index = rendered.IndexOf(marker, StringComparison.Ordinal);
+        if (index >= 0)
+        {
+            renamed = rendered[..index] + "." + targetName + "("
+                + rendered[(index + marker.Length)..];
+            return true;
+        }
+        var bare = original + "(";
+        if (rendered.StartsWith(bare, StringComparison.Ordinal))
+        {
+            renamed = targetName + "(" + rendered[bare.Length..];
+            return true;
+        }
+        renamed = string.Empty;
+        return false;
+    }
+
+    /// <summary>
+    /// Utf8Parser.TryParse overloads whose out value type erases to ObjectHolder in
+    /// Java (Guid/Decimal/DateTime/DateTimeOffset) collapse onto the same erasure
+    /// and cannot coexist as overloads. The compat helpers carry a type suffix;
+    /// rewrite the call name accordingly.
+    /// </summary>
+    private static bool TryRenameUtf8ParserCall(
+        InvocationExpressionSyntax invocation,
+        string rendered,
+        ConversionContext context,
+        out string renamed)
+    {
+        renamed = string.Empty;
+        if (context.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+            || method.Name != "TryParse"
+            || method.Parameters.Length != 4
+            || method.ContainingType?.ToDisplayString() != "System.Buffers.Text.Utf8Parser")
+        {
+            return false;
+        }
+
+        var suffix = method.Parameters[1].Type.ToDisplayString() switch
+        {
+            "System.Guid" => "Uuid",
+            "System.Decimal" => "Decimal",
+            "System.DateTimeOffset" => "DateTimeOffset",
+            "System.DateTime" => "DateTime",
+            _ => null
+        };
+        if (suffix == null)
+            return false;
+
+        const string marker = ".tryParse(";
+        int index = rendered.IndexOf(marker, StringComparison.Ordinal);
+        if (index < 0)
+            return false;
+        renamed = rendered[..index] + ".tryParse" + suffix + "("
+            + rendered[(index + marker.Length)..];
+        return true;
+    }
+
+    /// <summary>
+    /// C# {@code Unsafe.As&lt;TFrom, TTo&gt;(...)} loses its two type arguments in
+    /// Java, so the compat overloads infer the answer type from the holder shape
+    /// (e.g. IntHolder → int). When TTo is a type parameter or a concrete
+    /// primitive, cast the rendered call back to TTo so assignment/argument
+    /// contexts see the C# result type (real chain: EnumConverter's
+    /// {@code Unsafe.As<T, ulong>(ref value)} argument to WriteNumberValue).
+    /// </summary>
+    private static bool TryWrapUnsafeAsResult(
+        InvocationExpressionSyntax invocation,
+        string rendered,
+        ConversionContext context,
+        out string wrapped)
+    {
+        wrapped = string.Empty;
+        var symbol = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        if (symbol == null || symbol.Name != "As" || symbol.TypeArguments.Length != 2)
+        {
+            // Preprocessor-generated lowering sites may lose the symbol binding;
+            // recover the C# result type (byte/ushort/... for the enum converter).
+            if (!rendered.Contains("Unsafe.as(", StringComparison.Ordinal))
+                return false;
+            var resultType = context.GetTypeInfo(invocation).Type;
+            if (resultType == null || resultType is ITypeParameterSymbol
+                || !IsPrimitiveSpecialType(resultType.SpecialType))
+            {
+                return false;
+            }
+            wrapped = $"(({context.MapType(resultType)}) ({rendered}))";
+            return true;
+        }
+
+        var target = symbol.TypeArguments[1];
+        if (target is ITypeParameterSymbol)
+        {
+            wrapped = $"(({context.MapType(target)}) (Object) ({rendered}))";
+            return true;
+        }
+        if (target.SpecialType is SpecialType.System_Boolean
+            or SpecialType.System_Int32 or SpecialType.System_Int64
+            or SpecialType.System_Int16 or SpecialType.System_SByte
+            or SpecialType.System_Byte or SpecialType.System_Char
+            or SpecialType.System_UInt16 or SpecialType.System_UInt32
+            or SpecialType.System_UInt64
+            or SpecialType.System_Single or SpecialType.System_Double)
+        {
+            wrapped = $"(({context.MapType(target)}) ({rendered}))";
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// C# {@code MemoryMarshal.Read&lt;T&gt;(span)} needs the runtime class token in
+    /// Java: without it the compat int overload wins and an unrelated value type
+    /// (e.g. JsonDocument.DbRow) fails to compile. Pass T.class so the reflective
+    /// value-type reader returns the requested type.
+    /// </summary>
+    private static bool TryMaterializeMemoryMarshalReadTypeArgument(
+        InvocationExpressionSyntax invocation,
+        string rendered,
+        ConversionContext context,
+        out string wrapped)
+    {
+        wrapped = string.Empty;
+        if (context.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+            || method.Name != "Read"
+            || method.TypeArguments.Length != 1
+            || method.Parameters.Length != 1
+            || method.ContainingType?.ToDisplayString() != "System.Runtime.InteropServices.MemoryMarshal")
+        {
+            return false;
+        }
+
+        var type = method.TypeArguments[0];
+        // int/long already have dedicated compat overloads (read/readLong).
+        if (type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64
+            || type is ITypeParameterSymbol)
+        {
+            return false;
+        }
+
+        context.AddImport("io.github.ningpp.compat.MemoryMarshal");
+        var classLiteral = ConversionContext.GetClassLiteral(type, context);
+        int close = rendered.LastIndexOf(')');
+        if (close < 0)
+            return false;
+        wrapped = rendered.Substring(0, close) + ", " + classLiteral + ")";
+        return true;
     }
 
     /// <summary>
@@ -210,6 +452,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     text = ArgumentTransformer.CoerceIterableSlotArgument(
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceArrayToSystemArrayParameter(
+                        a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceByteArraySegmentArgument(
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceSystemTypeArgumentWrapper(
                         a.Expression, text, invocationMethod, index, context);
@@ -885,9 +1129,51 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         var argSpecial = context.GetTypeInfo(argumentExpression).Type?.SpecialType;
-        return ArgumentTransformer.NarrowIntegralArgument(
-                   transformed, parameter.Type.SpecialType, argSpecial)
-               ?? transformed;
+        var narrowed = ArgumentTransformer.NarrowIntegralArgument(
+                           transformed, parameter.Type.SpecialType, argSpecial)
+                       ?? transformed;
+        return BoxForByRefSlot(narrowed, method, argumentExpression, context);
+    }
+
+    /// <summary>
+    /// A ByRef&lt;T&gt;.set(value) call site whose slot is a boxed primitive must
+    /// receive the matching wrapper: Java does not widen an int to Long/Byte/Short
+    /// through autoboxing, so {@code ref long} writes (ByRef&lt;Long&gt;.set(0))
+    /// would not compile. The slot type comes from the constructed ByRef&lt;T&gt;
+    /// receiver, not from the lowered method's type parameter.
+    /// </summary>
+    private static string BoxForByRefSlot(
+        string transformed,
+        IMethodSymbol? method,
+        ExpressionSyntax argumentExpression,
+        ConversionContext context)
+    {
+        var containing = method?.ContainingType;
+        if (containing == null || containing.TypeArguments.Length != 1)
+            return transformed;
+
+        var definitionName = containing.OriginalDefinition?.Name;
+        if (definitionName is not ("ByRef" or "ScopedByRef" or "RefStructByRef"))
+            return transformed;
+
+        var argSpecial = context.GetTypeInfo(argumentExpression).Type?.SpecialType;
+        if (argSpecial is not (SpecialType.System_Int32 or SpecialType.System_UInt16
+            or SpecialType.System_Int16 or SpecialType.System_Byte
+            or SpecialType.System_SByte or SpecialType.System_Char))
+        {
+            return transformed;
+        }
+
+        return containing.TypeArguments[0].SpecialType switch
+        {
+            SpecialType.System_Int64 => $"Long.valueOf({transformed})",
+            SpecialType.System_UInt64 => $"Long.valueOf({transformed})",
+            SpecialType.System_Int16 => $"(short)({transformed})",
+            SpecialType.System_SByte => $"(byte)({transformed})",
+            SpecialType.System_Double => $"Double.valueOf({transformed})",
+            SpecialType.System_Single => $"Float.valueOf({transformed})",
+            _ => transformed
+        };
     }
 
     /// <summary>
@@ -1088,6 +1374,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     text = ArgumentTransformer.CoerceIterableSlotArgument(
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceArrayToSystemArrayParameter(
+                        a.Expression, text, invocationMethod, index, context);
+                    text = ArgumentTransformer.CoerceByteArraySegmentArgument(
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceSystemTypeArgumentWrapper(
                         a.Expression, text, invocationMethod, index, context);
@@ -2037,7 +2325,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (!TryGetSpecializedArrayElement(invocation, context, out var elementType))
             return false;
 
-        var javaElementType = context.MapType(elementType);
+        var javaElementType = ConversionContext.GetArrayElementType(elementType, context);
         context.AddImport("io.github.ningpp.compat.CSharpArray");
         if (elementType is ITypeParameterSymbol)
         {
@@ -2049,7 +2337,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return true;
         }
 
-        var classLiteral = ConversionContext.GetClassLiteral(elementType, context);
+        var classLiteral = ConversionContext.GetArrayComponentClassLiteral(elementType, context);
         wrapped = $"({javaElementType}[]) CSharpArray.toTypedArray({rendered}, {classLiteral})";
         return true;
     }
@@ -4214,6 +4502,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return null;
         if (context.TryGetErasureConflictMethodName(method, out var renamed))
             return renamed;
+        if (Member.MethodTransformer.TryPredictErasureConflictName(method, context, out var predicted))
+            return predicted;
         return CompatCollectionConformance.IsRenamableRemove(method, context)
             ? Member.MethodTransformer.GetJavaMethodName(method.Name, method, context)
             : null;

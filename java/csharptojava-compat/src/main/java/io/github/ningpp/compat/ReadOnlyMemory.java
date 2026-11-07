@@ -120,6 +120,11 @@ public final class ReadOnlyMemory<T> {
         return new ReadOnlyMemory<>(s, start, length);
     }
 
+    /** Mirrors C# ReadOnlyMemory&lt;T&gt;.AsReadOnlyMemory-style conversion (identity). */
+    public ReadOnlyMemory<T> asReadOnlyMemory() {
+        return this;
+    }
+
     public int length() {
         return length;
     }

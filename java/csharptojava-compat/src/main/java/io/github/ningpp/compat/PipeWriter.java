@@ -8,8 +8,8 @@ public class PipeWriter implements IBufferWriter<Integer> {
 
     /** Mirrors IBufferWriter&lt;byte&gt;.GetMemory(int sizeHint). */
     @Override
-    public ReadOnlyMemory<Integer> getMemory(int sizeHint) {
-        return new ReadOnlyMemory<>(new byte[Math.max(sizeHint, 0)], 0, Math.max(sizeHint, 0));
+    public Memory<Integer> getMemory(int sizeHint) {
+        return new Memory<>(new byte[Math.max(sizeHint, 0)], 0, Math.max(sizeHint, 0));
     }
 
     /** Mirrors IBufferWriter&lt;byte&gt;.Advance(int count). */

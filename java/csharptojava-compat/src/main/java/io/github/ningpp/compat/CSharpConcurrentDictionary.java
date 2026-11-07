@@ -47,6 +47,11 @@ public final class CSharpConcurrentDictionary<K, V> {
         return map.get(key);
     }
 
+    /** Mirrors ConcurrentDictionary.GetOrAdd(TKey, TValue). */
+    public V getOrAdd(K key, V value) {
+        return map.putIfAbsent(key, value) == null ? value : map.get(key);
+    }
+
     public boolean containsKey(K key) {
         return map.containsKey(key);
     }

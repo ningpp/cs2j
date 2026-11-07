@@ -331,6 +331,40 @@ public partial class ArgumentTransformer
     /// with the write-through asArrayView (real chain: XmlTextReaderImpl's
     /// IncrementalRead(Array, ...) receiving byte[]/char[]).
     /// </summary>
+    /// <summary>
+    /// C# {@code ArraySegment<byte>.Array} is a byte[]. Java generics erase the
+    /// byte element to Integer, so getArray() is Integer[] and cannot bind a
+    /// byte[] parameter. The byte-backed segment exposes getByteArray(); use it.
+    /// </summary>
+    public static string CoerceByteArraySegmentArgument(
+        ExpressionSyntax argument,
+        string text,
+        IMethodSymbol? method,
+        int index,
+        ConversionContext context)
+    {
+        if (method == null || index >= method.Parameters.Length)
+            return text;
+        if (method.Parameters[index].Type is not IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Byte })
+            return text;
+        if (argument is not MemberAccessExpressionSyntax memberAccess
+            || memberAccess.Name.Identifier.Text != "Array")
+        {
+            return text;
+        }
+        if (context.GetTypeInfo(memberAccess.Expression).Type is not INamedTypeSymbol receiver
+            || receiver.OriginalDefinition.ToDisplayString() != "System.ArraySegment<T>"
+            || receiver.TypeArguments.Length != 1
+            || receiver.TypeArguments[0].SpecialType != SpecialType.System_Byte)
+        {
+            return text;
+        }
+        const string getArray = ".getArray()";
+        return text.EndsWith(getArray, StringComparison.Ordinal)
+            ? text.Substring(0, text.Length - getArray.Length) + ".getByteArray()"
+            : text;
+    }
+
     public static string CoerceArrayToSystemArrayParameter(
         ExpressionSyntax argument,
         string text,

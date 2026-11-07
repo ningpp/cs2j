@@ -150,7 +150,20 @@ public class StreamWrapper implements AutoCloseable {
 
     /** Mirrors Stream.ReadAsync(Memory&lt;byte&gt;, CancellationToken) — reads into the memory view. */
     public CompletableFuture<Integer> readAsync(ReadOnlyMemory<Integer> memory, boolean cancellationToken) {
-        ReadOnlySpan<Integer> span = memory.getSpan();
+        return readAsync(memory, (CancellationToken) null);
+    }
+
+    /** Mirrors Stream.ReadAsync(Memory&lt;byte&gt;, CancellationToken) with the token object. */
+    public CompletableFuture<Integer> readAsync(ReadOnlyMemory<Integer> memory, CancellationToken cancellationToken) {
+        return readAsyncSpan(memory.getSpan(), cancellationToken);
+    }
+
+    /** C# Stream.ReadAsync(Memory&lt;byte&gt;, CancellationToken) — writable view. */
+    public CompletableFuture<Integer> readAsync(Memory<Integer> memory, CancellationToken cancellationToken) {
+        return readAsyncSpan(memory.getSpan(), cancellationToken);
+    }
+
+    private CompletableFuture<Integer> readAsyncSpan(ReadOnlySpan<Integer> span, CancellationToken cancellationToken) {
         byte[] buffer = new byte[span.length()];
         for (int i = 0; i < span.length(); i++) {
             buffer[i] = (byte) (span.get(i) & 0xFF);
@@ -210,6 +223,11 @@ public class StreamWrapper implements AutoCloseable {
         return CompletableFuture.runAsync(this::flush);
     }
 
+    /** C# Stream.FlushAsync(CancellationToken). */
+    public CompletableFuture<Void> flushAsync(CancellationToken cancellationToken) {
+        return CompletableFuture.runAsync(this::flush);
+    }
+
     public void write(Span<Integer> span) {
         for (int i = 0; i < span.length(); i++) {
             write(span.get(i));
@@ -229,7 +247,22 @@ public class StreamWrapper implements AutoCloseable {
         return CompletableFuture.runAsync(() -> write(span));
     }
 
+    /** C# Stream.WriteAsync(ReadOnlySpan&lt;byte&gt;, CancellationToken). */
+    public CompletableFuture<Void> writeAsync(ReadOnlySpan<Integer> span, CancellationToken cancellationToken) {
+        return CompletableFuture.runAsync(() -> write(span));
+    }
+
     public CompletableFuture<Void> writeAsync(ReadOnlyMemory<Integer> memory, boolean cancellationToken) {
+        return CompletableFuture.runAsync(() -> write(memory.getSpan()));
+    }
+
+    /** C# Stream.WriteAsync(ReadOnlyMemory&lt;byte&gt;, CancellationToken). */
+    public CompletableFuture<Void> writeAsync(ReadOnlyMemory<Integer> memory, CancellationToken cancellationToken) {
+        return CompletableFuture.runAsync(() -> write(memory.getSpan()));
+    }
+
+    /** C# Stream.WriteAsync(Memory&lt;byte&gt;, CancellationToken). */
+    public CompletableFuture<Void> writeAsync(Memory<Integer> memory, CancellationToken cancellationToken) {
         return CompletableFuture.runAsync(() -> write(memory.getSpan()));
     }
 

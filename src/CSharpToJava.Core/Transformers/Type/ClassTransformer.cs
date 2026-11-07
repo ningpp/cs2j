@@ -524,10 +524,15 @@ public class ClassTransformer : ITypeTransformer
         {
             var entries = group.ToList();
             var accessorOwner = entries.FirstOrDefault(e => e.AccessorOwner != null).AccessorOwner;
-            var suffix = 2;
+            // Overrides must keep the name bound to their base member; the pre-scan
+            // only renames non-overrides and starts past the suffix an override
+            // will claim (otherwise the base-bound name is taken by a sibling).
+            var suffix = entries.Any(e => e.Symbol.OverriddenMethod != null) ? 3 : 2;
             for (var i = 1; i < entries.Count; i++)
             {
                 var method = entries[i];
+                if (method.Symbol.OverriddenMethod != null)
+                    continue;
                 // 桥（显式接口实现）保留接口映射名：隐式成员在先时由机械去重
                 // 丢弃冗余桥；桥在先时隐式成员已在下方（或运行时）改 _N。
                 if (method.IsBridge)

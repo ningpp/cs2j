@@ -36,72 +36,73 @@ public class MemoryExtensions {
         return ReadOnlyMemory.fromString(s, start, length);
     }
 
-    /** C# char[].AsMemory() → Java ReadOnlyMemory<Character> */
-    public static ReadOnlyMemory<Character> asMemory(char[] data) {
-        if (data == null) return new ReadOnlyMemory<>();
+    /** C# char[].AsMemory() → Java Memory<Character> (writable, per C# semantics) */
+    public static Memory<Character> asMemory(char[] data) {
+        if (data == null) return new Memory<>();
         Character[] arr = new Character[data.length];
         for (int i = 0; i < data.length; i++) {
             arr[i] = data[i];
         }
-        return new ReadOnlyMemory<>(arr);
+        return new Memory<>(arr);
     }
 
-    /** C# char[].AsMemory(start, length) → Java ReadOnlyMemory<Character> */
-    public static ReadOnlyMemory<Character> asMemory(char[] data, int start, int length) {
-        if (data == null) return new ReadOnlyMemory<>();
+    /** C# char[].AsMemory(start, length) → Java Memory<Character> */
+    public static Memory<Character> asMemory(char[] data, int start, int length) {
+        if (data == null) return new Memory<>();
         Character[] arr = new Character[length];
         for (int i = 0; i < length; i++) {
             arr[i] = data[start + i];
         }
-        return new ReadOnlyMemory<>(arr, 0, length);
+        return new Memory<>(arr, 0, length);
     }
 
-    /** C# char[].AsMemory(start) → Java ReadOnlyMemory<Character> (slice from start to end). */
-    public static ReadOnlyMemory<Character> asMemory(char[] data, int start) {
+    /** C# char[].AsMemory(start) → Java Memory<Character> (slice from start to end). */
+    public static Memory<Character> asMemory(char[] data, int start) {
         return asMemory(data, start, data.length - start);
     }
 
-    /** C# byte[].AsMemory() → Java ReadOnlyMemory<Integer> (matches converter's byte→Integer mapping). */
-    public static ReadOnlyMemory<Integer> asMemory(byte[] data) {
-        return new ReadOnlyMemory<>(data);
+    /** C# byte[].AsMemory() → Java Memory<Integer> (matches converter's byte→Integer mapping). */
+    public static Memory<Integer> asMemory(byte[] data) {
+        return new Memory<>(data);
     }
 
-    /** C# T[].AsMemory() → Java ReadOnlyMemory<T> for reference-type arrays. */
-    public static <T> ReadOnlyMemory<T> asMemory(T[] data) {
-        return new ReadOnlyMemory<>(data);
+    /** C# T[].AsMemory() → Java Memory<T> for reference-type arrays. */
+    public static <T> Memory<T> asMemory(T[] data) {
+        return new Memory<>(data);
     }
 
-    /** C# T[].AsMemory(start) → Java ReadOnlyMemory<T> (slice from start to end). */
-    public static <T> ReadOnlyMemory<T> asMemory(T[] data, int start) {
-        return new ReadOnlyMemory<>(data, start, data.length - start);
+    /** C# T[].AsMemory(start) → Java Memory<T> (slice from start to end). */
+    public static <T> Memory<T> asMemory(T[] data, int start) {
+        return new Memory<>(data, start, data.length - start);
     }
 
-    /** C# T[].AsMemory(start, length) → Java ReadOnlyMemory<T>. */
-    public static <T> ReadOnlyMemory<T> asMemory(T[] data, int start, int length) {
-        return new ReadOnlyMemory<>(data, start, length);
+    /** C# T[].AsMemory(start, length) → Java Memory<T>. */
+    public static <T> Memory<T> asMemory(T[] data, int start, int length) {
+        return new Memory<>(data, start, length);
     }
 
     /** C# Span<byte> → Java ReadOnlySpan<Integer> (matches converter's byte→Integer mapping) */
-    public static ReadOnlySpan<Integer> asSpan(byte[] data) {
-        if (data == null) return new ReadOnlySpan<>(new Integer[0]);
-        return new ReadOnlySpan<Integer>(data);
+    /** C# byte[].AsSpan() → Java Span<Integer> (matches converter's byte→Integer mapping). */
+    public static Span<Integer> asSpan(byte[] data) {
+        if (data == null) return new Span<>(new Integer[0]);
+        return new Span<Integer>(data);
     }
 
-    /** C# ReadOnlySpan<byte> slice → Java ReadOnlySpan<Integer> (matches converter's byte→Integer mapping) */
-    public static ReadOnlySpan<Integer> asSpan(byte[] data, int start, int length) {
-        if (data == null) return new ReadOnlySpan<>(new Integer[0]);
-        return new ReadOnlySpan<Integer>(data, start, length);
+    /** C# byte[].AsSpan(start, length) → Java Span<Integer> (matches converter's byte→Integer mapping) */
+    public static Span<Integer> asSpan(byte[] data, int start, int length) {
+        if (data == null) return new Span<>(new Integer[0]);
+        return new Span<Integer>(data, start, length);
     }
 
-    /** C# ReadOnlyMemory&lt;byte&gt; slice → Java ReadOnlyMemory&lt;Integer&gt;. */
-    public static ReadOnlyMemory<Integer> asMemory(byte[] data, int start, int length) {
+    /** C# byte[].AsMemory(start, length) → Java Memory<Integer>. */
+    public static Memory<Integer> asMemory(byte[] data, int start, int length) {
         // View over the original array: the async stream reader writes through
         // getSpan() and the caller reads the same backing bytes.
-        return new ReadOnlyMemory<>(data, start, length);
+        return new Memory<>(data, start, length);
     }
 
-    /** C# ReadOnlyMemory&lt;byte&gt; from start → Java ReadOnlyMemory&lt;Integer&gt;. */
-    public static ReadOnlyMemory<Integer> asMemory(byte[] data, int start) {
+    /** C# byte[].AsMemory(start) → Java Memory<Integer>. */
+    public static Memory<Integer> asMemory(byte[] data, int start) {
         return asMemory(data, start, data.length - start);
     }
 
@@ -180,27 +181,27 @@ public class MemoryExtensions {
         return segment.asMemory();
     }
 
-    /** C# char[].AsSpan() → ReadOnlySpan&lt;Character&gt;. */
-    public static ReadOnlySpan<Character> asSpan(char[] data) {
-        if (data == null) return new ReadOnlySpan<>(new Character[0]);
+    /** C# char[].AsSpan() → Span<Character>. */
+    public static Span<Character> asSpan(char[] data) {
+        if (data == null) return new Span<>(new Character[0]);
         // View over the original array so Fill/CopyTo/set write through,
         // mirroring C# Span<char> semantics over char[].
-        return new ReadOnlySpan<Character>(data);
+        return new Span<Character>(data);
     }
 
-    /** C# char[].AsSpan(start, length) → ReadOnlySpan&lt;Character&gt;. */
-    public static ReadOnlySpan<Character> asSpan(char[] data, int start, int length) {
-        if (data == null) return new ReadOnlySpan<>(new Character[0]);
-        return new ReadOnlySpan<Character>(data, start, length);
+    /** C# char[].AsSpan(start, length) → Span<Character>. */
+    public static Span<Character> asSpan(char[] data, int start, int length) {
+        if (data == null) return new Span<>(new Character[0]);
+        return new Span<Character>(data, start, length);
     }
 
-    /** C# char[].AsSpan(start) → ReadOnlySpan&lt;Character&gt; (slice from start to end). */
-    public static ReadOnlySpan<Character> asSpan(char[] data, int start) {
+    /** C# char[].AsSpan(start) → Span<Character> (slice from start to end). */
+    public static Span<Character> asSpan(char[] data, int start) {
         return asSpan(data, start, data.length - start);
     }
 
-    /** C# byte[].AsSpan(start) → ReadOnlySpan&lt;Integer&gt; (slice from start to end). */
-    public static ReadOnlySpan<Integer> asSpan(byte[] data, int start) {
+    /** C# byte[].AsSpan(start) → Span<Integer> (slice from start to end). */
+    public static Span<Integer> asSpan(byte[] data, int start) {
         return asSpan(data, start, data.length - start);
     }
 

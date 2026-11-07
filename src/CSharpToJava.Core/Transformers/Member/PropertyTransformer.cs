@@ -53,6 +53,8 @@ AddGetterAnnotations(m, sym, typeInfo, ctx);  if (src != null) {
 if (specialEncoding && typeInfo.Type?.ToDisplayString() == "System.ReadOnlySpan<byte>")
 { ctx.AddImport("io.github.ningpp.compat.MemoryExtensions"); m.Body = $"MemoryExtensions.asSpan({m.Body})"; }
 m.Body = MethodTransformer.WrapExpressionBodyForIterableReturn(m.Body!, src, p.Type, ctx);
+if (!specialEncoding)
+    m.Body = SpanCoercion.CoerceOrSame(src, m.Body!, ctx.GetTypeInfo(src).ConvertedType ?? typeInfo.Type, ctx);
 m.Body = StructCloneHelper.CloneStructValueIfNeeded(src, m.Body!, typeInfo.Type, ctx);
 if (ctx.HasPendingPreStatements || ctx.HasPendingPostStatements) {
 var lines = new List<string>(ctx.DrainPreStatements().Select(s => s.TrimEnd(';') + ";")); if (ctx.HasPendingPostStatements) {
