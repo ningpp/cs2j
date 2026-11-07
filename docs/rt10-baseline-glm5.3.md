@@ -3600,3 +3600,99 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
   不进入 preprocess 链，也不写任何新 artifact。
 - 全量单测 4945 → 4957（+12），无回归；`RetiredJmIds` 当前只有 1 条 Ratchet
   防回流登记，`Retire` 为 0，VS-1~VS-4 的退休动作尚未发生。
+
+## 38. R1a：统一合成类型参数解析器 + closure-lift M2/M3 迁移（w16 复跑）
+
+### 38.1 范围与边界
+
+- 按 `docs/preprocess-upgrade-glm5.3.md` 行 913-915（R1 五件套）实现 **R1a 切片**：
+  新增共享解析器，并只把 closure-lift M1/M2/M3 迁到它。async、local-function-lift、
+  tuple、anonymous-type-lift 的迁移留到 R1b（本轮未改其实现）。
+- 不新增 pass、不改 54 pass 链序、不改 manifest/closure report schema、
+  不实现 R7/R13-full/R14-runtime。
+- 新解析器只依赖 Roslyn abstractions，位于 `Core/Analysis`，不引用 ClosureLift 命名空间。
+
+### 38.2 `SyntheticTypeParameterResolver` 五件套
+
+新增 `src/CSharpToJava.Core/Analysis/SyntheticTypeParameterResolver.cs`：
+
+- 输入：`SemanticModel`、`member`（lambda / local function / method 等）、可选
+  own `TypeParameterListSyntax` + own `ConstraintClauses`（缺省从 member 派生）、
+  可选 `body`、可选 `signatureTypes`（lambda 缺省取 ConvertedType 的委托
+  Invoke 参数/返回类型）。
+- 输出 `SyntheticTypeParameterPlan`：
+  1. `Parameters`：按宿主声明顺序（own 在前，外层方法按外→内）的有序携带集，
+     每项含 `Name`、原始 `Constraint`、`Origin`（`Own/Signature/Body/ConstraintClosure`）、
+     三态 `State`（`Expressible/Unconstrained/NotExpressible`）与 `Reason`；
+  2. `TypeArguments`：签名可见时为空（推断），任一带入参数不在签名中则全列；
+  3. `Diagnostics`：`STP001` 不可表达、`STP002` 遮蔽重命名、`STP003` degraded 引用，
+     `NotExpressible` 必带 reason，禁止静默丢弃（S-03）；
+  4. 类级类型形参不属于候选（嵌套成员可见，不重复声明）；
+  5. 同名候选按声明序消歧，后出现者给确定性 `StableName`（`<name>_<ordinal>`，
+     避开宿主可见名与其余候选名，修 S-05）。
+- 约束闭包：`where T : IFoo<U>` 递归携带 U 直到不动点，按宿主声明顺序输出（S-08）。
+- 语义判定全部用 `SymbolEqualityComparer.Default` 比较参数符号，不按名字猜测；
+  绑定失败/约束类型为 error 时返回 `NotExpressible` + 诊断，不抛异常。
+
+### 38.3 closure-lift 迁移
+
+- `LiftedTypeParameterResolver.Resolve`（M1 静态 lambda）改为委托统一解析器，
+  保留 `LiftedTypeParameter`/`LiftedTypeParameterSet` 记录形状，调用点不变。
+- 新增 `LiftedTypeParameterResolver.ResolveForRoutine`：M2 holder 与 M3 嵌套
+  display class 共用同一 `LiftedTypeParameterSet`。
+  `HolderPlanner`/`DisplayClassPlanner` 删除按名字收集的
+  `CollectMethodTypeParameters`/`CollectMethodConstraintClauses`，改用
+  `ResolveForRoutine`；`MethodTypeParameters`/`MethodConstraintClauses`/
+  `ClassTypeParameters` 的发射形状保持不变。
+- 行为差异：display class 仍携带 routine 的全部 own 形参（own 必携），
+  因此既有输出与 S-03 约束子句行为不变；统一解析器额外提供三态与闭包诊断
+  （closure-lift 当前没有消费诊断的通道，仅保留在 plan 内，R1b 接入）。
+
+### 38.4 单测
+
+新增 `tests/CSharpToJava.Tests/Analysis/SyntheticTypeParameterResolverTests.cs`，8 个用例：
+
+1. `Func<T,int>` 签名 + body 引用 T → 携带 T、`TypeArguments` 为空；
+2. `where T : IFoo<U>` → 同时携带 U（`ConstraintClosure`），`TypeArguments=[T,U]`；
+3. 类级 `T` 不重复声明；
+4. 无约束 T → `Unconstrained`；
+5. 未解析约束 → `NotExpressible` + reason + `STP001`，不抛异常；
+6. 同名遮蔽 → 确定性 `StableName` 与 `STP002`；
+7. closure-lift 表达式体 lambda fixture 输出可编译；
+8. closure-lift 约束闭包 fixture 输出 `<T, U>` + `where T : IFoo<U>` 且可编译。
+
+全量 `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+→ **4965 通过 / 9 跳过 / 0 失败**（§37 基线 4957 + 8）。
+既有 closure-lift 相关 60 个用例全绿。
+
+### 38.5 rt10 全链复跑（w16）
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w16 --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests
+```
+
+- `success=true`、`totalSeconds=147.386`、**54/54 pass `ok`**、manifest
+  `passPlan=54`、`subsetVersion=JCS-1`、`subsetStatus=verified`、`capabilities=8`；
+  residual report `residuals=0 / errors=0 / warnings=0`。
+- closure-lift pass：`22 transformed, 340 clean, 1 holder class(es), 1 capture(s) lifted,
+  0 blocked, 0 residual, 30 display class(es), 61 lambda method(s) (31 static, 9 this-only),
+  61 delegate site(s), 5 discard parameter(s) normalized, 0 quoted skipped,
+  13 stmt lambda(s) residual (13 accounted)`。
+- 闭包报告仍为 `constructCount=688 / unownedCount=177 / finalizerCount=0`、
+  `isClosed=false`，与 §37 逐项一致（本轮无 S-xx 形状被消除，故无变化）；
+  manifest 八字段未变。
+
+### 38.6 与 §37 对照与后续
+
+- 产物数字零变化：54 pass、residual 0/0/0、closure 688/177/0、manifest 八字段；
+  本轮为纯语义解析器收敛与消费方迁移，不产生新 artifact、不改链序。
+- 全量单测 4957 → 4965（+8），无回归；ProjectTests/ConversionTests 未运行
+  （ProjectTests 仅 `dotnet build`）。
+- **R1b 待迁移消费者**：`AsyncNormalize/AsyncNormalizeAnalyzer.ResolveGenericCarry`
+  （:1051）、`LocalFunctionLift/LocalFunctionLiftRewriter.BuildConstraintClauses`
+  （:892）、`TupleToStruct/TupleStructFileContent`、`AnonymousTypeLift/AnonymousTypeFileContent.RenderConstraintClauses`
+  （:231）。迁移时需把 `SyntheticTypeParameterPlan.Diagnostics` 接入各自诊断通道，
+  并处理 `NotExpressible` 的保守 skip/登记。
