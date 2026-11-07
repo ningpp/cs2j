@@ -17,6 +17,24 @@ public class TypeMappingConfig
 
     [JsonPropertyName("namespaceMappings")]
     public List<NamespaceMappingEntry> NamespaceMappings { get; set; } = new();
+
+    /// <summary>
+    /// 工程内类型重定向：把源码里声明的某个类型引用改写为另一个源码类型。
+    /// 与 typeMappings 不同，它显式允许覆盖项目自身定义的类（平台能力替换，
+    /// 例如 Java 无 IL 生成 → Reflection.Emit 版成员访问器改用反射回退版）。
+    /// </summary>
+    [JsonPropertyName("sourceTypeRedirects")]
+    public List<SourceTypeRedirectEntry> SourceTypeRedirects { get; set; } = new();
+}
+
+/// <summary>工程内类型重定向条目（csharp/java 都用源码类型的 C# 全名/Java 简名）。</summary>
+public class SourceTypeRedirectEntry
+{
+    [JsonPropertyName("csharp")]
+    public string CSharpType { get; set; } = string.Empty;
+
+    [JsonPropertyName("java")]
+    public string JavaType { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -98,6 +116,8 @@ public class TypeMappingRegistry
     private readonly Dictionary<string, TypeMappingEntry> _typeMappings = new();
     private readonly Dictionary<(string TypeName, string MethodName), List<MethodMappingEntry>> _methodMappings = new();
     private readonly Dictionary<string, string> _namespaceMappings = new();
+    private readonly Dictionary<string, string> _sourceTypeRedirects = new();
+    private Dictionary<string, string>? _sourceRedirectSimpleIndex;
 
     // Lazy-built index: simpleName`arity → (configKey, javaType)
     // e.g. "IEnumerable`1" → ("System.Collections.Generic.IEnumerable`1", "Iterable")
@@ -210,6 +230,41 @@ public class TypeMappingRegistry
         {
             _namespaceMappings[mapping.CSharpNamespace] = mapping.JavaPackage;
         }
+
+        // 加载工程内类型重定向
+        foreach (var redirect in config.SourceTypeRedirects)
+        {
+            if (!string.IsNullOrEmpty(redirect.CSharpType) && !string.IsNullOrEmpty(redirect.JavaType))
+                _sourceTypeRedirects[redirect.CSharpType] = redirect.JavaType;
+        }
+    }
+
+    /// <summary>
+    /// 工程内类型重定向：源码类型全名 → 目标 Java 简名；无重定向时返回 null。
+    /// </summary>
+    public string? MapSourceTypeRedirect(string csharpType)
+        => _sourceTypeRedirects.TryGetValue(csharpType, out var javaType) ? javaType : null;
+
+    /// <summary>
+    /// 按简单名查工程内类型重定向。语法回退路径只有简单名可用（合并后的 partial 树
+    /// 无法做语义解析），所以声明侧与引用侧都必须能按简单名命中。
+    /// </summary>
+    public string? MapSourceTypeRedirectBySimpleName(string simpleName)
+    {
+        _sourceRedirectSimpleIndex ??= BuildSourceRedirectSimpleIndex();
+        return _sourceRedirectSimpleIndex.TryGetValue(simpleName, out var javaType) ? javaType : null;
+    }
+
+    private Dictionary<string, string> BuildSourceRedirectSimpleIndex()
+    {
+        var index = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (csharpType, javaType) in _sourceTypeRedirects)
+        {
+            var dot = csharpType.LastIndexOf('.');
+            var simpleName = dot >= 0 ? csharpType[(dot + 1)..] : csharpType;
+            index[simpleName] = javaType;
+        }
+        return index;
     }
 
     /// <summary>

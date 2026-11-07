@@ -1037,35 +1037,45 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             if (resolved != null)
                 return $"{Rt(c.MapType(resolved))}.class";
         }
-        // C# unsigned primitives byte/ushort map to Java int at runtime (same
-        // as int/uint), so typeof(byte) and typeof(int) both produce
-        // Integer.class — they become indistinguishable. When C# code uses
-        // typeof(byte) as a type-dispatch key (e.g. XmlUntypedStringConverter
-        // checks destinationType == typeof(byte) before typeof(int)), the
-        // collision makes int-typed requests match the byte branch. Use the
-        // C#-name-matching wrapper (Byte/Short) as a distinct typeof key.
         var typeSymbol = c.GetTypeInfo(n.Type).Type;
         if (typeSymbol != null)
-        {
-            var typeofWrapper = TypeOfWrapperName(typeSymbol.SpecialType);
-            if (typeofWrapper != null)
-                return $"{typeofWrapper}.class";
-        }
+            return TypeTokenLiteral(typeSymbol, c);
         return $"{Rt(Map(n.Type, c))}.class";
     }
 
     /// <summary>
-    /// Maps C# unsigned primitive types to a distinct Java wrapper class name
-    /// for use in typeof() expressions. C# byte → Byte, ushort → Short (even
-    /// though they map to int/Integer at runtime) so typeof(byte) and
-    /// typeof(int) produce different Class keys. Returns null for types that
-    /// don't need a distinct key.
+    /// Runtime type token for a concrete C# type — the value of <c>typeof(T)</c>.
+    /// Unsigned primitives share a Java representation (C# byte/ushort/uint/ulong
+    /// all map to int/long), so they use the compat C#-identity token classes;
+    /// everything else uses the boxed Java class of its mapped type. Shared with
+    /// the generic-argument pins emitted for <c>typeof(T)</c> of class type
+    /// parameters so registration and lookup use the same token.
+    /// </summary>
+    internal static string TypeTokenLiteral(ITypeSymbol typeSymbol, ConversionContext context)
+    {
+        var wrapper = TypeOfWrapperName(typeSymbol.SpecialType);
+        if (wrapper != null)
+        {
+            context.AddImport($"io.github.ningpp.compat.{wrapper}");
+            return $"{wrapper}.class";
+        }
+        return $"{Rt(context.MapType(typeSymbol))}.class";
+    }
+
+    /// <summary>
+    /// C# numeric types whose Java mapping collides with another C# type get a
+    /// distinct compat runtime token (<c>CSharpByte</c>, <c>CSharpSByte</c>,
+    /// <c>CSharpUInt16</c>…): <c>typeof(byte)</c> must not equal
+    /// <c>typeof(int)</c> even though both are Java <c>int</c>.
     /// </summary>
     private static string? TypeOfWrapperName(SpecialType special)
         => special switch
         {
-            SpecialType.System_Byte => "Byte",
-            SpecialType.System_UInt16 => "Short",
+            SpecialType.System_Byte => "CSharpByte",
+            SpecialType.System_SByte => "CSharpSByte",
+            SpecialType.System_UInt16 => "CSharpUInt16",
+            SpecialType.System_UInt32 => "CSharpUInt32",
+            SpecialType.System_UInt64 => "CSharpUInt64",
             _ => null
         };
 
@@ -1134,23 +1144,79 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             var hasLoweredField = site.Ancestors().OfType<TypeDeclarationSyntax>()
                 .SelectMany(type => type.Members.OfType<FieldDeclarationSyntax>())
                 .Any(field => field.Declaration.Variables.Any(v => v.Identifier.Text == loweredName));
-            return hasLoweredField ? loweredName : TypeParameterBoundClassLiteral(typeParameter, context);
+            return hasLoweredField
+                ? loweredName
+                : TypeParameterBoundClassLiteral(typeParameter, context, site);
         }
 
         // The anchor's own `= typeof(T)` must not reference the variable being declared.
         if (anchor.Initializer?.Span.Contains(site.Span) == true)
-            return TypeParameterBoundClassLiteral(typeParameter, context);
+            return TypeParameterBoundClassLiteral(typeParameter, context, site);
 
         return anchorName;
     }
 
     private static string TypeParameterBoundClassLiteral(
-        ITypeParameterSymbol typeParameter, ConversionContext context)
+        ITypeParameterSymbol typeParameter, ConversionContext context, SyntaxNode site)
     {
+        if (ClassTypeParameterRuntimeToken(typeParameter, context, site) is { } runtimeToken)
+            return runtimeToken;
         var bound = typeParameter.ConstraintTypes.FirstOrDefault();
         return bound is INamedTypeSymbol && bound.SpecialType != SpecialType.System_Object
             ? ConversionContext.GetClassLiteral(bound, context)
             : "Object.class";
+    }
+
+    /// <summary>
+    /// 类类型参数在 Java 被擦除，但实例成员可以从运行时泛型父类链反查实参
+    /// （BooleanConverter extends JsonConverter1&lt;Boolean&gt;）。因此实例上下文里的
+    /// typeof(T) 落到 TypeHelper.getTypeArgument(this, Declaring.class, i, Object.class)；
+    /// 静态成员、字段初始化器与嵌套类型没有可用的 this 链路，保持约束上界/Object.class。
+    /// </summary>
+    private static string? ClassTypeParameterRuntimeToken(
+        ITypeParameterSymbol typeParameter, ConversionContext context, SyntaxNode site)
+    {
+        if (typeParameter.TypeParameterKind != TypeParameterKind.Type)
+            return null;
+        if (typeParameter.DeclaringType is not INamedTypeSymbol declaringType
+            || declaringType.TypeKind is not (TypeKind.Class or TypeKind.Struct))
+            return null;
+        if (context.SemanticModel == null)
+            return null;
+
+        var enclosingDeclaration = site.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+        if (enclosingDeclaration == null)
+            return null;
+        if (context.GetDeclaredSymbol(enclosingDeclaration) is not INamedTypeSymbol enclosingType
+            || !SymbolEqualityComparer.Default.Equals(
+                enclosingType.OriginalDefinition, declaringType.OriginalDefinition))
+        {
+            // 外层泛型类型的参数在内嵌类里没有可反查的实参链。
+            return null;
+        }
+
+        // 构造器初始化器（: this(...) / : base(...)）的实参先于本构造器体求值，
+        // Java 明确禁止在那里引用 this；保持 Object.class 回退。
+        if (site.Ancestors().Any(a => a is ConstructorInitializerSyntax))
+            return null;
+
+        var member = site.Ancestors().FirstOrDefault(a => a is MemberDeclarationSyntax);
+        switch (member)
+        {
+            case null:
+            case FieldDeclarationSyntax:
+            case EventFieldDeclarationSyntax:
+                return null;
+            case BasePropertyDeclarationSyntax property
+                when property.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)):
+            case BaseMethodDeclarationSyntax method
+                when method.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)):
+                return null;
+        }
+
+        context.AddImport("io.github.ningpp.compat.TypeHelper");
+        var declaringToken = ConversionContext.GetClassLiteral(declaringType, context);
+        return $"TypeHelper.getTypeArgument(this, {declaringToken}, {typeParameter.Ordinal}, Object.class)";
     }
     /// <summary>Primitives get zero, structs get new T(), Nullable/enum-default etc. as shown; otherwise null.</summary>
     internal static string GetDefaultValueForType(

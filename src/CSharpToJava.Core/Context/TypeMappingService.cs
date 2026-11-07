@@ -796,6 +796,14 @@ public class TypeMappingService
         if (fullQualifiedNameSimple.StartsWith("global::"))
             fullQualifiedNameSimple = fullQualifiedNameSimple.Substring(8);
 
+        // 工程内类型重定向优先于普通配置映射：显式允许把源码类型替换成另一个
+        // 源码类型（平台能力回退，例如 IL 生成不可用 → 反射版成员访问器）。
+        if (IsDefinedInSource(typeSymbol)
+            && _typeMappings.MapSourceTypeRedirect(fullQualifiedNameSimple) is { } sourceRedirect)
+        {
+            return sourceRedirect;
+        }
+
         var mapped = _typeMappings.MapType(fullQualifiedNameSimple);
 
         var configKeySimple = fullQualifiedNameSimple;
@@ -1448,6 +1456,10 @@ public class TypeMappingService
 
     internal string MapSimpleTypeName(string typeName)
     {
+        // 工程内类型重定向（配置驱动）：语法回退路径只有简单名，必须先于所有
+        // 名词归一化命中，否则源码类型会被"项目自身定义优先"规则保留原名。
+        if (_typeMappings.MapSourceTypeRedirectBySimpleName(typeName) is { } sourceRedirect)
+            return sourceRedirect;
         return typeName switch
         {
             "String" => "String",
@@ -1698,7 +1710,14 @@ public class TypeMappingService
             // tree), so this syntax fallback is the last line of defense.
             if (TryResolveProjectTypeBySimpleName(typeName, out var projectType)
                 && !_isUsingAlias(typeName))
+            {
+                var projectTypeName = projectType!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                if (projectTypeName.StartsWith("global::"))
+                    projectTypeName = projectTypeName.Substring(8);
+                if (_typeMappings.MapSourceTypeRedirect(projectTypeName) is { } sourceRedirect)
+                    return sourceRedirect;
                 return MapProjectTypeFromSimpleName(projectType!);
+            }
 
             AddImportsForType(simpleConfigKey);
             if (simpleConfigKey == "System.EventHandler")

@@ -10241,5 +10241,11 @@
             "csharp": "System.Text.RegularExpressions",
             "java": "dotnet.text.regularexpressions"
         }
+    ],
+    "sourceTypeRedirects": [
+        {
+            "csharp": "System.Text.Json.Serialization.ReflectionEmitMemberAccessor",
+            "java": "ReflectionMemberAccessor"
+        }
     ]
 }

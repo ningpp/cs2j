@@ -21,6 +21,18 @@ public class TypeMappingReceiverFallbackTests
     }
 
     [Fact]
+    public void SourceTypeRedirect_IsLoadedFromConfig()
+    {
+        var registry = CreateRegistry();
+
+        // Java 无 IL 生成：Reflection.Emit 版成员访问器必须重定向到反射回退实现。
+        Assert.Equal(
+            "ReflectionMemberAccessor",
+            registry.MapSourceTypeRedirect("System.Text.Json.Serialization.ReflectionEmitMemberAccessor"));
+        Assert.Null(registry.MapSourceTypeRedirect("Missing.Type"));
+    }
+
+    [Fact]
     public void UnknownReceiverSimpleName_ReturnsNull()
     {
         var registry = CreateRegistry();

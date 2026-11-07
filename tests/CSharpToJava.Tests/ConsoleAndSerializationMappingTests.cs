@@ -202,6 +202,63 @@ class C
             .IsExpressionStatementContext(node);
     }
 
+    /// <summary>
+    /// Java has no IL emit, so the STJ member-accessor chosen for the NETCOREAPP
+    /// branch must be the reflection-backed one; otherwise every
+    /// JsonSerializerOptions.GetMemberAccessorStrategy call reaches
+    /// ILGenerator.Emit and throws PlatformNotSupportedException.
+    /// </summary>
+    [Fact]
+    public async Task ReflectionEmitMemberAccessor_MapsToReflectionFallback()
+    {
+        // 真实的 STJ 工程里这些类型分属不同文件：语法回退路径拿不到跨文件符号，
+        // 必须靠 sourceTypeRedirects 的简单名索引命中。
+        var files = new[]
+        {
+            new SourceFile { FilePath = "MemberAccessor.cs", Content = """
+namespace dotnet.text.json.Serialization
+{
+    internal abstract class MemberAccessor { }
+}
+""" },
+            new SourceFile { FilePath = "ReflectionMemberAccessor.cs", Content = """
+namespace dotnet.text.json.Serialization
+{
+    internal sealed class ReflectionMemberAccessor : MemberAccessor { }
+}
+""" },
+            new SourceFile { FilePath = "ReflectionEmitMemberAccessor.cs", Content = """
+namespace dotnet.text.json.Serialization
+{
+    internal sealed class ReflectionEmitMemberAccessor : MemberAccessor { }
+}
+""" },
+            new SourceFile { FilePath = "Use.cs", Content = """
+namespace dotnet.text.json.Serialization
+{
+    internal sealed class Use
+    {
+        private MemberAccessor _strategy;
+        public MemberAccessor Strategy()
+        {
+            if (_strategy == null)
+            {
+                _strategy = new ReflectionEmitMemberAccessor();
+            }
+            return _strategy;
+        }
+    }
+}
+""" },
+        };
+        var results = await new ProjectConversionPipeline(new ConversionOptions())
+            .ConvertProjectAsync(files, projectName: "Demo");
+        var code = string.Join("\n", results.Select(r => r.GeneratedCode));
+        Assert.All(results, r => Assert.True(r.Success, string.Join("\n", r.Diagnostics)));
+        Assert.Contains("new ReflectionMemberAccessor()", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("new ReflectionEmitMemberAccessor()", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

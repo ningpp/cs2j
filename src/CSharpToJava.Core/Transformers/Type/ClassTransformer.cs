@@ -6,6 +6,7 @@ using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.PartialType;
+using CSharpToJava.Core.Transformers.Expression;
 using CSharpToJava.Core.Transformers.Member;
 using CSharpToJava.Core.Transformers.Utilities;
 
@@ -102,6 +103,7 @@ public class ClassTransformer : ITypeTransformer
 
         PrepareErasureConflictRenames(nodes, context);
         ProcessMembers(nodes, javaClass, context);
+        EmitTypeArgumentTokens(javaClass, symbol, context);
         LiftFieldInitializerStatements(javaClass);
         // 集合类的成员形状以 compat 集合接口为准：C# 直译出的 void Add(T)/Contains(T)/
         // IEnumerator<T> GetEnumerator() 与接口的擦除成员同签名却互不覆盖（javac 名称冲突/
@@ -135,6 +137,89 @@ public class ClassTransformer : ITypeTransformer
         context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         context.LeaveType();
         return javaClass;
+    }
+
+    /// <summary>
+    /// C# 泛型基类里 <c>typeof(T)</c>（如 JsonConverter&lt;T&gt;.TypeToConvert）在 Java
+    /// 会被擦除；同 Java 载体的 C# 数值类型（byte/int/uint/ushort 都是 Integer）无法从
+    /// 泛型签名反查区分。派生类把 C# 实参的运行时令牌钉在静态字段
+    /// <c>__cs2j_typeArg_&lt;BaseSimpleName&gt;_&lt;ordinal&gt;</c> 上，
+    /// TypeHelper.getTypeArgument 反射优先读取它。
+    /// </summary>
+    private static void EmitTypeArgumentTokens(
+        JavaClassDeclaration javaClass, INamedTypeSymbol? symbol, ConversionContext context)
+    {
+        if (symbol?.BaseType is not INamedTypeSymbol { IsGenericType: true } baseType)
+            return;
+        var definition = baseType.OriginalDefinition;
+        if (!BaseUsesClassTypeParameterToken(definition))
+            return;
+
+        var baseName = SimpleJavaTypeName(context.MapType(definition));
+        for (var i = 0; i < baseType.TypeArguments.Length && i < definition.TypeParameters.Length; i++)
+        {
+            var typeArgument = baseType.TypeArguments[i];
+            // 泛型实参仍是（或包含）本类的类型参数时无法钉住（Java 不能写 T.class，
+            // 真实链 NullableConverter<T> : JsonConverter<T?>）。
+            if (ContainsTypeParameter(typeArgument) || typeArgument.TypeKind == TypeKind.Error)
+                continue;
+            var fieldName = $"__cs2j_typeArg_{baseName}_{i}";
+            if (javaClass.Fields.Any(f => f.Name == fieldName))
+                continue;
+            javaClass.Fields.Add(new JavaFieldDeclaration
+            {
+                Name = fieldName,
+                Type = "Class",
+                Modifiers = JavaModifiers.Private | JavaModifiers.Static | JavaModifiers.Final,
+                Initializer = TypeOperationTransformer.TypeTokenLiteral(typeArgument, context),
+            });
+        }
+    }
+
+    /// <summary>
+    /// 泛型基类自身源码里是否出现 <c>typeof(T)</c>（T 为该类的类类型参数）。
+    /// 只有这种基类才需要派生类钉住类型令牌；BCL/无源码的基类直接跳过。
+    /// </summary>
+    private static bool BaseUsesClassTypeParameterToken(INamedTypeSymbol definition)
+    {
+        // 只看语法：基类源码里是否出现 typeof(<基类自身的类型参数名>)。项目级预处理会
+        // 替换同名文件的新语法树，跨树语义查询会抛 “Syntax node is not within syntax tree”。
+        var typeParameterNames = definition.TypeParameters
+            .Select(p => p.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        if (typeParameterNames.Count == 0)
+            return false;
+        foreach (var reference in definition.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is not TypeDeclarationSyntax declaration)
+                continue;
+            foreach (var typeOf in declaration.DescendantNodes().OfType<TypeOfExpressionSyntax>())
+            {
+                if (typeOf.Type is IdentifierNameSyntax identifier
+                    && typeParameterNames.Contains(identifier.Identifier.ValueText))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static bool ContainsTypeParameter(ITypeSymbol? type) => type switch
+    {
+        ITypeParameterSymbol => true,
+        INamedTypeSymbol named => named.TypeArguments.Any(ContainsTypeParameter),
+        IArrayTypeSymbol array => ContainsTypeParameter(array.ElementType),
+        _ => false,
+    };
+
+    private static string SimpleJavaTypeName(string mappedType)
+    {
+        var angle = mappedType.IndexOf('<');
+        if (angle >= 0)
+            mappedType = mappedType[..angle];
+        var dot = mappedType.LastIndexOf('.');
+        return dot >= 0 ? mappedType[(dot + 1)..] : mappedType;
     }
 
     private static JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)

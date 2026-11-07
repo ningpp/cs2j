@@ -2830,6 +2830,108 @@ public final class TypeHelper {
     }
 
     /**
+     * C# {@code typeof(T)} for a type parameter {@code T} declared by
+     * {@code declaringType}, evaluated against a live instance.
+     *
+     * <p>Java erases a class type parameter, so the closed type argument has to be
+     * recovered from the instance's generic superclass chain
+     * ({@code BooleanConverter extends JsonConverter1<Boolean>} answers
+     * {@code Boolean.class}). C# numeric types that share a Java wrapper
+     * (byte/int/uint/ushort all erase to {@code Integer}) cannot be distinguished
+     * that way, so converter-generated subclasses pin the exact C# token in a
+     * static field named {@code __cs2j_typeArg_<DeclaringSimpleName>_<index>}
+     * (e.g. {@code CSharpByte.class} for {@code JsonConverter<byte>}); that field
+     * wins when present.</p>
+     *
+     * @param instance The instance whose runtime generic arguments are inspected.
+     * @param declaringType The generic type that declares the type parameter.
+     * @param index The ordinal of the type parameter.
+     * @param fallback The token to answer when nothing can be resolved.
+     * @return The C#-identity runtime token, or {@code fallback}.
+     */
+    public static Class<?> getTypeArgument(Object instance, Class<?> declaringType, int index, Class<?> fallback) {
+        if (instance == null || declaringType == null) {
+            return fallback;
+        }
+        Class<?> pinned = pinnedTypeArgument(instance.getClass(), declaringType, index);
+        if (pinned != null) {
+            return pinned;
+        }
+        Class<?> resolved = resolveTypeArgument(
+                instance.getClass(), declaringType, index, new java.util.HashMap<>());
+        return resolved != null ? resolved : fallback;
+    }
+
+    private static Class<?> pinnedTypeArgument(Class<?> concreteType, Class<?> declaringType, int index) {
+        String simpleName = declaringType.getSimpleName();
+        String fieldName = "__cs2j_typeArg_"
+                + (simpleName.isEmpty() ? declaringType.getName().replace('.', '_') : simpleName)
+                + "_" + index;
+        for (Class<?> type = concreteType; type != null && type != Object.class; type = type.getSuperclass()) {
+            try {
+                Field field = type.getDeclaredField(fieldName);
+                if (field.getType() != Class.class) {
+                    continue;
+                }
+                field.setAccessible(true);
+                Object value = field.get(null);
+                if (value instanceof Class<?> token) {
+                    return token;
+                }
+            } catch (NoSuchFieldException ignored) {
+                // Keep walking up: the derived class may not own a pin for this base.
+            } catch (ReflectiveOperationException | RuntimeException ignored) {
+                // Inaccessible pin: fall back to the generic-signature answer.
+            }
+        }
+        return null;
+    }
+
+    private static Class<?> resolveTypeArgument(
+            Class<?> type,
+            Class<?> declaringType,
+            int index,
+            java.util.Map<java.lang.reflect.TypeVariable<?>, java.lang.reflect.Type> bindings) {
+        if (type == null || type == Object.class || type == declaringType) {
+            return null;
+        }
+        java.lang.reflect.Type superType = type.getGenericSuperclass();
+        if (superType instanceof java.lang.reflect.ParameterizedType parameterized) {
+            java.lang.reflect.Type[] arguments = parameterized.getActualTypeArguments();
+            Class<?> raw = (Class<?>) parameterized.getRawType();
+            java.lang.reflect.Type[] resolved = new java.lang.reflect.Type[arguments.length];
+            for (int i = 0; i < arguments.length; i++) {
+                resolved[i] = substitute(arguments[i], bindings);
+            }
+            if (raw == declaringType) {
+                return index >= 0 && index < resolved.length && resolved[index] instanceof Class<?> token
+                        ? token
+                        : null;
+            }
+            java.lang.reflect.TypeVariable<?>[] variables = raw.getTypeParameters();
+            java.util.Map<java.lang.reflect.TypeVariable<?>, java.lang.reflect.Type> next =
+                    new java.util.HashMap<>(bindings);
+            for (int i = 0; i < variables.length && i < resolved.length; i++) {
+                next.put(variables[i], resolved[i]);
+            }
+            return resolveTypeArgument(raw, declaringType, index, next);
+        }
+        if (superType instanceof Class<?> rawSuper) {
+            return resolveTypeArgument(rawSuper, declaringType, index, bindings);
+        }
+        return null;
+    }
+
+    private static java.lang.reflect.Type substitute(
+            java.lang.reflect.Type type,
+            java.util.Map<java.lang.reflect.TypeVariable<?>, java.lang.reflect.Type> bindings) {
+        if (type instanceof java.lang.reflect.TypeVariable<?> variable && bindings.containsKey(variable)) {
+            return bindings.get(variable);
+        }
+        return type;
+    }
+
+    /**
      * Mirrors C# {@code Type.IsSubclassOf(Type)}: true only when {@code type}
      * derives from {@code base} through class inheritance. Unlike
      * {@link Class#isAssignableFrom}, the answer is false when the two are the
