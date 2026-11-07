@@ -3396,6 +3396,101 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
   由 `unsupported` 转为 `partial`。
 - 全量单测由 4906 通过增至 4929（+23），无回归。
 
+## 36. R13 VS-0 第 4 步首版：SemanticClosureScanner + finalizer 框架（w14 复跑）
 
+### 36.1 落地范围与首版边界
 
+- Core 新增 `src/CSharpToJava.Core/Preprocessing/Jcs/SemanticClosureScanner.cs`：
+  最终树构造枚举 → capability/候选 owner 映射 → 未接管构造登记
+  `NORM-SEMANTIC-CLOSURE`；`Phase=Finalize` 契约按启用链顺序做声明校验并
+  “各有界执行一次”（无实现时显式记录空转）。
+- Core 新增 `JcsConditionFacts.cs`：R12 `JcsCapabilityScanner` 的 EVAL 条件
+  副作用分类与 R13 `condition-effect` 构造扫描共用同一事实源（抽取后 R12
+  既有测试全绿，行为不变）。
+- id 归口：`PassConstructIds.SemanticClosure = "NORM-SEMANTIC-CLOSURE"`、
+  `PreprocessDiagnosticCodes.SemanticClosure = "CS2J1413"`（仓库内无撞号）。
+- CLI 新增 `Preprocessing/PreprocessClosureReportWriter.cs`；`CliPreprocessChain`
+  在 manifest 发射成功后扫描并写 `<最终树根>/preprocess-closure-report.json`
+  （camelCase、缩进、UTF-8 无 BOM、LF、无时间戳、相对路径 `/`）；
+  IO/扫描异常打印 CS2J1413 并失败，存在 unowned 只登记不改链结果。
+  `preprocess-report.json` 新增可空 `semanticClosure` 头字段。
+- **首版严格边界**：只读扫描，不改写任何源码；不新增 pass、不改 54 pass 的
+  链序与行为；不修改 R12 manifest 八字段 schema（`artifacts` 仍三字段）；
+  不实现真实 finalizer；`JCS.CLOSURE` 仍为 `unsupported`（不得由本切片提升）。
 
+### 36.2 构造族与 owner 映射
+
+| 构造族 | capability | 候选 owner | rt10 构造数 | 未接管 |
+|--------|------------|------------|-------------|--------|
+| `generic-typeof-type-parameter` | JCS.GENERIC | `generic-deepen` | 496 | 0 |
+| `generic-default-type-parameter` | JCS.GENERIC | `generic` | 15 | 0 |
+| `generic-new-type-parameter` | JCS.GENERIC | `generic` | 0 | 0 |
+| `collection-expression` | JCS.CONVERSION | `expression-desugar` | 0 | 0 |
+| `explicit-invoke` | JCS.CALL | 无（JE-09 未实现） | 34 | 34 |
+| `condition-effect` | JCS.EVAL | 无（JE-04/08 未实现） | 143 | 143 |
+
+- 映射口径：候选 owner 必须同时“在启用列表内 + pass `ok`”才算已接管；
+  否则登记 `NORM-SEMANTIC-CLOSURE`（file/line/构造 id/候选 owner/原因）。
+- rt10 最终树已无 collection expression（`expression-desugar` 已消解），
+  也无 `new T()` 构造；`typeof(T)`/`default(T)` 全部由 `generic-deepen`/
+  `generic` 接管。
+
+### 36.3 unowned 统计
+
+- `unownedCount=177`（`explicit-invoke` 34 + `condition-effect` 143），
+  原因均为 “no candidate owner pass is implemented for this construct family”。
+- 样本：`gen/JsonSourceGenerator.Roslyn3.11.cs:84`（`.Invoke`）、
+  `Common/JsonHelpers.cs:75`（条件副作用）。
+- 结论 `isClosed=false` 属首版预期登记，不影响 `success=true`。
+
+### 36.4 finalizer 框架空转证据
+
+- rt10 `finalizers=[]`：54 pass 中当前没有 `Phase=Finalize` 契约，故无
+  声明需要执行（finalizerCount=0）。
+- 单测用测试内 fake `ISemanticFinalizer` 覆盖：`Phase=Finalize` 契约按链序
+  各执行一次；无实现时记录 `Executed=false` 的有界空转且不阻断闭包；
+  `FinalizerFor` 非法能力、能力无启用声明 owner 均登记 `NORM-SEMANTIC-CLOSURE`
+  并置 `isClosed=false`。**未新增任何真实 finalizer 实现**。
+
+### 36.5 单测
+
+- 新增 16 个用例：`SemanticClosureScannerTests`（13：类型参数三类正/负例、
+  collection/`.Invoke`/条件副作用、纯条件负例、owner 成功/缺失/失败/禁用、
+  finalizer 链序各一次、无实现空转、未知能力/无声明 owner 残差、稳定排序、
+  空树 `IsClosed=true`）+ `PreprocessClosureReportWriterTests`（3：schema/
+  字段/summary、确定性、CLI 链落 closure 报告与报告头字段）。
+- 先红（缺类型编译失败）后绿；`PassContractConsistencyTests` 构造 id 计数
+  12→13（仅新增 NORM id，不涉 manifest schema）。
+- 全量 `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+  → **4945 通过 / 9 跳过 / 0 失败**（§35 基线 4929+16）。
+  `CSharpToJava.ProjectTests`/`CSharpToJava.ConversionTests` 未运行。
+
+### 36.6 rt10 全链复跑
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w14 --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests
+```
+
+- `success=true`、`totalSeconds=143.126`、**54/54 pass `ok`**、residual report
+  `residuals=0 / errors=0 / warnings=0`、TFM 警告 **0**。
+- `preprocess-manifest.json`：`passPlan=54`、`profile=java-ready`、
+  `subsetStatus=verified`、`capabilities=8`，状态与 §35 完全一致
+  （`WORKSPACE/SYMBOL/CONVERSION=guaranteed`，`CALL/EVAL/GENERIC=partial`，
+  `VALUE/CLOSURE=unsupported`）；`artifacts` 仍三字段。
+- 最终树根 `.cs2j-preprocessed-src/preprocess-closure-report.json`：
+  `schemaVersion=1`、`isClosed=false`、
+  `summary{constructCount:688, unownedCount:177, finalizerCount:0}`。
+- `preprocess-report.json`：`semanticClosure="preprocess-closure-report.json"`。
+
+### 36.7 与 §35 对照
+
+- 54 pass、`success=true`、residual 0/0/0、TFM 警告 0、manifest 八字段与
+  能力三态全部保持；新增的是链尾只读闭包报告与报告头字段，不进入中间树内容。
+- 闭包扫描如实量化了晚生成/未实现 owner 的构造：688 个构造中 511 个已被
+  现有 owner 接管，177 个（`explicit-invoke`/`condition-effect`）登记为
+  `NORM-SEMANTIC-CLOSURE`，为 VS-1/VS-2 的 finalizer 与 JE-04/JE-09 提供
+  可达基线。
+- 全量单测 4929 → 4945（+16），无回归。
