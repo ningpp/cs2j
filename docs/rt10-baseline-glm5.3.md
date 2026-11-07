@@ -3319,6 +3319,83 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
   与断言不变（`WhenWritingNull` 缺省不写）。
 - 全量测试从 4876 通过增至 4906（+30），无回归。
 
+## 35. R2 新 pass `generic-constraint` 首版实测（w13 复跑）
+
+### 35.1 落地范围
+
+- 新 Core 目录 `src/CSharpToJava.Core/GenericConstraint/`：
+  `GenericConstraintAnalyzer`（整树 CN-12 依赖站点事实）、
+  `GenericConstraintRewriter`（CN-02/04/05/06/08/09/10/11/12）、
+  `GenericConstraintPreprocessor`（绑定整树 + 逐文件改写 + 任一 Error 整文件回退 +
+  解析增量校验）、`GenericConstraintOptions`/`Diagnostics`/`Statistics`。
+- 新 CLI adapter `GenericConstraintPassAdapter`；`PassIds.GenericConstraint`、
+  `PassIds` 链序插入 `generic → generic-constraint → thread-static →
+  generic-deepen`；`thread-static` 与 `generic-deepen` 的 `RunAfterIds`
+  追加 `generic-constraint`。
+- 契约：`Consumes/Postconditions/MayLeave = NORM-GENERIC-CONSTRAINT`、
+  `Policy=PreserveAndWarn`、`Idempotent=true`、`RequiresWholeTree=true`、
+  `CapabilityIds=["JCS.GENERIC"]`；pass 默认开启，`--disable-pass
+  generic-constraint` 可关。
+- 诊断常量归口 `PreprocessDiagnosticCodes`：`CS2J1403`（约束不可表达/
+  改写不可证明，Warning）与 `CS2J1409`（DeclaredUnsupported，CN-08/CN-11）。
+- CN 口径：CN-01/03/07 由上游 `generic` 负责，本 pass 只做派生断言
+  （对 generic 输出二次运行 0 改写）；CN-02/05 保留不诊断；CN-04 显式化
+  `Nullable<T>` 并连带 `HasValue` 级联；CN-06 保留显式装箱；CN-08/11
+  DeclaredUnsupported；CN-09 改写 Parse/GetValues/GetNames（TryParse 因
+  无非泛型 `out T` 等价重载保守保留 + Warning）；CN-10 Combine/Remove
+  非泛型化 + `(T)`；CN-12 无依赖站点约束保留 + Warning。
+
+### 35.2 单测（先红后绿）
+
+- 新增 23 个用例：`GenericConstraintPassTests`（18：CN-04 显式化/比较/
+  模式级联、CN-05/02/06 保留、CN-08 多维/jagged、CN-09 Parse/GetValues/
+  GetNames/TryParse、CN-10、CN-11、CN-12 正负例、generic 输出幂等、
+  二次运行 fixed-point、summary 分规则计数）、
+  `GenericConstraintRegistryTests`（5：descriptor/契约/链序/默认计划与
+  disable/adapter 工厂）。
+- 兼容性断言更新：`PassChainOrderTests` 锁定链与 legacy toggle 排除集、
+  `GenericDeepenRegistryTests`/`ThreadStaticRegistryTests` 邻接槽位、
+  `PassContractConsistencyTests` NORM 构造 id 计数 11→12。
+- 全量回归：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+  → **4929 通过 / 9 跳过 / 0 失败**（§34 基线 4906/9/0，净增 23）。
+  `CSharpToJava.ProjectTests`/`CSharpToJava.ConversionTests` 未运行。
+
+### 35.3 rt10 全链复跑
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w13 --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests
+```
+
+- `success=true`、`totalSeconds=106.672`、**54/54 pass `ok`**、
+  residual report `residuals=0 / errors=0 / warnings=0`、TFM 警告 **0**。
+- `D:\cs\rt10-baseline-w13\preprocess-manifest.json`：`passPlan=54`、
+  `profile=java-ready`、`capabilities=8`；`JCS.GENERIC=partial`（新 pass 声明
+  capability，最终树语义构造扫描仍留 R13），其余与 §34 一致
+  （`JCS.WORKSPACE/SYMBOL/CONVERSION=guaranteed`，`CALL/EVAL=partial`，
+  `VALUE/CLOSURE=unsupported`）。
+- `generic-constraint` summary（`preprocess-report.json`）：
+  `3 transformed, 353 clean (encountered 310, rewritten 14, preserved 289,
+  unsupported 7; CN01 0/0/0/0, CN02 14/0/14/0, CN03 0/0/0/0, CN04 12/12/0/0,
+  CN05 238/0/238/0, CN06 12/0/12/0, CN07 0/0/0/0, CN08 0/0/0/0,
+  CN09 2/2/0/0, CN10 0/0/0/0, CN11 7/0/0/7, CN12 25/0/25/0,
+  Infrastructure 0/0/0/0)`。
+- CN-04 在 `NullableConverter.cs` 上把 `T?` 显式化为
+  `global::System.Nullable<T>` 并把 `is null` 级联为 `!value.HasValue`；
+  variance-audit VA020 的支配守卫分析按符号识别该形态，4 个原 VA020
+  站点全部消解，未触发 VA030 strict gate。
+
+### 35.4 与 §34 对照
+
+- pass 数 53→54（新增 `generic-constraint`，`success=true`、residual 0/0/0、
+  TFM 警告 0 均保持）。
+- 中间树新增 3 个文件改写（`NullableConverter.cs` 等），其余 pass 的输出
+  统计与 §34 同量级；manifest `passPlan` 由 53 增至 54，`JCS.GENERIC`
+  由 `unsupported` 转为 `partial`。
+- 全量单测由 4906 通过增至 4929（+23），无回归。
+
 
 
 
