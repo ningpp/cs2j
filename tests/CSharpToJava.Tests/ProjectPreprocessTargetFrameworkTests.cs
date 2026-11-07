@@ -11,6 +11,7 @@ namespace CSharpToJava.Tests;
 /// (through an injected evaluator, never a real msbuild process) and the
 /// explicit skip of the net10.0-only Cs2jRefOutIn reference for older hosts.
 /// </summary>
+[Collection(MsBuildCompileEvaluatorOverridesCollection.CollectionName)]
 public sealed class ProjectPreprocessTargetFrameworkTests : IDisposable
 {
     private readonly string _tempRoot;

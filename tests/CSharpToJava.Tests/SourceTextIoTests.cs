@@ -47,6 +47,31 @@ public sealed class SourceTextIoTests : IDisposable
     }
 
     [Fact]
+    public async Task AtomicWrite_DestinationBrieflyLocked_RetriesAndSucceeds()
+    {
+        var output = Path.Combine(_root, "locked", "output.cs");
+        Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+        await File.WriteAllTextAsync(output, "old", new UTF8Encoding(false));
+
+        using var handleOpened = new ManualResetEventSlim();
+        var holder = Task.Run(async () =>
+        {
+            using (new FileStream(output, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                handleOpened.Set();
+                await Task.Delay(20);
+            }
+        });
+
+        Assert.True(handleOpened.Wait(TimeSpan.FromSeconds(5)));
+        await SourceTextIo.WriteAtomicallyAsync(output, "new", hasBom: false);
+        await holder;
+
+        Assert.Equal("new", await File.ReadAllTextAsync(output));
+        Assert.Empty(Directory.EnumerateFiles(Path.GetDirectoryName(output)!, "*.tmp"));
+    }
+
+    [Fact]
     public async Task AtomicWrite_NewBomFile_HasExactlyOneBom()
     {
         var output = Path.Combine(_root, "new", "output.cs");

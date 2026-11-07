@@ -8,6 +8,7 @@ namespace CSharpToJava.Tests;
 /// cover the copy-time pinning (through an injected MSBuild evaluator, never a
 /// real msbuild process) and the missing-import cleanup.
 /// </summary>
+[Collection(MsBuildCompileEvaluatorOverridesCollection.CollectionName)]
 public sealed class ProjectPreprocessPackageVersionTests : IDisposable
 {
     private readonly string _tempRoot;

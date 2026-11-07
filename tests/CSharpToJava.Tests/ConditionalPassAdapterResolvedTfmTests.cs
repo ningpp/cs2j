@@ -4,6 +4,7 @@ using CSharpToJava.CLI.Preprocessing.Adapters;
 
 namespace CSharpToJava.Tests;
 
+[Collection(MsBuildCompileEvaluatorOverridesCollection.CollectionName)]
 public sealed class ConditionalPassAdapterResolvedTfmTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "cs2j-conditional-adapter-" + Guid.NewGuid().ToString("N"));

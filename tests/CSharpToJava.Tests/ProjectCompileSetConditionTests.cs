@@ -8,6 +8,7 @@ namespace CSharpToJava.Tests;
 /// MSBuild 求值（测试通过 <see cref="MsBuildCompileEvaluator.EvaluationOverride"/>
 /// 注入，绝不启动 msbuild 进程）。
 /// </summary>
+[Collection(MsBuildCompileEvaluatorOverridesCollection.CollectionName)]
 public sealed class ProjectCompileSetConditionTests : IDisposable
 {
     private readonly string _tempRoot;

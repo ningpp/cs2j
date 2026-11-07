@@ -10,6 +10,7 @@ namespace CSharpToJava.Tests;
 /// contains no project of its own and therefore is not "under a project
 /// directory" of the entry graph.
 /// </summary>
+[Collection(MsBuildCompileEvaluatorOverridesCollection.CollectionName)]
 public sealed class GraphLinkedCompileFilesFilterTests : IDisposable
 {
     private readonly string _tempRoot;

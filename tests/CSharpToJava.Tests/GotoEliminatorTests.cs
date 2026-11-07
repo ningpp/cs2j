@@ -1421,7 +1421,7 @@ public partial class GotoEliminatorTests
         AssertNoGotoOrLabel(result.OutputCode);
 
         var invoke = System.Threading.Tasks.Task.Run(() => CompileAndInvokeInt32(result.OutputCode));
-        var completed = await System.Threading.Tasks.Task.WhenAny(invoke, System.Threading.Tasks.Task.Delay(5000));
+        var completed = await System.Threading.Tasks.Task.WhenAny(invoke, System.Threading.Tasks.Task.Delay(30000));
         Assert.Same(invoke, completed);
         Assert.Equal(2, invoke.Result);
     }

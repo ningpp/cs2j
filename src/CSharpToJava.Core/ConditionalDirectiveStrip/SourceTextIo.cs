@@ -40,7 +40,7 @@ public static class SourceTextIo
             await WriteAsync(tempPath, code, hasBom);
             if (File.Exists(fullPath))
             {
-                File.Replace(tempPath, fullPath, destinationBackupFileName: null);
+                await ReplaceWithRetryAsync(tempPath, fullPath);
             }
             else
             {
@@ -52,6 +52,37 @@ public static class SourceTextIo
             if (File.Exists(tempPath))
             {
                 File.Delete(tempPath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Atomically replaces <paramref name="fullPath"/> with the already written
+    /// <paramref name="tempPath"/>. On Windows a concurrent reader or scanner
+    /// can hold the destination briefly, so sharing violations are retried with
+    /// a short backoff; if the destination stays locked, fall back to a
+    /// non-atomic overwrite rather than failing the write.
+    /// </summary>
+    private static async Task ReplaceWithRetryAsync(string tempPath, string fullPath)
+    {
+        const int maxAttempts = 5;
+
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Replace(tempPath, fullPath, destinationBackupFileName: null);
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (attempt >= maxAttempts)
+                {
+                    File.Move(tempPath, fullPath, overwrite: true);
+                    return;
+                }
+
+                await Task.Delay(TimeSpan.FromMilliseconds(10 * attempt));
             }
         }
     }

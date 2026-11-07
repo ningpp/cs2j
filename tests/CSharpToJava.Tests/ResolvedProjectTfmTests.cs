@@ -2,6 +2,7 @@ using CSharpToJava.CLI;
 
 namespace CSharpToJava.Tests;
 
+[Collection(MsBuildCompileEvaluatorOverridesCollection.CollectionName)]
 public sealed class ResolvedProjectTfmTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "cs2j-resolved-tfm-" + Guid.NewGuid().ToString("N"));
