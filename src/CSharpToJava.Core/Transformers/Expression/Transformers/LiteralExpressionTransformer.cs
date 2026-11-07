@@ -61,11 +61,12 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
             || literal.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
         {
             // Java does not support the unsigned U/u suffix on hex/binary literals,
-            // but it DOES support the long L/l suffix. javac rejects any hex/binary
-            // literal that exceeds int range unless it carries an explicit L suffix
-            // ("integer number too large"), so the L suffix must be preserved.
-            // TypeScript has no L suffix either: the TS writer turns L into bigint 'n'.
-            return TransformHexBinaryLiteral(literal);
+            // but it DOES support the long L/l suffix. A 32-bit hex bit pattern is
+            // a valid Java int literal (0x8000_0000 == Integer.MIN_VALUE), so the L
+            // suffix is only required when the target context is a 64-bit type.
+            var converted = context.GetTypeInfo(node).ConvertedType?.SpecialType;
+            var needsLong = converted is SpecialType.System_Int64 or SpecialType.System_UInt64;
+            return TransformHexBinaryLiteral(literal, needsLong);
         }
 
         if (literal.EndsWith("f") || literal.EndsWith("F"))
@@ -194,7 +195,7 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
     /// implicit suffix would wrongly turn plain number masks (uint constants,
     /// generated 2^32 truncation masks) into bigint.
     /// </summary>
-    private static string TransformHexBinaryLiteral(string literal)
+    private static string TransformHexBinaryLiteral(string literal, bool needsLong)
     {
         // Strip trailing C# suffixes (U/u/L/l in any order, e.g. UL, LU).
         int i = literal.Length - 1;
@@ -228,6 +229,12 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
         }
 
         if (value <= int.MaxValue)
+        {
+            return digits;
+        }
+        // 32-bit hex bit patterns are valid Java int literals; erasing uint to int
+        // keeps the same bits. Only a 64-bit target needs the explicit long suffix.
+        if (!needsLong && value <= uint.MaxValue)
         {
             return digits;
         }

@@ -596,6 +596,18 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         if (symbol is IPropertySymbol property
             && (asValue || !(node.Parent is AssignmentExpressionSyntax a && a.Left == node)))
         {
+            // Java records expose positional components through a method named after
+            // the component (prop()), not through the bean getter the C# property
+            // name would suggest (getProp()).
+            if (property.ContainingType is INamedTypeSymbol { IsRecord: true }
+                && (property.IsImplicitlyDeclared
+                    || property.DeclaringSyntaxReferences.All(r => r.GetSyntax() is not PropertyDeclarationSyntax)))
+            {
+                var componentName = ConversionContext.EscapeJavaKeyword(
+                    char.ToLowerInvariant(property.Name[0]) + property.Name[1..]);
+                return $"{receiver}.{componentName}()";
+            }
+
             // C# IntPtr/nint is reported with the alias display "nint".
             if (property.Name == "Size"
                 && property.ContainingType?.SpecialType == SpecialType.System_IntPtr)
@@ -709,7 +721,10 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                         context.AddImport(import);
                     return $"{staticOwner}.{mappedProperty}()";
                 }
-                return $"{receiver}.{mappedProperty}()";
+                var mappedCall = $"{receiver}.{mappedProperty}()";
+                return mappedProperty == "join"
+                    ? TypeOperationTransformer.CoerceJoinResult(node, mappedCall, context)
+                    : mappedCall;
             }
 
             if (JavaNaming.IsBeanAccessorStyleName(mappedProperty))
@@ -770,6 +785,19 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
                 return $"{receiver}.{member}()";
             }
 
+            // Static BCL property without an explicit method row (DateTime.UtcNow,
+            // TimeZoneInfo.Utc, …): the accessor name is the default getXxx, but the
+            // receiver must still be the mapped Java type (CSharpDateTime/…), not the
+            // raw C# name.
+            if (property.IsStatic
+                && TryGetMappedStaticContainingType(property, context, out var fallbackOwner, out var fallbackImports)
+                && fallbackOwner != property.ContainingType.Name)
+            {
+                foreach (var import in fallbackImports)
+                    context.AddImport(import);
+                receiver = fallbackOwner;
+            }
+
             return $"{receiver}.get{member.Substring(0, 1).ToUpperInvariant()}{member.Substring(1)}()";
         }
 
@@ -823,6 +851,18 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             case ("DateTimeOffset", "MinValue"):
                 context.AddImport("io.github.ningpp.compat.CSharpDateTimeOffset");
                 rendered = "CSharpDateTimeOffset.MinValue";
+                return true;
+            case ("DateTime", "Now"):
+                context.AddImport("io.github.ningpp.compat.CSharpDateTime");
+                rendered = "CSharpDateTime.getNow()";
+                return true;
+            case ("DateTime", "UtcNow"):
+                context.AddImport("io.github.ningpp.compat.CSharpDateTime");
+                rendered = "CSharpDateTime.getUtcNow()";
+                return true;
+            case ("DateTime", "Today"):
+                context.AddImport("io.github.ningpp.compat.CSharpDateTime");
+                rendered = "CSharpDateTime.getToday()";
                 return true;
             case ("Thread", "CurrentThread"):
                 context.AddImport("io.github.ningpp.compat.ThreadHelper");
@@ -1036,7 +1076,11 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             or SpecialType.System_Double)
         {
             context.AddImport("io.github.ningpp.compat.Nullable");
-            return $"Nullable.value({receiver})";
+            // Nullable.value has one overload per boxed primitive; a generic
+            // inference slot (JsonSerializer.deserialize<T>) leaves the argument
+            // as Object and the call becomes ambiguous without the cast.
+            var boxedUnderlying = context.MapTypeBoxed(underlying);
+            return $"Nullable.value(({boxedUnderlying}) {receiver})";
         }
         // Enums and other value types are Java reference types already.
         return receiver;

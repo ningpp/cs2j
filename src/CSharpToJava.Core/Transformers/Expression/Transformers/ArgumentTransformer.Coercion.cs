@@ -622,21 +622,24 @@ public partial class ArgumentTransformer
     {
         if (arg is not { } argSpecial)
             return null;
+        // Already narrowed by an earlier coercion pass (the invocation argument
+        // path runs CoerceArgumentConversions and ApplyIntegralNarrowing).
+        var trimmed = transformedExpr.TrimStart();
         switch (param)
         {
             case SpecialType.System_Int16 when IsIntWidthForNarrowing(argSpecial):
-                return $"(short)({transformedExpr})";
+                return trimmed.StartsWith("(short)", StringComparison.Ordinal) ? null : $"(short)({transformedExpr})";
             case SpecialType.System_SByte when IsIntWidthForNarrowing(argSpecial):
-                return $"(byte)({transformedExpr})";
+                return trimmed.StartsWith("(byte)", StringComparison.Ordinal) ? null : $"(byte)({transformedExpr})";
             case SpecialType.System_Char when argSpecial != SpecialType.System_Char
                 && IsIntWidthForNarrowing(argSpecial):
-                return $"(char)({transformedExpr})";
+                return trimmed.StartsWith("(char)", StringComparison.Ordinal) ? null : $"(char)({transformedExpr})";
             case SpecialType.System_Int32 when argSpecial == SpecialType.System_UInt32:
-                return $"(int)({transformedExpr})";
+                return trimmed.StartsWith("(int)", StringComparison.Ordinal) ? null : $"(int)({transformedExpr})";
             // uint parameters lower to Java int; uint literals above int range
             // render with an L suffix and need an int cast at the call site.
             case SpecialType.System_UInt32 when argSpecial == SpecialType.System_UInt32:
-                return $"(int)({transformedExpr})";
+                return trimmed.StartsWith("(int)", StringComparison.Ordinal) ? null : $"(int)({transformedExpr})";
             default:
                 return null;
         }

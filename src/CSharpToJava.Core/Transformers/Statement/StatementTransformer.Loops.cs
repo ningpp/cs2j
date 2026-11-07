@@ -199,6 +199,9 @@ public partial class StatementTransformer
         // inserts the element checkcast (unchecked, same runtime objects).
         var iterableExpression = expression;
         if (expressionType is not IArrayTypeSymbol
+            // Enum.GetValues(...) renders as the generated enum's `E.values()`
+            // Java array; enhanced-for iterates arrays directly, so no Iterable cast.
+            && !expression.TrimEnd().EndsWith(".values()", StringComparison.Ordinal)
             && !IsCompatTypeInfoArraySource(stmt.Expression, context)
             && javaType is not "Object" and not "var")
         {

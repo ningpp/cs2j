@@ -729,6 +729,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         $"StringHelper.split({receiverText}, {argumentText})");
                 }
 
+                // C# String.Split(string[], StringSplitOptions) has no java.lang.String
+                // overload (Java split only accepts a regex); route to the compat helper.
+                if (methodSymbol is { Name: "Split" }
+                    && methodSymbol.ContainingType?.SpecialType == SpecialType.System_String
+                    && methodSymbol.Parameters.Length >= 1
+                    && methodSymbol.Parameters[0].Type is IArrayTypeSymbol
+                        { ElementType.SpecialType: SpecialType.System_String })
+                {
+                    context.AddImport("io.github.ningpp.compat.StringHelper");
+                    return new JavaRawExpression(
+                        $"StringHelper.split({receiverText}, {argumentText})");
+                }
+
                 // C# string.Concat(IEnumerable<char>) / Concat(IEnumerable<string>):
                 // bind the sequence-flattening overload statically (see helper).
                 if (TryRenderStringConcatSequence(methodSymbol, argumentText, context, out var concatSequenceCall))
@@ -978,7 +991,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
 
                 AddStaticReceiverTypeImports(memberAccess.Expression, context);
-                call.MethodName = WellKnownMethodName(memberAccess.Name.Identifier.Text);
+                call.MethodName = WellKnownMethodName(
+                    memberAccess.Name.Identifier.Text,
+                    context.GetSymbolInfo(node).Symbol as IMethodSymbol);
 
                 foreach (var argument in arguments)
                     call.Arguments.Add(argument);
@@ -1294,6 +1309,30 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     }
 
     /// <summary>
+    /// C# enum reflection (<c>typeof(E).GetEnumValues()</c> and
+    /// <c>Enum.GetValues(typeof(E))</c>) has a direct Java counterpart on the
+    /// generated enum class: <c>E.values()</c>.
+    /// </summary>
+    private static string? TryRenderEnumValues(InvocationExpressionSyntax node, ConversionContext context)
+    {
+        if (node.ArgumentList.Arguments.Count != 0
+            || node.Expression is not MemberAccessExpressionSyntax memberAccess
+            || memberAccess.Name.Identifier.Text is not ("GetEnumValues"))
+        {
+            return null;
+        }
+        if (memberAccess.Expression is not TypeOfExpressionSyntax typeOf)
+            return null;
+        var enumType = context.GetTypeInfo(typeOf.Type).Type;
+        if (enumType is not INamedTypeSymbol { TypeKind: TypeKind.Enum } namedEnum
+            || EnumTransformer.IsIntConstantMetadataEnum(namedEnum))
+        {
+            return null;
+        }
+        return $"{context.MapType(namedEnum)}.values()";
+    }
+
+    /// <summary>
     /// Renders the async-normalize residues on the mapped task surface:
     /// task.AsTask() → task（ValueTask→CompletableFuture 后 AsTask 是身份函数），
     /// task.GetAwaiter().GetResult() → task.join()。非 Task/ValueTask 接收者一律
@@ -1311,6 +1350,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return false;
 
         var methodName = memberAccess.Name.Identifier.Text;
+        if (methodName == "Start" && IsTaskLikeReceiver(memberAccess.Expression, context))
+        {
+            // Task created by `new Task(action, state)` is already scheduled by the
+            // compat AsyncAwait.run bridge, so Start() is a no-op.
+            context.AddImport("io.github.ningpp.compat.AsyncAwait");
+            var startedTask = ExpressionTransformerFacade.Instance.Transform(memberAccess.Expression, context);
+            rendered = $"AsyncAwait.start({startedTask})";
+            return true;
+        }
+
         if (methodName == "AsTask" && IsTaskLikeReceiver(memberAccess.Expression, context))
         {
             rendered = ExpressionTransformerFacade.Instance.Transform(memberAccess.Expression, context);
@@ -1325,7 +1374,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             && IsTaskLikeReceiver(getAwaiterAccess.Expression, context))
         {
             var taskReceiver = ExpressionTransformerFacade.Instance.Transform(getAwaiterAccess.Expression, context);
-            rendered = $"{taskReceiver}.join()";
+            rendered = TypeOperationTransformer.CoerceJoinResult(node, $"{taskReceiver}.join()", context);
             return true;
         }
 
@@ -1334,6 +1383,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
     private string TransformInvocation(InvocationExpressionSyntax node, ConversionContext context)
     {
+        // typeof(E).GetEnumValues() / Enum.GetValues(typeof(E)) → E.values():
+        // Java Class has no reflection enum surface, the generated enum does.
+        if (TryRenderEnumValues(node, context) is { } enumValues)
+            return enumValues;
         // nameof(X) → "argumentName"
         if (IsNameOfInvocation(node, out var nameofArgument))
         {
@@ -1363,6 +1416,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 {
                     var text = facade.Transform(a.Expression, context);
                     var invocationMethod = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
+                    var parameter = invocationMethod != null && index < invocationMethod.Parameters.Length
+                        ? invocationMethod.Parameters[index]
+                        : null;
+                    text = ArgumentTransformer.CoerceArgumentConversions(text, a, context, parameter);
                     text = ArgumentTransformer.CoerceImplicitSpanConversion(
                         a.Expression, text, invocationMethod, index, context);
                     text = ArgumentTransformer.CoerceNonGenericDictionaryBridge(
@@ -1662,6 +1719,16 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return $"StringHelper.split({receiver}, {arguments})";
                 }
 
+                if (memberMethodForOverrides is { Name: "Split" }
+                    && memberMethodForOverrides.ContainingType?.SpecialType == SpecialType.System_String
+                    && memberMethodForOverrides.Parameters.Length >= 1
+                    && memberMethodForOverrides.Parameters[0].Type is IArrayTypeSymbol
+                        { ElementType.SpecialType: SpecialType.System_String })
+                {
+                    context.AddImport("io.github.ningpp.compat.StringHelper");
+                    return $"StringHelper.split({receiver}, {arguments})";
+                }
+
                 // C# string.Concat(IEnumerable<char>) / Concat(IEnumerable<string>):
                 // IR 路径孪生（见上方 IR 路径同名分支）。
                 if (TryRenderStringConcatSequence(memberMethodForOverrides, arguments, context, out var concatSequenceCallText))
@@ -1861,7 +1928,36 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         receiver = $"CSharpGenericIterable.<{elementType}>fromAnyTyped({receiver})";
                     }
 
-                    return RenderMappedCall(mappedName, isStatic, receiver, arguments);
+                    // Enumerable.Contains over an ARRAY receiver (e.g.
+                    // result.First().Contains(1) where First() yields int[]):
+                    // Java arrays expose no contains method.
+                    if (mappedName == "contains" && originalName == "Contains"
+                        && (context.GetTypeInfo(memberAccess.Expression).Type is IArrayTypeSymbol
+                            || (context.GetSymbolInfo(memberAccess.Expression).Symbol
+                                as IMethodSymbol)?.ReturnType is IArrayTypeSymbol))
+                    {
+                        context.AddImport("io.github.ningpp.compat.ArrayHelper");
+                        return $"ArrayHelper.contains({receiver}, {arguments})";
+                    }
+
+                    var mappedCall = RenderMappedCall(mappedName, isStatic, receiver, arguments);
+                    // Java erases the explicit type argument, so a mapped generic
+                    // method whose return type is its own type parameter
+                    // (JsonSerializer.Deserialize<T>) infers Object at the call
+                    // site; restore the concrete type so chained member access
+                    // (Deserialize<MyStruct>(json).MyString) binds.
+                    if (memberAccess.Name is GenericNameSyntax { TypeArgumentList.Arguments.Count: > 0 }
+                        && !IsExpressionStatementContext(node)
+                        && context.GetSymbolInfo(node).Symbol
+                            is IMethodSymbol { ReturnType: ITypeParameterSymbol { TypeParameterKind: TypeParameterKind.Method } }
+                        && context.GetTypeInfo(node).Type is { } mappedGenericReturnType
+                        && mappedGenericReturnType is not ITypeParameterSymbol
+                        && context.MapType(mappedGenericReturnType) is { } mappedGenericReturnName
+                        && mappedGenericReturnName != "Object")
+                    {
+                        return $"(({mappedGenericReturnName}) {mappedCall})";
+                    }
+                    return mappedCall;
                 }
 
                 // Primitive instance calls: Java primitives cannot be dereferenced.
@@ -1880,21 +1976,21 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 if (isStatic && context.GetSymbolInfo(node).Symbol is IMethodSymbol staticMethod
                     && TryRenderMappedStaticTypeReceiver(staticMethod, originalName, arguments, context, out var mappedStaticCall))
                 {
-                    return mappedStaticCall;
+                    return ApplyStaticCallRestorations(node, memberAccess, mappedStaticCall, isStatic, context);
                 }
 
                 AddStaticReceiverTypeImports(memberAccess.Expression, context);
-                var renderedCall = $"{receiver}.{WellKnownMethodName(originalName)}({arguments})";
-                // C# T[] 返回的成员（如 CSharpList<T> 槽位上的泛型 ToArray）擦除为
-                // Object[]（javac: Object[] 无法转换为 T[]；真实链 XmlListConverter
-                // 的泛型列表 ToArray）。按声明的擦除返回形态补 unchecked 强转。
-                if (context.GetSymbolInfo(node).Symbol is IMethodSymbol typedArrayReturn
-                    && typedArrayReturn.ReturnType is IArrayTypeSymbol { ElementType: ITypeParameterSymbol }
-                    && context.MapType(typedArrayReturn.ReturnType) is { } typedArrayText
-                    && renderedCall.Contains(".toArray(", StringComparison.Ordinal))
+                // Enumerable.Contains over an ARRAY receiver (fallback path, no
+                // method mapping): Java arrays expose no contains method.
+                if (originalName == "Contains"
+                    && (context.GetTypeInfo(memberAccess.Expression).Type is IArrayTypeSymbol
+                        || (context.GetSymbolInfo(memberAccess.Expression).Symbol
+                            as IMethodSymbol)?.ReturnType is IArrayTypeSymbol))
                 {
-                    renderedCall = $"({typedArrayText}) {renderedCall}";
+                    context.AddImport("io.github.ningpp.compat.ArrayHelper");
+                    return $"ArrayHelper.contains({receiver}, {arguments})";
                 }
+                var renderedCall = $"{receiver}.{WellKnownMethodName(originalName, context.GetSymbolInfo(node).Symbol as IMethodSymbol)}({arguments})";
                 // 显式 d.Invoke(args)：MethodKind.DelegateInvoke 的常规成员路径把
                 // Invoke 驼峰成 invoke，但委托形态的 SAM 名是 accept/apply/run/get
                 // （见 DelegateTransformer.InferSamMethodName，声明侧一致）；javac:
@@ -1917,21 +2013,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                                 explicitDelegateInvoke.ReturnsVoid, explicitDelegateInvoke.Parameters.Length);
                     renderedCall = $"{receiver}.{sam}({arguments})";
                 }
-                // Java erases explicit type arguments, so a generic helper whose
-                // return type is its own type parameter (`GetCustomAttribute<T>`)
-                // infers Object at the call site; restore the inferred type so
-                // member access on the result still binds.
-                if (memberAccess.Name is GenericNameSyntax { TypeArgumentList.Arguments.Count: > 0 }
-                    && context.GetSymbolInfo(node).Symbol
-                        is IMethodSymbol { ReturnType: ITypeParameterSymbol { TypeParameterKind: TypeParameterKind.Method } }
-                    && context.GetTypeInfo(node).Type is { } inferredReturn
-                    && inferredReturn is not ITypeParameterSymbol
-                    && context.MapType(inferredReturn) is { } mappedReturn
-                    && mappedReturn != "Object")
-                {
-                    renderedCall = $"({mappedReturn}) {renderedCall}";
-                }
-                return renderedCall;
+                return ApplyStaticCallRestorations(node, memberAccess, renderedCall, isStatic, context);
             }
 
             // CallMethod(arg1, arg2) → callMethod(arg1, arg2)
@@ -1945,7 +2027,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 // also apply to receiver-less calls: the declaration side always
                 // renames, so a bare `Dispose(true)` camel-cased to `dispose(true)`
                 // would no longer bind to the renamed `close(boolean)` member.
-                var methodName = mappedName ?? WellKnownMethodName(originalName);
+                var methodName = mappedName ?? WellKnownMethodName(
+                    originalName, context.GetSymbolInfo(node).Symbol as IMethodSymbol);
                 return $"{methodName}({arguments})";
             }
 
@@ -1957,7 +2040,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var (mappedName, _) = TryResolveMappedName(node, originalName, context);
                 mappedName = ConflictRenamedName(node, context) ?? mappedName;
 
-                var methodName = mappedName ?? WellKnownMethodName(originalName);
+                var methodName = mappedName ?? WellKnownMethodName(
+                    originalName, context.GetSymbolInfo(node).Symbol as IMethodSymbol);
                 return $"{methodName}({arguments})";
             }
 
@@ -2168,7 +2252,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (!IsGenericDictionaryType(context.GetTypeInfo(entryReceiver).Type))
             return false;
 
-        rendered = $"{TransformReceiver(entryReceiver, context)}.pairIterator()";
+        var entryReceiverText = TransformReceiver(entryReceiver, context);
+        // Java cast precedence: `(T)expr.member()` parses as the cast OF the member
+        // call. A cast-shaped receiver must be parenthesized as a whole.
+        if (entryReceiverText.StartsWith("(", StringComparison.Ordinal)
+            && entryReceiverText.EndsWith(")", StringComparison.Ordinal))
+        {
+            entryReceiverText = $"({entryReceiverText})";
+        }
+        rendered = $"{entryReceiverText}.pairIterator()";
         return true;
     }
 
@@ -2297,11 +2389,116 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
            && method.Parameters[1].Type.SpecialType == SpecialType.System_Int32;
 
     /// <summary>
-    /// True when the node is lexically inside a lambda/anonymous-method body,
-    /// where ref/out holder expansion cannot anchor its pending statements.
+    /// True when the node sits directly in an expression-bodied lambda/method
+    /// group, where ref/out holder expansion has no statement anchor for its
+    /// pending pre/post statements. Block-bodied lambdas route through
+    /// <see cref="StatementTransformer"/> and can host the holders inline.
     /// </summary>
     private static bool IsWithinLambda(SyntaxNode node)
-        => node.Ancestors().Any(a => a is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax);
+    {
+        var enclosing = node.Ancestors().FirstOrDefault(
+            a => a is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax);
+        return enclosing switch
+        {
+            LambdaExpressionSyntax lambda => lambda.Block == null,
+            AnonymousMethodExpressionSyntax anonymous => anonymous.Block == null,
+            _ => false,
+        };
+    }
+
+    /// <summary>
+    /// Return-type restorations shared by both member-access render paths. The
+    /// mapped-static-receiver shortcut renders the call directly, so it must run
+    /// the same erasure compensations as the ordinary fallback (otherwise
+    /// <c>throw Activator.CreateInstance&lt;T&gt;()</c> and erased generic results
+    /// lose their cast).
+    /// </summary>
+    private static string ApplyStaticCallRestorations(
+        InvocationExpressionSyntax node,
+        MemberAccessExpressionSyntax memberAccess,
+        string renderedCall,
+        bool isStatic,
+        ConversionContext context)
+    {
+        // Activator.CreateInstance<T>() returns Object in Java, but the C# call
+        // is statically typed as the (Exception-constrained) type parameter;
+        // `throw Activator.createInstance();` needs the cast.
+        if (isStatic
+            && context.GetSymbolInfo(node).Symbol is IMethodSymbol activator
+            && activator.ContainingType?.ToDisplayString() == "System.Activator"
+            && activator.Name == "CreateInstance"
+            && activator.TypeArguments.Length == 1
+            && activator.TypeArguments[0] is ITypeParameterSymbol activatorTypeParameter)
+        {
+            renderedCall = $"({activatorTypeParameter.Name}) {renderedCall}";
+        }
+        // C# T[] 返回的成员（如 CSharpList<T> 槽位上的泛型 ToArray）擦除为 Object[]。
+        if (context.GetSymbolInfo(node).Symbol is IMethodSymbol typedArrayReturn
+            && typedArrayReturn.ReturnType is IArrayTypeSymbol { ElementType: ITypeParameterSymbol }
+            && context.MapType(typedArrayReturn.ReturnType) is { } typedArrayText
+            && renderedCall.Contains(".toArray(", StringComparison.Ordinal))
+        {
+            renderedCall = $"({typedArrayText}) {renderedCall}";
+        }
+        // Java erases explicit type arguments, so a generic helper whose return
+        // type is its own type parameter (JsonSerializer.Deserialize<T>) infers
+        // Object at the call site; restore the concrete type. The constructed
+        // symbol substitutes the type argument, so the check also keys on the
+        // original definition (strictly limited to the STJ serializer surface:
+        // other generic compat methods keep their Java generics or class tokens).
+        var isJsonSerializerDeserialize = isStatic
+            && memberAccess.Name.Identifier.Text == "Deserialize"
+            && context.GetSymbolInfo(node).Symbol?.ContainingType?.ToDisplayString()
+                == "System.Text.Json.JsonSerializer";
+        if (memberAccess.Name is GenericNameSyntax { TypeArgumentList.Arguments.Count: > 0 }
+            && !IsExpressionStatementContext(node)
+            && (context.GetSymbolInfo(node).Symbol
+                    is IMethodSymbol { ReturnType: ITypeParameterSymbol { TypeParameterKind: TypeParameterKind.Method } }
+                || isJsonSerializerDeserialize)
+            && context.GetTypeInfo(node).Type is { } inferredReturn
+            && inferredReturn is not ITypeParameterSymbol
+            && context.MapType(inferredReturn) is { } mappedReturn
+            && mappedReturn != "Object"
+            && !renderedCall.TrimStart().TrimStart('(').StartsWith($"{mappedReturn})", StringComparison.Ordinal))
+        {
+            renderedCall = $"(({mappedReturn}) {renderedCall})";
+        }
+        return renderedCall;
+    }
+
+    /// <summary>
+    /// True when the node only feeds a statement through transparent wrappers
+    /// (member access, a chained call, parentheses, conditional access, await).
+    /// <para>
+    /// A cast added to "restore" a generic return type is illegal when the whole
+    /// expression is discarded as a statement: e.g.
+    /// <c>JsonSerializer.deserializeAsync&lt;JsonDocument&gt;(...).join();</c>
+    /// becomes <c>(JsonDocument) ...join();</c>, which javac rejects. The node
+    /// itself is the inner invocation, so its parent is the member access of
+    /// <c>.join()</c>, the grandparent the outer invocation, and only then the
+    /// statement.
+    /// </para>
+    /// </summary>
+    internal static bool IsExpressionStatementContext(SyntaxNode node)
+    {
+        SyntaxNode current = node;
+        while (true)
+        {
+            var parent = current.Parent;
+            switch (parent)
+            {
+                case MemberAccessExpressionSyntax:
+                case InvocationExpressionSyntax invocation when invocation.Expression == current:
+                case ParenthesizedExpressionSyntax:
+                case ConditionalAccessExpressionSyntax conditional when conditional.Expression == current:
+                case AwaitExpressionSyntax awaitExpression when awaitExpression.Expression == current:
+                    current = parent;
+                    continue;
+                default:
+                    return parent is ExpressionStatementSyntax;
+            }
+        }
+    }
 
 
     /// <summary>
@@ -2934,7 +3131,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         var args = invocation.ArgumentList.Arguments;
-        if (args.Count != 2)
+        if (args.Count is not (2 or 3))
             return false;
 
         var method = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
@@ -2943,7 +3140,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Post-preprocessed trees may lack semantic info; fall back to
             // per-argument type info.
             if (context.GetTypeInfo(args[0].Expression).Type?.SpecialType != SpecialType.System_Int32
-                || context.GetTypeInfo(args[1].Expression).Type?.SpecialType != SpecialType.System_String)
+                || context.GetTypeInfo(args[1].Expression).Type?.SpecialType != SpecialType.System_String
+                || (args.Count == 3
+                    && context.GetTypeInfo(args[2].Expression).Type?.SpecialType != SpecialType.System_Int32))
             {
                 return false;
             }
@@ -2951,9 +3150,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         else
         {
             if (method.ContainingType.ToDisplayString() != "System.Text.StringBuilder"
-                || method.Parameters.Length != 2
+                || method.Parameters.Length != args.Count
                 || method.Parameters[0].Type.SpecialType != SpecialType.System_Int32
-                || method.Parameters[1].Type.SpecialType != SpecialType.System_String)
+                || method.Parameters[1].Type.SpecialType != SpecialType.System_String
+                || (args.Count == 3
+                    && method.Parameters[2].Type.SpecialType != SpecialType.System_Int32))
             {
                 return false;
             }
@@ -2963,7 +3164,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         var offsetArg = facade.Transform(args[0].Expression, context);
         var strArg = facade.Transform(args[1].Expression, context);
         context.AddImport("io.github.ningpp.compat.StringHelper");
-        rendered = $"StringHelper.insert({receiver}, {offsetArg}, {strArg})";
+        rendered = args.Count == 3
+            ? $"StringHelper.insert({receiver}, {offsetArg}, {strArg}, {facade.Transform(args[2].Expression, context)})"
+            : $"StringHelper.insert({receiver}, {offsetArg}, {strArg})";
         return true;
     }
 
@@ -3268,6 +3471,26 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             context.AddImport("io.github.ningpp.compat.StringHelper");
             rendered = $"StringHelper.reverse({receiver})";
+            return true;
+        }
+
+        // C# string is IEnumerable<char>; `name.Select(...)` must go through the
+        // compat char iterable because java.lang.String has no map(). Indexed
+        // selectors use IndexedFunction exactly like the stream path.
+        if (name == "Select" && argCount == 1
+            && context.GetTypeInfo(memberAccess.Expression).Type?.SpecialType == SpecialType.System_String)
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            var charSource = $"CSharpGenericIterable.<Character>from({receiver})";
+            if (IsIndexedSelector(invocation.ArgumentList.Arguments[0].Expression, context))
+            {
+                context.AddImport("io.github.ningpp.compat.IndexedFunction");
+                rendered = $"{charSource}.map(new IndexedFunction<>({argumentText}))";
+            }
+            else
+            {
+                rendered = $"{charSource}.map({argumentText})";
+            }
             return true;
         }
 
@@ -3956,7 +4179,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         if (type is not INamedTypeSymbol named)
             return false;
         if (named.SpecialType == SpecialType.System_String)
-            return false;
+            return true;
         if (named.Name is "IQueryable" or "IOrderedQueryable")
             return false;
         if (named.Name is "IEnumerable" or "IOrderedEnumerable" or "IGrouping" or "ILookup")
@@ -3975,6 +4198,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return receiverText;
 
         var receiverType = context.GetTypeInfo(receiverExpression).Type;
+        // C# string is IEnumerable<char>; java.lang.String is not iterable, so the
+        // LINQ surface needs the compat char iterable.
+        if (receiverType?.SpecialType == SpecialType.System_String)
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            context.AddImport("java.util.stream.StreamSupport");
+            return $"StreamSupport.stream(CSharpGenericIterable.<Character>from({receiverText}).spliterator(), false)";
+        }
         if (receiverType is IArrayTypeSymbol array)
         {
             // Arrays.stream has int/long/double/T[] overloads only; char,
@@ -4575,9 +4806,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         }
 
         string? mappedType = null;
-        var configKey = context.TypeMappings.HasTypeMapping(display) ? display
-            : context.TypeMappings.HasTypeMapping(fqn) ? fqn
-            : null;
+        var configKey = ResolveMappedTypeConfigKey(containingType, context);
         if (configKey == null)
         {
             return false;
@@ -4613,12 +4842,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return false;
         }
 
-        var display = containingType.ToDisplayString();
-        var fqn = $"{containingType.ContainingNamespace}.{containingType.Name}";
-
-        var configKey = context.TypeMappings.HasTypeMapping(display) ? display
-            : context.TypeMappings.HasTypeMapping(fqn) ? fqn
-            : null;
+        var configKey = ResolveMappedTypeConfigKey(containingType, context);
         if (configKey == null)
         {
             return false;
@@ -4646,6 +4870,34 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     }
 
     /// <summary>
+    /// Finds the TypeMappings.json row for a possibly-generic type. Roslyn
+    /// displays a constructed generic as <c>Ns.Name&lt;T&gt;</c>, while the
+    /// config keys metadata generics by <c>Ns.Name`Arity</c>; both spellings
+    /// must be tried or static receivers of generic BCL types (ImmutableSortedSet,
+    /// ImmutableDictionary, …) lose their mapped import.
+    /// </summary>
+    private static string? ResolveMappedTypeConfigKey(
+        INamedTypeSymbol type, ConversionContext context)
+    {
+        if (!type.ContainingNamespace.IsGlobalNamespace)
+        {
+            var metadataKey = $"{type.ContainingNamespace.ToDisplayString()}.{type.MetadataName}";
+            if (context.TypeMappings.HasTypeMapping(metadataKey))
+                return metadataKey;
+        }
+
+        var display = type.ToDisplayString();
+        if (context.TypeMappings.HasTypeMapping(display))
+            return display;
+
+        var fqn = $"{type.ContainingNamespace}.{type.Name}";
+        if (context.TypeMappings.HasTypeMapping(fqn))
+            return fqn;
+
+        return null;
+    }
+
+    /// <summary>
     /// Well-known C# → Java instance method renames shared with the declaration side
     /// (MethodTransformer.JavaName) and the null-conditional binder
     /// (ExpressionTransformerFacade): GetHashCode → hashCode, GetType → getClass,
@@ -4653,6 +4905,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// ToUpper/Invariant → toUpperCase. Everything else gets get_/set_ stripping
     /// (member-desugar accessors) followed by ordinary camel-casing.
     /// </summary>
+    private static string WellKnownMethodName(string name, IMethodSymbol? method)
+    {
+        if (name == "GetEnumerator"
+            && method?.ReturnType is INamedTypeSymbol
+                { Name: "IDictionaryEnumerator", ContainingNamespace: { } dictionaryNamespace }
+            && dictionaryNamespace.ToDisplayString() == "System.Collections")
+        {
+            return "dictEnumerator";
+        }
+        return WellKnownMethodName(name);
+    }
+
     private static string WellKnownMethodName(string name)
     {
         var renamed = name switch
@@ -5274,6 +5538,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             ["SetCompat"] = "io.github.ningpp.compat.SetCompat",
             ["Debug"] = "io.github.ningpp.compat.Debug",
             ["Trace"] = "io.github.ningpp.compat.Trace",
+            ["ExceptionCompat"] = "io.github.ningpp.compat.ExceptionCompat",
         };
 
     /// <summary>
@@ -5288,7 +5553,18 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         var prefix = mappedName.Substring(0, dotIndex);
         if (DottedNameImports.TryGetValue(prefix, out var import))
+        {
             context.AddImport(import);
+            return;
+        }
+        // Fall back to the type table: compat helper hosts (PropertyInfo,
+        // UnicodeRanges, …) are mapped types with their own import rows.
+        var configKey = context.TypeMappings.FindConfigKeyBySimpleName(prefix);
+        if (configKey != null)
+        {
+            foreach (var required in context.TypeMappings.GetRequiredImports(configKey))
+                context.AddImport(required);
+        }
     }
 
     /// <summary>

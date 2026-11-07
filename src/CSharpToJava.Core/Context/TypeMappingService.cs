@@ -1036,6 +1036,18 @@ public class TypeMappingService
             return $"CSharpGenericEnumerator<{elemType}>";
         }
 
+        // HashSet<T>.Enumerator / SortedSet<T>.Enumerator: CSharpHashSet and
+        // CSharpSortedSet expose iterator() returning the compat generic enumerator.
+        if ((outerOriginal == "System.Collections.Generic.HashSet<T>"
+                || outerOriginal == "System.Collections.Generic.SortedSet<T>")
+            && name == "Enumerator"
+            && outerType.TypeArguments.Length == 1)
+        {
+            var elemType = MapTypeForGeneric(outerType.TypeArguments[0], referenceContext);
+            AddImport("io.github.ningpp.compat.CSharpGenericEnumerator");
+            return $"CSharpGenericEnumerator<{elemType}>";
+        }
+
         // Dictionary<K,V>.ValueCollection.Enumerator / KeyCollection.Enumerator (the
         // nested C# value enumerators over the collection views) iterate the values
         // or keys directly. CSharpDictionary's getValues()/getKeys() views hand out
@@ -1076,10 +1088,9 @@ public class TypeMappingService
                     && SymbolEqualityComparer.Default.Equals(currentEnclosing, outerType))
                 || SymbolEqualityComparer.Default.Equals(currentEnclosingDef, typeSymbolDef));
 
-        var innerName = MapSimpleTypeName(typeSymbol.TypeKind == TypeKind.Delegate
-            && typeSymbol is INamedTypeSymbol nestedDelegateSymbol
-                ? CSharpToJava.Core.Context.JavaNaming.GetNestedDelegateJavaName(nestedDelegateSymbol, name)
-                : name);
+        var innerName = MapSimpleTypeName(typeSymbol is INamedTypeSymbol namedNestedType
+            ? CSharpToJava.Core.Context.JavaNaming.GetNestedTypeJavaName(namedNestedType, name)
+            : name);
         // Map the outer type through the mapping table so configured renames apply
         // (e.g. Dictionary<K,V> → CSharpDictionary: Dictionary<K,V>.Enumerator must
         // reference CSharpDictionary.Enumerator, which javac can resolve).

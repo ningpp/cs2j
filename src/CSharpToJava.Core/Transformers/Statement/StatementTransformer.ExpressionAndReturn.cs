@@ -67,7 +67,7 @@ public partial class StatementTransformer
             }
             if (assign.Left is TupleExpressionSyntax lhs && lhs.Arguments.Count > 0
                 && lhs.Arguments.All(a => a.Expression is not DeclarationExpressionSyntax)
-                && assign.Right is TupleExpressionSyntax rhs && rhs.Arguments.Count == lhs.Arguments.Count)
+                && (assign.Right is not TupleExpressionSyntax rhs || rhs.Arguments.Count == lhs.Arguments.Count))
                 return new JavaStatementNode(TupleAssignmentSplitters.SplitTupleAssignment(assign, ctx));
         }
 
@@ -96,6 +96,16 @@ public partial class StatementTransformer
         // 三元不能作语句，整体三元转 if-else（如裸标记位条件）
         if (TryParseTernaryStatement(expr, out var c, out var t, out var el))
             return new JavaStatementNode($"if ({c}) {{\n{t};\n}} else {{\n{el};\n}}");
+
+        // C# permits `(T)CallReturningValue;` as a statement; Java only allows
+        // statement expressions (assignments, invocations, ...). A cast render of
+        // a value expression (e.g. the restored type on `await t`/`t.Result`)
+        // must be dropped when the value is discarded.
+        if (expr.TrimStart().StartsWith('(') && !IsBareReadExpression(expr)
+            && StripLeadingCastForStatement(expr) is { } strippedExpr)
+        {
+            expr = strippedExpr;
+        }
 
         return new JavaStatementNode(EmitWithPending(ctx, IsBareReadExpression(expr) ? "" : expr + ";"));
     }
@@ -321,6 +331,15 @@ public partial class StatementTransformer
         if (ctx.SemanticModel == null) return expr;
         var retType = ResolveReturnTargetType(stmt, ctx);
         var srcType = ctx.GetTypeInfo(stmt.Expression).Type;
+
+        // C# 隐式常量 → 枚举返回（`return 0;`）：Java 枚举是值类，须 fromValue 包装。
+        expr = TypeOperationTransformer.TryCoerceEnumConstant(
+            stmt.Expression, expr, retType, ctx) ?? expr;
+
+        // C# 整型常量 → float/double 返回槽（含 Nullable 装箱槽）：Java 引用返回
+        // 不做整数拓宽，须显式转浮点后装箱。
+        expr = TypeOperationTransformer.TryCoerceIntegralToFloating(
+            stmt.Expression, expr, retType, ctx) ?? expr;
 
         // JsonConvert.DeserializeObject<T> erases its type argument in Java, so the
         // no-type compat entry answers a generic structure (CSharpDictionary /
@@ -656,6 +675,52 @@ public partial class StatementTransformer
                 seg.Length > 0 && (char.IsLetter(seg[0]) || seg[0] is '_' or '$')
                 && seg.All(c => char.IsLetterOrDigit(c) || c is '_' or '$'));
 
+    /// <summary>
+    /// Drops a leading cast from a rendered Java expression so it can stand as a
+    /// statement: <c>(Foo) bar.join();</c> is not a statement expression in Java,
+    /// but <c>bar.join();</c> is. Returns null when the leading parenthesis is not
+    /// a cast (a parenthesized receiver such as <c>(obj).method()</c>) or when the
+    /// content does not look like a type.
+    /// </summary>
+    private static string? StripLeadingCastForStatement(string expr)
+    {
+        var text = expr.Trim();
+        if (text.Length < 3 || text[0] != '(')
+            return null;
+
+        var depth = 0;
+        var close = -1;
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] == '(')
+                depth++;
+            else if (text[i] == ')' && --depth == 0)
+            {
+                close = i;
+                break;
+            }
+        }
+        if (close < 0)
+            return null;
+
+        var inner = text[1..close].Trim();
+        if (inner.Length == 0 || !(char.IsLetter(inner[0]) || inner[0] is '_' or '$' or '?'))
+            return null;
+        foreach (var c in inner)
+        {
+            if (!(char.IsLetterOrDigit(c)
+                || c is '_' or '$' or '.' or '<' or '>' or ',' or ' ' or '[' or ']' or '?'))
+            {
+                return null;
+            }
+        }
+
+        var rest = text[(close + 1)..].TrimStart();
+        if (rest.Length == 0 || rest[0] is '.' or '[')
+            return null;
+        return rest;
+    }
+
     // 剥离整体外层括号后，识别顶层三元（顶层出现 '=' 说明是赋值的一部分，不处理）
     private static bool TryParseTernaryStatement(string expr, out string cond, out string whenTrue, out string whenFalse)
     {
@@ -697,14 +762,24 @@ public partial class StatementTransformer
         {
             var f = ExpressionTransformerFacade.Instance;
             var lefts = ((TupleExpressionSyntax)assign.Left).Arguments.Select(a => a.Expression).ToList();
-            var rights = ((TupleExpressionSyntax)assign.Right).Arguments.Select(a => a.Expression).ToList();
+            // The tuple-to-struct preprocessor rewrites `(a, b) = (x, y)` into
+            // `(a, b) = new Cs2jTuples.Tuple...(x, y)`; read the elements back from
+            // the struct fields in that case.
+            var rights = assign.Right is TupleExpressionSyntax tupleRight
+                ? tupleRight.Arguments.Select(a => a.Expression).ToList()
+                : null;
+            var structText = rights == null ? f.Transform(assign.Right, ctx) : null;
             var templates = new List<string>();
             var rightTexts = new List<string>();
             var targets = new List<string>();
 
             for (var i = 0; i < lefts.Count; i++)
             {
-                var rightText = f.Transform(rights[i], ctx);
+                var rightText = rights != null
+                    ? f.Transform(rights[i], ctx)
+                    // 8-tuples store the eighth element in `Rest.Item1` (the generated
+                    // struct has Item1..Item7 plus Rest).
+                    : i < 7 ? $"_cs2jTupleStruct.Item{i + 1}" : $"_cs2jTupleStruct.Rest.Item{i - 6}";
                 string target;
                 string template;
                 if (TryGetSymbol(lefts[i], ctx) is IPropertySymbol p)
@@ -721,6 +796,8 @@ public partial class StatementTransformer
 
             var hoist = rightTexts.Any(r => targets.Any(t => r.Contains(t, StringComparison.Ordinal)));
             var sb = new StringBuilder();
+            if (structText != null)
+                sb.Append($"var _cs2jTupleStruct = {structText};\n");
             for (var i = 0; i < lefts.Count; i++)
             {
                 string rhs;

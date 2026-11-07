@@ -57,6 +57,20 @@ internal static class IListCoercion
         if (target is not INamedTypeSymbol)
             return false;
 
+        // C# arrays implement ICollection<T>, but Java arrays do not implement the
+        // compat CSharpICollection carrier — wrap with the typed array adapter
+        // (argument positions already do this in ArgumentTransformer).
+        if (context.GetTypeInfo(source).Type is IArrayTypeSymbol collectionArraySource
+            && context.MapType(target).StartsWith("CSharpICollection", StringComparison.Ordinal)
+            && !text.TrimStart().StartsWith("CSharpICollection.", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpICollection");
+            rendered = target is INamedTypeSymbol { TypeArguments.Length: 1 } namedCollectionTarget
+                ? $"CSharpICollection.<{context.MapTypeBoxed(namedCollectionTarget.TypeArguments[0])}>fromArray({text})"
+                : $"CSharpICollection.fromArray({text})";
+            return true;
+        }
+
         var trimmed = text.Trim();
 
         // Only IList-family targets: all C# flavours map to CSharpIList[<T>].
@@ -71,6 +85,12 @@ internal static class IListCoercion
             // sources that already implement CSharpICollection<T> pass through.
             if (mappedTarget.StartsWith("CSharpICollection", StringComparison.Ordinal)
                 && !trimmed.StartsWith("CSharpICollection.fromTyped(", StringComparison.Ordinal)
+                // The compat dictionary's getKeys()/getValues() are generic
+                // (<T extends Iterable<?>> T), so the call site's target type
+                // already supplies the answer; wrapping in CSharpIList.from would
+                // be incompatible with an ICollection target.
+                && !trimmed.EndsWith(".getKeys()", StringComparison.Ordinal)
+                && !trimmed.EndsWith(".getValues()", StringComparison.Ordinal)
                 && context.GetTypeInfo(source).Type is INamedTypeSymbol sourceSymbol
                 && (context.MapType(sourceSymbol).StartsWith("CSharpIList", StringComparison.Ordinal)
                     || ImplementsGenericIListWithoutICollection(sourceSymbol)))

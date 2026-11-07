@@ -50,8 +50,8 @@ public class NumericOracleJavaEmitTests
     [Fact]
     public void UInt32LiteralArgumentToMappedIntParameter_WrappedWithCast()
     {
-        // C# uint maps to Java int; 0xFFFFFFFFu carries an L suffix in Java and
-        // must be cast back to int so the method reference matches.
+        // C# uint maps to Java int; the 32-bit hex bit pattern is a valid Java int
+        // literal (0xFFFFFFFF == -1), and the argument slot still needs the int cast.
         var result = Convert("""
             class Sample
             {
@@ -61,7 +61,7 @@ public class NumericOracleJavaEmitTests
             """);
 
         Assert.True(result.Success, Diag(result));
-        Assert.Contains("(int)(0xFFFFFFFFL)", result.GeneratedCode);
+        Assert.Contains("(int)(0xFFFFFFFF)", result.GeneratedCode);
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class NumericOracleJavaEmitTests
             """);
 
         Assert.True(result.Success, Diag(result));
-        Assert.Contains("Nullable.value(a)", result.GeneratedCode);
+        Assert.Contains("Nullable.value((Integer) a)", result.GeneratedCode);
     }
 
     [Fact]

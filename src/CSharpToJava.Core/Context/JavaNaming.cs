@@ -448,22 +448,36 @@ public static class JavaNaming
     /// reference sites agree on the Java name. Returns the (possibly unchanged) name.
     /// </summary>
     public static string GetNestedDelegateJavaName(INamedTypeSymbol delegateSymbol, string fallbackName)
+        => GetNestedTypeJavaName(delegateSymbol, fallbackName);
+
+    /// <summary>
+    /// Java forbids duplicate nested type names entirely (C# allows same-name nested
+    /// types with different arity). The smallest arity keeps the plain name; every
+    /// other arity gets a "{name}_{arity}" suffix so declaration and reference sites
+    /// agree. Applies to nested classes/structs/delegates alike.
+    /// </summary>
+    public static string GetNestedTypeJavaName(INamedTypeSymbol symbol, string fallbackName)
     {
-        var containingType = delegateSymbol.ContainingType;
+        var containingType = symbol.ContainingType;
         if (containingType == null)
             return fallbackName;
 
-        var arities = containingType.GetTypeMembers(delegateSymbol.Name)
-            .Where(t => t.TypeKind == TypeKind.Delegate)
+        var arities = containingType.GetTypeMembers(symbol.Name)
             .Select(t => t.Arity)
             .Distinct()
             .ToList();
         if (arities.Count <= 1)
             return fallbackName;
 
-        return arities.Min() == delegateSymbol.Arity
+        var suffix = "_" + symbol.Arity;
+        // Declaration sites may apply the rename twice (delegate transformer then
+        // class header); keep it idempotent so the name never becomes `_5_5`.
+        if (fallbackName.EndsWith(suffix, StringComparison.Ordinal))
+            return fallbackName;
+
+        return arities.Min() == symbol.Arity
             ? fallbackName
-            : fallbackName + "_" + delegateSymbol.Arity;
+            : fallbackName + suffix;
     }
 
     private static string GetErasedTypeName(IParameterSymbol parameter)

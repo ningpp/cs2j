@@ -371,14 +371,22 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
         if (!ShouldVisit(node.Name.Identifier.ValueText)) return visited;
         // 改 Name 段
         var nameSymbol = _context.Model.GetSymbolInfo(node).Symbol;
-        if (nameSymbol != null && TryLookupRename(nameSymbol, out var newName))
+        if (nameSymbol != null)
         {
-            visited = visited.WithName(
-                RenameSimpleName(visited.Name, newName))
-                .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
+            // A resolved symbol that is not in the rename table must be left alone.
+            // Falling through to the scoped rebind would borrow a same-named source
+            // method from an unrelated type (Xunit.Assert.Throws → AssertExtensions
+            // .Throws→throwsValue) and corrupt the call.
+            if (TryLookupRename(nameSymbol, out var newName))
+            {
+                visited = visited.WithName(
+                    RenameSimpleName(visited.Name, newName))
+                    .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
+            }
+            return visited;
         }
-        else if (visited.Name is SimpleNameSyntax name
-                 && TryScopedRebind(node, name.Identifier.ValueText, out var scopedName))
+        if (visited.Name is SimpleNameSyntax name
+            && TryScopedRebind(node, name.Identifier.ValueText, out var scopedName))
         {
             visited = visited.WithName((SimpleNameSyntax)RenameSimpleNameNode(visited.Name, scopedName))
                 .WithAdditionalAnnotations(JavaKeywordSyntaxFacts.RewriteAnnotation);
@@ -660,8 +668,24 @@ internal sealed partial class KeywordRenamingRewriter : CSharpSyntaxRewriter
         if (mergedSymbol != null && TryLookupRename(mergedSymbol, out newName))
             return true;
 
+        // A resolved reference to a symbol outside this rename table (e.g.
+        // Xunit.Assert.Throws, whose name merely spells a Java keyword) must not
+        // be rewritten: the candidate overloads of a same-named source method
+        // (AssertExtensions.Throws → throwsValue) are a different symbol.
+        if (info.Symbol != null)
+            return false;
+
         foreach (var candidate in info.CandidateSymbols)
         {
+            // Only accept a candidate declared on the receiver's own type: an
+            // unresolved `Assert.Throws` must not borrow a same-named overload
+            // from an unrelated source class (AssertExtensions.Throws).
+            if (original is MemberAccessExpressionSyntax candidateSite
+                && scopedModel.GetTypeInfo(candidateSite.Expression).Type is { } receiverType
+                && candidate.ContainingType?.ToDisplayString() != receiverType.ToDisplayString())
+            {
+                continue;
+            }
             var candRef = candidate.OriginalDefinition.DeclaringSyntaxReferences.FirstOrDefault();
             if (candRef == null) continue;
             var candNode = candRef.GetSyntax();

@@ -12,6 +12,11 @@ import java.util.Set;
 public interface IOrderedDictionary {
     int size();
 
+    /** Converter-generated code reads the C# ICollection.Count property as getCount(). */
+    default int getCount() {
+        return size();
+    }
+
     boolean isEmpty();
 
     boolean containsKey(Object key);

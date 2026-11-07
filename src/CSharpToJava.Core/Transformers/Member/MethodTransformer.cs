@@ -148,6 +148,7 @@ public class MethodTransformer : IMemberTransformer
         // 显式接口实现（桥）：Java 返回类型必须采用映射接口成员的形状（接口映射
         // 权威），否则 javac 对同擦除签名报"返回类型不兼容"硬错。
         ApplyExplicitInterfaceMemberShape(method, sym, ctx);
+        ApplyDictionaryEnumeratorShape(method, sym, ctx);
 
         // xUnit/MSTest 测试方法 → JUnit 5 测试方法 + 静态数据 provider。
         var testMembers = ApplyTestMethodAnnotations(m, method, ctx);
@@ -326,6 +327,26 @@ public class MethodTransformer : IMemberTransformer
 
     /// <summary>MSTest DeploymentItem 注解已精简，不再生成。</summary>
     internal static JavaAnnotation? BuildDeploymentItemAnnotation(AttributeSyntax _, ConversionContext __) => null;
+
+    private static void ApplyDictionaryEnumeratorShape(
+        JavaMethodDeclaration jm, IMethodSymbol? sym, ConversionContext ctx)
+    {
+        if (sym is not { Name: "GetEnumerator" } || jm.ReturnType != "CSharpDictEnumerator")
+            return;
+        var containing = sym.ContainingType;
+        if (containing == null
+            || !containing.AllInterfaces.Any(i =>
+                i.ToDisplayString() == "System.Collections.IDictionary"))
+        {
+            return;
+        }
+        // CSharpIDictionary.dictEnumerator() declares Generic<CSharpDictEntry>:
+        // the adapter both satisfies the generic enumerator slot and keeps the
+        // non-generic dictionary face, so every implementation must match it.
+        jm.ReturnType = "CSharpDictEnumerator.Generic<CSharpDictEntry>";
+        ctx.AddImport("io.github.ningpp.compat.CSharpDictEnumerator");
+        ctx.AddImport("io.github.ningpp.compat.CSharpDictEntry");
+    }
 
     /// <summary>
     /// Java erases a generic base member's <c>T</c> parameter to <c>Object</c>, so
@@ -598,6 +619,11 @@ public class MethodTransformer : IMemberTransformer
 
         if (isTheory)
             AddAnnotationOnce(javaMethod, "ParameterizedTest", ctx, "org.junit.jupiter.params.ParameterizedTest");
+        else if (ctx.GetDeclaredSymbol(methodDecl) is IMethodSymbol { ContainingType: { } testOwner }
+            && testOwner.GetTypeMembers("Test").Any())
+            // A nested type named Test shadows the imported annotation in Java
+            // (and the single-type import itself would clash), so qualify it.
+            AddAnnotationOnce(javaMethod, "org.junit.jupiter.api.Test", ctx, string.Empty);
         else
             AddAnnotationOnce(javaMethod, "Test", ctx, "org.junit.jupiter.api.Test");
 
@@ -661,7 +687,8 @@ public class MethodTransformer : IMemberTransformer
             return;
 
         method.Annotations.Add(new JavaAnnotation(annotation));
-        ctx.AddImport(import);
+        if (!string.IsNullOrEmpty(import))
+            ctx.AddImport(import);
     }
 
     /// <summary>
@@ -1037,6 +1064,19 @@ public class MethodTransformer : IMemberTransformer
     {
         if (name.StartsWith("get_") || name.StartsWith("set_"))
             return char.ToUpper(name[4]) + name[5..];
+        // A non-generic IDictionary implementation declares only
+        // GetEnumerator() returning IDictionaryEnumerator. Emitting it as
+        // iterator() would clash with CSharpCollection.iterator()'s
+        // CSharpGenericEnumerator return type; the compat interface supplies a
+        // default iterator(), so this member keeps its dictionary name.
+        if (sym is { Name: "GetEnumerator" }
+            && sym.ReturnType is INamedTypeSymbol
+                { Name: "IDictionaryEnumerator", ContainingNamespace: { } dictionaryNamespace }
+            && dictionaryNamespace.ToDisplayString() == "System.Collections"
+            && sym.ContainingType?.GetMembers("GetEnumerator").OfType<IMethodSymbol>().Count() == 1)
+        {
+            return "dictEnumerator";
+        }
         var mapped = sym?.ContainingType != null
             ? ctx.TypeMappings.MapMethod(sym.ContainingType.ToDisplayString(), name) : null;
         if (string.IsNullOrEmpty(mapped))
@@ -1498,10 +1538,15 @@ public class MethodTransformer : IMemberTransformer
     }
 
     /// <summary>
-    /// Predicts the erasure-conflict suffix from the C# declaration order alone.
-    /// Call sites may be converted before the declaration registers its rename, so
-    /// the registry can be empty; the Nth same-erasure overload becomes
-    /// <c>name_N</c>.
+    /// Predicts the erasure-conflict suffix exactly as
+    /// <see cref="Type.ClassTransformer.PrepareErasureConflictRenames"/> assigns it:
+    /// the type's members are grouped by (Java name, erased parameter signature) in
+    /// declaration order, and every entry after the first of its own group becomes
+    /// <c>name_2</c>, <c>name_3</c>… Suffixes are counted per group: a different
+    /// signature that reuses the same Java name must not advance this group's
+    /// counter (Java accepts the reuse because the erasures differ). Call sites
+    /// converted in another project have an empty rename registry and rely on this
+    /// prediction, so declaration and call site must derive the same suffix.
     /// </summary>
     internal static bool TryPredictErasureConflictName(
         IMethodSymbol method, ConversionContext context, out string javaName)
@@ -1515,85 +1560,151 @@ public class MethodTransformer : IMemberTransformer
         if (containing.ContainingNamespace?.ToDisplayString() == "Cs2jByRef")
             return false;
 
-        // Mirror the declaration policy: overrides take their base predicate name;
-        // non-overrides avoid every name reserved by an override.
-        var members = containing.GetMembers().OfType<IMethodSymbol>().ToList();
-        var reservedNames = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var member in members)
-        {
-            if (member.OverriddenMethod is { } baseMember)
+        // Fast path: a rename can only exist when another member of the same type
+        // maps to the same Java simple name. Checking that first keeps the common
+        // case free of MapType side effects (which register imports).
+        var baseName = GetJavaMethodName(method.Name, method, context);
+        var hasSibling = containing.GetMembers().Any(member =>
+            !SymbolEqualityComparer.Default.Equals(member, method)
+            && member switch
             {
-                var baseDeclaration = context.FindMethodDeclaration(baseMember);
-                if (baseDeclaration != null)
-                    reservedNames.Add(baseDeclaration.Name);
-                else if (TryPredictErasureConflictName(baseMember, context, out var overrideName))
-                    reservedNames.Add(overrideName);
+                IMethodSymbol sibling
+                    when sibling.MethodKind is MethodKind.Ordinary
+                        or MethodKind.ExplicitInterfaceImplementation =>
+                    GetJavaMethodName(sibling.Name, sibling, context) == baseName,
+                IPropertySymbol property when property.ExplicitInterfaceImplementations.Length == 0 =>
+                    JavaNaming.GetPropertyGetterName(
+                        ConversionContext.EscapeJavaKeyword(property.Name)) == baseName
+                    || SetterName(property) == baseName,
+                _ => false,
+            });
+        if (!hasSibling)
+            return false;
+
+        var entries = new List<(IMethodSymbol Symbol, string Name, string Signature,
+            bool IsBridge, IPropertySymbol? AccessorOwner)>();
+        foreach (var member in containing.GetMembers())
+        {
+            switch (member)
+            {
+                case IPropertySymbol property when property.ExplicitInterfaceImplementations.Length == 0:
+                    if (property.GetMethod is { } getter)
+                    {
+                        entries.Add((getter,
+                            JavaNaming.GetPropertyGetterName(
+                                ConversionContext.EscapeJavaKeyword(property.Name)),
+                            string.Empty, false, property));
+                    }
+                    if (property.SetMethod is { } setter)
+                    {
+                        entries.Add((setter, SetterName(property),
+                            ErasedSignature(setter, context), false, property));
+                    }
+                    break;
+                case IMethodSymbol memberMethod
+                    when memberMethod.MethodKind is MethodKind.Ordinary
+                        or MethodKind.ExplicitInterfaceImplementation:
+                    entries.Add((memberMethod,
+                        GetJavaMethodName(memberMethod.Name, memberMethod, context),
+                        ErasedSignature(memberMethod, context),
+                        memberMethod.ExplicitInterfaceImplementations.Length > 0, null));
+                    break;
             }
         }
 
-        var usedNames = new HashSet<string>(StringComparer.Ordinal);
-        var named = new List<(string Name, string? Signature)>();
-        foreach (var member in members)
+        foreach (var group in entries.GroupBy(e => (e.Name, e.Signature)).Where(g => g.Count() > 1))
         {
-            string name;
-            if (member.OverriddenMethod is { } memberBase)
+            var grouped = group.ToList();
+            var accessorOwner = grouped.FirstOrDefault(e => e.AccessorOwner != null).AccessorOwner;
+            var suffix = grouped.Any(e => e.Symbol.OverriddenMethod != null) ? 3 : 2;
+            for (var i = 1; i < grouped.Count; i++)
             {
-                var baseDeclaration = context.FindMethodDeclaration(memberBase);
-                if (baseDeclaration != null)
-                    name = baseDeclaration.Name;
-                else if (TryPredictErasureConflictName(memberBase, context, out var baseName))
-                    name = baseName;
-                else
-                    name = GetJavaMethodName(member.Name, member, context);
-            }
-            else
-            {
-                var baseNameValue = GetJavaMethodName(member.Name, member, context);
-                var signatureValue = ErasedSignatureOfSymbol(member, context);
-                name = baseNameValue;
-                if (signatureValue != null
-                    && named.Any(n => n.Name == name && n.Signature == signatureValue))
+                var entry = grouped[i];
+                if (entry.Symbol.OverriddenMethod != null || entry.IsBridge)
+                    continue;
+                // Declaration-side policy: a hand-written GetXxx/set-Xxx that only
+                // forwards the property is dropped in favour of the bean accessor,
+                // so the call site must keep the base name.
+                if (accessorOwner != null && IsSimpleAccessorDuplicate(entry.Symbol, accessorOwner))
+                    continue;
+                var candidate = $"{group.Key.Name}_{suffix++}";
+                if (SymbolEqualityComparer.Default.Equals(entry.Symbol, method)
+                    || SymbolEqualityComparer.Default.Equals(
+                        entry.Symbol.OriginalDefinition, method.OriginalDefinition))
                 {
-                    var suffix = 2;
-                    if (members.Any(m => !SymbolEqualityComparer.Default.Equals(m, member)
-                                         && m.OverriddenMethod != null
-                                         && GetJavaMethodName(m.Name, m, context) == baseNameValue))
-                    {
-                        suffix = 3;
-                    }
-                    while (usedNames.Contains($"{name}_{suffix}")
-                           || reservedNames.Contains($"{name}_{suffix}"))
-                        suffix++;
-                    name = $"{name}_{suffix}";
+                    javaName = candidate;
+                    return true;
                 }
-            }
-            usedNames.Add(name);
-            named.Add((name, ErasedSignatureOfSymbol(member, context)));
-            if (SymbolEqualityComparer.Default.Equals(member, method)
-                || SymbolEqualityComparer.Default.Equals(member.OriginalDefinition, method.OriginalDefinition))
-            {
-                var originalName = GetJavaMethodName(member.Name, member, context);
-                if (name == originalName)
-                    return false;
-                javaName = name;
-                return true;
             }
         }
         return false;
     }
 
-    private static string? ErasedSignatureOfSymbol(IMethodSymbol method, ConversionContext context)
+    /// <summary>
+    /// Syntax-only twin of <c>ClassTransformer.IsSimpleAccessorRead/Assignment</c>:
+    /// true when the method body is just <c>return X;</c> (or <c>this.X = value;</c>)
+    /// for the property in the same erasure group.
+    /// </summary>
+    private static bool IsSimpleAccessorDuplicate(IMethodSymbol method, IPropertySymbol property)
     {
-        if (method.Parameters.Any(p => p.RefKind is RefKind.Ref or RefKind.Out or RefKind.In))
-            return null;
-        return string.Join(",", method.Parameters.Select(p =>
+        var declaration = method.DeclaringSyntaxReferences
+            .Select(reference => reference.GetSyntax())
+            .OfType<MethodDeclarationSyntax>()
+            .FirstOrDefault();
+        if (declaration == null)
+            return false;
+
+        if (method.Parameters.Length == 0)
         {
-            if (p.Type is ITypeParameterSymbol)
-                return "Object";
-            var mapped = context.MapType(p.Type);
-            var angle = mapped.IndexOf('<');
-            return angle >= 0 ? mapped[..angle].TrimEnd() : mapped;
-        }));
+            var returned = declaration.Body is { Statements.Count: 1 } body
+                && body.Statements[0] is ReturnStatementSyntax returnStatement
+                    ? returnStatement.Expression
+                    : declaration.ExpressionBody?.Expression;
+            return returned != null && IsPropertyReference(returned, property.Name);
+        }
+
+        if (method.Parameters.Length != 1)
+            return false;
+
+        var assignment = declaration.Body is { Statements.Count: 1 } assignBody
+            && assignBody.Statements[0] is ExpressionStatementSyntax statement
+            && statement.Expression is AssignmentExpressionSyntax assign
+                ? assign
+                : declaration.ExpressionBody?.Expression as AssignmentExpressionSyntax;
+        if (assignment == null || !assignment.IsKind(SyntaxKind.SimpleAssignmentExpression))
+            return false;
+        return IsPropertyReference(assignment.Left, property.Name)
+            && assignment.Right is IdentifierNameSyntax right
+            && right.Identifier.Text == method.Parameters[0].Name;
+    }
+
+    private static bool IsPropertyReference(ExpressionSyntax expression, string propertyName) =>
+        expression switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.Text == propertyName,
+            MemberAccessExpressionSyntax
+            {
+                Expression: ThisExpressionSyntax,
+                Name: IdentifierNameSyntax identifier
+            } => identifier.Identifier.Text == propertyName,
+            _ => false,
+        };
+
+    private static string SetterName(IPropertySymbol property)
+    {
+        var escaped = ConversionContext.EscapeJavaKeyword(property.Name);
+        return "set" + (escaped.Length > 0
+            ? char.ToUpperInvariant(escaped[0]) + escaped[1..]
+            : escaped);
+    }
+
+    private static string ErasedSignature(IMethodSymbol method, ConversionContext context) =>
+        string.Join(",", method.Parameters.Select(p => EraseJavaType(context.MapType(p.Type))));
+
+    private static string EraseJavaType(string type)
+    {
+        var angle = type.IndexOf('<');
+        return angle >= 0 ? type[..angle].TrimEnd() : type;
     }
 
     /// <summary>

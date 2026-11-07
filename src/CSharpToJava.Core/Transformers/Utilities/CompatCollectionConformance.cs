@@ -107,23 +107,29 @@ internal static class CompatCollectionConformance
                     NormalizeObjectPredicate(method, javaClass);
                     break;
                 case "removeAt":
-                    NormalizeRemoveAt(method);
+                    // Only the non-generic CSharpIList surface has removeAt; the
+                    // CSharpGenericIterable world keeps the typed signature.
+                    if (branch == Branch.Collection)
+                        NormalizeRemoveAt(method);
                     break;
                 case "set":
-                    NormalizeSecondParameter(method);
-                    break;
                 case "insert":
-                    NormalizeSecondParameter(method);
-                    break;
                 case "copyTo":
-                    // CSharpCollection 同时声明 copyTo(Object,int) 与 copyTo(CSharpArray,int)；
-                    // 类自有的 CopyTo(Array,int) 保留强类型形参才能让接口默认方法虚分派进来。
-                    if (method.Parameters.Count > 0 && method.Parameters[0].Type == "CSharpArray")
-                        break;
-                    NormalizeFirstParameter(method);
-                    break;
                 case "indexOf":
-                    NormalizeFirstParameter(method);
+                    // These indexer/list slots exist only on CSharpIList
+                    // (non-generic, Object parameters). Erasing them on a
+                    // CSharpGenericIterable/IImmutableX implementation breaks the
+                    // typed interface override (insert(int, T) after substitution).
+                    if (branch != Branch.Collection)
+                        break;
+                    if (method.Name == "copyTo"
+                        && method.Parameters.Count > 0
+                        && method.Parameters[0].Type == "CSharpArray")
+                        break;
+                    if (method.Name == "copyTo" || method.Name == "indexOf")
+                        NormalizeFirstParameter(method);
+                    else
+                        NormalizeSecondParameter(method);
                     break;
                 case "iterator":
                     if (branch == Branch.Collection)
@@ -243,11 +249,35 @@ internal static class CompatCollectionConformance
     /// </summary>
     private static void NormalizeObjectPredicate(JavaMethodDeclaration method, JavaClassDeclaration javaClass)
     {
-        if (method.Parameters.Count != 1 || method.ReturnType != "boolean")
+        if (method.Parameters.Count != 1)
             return;
-        if (method.Parameters[0].Type == "Object")
+        // CSharpGenericIDictionary is not a Collection: its remove(K) slot keeps the
+        // key type (String), so erasing the implementation to remove(Object) produces
+        // "same erasure, neither overrides" against remove(String).
+        if (javaClass.ImplementedTypes.Any(t => ErasureKey(t) == "CSharpGenericIDictionary"))
             return;
+        if (method.Parameters[0].Type == "Object" && method.ReturnType is "boolean" or "void")
+        {
+            // Already conformant; C# IList.Remove(object) is void, so only the
+            // return type needs widening to the Collection boolean result.
+            if (method.ReturnType == "void")
+            {
+                method.ReturnType = "boolean";
+                AddTrailingReturn(method, "return true;");
+            }
+            return;
+        }
         if (HasObjectParameterOverload(javaClass, method.Name))
+            return;
+        if (method.ReturnType == "void")
+        {
+            // C# IList.Remove(T) returns void; java.util.Collection.remove is boolean.
+            EraseParameter(method, 0);
+            method.ReturnType = "boolean";
+            AddTrailingReturn(method, "return true;");
+            return;
+        }
+        if (method.ReturnType != "boolean")
             return;
         EraseParameter(method, 0);
     }

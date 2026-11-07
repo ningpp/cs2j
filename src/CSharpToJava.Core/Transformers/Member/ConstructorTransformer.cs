@@ -156,8 +156,6 @@ public class ConstructorTransformer : IMemberTransformer
             if (expr is AssignmentExpressionSyntax assignExpr
                 && assignExpr.Left is TupleExpressionSyntax assignTupleLeft
                 && assignTupleLeft.Arguments.Count > 0
-                && assignExpr.Right is TupleExpressionSyntax assignTupleRight
-                && assignTupleRight.Arguments.Count == assignTupleLeft.Arguments.Count
                 && assignTupleLeft.Arguments.All(a => a.Expression is not DeclarationExpressionSyntax))
             {
                 bodyStatements.Add(Transformers.Statement.StatementTransformer.TupleAssignmentSplitters

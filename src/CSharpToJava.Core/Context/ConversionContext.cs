@@ -795,6 +795,15 @@ public class ConversionContext
         if (TryGetCustomJavaTopLevelTypeName(typeSymbol, out var customName))
             return customName;
 
+        // Nested types with the same simple name but different arity are legal in
+        // C# and illegal in Java; the arity-suffixed name must match MapType().
+        if (typeSymbol.ContainingType != null)
+        {
+            var nestedName = JavaNaming.GetNestedTypeJavaName(typeSymbol, typeSymbol.Name);
+            if (!string.Equals(nestedName, typeSymbol.Name, StringComparison.Ordinal))
+                return nestedName;
+        }
+
         return typeSymbol.Name;
     }
 

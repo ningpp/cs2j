@@ -70,6 +70,23 @@ public partial class StatementTransformer
                 // 视图（真实链 XmlSchemaSet 的 chameleonKeys 读取 Hashtable.Keys）。
                 initExprText = IListCoercion.CoerceOrSame(
                     variable.Initializer.Value, initExprText, localType, context);
+                // C# DateTime → DateTimeOffset 隐式转换（`DateTimeOffset d = new DateTime(...)`）。
+                if (localType is INamedTypeSymbol { SpecialType: SpecialType.None } localDateTimeOffset
+                    && localDateTimeOffset.ToDisplayString() == "System.DateTimeOffset"
+                    && context.GetTypeInfo(variable.Initializer.Value).Type
+                        is INamedTypeSymbol { SpecialType: SpecialType.System_DateTime })
+                {
+                    context.AddImport("io.github.ningpp.compat.CSharpDateTimeOffset");
+                    initExprText = $"CSharpDateTimeOffset.fromDateTime({initExprText})";
+                }
+                // C# 隐式数值 → decimal 局部（`decimal expected = intValue;`）：
+                // Java 无基元→引用提升，须经 compat Decimal 工厂包装。
+                initExprText = TypeOperationTransformer.TryCoerceToDecimal(
+                    variable.Initializer.Value, initExprText, localType, context) ?? initExprText;
+                // C# 整型常量 → float?/double? 局部（`float? f = 2;`）：Java 引用槽
+                // 不做整数拓宽，先转浮点再装箱。
+                initExprText = TypeOperationTransformer.TryCoerceIntegralToFloating(
+                    variable.Initializer.Value, initExprText, localType, context) ?? initExprText;
                 // JsonConvert.DeserializeObject<T> erases its type argument in Java;
                 // route the call through the typed compat entry and restore the
                 // declared local type so member access resolves.
@@ -247,6 +264,18 @@ public partial class StatementTransformer
                 && mappedTuple.StartsWith("Map.Entry", StringComparison.Ordinal))
             {
                 return mappedTuple;
+            }
+            // C# value tuple whose elements include a type parameter:
+            // `var v = default((TItem1, TItem2));` would infer Object element
+            // types in Java, so declare the mapped TupleN<T…> explicitly.
+            if (first != null
+                && (context.GetDeclaredSymbol(first) as ILocalSymbol)?.Type is INamedTypeSymbol
+                { IsTupleType: true } genericTupleLocal
+                && genericTupleLocal.TupleElements.Any(e => e.Type is ITypeParameterSymbol)
+                && context.MapType(genericTupleLocal) is { } mappedGenericTuple
+                && mappedGenericTuple.StartsWith("Tuple", StringComparison.Ordinal))
+            {
+                return mappedGenericTuple;
             }
             return "var";
         }

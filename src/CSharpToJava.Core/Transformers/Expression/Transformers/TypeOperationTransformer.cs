@@ -177,6 +177,77 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         if (SpanCoercion.TryCoerce(n.Expression, e, sym, c, out var spanCast))
             return spanCast;
 
+        // C# arrays/List<T> cast to IList (generic or non-generic): the compat
+        // carriers are unrelated, so bridge through the adapter instead of an
+        // illegal Java cast (real chain: StringIListWrapper `(IList<T>)_list`).
+        if (sym is INamedTypeSymbol { Name: "IList" } listInterface
+            && listInterface.ContainingNamespace?.ToDisplayString() is
+                "System.Collections" or "System.Collections.Generic")
+        {
+            c.AddImport("io.github.ningpp.compat.CSharpIList");
+            var mappedList = c.MapType(sym);
+            return mappedList.StartsWith("CSharpIList<", StringComparison.Ordinal)
+                ? $"({mappedList}) CSharpIList.from({e})"
+                : $"CSharpIList.from({e})";
+        }
+
+        // IReadOnlyList<T>/IReadOnlyCollection<T> cast: the compat carrier is the
+        // non-generic CSharpIList, while CSharpList/CSharpGenericIList are unrelated.
+        if (sym is INamedTypeSymbol { Name: "IReadOnlyList" or "IReadOnlyCollection" } readOnlyList
+            && readOnlyList.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic")
+        {
+            c.AddImport("io.github.ningpp.compat.CSharpIList");
+            return $"CSharpIList.from({e})";
+        }
+
+        // C# casts a generic Dictionary to the non-generic IDictionary surface
+        // (WrapperForIDictionary). CSharpDictionary does not implement the
+        // unrelated CSharpIDictionary interface, so javac rejects the raw cast;
+        // the compat adapter preserves the C# runtime-cast semantics.
+        if (sym is INamedTypeSymbol { Name: "IDictionary", TypeArguments.Length: 0 } nonGenericDictionary
+            && nonGenericDictionary.ContainingNamespace?.ToDisplayString() == "System.Collections")
+        {
+            c.AddImport("io.github.ningpp.compat.CSharpIDictionary");
+            return $"CSharpIDictionary.fromAny({e})";
+        }
+
+        // Newtonsoft Json.NET's JToken defines explicit conversion operators to
+        // string/int/double/bool. Java classes have no user-defined casts, so
+        // route through the compat helpers instead of an illegal reference cast.
+        if (srcSym is INamedTypeSymbol jtokenSource
+            && jtokenSource.Name == "JToken"
+            && jtokenSource.ContainingNamespace?.ToDisplayString() == "Newtonsoft.Json.Linq")
+        {
+            switch (sym?.SpecialType)
+            {
+                case SpecialType.System_String:
+                    return $"{e}.toString()";
+                case SpecialType.System_Int32:
+                    c.AddImport("io.github.ningpp.compat.JToken");
+                    return $"JToken.toInt({e})";
+                case SpecialType.System_Double:
+                    c.AddImport("io.github.ningpp.compat.JToken");
+                    return $"JToken.toDouble({e})";
+                case SpecialType.System_Boolean:
+                    c.AddImport("io.github.ningpp.compat.JToken");
+                    return $"JToken.toBoolean({e})";
+            }
+        }
+
+        // C# permits explicit interface-to-interface casts even when their type
+        // arguments are unrelated (runtime-checked). Java rejects the same cast
+        // as "inconvertible types"; erase the type arguments so javac emits the
+        // unchecked interface cast and javac's runtime check stays identical.
+        if (sym is INamedTypeSymbol { TypeKind: TypeKind.Interface } castInterface
+            && srcSym is INamedTypeSymbol { TypeKind: TypeKind.Interface } sourceInterface
+            && !SymbolEqualityComparer.Default.Equals(castInterface, sourceInterface))
+        {
+            var mappedInterface = c.MapType(castInterface);
+            var angleIndex = mappedInterface.IndexOf('<');
+            if (angleIndex > 0)
+                return $"({mappedInterface[..angleIndex]})({e})";
+        }
+
         // Plain enum casts (including C# lifted Nullable<E> casts, which map to
         // the same Java enum reference type). Ordinal enums: (E)i ->
         // E.values()[i], (int)e -> EnumHelper.ordinalOrMinusOne(e) (null-safe,
@@ -491,6 +562,73 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             .OfType<IFieldSymbol>()
             .Count(field => field is { IsConst: true, HasConstantValue: true });
         return declaredCount > 0 && (value < 0 || value >= declaredCount);
+    }
+
+    /// <summary>
+    /// C# implicit constant conversion <c>0</c> → enum (e.g. <c>_platforms = 0;</c>,
+    /// <c>return 0;</c>). Java enums are value classes, so a numeric constant must
+    /// be wrapped with fromValue()/values()[i]; int-constant metadata enums stay
+    /// int. Returns null when no coercion applies.
+    /// </summary>
+    internal static string? TryCoerceEnumConstant(
+        ExpressionSyntax value, string rendered, ITypeSymbol? target, ConversionContext context)
+    {
+        if (target is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable)
+            target = nullable.TypeArguments[0];
+        if (target is not INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+            return null;
+        if (CSharpToJava.Core.Transformers.Type.EnumTransformer.IsIntConstantMetadataEnum(enumType))
+            return null;
+
+        var constant = context.GetConstantValue(value);
+        if (!constant.HasValue || constant.Value is null)
+            return null;
+        if (context.GetTypeInfo(value).Type?.TypeKind == TypeKind.Enum)
+            return null;
+        try
+        {
+            _ = Convert.ToInt64(constant.Value);
+        }
+        catch (Exception ex) when (ex is InvalidCastException or FormatException or OverflowException)
+        {
+            return null;
+        }
+
+        var mapped = context.MapType(enumType);
+        var storage = CSharpToJava.Core.Transformers.Type.EnumTransformer.StorageTypeName(
+            enumType.EnumUnderlyingType?.SpecialType ?? SpecialType.System_Int32);
+        return CSharpToJava.Core.Transformers.Type.EnumTransformer.IsValueEnum(enumType)
+            ? $"{mapped}.fromValue(({storage}){rendered})"
+            : IsOutOfRangeOrdinalConstant(value, enumType, context)
+                ? $"({mapped}) null"
+                : $"{mapped}.values()[{rendered}]";
+    }
+
+    /// <summary>
+    /// Java infers the receiver of a chained <c>join()</c> without a target type,
+    /// so <c>JsonSerializer.deserializeAsync(...).join()</c> and
+    /// <c>&lt;task&gt;.Result</c> erase to Object even when the C# await target is
+    /// concrete. Restores the declared result type with a cast.
+    /// </summary>
+    internal static string CoerceJoinResult(
+        ExpressionSyntax node, string rendered, ConversionContext context)
+    {
+        if (!rendered.TrimEnd().EndsWith(".join()", StringComparison.Ordinal))
+            return rendered;
+        // A discarded value gets no cast: `(T) task.join();` is not a statement.
+        if (InvocationExpressionTransformer.IsExpressionStatementContext(node))
+            return rendered;
+        var type = context.GetTypeInfo(node).Type;
+        if (type is null or ITypeParameterSymbol)
+            return rendered;
+        var mapped = context.MapType(type);
+        // `join()` answers Object (or the erased carrier), so a cast is needed in
+        // every value position — including primitives (cast-unboxing) and types
+        // whose Java name merely matches the C# name (DTO classes).
+        if (mapped is "Object" or "var")
+            return rendered;
+        context.AddImportsForTypePublic(type.ToDisplayString());
+        return $"(({mapped}) {rendered})";
     }
 
     /// <summary>Target Java primitive carriers of an integral enum→number cast.</summary>
@@ -855,6 +993,13 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     private static string TypeOf(TypeOfExpressionSyntax n, ConversionContext c)
     {
         if (c.GetTypeInfo(n.Type).Type is ITypeParameterSymbol tp) return TypeParameterToken(n, tp, c);
+        // Java cannot select a class literal from a type variable either, so
+        // `typeof(T[])` needs the reified element token: Array.newInstance(...).
+        if (c.GetTypeInfo(n.Type).Type is IArrayTypeSymbol { ElementType: ITypeParameterSymbol arrayElement })
+        {
+            c.AddImport("io.github.ningpp.compat.CSharpArray");
+            return $"CSharpArray.arrayType({TypeParameterToken(n, arrayElement, c)})";
+        }
         // Unbound generic `typeof(X<>)` (real chain Types.IsOptionalValue's
         // `typeof(Nullable<>).GetGenericTypeDefinition()`): GetTypeInfo yields the
         // constructed definition, whose empty argument list otherwise falls through
@@ -981,7 +1126,16 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             .OfType<VariableDeclaratorSyntax>()
             .FirstOrDefault(v => v.Identifier.Text == anchorName);
         if (anchor == null)
-            return TypeParameterBoundClassLiteral(typeParameter, context);
+        {
+            // Iterator lowering promotes the anchor local into a state-machine
+            // field (`_cs2jLoc___cs2j_token_T`), whose initializer still needs the
+            // token from the reified caller (typeof(TElement[])).
+            var loweredName = "_cs2jLoc_" + anchorName;
+            var hasLoweredField = site.Ancestors().OfType<TypeDeclarationSyntax>()
+                .SelectMany(type => type.Members.OfType<FieldDeclarationSyntax>())
+                .Any(field => field.Declaration.Variables.Any(v => v.Identifier.Text == loweredName));
+            return hasLoweredField ? loweredName : TypeParameterBoundClassLiteral(typeParameter, context);
+        }
 
         // The anchor's own `= typeof(T)` must not reference the variable being declared.
         if (anchor.Initializer?.Span.Contains(site.Span) == true)

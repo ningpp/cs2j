@@ -415,6 +415,18 @@ internal static class DisplayClassPlanner
                 foreach (var symbol in ancestor.Symbols)
                     collapse[(ancestor.InstanceName, symbol.FieldName)] = ancestorPath + symbol.FieldName;
             }
+            // Consolidation merges same-class groups: a method lifted from one
+            // instance may reference a field through a SIBLING instance name
+            // (`__cs2jClosure0._cs2jCap_x` inside the class that owns it). Both
+            // instances share the class, so the field is the class's own.
+            foreach (var sibling in registry.Evolved.Concat(registry.Fresh))
+            {
+                if (!ReferenceEquals(sibling, group) && sibling.ClassName == group.ClassName)
+                {
+                    foreach (var symbol in sibling.Symbols)
+                        collapse.TryAdd((sibling.InstanceName, symbol.FieldName), symbol.FieldName);
+                }
+            }
 
             var chainTop = group;
             while (chainTop.Parent != null)

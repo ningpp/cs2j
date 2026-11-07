@@ -351,19 +351,37 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
         //    holders would produce CS1729: 'Class' has no 1-parameter constructor).
         var instanceDeclarations = CollectInstanceDeclarations(hoisted);
         var creationReplacements = new Dictionary<ObjectCreationExpressionSyntax, ObjectCreationExpressionSyntax>();
-        var thisNameClassPairs = plan.EvolvedGroups
-            .Where(static g => g.CapturesThis)
-            .Select(static g => (g.InstanceName, g.ClassName))
-            .ToHashSet();
-        if (thisNameClassPairs.Count > 0)
+        // Merge keys on (host type chain, class) only: a class that captured `this`
+        // has a single constructor requiring it, so EVERY instance created from that
+        // class in the same host must pass `this` (the same class may hold several
+        // sibling capture instances, e.g. `__cs2jClosure0` / `__cs2jClosure0_2`).
+        // Detect the requirement from the emitted class itself (`_cs2jThis` field)
+        // instead of the plan: consolidation may merge several sibling plans into
+        // one class, so only one of them carries CapturesThis.
+        var thisClassKeys = new HashSet<(string HostChain, string ClassName)>();
+        foreach (var holder in hoisted.DescendantNodes().OfType<TypeDeclarationSyntax>())
         {
-            foreach (var (declaration, name, className) in instanceDeclarations)
+            var hasThisField = holder.Members.OfType<FieldDeclarationSyntax>().Any(f =>
+                f.Declaration.Variables.Any(v => v.Identifier.ValueText == "_cs2jThis"));
+            if (!hasThisField)
+                continue;
+            var hostChain = string.Join("/", holder.Ancestors().OfType<TypeDeclarationSyntax>()
+                .Select(static t => t.Identifier.Text));
+            thisClassKeys.Add((hostChain, holder.Identifier.Text));
+        }
+        if (thisClassKeys.Count > 0)
+        {
+            foreach (var (declaration, _, className) in instanceDeclarations)
             {
-                if (!thisNameClassPairs.Contains((name, className)))
+                var hostChain = string.Join("/", declaration.Ancestors().OfType<TypeDeclarationSyntax>()
+                    .Select(static t => t.Identifier.Text));
+                if (!thisClassKeys.Contains((hostChain, className)))
                     continue;
 
                 var creation = (ObjectCreationExpressionSyntax)
                     declaration.Declaration.Variables[0].Initializer!.Value;
+                if (creation.ArgumentList?.Arguments.Count > 0)
+                    continue;
                 creationReplacements[creation] = creation.WithArgumentList(
                     SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(
                         SyntaxFactory.Argument(SyntaxFactory.ThisExpression()))));
@@ -432,6 +450,11 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
 
         var insertionRewriter = new StatementInsertionRewriter(insertBefore, insertAfter, creationReplacements);
         var rewritten = (CompilationUnitSyntax)insertionRewriter.Visit(hoisted)!;
+        // Consolidation may merge sibling capture instances into one class, but a
+        // lifted method body can still reference a field through a SIBLING
+        // instance name (`__cs2jClosure0._cs2jCap_x` inside the class that owns
+        // it). Rewrite such accesses to the class's own field.
+        rewritten = (CompilationUnitSyntax)new SiblingCaptureRewriter().Visit(rewritten)!;
 
         // 5. Freeze the site plans for the delegate-site stage (D8). Site plans
         //    carry MODEL spans on purpose: DelegateSiteRewriteStage re-anchors
@@ -447,6 +470,47 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
             bag.InstanceLambdas.AddRange(group.Sites);
 
         return new ClosureStageResult(rewritten, true);
+    }
+
+    /// <summary>
+    /// Rewrites sibling-instance capture reads inside a display class to the
+    /// class's own fields (consolidation merges sibling instances).
+    /// </summary>
+    private sealed class SiblingCaptureRewriter : CSharpSyntaxRewriter
+    {
+        public override SyntaxNode? VisitClassDeclaration(ClassDeclarationSyntax node)
+        {
+            var visited = (ClassDeclarationSyntax)base.VisitClassDeclaration(node)!;
+            var fields = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var field in visited.Members.OfType<FieldDeclarationSyntax>())
+                foreach (var variable in field.Declaration.Variables)
+                    fields.Add(variable.Identifier.ValueText);
+            if (fields.Count == 0)
+                return visited;
+            return new MemberCaptureCollapser(fields).Visit(visited);
+        }
+    }
+
+    private sealed class MemberCaptureCollapser : CSharpSyntaxRewriter
+    {
+        private readonly HashSet<string> _fields;
+
+        public MemberCaptureCollapser(HashSet<string> fields) => _fields = fields;
+
+        // Nested display classes own their own fields; do not collapse through them.
+        public override SyntaxNode? VisitClassDeclaration(ClassDeclarationSyntax node) => node;
+
+        public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
+        {
+            if (node.Expression is IdentifierNameSyntax { Identifier.ValueText: var root }
+                && root.StartsWith("__cs2jClosure", StringComparison.Ordinal)
+                && node.Name is IdentifierNameSyntax { Identifier.ValueText: var field }
+                && _fields.Contains(field))
+            {
+                return SyntaxFactory.IdentifierName(field).WithTriviaFrom(node);
+            }
+            return base.VisitMemberAccessExpression(node);
+        }
     }
 
     private static void AddSnapshot(

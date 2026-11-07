@@ -350,6 +350,36 @@ class Sample {
         Assert.Contains("props.set(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void RefArgument_InsideBlockLambda_ExpandsHolder()
+    {
+        // ReadValueTests wraps JsonSerializer.Deserialize(ref reader, options) in
+        // an Assert.Throws block lambda. Holder expansion used to be disabled for
+        // every node inside a lambda, so the call kept passing the bare value to a
+        // compat slot declared as ObjectHolder<Utf8JsonReader> (javac: 找不到合适的方法).
+        // A block-bodied lambda can host the pre/post statements, so it must expand.
+        var result = Convert(@"
+using System;
+class Sample {
+    static int Read(ref int value) => value;
+    static void Run(Action action) { }
+    static void Use() {
+        Run(() => {
+            int x = 1;
+            Read(ref x);
+        });
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        var code = result.GeneratedCode;
+        Assert.Contains("read(_xRef)", code, StringComparison.Ordinal);
+        Assert.Contains("_xRef.value", code, StringComparison.Ordinal);
+        // pre/post statements stay inside the lambda block.
+        var lambdaStart = code.IndexOf("-> {", StringComparison.Ordinal);
+        Assert.True(lambdaStart >= 0, code);
+        Assert.True(code.IndexOf("_xRef", StringComparison.Ordinal) > lambdaStart, code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

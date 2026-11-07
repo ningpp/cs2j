@@ -76,6 +76,18 @@ public class AssignmentTransformer : IIRExpressionTransformer
         }
         if (symbol is IPropertySymbol prop)
             return Property(a, op, prop, context);
+        // C# ValueTuple element fields are mutable; Java tuples (vavr TupleN) are
+        // immutable, so `value.Item1 = x` becomes `value = value.update1(x)`.
+        if (op == "="
+            && lhs is MemberAccessExpressionSyntax tupleAccess
+            && symbol is IFieldSymbol { ContainingType.IsTupleType: true } tupleField
+            && tupleField.Name.StartsWith("Item", StringComparison.Ordinal)
+            && int.TryParse(tupleField.Name.AsSpan(4), out var tupleIndex)
+            && tupleIndex is >= 1 and <= 7)
+        {
+            var tupleReceiver = f.Transform(tupleAccess.Expression, context);
+            return $"{tupleReceiver} = {tupleReceiver}.update{tupleIndex}({f.Transform(rhs, context)})";
+        }
         if (op == "=" && lhs is ImplicitElementAccessSyntax iea)
             return $"{(iea.ArgumentList.Arguments.Count == 1 ? "put" : "set")}(" +
                    $"{string.Join(", ", iea.ArgumentList.Arguments.Select(x => f.Transform(x.Expression, context)))}, " +
@@ -145,6 +157,16 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // （真实链 FunctionQuery/StringFunctions 克隆构造器 `_args = tmp`）。
         rightText = IListCoercion.CoerceOrSame(
             rhs, rightText, context.GetTypeInfo(lhs).Type, context);
+        // C# generic Dictionary → non-generic IDictionary slot: the Java carrier
+        // does not implement the unrelated non-generic interface.
+        if (op == "="
+            && context.GetTypeInfo(lhs).Type?.ToDisplayString().TrimEnd('?') == "System.Collections.IDictionary"
+            && context.GetTypeInfo(rhs).Type is INamedTypeSymbol { Name: "Dictionary" } rhsDictionary
+            && rhsDictionary.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic")
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpIDictionary");
+            rightText = $"CSharpIDictionary.fromAny({rightText})";
+        }
         // IEnumerable<T> 赋值槽位：与参数/声明/返回位一致的载体适配
         // （真实链 CycleRemovalWithConstraints `constrainedEdges = constraints;`，
         // 生成 Set<T> 落进 CSharpGenericIterable<T> 字段）。
@@ -163,13 +185,17 @@ public class AssignmentTransformer : IIRExpressionTransformer
             && seqTarget.TypeArguments.Length == 1)
         {
             context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-            rightText = $"CSharpGenericIterable.<{context.MapType(seqTarget.TypeArguments[0])}>fromAnyTyped({rightText})";
+            rightText = $"CSharpGenericIterable.<{context.MapTypeBoxed(seqTarget.TypeArguments[0])}>fromAnyTyped({rightText})";
         }
         // C# 隐式数值 → decimal 赋值（真实链 SchemaSetCompiler `maxOccurs = 0;`、
         // RangeContentValidator `rangeCounters[...] = 0;`）：Java 无基元→引用提升，
         // 须经 compat Decimal 工厂包装。
         rightText = TypeOperationTransformer.TryCoerceToDecimal(
             rhs, rightText, context.GetTypeInfo(lhs).Type, context) ?? rightText;
+        // C# 隐式常量 → 枚举赋值（`_platforms = 0;`）：Java 枚举是值类，须 fromValue 包装。
+        if (op == "=")
+            rightText = TypeOperationTransformer.TryCoerceEnumConstant(
+                rhs, rightText, context.GetTypeInfo(lhs).Type, context) ?? rightText;
         if (op == "=" && JavaNarrowTarget(lhs, context) is { } narrowTarget)
         {
             // C# implicit/explicit narrowing conversions to byte/short/char have no
@@ -355,6 +381,11 @@ public class AssignmentTransformer : IIRExpressionTransformer
         // 须包 CSharpIList.from 适配视图（真实链 BalloonLayout
         // `NonTreeEdges = tree.NonTreeEdges;`）。
         right = IListCoercion.CoerceOrSame(a.Right, right, p.Type, c);
+        // C# Memory<T> → ReadOnlyMemory<T> property slot.
+        right = ArgumentTransformer.CoerceImplicitReadOnlyMemory(
+            right, a.Right, c, p.SetMethod is { Parameters.Length: 1 } memorySetter
+                ? memorySetter.Parameters[0]
+                : null);
         // C# 隐式数值 → decimal 属性赋值（真实链 XmlSchemaInference
         // `el.MinOccurs = 0`、SchemaSetCompiler `virtualSeq.MinOccurs = 1`）：
         // setter 形参落 compat Decimal，数值须经 Decimal.valueOf 包装。
@@ -415,7 +446,50 @@ public class AssignmentTransformer : IIRExpressionTransformer
             return $"{(receiver.Length == 0 ? "this." : receiver)}{field} = {right}";
         }
         if (op == "=")
+        {
+            right = ArgumentTransformer.CoerceNumericLiteralText(right, p.Type, c);
+            right = TypeOperationTransformer.TryCoerceEnumConstant(a.Right, right, p.Type, c) ?? right;
+            var target = p.SetMethod is { Parameters.Length: 1 } setter ? setter.Parameters[0].Type : p.Type;
+            if (target is INamedTypeSymbol nullableTarget
+                && nullableTarget.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T
+                && nullableTarget.TypeArguments.Length == 1)
+            {
+                target = nullableTarget.TypeArguments[0];
+            }
+            if (target is INamedTypeSymbol { SpecialType: SpecialType.None } dateTimeOffsetTarget
+                && dateTimeOffsetTarget.ToDisplayString() == "System.DateTimeOffset"
+                && c.GetTypeInfo(a.Right).Type is INamedTypeSymbol { SpecialType: SpecialType.System_DateTime })
+            {
+                c.AddImport("io.github.ningpp.compat.CSharpDateTimeOffset");
+                right = $"CSharpDateTimeOffset.fromDateTime({right})";
+            }
+            else if (c.GetTypeInfo(a.Right).Type is IArrayTypeSymbol)
+            {
+                var mappedTarget = c.MapType(p.Type);
+                ITypeSymbol? targetElement = p.Type is INamedTypeSymbol { TypeArguments.Length: 1 } namedTarget
+                    ? namedTarget.TypeArguments[0]
+                    : null;
+                if (mappedTarget.StartsWith("CSharpICollection", StringComparison.Ordinal))
+                {
+                    c.AddImport("io.github.ningpp.compat.CSharpICollection");
+                    right = right.TrimStart().StartsWith("CSharpICollection.", StringComparison.Ordinal)
+                        ? right
+                        : targetElement == null
+                            ? $"CSharpICollection.fromArray({right})"
+                            : $"CSharpICollection.<{c.MapTypeBoxed(targetElement)}>fromArray({right})";
+                }
+                else if (mappedTarget.StartsWith("CSharpGenericIterable", StringComparison.Ordinal))
+                {
+                    c.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                    right = right.TrimStart().StartsWith("CSharpGenericIterable.", StringComparison.Ordinal)
+                        ? right
+                        : targetElement == null
+                            ? $"CSharpGenericIterable.fromAnyTyped({right})"
+                            : $"CSharpGenericIterable.<{c.MapTypeBoxed(targetElement)}>fromAnyTyped({right})";
+                }
+            }
             return PropertySetterCall(a.Left, p, right, c);
+        }
         return $"{receiver}{setterName}({receiver}{getterName}() {op[..^1]} {CompoundRightOperand(a.Right, right)})";
     }
 

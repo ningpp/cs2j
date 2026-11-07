@@ -235,6 +235,11 @@
             "imports": ["io.github.ningpp.compat.ImmutableHashSet"]
         },
         {
+            "csharp": "System.Collections.Immutable.ImmutableSortedSet",
+            "java": "ImmutableSortedSet",
+            "imports": ["io.github.ningpp.compat.ImmutableSortedSet"]
+        },
+        {
             "csharp": "System.Collections.Immutable.ImmutableSortedSet`1",
             "java": "ImmutableSortedSet",
             "imports": ["io.github.ningpp.compat.ImmutableSortedSet"]
@@ -585,6 +590,111 @@
             "java": "HybridDictionary",
             "imports": [
                 "io.github.ningpp.compat.HybridDictionary"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Specialized.BitVector32",
+            "java": "BitVector32",
+            "imports": [
+                "io.github.ningpp.compat.BitVector32"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Specialized.ListDictionary",
+            "java": "ListDictionary",
+            "imports": [
+                "io.github.ningpp.compat.ListDictionary"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Specialized.NameValueCollection",
+            "java": "NameValueCollection",
+            "imports": [
+                "io.github.ningpp.compat.NameValueCollection"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Specialized.StringDictionary",
+            "java": "StringDictionary",
+            "imports": [
+                "io.github.ningpp.compat.StringDictionary"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Specialized.OrderedDictionary",
+            "java": "OrderedDictionary",
+            "imports": [
+                "io.github.ningpp.compat.OrderedDictionary"
+            ]
+        },
+        {
+            "csharp": "System.Collections.IOrderedDictionary",
+            "java": "IOrderedDictionary",
+            "imports": [
+                "io.github.ningpp.compat.IOrderedDictionary"
+            ]
+        },
+        {
+            "csharp": "System.Collections.ObjectModel.Collection`1",
+            "java": "CSharpList",
+            "imports": [
+                "io.github.ningpp.compat.CSharpList"
+            ]
+        },
+        {
+            "csharp": "System.Collections.ObjectModel.ObservableCollection`1",
+            "java": "ObservableCollection",
+            "imports": [
+                "io.github.ningpp.compat.ObservableCollection"
+            ]
+        },
+        {
+            "csharp": "System.Collections.ObjectModel.ReadOnlyCollection`1",
+            "java": "ReadOnlyCollection",
+            "imports": [
+                "io.github.ningpp.compat.ReadOnlyCollection"
+            ]
+        },
+        {
+            "csharp": "System.Collections.ObjectModel.ReadOnlyObservableCollection`1",
+            "java": "ReadOnlyObservableCollection",
+            "imports": [
+                "io.github.ningpp.compat.ReadOnlyObservableCollection"
+            ]
+        },
+        {
+            "csharp": "System.Collections.ObjectModel.ReadOnlyDictionary`2",
+            "java": "ReadOnlyDictionary",
+            "imports": [
+                "io.github.ningpp.compat.ReadOnlyDictionary"
+            ]
+        },
+        {
+            "csharp": "System.Collections.ObjectModel.KeyedCollection`2",
+            "java": "KeyedCollection",
+            "imports": [
+                "io.github.ningpp.compat.KeyedCollection"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Concurrent.BlockingCollection`1",
+            "java": "BlockingCollection",
+            "imports": [
+                "io.github.ningpp.compat.BlockingCollection"
+            ]
+        },
+        {
+            "csharp": "System.Text.Unicode.UnicodeRange",
+            "java": "UnicodeRange",
+            "imports": [
+                "io.github.ningpp.compat.UnicodeRange"
+            ]
+        },
+        {
+            "csharp": "System.Text.Unicode.UnicodeRanges",
+            "java": "UnicodeRanges",
+            "imports": [
+                "io.github.ningpp.compat.UnicodeRanges"
             ]
         },
         {
@@ -1176,6 +1286,41 @@
             ]
         },
         {
+            "csharp": "Newtonsoft.Json.Linq.JToken",
+            "java": "JToken",
+            "imports": [
+                "io.github.ningpp.compat.JToken"
+            ]
+        },
+        {
+            "csharp": "Newtonsoft.Json.Linq.JObject",
+            "java": "JObject",
+            "imports": [
+                "io.github.ningpp.compat.JObject"
+            ]
+        },
+        {
+            "csharp": "Newtonsoft.Json.Linq.JArray",
+            "java": "JArray",
+            "imports": [
+                "io.github.ningpp.compat.JArray"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Concurrent.ConcurrentBag`1",
+            "java": "ConcurrentBag",
+            "imports": [
+                "io.github.ningpp.compat.ConcurrentBag"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Specialized.IOrderedDictionary",
+            "java": "IOrderedDictionary",
+            "imports": [
+                "io.github.ningpp.compat.IOrderedDictionary"
+            ]
+        },
+        {
             "csharp": "Newtonsoft.Json.JsonToken",
             "java": "JsonToken",
             "imports": [
@@ -1201,6 +1346,20 @@
             "java": "JsonTextWriter",
             "imports": [
                 "io.github.ningpp.compat.JsonTextWriter"
+            ]
+        },
+        {
+            "csharp": "Newtonsoft.Json.JsonConverter",
+            "java": "JsonConverter",
+            "imports": [
+                "io.github.ningpp.compat.JsonConverter"
+            ]
+        },
+        {
+            "csharp": "Newtonsoft.Json.JsonConverter`1",
+            "java": "JsonConverter",
+            "imports": [
+                "io.github.ningpp.compat.JsonConverter"
             ]
         },
         {
@@ -6926,6 +7085,26 @@
             "javaMethod": "removeValue"
         },
         {
+            "type": "System.Collections.Immutable.IImmutableList`1",
+            "method": "Remove",
+            "javaMethod": "removeCSharp"
+        },
+        {
+            "type": "System.Collections.Immutable.IImmutableSet`1",
+            "method": "Remove",
+            "javaMethod": "removeCSharp"
+        },
+        {
+            "type": "System.Collections.Immutable.IImmutableDictionary`2",
+            "method": "Remove",
+            "javaMethod": "removeCSharp"
+        },
+        {
+            "type": "System.Collections.Immutable.IImmutableDictionary`2",
+            "method": "Clear",
+            "javaMethod": "clearCSharp"
+        },
+        {
             "type": "System.Collections.Generic.List`1",
             "method": "ToArray",
             "javaMethod": "toArrayCs"
@@ -9557,6 +9736,16 @@
             "javaMethod": "superset"
         },
         {
+            "type": "System.Collections.Specialized.IOrderedDictionary",
+            "method": "Count",
+            "javaMethod": "size"
+        },
+        {
+            "type": "System.Collections.IOrderedDictionary",
+            "method": "Count",
+            "javaMethod": "size"
+        },
+        {
             "type": "Xunit.Assert",
             "method": "Throws",
             "javaMethod": "throws_"
@@ -9748,6 +9937,22 @@
             "javaMethod": "CultureInfo.getInvariantCulture",
             "imports": [
                 "io.github.ningpp.compat.CultureInfo"
+            ]
+        },
+        {
+            "type": "System.Exception",
+            "method": "Data",
+            "javaMethod": "ExceptionCompat.getData",
+            "imports": [
+                "io.github.ningpp.compat.ExceptionCompat"
+            ]
+        },
+        {
+            "type": "System.Exception",
+            "method": "get_Data",
+            "javaMethod": "ExceptionCompat.getData",
+            "imports": [
+                "io.github.ningpp.compat.ExceptionCompat"
             ]
         },
         {

@@ -333,7 +333,10 @@ public class EnumTransformer : ITypeTransformer
 
     private static string RenderLiteral(object raw, string storage)
     {
-        var signed = Convert.ToInt64(raw);
+        // Roslyn reports ulong constants as ulong and long.MinValue as long; both
+        // overflow Convert.ToInt64/ToUInt64 in one direction, which used to abort
+        // the whole long/ulong enum emission (SampleEnumInt64/UInt64 vanished).
+        var signed = ToInt64Bits(raw);
         switch (storage)
         {
             case "byte":
@@ -341,16 +344,32 @@ public class EnumTransformer : ITypeTransformer
             case "char":
                 return $"({storage}){signed}";
             case "long":
-                var unsigned = Convert.ToUInt64(raw);
-                return unsigned > long.MaxValue
-                    ? $"(long)0x{unsigned:X}L"
-                    : $"{(long)unsigned}L";
+                if (raw is ulong unsignedValue)
+                {
+                    return unsignedValue > long.MaxValue
+                        ? $"(long)0x{unsignedValue:X}L"
+                        : $"{signed}L";
+                }
+                return $"{signed}L";
             default: // int
                 return signed is < int.MinValue or > int.MaxValue
                     ? $"(int){signed}L"
                     : signed.ToString();
         }
     }
+
+    private static long ToInt64Bits(object raw) => raw switch
+    {
+        ulong unsigned => unchecked((long)unsigned),
+        _ => Convert.ToInt64(raw),
+    };
+
+    private static ulong ToUInt64Bits(object raw) => raw switch
+    {
+        ulong unsigned => unsigned,
+        long signed => unchecked((ulong)signed),
+        _ => unchecked((ulong)Convert.ToInt64(raw)),
+    };
 
     private static JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)
     {

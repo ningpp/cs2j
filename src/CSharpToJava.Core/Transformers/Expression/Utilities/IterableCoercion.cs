@@ -49,6 +49,12 @@ internal static class IterableCoercion
         if (!IsGenericIterableSlot(target, context))
             return false;
 
+        // An ARRAY slot needs no adapter: Java arrays are covariant, and the
+        // element classes (CSharpList et al.) implement the carrier interface, so
+        // `List<T>[] → IEnumerable<T>[]` assigns directly.
+        if (target is IArrayTypeSymbol)
+            return false;
+
         if (source.IsKind(SyntaxKind.NullLiteralExpression))
             return false;
 

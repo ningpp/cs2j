@@ -232,8 +232,200 @@ public partial class ArgumentTransformer
         {
             SyntaxKind.OutKeyword => TransformOutArgument(arg, argExpr, context, transformer, parameterSymbol),
             SyntaxKind.RefKeyword => TransformRefArgument(arg, argExpr, context, transformer, parameterSymbol),
-            _ => transformer.Transform(arg.Expression, context)
+            _ => CoerceArgumentConversions(
+                transformer.Transform(arg.Expression, context), arg, context, parameterSymbol)
         };
+    }
+
+    /// <summary>
+    /// C# implicit integer-literal conversions: a bare literal argument passed to
+    /// a long/short/byte slot (including List&lt;long&gt;.Add(0), whose parameter is
+    /// the erased type parameter) must carry the Java width suffix/cast, otherwise
+    /// javac rejects the int literal.
+    /// </summary>
+    private static string CoerceNumericLiteral(
+        string rendered,
+        ExpressionSyntax arg,
+        ConversionContext context,
+        IParameterSymbol? parameter)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(rendered, @"^-?\d+$"))
+            return rendered;
+
+        var declared = parameter?.Type is ITypeParameterSymbol
+            ? context.GetTypeInfo(arg).ConvertedType
+            : parameter?.Type;
+        return CoerceNumericLiteralText(rendered, declared, context);
+    }
+
+    /// <summary>
+    /// Applies the Java width suffix/cast for a bare integer literal that a C#
+    /// implicit conversion targets at a wider/narrower numeric slot.
+    /// </summary>
+    internal static string CoerceNumericLiteralText(
+        string rendered, ITypeSymbol? target, ConversionContext context)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(rendered, @"^-?\d+$"))
+            return rendered;
+
+        var declared = target;
+        if (declared is INamedTypeSymbol nullable && IsNullableOfT(nullable))
+            declared = nullable.TypeArguments[0];
+        if (declared is null)
+            return rendered;
+
+        // The Java carrier decides the width: ushort/byte widen to int (Integer),
+        // short stays short (Short), sbyte stays byte (Byte).
+        return context.MapType(declared) switch
+        {
+            "long" or "Long" => rendered + "L",
+            "short" or "Short" => $"(short)({rendered})",
+            "byte" or "Byte" => $"(byte)({rendered})",
+            _ => rendered,
+        };
+    }
+
+    private static bool IsNullableOfT(INamedTypeSymbol type) =>
+        type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
+
+    /// <summary>
+    /// Shared implicit-conversion pass for call sites that render arguments
+    /// without going through <see cref="TransformArgumentList"/>.
+    /// </summary>
+    internal static string CoerceArgumentConversions(
+        string rendered,
+        ArgumentSyntax arg,
+        ConversionContext context,
+        IParameterSymbol? parameter)
+        => CoerceArgumentConversions(rendered, arg.Expression, context, parameter);
+
+    /// <summary>
+    /// Shared implicit-conversion pass for non-argument positions that still call
+    /// a compat slot (object-initializer property setters).
+    /// </summary>
+    internal static string CoerceArgumentConversions(
+        string rendered,
+        ExpressionSyntax value,
+        ConversionContext context,
+        IParameterSymbol? parameter)
+        => CoerceImplicitReadOnlyMemory(
+            CoerceArrayToCollection(
+                CoerceNumericLiteral(
+                    CoerceImplicitDateTimeOffset(
+                        TypeOperationTransformer.TryCoerceEnumConstant(
+                            value, rendered, parameter?.Type, context) ?? rendered,
+                        value, context, parameter),
+                    value, context, parameter),
+                value, context, parameter),
+            value, context, parameter);
+
+    /// <summary>
+    /// C# implicitly converts <c>Memory&lt;T&gt;</c> to <c>ReadOnlyMemory&lt;T&gt;</c>;
+    /// the compat classes are unrelated, so bridge through asReadOnlyMemory().
+    /// </summary>
+    internal static string CoerceImplicitReadOnlyMemory(
+        string rendered,
+        ExpressionSyntax value,
+        ConversionContext context,
+        IParameterSymbol? parameter)
+    {
+        if (parameter is not { Type: INamedTypeSymbol target }
+            || target.OriginalDefinition.ToDisplayString() != "System.ReadOnlyMemory<T>")
+        {
+            return rendered;
+        }
+        if (context.GetTypeInfo(value).Type is not INamedTypeSymbol source
+            || source.OriginalDefinition.ToDisplayString() != "System.Memory<T>")
+        {
+            return rendered;
+        }
+        return $"{rendered}.asReadOnlyMemory()";
+    }
+
+    /// <summary>
+    /// C# arrays implicitly implement ICollection&lt;T&gt;/IEnumerable&lt;T&gt;; the
+    /// compat carriers are unrelated interfaces, so an array argument to a mapped
+    /// collection slot needs the adapter (real chain: SimpleTestClass setting
+    /// ICollection&lt;string&gt; properties from `new[] { "Hello" }`).
+    /// </summary>
+    private static string CoerceArrayToCollection(
+        string rendered,
+        ExpressionSyntax arg,
+        ConversionContext context,
+        IParameterSymbol? parameter)
+    {
+        if (parameter is null || parameter.Type is ITypeParameterSymbol)
+            return rendered;
+        if (context.GetTypeInfo(arg).Type is not IArrayTypeSymbol array)
+            return rendered;
+        // Already adapted by an earlier coercion pass.
+        if (rendered.TrimStart().StartsWith("CSharpICollection.", StringComparison.Ordinal)
+            || rendered.TrimStart().StartsWith("CSharpGenericIterable.", StringComparison.Ordinal))
+            return rendered;
+
+        // CSharpList has a dedicated addRange(byte[]) overload that boxes each
+        // byte as an unsigned Integer; wrapping would erase to CSharpGenericIterable.
+        if (array.ElementType.SpecialType == SpecialType.System_Byte
+            && parameter.ContainingSymbol is IMethodSymbol { Name: "AddRange" }
+            && parameter.ContainingType is { } addRangeOwner
+            && context.MapType(addRangeOwner).StartsWith("CSharpList", StringComparison.Ordinal))
+            return rendered;
+
+        var mapped = context.MapType(parameter.Type);
+        // The slot's element type wins: C# arrays are covariant, so an
+        // SimpleTestClass[] may flow into IEnumerable<object>. A non-generic
+        // IEnumerable/ICollection slot maps to the Object-erased carrier and must
+        // stay witness-free (inference supplies Object).
+        var elementType = parameter.Type is INamedTypeSymbol { TypeArguments.Length: 1 } targetNamed
+            ? targetNamed.TypeArguments[0]
+            : null;
+        if (mapped.StartsWith("CSharpICollection", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpICollection");
+            return elementType == null
+                ? $"CSharpICollection.fromArray({rendered})"
+                : $"CSharpICollection.<{context.MapTypeBoxed(elementType)}>fromArray({rendered})";
+        }
+        if (mapped.StartsWith("CSharpGenericIterable", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            return elementType == null
+                ? $"CSharpGenericIterable.fromAnyTyped({rendered})"
+                : $"CSharpGenericIterable.<{context.MapTypeBoxed(elementType)}>fromAnyTyped({rendered})";
+        }
+        return rendered;
+    }
+
+    /// <summary>
+    /// C# implicitly converts DateTime to DateTimeOffset at argument positions
+    /// (metadata op_Implicit). Java has no such conversion: the compat types are
+    /// unrelated classes, so the argument must be wrapped explicitly.
+    /// </summary>
+    private static string CoerceImplicitDateTimeOffset(
+        string rendered,
+        ExpressionSyntax arg,
+        ConversionContext context,
+        IParameterSymbol? parameter)
+    {
+        if (parameter is not { Type: INamedTypeSymbol target })
+        {
+            return rendered;
+        }
+        if (IsNullableOfT(target))
+        {
+            target = target.TypeArguments[0] as INamedTypeSymbol;
+        }
+        if (target is null || target.ToDisplayString() != "System.DateTimeOffset")
+        {
+            return rendered;
+        }
+        var source = context.GetTypeInfo(arg).Type;
+        if (source is not INamedTypeSymbol { SpecialType: SpecialType.System_DateTime })
+        {
+            return rendered;
+        }
+        context.AddImport("io.github.ningpp.compat.CSharpDateTimeOffset");
+        return $"CSharpDateTimeOffset.fromDateTime({rendered})";
     }
 
     private static string ApplyStructValueCopyIfNeeded(

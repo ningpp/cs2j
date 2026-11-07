@@ -1,5 +1,7 @@
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Xunit;
 
 namespace CSharpToJava.Tests;
@@ -155,6 +157,49 @@ class C
         Assert.Contains("ExceptionCompat.getStackTrace(", code, StringComparison.Ordinal);
         Assert.Contains("ExceptionCompat.getSource(", code, StringComparison.Ordinal);
         Assert.DoesNotContain(".getCause()", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExpressionStatementContext_ChainedCallResult_IsDiscarded()
+    {
+        // dotnet-text-json JsonDocumentTests: `await DeserializeAsync<JsonDocument>(...).join();`
+        // — restoring the erased generic return with a cast around a discarded
+        // expression is not a valid Java statement ("不是语句").
+        Assert.True(StatementContextOfInvocation(
+            "class C { void M() { JsonSerializer.DeserializeAsync<JsonDocument>(s).Join(); } }"));
+    }
+
+    [Fact]
+    public void ExpressionStatementContext_TaskResultProperty_IsDiscarded()
+    {
+        // The await lowering renders `task.Result` as `task.join()`; its restored
+        // cast must also be dropped when the result is discarded.
+        Assert.True(StatementContextOfNode(
+            "class C { void M() { JsonSerializer.DeserializeAsync<JsonDocument>(s).Result; } }",
+            node => node is IdentifierNameSyntax { Identifier.Text: "Result" }));
+    }
+
+    [Fact]
+    public void ExpressionStatementContext_ValueContext_KeepsCast()
+    {
+        // In a value position (return/assignment/argument) the cast is required,
+        // so the helper must report false.
+        Assert.False(StatementContextOfNode(
+            "class C { int M() { return JsonSerializer.Deserialize<JsonDocument>(s).Value; } }",
+            node => node is GenericNameSyntax { Identifier.Text: "Deserialize" }));
+    }
+
+    private static bool StatementContextOfInvocation(string source)
+        => StatementContextOfNode(source,
+            node => node is InvocationExpressionSyntax
+                { Expression: MemberAccessExpressionSyntax { Name.Identifier.Text: "DeserializeAsync" } });
+
+    private static bool StatementContextOfNode(string source, Func<SyntaxNode, bool> predicate)
+    {
+        var root = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(source).GetRoot();
+        var node = root.DescendantNodes().First(predicate);
+        return CSharpToJava.Core.Transformers.Expression.InvocationExpressionTransformer
+            .IsExpressionStatementContext(node);
     }
 
     private static ConversionResult Convert(string sourceCode)

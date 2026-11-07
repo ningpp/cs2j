@@ -44,6 +44,18 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         var name = type is null or IErrorTypeSymbol ? (ts != null ? c.MapTypeFromSyntax(ts) : "Object") : c.MapType(type);
         var f = ExpressionTransformerFacade.Instance;
 
+        // new Task(Action<object>, object): Java CompletableFuture has no such
+        // constructor; schedule the action through the compat bridge (Start()
+        // then becomes a no-op, matching .NET's "already scheduled" semantics).
+        if (type?.ToDisplayString() == "System.Threading.Tasks.Task"
+            && al is { Arguments.Count: 2 })
+        {
+            c.AddImport("io.github.ningpp.compat.AsyncAwait");
+            var taskAction = f.Transform(al.Arguments[0].Expression, c);
+            var taskState = f.Transform(al.Arguments[1].Expression, c);
+            return $"AsyncAwait.run({taskAction}, {taskState})";
+        }
+
         // new string(char, int): Java has no such constructor; compat repeats the char.
         if (type?.SpecialType == SpecialType.System_String
             && al is { Arguments.Count: 2 }
@@ -83,16 +95,25 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
         if (init?.IsKind(SyntaxKind.ObjectInitializerExpression) == true)
         {
-            if (init.Expressions.Count == 0) return EmitNew(name, al, type as INamedTypeSymbol, c, constructor);
+            if (init.Expressions.Count == 0) return EmitNewOrTypeParam(name, al, type, c, constructor);
             var tmp = c.GenerateSyntheticName("_obj");
-            c.AddPreStatement($"{name} {tmp} = {EmitNew(name, al, type as INamedTypeSymbol, c, constructor)};");
+            c.AddPreStatement($"{name} {tmp} = {EmitNewOrTypeParam(name, al, type, c, constructor)};");
             foreach (AssignmentExpressionSyntax e in init.Expressions)
             {
                 if (e.Left is not IdentifierNameSyntax id) continue;
                 var v = f.Transform(e.Right, c);
-                c.AddPreStatement(c.GetSymbolInfo(id).Symbol is IPropertySymbol p
-                    ? $"{tmp}.set{char.ToUpperInvariant(p.Name[0])}{p.Name[1..]}({v});"
-                    : $"{tmp}.{id.Identifier.Text} = {v};");
+                if (c.GetSymbolInfo(id).Symbol is IPropertySymbol p)
+                {
+                    var setterParam = p.SetMethod is { Parameters.Length: 1 } setter
+                        ? setter.Parameters[0]
+                        : null;
+                    v = ArgumentTransformer.CoerceArgumentConversions(v, e.Right, c, setterParam);
+                    c.AddPreStatement($"{tmp}.set{char.ToUpperInvariant(p.Name[0])}{p.Name[1..]}({v});");
+                }
+                else
+                {
+                    c.AddPreStatement($"{tmp}.{id.Identifier.Text} = {v};");
+                }
             }
             return tmp;
         }
@@ -100,12 +121,33 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         {
             var tmp = c.GenerateSyntheticName("_col");
             c.AddPreStatement($"var {tmp} = new {name}();");
+            var elementType = type is INamedTypeSymbol { TypeArguments.Length: 1 } collectionType
+                ? collectionType.TypeArguments[0]
+                : null;
             foreach (var e in init.Expressions)
                 if (e is InitializerExpressionSyntax { Expressions.Count: 2 } kv)
                     c.AddPreStatement($"{tmp}.put({f.Transform(kv.Expressions[0], c)}, {f.Transform(kv.Expressions[1], c)});");
                 else
-                    c.AddPreStatement($"{tmp}.add({f.Transform(e, c)});");
+                    c.AddPreStatement(
+                        $"{tmp}.add({ArgumentTransformer.CoerceNumericLiteralText(f.Transform(e, c), elementType, c)});");
             return tmp;
+        }
+        return EmitNewOrTypeParam(name, al, type, c, constructor);
+    }
+
+    /// <summary>
+    /// The generic preprocessor rewrites `new T()` (no initializer) to
+    /// Activator.CreateInstance&lt;T&gt;(); a creation carrying an object
+    /// initializer still arrives here, and Java cannot instantiate a type
+    /// variable, so route it through the same compat factory.
+    /// </summary>
+    private static string EmitNewOrTypeParam(string name, ArgumentListSyntax? al, ITypeSymbol? type,
+        ConversionContext c, IMethodSymbol? constructor = null)
+    {
+        if (type is ITypeParameterSymbol typeParameter && al is { Arguments.Count: 0 })
+        {
+            c.AddImport("io.github.ningpp.compat.Activator");
+            return $"({typeParameter.Name}) Activator.createInstance()";
         }
         return EmitNew(name, al, type as INamedTypeSymbol, c, constructor);
     }
@@ -564,10 +606,26 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         var vals = init.Expressions.Select(e =>
         {
             var v = f.Transform(e, c);
+            // C# implicitly widens/narrows integer literals for the array element
+            // type (new long[] { 3 }); Java requires the matching suffix/cast.
+            if (System.Text.RegularExpressions.Regex.IsMatch(v, @"^-?\d+$"))
+            {
+                v = elem switch
+                {
+                    "Long" => v + "L",
+                    "Short" => $"(short){v}",
+                    "Byte" => $"(byte){v}",
+                    _ => v,
+                };
+            }
             // C# byte is unsigned: an element expression frequently lowers to a
             // widened int (0xF4 & 0xFF, UnsignedMath.toByteInt32, ...), which Java
-            // rejects in a byte[] initializer. Restore the narrowing cast.
-            if (elem == "byte" && !v.TrimStart().StartsWith("(byte)", StringComparison.Ordinal))
+            // rejects in a byte[] initializer. Restore the narrowing cast — but a
+            // jagged initializer (`new byte[][] { inner, inner }`) passes whole
+            // arrays here, so array-typed elements must stay untouched.
+            if (elem == "byte"
+                && c.GetTypeInfo(e).Type is not IArrayTypeSymbol
+                && !v.TrimStart().StartsWith("(byte)", StringComparison.Ordinal))
                 v = $"(byte) ({v})";
             return v;
         }).ToList();
