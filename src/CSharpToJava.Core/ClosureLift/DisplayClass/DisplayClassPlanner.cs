@@ -702,7 +702,8 @@ internal static class DisplayClassPlanner
             routineNames.Add(created.InstanceName);
         }
 
-        var methodTypeParameters = HolderPlanner.CollectMethodTypeParameters(f.Routine!);
+        // R1a: M2/M3 redeclare the routine arity through the unified resolver.
+        var methodTypeParameters = LiftedTypeParameterResolver.ResolveForRoutine(model, f.Routine!);
         var group = new DisplayClassPlan
         {
             HostType = f.HostType!,
@@ -712,9 +713,16 @@ internal static class DisplayClassPlanner
             InstanceName = ClosureLiftNaming.ReserveInstanceName(nextIndex, routineNames),
             PerIteration = false,
             ArrayForm = false,
-            MethodTypeParameters = methodTypeParameters,
-            MethodConstraintClauses = HolderPlanner.CollectMethodConstraintClauses(f.Routine!, methodTypeParameters),
-            ClassTypeParameters = CollectClassTypeParameters(f.HostType!, methodTypeParameters),
+            MethodTypeParameters = methodTypeParameters.Parameters
+                .Select(static parameter => parameter.Name)
+                .ToArray(),
+            MethodConstraintClauses = methodTypeParameters.Parameters
+                .Where(static parameter => parameter.Constraint != null)
+                .Select(static parameter => parameter.Constraint!)
+                .ToArray(),
+            ClassTypeParameters = CollectClassTypeParameters(
+                f.HostType!,
+                methodTypeParameters.Parameters.Select(static parameter => parameter.Name).ToArray()),
             ScopeAnchor = f.ScopeBlock,
         };
         registry.Fresh.Add(group);

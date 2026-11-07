@@ -44,7 +44,10 @@ internal static class HolderPlanner
         {
             var hostKey = HostTypeKey(model, member.HostType);
             var routineNames = CollectRoutineLocalNames(member.Routine);
-            var methodTypeParameters = CollectMethodTypeParameters(member.Routine);
+            // R1a: closure-lift M2/M3 consume the unified resolver (own routine
+            // arity + constraint closure + tri-state expressibility).
+            var methodTypeParameters =
+                LiftedTypeParameterResolver.ResolveForRoutine(model, member.Routine);
 
             var grouped = liftable
                 .GroupBy(BuildGroupKey)
@@ -70,9 +73,13 @@ internal static class HolderPlanner
                     PerIterationLoop = group
                         .Select(s => s.ForeachLoop)
                         .FirstOrDefault(loop => loop != null),
-                    MethodTypeParameters = methodTypeParameters,
-                    MethodConstraintClauses =
-                        CollectMethodConstraintClauses(member.Routine, methodTypeParameters),
+                    MethodTypeParameters = methodTypeParameters.Parameters
+                        .Select(static parameter => parameter.Name)
+                        .ToArray(),
+                    MethodConstraintClauses = methodTypeParameters.Parameters
+                        .Where(static parameter => parameter.Constraint != null)
+                        .Select(static parameter => parameter.Constraint!)
+                        .ToArray(),
                 };
 
                 var usedFieldNames = new HashSet<string>(StringComparer.Ordinal);
@@ -284,41 +291,6 @@ internal static class HolderPlanner
                 }
             }
         }
-    }
-
-    /// <summary>
-    /// Method type parameter names in declaration order; empty for non-generic
-    /// routines and accessors (holders nested at class level cannot see method
-    /// arity, so they redeclare these names as their own).
-    /// </summary>
-    internal static IReadOnlyList<string> CollectMethodTypeParameters(SyntaxNode routine)
-        => routine is MethodDeclarationSyntax { TypeParameterList: { } typeParameters }
-            ? typeParameters.Parameters
-                .Select(p => p.Identifier.Text)
-                .Where(t => t.Length > 0)
-                .ToArray()
-            : Array.Empty<string>();
-
-    /// <summary>
-    /// S-03: constraint clauses for the method type parameters a holder/display
-    /// class redeclares. Only clauses naming a redeclared parameter are carried —
-    /// copying the routine's whole list would emit `where` clauses for parameters
-    /// the synthesized type does not declare.
-    /// </summary>
-    internal static IReadOnlyList<TypeParameterConstraintClauseSyntax> CollectMethodConstraintClauses(
-        SyntaxNode routine,
-        IReadOnlyList<string> methodTypeParameters)
-    {
-        if (methodTypeParameters.Count == 0
-            || routine is not MethodDeclarationSyntax { ConstraintClauses.Count: > 0 } method)
-        {
-            return Array.Empty<TypeParameterConstraintClauseSyntax>();
-        }
-
-        var carried = new HashSet<string>(methodTypeParameters, StringComparer.Ordinal);
-        return method.ConstraintClauses
-            .Where(clause => carried.Contains(clause.Name.Identifier.Text))
-            .ToArray();
     }
 
     /// <summary>
