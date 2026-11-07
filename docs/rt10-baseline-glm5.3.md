@@ -3860,10 +3860,14 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
   `ReadOnlySpan<Integer> → Span<Integer>` 101、`int[] → byte[]` 69、
   `Utf8JsonReader → ObjectHolder<Utf8JsonReader>` 59、`找不到符号` 54、
   `byte[]/char[] → Object[]` 71。
-- `mvn clean package -e -fae` 补充：`dotnet-text-regularexpressions-tests`
-  （15.2s）与三个 uri 测试模块 SUCCESS；`dotnet-xml-read-content-as-tests`
-  （667 tests / 2 errors）与 `dotnet-xml-xpath*` 三个模块（各 1513 tests / 9 errors）
-  FAILURE，均为 `String → Double/Number` ClassCastException，同属既有转换债。
+- `mvn clean package -e -fae` 补充测试数字（均 0 failures）：
+  `dotnet-text-regularexpressions-tests` **7514/0/0**；uri 三模块
+  extended-functional **49**、functional **536**、unit **28**；
+  `dotnet-xml-convert-tests` **3850**、`dotnet-xml-document-tests` **537**、
+  xml root/serializer/modulecore/xmldiff 等小模块全绿。
+- 失败测试模块：`dotnet-xml-read-content-as-tests`（667 tests / 2 errors）与
+  `dotnet-xml-xpath*` 三个模块（各 1513 tests / 9 errors），均为
+  `String → Double/Number` ClassCastException，同属既有转换债。
 - 结论：本轮**未**达到"Maven 全绿"。后续波次首要门 = 清零 `dotnet-text-json`
   编译错误 + 上述 xml 测试错误，再重跑同一命令；不得跳过/删减测试过关。
 - ProjectTests / ConversionTests 未运行（ProjectTests 仅 `dotnet build`）。
