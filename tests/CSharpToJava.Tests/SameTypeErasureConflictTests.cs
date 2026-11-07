@@ -92,6 +92,96 @@ class Sample
         Assert.Equal("m_2", predicted);
     }
 
+    /// <summary>
+    /// 显式类型实参的泛型调用绑定到「构造后」的符号（Serialize&lt;object&gt;），
+    /// 其擦除签名仍必须按 Object 归类，调用点才会改名为声明侧的 serialize_2；
+    /// 否则序列化入口会递归回未改名的同名 Object 重载（真实链 JsonSerializer）。
+    /// </summary>
+    [Fact]
+    public void ConstructedGenericCall_BindsToRenamedErasureSibling()
+    {
+        const string source = """
+            using System;
+
+            class Sample
+            {
+                public static string Serialize(object value, Type inputType, string options = null)
+                {
+                    return Serialize<object>(value, inputType, options);
+                }
+
+                private static string Serialize<T>(in T value, Type inputType, string options)
+                {
+                    return "";
+                }
+            }
+            """;
+
+        var pipeline = new ConversionPipeline();
+        var result = pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = source,
+            FileName = "Sample.cs",
+            Options = new ConversionOptions(),
+        });
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode!;
+
+        Assert.Contains("String serialize_2(", code, StringComparison.Ordinal);
+        Assert.Contains("return serialize_2(value, inputType, options);", code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// 同名的多个擦除组（3 参 Object 重载 + 4 参 writer 重载）都要在调用点绑定到
+    /// 各自的 _2 改名：预扫描（PrepareErasureConflictRenames）与声明侧的签名必须
+    /// 都把泛型类型参数擦成 Object，否则某一组漏注册，调用点改错名（真实链
+    /// JsonSerializer.Serialize(Utf8JsonWriter, object, Type, options)）。
+    /// </summary>
+    [Fact]
+    public void MultipleErasureGroups_BindCallSitesToTheirRenamedSibling()
+    {
+        const string source = """
+            using System;
+
+            class Utf8JsonWriter { }
+
+            class Sample
+            {
+                public static string Serialize(object value, Type inputType, string options = null)
+                {
+                    return Serialize<object>(value, inputType, options);
+                }
+
+                public static void Serialize(Utf8JsonWriter writer, object value, Type inputType, string options = null)
+                {
+                    Serialize<object>(writer, value, inputType, options);
+                }
+
+                private static string Serialize<T>(in T value, Type inputType, string options)
+                {
+                    return "";
+                }
+
+                private static void Serialize<T>(Utf8JsonWriter writer, in T value, Type inputType, string options)
+                {
+                }
+            }
+            """;
+
+        var pipeline = new ConversionPipeline();
+        var result = pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = source,
+            FileName = "Sample.cs",
+            Options = new ConversionOptions(),
+        });
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        var code = result.GeneratedCode!;
+
+        Assert.Contains("return serialize_2(value, inputType, options);", code, StringComparison.Ordinal);
+        Assert.Contains("serialize_2(writer, value, inputType, options);", code, StringComparison.Ordinal);
+    }
+
     private static ConversionContext CreateContext(ConversionOptions options)
         => new(options, new TypeMappingRegistry(options.TypeMappingConfigPath));
 

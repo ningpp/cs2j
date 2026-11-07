@@ -643,6 +643,17 @@ public class MethodTransformer : IMemberTransformer
             "org.junit.jupiter.params.provider.MethodSource");
         ctx.AddImport("org.junit.jupiter.params.provider.Arguments");
 
+        // xUnit 用声明的默认值补足行里省略的尾部可选参数；JUnit 不会。
+        // InlineData 行是编译期常量（PadWithOptionalDefaults 静态补齐），而
+        // MemberData/ClassData 的行只有运行时才知道长度，故在 provider 里用
+        // XunitArguments.pad 补齐。
+        var (firstOptionalIndex, optionalDefaults) = CollectOptionalTrailingDefaults(methodDecl, ctx);
+        var testRowArguments = firstOptionalIndex >= 0 && optionalDefaults.Count > 0
+            ? $"XunitArguments.pad(__row, {firstOptionalIndex}, {string.Join(", ", optionalDefaults)})"
+            : "__row";
+        if (firstOptionalIndex >= 0 && optionalDefaults.Count > 0)
+            ctx.AddImport("csharp.xunit.XunitArguments");
+
         var body = new StringBuilder();
         var usesList = memberDataAttrs.Count > 0 || classDataAttrs.Count > 0 || xmlTestsAttrs.Count > 0;
         if (usesList)
@@ -651,11 +662,11 @@ public class MethodTransformer : IMemberTransformer
             foreach (var row in inlineRows)
                 body.AppendLine($"__rows.add({BuildArgumentsOf(PadWithOptionalDefaults(row, methodDecl), ctx)});");
             foreach (var attr in memberDataAttrs)
-                AppendMemberDataRows(body, attr, ctx);
+                AppendMemberDataRows(body, attr, ctx, testRowArguments);
             foreach (var attr in classDataAttrs)
-                AppendClassDataRows(body, attr, ctx);
+                AppendClassDataRows(body, attr, ctx, testRowArguments);
             foreach (var attr in xmlTestsAttrs)
-                AppendXmlTestsRows(body, attr, methodDecl, ctx);
+                AppendXmlTestsRows(body, attr, methodDecl, ctx, testRowArguments);
             body.Append("return __rows.stream();");
         }
         else
@@ -772,6 +783,37 @@ public class MethodTransformer : IMemberTransformer
     }
 
     /// <summary>
+    /// 收集尾部可选参数的默认值表达式（按参数顺序），供运行时数据源补齐行使用。
+    /// 可选参数之后若还有必选参数，xUnit 的补齐语义不再成立，返回 (-1, 空)。
+    /// </summary>
+    private static (int FirstIndex, IReadOnlyList<string> Defaults) CollectOptionalTrailingDefaults(
+        MethodDeclarationSyntax methodDecl, ConversionContext ctx)
+    {
+        var parameters = methodDecl.ParameterList.Parameters;
+        var firstOptional = -1;
+        for (var i = 0; i < parameters.Count; i++)
+        {
+            if (parameters[i].Default != null)
+            {
+                firstOptional = i;
+                break;
+            }
+        }
+        if (firstOptional < 0)
+            return (-1, Array.Empty<string>());
+
+        var defaults = new List<string>(parameters.Count - firstOptional);
+        for (var i = firstOptional; i < parameters.Count; i++)
+        {
+            var defaultValue = parameters[i].Default?.Value;
+            if (defaultValue == null)
+                return (-1, Array.Empty<string>());
+            defaults.Add(RenderTestDataExpression(defaultValue, ctx));
+        }
+        return (firstOptional, defaults);
+    }
+
+    /// <summary>
     /// xUnit lets an InlineData row omit trailing optional parameters and fills in
     /// the declared default; JUnit supplies no such mechanism and fails with
     /// ParameterResolutionException. Append each omitted parameter's default
@@ -827,7 +869,7 @@ public class MethodTransformer : IMemberTransformer
     }
 
     private static void AppendMemberDataRows(
-        StringBuilder body, AttributeSyntax attr, ConversionContext ctx)
+        StringBuilder body, AttributeSyntax attr, ConversionContext ctx, string testRowArguments)
     {
         var memberName = ExtractFirstMemberName(attr);
         if (string.IsNullOrEmpty(memberName))
@@ -842,11 +884,11 @@ public class MethodTransformer : IMemberTransformer
 
         var owner = ResolveMemberDataOwner(attr, ctx);
         var (call, resultType) = ResolveDataMemberCall(memberName!, owner, ctx, extraArguments);
-        AppendEnumerationLoop(body, call, resultType, ctx);
+        AppendEnumerationLoop(body, call, resultType, ctx, testRowArguments);
     }
 
     private static void AppendClassDataRows(
-        StringBuilder body, AttributeSyntax attr, ConversionContext ctx)
+        StringBuilder body, AttributeSyntax attr, ConversionContext ctx, string testRowArguments)
     {
         var typeOf = attr.ArgumentList?.Arguments.FirstOrDefault()?.Expression as TypeOfExpressionSyntax;
         if (typeOf == null)
@@ -856,7 +898,7 @@ public class MethodTransformer : IMemberTransformer
             return;
 
         var mapped = ctx.MapType(dataType);
-        AppendEnumerationLoop(body, $"new {mapped}()", dataType, ctx);
+        AppendEnumerationLoop(body, $"new {mapped}()", dataType, ctx, testRowArguments);
     }
 
     /// <summary>
@@ -866,7 +908,8 @@ public class MethodTransformer : IMemberTransformer
     /// Java call and feed it through the same enumeration loop as MemberData.
     /// </summary>
     private static void AppendXmlTestsRows(
-        StringBuilder body, AttributeSyntax attr, MethodDeclarationSyntax methodDecl, ConversionContext ctx)
+        StringBuilder body, AttributeSyntax attr, MethodDeclarationSyntax methodDecl, ConversionContext ctx,
+        string testRowArguments)
     {
         var memberName = ExtractFirstMemberName(attr);
         if (string.IsNullOrEmpty(memberName))
@@ -881,7 +924,7 @@ public class MethodTransformer : IMemberTransformer
         var javaMethodName = char.ToLowerInvariant(memberName![0]) + memberName[1..];
         var call = $"OLEDB.Test.ModuleCore.XmlInlineDataDiscoverer.generateTestCases(() -> {javaOwner}.{javaMethodName}())";
         // Result type is CSharpGenericIterable<Object[]> (from generateTestCases).
-        AppendEnumerationLoop(body, call, null, ctx);
+        AppendEnumerationLoop(body, call, null, ctx, testRowArguments);
     }
 
     /// <summary>
@@ -889,7 +932,7 @@ public class MethodTransformer : IMemberTransformer
     /// java.lang.Iterable），必须走 iterator()/moveNext()；数组与 java.util 集合走 for-each。
     /// </summary>
     private static void AppendEnumerationLoop(
-        StringBuilder body, string source, ITypeSymbol? sourceType, ConversionContext ctx)
+        StringBuilder body, string source, ITypeSymbol? sourceType, ConversionContext ctx, string testRowArguments)
     {
         var mapped = sourceType != null ? ctx.MapType(sourceType) : string.Empty;
 
@@ -897,7 +940,7 @@ public class MethodTransformer : IMemberTransformer
         {
             body.AppendLine($"for (Object[] __row : {source})");
             body.AppendLine("{");
-            body.AppendLine("    __rows.add(Arguments.of(__row));");
+            body.AppendLine($"    __rows.add(Arguments.of({testRowArguments}));");
             body.AppendLine("}");
             return;
         }
@@ -908,7 +951,7 @@ public class MethodTransformer : IMemberTransformer
         {
             body.AppendLine($"for (Object[] __row : {source})");
             body.AppendLine("{");
-            body.AppendLine("    __rows.add(Arguments.of(__row));");
+            body.AppendLine($"    __rows.add(Arguments.of({testRowArguments}));");
             body.AppendLine("}");
             return;
         }
@@ -919,7 +962,7 @@ public class MethodTransformer : IMemberTransformer
         body.AppendLine($"while ({enumerator}.moveNext())");
         body.AppendLine("{");
         body.AppendLine($"    Object[] __row = {enumerator}.getCurrent();");
-        body.AppendLine("    __rows.add(Arguments.of(__row));");
+        body.AppendLine($"    __rows.add(Arguments.of({testRowArguments}));");
         body.AppendLine("}");
     }
 
@@ -1699,7 +1742,11 @@ public class MethodTransformer : IMemberTransformer
     }
 
     private static string ErasedSignature(IMethodSymbol method, ConversionContext context) =>
-        string.Join(",", method.Parameters.Select(p => EraseJavaType(context.MapType(p.Type))));
+        string.Join(",", method.Parameters.Select(p =>
+            // 泛型方法的类型参数在 Java 擦除成 Object；声明侧（带符号的重载）
+            // 也按 Object 分组，这里必须一致，否则「泛型 TValue 参数 vs object
+            // 参数」的同签名重载不会被预测为改名（真实链 STJ Serialize 入口）。
+            p.Type is ITypeParameterSymbol ? "Object" : EraseJavaType(context.MapType(p.Type))));
 
     private static string EraseJavaType(string type)
     {

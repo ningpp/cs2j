@@ -4749,9 +4749,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     {
         if (context.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method)
             return null;
-        if (context.TryGetErasureConflictMethodName(method, out var renamed))
+        // 显式类型实参的调用（Serialize&lt;object&gt;(...)）绑定到的是「构造后」的符号，
+        // 而改名注册表/推导以原始定义登记：两者都要查，否则调用点会落回未改名的
+        // 同名重载（真实链 JsonSerializer 的 Serialize(object,...) 自递归）。
+        if (context.TryGetErasureConflictMethodName(method, out var renamed)
+            || context.TryGetErasureConflictMethodName(method.OriginalDefinition, out renamed))
             return renamed;
-        if (Member.MethodTransformer.TryPredictErasureConflictName(method, context, out var predicted))
+        if (Member.MethodTransformer.TryPredictErasureConflictName(method, context, out var predicted)
+            || Member.MethodTransformer.TryPredictErasureConflictName(
+                method.OriginalDefinition, context, out predicted))
             return predicted;
         return CompatCollectionConformance.IsRenamableRemove(method, context)
             ? Member.MethodTransformer.GetJavaMethodName(method.Name, method, context)

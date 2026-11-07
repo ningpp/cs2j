@@ -148,23 +148,17 @@ public class EnumHelper {
 
     /** Mirrors System.Enum.GetNames(Type) — constant names in declaration order. */
     public static String[] getNames(Class<?> enumType) {
-        if (enumType == null || !enumType.isEnum()) {
-            throw new IllegalArgumentException("Type must be an enum: " + enumType);
-        }
         Object[] constants = getValuesArray(enumType);
         String[] names = new String[constants.length];
         for (int i = 0; i < constants.length; i++) {
-            names[i] = ((Enum<?>) constants[i]).name();
+            names[i] = constantName(constants[i]);
         }
         return names;
     }
 
     /** Object[]-typed variant for call sites that consume values as an array. */
     public static Object[] getValuesArray(Class<?> enumType) {
-        if (enumType == null || !enumType.isEnum()) {
-            throw new IllegalArgumentException("Type must be an enum: " + enumType);
-        }
-        Object[] constants = enumType.getEnumConstants();
+        Object[] constants = enumConstants(enumType);
         int unmappedCount = 0;
         for (Object constant : constants) {
             if (isSyntheticUnmapped(constant)) {
@@ -191,7 +185,45 @@ public class EnumHelper {
     }
 
     private static boolean isSyntheticUnmapped(Object constant) {
-        return constant instanceof Enum<?> e && "_UNMAPPED".equals(e.name());
+        return "_UNMAPPED".equals(constantName(constant));
+    }
+
+    /**
+     * Constant objects of a Java enum or of a converter-generated pseudo-enum.
+     *
+     * <p>C# enums with explicit non-sequential values are emitted as final classes
+     * with static constants, {@code name()}/{@code ordinal()}/{@code getValue()}
+     * and a static {@code values()} (e.g. the converted JsonCommentHandling).
+     * Enum.GetValues / Enum.GetNames must work for that shape as well.</p>
+     */
+    private static Object[] enumConstants(Class<?> enumType) {
+        if (enumType == null) {
+            throw new IllegalArgumentException("Type must be an enum: null");
+        }
+        if (enumType.isEnum()) {
+            return enumType.getEnumConstants();
+        }
+        try {
+            Object[] values = (Object[]) enumType.getMethod("values").invoke(null);
+            if (values != null) {
+                return values;
+            }
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // Not a converter-generated enum shape: report the same argument error
+            // as the Java-enum-only overloads.
+        }
+        throw new IllegalArgumentException("Type must be an enum: " + enumType);
+    }
+
+    /** Constant name of a Java enum constant or a converter-generated pseudo-enum constant. */
+    private static String constantName(Object constant) {
+        if (constant == null) return null;
+        if (constant instanceof Enum<?> e) return e.name();
+        try {
+            return (String) constant.getClass().getMethod("name").invoke(constant);
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            return constant.toString();
+        }
     }
 
     /**

@@ -164,6 +164,13 @@ public class MemoryMarshal {
      * keep the reflective field-write path.</p>
      */
     public static <T> T read(ReadOnlySpan<Integer> span, Class<T> type) {
+        if (type.isPrimitive()) {
+            // C# MemoryMarshal.Read<int>(byteSpan) returns the primitive itself; the
+            // Java call site passes int.class (reachable only through the raw Class),
+            // and the value-class/reflective paths below cannot construct a primitive.
+            // JsonDocument.MetadataDb.getJsonTokenType reads its packed union this way.
+            return readPrimitive(span, type);
+        }
         if (type.isValue()) {
             T value = readValueClass(span, type);
             if (value != null) {
@@ -182,6 +189,30 @@ public class MemoryMarshal {
         } catch (ReflectiveOperationException e) {
             return null;
         }
+    }
+
+    /** Little-endian read of at most {@code count} bytes from a byte-backed span. */
+    private static int readUnsigned(ReadOnlySpan<Integer> span, int count) {
+        int value = 0;
+        int limit = Math.min(count, span.length());
+        for (int i = 0; i < limit; i++) {
+            value |= (span.get(i) & 0xFF) << (i * 8);
+        }
+        return value;
+    }
+
+    /** Boxed primitive read for a primitive {@code Class} token (see {@link #read(ReadOnlySpan, Class)}). */
+    @SuppressWarnings("unchecked")
+    private static <T> T readPrimitive(ReadOnlySpan<Integer> span, Class<T> type) {
+        if (type == int.class) return (T) Integer.valueOf(readUnsigned(span, 4));
+        if (type == long.class) return (T) Long.valueOf(readLong(span));
+        if (type == short.class) return (T) Short.valueOf((short) readUnsigned(span, 2));
+        if (type == byte.class) return (T) Byte.valueOf((byte) readUnsigned(span, 1));
+        if (type == char.class) return (T) Character.valueOf((char) readUnsigned(span, 2));
+        if (type == boolean.class) return (T) Boolean.valueOf(readUnsigned(span, 1) != 0);
+        if (type == float.class) return (T) Float.valueOf(Float.intBitsToFloat(readUnsigned(span, 4)));
+        if (type == double.class) return (T) Double.valueOf(Double.longBitsToDouble(readLong(span)));
+        throw new UnsupportedOperationException("MemoryMarshal.read does not support " + type.getName());
     }
 
     private static final int MAX_PROBE_COMBINATIONS = 1 << 13;

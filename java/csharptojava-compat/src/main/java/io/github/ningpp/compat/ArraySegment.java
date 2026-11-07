@@ -44,7 +44,19 @@ public final class ArraySegment<T> {
     /** Mirrors ArraySegment&lt;T&gt;.Array — the underlying byte[] when constructed from one. */
     @SuppressWarnings("unchecked")
     public T[] getArray() {
-        return byteArray != null ? (T[]) (Object) byteArray : array;
+        if (byteArray == null) {
+            return array;
+        }
+        // ArraySegment<byte> backs a primitive byte[] (C# byte[] is not an Object[]
+        // in Java), so casting it to T[] throws ClassCastException at the erased
+        // checkcast. Box a view instead: callers that null-check Array (e.g.
+        // JsonDocument.clearAndReturn) keep the C# non-null answer, while byte-array
+        // consumers use getByteArray().
+        Object[] boxed = new Object[byteArray.length];
+        for (int i = 0; i < byteArray.length; i++) {
+            boxed[i] = byteArray[i];
+        }
+        return (T[]) boxed;
     }
 
     /** The underlying byte[] for byte-array segments (call sites typed byte[]). */

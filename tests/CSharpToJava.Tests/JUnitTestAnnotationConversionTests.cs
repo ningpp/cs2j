@@ -86,6 +86,40 @@ public class JUnitTestAnnotationConversionTests
         }
         """;
 
+    /// <summary>
+    /// xUnit 允许 MemberData 行省略尾部可选参数并填声明的默认值（真实链：
+    /// Utf8JsonReaderTests.InvalidJson 的 maxDepth = 64）；JUnit 不做补齐。
+    /// </summary>
+    private const string OptionalParameterTheorySource = """
+        using System;
+        using System.Collections.Generic;
+        using Xunit;
+
+        namespace Xunit
+        {
+            public class TheoryAttribute : Attribute { }
+            public class MemberDataAttribute : Attribute
+            {
+                public MemberDataAttribute(string name) { }
+            }
+        }
+
+        public static class OptionalTheoryTests
+        {
+            public static IEnumerable<object[]> Rows()
+            {
+                return new object[][]
+                {
+                    new object[] { "{}", 1, 2 },
+                };
+            }
+
+            [Theory]
+            [MemberData(nameof(Rows))]
+            public static void Invalid(string json, int line, int position, int maxDepth = 64) { }
+        }
+        """;
+
     private static async Task<string> ConvertAsync(string source)
     {
         var results = await new ProjectConversionPipeline(new ConversionOptions())
@@ -126,6 +160,15 @@ public class JUnitTestAnnotationConversionTests
         Assert.Contains("private static java.util.stream.Stream<Arguments> __cs2jData_inline()", code);
         Assert.Contains("Arguments.of(1, \"a\")", code);
         Assert.Contains("Arguments.of(2, (Object) null)", code);
+    }
+
+    [Fact]
+    public async Task Theory_MemberData_ShortRow_PadsTrailingOptionalParameter()
+    {
+        var code = await ConvertAsync(OptionalParameterTheorySource);
+
+        Assert.Contains("XunitArguments.pad(__row, 3, 64)", code, StringComparison.Ordinal);
+        Assert.Contains("import csharp.xunit.XunitArguments;", code, StringComparison.Ordinal);
     }
 
     [Fact]

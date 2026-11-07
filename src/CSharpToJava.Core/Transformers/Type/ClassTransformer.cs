@@ -474,15 +474,14 @@ public class ClassTransformer : ITypeTransformer
                         var bridgeName = MethodTransformer.GetJavaMethodName(
                             declaration.Identifier.Text, symbol, context);
                         methods.Add((symbol, bridgeName,
-                            string.Join(",", symbol.Parameters.Select(p => EraseType(context.MapType(p.Type)))),
-                            null, true));
+                            ErasedParameterSignature(symbol, context), null, true));
                         continue;
                     }
                     if (methods.Any(m => SymbolEqualityComparer.Default.Equals(m.Symbol, symbol)))
                         continue;
 
                     var name = MethodTransformer.GetJavaMethodName(declaration.Identifier.Text, symbol, context);
-                    var signature = string.Join(",", symbol.Parameters.Select(p => EraseType(context.MapType(p.Type))));
+                    var signature = ErasedParameterSignature(symbol, context);
 
                     // compat 集合接口的 remove 是 boolean 形状（Collection.remove(Object) 与
                     // CSharpGenericIterable 的 default 同签名）：返回非 bool 的 C# Remove
@@ -554,6 +553,18 @@ public class ClassTransformer : ITypeTransformer
             }
         }
     }
+
+    /// <summary>
+    /// Java erasure of a parameter list: a generic method's type parameter erases to
+    /// Object. Declaration-time renaming (MethodTransformer.ErasedSignature) groups
+    /// "TValue" with "object"; the pre-scan must use the same signature, otherwise a
+    /// generic overload whose type argument is explicit (Serialize&lt;object&gt;) is not
+    /// pre-registered and the call site predicts a different suffix (real chain
+    /// STJ Serialize(Utf8JsonWriter, object, Class, options) recursion).
+    /// </summary>
+    private static string ErasedParameterSignature(IMethodSymbol symbol, ConversionContext context)
+        => string.Join(",", symbol.Parameters.Select(p =>
+            p.Type is ITypeParameterSymbol ? "Object" : EraseType(context.MapType(p.Type))));
 
     /// <summary>
     /// True when <paramref name="method"/> only assigns its single parameter to the

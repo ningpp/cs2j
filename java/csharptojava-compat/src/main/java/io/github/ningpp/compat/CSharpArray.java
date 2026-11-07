@@ -106,10 +106,13 @@ public final class CSharpArray implements Iterable<Object> {
         if (componentType.isPrimitive()) {
             // System.arraycopy cannot unbox: an Object[]/Integer[] source copied
             // into a primitive array (e.g. List<int>.ToArray() -> int[]) throws
-            // ArrayStoreException. Element-wise Array.set performs the widening
-            // or unboxing conversion the C# cast implies.
+            // ArrayStoreException. Array.set alone only widens boxed primitives, so
+            // an Integer element aimed at byte[] (the ArrayPool<byte>.Shared.Rent
+            // erasure shape) and the nulls of a rented Object[] both need the C#
+            // unboxing conversion: narrow through xxxValue() and map null to the
+            // primitive default.
             for (int i = 0; i < length; i++) {
-                Array.set(result, i, Array.get(source, i));
+                setPrimitiveElement(result, i, componentType, Array.get(source, i));
             }
         } else {
             System.arraycopy(source, 0, result, 0, length);
@@ -765,28 +768,66 @@ public final class CSharpArray implements Iterable<Object> {
         Class<?> componentType = primitiveArrayType.getComponentType();
         Object result = java.lang.reflect.Array.newInstance(componentType, len);
         for (int i = 0; i < len; i++) {
-            Object elem = java.lang.reflect.Array.get(value, i);
-            if (componentType == int.class) {
-                java.lang.reflect.Array.setInt(result, i, ((Number) elem).intValue());
-            } else if (componentType == long.class) {
-                java.lang.reflect.Array.setLong(result, i, ((Number) elem).longValue());
-            } else if (componentType == short.class) {
-                java.lang.reflect.Array.setShort(result, i, ((Number) elem).shortValue());
-            } else if (componentType == byte.class) {
-                java.lang.reflect.Array.setByte(result, i, ((Number) elem).byteValue());
-            } else if (componentType == float.class) {
-                java.lang.reflect.Array.setFloat(result, i, ((Number) elem).floatValue());
-            } else if (componentType == double.class) {
-                java.lang.reflect.Array.setDouble(result, i, ((Number) elem).doubleValue());
-            } else if (componentType == boolean.class) {
-                java.lang.reflect.Array.setBoolean(result, i, (Boolean) elem);
-            } else if (componentType == char.class) {
-                java.lang.reflect.Array.setChar(result, i, (Character) elem);
-            } else {
-                java.lang.reflect.Array.set(result, i, elem);
-            }
+            setPrimitiveElement(result, i, componentType, java.lang.reflect.Array.get(value, i));
         }
         return (T) result;
+    }
+
+    /**
+     * Writes one element into a primitive array with the C# unboxing conversion the
+     * erased cast implies: null becomes the primitive default, a Number narrows or
+     * widens through the matching {@code xxxValue()}, a Character round-trips
+     * through char/int, and a Boolean only fits boolean. Delegating to
+     * {@link Array#set} alone rejects narrowing (Integer into byte[]) and nulls.
+     */
+    private static void setPrimitiveElement(Object array, int index, Class<?> componentType, Object value) {
+        if (componentType == boolean.class) {
+            if (value != null && !(value instanceof Boolean)) {
+                throw new IllegalArgumentException(
+                        "Cannot convert " + value.getClass().getName() + " to boolean");
+            }
+            Array.setBoolean(array, index, value != null && (Boolean) value);
+            return;
+        }
+        if (componentType == char.class) {
+            if (value == null) {
+                Array.setChar(array, index, '\0');
+            } else if (value instanceof Character character) {
+                Array.setChar(array, index, character);
+            } else if (value instanceof Number number) {
+                Array.setChar(array, index, (char) number.intValue());
+            } else {
+                throw new IllegalArgumentException(
+                        "Cannot convert " + value.getClass().getName() + " to char");
+            }
+            return;
+        }
+        Number number;
+        if (value == null) {
+            number = null;
+        } else if (value instanceof Number boxedNumber) {
+            number = boxedNumber;
+        } else if (value instanceof Character character) {
+            number = (int) character;
+        } else {
+            throw new IllegalArgumentException(
+                    "Cannot convert " + value.getClass().getName() + " to " + componentType.getName());
+        }
+        if (componentType == byte.class) {
+            Array.setByte(array, index, number == null ? 0 : number.byteValue());
+        } else if (componentType == short.class) {
+            Array.setShort(array, index, number == null ? 0 : number.shortValue());
+        } else if (componentType == int.class) {
+            Array.setInt(array, index, number == null ? 0 : number.intValue());
+        } else if (componentType == long.class) {
+            Array.setLong(array, index, number == null ? 0L : number.longValue());
+        } else if (componentType == float.class) {
+            Array.setFloat(array, index, number == null ? 0f : number.floatValue());
+        } else if (componentType == double.class) {
+            Array.setDouble(array, index, number == null ? 0d : number.doubleValue());
+        } else {
+            throw new IllegalArgumentException("Cannot convert to primitive component type " + componentType);
+        }
     }
 
     // --- Array.Copy ---
