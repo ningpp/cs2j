@@ -3230,6 +3230,95 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
 - `D:\cs\r6b-probe\plain.log`、`D:\cs\r6b-probe\unified.log`（RunAfterIds 语义
   修正后的 CLI 行为探针，临时产物，未入库）。
 
+## 34. R12 JCS-1 preprocess-manifest 两阶段握手（w12 复跑）
+
+### 34.1 落地范围
+
+- Core 新增 `PreprocessManifest`（`schemaVersion=1`、`subsetVersion="JCS-1"`、
+  camelCase、LF、无时间戳/绝对路径、null artifacts 省略）、`PassContractHash`
+  （契约规范化 SHA-256 + 按 pass id 排序的聚合）、`ManifestInputHash`（源文件 +
+  项目资产 + 引用集 + solutionVariant，CRLF→LF，相对路径，跳过
+  `bin`/`obj`/`.git`/`.cs2j-*`）、`JcsCapabilityScanner`（只从最终树证据派生，
+  Guaranteed 仅经既有 Core-internal `GuaranteedForScanner`）。
+- CLI 新增 `PreprocessManifestWriter`/`Emitter`/`Validator`/
+  `JavaConversionRequirements`；`CliPreprocessChain` 成功后向
+  `finalIntermediateRoot` 写 manifest，`--preprocess-only` 随
+  `PromotePreprocessedTree` 移动到目的根。
+- `--no-preprocess`：java-ready/audit 的缺失/版本不符/inputHash 漂移/必需能力
+  非 guaranteed 统一以 `CS2J1410` 退出 1；default 原始树保留 Warning 并输出
+  `subsetStatus=unverified`。必需能力单一事实源为
+  `JCS.WORKSPACE`、`JCS.SYMBOL`、`JCS.CONVERSION`。
+- `PreprocessReport` 增加可空 `manifest`/`subsetStatus` 字段
+  （`WhenWritingNull`，既有 JSON 断言不变）。
+
+### 34.2 单测（先红后绿）
+
+- 新增 30 个用例：
+  `PreprocessManifestTests`（3：字段顺序/camelCase/无时间戳/无绝对路径、
+  null artifacts、确定性往返）、`ManifestInputHashTests`（6：跨绝对根稳定、
+  源内容敏感、TFM/引用敏感、时间戳不敏感、中间目录跳过、CRLF→LF）、
+  `PassContractHashTests`（4：稳定、字段敏感、聚合与顺序无关、聚合敏感）、
+  `JcsCapabilityScannerTests`（7：枚举顺序与 `$(...)` 原始 TFM、无项目
+  partial、collection expression 正负例、EVAL `i++` partial、Warning 文本
+  含 error 不影响 SYMBOL、VALUE 无声明 unsupported、VALUE 有声明 partial
+  且 owner/reason 正确）、`PreprocessManifestHandshakeTests`（10：正例、
+  缺 manifest/错版本/源漂移/能力 partial 的 CS2J1410、default 原始树
+  unverified、default 匹配 manifest verified、向上查找、CLI java-ready
+  缺 manifest 退出 1、`--preprocess-only` 目的根落 manifest）。
+- 先红：实现前 28 个用例编译/断言失败；实现后全绿；补 SYMBOL 误判与 CLI
+  缺 manifest 用例后最终 30 个全过。
+- 全量回归：`dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+  → **4906 通过 / 9 跳过 / 0 失败**（§33 基线 4876/9/0，净增 30）。
+  `CSharpToJava.ProjectTests`/`ConversionTests` 未运行。
+
+### 34.3 rt10 全链复跑
+
+```
+dotnet build -c Release src/CSharpToJava.CLI/CSharpToJava.CLI.csproj
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- preprocess `
+  -s D:\runtime-10.0.12\src\libraries\System.Text.Json\src\System.Text.Json.csproj `
+  -d D:\cs\rt10-baseline-w12 --unified-preprocessed-src --profile java-ready --no-verify-build --no-verify-tests
+```
+
+- `success=true`、`totalSeconds=106.019`、**53/53 pass `ok`**、
+  residual report `residuals=0 / errors=0 / warnings=0`、TFM 警告 **0**。
+- `D:\cs\rt10-baseline-w12\.cs2j-preprocessed-src\preprocess-manifest.json`：
+  `schemaVersion=1`、`subsetVersion=JCS-1`、`profile=java-ready`、
+  `solutionVariant.configuration=default`、`projects=10`（树内相对路径 + `/`，
+  TFM 原始文本拆分/去重/排序）、`passPlan=53`、`capabilities=8`。
+- 能力状态：`JCS.WORKSPACE=guaranteed`、`JCS.SYMBOL=guaranteed`、
+  `JCS.CONVERSION=guaranteed`；`JCS.CALL=partial`（`.Invoke(` 残点）、
+  `JCS.EVAL=partial`（条件内 out/ref 残点）；
+  `JCS.VALUE/GENERIC/CLOSURE=unsupported`（无 pass 声明，语义构造扫描留待
+  R13，residual 带 reason，不伪造 guaranteed）。
+- `inputHash=sha256:0d1c6a6cc36932afb12dc73220420a46c9292cf4322dfe9ad9ed70f68e412eda`；
+  `contractHash=sha256:617042830e2f980129d3e68074e29fbf40d21be041958a7b91b0943305d00957`；
+  `manifest=`（报告字段）`preprocess-manifest.json`、`subsetStatus=verified`。
+- artifacts：`apiManifest` 省略（最终树无该文件）、
+  `residualReport=preprocess-residual-report.json`、
+  `complexityLedger=preprocess-report.json`。
+
+### 34.4 确定性复跑
+
+- 同一输入复跑到 `D:\cs\rt10-baseline-w12b`：`success=true`、
+  `totalSeconds=107.41`、53/53 `ok`、residual 0、TFM 警告 0。
+- 两份 manifest **逐字节一致**（无根路径字段需剔除）：
+  SHA-256 均为
+  `349C61B23155E0EDE1DD10E2E59C5C35990249FE32CECF953AB9608C6E659E93`。
+- hash 口径：`*.cs` + `*.csproj/*.props/*.targets/*.sln/*.slnx` 内容
+  （CRLF→LF）+ `solutionVariant`（configuration + 相对 path/TFM）+
+  引用集（`PackageReference Include/Version`、`ProjectReference` 树内相对
+  路径、`Reference` 程序集简单名）；不纳入时间戳、绝对根路径、manifest/
+  report/residual/api-manifest 产物、`bin/obj/.git/.cs2j-*` 嵌套目录。
+
+### 34.5 与 §33 对照
+
+- §33 的 53/53、`success=true`、residual=0、TFM 警告=0 全部保持；新增的
+  manifest 发射在链成功收尾后执行，不改变中间树内容。
+- `preprocess-report.json` 仅新增可空 `manifest`/`subsetStatus`，既有字段
+  与断言不变（`WhenWritingNull` 缺省不写）。
+- 全量测试从 4876 通过增至 4906（+30），无回归。
+
 
 
 
