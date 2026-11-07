@@ -29,6 +29,22 @@ public static class PreprocessDiagnosticCodes
     /// </summary>
     public const string PassToggleConflict = "CS2J9003";
 
+    // ── CS2J14xx generic-constraint family (R2/CN, upgrade plan §6.3/§6.4-R2) ──
+
+    /// <summary>
+    /// generic-constraint: a constraint or its dependent site cannot be
+    /// expressed safely (or a rewrite cannot be proven); the site is preserved.
+    /// Warning by default (PreserveAndWarn), never silently dropped.
+    /// </summary>
+    public const string GenericConstraintNotExpressible = "CS2J1403";
+
+    /// <summary>
+    /// generic-constraint: an explicitly unsupported generic shape (CN-08
+    /// multi-dimensional/jagged type-parameter array, CN-11 <c>where T : Enum</c>);
+    /// the site is preserved verbatim as DeclaredUnsupported.
+    /// </summary>
+    public const string GenericConstraintDeclaredUnsupported = "CS2J1409";
+
     // ── CS2J53xx numeric-boundary family (C15 checked/unchecked, design §4.5) ──
     // CS2J5300-5309: family-shared (restore/build/test/single-file gates).
     // CS2J5310-5329: C15 checked/unchecked.

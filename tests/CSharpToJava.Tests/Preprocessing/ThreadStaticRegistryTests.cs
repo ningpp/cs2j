@@ -46,7 +46,7 @@ public sealed class ThreadStaticRegistryTests
         Assert.True(descriptor.DefaultEnabled);
         Assert.Equal(".cs2j-thread-static-src", descriptor.IntermediateDirectoryName);
         Assert.Equal(PassStage.Declarative, descriptor.Stage);
-        Assert.Equal(new[] { PassIds.Generic }, descriptor.RunAfterIds);
+        Assert.Equal(new[] { PassIds.Generic, PassIds.GenericConstraint }, descriptor.RunAfterIds);
         Assert.Equal(PassSupportLibrary.None, descriptor.SupportLibrary);
         Assert.True(descriptor.NeedsSemanticModel);
         Assert.True(descriptor.VerifyBuildByDefault);
@@ -92,7 +92,8 @@ public sealed class ThreadStaticRegistryTests
         var ts = ordered.IndexOf(PassIds.ThreadStatic);
 
         Assert.True(ts > 0, "thread-static must be registered");
-        Assert.Equal(PassIds.Generic, ordered[ts - 1]);
+        Assert.Equal(PassIds.GenericConstraint, ordered[ts - 1]);
+        Assert.Equal(PassIds.Generic, ordered[ts - 2]);
         Assert.Equal(PassIds.GenericDeepen, ordered[ts + 1]);
     }
 

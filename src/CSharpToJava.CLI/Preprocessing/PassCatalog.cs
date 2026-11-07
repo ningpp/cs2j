@@ -37,6 +37,7 @@ internal static class PassIds
     public const string Unsigned = "unsigned";
     public const string NumericBoundary = "numeric-boundary";
     public const string Generic = "generic";
+    public const string GenericConstraint = "generic-constraint";
     public const string ThreadStatic = "thread-static";
     public const string GenericDeepen = "generic-deepen";
     public const string ClosedMetadata = "closed-metadata";
@@ -486,6 +487,50 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Deepen generic rewrites for Java erasure compatibility."),
         new(
+            PassIds.GenericConstraint,
+            "Generic constraint normalization",
+            Adapters.GenericConstraintPassAdapter.IntermediateDirectoryName,
+            PassStage.Abi,
+            PassStatus.Implemented,
+            // R2/CN (upgrade plan §6.4-R2/§6.5): default-on under the
+            // all-preprocessors-default-on policy; --disable-pass
+            // generic-constraint opts out. It only touches shapes the upstream
+            // generic pass cannot rewrite (T?/Nullable<T> cascade, Enum<T> /
+            // Delegate<T> static calls) and preserves every unprovable site
+            // with CS2J1403 (PreserveAndWarn).
+            defaultEnabled: true,
+            // Physically inserted between generic and thread-static: both
+            // anchor generic only, so the Kahn declaration-order tiebreak
+            // locks generic -> generic-constraint -> thread-static ->
+            // generic-deepen (§6.5 compatibility note).
+            runAfterIds: new[] { PassIds.Generic },
+            supportLibrary: PassSupportLibrary.None,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Normalize residual generic constraints for Java erasure: " +
+                "T? over a value-type-constrained parameter becomes Nullable<T> with " +
+                "HasValue cascades (CN-04), Enum.Parse/GetValues/GetNames<T> and " +
+                "Delegate.Combine/Remove<T> become their non-generic overloads plus " +
+                "typeof(T) tokens (CN-09/CN-10); reference/unconstrained defaults and " +
+                "T? stay (CN-02/CN-05), boxing stays explicit (CN-06), multi-dimensional " +
+                "type-parameter arrays and 'where T : Enum' are DeclaredUnsupported " +
+                "(CN-08/CN-11, CS2J1409), and an unexpressible constraint without a " +
+                "dependent site is preserved with CS2J1403 (CN-12).",
+            // The pass consumes the residual constraint construct and may leave
+            // unexpressible constraints behind (PreserveAndWarn, CN-12).
+            contract: new PassContract(
+                Consumes: new[] { PassConstructIds.GenericConstraint },
+                Produces: Array.Empty<string>(),
+                Preconditions: Array.Empty<string>(),
+                Postconditions: new[] { PassConstructIds.GenericConstraint },
+                MayLeave: new[] { PassConstructIds.GenericConstraint },
+                Owners: Array.Empty<string>(),
+                Policy: CSharpToJava.Core.Normalization.ResidualPolicy.PreserveAndWarn,
+                Idempotent: true,
+                RequiresWholeTree: true,
+                CapabilityIds: new[] { "JCS.GENERIC" })),
+        new(
             PassIds.ThreadStatic,
             "Thread-static rewrite",
             Adapters.ThreadStaticPassAdapter.IntermediateDirectoryName,
@@ -498,10 +543,11 @@ internal static class PassCatalog
             // 校注). --disable-pass thread-static opts out.
             defaultEnabled: true,
             // Physically inserted between generic and generic-deepen: both
-            // anchor generic only, so the Kahn declaration-order tiebreak
-            // locks the slot generic -> thread-static -> generic-deepen
-            // (design §3.1/§11).
-            runAfterIds: new[] { PassIds.Generic },
+            // anchor generic, and the R2 CN pass adds an explicit edge so the
+            // Kahn declaration-order tiebreak locks the slot
+            // generic -> generic-constraint -> thread-static -> generic-deepen
+            // (design §3.1/§11, upgrade plan §6.5).
+            runAfterIds: new[] { PassIds.Generic, PassIds.GenericConstraint },
             supportLibrary: PassSupportLibrary.None,
             needsSemanticModel: true,
             verifyBuildByDefault: true,
@@ -515,7 +561,9 @@ internal static class PassCatalog
             PassStage.Abi,
             PassStatus.Implemented,
             defaultEnabled: true,
-            runAfterIds: new[] { PassIds.Generic },
+            // R2/CN: the constraint pass runs before erasure deepening so GD
+            // sees the final Enum/Nullable call shapes (§6.5).
+            runAfterIds: new[] { PassIds.Generic, PassIds.GenericConstraint },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
             description: "Make reified generic runtime information explicit for Java type erasure (typeof(T)/is-as T/static generic fields).",

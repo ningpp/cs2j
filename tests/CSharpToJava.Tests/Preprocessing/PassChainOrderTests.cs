@@ -79,11 +79,16 @@ public sealed class PassChainOrderTests
         PassIds.Unsigned,
         PassIds.NumericBoundary,
         PassIds.Generic,
+        // R2/CN (upgrade plan §6.5): generic-constraint is physically declared
+        // between generic and thread-static; thread-static and generic-deepen
+        // both anchor generic-constraint, so the Kahn declaration-order
+        // tiebreak locks generic -> generic-constraint -> thread-static ->
+        // generic-deepen.
+        PassIds.GenericConstraint,
         // C09 thread-static flipped to DEFAULT-ON on 2026-10-06 after the
         // §8 gates (design §9 M2 校注). It remains physically declared between
         // generic and generic-deepen — both anchor generic only — so the Kahn
-        // declaration-order tiebreak locks this
-        // slot: generic -> thread-static -> generic-deepen.
+        // declaration-order tiebreak locks this slot.
         PassIds.ThreadStatic,
         PassIds.GenericDeepen,
         // C30 + C33: closed-metadata and variance-audit are both Implemented;
@@ -850,6 +855,7 @@ public sealed class PassChainOrderTests
             LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar
                 && id != PassIds.EnumDeclaration
                 && id != PassIds.ThreadStatic
+                && id != PassIds.GenericConstraint
                 && id != PassIds.UnsafeFfm
                 && id != PassIds.StackAllocLowering
                 && id != PassIds.RefStructLowering

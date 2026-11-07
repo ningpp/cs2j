@@ -23,4 +23,10 @@ public static class PassConstructIds
     /// Owner: <c>variance-use-site-normalize</c>。
     /// </summary>
     public const string GenericVarianceUse = "NORM-GENERIC-VARIANCE-USE";
+
+    /// <summary>
+    /// 约束不可表达/改写无法安全证明的泛型约束站点（R2/CN 残差，方案 §6.3
+    /// NORM-GENERIC-CONSTRAINT）。Owner: <c>generic-constraint</c>。
+    /// </summary>
+    public const string GenericConstraint = "NORM-GENERIC-CONSTRAINT";
 }

@@ -18,6 +18,7 @@ using CSharpToJava.Core.FixedSpanToArray;
 using CSharpToJava.Core.ForeachDeconstruction;
 using CSharpToJava.Core.ForeachSource;
 using CSharpToJava.Core.GenericPreprocess;
+using CSharpToJava.Core.GenericConstraint;
 using CSharpToJava.Core.IndexRange;
 using CSharpToJava.Core.IteratorLowering;
 using CSharpToJava.Core.JavaKeywords;
@@ -506,6 +507,16 @@ internal static class PassChainFactory
 
             PassIds.Generic => new GenericPassAdapter(
                 new CoreGenericPreprocessOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
+
+            // R2/CN: residual constraint normalization between generic and
+            // thread-static; default-on under the all-on policy.
+            PassIds.GenericConstraint => new GenericConstraintPassAdapter(
+                new GenericConstraintOptions(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,

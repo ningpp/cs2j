@@ -34,7 +34,7 @@ public sealed class GenericDeepenRegistryTests
         Assert.Equal(".cs2j-generic-deepen-src", descriptor.IntermediateDirectoryName);
         Assert.Equal(PassStage.Abi, descriptor.Stage);
         Assert.True(descriptor.DefaultEnabled);
-        Assert.Equal(new[] { PassIds.Generic }, descriptor.RunAfterIds);
+        Assert.Equal(new[] { PassIds.Generic, PassIds.GenericConstraint }, descriptor.RunAfterIds);
         Assert.Equal(PassSupportLibrary.None, descriptor.SupportLibrary);
         Assert.True(descriptor.VerifyBuildByDefault);
         Assert.True(descriptor.VerifyTestsByDefault);
@@ -48,10 +48,11 @@ public sealed class GenericDeepenRegistryTests
         Assert.True(gd > 0, "generic-deepen must be registered");
         // C09 thread-static flipped Implemented/default-off and was physically
         // inserted between generic and generic-deepen so the Kahn
-        // declaration-order tiebreak locks generic -> thread-static ->
-        // generic-deepen (design §3.1).
+        // declaration-order tiebreak locks generic -> generic-constraint ->
+        // thread-static -> generic-deepen (design §3.1, upgrade plan §6.5).
         Assert.Equal(PassIds.ThreadStatic, ordered[gd - 1]);
-        Assert.Equal(PassIds.Generic, ordered[gd - 2]);
+        Assert.Equal(PassIds.GenericConstraint, ordered[gd - 2]);
+        Assert.Equal(PassIds.Generic, ordered[gd - 3]);
         // C30 M2' + C33 M1a: closed-metadata and variance-audit both flipped
         // to Implemented, slotting in after generic-deepen (design §3.4/§4.3/§5.5).
         Assert.Equal(PassIds.ClosedMetadata, ordered[gd + 1]);
