@@ -57,6 +57,12 @@ public unsafe class Sample
         Assert.DoesNotContain("8.address()", result.GeneratedCode);
         Assert.DoesNotContain("4.address()", result.GeneratedCode);
         Assert.DoesNotContain("IntPtr", result.GeneratedCode);
+        // IntPtr maps to the Java primitive long: `nLength -= 8` must stay a plain
+        // compound assignment. Emitting the static operator on the mapped owner
+        // name (`long.subtract(nLength, 8)`) treats `long` as a class → javac error
+        // (rt10 dotnet-text-json JsonReaderHelper.IndexOfOrLessThan).
+        Assert.Contains("nLength -= 8", result.GeneratedCode);
+        Assert.DoesNotContain("long.subtract", result.GeneratedCode);
     }
 
     private static ConversionResult Convert(string sourceCode)

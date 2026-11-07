@@ -32,13 +32,15 @@ public sealed partial class TupleToStructPreprocessor
     }
 
     /// <summary>
-    /// 记录编译单元里通过 <c>typeof(ValueTuple&lt;...&gt;)</c> 观察值元组运行时身份的
-    /// 泛型元数。该元数的形状在所有文件里都保持原生 System.ValueTuple 语法：降级成生成
-    /// 的 struct 后运行时类型不再是泛型 ValueTuple，<c>Type.IsGenericType</c> /
+    /// 记录通过 <c>typeof(ValueTuple&lt;...&gt;)</c> 观察值元组运行时身份的泛型元数。
+    /// 该元数的形状保持原生 System.ValueTuple 语法：降级成生成的 struct 后运行时类型
+    /// 不再是泛型 ValueTuple，<c>Type.IsGenericType</c> /
     /// <c>GetGenericTypeDefinition()</c> 驱动的反射消费者（如 System.Text.Json 的
     /// JsonConverterFactory.CanConvert）会静默失配（语料 Json 测试
-    /// CustomConverterTests.NullableTypes）。必须在改写前由全编译单元扫描后设置，才能在
-    /// 同一元数的声明点与使用点之间保持一致（struct / ValueTuple 混用会 CS0029）。
+    /// CustomConverterTests.NullableTypes）。
+    /// 这是进程级的默认集合，供直接使用本类的单文件调用方保持旧行为；项目级调用方
+    /// 应改为在 <see cref="RewriteFile"/> 按文件传入所属项目的元数集合，使观测只在该
+    /// 项目内生效（跨项目互不污染）。
     /// </summary>
     public void ObserveRuntimeValueTupleArities(IEnumerable<int> arities)
     {
@@ -105,15 +107,22 @@ public sealed partial class TupleToStructPreprocessor
             element => element.IsTuple && RuntimeIdentityDenied(element.NestedShape!, observedArities));
     }
 
-    /// <summary>生成 struct 集合文件内容；没有任何元组时返回 null。</summary>
-    public string? GenerateStructFile()
+    /// <summary>
+    /// 生成 struct 集合文件内容；没有任何元组时返回 null。
+    /// <paramref name="runtimeObservedArities"/> 为该项目（或该编译单元）观测到的
+    /// 运行时元数；为 null 时使用进程级默认集合。按项目生成时必须传入项目自己的
+    /// 集合，否则别的项目的 typeof 观测会让本项目的形状既不降级也不生成（悬空引用）。
+    /// </summary>
+    public string? GenerateStructFile(IReadOnlyCollection<int>? runtimeObservedArities = null)
     {
+        var observed = runtimeObservedArities ?? _runtimeObservedArities;
+
         // Shapes embedding private/protected types are never lowered and must
         // not be emitted either (their field types are unnameable here → CS0122).
         // Shapes whose runtime ValueTuple identity is observed keep native syntax,
         // so they must not be emitted either.
         var emittable = _registry.Shapes
-            .Where(shape => shape.IsEmittableFromTopLevel && !RuntimeIdentityDenied(shape))
+            .Where(shape => shape.IsEmittableFromTopLevel && !RuntimeIdentityDenied(shape, observed))
             .ToList();
         return emittable.Count == 0
             ? null
@@ -180,29 +189,45 @@ public sealed partial class TupleToStructPreprocessor
     public bool IsShapePubliclyAccessible(string shapeKey) =>
         _registry.FindByKey(shapeKey)?.IsPubliclyAccessible ?? false;
 
-    /// <summary>按形状键筛选生成 struct 文件内容；没有匹配形状时返回 null。</summary>
-    public string? GenerateStructFile(IEnumerable<string> shapeKeys)
+    /// <summary>
+    /// 按形状键筛选生成 struct 文件内容；没有匹配形状时返回 null。
+    /// <paramref name="runtimeObservedArities"/> 语义同无键重载：按项目生成时传入
+    /// 该项目自己的观测集合。
+    /// </summary>
+    public string? GenerateStructFile(
+        IEnumerable<string> shapeKeys,
+        IReadOnlyCollection<int>? runtimeObservedArities = null)
     {
+        var observed = runtimeObservedArities ?? _runtimeObservedArities;
         var keys = new HashSet<string>(shapeKeys, StringComparer.Ordinal);
         var shapes = _registry.Shapes
-            .Where(shape => keys.Contains(shape.Key) && !RuntimeIdentityDenied(shape))
+            .Where(shape => keys.Contains(shape.Key) && !RuntimeIdentityDenied(shape, observed))
             .ToList();
         return shapes.Count == 0
             ? null
             : TupleStructFileContent.Generate(shapes, _options.NamespaceName);
     }
 
+    /// <summary>
+    /// 改写单个文件。<paramref name="runtimeObservedArities"/> 是该文件所属项目
+    /// 观测到的运行时元数集合（null 表示沿用进程级默认集合）。项目级调用必须按文件
+    /// 传入所属项目的集合，使 <c>typeof(ValueTuple&lt;...&gt;)</c> 的观测只在该项目内
+    /// 生效；同一项目内所有文件拿到同一个集合，保证 arity 级一致（struct /
+    /// ValueTuple 混用会 CS0029）。
+    /// </summary>
     public TupleToStructFileResult RewriteFile(
         string sourceCode,
         SemanticModel semanticModel,
         TupleToStructStatistics statistics,
-        List<TupleToStructDiagnostic> diagnostics)
+        List<TupleToStructDiagnostic> diagnostics,
+        IReadOnlyCollection<int>? runtimeObservedArities = null)
     {
         ArgumentNullException.ThrowIfNull(sourceCode);
         ArgumentNullException.ThrowIfNull(semanticModel);
         ArgumentNullException.ThrowIfNull(statistics);
         ArgumentNullException.ThrowIfNull(diagnostics);
 
+        var observedArities = runtimeObservedArities ?? _runtimeObservedArities;
         statistics.FilesScanned++;
 
         var root = (CompilationUnitSyntax)semanticModel.SyntaxTree.GetRoot();
@@ -221,7 +246,7 @@ public sealed partial class TupleToStructPreprocessor
 
         var rewriter = new TupleSyntaxRewriter(
             semanticModel, _registry, _options.NamespaceName, statistics, diagnostics,
-            _shapesByFile, semanticModel.SyntaxTree.FilePath, _runtimeObservedArities);
+            _shapesByFile, semanticModel.SyntaxTree.FilePath, observedArities);
         var newRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
 
         if (rewriter.Changed)

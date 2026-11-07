@@ -225,6 +225,16 @@ public class AssignmentTransformer : IIRExpressionTransformer
         var left = f.Transform(a.Left, context);
         var right = f.Transform(a.Right, context);
         var owner = context.MapType(lhsType);
+        // 框架数值类型（System.IntPtr/UIntPtr 等）映射到 Java 基元（long/int）：
+        // Java 基元没有静态运算符方法，`owner.method(...)` 会生成
+        // `long.subtract(nLength, 8)`（javac 把 long 当类，报"需要 class"）。
+        // 退回普通复合赋值（`nLength -= 8`），语义等价。
+        if (owner is "boolean" or "byte" or "short" or "char"
+            or "int" or "long" or "float" or "double")
+        {
+            return false;
+        }
+
         var method = OperatorTransformer.OpSymbolToJavaName.TryGetValue(opSymbol, out var javaName)
             ? javaName
             : opSymbol;

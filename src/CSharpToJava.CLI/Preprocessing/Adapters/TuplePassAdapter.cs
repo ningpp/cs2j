@@ -26,6 +26,19 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
     private readonly List<string> _rewrittenSourceFiles = new();
     private string? _generatedStructFilePath;
 
+    /// <summary>本次运行的项目树上下文；用于把语法树映射回所属项目。</summary>
+    private PassTreeContext? _tree;
+
+    /// <summary>源文件 → 所属项目观测到的运行时元数（按项目作用域）。null 表示无项目图，统一使用 <see cref="_unionArities"/>。</summary>
+    private IReadOnlyDictionary<string, IReadOnlyCollection<int>>? _aritiesByFile;
+
+    /// <summary>项目文件 → 该项目观测到的运行时元数（项目内所有文件的并集）。</summary>
+    private IReadOnlyDictionary<string, IReadOnlyCollection<int>> _aritiesByProject =
+        new Dictionary<string, IReadOnlyCollection<int>>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>整棵树的观测并集，仅用于无法归属到项目时的保守兜底。</summary>
+    private IReadOnlyCollection<int> _unionArities = Array.Empty<int>();
+
     public TuplePassAdapter(
         TupleToStructOptions options,
         bool verbose,
@@ -87,35 +100,116 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
         };
     }
 
+    public override Task OnTreePreparedAsync(PassTreeContext tree)
+    {
+        _tree = tree;
+        return Task.CompletedTask;
+    }
+
     /// <summary>
-    /// typeof(ValueTuple&lt;...&gt;) 观察值元组的运行时身份。该泛型元数的形状必须在
-    /// 整个编译单元保持原生 System.ValueTuple：降级后的 struct 不再是泛型 ValueTuple，
-    /// <c>Type.IsGenericType</c> / <c>GetGenericTypeDefinition()</c> 驱动的反射消费者
-    /// （如 System.Text.Json 的 JsonConverterFactory.CanConvert）会静默失配。扫描全树后
-    /// 统一登记，保证同一元数的声明点与使用点形态一致。
+    /// typeof(ValueTuple&lt;...&gt;) 观察值元组的运行时身份。降级后的 struct 不再是泛型
+    /// ValueTuple，<c>Type.IsGenericType</c> / <c>GetGenericTypeDefinition()</c> 驱动的
+    /// 反射消费者（如 System.Text.Json 的 JsonConverterFactory.CanConvert）会静默失配。
+    /// 观测必须按**项目**作用域生效：合并编译单元里某个项目（如 json 测试）的
+    /// <c>typeof(ValueTuple&lt;,&gt;)</c> 不得让另一个项目（如 regex）的二元组也被保留为
+    /// 原生 ValueTuple（Java 侧映射成 io.vavr.Tuple2 后具名元素访问会编译失败）。
+    /// 同一项目内仍按 arity 取并集，保证声明点与使用点形态一致（混用会 CS0029）。
     /// </summary>
     public override Task CompilationReadyAsync(CSharpCompilation compilation)
     {
-        var arities = new HashSet<int>();
+        var observedByFile = new Dictionary<string, IReadOnlyCollection<int>>(
+            StringComparer.OrdinalIgnoreCase);
+        var union = new HashSet<int>();
         foreach (var syntaxTree in compilation.SyntaxTrees)
         {
-            arities.UnionWith(
-                TupleToStructPreprocessor.FindRuntimeObservedTupleArities(syntaxTree.GetRoot()));
+            if (string.IsNullOrEmpty(syntaxTree.FilePath))
+            {
+                continue;
+            }
+
+            var arities = TupleToStructPreprocessor.FindRuntimeObservedTupleArities(
+                syntaxTree.GetRoot());
+            if (arities.Count == 0)
+            {
+                continue;
+            }
+
+            observedByFile[syntaxTree.FilePath] = arities;
+            union.UnionWith(arities);
         }
 
-        if (arities.Count > 0)
+        _unionArities = union;
+        _aritiesByProject =
+            new Dictionary<string, IReadOnlyCollection<int>>(StringComparer.OrdinalIgnoreCase);
+
+        if (_tree == null || _tree.Layout.ProjectFiles.Count == 0)
         {
-            _preprocessor.ObserveRuntimeValueTupleArities(arities);
+            // 无项目图（纯目录转换）时没有项目边界，只能保持整单元并集的旧语义。
+            _aritiesByFile = null;
+            return Task.CompletedTask;
         }
 
+        var projects = BuildProjectCompileScopes(_tree);
+        _aritiesByProject = TupleRuntimeIdentityScope.ComputeProjectArities(
+            projects, observedByFile);
+        _aritiesByFile = TupleRuntimeIdentityScope.MapFileArities(
+            projects, observedByFile, _tree.CsFiles);
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// 项目 → 实际编译文件集合。优先按 csproj 的 Compile Include/Remove 与 SDK
+    /// 默认 glob 求值（<see cref="ProjectCompileSet"/>）；无法解析时集合为 null，
+    /// 归属退化为"最近的 csproj 目录前缀"（近似，见 MapFileArities）。
+    /// 必须对**源树**求值：编译准备阶段中间树尚未复制 .cs 文件（它们在逐文件改写
+    /// 时才落盘），对中间树求值会得到空集合；统一目录（in-place）链里源树就是
+    /// 中间树，二者等价。
+    /// </summary>
+    private List<TupleProjectCompileScope> BuildProjectCompileScopes(PassTreeContext tree)
+    {
+        var projects = new List<TupleProjectCompileScope>();
+        foreach (var projectFile in tree.Layout.ProjectFiles
+                     .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
+        {
+            var compiled = ProjectCompileSet.ComputeCompiledFiles(
+                projectFile, tree.Layout.SourceRoot);
+
+            projects.Add(new TupleProjectCompileScope(
+                Path.GetFullPath(projectFile),
+                Path.GetDirectoryName(Path.GetFullPath(projectFile))!,
+                compiled?.Select(Path.GetFullPath).ToList()));
+        }
+
+        return projects;
+    }
+
+    /// <summary>文件所属项目观测到的元数；无法归属时保守使用整树并集。</summary>
+    private IReadOnlyCollection<int> ResolveRuntimeObservedArities(string sourceFilePath)
+    {
+        if (_aritiesByFile != null
+            && _aritiesByFile.TryGetValue(Path.GetFullPath(sourceFilePath), out var arities))
+        {
+            return arities;
+        }
+
+        return _unionArities;
+    }
+
+    /// <summary>项目观测到的元数；映射缺失时保守使用整树并集。</summary>
+    private IReadOnlyCollection<int> ResolveProjectArities(string projectFile)
+        => _aritiesByProject.TryGetValue(Path.GetFullPath(projectFile), out var arities)
+            ? arities
+            : _unionArities;
 
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
     {
         var fileDiagnostics = new List<TupleToStructDiagnostic>();
         var result = _preprocessor.RewriteFile(
-            context.SourceCode, context.SemanticModel!, _statistics, fileDiagnostics);
+            context.SourceCode,
+            context.SemanticModel!,
+            _statistics,
+            fileDiagnostics,
+            ResolveRuntimeObservedArities(context.SourceFilePath));
 
         foreach (var diagnostic in fileDiagnostics)
         {
@@ -325,7 +419,11 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
                 ? $"_Cs2jTupleTypes.{projectName}.cs"
                 : _options.GeneratedFileName;
 
-            var content = _preprocessor.GenerateStructFile(_preprocessor.CloseShapeKeys(shapeKeys));
+            // 该项目的运行时身份观测只在本项目内约束生成：别的项目观测到的 arity
+            // 不得让本项目的形状既不降级也不生成（悬空引用）。
+            var content = _preprocessor.GenerateStructFile(
+                _preprocessor.CloseShapeKeys(shapeKeys),
+                ResolveProjectArities(projectFile));
             if (content == null)
             {
                 continue;
@@ -538,5 +636,164 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
         var normalized = value!.Replace('\\', '/');
         return normalized.Equals(normalizedFileName, StringComparison.OrdinalIgnoreCase)
                || normalized.EndsWith("/" + normalizedFileName, StringComparison.OrdinalIgnoreCase);
+    }
+}
+
+/// <summary>
+/// 一个项目的编译作用域快照：项目文件、项目目录和它实际编译的源文件。
+/// <see cref="CompiledFiles"/> 为 null 表示 csproj 无法解析，归属退化为目录前缀近似。
+/// </summary>
+internal sealed record TupleProjectCompileScope(
+    string ProjectFile,
+    string ProjectDirectory,
+    IReadOnlyCollection<string>? CompiledFiles);
+
+/// <summary>
+/// 把 <c>typeof(ValueTuple&lt;...&gt;)</c> 的运行时身份观测映射到项目/文件作用域。
+/// 规则：
+/// <list type="bullet">
+/// <item>项目内所有文件的观测取并集（arity 级一致，避免 struct / ValueTuple 混用 CS0029）；</item>
+/// <item>同一文件只被一个项目编译 → 该项目集合；被多个项目共享（链接源码）→ 取并集，
+/// 因为改写结果只有一份文本、必须同时满足所有编译它的项目；</item>
+/// <item>无法从 Compile 集合归属时 → 最近的 csproj 目录前缀（近似）；仍无法归属 → 整树并集。</item>
+/// </list>
+/// 跨项目绝不合并：只有观测到该 arity 的项目才保持原生 ValueTuple。
+/// </summary>
+internal static class TupleRuntimeIdentityScope
+{
+    internal static Dictionary<string, IReadOnlyCollection<int>> ComputeProjectArities(
+        IReadOnlyList<TupleProjectCompileScope> projects,
+        IReadOnlyDictionary<string, IReadOnlyCollection<int>> observedByFile)
+    {
+        var result = new Dictionary<string, IReadOnlyCollection<int>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var project in projects)
+        {
+            var arities = new HashSet<int>();
+            if (project.CompiledFiles != null)
+            {
+                foreach (var file in project.CompiledFiles)
+                {
+                    if (observedByFile.TryGetValue(file, out var fileArities))
+                    {
+                        arities.UnionWith(fileArities);
+                    }
+                }
+            }
+            else
+            {
+                // Compile 集合不可得：目录前缀内的观测全部算作该项目（近似）。
+                foreach (var (file, fileArities) in observedByFile)
+                {
+                    if (IsUnderDirectory(file, project.ProjectDirectory))
+                    {
+                        arities.UnionWith(fileArities);
+                    }
+                }
+            }
+
+            result[project.ProjectFile] = arities;
+        }
+
+        return result;
+    }
+
+    internal static Dictionary<string, IReadOnlyCollection<int>> MapFileArities(
+        IReadOnlyList<TupleProjectCompileScope> projects,
+        IReadOnlyDictionary<string, IReadOnlyCollection<int>> observedByFile,
+        IEnumerable<string>? additionalFiles = null)
+    {
+        var projectArities = ComputeProjectArities(projects, observedByFile);
+
+        var ownersByFile = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var project in projects)
+        {
+            foreach (var file in project.CompiledFiles ?? Array.Empty<string>())
+            {
+                if (!ownersByFile.TryGetValue(file, out var owners))
+                {
+                    owners = new List<string>();
+                    ownersByFile[file] = owners;
+                }
+
+                owners.Add(project.ProjectFile);
+            }
+        }
+
+        var union = new HashSet<int>();
+        foreach (var arities in observedByFile.Values)
+        {
+            union.UnionWith(arities);
+        }
+
+        var files = new HashSet<string>(observedByFile.Keys, StringComparer.OrdinalIgnoreCase);
+        files.UnionWith(ownersByFile.Keys);
+        if (additionalFiles != null)
+        {
+            files.UnionWith(additionalFiles.Select(Path.GetFullPath));
+        }
+
+        var result = new Dictionary<string, IReadOnlyCollection<int>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in files)
+        {
+            if (ownersByFile.TryGetValue(file, out var owners))
+            {
+                if (owners.Count == 1)
+                {
+                    result[file] = projectArities[owners[0]];
+                    continue;
+                }
+
+                // 共享源码只改写一次，必须同时满足所有编译它的项目：取并集（保守）。
+                var shared = new HashSet<int>();
+                foreach (var owner in owners)
+                {
+                    shared.UnionWith(projectArities[owner]);
+                }
+
+                result[file] = shared;
+                continue;
+            }
+
+            var nearest = FindNearestProject(file, projects);
+            result[file] = nearest != null
+                ? projectArities[nearest.ProjectFile]
+                : union;
+        }
+
+        return result;
+    }
+
+    private static TupleProjectCompileScope? FindNearestProject(
+        string file,
+        IReadOnlyList<TupleProjectCompileScope> projects)
+    {
+        TupleProjectCompileScope? best = null;
+        var bestLength = -1;
+        foreach (var project in projects)
+        {
+            if (!IsUnderDirectory(file, project.ProjectDirectory))
+            {
+                continue;
+            }
+
+            var length = Path.GetFullPath(project.ProjectDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Length;
+            if (length > bestLength)
+            {
+                best = project;
+                bestLength = length;
+            }
+        }
+
+        return best;
+    }
+
+    private static bool IsUnderDirectory(string file, string directory)
+    {
+        var fullFile = Path.GetFullPath(file);
+        var fullDirectory = Path.GetFullPath(directory)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+        return fullFile.StartsWith(fullDirectory, StringComparison.OrdinalIgnoreCase);
     }
 }

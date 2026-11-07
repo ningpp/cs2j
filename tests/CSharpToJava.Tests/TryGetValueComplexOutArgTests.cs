@@ -323,6 +323,33 @@ class UriParser {
         Assert.DoesNotContain("s_table.get(", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void OutArgument_ByRefHolderValue_WritesBackThroughSetter()
+    {
+        // rt10 dotnet-xml QueryBuilder.ProcessFilter:
+        //   ProcessNode(root.Input(), ..., out props.Value)
+        // where props is ByRef<Props>. The read side is props.getValue(); the write-back
+        // must go through the holder's value-returning set(...) alias. Emitting the
+        // transformed getter as an assignment target produces invalid Java
+        // (`props.getValue() = holder.value`, javac: unexpected type).
+        var result = Convert(@"
+namespace Cs2jByRef {
+    public abstract class ByRef<T> {
+        public abstract ref T Value { get; }
+    }
+}
+class Props { }
+class Sample {
+    static void Process(out Props p) { p = default; }
+    void M(Cs2jByRef.ByRef<Props> props) {
+        Process(out props.Value);
+    }
+}");
+        Assert.True(result.Success, result.GeneratedCode);
+        Assert.DoesNotContain("getValue() =", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("props.set(", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

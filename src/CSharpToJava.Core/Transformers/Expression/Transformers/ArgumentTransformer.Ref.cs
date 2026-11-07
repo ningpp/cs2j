@@ -277,7 +277,21 @@ public partial class ArgumentTransformer
 
         var holderType = HolderTypeResolver.GetHolderType(javaType);
         context.AddPreStatement($"{holderType} {holderName} = {HolderTypeResolver.GetHolderInstantiationWithValue(holderType, exprText)}");
-        context.AddPostStatement($"{exprText} = {holderName}.value");
+
+        // 属性的读取侧已渲染成 getter 调用（ByRef<T>.Value → props.getValue()），
+        // 不能把它当作赋值目标（javac: 意外的类型）。写回必须走属性 setter：
+        // ByRef/ScopedByRef 的 Value 用返回值别名 set(...)，普通属性用 set<Name>(...)。
+        if (target is MemberAccessExpressionSyntax
+            && context.GetSymbolInfo(target).Symbol is IPropertySymbol property)
+        {
+            context.AddPostStatement(AssignmentTransformer.PropertySetterCall(
+                target, property, $"{holderName}.value", context));
+        }
+        else
+        {
+            context.AddPostStatement($"{exprText} = {holderName}.value");
+        }
+
         return holderName;
     }
 
