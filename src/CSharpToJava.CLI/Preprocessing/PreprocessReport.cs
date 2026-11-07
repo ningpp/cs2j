@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace CSharpToJava.CLI.Preprocessing;
 
 /// <summary>
@@ -14,7 +16,11 @@ internal sealed record PreprocessReport(
     string Destination,
     bool Success,
     double TotalSeconds,
-    IReadOnlyList<PassReportEntry> Passes);
+    IReadOnlyList<PassReportEntry> Passes,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? Manifest = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? SubsetStatus = null);
 
 /// <summary>
 /// One executed pass. <see cref="Status"/> is <c>ok</c> or <c>failed</c>;

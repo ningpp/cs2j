@@ -15,6 +15,13 @@ public static class PreprocessDiagnosticCodes
     public const string UnknownPass = "CS2J9002";
 
     /// <summary>
+    /// R12: the preprocess-manifest handshake failed — manifest missing/wrong
+    /// version, input hash drift, required capability not guaranteed, or the
+    /// manifest could not be emitted for the final tree.
+    /// </summary>
+    public const string ManifestHandshakeFailed = "CS2J1410";
+
+    /// <summary>
     /// A pass id was supplied via both <c>--enable-pass</c> and
     /// <c>--disable-pass</c> in one request. Used to share its own code with
     /// <see cref="UnknownPass"/> (upgrade plan §6.4-R0/W-11: profile×disable

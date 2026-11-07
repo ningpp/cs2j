@@ -247,12 +247,24 @@ public class Program
             CliChainResult chain;
             if (opts.NoPreprocess)
             {
-                if (auditEnabledByProfile)
+                // R12 two-stage handshake: the tree must carry a manifest that
+                // matches its current contents. java-ready/audit fail with
+                // CS2J1410; other profiles continue as unverified.
+                var manifestValidation = PreprocessManifestValidator.ValidateForExistingTree(
+                    opts.Source, profile);
+                if (!manifestValidation.IsValid)
                 {
-                    Console.Error.WriteLine(
-                        $"[Warning] --no-preprocess skips the preprocess chain; " +
-                        $"--profile {profile} is ignored (no chain to audit).");
+                    Console.Error.WriteLine(manifestValidation.Message);
+                    return 1;
                 }
+
+                if (!string.IsNullOrEmpty(manifestValidation.Message))
+                {
+                    Console.Error.WriteLine(manifestValidation.Message);
+                }
+
+                Console.WriteLine(
+                    $"[preprocess-manifest] subsetStatus: {manifestValidation.SubsetStatus}");
 
                 if (opts.Verbose)
                 {

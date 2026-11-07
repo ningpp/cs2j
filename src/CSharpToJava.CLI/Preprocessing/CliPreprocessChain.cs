@@ -10,6 +10,7 @@ using CSharpToJava.Core.LexicalNormalize;
 using CSharpToJava.Core.LinqChannel;
 using CSharpToJava.Core.PlatformIsolation;
 using CSharpToJava.Core.Preprocessing;
+using CSharpToJava.Core.Preprocessing.Jcs;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
 using CSharpToJava.Core.StructValueSemantics;
@@ -193,6 +194,13 @@ internal sealed class CliChainRequest
     public string Profile { get; init; } = "default";
 
     /// <summary>
+    /// R12 solution configuration recorded in the manifest. No CLI option
+    /// supplies an explicit configuration today, so the deterministic default
+    /// is used instead of guessing MSBuild global properties.
+    /// </summary>
+    public string Configuration { get; init; } = "default";
+
+    /// <summary>
     /// java-ready enforces residual failures; audit only reports them. Ignored
     /// when normalization-audit is not in the plan.
     /// </summary>
@@ -263,6 +271,8 @@ internal static class CliPreprocessChain
 
         var chainStopwatch = Stopwatch.StartNew();
         var passReports = new List<PassReportEntry>();
+        string? manifestFileName = null;
+        string? subsetStatus = null;
 
         void WriteReport(bool success)
         {
@@ -274,7 +284,9 @@ internal static class CliPreprocessChain
                 Destination: Path.GetFullPath(request.DestinationRoot),
                 Success: success,
                 TotalSeconds: PreprocessReportWriter.RoundSeconds(chainStopwatch.Elapsed),
-                Passes: passReports.ToList());
+                Passes: passReports.ToList(),
+                Manifest: manifestFileName,
+                SubsetStatus: subsetStatus);
 
             try
             {
@@ -515,6 +527,40 @@ internal static class CliPreprocessChain
             if (verboseSummaryLine != null)
             {
                 Console.WriteLine(verboseSummaryLine);
+            }
+        }
+
+        if (finalIntermediateRoot != null)
+        {
+            try
+            {
+                var manifest = PreprocessManifestEmitter.Emit(
+                    finalIntermediateRoot,
+                    request.Profile,
+                    plan.Enabled,
+                    passReports,
+                    request.ResidualReportPath,
+                    request.Configuration);
+
+                manifestFileName = PreprocessManifestWriter.DefaultFileName;
+                var required = JavaConversionRequirements.RequiredCapabilitiesFor(request.Profile);
+                subsetStatus = required.Count == 0
+                    || required.All(id => manifest.Capabilities.Any(
+                        capability => capability.Id == id
+                            && capability.Status == JcsCapabilityStatus.Guaranteed))
+                    ? "verified"
+                    : "partial";
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(
+                    $"{PreprocessDiagnosticCodes.ManifestHandshakeFailed}: " +
+                    $"failed to emit preprocess manifest for '{finalIntermediateRoot}': {ex.Message}");
+                WriteReport(success: false);
+                return Failed(
+                    sourcePath,
+                    executedIntermediateDirectoryNames,
+                    executedSupportLibraries);
             }
         }
 
