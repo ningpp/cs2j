@@ -3796,3 +3796,74 @@ dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI
   （ProjectTests 仅 `dotnet build`）。
 - **R1c 待迁移**：tuple（`TupleStructFileContent`）与 anonymous-type-lift
   （`RenderConstraintClauses`）；迁移后需同样接入 `NotExpressible` 保守回退。
+
+## 40. tuple 运行时身份观测项目作用域化（w19 复跑）
+
+### 40.1 根因与作用域规则
+
+- 根因：`typeof(ValueTuple<...>)` 的运行时身份保护 `_runtimeObservedArities` 是
+  **整编译单元全局**的。合并编译包含 json 测试
+  `Serialization/CustomConverterTests/CustomConverterTests.NullableTypes.cs:512`
+  的 `typeof(ValueTuple<,>)`，导致 regex 项目的
+  `(string CharClass, bool CaseInsensitive)` 也被保留为原生 ValueTuple；Java 侧把
+  它映射成 `io.vavr.Tuple2` 后，`CharClass` / `CaseInsensitive` 等具名元素访问
+  找不到符号（`RegexCode.java` / `RegexCompiler.java`）。
+- 修复：`TuplePassAdapter.OnTreePreparedAsync` 保存项目树；
+  `CompilationReadyAsync` 逐语法树扫描观测后按**项目**归属：
+  - 项目内所有文件的观测取并集（arity 级一致，避免 struct / ValueTuple 混用 CS0029）；
+  - 文件只被一个项目编译 → 该项目集合；被多个项目共享（链接源码）→ 取并集
+    （改写文本只有一份，必须同时满足所有编译它的项目）；
+  - 无法从 Compile 集合归属 → 最近的 csproj 目录前缀（近似）；仍无法归属 →
+    整树并集（保守）。
+  - Compile 集合对**源树**求值：编译准备阶段中间树尚未复制 `.cs`（逐文件改写时
+    才落盘），对中间树求值会得到空集合；统一目录链中源树即中间树。
+- `TupleToStructPreprocessor.RewriteFile` / 两个 `GenerateStructFile` 重载新增
+  可选的 per-file / per-project 观测集合；shape 注册表仍全局共享。跨项目不再
+  互相污染，同一项目内仍保持 arity 级一致。
+
+### 40.2 Java 侧最小修复（验证中发现，w18 基线同文件已存在）
+
+- `ArgumentTransformer.WrapMemberHolder`：`out/ref` 的成员属性写回改走
+  `AssignmentTransformer.PropertySetterCall`。此前把读取侧 getter 当赋值目标，
+  生成 `props.getValue() = _outArgHolder.value;`（dotnet-xml
+  `QueryBuilder.java:243`，javac"意外的类型"）。
+- `AssignmentTransformer.TryRenderUserDefinedCompound`：框架数值类型
+  （`System.IntPtr` → Java `long`）不再发静态运算符调用。此前生成
+  `long.subtract(nLength, 8)`（dotnet-text-json
+  `JsonReaderHelper.java:449`，javac 把 `long` 当类）；退回普通复合赋值
+  `nLength -= 8`，语义等价。
+
+### 40.3 单测
+
+- 新增 4 个用例：`Tupleprocessor/TupleRuntimeIdentityScopeTests.cs`（3：两项目
+  观测不泄漏、同项目跨文件 arity 一致、文件/项目 arity 映射含共享与目录近似）；
+  `TryGetValueComplexOutArgTests.OutArgument_ByRefHolderValue_WritesBackThroughSetter`
+  （1）。`IntPtrMappingTests` 追加 2 条断言（`nLength -= 8`、不得出现
+  `long.subtract`）。
+- 全量 `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+  → **4978 通过 / 9 跳过 / 0 失败**（§39 基线 4974 + 4）。
+
+### 40.4 w19 转换与 Maven 现状
+
+```
+dotnet run -c Release --no-build --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- convert-project \
+  -s D:\csharp-sdk\csharp-sdk.sln -d D:\cs\cs2j-sdk-w19 --no-verify-build --no-verify-tests
+```
+
+- `Conversion complete (MSBuild): 1984 succeeded, 0 failed, 247 resources copied, modules=21`
+  （§39 为 1976；+8）。
+- `mvn clean package -e`：parent / `dotnet-uri` / `dotnet-text-regularexpressions` /
+  `dotnet-xml` **SUCCESS**；regex 的 `Tuple2` 编译错误已消除，xml 亦已通过编译。
+- **阻塞（未达全绿）**：`dotnet-text-json` FAILURE，494 个唯一编译错误（日志
+  988 行含重复）。抽样 6 个报错文件与 w18 基线逐字节比对，5 个完全相同，属既有
+  转换债（w18 时 regex 先失败，json/xml 未真正编译，故未被发现）。主要簇：
+  `ReadOnlySpan<Integer> → Span<Integer>` 101、`int[] → byte[]` 69、
+  `Utf8JsonReader → ObjectHolder<Utf8JsonReader>` 59、`找不到符号` 54、
+  `byte[]/char[] → Object[]` 71。
+- `mvn clean package -e -fae` 补充：`dotnet-text-regularexpressions-tests`
+  （15.2s）与三个 uri 测试模块 SUCCESS；`dotnet-xml-read-content-as-tests`
+  （667 tests / 2 errors）与 `dotnet-xml-xpath*` 三个模块（各 1513 tests / 9 errors）
+  FAILURE，均为 `String → Double/Number` ClassCastException，同属既有转换债。
+- 结论：本轮**未**达到"Maven 全绿"。后续波次首要门 = 清零 `dotnet-text-json`
+  编译错误 + 上述 xml 测试错误，再重跑同一命令；不得跳过/删减测试过关。
+- ProjectTests / ConversionTests 未运行（ProjectTests 仅 `dotnet build`）。
