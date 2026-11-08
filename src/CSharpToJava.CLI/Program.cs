@@ -4243,24 +4243,6 @@ public class Program
                 enablePassIds = opts.Passes!.Concat(opts.EnablePasses ?? Array.Empty<string>()).ToList();
             }
 
-            // R6 (upgrade plan §6.4): an explicit --pass selection must also run
-            // its transitive RunAfterIds prerequisites. The chain feeds each pass'
-            // output tree to the next (CliPreprocessChain reassigns sourcePath per
-            // pass), so the missing prerequisites are always appended in locked
-            // topological order — with or without --unified-preprocessed-src.
-            if (explicitPassSelection)
-            {
-                var expansion = PassDependencyClosure.Expand(
-                    PassCatalog.BuildRegistry(), enablePassIds!);
-                foreach (var dependency in expansion.AutoEnabled)
-                {
-                    Console.Error.WriteLine(
-                        PassDependencyExpansion.DescribeAutoEnabled(dependency));
-                }
-
-                enablePassIds = expansion.EnabledIds;
-            }
-
             // M0-b: java-ready/audit append normalization-audit to whatever the
             // user selected (including an explicit --pass list); the locked
             // order still places it after java-keywords.

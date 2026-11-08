@@ -1257,112 +1257,14 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
-    public void R6_dependency_closure_auto_enables_transitive_run_after_ids_in_topological_order()
+    public void R6_unknown_explicit_id_is_rejected_by_the_resolver()
     {
         var registry = PassCatalog.BuildRegistry();
-        var expansion = PassDependencyClosure.Expand(
-            registry, new[] { PassIds.GenericDeepen });
-
-        var ids = expansion.EnabledIds.ToList();
-        Assert.Contains(PassIds.GenericDeepen, ids);
-        Assert.Contains(PassIds.Generic, ids);
-        // Transitive prerequisite of generic: unsigned.
-        Assert.Contains(PassIds.Unsigned, ids);
-        Assert.Contains(
-            expansion.AutoEnabled,
-            dependency => dependency.PassId == PassIds.GenericDeepen
-                          && dependency.DependencyId == PassIds.Generic);
-        Assert.True(ids.IndexOf(PassIds.Unsigned) < ids.IndexOf(PassIds.Generic));
-        Assert.True(ids.IndexOf(PassIds.Generic) < ids.IndexOf(PassIds.GenericDeepen));
-
-        // The expanded selection resolves to a plan that actually runs generic
-        // before generic-deepen.
-        var plan = PassPlanResolver.Resolve(
-            registry,
-            PassChainFactory.BuildAllDisabledToggles(registry),
-            expansion.EnabledIds);
-        Assert.True(plan.IsValid);
-        var planned = plan.Enabled.Select(pass => pass.Id).ToList();
-        Assert.True(planned.IndexOf(PassIds.Generic) < planned.IndexOf(PassIds.GenericDeepen));
-    }
-
-    [Fact]
-    public void R6_explicit_pass_without_unified_tree_auto_enables_generic_before_generic_deepen()
-    {
-        // The preprocess verb disables every descriptor for an explicit --pass
-        // selection, then enables the ids plus the auto-enabled closure. No
-        // --unified-preprocessed-src here: the chain still threads each pass'
-        // output tree into the next, so the dependency must be appended instead
-        // of rejected (the historical hard error broke existing CLI usage).
-        var registry = PassCatalog.BuildRegistry();
-        var expansion = PassDependencyClosure.Expand(
-            registry, new[] { PassIds.GenericDeepen });
-
-        var autoEnabled = expansion.AutoEnabled.Single(
-            dependency => dependency.PassId == PassIds.GenericDeepen
-                          && dependency.DependencyId == PassIds.Generic);
-        Assert.Equal(
-            $"auto-enabled dependency '{PassIds.Generic}' for '{PassIds.GenericDeepen}' (RunAfterIds)",
-            PassDependencyExpansion.DescribeAutoEnabled(autoEnabled));
 
         var plan = PassPlanResolver.Resolve(
             registry,
             PassChainFactory.BuildAllDisabledToggles(registry),
-            expansion.EnabledIds);
-        Assert.True(plan.IsValid);
-
-        var planned = plan.Enabled.Select(pass => pass.Id).ToList();
-        Assert.Contains(PassIds.Generic, planned);
-        Assert.Contains(PassIds.GenericDeepen, planned);
-        Assert.True(planned.IndexOf(PassIds.Generic) < planned.IndexOf(PassIds.GenericDeepen));
-    }
-
-    [Fact]
-    public void R6_existing_dependency_is_not_added_twice()
-    {
-        var expansion = PassDependencyClosure.Expand(
-            PassCatalog.BuildRegistry(),
-            new[] { PassIds.Generic, PassIds.GenericDeepen });
-
-        Assert.DoesNotContain(
-            expansion.AutoEnabled,
-            dependency => dependency.DependencyId == PassIds.Generic);
-        Assert.Single(expansion.EnabledIds.Where(id => id == PassIds.Generic));
-        Assert.Single(expansion.EnabledIds.Where(id => id == PassIds.GenericDeepen));
-    }
-
-    [Fact]
-    public void R6_auto_enabled_dependency_conflicting_with_disable_pass_fails_in_the_resolver()
-    {
-        var registry = PassCatalog.BuildRegistry();
-        var expansion = PassDependencyClosure.Expand(
-            registry, new[] { PassIds.GenericDeepen });
-
-        var plan = PassPlanResolver.Resolve(
-            registry,
-            PassChainFactory.BuildAllDisabledToggles(registry),
-            expansion.EnabledIds,
-            disablePassIds: new[] { PassIds.Generic });
-
-        Assert.False(plan.IsValid);
-        Assert.Contains(
-            plan.Errors,
-            error => error.Contains(PreprocessDiagnosticCodes.PassToggleConflict)
-                     && error.Contains($"pass '{PassIds.Generic}'"));
-    }
-
-    [Fact]
-    public void R6_unknown_explicit_id_survives_the_dependency_expansion()
-    {
-        var expansion = PassDependencyClosure.Expand(
-            PassCatalog.BuildRegistry(), new[] { "no-such-pass" });
-
-        Assert.Contains("no-such-pass", expansion.EnabledIds);
-
-        var plan = PassPlanResolver.Resolve(
-            PassCatalog.BuildRegistry(),
-            PassChainFactory.BuildAllDisabledToggles(PassCatalog.BuildRegistry()),
-            expansion.EnabledIds);
+            new[] { "no-such-pass" });
         Assert.False(plan.IsValid);
         Assert.Contains(
             plan.Errors,
