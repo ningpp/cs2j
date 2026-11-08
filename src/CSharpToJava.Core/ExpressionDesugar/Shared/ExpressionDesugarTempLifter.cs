@@ -1,3 +1,4 @@
+using CSharpToJava.Core.GenericPreprocess;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -488,15 +489,26 @@ internal static class ExpressionDesugarTempLifter
             // Materialize the side effect as a uniquely named temp instead.
             allStatements.Add(discardDeclaration!);
         }
-        else if (expression is not IdentifierNameSyntax)
+        else if (expression is IdentifierNameSyntax)
+        {
+            // A bare identifier tail is the C24-lifted temp (`__ed_N`) standing
+            // in for the object creation; `__ed_N;` is not a legal C# expression
+            // statement, and the lifted declaration + member assignments above
+            // already carry every side effect, so the tail is simply dropped.
+        }
+        else if (GenericDeepenSyntaxFacts.CanBeExpressionStatement(expression))
         {
             allStatements.Add(SyntaxFactory.ExpressionStatement(expression));
         }
-
-        // A bare identifier tail is the C24-lifted temp (`__ed_N`) standing in
-        // for the object creation; `__ed_N;` is not a legal C# expression
-        // statement, and the lifted declaration + member assignments above
-        // already carry every side effect, so the tail is simply dropped.
+        else
+        {
+            // The void-delegate tail discards its value but the expression is
+            // not a legal expression statement (e.g. `x.Result;` after an
+            // object-initializer temp was lifted out of `F(new T { ... }).P`).
+            // Materialize it as a discard temp so the evaluation order and side
+            // effects survive without CS0201.
+            allStatements.Add(CreateDiscardDeclaration(expression, lambda));
+        }
 
         var block = SyntaxFactory.Block(SyntaxFactory.List(allStatements));
 
@@ -569,6 +581,18 @@ internal static class ExpressionDesugarTempLifter
             return false;
         }
 
+        declaration = CreateDiscardDeclaration(assignment.Right, lambda);
+        return true;
+    }
+
+    /// <summary>
+    /// Builds <c>var __cs2jDiscardN = value;</c> with a name unique in the
+    /// lambda's file. Used for void-delegate tails whose value must be
+    /// evaluated but cannot be written as a legal C# expression statement.
+    /// </summary>
+    private static LocalDeclarationStatementSyntax CreateDiscardDeclaration(
+        ExpressionSyntax value, AnonymousFunctionExpressionSyntax lambda)
+    {
         var used = new HashSet<string>(StringComparer.Ordinal);
         foreach (var token in lambda.AncestorsAndSelf().Last().DescendantTokens())
             used.Add(token.ValueText);
@@ -577,8 +601,7 @@ internal static class ExpressionDesugarTempLifter
         while (used.Contains($"__cs2jDiscard{index}"))
             index++;
 
-        declaration = DeclareVar($"__cs2jDiscard{index}", assignment.Right);
-        return true;
+        return DeclareVar($"__cs2jDiscard{index}", value);
     }
 
     /// <summary>

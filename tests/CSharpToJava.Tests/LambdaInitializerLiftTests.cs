@@ -188,4 +188,36 @@ public class LambdaInitializerLiftTests
         Assert.Contains("var __ed_0 = new Node();", code);
         Assert.Contains("Use(__ed_0);", code);
     }
+
+    [Fact]
+    public void VoidAssertionLambda_NonStatementTail_EmitsDiscardTemp()
+    {
+        // xUnit's Assert.Throws<T>(Func<object>) overload executes the callback
+        // as a void callback, so the lifted block must not "return". A tail
+        // that is not a statement expression (`Make(...).A`) cannot stay a bare
+        // expression statement either; it must be captured in a discard temp.
+        const string source = """
+            using System;
+            using System.Collections.Generic;
+            public class Node { public int A { get; set; } }
+            public class C
+            {
+                private static Node Make(HashSet<char> set) => new Node();
+                private static void Throws(Action action) { }
+                private static void Throws(Func<object> func) { }
+                private static void M()
+                {
+                    Throws(() => Make(new HashSet<char> { 'b' }).A);
+                }
+            }
+            """;
+
+        var result = Run(source);
+        AssertStrictSuccess(result);
+        var code = Squish(result.OutputCode);
+
+        Assert.Contains("var __ed_0 = new HashSet<char>();", code);
+        Assert.Contains("var __cs2jDiscard0 = Make(__ed_0).A;", code);
+        Assert.DoesNotContain("return Make(", code);
+    }
 }
