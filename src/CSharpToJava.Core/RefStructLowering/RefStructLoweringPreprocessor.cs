@@ -16,8 +16,9 @@ namespace CSharpToJava.Core.RefStructLowering;
 /// field/property, a <c>ref</c>/<c>ref readonly</c> field, a ref-returning
 /// member, a field/property typed as a ref struct (Span/ReadOnlySpan/Memory or
 /// any <see cref="INamedTypeSymbol.IsRefLikeType"/> type, including a type
-/// parameter constrained with <c>allows ref struct</c>), or a nested ref struct
-/// type.
+/// parameter constrained with <c>allows ref struct</c>), a nested ref struct
+/// type, or a <c>typeof(...)</c> use of the type itself (where byref-like-ness
+/// is observable through <see cref="Type.IsByRefLike"/>).
 /// </para>
 /// Only the <c>ref</c> modifier token changes; every other byte of the changed
 /// file is preserved. Clean files are returned byte-for-byte and re-running the
@@ -36,6 +37,7 @@ public sealed class RefStructLoweringPreprocessor
 
         var root = (CompilationUnitSyntax)semanticModel.SyntaxTree.GetRoot();
         var filePath = semanticModel.SyntaxTree.FilePath;
+        var typeOfTargets = CollectTypeOfTargets(root, semanticModel);
 
         var replacements = new List<(StructDeclarationSyntax Original, StructDeclarationSyntax Replacement)>();
         foreach (var declaration in root.DescendantNodes().OfType<StructDeclarationSyntax>())
@@ -45,7 +47,8 @@ public sealed class RefStructLoweringPreprocessor
                 continue;
             }
 
-            var preservationReason = FindRefOnlySignal(declaration, semanticModel);
+            var preservationReason = FindRefOnlySignal(
+                declaration, semanticModel, typeOfTargets);
             if (preservationReason != null)
             {
                 statistics.RefStructsPreserved++;
@@ -105,11 +108,18 @@ public sealed class RefStructLoweringPreprocessor
     /// downgrade to an ordinary struct.
     /// </summary>
     private static string? FindRefOnlySignal(
-        StructDeclarationSyntax declaration, SemanticModel model)
+        StructDeclarationSyntax declaration,
+        SemanticModel model,
+        HashSet<INamedTypeSymbol> typeOfTargets)
     {
         if (model.GetDeclaredSymbol(declaration) is not INamedTypeSymbol symbol)
         {
             return "the struct symbol could not be resolved";
+        }
+
+        if (typeOfTargets.Contains(symbol))
+        {
+            return "the type is used in a typeof expression";
         }
 
         foreach (var nested in symbol.GetTypeMembers())
@@ -162,6 +172,27 @@ public sealed class RefStructLoweringPreprocessor
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Collects ref struct types referenced by <c>typeof(...)</c> in this tree.
+    /// Removing <c>ref</c> would flip <see cref="Type.IsByRefLike"/> for the
+    /// resulting <see cref="Type"/> instance, which reflection-based callers can
+    /// observe, so those declarations must keep their modifier.
+    /// </summary>
+    private static HashSet<INamedTypeSymbol> CollectTypeOfTargets(
+        CompilationUnitSyntax root, SemanticModel model)
+    {
+        var targets = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        foreach (var typeOf in root.DescendantNodes().OfType<TypeOfExpressionSyntax>())
+        {
+            if (model.GetTypeInfo(typeOf.Type).Type is INamedTypeSymbol { IsRefLikeType: true } named)
+            {
+                targets.Add(named);
+            }
+        }
+
+        return targets;
     }
 
     private static bool IsRefOnlyType(ITypeSymbol type, out string displayName)

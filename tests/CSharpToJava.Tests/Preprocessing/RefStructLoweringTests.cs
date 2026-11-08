@@ -42,6 +42,29 @@ public sealed class RefStructLoweringTests
         AssertNoRefStructResidual(result.OutputCode);
     }
 
+    // ── 1b. typeof 使用 → 保留 ref + RSL001（IsByRefLike 可观测） ──
+
+    [Fact]
+    public void RefStruct_UsedInTypeOf_IsPreserved_WithRSL001()
+    {
+        const string src = """
+            using System;
+            ref struct R { }
+            class C { Type T = typeof(R); }
+            """;
+
+        var result = Run(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Contains("ref struct R", result.OutputCode);
+        Assert.Equal(1, result.Statistics.RefStructsPreserved);
+        Assert.Equal(0, result.Statistics.RefStructsLowered);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(RefStructLoweringDiagnosticCode.RSL001, diagnostic.Code);
+        Assert.Contains("typeof", diagnostic.Message, StringComparison.Ordinal);
+    }
+
     // ── 2. readonly ref struct → readonly struct ──
 
     [Fact]
