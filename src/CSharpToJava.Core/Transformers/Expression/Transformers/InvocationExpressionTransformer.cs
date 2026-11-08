@@ -32,6 +32,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
     public string Transform(ExpressionSyntax node, ConversionContext context)
     {
+        // 跨工程泛型令牌兜底（见 TryRenderTypeTokenOverload）：必须最先处理，
+        // 否则通用泛型调用路径会按擦除后的返回类型渲染。
+        if (node is InvocationExpressionSyntax tokenInvocation
+            && TryRenderTypeTokenOverload(tokenInvocation, context, out var tokenCall))
+        {
+            return tokenCall;
+        }
         var rendered = node.Kind() switch
         {
             SyntaxKind.InvocationExpression => TransformInvocation((InvocationExpressionSyntax)node, context),
@@ -60,6 +67,404 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return conflictCall;
         }
         return rendered;
+    }
+
+    /// <summary>
+    /// GD-MTOK 的跨工程兜底。预处理只能改写同一编译内的调用点；当公共泛型 API
+    /// （真实链 JsonSerializer.Deserialize&lt;T&gt;）被另一个被转换工程调用时，GD 看不到
+    /// 消费方调用点，方法体里的 typeof(T) 只能退化成 Object.class。这里改走 C# 方法
+    /// 自带的「显式 System.Type 令牌」重载
+    /// （Deserialize(string, Type, JsonSerializerOptions)），在调用点按构造后的类型实参
+    /// 生成 Java 运行期令牌：普通类型 X.class、数组 CSharpArray.arrayType(元素令牌)、
+    /// 闭合泛型 TypeHelper.closedCallSiteGenericType(TypeHelper.parameterized(...))。
+    /// </summary>
+    private static bool TryRenderTypeTokenOverload(
+        InvocationExpressionSyntax invocation, ConversionContext context, out string rendered)
+    {
+        rendered = string.Empty;
+        if (context.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+            || method.TypeArguments.Length == 0
+            || method.ContainingType is null or { TypeKind: TypeKind.Error }
+            || !IsConvertedOrMappedType(method.ContainingType, context)
+            || method.IsExtensionMethod
+            || method.Parameters.Any(p => p.IsParams))
+        {
+            return false;
+        }
+
+        var (overload, tokenIndex) = FindTypeTokenOverload(method);
+        if (overload == null)
+            return false;
+
+        var arguments = invocation.ArgumentList.Arguments;
+        if (arguments.Count > method.Parameters.Length)
+            return false;
+
+        // 按形参归位：预处理会把省略的可选实参补成命名实参（options: null），
+        // 直接按书写顺序拼会错位。
+        var provided = new Dictionary<int, string>();
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            var argument = arguments[i];
+            if (argument.RefKindKeyword.RawKind != 0)
+                return false;
+            int parameterIndex;
+            if (argument.NameColon?.Name.Identifier.ValueText is { } name)
+            {
+                parameterIndex = -1;
+                for (var p = 0; p < method.Parameters.Length; p++)
+                {
+                    if (method.Parameters[p].Name == name)
+                    {
+                        parameterIndex = p;
+                        break;
+                    }
+                }
+                if (parameterIndex < 0)
+                    return false;
+            }
+            else
+            {
+                parameterIndex = i;
+            }
+            if (parameterIndex >= method.Parameters.Length || provided.ContainsKey(parameterIndex))
+                return false;
+            // 与常规调用路径相同的实参强制转换：byte[] → ReadOnlySpan<byte>、可空
+            // 字面量、装箱数值等。跳过它们会让令牌重载找不到 Java 形参。
+            var argumentText = ExpressionTransformerFacade.Instance.Transform(argument.Expression, context);
+            provided[parameterIndex] = CoerceTokenOverloadArgument(
+                argument, method, parameterIndex, argumentText, context);
+        }
+
+        var renderedArguments = new List<string>(method.Parameters.Length);
+        for (var i = 0; i < method.Parameters.Length; i++)
+        {
+            if (provided.TryGetValue(i, out var text))
+            {
+                renderedArguments.Add(text);
+                continue;
+            }
+            if (RenderOptionalDefault(method.Parameters[i]) is not { } defaultValue)
+                return false;
+            renderedArguments.Add(defaultValue);
+        }
+
+        var tokens = new List<string>(method.TypeArguments.Length);
+        foreach (var typeArgument in method.TypeArguments)
+        {
+            if (TryRenderTypeToken(typeArgument, context) is not { } token)
+                return false;
+            tokens.Add(token);
+        }
+
+        var callArguments = new List<string>(renderedArguments.Count + tokens.Count);
+        callArguments.AddRange(renderedArguments.Take(tokenIndex));
+        callArguments.AddRange(tokens);
+        callArguments.AddRange(renderedArguments.Skip(tokenIndex));
+
+        string receiver;
+        if (invocation.Expression is MemberAccessExpressionSyntax access)
+        {
+            // 正常路径在此处会补接收者类型导入（如 Xunit.Assert → csharp.xunit.Assert）；
+            // 令牌重载提前返回时必须自己补，否则 Assert.throws_ 找不到符号。
+            if (method.IsStatic)
+            {
+                AddStaticReceiverTypeImports(access.Expression, context);
+                // 静态接收者可能写成 C# 全限定名（Newtonsoft.Json.JsonConvert），
+                // 正常路径会折叠成映射后的 Java 简名；这里同样处理。
+                receiver = TryGetMappedTypeSimpleName(method, context, out var mappedReceiver)
+                    ? mappedReceiver.ToInlineString()
+                    : ExpressionTransformerFacade.Instance.Transform(access.Expression, context);
+            }
+            else
+            {
+                AddReceiverTypeImports(access.Expression, context);
+                receiver = ExpressionTransformerFacade.Instance.Transform(access.Expression, context);
+            }
+        }
+        else
+        {
+            receiver = string.Empty;
+        }
+        var javaName = Member.MethodTransformer.GetJavaMethodName(overload.Name, overload, context);
+        var call = (receiver.Length == 0 ? javaName : $"{receiver}.{javaName}")
+            + "(" + string.Join(", ", callArguments) + ")";
+        rendered = CastTokenOverloadResult(invocation, call, context);
+        return true;
+    }
+
+    /// <summary>
+    /// 只对「同解决方案内被转换的源码类型」或配置了类型映射的类型做令牌重载改写。
+    /// 外部未转换库（真实链 Newtonsoft.Json.JsonConvert）没有对应的 Java 类型，
+    /// 改写后会生成不存在的包名。
+    /// </summary>
+    private static bool IsConvertedOrMappedType(INamedTypeSymbol containingType, ConversionContext context)
+        => containingType.Locations.Any(location => location.IsInSource)
+            || context.TypeMappings.HasTypeMapping(containingType.ToDisplayString())
+            || context.TypeMappings.HasTypeMapping(
+                $"{containingType.ContainingNamespace}.{containingType.Name}");
+
+    /// <summary>
+    /// 令牌重载调用点的实参整形（与常规调用路径同一套 ArgumentTransformer 规则）：
+    /// 真实链 JsonSerializer.Deserialize&lt;byte[]&gt;(Encoding.UTF8.GetBytes(...)) 的
+    /// byte[] 必须转成 ReadOnlySpan&lt;byte&gt; 才能绑定到
+    /// Deserialize(ReadOnlySpan&lt;byte&gt;, Type, JsonSerializerOptions)。
+    /// </summary>
+    private static string CoerceTokenOverloadArgument(
+        ArgumentSyntax argument,
+        IMethodSymbol method,
+        int parameterIndex,
+        string text,
+        ConversionContext context)
+    {
+        var parameter = parameterIndex < method.Parameters.Length
+            ? method.Parameters[parameterIndex]
+            : null;
+        text = ArgumentTransformer.CoerceArgumentConversions(text, argument, context, parameter);
+        text = ArgumentTransformer.CoerceImplicitSpanConversion(
+            argument.Expression, text, method, parameterIndex, context);
+        text = ArgumentTransformer.CoerceNonGenericDictionaryBridge(
+            argument.Expression, text, method, parameterIndex, context);
+        text = ArgumentTransformer.CoerceIListFamilyBridge(
+            argument.Expression, text, method, parameterIndex, context);
+        text = ArgumentTransformer.CoerceStreamToIterableParameter(
+            argument.Expression, text, method, parameterIndex, context);
+        text = ArgumentTransformer.CoerceIterableSlotArgument(
+            argument.Expression, text, method, parameterIndex, context);
+        text = ArgumentTransformer.CoerceArrayToSystemArrayParameter(
+            argument.Expression, text, method, parameterIndex, context);
+        text = ArgumentTransformer.CoerceByteArraySegmentArgument(
+            argument.Expression, text, method, parameterIndex, context);
+        text = ArgumentTransformer.CoerceSystemTypeArgumentWrapper(
+            argument.Expression, text, method, parameterIndex, context);
+        text = ArgumentTransformer.CoerceNullLiteralArgument(
+            argument, text, method, parameterIndex, context);
+        text = ArgumentTransformer.CoerceDecimalArgument(
+            argument.Expression, text, method, parameterIndex, context);
+        text = ArgumentTransformer.CoerceBoxedFloatingArgument(
+            argument.Expression, text, method, parameterIndex, context);
+        text = ArgumentTransformer.CoerceNullTypeWitness(
+            argument, text, method, parameterIndex, context);
+        return ApplyIntegralNarrowing(text, argument.Expression, method, parameterIndex, context);
+    }
+
+    /// <summary>
+    /// 找到与泛型方法同名的非泛型重载：它把 <see cref="IMethodSymbol.TypeArguments"/>
+    /// 对应的类型参数换成连续的 <c>System.Type</c> 参数。返回令牌插入位置。
+    /// </summary>
+    private static (IMethodSymbol? Overload, int TokenIndex) FindTypeTokenOverload(IMethodSymbol method)
+    {
+        var parameters = method.Parameters;
+        var tokenCount = method.TypeArguments.Length;
+        foreach (var sibling in method.ContainingType!.GetMembers(method.Name).OfType<IMethodSymbol>())
+        {
+            if (SymbolEqualityComparer.Default.Equals(sibling, method)
+                || sibling.IsGenericMethod
+                || sibling.IsStatic != method.IsStatic
+                || sibling.Parameters.Length != parameters.Length + tokenCount)
+            {
+                continue;
+            }
+
+            for (var tokenIndex = 0; tokenIndex <= parameters.Length; tokenIndex++)
+            {
+                var matched = true;
+                for (var i = 0; i < tokenCount; i++)
+                {
+                    var tokenParameter = sibling.Parameters[tokenIndex + i];
+                    if (!IsSystemTypeParameter(tokenParameter.Type)
+                        || tokenParameter.RefKind != RefKind.None)
+                    {
+                        matched = false;
+                        break;
+                    }
+                }
+                if (!matched)
+                    continue;
+
+                for (var i = 0; i < parameters.Length && matched; i++)
+                {
+                    var parameter = parameters[i];
+                    var siblingParameter = sibling.Parameters[i < tokenIndex ? i : i + tokenCount];
+                    if (parameter.RefKind != siblingParameter.RefKind
+                        || !TokenOverloadParameterMatches(parameter.Type, siblingParameter.Type))
+                    {
+                        matched = false;
+                    }
+                }
+                if (matched)
+                    return (sibling, tokenIndex);
+            }
+        }
+        return (null, -1);
+    }
+
+    /// <summary>令牌重载里的类型令牌参数（C# <c>System.Type</c>，映射到 Java <c>Class</c>）。</summary>
+    private static bool IsSystemTypeParameter(ITypeSymbol type)
+        => type.ToDisplayString() is "System.Type" or "System.Reflection.TypeInfo";
+
+    /// <summary>泛型方法参数擦除后是 Object，其余按可空性无关的显示串比较。</summary>
+    private static bool TokenOverloadParameterMatches(ITypeSymbol methodParameter, ITypeSymbol overloadParameter)
+    {
+        if (methodParameter is ITypeParameterSymbol)
+            return overloadParameter.SpecialType == SpecialType.System_Object;
+        if (overloadParameter is ITypeParameterSymbol)
+            return false;
+        return methodParameter.WithNullableAnnotation(NullableAnnotation.None).ToDisplayString()
+            == overloadParameter.WithNullableAnnotation(NullableAnnotation.None).ToDisplayString();
+    }
+
+    /// <summary>
+    /// C# <c>typeof(T)</c> 的 Java 运行期令牌。数组用 CSharpArray.arrayType（保持
+    /// 元素令牌），闭合泛型用 TypeHelper.parameterized 递归保留每一层实参；
+    /// 类型参数/指针/Nullable 无法表达，调用方保持原路径。
+    /// </summary>
+    private static string? TryRenderTypeToken(ITypeSymbol type, ConversionContext context)
+    {
+        switch (type)
+        {
+            case ITypeParameterSymbol:
+                return null;
+            case IPointerTypeSymbol:
+                return null;
+            case IArrayTypeSymbol array:
+            {
+                if (TryRenderTypeToken(array.ElementType, context) is not { } elementToken)
+                    return null;
+                context.AddImport("io.github.ningpp.compat.CSharpArray");
+                return $"CSharpArray.arrayType({elementToken})";
+            }
+            case INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T }:
+                return null;
+            case INamedTypeSymbol { IsGenericType: true } generic:
+            {
+                // raw class literal：泛型定义本身不能再走本方法的泛型分支（无限递归）。
+                var rawToken = TypeOperationTransformer.TypeTokenLiteral(generic.OriginalDefinition, context);
+                if (rawToken == null)
+                    return null;
+                var argumentTokens = new List<string>(generic.TypeArguments.Length);
+                foreach (var argument in generic.TypeArguments)
+                {
+                    if (TryRenderTypeToken(argument, context) is not { } argumentToken)
+                        return null;
+                    argumentTokens.Add(argumentToken);
+                }
+                if (argumentTokens.Count == 0)
+                    return rawToken;
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                var parameterized = $"TypeHelper.parameterized({rawToken}, {string.Join(", ", argumentTokens)})";
+                return $"TypeHelper.closedCallSiteGenericType({parameterized})";
+            }
+            default:
+                return TypeOperationTransformer.TypeTokenLiteral(type, context);
+        }
+    }
+
+    /// <summary>
+    /// 只有真正消费结果的位置才加 cast。用正列表而不是“语句/非语句”判断：
+    /// 被丢弃的语句位置加 cast 会变成非法 Java（javac: 不是语句），且 xUnit 的
+    /// Assert.Throws&lt;T&gt; 恰好同时有 (Type, Func) 令牌重载与 T 返回值。
+    /// </summary>
+    private static bool NeedsResultCast(InvocationExpressionSyntax invocation) => invocation.Parent switch
+    {
+        EqualsValueClauseSyntax => true,
+        ReturnStatementSyntax => true,
+        // `void M() => Assert.Throws<...>(...)` 的表达式体被丢弃，cast 会变成非法语句。
+        ArrowExpressionClauseSyntax arrow => !IsVoidArrowBody(arrow),
+        ArgumentSyntax => true,
+        AssignmentExpressionSyntax => true,
+        ConditionalExpressionSyntax => true,
+        CastExpressionSyntax => true,
+        _ => false,
+    };
+
+    private static bool IsVoidArrowBody(ArrowExpressionClauseSyntax arrow) => arrow.Parent switch
+    {
+        MethodDeclarationSyntax method => method.ReturnType is PredefinedTypeSyntax
+            { Keyword.RawKind: (int)SyntaxKind.VoidKeyword },
+        LocalFunctionStatementSyntax local => local.ReturnType is PredefinedTypeSyntax
+            { Keyword.RawKind: (int)SyntaxKind.VoidKeyword },
+        _ => false,
+    };
+
+    /// <summary>可选参数缺省值：只处理 null / 基础字面量，值类型 default 交给原路径。</summary>
+    private static string? RenderOptionalDefault(IParameterSymbol parameter)
+    {
+        if (!parameter.HasExplicitDefaultValue)
+            return null;
+        var value = parameter.ExplicitDefaultValue;
+        if (value == null)
+            return parameter.Type.IsReferenceType ? "null" : null;
+        return parameter.Type.SpecialType switch
+        {
+            SpecialType.System_Boolean => (bool)value ? "true" : "false",
+            SpecialType.System_String => "\"" + JavaEscapeString((string)value) + "\"",
+            SpecialType.System_Char => "'" + value + "'",
+            SpecialType.System_Int32 => ((int)value).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            SpecialType.System_Int64 => ((long)value).ToString(System.Globalization.CultureInfo.InvariantCulture) + "L",
+            SpecialType.System_Single => ((float)value).ToString(System.Globalization.CultureInfo.InvariantCulture) + "f",
+            SpecialType.System_Double => ((double)value).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// 令牌重载返回 Object（非泛型）；赋值/实参位置需要还原 C# 结果类型的强转，
+    /// 基础类型先装箱。语句位置不加（javac 拒绝把 cast 当语句）。
+    /// </summary>
+    private static string CastTokenOverloadResult(
+        InvocationExpressionSyntax invocation, string call, ConversionContext context)
+    {
+        var returnType = context.GetTypeInfo(invocation).Type;
+        if (returnType == null
+            || returnType.SpecialType == SpecialType.System_Void
+            || returnType is ITypeParameterSymbol
+            || !NeedsResultCast(invocation))
+        {
+            return call;
+        }
+        var mapped = context.MapType(returnType);
+        mapped = mapped switch
+        {
+            "int" => "Integer",
+            "long" => "Long",
+            "short" => "Short",
+            "byte" => "Byte",
+            "boolean" => "Boolean",
+            "char" => "Character",
+            "float" => "Float",
+            "double" => "Double",
+            _ => mapped,
+        };
+        if (mapped is "Object" or "var" or "void")
+            return call;
+        // 源静态类型是泛型（如 CompletableFuture<Object>、CSharpList<Integer>[]）时，
+        // 参数化类型之间不能直接 cast；先退到 raw 类型（保留数组维度）再做 unchecked cast。
+        var raw = StripAllTypeArguments(mapped);
+        return raw != mapped
+            ? $"(({mapped}) ({raw}) {call})"
+            : $"(({mapped}) {call})";
+    }
+
+    private static string StripAllTypeArguments(string typeName)
+    {
+        var builder = new System.Text.StringBuilder(typeName.Length);
+        var depth = 0;
+        foreach (var ch in typeName)
+        {
+            if (ch == '<')
+            {
+                depth++;
+                continue;
+            }
+            if (ch == '>')
+            {
+                if (depth > 0) depth--;
+                continue;
+            }
+            if (depth == 0) builder.Append(ch);
+        }
+        return builder.ToString();
     }
 
     /** Mirrors Unsafe.ReadUnaligned&lt;Vector&lt;byte&gt;&gt; with the compat vector overload. */
@@ -390,6 +795,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// <inheritdoc />
     public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
     {
+        if (node is InvocationExpressionSyntax tokenInvocation
+            && TryRenderTypeTokenOverload(tokenInvocation, context, out var tokenCall))
+        {
+            return new JavaRawExpression(tokenCall);
+        }
         var result = TransformToIRCore(node, context);
         if (node is InvocationExpressionSyntax invocation
             && TryWrapSpecializedGenericArrayResult(

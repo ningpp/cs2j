@@ -259,6 +259,80 @@ namespace dotnet.text.json.Serialization
         Assert.DoesNotContain("new ReflectionEmitMemberAccessor()", code, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// 公共泛型 API 的跨工程调用（真实链 JsonSerializer.Deserialize&lt;T&gt;）无法由 GD-MTOK
+    /// 改写消费方调用点，转换器改走 C# 自带的 System.Type 令牌重载：普通类型 X.class、
+    /// 数组 CSharpArray.arrayType、闭合泛型 closedCallSiteGenericType(parameterized(...))。
+    /// </summary>
+    [Fact]
+    public void GenericApiCall_PassesRuntimeTypeTokenToTypeOverload()
+    {
+        var result = Convert("""
+using System;
+using System.Collections.Generic;
+
+class Options { }
+class Item { }
+
+static class Api
+{
+    public static T Deserialize<T>(string json, Options options = null) => default(T);
+    public static object Deserialize(string json, Type returnType, Options options = null) => null;
+}
+
+class Use
+{
+    Item One(string json) => Api.Deserialize<Item>(json);
+    Item Named(string j) => Api.Deserialize<Item>(j, options: null);
+    List<int> Items(string json) => Api.Deserialize<List<int>>(json);
+    Item[] ArrayOfItems(string json) => Api.Deserialize<Item[]>(json);
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode ?? "";
+        // 省略的可选实参在预处理后是命名实参（options: null），令牌仍要插在形参位。
+        Assert.Contains("Api.deserialize(json, Item.class, null)", code, StringComparison.Ordinal);
+        Assert.Contains("Api.deserialize(j, Item.class, null)", code, StringComparison.Ordinal);
+        Assert.Contains(
+            "TypeHelper.closedCallSiteGenericType(TypeHelper.parameterized(CSharpList.class, Integer.class))",
+            code, StringComparison.Ordinal);
+        Assert.Contains("CSharpArray.arrayType(Item.class)", code, StringComparison.Ordinal);
+        Assert.Contains("import io.github.ningpp.compat.TypeHelper;", code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// 令牌重载返回 Object；被丢弃的语句位置不能再加 cast（javac: 不是语句）。
+    /// </summary>
+    [Fact]
+    public void TokenOverloadCall_InStatementPosition_HasNoCast()
+    {
+        var result = Convert("""
+using System;
+
+static class Check
+{
+    public static T Throws<T>(Action action) => default(T);
+    public static object Throws(Type type, Action action) => null;
+}
+
+class Use
+{
+    void M()
+    {
+        Check.Throws<Exception>(() => { });
+    }
+
+    void N() => Check.Throws<Exception>(() => { });
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode ?? "";
+        Assert.Contains("Check.throwsValue(RuntimeException.class, () ->", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("((RuntimeException) Check.throwsValue", code, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

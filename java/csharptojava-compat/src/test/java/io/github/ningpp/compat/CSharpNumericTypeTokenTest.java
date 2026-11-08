@@ -21,6 +21,15 @@ class CSharpNumericTypeTokenTest {
     }
 
     @Test
+    void sbyteTokenComparesEqualToJavaByteButNotToCSharpByte() {
+        // typeof(sbyte) 的令牌是 CSharpSByte；反射得到的 java.lang.Byte 只可能
+        // 表示 C# sbyte，两者必须相等，否则 SByteConverter.CanConvert 拒绝该 key。
+        assertEquals(true, TypeHelper.isSameType(CSharpSByte.class, Byte.class));
+        assertEquals(true, TypeHelper.isSameType(Byte.class, CSharpSByte.class));
+        assertEquals(false, TypeHelper.isSameType(CSharpByte.class, Byte.class));
+    }
+
+    @Test
     void javaByteClassDenormalizesToSByteToken() {
         // The converter maps C# byte -> Java int/Integer and C# sbyte -> Java
         // byte/Byte, so a java.lang.Byte surfaced by reflection over generated

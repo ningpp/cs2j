@@ -31,6 +31,14 @@ class TypeHelperTypeArgumentTest {
     }
 
     @Test
+    void sbytePinnedTokenNormalizesToJavaByte() {
+        // C# sbyte 的 Java 载体是 java.lang.Byte；CSharpSByte 只是 typeof 身份标记，
+        // 转换器注册/查找键必须统一成 Byte.class。
+        assertSame(Byte.class,
+                TypeHelper.getTypeArgument(new SBytePinnedConverter(), Generic.class, 0, Object.class));
+    }
+
+    @Test
     void fallsBackWhenNotResolvable() {
         assertSame(Object.class,
                 TypeHelper.getTypeArgument(new NoBase(), Generic.class, 0, Object.class));
@@ -52,6 +60,10 @@ class TypeHelperTypeArgumentTest {
 
     static class PinnedConverter extends Generic<Integer> {
         private static final Class<?> __cs2j_typeArg_Generic_0 = CSharpByte.class;
+    }
+
+    static class SBytePinnedConverter extends Generic<Integer> {
+        private static final Class<?> __cs2j_typeArg_Generic_0 = CSharpSByte.class;
     }
 
     static class NoBase {

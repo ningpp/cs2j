@@ -22,6 +22,20 @@ import org.junit.jupiter.api.Test;
  */
 class ActivatorCollectionCtorTest {
 
+    static final class NoArgCtor {
+        NoArgCtor() {
+        }
+    }
+
+    /**
+     * C# {@code Activator.CreateInstance(type, nonPublic: false)}：boolean 实参不能被
+     * varargs 重载当成构造器参数（真实链 ReflectionMemberAccessor.CreateConstructor）。
+     */
+    @Test
+    void createInstanceWithNonPublicFlag_IgnoresTheFlag() {
+        assertNotNull(Activator.createInstance(NoArgCtor.class, false));
+    }
+
     /** Stands in for a generated C# collection that only implements CSharpIList&lt;T&gt;. */
     static final class StringList implements CSharpIList<String> {
         private final List<String> items;

@@ -76,6 +76,29 @@ public final class Activator {
         return createInstanceWithArgs(type, args);
     }
 
+    /**
+     * C# {@code Activator.CreateInstance(Type, bool nonPublic)}. The visibility flag has
+     * no Java counterpart (setAccessible covers it), and without this overload the
+     * boolean binds to {@code Object... args} and is treated as a constructor argument
+     * (real chain: ReflectionMemberAccessor.CreateConstructor for CSharpList).
+     */
+    public static Object createInstance(Class<?> type, boolean nonPublic) {
+        if (type == null) {
+            throw new NullPointerException("type");
+        }
+        try {
+            Constructor<?> ctor = type.getDeclaredConstructor();
+            ctor.setAccessible(true);
+            return ctor.newInstance();
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException("No matching constructor found for " + type.getName(), e);
+        } catch (InstantiationException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        } catch (InvocationTargetException e) {
+            throw new TargetInvocationException(null, e.getCause() == null ? e : e.getCause());
+        }
+    }
+
     /** C# Activator.CreateInstance(type, bindingAttr, binder, args, culture) — flags ignored. */
     public static Object createInstance(Class<?> type, Object bindingAttr, Object binder, Object[] args, Object culture) {
         return createInstanceWithArgs(type, args);

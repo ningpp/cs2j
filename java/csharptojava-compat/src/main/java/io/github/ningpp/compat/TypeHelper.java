@@ -2826,6 +2826,14 @@ public final class TypeHelper {
         if (a == null || b == null) {
             return false;
         }
+        // Java byte only ever represents C# sbyte, whose typeof() token is the
+        // CSharpSByte marker. Reflection over a converted sbyte member yields
+        // Byte.class, and converter CanConvert() compares the marker against that
+        // key (real chain: "SByteConverter is not compatible with java.lang.Byte").
+        // CSharpByte (C# byte, represented as int/Integer) must stay distinct.
+        if ((a == CSharpSByte.class && b == Byte.class) || (a == Byte.class && b == CSharpSByte.class)) {
+            return true;
+        }
         return toWrapperType(a) == toWrapperType(b);
     }
 
@@ -2855,7 +2863,10 @@ public final class TypeHelper {
         }
         Class<?> pinned = pinnedTypeArgument(instance.getClass(), declaringType, index);
         if (pinned != null) {
-            return pinned;
+            // C# sbyte 的 Java 载体就是 java.lang.Byte（反射与 Class.isAssignableFrom
+            // 都用 Byte.class）；CSharpSByte 只是 typeof 的身份标记，转换器注册键必须
+            // 与查找侧统一成 Byte，否则 SByteConverter 会被判为“不兼容 Byte”。
+            return pinned == CSharpSByte.class ? Byte.class : pinned;
         }
         Class<?> resolved = resolveTypeArgument(
                 instance.getClass(), declaringType, index, new java.util.HashMap<>());
