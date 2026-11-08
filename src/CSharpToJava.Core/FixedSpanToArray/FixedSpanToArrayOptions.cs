@@ -13,7 +13,10 @@ public sealed class FixedSpanToArrayOptions
 
     /// <summary>
     /// Lower writable <c>Span&lt;T&gt;</c> targets through a temporary array plus a
-    /// <c>try/finally</c> write-back copy.
+    /// <c>try/finally</c> write-back copy. Off by default: the write-back copies the
+    /// <em>whole</em> span on every execution, so the cost is O(caller buffer) rather
+    /// than O(bytes written) and the caller may pass a large buffer. Opt in only when
+    /// the span is known to be small.
     /// </summary>
-    public bool LowerWritableSpans { get; init; } = true;
+    public bool LowerWritableSpans { get; init; }
 }

@@ -15,9 +15,12 @@ namespace CSharpToJava.Core.FixedSpanToArray;
 /// (span is <c>ReadOnlySpan&lt;T&gt;</c>/<c>Span&lt;T&gt;</c>) →</item>
 /// <item><c>T[] __cs2j_fixed_N = span.ToArray(); fixed (T* p = __cs2j_fixed_N)</c>
 /// for the read-only shape;</item>
-/// <item>the writable <c>Span&lt;T&gt;</c> target additionally keeps a temp span
-/// and copies the array back in a <c>finally</c> so writes are not lost:</item>
 /// </list>
+/// Writable <c>Span&lt;T&gt;</c> targets are preserved by default (FSA001) and only
+/// lowered when <see cref="FixedSpanToArrayOptions.LowerWritableSpans"/> is enabled,
+/// because the write-back copies the whole span back on every execution
+/// (<c>CopyTo</c> over the caller's buffer), turning an O(bytes written) access into
+/// O(caller buffer) — a complexity regression for large buffers. Opting in produces:
 /// <code>
 /// var __cs2j_span_N = span;
 /// T[] __cs2j_fixed_M = __cs2j_span_N.ToArray();
@@ -280,7 +283,11 @@ public sealed class FixedSpanToArrayPreprocessor
 
             if (!isReadOnly && !_options.LowerWritableSpans)
             {
-                Reject(node, "writable Span fixed lowering is disabled by options.");
+                Reject(node,
+                    "writable Span fixed statements are preserved by default: " +
+                    "materializing the whole span and copying it back on every " +
+                    "execution changes the caller buffer's cost; enable " +
+                    "LowerWritableSpans to opt in.");
                 return false;
             }
 

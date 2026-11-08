@@ -12,15 +12,18 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// <summary>
 /// <c>fixed-span-to-array</c>：把 <c>fixed (T* p = Span/ReadOnlySpan)</c> 与
 /// <c>fixed (T* p = &amp;MemoryMarshal.GetReference(span))</c> 物化为数组固定，
-/// 让后续 unsafe-ffm R3 的数组 fixed 路径接管指针降级；可写 Span 通过
-/// try/finally 写回，无法证明的形态保留并报 FSA001。
+/// 让后续 unsafe-ffm R3 的数组 fixed 路径接管指针降级。可写 Span 默认<b>不</b>物化
+/// （整 span 回写会改变调用方缓冲区成本），仅在 opt-in 时通过 try/finally 写回；
+/// 无法证明的形态保留并报 FSA001。
 /// </summary>
 public sealed class FixedSpanToArrayTests
 {
     private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest);
 
-    private static FixedSpanToArrayResult Run(string source) =>
-        new FixedSpanToArrayPreprocessor().RewriteFile(source, ParseWithSemantics(source));
+    private static FixedSpanToArrayResult Run(
+        string source,
+        FixedSpanToArrayOptions? options = null) =>
+        new FixedSpanToArrayPreprocessor(options).RewriteFile(source, ParseWithSemantics(source));
 
     // ── 1. ReadOnlySpan fixed → span.ToArray() + fixed over array ──
 
@@ -52,7 +55,7 @@ public sealed class FixedSpanToArrayTests
         AssertOutputCompiles(result.OutputCode);
     }
 
-    // ── 2. writable Span fixed → temp span + try/finally CopyTo write-back ──
+    // ── 2. writable Span fixed (opt-in) → temp span + try/finally CopyTo write-back ──
 
     [Fact]
     public void WritableSpan_fixed_uses_try_finally_write_back_and_persists_mutation()
@@ -80,7 +83,9 @@ public sealed class FixedSpanToArrayTests
             }
             """;
 
-        var result = Run(src);
+        var result = Run(
+            src,
+            new FixedSpanToArrayOptions { LowerWritableSpans = true });
 
         Assert.True(result.Changed);
         Assert.False(result.HasErrors);
@@ -102,6 +107,37 @@ public sealed class FixedSpanToArrayTests
         Assert.Equal(42, (int)assembly.GetType("Use")!
             .GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!
             .Invoke(null, null)!);
+    }
+
+    // ── 2b. 默认可写 Span fixed 原样保留（不整 span 物化/回写） ──
+
+    [Fact]
+    public void WritableSpan_fixed_is_preserved_by_default()
+    {
+        const string src = """
+            using System;
+            public static class Api
+            {
+                static unsafe void Mutate(Span<int> span)
+                {
+                    fixed (int* p = span)
+                    {
+                        p[2] = 42;
+                    }
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Equal(0, result.Statistics.SpanFixedStatementsLowered);
+        Assert.Equal(1, result.Statistics.SpanFixedStatementsPreserved);
+
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(FixedSpanToArrayDiagnosticCode.FSA001, diagnostic.Code);
+        Assert.Contains("writable", diagnostic.Message);
     }
 
     // ── 3. &MemoryMarshal.GetReference(span) → 提取 span 后数组化 ──
