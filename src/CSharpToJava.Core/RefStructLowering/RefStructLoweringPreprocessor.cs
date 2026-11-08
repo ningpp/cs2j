@@ -225,9 +225,16 @@ public sealed class RefStructLoweringPreprocessor
         }
         else
         {
+            // The identifier normally already carries a trailing space from
+            // `ref struct R { }`; only add a leading one when it does not, so
+            // the emitted base list never gets a doubled space.
             var colon = SyntaxFactory.Token(SyntaxKind.ColonToken)
-                .WithLeadingTrivia(SyntaxFactory.Space)
                 .WithTrailingTrivia(SyntaxFactory.Space);
+            if (!withoutRef.Identifier.HasTrailingTrivia)
+            {
+                colon = colon.WithLeadingTrivia(SyntaxFactory.Space);
+            }
+
             baseList = SyntaxFactory.BaseList(
                     colon,
                     SyntaxFactory.SingletonSeparatedList<BaseTypeSyntax>(marker))
