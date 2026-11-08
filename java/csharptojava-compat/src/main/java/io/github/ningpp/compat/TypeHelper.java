@@ -1987,9 +1987,14 @@ public final class TypeHelper {
         return false;
     }
 
-    /** Mirrors C# Type.IsByRefLike — ref structs have no Java equivalent. */
+    /**
+     * Mirrors C# Type.IsByRefLike. Lowered ref structs keep the observable
+     * byref-like-ness by implementing {@link Cs2jByRefLikeMarker}; C# types that
+     * were never lowered still carry the CLR flag, but the C# preprocessing chain
+     * rewrites every read of that flag to the equivalent helper query.
+     */
     public static boolean getIsByRefLike(Class<?> type) {
-        return false;
+        return type != null && Cs2jByRefLikeMarker.class.isAssignableFrom(type);
     }
 
     public static boolean getIsArray(Class<?> type) {
