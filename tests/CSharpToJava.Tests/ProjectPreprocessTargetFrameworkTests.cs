@@ -1,5 +1,6 @@
 using CSharpToJava.CLI;
 using CSharpToJava.CLI.Preprocessing.Adapters;
+using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.Core.RefOutInPreprocessor;
 
 namespace CSharpToJava.Tests;
@@ -262,6 +263,54 @@ public sealed class ProjectPreprocessTargetFrameworkTests : IDisposable
         var copied = File.ReadAllText(hostProject);
         Assert.DoesNotContain("Cs2jRefOutIn.csproj", copied);
         Assert.Single(diagnostics);
+    }
+
+    [Fact]
+    public void EnsureExtensionProjectReference_DoesNotSelfReferencePreludeProject()
+    {
+        var intermediateRoot = Path.Combine(_tempRoot, "intermediate");
+        var libDirectory = Path.Combine(intermediateRoot, "Cs2jPrelude");
+        Directory.CreateDirectory(libDirectory);
+        var libProject = Path.Combine(libDirectory, "Cs2jPrelude.csproj");
+        File.WriteAllText(
+            libProject,
+            """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks></PropertyGroup>
+            </Project>
+            """);
+        var diagnostics = new List<DelegatePreprocessorDiagnostic>();
+
+        DelegatePassAdapter.EnsureExtensionProjectReference(
+            libProject, libProject, intermediateRoot, diagnostics);
+
+        var copied = File.ReadAllText(libProject);
+        Assert.DoesNotContain("ProjectReference", copied);
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void EnsureExtensionProjectReference_RefOutInDoesNotSelfReferenceSupportProject()
+    {
+        var intermediateRoot = Path.Combine(_tempRoot, "intermediate");
+        var libDirectory = Path.Combine(intermediateRoot, "Cs2jRefOutIn");
+        Directory.CreateDirectory(libDirectory);
+        var libProject = Path.Combine(libDirectory, "Cs2jRefOutIn.csproj");
+        File.WriteAllText(
+            libProject,
+            """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+            </Project>
+            """);
+        var diagnostics = new List<RefOutInRewriterDiagnostic>();
+
+        RefOutInPassAdapter.EnsureExtensionProjectReference(
+            libProject, libProject, intermediateRoot, diagnostics);
+
+        var copied = File.ReadAllText(libProject);
+        Assert.DoesNotContain("ProjectReference", copied);
+        Assert.Empty(diagnostics);
     }
 
     [Fact]

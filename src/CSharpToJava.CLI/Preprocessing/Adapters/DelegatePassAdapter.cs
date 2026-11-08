@@ -318,13 +318,19 @@ internal sealed class DelegatePassAdapter : ProjectPassAdapter
         }
     }
 
-    private static void EnsureExtensionProjectReference(
+    internal static void EnsureExtensionProjectReference(
         string projectFilePath,
         string libProjectPath,
         string intermediateRoot,
         List<DelegatePreprocessorDiagnostic> diagnostics)
     {
         if (!File.Exists(projectFilePath))
+            return;
+
+        // The released support project is the reference target itself; adding
+        // the reference would create a self-reference (and an MSB4006 restore
+        // cycle) whenever the input tree already ships the support project.
+        if (PathsEqual(projectFilePath, libProjectPath))
             return;
 
         XDocument document;

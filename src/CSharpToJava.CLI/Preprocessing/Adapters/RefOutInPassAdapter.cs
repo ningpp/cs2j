@@ -454,6 +454,12 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
         List<RefOutInRewriterDiagnostic> diagnostics)
     {
         if (!File.Exists(projectFilePath)) return;
+
+        // The released support project is the reference target itself; adding
+        // the reference would create a self-reference (and an MSB4006 restore
+        // cycle) whenever the input tree already ships the support project.
+        if (PathsEqual(projectFilePath, libProjectPath)) return;
+
         XDocument document;
         try { document = XDocument.Load(projectFilePath, LoadOptions.PreserveWhitespace); }
         catch { return; }
