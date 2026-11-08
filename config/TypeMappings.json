@@ -1027,6 +1027,20 @@
             ]
         },
         {
+            "csharp": "Cs2jPrelude.Cs2jByRefLikeMarker",
+            "java": "Cs2jByRefLikeMarker",
+            "imports": [
+                "io.github.ningpp.compat.Cs2jByRefLikeMarker"
+            ]
+        },
+        {
+            "csharp": "Cs2jPrelude.Cs2jByRefLikeHelper",
+            "java": "TypeHelper",
+            "imports": [
+                "io.github.ningpp.compat.TypeHelper"
+            ]
+        },
+        {
             "csharp": "Cs2jByRef.ByRef`1",
             "java": "ByRef",
             "imports": [
@@ -7069,6 +7083,11 @@
         }
     ],
     "methodMappings": [
+        {
+            "type": "Cs2jPrelude.Cs2jByRefLikeHelper",
+            "method": "IsByRefLike",
+            "javaMethod": "TypeHelper.getIsByRefLike"
+        },
         {
             "type": "System.Collections.IEnumerator",
             "method": "Current",
