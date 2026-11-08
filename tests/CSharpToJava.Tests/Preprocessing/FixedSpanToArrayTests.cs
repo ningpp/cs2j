@@ -14,6 +14,7 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// <c>fixed (T* p = &amp;MemoryMarshal.GetReference(span))</c> 物化为数组固定，
 /// 让后续 unsafe-ffm R3 的数组 fixed 路径接管指针降级。可写 Span 默认<b>不</b>物化
 /// （整 span 回写会改变调用方缓冲区成本），仅在 opt-in 时通过 try/finally 写回；
+/// 链工厂按 unsafe-ffm 是否同链决定该 opt-in（Java ABI 链路需要，孤立 C# 验证不需要）；
 /// 无法证明的形态保留并报 FSA001。
 /// </summary>
 public sealed class FixedSpanToArrayTests
@@ -320,6 +321,20 @@ public sealed class FixedSpanToArrayTests
             "fixed-span-to-array must run before unsigned");
         Assert.True(fixedSpan < unsafeFfm,
             "fixed-span-to-array must run before unsafe-ffm");
+    }
+
+    // ── 7. 可写 Span 物化只在 unsafe-ffm 同链时启用（消费者感知） ──
+
+    [Fact]
+    public void WritableSpan_lowering_follows_the_unsafe_ffm_consumer()
+    {
+        Assert.False(PassChainFactory.ShouldLowerWritableFixedSpans(
+            new HashSet<string> { PassIds.FixedSpanToArray }));
+
+        Assert.True(PassChainFactory.ShouldLowerWritableFixedSpans(
+            new HashSet<string> { PassIds.FixedSpanToArray, PassIds.UnsafeFfm }));
+
+        Assert.False(PassChainFactory.ShouldLowerWritableFixedSpans(null));
     }
 
     // ── Helpers ──

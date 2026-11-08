@@ -458,7 +458,16 @@ internal static class PassChainFactory
             // Independent ABI pre-pass that materializes span-backed fixed
             // statements into fixed over a managed array before unsafe-ffm.
             PassIds.FixedSpanToArray => new FixedSpanToArrayPassAdapter(
-                new FixedSpanToArrayOptions(),
+                new FixedSpanToArrayOptions
+                {
+                    // Writable-span materialization is only an ABI obligation
+                    // for the Java chain: unsafe-ffm's R3 pointer lowering
+                    // cannot prove a span's backing array and reports UF020.
+                    // An isolated C# verification chain keeps the writable
+                    // span, preserving the caller's buffer (zero copy) instead
+                    // of paying an O(buffer) write-back on every execution.
+                    LowerWritableSpans = ShouldLowerWritableFixedSpans(config.EnabledPassIds),
+                },
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,
@@ -855,6 +864,18 @@ internal static class PassChainFactory
         adapter.ApplyVerificationConfig(config.VerifyBuild, config.VerifyTests);
         return adapter;
     }
+
+    /// <summary>
+    /// Whether writable <c>Span&lt;T&gt;</c> fixed statements must be materialized
+    /// into arrays. This is not a C# semantic requirement — it is an ABI
+    /// obligation of the pointer-lowering consumer: <c>unsafe-ffm</c> can only
+    /// lower pointer fixed statements over a provable backing array (R3), and
+    /// reports UF020 for a raw span. So materialize only when <c>unsafe-ffm</c>
+    /// runs in the same chain; a standalone C# verification chain keeps the
+    /// caller's memory untouched.
+    /// </summary>
+    internal static bool ShouldLowerWritableFixedSpans(IReadOnlySet<string>? enabledPassIds)
+        => enabledPassIds?.Contains(PassIds.UnsafeFfm) == true;
 
     /// <summary>
     /// W-01 (upgrade plan §6.4-R0): under java-ready/audit the variance-audit

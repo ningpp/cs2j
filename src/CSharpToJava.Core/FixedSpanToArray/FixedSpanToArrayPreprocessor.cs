@@ -16,8 +16,11 @@ namespace CSharpToJava.Core.FixedSpanToArray;
 /// <item><c>T[] __cs2j_fixed_N = span.ToArray(); fixed (T* p = __cs2j_fixed_N)</c>
 /// for the read-only shape;</item>
 /// </list>
-/// Writable <c>Span&lt;T&gt;</c> targets are preserved by default (FSA001) and only
-/// lowered when <see cref="FixedSpanToArrayOptions.LowerWritableSpans"/> is enabled,
+/// Whether writable <c>Span&lt;T&gt;</c> targets are materialized is decided by the
+/// host chain, not here: it is only needed when <c>unsafe-ffm</c> runs in the
+/// same chain (the Java ABI path); the default keeps them verbatim. Writable
+/// spans are preserved by default (FSA001) and only lowered when
+/// <see cref="FixedSpanToArrayOptions.LowerWritableSpans"/> is enabled,
 /// because the write-back copies the whole span back on every execution
 /// (<c>CopyTo</c> over the caller's buffer), turning an O(bytes written) access into
 /// O(caller buffer) — a complexity regression for large buffers. Opting in produces:

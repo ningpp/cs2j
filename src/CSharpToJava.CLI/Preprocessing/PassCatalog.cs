@@ -350,11 +350,14 @@ internal static class PassCatalog
             PassStatus.Implemented,
             // Independent ABI pre-pass over unsafe-ffm's span-backed fixed
             // statements. It only changes the fixed source from a span /
-            // MemoryMarshal.GetReference(span) to a materialized array (plus a
-            // try/finally write-back for writable spans), so unsafe-ffm R3's
-            // existing array path can lower the pointer. Every other fixed
-            // source is preserved and unprovable span shapes stay verbatim with
-            // FSA001, making default-on safe.
+            // MemoryMarshal.GetReference(span) to a materialized array, so
+            // unsafe-ffm R3's existing array path can lower the pointer.
+            // Read-only spans are always materialized; writable spans are
+            // materialized (plus try/finally write-back) only when unsafe-ffm
+            // runs in the same chain — that is a Java ABI obligation, not a C#
+            // semantic one — and otherwise stay verbatim with FSA001. Every
+            // other fixed source is preserved and unprovable span shapes stay
+            // verbatim with FSA001, making default-on safe.
             defaultEnabled: true,
             runAfterIds: new[] { PassIds.RefOutIn, PassIds.UsingResourceLift },
             supportLibrary: PassSupportLibrary.None,
@@ -362,9 +365,11 @@ internal static class PassCatalog
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
             description: "Materialize Span/ReadOnlySpan-backed fixed statements into fixed over " +
-                "a managed array (try/finally write-back for writable spans) so unsafe-ffm R3 " +
-                "can lower the pointer through its existing array path; unprovable shapes stay " +
-                "verbatim with FSA001 for normalization-audit.",
+                "a managed array so unsafe-ffm R3 can lower the pointer through its existing " +
+                "array path; read-only spans are always materialized, writable spans only when " +
+                "unsafe-ffm runs in the same chain (Java ABI; try/finally write-back) and are " +
+                "otherwise preserved with FSA001, as are unprovable shapes, for " +
+                "normalization-audit.",
             catalogItems: "C06",
             // The pass owns no NORM code itself: it feeds NORM-FIXED into
             // unsafe-ffm, which remains the residual owner.

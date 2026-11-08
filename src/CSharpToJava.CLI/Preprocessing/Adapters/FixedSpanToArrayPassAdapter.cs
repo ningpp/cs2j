@@ -22,6 +22,7 @@ internal sealed class FixedSpanToArrayPassAdapter : ProjectPassAdapter
     private readonly bool _verifyBuild;
     private readonly bool _verifyTests;
 
+    private readonly FixedSpanToArrayOptions _options;
     private readonly FixedSpanToArrayPreprocessor _preprocessor;
     private readonly List<FixedSpanToArrayDiagnostic> _diagnostics = new();
     private readonly FixedSpanToArrayStatistics _statistics = new();
@@ -39,6 +40,7 @@ internal sealed class FixedSpanToArrayPassAdapter : ProjectPassAdapter
         _compatNamespacePrefixes = compatNamespacePrefixes;
         _verifyBuild = verifyBuild;
         _verifyTests = verifyTests;
+        _options = options;
         _preprocessor = new FixedSpanToArrayPreprocessor(options);
     }
 
@@ -57,6 +59,9 @@ internal sealed class FixedSpanToArrayPassAdapter : ProjectPassAdapter
 
     public FixedSpanToArrayStatistics Statistics => _statistics;
     public IReadOnlyList<FixedSpanToArrayDiagnostic> Diagnostics => _diagnostics;
+
+    /// <summary>Options the adapter runs with (consumer-aware wiring visibility for tests).</summary>
+    internal FixedSpanToArrayOptions Options => _options;
 
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
     {
