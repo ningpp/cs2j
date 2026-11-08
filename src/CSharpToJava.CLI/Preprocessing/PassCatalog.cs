@@ -732,21 +732,22 @@ internal static class PassCatalog
             ".cs2j-ref-struct-lowering-src",
             PassStage.Declarative,
             PassStatus.Implemented,
-            // Independent read-only post-pass over stackalloc-lowering's output.
-            // Safe to run by default: it only removes the `ref` modifier from
-            // structs without any ref-only member and preserves every other
-            // declaration verbatim with RSL001.
+            // Post-pass over stackalloc-lowering's output. Removing `ref` loses
+            // the only C# carrier of Type.IsByRefLike, so the declaration gains
+            // the Cs2jPrelude marker interface and every read of that property
+            // is rewritten to the Cs2jPrelude helper in the same step.
             defaultEnabled: true,
             runAfterIds: new[] { PassIds.StackAllocLowering },
             supportLibrary: PassSupportLibrary.None,
             needsSemanticModel: true,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Read-only post-pass over stackalloc-lowering residuals: remove the " +
-                "`ref` modifier from user ref struct declarations without any ref-only member " +
-                "(pointer/function-pointer/ref field, ref-returning member, Span/ReadOnlySpan/" +
-                "Memory/ref-like type, or nested ref struct); every other declaration stays " +
-                "verbatim with RSL001 for normalization-audit.",
+            description: "Post-pass over stackalloc-lowering residuals: lower user ref struct " +
+                "declarations without any ref-only member (pointer/function-pointer/ref field, " +
+                "ref-returning member, Span/ReadOnlySpan/Memory/ref-like type, or nested ref " +
+                "struct) to ordinary structs implementing Cs2jByRefLikeMarker, and rewrite " +
+                "every Type.IsByRefLike read to Cs2jByRefLikeHelper.IsByRefLike; declarations " +
+                "with ref-only members stay verbatim with RSL001 for normalization-audit.",
             catalogItems: "C06",
             // Ref-only struct declarations intentionally stay behind: MayLeave
             // records that residual NORM-REF-STRUCT is expected, not a failure.
