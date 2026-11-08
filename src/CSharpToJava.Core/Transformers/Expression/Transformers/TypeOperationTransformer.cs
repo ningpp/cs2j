@@ -384,6 +384,15 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             && IsPrimitiveSpecialType(sym.SpecialType)
             && IsBoxedOrReferenceSource(srcSym))
         {
+            // C# 的 (int)objectExpr 会把装箱的枚举值解箱成其底层数值；Java 枚举常量
+            // 不是 Integer，直接 (Integer)(expr) 会抛 ClassCastException（真实链
+            // EnumConverter.convertToUInt64 的 (int)value）。EnumHelper 同时接受
+            // 装箱 Number 与暴露 getValue() 的枚举常量。
+            if (IsObjectOrTypeParameterSource(srcSym)
+                && UnboxedNumericValue(sym.SpecialType, e, c) is { } unboxed)
+            {
+                return unboxed;
+            }
             return $"({BoxedWrapperName(sym.SpecialType)})({e})";
         }
 
@@ -533,6 +542,48 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 => $"({e}).floatValue()",
             _ => $"({Map(n.Type, c)})({e})"
         };
+    }
+
+    private static bool IsObjectOrTypeParameterSource(ITypeSymbol source)
+        => source.SpecialType == SpecialType.System_Object
+            || source is ITypeParameterSymbol;
+
+    /// <summary>
+    /// C# object/类型参数 → 整型的显式转换：运行时值可能是装箱数值，也可能是枚举
+    /// 常量（C# 允许把装箱枚举解箱为其底层类型）。Java 需要经 EnumHelper 统一取值，
+    /// 覆盖 (int)/(long)/(ulong)/(short)/(ushort)/(byte)/(sbyte)/(char)。
+    /// </summary>
+    private static string? UnboxedNumericValue(
+        SpecialType target, string expression, ConversionContext context)
+    {
+        switch (target)
+        {
+            case SpecialType.System_Int32:
+                context.AddImport("io.github.ningpp.compat.EnumHelper");
+                return $"EnumHelper.toInt32({expression})";
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+                context.AddImport("io.github.ningpp.compat.EnumHelper");
+                return $"EnumHelper.toInt64({expression})";
+            case SpecialType.System_Int16:
+                context.AddImport("io.github.ningpp.compat.EnumHelper");
+                return $"((short) EnumHelper.toInt32({expression}))";
+            case SpecialType.System_UInt16:
+                context.AddImport("io.github.ningpp.compat.EnumHelper");
+                return $"(((int) EnumHelper.toInt32({expression})) & 0xFFFF)";
+            case SpecialType.System_Byte:
+            case SpecialType.System_SByte:
+                context.AddImport("io.github.ningpp.compat.EnumHelper");
+                return $"((byte) EnumHelper.toInt32({expression}))";
+            case SpecialType.System_UInt32:
+                context.AddImport("io.github.ningpp.compat.EnumHelper");
+                return $"(int)(EnumHelper.toInt64({expression}) & 0xFFFFFFFFL)";
+            case SpecialType.System_Char:
+                context.AddImport("io.github.ningpp.compat.EnumHelper");
+                return $"((char) EnumHelper.toInt32({expression}))";
+            default:
+                return null;
+        }
     }
 
     /// <summary>
@@ -1161,10 +1212,55 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     {
         if (ClassTypeParameterRuntimeToken(typeParameter, context, site) is { } runtimeToken)
             return runtimeToken;
+        if (MethodTypeParameterRuntimeToken(typeParameter, context, site) is { } methodToken)
+            return methodToken;
         var bound = typeParameter.ConstraintTypes.FirstOrDefault();
         return bound is INamedTypeSymbol && bound.SpecialType != SpecialType.System_Object
             ? ConversionContext.GetClassLiteral(bound, context)
             : "Object.class";
+    }
+
+    /// <summary>
+    /// 方法类型参数的 typeof(T) 没有线程化令牌时（GD-MTOK 无法改写调用点，或调用点
+    /// 传的是类类型参数），若方法本身有形参静态类型为 T，可从实参运行时类型推导：
+    /// `value == null ? Enum.class : value.getClass()`。仅在有具体类约束（如 where T :
+    /// Enum，或 sealed 类约束）时启用，避免把“值为派生类实例”误当成 typeof(T)。
+    /// </summary>
+    private static string? MethodTypeParameterRuntimeToken(
+        ITypeParameterSymbol typeParameter, ConversionContext context, SyntaxNode site)
+    {
+        if (typeParameter.TypeParameterKind != TypeParameterKind.Method)
+            return null;
+        if (context.SemanticModel == null)
+            return null;
+
+        var methodDeclaration = site.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+        if (methodDeclaration == null)
+            return null;
+        if (context.GetDeclaredSymbol(methodDeclaration) is not IMethodSymbol method)
+            return null;
+
+        var bound = typeParameter.ConstraintTypes
+            .OfType<INamedTypeSymbol>()
+            .FirstOrDefault(type => type.TypeKind == TypeKind.Class
+                && type.SpecialType != SpecialType.System_Object
+                && (type.SpecialType == SpecialType.System_Enum || type.IsSealed));
+        if (bound == null)
+            return null;
+
+        foreach (var parameter in method.Parameters)
+        {
+            if (parameter.RefKind != RefKind.None
+                || parameter.Type is not ITypeParameterSymbol parameterType
+                || !SymbolEqualityComparer.Default.Equals(parameterType, typeParameter))
+            {
+                continue;
+            }
+            var javaName = ConversionContext.EscapeJavaKeyword(parameter.Name);
+            var fallback = ConversionContext.GetClassLiteral(bound, context);
+            return $"({javaName} == null ? {fallback} : {javaName}.getClass())";
+        }
+        return null;
     }
 
     /// <summary>

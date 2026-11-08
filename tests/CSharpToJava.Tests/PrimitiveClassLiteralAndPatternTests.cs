@@ -135,6 +135,49 @@ class NullableConverter<T> : Converter<T?> where T : struct { }
         Assert.DoesNotContain("__cs2j_typeArg_Converter_0 =", code, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// 方法类型参数没有线程化令牌时，typeof(T) 从「形参静态类型为 T」的实参运行时
+    /// 类型推导（真实链 EnumConverter.convertToUInt64 的 typeof(T) 退化为 Enum.class）。
+    /// </summary>
+    [Fact]
+    public void MethodTypeParameterToken_DerivesFromValueWhenBoundByClassConstraint()
+    {
+        var result = Convert("""
+using System;
+
+class C
+{
+    static long Convert<T>(T value) where T : Enum
+    {
+        return typeof(T) == typeof(int) ? 1L : 0L;
+    }
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("value == null ? Enum.class : value.getClass()", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// C# 允许把装箱枚举解箱成底层整型；Java 枚举常量不是 Integer，必须经
+    /// EnumHelper 取值（真实链 EnumConverter.convertToUInt64 的 (int)value）。
+    /// </summary>
+    [Fact]
+    public void ObjectToIntegralCast_UnboxesEnumUnderlyingValues()
+    {
+        var result = Convert("""
+class C
+{
+    static int Read(object value) => (int)value;
+    static long Read64(object value) => (long)value;
+}
+""");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        Assert.Contains("EnumHelper.toInt32(value)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("EnumHelper.toInt64(value)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
