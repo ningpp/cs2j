@@ -18,6 +18,24 @@ public sealed class RefStructLoweringTests
 {
     private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest);
 
+    private const string MarkerName = "Cs2jByRefLikeMarker";
+
+    /// <summary>
+    /// 与 src/Cs2jPrelude 中注入的支撑类型保持一致；独立编译校验时需要它才能解析
+    /// 降级后 struct 的标记接口与 Helper 调用。
+    /// </summary>
+    private const string SupportSource = @"
+namespace Cs2jPrelude
+{
+    public interface Cs2jByRefLikeMarker { }
+    public static class Cs2jByRefLikeHelper
+    {
+        public static bool IsByRefLike(global::System.Type type)
+            => type != null && typeof(Cs2jByRefLikeMarker).IsAssignableFrom(type);
+    }
+}
+";
+
     private static RefStructLoweringResult Run(string source) =>
         new RefStructLoweringPreprocessor().RewriteFile(source, ParseWithSemantics(source));
 
@@ -36,16 +54,17 @@ public sealed class RefStructLoweringTests
         Assert.False(result.HasErrors);
         Assert.Contains("struct R", result.OutputCode);
         Assert.DoesNotContain("ref struct", result.OutputCode);
+        Assert.Contains(MarkerName, result.OutputCode);
         Assert.Equal(1, result.Statistics.RefStructsLowered);
         Assert.Equal(0, result.Statistics.RefStructsPreserved);
         AssertOutputCompiles(result.OutputCode);
         AssertNoRefStructResidual(result.OutputCode);
     }
 
-    // ── 1b. typeof 使用 → 保留 ref + RSL001（IsByRefLike 可观测） ──
+    // ── 1b. typeof 使用 → 仍然降级，byref-like 语义改由标记接口承载 ──
 
     [Fact]
-    public void RefStruct_UsedInTypeOf_IsPreserved_WithRSL001()
+    public void RefStruct_UsedInTypeOf_IsLowered_WithMarker()
     {
         const string src = """
             using System;
@@ -55,14 +74,34 @@ public sealed class RefStructLoweringTests
 
         var result = Run(src);
 
-        Assert.False(result.Changed);
-        Assert.Equal(src, result.OutputCode);
-        Assert.Contains("ref struct R", result.OutputCode);
-        Assert.Equal(1, result.Statistics.RefStructsPreserved);
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.DoesNotContain("ref struct R", result.OutputCode);
+        Assert.Contains(MarkerName, result.OutputCode);
+        Assert.Equal(1, result.Statistics.RefStructsLowered);
+        Assert.Equal(0, result.Statistics.RefStructsPreserved);
+        Assert.Empty(result.Diagnostics);
+        AssertOutputCompiles(result.OutputCode);
+        AssertNoRefStructResidual(result.OutputCode);
+    }
+
+    // ── 1c. Type.IsByRefLike 消费点 → Helper 查询（C# 预言机语义闭环） ──
+
+    [Fact]
+    public void Type_IsByRefLike_IsRewritten_ToHelper()
+    {
+        const string src = """
+            using System;
+            class C { static bool Check(Type t) => t.IsByRefLike; }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("Cs2jByRefLikeHelper.IsByRefLike(t)", result.OutputCode);
+        Assert.DoesNotContain("t.IsByRefLike", result.OutputCode);
         Assert.Equal(0, result.Statistics.RefStructsLowered);
-        var diagnostic = Assert.Single(result.Diagnostics);
-        Assert.Equal(RefStructLoweringDiagnosticCode.RSL001, diagnostic.Code);
-        Assert.Contains("typeof", diagnostic.Message, StringComparison.Ordinal);
+        AssertOutputCompiles(result.OutputCode);
     }
 
     // ── 2. readonly ref struct → readonly struct ──
@@ -259,9 +298,10 @@ public sealed class RefStructLoweringTests
     private static SemanticModel ParseWithSemantics(string source)
     {
         var tree = CSharpSyntaxTree.ParseText(source, ParseOptions);
+        var support = CSharpSyntaxTree.ParseText(SupportSource, ParseOptions);
         var compilation = CSharpCompilation.Create(
             "ref-struct-lowering-test",
-            new[] { tree },
+            new[] { tree, support },
             GetReferences(),
             new CSharpCompilationOptions(
                 OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
@@ -271,9 +311,10 @@ public sealed class RefStructLoweringTests
     private static void AssertOutputCompiles(string output)
     {
         var tree = CSharpSyntaxTree.ParseText(output, ParseOptions);
+        var support = CSharpSyntaxTree.ParseText(SupportSource, ParseOptions);
         var compilation = CSharpCompilation.Create(
             "ref-struct-lowering-output",
-            new[] { tree },
+            new[] { tree, support },
             GetReferences(),
             new CSharpCompilationOptions(
                 OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
