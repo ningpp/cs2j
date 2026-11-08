@@ -1877,7 +1877,13 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             if (d.Initializer != null)
             {
                 var lifted = _lifter.SpliceExpression(d.Initializer.Value, out var h);
-                if (h.Count > 0)
+                // A holder-slot direct pass (and the `in`-keyword drop) rewrites
+                // the initializer without emitting any hoisted statement. The
+                // remainder must still replace the original: falling through to
+                // base.VisitLocalDeclarationStatement re-visits the ORIGINAL
+                // initializer and its holder reads gain `.Value`, turning
+                // `M(ref holder)` into the illegal `M(ref holder.Value)` (CS1615).
+                if (h.Count > 0 || !ReferenceEquals(lifted, d.Initializer.Value))
                 {
                     anyLift = true;
                     hoisted.AddRange(h);
