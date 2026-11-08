@@ -12,4 +12,7 @@ public sealed class RefStructLoweringStatistics
 
     /// <summary>含 ref-only 成员、保留 ref 修饰符的声明数（RSL001）。</summary>
     public int RefStructsPreserved { get; set; }
+
+    /// <summary>改写为 Cs2jByRefLikeHelper.IsByRefLike 的 Type.IsByRefLike 读取点数。</summary>
+    public int IsByRefLikeSitesRewritten { get; set; }
 }
