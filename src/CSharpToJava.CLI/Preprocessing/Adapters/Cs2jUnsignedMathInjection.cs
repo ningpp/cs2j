@@ -79,22 +79,10 @@ internal static class Cs2jUnsignedMathInjection
 
     private static bool IsOwnReleasedProjectFile(string projectFilePath)
     {
-        try
-        {
-            var content = File.ReadAllText(projectFilePath);
-            return string.Equals(
-                NormalizeLineEndings(content),
-                NormalizeLineEndings(UnsignedMathSupportFiles.GetProjectFileContent()),
-                StringComparison.Ordinal);
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            return false;
-        }
+        return SupportProjectIdentity.IsOwnReleaseCopy(
+            projectFilePath,
+            UnsignedMathSupportFiles.GetProjectFileContent());
     }
-
-    private static string NormalizeLineEndings(string text) =>
-        text.Replace("\r\n", "\n").Replace("\r", "\n");
 
     private static void EnsureExtensionProjectReferences(
         string sourceRoot,

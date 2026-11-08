@@ -361,22 +361,10 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
 
     private static bool IsOwnReleasedRefOutInProjectFile(string projectFilePath)
     {
-        try
-        {
-            var content = File.ReadAllText(projectFilePath);
-            return string.Equals(
-                NormalizeLineEndings(content),
-                NormalizeLineEndings(RefOutInSupportFiles.GetProjectFileContent()),
-                StringComparison.Ordinal);
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            return false;
-        }
+        return SupportProjectIdentity.IsOwnReleaseCopy(
+            projectFilePath,
+            RefOutInSupportFiles.GetProjectFileContent());
     }
-
-    private static string NormalizeLineEndings(string text) =>
-        text.Replace("\r\n", "\n").Replace("\r", "\n");
 
     private static List<string> FindOwnReleaseLibDirectories(string sourceRoot)
     {

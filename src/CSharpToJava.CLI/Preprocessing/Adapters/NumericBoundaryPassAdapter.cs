@@ -637,27 +637,8 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
 
     private static bool IsOwnReleasedProjectFile(string projectFilePath, string expectedContent)
     {
-        try
-        {
-            if (!File.Exists(projectFilePath))
-            {
-                return false;
-            }
-
-            var content = File.ReadAllText(projectFilePath);
-            return string.Equals(
-                NormalizeLineEndings(content),
-                NormalizeLineEndings(expectedContent),
-                StringComparison.Ordinal);
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            return false;
-        }
+        return SupportProjectIdentity.IsOwnReleaseCopy(projectFilePath, expectedContent);
     }
-
-    private static string NormalizeLineEndings(string text) =>
-        text.Replace("\r\n", "\n").Replace("\r", "\n");
 
     private static bool IsUnderOwnReleaseLib(string filePath, IReadOnlyList<string> ownReleaseDirectories)
     {

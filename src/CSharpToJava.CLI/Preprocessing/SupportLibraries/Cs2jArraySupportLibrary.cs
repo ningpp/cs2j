@@ -73,22 +73,10 @@ internal static class Cs2jArraySupportLibrary
 
     private static bool IsOwnReleasedArrayProjectFile(string projectFilePath)
     {
-        try
-        {
-            var content = File.ReadAllText(projectFilePath);
-            return string.Equals(
-                NormalizeLineEndings(content),
-                NormalizeLineEndings(ArrayHelperSupportFiles.GetProjectFileContent()),
-                StringComparison.Ordinal);
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            return false;
-        }
+        return SupportProjectIdentity.IsOwnReleaseCopy(
+            projectFilePath,
+            ArrayHelperSupportFiles.GetProjectFileContent());
     }
-
-    private static string NormalizeLineEndings(string text) =>
-        text.Replace("\r\n", "\n").Replace("\r", "\n");
 
     internal static List<string> FindOwnReleaseDirectories(string sourceRoot)
     {

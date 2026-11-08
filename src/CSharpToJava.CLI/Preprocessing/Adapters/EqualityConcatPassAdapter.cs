@@ -226,19 +226,9 @@ internal sealed class EqualityConcatPassAdapter : ProjectPassAdapter
 
     private static bool IsOwnReleasedProjectFile(string projectFilePath)
     {
-        try
-        {
-            if (!File.Exists(projectFilePath)) return false;
-            var content = File.ReadAllText(projectFilePath);
-            return string.Equals(
-                NormalizeLineEndings(content),
-                NormalizeLineEndings(PreludeSupportFiles.GetProjectFileContent()),
-                StringComparison.Ordinal);
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            return false;
-        }
+        return SupportProjectIdentity.IsOwnReleaseCopy(
+            projectFilePath,
+            PreludeSupportFiles.GetProjectFileContent());
     }
 
     private static bool IsUnderOwnReleaseLib(
@@ -367,7 +357,4 @@ internal sealed class EqualityConcatPassAdapter : ProjectPassAdapter
                 && e.Elements().Any(p => p.Name.LocalName == name));
         return prop?.Element(name)?.Value;
     }
-
-    private static string NormalizeLineEndings(string text)
-        => text.Replace("\r\n", "\n").Replace("\r", "\n");
 }
