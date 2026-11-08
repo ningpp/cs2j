@@ -25,6 +25,51 @@ public class DelegatePreprocessorUnitTests
         return new DelegatePreprocessor().Preprocess(source, model);
     }
 
+    /// <summary>
+    /// Minimal stand-in for the emitted Cs2jPrelude.CsPrelude so rewritten output
+    /// can be compiled in-process without referencing the support library project.
+    /// </summary>
+    private const string PreludeStub = """
+        namespace Cs2jPrelude
+        {
+            public static class CsPrelude
+            {
+                public static T Combine<T>(T a, T b) where T : System.Delegate
+                    => (T)System.Delegate.Combine(a, b);
+
+                public static T Combine<T>(params T[] delegates) where T : System.Delegate
+                    => (T)System.Delegate.Combine(delegates);
+
+                public static T Remove<T>(T a, T b) where T : System.Delegate
+                    => (T)System.Delegate.Remove(a, b);
+            }
+        }
+        """;
+
+    private static void AssertCompiles(string source)
+    {
+        var trees = new[]
+        {
+            CSharpSyntaxTree.ParseText(PreludeStub),
+            CSharpSyntaxTree.ParseText(source),
+        };
+        var compilation = CSharpCompilation.Create("delegate-compile-test",
+            trees,
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Delegate).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Action).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var errors = compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .Select(d => d.ToString())
+            .ToList();
+        Assert.True(errors.Count == 0, string.Join("\n", errors));
+    }
+
     [Fact]
     public void Clean_File_Is_Byte_Level_Preserved()
     {
@@ -445,6 +490,70 @@ public class DelegatePreprocessorUnitTests
         var result = Preprocess(src);
         Assert.True(result.Changed);
         Assert.Contains("CsPrelude.Combine", result.OutputCode);
+    }
+
+    [Fact]
+    public void Delegate_Member_In_String_Concat_Not_Rewritten()
+    {
+        var src = """
+        using System;
+        struct S {
+            public object Item1;
+            public Action Item2;
+            public int Item3;
+            public int Item4;
+            public override string ToString() {
+                return "(" + Item1 + ", " + Item2 + ", " + Item3 + ", " + Item4 + ")";
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        // "string + delegate" is concatenation: the chain's bound type is string
+        Assert.False(result.Changed);
+        Assert.DoesNotContain("CsPrelude.Combine", result.OutputCode);
+        Assert.Equal(src, result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Delegate_Combine_Inside_String_Concat_Still_Rewritten()
+    {
+        var src = """
+        using System;
+        class C {
+            string M(Action d1, Action d2) {
+                return (d1 + d2) + "x";
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        // Outer node binds to string and is left alone; the inner delegates still combine
+        Assert.True(result.Changed);
+        Assert.Contains("Cs2jPrelude.CsPrelude.Combine(", result.OutputCode);
+        Assert.DoesNotContain("Cs2jPrelude.CsPrelude.Combine(Cs2jPrelude.CsPrelude.Combine", result.OutputCode);
+        Assert.Contains("+ \"x\"", result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Delegate_Combine_Three_Flattened_And_Compiles()
+    {
+        var src = """
+        using System;
+        class C {
+            Action M(Action d1, Action d2, Action d3) {
+                return d1 + d2 + d3;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("Cs2jPrelude.CsPrelude.Combine(", result.OutputCode);
+        Assert.Contains("d1", result.OutputCode);
+        Assert.Contains("d2", result.OutputCode);
+        Assert.Contains("d3", result.OutputCode);
+        Assert.DoesNotContain("Cs2jPrelude.CsPrelude.Combine(Cs2jPrelude.CsPrelude.Combine", result.OutputCode);
+        AssertCompiles(result.OutputCode);
     }
 
     [Fact]

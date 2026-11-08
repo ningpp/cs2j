@@ -36,19 +36,18 @@ internal sealed class DelegateSyntaxRewriter : CSharpSyntaxRewriter
         if (!node.IsKind(SyntaxKind.AddExpression) && !node.IsKind(SyntaxKind.SubtractExpression))
             return base.VisitBinaryExpression(node);
 
-        // Need semantic model to determine if operands are delegate types
+        // Need semantic model to determine the bound type of this operation
         if (_semanticModel == null)
             return base.VisitBinaryExpression(node);
 
-        // Check if either operand is a delegate type (use ORIGINAL node for semantic query)
-        var leftType = _semanticModel.GetTypeInfo(node.Left).Type;
-        var rightType = _semanticModel.GetTypeInfo(node.Right).Type;
+        // Decide from the bound type of the binary expression itself (query the
+        // ORIGINAL node): genuine delegate + / - binds to the delegate type,
+        // while "string + delegate" is string concatenation and binds to string.
+        // Dynamic or unresolved bindings are not delegates, so they are left alone.
+        var boundType = _semanticModel.GetTypeInfo(node).Type;
 
-        bool leftIsDelegate = IsDelegateType(leftType);
-        bool rightIsDelegate = IsDelegateType(rightType);
-
-        if (!leftIsDelegate && !rightIsDelegate)
-            return base.VisitBinaryExpression(node); // numeric + / -, not our concern
+        if (!IsDelegateType(boundType))
+            return base.VisitBinaryExpression(node); // numeric + / -, string concat, not our concern
 
         // Flatten left-nested AddExpression chains for Combine
         if (node.IsKind(SyntaxKind.AddExpression))
