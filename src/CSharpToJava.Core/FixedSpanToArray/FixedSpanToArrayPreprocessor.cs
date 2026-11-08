@@ -63,7 +63,6 @@ public sealed class FixedSpanToArrayPreprocessor
         var diagnostics = new List<FixedSpanToArrayDiagnostic>();
         statistics.FilesScanned++;
 
-        var root = (CompilationUnitSyntax)semanticModel.SyntaxTree.GetRoot();
         var filePath = semanticModel.SyntaxTree.FilePath;
 
         // cs2j-generated support/registry artifacts are not user fixed surface.
@@ -73,6 +72,17 @@ public sealed class FixedSpanToArrayPreprocessor
             return Rollback(sourceCode, statistics, diagnostics);
         }
 
+        // Fast path: a file without the `fixed` keyword cannot contain a fixed
+        // statement this pass owns. Check the raw text before touching the syntax
+        // tree so clean files cost one text scan instead of a Roslyn walk plus the
+        // identifier scan (the json corpus has 43/1247 files with the keyword).
+        if (sourceCode.IndexOf("fixed", StringComparison.Ordinal) < 0)
+        {
+            statistics.FilesSkippedClean++;
+            return Rollback(sourceCode, statistics, diagnostics);
+        }
+
+        var root = (CompilationUnitSyntax)semanticModel.SyntaxTree.GetRoot();
         var reservedNames = CollectIdentifierNames(root);
         var rewriter = new SpanFixedRewriter(
             _options, semanticModel, reservedNames, statistics, diagnostics, filePath);

@@ -337,6 +337,29 @@ public sealed class FixedSpanToArrayTests
         Assert.False(PassChainFactory.ShouldLowerWritableFixedSpans(null));
     }
 
+    // ── 8. 无 fixed 关键字的文件走文本预筛，不做整树访问 ──
+
+    [Fact]
+    public void Clean_file_without_fixed_keyword_is_skipped_before_the_tree_walk()
+    {
+        const string src = """
+            class C
+            {
+                static int M() => 1;
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Equal(1, result.Statistics.FilesScanned);
+        Assert.Equal(1, result.Statistics.FilesSkippedClean);
+        Assert.Equal(0, result.Statistics.SpanFixedStatementsLowered);
+        Assert.Equal(0, result.Statistics.SpanFixedStatementsPreserved);
+        Assert.Empty(result.Diagnostics);
+    }
+
     // ── Helpers ──
 
     private static SemanticModel ParseWithSemantics(string source)
