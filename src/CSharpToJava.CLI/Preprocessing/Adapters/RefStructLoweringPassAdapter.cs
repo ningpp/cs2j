@@ -5,13 +5,15 @@ using Microsoft.CodeAnalysis.CSharp;
 namespace CSharpToJava.CLI.Preprocessing.Adapters;
 
 /// <summary>
-/// Adapter for the independent <c>ref-struct-lowering</c> post-pass. It uses the
-/// standard <see cref="ProjectPassAdapter"/> spine (semantic model required) and
-/// rewrites each file through <see cref="RefStructLoweringPreprocessor"/>:
-/// user <c>ref struct</c> declarations without any ref-only member lose their
-/// <c>ref</c> modifier, while every declaration with a pointer/ref/Span-shaped
-/// member is preserved with an RSL001 warning for normalization-audit.
-/// There is no support library and no generated file.
+/// Adapter for the <c>ref-struct-lowering</c> post-pass. It uses the standard
+/// <see cref="ProjectPassAdapter"/> spine (semantic model required) and rewrites
+/// each file through <see cref="RefStructLoweringPreprocessor"/>: user
+/// <c>ref struct</c> declarations without any ref-only member lose their <c>ref</c>
+/// modifier and gain the Cs2jPrelude byref-like marker, while every
+/// <c>Type.IsByRefLike</c> read is rewritten to the Cs2jPrelude helper.
+/// Declarations with a pointer/ref/Span-shaped member are preserved with an
+/// RSL001 warning for normalization-audit. Cs2jPrelude is an existing injected
+/// support library referenced by every project, so no file is generated here.
 /// </summary>
 internal sealed class RefStructLoweringPassAdapter : ProjectPassAdapter
 {
@@ -116,6 +118,7 @@ internal sealed class RefStructLoweringPassAdapter : ProjectPassAdapter
         => $"ref-struct-lowering: {_statistics.FilesTransformed} transformed, " +
            $"{_statistics.FilesSkippedClean} clean, " +
            $"{_statistics.RefStructsLowered} ref struct(s) lowered, " +
+           $"{_statistics.IsByRefLikeSitesRewritten} IsByRefLike site(s) rewritten, " +
            $"{_statistics.RefStructsPreserved} preserved (RSL001)";
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
@@ -131,5 +134,6 @@ internal sealed class RefStructLoweringPassAdapter : ProjectPassAdapter
         _statistics.FilesSkippedClean += source.FilesSkippedClean;
         _statistics.RefStructsLowered += source.RefStructsLowered;
         _statistics.RefStructsPreserved += source.RefStructsPreserved;
+        _statistics.IsByRefLikeSitesRewritten += source.IsByRefLikeSitesRewritten;
     }
 }
