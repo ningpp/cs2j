@@ -88,9 +88,96 @@ public final class TypeHelper {
         return type == null ? new Class<?>[0] : IntrospectionExtensions.getTypeInfo(type).getGenericTypeArguments();
     }
 
-    /** C# Type.MakeGenericType(args) — stub returning the raw type. */
+    /**
+     * C# Type.MakeGenericType(args) — Java has no constructed Class, so the raw class
+     * is returned. The written type arguments are remembered until the immediately
+     * following {@code Activator.CreateInstance(constructedType, …)} consumes them:
+     * converter factories build {@code EnumConverter<T>} / {@code ArrayConverter<…>}
+     * this way and the generated constructors take injected trailing Class tokens.
+     * Without forwarding, those constructors received {@code Object} and the
+     * converters failed with “Type must be an enum: class java.lang.Object”.
+     */
     public static Class<?> makeGenericType(Class<?> type, Class<?>... typeArguments) {
+        if (type != null && typeArguments != null && typeArguments.length > 0) {
+            MAKE_GENERIC_TOKENS.get().put(type, typeArguments.clone());
+        }
         return type;
+    }
+
+    private static final ThreadLocal<java.util.Map<Class<?>, Class<?>[]>> MAKE_GENERIC_TOKENS =
+        ThreadLocal.withInitial(java.util.HashMap::new);
+
+    /** Consumes the type arguments recorded by the last {@link #makeGenericType} for {@code type}. */
+    public static Class<?>[] takeMakeGenericTypeArguments(Class<?> type) {
+        if (type == null) {
+            return new Class<?>[0];
+        }
+        Class<?>[] tokens = MAKE_GENERIC_TOKENS.get().remove(type);
+        return tokens == null ? new Class<?>[0] : tokens;
+    }
+
+    /**
+     * Type arguments of an instance whose Java class was closed dynamically
+     * ({@code MakeGenericType} + {@code Activator.CreateInstance}, e.g. converter
+     * factories building {@code EnumConverter<T>}). They must stay readable for the
+     * instance's lifetime: the generated ctor and later members both call
+     * {@code typeof(T)}. Construction-time tokens cover the ctor window; the weak
+     * per-instance map covers the rest without leaking converters.
+     */
+    private static final ThreadLocal<java.util.Map<Class<?>, Class<?>[]>> CONSTRUCTING_TOKENS =
+        ThreadLocal.withInitial(java.util.HashMap::new);
+
+    private static final java.util.Map<Object, java.util.Map<Class<?>, Class<?>[]>> INSTANCE_TOKENS =
+        java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    static void beginConstruction(Class<?> constructedType, Class<?>[] typeArguments) {
+        if (constructedType == null || typeArguments == null || typeArguments.length == 0) {
+            return;
+        }
+        CONSTRUCTING_TOKENS.get().put(constructedType, typeArguments);
+    }
+
+    static void endConstruction(Class<?> constructedType) {
+        if (constructedType != null) {
+            CONSTRUCTING_TOKENS.get().remove(constructedType);
+        }
+    }
+
+    static void registerInstanceTypeArguments(
+            Object instance, Class<?> constructedType, Class<?>[] typeArguments) {
+        if (instance == null || constructedType == null
+                || typeArguments == null || typeArguments.length == 0) {
+            return;
+        }
+        INSTANCE_TOKENS.computeIfAbsent(instance, key -> new java.util.HashMap<>())
+            .put(constructedType, typeArguments.clone());
+    }
+
+    private static Class<?> dynamicallyClosedTypeArgument(
+            Object instance, Class<?> declaringType, int index) {
+        // 声明类型可能只是基类：转换器以具体类闭合（EnumConverter<T> : JsonConverter<T>），
+        // 而 typeof(T) 的 declaringType 是基类 JsonConverter。先按实例自身类查，
+        // 再按声明类查（两者都可能被 MakeGenericType 注册）。
+        java.util.Map<Class<?>, Class<?>[]> constructing = CONSTRUCTING_TOKENS.get();
+        Class<?> token = typeArgumentAt(constructing.get(instance.getClass()), index);
+        if (token == null) {
+            token = typeArgumentAt(constructing.get(declaringType), index);
+        }
+        if (token != null) {
+            return token;
+        }
+        java.util.Map<Class<?>, Class<?>[]> perInstance = INSTANCE_TOKENS.get(instance);
+        if (perInstance == null) {
+            return null;
+        }
+        token = typeArgumentAt(perInstance.get(instance.getClass()), index);
+        return token != null ? token : typeArgumentAt(perInstance.get(declaringType), index);
+    }
+
+    private static Class<?> typeArgumentAt(Class<?>[] typeArguments, int index) {
+        return typeArguments != null && index >= 0 && index < typeArguments.length
+            ? typeArguments[index]
+            : null;
     }
 
     /**
@@ -2867,6 +2954,10 @@ public final class TypeHelper {
             // 都用 Byte.class）；CSharpSByte 只是 typeof 的身份标记，转换器注册键必须
             // 与查找侧统一成 Byte，否则 SByteConverter 会被判为“不兼容 Byte”。
             return pinned == CSharpSByte.class ? Byte.class : pinned;
+        }
+        Class<?> dynamic = dynamicallyClosedTypeArgument(instance, declaringType, index);
+        if (dynamic != null) {
+            return dynamic == CSharpSByte.class ? Byte.class : dynamic;
         }
         Class<?> resolved = resolveTypeArgument(
                 instance.getClass(), declaringType, index, new java.util.HashMap<>());

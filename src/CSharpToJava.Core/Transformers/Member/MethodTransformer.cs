@@ -654,13 +654,24 @@ public class MethodTransformer : IMemberTransformer
         if (firstOptionalIndex >= 0 && optionalDefaults.Count > 0)
             ctx.AddImport("csharp.xunit.XunitArguments");
 
+        // xUnit 还会把行值转换成声明的形参类型（long → int、枚举常量 → long）；
+        // JUnit 只做拓宽转换。InlineData 行在渲染期逐参数转换（保持既有
+        // Arguments.of(...) 形状）；运行期行（MemberData/ClassData）只有列值，
+        // 交给 XunitArguments.coerce。
+        var parameterTypes = TestParameterTypesLiteral(methodDecl, ctx);
+        if (parameterTypes != null)
+        {
+            ctx.AddImport("csharp.xunit.XunitArguments");
+            testRowArguments = $"XunitArguments.coerce({testRowArguments}, {parameterTypes})";
+        }
+
         var body = new StringBuilder();
         var usesList = memberDataAttrs.Count > 0 || classDataAttrs.Count > 0 || xmlTestsAttrs.Count > 0;
         if (usesList)
         {
             body.AppendLine("var __rows = new java.util.ArrayList<Arguments>();");
             foreach (var row in inlineRows)
-                body.AppendLine($"__rows.add({BuildArgumentsOf(PadWithOptionalDefaults(row, methodDecl), ctx)});");
+                body.AppendLine($"__rows.add({BuildArgumentsOf(PadWithOptionalDefaults(row, methodDecl), ctx, methodDecl)});");
             foreach (var attr in memberDataAttrs)
                 AppendMemberDataRows(body, attr, ctx, testRowArguments);
             foreach (var attr in classDataAttrs)
@@ -671,7 +682,7 @@ public class MethodTransformer : IMemberTransformer
         }
         else
         {
-            var rows = inlineRows.Select(r => BuildArgumentsOf(PadWithOptionalDefaults(r, methodDecl), ctx)).ToList();
+            var rows = inlineRows.Select(r => BuildArgumentsOf(PadWithOptionalDefaults(r, methodDecl), ctx, methodDecl)).ToList();
             body.Append("return java.util.stream.Stream.of(")
                 .Append(string.Join(", ", rows))
                 .Append(");");
@@ -837,26 +848,119 @@ public class MethodTransformer : IMemberTransformer
         return padded;
     }
 
-    private static string BuildArgumentsOf(IReadOnlyList<ExpressionSyntax> args, ConversionContext ctx)
+    private static string BuildArgumentsOf(
+        IReadOnlyList<ExpressionSyntax> args, ConversionContext ctx, MethodDeclarationSyntax? methodDecl = null)
     {
         if (args.Count == 0)
             return "Arguments.of()";
 
         var rendered = new List<string>(args.Count);
-        foreach (var arg in args)
+        for (var i = 0; i < args.Count; i++)
         {
-            var expression = RenderTestDataExpression(arg, ctx);
-            // 单个 null 字面量 / 数组参数必须显式转成 Object，避免 Arguments.of
-            // 把数组当成 varargs 展开或让 null 产生重载歧义。
-            if (arg is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NullLiteralExpression }
-                || ctx.GetTypeInfo(arg).Type is IArrayTypeSymbol)
-            {
-                expression = "(Object) " + expression;
-            }
-            rendered.Add(expression);
+            IParameterSymbol? parameter = null;
+            if (methodDecl != null && i < methodDecl.ParameterList.Parameters.Count)
+                parameter = ctx.GetDeclaredSymbol(methodDecl.ParameterList.Parameters[i]) as IParameterSymbol;
+            rendered.Add(RenderTestArgument(args[i], ctx, parameter));
         }
 
         return "Arguments.of(" + string.Join(", ", rendered) + ")";
+    }
+
+    /// <summary>
+    /// InlineData 行在渲染期完成 xUnit 式转换：枚举常量 → 数值形参用
+    /// EnumHelper.toInt64，long → int 等收窄用 Java 强转；类型兼容时保持原样，
+    /// 避免改变既有 Arguments.of(...) 的形状。
+    /// </summary>
+    private static string RenderTestArgument(
+        ExpressionSyntax arg, ConversionContext ctx, IParameterSymbol? parameter = null)
+    {
+        var expression = RenderTestDataExpression(arg, ctx);
+        var argumentType = ctx.GetTypeInfo(arg).Type;
+        if (parameter != null && argumentType != null && argumentType is not ITypeParameterSymbol)
+        {
+            var target = parameter.Type;
+            if (IsCoercibleNumericTarget(target) && argumentType.TypeKind == TypeKind.Enum)
+            {
+                ctx.AddImport("io.github.ningpp.compat.EnumHelper");
+                expression = $"EnumHelper.toInt64({expression})";
+            }
+            else if (IsCoercibleNumericTarget(target)
+                && NarrowingCast(target.SpecialType) is { } cast
+                && NumericRank(argumentType.SpecialType) > NumericRank(target.SpecialType))
+            {
+                expression = $"(({cast}) {expression})";
+            }
+        }
+        // 单个 null 字面量 / 数组参数必须显式转成 Object，避免 Arguments.of
+        // 把数组当成 varargs 展开或让 null 产生重载歧义。
+        if (arg is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NullLiteralExpression }
+            || ctx.GetTypeInfo(arg).Type is IArrayTypeSymbol)
+        {
+            expression = "(Object) " + expression;
+        }
+        return expression;
+    }
+
+    private static bool IsCoercibleNumericTarget(ITypeSymbol type)
+        => type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64
+            or SpecialType.System_Int16 or SpecialType.System_Byte or SpecialType.System_SByte
+            or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Char;
+
+    private static string? NarrowingCast(SpecialType target) => target switch
+    {
+        SpecialType.System_Int32 => "int",
+        SpecialType.System_Int64 => "long",
+        SpecialType.System_Int16 => "short",
+        SpecialType.System_Byte => "byte",
+        SpecialType.System_SByte => "byte",
+        SpecialType.System_Single => "float",
+        SpecialType.System_Double => "double",
+        SpecialType.System_Char => "char",
+        _ => null,
+    };
+
+    private static int NumericRank(SpecialType type) => type switch
+    {
+        SpecialType.System_SByte or SpecialType.System_Byte => 1,
+        SpecialType.System_Int16 or SpecialType.System_Char => 2,
+        SpecialType.System_Int32 => 3,
+        SpecialType.System_Int64 => 4,
+        SpecialType.System_Single => 5,
+        SpecialType.System_Double => 6,
+        _ => 0,
+    };
+
+    /// <summary>
+    /// 有「需要 xUnit 式行值转换」的形参时返回 Java 形参类型数组字面量，否则 null。
+    /// 数值基础类型与 C# 枚举需要转换（long → int、枚举常量 → long 等）；其余类型
+    /// JUnit 的隐式转换足够。
+    /// </summary>
+    private static string? TestParameterTypesLiteral(MethodDeclarationSyntax methodDecl, ConversionContext ctx)
+    {
+        var parameters = methodDecl.ParameterList.Parameters;
+        var needsCoercion = false;
+        var literals = new List<string>(parameters.Count);
+        foreach (var parameter in parameters)
+        {
+            var type = ctx.GetTypeInfo(parameter.Type).Type;
+            if (type == null || type is ITypeParameterSymbol)
+            {
+                literals.Add("Object.class");
+                continue;
+            }
+            if (type.TypeKind == TypeKind.Enum
+                || type.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64
+                    or SpecialType.System_Int16 or SpecialType.System_Byte
+                    or SpecialType.System_SByte or SpecialType.System_Single
+                    or SpecialType.System_Double or SpecialType.System_Char)
+            {
+                needsCoercion = true;
+            }
+            literals.Add(ConversionContext.GetClassLiteral(type, ctx));
+        }
+        if (!needsCoercion || literals.Count == 0)
+            return null;
+        return $"new Class[]{{{string.Join(", ", literals)}}}";
     }
 
     private static string RenderTestDataExpression(ExpressionSyntax expression, ConversionContext ctx)

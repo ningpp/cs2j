@@ -162,6 +162,45 @@ public class JUnitTestAnnotationConversionTests
         Assert.Contains("Arguments.of(2, (Object) null)", code);
     }
 
+    /// <summary>
+    /// xUnit converts theory-row values to the declared parameter type (long→int,
+    /// enum constant→long); JUnit only widens. Rows with numeric/enum parameters
+    /// must go through XunitArguments.coerce.
+    /// </summary>
+    [Fact]
+    public async Task Theory_NumericParameters_CoerceRowValues()
+    {
+        var code = await ConvertAsync("""
+            using System;
+            using System.Collections.Generic;
+            using Xunit;
+
+            namespace Xunit
+            {
+                public class TheoryAttribute : Attribute { }
+                public class MemberDataAttribute : Attribute
+                {
+                    public MemberDataAttribute(string name) { }
+                }
+            }
+
+            public static class NumericTheoryTests
+            {
+                public static IEnumerable<object[]> Rows()
+                {
+                    return new object[][] { new object[] { 5L } };
+                }
+
+                [Theory]
+                [MemberData(nameof(Rows))]
+                public static void TakesInt(int value) { }
+            }
+            """);
+
+        Assert.Contains("XunitArguments.coerce(", code, StringComparison.Ordinal);
+        Assert.Contains("new Class[]{int.class}", code, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Theory_MemberData_ShortRow_PadsTrailingOptionalParameter()
     {

@@ -1,8 +1,10 @@
 package io.github.ningpp.compat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -34,6 +36,98 @@ class ActivatorCollectionCtorTest {
     @Test
     void createInstanceWithNonPublicFlag_IgnoresTheFlag() {
         assertNotNull(Activator.createInstance(NoArgCtor.class, false));
+    }
+
+    /** Converter-factory shape: C# generic parameter becomes an injected Class token. */
+    static final class GenericConverter {
+        final Class<?> elementType;
+
+        GenericConverter(String name, Class<?> elementType) {
+            this.elementType = elementType;
+        }
+    }
+
+    /**
+     * Type.MakeGenericType(args) + Activator.CreateInstance(constructed, …): the
+     * recorded type arguments must feed the injected trailing Class token, otherwise
+     * EnumConverter&lt;T&gt; / ArrayConverter&lt;…&gt; are built for Object.
+     */
+    @Test
+    void makeGenericTypeArgumentsFeedInjectedClassParameters() {
+        Class<?> constructed = TypeHelper.makeGenericType(GenericConverter.class, TypeCode.class);
+
+        GenericConverter converter = (GenericConverter) Activator.createInstance(
+                constructed, 0, null, new Object[] {"x"}, null);
+
+        assertSame(TypeCode.class, converter.elementType);
+    }
+
+    /** Converter shape without a Class ctor param: typeof(T) is resolved from the instance. */
+    static final class SelfResolvingConverter {
+        final Class<?> duringCtor;
+
+        SelfResolvingConverter() {
+            duringCtor = TypeHelper.getTypeArgument(
+                    this, SelfResolvingConverter.class, 0, Object.class);
+        }
+    }
+
+    @Test
+    void makeGenericTypeArgumentsVisibleDuringAndAfterConstruction() {
+        Class<?> constructed = TypeHelper.makeGenericType(SelfResolvingConverter.class, TypeCode.class);
+
+        SelfResolvingConverter converter = (SelfResolvingConverter) Activator.createInstance(
+                constructed, 0, null, new Object[0], null);
+
+        assertSame(TypeCode.class, converter.duringCtor);
+        assertSame(TypeCode.class,
+                TypeHelper.getTypeArgument(converter, SelfResolvingConverter.class, 0, Object.class));
+    }
+
+    /** Base declares the type parameter (real chain JsonConverter&lt;T&gt;.TypeToConvert). */
+    static abstract class GenericBase<T> {
+    }
+
+    static final class DerivedConverter extends GenericBase<Object> {
+        final Class<?> ownType;
+
+        DerivedConverter() {
+            ownType = TypeHelper.getTypeArgument(this, GenericBase.class, 0, Object.class);
+        }
+    }
+
+    @Test
+    void dynamicallyClosedTokenIsResolvedThroughTheConcreteSubclass() {
+        Class<?> constructed = TypeHelper.makeGenericType(DerivedConverter.class, TypeCode.class);
+
+        DerivedConverter converter = (DerivedConverter) Activator.createInstance(
+                constructed, 0, null, new Object[0], null);
+
+        assertSame(TypeCode.class, converter.ownType);
+    }
+
+    static final class ThrowingCtor {
+        ThrowingCtor() {
+            throw new IllegalStateException("boom");
+        }
+    }
+
+    @Test
+    void constructorFailureKeepsCauseAndDiagnosticMessage() {
+        TargetInvocationException error = assertThrows(TargetInvocationException.class,
+                () -> Activator.createInstance(ThrowingCtor.class, 0, null, new Object[0], null));
+
+        assertInstanceOf(IllegalStateException.class, error.getCause());
+        assertTrue(error.getMessage().contains("IllegalStateException"));
+        assertTrue(error.getMessage().contains("boom"));
+    }
+
+    @Test
+    void withoutMakeGenericType_InjectedClassParameterFallsBackToObject() {
+        GenericConverter converter = (GenericConverter) Activator.createInstance(
+                GenericConverter.class, 0, null, new Object[] {"x"}, null);
+
+        assertSame(Object.class, converter.elementType);
     }
 
     /** Stands in for a generated C# collection that only implements CSharpIList&lt;T&gt;. */

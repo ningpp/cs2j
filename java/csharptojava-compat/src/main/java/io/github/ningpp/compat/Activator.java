@@ -95,13 +95,33 @@ public final class Activator {
         } catch (InstantiationException | IllegalAccessException e) {
             throw new RuntimeException(e);
         } catch (InvocationTargetException e) {
-            throw new TargetInvocationException(null, e.getCause() == null ? e : e.getCause());
+            throw wrapInvocationTarget(e);
         }
+    }
+
+    /**
+     * .NET wraps constructor exceptions in TargetInvocationException carrying the
+     * original as InnerException. Keep the cause and surface it in the message so a
+     * failing conversion reports e.g. "IllegalStateException: …" instead of an
+     * opaque empty exception.
+     */
+    private static TargetInvocationException wrapInvocationTarget(InvocationTargetException e) {
+        Throwable cause = e.getCause() == null ? e : e.getCause();
+        String message = cause.getClass().getName()
+            + (cause.getMessage() == null ? "" : ": " + cause.getMessage());
+        StackTraceElement[] trace = cause.getStackTrace();
+        if (trace.length > 0) {
+            message += " at " + trace[0];
+        }
+        return new TargetInvocationException(message, cause);
     }
 
     /** C# Activator.CreateInstance(type, bindingAttr, binder, args, culture) — flags ignored. */
     public static Object createInstance(Class<?> type, Object bindingAttr, Object binder, Object[] args, Object culture) {
-        return createInstanceWithArgs(type, args);
+        // Constructed generic type (Type.MakeGenericType(...)): its type arguments were
+        // just recorded and feed the injected trailing Class<?> constructor tokens.
+        Class<?>[] typeTokens = TypeHelper.takeMakeGenericTypeArguments(type);
+        return createInstanceWithArgs(type, args == null ? new Object[0] : args, typeTokens);
     }
 
     /**
@@ -173,13 +193,20 @@ public final class Activator {
                 args[i] = i < genericTypeArguments.length ? genericTypeArguments[i] : Object.class;
             }
             chosen.setAccessible(true);
-            return chosen.newInstance(args);
+            TypeHelper.beginConstruction(type, genericTypeArguments);
+            try {
+                Object instance = chosen.newInstance(args);
+                TypeHelper.registerInstanceTypeArguments(instance, type, genericTypeArguments);
+                return instance;
+            } finally {
+                TypeHelper.endConstruction(type);
+            }
         } catch (InstantiationException | IllegalAccessException e) {
             throw new RuntimeException(e);
         } catch (InvocationTargetException e) {
             // .NET wraps constructor exceptions in TargetInvocationException whose
             // InnerException is the original exception.
-            throw new TargetInvocationException(null, e.getCause() == null ? e : e.getCause());
+            throw wrapInvocationTarget(e);
         }
     }
 
@@ -217,6 +244,10 @@ public final class Activator {
     }
 
     private static Object createInstanceWithArgs(Class<?> type, Object... args) {
+        return createInstanceWithArgs(type, args, null);
+    }
+
+    private static Object createInstanceWithArgs(Class<?> type, Object[] args, Class<?>[] typeTokens) {
         if (type == null) {
             throw new NullPointerException("type");
         }
@@ -322,7 +353,7 @@ public final class Activator {
                 // original C# argument count cannot supply the extra Class<?> token.
                 // Try to match a constructor whose prefix matches the supplied args and
                 // whose suffix is all Class<?> params.
-                Object[] expandedArgs = tryMatchInjectedClassParams(ctors, args);
+                Object[] expandedArgs = tryMatchInjectedClassParams(ctors, args, typeTokens);
                 if (expandedArgs != null) {
                     // Re-scan for the matching constructor with the expanded args.
                     for (Constructor<?> ctor : ctors) {
@@ -393,13 +424,22 @@ public final class Activator {
                 throw new RuntimeException("No matching constructor found for " + type.getName(), new NoSuchMethodException());
             }
             chosen.setAccessible(true);
-            return chosen.newInstance(args);
+            // 动态闭合泛型（MakeGenericType + CreateInstance）的实参在构造期与实例生命
+            // 期内都要可读：转换器的 typeof(T) 在 ctor 和之后的成员里都会调用。
+            TypeHelper.beginConstruction(type, typeTokens);
+            try {
+                Object instance = chosen.newInstance(args);
+                TypeHelper.registerInstanceTypeArguments(instance, type, typeTokens);
+                return instance;
+            } finally {
+                TypeHelper.endConstruction(type);
+            }
         } catch (InstantiationException | IllegalAccessException e) {
             throw new RuntimeException(e);
         } catch (InvocationTargetException e) {
             // .NET wraps constructor exceptions in TargetInvocationException whose
             // InnerException is the original exception.
-            throw new TargetInvocationException(null, e.getCause() == null ? e : e.getCause());
+            throw wrapInvocationTarget(e);
         }
     }
 
@@ -643,7 +683,8 @@ public final class Activator {
      *
      * @return expanded args array with Class<?> slots appended, or null if no match
      */
-    private static Object[] tryMatchInjectedClassParams(Constructor<?>[] ctors, Object[] args) {
+    private static Object[] tryMatchInjectedClassParams(
+            Constructor<?>[] ctors, Object[] args, Class<?>[] typeTokens) {
         for (Constructor<?> ctor : ctors) {
             Class<?>[] params = ctor.getParameterTypes();
             if (params.length <= args.length) {
@@ -682,10 +723,21 @@ public final class Activator {
             // Found a match: expand the args array with inferred Class<?> values
             Object[] expanded = new Object[params.length];
             System.arraycopy(args, 0, expanded, 0, args.length);
-            // Try to infer Class<?> from the first non-null collection argument
+            // Prefer the type arguments recorded by Type.MakeGenericType (converter
+            // factories construct EnumConverter<T>/ArrayConverter<…> this way); only
+            // fall back to inferring from a collection argument.
             Class<?> inferred = inferElementType(args);
+            if (inferred == null) {
+                // No collection argument to infer from: Object is the documented
+                // erasure-degraded token; null would break Class-typed ctor params.
+                inferred = Object.class;
+            }
+            int tokenIndex = 0;
             for (int i = args.length; i < params.length; i++) {
-                expanded[i] = inferred;
+                expanded[i] = typeTokens != null && tokenIndex < typeTokens.length
+                        ? typeTokens[tokenIndex]
+                        : inferred;
+                tokenIndex++;
             }
             return expanded;
         }
