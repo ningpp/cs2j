@@ -26,6 +26,12 @@ public sealed class PassChainOrderTests
     private static readonly string[] LockedChain =
     [
         PassIds.Conditional,
+        // Lexical pre-pass #2: move oversized literal payloads out of the source
+        // file into EmbeddedResource payloads before any semantic pass pays for a
+        // 1 MB syntax tree. Anchors conditional only and is declared directly
+        // after it, so the Kahn declaration-order tiebreak pins the slot
+        // conditional -> big-literal-resource -> lexical-normalize.
+        PassIds.BigLiteralResource,
         PassIds.LexicalNormalize,
         // C20 partial-merge flipped to DEFAULT-ON on 2026-10-11 under the
         // all-preprocessors-default-on policy.
@@ -854,6 +860,7 @@ public sealed class PassChainOrderTests
         // C26 linq-channel flipped 2026-10-06 and carries the --no-linq-rewrite toggle).
         Assert.Equal(
             LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar
+                && id != PassIds.BigLiteralResource
                 && id != PassIds.EnumDeclaration
                 && id != PassIds.ThreadStatic
                 && id != PassIds.GenericConstraint
