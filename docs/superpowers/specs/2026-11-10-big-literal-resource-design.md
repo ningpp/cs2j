@@ -75,7 +75,7 @@ Java 转换）。
   （局部变量再拼最近的方法名），`hash8` 为载荷 SHA-256 前 8 位 →
   内容寻址、可重复、幂等。
 - 物理位置：声明文件同目录下的 `Cs2jResources/`。
-- 工程注册：向宿主 `.csproj` 追加
+- 工程注册：向**每个实际编译该源文件的宿主工程**追加
 
   ```xml
   <ItemGroup>
@@ -90,7 +90,11 @@ Java 转换）。
   `src/main/resources/cs2j/`。已存在同名 `LogicalName` 时不再追加（幂等）。
   用 `EmbeddedResource` 而不是 `None + CopyToOutputDirectory`，是因为 SDK 默认
   的 `EmbeddedResource` glob 只覆盖 `**/*.resx`，显式 `Include` 不会触发
-  NETSDK1022 重复项错误，SDK / 非 SDK 工程行为一致。
+  NETSDK1022 重复项错误，SDK / 非 SDK 工程行为一致。宿主集合按
+  `ProjectCompileSet` 求值的编译集合判定：共享源文件被多个工程（含
+  `<Compile Include="..\X.cs" Link="…"/>` 链接）编译时，每个工程都会收到条目，
+  否则其他程序集运行时找不到资源；编译集合无法解析时退回“资源目录最近的
+  `.csproj`”启发式。
 - 同时释放/引用 `Cs2jPrelude` 支撑工程（与 delegate 等 pass 共用同一套
   幂等注入逻辑，抽到 `SupportLibraryProjectReference`）。
 

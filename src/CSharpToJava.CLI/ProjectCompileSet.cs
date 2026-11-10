@@ -306,7 +306,10 @@ internal static class ProjectCompileSet
     /// </summary>
     private static IEnumerable<string> ResolveInclude(string value, string projectDirectory)
     {
-        var normalized = value.Replace('\\', Path.DirectorySeparatorChar).Trim();
+        var normalized = value
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Replace('/', Path.DirectorySeparatorChar)
+            .Trim();
         if (normalized.Length == 0)
         {
             yield break;

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Xml.Linq;
+using CSharpToJava.CLI.Preprocessing.SupportLibraries;
 using CSharpToJava.Core.BigLiteralResource;
 using CSharpToJava.Core.Preprocessing;
 
@@ -40,6 +41,10 @@ internal sealed class BigLiteralResourcePassAdapter : ProjectPassAdapter
     private readonly ConcurrentDictionary<string, string?> _projectByDirectory =
         new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Host projects per source file; computed once per extracted file.</summary>
+    private readonly Dictionary<string, IReadOnlySet<string>> _hostProjectDirectoriesBySourceFile =
+        new(StringComparer.OrdinalIgnoreCase);
+
     public BigLiteralResourcePassAdapter(BigLiteralResourceOptions options, bool verbose)
     {
         _options = options;
@@ -47,7 +52,10 @@ internal sealed class BigLiteralResourcePassAdapter : ProjectPassAdapter
         _verbose = verbose;
     }
 
-    private sealed record ExtractedPayload(string DestinationFilePath, BigLiteralResourcePayload Payload);
+    private sealed record ExtractedPayload(
+        string SourceFilePath,
+        string DestinationFilePath,
+        BigLiteralResourcePayload Payload);
 
     public override PassDescriptor Descriptor => PassCatalog.ImplementedById(PassIds.BigLiteralResource);
 
@@ -98,7 +106,8 @@ internal sealed class BigLiteralResourcePassAdapter : ProjectPassAdapter
             _rewrittenDestinationFiles.Add(context.DestinationFilePath);
             foreach (var payload in result.Payloads)
             {
-                _extracted.Add(new ExtractedPayload(context.DestinationFilePath, payload));
+                _extracted.Add(new ExtractedPayload(
+                    context.SourceFilePath, context.DestinationFilePath, payload));
             }
         }
 
@@ -137,32 +146,46 @@ internal sealed class BigLiteralResourcePassAdapter : ProjectPassAdapter
                 await File.WriteAllBytesAsync(resourceFilePath, entry.Payload.Content);
             }
 
-            var projectFile = FindNearestProject(resourceDirectory);
-            if (projectFile == null)
+            var hostProjectDirectories = GetHostProjectDirectories(tree, entry.SourceFilePath);
+            if (hostProjectDirectories.Count == 0)
             {
-                _diagnostics.Add(new BigLiteralResourceDiagnostic(
-                    BigLiteralResourceSeverity.Warning,
-                    PreprocessDiagnosticCodes.BigLiteralResourceWiring,
-                    $"no .csproj found above '{resourceDirectory}'; the payload " +
-                    $"'{entry.Payload.ResourceName}' was written but not registered as a resource")
+                var projectFile = FindNearestProject(resourceDirectory);
+                if (projectFile == null)
                 {
-                    FilePath = entry.DestinationFilePath,
-                });
+                    _diagnostics.Add(new BigLiteralResourceDiagnostic(
+                        BigLiteralResourceSeverity.Warning,
+                        PreprocessDiagnosticCodes.BigLiteralResourceWiring,
+                        $"no .csproj found above '{resourceDirectory}'; the payload " +
+                        $"'{entry.Payload.ResourceName}' was written but not registered as a resource")
+                    {
+                        FilePath = entry.DestinationFilePath,
+                    });
+                    continue;
+                }
+
+                AddResourceRegistration(
+                    byProject, projectFile, resourceFilePath, entry.Payload.ResourceName);
                 continue;
             }
 
-            if (!byProject.TryGetValue(projectFile, out var items))
+            // A shared source file can be compiled by several projects; each one
+            // needs its own EmbeddedResource entry, otherwise the runtime loader
+            // in the other assemblies cannot find the payload.
+            foreach (var projectFile in tree.Layout.ProjectFiles
+                         .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+                         .Where(file => !SupportedProjectFiltering.IsUnderExcludedProject(
+                             file, tree.Exclusion))
+                         .Where(file => hostProjectDirectories.Contains(
+                             Path.GetDirectoryName(file)!)))
             {
-                items = new List<(string, string)>();
-                byProject[projectFile] = items;
-            }
-
-            var projectDirectory = Path.GetDirectoryName(projectFile)!;
-            var includePath = Path.GetRelativePath(projectDirectory, resourceFilePath);
-            if (!items.Any(item =>
-                    string.Equals(item.LogicalName, entry.Payload.ResourceName, StringComparison.Ordinal)))
-            {
-                items.Add((includePath, entry.Payload.ResourceName));
+                var destinationProjectFile = Path.Combine(
+                    tree.IntermediateRoot,
+                    Path.GetRelativePath(tree.SourceRoot, projectFile));
+                AddResourceRegistration(
+                    byProject,
+                    destinationProjectFile,
+                    resourceFilePath,
+                    entry.Payload.ResourceName);
             }
         }
 
@@ -272,6 +295,54 @@ internal sealed class BigLiteralResourcePassAdapter : ProjectPassAdapter
                 PreprocessDiagnosticCodes.BigLiteralResourceWiring,
                 $"could not write '{projectFilePath}': {ex.Message}"));
         }
+    }
+
+    /// <summary>
+    /// Every project that compiles <paramref name="sourceFilePath"/>, cached per
+    /// file. Shares the compile-set evaluation with the array support library so
+    /// linked/shared sources are attributed exactly like other passes.
+    /// </summary>
+    private IReadOnlySet<string> GetHostProjectDirectories(
+        PassTreeContext tree,
+        string sourceFilePath)
+    {
+        var key = Path.GetFullPath(sourceFilePath);
+        if (_hostProjectDirectoriesBySourceFile.TryGetValue(key, out var cached))
+        {
+            return cached;
+        }
+
+        var hosts = Cs2jArraySupportLibrary.ComputeHostProjectDirectories(
+            tree.Layout,
+            tree.Exclusion,
+            new[] { sourceFilePath },
+            tree.ProjectGraph,
+            tree.SourceRoot);
+        _hostProjectDirectoriesBySourceFile[key] = hosts;
+        return hosts;
+    }
+
+    /// <summary>Queue one resource registration for a project, de-duplicated by logical name.</summary>
+    private static void AddResourceRegistration(
+        Dictionary<string, List<(string IncludePath, string LogicalName)>> byProject,
+        string projectFile,
+        string resourceFilePath,
+        string logicalName)
+    {
+        if (!byProject.TryGetValue(projectFile, out var items))
+        {
+            items = new List<(string, string)>();
+            byProject[projectFile] = items;
+        }
+
+        if (items.Any(item =>
+                string.Equals(item.LogicalName, logicalName, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        var projectDirectory = Path.GetDirectoryName(projectFile)!;
+        items.Add((Path.GetRelativePath(projectDirectory, resourceFilePath), logicalName));
     }
 
     private string? FindNearestProject(string directory)
