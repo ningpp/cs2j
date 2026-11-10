@@ -52,6 +52,7 @@ internal static class PassIds
     public const string StackAllocLowering = "stackalloc-lowering";
     public const string RefStructLowering = "ref-struct-lowering";
     public const string RefStructSpanFieldMemoryLift = "ref-struct-span-field-memory-lift";
+    public const string TypeShapeMarker = "type-shape-marker";
     public const string PointerDerefIndex = "pointer-deref-index";
     public const string ClosureLift = "closure-lift";
     public const string IteratorLowering = "iterator-lowering";
@@ -797,6 +798,27 @@ internal static class PassCatalog
                 Policy: ResidualPolicy.Fail,
                 Idempotent: true,
                 RequiresWholeTree: true)),
+        new(
+            PassIds.TypeShapeMarker,
+            "C# type shape markers",
+            ".cs2j-type-shape-marker-src",
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            // Runs after ref-struct lowering/lifting so every ref struct that
+            // can be lowered already is an ordinary struct. It only appends
+            // empty marker interfaces; the converter maps them through
+            // TypeMappings.json and needs no per-shape special case.
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.RefStructSpanFieldMemoryLift },
+            supportLibrary: PassSupportLibrary.None,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Append empty Cs2jPrelude marker interfaces to C# struct / record / " +
+                "readonly declarations so Java can query the original C# type shape with " +
+                "isAssignableFrom; existing base lists are preserved and support libraries " +
+                "and still-ref structs are skipped.",
+            catalogItems: "C06"),
         new(
             PassIds.PointerDerefIndex,
             "Pointer deref indexing",
