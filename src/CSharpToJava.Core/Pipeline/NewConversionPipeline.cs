@@ -161,7 +161,7 @@ public class NewConversionPipeline
     private static void CheckNode(IrNode node)
     {
         var typeName = node.GetType().Name;
-        if (typeName.StartsWith("IrCSharp") || typeName.StartsWith("CSharp"))
+        if (typeName.StartsWith("IrCSharp", StringComparison.Ordinal) || typeName.StartsWith("CSharp", StringComparison.Ordinal))
             throw new InvalidOperationException($"C# extension node '{typeName}' remains after Lowering phase");
     }
 }

@@ -361,7 +361,7 @@ public class RecordTransformer : ITypeTransformer
             var comparisons = string.Join(" &&\n           ", fields.Select(f =>
             {
                 bool isDeepArray = f.Type.Contains("[][]");
-                bool isArray = f.Type.EndsWith("[]");
+                bool isArray = f.Type.EndsWith("[]", StringComparison.Ordinal);
                 return isDeepArray
                     ? $"java.util.Arrays.deepEquals(this.{f.Name}, other.{f.Name})"
                     : isArray
@@ -384,7 +384,7 @@ public class RecordTransformer : ITypeTransformer
 
         // hashCode — Fix 2: use Arrays.hashCode for array-typed fields
         string hashCodeBody;
-        bool hasArrayFields = fields.Any(f => f.Type.EndsWith("[]"));
+        bool hasArrayFields = fields.Any(f => f.Type.EndsWith("[]", StringComparison.Ordinal));
         if (fieldNames.Count == 0)
         {
             context.AddImport("java.util.Objects");
@@ -404,7 +404,7 @@ public class RecordTransformer : ITypeTransformer
             {
                 if (f.Type.Contains("[][]"))
                     sb.Append($"result = 31 * result + java.util.Arrays.deepHashCode({f.Name});\n");
-                else if (f.Type.EndsWith("[]"))
+                else if (f.Type.EndsWith("[]", StringComparison.Ordinal))
                     sb.Append($"result = 31 * result + java.util.Arrays.hashCode({f.Name});\n");
                 else
                     sb.Append($"result = 31 * result + Objects.hashCode({f.Name});\n");

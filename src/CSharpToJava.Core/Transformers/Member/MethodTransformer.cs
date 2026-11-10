@@ -313,7 +313,7 @@ public class MethodTransformer : IMemberTransformer
         var names = new HashSet<string>(StringComparer.Ordinal);
         foreach (var m in type.GetMembers().OfType<IMethodSymbol>())
         {
-            if (m.Name.StartsWith("get_") || m.Name.StartsWith("set_"))
+            if (m.Name.StartsWith("get_", StringComparison.Ordinal) || m.Name.StartsWith("set_", StringComparison.Ordinal))
                 names.Add(char.ToUpper(m.Name[4]) + m.Name[5..]);
             else if (m.MethodKind != MethodKind.UserDefinedOperator)
                 names.Add(JavaName(m.Name));
@@ -1209,7 +1209,7 @@ public class MethodTransformer : IMemberTransformer
 
     internal static string GetJavaMethodName(string name, IMethodSymbol? sym, ConversionContext ctx)
     {
-        if (name.StartsWith("get_") || name.StartsWith("set_"))
+        if (name.StartsWith("get_", StringComparison.Ordinal) || name.StartsWith("set_", StringComparison.Ordinal))
             return char.ToUpper(name[4]) + name[5..];
         // A non-generic IDictionary implementation declares only
         // GetEnumerator() returning IDictionaryEnumerator. Emitting it as

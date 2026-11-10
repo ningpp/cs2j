@@ -1373,11 +1373,11 @@ internal sealed class PointerSignatureRewriter : CSharpSyntaxRewriter
 
         var name = parameter.Identifier.ValueText.ToLowerInvariant();
         return name is "len"
-            || name.EndsWith("len")
-            || name.EndsWith("length")
-            || name.EndsWith("count")
-            || name.EndsWith("size")
-            || name.EndsWith("num");
+            || name.EndsWith("len", StringComparison.Ordinal)
+            || name.EndsWith("length", StringComparison.Ordinal)
+            || name.EndsWith("count", StringComparison.Ordinal)
+            || name.EndsWith("size", StringComparison.Ordinal)
+            || name.EndsWith("num", StringComparison.Ordinal);
     }
 
     /// <summary>白名单边界拒绝：按元素种类给出具体原因，UF021。</summary>

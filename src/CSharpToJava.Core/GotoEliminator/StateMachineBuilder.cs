@@ -239,7 +239,7 @@ internal sealed partial class StateMachineBuilder : CSharpSyntaxRewriter
             throw new GotoEliminatorException("spanning ref function-pointer local not supported");
 
         var text = underlying.WithoutTrivia().ToString();
-        if (text.EndsWith("?"))
+        if (text.EndsWith("?", StringComparison.Ordinal))
             text = text[..^1];
 
         return SyntaxFactory.ParseExpression(

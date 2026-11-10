@@ -311,7 +311,7 @@ public partial class StatementTransformer
                     _ => null,
                 };
                 var existingJavaType = existingSymbolType != null ? context.MapType(existingSymbolType) : null;
-                var isPrimitiveTarget = !assignTarget.EndsWith(".value")
+                var isPrimitiveTarget = !assignTarget.EndsWith(".value", StringComparison.Ordinal)
                     && existingJavaType is not null and not "Object" and not "var" and not ""
                     && IsJavaPrimitiveOrNumericCompat(existingJavaType);
                 if (isPrimitiveTarget)
@@ -330,7 +330,7 @@ public partial class StatementTransformer
                     ifSb4.Append($"{assignTarget} = {PrimitiveJavaDefault(existingJavaType!)};\n");
                     ifSb4.Append($"if ({tvTarget2}.containsKey({tvKey2})) {thenBodyWithAssign}");
                 }
-                else if (assignTarget.EndsWith(".value"))
+                else if (assignTarget.EndsWith(".value", StringComparison.Ordinal))
                 {
                     // Primitive holder: containsKey guards the get() so unboxing is safe.
                     // The holder already has default(T) from its initialization, so definite
@@ -452,7 +452,7 @@ public partial class StatementTransformer
         // C# allows assignment expressions in if conditions (e.g. if (x = y)),
         // but Java requires the assignment to be parenthesized: if ((x = y)).
         if (stmt.Condition is AssignmentExpressionSyntax
-            && !effectiveCondition.StartsWith("("))
+            && !effectiveCondition.StartsWith("(", StringComparison.Ordinal))
         {
             effectiveCondition = $"({effectiveCondition})";
         }

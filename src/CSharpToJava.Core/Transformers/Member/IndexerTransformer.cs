@@ -297,7 +297,7 @@ public class IndexerTransformer : IMemberTransformer
     private static bool EndsWithTerminalStatement(string body)
     {
         var lastLine = body.Split('\n').LastOrDefault()?.Trim();
-        return lastLine != null && (lastLine.StartsWith("throw ") || lastLine.StartsWith("return "));
+        return lastLine != null && (lastLine.StartsWith("throw ", StringComparison.Ordinal) || lastLine.StartsWith("return ", StringComparison.Ordinal));
     }
 
     private JavaModifiers GetAccessorModifiers(AccessorDeclarationSyntax? accessor, SyntaxTokenList modifiers)

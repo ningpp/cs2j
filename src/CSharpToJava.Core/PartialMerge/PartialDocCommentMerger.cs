@@ -160,7 +160,7 @@ internal static class PartialDocCommentMerger
         // A single-line '<summary>text</summary>' keeps its INNER text: dropping
         // the whole line would silently discard the secondary doc verbatim.
         return ExtractRawDocCommentLines(declaration)
-            .Select(line => line.StartsWith("///") ? line[3..].TrimStart() : line.Trim())
+            .Select(line => line.StartsWith("///", StringComparison.Ordinal) ? line[3..].TrimStart() : line.Trim())
             .SelectMany(StripSummaryWrapper)
             .ToList();
 

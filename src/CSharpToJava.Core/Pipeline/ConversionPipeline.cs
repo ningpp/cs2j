@@ -623,7 +623,7 @@ public class ConversionPipeline
     private static string ConvertBareTernaryToIfElse(string line)
     {
         var t = line.TrimEnd();
-        if (!t.EndsWith(";}") && !t.EndsWith("; }")) return line;
+        if (!t.EndsWith(";}", StringComparison.Ordinal) && !t.EndsWith("; }", StringComparison.Ordinal)) return line;
 
         int closeBrace = line.LastIndexOf('}');
         if (closeBrace <= 0) return line;
@@ -638,16 +638,16 @@ public class ConversionPipeline
 
         var prefix = line.Substring(0, openBrace);
         var inside = line.Substring(openBrace + 1, closeBrace - openBrace - 1).Trim();
-        if (!inside.EndsWith(";")) return line;
+        if (!inside.EndsWith(";", StringComparison.Ordinal)) return line;
         var expr = inside.Substring(0, inside.Length - 1).Trim();
 
         var pt = prefix.Trim();
         if (!pt.Contains('(')) return line;
         // Skip if prefixes/keywords indicate this is NOT a simple void ternary
-        if (pt.StartsWith("return ") || pt.StartsWith("var ") || pt.StartsWith("int ")
-            || pt.StartsWith("long ") || pt.StartsWith("double ") || pt.StartsWith("float ")
-            || pt.StartsWith("if ") || pt.StartsWith("while ") || pt.StartsWith("for ")
-            || pt.StartsWith("throw "))
+        if (pt.StartsWith("return ", StringComparison.Ordinal) || pt.StartsWith("var ", StringComparison.Ordinal) || pt.StartsWith("int ", StringComparison.Ordinal)
+            || pt.StartsWith("long ", StringComparison.Ordinal) || pt.StartsWith("double ", StringComparison.Ordinal) || pt.StartsWith("float ", StringComparison.Ordinal)
+            || pt.StartsWith("if ", StringComparison.Ordinal) || pt.StartsWith("while ", StringComparison.Ordinal) || pt.StartsWith("for ", StringComparison.Ordinal)
+            || pt.StartsWith("throw ", StringComparison.Ordinal))
             return line;
         if (expr.Contains("return ") || expr.Contains("throw")) return line;
 

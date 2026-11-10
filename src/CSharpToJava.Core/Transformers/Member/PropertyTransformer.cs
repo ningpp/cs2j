@@ -77,10 +77,10 @@ var lines = new List<string>(ctx.DrainPreStatements().Select(s => s.TrimEnd(';')
 var r = ctx.GenerateSyntheticName("_ret"); lines.Add($"var {r} = {m.Body};");
 lines.AddRange(ctx.DrainPostStatements().Select(s => s.TrimEnd(';') + ";")); lines.Add($"return {r};"); }
 else lines.Add($"return {m.Body!.TrimEnd(';')};"); m.Body = string.Join("\n", lines); m.IsBodyExpression = false; } } 
-if (getAccessor?.Body != null) { ctx.ReturnsCSharpGenericIterable = m.ReturnType.StartsWith("CSharpGenericIterable<");
+if (getAccessor?.Body != null) { ctx.ReturnsCSharpGenericIterable = m.ReturnType.StartsWith("CSharpGenericIterable<", StringComparison.Ordinal);
 var st = new Transformers.Statement.StatementTransformer(); if (getAccessor.Body.DescendantNodes().OfType<YieldStatementSyntax>().Any()) {
 ctx.IsInYieldMethod = true; ctx.AddImport("io.github.ningpp.compat.CSharpList"); var elem = YieldElementType(propType) ?? "Object";
-if (propType.StartsWith("CSharpGenericIterable<") || propType.StartsWith("CSharpICollection<") || propType.StartsWith("CSharpGenericIList<"))
+if (propType.StartsWith("CSharpGenericIterable<", StringComparison.Ordinal) || propType.StartsWith("CSharpICollection<", StringComparison.Ordinal) || propType.StartsWith("CSharpGenericIList<", StringComparison.Ordinal))
 { ctx.AddImport("io.github.ningpp.compat.CSharpGenericIterable"); m.ReturnType = $"CSharpGenericIterable<{elem}>"; }
 else { ctx.AddImport("java.util.List"); m.ReturnType = $"List<{elem}>"; } var body = st.TransformBlock(getAccessor.Body, ctx);
 m.Body = $"CSharpList<{elem}> _yieldResult = new CSharpList<{elem}>();\n        {body}\n        return _yieldResult;";

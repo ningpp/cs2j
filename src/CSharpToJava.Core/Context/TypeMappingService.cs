@@ -359,7 +359,7 @@ public class TypeMappingService
             // If the error type has type arguments, try the string-based fallback
             // which correctly handles generics, boxing, and simple-name fuzzy lookup.
             var displayString = errorType.ToDisplayString();
-            if (displayString.Contains('<') && displayString.EndsWith(">"))
+            if (displayString.Contains('<') && displayString.EndsWith(">", StringComparison.Ordinal))
             {
                 var stringMapped = MapTypeFromSyntaxString(displayString);
                 if (stringMapped != errorName && stringMapped != displayString)
@@ -597,7 +597,7 @@ public class TypeMappingService
                 fullQualifiedName = baseType + "`" + genericArity;
             }
 
-            if (fullQualifiedName.StartsWith("global::"))
+            if (fullQualifiedName.StartsWith("global::", StringComparison.Ordinal))
                 fullQualifiedName = fullQualifiedName.Substring(8);
 
             var configKey = fullQualifiedName;
@@ -793,7 +793,7 @@ public class TypeMappingService
             name = assemblyScopedName;
 
         var fullQualifiedNameSimple = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        if (fullQualifiedNameSimple.StartsWith("global::"))
+        if (fullQualifiedNameSimple.StartsWith("global::", StringComparison.Ordinal))
             fullQualifiedNameSimple = fullQualifiedNameSimple.Substring(8);
 
         // 工程内类型重定向优先于普通配置映射：显式允许把源码类型替换成另一个
@@ -1618,7 +1618,7 @@ public class TypeMappingService
         };
         if (keywordMapped != null) return keywordMapped;
 
-        if (typeName.EndsWith("?") && typeName.Length > 1)
+        if (typeName.EndsWith("?", StringComparison.Ordinal) && typeName.Length > 1)
             return MapTypeFromSyntaxString(typeName.Substring(0, typeName.Length - 1));
 
         if (_resolveAlias(typeName) is ITypeSymbol aliasTarget)
@@ -1627,14 +1627,14 @@ public class TypeMappingService
         // C# byte[] stays Java byte[] for API compatibility
         if (typeName == "byte[]") return "byte[]";
 
-        if (typeName.EndsWith("[]"))
+        if (typeName.EndsWith("[]", StringComparison.Ordinal))
         {
             var elemType = MapTypeFromSyntaxString(typeName.Substring(0, typeName.Length - 2));
             return elemType + "[]";
         }
 
         var openAngle = typeName.IndexOf('<');
-        if (openAngle > 0 && typeName.EndsWith(">"))
+        if (openAngle > 0 && typeName.EndsWith(">", StringComparison.Ordinal))
         {
             var baseTypeName = typeName.Substring(0, openAngle).Trim();
             var innerArgsText = typeName.Substring(openAngle + 1, typeName.Length - openAngle - 2);
@@ -1712,7 +1712,7 @@ public class TypeMappingService
                 && !_isUsingAlias(typeName))
             {
                 var projectTypeName = projectType!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-                if (projectTypeName.StartsWith("global::"))
+                if (projectTypeName.StartsWith("global::", StringComparison.Ordinal))
                     projectTypeName = projectTypeName.Substring(8);
                 if (_typeMappings.MapSourceTypeRedirect(projectTypeName) is { } sourceRedirect)
                     return sourceRedirect;

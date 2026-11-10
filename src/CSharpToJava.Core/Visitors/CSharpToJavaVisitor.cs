@@ -277,7 +277,7 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
     private string? MapUsingToJava(string csharpUsing)
     {
         // System 命名空间映射
-        if (csharpUsing.StartsWith("System.") || csharpUsing == "System")
+        if (csharpUsing.StartsWith("System.", StringComparison.Ordinal) || csharpUsing == "System")
         {
             // Explicitly suppressed namespaces — no import generated
             if (csharpUsing is "System" or "System.Collections.Generic" or "System.Linq" or "System.Threading.Tasks")

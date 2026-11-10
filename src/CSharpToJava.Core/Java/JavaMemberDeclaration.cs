@@ -327,7 +327,7 @@ public class JavaParameter
         if (IsVarArgs)
         {
             // For C# "params T[] items" → Java "T... items". Strip trailing [] from array type.
-            if (sb.ToString().EndsWith("[]"))
+            if (sb.ToString().EndsWith("[]", StringComparison.Ordinal))
             {
                 sb.Remove(sb.Length - 2, 2);
             }

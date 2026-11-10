@@ -612,7 +612,7 @@ namespace CSharpToJava.Core.LinqRewrite
                     else
                     {
                         var returnStr = returnType.ToString();
-                        if (returnStr.EndsWith("[]"))
+                        if (returnStr.EndsWith("[]", StringComparison.Ordinal))
                         {
                             listElementType = SyntaxFactory.ParseTypeName(returnStr.Substring(0, returnStr.Length - 2));
                         }
@@ -1632,7 +1632,7 @@ namespace CSharpToJava.Core.LinqRewrite
             // with the concrete parameter type. Other ICollection/IReadOnlyCollection
             // implementors use foreach with IEnumerable<T> parameter, where .Count is
             // unresolvable and the converter falls through to an invalid method reference.
-            if (collectionType.ToDisplayString().StartsWith("System.Collections.Generic.List<"))
+            if (collectionType.ToDisplayString().StartsWith("System.Collections.Generic.List<", StringComparison.Ordinal))
             {
                 return SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, SyntaxFactory.IdentifierName(ItemsName), SyntaxFactory.IdentifierName("Count"));
             }

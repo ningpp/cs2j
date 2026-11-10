@@ -257,8 +257,8 @@ public partial class StatementTransformer : IStatementTransformer
     private static bool ShouldEmitStatementText(string? statementText)
     {
         return !string.IsNullOrWhiteSpace(statementText)
-            && !statementText.TrimStart().StartsWith("#")
-            && !statementText.TrimStart().StartsWith("/* TODO: UncheckedStatement");
+            && !statementText.TrimStart().StartsWith("#", StringComparison.Ordinal)
+            && !statementText.TrimStart().StartsWith("/* TODO: UncheckedStatement", StringComparison.Ordinal);
     }
 
     private static bool IsUnconditionalJump(StatementSyntax statement)

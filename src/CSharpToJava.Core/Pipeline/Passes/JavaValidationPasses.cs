@@ -100,7 +100,7 @@ public sealed class ProjectJavaModuleDependencyPass : ICs2jPass<ProjectPassState
             {
                 // Regular import: "import java.util.ArrayList;"
                 var importName = trimmed.Substring("import ".Length).TrimEnd(';', ' ');
-                if (importName.EndsWith(".*"))
+                if (importName.EndsWith(".*", StringComparison.Ordinal))
                     continue; // Skip wildcard imports
 
                 var module = javaLibrary.GetModuleFor(importName);

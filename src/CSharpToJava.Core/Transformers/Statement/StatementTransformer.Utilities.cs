@@ -21,7 +21,7 @@ public partial class StatementTransformer
     private static bool IsJavaCollectionOrListType(string javaType)
     {
         // An array of collections (e.g. ArrayList<Integer>[]) is NOT itself a collection type.
-        if (javaType.TrimEnd().EndsWith("[]"))
+        if (javaType.TrimEnd().EndsWith("[]", StringComparison.Ordinal))
             return false;
         var bare = javaType.Contains('<') ? javaType[..javaType.IndexOf('<')] : javaType;
         return bare is "List" or "Collection" or "ArrayList" or "HashSet" or "TreeSet"
@@ -36,7 +36,7 @@ public partial class StatementTransformer
     /// </summary>
     private static bool EndsWithCollectCall(string expr)
     {
-        if (!expr.EndsWith(")"))
+        if (!expr.EndsWith(")", StringComparison.Ordinal))
             return false;
         // Walk backward to find the matching '(' for the final ')'
         int depth = 0;

@@ -52,7 +52,7 @@ public class JavaCompilationUnit : JavaSyntaxNode
         // disambiguate against java.util.* conflicts (e.g., project Set vs java.util.Set).
         var jdkWildcardPackages = new HashSet<string>(
             Imports.Where(i => i.IsWildcard && !i.IsStatic
-                && (i.Name.StartsWith("java.") || i.Name.StartsWith("javax.")))
+                && (i.Name.StartsWith("java.", StringComparison.Ordinal) || i.Name.StartsWith("javax.", StringComparison.Ordinal)))
                 .Select(i => i.Name));
 
         // BCL 运行时通配（dotnet.System.Collections(.Generic) 等）与 java.util.*

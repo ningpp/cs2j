@@ -122,7 +122,7 @@ internal static class BinarySpecial
         if (!expr.StartsWith(prefix) || !expr.EndsWith(suffix)) return expr;
         var inner = expr.Substring(prefix.Length, expr.Length - prefix.Length - suffix.Length);
         if (!IsBalancedParentheses(inner)) return expr;
-        if (inner.StartsWith("(") && inner.EndsWith(")")
+        if (inner.StartsWith("(", StringComparison.Ordinal) && inner.EndsWith(")", StringComparison.Ordinal)
             && IsBalancedParentheses(inner.Substring(1, inner.Length - 2)))
             inner = inner.Substring(1, inner.Length - 2);
         return inner;

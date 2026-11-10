@@ -489,8 +489,8 @@ internal static class StructCloneHelper
 
         // Skip if the expression already produced a copy
         var trimmedExpr = transformedExpr.TrimEnd();
-        if (trimmedExpr.EndsWith(".clone()")
-            || trimmedExpr.EndsWith("." + ValueCopyMethodName + "()"))
+        if (trimmedExpr.EndsWith(".clone()", StringComparison.Ordinal)
+            || trimmedExpr.EndsWith("." + ValueCopyMethodName + "()", StringComparison.Ordinal))
             return transformedExpr;
 
         // Await/Result results (x.join()) lose their generic type in Java and surface as

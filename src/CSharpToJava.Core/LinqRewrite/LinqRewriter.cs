@@ -67,7 +67,7 @@ namespace CSharpToJava.Core.LinqRewrite
         {
 
             KnownMethods = typeof(LinqRewriter).GetTypeInfo().DeclaredFields
-                .Where(x => x.Name.EndsWith("Method") && x.FieldType == typeof(string))
+                .Where(x => x.Name.EndsWith("Method", StringComparison.Ordinal) && x.FieldType == typeof(string))
                 .Select(x => (string)x.GetValue(null))
                 .ToList();
         }
@@ -99,7 +99,7 @@ namespace CSharpToJava.Core.LinqRewrite
 
             // Track unsupported method if it looks like a LINQ operator
             var methodFullName = GetMethodFullName(node);
-            if (methodFullName != null && methodFullName.StartsWith("System."))
+            if (methodFullName != null && methodFullName.StartsWith("System.", StringComparison.Ordinal))
             {
                 var lineNumber = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
                 Statistics.EncounteredOperators.Add(new LinqOperatorOccurrence(methodFullName, lineNumber, false));
@@ -694,7 +694,7 @@ namespace CSharpToJava.Core.LinqRewrite
         {
             if (v == null) return false;
             if (KnownMethods.Contains(v)) return true;
-            if (!v.StartsWith("System.Collections.Generic.IEnumerable<")) return false;
+            if (!v.StartsWith("System.Collections.Generic.IEnumerable<", StringComparison.Ordinal)) return false;
             var k = v.Replace("<", "(");
             if (!k.Contains(">.Sum(") && !k.Contains(">.Average(") && !k.Contains(">.Min(") && !k.Contains(">.Max(")) return false;
             if (k.Contains("TResult")) return false;
@@ -1416,7 +1416,7 @@ namespace CSharpToJava.Core.LinqRewrite
 
             // Indexed for-loop will be generated for List<T> and arrays
             // (must match the condition in the indexed-vs-foreach branch below).
-            bool usesIndexedLoop = collectionType.ToDisplayString().StartsWith("System.Collections.Generic.List<")
+            bool usesIndexedLoop = collectionType.ToDisplayString().StartsWith("System.Collections.Generic.List<", StringComparison.Ordinal)
                                 || collectionSemanticType is IArrayTypeSymbol;
 
             // When indexed loop is used the parameter needs concrete type so that
@@ -1558,7 +1558,7 @@ namespace CSharpToJava.Core.LinqRewrite
             var postLoopStatements = GetIntermediatePostLoopStatements(chain, collectionItemTypeSyntax, ItemName, arguments, noaggregation);
 
             StatementSyntax foreachStatement;
-            if (collectionType.ToDisplayString().StartsWith("System.Collections.Generic.List<") || collectionType is IArrayTypeSymbol)
+            if (collectionType.ToDisplayString().StartsWith("System.Collections.Generic.List<", StringComparison.Ordinal) || collectionType is IArrayTypeSymbol)
             {
 
                 foreachStatement = SyntaxFactory.ForStatement(

@@ -292,7 +292,7 @@ public class ElementAccessTransformer : IIRExpressionTransformer
             if (isList) return $"{expr}.get({idx})";
             // Fallback for unknown/dynamic/unresolved types — check String by display name too
             var typeDisplayName = exprType?.ToDisplayString() ?? "";
-            if (typeDisplayName == "string" || typeDisplayName.EndsWith("String"))
+            if (typeDisplayName == "string" || typeDisplayName.EndsWith("String", StringComparison.Ordinal))
                 return $"{expr}.charAt({idx})";
             // Ported BCL classes (e.g. dotnet.xml.XmlNodeList) expose element
             // access through a member-desugar-expanded Item(int) method that

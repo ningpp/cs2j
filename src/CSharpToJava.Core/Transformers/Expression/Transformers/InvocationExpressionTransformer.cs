@@ -761,7 +761,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     }
 
     private static string StripVerbatimPrefix(string name)
-        => name.StartsWith("@") ? name[1..] : name;
+        => name.StartsWith("@", StringComparison.Ordinal) ? name[1..] : name;
 
     /// <summary>
     /// Escapes a string for use inside Java double-quoted string literals.
@@ -5408,7 +5408,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             "Dispose" => "close",
             "ToLower" or "ToLowerInvariant" => "toLowerCase",
             "ToUpper" or "ToUpperInvariant" => "toUpperCase",
-            _ when name.StartsWith("get_") || name.StartsWith("set_")
+            _ when name.StartsWith("get_", StringComparison.Ordinal) || name.StartsWith("set_", StringComparison.Ordinal)
                 => char.ToUpperInvariant(name[4]) + name[5..],
             _ => name.Length > 0 ? char.ToLowerInvariant(name[0]) + name[1..] : name
         };
@@ -6261,7 +6261,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// </summary>
     private static string AccessorOrCamelName(string name)
     {
-        if (name.StartsWith("get_") || name.StartsWith("set_"))
+        if (name.StartsWith("get_", StringComparison.Ordinal) || name.StartsWith("set_", StringComparison.Ordinal))
             return ConversionContext.EscapeJavaKeyword(char.ToUpper(name[4]) + name[5..]);
         return ToCamelCase(name);
     }

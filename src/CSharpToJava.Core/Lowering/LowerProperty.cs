@@ -214,10 +214,10 @@ public class LowerProperty : ILoweringPass
                 foreach (var iface in named.AllInterfaces)
                 {
                     var ifaceDisplay = iface.ToDisplayString();
-                    if (ifaceDisplay.StartsWith("System.Collections.Generic.ICollection") ||
-                        ifaceDisplay.StartsWith("System.Collections.Generic.IList") ||
-                        ifaceDisplay.StartsWith("System.Collections.Generic.IReadOnlyCollection") ||
-                        ifaceDisplay.StartsWith("System.Collections.Generic.ISet") ||
+                    if (ifaceDisplay.StartsWith("System.Collections.Generic.ICollection", StringComparison.Ordinal) ||
+                        ifaceDisplay.StartsWith("System.Collections.Generic.IList", StringComparison.Ordinal) ||
+                        ifaceDisplay.StartsWith("System.Collections.Generic.IReadOnlyCollection", StringComparison.Ordinal) ||
+                        ifaceDisplay.StartsWith("System.Collections.Generic.ISet", StringComparison.Ordinal) ||
                         ifaceDisplay == "System.Collections.ICollection" ||
                         ifaceDisplay == "System.Collections.IList")
                     {

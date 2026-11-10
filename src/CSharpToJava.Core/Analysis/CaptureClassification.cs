@@ -208,7 +208,7 @@ public static class CaptureClassification
             return true;
         if (typeDisplay.Contains("*"))
             return true;
-        if (typeDisplay.StartsWith("ref "))
+        if (typeDisplay.StartsWith("ref ", StringComparison.Ordinal))
             return true;
         return false;
     }

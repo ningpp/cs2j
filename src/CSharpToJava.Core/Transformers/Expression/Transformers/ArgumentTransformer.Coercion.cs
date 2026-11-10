@@ -514,7 +514,7 @@ public partial class ArgumentTransformer
             return CoerceIntegralToEnum(transformedExpr, paramType, context);
 
         if (argType is INamedTypeSymbol grouping
-            && grouping.OriginalDefinition?.ToDisplayString().StartsWith("System.Linq.IGrouping<") == true
+            && grouping.OriginalDefinition?.ToDisplayString().StartsWith("System.Linq.IGrouping<", StringComparison.Ordinal) == true
             && paramType is INamedTypeSymbol groupingParam
             && IsEnumerableOrCollectionInterface(groupingParam))
         {
@@ -539,7 +539,7 @@ public partial class ArgumentTransformer
         {
             var trimmed = transformedExpr.Trim();
             if (trimmed.StartsWith("Collections.", StringComparison.Ordinal)
-                && (trimmed.Contains("emptyList()") || trimmed.EndsWith(".emptyList()")))
+                && (trimmed.Contains("emptyList()") || trimmed.EndsWith(".emptyList()", StringComparison.Ordinal)))
             {
                 context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
                 return $"CSharpGenericIterable.from({transformedExpr})";

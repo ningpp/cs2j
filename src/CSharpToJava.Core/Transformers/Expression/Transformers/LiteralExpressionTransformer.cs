@@ -69,11 +69,11 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
             return TransformHexBinaryLiteral(literal, needsLong);
         }
 
-        if (literal.EndsWith("f") || literal.EndsWith("F"))
+        if (literal.EndsWith("f", StringComparison.Ordinal) || literal.EndsWith("F", StringComparison.Ordinal))
         {
             return literal.TrimEnd('f', 'F') + "f";
         }
-        if (literal.EndsWith("d") || literal.EndsWith("D"))
+        if (literal.EndsWith("d", StringComparison.Ordinal) || literal.EndsWith("D", StringComparison.Ordinal))
         {
             var numPart = literal.TrimEnd('d', 'D');
             return numPart.Contains('.') ? numPart : numPart + ".0";
@@ -108,7 +108,7 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
             numPart = StripLeadingZeros(numPart);
             return numPart + "L";
         }
-        if (literal.EndsWith("u") || literal.EndsWith("U"))
+        if (literal.EndsWith("u", StringComparison.Ordinal) || literal.EndsWith("U", StringComparison.Ordinal))
         {
             string numPart = literal.TrimEnd('u', 'U');
             if (TryParseNumericValue(numPart, out ulong uintValue) && uintValue > (ulong)int.MaxValue)
@@ -118,7 +118,7 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
             }
             return StripLeadingZeros(numPart);
         }
-        if (literal.EndsWith("l") || literal.EndsWith("L"))
+        if (literal.EndsWith("l", StringComparison.Ordinal) || literal.EndsWith("L", StringComparison.Ordinal))
         {
             return StripLeadingZeros(literal.TrimEnd('l', 'L')) + "L";
         }
@@ -255,7 +255,7 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
             if ((int)context.Options.TargetJavaVersion >= 15)
             {
                 string content = token.ValueText;
-                if (!content.EndsWith("\n"))
+                if (!content.EndsWith("\n", StringComparison.Ordinal))
                     content += "\n";
                 return $"\"\"\"\n{content}\"\"\"";
             }
@@ -266,7 +266,7 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
         if (token.IsKind(SyntaxKind.StringLiteralToken))
         {
             var text = token.Text;
-            if (text.StartsWith("@") || text.StartsWith("$@") || text.StartsWith("@$"))
+            if (text.StartsWith("@", StringComparison.Ordinal) || text.StartsWith("$@", StringComparison.Ordinal) || text.StartsWith("@$", StringComparison.Ordinal))
             {
                 var value = token.ValueText;
                 var javaContent = StringEscapeHelper.EscapeJavaString(value);

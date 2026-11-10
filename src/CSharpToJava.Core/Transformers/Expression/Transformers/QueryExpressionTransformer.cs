@@ -375,7 +375,7 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
 
         if (preserveGroupingValueStream
             && receiverType is INamedTypeSymbol groupingType
-            && groupingType.OriginalDefinition?.ToDisplayString().StartsWith("System.Linq.IGrouping<") == true)
+            && groupingType.OriginalDefinition?.ToDisplayString().StartsWith("System.Linq.IGrouping<", StringComparison.Ordinal) == true)
         {
             return $"{receiverExpr}.getValue().stream()";
         }

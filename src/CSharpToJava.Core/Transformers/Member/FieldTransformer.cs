@@ -419,12 +419,12 @@ public class FieldTransformer : IMemberTransformer
         if (type is INamedTypeSymbol named)
         {
             if (named.Name is "ICollection" or "IList" or "IReadOnlyCollection" or "IReadOnlyList"
-                && named.ContainingNamespace?.ToDisplayString().StartsWith("System") == true)
+                && named.ContainingNamespace?.ToDisplayString().StartsWith("System", StringComparison.Ordinal) == true)
                 return true;
 
             return named.AllInterfaces.Any(i =>
                 i.Name is "ICollection" or "IList" or "IReadOnlyCollection" or "IReadOnlyList"
-                && i.ContainingNamespace?.ToDisplayString().StartsWith("System") == true);
+                && i.ContainingNamespace?.ToDisplayString().StartsWith("System", StringComparison.Ordinal) == true);
         }
 
         return false;

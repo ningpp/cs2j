@@ -1112,7 +1112,7 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
     internal static bool IsTupleItemName(string memberName, out int index)
     {
         index = 0;
-        if (!memberName.StartsWith("Item") || memberName.Length < 5 || !int.TryParse(memberName[4..], out var n))
+        if (!memberName.StartsWith("Item", StringComparison.Ordinal) || memberName.Length < 5 || !int.TryParse(memberName[4..], out var n))
             return false;
         index = n;
         return true;

@@ -159,7 +159,7 @@ public class ImportCollector
         var baseType = typeName;
         var ai = baseType.IndexOf('<');
         if (ai > 0) baseType = baseType[..ai];
-        if (!baseType.Contains('.') || baseType.StartsWith("java.lang."))
+        if (!baseType.Contains('.') || baseType.StartsWith("java.lang.", StringComparison.Ordinal))
             return;
         _imports.Add(baseType);
     }
@@ -168,7 +168,7 @@ public class ImportCollector
         or "float" or "double" or "boolean" or "char" or "String" or "Object";
 
     public List<string> GetSortedImports() => _imports
-        .OrderBy(i => i.StartsWith("java.") ? 0 : i.StartsWith("javax.") ? 1 : 2)
+        .OrderBy(i => i.StartsWith("java.", StringComparison.Ordinal) ? 0 : i.StartsWith("javax.", StringComparison.Ordinal) ? 1 : 2)
         .ThenBy(i => i)
         .ToList();
 }

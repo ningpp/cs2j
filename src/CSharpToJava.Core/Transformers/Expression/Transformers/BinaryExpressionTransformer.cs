@@ -291,7 +291,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         if (left == "null") return right;
 
         // Merge into the ternary already produced by ?. conversion: replace its false branch.
-        if (left.StartsWith("(") && left.Contains(" != null ? ") && left.LastIndexOf(" : ") is var colon && colon > 0)
+        if (left.StartsWith("(", StringComparison.Ordinal) && left.Contains(" != null ? ") && left.LastIndexOf(" : ") is var colon && colon > 0)
         {
             var before = left[..colon];
             var falseBranch = left[(colon + 3)..];
