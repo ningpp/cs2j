@@ -183,7 +183,6 @@ public class Phase2PassPipelineTests
                 "ProjectNativeInteropCheckPass",
                 "ProjectPartialTypeNormalizationPass",
                 "ProjectTypeEmitPass",
-                "ProjectJavaModuleDependencyPass",
             },
             primaryResult.PassMetrics.Select(metric => metric.Name).ToArray());
     }

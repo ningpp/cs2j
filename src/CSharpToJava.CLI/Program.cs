@@ -80,7 +80,6 @@ public class Program
             {
                 TargetJavaVersion = Enum.Parse<JavaVersion>(opts.JavaVersion, true),
                 TypeMappingConfigPath = opts.MappingConfig,
-                JavaMetadataPath = ResolveJavaMetadataPath(opts.MappingConfig),
                 GenerateJavaDoc = opts.GenerateJavaDoc,
                 UseRecords = opts.UseRecords,
                 UseOptionalForNullable = opts.UseOptionalForNullable,
@@ -497,7 +496,6 @@ public class Program
             {
                 TargetJavaVersion = Enum.Parse<JavaVersion>(opts.JavaVersion, true),
                 TypeMappingConfigPath = opts.MappingConfig,
-                JavaMetadataPath = ResolveJavaMetadataPath(opts.MappingConfig),
                 GenerateJavaDoc = opts.GenerateJavaDoc,
                 UseRecords = opts.UseRecords,
                 UseOptionalForNullable = opts.UseOptionalForNullable,
@@ -2349,28 +2347,6 @@ public class Program
         return File.Exists(fullPath)
             ? Path.GetDirectoryName(fullPath) ?? fullPath
             : fullPath;
-    }
-
-    /// <summary>
-    /// Auto-discovers the Java standard-library metadata directory (<c>config/java/</c>)
-    /// as a sibling of the type mapping configuration file.
-    /// </summary>
-    private static string? ResolveJavaMetadataPath(string? mappingConfig)
-    {
-        // Determine the config base directory from the mapping config path
-        string configDir;
-        if (!string.IsNullOrEmpty(mappingConfig))
-        {
-            var fullPath = Path.IsPathRooted(mappingConfig) ? mappingConfig : Path.Combine(Directory.GetCurrentDirectory(), mappingConfig);
-            configDir = Path.GetDirectoryName(fullPath) ?? Directory.GetCurrentDirectory();
-        }
-        else
-        {
-            configDir = Path.Combine(Directory.GetCurrentDirectory(), "config");
-        }
-
-        var javaDir = Path.Combine(configDir, "java");
-        return Directory.Exists(Path.Combine(javaDir, "java.base")) ? javaDir : null;
     }
 
     private static string GetCommonRoot(IEnumerable<string> paths)

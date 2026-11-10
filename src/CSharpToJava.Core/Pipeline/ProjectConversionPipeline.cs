@@ -3,7 +3,6 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
 using CSharpToJava.TypeMapping;
-using CSharpToJava.TypeMapping.JavaModel;
 
 namespace CSharpToJava.Core.Pipeline;
 
@@ -26,13 +25,6 @@ public class ProjectConversionPipeline
     {
         _options = options;
         _typeMappings = new TypeMappingRegistry(options.TypeMappingConfigPath);
-
-        // Inject Java standard-library metadata when the path is configured.
-        if (!string.IsNullOrEmpty(options.JavaMetadataPath)
-            && Directory.Exists(options.JavaMetadataPath))
-        {
-            _typeMappings.SetJavaLibraryIndex(new JavaLibraryIndex(options.JavaMetadataPath));
-        }
     }
 
     /// <summary>
@@ -327,7 +319,6 @@ public class ProjectConversionPipeline
             new ProjectNativeInteropCheckPass(),
             new ProjectPartialTypeNormalizationPass(),
             new ProjectTypeEmitPass(_irRewriters),
-            new ProjectJavaModuleDependencyPass(),
         };
     }
 

@@ -26,7 +26,7 @@ public class TypeMappingRegistryCanonicalIndexTests
     /// <summary>
     /// The exact pre-optimization algorithm, kept as an oracle. All JavaType values
     /// used in these tests are canonical (contain a dot) or resolved through the
-    /// import index, so MapToCanonical's java.lang/java.util probes are irrelevant.
+    /// import index, which is MapToCanonical's only resolver.
     /// </summary>
     private static string? ResolveLegacy(TypeMappingConfig config, string csharpTypeName)
     {
@@ -114,7 +114,7 @@ public class TypeMappingRegistryCanonicalIndexTests
         var config = CreateConfig();
         var registry = new TypeMappingRegistry(config);
 
-        // No JavaLibraryIndex is injected, so the import index is the only resolver.
+        // The configured import index is the only canonical-name resolver.
         Assert.Equal("other.HashMap", registry.ResolveJavaCanonicalName("System.Collections.Generic.Dictionary`2"));
         Assert.Equal("com.example.Widget", registry.ResolveJavaCanonicalName("My.App.Widget"));
     }

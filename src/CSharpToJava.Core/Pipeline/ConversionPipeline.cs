@@ -7,7 +7,6 @@ using CSharpToJava.Core.Java.Rewriters;
 using CSharpToJava.Core.LinqRewrite;
 using CSharpToJava.Core.Visitors;
 using CSharpToJava.TypeMapping;
-using CSharpToJava.TypeMapping.JavaModel;
 using DiagSeverity = Microsoft.CodeAnalysis.DiagnosticSeverity;
 
 namespace CSharpToJava.Core.Pipeline;
@@ -41,15 +40,9 @@ public class ConversionResult
     /// <summary>Java package for this output file (used by Holder class generation).</summary>
     public string? Package { get; set; }
     /// <summary>
-    /// Java platform module names required by this output file (e.g. "java.base", "java.sql").
-    /// Populated by the module dependency analysis pass when <c>JavaMetadataPath</c> is configured.
-    /// </summary>
-    public IReadOnlySet<string>? JavaModuleDependencies { get; set; }
-
-    /// <summary>
     /// The Java IR compilation unit for this output file.  Preserved after the emit pass so
-    /// that downstream passes (e.g. cross-package import resolution, module dependency analysis)
-    /// can operate on structured IR nodes rather than re-parsing generated code strings.
+    /// that downstream passes (e.g. cross-package import resolution) can operate on
+    /// structured IR nodes rather than re-parsing generated code strings.
     /// <para>May be <c>null</c> for compatibility-generated files or failed conversions.</para>
     /// </summary>
     public Java.JavaCompilationUnit? Compilation { get; set; }
@@ -131,13 +124,6 @@ public class ConversionPipeline
             var errorContext = new ConversionContext(request.Options, new TypeMappingRegistry(new TypeMapping.TypeMappingConfig()));
             errorContext.Diagnostics.Error($"Configuration error: {ex.Message}", null);
             return CreateFailureResult(errorContext, request.FileName);
-        }
-
-        // Inject Java standard-library metadata when the path is configured.
-        if (!string.IsNullOrEmpty(request.Options.JavaMetadataPath)
-            && Directory.Exists(request.Options.JavaMetadataPath))
-        {
-            typeMappings.SetJavaLibraryIndex(new JavaLibraryIndex(request.Options.JavaMetadataPath));
         }
 
         var context = new ConversionContext(request.Options, typeMappings);

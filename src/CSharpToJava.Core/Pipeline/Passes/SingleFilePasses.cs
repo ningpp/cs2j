@@ -312,17 +312,6 @@ public sealed class SingleFileJavaEmitPass : ICs2jPass<SingleFilePassState>
         // Run built-in IR structure rewriters (variable deduplication, etc.)
         RunStructureRewriters(javaCompilation);
 
-        // Run built-in Java metadata validation rewriters when metadata is available
-        var javaLibrary = state.Context.TypeMappings.JavaLibrary;
-        if (javaLibrary is not null)
-        {
-            var apiValidator = new JavaApiValidationRewriter(javaLibrary, state.Context.Diagnostics);
-            apiValidator.VisitCompilationUnit(javaCompilation);
-
-            var exceptionChecker = new JavaExceptionCheckRewriter(javaLibrary, state.Context.Diagnostics);
-            exceptionChecker.VisitCompilationUnit(javaCompilation);
-        }
-
         // Run IR validation rewriters (diagnostics only — no tree modifications)
         RunValidationRewriters(javaCompilation, state.Context.Diagnostics);
 

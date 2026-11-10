@@ -6199,10 +6199,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         {
             AddImportForMappedName(mappedName, context);
 
-            // JavaLibrary auto-deduction (Pascal→camel) can resolve a method
-            // whose containing type has an explicit type mapping (e.g.
-            // CharUnicodeInfo.GetUnicodeCategory). The type mapping's imports
-            // are otherwise only added at type-reference positions.
+            // A mapped method name can belong to a type with an explicit type
+            // mapping (e.g. CharUnicodeInfo.GetUnicodeCategory). The type
+            // mapping's imports are otherwise only added at type-reference
+            // positions.
             var ownerType = methodSymbol.ContainingType;
             var typeKey = context.TypeMappings.HasTypeMapping(ownerType.ToDisplayString())
                 ? ownerType.ToDisplayString()

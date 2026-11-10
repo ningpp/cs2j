@@ -47,7 +47,6 @@ public sealed class ClosedMetadataConsumerSurfaceGuardTests
         "src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs",
         "src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs",
         "src/CSharpToJava.Core/Transformers/Type/EnumTransformer.cs",
-        "src/CSharpToJava.Core/TypeMapping/JavaModel/JavaLibraryLoader.cs",
         "src/CSharpToJava.Core/TypeMapping/TypeMappingRegistry.cs",
         "src/CSharpToJava.Core/VarianceAudit/VarianceAuditPreprocessor.cs",
         "src/CSharpToJava.Core/VarianceUseSite/VarianceUseSiteNormalizePreprocessor.cs",
