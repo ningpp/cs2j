@@ -674,6 +674,13 @@ internal static class PassChainFactory
 
             // Independent read-only expression post-pass over unsafe-ffm's
             // preserved pointer dereferences (`*p`, `*(p + k)`, `*(T*)expr`).
+            PassIds.TypeShapeMarker => new TypeShapeMarkerPassAdapter(
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
+
             PassIds.PointerDerefIndex => new PointerDerefIndexPassAdapter(
                 new PointerDerefIndexOptions(),
                 config.Verbose,
