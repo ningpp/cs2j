@@ -98,7 +98,7 @@ public sealed class BigLiteralResourceTests
             }
             """;
 
-        var result = Run(source, new BigLiteralResourceOptions { MinArrayPayloadBytes = 1 });
+        var result = Run(source, new BigLiteralResourceOptions { MinArrayPayloadBytes = 1, MinCandidatePayloadBytes = 1 });
 
         Assert.True(result.Changed);
         var payload = Assert.Single(result.Payloads);
@@ -231,7 +231,7 @@ public sealed class BigLiteralResourceTests
             }
             """;
 
-        var result = Run(source, new BigLiteralResourceOptions { MinArrayPayloadBytes = 1 });
+        var result = Run(source, new BigLiteralResourceOptions { MinArrayPayloadBytes = 1, MinCandidatePayloadBytes = 1 });
 
         Assert.False(result.Changed);
         Assert.Empty(result.Payloads);
@@ -257,7 +257,7 @@ public sealed class BigLiteralResourceTests
             }
             """;
 
-        var result = Run(source, new BigLiteralResourceOptions { MinArrayPayloadBytes = 1 });
+        var result = Run(source, new BigLiteralResourceOptions { MinArrayPayloadBytes = 1, MinCandidatePayloadBytes = 1 });
 
         Assert.False(result.Changed);
         Assert.Empty(result.Payloads);
@@ -280,7 +280,7 @@ public sealed class BigLiteralResourceTests
 
         var result = Run(
             source,
-            new BigLiteralResourceOptions { MinArrayPayloadBytes = 1 });
+            new BigLiteralResourceOptions { MinArrayPayloadBytes = 1, MinCandidatePayloadBytes = 1 });
 
         Assert.True(result.Changed);
         Assert.Equal(5, result.Payloads.Count);
@@ -479,6 +479,186 @@ public sealed class BigLiteralResourceTests
         Assert.Single(result.Payloads);
         Assert.Contains("#define FEATURE", result.OutputCode, StringComparison.Ordinal);
         Assert.Contains("#endif", result.OutputCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Many_medium_strings_are_all_externalized_once_the_file_budget_trips()
+    {
+        // 500 × 1000 chars = 500 KB payload: every single literal is below the
+        // 4096-byte per-declaration threshold, but the file as a whole is 500 KB
+        // of literals, which is what the per-file budget is for.
+        var builder = new StringBuilder();
+        builder.AppendLine("public static class Demo");
+        builder.AppendLine("{");
+        for (var index = 0; index < 500; index++)
+        {
+            var body = new string((char)('a' + index % 26), 1000);
+            builder.AppendLine($"    public static readonly string S{index:0000} = \"{body}\";");
+        }
+
+        builder.AppendLine("}");
+        var source = builder.ToString();
+
+        var result = Run(source);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.FilesOverBudget);
+        Assert.Equal(500, result.Statistics.StringsExtracted);
+        Assert.Equal(500, result.Statistics.ArraysExtracted + result.Statistics.StringsExtracted);
+        Assert.Equal(500, result.Payloads.Count);
+        Assert.All(result.Payloads, payload => Assert.Equal(1000, payload.Content.Length));
+        Assert.DoesNotContain("aaaaaaaaaa", result.OutputCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Many_medium_arrays_are_all_externalized_once_the_file_budget_trips()
+    {
+        // 100 × int[1000] = 400 KB payload. Each array is 4000 bytes (below the
+        // 4096 per-declaration threshold) yet the aggregate <clinit> would blow
+        // past the JVM 64 KB method limit.
+        var builder = new StringBuilder();
+        builder.AppendLine("public static class Demo");
+        builder.AppendLine("{");
+        for (var index = 0; index < 100; index++)
+        {
+            builder.Append("    public static readonly int[] A").Append(index.ToString("000"))
+                .AppendLine(" = new int[] {")
+                .AppendLine(string.Join(", ", Enumerable.Range(0, 1000)) + " };");
+        }
+
+        builder.AppendLine("}");
+        var source = builder.ToString();
+
+        var result = Run(source);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.FilesOverBudget);
+        Assert.Equal(100, result.Statistics.ArraysExtracted);
+        Assert.Equal(100, result.Payloads.Count);
+        Assert.All(result.Payloads, payload => Assert.Equal(4000, payload.Content.Length));
+    }
+
+    [Fact]
+    public void File_under_the_budget_keeps_medium_literals_inline()
+    {
+        // 10 × 400 chars = 4000 bytes, well under the 64 KB budget and below the
+        // per-declaration threshold: ordinary code must stay untouched.
+        var builder = new StringBuilder();
+        builder.AppendLine("public static class Demo");
+        builder.AppendLine("{");
+        for (var index = 0; index < 10; index++)
+        {
+            builder.AppendLine(
+                $"    public static readonly string S{index} = \"{new string('m', 400)}\";");
+        }
+
+        builder.AppendLine("}");
+        var source = builder.ToString();
+
+        var result = Run(source);
+
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.FilesOverBudget);
+        Assert.Empty(result.Payloads);
+        Assert.Equal(source, result.OutputCode);
+    }
+
+    [Fact]
+    public void File_budget_boundary_is_exclusive_and_measured_in_payload_bytes()
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("public static class Demo");
+        builder.AppendLine("{");
+        for (var index = 0; index < 3; index++)
+        {
+            builder.AppendLine(
+                $"    public static readonly string S{index} = \"{new string('n', 300)}\";");
+        }
+
+        builder.AppendLine("}");
+        var source = builder.ToString();
+
+        // 900 bytes total: a 900-byte budget is not exceeded (strictly greater
+        // trips it), so nothing moves.
+        var atBudget = Run(source, new BigLiteralResourceOptions { MaxInlinePayloadBytes = 900 });
+        Assert.False(atBudget.Changed);
+        Assert.Equal(0, atBudget.Statistics.FilesOverBudget);
+
+        var belowBudget = Run(source, new BigLiteralResourceOptions { MaxInlinePayloadBytes = 899 });
+        Assert.True(belowBudget.Changed);
+        Assert.Equal(1, belowBudget.Statistics.FilesOverBudget);
+        Assert.Equal(3, belowBudget.Statistics.StringsExtracted);
+    }
+
+    [Fact]
+    public void Const_declarations_never_inflate_the_budget_for_the_movable_literals()
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("public static class Demo");
+        builder.AppendLine("{");
+        builder.AppendLine($"    public const string Big = \"{new string('c', 5000)}\";");
+        builder.AppendLine($"    public static readonly string Small = \"{new string('d', 300)}\";");
+        builder.AppendLine("}");
+        var source = builder.ToString();
+
+        var result = Run(source);
+
+        // The const cannot move and must not drag the 300-byte literal with it.
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.FilesOverBudget);
+        Assert.Empty(result.Payloads);
+        var diagnostic = Assert.Single(
+            result.Diagnostics,
+            entry => entry.Code == PreprocessDiagnosticCodes.BigLiteralConstDeclaration);
+        Assert.Contains("1 const declaration", diagnostic.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Small_literals_below_the_candidate_floor_never_move_even_in_a_huge_file()
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("public static class Demo");
+        builder.AppendLine("{");
+        for (var index = 0; index < 400; index++)
+        {
+            builder.AppendLine(
+                $"    public static readonly string S{index} = \"{new string('e', 100)}\";");
+        }
+
+        builder.AppendLine($"    public static readonly byte[] Data = new byte[] {{ {string.Join(", ", Enumerable.Repeat("0x01", 5000))} }};");
+        builder.AppendLine("}");
+        var source = builder.ToString();
+
+        var result = Run(source);
+
+        // The 5000-byte array crosses the per-declaration threshold and moves; the
+        // 100-byte strings are below MinCandidatePayloadBytes and stay inline. The
+        // file budget is NOT involved: the movable total is only 5000 bytes.
+        Assert.True(result.Changed);
+        Assert.Equal(0, result.Statistics.FilesOverBudget);
+        Assert.Equal(1, result.Statistics.ArraysExtracted);
+        Assert.Equal(0, result.Statistics.StringsExtracted);
+        Assert.Single(result.Payloads);
+    }
+
+    [Fact]
+    public void Single_oversized_literal_still_moves_in_an_otherwise_small_file()
+    {
+        var source = $$"""
+            public static class Demo
+            {
+                public static readonly string Big = "{{new string('f', 5000)}}";
+                public static readonly string Small = "tiny";
+            }
+            """;
+
+        var result = Run(source);
+
+        Assert.True(result.Changed);
+        Assert.Equal(0, result.Statistics.FilesOverBudget);
+        Assert.Equal(1, result.Statistics.StringsExtracted);
+        Assert.Single(result.Payloads);
+        Assert.Contains("\"tiny\"", result.OutputCode, StringComparison.Ordinal);
     }
 
     private static string[] DecodeStrings(byte[] content)
