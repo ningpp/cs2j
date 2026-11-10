@@ -586,6 +586,12 @@ internal static class ProjectPreprocessSource
                         // ORIGINAL project so the injected net10.0 support projects
                         // remain referenceable (NU1201).
                         fixedContent = PinTargetFramework(fixedContent, projectFile, addWarning);
+                        // xunit/mstest/nunit build props set IsTestProject=true
+                        // unconditionally; without Microsoft.NET.Test.Sdk a plain
+                        // library is then started as a testhost and `dotnet test`
+                        // aborts on it (TestUtilities/ModuleCore/XmlCoreTest/
+                        // XmlReaderLib). Mark such libraries as non-test projects.
+                        fixedContent = MarkNonRunnableTestLibraries(fixedContent);
                         await File.WriteAllTextAsync(destinationFile, fixedContent, new System.Text.UTF8Encoding(false));
                     }
                     else
@@ -1024,6 +1030,99 @@ internal static class ProjectPreprocessSource
 
     private static string? NullIfEmpty(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>
+    /// Marks test-framework libraries that cannot actually run tests as
+    /// non-test projects. The xunit/mstest/nunit build props set
+    /// <c>IsTestProject</c> to <c>true</c> unconditionally, so a plain class
+    /// library that merely references one of those packages but not
+    /// <c>Microsoft.NET.Test.Sdk</c> (shared test helper/fixture libraries such
+    /// as TestUtilities, ModuleCore, XmlCoreTest and XmlReaderLib) is treated as
+    /// a runnable test project by <c>dotnet test</c>: the testhost starts
+    /// without the test SDK assets and aborts the whole verification chain.
+    /// Adding <c>&lt;IsTestProject&gt;false&lt;/IsTestProject&gt;</c> makes
+    /// <c>dotnet test</c> skip such projects. Projects that already declare
+    /// <c>IsTestProject</c> (any value), projects referencing
+    /// <c>Microsoft.NET.Test.Sdk</c> and projects without any test-framework
+    /// package are returned unchanged. This normalization only affects the
+    /// intermediate tree; the project graph keeps classifying projects by their
+    /// package references.
+    /// </summary>
+    internal static string MarkNonRunnableTestLibraries(string csprojContent)
+    {
+        System.Xml.Linq.XDocument doc;
+        try
+        {
+            doc = System.Xml.Linq.XDocument.Parse(
+                csprojContent, System.Xml.Linq.LoadOptions.PreserveWhitespace);
+        }
+        catch (System.Xml.XmlException)
+        {
+            return csprojContent;
+        }
+
+        var root = doc.Root;
+        if (root == null || !string.Equals(root.Name.LocalName, "Project", StringComparison.Ordinal))
+        {
+            return csprojContent;
+        }
+
+        // An explicit IsTestProject value is authoritative.
+        if (root.Descendants().Any(element => string.Equals(
+                element.Name.LocalName, "IsTestProject", StringComparison.OrdinalIgnoreCase)))
+        {
+            return csprojContent;
+        }
+
+        var packages = root.Descendants()
+            .Where(element => string.Equals(
+                element.Name.LocalName, "PackageReference", StringComparison.OrdinalIgnoreCase))
+            .Select(element => element.Attribute("Include")?.Value?.Trim())
+            .Where(identity => !string.IsNullOrEmpty(identity))
+            .Select(identity => identity!)
+            .ToList();
+
+        // A real test project ships the test SDK that hosts the testhost.
+        if (packages.Any(identity => identity.Contains(
+                "Microsoft.NET.Test.Sdk", StringComparison.OrdinalIgnoreCase)))
+        {
+            return csprojContent;
+        }
+
+        // Without a test-framework package the framework build props never apply.
+        if (!packages.Any(IsTestFrameworkPackage))
+        {
+            return csprojContent;
+        }
+
+        var property = new System.Xml.Linq.XElement("IsTestProject", "false");
+        var propertyGroup = root.Descendants()
+            .FirstOrDefault(element => string.Equals(
+                element.Name.LocalName, "PropertyGroup", StringComparison.OrdinalIgnoreCase));
+        if (propertyGroup != null)
+        {
+            propertyGroup.Add(property);
+        }
+        else
+        {
+            root.AddFirst(new System.Xml.Linq.XElement("PropertyGroup", property));
+        }
+
+        using var writer = new Utf8StringWriter();
+        doc.Save(writer, System.Xml.Linq.SaveOptions.DisableFormatting);
+        return writer.ToString();
+    }
+
+    /// <summary>
+    /// True for package identities whose build props set
+    /// <c>IsTestProject=true</c>. Only the package name is inspected; ecosystem
+    /// packages such as <c>Microsoft.DotNet.XUnitExtensions</c> belong to the
+    /// same family.
+    /// </summary>
+    private static bool IsTestFrameworkPackage(string packageIdentity)
+        => packageIdentity.Contains("xunit", StringComparison.OrdinalIgnoreCase)
+           || packageIdentity.Contains("mstest", StringComparison.OrdinalIgnoreCase)
+           || packageIdentity.Contains("nunit", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Drops <c>&lt;Import&gt;</c> elements whose target does not exist relative to
