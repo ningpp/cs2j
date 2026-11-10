@@ -14,6 +14,7 @@ namespace CSharpToJava.CLI.Preprocessing;
 internal static class PassIds
 {
     public const string Conditional = "conditional";
+    public const string BigLiteralResource = "big-literal-resource";
     public const string LexicalNormalize = "lexical-normalize";
     public const string PartialMerge = "partial-merge";
     public const string LocalFunctionLift = "local-function-lift";
@@ -88,6 +89,24 @@ internal static class PassCatalog
             defaultEnabled: true,
             needsSemanticModel: false,
             description: "Strip/adapt C# preprocessor directives (text pass with per-file symbol resolution)."),
+        new(
+            PassIds.BigLiteralResource,
+            "Big literal resource extraction",
+            ".cs2j-big-literal-resource-src",
+            PassStage.Lexical,
+            PassStatus.Implemented,
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.Conditional },
+            supportLibrary: PassSupportLibrary.Cs2jPrelude,
+            needsSemanticModel: false,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Move oversized literal payloads (primitive/string array initializers, very long string " +
+                "literals) out of the source file into EmbeddedResource payloads and replace them with a " +
+                "Cs2jPrelude.Cs2jResource loader call; runs second, right after conditional, so every later pass " +
+                "parses a small file and the Java emitter never hits the JVM method-size/constant-pool limits. " +
+                "const declarations, jagged/multi-dimensional arrays, mixed initializers and " +
+                "sbyte/ushort/uint/ulong element types stay inline."),
         new(
             PassIds.LexicalNormalize,
             "Lexical normalization",
