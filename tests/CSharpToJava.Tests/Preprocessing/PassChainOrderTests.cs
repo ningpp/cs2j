@@ -126,6 +126,7 @@ public sealed class PassChainOrderTests
         // tiebreak pins the slot ref-struct-lowering -> ref-struct-span-field-
         // memory-lift -> pointer-deref-index -> closure-lift.
         PassIds.RefStructSpanFieldMemoryLift,
+        PassIds.TypeShapeMarker,
         // M3: pointer-deref-index is an independent read-only expression
         // post-pass over unsafe-ffm's preserved pointer dereferences. It
         // anchors unsafe-ffm and is physically declared right after
@@ -860,6 +861,7 @@ public sealed class PassChainOrderTests
                 && id != PassIds.StackAllocLowering
                 && id != PassIds.RefStructLowering
                 && id != PassIds.RefStructSpanFieldMemoryLift
+                && id != PassIds.TypeShapeMarker
                 && id != PassIds.PointerDerefIndex
                 && id != PassIds.UnsafeRefLowering
                 && id != PassIds.UsingResourceLift
