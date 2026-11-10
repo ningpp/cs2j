@@ -4,10 +4,10 @@
 
 转换采用**两阶段**设计：
 
-1. **C# → C# 预处理**：42 个可独立开关的 pass 把 Java 难以直接承载的 C# 语法归一化为可转换子集。每个 pass 输出独立的 C# 中间树，可对中间树执行 `dotnet build` / `dotnet test` 验证。
+1. **C# → C# 预处理**：56 个可独立开关的 pass 把 Java 难以直接承载的 C# 语法归一化为可转换子集。每个 pass 输出独立的 C# 中间树，可对中间树执行 `dotnet build` / `dotnet test` 验证。
 2. **C# → Java 语义转换**：用 Roslyn 语义模型把归一化后的编译单元映射为 Java AST，再经过 Java 层 IR 重写、类型分组和 Maven 工程规划输出最终工程。
 
-> 当前仓库快照（2026-10）：42 个预处理 pass（全部 Implemented、默认开启）、20 个 CLI 命令、964 条类型映射 / 584 条方法映射 / 29 条命名空间映射、21 个 Java 模块共 4336 个类型元数据 JSON、Java 兼容运行时约 696 个源文件、3 个 xUnit 测试工程与 50 个 `Sample*Solution` 端到端语料。
+> 当前仓库快照（2026-11）：56 个预处理 pass（全部 Implemented；除只读审计 gate `normalization-audit` 外默认开启）、20 个 CLI 命令、964 条类型映射 / 584 条方法映射 / 29 条命名空间映射、21 个 Java 模块共 4336 个类型元数据 JSON、Java 兼容运行时约 696 个源文件、3 个 xUnit 测试工程与 50 个 `Sample*Solution` 端到端语料。
 
 ---
 
@@ -35,7 +35,7 @@
 
 | 输入 | 命令 | 说明 |
 |------|------|------|
-| 单个 `.cs` 文件 | `convert` | 单文件语义转换，不执行 42-pass 预处理链 |
+| 单个 `.cs` 文件 | `convert` | 单文件语义转换，不执行 56-pass 预处理链 |
 | 目录 / `.csproj` / `.sln` / `.slnx` | `convert-project` | 完整预处理 + 项目级语义转换 + Maven 工程输出 |
 
 `convert-project` 优先用 MSBuild 加载完整工作区（含 NuGet 引用、项目引用、资源项、测试工程识别）；MSBuild 不可用时回退到手工工程图解析，再回退到目录扫描。
@@ -146,7 +146,7 @@ dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -c Release -- 
 - 默认从当前工作目录的 `config/TypeMappings.json` 读取映射配置；建议在仓库根目录执行，或用 `-m` 显式指定。
 - `--unified-preprocessed-src` 让所有 pass 共用 `.cs2j-preprocessed-src` 目录，显著减少大型解决方案的磁盘占用。
 - `--preprocess-only` 只运行预处理链，把预处理后的 C# 工程直接写到目标目录根，不生成 Java；该输出可再用 `convert-project --no-preprocess -s <预处理目录>` 单独调试 C#→Java 阶段。
-- 首次转换会执行全部 42 个 pass；大型工程耗时较长属正常现象。
+- 首次转换会执行全部默认开启的 pass；大型工程耗时较长属正常现象。
 
 ### 4. 构建并测试生成的 Java 工程
 
@@ -336,8 +336,8 @@ out/
 ```text
 ┌────────────────────────────── convert-project ──────────────────────────────┐
 │                                                                              │
-│  [1] 预处理链（C# → C#，42 pass，默认全开）                                  │
-│      .cs/sln ─► conditional ─► … ─► java-keywords ─► 归一化 C# 树             │
+│  [1] 预处理链（C# → C#，56 pass）                                            │
+│      .cs/sln ─► conditional ─► big-literal-resource ─► … ─► java-keywords     │
 │      每个 pass：独立中间目录、可单独开关、可 dotnet build/test 验证           │
 │                                                                              │
 │  [2] 工程加载与语义编译                                                       │
