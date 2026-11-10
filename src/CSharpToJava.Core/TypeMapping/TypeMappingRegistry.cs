@@ -123,6 +123,14 @@ public class TypeMappingRegistry
     // e.g. "IEnumerable`1" → ("System.Collections.Generic.IEnumerable`1", "Iterable")
     private Dictionary<string, (string ConfigKey, string JavaType)>? _simpleNameIndex;
 
+    // Eager-built canonical-name indexes (see BuildCanonicalNameIndexes).
+    // generic base name (config key without its `arity suffix) → JavaType;
+    // Java simple name → first configured import ending in "." + simpleName.
+    // Both use TryAdd so the first inserted mapping wins, exactly like the
+    // linear scans they replace.
+    private readonly Dictionary<string, string> _genericTypeBaseIndex = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _javaSimpleTypeImportIndex = new(StringComparer.Ordinal);
+
     /// <summary>
     /// Optional Java standard-library metadata index.  When set, enables auto-deduction of
     /// method name mappings (PascalCase → camelCase) and validation of mapped Java types.
@@ -237,6 +245,40 @@ public class TypeMappingRegistry
             if (!string.IsNullOrEmpty(redirect.CSharpType) && !string.IsNullOrEmpty(redirect.JavaType))
                 _sourceTypeRedirects[redirect.CSharpType] = redirect.JavaType;
         }
+
+        BuildCanonicalNameIndexes();
+    }
+
+    /// <summary>
+    /// Replaces the two linear scans that used to run on every canonical-name lookup:
+    /// the backtick-aware fallback in <see cref="ResolveJavaCanonicalName"/> and the
+    /// import search in <c>MapToCanonical</c>. Both scans iterated <c>_typeMappings</c>
+    /// in insertion order, so the index keeps the first match for each key.
+    /// </summary>
+    private void BuildCanonicalNameIndexes()
+    {
+        foreach (var (configKey, mapping) in _typeMappings)
+        {
+            var backtickIdx = configKey.LastIndexOf('`');
+            if (backtickIdx >= 0)
+            {
+                var keyBase = configKey.Substring(0, backtickIdx);
+                _genericTypeBaseIndex.TryAdd(keyBase, mapping.JavaType);
+            }
+
+            // MapToCanonical only reaches the import scan for non-canonical Java
+            // names, so canonical entries cannot contribute a match.
+            if (mapping.JavaType.Contains('.')) continue;
+            var suffix = "." + mapping.JavaType;
+            foreach (var import in mapping.Imports)
+            {
+                if (import.EndsWith(suffix, StringComparison.Ordinal))
+                {
+                    _javaSimpleTypeImportIndex.TryAdd(mapping.JavaType, import);
+                    break;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -290,7 +332,8 @@ public class TypeMappingRegistry
         }
 
         // 处理可空类型
-        if (csharpType.StartsWith("System.Nullable<") || csharpType.StartsWith("System.Nullable`1<"))
+        if (csharpType.StartsWith("System.Nullable<", StringComparison.Ordinal)
+            || csharpType.StartsWith("System.Nullable`1<", StringComparison.Ordinal))
         {
             var innerType = ExtractGenericArgument(csharpType);
             return MapType(innerType);
@@ -404,7 +447,7 @@ public class TypeMappingRegistry
             // not a false positive where "System.Action<string>" matches "System.Action" (non-generic).
             // Generic type lookups with angle brackets fall through to the backtick normalization below
             // and, if still unresolved, to the final generic-definition fallback.
-            if (typeName.StartsWith(key.TypeName)
+            if (typeName.StartsWith(key.TypeName, StringComparison.Ordinal)
                 && (typeName.Length == key.TypeName.Length || typeName[key.TypeName.Length] == '.'))
             {
                 var resolved = ResolveMethodEntry(entryList, paramCount);
@@ -416,7 +459,8 @@ public class TypeMappingRegistry
             if (backtickIdx >= 0)
             {
                 var baseKeyName = key.TypeName.Substring(0, backtickIdx);
-                bool baseNameMatches = typeName.StartsWith(baseKeyName + "<") || typeName == baseKeyName;
+                bool baseNameMatches = typeName.StartsWith(baseKeyName + "<", StringComparison.Ordinal)
+                    || typeName == baseKeyName;
                 if (baseNameMatches)
                 {
                     // Verify arity: the backtick number must match the number of type arguments in typeName.
@@ -608,19 +652,13 @@ public class TypeMappingRegistry
         if (_typeMappings.TryGetValue(baseTypeName, out entry))
             return MapToCanonical(entry.JavaType);
 
-        // Try with backtick notation
-        foreach (var kvp in _typeMappings)
-        {
-            var backtickIdx = kvp.Key.LastIndexOf('`');
-            if (backtickIdx >= 0)
-            {
-                var keyBase = kvp.Key.Substring(0, backtickIdx);
-                if (baseTypeName == keyBase || csharpTypeName.StartsWith(keyBase + "<"))
-                    return MapToCanonical(kvp.Value.JavaType);
-            }
-        }
-
-        return null;
+        // Backtick-notation fallback, now an O(1) index lookup. Config keys never
+        // contain '<', so "csharpTypeName.StartsWith(keyBase + "<")" is exactly
+        // "baseTypeName == keyBase"; the index preserves the original first-match
+        // ordering of the linear scan (see BuildCanonicalNameIndexes).
+        return _genericTypeBaseIndex.TryGetValue(baseTypeName, out var javaType)
+            ? MapToCanonical(javaType)
+            : null;
     }
 
     /// <summary>
@@ -641,18 +679,9 @@ public class TypeMappingRegistry
         if (JavaLibrary?.FindType("java.util." + javaType) is not null)
             return "java.util." + javaType;
 
-        // Search through type imports configured for this mapping
-        foreach (var mapping in _typeMappings.Values)
-        {
-            if (mapping.JavaType != javaType) continue;
-            foreach (var import in mapping.Imports)
-            {
-                if (import.EndsWith("." + javaType))
-                    return import;
-            }
-        }
-
-        return null;
+        // Search through type imports configured for this mapping. Prebuilt in
+        // BuildCanonicalNameIndexes with ordinal suffix matching.
+        return _javaSimpleTypeImportIndex.TryGetValue(javaType, out var import) ? import : null;
     }
 
     /// <summary>
