@@ -113,6 +113,11 @@ internal static class ProjectPreprocessSource
     /// directory contains no project of its own). Such files must be copied to
     /// the intermediate tree, otherwise the verification build fails with
     /// CS2001 (source file not found).</item>
+    /// <item>non-source assets pulled in by explicit MSBuild items
+    /// (<c>&lt;EmbeddedResource Include="..\..\Common\…\*.xml"&gt;</c>,
+    /// <c>None</c>/<c>Content</c>/…). They are referenced from outside the
+    /// project directory, so the directory-containment rule drops them and the
+    /// verification build fails with CS1566 (resource not found).</item>
     /// </list>
     /// Unrelated trees that merely sit below the common source root
     /// (foreign repositories, sibling solutions not referenced by the entry)
@@ -220,6 +225,13 @@ internal static class ProjectPreprocessSource
         externalSharedCompileFiles = CollectExternalSharedCompileFiles(
             includedProjects, layout.SourceRoot);
 
+        // Assets named by explicit item types (EmbeddedResource/None/…) may live
+        // outside every retained project directory (rt's Common/tests/*.xml).
+        // They must be mirrored into the intermediate tree or the verification
+        // build fails with CS1566 (resource not found).
+        var explicitlyReferencedAssets = CollectExplicitAssetFiles(
+            includedProjects, layout.SourceRoot);
+
         return fullFiles
             .Where(full =>
             {
@@ -239,10 +251,13 @@ internal static class ProjectPreprocessSource
                 }
 
                 // Non-source assets keep the historical directory-containment
-                // rule; only .cs files can be excluded by <Compile Remove>.
+                // rule, extended by the assets a retained project references
+                // explicitly (possibly from outside its directory); only .cs
+                // files can be excluded by <Compile Remove>.
                 if (!full.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
                 {
-                    return SupportedProjectFiltering.IsUnderAnyDirectory(full, includedDirectories);
+                    return explicitlyReferencedAssets.Contains(full)
+                           || SupportedProjectFiltering.IsUnderAnyDirectory(full, includedDirectories);
                 }
 
                 var responsible = compiledSets
@@ -322,6 +337,140 @@ internal static class ProjectPreprocessSource
                 project => !SupportedProjectFiltering.IsUnderExcludedProject(
                     project.ProjectFilePath, exclusionInfo)),
             sourceRoot);
+    }
+
+    /// <summary>
+    /// MSBuild item types whose files are not compiled but are still consumed by
+    /// the build (resources, page/application definitions, additional files).
+    /// A retained project's explicit items of these types must reach the
+    /// intermediate tree even when the file lies outside the project directory.
+    /// </summary>
+    private static readonly string[] AssetItemNames =
+    {
+        "EmbeddedResource",
+        "None",
+        "Content",
+        "Resource",
+        "AdditionalFiles",
+        "ApplicationDefinition",
+        "Page",
+    };
+
+    /// <summary>
+    /// Absolute paths of the non-source assets explicitly included by the
+    /// retained projects' <c>EmbeddedResource</c>/<c>None</c>/… items, resolved
+    /// against the source tree (supports <c>;</c>-separated lists,
+    /// <c>$(MSBuildThisFileDirectory)</c> and project properties, and
+    /// <c>Remove</c> in document order). Items whose value still contains an
+    /// unevaluated <c>$(</c> macro or a wildcard are skipped: keeping the file
+    /// is the safe side, and nothing is ever excluded because of them.
+    /// </summary>
+    internal static HashSet<string> CollectExplicitAssetFiles(
+        IEnumerable<DiscoveredProject> includedProjects,
+        string sourceRoot)
+    {
+        var assets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var project in includedProjects)
+        {
+            CollectProjectAssetFiles(project.ProjectFilePath, sourceRoot, assets);
+        }
+
+        return assets;
+    }
+
+    private static void CollectProjectAssetFiles(
+        string projectPath,
+        string sourceRoot,
+        HashSet<string> assets)
+    {
+        if (!File.Exists(projectPath))
+        {
+            return;
+        }
+
+        System.Xml.Linq.XDocument document;
+        try
+        {
+            document = System.Xml.Linq.XDocument.Load(projectPath, System.Xml.Linq.LoadOptions.None);
+        }
+        catch (Exception ex) when (ex is System.Xml.XmlException or IOException or UnauthorizedAccessException)
+        {
+            // An unreadable project simply contributes no asset references; the
+            // directory-containment rule still applies to its own files.
+            return;
+        }
+
+        var root = document.Root;
+        if (root == null)
+        {
+            return;
+        }
+
+        var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(projectPath))!;
+        var properties = MSBuildPropertyReader.Read(
+            projectDirectory, sourceRoot, root);
+
+        foreach (var element in root.Descendants())
+        {
+            if (!AssetItemNames.Contains(element.Name.LocalName, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // Conditions that cannot be evaluated are conservatively TRUE, so an
+            // ambiguous item keeps its files instead of dropping them.
+            if (MSBuildPropertyReader.EvaluateConditionChain(
+                    element, properties, projectDirectory) == MSBuildConditionResult.False)
+            {
+                continue;
+            }
+
+            var isRemove = element.Attribute("Remove") != null;
+            var rawValue = isRemove
+                ? (string?)element.Attribute("Remove")
+                : (string?)element.Attribute("Include");
+            if (string.IsNullOrWhiteSpace(rawValue))
+            {
+                continue;
+            }
+
+            foreach (var item in rawValue.Split(';', StringSplitOptions.TrimEntries))
+            {
+                if (item.Length == 0)
+                {
+                    continue;
+                }
+
+                var expanded = MSBuildPropertyReader.Expand(item, properties, projectDirectory).Trim();
+                if (expanded.Length == 0
+                    || expanded.Contains("$(", StringComparison.Ordinal)
+                    || expanded.Contains('*')
+                    || expanded.Contains('?'))
+                {
+                    continue;
+                }
+
+                string fullPath;
+                try
+                {
+                    fullPath = Path.GetFullPath(
+                        Path.Combine(projectDirectory, expanded.Replace('\\', Path.DirectorySeparatorChar)));
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+
+                if (isRemove)
+                {
+                    assets.Remove(fullPath);
+                }
+                else
+                {
+                    assets.Add(fullPath);
+                }
+            }
+        }
     }
 
     internal static IEnumerable<string> EnumerateSourceFiles(

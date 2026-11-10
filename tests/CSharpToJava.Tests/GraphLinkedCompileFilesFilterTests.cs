@@ -517,6 +517,94 @@ public sealed class GraphLinkedCompileFilesFilterTests : IDisposable
     }
 
     [Fact]
+    public void ExplicitEmbeddedResource_OutsideProjectDirectory_IsKept()
+    {
+        // Regression for CS1566: rt's System.Private.Xml tests embed
+        // ../../Common/tests/System/Xml/XPath/TestData/*.xml, i.e. assets that
+        // live outside the project directory. The pass tree must copy them or
+        // the verification build cannot find the resource.
+        var csproj = WriteProject(
+            Path.Combine("System.Private.Xml", "tests"),
+            "dotnet-System.Private.Xml.Tests",
+            SimpleProject(
+                "<EmbeddedResource Include=\"../../Common/tests/System/Xml/XPath/TestData/91893.xml\" />",
+                "<EmbeddedResource Include=\"../../Common/tests/System/Xml/XPath/TestData/books.xml;../../Common/tests/System/Xml/XPath/TestData/books_2.xml\" />"));
+
+        var embedded = WriteFile(
+            "Common", "tests", "System", "Xml", "XPath", "TestData", "91893.xml");
+        var embedded2 = WriteFile(
+            "Common", "tests", "System", "Xml", "XPath", "TestData", "books.xml");
+        var embedded3 = WriteFile(
+            "Common", "tests", "System", "Xml", "XPath", "TestData", "books_2.xml");
+        // Not referenced by any item and outside the project directory: dropped
+        // exactly as before.
+        var unreferenced = WriteFile(
+            "Common", "tests", "System", "Xml", "XPath", "TestData", "orphan.xml");
+
+        var layout = new ProjectPreprocessSourceLayout(
+            _sourceRoot, csproj, new[] { csproj });
+
+        var result = ProjectPreprocessSource.FilterToGraphMembers(
+            new[] { csproj, embedded, embedded2, embedded3, unreferenced },
+            SingleGraph(Project(csproj)), layout,
+            new SupportedProjectFiltering.ExclusionInfo());
+
+        Assert.Contains(embedded, result);
+        Assert.Contains(embedded2, result);
+        Assert.Contains(embedded3, result);
+        Assert.DoesNotContain(unreferenced, result);
+    }
+
+    [Fact]
+    public void ExplicitAsset_RemovedByAssetRemove_IsDropped()
+    {
+        // <None Remove> applies to asset items in document order, mirroring the
+        // <Compile Remove> semantics already covered above.
+        var csproj = WriteProject(
+            Path.Combine("assets", "src"),
+            "assets",
+            SimpleProject(
+                "<Content Include=\"..\\..\\shared\\keep.txt;..\\..\\shared\\drop.txt\" />",
+                "<Content Remove=\"..\\..\\shared\\drop.txt\" />"));
+
+        var kept = WriteFile("shared", "keep.txt");
+        var dropped = WriteFile("shared", "drop.txt");
+
+        var layout = new ProjectPreprocessSourceLayout(
+            _sourceRoot, csproj, new[] { csproj });
+
+        var result = ProjectPreprocessSource.FilterToGraphMembers(
+            new[] { csproj, kept, dropped }, SingleGraph(Project(csproj)), layout,
+            new SupportedProjectFiltering.ExclusionInfo());
+
+        Assert.Contains(kept, result);
+        Assert.DoesNotContain(dropped, result);
+    }
+
+    [Fact]
+    public void ExplicitAsset_ViaMsBuildThisFileDirectory_IsKept()
+    {
+        // Items may name assets through $(MSBuildThisFileDirectory); the
+        // resolved path must still land in the keep set.
+        var csproj = WriteProject(
+            Path.Combine("assets", "src"),
+            "assets",
+            SimpleProject(
+                "<EmbeddedResource Include=\"$(MSBuildThisFileDirectory)..\\..\\shared\\data.xml\" />"));
+
+        var embedded = WriteFile("shared", "data.xml");
+
+        var layout = new ProjectPreprocessSourceLayout(
+            _sourceRoot, csproj, new[] { csproj });
+
+        var result = ProjectPreprocessSource.FilterToGraphMembers(
+            new[] { csproj, embedded }, SingleGraph(Project(csproj)), layout,
+            new SupportedProjectFiltering.ExclusionInfo());
+
+        Assert.Contains(embedded, result);
+    }
+
+    [Fact]
     public void ComputeCompiledFiles_WithoutDefaultItems_ResolvesOnlyExplicitIncludes()
     {
         var csproj = WriteProject(
