@@ -1069,6 +1069,13 @@
             ]
         },
         {
+            "csharp": "Cs2jPrelude.Cs2jResource",
+            "java": "Cs2jResource",
+            "imports": [
+                "io.github.ningpp.compat.Cs2jResource"
+            ]
+        },
+        {
             "csharp": "Cs2jByRef.ByRef`1",
             "java": "ByRef",
             "imports": [
