@@ -35,6 +35,36 @@ public static class PreprocessDiagnosticCodes
     /// </summary>
     public const string PassToggleConflict = "CS2J9003";
 
+    // ── CS2J43xx big-literal-resource family (lexical pre-pass #2) ──
+    // The pass externalizes oversized literal payloads (primitive/string array
+    // initializers, very long string literals) into resource files so later
+    // passes never parse a 1 MB source file and the Java emitter never has to
+    // express a <clinit> over the JVM method-size/constant-pool limits.
+
+    /// <summary>big-literal-resource: intermediate-tree <c>dotnet restore</c> failed.</summary>
+    public const string BigLiteralRestoreFailed = "CS2J4301";
+
+    /// <summary>big-literal-resource: intermediate-tree <c>dotnet build</c> failed.</summary>
+    public const string BigLiteralBuildFailed = "CS2J4302";
+
+    /// <summary>big-literal-resource: intermediate-tree <c>dotnet test</c> failed.</summary>
+    public const string BigLiteralTestsFailed = "CS2J4303";
+
+    /// <summary>big-literal-resource: the payload was externalized to a resource file (verbose-only info).</summary>
+    public const string BigLiteralExtracted = "CS2J4310";
+
+    /// <summary>big-literal-resource: an oversized array mixes literals with non-literal elements and stays inline.</summary>
+    public const string BigLiteralNonLiteralElements = "CS2J4320";
+
+    /// <summary>big-literal-resource: an oversized <c>const</c> declaration cannot be externalized (a loader call is not a constant).</summary>
+    public const string BigLiteralConstDeclaration = "CS2J4321";
+
+    /// <summary>big-literal-resource: an oversized string containing an unpaired surrogate cannot round-trip UTF-8.</summary>
+    public const string BigLiteralUnpairedSurrogate = "CS2J4322";
+
+    /// <summary>big-literal-resource: the resource item could not be registered in the project file.</summary>
+    public const string BigLiteralResourceWiring = "CS2J4330";
+
     // ── CS2J14xx generic-constraint family (R2/CN, upgrade plan §6.3/§6.4-R2) ──
 
     /// <summary>
