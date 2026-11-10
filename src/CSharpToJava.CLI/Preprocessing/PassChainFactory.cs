@@ -2,6 +2,7 @@ using CSharpToJava.Core.ArrayMethodRewriter;
 using CSharpToJava.Core.AnonymousTypeLift;
 using CSharpToJava.Core.AsyncNormalize;
 using CSharpToJava.Core.AttributeNormalize;
+using CSharpToJava.Core.BigLiteralResource;
 using CSharpToJava.Core.ClosureLift;
 using CSharpToJava.Core.ConcurrencyNormalize;
 using CSharpToJava.Core.ClosedMetadata;
@@ -328,6 +329,12 @@ internal static class PassChainFactory
                 configuration: "Debug",
                 tfm: null,
                 removeRegions: false),
+
+            // Second pass of the chain: shrink the files before any semantic pass
+            // pays for them. Text/syntax only, so it must stay semantic-model-free.
+            PassIds.BigLiteralResource => new BigLiteralResourcePassAdapter(
+                new BigLiteralResourceOptions { ReportExtractions = config.Verbose },
+                config.Verbose),
 
             PassIds.LexicalNormalize => new LexicalNormalizePassAdapter(
                 config.LexicalNormalizeOptionsFactory(),
