@@ -66,6 +66,62 @@ public sealed class ConditionalPassAdapterResolvedTfmTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task SharedFile_WithConflictingOwnerSymbols_IsPreservedWithWarning()
+    {
+        const string code = """
+            #if LibA
+            public
+            #else
+            internal
+            #endif
+            class Shared {}
+            """;
+        Directory.CreateDirectory(Path.Combine(_root, "Common"));
+        var sourceFile = Path.Combine(_root, "Common", "Shared.cs");
+        File.WriteAllText(sourceFile, code);
+        foreach (var name in new[] { "LibA", "LibB" })
+        {
+            Directory.CreateDirectory(Path.Combine(_root, name));
+            File.WriteAllText(
+                Path.Combine(_root, name, name + ".csproj"),
+                $"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                    <DefineConstants>{name}</DefineConstants>
+                  </PropertyGroup>
+                  <ItemGroup><Compile Include="../Common/Shared.cs" /></ItemGroup>
+                </Project>
+                """);
+        }
+
+        var adapter = new ConditionalPassAdapter(
+            verbose: false,
+            filterUnsupportedProjects: true,
+            compatNamespacePrefixes: null,
+            configuration: "Release",
+            tfm: null,
+            removeRegions: false,
+            sourceRoot: _root);
+
+        var pure = await adapter.RewriteFilePureAsync(new PassFileContext
+        {
+            SourceCode = code,
+            SourceFilePath = sourceFile,
+            RelativePath = "Common/Shared.cs",
+            DestinationFilePath = Path.Combine(_root, "out", "Common", "Shared.cs"),
+        });
+        adapter.MergeFilePureResult(pure);
+
+        Assert.Null(pure.Rewrite);
+        var warning = Assert.Single(adapter.Diagnostics);
+        Assert.StartsWith("[Warning]", warning, StringComparison.Ordinal);
+        Assert.Contains("preserved conditional directives", warning, StringComparison.Ordinal);
+        Assert.False(adapter.HasErrors);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root))

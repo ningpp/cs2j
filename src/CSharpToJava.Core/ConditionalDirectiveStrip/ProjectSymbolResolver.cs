@@ -1,9 +1,13 @@
+using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace CSharpToJava.Core.ConditionalDirectiveStrip;
 
-public sealed record ProjectSymbols(IReadOnlyList<string> Symbols, IReadOnlyList<string> Warnings);
+public sealed record ProjectSymbols(
+    IReadOnlyList<string> Symbols,
+    IReadOnlyList<string> Warnings,
+    bool PreserveDirectives = false);
 
 public static class ProjectSymbolResolver
 {
@@ -16,11 +20,143 @@ public static class ProjectSymbolResolver
         string configuration = "Release",
         string? tfm = null,
         IEnumerable<string>? extraDefines = null,
-        string? resolvedTfm = null)
+        string? resolvedTfm = null,
+        string? sourceRoot = null,
+        Func<string, string?>? projectTfmResolver = null,
+        string? sourceCode = null)
+    {
+        // Shared source files are compiled by several projects with different
+        // DefineConstants. Stripping them once with a single symbol set picks
+        // one project's branch and breaks the others (CS0433 for public/internal
+        // splits, CS0103 for member definitions). Resolve the real owners when a
+        // project tree is known; otherwise keep the historical nearest-project
+        // behavior for single-project / loose files.
+        var treeRoot = FirstNonEmpty(sourceRoot);
+        if (treeRoot == null || !IsSameOrBelow(Path.GetFullPath(filePath), Path.GetFullPath(treeRoot)))
+        {
+            // The caller-supplied root does not contain this file (for example a
+            // later pass reading an intermediate tree); fall back to the tree
+            // discovered from the file itself.
+            treeRoot = FindProjectTreeRoot(filePath);
+        }
+
+        if (treeRoot != null &&
+            IsSameOrBelow(Path.GetFullPath(filePath), Path.GetFullPath(treeRoot)))
+        {
+            return ResolveForTreeOwners(
+                filePath, treeRoot, configuration, tfm, extraDefines, resolvedTfm, projectTfmResolver, sourceCode);
+        }
+
+        return ResolveForProject(
+            FindNearestProjectForFile(filePath), configuration, tfm, extraDefines, resolvedTfm);
+    }
+
+    private static ProjectSymbols ResolveForTreeOwners(
+        string filePath,
+        string sourceRoot,
+        string configuration,
+        string? tfm,
+        IEnumerable<string>? extraDefines,
+        string? resolvedTfm,
+        Func<string, string?>? projectTfmResolver,
+        string? sourceCode)
+    {
+        var index = ProjectCompileIndex.ForRoot(sourceRoot, configuration);
+        if (index.ProjectCount == 0)
+        {
+            // No project tree at all: preserve the historical behavior (loose
+            // files are stripped with the nearest project / empty symbols).
+            return ResolveForProject(
+                FindNearestProjectForFile(filePath), configuration, tfm, extraDefines, resolvedTfm);
+        }
+
+        var owners = index.FindOwningProjects(filePath);
+        if (owners.Count == 0)
+        {
+            // Not compiled by any project: stripping would guess symbols and can
+            // only corrupt the file, so keep the directives untouched and let the
+            // real compiler evaluate them.
+            return new ProjectSymbols(Array.Empty<string>(), Array.Empty<string>(), PreserveDirectives: true);
+        }
+
+        var nearest = FindNearestProjectForFile(filePath);
+        string? TfmFor(string project) =>
+            string.Equals(project, nearest, StringComparison.OrdinalIgnoreCase)
+                ? resolvedTfm
+                : projectTfmResolver?.Invoke(project);
+
+        if (owners.Count == 1)
+        {
+            return ResolveForProject(owners[0], configuration, tfm, extraDefines, TfmFor(owners[0]));
+        }
+
+        var results = owners
+            .Select(owner => ResolveForProject(owner, configuration, tfm, extraDefines, TfmFor(owner)))
+            .ToList();
+        if (results.All(result => SymbolSetsEqual(results[0], result))
+            || (sourceCode != null && ProduceSameStrippedOutput(sourceCode, results)))
+        {
+            // Either the symbol sets are identical, or the differing symbols do
+            // not influence any directive in this file: one stripped form is
+            // valid for every owner.
+            return results[0];
+        }
+
+        // Conflicting symbol sets: no single stripped form works for every
+        // owner, so preserve the directives (the C# compiler then evaluates
+        // them per project) and report one warning for the file.
+        var warning =
+            $"preserved conditional directives: file is compiled by {owners.Count} projects " +
+            $"with different preprocessor symbols ({string.Join(", ", owners.Select(Path.GetFileName))})";
+        return new ProjectSymbols(
+            Array.Empty<string>(),
+            [warning],
+            PreserveDirectives: true);
+    }
+
+    private static bool SymbolSetsEqual(ProjectSymbols left, ProjectSymbols right)
+        => new HashSet<string>(left.Symbols, StringComparer.Ordinal)
+            .SetEquals(new HashSet<string>(right.Symbols, StringComparer.Ordinal));
+
+    /// <summary>
+    /// True when every owner's symbol set selects the same branches for
+    /// <paramref name="sourceCode"/>. Symbol sets can differ in macros the file
+    /// never tests (for example SYSTEM_TEXT_REGULAREXPRESSIONS); rejecting the
+    /// strip in that case only loses information and can desynchronize the file
+    /// from consumers stripped elsewhere.
+    /// </summary>
+    private static bool ProduceSameStrippedOutput(
+        string sourceCode,
+        IReadOnlyList<ProjectSymbols> results)
+    {
+        string? first = null;
+        foreach (var result in results)
+        {
+            var output = new ConditionalDirectiveStripper().Strip(
+                sourceCode,
+                new ConditionalDirectiveStripOptions { Symbols = result.Symbols }).OutputCode;
+            if (first == null)
+            {
+                first = output;
+            }
+            else if (!string.Equals(first, output, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static ProjectSymbols ResolveForProject(
+        string? project,
+        string configuration,
+        string? tfm,
+        IEnumerable<string>? extraDefines,
+        string? resolvedTfm)
     {
         var warnings = new List<string>();
         var symbols = new List<string>();
-        var project = FindNearestProjectForFile(filePath);
         var tfms = new List<string>();
         var externalTfm = FirstNonEmpty(tfm) ?? FirstNonEmpty(resolvedTfm);
 
@@ -109,6 +245,76 @@ public static class ProjectSymbolResolver
         return null;
     }
 
+    /// <summary>
+    /// Locate the source tree that owns <paramref name="filePath"/> by walking up
+    /// to the outermost directory containing a solution file. Shared sources are
+    /// linked from projects anywhere below that root, so the nearest directory
+    /// (or nearest csproj) is not enough to find every real compiler.
+    /// </summary>
+    internal static string? FindProjectTreeRoot(string filePath)
+    {
+        string? fullPath;
+        try
+        {
+            fullPath = Path.GetFullPath(filePath);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+
+        var directory = Path.GetDirectoryName(fullPath);
+        if (string.IsNullOrEmpty(directory))
+        {
+            return null;
+        }
+
+        var cached = TreeRootByDirectory.GetOrAdd(directory, static start =>
+        {
+            string? root = null;
+            var current = start;
+            while (!string.IsNullOrEmpty(current))
+            {
+                try
+                {
+                    if (Directory.EnumerateFiles(current, "*.sln").Any())
+                    {
+                        root = current;
+                    }
+                }
+                catch (Exception)
+                {
+                    // Unreadable ancestor: keep the best root found so far.
+                }
+
+                var parent = Path.GetDirectoryName(current);
+                if (parent == null || string.Equals(parent, current, StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+
+                current = parent;
+            }
+
+            return root;
+        });
+
+        return cached;
+    }
+
+    private static readonly ConcurrentDictionary<string, string?> TreeRootByDirectory =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Projects that compile <paramref name="filePath"/>, resolved from the
+    /// cached compile-ownership index of the tree rooted at <paramref name="sourceRoot"/>.
+    /// </summary>
+    internal static IReadOnlyList<string> FindOwningProjects(
+        string filePath,
+        string sourceRoot,
+        string configuration)
+        => ProjectCompileIndex.ForRoot(sourceRoot, configuration).FindOwningProjects(filePath);
+
     private static bool ProjectCompilesFile(string projectPath, string filePath)
     {
         var document = LoadDocument(projectPath, warnings: null);
@@ -163,14 +369,19 @@ public static class ProjectSymbolResolver
 
     private static bool GlobMatches(string pattern, string projectDirectory, string filePath)
     {
-        if (pattern.Contains("$(", StringComparison.Ordinal))
+        var expanded = pattern.Replace(
+            "$(MSBuildThisFileDirectory)",
+            projectDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                + Path.DirectorySeparatorChar,
+            StringComparison.OrdinalIgnoreCase);
+        if (expanded.Contains("$(", StringComparison.Ordinal))
         {
             return false;
         }
 
-        var combined = Path.IsPathRooted(pattern)
-            ? pattern
-            : Path.Combine(projectDirectory, pattern);
+        var combined = Path.IsPathRooted(expanded)
+            ? expanded
+            : Path.Combine(projectDirectory, expanded);
         var normalizedPattern = NormalizePath(combined);
         var normalizedFile = NormalizePath(filePath);
         var regex = "^" + Regex.Escape(normalizedPattern)
@@ -181,7 +392,7 @@ public static class ProjectSymbolResolver
         return Regex.IsMatch(normalizedFile, regex, RegexOptions.IgnoreCase);
     }
 
-    private static string NormalizePath(string path)
+    internal static string NormalizePath(string path)
     {
         var normalized = path.Replace('\\', '/');
         var root = string.Empty;
@@ -220,7 +431,7 @@ public static class ProjectSymbolResolver
         return root + string.Join('/', segments);
     }
 
-    private static bool IsSameOrBelow(string path, string rootDirectory)
+    internal static bool IsSameOrBelow(string path, string rootDirectory)
     {
         var normalizedPath = NormalizePath(path);
         var normalizedRoot = NormalizePath(rootDirectory);
@@ -590,4 +801,269 @@ public static class ProjectSymbolResolver
 
         return result;
     }
+}
+
+/// <summary>
+/// Compile-ownership index for every project below a source tree. Shared
+/// sources are linked into projects with explicit <c>Compile Include</c> items
+/// (and into SDK projects through the default item glob), so deciding "which
+/// project compiles this file" requires the whole tree, not the nearest csproj.
+/// Built once per (root, configuration) and cached for the preprocessing run.
+/// </summary>
+internal sealed class ProjectCompileIndex
+{
+    private static readonly ConcurrentDictionary<string, ProjectCompileIndex> Cache =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    private readonly List<IndexedCompileProject> _projects;
+
+    public static ProjectCompileIndex ForRoot(string root, string configuration)
+    {
+        var fullRoot = Path.GetFullPath(root);
+        if (File.Exists(fullRoot))
+        {
+            fullRoot = Path.GetDirectoryName(fullRoot)!;
+        }
+
+        var key = fullRoot + "\0" + configuration;
+        return Cache.GetOrAdd(key, _ => new ProjectCompileIndex(fullRoot, configuration));
+    }
+
+    private ProjectCompileIndex(string root, string configuration)
+    {
+        _projects = EnumerateProjectFiles(root)
+            .Select(project => IndexedCompileProject.TryLoad(project, configuration))
+            .Where(project => project != null)
+            .Select(project => project!)
+            .OrderBy(project => project.ProjectPath, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public int ProjectCount => _projects.Count;
+
+    public IReadOnlyList<string> FindOwningProjects(string filePath)
+    {
+        string fullPath;
+        try
+        {
+            fullPath = Path.GetFullPath(filePath);
+        }
+        catch (Exception)
+        {
+            return Array.Empty<string>();
+        }
+
+        return _projects
+            .Where(project => project.Compiles(fullPath))
+            .Select(project => project.ProjectPath)
+            .ToList();
+    }
+
+    private static IEnumerable<string> EnumerateProjectFiles(string root)
+    {
+        var pending = new Stack<string>();
+        pending.Push(root);
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            IEnumerable<string> projects;
+            try
+            {
+                projects = Directory.EnumerateFiles(current, "*.csproj").ToList();
+            }
+            catch (Exception)
+            {
+                continue;
+            }
+
+            foreach (var project in projects)
+            {
+                yield return Path.GetFullPath(project);
+            }
+
+            IEnumerable<string> directories;
+            try
+            {
+                directories = Directory.EnumerateDirectories(current).ToList();
+            }
+            catch (Exception)
+            {
+                continue;
+            }
+
+            foreach (var directory in directories)
+            {
+                if (IsIgnoredDirectoryName(Path.GetFileName(directory)))
+                {
+                    continue;
+                }
+
+                pending.Push(Path.GetFullPath(directory));
+            }
+        }
+    }
+
+    internal static bool IsIgnoredDirectoryName(string name)
+        => name.Equals("bin", StringComparison.OrdinalIgnoreCase)
+           || name.Equals("obj", StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>One project's ordered compile items, parsed from its csproj XML.</summary>
+internal sealed class IndexedCompileProject
+{
+    private sealed record CompileRule(bool Include, string Pattern);
+
+    private readonly List<CompileRule> _rules;
+    private readonly bool _defaultCompileItems;
+
+    private IndexedCompileProject(
+        string projectPath,
+        List<CompileRule> rules,
+        bool defaultCompileItems)
+    {
+        ProjectPath = projectPath;
+        ProjectDirectory = Path.GetDirectoryName(projectPath)!;
+        _rules = rules;
+        _defaultCompileItems = defaultCompileItems;
+    }
+
+    public string ProjectPath { get; }
+    public string ProjectDirectory { get; }
+
+    public static IndexedCompileProject? TryLoad(string projectPath, string configuration)
+    {
+        XDocument document;
+        try
+        {
+            document = XDocument.Load(projectPath);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+
+        if (document.Root == null)
+        {
+            return null;
+        }
+
+        var rules = new List<CompileRule>();
+        var defaultCompileItems = true;
+        foreach (var element in document.Root.Descendants())
+        {
+            var name = element.Name.LocalName;
+            if (name.Equals("EnableDefaultCompileItems", StringComparison.OrdinalIgnoreCase))
+            {
+                if (ProjectSymbolResolver.EvaluateCondition(AttributeNamed(element, "Condition"), configuration))
+                {
+                    defaultCompileItems = !element.Value.Trim()
+                        .Equals("false", StringComparison.OrdinalIgnoreCase);
+                }
+
+                continue;
+            }
+
+            if (!name.Equals("Compile", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // A condition that cannot be evaluated is treated as included, which
+            // over-attributes rather than silently dropping an owner.
+            if (!ProjectSymbolResolver.EvaluateCondition(AttributeNamed(element, "Condition"), configuration))
+            {
+                continue;
+            }
+
+            var include = AttributeNamed(element, "Include");
+            if (!string.IsNullOrWhiteSpace(include))
+            {
+                rules.Add(new CompileRule(Include: true, include));
+            }
+
+            var remove = AttributeNamed(element, "Remove");
+            if (!string.IsNullOrWhiteSpace(remove))
+            {
+                rules.Add(new CompileRule(Include: false, remove));
+            }
+        }
+
+        return new IndexedCompileProject(projectPath, rules, defaultCompileItems);
+    }
+
+    public bool Compiles(string filePath)
+    {
+        bool? included = null;
+        foreach (var rule in _rules)
+        {
+            if (PatternsMatch(rule.Pattern, ProjectDirectory, filePath))
+            {
+                included = rule.Include;
+            }
+        }
+
+        if (included.HasValue)
+        {
+            return included.Value;
+        }
+
+        return _defaultCompileItems
+               && ProjectSymbolResolver.IsSameOrBelow(filePath, ProjectDirectory)
+               && !IsUnderIgnoredDirectory(filePath, ProjectDirectory);
+    }
+
+    private static bool PatternsMatch(string value, string projectDirectory, string filePath)
+        => value.Split(';', StringSplitOptions.RemoveEmptyEntries)
+            .Select(pattern => pattern.Trim())
+            .Where(pattern => pattern.Length > 0)
+            .Any(pattern => GlobMatches(pattern, projectDirectory, filePath));
+
+    private static bool GlobMatches(string pattern, string projectDirectory, string filePath)
+    {
+        var expanded = pattern.Replace(
+            "$(MSBuildThisFileDirectory)",
+            projectDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                + Path.DirectorySeparatorChar,
+            StringComparison.OrdinalIgnoreCase);
+        if (expanded.Contains("$(", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var combined = Path.IsPathRooted(expanded)
+            ? expanded
+            : Path.Combine(projectDirectory, expanded);
+        return Regex.IsMatch(
+            ProjectSymbolResolver.NormalizePath(filePath),
+            "^" + GlobToRegex(ProjectSymbolResolver.NormalizePath(combined)) + "$",
+            RegexOptions.IgnoreCase);
+    }
+
+    private static string GlobToRegex(string pattern)
+        => Regex.Escape(pattern)
+            .Replace(@"\*\*/", "(?:.*/)?", StringComparison.Ordinal)
+            .Replace(@"\*\*", ".*", StringComparison.Ordinal)
+            .Replace(@"\*", "[^/]*", StringComparison.Ordinal)
+            .Replace(@"\?", "[^/]", StringComparison.Ordinal);
+
+    private static bool IsUnderIgnoredDirectory(string filePath, string projectDirectory)
+    {
+        var relative = Path.GetRelativePath(projectDirectory, filePath);
+        foreach (var segment in relative.Split(
+                     [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+                     StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (ProjectCompileIndex.IsIgnoredDirectoryName(segment))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string? AttributeNamed(XElement element, string localName)
+        => element.Attributes()
+            .FirstOrDefault(attribute => attribute.Name.LocalName.Equals(localName, StringComparison.OrdinalIgnoreCase))
+            ?.Value;
 }

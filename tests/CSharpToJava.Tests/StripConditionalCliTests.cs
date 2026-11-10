@@ -179,6 +179,48 @@ public sealed class StripConditionalCliTests : IDisposable
         Assert.Contains("provide (-i [-o]) or (-s <source> -d <destination>)", stderr.ToString(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task DirectoryMode_SharedFileWithConflictingOwners_IsPreservedWithOneWarningPerFile()
+    {
+        var source = Path.Combine(_root, "shared");
+        var destination = Path.Combine(_root, "shared-output");
+        foreach (var name in new[] { "LibA", "LibB" })
+        {
+            WriteText($"shared/{name}/{name}.csproj", $"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                    <DefineConstants>{name}</DefineConstants>
+                  </PropertyGroup>
+                  <ItemGroup><Compile Include="../Common/*.cs" /></ItemGroup>
+                </Project>
+                """);
+        }
+
+        const string code = "#if LibA\nclass A {}\n#else\nclass B {}\n#endif\n";
+        WriteText("shared/Common/One.cs", code);
+        WriteText("shared/Common/Two.cs", code);
+        var stderr = new StringWriter();
+
+        var exitCode = await StripConditionalCommand.RunAsync(new StripConditionalOptions
+        {
+            Source = source,
+            Destination = destination,
+        }, TextWriter.Null, stderr);
+
+        Assert.Equal(0, exitCode);
+        Assert.Equal(code, await File.ReadAllTextAsync(Path.Combine(destination, "Common", "One.cs")));
+        Assert.Equal(code, await File.ReadAllTextAsync(Path.Combine(destination, "Common", "Two.cs")));
+        var warnings = stderr.ToString()
+            .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
+            .Where(line => line.Contains("preserved conditional directives", StringComparison.Ordinal))
+            .ToList();
+        Assert.Equal(2, warnings.Count);
+        Assert.Contains(warnings, line => line.Contains("One.cs", StringComparison.Ordinal));
+        Assert.Contains(warnings, line => line.Contains("Two.cs", StringComparison.Ordinal));
+    }
+
     private string WriteText(string relativePath, string content)
     {
         var path = Path.Combine(_root, relativePath);

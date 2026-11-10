@@ -306,6 +306,161 @@ public sealed class ProjectSymbolResolverTests : IDisposable
         Assert.DoesNotContain("internal", result.OutputCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SharedFile_CompiledWithDifferentSymbols_PreservesDirectives()
+    {
+        const string code = """
+            #if PROJECT_A
+            public
+            #else
+            internal
+            #endif
+            class Shared {}
+            """;
+        var file = WriteFile("Common/Shared.cs", code);
+        WriteFile("LibA/LibA.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                <DefineConstants>PROJECT_A</DefineConstants>
+              </PropertyGroup>
+              <ItemGroup><Compile Include="../Common/Shared.cs" /></ItemGroup>
+            </Project>
+            """);
+        WriteFile("LibB/LibB.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                <DefineConstants>PROJECT_B</DefineConstants>
+              </PropertyGroup>
+              <ItemGroup><Compile Include="../Common/Shared.cs" /></ItemGroup>
+            </Project>
+            """);
+
+        var result = ProjectSymbolResolver.ResolveForFile(file, sourceRoot: _root);
+
+        Assert.True(result.PreserveDirectives);
+        Assert.Empty(result.Symbols);
+        var warning = Assert.Single(result.Warnings);
+        Assert.Contains("preserved conditional directives", warning, StringComparison.Ordinal);
+        Assert.Contains("2 projects", warning, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedFile_CompiledWithIdenticalSymbols_UsesThatSymbolSet()
+    {
+        const string code = """
+            #if NET
+            class NetOnly {}
+            #endif
+            """;
+        var file = WriteFile("Common/Shared.cs", code);
+        foreach (var name in new[] { "LibA", "LibB" })
+        {
+            WriteFile($"{name}/{name}.csproj", $"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                    <DefineConstants>$(DefineConstants);SHARED</DefineConstants>
+                  </PropertyGroup>
+                  <ItemGroup><Compile Include="../Common/Shared.cs" /></ItemGroup>
+                </Project>
+                """);
+        }
+
+        var symbols = ProjectSymbolResolver.ResolveForFile(file, sourceRoot: _root);
+
+        Assert.False(symbols.PreserveDirectives);
+        Assert.Contains("NET", symbols.Symbols);
+        Assert.Contains("SHARED", symbols.Symbols);
+
+        var result = new ConditionalDirectiveStripper().Strip(
+            code,
+            new ConditionalDirectiveStripOptions { Symbols = symbols.Symbols });
+        Assert.Contains("class NetOnly", result.OutputCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FileWithoutOwningProject_PreservesDirectives()
+    {
+        var file = WriteFile("Loose/Code.cs", "#if ANY\nclass C {}\n#endif\n");
+        WriteFile("App/App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        var result = ProjectSymbolResolver.ResolveForFile(file, sourceRoot: _root);
+
+        Assert.True(result.PreserveDirectives);
+        Assert.Empty(result.Symbols);
+    }
+
+    [Fact]
+    public void CompileInclude_ExpandsMSBuildThisFileDirectory()
+    {
+        var file = WriteFile("Common/Linked.cs", "#if LINKED\nclass C {}\n#endif\n");
+        WriteFile("Lib/Lib.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                <DefineConstants>LINKED</DefineConstants>
+              </PropertyGroup>
+              <ItemGroup>
+                <Compile Include="$(MSBuildThisFileDirectory)../Common/Linked.cs" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        var result = ProjectSymbolResolver.ResolveForFile(file, sourceRoot: _root);
+
+        Assert.False(result.PreserveDirectives);
+        Assert.Contains("LINKED", result.Symbols);
+
+        var stripped = new ConditionalDirectiveStripper().Strip(
+            "#if LINKED\nclass C {}\n#endif\n",
+            new ConditionalDirectiveStripOptions { Symbols = result.Symbols });
+        Assert.Contains("class C", stripped.OutputCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedFile_WithUnusedDifferingSymbols_StillStrips()
+    {
+        const string code = """
+            #if NET
+            class NetOnly {}
+            #endif
+            """;
+        var file = WriteFile("Common/Shared.cs", code);
+        foreach (var (name, symbol) in new[] { ("LibA", "PROJECT_A"), ("LibB", "PROJECT_B") })
+        {
+            WriteFile($"{name}/{name}.csproj", $"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                    <DefineConstants>{symbol}</DefineConstants>
+                  </PropertyGroup>
+                  <ItemGroup><Compile Include="../Common/Shared.cs" /></ItemGroup>
+                </Project>
+                """);
+        }
+
+        var result = ProjectSymbolResolver.ResolveForFile(
+            file, sourceRoot: _root, sourceCode: code);
+
+        Assert.False(result.PreserveDirectives);
+        Assert.Contains("NET", result.Symbols);
+        Assert.Empty(result.Warnings);
+    }
+
     private static IReadOnlyList<string> Synthesize(string tfm)
     {
         var symbols = new List<string>();

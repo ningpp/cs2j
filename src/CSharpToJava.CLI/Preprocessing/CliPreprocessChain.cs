@@ -368,6 +368,7 @@ internal static class CliPreprocessChain
         {
             Verbose = request.Verbose,
             FilterUnsupportedProjects = request.FilterUnsupportedProjects,
+            SourceRoot = request.SourcePath,
             CompatNamespacePrefixes = request.CompatNamespacePrefixes,
             VerifyBuild = request.VerifyBuild,
             VerifyTests = request.VerifyTests,

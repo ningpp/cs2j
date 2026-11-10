@@ -65,6 +65,8 @@ internal sealed class PassChainConfiguration
 {
     public bool Verbose { get; init; }
     public bool FilterUnsupportedProjects { get; init; } = true;
+    /// <summary>Root of the source tree being preprocessed (used to index compile ownership).</summary>
+    public string? SourceRoot { get; init; }
     public IReadOnlyCollection<string>? CompatNamespacePrefixes { get; init; }
     public bool VerifyBuild { get; init; } = true;
     public bool VerifyTests { get; init; } = true;
@@ -328,7 +330,8 @@ internal static class PassChainFactory
                 // tests fail against members that no longer exist.
                 configuration: "Debug",
                 tfm: null,
-                removeRegions: false),
+                removeRegions: false,
+                sourceRoot: config.SourceRoot),
 
             // Second pass of the chain: shrink the files before any semantic pass
             // pays for them. Text/syntax only, so it must stay semantic-model-free.

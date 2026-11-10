@@ -157,11 +157,20 @@ internal static class StripConditionalCommand
         var emittedWarningKeys = new HashSet<string>(StringComparer.Ordinal);
         var hadWarnings = false;
 
-        async Task<ProjectSymbols> SymbolsForFileAsync(string file, string relativePath)
+        async Task<ProjectSymbols> SymbolsForFileAsync(string file, string relativePath, string sourceCode)
         {
+            var owners = ProjectSymbolResolver.FindOwningProjects(
+                file, sourceRoot, options.Configuration);
             var projectPath = ProjectSymbolResolver.FindNearestProjectForFile(file);
-            var cacheKey = projectPath ?? "<no-project>";
-            if (!symbolCache.TryGetValue(cacheKey, out var symbols))
+            var cacheKey = owners.Count > 0
+                ? string.Join("\0", owners)
+                : projectPath ?? "<no-project>";
+            // The multi-owner decision depends on the file's directives as well
+            // (differing symbols only matter when the file tests them), so only
+            // single-owner results are cacheable by project.
+            var cacheable = owners.Count <= 1;
+            ProjectSymbols? symbols = null;
+            if (!cacheable || !symbolCache.TryGetValue(cacheKey, out symbols))
             {
                 var resolvedTfm = string.IsNullOrWhiteSpace(options.Tfm) && projectPath != null
                     ? ResolvedProjectTfm.Resolve(projectPath, options.Configuration)
@@ -171,13 +180,21 @@ internal static class StripConditionalCommand
                     options.Configuration,
                     options.Tfm,
                     extraDefines,
-                    resolvedTfm);
-                symbolCache.Add(cacheKey, symbols);
+                    resolvedTfm,
+                    sourceRoot,
+                    sourceCode: sourceCode);
+                if (cacheable)
+                {
+                    symbolCache.Add(cacheKey, symbols);
+                }
             }
 
+            // Shared sources preserved because their owners disagree are reported
+            // once per file; project-level warnings stay deduplicated by project.
+            var warningScope = symbols.PreserveDirectives ? relativePath : cacheKey;
             foreach (var warning in symbols.Warnings)
             {
-                if (emittedWarningKeys.Add(cacheKey + "\0" + warning))
+                if (emittedWarningKeys.Add(warningScope + "\0" + warning))
                 {
                     hadWarnings = true;
                     await standardError.WriteLineAsync($"[Warning] {relativePath}:0: {warning}");
@@ -201,7 +218,25 @@ internal static class StripConditionalCommand
             var relativePath = Path.GetRelativePath(sourceRoot, file);
             var destinationPath = Path.Combine(destinationRoot, relativePath);
             var source = await SourceTextIo.ReadAsync(file);
-            var symbols = await SymbolsForFileAsync(file, relativePath);
+            var symbols = await SymbolsForFileAsync(file, relativePath, source.Code);
+            if (symbols.PreserveDirectives)
+            {
+                // Shared source with conflicting (or unknown) owning projects:
+                // leave the directives for the real compiler.
+                if (!inPlace)
+                {
+                    CopyFileVerbatim(file, destinationPath);
+                }
+
+                clean++;
+                if (options.Verbose)
+                {
+                    await standardOutput.WriteLineAsync($"preserved (copy): {relativePath}");
+                }
+
+                continue;
+            }
+
             var result = new ConditionalDirectiveStripper().Strip(
                 source.Code,
                 new ConditionalDirectiveStripOptions

@@ -18,6 +18,7 @@ internal sealed class ConditionalPassAdapter : ProjectPassAdapter
     private readonly string _configuration;
     private readonly string? _tfm;
     private readonly bool _removeRegions;
+    private readonly string? _sourceRoot;
 
     private readonly List<string> _diagnostics = new();
 
@@ -40,7 +41,8 @@ internal sealed class ConditionalPassAdapter : ProjectPassAdapter
         IReadOnlyCollection<string>? compatNamespacePrefixes,
         string configuration,
         string? tfm,
-        bool removeRegions)
+        bool removeRegions,
+        string? sourceRoot = null)
     {
         _verbose = verbose;
         _filterUnsupportedProjects = filterUnsupportedProjects;
@@ -48,6 +50,7 @@ internal sealed class ConditionalPassAdapter : ProjectPassAdapter
         _configuration = configuration;
         _tfm = tfm;
         _removeRegions = removeRegions;
+        _sourceRoot = sourceRoot;
     }
 
     public override PassDescriptor Descriptor => PassCatalog.ImplementedById(PassIds.Conditional);
@@ -99,12 +102,31 @@ internal sealed class ConditionalPassAdapter : ProjectPassAdapter
             : null;
 
         var symbols = ProjectSymbolResolver.ResolveForFile(
-            context.SourceFilePath, _configuration, _tfm, resolvedTfm: resolvedTfm);
+            context.SourceFilePath,
+            _configuration,
+            _tfm,
+            resolvedTfm: resolvedTfm,
+            sourceRoot: _sourceRoot,
+            projectTfmResolver: ResolveTfmForProject,
+            sourceCode: context.SourceCode);
 
         var diagnosticLines = new List<string>(symbols.Warnings.Count);
         foreach (var warning in symbols.Warnings)
         {
             diagnosticLines.Add($"[Warning] {context.RelativePath}:0: {warning}");
+        }
+
+        if (symbols.PreserveDirectives)
+        {
+            // Shared source compiled with conflicting symbol sets (or with no
+            // owning project): never strip once, let each project's compiler
+            // evaluate the directives instead.
+            return Task.FromResult(new PassFilePureResult
+            {
+                Context = context,
+                Rewrite = null,
+                PassState = new ConditionalFileState(diagnosticLines, false, 0, 0),
+            });
         }
 
         var stripOptions = new ConditionalDirectiveStripOptions
@@ -136,6 +158,9 @@ internal sealed class ConditionalPassAdapter : ProjectPassAdapter
                 result.Statistics.DisabledBranchesRemoved),
         });
     }
+
+    private string? ResolveTfmForProject(string projectPath)
+        => ResolvedProjectTfm.Resolve(projectPath, _configuration);
 
     private string? ResolveProjectTfm(string filePath)
     {

@@ -56,7 +56,8 @@ internal static class ProjectConditionalDirectivePreprocessor
             request.CompatNamespacePrefixes,
             request.Configuration,
             request.Tfm,
-            request.RemoveRegions);
+            request.RemoveRegions,
+            request.SourcePath);
 
         var run = await ProjectPassRunner.RunAsync(
             adapter,
