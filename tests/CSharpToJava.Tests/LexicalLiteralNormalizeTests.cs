@@ -320,6 +320,34 @@ public sealed class LexicalLiteralNormalizeTests
     }
 
     [Fact]
+    public void LL2_Utf8_MemberAccessReceiver_KeepsReadOnlySpanType()
+    {
+        // `"x"u8.TryCopyTo(...)` needs the literal's ReadOnlySpan<byte> type for
+        // extension-method lookup; the bare emitted byte[] fails with CS1061
+        // (real corpus: System.Text.Encodings.Web DefaultHtmlEncoder).
+        const string source = """
+            public class C
+            {
+                public void M(System.Span<byte> destination)
+                {
+                    System.ReadOnlySpan<byte> s = "a"u8;
+                    if (!"&lt;"u8.TryCopyTo(destination)) { return; }
+                }
+            }
+            """;
+
+        var result = Run(source);
+
+        Assert.True(result.Changed);
+        Assert.Contains("((global::System.ReadOnlySpan<byte>)new byte[]", result.OutputCode);
+        Assert.Contains(").TryCopyTo(destination)", result.OutputCode);
+        // 非接受者位置仍是裸数组，不引入多余 cast。
+        Assert.Contains("= new byte[]", result.OutputCode);
+        Assert.DoesNotContain("\"u8", result.OutputCode);
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == LexicalNormalizeSeverity.Error));
+    }
+
+    [Fact]
     public void LL2_ByteLiteralFactory_EmitsExpectedCastSyntax()
     {
         var array = ByteLiteralFactory.Create(new byte[] { 0x61, 0xFF });
