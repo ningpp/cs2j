@@ -51,6 +51,12 @@ public class ProjectConversionPipeline
     public Task<List<ConversionResult>> ConvertLibraryAsync(
         Cs2jLibrary library,
         ISet<string>? emitFilePaths = null)
+        => ConvertLibraryAsync(library, emitFilePaths, NormalizationPlan.Default);
+
+    private Task<List<ConversionResult>> ConvertLibraryAsync(
+        Cs2jLibrary library,
+        ISet<string>? emitFilePaths,
+        NormalizationPlan plan)
     {
         ArgumentNullException.ThrowIfNull(library);
 
@@ -74,7 +80,7 @@ public class ProjectConversionPipeline
 
         context.CurrentProjectName = library.Projects.FirstOrDefault()?.Name ?? library.Name;
         context.ProjectCompilation = compilation;
-        return Task.FromResult(ConvertCompilationCore(library, compilation, context, emitFilePaths));
+        return Task.FromResult(ConvertCompilationCore(library, compilation, context, emitFilePaths, plan));
     }
 
     /// <summary>
@@ -111,7 +117,8 @@ public class ProjectConversionPipeline
                 projectFilePath: projectFilePath,
                 projectReferences: projectReferences,
                 isTestProject: isTestProject);
-            return Task.FromResult(ConvertCompilationCore(library, library.PrimaryCompilation!, context, emitFilePaths));
+            return Task.FromResult(ConvertCompilationCore(
+                library, library.PrimaryCompilation!, context, emitFilePaths, NormalizationPlan.Default));
         }
         catch (Exception ex)
         {
@@ -135,104 +142,153 @@ public class ProjectConversionPipeline
         // Strip #if DEBUG regions by default (Release semantics). Set CS2J_KEEP_DEBUG=1
         // to convert them instead — required when the source's tests depend on debug-only
         // members such as RegexCode.ToString() (RegexReductionTests compares it).
-        if (!string.Equals(
-                Environment.GetEnvironmentVariable("CS2J_KEEP_DEBUG"),
-                "1",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            compilation = StripDebugPreprocessorSymbol(compilation);
-        }
-        else
-        {
-            // RegexAssemblyCompiler is debug-only dynamic assembly emission with no Java
-            // equivalent (TypeBuilder/ILGenerator are stubs), and RegexCompiler's DEBUG
-            // CompileToAssembly references it. Strip DEBUG from those two files. Regex.cs
-            // keeps its DEBUG blocks (RegexRunner/Match reference Regex.IsDebug), but its
-            // DEBUG CompileToAssembly branch must not call the stripped RegexCompiler
-            // method — rewrite the body to throw PlatformNotSupportedException instead.
-            compilation = StripDebugPreprocessorSymbol(
-                compilation,
-                t => t.EndsWith("RegexAssemblyCompiler.cs", StringComparison.OrdinalIgnoreCase)
-                    || t.EndsWith("RegexCompiler.cs", StringComparison.OrdinalIgnoreCase));
-            compilation = StripDebugCompileToAssemblyCall(compilation);
-        }
+        // The actual rewrites all happen in the single NormalizeCompilation step;
+        // this entry point only selects the plan.
+        var plan = ComputeNormalizationPlan();
         var library = Cs2jLibraryFactory.CreateFromCompilation(
             compilation,
             projectName,
             projectFilePath,
             projectReferences,
             isTestProject);
-        return ConvertLibraryAsync(library, emitFilePaths);
+        return ConvertLibraryAsync(library, emitFilePaths, plan);
+    }
+
+    private enum DebugStripMode
+    {
+        None,
+        AllFiles,
+        RegexFilesOnly,
+    }
+
+    private sealed record NormalizationPlan(DebugStripMode DebugStrip, bool RewriteCompileToAssembly)
+    {
+        public static readonly NormalizationPlan Default = new(DebugStripMode.None, false);
+    }
+
+    private static NormalizationPlan ComputeNormalizationPlan()
+    {
+        // Release semantics by default: #if DEBUG regions (debug-only helpers such
+        // as RegexAssemblyCompiler) are excluded from conversion.
+        if (!string.Equals(
+                Environment.GetEnvironmentVariable("CS2J_KEEP_DEBUG"),
+                "1",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return new NormalizationPlan(DebugStripMode.AllFiles, false);
+        }
+
+        // RegexAssemblyCompiler is debug-only dynamic assembly emission with no Java
+        // equivalent (TypeBuilder/ILGenerator are stubs), and RegexCompiler's DEBUG
+        // CompileToAssembly references it. Strip DEBUG from those two files only;
+        // Regex.cs keeps its DEBUG blocks, but its CompileToAssembly branch must be
+        // rewritten to throw instead of calling the stripped RegexCompiler method.
+        return new NormalizationPlan(DebugStripMode.RegexFilesOnly, true);
     }
 
     /// <summary>
-    /// Re-parses all syntax trees without the DEBUG preprocessor symbol so that
-    /// #if DEBUG regions (debug-only helpers such as RegexAssemblyCompiler) are
-    /// excluded from conversion. Workspace compilations loaded from a Debug
-    /// configuration define DEBUG; the converter targets Release semantics
-    /// (Debug.Assert stripping follows the same policy). Other symbols (TRACE,
-    /// user-defined) are preserved.
+    /// Applies every C# syntax-tree rewrite in one pass: DEBUG symbol removal,
+    /// global:: alias stripping, Regex.CompileToAssembly body rewrite and the
+    /// generic declaration-pattern rewrite. Each tree is parsed at most once and
+    /// the compilation is rebuilt once, so Roslyn's semantic-model cache is not
+    /// invalidated several times before the pass pipeline starts.
     /// </summary>
-    internal static CSharpCompilation StripDebugPreprocessorSymbol(CSharpCompilation compilation)
-        => StripDebugPreprocessorSymbol(compilation, _ => true);
-
-    internal static CSharpCompilation StripDebugPreprocessorSymbol(
+    private static (CSharpCompilation Compilation, Cs2jLibrary Library) NormalizeCompilation(
         CSharpCompilation compilation,
-        Func<string, bool> shouldStripFile)
+        Cs2jLibrary library,
+        NormalizationPlan plan)
     {
-        var firstTree = compilation.SyntaxTrees.FirstOrDefault();
-        if (firstTree?.Options is not CSharpParseOptions parseOptions
-            || !parseOptions.PreprocessorSymbolNames.Contains("DEBUG"))
-            return compilation;
+        var trees = compilation.SyntaxTrees.ToList();
+        if (trees.Count == 0)
+            return (compilation, library);
 
-        var remaining = parseOptions.PreprocessorSymbolNames
-            .Where(s => !string.Equals(s, "DEBUG", StringComparison.Ordinal)).ToList();
-        var newTrees = new List<Microsoft.CodeAnalysis.SyntaxTree>();
-        foreach (var tree in compilation.SyntaxTrees)
+        var firstOptions = trees[0].Options as CSharpParseOptions;
+        var stripDebug = plan.DebugStrip != DebugStripMode.None
+            && firstOptions?.PreprocessorSymbolNames.Contains("DEBUG") == true;
+        var remainingSymbols = stripDebug
+            ? firstOptions!.PreprocessorSymbolNames
+                .Where(symbol => !string.Equals(symbol, "DEBUG", StringComparison.Ordinal))
+                .ToList()
+            : null;
+
+        var newTrees = new Microsoft.CodeAnalysis.SyntaxTree[trees.Count];
+        var changed = false;
+        for (var index = 0; index < trees.Count; index++)
         {
-            var options = tree.Options is CSharpParseOptions csharpOptions
-                ? csharpOptions.WithPreprocessorSymbols(remaining)
-                : CSharpParseOptions.Default.WithPreprocessorSymbols(remaining);
-            newTrees.Add(shouldStripFile(tree.FilePath)
-                ? CSharpSyntaxTree.ParseText(tree.GetText(), options, tree.FilePath)
-                : tree);
+            var tree = trees[index];
+            var options = tree.Options as CSharpParseOptions ?? CSharpParseOptions.Default;
+            var sourceText = tree.GetText();
+            var text = sourceText.ToString();
+            var hasGlobalAlias = text.Contains("global::", StringComparison.Ordinal);
+            var stripDebugHere = stripDebug && (plan.DebugStrip switch
+            {
+                DebugStripMode.AllFiles => true,
+                DebugStripMode.RegexFilesOnly => IsRegexCompilerFile(tree.FilePath),
+                _ => false,
+            });
+            Microsoft.CodeAnalysis.SyntaxTree current = tree;
+
+            if (stripDebugHere || hasGlobalAlias)
+            {
+                var targetOptions = stripDebugHere
+                    ? options.WithPreprocessorSymbols(remainingSymbols!)
+                    : options;
+                current = hasGlobalAlias
+                    ? CSharpSyntaxTree.ParseText(
+                        text.Replace("global::", "", StringComparison.Ordinal),
+                        targetOptions,
+                        tree.FilePath)
+                    : CSharpSyntaxTree.ParseText(sourceText, targetOptions, tree.FilePath);
+                changed = true;
+            }
+
+            if (plan.RewriteCompileToAssembly
+                && tree.FilePath.EndsWith("Regex.cs", StringComparison.OrdinalIgnoreCase))
+            {
+                var root = current.GetRoot();
+                var rewritten = new CompileToAssemblyThrowingRewriter().Visit(root);
+                if (rewritten is not null && !ReferenceEquals(rewritten, root))
+                {
+                    current = CSharpSyntaxTree.Create(
+                        (CSharpSyntaxNode)rewritten,
+                        (CSharpParseOptions)current.Options,
+                        tree.FilePath);
+                    changed = true;
+                }
+            }
+
+            if (!ProjectPassState.IsSyntheticFilePath(tree.FilePath))
+            {
+                var root = current.GetRoot();
+                var rewritten = new CSharpToJava.Core.Rewriters.JavaGenericPatternRewriter().Visit(root);
+                if (rewritten is CompilationUnitSyntax unit && !ReferenceEquals(unit, root))
+                {
+                    current = current.WithRootAndOptions(unit, current.Options);
+                    changed = true;
+                }
+            }
+
+            newTrees[index] = current;
         }
 
-        return compilation.RemoveAllSyntaxTrees().AddSyntaxTrees(newTrees.ToArray());
+        if (!changed)
+            return (compilation, library);
+
+        var normalized = compilation.RemoveAllSyntaxTrees().AddSyntaxTrees(newTrees);
+        var primary = library.Projects.FirstOrDefault();
+        var rebuiltLibrary = Cs2jLibraryFactory.CreateFromCompilation(
+            normalized,
+            projectName: primary?.Name,
+            projectFilePath: primary?.ProjectFilePath,
+            projectReferences: primary?.ProjectReferences?.ToList(),
+            isTestProject: primary?.IsTestProject ?? false,
+            libraryName: library.Name);
+        return (normalized, rebuiltLibrary);
     }
 
-    /// <summary>
-    /// Rewrites Regex.CompileToAssembly method bodies to throw PlatformNotSupportedException.
-    /// Called when DEBUG regions are kept: the DEBUG branch calls
-    /// RegexCompiler.CompileToAssembly, which is stripped together with RegexAssemblyCompiler
-    /// (dynamic assembly emission has no Java equivalent).
-    /// </summary>
-    private static CSharpCompilation StripDebugCompileToAssemblyCall(CSharpCompilation compilation)
-    {
-        var newTrees = new List<Microsoft.CodeAnalysis.SyntaxTree>();
-        foreach (var tree in compilation.SyntaxTrees)
-        {
-            if (!tree.FilePath.EndsWith("Regex.cs", StringComparison.OrdinalIgnoreCase))
-            {
-                newTrees.Add(tree);
-                continue;
-            }
-            var root = tree.GetRoot();
-            var rewritten = new CompileToAssemblyThrowingRewriter().Visit(root);
-            if (!ReferenceEquals(rewritten, root))
-            {
-                newTrees.Add(CSharpSyntaxTree.Create(
-                    (CSharpSyntaxNode)rewritten!,
-                    (CSharpParseOptions)tree.Options,
-                    tree.FilePath));
-            }
-            else
-            {
-                newTrees.Add(tree);
-            }
-        }
-        return compilation.RemoveAllSyntaxTrees().AddSyntaxTrees(newTrees.ToArray());
-    }
+    private static bool IsRegexCompilerFile(string path)
+        => path.EndsWith("RegexAssemblyCompiler.cs", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith("RegexCompiler.cs", StringComparison.OrdinalIgnoreCase);
 
     private sealed class CompileToAssemblyThrowingRewriter : CSharpSyntaxRewriter
     {
@@ -269,7 +325,6 @@ public class ProjectConversionPipeline
             new ProjectUnsupportedDomainCheckPass(),
             new ProjectPlatformBoundaryCheckPass(),
             new ProjectNativeInteropCheckPass(),
-            new ProjectJavaPatternRewritePass(),
             new ProjectPartialTypeNormalizationPass(),
             new ProjectTypeEmitPass(_irRewriters),
             new ProjectJavaModuleDependencyPass(),
@@ -289,12 +344,13 @@ public class ProjectConversionPipeline
         Cs2jLibrary library,
         CSharpCompilation compilation,
         ConversionContext context,
-        ISet<string>? emitFilePaths)
+        ISet<string>? emitFilePaths,
+        NormalizationPlan plan)
     {
-        // Strip C# `global::` namespace alias qualifier from all syntax trees.
-        // Some auto-generated sources (e.g. XSD.exe output) use global:: to fully
-        // qualify type names. The qualifier has no meaning in Java.
-        compilation = StripGlobalAliasQualifier(compilation);
+        // One syntax-tree rewrite pass replaces the former DEBUG strip,
+        // global:: strip, CompileToAssembly rewrite and pattern-rewrite pass.
+        (compilation, library) = NormalizeCompilation(compilation, library, plan);
+        context.ProjectCompilation = compilation;
 
         var passMetrics = new List<Cs2jPassMetric>();
         var passState = new ProjectPassState
@@ -341,34 +397,6 @@ public class ProjectConversionPipeline
         }
     }
 
-    /// <summary>
-    /// Strips the C# `global::` namespace alias qualifier from all syntax trees in a
-    /// compilation. Some auto-generated sources (e.g. XSD.exe output) use global:: to
-    /// fully qualify type names. The qualifier has no semantic meaning beyond the
-    /// global namespace (which is the C# default), and must be removed before Java
-    /// code generation to avoid invalid Java output like `global::System.Xml.XmlReader`.
-    /// </summary>
-    internal static CSharpCompilation StripGlobalAliasQualifier(CSharpCompilation compilation)
-    {
-        bool changed = false;
-        var newTrees = new List<Microsoft.CodeAnalysis.SyntaxTree>();
-        foreach (var tree in compilation.SyntaxTrees)
-        {
-            var text = tree.GetText().ToString();
-            if (!text.Contains("global::", StringComparison.Ordinal))
-            {
-                newTrees.Add(tree);
-                continue;
-            }
-            var stripped = text.Replace("global::", "", StringComparison.Ordinal);
-            changed = true;
-            newTrees.Add(CSharpSyntaxTree.ParseText(
-                stripped,
-                tree.Options is CSharpParseOptions opts ? opts : CSharpParseOptions.Default,
-                tree.FilePath));
-        }
-        return changed ? compilation.RemoveAllSyntaxTrees().AddSyntaxTrees(newTrees.ToArray()) : compilation;
-    }
 }
 
 /// <summary>

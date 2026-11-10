@@ -181,7 +181,6 @@ public class Phase2PassPipelineTests
                 "ProjectUnsupportedDomainCheckPass",
                 "ProjectPlatformBoundaryCheckPass",
                 "ProjectNativeInteropCheckPass",
-                "ProjectJavaPatternRewritePass",
                 "ProjectPartialTypeNormalizationPass",
                 "ProjectTypeEmitPass",
                 "ProjectJavaModuleDependencyPass",

@@ -330,49 +330,10 @@ public sealed class ProjectPartialTypeNormalizationPass : ICs2jPass<ProjectPassS
     }
 }
 
-/// <summary>
-/// Java 目标语法树层 rewriter pass：提升泛型声明模式（`x is List&lt;T&gt; v` → 类型模式 +
-/// 段首强转声明），保证模式变量保持完整泛型类型（JavaGenericPatternRewriter）。
-/// 必须在 ProjectPartialTypeNormalizationPass 之前运行（类型组基于改写后树构建）。
-/// </summary>
-public sealed class ProjectJavaPatternRewritePass : ICs2jPass<ProjectPassState>
-{
-    public string Name => nameof(ProjectJavaPatternRewritePass);
-    public Cs2jPassStage Stage => Cs2jPassStage.Normalize;
-
-    public void Execute(ProjectPassState state)
-    {
-        var trees = state.Compilation.SyntaxTrees
-            .Where(tree => !ProjectPassState.IsSyntheticFilePath(tree.FilePath))
-            .ToList();
-        if (trees.Count == 0)
-        {
-            return;
-        }
-
-        var changed = new List<(SyntaxTree Old, SyntaxTree New)>();
-        foreach (var tree in trees)
-        {
-            var root = tree.GetRoot();
-            var newRoot = new Rewriters.JavaGenericPatternRewriter().Visit(root);
-            if (newRoot is CompilationUnitSyntax newUnit && !ReferenceEquals(newUnit, root))
-            {
-                changed.Add((tree, tree.WithRootAndOptions(newUnit, tree.Options)));
-            }
-        }
-
-        if (changed.Count == 0)
-        {
-            return;
-        }
-
-        foreach (var (oldTree, newTree) in changed)
-        {
-            state.Compilation = state.Compilation.ReplaceSyntaxTree(oldTree, newTree);
-        }
-        ProjectStateRebuildHelper.RebuildAfterCompilationChange(state);
-    }
-}
+// ProjectJavaPatternRewritePass has been folded into the single up-front
+// NormalizeCompilation step in ProjectConversionPipeline: it used to replace
+// syntax trees one at a time (one CSharpCompilation rebuild per changed tree)
+// after the check passes had already run.
 
 public sealed class ProjectTypeEmitPass : ICs2jPass<ProjectPassState>
 {
