@@ -1034,6 +1034,34 @@
             ]
         },
         {
+            "csharp": "Cs2jPrelude.Cs2jTypeShapeMarker",
+            "java": "Cs2jTypeShapeMarker",
+            "imports": [
+                "io.github.ningpp.compat.Cs2jTypeShapeMarker"
+            ]
+        },
+        {
+            "csharp": "Cs2jPrelude.Cs2jStructMarker",
+            "java": "Cs2jStructMarker",
+            "imports": [
+                "io.github.ningpp.compat.Cs2jStructMarker"
+            ]
+        },
+        {
+            "csharp": "Cs2jPrelude.Cs2jRecordMarker",
+            "java": "Cs2jRecordMarker",
+            "imports": [
+                "io.github.ningpp.compat.Cs2jRecordMarker"
+            ]
+        },
+        {
+            "csharp": "Cs2jPrelude.Cs2jReadOnlyMarker",
+            "java": "Cs2jReadOnlyMarker",
+            "imports": [
+                "io.github.ningpp.compat.Cs2jReadOnlyMarker"
+            ]
+        },
+        {
             "csharp": "Cs2jPrelude.Cs2jByRefLikeHelper",
             "java": "TypeHelper",
             "imports": [
