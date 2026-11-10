@@ -49,6 +49,19 @@ public sealed class BigLiteralResourceExtractor
         _options = options ?? new BigLiteralResourceOptions();
     }
 
+    /// <summary>
+    /// One measured literal declaration. Collected before any decision so the
+    /// per-file budget can be evaluated against the whole file.
+    /// </summary>
+    private sealed record Candidate(
+        VariableDeclaratorSyntax Declarator,
+        ExpressionSyntax Value,
+        BigLiteralElementKind Kind,
+        bool IsArray,
+        byte[] Payload,
+        bool IsConst,
+        int Line);
+
     /// <summary>Extract every qualifying literal of one file.</summary>
     /// <param name="sourceCode">Full file text.</param>
     /// <param name="relativePath">Relative path; used for parse-tree identity and diagnostics only.</param>
@@ -76,10 +89,14 @@ public sealed class BigLiteralResourceExtractor
             return Unchanged(sourceCode, statistics, diagnostics);
         }
 
-        var replacements = new Dictionary<ExpressionSyntax, ExpressionSyntax>();
-        var payloads = new List<BigLiteralResourcePayload>();
-        var emittedNames = new HashSet<string>(StringComparer.Ordinal);
-
+        // ---- phase 1: collect every candidate, decide nothing yet ----
+        //
+        // The decision is two-tier (see BigLiteralResourceOptions.MaxInlinePayloadBytes):
+        // a single oversized literal always moves, and additionally the whole
+        // file is emptied out once its movable literal payload exceeds the inline
+        // budget. That is why the scan cannot decide while walking: the file total
+        // is only known after every candidate is measured.
+        var candidates = new List<Candidate>();
         foreach (var declarator in root.DescendantNodes().OfType<VariableDeclaratorSyntax>())
         {
             if (declarator.Initializer is not { } initializer
@@ -129,46 +146,16 @@ public sealed class BigLiteralResourceExtractor
                     continue;
                 }
 
-                if (content!.Length < _options.MinArrayPayloadBytes)
+                if (content!.Length < _options.MinCandidatePayloadBytes)
                 {
                     continue;
                 }
 
-                if (isConst)
-                {
-                    statistics.SkippedConst++;
-                    diagnostics.Add(new BigLiteralResourceDiagnostic(
-                        BigLiteralResourceSeverity.Warning,
-                        Preprocessing.PreprocessDiagnosticCodes.BigLiteralConstDeclaration,
-                        $"const array '{declarator.Identifier.ValueText}' ({content.Length} bytes) " +
-                        "cannot be externalized: a loader call is not a constant expression",
-                        line));
-                    continue;
-                }
-
-                var (resourceName, fileName) = BuildResourceName(
-                    declarator, kind, isArray: true, content);
-                if (emittedNames.Add(resourceName))
-                {
-                    payloads.Add(new BigLiteralResourcePayload
-                    {
-                        ResourceName = resourceName,
-                        FileName = fileName,
-                        Content = content,
-                        SourceSymbol = DeclaringSymbol(declarator),
-                    });
-                }
-
-                replacements[value] = BuildLoaderCall(
-                    BigLiteralElementKinds.ArrayLoaderMethod(kind), resourceName, value);
-
-                statistics.ArraysExtracted++;
-                statistics.PayloadBytes += content.Length;
-                ReportExtraction(diagnostics, declarator, "array", elements.Count, content.Length, line);
+                candidates.Add(new Candidate(
+                    declarator, value, kind, IsArray: true, content, isConst, line));
                 continue;
             }
 
-            // ---- single string literal ----
             if (value is not LiteralExpressionSyntax literal
                 || !literal.IsKind(SyntaxKind.StringLiteralExpression))
             {
@@ -194,42 +181,117 @@ public sealed class BigLiteralResourceExtractor
             }
 
             var stringContent = Encoding.UTF8.GetBytes(text);
-            if (stringContent.Length < _options.MinStringPayloadBytes)
+            if (stringContent.Length < _options.MinCandidatePayloadBytes)
             {
                 continue;
             }
 
-            if (isConst)
+            candidates.Add(new Candidate(
+                declarator, value, BigLiteralElementKind.String, IsArray: false,
+                stringContent, isConst, line));
+        }
+
+        // const declarations can never move (a loader call is not a constant
+        // expression), so they must not inflate the budget the other literals
+        // are measured against.
+        var movableTotal = candidates
+            .Where(candidate => !candidate.IsConst)
+            .Sum(candidate => (long)candidate.Payload.Length);
+        var overBudget = movableTotal > _options.MaxInlinePayloadBytes;
+
+        // ---- phase 2: decide + rewrite ----
+        var replacements = new Dictionary<ExpressionSyntax, ExpressionSyntax>();
+        var payloads = new List<BigLiteralResourcePayload>();
+        var emittedNames = new HashSet<string>(StringComparer.Ordinal);
+        var constCount = 0;
+        var constBytes = 0L;
+        var constSample = string.Empty;
+        var extractedCount = 0;
+        var extractedBytes = 0L;
+
+        foreach (var candidate in candidates)
+        {
+            var alwaysExternalize = candidate.Payload.Length
+                >= (candidate.IsArray ? _options.MinArrayPayloadBytes : _options.MinStringPayloadBytes);
+            if (!alwaysExternalize && !overBudget)
             {
-                statistics.SkippedConst++;
-                diagnostics.Add(new BigLiteralResourceDiagnostic(
-                    BigLiteralResourceSeverity.Warning,
-                    Preprocessing.PreprocessDiagnosticCodes.BigLiteralConstDeclaration,
-                    $"const string '{declarator.Identifier.ValueText}' ({stringContent.Length} bytes) " +
-                    "cannot be externalized: a loader call is not a constant expression",
-                    line));
                 continue;
             }
 
-            var (stringResourceName, stringFileName) = BuildResourceName(
-                declarator, BigLiteralElementKind.String, isArray: false, stringContent);
-            if (emittedNames.Add(stringResourceName))
+            if (candidate.IsConst)
+            {
+                // Report the ones that WOULD have moved; the rest are ordinary
+                // constant tables the pass never wanted.
+                constCount++;
+                constBytes += candidate.Payload.Length;
+                if (constSample.Length == 0)
+                {
+                    constSample = candidate.Declarator.Identifier.ValueText;
+                }
+
+                continue;
+            }
+
+            var (resourceName, fileName) = BuildResourceName(
+                candidate.Declarator, candidate.Kind, candidate.IsArray, candidate.Payload);
+            if (emittedNames.Add(resourceName))
             {
                 payloads.Add(new BigLiteralResourcePayload
                 {
-                    ResourceName = stringResourceName,
-                    FileName = stringFileName,
-                    Content = stringContent,
-                    SourceSymbol = DeclaringSymbol(declarator),
+                    ResourceName = resourceName,
+                    FileName = fileName,
+                    Content = candidate.Payload,
+                    SourceSymbol = DeclaringSymbol(candidate.Declarator),
                 });
             }
 
-            replacements[value] = BuildLoaderCall(
-                BigLiteralElementKinds.StringLoaderMethod, stringResourceName, value);
+            replacements[candidate.Value] = BuildLoaderCall(
+                candidate.IsArray
+                    ? BigLiteralElementKinds.ArrayLoaderMethod(candidate.Kind)
+                    : BigLiteralElementKinds.StringLoaderMethod,
+                resourceName,
+                candidate.Value);
 
-            statistics.StringsExtracted++;
-            statistics.PayloadBytes += stringContent.Length;
-            ReportExtraction(diagnostics, declarator, "string", text.Length, stringContent.Length, line);
+            if (candidate.IsArray)
+            {
+                statistics.ArraysExtracted++;
+            }
+            else
+            {
+                statistics.StringsExtracted++;
+            }
+
+            statistics.PayloadBytes += candidate.Payload.Length;
+            extractedCount++;
+            extractedBytes += candidate.Payload.Length;
+        }
+
+        if (overBudget)
+        {
+            statistics.FilesOverBudget++;
+        }
+
+        statistics.SkippedConst += constCount;
+        if (constCount > 0)
+        {
+            diagnostics.Add(new BigLiteralResourceDiagnostic(
+                BigLiteralResourceSeverity.Warning,
+                Preprocessing.PreprocessDiagnosticCodes.BigLiteralConstDeclaration,
+                $"{constCount} const declaration(s) ({constBytes} bytes, e.g. '{constSample}') " +
+                "cannot be externalized: a loader call is not a constant expression",
+                candidates.First(candidate => candidate.IsConst).Line));
+        }
+
+        if (_options.ReportExtractions && extractedCount > 0)
+        {
+            diagnostics.Add(new BigLiteralResourceDiagnostic(
+                BigLiteralResourceSeverity.Info,
+                Preprocessing.PreprocessDiagnosticCodes.BigLiteralExtracted,
+                $"{extractedCount} literal payload(s) externalized ({extractedBytes} bytes)" +
+                (overBudget
+                    ? $"; file budget tripped: {movableTotal} > {_options.MaxInlinePayloadBytes} bytes"
+                    : string.Empty),
+                0));
         }
 
         if (replacements.Count == 0)
@@ -266,27 +328,6 @@ public sealed class BigLiteralResourceExtractor
             Diagnostics = diagnostics,
             Statistics = statistics,
         };
-    }
-
-    private void ReportExtraction(
-        List<BigLiteralResourceDiagnostic> diagnostics,
-        VariableDeclaratorSyntax declarator,
-        string what,
-        int count,
-        int bytes,
-        int line)
-    {
-        if (!_options.ReportExtractions)
-        {
-            return;
-        }
-
-        diagnostics.Add(new BigLiteralResourceDiagnostic(
-            BigLiteralResourceSeverity.Info,
-            Preprocessing.PreprocessDiagnosticCodes.BigLiteralExtracted,
-            $"{what} '{declarator.Identifier.ValueText}' externalized " +
-            $"({count} value(s), {bytes} bytes)",
-            line));
     }
 
     private static SyntaxNode ParseRoot(string sourceCode, string relativePath)

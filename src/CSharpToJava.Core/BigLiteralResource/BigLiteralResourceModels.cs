@@ -181,6 +181,8 @@ public sealed class BigLiteralResourceStatistics
     public int ArraysExtracted { get; set; }
     public int StringsExtracted { get; set; }
     public int PayloadBytes { get; set; }
+    /// <summary>Files whose movable literal payload exceeded the inline budget.</summary>
+    public int FilesOverBudget { get; set; }
     public int SkippedNonLiteral { get; set; }
     public int SkippedConst { get; set; }
     public int SkippedUnsupportedText { get; set; }
