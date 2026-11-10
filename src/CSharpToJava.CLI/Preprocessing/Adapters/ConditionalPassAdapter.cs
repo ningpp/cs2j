@@ -22,10 +22,11 @@ internal sealed class ConditionalPassAdapter : ProjectPassAdapter
     private readonly List<string> _diagnostics = new();
 
     /// <summary>
-    /// Per-directory nearest-project lookup cache. Files in the same directory
-    /// all resolve to the same csproj; parallel rewrite shares this map.
+    /// Per-file nearest-project lookup cache. Files in the same directory can
+    /// belong to different projects (a directory may host several csproj), so
+    /// the owner must be resolved per file; parallel rewrite shares this map.
     /// </summary>
-    private readonly ConcurrentDictionary<string, string?> _projectByDirectory =
+    private readonly ConcurrentDictionary<string, string?> _projectByFilePath =
         new(StringComparer.OrdinalIgnoreCase);
 
     private int _filesTransformed;
@@ -138,18 +139,18 @@ internal sealed class ConditionalPassAdapter : ProjectPassAdapter
 
     private string? ResolveProjectTfm(string filePath)
     {
-        string directory;
+        string fullPath;
         try
         {
-            directory = Path.GetDirectoryName(Path.GetFullPath(filePath))!;
+            fullPath = Path.GetFullPath(filePath);
         }
         catch (Exception)
         {
             return null;
         }
 
-        var projectPath = _projectByDirectory.GetOrAdd(
-            directory, static path => ProjectSymbolResolver.FindNearestProject(path));
+        var projectPath = _projectByFilePath.GetOrAdd(
+            fullPath, static path => ProjectSymbolResolver.FindNearestProjectForFile(path));
         return projectPath == null
             ? null
             : ResolvedProjectTfm.Resolve(projectPath, _configuration);

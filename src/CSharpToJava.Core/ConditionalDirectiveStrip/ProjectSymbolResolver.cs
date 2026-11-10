@@ -20,7 +20,7 @@ public static class ProjectSymbolResolver
     {
         var warnings = new List<string>();
         var symbols = new List<string>();
-        var project = FindNearestProject(Path.GetDirectoryName(Path.GetFullPath(filePath)));
+        var project = FindNearestProjectForFile(filePath);
         var tfms = new List<string>();
         var externalTfm = FirstNonEmpty(tfm) ?? FirstNonEmpty(resolvedTfm);
 
@@ -65,6 +65,167 @@ public static class ProjectSymbolResolver
         }
 
         return new ProjectSymbols(Dedup(symbols), warnings);
+    }
+
+    /// <summary>
+    /// Resolve the project that actually compiles <paramref name="filePath"/>.
+    /// A directory can host more than one project (for example the runtime's
+    /// System.Private.CoreLib directory also contains a Globalization project);
+    /// taking the first project by path would apply the wrong DefineConstants
+    /// and select the wrong conditional branches.
+    /// </summary>
+    internal static string? FindNearestProjectForFile(string filePath)
+    {
+        var fullPath = Path.GetFullPath(filePath);
+        var directory = Path.GetDirectoryName(fullPath);
+        while (!string.IsNullOrEmpty(directory))
+        {
+            var projects = Directory.EnumerateFiles(directory, "*.csproj")
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .Select(Path.GetFullPath)
+                .ToList();
+            if (projects.Count == 1)
+            {
+                return projects[0];
+            }
+
+            if (projects.Count > 1)
+            {
+                var owners = projects
+                    .Where(project => ProjectCompilesFile(project, fullPath))
+                    .ToList();
+                return owners.Count > 0 ? owners[0] : projects[0];
+            }
+
+            var parent = Path.GetDirectoryName(directory);
+            if (parent == null || string.Equals(parent, directory, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            directory = parent;
+        }
+
+        return null;
+    }
+
+    private static bool ProjectCompilesFile(string projectPath, string filePath)
+    {
+        var document = LoadDocument(projectPath, warnings: null);
+        if (document?.Root == null)
+        {
+            return false;
+        }
+
+        var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(projectPath))!;
+        bool? included = null;
+        foreach (var element in document.Root.Descendants().Where(element =>
+                     element.Name.LocalName.Equals("Compile", StringComparison.OrdinalIgnoreCase)))
+        {
+            var include = AttributeNamed(element, "Include");
+            if (include != null && PatternsMatch(include, projectDirectory, filePath))
+            {
+                included = true;
+                continue;
+            }
+
+            var remove = AttributeNamed(element, "Remove");
+            if (remove != null && PatternsMatch(remove, projectDirectory, filePath))
+            {
+                included = false;
+            }
+        }
+
+        if (included.HasValue)
+        {
+            return included.Value;
+        }
+
+        // No explicit Compile item claims the file: SDK projects include
+        // sources below their directory unless default items are disabled.
+        var enableDefault = document.Root.Descendants()
+            .Where(element => element.Name.LocalName.Equals("EnableDefaultCompileItems", StringComparison.OrdinalIgnoreCase))
+            .Select(element => element.Value.Trim())
+            .LastOrDefault();
+        if (string.Equals(enableDefault, "false", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return IsSameOrBelow(filePath, projectDirectory);
+    }
+
+    private static bool PatternsMatch(string value, string projectDirectory, string filePath)
+        => value.Split(';', StringSplitOptions.RemoveEmptyEntries)
+            .Select(pattern => pattern.Trim())
+            .Where(pattern => pattern.Length > 0)
+            .Any(pattern => GlobMatches(pattern, projectDirectory, filePath));
+
+    private static bool GlobMatches(string pattern, string projectDirectory, string filePath)
+    {
+        if (pattern.Contains("$(", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var combined = Path.IsPathRooted(pattern)
+            ? pattern
+            : Path.Combine(projectDirectory, pattern);
+        var normalizedPattern = NormalizePath(combined);
+        var normalizedFile = NormalizePath(filePath);
+        var regex = "^" + Regex.Escape(normalizedPattern)
+            .Replace(@"\*\*/", "(?:.*/)?", StringComparison.Ordinal)
+            .Replace(@"\*\*", ".*", StringComparison.Ordinal)
+            .Replace(@"\*", "[^/]*", StringComparison.Ordinal)
+            .Replace(@"\?", "[^/]", StringComparison.Ordinal) + "$";
+        return Regex.IsMatch(normalizedFile, regex, RegexOptions.IgnoreCase);
+    }
+
+    private static string NormalizePath(string path)
+    {
+        var normalized = path.Replace('\\', '/');
+        var root = string.Empty;
+        if (normalized.Length >= 2 && normalized[1] == ':')
+        {
+            root = normalized[..2] + "/";
+            normalized = normalized[3..];
+        }
+        else if (normalized.StartsWith("/", StringComparison.Ordinal))
+        {
+            root = "/";
+            normalized = normalized[1..];
+        }
+
+        var segments = new List<string>();
+        foreach (var segment in normalized.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (segment == ".")
+            {
+                continue;
+            }
+
+            if (segment == "..")
+            {
+                if (segments.Count > 0)
+                {
+                    segments.RemoveAt(segments.Count - 1);
+                }
+
+                continue;
+            }
+
+            segments.Add(segment);
+        }
+
+        return root + string.Join('/', segments);
+    }
+
+    private static bool IsSameOrBelow(string path, string rootDirectory)
+    {
+        var normalizedPath = NormalizePath(path);
+        var normalizedRoot = NormalizePath(rootDirectory);
+        return normalizedPath.Equals(normalizedRoot, StringComparison.OrdinalIgnoreCase) ||
+               normalizedPath.StartsWith(normalizedRoot + "/", StringComparison.OrdinalIgnoreCase);
     }
 
     internal static string? FindNearestProject(string? startDirectory)

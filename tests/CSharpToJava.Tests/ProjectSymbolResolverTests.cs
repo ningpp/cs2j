@@ -264,6 +264,48 @@ public sealed class ProjectSymbolResolverTests : IDisposable
             warning => warning.Contains("skipped unresolvable TFM value", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void DirectoryWithMultipleProjects_UsesTheProjectThatCompilesTheFile()
+    {
+        const string code = """
+            #if SYSTEM_PRIVATE_CORELIB
+            public
+            #else
+            internal
+            #endif
+            struct Rune {}
+            """;
+        var file = WriteFile("Lib/src/System/Text/Rune.cs", code);
+        WriteFile("Lib/dotnet-System.Globalization.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+              </PropertyGroup>
+              <ItemGroup><Compile Include="src/System/Globalization/*.cs" /></ItemGroup>
+            </Project>
+            """);
+        WriteFile("Lib/dotnet-System.Private.CoreLib.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+              </PropertyGroup>
+              <PropertyGroup><DefineConstants>$(DefineConstants);SYSTEM_PRIVATE_CORELIB</DefineConstants></PropertyGroup>
+              <ItemGroup><Compile Include="src/System/Text/**/*.cs" /></ItemGroup>
+            </Project>
+            """);
+
+        var symbols = ProjectSymbolResolver.ResolveForFile(file, "Debug");
+        Assert.Contains("SYSTEM_PRIVATE_CORELIB", symbols.Symbols);
+
+        var result = new ConditionalDirectiveStripper().Strip(
+            code,
+            new ConditionalDirectiveStripOptions { Symbols = symbols.Symbols });
+        Assert.Contains("public", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("internal", result.OutputCode, StringComparison.Ordinal);
+    }
+
     private static IReadOnlyList<string> Synthesize(string tfm)
     {
         var symbols = new List<string>();

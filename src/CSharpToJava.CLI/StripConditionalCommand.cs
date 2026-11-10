@@ -159,7 +159,7 @@ internal static class StripConditionalCommand
 
         async Task<ProjectSymbols> SymbolsForFileAsync(string file, string relativePath)
         {
-            var projectPath = ProjectSymbolResolver.FindNearestProject(Path.GetDirectoryName(file)!);
+            var projectPath = ProjectSymbolResolver.FindNearestProjectForFile(file);
             var cacheKey = projectPath ?? "<no-project>";
             if (!symbolCache.TryGetValue(cacheKey, out var symbols))
             {
