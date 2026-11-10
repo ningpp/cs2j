@@ -10,6 +10,7 @@ package io.github.ningpp.compat;
  * support-library interface to this compat type via TypeMappings.json.</p>
  *
  * @see TypeHelper#getIsByRefLike(Class)
+ * @see Cs2jTypeShapeMarker
  */
-public interface Cs2jByRefLikeMarker {
+public interface Cs2jByRefLikeMarker extends Cs2jTypeShapeMarker {
 }
