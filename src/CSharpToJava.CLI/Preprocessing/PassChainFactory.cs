@@ -323,12 +323,17 @@ internal static class PassChainFactory
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,
-                // The upstream test suites run under `dotnet test`'s default Debug
-                // configuration: `#if DEBUG` members (RegexCode.ToString/Dump,
-                // RegexOptions.Debug, IsDebug, …) are part of the tested surface.
-                // Stripping to Release silently deletes them and the converted
-                // tests fail against members that no longer exist.
-                configuration: "Debug",
+                // The preprocessed tree is validated with `dotnet build/test -c Release`,
+                // so the strip must resolve the same configuration the verification
+                // runs use: the Release branch of `#if DEBUG ... #else ... #endif`
+                // survives and the Debug-only branch is removed. Resolving Debug here
+                // baked the development-only members into the output (for example
+                // Regex.CompileToAssembly's ArgumentNullException arm), while the
+                // Release verification expected the `#else` PlatformNotSupportedException
+                // arm. Projects that declare DefineConstants explicitly (the Generator
+                // project declares DEBUG) keep that behaviour through
+                // ProjectSymbolResolver.
+                configuration: "Release",
                 tfm: null,
                 removeRegions: false,
                 sourceRoot: config.SourceRoot),

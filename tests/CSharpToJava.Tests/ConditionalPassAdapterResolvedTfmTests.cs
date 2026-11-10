@@ -122,6 +122,117 @@ public sealed class ConditionalPassAdapterResolvedTfmTests : IDisposable
         Assert.False(adapter.HasErrors);
     }
 
+    /// <summary>
+    /// The default chain must resolve the Release configuration: the preprocessed
+    /// tree is verified with `dotnet build/test -c Release`, so `#if DEBUG`'s else
+    /// branch has to survive (Regex.CompileToAssembly depends on it).
+    /// </summary>
+    [Fact]
+    public async Task DefaultChain_ResolvesRelease_SoReleaseBranchSurvivesAndDebugBranchIsStripped()
+    {
+        const string code = """
+            class Always {}
+            #if DEBUG
+            class DebugOnly {}
+            #else
+            class ReleaseOnly {}
+            #endif
+            """;
+        var treeRoot = Path.Combine(_root, "default-chain-release");
+        var projectDirectory = Path.Combine(treeRoot, "App");
+        Directory.CreateDirectory(projectDirectory);
+        File.WriteAllText(
+            Path.Combine(projectDirectory, "App.csproj"),
+            """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+            </Project>
+            """);
+        var sourceFile = Path.Combine(projectDirectory, "Code.cs");
+        File.WriteAllText(sourceFile, code);
+
+        var adapter = PassChainFactory.CreateAdapter(
+            PassIds.Conditional, CreateDefaultChainConfig(treeRoot));
+
+        var pure = await adapter.RewriteFilePureAsync(new PassFileContext
+        {
+            SourceCode = code,
+            SourceFilePath = sourceFile,
+            RelativePath = "Code.cs",
+            DestinationFilePath = Path.Combine(_root, "out", "Code.cs"),
+        });
+
+        var rewrite = Assert.IsType<PassFileRewrite>(pure.Rewrite);
+        Assert.Contains("class ReleaseOnly", rewrite.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("class DebugOnly", rewrite.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("#if", rewrite.OutputCode, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Release resolution must not override a project's explicit DefineConstants:
+    /// the runtime Generator project declares DEBUG itself and keeps that branch.
+    /// </summary>
+    [Fact]
+    public async Task DefaultChain_KeepsDebugBranch_WhenProjectDeclaresDebugExplicitly()
+    {
+        const string code = """
+            class Always {}
+            #if DEBUG
+            class DebugOnly {}
+            #else
+            class ReleaseOnly {}
+            #endif
+            """;
+        var treeRoot = Path.Combine(_root, "default-chain-explicit-debug");
+        var projectDirectory = Path.Combine(treeRoot, "Generator");
+        Directory.CreateDirectory(projectDirectory);
+        File.WriteAllText(
+            Path.Combine(projectDirectory, "Generator.csproj"),
+            """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <DefineConstants>DEBUG</DefineConstants>
+              </PropertyGroup>
+            </Project>
+            """);
+        var sourceFile = Path.Combine(projectDirectory, "Code.cs");
+        File.WriteAllText(sourceFile, code);
+
+        var adapter = PassChainFactory.CreateAdapter(
+            PassIds.Conditional, CreateDefaultChainConfig(treeRoot));
+
+        var pure = await adapter.RewriteFilePureAsync(new PassFileContext
+        {
+            SourceCode = code,
+            SourceFilePath = sourceFile,
+            RelativePath = "Code.cs",
+            DestinationFilePath = Path.Combine(_root, "out", "Code.cs"),
+        });
+
+        var rewrite = Assert.IsType<PassFileRewrite>(pure.Rewrite);
+        Assert.Contains("class DebugOnly", rewrite.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("class ReleaseOnly", rewrite.OutputCode, StringComparison.Ordinal);
+    }
+
+    private static PassChainConfiguration CreateDefaultChainConfig(string sourceRoot) =>
+        new()
+        {
+            SourceRoot = sourceRoot,
+            MakerOptionsFactory = () => new CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructMakerOptions(),
+            RecordReadOnlyOptionsFactory = () => new CSharpToJava.Core.RecordReadOnly.RecordReadOnlyOptions(),
+            JavaKeywordOptionsFactory = () => new CSharpToJava.Core.JavaKeywords.JavaKeywordOptions(),
+            MemberDesugarOptionsFactory = () => new CSharpToJava.Core.MemberDesugar.MemberDesugarOptions(),
+            StructValueSemanticsOptionsFactory = () => new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
+            VarianceAuditOptionsFactory = () => new CSharpToJava.Core.VarianceAudit.VarianceAuditOptions(),
+            EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions(),
+            LexicalNormalizeOptionsFactory = () => new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions(),
+            EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
+            UnsafeFfmOptionsFactory = () => new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
+            ExpressionDesugarOptionsFactory = () => new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions(),
+            LinqChannelOptionsFactory = () => new CSharpToJava.Core.LinqChannel.LinqChannelOptions(),
+        };
+
     public void Dispose()
     {
         if (Directory.Exists(_root))
