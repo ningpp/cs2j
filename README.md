@@ -345,9 +345,8 @@ out/
 │      → CSharpCompilation（DEBUG 默认按 Release 语义剥离）                     │
 │                                                                              │
 │  [3] 项目转换 pass                                                            │
-│      4 个闸门检查 → JavaPatternRewrite → PartialTypeNormalization             │
+│      4 个闸门检查 → 前置 NormalizeCompilation → PartialTypeNormalization      │
 │      → TypeEmit（Visitor/Transformers → Java AST → IR rewriters）             │
-│      → JavaModuleDependency                                                  │
 │                                                                              │
 │  [4] 类型分组与输出规划                                                       │
 │      TypeGroupResolver（partial 合并/嵌套折叠）→ JavaWorkspacePlan            │
@@ -464,10 +463,8 @@ ProjectCompilationCheck          # 确认有语法树，绑定 Compilation
 ProjectUnsupportedDomainCheck    # WPF/UWP/WinForms 等域闸门（CS2J3001）
 ProjectPlatformBoundaryCheck     # OS/平台 API 闸门（CS2J3101/3102）
 ProjectNativeInteropCheck        # 原生互操作闸门（CS2J3201…）
-ProjectJavaPatternRewrite        # JavaGenericPatternRewriter：泛型模式保持完整类型
 ProjectPartialTypeNormalization  # PartialTypeMerger：跨文件 partial 分组
 ProjectTypeEmit                  # 逐类型组发射 Java AST → IR rewriter → 字符串
-ProjectJavaModuleDependency      # 从 import 反查 Java 平台模块（需 config/java 元数据）
 ```
 
 检查类 pass 会把阻断诊断写到文件级状态，后续发射阶段跳过该文件；其余文件继续转换，最终由 CLI 汇总成功/失败数并返回退出码。
@@ -484,7 +481,7 @@ ProjectJavaModuleDependency      # 从 import 反查 Java 平台模块（需 con
 
 - 类型：`ClassTransformer`、`StructTransformer`、`RecordTransformer`、`EnumTransformer`、`InterfaceTransformer`、`DelegateTransformer`。
 - 成员/语句/表达式：`Transformers/Member`、`Transformers/Statement`、`Transformers/Expression` 下的专用 transformer，以及按签名分派的 `ExpressionTransformerRegistry`。
-- 类型映射：`TypeMappingService` 处理别名、数组、`Nullable<T>`、指针、元组、泛型 arity；`config/TypeMappings.json` 提供类型/方法/命名空间映射，`config/java` 元数据提供 PascalCase → camelCase 方法推导、类型/方法合法性校验、规范名解析和模块归属。
+- 类型映射：`TypeMappingService` 处理别名、数组、`Nullable<T>`、指针、元组、泛型 arity；`config/TypeMappings.json` 提供类型/方法/命名空间映射，以及基于预建索引的规范名解析。
 - 注释：`CommentConversion` 把 XML/普通注释转换为 JavaDoc/行注释。
 
 #### Java IR 重写
@@ -492,8 +489,7 @@ ProjectJavaModuleDependency      # 从 import 反查 Java 平台模块（需 con
 发射前对 Java AST 执行以下重写：
 
 1. **内建兼容性 rewriter**（约 16 个）：运算符优先级、`Map.Entry` 类型、`MemberwiseClone`、`Math` 方法、委托调用、泛型数组创建、接口包装桥、残余扩展调用、`IntStream` 装箱、数组/Iterable 转换、Stream 往返、`Stopwatch` API、行续接清理、字符串拼接、事件处理器 lambda、异常 API。
-2. **元数据校验 rewriter**（配置 `config/java` 时启用）：`JavaApiValidationRewriter`、`JavaExceptionCheckRewriter`。
-3. **单文件路径的结构/正确性 rewriter**：变量名去重、隐式强转补全、若干已知转换缺陷的定向修补。
+2. **单文件路径的结构/正确性 rewriter**：变量名去重、隐式强转补全、若干已知转换缺陷的定向修补。
 
 个别历史问题仍在**字符串层**做最终归一：`global::` 剥离、裸三元语句转 if/else、浮点字面量修正、条件括号配平（`StripRedundantConditionalParens`）。
 
@@ -555,7 +551,6 @@ C# 侧支撑库（唯一真源在 `src/`，以 `EmbeddedResource` 嵌入 CLI）�
 | 文件/目录 | 作用 |
 |-----------|------|
 | `config/TypeMappings.json` | 964 条类型映射、584 条方法映射、29 条命名空间映射 |
-| `config/java/` | 21 个 Java 模块、4336 个公共类型 JSON；驱动方法名推导、类型/方法校验、规范名与模块归属 |
 | `config/JavaKeywordsOverrides.json` | `force`/`skip`：强制或跳过保留字重命名/运算符降级 |
 | `config/MemberDesugarOverrides.json` | 成员降级策略（当前 `Finalizers.Policy = Remove`） |
 | `config/ReadOnlyStructOverrides.json` | `forceReadOnly`：强制按 readonly struct 处理 |
@@ -580,8 +575,7 @@ C# 侧支撑库（唯一真源在 `src/`，以 `EmbeddedResource` 嵌入 CLI）�
 说明：
 
 - 未指定 `-m` 时，默认读取当前工作目录的 `./config/TypeMappings.json`。
-- Java 元数据目录由映射文件所在目录下的 `java/` 推导；必须存在 `java/java.base/` 才会启用。缺少元数据时，静态类型/方法映射仍可用，但方法名推导、Java API 校验和模块归属分析会关闭。
-- `config/java/<module>/<package path>/<Type>.json` 的字段包括 `moduleName`、`packageName`、`binaryName`、`canonicalName`、`simpleName`、`kind`、`modifiers`、`superClass`、`interfaces`、构造器与方法列表。
+- 类型与方法名只由该静态映射表决定；转换器不依赖任何外部 JDK 元数据文件。
 
 ---
 
@@ -694,8 +688,7 @@ tools/                                   # 反射/语料/日志探针与分诊�
 6. **兼容运行时需先安装**：生成的工程默认依赖 `csharptojava-compat:1.0-SNAPSHOT`，首次使用前需在 `java/csharptojava-compat` 执行 `mvn install`。
 7. **缓存复用默认关闭**：`--no-cache` 默认 `true`；指纹与清单用于显式关闭该开关时的复用，不会被默认路径用来跳过转换。
 8. **根目录 `dotnet test` 不跑测试**：根 `slnx` 只包含 5 个 `src/` 项目，测试需指定三个测试工程。
-9. **Java 元数据依赖目录布局**：`config/java` 必须与映射文件同级且包含 `java.base`，否则方法名推导、API 校验与模块归属分析不会启用。
-10. **Java 兼容层不是完整 BCL**：compat 覆盖常见集合、反射、IO、JSON 与测试框架形态，但并非所有 .NET API 都有等价实现；未覆盖 API 会被诊断或阻断。
+9. **Java 兼容层不是完整 BCL**：compat 覆盖常见集合、反射、IO、JSON 与测试框架形态，但并非所有 .NET API 都有等价实现；未覆盖 API 会被诊断或阻断。
 
 ---
 
