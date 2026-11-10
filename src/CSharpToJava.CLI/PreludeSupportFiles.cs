@@ -13,11 +13,19 @@ internal static class PreludeSupportFiles
 
     private const string SourceResourceName = "Cs2jPrelude.CsPrelude.cs";
     private const string DelegateOpsResourceName = "Cs2jPrelude.DelegateOps.cs";
+    private const string ResourceLoaderResourceName = "Cs2jPrelude.Cs2jResource.cs";
     private const string ProjectResourceName = "Cs2jPrelude.Cs2jPrelude.csproj";
 
     public static string GetCsPreludeFileContent() => ReadResource(SourceResourceName);
 
     public static string GetDelegateOpsFileContent() => ReadResource(DelegateOpsResourceName);
+
+    /// <summary>
+    /// Source of the <c>big-literal-resource</c> payload loader. Shipped in the
+    /// same support project as the delegate/equality-concat helpers so both the
+    /// pass and its consumers share one injected library.
+    /// </summary>
+    public static string GetResourceLoaderFileContent() => ReadResource(ResourceLoaderResourceName);
 
     public static string GetProjectFileContent() => ReadResource(ProjectResourceName);
 
@@ -32,6 +40,10 @@ internal static class PreludeSupportFiles
         await File.WriteAllTextAsync(
             Path.Combine(destinationDirectory, "DelegateOps.cs"),
             GetDelegateOpsFileContent(),
+            new System.Text.UTF8Encoding(false));
+        await File.WriteAllTextAsync(
+            Path.Combine(destinationDirectory, "Cs2jResource.cs"),
+            GetResourceLoaderFileContent(),
             new System.Text.UTF8Encoding(false));
         await File.WriteAllTextAsync(
             Path.Combine(destinationDirectory, "Cs2jPrelude.csproj"),

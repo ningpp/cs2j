@@ -42,6 +42,10 @@
       <Link>support\Cs2jPrelude\DelegateOps.cs</Link>
       <LogicalName>Cs2jPrelude.DelegateOps.cs</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Include="..\Cs2jPrelude\Cs2jResource.cs">
+      <Link>support\Cs2jPrelude\Cs2jResource.cs</Link>
+      <LogicalName>Cs2jPrelude.Cs2jResource.cs</LogicalName>
+    </EmbeddedResource>
     <EmbeddedResource Include="..\Cs2jPrelude\Cs2jPrelude.csproj">
       <Link>support\Cs2jPrelude\Cs2jPrelude.csproj</Link>
       <LogicalName>Cs2jPrelude.Cs2jPrelude.csproj</LogicalName>
