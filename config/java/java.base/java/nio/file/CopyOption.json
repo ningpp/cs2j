@@ -1,9 +1,0 @@
-{
-  "moduleName" : "java.base",
-  "packageName" : "java.nio.file",
-  "binaryName" : "java.nio.file.CopyOption",
-  "canonicalName" : "java.nio.file.CopyOption",
-  "simpleName" : "CopyOption",
-  "kind" : "interface",
-  "modifiers" : "public"
-}

@@ -1,9 +1,0 @@
-{
-  "moduleName" : "java.base",
-  "packageName" : "java.nio.file",
-  "binaryName" : "java.nio.file.OpenOption",
-  "canonicalName" : "java.nio.file.OpenOption",
-  "simpleName" : "OpenOption",
-  "kind" : "interface",
-  "modifiers" : "public"
-}

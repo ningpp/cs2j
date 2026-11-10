@@ -1,9 +1,0 @@
-{
-  "moduleName" : "java.base",
-  "packageName" : "javax.security.auth.callback",
-  "binaryName" : "javax.security.auth.callback.Callback",
-  "canonicalName" : "javax.security.auth.callback.Callback",
-  "simpleName" : "Callback",
-  "kind" : "interface",
-  "modifiers" : "public"
-}

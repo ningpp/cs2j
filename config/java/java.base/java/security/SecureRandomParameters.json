@@ -1,9 +1,0 @@
-{
-  "moduleName" : "java.base",
-  "packageName" : "java.security",
-  "binaryName" : "java.security.SecureRandomParameters",
-  "canonicalName" : "java.security.SecureRandomParameters",
-  "simpleName" : "SecureRandomParameters",
-  "kind" : "interface",
-  "modifiers" : "public"
-}

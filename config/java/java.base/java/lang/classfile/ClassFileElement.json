@@ -1,9 +1,0 @@
-{
-  "moduleName" : "java.base",
-  "packageName" : "java.lang.classfile",
-  "binaryName" : "java.lang.classfile.ClassFileElement",
-  "canonicalName" : "java.lang.classfile.ClassFileElement",
-  "simpleName" : "ClassFileElement",
-  "kind" : "interface",
-  "modifiers" : "public"
-}
