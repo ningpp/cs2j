@@ -348,7 +348,8 @@ internal static class PassChainFactory
                 config.LexicalNormalizeOptionsFactory(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
-                config.CompatNamespacePrefixes),
+                config.CompatNamespacePrefixes,
+                sourceRoot: config.SourceRoot),
 
             PassIds.LocalFunctionLift => new LocalFunctionLiftPassAdapter(
                 new CoreLocalFunctionLiftOptions(),

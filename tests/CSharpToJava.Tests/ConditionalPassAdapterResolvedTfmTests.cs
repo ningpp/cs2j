@@ -215,6 +215,74 @@ public sealed class ConditionalPassAdapterResolvedTfmTests : IDisposable
         Assert.DoesNotContain("class ReleaseOnly", rewrite.OutputCode, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// LN-3 must not fail files the conditional pass deliberately preserved
+    /// (shared sources compiled by several projects with conflicting symbol sets):
+    /// their residual directives are reported as one warning instead of errors.
+    /// Without a resolvable tree root the same file still fails.
+    /// </summary>
+    [Fact]
+    public async Task LexicalNormalize_SharedFileWithPreservedDirectives_ReportsOneWarning()
+    {
+        const string code = """
+            #if LibA
+            public
+            #else
+            internal
+            #endif
+            class Shared {}
+            """;
+        var sourceFile = Path.Combine(_root, "Common", "Shared.cs");
+        Directory.CreateDirectory(Path.Combine(_root, "Common"));
+        File.WriteAllText(sourceFile, code);
+        foreach (var name in new[] { "LibA", "LibB" })
+        {
+            Directory.CreateDirectory(Path.Combine(_root, name));
+            File.WriteAllText(
+                Path.Combine(_root, name, name + ".csproj"),
+                $"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                    <DefineConstants>{name}</DefineConstants>
+                  </PropertyGroup>
+                  <ItemGroup><Compile Include="../Common/Shared.cs" /></ItemGroup>
+                </Project>
+                """);
+        }
+
+        var context = new PassFileContext
+        {
+            SourceCode = code,
+            SourceFilePath = sourceFile,
+            RelativePath = "Common/Shared.cs",
+            DestinationFilePath = Path.Combine(_root, "out", "Common", "Shared.cs"),
+        };
+
+        var preserved = new LexicalNormalizePassAdapter(
+            new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions(),
+            verbose: false,
+            filterUnsupportedProjects: true,
+            compatNamespacePrefixes: null,
+            sourceRoot: _root);
+        preserved.MergeFilePureResult(await preserved.RewriteFilePureAsync(context));
+
+        Assert.False(preserved.HasErrors);
+        var warning = Assert.Single(preserved.BuildChainDiagnosticLines(verbose: false));
+        Assert.StartsWith("[Warning]", warning, StringComparison.Ordinal);
+        Assert.Contains("[LN-3] residual conditional directives preserved", warning, StringComparison.Ordinal);
+
+        var unresolved = new LexicalNormalizePassAdapter(
+            new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions(),
+            verbose: false,
+            filterUnsupportedProjects: true,
+            compatNamespacePrefixes: null);
+        unresolved.MergeFilePureResult(await unresolved.RewriteFilePureAsync(context));
+
+        Assert.True(unresolved.HasErrors);
+    }
+
     private static PassChainConfiguration CreateDefaultChainConfig(string sourceRoot) =>
         new()
         {
