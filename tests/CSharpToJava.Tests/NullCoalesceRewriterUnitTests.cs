@@ -817,6 +817,89 @@ public class NullCoalesceRewriterUnitTests
         Assert.Empty(OutputCompileErrors(result.OutputCode));
     }
 
+    // ---- '??=' in value position on a Nullable<T> target (2026-11-11) ----
+    //
+    // PlatformSupport.cs / DefaultRSAProvider.cs shape: 'static bool? s_flag;
+    // return s_flag ??= Check();' — C# types the whole '??=' as bool (T), not
+    // bool?. Replacing it with the bare lvalue read made the caller return
+    // bool? (CS0266). The hoisted read must be 's_flag.Value'; when the right
+    // operand is itself T? the result stays T? and NO unwrap may be emitted.
+
+    [Fact]
+    public void CoalesceAssign_Value_Return_On_Nullable_Bool_Reads_Value()
+    {
+        var src = """
+        class C {
+            static bool? s_flag;
+            static bool Check() => true;
+            static bool M() { return s_flag ??= Check(); }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("if (s_flag == null)", result.OutputCode);
+        Assert.Contains("return s_flag.Value;", result.OutputCode);
+        Assert.DoesNotContain("??", result.OutputCode);
+        Assert.Empty(OutputCompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void CoalesceAssign_Value_ExpressionBodied_Property_On_Nullable_Bool_Reads_Value()
+    {
+        var src = """
+        class C {
+            static bool? s_flag;
+            static bool Check() => true;
+            internal static bool IsFlagAvailable => s_flag ??= Check();
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.ExpressionBodiesExpanded);
+        Assert.Contains("if (s_flag == null)", result.OutputCode);
+        Assert.Contains("return s_flag.Value;", result.OutputCode);
+        Assert.DoesNotContain("??", result.OutputCode);
+        Assert.Empty(OutputCompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void CoalesceAssign_Value_With_Nullable_Right_Does_Not_Unwrap()
+    {
+        // Both sides int?: '??=' yields int?, so the null must survive; an
+        // emitted '.Value' would throw on null (and mis-type the callers).
+        var src = """
+        class C { int? Pick(int? a, int? b) { return a ??= b; } }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain(".Value", result.OutputCode);
+        Assert.Contains("return a;", result.OutputCode);
+        Assert.Empty(OutputCompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void CoalesceAssign_Value_Field_Initializer_On_Nullable_Bool_Inlines_With_Unwrap()
+    {
+        // No statement slot at all: the inline ternary must carry the unwrap in
+        // both branches — '(f == null ? (f = true).Value : f.Value)'.
+        var src = """
+        class C {
+            static bool? _f;
+            static bool _x = _f ??= true;
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("(_f = true).Value", result.OutputCode);
+        Assert.Contains("_f.Value", result.OutputCode);
+        Assert.DoesNotContain("??", result.OutputCode);
+        Assert.Empty(OutputCompileErrors(result.OutputCode));
+    }
+
     // ---- Expression-body expansion ('=>' members have no statement slot) ----
     //
     // The 2026-10-11 SDK conversion left 38 residual ??/??= sites because

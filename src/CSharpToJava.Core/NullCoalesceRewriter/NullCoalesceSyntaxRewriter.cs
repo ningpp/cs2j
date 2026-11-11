@@ -18,7 +18,9 @@ namespace CSharpToJava.Core.NullCoalesceRewriter;
 /// "fallback")'); only a side-effecting left operand stays residual.
 /// '??=' used in a statement position is turned into an if-statement; used in
 /// a value position it is hoisted plus replaced by the lvalue, or lowered to
-/// an inline ternary when no statement slot exists.
+/// an inline ternary when no statement slot exists. When the target is
+/// Nullable&lt;T&gt; and the right operand is T, '??=' yields T, so the value
+/// read back is 'lvalue.Value'.
 /// </summary>
 internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
 {
@@ -236,6 +238,12 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
         var right = visitedRight ?? node.Right;
         var left = node.Left;
 
+        // '??=' on a Nullable<T> target with a T right operand yields the
+        // UNWRAPPED T (not T?), so reading the lvalue back must read '.Value'.
+        // The semantic-model query needs a node still in the tree, hence the
+        // original node.Left.
+        var unwrap = CoalesceAssignResultUnwrapsNullable(node, node.Left);
+
         if (left is IdentifierNameSyntax identifier)
         {
             _stats.NullCoalescingAssignRewritten++;
@@ -246,13 +254,14 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
             if (FindAnchorStatement(node) is not null)
             {
                 PendingGuards.Add(new PendingGuard(BuildIfAssignsNull(identifier, right)));
-                return identifier;
+                return unwrap ? BuildValueAccess(identifier) : identifier;
             }
 
             // No statement slot (expression-bodied member / field initializer):
             // keep the value semantics inline as a ternary —
             // (id == null ? (id = rhs) : id)
-            return SyntaxFactory.ParenthesizedExpression(BuildInlineTernary(identifier, right));
+            return SyntaxFactory.ParenthesizedExpression(
+                BuildInlineTernary(identifier, right, unwrap));
         }
 
         // Member access / indexer lvalue: resolving its type lets the rewrite
@@ -278,7 +287,7 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
             // times, so materialize it into temps first.
             if (LvalueMayHaveSideEffects(left))
             {
-                var (value, guardStmts) = BuildStabilizedCoalesceAssign(left, right);
+                var (value, guardStmts) = BuildStabilizedCoalesceAssign(left, right, unwrap);
                 foreach (var guardStmt in guardStmts)
                     PendingGuards.Add(new PendingGuard(guardStmt));
                 return value;
@@ -286,9 +295,10 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
 
             // Hoist the guard and read the (possibly freshly assigned) lvalue.
             // The receiver/index expressions are evaluated like in the
-            // statement form of the pass.
+            // statement form of the pass; a Nullable<T> target yields T, so the
+            // read needs '.Value'.
             PendingGuards.Add(new PendingGuard(BuildIfAssignsNull(left, right)));
-            return left;
+            return unwrap ? BuildValueAccess(left) : left;
         }
 
         // Side-effecting lvalue in a statement-free expression context cannot
@@ -335,7 +345,7 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
         // both the null test and the assignment.
         if (left is not IdentifierNameSyntax && LvalueMayHaveSideEffects(left))
         {
-            var (_, guardStmts) = BuildStabilizedCoalesceAssign(left, right);
+            var (_, guardStmts) = BuildStabilizedCoalesceAssign(left, right, unwrapNullable: false);
             return Block(guardStmts);
         }
 
@@ -360,22 +370,46 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
     /// Builds 'lhs == null ? (lhs = rhs) : lhs' — the value-yielding inline
     /// form of 'lhs ??= rhs' for statement-free expression contexts. Each lhs
     /// occurrence is a fresh clone since a syntax node cannot be parented
-    /// twice; the Formatter pass normalizes spacing afterwards.
+    /// twice; the Formatter pass normalizes spacing afterwards. When the target
+    /// is Nullable&lt;T&gt; and the right operand is T, '??=' yields T, so both
+    /// branches read '.Value' and the shape becomes
+    /// 'lhs == null ? (lhs = rhs).Value : lhs.Value'.
     /// </summary>
     private static ConditionalExpressionSyntax BuildInlineTernary(
         ExpressionSyntax lhs,
-        ExpressionSyntax rhs)
-        => SyntaxFactory.ConditionalExpression(
+        ExpressionSyntax rhs,
+        bool unwrapNullable)
+    {
+        ExpressionSyntax assigned = SyntaxFactory.ParenthesizedExpression(
+            SyntaxFactory.AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                lhs.WithoutTrivia(),
+                rhs));
+
+        ExpressionSyntax whenNonNull = lhs.WithoutTrivia();
+        if (unwrapNullable)
+        {
+            assigned = BuildValueAccess(assigned);
+            whenNonNull = BuildValueAccess(lhs);
+        }
+
+        return SyntaxFactory.ConditionalExpression(
             SyntaxFactory.BinaryExpression(
                 SyntaxKind.EqualsExpression,
                 lhs.WithoutTrivia(),
                 SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
-            SyntaxFactory.ParenthesizedExpression(
-                SyntaxFactory.AssignmentExpression(
-                    SyntaxKind.SimpleAssignmentExpression,
-                    lhs.WithoutTrivia(),
-                    rhs)),
-            lhs.WithoutTrivia());
+            assigned,
+            whenNonNull);
+    }
+
+    /// <summary>
+    /// Appends '.Value' to an already-parenthesized assignment or to an lvalue.
+    /// </summary>
+    private static ExpressionSyntax BuildValueAccess(ExpressionSyntax receiver)
+        => SyntaxFactory.MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression,
+            receiver.WithoutTrivia(),
+            SyntaxFactory.IdentifierName("Value"));
 
     /// <summary>
     /// Builds 'left != null ? left : right' for a '??' site with no statement
@@ -448,6 +482,31 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
+    /// '??=' yields the UNWRAPPED value T when the target is Nullable&lt;T&gt; and
+    /// the right operand is a T (e.g. 'bool? f; return f ??= Check();' yields
+    /// bool). Reading the hoisted lvalue back therefore needs '.Value'; when the
+    /// right side is itself T? the result stays T? and no unwrap may be emitted
+    /// (the null must survive).
+    /// </summary>
+    private bool CoalesceAssignResultUnwrapsNullable(
+        AssignmentExpressionSyntax node, ExpressionSyntax left)
+    {
+        var leftType = _semanticModel?.GetTypeInfo(left).Type;
+        if (leftType is not INamedTypeSymbol leftNamed
+            || ContainsErrorType(leftNamed)
+            || leftNamed.OriginalDefinition.SpecialType != SpecialType.System_Nullable_T)
+        {
+            return false;
+        }
+
+        var info = _semanticModel!.GetTypeInfo(node);
+        var resultType = info.Type ?? info.ConvertedType;
+        return resultType is INamedTypeSymbol resultNamed
+            && !ContainsErrorType(resultNamed)
+            && resultNamed.OriginalDefinition.SpecialType != SpecialType.System_Nullable_T;
+    }
+
+    /// <summary>
     /// True when the type — or any type argument / element type — failed to
     /// resolve. Roslyn models an unresolved 'E?' as Nullable&lt;E&gt; even when E
     /// may be a reference type, so the Nullable&lt;T&gt; probe must never fire on
@@ -503,10 +562,14 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
     /// if (__v == null) { __v = rhs; a[__i] = __v; }
     /// </code>
     /// Returns the temp expression yielding the post-assignment value (for the
-    /// value-context replacement) and the ordered guard statements.
+    /// value-context replacement) and the ordered guard statements. When the
+    /// target is Nullable&lt;T&gt; and the right operand is T, '??='
+    /// yields T, so the returned read is '__v.Value' (the temp is provably
+    /// non-null past the guard).
     /// </summary>
     private (ExpressionSyntax Value, List<StatementSyntax> Statements)
-        BuildStabilizedCoalesceAssign(ExpressionSyntax lvalue, ExpressionSyntax rhs)
+        BuildStabilizedCoalesceAssign(
+            ExpressionSyntax lvalue, ExpressionSyntax rhs, bool unwrapNullable)
     {
         var statements = new List<StatementSyntax>();
         var stableTarget = StabilizeLvalue(lvalue, statements);
@@ -530,7 +593,7 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
                 LiteralExpression(SyntaxKind.NullLiteralExpression)),
             Block(assignRhs, writeBack)));
 
-        return (valueRef, statements);
+        return (unwrapNullable ? BuildValueAccess(valueRef) : valueRef, statements);
     }
 
     /// <summary>
