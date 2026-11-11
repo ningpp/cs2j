@@ -297,8 +297,30 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
                 }
             }
 
+            // Baseline view with member relocation: the merge moves members out of
+            // every non-primary part into the primary file, so a pre-existing error
+            // reported by a part file reappears at the primary and must not be graded
+            // as new (see PartialMergeBaseline). Computed once per round for the
+            // rewritten files only; everything else never reaches the diff.
+            var baselineKeysForRewrittenFile =
+                new Dictionary<string, HashSet<(string Id, string Message)>>(
+                    StringComparer.OrdinalIgnoreCase);
+            foreach (var file in rewrittenFiles)
+            {
+                baselineKeysForRewrittenFile[NormalizePath(file, tree.SourceRoot)] =
+                    PartialMergeBaseline.ForRewrittenFile(
+                        plan,
+                        file,
+                        sourceFile => BaselineKeysForFile(
+                            NormalizePath(sourceFile, tree.SourceRoot)));
+            }
+
             var newErrors = DiffErrors(
-                tree, candidate, rewrittenKeys, BaselineKeysForFile, bodyAffectedKeys);
+                tree, candidate, rewrittenKeys,
+                key => baselineKeysForRewrittenFile.TryGetValue(key, out var keys)
+                    ? keys
+                    : BaselineKeysForFile(key),
+                bodyAffectedKeys);
 
             if (newErrors.Count == 0)
             {
