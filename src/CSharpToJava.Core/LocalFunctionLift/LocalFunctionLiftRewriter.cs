@@ -975,6 +975,17 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             var isVoid = returnType.IsKind(SyntaxKind.VoidKeyword)
                 || (returnType is PredefinedTypeSyntax pt && pt.Keyword.IsKind(SyntaxKind.VoidKeyword));
 
+            // async 返回 Task/ValueTask 的局部函数，表达式体可以是 void 表达式
+            // （cs-text p05: `static async Task ValidateWhitespace(...) =>
+            // validator.ValidateWhitespace(await t.ConfigureAwait(false))`，被调用方返回 void）。
+            // 这种表达式体在原位置就是「语句」，转成 `return <void 表达式>` 会 CS1997
+            // （返回 Task 的异步方法的 return 不得后跟对象表达式）。
+            if (!isVoid
+                && _model.GetTypeInfo(expr).ConvertedType?.SpecialType == SpecialType.System_Void)
+            {
+                isVoid = true;
+            }
+
             StatementSyntax stmt;
             if (isVoid)
             {

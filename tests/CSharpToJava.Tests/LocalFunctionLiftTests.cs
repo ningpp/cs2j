@@ -646,6 +646,162 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
+    // 合并全树编译里别的工程的源类型会“泄漏”进本文件的语义模型：
+    // System.Private.CoreLib 的 dotnet.System.Text.StringBuilder 正是本文件命名
+    // 空间 dotnet.System.Text.RegularExpressions 的祖先，按简单名查找先命中它，
+    // 遮蔽了 using System.Text 引入的 BCL StringBuilder。FullyQualifiedFormat 于是
+    // 生成真实工程（只引用 BCL）里不存在的 global::dotnet.System.Text.StringBuilder
+    // 形参 —— CS0234。提升后的形参必须按同一位置的 using/命名空间规则重新拼写。
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void CaptureType_ShadowedByOtherMergedProjectType_DisplaysTypeResolvableAfterLift()
+    {
+        var shadowingSource = """
+        namespace dotnet.System.Text
+        {
+            public sealed class StringBuilder
+            {
+                public StringBuilder Append(char c) => this;
+            }
+        }
+        """;
+
+        var source = """
+        using System.Text;
+
+        namespace dotnet.System.Text.RegularExpressions
+        {
+            class RegexCharClass
+            {
+                string Describe(string set)
+                {
+                    StringBuilder desc = new StringBuilder().Append('[');
+                    RenderRanges();
+                    return desc.ToString();
+
+                    void RenderRanges()
+                    {
+                        desc.Append(']');
+                    }
+                }
+            }
+        }
+        """;
+
+        var shadowingTree = CSharpSyntaxTree.ParseText(
+            shadowingSource, path: "System/Text/StringBuilder.cs");
+        var tree = CSharpSyntaxTree.ParseText(
+            source, path: "System/Text/RegularExpressions/RegexCharClass.cs");
+        var compilation = CSharpCompilation.Create("local-fn-merged",
+            new[] { shadowingTree, tree },
+            References,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var preprocessor = new LocalFunctionLiftPreprocessor();
+        var result = preprocessor.Preprocess(source, compilation.GetSemanticModel(tree));
+
+        Assert.True(result.Changed);
+        AssertNoLocalFunctions(result.OutputCode);
+        Assert.DoesNotContain("dotnet.System.Text.StringBuilder", result.OutputCode);
+
+        // 真实工程里没有 Prelude 的 dotnet.System.Text 命名空间：
+        // 形参类型必须重新解析到 BCL System.Text.StringBuilder。
+        AssertCompiles(result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
+    // 写入型捕获 + ref 形参的前提：调用点实参必须确定赋值。局部声明时不初始化、
+    // 只在局部函数体内赋值时，提升后会 CS0165（cs-text p05 的 ch1/ch2），
+    // 按设计保留原局部函数。
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void WriteCapture_LocalWithoutInitializer_KeepsLocalFunction()
+    {
+        var src = """
+        class C {
+            string M() {
+                char ch;
+                string result = Render();
+                return result;
+                string Render() {
+                    ch = 'a';
+                    return ch.ToString();
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Reason == LocalFunctionSkipReason.RefCaptureNotDefinitelyAssigned
+            && d.IntentionallyRetained
+            && d.Message.Contains("ch"));
+        Assert.Contains("string Render()", result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
+    // 局部函数名在条件编译区（本次分析编译未启用该符号）里被引用：禁用区是不透明
+    // 文本，重写器无法重命名，真实工程编译该区域时会 CS0103（cs-text p05 的
+    // #if DEBUG nameof(TryFindRawFixedSets)），按设计保留原局部函数。
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void NameReferencedInDisabledText_KeepsLocalFunction()
+    {
+        var src = """
+        class C {
+            string M() {
+        #if DEBUG
+                return nameof(Helper);
+        #else
+                return Helper();
+        #endif
+                string Helper() => "x";
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Reason == LocalFunctionSkipReason.NameReferencedInDisabledText
+            && d.IntentionallyRetained);
+        Assert.Contains("string Helper()", result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
+    // async Task 局部函数的表达式体可以是 void 表达式（被调用方返回 void）：
+    // 提升后不能写成 `return <void 表达式>`（CS1997），必须保留为表达式语句。
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Body_ExpressionBody_AsyncTaskWithVoidExpression_BecomesStatement()
+    {
+        var src = """
+        using System.Threading.Tasks;
+
+        class C {
+            void M(Task<string> t) {
+                Validate(t);
+                static async Task Validate(Task<string> t) =>
+                    System.Console.WriteLine(await t.ConfigureAwait(false));
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        AssertNoLocalFunctions(result.OutputCode);
+        Assert.DoesNotContain("return System.Console.WriteLine", result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 

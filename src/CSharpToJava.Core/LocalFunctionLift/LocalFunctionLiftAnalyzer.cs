@@ -18,6 +18,8 @@ internal sealed class LocalFunctionLiftAnalyzer
     private readonly LocalFunctionLiftStatistics _stats;
     private readonly List<LocalFunctionLiftDiagnostic> _diagnostics;
     private readonly Dictionary<string, HashSet<string>> _crossFileNameTable;
+    /// <summary>条件编译区（本次分析编译未启用对应符号）里以函数式引用出现的标识符。</summary>
+    private readonly HashSet<string> _namesReferencedInDisabledText = new(StringComparer.Ordinal);
 
     public LocalFunctionLiftAnalyzer(
         SemanticModel model,
@@ -40,6 +42,8 @@ internal sealed class LocalFunctionLiftAnalyzer
     {
         var localFns = root.DescendantNodes().OfType<LocalFunctionStatementSyntax>().ToList();
         var plans = new List<LiftPlan>();
+
+        CollectNamesReferencedInDisabledText(root);
 
         foreach (var localFn in localFns)
         {
@@ -129,6 +133,21 @@ internal sealed class LocalFunctionLiftAnalyzer
             return plan;
         }
 
+        // Gate #2b: 名字在条件编译区（如 #if DEBUG）里被引用。
+        // 重写器只能重命名活动代码，禁用区是不透明文本（DisabledTextTrivia），
+        // 其中的 nameof/调用会保留旧名（cs-text p05: RegexPrefixAnalyzer 的
+        // `nameof(TryFindRawFixedSets)` 位于 #if DEBUG，而 generator 工程
+        // 真实编译时 DEBUG 是定义的 → CS0103）。无法安全等价提升，按设计保留。
+        if (_namesReferencedInDisabledText.Contains(localFn.Identifier.Text))
+        {
+            Skip(plan, LocalFunctionSkipReason.NameReferencedInDisabledText,
+                $"local function name is referenced in a conditionally compiled region that this " +
+                "analysis compilation excludes (#if); the reference cannot be renamed and the " +
+                "region may compile in real builds",
+                intentionallyRetained: true);
+            return plan;
+        }
+
         // Gate #1 (disabled): Iterator (yield return / yield break).
         // Iterator local functions can be lifted to class-level methods
         // that also use yield return. The hoisted method will be a valid
@@ -203,7 +222,8 @@ internal sealed class LocalFunctionLiftAnalyzer
 
         // Collect captures
         var unresolvedCaptures = new List<ISymbol>();
-        plan.Captures = CollectCaptures(localFn, symbol!, isExplicitStatic, unresolvedCaptures);
+        plan.Captures = CollectCaptures(
+            localFn, symbol!, isExplicitStatic, hostType, unresolvedCaptures);
 
         // 捕获变量的类型在语义模型里是 ErrorType 时，捕获收集会丢弃它（无法拼出形参类型）。
         // 若继续提升，方法体仍按原名引用该变量，生成的方法作用域里没有这个名字（CS0103）。
@@ -454,6 +474,7 @@ internal sealed class LocalFunctionLiftAnalyzer
         LocalFunctionStatementSyntax localFn,
         IMethodSymbol localFnSymbol,
         bool isStatic,
+        TypeDeclarationSyntax hostType,
         ICollection<ISymbol>? unresolvedSymbols = null)
     {
         if (isStatic)
@@ -480,11 +501,90 @@ internal sealed class LocalFunctionLiftAnalyzer
                     info.Symbol,
                     info.Name,
                     capName,
-                    info.TypeDisplayFullyQualified,
+                    RenderCaptureTypeDisplay(info.Type, hostType),
                     isWritten,
                     isWritten);
             })
             .ToList();
+    }
+
+    /// <summary>
+    /// 捕获形参的类型显示。形参声明落在宿主类型的成员区，与捕获声明处同文件、
+    /// 同命名空间、同类型作用域，因此优先用「该位置按语言规则可解析的最短形态」。
+    ///
+    /// 全树编译（ProjectPassRunner 把整棵树的源文件放进同一个 Compilation）里，
+    /// 别的工程的源类型对本文件可见，<see cref="SymbolDisplayFormat.FullyQualifiedFormat"/>
+    /// 会写出真实工程里并不存在的名字。cs-text p05 实例：
+    /// System.Private.CoreLib 的 <c>dotnet.System.Text.StringBuilder</c> 位于本文件
+    /// 命名空间 <c>dotnet.System.Text.RegularExpressions</c> 的祖先命名空间中，按简单名
+    /// 查找会先命中它并遮蔽 <c>using System.Text;</c> 引入的 BCL
+    /// <c>System.Text.StringBuilder</c>；生成的
+    /// <c>global::dotnet.System.Text.StringBuilder</c> 形参在只引用 BCL 的 regex 工程里
+    /// 是 CS0234。源声明类型退回最短形态后，名字按原代码的同一套 using/命名空间规则
+    /// 重绑定，真实工程的解析结果与提升前一致。
+    ///
+    /// 元数据类型不受合并编译影响，仍用 <c>global::</c> 全限定形态：最短形态依赖的
+    /// using 可能只来自别的工程的 global using（见 ProjectPassAdapter 的并集合成），
+    /// 在真实工程里未必可见。
+    /// </summary>
+    private string RenderCaptureTypeDisplay(ITypeSymbol type, TypeDeclarationSyntax hostType)
+    {
+        if (!IsDeclaredInAnalysisSource(type))
+        {
+            return type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        }
+
+        var position = hostType.OpenBraceToken.SpanStart;
+        var minimalText = type.ToMinimalDisplayString(_model, position);
+        var minimalType = SyntaxFactory.ParseTypeName(minimalText);
+        if (!minimalType.ContainsDiagnostics
+            && BindsToTypeAtPosition(minimalType, position, type))
+        {
+            return minimalText;
+        }
+
+        return type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+    }
+
+    /// <summary>
+    /// 类型（含数组元素、指针目标、泛型实参）是否由本次分析编译的源文件声明。
+    /// 合并编译里的源类型可能属于别的工程，真实工程编译它时不可见。
+    /// </summary>
+    private bool IsDeclaredInAnalysisSource(ITypeSymbol type)
+    {
+        switch (type)
+        {
+            case IArrayTypeSymbol array:
+                return IsDeclaredInAnalysisSource(array.ElementType);
+            case IPointerTypeSymbol pointer:
+                return IsDeclaredInAnalysisSource(pointer.PointedAtType);
+            case INamedTypeSymbol named:
+                if (SymbolEqualityComparer.Default.Equals(
+                        named.ContainingAssembly, _model.Compilation.Assembly))
+                {
+                    return true;
+                }
+
+                return named.TypeArguments.Any(IsDeclaredInAnalysisSource);
+            default:
+                return false;
+        }
+    }
+
+    private bool BindsToTypeAtPosition(
+        TypeSyntax typeSyntax, int position, ITypeSymbol expected)
+    {
+        try
+        {
+            return _model.GetSpeculativeSymbolInfo(
+                    position, typeSyntax, SpeculativeBindingOption.BindAsTypeOrNamespace)
+                .Symbol is ITypeSymbol resolved
+                && SymbolEqualityComparer.Default.Equals(resolved, expected);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 
     private bool IsCapturedVariableWritten(
@@ -598,6 +698,22 @@ internal sealed class LocalFunctionLiftAnalyzer
     private void CheckPostPropagationGates(
         LiftPlan plan, IReadOnlyDictionary<ISymbol, LiftPlan> bySymbol)
     {
+        // 写入型捕获提升为 ref 形参后，调用点的实参必须确定赋值（CS0165）。
+        // 原局部函数允许「局部声明时不初始化、只在其函数体内赋值」
+        // （cs-text p05: RegexCharClass.renderRanges 的 ch1/ch2）。C# 无法在不改
+        // 本义的前提下表达该形态，按设计保留原局部函数。
+        var unassignedCapture = plan.Captures.FirstOrDefault(c =>
+            c.IsWritten && c.Symbol is ILocalSymbol && !HasInitializer(c.Symbol));
+        if (unassignedCapture != null)
+        {
+            Skip(plan, LocalFunctionSkipReason.RefCaptureNotDefinitelyAssigned,
+                $"write capture '{unassignedCapture.OriginalName}' is a local declared without an " +
+                "initializer; the lifted ref parameter would require definite assignment at every " +
+                "call site (CS0165)",
+                intentionallyRetained: true);
+            return;
+        }
+
         foreach (var cap in plan.Captures)
         {
             if (!cap.IsWritten)
@@ -808,6 +924,77 @@ internal sealed class LocalFunctionLiftAnalyzer
                 return $"parameter '{cap.OriginalName}' is 'out'";
         }
         return "ref not available";
+    }
+
+    /// <summary>
+    /// 被捕获的局部变量声明时是否带初始化器。带初始化器才能保证调用点确定赋值
+    /// （ref 实参的前提）；模式变量/解构声明本身就是赋值，不算未赋值。
+    /// </summary>
+    private static bool HasInitializer(ISymbol symbol)
+    {
+        var declaring = symbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+        return declaring is not VariableDeclaratorSyntax declarator
+            || declarator.Initializer != null;
+    }
+
+    /// <summary>
+    /// 收集条件编译区里以函数式引用（<c>name(...)</c> / <c>nameof(name)</c>）出现的
+    /// 标识符。禁用区是 DisabledTextTrivia（不透明文本），重写器无法重命名其中的引用；
+    /// 这些区域在真实工程里可能被编译（如 generator 工程定义了 DEBUG）。
+    /// 只收函数式引用：同名局部变量/字段的普通出现不影响提升。
+    /// </summary>
+    private void CollectNamesReferencedInDisabledText(CompilationUnitSyntax root)
+    {
+        foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
+        {
+            if (!trivia.IsKind(SyntaxKind.DisabledTextTrivia))
+                continue;
+
+            var text = trivia.ToString();
+            var index = 0;
+            while (index < text.Length)
+            {
+                if (!SyntaxFacts.IsIdentifierStartCharacter(text[index]))
+                {
+                    index++;
+                    continue;
+                }
+
+                var start = index;
+                while (index < text.Length && SyntaxFacts.IsIdentifierPartCharacter(text[index]))
+                    index++;
+
+                var name = text.Substring(start, index - start);
+                if (IsFunctionStyleReference(text, start, index))
+                    _namesReferencedInDisabledText.Add(name);
+            }
+        }
+    }
+
+    private static bool IsFunctionStyleReference(string text, int start, int end)
+    {
+        // nameof(Name)：前一个非空白记号是 nameof(。
+        var head = text.AsSpan(0, start).TrimEnd();
+        if (!head.IsEmpty && head[^1] == '(')
+        {
+            var callee = head[..^1].TrimEnd();
+            if (callee.EndsWith("nameof".AsSpan(), StringComparison.Ordinal))
+            {
+                var prefixLength = callee.Length - "nameof".Length;
+                if (prefixLength == 0
+                    || !SyntaxFacts.IsIdentifierPartCharacter(callee[prefixLength - 1]))
+                {
+                    return true;
+                }
+            }
+        }
+
+        // Name(...)：后一个非空白字符是 '('。
+        var tail = text.AsSpan(end);
+        var next = 0;
+        while (next < tail.Length && char.IsWhiteSpace(tail[next]))
+            next++;
+        return next < tail.Length && tail[next] == '(';
     }
 
     private static VariableDeclaratorSyntax? FindVariableDeclarator(
