@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
 using CSharpToJava.Core.ExpressionDesugar.Initializers;
@@ -26,6 +27,9 @@ namespace CSharpToJava.CLI.Preprocessing.Adapters;
 /// </summary>
 internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
 {
+    /// <summary>Files between two residual-gate progress lines.</summary>
+    private const int ResidualGateProgressEvery = 200;
+
     private readonly ExpressionDesugarOptions _options;
     private readonly bool _verbose;
     private readonly bool _filterUnsupportedProjects;
@@ -214,6 +218,10 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
                 .Select(d => d.FilePath!),
             StringComparer.OrdinalIgnoreCase);
 
+        // Cheap pre-pass: apply the ownership / error-preserve / clean-skip
+        // filters and record the pairing counts, so the (potentially very
+        // slow) residual scan below has an exact file count for its progress.
+        var scanTargets = new List<(string RelativePath, string IntermediateFile)>();
         foreach (var sourceFile in tree.CsFiles)
         {
             var relativePath = Path.GetRelativePath(tree.SourceRoot, sourceFile);
@@ -257,6 +265,15 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
                 continue;
             }
 
+            scanTargets.Add((relativePath, intermediateFile));
+        }
+
+        Console.WriteLine(
+            $"[expression-desugar] residual gate start: scanning {scanTargets.Count} file(s)");
+        var gateSw = Stopwatch.StartNew();
+        var scannedFiles = 0;
+        foreach (var (relativePath, intermediateFile) in scanTargets)
+        {
             var source = File.ReadAllText(intermediateFile);
             var root = CSharpSyntaxTree.ParseText(source, parseOptions).GetCompilationUnitRoot();
 
@@ -280,7 +297,18 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
                 interpResidualByFile[relativePath] = interpResidual;
             if (initResidual > 0)
                 initResidualByFile[relativePath] = initResidual;
+
+            scannedFiles++;
+            if (scannedFiles % ResidualGateProgressEvery == 0)
+            {
+                Console.WriteLine(
+                    $"[expression-desugar] residual gate progress: " +
+                    $"{scannedFiles}/{scanTargets.Count} file(s), " +
+                    $"{ProjectPassRunner.FormatElapsed(gateSw.Elapsed)} elapsed");
+            }
         }
+
+        gateSw.Stop();
 
         _gateResult = CollectionExprTreeGate.Reconcile(residualByFile, pairedByFile);
 
@@ -291,6 +319,12 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
         if (initializerEnabled)
             _initializerGateResult =
                 InitializerTreeGate.Reconcile(initResidualByFile, initPairedByFile);
+
+        Console.WriteLine(
+            $"[expression-desugar] residual gate done: {scannedFiles}/{scanTargets.Count} " +
+            $"file(s) scanned in {ProjectPassRunner.FormatElapsed(gateSw.Elapsed)}; " +
+            $"residual {_gateResult.ResidualNodes} vs paired {_gateResult.PairedNodes} " +
+            $"(balanced={_gateResult.Balanced})");
 
         if (!_gateResult.Balanced)
         {

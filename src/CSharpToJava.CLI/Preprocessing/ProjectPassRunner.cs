@@ -25,6 +25,24 @@ internal static class ProjectPassRunner
     /// </summary>
     public const string UnifiedIntermediateDirectoryName = ".cs2j-preprocessed-src";
 
+    /// <summary>Minimum interval between two per-file rewrite progress lines.</summary>
+    private const int RewriteProgressIntervalMs = 5000;
+
+    /// <summary>Compact <c>hh:mm:ss</c> elapsed used by the progress lines.</summary>
+    internal static string FormatElapsed(TimeSpan elapsed)
+        => $"{(int)elapsed.TotalHours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}";
+
+    private static void ReportRewriteProgress(
+        ProjectPassAdapter adapter,
+        int processed,
+        int total,
+        int changed,
+        TimeSpan elapsed,
+        string relativePath)
+        => Console.WriteLine(
+            $"{adapter.LogPrefix} rewrite progress: {processed}/{total} files, " +
+            $"{changed} changed, {FormatElapsed(elapsed)} elapsed, at {relativePath}");
+
     /// <summary>Run a fully implemented pass adapter over a project tree.</summary>
     public static async Task<ProjectPassRunResult> RunAsync(
         ProjectPassAdapter adapter,
@@ -36,6 +54,8 @@ internal static class ProjectPassRunner
         ArgumentException.ThrowIfNullOrWhiteSpace(request.DestinationRoot);
 
         var totalSw = Stopwatch.StartNew();
+        Console.WriteLine(
+            $"{adapter.LogPrefix} pass start: {Path.GetFullPath(request.SourcePath)}");
 
         var prepareSw = Stopwatch.StartNew();
         var tree = await PrepareTreeAsync(adapter, request);
@@ -59,6 +79,9 @@ internal static class ProjectPassRunner
         context.TotalElapsed = totalSw.Elapsed;
 
         var success = context.Success && !adapter.HasErrors;
+        Console.WriteLine(
+            $"{adapter.LogPrefix} pass {(success ? "done" : "failed")} in " +
+            $"{FormatElapsed(context.TotalElapsed)}");
         return new ProjectPassRunResult
         {
             OriginalSourcePath = tree.Layout.EntryPath,
@@ -184,8 +207,11 @@ internal static class ProjectPassRunner
         ProjectPassAdapter adapter,
         ProjectPassRunRequest request)
     {
+        var prepareSw = Stopwatch.StartNew();
         var layout = ProjectPreprocessSource.ResolveLayout(request.SourcePath);
         var destinationRoot = Path.GetFullPath(request.DestinationRoot);
+        Console.WriteLine(
+            $"{adapter.LogPrefix} prepare start: loading project graph from {layout.EntryPath}");
         var intermediateRoot = Path.Combine(
             destinationRoot, ResolveIntermediateDirectoryName(request, adapter.Descriptor));
 
@@ -286,6 +312,11 @@ internal static class ProjectPassRunner
                     file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)));
         }
 
+        prepareSw.Stop();
+        Console.WriteLine(
+            $"{adapter.LogPrefix} prepare done: {tree.SourceFiles.Count} source file(s), " +
+            $"{tree.CsFiles.Count} .cs, {FormatElapsed(prepareSw.Elapsed)} elapsed");
+
         return tree;
     }
 
@@ -307,6 +338,9 @@ internal static class ProjectPassRunner
         // bytes and the adapter's parse options are unchanged, so the whole-tree
         // reparse cost is paid once instead of once per pass.
         var parseError = new ConcurrentBag<(string File, Diagnostic Diagnostic)>();
+        Console.WriteLine(
+            $"{adapter.LogPrefix} syntax gate start: parsing {tree.CsFiles.Count} .cs file(s)");
+        var gateSw = Stopwatch.StartNew();
         Parallel.ForEach(
             tree.CsFiles,
             new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount / 2) },
@@ -331,6 +365,11 @@ internal static class ProjectPassRunner
                     parseError.Add((csFile, error));
                 }
             });
+
+        gateSw.Stop();
+        Console.WriteLine(
+            $"{adapter.LogPrefix} syntax gate done: {tree.CsFiles.Count} .cs parsed in " +
+            $"{FormatElapsed(gateSw.Elapsed)}");
 
         var firstError = parseError
             .OrderBy(item => item.File, StringComparer.Ordinal)
@@ -399,10 +438,16 @@ internal static class ProjectPassRunner
         if (adapter.Descriptor.NeedsSemanticModel)
         {
             await adapter.OnTreePreparedAsync(tree);
+            Console.WriteLine(
+                $"{adapter.LogPrefix} compile start: building compilation from " +
+                $"{tree.CsFiles.Count} .cs file(s)");
             var compileSw = Stopwatch.StartNew();
             compilation = BuildStandardCompilation(adapter, tree);
             compileSw.Stop();
             context.Timings["compile"] = compileSw.Elapsed;
+            Console.WriteLine(
+                $"{adapter.LogPrefix} compile done: {compilation.SyntaxTrees.Count()} syntax tree(s) in " +
+                $"{FormatElapsed(compileSw.Elapsed)}");
 
             // The per-file spine used to linear-scan compilation.SyntaxTrees
             // for every source file (O(files^2)); index once.
@@ -421,13 +466,21 @@ internal static class ProjectPassRunner
         }
 
         var rewriteSw = Stopwatch.StartNew();
+        var rewriteTotal = tree.SourceFiles
+            .Count(file => file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase));
+        var rewriteProcessed = 0;
+        var rewriteChanged = 0;
+        Console.WriteLine(
+            $"{adapter.LogPrefix} rewrite start: {rewriteTotal} .cs file(s)");
         if (adapter.SupportsParallelFileRewrite)
         {
-            await RewriteFilesInParallelAsync(
+            (rewriteProcessed, rewriteChanged) = await RewriteFilesInParallelAsync(
                 context, tree, compilation, compilationTreesByPath);
         }
         else
         {
+            var progressStartTicks = Environment.TickCount64;
+            var lastProgressMs = 0L;
             foreach (var sourceFile in tree.SourceFiles)
             {
                 var relativePath = Path.GetRelativePath(tree.SourceRoot, sourceFile);
@@ -456,6 +509,17 @@ internal static class ProjectPassRunner
 
                 SyntaxTree? syntaxTree = null;
                 compilationTreesByPath?.TryGetValue(sourceFile, out syntaxTree);
+
+                var elapsedMs = Environment.TickCount64 - progressStartTicks;
+                if (elapsedMs - lastProgressMs >= RewriteProgressIntervalMs)
+                {
+                    lastProgressMs = elapsedMs;
+                    ReportRewriteProgress(
+                        adapter, rewriteProcessed, rewriteTotal, rewriteChanged,
+                        TimeSpan.FromMilliseconds(elapsedMs), relativePath);
+                }
+
+                rewriteProcessed++;
 
                 // Capture pristine bytes before any rewrite so in-place chains can
                 // roll a file back after the fact (e.g. extension-methods build gate).
@@ -489,14 +553,24 @@ internal static class ProjectPassRunner
                     continue;
                 }
 
+                rewriteChanged++;
                 await WriteRewrittenAsync(tree, fileContext, rewrite);
             }
         }
 
         rewriteSw.Stop();
         context.Timings["rewrite"] = rewriteSw.Elapsed;
+        Console.WriteLine(
+            $"{adapter.LogPrefix} rewrite complete: {rewriteProcessed}/{rewriteTotal} files, " +
+            $"{rewriteChanged} changed, {FormatElapsed(rewriteSw.Elapsed)} elapsed");
 
+        var afterFilesSw = Stopwatch.StartNew();
+        Console.WriteLine(
+            $"{adapter.LogPrefix} after-files start: {tree.CsFiles.Count} .cs file(s)");
         await adapter.AfterFilesAsync(tree);
+        afterFilesSw.Stop();
+        Console.WriteLine(
+            $"{adapter.LogPrefix} after-files done in {FormatElapsed(afterFilesSw.Elapsed)}");
 
         // ---- stage 4: restore ----
         //
@@ -516,10 +590,14 @@ internal static class ProjectPassRunner
             }
 
             var restoreSw = Stopwatch.StartNew();
+            Console.WriteLine($"{adapter.LogPrefix} restore start: {restoreTarget}");
             var restoreExitCode = ProjectPreprocessSource.RunDotNetRestore(
                 restoreTarget, adapter.LogPrefix);
             restoreSw.Stop();
             context.Timings["restore"] = restoreSw.Elapsed;
+            Console.WriteLine(
+                $"{adapter.LogPrefix} restore done: exit {restoreExitCode} in " +
+                $"{FormatElapsed(restoreSw.Elapsed)}");
 
             if (adapter.Verbose)
             {
@@ -534,9 +612,14 @@ internal static class ProjectPassRunner
             // ---- stage 5: verify build/tests + cleanup ----
 
             var verifySw = Stopwatch.StartNew();
+            Console.WriteLine(
+                $"{adapter.LogPrefix} verify start: build" +
+                (adapter.VerifyTests ? "+tests" : ""));
             await VerifyBuildAndTestsAsync(adapter, tree, restoreTarget);
             verifySw.Stop();
             context.Timings["verify"] = verifySw.Elapsed;
+            Console.WriteLine(
+                $"{adapter.LogPrefix} verify done in {FormatElapsed(verifySw.Elapsed)}");
             if (adapter.DeleteBuildOutputsAfterRestore)
             {
                 DeleteBuildOutputs(tree.IntermediateRoot);
@@ -549,9 +632,10 @@ internal static class ProjectPassRunner
     /// step (the pure per-file computation) runs on the thread pool; every shared
     /// mutation — statistics/diagnostics merge, verbose lines, file writes and
     /// non-.cs copies — happens afterwards on the calling thread in source-file
-    /// order, so the pass' observable output is byte-identical to the serial loop.
+    /// order, so the pass' observable output is byte-identical to the serial loop
+    /// (apart from the time-throttled rewrite progress line).
     /// </summary>
-    private static async Task RewriteFilesInParallelAsync(
+    private static async Task<(int Processed, int Changed)> RewriteFilesInParallelAsync(
         PassExecutionContext context,
         PassTreeContext tree,
         CSharpCompilation? compilation,
@@ -562,6 +646,10 @@ internal static class ProjectPassRunner
             .Where(file => file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
+        var progressStartTicks = Environment.TickCount64;
+        var lastProgressMs = 0L;
+        var processedCount = 0;
+        var changedCount = 0;
         var pureResults = new PassFilePureResult[csFiles.Count];
         Parallel.For(
             0,
@@ -601,6 +689,26 @@ internal static class ProjectPassRunner
                     .RewriteFilePureAsync(fileContext)
                     .GetAwaiter()
                     .GetResult();
+
+                // Time-throttled progress, independent of --verbose. One
+                // Console.WriteLine per report keeps parallel lines whole.
+                var processed = Interlocked.Increment(ref processedCount);
+                if (pureResults[index].Rewrite is { Changed: true })
+                {
+                    Interlocked.Increment(ref changedCount);
+                }
+
+                var elapsedMs = Environment.TickCount64 - progressStartTicks;
+                var observed = Interlocked.Read(ref lastProgressMs);
+                if (elapsedMs - observed >= RewriteProgressIntervalMs
+                    && Interlocked.CompareExchange(
+                        ref lastProgressMs, elapsedMs, observed) == observed)
+                {
+                    ReportRewriteProgress(
+                        adapter, processed, csFiles.Count,
+                        Volatile.Read(ref changedCount),
+                        TimeSpan.FromMilliseconds(elapsedMs), relativePath);
+                }
             });
 
         // Serial merge + write, in source-file order (identical to the serial loop).
@@ -648,6 +756,8 @@ internal static class ProjectPassRunner
 
             await WriteRewrittenAsync(tree, pure.Context, rewrite);
         }
+
+        return (processedCount, changedCount);
     }
 
     public static void CopyVerbatim(PassTreeContext tree, string sourceFilePath, string relativePath)
@@ -693,7 +803,12 @@ internal static class ProjectPassRunner
             Console.WriteLine($"{adapter.LogPrefix} Restoring packages: {restoreTarget}");
         }
 
+        Console.WriteLine($"{adapter.LogPrefix} restore start: {restoreTarget}");
+        var restoreSw = Stopwatch.StartNew();
         var exitCode = ProjectPreprocessSource.RunDotNetRestore(restoreTarget, adapter.LogPrefix);
+        restoreSw.Stop();
+        Console.WriteLine(
+            $"{adapter.LogPrefix} restore done: exit {exitCode} in {FormatElapsed(restoreSw.Elapsed)}");
         if (exitCode != 0)
         {
             adapter.OnRestoreFailed(exitCode, restoreTarget);

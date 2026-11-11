@@ -421,9 +421,14 @@ internal static class CliPreprocessChain
         string? gotoRepointedSourcePath = null;
         string? gotoRepointedInputRoot = null;
         var usingGotoPreprocessedSource = false;
+        var passIndex = 0;
 
         foreach (var pass in plan.Enabled)
         {
+            passIndex++;
+            Console.WriteLine(
+                $"[{passIndex}/{plan.Enabled.Count}] pass {pass.Id} starting");
+
             if (pass.Status == PassStatus.Stub)
             {
                 // Enabled stub: fail loudly before touching the filesystem.
@@ -515,6 +520,9 @@ internal static class CliPreprocessChain
             Console.WriteLine(
                 $"  [{pass.Id}] total: {run.TotalElapsed.TotalSeconds:F2}s" +
                 (run.Stages != null ? " | " + FormatStages(run.Stages) : ""));
+            Console.WriteLine(
+                $"[{passIndex}/{plan.Enabled.Count}] pass {pass.Id} finished in " +
+                $"{passStopwatch.Elapsed.TotalSeconds:F1}s");
 
             sourcePath = run.PreprocessedSourcePath;
             finalIntermediateRoot = run.IntermediateRoot;
