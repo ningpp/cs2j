@@ -1,7 +1,11 @@
+using CSharpToJava.CLI;
+using CSharpToJava.CLI.Preprocessing;
+using CSharpToJava.CLI.Preprocessing.Adapters;
 using CSharpToJava.Core.LocalFunctionLift;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CoreLocalFunctionLiftOptions = CSharpToJava.Core.LocalFunctionLift.LocalFunctionLiftOptions;
 
 namespace CSharpToJava.Tests;
 
@@ -1024,6 +1028,97 @@ public class LocalFunctionLiftTests
             d.Reason == LocalFunctionSkipReason.UnsupportedCaptureType
             && d.Message.Contains("unresolved types", StringComparison.Ordinal));
         Assert.Contains("void TrimAndEnsure()", result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
+    // Residual gate: every surviving local function is a residual, no
+    // "intentionally retained" exemption. Strict (default) must fail.
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task ResidualGate_Counts_Every_Unlifted_LocalFunction_StrictErrors_NonStrictWarns()
+    {
+        // checked 上下文里的局部函数按设计无法提升：它必须以 residual 形式暴露。
+        const string source = """
+            class C {
+                void M() {
+                    checked {
+                        int x = 1;
+                        Use(x);
+                        void Use(int v) { System.Console.WriteLine(v + x); }
+                    }
+                }
+            }
+            """;
+
+        var strict = await RunAdapterAsync(source, strict: true);
+        Assert.Equal(1, strict.Statistics.LocalFunctionsResidual);
+        var strictResidual = Assert.Single(strict.Diagnostics,
+            d => d.Message.Contains("residual local function", StringComparison.Ordinal));
+        Assert.Equal(LocalFunctionLiftSeverity.Error, strictResidual.Severity);
+        Assert.True(strict.HasErrors);
+
+        var nonStrict = await RunAdapterAsync(source, strict: false);
+        Assert.Equal(1, nonStrict.Statistics.LocalFunctionsResidual);
+        var nonStrictResidual = Assert.Single(nonStrict.Diagnostics,
+            d => d.Message.Contains("residual local function", StringComparison.Ordinal));
+        Assert.Equal(LocalFunctionLiftSeverity.Warning, nonStrictResidual.Severity);
+        Assert.False(nonStrict.HasErrors);
+    }
+
+    private static async Task<LocalFunctionLiftPassAdapter> RunAdapterAsync(
+        string source, bool strict)
+    {
+        var root = Path.Combine(
+            Path.GetTempPath(), "cs2j-lfl-residual-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var sourcePath = Path.Combine(root, "C.cs");
+        await File.WriteAllTextAsync(sourcePath, source);
+        try
+        {
+            var syntaxTree = CSharpSyntaxTree.ParseText(source, path: sourcePath);
+            var compilation = CSharpCompilation.Create(
+                "local-fn-residual",
+                new[] { syntaxTree },
+                References,
+                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+            var adapter = new LocalFunctionLiftPassAdapter(
+                new CoreLocalFunctionLiftOptions(), verbose: false,
+                filterUnsupportedProjects: false, compatNamespacePrefixes: null,
+                verifyBuild: false, verifyTests: false, strict: strict);
+
+            await adapter.RewriteFileAsync(new PassFileContext
+            {
+                SourceCode = source,
+                SourceFilePath = sourcePath,
+                RelativePath = "C.cs",
+                DestinationFilePath = sourcePath,
+                SemanticModel = compilation.GetSemanticModel(syntaxTree),
+            });
+
+            await adapter.AfterFilesAsync(new PassTreeContext
+            {
+                Layout = new ProjectPreprocessSourceLayout(
+                    root, root, Array.Empty<string>()),
+                SourceRoot = root,
+                IntermediateRoot = root,
+                DestinationRoot = root,
+                ProjectGraph = null,
+                Exclusion = new SupportedProjectFiltering.ExclusionInfo(),
+                SourceFiles = new[] { sourcePath },
+                CsFiles = new[] { sourcePath },
+                ExternalSharedCompileFiles = Array.Empty<string>(),
+                InPlace = true,
+                Snapshot = new InPlaceSourceSnapshot(false),
+            });
+
+            return adapter;
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     // -----------------------------------------------------------------------

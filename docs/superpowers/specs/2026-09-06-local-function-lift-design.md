@@ -290,7 +290,7 @@ IsStatic = 原局部函数带 static
 
 ### 5.2 残留检测
 
-步骤 9 之后，对中间目录下所有 `.cs` 重新 `CSharpSyntaxTree.ParseText`，统计 `LocalFunctionStatementSyntax` 总数 → `Statistics.LocalFunctionsResidual`。
+步骤 9 之后，对中间目录下所有 `.cs` 重新 `CSharpSyntaxTree.ParseText`，统计 `LocalFunctionStatementSyntax` 总数 → `Statistics.LocalFunctionsResidual`。计数以中间树实测为准，不做任何豁免或扣除：任何未提升的局部函数（含因无法安全提升而 skip 的）都是残留。
 
 - `Strict == true`（默认）且 residual > 0 → 追加 `Error` 诊断（含每个残留的文件:行号）→ `Success = false` → `Program.cs` `return 1`
 - `Strict == false` → 追加 `Warning`

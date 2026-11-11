@@ -243,8 +243,8 @@ internal sealed class LocalFunctionLiftAnalyzer
         // 捕获变量的类型在语义模型里是 ErrorType，且声明处也提取不到可解析的类型语法
         // （显式类型或 var 初始化表达式都不是对象创建/cast/default/数组创建）时，
         // 无法拼出形参类型。若继续提升，方法体仍按原名引用该变量，生成的方法作用域里
-        // 没有这个名字（CS0103）。有意保留原局部函数：这是工具链无法解析类型，
-        // 不是源码缺陷。
+        // 没有这个名字（CS0103）。保持 skip + 诊断：strict 模式下这正是必须暴露的
+        // 残留局部函数。
         if (unresolvedCaptures.Count > 0)
         {
             var names = string.Join(", ", unresolvedCaptures
@@ -252,8 +252,7 @@ internal sealed class LocalFunctionLiftAnalyzer
                 .Distinct(StringComparer.Ordinal));
             Skip(plan, LocalFunctionSkipReason.UnsupportedCaptureType,
                 $"captured variable(s) {names} have unresolved types; the hoisted method " +
-                "cannot declare a parameter for them and would reference undeclared names",
-                intentionallyRetained: true);
+                "cannot declare a parameter for them and would reference undeclared names");
             return plan;
         }
 
@@ -331,13 +330,10 @@ internal sealed class LocalFunctionLiftAnalyzer
         return plan;
     }
 
-    private void Skip(
-        LiftPlan plan, LocalFunctionSkipReason reason, string message,
-        bool intentionallyRetained = false)
+    private void Skip(LiftPlan plan, LocalFunctionSkipReason reason, string message)
     {
         plan.Skipped = true;
         plan.SkipReason = reason;
-        plan.IntentionallyRetained = intentionallyRetained;
         _stats.LocalFunctionsSkipped++;
         if (!_stats.SkippedByReason.TryAdd(reason, 1))
             _stats.SkippedByReason[reason]++;
@@ -347,7 +343,7 @@ internal sealed class LocalFunctionLiftAnalyzer
         _diagnostics.Add(new LocalFunctionLiftDiagnostic(
             LocalFunctionLiftSeverity.Warning,
             $"Skipped local function '{plan.Node.Identifier.Text}': {message}",
-            null, line, reason, intentionallyRetained));
+            null, line, reason));
     }
 
     private static TypeDeclarationSyntax? FindHostType(LocalFunctionStatementSyntax localFn)
@@ -814,8 +810,7 @@ internal sealed class LocalFunctionLiftAnalyzer
                 $"write capture '{unassignedCapture.OriginalName}' is declared without an " +
                 "initializer and cannot be seeded with a default value " +
                 $"({GetSeedingUnavailableReason(local)}); the lifted ref parameter would require " +
-                "definite assignment at every call site (CS0165)",
-                intentionallyRetained: true);
+                "definite assignment at every call site (CS0165)");
             return;
         }
 
@@ -846,8 +841,7 @@ internal sealed class LocalFunctionLiftAnalyzer
                 $"write capture '{offending.OriginalName}' would be referenced from a lambda in the " +
                 $"hoisted body (local function starts at line {line}); a ref parameter cannot be " +
                 "used there (CS1628) and the capture type cannot be wrapped in a StrongBox holder " +
-                $"({GetHolderUnavailableReason(offending)})",
-                intentionallyRetained: true);
+                $"({GetHolderUnavailableReason(offending)})");
         }
     }
 
@@ -1079,8 +1073,6 @@ internal sealed class LocalFunctionLiftAnalyzer
             plans.Where(p => p.Skipped && p.Symbol != null)
                  .Select(p => p.Symbol!),
             SymbolEqualityComparer.Default);
-        var bySymbol = plans.Where(p => p.Symbol != null)
-            .ToDictionary(p => p.Symbol!, p => p, SymbolEqualityComparer.Default);
 
         bool changed = true;
         while (changed)
@@ -1105,12 +1097,8 @@ internal sealed class LocalFunctionLiftAnalyzer
                     var symbol = _model.GetSymbolInfo(identifier).Symbol;
                     if (symbol != null && skippedSymbols.Contains(symbol))
                     {
-                        // 调用者因为引用了“有意保留”的函数而级联保留，同样不算改写残留。
-                        var intentionallyRetained = bySymbol.TryGetValue(symbol, out var callee)
-                            && callee.IntentionallyRetained;
                         Skip(plan, LocalFunctionSkipReason.ReferencesSkippedLocalFunction,
-                            $"references skipped local function '{identifier.Identifier.Text}'",
-                            intentionallyRetained);
+                            $"references skipped local function '{identifier.Identifier.Text}'");
                         if (plan.Symbol != null)
                             skippedSymbols.Add(plan.Symbol);
                         changed = true;
@@ -1596,8 +1584,7 @@ internal sealed class LocalFunctionLiftAnalyzer
 
             Skip(plan, LocalFunctionSkipReason.NameReferencedInDisabledText,
                 $"local function name '{originalName}' conflicts with an existing member of the host " +
-                $"type and the conditionally compiled references cannot be renamed safely: {reason}",
-                intentionallyRetained: true);
+                $"type and the conditionally compiled references cannot be renamed safely: {reason}");
             return null;
         }
 

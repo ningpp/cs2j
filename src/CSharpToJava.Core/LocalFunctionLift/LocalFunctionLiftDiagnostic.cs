@@ -28,8 +28,4 @@ public sealed record LocalFunctionLiftDiagnostic(
     string Message,
     string? FilePath = null,
     int Line = 0,
-    LocalFunctionSkipReason Reason = LocalFunctionSkipReason.None,
-    /// <summary>
-    /// 有意保留（不是改写未完成）：该局部函数按设计不提升，residual 闸门不应据此判失败。
-    /// </summary>
-    bool IntentionallyRetained = false);
+    LocalFunctionSkipReason Reason = LocalFunctionSkipReason.None);

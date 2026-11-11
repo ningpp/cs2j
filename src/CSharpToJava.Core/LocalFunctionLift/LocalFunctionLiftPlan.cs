@@ -18,11 +18,6 @@ internal sealed class LiftPlan
     public List<CapturePlan> Captures = new();    // ordered
     public bool Skipped;
     public LocalFunctionSkipReason SkipReason = LocalFunctionSkipReason.None;
-    /// <summary>
-    /// 有意保留（设计上不提升），residual 闸门不应把它算作改写残留。
-    /// 因引用有意保留的函数而级联跳过的调用者同样继承该标记。
-    /// </summary>
-    public bool IntentionallyRetained;
     public List<string> EnclosingTypeParams = new();  // type params from enclosing method
     public bool NeedsExplicitTypeArguments;  // true if hoisted method is generic and call sites need <TArgs>
     /// <summary>

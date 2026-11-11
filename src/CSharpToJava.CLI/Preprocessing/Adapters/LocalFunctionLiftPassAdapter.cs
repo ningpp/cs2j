@@ -18,7 +18,6 @@ internal sealed class LocalFunctionLiftPassAdapter : ProjectPassAdapter
     private readonly bool _strict;
 
     private readonly LocalFunctionLiftPreprocessor _preprocessor = new();
-    private int _intentionallyRetained;
     private readonly List<LocalFunctionLiftDiagnostic> _diagnostics = new();
     private readonly LocalFunctionLiftStatistics _statistics = new();
 
@@ -58,17 +57,6 @@ internal sealed class LocalFunctionLiftPassAdapter : ProjectPassAdapter
 
         foreach (var diagnostic in result.Diagnostics)
         {
-            // 有意保留的局部函数不计入 residual（否则 strict 会升成 Error 中断链）：
-            // - AmbiguousName：整树编译把别的工程的 global using 泄漏进本文件导致的
-            //   绑定失败（工具链近似，不是源码缺陷）；
-            // - RefCaptureInNestedLambda（及其级联）：写入型捕获在嵌套 lambda 中被引用，
-            //   ref 形参在 C# 里非法（CS1628），按设计函数级保留原局部函数。
-            if (diagnostic.IntentionallyRetained
-                || diagnostic.Reason == LocalFunctionSkipReason.AmbiguousName)
-            {
-                _intentionallyRetained++;
-            }
-
             _diagnostics.Add(diagnostic with { FilePath = context.RelativePath });
         }
 
@@ -85,12 +73,10 @@ internal sealed class LocalFunctionLiftPassAdapter : ProjectPassAdapter
 
     public override Task AfterFilesAsync(PassTreeContext tree)
     {
-        // 有意保留的局部函数（AmbiguousName / RefCaptureInNestedLambda 及其级联）不计入
-        // residual：否则 strict 模式会把工具链近似/设计上有意保留的跳过升成 Error，
-        // 整链无法前进。
+        // residual 一律以中间树实测为准，不做任何“有意保留”扣除：
+        // 任何未提升的局部函数都是改写残留，strict 下必须暴露。
         var residualLocations = new List<string>();
-        var residualCount = Math.Max(
-            0, CountResidualLocalFunctions(tree.IntermediateRoot, residualLocations) - _intentionallyRetained);
+        var residualCount = CountResidualLocalFunctions(tree.IntermediateRoot, residualLocations);
         _statistics.LocalFunctionsResidual = residualCount;
 
         if (residualCount > 0)
