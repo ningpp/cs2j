@@ -21,7 +21,9 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
     private readonly Dictionary<ISymbol, LiftPlan> _symbolToPlan;
     private readonly Dictionary<string, LiftPlan> _nameToPlan;
-    private readonly Dictionary<TypeDeclarationSyntax, List<MethodDeclarationSyntax>> _methodsToInsert;
+    private readonly Dictionary<TypeDeclarationSyntax, List<(LiftPlan Plan, MethodDeclarationSyntax Method)>> _methodsToInsert;
+    private readonly Dictionary<LiftPlan, List<int>> _callSitePositions = new();
+    private readonly Dictionary<SyntaxTree, ConditionalDirectiveLayout> _conditionalLayouts = new();
     private readonly List<LiftPlan> _unremovablePlans = new();
 
     public bool Changed { get; private set; }
@@ -48,7 +50,7 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         _stats = stats;
         _symbolToPlan = new Dictionary<ISymbol, LiftPlan>(SymbolEqualityComparer.Default);
         _nameToPlan = new Dictionary<string, LiftPlan>(StringComparer.Ordinal);
-        _methodsToInsert = new Dictionary<TypeDeclarationSyntax, List<MethodDeclarationSyntax>>();
+        _methodsToInsert = new Dictionary<TypeDeclarationSyntax, List<(LiftPlan Plan, MethodDeclarationSyntax Method)>>();
 
         foreach (var plan in plans.Where(p => !p.Skipped))
         {
@@ -67,11 +69,12 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         foreach (var group in byHost)
         {
             var hostType = group.Key;
-            var methods = new List<MethodDeclarationSyntax>();
+            var methods = new List<(LiftPlan Plan, MethodDeclarationSyntax Method)>();
             foreach (var plan in group)
             {
                 var method = BuildMethodDeclaration(plan);
-                methods.Add(method);
+                methods.Add((plan, method));
+                _callSitePositions[plan] = CollectCallSitePositions(plan);
                 _stats.LocalFunctionsLifted++;
                 foreach (var cap in plan.Captures)
                 {
@@ -106,20 +109,28 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         if (_methodsToInsert.TryGetValue(originalNode, out var methods))
         {
             var members = visited.Members.ToList();
-            var insertIndex = 0;
-            for (var i = members.Count - 1; i >= 0; i--)
+            var layout = GetConditionalLayout(originalNode.SyntaxTree);
+            var gapStacks = GetGapStacks(originalNode, layout);
+
+            // 每个提升方法必须与它的“声明点 + 所有调用点”处于相同的条件编译
+            // 可见域。旧逻辑固定插在“最后一个字段之后”：若那个字段恰好在
+            // #if DEBUG 之类的区域内，方法就被关进该区域，而调用点在区域外
+            // 看不到它（CS0103）。这里按条件指令栈逐方法选择插入点。
+            var insertions = new List<(int Index, int Order, MethodDeclarationSyntax Method)>();
+            for (var order = 0; order < methods.Count; order++)
             {
-                if (members[i] is FieldDeclarationSyntax)
-                {
-                    insertIndex = i + 1;
-                    break;
-                }
+                var (plan, method) = methods[order];
+                var target = GetVisibleConditionalStack(plan, layout);
+                var index = SelectInsertionIndex(originalNode, gapStacks, target);
+                insertions.Add((index, order, method));
             }
 
-            for (var i = 0; i < methods.Count; i++)
+            foreach (var insertion in insertions
+                         .OrderByDescending(static i => i.Index)
+                         .ThenByDescending(static i => i.Order))
             {
-                var method = methods[i];
-                if (insertIndex > 0 || i > 0)
+                var method = insertion.Method;
+                if (insertion.Index > 0 || insertion.Order > 0)
                 {
                     var existingTrivia = method.GetLeadingTrivia();
                     var newTrivia = SyntaxFactory.TriviaList(
@@ -128,7 +139,7 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
                     newTrivia = newTrivia.AddRange(existingTrivia);
                     method = method.WithLeadingTrivia(newTrivia);
                 }
-                members.Insert(insertIndex + i, method);
+                members.Insert(insertion.Index, method);
             }
 
             visited = visited.WithMembers(SyntaxFactory.List(members));
@@ -136,6 +147,260 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         }
 
         return visited;
+    }
+
+    /// <summary>
+    /// 记录某个局部函数的所有调用/引用位置（用于求条件编译可见域交集）。
+    /// 只需在其声明所在的语句容器内查找；局部函数的作用域不会超出该容器。
+    /// </summary>
+    private List<int> CollectCallSitePositions(LiftPlan plan)
+    {
+        var positions = new HashSet<int>();
+        var scope = plan.Node.Parent;
+        if (scope == null)
+            return new List<int>();
+
+        var originalName = plan.Node.Identifier.Text;
+        foreach (var node in scope.DescendantNodes())
+        {
+            string? name = node switch
+            {
+                InvocationExpressionSyntax { Expression: IdentifierNameSyntax id } => id.Identifier.Text,
+                InvocationExpressionSyntax { Expression: GenericNameSyntax gn } => gn.Identifier.Text,
+                IdentifierNameSyntax id => id.Identifier.Text,
+                GenericNameSyntax gn => gn.Identifier.Text,
+                _ => null,
+            };
+            if (name != originalName)
+                continue;
+
+            var symbol = node is InvocationExpressionSyntax invocation
+                ? _model.GetSymbolInfo(invocation).Symbol
+                : _model.GetSymbolInfo(node).Symbol;
+            if (symbol is not IMethodSymbol method)
+                continue;
+            if (SymbolEqualityComparer.Default.Equals(method, plan.Symbol)
+                || SymbolEqualityComparer.Default.Equals(method.OriginalDefinition, plan.Symbol))
+            {
+                positions.Add(node.SpanStart);
+            }
+        }
+
+        return positions.ToList();
+    }
+
+    /// <summary>
+    /// 计算方法的条件编译可见域：声明点与所有调用点的指令栈的公共前缀。
+    /// 栈是嵌套路径，交集就是公共前缀；方法放在该前缀对应的位置，才能被
+    /// 每个调用点看到，同时不会比声明点更“宽”地泄漏到其它配置。
+    /// </summary>
+    private List<string> GetVisibleConditionalStack(LiftPlan plan, ConditionalDirectiveLayout layout)
+    {
+        var stack = layout.StackAt(plan.Node.SpanStart).ToList();
+
+        if (_callSitePositions.TryGetValue(plan, out var positions))
+        {
+            foreach (var position in positions)
+            {
+                var callStack = layout.StackAt(position);
+                var common = 0;
+                while (common < stack.Count
+                       && common < callStack.Count
+                       && stack[common] == callStack[common])
+                {
+                    common++;
+                }
+
+                if (common < stack.Count)
+                    stack.RemoveRange(common, stack.Count - common);
+                if (stack.Count == 0)
+                    break;
+            }
+        }
+
+        return stack;
+    }
+
+    /// <summary>宿主类型每个成员边界（含末尾）处的条件编译指令栈。</summary>
+    private static List<IReadOnlyList<string>> GetGapStacks(
+        TypeDeclarationSyntax type, ConditionalDirectiveLayout layout)
+    {
+        var stacks = new List<IReadOnlyList<string>>(type.Members.Count + 1);
+        foreach (var member in type.Members)
+            stacks.Add(layout.StackAt(member.FullSpan.Start));
+        stacks.Add(layout.StackAt(type.CloseBraceToken.FullSpan.Start));
+        return stacks;
+    }
+
+    /// <summary>
+    /// 选择满足目标指令栈的成员边界。优先沿用“最后一个字段之后”的位置；
+    /// 没有精确匹配时退到目标栈的最深可用前缀（保证方法在调用点可见）。
+    /// </summary>
+    private static int SelectInsertionIndex(
+        TypeDeclarationSyntax type,
+        List<IReadOnlyList<string>> gapStacks,
+        List<string> target)
+    {
+        var exact = new List<int>();
+        for (var i = 0; i < gapStacks.Count; i++)
+        {
+            if (StacksEqual(gapStacks[i], target))
+                exact.Add(i);
+        }
+
+        if (exact.Count > 0)
+        {
+            for (var i = exact.Count - 1; i >= 0; i--)
+            {
+                var index = exact[i];
+                if (index > 0 && type.Members[index - 1] is FieldDeclarationSyntax)
+                    return index;
+            }
+            return exact[^1];
+        }
+
+        var best = -1;
+        var bestPrefixLength = -1;
+        for (var i = 0; i < gapStacks.Count; i++)
+        {
+            var gap = gapStacks[i];
+            if (!IsPrefix(gap, target))
+                continue;
+            if (gap.Count > bestPrefixLength)
+            {
+                best = i;
+                bestPrefixLength = gap.Count;
+            }
+            else if (gap.Count == bestPrefixLength && i > best)
+            {
+                best = i;
+            }
+        }
+
+        return best >= 0 ? best : 0;
+    }
+
+    private static bool StacksEqual(IReadOnlyList<string> left, IReadOnlyList<string> right)
+        => left.Count == right.Count && left.SequenceEqual(right);
+
+    private static bool IsPrefix(IReadOnlyList<string> prefix, IReadOnlyList<string> full)
+    {
+        if (prefix.Count > full.Count)
+            return false;
+        for (var i = 0; i < prefix.Count; i++)
+        {
+            if (prefix[i] != full[i])
+                return false;
+        }
+        return true;
+    }
+
+    private ConditionalDirectiveLayout GetConditionalLayout(SyntaxTree tree)
+    {
+        if (!_conditionalLayouts.TryGetValue(tree, out var layout))
+        {
+            layout = ConditionalDirectiveLayout.Create(tree);
+            _conditionalLayouts[tree] = layout;
+        }
+        return layout;
+    }
+
+    /// <summary>
+    /// 把源码行中的 #if/#elif/#else/#endif 映射为任意偏移处的条件编译指令栈。
+    /// 栈帧用 "指令偏移:分支序号" 标识，分支区分同一个 #if 的不同分支。
+    /// </summary>
+    private sealed class ConditionalDirectiveLayout
+    {
+        private enum DirectiveKind
+        {
+            If,
+            Elif,
+            Else,
+            EndIf,
+        }
+
+        private readonly record struct DirectiveEvent(int Position, DirectiveKind Kind);
+
+        private readonly List<DirectiveEvent> _events;
+        private readonly Dictionary<int, IReadOnlyList<string>> _cache = new();
+
+        private ConditionalDirectiveLayout(List<DirectiveEvent> events)
+        {
+            _events = events;
+        }
+
+        public static ConditionalDirectiveLayout Create(SyntaxTree tree)
+        {
+            var events = new List<DirectiveEvent>();
+
+            // 直接用语法树里的指令 trivia，避免把多行字符串中以 #if 开头的
+            // 文本误判为预处理指令。非活动分支内的嵌套指令属于
+            // DisabledTextTrivia，本身不需要入栈（活动位置不会落在其中）。
+            foreach (var trivia in tree.GetRoot().DescendantTrivia())
+            {
+                if (!trivia.IsDirective)
+                    continue;
+
+                DirectiveKind kind;
+                switch (trivia.GetStructure())
+                {
+                    case IfDirectiveTriviaSyntax:
+                        kind = DirectiveKind.If;
+                        break;
+                    case ElifDirectiveTriviaSyntax:
+                        kind = DirectiveKind.Elif;
+                        break;
+                    case ElseDirectiveTriviaSyntax:
+                        kind = DirectiveKind.Else;
+                        break;
+                    case EndIfDirectiveTriviaSyntax:
+                        kind = DirectiveKind.EndIf;
+                        break;
+                    default:
+                        continue;
+                }
+
+                events.Add(new DirectiveEvent(trivia.SpanStart, kind));
+            }
+
+            return new ConditionalDirectiveLayout(events);
+        }
+
+        public IReadOnlyList<string> StackAt(int position)
+        {
+            if (_cache.TryGetValue(position, out var cached))
+                return cached;
+
+            var stack = new List<(int Id, int Branch)>();
+            foreach (var directive in _events)
+            {
+                if (directive.Position >= position)
+                    break;
+
+                switch (directive.Kind)
+                {
+                    case DirectiveKind.If:
+                        stack.Add((directive.Position, 0));
+                        break;
+                    case DirectiveKind.Elif:
+                    case DirectiveKind.Else:
+                        if (stack.Count > 0)
+                        {
+                            var top = stack[^1];
+                            stack[^1] = (top.Id, top.Branch + 1);
+                        }
+                        break;
+                    case DirectiveKind.EndIf:
+                        if (stack.Count > 0)
+                            stack.RemoveAt(stack.Count - 1);
+                        break;
+                }
+            }
+
+            var key = stack.Select(static frame => $"{frame.Id}:{frame.Branch}").ToList();
+            _cache[position] = key;
+            return key;
+        }
     }
 
     public override SyntaxNode? VisitBlock(BlockSyntax node)

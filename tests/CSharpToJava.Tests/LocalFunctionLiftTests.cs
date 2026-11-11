@@ -552,6 +552,69 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
+    // #if 条件编译区：提升方法的插入点必须与声明点/调用点的可见域一致。
+    // 旧逻辑固定插在“最后一个字段之后”；若该字段位于 #if 区域内，方法被
+    // 关进区域，区域外的调用点看不到它（CS0103）。
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void ConditionalDirective_LiftInsertedOutsideIfRegion_Compiles()
+    {
+        var src = """
+        class C {
+            int _x;
+        #if !DEBUG
+            int conditionalField;
+        #endif
+            int M(int v) {
+                return Helper(v);
+                static int Helper(int x) => x + 1;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        AssertNoLocalFunctions(result.OutputCode);
+
+        var helperIndex = result.OutputCode.IndexOf("private static int helper", StringComparison.Ordinal);
+        var ifIndex = result.OutputCode.IndexOf("#if !DEBUG", StringComparison.Ordinal);
+        Assert.True(helperIndex >= 0 && ifIndex > helperIndex,
+            "Lifted method must be inserted outside the conditional region.\n" + result.OutputCode);
+
+        AssertCompiles(result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
+    // 嵌套局部函数的捕获传播：callee 捕获的符号可能就是 caller 自己的局部
+    // 变量。它不能变成 caller 的形参，否则 caller 的外部调用点会被追加一个
+    // 作用域外的实参（CS0103）。
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void NestedLocalFunction_CaptureOfEnclosingLocal_NotPropagatedToOuterCallSite()
+    {
+        var src = """
+        class C {
+            int M() {
+                int seed = 1;
+                return Run(seed);
+                int Run(int value) {
+                    int local = value + seed;
+                    return Inner();
+                    int Inner() => local + seed;
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 

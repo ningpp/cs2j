@@ -227,7 +227,13 @@ public static class CaptureClassification
         return false;
     }
 
-    private static bool IsDeclaredInside(ISymbol symbol, SyntaxNode body)
+    /// <summary>
+    /// True when <paramref name="symbol"/> is declared lexically inside <paramref name="body"/>.
+    /// Shared by capture discovery and propagation: a nested local function's capture that is
+    /// the caller's own local must stay a direct reference at the caller's call site, not become
+    /// a capture of the caller's hoisted method.
+    /// </summary>
+    internal static bool IsDeclaredInside(ISymbol symbol, SyntaxNode body)
     {
         foreach (var syntaxRef in symbol.DeclaringSyntaxReferences)
         {

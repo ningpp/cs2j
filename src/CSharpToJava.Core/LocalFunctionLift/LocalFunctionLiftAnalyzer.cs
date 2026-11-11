@@ -539,6 +539,16 @@ internal sealed class LocalFunctionLiftAnalyzer
 
                     foreach (var capture in calleePlan.Captures)
                     {
+                        // 嵌套局部函数捕获的变量可能就是 caller 自己的局部变量
+                        // （例如 Compute 里的 charSetSolver 被它内部的
+                        // MapCategoryCodeSetToCondition 捕获）。这不是 caller 的
+                        // 外部捕获：caller 提升后，callee 调用点仍在 caller 方法体
+                        // 内，直接引用该局部变量即可。若把它传播成 caller 的形参，
+                        // caller 的外部调用点会被追加一个根本不在作用域内的实参
+                        // （CS0103）。
+                        if (CaptureClassification.IsDeclaredInside(capture.Symbol, body))
+                            continue;
+
                         var existing = plan.Captures.FirstOrDefault(c =>
                             SymbolEqualityComparer.Default.Equals(c.Symbol, capture.Symbol));
                         if (existing == null)
