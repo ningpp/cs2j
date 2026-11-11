@@ -32,6 +32,12 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<ISymbol, string> _holderSymbols =
         new(SymbolEqualityComparer.Default);
     /// <summary>
+    /// 声明处无初始化器、但被提升后的方法以 <c>ref</c> 形参写入的局部变量：
+    /// 声明补 <c>= default(T)</c>，否则调用点的 <c>ref</c> 实参违反确定赋值（CS0165）。
+    /// </summary>
+    private readonly HashSet<ISymbol> _seededSymbols =
+        new(SymbolEqualityComparer.Default);
+    /// <summary>
     /// 正在为其生成提升方法体的 plan；仅在 BuildMethodDeclaration 遍历函数体时为非 null。
     /// 用于按符号改写捕获引用（避免同名形参/局部被误改）。
     /// </summary>
@@ -71,7 +77,13 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             foreach (var capture in plan.Captures)
             {
                 if (capture.UseHolder && capture.HolderElementTypeDisplay != null)
+                {
                     _holderSymbols[capture.Symbol] = capture.HolderElementTypeDisplay;
+                }
+                else if (capture.IsWritten && NeedsDefaultInitializer(capture.Symbol))
+                {
+                    _seededSymbols.Add(capture.Symbol);
+                }
             }
         }
     }
@@ -809,6 +821,48 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
                 .WithType(boxType)
                 .WithVariables(SyntaxFactory.SeparatedList(variables)));
     }
+
+    /// <summary>
+    /// 无初始化器的写入型捕获补 <c>= default(T)</c>：提升后的方法以 ref 形参写它，
+    /// 调用点的实参必须确定赋值（CS0165）。原代码能通过确定赋值分析，说明读取前
+    /// 必经赋值，补默认值只影响确定赋值，不改变运行语义。
+    /// </summary>
+    public override SyntaxNode? VisitVariableDeclaration(VariableDeclarationSyntax node)
+    {
+        var visited = (VariableDeclarationSyntax?)base.VisitVariableDeclaration(node);
+        if (visited == null || !ReferenceEquals(node.SyntaxTree, _model.SyntaxTree))
+            return visited;
+
+        var variables = new List<VariableDeclaratorSyntax>(visited.Variables.Count);
+        var changed = false;
+        for (var i = 0; i < visited.Variables.Count && i < node.Variables.Count; i++)
+        {
+            var declarator = visited.Variables[i];
+            var symbol = _model.GetDeclaredSymbol(node.Variables[i]);
+            if (declarator.Initializer == null
+                && symbol != null
+                && _seededSymbols.Contains(symbol))
+            {
+                declarator = declarator.WithInitializer(
+                    SyntaxFactory.EqualsValueClause(
+                        SyntaxFactory.DefaultExpression(visited.Type.WithoutTrivia())));
+                changed = true;
+            }
+            variables.Add(declarator);
+        }
+
+        if (!changed)
+            return visited;
+
+        Changed = true;
+        return visited.WithVariables(SyntaxFactory.SeparatedList(variables));
+    }
+
+    private static bool NeedsDefaultInitializer(ISymbol symbol)
+        => symbol.DeclaringSyntaxReferences
+            .Select(static reference => reference.GetSyntax())
+            .OfType<VariableDeclaratorSyntax>()
+            .FirstOrDefault() is { Initializer: null };
 
     public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
     {

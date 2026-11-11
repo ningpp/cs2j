@@ -777,13 +777,46 @@ public class LocalFunctionLiftTests
 
     // -----------------------------------------------------------------------
     // 写入型捕获 + ref 形参的前提：调用点实参必须确定赋值。局部声明时不初始化、
-    // 只在局部函数体内赋值时，提升后会 CS0165（cs-text p05 的 ch1/ch2），
-    // 按设计保留原局部函数。
+    // 只在局部函数体内赋值时，声明处补 `= default(T)`（cs-text p05 的 ch1/ch2），
+    // 提升后调用点的 ref 实参即满足确定赋值，且读取前必经赋值，语义不变。
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void WriteCapture_LocalWithoutInitializer_KeepsLocalFunction()
+    public void WriteCapture_LocalWithoutInitializer_SeedsDefaultAndLifts()
     {
+        var src = """
+        class C {
+            string M() {
+                char ch1;
+                char ch2;
+                string result = Render();
+                return result;
+                string Render() {
+                    ch1 = 'a';
+                    ch2 = ch1;
+                    return ch2.ToString();
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Reason == LocalFunctionSkipReason.RefCaptureNotDefinitelyAssigned);
+        Assert.Contains("char ch1 = default(char);", result.OutputCode);
+        Assert.Contains("char ch2 = default(char);", result.OutputCode);
+        Assert.Contains("ref ch1", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void WriteCapture_LocalWithoutInitializer_NeedsHolder_SeedsDefaultInStrongBox()
+    {
+        // 无初始化器的捕获同时需要在 lambda 内引用（holder）：声明改写为
+        // StrongBox<T> 时其构造实参用 default(T)，提升后的方法按值接收 holder。
         var src = """
         class C {
             string M() {
@@ -791,21 +824,22 @@ public class LocalFunctionLiftTests
                 string result = Render();
                 return result;
                 string Render() {
+                    System.Func<char> read = () => ch;
                     ch = 'a';
-                    return ch.ToString();
+                    return read().ToString();
                 }
             }
         }
         """;
         var result = Preprocess(src);
 
-        Assert.False(result.Changed);
-        Assert.Equal(0, result.Statistics.LocalFunctionsLifted);
-        Assert.Contains(result.Diagnostics, d =>
-            d.Reason == LocalFunctionSkipReason.RefCaptureNotDefinitelyAssigned
-            && d.IntentionallyRetained
-            && d.Message.Contains("ch"));
-        Assert.Contains("string Render()", result.OutputCode);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains("StrongBox<char> ch = new", result.OutputCode);
+        Assert.Contains("StrongBox<char>(default(char))", result.OutputCode);
+        Assert.Contains("StrongBox<char> _cs2j_cap_ch", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
     }
 
     // -----------------------------------------------------------------------

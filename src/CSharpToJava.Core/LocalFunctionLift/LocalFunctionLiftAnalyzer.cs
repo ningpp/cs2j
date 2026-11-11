@@ -715,17 +715,22 @@ internal sealed class LocalFunctionLiftAnalyzer
     {
         // 写入型捕获提升为 ref 形参后，调用点的实参必须确定赋值（CS0165）。
         // 原局部函数允许「局部声明时不初始化、只在其函数体内赋值」
-        // （cs-text p05: RegexCharClass.renderRanges 的 ch1/ch2）。C# 无法在不改
-        // 本义的前提下表达该形态，按设计保留原局部函数。
+        // （cs-text p05: RegexCharClass.renderRanges 的 ch1/ch2）。这类声明在重写器
+        // 里补 `= default(T)`：原代码能通过确定赋值分析，说明读取前必经赋值，
+        // 补默认值只影响确定赋值，不改变运行语义。只有声明形式无法原地补
+        // 初始化器（using/fixed/ref 局部等）时才保留原局部函数。
         // holder 捕获按值传入 StrongBox，不存在确定赋值要求，不触发该闸门。
         var unassignedCapture = plan.Captures.FirstOrDefault(c =>
-            c.IsWritten && !c.UseHolder && c.Symbol is ILocalSymbol && !HasInitializer(c.Symbol));
+            c.IsWritten && !c.UseHolder && c.Symbol is ILocalSymbol local
+            && !HasInitializer(c.Symbol) && !CanSeedDefaultInitializer(local));
         if (unassignedCapture != null)
         {
+            var local = (ILocalSymbol)unassignedCapture.Symbol;
             Skip(plan, LocalFunctionSkipReason.RefCaptureNotDefinitelyAssigned,
-                $"write capture '{unassignedCapture.OriginalName}' is a local declared without an " +
-                "initializer; the lifted ref parameter would require definite assignment at every " +
-                "call site (CS0165)",
+                $"write capture '{unassignedCapture.OriginalName}' is declared without an " +
+                "initializer and cannot be seeded with a default value " +
+                $"({GetSeedingUnavailableReason(local)}); the lifted ref parameter would require " +
+                "definite assignment at every call site (CS0165)",
                 intentionallyRetained: true);
             return;
         }
@@ -1092,6 +1097,36 @@ internal sealed class LocalFunctionLiftAnalyzer
         var declaring = symbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
         return declaring is not VariableDeclaratorSyntax declarator
             || declarator.Initializer != null;
+    }
+
+    /// <summary>
+    /// 无初始化器的局部能否在声明处补 `= default(T)` 以满足调用点的确定赋值：
+    /// 只有普通变量声明（局部声明语句 / for 初始化声明，非 var、非 ref/using/
+    /// fixed/const）可以原地补初始化器。
+    /// </summary>
+    private static bool CanSeedDefaultInitializer(ILocalSymbol local)
+        => GetSeedingUnavailableReason(local) == null;
+
+    private static string? GetSeedingUnavailableReason(ILocalSymbol local)
+    {
+        var declarator = local.DeclaringSyntaxReferences
+            .Select(static reference => reference.GetSyntax())
+            .OfType<VariableDeclaratorSyntax>()
+            .FirstOrDefault();
+        if (declarator?.Parent is not VariableDeclarationSyntax declaration)
+            return "the local is declared by a pattern, deconstruction or foreach";
+        if (declaration.Type is RefTypeSyntax)
+            return "'ref' local";
+        if (declaration.Type is IdentifierNameSyntax { Identifier.Text: "var" })
+            return "'var' local without initializer";
+        if (declaration.Parent is LocalDeclarationStatementSyntax statement
+            && (!statement.UsingKeyword.IsKind(SyntaxKind.None)
+                || !statement.AwaitKeyword.IsKind(SyntaxKind.None)
+                || statement.Modifiers.Any(static m => m.IsKind(SyntaxKind.ConstKeyword))))
+            return "declared in a using/const local statement";
+        if (declaration.Parent is not LocalDeclarationStatementSyntax and not ForStatementSyntax)
+            return "declared in a fixed/using statement";
+        return null;
     }
 
     /// <summary>
