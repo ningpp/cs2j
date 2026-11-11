@@ -615,15 +615,15 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
-    // ErrorType capture: the semantic model could not bind the captured
-    // variable's type (e.g. a missing reference). Capture collection cannot
-    // spell the parameter type and used to drop the capture silently, while
-    // the hoisted body still referenced the original name (CS0103).
-    // The function must be intentionally retained with a diagnostic.
+    // ErrorType capture with a declarable type syntax: the semantic model could
+    // not bind the captured variable's type (e.g. a missing reference), but the
+    // declaration's type syntax is enough to spell the parameter. The lifted
+    // method re-binds the same syntax in the real project, where the reference
+    // exists.
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void UnresolvedCaptureType_KeepsLocalFunctionWithDiagnostic()
+    public void UnresolvedCaptureType_WithDeclarableSyntax_IsLifted()
     {
         var src = """
         class C {
@@ -636,15 +636,11 @@ public class LocalFunctionLiftTests
         """;
         var result = Preprocess(src);
 
-        Assert.False(result.Changed);
-        Assert.Equal(0, result.Statistics.LocalFunctionsLifted);
-        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
-        Assert.Contains(result.Diagnostics, d =>
-            d.Reason == LocalFunctionSkipReason.UnsupportedCaptureType
-            && d.IntentionallyRetained
-            && d.Message.Contains("queue"));
-        Assert.Contains("void Trim()", result.OutputCode);
-        Assert.DoesNotContain("_cs2j_cap_", result.OutputCode);
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("MissingType _cs2j_cap_queue", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
     }
 
     // -----------------------------------------------------------------------
@@ -901,8 +897,149 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
+    // 捕获变量类型在分析编译里是 ErrorType（合并编译的 global using 泄漏使源码
+    // 类型与元数据类型同名二义）时，用声明处的类型语法兜底；提升方法插入同一
+    // 文件后按原 using 规则重新绑定，真实编译里类型与变量声明一致。
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Capture_ErrorTypeFromAmbiguousType_VarObjectCreation_UsesDeclaredSyntax()
+    {
+        var result = PreprocessAmbiguous("""
+        using Dotnet.Collections;
+
+        class C {
+            void M() {
+                var queue = new PriorityQueue<int, int>();
+                queue.TrimExcess();
+                TrimAndEnsure();
+                void TrimAndEnsure() {
+                    queue.TrimExcess();
+                }
+            }
+        }
+        """);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        AssertNoLocalFunctions(result.OutputCode);
+
+        var method = ParseMethod(result.OutputCode, "trimAndEnsure");
+        var parameter = Assert.Single(method.ParameterList.Parameters);
+        Assert.Equal("PriorityQueue<int, int>", parameter.Type!.ToString());
+
+        // 真实工程没有泄漏的 global using：输出必须能按原 using 解析出源码类型。
+        AssertCompilesWithSourceStub(result.OutputCode);
+    }
+
+    [Fact]
+    public void Capture_ErrorTypeFromAmbiguousType_ExplicitType_UsesDeclaredSyntax()
+    {
+        var result = PreprocessAmbiguous("""
+        using Dotnet.Collections;
+
+        class C {
+            void M() {
+                PriorityQueue<int, int> queue = new PriorityQueue<int, int>();
+                queue.TrimExcess();
+                TrimAndEnsure();
+                void TrimAndEnsure() {
+                    queue.TrimExcess();
+                }
+            }
+        }
+        """);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+
+        var method = ParseMethod(result.OutputCode, "trimAndEnsure");
+        var parameter = Assert.Single(method.ParameterList.Parameters);
+        Assert.Equal("PriorityQueue<int, int>", parameter.Type!.ToString());
+
+        AssertCompilesWithSourceStub(result.OutputCode);
+    }
+
+    [Fact]
+    public void Capture_ErrorTypeWithoutDeclaredSyntax_StillSkipped()
+    {
+        var result = Preprocess("""
+        class C {
+            void M() {
+                var queue = Create();
+                TrimAndEnsure();
+                void TrimAndEnsure() {
+                    queue.TrimExcess();
+                }
+            }
+        }
+        """);
+
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Reason == LocalFunctionSkipReason.UnsupportedCaptureType
+            && d.Message.Contains("unresolved types", StringComparison.Ordinal));
+        Assert.Contains("void TrimAndEnsure()", result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// 构造与全树分析编译同形的二义场景：源码里的 <c>Dotnet.Collections.PriorityQueue</c>
+    /// 与 BCL 的 <c>System.Collections.Generic.PriorityQueue</c> 同时可见（后者由另一个
+    /// 工程的 global using 泄漏进来），使 <c>var queue</c> 的类型退化成 ErrorType。
+    /// </summary>
+    private static LocalFunctionLiftResult PreprocessAmbiguous(string source)
+    {
+        var stubTree = CSharpSyntaxTree.ParseText(SourceStub, path: "Stub.cs");
+        var leakTree = CSharpSyntaxTree.ParseText(
+            "global using System.Collections.Generic;", path: "Leak.cs");
+        var tree = CSharpSyntaxTree.ParseText(source, path: "Target.cs");
+        var compilation = CSharpCompilation.Create("local-fn-ambiguous",
+            new[] { stubTree, leakTree, tree },
+            References,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var preprocessor = new LocalFunctionLiftPreprocessor();
+        return preprocessor.Preprocess(source, compilation.GetSemanticModel(tree));
+    }
+
+    private const string SourceStub = """
+    namespace Dotnet.Collections {
+        public class PriorityQueue<TElement, TPriority> {
+            public void TrimExcess() { }
+        }
+    }
+    """;
+
+    private static MethodDeclarationSyntax ParseMethod(string code, string name)
+    {
+        var root = CSharpSyntaxTree.ParseText(code).GetRoot();
+        return root.DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.Text == name);
+    }
+
+    private static void AssertCompilesWithSourceStub(string code)
+    {
+        var trees = new[]
+        {
+            CSharpSyntaxTree.ParseText(SourceStub, path: "Stub.cs"),
+            CSharpSyntaxTree.ParseText(code, path: "Output.cs"),
+        };
+        var compilation = CSharpCompilation.Create("local-fn-output-stub",
+            trees,
+            References,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var errors = compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "Output should compile without errors. Errors:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
 
     private static LocalFunctionLiftResult Preprocess(string source)
     {

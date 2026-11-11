@@ -231,9 +231,11 @@ internal sealed class LocalFunctionLiftAnalyzer
         plan.Captures = CollectCaptures(
             localFn, symbol!, isExplicitStatic, hostType, unresolvedCaptures);
 
-        // 捕获变量的类型在语义模型里是 ErrorType 时，捕获收集会丢弃它（无法拼出形参类型）。
-        // 若继续提升，方法体仍按原名引用该变量，生成的方法作用域里没有这个名字（CS0103）。
-        // 有意保留原局部函数：这是工具链无法解析类型，不是源码缺陷。
+        // 捕获变量的类型在语义模型里是 ErrorType，且声明处也提取不到可解析的类型语法
+        // （显式类型或 var 初始化表达式都不是对象创建/cast/default/数组创建）时，
+        // 无法拼出形参类型。若继续提升，方法体仍按原名引用该变量，生成的方法作用域里
+        // 没有这个名字（CS0103）。有意保留原局部函数：这是工具链无法解析类型，
+        // 不是源码缺陷。
         if (unresolvedCaptures.Count > 0)
         {
             var names = string.Join(", ", unresolvedCaptures
@@ -492,12 +494,13 @@ internal sealed class LocalFunctionLiftAnalyzer
 
         // C32 §4.2: capture discovery is the single shared primitive.
         var capParamNames = new HashSet<string>(StringComparer.Ordinal);
-        return CaptureClassification.CollectCapturedSymbols(
+        var unresolved = new List<ISymbol>();
+        var captures = CaptureClassification.CollectCapturedSymbols(
                 _model,
                 body,
                 localFnSymbol,
                 d => d is not LocalFunctionStatementSyntax,
-                unresolvedSymbols)
+                unresolved)
             .Select(info =>
             {
                 var isWritten = IsCapturedVariableWritten(localFn, info.Symbol);
@@ -512,7 +515,77 @@ internal sealed class LocalFunctionLiftAnalyzer
                     isWritten);
             })
             .ToList();
+
+        // 类型符号是 ErrorType 时，退回声明处的类型语法（见 GetDeclaredTypeSyntax）。
+        // 形参声明落在同一文件、同一命名空间，语法按原文件的 using 规则重新绑定，
+        // 真实工程里解析出的类型与变量声明完全一致。
+        foreach (var symbol in unresolved)
+        {
+            var typeSyntax = GetDeclaredTypeSyntax(symbol);
+            if (typeSyntax == null)
+            {
+                unresolvedSymbols?.Add(symbol);
+                continue;
+            }
+
+            var isWritten = IsCapturedVariableWritten(localFn, symbol);
+            captures.Add(new CapturePlan(
+                symbol,
+                symbol.Name,
+                LocalFunctionLiftNaming.GetCaptureParameterName(symbol.Name, capParamNames),
+                typeSyntax,
+                isWritten,
+                isWritten));
+        }
+
+        return captures;
     }
+
+    /// <summary>
+    /// 捕获符号类型在分析编译里是 ErrorType 时的兜底类型显示：取声明处的类型语法。
+    /// <list type="bullet">
+    /// <item>显式类型：变量声明/形参的类型语法原样返回；</item>
+    /// <item><c>var</c>：从初始化表达式提取（对象创建、cast、<c>default(T)</c>、数组创建）。</item>
+    /// </list>
+    /// 分析编译把整棵树的 global using 合成到一份文件里，别的工程未
+    /// <c>&lt;Using Remove&gt;</c> 的命名空间会泄漏进本文件，使源码类型与元数据
+    /// 类型同名二义（cs-text p05: System.Collections.Tests 的
+    /// <c>var queue = new PriorityQueue&lt;int, int&gt;()</c> 同时命中源码
+    /// <c>dotnet.System.Collections.Generic.PriorityQueue</c> 与 BCL
+    /// <c>System.Collections.Generic.PriorityQueue</c>，CS0104）。声明处语法在
+    /// 只引用本工程依赖的真实编译里是唯一可解析的，用它作形参类型不会漂移。
+    /// 提取不到类型语法时返回 null，调用方保留原有的“无法解析类型”跳过。
+    /// </summary>
+    private static string? GetDeclaredTypeSyntax(ISymbol symbol)
+    {
+        foreach (var reference in symbol.DeclaringSyntaxReferences)
+        {
+            switch (reference.GetSyntax())
+            {
+                case ParameterSyntax parameter when parameter.Type != null:
+                    return parameter.Type.WithoutTrivia().ToString();
+
+                case VariableDeclaratorSyntax declarator
+                    when declarator.Parent is VariableDeclarationSyntax declaration:
+                    if (declaration.Type is not IdentifierNameSyntax { Identifier.Text: "var" })
+                        return declaration.Type.WithoutTrivia().ToString();
+                    return GetInitializerTypeSyntax(declarator.Initializer?.Value)?
+                        .WithoutTrivia().ToString();
+            }
+        }
+
+        return null;
+    }
+
+    private static TypeSyntax? GetInitializerTypeSyntax(ExpressionSyntax? expression)
+        => expression switch
+        {
+            ObjectCreationExpressionSyntax creation => creation.Type,
+            CastExpressionSyntax cast => cast.Type,
+            DefaultExpressionSyntax defaultExpression => defaultExpression.Type,
+            ArrayCreationExpressionSyntax array => array.Type,
+            _ => null,
+        };
 
     /// <summary>
     /// 捕获形参的类型显示。形参声明落在宿主类型的成员区，与捕获声明处同文件、
