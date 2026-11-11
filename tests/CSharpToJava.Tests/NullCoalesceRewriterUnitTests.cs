@@ -1361,6 +1361,80 @@ public class NullCoalesceRewriterUnitTests
         Assert.Contains("___t1 != null ? ___t1 : new DefaultComparer()", result.OutputCode);
     }
 
+    // ---- Anchor-scope guard (2026-11-11) ----
+    //
+    // ConcreteShims.ToBcl shape: a ?? inside a switch-expression arm whose left
+    // operand reads the arm's PATTERN VARIABLE. FindAnchorStatement only looks
+    // for the nearest statement, so the temp declaration was hoisted in front of
+    // the 'return' — outside the arm — and the reference became CS0103.
+
+    [Fact]
+    public void Coalesce_In_SwitchExpression_Arm_With_Pattern_Variable_Is_Lowered_Inline_Not_Hoisted()
+    {
+        // arm 模式变量 shim 只在 arm 内可见，提升到 return 之前会 CS0103；
+        // 左值是调用（不可重复求值），必须用 'is { } t ? t : rhs' 只求值一次。
+        var src = """
+        class ComparerShim { public string? ToBcl() => null; }
+        class C {
+            static string? ToBcl(object comparer) {
+                return comparer switch {
+                    null => null,
+                    ComparerShim shim => shim.ToBcl() ?? "default",
+                    _ => null,
+                };
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("??", result.OutputCode);
+        Assert.DoesNotContain("var ___t1 = shim.ToBcl();", result.OutputCode);
+        Assert.Contains("shim.ToBcl() is { } ___t1 ? ___t1 : \"default\"", result.OutputCode);
+        Assert.Empty(OutputCompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void Coalesce_In_SwitchExpression_Arm_With_Duplicable_Left_Uses_Plain_Ternary()
+    {
+        // 同一个 arm 内，左值只读模式变量（可安全重复求值）：沿用三目内联，
+        // 不引入 'is { }'，也不能把临时变量提升到 arm 外面。
+        var src = """
+        class ComparerShim { public string? Field; }
+        class C {
+            static string? Pick(object o) {
+                return o switch {
+                    null => "n",
+                    ComparerShim shim => shim.Field ?? "d",
+                    _ => null,
+                };
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("??", result.OutputCode);
+        Assert.DoesNotContain("___t", result.OutputCode);
+        Assert.Contains("(shim.Field != null ? shim.Field : \"d\")", result.OutputCode);
+        Assert.Empty(OutputCompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void Coalesce_In_Ordinary_Statement_Still_Hoists_Temp()
+    {
+        // 守卫不能把提升路径整体关掉：普通语句里左值不可重复求值时仍生成临时变量。
+        var src = """
+        class C {
+            static string? Get() => null;
+            static string M() { var a = Get() ?? "x"; return a; }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("var ___t1 = Get();", result.OutputCode);
+        Assert.DoesNotContain("??", result.OutputCode);
+        Assert.Empty(OutputCompileErrors(result.OutputCode));
+    }
+
     private static int CountOccurrences(string text, string value)
     {
         var count = 0;

@@ -139,13 +139,34 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
         // evaluate twice is lowered inline; evaluating it twice is the only
         // semantic difference from the temp form, so a side-effecting left
         // stays residual for the strict gate.
-        if (FindAnchorStatement(node) == null)
+        //
+        // A slot is not enough: the anchor must also SEE the symbols the
+        // hoisted expression references. A switch-expression arm pattern
+        // variable (ConcreteShims.ToBcl: 'shim => shim.ToBcl() ?? ...') or an
+        // 'is' pattern declared in the anchor's own condition
+        // ('if (o is C c && (c.X ?? 0) > 1)') is only visible INSIDE that
+        // statement, so hoisting the temp in front of it emits CS0103.
+        var anchor = FindAnchorStatement(node);
+        var canHoist = anchor != null && !ReferencesAnchorLocal(node.Left, anchor);
+
+        if (!canHoist)
         {
             if (IsSafeToDuplicate(left))
             {
                 _stats.NullCoalescingRewritten++;
                 return SyntaxFactory.ParenthesizedExpression(
                     BuildInlineCoalesceConditional(left, right, leftIsNullableValueType));
+            }
+
+            if (anchor != null)
+            {
+                // A statement slot exists but cannot host the temp: lower the
+                // site with a single evaluation instead of moving the
+                // reference out of its declaration's scope.
+                var patternName = GenerateTempName();
+                _stats.NullCoalescingRewritten++;
+                return SyntaxFactory.ParenthesizedExpression(
+                    BuildPatternCoalesceConditional(left, right, patternName));
             }
 
             _diagnostics.Add(new NullCoalesceDiagnostic(
@@ -443,6 +464,37 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
+    /// Builds 'left is { } name ? name : right' — the single-evaluation lowering
+    /// for '??' when no usable statement slot exists (the anchor cannot see the
+    /// left operand's symbols) and the left operand must not be evaluated twice.
+    /// A recursive pattern with no subpatterns matches any non-null value and,
+    /// for Nullable&lt;T&gt;, binds the unwrapped T, so the shape covers both
+    /// reference and nullable value types.
+    /// </summary>
+    private static ConditionalExpressionSyntax BuildPatternCoalesceConditional(
+        ExpressionSyntax left, ExpressionSyntax right, string name)
+    {
+        var binding = SyntaxFactory.IdentifierName(name);
+        // The empty property-pattern braces carry explicit spaces: the default
+        // formatter options treat object/collection initializer braces as
+        // "new line for braces", which would otherwise split this into
+        // 'is\n{\n} name'.
+        var pattern = SyntaxFactory.RecursivePattern(
+            null,
+            null,
+            SyntaxFactory.PropertyPatternClause()
+                .WithOpenBraceToken(SyntaxFactory.Token(SyntaxKind.OpenBraceToken)
+                    .WithTrailingTrivia(SyntaxFactory.Space))
+                .WithCloseBraceToken(SyntaxFactory.Token(SyntaxKind.CloseBraceToken)
+                    .WithLeadingTrivia(SyntaxFactory.Space)),
+            SyntaxFactory.SingleVariableDesignation(SyntaxFactory.Identifier(name)));
+        return SyntaxFactory.ConditionalExpression(
+            SyntaxFactory.IsPatternExpression(left.WithoutTrivia(), pattern),
+            binding,
+            right);
+    }
+
+    /// <summary>
     /// True when evaluating the expression twice is observationally
     /// equivalent to evaluating it once: a pure reference chain
     /// (identifier/literal/this/base/typeof/default, member or element access
@@ -659,6 +711,41 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
                 IdentifierName("var"),
                 SingletonSeparatedList(VariableDeclarator(
                     Identifier(name), null, EqualsValueClause(initializer)))));
+
+    /// <summary>
+    /// True when the expression references a symbol declared INSIDE the anchor
+    /// statement — switch-expression arm patterns, an 'is' pattern in the
+    /// anchor's own condition, query range variables, lambda parameters of a
+    /// nested lambda, ... Hoisting the temp in front of that statement would
+    /// move the reference out of its declaration's scope (CS0103), so such a
+    /// site must be lowered inline instead.
+    /// </summary>
+    private bool ReferencesAnchorLocal(ExpressionSyntax expression, StatementSyntax anchor)
+    {
+        if (_semanticModel == null)
+        {
+            return false;
+        }
+
+        foreach (var identifier in expression.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+        {
+            var symbol = _semanticModel.GetSymbolInfo(identifier).Symbol;
+            if (symbol == null)
+            {
+                continue;
+            }
+
+            foreach (var reference in symbol.DeclaringSyntaxReferences)
+            {
+                if (reference.SyntaxTree == anchor.SyntaxTree && anchor.Span.Contains(reference.Span))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Walks up the parent chain to find the nearest enclosing StatementSyntax

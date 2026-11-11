@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Formatting;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
 
@@ -68,9 +69,15 @@ public sealed class NullCoalesceRewriter
             workingModel, options, stats, diagnostics);
         var rewrittenRoot = (CompilationUnitSyntax)rewriter.Visit(workingRoot)!;
 
-        // Format
+        // Format. The only non-trivial shape this pass emits is the
+        // single-evaluation 'left is { } ___tN ? ___tN : right' lowering, whose
+        // empty property-pattern braces the default options would put on their
+        // own lines ('is\n{\n} ___tN'); keep initializer-style braces inline.
         using var workspace = new AdhocWorkspace();
-        var formatted = Formatter.Format(rewrittenRoot, workspace);
+        var formattingOptions = workspace.Options.WithChangedOption(
+            CSharpFormattingOptions.NewLinesForBracesInObjectCollectionArrayInitializers,
+            false);
+        var formatted = Formatter.Format(rewrittenRoot, workspace, formattingOptions);
         var code = formatted.ToFullString();
 
         stats.FilesTransformed = 1;
