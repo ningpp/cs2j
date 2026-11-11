@@ -105,6 +105,12 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
         CopyInputs(tree);
         var analysisCompilation = context.BuildStandardCompilation();
 
+        // Project scope of every source file (CS2J2020): a partial group may
+        // only be merged when all its part files are compiled by the same set of
+        // projects. Computed once — the project files are 1:1 copies of the
+        // source tree and this pass only rewrites .cs contents.
+        var projectScopeOfFile = BuildProjectScopeResolver(tree);
+
         // Per-rewritten-file baseline keys: the ORIGINAL errors of a rewritten file,
         // resolved lazily and only when the diff actually finds a candidate error in
         // that file (the pass used to bind a whole-compilation GetDiagnostics up
@@ -201,7 +207,8 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
 
             // Reuse the baseline build: the source root never mutates during the
             // pass, so its diagnostics are the same every round.
-            var plan = preprocessor.Analyze(analysisCompilation, tree.SourceRoot);
+            var plan = preprocessor.Analyze(
+                analysisCompilation, tree.SourceRoot, null, projectScopeOfFile);
             _lastPlan = plan;
             foreach (var group in plan.Groups
                          .Where(g => excludedGroups.Contains(g.TypeFullName)))
@@ -482,6 +489,83 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             .Where(d => verbose || d.Severity != PartialMergeSeverity.Info)
             .Select(d => d.ToMsBuildString())
             .ToList();
+
+    /// <summary>
+    /// Answers "which projects compile this source file" from the intermediate
+    /// tree's project files (1:1 copies of the source tree). Returns null when
+    /// the run has no project graph: a plain directory conversion is a single
+    /// implicit compilation, so there is no cross-project boundary to respect.
+    ///
+    /// A file inside a project whose compile set could not be parsed (null) is
+    /// reported as unknown, never as "not compiled": an unresolved project may
+    /// well compile it, and the analyzer keeps such groups multi-part.
+    /// </summary>
+    private static Func<string, IReadOnlyCollection<string>?>? BuildProjectScopeResolver(
+        PassTreeContext tree)
+    {
+        var projects = tree.ProjectGraph?.ProjectsInTopologicalOrder;
+        if (projects is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        var sourceRoot = Path.GetFullPath(tree.SourceRoot);
+        var intermediateRoot = Path.GetFullPath(tree.IntermediateRoot);
+        var scopeByFile = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        var unresolvedProjectDirectories = new List<string>();
+        foreach (var project in projects)
+        {
+            if (SupportedProjectFiltering.IsUnderExcludedProject(project.ProjectFilePath, tree.Exclusion))
+            {
+                continue;
+            }
+
+            var intermediateProjectFile = Path.Combine(
+                intermediateRoot, Path.GetRelativePath(sourceRoot, project.ProjectFilePath));
+            var compiled = ProjectCompileSet.ComputeCompiledFiles(
+                intermediateProjectFile, intermediateRoot);
+            if (compiled == null)
+            {
+                unresolvedProjectDirectories.Add(Path.GetFullPath(project.ProjectDirectory));
+                continue;
+            }
+
+            var projectKey = Path.GetFullPath(project.ProjectFilePath);
+            foreach (var compiledFile in compiled)
+            {
+                var relative = Path.GetRelativePath(intermediateRoot, Path.GetFullPath(compiledFile));
+                if (Path.IsPathRooted(relative) || relative.StartsWith("..", StringComparison.Ordinal))
+                {
+                    // Linked from outside the intermediate tree (never mirrored):
+                    // it cannot be a part file, so its absence from a scope says
+                    // nothing about the mirrored copy.
+                    continue;
+                }
+
+                var sourcePath = Path.GetFullPath(Path.Combine(sourceRoot, relative));
+                if (!scopeByFile.TryGetValue(sourcePath, out var scope))
+                {
+                    scopeByFile[sourcePath] = scope = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                }
+
+                scope.Add(projectKey);
+            }
+        }
+
+        return path =>
+        {
+            var fullPath = Path.GetFullPath(path);
+            if (scopeByFile.TryGetValue(fullPath, out var scope))
+            {
+                return scope;
+            }
+
+            return unresolvedProjectDirectories.Any(directory =>
+                ProjectPreprocessSource.IsSameOrDescendantPath(fullPath, directory))
+                ? null
+                : Array.Empty<string>();
+        };
+    }
 
     private static List<TypeGroupPlan> AttributeToGroups(Diagnostic error, PartialMergePlan plan)
     {

@@ -17,12 +17,22 @@ internal sealed class PartialMergePreprocessor
         _options = options ?? new PartialMergeOptions();
     }
 
+    /// <summary>
+    /// <paramref name="projectScopeOfFile"/> answers "which projects compile this
+    /// source file" for the whole-tree analysis. The pass analyses ONE unified
+    /// compilation, so same-named partial declarations from independent
+    /// per-project copies collapse into a single symbol; merging them would move
+    /// members into a compilation that never declared them. Null (no project
+    /// graph) disables the gate, and a null answer per file keeps the group
+    /// multi-part.
+    /// </summary>
     public PartialMergePlan Analyze(
         CSharpCompilation compilation,
         string sourceRoot,
-        IReadOnlyList<Action<TypeGroupPlan>>? groupMutators = null)
+        IReadOnlyList<Action<TypeGroupPlan>>? groupMutators = null,
+        Func<string, IReadOnlyCollection<string>?>? projectScopeOfFile = null)
         => new PartialMergeAnalyzer().Analyze(
-            compilation, _options, sourceRoot, groupMutators);
+            compilation, _options, sourceRoot, groupMutators, projectScopeOfFile);
 
     public string RewriteFile(string source, IReadOnlyList<FileEdit> edits)
         => new PartialMergeRewriter().Apply(source, edits);

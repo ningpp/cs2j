@@ -129,6 +129,11 @@ internal static class PartialMergeCodes
     /// <summary>M3: classic partial method could not be removed safely under AssumeNoGeneratedPartial.</summary>
     public const string PartialCallSiteNotRemovable = "CS2J2019";
 
+    /// <summary>
+    /// 组内部件由不同的工程集合编译（整树统一编译下同名类型被误并）。
+    /// </summary>
+    public const string CrossProject = "CS2J2020";
+
     public const string BuildFailed = "CS2J2030";
     public const string TestsFailed = "CS2J2031";
 }

@@ -18,7 +18,8 @@ internal sealed class PartialMergeAnalyzer
         CSharpCompilation compilation,
         PartialMergeOptions options,
         string sourceRoot,
-        IReadOnlyList<Action<TypeGroupPlan>>? groupMutators = null)
+        IReadOnlyList<Action<TypeGroupPlan>>? groupMutators = null,
+        Func<string, IReadOnlyCollection<string>?>? projectScopeOfFile = null)
     {
         var diagnostics = new List<PartialMergeDiagnostic>();
         var stats = new MutablePartialMergeStats();
@@ -167,6 +168,57 @@ internal sealed class PartialMergeAnalyzer
                 "group left multi-part: carrying the part using directive '" + conflict +
                 "' would make an existing name in the primary file ambiguous",
                 TypeFullName: group.TypeFullName));
+        }
+
+        // Cross-project gate (CS2J2020): a group may only be merged when every one
+        // of its part files is compiled by exactly the same set of projects.
+        //
+        // The pass analyses ONE unified compilation of the whole tree, so
+        // declarations that the real build keeps in separate assemblies collapse
+        // into a single symbol. Merging them moves members into a compilation that
+        // never declared them. Real tree: ValueStringBuilder is an independent
+        // copy in Common/src (linked into System.Private.Uri), in
+        // System.Private.CoreLib/src and in System.Private.Uri/src;
+        // OptimizedInboxTextEncoder is declared by the src project AND by its
+        // tests project; PkcsHelpers by System.Security.Cryptography.Pkcs and by
+        // System.Security.Cryptography. The misplaced members then fail the
+        // verification build with CS0246/CS0234/CS0122.
+        //
+        // A file whose scope cannot be determined (unparseable project, or a file
+        // no evaluated project compiles) is treated as unknown, so the group stays
+        // multi-part for the main converter instead of being merged blindly.
+        if (projectScopeOfFile is not null)
+        {
+            foreach (var group in units.Where(g =>
+                         g.Parts.Count > 1
+                         && !g.SkipBaseline && !g.SkipUnsupportedShape && !g.SkipEnclosingInactive))
+            {
+                var scopes = group.Parts
+                    .GroupBy(part => part.RelativePath, StringComparer.OrdinalIgnoreCase)
+                    .Select(byFile => (
+                        byFile.Key,
+                        Scope: projectScopeOfFile(byFile.First().SourceFilePath)))
+                    .ToList();
+                var first = scopes[0].Scope;
+                var sameScope = first is { Count: > 0 }
+                    && scopes.All(entry => entry.Scope is { Count: > 0 } scope
+                        && scope.ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(first));
+                if (sameScope)
+                {
+                    continue;
+                }
+
+                group.SkipUnsupportedShape = true;
+                diagnostics.Add(new PartialMergeDiagnostic(
+                    PartialMergeSeverity.Warning,
+                    PartialMergeCodes.CrossProject,
+                    "group left multi-part: its parts are compiled by different project sets (" +
+                    string.Join("; ", scopes.Select(entry =>
+                        entry.Key + ": " + DescribeProjectScope(entry.Scope))) +
+                    "); merging across projects would move members into a compilation " +
+                    "that never declared them",
+                    TypeFullName: group.TypeFullName));
+            }
         }
 
         // Nested groups whose containing group is already inactive cannot be
@@ -556,6 +608,17 @@ internal sealed class PartialMergeAnalyzer
     private static BaseNamespaceDeclarationSyntax? EnclosingNamespace(
         BaseNamespaceDeclarationSyntax ns)
         => ns.Parent?.FirstAncestorOrSelf<BaseNamespaceDeclarationSyntax>();
+
+    /// <summary>Short, deterministic rendering of one file's project scope for CS2J2020.</summary>
+    private static string DescribeProjectScope(IReadOnlyCollection<string>? scope)
+        => scope switch
+        {
+            null => "<unknown>",
+            { Count: 0 } => "<no project>",
+            _ => string.Join("+", scope
+                .Select(Path.GetFileName)
+                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)),
+        };
 
     /// <summary>
     /// 只把部件成员体真正用到的 using 带进主文件。无条件带入会把部件文件里
