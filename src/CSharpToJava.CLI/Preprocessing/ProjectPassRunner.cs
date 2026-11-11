@@ -43,6 +43,86 @@ internal static class ProjectPassRunner
             $"{adapter.LogPrefix} rewrite progress: {processed}/{total} files, " +
             $"{changed} changed, {FormatElapsed(elapsed)} elapsed, at {relativePath}");
 
+    /// <summary>Maximum number of in-flight files listed on one progress line.</summary>
+    private const int MaxInFlightReportEntries = 5;
+
+    /// <summary>
+    /// Reports the files currently inside the rewrite stage. Unlike the
+    /// completion-driven <see cref="ReportRewriteProgress"/> line, this is emitted
+    /// by a wall-clock timer, so a single file that takes minutes keeps showing up
+    /// (with its own elapsed time) instead of leaving the log silent.
+    /// </summary>
+    private static void ReportRewriteInFlight(
+        ProjectPassAdapter adapter,
+        int processed,
+        int total,
+        int changed,
+        TimeSpan elapsed,
+        IReadOnlyCollection<(string RelativePath, long StartTimestamp)> inFlight)
+    {
+        var now = Environment.TickCount64;
+        var detail = inFlight.Count == 0
+            ? "none"
+            : string.Join(
+                ", ",
+                inFlight
+                    .OrderByDescending(entry => now - entry.StartTimestamp)
+                    .Take(MaxInFlightReportEntries)
+                    .Select(entry =>
+                        $"{entry.RelativePath} " +
+                        $"({FormatElapsed(TimeSpan.FromMilliseconds(
+                            Math.Max(0, now - entry.StartTimestamp)))})"));
+
+        // One Console.WriteLine per line keeps the line whole even when the
+        // timer races the worker threads.
+        Console.WriteLine(
+            $"{adapter.LogPrefix} rewrite progress: {processed}/{total} files, " +
+            $"{changed} changed, {FormatElapsed(elapsed)} elapsed, " +
+            $"in-flight {inFlight.Count}: {detail}");
+    }
+
+    /// <summary>
+    /// Starts a background loop that reports in-flight rewrite files every
+    /// <see cref="RewriteProgressIntervalMs"/>, independently of file completion.
+    /// Pair with <see cref="StopRewriteProgressTimer"/>.
+    /// </summary>
+    private static (CancellationTokenSource Cts, Task Loop) StartRewriteProgressTimer(
+        ProjectPassAdapter adapter,
+        int total,
+        Stopwatch elapsed,
+        Func<int> processed,
+        Func<int> changed,
+        Func<IReadOnlyCollection<(string RelativePath, long StartTimestamp)>> inFlight)
+    {
+        var cts = new CancellationTokenSource();
+        var loop = Task.Run(async () =>
+        {
+            while (true)
+            {
+                try
+                {
+                    await Task.Delay(RewriteProgressIntervalMs, cts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+
+                ReportRewriteInFlight(
+                    adapter, processed(), total, changed(), elapsed.Elapsed, inFlight());
+            }
+        });
+        return (cts, loop);
+    }
+
+    /// <summary>Cancels the progress loop and waits for it to stop reporting.</summary>
+    private static void StopRewriteProgressTimer(CancellationTokenSource cts, Task loop)
+    {
+        cts.Cancel();
+        loop.GetAwaiter().GetResult();
+        cts.Dispose();
+    }
+
     /// <summary>Run a fully implemented pass adapter over a project tree.</summary>
     public static async Task<ProjectPassRunResult> RunAsync(
         ProjectPassAdapter adapter,
@@ -481,80 +561,107 @@ internal static class ProjectPassRunner
         {
             var progressStartTicks = Environment.TickCount64;
             var lastProgressMs = 0L;
-            foreach (var sourceFile in tree.SourceFiles)
+
+            // Serial path only ever has a single in-flight file, but it uses the
+            // same timer + report as the parallel path so a slow file stays visible.
+            var inFlight =
+                new ConcurrentDictionary<int, (string RelativePath, long StartTimestamp)>();
+            var progressSw = Stopwatch.StartNew();
+            var (progressCts, progressLoop) = StartRewriteProgressTimer(
+                adapter, rewriteTotal, progressSw,
+                () => Volatile.Read(ref rewriteProcessed),
+                () => Volatile.Read(ref rewriteChanged),
+                () => inFlight.Values.ToList());
+            try
             {
-                var relativePath = Path.GetRelativePath(tree.SourceRoot, sourceFile);
-                var destinationFile = Path.Combine(tree.IntermediateRoot, relativePath);
-                Directory.CreateDirectory(Path.GetDirectoryName(destinationFile)!);
-
-                if (!sourceFile.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+                foreach (var sourceFile in tree.SourceFiles)
                 {
-                    if (sourceFile.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+                    var relativePath = Path.GetRelativePath(tree.SourceRoot, sourceFile);
+                    inFlight[0] = (relativePath, Environment.TickCount64);
+                    try
                     {
-                        continue;
-                    }
+                        var destinationFile = Path.Combine(tree.IntermediateRoot, relativePath);
+                        Directory.CreateDirectory(Path.GetDirectoryName(destinationFile)!);
 
-                    // In a unified-directory chain the tree is rewritten in place,
-                    // so source and destination are the same file.
-                    if (!string.Equals(
-                            Path.GetFullPath(sourceFile),
-                            Path.GetFullPath(destinationFile),
-                            StringComparison.OrdinalIgnoreCase))
+                        if (!sourceFile.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (sourceFile.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+                            {
+                                continue;
+                            }
+
+                            // In a unified-directory chain the tree is rewritten in place,
+                            // so source and destination are the same file.
+                            if (!string.Equals(
+                                    Path.GetFullPath(sourceFile),
+                                    Path.GetFullPath(destinationFile),
+                                    StringComparison.OrdinalIgnoreCase))
+                            {
+                                File.Copy(sourceFile, destinationFile, overwrite: true);
+                            }
+
+                            continue;
+                        }
+
+                        SyntaxTree? syntaxTree = null;
+                        compilationTreesByPath?.TryGetValue(sourceFile, out syntaxTree);
+
+                        var elapsedMs = Environment.TickCount64 - progressStartTicks;
+                        if (elapsedMs - lastProgressMs >= RewriteProgressIntervalMs)
+                        {
+                            lastProgressMs = elapsedMs;
+                            ReportRewriteProgress(
+                                adapter, rewriteProcessed, rewriteTotal, rewriteChanged,
+                                TimeSpan.FromMilliseconds(elapsedMs), relativePath);
+                        }
+
+                        rewriteProcessed++;
+
+                        // Capture pristine bytes before any rewrite so in-place chains can
+                        // roll a file back after the fact (e.g. extension-methods build gate).
+                        tree.Snapshot.Capture(sourceFile);
+
+                        var sourceCode = await File.ReadAllTextAsync(sourceFile);
+                        var fileContext = new PassFileContext
+                        {
+                            SourceCode = sourceCode,
+                            SourceFilePath = sourceFile,
+                            RelativePath = relativePath,
+                            DestinationFilePath = destinationFile,
+                            SemanticModel = syntaxTree == null || compilation == null
+                                ? null
+                                : compilation.GetSemanticModel(syntaxTree),
+                        };
+
+                        var rewrite = await adapter.RewriteFileAsync(fileContext);
+                        if (rewrite is not { Changed: true })
+                        {
+                            // Unchanged file: copy it over unless the pass is rewriting the
+                            // tree in place (unified directory), where paths are identical.
+                            if (!string.Equals(
+                                    Path.GetFullPath(sourceFile),
+                                    Path.GetFullPath(destinationFile),
+                                    StringComparison.OrdinalIgnoreCase))
+                            {
+                                File.Copy(sourceFile, destinationFile, overwrite: true);
+                            }
+
+                            continue;
+                        }
+
+                        rewriteChanged++;
+                        await WriteRewrittenAsync(tree, fileContext, rewrite);
+                    }
+                    finally
                     {
-                        File.Copy(sourceFile, destinationFile, overwrite: true);
+                        inFlight.TryRemove(0, out _);
                     }
-
-                    continue;
                 }
-
-                SyntaxTree? syntaxTree = null;
-                compilationTreesByPath?.TryGetValue(sourceFile, out syntaxTree);
-
-                var elapsedMs = Environment.TickCount64 - progressStartTicks;
-                if (elapsedMs - lastProgressMs >= RewriteProgressIntervalMs)
-                {
-                    lastProgressMs = elapsedMs;
-                    ReportRewriteProgress(
-                        adapter, rewriteProcessed, rewriteTotal, rewriteChanged,
-                        TimeSpan.FromMilliseconds(elapsedMs), relativePath);
-                }
-
-                rewriteProcessed++;
-
-                // Capture pristine bytes before any rewrite so in-place chains can
-                // roll a file back after the fact (e.g. extension-methods build gate).
-                tree.Snapshot.Capture(sourceFile);
-
-                var sourceCode = await File.ReadAllTextAsync(sourceFile);
-                var fileContext = new PassFileContext
-                {
-                    SourceCode = sourceCode,
-                    SourceFilePath = sourceFile,
-                    RelativePath = relativePath,
-                    DestinationFilePath = destinationFile,
-                    SemanticModel = syntaxTree == null || compilation == null
-                        ? null
-                        : compilation.GetSemanticModel(syntaxTree),
-                };
-
-                var rewrite = await adapter.RewriteFileAsync(fileContext);
-                if (rewrite is not { Changed: true })
-                {
-                    // Unchanged file: copy it over unless the pass is rewriting the
-                    // tree in place (unified directory), where paths are identical.
-                    if (!string.Equals(
-                            Path.GetFullPath(sourceFile),
-                            Path.GetFullPath(destinationFile),
-                            StringComparison.OrdinalIgnoreCase))
-                    {
-                        File.Copy(sourceFile, destinationFile, overwrite: true);
-                    }
-
-                    continue;
-                }
-
-                rewriteChanged++;
-                await WriteRewrittenAsync(tree, fileContext, rewrite);
+            }
+            finally
+            {
+                progressSw.Stop();
+                StopRewriteProgressTimer(progressCts, progressLoop);
             }
         }
 
@@ -648,68 +755,95 @@ internal static class ProjectPassRunner
 
         var progressStartTicks = Environment.TickCount64;
         var lastProgressMs = 0L;
-        var processedCount = 0;
-        var changedCount = 0;
+        long processedCount = 0;
+        long changedCount = 0;
         var pureResults = new PassFilePureResult[csFiles.Count];
-        Parallel.For(
-            0,
-            csFiles.Count,
-            new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount) },
-            index =>
-            {
-                var sourceFile = csFiles[index];
-                var relativePath = Path.GetRelativePath(tree.SourceRoot, sourceFile);
-                var destinationFile = Path.Combine(tree.IntermediateRoot, relativePath);
-                SyntaxTree? syntaxTree = null;
-                compilationTreesByPath?.TryGetValue(sourceFile, out syntaxTree);
 
-                // Capture pristine bytes before any rewrite; the snapshot store is
-                // a ConcurrentDictionary, so concurrent Capture calls are safe (and
-                // here every capture completes before the serial write phase below).
-                tree.Snapshot.Capture(sourceFile);
-
-                var sourceCode = File.ReadAllText(sourceFile);
-                var fileContext = new PassFileContext
+        // In-flight registry so the 5s timer can report which files are still
+        // being rewritten (a single huge file otherwise leaves the log silent).
+        var inFlight =
+            new ConcurrentDictionary<int, (string RelativePath, long StartTimestamp)>();
+        var progressSw = Stopwatch.StartNew();
+        var (progressCts, progressLoop) = StartRewriteProgressTimer(
+            adapter, csFiles.Count, progressSw,
+            () => (int)Interlocked.Read(ref processedCount),
+            () => (int)Interlocked.Read(ref changedCount),
+            () => inFlight.Values.ToList());
+        try
+        {
+            Parallel.For(
+                0,
+                csFiles.Count,
+                new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount) },
+                index =>
                 {
-                    SourceCode = sourceCode,
-                    SourceFilePath = sourceFile,
-                    RelativePath = relativePath,
-                    DestinationFilePath = destinationFile,
-                    // Roslyn's SemanticModel is not thread-safe, but GetSemanticModel
-                    // is only queried for a distinct syntax tree per file: each file
-                    // owns exactly one tree, so no two threads ever touch the same
-                    // model and no lock is needed (same pattern as
-                    // GenericDeepenAnalyzer / UseSiteSafetyClassifier).
-                    SemanticModel = syntaxTree == null || compilation == null
-                        ? null
-                        : compilation.GetSemanticModel(syntaxTree),
-                };
+                    var sourceFile = csFiles[index];
+                    var relativePath = Path.GetRelativePath(tree.SourceRoot, sourceFile);
+                    inFlight[index] = (relativePath, Environment.TickCount64);
+                    try
+                    {
+                        var destinationFile = Path.Combine(tree.IntermediateRoot, relativePath);
+                        SyntaxTree? syntaxTree = null;
+                        compilationTreesByPath?.TryGetValue(sourceFile, out syntaxTree);
 
-                pureResults[index] = adapter
-                    .RewriteFilePureAsync(fileContext)
-                    .GetAwaiter()
-                    .GetResult();
+                        // Capture pristine bytes before any rewrite; the snapshot store is
+                        // a ConcurrentDictionary, so concurrent Capture calls are safe (and
+                        // here every capture completes before the serial write phase below).
+                        tree.Snapshot.Capture(sourceFile);
 
-                // Time-throttled progress, independent of --verbose. One
-                // Console.WriteLine per report keeps parallel lines whole.
-                var processed = Interlocked.Increment(ref processedCount);
-                if (pureResults[index].Rewrite is { Changed: true })
-                {
-                    Interlocked.Increment(ref changedCount);
-                }
+                        var sourceCode = File.ReadAllText(sourceFile);
+                        var fileContext = new PassFileContext
+                        {
+                            SourceCode = sourceCode,
+                            SourceFilePath = sourceFile,
+                            RelativePath = relativePath,
+                            DestinationFilePath = destinationFile,
+                            // Roslyn's SemanticModel is not thread-safe, but GetSemanticModel
+                            // is only queried for a distinct syntax tree per file: each file
+                            // owns exactly one tree, so no two threads ever touch the same
+                            // model and no lock is needed (same pattern as
+                            // GenericDeepenAnalyzer / UseSiteSafetyClassifier).
+                            SemanticModel = syntaxTree == null || compilation == null
+                                ? null
+                                : compilation.GetSemanticModel(syntaxTree),
+                        };
 
-                var elapsedMs = Environment.TickCount64 - progressStartTicks;
-                var observed = Interlocked.Read(ref lastProgressMs);
-                if (elapsedMs - observed >= RewriteProgressIntervalMs
-                    && Interlocked.CompareExchange(
-                        ref lastProgressMs, elapsedMs, observed) == observed)
-                {
-                    ReportRewriteProgress(
-                        adapter, processed, csFiles.Count,
-                        Volatile.Read(ref changedCount),
-                        TimeSpan.FromMilliseconds(elapsedMs), relativePath);
-                }
-            });
+                        pureResults[index] = adapter
+                            .RewriteFilePureAsync(fileContext)
+                            .GetAwaiter()
+                            .GetResult();
+
+                        // Time-throttled progress, independent of --verbose. One
+                        // Console.WriteLine per report keeps parallel lines whole.
+                        var processed = (int)Interlocked.Increment(ref processedCount);
+                        if (pureResults[index].Rewrite is { Changed: true })
+                        {
+                            Interlocked.Increment(ref changedCount);
+                        }
+
+                        var elapsedMs = Environment.TickCount64 - progressStartTicks;
+                        var observed = Interlocked.Read(ref lastProgressMs);
+                        if (elapsedMs - observed >= RewriteProgressIntervalMs
+                            && Interlocked.CompareExchange(
+                                ref lastProgressMs, elapsedMs, observed) == observed)
+                        {
+                            ReportRewriteProgress(
+                                adapter, processed, csFiles.Count,
+                                (int)Interlocked.Read(ref changedCount),
+                                TimeSpan.FromMilliseconds(elapsedMs), relativePath);
+                        }
+                    }
+                    finally
+                    {
+                        inFlight.TryRemove(index, out _);
+                    }
+                });
+        }
+        finally
+        {
+            progressSw.Stop();
+            StopRewriteProgressTimer(progressCts, progressLoop);
+        }
 
         // Serial merge + write, in source-file order (identical to the serial loop).
         var csIndex = 0;
@@ -757,7 +891,8 @@ internal static class ProjectPassRunner
             await WriteRewrittenAsync(tree, pure.Context, rewrite);
         }
 
-        return (processedCount, changedCount);
+        return ((int)Interlocked.Read(ref processedCount),
+            (int)Interlocked.Read(ref changedCount));
     }
 
     public static void CopyVerbatim(PassTreeContext tree, string sourceFilePath, string relativePath)
