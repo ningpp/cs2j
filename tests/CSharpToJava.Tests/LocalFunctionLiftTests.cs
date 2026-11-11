@@ -380,6 +380,50 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
+    // Capture propagation naming: a callee's capture parameter name must be
+    // made unique in the caller's lifted signature. Two different symbols can
+    // share the same original name (e.g. the caller's own local `node` and a
+    // callee's parameter `node`), and each plan assigns `_cs2j_cap_node`
+    // independently. Merging the callee captures verbatim produced two
+    // `_cs2j_cap_node` parameters (CS0100).
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void CapturePropagation_SameNameAsExistingCapture_DeduplicatesParameterNames()
+    {
+        var src = """
+        class C {
+            void M() {
+                int node = 1;
+                Run(2);
+                void Run(int node) {
+                    Write();
+                    Helper();
+                    void Write() => System.Console.WriteLine(node);
+                }
+                void Helper() {
+                    System.Console.WriteLine(node);
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        AssertNoLocalFunctions(result.OutputCode);
+
+        var root = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(result.OutputCode).GetRoot();
+        var lifted = root.DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.Text == "run");
+        var parameterNames = lifted.ParameterList.Parameters
+            .Select(p => p.Identifier.Text)
+            .ToList();
+        Assert.Equal(parameterNames.Count, parameterNames.Distinct(StringComparer.Ordinal).Count());
+
+        AssertCompiles(result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 
@@ -388,16 +432,36 @@ public class LocalFunctionLiftTests
         var tree = CSharpSyntaxTree.ParseText(source);
         var compilation = CSharpCompilation.Create("local-fn-test",
             new[] { tree },
-            new[]
-            {
-                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(System.Collections.Generic.List<>).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location),
-            },
+            References,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var preprocessor = new LocalFunctionLiftPreprocessor();
         return preprocessor.Preprocess(source, compilation.GetSemanticModel(tree));
+    }
+
+    private static readonly MetadataReference[] References =
+    {
+        MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(System.Collections.Generic.List<>).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location),
+        MetadataReference.CreateFromFile(
+            System.IO.Path.Combine(
+                System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location)!,
+                "System.Runtime.dll")),
+    };
+
+    private static void AssertCompiles(string code)
+    {
+        var tree = CSharpSyntaxTree.ParseText(code);
+        var compilation = CSharpCompilation.Create("local-fn-output",
+            new[] { tree },
+            References,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var errors = compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "Output should compile without errors. Errors:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
     }
 
     private static void AssertNoLocalFunctions(string code)

@@ -519,7 +519,13 @@ internal sealed class LocalFunctionLiftAnalyzer
                             SymbolEqualityComparer.Default.Equals(c.Symbol, capture.Symbol));
                         if (existing == null)
                         {
-                            plan.Captures.Add(capture with { });
+                            // 两个不同符号可能同名（例如 caller 自有的 node 与 callee 参数 node），
+                            // 各自独立分配后都得到 _cs2j_cap_node。提升后的形参名必须在
+                            // caller 的提升方法作用域内唯一，否则出现重复形参（CS0100）。
+                            plan.Captures.Add(capture with
+                            {
+                                ParameterName = AllocateCaptureParameterName(plan, capture.OriginalName),
+                            });
                             changed = true;
                         }
                         else if (capture.IsWritten && !existing.IsWritten)
@@ -532,6 +538,27 @@ internal sealed class LocalFunctionLiftAnalyzer
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// 在 caller 提升后的方法作用域内为新捕获分配唯一形参名：
+    /// 避开已有捕获形参、原方法参数名与类型参数名。
+    /// </summary>
+    private static string AllocateCaptureParameterName(LiftPlan plan, string originalName)
+    {
+        var usedNames = new HashSet<string>(
+            plan.Captures.Select(c => c.ParameterName), StringComparer.Ordinal);
+        if (plan.Node.ParameterList != null)
+        {
+            foreach (var parameter in plan.Node.ParameterList.Parameters)
+                usedNames.Add(parameter.Identifier.Text);
+        }
+        if (plan.Node.TypeParameterList != null)
+        {
+            foreach (var typeParameter in plan.Node.TypeParameterList.Parameters)
+                usedNames.Add(typeParameter.Identifier.Text);
+        }
+        return LocalFunctionLiftNaming.GetCaptureParameterName(originalName, usedNames);
     }
 
     private void CheckPostPropagationGates(LiftPlan plan)
