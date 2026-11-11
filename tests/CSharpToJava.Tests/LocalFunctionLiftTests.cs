@@ -1066,6 +1066,247 @@ public class LocalFunctionLiftTests
         Assert.False(nonStrict.HasErrors);
     }
 
+    // -----------------------------------------------------------------------
+    // Multi-configuration lift: a project tree is compiled with several
+    // preprocessor-symbol sets (for example generator/test projects define
+    // DEBUG unconditionally), so lifting only under the default set leaves
+    // local functions inside those disabled branches behind.
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task ProjectTree_LiftsLocalFunctionsInDebugOnlyBranch()
+    {
+        var root = Path.Combine(
+            Path.GetTempPath(), "cs2j-lfl-symbol-config-" + Guid.NewGuid().ToString("N"));
+        var outputRoot = Path.Combine(root, "out");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var libDir = Path.Combine(root, "Lib");
+            var genDir = Path.Combine(root, "Gen");
+            Directory.CreateDirectory(libDir);
+            Directory.CreateDirectory(genDir);
+            File.WriteAllText(Path.Combine(libDir, "Lib.csproj"), """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+                </Project>
+                """);
+            File.WriteAllText(Path.Combine(genDir, "Gen.csproj"), """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <DefineConstants>$(DefineConstants);DEBUG</DefineConstants>
+                  </PropertyGroup>
+                </Project>
+                """);
+            const string libCode = """
+                public class Lib
+                {
+                    public int Outer(int x)
+                    {
+                        return Square(x);
+                        int Square(int v) => v * v;
+                    }
+                }
+                """;
+            const string genCode = """
+                public class Gen
+                {
+                #if DEBUG
+                    public string Describe(int x)
+                    {
+                        return Format(x);
+                        static string Format(int v) => "d" + v;
+                    }
+                #endif
+                }
+                """;
+            File.WriteAllText(Path.Combine(libDir, "Code.cs"), libCode);
+            File.WriteAllText(Path.Combine(genDir, "Code.cs"), genCode);
+
+            var solution = Path.Combine(root, "Tree.sln");
+            File.WriteAllLines(solution, new[]
+            {
+                "Microsoft Visual Studio Solution File, Format Version 12.00",
+                "# Visual Studio Version 17",
+                $"Project(\"{{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}}\") = \"Lib\", \"Lib\\Lib.csproj\", \"{{{Guid.NewGuid().ToString().ToUpperInvariant()}}}\"",
+                "EndProject",
+                $"Project(\"{{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}}\") = \"Gen\", \"Gen\\Gen.csproj\", \"{{{Guid.NewGuid().ToString().ToUpperInvariant()}}}\"",
+                "EndProject",
+            });
+
+            var adapter = new LocalFunctionLiftPassAdapter(
+                new CoreLocalFunctionLiftOptions(), verbose: false,
+                filterUnsupportedProjects: false, compatNamespacePrefixes: null,
+                verifyBuild: false, verifyTests: false, strict: true);
+
+            var run = await ProjectPassRunner.RunAsync(adapter, new ProjectPassRunRequest
+            {
+                SourcePath = root,
+                DestinationRoot = outputRoot,
+                Force = true,
+            });
+
+            Assert.True(run.Success, string.Join("\n", adapter.BuildChainDiagnosticLines(true)));
+            Assert.False(adapter.HasErrors);
+            Assert.Equal(0, adapter.Statistics.LocalFunctionsResidual);
+            Assert.Equal(2, adapter.Statistics.LocalFunctionsLifted);
+
+            var libOutput = File.ReadAllText(
+                Path.Combine(run.IntermediateRoot, "Lib", "Code.cs"));
+            var genOutput = File.ReadAllText(
+                Path.Combine(run.IntermediateRoot, "Gen", "Code.cs"));
+
+            AssertNoLocalFunctions(libOutput);
+            AssertNoLocalFunctions(genOutput);
+            AssertNoLocalFunctions(genOutput, "DEBUG", "NETCOREAPP");
+
+            Assert.Contains("square", libOutput);
+            Assert.Contains("format", genOutput);
+
+            // The lifted declaration must stay inside the condition that guards
+            // its local function, otherwise Release builds (which do not compile
+            // the DEBUG branch) would see a call to a missing member.
+            var debugStart = genOutput.IndexOf("#if DEBUG", StringComparison.Ordinal);
+            var methodIndex = genOutput.IndexOf("format", StringComparison.Ordinal);
+            var debugEnd = genOutput.IndexOf("#endif", StringComparison.Ordinal);
+            Assert.True(debugStart >= 0 && methodIndex > debugStart && methodIndex < debugEnd,
+                genOutput);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void SymbolConfigurations_DeriveFromProjectDefines_WithAppendSemantics()
+    {
+        var root = Path.Combine(
+            Path.GetTempPath(), "cs2j-lfl-config-resolve-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "Directory.Build.props"), """
+                <Project>
+                  <PropertyGroup><DefineConstants>ROOT</DefineConstants></PropertyGroup>
+                </Project>
+                """);
+            var projectA = Path.Combine(root, "A", "A.csproj");
+            var projectB = Path.Combine(root, "B", "B.csproj");
+            Directory.CreateDirectory(Path.GetDirectoryName(projectA)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(projectB)!);
+            File.WriteAllText(projectA, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <DefineConstants>$(DefineConstants);FEATURE_A</DefineConstants>
+                  </PropertyGroup>
+                </Project>
+                """);
+            File.WriteAllText(projectB, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <DefineConstants>$(DefineConstants);DEBUG</DefineConstants>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            var layout = new ProjectPreprocessSourceLayout(
+                root, root, new[] { projectA, projectB });
+            var configs = ConditionalSymbolConfigResolver.Resolve(
+                layout, LocalFunctionLiftPassAdapter.DefaultPreprocessorSymbols,
+                out var warnings);
+
+            Assert.Empty(warnings);
+            Assert.Equal("default", configs[0].Name);
+            Assert.Equal(new[] { "NETCOREAPP" }, configs[0].Symbols);
+
+            var union = Assert.Single(configs, config => config.Name == "union");
+            Assert.Contains("ROOT", union.Symbols);
+            Assert.Contains("FEATURE_A", union.Symbols);
+            Assert.Contains("DEBUG", union.Symbols);
+            Assert.Contains("NETCOREAPP", union.Symbols);
+
+            var configA = Assert.Single(configs,
+                config => config.Name == "project:A/A.csproj");
+            Assert.Contains("ROOT", configA.Symbols);
+            Assert.Contains("FEATURE_A", configA.Symbols);
+            Assert.DoesNotContain("DEBUG", configA.Symbols);
+
+            var configB = Assert.Single(configs,
+                config => config.Name == "project:B/B.csproj");
+            Assert.Contains("ROOT", configB.Symbols);
+            Assert.Contains("DEBUG", configB.Symbols);
+            Assert.DoesNotContain("FEATURE_A", configB.Symbols);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SymbolConfigurations_ReplaceSemantics_AndCapWithWarning()
+    {
+        var root = Path.Combine(
+            Path.GetTempPath(), "cs2j-lfl-config-cap-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "Directory.Build.props"), """
+                <Project>
+                  <PropertyGroup><DefineConstants>ROOT</DefineConstants></PropertyGroup>
+                </Project>
+                """);
+            var projects = new List<string>();
+            for (var index = 0; index < 12; index++)
+            {
+                var directory = Path.Combine(root, "P" + index);
+                Directory.CreateDirectory(directory);
+                var project = Path.Combine(directory, "P" + index + ".csproj");
+                // The first project replaces the inherited value; the rest append.
+                var define = index == 0
+                    ? "ONLY_P0"
+                    : $"$(DefineConstants);SYMBOL_{index}";
+                File.WriteAllText(project, $"""
+                    <Project Sdk="Microsoft.NET.Sdk">
+                      <PropertyGroup><DefineConstants>{define}</DefineConstants></PropertyGroup>
+                    </Project>
+                    """);
+                projects.Add(project);
+            }
+
+            var layout = new ProjectPreprocessSourceLayout(root, root, projects);
+            var configs = ConditionalSymbolConfigResolver.Resolve(
+                layout, LocalFunctionLiftPassAdapter.DefaultPreprocessorSymbols,
+                out var warnings);
+
+            Assert.Equal(
+                ConditionalSymbolConfigResolver.MaxConfigurations, configs.Count);
+            var warning = Assert.Single(warnings);
+            Assert.Contains("limit", warning, StringComparison.OrdinalIgnoreCase);
+
+            var replaced = Assert.Single(configs,
+                config => config.Name == "project:P0/P0.csproj");
+            Assert.Contains("ONLY_P0", replaced.Symbols);
+            Assert.DoesNotContain("ROOT", replaced.Symbols);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static void AssertNoLocalFunctions(string code, params string[] symbols)
+    {
+        var root = CSharpSyntaxTree.ParseText(
+            code, new CSharpParseOptions(preprocessorSymbols: symbols)).GetRoot();
+        Assert.Empty(root.DescendantNodes().OfType<LocalFunctionStatementSyntax>());
+    }
+
     private static async Task<LocalFunctionLiftPassAdapter> RunAdapterAsync(
         string source, bool strict)
     {
