@@ -424,6 +424,37 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
+    // CS1676: 带 out/ref 形参的局部函数被当作方法组转换时，合成 lambda 的
+    // 形参必须保留 ref/out/in 修饰符，否则与目标委托签名不匹配。
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void MethodGroup_WithOutParameterAndCapture_PreservesOutModifier()
+    {
+        var src = """
+        class C {
+            delegate void D(string s, out int x);
+            void M() {
+                string prefix = "p";
+                D d = Run;
+                int value;
+                d("x", out value);
+                void Run(string s, out int x) {
+                    x = (prefix + s).Length;
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        AssertNoLocalFunctions(result.OutputCode);
+        Assert.Contains("(string __cs2jArg0, out int __cs2jArg1)", result.OutputCode);
+        Assert.Contains("out __cs2jArg1", result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
     // CS1628: a write capture becomes a `ref` parameter, and C# forbids using
     // ref parameters inside lambdas/anonymous methods. When lifting the body
     // would place such a use inside a lambda, the function is retained

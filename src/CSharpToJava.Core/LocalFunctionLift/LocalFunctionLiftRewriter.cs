@@ -821,8 +821,11 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         {
             var parameter = invoke.Parameters[i];
             var parameterName = $"__cs2jArg{i}";
+            // Lambda 形参必须与目标委托的 ref/out/in 修饰符严格一致，否则
+            // `(a, b, int x) => f(..., out x)` 会报 CS1676。
             lambdaParameters.Add(SyntaxFactory.Parameter(
                     SyntaxFactory.Identifier(parameterName))
+                .WithModifiers(BuildLambdaParameterModifiers(parameter.RefKind))
                 .WithType(SyntaxFactory.ParseTypeName(parameter.Type.ToDisplayString(
                     SymbolDisplayFormat.FullyQualifiedFormat))));
 
@@ -845,6 +848,21 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         return SyntaxFactory.ParenthesizedLambdaExpression(
             SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(lambdaParameters)),
             invocation);
+    }
+
+    /// <summary>按委托形参的 RefKind 生成 lambda 形参的修饰符。</summary>
+    private static SyntaxTokenList BuildLambdaParameterModifiers(RefKind refKind)
+    {
+        return refKind switch
+        {
+            RefKind.Ref => SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.RefKeyword)),
+            RefKind.Out => SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.OutKeyword)),
+            RefKind.In => SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.InKeyword)),
+            RefKind.RefReadOnlyParameter => SyntaxFactory.TokenList(
+                SyntaxFactory.Token(SyntaxKind.RefKeyword),
+                SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword)),
+            _ => default,
+        };
     }
 
     private static bool IsInsideNameOf(SyntaxNode node)
@@ -882,6 +900,11 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             }
 
             lambdaParameters.Add(SyntaxFactory.Parameter(parameter.Identifier.WithoutTrivia())
+                .WithModifiers(SyntaxFactory.TokenList(parameter.Modifiers.Where(m =>
+                    m.IsKind(SyntaxKind.RefKeyword)
+                    || m.IsKind(SyntaxKind.OutKeyword)
+                    || m.IsKind(SyntaxKind.InKeyword)
+                    || m.IsKind(SyntaxKind.ReadOnlyKeyword))))
                 .WithType(parameter.Type.WithoutTrivia()));
 
             var argument = SyntaxFactory.Argument(SyntaxFactory.IdentifierName(parameter.Identifier));
