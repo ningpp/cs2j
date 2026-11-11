@@ -2,6 +2,7 @@ using CSharpToJava.Core.Analysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 using System.Linq;
 
 namespace CSharpToJava.Core.LocalFunctionLift;
@@ -19,7 +20,17 @@ internal sealed class LocalFunctionLiftAnalyzer
     private readonly List<LocalFunctionLiftDiagnostic> _diagnostics;
     private readonly Dictionary<string, HashSet<string>> _crossFileNameTable;
     /// <summary>条件编译区（本次分析编译未启用对应符号）里以函数式引用出现的标识符。</summary>
-    private readonly HashSet<string> _namesReferencedInDisabledText = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<DisabledTextReference>> _disabledTextReferences =
+        new(StringComparer.Ordinal);
+    /// <summary>本文件里同名局部函数的数量（改名时判断条件编译区引用是否唯一指向某个 plan）。</summary>
+    private Dictionary<string, int> _localFunctionNameCounts = new(StringComparer.Ordinal);
+
+    /// <summary>本文件里所有条件编译区（禁用文本）的原文，用于改名前的精确判定。</summary>
+    private readonly List<string> _disabledTextTexts = new();
+
+    /// <summary>条件编译区里的一个函数式引用在文件中的位置。</summary>
+    private readonly record struct DisabledTextReference(
+        int TriviaPosition, int Offset, int Length, TextSpan EnclosingMemberSpan);
 
     public LocalFunctionLiftAnalyzer(
         SemanticModel model,
@@ -43,6 +54,9 @@ internal sealed class LocalFunctionLiftAnalyzer
         var localFns = root.DescendantNodes().OfType<LocalFunctionStatementSyntax>().ToList();
         var plans = new List<LiftPlan>();
 
+        _localFunctionNameCounts = localFns
+            .GroupBy(static f => f.Identifier.Text, StringComparer.Ordinal)
+            .ToDictionary(static g => g.Key, static g => g.Count(), StringComparer.Ordinal);
         CollectNamesReferencedInDisabledText(root);
 
         foreach (var localFn in localFns)
@@ -139,19 +153,14 @@ internal sealed class LocalFunctionLiftAnalyzer
             return plan;
         }
 
-        // Gate #2b: 名字在条件编译区（如 #if DEBUG）里被引用。
-        // 重写器只能重命名活动代码，禁用区是不透明文本（DisabledTextTrivia），
-        // 其中的 nameof/调用会保留旧名（cs-text p05: RegexPrefixAnalyzer 的
-        // `nameof(TryFindRawFixedSets)` 位于 #if DEBUG，而 generator 工程
-        // 真实编译时 DEBUG 是定义的 → CS0103）。无法安全等价提升，按设计保留。
-        if (_namesReferencedInDisabledText.Contains(localFn.Identifier.Text))
+        // 名字在条件编译区（如 #if DEBUG）里被引用：禁用区是不透明文本，重写器只能
+        // 改活动代码。提升方法保留原名即可让两种符号配置下的引用都解析到同一个方法
+        // （cs-text p05: RegexPrefixAnalyzer 的 `nameof(TryFindRawFixedSets)` 位于
+        // #if DEBUG，generator 工程真实编译时 DEBUG 是定义的）。原名与宿主类型成员
+        // 冲突时改由 AssignName 做条件编译区内的精确替换，或带原因跳过。
+        if (_disabledTextReferences.ContainsKey(localFn.Identifier.Text))
         {
-            Skip(plan, LocalFunctionSkipReason.NameReferencedInDisabledText,
-                $"local function name is referenced in a conditionally compiled region that this " +
-                "analysis compilation excludes (#if); the reference cannot be renamed and the " +
-                "region may compile in real builds",
-                intentionallyRetained: true);
-            return plan;
+            plan.PreserveOriginalName = true;
         }
 
         // Gate #1 (disabled): Iterator (yield return / yield break).
@@ -260,7 +269,9 @@ internal sealed class LocalFunctionLiftAnalyzer
         }
 
         // Assign name
-        plan.NewName = AssignName(localFn, hostType, symbol!);
+        plan.NewName = AssignName(plan, localFn, hostType, symbol!);
+        if (plan.Skipped)
+            return plan;
 
         // Gate #10: CapturesAtEnd with params/optional
         if (_options.CapturesAtEnd)
@@ -1204,18 +1215,36 @@ internal sealed class LocalFunctionLiftAnalyzer
 
     /// <summary>
     /// 收集条件编译区里以函数式引用（<c>name(...)</c> / <c>nameof(name)</c>）出现的
-    /// 标识符。禁用区是 DisabledTextTrivia（不透明文本），重写器无法重命名其中的引用；
-    /// 这些区域在真实工程里可能被编译（如 generator 工程定义了 DEBUG）。
+    /// 标识符及其位置。禁用区是 DisabledTextTrivia（不透明文本），重写器无法重命名
+    /// 其中的引用；这些区域在真实工程里可能被编译（如 generator 工程定义了 DEBUG）。
     /// 只收函数式引用：同名局部变量/字段的普通出现不影响提升。
     /// </summary>
     private void CollectNamesReferencedInDisabledText(CompilationUnitSyntax root)
     {
-        foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
+        foreach (var token in root.DescendantTokens())
+        {
+            CollectFromDisabledText(token.LeadingTrivia, token);
+            CollectFromDisabledText(token.TrailingTrivia, token);
+        }
+    }
+
+    private void CollectFromDisabledText(SyntaxTriviaList triviaList, SyntaxToken owner)
+    {
+        foreach (var trivia in triviaList)
         {
             if (!trivia.IsKind(SyntaxKind.DisabledTextTrivia))
                 continue;
 
             var text = trivia.ToString();
+            _disabledTextTexts.Add(text);
+
+            // 禁用区所属的成员（方法/属性/字段等）：改名时用来确认引用确实落在
+            // 声明该局部函数的同一成员内。
+            var memberSpan = owner.Parent?
+                .AncestorsAndSelf()
+                .OfType<MemberDeclarationSyntax>()
+                .FirstOrDefault()?.Span ?? default;
+
             var index = 0;
             while (index < text.Length)
             {
@@ -1230,8 +1259,17 @@ internal sealed class LocalFunctionLiftAnalyzer
                     index++;
 
                 var name = text.Substring(start, index - start);
-                if (IsFunctionStyleReference(text, start, index))
-                    _namesReferencedInDisabledText.Add(name);
+                if (!IsFunctionStyleReference(text, start, index))
+                    continue;
+
+                if (!_disabledTextReferences.TryGetValue(name, out var references))
+                {
+                    references = new List<DisabledTextReference>();
+                    _disabledTextReferences[name] = references;
+                }
+
+                references.Add(new DisabledTextReference(
+                    trivia.SpanStart, start, index - start, memberSpan));
             }
         }
     }
@@ -1504,7 +1542,8 @@ internal sealed class LocalFunctionLiftAnalyzer
             names.Add(descendant.Identifier.Text);
     }
 
-    private string AssignName(
+    private string? AssignName(
+        LiftPlan plan,
         LocalFunctionStatementSyntax localFn,
         TypeDeclarationSyntax hostType,
         IMethodSymbol symbol)
@@ -1536,10 +1575,115 @@ internal sealed class LocalFunctionLiftAnalyzer
         foreach (var localName in GetEnclosingMethodLocalVariableNames(localFn))
             combined.Add(localName);
 
+        if (plan.PreserveOriginalName)
+        {
+            var originalName = localFn.Identifier.Text;
+            // 成员名之外，方法名也不能与宿主类型同名（否则同名成员会变成构造函数，CS0542）。
+            if (originalName != hostType.Identifier.Text && !combined.Contains(originalName))
+            {
+                usedNames.Add(originalName);
+                return originalName;
+            }
+
+            // 原名与宿主类型成员冲突：只能用 camelCase 名。条件编译区里的引用
+            // 必须跟着改，否则真实构建（该区域被启用时）会 CS0103。
+            var renamed = LocalFunctionLiftNaming.ResolveUniqueName(baseName, combined);
+            if (TryPlanDisabledTextRename(plan, localFn, originalName, renamed, out var reason))
+            {
+                usedNames.Add(renamed);
+                return renamed;
+            }
+
+            Skip(plan, LocalFunctionSkipReason.NameReferencedInDisabledText,
+                $"local function name '{originalName}' conflicts with an existing member of the host " +
+                $"type and the conditionally compiled references cannot be renamed safely: {reason}",
+                intentionallyRetained: true);
+            return null;
+        }
+
         var finalName = LocalFunctionLiftNaming.ResolveUniqueName(baseName, combined);
         usedNames.Add(finalName);
 
         return finalName;
+    }
+
+    /// <summary>
+    /// 原名与宿主成员冲突时，把条件编译区里指向本局部函数的标识符改名为提升方法名。
+    /// 只有能确认「所有这些引用都属于本局部函数」时才允许替换：
+    /// 引用都在声明所在的同一成员内，且文件里没有同名局部函数；
+    /// 新名字也不能已经在禁用区里出现过（否则会误指向别的符号）。
+    /// </summary>
+    private bool TryPlanDisabledTextRename(
+        LiftPlan plan,
+        LocalFunctionStatementSyntax localFn,
+        string originalName,
+        string newName,
+        out string reason)
+    {
+        reason = "";
+        if (!_disabledTextReferences.TryGetValue(originalName, out var references)
+            || references.Count == 0)
+        {
+            reason = "no conditionally compiled reference to the name was located";
+            return false;
+        }
+
+        var member = localFn.Ancestors().OfType<MemberDeclarationSyntax>().FirstOrDefault();
+        if (member == null)
+        {
+            reason = "the enclosing member of the local function was not found";
+            return false;
+        }
+
+        if (_localFunctionNameCounts.GetValueOrDefault(originalName) != 1)
+        {
+            reason = "another local function in this file uses the same name";
+            return false;
+        }
+
+        foreach (var reference in references)
+        {
+            if (reference.EnclosingMemberSpan != member.Span)
+            {
+                reason = "the name is also referenced from conditionally compiled text in another member";
+                return false;
+            }
+        }
+
+        if (DisabledTextContainsIdentifier(newName))
+        {
+            reason = $"the replacement name '{newName}' already occurs in conditionally compiled text";
+            return false;
+        }
+
+        foreach (var reference in references)
+        {
+            plan.DisabledTextRenames.Add(new DisabledTextIdentifierRename(
+                reference.TriviaPosition, reference.Offset, reference.Length, newName));
+        }
+
+        return true;
+    }
+
+    /// <summary>禁用区文本里是否已经出现该标识符（按标识符边界匹配）。</summary>
+    private bool DisabledTextContainsIdentifier(string identifier)
+    {
+        foreach (var trivia in _disabledTextTexts)
+        {
+            var index = 0;
+            while ((index = trivia.IndexOf(identifier, index, StringComparison.Ordinal)) >= 0)
+            {
+                var before = index == 0 || !SyntaxFacts.IsIdentifierPartCharacter(trivia[index - 1]);
+                var afterIndex = index + identifier.Length;
+                var after = afterIndex >= trivia.Length
+                    || !SyntaxFacts.IsIdentifierPartCharacter(trivia[afterIndex]);
+                if (before && after)
+                    return true;
+                index = afterIndex;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

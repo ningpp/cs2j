@@ -26,12 +26,34 @@ internal sealed class LiftPlan
     public List<string> EnclosingTypeParams = new();  // type params from enclosing method
     public bool NeedsExplicitTypeArguments;  // true if hoisted method is generic and call sites need <TArgs>
     /// <summary>
+    /// 局部函数名在条件编译区（本次分析编译未启用对应符号，即
+    /// <c>DisabledTextTrivia</c>）里被引用：禁用区是不透明文本，重写器只能改活动代码。
+    /// 标记后命名优先保留原名，使两种符号配置下所有引用都解析到同一个提升方法。
+    /// </summary>
+    public bool PreserveOriginalName;
+    /// <summary>
+    /// 原名与宿主类型成员冲突、必须改名时，对条件编译区里已确认指向本局部函数的
+    /// 标识符做的精确替换（trivia 起始位置 + 区内偏移）。
+    /// </summary>
+    public List<DisabledTextIdentifierRename> DisabledTextRenames = new();
+    /// <summary>
     /// R1b: unified resolver plan (own + enclosing closure, three-state
     /// expressibility, stable shadowing names). The rewriter emits declarations,
     /// constraints and call-site names from this plan when present.
     /// </summary>
     public SyntheticTypeParameterPlan? TypeParameterPlan;
 }
+
+/// <summary>
+/// 条件编译区（<c>DisabledTextTrivia</c>）里的一个标识符替换：
+/// <see cref="TriviaPosition"/> 是该 trivia 在原树中的起始位置，
+/// <see cref="Offset"/>/<see cref="Length"/> 是标识符在 trivia 文本中的位置。
+/// </summary>
+internal sealed record DisabledTextIdentifierRename(
+    int TriviaPosition,
+    int Offset,
+    int Length,
+    string NewName);
 
 /// <summary>
 /// One captured variable: its symbol, original name, parameter name, type, and whether it is written.

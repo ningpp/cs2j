@@ -16,7 +16,10 @@ public enum LocalFunctionSkipReason
     RefCaptureInNestedLambda,
     /// <summary>写入型捕获是未初始化且只能靠函数体赋值的局部：调用点未确定赋值，ref 实参非法（CS0165）。</summary>
     RefCaptureNotDefinitelyAssigned,
-    /// <summary>局部函数名在本次分析编译排除的条件编译区里被引用：无法重命名，真实编译该区域时会 CS0103。</summary>
+    /// <summary>
+    /// 局部函数名在本次分析编译排除的条件编译区里被引用，且原名与宿主成员冲突、
+    /// 禁用区引用又无法安全精确替换：只能保留原局部函数。
+    /// </summary>
     NameReferencedInDisabledText,
 }
 

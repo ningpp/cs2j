@@ -839,34 +839,76 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
-    // 局部函数名在条件编译区（本次分析编译未启用该符号）里被引用：禁用区是不透明
-    // 文本，重写器无法重命名，真实工程编译该区域时会 CS0103（cs-text p05 的
-    // #if DEBUG nameof(TryFindRawFixedSets)），按设计保留原局部函数。
+    // 局部函数名在条件编译区（本次分析编译未启用该符号）里被引用：提升方法保留
+    // 原名，使启用/禁用两种符号配置下的引用都解析到同一个方法（cs-text p05 的
+    // #if DEBUG nameof(TryFindRawFixedSets)）。
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void NameReferencedInDisabledText_KeepsLocalFunction()
+    public void NameReferencedInDisabledText_LiftsWithOriginalName()
     {
         var src = """
         class C {
             string M() {
+                string Helper() => "x";
         #if DEBUG
                 return nameof(Helper);
         #else
                 return Helper();
         #endif
-                string Helper() => "x";
             }
         }
         """;
         var result = Preprocess(src);
 
-        Assert.False(result.Changed);
-        Assert.Equal(0, result.Statistics.LocalFunctionsLifted);
-        Assert.Contains(result.Diagnostics, d =>
-            d.Reason == LocalFunctionSkipReason.NameReferencedInDisabledText
-            && d.IntentionallyRetained);
-        Assert.Contains("string Helper()", result.OutputCode);
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("private string Helper()", result.OutputCode);
+        Assert.Contains("#if DEBUG", result.OutputCode);
+        Assert.Contains("nameof(Helper)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+
+        // DEBUG 未定义：走 #else 分支的调用点；DEBUG 定义：走 #if 分支的 nameof。
+        AssertCompilesWithSymbols(result.OutputCode);
+        AssertCompilesWithSymbols(result.OutputCode, "DEBUG");
+    }
+
+    // -----------------------------------------------------------------------
+    // 原名与宿主类型成员冲突时，禁用区里的引用做精确标识符替换后仍可改名提升；
+    // 两种符号配置都必须编译通过（原实现直接跳过，禁用区留着旧名 → CS0103）。
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void NameReferencedInDisabledText_NameConflict_RewritesDisabledTextPrecisely()
+    {
+        var src = """
+        class C {
+            private static bool TryFindRawFixedSets(int a, int b) => a < b;
+
+            bool M() {
+                bool ok = TryFindRawFixedSets(1);
+        #if DEBUG
+                string s = nameof(TryFindRawFixedSets);
+                System.Console.WriteLine(s);
+        #endif
+                return ok;
+                static bool TryFindRawFixedSets(int v) => v > 0;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("private static bool tryFindRawFixedSets(int v)", result.OutputCode);
+        Assert.Contains("nameof(tryFindRawFixedSets)", result.OutputCode);
+        Assert.DoesNotContain("nameof(TryFindRawFixedSets)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+
+        AssertCompilesWithSymbols(result.OutputCode);
+        AssertCompilesWithSymbols(result.OutputCode, "DEBUG");
     }
 
     // -----------------------------------------------------------------------
@@ -1075,6 +1117,25 @@ public class LocalFunctionLiftTests
             .Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         Assert.True(errors.Count == 0,
             "Output should compile without errors. Errors:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    /// <summary>
+    /// 按给定的预处理符号编译输出：条件编译区（#if DEBUG）在真实工程里会启用，
+    /// 必须验证两种配置都能解析提升后的方法名。
+    /// </summary>
+    private static void AssertCompilesWithSymbols(string code, params string[] symbols)
+    {
+        var tree = CSharpSyntaxTree.ParseText(
+            code, new CSharpParseOptions(preprocessorSymbols: symbols));
+        var compilation = CSharpCompilation.Create("local-fn-output-symbols",
+            new[] { tree },
+            References,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var errors = compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            $"Output should compile without errors (symbols: {string.Join(",", symbols)}). Errors:\n" +
             string.Join("\n", errors.Select(e => e.ToString())));
     }
 

@@ -42,6 +42,12 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
     /// 用于按符号改写捕获引用（避免同名形参/局部被误改）。
     /// </summary>
     private LiftPlan? _hoistingPlan;
+    /// <summary>
+    /// 条件编译区（<c>DisabledTextTrivia</c>）里的精确标识符替换：
+    /// trivia 原树起始位置 -&gt; 替换列表。只有原名与宿主成员冲突、必须改名时才有条目。
+    /// </summary>
+    private readonly Dictionary<int, List<DisabledTextIdentifierRename>> _disabledTextRenames =
+        new();
 
     public bool Changed { get; private set; }
 
@@ -85,7 +91,64 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
                     _seededSymbols.Add(capture.Symbol);
                 }
             }
+
+            foreach (var rename in plan.DisabledTextRenames)
+            {
+                if (!_disabledTextRenames.TryGetValue(rename.TriviaPosition, out var renames))
+                {
+                    renames = new List<DisabledTextIdentifierRename>();
+                    _disabledTextRenames[rename.TriviaPosition] = renames;
+                }
+                renames.Add(rename);
+            }
         }
+    }
+
+    /// <summary>
+    /// 条件编译区是不透明文本，普通节点重写无法触及；按分析阶段记录的
+    /// trivia 位置与区内偏移做精确标识符替换（仅用于与宿主成员冲突而必须改名的情形）。
+    /// </summary>
+    public override SyntaxToken VisitToken(SyntaxToken token)
+    {
+        var visited = base.VisitToken(token);
+        if (_disabledTextRenames.Count == 0)
+            return visited;
+
+        var leading = RewriteDisabledText(visited.LeadingTrivia);
+        var trailing = RewriteDisabledText(visited.TrailingTrivia);
+        if (leading is { } newLeading)
+            visited = visited.WithLeadingTrivia(newLeading);
+        if (trailing is { } newTrailing)
+            visited = visited.WithTrailingTrivia(newTrailing);
+        return visited;
+    }
+
+    private SyntaxTriviaList? RewriteDisabledText(SyntaxTriviaList triviaList)
+    {
+        SyntaxTriviaList? result = null;
+        foreach (var trivia in triviaList)
+        {
+            if (!trivia.IsKind(SyntaxKind.DisabledTextTrivia)
+                || !_disabledTextRenames.TryGetValue(trivia.SpanStart, out var renames))
+            {
+                continue;
+            }
+
+            var text = trivia.ToString();
+            foreach (var rename in renames.OrderByDescending(static r => r.Offset))
+            {
+                text = string.Concat(
+                    text.AsSpan(0, rename.Offset),
+                    rename.NewName,
+                    text.AsSpan(rename.Offset + rename.Length));
+            }
+
+            Changed = true;
+            result ??= triviaList;
+            result = result.Value.Replace(trivia, SyntaxFactory.DisabledText(text));
+        }
+
+        return result;
     }
 
     public void PrepareMethodDeclarations()
