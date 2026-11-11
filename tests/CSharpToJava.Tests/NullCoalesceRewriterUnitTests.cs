@@ -1258,6 +1258,26 @@ public class NullCoalesceRewriterUnitTests
         Assert.Empty(OutputCompileErrors(result.OutputCode));
     }
 
+    [Fact]
+    public void Coalesce_UnresolvedLeftType_Is_Not_Treated_As_Nullable_Value_Type()
+    {
+        // 全量 pass 的合并编译里共享 shim 类型可能未解析；Roslyn 把未解析的
+        // 'E?' 建模为 Nullable<E>，旧判定会写出 .Value（CS1061）。
+        var src = """
+        class DefaultComparer : IUnknownComparer<string> { }
+        class C {
+            private readonly IUnknownComparer<string> comparer;
+            public C(IUnknownComparer<string>? comparer) {
+                this.comparer = comparer ?? new DefaultComparer();
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain(".Value", result.OutputCode);
+        Assert.Contains("___t1 != null ? ___t1 : new DefaultComparer()", result.OutputCode);
+    }
+
     private static int CountOccurrences(string text, string value)
     {
         var count = 0;

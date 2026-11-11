@@ -128,6 +128,7 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
         // residual gate and abort the whole conversion.
         var typeSymbol = _semanticModel?.GetTypeInfo(node.Left).Type;
         var leftIsNullableValueType = typeSymbol is INamedTypeSymbol named
+            && !ContainsErrorType(named)
             && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
 
         // A statement slot is required to hoist the temp declaration (a
@@ -445,6 +446,23 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
         _tempCounter++;
         return $"___t{_tempCounter}";
     }
+
+    /// <summary>
+    /// True when the type — or any type argument / element type — failed to
+    /// resolve. Roslyn models an unresolved 'E?' as Nullable&lt;E&gt; even when E
+    /// may be a reference type, so the Nullable&lt;T&gt; probe must never fire on
+    /// an error type: doing so emitted '.Value' on interface-typed operands
+    /// (CS1061) whenever the pass' merged compilation could not resolve the
+    /// declaring assembly.
+    /// </summary>
+    private static bool ContainsErrorType(ITypeSymbol type) => type switch
+    {
+        IErrorTypeSymbol => true,
+        INamedTypeSymbol named => named.TypeArguments.Any(ContainsErrorType),
+        IArrayTypeSymbol array => ContainsErrorType(array.ElementType),
+        IPointerTypeSymbol pointer => ContainsErrorType(pointer.PointedAtType),
+        _ => false,
+    };
 
     /// <summary>
     /// True when evaluating the assignment target expression itself can run
