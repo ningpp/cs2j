@@ -189,10 +189,9 @@ internal static class StripConditionalCommand
                 }
             }
 
-            // Per-file decisions (merged or unowned symbol sets) are reported
-            // once per file; single-owner project warnings stay deduplicated by
-            // project.
-            var warningScope = owners.Count == 1 ? cacheKey : relativePath;
+            // Shared sources preserved because their owners disagree are reported
+            // once per file; project-level warnings stay deduplicated by project.
+            var warningScope = symbols.PreserveDirectives ? relativePath : cacheKey;
             foreach (var warning in symbols.Warnings)
             {
                 if (emittedWarningKeys.Add(warningScope + "\0" + warning))
@@ -220,6 +219,24 @@ internal static class StripConditionalCommand
             var destinationPath = Path.Combine(destinationRoot, relativePath);
             var source = await SourceTextIo.ReadAsync(file);
             var symbols = await SymbolsForFileAsync(file, relativePath, source.Code);
+            if (symbols.PreserveDirectives)
+            {
+                // Shared source with conflicting (or unknown) owning projects:
+                // leave the directives for the real compiler.
+                if (!inPlace)
+                {
+                    CopyFileVerbatim(file, destinationPath);
+                }
+
+                clean++;
+                if (options.Verbose)
+                {
+                    await standardOutput.WriteLineAsync($"preserved (copy): {relativePath}");
+                }
+
+                continue;
+            }
+
             var result = new ConditionalDirectiveStripper().Strip(
                 source.Code,
                 new ConditionalDirectiveStripOptions

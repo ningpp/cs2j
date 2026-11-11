@@ -180,7 +180,7 @@ public sealed class StripConditionalCliTests : IDisposable
     }
 
     [Fact]
-    public async Task DirectoryMode_SharedFileWithConflictingOwners_IsStrippedWithOneWarningPerFile()
+    public async Task DirectoryMode_SharedFileWithConflictingOwners_IsPreservedWithOneWarningPerFile()
     {
         var source = Path.Combine(_root, "shared");
         var destination = Path.Combine(_root, "shared-output");
@@ -210,11 +210,11 @@ public sealed class StripConditionalCliTests : IDisposable
         }, TextWriter.Null, stderr);
 
         Assert.Equal(0, exitCode);
-        Assert.Equal("class A {}\n", await File.ReadAllTextAsync(Path.Combine(destination, "Common", "One.cs")));
-        Assert.Equal("class A {}\n", await File.ReadAllTextAsync(Path.Combine(destination, "Common", "Two.cs")));
+        Assert.Equal(code, await File.ReadAllTextAsync(Path.Combine(destination, "Common", "One.cs")));
+        Assert.Equal(code, await File.ReadAllTextAsync(Path.Combine(destination, "Common", "Two.cs")));
         var warnings = stderr.ToString()
             .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
-            .Where(line => line.Contains("merged preprocessor symbols", StringComparison.Ordinal))
+            .Where(line => line.Contains("preserved conditional directives", StringComparison.Ordinal))
             .ToList();
         Assert.Equal(2, warnings.Count);
         Assert.Contains(warnings, line => line.Contains("One.cs", StringComparison.Ordinal));
