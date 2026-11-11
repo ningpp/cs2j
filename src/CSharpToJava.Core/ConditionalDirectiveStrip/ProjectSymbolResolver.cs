@@ -6,8 +6,7 @@ namespace CSharpToJava.Core.ConditionalDirectiveStrip;
 
 public sealed record ProjectSymbols(
     IReadOnlyList<string> Symbols,
-    IReadOnlyList<string> Warnings,
-    bool PreserveDirectives = false);
+    IReadOnlyList<string> Warnings);
 
 public static class ProjectSymbolResolver
 {
@@ -51,6 +50,41 @@ public static class ProjectSymbolResolver
             FindNearestProjectForFile(filePath), configuration, tfm, extraDefines, resolvedTfm);
     }
 
+    /// <summary>
+    /// Per-owner symbol sets for a shared file compiled by several projects.
+    /// Each set is what MSBuild would actually define for that owner (its
+    /// DefineConstants chain plus synthesized TFM symbols), without the merged
+    /// "union" harmonization applied by <see cref="ResolveForFile"/>. Returns
+    /// empty when the file has fewer than two owners. Callers use it to detect
+    /// shared files whose correct stripped form differs per owner — a public /
+    /// internal visibility split, or a branch one owner cannot compile — and
+    /// materialize a private copy for the owners that cannot use the shared form.
+    /// </summary>
+    public static IReadOnlyList<(string ProjectPath, IReadOnlyList<string> Symbols)> ResolveOwnerSymbolSets(
+        string filePath,
+        string sourceRoot,
+        string configuration = "Release",
+        Func<string, string?>? projectTfmResolver = null)
+    {
+        var index = ProjectCompileIndex.ForRoot(sourceRoot, configuration);
+        var owners = index.FindOwningProjects(filePath);
+        if (owners.Count < 2)
+        {
+            return Array.Empty<(string, IReadOnlyList<string>)>();
+        }
+
+        var variants = new List<(string, IReadOnlyList<string>)>(owners.Count);
+        foreach (var owner in owners)
+        {
+            var symbols = ResolveForProject(
+                owner, configuration, tfm: null, extraDefines: null,
+                resolvedTfm: projectTfmResolver?.Invoke(owner));
+            variants.Add((owner, symbols.Symbols));
+        }
+
+        return variants;
+    }
+
     private static ProjectSymbols ResolveForTreeOwners(
         string filePath,
         string sourceRoot,
@@ -73,10 +107,12 @@ public static class ProjectSymbolResolver
         var owners = index.FindOwningProjects(filePath);
         if (owners.Count == 0)
         {
-            // Not compiled by any project: stripping would guess symbols and can
-            // only corrupt the file, so keep the directives untouched and let the
-            // real compiler evaluate them.
-            return new ProjectSymbols(Array.Empty<string>(), Array.Empty<string>(), PreserveDirectives: true);
+            // Not compiled by any project: no symbol configuration is
+            // authoritative. Strip with an empty set (file-local #define/#undef
+            // still apply) so no directives survive, and report the guess.
+            return new ProjectSymbols(
+                Array.Empty<string>(),
+                ["no owning project; stripped with empty preprocessor symbol set"]);
         }
 
         var nearest = FindNearestProjectForFile(filePath);
@@ -102,16 +138,101 @@ public static class ProjectSymbolResolver
             return results[0];
         }
 
-        // Conflicting symbol sets: no single stripped form works for every
-        // owner, so preserve the directives (the C# compiler then evaluates
-        // them per project) and report one warning for the file.
-        var warning =
-            $"preserved conditional directives: file is compiled by {owners.Count} projects " +
-            $"with different preprocessor symbols ({string.Join(", ", owners.Select(Path.GetFileName))})";
-        return new ProjectSymbols(
-            Array.Empty<string>(),
-            [warning],
-            PreserveDirectives: true);
+        // Conflicting symbol sets: a single stripped form cannot honor every
+        // owner, so merge the symbol sets and keep every branch enabled by any
+        // owner. Directives are always removed; the warning records the merge.
+        // A symbol this file only ever tests negated (for example BUILDING_PKCS
+        // in `#if !BUILDING_PKCS`) can only delete code when defined, never
+        // enable it: merging it in would drop branches another owner needs, so
+        // it is left undefined in the merged set.
+        var (negatedOnly, _) = sourceCode != null
+            ? AnalyzeDirectiveSymbols(sourceCode)
+            : (new HashSet<string>(StringComparer.Ordinal), new HashSet<string>(StringComparer.Ordinal));
+        var merged = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var negatedDropped = new List<string>();
+        foreach (var result in results)
+        {
+            foreach (var symbol in result.Symbols)
+            {
+                if (negatedOnly.Contains(symbol))
+                {
+                    if (!negatedDropped.Contains(symbol))
+                    {
+                        negatedDropped.Add(symbol);
+                    }
+
+                    continue;
+                }
+
+                if (seen.Add(symbol))
+                {
+                    merged.Add(symbol);
+                }
+            }
+        }
+
+        var warnings = results.SelectMany(result => result.Warnings).Distinct().ToList();
+        var mergeMessage =
+            $"merged preprocessor symbols of {owners.Count} projects " +
+            $"({string.Join(", ", owners.Select(Path.GetFileName))}); branches enabled by any owner are kept";
+        if (negatedDropped.Count > 0)
+        {
+            mergeMessage += $"; negated-only symbols left undefined: {string.Join(", ", negatedDropped)}";
+        }
+
+        warnings.Add(mergeMessage);
+        return new ProjectSymbols(merged, warnings);
+    }
+
+    /// <summary>
+    /// Analyzes the symbols tested by the file's #if/#elif conditions.
+    /// <c>NegatedOnly</c> are symbols that appear solely negated: defining them
+    /// can only remove code, so a merged set leaves them undefined to keep the
+    /// branches some owner relies on. <c>Used</c> are all symbols the file tests,
+    /// used to decide whether a project-identity symbol actually influences the
+    /// file (an unused identity symbol is harmless and kept).
+    /// </summary>
+    private static (HashSet<string> NegatedOnly, HashSet<string> Used) AnalyzeDirectiveSymbols(string sourceCode)
+    {
+        var hasPositive = new HashSet<string>(StringComparer.Ordinal);
+        var hasAny = new HashSet<string>(StringComparer.Ordinal);
+        foreach (Match directive in Regex.Matches(
+                     sourceCode, @"^\s*#\s*(?:if|elif)\b(.*)$", RegexOptions.Multiline))
+        {
+            var expression = Regex.Replace(directive.Groups[1].Value, "//.*$", string.Empty);
+            foreach (Match identifier in Regex.Matches(expression, @"[A-Za-z_][A-Za-z0-9_]*"))
+            {
+                var name = identifier.Value;
+                if (name is "true" or "false")
+                {
+                    continue;
+                }
+
+                hasAny.Add(name);
+                var index = identifier.Index - 1;
+                while (index >= 0 && char.IsWhiteSpace(expression[index]))
+                {
+                    index--;
+                }
+
+                var negations = 0;
+                while (index >= 0 && expression[index] == '!')
+                {
+                    negations++;
+                    index--;
+                }
+
+                if (negations % 2 == 0)
+                {
+                    hasPositive.Add(name);
+                }
+            }
+        }
+
+        var negatedOnly = new HashSet<string>(hasAny, StringComparer.Ordinal);
+        negatedOnly.ExceptWith(hasPositive);
+        return (negatedOnly, hasAny);
     }
 
     private static bool SymbolSetsEqual(ProjectSymbols left, ProjectSymbols right)
@@ -156,35 +277,17 @@ public static class ProjectSymbolResolver
         string? resolvedTfm)
     {
         var warnings = new List<string>();
-        var symbols = new List<string>();
+        var symbols = ReadDefineConstants(project, configuration, warnings);
         var tfms = new List<string>();
         var externalTfm = FirstNonEmpty(tfm) ?? FirstNonEmpty(resolvedTfm);
 
-        if (project != null)
+        // An explicitly supplied TFM (CLI --tfm) or one already resolved by
+        // MSBuild evaluation is authoritative: never fall back to the XML
+        // read, which would emit "skipped unresolvable TFM value" for
+        // repository macros such as $(NetCoreAppCurrent).
+        if (project != null && externalTfm == null)
         {
-            foreach (var props in GetAncestorDirectoryBuildProps(project).Reverse())
-            {
-                ApplyDefineConstants(props, configuration, symbols, warnings);
-            }
-
-            ApplyDefineConstants(project, configuration, symbols, warnings);
-            // An explicitly supplied TFM (CLI --tfm) or one already resolved by
-            // MSBuild evaluation is authoritative: never fall back to the XML
-            // read, which would emit "skipped unresolvable TFM value" for
-            // repository macros such as $(NetCoreAppCurrent).
-            if (externalTfm == null)
-            {
-                tfms = ReadTfms(project, configuration, warnings, out _);
-            }
-        }
-
-        // SDK-style projects define DEBUG for the Debug configuration through
-        // MSBuild defaults, not the csproj XML; synthesize it so `#if DEBUG`
-        // members (RegexCode.ToString, RegexOptions.Debug, …) survive the strip.
-        if (string.Equals(configuration, "Debug", StringComparison.OrdinalIgnoreCase)
-            && !symbols.Contains("DEBUG"))
-        {
-            symbols.Add("DEBUG");
+            tfms = ReadTfms(project, configuration, warnings, out _);
         }
 
         var chosenTfm = PickTfm(tfms, externalTfm);
@@ -201,6 +304,38 @@ public static class ProjectSymbolResolver
         }
 
         return new ProjectSymbols(Dedup(symbols), warnings);
+    }
+
+    /// <summary>
+    /// The DefineConstants-derived symbols of a project (ancestor
+    /// Directory.Build.props chain + csproj), plus the DEBUG that SDK projects
+    /// get implicitly in the Debug configuration. TFM synthesis and extra
+    /// defines are excluded: they are uniform across the tree, so only these
+    /// symbols differ between owners of a shared file.
+    /// </summary>
+    internal static List<string> ReadDefineConstants(
+        string? project,
+        string configuration,
+        List<string>? warnings)
+    {
+        var symbols = new List<string>();
+        if (project != null)
+        {
+            foreach (var props in GetAncestorDirectoryBuildProps(project).Reverse())
+            {
+                ApplyDefineConstants(props, configuration, symbols, warnings);
+            }
+
+            ApplyDefineConstants(project, configuration, symbols, warnings);
+        }
+
+        if (string.Equals(configuration, "Debug", StringComparison.OrdinalIgnoreCase)
+            && !symbols.Contains("DEBUG"))
+        {
+            symbols.Add("DEBUG");
+        }
+
+        return symbols;
     }
 
     /// <summary>
@@ -489,7 +624,7 @@ public static class ProjectSymbolResolver
         string file,
         string configuration,
         List<string> symbols,
-        List<string> warnings)
+        List<string>? warnings)
     {
         var document = LoadDocument(file, warnings);
         if (document?.Root == null)
@@ -535,7 +670,7 @@ public static class ProjectSymbolResolver
 
                     if (part.Contains("$(", StringComparison.Ordinal))
                     {
-                        warnings.Add($"skipped unresolvable macro '{part}' in {file}");
+                        warnings?.Add($"skipped unresolvable macro '{part}' in {file}");
                         continue;
                     }
 
@@ -1033,11 +1168,16 @@ internal sealed class IndexedCompileProject
         var combined = Path.IsPathRooted(expanded)
             ? expanded
             : Path.Combine(projectDirectory, expanded);
-        return Regex.IsMatch(
-            ProjectSymbolResolver.NormalizePath(filePath),
-            "^" + GlobToRegex(ProjectSymbolResolver.NormalizePath(combined)) + "$",
-            RegexOptions.IgnoreCase);
+        var regex = GlobRegexCache.GetOrAdd(
+            ProjectSymbolResolver.NormalizePath(combined),
+            static normalized => new Regex(
+                "^" + GlobToRegex(normalized) + "$",
+                RegexOptions.IgnoreCase | RegexOptions.Compiled));
+        return regex.IsMatch(ProjectSymbolResolver.NormalizePath(filePath));
     }
+
+    private static readonly ConcurrentDictionary<string, Regex> GlobRegexCache =
+        new(StringComparer.Ordinal);
 
     private static string GlobToRegex(string pattern)
         => Regex.Escape(pattern)

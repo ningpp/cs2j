@@ -1,4 +1,3 @@
-using CSharpToJava.Core.ConditionalDirectiveStrip;
 using CSharpToJava.Core.LexicalNormalize;
 using CSharpToJava.Core.Preprocessing;
 
@@ -15,7 +14,6 @@ internal sealed class LexicalNormalizePassAdapter : ProjectPassAdapter
     private readonly bool _verbose;
     private readonly bool _filterUnsupportedProjects;
     private readonly IReadOnlyCollection<string>? _compatNamespacePrefixes;
-    private readonly string? _sourceRoot;
 
     private readonly List<string> _diagnostics = new();
     private readonly List<(GlobalUsingRecord Record, string RelativePath, int Line)> _globalUsings = new();
@@ -39,14 +37,12 @@ internal sealed class LexicalNormalizePassAdapter : ProjectPassAdapter
         LexicalNormalizeOptions options,
         bool verbose,
         bool filterUnsupportedProjects,
-        IReadOnlyCollection<string>? compatNamespacePrefixes,
-        string? sourceRoot = null)
+        IReadOnlyCollection<string>? compatNamespacePrefixes)
     {
         _options = options;
         _verbose = verbose;
         _filterUnsupportedProjects = filterUnsupportedProjects;
         _compatNamespacePrefixes = compatNamespacePrefixes;
-        _sourceRoot = sourceRoot;
     }
 
     public override PassDescriptor Descriptor =>
@@ -84,43 +80,9 @@ internal sealed class LexicalNormalizePassAdapter : ProjectPassAdapter
     {
         var result = new LexicalNormalizePreprocessor().Normalize(context.SourceCode, _options);
 
-        // LN-3 normally means the chain ran the 'conditional' pass too late. Files
-        // the conditional pass deliberately preserved (shared sources compiled by
-        // several projects with conflicting symbol sets) legitimately keep their
-        // directives, so collapse those errors into a single warning instead of
-        // failing the pass. Only pay for the resolver lookup when LN-3 fired.
-        ProjectSymbols? resolvedSymbols = null;
-        if (_sourceRoot != null &&
-            result.Diagnostics.Any(diagnostic => diagnostic.Code == LexicalNormalizeCodes.ConditionalFirst))
-        {
-            resolvedSymbols = ProjectSymbolResolver.ResolveForFile(
-                context.SourceFilePath,
-                configuration: "Release",
-                sourceRoot: _sourceRoot,
-                sourceCode: context.SourceCode);
-        }
-
-        var preservedDirectives = resolvedSymbols?.PreserveDirectives == true;
-
         var diagnosticLines = new List<string>(result.Diagnostics.Count);
-        var collapsedResidual = false;
         foreach (var diagnostic in result.Diagnostics)
         {
-            if (preservedDirectives && diagnostic.Code == LexicalNormalizeCodes.ConditionalFirst)
-            {
-                if (collapsedResidual)
-                {
-                    continue;
-                }
-
-                collapsedResidual = true;
-                diagnosticLines.Add(
-                    $"[Warning] {context.RelativePath}:0: {LexicalNormalizeCodes.ConditionalFirst}: " +
-                    $"[LN-3] residual conditional directives preserved: " +
-                    $"{resolvedSymbols!.Warnings.FirstOrDefault()}");
-                continue;
-            }
-
             var severity = diagnostic.Severity == LexicalNormalizeSeverity.Error ? "Error"
                 : diagnostic.Severity == LexicalNormalizeSeverity.Warning ? "Warning"
                 : "Info";

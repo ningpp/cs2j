@@ -307,7 +307,7 @@ public sealed class ProjectSymbolResolverTests : IDisposable
     }
 
     [Fact]
-    public void SharedFile_CompiledWithDifferentSymbols_PreservesDirectives()
+    public void SharedFile_CompiledWithDifferentSymbols_MergesSymbolSets()
     {
         const string code = """
             #if PROJECT_A
@@ -339,13 +339,20 @@ public sealed class ProjectSymbolResolverTests : IDisposable
             </Project>
             """);
 
-        var result = ProjectSymbolResolver.ResolveForFile(file, sourceRoot: _root);
+        var result = ProjectSymbolResolver.ResolveForFile(file, sourceRoot: _root, sourceCode: code);
 
-        Assert.True(result.PreserveDirectives);
-        Assert.Empty(result.Symbols);
+        Assert.Contains("PROJECT_A", result.Symbols);
+        Assert.Contains("PROJECT_B", result.Symbols);
         var warning = Assert.Single(result.Warnings);
-        Assert.Contains("preserved conditional directives", warning, StringComparison.Ordinal);
+        Assert.Contains("merged preprocessor symbols", warning, StringComparison.Ordinal);
         Assert.Contains("2 projects", warning, StringComparison.Ordinal);
+
+        var stripped = new ConditionalDirectiveStripper().Strip(
+            code,
+            new ConditionalDirectiveStripOptions { Symbols = result.Symbols });
+        Assert.Contains("public", stripped.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("internal", stripped.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("#if", stripped.OutputCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -373,7 +380,6 @@ public sealed class ProjectSymbolResolverTests : IDisposable
 
         var symbols = ProjectSymbolResolver.ResolveForFile(file, sourceRoot: _root);
 
-        Assert.False(symbols.PreserveDirectives);
         Assert.Contains("NET", symbols.Symbols);
         Assert.Contains("SHARED", symbols.Symbols);
 
@@ -384,7 +390,7 @@ public sealed class ProjectSymbolResolverTests : IDisposable
     }
 
     [Fact]
-    public void FileWithoutOwningProject_PreservesDirectives()
+    public void FileWithoutOwningProject_StripsWithEmptySymbols()
     {
         var file = WriteFile("Loose/Code.cs", "#if ANY\nclass C {}\n#endif\n");
         WriteFile("App/App.csproj", """
@@ -398,8 +404,9 @@ public sealed class ProjectSymbolResolverTests : IDisposable
 
         var result = ProjectSymbolResolver.ResolveForFile(file, sourceRoot: _root);
 
-        Assert.True(result.PreserveDirectives);
         Assert.Empty(result.Symbols);
+        var warning = Assert.Single(result.Warnings);
+        Assert.Contains("no owning project", warning, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -421,7 +428,6 @@ public sealed class ProjectSymbolResolverTests : IDisposable
 
         var result = ProjectSymbolResolver.ResolveForFile(file, sourceRoot: _root);
 
-        Assert.False(result.PreserveDirectives);
         Assert.Contains("LINKED", result.Symbols);
 
         var stripped = new ConditionalDirectiveStripper().Strip(
@@ -456,9 +462,161 @@ public sealed class ProjectSymbolResolverTests : IDisposable
         var result = ProjectSymbolResolver.ResolveForFile(
             file, sourceRoot: _root, sourceCode: code);
 
-        Assert.False(result.PreserveDirectives);
         Assert.Contains("NET", result.Symbols);
         Assert.Empty(result.Warnings);
+    }
+
+    [Fact]
+    public void SharedFile_NegatedOnlySymbol_IsLeftUndefinedSoBranchSurvives()
+    {
+        const string code = """
+            class Helpers
+            {
+            #if !BUILDING_PKCS
+                internal static void Validate() {}
+            #endif
+            }
+            """;
+        var file = WriteFile("Common/Helpers.cs", code);
+        WriteFile("Base/Base.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                <DefineConstants>BASE</DefineConstants>
+              </PropertyGroup>
+              <ItemGroup><Compile Include="../Common/Helpers.cs" /></ItemGroup>
+            </Project>
+            """);
+        WriteFile("Pkcs/Pkcs.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                <DefineConstants>$(DefineConstants);BUILDING_PKCS</DefineConstants>
+              </PropertyGroup>
+              <ItemGroup><Compile Include="../Common/Helpers.cs" /></ItemGroup>
+            </Project>
+            """);
+
+        var result = ProjectSymbolResolver.ResolveForFile(file, sourceRoot: _root, sourceCode: code);
+
+        Assert.Contains("BASE", result.Symbols);
+        Assert.DoesNotContain("BUILDING_PKCS", result.Symbols);
+        var warning = Assert.Single(result.Warnings);
+        Assert.Contains("negated-only symbols left undefined: BUILDING_PKCS", warning, StringComparison.Ordinal);
+
+        var stripped = new ConditionalDirectiveStripper().Strip(
+            code,
+            new ConditionalDirectiveStripOptions { Symbols = result.Symbols });
+        Assert.Contains("Validate", stripped.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("#if", stripped.OutputCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedFile_SymbolUsedInBothPolarities_IsNotNegationDropped()
+    {
+        const string code = """
+            #if FOO
+            class A {}
+            #endif
+            #if !FOO
+            class B {}
+            #endif
+            #if FLAG_A
+            class C {}
+            #endif
+            """;
+        var file = WriteFile("Common/Shared.cs", code);
+        WriteFile("LibA/LibA.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                <DefineConstants>FOO;FLAG_A</DefineConstants>
+              </PropertyGroup>
+              <ItemGroup><Compile Include="../Common/Shared.cs" /></ItemGroup>
+            </Project>
+            """);
+        WriteFile("LibB/LibB.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                <DefineConstants>FOO;FLAG_B</DefineConstants>
+              </PropertyGroup>
+              <ItemGroup><Compile Include="../Common/Shared.cs" /></ItemGroup>
+            </Project>
+            """);
+
+        var result = ProjectSymbolResolver.ResolveForFile(file, sourceRoot: _root, sourceCode: code);
+
+        // FOO is common and appears both positively and negated, so it is not a
+        // negated-only symbol and the merge keeps it.
+        Assert.Contains("FOO", result.Symbols);
+    }
+
+    [Fact]
+    public void SingleOwnerFile_UsesOnlyItsProjectSymbols_SharedFileStillMerges()
+    {
+        var shared = WriteFile("Common/Shared.cs", """
+            #if DEBUG
+            interface IMember {}
+            #endif
+            #if SYSTEM_PRIVATE_CORELIB
+            class CoreOnly {}
+            #endif
+            """);
+        var impl = WriteFile("Lib/src/Impl.cs", "class Impl {}");
+        WriteFile("Lib/Lib.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                <DefineConstants>LIB_ONLY</DefineConstants>
+              </PropertyGroup>
+              <ItemGroup>
+                <Compile Include="src/**/*.cs" />
+                <Compile Include="../Common/Shared.cs" />
+              </ItemGroup>
+            </Project>
+            """);
+        foreach (var name in new[] { "TestsA", "TestsB" })
+        {
+            WriteFile($"{name}/{name}.csproj", $"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                    <DefineConstants>$(DefineConstants);DEBUG</DefineConstants>
+                  </PropertyGroup>
+                  <ItemGroup><Compile Include="../Common/Shared.cs" /></ItemGroup>
+                </Project>
+                """);
+        }
+
+        WriteFile("CoreLib/CoreLib.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                <DefineConstants>$(DefineConstants);SYSTEM_PRIVATE_CORELIB</DefineConstants>
+              </PropertyGroup>
+              <ItemGroup><Compile Include="../Common/Shared.cs" /></ItemGroup>
+            </Project>
+            """);
+
+        // An exclusive file is stripped with only its own project's symbols.
+        // Per-owner consistency with the shared declaration is handled by
+        // materializing a private copy of the shared file for this owner, not by
+        // leaking the merged symbols into the exclusive file.
+        var implSymbols = ProjectSymbolResolver.ResolveForFile(impl, sourceRoot: _root);
+        Assert.Contains("LIB_ONLY", implSymbols.Symbols);
+        Assert.DoesNotContain("DEBUG", implSymbols.Symbols);
+        Assert.DoesNotContain("SYSTEM_PRIVATE_CORELIB", implSymbols.Symbols);
+
+        var sharedSymbols = ProjectSymbolResolver.ResolveForFile(shared, sourceRoot: _root);
+        Assert.Contains("DEBUG", sharedSymbols.Symbols);
     }
 
     private static IReadOnlyList<string> Synthesize(string tfm)
