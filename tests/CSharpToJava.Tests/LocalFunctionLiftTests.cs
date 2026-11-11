@@ -424,6 +424,101 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
+    // CS1628: a write capture becomes a `ref` parameter, and C# forbids using
+    // ref parameters inside lambdas/anonymous methods. When lifting the body
+    // would place such a use inside a lambda, the function is retained
+    // (function-level, intentional) instead of emitting illegal code.
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void WriteCapture_MethodGroupReferenceInBody_SkipsLiftAndCompiles()
+    {
+        // Mirrors RegexCompiler.EmitNode: the body contains a method group
+        // reference to the local function itself, which the rewriter would
+        // turn into `() => inc(ref _cs2j_cap_x)` inside the lifted body.
+        var src = """
+        class C {
+            void M() {
+                int x = 0;
+                Inc();
+                Other();
+                void Inc() {
+                    System.Action a = Inc;
+                    x++;
+                    a();
+                }
+                void Other() { }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Reason == LocalFunctionSkipReason.RefCaptureInNestedLambda
+            && d.IntentionallyRetained);
+        // The other local function is still lifted; only the offending one is kept.
+        Assert.Contains("private void other()", result.OutputCode);
+        Assert.Contains("void Inc()", result.OutputCode);
+        Assert.DoesNotContain("_cs2j_cap_", result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void WriteCapture_ReferencedInsideNestedLambda_SkipsLiftAndCompiles()
+    {
+        var src = """
+        class C {
+            void M() {
+                int x = 0;
+                Inc();
+                Other();
+                void Inc() {
+                    System.Action a = () => x++;
+                    a();
+                }
+                void Other() { }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Reason == LocalFunctionSkipReason.RefCaptureInNestedLambda);
+        Assert.Contains("private void other()", result.OutputCode);
+        Assert.DoesNotContain("_cs2j_cap_", result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void ReadOnlyCapture_ReferencedInsideNestedLambda_StillLifts()
+    {
+        // Read-only captures are passed by value, so the lambda may use them.
+        var src = """
+        class C {
+            int M() {
+                int x = 1;
+                return Inc();
+                int Inc() {
+                    System.Func<int> f = () => x + 1;
+                    return f();
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains("private int inc(int _cs2j_cap_x)", result.OutputCode);
+        Assert.Contains("() => _cs2j_cap_x + 1", result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 

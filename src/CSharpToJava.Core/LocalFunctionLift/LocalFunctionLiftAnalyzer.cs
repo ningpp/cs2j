@@ -49,11 +49,14 @@ internal sealed class LocalFunctionLiftAnalyzer
 
         PropagateCaptures(plans);
 
+        var bySymbol = plans.Where(p => p.Symbol != null)
+            .ToDictionary(p => p.Symbol!, p => p, SymbolEqualityComparer.Default);
+
         foreach (var plan in plans)
         {
             if (plan.Skipped)
                 continue;
-            CheckPostPropagationGates(plan);
+            CheckPostPropagationGates(plan, bySymbol);
         }
 
         // Gate #12: References skipped local functions.
@@ -273,10 +276,13 @@ internal sealed class LocalFunctionLiftAnalyzer
         return plan;
     }
 
-    private void Skip(LiftPlan plan, LocalFunctionSkipReason reason, string message)
+    private void Skip(
+        LiftPlan plan, LocalFunctionSkipReason reason, string message,
+        bool intentionallyRetained = false)
     {
         plan.Skipped = true;
         plan.SkipReason = reason;
+        plan.IntentionallyRetained = intentionallyRetained;
         _stats.LocalFunctionsSkipped++;
         if (!_stats.SkippedByReason.TryAdd(reason, 1))
             _stats.SkippedByReason[reason]++;
@@ -286,7 +292,7 @@ internal sealed class LocalFunctionLiftAnalyzer
         _diagnostics.Add(new LocalFunctionLiftDiagnostic(
             LocalFunctionLiftSeverity.Warning,
             $"Skipped local function '{plan.Node.Identifier.Text}': {message}",
-            null, line, reason));
+            null, line, reason, intentionallyRetained));
     }
 
     private static TypeDeclarationSyntax? FindHostType(LocalFunctionStatementSyntax localFn)
@@ -561,7 +567,8 @@ internal sealed class LocalFunctionLiftAnalyzer
         return LocalFunctionLiftNaming.GetCaptureParameterName(originalName, usedNames);
     }
 
-    private void CheckPostPropagationGates(LiftPlan plan)
+    private void CheckPostPropagationGates(
+        LiftPlan plan, IReadOnlyDictionary<ISymbol, LiftPlan> bySymbol)
     {
         foreach (var cap in plan.Captures)
         {
@@ -576,6 +583,97 @@ internal sealed class LocalFunctionLiftAnalyzer
                 return;
             }
         }
+
+        // 写入型捕获被提升为 ref 形参；C# 禁止在 lambda / 匿名方法 / 局部函数里
+        // 使用 ref 参数（CS1628）。提升后的方法体会保留体内的 lambda，而重写器
+        // 在重写 lambda 内的局部函数调用/方法组引用时会插入 `ref <捕获>` 实参，
+        // 因此只要 lambda 内会用到某个写入型捕获，这个函数就不能按 ref 提升。
+        // 设计上不做 holder 包装，函数级保守跳过并保留原局部函数。
+        var offending = FindWrittenCaptureUsedInNestedLambda(plan, bySymbol);
+        if (offending != null)
+        {
+            var lineSpan = plan.Node.GetLocation().GetLineSpan();
+            var line = lineSpan.IsValid ? lineSpan.StartLinePosition.Line + 1 : 0;
+            Skip(plan, LocalFunctionSkipReason.RefCaptureInNestedLambda,
+                $"write capture '{offending.OriginalName}' would be referenced from a lambda in the " +
+                $"hoisted body (local function starts at line {line}); a ref parameter cannot be " +
+                "used there (CS1628)",
+                intentionallyRetained: true);
+        }
+    }
+
+    /// <summary>
+    /// 找出提升后会落进 lambda、且必须用 ref 形参传递的捕获：
+    /// - 方法组引用（任何位置）：重写器会合成 `(args) =&gt; callee(ref cap, args)`，
+    ///   这个新 lambda 本身使用了 ref 形参 —— 与引用点是否在已有 lambda 内无关；
+    /// - 直接调用，且调用点位于已有 lambda / 匿名方法内：重写器插入的 `ref cap`
+    ///   实参落在 lambda 内；
+    /// - lambda 内直接引用写入型捕获（读或写）。
+    /// 与捕获收集一致，不下降进更深层的局部函数声明（它们各自有独立的 LiftPlan）。
+    /// </summary>
+    private CapturePlan? FindWrittenCaptureUsedInNestedLambda(
+        LiftPlan plan, IReadOnlyDictionary<ISymbol, LiftPlan> bySymbol)
+    {
+        var body = (SyntaxNode?)plan.Node.Body ?? plan.Node.ExpressionBody;
+        if (body == null)
+            return null;
+
+        var writtenCaptures = plan.Captures.Where(static c => c.IsWritten).ToList();
+        if (writtenCaptures.Count == 0)
+            return null;
+
+        foreach (var identifier in body
+            .DescendantNodes(d => d is not LocalFunctionStatementSyntax)
+            .OfType<IdentifierNameSyntax>())
+        {
+            if (identifier.Parent is NameColonSyntax)
+                continue;
+            // nameof(f) 只改名，不追加捕获实参。
+            if (CaptureClassification.IsInsideNameOf(identifier))
+                continue;
+
+            var insideLambda = IsInsideAnonymousFunction(identifier, body);
+            var symbol = _model.GetSymbolInfo(identifier).Symbol;
+
+            if (symbol is IMethodSymbol { MethodKind: MethodKind.LocalFunction } callee
+                && bySymbol.TryGetValue(callee, out var calleePlan))
+            {
+                var calleeWritten = calleePlan.Captures.FirstOrDefault(static c => c.IsWritten);
+                if (calleeWritten == null)
+                    continue;
+
+                var isInvocationTarget = identifier.Parent is InvocationExpressionSyntax invocation
+                    && invocation.Expression == identifier;
+                if (isInvocationTarget && !insideLambda)
+                    continue;
+
+                // 只报告本 plan 确实以 ref 形参携带的捕获（捕获传播已合并 callee 的捕获）。
+                var propagated = writtenCaptures.FirstOrDefault(c =>
+                    SymbolEqualityComparer.Default.Equals(c.Symbol, calleeWritten.Symbol));
+                if (propagated != null)
+                    return propagated;
+                continue;
+            }
+
+            if (!insideLambda)
+                continue;
+
+            var writtenDirectCapture = writtenCaptures.FirstOrDefault(c =>
+                SymbolEqualityComparer.Default.Equals(c.Symbol, symbol));
+            if (writtenDirectCapture != null)
+                return writtenDirectCapture;
+        }
+        return null;
+    }
+
+    private static bool IsInsideAnonymousFunction(SyntaxNode node, SyntaxNode scope)
+    {
+        for (var current = node.Parent; current != null && current != scope; current = current.Parent)
+        {
+            if (current is AnonymousFunctionExpressionSyntax)
+                return true;
+        }
+        return false;
     }
 
     /// <summary>
@@ -591,6 +689,8 @@ internal sealed class LocalFunctionLiftAnalyzer
             plans.Where(p => p.Skipped && p.Symbol != null)
                  .Select(p => p.Symbol!),
             SymbolEqualityComparer.Default);
+        var bySymbol = plans.Where(p => p.Symbol != null)
+            .ToDictionary(p => p.Symbol!, p => p, SymbolEqualityComparer.Default);
 
         bool changed = true;
         while (changed)
@@ -615,8 +715,12 @@ internal sealed class LocalFunctionLiftAnalyzer
                     var symbol = _model.GetSymbolInfo(identifier).Symbol;
                     if (symbol != null && skippedSymbols.Contains(symbol))
                     {
+                        // 调用者因为引用了“有意保留”的函数而级联保留，同样不算改写残留。
+                        var intentionallyRetained = bySymbol.TryGetValue(symbol, out var callee)
+                            && callee.IntentionallyRetained;
                         Skip(plan, LocalFunctionSkipReason.ReferencesSkippedLocalFunction,
-                            $"references skipped local function '{identifier.Identifier.Text}'");
+                            $"references skipped local function '{identifier.Identifier.Text}'",
+                            intentionallyRetained);
                         if (plan.Symbol != null)
                             skippedSymbols.Add(plan.Symbol);
                         changed = true;
