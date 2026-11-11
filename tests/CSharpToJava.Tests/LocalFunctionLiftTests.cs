@@ -519,6 +519,39 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
+    // ErrorType capture: the semantic model could not bind the captured
+    // variable's type (e.g. a missing reference). Capture collection cannot
+    // spell the parameter type and used to drop the capture silently, while
+    // the hoisted body still referenced the original name (CS0103).
+    // The function must be intentionally retained with a diagnostic.
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void UnresolvedCaptureType_KeepsLocalFunctionWithDiagnostic()
+    {
+        var src = """
+        class C {
+            void M() {
+                var queue = new MissingType();
+                Trim();
+                void Trim() { queue.DoWork(); }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Reason == LocalFunctionSkipReason.UnsupportedCaptureType
+            && d.IntentionallyRetained
+            && d.Message.Contains("queue"));
+        Assert.Contains("void Trim()", result.OutputCode);
+        Assert.DoesNotContain("_cs2j_cap_", result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 

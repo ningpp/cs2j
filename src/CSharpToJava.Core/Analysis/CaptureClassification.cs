@@ -49,7 +49,8 @@ public static class CaptureClassification
     /// inside <paramref name="bodyRoot"/> but declared outside it.
     /// Shape extracted verbatim from LocalFunctionLiftAnalyzer.CollectCaptures:
     /// NameColon labels, the boundary's own parameters and symbols declared
-    /// inside the body are skipped; ErrorType symbols are skipped.
+    /// inside the body are skipped; ErrorType symbols are skipped (and can be
+    /// reported through <paramref name="unresolvedSymbols"/>).
     /// </summary>
     /// <param name="model">Semantic model for the tree.</param>
     /// <param name="bodyRoot">The boundary body (local function body, lambda body/expression).</param>
@@ -62,11 +63,18 @@ public static class CaptureClassification
     /// nested local functions"; C32 passes the same (nested local functions are
     /// a residual CS2J3204 boundary) while nested lambdas are descended.
     /// </param>
+    /// <param name="unresolvedSymbols">
+    /// Optional sink receiving captured symbols whose type is an ErrorType.
+    /// They cannot be spelled as generated parameter types; callers that lift
+    /// code must retain the original boundary instead of emitting a reference
+    /// to an undeclared name (CS0103).
+    /// </param>
     public static IReadOnlyList<CapturedSymbolInfo> CollectCapturedSymbols(
         SemanticModel model,
         SyntaxNode bodyRoot,
         IMethodSymbol? boundaryMethod,
-        Func<SyntaxNode, bool>? descendPredicate = null)
+        Func<SyntaxNode, bool>? descendPredicate = null,
+        ICollection<ISymbol>? unresolvedSymbols = null)
     {
         var captures = new List<CapturedSymbolInfo>();
         var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
@@ -102,8 +110,14 @@ public static class CaptureClassification
                 _ => null,
             };
 
-            if (type == null || type.TypeKind == TypeKind.Error)
+            if (type == null)
                 continue;
+
+            if (type.TypeKind == TypeKind.Error)
+            {
+                unresolvedSymbols?.Add(symbol);
+                continue;
+            }
 
             var typeDisplay = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             captures.Add(new CapturedSymbolInfo(symbol, symbol.Name, type, typeDisplay));

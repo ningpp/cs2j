@@ -202,7 +202,23 @@ internal sealed class LocalFunctionLiftAnalyzer
         // because the hoisted method has the same signature.
 
         // Collect captures
-        plan.Captures = CollectCaptures(localFn, symbol!, isExplicitStatic);
+        var unresolvedCaptures = new List<ISymbol>();
+        plan.Captures = CollectCaptures(localFn, symbol!, isExplicitStatic, unresolvedCaptures);
+
+        // 捕获变量的类型在语义模型里是 ErrorType 时，捕获收集会丢弃它（无法拼出形参类型）。
+        // 若继续提升，方法体仍按原名引用该变量，生成的方法作用域里没有这个名字（CS0103）。
+        // 有意保留原局部函数：这是工具链无法解析类型，不是源码缺陷。
+        if (unresolvedCaptures.Count > 0)
+        {
+            var names = string.Join(", ", unresolvedCaptures
+                .Select(static s => s.Name)
+                .Distinct(StringComparer.Ordinal));
+            Skip(plan, LocalFunctionSkipReason.UnsupportedCaptureType,
+                $"captured variable(s) {names} have unresolved types; the hoisted method " +
+                "cannot declare a parameter for them and would reference undeclared names",
+                intentionallyRetained: true);
+            return plan;
+        }
 
         // Gate #7: Unsupported capture type
         foreach (var cap in plan.Captures)
@@ -437,7 +453,8 @@ internal sealed class LocalFunctionLiftAnalyzer
     private List<CapturePlan> CollectCaptures(
         LocalFunctionStatementSyntax localFn,
         IMethodSymbol localFnSymbol,
-        bool isStatic)
+        bool isStatic,
+        ICollection<ISymbol>? unresolvedSymbols = null)
     {
         if (isStatic)
             return new List<CapturePlan>();
@@ -452,7 +469,8 @@ internal sealed class LocalFunctionLiftAnalyzer
                 _model,
                 body,
                 localFnSymbol,
-                d => d is not LocalFunctionStatementSyntax)
+                d => d is not LocalFunctionStatementSyntax,
+                unresolvedSymbols)
             .Select(info =>
             {
                 var isWritten = IsCapturedVariableWritten(localFn, info.Symbol);
