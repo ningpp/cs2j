@@ -150,6 +150,27 @@ public class SyntheticTypeParameterResolverTests
             d => d.Code == SyntheticTypeParameterResolver.NotExpressibleCode && d.ParameterName == "T");
     }
 
+    [Fact]
+    public void UnmanagedConstraint_IsExpressible_NotTreatedAsUnresolvedType()
+    {
+        var (model, root) = Compile("""
+            using System;
+            class C
+            {
+                public Func<T> Make<T>() where T : unmanaged { return () => default; }
+            }
+            """);
+
+        var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
+        var plan = SyntheticTypeParameterResolver.Resolve(model, method, body: method);
+
+        var parameter = Assert.Single(plan.Parameters);
+        Assert.Equal(SyntheticTypeParameterState.Expressible, parameter.State);
+        Assert.Null(parameter.Reason);
+        Assert.DoesNotContain(plan.Diagnostics,
+            d => d.Code == SyntheticTypeParameterResolver.NotExpressibleCode);
+    }
+
     // ── ⑤ shadowing → deterministic StableName ──
 
     [Fact]

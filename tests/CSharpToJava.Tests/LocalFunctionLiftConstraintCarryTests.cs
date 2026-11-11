@@ -130,6 +130,27 @@ public class LocalFunctionLiftConstraintCarryTests
     }
 
     [Fact]
+    public void UnmanagedConstraint_DoesNotBlockLifting()
+    {
+        var result = Run("""
+            using System;
+            class C
+            {
+                public static int Outer<TChar>(TChar value) where TChar : unmanaged
+                {
+                    int Local(TChar v) => 1;
+                    return Local(value);
+                }
+            }
+            """);
+
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains("where TChar : unmanaged", result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
     public void ExplicitCallSiteTypeArguments_AreExtendedToTheNewArity()
     {
         // The call site spells its own type argument (`Local<int>(0)`); the lifted

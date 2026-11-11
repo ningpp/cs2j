@@ -398,6 +398,13 @@ public static class SyntheticTypeParameterResolver
             if (constraint is not TypeConstraintSyntax typeConstraint)
                 continue;
 
+            // `unmanaged` / `notnull` are keyword constraints, not type
+            // references: GetTypeInfo returns null/error for them. The symbol
+            // already records the constraint, so they must not be mistaken for
+            // an unresolvable constraint type.
+            if (IsKeywordConstraint(typeConstraint, candidate.Symbol))
+                continue;
+
             var type = model.GetTypeInfo(typeConstraint.Type).Type;
             if (type is null || type.TypeKind == TypeKind.Error)
                 return (SyntheticTypeParameterState.NotExpressible,
@@ -409,6 +416,14 @@ public static class SyntheticTypeParameterResolver
                 "a constraint type is an error type");
 
         return (SyntheticTypeParameterState.Expressible, null);
+    }
+
+    private static bool IsKeywordConstraint(
+        TypeConstraintSyntax constraint, ITypeParameterSymbol symbol)
+    {
+        var text = constraint.Type.ToString();
+        return (text == "unmanaged" && symbol.HasUnmanagedTypeConstraint)
+            || (text == "notnull" && symbol.HasNotNullConstraint);
     }
 
     private static bool HasConstraints(ITypeParameterSymbol symbol)
