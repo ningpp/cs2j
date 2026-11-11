@@ -1127,6 +1127,63 @@ public class NullCoalesceRewriterUnitTests
     }
 
     [Fact]
+    public void ConstructorInitializer_CoalesceWithReferenceLeft_IsInlinedWithoutTemp()
+    {
+        // Constructor initializers have no statement slot, but a parameter read
+        // is safe to duplicate: the site is lowered inline instead of staying
+        // residual (which the strict gate would escalate to an Error).
+        var src = """
+        class Base { protected Base(string? message) { } }
+        class C : Base { public C(string? message) : base(message ?? "fallback") { } }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("??", result.OutputCode);
+        Assert.DoesNotContain("___t", result.OutputCode);
+        Assert.Contains("(message != null ? message : \"fallback\")", result.OutputCode);
+        Assert.Equal(0, result.Statistics.ResidualCount);
+        Assert.Empty(OutputCompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void ConstructorInitializer_CoalesceWithNullableValueLeft_InlinesValueUnwrap()
+    {
+        // items?.Count is int?: the inline true branch must read .Value, with
+        // the conditional-access receiver parenthesized so the '.Value' is not
+        // swallowed by the conditional-access.
+        var src = """
+        using System.Collections.Generic;
+        class Base { protected Base(int count) { } }
+        class C : Base { public C(List<int>? items) : base(items?.Count ?? 0) { } }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("??", result.OutputCode);
+        Assert.DoesNotContain("___t", result.OutputCode);
+        Assert.Contains("(items?.Count).Value", result.OutputCode);
+        Assert.Empty(OutputCompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void ConstructorInitializer_CoalesceWithSideEffectingLeft_StaysResidual()
+    {
+        // A call left cannot be evaluated twice: the site stays residual as the
+        // safety fallback rather than changing evaluation semantics.
+        var src = """
+        class Base { protected Base(string message) { } }
+        class C : Base { static string? Get() => null; public C() : base(Get() ?? "fallback") { } }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(1, result.Statistics.ResidualCount);
+        Assert.Equal(1, result.Statistics.SkippedUnsupported);
+        Assert.Contains("Get() ?? \"fallback\"", result.OutputCode);
+        Assert.Empty(OutputCompileErrors(result.OutputCode));
+    }
+
+    [Fact]
     public void CoalesceAssign_ValueContext_Indexer_With_PostIncrement_Evaluates_Index_Once()
     {
         // RegexPrefixAnalyzer.ComputeMultipleCharClasses exact shape:
@@ -1261,7 +1318,8 @@ public class NullCoalesceRewriterUnitTests
     /// residual — but its RHS is a collection expression owned by
     /// expression-desugar (C36), so strict mode must DEFER it to later passes
     /// instead of aborting the chain as an Error before the generic passes
-    /// ever run.
+    /// ever run. The left operand is a call (a pure left is now inlined, see
+    /// the ConstructorInitializer_* inline tests above).
     /// </summary>
     [Fact]
     public void ConstructorInitializer_CoalesceWithCollectionExpression_IsDeferred_NotStrictError()
@@ -1269,8 +1327,9 @@ public class NullCoalesceRewriterUnitTests
         var result = PreprocessWith("""
             class C {
                 private readonly int[] _items;
-                public C(int[]? items) : this(items ?? []) { }
+                public C(int[]? items) : this(Get() ?? []) { }
                 public C(int[] items) { _items = items; }
+                static int[]? Get() => null;
             }
             """, new NullCoalesceOptions(Strict: true));
 
@@ -1282,7 +1341,7 @@ public class NullCoalesceRewriterUnitTests
             result.Diagnostics,
             d => d.Message.Contains("deferred to later passes", StringComparison.Ordinal));
         // The site itself is preserved verbatim for the downstream owner.
-        Assert.Contains("items ?? []", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("Get() ?? []", result.OutputCode, StringComparison.Ordinal);
     }
 
     /// <summary>

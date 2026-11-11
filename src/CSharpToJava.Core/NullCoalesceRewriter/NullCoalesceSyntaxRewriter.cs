@@ -12,6 +12,10 @@ namespace CSharpToJava.Core.NullCoalesceRewriter;
 /// VisitBlock inserts every guard statement (temp declaration for ?? or the
 /// 'if (lhs == null) lhs = rhs;' guard for value-context ??=) registered
 /// while visiting a statement directly before that rewritten statement.
+/// '??' with no statement slot (constructor initializer, field initializer)
+/// is lowered to an inline ternary when the left operand is safe to evaluate
+/// twice (e.g. 'message ?? "fallback"' -> '(message != null ? message :
+/// "fallback")'); only a side-effecting left operand stays residual.
 /// '??=' used in a statement position is turned into an if-statement; used in
 /// a value position it is hoisted plus replaced by the lvalue, or lowered to
 /// an inline ternary when no statement slot exists.
@@ -126,6 +130,28 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
         var leftIsNullableValueType = typeSymbol is INamedTypeSymbol named
             && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
 
+        // A statement slot is required to hoist the temp declaration (a
+        // constructor initializer, field initializer or expression-bodied
+        // member provides none). Without one, a left operand that is safe to
+        // evaluate twice is lowered inline; evaluating it twice is the only
+        // semantic difference from the temp form, so a side-effecting left
+        // stays residual for the strict gate.
+        if (FindAnchorStatement(node) == null)
+        {
+            if (IsSafeToDuplicate(left))
+            {
+                _stats.NullCoalescingRewritten++;
+                return SyntaxFactory.ParenthesizedExpression(
+                    BuildInlineCoalesceConditional(left, right, leftIsNullableValueType));
+            }
+
+            _diagnostics.Add(new NullCoalesceDiagnostic(
+                NullCoalesceSeverity.Warning,
+                $"Cannot insert temp variable declaration for ?? expression; skipping rewrite."));
+            _stats.SkippedUnsupported++;
+            return node;
+        }
+
         var tempName = GenerateTempName();
 
         // Build: var ___tN = <left>;
@@ -162,17 +188,6 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
                     SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
                 trueBranch,
                 right));
-
-        // A statement slot is required to hoist the temp declaration (a field
-        // initializer or expression-bodied member provides none).
-        if (FindAnchorStatement(node) == null)
-        {
-            _diagnostics.Add(new NullCoalesceDiagnostic(
-                NullCoalesceSeverity.Warning,
-                $"Cannot insert temp variable declaration for ?? expression; skipping rewrite."));
-            _stats.SkippedUnsupported++;
-            return node;
-        }
 
         PendingGuards.Add(new PendingGuard(tempDecl));
         _stats.NullCoalescingRewritten++;
@@ -360,6 +375,70 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
                     lhs.WithoutTrivia(),
                     rhs)),
             lhs.WithoutTrivia());
+
+    /// <summary>
+    /// Builds 'left != null ? left : right' for a '??' site with no statement
+    /// slot. The left operand is emitted twice, so the caller must have proven
+    /// it side-effect free (<see cref="IsSafeToDuplicate"/>). A nullable value
+    /// type's true branch must read '.Value' — and the receiver must stay
+    /// parenthesized, otherwise e.g. 'items?.Count.Value' binds the '.Value'
+    /// inside the conditional-access and no longer compiles.
+    /// </summary>
+    private static ConditionalExpressionSyntax BuildInlineCoalesceConditional(
+        ExpressionSyntax left,
+        ExpressionSyntax right,
+        bool leftIsNullableValueType)
+    {
+        ExpressionSyntax trueBranch = left.WithoutTrivia();
+        if (leftIsNullableValueType)
+        {
+            trueBranch = SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                SyntaxFactory.ParenthesizedExpression(left.WithoutTrivia()),
+                SyntaxFactory.IdentifierName("Value"));
+        }
+
+        return SyntaxFactory.ConditionalExpression(
+            SyntaxFactory.BinaryExpression(
+                SyntaxKind.NotEqualsExpression,
+                left.WithoutTrivia(),
+                SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
+            trueBranch,
+            right);
+    }
+
+    /// <summary>
+    /// True when evaluating the expression twice is observationally
+    /// equivalent to evaluating it once: a pure reference chain
+    /// (identifier/literal/this/base/typeof/default, member or element access
+    /// over pure receivers, casts, 'as', and conditional access whose binding
+    /// chain only READS members). Invocations, assignments, increments and
+    /// arbitrary expressions are rejected.
+    /// </summary>
+    private static bool IsSafeToDuplicate(ExpressionSyntax expression) => expression switch
+    {
+        IdentifierNameSyntax or LiteralExpressionSyntax or ThisExpressionSyntax
+            or BaseExpressionSyntax or DefaultExpressionSyntax or TypeOfExpressionSyntax => true,
+        ParenthesizedExpressionSyntax parenthesized => IsSafeToDuplicate(parenthesized.Expression),
+        CastExpressionSyntax cast => IsSafeToDuplicate(cast.Expression),
+        MemberAccessExpressionSyntax memberAccess => IsSafeToDuplicate(memberAccess.Expression),
+        ConditionalAccessExpressionSyntax conditionalAccess => IsSafeToDuplicate(conditionalAccess.Expression)
+            && IsPureBindingChain(conditionalAccess.WhenNotNull),
+        BinaryExpressionSyntax asExpression when asExpression.IsKind(SyntaxKind.AsExpression)
+            => IsSafeToDuplicate(asExpression.Left),
+        ElementAccessExpressionSyntax elementAccess => IsSafeToDuplicate(elementAccess.Expression)
+            && elementAccess.ArgumentList.Arguments.All(argument =>
+                argument.RefKindKeyword.IsKind(SyntaxKind.None)
+                && IsSafeToDuplicate(argument.Expression)),
+        _ => false,
+    };
+
+    private static bool IsPureBindingChain(ExpressionSyntax expression) => expression switch
+    {
+        MemberBindingExpressionSyntax => true,
+        MemberAccessExpressionSyntax memberAccess => IsPureBindingChain(memberAccess.Expression),
+        _ => false,
+    };
 
     private string GenerateTempName()
     {
