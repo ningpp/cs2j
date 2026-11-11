@@ -455,18 +455,19 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
-    // CS1628: a write capture becomes a `ref` parameter, and C# forbids using
-    // ref parameters inside lambdas/anonymous methods. When lifting the body
-    // would place such a use inside a lambda, the function is retained
-    // (function-level, intentional) instead of emitting illegal code.
+    // CS1628: a write capture would become a `ref` parameter, and C# forbids
+    // using ref parameters inside lambdas/anonymous methods. Such captures are
+    // now wrapped in a StrongBox<T> holder instead of skipping the function:
+    // the declaring local becomes the holder and the lifted method receives it
+    // by value, so the synthesized lambda never uses `ref`.
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void WriteCapture_MethodGroupReferenceInBody_SkipsLiftAndCompiles()
+    public void WriteCapture_MethodGroupReferenceInBody_LiftsWithStrongBoxHolder()
     {
         // Mirrors RegexCompiler.EmitNode: the body contains a method group
-        // reference to the local function itself, which the rewriter would
-        // turn into `() => inc(ref _cs2j_cap_x)` inside the lifted body.
+        // reference to the local function itself, which the rewriter turns into
+        // `() => inc(x)` after the capture became a StrongBox holder.
         var src = """
         class C {
             void M() {
@@ -484,20 +485,19 @@ public class LocalFunctionLiftTests
         """;
         var result = Preprocess(src);
 
-        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
-        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
-        Assert.Contains(result.Diagnostics, d =>
-            d.Reason == LocalFunctionSkipReason.RefCaptureInNestedLambda
-            && d.IntentionallyRetained);
-        // The other local function is still lifted; only the offending one is kept.
-        Assert.Contains("private void other()", result.OutputCode);
-        Assert.Contains("void Inc()", result.OutputCode);
-        Assert.DoesNotContain("_cs2j_cap_", result.OutputCode);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(2, result.Statistics.LocalFunctionsLifted);
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Reason == LocalFunctionSkipReason.RefCaptureInNestedLambda);
+        Assert.Contains("StrongBox<int> x", result.OutputCode);
+        Assert.Contains("StrongBox<int> _cs2j_cap_x", result.OutputCode);
+        Assert.DoesNotContain("ref _cs2j_cap_", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
         AssertCompiles(result.OutputCode);
     }
 
     [Fact]
-    public void WriteCapture_ReferencedInsideNestedLambda_SkipsLiftAndCompiles()
+    public void WriteCapture_ReferencedInsideNestedLambda_LiftsWithStrongBoxHolder()
     {
         var src = """
         class C {
@@ -515,13 +515,78 @@ public class LocalFunctionLiftTests
         """;
         var result = Preprocess(src);
 
-        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
-        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
-        Assert.Contains(result.Diagnostics, d =>
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(2, result.Statistics.LocalFunctionsLifted);
+        Assert.DoesNotContain(result.Diagnostics, d =>
             d.Reason == LocalFunctionSkipReason.RefCaptureInNestedLambda);
-        Assert.Contains("private void other()", result.OutputCode);
-        Assert.DoesNotContain("_cs2j_cap_", result.OutputCode);
+        Assert.Contains("StrongBox<int> x", result.OutputCode);
+        Assert.Contains("_cs2j_cap_x.Value++", result.OutputCode);
+        Assert.DoesNotContain("ref _cs2j_cap_", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
         AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void WriteCapture_SharedByMultipleLocalFunctions_DeclaresHolderOnce()
+    {
+        // One local function is converted to a delegate (forcing the holder),
+        // the other only reads the same variable. Both must observe the same
+        // holder instance and the declaration must be rewritten exactly once.
+        var src = """
+        class C {
+            void M() {
+                int x = 1;
+                Inc();
+                Print();
+                void Inc() {
+                    System.Action a = Inc;
+                    x++;
+                    a();
+                }
+                void Print() { System.Console.WriteLine(x); }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(2, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(1, CountOccurrences(result.OutputCode, "StrongBox<int> x"));
+        Assert.Equal(2, CountOccurrences(result.OutputCode, "StrongBox<int> _cs2j_cap_x"));
+        Assert.DoesNotContain("ref _cs2j_cap_", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void NestedLocalFunction_CapturesCallerParameter_DoesNotBecomeCallerCapture()
+    {
+        // A nested local function capturing the caller's own parameter must not
+        // be propagated back to the caller: the hoisted caller still has that
+        // parameter, so propagating it produced a duplicate parameter / renamed
+        // the caller's parameter references to the capture parameter.
+        var src = """
+        class C {
+            void M() {
+                Inc(1);
+                Other();
+                void Inc(int x) {
+                    Nested();
+                    void Nested() { System.Console.WriteLine(x); }
+                }
+                void Other() { }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(3, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains("private void inc(int x)", result.OutputCode);
+        Assert.DoesNotContain("_cs2j_cap_x", result.OutputCode.Split("private void inc")[1]
+            .Split("private void nested")[0]);
+        AssertCompiles(result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
     }
 
     [Fact]
@@ -857,5 +922,17 @@ public class LocalFunctionLiftTests
         Assert.True(errors.Count == 0,
             "Output should be valid C#. Errors:\n" +
             string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+        return count;
     }
 }

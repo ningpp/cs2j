@@ -56,6 +56,12 @@ internal sealed class LocalFunctionLiftAnalyzer
         var bySymbol = plans.Where(p => p.Symbol != null)
             .ToDictionary(p => p.Symbol!, p => p, SymbolEqualityComparer.Default);
 
+        // 写入型捕获要进 lambda（方法组转换 / 已有 lambda 内引用）时不能是 ref 形参
+        // （CS1628）。Holder 决策按变量符号全局生效：一旦某个变量改成 StrongBox，
+        // 所有提升函数对它的捕获都必须统一成 StrongBox 形参。
+        var holderSymbols = CollectHolderCaptureSymbols(plans, bySymbol);
+        ApplyHolderCaptures(plans, holderSymbols);
+
         foreach (var plan in plans)
         {
             if (plan.Skipped)
@@ -649,6 +655,15 @@ internal sealed class LocalFunctionLiftAnalyzer
                         if (CaptureClassification.IsDeclaredInside(capture.Symbol, body))
                             continue;
 
+                        // caller 自己的形参同理：嵌套局部函数捕获它时，提升后的
+                        // caller 方法里它就是普通形参，直接引用即可。若传播成
+                        // caller 的捕获，会产生与形参同名的重复形参（CS0100），
+                        // 或按名字把形参引用错误改写成捕获参数
+                        // （gen/RegexGenerator.Emitter.cs 的 EmitAlternation）。
+                        if (SymbolEqualityComparer.Default.Equals(
+                                capture.Symbol.ContainingSymbol, plan.Symbol))
+                            continue;
+
                         var existing = plan.Captures.FirstOrDefault(c =>
                             SymbolEqualityComparer.Default.Equals(c.Symbol, capture.Symbol));
                         if (existing == null)
@@ -702,8 +717,9 @@ internal sealed class LocalFunctionLiftAnalyzer
         // 原局部函数允许「局部声明时不初始化、只在其函数体内赋值」
         // （cs-text p05: RegexCharClass.renderRanges 的 ch1/ch2）。C# 无法在不改
         // 本义的前提下表达该形态，按设计保留原局部函数。
+        // holder 捕获按值传入 StrongBox，不存在确定赋值要求，不触发该闸门。
         var unassignedCapture = plan.Captures.FirstOrDefault(c =>
-            c.IsWritten && c.Symbol is ILocalSymbol && !HasInitializer(c.Symbol));
+            c.IsWritten && !c.UseHolder && c.Symbol is ILocalSymbol && !HasInitializer(c.Symbol));
         if (unassignedCapture != null)
         {
             Skip(plan, LocalFunctionSkipReason.RefCaptureNotDefinitelyAssigned,
@@ -716,7 +732,7 @@ internal sealed class LocalFunctionLiftAnalyzer
 
         foreach (var cap in plan.Captures)
         {
-            if (!cap.IsWritten)
+            if (!cap.IsWritten || cap.UseHolder)
                 continue;
 
             if (!CanUseRefCapture(plan, cap))
@@ -728,12 +744,11 @@ internal sealed class LocalFunctionLiftAnalyzer
             }
         }
 
-        // 写入型捕获被提升为 ref 形参；C# 禁止在 lambda / 匿名方法 / 局部函数里
-        // 使用 ref 参数（CS1628）。提升后的方法体会保留体内的 lambda，而重写器
-        // 在重写 lambda 内的局部函数调用/方法组引用时会插入 `ref <捕获>` 实参，
-        // 因此只要 lambda 内会用到某个写入型捕获，这个函数就不能按 ref 提升。
-        // 设计上不做 holder 包装，函数级保守跳过并保留原局部函数。
-        var offending = FindWrittenCaptureUsedInNestedLambda(plan, bySymbol);
+        // 写入型捕获若必须以 ref 形参传递，就不能出现在 lambda 内（CS1628）。
+        // 这类捕获已在上一步尽量改用 StrongBox holder；只有 holder 不可表达
+        // （如 ref struct / 指针 / 参数捕获等）时才保留原局部函数。
+        var offending = FindLambdaExposedWrittenCaptures(plan, bySymbol)
+            .FirstOrDefault(static c => !c.UseHolder);
         if (offending != null)
         {
             var lineSpan = plan.Node.GetLocation().GetLineSpan();
@@ -741,31 +756,35 @@ internal sealed class LocalFunctionLiftAnalyzer
             Skip(plan, LocalFunctionSkipReason.RefCaptureInNestedLambda,
                 $"write capture '{offending.OriginalName}' would be referenced from a lambda in the " +
                 $"hoisted body (local function starts at line {line}); a ref parameter cannot be " +
-                "used there (CS1628)",
+                "used there (CS1628) and the capture type cannot be wrapped in a StrongBox holder " +
+                $"({GetHolderUnavailableReason(offending)})",
                 intentionallyRetained: true);
         }
     }
 
     /// <summary>
-    /// 找出提升后会落进 lambda、且必须用 ref 形参传递的捕获：
-    /// - 方法组引用（任何位置）：重写器会合成 `(args) =&gt; callee(ref cap, args)`，
-    ///   这个新 lambda 本身使用了 ref 形参 —— 与引用点是否在已有 lambda 内无关；
+    /// 收集「提升后会落进 lambda、因而不能是 ref 形参」的写入型捕获，返回本 plan
+    /// 自己的 CapturePlan 实例（决定 holder 标记用）：
+    /// - 方法组引用（任何位置）：重写器会合成 `(args) =&gt; callee(caps, args)`，
+    ///   该 lambda 会以 ref 形式携带 callee 的全部写入型捕获；
     /// - 直接调用，且调用点位于已有 lambda / 匿名方法内：重写器插入的 `ref cap`
     ///   实参落在 lambda 内；
     /// - lambda 内直接引用写入型捕获（读或写）。
     /// 与捕获收集一致，不下降进更深层的局部函数声明（它们各自有独立的 LiftPlan）。
     /// </summary>
-    private CapturePlan? FindWrittenCaptureUsedInNestedLambda(
+    private List<CapturePlan> FindLambdaExposedWrittenCaptures(
         LiftPlan plan, IReadOnlyDictionary<ISymbol, LiftPlan> bySymbol)
     {
+        var result = new List<CapturePlan>();
         var body = (SyntaxNode?)plan.Node.Body ?? plan.Node.ExpressionBody;
         if (body == null)
-            return null;
+            return result;
 
         var writtenCaptures = plan.Captures.Where(static c => c.IsWritten).ToList();
         if (writtenCaptures.Count == 0)
-            return null;
+            return result;
 
+        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
         foreach (var identifier in body
             .DescendantNodes(d => d is not LocalFunctionStatementSyntax)
             .OfType<IdentifierNameSyntax>())
@@ -782,8 +801,10 @@ internal sealed class LocalFunctionLiftAnalyzer
             if (symbol is IMethodSymbol { MethodKind: MethodKind.LocalFunction } callee
                 && bySymbol.TryGetValue(callee, out var calleePlan))
             {
-                var calleeWritten = calleePlan.Captures.FirstOrDefault(static c => c.IsWritten);
-                if (calleeWritten == null)
+                var calleeWritten = calleePlan.Captures
+                    .Where(static c => c.IsWritten)
+                    .ToList();
+                if (calleeWritten.Count == 0)
                     continue;
 
                 var isInvocationTarget = identifier.Parent is InvocationExpressionSyntax invocation
@@ -792,22 +813,158 @@ internal sealed class LocalFunctionLiftAnalyzer
                     continue;
 
                 // 只报告本 plan 确实以 ref 形参携带的捕获（捕获传播已合并 callee 的捕获）。
-                var propagated = writtenCaptures.FirstOrDefault(c =>
-                    SymbolEqualityComparer.Default.Equals(c.Symbol, calleeWritten.Symbol));
-                if (propagated != null)
-                    return propagated;
+                foreach (var calleeCapture in calleeWritten)
+                {
+                    var propagated = writtenCaptures.FirstOrDefault(c =>
+                        SymbolEqualityComparer.Default.Equals(c.Symbol, calleeCapture.Symbol));
+                    if (propagated != null && seen.Add(propagated.Symbol))
+                        result.Add(propagated);
+                }
                 continue;
             }
 
             if (!insideLambda)
                 continue;
 
-            var writtenDirectCapture = writtenCaptures.FirstOrDefault(c =>
+            var directCapture = writtenCaptures.FirstOrDefault(c =>
                 SymbolEqualityComparer.Default.Equals(c.Symbol, symbol));
-            if (writtenDirectCapture != null)
-                return writtenDirectCapture;
+            if (directCapture != null && seen.Add(directCapture.Symbol))
+                result.Add(directCapture);
         }
-        return null;
+        return result;
+    }
+
+    private HashSet<ISymbol> CollectHolderCaptureSymbols(
+        List<LiftPlan> plans, IReadOnlyDictionary<ISymbol, LiftPlan> bySymbol)
+    {
+        var holders = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        foreach (var plan in plans)
+        {
+            if (plan.Skipped)
+                continue;
+            foreach (var capture in FindLambdaExposedWrittenCaptures(plan, bySymbol))
+            {
+                if (CanUseHolderCapture(capture))
+                    holders.Add(capture.Symbol);
+            }
+        }
+        return holders;
+    }
+
+    /// <summary>
+    /// 把 holder 决策应用到所有 plan 的同符号捕获。变量本身变成 StrongBox 后，
+    /// 即使某个提升函数只是读取它，也必须接收 StrongBox 形参。
+    /// </summary>
+    private void ApplyHolderCaptures(List<LiftPlan> plans, HashSet<ISymbol> holderSymbols)
+    {
+        if (holderSymbols.Count == 0)
+            return;
+
+        foreach (var plan in plans)
+        {
+            for (var i = 0; i < plan.Captures.Count; i++)
+            {
+                var capture = plan.Captures[i];
+                if (capture.UseHolder || !holderSymbols.Contains(capture.Symbol))
+                    continue;
+
+                var type = GetCaptureType(capture.Symbol);
+                if (type == null)
+                    continue;
+
+                plan.Captures[i] = capture with
+                {
+                    UseHolder = true,
+                    ByRef = false,
+                    HolderElementTypeDisplay = plan.HostType != null
+                        ? RenderCaptureTypeDisplay(type, plan.HostType)
+                        : type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+                };
+            }
+        }
+    }
+
+    private static ITypeSymbol? GetCaptureType(ISymbol symbol)
+        => symbol switch
+        {
+            ILocalSymbol local => local.Type,
+            IParameterSymbol parameter => parameter.Type,
+            _ => null,
+        };
+
+    /// <summary>
+    /// 该捕获能否安全改写为 StrongBox 闭包：
+    /// - 必须是有普通局部声明语句覆盖的局部变量（参数/foreach/using/fixed/const 无法原地改写）；
+    /// - 类型必须能作泛型实参（非 ref struct、非指针、非函数指针、非未绑定泛型）。
+    /// </summary>
+    private bool CanUseHolderCapture(CapturePlan capture)
+    {
+        if (capture.Symbol is not ILocalSymbol local || local.IsConst)
+            return false;
+
+        if (!IsValidStrongBoxElementType(local.Type))
+            return false;
+
+        var declarator = local.DeclaringSyntaxReferences
+            .Select(static reference => reference.GetSyntax())
+            .OfType<VariableDeclaratorSyntax>()
+            .FirstOrDefault();
+        if (declarator?.Parent is not VariableDeclarationSyntax declaration)
+            return false;
+        if (declaration.Variables.Count != 1)
+            return false;
+        if (declaration.Parent is not LocalDeclarationStatementSyntax statement)
+            return false;
+        if (!statement.UsingKeyword.IsKind(SyntaxKind.None)
+            || !statement.AwaitKeyword.IsKind(SyntaxKind.None))
+            return false;
+        if (statement.Modifiers.Any(static m => m.IsKind(SyntaxKind.ConstKeyword)))
+            return false;
+        if (declaration.Type is RefTypeSyntax or ScopedTypeSyntax)
+            return false;
+
+        return true;
+    }
+
+    private static string GetHolderUnavailableReason(CapturePlan capture)
+    {
+        if (capture.Symbol is not ILocalSymbol local)
+            return $"capture is a {capture.Symbol.Kind}, not a plain local variable";
+        if (local.IsConst)
+            return "capture is a const local";
+        if (!IsValidStrongBoxElementType(local.Type))
+            return $"type '{local.Type.ToDisplayString()}' cannot be a StrongBox type argument";
+        return "the local declaration cannot be rewritten in place (foreach/using/fixed/multi-declarator)";
+    }
+
+    private static bool IsValidStrongBoxElementType(ITypeSymbol type)
+    {
+        switch (type)
+        {
+            case IPointerTypeSymbol:
+            case IFunctionPointerTypeSymbol:
+                return false;
+            case IArrayTypeSymbol array:
+                return IsValidStrongBoxElementType(array.ElementType);
+        }
+
+        if (type.IsRefLikeType)
+            return false;
+        if (type.TypeKind == TypeKind.Error)
+            return false;
+
+        if (type is INamedTypeSymbol named)
+        {
+            if (named.IsUnboundGenericType)
+                return false;
+            foreach (var argument in named.TypeArguments)
+            {
+                if (!IsValidStrongBoxElementType(argument))
+                    return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool IsInsideAnonymousFunction(SyntaxNode node, SyntaxNode scope)

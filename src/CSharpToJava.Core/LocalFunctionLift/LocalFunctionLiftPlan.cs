@@ -41,5 +41,13 @@ internal sealed record CapturePlan(
     string OriginalName,
     string ParameterName,     // _cs2j_cap_xxx / _cs2j_cap_xxx_2
     string TypeDisplay,       // FullyQualifiedFormat
-    bool IsWritten,           // -> ref parameter
-    bool ByRef);              // final form (= IsWritten)
+    bool IsWritten,           // source body writes the variable
+    bool ByRef,               // final form: ref parameter (= IsWritten && !UseHolder)
+    /// <summary>
+    /// 该捕获改用 <c>System.Runtime.CompilerServices.StrongBox&lt;T&gt;</c> 闭包传递：
+    /// 声明处的变量本身被改写为同名 holder，提升方法的形参是同名 StrongBox。
+    /// 用于写入型捕获会落进 lambda（ref 形参非法，CS1628）的场景。
+    /// </summary>
+    bool UseHolder = false,
+    /// <summary>T 在该声明/成员位置可解析的类型显示（holder 声明与形参共用）。</summary>
+    string? HolderElementTypeDisplay = null);

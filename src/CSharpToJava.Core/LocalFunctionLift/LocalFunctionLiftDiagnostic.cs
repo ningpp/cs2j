@@ -8,7 +8,11 @@ public enum LocalFunctionSkipReason
     CheckedContext, UnsupportedCaptureType, RefCaptureUnavailable,
     EnclosingTypeParameterConflict, ParamsOrOptionalConflict,
     NamedArgumentCallSite, ReferencesSkippedLocalFunction, InternalError, AmbiguousName,
-    /// <summary>写入型捕获在函数体内的嵌套 lambda / 匿名方法中被引用（ref 形参非法，CS1628）。</summary>
+    /// <summary>
+    /// 写入型捕获在函数体内的嵌套 lambda / 匿名方法中被引用（ref 形参非法，CS1628），
+    /// 且该捕获无法改写为 StrongBox holder（ref struct/指针/参数等）。普通局部变量
+    /// 现在会改走 holder，不再触发该原因。
+    /// </summary>
     RefCaptureInNestedLambda,
     /// <summary>写入型捕获是未初始化且只能靠函数体赋值的局部：调用点未确定赋值，ref 实参非法（CS0165）。</summary>
     RefCaptureNotDefinitelyAssigned,

@@ -25,6 +25,17 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<LiftPlan, List<int>> _callSitePositions = new();
     private readonly Dictionary<SyntaxTree, ConditionalDirectiveLayout> _conditionalLayouts = new();
     private readonly List<LiftPlan> _unremovablePlans = new();
+    /// <summary>
+    /// 需要以 StrongBox 闭包传递的被捕获变量：符号 -> 元素类型显示。
+    /// 命中时把声明处改写为同名 StrongBox，并把该成员内所有引用改为 `x.Value`。
+    /// </summary>
+    private readonly Dictionary<ISymbol, string> _holderSymbols =
+        new(SymbolEqualityComparer.Default);
+    /// <summary>
+    /// 正在为其生成提升方法体的 plan；仅在 BuildMethodDeclaration 遍历函数体时为非 null。
+    /// 用于按符号改写捕获引用（避免同名形参/局部被误改）。
+    /// </summary>
+    private LiftPlan? _hoistingPlan;
 
     public bool Changed { get; private set; }
 
@@ -57,6 +68,11 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             if (plan.Symbol != null)
                 _symbolToPlan[plan.Symbol] = plan;
             _nameToPlan[plan.Node.Identifier.Text] = plan;
+            foreach (var capture in plan.Captures)
+            {
+                if (capture.UseHolder && capture.HolderElementTypeDisplay != null)
+                    _holderSymbols[capture.Symbol] = capture.HolderElementTypeDisplay;
+            }
         }
     }
 
@@ -78,7 +94,7 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
                 _stats.LocalFunctionsLifted++;
                 foreach (var cap in plan.Captures)
                 {
-                    if (cap.IsWritten)
+                    if (cap.ByRef)
                         _stats.CapturesByRef++;
                     else
                         _stats.CapturesByValue++;
@@ -692,7 +708,7 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         return expression;
     }
 
-    private static ArgumentListSyntax RewriteCallArguments(ArgumentListSyntax argumentList, LiftPlan plan)
+    private ArgumentListSyntax RewriteCallArguments(ArgumentListSyntax argumentList, LiftPlan plan)
     {
         if (plan.Captures.Count == 0)
             return argumentList;
@@ -701,8 +717,8 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
         foreach (var cap in plan.Captures)
         {
-            var argExpr = SyntaxFactory.IdentifierName(cap.OriginalName);
-            if (cap.IsWritten)
+            var argExpr = SyntaxFactory.IdentifierName(GetCaptureArgumentName(cap));
+            if (cap.ByRef)
             {
                 newArgs.Add(SyntaxFactory.Argument(
                     default,
@@ -723,10 +739,122 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         return SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(newArgs));
     }
 
+    /// <summary>
+    /// 捕获实参在当前位置应当使用的名字：
+    /// - 正在生成提升方法体（_hoistingPlan 非空）时，用当前 plan 对同一符号的形参名；
+    /// - 否则用捕获变量原名（声明处仍是同名局部/holder 变量）。
+    /// </summary>
+    private string GetCaptureArgumentName(CapturePlan capture)
+    {
+        if (_hoistingPlan != null
+            && FindCapture(_hoistingPlan, capture.Symbol) is { } local)
+            return local.ParameterName;
+        return capture.OriginalName;
+    }
+
+    private static CapturePlan? FindCapture(LiftPlan plan, ISymbol symbol)
+        => plan.Captures.FirstOrDefault(c =>
+            SymbolEqualityComparer.Default.Equals(c.Symbol, symbol));
+
+    /// <summary>
+    /// Holder 捕获的声明改写：<c>T x = init;</c> →
+    /// <c>StrongBox&lt;T&gt; x = new StrongBox&lt;T&gt;(init);</c>。
+    /// 只在声明语句的全部声明符都是 holder 时改写（分析阶段已保证 holder 的声明
+    /// 语句只有一个声明符）；同一语句的多个 holder 共用同一个 T。
+    /// </summary>
+    public override SyntaxNode? VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
+    {
+        var visited = (LocalDeclarationStatementSyntax?)base.VisitLocalDeclarationStatement(node);
+        if (visited == null)
+            return null;
+
+        // 只处理原始语法树里的声明（新生成节点没有符号信息）。
+        if (!ReferenceEquals(node.SyntaxTree, _model.SyntaxTree))
+            return visited;
+
+        string? elementTypeDisplay = null;
+        var allHolders = true;
+        foreach (var declarator in node.Declaration.Variables)
+        {
+            var symbol = _model.GetDeclaredSymbol(declarator);
+            if (symbol != null && _holderSymbols.TryGetValue(symbol, out var display))
+            {
+                elementTypeDisplay ??= display;
+                continue;
+            }
+            allHolders = false;
+        }
+
+        if (elementTypeDisplay == null || !allHolders)
+            return visited;
+
+        var boxType = SyntaxFactory.ParseTypeName(
+            $"global::System.Runtime.CompilerServices.StrongBox<{elementTypeDisplay}>");
+        var variables = new List<VariableDeclaratorSyntax>();
+        foreach (var declarator in visited.Declaration.Variables)
+        {
+            var value = declarator.Initializer?.Value
+                ?? SyntaxFactory.DefaultExpression(
+                    SyntaxFactory.ParseTypeName(elementTypeDisplay));
+            var boxed = SyntaxFactory.ObjectCreationExpression(boxType.WithoutTrivia())
+                .WithArgumentList(SyntaxFactory.ArgumentList(
+                    SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(value))));
+            variables.Add(declarator.WithInitializer(
+                SyntaxFactory.EqualsValueClause(boxed)));
+        }
+
+        Changed = true;
+        return visited.WithDeclaration(
+            visited.Declaration
+                .WithType(boxType)
+                .WithVariables(SyntaxFactory.SeparatedList(variables)));
+    }
+
     public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
     {
         // Try to resolve the symbol for this identifier
         var symbol = _model.GetSymbolInfo(node).Symbol;
+
+        // 正在生成某个提升方法的函数体：捕获引用必须按符号改写成对应的形参名。
+        // 名字匹配在这里不可靠——局部函数自己的形参可能与被捕获的外层变量同名
+        // （gen/RegexGenerator.Emitter.cs 的 EmitNode/EmitAlternation 都是
+        // `RegexNode node` 形参 + 外层 `node` 局部），按名字改会把形参引用也
+        // 改成捕获形参，调用点传进来的实参被静默丢掉。
+        if (_hoistingPlan != null
+            && symbol != null
+            && node.Parent is not NameColonSyntax
+            && FindCapture(_hoistingPlan, symbol) is { } capture)
+        {
+            Changed = true;
+            var parameterName = SyntaxFactory.IdentifierName(capture.ParameterName)
+                .WithTriviaFrom(node);
+            if (!capture.UseHolder)
+                return parameterName;
+            if (CaptureClassification.IsInsideNameOf(node))
+                return parameterName;
+            return SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    parameterName.WithoutTrivia(),
+                    SyntaxFactory.IdentifierName("Value"))
+                .WithTriviaFrom(node);
+        }
+
+        // Holder 捕获：声明处的变量已改成 StrongBox<T>，该成员内所有绑定到它
+        // 的引用都要读/写 `.Value`（ref/out 实参变成 ref/out x.Value 也合法）。
+        // nameof(x) 保持原名（字符串必须一致）。
+        if (symbol != null
+            && _holderSymbols.ContainsKey(symbol)
+            && node.Parent is not NameColonSyntax
+            && !CaptureClassification.IsInsideNameOf(node))
+        {
+            Changed = true;
+            return SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    SyntaxFactory.IdentifierName(node.Identifier.WithoutTrivia()),
+                    SyntaxFactory.IdentifierName("Value"))
+                .WithTriviaFrom(node);
+        }
+
         LiftPlan? plan = null;
 
         if (symbol != null && _symbolToPlan.TryGetValue(symbol, out var p1))
@@ -807,8 +935,9 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         var arguments = new List<ArgumentSyntax>();
         foreach (var capture in plan.Captures)
         {
-            // 调用点看到的是捕获变量的原名（参数名只存在于提升后的方法体内）。
-            var captureName = SyntaxFactory.IdentifierName(capture.OriginalName);
+            // 调用点看到的是捕获变量的原名（参数名只存在于提升后的方法体内）；
+            // 在提升方法体内合成 lambda 时改用当前 plan 的捕获形参名。
+            var captureName = SyntaxFactory.IdentifierName(GetCaptureArgumentName(capture));
             arguments.Add(capture.ByRef
                 ? SyntaxFactory.Argument(captureName).WithRefKindKeyword(
                     SyntaxFactory.Token(SyntaxKind.RefKeyword))
@@ -919,7 +1048,7 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         var arguments = new List<ArgumentSyntax>();
         foreach (var capture in plan.Captures)
         {
-            var captureName = SyntaxFactory.IdentifierName(capture.OriginalName);
+            var captureName = SyntaxFactory.IdentifierName(GetCaptureArgumentName(capture));
             arguments.Add(capture.ByRef
                 ? SyntaxFactory.Argument(captureName).WithRefKindKeyword(
                     SyntaxFactory.Token(SyntaxKind.RefKeyword))
@@ -961,41 +1090,50 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
         BlockSyntax? body = null;
 
-        if (localFn.Body != null)
+        var previousHoistingPlan = _hoistingPlan;
+        _hoistingPlan = plan;
+        try
         {
-            body = (BlockSyntax)Visit(localFn.Body)!;
-            body = RenameCapturesInBody(body, plan);
+            if (localFn.Body != null)
+            {
+                body = (BlockSyntax)Visit(localFn.Body)!;
+                body = RenameCapturesInBody(body, plan);
+            }
+            else if (localFn.ExpressionBody != null)
+            {
+                var expr = localFn.ExpressionBody.Expression;
+                var visitedExpr = (ExpressionSyntax)Visit(expr)!;
+                visitedExpr = RenameCapturesInExpression(visitedExpr, plan);
+
+                var isVoid = returnType.IsKind(SyntaxKind.VoidKeyword)
+                    || (returnType is PredefinedTypeSyntax pt && pt.Keyword.IsKind(SyntaxKind.VoidKeyword));
+
+                // async 返回 Task/ValueTask 的局部函数，表达式体可以是 void 表达式
+                // （cs-text p05: `static async Task ValidateWhitespace(...) =>
+                // validator.ValidateWhitespace(await t.ConfigureAwait(false))`，被调用方返回 void）。
+                // 这种表达式体在原位置就是「语句」，转成 `return <void 表达式>` 会 CS1997
+                // （返回 Task 的异步方法的 return 不得后跟对象表达式）。
+                if (!isVoid
+                    && _model.GetTypeInfo(expr).ConvertedType?.SpecialType == SpecialType.System_Void)
+                {
+                    isVoid = true;
+                }
+
+                StatementSyntax stmt;
+                if (isVoid)
+                {
+                    stmt = SyntaxFactory.ExpressionStatement(visitedExpr);
+                }
+                else
+                {
+                    stmt = SyntaxFactory.ReturnStatement(visitedExpr);
+                }
+                body = SyntaxFactory.Block(stmt);
+            }
         }
-        else if (localFn.ExpressionBody != null)
+        finally
         {
-            var expr = localFn.ExpressionBody.Expression;
-            var visitedExpr = (ExpressionSyntax)Visit(expr)!;
-            visitedExpr = RenameCapturesInExpression(visitedExpr, plan);
-
-            var isVoid = returnType.IsKind(SyntaxKind.VoidKeyword)
-                || (returnType is PredefinedTypeSyntax pt && pt.Keyword.IsKind(SyntaxKind.VoidKeyword));
-
-            // async 返回 Task/ValueTask 的局部函数，表达式体可以是 void 表达式
-            // （cs-text p05: `static async Task ValidateWhitespace(...) =>
-            // validator.ValidateWhitespace(await t.ConfigureAwait(false))`，被调用方返回 void）。
-            // 这种表达式体在原位置就是「语句」，转成 `return <void 表达式>` 会 CS1997
-            // （返回 Task 的异步方法的 return 不得后跟对象表达式）。
-            if (!isVoid
-                && _model.GetTypeInfo(expr).ConvertedType?.SpecialType == SpecialType.System_Void)
-            {
-                isVoid = true;
-            }
-
-            StatementSyntax stmt;
-            if (isVoid)
-            {
-                stmt = SyntaxFactory.ExpressionStatement(visitedExpr);
-            }
-            else
-            {
-                stmt = SyntaxFactory.ReturnStatement(visitedExpr);
-            }
-            body = SyntaxFactory.Block(stmt);
+            _hoistingPlan = previousHoistingPlan;
         }
 
         var leadingTrivia = localFn.GetLeadingTrivia();
@@ -1194,12 +1332,15 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
     private static ParameterSyntax BuildCaptureParameter(CapturePlan cap)
     {
+        var typeDisplay = cap.UseHolder && cap.HolderElementTypeDisplay != null
+            ? $"global::System.Runtime.CompilerServices.StrongBox<{cap.HolderElementTypeDisplay}>"
+            : cap.TypeDisplay;
         return SyntaxFactory.Parameter(
             SyntaxFactory.List<AttributeListSyntax>(),
-            cap.IsWritten
+            cap.ByRef
                 ? SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.RefKeyword))
                 : SyntaxFactory.TokenList(),
-            SyntaxFactory.ParseTypeName(cap.TypeDisplay),
+            SyntaxFactory.ParseTypeName(typeDisplay),
             SyntaxFactory.Identifier(cap.ParameterName),
             null);
     }
@@ -1315,20 +1456,93 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
     private BlockSyntax RenameCapturesInBody(BlockSyntax body, LiftPlan plan)
     {
-        if (plan.Captures.Count == 0)
+        var captures = GetFallbackRenamableCaptures(plan);
+        if (captures.Count == 0)
             return body;
 
-        var renamer = new CaptureRenamer(plan.Captures);
+        var renamer = new CaptureRenamer(captures);
         return (BlockSyntax)renamer.Visit(body)!;
     }
 
     private ExpressionSyntax RenameCapturesInExpression(ExpressionSyntax expr, LiftPlan plan)
     {
-        if (plan.Captures.Count == 0)
+        var captures = GetFallbackRenamableCaptures(plan);
+        if (captures.Count == 0)
             return expr;
 
-        var renamer = new CaptureRenamer(plan.Captures);
+        var renamer = new CaptureRenamer(captures);
         return (ExpressionSyntax)renamer.Visit(expr)!;
+    }
+
+    /// <summary>
+    /// 名字匹配的回退重命名只用于符号解析失败（上游错误类型）的标识符。
+    /// 捕获名若与函数体里声明的名字（形参/局部/lambda 形参等）重名，
+    /// 或有两个捕获同名，按名字无法判断该改哪一个，必须交给 VisitIdentifierName
+    /// 的符号匹配处理，否则会把形参引用错误地改成捕获形参。
+    /// </summary>
+    private static List<CapturePlan> GetFallbackRenamableCaptures(LiftPlan plan)
+    {
+        if (plan.Captures.Count == 0)
+            return new List<CapturePlan>();
+
+        var ambiguous = CollectDeclaredNames(plan.Node);
+        foreach (var group in plan.Captures.GroupBy(c => c.OriginalName, StringComparer.Ordinal))
+        {
+            if (group.Count() > 1)
+                ambiguous.Add(group.Key);
+        }
+
+        return plan.Captures
+            .Where(c => !ambiguous.Contains(c.OriginalName))
+            .ToList();
+    }
+
+    private static HashSet<string> CollectDeclaredNames(LocalFunctionStatementSyntax localFn)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        if (localFn.ParameterList != null)
+        {
+            foreach (var parameter in localFn.ParameterList.Parameters)
+                names.Add(parameter.Identifier.Text);
+        }
+
+        var body = (SyntaxNode?)localFn.Body ?? localFn.ExpressionBody;
+        if (body == null)
+            return names;
+
+        foreach (var node in body.DescendantNodesAndSelf())
+        {
+            switch (node)
+            {
+                case ParameterSyntax parameter:
+                    names.Add(parameter.Identifier.Text);
+                    break;
+                case VariableDeclaratorSyntax declarator:
+                    names.Add(declarator.Identifier.Text);
+                    break;
+                case ForEachStatementSyntax forEach:
+                    names.Add(forEach.Identifier.Text);
+                    break;
+                case SingleVariableDesignationSyntax designation:
+                    names.Add(designation.Identifier.Text);
+                    break;
+                case CatchDeclarationSyntax catchDeclaration
+                    when !catchDeclaration.Identifier.IsKind(SyntaxKind.None):
+                    names.Add(catchDeclaration.Identifier.Text);
+                    break;
+                case FromClauseSyntax fromClause:
+                    names.Add(fromClause.Identifier.Text);
+                    break;
+                case LetClauseSyntax letClause:
+                    names.Add(letClause.Identifier.Text);
+                    break;
+                case JoinClauseSyntax joinClause:
+                    names.Add(joinClause.Identifier.Text);
+                    break;
+            }
+        }
+
+        return names;
     }
 
     /// <summary>
