@@ -266,6 +266,34 @@ public class InterpolationExpandUnitTests
         Assert.Equal("ab", RunStaticMethod(result.OutputCode, "C", "M"));
     }
 
+    /// <summary>
+    /// A site whose converted type is not string but is reachable from string
+    /// through an implicit conversion (the compiler converts the interpolation
+    /// to string first, e.g. the ReadOnlySpan&lt;char&gt; implicit operator).
+    /// Expansion to string.Concat keeps the same conversion chain instead of
+    /// reporting CS2J0512.
+    /// </summary>
+    [Fact]
+    public void Concat_ReadOnlySpanTarget_ImplicitStringConversion_Expands()
+    {
+        const string source = """
+            public static class C
+            {
+                public static int M(char c, string s) => Consume($"{c}{s}");
+                private static int Consume(System.ReadOnlySpan<char> span) => span.Length;
+            }
+            """;
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.Contains("Consume(string.Concat(c, s))", Normalize(result.OutputCode));
+        Assert.DoesNotContain(
+            result.Diagnostics, d => d.Code == InterpolationDiagnosticCodes.CS2J0512);
+        Assert.Equal(1, result.Statistics.Interpolations.ConcatExpansions);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
     [Fact]
     public void Concat_UnsignedHoles_WrapPerUnsignedContract()
     {

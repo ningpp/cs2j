@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Operations;
 
@@ -122,6 +123,29 @@ internal static class HandlerBindingAnalyzer
         // dynamic is excluded: its natural Type is dynamic, never string.
         if (convertedType is { SpecialType: SpecialType.System_Object, TypeKind: not TypeKind.Dynamic }
             && typeInfo.Type is { SpecialType: SpecialType.System_String })
+        {
+            return new HandlerBinding(
+                InterpolationBindingKind.DefaultString,
+                convertedType,
+                null,
+                null);
+        }
+
+        // ---- Post-string implicit conversion target (e.g. ReadOnlySpan<char>) ----
+        // An interpolation whose natural type is string but whose converted
+        // type is a target reachable by an implicit conversion FROM string
+        // (the compiler lowers the site to string first, then applies the
+        // enclosing conversion; a user-defined conversion from
+        // ReadOnlySpan<char> cannot chain). string.Concat(...) has the same
+        // type, so the expansion keeps the exact conversion chain.
+        if (convertedType is
+                { TypeKind: not TypeKind.Error and not TypeKind.Dynamic }
+            && convertedType.SpecialType != SpecialType.System_String
+            && typeInfo.Type is { SpecialType: SpecialType.System_String }
+            && model.Compilation is CSharpCompilation csharpCompilation
+            && csharpCompilation.ClassifyConversion(
+                csharpCompilation.GetSpecialType(SpecialType.System_String),
+                convertedType) is { IsImplicit: true })
         {
             return new HandlerBinding(
                 InterpolationBindingKind.DefaultString,
