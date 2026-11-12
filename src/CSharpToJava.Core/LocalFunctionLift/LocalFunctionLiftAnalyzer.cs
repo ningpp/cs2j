@@ -248,12 +248,10 @@ internal sealed class LocalFunctionLiftAnalyzer
             return plan;
         }
 
-        // Gate #6: checked/unchecked context
-        if (IsInsideCheckedContext(localFn))
-        {
-            Skip(plan, LocalFunctionSkipReason.CheckedContext, "local function is inside a checked/unchecked block");
-            return plan;
-        }
+        // Gate #6 (supported): checked/unchecked context no longer skips the lift.
+        // 提升方法体整体包一层同名块后，算术溢出检查语义与声明点完全一致
+        // （体内显式的 checked/unchecked 表达式仍然局部覆盖）。
+        plan.CheckedContext = GetCheckedContext(localFn);
 
         plan.IsStatic = DetermineStatic(localFn);
         var isExplicitStatic = IsExplicitStaticLocalFunction(localFn);
@@ -495,18 +493,34 @@ internal sealed class LocalFunctionLiftAnalyzer
         return false;
     }
 
-    private static bool IsInsideCheckedContext(LocalFunctionStatementSyntax localFn)
+    /// <summary>
+    /// 局部函数声明点所处的 checked/unchecked 上下文：只看声明点的祖先，
+    /// 不看函数体（体内自己的 checked/unchecked 表达式属于局部覆盖，提升后原样保留）。
+    /// 嵌套时最近的一层决定种类；表达式形式（checked(expr)）只可能通过其中的
+    /// lambda/匿名方法间接包含局部函数声明，同样按最近祖先判定。
+    /// </summary>
+    private static CheckedContextKind GetCheckedContext(LocalFunctionStatementSyntax localFn)
     {
         SyntaxNode? current = localFn.Parent;
         while (current != null)
         {
-            if (current is CheckedExpressionSyntax || current is CheckedStatementSyntax)
-                return true;
+            switch (current)
+            {
+                case CheckedExpressionSyntax expression:
+                    return expression.Keyword.IsKind(SyntaxKind.CheckedKeyword)
+                        ? CheckedContextKind.Checked
+                        : CheckedContextKind.Unchecked;
+                case CheckedStatementSyntax statement:
+                    return statement.Keyword.IsKind(SyntaxKind.CheckedKeyword)
+                        ? CheckedContextKind.Checked
+                        : CheckedContextKind.Unchecked;
+            }
+
             if (current is TypeDeclarationSyntax)
-                return false;
+                return CheckedContextKind.None;
             current = current.Parent;
         }
-        return false;
+        return CheckedContextKind.None;
     }
 
     /// <summary>

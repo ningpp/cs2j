@@ -42,6 +42,20 @@ internal sealed class LiftPlan
     /// constraints and call-site names from this plan when present.
     /// </summary>
     public SyntheticTypeParameterPlan? TypeParameterPlan;
+    /// <summary>
+    /// 局部函数<em>声明点</em>所处的 checked/unchecked 上下文。提升方法体整体包一层
+    /// 同名块即可精确复现该区域的算术溢出检查语义（体内显式的 checked/unchecked
+    /// 表达式仍然局部覆盖，不受影响）。
+    /// </summary>
+    public CheckedContextKind CheckedContext = CheckedContextKind.None;
+}
+
+/// <summary>局部函数声明点所处的溢出检查上下文。</summary>
+internal enum CheckedContextKind
+{
+    None,
+    Checked,
+    Unchecked,
 }
 
 /// <summary>

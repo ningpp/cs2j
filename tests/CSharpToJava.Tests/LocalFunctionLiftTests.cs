@@ -1606,6 +1606,136 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
+    // checked / unchecked 上下文：声明点位于 checked/unchecked 区域时不再跳过，
+    // 提升方法体整体包一层同名块以复现算术溢出检查语义。
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void CheckedContext_LiftsWithCheckedBody()
+    {
+        const string src = """
+        class C {
+            int M() {
+                int total = 1;
+                checked {
+                    Add(2);
+                    void Add(int v) { total += v * 3; }
+                }
+                return total;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+
+        var method = ParseMethod(result.OutputCode, "add");
+        var checkedStatement = Assert.Single(
+            method.DescendantNodes().OfType<CheckedStatementSyntax>());
+        Assert.True(checkedStatement.IsKind(SyntaxKind.CheckedStatement));
+        // 整个方法体就是这一层 checked 块。
+        Assert.Same(checkedStatement, method.Body!.Statements[0]);
+
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void UncheckedContext_LiftsWithUncheckedBody()
+    {
+        const string src = """
+        class C {
+            int M() {
+                int total = 1;
+                unchecked {
+                    Add(2);
+                    void Add(int v) { total += v * 3; }
+                }
+                return total;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+
+        var method = ParseMethod(result.OutputCode, "add");
+        var uncheckedStatement = Assert.Single(
+            method.DescendantNodes().OfType<CheckedStatementSyntax>());
+        Assert.True(uncheckedStatement.IsKind(SyntaxKind.UncheckedStatement));
+
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void CheckedExpression_ContextDetected()
+    {
+        // 局部函数声明不能直接出现在表达式里，合法形态是声明在 checked(expr)
+        // 内的 lambda 体中：声明点的最近 checked 祖先是表达式形式。
+        const string src = """
+        class C {
+            int M() {
+                return checked(((System.Func<int>)(() => {
+                    int Twice(int v) => v + v;
+                    return Twice(2);
+                }))());
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+
+        var method = ParseMethod(result.OutputCode, "twice");
+        var checkedStatement = Assert.Single(
+            method.DescendantNodes().OfType<CheckedStatementSyntax>());
+        Assert.True(checkedStatement.IsKind(SyntaxKind.CheckedStatement));
+
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void CheckedContext_Iterator_StillLifts()
+    {
+        const string src = """
+        using System.Collections.Generic;
+
+        class C {
+            IEnumerable<int> M(int n) {
+                checked {
+                    foreach (var v in Values(n)) yield return v;
+                    IEnumerable<int> Values(int count) {
+                        for (int i = 0; i < count; i++) yield return i * 2;
+                    }
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+
+        var method = ParseMethod(result.OutputCode, "values");
+        Assert.Contains(method.DescendantNodes().OfType<CheckedStatementSyntax>(),
+            s => s.IsKind(SyntaxKind.CheckedStatement));
+        Assert.Contains(method.DescendantNodes().OfType<YieldStatementSyntax>(),
+            s => s.IsKind(SyntaxKind.YieldReturnStatement));
+
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
     // Residual gate: every surviving local function is a residual, no
     // "intentionally retained" exemption. Strict (default) must fail.
     // -----------------------------------------------------------------------
@@ -1613,16 +1743,15 @@ public class LocalFunctionLiftTests
     [Fact]
     public async Task ResidualGate_Counts_Every_Unlifted_LocalFunction_StrictErrors_NonStrictWarns()
     {
-        // checked 上下文里的局部函数按设计无法提升：它必须以 residual 形式暴露。
+        // 字段初始化器里的 lambda 局部函数没有可用的类级宿主上下文，必须保留为
+        // residual 并如实上报。
         const string source = """
             class C {
-                void M() {
-                    checked {
-                        int x = 1;
-                        Use(x);
-                        void Use(int v) { System.Console.WriteLine(v + x); }
-                    }
-                }
+                System.Action A = () => {
+                    int x = 1;
+                    Use(x);
+                    void Use(int v) { System.Console.WriteLine(v + x); }
+                };
             }
             """;
 

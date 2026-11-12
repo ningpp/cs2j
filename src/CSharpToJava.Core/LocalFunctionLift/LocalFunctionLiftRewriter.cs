@@ -1489,6 +1489,13 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
         var leadingTrivia = localFn.GetLeadingTrivia();
 
+        // 声明点位于 checked/unchecked 区域：提升方法体整体包一层同名块。该区域对
+        // 算术溢出的影响（编译期常量溢出诊断与运行期 OverflowException）由同名嵌套块
+        // 精确复现；体内原有的 checked/unchecked 表达式仍然局部覆盖。yield / await
+        // 在同名块内同样合法，故迭代器与 async 局部函数无需区别对待。
+        if (body != null && plan.CheckedContext != CheckedContextKind.None)
+            body = WrapInCheckedContext(body, plan.CheckedContext);
+
         // 设计文档 §4.5：Attributes 原样复制。提升方法是普通方法，`[return: ...]`
         // 目标特性同样合法，因此无需改写目标。
         var method = SyntaxFactory.MethodDeclaration(
@@ -1518,6 +1525,30 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             method = method.WithLeadingTrivia(leadingTrivia);
 
         return method;
+    }
+
+    /// <summary>
+    /// 把提升方法体整体包进 <c>checked { ... }</c> / <c>unchecked { ... }</c>：
+    /// 外层块沿用换行 trivia（Formatter 负责缩进），内层 block 直接复用原函数体，
+    /// 因此注释与原有排版保持不变。
+    /// </summary>
+    private static BlockSyntax WrapInCheckedContext(BlockSyntax body, CheckedContextKind kind)
+    {
+        var isChecked = kind == CheckedContextKind.Checked;
+        var statement = SyntaxFactory.CheckedStatement(
+            isChecked ? SyntaxKind.CheckedStatement : SyntaxKind.UncheckedStatement,
+            SyntaxFactory.Token(isChecked ? SyntaxKind.CheckedKeyword : SyntaxKind.UncheckedKeyword),
+            body);
+
+        var openBrace = SyntaxFactory.Token(SyntaxKind.OpenBraceToken)
+            .WithTrailingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);
+        var closeBrace = SyntaxFactory.Token(SyntaxKind.CloseBraceToken)
+            .WithLeadingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);
+
+        return SyntaxFactory.Block(
+            openBrace,
+            SyntaxFactory.SingletonList<StatementSyntax>(statement),
+            closeBrace);
     }
 
     /// <summary>
