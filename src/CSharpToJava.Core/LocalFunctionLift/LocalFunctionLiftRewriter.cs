@@ -185,7 +185,7 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
                 _stats.LocalFunctionsLifted++;
                 foreach (var cap in plan.Captures)
                 {
-                    if (cap.ByRef)
+                    if (cap.ByRef || cap.ByIn)
                         _stats.CapturesByRef++;
                     else if (cap.UseHolder)
                         _stats.CapturesByHolder++;
@@ -821,18 +821,8 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
         foreach (var cap in plan.Captures)
         {
-            var argExpr = SyntaxFactory.IdentifierName(GetCaptureArgumentName(cap));
-            if (cap.ByRef)
-            {
-                newArgs.Add(SyntaxFactory.Argument(
-                    default,
-                    SyntaxFactory.Token(SyntaxKind.RefKeyword),
-                    argExpr));
-            }
-            else
-            {
-                newArgs.Add(SyntaxFactory.Argument(argExpr));
-            }
+            newArgs.Add(BuildCaptureArgument(
+                cap, SyntaxFactory.IdentifierName(GetCaptureArgumentName(cap))));
         }
 
         foreach (var arg in argumentList.Arguments)
@@ -854,6 +844,25 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             && FindCapture(_hoistingPlan, capture.Symbol) is { } local)
             return local.ParameterName;
         return capture.OriginalName;
+    }
+
+    /// <summary>
+    /// 捕获实参的形态：写入型捕获传 <c>ref x</c>；只读 ref 局部捕获传 <c>in x</c>
+    /// （提升形参是 <c>in T</c>）；其余按值。
+    /// </summary>
+    private static ArgumentSyntax BuildCaptureArgument(CapturePlan capture, ExpressionSyntax expression)
+    {
+        if (capture.ByRef)
+        {
+            return SyntaxFactory.Argument(expression).WithRefKindKeyword(
+                SyntaxFactory.Token(SyntaxKind.RefKeyword));
+        }
+        if (capture.ByIn)
+        {
+            return SyntaxFactory.Argument(expression).WithRefKindKeyword(
+                SyntaxFactory.Token(SyntaxKind.InKeyword));
+        }
+        return SyntaxFactory.Argument(expression);
     }
 
     private static CapturePlan? FindCapture(LiftPlan plan, ISymbol symbol)
@@ -1181,11 +1190,8 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         {
             // 调用点看到的是捕获变量的原名（参数名只存在于提升后的方法体内）；
             // 在提升方法体内合成 lambda 时改用当前 plan 的捕获形参名。
-            var captureName = SyntaxFactory.IdentifierName(GetCaptureArgumentName(capture));
-            arguments.Add(capture.ByRef
-                ? SyntaxFactory.Argument(captureName).WithRefKindKeyword(
-                    SyntaxFactory.Token(SyntaxKind.RefKeyword))
-                : SyntaxFactory.Argument(captureName));
+            arguments.Add(BuildCaptureArgument(
+                capture, SyntaxFactory.IdentifierName(GetCaptureArgumentName(capture))));
         }
 
         var lambdaParameters = new List<ParameterSyntax>();
@@ -1400,11 +1406,8 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         var arguments = new List<ArgumentSyntax>();
         foreach (var capture in plan.Captures)
         {
-            var captureName = SyntaxFactory.IdentifierName(GetCaptureArgumentName(capture));
-            arguments.Add(capture.ByRef
-                ? SyntaxFactory.Argument(captureName).WithRefKindKeyword(
-                    SyntaxFactory.Token(SyntaxKind.RefKeyword))
-                : SyntaxFactory.Argument(captureName));
+            arguments.Add(BuildCaptureArgument(
+                capture, SyntaxFactory.IdentifierName(GetCaptureArgumentName(capture))));
         }
 
         var invocation = SyntaxFactory.InvocationExpression(
@@ -1754,10 +1757,12 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         // 会被判定为可能逃逸（CS8352）。与 ref 互斥（scoped 写入捕获已在分析阶段
         // 按 ref 不可用跳过，不会走到这里）。
         var modifiers = new List<SyntaxToken>();
-        if (cap.IsScoped && !cap.ByRef)
+        if (cap.IsScoped && !cap.ByRef && !cap.ByIn)
             modifiers.Add(SyntaxFactory.Token(SyntaxKind.ScopedKeyword));
         if (cap.ByRef)
             modifiers.Add(SyntaxFactory.Token(SyntaxKind.RefKeyword));
+        else if (cap.ByIn)
+            modifiers.Add(SyntaxFactory.Token(SyntaxKind.InKeyword));
 
         return SyntaxFactory.Parameter(
             SyntaxFactory.List<AttributeListSyntax>(),

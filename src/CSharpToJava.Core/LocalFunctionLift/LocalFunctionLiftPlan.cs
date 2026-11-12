@@ -91,7 +91,13 @@ internal sealed record CapturePlan(
     /// 捕获的来源声明带 <c>scoped</c>（C# 11）：提升后的捕获形参必须保留该修饰符，
     /// 否则把 scoped 变量传给非 scoped 形参会被判定为可能逃逸（CS8352）。
     /// </summary>
-    bool IsScoped = false);
+    bool IsScoped = false,
+    /// <summary>
+    /// 只读 ref 局部（<c>ref readonly T x = ref ...</c>）的捕获形态：提升为
+    /// <c>in T</c> 形参、调用点传 <c>in x</c>。只读语义与源完全等价；源的
+    /// ref readonly 局部本身也不能被写。可写 ref 局部用 <see cref="ByRef"/>。
+    /// </summary>
+    bool ByIn = false);
 
 /// <summary>
 /// 外层 <c>const</c> 局部在提升方法里的内联形态：按名字/符号匹配后替换为

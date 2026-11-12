@@ -598,20 +598,12 @@ internal sealed class LocalFunctionLiftAnalyzer
                 localFnSymbol,
                 d => d is not LocalFunctionStatementSyntax,
                 unresolved)
-            .Select(info =>
-            {
-                var isWritten = IsCapturedVariableWritten(localFn, info.Symbol);
-                var capName = LocalFunctionLiftNaming.GetCaptureParameterName(
-                    info.Name, capParamNames);
-                return new CapturePlan(
-                    info.Symbol,
-                    info.Name,
-                    capName,
-                    RenderCaptureTypeDisplay(info.Type, hostType),
-                    isWritten,
-                    isWritten,
-                    IsScoped: IsScopedCapture(info.Symbol));
-            })
+            .Select(info => CreateCapturePlan(
+                info.Symbol,
+                info.Name,
+                LocalFunctionLiftNaming.GetCaptureParameterName(info.Name, capParamNames),
+                RenderCaptureTypeDisplay(info.Type, hostType),
+                IsCapturedVariableWritten(localFn, info.Symbol)))
             .ToList();
 
         // 类型符号是 ErrorType 时，退回声明处的类型语法（见 GetDeclaredTypeSyntax）。
@@ -627,17 +619,44 @@ internal sealed class LocalFunctionLiftAnalyzer
             }
 
             var isWritten = IsCapturedVariableWritten(localFn, symbol);
-            captures.Add(new CapturePlan(
+            captures.Add(CreateCapturePlan(
                 symbol,
                 symbol.Name,
                 LocalFunctionLiftNaming.GetCaptureParameterName(symbol.Name, capParamNames),
                 typeSyntax,
-                isWritten,
-                isWritten,
-                IsScoped: IsScopedCapture(symbol)));
+                isWritten));
         }
 
         return captures;
+    }
+
+    /// <summary>
+    /// 捕获的统一构造。ref 局部的形态由声明语法决定（语义类型显示是元素类型，
+    /// 不能区分 `ref T` 与 `T`）：
+    /// <list type="bullet">
+    /// <item><c>ref T x</c> → <c>ref T</c> 形参（读、写都精确等价）；</item>
+    /// <item><c>ref readonly T x</c> → <c>in T</c> 形参（只读，源本身也不能写）。</item>
+    /// </list>
+    /// 两处的捕获路径（语义可用 / 类型退回声明语法）必须产出同一形态。
+    /// </summary>
+    private static CapturePlan CreateCapturePlan(
+        ISymbol symbol,
+        string originalName,
+        string parameterName,
+        string typeDisplay,
+        bool isWritten)
+    {
+        var refKind = GetRefLocalCaptureKind(symbol);
+        return new CapturePlan(
+            symbol,
+            originalName,
+            parameterName,
+            typeDisplay,
+            isWritten,
+            ByRef: refKind == RefKind.Ref
+                || (refKind != RefKind.RefReadOnly && isWritten),
+            IsScoped: IsScopedCapture(symbol),
+            ByIn: refKind == RefKind.RefReadOnly);
     }
 
     /// <summary>
@@ -1094,13 +1113,14 @@ internal sealed class LocalFunctionLiftAnalyzer
 
         foreach (var cap in plan.Captures)
         {
-            if (!cap.IsWritten || cap.UseHolder)
+            // ref 局部捕获无论是否被写都必须走 ref/in 形参（读取也要保持引用语义）。
+            if (cap.UseHolder || (!cap.IsWritten && !cap.ByRef && !cap.ByIn))
                 continue;
 
             if (!CanUseRefCapture(plan, cap))
             {
                 Skip(plan, LocalFunctionSkipReason.RefCaptureUnavailable,
-                    $"write capture '{cap.OriginalName}' cannot use ref: " +
+                    $"capture '{cap.OriginalName}' cannot use a ref/in parameter: " +
                     GetRefCaptureUnavailableReason(plan, cap));
                 return;
             }
@@ -1115,12 +1135,70 @@ internal sealed class LocalFunctionLiftAnalyzer
         {
             var lineSpan = plan.Node.GetLocation().GetLineSpan();
             var line = lineSpan.IsValid ? lineSpan.StartLinePosition.Line + 1 : 0;
+            var detail = IsRefLocalCapture(offending.Symbol)
+                ? "the capture is a ref local and its reference lands in a lambda; a ref/in " +
+                  "parameter cannot be used there (CS1628)"
+                : "a ref parameter cannot be used there (CS1628) and the capture type cannot be " +
+                  $"wrapped in a StrongBox holder ({GetHolderUnavailableReason(offending)})";
             Skip(plan, LocalFunctionSkipReason.RefCaptureInNestedLambda,
-                $"write capture '{offending.OriginalName}' would be referenced from a lambda in the " +
-                $"hoisted body (local function starts at line {line}); a ref parameter cannot be " +
-                "used there (CS1628) and the capture type cannot be wrapped in a StrongBox holder " +
-                $"({GetHolderUnavailableReason(offending)})");
+                $"capture '{offending.OriginalName}' would be referenced from a lambda in the " +
+                $"hoisted body (local function starts at line {line}); {detail}");
         }
+
+        // ref 局部捕获的调用点实参必须是 `ref rx` / `in rx`，该形态在 lambda /
+        // 匿名方法 / 查询表达式内非法（CS8175），只能保留原局部函数。
+        var refLocalCapture = plan.Captures.FirstOrDefault(static c =>
+            !c.UseHolder && IsRefLocalCapture(c.Symbol));
+        if (refLocalCapture != null
+            && HasRefLocalCaptureArgumentInsideLambda(plan, refLocalCapture.Symbol))
+        {
+            Skip(plan, LocalFunctionSkipReason.RefCaptureInNestedLambda,
+                $"ref local capture '{refLocalCapture.OriginalName}' is used by a call site " +
+                "inside a lambda/anonymous method/query expression; 'ref rx' is not allowed " +
+                "there (CS8175)");
+        }
+    }
+
+    /// <summary>
+    /// 提升后的调用点是否会落在 lambda / 匿名方法 / 查询表达式里：这种位置的实参
+    /// 必须是 <c>ref rx</c> / <c>in rx</c>（ref 局部），源里非法（CS8175）；方法组
+    /// 引用会被重写器展开成带 ref 实参的合成 lambda，同样算命中。ref 局部本身与
+    /// 引用位于同一个 lambda 内时合法（那时它是该 lambda 的局部变量）。
+    /// </summary>
+    private bool HasRefLocalCaptureArgumentInsideLambda(LiftPlan plan, ISymbol symbol)
+    {
+        var scope = plan.Node.Parent;
+        if (scope == null)
+            return false;
+
+        foreach (var reference in EnumerateLocalFunctionReferences(scope))
+        {
+            var referenced = _model.GetSymbolInfo(reference).Symbol;
+            if (referenced is not IMethodSymbol method)
+                continue;
+            if (!SymbolEqualityComparer.Default.Equals(method, plan.Symbol)
+                && !SymbolEqualityComparer.Default.Equals(method.OriginalDefinition, plan.Symbol))
+                continue;
+
+            var isInvocationTarget = reference.Parent is InvocationExpressionSyntax invocation
+                && invocation.Expression == reference;
+
+            for (var ancestor = reference.Parent; ancestor != null; ancestor = ancestor.Parent)
+            {
+                if (ancestor is not (AnonymousFunctionExpressionSyntax or QueryExpressionSyntax))
+                    continue;
+
+                if (CaptureClassification.IsDeclaredInside(symbol, ancestor))
+                    break; // ref 局部与该引用同处这个 lambda 内：ref 实参合法
+                return true;
+            }
+
+            // 方法组引用会变成 `(args) => callee(ref rx, args)`，ref 实参必然落进 lambda。
+            if (!isInvocationTarget)
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -1141,7 +1219,12 @@ internal sealed class LocalFunctionLiftAnalyzer
         if (body == null)
             return result;
 
-        var writtenCaptures = plan.Captures.Where(static c => c.IsWritten).ToList();
+        // 提升后必须以 ref/in 形参携带的捕获：普通写入型捕获与 ref 局部捕获
+        // （ref 局部即使只读也要以 ref/in 传，读取才保持引用语义）。这些形参
+        // 都不能出现在 lambda 内（CS1628），实参也不能在 lambda 里传 ref（CS8175）。
+        var writtenCaptures = plan.Captures
+            .Where(static c => c.IsWritten || IsRefLocalCapture(c.Symbol))
+            .ToList();
         if (writtenCaptures.Count == 0)
             return result;
 
@@ -1156,7 +1239,7 @@ internal sealed class LocalFunctionLiftAnalyzer
                     || bySymbol.TryGetValue(callee.OriginalDefinition, out calleePlan)))
             {
                 var calleeWritten = calleePlan.Captures
-                    .Where(static c => c.IsWritten)
+                    .Where(static c => c.IsWritten || IsRefLocalCapture(c.Symbol))
                     .ToList();
                 if (calleeWritten.Count == 0)
                     continue;
@@ -1660,12 +1743,17 @@ internal sealed class LocalFunctionLiftAnalyzer
         if (type != null && IsExpressiblePointerCapture(type))
             return false;
 
-        // ref 局部（`ref T x = ref ...`）不能作为提升方法的捕获来源：C# 本身禁止
-        // 在局部函数里引用外层 ref 局部（CS8175）。语义符号的类型显示是底层类型
-        // （`ref int` 显示为 `int`），共享原语的 `"ref "` 前缀判定命中不了，这里按
-        // 声明语法判定。
+        // ref 局部捕获：`ref T` → `ref T` 形参、`ref readonly T` → `in T` 形参，
+        // 与源语义等价（C# 的局部函数本来就以 ref/in 形参携带这类捕获）。
+        // 例外仍按不支持跳过：
+        // - scoped ref 局部：`scoped ref` 形参无法表达（调用点 CS8352），
+        //   丢掉 scoped 同样不安全；
+        // - 元素类型本身不可拼写（匿名类型等）。
         if (IsRefLocalCapture(cap.Symbol))
-            return true;
+        {
+            return cap.IsScoped
+                || CaptureClassification.IsUnsupportedCaptureKind(cap.TypeDisplay);
+        }
 
         return CaptureClassification.IsUnsupportedCaptureKind(cap.TypeDisplay);
     }
@@ -1680,9 +1768,18 @@ internal sealed class LocalFunctionLiftAnalyzer
         };
 
     private static bool IsRefLocalCapture(ISymbol symbol)
+        => GetRefLocalCaptureKind(symbol) != null;
+
+    /// <summary>
+    /// ref 局部的引用形态（<c>ref T</c> → <see cref="RefKind.Ref"/>，
+    /// <c>ref readonly T</c> → <see cref="RefKind.RefReadOnly"/>），非 ref 局部返回
+    /// <see langword="null"/>。语义符号的类型显示是元素类型（<c>ref int</c> 显示为
+    /// <c>int</c>），必须按声明语法判定；<c>scoped</c> 前缀不影响形态判定。
+    /// </summary>
+    private static RefKind? GetRefLocalCaptureKind(ISymbol symbol)
     {
         if (symbol is not ILocalSymbol local)
-            return false;
+            return null;
 
         foreach (var reference in local.DeclaringSyntaxReferences)
         {
@@ -1693,11 +1790,15 @@ internal sealed class LocalFunctionLiftAnalyzer
             var type = declaration.Type;
             if (type is ScopedTypeSyntax scoped)
                 type = scoped.Type;
-            if (type is RefTypeSyntax)
-                return true;
+            if (type is RefTypeSyntax refType)
+            {
+                return refType.ReadOnlyKeyword.IsKind(SyntaxKind.ReadOnlyKeyword)
+                    ? RefKind.RefReadOnly
+                    : RefKind.Ref;
+            }
         }
 
-        return false;
+        return null;
     }
 
     private static bool HasParamsOrOptional(LocalFunctionStatementSyntax localFn)

@@ -484,20 +484,102 @@ public class LocalFunctionLiftTests
     }
 
     /// <summary>
-    /// ref 局部变量不能作为提升方法的捕获来源（C# 本身禁止在局部函数里使用外层
-    /// ref 局部），仍按 unsupported 跳过。
+    /// ref 局部被局部函数捕获时提升为 <c>ref T</c> 形参，调用点传 <c>ref rx</c>：
+    /// 与 C# 编译器对局部函数的降级形态一致，读、写都保持引用语义。
     /// </summary>
     [Fact]
-    public void RefLocalCapture_StillSkipped()
+    public void RefLocalCapture_IsLiftedAsRefParameter()
     {
         var src = """
         class C {
             int M() {
-                int y = 0;
-                ref int r = ref y;
+                int x = 0;
+                ref int rx = ref x;
                 Use();
-                return y;
-                void Use() { r = 5; }
+                return x;
+                void Use() { rx = 1; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("ref int _cs2j_cap_rx", result.OutputCode);
+        Assert.Contains("use(ref rx)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>
+    /// <c>ref readonly</c> 局部只读，提升为 <c>in T</c> 形参，调用点传 <c>in rx</c>。
+    /// </summary>
+    [Fact]
+    public void RefLocalReadOnlyCapture_IsLiftedAsInParameter()
+    {
+        var src = """
+        class C {
+            int M() {
+                int x = 42;
+                ref readonly int rx = ref x;
+                Use();
+                return x;
+                void Use() { System.Console.WriteLine(rx); }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("in int _cs2j_cap_rx", result.OutputCode);
+        Assert.Contains("use(in rx)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>
+    /// 调用点位于 lambda / 匿名方法内：提升后的 <c>use(ref rx)</c> 在那里非法
+    /// （CS8175），保留原局部函数并给出诊断。
+    /// </summary>
+    [Fact]
+    public void RefLocalCapture_CallSiteInsideLambda_IsSkipped()
+    {
+        var src = """
+        class C {
+            void M() {
+                int x = 0;
+                ref int rx = ref x;
+                System.Action a = () => { Use(); };
+                a();
+                void Use() { rx = 1; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
+        var diagnostic = Assert.Single(result.Diagnostics,
+            d => d.Reason == LocalFunctionSkipReason.RefCaptureInNestedLambda);
+        Assert.Contains("'rx'", diagnostic.Message);
+        Assert.Contains("void Use()", result.OutputCode);
+        Assert.Contains("Use();", result.OutputCode);
+    }
+
+    /// <summary>
+    /// <c>scoped ref</c> 局部：提升成 <c>ref</c>/<c>scoped ref</c> 形参都无法表达
+    /// （调用点 CS8352），保持保守跳过。
+    /// </summary>
+    [Fact]
+    public void ScopedRefLocalCapture_StillSkipped()
+    {
+        var src = """
+        class C {
+            void M() {
+                int x = 0;
+                scoped ref int rx = ref x;
+                Use();
+                void Use() { rx = 1; }
             }
         }
         """;
@@ -506,7 +588,7 @@ public class LocalFunctionLiftTests
         Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
         var diagnostic = Assert.Single(result.Diagnostics,
             d => d.Reason == LocalFunctionSkipReason.UnsupportedCaptureType);
-        Assert.Contains("'r'", diagnostic.Message);
+        Assert.Contains("'rx'", diagnostic.Message);
         Assert.Contains("void Use()", result.OutputCode);
     }
 
