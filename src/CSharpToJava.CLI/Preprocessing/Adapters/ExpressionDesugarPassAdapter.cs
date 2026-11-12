@@ -5,6 +5,7 @@ using CSharpToJava.Core.ExpressionDesugar.Initializers;
 using CSharpToJava.Core.ExpressionDesugar.Interpolations;
 using CSharpToJava.Core.ExpressionDesugar.NullConditional;
 using CSharpToJava.Core.Preprocessing;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -49,6 +50,17 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
         new(StringComparer.OrdinalIgnoreCase);
 
     private CollectionExprTreeGateResult? _gateResult;
+
+    /// <summary>
+    /// Restored NuGet compile assemblies of the input tree (read-only; no
+    /// restore is triggered). The base pass compilation only references the
+    /// TPA, so collection initializers whose Add is inherited from a
+    /// package-declared base type (e.g. xUnit's TheoryData&lt;…&gt;) cannot bind
+    /// and fall into CS2J0533.
+    /// </summary>
+    private IReadOnlyList<MetadataReference> _packageReferences =
+        Array.Empty<MetadataReference>();
+    private bool _packageReferencesInitialized;
 
     /// <summary>C24 whole-tree gate result; null when the C24 rule is disabled.</summary>
     private InitializerTreeGateResult? _initializerGateResult;
@@ -115,6 +127,54 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
     /// and diagnostic/verbose order identical to the sequential path.
     /// </summary>
     public override bool SupportsParallelFileRewrite => true;
+
+    /// <summary>
+    /// Enumerates the input tree's already-restored NuGet compile assemblies
+    /// (the original source tree first, since an intermediate input tree
+    /// normally carries no obj/ artifacts while this read-only pass never
+    /// restores). Enumeration is skipped when both trees have no restore
+    /// output; affected sites then keep reporting CS2J0533.
+    /// </summary>
+    public override Task OnTreePreparedAsync(PassTreeContext tree)
+    {
+        if (_packageReferencesInitialized)
+        {
+            return Task.CompletedTask;
+        }
+
+        _packageReferencesInitialized = true;
+        _packageReferences = EnumeratePackageReferences(tree.Layout.SourceRoot);
+        if (_packageReferences.Count == 0 && !tree.InPlace)
+        {
+            _packageReferences = EnumeratePackageReferences(tree.IntermediateRoot);
+        }
+
+        if (_verbose && _packageReferences.Count > 0)
+        {
+            Console.WriteLine(
+                $"[expression-desugar] binding with {_packageReferences.Count} " +
+                "restored package reference(s)");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static IReadOnlyList<MetadataReference> EnumeratePackageReferences(string root)
+        => Directory.Exists(root)
+            ? RestorePackageReferenceEnumerator.EnumerateOnePerAssemblyName(root, out _)
+            : Array.Empty<MetadataReference>();
+
+    /// <summary>TPA basics plus the restored NuGet compile assemblies.</summary>
+    public override IReadOnlyCollection<MetadataReference> GetMetadataReferences()
+    {
+        var references = new List<MetadataReference>(base.GetMetadataReferences());
+        if (_packageReferences.Count > 0)
+        {
+            references.AddRange(_packageReferences);
+        }
+
+        return references;
+    }
 
     public override async Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
     {

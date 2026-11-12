@@ -1069,6 +1069,50 @@ public class InitializerDesugarUnitTests
         Assert.Equal(2, init.AddFluent);
     }
 
+    [Fact]
+    public void M1_CollectionInitializer_AddInheritedFromBaseType_Binds()
+    {
+        // The Add method lives on a base class (xUnit TheoryData shape): the
+        // initializer element must bind through the base chain, not only look
+        // at members declared on the created type itself.
+        const string source = """
+            using System.Collections;
+            public class TheoryBag : IEnumerable
+            {
+                public void Add(int a, int b, bool c) { }
+                public IEnumerator GetEnumerator() => null!;
+            }
+            public class EqualsData : TheoryBag { }
+            public static class C
+            {
+                public static void M()
+                {
+                    var d = new EqualsData
+                    {
+                        { 1, 2, true },
+                        { 3, 4, false },
+                    };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.False(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0533, ExpressionDesugarSeverity.Error));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("__ed_0.Add(1, 2, true)", normalized);
+        Assert.Contains("__ed_0.Add(3, 4, false)", normalized);
+        Assert.DoesNotContain("{ 1, 2, true }", normalized);
+
+        var init = result.Statistics.Initializers;
+        Assert.Equal(2, init.AddMulti);
+        Assert.Equal(0, init.AddSingle);
+    }
+
     // ------------------------------------------------------------------
     // M1: bare target-typed new() (IN-9).
     // ------------------------------------------------------------------

@@ -29,8 +29,16 @@ internal static class RestorePackageReferenceEnumerator
         foreach (var assetsFile in Directory.EnumerateFiles(
                      intermediateRoot, "project.assets.json", SearchOption.AllDirectories))
         {
+            // Restore artifacts live under an obj directory; the SDK's
+            // project-extensions path can nest the file (e.g.
+            // obj/<configuration>/<project>/project.assets.json), so accept any
+            // depth below obj instead of only obj/project.assets.json.
             var normalized = assetsFile.Replace('\\', '/');
-            if (!normalized.EndsWith("/obj/project.assets.json", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(
+                    normalized[(normalized.LastIndexOf('/') + 1)..],
+                    "project.assets.json", StringComparison.OrdinalIgnoreCase)
+                || !normalized.Split('/').Any(segment =>
+                    string.Equals(segment, "obj", StringComparison.OrdinalIgnoreCase)))
             {
                 continue;
             }
@@ -56,6 +64,65 @@ internal static class RestorePackageReferenceEnumerator
 
         addedCount = references.Count;
         return references.Values.ToList();
+    }
+
+    /// <summary>
+    /// Enumeration result reduced to one assembly per simple name (highest
+    /// version). The merged pass compilation unions every project's package
+    /// assemblies, so different projects can contribute different versions of
+    /// the same assembly; referencing two of them makes their types ambiguous
+    /// (CS0433) and overload resolution never binds.
+    /// </summary>
+    public static IReadOnlyList<MetadataReference> EnumerateOnePerAssemblyName(
+        string root, out int addedCount)
+    {
+        var bySimpleName = new Dictionary<string, (Version Version, MetadataReference Reference)>(
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var reference in Enumerate(root, out _))
+        {
+            var path = reference.Display ?? string.Empty;
+            var simpleName = Path.GetFileNameWithoutExtension(path);
+            if (simpleName.Length == 0)
+            {
+                continue;
+            }
+
+            var version = ParsePackageVersion(path) ?? new Version(0, 0);
+            if (!bySimpleName.TryGetValue(simpleName, out var existing)
+                || version > existing.Version)
+            {
+                bySimpleName[simpleName] = (version, reference);
+            }
+        }
+
+        addedCount = bySimpleName.Count;
+        return bySimpleName.Values.Select(entry => entry.Reference).ToList();
+    }
+
+    /// <summary>
+    /// Extracts the package version directory (e.g. <c>…/xunit.assert/2.9.3/lib/…</c>)
+    /// from a restored assembly path; null when the path carries no version segment.
+    /// </summary>
+    private static Version? ParsePackageVersion(string path)
+    {
+        foreach (var segment in path.Split(
+                     Path.DirectorySeparatorChar,
+                     Path.AltDirectorySeparatorChar,
+                     StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!char.IsDigit(segment[0]))
+            {
+                continue;
+            }
+
+            var numeric = segment.Split('-', '+')[0];
+            if (Version.TryParse(numeric, out var version))
+            {
+                return version;
+            }
+        }
+
+        return null;
     }
 
     private static void ReadAssetsFile(
