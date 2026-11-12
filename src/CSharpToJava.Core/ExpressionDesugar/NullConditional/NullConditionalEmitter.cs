@@ -12,6 +12,22 @@ namespace CSharpToJava.Core.ExpressionDesugar.NullConditional;
 /// </summary>
 internal static class NullConditionalEmitter
 {
+    /// <summary>
+    /// Fully-qualified rendering (global::, nullable annotations preserved) for
+    /// the type syntax this family materializes. A relative name such as
+    /// <c>System.Memory&lt;byte&gt;</c> rebinds inside the corpus' dotted
+    /// namespaces (<c>dotnet.System.*</c>) to <c>dotnet.System.Memory&lt;byte&gt;</c>,
+    /// which the per-project build does not declare.
+    /// </summary>
+    private static readonly SymbolDisplayFormat GlobalTypeFormat =
+        SymbolDisplayFormat.FullyQualifiedFormat.WithMiscellaneousOptions(
+            SymbolDisplayFormat.FullyQualifiedFormat.MiscellaneousOptions
+            | SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
+
+    /// <summary>Parses a global-qualified type name rendered from a symbol.</summary>
+    public static TypeSyntax GlobalType(ITypeSymbol type)
+        => SyntaxFactory.ParseTypeName(type.ToDisplayString(GlobalTypeFormat));
+
     // ------------------------------------------------------------------
     // Placeholder binding substitution.
     // ------------------------------------------------------------------
@@ -414,7 +430,7 @@ internal static class NullConditionalEmitter
 
         return SyntaxFactory.ParenthesizedExpression(
             SyntaxFactory.CastExpression(
-                SyntaxFactory.ParseTypeName(underlying.ToDisplayString()),
+                GlobalType(underlying),
                 receiver));
     }
 
@@ -448,7 +464,7 @@ internal static class NullConditionalEmitter
         if (type == null)
             return SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.ObjectKeyword));
 
-        var parsed = SyntaxFactory.ParseTypeName(type.ToDisplayString());
+        var parsed = GlobalType(type);
 
         var alreadyNullableValueType = type is INamedTypeSymbol named
             && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;

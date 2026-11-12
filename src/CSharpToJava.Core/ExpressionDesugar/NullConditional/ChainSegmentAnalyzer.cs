@@ -200,8 +200,7 @@ internal static class ChainSegmentAnalyzer
         var castToNullable = NeedsNullableCast(terminalValueType, resultType);
         TypeSyntax? castType = null;
         if (castToNullable && resultType != null)
-            castType = SyntaxFactory.ParseTypeName(
-                resultType.ToDisplayString());
+            castType = NullConditionalEmitter.GlobalType(resultType);
 
         var contextKind = ClassifyContext(root);
         var anchor = ExpressionDesugarTempLifter.FindAnchor(root);

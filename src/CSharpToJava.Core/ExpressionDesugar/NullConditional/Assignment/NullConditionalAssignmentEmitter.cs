@@ -135,7 +135,7 @@ internal static class NullConditionalAssignmentEmitter
         }
         else
         {
-            var parsed = SyntaxFactory.ParseTypeName(memberType.ToDisplayString());
+            var parsed = NullConditionalEmitter.GlobalType(memberType);
             var nullableValueType = memberType is INamedTypeSymbol named
                 && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
             var annotatedReference = memberType.IsReferenceType
