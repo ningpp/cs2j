@@ -687,6 +687,13 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
+        // nameof(捕获变量) 的实参是标识符，取值是原名字符串。捕获形参改名后
+        // nameof 内的标识符不能再按符号改成 _cs2j_cap_*，否则运行时字符串一起变
+        // （cs-text p05: NumberFormatInfo.ThrowInvalid 的 ArgumentException.ParamName）。
+        // 折叠成原名字符串字面量：既保持语义，也不会引用提升方法里不存在的名字。
+        if (TryFoldNameOfCapture(node) is { } folded)
+            return folded;
+
         var visited = (InvocationExpressionSyntax?)base.VisitInvocationExpression(node);
         if (visited == null)
             return null;
@@ -1109,6 +1116,33 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
                 SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword)),
             _ => default,
         };
+    }
+
+    /// <summary>
+    /// 提升方法体内 <c>nameof(被捕获变量)</c> 折叠为原名字符串字面量。
+    /// 只处理单个简单标识符实参；成员访问等其它形态保持原样（原名字符串的
+    /// 最后一段同样不再绑定到提升方法，交给编译期暴露而不是静默猜测）。
+    /// </summary>
+    private ExpressionSyntax? TryFoldNameOfCapture(InvocationExpressionSyntax node)
+    {
+        if (_hoistingPlan == null)
+            return null;
+        if (node.Expression is not IdentifierNameSyntax { Identifier.Text: "nameof" })
+            return null;
+        if (node.ArgumentList.Arguments.Count != 1)
+            return null;
+        if (node.ArgumentList.Arguments[0].Expression is not IdentifierNameSyntax target)
+            return null;
+
+        var symbol = _model.GetSymbolInfo(target).Symbol;
+        if (symbol == null || FindCapture(_hoistingPlan, symbol) is not { } capture)
+            return null;
+
+        Changed = true;
+        return SyntaxFactory.LiteralExpression(
+                SyntaxKind.StringLiteralExpression,
+                SyntaxFactory.Literal(capture.OriginalName))
+            .WithTriviaFrom(node);
     }
 
     private static bool IsInsideNameOf(SyntaxNode node)

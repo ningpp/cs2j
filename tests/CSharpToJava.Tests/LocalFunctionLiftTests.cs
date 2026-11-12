@@ -224,6 +224,33 @@ public class LocalFunctionLiftTests
     }
 
     /// <summary>
+    /// nameof(被捕获变量) 的实参只是一个标识符，字符串值必须保持原名字。
+    /// 提升后捕获形参改名为 _cs2j_cap_*，若按符号改名会把 nameof 的运行时
+    /// 字符串一起改掉（cs-text p05: NumberFormatInfo.ThrowInvalid 的
+    /// ArgumentException.ParamName 从 "style" 变成 "_cs2j_cap_style"）。
+    /// </summary>
+    [Fact]
+    public void Capture_NameOf_UsesOriginalIdentifierString()
+    {
+        var src = """
+        class C {
+            void M(int style) {
+                ThrowInvalid(style);
+                void ThrowInvalid(int value) {
+                    throw new System.ArgumentException("bad", nameof(style));
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("nameof(_cs2j_cap_style)", result.OutputCode);
+        Assert.Contains("\"style\"", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>
     /// Iterator local functions are lifted, not skipped: the hoisted method keeps the
     /// yield statements and is a valid iterator method at class level (see the
     /// deliberately disabled iterator gate in LocalFunctionLiftAnalyzer).
