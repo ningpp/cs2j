@@ -191,6 +191,9 @@ internal static class NullConditionalSyntaxFacts
     /// expression: walks member/element access, invocation and parentheses
     /// chains down to a <see cref="MemberBindingExpressionSyntax"/> or
     /// <see cref="ElementBindingExpressionSyntax"/>.
+    /// The null-forgiving operator (<c>!</c>) is transparent for runtime
+    /// semantics, so it is unwrapped like parentheses: <c>a?.b!.c()</c> walks
+    /// through the <c>b!</c> suppression node to the <c>.b</c> binding.
     /// </summary>
     public static ExpressionSyntax? FindRootBinding(ExpressionSyntax expression)
     {
@@ -217,6 +220,11 @@ internal static class NullConditionalSyntaxFacts
 
                 case ParenthesizedExpressionSyntax parenthesized:
                     current = parenthesized.Expression;
+                    break;
+
+                case PostfixUnaryExpressionSyntax postfix
+                    when postfix.IsKind(SyntaxKind.SuppressNullableWarningExpression):
+                    current = postfix.Operand;
                     break;
 
                 default:
