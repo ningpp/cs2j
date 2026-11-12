@@ -1630,12 +1630,13 @@ internal static class ProjectPreprocessSource
     /// the GenerateResource task. Every preprocessor applies the same targets file
     /// so the intermediate trees stay structurally identical.
     /// </summary>
-    private static void EnsurePreserializedResourceSupport(
+    internal static void EnsurePreserializedResourceSupport(
         string intermediateRoot,
         string logPrefix,
-        bool verbose)
+        bool verbose,
+        string? assemblyPathOverride = null)
     {
-        var assemblyPath = ResolveSystemResourcesExtensionsAssembly();
+        var assemblyPath = assemblyPathOverride ?? ResolveSystemResourcesExtensionsAssembly();
         if (assemblyPath == null)
         {
             if (verbose)
@@ -1659,6 +1660,24 @@ internal static class ProjectPreprocessSource
         if (File.Exists(targetsPath))
         {
             var content = File.ReadAllText(targetsPath);
+
+            // Every preprocessor runs this preparation on its own intermediate
+            // tree, and later passes copy the previous pass' targets file. An
+            // unconditional insert would therefore append one more copy per
+            // pass (p01 → p07 accumulates duplicates), so the snippet is only
+            // added when no equivalent reference is present yet.
+            if (ContainsPreserializedResourceReference(content, assemblyPath))
+            {
+                if (verbose)
+                {
+                    Console.WriteLine(
+                        $"{logPrefix} System.Resources.Extensions reference already present " +
+                        $"({assemblyPath}); preserialized-resource snippet not injected again.");
+                }
+
+                return;
+            }
+
             var closeTag = "</Project>";
             var closeIndex = content.LastIndexOf(closeTag, StringComparison.OrdinalIgnoreCase);
             if (closeIndex >= 0)
@@ -1686,6 +1705,51 @@ internal static class ProjectPreprocessSource
                 $"{logPrefix} Injected System.Resources.Extensions reference ({assemblyPath}) " +
                 "for preserialized resource verification builds.");
         }
+    }
+
+    /// <summary>
+    /// True when the targets content already references the given assembly
+    /// through a <c>ReferencePathWithRefAssemblies</c> item. Attribute values
+    /// are XML-decoded and paths are normalized (separator style, whitespace,
+    /// casing) so an existing snippet produced with different escaping or line
+    /// endings is still recognized.
+    /// </summary>
+    private static bool ContainsPreserializedResourceReference(string content, string assemblyPath)
+    {
+        var normalizedAssemblyPath = NormalizePathForComparison(assemblyPath);
+        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(
+                     content,
+                     @"<ReferencePathWithRefAssemblies\b[^>]*\bInclude\s*=\s*(?:""([^""]*)""|'([^']*)')",
+                     System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+        {
+            var raw = match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value;
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                continue;
+            }
+
+            var decoded = System.Net.WebUtility.HtmlDecode(raw);
+            if (string.Equals(
+                    NormalizePathForComparison(decoded),
+                    normalizedAssemblyPath,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string NormalizePathForComparison(string path)
+    {
+        var normalized = path.Trim().Replace('\\', '/');
+        while (normalized.Contains("//", StringComparison.Ordinal))
+        {
+            normalized = normalized.Replace("//", "/", StringComparison.Ordinal);
+        }
+
+        return normalized;
     }
 
     private static string? ResolveSystemResourcesExtensionsAssembly()
