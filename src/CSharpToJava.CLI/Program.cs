@@ -428,6 +428,11 @@ public class Program
                             Strict = opts.LocalFunctionStrict,
                         }
                         : null,
+                    // J-04/G-36/JE-04 condition-effect rule: default on;
+                    // --no-condition-effect restores the inert subsection.
+                    ConditionEffect = opts.NoConditionEffect
+                        ? null
+                        : new CSharpToJava.Core.ExpressionDesugar.ConditionEffect.ConditionEffectOptions(),
                 },
                 PlatformIsolationOptionsFactory = () => BuildPlatformIsolationOptions(
                     opts.PlatformReportOnly, opts.PlatformMode, opts.PlatformStrict, opts.PlatformConfig),
@@ -4376,6 +4381,11 @@ public class Program
                             Strict = opts.LocalFunctionStrict,
                         }
                         : null,
+                    // J-04/G-36/JE-04 condition-effect rule: default on;
+                    // --no-condition-effect restores the inert subsection.
+                    ConditionEffect = opts.NoConditionEffect
+                        ? null
+                        : new CSharpToJava.Core.ExpressionDesugar.ConditionEffect.ConditionEffectOptions(),
                 },
                 PlatformIsolationOptionsFactory = () => BuildPlatformIsolationOptions(
                     opts.PlatformReportOnly, opts.PlatformMode, opts.PlatformStrict, opts.PlatformConfig),
@@ -5472,6 +5482,10 @@ class PreprocessVerbOptions
         HelpText = "Negation switch for the C35/C51 null-conditional rules (red-line byte-identical runs)")]
     public bool NoNullConditional { get; set; }
 
+    [Option("no-condition-effect", Default = false,
+        HelpText = "Disable the condition-effect (while/if condition side-effect linearization) rule inside expression-desugar (default on)")]
+    public bool NoConditionEffect { get; set; }
+
     [Option("enable-signatures-rule", Default = true,
         HelpText = "Enable the C46 signature explicitization subset inside member-desugar (explicit interface implementations / new hiding / covariant returns; default on, also configurable via MemberDesugarOverrides.json)")]
     public bool EnableSignaturesRule { get; set; }
@@ -5989,6 +6003,10 @@ class ConvertProjectOptions
     [Option("no-null-conditional", Default = false,
         HelpText = "Negation switch for the C35/C51 null-conditional rules (red-line byte-identical runs)")]
     public bool NoNullConditional { get; set; }
+
+    [Option("no-condition-effect", Default = false,
+        HelpText = "Disable the condition-effect (while/if condition side-effect linearization) rule inside expression-desugar (default on)")]
+    public bool NoConditionEffect { get; set; }
 
     [Option("enable-signatures-rule", Default = true,
         HelpText = "Enable the C46 signature explicitization subset inside member-desugar (explicit interface implementations / new hiding / covariant returns; default on, also configurable via MemberDesugarOverrides.json)")]

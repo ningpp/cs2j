@@ -1,4 +1,5 @@
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
+using CSharpToJava.Core.ExpressionDesugar.ConditionEffect;
 using CSharpToJava.Core.ExpressionDesugar.Initializers;
 using CSharpToJava.Core.ExpressionDesugar.Interpolations;
 using CSharpToJava.Core.ExpressionDesugar.NullConditional;
@@ -30,5 +31,9 @@ internal static class ExpressionDesugarRuleSet
         // C36 — M1: analyze + zero-temp array/mutable forms + spread
         // statement lowering + residual gate (CE-1/2/3/5/6/7/12).
         new CollectionExprRule(),
+        // J-04/G-36/JE-04 — statement-level linearization of property/indexer
+        // side effects in while/if conditions. Runs LAST: it must see the
+        // conditions/statements already rewritten by every earlier rule.
+        new ConditionEffectRule(),
     };
 }

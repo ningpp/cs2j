@@ -95,6 +95,7 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
                     MemberDesugarChainAvailable = true,
                 },
                 NullConditional = options.NullConditional,
+                ConditionEffect = options.ConditionEffect,
             }
             : options;
         _verbose = verbose;
@@ -722,6 +723,15 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
                       $"{initGate.ResidualNodes} residual node(s) vs " +
                       $"{initGate.PairedNodes} paired (balanced={initGate.Balanced})");
             lines.Add("[expression-desugar]   " + BuildInitializerSummarySegment());
+        }
+
+        if (_options.ConditionEffect is { } conditionEffect)
+        {
+            lines.Add(
+                $"[expression-desugar]   condition-effect: " +
+                $"{(conditionEffect.Enabled ? "enabled" : "disabled")}, " +
+                $"{_statistics.ConditionEffectRewrites} rewrite(s), " +
+                $"{_statistics.ConditionEffectSkipped} skipped");
         }
 
         return lines;

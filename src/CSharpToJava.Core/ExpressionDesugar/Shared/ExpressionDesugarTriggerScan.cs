@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
+using CSharpToJava.Core.ExpressionDesugar.ConditionEffect;
 using CSharpToJava.Core.ExpressionDesugar.Initializers;
 
 namespace CSharpToJava.Core.ExpressionDesugar;
@@ -37,6 +38,14 @@ internal readonly struct ExpressionDesugarSyntaxProfile
     /// generic attribute declarations/applications, <c>scoped</c> tokens).
     /// </summary>
     public bool HasGuardSyntax { get; init; }
+
+    /// <summary>
+    /// At least one <c>while</c>/<c>if</c> whose condition syntactically
+    /// carries a property/indexer side effect (<c>++</c>/<c>--</c>, assignment,
+    /// <c>ref</c>/<c>out</c> argument). Semantic target checks happen later in
+    /// the rule's Analyze pass.
+    /// </summary>
+    public bool HasConditionSideEffectCandidate { get; init; }
 }
 
 /// <summary>
@@ -59,6 +68,7 @@ internal static class ExpressionDesugarTriggerScan
         var hasConditionalAccess = false;
         var hasCollectionExpression = false;
         var hasGuardSyntax = false;
+        var hasConditionSideEffectCandidate = false;
 
         foreach (var node in root.DescendantNodes())
         {
@@ -73,6 +83,18 @@ internal static class ExpressionDesugarTriggerScan
                 case CollectionExpressionSyntax:
                     hasCollectionExpression = true;
                     break;
+                case WhileStatementSyntax whileStatement
+                    when !hasConditionSideEffectCandidate:
+                    hasConditionSideEffectCandidate =
+                        ConditionEffectSyntaxFacts.HasCandidateSyntax(
+                            whileStatement.Condition);
+                    break;
+                case IfStatementSyntax ifStatement
+                    when !hasConditionSideEffectCandidate:
+                    hasConditionSideEffectCandidate =
+                        ConditionEffectSyntaxFacts.HasCandidateSyntax(
+                            ifStatement.Condition);
+                    break;
             }
 
             if (!hasInitializerTrigger && InitializerSyntaxFacts.IsTriggerNode(node))
@@ -86,7 +108,8 @@ internal static class ExpressionDesugarTriggerScan
                 && hasInitializerTrigger
                 && hasConditionalAccess
                 && hasCollectionExpression
-                && hasGuardSyntax)
+                && hasGuardSyntax
+                && hasConditionSideEffectCandidate)
             {
                 break;
             }
@@ -105,6 +128,7 @@ internal static class ExpressionDesugarTriggerScan
             HasConditionalAccess = hasConditionalAccess,
             HasCollectionExpression = hasCollectionExpression,
             HasGuardSyntax = hasGuardSyntax,
+            HasConditionSideEffectCandidate = hasConditionSideEffectCandidate,
         };
     }
 }

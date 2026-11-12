@@ -1,4 +1,5 @@
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
+using CSharpToJava.Core.ExpressionDesugar.ConditionEffect;
 using CSharpToJava.Core.ExpressionDesugar.Initializers;
 using CSharpToJava.Core.ExpressionDesugar.Interpolations;
 using CSharpToJava.Core.ExpressionDesugar.NullConditional;
@@ -32,6 +33,12 @@ public sealed class ExpressionDesugarOptions
     /// = the rule stays inert, same rollout gate as C24).
     /// </summary>
     public NullConditionalOptions? NullConditional { get; init; }
+
+    /// <summary>
+    /// J-04 / G-36 / JE-04 condition-effect subsection (nullable; absent = the
+    /// rule stays inert, same rollout gate as C24/C35).
+    /// </summary>
+    public ConditionEffectOptions? ConditionEffect { get; init; }
 
     /// <summary>Default options instance.</summary>
     public static ExpressionDesugarOptions Default { get; } = new();

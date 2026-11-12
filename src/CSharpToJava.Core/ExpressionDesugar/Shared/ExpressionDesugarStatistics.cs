@@ -25,6 +25,12 @@ public sealed class ExpressionDesugarStatistics
     /// <summary>Total temporaries lifted across every rule (shared __ed_ numbering).</summary>
     public int TempsLifted;
 
+    /// <summary>J-04/G-36/JE-04: while/if conditions linearized into temps.</summary>
+    public int ConditionEffectRewrites;
+
+    /// <summary>J-04/G-36/JE-04: conditions preserved by an explicit conservative skip.</summary>
+    public int ConditionEffectSkipped;
+
     // ---- Rule sections (append-only as rules land) ----
 
     /// <summary>C23 interpolation-expansion section.</summary>
@@ -48,6 +54,8 @@ public sealed class ExpressionDesugarStatistics
         FilesDirtyNoRewrite += other.FilesDirtyNoRewrite;
         ResidualCount += other.ResidualCount;
         TempsLifted += other.TempsLifted;
+        ConditionEffectRewrites += other.ConditionEffectRewrites;
+        ConditionEffectSkipped += other.ConditionEffectSkipped;
         Interpolations.MergeFrom(other.Interpolations);
         CollectionExpr.MergeFrom(other.CollectionExpr);
         Initializers.MergeFrom(other.Initializers);
