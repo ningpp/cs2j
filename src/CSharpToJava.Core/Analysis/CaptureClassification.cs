@@ -36,6 +36,20 @@ public sealed record CaptureWriteSite(
     CaptureWriteKind Kind);
 
 /// <summary>
+/// An outer <c>const</c> local referenced inside a boundary body. A constant is
+/// not state: C# closures/iterators do not capture it, and const occurrences
+/// (constant patterns, parameter defaults, attribute arguments, goto case,
+/// switch labels) require a compile-time constant. Callers that move a body out
+/// of its declaring method must inline <see cref="ConstantValue"/> instead of
+/// generating a parameter.
+/// </summary>
+public sealed record ReferencedConstantInfo(
+    ILocalSymbol Symbol,
+    string Name,
+    ITypeSymbol Type,
+    object? ConstantValue);
+
+/// <summary>
 /// Stateless capture primitives shared by local-function-lift (E02) and
 /// closure-lift (C32). Strategy (what triggers a lift, grouping, foreach
 /// conservatism) belongs to each pass; these only answer
@@ -95,6 +109,13 @@ public static class CaptureClassification
                 && SymbolEqualityComparer.Default.Equals(symbol.ContainingSymbol, boundaryMethod))
                 continue;
 
+            // const 局部是编译期常量，不是捕获：C# 的闭包/迭代器都不捕获常量。
+            // 常量语境（is 模式、参数默认值、特性实参、goto case、switch 标签）
+            // 必须保持编译期常量，改写成捕获形参会 CS0103/CS0150。需要拿到值的
+            // 调用方改用 <see cref="CollectReferencedConstants"/> 按值内联。
+            if (symbol is ILocalSymbol { HasConstantValue: true })
+                continue;
+
             // Skip symbols declared inside the boundary body itself
             // (lambda parameters, variables declared in nested blocks).
             if (IsDeclaredInside(symbol, bodyRoot))
@@ -124,6 +145,51 @@ public static class CaptureClassification
         }
 
         return captures;
+    }
+
+    /// <summary>
+    /// Enumerates distinct outer <c>const</c> locals referenced under
+    /// <paramref name="root"/>. Callers that need constant contexts in a local
+    /// function's signature (parameter default values, attribute arguments) pass
+    /// that syntax root separately. Constants declared inside
+    /// <paramref name="root"/> itself are skipped, mirroring
+    /// <see cref="CollectCapturedSymbols"/>.
+    /// </summary>
+    public static IReadOnlyList<ReferencedConstantInfo> CollectReferencedConstants(
+        SemanticModel model,
+        SyntaxNode root,
+        IMethodSymbol? boundaryMethod,
+        Func<SyntaxNode, bool>? descendPredicate = null)
+    {
+        var constants = new List<ReferencedConstantInfo>();
+        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+        foreach (var identifier in root
+            .DescendantNodes(descendPredicate)
+            .OfType<IdentifierNameSyntax>())
+        {
+            if (identifier.Parent is NameColonSyntax)
+                continue;
+
+            if (model.GetSymbolInfo(identifier).Symbol is not ILocalSymbol
+                { HasConstantValue: true } local)
+                continue;
+
+            if (boundaryMethod != null
+                && SymbolEqualityComparer.Default.Equals(local.ContainingSymbol, boundaryMethod))
+                continue;
+
+            if (IsDeclaredInside(local, root))
+                continue;
+
+            if (!seen.Add(local))
+                continue;
+
+            constants.Add(new ReferencedConstantInfo(
+                local, local.Name, local.Type, local.ConstantValue));
+        }
+
+        return constants;
     }
 
     /// <summary>

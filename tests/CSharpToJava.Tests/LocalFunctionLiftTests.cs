@@ -251,6 +251,99 @@ public class LocalFunctionLiftTests
     }
 
     /// <summary>
+    /// 外层 const 局部是编译期常量，不是捕获。`v is Limit` 必须内联成 `v is 42`：
+    /// 改写成 `_cs2j_cap_Limit` 形参在常量模式里是 CS0150（应输入常量值）。
+    /// </summary>
+    [Fact]
+    public void ConstCapture_ConstantPattern_IsInlined()
+    {
+        var src = """
+        class C {
+            bool M(object o) {
+                const int Limit = 42;
+                return IsIt(o);
+                bool IsIt(object v) => v is Limit;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("_cs2j_cap_Limit", result.OutputCode);
+        Assert.Contains("is 42", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>
+    /// 形参默认值是常量语境：提升后的方法签名若仍写 `= Limit`，常量在类级
+    /// 作用域不可见（CS0103），必须内联成 `= 42`。
+    /// </summary>
+    [Fact]
+    public void ConstCapture_ParameterDefault_IsInlined()
+    {
+        var src = """
+        class C {
+            int M() {
+                const int Limit = 42;
+                return WithDefault();
+                int WithDefault(int x = Limit) => x;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("_cs2j_cap_Limit", result.OutputCode);
+        Assert.DoesNotContain("x = Limit", result.OutputCode);
+        Assert.Contains("= 42", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>字符串常量同样按值内联为字面量。</summary>
+    [Fact]
+    public void ConstCapture_StringConst()
+    {
+        var src = """
+        class C {
+            void M() {
+                const string S = "abc";
+                Write();
+                void Write() => System.Console.WriteLine(S);
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("_cs2j_cap_S", result.OutputCode);
+        Assert.Contains("\"abc\"", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>const 内联、普通变量仍是捕获形参，两者互不影响。</summary>
+    [Fact]
+    public void ConstCapture_MixedWithNormalCapture()
+    {
+        var src = """
+        class C {
+            int M() {
+                int offset = 3;
+                const int Limit = 42;
+                return Sum();
+                int Sum() => offset + Limit;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("_cs2j_cap_offset", result.OutputCode);
+        Assert.DoesNotContain("_cs2j_cap_Limit", result.OutputCode);
+        Assert.Contains("+ 42", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>
     /// Iterator local functions are lifted, not skipped: the hoisted method keeps the
     /// yield statements and is a valid iterator method at class level (see the
     /// deliberately disabled iterator gate in LocalFunctionLiftAnalyzer).

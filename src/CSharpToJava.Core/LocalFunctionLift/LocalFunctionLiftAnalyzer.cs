@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
+using System.Globalization;
 using System.Linq;
 
 namespace CSharpToJava.Core.LocalFunctionLift;
@@ -290,6 +291,21 @@ internal sealed class LocalFunctionLiftAnalyzer
             return plan;
         }
 
+        // 外层 const 局部是编译期常量，不是捕获：常量语境（is 模式、参数默认值、
+        // 特性实参、goto case、switch 标签）改写成捕获形参会 CS0103/CS0150。
+        // 提升后按值内联成字面量，不生成形参、调用点不加实参。static 局部函数
+        // 也允许引用常量，故不受 isStatic 影响。
+        var unresolvedConstants = new List<string>();
+        plan.InlinedConstants = CollectInlinedConstants(
+            localFn, symbol!, hostType, unresolvedConstants);
+        if (unresolvedConstants.Count > 0)
+        {
+            Skip(plan, LocalFunctionSkipReason.UnsupportedCaptureType,
+                $"referenced const local(s) {string.Join(", ", unresolvedConstants)} " +
+                "have no usable constant value and cannot be inlined as literals");
+            return plan;
+        }
+
         // Gate #7: Unsupported capture type
         foreach (var cap in plan.Captures)
         {
@@ -523,6 +539,9 @@ internal sealed class LocalFunctionLiftAnalyzer
                 continue;
 
             var symbol = _model.GetSymbolInfo(identifier).Symbol;
+            // const 局部是编译期常量、不构成捕获，static 局部函数也能引用它。
+            if (symbol is ILocalSymbol { HasConstantValue: true })
+                continue;
             if (symbol is ILocalSymbol or IParameterSymbol or IRangeVariableSymbol)
             {
                 // Skip references to the local function's own parameters
@@ -595,6 +614,125 @@ internal sealed class LocalFunctionLiftAnalyzer
         }
 
         return captures;
+    }
+
+    /// <summary>
+    /// 收集局部函数（含签名里的默认值/特性实参等常量语境）引用的外层 const 局部，
+    /// 并渲染成可内联的字面量文本。渲染失败时记入 <paramref name="unresolved"/>，
+    /// 调用方保守跳过（不产出引用未声明名字的坏码）。
+    /// </summary>
+    private List<InlinedConstantPlan> CollectInlinedConstants(
+        LocalFunctionStatementSyntax localFn,
+        IMethodSymbol localFnSymbol,
+        TypeDeclarationSyntax hostType,
+        List<string> unresolved)
+    {
+        var result = new List<InlinedConstantPlan>();
+        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+        // 分别扫描函数体与形参表：函数体里的引用和形参默认值/特性实参里的引用
+        // 都可能落在常量语境。注意不能把局部函数声明本身当根：Roslyn 的
+        // DescendantNodes(predicate) 会先用谓词判定根节点，而本谓词要排除的
+        // 正是局部函数声明。
+        var roots = new List<SyntaxNode>();
+        var body = (SyntaxNode?)localFn.Body ?? localFn.ExpressionBody;
+        if (body != null)
+            roots.Add(body);
+        if (localFn.ParameterList != null)
+            roots.Add(localFn.ParameterList);
+
+        foreach (var root in roots)
+        {
+            foreach (var info in CaptureClassification.CollectReferencedConstants(
+                         _model,
+                         root,
+                         localFnSymbol,
+                         static d => d is not LocalFunctionStatementSyntax))
+            {
+                if (!seen.Add(info.Symbol))
+                    continue;
+
+                var literal = RenderConstantLiteral(info, hostType);
+                if (literal == null)
+                {
+                    unresolved.Add(info.Name);
+                    continue;
+                }
+
+                result.Add(new InlinedConstantPlan(info.Symbol, info.Name, literal));
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// 常量值 → C# 字面量文本。枚举常量写成 <c>(EnumType)(underlying)</c>：
+    /// 常量模式要求常量能隐式转换为输入类型，裸的整数字面量对枚举不成立。
+    /// </summary>
+    private string? RenderConstantLiteral(
+        ReferencedConstantInfo info, TypeDeclarationSyntax hostType)
+    {
+        if (info.Type.TypeKind == TypeKind.Enum)
+        {
+            if (info.ConstantValue == null
+                || info.Type is not INamedTypeSymbol { EnumUnderlyingType: { } underlying })
+                return null;
+
+            var inner = RenderPrimitiveLiteral(info.ConstantValue);
+            return inner == null
+                ? null
+                : $"({RenderCaptureTypeDisplay(info.Type, hostType)})({inner})";
+        }
+
+        return RenderPrimitiveLiteral(info.ConstantValue);
+    }
+
+    private static string? RenderPrimitiveLiteral(object? value)
+    {
+        if (value is null)
+            return "null";
+
+        return value switch
+        {
+            bool b => b ? "true" : "false",
+            string s => SymbolDisplay.FormatLiteral(s, quote: true),
+            char c => SymbolDisplay.FormatLiteral(c, quote: true),
+            int i => i.ToString(CultureInfo.InvariantCulture),
+            uint u => u.ToString(CultureInfo.InvariantCulture) + "U",
+            long l => l.ToString(CultureInfo.InvariantCulture) + "L",
+            ulong ul => ul.ToString(CultureInfo.InvariantCulture) + "UL",
+            short sh => "(short)" + sh.ToString(CultureInfo.InvariantCulture),
+            ushort ush => "(ushort)" + ush.ToString(CultureInfo.InvariantCulture),
+            byte by => "(byte)" + by.ToString(CultureInfo.InvariantCulture),
+            sbyte sb => "(sbyte)" + sb.ToString(CultureInfo.InvariantCulture),
+            double d => RenderDoubleLiteral(d),
+            float f => RenderFloatLiteral(f),
+            decimal m => m.ToString(CultureInfo.InvariantCulture) + "M",
+            _ => null,
+        };
+    }
+
+    private static string RenderDoubleLiteral(double value)
+    {
+        if (double.IsNaN(value))
+            return "double.NaN";
+        if (double.IsPositiveInfinity(value))
+            return "double.PositiveInfinity";
+        if (double.IsNegativeInfinity(value))
+            return "double.NegativeInfinity";
+        return value.ToString("R", CultureInfo.InvariantCulture) + "D";
+    }
+
+    private static string RenderFloatLiteral(float value)
+    {
+        if (float.IsNaN(value))
+            return "float.NaN";
+        if (float.IsPositiveInfinity(value))
+            return "float.PositiveInfinity";
+        if (float.IsNegativeInfinity(value))
+            return "float.NegativeInfinity";
+        return value.ToString("R", CultureInfo.InvariantCulture) + "F";
     }
 
     /// <summary>

@@ -838,6 +838,10 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         => plan.Captures.FirstOrDefault(c =>
             SymbolEqualityComparer.Default.Equals(c.Symbol, symbol));
 
+    private static InlinedConstantPlan? FindInlinedConstant(LiftPlan plan, ISymbol symbol)
+        => plan.InlinedConstants.FirstOrDefault(c =>
+            SymbolEqualityComparer.Default.Equals(c.Symbol, symbol));
+
     /// <summary>
     /// Holder 捕获的声明改写：<c>T x = init;</c> →
     /// <c>StrongBox&lt;T&gt; x = new StrongBox&lt;T&gt;(init);</c>。
@@ -977,6 +981,26 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
                     SyntaxFactory.IdentifierName(node.Identifier.WithoutTrivia()),
                     SyntaxFactory.IdentifierName("Value"))
                 .WithTriviaFrom(node);
+        }
+
+        // 外层 const 局部是编译期常量，不是捕获：提升后的方法体里必须内联为字面量。
+        // 常量语境（is 模式、参数默认值、特性实参、goto case、switch 标签）里
+        // 引用一个提升方法作用域看不到的名字会 CS0103/CS0150。
+        if (_hoistingPlan != null
+            && symbol != null
+            && node.Parent is not NameColonSyntax
+            && FindInlinedConstant(_hoistingPlan, symbol) is { } constant)
+        {
+            Changed = true;
+            if (CaptureClassification.IsInsideNameOf(node))
+            {
+                return SyntaxFactory.LiteralExpression(
+                        SyntaxKind.StringLiteralExpression,
+                        SyntaxFactory.Literal(constant.OriginalName))
+                    .WithTriviaFrom(node);
+            }
+
+            return SyntaxFactory.ParseExpression(constant.LiteralText).WithTriviaFrom(node);
         }
 
         LiftPlan? plan = null;
@@ -1168,7 +1192,21 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             return null;
 
         var symbol = _model.GetSymbolInfo(target).Symbol;
-        if (symbol == null || FindCapture(_hoistingPlan, symbol) is not { } capture)
+        if (symbol == null)
+            return null;
+
+        // 被内联的 const 局部同样折叠成原名字符串：nameof(Limit) 的值是 "Limit"，
+        // 不是内联后的字面量文本（nameof(42) 本身也非法）。
+        if (FindInlinedConstant(_hoistingPlan, symbol) is { } constant)
+        {
+            Changed = true;
+            return SyntaxFactory.LiteralExpression(
+                    SyntaxKind.StringLiteralExpression,
+                    SyntaxFactory.Literal(constant.OriginalName))
+                .WithTriviaFrom(node);
+        }
+
+        if (FindCapture(_hoistingPlan, symbol) is not { } capture)
             return null;
 
         Changed = true;
@@ -1272,15 +1310,19 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             SyntaxFactory.Token(SyntaxKind.VoidKeyword));
 
         var typeParams = BuildTypeParameterList(plan);
-        var parameters = BuildParameterList(plan);
         var constraints = BuildConstraintClauses(plan);
 
         BlockSyntax? body = null;
+        ParameterListSyntax parameters;
 
         var previousHoistingPlan = _hoistingPlan;
         _hoistingPlan = plan;
         try
         {
+            // 形参默认值/特性实参是常量语境：外层 const 局部在那里也必须内联成字面量，
+            // 否则提升后的方法签名引用一个只在原方法体内可见的名字（CS0103）。
+            parameters = BuildParameterList(plan);
+
             if (localFn.Body != null)
             {
                 body = (BlockSyntax)Visit(localFn.Body)!;
@@ -1503,7 +1545,7 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         if (localFn.ParameterList != null)
         {
             foreach (var param in localFn.ParameterList.Parameters)
-                parameters.Add(param);
+                parameters.Add((ParameterSyntax)Visit(param)!);
         }
 
         if (_options.CapturesAtEnd)

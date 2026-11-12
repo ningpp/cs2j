@@ -16,6 +16,11 @@ internal sealed class LiftPlan
     public TypeDeclarationSyntax? HostType;      // insertion target (the declaration in this file)
     public bool IsStatic;
     public List<CapturePlan> Captures = new();    // ordered
+    /// <summary>
+    /// 被局部函数引用的外层 <c>const</c> 局部：常量不是捕获，提升后按值内联为
+    /// 字面量（不生成形参、调用点不加实参），使常量语境保持可编译。
+    /// </summary>
+    public List<InlinedConstantPlan> InlinedConstants = new();
     public bool Skipped;
     public LocalFunctionSkipReason SkipReason = LocalFunctionSkipReason.None;
     public List<string> EnclosingTypeParams = new();  // type params from enclosing method
@@ -68,3 +73,12 @@ internal sealed record CapturePlan(
     bool UseHolder = false,
     /// <summary>T 在该声明/成员位置可解析的类型显示（holder 声明与形参共用）。</summary>
     string? HolderElementTypeDisplay = null);
+
+/// <summary>
+/// 外层 <c>const</c> 局部在提升方法里的内联形态：按名字/符号匹配后替换为
+/// <see cref="LiteralText"/>（<c>v is Limit</c> → <c>v is 42</c>）。
+/// </summary>
+internal sealed record InlinedConstantPlan(
+    ISymbol Symbol,
+    string OriginalName,
+    string LiteralText);
