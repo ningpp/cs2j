@@ -22,6 +22,6 @@ internal static class ConditionEffectDiagnostics
     /// </summary>
     public const string SkippedMessage =
         "Condition '{0}' carries property/indexer side effects but was left " +
-        "unchanged ({1}); the first slice only linearizes while/if conditions " +
+        "unchanged ({1}); the slice only linearizes while/if/for conditions " +
         "without declaration expressions, pattern variables or await.";
 }

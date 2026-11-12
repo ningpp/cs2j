@@ -3,15 +3,16 @@ using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.ExpressionDesugar.ConditionEffect;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Xunit;
 
 namespace CSharpToJava.Tests.ExpressionDesugar;
 
 /// <summary>
-/// J-04 / G-36 / JE-04: property/indexer side effects in <c>while</c>/<c>if</c>
-/// conditions are linearized into the canonical statement form in C# so the
-/// Java side no longer has to rebuild the control flow at text-emission time
-/// (the <c>while (++start.Value &lt; _length)</c> infinite-loop bug a2d3a6f0).
+/// J-04 / G-36 / JE-04: property/indexer side effects in <c>while</c>/<c>if</c>/
+/// <c>for</c> conditions are linearized into the canonical statement form in C#
+/// so the Java side no longer has to rebuild the control flow at text-emission
+/// time (the <c>while (++start.Value &lt; _length)</c> infinite-loop bug a2d3a6f0).
 /// </summary>
 public sealed class ConditionEffectTests
 {
@@ -290,7 +291,127 @@ public sealed class ConditionEffectTests
     }
 
     [Fact]
-    public void ForCondition_NotRewritten()
+    public void For_PropertyIncrementCondition_BecomesWhileTrue()
+    {
+        const string source = """
+            using System;
+
+            public class Counter {
+                private int _value;
+                public int Value { get => _value; set => _value = value; }
+            }
+
+            public static class C {
+                public static void M() {
+                    var obj = new Counter();
+                    for (int i = 0; ++obj.Value < 10; i++) {
+                        Console.WriteLine(obj.Value);
+                    }
+                }
+            }
+            """;
+
+        var result = Run(source);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.ConditionEffectRewrites);
+
+        var output = Squish(result.OutputCode);
+        Assert.Contains("while (true)", output);
+        Assert.Contains("bool __ed_cond_0 = ++obj.Value < 10;", output);
+        Assert.Contains("if (!__ed_cond_0)", output);
+        Assert.Contains("break;", output);
+        Assert.Contains("int i = 0;", output);
+        Assert.DoesNotContain("for (", output);
+
+        // The incrementor runs after the body, once per completed iteration.
+        var bodyIndex = output.IndexOf("Console.WriteLine(obj.Value);", StringComparison.Ordinal);
+        var incrementIndex = output.LastIndexOf("i++;", StringComparison.Ordinal);
+        Assert.True(incrementIndex > bodyIndex,
+            "increment must follow the body in the canonical form");
+
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void For_ContinueRunsIncrement()
+    {
+        const string source = """
+            public class Counter {
+                private int _value;
+                public int Value { get => _value; set => _value = value; }
+            }
+
+            public static class C {
+                public static int M() {
+                    var obj = new Counter();
+                    var sum = 0;
+                    for (int i = 0; ++obj.Value < 10; i++) {
+                        if (i % 3 == 0)
+                            continue;
+                        sum += i;
+                    }
+                    return sum;
+                }
+            }
+            """;
+
+        var result = Run(source);
+
+        Assert.True(result.Changed);
+        var output = Squish(result.OutputCode);
+        Assert.Contains("while (true)", output);
+
+        // `continue` must run the incrementor before re-testing the condition:
+        // 1+2+4+5+7+8 = 27.
+        Assert.Contains("i++; continue;", output);
+        Assert.Equal(27, RunInt(result.OutputCode, "C", "M"));
+        Assert.Equal(
+            RunInt(source, "C", "M"), RunInt(result.OutputCode, "C", "M"));
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void For_NestedLoopContinue_NotRewritten()
+    {
+        const string source = """
+            public class Counter {
+                private int _value;
+                public int Value { get => _value; set => _value = value; }
+            }
+
+            public static class C {
+                public static int M() {
+                    var obj = new Counter();
+                    var sum = 0;
+                    for (int i = 0; ++obj.Value < 6; i++) {
+                        for (int j = 0; j < 2; j++) {
+                            if (j == 0)
+                                continue;
+                            sum += 1000;
+                        }
+                        sum += i;
+                    }
+                    return sum;
+                }
+            }
+            """;
+
+        var result = Run(source);
+
+        Assert.True(result.Changed);
+        var output = Squish(result.OutputCode);
+        Assert.Contains("while (true)", output);
+
+        // The nested loop's continue binds the nested loop: neither its own
+        // incrementor nor the outer one may be spliced in front of it.
+        Assert.DoesNotContain("j++; continue;", output);
+        Assert.DoesNotContain("i++; continue;", output);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void For_NoInitializerAndNoIncrement_StillLifts()
     {
         const string source = """
             using System;
@@ -312,8 +433,206 @@ public sealed class ConditionEffectTests
 
         var result = Run(source);
 
+        Assert.True(result.Changed);
+        var output = Squish(result.OutputCode);
+        Assert.Contains("while (true)", output);
+        Assert.Contains("bool __ed_cond_0 = ++obj.Value < 10;", output);
+        Assert.DoesNotContain("for (", output);
+
+        // Structural check: no initializer statement before the loop and no
+        // incrementor statement at the loop body's tail.
+        var root = CSharpSyntaxTree.ParseText(result.OutputCode, ParseOptions).GetRoot();
+        var loop = Assert.Single(root.DescendantNodes().OfType<WhileStatementSyntax>());
+        Assert.True(loop.Condition!.IsKind(SyntaxKind.TrueLiteralExpression));
+        var loopBody = Assert.IsType<BlockSyntax>(loop.Statement);
+        Assert.Equal(3, loopBody.Statements.Count);
+        var outer = Assert.IsType<BlockSyntax>(loop.Parent);
+        Assert.Single(outer.Statements);
+
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void For_ExpressionInitializerList_SplitInOrder()
+    {
+        const string source = """
+            public class Counter {
+                private int _value;
+                public int Value { get => _value; set => _value = value; }
+            }
+
+            public static class C {
+                public static int M() {
+                    var obj = new Counter();
+                    int i;
+                    int j;
+                    var sum = 0;
+                    for (i = 0, j = 0; ++obj.Value < 5; i++, j++) {
+                        sum += i + j;
+                    }
+                    return sum;
+                }
+            }
+            """;
+
+        var result = Run(source);
+
+        Assert.True(result.Changed);
+        var output = Squish(result.OutputCode);
+
+        var initializers = output.IndexOf("i = 0; j = 0;", StringComparison.Ordinal);
+        var loop = output.IndexOf("while (true)", StringComparison.Ordinal);
+        var increments = output.IndexOf("i++; j++;", StringComparison.Ordinal);
+        Assert.True(initializers >= 0 && loop > initializers,
+            "initializer expressions must precede the loop in source order");
+        Assert.True(increments > loop,
+            "incrementor expressions must follow the body in source order");
+
+        Assert.Equal(
+            RunInt(source, "C", "M"), RunInt(result.OutputCode, "C", "M"));
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void For_OutVarCondition_NotRewritten()
+    {
+        const string source = """
+            using System;
+
+            public class Counter {
+                private int _value;
+                public int Value { get => _value; set => _value = value; }
+            }
+
+            public static class C {
+                public static bool TryGet(out int value) {
+                    value = 1;
+                    return true;
+                }
+
+                public static int M() {
+                    var obj = new Counter();
+                    var sum = 0;
+                    int x;
+                    for (int i = 0; obj.Value++ > 0 && TryGet(out x); i++) {
+                        sum += x;
+                    }
+                    return sum;
+                }
+            }
+            """;
+
+        var result = Run(source);
+
         Assert.False(result.Changed);
         Assert.Equal(source, result.OutputCode);
+        Assert.Equal(0, result.Statistics.ConditionEffectRewrites);
+        Assert.Contains(
+            result.Diagnostics,
+            static d => d.Code == "CS2J0590"
+                        && d.Severity == ExpressionDesugarSeverity.Warning);
+    }
+
+    [Fact]
+    public void For_ContinueInsideTryFinally_NotRewritten()
+    {
+        // The original `for` runs the incrementor AFTER the finally block; the
+        // canonical form would run it before, which the finally can observe.
+        const string source = """
+            public class Counter {
+                private int _value;
+                public int Value { get => _value; set => _value = value; }
+            }
+
+            public static class C {
+                public static int M() {
+                    var obj = new Counter();
+                    var sum = 0;
+                    for (int i = 0; ++obj.Value < 10; i++) {
+                        try {
+                            if (i % 2 == 0)
+                                continue;
+                            sum += i;
+                        } finally {
+                            sum += 100;
+                        }
+                    }
+                    return sum;
+                }
+            }
+            """;
+
+        var result = Run(source);
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Equal(0, result.Statistics.ConditionEffectRewrites);
+        Assert.Contains(
+            result.Diagnostics,
+            static d => d.Code == "CS2J0590"
+                        && d.Severity == ExpressionDesugarSeverity.Warning);
+    }
+
+    [Fact]
+    public void DoCondition_NotRewritten()
+    {
+        const string source = """
+            public class Counter {
+                private int _value;
+                public int Value { get => _value; set => _value = value; }
+            }
+
+            public static class C {
+                public static int M() {
+                    var obj = new Counter();
+                    var n = 0;
+                    do {
+                        n++;
+                    } while (++obj.Value < 10);
+                    return n;
+                }
+            }
+            """;
+
+        var result = Run(source);
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Equal(0, result.Statistics.ConditionEffectRewrites);
+    }
+
+    [Fact]
+    public void For_Idempotent()
+    {
+        const string source = """
+            using System;
+
+            public class Counter {
+                private int _value;
+                public int Value { get => _value; set => _value = value; }
+            }
+
+            public static class C {
+                public static void M() {
+                    var obj = new Counter();
+                    for (int i = 0; ++obj.Value < 10; i++) {
+                        if (i == 2)
+                            continue;
+                        Console.WriteLine(obj.Value);
+                    }
+                }
+            }
+            """;
+
+        var first = Run(source);
+        Assert.True(first.Changed);
+
+        // The canonical form's loop condition is the literal `true`, so the
+        // trigger scan no longer marks the file dirty.
+        var second = Run(first.OutputCode);
+        Assert.False(second.Changed);
+        Assert.Equal(first.OutputCode, second.OutputCode);
+        Assert.Equal(0, second.Statistics.ConditionEffectRewrites);
     }
 
     [Fact]

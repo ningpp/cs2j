@@ -16,10 +16,12 @@ namespace CSharpToJava.Core.ExpressionDesugar.ConditionEffect;
 /// <code>
 /// while (C) BODY          => while (true) { bool n = C; if (!n) break; BODY }
 /// if (C) THEN [else E]    => { bool n = C; if (n) THEN [else E] }
+/// for (I; C; U) BODY      => { I; while (true) { bool n = C; if (!n) break;
+///                              BODY; U } }            // continue => { U; continue; }
 /// </code>
 /// An <c>if</c> already directly in a block/switch-section statement list only
-/// receives the declaration before it (no extra block). Only <c>while</c> and
-/// <c>if</c> are handled; <c>for</c>/<c>do</c>/<c>?:</c> and short-circuit
+/// receives the declaration before it (no extra block). Only <c>while</c>,
+/// <c>if</c> and <c>for</c> are handled; <c>do</c>/<c>?:</c> and short-circuit
 /// sub-expressions are later slices. Conditions with declaration expressions,
 /// pattern variables or <c>await</c> are preserved with a Warning.
 /// </para>
@@ -57,6 +59,7 @@ internal sealed class ConditionEffectRule : IExpressionDesugarRule
             {
                 WhileStatementSyntax whileStatement => whileStatement.Condition,
                 IfStatementSyntax ifStatement => ifStatement.Condition,
+                ForStatementSyntax forLoop => forLoop.Condition,
                 _ => null,
             };
 
@@ -73,6 +76,19 @@ internal sealed class ConditionEffectRule : IExpressionDesugarRule
                 ReportSkipped(context, condition,
                     "declaration expression, pattern variable, await or a " +
                     "non-discard out argument (definite assignment would be lost)");
+                continue;
+            }
+
+            if (node is ForStatementSyntax { Incrementors.Count: > 0 } forStatement
+                && ConditionEffectForLoopFacts.ContainsContinueInCapturedContext(
+                    forStatement.Statement))
+            {
+                // Moving the incrementors in front of a `continue` that runs
+                // through try/using/lock/checked would reorder them relative to
+                // the finally/dispose/exit; preserve the site (Warning).
+                ReportSkipped(context, condition,
+                    "a continue nested in try/using/lock/checked would run the " +
+                    "for incrementors in a different order");
                 continue;
             }
 
@@ -222,6 +238,54 @@ internal sealed class ConditionEffectRewriter : CSharpSyntaxRewriter
         RewriteCount++;
         _statistics.ConditionEffectRewrites++;
         return rewritten.WithLeadingTrivia(visited.GetLeadingTrivia());
+    }
+
+    /// <summary>
+    /// <c>for (I; C; U) BODY</c> => <c>{ I; while (true) { bool n = C;
+    /// if (!n) break; BODY; U } }</c> with every <c>continue</c> bound to this
+    /// loop prefixed by <c>U</c>. The original body stays ONE nested statement
+    /// so its locals cannot capture the condition temp's initializer.
+    /// </summary>
+    public override SyntaxNode? VisitForStatement(ForStatementSyntax node)
+    {
+        var visited = (ForStatementSyntax)base.VisitForStatement(node)!;
+        if (visited.Condition is not { } condition
+            || _markers.TryResolve(visited) is not { } plan
+            || !IsStillCandidate(condition))
+        {
+            return visited;
+        }
+
+        var increments = ConditionEffectForLoopFacts.BuildIncrementStatements(visited);
+        var body = increments.Count > 0
+            ? ConditionEffectForLoopFacts.RewriteContinues(visited.Statement, increments)
+            : visited.Statement;
+
+        var loopBody = new List<StatementSyntax>
+        {
+            DeclareCondition(plan.TempName, condition),
+            SyntaxFactory.IfStatement(
+                SyntaxFactory.PrefixUnaryExpression(
+                    SyntaxKind.LogicalNotExpression,
+                    SyntaxFactory.IdentifierName(plan.TempName)),
+                SyntaxFactory.BreakStatement()),
+            body,
+        };
+        if (increments.Count > 0
+            && !ConditionEffectForLoopFacts.EndsWithUnconditionalTransfer(body))
+        {
+            loopBody.AddRange(increments);
+        }
+
+        var statements = ConditionEffectForLoopFacts.BuildInitializerStatements(visited);
+        statements.Add(SyntaxFactory.WhileStatement(
+            SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression),
+            SyntaxFactory.Block(SyntaxFactory.List(loopBody))));
+
+        RewriteCount++;
+        _statistics.ConditionEffectRewrites++;
+        return SyntaxFactory.Block(SyntaxFactory.List(statements))
+            .WithLeadingTrivia(visited.GetLeadingTrivia());
     }
 
     public override SyntaxNode? VisitIfStatement(IfStatementSyntax node)
