@@ -1736,6 +1736,165 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
+    // 字段/属性初始化器里的 lambda 局部函数：C# 不允许初始化器直接声明局部函数，
+    // 唯一合法形态是「初始化器 → lambda → 局部函数」。宿主类型存在，调用点在
+    // lambda 体内（VisitBlock 的移除通道可用），捕获（含 lambda 形参/局部）按
+    // 既有机制变成提升方法形参，因此可以提升。初始化器的值没有 this 上下文
+    // （CS0236），提升方法必须 static；属性表达式体是 getter，仍按属性修饰符判定。
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void FieldInitializerLambda_LocalFunctionIsLifted()
+    {
+        var src = """
+        using System;
+
+        class C {
+            private readonly Func<int> _f = () => {
+                return Local(21);
+                int Local(int x) => x * 2;
+            };
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("local(21)", result.OutputCode);
+        Assert.DoesNotContain("Local(21)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void PropertyInitializerLambda_CapturesLambdaParameter()
+    {
+        var src = """
+        using System;
+
+        class C {
+            private Func<int, int> F { get; } = v => {
+                return Local();
+                int Local() => v + 1;
+            };
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+
+        var method = ParseMethod(result.OutputCode, "local");
+        var parameter = Assert.Single(method.ParameterList.Parameters);
+        Assert.Equal("_cs2j_cap_v", parameter.Identifier.Text);
+        Assert.Contains("local(v)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StaticFieldInitializerLambda_HoistsStaticMethod()
+    {
+        var src = """
+        using System;
+
+        class C {
+            private static readonly Func<int> _f = () => {
+                return Local(21);
+                int Local(int x) => x * 2;
+            };
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains("private static int local(int x)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void FieldInitializerLambda_WriteCapture_UsesHolderOrRef()
+    {
+        // lambda 体内的局部变量被局部函数写入：ref 实参（lambda 内局部可作 ref
+        // 实参）或 StrongBox holder 都可表达，两者都不得产出坏码。
+        var src = """
+        using System;
+
+        class C {
+            private readonly Func<int> _f = () => {
+                int x = 0;
+                return Local();
+                int Local() {
+                    x++;
+                    return x;
+                }
+            };
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("_cs2j_cap_x", result.OutputCode);
+        Assert.True(
+            result.OutputCode.Contains("ref x", StringComparison.Ordinal)
+            || result.OutputCode.Contains("StrongBox<int> x", StringComparison.Ordinal),
+            result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void PropertyExpressionBodyLambda_HoistsInstanceMethod()
+    {
+        // 属性表达式体是 getter：this 可用，实例属性的局部函数提升为实例方法。
+        var src = """
+        using System;
+
+        class C {
+            private int _v = 3;
+
+            private Func<int> F => () => {
+                return Local();
+                int Local() => _v;
+            };
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains("private int local()", result.OutputCode);
+        Assert.DoesNotContain("private static int local()", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void TopLevelStatement_LocalFunction_StillSkipped()
+    {
+        // 顶层语句（CompilationUnitSyntax 直接宿主）没有宿主类型，仍按 NoHostType 跳过。
+        var src = """
+        using System;
+
+        Console.WriteLine(Local(2));
+        int Local(int x) => x * 2;
+        """;
+        var result = Preprocess(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains(result.Diagnostics, d => d.Reason == LocalFunctionSkipReason.NoHostType);
+        Assert.Contains("int Local(int x)", result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
     // Residual gate: every surviving local function is a residual, no
     // "intentionally retained" exemption. Strict (default) must fail.
     // -----------------------------------------------------------------------
@@ -1743,15 +1902,15 @@ public class LocalFunctionLiftTests
     [Fact]
     public async Task ResidualGate_Counts_Every_Unlifted_LocalFunction_StrictErrors_NonStrictWarns()
     {
-        // 字段初始化器里的 lambda 局部函数没有可用的类级宿主上下文，必须保留为
-        // residual 并如实上报。
+        // 捕获变量类型无法解析（ErrorType 且声明处拼不出类型语法）的局部函数
+        // 提升后会产生未声明名字（CS0103），只能保留为 residual 并如实上报。
         const string source = """
             class C {
-                System.Action A = () => {
-                    int x = 1;
-                    Use(x);
-                    void Use(int v) { System.Console.WriteLine(v + x); }
-                };
+                void M() {
+                    var queue = Create();
+                    Use();
+                    void Use() { queue.TrimExcess(); }
+                }
             }
             """;
 

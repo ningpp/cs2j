@@ -234,9 +234,16 @@ internal sealed class LocalFunctionLiftAnalyzer
             Skip(plan, LocalFunctionSkipReason.NoHostType, "no enclosing type declaration found");
             return plan;
         }
-        if (IsInsideFieldOrPropertyInitializer(localFn))
+        // 字段/属性初始化器里唯一合法的局部函数形态是「初始化器 → lambda → 局部函数」：
+        // 宿主类型存在，调用点在 lambda 体内（VisitBlock 的移除通道可用），捕获
+        // （含 lambda 形参/局部）按既有机制变成提升方法形参，因此可以提升。不在
+        // lambda 内却落在初始化器里的形态在合法 C# 中不存在，保留兜底跳过。
+        var initializerContext = GetInitializerContext(localFn);
+        if (initializerContext != InitializerContext.None
+            && !IsInsideAnonymousFunction(localFn, hostType))
         {
-            Skip(plan, LocalFunctionSkipReason.NoHostType, "local function is inside a field/property initializer");
+            Skip(plan, LocalFunctionSkipReason.NoHostType,
+                "local function is inside a field/property initializer without an enclosing lambda");
             return plan;
         }
         plan.HostType = hostType;
@@ -254,6 +261,11 @@ internal sealed class LocalFunctionLiftAnalyzer
         plan.CheckedContext = GetCheckedContext(localFn);
 
         plan.IsStatic = DetermineStatic(localFn);
+        // 初始化器的值没有 this 上下文：提升方法若写成实例方法，初始化器 lambda
+        // 里的调用会因隐式 this 触发 CS0236。这里一律 static（实例初始化器本来
+        // 也引用不到实例成员）。属性表达式体是 getter，仍按属性自身的修饰符判定。
+        if (initializerContext == InitializerContext.InitializerValue)
+            plan.IsStatic = true;
         var isExplicitStatic = IsExplicitStaticLocalFunction(localFn);
 
         // Gate #5a: Static local functions with the 'static' modifier cannot
@@ -443,54 +455,49 @@ internal sealed class LocalFunctionLiftAnalyzer
         return null;
     }
 
-    private static bool IsInsideLambdaOrInitializer(LocalFunctionStatementSyntax localFn)
+    /// <summary>局部函数声明点所处的初始化器形态。</summary>
+    private enum InitializerContext
     {
-        SyntaxNode? current = localFn.Parent;
-        while (current != null)
-        {
-            if (current is AnonymousFunctionExpressionSyntax
-                or SimpleLambdaExpressionSyntax
-                or ParenthesizedLambdaExpressionSyntax)
-                return true;
-            if (current is VariableDeclaratorSyntax vd && vd.Initializer != null)
-                return true;
-            if (current is PropertyDeclarationSyntax pd
-                && (pd.ExpressionBody != null || pd.Initializer != null))
-                return true;
-            if (current is TypeDeclarationSyntax)
-                return false;
-            current = current.Parent;
-        }
-        return false;
+        /// <summary>不在字段/属性初始化器或属性表达式体内。</summary>
+        None,
+
+        /// <summary>字段/属性初始化器的值：没有可用的 <c>this</c>（CS0236）。</summary>
+        InitializerValue,
+
+        /// <summary>属性表达式体（getter）：<c>this</c> 可用。</summary>
+        PropertyExpressionBody,
     }
 
     /// <summary>
-    /// Checks if the local function is inside a field or property initializer.
-    /// Local functions inside lambdas are OK (they can be lifted to the class level),
-    /// but local functions inside field/property initializers cannot be lifted
-    /// because the initializer context is not a method body.
+    /// C# 不允许在字段/属性初始化器或其表达式体里直接声明局部函数，唯一合法形态
+    /// 是「初始化器 → lambda → 局部函数」。这里区分两种宿主形态：初始化器的值
+    /// 没有 <c>this</c> 上下文（初始化器里引用实例成员，包括 lambda 体内引用
+    /// 提升后的实例方法，都是 CS0236），而属性表达式体是 getter。
     /// </summary>
-    private static bool IsInsideFieldOrPropertyInitializer(
-        LocalFunctionStatementSyntax localFn)
+    private static InitializerContext GetInitializerContext(SyntaxNode localFn)
     {
-        SyntaxNode? current = localFn.Parent;
-        while (current != null)
+        for (var current = localFn.Parent; current != null; current = current.Parent)
         {
-            // Field initializer: variable declarator with initializer,
-            // whose parent is a FieldDeclarationSyntax
-            if (current is VariableDeclaratorSyntax vd
-                && vd.Initializer != null
-                && vd.Parent?.Parent is FieldDeclarationSyntax)
-                return true;
-            // Property initializer
-            if (current is PropertyDeclarationSyntax pd
-                && (pd.ExpressionBody != null || pd.Initializer != null))
-                return true;
+            if (current is VariableDeclaratorSyntax declarator
+                && declarator.Initializer != null
+                && declarator.Parent?.Parent is FieldDeclarationSyntax)
+            {
+                return InitializerContext.InitializerValue;
+            }
+
+            if (current is PropertyDeclarationSyntax property)
+            {
+                if (property.Initializer != null)
+                    return InitializerContext.InitializerValue;
+                if (property.ExpressionBody != null)
+                    return InitializerContext.PropertyExpressionBody;
+            }
+
             if (current is TypeDeclarationSyntax)
-                return false;
-            current = current.Parent;
+                return InitializerContext.None;
         }
-        return false;
+
+        return InitializerContext.None;
     }
 
     /// <summary>
