@@ -357,6 +357,159 @@ public class LocalFunctionLiftTests
         AssertNoSyntaxErrors(result.OutputCode);
     }
 
+    /// <summary>
+    /// 局部函数可以捕获指针形参（unsafe 上下文内），提升后写成 <c>private unsafe</c>
+    /// 方法的指针形参是合法 C#，重写器按签名里的指针类型自动补 unsafe。
+    /// </summary>
+    [Fact]
+    public void PointerParameterCapture_IsLifted()
+    {
+        var src = """
+        class C {
+            unsafe void M(int* p) {
+                Use();
+                void Use() { *p = 1; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("private unsafe void use(int* _cs2j_cap_p)", result.OutputCode);
+        Assert.Contains("use(p)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>
+    /// 写入型指针捕获沿用既有 ref 机制：<c>ref int*</c> 形参 + <c>ref p</c> 实参。
+    /// 指针不能作 StrongBox 的元素类型（holder 不可表达），只能走 ref。
+    /// </summary>
+    [Fact]
+    public void PointerWriteCapture_UsesRefParameter()
+    {
+        var src = """
+        class C {
+            unsafe void M(int* p) {
+                Use();
+                void Use() { p++; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("private unsafe void use(ref int* _cs2j_cap_p)", result.OutputCode);
+        Assert.Contains("use(ref p)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>
+    /// 指向指针的指针（<c>int**</c>）同样可表达为提升方法的形参。
+    /// </summary>
+    [Fact]
+    public void PointerToPointerCapture_IsLifted()
+    {
+        var src = """
+        class C {
+            unsafe void M(int** pp) {
+                Use();
+                void Use() { *pp = null; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("private unsafe void use(int** _cs2j_cap_pp)", result.OutputCode);
+        Assert.Contains("use(pp)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>
+    /// 函数指针（<c>delegate* unmanaged&lt;int, void&gt;</c>）作为捕获同样合法：
+    /// 形参是函数指针类型时重写器会加 unsafe。
+    /// </summary>
+    [Fact]
+    public void FunctionPointerCapture_IsLifted()
+    {
+        var src = """
+        class C {
+            unsafe void M(delegate* unmanaged<int, void> fp) {
+                Use();
+                void Use() { fp(1); }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("private unsafe void use(delegate* unmanaged<int, void> _cs2j_cap_fp)",
+            result.OutputCode);
+        Assert.Contains("use(fp)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>
+    /// 匿名类型的名字（<c>&lt;anonymous&gt;</c>）不可拼写，仍是 unsupported：
+    /// 共享原语只对指针放宽了本 pass 的判定，不能被一起放宽。
+    /// </summary>
+    [Fact]
+    public void AnonymousTypeCapture_StillSkipped()
+    {
+        var src = """
+        class C {
+            object M() {
+                var anon = new { X = 1 };
+                Use();
+                return anon;
+                void Use() { System.Console.WriteLine(anon.X); }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
+        var diagnostic = Assert.Single(result.Diagnostics,
+            d => d.Reason == LocalFunctionSkipReason.UnsupportedCaptureType);
+        Assert.Contains("<anonymous", diagnostic.Message);
+        Assert.Contains("void Use()", result.OutputCode);
+    }
+
+    /// <summary>
+    /// ref 局部变量不能作为提升方法的捕获来源（C# 本身禁止在局部函数里使用外层
+    /// ref 局部），仍按 unsupported 跳过。
+    /// </summary>
+    [Fact]
+    public void RefLocalCapture_StillSkipped()
+    {
+        var src = """
+        class C {
+            int M() {
+                int y = 0;
+                ref int r = ref y;
+                Use();
+                return y;
+                void Use() { r = 5; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
+        var diagnostic = Assert.Single(result.Diagnostics,
+            d => d.Reason == LocalFunctionSkipReason.UnsupportedCaptureType);
+        Assert.Contains("'r'", diagnostic.Message);
+        Assert.Contains("void Use()", result.OutputCode);
+    }
+
     [Fact]
     public void CallSite_Recursive()
     {
@@ -2390,7 +2543,8 @@ public class LocalFunctionLiftTests
         var compilation = CSharpCompilation.Create("local-fn-test",
             new[] { tree },
             References,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
         var preprocessor = new LocalFunctionLiftPreprocessor();
         return preprocessor.Preprocess(source, compilation.GetSemanticModel(tree));
     }
@@ -2413,7 +2567,8 @@ public class LocalFunctionLiftTests
         var compilation = CSharpCompilation.Create("local-fn-output",
             new[] { tree },
             References,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
         var errors = compilation.GetDiagnostics()
             .Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         Assert.True(errors.Count == 0,

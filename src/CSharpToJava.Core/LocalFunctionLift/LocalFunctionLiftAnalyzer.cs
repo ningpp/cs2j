@@ -1702,9 +1702,64 @@ internal sealed class LocalFunctionLiftAnalyzer
         return false;
     }
 
+    /// <summary>
+    /// 本 pass 的捕获类型闸门。局部函数可以捕获指针/函数指针（声明处已在 unsafe
+    /// 上下文内），提升后的方法写成 <c>private unsafe</c> 并把指针作为形参完全合法；
+    /// 重写器按签名里的 <see cref="PointerTypeSyntax"/>/<see cref="FunctionPointerTypeSyntax"/>
+    /// 自动补 <c>unsafe</c>。因此这里放行可表达的指针形态：指针、指向指针的指针、
+    /// 以指针为元素的数组、函数指针。
+    /// <para>
+    /// 共享原语 <see cref="CaptureClassification.IsUnsupportedCaptureKind"/> 对
+    /// '<c>*</c>' 一律拒绝（closure-lift 的 lambda 确实不能捕获指针，C32 依赖该
+    /// 语义），所以不能全局放宽；匿名类型（不可拼写的 <c>&lt;anonymous&gt;</c> 名）
+    /// 与 ref 前缀类型仍按共享原语跳过。
+    /// </para>
+    /// </summary>
     private static bool IsUnsupportedCaptureType(CapturePlan cap)
-        // C32 §4.2: unsupported-kind classification is the single shared primitive.
-        => CaptureClassification.IsUnsupportedCaptureKind(cap.TypeDisplay);
+    {
+        var type = GetCaptureType(cap.Symbol);
+        if (type != null && IsExpressiblePointerCapture(type))
+            return false;
+
+        // ref 局部（`ref T x = ref ...`）不能作为提升方法的捕获来源：C# 本身禁止
+        // 在局部函数里引用外层 ref 局部（CS8175）。语义符号的类型显示是底层类型
+        // （`ref int` 显示为 `int`），共享原语的 `"ref "` 前缀判定命中不了，这里按
+        // 声明语法判定。
+        if (IsRefLocalCapture(cap.Symbol))
+            return true;
+
+        return CaptureClassification.IsUnsupportedCaptureKind(cap.TypeDisplay);
+    }
+
+    private static bool IsExpressiblePointerCapture(ITypeSymbol type)
+        => type switch
+        {
+            IPointerTypeSymbol => true,          // int* / void* / int**
+            IFunctionPointerTypeSymbol => true,  // delegate* unmanaged<int, void>
+            IArrayTypeSymbol array => IsExpressiblePointerCapture(array.ElementType),
+            _ => false,
+        };
+
+    private static bool IsRefLocalCapture(ISymbol symbol)
+    {
+        if (symbol is not ILocalSymbol local)
+            return false;
+
+        foreach (var reference in local.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is not VariableDeclaratorSyntax
+                { Parent: VariableDeclarationSyntax declaration })
+                continue;
+
+            var type = declaration.Type;
+            if (type is ScopedTypeSyntax scoped)
+                type = scoped.Type;
+            if (type is RefTypeSyntax)
+                return true;
+        }
+
+        return false;
+    }
 
     private static bool HasParamsOrOptional(LocalFunctionStatementSyntax localFn)
     {
