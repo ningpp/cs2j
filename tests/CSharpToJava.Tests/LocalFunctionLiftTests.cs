@@ -700,6 +700,79 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
+    // 显式类型实参的方法组引用（Gen<int>）：此前 VisitIdentifierName 把
+    // GenericName 的父节点直接交给「VisitInvocationExpression 处理」，但那只
+    // 覆盖调用表达式；方法组 / 委托转换场景原样保留 Gen<int>，提升后 CS0103。
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void GenericMethodGroup_WithCapture_SynthesizesLambda()
+    {
+        var src = """
+        using System;
+        class C {
+            void M(int cap) {
+                Func<int, int> f = Gen<int>;
+                Console.WriteLine(f(1));
+                int Gen<T>(T input) => cap + 1;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.DoesNotContain("= Gen<int>", result.OutputCode);
+        // 合成 lambda 的调用必须保留显式类型实参：gen<int>(cap, __cs2jArg0)
+        Assert.Contains("gen<int>(", result.OutputCode);
+        Assert.Contains("_cs2j_cap_cap", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void GenericMethodGroup_NoCapture_IsRenamed()
+    {
+        var src = """
+        class C {
+            void M() {
+                System.Func<int, int> f = Gen<int>;
+                System.Console.WriteLine(f(1));
+                int Gen<T>(T input) => 1;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("gen<int>", result.OutputCode);
+        Assert.DoesNotContain("= Gen<int>", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void GenericMethodGroup_InNameOf_FoldsToLiteral()
+    {
+        var src = """
+        class C {
+            string M() {
+                string name = nameof(Gen<int>);
+                return name;
+                int Gen<T>(T input) => 1;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("\"Gen\"", result.OutputCode);
+        Assert.DoesNotContain("nameof(Gen<int>)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
     // CS1628: a write capture would become a `ref` parameter, and C# forbids
     // using ref parameters inside lambdas/anonymous methods. Such captures are
     // now wrapped in a StrongBox<T> holder instead of skipping the function:

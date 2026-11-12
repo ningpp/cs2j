@@ -21,6 +21,8 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
     private readonly Dictionary<ISymbol, LiftPlan> _symbolToPlan;
     private readonly Dictionary<string, LiftPlan> _nameToPlan;
+    /// <summary>同名的非跳过 plan 多于一个：名字回退无法确定目标，必须保守不改写。</summary>
+    private readonly HashSet<string> _ambiguousNames;
     private readonly Dictionary<TypeDeclarationSyntax, List<(LiftPlan Plan, MethodDeclarationSyntax Method)>> _methodsToInsert;
     private readonly Dictionary<LiftPlan, List<int>> _callSitePositions = new();
     private readonly Dictionary<SyntaxTree, ConditionalDirectiveLayout> _conditionalLayouts = new();
@@ -73,6 +75,12 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         _stats = stats;
         _symbolToPlan = new Dictionary<ISymbol, LiftPlan>(SymbolEqualityComparer.Default);
         _nameToPlan = new Dictionary<string, LiftPlan>(StringComparer.Ordinal);
+        _ambiguousNames = plans
+            .Where(p => !p.Skipped)
+            .GroupBy(p => p.Node.Identifier.Text, StringComparer.Ordinal)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToHashSet(StringComparer.Ordinal);
         _methodsToInsert = new Dictionary<TypeDeclarationSyntax, List<(LiftPlan Plan, MethodDeclarationSyntax Method)>>();
 
         foreach (var plan in plans.Where(p => !p.Skipped))
@@ -694,6 +702,10 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         if (TryFoldNameOfCapture(node) is { } folded)
             return folded;
 
+        // nameof(Gen<int>) 同理：局部函数提升后原名不存在，整体折叠为 "Gen" 字面量。
+        if (TryFoldNameOfGenericMethodGroup(node) is { } foldedGeneric)
+            return foldedGeneric;
+
         var visited = (InvocationExpressionSyntax?)base.VisitInvocationExpression(node);
         if (visited == null)
             return null;
@@ -1065,10 +1077,79 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
+    /// 解析一个局部函数引用位置对应的 plan：先按符号（含构造泛型的 OriginalDefinition
+    /// 回退），符号缺失时按名字回退——同名多个 plan 时不做猜测。
+    /// </summary>
+    private LiftPlan? ResolvePlan(SyntaxNode node, string name)
+    {
+        var symbol = _model.GetSymbolInfo(node).Symbol;
+        if (symbol != null && _symbolToPlan.TryGetValue(symbol, out var bySymbol))
+            return bySymbol;
+
+        if (symbol is IMethodSymbol method
+            && !method.Equals(method.OriginalDefinition, SymbolEqualityComparer.Default)
+            && _symbolToPlan.TryGetValue(method.OriginalDefinition, out var byDefinition))
+            return byDefinition;
+
+        if (symbol == null
+            && !_ambiguousNames.Contains(name)
+            && _nameToPlan.TryGetValue(name, out var byName))
+            return byName;
+
+        return null;
+    }
+
+    /// <summary>
+    /// <c>Gen&lt;int&gt;</c> 形式的方法组 / 委托转换引用：调用目标（<c>Gen&lt;int&gt;(...)</c>）
+    /// 由 <see cref="VisitInvocationExpression"/> 处理，<c>nameof(Gen&lt;int&gt;)</c> 也由它在
+    /// 调用层整体折叠；这里只处理其余位置：
+    /// - 有捕获 → 合成 lambda（显式类型实参原样保留在调用目标上）；
+    /// - 无捕获 → 改名为提升方法名并保留原 TypeArgumentList（<c>gen&lt;int&gt;</c>）。
+    /// 改动前这里没有任何覆盖，<c>Gen&lt;int&gt;</c> 原样保留 → 提升后 CS0103/CS0123。
+    /// </summary>
+    public override SyntaxNode? VisitGenericName(GenericNameSyntax node)
+    {
+        // 调用目标由 VisitInvocationExpression 统一改名并补捕获实参。
+        if (node.Parent is InvocationExpressionSyntax invocation
+            && invocation.Expression == node)
+            return base.VisitGenericName(node);
+
+        // 成员访问的名字部分（obj.Gen<int>）不是局部函数引用。
+        if (node.Parent is MemberAccessExpressionSyntax memberAccess
+            && memberAccess.Name == node)
+            return base.VisitGenericName(node);
+
+        if (node.Parent is NameColonSyntax)
+            return base.VisitGenericName(node);
+
+        var plan = ResolvePlan(node, node.Identifier.Text);
+
+        if (plan == null)
+            return base.VisitGenericName(node);
+
+        if (plan.Captures.Count > 0
+            && TryBuildCaptureLambda(node, plan, node.TypeArgumentList) is { } lambda)
+        {
+            Changed = true;
+            return lambda.WithTriviaFrom(node);
+        }
+
+        // Rename it to the hoisted method name, keeping the explicit type arguments.
+        Changed = true;
+        return SyntaxFactory.GenericName(
+                SyntaxFactory.Identifier(plan.NewName),
+                node.TypeArgumentList)
+            .WithTriviaFrom(node);
+    }
+
+    /// <summary>
     /// 把"捕获型局部函数的方法组引用"改写为显式 lambda：目标委托类型的参数逐个透传，
     /// 捕获变量按 ref/值前缀传入。无法确定目标委托签名时返回 null（保留原样）。
     /// </summary>
-    private ExpressionSyntax? TryBuildCaptureLambda(IdentifierNameSyntax node, LiftPlan plan)
+    private ExpressionSyntax? TryBuildCaptureLambda(
+        SyntaxNode node,
+        LiftPlan plan,
+        TypeArgumentListSyntax? explicitTypeArguments = null)
     {
         if (!CanSynthesizeLambdaCall(plan))
             return null;
@@ -1082,7 +1163,7 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         // 参数表：原始方法组转换能成立，说明它的签名与目标委托兼容，直接透传即可。
         if (invoke == null)
         {
-            return TryBuildLambdaFromLocalFunctionSignature(node, plan);
+            return TryBuildLambdaFromLocalFunctionSignature(node, plan, explicitTypeArguments);
         }
 
         var arguments = new List<ArgumentSyntax>();
@@ -1123,7 +1204,7 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         }
 
         var invocation = SyntaxFactory.InvocationExpression(
-            BuildHoistedCallTarget(plan),
+            BuildHoistedCallTarget(plan, explicitTypeArguments),
             SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(
                 arguments.Concat(invokedArguments))));
 
@@ -1145,16 +1226,27 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
     /// <summary>
     /// 提升方法的调用目标。携带外层方法类型参数时必须显式书写 <c>&lt;T&gt;</c>：
     /// 提升方法先声明自己的形参、再声明 carried 的外层形参，缺省会绑错重载/参数个数。
+    /// 方法组引用自带显式类型实参（<c>Gen&lt;int&gt;</c>）时，它们对应提升方法的 own
+    /// 类型形参，必须排在最前，carried 的外层形参追加在后面。
     /// </summary>
-    private static ExpressionSyntax BuildHoistedCallTarget(LiftPlan plan)
+    private static ExpressionSyntax BuildHoistedCallTarget(
+        LiftPlan plan,
+        TypeArgumentListSyntax? explicitTypeArguments = null)
     {
+        var typeArguments = new List<TypeSyntax>();
+        if (explicitTypeArguments != null)
+            typeArguments.AddRange(explicitTypeArguments.Arguments);
         if (plan.NeedsExplicitTypeArguments && plan.EnclosingTypeParams.Count > 0)
+        {
+            typeArguments.AddRange(plan.EnclosingTypeParams.Select(static tp =>
+                SyntaxFactory.ParseTypeName(tp)));
+        }
+
+        if (typeArguments.Count > 0)
         {
             return SyntaxFactory.GenericName(
                 SyntaxFactory.Identifier(plan.NewName),
-                SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(
-                    plan.EnclosingTypeParams.Select(static tp =>
-                        SyntaxFactory.ParseTypeName(tp)))));
+                SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(typeArguments)));
         }
 
         return SyntaxFactory.IdentifierName(plan.NewName);
@@ -1216,6 +1308,30 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             .WithTriviaFrom(node);
     }
 
+    /// <summary>
+    /// <c>nameof(Gen&lt;int&gt;)</c> 的值是 <c>"Gen"</c>：提升后原名不再存在，
+    /// 整个调用折叠为原名字符串字面量。
+    /// </summary>
+    private ExpressionSyntax? TryFoldNameOfGenericMethodGroup(InvocationExpressionSyntax node)
+    {
+        if (node.Expression is not IdentifierNameSyntax { Identifier.Text: "nameof" })
+            return null;
+        if (node.ArgumentList.Arguments.Count != 1)
+            return null;
+        if (node.ArgumentList.Arguments[0].Expression is not GenericNameSyntax target)
+            return null;
+
+        var plan = ResolvePlan(target, target.Identifier.Text);
+        if (plan == null)
+            return null;
+
+        Changed = true;
+        return SyntaxFactory.LiteralExpression(
+                SyntaxKind.StringLiteralExpression,
+                SyntaxFactory.Literal(plan.Node.Identifier.Text))
+            .WithTriviaFrom(node);
+    }
+
     private static bool IsInsideNameOf(SyntaxNode node)
     {
         SyntaxNode? current = node.Parent;
@@ -1232,8 +1348,9 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
     /// <summary>无语义信息时：用局部函数的原参数表构造 lambda。</summary>
     private ExpressionSyntax? TryBuildLambdaFromLocalFunctionSignature(
-        IdentifierNameSyntax node,
-        LiftPlan plan)
+        SyntaxNode node,
+        LiftPlan plan,
+        TypeArgumentListSyntax? explicitTypeArguments = null)
     {
         if (!CanSynthesizeLambdaCall(plan))
             return null;
@@ -1281,7 +1398,7 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         }
 
         var invocation = SyntaxFactory.InvocationExpression(
-            BuildHoistedCallTarget(plan),
+            BuildHoistedCallTarget(plan, explicitTypeArguments),
             SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(
                 arguments.Concat(invokedArguments))));
 

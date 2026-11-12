@@ -139,8 +139,10 @@ internal sealed class LocalFunctionLiftAnalyzer
     }
 
     /// <summary>
-    /// 收集本文件里以方法组 / 委托转换形式出现的标识符所绑定到的符号。
+    /// 收集本文件里以方法组 / 委托转换形式出现的引用所绑定到的符号。
     /// 调用目标、成员访问名、命名实参和 <c>nameof</c> 实参都不是方法组转换。
+    /// 显式类型实参形式（<c>Gen&lt;int&gt;</c>）同样是方法组转换，必须一并识别，
+    /// 否则「own 类型参数 + carried 外层类型参数」的保守跳过会漏掉这类引用。
     /// </summary>
     private HashSet<ISymbol> CollectMethodGroupSymbols(CompilationUnitSyntax root)
     {
@@ -159,6 +161,26 @@ internal sealed class LocalFunctionLiftAnalyzer
                 continue;
 
             if (_model.GetSymbolInfo(id).Symbol is IMethodSymbol method)
+            {
+                symbols.Add(method);
+                symbols.Add(method.OriginalDefinition);
+            }
+        }
+
+        foreach (var generic in root.DescendantNodes().OfType<GenericNameSyntax>())
+        {
+            if (generic.Parent is InvocationExpressionSyntax invocation
+                && invocation.Expression == generic)
+                continue;
+            if (generic.Parent is MemberAccessExpressionSyntax memberAccess
+                && memberAccess.Name == generic)
+                continue;
+            if (generic.Parent is NameColonSyntax)
+                continue;
+            if (CaptureClassification.IsInsideNameOf(generic))
+                continue;
+
+            if (_model.GetSymbolInfo(generic).Symbol is IMethodSymbol method)
             {
                 symbols.Add(method);
                 symbols.Add(method.OriginalDefinition);
