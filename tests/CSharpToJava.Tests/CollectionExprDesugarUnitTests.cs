@@ -440,6 +440,72 @@ public class CollectionExprDesugarUnitTests
     }
 
     [Fact]
+    public void M2_CallArgument_AfterOverloadResolutionFailure_InfersTargetFromSiblingArgument()
+    {
+        // Merged analysis compilation ambiguity (CS0104): `List` binds to both
+        // the source-declared `Renamed.List` and the BCL type imported by a
+        // global using, so `var collection = new List<int>()` becomes an error
+        // type and `ProbeAssert.Equal([1], collection)` fails overload
+        // resolution -> the collection expression has no ConvertedType.
+        // Baseline C# binds Equal<T>(IEnumerable<T>, IEnumerable<T>) with
+        // T = int; the target is recovered from the candidate overloads plus
+        // generic inference over the recovered sibling argument.
+        const string globalUsings = "global using System.Collections.Generic;";
+        const string source = """
+            using Renamed;
+
+            public static class ProbeAssert
+            {
+                public static void Equal<T>(T expected, T actual) { }
+                public static void Equal<T>(IEnumerable<T> expected, IEnumerable<T> actual) { }
+                public static void Equal<T>(T[] expected, T[] actual) { }
+                public static void Equal(int expected, int actual) { }
+            }
+
+            namespace Renamed
+            {
+                public class List<T> : IEnumerable<T>
+                {
+                    public void Add(T item) { }
+                    public IEnumerator<T> GetEnumerator() => throw null!;
+                    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => throw null!;
+                }
+            }
+
+            public class C
+            {
+                public void M()
+                {
+                    var collection = new List<int>();
+                    ProbeAssert.Equal([1], collection);
+                }
+            }
+            """;
+        var parseOptions = new CSharpParseOptions(LanguageVersion.Preview);
+        var globalTree = CSharpSyntaxTree.ParseText(
+            globalUsings, parseOptions, path: "GlobalUsings.g.cs");
+        var tree = CSharpSyntaxTree.ParseText(source, parseOptions, path: "Source.cs");
+        var compilation = CSharpCompilation.Create(
+            "ce-arg-inference",
+            new[] { globalTree, tree },
+            References,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var site = tree.GetCompilationUnitRoot().DescendantNodes()
+            .OfType<CollectionExpressionSyntax>().Single();
+        Assert.Null(model.GetTypeInfo(site).ConvertedType);
+
+        var result = new ExpressionDesugarPreprocessor().Preprocess(source, model);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.DoesNotContain(
+            CollectionExprDiagnosticCodes.CS2J0571,
+            result.Diagnostics.Select(d => d.Code));
+        Assert.Equal(1, result.Statistics.CollectionExpr.ByTargetInterface);
+        Assert.Contains("new List<int>", Normalize(result.OutputCode));
+    }
+
+    [Fact]
     public void M3_GuardSyntaxOnlyFile_IsDirtyNoRewrite_AndEmits0585ErrorDiagnostic()
     {
         // static abstract interface member is CE-GUARD syntax: it makes the

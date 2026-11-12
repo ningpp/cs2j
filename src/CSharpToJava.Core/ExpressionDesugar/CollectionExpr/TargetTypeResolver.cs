@@ -205,7 +205,10 @@ internal static class TargetTypeResolver
     /// <c>??</c> right operand, parenthesized expression). Only these
     /// target-propagating positions are followed; any other parent stops the
     /// walk so the site keeps its missing-target diagnostic instead of
-    /// guessing a type from an unrelated enclosing expression. Ambiguous
+    /// guessing a type from an unrelated enclosing expression. A call-argument
+    /// whose invocation failed to bind is additionally recovered from the
+    /// candidate overloads and generic inference over the sibling arguments
+    /// (<see cref="TryInferFromCallArgument"/>). Ambiguous
     /// simple names (CS0104 from the merged analysis compilation) are rebound
     /// to the single source-declared candidate, exactly like the initializer
     /// rules do.
@@ -232,7 +235,209 @@ internal static class TargetTypeResolver
             child = current;
         }
 
-        return converted;
+        return TryInferFromCallArgument(model, node) ?? converted;
+    }
+
+    /// <summary>
+    /// Target recovery for a collection expression used as a call argument
+    /// whose invocation failed to bind (<c>CandidateReason ==
+    /// OverloadResolutionFailure</c>), e.g. xUnit's
+    /// <c>Assert.Equal([new(key, value)], dict)</c> where <c>dict</c> itself is
+    /// an error type because the merged analysis compilation reports CS0104
+    /// for an ambiguous simple name. The candidate overloads, their parameter
+    /// types and the recovered sibling-argument types are all symbols; generic
+    /// type arguments are inferred by unifying each candidate's parameter type
+    /// against those sibling types (including lower-bound inference through
+    /// implemented interfaces). The site keeps CS2J0571 whenever no unique
+    /// target remains, so nothing is guessed from source text.
+    ///
+    /// A candidate whose parameter for this argument is a bare type parameter
+    /// is skipped: a collection expression has no conversion to a type
+    /// parameter (baseline CS9176).
+    /// </summary>
+    private static ITypeSymbol? TryInferFromCallArgument(
+        SemanticModel model, CollectionExpressionSyntax node)
+    {
+        if (node.Parent is not ArgumentSyntax argument
+            || argument.NameColon != null
+            || argument.Parent is not ArgumentListSyntax argumentList
+            || argumentList.Parent is not InvocationExpressionSyntax invocation)
+        {
+            return null;
+        }
+
+        var arguments = argumentList.Arguments;
+        var argumentIndex = arguments.IndexOf(argument);
+        if (argumentIndex < 0)
+            return null;
+
+        var symbolInfo = model.GetSymbolInfo(invocation);
+        if (symbolInfo.Symbol != null
+            || symbolInfo.CandidateReason != CandidateReason.OverloadResolutionFailure
+            || symbolInfo.CandidateSymbols.Length == 0)
+        {
+            return null;
+        }
+
+        var argumentTypes = new ITypeSymbol?[arguments.Count];
+        for (var index = 0; index < arguments.Count; index++)
+        {
+            if (index == argumentIndex)
+                continue;
+            if (arguments[index].NameColon != null)
+                return null;
+
+            argumentTypes[index] = PreferSourceDeclaredCandidate(
+                model.GetTypeInfo(arguments[index].Expression).Type);
+            if (IsMissingOrError(argumentTypes[index]))
+                return null;
+        }
+
+        ITypeSymbol? inferredTarget = null;
+        foreach (var candidate in symbolInfo.CandidateSymbols.OfType<IMethodSymbol>())
+        {
+            // Work on the open definition: CandidateSymbols may already carry
+            // constructed methods (Roslyn inferred their type arguments), but
+            // inference here must run over all candidate shapes uniformly.
+            var definition = candidate.OriginalDefinition;
+            if (!definition.IsGenericMethod
+                || definition.Parameters.Length != arguments.Count
+                || definition.Parameters[argumentIndex].Type is ITypeParameterSymbol)
+            {
+                continue;
+            }
+
+            var bindings = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(
+                SymbolEqualityComparer.Default);
+            var unified = true;
+            for (var index = 0; index < arguments.Count && unified; index++)
+            {
+                if (index == argumentIndex)
+                    continue;
+                unified = TryUnifyTypeArguments(
+                    definition.Parameters[index].Type, argumentTypes[index]!, bindings);
+            }
+            if (!unified)
+                continue;
+
+            var typeArguments = new ITypeSymbol[definition.TypeParameters.Length];
+            for (var index = 0; index < typeArguments.Length && unified; index++)
+            {
+                if (!bindings.TryGetValue(definition.TypeParameters[index], out var bound)
+                    || IsMissingOrError(bound))
+                {
+                    unified = false;
+                    break;
+                }
+                typeArguments[index] = bound;
+            }
+            if (!unified)
+                continue;
+
+            var constructed = definition.Construct(typeArguments);
+            var targetType = constructed.Parameters[argumentIndex].Type;
+            if (IsMissingOrError(targetType) || targetType is ITypeParameterSymbol)
+                continue;
+
+            var applicable = true;
+            for (var index = 0; index < arguments.Count && applicable; index++)
+            {
+                if (index == argumentIndex)
+                    continue;
+                applicable = ImplicitlyAccepts(
+                    (CSharpCompilation)model.Compilation,
+                    argumentTypes[index], constructed.Parameters[index].Type);
+            }
+            if (!applicable)
+                continue;
+
+            if (inferredTarget == null)
+                inferredTarget = targetType;
+            else if (!SymbolEqualityComparer.Default.Equals(inferredTarget, targetType))
+                return null; // several distinct targets: never guess
+        }
+
+        return inferredTarget;
+    }
+
+    /// <summary>
+    /// Structural unification of one parameter type against the recovered type
+    /// of a sibling argument: a type parameter binds the argument type, equal
+    /// generic definitions recurse into their type arguments, and a generic
+    /// parameter is also matched through the argument's implemented interfaces
+    /// (standard lower-bound inference for an implicit interface conversion).
+    /// Arguments with no occurrence of a type parameter add no binding.
+    /// </summary>
+    private static bool TryUnifyTypeArguments(
+        ITypeSymbol parameterType,
+        ITypeSymbol argumentType,
+        Dictionary<ITypeParameterSymbol, ITypeSymbol> bindings)
+    {
+        if (parameterType is ITypeParameterSymbol typeParameter)
+        {
+            if (bindings.TryGetValue(typeParameter, out var existing))
+                return SymbolEqualityComparer.Default.Equals(existing, argumentType);
+
+            bindings[typeParameter] = argumentType;
+            return true;
+        }
+
+        if (parameterType is IArrayTypeSymbol arrayParameter)
+        {
+            return argumentType is IArrayTypeSymbol arrayArgument
+                   && arrayParameter.Rank == arrayArgument.Rank
+                   && TryUnifyTypeArguments(
+                       arrayParameter.ElementType, arrayArgument.ElementType, bindings);
+        }
+
+        if (parameterType is INamedTypeSymbol { IsGenericType: true } namedParameter
+            && namedParameter.TypeArguments.Length == namedParameter.TypeParameters.Length)
+        {
+            var match = FindConstructedMatch(
+                namedParameter.OriginalDefinition, argumentType);
+            if (match == null
+                || match.TypeArguments.Length != namedParameter.TypeArguments.Length)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < namedParameter.TypeArguments.Length; index++)
+            {
+                if (!TryUnifyTypeArguments(
+                        namedParameter.TypeArguments[index],
+                        match.TypeArguments[index],
+                        bindings))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static INamedTypeSymbol? FindConstructedMatch(
+        INamedTypeSymbol definition, ITypeSymbol type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return null;
+
+        if (SymbolEqualityComparer.Default.Equals(
+                named.OriginalDefinition, definition))
+        {
+            return named;
+        }
+
+        foreach (var implemented in named.AllInterfaces)
+        {
+            if (SymbolEqualityComparer.Default.Equals(
+                    implemented.OriginalDefinition, definition))
+            {
+                return implemented;
+            }
+        }
+
+        return null;
     }
 
     private static ITypeSymbol? PreferSourceDeclaredCandidate(ITypeSymbol? type)
