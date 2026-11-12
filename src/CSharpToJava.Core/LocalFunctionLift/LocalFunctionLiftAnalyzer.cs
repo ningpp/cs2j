@@ -167,8 +167,9 @@ internal sealed class LocalFunctionLiftAnalyzer
         // Iterator local functions can be lifted to class-level methods
         // that also use yield return. The hoisted method will be a valid
         // iterator method.
-        // Note: iterator methods cannot have ref/out parameters, so if
-        // captures require ref, the post-propagation gate will catch it.
+        // Note: iterator methods cannot have ref/out parameters (CS1623), so
+        // write captures are converted to StrongBox holders when possible and
+        // otherwise skipped by the post-propagation gate.
 
         // Gate #3: No host type
         var hostType = FindHostType(localFn);
@@ -925,6 +926,19 @@ internal sealed class LocalFunctionLiftAnalyzer
         {
             if (plan.Skipped)
                 continue;
+
+            // 迭代器局部函数不能有 ref/in/out 形参（CS1623），async 局部函数也是
+            // 同理（异步方法不允许 ref 形参）：写入型捕获必须以 StrongBox 值传递。
+            // 无法 holder 的捕获留给 CheckPostPropagationGates 按 ref 不可用跳过。
+            if (RequiresValueCapture(plan))
+            {
+                foreach (var capture in plan.Captures)
+                {
+                    if (capture.IsWritten && CanUseHolderCapture(capture))
+                        holders.Add(capture.Symbol);
+                }
+            }
+
             foreach (var capture in FindLambdaExposedWrittenCaptures(plan, bySymbol))
             {
                 if (CanUseHolderCapture(capture))
@@ -1109,9 +1123,30 @@ internal sealed class LocalFunctionLiftAnalyzer
         }
     }
 
-    private bool CanUseRefCapture(LiftPlan plan, CapturePlan cap)
+    /// <summary>
+    /// 提升后的方法不能有 ref 形参：async 方法（CS1988）与迭代器方法（CS1623）。
+    /// 这类函数的所有写入型捕获都必须改走 StrongBox holder。
+    /// </summary>
+    private static bool RequiresValueCapture(LiftPlan plan)
+        => plan.Node.Modifiers.Any(m => m.IsKind(SyntaxKind.AsyncKeyword))
+           || ContainsYield(plan.Node);
+
+    /// <summary>
+    /// 函数体是否含 yield（迭代器）。不下降进嵌套局部函数（它们有独立 plan），
+    /// lambda 里的 yield 本身就是非法语法，无需特殊处理。
+    /// </summary>
+    private static bool ContainsYield(LocalFunctionStatementSyntax node)
     {
-        if (plan.Node.Modifiers.Any(m => m.IsKind(SyntaxKind.AsyncKeyword)))
+        var body = (SyntaxNode?)node.Body ?? node.ExpressionBody;
+        return body != null
+            && body.DescendantNodes(d => d is not LocalFunctionStatementSyntax)
+                .OfType<YieldStatementSyntax>()
+                .Any();
+    }
+
+    private static bool CanUseRefCapture(LiftPlan plan, CapturePlan cap)
+    {
+        if (RequiresValueCapture(plan))
             return false;
 
         var sym = cap.Symbol;
@@ -1138,7 +1173,9 @@ internal sealed class LocalFunctionLiftAnalyzer
     private static string GetRefCaptureUnavailableReason(LiftPlan plan, CapturePlan cap)
     {
         if (plan.Node.Modifiers.Any(m => m.IsKind(SyntaxKind.AsyncKeyword)))
-            return "local function is async";
+            return "local function is async (async methods cannot have ref/in/out parameters, CS1988)";
+        if (ContainsYield(plan.Node))
+            return "local function is an iterator (yield): iterator methods cannot have ref/in/out parameters (CS1623)";
         if (cap.Symbol is ILocalSymbol)
         {
             var decl = FindVariableDeclarator(plan.Node, cap.Symbol);

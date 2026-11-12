@@ -589,6 +589,161 @@ public class LocalFunctionLiftTests
         AssertCompiles(result.OutputCode);
     }
 
+    // -----------------------------------------------------------------------
+    // CS1623 / CS1988: iterator and async local functions cannot declare
+    // ref/in/out parameters, so a write capture cannot become a `ref`
+    // parameter there. Such captures now use the same StrongBox<T> holder as
+    // the lambda case instead of emitting uncompilable code (iterator) or
+    // skipping the function (async).
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void IteratorWithWriteCapture_UsesStrongBoxHolder()
+    {
+        var src = """
+        class C {
+            System.Collections.Generic.IEnumerable<int> M() {
+                int sum = 0;
+                return Gen();
+                System.Collections.Generic.IEnumerable<int> Gen() {
+                    while (sum < 3) {
+                        sum++;
+                        yield return sum;
+                    }
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains("StrongBox<int> sum", result.OutputCode);
+        Assert.Contains("StrongBox<int> _cs2j_cap_sum", result.OutputCode);
+        Assert.DoesNotContain("ref _cs2j_cap_", result.OutputCode);
+        Assert.DoesNotContain("ref int", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void IteratorWithWriteAndReadCaptures_ReadCaptureStaysByValue()
+    {
+        var src = """
+        class C {
+            System.Collections.Generic.IEnumerable<int> M() {
+                int sum = 0;
+                int start = 5;
+                return Gen();
+                System.Collections.Generic.IEnumerable<int> Gen() {
+                    sum++;
+                    yield return sum + start;
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("StrongBox<int> sum", result.OutputCode);
+        Assert.Contains("StrongBox<int> _cs2j_cap_sum", result.OutputCode);
+        Assert.Contains("int _cs2j_cap_start", result.OutputCode);
+        Assert.DoesNotContain("StrongBox<int> _cs2j_cap_start", result.OutputCode);
+        Assert.DoesNotContain("ref _cs2j_cap_", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void AsyncWithWriteCapture_UsesStrongBoxHolder()
+    {
+        var src = """
+        class C {
+            async System.Threading.Tasks.Task<int> M() {
+                int sum = 0;
+                await AddAsync();
+                return sum;
+                async System.Threading.Tasks.Task AddAsync() {
+                    sum++;
+                    await System.Threading.Tasks.Task.CompletedTask;
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains("StrongBox<int> sum", result.OutputCode);
+        Assert.Contains("StrongBox<int> _cs2j_cap_sum", result.OutputCode);
+        Assert.DoesNotContain("ref _cs2j_cap_", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void IteratorWithRefStructWriteCapture_IsSkippedWithDiagnostic()
+    {
+        // Span<int> cannot be a StrongBox type argument, and an iterator method
+        // cannot take a ref parameter: the local function must stay local so the
+        // output never contains the illegal `ref` iterator signature (CS1623).
+        var src = """
+        class C {
+            System.Collections.Generic.IEnumerable<int> M() {
+                System.Span<int> span = stackalloc int[1];
+                return Gen();
+                System.Collections.Generic.IEnumerable<int> Gen() {
+                    span = stackalloc int[2];
+                    yield return span[0];
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
+        var diagnostic = Assert.Single(result.Diagnostics,
+            d => d.Reason == LocalFunctionSkipReason.RefCaptureUnavailable);
+        Assert.Contains("iterator", diagnostic.Message);
+        Assert.Contains("CS1623", diagnostic.Message);
+        // The local function stays local (unchanged), and no illegal holder/ref
+        // signature was emitted.
+        Assert.Contains("System.Collections.Generic.IEnumerable<int> Gen()", result.OutputCode);
+        Assert.DoesNotContain("StrongBox", result.OutputCode);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    [Fact]
+    public void HolderSharedByPlainAndIteratorLocalFunctions_UsesStrongBoxEverywhere()
+    {
+        // The holder decision is per symbol: one written capture forces every
+        // lifted function (the plain one that would otherwise use `ref` and the
+        // iterator one that cannot) to receive the same StrongBox by value.
+        var src = """
+        class C {
+            System.Collections.Generic.IEnumerable<int> M() {
+                int x = 0;
+                Inc();
+                return Gen();
+                void Inc() { x++; }
+                System.Collections.Generic.IEnumerable<int> Gen() {
+                    x++;
+                    yield return x;
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(2, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(1, CountOccurrences(result.OutputCode, "StrongBox<int> x"));
+        Assert.Equal(2, CountOccurrences(result.OutputCode, "StrongBox<int> _cs2j_cap_x"));
+        Assert.DoesNotContain("ref _cs2j_cap_", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
     [Fact]
     public void NestedLocalFunction_CapturesCallerParameter_DoesNotBecomeCallerCapture()
     {
