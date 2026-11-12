@@ -14,6 +14,15 @@ public sealed class LocalFunctionLiftPreprocessor
 {
     private readonly Dictionary<string, HashSet<string>> _crossFileNameTable = new();
 
+    /// <summary>
+    /// Test-only injection hook (InternalsVisibleTo); production instances leave
+    /// it null. A real V-09 rollback needs a declaration container the rewriter
+    /// cannot strip, which valid C# only has at compilation-unit level — and
+    /// those plans are already skipped as NoHostType before the rewriter runs.
+    /// Tests use this seam to drive the rollback branch and its statistics.
+    /// </summary>
+    internal Action<LocalFunctionLiftRewriter, IReadOnlyList<LiftPlan>>? RewriterCreatedForTests { get; set; }
+
     public LocalFunctionLiftResult Preprocess(
         string sourceCode,
         SemanticModel? model = null,
@@ -59,6 +68,7 @@ public sealed class LocalFunctionLiftPreprocessor
         var rewriter = new LocalFunctionLiftRewriter(
             resolvedModel, plans, options, stats);
         rewriter.PrepareMethodDeclarations();
+        RewriterCreatedForTests?.Invoke(rewriter, plans);
         var newRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
 
         // V-09 atomicity: a plan whose declaration sits in a container no
@@ -78,6 +88,8 @@ public sealed class LocalFunctionLiftPreprocessor
             }
 
             stats.FilesSkippedClean = 1;
+            stats.FilesRolledBackAtomicity++;
+            stats.PlansRolledBackAtomicity += rewriter.UnremovablePlans.Count;
             // Lifted count was already incremented by PrepareMethodDeclarations
             // for these plans; undo it so the statistics stay truthful.
             stats.LocalFunctionsLifted = Math.Max(

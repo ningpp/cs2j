@@ -171,7 +171,9 @@ internal sealed class LocalFunctionLiftPassAdapter : ProjectPassAdapter
            $"{_statistics.FilesSkippedClean} clean, " +
            $"{_statistics.LocalFunctionsLifted} lifted, " +
            $"{_statistics.LocalFunctionsSkipped} skipped, " +
-           $"{_statistics.LocalFunctionsResidual} residual";
+           $"{_statistics.LocalFunctionsResidual} residual, " +
+           $"holder={_statistics.CapturesByHolder}, " +
+           $"rolled-back={_statistics.FilesRolledBackAtomicity}";
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
         => _diagnostics
@@ -353,6 +355,9 @@ internal sealed class LocalFunctionLiftPassAdapter : ProjectPassAdapter
         _statistics.LocalFunctionsSkipped += source.LocalFunctionsSkipped;
         _statistics.CapturesByValue += source.CapturesByValue;
         _statistics.CapturesByRef += source.CapturesByRef;
+        _statistics.CapturesByHolder += source.CapturesByHolder;
+        _statistics.FilesRolledBackAtomicity += source.FilesRolledBackAtomicity;
+        _statistics.PlansRolledBackAtomicity += source.PlansRolledBackAtomicity;
         foreach (var kvp in source.SkippedByReason)
         {
             if (!_statistics.SkippedByReason.TryAdd(kvp.Key, kvp.Value))

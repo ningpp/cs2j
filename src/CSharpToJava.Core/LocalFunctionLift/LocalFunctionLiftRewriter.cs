@@ -63,6 +63,14 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
     /// </summary>
     public IReadOnlyList<LiftPlan> UnremovablePlans => _unremovablePlans;
 
+    /// <summary>
+    /// Test-only seam (InternalsVisibleTo): the V-09 guard can only observe a
+    /// non-removable container at compilation-unit level, where the analyzer
+    /// has already skipped every plan as NoHostType. Production never calls
+    /// this; it exists so the rollback accounting can be exercised end to end.
+    /// </summary>
+    internal void MarkUnremovableForTests(LiftPlan plan) => _unremovablePlans.Add(plan);
+
     public LocalFunctionLiftRewriter(
         SemanticModel model,
         List<LiftPlan> plans,
@@ -179,6 +187,8 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
                 {
                     if (cap.ByRef)
                         _stats.CapturesByRef++;
+                    else if (cap.UseHolder)
+                        _stats.CapturesByHolder++;
                     else
                         _stats.CapturesByValue++;
                 }

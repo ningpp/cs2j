@@ -711,6 +711,90 @@ public class LocalFunctionLiftTests
         Assert.Equal(1, result.Statistics.FilesTransformed);
     }
 
+    [Fact]
+    public void Statistics_HolderCaptureCountedSeparately()
+    {
+        // Write capture used inside a nested lambda must become a StrongBox
+        // holder; it is neither a by-value nor a by-ref capture.
+        var src = """
+        class C {
+            void M() {
+                int x = 0;
+                Inc();
+                void Inc() {
+                    System.Action a = () => x++;
+                    a();
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.True(result.Statistics.CapturesByHolder >= 1);
+        Assert.Equal(0, result.Statistics.CapturesByValue);
+    }
+
+    [Fact]
+    public void Statistics_RefCaptureCountedAsRef()
+    {
+        // A plain write capture becomes a `ref` parameter, not a holder.
+        var src = """
+        class C {
+            void M() {
+                int x = 0;
+                Inc();
+                void Inc() { x++; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(1, result.Statistics.CapturesByRef);
+        Assert.Equal(0, result.Statistics.CapturesByHolder);
+    }
+
+    [Fact]
+    public void Statistics_AtomicRollbackCounted()
+    {
+        // A local function whose declaration container the rewriter cannot strip
+        // must roll the whole file back (V-09). Valid C# only reaches that shape
+        // at the compilation-unit level, where the analyzer already skips the
+        // plan as NoHostType; the rewriter's test seam injects the plan so the
+        // rollback accounting can be verified end to end.
+        var src = """
+        class C {
+            void M() {
+                A();
+                void A() { }
+            }
+        }
+        """;
+        var tree = CSharpSyntaxTree.ParseText(src);
+        var compilation = CSharpCompilation.Create("local-fn-rollback",
+            new[] { tree },
+            References,
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var preprocessor = new LocalFunctionLiftPreprocessor
+        {
+            RewriterCreatedForTests = (rewriter, plans) =>
+            {
+                var plan = plans.First(p => !p.Skipped);
+                rewriter.MarkUnremovableForTests(plan);
+            },
+        };
+
+        var result = preprocessor.Preprocess(src, compilation.GetSemanticModel(tree));
+
+        Assert.False(result.Changed);
+        Assert.Equal(1, result.Statistics.FilesRolledBackAtomicity);
+        Assert.True(result.Statistics.PlansRolledBackAtomicity >= 1);
+        Assert.Equal(0, result.Statistics.FilesTransformed);
+        Assert.Contains(result.Diagnostics, d => d.Message.Contains("V-09 atomicity"));
+    }
+
     // -----------------------------------------------------------------------
     // V-09: local functions declared directly inside a switch section
     // (the rt10 JsonElement.DeepEquals shape — switch statement, section
