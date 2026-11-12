@@ -115,6 +115,15 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
             case CollectionExprOutcome.StatementSequence:
                 return LowerStatement(plan, visited);
 
+            case CollectionExprOutcome.InlineSpreadExpression:
+            {
+                RewriteCount++;
+                var replacement = CollectionExprEmitter.BuildInlineSpread(
+                    _context.SemanticModel!, plan, visited.Elements);
+                CountEmittedInitializerNodes(replacement, visited);
+                return replacement;
+            }
+
             default:
                 // Defensive: no lowering decision taken. Treat as an explained
                 // skip; the residual gate stays truthful.

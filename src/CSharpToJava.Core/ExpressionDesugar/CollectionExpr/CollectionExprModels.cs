@@ -97,6 +97,17 @@ public enum CollectionExprOutcome
     /// <summary>__ed_n temp + Add/AddRange/foreach statement sequence (+ ToArray for array/Span/builder targets).</summary>
     StatementSequence,
 
+    /// <summary>
+    /// Spread-bearing site at a position with no statement anchor (field/
+    /// property initializer, attribute argument, default parameter value,
+    /// query clause) lowered inline to an equivalent expression instead of a
+    /// lifted statement sequence: <c>[..seq]</c> becomes
+    /// <c>global::System.Linq.Enumerable.ToArray(seq)</c> for array/Span
+    /// targets, <c>new List&lt;T&gt;(…)</c> for List/interface targets and the
+    /// builder factory argument form for [CollectionBuilder] targets.
+    /// </summary>
+    InlineSpreadExpression,
+
     /// <summary>Site intentionally kept, paired with a diagnostic.</summary>
     SkippedDiagnostic,
 }

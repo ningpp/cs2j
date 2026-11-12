@@ -312,16 +312,28 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
         skipMessage ??= elementSkipMessage;
 
         var liftable = false;
+        var inlineSpread = false;
         if (skipCode == null && containsSpread)
         {
             liftable = CollectionContextLowering.CanLowerAt(node, out var reason);
             if (!liftable)
             {
-                skipCode = CollectionExprDiagnosticCodes.CS2J0583;
-                skipMessage = reason == CollectionContextLowering.ConditionalBranchReason
-                    ? CollectionExprDiagnostics.NotLiftableConditionalMessage
-                    : string.Format(
-                        CollectionExprDiagnostics.NotLiftableMessage, reason);
+                // Anchor-free positions (field/property initializer, attribute
+                // argument, default parameter value, query clause) have no
+                // statement anchor, but a spread site whose target carries an
+                // expression form is still expressible without statements:
+                // [..seq] -> Enumerable.ToArray(seq), [...] -> new List<T>(…).
+                inlineSpread = ExpressionDesugarTempLifter.FindAnchor(node) == null
+                               && CollectionExprEmitter.CanInlineSpread(
+                                   model, resolution, elements);
+                if (!inlineSpread)
+                {
+                    skipCode = CollectionExprDiagnosticCodes.CS2J0583;
+                    skipMessage = reason == CollectionContextLowering.ConditionalBranchReason
+                        ? CollectionExprDiagnostics.NotLiftableConditionalMessage
+                        : string.Format(
+                            CollectionExprDiagnostics.NotLiftableMessage, reason);
+                }
             }
         }
 
@@ -382,13 +394,21 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
 
         if (containsSpread)
         {
-            plan.Outcome = CollectionExprOutcome.StatementSequence;
-            if (resolution.Kind == TargetKind.MutableConcrete)
-                stats.MutableConstructSites++;
+            if (inlineSpread)
+            {
+                plan.Outcome = CollectionExprOutcome.InlineSpreadExpression;
+            }
+            else
+            {
+                plan.Outcome = CollectionExprOutcome.StatementSequence;
+                if (resolution.Kind == TargetKind.MutableConcrete)
+                    stats.MutableConstructSites++;
 
-            // Decide AddRange vs foreach-Add at Analyze time (same symbol rule
-            // the M1 emitter applied) so loop variables can be pre-allocated.
-            DecideSpreadShapes(model, plan);
+                // Decide AddRange vs foreach-Add at Analyze time (same symbol
+                // rule the M1 emitter applied) so loop variables can be
+                // pre-allocated.
+                DecideSpreadShapes(model, plan);
+            }
         }
         else
         {

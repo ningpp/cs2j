@@ -301,6 +301,210 @@ internal static class CollectionExprEmitter
             InitializerSyntaxFacts.CountResidualNodes(tempCreation));
     }
 
+    /// <summary>
+    /// True when a spread-bearing site with no statement anchor can be lowered
+    /// to an equivalent expression instead of a lifted statement sequence.
+    ///
+    /// The site is inline-expressible when its target has an expression form
+    /// (<c>T[]</c>/Span&lt;T&gt;, List&lt;T&gt;/constructible interface,
+    /// [CollectionBuilder] factory) and every spread source is an ordinary
+    /// enumerable expression whose element type reaches the target element
+    /// type (identity, or an implicit reference conversion for the covariant
+    /// array/List shapes). Span sources are only expressible as the pure
+    /// <c>source.ToArray()</c> form; mixing one with other elements keeps the
+    /// site on CS2J0583, as do attribute/default-value targets that cannot
+    /// hold a call.
+    /// </summary>
+    public static bool CanInlineSpread(
+        SemanticModel model,
+        TargetResolution resolution,
+        IReadOnlyList<ElementPlan> elements)
+    {
+        if (resolution.TargetElementType == null)
+            return false;
+
+        var allowsReferenceConversion = false;
+        switch (resolution.Kind)
+        {
+            case TargetKind.Array:
+            case TargetKind.Interface:
+                allowsReferenceConversion = true;
+                break;
+            case TargetKind.MutableConcrete:
+                // Only List<T> has the IEnumerable<T> constructor this form
+                // needs; any other T3 concrete target keeps CS2J0583.
+                if (resolution.ConvertedType is not INamedTypeSymbol concrete
+                    || concrete.OriginalDefinition.ToDisplayString()
+                        != "System.Collections.Generic.List<T>")
+                {
+                    return false;
+                }
+
+                allowsReferenceConversion = true;
+                break;
+            case TargetKind.Span:
+                break;
+            case TargetKind.CollectionBuilder when resolution.BuilderFactory != null:
+                break;
+            default:
+                return false;
+        }
+
+        var hasSpread = false;
+        foreach (var element in elements)
+        {
+            if (element.Kind != CollectionElementKind.Spread)
+                continue;
+
+            var spread = element.Spread;
+            if (spread == null || spread.SourceKind == SpreadSourceKind.Unknown)
+                return false;
+
+            // Span/ReadOnlySpan is a ref struct and cannot enter the
+            // Enumerable.Concat chain; its own ToArray() only covers the pure
+            // single-spread site.
+            if (spread.SourceKind == SpreadSourceKind.Span && elements.Count > 1)
+                return false;
+
+            if (!AcceptsSpreadElement(
+                    model.Compilation,
+                    spread.ElementType,
+                    resolution.TargetElementType,
+                    allowsReferenceConversion))
+            {
+                return false;
+            }
+
+            hasSpread = true;
+        }
+
+        return hasSpread;
+    }
+
+    private static bool AcceptsSpreadElement(
+        Compilation compilation,
+        ITypeSymbol? source,
+        ITypeSymbol target,
+        bool allowsReferenceConversion)
+    {
+        if (source == null)
+            return false;
+        if (SymbolEqualityComparer.Default.Equals(source, target))
+            return true;
+
+        return allowsReferenceConversion
+               && !source.IsValueType
+               && !target.IsValueType
+               && compilation.ClassifyConversion(source, target).IsImplicit;
+    }
+
+    /// <summary>
+    /// Inline lowering for an anchor-free spread site (see
+    /// <see cref="CanInlineSpread"/>). Elements and spreads keep their source
+    /// order and are evaluated exactly once at the site's own position:
+    /// <list type="bullet">
+    /// <item><c>T[]</c>/Span targets → <c>Enumerable.ToArray(chain)</c>;</item>
+    /// <item>List/interface targets → <c>new List&lt;T&gt;(Enumerable.ToArray(chain))</c>;</item>
+    /// <item>[CollectionBuilder] targets → <c>Factory.Create(Enumerable.ToArray(chain))</c>.</item>
+    /// </list>
+    /// <c>chain</c> is the single spread source or the left-to-right
+    /// <c>Enumerable.Concat</c> of one <c>new T[]{ element }</c> segment per
+    /// ordinary element and one source segment per spread. A pure Span spread
+    /// uses its own <c>source.ToArray()</c> (a ref struct has no other form).
+    /// </summary>
+    public static ExpressionSyntax BuildInlineSpread(
+        SemanticModel model,
+        CollectionExprPlan plan,
+        IReadOnlyList<CollectionElementSyntax> visitedElements)
+    {
+        var elementType = plan.TargetElementType!;
+        ExpressionSyntax? chain = null;
+        ExpressionSyntax? onlySpreadSource = null;
+        var onlySpreadKind = SpreadSourceKind.Unknown;
+        var spreadCount = 0;
+
+        for (var i = 0; i < plan.Elements.Count; i++)
+        {
+            var elementPlan = plan.Elements[i];
+            ExpressionSyntax segment;
+            if (elementPlan.Kind == CollectionElementKind.Expression)
+            {
+                segment = BuildZeroTempArray(
+                    elementType,
+                    new[] { ((ExpressionElementSyntax)visitedElements[i]).Expression });
+            }
+            else
+            {
+                var spread = elementPlan.Spread!;
+                spreadCount++;
+                onlySpreadSource = ((SpreadElementSyntax)visitedElements[i]).Expression;
+                onlySpreadKind = spread.SourceKind;
+                segment = onlySpreadSource;
+            }
+
+            chain = chain == null
+                ? segment
+                : EnumerableInvoke(model, "Concat", chain, segment);
+        }
+
+        ExpressionSyntax arrayExpression;
+        if (spreadCount == 1
+            && plan.Elements.Count == 1
+            && onlySpreadKind == SpreadSourceKind.Span)
+        {
+            arrayExpression = SyntaxFactory.InvocationExpression(
+                SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    onlySpreadSource!,
+                    SyntaxFactory.IdentifierName("ToArray")),
+                SyntaxFactory.ArgumentList());
+        }
+        else
+        {
+            arrayExpression = EnumerableInvoke(model, "ToArray", chain!);
+        }
+
+        switch (plan.TargetKind)
+        {
+            case TargetKind.CollectionBuilder:
+                return BuildBuilderFactoryInvocation(
+                    plan.BuilderFactory!, arrayExpression);
+
+            case TargetKind.MutableConcrete:
+            case TargetKind.Interface:
+                return SyntaxFactory.ObjectCreationExpression(
+                        GlobalType(plan.EffectiveConstructedType!))
+                    .WithArgumentList(
+                        SyntaxFactory.ArgumentList(
+                            SyntaxFactory.SingletonSeparatedList(
+                                SyntaxFactory.Argument(arrayExpression))));
+
+            default:
+                return arrayExpression;
+        }
+    }
+
+    /// <summary>
+    /// <c>global::System.Linq.Enumerable.Method(args…)</c> — fully qualified,
+    /// so the emission never depends on a source-file using directive.
+    /// </summary>
+    private static ExpressionSyntax EnumerableInvoke(
+        SemanticModel model,
+        string methodName,
+        params ExpressionSyntax[] arguments)
+    {
+        var enumerable = model.Compilation
+            .GetTypeByMetadataName("System.Linq.Enumerable")!;
+
+        return SyntaxFactory.InvocationExpression(
+            SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                GlobalType(enumerable),
+                SyntaxFactory.IdentifierName(methodName)),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.SeparatedList(arguments.Select(SyntaxFactory.Argument))));
+    }
+
     /// <summary><c>temp.ToArray()</c> (List&lt;T&gt;, BCL-only; no System.Linq).</summary>
     private static InvocationExpressionSyntax ToArrayInvocation(ExpressionSyntax tempId)
         => SyntaxFactory.InvocationExpression(

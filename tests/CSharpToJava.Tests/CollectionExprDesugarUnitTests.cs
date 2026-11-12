@@ -1536,7 +1536,7 @@ public class CollectionExprDesugarUnitTests
     }
 
     [Fact]
-    public void M1_Spread_FieldInitializer_0583()
+    public void M1_Spread_FieldInitializer_InlinedToArray()
     {
         const string source = """
             public class C
@@ -1548,10 +1548,12 @@ public class CollectionExprDesugarUnitTests
 
         var result = Preprocess(source);
 
-        Assert.False(result.Changed);
-        var diagnostic = Assert.Single(result.Diagnostics);
-        Assert.Equal(CollectionExprDiagnosticCodes.CS2J0583, diagnostic.Code);
-        Assert.Equal(ExpressionDesugarSeverity.Error, diagnostic.Severity);
+        // Anchor-free field initializer: the pure spread is lowered inline to
+        // the equivalent Enumerable.ToArray call instead of a lifted sequence.
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.Empty(result.Diagnostics);
+        Assert.Contains("Enumerable.ToArray", Normalize(result.OutputCode));
+        AssertOutputCompiles(result.OutputCode);
     }
 
     [Fact]
