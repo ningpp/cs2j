@@ -773,6 +773,112 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
+    // 捕获传播 / holder 判定 / 跳过级联此前只扫 IdentifierNameSyntax，漏掉
+    // GenericNameSyntax 形式的方法组引用（`Other<int>` 非调用）。重写器会把它
+    // 合成为 `(args) => other<int>(caps, args)`，若 caller 未传播这些捕获，
+    // lambda 里就会引用 caller 作用域中不存在的名字（CS0103 / CS1628）。
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void NestedGenericMethodGroup_CapturesPropagateToCaller()
+    {
+        var src = """
+        class C {
+            void M() {
+                int x = 5;
+                Outer();
+                void Outer() {
+                    System.Func<int, int> f = Inner<int>;
+                    System.Console.WriteLine(f(1));
+                }
+                int Inner<T>(T input) => x + 1;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+
+        // Outer 自己的方法体里没有 x 的语法引用，只有 Inner<int> 方法组引用；
+        // x 必须经由捕获传播进入 Outer 的提升方法签名。
+        var root = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(result.OutputCode).GetRoot();
+        var lifted = root.DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.Text == "outer");
+        Assert.Contains(lifted.ParameterList.Parameters,
+            p => p.Identifier.Text == "_cs2j_cap_x");
+        Assert.Contains("outer(x)", result.OutputCode);
+        AssertCompiles(result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+    }
+
+    [Fact]
+    public void NestedGenericMethodGroup_WriteCaptureGetsHolderWhenNeeded()
+    {
+        // Inner 写入 x，且 Inner<int> 的方法组引用位于 Outer 体内的 lambda 中：
+        // 重写器合成的 lambda 会以 ref 形式携带 x（CS1628），必须改走 holder。
+        var src = """
+        class C {
+            void M() {
+                int x = 0;
+                Outer();
+                void Outer() {
+                    System.Action a = () => {
+                        System.Func<int, int> f = Inner<int>;
+                        System.Console.WriteLine(f(1));
+                    };
+                    a();
+                }
+                int Inner<T>(T input) { x++; return 1; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(2, result.Statistics.LocalFunctionsLifted);
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Reason == LocalFunctionSkipReason.RefCaptureInNestedLambda);
+        Assert.Contains("StrongBox<int> x", result.OutputCode);
+        Assert.Contains("StrongBox<int> _cs2j_cap_x", result.OutputCode);
+        Assert.DoesNotContain("ref _cs2j_cap_", result.OutputCode);
+        AssertCompiles(result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+    }
+
+    [Fact]
+    public void GenericMethodGroupReferenceToSkippedFunction_CascadesSkip()
+    {
+        // Inner 因「own 类型参数 + 携带外层类型参数」被方法组转换禁用而跳过；
+        // Outer 以 Inner<int> 方法组引用它，也必须一起跳过（residual 保留原样）。
+        var src = """
+        using System;
+        class C {
+            void M<T>(T seed) {
+                Outer(seed);
+                void Outer(T value) {
+                    Func<int, T> f = Inner<int>;
+                    Console.WriteLine(f(1));
+                }
+                T Inner<U>(U input) => seed;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(2, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(0, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Reason == LocalFunctionSkipReason.EnclosingTypeParameterConflict);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Reason == LocalFunctionSkipReason.ReferencesSkippedLocalFunction
+            && d.Message.Contains("'Inner'", StringComparison.Ordinal));
+        Assert.Contains("Inner<int>", result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
     // CS1628: a write capture would become a `ref` parameter, and C# forbids
     // using ref parameters inside lambdas/anonymous methods. Such captures are
     // now wrapped in a StrongBox<T> holder instead of skipping the function:

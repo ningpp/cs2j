@@ -899,6 +899,36 @@ internal sealed class LocalFunctionLiftAnalyzer
             .Count > 0;
     }
 
+    /// <summary>
+    /// 枚举 <paramref name="body"/> 里可能引用局部函数的名字节点：
+    /// <see cref="IdentifierNameSyntax"/> 与显式类型实参形式
+    /// <see cref="GenericNameSyntax"/>（<c>Other&lt;int&gt;</c> 方法组引用）。
+    /// 排除命名实参名、<c>nameof(...)</c> 内部与成员访问的 Name 部分
+    /// （<c>obj.Other</c> 不是本作用域的局部函数）。调用目标（含泛型调用）
+    /// 也在结果里，由调用方按需区分「调用点」与「方法组引用」——两者都需要
+    /// 传播捕获，但只有方法组引用必然落进重写器合成的 lambda。
+    /// 与捕获收集一致，不下降进更深层的局部函数声明（它们各自有独立 LiftPlan）。
+    /// </summary>
+    private static IEnumerable<SimpleNameSyntax> EnumerateLocalFunctionReferences(SyntaxNode body)
+    {
+        foreach (var name in body
+            .DescendantNodes(d => d is not LocalFunctionStatementSyntax)
+            .OfType<SimpleNameSyntax>())
+        {
+            if (name is not (IdentifierNameSyntax or GenericNameSyntax))
+                continue;
+            if (name.Parent is NameColonSyntax)
+                continue;
+            if (CaptureClassification.IsInsideNameOf(name))
+                continue;
+            if (name.Parent is MemberAccessExpressionSyntax memberAccess
+                && memberAccess.Name == name)
+                continue;
+
+            yield return name;
+        }
+    }
+
     private void PropagateCaptures(List<LiftPlan> plans)
     {
         var bySymbol = plans.Where(p => p.Symbol != null)
@@ -917,17 +947,15 @@ internal sealed class LocalFunctionLiftAnalyzer
                 if (body == null)
                     continue;
 
-                foreach (var identifier in body
-                    .DescendantNodes(d => d is not LocalFunctionStatementSyntax)
-                    .OfType<IdentifierNameSyntax>())
+                foreach (var reference in EnumerateLocalFunctionReferences(body))
                 {
-                    if (identifier.Parent is NameColonSyntax)
-                        continue;
-
-                    var calleeSymbol = _model.GetSymbolInfo(identifier).Symbol;
+                    var calleeSymbol = _model.GetSymbolInfo(reference).Symbol;
                     if (calleeSymbol is not IMethodSymbol { MethodKind: MethodKind.LocalFunction } callee)
                         continue;
-                    if (!bySymbol.TryGetValue(callee, out var calleePlan))
+                    // 显式类型实参的方法组引用绑定到构造泛型方法（Inner<int>），
+                    // plan 按声明符号（原定义）索引。
+                    if (!bySymbol.TryGetValue(callee, out var calleePlan)
+                        && !bySymbol.TryGetValue(callee.OriginalDefinition, out calleePlan))
                         continue;
                     if (calleePlan.Skipped)
                         continue;
@@ -1077,21 +1105,14 @@ internal sealed class LocalFunctionLiftAnalyzer
             return result;
 
         var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-        foreach (var identifier in body
-            .DescendantNodes(d => d is not LocalFunctionStatementSyntax)
-            .OfType<IdentifierNameSyntax>())
+        foreach (var reference in EnumerateLocalFunctionReferences(body))
         {
-            if (identifier.Parent is NameColonSyntax)
-                continue;
-            // nameof(f) 只改名，不追加捕获实参。
-            if (CaptureClassification.IsInsideNameOf(identifier))
-                continue;
-
-            var insideLambda = IsInsideAnonymousFunction(identifier, body);
-            var symbol = _model.GetSymbolInfo(identifier).Symbol;
+            var insideLambda = IsInsideAnonymousFunction(reference, body);
+            var symbol = _model.GetSymbolInfo(reference).Symbol;
 
             if (symbol is IMethodSymbol { MethodKind: MethodKind.LocalFunction } callee
-                && bySymbol.TryGetValue(callee, out var calleePlan))
+                && (bySymbol.TryGetValue(callee, out var calleePlan)
+                    || bySymbol.TryGetValue(callee.OriginalDefinition, out calleePlan)))
             {
                 var calleeWritten = calleePlan.Captures
                     .Where(static c => c.IsWritten)
@@ -1099,8 +1120,8 @@ internal sealed class LocalFunctionLiftAnalyzer
                 if (calleeWritten.Count == 0)
                     continue;
 
-                var isInvocationTarget = identifier.Parent is InvocationExpressionSyntax invocation
-                    && invocation.Expression == identifier;
+                var isInvocationTarget = reference.Parent is InvocationExpressionSyntax invocation
+                    && invocation.Expression == reference;
                 if (isInvocationTarget && !insideLambda)
                     continue;
 
@@ -1309,18 +1330,16 @@ internal sealed class LocalFunctionLiftAnalyzer
                 if (body == null)
                     continue;
 
-                foreach (var identifier in body
-                    .DescendantNodes(d => d is not LocalFunctionStatementSyntax)
-                    .OfType<IdentifierNameSyntax>())
+                foreach (var reference in EnumerateLocalFunctionReferences(body))
                 {
-                    if (identifier.Parent is NameColonSyntax)
-                        continue;
-
-                    var symbol = _model.GetSymbolInfo(identifier).Symbol;
-                    if (symbol != null && skippedSymbols.Contains(symbol))
+                    var symbol = _model.GetSymbolInfo(reference).Symbol;
+                    if (symbol != null
+                        && (skippedSymbols.Contains(symbol)
+                            || (symbol is IMethodSymbol method
+                                && skippedSymbols.Contains(method.OriginalDefinition))))
                     {
                         Skip(plan, LocalFunctionSkipReason.ReferencesSkippedLocalFunction,
-                            $"references skipped local function '{identifier.Identifier.Text}'");
+                            $"references skipped local function '{reference.Identifier.Text}'");
                         if (plan.Symbol != null)
                             skippedSymbols.Add(plan.Symbol);
                         changed = true;
