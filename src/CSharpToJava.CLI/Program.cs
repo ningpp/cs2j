@@ -1406,9 +1406,7 @@ public class Program
     {
         var liftOpts = new CoreLocalFunctionLiftOptions(
             CapturesAtEnd: opts.CapturesAtEnd,
-            AllowRefInAsyncCallers: opts.AllowRefInAsync,
-            AllowInterfaceHost: opts.AllowInterfaceHost,
-            Verbose: opts.Verbose);
+            AllowInterfaceHost: opts.AllowInterfaceHost);
         var preprocessor = new LocalFunctionLiftPreprocessor();
 
         // Single-file mode
@@ -6321,7 +6319,14 @@ class LocalFunctionLiftOptions
     public bool NoStrict { get; set; }
     [Option("captures-at-end", Default = false, HelpText = "Place capture parameters after original parameters")]
     public bool CapturesAtEnd { get; set; }
-    [Option("allow-ref-in-async", Default = false, HelpText = "Relax gate #8 for async/iterator call sites")]
+    /// <summary>
+    /// 死开关：闸门 #8 的「调用点在 async/迭代器内」限制已由 StrongBox holder 机制取代
+    /// （async/迭代器局部函数的写入型捕获优先走 holder，只有 holder 不可表达才跳过）。
+    /// 该值不再传给 Core，仅为命令行兼容保留。
+    /// </summary>
+    [Obsolete("local-function-lift no longer has an async call-site gate; this switch is a no-op.")]
+    [Option("allow-ref-in-async", Default = false,
+        HelpText = "Obsolete no-op (kept for CLI compatibility; async write captures use StrongBox holders)")]
     public bool AllowRefInAsync { get; set; }
     [Option("allow-interface-host", Default = false, HelpText = "Relax gate #4 for interface host types")]
     public bool AllowInterfaceHost { get; set; }

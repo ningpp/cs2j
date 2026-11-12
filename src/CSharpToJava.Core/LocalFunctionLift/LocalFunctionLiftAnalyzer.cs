@@ -268,34 +268,13 @@ internal sealed class LocalFunctionLiftAnalyzer
             plan.IsStatic = true;
         var isExplicitStatic = IsExplicitStaticLocalFunction(localFn);
 
-        // Gate #5a: Static local functions with the 'static' modifier cannot
-        // capture enclosing locals. However, instead of skipping them, we
-        // treat them as non-static so captures are collected properly.
-        // The hoisted method will be static (since the enclosing method is
-        // typically static) and captures will be passed as parameters.
-        // Only skip if the enclosing method is an instance method — in that
-        // case, the hoisted method would need 'this' which a static local
-        // function doesn't have.
+        // static 局部函数不可能真正捕获外层局部（编译器已保证，CS8421），因此不存在
+        // 「实例方法里的 static 局部函数引用外层局部 → 跳过」的分支。但 nameof(外层
+        // 局部/形参) 是合法的编译期名字引用：提升到类级方法后该名字不可见（CS0103），
+        // 仍需按非 static 收集捕获，让重写器把 nameof 折叠成原名字符串
+        // （cs-text p05: NumberFormatInfo.ThrowInvalid 的 nameof(style)）。
         if (isExplicitStatic && ReferencesEnclosingLocals(localFn, symbol!))
-        {
-            // Check if enclosing method is static. If so, we can safely
-            // treat this as non-static for capture purposes.
-            if (plan.IsStatic)
-            {
-                // Enclosing method is static, so the hoisted method will be
-                // static too. Treat as non-static for capture collection.
-                isExplicitStatic = false;
-            }
-            else
-            {
-                // Enclosing method is an instance method. A static local
-                // function inside an instance method that references
-                // enclosing locals cannot be safely lifted.
-                Skip(plan, LocalFunctionSkipReason.UnsupportedCaptureType,
-                    "static local function references enclosing local variables/parameters inside instance method");
-                return plan;
-            }
-        }
+            isExplicitStatic = false;
 
         // Gate #5 (disabled): Method group / delegate conversion reference.
         // We now support this case — the rewriter will rename the method group
@@ -562,9 +541,9 @@ internal sealed class LocalFunctionLiftAnalyzer
     }
 
     /// <summary>
-    /// Checks if a static local function references local variables or
-    /// parameters from the enclosing scope (which would require captures
-    /// that a static hoisted method cannot have).
+    /// static 局部函数是否在 <c>nameof(...)</c> 里引用了外层局部/形参。static 局部
+    /// 函数不能真正捕获外层局部，但 <c>nameof</c> 是编译期名字引用、合法；提升到
+    /// 类级后该名字不可见，需要仍按非 static 收集捕获并折叠 <c>nameof</c>。
     /// </summary>
     private bool ReferencesEnclosingLocals(
         LocalFunctionStatementSyntax localFn,
@@ -1448,6 +1427,8 @@ internal sealed class LocalFunctionLiftAnalyzer
         if (cap.IsScoped)
             return false;
 
+        // async/迭代器提升方法的写入型捕获优先改走 StrongBox holder；只有 holder
+        // 不可表达（ref struct/指针/参数捕获等）时才会落到这里按 ref 不可用跳过。
         if (RequiresValueCapture(plan))
             return false;
 
@@ -1478,6 +1459,8 @@ internal sealed class LocalFunctionLiftAnalyzer
             return $"capture '{cap.OriginalName}' is declared 'scoped'; a ref capture parameter " +
                 "would expose the scoped value to the callee (and 'scoped ref' is not expressible " +
                 "here)";
+        // 以下 async/迭代器原因仅在该捕获无法改写为 StrongBox holder 时才会产生
+        // （可 holder 的写入型捕获已由 CollectHolderCaptureSymbols 提前接管）。
         if (plan.Node.Modifiers.Any(m => m.IsKind(SyntaxKind.AsyncKeyword)))
             return "local function is async (async methods cannot have ref/in/out parameters, CS1988)";
         if (ContainsYield(plan.Node))
@@ -1658,50 +1641,6 @@ internal sealed class LocalFunctionLiftAnalyzer
         return false;
     }
 
-    private bool HasMethodGroupReference(
-        CompilationUnitSyntax root,
-        IMethodSymbol symbol)
-    {
-        foreach (var id in root.DescendantNodes().OfType<IdentifierNameSyntax>())
-        {
-            if (id.Parent is NameColonSyntax)
-                continue;
-            var sym = _model.GetSymbolInfo(id).Symbol;
-            if (!SymbolEqualityComparer.Default.Equals(sym, symbol))
-                continue;
-            if (id.Parent is InvocationExpressionSyntax invocation
-                && invocation.Expression == id)
-                continue;
-            if (CaptureClassification.IsInsideNameOf(id))
-                continue;
-            return true;
-        }
-        return false;
-    }
-
-    private bool HasNamedArgumentCallSite(
-        CompilationUnitSyntax root,
-        IMethodSymbol symbol)
-    {
-        foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
-        {
-            if (invocation.Expression is not IdentifierNameSyntax
-                && invocation.Expression is not GenericNameSyntax)
-                continue;
-
-            var sym = _model.GetSymbolInfo(invocation).Symbol;
-            if (!SymbolEqualityComparer.Default.Equals(sym, symbol))
-                continue;
-
-            foreach (var arg in invocation.ArgumentList.Arguments)
-            {
-                if (arg.NameColon != null)
-                    return true;
-            }
-        }
-        return false;
-    }
-
     /// <summary>
     /// 本 pass 的捕获类型闸门。局部函数可以捕获指针/函数指针（声明处已在 unsafe
     /// 上下文内），提升后的方法写成 <c>private unsafe</c> 并把指针作为形参完全合法；
@@ -1773,159 +1712,6 @@ internal sealed class LocalFunctionLiftAnalyzer
                 return true;
         }
         return false;
-    }
-
-    private static MethodDeclarationSyntax? FindEnclosingMethod(LocalFunctionStatementSyntax localFn)
-    {
-        SyntaxNode? current = localFn.Parent;
-        while (current != null)
-        {
-            if (current is MethodDeclarationSyntax method)
-                return method;
-            if (current is TypeDeclarationSyntax)
-                return null;
-            current = current.Parent;
-        }
-        return null;
-    }
-
-    private static List<string> GetEnclosingMethodTypeParameters(
-        LocalFunctionStatementSyntax localFn)
-    {
-        var result = new List<string>();
-        SyntaxNode? current = localFn.Parent;
-        while (current != null)
-        {
-            if (current is MethodDeclarationSyntax method
-                && method.TypeParameterList != null)
-            {
-                foreach (var tp in method.TypeParameterList.Parameters)
-                    result.Add(tp.Identifier.Text);
-            }
-            if (current is TypeDeclarationSyntax)
-                break;
-            current = current.Parent;
-        }
-        return result;
-    }
-
-    /// <summary>
-    /// Gate #9b (strict): Checks if the local function uses ANY enclosing
-    /// method type parameters in its body, parameter types, or return type.
-    /// After lifting, the hoisted method becomes a generic method and type
-    /// inference at call sites may fail (e.g. when arguments are default,
-    /// null, or lambda expressions). To be safe, we skip all such functions.
-    /// </summary>
-    private static bool UsesEnclosingTypeParameters(
-        LocalFunctionStatementSyntax localFn)
-    {
-        var enclosingParams = GetEnclosingMethodTypeParameters(localFn);
-        if (enclosingParams.Count == 0)
-            return false;
-
-        // Type parameters declared on the local function itself
-        var ownTypeParams = localFn.TypeParameterList?.Parameters
-            .Select(p => p.Identifier.Text)
-            .ToHashSet(StringComparer.Ordinal) ?? new HashSet<string>(StringComparer.Ordinal);
-
-        // Collect all identifier names used in parameter types and return type
-        var typeIdentifiers = new HashSet<string>(StringComparer.Ordinal);
-        if (localFn.ParameterList != null)
-        {
-            foreach (var param in localFn.ParameterList.Parameters)
-                CollectIdentifierNames(param.Type, typeIdentifiers);
-        }
-        CollectIdentifierNames(localFn.ReturnType, typeIdentifiers);
-
-        // Collect all identifier names used in the body
-        var body = (SyntaxNode?)localFn.Body ?? localFn.ExpressionBody;
-        if (body != null)
-        {
-            foreach (var id in body.DescendantNodes().OfType<IdentifierNameSyntax>())
-                typeIdentifiers.Add(id.Identifier.Text);
-        }
-
-        // Check if any enclosing type parameter (not in own type params) is used
-        foreach (var tp in enclosingParams)
-        {
-            if (ownTypeParams.Contains(tp))
-                continue;
-            if (typeIdentifiers.Contains(tp))
-                return true;
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// Gate #9b (legacy): Checks if the local function references enclosing method
-    /// type parameters that are NOT in its own type parameter list or
-    /// parameter list. After lifting, call sites would need to explicitly
-    /// specify these type parameters, which they don't.
-    /// </summary>
-    private static bool UsesEnclosingTypeParametersNotInParameters(
-        LocalFunctionStatementSyntax localFn)
-    {
-        var enclosingParams = GetEnclosingMethodTypeParameters(localFn);
-        if (enclosingParams.Count == 0)
-            return false;
-
-        // Type parameters declared on the local function itself
-        var ownTypeParams = localFn.TypeParameterList?.Parameters
-            .Select(p => p.Identifier.Text)
-            .ToHashSet(StringComparer.Ordinal) ?? new HashSet<string>(StringComparer.Ordinal);
-
-        // Type parameters that appear in the local function's parameter types
-        // and return type. Note: we must check the type node itself, not just
-        // its descendants, because a simple type like "TDict" is itself an
-        // IdentifierNameSyntax with no descendant nodes.
-        var paramsInParameters = new HashSet<string>(StringComparer.Ordinal);
-        if (localFn.ParameterList != null)
-        {
-            foreach (var param in localFn.ParameterList.Parameters)
-            {
-                CollectIdentifierNames(param.Type, paramsInParameters);
-            }
-        }
-
-        // Also check the return type
-        CollectIdentifierNames(localFn.ReturnType, paramsInParameters);
-
-        // For each enclosing type parameter, check if it's used in the
-        // local function body but not in its own type params or parameter types.
-        var body = (SyntaxNode?)localFn.Body ?? localFn.ExpressionBody;
-        if (body == null)
-            return false;
-
-        var bodyIdentifiers = body.DescendantNodes()
-            .OfType<IdentifierNameSyntax>()
-            .Select(id => id.Identifier.Text)
-            .ToHashSet(StringComparer.Ordinal);
-
-        foreach (var tp in enclosingParams)
-        {
-            if (ownTypeParams.Contains(tp))
-                continue;
-            // If the type parameter is used in the body but not in parameters
-            if (bodyIdentifiers.Contains(tp) && !paramsInParameters.Contains(tp))
-                return true;
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// Collects all IdentifierName text from a type syntax node, including
-    /// the node itself if it is an IdentifierNameSyntax. This is needed
-    /// because DescendantNodes() does not include the node itself.
-    /// </summary>
-    private static void CollectIdentifierNames(
-        TypeSyntax? type, HashSet<string> names)
-    {
-        if (type == null)
-            return;
-        if (type is IdentifierNameSyntax id)
-            names.Add(id.Identifier.Text);
-        foreach (var descendant in type.DescendantNodes().OfType<IdentifierNameSyntax>())
-            names.Add(descendant.Identifier.Text);
     }
 
     private string? AssignName(
