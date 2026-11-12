@@ -70,7 +70,9 @@ internal static class CollectionBuilderAnalyzer
     /// required shape — the emitted <c>new X[]{...}</c> converts implicitly),
     /// or defensively <c>X[]</c> / <c>params X[]</c>;</item>
     /// <item>non-generic, or generic with exactly one type parameter bound to
-    /// the target collection's element type (<c>Create&lt;T&gt;</c> style);</item>
+    /// the target collection's element type (<c>Create&lt;T&gt;</c> style), or
+    /// inferred from the factory's return shape when the target exposes no
+    /// <c>IEnumerable&lt;T&gt;</c> element type;</item>
     /// <item>return type implicitly convertible to the target type;</item>
     /// <item>every element fed at the site implicitly converts to X.</item>
     /// </list>
@@ -119,10 +121,21 @@ internal static class CollectionBuilderAnalyzer
 
             if (method.IsGenericMethod)
             {
-                if (method.TypeParameters.Length != 1 || targetElement == null)
+                if (method.TypeParameters.Length != 1)
                     continue;
 
-                var constructed = method.Construct(targetElement);
+                // The type argument is the collection's element type when the
+                // target exposes it through IEnumerable<T> (the usual case).
+                // When that interface is unavailable in the analysis
+                // compilation (rewritten shim hierarchies can interrupt the
+                // AllInterfaces chain), infer the argument from the factory's
+                // own return shape: FrozenSet<T> vs FrozenSet<int> => int.
+                var typeArgument = targetElement
+                    ?? TryInferTypeArgument(method, targetType);
+                if (typeArgument == null)
+                    continue;
+
+                var constructed = method.Construct(typeArgument);
                 if (TryMatch(compilation, constructed, targetType, targetElement,
                         elementFedTypes, out var ros, out var matched))
                 {
@@ -159,6 +172,92 @@ internal static class CollectionBuilderAnalyzer
               $"({rankName}) on builder type '{builderDisplay}' are ambiguous; " +
               "the unique factory cannot be resolved";
         return false;
+    }
+
+    /// <summary>
+    /// Infers the single type argument of a generic factory method from the
+    /// method's return shape against the target type
+    /// (<c>Create&lt;T&gt; : FrozenSet&lt;T&gt;</c> for a
+    /// <c>FrozenSet&lt;int&gt;</c> target infers <c>int</c>). Used when the
+    /// target's <c>IEnumerable&lt;T&gt;</c> chain does not surface an element
+    /// type. Returns null when the return shape carries no binding for the
+    /// type parameter (a bare <c>T</c> return, or no occurrence at all), so an
+    /// unresolvable factory still reports CS2J0580.
+    /// </summary>
+    private static ITypeSymbol? TryInferTypeArgument(
+        IMethodSymbol method, INamedTypeSymbol targetType)
+    {
+        var typeParameter = method.TypeParameters[0];
+        ITypeSymbol? inferred = null;
+        if (!TryUnify(typeParameter, method.ReturnType, targetType, ref inferred, isRoot: true))
+            return null;
+
+        return inferred is { Kind: not SymbolKind.ErrorType }
+            && !SymbolEqualityComparer.Default.Equals(inferred, typeParameter)
+            ? inferred
+            : null;
+    }
+
+    /// <summary>
+    /// Structural unification of one type-parameter occurrence in
+    /// <paramref name="pattern"/> against <paramref name="actual"/>: identical
+    /// generic definitions recurse into type arguments, rank-1 arrays recurse
+    /// into their element type. Every binding must agree. The root position is
+    /// not itself a binding candidate (a factory returning bare <c>T</c> says
+    /// nothing about the element type).
+    /// </summary>
+    private static bool TryUnify(
+        ITypeParameterSymbol typeParameter,
+        ITypeSymbol pattern,
+        ITypeSymbol actual,
+        ref ITypeSymbol? inferred,
+        bool isRoot)
+    {
+        if (SymbolEqualityComparer.Default.Equals(pattern, typeParameter))
+        {
+            if (isRoot)
+                return false;
+
+            if (inferred == null)
+            {
+                inferred = actual;
+                return true;
+            }
+
+            return SymbolEqualityComparer.Default.Equals(inferred, actual);
+        }
+
+        if (pattern is INamedTypeSymbol patternNamed
+            && patternNamed.IsGenericType
+            && actual is INamedTypeSymbol actualNamed
+            && actualNamed.IsGenericType
+            && SymbolEqualityComparer.Default.Equals(
+                patternNamed.OriginalDefinition, actualNamed.OriginalDefinition)
+            && patternNamed.TypeArguments.Length == actualNamed.TypeArguments.Length)
+        {
+            for (var i = 0; i < patternNamed.TypeArguments.Length; i++)
+            {
+                if (!TryUnify(
+                        typeParameter, patternNamed.TypeArguments[i],
+                        actualNamed.TypeArguments[i], ref inferred, isRoot: false))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        if (pattern is IArrayTypeSymbol patternArray
+            && actual is IArrayTypeSymbol actualArray
+            && patternArray.Rank == actualArray.Rank)
+        {
+            return TryUnify(
+                typeParameter, patternArray.ElementType,
+                actualArray.ElementType, ref inferred, isRoot: false);
+        }
+
+        return true;
     }
 
     /// <summary>

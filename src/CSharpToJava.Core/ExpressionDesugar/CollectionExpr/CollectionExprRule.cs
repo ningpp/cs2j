@@ -150,9 +150,14 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
                     stats.SpreadElements++;
                     var sourceOperation = (boundOperation as ISpreadOperation)?.Operand;
                     var sourceInfo = model.GetTypeInfo(spreadElement.Expression);
-                    var sourceType = sourceOperation?.Type
-                                     ?? sourceInfo.ConvertedType
-                                     ?? sourceInfo.Type;
+                    // Ambiguous simple names (CS0104 from the merged analysis
+                    // compilation, e.g. HashSet resolving to both the source
+                    // shim and the BCL type) rebound to the source-declared
+                    // candidate, exactly like target classification does.
+                    var sourceType = ExpressionDesugarSyntaxFacts.PreferSourceDeclaredCandidate(
+                        sourceOperation?.Type
+                        ?? sourceInfo.ConvertedType
+                        ?? sourceInfo.Type);
                     var sourceKind = SpreadExpander.ClassifySource(sourceType);
                     var elementType = SpreadExpander.TryGetElementType(
                         sourceType, model.Compilation);

@@ -1638,6 +1638,47 @@ public class CollectionExprDesugarUnitTests
         Assert.Equal(1, stats.SkippedByReason[CollectionExprDiagnosticCodes.CS2J0580]);
     }
 
+    [Fact]
+    public void M2_GenericBuilderFactory_TypeArgumentInferredFromReturnShape()
+    {
+        // Runtime shape (FrozenSet.Create<T>/ReadOnlyCollection.CreateSet<T>):
+        // a generic static factory on a non-generic builder whose T is only
+        // bound by the return type. The target here exposes no IEnumerable<T>
+        // element type, so T must be inferred from MyBag<T> vs MyBag<int>.
+        const string source = """
+            using System;
+            using System.Runtime.CompilerServices;
+
+            public static class B
+            {
+                public static MyBag<T> Create<T>(params ReadOnlySpan<T> items)
+                    => throw new NotImplementedException();
+            }
+
+            [CollectionBuilder(typeof(B), "Create")]
+            public class MyBag<T> { }
+
+            public class C
+            {
+                void M()
+                {
+                    MyBag<int> b = [1, 2];
+                    MyBag<int> e = [];
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.Empty(result.Diagnostics);
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("B.Create<int>(new int[] { 1, 2 })", normalized);
+        Assert.Contains("B.Create<int>(new int[] { })", normalized);
+        Assert.Equal(2, result.Statistics.CollectionExpr.BuilderFactoryEmitted);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
     // ------------------------------------------------------------------
     // M1 matrix 15: zero false positives + idempotence.
     // ------------------------------------------------------------------
