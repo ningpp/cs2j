@@ -422,6 +422,37 @@ public class CollectionExprDesugarUnitTests
     }
 
     [Fact]
+    public void M1_ZeroTempArray_KeepsRegionDirectivesParkedOnTheClosingBracket()
+    {
+        // A #region opened inside the element list closes on the line before
+        // `]`, so the directive lives on the closing bracket's leading trivia.
+        // Replacing the whole [ ... ] node must not swallow it (CS1038 else).
+        const string source = """
+            public class C
+            {
+                void M()
+                {
+                    int[] a =
+                    [
+                        #region Numbers
+                        1,
+                        2
+                        #endregion
+                    ];
+                }
+            }
+            """;
+        var preprocessor = new ExpressionDesugarPreprocessor();
+
+        var result = preprocessor.Preprocess(source, BuildModel(source));
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.Contains("#region Numbers", result.OutputCode);
+        Assert.Contains("#endregion", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
     public void M0_DirtyFile_WithoutSemanticModel_Warns_CS2J0571_AndDoesNotCrash()
     {
         const string source = """

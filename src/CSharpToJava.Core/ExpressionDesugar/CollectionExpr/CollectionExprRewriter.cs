@@ -75,7 +75,7 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
                     plan.TargetElementType!,
                     CollectionExprEmitter.ExtractExpressions(visited.Elements));
                 CountEmittedInitializerNodes(replacement, visited);
-                return replacement;
+                return PreserveTrivia(replacement, visited);
             }
 
             case CollectionExprOutcome.ZeroTempMutableCollection:
@@ -87,7 +87,7 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
                     plan.EffectiveConstructedType!,
                     CollectionExprEmitter.ExtractExpressions(visited.Elements));
                 CountEmittedInitializerNodes(replacement, visited);
-                return replacement;
+                return PreserveTrivia(replacement, visited);
             }
 
             case CollectionExprOutcome.ZeroTempBuilderFactory:
@@ -98,7 +98,7 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
                     plan.TargetElementType!,
                     CollectionExprEmitter.ExtractExpressions(visited.Elements));
                 CountEmittedInitializerNodes(replacement, visited);
-                return replacement;
+                return PreserveTrivia(replacement, visited);
             }
 
             case CollectionExprOutcome.ZeroTempConstructibleCollection:
@@ -109,7 +109,7 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
                     plan.TargetElementType,
                     CollectionExprEmitter.ExtractExpressions(visited.Elements));
                 CountEmittedInitializerNodes(replacement, visited);
-                return replacement;
+                return PreserveTrivia(replacement, visited);
             }
 
             case CollectionExprOutcome.StatementSequence:
@@ -121,7 +121,7 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
                 var replacement = CollectionExprEmitter.BuildInlineSpread(
                     _context.SemanticModel!, plan, visited.Elements);
                 CountEmittedInitializerNodes(replacement, visited);
-                return replacement;
+                return PreserveTrivia(replacement, visited);
             }
 
             default:
@@ -130,6 +130,36 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
                 return visited.WithAdditionalAnnotations(
                     ExpressionDesugarSyntaxFacts.ExplainedAnnotation);
         }
+    }
+
+    /// <summary>
+    /// Re-attaches the site's own trivia to a synthesized replacement. The
+    /// zero-temp forms discard the <c>[ ... ]</c> node wholesale, which loses
+    /// the leading/trailing trivia AND the preprocessor directives parked on the
+    /// closing bracket — the <c>#endregion</c> that closes a <c>#region</c>
+    /// opened inside the element list. Losing that directive corrupts the
+    /// emitted file (CS1038), so the directives move inside the replacement,
+    /// ahead of its closing delimiter, each on its own line.
+    /// </summary>
+    private static SyntaxNode PreserveTrivia(
+        SyntaxNode replacement,
+        CollectionExpressionSyntax visited)
+    {
+        var closeLeading = visited.CloseBracketToken.LeadingTrivia;
+        if (closeLeading.Any(static trivia => trivia.IsDirective))
+        {
+            // The comma that carried the preceding line break is rebuilt by the
+            // emission, so the relocated directive lines need their own break.
+            var lastToken = replacement.GetLastToken();
+            replacement = replacement.ReplaceToken(
+                lastToken,
+                lastToken.WithLeadingTrivia(
+                    closeLeading.Insert(0, SyntaxFactory.EndOfLine("\n"))));
+        }
+
+        return replacement
+            .WithLeadingTrivia(visited.GetLeadingTrivia())
+            .WithTrailingTrivia(visited.GetTrailingTrivia());
     }
 
     /// <summary>
