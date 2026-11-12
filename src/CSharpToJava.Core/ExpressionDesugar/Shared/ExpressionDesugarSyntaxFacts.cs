@@ -50,6 +50,80 @@ internal static class ExpressionDesugarSyntaxFacts
     }
 
     /// <summary>
+    /// Recovers the type a real per-project build would bind when the merged
+    /// analysis compilation reports an ambiguous simple name (CS0104). The pass
+    /// compilation unions every project's global usings, so a name such as
+    /// <c>Dictionary</c> can bind to both the corpus' renamed source type
+    /// (<c>dotnet.System.Collections.Generic.Dictionary</c>) and the BCL
+    /// metadata type; a real build never sees both (projects importing the
+    /// renamed namespace remove the implicit BCL one), so the single
+    /// source-declared candidate is that build's binding. Anything else (no
+    /// candidate, several source candidates) stays an error type so the caller
+    /// still reports the site instead of guessing.
+    /// </summary>
+    public static ITypeSymbol? PreferSourceDeclaredCandidate(ITypeSymbol? type)
+    {
+        if (type is not IErrorTypeSymbol error)
+            return type;
+
+        ITypeSymbol? match = null;
+        foreach (var candidate in error.CandidateSymbols)
+        {
+            if (candidate is not ITypeSymbol candidateType || !IsDeclaredInSource(candidateType))
+                continue;
+
+            if (match != null && !SymbolEqualityComparer.Default.Equals(match, candidateType))
+                return type;
+
+            match = candidateType;
+        }
+
+        return match == null ? type : MaterializeWithErrorTypeArguments(match, error);
+    }
+
+    /// <summary>
+    /// Candidate symbols are reported as open definitions
+    /// (<c>Dictionary&lt;TKey, TValue&gt;</c>), while the error type already
+    /// carries the constructed arguments the site bound (<c>Dictionary&lt;int, string&gt;</c>).
+    /// Re-construct the source definition with those arguments instead of
+    /// emitting the definition's own type parameters.
+    /// </summary>
+    private static ITypeSymbol MaterializeWithErrorTypeArguments(
+        ITypeSymbol sourceCandidate, IErrorTypeSymbol error)
+    {
+        if (sourceCandidate is not INamedTypeSymbol named
+            || error is not INamedTypeSymbol errorNamed
+            || !named.IsGenericType
+            || (named.ContainingType != null && named.ContainingType.IsGenericType)
+            || named.TypeParameters.Length != errorNamed.TypeArguments.Length)
+        {
+            return sourceCandidate;
+        }
+
+        for (var index = 0; index < named.TypeParameters.Length; index++)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(
+                    named.TypeArguments[index], named.TypeParameters[index]))
+            {
+                return sourceCandidate;
+            }
+        }
+
+        return named.Construct(errorNamed.TypeArguments.ToArray());
+    }
+
+    private static bool IsDeclaredInSource(ITypeSymbol type)
+    {
+        foreach (var location in type.Locations)
+        {
+            if (location.IsInSource)
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// True when statement sequences can be lifted at <paramref name="node"/>:
     /// an enclosing statement anchor exists (pre-insert / embedded-block wrap)
     /// or an expression-bodied clause can be expanded. Field/property/event

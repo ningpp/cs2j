@@ -1145,6 +1145,51 @@ public class InitializerDesugarUnitTests
         Assert.Equal(1, result.Statistics.FilesDirtyNoRewrite);
     }
 
+    [Fact]
+    public void M1_BareTargetTypedNew_AmbiguousSourceAndMetadataName_BindsSourceCandidate()
+    {
+        // The pass compilation unions every project's global usings, so a name
+        // can bind to both a source-declared type and a metadata type of the
+        // same name (CS0104). A real per-project build only ever sees one; the
+        // source candidate is that binding. The file below is itself ambiguous
+        // by construction, so only the rewritten constructor is asserted.
+        const string source = """
+            global using global::System;
+            using My;
+
+            namespace My
+            {
+                public class Console { }
+            }
+
+            public static class C
+            {
+                public static void M()
+                {
+                    Console c = new();
+                }
+            }
+            """;
+
+        var (_, model) = Compile(source);
+        var creation = model.SyntaxTree.GetCompilationUnitRoot()
+            .DescendantNodes().OfType<ImplicitObjectCreationExpressionSyntax>().Single();
+        var converted = model.GetTypeInfo(creation).ConvertedType;
+        Assert.Equal(TypeKind.Error, converted!.TypeKind);
+
+        var recovered = ExpressionDesugarSyntaxFacts.PreferSourceDeclaredCandidate(converted);
+        Assert.NotNull(recovered);
+        Assert.Equal(TypeKind.Class, recovered!.TypeKind);
+        Assert.Equal("My.Console", recovered.ToDisplayString());
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.False(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0535, ExpressionDesugarSeverity.Error));
+        Assert.Contains("new global::My.Console()", Normalize(result.OutputCode));
+    }
+
     // ------------------------------------------------------------------
     // M1: boundaries and diagnostics.
     // ------------------------------------------------------------------

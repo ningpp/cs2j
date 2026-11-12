@@ -222,7 +222,8 @@ internal static class InitializerBindingAnalyzer
         // ---- Created type (explicit or target-typed ConvertedType) ----
         if (isImplicit)
         {
-            var converted = model.GetTypeInfo(node).ConvertedType;
+            var converted = ExpressionDesugarSyntaxFacts.PreferSourceDeclaredCandidate(
+                model.GetTypeInfo(node).ConvertedType);
             if (converted == null || converted.TypeKind == TypeKind.Error)
             {
                 Report(context, InitializerDiagnosticCodes.CS2J0535,
