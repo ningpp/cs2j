@@ -1304,6 +1304,11 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             modifierTokens.Add(SyntaxFactory.Token(SyntaxKind.AsyncKeyword));
         if (localFn.Modifiers.Any(m => m.IsKind(SyntaxKind.UnsafeKeyword)))
             modifierTokens.Add(SyntaxFactory.Token(SyntaxKind.UnsafeKeyword));
+        // readonly 实例成员（struct 内的 `readonly int Read() => x;`）在提升后必须保留，
+        // 否则丢失「this 为只读引用」的防御性拷贝语义。局部函数法定不可能是 extern/partial，
+        // 因此只按源里实际存在的修饰符复制，避免在 class 内产生 CS0106。
+        if (localFn.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)))
+            modifierTokens.Add(SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword));
         var modifiers = SyntaxFactory.TokenList(modifierTokens);
 
         var returnType = localFn.ReturnType ?? SyntaxFactory.PredefinedType(
@@ -1367,8 +1372,10 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
         var leadingTrivia = localFn.GetLeadingTrivia();
 
+        // 设计文档 §4.5：Attributes 原样复制。提升方法是普通方法，`[return: ...]`
+        // 目标特性同样合法，因此无需改写目标。
         var method = SyntaxFactory.MethodDeclaration(
-            SyntaxFactory.List<AttributeListSyntax>(),
+            localFn.AttributeLists,
             SyntaxFactory.TokenList(modifiers),
             returnType,
             null,
@@ -1434,9 +1441,9 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
                 return null;
 
             return SyntaxFactory.TypeParameterList(SyntaxFactory.SeparatedList(
-                resolverPlan.Parameters.Select(static parameter =>
+                resolverPlan.Parameters.Select(parameter =>
                     SyntaxFactory.TypeParameter(
-                        SyntaxFactory.List<AttributeListSyntax>(),
+                        GetTypeParameterAttributes(plan.Node, parameter.Name),
                         default,
                         SyntaxFactory.Identifier(parameter.RenderName)))));
         }
@@ -1473,6 +1480,26 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             return null;
 
         return SyntaxFactory.TypeParameterList(SyntaxFactory.SeparatedList(typeParams));
+    }
+
+    /// <summary>
+    /// 局部函数自有类型形参上的特性（<c>void F&lt;[NotNull] T&gt;()</c>）在按名字重建
+    /// 类型形参时原样保留（文档 §4.5）；carried 的外层形参没有语法节点，保持空。
+    /// </summary>
+    private static SyntaxList<AttributeListSyntax> GetTypeParameterAttributes(
+        LocalFunctionStatementSyntax localFn,
+        string name)
+    {
+        if (localFn.TypeParameterList is not { } typeParameterList)
+            return default;
+
+        foreach (var typeParameter in typeParameterList.Parameters)
+        {
+            if (typeParameter.Identifier.Text == name)
+                return typeParameter.AttributeLists;
+        }
+
+        return default;
     }
 
     /// <summary>

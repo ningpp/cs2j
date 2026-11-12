@@ -112,6 +112,71 @@ public class LocalFunctionLiftTests
     }
 
     [Fact]
+    public void Attributes_AreCopiedToHoistedMethod()
+    {
+        var src = """
+        using System;
+
+        [AttributeUsage(AttributeTargets.Method)]
+        class MarkerAttribute : Attribute { }
+
+        class C {
+            void M() {
+                Help();
+                [Marker] void Help() { }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.Contains("[Marker]", result.OutputCode);
+        Assert.Contains("private void help()", result.OutputCode);
+
+        var hoisted = ParseMethod(result.OutputCode, "help");
+        var attributeList = Assert.Single(hoisted.AttributeLists);
+        Assert.Contains("Marker", attributeList.ToString());
+
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void ReadonlyModifier_IsPreservedForStructLocalFunction()
+    {
+        var src = """
+        struct S {
+            int x;
+            int M() {
+                return Read();
+                readonly int Read() => x;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.Contains("private readonly int read()", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void ReadonlyModifier_NotAddedWhenAbsent()
+    {
+        var src = """
+        struct S {
+            int x;
+            int M() {
+                return Read();
+                int Read() => x;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.Contains("private int read()", result.OutputCode);
+        Assert.DoesNotContain("private readonly", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
     public void Body_ExpressionBody_NonVoid_ConvertedToReturnBlock()
     {
         var src = """
