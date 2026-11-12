@@ -192,6 +192,13 @@ public sealed class NestedMemberInitPlan : InitializerMemberPlan
     /// <summary>Member whose getter chain is evaluated once into <see cref="GetterTempName"/>.</summary>
     public string? MemberName { get; init; }
 
+    /// <summary>
+    /// True when the initialized member is a value type. Copying it into a
+    /// getter temp would mutate only the copy, leaving the receiver's field
+    /// untouched; such members are assigned through the receiver chain instead.
+    /// </summary>
+    public bool IsValueTypeMember { get; init; }
+
     /// <summary>Pre-allocated getter temp for the member access chain.</summary>
     public string? GetterTempName { get; set; }
 

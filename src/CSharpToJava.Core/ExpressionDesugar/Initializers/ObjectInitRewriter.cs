@@ -14,15 +14,15 @@ namespace CSharpToJava.Core.ExpressionDesugar.Initializers;
 internal static class ObjectInitRewriter
 {
     /// <summary>Builds <c>receiver.Name</c>.</summary>
-    public static ExpressionSyntax MemberAccess(string receiver, string name)
+    public static ExpressionSyntax MemberAccess(ExpressionSyntax receiver, string name)
         => SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
-            SyntaxFactory.IdentifierName(receiver),
+            receiver,
             SyntaxFactory.IdentifierName(name));
 
     /// <summary>Builds <c>receiver.Name = value;</c>.</summary>
     public static StatementSyntax BuildMemberAssignment(
-        string receiver, string name, ExpressionSyntax value)
+        ExpressionSyntax receiver, string name, ExpressionSyntax value)
         => SyntaxFactory.ExpressionStatement(
             SyntaxFactory.AssignmentExpression(
                 SyntaxKind.SimpleAssignmentExpression,
@@ -31,7 +31,7 @@ internal static class ObjectInitRewriter
 
     /// <summary>Builds <c>receiver[k1, k2] = value;</c> from the item's left-hand side.</summary>
     public static StatementSyntax BuildIndexAssignment(
-        string receiver, ExpressionSyntax visitedLeft, ExpressionSyntax value)
+        ExpressionSyntax receiver, ExpressionSyntax visitedLeft, ExpressionSyntax value)
     {
         var arguments = visitedLeft switch
         {
@@ -40,8 +40,7 @@ internal static class ObjectInitRewriter
             _ => SyntaxFactory.BracketedArgumentList(),
         };
 
-        var target = SyntaxFactory.ElementAccessExpression(
-            SyntaxFactory.IdentifierName(receiver), arguments);
+        var target = SyntaxFactory.ElementAccessExpression(receiver, arguments);
 
         return SyntaxFactory.ExpressionStatement(
             SyntaxFactory.AssignmentExpression(

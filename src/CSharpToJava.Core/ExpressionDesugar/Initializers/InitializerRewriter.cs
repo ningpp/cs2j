@@ -373,13 +373,15 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
             plan.TempName!, construction));
 
         if (visited.Initializer != null)
-            EmitMembers(plan.TempName!, plan.Members, visited.Initializer, statements);
+            EmitMembers(
+                SyntaxFactory.IdentifierName(plan.TempName!),
+                plan.Members, visited.Initializer, statements);
 
         return statements;
     }
 
     private void EmitMembers(
-        string receiver,
+        ExpressionSyntax receiver,
         IReadOnlyList<InitializerMemberPlan> members,
         InitializerExpressionSyntax visitedInitializer,
         List<StatementSyntax> statements)
@@ -396,7 +398,7 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
     }
 
     private void EmitMember(
-        string receiver,
+        ExpressionSyntax receiver,
         InitializerMemberPlan member,
         ExpressionSyntax element,
         List<StatementSyntax> statements)
@@ -441,7 +443,7 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
     }
 
     private void EmitNestedCreate(
-        string receiver,
+        ExpressionSyntax receiver,
         NestedCreatePlan nested,
         ExpressionSyntax element,
         List<StatementSyntax> statements)
@@ -468,19 +470,34 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
     }
 
     private void EmitNestedMemberInit(
-        string receiver,
+        ExpressionSyntax receiver,
         NestedMemberInitPlan nestedMember,
         ExpressionSyntax element,
         List<StatementSyntax> statements)
     {
         var visitedInner = (InitializerExpressionSyntax)ValueOf(element);
+        var memberName = nestedMember.MemberName ?? "_";
+
+        if (nestedMember.IsValueTypeMember)
+        {
+            // A value-type member is a field on the receiver. Copying it into a
+            // getter temp would mutate only the copy, so assign through the
+            // receiver chain (the receiver is always a writable temp/local).
+            EmitMembers(
+                ObjectInitRewriter.MemberAccess(receiver, memberName),
+                nestedMember.Members, visitedInner, statements);
+            return;
+        }
+
         var getter = nestedMember.GetterTempName!;
 
         statements.Add(ExpressionDesugarTempLifter.DeclareVar(
             getter,
-            ObjectInitRewriter.MemberAccess(receiver, nestedMember.MemberName ?? "_")));
+            ObjectInitRewriter.MemberAccess(receiver, memberName)));
 
-        EmitMembers(getter, nestedMember.Members, visitedInner, statements);
+        EmitMembers(
+            SyntaxFactory.IdentifierName(getter),
+            nestedMember.Members, visitedInner, statements);
     }
 
     /// <summary>Emits any nested-creation statements for <paramref name="visited"/>

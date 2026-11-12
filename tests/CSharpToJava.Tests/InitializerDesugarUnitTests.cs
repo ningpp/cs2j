@@ -1690,6 +1690,39 @@ public class InitializerDesugarUnitTests
             < IndexOf(normalized, "__ed_2.X = 1;"), normalized);
     }
 
+    [Fact]
+    public void M2_NestedMemberInit_ValueTypeMember_MutatesReceiverFieldInsteadOfCopying()
+    {
+        // Repro (ECParameters.Q / EnvelopedDataAsn.EncryptedContentInfo):
+        // a struct field copied into a getter temp is mutated in place on the
+        // COPY, so the receiver's field stays default after the sequence and
+        // runtime consumers (ASN.1 Encode, ECParameters.Validate) fail.
+        const string source = """
+            public struct Inner { public int V; public int W; }
+            public struct Outer { public Inner Nested; public int Other; }
+            public static class C
+            {
+                public static void M()
+                {
+                    var o = new Outer { Nested = { V = 5, W = 6 }, Other = 1 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("__ed_0.Nested.V = 5;", normalized);
+        Assert.Contains("__ed_0.Nested.W = 6;", normalized);
+        Assert.Contains("__ed_0.Other = 1;", normalized);
+        Assert.DoesNotContain("= __ed_0.Nested;", normalized);
+        Assert.DoesNotContain("var __ed_1", normalized);
+        Assert.Equal(1, result.Statistics.Initializers.NestedMemberInitSites);
+    }
+
     // ------------------------------------------------------------------
     // M2: dictionary index initializer (IN-8).
     // ------------------------------------------------------------------

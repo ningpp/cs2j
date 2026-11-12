@@ -15,7 +15,7 @@ internal static class CollectionInitRewriter
 {
     /// <summary>Builds <c>receiver.Add(args);</c>.</summary>
     public static StatementSyntax BuildAddStatement(
-        string receiver, IReadOnlyList<ExpressionSyntax> arguments)
+        ExpressionSyntax receiver, IReadOnlyList<ExpressionSyntax> arguments)
     {
         var target = ObjectInitRewriter.MemberAccess(receiver, "Add");
         var argumentList = SyntaxFactory.ArgumentList(

@@ -513,13 +513,18 @@ internal static class InitializerBindingAnalyzer
             Syntax = (ExpressionSyntax)memberInit.Syntax!,
             SourceOrder = order++,
             MemberName = memberName,
+            IsValueTypeMember = memberInit.InitializedMember.Type?.IsValueType == true,
             Members = inner,
         });
 
-        Report(context, InitializerDiagnosticCodes.CS2J0540,
-            string.Format(InitializerDiagnostics.NestedMemberGetterMessage,
-                memberName ?? "?"),
-            plan.Node);
+        if (memberInit.InitializedMember.Type?.IsValueType != true)
+        {
+            Report(context, InitializerDiagnosticCodes.CS2J0540,
+                string.Format(InitializerDiagnostics.NestedMemberGetterMessage,
+                    memberName ?? "?"),
+                plan.Node);
+        }
+
         return null;
     }
 
@@ -1166,7 +1171,8 @@ internal static class InitializerBindingAnalyzer
                 break;
 
             case NestedMemberInitPlan nestedMember:
-                nestedMember.GetterTempName = state.Allocator.Allocate();
+                if (!nestedMember.IsValueTypeMember)
+                    nestedMember.GetterTempName = state.Allocator.Allocate();
                 foreach (var inner in nestedMember.Members)
                     AllocateMemberTemps(inner, state);
                 break;
