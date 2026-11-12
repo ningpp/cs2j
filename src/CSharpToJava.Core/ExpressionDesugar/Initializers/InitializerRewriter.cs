@@ -170,7 +170,7 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
             case InitializerOutcome.TargetTypedNewExplicit:
             case InitializerOutcome.ZeroTempExplicit:
                 RewriteCount++;
-                return ObjectInitRewriter.BuildConstruction(plan, visited);
+                return ObjectInitRewriter.BuildConstruction(plan, visited, _model);
 
             case InitializerOutcome.ObjectSequence:
             case InitializerOutcome.CollectionSequence:
@@ -338,7 +338,7 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
             type = _byNode.Values.FirstOrDefault(
                 p => p.OwnerChain.Count > 0 && p.OwnerChain[^1] == node)?.CreatedType;
 
-        return TargetTypedNewRewriter.BuildTypeSyntax(type);
+        return TargetTypedNewRewriter.BuildTypeSyntax(type, _model, node.SpanStart);
     }
 
     private static StatementSyntax Assign(string target, ExpressionSyntax value)
@@ -367,7 +367,7 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
         // Embedded creations in the constructor argument list are evaluated
         // before the object exists and must precede the construction statement.
         var construction = EmitEmbeddedPlans(
-            ObjectInitRewriter.BuildConstruction(plan, visited), statements);
+            ObjectInitRewriter.BuildConstruction(plan, visited, _model), statements);
 
         statements.Add(ExpressionDesugarTempLifter.DeclareVar(
             plan.TempName!, construction));
@@ -459,7 +459,7 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
         else
         {
             value = EmitEmbeddedPlans(
-                ObjectInitRewriter.BuildConstruction(inner, visitedCreation),
+                ObjectInitRewriter.BuildConstruction(inner, visitedCreation, _model),
                 statements);
         }
 
@@ -514,7 +514,7 @@ internal sealed class InitializerRewriter : CSharpSyntaxRewriter
         }
 
         return EmitEmbeddedPlans(
-            ObjectInitRewriter.BuildConstruction(plan, creation), statements);
+            ObjectInitRewriter.BuildConstruction(plan, creation, _model), statements);
     }
 
     /// <summary>

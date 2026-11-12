@@ -685,6 +685,72 @@ public class CollectionExprDesugarUnitTests
     }
 
     [Fact]
+    public void M1_ForeignSourceTypeShadowingSimpleName_RendersProjectVisibleType()
+    {
+        // Repro of the merged analysis compilation: System.Private.CoreLib's
+        // source-declared dotnet.System.Text.StringBuilder sits in an ancestor
+        // namespace of the regex file, so the simple name binds to it instead
+        // of the BCL StringBuilder imported by `using System.Text;`. A real
+        // per-project build never sees the foreign project's source type.
+        const string foreignSource = """
+            namespace dotnet.System.Text
+            {
+                public sealed class StringBuilder { }
+            }
+            """;
+        const string source = """
+            using System.Text;
+            using System.Collections.Generic;
+
+            namespace dotnet.System.Text.RegularExpressions
+            {
+                internal static class Producer
+                {
+                    public static List<StringBuilder> Run()
+                    {
+                        List<StringBuilder> results = [new StringBuilder()];
+                        return results;
+                    }
+                }
+            }
+            """;
+
+        var foreignTree = CSharpSyntaxTree.ParseText(
+            foreignSource, new CSharpParseOptions(LanguageVersion.Preview));
+        var tree = CSharpSyntaxTree.ParseText(
+            source, new CSharpParseOptions(LanguageVersion.Preview));
+        var compilation = CSharpCompilation.Create(
+            "ce-merged-" + Guid.NewGuid().ToString("N"),
+            new[] { foreignTree, tree },
+            References,
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                allowUnsafe: true,
+                nullableContextOptions: NullableContextOptions.Enable));
+        var model = compilation.GetSemanticModel(tree);
+        var site = tree.GetCompilationUnitRoot()
+            .DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        // Repro lock: the merged compilation binds the wrong project's type.
+        Assert.Equal(
+            "System.Collections.Generic.List<dotnet.System.Text.StringBuilder>",
+            model.GetTypeInfo(site).ConvertedType!.ToDisplayString());
+
+        var result = new ExpressionDesugarPreprocessor()
+            .Preprocess(source, model, new ExpressionDesugarOptions());
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.DoesNotContain("dotnet.System.Text.StringBuilder", result.OutputCode);
+        Assert.Contains(
+            "new global::System.Collections.Generic.List<StringBuilder>()",
+            Normalize(result.OutputCode));
+
+        // The emitted file must compile in a project that only references the
+        // BCL (the foreign source tree is intentionally absent).
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
     public void M2_NonStrict_InterfaceAndBuilderSitesRewrite_WithSiblingArray()
     {
         const string source = """

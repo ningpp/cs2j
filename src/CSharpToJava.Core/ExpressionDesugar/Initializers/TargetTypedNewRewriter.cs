@@ -14,10 +14,42 @@ namespace CSharpToJava.Core.ExpressionDesugar.Initializers;
 /// </summary>
 internal static class TargetTypedNewRewriter
 {
-    /// <summary>Renders a global-qualified type syntax from a symbol.</summary>
-    public static TypeSyntax BuildTypeSyntax(ITypeSymbol? type)
-        => type == null
-            ? SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.ObjectKeyword))
-            : SyntaxFactory.ParseTypeName(
-                type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+    /// <summary>
+    /// Renders the explicit construction type from a symbol. Tuple targets use
+    /// their underlying <c>ValueTuple&lt;...&gt;</c> definition: <c>new (T1, T2)</c>
+    /// is rejected by the compiler (CS8181), while the target-typed
+    /// <c>new(...)</c> it replaces binds the tuple's constructor.
+    /// </summary>
+    public static TypeSyntax BuildTypeSyntax(
+        ITypeSymbol? type, SemanticModel? model = null, int position = -1)
+    {
+        if (type == null)
+        {
+            return SyntaxFactory.PredefinedType(
+                SyntaxFactory.Token(SyntaxKind.ObjectKeyword));
+        }
+
+        if (type is INamedTypeSymbol { IsTupleType: true } tuple)
+        {
+            // Roslyn exposes a tuple symbol's ValueTuple<T...> form through
+            // TupleUnderlyingType, but constructing that definition still
+            // renders as a tuple. Build the explicit generic name instead:
+            // `new (T1, T2)(...)` is CS8181, `new ValueTuple<T1, T2>(...)` is
+            // the same target-typed construction.
+            if (tuple.TypeArguments.Length is >= 1 and <= 8)
+            {
+                var arguments = string.Join(
+                    ", ",
+                    tuple.TypeArguments.Select(
+                        argument => ExpressionDesugarSyntaxFacts
+                            .RenderProjectVisibleType(argument, model, position)
+                            .ToString()));
+                return SyntaxFactory.ParseTypeName(
+                    "global::System.ValueTuple<" + arguments + ">");
+            }
+        }
+
+        return ExpressionDesugarSyntaxFacts.RenderProjectVisibleType(
+            type, model, position);
+    }
 }

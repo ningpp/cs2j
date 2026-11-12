@@ -55,11 +55,14 @@ internal static class ObjectInitRewriter
     /// <c>new()</c> (design §4 IN-3: constructor arguments preserved verbatim).
     /// </summary>
     public static ObjectCreationExpressionSyntax BuildConstruction(
-        InitializerPlan plan, BaseObjectCreationExpressionSyntax visited)
+        InitializerPlan plan,
+        BaseObjectCreationExpressionSyntax visited,
+        SemanticModel? model = null)
     {
         var typeSyntax = visited is ObjectCreationExpressionSyntax explicitCreation
             ? explicitCreation.Type
-            : TargetTypedNewRewriter.BuildTypeSyntax(plan.CreatedType);
+            : TargetTypedNewRewriter.BuildTypeSyntax(
+                plan.CreatedType, model, plan.Node.SpanStart);
 
         var argumentList = visited switch
         {

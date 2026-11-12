@@ -73,7 +73,9 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
                 RewriteCount++;
                 var replacement = CollectionExprEmitter.BuildZeroTempArray(
                     plan.TargetElementType!,
-                    CollectionExprEmitter.ExtractExpressions(visited.Elements));
+                    CollectionExprEmitter.ExtractExpressions(visited.Elements),
+                    _context.SemanticModel,
+                    plan.Node.SpanStart);
                 CountEmittedInitializerNodes(replacement, visited);
                 return PreserveTrivia(replacement, visited);
             }
@@ -85,7 +87,9 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
                 // plans carry the converted concrete type itself.
                 var replacement = CollectionExprEmitter.BuildZeroTempCollection(
                     plan.EffectiveConstructedType!,
-                    CollectionExprEmitter.ExtractExpressions(visited.Elements));
+                    CollectionExprEmitter.ExtractExpressions(visited.Elements),
+                    _context.SemanticModel,
+                    plan.Node.SpanStart);
                 CountEmittedInitializerNodes(replacement, visited);
                 return PreserveTrivia(replacement, visited);
             }
@@ -96,7 +100,9 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
                 var replacement = CollectionExprEmitter.BuildBuilderFactory(
                     plan.BuilderFactory!,
                     plan.TargetElementType!,
-                    CollectionExprEmitter.ExtractExpressions(visited.Elements));
+                    CollectionExprEmitter.ExtractExpressions(visited.Elements),
+                    _context.SemanticModel,
+                    plan.Node.SpanStart);
                 CountEmittedInitializerNodes(replacement, visited);
                 return PreserveTrivia(replacement, visited);
             }
@@ -107,7 +113,9 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
                 var replacement = CollectionExprEmitter.BuildConstructibleCollection(
                     plan.EffectiveConstructedType!,
                     plan.TargetElementType,
-                    CollectionExprEmitter.ExtractExpressions(visited.Elements));
+                    CollectionExprEmitter.ExtractExpressions(visited.Elements),
+                    _context.SemanticModel,
+                    plan.Node.SpanStart);
                 CountEmittedInitializerNodes(replacement, visited);
                 return PreserveTrivia(replacement, visited);
             }

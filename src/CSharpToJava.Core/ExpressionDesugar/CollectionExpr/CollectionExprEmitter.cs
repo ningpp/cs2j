@@ -50,18 +50,27 @@ internal static class CollectionExprEmitter
 {
     private const string ListOfTMetadataName = "System.Collections.Generic.List`1";
 
-    /// <summary>Parses a global-qualified type name rendered from a symbol.</summary>
-    public static TypeSyntax GlobalType(ITypeSymbol type)
-        => SyntaxFactory.ParseTypeName(
-            type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+    /// <summary>
+    /// Parses a type name rendered from a symbol. Metadata-only types keep the
+    /// global-qualified, using-independent form; a type that reaches a
+    /// source-declared component (a symbol another project declared in the
+    /// merged analysis compilation) is rendered in the minimal form that binds
+    /// at the site position, so the real per-project build reproduces the
+    /// source binding instead of emitting an unreachable global name.
+    /// </summary>
+    public static TypeSyntax GlobalType(
+        ITypeSymbol type, SemanticModel? model = null, int position = -1)
+        => ExpressionDesugarSyntaxFacts.RenderProjectVisibleType(type, model, position);
 
     /// <summary>CE-2: <c>new T[]{ e0, ... }</c> (empty elements → <c>new T[]{}</c>).</summary>
     public static ExpressionSyntax BuildZeroTempArray(
         ITypeSymbol elementType,
-        IReadOnlyList<ExpressionSyntax> elements)
+        IReadOnlyList<ExpressionSyntax> elements,
+        SemanticModel? model = null,
+        int position = -1)
     {
         var arrayType = SyntaxFactory.ArrayType(
-            GlobalType(elementType),
+            GlobalType(elementType, model, position),
             SyntaxFactory.SingletonList(
                 SyntaxFactory.ArrayRankSpecifier(
                     SyntaxFactory.SingletonSeparatedList<ExpressionSyntax>(
@@ -82,9 +91,12 @@ internal static class CollectionExprEmitter
     /// </summary>
     public static ExpressionSyntax BuildZeroTempCollection(
         INamedTypeSymbol targetType,
-        IReadOnlyList<ExpressionSyntax> elements)
+        IReadOnlyList<ExpressionSyntax> elements,
+        SemanticModel? model = null,
+        int position = -1)
     {
-        var creation = SyntaxFactory.ObjectCreationExpression(GlobalType(targetType))
+        var creation = SyntaxFactory.ObjectCreationExpression(
+                GlobalType(targetType, model, position))
             .WithArgumentList(SyntaxFactory.ArgumentList());
 
         if (elements.Count > 0)
@@ -108,9 +120,12 @@ internal static class CollectionExprEmitter
     public static ExpressionSyntax BuildConstructibleCollection(
         INamedTypeSymbol targetType,
         ITypeSymbol? elementType,
-        IReadOnlyList<ExpressionSyntax> elements)
+        IReadOnlyList<ExpressionSyntax> elements,
+        SemanticModel? model = null,
+        int position = -1)
     {
-        var creation = SyntaxFactory.ObjectCreationExpression(GlobalType(targetType))
+        var creation = SyntaxFactory.ObjectCreationExpression(
+                GlobalType(targetType, model, position))
             .WithArgumentList(SyntaxFactory.ArgumentList());
 
         if (elements.Count == 0)
@@ -120,7 +135,7 @@ internal static class CollectionExprEmitter
             SyntaxFactory.ArgumentList(
                 SyntaxFactory.SingletonSeparatedList(
                     SyntaxFactory.Argument(
-                        BuildZeroTempArray(elementType!, elements)))));
+                        BuildZeroTempArray(elementType!, elements, model, position)))));
     }
 
     /// <summary>
@@ -134,9 +149,11 @@ internal static class CollectionExprEmitter
     public static ExpressionSyntax BuildBuilderFactory(
         IMethodSymbol factory,
         ITypeSymbol elementType,
-        IReadOnlyList<ExpressionSyntax> elements)
+        IReadOnlyList<ExpressionSyntax> elements,
+        SemanticModel? model = null,
+        int position = -1)
     {
-        var receiver = GlobalType(factory.ContainingType);
+        var receiver = GlobalType(factory.ContainingType, model, position);
 
         SimpleNameSyntax methodName;
         if (factory.TypeArguments is { Length: > 0 } typeArguments)
@@ -145,7 +162,8 @@ internal static class CollectionExprEmitter
                 SyntaxFactory.Identifier(factory.Name),
                 SyntaxFactory.TypeArgumentList(
                     SyntaxFactory.SeparatedList<TypeSyntax>(
-                        typeArguments.Select(GlobalType))));
+                        typeArguments.Select(argument =>
+                            GlobalType(argument, model, position)))));
         }
         else
         {
@@ -158,7 +176,7 @@ internal static class CollectionExprEmitter
             methodName);
 
         var argument = SyntaxFactory.Argument(
-            BuildZeroTempArray(elementType, elements));
+            BuildZeroTempArray(elementType, elements, model, position));
 
         return SyntaxFactory.InvocationExpression(
             memberAccess,
@@ -173,9 +191,11 @@ internal static class CollectionExprEmitter
     /// </summary>
     public static ExpressionSyntax BuildBuilderFactoryInvocation(
         IMethodSymbol factory,
-        ExpressionSyntax argumentExpression)
+        ExpressionSyntax argumentExpression,
+        SemanticModel? model = null,
+        int position = -1)
     {
-        var receiver = GlobalType(factory.ContainingType);
+        var receiver = GlobalType(factory.ContainingType, model, position);
 
         SimpleNameSyntax methodName;
         if (factory.TypeArguments is { Length: > 0 } typeArguments)
@@ -184,7 +204,8 @@ internal static class CollectionExprEmitter
                 SyntaxFactory.Identifier(factory.Name),
                 SyntaxFactory.TypeArgumentList(
                     SyntaxFactory.SeparatedList<TypeSyntax>(
-                        typeArguments.Select(GlobalType))));
+                        typeArguments.Select(argument =>
+                            GlobalType(argument, model, position)))));
         }
         else
         {
@@ -221,6 +242,7 @@ internal static class CollectionExprEmitter
         var tempId = SyntaxFactory.IdentifierName(plan.TempName!);
         var statements = new List<StatementSyntax>();
         var expansions = new List<SpreadExpansion>();
+        var position = plan.Node.SpanStart;
 
         // var __ed_n = new List<TElem>(){};  (array/Span/interface/builder path)
         // var __ed_n = new global::C<T>();   (T3 concrete target path)
@@ -230,7 +252,8 @@ internal static class CollectionExprEmitter
             var listDefinition = model.Compilation
                 .GetTypeByMetadataName(ListOfTMetadataName)!;
             var listType = listDefinition.Construct(plan.TargetElementType!);
-            tempCreation = SyntaxFactory.ObjectCreationExpression(GlobalType(listType))
+            tempCreation = SyntaxFactory.ObjectCreationExpression(
+                    GlobalType(listType, model, position))
                 .WithArgumentList(SyntaxFactory.ArgumentList())
                 .WithInitializer(
                     SyntaxFactory.InitializerExpression(
@@ -240,7 +263,7 @@ internal static class CollectionExprEmitter
         else
         {
             tempCreation = SyntaxFactory.ObjectCreationExpression(
-                    GlobalType(plan.EffectiveConstructedType!))
+                    GlobalType(plan.EffectiveConstructedType!, model, position))
                 .WithArgumentList(SyntaxFactory.ArgumentList());
         }
 
@@ -287,7 +310,9 @@ internal static class CollectionExprEmitter
         {
             reference = BuildBuilderFactoryInvocation(
                 plan.BuilderFactory!,
-                ToArrayInvocation(tempId));
+                ToArrayInvocation(tempId),
+                model,
+                position);
         }
         else
         {
@@ -418,6 +443,7 @@ internal static class CollectionExprEmitter
         IReadOnlyList<CollectionElementSyntax> visitedElements)
     {
         var elementType = plan.TargetElementType!;
+        var position = plan.Node.SpanStart;
         ExpressionSyntax? chain = null;
         ExpressionSyntax? onlySpreadSource = null;
         var onlySpreadKind = SpreadSourceKind.Unknown;
@@ -431,7 +457,9 @@ internal static class CollectionExprEmitter
             {
                 segment = BuildZeroTempArray(
                     elementType,
-                    new[] { ((ExpressionElementSyntax)visitedElements[i]).Expression });
+                    new[] { ((ExpressionElementSyntax)visitedElements[i]).Expression },
+                    model,
+                    position);
             }
             else
             {
@@ -468,12 +496,13 @@ internal static class CollectionExprEmitter
         {
             case TargetKind.CollectionBuilder:
                 return BuildBuilderFactoryInvocation(
-                    plan.BuilderFactory!, arrayExpression);
+                    plan.BuilderFactory!, arrayExpression, model, position);
 
             case TargetKind.MutableConcrete:
             case TargetKind.Interface:
                 return SyntaxFactory.ObjectCreationExpression(
-                        GlobalType(plan.EffectiveConstructedType!))
+                        GlobalType(
+                            plan.EffectiveConstructedType!, model, position))
                     .WithArgumentList(
                         SyntaxFactory.ArgumentList(
                             SyntaxFactory.SingletonSeparatedList(

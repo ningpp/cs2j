@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CSharpToJava.Core.ExpressionDesugar;
@@ -121,6 +122,174 @@ internal static class ExpressionDesugarSyntaxFacts
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Renders <paramref name="type"/> as a type syntax that a real per-project
+    /// build resolves to the same type the original source bound.
+    ///
+    /// The pass analyzes the whole corpus as ONE compilation, so a simple name
+    /// can bind to a source type declared by ANOTHER project: e.g. in
+    /// <c>dotnet.System.Text.RegularExpressions</c> the ancestor namespace
+    /// <c>dotnet.System.Text</c> holds System.Private.CoreLib's
+    /// <c>dotnet.System.Text.StringBuilder</c>, which shadows the BCL type
+    /// imported by <c>using System.Text;</c>. A fully-qualified global name of
+    /// that symbol (<c>global::dotnet.System.Text.StringBuilder</c>) does not
+    /// exist in the regex project (CS0234). Source-declared components are
+    /// therefore rendered in the minimal form that binds at the site position;
+    /// the real project's own using/namespace rules then reproduce the original
+    /// binding. Metadata-only types keep the dependency-free global form.
+    /// </summary>
+    public static TypeSyntax RenderProjectVisibleType(
+        ITypeSymbol type, SemanticModel? model, int position)
+    {
+        if (model == null || position < 0
+            || !ContainsForeignSourceType(type, model))
+        {
+            return ParseGlobalType(type);
+        }
+
+        return RenderType(type, model, position);
+    }
+
+    private static TypeSyntax ParseGlobalType(ITypeSymbol type)
+        => SyntaxFactory.ParseTypeName(
+            type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+
+    private static TypeSyntax RenderType(
+        ITypeSymbol type, SemanticModel model, int position)
+    {
+        switch (type)
+        {
+            case IArrayTypeSymbol array:
+                return SyntaxFactory.ArrayType(
+                    RenderType(array.ElementType, model, position),
+                    SyntaxFactory.SingletonList(
+                        SyntaxFactory.ArrayRankSpecifier(
+                            SyntaxFactory.SingletonSeparatedList<ExpressionSyntax>(
+                                SyntaxFactory.OmittedArraySizeExpression()))));
+
+            case IPointerTypeSymbol pointer:
+                return SyntaxFactory.PointerType(
+                    RenderType(pointer.PointedAtType, model, position));
+
+            case INamedTypeSymbol { IsAnonymousType: true }:
+                return ParseGlobalType(type);
+
+            case INamedTypeSymbol named when IsForeignSourceType(named, model):
+            {
+                var minimal = SyntaxFactory.ParseTypeName(
+                    named.ToMinimalDisplayString(model, position));
+                return minimal.ContainsDiagnostics
+                       || !BindsToTypeAtPosition(minimal, model, position, named)
+                    ? ParseGlobalType(named)
+                    : minimal;
+            }
+
+            case INamedTypeSymbol named:
+            {
+                // Metadata wrapper (List<T>, Nullable<T>, ...): keep the global
+                // name and render only the arguments that came from analysis
+                // source, so the wrapper never depends on a source-file using.
+                var definitionSyntax = ParseGlobalType(named.ConstructedFrom);
+                var generic = definitionSyntax switch
+                {
+                    GenericNameSyntax direct => direct,
+                    QualifiedNameSyntax { Right: GenericNameSyntax right } => right,
+                    AliasQualifiedNameSyntax { Name: GenericNameSyntax alias } => alias,
+                    _ => null,
+                };
+                if (generic == null)
+                    return ParseGlobalType(named);
+
+                var arguments = SyntaxFactory.SeparatedList(
+                    named.TypeArguments.Select(
+                        argument => RenderType(argument, model, position)));
+                return definitionSyntax.ReplaceNode(
+                    generic,
+                    generic.WithTypeArgumentList(
+                        SyntaxFactory.TypeArgumentList(arguments)));
+            }
+
+            default:
+                return ParseGlobalType(type);
+        }
+    }
+
+    /// <summary>
+    /// True when <paramref name="type"/> is declared in the analysis compilation
+    /// but only by syntax trees OTHER than the current file (i.e. another
+    /// project's source leaked into the merged compilation). A type declared in
+    /// the current file keeps its dependency-free global rendering.
+    /// </summary>
+    private static bool IsForeignSourceType(
+        INamedTypeSymbol type, SemanticModel model)
+    {
+        if (type.ContainingAssembly == null
+            || !SymbolEqualityComparer.Default.Equals(
+                type.ContainingAssembly, model.Compilation.Assembly))
+        {
+            return false;
+        }
+
+        var hasSourceLocation = false;
+        foreach (var location in type.Locations)
+        {
+            if (!location.IsInSource)
+                continue;
+
+            if (location.SourceTree == model.SyntaxTree)
+                return false;
+
+            hasSourceLocation = true;
+        }
+
+        return hasSourceLocation;
+    }
+
+    /// <summary>
+    /// Recursively true when <paramref name="type"/> or any array/pointer
+    /// element or generic argument is declared by a foreign analysis source
+    /// tree (see <see cref="IsForeignSourceType"/>).
+    /// </summary>
+    private static bool ContainsForeignSourceType(ITypeSymbol type, SemanticModel model)
+    {
+        switch (type)
+        {
+            case IArrayTypeSymbol array:
+                return ContainsForeignSourceType(array.ElementType, model);
+            case IPointerTypeSymbol pointer:
+                return ContainsForeignSourceType(pointer.PointedAtType, model);
+            case INamedTypeSymbol named:
+                if (IsForeignSourceType(named, model))
+                    return true;
+
+                return named.TypeArguments.Any(
+                    argument => ContainsForeignSourceType(argument, model));
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// True when <paramref name="typeSyntax"/> binds to <paramref name="expected"/>
+    /// at the site position of the analysis compilation. A minimal rendering
+    /// that would re-bind to a different symbol is not trustworthy.
+    /// </summary>
+    private static bool BindsToTypeAtPosition(
+        TypeSyntax typeSyntax, SemanticModel model, int position, ITypeSymbol expected)
+    {
+        try
+        {
+            return model.GetSpeculativeSymbolInfo(
+                    position, typeSyntax, SpeculativeBindingOption.BindAsTypeOrNamespace)
+                .Symbol is ITypeSymbol resolved
+                && SymbolEqualityComparer.Default.Equals(resolved, expected);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 
     /// <summary>
