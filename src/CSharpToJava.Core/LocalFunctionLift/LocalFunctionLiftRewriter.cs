@@ -1023,7 +1023,9 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         // Otherwise, this is a method group / delegate conversion reference.
         // 提升后的方法把捕获变量变成了 ref 参数，因此方法组不再与目标委托类型兼容
         // （CS0123）。有捕获时改写为等价 lambda：(a, b) => name(ref cap, a, b)。
-        if (plan.Captures.Count > 0 && !plan.NeedsExplicitTypeArguments)
+        // 提升方法若还携带外层方法的类型参数，lambda 内的调用要显式写 `<T>`；
+        // 方法组本身无法携带显式类型实参。
+        if (plan.Captures.Count > 0)
         {
             var lambda = TryBuildCaptureLambda(node, plan);
             if (lambda != null)
@@ -1044,6 +1046,9 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
     /// </summary>
     private ExpressionSyntax? TryBuildCaptureLambda(IdentifierNameSyntax node, LiftPlan plan)
     {
+        if (!CanSynthesizeLambdaCall(plan))
+            return null;
+
         var converted = _model.GetTypeInfo(node).ConvertedType;
         var invoke = (converted as INamedTypeSymbol) is { TypeKind: TypeKind.Delegate } delegateType
             ? delegateType.DelegateInvokeMethod
@@ -1094,13 +1099,41 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         }
 
         var invocation = SyntaxFactory.InvocationExpression(
-            SyntaxFactory.IdentifierName(plan.NewName),
+            BuildHoistedCallTarget(plan),
             SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(
                 arguments.Concat(invokedArguments))));
 
         return SyntaxFactory.ParenthesizedLambdaExpression(
             SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(lambdaParameters)),
             invocation);
+    }
+
+    /// <summary>
+    /// 合成 lambda 里的调用能否安全表达提升方法：提升方法携带的外层类型参数
+    /// 可以在调用点按名书写，但局部函数自己的类型参数只在它体内可见 —— 若两者
+    /// 同时存在（提升方法的形参表是 own + carried），合成调用无从补全实参，
+    /// 必须留给分析阶段的 skip 处理（否则产出 CS0123/CS0305）。
+    /// </summary>
+    private static bool CanSynthesizeLambdaCall(LiftPlan plan)
+        => !plan.NeedsExplicitTypeArguments
+           || plan.Node.TypeParameterList is not { Parameters.Count: > 0 };
+
+    /// <summary>
+    /// 提升方法的调用目标。携带外层方法类型参数时必须显式书写 <c>&lt;T&gt;</c>：
+    /// 提升方法先声明自己的形参、再声明 carried 的外层形参，缺省会绑错重载/参数个数。
+    /// </summary>
+    private static ExpressionSyntax BuildHoistedCallTarget(LiftPlan plan)
+    {
+        if (plan.NeedsExplicitTypeArguments && plan.EnclosingTypeParams.Count > 0)
+        {
+            return SyntaxFactory.GenericName(
+                SyntaxFactory.Identifier(plan.NewName),
+                SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(
+                    plan.EnclosingTypeParams.Select(static tp =>
+                        SyntaxFactory.ParseTypeName(tp)))));
+        }
+
+        return SyntaxFactory.IdentifierName(plan.NewName);
     }
 
     /// <summary>按委托形参的 RefKind 生成 lambda 形参的修饰符。</summary>
@@ -1164,6 +1197,9 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         IdentifierNameSyntax node,
         LiftPlan plan)
     {
+        if (!CanSynthesizeLambdaCall(plan))
+            return null;
+
         var parameters = plan.Node.ParameterList?.Parameters ?? default;
         if (parameters.Count == 0 && plan.Node.ParameterList == null)
         {
@@ -1207,7 +1243,7 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         }
 
         var invocation = SyntaxFactory.InvocationExpression(
-            SyntaxFactory.IdentifierName(plan.NewName),
+            BuildHoistedCallTarget(plan),
             SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(
                 arguments.Concat(invokedArguments))));
 

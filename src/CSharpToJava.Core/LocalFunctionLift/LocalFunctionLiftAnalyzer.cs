@@ -28,6 +28,9 @@ internal sealed class LocalFunctionLiftAnalyzer
     /// <summary>本文件里所有条件编译区（禁用文本）的原文，用于改名前的精确判定。</summary>
     private readonly List<string> _disabledTextTexts = new();
 
+    /// <summary>本文件里以方法组 / 委托转换形式被引用的方法符号（含构造泛型的原定义）。</summary>
+    private HashSet<ISymbol> _methodGroupSymbols = new(SymbolEqualityComparer.Default);
+
     /// <summary>条件编译区里的一个函数式引用在文件中的位置。</summary>
     private readonly record struct DisabledTextReference(
         int TriviaPosition, int Offset, int Length, TextSpan EnclosingMemberSpan);
@@ -58,6 +61,7 @@ internal sealed class LocalFunctionLiftAnalyzer
             .GroupBy(static f => f.Identifier.Text, StringComparer.Ordinal)
             .ToDictionary(static g => g.Key, static g => g.Count(), StringComparer.Ordinal);
         CollectNamesReferencedInDisabledText(root);
+        _methodGroupSymbols = CollectMethodGroupSymbols(root);
 
         foreach (var localFn in localFns)
         {
@@ -131,6 +135,35 @@ internal sealed class LocalFunctionLiftAnalyzer
                     "does not bind; the name-based fallback would target the wrong overload");
             }
         }
+    }
+
+    /// <summary>
+    /// 收集本文件里以方法组 / 委托转换形式出现的标识符所绑定到的符号。
+    /// 调用目标、成员访问名、命名实参和 <c>nameof</c> 实参都不是方法组转换。
+    /// </summary>
+    private HashSet<ISymbol> CollectMethodGroupSymbols(CompilationUnitSyntax root)
+    {
+        var symbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        foreach (var id in root.DescendantNodes().OfType<IdentifierNameSyntax>())
+        {
+            if (id.Parent is InvocationExpressionSyntax invocation && invocation.Expression == id)
+                continue;
+            if (id.Parent is GenericNameSyntax)
+                continue;
+            if (id.Parent is MemberAccessExpressionSyntax memberAccess && memberAccess.Name == id)
+                continue;
+            if (id.Parent is NameColonSyntax)
+                continue;
+            if (CaptureClassification.IsInsideNameOf(id))
+                continue;
+
+            if (_model.GetSymbolInfo(id).Symbol is IMethodSymbol method)
+            {
+                symbols.Add(method);
+                symbols.Add(method.OriginalDefinition);
+            }
+        }
+        return symbols;
     }
 
     private LiftPlan AnalyzeOne(CompilationUnitSyntax root, LocalFunctionStatementSyntax localFn)
@@ -326,6 +359,21 @@ internal sealed class LocalFunctionLiftAnalyzer
         {
             plan.EnclosingTypeParams = carriedEnclosing;
             plan.NeedsExplicitTypeArguments = true;
+        }
+
+        // 提升方法的类型形参表是 own + carried：调用点必须显式写出全部实参。
+        // 普通调用点还能按名书写局部函数自己的类型参数（Local<int>(...)）；方法组
+        // 转换则完全无法携带显式类型实参，重写器只能把它改写成 lambda，而 lambda
+        // 里的调用无从命名 own 类型参数 → 保守跳过，避免产出 CS0123/CS0305。
+        if (plan.NeedsExplicitTypeArguments
+            && plan.Symbol != null
+            && localFn.TypeParameterList is { Parameters.Count: > 0 }
+            && _methodGroupSymbols.Contains(plan.Symbol))
+        {
+            Skip(plan, LocalFunctionSkipReason.EnclosingTypeParameterConflict,
+                "method group conversion cannot supply the local function's own type arguments " +
+                "explicitly (the hoisted method declares them plus carried enclosing type parameters)");
+            return plan;
         }
 
         return plan;

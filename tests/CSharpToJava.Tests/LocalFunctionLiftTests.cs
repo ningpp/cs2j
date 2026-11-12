@@ -486,6 +486,62 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
+    // CS0123: 提升方法携带外层方法的类型参数时必须显式书写类型实参。方法组转换
+    // 无法携带显式类型实参，所以要把引用点改写成等价 lambda，并在调用上补
+    // `<T>`；局部函数自己的类型参数在调用点无法命名，只能保守跳过。
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void MethodGroup_WithEnclosingTypeParameterCapture_SynthesizesGenericLambda()
+    {
+        var src = """
+        using System;
+        class C {
+            void M<T>(T seed) {
+                Func<T, T> f = Gen;
+                Console.WriteLine(f(seed));
+                T Gen(T input) => seed;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains("gen<T>(", result.OutputCode);
+        Assert.DoesNotContain("= gen;", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void MethodGroup_OwnTypeParameterWithEnclosingCapture_IsSkipped()
+    {
+        var src = """
+        using System;
+        class C {
+            void M<T>(T seed) {
+                Func<T, T> f = Gen;
+                Console.WriteLine(f(seed));
+                T Gen<U>(U input) => seed;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(0, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Reason == LocalFunctionSkipReason.EnclosingTypeParameterConflict
+            && d.Message.Contains(
+                "method group conversion cannot supply", StringComparison.Ordinal));
+        Assert.Contains("Gen<U>(U input)", result.OutputCode);
+        Assert.Contains("= Gen;", result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    // -----------------------------------------------------------------------
     // CS1628: a write capture would become a `ref` parameter, and C# forbids
     // using ref parameters inside lambdas/anonymous methods. Such captures are
     // now wrapped in a StrongBox<T> holder instead of skipping the function:
