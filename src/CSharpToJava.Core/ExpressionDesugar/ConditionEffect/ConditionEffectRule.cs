@@ -18,10 +18,12 @@ namespace CSharpToJava.Core.ExpressionDesugar.ConditionEffect;
 /// if (C) THEN [else E]    => { bool n = C; if (n) THEN [else E] }
 /// for (I; C; U) BODY      => { I; while (true) { bool n = C; if (!n) break;
 ///                              BODY; U } }            // continue => { U; continue; }
+/// do BODY while (C)       => while (true) { BODY; bool n = C; if (!n) break; }
+///                              // continue => { bool m = C; if (!m) break; continue; }
 /// </code>
 /// An <c>if</c> already directly in a block/switch-section statement list only
 /// receives the declaration before it (no extra block). Only <c>while</c>,
-/// <c>if</c> and <c>for</c> are handled; <c>do</c>/<c>?:</c> and short-circuit
+/// <c>if</c>, <c>for</c> and <c>do</c> are handled; <c>?:</c> and short-circuit
 /// sub-expressions are later slices. Conditions with declaration expressions,
 /// pattern variables or <c>await</c> are preserved with a Warning.
 /// </para>
@@ -60,6 +62,7 @@ internal sealed class ConditionEffectRule : IExpressionDesugarRule
                 WhileStatementSyntax whileStatement => whileStatement.Condition,
                 IfStatementSyntax ifStatement => ifStatement.Condition,
                 ForStatementSyntax forLoop => forLoop.Condition,
+                DoStatementSyntax doLoop => doLoop.Condition,
                 _ => null,
             };
 
@@ -92,6 +95,19 @@ internal sealed class ConditionEffectRule : IExpressionDesugarRule
                 continue;
             }
 
+            if (node is DoStatementSyntax doStatement
+                && ConditionEffectForLoopFacts.ContainsContinueInCapturedContext(
+                    doStatement.Statement))
+            {
+                // The continue rewrite evaluates the condition before the
+                // finally/dispose/exit; the original evaluated it after, so the
+                // order is observable. Preserve the site (Warning).
+                ReportSkipped(context, condition,
+                    "a continue nested in try/using/lock/checked would evaluate " +
+                    "the do-while condition in a different order");
+                continue;
+            }
+
             var isCandidate = false;
             try
             {
@@ -107,14 +123,53 @@ internal sealed class ConditionEffectRule : IExpressionDesugarRule
             if (!isCandidate)
                 continue;
 
+            var tempName = allocator.Allocate();
+            string? endLabelName = null;
+            var continueSites = node is DoStatementSyntax continueLoop
+                ? AllocateContinueSites(
+                    ConditionEffectDoLoopFacts.CollectContinueSwitchCapture(
+                        continueLoop.Statement),
+                    allocator,
+                    out endLabelName)
+                : null;
+
             plans.Add(new ConditionEffectPlan
             {
                 Node = (StatementSyntax)node,
-                TempName = allocator.Allocate(),
+                TempName = tempName,
+                ContinueSites = (IReadOnlyList<ConditionEffectContinueSite>?)
+                    continueSites ?? Array.Empty<ConditionEffectContinueSite>(),
+                EndLabelName = endLabelName,
             });
         }
 
         return new ConditionEffectRulePlan(context, plans);
+    }
+
+    /// <summary>
+    /// Allocates one file-unique condition temp per <c>continue</c> site plus,
+    /// when a site exits through <c>goto</c>, the shared end label.
+    /// </summary>
+    private static List<ConditionEffectContinueSite> AllocateContinueSites(
+        List<bool> switchCaptured,
+        ConditionEffectNameAllocator allocator,
+        out string? endLabelName)
+    {
+        endLabelName = null;
+        var sites = new List<ConditionEffectContinueSite>(switchCaptured.Count);
+        foreach (var needsGoto in switchCaptured)
+        {
+            if (needsGoto && endLabelName == null)
+                endLabelName = allocator.Allocate("__ed_cond_end_");
+
+            sites.Add(new ConditionEffectContinueSite
+            {
+                TempName = allocator.Allocate(),
+                NeedsGoto = needsGoto,
+            });
+        }
+
+        return sites;
     }
 
     private static void ReportSkipped(
@@ -137,6 +192,19 @@ internal sealed class ConditionEffectPlan
     public required StatementSyntax Node { get; init; }
 
     public required string TempName { get; init; }
+
+    /// <summary>
+    /// <c>do</c>-slice only: one entry per rewritable <c>continue</c>, in
+    /// document order (empty for while/if/for).
+    /// </summary>
+    public IReadOnlyList<ConditionEffectContinueSite> ContinueSites { get; init; }
+        = Array.Empty<ConditionEffectContinueSite>();
+
+    /// <summary>
+    /// <c>do</c>-slice only: label emitted after the lifted loop when a
+    /// <c>continue</c> exits through <c>goto</c>.
+    /// </summary>
+    public string? EndLabelName { get; init; }
 }
 
 /// <summary>Plan: owns the site markers and runs the statement-level rewrite.</summary>
@@ -288,6 +356,61 @@ internal sealed class ConditionEffectRewriter : CSharpSyntaxRewriter
             .WithLeadingTrivia(visited.GetLeadingTrivia());
     }
 
+    /// <summary>
+    /// <c>do BODY while (C)</c> => <c>while (true) { BODY; bool n = C;
+    /// if (!n) break; }</c>, with every <c>continue</c> bound to this loop
+    /// evaluating <c>C</c> before starting the next iteration. The original
+    /// body stays ONE nested statement so its locals cannot capture the
+    /// condition temp's initializer (the condition is out of the body's scope
+    /// in the source).
+    /// </summary>
+    public override SyntaxNode? VisitDoStatement(DoStatementSyntax node)
+    {
+        var visited = (DoStatementSyntax)base.VisitDoStatement(node)!;
+        if (_markers.TryResolve(visited) is not { } plan
+            || !IsStillCandidate(visited.Condition))
+        {
+            return visited;
+        }
+
+        var body = plan.ContinueSites.Count > 0
+            ? ConditionEffectDoLoopFacts.RewriteContinues(
+                visited.Statement,
+                visited.Condition,
+                plan.ContinueSites,
+                plan.EndLabelName ?? string.Empty)
+            : visited.Statement;
+
+        var loopBody = new List<StatementSyntax> { body };
+        if (!ConditionEffectForLoopFacts.EndsWithUnconditionalTransfer(body))
+        {
+            // Every exiting path already left (or re-tested) the loop, so the
+            // tail would be unreachable (CS0162).
+            loopBody.Add(DeclareCondition(plan.TempName, visited.Condition));
+            loopBody.Add(SyntaxFactory.IfStatement(
+                SyntaxFactory.PrefixUnaryExpression(
+                    SyntaxKind.LogicalNotExpression,
+                    SyntaxFactory.IdentifierName(plan.TempName)),
+                SyntaxFactory.BreakStatement()));
+        }
+
+        var loop = SyntaxFactory.WhileStatement(
+            SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression),
+            SyntaxFactory.Block(SyntaxFactory.List(loopBody)));
+
+        StatementSyntax rewritten = plan.EndLabelName == null
+            ? loop
+            : SyntaxFactory.Block(
+                loop,
+                SyntaxFactory.LabeledStatement(
+                    SyntaxFactory.Identifier(plan.EndLabelName),
+                    SyntaxFactory.EmptyStatement()));
+
+        RewriteCount++;
+        _statistics.ConditionEffectRewrites++;
+        return rewritten.WithLeadingTrivia(visited.GetLeadingTrivia());
+    }
+
     public override SyntaxNode? VisitIfStatement(IfStatementSyntax node)
     {
         var visited = (IfStatementSyntax)base.VisitIfStatement(node)!;
@@ -374,7 +497,7 @@ internal sealed class ConditionEffectRewriter : CSharpSyntaxRewriter
     /// <c>bool __ed_cond_N = C;</c>. The condition must still be a plain bool
     /// expression (declaration/pattern/await conditions are skipped).
     /// </summary>
-    private static LocalDeclarationStatementSyntax DeclareCondition(
+    internal static LocalDeclarationStatementSyntax DeclareCondition(
         string name, ExpressionSyntax condition)
         => SyntaxFactory.LocalDeclarationStatement(
             SyntaxFactory.VariableDeclaration(
@@ -410,11 +533,11 @@ internal sealed class ConditionEffectNameAllocator
             _used.Add(token.ValueText);
     }
 
-    public string Allocate()
+    public string Allocate(string prefix = "__ed_cond_")
     {
         while (true)
         {
-            var name = $"__ed_cond_{_counter}";
+            var name = $"{prefix}{_counter}";
             _counter++;
             if (_used.Add(name))
                 return name;

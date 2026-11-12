@@ -100,6 +100,12 @@ internal static class ExpressionDesugarTriggerScan
                     hasConditionSideEffectCandidate =
                         ConditionEffectSyntaxFacts.HasCandidateSyntax(forCondition);
                     break;
+                case DoStatementSyntax doStatement
+                    when !hasConditionSideEffectCandidate:
+                    hasConditionSideEffectCandidate =
+                        ConditionEffectSyntaxFacts.HasCandidateSyntax(
+                            doStatement.Condition);
+                    break;
             }
 
             if (!hasInitializerTrigger && InitializerSyntaxFacts.IsTriggerNode(node))

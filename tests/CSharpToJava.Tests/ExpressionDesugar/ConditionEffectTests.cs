@@ -573,8 +573,197 @@ public sealed class ConditionEffectTests
                         && d.Severity == ExpressionDesugarSeverity.Warning);
     }
 
+    private const string DoPropertyConditionSource = """
+        using System;
+
+        public class Counter {
+            private int _value;
+            public int Value { get => _value; set => _value = value; }
+        }
+
+        public static class C {
+            public static void M() {
+                var obj = new Counter();
+                do {
+                    Console.WriteLine(obj.Value);
+                } while (++obj.Value < 10);
+            }
+        }
+        """;
+
     [Fact]
-    public void DoCondition_NotRewritten()
+    public void Do_PropertyIncrementCondition_BecomesWhileTrue()
+    {
+        var result = Run(DoPropertyConditionSource);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.ConditionEffectRewrites);
+
+        var output = Squish(result.OutputCode);
+        Assert.Contains("while (true)", output);
+        Assert.Contains("bool __ed_cond_0 = ++obj.Value < 10;", output);
+        Assert.Contains("if (!__ed_cond_0)", output);
+        Assert.Contains("break;", output);
+        Assert.Contains("Console.WriteLine(obj.Value);", output);
+        Assert.DoesNotContain("do {", output);
+
+        // The condition is re-tested AFTER the body: [body, decl, if-break].
+        var root = CSharpSyntaxTree.ParseText(result.OutputCode, ParseOptions).GetRoot();
+        var loop = Assert.Single(root.DescendantNodes().OfType<WhileStatementSyntax>());
+        Assert.True(loop.Condition!.IsKind(SyntaxKind.TrueLiteralExpression));
+        var loopBody = Assert.IsType<BlockSyntax>(loop.Statement);
+        Assert.Equal(3, loopBody.Statements.Count);
+        Assert.IsType<BlockSyntax>(loopBody.Statements[0]);
+        Assert.IsType<LocalDeclarationStatementSyntax>(loopBody.Statements[1]);
+        Assert.IsType<IfStatementSyntax>(loopBody.Statements[2]);
+
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void Do_ContinueReevaluatesCondition()
+    {
+        const string source = """
+            public class Counter {
+                private int _value;
+                public int Value { get => _value; set => _value = value; }
+            }
+
+            public static class C {
+                public static int M() {
+                    var obj = new Counter();
+                    var i = 0;
+                    var sum = 0;
+                    do {
+                        i++;
+                        if (i % 2 == 0)
+                            continue;
+                        sum += i;
+                    } while (++obj.Value < 3);
+                    return sum;
+                }
+            }
+            """;
+
+        var result = Run(source);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.ConditionEffectRewrites);
+
+        var output = Squish(result.OutputCode);
+        Assert.Contains("bool __ed_cond_0 = ++obj.Value < 3;", output);
+        Assert.Contains(
+            "bool __ed_cond_1 = ++obj.Value < 3; if (!__ed_cond_1) break; continue;",
+            output);
+
+        // i=1 (sum 1), i=2 continues (condition re-evaluated), i=3 (sum 4),
+        // then the third evaluation ends the loop: 4.
+        Assert.Equal(4, RunInt(source, "C", "M"));
+        Assert.Equal(
+            RunInt(source, "C", "M"), RunInt(result.OutputCode, "C", "M"));
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void Do_ContinueInsideNestedLoop_NotRewritten()
+    {
+        const string source = """
+            public class Counter {
+                private int _value;
+                public int Value { get => _value; set => _value = value; }
+            }
+
+            public static class C {
+                public static int M() {
+                    var obj = new Counter();
+                    var sum = 0;
+                    do {
+                        for (int j = 0; j < 2; j++) {
+                            if (j == 0)
+                                continue;
+                            sum += 1000;
+                        }
+                        sum += 1;
+                    } while (++obj.Value < 3);
+                    return sum;
+                }
+            }
+            """;
+
+        var result = Run(source);
+
+        Assert.True(result.Changed);
+        var output = Squish(result.OutputCode);
+        Assert.Contains("while (true)", output);
+
+        // The nested `for` continue binds the nested loop: only the lifted
+        // tail may evaluate the condition, never a continue replacement.
+        Assert.Single(
+            System.Text.RegularExpressions.Regex.Matches(output, @"\+\+obj\.Value < 3"));
+        Assert.DoesNotContain("__ed_cond_1", output);
+        Assert.Equal(
+            RunInt(source, "C", "M"), RunInt(result.OutputCode, "C", "M"));
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void Do_ContinueInsideTryFinally_NotRewritten()
+    {
+        // A continue inside try would evaluate the condition BEFORE the finally
+        // runs; the original evaluated it after. The whole site is preserved.
+        const string source = """
+            public class Counter {
+                private int _value;
+                public int Value { get => _value; set => _value = value; }
+            }
+
+            public static class C {
+                public static int M() {
+                    var obj = new Counter();
+                    var i = 0;
+                    var sum = 0;
+                    do {
+                        try {
+                            i++;
+                            if (i % 2 == 0)
+                                continue;
+                            sum += i;
+                        } finally {
+                            sum += 100;
+                        }
+                    } while (++obj.Value < 3);
+                    return sum;
+                }
+            }
+            """;
+
+        var result = Run(source);
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Equal(0, result.Statistics.ConditionEffectRewrites);
+        Assert.Contains(
+            result.Diagnostics,
+            static d => d.Code == "CS2J0590"
+                        && d.Severity == ExpressionDesugarSeverity.Warning);
+    }
+
+    [Fact]
+    public void Do_Idempotent()
+    {
+        var first = Run(DoPropertyConditionSource);
+        Assert.True(first.Changed);
+
+        // The canonical form no longer contains a `do` and its loop condition
+        // is the literal `true`, so the trigger scan no longer marks the file.
+        var second = Run(first.OutputCode);
+        Assert.False(second.Changed);
+        Assert.Equal(first.OutputCode, second.OutputCode);
+        Assert.Equal(0, second.Statistics.ConditionEffectRewrites);
+    }
+
+    [Fact]
+    public void Do_SingleStatementBody_Lifts()
     {
         const string source = """
             public class Counter {
@@ -586,9 +775,7 @@ public sealed class ConditionEffectTests
                 public static int M() {
                     var obj = new Counter();
                     var n = 0;
-                    do {
-                        n++;
-                    } while (++obj.Value < 10);
+                    do n++; while (++obj.Value < 3);
                     return n;
                 }
             }
@@ -596,9 +783,70 @@ public sealed class ConditionEffectTests
 
         var result = Run(source);
 
-        Assert.False(result.Changed);
-        Assert.Equal(source, result.OutputCode);
-        Assert.Equal(0, result.Statistics.ConditionEffectRewrites);
+        Assert.True(result.Changed);
+        var output = Squish(result.OutputCode);
+        Assert.Contains("while (true)", output);
+        Assert.Contains("bool __ed_cond_0 = ++obj.Value < 3;", output);
+        Assert.Contains("if (!__ed_cond_0)", output);
+
+        Assert.Equal(3, RunInt(source, "C", "M"));
+        Assert.Equal(
+            RunInt(source, "C", "M"), RunInt(result.OutputCode, "C", "M"));
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
+    [Fact]
+    public void Do_SwitchSectionContinue_ExitsThroughGoto()
+    {
+        // Inside a switch section `break` would bind the switch, not the lifted
+        // loop; the site must exit through a label placed after the loop.
+        const string source = """
+            public class Counter {
+                private int _value;
+                public int Value { get => _value; set => _value = value; }
+            }
+
+            public static class C {
+                public static int M() {
+                    var obj = new Counter();
+                    var i = 0;
+                    var sum = 0;
+                    do {
+                        i++;
+                        switch (i) {
+                            case 2:
+                                continue;
+                            case 1:
+                                sum += 1;
+                                break;
+                            default:
+                                sum += 10;
+                                break;
+                        }
+                        sum += 100;
+                    } while (++obj.Value < 2);
+                    return sum;
+                }
+            }
+            """;
+
+        var result = Run(source);
+
+        Assert.True(result.Changed);
+        var output = Squish(result.OutputCode);
+        Assert.Contains("while (true)", output);
+        Assert.Contains("goto __ed_cond_end_", output);
+        Assert.Matches(
+            new System.Text.RegularExpressions.Regex(
+                @"__ed_cond_end_\d+: ;"),
+            output);
+
+        // i=1 adds 1+100; i=2 hits the continue with a false condition and must
+        // leave the loop instead of adding another 100: 101.
+        Assert.Equal(101, RunInt(source, "C", "M"));
+        Assert.Equal(
+            RunInt(source, "C", "M"), RunInt(result.OutputCode, "C", "M"));
+        Assert.Empty(CompileErrors(result.OutputCode));
     }
 
     [Fact]
