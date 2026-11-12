@@ -64,7 +64,7 @@ internal static class TargetTypeResolver
         CollectionExpressionSyntax node,
         IReadOnlyList<ITypeSymbol?> elementFedTypes)
     {
-        var converted = model.GetTypeInfo(node).ConvertedType;
+        var converted = GetTargetType(model, node);
 
         if (IsMissingOrError(converted))
         {
@@ -196,6 +196,70 @@ internal static class TargetTypeResolver
 
         return new TargetResolution(TargetKind.Unknown, converted, false);
     }
+
+    /// <summary>
+    /// Target type of <paramref name="node"/>: its own
+    /// <c>ConvertedType</c> when the semantic model bound one, otherwise the
+    /// converted type of the nearest enclosing construct that propagates its
+    /// target type to this position (switch-expression arm, <c>?:</c> branch,
+    /// <c>??</c> right operand, parenthesized expression). Only these
+    /// target-propagating positions are followed; any other parent stops the
+    /// walk so the site keeps its missing-target diagnostic instead of
+    /// guessing a type from an unrelated enclosing expression. Ambiguous
+    /// simple names (CS0104 from the merged analysis compilation) are rebound
+    /// to the single source-declared candidate, exactly like the initializer
+    /// rules do.
+    /// </summary>
+    private static ITypeSymbol? GetTargetType(
+        SemanticModel model, CollectionExpressionSyntax node)
+    {
+        var converted = PreferSourceDeclaredCandidate(
+            model.GetTypeInfo(node).ConvertedType);
+        if (!IsMissingOrError(converted))
+            return converted;
+
+        SyntaxNode child = node;
+        for (var current = node.Parent; current != null; current = current.Parent)
+        {
+            if (!PropagatesTargetType(current, child))
+                break;
+
+            var propagated = PreferSourceDeclaredCandidate(
+                model.GetTypeInfo(current).ConvertedType);
+            if (!IsMissingOrError(propagated))
+                return propagated;
+
+            child = current;
+        }
+
+        return converted;
+    }
+
+    private static ITypeSymbol? PreferSourceDeclaredCandidate(ITypeSymbol? type)
+        => ExpressionDesugarSyntaxFacts.PreferSourceDeclaredCandidate(type);
+
+    /// <summary>
+    /// True when <paramref name="parent"/> converts its direct child
+    /// <paramref name="child"/> to the parent's own converted type.
+    /// </summary>
+    private static bool PropagatesTargetType(SyntaxNode parent, SyntaxNode child)
+        => parent switch
+        {
+            SwitchExpressionArmSyntax arm
+                when arm.Expression == child => true,
+            SwitchExpressionSyntax switchExpression
+                when child is SwitchExpressionArmSyntax arm
+                     && switchExpression.Arms.Contains(arm) => true,
+            ConditionalExpressionSyntax conditional
+                when conditional.WhenTrue == child
+                     || conditional.WhenFalse == child => true,
+            BinaryExpressionSyntax binary
+                when binary.IsKind(SyntaxKind.CoalesceExpression)
+                     && binary.Right == child => true,
+            ParenthesizedExpressionSyntax parenthesized
+                when parenthesized.Expression == child => true,
+            _ => false,
+        };
 
     /// <summary>
     /// CS9174 note appended to the defensive 0581 message for interface

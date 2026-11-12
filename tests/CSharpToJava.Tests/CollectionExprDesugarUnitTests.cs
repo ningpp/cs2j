@@ -545,6 +545,49 @@ public class CollectionExprDesugarUnitTests
     }
 
     [Fact]
+    public void M1_SwitchExpressionArm_CollectionExpression_InheritsSwitchTargetType()
+    {
+        const string source = """
+            using System;
+
+            public static class C
+            {
+                private static readonly string[] B = { "b" };
+
+                public static string[] M(char format) =>
+                    format switch
+                    {
+                        'a' => Missing,
+                        'b' => [B[0]],
+                        _ => throw new ArgumentException(nameof(format)),
+                    };
+            }
+            """;
+        var (_, model) = BuildNamedCompilation(source);
+        var site = model.SyntaxTree.GetCompilationUnitRoot()
+            .DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
+
+        // Repro lock: in the merged analysis compilation another arm can fail
+        // to bind, which leaves the collection arm's own ConvertedType
+        // unbound; only the enclosing switch expression still carries the
+        // method return type. The rewritten fragment is therefore checked
+        // without recompiling the intentionally dirty input.
+        var siteType = model.GetTypeInfo(site).ConvertedType;
+        Assert.True(
+            siteType == null || siteType.TypeKind == TypeKind.Error,
+            "expected the switch arm ConvertedType to be unbound, got " +
+            siteType?.ToDisplayString());
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.DoesNotContain(
+            CollectionExprDiagnosticCodes.CS2J0571,
+            result.Diagnostics.Select(d => d.Code));
+        Assert.Contains("new string[] { B[0] }", Normalize(result.OutputCode));
+    }
+
+    [Fact]
     public void M2_NonStrict_InterfaceAndBuilderSitesRewrite_WithSiblingArray()
     {
         const string source = """
