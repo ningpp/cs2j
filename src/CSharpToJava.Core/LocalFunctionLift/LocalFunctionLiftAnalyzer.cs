@@ -630,7 +630,8 @@ internal sealed class LocalFunctionLiftAnalyzer
                     capName,
                     RenderCaptureTypeDisplay(info.Type, hostType),
                     isWritten,
-                    isWritten);
+                    isWritten,
+                    IsScoped: IsScopedCapture(info.Symbol));
             })
             .ToList();
 
@@ -653,10 +654,50 @@ internal sealed class LocalFunctionLiftAnalyzer
                 LocalFunctionLiftNaming.GetCaptureParameterName(symbol.Name, capParamNames),
                 typeSyntax,
                 isWritten,
-                isWritten));
+                isWritten,
+                IsScoped: IsScopedCapture(symbol)));
         }
 
         return captures;
+    }
+
+    /// <summary>
+    /// 捕获的来源声明是否带 <c>scoped</c>。优先用语义符号（
+    /// <see cref="IParameterSymbol.ScopedKind"/>/<see cref="ILocalSymbol.ScopedKind"/>，
+    /// 只反映显式声明，不含隐式 scoped 规则）；语义不可用时退回声明处语法
+    /// （形参修饰符 <c>scoped</c>、变量声明类型 <see cref="ScopedTypeSyntax"/>、
+    /// 局部声明语句的 <c>scoped</c> 修饰符）。无法判定的一律视为非 scoped，
+    /// 不给普通捕获加修饰符。
+    /// </summary>
+    private static bool IsScopedCapture(ISymbol symbol)
+    {
+        switch (symbol)
+        {
+            case IParameterSymbol parameter:
+                if (parameter.ScopedKind != ScopedKind.None)
+                    return true;
+                return parameter.DeclaringSyntaxReferences
+                    .Select(static reference => reference.GetSyntax())
+                    .OfType<ParameterSyntax>()
+                    .Any(static syntax => syntax.Modifiers.Any(SyntaxKind.ScopedKeyword));
+
+            case ILocalSymbol local:
+                if (local.ScopedKind != ScopedKind.None)
+                    return true;
+                return local.DeclaringSyntaxReferences
+                    .Select(static reference => reference.GetSyntax())
+                    .OfType<VariableDeclaratorSyntax>()
+                    .Any(static declarator =>
+                        declarator.Parent is VariableDeclarationSyntax
+                        {
+                            Type: ScopedTypeSyntax,
+                        }
+                        || (declarator.Parent?.Parent is LocalDeclarationStatementSyntax statement
+                            && statement.Modifiers.Any(SyntaxKind.ScopedKeyword)));
+
+            default:
+                return false;
+        }
     }
 
     /// <summary>
@@ -1246,6 +1287,11 @@ internal sealed class LocalFunctionLiftAnalyzer
     /// </summary>
     private bool CanUseHolderCapture(CapturePlan capture)
     {
+        // scoped 捕获改成 StrongBox 会丢失 scoped 约束，或让声明处的 scoped
+        // 变量被包装成可逃逸的引用；保守跳过，交给调用方按 ref 不可用诊断。
+        if (capture.IsScoped)
+            return false;
+
         if (capture.Symbol is not ILocalSymbol local || local.IsConst)
             return false;
 
@@ -1275,6 +1321,8 @@ internal sealed class LocalFunctionLiftAnalyzer
 
     private static string GetHolderUnavailableReason(CapturePlan capture)
     {
+        if (capture.IsScoped)
+            return "the capture is declared 'scoped' and cannot be wrapped in a StrongBox";
         if (capture.Symbol is not ILocalSymbol local)
             return $"capture is a {capture.Symbol.Kind}, not a plain local variable";
         if (local.IsConst)
@@ -1394,6 +1442,12 @@ internal sealed class LocalFunctionLiftAnalyzer
 
     private static bool CanUseRefCapture(LiftPlan plan, CapturePlan cap)
     {
+        // scoped 捕获不能改成 ref 形参：`scoped ref` 形参会让调用方的 scoped
+        // 变量以 ref 形式暴露给被调用方（安全上下文逃逸），而丢掉 scoped 的
+        // `ref` 形参同样会让调用点 CS8352。该形态不可表达，保守跳过。
+        if (cap.IsScoped)
+            return false;
+
         if (RequiresValueCapture(plan))
             return false;
 
@@ -1420,6 +1474,10 @@ internal sealed class LocalFunctionLiftAnalyzer
 
     private static string GetRefCaptureUnavailableReason(LiftPlan plan, CapturePlan cap)
     {
+        if (cap.IsScoped)
+            return $"capture '{cap.OriginalName}' is declared 'scoped'; a ref capture parameter " +
+                "would expose the scoped value to the callee (and 'scoped ref' is not expressible " +
+                "here)";
         if (plan.Node.Modifiers.Any(m => m.IsKind(SyntaxKind.AsyncKeyword)))
             return "local function is async (async methods cannot have ref/in/out parameters, CS1988)";
         if (ContainsYield(plan.Node))

@@ -1739,11 +1739,19 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         var typeDisplay = cap.UseHolder && cap.HolderElementTypeDisplay != null
             ? $"global::System.Runtime.CompilerServices.StrongBox<{cap.HolderElementTypeDisplay}>"
             : cap.TypeDisplay;
+
+        // scoped 捕获形参必须保留 scoped：否则把 scoped 变量传给非 scoped 形参
+        // 会被判定为可能逃逸（CS8352）。与 ref 互斥（scoped 写入捕获已在分析阶段
+        // 按 ref 不可用跳过，不会走到这里）。
+        var modifiers = new List<SyntaxToken>();
+        if (cap.IsScoped && !cap.ByRef)
+            modifiers.Add(SyntaxFactory.Token(SyntaxKind.ScopedKeyword));
+        if (cap.ByRef)
+            modifiers.Add(SyntaxFactory.Token(SyntaxKind.RefKeyword));
+
         return SyntaxFactory.Parameter(
             SyntaxFactory.List<AttributeListSyntax>(),
-            cap.ByRef
-                ? SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.RefKeyword))
-                : SyntaxFactory.TokenList(),
+            SyntaxFactory.TokenList(modifiers),
             SyntaxFactory.ParseTypeName(typeDisplay),
             SyntaxFactory.Identifier(cap.ParameterName),
             null);

@@ -86,7 +86,12 @@ internal sealed record CapturePlan(
     /// </summary>
     bool UseHolder = false,
     /// <summary>T 在该声明/成员位置可解析的类型显示（holder 声明与形参共用）。</summary>
-    string? HolderElementTypeDisplay = null);
+    string? HolderElementTypeDisplay = null,
+    /// <summary>
+    /// 捕获的来源声明带 <c>scoped</c>（C# 11）：提升后的捕获形参必须保留该修饰符，
+    /// 否则把 scoped 变量传给非 scoped 形参会被判定为可能逃逸（CS8352）。
+    /// </summary>
+    bool IsScoped = false);
 
 /// <summary>
 /// 外层 <c>const</c> 局部在提升方法里的内联形态：按名字/符号匹配后替换为

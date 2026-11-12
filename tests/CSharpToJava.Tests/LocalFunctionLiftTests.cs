@@ -255,6 +255,108 @@ public class LocalFunctionLiftTests
         AssertNoSyntaxErrors(result.OutputCode);
     }
 
+    /// <summary>
+    /// C# 11 <c>scoped</c> 形参被捕获时，提升出的捕获形参必须保留 scoped：
+    /// 把 scoped 变量传给非 scoped 形参会被判定为可能逃逸（CS8352）。
+    /// </summary>
+    [Fact]
+    public void ScopedParameterCapture_PreservesScoped()
+    {
+        var src = """
+        class C {
+            void M(scoped System.Span<int> s) {
+                Use();
+                void Use() { s[0] = 1; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains(
+            "private void use(scoped global::System.Span<int> _cs2j_cap_s)",
+            result.OutputCode);
+        Assert.Contains("use(s)", result.OutputCode);
+        Assert.DoesNotContain("scoped ref", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>
+    /// <c>scoped</c> 局部变量被捕获时同样保留修饰符。
+    /// </summary>
+    [Fact]
+    public void ScopedLocalCapture_PreservesScoped()
+    {
+        var src = """
+        class C {
+            void M() {
+                scoped System.Span<int> local = stackalloc int[4];
+                Use();
+                void Use() { local[0] = 1; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains(
+            "private void use(scoped global::System.Span<int> _cs2j_cap_local)",
+            result.OutputCode);
+        Assert.DoesNotContain("scoped ref", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>
+    /// 非 scoped 捕获不得凭空多出 scoped（防回归）。
+    /// </summary>
+    [Fact]
+    public void UnscopedCapture_DoesNotGainScoped()
+    {
+        var src = """
+        class C {
+            int M() {
+                int x = 10;
+                return GetX();
+                int GetX() => x;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Contains("int _cs2j_cap_x", result.OutputCode);
+        Assert.DoesNotContain("scoped", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>
+    /// scoped 捕获是写入型、需要 ref 才能回写：`scoped ref` 形参不可表达，
+    /// 保守跳过并诊断，不产出非法/不安全签名。
+    /// </summary>
+    [Fact]
+    public void ScopedWriteCapture_IsSkipped()
+    {
+        var src = """
+        class C {
+            void M(scoped System.Span<int> s) {
+                Use();
+                void Use() { s = stackalloc int[2]; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
+        var diagnostic = Assert.Single(result.Diagnostics,
+            d => d.Reason == LocalFunctionSkipReason.RefCaptureUnavailable);
+        Assert.Contains("scoped", diagnostic.Message);
+        Assert.Contains("void Use()", result.OutputCode);
+        Assert.DoesNotContain("scoped ref", result.OutputCode);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
     [Fact]
     public void CallSite_Recursive()
     {
