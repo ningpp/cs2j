@@ -27,6 +27,9 @@ internal sealed class NullConditionalLateContext
 /// <list type="bullet">
 /// <item><see cref="NullConditionalLoweringShape.Inline"/>: zero-declaration
 /// ternary returned directly;</item>
+/// <item><see cref="NullConditionalLoweringShape.PatternTernary"/>:
+/// zero-declaration nested pattern-variable ternary for expression positions
+/// without a usable statement anchor;</item>
 /// <item><see cref="NullConditionalLoweringShape.TempTernary"/>: segment
 /// declarations go to the shared family TempLifter as pending entries, the
 /// ternary references the temp;</item>
@@ -100,8 +103,15 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
 
         // Anchor-deferred chains are lowered exclusively by the post-lift late
         // pass (their statement anchor materializes during the family lift).
-        if (plan.AnchorDeferred && _late == null)
-            return visited;
+        // A plan that is STILL anchor-free there must not reference a segment
+        // temp: the late pass settles it inline with pattern variables.
+        if (plan.AnchorDeferred)
+        {
+            if (_late == null)
+                return visited;
+            if (!_late.AnchorByPlan.ContainsKey(plan))
+                return visited;
+        }
 
         // C51 assignment terminals render through the Assignment sub-rule
         // (NA-1...NA-7); read-side terminals keep the flow below.
@@ -124,6 +134,17 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
                     plan.Segments[0].ReceiverType, plan);
                 RewriteCount++;
                 return SyntaxFactory.ParenthesizedExpression(consumption);
+            }
+
+            case NullConditionalLoweringShape.PatternTernary:
+            {
+                var receivers = new ExpressionSyntax[plan.Segments.Count];
+                for (var k = 0; k < receivers.Length; k++)
+                    receivers[k] = visitedCaByOriginal[plan.Segments[k].Ca].Expression;
+
+                RewriteCount++;
+                return NullConditionalEmitter.BuildPatternTernary(
+                    plan, receivers, terminalVisited);
             }
 
             case NullConditionalLoweringShape.TempTernary:

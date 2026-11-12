@@ -468,6 +468,13 @@ internal static class ChainSegmentAnalyzer
                 // statement (field/property builder). The late pass decides.
                 DeferLowered(plan, NullConditionalLoweringShape.GuardedBlock, context);
             }
+            else if (CanLowerWithPattern(plan))
+            {
+                // A non-spliceable anchor (e.g. an expression-bodied lambda or a
+                // non-void arrow body) leaves no place for the segment temps;
+                // inline the chain with pattern variables instead.
+                LowerPattern(plan, context);
+            }
             else
             {
                 Preserve(plan, NullConditionalDiagnosticCodes.CS2J0557);
@@ -636,6 +643,51 @@ internal static class ChainSegmentAnalyzer
     }
 
     /// <summary>
+    /// Zero-declaration lowering for expression positions without a statement
+    /// anchor: every segment is bound by an empty recursive pattern
+    /// (<c>receiver is { } __ed_sN</c>), so the receiver still evaluates
+    /// exactly once and no declaration is needed.
+    /// </summary>
+    private static void LowerPattern(ChainPlan plan, RuleAnalysisContext context)
+    {
+        plan.Outcome = ChainOutcome.Lowered;
+        plan.Shape = NullConditionalLoweringShape.PatternTernary;
+        AccumulateLowered(plan, context);
+    }
+
+    /// <summary>
+    /// True when a value chain can be lowered inline with pattern variables.
+    /// The empty recursive pattern <c>is { }</c> matches any non-null value and
+    /// binds the unwrapped <c>T</c> for <c>Nullable&lt;T&gt;</c> receivers, so
+    /// it is only rendered where the receiver type proves one of those cases
+    /// (an unconstrained type parameter keeps the strict CS2J0557).
+    /// </summary>
+    internal static bool CanLowerWithPattern(ChainPlan plan)
+    {
+        if (plan.ContextKind != NullConditionalContextKind.Value)
+            return false;
+
+        if (plan.Terminal.Kind is ChainTerminalKind.Assign
+            or ChainTerminalKind.Unknown)
+            return false;
+
+        foreach (var segment in plan.Segments)
+        {
+            var type = segment.ReceiverType;
+            if (type is null or IErrorTypeSymbol)
+                return false;
+
+            if (!type.IsReferenceType
+                && NullConditionalEmitter.NullableUnderlying(type) is null)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Anchor-free value chain deferred to the post-lift late pass: the shape
     /// and segment temps are fixed now (the allocator runs once), but no
     /// success diagnostic/statistics are emitted until the late pass confirms
@@ -685,7 +737,8 @@ internal static class ChainSegmentAnalyzer
                 break;
         }
 
-        if (plan.Shape == NullConditionalLoweringShape.Inline)
+        if (plan.Shape is NullConditionalLoweringShape.Inline
+            or NullConditionalLoweringShape.PatternTernary)
             stats.InlinedSites++;
 
         ReportInfo(context,

@@ -262,6 +262,109 @@ internal static class NullConditionalEmitter
     }
 
     /// <summary>
+    /// Builds the anchor-free value consumption with pattern variables:
+    /// <c>(R0 is { } s0 ? (R1 is { } s1 ? terminal : null) : null)</c>.
+    /// </summary>
+    /// <param name="receivers">Per-segment receiver expressions, in chain order.</param>
+    /// <param name="terminal">Visited innermost terminal (binding-rooted).</param>
+    public static ExpressionSyntax BuildPatternTernary(
+        ChainPlan plan,
+        IReadOnlyList<ExpressionSyntax> receivers,
+        ExpressionSyntax terminal)
+        // Same rationale as BuildNestedTernary: the site may be the left
+        // operand of an enclosing ??, so the conditional must stay grouped.
+        => SyntaxFactory.ParenthesizedExpression(
+            BuildPatternTernaryLevel(plan, receivers, terminal, 0));
+
+    private static ExpressionSyntax BuildPatternTernaryLevel(
+        ChainPlan plan,
+        IReadOnlyList<ExpressionSyntax> receivers,
+        ExpressionSyntax terminal,
+        int k)
+    {
+        var segment = plan.Segments[k];
+        var binding = SyntaxFactory.IdentifierName(segment.TempName);
+
+        // Segment k>0 owns a binding-rooted receiver (the previous segment's
+        // placeholder); rebind it onto the previous pattern variable, exactly as
+        // the statement-temp shapes do.
+        var subject = k == 0
+            ? receivers[0]
+            : ReplaceRootBinding(
+                receivers[k],
+                BindingReceiver(
+                    SyntaxFactory.IdentifierName(plan.Segments[k - 1].TempName),
+                    plan.Segments[k - 1].ReceiverType));
+
+        // Every level is bound by the pattern; the deepest level reads the
+        // terminal off the (already unwrapped) binding variable.
+        ExpressionSyntax whenTrue;
+        if (k == plan.Segments.Count - 1)
+        {
+            var access = ReplaceRootBinding(
+                terminal, BindingReceiver(binding, segment.ReceiverType));
+            whenTrue = plan.CastToNullable
+                ? SyntaxFactory.CastExpression(plan.NullableCastType!, access)
+                : access;
+        }
+        else
+        {
+            whenTrue = BuildPatternTernaryLevel(plan, receivers, terminal, k + 1);
+        }
+
+        return SyntaxFactory.ConditionalExpression(
+            SyntaxFactory.IsPatternExpression(
+                PatternSubject(subject),
+                BuildAnyNonNullPattern(segment.TempName)),
+            whenTrue,
+            BuildNullBranch(plan));
+    }
+
+    /// <summary>
+    /// <c>{ } name</c>: the empty recursive pattern matches any non-null value
+    /// and, for <c>Nullable&lt;T&gt;</c>, binds the unwrapped <c>T</c>.
+    /// </summary>
+    private static RecursivePatternSyntax BuildAnyNonNullPattern(string name)
+    {
+        // The empty property-pattern braces carry explicit spaces: the default
+        // formatter options treat object/collection initializer braces as
+        // "new line for braces", which would otherwise split this into
+        // 'is\n{\n} name'.
+        var clause = SyntaxFactory.PropertyPatternClause()
+            .WithOpenBraceToken(SyntaxFactory.Token(SyntaxKind.OpenBraceToken)
+                .WithTrailingTrivia(SyntaxFactory.Space))
+            .WithCloseBraceToken(SyntaxFactory.Token(SyntaxKind.CloseBraceToken)
+                .WithLeadingTrivia(SyntaxFactory.Space));
+
+        return SyntaxFactory.RecursivePattern(
+            null,
+            null,
+            clause,
+            SyntaxFactory.SingleVariableDesignation(
+                SyntaxFactory.Identifier(name)));
+    }
+
+    /// <summary>
+    /// Parenthesizes only the receiver shapes whose precedence would let
+    /// <c>is</c> bind differently (<c>x as T is {}</c>, <c>a && b is {}</c>, ...).
+    /// </summary>
+    private static ExpressionSyntax PatternSubject(ExpressionSyntax receiver)
+    {
+        var subject = receiver.WithoutTrivia();
+        return subject is IdentifierNameSyntax
+            or ThisExpressionSyntax
+            or BaseExpressionSyntax
+            or MemberAccessExpressionSyntax
+            or ElementAccessExpressionSyntax
+            or InvocationExpressionSyntax
+            or ParenthesizedExpressionSyntax
+            or CastExpressionSyntax
+            or LiteralExpressionSyntax
+            ? subject
+            : SyntaxFactory.ParenthesizedExpression(subject);
+    }
+
+    /// <summary>
     /// Builds the void terminal statement (e.g. <c>__ed_sN.M(args);</c>)
     /// executed inside the deepest guard.
     /// </summary>

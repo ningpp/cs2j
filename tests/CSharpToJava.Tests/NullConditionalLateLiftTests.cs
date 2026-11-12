@@ -178,11 +178,12 @@ public class NullConditionalLateLiftTests
     }
 
     [Fact]
-    public void GenuinelyAnchorFreeChain_NoBuilderMaterializes_StillReportsCS2J0557()
+    public void AnchorFreeFieldInitializer_LoweredInlineWithPatternVariable()
     {
         // No initializer site here, so no statement context ever materializes:
-        // the deferred chain must still be rejected with CS2J0557 (strict) and
-        // the file stays atomically unchanged.
+        // the deferred chain is settled inline with a pattern variable instead
+        // of a segment temporary. The receiver is an invocation, so the pattern
+        // form is also what keeps the single-evaluation semantics.
         const string source = """
             public class C
             {
@@ -192,12 +193,75 @@ public class NullConditionalLateLiftTests
             """;
 
         var result = Run(source);
+        AssertStrictSuccess(result);
+        var code = Squish(result.OutputCode);
 
-        Assert.False(result.Changed);
         Assert.Contains(
-            result.Diagnostics,
-            d => d.Severity == ExpressionDesugarSeverity.Error
-                 && d.Code == "CS2J0557");
+            "GetS() is { } __ed_s0 ? (int?)__ed_s0.Length : (int?)null", code);
+        Assert.DoesNotContain("var __ed_s0", code);
+
+        var initializer = code[(code.IndexOf("L = ", StringComparison.Ordinal) + 4)..];
+        Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(
+            initializer, @"GetS\(\)").Count);
+    }
+
+    [Fact]
+    public void SingleSegmentChain_InConstructorInitializer_LoweredInlineWithPatternVariable()
+    {
+        // Corpus shape (OrderedDictionary): a '?.' inside a 'this(...)' argument
+        // has no statement anchor at all, so the deferred site must settle with
+        // the pattern form, keeping the 'int?' result and one evaluation.
+        const string source = """
+            using System.Collections.Generic;
+            public class C
+            {
+                public C(IEnumerable<int> collection)
+                    : this((collection as ICollection<int>)?.Count, null) { }
+
+                public C(int? count, object? comparer) { }
+            }
+            """;
+
+        var result = Run(source);
+        AssertStrictSuccess(result);
+        var code = Squish(result.OutputCode);
+
+        Assert.Contains(
+            "(collection as ICollection<int>) is { } __ed_s0 "
+            + "? (int?)__ed_s0.Count : (int?)null",
+            code);
+        Assert.DoesNotContain("var __ed_s", code);
+    }
+
+    [Fact]
+    public void MultiSegmentChainInExpressionBodiedProperty_LoweredInlineWithPatternVariables()
+    {
+        // Expression-bodied property: the arrow is the anchor, so no statement
+        // temporary can be declared. Both segments lower inline; every receiver
+        // is still evaluated exactly once (pattern binding).
+        const string source = """
+            public sealed class Leaf { public int Value; }
+            public sealed class Mid { public Leaf? Leaf; }
+            public class C
+            {
+                private static Mid? GetMid() => null;
+                public int? Value => GetMid()?.Leaf?.Value;
+            }
+            """;
+
+        var result = Run(source);
+        AssertStrictSuccess(result);
+        var code = Squish(result.OutputCode);
+
+        Assert.Contains(
+            "GetMid() is { } __ed_s0 ? __ed_s0.Leaf is { } __ed_s1 "
+            + "? (int?)__ed_s1.Value : (int?)null : (int?)null",
+            code);
+        Assert.DoesNotContain("var __ed_s", code);
+
+        var body = code[(code.IndexOf("Value => ", StringComparison.Ordinal) + 9)..];
+        Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(
+            body, @"GetMid\(\)").Count);
     }
 
     [Fact]

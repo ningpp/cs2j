@@ -41,6 +41,14 @@ internal enum NullConditionalLoweringShape
     /// <summary>Zero-declaration inline ternary, whitelist receiver.</summary>
     Inline,
 
+    /// <summary>
+    /// Zero-declaration pattern-variable ternary
+    /// <c>(R is { } s ? s.M : null)</c> for expression positions with no usable
+    /// statement anchor (constructors' <c>this(...)</c> arguments, field /
+    /// property initializers, expression bodies).
+    /// </summary>
+    PatternTernary,
+
     /// <summary>One segment temp + ternary (single segment, non-whitelist receiver).</summary>
     TempTernary,
 

@@ -266,8 +266,11 @@ internal sealed class NullConditionalRule : IExpressionDesugarRule
         /// Settles anchor-deferred chains after the late rewrite: chains that
         /// left the tree acquired a hosting statement during the family lift
         /// and are now lowered (emit success Info/stats); chains still present
-        /// are genuinely anchor-free and receive CS2J0557 (strict Error /
-        /// non-strict Warning) plus the explained annotation pairing the gate.
+        /// keep their expression position and are lowered inline with pattern
+        /// variables (each receiver still evaluates exactly once). Only sites
+        /// whose receiver type proves no pattern form receive CS2J0557 (strict
+        /// Error / non-strict Warning) plus the explained annotation pairing the
+        /// gate.
         /// </summary>
         private CompilationUnitSyntax ResolveDeferredPlans(
             CompilationUnitSyntax result, IReadOnlyList<ChainPlan> deferredPlans)
@@ -275,16 +278,44 @@ internal sealed class NullConditionalRule : IExpressionDesugarRule
             if (deferredPlans.Count == 0)
                 return result;
 
+            var unlifted = new List<ChainPlan>();
+
+            foreach (var plan in deferredPlans)
+            {
+                var remaining = FindRemainingRoot(result, plan);
+                if (remaining == null)
+                {
+                    ChainSegmentAnalyzer.AccumulateLowered(plan, _context);
+                    continue;
+                }
+
+                if (!ChainSegmentAnalyzer.CanLowerWithPattern(plan)
+                    || !TryCollectChain(plan, remaining, out var receivers, out var terminal))
+                {
+                    unlifted.Add(plan);
+                    continue;
+                }
+
+                // No statement slot ever materialized: inline the whole chain
+                // with pattern variables instead of a segment temporary.
+                plan.Shape = NullConditionalLoweringShape.PatternTernary;
+                result = result.ReplaceNode(
+                    remaining,
+                    NullConditionalEmitter.BuildPatternTernary(
+                        plan, receivers, terminal));
+                ChainSegmentAnalyzer.AccumulateLowered(plan, _context);
+            }
+
+            if (unlifted.Count == 0)
+                return result;
+
             var explainStamps =
                 new Dictionary<SyntaxNode, List<SyntaxAnnotation>>();
             var strict = _context.Options.NullConditional!.Strict;
 
-            foreach (var plan in deferredPlans)
+            foreach (var plan in unlifted)
             {
-                var remaining = result.DescendantNodes()
-                    .OfType<ConditionalAccessExpressionSyntax>()
-                    .FirstOrDefault(c => _markers.TryResolve(c) == plan);
-
+                var remaining = FindRemainingRoot(result, plan);
                 if (remaining == null)
                 {
                     ChainSegmentAnalyzer.AccumulateLowered(plan, _context);
@@ -308,6 +339,42 @@ internal sealed class NullConditionalRule : IExpressionDesugarRule
             return explainStamps.Count > 0
                 ? StableMarkerStamper.Apply(result, explainStamps)
                 : result;
+        }
+
+        private ConditionalAccessExpressionSyntax? FindRemainingRoot(
+            CompilationUnitSyntax root, ChainPlan plan)
+            => root.DescendantNodes()
+                .OfType<ConditionalAccessExpressionSyntax>()
+                .FirstOrDefault(c => _markers.TryResolve(c) == plan);
+
+        /// <summary>
+        /// Reads the CURRENT per-segment receivers and the innermost terminal of
+        /// a chain root that survived the primary rewrite untouched.
+        /// </summary>
+        private static bool TryCollectChain(
+            ChainPlan plan,
+            ConditionalAccessExpressionSyntax root,
+            out List<ExpressionSyntax> receivers,
+            out ExpressionSyntax terminal)
+        {
+            receivers = new List<ExpressionSyntax>(plan.Segments.Count);
+            var current = root;
+            for (var k = 0; k < plan.Segments.Count; k++)
+            {
+                receivers.Add(current.Expression);
+                if (k == plan.Segments.Count - 1)
+                    break;
+                if (current.WhenNotNull is not ConditionalAccessExpressionSyntax inner)
+                {
+                    terminal = current.WhenNotNull;
+                    return false;
+                }
+
+                current = inner;
+            }
+
+            terminal = current.WhenNotNull;
+            return true;
         }
 
         public override IReadOnlyList<ExpressionDesugarTempLifter.PendingTemp>
