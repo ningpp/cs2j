@@ -990,6 +990,38 @@ public class EnumDeclarationRewriterUnitTests
         AssertOutputCompiles(code);
     }
 
+    [Fact]
+    public void ConstField_OfConvertedEnum_DeclaredAfterItsStaticReader_IsInlinedAtReferenceSites()
+    {
+        // 回归 System.Private.Uri（UriScheme.HttpUri ← HttpSyntaxFlags）：const 的
+        // 语义是编译期内联，与声明位置、静态字段初始化顺序都无关；类化后它只能
+        // 降级为 static readonly，同一类型里声明在它之前的静态字段初始化器会读到
+        // 还没赋值的 null，静态构造随即 NRE
+        // （TypeInitializationException: UriParser 的静态构造函数抛 NRE）。
+        // 修复：所有引用点内联回 E.FromValue(<编译期常量>)，恢复 const 内联语义。
+        var src = """
+            using System;
+            [Flags] enum E : byte { None = 0, A = 1, B = 2 }
+            class C
+            {
+                internal static readonly E Early = LateConst;
+                private const E LateConst = E.A | E.B;
+                public static byte ReadEarly() => (byte)Early;
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed, string.Join("\n", diags.Select(d => $"{d.Code}: {d.Message}")));
+        Assert.Contains("static readonly E LateConst", code);
+        Assert.DoesNotContain("Early = LateConst", code);
+        Assert.Contains("Early = global::E.FromValue", code);
+        AssertOutputCompiles(code);
+
+        var asm = EmitAssembly(code, "ed-const-order-" + Guid.NewGuid().ToString("N"));
+        Assert.Equal((byte)3,
+            asm.GetType("C")!.GetMethod("ReadEarly")!.Invoke(null, null));
+    }
+
     // ────────────────────────────────────────────────────────────────────────
     // 跨枚举成员初值耦合：enum D { X = S.M } 保持真 enum 时，S 也不能转换
     // （S.M 变 static readonly → D 的常量初值 CS0029；XmlSubtreeReader.State→

@@ -1095,6 +1095,11 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
     {
+        // Member access 的整体引用（Type.ConstField）先于其后代处理：否则 Name 会被
+        // VisitIdentifierName 拆成 Type.<内联表达式> 的非法形态。
+        if (TryInlineEnumConstField(node, out var inlinedConst))
+            return inlinedConst;
+
         var visited = (MemberAccessExpressionSyntax)base.VisitMemberAccessExpression(node)!;
         if (_model.GetSymbolInfo(node).Symbol is IPropertySymbol prop
             && prop.ContainingType.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T)
@@ -1129,6 +1134,49 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
     }
 
     // ── 9) const 字段/局部降级（成员引用本身零改写） ──
+
+    /// <summary>
+    /// 引用点内联「类型为本轮归一 enum 的 const 字段」。原生 C# 里 const 是编译期
+    /// 内联的常量：引用点永远拿到值，与字段声明位置、所在类型的静态字段初始化
+    /// 顺序都无关。类型归一为 class 后 const 修饰符非法（CS0133），只能降级为
+    /// static readonly；此时同一类型里声明在它之前的静态字段初始化器会读到尚未
+    /// 赋值的 null——System.Private.Uri 的 UriScheme.HttpUri ← HttpSyntaxFlags，
+    /// 静态构造抛 NRE（858 个测试失败）。内联回 E.FromValue(常量) 恢复 const 的
+    /// 内联语义，从而与初始化顺序无关。枚举成员本身也是 const 字段，但它们的
+    /// 使用点由各分类改写器负责（GetValue/字面量等），故按 ContainingType 排除。
+    /// </summary>
+    public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
+    {
+        // 成员访问的 Name 由 VisitMemberAccessExpression 整体处理，否则会生成
+        // Holder.&lt;内联表达式&gt; 这种非法形态。
+        if (node.Parent is MemberAccessExpressionSyntax access && ReferenceEquals(access.Name, node))
+            return node;
+        // nameof(Const) 的语义是名字文本，内联后变成 "FromValue"。
+        if (IsInsideNameOf(node)) return node;
+
+        return TryInlineEnumConstField(node, out var inlined) ? inlined : node;
+    }
+
+    private bool TryInlineEnumConstField(ExpressionSyntax node, out ExpressionSyntax replacement)
+    {
+        replacement = node;
+        if (_model.GetSymbolInfo(node).Symbol is not IFieldSymbol field
+            || !field.IsConst || !field.HasConstantValue || field.ConstantValue == null)
+        {
+            return false;
+        }
+        if (field.ContainingType.TypeKind == TypeKind.Enum) return false;
+        if (PlanExact(field.Type) is not { } plan) return false;
+
+        replacement = WithReplacementTrivia(node, Annotate(ParseExpression(
+            $"{TypeName(plan)}.{plan.Names!.FromValue}(({U(plan)})" +
+            $"({LiteralFor(plan, field.ConstantValue)}))")));
+        return true;
+    }
+
+    private static bool IsInsideNameOf(SyntaxNode node)
+        => node.Ancestors().Any(a => a is InvocationExpressionSyntax invocation
+            && invocation.Expression is IdentifierNameSyntax { Identifier.Text: "nameof" });
 
     public override SyntaxNode? VisitArrayCreationExpression(ArrayCreationExpressionSyntax node)
     {
