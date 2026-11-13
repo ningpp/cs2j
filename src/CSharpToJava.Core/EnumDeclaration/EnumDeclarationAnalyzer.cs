@@ -1,3 +1,4 @@
+using CSharpToJava.Core.Analysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -130,6 +131,14 @@ internal sealed class EnumDeclarationAnalyzer
             analysis.BySymbol[type] = plan;
         }
 
+        // 1.5) P/Invoke 签名盘点：extern / [DllImport] / [LibraryImport] 方法的
+        // 参数与返回值（含指针/数组元素、按值封送的结构体字段）中的 enum 必须
+        // 保持真 enum。LibraryImport 的源生成器只支持可封送的 enum 类型，类化后的
+        // enum-like class 不在支持集合内（SYSLIB1051「源生成的 P/Invoke 不支持该
+        // 类型」）；DllImport 的运行时封送同样不接受普通引用类型。封送约束是签名
+        // 级硬事实，先于使用点分类判定。
+        ScanInteropSignatures(analysis);
+
         // 2) 逐语法树做使用点分类。
         //
         // 不做「文本含 plan 短名」预筛：使用点可以通过 `var`/推断类型出现，源码
@@ -219,6 +228,106 @@ internal sealed class EnumDeclarationAnalyzer
 
         analysis.Plans.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
         return analysis;
+    }
+
+    /// <summary>
+    /// P/Invoke 签名中的 enum 一律保持真 enum（ED020）：<c>LibraryImport</c> 的源
+    /// 生成器需要可封送的类型映射，enum-like class 不是可封送类型（SYSLIB1051，
+    /// 实测真实项目编译失败）；<c>DllImport</c> 的运行时封送也不会把普通引用类型
+    /// 当枚举传递。结构体按值出现在签名里时其字段同样被逐字段封送，故递归检查。
+    /// </summary>
+    private void ScanInteropSignatures(EnumAnalysis analysis)
+    {
+        foreach (var type in GetAllTypes(_compilation.GlobalNamespace))
+        {
+            foreach (var method in type.GetMembers().OfType<IMethodSymbol>())
+            {
+                if (!IsInteropMethod(method)) continue;
+                var location = method.Locations.FirstOrDefault(l => l.IsInSource);
+                if (location == null) continue;
+
+                var plans = new HashSet<EnumDeclarationPlan>();
+                CollectInteropPlans(analysis, method.ReturnType, plans);
+                foreach (var parameter in method.Parameters)
+                    CollectInteropPlans(analysis, parameter.Type, plans);
+
+                foreach (var plan in plans)
+                {
+                    if (plan.Outcome != EnumPlanOutcome.Converted) continue;
+                    var reason =
+                        $"enum '{plan.EnumQualifiedName}' appears in the signature of P/Invoke " +
+                        $"method '{method.ContainingType.ToDisplayString()}.{method.Name}' " +
+                        "(extern/[DllImport]/[LibraryImport]); an enum-like class is not a " +
+                        "marshallable type, so the source-generated or runtime marshalling " +
+                        "would fail. The enum must remain a real enum.";
+                    if (plan.InfeasibleSites.All(s => s.Location != location))
+                        plan.InfeasibleSites.Add(new EnumInfeasibleSite(location, reason));
+                    plan.Outcome = EnumPlanOutcome.Infeasible;
+                    plan.FailCode = EnumDeclarationDiagnosticCode.ED020;
+                    plan.FailReason = reason;
+                    plan.FailLocation = location;
+                }
+            }
+        }
+    }
+
+    private static bool IsInteropMethod(IMethodSymbol method)
+    {
+        if (InteropBoundaryFacts.HasInteropAttribute(method)) return true;
+        foreach (var reference in method.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is MethodDeclarationSyntax declaration
+                && declaration.Modifiers.Any(SyntaxKind.ExternKeyword))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 收集封送签名类型里可归一的 plan enum：enum 本身、数组元素、枚举指针，
+    /// 以及按值封送的结构体的实例字段（指针指向的结构体不会被逐字段封送，
+    /// 因此不展开）。
+    /// </summary>
+    private static void CollectInteropPlans(
+        EnumAnalysis analysis, ITypeSymbol? type, HashSet<EnumDeclarationPlan> plans)
+        => CollectInteropPlans(analysis, type, plans,
+            new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default));
+
+    private static void CollectInteropPlans(
+        EnumAnalysis analysis, ITypeSymbol? type, HashSet<EnumDeclarationPlan> plans,
+        HashSet<ITypeSymbol> visiting)
+    {
+        switch (type)
+        {
+            case INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType:
+                if (analysis.BySymbol.TryGetValue(enumType, out var plan)
+                    && plan.Outcome == EnumPlanOutcome.Converted)
+                {
+                    plans.Add(plan);
+                }
+                return;
+
+            case IArrayTypeSymbol array:
+                CollectInteropPlans(analysis, array.ElementType, plans, visiting);
+                return;
+
+            case IPointerTypeSymbol pointer:
+                if (pointer.PointedAtType is INamedTypeSymbol { TypeKind: TypeKind.Enum })
+                    CollectInteropPlans(analysis, pointer.PointedAtType, plans, visiting);
+                return;
+
+            case INamedTypeSymbol { TypeKind: TypeKind.Struct } structType:
+                if (!structType.Locations.Any(l => l.IsInSource)) return;
+                if (!visiting.Add(structType)) return;
+                foreach (var field in structType.GetMembers().OfType<IFieldSymbol>())
+                {
+                    if (field.IsStatic) continue;
+                    CollectInteropPlans(analysis, field.Type, plans, visiting);
+                }
+                return;
+        }
     }
 
     private static void ScanNameContractAttributes(
