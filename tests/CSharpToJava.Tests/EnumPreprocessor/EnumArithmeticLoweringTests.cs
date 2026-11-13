@@ -310,6 +310,37 @@ public sealed class EnumArithmeticLoweringTests
         Assert.Empty(CompileErrors(result.OutputCode));
     }
 
+    [Fact]
+    public void Compound_Assignment_To_Base_Field_Is_Expanded()
+    {
+        // Mirrors CXmlCache.SingleQuote setter:
+        //   set { if (value == '\'') base._eFlags |= NodeFlags.SingleQuote;
+        //         else base._eFlags &= ~NodeFlags.SingleQuote; }
+        // `base` is a fixed receiver, so duplicating `base._eFlags` in the
+        // read/modify/write expansion is observationally safe.
+        var src = """
+        enum E { A = 1, B = 2 }
+        class Base { protected E _flags; }
+        class C : Base
+        {
+            void Set(E other)
+            {
+                base._flags |= other;
+                base._flags &= ~other;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        var code = Squish(result.OutputCode);
+        Assert.Contains("base._flags = ((E)((int)base._flags | (int)other))", code);
+        Assert.DoesNotContain("|=", code);
+        Assert.DoesNotContain("&=", code);
+        Assert.Equal(0, result.Statistics.ResidualCount);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
     // ── 4) narrow underlying bitwise / arithmetic ──
 
     [Fact]

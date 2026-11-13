@@ -342,7 +342,7 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
 
     /// <summary>
     /// Returns true if the expression is a "stable reference":
-    /// local variable, parameter, field, this.f, or Type.F.
+    /// local variable, parameter, field, this.f, base.f, or Type.F.
     /// The receiver chain must not contain properties/indexers/calls.
     /// </summary>
     private bool IsStableReference(ExpressionSyntax expr)
@@ -378,8 +378,8 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
     {
         expr = StripParentheses(expr);
 
-        // this
-        if (expr is ThisExpressionSyntax) return true;
+        // this / base: both are fixed, side-effect-free receivers.
+        if (expr is ThisExpressionSyntax or BaseExpressionSyntax) return true;
 
         // Simple identifier (could be a type name or a local/field)
         if (expr is IdentifierNameSyntax)
@@ -410,7 +410,7 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
     /// True when the compound-assignment target may be duplicated (read once,
     /// written once) without changing observable behavior. Covers, beyond
     /// <see cref="IsStableReference"/>: property access with a deterministic
-    /// receiver (local/parameter/field/this/type chain — the property getter
+    /// receiver (local/parameter/field/this/base/type chain — the property getter
     /// is still invoked exactly once, as with <c>|=</c>), and array element
     /// access with a deterministic receiver and side-effect-free indices.
     /// Indexers/properties with non-deterministic receivers, method-call
