@@ -139,6 +139,13 @@ internal sealed class EnumDeclarationAnalyzer
         // 级硬事实，先于使用点分类判定。
         ScanInteropSignatures(analysis);
 
+        // 1.6) 反射按名称查找的方法签名盘点：Type.GetMethod("M", ...) 的运行时
+        // 调用把 enum 实参（含 out/ref）与返回值装箱成 enum base 值；enum-like
+        // class 的装箱值是普通对象，Enum.ToObject 等 API 会以
+        // ArgumentException（"must be an enum base or an underlying type"）拒绝。
+        // 与 P/Invoke 签名同属「运行时类型身份在签名层面暴露」的硬约束。
+        ScanReflectionByNameMethodSignatures(analysis);
+
         // 2) 逐语法树做使用点分类。
         //
         // 不做「文本含 plan 短名」预筛：使用点可以通过 `var`/推断类型出现，源码
@@ -284,6 +291,135 @@ internal sealed class EnumDeclarationAnalyzer
         }
         return false;
     }
+
+    /// <summary>
+    /// 反射按名称查找的方法签名中的 enum 一律保持真 enum（ED020）：
+    /// <c>typeof(T).GetMethod("M", ...)</c> / <c>nameof(M)</c> 形式的运行时反射
+    /// 调用会把 enum 参数（含 out/ref）、返回值以及容器中的元素装箱成 enum base
+    /// 值交给调用方。归一后的 enum-like class 装箱值是普通对象，调用方对
+    /// <c>Enum.ToObject</c>/<c>Enum.IsDefined</c> 等的使用会抛
+    /// <c>ArgumentException</c>（实测 Pkcs 的 TimestampRequestTests）。只有
+    /// receiver 能静态解析成具体类型、方法名是编译期常量的调用才参与判定；
+    /// 解析不了时交由常规使用点分类（不臆测）。
+    /// </summary>
+    private void ScanReflectionByNameMethodSignatures(EnumAnalysis analysis)
+    {
+        foreach (var tree in _compilation.SyntaxTrees)
+        {
+            var model = _compilation.GetSemanticModel(tree);
+            foreach (var invocation in tree.GetRoot().DescendantNodes()
+                         .OfType<InvocationExpressionSyntax>())
+            {
+                if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
+                    || memberAccess.Name.Identifier.ValueText != "GetMethod"
+                    || invocation.ArgumentList.Arguments.Count == 0)
+                {
+                    continue;
+                }
+
+                if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol getMethod
+                    || getMethod.ContainingType.ToDisplayString() != "System.Type")
+                {
+                    continue;
+                }
+
+                if (memberAccess.Expression is not TypeOfExpressionSyntax typeOf
+                    || model.GetTypeInfo(typeOf.Type).Type is not INamedTypeSymbol lookupType
+                    || lookupType.TypeKind is TypeKind.Error or TypeKind.TypeParameter)
+                {
+                    continue;
+                }
+
+                var nameConstant = model.GetConstantValue(
+                    invocation.ArgumentList.Arguments[0].Expression);
+                if (!nameConstant.HasValue || nameConstant.Value is not string methodName
+                    || string.IsNullOrEmpty(methodName))
+                {
+                    continue;
+                }
+
+                var plans = new HashSet<EnumDeclarationPlan>();
+                foreach (var method in FindMethodsByName(lookupType, methodName))
+                {
+                    CollectSignaturePlans(analysis, method.ReturnType, plans);
+                    foreach (var parameter in method.Parameters)
+                        CollectSignaturePlans(analysis, parameter.Type, plans);
+                }
+
+                var location = invocation.ArgumentList.Arguments[0].GetLocation();
+                var lookupName = lookupType.ToDisplayString();
+                foreach (var plan in plans)
+                {
+                    if (plan.Outcome != EnumPlanOutcome.Converted) continue;
+                    var reason =
+                        $"enum '{plan.EnumQualifiedName}' appears in the signature of method " +
+                        $"'{lookupName}.{methodName}' looked up by name through reflection " +
+                        "(Type.GetMethod); runtime reflection boxes enum arguments, out/ref " +
+                        "values and return values as enum base values, and a boxed enum-like " +
+                        "class instance is not an enum base, so APIs such as Enum.ToObject " +
+                        "reject it. The enum must remain a real enum.";
+                    if (plan.InfeasibleSites.All(s => s.Location != location))
+                        plan.InfeasibleSites.Add(new EnumInfeasibleSite(location, reason));
+                    plan.Outcome = EnumPlanOutcome.Infeasible;
+                    plan.FailCode = EnumDeclarationDiagnosticCode.ED020;
+                    plan.FailReason = reason;
+                    plan.FailLocation = location;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 按名称解析方法符号：声明类型与基类链（基类私有方法不能被运行时
+    /// <c>GetMethod</c> 找到，跳过）。重载全部纳入，因为无法静态判定绑定标志
+    /// 与实际实参类型会选中哪一个；同名的其它重载保真 enum 是安全方向。
+    /// </summary>
+    private static IEnumerable<IMethodSymbol> FindMethodsByName(
+        INamedTypeSymbol type, string name)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            foreach (var method in current.GetMembers(name).OfType<IMethodSymbol>())
+            {
+                if (!SymbolEqualityComparer.Default.Equals(current, type)
+                    && method.DeclaredAccessibility == Accessibility.Private)
+                {
+                    continue;
+                }
+                yield return method;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 收集反射签名里可归一的 plan enum：enum 本身、数组/指针元素、Nullable、
+    /// 泛型实参（任意深度）。enum 在运行时反射的签名中都会被装箱成 enum base。
+    /// </summary>
+    private static void CollectSignaturePlans(
+        EnumAnalysis analysis, ITypeSymbol? type, HashSet<EnumDeclarationPlan> plans)
+    {
+        switch (type)
+        {
+            case INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType:
+                if (analysis.BySymbol.TryGetValue(enumType, out var plan))
+                    plans.Add(plan);
+                return;
+
+            case IArrayTypeSymbol array:
+                CollectSignaturePlans(analysis, array.ElementType, plans);
+                return;
+
+            case IPointerTypeSymbol pointer:
+                CollectSignaturePlans(analysis, pointer.PointedAtType, plans);
+                return;
+
+            case INamedTypeSymbol named:
+                foreach (var argument in named.TypeArguments)
+                    CollectSignaturePlans(analysis, argument, plans);
+                return;
+        }
+    }
+
 
     /// <summary>
     /// 收集封送签名类型里可归一的 plan enum：enum 本身、数组元素、枚举指针，
