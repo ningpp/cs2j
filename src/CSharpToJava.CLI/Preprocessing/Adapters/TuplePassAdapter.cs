@@ -127,8 +127,15 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
                 continue;
             }
 
-            var arities = TupleToStructPreprocessor.FindRuntimeObservedTupleArities(
-                syntaxTree.GetRoot());
+            var root = syntaxTree.GetRoot();
+            var arities = new HashSet<int>(
+                TupleToStructPreprocessor.FindRuntimeObservedTupleArities(root));
+
+            // 条件编译分支在本 pass 的固定符号集下是 DisabledText，其中的元组语法
+            // 无法参与改写，只能原样保留；同 arity 的声明若被降级就会与该分支混用
+            // （CS0030/CS0029，语料 CharSetSolver 的 `#if DEBUG` foreach 解构）。
+            // 与 typeof(ValueTuple<...>) 一样按项目作用域把该 arity 保持原生。
+            arities.UnionWith(TupleToStructPreprocessor.FindUnrewritableTupleArities(root));
             if (arities.Count == 0)
             {
                 continue;

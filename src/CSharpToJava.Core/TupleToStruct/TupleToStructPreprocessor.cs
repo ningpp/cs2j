@@ -78,6 +78,96 @@ public sealed partial class TupleToStructPreprocessor
         _ => null,
     };
 
+    /// <summary>
+    /// 找出只存在于禁用条件编译分支（Roslyn 的 DisabledText）里的元组 arity。
+    /// 本 pass 用固定符号集解析，`#if DEBUG` 之类的分支是 DisabledText，其中的
+    /// 元组语法无法参与语义改写，只能原样保留。若同一 arity 的声明在活动区域被
+    /// 降级成生成 struct，编译该分支的工程就会在原生 ValueTuple 与生成 struct
+    /// 之间报 CS0030/CS0029（例如 CharSetSolver 的
+    /// <c>foreach ((uint, uint) range in BDDRangeConverter.ToRanges(set))</c>，
+    /// 而 ToRanges 的返回类型已被降级）。因此这些 arity 必须保持原生。
+    ///
+    /// 做法：用本文件条件指令里出现的符号重新解析整份文件（位置与原文一一对应），
+    /// 只统计落在原解析禁用区域内的元组节点，避免把活动区域的元组误判成"不可改写"。
+    /// </summary>
+    public static IReadOnlyCollection<int> FindUnrewritableTupleArities(SyntaxNode root)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        if (root.SyntaxTree is not CSharpSyntaxTree tree)
+        {
+            return Array.Empty<int>();
+        }
+
+        var disabledSpans = root
+            .DescendantTrivia(descendIntoTrivia: true)
+            .Where(trivia => trivia.IsKind(SyntaxKind.DisabledTextTrivia))
+            .Select(trivia => trivia.Span)
+            .Where(span => span.Length > 0)
+            .ToList();
+        if (disabledSpans.Count == 0)
+        {
+            return Array.Empty<int>();
+        }
+
+        var symbols = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
+        {
+            if (trivia.GetStructure() is not DirectiveTriviaSyntax directive)
+            {
+                continue;
+            }
+
+            if (directive is DefineDirectiveTriviaSyntax define)
+            {
+                symbols.Add(define.Name.ValueText);
+                continue;
+            }
+
+            ExpressionSyntax? condition = directive switch
+            {
+                IfDirectiveTriviaSyntax ifDirective => ifDirective.Condition,
+                ElifDirectiveTriviaSyntax elifDirective => elifDirective.Condition,
+                _ => null,
+            };
+
+            if (condition == null)
+            {
+                continue;
+            }
+
+            foreach (var identifier in condition.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+            {
+                symbols.Add(identifier.Identifier.ValueText);
+            }
+        }
+
+        if (symbols.Count == 0)
+        {
+            return Array.Empty<int>();
+        }
+
+        var options = tree.Options.WithPreprocessorSymbols(
+            tree.Options.PreprocessorSymbolNames.Concat(symbols).Distinct(StringComparer.Ordinal));
+        var reparsed = CSharpSyntaxTree.ParseText(tree.GetText(), options, path: tree.FilePath);
+
+        var arities = new HashSet<int>();
+        foreach (var node in reparsed.GetRoot().DescendantNodes())
+        {
+            var arity = node switch
+            {
+                TupleTypeSyntax tupleType => tupleType.Elements.Count,
+                TupleExpressionSyntax tupleExpression => tupleExpression.Arguments.Count,
+                _ => 0,
+            };
+            if (arity > 0 && disabledSpans.Any(span => span.Contains(node.Span)))
+            {
+                arities.Add(arity);
+            }
+        }
+
+        return arities;
+    }
+
     /// <summary>逻辑元素个数 → ValueTuple 泛型元数（8 个以上元素经 TRest 嵌套，泛型元数为 8）。</summary>
     internal static int RuntimeGenericArity(int logicalArity) => logicalArity >= 8 ? 8 : logicalArity;
 
@@ -684,10 +774,10 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
         if (KeepsRuntimeValueTupleIdentity(shape))
         {
             WarnOnce("shape-runtime-identity:" + shape.Key,
-                "This compilation observes the runtime System.ValueTuple identity of " +
-                $"{TupleToStructPreprocessor.RuntimeGenericArity(shape.Arity)}-element tuples " +
-                "(typeof(ValueTuple<...>)); the site was kept as a native System.ValueTuple " +
-                "so reflection-driven type checks keep matching.");
+                $"{TupleToStructPreprocessor.RuntimeGenericArity(shape.Arity)}-element tuples must stay " +
+                "native System.ValueTuple in this compilation (either typeof(ValueTuple<...>) observes " +
+                "their runtime identity, or a conditional-compilation branch this pass cannot rewrite " +
+                "contains tuple syntax); the site was kept as a native System.ValueTuple.");
             return null;
         }
 
