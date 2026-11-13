@@ -557,6 +557,31 @@ public class DelegatePreprocessorUnitTests
     }
 
     [Fact]
+    public void AnonymousMethod_NoParam_In_Overloaded_Call_With_Unresolved_Body_Uses_Target_Arity()
+    {
+        var src = """
+        using System;
+        using System.Threading;
+        using System.Threading.Tasks;
+        class C {
+            void M() {
+                Task.Factory.StartNew(delegate
+                {
+                    Unresolved.Assert(1);
+                }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        // The only four-argument StartNew overload takes a parameter-less Action, so
+        // the lambda must stay parameter-less even though the unresolved identifier in
+        // the body leaves the call unbindable in this analysis-only compilation.
+        Assert.Contains("StartNew(()=>", result.OutputCode);
+        Assert.DoesNotContain("(p0)", result.OutputCode);
+    }
+
+    [Fact]
     public void Idempotent_Second_Run_Produces_Same_Output()
     {
         var src = """

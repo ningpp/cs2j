@@ -275,10 +275,8 @@ internal sealed class DelegateSyntaxRewriter : CSharpSyntaxRewriter
             return anonymousMethod;
         }
 
-        var convertedType = _semanticModel.GetTypeInfo(node).ConvertedType;
-        if (convertedType is not INamedTypeSymbol namedType
-            || namedType.TypeKind != TypeKind.Delegate
-            || namedType.DelegateInvokeMethod == null)
+        var invokeMethod = ResolveTargetInvokeMethod(node);
+        if (invokeMethod == null)
         {
             _stats.SkippedUnsupported++;
             _diagnostics.Add(new DelegatePreprocessorDiagnostic(
@@ -287,7 +285,6 @@ internal sealed class DelegateSyntaxRewriter : CSharpSyntaxRewriter
             return anonymousMethod;
         }
 
-        var invokeMethod = namedType.DelegateInvokeMethod;
         var parameters = invokeMethod.Parameters;
 
         if (parameters.Length == 0)
@@ -330,6 +327,87 @@ internal sealed class DelegateSyntaxRewriter : CSharpSyntaxRewriter
             resultLambda = resultLambda.WithAsyncKeyword(anonymousMethod.AsyncKeyword);
         }
         return resultLambda.WithTriviaFrom(node);
+    }
+
+    /// <summary>
+    /// Resolves the Invoke method of the delegate type a parameter-less anonymous
+    /// method is converted to.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="SemanticModel.GetTypeInfo(SyntaxNode)"/>'s ConvertedType cannot be
+    /// trusted when the enclosing binding is in error: Roslyn falls back to an
+    /// error-recovery guess, which for an argument of an overloaded call can be a
+    /// different delegate (e.g. <c>Action&lt;object&gt;</c> instead of <c>Action</c>).
+    /// The lambda parameter list is synthesized from that delegate's arity, so
+    /// trusting the guess emits C# that no longer compiles. In an argument position
+    /// the target parameter of the bound call is authoritative, so it is preferred.
+    /// </remarks>
+    private IMethodSymbol? ResolveTargetInvokeMethod(AnonymousMethodExpressionSyntax node)
+    {
+        if (TryResolveTargetDelegateTypeFromEnclosingCall(node) is { } callType)
+            return callType.DelegateInvokeMethod;
+
+        var convertedType = _semanticModel!.GetTypeInfo(node).ConvertedType;
+        return convertedType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } namedType
+            ? namedType.DelegateInvokeMethod
+            : null;
+    }
+
+    /// <summary>
+    /// Binds the call the anonymous method is an argument of and returns the
+    /// delegate type of the corresponding parameter, or null when it cannot be
+    /// determined. A body containing identifiers this analysis-only compilation
+    /// cannot resolve makes the whole call unbindable, so the call is re-bound
+    /// speculatively with the anonymous method's body stripped.
+    /// </summary>
+    private INamedTypeSymbol? TryResolveTargetDelegateTypeFromEnclosingCall(
+        AnonymousMethodExpressionSyntax node)
+    {
+        var argument = node.Ancestors().OfType<ArgumentSyntax>().FirstOrDefault();
+        if (argument?.Parent is not ArgumentListSyntax argumentList)
+            return null;
+
+        var callNode = argumentList.Parent;
+        if (callNode is not InvocationExpressionSyntax
+            && callNode is not BaseObjectCreationExpressionSyntax)
+        {
+            return null;
+        }
+
+        var method = _semanticModel!.GetSymbolInfo(callNode).Symbol as IMethodSymbol;
+        if (method == null)
+        {
+            var stripped = node.WithBlock(SyntaxFactory.Block());
+            var repairedCall = callNode.ReplaceNode(node, stripped);
+            method = _semanticModel.GetSpeculativeSymbolInfo(
+                callNode.SpanStart, repairedCall, SpeculativeBindingOption.BindAsExpression)
+                .Symbol as IMethodSymbol;
+        }
+
+        if (method == null || method.Parameters.Length == 0)
+            return null;
+
+        IParameterSymbol? parameter;
+        if (argument.NameColon?.Name.Identifier.ValueText is { Length: > 0 } argumentName)
+        {
+            parameter = method.Parameters.FirstOrDefault(p => p.Name == argumentName);
+        }
+        else
+        {
+            var index = 0;
+            for (var i = 0; i < argumentList.Arguments.Count; i++)
+            {
+                if (argumentList.Arguments[i] == argument)
+                {
+                    index = i;
+                    break;
+                }
+            }
+
+            parameter = method.Parameters[Math.Min(index, method.Parameters.Length - 1)];
+        }
+
+        return parameter?.Type as INamedTypeSymbol;
     }
 
     private static string GenerateUniqueName(string baseName, HashSet<string> blocked)
