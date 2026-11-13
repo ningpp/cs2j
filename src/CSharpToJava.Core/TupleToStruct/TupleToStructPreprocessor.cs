@@ -791,6 +791,17 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
     private bool KeepsRuntimeValueTupleIdentity(TupleShape shape) =>
         TupleToStructPreprocessor.RuntimeIdentityDenied(shape, _runtimeObservedArities);
 
+    private static readonly IReadOnlyDictionary<string, string> EmptyShapeDisplayOverrides =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 当前正在改写的方法内，“具体元组形状键 → 与基类签名一致的 struct 实例化文本”。
+    /// 见 <see cref="BuildOverrideShapeDisplays"/>：重写成员的签名必须与基类成员
+    /// 替换后的类型完全相同（CS0508），而基类的泛型声明可能已把该元组降级为开放的
+    /// 泛型 struct。
+    /// </summary>
+    private IReadOnlyDictionary<string, string> _shapeDisplayOverrides = EmptyShapeDisplayOverrides;
+
     private readonly Dictionary<string, IReadOnlyList<StatementSyntax>> _expansions = new();
     private readonly Dictionary<ISymbol?, (string Temp, IReadOnlyList<string> Path)> _identifierRemap =
         new(SymbolEqualityComparer.Default);
@@ -825,6 +836,168 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
     // ------------------------------------------------------------------
     // 元组类型与字面量
     // ------------------------------------------------------------------
+
+    /// <summary>
+    /// 重写成员的签名必须与基类成员替换后的签名类型完全一致（CS0508）。基类在泛型
+    /// 定义形态下声明签名元组时，该声明点被降级为开放泛型 struct（如
+    /// <c>TupleT0T1&lt;TElement, TPriority&gt;</c>）；派生类闭包类型实参后，同一个元组必须
+    /// 写成该 struct 的实例化（<c>TupleT0T1&lt;string, string&gt;</c>），而不是具体形状的
+    /// <c>TupleStringString</c>——两者在 C# 里是不同的类型。映射只在当前方法内生效，
+    /// 让签名与体内的同一元组（字面量等）一起改写，避免 return 处又退回具体形状。
+    /// </summary>
+    public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
+    {
+        var saved = _shapeDisplayOverrides;
+        if (_model.GetDeclaredSymbol(node) is IMethodSymbol method
+            && BuildOverrideShapeDisplays(method) is { Count: > 0 } displays)
+        {
+            _shapeDisplayOverrides = displays;
+        }
+
+        try
+        {
+            return base.VisitMethodDeclaration(node);
+        }
+        finally
+        {
+            _shapeDisplayOverrides = saved;
+        }
+    }
+
+    private Dictionary<string, string>? BuildOverrideShapeDisplays(IMethodSymbol method)
+    {
+        if (method.OverriddenMethod is not { } overridden || method.ContainingType is not { } containingType)
+        {
+            return null;
+        }
+
+        Dictionary<string, string>? displays = null;
+        foreach (var anchor in CandidateGenericAnchors(containingType))
+        {
+            if (FindMemberInBaseChain(anchor, overridden.OriginalDefinition) is not { } openMember)
+            {
+                continue;
+            }
+
+            displays ??= new Dictionary<string, string>(StringComparer.Ordinal);
+            AddOverrideShapeDisplay(displays, openMember.ReturnType, overridden.ReturnType);
+            for (var i = 0; i < openMember.Parameters.Length && i < overridden.Parameters.Length; i++)
+            {
+                AddOverrideShapeDisplay(
+                    displays, openMember.Parameters[i].Type, overridden.Parameters[i].Type);
+            }
+        }
+
+        return displays is { Count: > 0 } ? displays : null;
+    }
+
+    /// <summary>
+    /// 基类链上“泛型定义”形态的类型。闭包后的类型只给具体实参，看不出签名元组当初
+    /// 是以类型参数声明的；换成链上每个类型的原始泛型定义，才能拿回开放签名
+    /// （如 <c>TestBase&lt;(TElement, TPriority)&gt;</c>）。
+    /// </summary>
+    private static IEnumerable<INamedTypeSymbol> CandidateGenericAnchors(INamedTypeSymbol type)
+    {
+        var anchors = new List<INamedTypeSymbol>();
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            anchors.Add(current);
+            if (!SymbolEqualityComparer.Default.Equals(current, current.OriginalDefinition))
+            {
+                anchors.Add(current.OriginalDefinition);
+            }
+        }
+
+        return anchors;
+    }
+
+    /// <summary>在 <paramref name="anchor"/> 的基类链上找 <paramref name="original"/> 对应的成员（签名已替换）。</summary>
+    private static IMethodSymbol? FindMemberInBaseChain(INamedTypeSymbol anchor, IMethodSymbol original)
+    {
+        if (original.ContainingType is not { } declaring)
+        {
+            return null;
+        }
+
+        for (var current = anchor; current != null; current = current.BaseType)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(current.OriginalDefinition, declaring))
+            {
+                continue;
+            }
+
+            foreach (var member in current.GetMembers(original.Name).OfType<IMethodSymbol>())
+            {
+                if (SymbolEqualityComparer.Default.Equals(member.OriginalDefinition, original))
+                {
+                    return member;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 基类签名类型是“全泛型”元组形状（每个位置恰是一个类型参数）时，把派生类签名里
+    /// 同一个元组的具体形状映射为该形状按位置替换后的实例化文本。只有全泛型形状能仅靠
+    /// 位置替换复现具体元组（字段类型即 <c>__Pn</c>）；带约束或 8+ 元素（Rest 尾部）
+    /// 的形状不做映射，保持原有降级行为。
+    /// </summary>
+    private void AddOverrideShapeDisplay(
+        Dictionary<string, string> displays,
+        ITypeSymbol openType,
+        ITypeSymbol closedType)
+    {
+        if (openType is not INamedTypeSymbol { IsTupleType: true } openTuple
+            || closedType is not INamedTypeSymbol { IsTupleType: true } closedTuple)
+        {
+            return;
+        }
+
+        var openShape = GetOrCreateAlignableShape(openTuple);
+        var closedShape = GetOrCreateAlignableShape(closedTuple);
+        if (openShape == null
+            || closedShape == null
+            || openShape.Key == closedShape.Key
+            || openShape.TypeParameterConstraints.Count > 0)
+        {
+            return;
+        }
+
+        if (openShape.Arity > 7
+            || openShape.GenericArity != openShape.Arity
+            || openShape.Elements.Count != closedShape.Elements.Count)
+        {
+            return;
+        }
+
+        for (var i = 0; i < openShape.Elements.Count; i++)
+        {
+            if (openShape.Elements[i].FieldDisplayTemplate != "{" + i + "}")
+            {
+                return;
+            }
+        }
+
+        var typeArguments = closedTuple.TupleElements
+            .Select(element => DisplayTypeInScope(element.Type));
+        displays[closedShape.Key] = openShape.Name + "<" + string.Join(", ", typeArguments) + ">";
+    }
+
+    private TupleShape? GetOrCreateAlignableShape(INamedTypeSymbol tupleType)
+    {
+        // 只按元素类型登记：这里拿到的是基类成员的替换结果，元素名（Element/Priority）
+        // 属于基类声明点，不应被当成这个具体形状自己的别名而污染生成的 struct。
+        var shape = TrackShape(_registry.GetOrCreateShape(
+            tupleType.TupleElements.Select(field => field.Type).ToArray(),
+            elementNames: null,
+            new SlotAssigner(),
+            _diagnostics));
+        return shape.IsEmittableFromTopLevel && !KeepsRuntimeValueTupleIdentity(shape)
+            ? shape
+            : null;
+    }
 
     public override SyntaxNode? VisitTupleType(TupleTypeSyntax node)
     {
@@ -2195,9 +2368,18 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
 
     private TypeSyntax ParseTypeNameInScope(TupleShape shape, INamedTypeSymbol tupleSymbol)
     {
-        var display = ShapeDisplayInScope(shape, tupleSymbol);
+        var display = ShapeDisplayForSite(shape, tupleSymbol);
         return SyntaxFactory.ParseTypeName($"global::{_namespace}.{display}");
     }
+
+    /// <summary>
+    /// 站点上的 struct 实例化文本。重写成员内优先使用与基类签名一致的泛型实例化
+    /// （见 <see cref="BuildOverrideShapeDisplays"/>）。
+    /// </summary>
+    private string ShapeDisplayForSite(TupleShape shape, INamedTypeSymbol tupleSymbol) =>
+        _shapeDisplayOverrides.TryGetValue(shape.Key, out var display)
+            ? display
+            : ShapeDisplayInScope(shape, tupleSymbol);
 
     /// <summary>在当前作用域内渲染 struct 实例化：泛型参数用其源码名（T 等）。</summary>
     private string ShapeDisplayInScope(TupleShape shape, INamedTypeSymbol tupleSymbol)
@@ -2282,7 +2464,7 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
                 if (named.IsTupleType)
                 {
                     var shape = TrackShape(_registry.GetOrCreateShape(named, _diagnostics));
-                    return ShapeDisplayInScope(shape, named);
+                    return ShapeDisplayForSite(shape, named);
                 }
 
                 var definition = named.OriginalDefinition;

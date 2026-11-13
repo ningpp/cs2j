@@ -783,4 +783,51 @@ public sealed class TupleToStructPreprocessorTests
         Assert.Contains("Cs2jTuples.TupleInt32Int32", result.Outputs[0]);
         AssertOutputCompiles(result.Outputs, result.StructFile);
     }
+
+    [Fact]
+    public void OverrideReturnType_ClosedDerivedClass_MatchesGenericBaseStruct()
+    {
+        // Regression for CS0508 in PriorityQueue.Generic.cs:
+        //   class PriorityQueue_Generic_Tests<TElement, TPriority>
+        //       : IGenericSharedAPI_Tests<(TElement Element, TPriority Priority)>
+        //   protected abstract T CreateT(int seed);   // TestBase<T>
+        //   class PriorityQueue_Generic_Tests_string_string : PriorityQueue_Generic_Tests<string, string>
+        //   { protected override (string, string) CreateT(int seed) => ...; }
+        // The generic base list lowers to the open struct
+        // `TupleT0T1<TElement, TPriority>`, so after substituting <string, string> the
+        // overridden member returns `TupleT0T1<string, string>`. Lowering the override's
+        // identical tuple to the closed struct `TupleStringString` makes the two types
+        // differ and the override illegal.
+        var genericBase = """
+            public abstract class TestBase<T>
+            {
+                protected abstract T CreateT(int seed);
+            }
+
+            public abstract class CollectionTests<TElement, TPriority>
+                : TestBase<(TElement Element, TPriority Priority)>
+            {
+            }
+            """;
+        var derived = """
+            public class StringPairTests : CollectionTests<string, string>
+            {
+                protected override (string, string) CreateT(int seed)
+                {
+                    return ("a" + seed, "b" + seed);
+                }
+            }
+            """;
+
+        var result = RunAll(genericBase, derived);
+
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == TupleToStructSeverity.Error));
+        // 基类声明点仍降级为开放泛型 struct。
+        Assert.Contains("TupleT0T1<TElement, TPriority>", result.Outputs[0]);
+        // 派生类的重写签名/返回字面量必须写成同一 struct 的实例化，而不是具体形状。
+        Assert.Contains(
+            "TupleT0T1<global::System.String, global::System.String> CreateT", result.Outputs[1]);
+        Assert.DoesNotContain("TupleStringString", result.Outputs[1]);
+        AssertOutputCompiles(result.Outputs, result.StructFile);
+    }
 }
