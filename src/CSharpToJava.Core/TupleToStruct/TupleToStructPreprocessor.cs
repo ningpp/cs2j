@@ -847,9 +847,7 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
         }
 
         var info = _model.GetTypeInfo(node);
-        var symbol = info.ConvertedType is INamedTypeSymbol { IsTupleType: true } converted
-            ? converted
-            : info.Type as INamedTypeSymbol;
+        var symbol = TupleLiteralType(info.ConvertedType) ?? TupleLiteralType(info.Type);
         if (symbol is not { IsTupleType: true })
         {
             WarnOnce("tuple-literal",
@@ -2321,6 +2319,30 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
         if (info.Type is INamedTypeSymbol { IsTupleType: true } natural)
         {
             return natural;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 元组字面量可用的元组类型。目标类型可能是可空值元组
+    /// <c>Nullable&lt;ValueTuple&lt;...&gt;&gt;</c>（返回类型 / 赋值目标写成 <c>(T1, T2)?</c>）；
+    /// 元素含 <c>null</c> 的元组字面量没有自然类型，只检查 ConvertedType 本身会漏掉这层
+    /// 可空包装，导致字面量保留原生元组语法而内层字面量已被降级，产出
+    /// <c>(x, new Cs2jTuples.Tuple...(...))</c> 无法转换到生成 struct（CS0029）。
+    /// </summary>
+    private static INamedTypeSymbol? TupleLiteralType(ITypeSymbol? type)
+    {
+        if (type is INamedTypeSymbol { IsTupleType: true } tuple)
+        {
+            return tuple;
+        }
+
+        if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable
+            && nullable.TypeArguments.Length == 1
+            && nullable.TypeArguments[0] is INamedTypeSymbol { IsTupleType: true } underlying)
+        {
+            return underlying;
         }
 
         return null;

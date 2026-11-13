@@ -261,6 +261,62 @@ public sealed class TupleToStructPreprocessorTests
     }
 
     [Fact]
+    public void NullableTupleTarget_TupleLiteralWithoutNaturalType_IsLoweredToStruct()
+    {
+        // Regression for CS0029 in RegexPrefixAnalyzer.FindLiteralFollowingLeadingLoop:
+        // the return type is a nullable value tuple `(T1, T2)?`. A tuple literal whose
+        // element types cannot be inferred naturally (`null` elements) has no `Type`,
+        // and its ConvertedType is `Nullable<ValueTuple<...>>` — not a tuple type. The
+        // literal was therefore left as native tuple syntax while its inner literals
+        // were lowered, producing `(x, new Cs2jTuples.Tuple...(...))` that cannot
+        // convert to the generated struct (CS0029).
+        var source = """
+            using System;
+
+            namespace dotnet.System.Text.RegularExpressions
+            {
+                internal sealed class RegexNode
+                {
+                    public string? Str;
+                }
+
+                internal static class RegexCharClass
+                {
+                    public static bool CharInClass(char ch, string set) => false;
+                }
+
+                internal static class P
+                {
+                    public static (RegexNode LoopNode, (char Char, string? String, StringComparison StringComparison, char[]? Chars) Literal)? FindLiteralFollowingLeadingLoop(RegexNode node)
+                    {
+                        RegexNode firstChild = node;
+                        RegexNode nextChild = node;
+                        if (FindPrefix(nextChild) is { Length: >= 1 } prefix)
+                        {
+                            return
+                                RegexCharClass.CharInClass(prefix[0], firstChild.Str!) ? null :
+                                prefix.Length == 1 ? (firstChild, (prefix[0], null, StringComparison.Ordinal, null)) :
+                                (firstChild, ('\0', prefix, StringComparison.Ordinal, null));
+                        }
+
+                        return null;
+                    }
+
+                    private static string? FindPrefix(RegexNode node) => node.Str;
+                }
+            }
+            """;
+
+        var result = RunAll(source);
+
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == TupleToStructSeverity.Error));
+        Assert.Contains(
+            "new global::Cs2jTuples.TupleRegexNodeTupleCharStringStringComparisonCharArray(firstChild",
+            result.Outputs[0]);
+        AssertOutputCompiles(result.Outputs, result.StructFile);
+    }
+
+    [Fact]
     public void NamedElementAccess_InFileWithoutTupleSyntax_IsRewrittenToItemN()
     {
         // Regression for CS1061 in RegexInterpreter.cs: _code.LeadingCharClasses[0].CharClass
