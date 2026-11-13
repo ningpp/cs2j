@@ -219,6 +219,107 @@ public sealed class TupleShapeIdentityTests
         AssertOutputCompiles(result.Outputs, structFile);
     }
 
+    [Fact]
+    public void UnresolvedElementTypes_InstantiateViaInferredFactory()
+    {
+        // pass 把整棵树合并成一个编译单元，名字可能因此无法解析（缺引用，或 dotnet.*
+        // 与 BCL 同名命名空间产生歧义）：out var / lambda 参数绑定成 error type，
+        // 元组字面量的元素类型也随之不可知。把 error type 物化成 object 会写出
+        // `TupleT0T1<object, object>`，而真实编译里的同一定义是
+        // `TupleT0T1<TElement, TPriority>`，两者是不同的 C# 类型（CS1503/CS0266）。
+        // 修复后改为调用生成的泛型工厂，由真正编译该文件的编译器按实参推断元素类型。
+        const string source = """
+            public sealed class Recorder<TElement, TPriority>
+            {
+                private readonly MissingList<(TElement Element, TPriority Priority)> _items = new();
+
+                public void Record(MissingQueue<TElement, TPriority> queue)
+                {
+                    queue.TryPeek(out var element, out var priority);
+                    _items.Add((element, priority));
+                }
+            }
+            """;
+
+        // 真实工程里这些类型当然能解析；验证编译时补上定义，模拟"pass 的合并编译看不到、
+        // 真正编译能看到"的情形。
+        const string missingTypes = """
+            public sealed class MissingList<T>
+            {
+                public void Add(T item) { }
+            }
+
+            public sealed class MissingQueue<TElement, TPriority>
+            {
+                public bool TryPeek(out TElement element, out TPriority priority)
+                {
+                    element = default!;
+                    priority = default!;
+                    return true;
+                }
+            }
+            """;
+
+        var result = Run(source);
+
+        Assert.Contains("TupleT0T1Factory.Create(element, priority)", result.Outputs[0]);
+        Assert.DoesNotContain(
+            "TupleT0T1<global::System.Object, global::System.Object>",
+            result.Outputs[0]);
+        AssertOutputCompiles(new[] { result.Outputs[0], missingTypes }, result.StructFile);
+    }
+
+    [Fact]
+    public void GeneratedStructFile_ProvidesInferredFactoryPerShape()
+    {
+        const string source = """
+            using System;
+
+            public static class Use
+            {
+                public static void Run()
+                {
+                    var one = (1, "a");
+                    Console.WriteLine(one);
+                }
+            }
+            """;
+
+        var result = Run(source);
+
+        var structFile = result.StructFile!;
+        Assert.Contains("public static class TupleT0T1Factory", structFile);
+        Assert.Contains(
+            "public static TupleT0T1<__P0, __P1> Create<__P0, __P1>(__P0 item1, __P1 item2)",
+            structFile);
+        AssertOutputCompiles(result.Outputs, structFile);
+    }
+
+    [Fact]
+    public void Factory_ForLongTuple_BuildsNestedRestChain()
+    {
+        // 8+ 元组按 ValueTuple 的 Rest 链布局生成，工厂方法必须把扁平实参重新分组。
+        const string source = """
+            public static class Use
+            {
+                public static (int, int, int, int, int, int, int, int) Run()
+                    => (1, 2, 3, 4, 5, 6, 7, 8);
+            }
+            """;
+
+        var result = Run(source);
+
+        var structFile = result.StructFile!;
+        Assert.Contains(
+            "Create<__P0, __P1, __P2, __P3, __P4, __P5, __P6, __P7>",
+            structFile);
+        Assert.Contains(
+            "new TupleT0T1T2T3T4T5T6T7<__P0, __P1, __P2, __P3, __P4, __P5, __P6, __P7>" +
+            "(item1, item2, item3, item4, item5, item6, item7, new TupleT0<__P7>(item8))",
+            structFile);
+        AssertOutputCompiles(result.Outputs, structFile);
+    }
+
     private static int CountOccurrences(string text, string value)
     {
         var count = 0;

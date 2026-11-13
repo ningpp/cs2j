@@ -2281,6 +2281,16 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
         INamedTypeSymbol tupleSymbol,
         IReadOnlyList<ExpressionSyntax> arguments)
     {
+        // 元素类型在本 pass 的合并编译里无法解析（缺引用/命名空间歧义会让 out var、
+        // lambda 参数等绑定失败）时，站点上的类型实参不可知；把 error type 物化成
+        // object 会生成 TupleT0T1<object, object>，而真实编译里的同一定义是
+        // TupleT0T1<TElement, TPriority>，两者是不同的 C# 类型（CS1503/CS0266）。
+        // 改走生成的泛型工厂方法，由真正编译该文件的编译器按实参推断元素类型。
+        if (shape.GenericArity > 0 && HasUnresolvedElements(tupleSymbol))
+        {
+            return BuildInferredStructCreation(shape, arguments);
+        }
+
         var typeSyntax = ParseTypeNameInScope(shape, tupleSymbol);
         var args = shape.Arity > 7
             ? GroupTailArguments(shape, tupleSymbol, arguments)
@@ -2291,6 +2301,24 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
                 SyntaxFactory.SeparatedList(args.Select(SyntaxFactory.Argument))),
             null);
     }
+
+    private static bool HasUnresolvedElements(INamedTypeSymbol tupleSymbol) =>
+        tupleSymbol.TupleElements.Any(field => field.Type is IErrorTypeSymbol);
+
+    /// <summary>
+    /// 元素类型未知时的 struct 构造：调用按元数生成的泛型工厂
+    /// （<c>TupleT0T1Factory.Create</c>），不给显式类型实参。工厂方法的类型参数由实参
+    /// 推断，开放站点（<c>TElement</c>）与具体站点（<c>int</c>）因此都落到在真实编译
+    /// 里唯一的那个 struct 实例化上。
+    /// </summary>
+    private ExpressionSyntax BuildInferredStructCreation(
+        TupleShape shape,
+        IReadOnlyList<ExpressionSyntax> arguments)
+        => SyntaxFactory.InvocationExpression(
+            SyntaxFactory.ParseExpression(
+                $"global::{_namespace}.{shape.Name}Factory.Create"),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.SeparatedList(arguments.Select(SyntaxFactory.Argument))));
 
     private ExpressionSyntax BuildStructCreationWithCasts(
         TupleShape shape,

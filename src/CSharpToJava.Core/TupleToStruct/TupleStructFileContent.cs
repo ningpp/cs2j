@@ -36,6 +36,7 @@ internal static partial class TupleStructFileContent
         foreach (var shape in shapes)
         {
             AppendStruct(sb, shape, namespaceName, internalAccessibility);
+            AppendFactory(sb, shape, internalAccessibility);
         }
 
         sb.AppendLine("}");
@@ -298,6 +299,66 @@ internal static partial class TupleStructFileContent
         {
             yield return (pair.Key, pair.Value.Min);
         }
+    }
+
+    /// <summary>
+    /// 与 struct 配套的泛型工厂：<c>TupleT0T1Factory.Create(a, b)</c> 返回
+    /// <c>TupleT0T1&lt;TA, TB&gt;</c>，元素类型由实参推断。改写 pass 只在元素类型的
+    /// 语义信息不可用（error type）时才调用它——那时显式类型实参只能物化成 object，
+    /// 与真实编译里的站点类型不一致（CS1503/CS0266）；由真正编译该文件的编译器按
+    /// 实参推断，开放/具体站点才能落到同一个 struct 实例化上。
+    /// 工厂与 struct 同文件、同可访问性，因此其可见性与对应 struct 一致。
+    /// </summary>
+    private static void AppendFactory(
+        StringBuilder sb,
+        TupleShape shape,
+        bool internalAccessibility)
+    {
+        if (shape.GenericArity == 0)
+        {
+            return;
+        }
+
+        var genericParams = "<"
+            + string.Join(", ", Enumerable.Range(0, shape.GenericArity).Select(i => $"__P{i}"))
+            + ">";
+        var parameters = Enumerable.Range(0, shape.Arity)
+            .Select(i => $"__P{i} item{i + 1}");
+        var slots = Enumerable.Range(0, shape.Arity).ToArray();
+
+        sb.AppendLine();
+        sb.Append("    ").Append(internalAccessibility ? "internal" : "public")
+            .Append(" static class ").Append(shape.Name).AppendLine("Factory");
+        sb.AppendLine("    {");
+        sb.Append("        public static ").Append(shape.Name).Append(genericParams)
+            .Append(" Create").Append(genericParams).Append('(')
+            .Append(string.Join(", ", parameters)).AppendLine(")");
+        sb.Append("            => ").Append(RenderFactoryCreation(shape, slots)).AppendLine(";");
+        sb.AppendLine("    }");
+    }
+
+    /// <summary>
+    /// 工厂方法体内的 struct 构造：<paramref name="globalSlots"/> 把当前层的元素位置
+    /// 映射回外层泛型参数编号（8+ 元组的 Rest 尾链逐层绑定）。
+    /// </summary>
+    private static string RenderFactoryCreation(TupleShape shape, IReadOnlyList<int> globalSlots)
+    {
+        var typeArguments = shape.GenericArity > 0
+            ? "<" + string.Join(
+                ", ",
+                Enumerable.Range(0, shape.GenericArity).Select(i => "__P" + globalSlots[i])) + ">"
+            : string.Empty;
+        var headCount = Math.Min(shape.Arity, 7);
+        var arguments = Enumerable.Range(0, headCount)
+            .Select(i => "item" + (globalSlots[i] + 1))
+            .ToList();
+        if (shape.Arity > 7)
+        {
+            var tailSlots = shape.TailArgSlots.Select(slot => globalSlots[slot]).ToArray();
+            arguments.Add(RenderFactoryCreation(shape.Tail!, tailSlots));
+        }
+
+        return "new " + shape.Name + typeArguments + "(" + string.Join(", ", arguments) + ")";
     }
 
     private static string RenderTailFieldType(TupleShape shape)
