@@ -157,6 +157,73 @@ public class EnumDeclarationZeroDefaultUnitTests
     }
 
     [Fact]
+    public void ReadonlyStruct_Readonly_Enum_Field_Assigned_In_Ctor_Compiles()
+    {
+        // HebrewNumber.HebrewValue pattern: a readonly struct declares a readonly
+        // enum-typed field and assigns it in its constructor. Rewriting that field
+        // to a get-only property makes the constructor assignment CS0200; the
+        // synthesized accessor must stay assignable from constructors (init).
+        const string src = """
+            using System;
+            enum E : short { None = 0, A = 1 }
+            readonly struct S
+            {
+                internal readonly E Token;
+                internal S(E token) { this.Token = token; }
+            }
+            class C
+            {
+                public static E Make() => new S(E.A).Token;
+                public static E FromDefault() => default(S).Token;
+            }
+            """;
+
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed, string.Join("\n", diags.Select(d => $"{d.Code}: {d.Message}")));
+        AssertOutputCompiles(code);
+
+        var asm = EmitAssembly(code, "ed-readonly-struct-" + Guid.NewGuid().ToString("N"));
+        var cType = asm.GetType("C")!;
+        Assert.Equal(1, GetUnderlyingValue(cType.GetMethod("Make")!.Invoke(null, null)!));
+        Assert.Equal(0, GetUnderlyingValue(cType.GetMethod("FromDefault")!.Invoke(null, null)!));
+    }
+
+    [Fact]
+    public void Struct_Private_Readonly_Enum_Field_Assigned_In_Ctor_Compiles()
+    {
+        // FacetsChecker.FacetsCompiler pattern: a non-readonly struct keeps a
+        // private readonly enum-typed field. The synthesized accessor must not
+        // declare an explicit private set on an already private property
+        // (CS0273: accessor accessibility must be more restrictive).
+        const string src = """
+            using System;
+            enum E : short { None = 0, A = 1 }
+            struct S
+            {
+                private readonly E _token;
+                internal S(E token) { _token = token; }
+                internal E Get() => _token;
+            }
+            class C
+            {
+                public static E Make() => new S(E.A).Get();
+                public static E FromDefault() => default(S).Get();
+            }
+            """;
+
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed, string.Join("\n", diags.Select(d => $"{d.Code}: {d.Message}")));
+        AssertOutputCompiles(code);
+
+        var asm = EmitAssembly(code, "ed-private-field-" + Guid.NewGuid().ToString("N"));
+        var cType = asm.GetType("C")!;
+        Assert.Equal(1, GetUnderlyingValue(cType.GetMethod("Make")!.Invoke(null, null)!));
+        Assert.Equal(0, GetUnderlyingValue(cType.GetMethod("FromDefault")!.Invoke(null, null)!));
+    }
+
+    [Fact]
     public void TypeReferenceOnly_File_IsTouched_And_Class_AutoProperty_Seeded()
     {
         // Label.cs pattern: the file only mentions the converted enum as a

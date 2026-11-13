@@ -707,9 +707,10 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
                 pred = BinaryExpression(SyntaxKind.LogicalAndExpression,
                     Paren(pred), Paren(arm.WhenClause.Condition.WithoutTrivia()));
             var innerFallback = fallback
-                ?? ParseExpression("throw new System.Runtime.CompilerServices.SwitchExpressionException()");
+                ?? ParseExpression("throw new global::System.Runtime.CompilerServices.SwitchExpressionException()");
             fallback = ConditionalExpression(Paren(pred),
-                Paren(arm.Expression.WithoutTrivia()), Paren(innerFallback));
+                AsConditionalOperand(arm.Expression.WithoutTrivia()),
+                AsConditionalOperand(innerFallback));
         }
 
         var result = Paren(fallback ?? ParseExpression("default"));
@@ -723,6 +724,13 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
         public bool IsDiscard;
         public ExpressionSyntax? Predicate;
     }
+
+    /// <summary>
+    /// 条件表达式操作数需要括号保证结合顺序，但 throw 表达式一旦加括号即 CS8115
+    /// （`_ => throw ...` 退化链，Cryptography Helpers 形态）。
+    /// </summary>
+    private static ExpressionSyntax AsConditionalOperand(ExpressionSyntax expression)
+        => expression is ThrowExpressionSyntax ? expression : Paren(expression);
 
     /// <summary>
     /// Distinct placeholder used while building switch-expression predicates
@@ -1392,9 +1400,20 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
             {
                 Getter(backingName, plan),
             };
-            if (!isReadonlyStruct)
+            if (isReadonlyStruct)
             {
-                accessors.Add(isReadonlyField
+                // readonly struct 的实例字段本就只能在构造函数/对象初始化器里赋值；
+                // 若只生成 get 访问器，构造函数里的 this.F = v 会变成 CS0200
+                // （HebrewNumber.HebrewValue 形态）。init 访问器保留这些合法赋值，
+                // 同时不引入 readonly struct 禁止的可变 setter。
+                accessors.Add(InitSetter(backingName));
+            }
+            else
+            {
+                // 字段本身 private 时属性的可访问性已是 private，再给 set 加
+                // private 修饰符即等价可访问性（CS0273，FacetsCompiler 形态）；
+                // 此时裸 set 已经是 private。
+                accessors.Add(isReadonlyField && !IsPrivateAccessibility(visited.Modifiers)
                     ? PrivateSetter(backingName)
                     : Setter(backingName));
             }
@@ -1501,6 +1520,15 @@ internal sealed class EnumUseSiteRewriter : CSharpSyntaxRewriter
         => Setter(backingName)
             .WithModifiers(TokenList(
                 Token(SyntaxKind.PrivateKeyword).WithTrailingTrivia(ElasticSpace)));
+
+    private static AccessorDeclarationSyntax InitSetter(string backingName)
+        => AccessorDeclaration(SyntaxKind.InitAccessorDeclaration)
+            .WithKeyword(Token(SyntaxKind.InitKeyword).WithTrailingTrivia(ElasticSpace))
+            .WithBody(AssignmentBody(backingName));
+
+    /// <summary>`private` / `private protected` 声明的成员可访问性已是 private。</summary>
+    private static bool IsPrivateAccessibility(SyntaxTokenList modifiers)
+        => modifiers.Any(SyntaxKind.PrivateKeyword);
 
     private static SyntaxToken SpacedEqualsToken()
         => Token(SyntaxKind.EqualsToken)

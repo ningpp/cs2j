@@ -899,6 +899,54 @@ public class EnumDeclarationRewriterUnitTests
     }
 
     [Fact]
+    public void Enum_In_Dotnet_System_Namespace_ToString_Uses_Global_System_Text()
+    {
+        // DateTimeFormatInfo(MonthNameStyles) pattern: the rewritten enum lives in
+        // dotnet.System.*, where an unqualified `System.Text.StringBuilder` binds
+        // `System` to the project's dotnet.System namespace (CS0234). Synthesized
+        // BCL references must be global-qualified.
+        const string src = """
+            using System;
+            namespace dotnet.System.Sample
+            {
+                [Flags]
+                internal enum E { None = 0, A = 1, B = 2 }
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed, string.Join("\n", diags.Select(d => $"{d.Code}: {d.Message}")));
+        Assert.Contains("global::System.Text.StringBuilder", code);
+        AssertOutputCompiles(code);
+    }
+
+    [Fact]
+    public void SwitchExpression_DiscardArm_ThrowExpression_IsNotParenthesized()
+    {
+        // Cryptography Helpers.MapExportParametersToPbeParameters: the discard arm
+        // throws. Lowering to a conditional chain must not parenthesize the throw
+        // expression (CS8115: a throw expression is not allowed in this context).
+        var src = """
+            using System;
+            enum E { A = 0, B = 1 }
+            class C
+            {
+                static int M(E e) => e switch
+                {
+                    E.A => 1,
+                    _ => throw new InvalidOperationException(),
+                };
+            }
+            """;
+        var (code, changed, _, diags) = Rewrite(src);
+
+        Assert.True(changed);
+        Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
+        Assert.DoesNotContain("(throw", code.Replace(" ", ""));
+        AssertOutputCompiles(code);
+    }
+
+    [Fact]
     public void IsPattern_WithEnumPassLoweredConstant_CapturesSemanticsBeforeVisit()
     {
         var src = """

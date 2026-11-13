@@ -132,7 +132,7 @@ internal static class EnumDeclarationSynthesizer
             sb.AppendLine("            if (format.Length > 1) { width = int.Parse(format.Substring(1)); }");
             sb.AppendLine($"            return {hex}({bf}, width);");
             sb.AppendLine("        }");
-            sb.AppendLine($"        throw new System.FormatException(string.Concat(\"Format string '\", format, \"' is not valid for enum {E}.\"));");
+            sb.AppendLine($"        throw new global::System.FormatException(string.Concat(\"Format string '\", format, \"' is not valid for enum {E}.\"));");
             sb.AppendLine("    }");
             sb.AppendLine();
 
@@ -230,7 +230,7 @@ internal static class EnumDeclarationSynthesizer
             sb.AppendLine($"    public static {E} {parse}(string value) " +
                 $"{{ return {parse}(value, false); }}");
             sb.AppendLine($"    public static {E} {parse}(string value, bool ignoreCase) {{");
-            sb.AppendLine("        if (value == null) { throw new System.ArgumentNullException(\"value\"); }");
+            sb.AppendLine("        if (value == null) { throw new global::System.ArgumentNullException(\"value\"); }");
             sb.AppendLine("        string t = value.Trim();");
             if (flags)
             {
@@ -309,8 +309,8 @@ internal static class EnumDeclarationSynthesizer
         if (flags && (plan.Needs(EnumOptionalMembers.Parse)
             || plan.Needs(EnumOptionalMembers.TryParse)))
         {
-            sb.AppendLine("    private static System.Exception BadValue(string token) {");
-            sb.AppendLine($"        return new System.ArgumentException(string.Concat(\"'\", token, \"' is not a valid {E}.\"));");
+            sb.AppendLine("    private static global::System.Exception BadValue(string token) {");
+            sb.AppendLine($"        return new global::System.ArgumentException(string.Concat(\"'\", token, \"' is not a valid {E}.\"));");
             sb.AppendLine("    }");
         }
 
@@ -356,7 +356,7 @@ internal static class EnumDeclarationSynthesizer
             sb.AppendLine($"        if ({bf} == 0) " +
                 $"{{ return {(zeroName != null ? SymbolDisplay.FormatLiteral(zeroName, true) : "\"0\"")}; }}");
             sb.AppendLine("        ulong rest = (ulong)" + bf + ";");
-            sb.AppendLine("        System.Text.StringBuilder sb = new System.Text.StringBuilder();");
+            sb.AppendLine("        global::System.Text.StringBuilder sb = new global::System.Text.StringBuilder();");
             // .NET InternalFlagsFormat：按位值降序消耗（确保复合成员先于其子位被命中），
             // 每命中一个成员就前插其名称，最终输出即与运行时一致的位值升序 "A, B"。
             foreach (var m in plan.Members.Where(m => m.Bits != 0)
@@ -401,7 +401,7 @@ internal static class EnumDeclarationSynthesizer
             foreach (var m in plan.Members)
             {
                 sb.AppendLine($"            if (token.Equals({SymbolDisplay.FormatLiteral(m.Name, true)}, " +
-                    "System.StringComparison.OrdinalIgnoreCase)) " +
+                    "global::System.StringComparison.OrdinalIgnoreCase)) " +
                     $"{{ value = {LiteralForCompare(m, plan)}; return true; }}");
             }
             sb.AppendLine("        } else {");
@@ -424,7 +424,7 @@ internal static class EnumDeclarationSynthesizer
             foreach (var m in plan.Members)
             {
                 sb.AppendLine($"            if (token.Equals({SymbolDisplay.FormatLiteral(m.Name, true)}, " +
-                    "System.StringComparison.OrdinalIgnoreCase)) " +
+                    "global::System.StringComparison.OrdinalIgnoreCase)) " +
                     $"{{ return {LiteralForCompare(m, plan)}; }}");
             }
             sb.AppendLine("        } else {");
@@ -436,7 +436,7 @@ internal static class EnumDeclarationSynthesizer
             sb.AppendLine("        }");
             AppendNumericParse(sb, U, unsigned,
                 "return unchecked(({0}){1});");
-            sb.AppendLine($"        throw new System.ArgumentException(string.Concat(\"'\", token, \"' is not a valid {E}.\"));");
+            sb.AppendLine($"        throw new global::System.ArgumentException(string.Concat(\"'\", token, \"' is not a valid {E}.\"));");
             sb.AppendLine("    }");
         }
         sb.AppendLine();
