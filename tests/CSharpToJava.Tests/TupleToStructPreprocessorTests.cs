@@ -214,6 +214,49 @@ public sealed class TupleToStructPreprocessorTests
     }
 
     [Fact]
+    public void NestedTypeInsideGenericType_KeepsContainingTypeArguments()
+    {
+        // Regression for CS0426 in System.Text.RegularExpressions:
+        // the tuple element `SymbolicRegexMatcher<TSet>.Registers` is a type nested
+        // in a GENERIC type. Naming the nested type without the containing type's
+        // arguments (`Matcher.Registers`) refers to the non-generic actor type
+        // `Matcher`, which has no nested `Registers` → CS0426. The generated field
+        // must be `Matcher<__P0>.Registers`, and `__P0` must be discovered through
+        // the containing type's arguments (so the struct is generic and redeclares
+        // TSet's constraints).
+        var source = """
+            using System;
+            using System.Collections.Generic;
+
+            internal sealed class Matcher<TSet> where TSet : IComparable<TSet>, IEquatable<TSet>
+            {
+                internal struct Registers
+                {
+                    public int[] Starts;
+                }
+
+                public void Run()
+                {
+                    Action<int, (Dictionary<Registers, int> Current, Registers Initial)> f =
+                        static (int nfaId, (Dictionary<Registers, int> Current, Registers Initial) args) =>
+                        {
+                            Console.WriteLine(nfaId + args.Current.Count + args.Initial.Starts.Length);
+                        };
+                }
+            }
+            """;
+        var result = RunAll(source);
+
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == TupleToStructSeverity.Error));
+        Assert.NotNull(result.StructFile);
+        Assert.Contains("Matcher<__P0>.Registers", result.StructFile);
+        Assert.Contains(
+            "where __P0 : global::System.IComparable<__P0>, global::System.IEquatable<__P0>",
+            result.StructFile);
+        AssertOutputCompiles(result.Outputs, result.StructFile);
+    }
+
+    [Fact]
     public void NamedElementAccess_InFileWithoutTupleSyntax_IsRewrittenToItemN()
     {
         // Regression for CS1061 in RegexInterpreter.cs: _code.LeadingCharClasses[0].CharClass

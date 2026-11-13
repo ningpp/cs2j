@@ -2207,7 +2207,12 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
                     name = name[..index];
                 }
 
-                var prefix = TupleShapeRegistry.QualifiedMetadataPrefix(definition);
+                var prefix = TupleShapeRegistry.QualifiedMetadataPrefix(named, DisplayTypeInScope);
+                if (prefix == null)
+                {
+                    return "global::System.Object";
+                }
+
                 if (named.TypeArguments.Length == 0)
                 {
                     return prefix + name;

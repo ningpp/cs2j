@@ -408,8 +408,15 @@ internal sealed partial class TupleShapeRegistry
             {
                 var definition = named.OriginalDefinition;
                 var name = StripGenericSuffix(definition.MetadataName ?? definition.Name);
-                var prefix = QualifiedMetadataPrefix(definition);
-                if (named.Arity == 0 || named.TypeArguments.Length == 0)
+                var prefix = QualifiedMetadataPrefix(
+                    named,
+                    argument => BuildConstraintTemplate(argument, slots));
+                if (prefix == null)
+                {
+                    return null;
+                }
+
+                if (named.TypeArguments.Length == 0)
                 {
                     return prefix + name;
                 }
@@ -550,8 +557,21 @@ internal sealed partial class TupleShapeRegistry
 
                 var definition = named.OriginalDefinition;
                 var name = StripGenericSuffix(definition.MetadataName ?? definition.Name);
-                var prefix = QualifiedMetadataPrefix(definition);
-                if (named.Arity == 0 || named.TypeArguments.Length == 0)
+                // 嵌套类型必须带外层类型链的泛型实参（`Outer<T>.Inner`）：省略实参
+                // 会指向非泛型同名类型，C# 报 CS0426（外层类型中不存在该嵌套类型）。
+                var prefix = QualifiedMetadataPrefix(
+                    named,
+                    argument => BuildDisplayTemplate(argument, slots, diagnostics));
+                if (prefix == null)
+                {
+                    diagnostics.Add(new TupleToStructDiagnostic(
+                        TupleToStructSeverity.Warning,
+                        $"Tuple element type '{type.ToDisplayString()}' has a containing " +
+                        "generic type that could not be named; it was replaced with object."));
+                    return "global::System.Object";
+                }
+
+                if (named.TypeArguments.Length == 0)
                 {
                     return prefix + name;
                 }
@@ -775,16 +795,39 @@ internal sealed partial class TupleShapeRegistry
 
     /// <summary>
     /// 完整限定名文本：嵌套类型必须带外层类型链（例如 System.HexConverter.Casing）。
+    /// 外层类型是泛型类型时还必须带上它的泛型实参（<c>Outer&lt;T&gt;.Inner</c>）：
+    /// 省略实参的 <c>Outer.Inner</c> 绑定到同名非泛型类型的嵌套成员上，C# 报
+    /// CS0426。实参由 <paramref name="renderContainingArgument"/> 渲染（可能是类型
+    /// 参数槽位占位符或源码作用域内的类型名）；任一实参无法渲染时返回 null。
     /// </summary>
-    internal static string QualifiedMetadataPrefix(INamedTypeSymbol definition)
+    internal static string? QualifiedMetadataPrefix(
+        INamedTypeSymbol named,
+        Func<ITypeSymbol, string?> renderContainingArgument)
     {
         var chain = new List<string>();
-        for (var containing = definition.ContainingType; containing != null; containing = containing.ContainingType)
+        for (var containing = named.ContainingType; containing != null; containing = containing.ContainingType)
         {
-            chain.Insert(0, StripGenericSuffix(containing.MetadataName ?? containing.Name));
+            var name = StripGenericSuffix(containing.MetadataName ?? containing.Name);
+            if (containing.TypeArguments.Length > 0)
+            {
+                var arguments = new List<string>(containing.TypeArguments.Length);
+                foreach (var argument in containing.TypeArguments)
+                {
+                    if (renderContainingArgument(argument) is not { } text)
+                    {
+                        return null;
+                    }
+
+                    arguments.Add(text);
+                }
+
+                name += "<" + string.Join(", ", arguments) + ">";
+            }
+
+            chain.Insert(0, name);
         }
 
-        var ns = definition.ContainingNamespace;
+        var ns = named.ContainingNamespace;
         var namespaceText = ns is { IsGlobalNamespace: true } || ns == null
             ? string.Empty
             : ns.ToDisplayString() + ".";
@@ -844,6 +887,25 @@ internal sealed partial class TupleShapeRegistry
                     }
 
                     return;
+                }
+
+                // 嵌套类型的外层泛型实参先于自身实参（与显示文本
+                // `Outer<T>.Inner<U>` 的书写顺序一致），否则槽位编号与渲染顺序不符。
+                if (named.ContainingType != null)
+                {
+                    var chain = new List<INamedTypeSymbol>();
+                    for (var containing = named.ContainingType; containing != null; containing = containing.ContainingType)
+                    {
+                        chain.Add(containing);
+                    }
+
+                    for (var i = chain.Count - 1; i >= 0; i--)
+                    {
+                        foreach (var argument in chain[i].TypeArguments)
+                        {
+                            CollectParameterOrder(argument, into);
+                        }
+                    }
                 }
 
                 foreach (var arg in named.TypeArguments)
