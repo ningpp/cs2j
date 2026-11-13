@@ -554,6 +554,26 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         return expr;
     }
 
+    /// <summary>
+    /// <c>x is E.M</c> binds tighter than any binary operator, while the lowered
+    /// <c>x == E.M</c> shares precedence with <c>==</c>/<c>!=</c>. Substituting it
+    /// directly as an equality operand therefore re-associates:
+    /// <c>a != x is E.M</c> (i.e. <c>a != (x is E.M)</c>) would become
+    /// <c>(a != x) == E.M</c> (CS0019). Wrap the replacement in parentheses
+    /// whenever the original node is an operand of an equality operator.
+    /// </summary>
+    private static ExpressionSyntax ParenthesizeInEqualityOperand(
+        ExpressionSyntax replacement, SyntaxNode original)
+    {
+        if (original.Parent is BinaryExpressionSyntax parent
+            && (parent.IsKind(SyntaxKind.EqualsExpression)
+                || parent.IsKind(SyntaxKind.NotEqualsExpression)))
+        {
+            return SyntaxFactory.ParenthesizedExpression(replacement);
+        }
+        return replacement;
+    }
+
     // ════════════════════════════════════════════════════════════════
     // Visit overrides: binary, unary, compound assignment, HasFlag
     // ════════════════════════════════════════════════════════════════
@@ -747,11 +767,13 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
                     : node.IsKeyword.TrailingTrivia);
 
         IncrementRewrite();
-        return SyntaxFactory.BinaryExpression(
-            negated ? SyntaxKind.NotEqualsExpression : SyntaxKind.EqualsExpression,
-            visitedExpr,
-            token,
-            visitedConstant);
+        return ParenthesizeInEqualityOperand(
+            SyntaxFactory.BinaryExpression(
+                negated ? SyntaxKind.NotEqualsExpression : SyntaxKind.EqualsExpression,
+                visitedExpr,
+                token,
+                visitedConstant),
+            node);
     }
 
     /// <summary><c>object.Equals(left, right)</c> — null-safe, single-evaluation
@@ -862,8 +884,10 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
         var token = SyntaxFactory.Token(SyntaxKind.EqualsEqualsToken)
             .WithLeadingTrivia(node.OperatorToken.LeadingTrivia)
             .WithTrailingTrivia(node.OperatorToken.TrailingTrivia);
-        return SyntaxFactory.BinaryExpression(
-            SyntaxKind.EqualsExpression, left, token, member);
+        return ParenthesizeInEqualityOperand(
+            SyntaxFactory.BinaryExpression(
+                SyntaxKind.EqualsExpression, left, token, member),
+            node);
     }
 
     /// <summary>

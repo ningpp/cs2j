@@ -284,6 +284,32 @@ public sealed class EnumArithmeticLoweringTests
         Assert.DoesNotContain(" is Accessibility.Public", result.OutputCode);
     }
 
+    [Fact]
+    public void Is_Enum_Member_As_Equality_Operand_Is_Parenthesized()
+    {
+        // Mirrors CSharpSyntaxHelper.AddAliases:
+        //   if (global != usingDirective.GlobalKeyword.Kind() is SyntaxKind.GlobalKeyword)
+        // `is` binds tighter than `!=`, so the original means
+        // `global != (Kind() is GlobalKeyword)`. Lowering the `is` to `==` must
+        // keep that grouping; without parentheses the output re-associates to
+        // `(global != Kind()) == GlobalKeyword` (CS0019).
+        var src = """
+        enum E { A = 1, B = 2 }
+        class C
+        {
+            bool M(bool flag, E value) => flag != value is E.A;
+            bool N(bool flag, E value) => flag != value is not E.A;
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        var code = Squish(result.OutputCode);
+        Assert.Contains("flag != (value == E.A)", code);
+        Assert.Contains("flag != (value != E.A)", code);
+        Assert.Empty(CompileErrors(result.OutputCode));
+    }
+
     // ── 4) narrow underlying bitwise / arithmetic ──
 
     [Fact]
