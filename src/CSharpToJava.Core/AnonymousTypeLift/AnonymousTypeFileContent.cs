@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace CSharpToJava.Core.AnonymousTypeLift;
 
@@ -64,12 +65,14 @@ internal static partial class AnonymousTypeFileContent
         sb.AppendLine("    {");
 
         // ---- 只读自动属性（零属性形状也合法）----
+        // 属性名可能恰好是 C# 保留关键字（源码用 @class / @event 书写，符号名去掉 @），
+        // 生成声明与所有引用点必须补回 @，否则生成的 class 无法编译（CS1519/CS1001）。
         for (var i = 0; i < shape.Properties.Count; i++)
         {
             sb.Append("        public ")
                 .Append(propertyTypes[i])
                 .Append(' ')
-                .Append(shape.Properties[i].Name)
+                .Append(EscapeIdentifier(shape.Properties[i].Name))
                 .AppendLine(" { get; }");
         }
 
@@ -82,7 +85,7 @@ internal static partial class AnonymousTypeFileContent
         sb.AppendLine("        {");
         for (var i = 0; i < shape.Properties.Count; i++)
         {
-            sb.Append("            ").Append(shape.Properties[i].Name)
+            sb.Append("            ").Append(EscapeIdentifier(shape.Properties[i].Name))
                 .Append(" = ").Append(parameterNames[i]).AppendLine(";");
         }
 
@@ -143,9 +146,9 @@ internal static partial class AnonymousTypeFileContent
             sb.Append("global::System.Collections.Generic.EqualityComparer<")
                 .Append(propertyTypes[i])
                 .Append(">.Default.Equals(")
-                .Append(shape.Properties[i].Name)
+                .Append(EscapeIdentifier(shape.Properties[i].Name))
                 .Append(", other.")
-                .Append(shape.Properties[i].Name)
+                .Append(EscapeIdentifier(shape.Properties[i].Name))
                 .Append(')');
         }
 
@@ -179,7 +182,7 @@ internal static partial class AnonymousTypeFileContent
                     .Append("global::System.Collections.Generic.EqualityComparer<")
                     .Append(propertyTypes[i])
                     .Append(">.Default.GetHashCode(")
-                    .Append(shape.Properties[i].Name)
+                    .Append(EscapeIdentifier(shape.Properties[i].Name))
                     .AppendLine(");");
             }
 
@@ -214,8 +217,9 @@ internal static partial class AnonymousTypeFileContent
                 }
 
                 var name = shape.Properties[i].Name;
+                // 标签文本用符号原名（原生匿名类型 ToString 输出不带 @）；取值标识符补 @。
                 sb.Append("\"").Append(i == 0 ? "{ " : ", ").Append(name).Append(" = \", ")
-                    .Append(name);
+                    .Append(EscapeIdentifier(name));
             }
 
             sb.AppendLine(", \" }\");");
@@ -295,8 +299,10 @@ internal static partial class AnonymousTypeFileContent
     }
 
     /// <summary>
-    /// 构造参数名 = 属性名首字母小写（ToCamel）；与属性名、类型形参 __P{i} 或先
-    /// 前参数碰撞时追加下划线并在声明空间内探测（D16，确定性）。
+    /// 构造参数名 = 属性名首字母小写（ToCamel）；与属性名、类型形参 __P{i}、先前参数
+    /// 或 C# 保留关键字碰撞时追加下划线并在声明空间内探测（D16，确定性）。
+    /// 关键字必须避开：属性 <c>Class</c> 的驼峰参数名是 <c>class</c>，直接输出会
+    /// 生成无法编译的形参声明（CS1519）。
     /// </summary>
     private static IReadOnlyList<string> BuildCtorParameterNames(AnonymousShape shape)
     {
@@ -315,7 +321,7 @@ internal static partial class AnonymousTypeFileContent
         foreach (var property in shape.Properties)
         {
             var candidate = ToCamelCase(property.Name);
-            while (!taken.Add(candidate))
+            while (!taken.Add(candidate) || IsKeyword(candidate))
             {
                 candidate += "_";
             }
@@ -325,6 +331,20 @@ internal static partial class AnonymousTypeFileContent
 
         return result;
     }
+
+    /// <summary>
+    /// 生成代码中的成员/参数标识符：属性名可能来自 <c>new { @class = 1 }</c> 这类
+    /// 保留关键字书写（符号名不含 @），渲染时必须补回 <c>@</c>。
+    /// </summary>
+    private static string EscapeIdentifier(string name) =>
+        IsKeyword(name) ? "@" + name : name;
+
+    /// <summary>
+    /// 仅保留字（class/event/this…）需要 @；上下文关键字（value/var/record…）在标识符
+    /// 位置本已合法，加 @ 反而改变符号显示名。
+    /// </summary>
+    private static bool IsKeyword(string name) =>
+        SyntaxFacts.GetKeywordKind(name) != SyntaxKind.None;
 
     private static string ToCamelCase(string name)
     {
