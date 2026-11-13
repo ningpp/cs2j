@@ -26,6 +26,9 @@ internal sealed class SlotAssigner
     /// </summary>
     public IReadOnlyCollection<int> ValueTypeSlots => _valueTypeSlots;
 
+    /// <summary>Type parameter bound to each assigned slot (needed to redeclare constraints).</summary>
+    public IReadOnlyDictionary<ITypeParameterSymbol, int> SlotByParameter => _slots;
+
     public int GetOrAdd(ITypeParameterSymbol parameter)
     {
         if (_slots.TryGetValue(parameter, out var slot))
@@ -39,6 +42,35 @@ internal sealed class SlotAssigner
     }
 
     public void RequireValueType(int slot) => _valueTypeSlots.Add(slot);
+}
+
+/// <summary>
+/// Constraints that must be redeclared on the generated struct for one of its
+/// type parameters, e.g. <c>where __P0 : global::System.IComparable&lt;__P0&gt;</c>.
+/// A generated field typed <c>SymbolicRegexNode&lt;__P0&gt;</c> is CS0314 unless
+/// <c>__P0</c> carries the same constraints as the source type parameter it
+/// replaced.
+/// </summary>
+internal sealed record TupleTypeParameterConstraint
+{
+    public required int Slot { get; init; }
+
+    /// <summary>Declared <c>struct</c> constraint or a <c>Nullable&lt;__Pn&gt;</c> usage.</summary>
+    public bool HasValueTypeConstraint { get; init; }
+
+    public bool HasUnmanagedTypeConstraint { get; init; }
+
+    public bool HasReferenceTypeConstraint { get; init; }
+
+    public bool HasNotNullConstraint { get; init; }
+
+    public bool HasConstructorConstraint { get; init; }
+
+    /// <summary>Constraint types as display templates with <c>{slot}</c> placeholders.</summary>
+    public IReadOnlyList<string> ConstraintTypeTemplates { get; init; } = Array.Empty<string>();
+
+    /// <summary>Canonical fragment folded into the shape key.</summary>
+    public required string Key { get; init; }
 }
 
 /// <summary>One element of a tuple shape: closed/open type, type-parameter slot, or nested tuple.</summary>
@@ -111,6 +143,13 @@ internal sealed class TupleShape
     /// struct because they are used inside <c>Nullable&lt;__Pn&gt;</c>.
     /// </summary>
     public IReadOnlyList<int> ValueTypeSlots { get; init; } = Array.Empty<int>();
+
+    /// <summary>
+    /// Constraints redeclared on the generated struct, one entry per constrained
+    /// type-parameter slot (ascending slot order).
+    /// </summary>
+    public IReadOnlyList<TupleTypeParameterConstraint> TypeParameterConstraints { get; init; }
+        = Array.Empty<TupleTypeParameterConstraint>();
 
     /// <summary>For arity &gt;= 8: shape of the <c>Rest</c> tail struct (elements 8..N).</summary>
     public TupleShape? Tail { get; init; }
@@ -201,7 +240,9 @@ internal sealed partial class TupleShapeRegistry
             mangledNames.Add(spec.MangledName);
         }
 
-        var key = "(" + string.Join(";", elements.Select(e => e.Key)) + ")";
+        var constraints = BuildConstraints(slots);
+
+        var key = "(" + string.Join(";", elements.Select(e => e.Key)) + ")" + ConstraintsKey(constraints);
         if (_shapesByKey.TryGetValue(key, out var existing))
         {
             return existing;
@@ -238,6 +279,7 @@ internal sealed partial class TupleShapeRegistry
             Name = MakeUniqueName(mangledNames),
             GenericArity = slots.Count,
             ValueTypeSlots = slots.ValueTypeSlots.OrderBy(static i => i).ToArray(),
+            TypeParameterConstraints = constraints,
             Tail = tail,
             TailArgSlots = tailArgSlots,
             IsPubliclyAccessible = publiclyAccessible,
@@ -246,6 +288,149 @@ internal sealed partial class TupleShapeRegistry
         _shapesByKey.Add(key, shape);
         _ordered.Add(shape);
         return shape;
+    }
+
+    /// <summary>
+    /// Constraints the generated struct must redeclare for its <c>__Pn</c> parameters.
+    /// The generated fields reuse the source type parameters verbatim
+    /// (<c>SymbolicRegexNode&lt;TSet&gt;</c> → <c>SymbolicRegexNode&lt;__P0&gt;</c>), so every
+    /// constraint the source parameter carried must be reproduced — otherwise the
+    /// field is CS0314. Constraints referencing type parameters that are not part of
+    /// this shape cannot be expressed (and are not needed to name the fields), so
+    /// they are dropped.
+    /// </summary>
+    private static IReadOnlyList<TupleTypeParameterConstraint> BuildConstraints(SlotAssigner slots)
+    {
+        if (slots.Count == 0)
+        {
+            return Array.Empty<TupleTypeParameterConstraint>();
+        }
+
+        var parametersBySlot = new Dictionary<int, ITypeParameterSymbol>();
+        foreach (var pair in slots.SlotByParameter)
+        {
+            parametersBySlot[pair.Value] = pair.Key;
+        }
+
+        var valueTypeSlots = slots.ValueTypeSlots.ToHashSet();
+        var result = new List<TupleTypeParameterConstraint>(slots.Count);
+        for (var slot = 0; slot < slots.Count; slot++)
+        {
+            var parameter = parametersBySlot[slot];
+            var templates = new List<string>();
+            foreach (var constraintType in parameter.ConstraintTypes)
+            {
+                if (BuildConstraintTemplate(constraintType, slots) is { } template)
+                {
+                    templates.Add(template);
+                }
+            }
+
+            var hasUnmanaged = parameter.HasUnmanagedTypeConstraint;
+            var hasValueType = hasUnmanaged
+                || parameter.HasValueTypeConstraint
+                || valueTypeSlots.Contains(slot);
+            var isStructLike = hasUnmanaged || hasValueType;
+            var hasReferenceType = !isStructLike && parameter.HasReferenceTypeConstraint;
+            var hasNotNull = !isStructLike && !hasReferenceType && parameter.HasNotNullConstraint;
+            var hasConstructor = !isStructLike && parameter.HasConstructorConstraint;
+            if (!isStructLike && !hasReferenceType && !hasNotNull
+                && !hasConstructor && templates.Count == 0)
+            {
+                continue;
+            }
+
+            var keyParts = new List<string>();
+            if (hasUnmanaged)
+            {
+                keyParts.Add("unmanaged");
+            }
+            else if (hasValueType)
+            {
+                keyParts.Add("struct");
+            }
+            else if (hasReferenceType)
+            {
+                keyParts.Add("class");
+            }
+            else if (hasNotNull)
+            {
+                keyParts.Add("notnull");
+            }
+
+            keyParts.AddRange(templates.OrderBy(static t => t, StringComparer.Ordinal));
+            if (hasConstructor)
+            {
+                keyParts.Add("new()");
+            }
+
+            result.Add(new TupleTypeParameterConstraint
+            {
+                Slot = slot,
+                HasValueTypeConstraint = hasValueType && !hasUnmanaged,
+                HasUnmanagedTypeConstraint = hasUnmanaged,
+                HasReferenceTypeConstraint = hasReferenceType,
+                HasNotNullConstraint = hasNotNull,
+                HasConstructorConstraint = hasConstructor,
+                ConstraintTypeTemplates = templates,
+                Key = "P" + slot + ":" + string.Join(",", keyParts),
+            });
+        }
+
+        return result;
+    }
+
+    private static string ConstraintsKey(IReadOnlyList<TupleTypeParameterConstraint> constraints) =>
+        constraints.Count == 0
+            ? string.Empty
+            : "|" + string.Join(";", constraints.Select(static c => c.Key));
+
+    /// <summary>
+    /// Render a constraint type as a display template with <c>{slot}</c> placeholders.
+    /// Returns null when the type references a type parameter outside this shape (or a
+    /// kind that cannot be named), in which case the constraint is omitted.
+    /// </summary>
+    private static string? BuildConstraintTemplate(ITypeSymbol type, SlotAssigner slots)
+    {
+        switch (type)
+        {
+            case ITypeParameterSymbol parameter:
+                return slots.SlotByParameter.TryGetValue(parameter, out var slot)
+                    ? "{" + slot + "}"
+                    : null;
+
+            case IArrayTypeSymbol array:
+                return BuildConstraintTemplate(array.ElementType, slots) is { } element
+                    ? element + "[" + new string(',', array.Rank - 1) + "]"
+                    : null;
+
+            case INamedTypeSymbol { IsTupleType: false, IsAnonymousType: false } named:
+            {
+                var definition = named.OriginalDefinition;
+                var name = StripGenericSuffix(definition.MetadataName ?? definition.Name);
+                var prefix = QualifiedMetadataPrefix(definition);
+                if (named.Arity == 0 || named.TypeArguments.Length == 0)
+                {
+                    return prefix + name;
+                }
+
+                var arguments = new List<string>(named.TypeArguments.Length);
+                foreach (var argument in named.TypeArguments)
+                {
+                    if (BuildConstraintTemplate(argument, slots) is not { } argumentText)
+                    {
+                        return null;
+                    }
+
+                    arguments.Add(argumentText);
+                }
+
+                return prefix + name + "<" + string.Join(", ", arguments) + ">";
+            }
+
+            default:
+                return null;
+        }
     }
 
     public TupleShape? FindByKey(string key) =>

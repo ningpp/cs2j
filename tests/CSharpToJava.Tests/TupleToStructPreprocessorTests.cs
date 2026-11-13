@@ -167,6 +167,53 @@ public sealed class TupleToStructPreprocessorTests
     }
 
     [Fact]
+    public void ConstrainedTypeParameterInGenericElement_RedeclaresConstraints()
+    {
+        // Regression for CS0314: the element type `Node<TSet>` requires
+        // `TSet : IComparable<TSet>, IEquatable<TSet>` — the same constraints the
+        // declaring type parameter carries. The generated struct redeclares the
+        // type parameter as `__P0`, so it must redeclare those constraints on the
+        // struct itself; otherwise every `Node<__P0>` field is CS0314.
+        var source = """
+            using System;
+            using System.Collections.Generic;
+
+            sealed class Node<TSet> where TSet : IComparable<TSet>, IEquatable<TSet>
+            {
+                public TSet Value;
+            }
+
+            class Holder<TSet> where TSet : IComparable<TSet>, IEquatable<TSet>
+            {
+                public List<(Node<TSet> Node, int[] Effects)> Next() => null;
+            }
+
+            sealed class Factory<T> where T : class, new()
+            {
+                public T Create() => new T();
+            }
+
+            sealed class Registry<T> where T : class, new()
+            {
+                public T Value;
+            }
+
+            class Holder2<T> where T : class, new()
+            {
+                public (Factory<T> Factory, Registry<T> Registry) Pair() => default;
+            }
+            """;
+        var result = RunAll(source);
+
+        Assert.NotNull(result.StructFile);
+        Assert.Contains(
+            "where __P0 : global::System.IComparable<__P0>, global::System.IEquatable<__P0>",
+            result.StructFile);
+        Assert.Contains("where __P0 : class, new()", result.StructFile);
+        AssertOutputCompiles(result.Outputs, result.StructFile);
+    }
+
+    [Fact]
     public void NamedElementAccess_InFileWithoutTupleSyntax_IsRewrittenToItemN()
     {
         // Regression for CS1061 in RegexInterpreter.cs: _code.LeadingCharClasses[0].CharClass

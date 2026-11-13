@@ -55,9 +55,41 @@ internal static partial class TupleStructFileContent
             .Append(" : global::System.IEquatable<").Append(selfRef).Append(">");
         // S-04: `Nullable<__Pn>` elements force `where __Pn : struct` on the
         // generated struct; without the clause the field is CS0453.
-        foreach (var slot in shape.ValueTypeSlots)
+        // 同理，源类型参数自带的约束必须原样重声明：字段类型 `Foo<__Pn>` 的约束
+        // 检查以 `__Pn` 自身的约束为准，缺约束即 CS0314。
+        foreach (var constraint in shape.TypeParameterConstraints)
         {
-            sb.Append(" where __P").Append(slot).Append(" : struct");
+            var parts = new List<string>();
+            if (constraint.HasUnmanagedTypeConstraint)
+            {
+                parts.Add("unmanaged");
+            }
+            else if (constraint.HasValueTypeConstraint)
+            {
+                parts.Add("struct");
+            }
+            else if (constraint.HasReferenceTypeConstraint)
+            {
+                parts.Add("class");
+            }
+            else if (constraint.HasNotNullConstraint)
+            {
+                parts.Add("notnull");
+            }
+
+            parts.AddRange(constraint.ConstraintTypeTemplates.Select(t => RenderTemplate(t, shape)));
+            if (constraint.HasConstructorConstraint)
+            {
+                parts.Add("new()");
+            }
+
+            if (parts.Count == 0)
+            {
+                continue;
+            }
+
+            sb.Append(" where __P").Append(constraint.Slot).Append(" : ")
+                .Append(string.Join(", ", parts));
         }
 
         sb.AppendLine();
