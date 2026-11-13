@@ -84,14 +84,18 @@ public sealed class TupleToStructPreprocessorTests
             allDiagnostics);
     }
 
-    private static void AssertOutputCompiles(IEnumerable<string> sources, string? structFile)
+    private static void AssertOutputCompiles(
+        IEnumerable<string> sources,
+        string? structFile,
+        CSharpParseOptions? parseOptions = null)
     {
+        var options = parseOptions ?? ParseOptions;
         var trees = sources
-            .Select(source => CSharpSyntaxTree.ParseText(source, ParseOptions))
+            .Select(source => CSharpSyntaxTree.ParseText(source, options))
             .ToList();
         if (structFile != null)
         {
-            trees.Add(CSharpSyntaxTree.ParseText(structFile, ParseOptions));
+            trees.Add(CSharpSyntaxTree.ParseText(structFile, options));
         }
 
         var compilation = CSharpCompilation.Create(
@@ -291,6 +295,81 @@ public sealed class TupleToStructPreprocessorTests
         Assert.Contains(".Item2", result.Outputs[1]);
         Assert.NotNull(result.StructFile);
         AssertOutputCompiles(result.Outputs, result.StructFile);
+    }
+
+    [Fact]
+    public void NamedElementAccess_OnTupleProperty_IsRewrittenToItemN()
+    {
+        var source = """
+            class Holder
+            {
+                public (char Char, string? String, int Distance) FixedDistanceLiteral { get; }
+
+                int Use()
+                {
+                    int i = "abc".LastIndexOf(FixedDistanceLiteral.Char);
+                    return i + FixedDistanceLiteral.Distance + FixedDistanceLiteral.String!.Length;
+                }
+            }
+            """;
+
+        var result = RunAll(source);
+
+        Assert.DoesNotContain(".Char", result.Outputs[0]);
+        Assert.DoesNotContain(".Distance", result.Outputs[0]);
+        Assert.Contains(".Item1", result.Outputs[0]);
+        Assert.Contains(".Item3", result.Outputs[0]);
+        Assert.NotNull(result.StructFile);
+        AssertOutputCompiles(result.Outputs, result.StructFile);
+    }
+
+    [Fact]
+    public void NamedElementAccess_InsideConditionalRegion_BindsViaGeneratedAlias()
+    {
+        // Regression for CS1061 in RegexFindOptimizations.cs: the tuple property
+        // FixedDistanceLiteral is declared outside `#if SYSTEM_TEXT_REGULAREXPRESSIONS`
+        // while its element accesses live inside it. A branch the pass' parse options
+        // disable is plain DisabledText — the semantic model never sees `.Char` /
+        // `.Distance`, so those accesses cannot be rewritten, while the declaration
+        // still lowers to the generated struct. The struct must therefore expose the
+        // source element names as members.
+        var declaration = """
+            class Holder
+            {
+                public (char Char, string? String, int Distance) FixedDistanceLiteral { get; }
+            }
+            """;
+        var consumer = """
+            class Consumer
+            {
+                int Use(Holder h)
+                {
+            #if FEATURE_LITERAL
+                    return System.Array.IndexOf(new char[0], h.FixedDistanceLiteral.Char)
+                        + h.FixedDistanceLiteral.Distance;
+            #else
+                    return 0;
+            #endif
+                }
+            }
+            """;
+
+        // RunAll parses without FEATURE_LITERAL: exactly the state the tuple pass is in
+        // for a project that defines the symbol but whose symbols it does not know.
+        var result = RunAll(declaration, consumer);
+
+        Assert.NotNull(result.StructFile);
+        Assert.Contains("Cs2jTuples.TupleCharStringInt32", result.Outputs[0]);
+        Assert.Contains("public global::System.Char Char", result.StructFile);
+        Assert.Contains("public global::System.Int32 Distance", result.StructFile);
+
+        // The real build defines the symbol, so the conditional branch is compiled:
+        // its named-element accesses must still bind against the generated struct.
+        AssertOutputCompiles(
+            result.Outputs,
+            result.StructFile,
+            new CSharpParseOptions(
+                LanguageVersion.Preview, preprocessorSymbols: new[] { "FEATURE_LITERAL" }));
     }
 
     [Fact]

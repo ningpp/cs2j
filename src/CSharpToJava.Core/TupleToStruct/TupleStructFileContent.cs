@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace CSharpToJava.Core.TupleToStruct;
 
@@ -111,6 +112,24 @@ internal static partial class TupleStructFileContent
             sb.Append("        public ")
                 .Append(RenderTailFieldType(shape))
                 .AppendLine(" Rest;");
+        }
+
+        // ---- 具名元素别名（读写属性）----
+        // 具名元素访问一般由语义改写落到 ItemN，但条件编译分支在本 pass 的解析
+        // 符号集下可能只是 DisabledText（例如 `#if SYSTEM_TEXT_REGULAREXPRESSIONS`
+        // 里的 FixedDistanceLiteral.Char），那里无法参与语义改写。为具名元素生成
+        // 同名读写属性，这些残留访问仍能绑定到同一槽位，不会在新 struct 上报 CS1061。
+        foreach (var (name, ordinal) in ElementAliases(shape))
+        {
+            sb.AppendLine();
+            sb.Append("        public ")
+                .Append(RenderFieldType(shape, ordinal))
+                .Append(' ').Append(name)
+                .AppendLine();
+            sb.AppendLine("        {");
+            sb.Append("            get { return Item").Append(ordinal + 1).AppendLine("; }");
+            sb.Append("            set { Item").Append(ordinal + 1).AppendLine(" = value; }");
+            sb.AppendLine("        }");
         }
 
         // ---- 构造器 ----
@@ -276,6 +295,48 @@ internal static partial class TupleStructFileContent
         }
 
         return RenderTemplate(element.FieldDisplayTemplate, shape);
+    }
+
+    /// <summary>
+    /// 可为具名元素生成的别名属性：名字在所有出现位置上唯一、不是生成成员名或
+    /// C# 关键字时才输出（同名映射到不同槽位时语义无法同时满足，宁可不生成）。
+    /// </summary>
+    private static IEnumerable<(string Name, int Ordinal)> ElementAliases(TupleShape shape)
+    {
+        var fieldCount = Math.Min(shape.Arity, 7);
+        var ordinalsByName = new Dictionary<string, SortedSet<int>>(StringComparer.Ordinal);
+        for (var i = 0; i < fieldCount; i++)
+        {
+            foreach (var name in shape.Elements[i].AliasNames)
+            {
+                if (!ordinalsByName.TryGetValue(name, out var ordinals))
+                {
+                    ordinals = new SortedSet<int>();
+                    ordinalsByName[name] = ordinals;
+                }
+
+                ordinals.Add(i);
+            }
+        }
+
+        var reserved = new HashSet<string>(StringComparer.Ordinal)
+        {
+            shape.Name, "Rest", "Equals", "GetHashCode", "ToString", "Deconstruct", "value",
+        };
+        for (var i = 0; i < Math.Max(fieldCount, shape.Arity); i++)
+        {
+            reserved.Add("Item" + (i + 1));
+        }
+
+        foreach (var pair in ordinalsByName
+                     .Where(pair => pair.Value.Count == 1)
+                     .Where(pair => !reserved.Contains(pair.Key))
+                     .Where(pair => SyntaxFacts.IsValidIdentifier(pair.Key))
+                     .OrderBy(pair => pair.Value.Min)
+                     .ThenBy(pair => pair.Key, StringComparer.Ordinal))
+        {
+            yield return (pair.Key, pair.Value.Min);
+        }
     }
 
     private static string RenderTailFieldType(TupleShape shape)

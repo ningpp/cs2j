@@ -115,6 +115,15 @@ internal sealed record TupleElementSpec
     /// CS0122 ("inaccessible due to its protection level").
     /// </summary>
     public bool IsEmittableFromTopLevel { get; init; } = true;
+
+    /// <summary>
+    /// Named tuple element names observed for this position (e.g. <c>Char</c> for
+    /// <c>(char Char, …)</c>). The generated struct exposes one read/write property
+    /// per name so element accesses the semantic model cannot see — the ones inside
+    /// a conditional-compilation branch this pass' parse options disable — keep
+    /// binding after the declaration site was lowered to the struct.
+    /// </summary>
+    public HashSet<string> AliasNames { get; } = new(StringComparer.Ordinal);
 }
 
 /// <summary>
@@ -219,15 +228,22 @@ internal sealed partial class TupleShapeRegistry
     public TupleShape GetOrCreateShape(
         INamedTypeSymbol tupleType,
         List<TupleToStructDiagnostic> diagnostics)
-        => GetOrCreateShape(tupleType.TupleElements.Select(f => f.Type).ToArray(), new SlotAssigner(), diagnostics);
+        => GetOrCreateShape(
+            tupleType.TupleElements.Select(f => f.Type).ToArray(),
+            tupleType.TupleElements.Select(f => f.Name).ToArray(),
+            new SlotAssigner(),
+            diagnostics);
 
     /// <summary>
     /// Get or create the shape for a logical element-type list. <paramref name="slots"/>
     /// is the canonical assigner for the shape being built; nested shapes get their own
     /// canonical numbering and are bound back positionally via their arg slots.
+    /// <paramref name="elementNames"/> carries the source tuple's named elements (null
+    /// or empty entries for unnamed ones) so the generated struct can expose them.
     /// </summary>
     public TupleShape GetOrCreateShape(
         IReadOnlyList<ITypeSymbol> elementTypes,
+        IReadOnlyList<string>? elementNames,
         SlotAssigner slots,
         List<TupleToStructDiagnostic> diagnostics)
     {
@@ -245,6 +261,7 @@ internal sealed partial class TupleShapeRegistry
         var key = "(" + string.Join(";", elements.Select(e => e.Key)) + ")" + ConstraintsKey(constraints);
         if (_shapesByKey.TryGetValue(key, out var existing))
         {
+            RecordAliasNames(existing, elementNames);
             return existing;
         }
 
@@ -256,7 +273,10 @@ internal sealed partial class TupleShapeRegistry
             // The generated struct mirrors that layout: Item1..Item7 plus a Rest
             // field typed as the struct for elements 8..N.
             var tailTypes = elementTypes.Skip(7).ToArray();
-            var tailShape = GetOrCreateShape(tailTypes, new SlotAssigner(), diagnostics);
+            var tailNames = elementNames != null && elementNames.Count > 7
+                ? elementNames.Skip(7).ToArray()
+                : null;
+            var tailShape = GetOrCreateShape(tailTypes, tailNames, new SlotAssigner(), diagnostics);
             var tailParams = new List<ITypeParameterSymbol>();
             foreach (var t in tailTypes)
             {
@@ -287,7 +307,32 @@ internal sealed partial class TupleShapeRegistry
         };
         _shapesByKey.Add(key, shape);
         _ordered.Add(shape);
+        RecordAliasNames(shape, elementNames);
         return shape;
+    }
+
+    /// <summary>
+    /// Records the named elements of every site that reuses a shape: identical
+    /// element types may be spelled with different element names (and a later
+    /// site may name elements the first one left unnamed), so the generated
+    /// struct must expose the union of the observed names.
+    /// </summary>
+    private static void RecordAliasNames(TupleShape shape, IReadOnlyList<string>? elementNames)
+    {
+        if (elementNames == null)
+        {
+            return;
+        }
+
+        var count = Math.Min(elementNames.Count, Math.Min(shape.Elements.Count, 7));
+        for (var i = 0; i < count; i++)
+        {
+            var name = elementNames[i];
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                shape.Elements[i].AliasNames.Add(name);
+            }
+        }
     }
 
     /// <summary>
@@ -452,6 +497,7 @@ internal sealed partial class TupleShapeRegistry
         {
             var nestedShape = GetOrCreateShape(
                 nestedTuple.TupleElements.Select(f => f.Type).ToArray(),
+                nestedTuple.TupleElements.Select(f => f.Name).ToArray(),
                 new SlotAssigner(),
                 diagnostics);
             var argSlots = BindParamsToSlots(nestedTuple.TupleElements.Select(f => f.Type), slots);
@@ -541,7 +587,11 @@ internal sealed partial class TupleShapeRegistry
                 {
                     // Tuple nested inside a generic argument, e.g. List<(int, int)>.
                     var elementTypes = named.TupleElements.Select(f => f.Type).ToArray();
-                    var nested = GetOrCreateShape(elementTypes, new SlotAssigner(), diagnostics);
+                    var nested = GetOrCreateShape(
+                        elementTypes,
+                        named.TupleElements.Select(f => f.Name).ToArray(),
+                        new SlotAssigner(),
+                        diagnostics);
                     var argSlots = BindParamsToSlots(elementTypes, slots);
                     return InstantiateShapeDisplay(nested, argSlots);
                 }
