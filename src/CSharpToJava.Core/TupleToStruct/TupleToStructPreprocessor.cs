@@ -171,15 +171,19 @@ public sealed partial class TupleToStructPreprocessor
     /// <summary>逻辑元素个数 → ValueTuple 泛型元数（8 个以上元素经 TRest 嵌套，泛型元数为 8）。</summary>
     internal static int RuntimeGenericArity(int logicalArity) => logicalArity >= 8 ? 8 : logicalArity;
 
+    /// <summary>
+    /// True when lowering a tuple of the given shape would change the runtime type
+    /// identity that <c>typeof(ValueTuple&lt;...&gt;)</c> checks observe for that
+    /// generic arity.
+    /// </summary>
     private bool RuntimeIdentityDenied(TupleShape shape)
         => RuntimeIdentityDenied(shape, _runtimeObservedArities);
 
     /// <summary>
     /// True when lowering this shape would change the runtime type identity that
     /// <c>typeof(ValueTuple&lt;...&gt;)</c> checks observe for that generic arity.
-    /// Nested/tail shapes that keep native syntax keep the enclosing shape native
-    /// as well: the generated field/constructor would otherwise reference a struct
-    /// that is never emitted (dangling type).
+    /// Tail shapes that keep native syntax keep the enclosing shape native as well:
+    /// the generated field would otherwise reference a struct that is never emitted.
     /// </summary>
     internal static bool RuntimeIdentityDenied(TupleShape shape, IReadOnlyCollection<int> observedArities)
     {
@@ -188,13 +192,45 @@ public sealed partial class TupleToStructPreprocessor
             return true;
         }
 
-        if (shape.Tail != null && RuntimeIdentityDenied(shape.Tail, observedArities))
+        return shape.Tail != null && RuntimeIdentityDenied(shape.Tail, observedArities);
+    }
+
+    /// <summary>
+    /// 站点级运行时身份判定：元组自身（及其 ValueTuple 尾部嵌套与元素里的嵌套元组）
+    /// 的任一泛型元数被 <c>typeof(ValueTuple&lt;...&gt;)</c> 或不可改写的条件编译分支
+    /// 观测到时，该站点必须保持原生 ValueTuple。
+    /// </summary>
+    internal static bool RuntimeIdentityDenied(
+        INamedTypeSymbol tupleType,
+        IReadOnlyCollection<int> observedArities)
+    {
+        var elements = tupleType.TupleElements;
+        var remaining = elements.Length;
+        while (remaining > 0)
         {
-            return true;
+            if (observedArities.Contains(RuntimeGenericArity(remaining)))
+            {
+                return true;
+            }
+
+            if (remaining <= 7)
+            {
+                break;
+            }
+
+            remaining -= 7;
         }
 
-        return shape.Elements.Any(
-            element => element.IsTuple && RuntimeIdentityDenied(element.NestedShape!, observedArities));
+        foreach (var element in elements)
+        {
+            if (element.Type is INamedTypeSymbol { IsTupleType: true } nested
+                && RuntimeIdentityDenied(nested, observedArities))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -207,12 +243,11 @@ public sealed partial class TupleToStructPreprocessor
     {
         var observed = runtimeObservedArities ?? _runtimeObservedArities;
 
-        // Shapes embedding private/protected types are never lowered and must
-        // not be emitted either (their field types are unnameable here → CS0122).
         // Shapes whose runtime ValueTuple identity is observed keep native syntax,
-        // so they must not be emitted either.
+        // so they must not be emitted either. Element accessibility no longer
+        // matters: generated fields are the struct's own generic parameters.
         var emittable = _registry.Shapes
-            .Where(shape => shape.IsEmittableFromTopLevel && !RuntimeIdentityDenied(shape, observed))
+            .Where(shape => !RuntimeIdentityDenied(shape, observed))
             .ToList();
         return emittable.Count == 0
             ? null
@@ -226,9 +261,9 @@ public sealed partial class TupleToStructPreprocessor
             .ToArray();
 
     /// <summary>
-    /// 每个被改写文件用到的形状键（含嵌套/尾部形状闭包）。按编译单元生成 struct 文件时
-    /// 需要它：一个源文件可能被多个程序集分别编译（共享源码），而元素类型是 internal
-    /// 时只能各自生成一份；只生成本编译单元真正需要的形状，才能避免引用到看不见的类型。
+    /// 每个被改写文件用到的形状键（含 Rest 尾部闭包，以及作为类型实参出现的嵌套元组
+    /// 形状）。按编译单元生成 struct 文件时需要它：一个源文件可能被多个程序集分别编译，
+    /// 只生成本编译单元真正需要的形状即可。
     /// </summary>
     public IReadOnlyDictionary<string, IReadOnlyList<string>> ShapesByFile =>
         _shapesByFile.ToDictionary(
@@ -239,7 +274,7 @@ public sealed partial class TupleToStructPreprocessor
     private readonly Dictionary<string, HashSet<TupleShape>> _shapesByFile =
         new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>取指定形状集合的闭包（嵌套形状 + Rest 尾部），并保持注册顺序稳定。</summary>
+    /// <summary>取指定形状集合的闭包（Rest 尾部形状），并保持注册顺序稳定。</summary>
     public IReadOnlyList<string> CloseShapeKeys(IEnumerable<string> shapeKeys)
     {
         var closure = new HashSet<string>(StringComparer.Ordinal);
@@ -258,11 +293,6 @@ public sealed partial class TupleToStructPreprocessor
                 continue;
             }
 
-            foreach (var element in shape.Elements.Where(e => e.IsTuple))
-            {
-                pending.Push(element.NestedShape!.Key);
-            }
-
             if (shape.Tail != null)
             {
                 pending.Push(shape.Tail.Key);
@@ -275,9 +305,12 @@ public sealed partial class TupleToStructPreprocessor
             .ToArray();
     }
 
-    /// <summary>该形状的元素类型是否全部 public（决定生成 public 还是 internal struct）。</summary>
+    /// <summary>
+    /// 该形状是否可以由引用它的其他程序集复用。生成 struct 的字段是自身泛型参数，
+    /// 恒为 public，因此只要形状已登记即可跨程序集共享（分配逻辑据此选出唯一所有者）。
+    /// </summary>
     public bool IsShapePubliclyAccessible(string shapeKey) =>
-        _registry.FindByKey(shapeKey)?.IsPubliclyAccessible ?? false;
+        _registry.FindByKey(shapeKey) != null;
 
     /// <summary>
     /// 按形状键筛选生成 struct 文件内容；没有匹配形状时返回 null。
@@ -286,7 +319,8 @@ public sealed partial class TupleToStructPreprocessor
     /// </summary>
     public string? GenerateStructFile(
         IEnumerable<string> shapeKeys,
-        IReadOnlyCollection<int>? runtimeObservedArities = null)
+        IReadOnlyCollection<int>? runtimeObservedArities = null,
+        bool internalAccessibility = false)
     {
         var observed = runtimeObservedArities ?? _runtimeObservedArities;
         var keys = new HashSet<string>(shapeKeys, StringComparer.Ordinal);
@@ -295,8 +329,17 @@ public sealed partial class TupleToStructPreprocessor
             .ToList();
         return shapes.Count == 0
             ? null
-            : TupleStructFileContent.Generate(shapes, _options.NamespaceName);
+            : TupleStructFileContent.Generate(shapes, _options.NamespaceName, internalAccessibility);
     }
+
+    /// <summary>
+    /// 该形状能否在指定观测集合下真正生成（运行时要保持原生 ValueTuple 的 arity 不能
+    /// 落地成 struct）。跨程序集分配定义者时必须用它筛选：定义者自身观测到该 arity 时
+    /// 生成不出类型，会让其他使用方的引用悬空。
+    /// </summary>
+    public bool CanGenerateShape(string shapeKey, IReadOnlyCollection<int> runtimeObservedArities)
+        => _registry.FindByKey(shapeKey) is { } shape
+           && !RuntimeIdentityDenied(shape, runtimeObservedArities);
 
     /// <summary>
     /// 改写单个文件。<paramref name="runtimeObservedArities"/> 是该文件所属项目
@@ -750,19 +793,17 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
-    /// Register and return the shape for <paramref name="tupleType"/> ONLY when it
-    /// can be hoisted to a generated top-level Cs2jTuples struct. Shapes embedding
-    /// a private/protected nested type (e.g. a tuple used only inside the class that
-    /// declares such a type) are invisible at the generated location; those sites
-    /// must keep native ValueTuple syntax. The same holds for arities whose runtime
-    /// System.ValueTuple identity is observed in the compilation (typeof(ValueTuple&lt;...&gt;)),
-    /// where a generated struct would change Type.IsGenericType / generic-definition
-    /// comparisons. Returns null (warning once) for them.
+    /// Register and return the shape for <paramref name="tupleType"/>. Whether the site
+    /// may be lowered depends on the SITE's element types (not on the shared shape,
+    /// which is one per logical arity): a tuple element that a top-level generated
+    /// struct could not name, or an arity whose runtime System.ValueTuple identity is
+    /// observed in the compilation (typeof(ValueTuple&lt;...&gt;)), keeps the native
+    /// ValueTuple syntax. Returns null (warning once) for them.
     /// </summary>
     private TupleShape? GetEmittableShape(INamedTypeSymbol tupleType)
     {
-        var shape = _registry.GetOrCreateShape(tupleType, _diagnostics);
-        if (!shape.IsEmittableFromTopLevel)
+        var shape = _registry.GetOrCreateShape(tupleType);
+        if (!TupleShapeRegistry.IsEmittableFromTopLevel(tupleType))
         {
             WarnOnce("shape-not-emittable:" + shape.Key,
                 "A tuple uses a private or protected type that is not accessible from " +
@@ -771,7 +812,7 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
             return null;
         }
 
-        if (KeepsRuntimeValueTupleIdentity(shape))
+        if (KeepsRuntimeValueTupleIdentity(tupleType))
         {
             WarnOnce("shape-runtime-identity:" + shape.Key,
                 $"{TupleToStructPreprocessor.RuntimeGenericArity(shape.Arity)}-element tuples must stay " +
@@ -785,22 +826,11 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
-    /// True when lowering this shape would change the runtime type identity that
+    /// True when lowering this site would change the runtime type identity that
     /// <c>typeof(ValueTuple&lt;...&gt;)</c> checks observe for that generic arity.
     /// </summary>
-    private bool KeepsRuntimeValueTupleIdentity(TupleShape shape) =>
-        TupleToStructPreprocessor.RuntimeIdentityDenied(shape, _runtimeObservedArities);
-
-    private static readonly IReadOnlyDictionary<string, string> EmptyShapeDisplayOverrides =
-        new Dictionary<string, string>(StringComparer.Ordinal);
-
-    /// <summary>
-    /// 当前正在改写的方法内，“具体元组形状键 → 与基类签名一致的 struct 实例化文本”。
-    /// 见 <see cref="BuildOverrideShapeDisplays"/>：重写成员的签名必须与基类成员
-    /// 替换后的类型完全相同（CS0508），而基类的泛型声明可能已把该元组降级为开放的
-    /// 泛型 struct。
-    /// </summary>
-    private IReadOnlyDictionary<string, string> _shapeDisplayOverrides = EmptyShapeDisplayOverrides;
+    private bool KeepsRuntimeValueTupleIdentity(INamedTypeSymbol tupleType) =>
+        TupleToStructPreprocessor.RuntimeIdentityDenied(tupleType, _runtimeObservedArities);
 
     private readonly Dictionary<string, IReadOnlyList<StatementSyntax>> _expansions = new();
     private readonly Dictionary<ISymbol?, (string Temp, IReadOnlyList<string> Path)> _identifierRemap =
@@ -836,168 +866,6 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
     // ------------------------------------------------------------------
     // 元组类型与字面量
     // ------------------------------------------------------------------
-
-    /// <summary>
-    /// 重写成员的签名必须与基类成员替换后的签名类型完全一致（CS0508）。基类在泛型
-    /// 定义形态下声明签名元组时，该声明点被降级为开放泛型 struct（如
-    /// <c>TupleT0T1&lt;TElement, TPriority&gt;</c>）；派生类闭包类型实参后，同一个元组必须
-    /// 写成该 struct 的实例化（<c>TupleT0T1&lt;string, string&gt;</c>），而不是具体形状的
-    /// <c>TupleStringString</c>——两者在 C# 里是不同的类型。映射只在当前方法内生效，
-    /// 让签名与体内的同一元组（字面量等）一起改写，避免 return 处又退回具体形状。
-    /// </summary>
-    public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
-    {
-        var saved = _shapeDisplayOverrides;
-        if (_model.GetDeclaredSymbol(node) is IMethodSymbol method
-            && BuildOverrideShapeDisplays(method) is { Count: > 0 } displays)
-        {
-            _shapeDisplayOverrides = displays;
-        }
-
-        try
-        {
-            return base.VisitMethodDeclaration(node);
-        }
-        finally
-        {
-            _shapeDisplayOverrides = saved;
-        }
-    }
-
-    private Dictionary<string, string>? BuildOverrideShapeDisplays(IMethodSymbol method)
-    {
-        if (method.OverriddenMethod is not { } overridden || method.ContainingType is not { } containingType)
-        {
-            return null;
-        }
-
-        Dictionary<string, string>? displays = null;
-        foreach (var anchor in CandidateGenericAnchors(containingType))
-        {
-            if (FindMemberInBaseChain(anchor, overridden.OriginalDefinition) is not { } openMember)
-            {
-                continue;
-            }
-
-            displays ??= new Dictionary<string, string>(StringComparer.Ordinal);
-            AddOverrideShapeDisplay(displays, openMember.ReturnType, overridden.ReturnType);
-            for (var i = 0; i < openMember.Parameters.Length && i < overridden.Parameters.Length; i++)
-            {
-                AddOverrideShapeDisplay(
-                    displays, openMember.Parameters[i].Type, overridden.Parameters[i].Type);
-            }
-        }
-
-        return displays is { Count: > 0 } ? displays : null;
-    }
-
-    /// <summary>
-    /// 基类链上“泛型定义”形态的类型。闭包后的类型只给具体实参，看不出签名元组当初
-    /// 是以类型参数声明的；换成链上每个类型的原始泛型定义，才能拿回开放签名
-    /// （如 <c>TestBase&lt;(TElement, TPriority)&gt;</c>）。
-    /// </summary>
-    private static IEnumerable<INamedTypeSymbol> CandidateGenericAnchors(INamedTypeSymbol type)
-    {
-        var anchors = new List<INamedTypeSymbol>();
-        for (var current = type; current != null; current = current.BaseType)
-        {
-            anchors.Add(current);
-            if (!SymbolEqualityComparer.Default.Equals(current, current.OriginalDefinition))
-            {
-                anchors.Add(current.OriginalDefinition);
-            }
-        }
-
-        return anchors;
-    }
-
-    /// <summary>在 <paramref name="anchor"/> 的基类链上找 <paramref name="original"/> 对应的成员（签名已替换）。</summary>
-    private static IMethodSymbol? FindMemberInBaseChain(INamedTypeSymbol anchor, IMethodSymbol original)
-    {
-        if (original.ContainingType is not { } declaring)
-        {
-            return null;
-        }
-
-        for (var current = anchor; current != null; current = current.BaseType)
-        {
-            if (!SymbolEqualityComparer.Default.Equals(current.OriginalDefinition, declaring))
-            {
-                continue;
-            }
-
-            foreach (var member in current.GetMembers(original.Name).OfType<IMethodSymbol>())
-            {
-                if (SymbolEqualityComparer.Default.Equals(member.OriginalDefinition, original))
-                {
-                    return member;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// 基类签名类型是“全泛型”元组形状（每个位置恰是一个类型参数）时，把派生类签名里
-    /// 同一个元组的具体形状映射为该形状按位置替换后的实例化文本。只有全泛型形状能仅靠
-    /// 位置替换复现具体元组（字段类型即 <c>__Pn</c>）；带约束或 8+ 元素（Rest 尾部）
-    /// 的形状不做映射，保持原有降级行为。
-    /// </summary>
-    private void AddOverrideShapeDisplay(
-        Dictionary<string, string> displays,
-        ITypeSymbol openType,
-        ITypeSymbol closedType)
-    {
-        if (openType is not INamedTypeSymbol { IsTupleType: true } openTuple
-            || closedType is not INamedTypeSymbol { IsTupleType: true } closedTuple)
-        {
-            return;
-        }
-
-        var openShape = GetOrCreateAlignableShape(openTuple);
-        var closedShape = GetOrCreateAlignableShape(closedTuple);
-        if (openShape == null
-            || closedShape == null
-            || openShape.Key == closedShape.Key
-            || openShape.TypeParameterConstraints.Count > 0)
-        {
-            return;
-        }
-
-        if (openShape.Arity > 7
-            || openShape.GenericArity != openShape.Arity
-            || openShape.Elements.Count != closedShape.Elements.Count)
-        {
-            return;
-        }
-
-        for (var i = 0; i < openShape.Elements.Count; i++)
-        {
-            if (openShape.Elements[i].FieldDisplayTemplate != "{" + i + "}")
-            {
-                return;
-            }
-        }
-
-        var typeArguments = closedTuple.TupleElements
-            .Select(element => DisplayTypeInScope(element.Type));
-        displays[closedShape.Key] = openShape.Name + "<" + string.Join(", ", typeArguments) + ">";
-    }
-
-    private TupleShape? GetOrCreateAlignableShape(INamedTypeSymbol tupleType)
-    {
-        // 只按元素类型登记：这里拿到的是基类成员的替换结果，元素名（Element/Priority）
-        // 属于基类声明点，不应被当成这个具体形状自己的别名而污染生成的 struct。
-        var shape = TrackShape(_registry.GetOrCreateShape(
-            tupleType.TupleElements.Select(field => field.Type).ToArray(),
-            elementNames: null,
-            new SlotAssigner(),
-            _diagnostics));
-        return shape.IsEmittableFromTopLevel && !KeepsRuntimeValueTupleIdentity(shape)
-            ? shape
-            : null;
-    }
 
     public override SyntaxNode? VisitTupleType(TupleTypeSyntax node)
     {
@@ -1278,8 +1146,8 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
         {
             case INamedTypeSymbol { IsTupleType: true } tuple:
             {
-                var shape = _registry.GetOrCreateShape(tuple, _diagnostics);
-                if (!shape.IsEmittableFromTopLevel || KeepsRuntimeValueTupleIdentity(shape))
+                if (!TupleShapeRegistry.IsEmittableFromTopLevel(tuple)
+                    || KeepsRuntimeValueTupleIdentity(tuple))
                 {
                     return true;
                 }
@@ -1405,13 +1273,13 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
         // Shapes kept native (inaccessible elements or observed runtime ValueTuple
         // identity) keep their original .ItemN / named-element access — the warning
         // is emitted by the type site; here returning null silently preserves it.
-        var shape = _registry.GetOrCreateShape(containingTuple, _diagnostics);
-        if (!shape.IsEmittableFromTopLevel || KeepsRuntimeValueTupleIdentity(shape))
+        if (!TupleShapeRegistry.IsEmittableFromTopLevel(containingTuple)
+            || KeepsRuntimeValueTupleIdentity(containingTuple))
         {
             return null;
         }
 
-        TrackShape(shape);
+        var shape = TrackShape(_registry.GetOrCreateShape(containingTuple));
         var path = TupleModelAccess.ItemAccessPath(shape, ordinal);
         return path.Count > 0 ? path : null;
     }
@@ -1840,7 +1708,7 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
             var statements = new List<StatementSyntax>();
             var temp = NextTemp();
             statements.Add(LocalDecl(temp, visitedValue));
-            statements.AddRange(ExpandDesignation(shape, declarationDesignation, temp));
+            statements.AddRange(ExpandDesignation(declaredTuple, shape, declarationDesignation, temp));
             return FinishExpansion(node, statements);
         }
 
@@ -1857,7 +1725,7 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
                 var statements = new List<StatementSyntax>();
                 var temp = NextTemp();
                 statements.Add(LocalDecl(temp, visitedRight));
-                statements.AddRange(ExpandTupleExpressionTargets(assignmentShape, tupleLeft, temp));
+                statements.AddRange(ExpandTupleExpressionTargets(tupleType, assignmentShape, tupleLeft, temp));
                 return FinishExpansion(node, statements);
             }
         }
@@ -1896,7 +1764,7 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
             var temp = NextTemp();
             var visitedOperand = (ExpressionSyntax)Visit(isExpression.Expression)!;
             statements.Add(LocalDecl(temp, visitedOperand));
-            statements.AddRange(ExpandDesignation(shape, pattern.Designation, temp));
+            statements.AddRange(ExpandDesignation(tupleType, shape, pattern.Designation, temp));
             _isPatternReplacements[isExpression] = SyntaxFactory.LiteralExpression(
                 SyntaxKind.TrueLiteralExpression);
         }
@@ -1995,7 +1863,7 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
             var preamble = new List<StatementSyntax>();
             var temp = NextTemp();
             preamble.Add(LocalDecl(temp, visitedValue));
-            preamble.AddRange(ExpandDesignation(shape, designation, temp));
+            preamble.AddRange(ExpandDesignation(initTuple, shape, designation, temp));
 
             MarkChanged();
             _stats.DeconstructionsExpanded++;
@@ -2040,11 +1908,12 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
                 Designation: ParenthesizedVariableDesignationSyntax varDesignation,
             })
         {
-            declarations.AddRange(ExpandDesignation(shape, varDesignation, temp));
+            declarations.AddRange(ExpandDesignation(elementType, shape, varDesignation, temp));
         }
         else if (node.Variable is TupleExpressionSyntax tupleVariables)
         {
-            declarations.AddRange(ExpandTupleExpressionTargets(shape, tupleVariables, temp));
+            declarations.AddRange(
+                ExpandTupleExpressionTargets(elementType, shape, tupleVariables, temp));
         }
         else
         {
@@ -2184,6 +2053,7 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
     // ------------------------------------------------------------------
 
     private IEnumerable<StatementSyntax> ExpandDesignation(
+        INamedTypeSymbol tupleType,
         TupleShape shape,
         VariableDesignationSyntax designation,
         string temp)
@@ -2213,10 +2083,11 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
                     break;
 
                 case ParenthesizedVariableDesignationSyntax nested
-                    when shape.Elements[i].NestedShape is { } nestedShape:
+                    when NestedTupleType(tupleType, i) is { } nestedTuple:
                     var nestedTemp = NextTemp();
                     yield return LocalDecl(nestedTemp, access);
-                    foreach (var statement in ExpandDesignation(nestedShape, nested, nestedTemp))
+                    var nestedShape = _registry.GetOrCreateShape(nestedTuple);
+                    foreach (var statement in ExpandDesignation(nestedTuple, nestedShape, nested, nestedTemp))
                     {
                         yield return statement;
                     }
@@ -2227,6 +2098,7 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
     }
 
     private IEnumerable<StatementSyntax> ExpandTupleExpressionTargets(
+        INamedTypeSymbol tupleType,
         TupleShape shape,
         TupleExpressionSyntax tupleLeft,
         string temp)
@@ -2254,21 +2126,24 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
                 case DeclarationExpressionSyntax
                     {
                         Designation: ParenthesizedVariableDesignationSyntax nested,
-                    } when shape.Elements[i].NestedShape is { } nestedShape:
+                    } when NestedTupleType(tupleType, i) is { } nestedTuple:
                     var nestedTemp = NextTemp();
                     yield return LocalDecl(nestedTemp, access);
-                    foreach (var statement in ExpandDesignation(nestedShape, nested, nestedTemp))
+                    var nestedShape = _registry.GetOrCreateShape(nestedTuple);
+                    foreach (var statement in ExpandDesignation(nestedTuple, nestedShape, nested, nestedTemp))
                     {
                         yield return statement;
                     }
 
                     break;
 
-                case TupleExpressionSyntax nestedTuple
-                    when shape.Elements[i].NestedShape is { } nestedShape2:
+                case TupleExpressionSyntax nestedTupleSyntax
+                    when NestedTupleType(tupleType, i) is { } nestedTuple2:
                     var nestedTemp2 = NextTemp();
                     yield return LocalDecl(nestedTemp2, access);
-                    foreach (var statement in ExpandTupleExpressionTargets(nestedShape2, nestedTuple, nestedTemp2))
+                    var nestedShape2 = _registry.GetOrCreateShape(nestedTuple2);
+                    foreach (var statement in ExpandTupleExpressionTargets(
+                                 nestedTuple2, nestedShape2, nestedTupleSyntax, nestedTemp2))
                     {
                         yield return statement;
                     }
@@ -2285,6 +2160,17 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
             }
         }
     }
+
+    /// <summary>
+    /// 解构目标第 <paramref name="index"/> 个元素自身是元组时的类型。生成的 struct 按
+    /// 元数共享定义，嵌套结构只存在于站点类型实参里，所以嵌套判定必须回到解构源的
+    /// 元组类型上，而不是形状上。
+    /// </summary>
+    private static INamedTypeSymbol? NestedTupleType(INamedTypeSymbol tupleType, int index)
+        => index < tupleType.TupleElements.Length
+            && tupleType.TupleElements[index].Type is INamedTypeSymbol { IsTupleType: true } nested
+                ? nested
+                : null;
 
     private static ExpressionSyntax PathAccess(string temp, IReadOnlyList<string> path)
         => BuildMemberChain(SyntaxFactory.IdentifierName(temp), path);
@@ -2368,20 +2254,15 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
 
     private TypeSyntax ParseTypeNameInScope(TupleShape shape, INamedTypeSymbol tupleSymbol)
     {
-        var display = ShapeDisplayForSite(shape, tupleSymbol);
+        var display = ShapeDisplayInScope(shape, tupleSymbol);
         return SyntaxFactory.ParseTypeName($"global::{_namespace}.{display}");
     }
 
     /// <summary>
-    /// 站点上的 struct 实例化文本。重写成员内优先使用与基类签名一致的泛型实例化
-    /// （见 <see cref="BuildOverrideShapeDisplays"/>）。
+    /// 在当前作用域内渲染 struct 实例化：按元素位置把实际元素类型作为类型实参传入。
+    /// 同一元数的 struct 定义只有一个，开放形态（<c>(T1, T2)</c> → <c>T1, T2</c>）与
+    /// 具体形态（<c>(string, int)</c> → <c>string, int</c>）因此得到同一个 C# 类型。
     /// </summary>
-    private string ShapeDisplayForSite(TupleShape shape, INamedTypeSymbol tupleSymbol) =>
-        _shapeDisplayOverrides.TryGetValue(shape.Key, out var display)
-            ? display
-            : ShapeDisplayInScope(shape, tupleSymbol);
-
-    /// <summary>在当前作用域内渲染 struct 实例化：泛型参数用其源码名（T 等）。</summary>
     private string ShapeDisplayInScope(TupleShape shape, INamedTypeSymbol tupleSymbol)
     {
         if (shape.GenericArity == 0)
@@ -2389,15 +2270,9 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
             return shape.Name;
         }
 
-        var parameters = new List<ITypeParameterSymbol>();
-        foreach (var field in tupleSymbol.TupleElements)
-        {
-            TupleShapeRegistry.CollectParameterOrder(field.Type, parameters);
-        }
-
-        var args = parameters
+        var args = tupleSymbol.TupleElements
             .Take(shape.GenericArity)
-            .Select(p => TupleShapeRegistry.SanitizeIdentifier(p.Name));
+            .Select(field => DisplayTypeInScope(field.Type));
         return shape.Name + "<" + string.Join(", ", args) + ">";
     }
 
@@ -2444,7 +2319,7 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
             null);
     }
 
-    /// <summary>作用域内类型文本（泛型参数用源码名），用于元素级显式转换。</summary>
+    /// <summary>作用域内类型文本（泛型参数用源码名），用作 struct 的类型实参与元素级显式转换。</summary>
     private string DisplayTypeInScope(ITypeSymbol type)
     {
         switch (type)
@@ -2459,12 +2334,23 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
             case IDynamicTypeSymbol:
                 return "global::System.Object";
 
+            // 无法解析的类型（缺少引用的编译单元）与匿名类型都不可能在生成代码里
+            // 具名；物化为 object（与旧版形状字段的降级行为一致）。
+            case IErrorTypeSymbol:
+                return "global::System.Object";
+
             case INamedTypeSymbol named:
             {
                 if (named.IsTupleType)
                 {
-                    var shape = TrackShape(_registry.GetOrCreateShape(named, _diagnostics));
-                    return ShapeDisplayForSite(shape, named);
+                    var shape = TrackShape(_registry.GetOrCreateShape(named));
+                    // 嵌套元组作为类型实参出现在任意站点作用域里，必须完整限定。
+                    return "global::" + _namespace + "." + ShapeDisplayInScope(shape, named);
+                }
+
+                if (named.IsAnonymousType)
+                {
+                    return "global::System.Object";
                 }
 
                 var definition = named.OriginalDefinition;
@@ -2538,7 +2424,7 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
         return head;
     }
 
-    /// <summary>尾部 struct 在源码作用域内的实例化文本。</summary>
+    /// <summary>尾部 struct 在源码作用域内的实例化文本：尾部元素按位置作为类型实参。</summary>
     private string TailDisplayInScope(TupleShape tailShape, INamedTypeSymbol outerTupleSymbol)
     {
         if (tailShape.GenericArity == 0)
@@ -2546,16 +2432,10 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
             return tailShape.Name;
         }
 
-        var tailElementTypes = outerTupleSymbol.TupleElements.Skip(7).Select(f => f.Type);
-        var parameters = new List<ITypeParameterSymbol>();
-        foreach (var elementType in tailElementTypes)
-        {
-            TupleShapeRegistry.CollectParameterOrder(elementType, parameters);
-        }
-
-        var args = parameters
+        var args = outerTupleSymbol.TupleElements
+            .Skip(7)
             .Take(tailShape.GenericArity)
-            .Select(p => TupleShapeRegistry.SanitizeIdentifier(p.Name));
+            .Select(field => DisplayTypeInScope(field.Type));
         return tailShape.Name + "<" + string.Join(", ", args) + ">";
     }
 

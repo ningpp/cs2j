@@ -269,7 +269,7 @@ public sealed class TupleLocalDeclarationNormalizationTests
                 {
                     var v = (1, 2);
                     v.Item1 = 5;
-                    global::Cs2jTuples.TupleInt32Int32 same = v;
+                    global::Cs2jTuples.TupleT0T1<int, int> same = v;
                     System.Console.WriteLine(same.Item2);
                 }
             }
@@ -277,8 +277,10 @@ public sealed class TupleLocalDeclarationNormalizationTests
 
         var result = Run(source);
 
-        Assert.Contains("var v = new global::Cs2jTuples.TupleInt32Int32(", result.Outputs[0]);
-        Assert.Contains("global::Cs2jTuples.TupleInt32Int32 same", result.Outputs[0]);
+        Assert.Contains(
+            "var v = new global::Cs2jTuples.TupleT0T1<global::System.Int32, global::System.Int32>(",
+            result.Outputs[0]);
+        Assert.Contains("global::Cs2jTuples.TupleT0T1<int, int> same", result.Outputs[0]);
         Assert.Equal(0, result.Statistics.TupleLocalsNormalizedToVar);
         AssertNoTupleTypedLocalDeclaration(result.Outputs[0]);
         AssertOutputCompiles(result.Outputs, result.StructFile);

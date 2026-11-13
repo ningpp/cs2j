@@ -344,6 +344,11 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
 
         var referenceGraph = BuildProjectReferenceGraph(projectFiles, intermediateRoot, sourceRoot);
 
+        // 源生成器/分析器项目必须自带它用到的所有形状：编译器加载分析器时不会一并解析
+        // 它的依赖程序集，复用被引用程序集里的生成 struct 会让生成器在加载期
+        // FileNotFoundException 而静默失效（CS8785 → 消费方 CS8795）。
+        var analyzerProjects = FindAnalyzerProjects(projectFiles, intermediateRoot, sourceRoot);
+
         // 形状 → 使用它的项目。
         var usersByShape = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (var (projectFile, needed) in shapesByProject)
@@ -360,8 +365,15 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
             }
         }
 
-        // 公共形状的唯一所有者：被其他所有使用方（传递）引用的那个项目。
-        var publicOwners = new Dictionary<string, string?>(StringComparer.Ordinal);
+        // 公共形状的定义者集合。生成 struct 按逻辑元数共享（同一 arity 只有一个定义），
+        // 因此同一元组的使用方必须看到**同一个** C# 类型；若各自生成一份，跨程序集传递
+        // 元组时两边类型不同（CS0436 + CS1503）。
+        //
+        // 归属规则：先在"弱连通引用分量"内选一个所有使用方都能（传递）引用到的项目作为
+        // 唯一定义者——方向反了会把定义放进最下游的消费者程序集，上游程序集便看不到该
+        // 类型；分量内确实没有公共可达项目时，退化为各使用方分别定义一份并告警。
+        var componentOf = ComputeWeakComponents(projectFiles, referenceGraph);
+        var ownersByShape = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         foreach (var (key, users) in usersByShape)
         {
             if (users.Count == 1 || !_preprocessor.IsShapePubliclyAccessible(key))
@@ -369,53 +381,83 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
                 continue;
             }
 
-            // 归属必须是"其他使用方都能看到"的那个项目，即每个使用方都（传递）
-            // 引用候选者；方向反了会把定义放进最下游的消费者程序集，上游程序集
-            // 便看不到该类型。
-            publicOwners[key] = users.FirstOrDefault(candidate =>
-                users.All(other => IsReachable(other, candidate, referenceGraph)));
+            var owners = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var unshareable = new List<string>();
+            foreach (var group in users.GroupBy(user => componentOf[user]))
+            {
+                var componentProjects = projectFiles.Where(project =>
+                    componentOf[project] == group.Key
+                    && !analyzerProjects.Contains(project)
+                    && _preprocessor.CanGenerateShape(key, ResolveProjectArities(project)));
+                var owner = group
+                    .Concat(componentProjects)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault(candidate =>
+                        group.All(other => IsReachable(other, candidate, referenceGraph)));
+                if (owner != null)
+                {
+                    owners.Add(owner);
+                    continue;
+                }
+
+                unshareable.AddRange(group);
+            }
+
+            foreach (var user in unshareable)
+            {
+                owners.Add(user);
+            }
+
+            ownersByShape[key] = owners;
+
+            if (unshareable.Count > 0)
+            {
+                _diagnostics.Add(new TupleToStructDiagnostic(
+                    TupleToStructSeverity.Warning,
+                    $"Tuple shape '{key}' is used by projects that do not reference each other " +
+                    $"({string.Join(", ", unshareable.Select(Path.GetFileNameWithoutExtension))}); " +
+                    "a copy is generated into each of them."));
+            }
         }
 
         // 项目 → 它必须定义的形状。
         var defineByProject = new Dictionary<string, SortedSet<string>>(StringComparer.OrdinalIgnoreCase);
+
+        void AddShape(string projectFile, string key)
+        {
+            if (!defineByProject.TryGetValue(projectFile, out var set))
+            {
+                set = new SortedSet<string>(StringComparer.Ordinal);
+                defineByProject[projectFile] = set;
+            }
+
+            set.Add(key);
+        }
+
         foreach (var (projectFile, needed) in shapesByProject)
         {
+            var selfContained = analyzerProjects.Contains(projectFile);
             foreach (var key in needed)
             {
-                var mustDefine = !_preprocessor.IsShapePubliclyAccessible(key)
-                    || !publicOwners.TryGetValue(key, out var owner)
-                    || owner == null
-                    || string.Equals(owner, projectFile, StringComparison.OrdinalIgnoreCase);
-                if (!mustDefine)
+                var mustDefine = selfContained
+                    || !_preprocessor.IsShapePubliclyAccessible(key)
+                    || !ownersByShape.TryGetValue(key, out var owners)
+                    || owners.Count == 0
+                    || owners.Contains(projectFile);
+                if (mustDefine)
                 {
-                    continue;
+                    AddShape(projectFile, key);
                 }
-
-                if (!defineByProject.TryGetValue(projectFile, out var set))
-                {
-                    set = new SortedSet<string>(StringComparer.Ordinal);
-                    defineByProject[projectFile] = set;
-                }
-
-                set.Add(key);
             }
         }
 
-        // 互不引用的项目共享 public 形状时无法判定唯一归属：各自生成一份并提示。
-        foreach (var (key, users) in usersByShape)
+        // 定义者可能自己并不使用该元组（例如被所有使用方引用的核心库），仍必须为它生成。
+        foreach (var (key, owners) in ownersByShape)
         {
-            if (users.Count <= 1
-                || !_preprocessor.IsShapePubliclyAccessible(key)
-                || publicOwners.TryGetValue(key, out var owner) && owner != null)
+            foreach (var owner in owners)
             {
-                continue;
+                AddShape(owner, key);
             }
-
-            _diagnostics.Add(new TupleToStructDiagnostic(
-                TupleToStructSeverity.Warning,
-                $"Tuple shape '{key}' is used by projects that do not reference each other " +
-                $"({string.Join(", ", users.Select(Path.GetFileNameWithoutExtension))}); " +
-                "a copy is generated into each of them."));
         }
 
         var multipleFiles = defineByProject.Count > 1;
@@ -428,9 +470,11 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
 
             // 该项目的运行时身份观测只在本项目内约束生成：别的项目观测到的 arity
             // 不得让本项目的形状既不降级也不生成（悬空引用）。
+            // 分析器项目自带一份 internal 定义，避免与被引用程序集的同名 struct 冲突。
             var content = _preprocessor.GenerateStructFile(
                 _preprocessor.CloseShapeKeys(shapeKeys),
-                ResolveProjectArities(projectFile));
+                ResolveProjectArities(projectFile),
+                internalAccessibility: analyzerProjects.Contains(projectFile));
             if (content == null)
             {
                 continue;
@@ -466,6 +510,78 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
         }
 
         return generatedPaths;
+    }
+
+    /// <summary>
+    /// 项目引用图的弱连通分量编号。形状归属只在分量内讨论：不同分量之间没有任何类型
+    /// 流动，各自定义同名 struct 不会冲突。
+    /// </summary>
+    private static Dictionary<string, int> ComputeWeakComponents(
+        IReadOnlyList<string> projectFiles,
+        Dictionary<string, HashSet<string>> graph)
+    {
+        var parent = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var project in projectFiles)
+        {
+            parent[project] = project;
+        }
+
+        string Find(string project)
+        {
+            var root = project;
+            while (!string.Equals(parent[root], root, StringComparison.OrdinalIgnoreCase))
+            {
+                root = parent[root];
+            }
+
+            while (!string.Equals(parent[project], root, StringComparison.OrdinalIgnoreCase))
+            {
+                var next = parent[project];
+                parent[project] = root;
+                project = next;
+            }
+
+            return root;
+        }
+
+        void Union(string left, string right)
+        {
+            if (!parent.ContainsKey(left) || !parent.ContainsKey(right))
+            {
+                return;
+            }
+
+            var leftRoot = Find(left);
+            var rightRoot = Find(right);
+            if (!string.Equals(leftRoot, rightRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                parent[leftRoot] = rightRoot;
+            }
+        }
+
+        foreach (var (from, targets) in graph)
+        {
+            foreach (var target in targets)
+            {
+                Union(from, target);
+            }
+        }
+
+        var componentIds = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var project in projectFiles)
+        {
+            var root = Find(project);
+            if (!componentIds.TryGetValue(root, out var id))
+            {
+                id = componentIds.Count;
+                componentIds[root] = id;
+            }
+
+            result[project] = id;
+        }
+
+        return result;
     }
 
     private static bool IsReachable(
@@ -510,6 +626,166 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
         return false;
     }
 
+    /// <summary>
+    /// 被其他项目以 <c>OutputItemType="Analyzer"</c> 引用的项目（源生成器/分析器）。
+    /// </summary>
+    private static HashSet<string> FindAnalyzerProjects(
+        IReadOnlyList<string> projectFiles,
+        string intermediateRoot,
+        string sourceRoot)
+    {
+        var byDirectory = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var projectFile in projectFiles)
+        {
+            var intermediateProjectFile = Path.Combine(
+                intermediateRoot, Path.GetRelativePath(sourceRoot, projectFile));
+            byDirectory[NormalizeDirectory(Path.GetDirectoryName(Path.GetFullPath(intermediateProjectFile))!)] =
+                projectFile;
+        }
+
+        var analyzers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var projectFile in projectFiles)
+        {
+            var intermediateProjectFile = Path.Combine(
+                intermediateRoot, Path.GetRelativePath(sourceRoot, projectFile));
+            foreach (var reference in ReadAnalyzerProjectReferences(intermediateProjectFile))
+            {
+                var directory = Path.GetDirectoryName(Path.GetFullPath(reference));
+                if (directory != null
+                    && byDirectory.TryGetValue(NormalizeDirectory(directory), out var target))
+                {
+                    analyzers.Add(target);
+                }
+            }
+        }
+
+        return analyzers;
+    }
+
+    private static string NormalizeDirectory(string directory) =>
+        directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+    /// <summary>
+    /// 读取 <c>OutputItemType="Analyzer"</c> 的 ProjectReference（解析失败返回空集）。
+    /// </summary>
+    private static IReadOnlyList<string> ReadAnalyzerProjectReferences(string intermediateProjectFile)
+    {
+        if (!File.Exists(intermediateProjectFile))
+        {
+            return Array.Empty<string>();
+        }
+
+        XDocument document;
+        try
+        {
+            document = XDocument.Load(intermediateProjectFile, LoadOptions.None);
+        }
+        catch (Exception)
+        {
+            return Array.Empty<string>();
+        }
+
+        var root = document.Root;
+        if (root == null)
+        {
+            return Array.Empty<string>();
+        }
+
+        var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(intermediateProjectFile))!;
+        var properties = MSBuildPropertyReader.Read(projectDirectory, projectDirectory, root);
+        var result = new List<string>();
+        foreach (var element in root.Descendants().Where(e => e.Name.LocalName == "ProjectReference"))
+        {
+            if (!string.Equals(
+                    (string?)element.Attribute("OutputItemType"),
+                    "Analyzer",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var include = (string?)element.Attribute("Include");
+            if (string.IsNullOrWhiteSpace(include))
+            {
+                continue;
+            }
+
+            var expanded = MSBuildPropertyReader.Expand(include!, properties, projectDirectory);
+            try
+            {
+                result.Add(Path.GetFullPath(Path.Combine(projectDirectory, expanded)));
+            }
+            catch (Exception)
+            {
+                // 非法路径忽略。
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// 读取项目引用时忽略 <c>OutputItemType="Analyzer"</c> 的边：源生成器/分析器由编译器
+    /// 在独立加载上下文中运行，它自己的依赖程序集不会被一起加载。若让分析器复用被引用
+    /// 程序集里的生成 struct，加载期就会 FileNotFoundException，整个生成器静默失效
+    /// （CS8785 → 消费方 CS8795）。分析器因此必须与其他项目分开成独立分量、自行定义形状。
+    /// </summary>
+    private static IReadOnlyList<string> ReadNonAnalyzerProjectReferences(string intermediateProjectFile)
+    {
+        if (!File.Exists(intermediateProjectFile))
+        {
+            return Array.Empty<string>();
+        }
+
+        XDocument document;
+        try
+        {
+            document = XDocument.Load(intermediateProjectFile, LoadOptions.None);
+        }
+        catch (Exception)
+        {
+            return Array.Empty<string>();
+        }
+
+        var root = document.Root;
+        if (root == null)
+        {
+            return Array.Empty<string>();
+        }
+
+        var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(intermediateProjectFile))!;
+        var properties = MSBuildPropertyReader.Read(projectDirectory, projectDirectory, root);
+        var result = new List<string>();
+        foreach (var element in root.Descendants().Where(e => e.Name.LocalName == "ProjectReference"))
+        {
+            if (string.Equals(
+                    (string?)element.Attribute("OutputItemType"),
+                    "Analyzer",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var include = (string?)element.Attribute("Include");
+            if (string.IsNullOrWhiteSpace(include))
+            {
+                continue;
+            }
+
+            var expanded = MSBuildPropertyReader.Expand(include!, properties, projectDirectory);
+            try
+            {
+                result.Add(Path.GetFullPath(Path.Combine(projectDirectory, expanded)));
+            }
+            catch (Exception)
+            {
+                // 非法路径忽略。
+            }
+        }
+
+        return result;
+    }
+
     private static Dictionary<string, HashSet<string>> BuildProjectReferenceGraph(
         IReadOnlyList<string> projectFiles,
         string intermediateRoot,
@@ -535,7 +811,7 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
 
             var intermediateProjectFile = Path.Combine(
                 intermediateRoot, Path.GetRelativePath(sourceRoot, projectFile));
-            foreach (var reference in ProjectCompileSet.ReadProjectReferences(intermediateProjectFile))
+            foreach (var reference in ReadNonAnalyzerProjectReferences(intermediateProjectFile))
             {
                 var referenceDirectory = Path.GetDirectoryName(Path.GetFullPath(reference));
                 if (referenceDirectory == null)

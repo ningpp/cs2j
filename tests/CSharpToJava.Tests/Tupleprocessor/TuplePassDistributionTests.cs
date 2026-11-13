@@ -25,11 +25,11 @@ public sealed class TuplePassDistributionTests
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
 
-        // 共享形状归库项目所有。
+        // 共享形状归库项目所有（元数 3 → TupleT0T1T2）。
         var libStruct = Path.Combine(result.IntermediateRoot, "_Cs2jTupleTypes.ReproLib.cs");
         Assert.True(File.Exists(libStruct), $"Missing library struct file: {libStruct}");
         Assert.Contains(
-            "public struct TupleInt32Int32Double",
+            "public struct TupleT0T1T2<",
             await File.ReadAllTextAsync(libStruct));
 
         // 消费者项目只定义自己独占的形状，共享形状必须通过 ProjectReference 复用，
@@ -37,8 +37,8 @@ public sealed class TuplePassDistributionTests
         var appStruct = Path.Combine(result.IntermediateRoot, "_Cs2jTupleTypes.ReproApp.cs");
         Assert.True(File.Exists(appStruct), $"Missing app struct file: {appStruct}");
         var appContent = await File.ReadAllTextAsync(appStruct);
-        Assert.DoesNotContain("TupleInt32Int32Double", appContent);
-        Assert.Contains("public struct TupleInt32String", appContent);
+        Assert.DoesNotContain("TupleT0T1T2", appContent);
+        Assert.Contains("public struct TupleT0T1<", appContent);
 
         // 引用关系可解析，不应再落进"互不引用 → 各自复制一份"的兜底分支。
         Assert.DoesNotContain(

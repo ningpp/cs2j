@@ -32,9 +32,10 @@ public sealed class TupleDisabledRegionArityTests
             Path.Combine(result.IntermediateRoot, "Converter.cs"));
         Assert.Contains("(uint, uint)[]", converter);
         Assert.DoesNotContain("Cs2jTuples.TupleUInt32UInt32", converter);
+        Assert.DoesNotContain("Cs2jTuples.TupleT0T1<", converter);
 
         // 未被条件分支引用的三元组仍应正常降级，证明修复不是"整棵树都不改写"。
-        Assert.Contains("Cs2jTuples.TupleInt32Int32Int32", converter);
+        Assert.Contains("Cs2jTuples.TupleT0T1T2<", converter);
 
         // DisabledText 原样保留（本 pass 无法改写该分支）。
         var solver = await File.ReadAllTextAsync(

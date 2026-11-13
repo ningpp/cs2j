@@ -1,79 +1,8 @@
-using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 
 namespace CSharpToJava.Core.TupleToStruct;
 
-/// <summary>
-/// Assigns sequential slot numbers to type parameters on first appearance. Slot
-/// numbers are dense (0..n-1) in structural first-appearance order, which makes them
-/// canonical: structurally identical open-generic shapes number their parameters
-/// identically regardless of which method/class declares them.
-/// </summary>
-internal sealed class SlotAssigner
-{
-    private readonly Dictionary<ITypeParameterSymbol, int> _slots =
-        new(SymbolEqualityComparer.Default);
-
-    private readonly HashSet<int> _valueTypeSlots = new();
-
-    public int Count => _slots.Count;
-
-    /// <summary>
-    /// S-04 (upgrade plan §6.4-R0): slots that must be redeclared with
-    /// <c>where __Pn : struct</c> — assigned when the parameter appears inside
-    /// <c>Nullable&lt;T&gt;</c>. Without the clause the generated struct's
-    /// <c>Nullable&lt;__Pn&gt;</c> field is CS0453.
-    /// </summary>
-    public IReadOnlyCollection<int> ValueTypeSlots => _valueTypeSlots;
-
-    /// <summary>Type parameter bound to each assigned slot (needed to redeclare constraints).</summary>
-    public IReadOnlyDictionary<ITypeParameterSymbol, int> SlotByParameter => _slots;
-
-    public int GetOrAdd(ITypeParameterSymbol parameter)
-    {
-        if (_slots.TryGetValue(parameter, out var slot))
-        {
-            return slot;
-        }
-
-        slot = _slots.Count;
-        _slots[parameter] = slot;
-        return slot;
-    }
-
-    public void RequireValueType(int slot) => _valueTypeSlots.Add(slot);
-}
-
-/// <summary>
-/// Constraints that must be redeclared on the generated struct for one of its
-/// type parameters, e.g. <c>where __P0 : global::System.IComparable&lt;__P0&gt;</c>.
-/// A generated field typed <c>SymbolicRegexNode&lt;__P0&gt;</c> is CS0314 unless
-/// <c>__P0</c> carries the same constraints as the source type parameter it
-/// replaced.
-/// </summary>
-internal sealed record TupleTypeParameterConstraint
-{
-    public required int Slot { get; init; }
-
-    /// <summary>Declared <c>struct</c> constraint or a <c>Nullable&lt;__Pn&gt;</c> usage.</summary>
-    public bool HasValueTypeConstraint { get; init; }
-
-    public bool HasUnmanagedTypeConstraint { get; init; }
-
-    public bool HasReferenceTypeConstraint { get; init; }
-
-    public bool HasNotNullConstraint { get; init; }
-
-    public bool HasConstructorConstraint { get; init; }
-
-    /// <summary>Constraint types as display templates with <c>{slot}</c> placeholders.</summary>
-    public IReadOnlyList<string> ConstraintTypeTemplates { get; init; } = Array.Empty<string>();
-
-    /// <summary>Canonical fragment folded into the shape key.</summary>
-    public required string Key { get; init; }
-}
-
-/// <summary>One element of a tuple shape: closed/open type, type-parameter slot, or nested tuple.</summary>
+/// <summary>One element slot of a generated tuple struct.</summary>
 internal sealed record TupleElementSpec
 {
     /// <summary>Canonical structural fragment used in the shape key.</summary>
@@ -83,38 +12,11 @@ internal sealed record TupleElementSpec
     public required string MangledName { get; init; }
 
     /// <summary>
-    /// Fully-qualified display text for the generated field, with <c>{slot}</c>
-    /// placeholders (slot numbers are canonical for the enclosing shape) replaced by
-    /// the struct's own generic parameters at generation time. Tuples appearing
-    /// anywhere inside (element, generic argument, array element) are already
-    /// replaced by their generated struct instantiation, so the template is
-    /// tuple-free.
+    /// Field type template: the slot placeholder <c>{i}</c>, replaced by the struct's
+    /// own generic parameter at generation time. Element types are supplied by the
+    /// use site as type arguments, so the template never names a concrete type.
     /// </summary>
     public required string FieldDisplayTemplate { get; init; }
-
-    /// <summary>Set when the element is itself a tuple; its struct instantiation.</summary>
-    public TupleShape? NestedShape { get; init; }
-
-    /// <summary>For nested tuples: nested generic parameter i binds to this outer slot.</summary>
-    public IReadOnlyList<int> NestedArgSlots { get; init; } = Array.Empty<int>();
-
-    public bool IsTuple => NestedShape != null;
-
-    /// <summary>
-    /// False when the element type is not publicly accessible outside its assembly
-    /// (internal/protected/private type or containing type). Such a shape must be
-    /// generated as an internal struct, otherwise C# reports CS0052/CS0051.
-    /// </summary>
-    public bool IsPubliclyAccessible { get; init; } = true;
-
-    /// <summary>
-    /// False when the element type cannot be named even by an internal top-level
-    /// struct generated IN THE SAME ASSEMBLY (private/protected/private-protected
-    /// nested types). Such a shape must not be lowered at all — its sites keep
-    /// native ValueTuple syntax — otherwise the generated struct file fails with
-    /// CS0122 ("inaccessible due to its protection level").
-    /// </summary>
-    public bool IsEmittableFromTopLevel { get; init; } = true;
 
     /// <summary>
     /// Named tuple element names observed for this position (e.g. <c>Char</c> for
@@ -128,12 +30,17 @@ internal sealed record TupleElementSpec
 
 /// <summary>
 /// A registered tuple shape: the structural identity of a C# tuple type plus the name
-/// of the struct generated for it. Shapes are deduplicated by canonical key so
-/// identical element-type shapes map to one struct project-wide.
+/// of the struct generated for it.
+///
+/// 形状身份按 <b>逻辑元数</b> 归一：同一元数的所有元组（<c>(TKey, TValue)</c>、
+/// <c>(string, int)</c>、<c>(T, T)</c> …）共用同一个泛型 struct 定义，元素类型在
+/// 站点上按位置作为类型实参传入。否则开放站点与具体站点会各自生成一个类型
+/// （例如 <c>TupleT0T1&lt;string, int&gt;</c> 与 <c>TupleStringInt32</c>），
+/// 库侧签名与调用侧无法互相赋值（CS1503/CS0266）。
 /// </summary>
 internal sealed class TupleShape
 {
-    /// <summary>Canonical structural key, e.g. <c>(Int32;String)</c>.</summary>
+    /// <summary>Canonical structural key, e.g. <c>({0};{1})</c>.</summary>
     public required string Key { get; init; }
 
     /// <summary>Logical element count (8+ tuples count every logical element).</summary>
@@ -141,44 +48,17 @@ internal sealed class TupleShape
 
     public IReadOnlyList<TupleElementSpec> Elements { get; init; } = Array.Empty<TupleElementSpec>();
 
-    /// <summary>Generated struct simple name (open shapes include T0/T1 fragments).</summary>
+    /// <summary>Generated struct simple name (one per logical arity, e.g. TupleT0T1).</summary>
     public required string Name { get; init; }
 
-    /// <summary>Number of generic parameters on the generated struct.</summary>
+    /// <summary>Number of generic parameters on the generated struct (one per logical element).</summary>
     public int GenericArity { get; init; }
-
-    /// <summary>
-    /// S-04: slots that need a <c>where __Pn : struct</c> clause on the generated
-    /// struct because they are used inside <c>Nullable&lt;__Pn&gt;</c>.
-    /// </summary>
-    public IReadOnlyList<int> ValueTypeSlots { get; init; } = Array.Empty<int>();
-
-    /// <summary>
-    /// Constraints redeclared on the generated struct, one entry per constrained
-    /// type-parameter slot (ascending slot order).
-    /// </summary>
-    public IReadOnlyList<TupleTypeParameterConstraint> TypeParameterConstraints { get; init; }
-        = Array.Empty<TupleTypeParameterConstraint>();
 
     /// <summary>For arity &gt;= 8: shape of the <c>Rest</c> tail struct (elements 8..N).</summary>
     public TupleShape? Tail { get; init; }
 
     /// <summary>For arity &gt;= 8: tail generic parameter i binds to this outer slot.</summary>
     public IReadOnlyList<int> TailArgSlots { get; init; } = Array.Empty<int>();
-
-    /// <summary>
-    /// True when every element type (recursively) is public, so the generated struct
-    /// can be public. Otherwise the struct is generated as internal.
-    /// </summary>
-    public bool IsPubliclyAccessible { get; init; } = true;
-
-    /// <summary>
-    /// True when every element type (recursively) is at least internal to its
-    /// assembly, so a top-level internal struct generated there can legally name
-    /// it. False for shapes that embed a private/protected nested type; those
-    /// shapes are kept as native ValueTuple and produce no generated struct.
-    /// </summary>
-    public bool IsEmittableFromTopLevel { get; init; } = true;
 }
 
 /// <summary>
@@ -187,13 +67,12 @@ internal sealed class TupleShape
 /// and the rewrite pass (looks shapes up when emitting struct names), keeping struct
 /// naming consistent across files.
 ///
-/// Slot numbering is per-shape (see <see cref="SlotAssigner"/>): a shape's key uses
-/// its own dense numbering, while nested tuple instantiations embedded in an outer
-/// shape's templates reference the outer shape's slots positionally.
+/// 每个逻辑元数只有一个定义，槽位编号即元素位置（0..n-1）：这让结构相同的元组
+/// 无论在哪个方法/类里、以开放还是封闭形态出现，都解析到同一个 struct。
 /// </summary>
 internal sealed partial class TupleShapeRegistry
 {
-    private readonly Dictionary<string, TupleShape> _shapesByKey = new(StringComparer.Ordinal);
+    private readonly Dictionary<int, TupleShape> _shapesByArity = new();
     private readonly HashSet<string> _takenNames = new(StringComparer.Ordinal);
     private readonly List<TupleShape> _ordered = new();
     private readonly string _namePrefix;
@@ -203,119 +82,87 @@ internal sealed partial class TupleShapeRegistry
         _namePrefix = namePrefix;
     }
 
-    /// <summary>Shapes in deterministic registration order (nested/tails first).</summary>
+    /// <summary>Shapes in deterministic registration order (tails first).</summary>
     public IReadOnlyList<TupleShape> Shapes => _ordered;
 
-    [GeneratedRegex(@"\{(\d+)\}")]
-    private static partial Regex SlotPlaceholderRegex();
-
-    /// <summary>Distinct slot ids referenced by a display template, in order of appearance.</summary>
-    internal static IReadOnlyList<int> SlotsInTemplate(string template)
-    {
-        var result = new List<int>();
-        foreach (Match match in SlotPlaceholderRegex().Matches(template))
-        {
-            var slot = int.Parse(match.Groups[1].Value);
-            if (!result.Contains(slot))
-            {
-                result.Add(slot);
-            }
-        }
-
-        return result;
-    }
-
-    public TupleShape GetOrCreateShape(
-        INamedTypeSymbol tupleType,
-        List<TupleToStructDiagnostic> diagnostics)
+    public TupleShape GetOrCreateShape(INamedTypeSymbol tupleType)
         => GetOrCreateShape(
             tupleType.TupleElements.Select(f => f.Type).ToArray(),
-            tupleType.TupleElements.Select(f => f.Name).ToArray(),
-            new SlotAssigner(),
-            diagnostics);
+            tupleType.TupleElements.Select(f => f.Name).ToArray());
 
     /// <summary>
-    /// Get or create the shape for a logical element-type list. <paramref name="slots"/>
-    /// is the canonical assigner for the shape being built; nested shapes get their own
-    /// canonical numbering and are bound back positionally via their arg slots.
+    /// Get or create the shape for a logical element-type list. Only the element count
+    /// participates in the identity: the element types themselves are rendered as type
+    /// arguments at each use site (see <c>ShapeDisplayInScope</c>), so an open
+    /// <c>(T1, T2)</c> and a closed <c>(string, int)</c> resolve to the same struct.
     /// <paramref name="elementNames"/> carries the source tuple's named elements (null
     /// or empty entries for unnamed ones) so the generated struct can expose them.
     /// </summary>
     public TupleShape GetOrCreateShape(
         IReadOnlyList<ITypeSymbol> elementTypes,
-        IReadOnlyList<string>? elementNames,
-        SlotAssigner slots,
-        List<TupleToStructDiagnostic> diagnostics)
+        IReadOnlyList<string>? elementNames)
     {
-        var elements = new List<TupleElementSpec>(elementTypes.Count);
-        var mangledNames = new List<string>(elementTypes.Count);
-        foreach (var elementType in elementTypes)
-        {
-            var spec = BuildElementSpec(elementType, slots, diagnostics);
-            elements.Add(spec);
-            mangledNames.Add(spec.MangledName);
-        }
-
-        var constraints = BuildConstraints(slots);
-
-        var key = "(" + string.Join(";", elements.Select(e => e.Key)) + ")" + ConstraintsKey(constraints);
-        if (_shapesByKey.TryGetValue(key, out var existing))
-        {
-            RecordAliasNames(existing, elementNames);
-            return existing;
-        }
-
-        TupleShape? tail = null;
-        IReadOnlyList<int> tailArgSlots = Array.Empty<int>();
-        if (elements.Count > 7)
-        {
-            // ValueTuple encodes arity >= 8 as T1..T7 + TRest (nested ValueTuple).
-            // The generated struct mirrors that layout: Item1..Item7 plus a Rest
-            // field typed as the struct for elements 8..N.
-            var tailTypes = elementTypes.Skip(7).ToArray();
-            var tailNames = elementNames != null && elementNames.Count > 7
-                ? elementNames.Skip(7).ToArray()
-                : null;
-            var tailShape = GetOrCreateShape(tailTypes, tailNames, new SlotAssigner(), diagnostics);
-            var tailParams = new List<ITypeParameterSymbol>();
-            foreach (var t in tailTypes)
-            {
-                CollectParameterOrder(t, tailParams);
-            }
-
-            tail = tailShape;
-            tailArgSlots = tailParams.Select(slots.GetOrAdd).ToArray();
-        }
-
-        var publiclyAccessible = elements.All(e => e.IsPubliclyAccessible)
-            && (tail?.IsPubliclyAccessible ?? true);
-        var emittableFromTopLevel = elements.All(e => e.IsEmittableFromTopLevel)
-            && (tail?.IsEmittableFromTopLevel ?? true);
-        var shape = new TupleShape
-        {
-            Key = key,
-            Arity = elements.Count,
-            Elements = elements,
-            Name = MakeUniqueName(mangledNames),
-            GenericArity = slots.Count,
-            ValueTypeSlots = slots.ValueTypeSlots.OrderBy(static i => i).ToArray(),
-            TypeParameterConstraints = constraints,
-            Tail = tail,
-            TailArgSlots = tailArgSlots,
-            IsPubliclyAccessible = publiclyAccessible,
-            IsEmittableFromTopLevel = emittableFromTopLevel,
-        };
-        _shapesByKey.Add(key, shape);
-        _ordered.Add(shape);
+        var shape = GetOrCreateCanonicalShape(elementTypes.Count);
         RecordAliasNames(shape, elementNames);
         return shape;
     }
 
     /// <summary>
+    /// Canonical shape for a logical arity: slots 0..n-1 in element order, no
+    /// constraints (fields are the struct's own generic parameters, never constrained
+    /// constructions), tail chained exactly like <c>System.ValueTuple</c> for 8+.
+    /// </summary>
+    private TupleShape GetOrCreateCanonicalShape(int arity)
+    {
+        if (_shapesByArity.TryGetValue(arity, out var existing))
+        {
+            return existing;
+        }
+
+        var elements = new List<TupleElementSpec>(arity);
+        var mangledNames = new List<string>(arity);
+        for (var i = 0; i < arity; i++)
+        {
+            elements.Add(new TupleElementSpec
+            {
+                Key = "{" + i + "}",
+                MangledName = "T" + i,
+                FieldDisplayTemplate = "{" + i + "}",
+            });
+            mangledNames.Add("T" + i);
+        }
+
+        TupleShape? tail = null;
+        IReadOnlyList<int> tailArgSlots = Array.Empty<int>();
+        if (arity > 7)
+        {
+            // ValueTuple encodes arity >= 8 as T1..T7 + TRest (nested ValueTuple).
+            // The generated struct mirrors that layout: Item1..Item7 plus a Rest
+            // field typed as the canonical struct for elements 8..N.
+            tail = GetOrCreateCanonicalShape(arity - 7);
+            tailArgSlots = Enumerable.Range(7, arity - 7).ToArray();
+        }
+
+        var shape = new TupleShape
+        {
+            Key = "(" + string.Join(";", elements.Select(static e => e.Key)) + ")",
+            Arity = arity,
+            Elements = elements,
+            Name = MakeUniqueName(mangledNames),
+            GenericArity = arity,
+            Tail = tail,
+            TailArgSlots = tailArgSlots,
+        };
+        _shapesByArity.Add(arity, shape);
+        _ordered.Add(shape);
+        return shape;
+    }
+
+    /// <summary>
     /// Records the named elements of every site that reuses a shape: identical
-    /// element types may be spelled with different element names (and a later
-    /// site may name elements the first one left unnamed), so the generated
-    /// struct must expose the union of the observed names.
+    /// arities may be spelled with different element names (and a later site may
+    /// name elements the first one left unnamed), so the generated struct must
+    /// expose the union of the observed names.
     /// </summary>
     private static void RecordAliasNames(TupleShape shape, IReadOnlyList<string>? elementNames)
     {
@@ -335,375 +182,8 @@ internal sealed partial class TupleShapeRegistry
         }
     }
 
-    /// <summary>
-    /// Constraints the generated struct must redeclare for its <c>__Pn</c> parameters.
-    /// The generated fields reuse the source type parameters verbatim
-    /// (<c>SymbolicRegexNode&lt;TSet&gt;</c> → <c>SymbolicRegexNode&lt;__P0&gt;</c>), so every
-    /// constraint the source parameter carried must be reproduced — otherwise the
-    /// field is CS0314. Constraints referencing type parameters that are not part of
-    /// this shape cannot be expressed (and are not needed to name the fields), so
-    /// they are dropped.
-    /// </summary>
-    private static IReadOnlyList<TupleTypeParameterConstraint> BuildConstraints(SlotAssigner slots)
-    {
-        if (slots.Count == 0)
-        {
-            return Array.Empty<TupleTypeParameterConstraint>();
-        }
-
-        var parametersBySlot = new Dictionary<int, ITypeParameterSymbol>();
-        foreach (var pair in slots.SlotByParameter)
-        {
-            parametersBySlot[pair.Value] = pair.Key;
-        }
-
-        var valueTypeSlots = slots.ValueTypeSlots.ToHashSet();
-        var result = new List<TupleTypeParameterConstraint>(slots.Count);
-        for (var slot = 0; slot < slots.Count; slot++)
-        {
-            var parameter = parametersBySlot[slot];
-            var templates = new List<string>();
-            foreach (var constraintType in parameter.ConstraintTypes)
-            {
-                if (BuildConstraintTemplate(constraintType, slots) is { } template)
-                {
-                    templates.Add(template);
-                }
-            }
-
-            var hasUnmanaged = parameter.HasUnmanagedTypeConstraint;
-            var hasValueType = hasUnmanaged
-                || parameter.HasValueTypeConstraint
-                || valueTypeSlots.Contains(slot);
-            var isStructLike = hasUnmanaged || hasValueType;
-            var hasReferenceType = !isStructLike && parameter.HasReferenceTypeConstraint;
-            var hasNotNull = !isStructLike && !hasReferenceType && parameter.HasNotNullConstraint;
-            var hasConstructor = !isStructLike && parameter.HasConstructorConstraint;
-            if (!isStructLike && !hasReferenceType && !hasNotNull
-                && !hasConstructor && templates.Count == 0)
-            {
-                continue;
-            }
-
-            var keyParts = new List<string>();
-            if (hasUnmanaged)
-            {
-                keyParts.Add("unmanaged");
-            }
-            else if (hasValueType)
-            {
-                keyParts.Add("struct");
-            }
-            else if (hasReferenceType)
-            {
-                keyParts.Add("class");
-            }
-            else if (hasNotNull)
-            {
-                keyParts.Add("notnull");
-            }
-
-            keyParts.AddRange(templates.OrderBy(static t => t, StringComparer.Ordinal));
-            if (hasConstructor)
-            {
-                keyParts.Add("new()");
-            }
-
-            result.Add(new TupleTypeParameterConstraint
-            {
-                Slot = slot,
-                HasValueTypeConstraint = hasValueType && !hasUnmanaged,
-                HasUnmanagedTypeConstraint = hasUnmanaged,
-                HasReferenceTypeConstraint = hasReferenceType,
-                HasNotNullConstraint = hasNotNull,
-                HasConstructorConstraint = hasConstructor,
-                ConstraintTypeTemplates = templates,
-                Key = "P" + slot + ":" + string.Join(",", keyParts),
-            });
-        }
-
-        return result;
-    }
-
-    private static string ConstraintsKey(IReadOnlyList<TupleTypeParameterConstraint> constraints) =>
-        constraints.Count == 0
-            ? string.Empty
-            : "|" + string.Join(";", constraints.Select(static c => c.Key));
-
-    /// <summary>
-    /// Render a constraint type as a display template with <c>{slot}</c> placeholders.
-    /// Returns null when the type references a type parameter outside this shape (or a
-    /// kind that cannot be named), in which case the constraint is omitted.
-    /// </summary>
-    private static string? BuildConstraintTemplate(ITypeSymbol type, SlotAssigner slots)
-    {
-        switch (type)
-        {
-            case ITypeParameterSymbol parameter:
-                return slots.SlotByParameter.TryGetValue(parameter, out var slot)
-                    ? "{" + slot + "}"
-                    : null;
-
-            case IArrayTypeSymbol array:
-                return BuildConstraintTemplate(array.ElementType, slots) is { } element
-                    ? element + "[" + new string(',', array.Rank - 1) + "]"
-                    : null;
-
-            case INamedTypeSymbol { IsTupleType: false, IsAnonymousType: false } named:
-            {
-                var definition = named.OriginalDefinition;
-                var name = StripGenericSuffix(definition.MetadataName ?? definition.Name);
-                var prefix = QualifiedMetadataPrefix(
-                    named,
-                    argument => BuildConstraintTemplate(argument, slots));
-                if (prefix == null)
-                {
-                    return null;
-                }
-
-                if (named.TypeArguments.Length == 0)
-                {
-                    return prefix + name;
-                }
-
-                var arguments = new List<string>(named.TypeArguments.Length);
-                foreach (var argument in named.TypeArguments)
-                {
-                    if (BuildConstraintTemplate(argument, slots) is not { } argumentText)
-                    {
-                        return null;
-                    }
-
-                    arguments.Add(argumentText);
-                }
-
-                return prefix + name + "<" + string.Join(", ", arguments) + ">";
-            }
-
-            default:
-                return null;
-        }
-    }
-
     public TupleShape? FindByKey(string key) =>
-        _shapesByKey.TryGetValue(key, out var shape) ? shape : null;
-
-    private TupleElementSpec BuildElementSpec(
-        ITypeSymbol elementType,
-        SlotAssigner slots,
-        List<TupleToStructDiagnostic> diagnostics)
-    {
-        if (elementType is INamedTypeSymbol { IsTupleType: true } nestedTuple)
-        {
-            var nestedShape = GetOrCreateShape(
-                nestedTuple.TupleElements.Select(f => f.Type).ToArray(),
-                nestedTuple.TupleElements.Select(f => f.Name).ToArray(),
-                new SlotAssigner(),
-                diagnostics);
-            var argSlots = BindParamsToSlots(nestedTuple.TupleElements.Select(f => f.Type), slots);
-            return new TupleElementSpec
-            {
-                Key = "TUPLE" + nestedShape.Key + "[" + string.Join(",", argSlots) + "]",
-                MangledName = nestedShape.Name,
-                FieldDisplayTemplate = InstantiateShapeDisplay(nestedShape, argSlots),
-                NestedShape = nestedShape,
-                NestedArgSlots = argSlots,
-                IsPubliclyAccessible = nestedShape.IsPubliclyAccessible,
-                IsEmittableFromTopLevel = nestedShape.IsEmittableFromTopLevel,
-            };
-        }
-
-        var template = BuildDisplayTemplate(elementType, slots, diagnostics);
-        return new TupleElementSpec
-        {
-            Key = template,
-            MangledName = MangleType(elementType, slots),
-            FieldDisplayTemplate = template,
-            IsPubliclyAccessible = IsPubliclyAccessible(elementType),
-            IsEmittableFromTopLevel = IsEmittableFromTopLevel(elementType),
-        };
-    }
-
-    /// <summary>
-    /// Map a nested structure's type parameters (in canonical first-appearance order)
-    /// to enclosing-shape slots, assigning new enclosing slots on first appearance.
-    /// </summary>
-    private static IReadOnlyList<int> BindParamsToSlots(
-        IEnumerable<ITypeSymbol> elementTypes,
-        SlotAssigner slots)
-    {
-        var parameters = new List<ITypeParameterSymbol>();
-        foreach (var type in elementTypes)
-        {
-            CollectParameterOrder(type, parameters);
-        }
-
-        return parameters.Select(slots.GetOrAdd).ToArray();
-    }
-
-    /// <summary>
-    /// Fully-qualified display text with <c>{slot}</c> placeholders for type
-    /// parameters. Tuples nested in generic arguments are registered and replaced by
-    /// their generated struct instantiation, so the template is always tuple-free.
-    /// </summary>
-    internal string BuildDisplayTemplate(
-        ITypeSymbol type,
-        SlotAssigner slots,
-        List<TupleToStructDiagnostic> diagnostics,
-        bool requiresValueType = false)
-    {
-        switch (type)
-        {
-            case IErrorTypeSymbol:
-                diagnostics.Add(new TupleToStructDiagnostic(
-                    TupleToStructSeverity.Warning,
-                    "Tuple element type could not be resolved (missing reference?); " +
-                    "it was replaced with object."));
-                return "global::System.Object";
-
-            case ITypeParameterSymbol parameter:
-            {
-                var slot = slots.GetOrAdd(parameter);
-                if (requiresValueType)
-                {
-                    // S-04: `Nullable<T>` over a type parameter needs `where T : struct`
-                    // on the generated struct.
-                    slots.RequireValueType(slot);
-                }
-
-                return "{" + slot + "}";
-            }
-
-            case IArrayTypeSymbol array:
-                return BuildDisplayTemplate(array.ElementType, slots, diagnostics)
-                    + "[" + new string(',', array.Rank - 1) + "]";
-
-            case IDynamicTypeSymbol:
-                return "global::System.Object";
-
-            case INamedTypeSymbol named:
-            {
-                if (named.IsTupleType)
-                {
-                    // Tuple nested inside a generic argument, e.g. List<(int, int)>.
-                    var elementTypes = named.TupleElements.Select(f => f.Type).ToArray();
-                    var nested = GetOrCreateShape(
-                        elementTypes,
-                        named.TupleElements.Select(f => f.Name).ToArray(),
-                        new SlotAssigner(),
-                        diagnostics);
-                    var argSlots = BindParamsToSlots(elementTypes, slots);
-                    return InstantiateShapeDisplay(nested, argSlots);
-                }
-
-                // 匿名类型无法在生成的 C# 中具名（且跨 pass 链中由后续
-                // anonymous-type-lift 提升为内部类）：元素物化为 System.Object。
-                // 提升类是 sealed 引用类型，存入 object 不丢值，结构性相等经
-                // 重写的虚 Equals 保留。
-                if (named.IsAnonymousType)
-                {
-                    return "global::System.Object";
-                }
-
-                var definition = named.OriginalDefinition;
-                var name = StripGenericSuffix(definition.MetadataName ?? definition.Name);
-                // 嵌套类型必须带外层类型链的泛型实参（`Outer<T>.Inner`）：省略实参
-                // 会指向非泛型同名类型，C# 报 CS0426（外层类型中不存在该嵌套类型）。
-                var prefix = QualifiedMetadataPrefix(
-                    named,
-                    argument => BuildDisplayTemplate(argument, slots, diagnostics));
-                if (prefix == null)
-                {
-                    diagnostics.Add(new TupleToStructDiagnostic(
-                        TupleToStructSeverity.Warning,
-                        $"Tuple element type '{type.ToDisplayString()}' has a containing " +
-                        "generic type that could not be named; it was replaced with object."));
-                    return "global::System.Object";
-                }
-
-                if (named.TypeArguments.Length == 0)
-                {
-                    return prefix + name;
-                }
-
-                // S-04: `T?` over a type parameter is Nullable<T>; its argument must
-                // be a value type, so the generated struct needs `where __Pn : struct`.
-                // The flag is one-shot: it must NOT leak into other generic arguments
-                // (Nullable<SomeStruct<T>> does not make T a value type).
-                var argumentRequiresValueType = definition.SpecialType == SpecialType.System_Nullable_T;
-                var args = named.TypeArguments
-                    .Select(arg => BuildDisplayTemplate(arg, slots, diagnostics, argumentRequiresValueType));
-                return prefix + name + "<" + string.Join(", ", args) + ">";
-            }
-
-            case IPointerTypeSymbol or IFunctionPointerTypeSymbol:
-                diagnostics.Add(new TupleToStructDiagnostic(
-                    TupleToStructSeverity.Warning,
-                    $"Tuple element type '{type.ToDisplayString()}' has no Java representation; " +
-                    "it was replaced with object."));
-                return "global::System.Object";
-
-            default:
-                diagnostics.Add(new TupleToStructDiagnostic(
-                    TupleToStructSeverity.Warning,
-                    $"Tuple element type '{type.ToDisplayString()}' used an unsupported kind " +
-                    $"({type.TypeKind}); it was replaced with object."));
-                return "global::System.Object";
-        }
-    }
-
-    internal static string MangleType(ITypeSymbol type, SlotAssigner slots)
-    {
-        switch (type)
-        {
-            case IErrorTypeSymbol:
-                return "Object";
-
-            case ITypeParameterSymbol parameter:
-                return "T" + slots.GetOrAdd(parameter);
-
-            case IArrayTypeSymbol array:
-                return MangleType(array.ElementType, slots)
-                    + (array.Rank == 1 ? "Array" : "Array" + array.Rank);
-
-            case IDynamicTypeSymbol:
-                return "Object";
-
-            case INamedTypeSymbol named:
-            {
-                if (named.IsTupleType)
-                {
-                    // Tuple nested inside a generic argument; the fragment only needs to
-                    // be structurally deterministic.
-                    return named.TupleElements.Aggregate(
-                        "Tuple",
-                        (acc, f) => acc + MangleType(f.Type, slots));
-                }
-
-                // 与 BuildDisplayTemplate 对齐：匿名元素物化为 object 槽位。
-                if (named.IsAnonymousType)
-                {
-                    return "Object";
-                }
-
-                var name = SanitizeIdentifier(StripGenericSuffix(
-                    named.OriginalDefinition.MetadataName ?? named.OriginalDefinition.Name));
-                if (named.Arity == 0 || named.TypeArguments.Length == 0)
-                {
-                    return name;
-                }
-
-                var args = named.TypeArguments.Select(a => MangleType(a, slots));
-                return name + "_" + string.Join("_", args);
-            }
-
-            case IPointerTypeSymbol or IFunctionPointerTypeSymbol:
-                return "Object";
-
-            default:
-                return SanitizeIdentifier(type.Name);
-        }
-    }
+        _ordered.FirstOrDefault(shape => shape.Key == key);
 
     /// <summary>
     /// True when the type can be named from outside its assembly: public, with a public
@@ -728,7 +208,7 @@ internal sealed partial class TupleShapeRegistry
                     return named.TupleElements.All(f => IsPubliclyAccessible(f.Type));
                 }
 
-                // 元素物化为 System.Object（见 BuildDisplayTemplate），匿名类型本身
+                // 元素物化为 System.Object（见 DisplayTypeInScope），匿名类型本身
                 // 的 internal 可访问性不影响生成字段。
                 if (named.IsAnonymousType)
                 {
@@ -797,7 +277,7 @@ internal sealed partial class TupleShapeRegistry
                     return true;
                 }
 
-                // 元素物化为 System.Object（见 BuildDisplayTemplate），其本身的
+                // 元素物化为 System.Object（见 DisplayTypeInScope），其本身的
                 // 可访问性不影响生成字段。
                 if (named.IsAnonymousType)
                 {
@@ -826,7 +306,7 @@ internal sealed partial class TupleShapeRegistry
             }
 
             default:
-                // BuildDisplayTemplate 会把不支持的种类物化为 System.Object。
+                // DisplayTypeInScope 会把不支持的种类物化为 System.Object。
                 return true;
         }
     }
@@ -907,66 +387,6 @@ internal sealed partial class TupleShapeRegistry
         return index < 0 ? metadataName : metadataName[..index];
     }
 
-    /// <summary>
-    /// Distinct type parameters in structural walk order (elements left-to-right,
-    /// recursing into nested tuples and generic arguments) — the same order slots are
-    /// assigned in, so positional bindings always line up.
-    /// </summary>
-    internal static void CollectParameterOrder(ITypeSymbol type, List<ITypeParameterSymbol> into)
-    {
-        switch (type)
-        {
-            case ITypeParameterSymbol parameter:
-                if (!into.Contains(parameter, SymbolEqualityComparer.Default))
-                {
-                    into.Add(parameter);
-                }
-
-                return;
-
-            case IArrayTypeSymbol array:
-                CollectParameterOrder(array.ElementType, into);
-                return;
-
-            case INamedTypeSymbol named:
-                if (named.IsTupleType)
-                {
-                    foreach (var field in named.TupleElements)
-                    {
-                        CollectParameterOrder(field.Type, into);
-                    }
-
-                    return;
-                }
-
-                // 嵌套类型的外层泛型实参先于自身实参（与显示文本
-                // `Outer<T>.Inner<U>` 的书写顺序一致），否则槽位编号与渲染顺序不符。
-                if (named.ContainingType != null)
-                {
-                    var chain = new List<INamedTypeSymbol>();
-                    for (var containing = named.ContainingType; containing != null; containing = containing.ContainingType)
-                    {
-                        chain.Add(containing);
-                    }
-
-                    for (var i = chain.Count - 1; i >= 0; i--)
-                    {
-                        foreach (var argument in chain[i].TypeArguments)
-                        {
-                            CollectParameterOrder(argument, into);
-                        }
-                    }
-                }
-
-                foreach (var arg in named.TypeArguments)
-                {
-                    CollectParameterOrder(arg, into);
-                }
-
-                return;
-        }
-    }
-
     private string MakeUniqueName(IReadOnlyList<string> mangledNames)
     {
         var baseName = _namePrefix + string.Concat(mangledNames);
@@ -985,21 +405,5 @@ internal sealed partial class TupleShapeRegistry
 
         _takenNames.Add(candidate);
         return candidate;
-    }
-
-    /// <summary>
-    /// Render a struct instantiation for a shape whose generic parameters bind to the
-    /// given (enclosing) slots. Slot ids index the enclosing shape's parameters.
-    /// </summary>
-    internal static string InstantiateShapeDisplay(TupleShape shape, IReadOnlyList<int> argSlots)
-    {
-        if (shape.GenericArity == 0)
-        {
-            return shape.Name;
-        }
-
-        var args = Enumerable.Range(0, shape.GenericArity)
-            .Select(i => i < argSlots.Count ? "{" + argSlots[i] + "}" : "{0}");
-        return shape.Name + "<" + string.Join(", ", args) + ">";
     }
 }

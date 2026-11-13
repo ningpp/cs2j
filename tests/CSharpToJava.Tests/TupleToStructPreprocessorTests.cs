@@ -114,11 +114,11 @@ public sealed class TupleToStructPreprocessorTests
     }
 
     [Fact]
-    public void NullableTypeParameterElement_EmitsStructConstraint()
+    public void NullableTypeParameterElement_UsesInstantiatedArityShape()
     {
-        // S-04 (upgrade plan §6.4-R0): `(T, T?)` over a struct-constrained type
-        // parameter yields a Nullable<__P0> field on the generated struct, which is
-        // CS0453 unless the struct redeclares `where __P0 : struct`.
+        // S-04：`(T, T?)` 的元素作为类型实参传入统一的元数形状（字段是 __P0/__P1，
+        // 不再出现 `Nullable<__Pn>` 字段），因此无需在生成 struct 上重声明
+        // `where __P0 : struct`，也不会 CS0453。
         var source = """
             class Holder
             {
@@ -129,9 +129,9 @@ public sealed class TupleToStructPreprocessorTests
         var result = RunAll(source);
 
         Assert.NotNull(result.StructFile);
-        Assert.Contains("where __P0 : struct", result.StructFile);
-        Assert.True(result.Outputs.Any(o => o.Contains("Cs2jTuple")) || result.Statistics.StructsGenerated > 0,
-            "the tuple should have been lowered to a generated struct");
+        Assert.Contains("public struct TupleT0T1<__P0, __P1>", result.StructFile);
+        Assert.DoesNotContain("where __P0", result.StructFile);
+        Assert.Contains("global::System.Nullable<T>", result.Outputs[0]);
         AssertOutputCompiles(result.Outputs, result.StructFile);
     }
 
@@ -171,13 +171,12 @@ public sealed class TupleToStructPreprocessorTests
     }
 
     [Fact]
-    public void ConstrainedTypeParameterInGenericElement_RedeclaresConstraints()
+    public void ConstrainedTypeParameterInGenericElement_UsesInstantiatedArityShape()
     {
         // Regression for CS0314: the element type `Node<TSet>` requires
-        // `TSet : IComparable<TSet>, IEquatable<TSet>` — the same constraints the
-        // declaring type parameter carries. The generated struct redeclares the
-        // type parameter as `__P0`, so it must redeclare those constraints on the
-        // struct itself; otherwise every `Node<__P0>` field is CS0314.
+        // `TSet : IComparable<TSet>, IEquatable<TSet>`. 元素类型现在作为类型实参
+        // 出现在站点上（`TupleT0T1<global::Node<TSet>, …>`），生成 struct 的字段只是
+        // 自身的 `__Pn`，因此不需要在 struct 上重声明这些约束。
         var source = """
             using System;
             using System.Collections.Generic;
@@ -210,10 +209,9 @@ public sealed class TupleToStructPreprocessorTests
         var result = RunAll(source);
 
         Assert.NotNull(result.StructFile);
-        Assert.Contains(
-            "where __P0 : global::System.IComparable<__P0>, global::System.IEquatable<__P0>",
-            result.StructFile);
-        Assert.Contains("where __P0 : class, new()", result.StructFile);
+        Assert.DoesNotContain("where __P", result.StructFile);
+        Assert.Contains("global::Node<TSet>", result.Outputs[0]);
+        Assert.Contains("global::Factory<T>", result.Outputs[0]);
         AssertOutputCompiles(result.Outputs, result.StructFile);
     }
 
@@ -224,10 +222,8 @@ public sealed class TupleToStructPreprocessorTests
         // the tuple element `SymbolicRegexMatcher<TSet>.Registers` is a type nested
         // in a GENERIC type. Naming the nested type without the containing type's
         // arguments (`Matcher.Registers`) refers to the non-generic actor type
-        // `Matcher`, which has no nested `Registers` → CS0426. The generated field
-        // must be `Matcher<__P0>.Registers`, and `__P0` must be discovered through
-        // the containing type's arguments (so the struct is generic and redeclares
-        // TSet's constraints).
+        // `Matcher`, which has no nested `Registers` → CS0426. 元素类型现在作为
+        // 类型实参出现在站点上，必须同样写成 `Matcher<TSet>.Registers`。
         var source = """
             using System;
             using System.Collections.Generic;
@@ -253,10 +249,8 @@ public sealed class TupleToStructPreprocessorTests
 
         Assert.Empty(result.Diagnostics.Where(d => d.Severity == TupleToStructSeverity.Error));
         Assert.NotNull(result.StructFile);
-        Assert.Contains("Matcher<__P0>.Registers", result.StructFile);
-        Assert.Contains(
-            "where __P0 : global::System.IComparable<__P0>, global::System.IEquatable<__P0>",
-            result.StructFile);
+        Assert.Contains("Matcher<TSet>.Registers", result.Outputs[0]);
+        Assert.DoesNotContain("where __P", result.StructFile);
         AssertOutputCompiles(result.Outputs, result.StructFile);
     }
 
@@ -311,8 +305,9 @@ public sealed class TupleToStructPreprocessorTests
 
         Assert.Empty(result.Diagnostics.Where(d => d.Severity == TupleToStructSeverity.Error));
         Assert.Contains(
-            "new global::Cs2jTuples.TupleRegexNodeTupleCharStringStringComparisonCharArray(firstChild",
+            "new global::Cs2jTuples.TupleT0T1<",
             result.Outputs[0]);
+        Assert.Contains("(firstChild,", result.Outputs[0]);
         AssertOutputCompiles(result.Outputs, result.StructFile);
     }
 
@@ -371,8 +366,9 @@ public sealed class TupleToStructPreprocessorTests
 
         var result = RunAll(source);
 
-        Assert.DoesNotContain(".Char", result.Outputs[0]);
-        Assert.DoesNotContain(".Distance", result.Outputs[0]);
+        // 类型实参里会出现 `global::System.Char`，所以只断言具名访问本身已被改写。
+        Assert.DoesNotContain("FixedDistanceLiteral.Char", result.Outputs[0]);
+        Assert.DoesNotContain("FixedDistanceLiteral.Distance", result.Outputs[0]);
         Assert.Contains(".Item1", result.Outputs[0]);
         Assert.Contains(".Item3", result.Outputs[0]);
         Assert.NotNull(result.StructFile);
@@ -415,9 +411,10 @@ public sealed class TupleToStructPreprocessorTests
         var result = RunAll(declaration, consumer);
 
         Assert.NotNull(result.StructFile);
-        Assert.Contains("Cs2jTuples.TupleCharStringInt32", result.Outputs[0]);
-        Assert.Contains("public global::System.Char Char", result.StructFile);
-        Assert.Contains("public global::System.Int32 Distance", result.StructFile);
+        Assert.Contains("Cs2jTuples.TupleT0T1T2", result.Outputs[0]);
+        // 别名属性类型是 struct 自身的泛型参数（元素类型由站点实参决定）。
+        Assert.Contains("public __P0 Char", result.StructFile);
+        Assert.Contains("public __P2 Distance", result.StructFile);
 
         // The real build defines the symbol, so the conditional branch is compiled:
         // its named-element accesses must still bind against the generated struct.
@@ -586,7 +583,7 @@ public sealed class TupleToStructPreprocessorTests
         var result = RunAll(source);
 
         Assert.Contains("Cs2jTuples", result.Outputs[0]);
-        Assert.Contains("TupleInt32String", result.StructFile ?? string.Empty);
+        Assert.Contains("public struct TupleT0T1<", result.StructFile ?? string.Empty);
         Assert.DoesNotContain("EntityType", result.StructFile ?? string.Empty);
         AssertOutputCompiles(result.Outputs, result.StructFile);
     }
@@ -636,11 +633,11 @@ public sealed class TupleToStructPreprocessorTests
 
         Assert.Empty(result.Diagnostics.Where(d => d.Severity == TupleToStructSeverity.Error));
         // Arity 2 keeps native ValueTuple syntax (type, literal, element access).
-        Assert.DoesNotContain("Cs2jTuples.TupleInt32Int32(", result.Outputs[0]);
+        Assert.DoesNotContain("Cs2jTuples.TupleT0T1<", result.Outputs[0]);
         // An outer shape embedding a denied nested shape stays native too (no dangling struct).
         Assert.Contains("(int B, int C)", result.Outputs[0]);
         // Other arities are unaffected: the 3-element tuple still lowers.
-        Assert.Contains("Cs2jTuples.TupleInt32Int32Int32(", result.Outputs[0]);
+        Assert.Contains("Cs2jTuples.TupleT0T1T2<", result.Outputs[0]);
         Assert.NotNull(result.StructFile);
         AssertOutputCompiles(result.Outputs, result.StructFile);
     }
@@ -740,7 +737,7 @@ public sealed class TupleToStructPreprocessorTests
             "foreach ((Type derivedType, object? typeDiscriminator) in _derivedTypes)",
             result.Outputs[0]);
         // Ordinary tuple sites in the same file still lower to the generated struct.
-        Assert.Contains("Cs2jTuples.TupleInt32Boolean", result.Outputs[0]);
+        Assert.Contains("Cs2jTuples.TupleT0T1<", result.Outputs[0]);
         Assert.NotNull(result.StructFile);
         AssertOutputCompiles(result.Outputs, result.StructFile);
     }
@@ -780,7 +777,7 @@ public sealed class TupleToStructPreprocessorTests
         Assert.Contains("(int year, int month, int day) = value;", result.Outputs[0]);
         Assert.Contains("(int key, int item) = Pair();", result.Outputs[0]);
         // Real value-tuple deconstruction in the same file still lowers.
-        Assert.Contains("Cs2jTuples.TupleInt32Int32", result.Outputs[0]);
+        Assert.Contains("Cs2jTuples.TupleT0T1<", result.Outputs[0]);
         AssertOutputCompiles(result.Outputs, result.StructFile);
     }
 

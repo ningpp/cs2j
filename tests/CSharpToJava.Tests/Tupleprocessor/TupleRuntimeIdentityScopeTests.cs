@@ -33,14 +33,14 @@ public sealed class TupleRuntimeIdentityScopeTests
         Assert.DoesNotContain("Cs2jTuples.TupleInt32Int32", lib);
 
         // 未观测项目：二元具名元组降级为生成 struct，具名访问换成 ItemN。
-        Assert.Contains("Cs2jTuples.TupleStringBoolean", app);
+        Assert.Contains("Cs2jTuples.TupleT0T1<", app);
         Assert.DoesNotContain(".Flag", app);
 
         // 生成文件只包含未观测项目的形状。
         Assert.False(string.IsNullOrEmpty(result.GeneratedStructFilePath));
         var structContent = await File.ReadAllTextAsync(result.GeneratedStructFilePath!);
-        Assert.Contains("public struct TupleStringBoolean", structContent);
-        Assert.DoesNotContain("TupleInt32Int32", structContent);
+        Assert.Contains("public struct TupleT0T1<", structContent);
+        Assert.DoesNotContain("TupleInt32", structContent);
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public sealed class TupleRuntimeIdentityScopeTests
         // 同一项目的其它文件也必须保持该 arity 原生（项目内 arity 级一致）。
         Assert.Contains("typeof(ValueTuple<,>)", observer);
         Assert.Contains("(string Name, bool Flag)", user);
-        Assert.DoesNotContain("Cs2jTuples.TupleStringBoolean", user);
+        Assert.DoesNotContain("Cs2jTuples.TupleT0T1", user);
 
         // 没有任何可生成的形状。
         Assert.True(
