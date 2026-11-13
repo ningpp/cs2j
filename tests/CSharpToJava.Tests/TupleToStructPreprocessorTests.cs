@@ -688,4 +688,43 @@ public sealed class TupleToStructPreprocessorTests
         Assert.NotNull(result.StructFile);
         AssertOutputCompiles(result.Outputs, result.StructFile);
     }
+
+    [Fact]
+    public void DeconstructionAssignment_OverNonTupleDeconstructSource_KeepsSyntax()
+    {
+        // Regression for CS1061 in DateTimeFormat.cs / FrozenSetInternalBase.cs:
+        //   (int year, int month, int day) = value;            // value is DateOnly
+        //   (int uniqueCount, int unfoundCount) = Check...();  // returns KeyValuePair<int, int>
+        // Both sources deconstruct through a Deconstruct method, not a value tuple, yet
+        // Roslyn still reports a tuple-shaped (int, int, int) type for the assignment.
+        // Expanding such a site accesses .Item1/.Item2/.Item3 on DateOnly / KeyValuePair,
+        // which have no such members.
+        var source = """
+            using System;
+            using System.Collections.Generic;
+
+            class C
+            {
+                static KeyValuePair<int, int> Pair() => new(1, 2);
+
+                static int Use(DateOnly value)
+                {
+                    (int year, int month, int day) = value;
+                    (int key, int item) = Pair();
+                    (int a, int b) = (3, 4);
+                    return year + month + day + key + item + a + b;
+                }
+            }
+            """;
+
+        var result = RunAll(source);
+
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == TupleToStructSeverity.Error));
+        // Deconstruct-based targets keep their original syntax.
+        Assert.Contains("(int year, int month, int day) = value;", result.Outputs[0]);
+        Assert.Contains("(int key, int item) = Pair();", result.Outputs[0]);
+        // Real value-tuple deconstruction in the same file still lowers.
+        Assert.Contains("Cs2jTuples.TupleInt32Int32", result.Outputs[0]);
+        AssertOutputCompiles(result.Outputs, result.StructFile);
+    }
 }

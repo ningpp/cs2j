@@ -1572,7 +1572,7 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
                     Designation: ParenthesizedVariableDesignationSyntax declarationDesignation,
                 },
             } declarationAssignment
-            && GetTupleTypeOfExpression(declarationAssignment.Right) is { } declaredTuple
+            && GetTupleDeconstructionSource(declarationAssignment.Right) is { } declaredTuple
             && GetEmittableShape(declaredTuple) is { } shape)
         {
             var visitedValue = (ExpressionSyntax)Visit(declarationAssignment.Right)!;
@@ -1589,9 +1589,7 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
                 Left: TupleExpressionSyntax tupleLeft,
             } assignment)
         {
-            var tupleType = _model.GetTypeInfo(assignment).Type as INamedTypeSymbol
-                ?? _model.GetTypeInfo(assignment.Right).ConvertedType as INamedTypeSymbol;
-            if (tupleType is { IsTupleType: true }
+            if (GetTupleDeconstructionSource(assignment.Right) is { } tupleType
                 && GetEmittableShape(tupleType) is { } assignmentShape)
             {
                 var visitedRight = (ExpressionSyntax)Visit(assignment.Right)!;
@@ -1729,7 +1727,7 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
                     Designation: ParenthesizedVariableDesignationSyntax designation,
                 },
             } initAssignment
-            && GetTupleTypeOfExpression(initAssignment.Right) is { } initTuple
+            && GetTupleDeconstructionSource(initAssignment.Right) is { } initTuple
             && GetEmittableShape(initTuple) is { } shape)
         {
             var visitedValue = (ExpressionSyntax)Visit(initAssignment.Right)!;
@@ -2296,8 +2294,21 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
     // ------------------------------------------------------------------
 
     /// <summary>
+    /// 解构源表达式的值元组类型：只看自然类型。解构（<c>(int a, int b) = source</c> /
+    /// <c>var (a, b) = source</c>）里 Roslyn 会把 source 的 ConvertedType 报成解构
+    /// 目标形状（由 <c>Deconstruct</c> 的 out 参数推导），据此展开会访问 DateOnly /
+    /// KeyValuePair 等非元组源上不存在的 ItemN（CS1061）。自然类型不是元组时说明
+    /// 该解构走 Deconstruct 方法，必须保留原语法。
+    /// </summary>
+    private INamedTypeSymbol? GetTupleDeconstructionSource(ExpressionSyntax expression)
+        => _model.GetTypeInfo(expression).Type is INamedTypeSymbol { IsTupleType: true } natural
+            ? natural
+            : null;
+
+    /// <summary>
     /// 表达式（含 out var 解构声明）的元组类型：优先 ConvertedType（out 参数类型/
-    /// 赋值目标类型），否则自然类型。非元组（如 KeyValuePair Deconstruct）返回 null。
+    /// 赋值目标类型），否则自然类型。注意 ConvertedType 在解构源上会被报成解构目标
+    /// 形状，解构判断必须用 <see cref="GetTupleDeconstructionSource"/>。
     /// </summary>
     private INamedTypeSymbol? GetTupleTypeOfExpression(ExpressionSyntax expression)
     {
