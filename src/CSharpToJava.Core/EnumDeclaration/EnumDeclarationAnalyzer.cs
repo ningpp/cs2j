@@ -911,6 +911,43 @@ internal sealed class EnumDeclarationAnalyzer
             }
         }
 
+        /// <summary>
+        /// 整树合并编译把不同项目的 .cs 合成一个 Compilation：某个文件同时
+        /// <c>using System;</c> 与 <c>using SerializationTypes;</c> 时，两个项目各自
+        /// 独有的同名 enum（如 <c>System.ByteEnum</c> 与
+        /// <c>SerializationTypes.ByteEnum</c>）在合并编译里是 CS0104 歧义，而真实
+        /// 项目编译并不歧义。歧义使 <c>GetTypeInfo</c>/<c>GetSymbolInfo</c> 得到
+        /// error type/null 符号，运行时类型身份暴露规则（泛型实参、typeof、
+        /// System.Enum API）与所有使用点改写都看不到该 enum，于是它被类化，真实项目
+        /// 却在该站点观察到类化后的类型（XmlSerializer 等按 <c>Type.IsEnum</c>
+        /// 判定失败）。这里只在身份敏感位置按候选符号保守处置：候选里任一命中已
+        /// 落地 plan 即回退（ED020），整棵树的歧义标识符不在此列。
+        /// </summary>
+        private void MarkAmbiguousTypeIdentityExposure(TypeSyntax typeSyntax)
+        {
+            var info = _model.GetSymbolInfo(typeSyntax);
+            if (info.CandidateSymbols.Length == 0) return;
+
+            foreach (var candidate in info.CandidateSymbols)
+            {
+                if (candidate is not INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+                    continue;
+                if (!_analysis.BySymbol.TryGetValue(enumType, out var plan)
+                    || plan.Outcome != EnumPlanOutcome.Converted)
+                {
+                    continue;
+                }
+
+                Infeasible(plan, typeSyntax,
+                    $"enum '{plan.EnumQualifiedName}' is referenced from a position that observes " +
+                    "runtime type identity (generic type argument, typeof or System.Enum API), but " +
+                    "the identifier is ambiguously resolved in this whole-tree compilation: " +
+                    "same-named types declared by different source projects are merged here, while " +
+                    "the real project compiles unambiguously. The real project may bind this site " +
+                    "to the enum, so it must remain a real enum.");
+            }
+        }
+
         public override void VisitCastExpression(CastExpressionSyntax node)
         {
             base.VisitCastExpression(node);
@@ -1717,6 +1754,7 @@ internal sealed class EnumDeclarationAnalyzer
         public override void VisitTypeOfExpression(TypeOfExpressionSyntax node)
         {
             base.VisitTypeOfExpression(node);
+            MarkAmbiguousTypeIdentityExposure(node.Type);
             var plan = FeasiblePlan(_model.GetTypeInfo(node.Type).Type);
             if (plan == null) return;
             Touch(plan, node);
@@ -1767,6 +1805,11 @@ internal sealed class EnumDeclarationAnalyzer
         public override void VisitGenericName(GenericNameSyntax node)
         {
             base.VisitGenericName(node);
+            // 泛型类型实参位置的歧义类型（含泛型方法调用的 Ser<E>(...)）：
+            // 合并编译才能观察到的同名歧义会让 GetTypeInfo/GetSymbolInfo 给出
+            // error type，下面的常规规则看不到该 enum。先按候选符号保守处置。
+            foreach (var argument in node.TypeArgumentList.Arguments)
+                MarkAmbiguousTypeIdentityExposure(argument);
             // 显式 Nullable<E>：class 形态不满足 Nullable<T> 的 struct 约束 → ED020。
             if (node.Identifier.Text == "Nullable"
                 && node.TypeArgumentList.Arguments.Count == 1)
