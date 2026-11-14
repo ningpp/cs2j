@@ -158,8 +158,11 @@ internal static class EnumeratorLoweringBuilder
         //       binding gives an accessible parameterless void Dispose()
         //       pattern method (M2 probe-pinned: for ref structs
         //       info.DisposeMethod IS the compiler-selected pattern symbol;
-        //       foreach calls it directly, without boxing — ref structs
-        //       cannot implement IDisposable at all).
+        //       foreach calls it directly, without boxing).
+        // A ref struct CAN implement IDisposable since C# 13, but only through
+        // explicit interface implementations: it still cannot be converted to
+        // the interface, so that shape is disposed through a constrained
+        // generic helper instead of an interface cast (see below).
         // On net10 the non-generic IEnumerator no longer lists IDisposable.
         // Hard invariant 4: every other enumerator gets no try/finally.
         var implementsDisposable =
@@ -169,10 +172,37 @@ internal static class EnumeratorLoweringBuilder
 
         var disposeGenerated = false;
         var disposeBoxed = false;
+        LocalFunctionStatementSyntax? refStructDisposeHelper = null;
         if (implementsDisposable)
         {
-            ExpressionSyntax disposeReceiver = enumeratorAccess;
-            if (!TryGetDirectDisposeAccess(binding.EnumeratorType!, out _))
+            ExpressionSyntax disposeCall;
+            if (TryGetDirectDisposeAccess(binding.EnumeratorType!, out _))
+            {
+                disposeCall = DisposeCall(enumeratorAccess);
+            }
+            else if (binding.EnumeratorType is { IsRefLikeType: true })
+            {
+                // Ref-like enumerator implementing IDisposable only through an
+                // explicit interface implementation (legal since C# 13). It can
+                // never be converted to the interface (CS0030 — ref structs do
+                // not box), so neither the direct call (the explicit member is
+                // not reachable through the type, CS1061) nor the interface cast
+                // below is legal. foreach itself disposes these via a
+                // constrained, unboxed interface call; the only source-level
+                // equivalent is a generic helper constrained with
+                // `allows ref struct`, which binds to the same implementation.
+                var helperName = context.FreshName(ForeachSourceSyntaxFacts.FaDisposeHelperName, node);
+                var parameterName = context.FreshName(
+                    ForeachSourceSyntaxFacts.FaDisposeHelperParameterName, node);
+                refStructDisposeHelper = BuildRefStructDisposeHelper(helperName, parameterName);
+                disposeCall = SyntaxFactory.InvocationExpression(
+                    SyntaxFactory.IdentifierName(helperName),
+                    SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.Argument(SyntaxFactory.RefExpression(
+                            SyntaxFactory.Token(SyntaxKind.RefKeyword),
+                            enumeratorAccess)))));
+            }
+            else
             {
                 // Explicit interface implementation (or an interface-typed
                 // enumerator handled above by TryGetDirectDisposeAccess): go
@@ -183,23 +213,30 @@ internal static class EnumeratorLoweringBuilder
                     disposableType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
                 // Parenthesize the cast: without the outer pair the member
                 // access would parse as ((IDisposable)(e.Dispose())).
-                disposeReceiver = SyntaxFactory.ParenthesizedExpression(
-                    SyntaxFactory.CastExpression(disposableSyntax, enumeratorAccess));
+                disposeCall = DisposeCall(SyntaxFactory.ParenthesizedExpression(
+                    SyntaxFactory.CastExpression(disposableSyntax, enumeratorAccess)));
                 disposeBoxed = binding.EnumeratorType?.IsValueType == true;
             }
 
-            loopStatement = WrapTryFinally(loopStatement, disposeReceiver);
+            loopStatement = WrapTryFinally(loopStatement, disposeCall);
             disposeGenerated = true;
         }
         else if (refStructPatternDispose)
         {
             // Pattern Dispose on a ref struct: direct, unboxed invocation of
             // the compiler-resolved accessible Dispose() method.
-            loopStatement = WrapTryFinally(loopStatement, enumeratorAccess);
+            loopStatement = WrapTryFinally(loopStatement, DisposeCall(enumeratorAccess));
             disposeGenerated = true;
         }
 
-        var statements = SyntaxFactory.List(new[] { sourceDecl, enumeratorDecl, loopStatement });
+        var generatedStatements = new List<StatementSyntax> { sourceDecl, enumeratorDecl };
+        if (refStructDisposeHelper != null)
+        {
+            generatedStatements.Add(refStructDisposeHelper);
+        }
+
+        generatedStatements.Add(loopStatement);
+        var statements = SyntaxFactory.List(generatedStatements);
         // Both leading and trailing trivia of the replaced statement belong to
         // the synthesized block (E07-style multi-statement replacement), never
         // to its first statement: leading trivia printed after the block's `{`
@@ -223,21 +260,46 @@ internal static class EnumeratorLoweringBuilder
 
     private static StatementSyntax WrapTryFinally(
         StatementSyntax loopStatement,
-        ExpressionSyntax disposeReceiver)
+        ExpressionSyntax disposeCall)
     {
-        var disposeCall = SyntaxFactory.ExpressionStatement(
-            SyntaxFactory.InvocationExpression(
-                SyntaxFactory.MemberAccessExpression(
-                    SyntaxKind.SimpleMemberAccessExpression,
-                    disposeReceiver,
-                    SyntaxFactory.Token(SyntaxKind.DotToken),
-                    SyntaxFactory.IdentifierName("Dispose")),
-                SyntaxFactory.ArgumentList()));
-
         return SyntaxFactory.TryStatement(
             SyntaxFactory.Block(loopStatement),
             SyntaxFactory.List<CatchClauseSyntax>(),
-            SyntaxFactory.FinallyClause(SyntaxFactory.Block(disposeCall)));
+            SyntaxFactory.FinallyClause(SyntaxFactory.Block(
+                SyntaxFactory.ExpressionStatement(disposeCall))));
+    }
+
+    private static ExpressionSyntax DisposeCall(ExpressionSyntax receiver)
+        => SyntaxFactory.InvocationExpression(
+            SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                receiver,
+                SyntaxFactory.Token(SyntaxKind.DotToken),
+                SyntaxFactory.IdentifierName("Dispose")),
+            SyntaxFactory.ArgumentList());
+
+    /// <summary>
+    /// Source-level equivalent of the compiler's constrained interface call for
+    /// ref-like enumerators whose Dispose() is only reachable through an
+    /// explicit IDisposable implementation: a generic local function with the
+    /// (C# 13) <c>allows ref struct</c> anti-constraint, called with
+    /// <c>ref</c> so no copy and no boxing is involved. A non-generic direct
+    /// call does not compile (the explicit member is not a member of the
+    /// type), and an interface cast is CS0030 (ref structs cannot be boxed).
+    /// Such input requires C# 13 at the call site anyway, so the anti-constraint
+    /// never exceeds the input language version.
+    /// </summary>
+    private static LocalFunctionStatementSyntax BuildRefStructDisposeHelper(
+        string helperName,
+        string parameterName)
+    {
+        var text =
+            $"static void {helperName}<TCs2jFaDisposable>(ref TCs2jFaDisposable {parameterName}) " +
+            $"where TCs2jFaDisposable : global::System.IDisposable, allows ref struct " +
+            $"{{ {parameterName}.Dispose(); }}";
+        return (LocalFunctionStatementSyntax)SyntaxFactory.ParseStatement(
+            text,
+            options: new CSharpParseOptions(LanguageVersion.Latest));
     }
 
     /// <summary>
@@ -245,7 +307,8 @@ internal static class EnumeratorLoweringBuilder
     /// type is ref-like and the binding's DisposeMethod is the compiler-
     /// selected accessible parameterless void instance Dispose() declared on
     /// that type itself. The compiler only produces this symbol when it would
-    /// emit the pattern call (ref structs cannot implement IDisposable), so
+    /// emit the pattern call (a ref struct's only interface implementations are
+    /// explicit ones and it is never convertible to the interface), so
     /// the lowered direct <c>__cs2jFaE.Dispose()</c> binds identically.
     /// </summary>
     private static bool IsRefStructPatternDispose(
@@ -328,7 +391,9 @@ internal static class EnumeratorLoweringBuilder
     /// <c>void Dispose()</c>. Value types reached this way stay unboxed. When
     /// false the type is known to implement IDisposable through an explicit
     /// interface implementation, so the call is emitted as
-    /// <c>((System.IDisposable)__cs2jFaE).Dispose()</c>.
+    /// <c>((System.IDisposable)__cs2jFaE).Dispose()</c> — except for ref-like
+    /// types, which cannot be converted to the interface at all (CS0030) and
+    /// take the constrained generic-helper path instead.
     /// </summary>
     private static bool TryGetDirectDisposeAccess(ITypeSymbol enumeratorType, out IMethodSymbol? disposeMethod)
     {

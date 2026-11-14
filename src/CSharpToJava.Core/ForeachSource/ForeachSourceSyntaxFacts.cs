@@ -19,6 +19,8 @@ internal static class ForeachSourceSyntaxFacts
     // C40 synthetic temporary base names (design §4.1; distinct from C16/E07).
     public const string FaSourceName = "__cs2jFaSrc";
     public const string FaEnumeratorName = "__cs2jFaE";
+    public const string FaDisposeHelperName = "__cs2jFaDispose";
+    public const string FaDisposeHelperParameterName = "__cs2jFaDisposeTarget";
     public const string FrSourceName = "__cs2jFrSrc";
     public const string FrIndexName = "__cs2jFrI";
     public const string FrCurrentName = "__cs2jFrCur";

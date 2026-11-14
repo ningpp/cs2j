@@ -710,6 +710,58 @@ public class ForeachSourceC40RewriterUnitTests
         AssertNoErrors(result);
     }
 
+    // C# 13 lets a ref struct implement an interface, but only explicitly and
+    // without ever being convertible to it. Such an enumerator is disposed by
+    // foreach through a constrained (unboxed) interface call; the lowering must
+    // not emit the ((IDisposable)e) cast (CS0030) nor a direct e.Dispose()
+    // (CS1061, the explicit member is not reachable through the type). It emits
+    // a generic helper with `allows ref struct` instead.
+    [Fact]
+    public void M2_FS5_ref_struct_enumerator_with_explicit_IDisposable_gets_constrained_unboxed_finally()
+    {
+        var src = """
+            using System;
+            using System.Collections;
+            using System.Collections.Generic;
+
+            ref struct ExplicitDisposeRefEnumerator : IEnumerator<int>
+            {
+                private int _i;
+                public int Current => _i;
+                object IEnumerator.Current => _i;
+                public bool MoveNext() => ++_i <= 2;
+                public void Reset() => throw new NotSupportedException();
+                public ExplicitDisposeRefEnumerator GetEnumerator() => this;
+                void IDisposable.Dispose() { }
+            }
+            class ExplicitDisposeRefDuck
+            {
+                public ExplicitDisposeRefEnumerator GetEnumerator() => default;
+            }
+            class C
+            {
+                void M(ExplicitDisposeRefDuck d)
+                {
+                    foreach (var x in d) { Use(x); }
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("try", result.OutputCode);
+        Assert.Contains("finally", result.OutputCode);
+        // Constrained generic call, no interface conversion, no boxing.
+        Assert.Contains("__cs2jFaDispose(ref __cs2jFaE);", result.OutputCode);
+        Assert.Contains("allows ref struct", result.OutputCode);
+        Assert.DoesNotContain("(global::System.IDisposable)__cs2jFaE", result.OutputCode);
+        Assert.DoesNotContain("__cs2jFaE.Dispose()", result.OutputCode);
+        Assert.Equal(1, result.Statistics.DisposePatternCallSites);
+        Assert.Equal(0, result.Statistics.DisposeBoxedStructSites);
+        AssertNoErrors(result);
+    }
+
     // ===================================================================
     // M2 §7.1-6 FA-5: Span<int>/ReadOnlySpan<int> plain foreach → index loop
     // ===================================================================
