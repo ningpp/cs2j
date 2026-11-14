@@ -108,6 +108,21 @@ internal sealed class EnumeratorAdapterRule : IForeachSourceRule
             return ForeachSourceRuleOutcome.KeepUnchanged;
         }
 
+        // Merged analysis compilations can resolve a cross-project type's
+        // base-interface closure to an error symbol: the synthesized implicit
+        // global usings (System.Collections.Generic) plus a source-ported
+        // `dotnet.System.Collections.Generic` namespace make the reference
+        // ambiguous (CS0104), so AllInterfaces stops at an Error interface and
+        // the compiler reports no GetEnumerator/MoveNext/Current symbols. That
+        // incomplete binding says nothing about this site (the real project
+        // build resolves the metadata interface), so the node is left
+        // untouched instead of being diagnosed as CS2J5457.
+        if (ForeachSourceAnalyzer.HasErrorInterface(sourceType))
+        {
+            context.Statistics.SitesPassedThrough++;
+            return ForeachSourceRuleOutcome.KeepUnchanged;
+        }
+
         // A usable enumerator binding is required: either GetEnumerator
         // (instance/extension) or the direct collection-is-enumerator pattern.
         // A non-array/non-string/non-IEnumerable/non-span site without one is

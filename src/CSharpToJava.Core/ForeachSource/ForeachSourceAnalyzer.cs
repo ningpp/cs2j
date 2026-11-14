@@ -77,6 +77,21 @@ internal static class ForeachSourceAnalyzer
         => type is { TypeKind: TypeKind.Dynamic };
 
     /// <summary>
+    /// True when the type's interface closure contains an unresolved (error)
+    /// interface. A merged whole-tree analysis compilation can make a
+    /// cross-project reference ambiguous (e.g. the synthesized implicit
+    /// <c>using System.Collections.Generic</c> plus a source-ported
+    /// <c>dotnet.System.Collections.Generic</c> namespace), which turns the
+    /// base interface into <see cref="TypeKind.Error"/> and leaves the foreach
+    /// enumerator binding empty. Such a site cannot be classified reliably, so
+    /// callers leave it untouched instead of diagnosing it as a non-enumerable
+    /// source — the real project build resolves the metadata interface.
+    /// </summary>
+    public static bool HasErrorInterface(ITypeSymbol? type)
+        => type is INamedTypeSymbol named
+           && named.AllInterfaces.Any(iface => iface.TypeKind == TypeKind.Error);
+
+    /// <summary>
     /// Decision 9/FA-5: <c>System.Span&lt;T&gt;</c> /
     /// <c>System.ReadOnlySpan&lt;T&gt;</c> by metadata name (ref structs can
     /// never appear under an interface/alias the way IEnumerable sources do).

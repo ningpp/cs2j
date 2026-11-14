@@ -1163,6 +1163,52 @@ public class ForeachSourceC40RewriterUnitTests
         Assert.Equal(ForeachSourceSeverity.Error, strictDiag.Severity);
     }
 
+    // A merged whole-tree analysis compilation can turn a source type's base
+    // interface into an error symbol: the synthesized implicit
+    // `using System.Collections.Generic` plus a source-ported namespace of the
+    // same shape makes the reference ambiguous (CS0104). AllInterfaces then
+    // stops at the Error interface and foreach binds no enumerator symbols.
+    // The site must be left untouched — no CS2J5457 — because the incomplete
+    // binding comes from the analysis compilation, not from the source site
+    // (the real project build resolves the metadata interface).
+    [Fact]
+    public void Source_with_error_in_interface_closure_is_passed_through_without_CS5457()
+    {
+        var src = """
+            using Port.A;
+            using Port.B;
+            namespace Port.A
+            {
+                public interface IReadOnlyDictionary<TKey, TValue> { }
+            }
+            namespace Port.B
+            {
+                public interface IReadOnlyDictionary<TKey, TValue> { }
+            }
+            interface Map : IReadOnlyDictionary<int, int> { }
+            class C
+            {
+                void M(Map source)
+                {
+                    foreach (var x in source) { Use(x); }
+                }
+                void Use(object x) { }
+            }
+            """;
+        var result = Preprocess(src, strict: true);
+
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.UnresolvedForeachSites);
+        Assert.Equal(0, result.Statistics.DuckEnumeratorSitesLowered);
+        Assert.Equal(0, result.Statistics.ResidualEnumeratorSites);
+        Assert.Equal(1, result.Statistics.SitesPassedThrough);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Severity == ForeachSourceSeverity.Error);
+        Assert.DoesNotContain(result.Diagnostics,
+            d => d.Code == PreprocessDiagnosticCodes.ForeachSourceUnresolvedForeach);
+        Assert.Contains("foreach (var x in source)", result.OutputCode);
+        Assert.DoesNotContain("__cs2jFa", result.OutputCode);
+    }
+
     // ===================================================================
     // M2 CS2J5470: residual gate stays at zero for every handled shape.
     // A genuine escape site cannot be produced from compilable C# (FA claims
