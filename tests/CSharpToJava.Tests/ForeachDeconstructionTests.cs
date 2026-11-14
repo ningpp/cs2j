@@ -575,6 +575,66 @@ public class ForeachDeconstructionTests
     }
 
     // ===================================================================
+    // 21. Tuple family: 8+-element tuple uses Rest.ItemN paths
+    // ===================================================================
+
+    [Fact]
+    public void Lowers_EightElementTuple_RestItemPaths()
+    {
+        var src = """
+            using System.Collections.Generic;
+            class C {
+                void M(IEnumerable<(int, int, int, int, int, int, int, int)> src) {
+                    foreach (var (a, b, c, d, e, f, g, h) in src) {
+                        int sum = a + b + c + d + e + f + g + h;
+                    }
+                }
+            }
+            """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("var g = __entry.Item7", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("var h = __entry.Rest.Item1", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("__entry.Item8", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    // ===================================================================
+    // 22. Tuple family: explicit ValueTuple<...> 8-argument spelling
+    // ===================================================================
+
+    [Fact]
+    public void Lowers_ExplicitValueTupleEightElements_RestItemPaths()
+    {
+        var src = """
+            using System;
+            using System.Collections.Generic;
+            class C {
+                void M(IEnumerable<ValueTuple<int, int, int, int, int, int, int, ValueTuple<string>>> src) {
+                    foreach (var (a, b, c, d, e, f, g, h) in src) {
+                        int sum = a + b + c + d + e + f + g;
+                        string text = h;
+                    }
+                }
+            }
+            """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("var a = __entry.Item1", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("var b = __entry.Item2", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("var c = __entry.Item3", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("var d = __entry.Item4", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("var e = __entry.Item5", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("var f = __entry.Item6", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("var g = __entry.Item7", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("var h = __entry.Rest.Item1", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("__entry.Item8", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    // ===================================================================
     // Helpers
     // ===================================================================
 

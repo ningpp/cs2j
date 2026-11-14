@@ -57,7 +57,7 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
         // Classify the element type and resolve the components (.Key/.Value or
         // .ItemN) used to unpack the designation.
         var family = ClassifyFamily(elementType);
-        List<(string Suffix, ITypeSymbol SubType)> components;
+        List<(string Path, ITypeSymbol SubType)> components;
         switch (family)
         {
             case FamilyKind.KeyValuePair:
@@ -191,7 +191,7 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
     private void UnpackVariable(
         ExpressionSyntax variable,
         ExpressionSyntax accessorRoot,
-        List<(string Suffix, ITypeSymbol SubType)> components,
+        List<(string Path, ITypeSymbol SubType)> components,
         List<StatementSyntax> statements,
         SyntaxNode scopeNode)
     {
@@ -208,12 +208,9 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
         {
             for (var i = 0; i < tuple.Arguments.Count && i < components.Count; i++)
             {
-                var (suffix, subType) = components[i];
+                var (path, subType) = components[i];
                 var arg = tuple.Arguments[i].Expression;
-                var memberAccess = SyntaxFactory.MemberAccessExpression(
-                    SyntaxKind.SimpleMemberAccessExpression,
-                    accessorRoot,
-                    SyntaxFactory.IdentifierName(suffix));
+                var memberAccess = MakeMemberAccess(accessorRoot, path);
 
                 UnpackTupleArgument(arg, memberAccess, subType, statements, scopeNode);
             }
@@ -230,7 +227,7 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
     private void UnpackDesignation(
         VariableDesignationSyntax designation,
         ExpressionSyntax accessorRoot,
-        List<(string Suffix, ITypeSymbol SubType)> components,
+        List<(string Path, ITypeSymbol SubType)> components,
         List<StatementSyntax> statements,
         SyntaxNode scopeNode,
         TypeSyntax? declaredTypeSyntax)
@@ -250,11 +247,8 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
         {
             for (var i = 0; i < parenthesized.Variables.Count && i < components.Count; i++)
             {
-                var (suffix, subType) = components[i];
-                var memberAccess = SyntaxFactory.MemberAccessExpression(
-                    SyntaxKind.SimpleMemberAccessExpression,
-                    accessorRoot,
-                    SyntaxFactory.IdentifierName(suffix));
+                var (path, subType) = components[i];
+                var memberAccess = MakeMemberAccess(accessorRoot, path);
 
                 UnpackDesignationChild(parenthesized.Variables[i], memberAccess, subType, statements, scopeNode);
             }
@@ -293,11 +287,8 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
                 var tupleComponents = GetTupleComponents(subType);
                 for (var i = 0; i < nested.Variables.Count && i < tupleComponents.Count; i++)
                 {
-                    var (suffix, innerType) = tupleComponents[i];
-                    var memberAccess = SyntaxFactory.MemberAccessExpression(
-                        SyntaxKind.SimpleMemberAccessExpression,
-                        midId,
-                        SyntaxFactory.IdentifierName(suffix));
+                    var (path, innerType) = tupleComponents[i];
+                    var memberAccess = MakeMemberAccess(midId, path);
                     UnpackDesignationChild(nested.Variables[i], memberAccess, innerType, statements, scopeNode);
                 }
                 return;
@@ -371,7 +362,7 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
     // Component accessors
     // -----------------------------------------------------------------------
 
-    private static List<(string Suffix, ITypeSymbol SubType)> GetKvComponents(ITypeSymbol kvType)
+    private static List<(string Path, ITypeSymbol SubType)> GetKvComponents(ITypeSymbol kvType)
     {
         if (kvType is not INamedTypeSymbol named)
             return new List<(string, ITypeSymbol)>();
@@ -392,7 +383,7 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
         };
     }
 
-    private static List<(string Suffix, ITypeSymbol SubType)> GetTupleComponents(ITypeSymbol tupleType)
+    private static List<(string Path, ITypeSymbol SubType)> GetTupleComponents(ITypeSymbol tupleType)
     {
         if (tupleType is not INamedTypeSymbol tuple)
             return new List<(string, ITypeSymbol)>();
@@ -400,28 +391,62 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
         var result = new List<(string, ITypeSymbol)>();
         if (tuple.IsTupleType)
         {
+            // TupleElements is flattened: element 8 lives at Rest.Item1, element 9
+            // at Rest.Rest.Item1, and so on — there is no Item8 member.
             for (var i = 0; i < tuple.TupleElements.Length; i++)
             {
-                result.Add(($"Item{i + 1}", tuple.TupleElements[i].Type));
+                result.Add((TuplePath(i), tuple.TupleElements[i].Type));
             }
             return result;
         }
 
         // Explicit ValueTuple<...> / System.Tuple<...> generic spelling: IsTupleType
-        // is false, so derive ItemN from the type arguments.
-        var defName = tuple.OriginalDefinition.ToDisplayString();
-        if (!defName.StartsWith("System.ValueTuple<", StringComparison.Ordinal)
-            && !defName.StartsWith("System.Tuple<", StringComparison.Ordinal))
+        // is false, so derive the element paths from the (flattened) type arguments.
+        if (!IsExplicitTuple(tuple))
             return result; // e.g. custom ITuple without accessible ItemN components
 
-        for (var i = 0; i < tuple.TypeArguments.Length; i++)
-        {
-            result.Add(($"Item{i + 1}", tuple.TypeArguments[i]));
-        }
+        AppendExplicitTupleComponents(tuple, prefix: string.Empty, result);
         return result;
     }
 
-    private List<(string Suffix, ITypeSymbol SubType)> GetComponentsFor(ITypeSymbol type)
+    /// <summary>
+    /// Element access path for a flattened tuple index: Item1..Item7, then
+    /// Rest.Item1..Rest.Item7, Rest.Rest.Item1, ...
+    /// </summary>
+    private static string TuplePath(int index)
+        => index < 7 ? $"Item{index + 1}" : "Rest." + TuplePath(index - 7);
+
+    private static bool IsExplicitTuple(INamedTypeSymbol type)
+    {
+        var defName = type.OriginalDefinition.ToDisplayString();
+        return defName.StartsWith("System.ValueTuple<", StringComparison.Ordinal)
+               || defName.StartsWith("System.Tuple<", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Flattens an explicitly spelled ValueTuple/Tuple generic type. The 8th type
+    /// argument is TRest, not an element: recurse into it when it is itself a
+    /// ValueTuple/Tuple, otherwise stop (never fabricate an Item8 element).
+    /// </summary>
+    private static void AppendExplicitTupleComponents(
+        INamedTypeSymbol tuple,
+        string prefix,
+        List<(string Path, ITypeSymbol SubType)> result)
+    {
+        var args = tuple.TypeArguments;
+        var directCount = Math.Min(args.Length, 7);
+        for (var i = 0; i < directCount; i++)
+        {
+            result.Add((prefix + TuplePath(i), args[i]));
+        }
+
+        if (args.Length == 8 && args[7] is INamedTypeSymbol rest && IsExplicitTuple(rest))
+        {
+            AppendExplicitTupleComponents(rest, prefix + "Rest.", result);
+        }
+    }
+
+    private List<(string Path, ITypeSymbol SubType)> GetComponentsFor(ITypeSymbol type)
         => ClassifyFamily(type) == FamilyKind.Tuple
             ? GetTupleComponents(type)
             : GetKvComponents(type);
@@ -438,6 +463,23 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
             TupleExpressionSyntax tuple => tuple.Arguments.Count,
             _ => 1,
         };
+
+    /// <summary>
+    /// Builds the member access chain for a component path such as "Item2" or
+    /// "Rest.Rest.Item1", preserving the root node (and its trivia) as-is.
+    /// </summary>
+    private static ExpressionSyntax MakeMemberAccess(ExpressionSyntax root, string path)
+    {
+        var current = root;
+        foreach (var segment in path.Split('.'))
+        {
+            current = SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                current,
+                SyntaxFactory.IdentifierName(segment));
+        }
+        return current;
+    }
 
     private static string GetDeclarationType(TypeSyntax? declaredTypeSyntax)
     {
