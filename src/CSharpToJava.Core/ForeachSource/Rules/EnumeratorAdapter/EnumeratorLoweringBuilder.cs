@@ -200,12 +200,15 @@ internal static class EnumeratorLoweringBuilder
         }
 
         var statements = SyntaxFactory.List(new[] { sourceDecl, enumeratorDecl, loopStatement });
-        // Original node trivia lands on the first replacement statement; the
-        // block itself (E07-style multi-statement replacement) carries the
-        // trailing trivia. Labels inside the moved body are preserved.
-        var first = statements[0].WithLeadingTrivia(node.GetLeadingTrivia());
-        statements = statements.Replace(statements[0], first);
+        // Both leading and trailing trivia of the replaced statement belong to
+        // the synthesized block (E07-style multi-statement replacement), never
+        // to its first statement: leading trivia printed after the block's `{`
+        // would push a `#if NET … #else … #endif` region (and its inactive
+        // code) inside the braces, leaving the branches with unbalanced braces.
+        // On the block the whole `#if/#else` region wraps the braces uniformly.
+        // Labels inside the moved body are preserved.
         var block = SyntaxFactory.Block(statements)
+            .WithLeadingTrivia(node.GetLeadingTrivia())
             .WithTrailingTrivia(node.GetTrailingTrivia());
 
         return new EnumeratorLowering(
