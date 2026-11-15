@@ -32,6 +32,12 @@ internal sealed class LocalFunctionLiftAnalyzer
     /// <summary>本文件里以方法组 / 委托转换形式被引用的方法符号（含构造泛型的原定义）。</summary>
     private HashSet<ISymbol> _methodGroupSymbols = new(SymbolEqualityComparer.Default);
 
+    /// <summary>本文件的条件编译指令布局（判定顶层局部函数的声明区）。</summary>
+    private ConditionalDirectiveLayout? _conditionalLayout;
+
+    /// <summary>顶层语句宿主的合成静态类名（全文件共用，冲突时加数字后缀）。</summary>
+    private string? _topLevelHostClassName;
+
     /// <summary>条件编译区里的一个函数式引用在文件中的位置。</summary>
     private readonly record struct DisabledTextReference(
         int TriviaPosition, int Offset, int Length, TextSpan EnclosingMemberSpan);
@@ -199,7 +205,7 @@ internal sealed class LocalFunctionLiftAnalyzer
         {
             if (!string.Equals(candidate.Node.Identifier.Text, name, StringComparison.Ordinal))
                 continue;
-            var container = candidate.Node.Parent;
+            var container = LocalFunctionCallSiteResolver.GetStatementContainer(candidate.Node);
             if (container == null || !ancestors.Contains(container))
                 continue;
 
@@ -213,7 +219,8 @@ internal sealed class LocalFunctionLiftAnalyzer
             }
         }
 
-        return innermost != null && ReferenceEquals(plan.Node.Parent, innermost);
+        return innermost != null
+            && ReferenceEquals(LocalFunctionCallSiteResolver.GetStatementContainer(plan.Node), innermost);
     }
 
     /// <summary>
@@ -305,32 +312,56 @@ internal sealed class LocalFunctionLiftAnalyzer
         // write captures are converted to StrongBox holders when possible and
         // otherwise skipped by the post-propagation gate.
 
-        // Gate #3: No host type
+        // Gate #3: No host type. 顶层语句没有语法宿主类型，但可以合成一个文件内的
+        // 静态类承载提升方法（调用点也在同一文件的顶层语句里，internal 可见）。
         var hostType = FindHostType(localFn);
+        var isTopLevelHost = false;
+        var initializerContext = InitializerContext.None;
         if (hostType == null)
         {
-            Skip(plan, LocalFunctionSkipReason.NoHostType, "no enclosing type declaration found");
-            return plan;
-        }
-        // 字段/属性初始化器里唯一合法的局部函数形态是「初始化器 → lambda → 局部函数」：
-        // 宿主类型存在，调用点在 lambda 体内（VisitBlock 的移除通道可用），捕获
-        // （含 lambda 形参/局部）按既有机制变成提升方法形参，因此可以提升。不在
-        // lambda 内却落在初始化器里的形态在合法 C# 中不存在，保留兜底跳过。
-        var initializerContext = GetInitializerContext(localFn);
-        if (initializerContext != InitializerContext.None
-            && !IsInsideAnonymousFunction(localFn, hostType))
-        {
-            Skip(plan, LocalFunctionSkipReason.NoHostType,
-                "local function is inside a field/property initializer without an enclosing lambda");
-            return plan;
-        }
-        plan.HostType = hostType;
+            if (!IsInTopLevelStatements(localFn))
+            {
+                Skip(plan, LocalFunctionSkipReason.NoHostType, "no enclosing type declaration found");
+                return plan;
+            }
 
-        // Gate #4: Interface host
-        if (hostType is InterfaceDeclarationSyntax && !_options.AllowInterfaceHost)
+            // 声明点位于条件编译区（如 #if DEBUG）：合成类的方法无法安全落进同一
+            // 分支，本轮保守跳过并给出精确诊断（同文件其它无条件区局部函数照常提升）。
+            _conditionalLayout ??= ConditionalDirectiveLayout.Create(root.SyntaxTree);
+            if (_conditionalLayout.StackAt(localFn.SpanStart).Count > 0)
+            {
+                Skip(plan, LocalFunctionSkipReason.ConditionalTopLevelDeclaration,
+                    "top-level local function is declared inside a conditional compilation region; " +
+                    "the generated method could not be placed in the same branch");
+                return plan;
+            }
+
+            isTopLevelHost = true;
+            plan.IsTopLevelHost = true;
+            plan.TopLevelHostClassName = EnsureTopLevelHostClassName(root);
+        }
+        else
         {
-            Skip(plan, LocalFunctionSkipReason.InterfaceHost, "host type is an interface");
-            return plan;
+            // 字段/属性初始化器里唯一合法的局部函数形态是「初始化器 → lambda → 局部函数」：
+            // 宿主类型存在，调用点在 lambda 体内（VisitBlock 的移除通道可用），捕获
+            // （含 lambda 形参/局部）按既有机制变成提升方法形参，因此可以提升。不在
+            // lambda 内却落在初始化器里的形态在合法 C# 中不存在，保留兜底跳过。
+            initializerContext = GetInitializerContext(localFn);
+            if (initializerContext != InitializerContext.None
+                && !IsInsideAnonymousFunction(localFn, hostType))
+            {
+                Skip(plan, LocalFunctionSkipReason.NoHostType,
+                    "local function is inside a field/property initializer without an enclosing lambda");
+                return plan;
+            }
+            plan.HostType = hostType;
+
+            // Gate #4: Interface host
+            if (hostType is InterfaceDeclarationSyntax && !_options.AllowInterfaceHost)
+            {
+                Skip(plan, LocalFunctionSkipReason.InterfaceHost, "host type is an interface");
+                return plan;
+            }
         }
 
         // Gate #6 (supported): checked/unchecked context no longer skips the lift.
@@ -338,11 +369,12 @@ internal sealed class LocalFunctionLiftAnalyzer
         // （体内显式的 checked/unchecked 表达式仍然局部覆盖）。
         plan.CheckedContext = GetCheckedContext(localFn);
 
-        plan.IsStatic = DetermineStatic(localFn);
+        // 顶层语句等价于静态 Main：提升方法一律 static（源里也没有 this 可用）。
+        plan.IsStatic = isTopLevelHost || DetermineStatic(localFn);
         // 初始化器的值没有 this 上下文：提升方法若写成实例方法，初始化器 lambda
         // 里的调用会因隐式 this 触发 CS0236。这里一律 static（实例初始化器本来
         // 也引用不到实例成员）。属性表达式体是 getter，仍按属性自身的修饰符判定。
-        if (initializerContext == InitializerContext.InitializerValue)
+        if (!isTopLevelHost && initializerContext == InitializerContext.InitializerValue)
             plan.IsStatic = true;
         var isExplicitStatic = IsExplicitStaticLocalFunction(localFn);
 
@@ -512,6 +544,63 @@ internal sealed class LocalFunctionLiftAnalyzer
         return null;
     }
 
+    /// <summary>
+    /// 局部函数是否声明在顶层语句里（<see cref="GlobalStatementSyntax"/> 直接挂在
+    /// <see cref="CompilationUnitSyntax"/> 下）。顶层语句没有语法宿主类型，但等价于
+    /// 静态 Main，可以提升到文件内合成的静态类。
+    /// </summary>
+    private static bool IsInTopLevelStatements(LocalFunctionStatementSyntax localFn)
+    {
+        for (var current = localFn.Parent; current != null; current = current.Parent)
+        {
+            if (current is GlobalStatementSyntax { Parent: CompilationUnitSyntax })
+                return true;
+            if (current is TypeDeclarationSyntax or BaseMethodDeclarationSyntax)
+                return false;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 顶层宿主合成类名：<c>__Cs2jLocalFunctions</c>。必须避开本文件已声明的类型名、
+    /// 顶层变量名，以及编译单元内按简单名可见的类型/命名空间（同名会遮蔽引用），
+    /// 冲突时追加 2、3…
+    /// </summary>
+    private string EnsureTopLevelHostClassName(CompilationUnitSyntax root)
+    {
+        if (_topLevelHostClassName != null)
+            return _topLevelHostClassName;
+
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var node in root.DescendantNodes())
+        {
+            switch (node)
+            {
+                case BaseTypeDeclarationSyntax type:
+                    used.Add(type.Identifier.Text);
+                    break;
+                case DelegateDeclarationSyntax @delegate:
+                    used.Add(@delegate.Identifier.Text);
+                    break;
+                case VariableDeclaratorSyntax declarator
+                    when declarator.Ancestors().Any(static ancestor =>
+                        ancestor is GlobalStatementSyntax):
+                    used.Add(declarator.Identifier.Text);
+                    break;
+            }
+        }
+
+        var name = LocalFunctionLiftNaming.ResolveUniqueName("__Cs2jLocalFunctions", used);
+        while (_model.LookupNamespacesAndTypes(root.SpanStart, name: name).Any()
+               || _model.LookupSymbols(root.SpanStart, name: name).Any())
+        {
+            name = LocalFunctionLiftNaming.ResolveUniqueName("__Cs2jLocalFunctions", used);
+        }
+
+        _topLevelHostClassName = name;
+        return name;
+    }
+
     /// <summary>局部函数声明点所处的初始化器形态。</summary>
     private enum InitializerContext
     {
@@ -657,7 +746,7 @@ internal sealed class LocalFunctionLiftAnalyzer
         LocalFunctionStatementSyntax localFn,
         IMethodSymbol localFnSymbol,
         bool isStatic,
-        TypeDeclarationSyntax hostType,
+        TypeDeclarationSyntax? hostType,
         ICollection<ISymbol>? unresolvedSymbols = null)
     {
         if (isStatic)
@@ -666,6 +755,8 @@ internal sealed class LocalFunctionLiftAnalyzer
         var body = (SyntaxNode?)localFn.Body ?? localFn.ExpressionBody;
         if (body == null)
             return new List<CapturePlan>();
+
+        var displayPosition = hostType?.OpenBraceToken.SpanStart ?? localFn.SpanStart;
 
         // C32 §4.2: capture discovery is the single shared primitive.
         var capParamNames = new HashSet<string>(StringComparer.Ordinal);
@@ -680,7 +771,7 @@ internal sealed class LocalFunctionLiftAnalyzer
                 info.Symbol,
                 info.Name,
                 LocalFunctionLiftNaming.GetCaptureParameterName(info.Name, capParamNames),
-                RenderCaptureTypeDisplay(info.Type, hostType),
+                RenderCaptureTypeDisplay(info.Type, displayPosition),
                 IsCapturedVariableWritten(localFn, info.Symbol)))
             .ToList();
 
@@ -784,11 +875,12 @@ internal sealed class LocalFunctionLiftAnalyzer
     private List<InlinedConstantPlan> CollectInlinedConstants(
         LocalFunctionStatementSyntax localFn,
         IMethodSymbol localFnSymbol,
-        TypeDeclarationSyntax hostType,
+        TypeDeclarationSyntax? hostType,
         List<string> unresolved)
     {
         var result = new List<InlinedConstantPlan>();
         var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var displayPosition = hostType?.OpenBraceToken.SpanStart ?? localFn.SpanStart;
 
         // 分别扫描函数体与形参表：函数体里的引用和形参默认值/特性实参里的引用
         // 都可能落在常量语境。注意不能把局部函数声明本身当根：Roslyn 的
@@ -812,7 +904,7 @@ internal sealed class LocalFunctionLiftAnalyzer
                 if (!seen.Add(info.Symbol))
                     continue;
 
-                var literal = RenderConstantLiteral(info, hostType);
+                var literal = RenderConstantLiteral(info, displayPosition);
                 if (literal == null)
                 {
                     unresolved.Add(info.Name);
@@ -831,7 +923,7 @@ internal sealed class LocalFunctionLiftAnalyzer
     /// 常量模式要求常量能隐式转换为输入类型，裸的整数字面量对枚举不成立。
     /// </summary>
     private string? RenderConstantLiteral(
-        ReferencedConstantInfo info, TypeDeclarationSyntax hostType)
+        ReferencedConstantInfo info, int displayPosition)
     {
         if (info.Type.TypeKind == TypeKind.Enum)
         {
@@ -842,7 +934,7 @@ internal sealed class LocalFunctionLiftAnalyzer
             var inner = RenderPrimitiveLiteral(info.ConstantValue);
             return inner == null
                 ? null
-                : $"({RenderCaptureTypeDisplay(info.Type, hostType)})({inner})";
+                : $"({RenderCaptureTypeDisplay(info.Type, displayPosition)})({inner})";
         }
 
         return RenderPrimitiveLiteral(info.ConstantValue);
@@ -960,14 +1052,13 @@ internal sealed class LocalFunctionLiftAnalyzer
     /// using 可能只来自别的工程的 global using（见 ProjectPassAdapter 的并集合成），
     /// 在真实工程里未必可见。
     /// </summary>
-    private string RenderCaptureTypeDisplay(ITypeSymbol type, TypeDeclarationSyntax hostType)
+    private string RenderCaptureTypeDisplay(ITypeSymbol type, int position)
     {
         if (!IsDeclaredInAnalysisSource(type))
         {
             return type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         }
 
-        var position = hostType.OpenBraceToken.SpanStart;
         var minimalText = type.ToMinimalDisplayString(_model, position);
         var minimalType = SyntaxFactory.ParseTypeName(minimalText);
         if (!minimalType.ContainsDiagnostics
@@ -1250,7 +1341,7 @@ internal sealed class LocalFunctionLiftAnalyzer
         IReadOnlyList<LiftPlan> activePlans,
         IReadOnlyDictionary<ISymbol, LiftPlan> bySymbol)
     {
-        var scope = plan.Node.Parent;
+        var scope = LocalFunctionCallSiteResolver.GetStatementContainer(plan.Node);
         if (scope == null)
             return false;
 
@@ -1413,9 +1504,9 @@ internal sealed class LocalFunctionLiftAnalyzer
                 {
                     UseHolder = true,
                     ByRef = false,
-                    HolderElementTypeDisplay = plan.HostType != null
-                        ? RenderCaptureTypeDisplay(type, plan.HostType)
-                        : type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+                    HolderElementTypeDisplay = RenderCaptureTypeDisplay(
+                        type,
+                        plan.HostType?.OpenBraceToken.SpanStart ?? plan.Node.SpanStart),
                 };
             }
         }
@@ -1919,12 +2010,14 @@ internal sealed class LocalFunctionLiftAnalyzer
     private string? AssignName(
         LiftPlan plan,
         LocalFunctionStatementSyntax localFn,
-        TypeDeclarationSyntax hostType,
+        TypeDeclarationSyntax? hostType,
         IMethodSymbol symbol)
     {
         var baseName = LocalFunctionLiftNaming.GetBaseName(localFn.Identifier.Text);
 
-        var typeSymbol = _model.GetDeclaredSymbol(hostType) as INamedTypeSymbol;
+        var typeSymbol = hostType != null
+            ? _model.GetDeclaredSymbol(hostType) as INamedTypeSymbol
+            : null;
         var memberNames = new HashSet<string>(StringComparer.Ordinal);
         if (typeSymbol != null)
         {
@@ -1932,8 +2025,11 @@ internal sealed class LocalFunctionLiftAnalyzer
                 memberNames.Add(member.Name);
         }
 
+        // 顶层宿主没有语法类型：用合成类名做命名键，所有顶层局部函数共用一组
+        // 已用名字，并避开与类名同名（同名方法会变成构造函数，CS0542）。
+        var hostName = hostType?.Identifier.Text ?? plan.TopLevelHostClassName ?? "";
         var typeKey = typeSymbol?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
-            ?? hostType.Identifier.Text;
+            ?? (plan.IsTopLevelHost ? "top-level:" + hostName : hostName);
         if (!_crossFileNameTable.TryGetValue(typeKey, out var usedNames))
         {
             usedNames = new HashSet<string>(StringComparer.Ordinal);
@@ -1943,6 +2039,8 @@ internal sealed class LocalFunctionLiftAnalyzer
         var combined = new HashSet<string>(memberNames, StringComparer.Ordinal);
         foreach (var n in usedNames)
             combined.Add(n);
+        if (plan.IsTopLevelHost)
+            combined.Add(hostName);
 
         // Collect local variable names in the enclosing method to avoid
         // naming conflicts when the hoisted method name shadows a local.
@@ -1953,7 +2051,7 @@ internal sealed class LocalFunctionLiftAnalyzer
         {
             var originalName = localFn.Identifier.Text;
             // 成员名之外，方法名也不能与宿主类型同名（否则同名成员会变成构造函数，CS0542）。
-            if (originalName != hostType.Identifier.Text && !combined.Contains(originalName))
+            if (originalName != hostName && !combined.Contains(originalName))
             {
                 usedNames.Add(originalName);
                 return originalName;

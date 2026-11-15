@@ -25,6 +25,12 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
     /// <summary>非跳过 plan 的平铺列表（共享解析器的候选集）。</summary>
     private readonly List<LiftPlan> _activePlans;
     private readonly Dictionary<TypeDeclarationSyntax, List<(LiftPlan Plan, MethodDeclarationSyntax Method)>> _methodsToInsert;
+    /// <summary>
+    /// 顶层语句里的局部函数：没有语法宿主类型，提升方法统一放进文件末尾合成的
+    /// 静态类 <see cref="_topLevelClassName"/>。
+    /// </summary>
+    private readonly List<(LiftPlan Plan, MethodDeclarationSyntax Method)> _topLevelMethods = new();
+    private string? _topLevelClassName;
     private readonly Dictionary<LiftPlan, List<int>> _callSitePositions = new();
     private readonly Dictionary<SyntaxTree, ConditionalDirectiveLayout> _conditionalLayouts = new();
     private readonly List<LiftPlan> _unremovablePlans = new();
@@ -181,19 +187,38 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             {
                 var method = BuildMethodDeclaration(plan);
                 methods.Add((plan, method));
-                _callSitePositions[plan] = CollectCallSitePositions(plan);
-                _stats.LocalFunctionsLifted++;
-                foreach (var cap in plan.Captures)
-                {
-                    if (cap.ByRef || cap.ByIn)
-                        _stats.CapturesByRef++;
-                    else if (cap.UseHolder)
-                        _stats.CapturesByHolder++;
-                    else
-                        _stats.CapturesByValue++;
-                }
+                RegisterPlan(plan);
             }
             _methodsToInsert[hostType] = methods;
+        }
+
+        // 顶层语句宿主：所有顶层局部函数共用同一个合成类。
+        var topLevelPlans = _plans.Where(p => !p.Skipped && p.IsTopLevelHost).ToList();
+        if (topLevelPlans.Count > 0)
+        {
+            _topLevelClassName = topLevelPlans[0].TopLevelHostClassName
+                ?? "__Cs2jLocalFunctions";
+            foreach (var plan in topLevelPlans)
+            {
+                var method = BuildMethodDeclaration(plan);
+                _topLevelMethods.Add((plan, method));
+                RegisterPlan(plan);
+            }
+        }
+    }
+
+    private void RegisterPlan(LiftPlan plan)
+    {
+        _callSitePositions[plan] = CollectCallSitePositions(plan);
+        _stats.LocalFunctionsLifted++;
+        foreach (var cap in plan.Captures)
+        {
+            if (cap.ByRef || cap.ByIn)
+                _stats.CapturesByRef++;
+            else if (cap.UseHolder)
+                _stats.CapturesByHolder++;
+            else
+                _stats.CapturesByValue++;
         }
     }
 
@@ -265,7 +290,7 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
     private List<int> CollectCallSitePositions(LiftPlan plan)
     {
         var positions = new HashSet<int>();
-        var scope = plan.Node.Parent;
+        var scope = LocalFunctionCallSiteResolver.GetStatementContainer(plan.Node);
         if (scope == null)
             return new List<int>();
 
@@ -422,104 +447,6 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         return layout;
     }
 
-    /// <summary>
-    /// 把源码行中的 #if/#elif/#else/#endif 映射为任意偏移处的条件编译指令栈。
-    /// 栈帧用 "指令偏移:分支序号" 标识，分支区分同一个 #if 的不同分支。
-    /// </summary>
-    private sealed class ConditionalDirectiveLayout
-    {
-        private enum DirectiveKind
-        {
-            If,
-            Elif,
-            Else,
-            EndIf,
-        }
-
-        private readonly record struct DirectiveEvent(int Position, DirectiveKind Kind);
-
-        private readonly List<DirectiveEvent> _events;
-        private readonly Dictionary<int, IReadOnlyList<string>> _cache = new();
-
-        private ConditionalDirectiveLayout(List<DirectiveEvent> events)
-        {
-            _events = events;
-        }
-
-        public static ConditionalDirectiveLayout Create(SyntaxTree tree)
-        {
-            var events = new List<DirectiveEvent>();
-
-            // 直接用语法树里的指令 trivia，避免把多行字符串中以 #if 开头的
-            // 文本误判为预处理指令。非活动分支内的嵌套指令属于
-            // DisabledTextTrivia，本身不需要入栈（活动位置不会落在其中）。
-            foreach (var trivia in tree.GetRoot().DescendantTrivia())
-            {
-                if (!trivia.IsDirective)
-                    continue;
-
-                DirectiveKind kind;
-                switch (trivia.GetStructure())
-                {
-                    case IfDirectiveTriviaSyntax:
-                        kind = DirectiveKind.If;
-                        break;
-                    case ElifDirectiveTriviaSyntax:
-                        kind = DirectiveKind.Elif;
-                        break;
-                    case ElseDirectiveTriviaSyntax:
-                        kind = DirectiveKind.Else;
-                        break;
-                    case EndIfDirectiveTriviaSyntax:
-                        kind = DirectiveKind.EndIf;
-                        break;
-                    default:
-                        continue;
-                }
-
-                events.Add(new DirectiveEvent(trivia.SpanStart, kind));
-            }
-
-            return new ConditionalDirectiveLayout(events);
-        }
-
-        public IReadOnlyList<string> StackAt(int position)
-        {
-            if (_cache.TryGetValue(position, out var cached))
-                return cached;
-
-            var stack = new List<(int Id, int Branch)>();
-            foreach (var directive in _events)
-            {
-                if (directive.Position >= position)
-                    break;
-
-                switch (directive.Kind)
-                {
-                    case DirectiveKind.If:
-                        stack.Add((directive.Position, 0));
-                        break;
-                    case DirectiveKind.Elif:
-                    case DirectiveKind.Else:
-                        if (stack.Count > 0)
-                        {
-                            var top = stack[^1];
-                            stack[^1] = (top.Id, top.Branch + 1);
-                        }
-                        break;
-                    case DirectiveKind.EndIf:
-                        if (stack.Count > 0)
-                            stack.RemoveAt(stack.Count - 1);
-                        break;
-                }
-            }
-
-            var key = stack.Select(static frame => $"{frame.Id}:{frame.Branch}").ToList();
-            _cache[position] = key;
-            return key;
-        }
-    }
-
     public override SyntaxNode? VisitBlock(BlockSyntax node)
     {
         // Before visiting, record which statement indices in the original
@@ -671,6 +598,106 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         return visited;
     }
 
+    /// <summary>
+    /// 顶层语句宿主有两个额外职责：
+    /// 1. 顶层局部函数直接作为 <see cref="GlobalStatementSyntax"/> 时（<c>void Local() {}</c>），
+    ///    声明本身就是一个成员，必须在成员列表里移除（VisitBlock 通道覆盖不到）；
+    /// 2. 把承载提升方法的合成静态类追加到成员末尾，并保证插入点在所有条件编译
+    ///    指令之外（文件以 <c>#if ... #endif</c> 结尾时，EOF 的 leading trivia 先于
+    ///    新成员落到文本里）。
+    /// </summary>
+    public override SyntaxNode? VisitCompilationUnit(CompilationUnitSyntax node)
+    {
+        var nonSkippedNodes = new HashSet<SyntaxNode>(
+            _plans.Where(p => !p.Skipped).Select(p => (SyntaxNode)p.Node));
+
+        var indicesToRemove = new HashSet<int>();
+        for (var i = 0; i < node.Members.Count; i++)
+        {
+            if (node.Members[i] is GlobalStatementSyntax
+                { Statement: LocalFunctionStatementSyntax localFn }
+                && nonSkippedNodes.Contains(localFn))
+            {
+                indicesToRemove.Add(i);
+            }
+        }
+
+        var visited = (CompilationUnitSyntax?)base.VisitCompilationUnit(node);
+        if (visited == null)
+            return null;
+
+        var members = visited.Members.ToList();
+        var membersChanged = false;
+        if (indicesToRemove.Count > 0)
+        {
+            if (members.Count == node.Members.Count)
+            {
+                members = members
+                    .Where((_, index) => !indicesToRemove.Contains(index))
+                    .ToList();
+            }
+            else
+            {
+                var nonSkippedKeys = new HashSet<(int start, int length)>(
+                    _plans.Where(p => !p.Skipped)
+                        .Select(p => (p.Node.SpanStart, p.Node.Span.Length)));
+                members = members
+                    .Where(member => member is not GlobalStatementSyntax
+                        { Statement: LocalFunctionStatementSyntax localFn }
+                        || !nonSkippedKeys.Contains((localFn.SpanStart, localFn.Span.Length)))
+                    .ToList();
+            }
+            membersChanged = true;
+            Changed = true;
+        }
+
+        if (_topLevelMethods.Count > 0)
+        {
+            var classDecl = BuildTopLevelHostClass(_topLevelMethods);
+            var layout = GetConditionalLayout(node.SyntaxTree);
+            var endOfFilePosition = node.EndOfFileToken.FullSpan.Start;
+            var eofTrivia = visited.EndOfFileToken.LeadingTrivia;
+            if (eofTrivia.Count > 0 && layout.StackAt(endOfFilePosition).Count > 0)
+            {
+                // 文件尾部还有未闭合的 #if 分支：把 EOF 的 leading trivia（含配对的
+                // #endif）移到合成类之前，类才不会落进条件分支。
+                classDecl = classDecl.WithLeadingTrivia(
+                    eofTrivia
+                        .Add(SyntaxFactory.CarriageReturnLineFeed)
+                        .AddRange(classDecl.GetLeadingTrivia()));
+                visited = visited.WithEndOfFileToken(
+                    visited.EndOfFileToken.WithLeadingTrivia(SyntaxFactory.TriviaList()));
+            }
+
+            members.Add(classDecl);
+            membersChanged = true;
+            Changed = true;
+        }
+
+        if (membersChanged)
+            visited = visited.WithMembers(SyntaxFactory.List(members));
+
+        return visited;
+    }
+
+    private static ClassDeclarationSyntax BuildTopLevelHostClass(
+        IReadOnlyList<(LiftPlan Plan, MethodDeclarationSyntax Method)> methods)
+    {
+        var className = methods[0].Plan.TopLevelHostClassName ?? "__Cs2jLocalFunctions";
+        var declaration = SyntaxFactory.ClassDeclaration(className)
+            .WithModifiers(SyntaxFactory.TokenList(
+                SyntaxFactory.Token(SyntaxKind.InternalKeyword),
+                SyntaxFactory.Token(SyntaxKind.StaticKeyword)))
+            .WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(
+                methods.Select(static m => (MemberDeclarationSyntax)m.Method)));
+
+        return declaration.WithLeadingTrivia(SyntaxFactory.TriviaList(
+            SyntaxFactory.CarriageReturnLineFeed,
+            SyntaxFactory.CarriageReturnLineFeed))
+            .WithTrailingTrivia(SyntaxFactory.TriviaList(
+                SyntaxFactory.CarriageReturnLineFeed));
+    }
+
     public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node)
     {
         var visited = (LocalFunctionStatementSyntax?)base.VisitLocalFunctionStatement(node);
@@ -678,15 +705,16 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         // V-09 atomicity: for a non-skipped plan the class-level method has
         // already been generated (PrepareMethodDeclarations) and call sites
         // are being rewritten, so this declaration MUST live in a container a
-        // removal channel above (VisitBlock / VisitSwitchSection) can strip it
-        // from. Anything else (top-level statements, future syntax surfaces)
-        // would land the rewrite half-done: new method + renamed calls but the
-        // original declaration still in the tree — exactly the strict residual
-        // failure shape V-09 caught on rt10 (JsonElement.DeepEquals). Record
-        // the plan; the preprocessor rolls the whole file back when non-empty.
+        // removal channel above (VisitBlock / VisitSwitchSection /
+        // VisitCompilationUnit) can strip it from. Anything else would land the
+        // rewrite half-done: new method + renamed calls but the original
+        // declaration still in the tree — exactly the strict residual failure
+        // shape V-09 caught on rt10 (JsonElement.DeepEquals). Record the plan;
+        // the preprocessor rolls the whole file back when non-empty.
         if (_plansByName.TryGetValue(node.Identifier.Text, out var plansWithName)
             && plansWithName.FirstOrDefault(plan => ReferenceEquals(plan.Node, node)) is { } plan
-            && FindRemovableStatementContainer(node) is not (BlockSyntax or SwitchSectionSyntax))
+            && FindRemovableStatementContainer(node) is not
+                (BlockSyntax or SwitchSectionSyntax or GlobalStatementSyntax))
         {
             _unremovablePlans.Add(plan);
         }
@@ -723,6 +751,11 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         if (TryFoldNameOfGenericMethodGroup(node) is { } foldedGeneric)
             return foldedGeneric;
 
+        // 顶层局部函数：nameof(Add) 的值是 "Add"，声明移走后标识符会 CS0103，
+        // 折叠成原名字符串字面量（合成类成员名是 camelCase，直接改名会改语义）。
+        if (TryFoldNameOfTopLevelLocalFunction(node) is { } foldedTopLevel)
+            return foldedTopLevel;
+
         var visited = (InvocationExpressionSyntax?)base.VisitInvocationExpression(node);
         if (visited == null)
             return null;
@@ -741,7 +774,9 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         if (plan == null)
             return visited;
 
-        var newExpression = RewriteCallExpression(visited.Expression, plan);
+        // 顶层语句宿主：调用点改写成合成类上的成员访问
+        // （Add(1) → __Cs2jLocalFunctions.add(1)）。
+        var callName = BuildCallName(visited.Expression, plan);
 
         // If the hoisted method needs explicit type arguments (because it uses
         // enclosing method type parameters), supply them at the call site. The
@@ -755,40 +790,62 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
                 .ToList();
             if (enclosingArgs.Count > 0)
             {
-                if (newExpression is IdentifierNameSyntax)
+                if (callName is IdentifierNameSyntax)
                 {
-                    newExpression = SyntaxFactory.GenericName(
+                    callName = SyntaxFactory.GenericName(
                         SyntaxFactory.Identifier(plan.NewName),
                         SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(enclosingArgs)));
                 }
-                else if (newExpression is GenericNameSyntax genericName)
+                else if (callName is GenericNameSyntax genericName)
                 {
-                    newExpression = genericName.WithTypeArgumentList(
+                    callName = genericName.WithTypeArgumentList(
                         SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(
                             genericName.TypeArgumentList.Arguments.Concat(enclosingArgs))));
                 }
             }
         }
 
+        var newExpression = QualifyTopLevelTarget(plan, callName, visited.Expression);
         var newArgs = RewriteCallArguments(visited.ArgumentList, plan);
 
         Changed = true;
         return visited.WithExpression(newExpression).WithArgumentList(newArgs);
     }
 
-    private static ExpressionSyntax RewriteCallExpression(ExpressionSyntax expression, LiftPlan plan)
+    private static SimpleNameSyntax BuildCallName(ExpressionSyntax expression, LiftPlan plan)
     {
-        if (expression is IdentifierNameSyntax id)
+        if (expression is IdentifierNameSyntax)
         {
-            return SyntaxFactory.IdentifierName(plan.NewName).WithTriviaFrom(id);
+            return SyntaxFactory.IdentifierName(plan.NewName);
         }
         if (expression is GenericNameSyntax gn)
         {
             return SyntaxFactory.GenericName(
                 SyntaxFactory.Identifier(plan.NewName),
-                gn.TypeArgumentList).WithTriviaFrom(gn);
+                gn.TypeArgumentList);
         }
-        return expression;
+        return SyntaxFactory.IdentifierName(plan.NewName);
+    }
+
+    /// <summary>
+    /// 顶层宿主的提升方法在合成类里，所有引用都要写成
+    /// <c>__Cs2jLocalFunctions.name</c>；其它宿主保持裸名字。
+    /// </summary>
+    private static ExpressionSyntax QualifyTopLevelTarget(
+        LiftPlan plan,
+        SimpleNameSyntax name,
+        SyntaxNode triviaSource)
+    {
+        if (plan.IsTopLevelHost && plan.TopLevelHostClassName is { } className)
+        {
+            return SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    SyntaxFactory.IdentifierName(className),
+                    name.WithoutTrivia())
+                .WithTriviaFrom(triviaSource);
+        }
+
+        return name.WithTriviaFrom(triviaSource);
     }
 
     private ArgumentListSyntax RewriteCallArguments(ArgumentListSyntax argumentList, LiftPlan plan)
@@ -1056,7 +1113,7 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
         // Rename it to the hoisted method name.
         Changed = true;
-        return SyntaxFactory.IdentifierName(plan.NewName).WithTriviaFrom(node);
+        return QualifyTopLevelTarget(plan, SyntaxFactory.IdentifierName(plan.NewName), node);
     }
 
     /// <summary>
@@ -1105,10 +1162,12 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
         // Rename it to the hoisted method name, keeping the explicit type arguments.
         Changed = true;
-        return SyntaxFactory.GenericName(
+        return QualifyTopLevelTarget(
+            plan,
+            SyntaxFactory.GenericName(
                 SyntaxFactory.Identifier(plan.NewName),
-                node.TypeArgumentList)
-            .WithTriviaFrom(node);
+                node.TypeArgumentList),
+            node);
     }
 
     /// <summary>
@@ -1210,12 +1269,14 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
         if (typeArguments.Count > 0)
         {
-            return SyntaxFactory.GenericName(
+            var generic = SyntaxFactory.GenericName(
                 SyntaxFactory.Identifier(plan.NewName),
                 SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(typeArguments)));
+            return QualifyTopLevelTarget(plan, generic, generic);
         }
 
-        return SyntaxFactory.IdentifierName(plan.NewName);
+        var identifier = SyntaxFactory.IdentifierName(plan.NewName);
+        return QualifyTopLevelTarget(plan, identifier, identifier);
     }
 
     /// <summary>按委托形参的 RefKind 生成 lambda 形参的修饰符。</summary>
@@ -1289,6 +1350,29 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
         var plan = ResolvePlan(target, target.Identifier.Text);
         if (plan == null)
+            return null;
+
+        Changed = true;
+        return SyntaxFactory.LiteralExpression(
+                SyntaxKind.StringLiteralExpression,
+                SyntaxFactory.Literal(plan.Node.Identifier.Text))
+            .WithTriviaFrom(node);
+    }
+
+    /// <summary>
+    /// <c>nameof(Add)</c> 指向顶层语句里的局部函数：声明会被移除，标识符不再绑定，
+    /// 因此整体折叠成原名字符串字面量（合成类里的方法名是 camelCase，
+    /// 直接改名会改变字符串值）。
+    /// </summary>
+    private ExpressionSyntax? TryFoldNameOfTopLevelLocalFunction(InvocationExpressionSyntax node)
+    {
+        if (node.Expression is not IdentifierNameSyntax { Identifier.Text: "nameof" })
+            return null;
+        if (node.ArgumentList.Arguments.Count != 1)
+            return null;
+        if (node.ArgumentList.Arguments[0].Expression is not IdentifierNameSyntax target)
+            return null;
+        if (ResolvePlan(target, target.Identifier.Text) is not { IsTopLevelHost: true } plan)
             return null;
 
         Changed = true;
@@ -1376,7 +1460,11 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
         var modifierTokens = new List<SyntaxToken>
         {
-            SyntaxFactory.Token(SyntaxKind.PrivateKeyword)
+            // 顶层语句宿主的调用点在合成类外部（同一个文件的顶层语句），
+            // private 不可见；internal static 既能被调用，也便于后续 Java 映射。
+            SyntaxFactory.Token(plan.IsTopLevelHost
+                ? SyntaxKind.InternalKeyword
+                : SyntaxKind.PrivateKeyword)
         };
         if (plan.IsStatic)
             modifierTokens.Add(SyntaxFactory.Token(SyntaxKind.StaticKeyword));

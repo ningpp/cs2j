@@ -2296,25 +2296,6 @@ public class LocalFunctionLiftTests
         AssertCompiles(result.OutputCode);
     }
 
-    [Fact]
-    public void TopLevelStatement_LocalFunction_StillSkipped()
-    {
-        // 顶层语句（CompilationUnitSyntax 直接宿主）没有宿主类型，仍按 NoHostType 跳过。
-        var src = """
-        using System;
-
-        Console.WriteLine(Local(2));
-        int Local(int x) => x * 2;
-        """;
-        var result = Preprocess(src);
-
-        Assert.False(result.Changed);
-        Assert.Equal(0, result.Statistics.LocalFunctionsLifted);
-        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
-        Assert.Contains(result.Diagnostics, d => d.Reason == LocalFunctionSkipReason.NoHostType);
-        Assert.Contains("int Local(int x)", result.OutputCode);
-    }
-
     // -----------------------------------------------------------------------
     // Residual gate: every surviving local function is a residual, no
     // "intentionally retained" exemption. Strict (default) must fail.

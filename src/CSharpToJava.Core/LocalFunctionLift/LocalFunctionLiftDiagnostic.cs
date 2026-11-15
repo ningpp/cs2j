@@ -21,6 +21,11 @@ public enum LocalFunctionSkipReason
     /// 禁用区引用又无法安全精确替换：只能保留原局部函数。
     /// </summary>
     NameReferencedInDisabledText,
+    /// <summary>
+    /// 顶层语句里的局部函数声明点位于条件编译区（非空 directive 栈）内：生成的合成
+    /// 类方法无法安全地落在同一分支，本轮保守跳过并给出精确诊断。
+    /// </summary>
+    ConditionalTopLevelDeclaration,
 }
 
 public sealed record LocalFunctionLiftDiagnostic(

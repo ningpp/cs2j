@@ -106,7 +106,7 @@ internal static class LocalFunctionCallSiteResolver
             {
                 if (!includeSkipped && plan.Skipped)
                     continue;
-                if (!ReferenceEquals(plan.Node.Parent, ancestor))
+                if (!ReferenceEquals(GetStatementContainer(plan.Node), ancestor))
                     continue;
                 if (!string.Equals(plan.Node.Identifier.Text, name, StringComparison.Ordinal))
                     continue;
@@ -260,6 +260,16 @@ internal static class LocalFunctionCallSiteResolver
             return parent;
         return null;
     }
+
+    /// <summary>
+    /// 局部函数声明所在的词法语句容器。顶层局部函数被
+    /// <see cref="GlobalStatementSyntax"/> 包住，作用域单位是编译单元（与
+    /// <see cref="ResolveByLexicalScope"/> 的祖先判定保持一致）。
+    /// </summary>
+    internal static SyntaxNode? GetStatementContainer(LocalFunctionStatementSyntax localFn)
+        => localFn.Parent is GlobalStatementSyntax { Parent: CompilationUnitSyntax unit }
+            ? unit
+            : localFn.Parent;
 
     /// <summary>局部函数声明所在的语句容器类型（词法作用域单位）。</summary>
     private static bool IsStatementContainer(SyntaxNode node)

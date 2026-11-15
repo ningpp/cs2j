@@ -14,6 +14,14 @@ internal sealed class LiftPlan
     public required IMethodSymbol Symbol;
     public required string NewName;
     public TypeDeclarationSyntax? HostType;      // insertion target (the declaration in this file)
+    /// <summary>
+    /// 局部函数声明在顶层语句里（<see cref="Microsoft.CodeAnalysis.CSharp.Syntax.GlobalStatementSyntax"/>），
+    /// 没有语法宿主类型。<see cref="HostType"/> 为 <see langword="null"/>；提升方法
+    /// 由重写器合成一个文件内的私有静态类承载（见 <see cref="TopLevelHostClassName"/>）。
+    /// </summary>
+    public bool IsTopLevelHost;
+    /// <summary>顶层宿主合成类的类名（同文件内所有顶层局部函数共用）。</summary>
+    public string? TopLevelHostClassName;
     public bool IsStatic;
     public List<CapturePlan> Captures = new();    // ordered
     /// <summary>
