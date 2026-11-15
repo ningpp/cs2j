@@ -211,6 +211,65 @@ public class StaticAbstractCompanionTests
     }
 
     [Fact]
+    public void Operator_IsLowered()
+    {
+        var (plan, rewritten) = Run((
+            "Operators.cs",
+            """
+            namespace Probe;
+
+            public interface ICalc<TSelf> where TSelf : ICalc<TSelf>
+            {
+                static abstract TSelf operator +(TSelf left, TSelf right);
+                static abstract int Size { get; }
+            }
+
+            public sealed class Calc : ICalc<Calc>
+            {
+                public static Calc operator +(Calc left, Calc right) => new Calc();
+                public static int Size => 1;
+            }
+
+            public static class CalcDriver
+            {
+                public static ICalc<T> Add<T>(T a, T b) where T : ICalc<T> => a + b;
+                public static int Read<T>() where T : ICalc<T> => T.Size;
+            }
+            """));
+
+        Assert.Equal(1, plan.Statistics.InterfacesLowered);
+        Assert.Equal(1, plan.Statistics.Operators);
+        AssertCompiles(rewritten);
+    }
+
+    [Fact]
+    public void OpenWorldInterface_IsLeftUntouchedWithDiagnostic()
+    {
+        var (plan, rewritten) = Run((
+            "OpenWorld.cs",
+            """
+            namespace Probe;
+
+            public interface IExternalTrait
+            {
+                static abstract int Value { get; }
+            }
+
+            public static class Consumer
+            {
+                public static int Read<TTrait>() where TTrait : IExternalTrait => TTrait.Value;
+            }
+            """));
+
+        Assert.Equal(0, plan.Statistics.InterfacesLowered);
+        Assert.Equal(1, plan.Statistics.InterfacesSkipped);
+        Assert.Contains(
+            plan.Diagnostics,
+            static d => d.Code == StaticAbstractCompanionCodes.InterfaceSkipped);
+        AssertCompiles(rewritten);
+    }
+
+    [Fact]
     public void StaticAbstractEvent_IsLoweredToCompanionEvent()
     {
         var (plan, rewritten) = Run((
