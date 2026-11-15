@@ -21,6 +21,10 @@ internal sealed class LambdaMigrationContext
     /// and own promoted parameters/locals (D4/D5).</summary>
     public required IReadOnlyDictionary<string, string> FieldAccessByName { get; init; }
 
+    /// <summary>Outer `const` local name → C# literal text. Consts are not
+    /// captured; every reference inside the moved body must be inlined.</summary>
+    public required IReadOnlyDictionary<string, string> ConstantByName { get; init; }
+
     /// <summary>Received C32 accesses `__cs2jClosureN._cs2jCap_x` → relative field expression.</summary>
     public required IReadOnlyDictionary<(string Instance, string Field), string> CollapseByInstanceField { get; init; }
 
@@ -369,11 +373,16 @@ internal static class LambdaMethodLifter
 
         public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
         {
-            if (IsVariableAccessPosition(node))
+            if (ConstantInlining.IsVariableAccessPosition(node))
             {
                 // ② captured/own-state access → (chain-prefixed) field access.
                 if (_context.FieldAccessByName.TryGetValue(node.Identifier.ValueText, out var fieldAccess))
                     return SyntaxFactory.ParseExpression(fieldAccess).WithTriviaFrom(node);
+
+                // ②-bis outer `const` local → its literal (consts are compile-time
+                // constants, never captured, so the name is out of scope here).
+                if (ConstantInlining.TryInline(node, _context.ConstantByName, out var constant))
+                    return constant;
 
                 // ④ implicit-this instance member → `<path>_cs2jThis.Member`.
                 if (_context.HasHostThis
@@ -420,46 +429,6 @@ internal static class LambdaMethodLifter
         /// (read or write), not a type reference or a qualified access's member name.
         /// </summary>
         private static bool IsMemberNamePosition(SimpleNameSyntax node)
-        {
-            if (node.Parent is NameColonSyntax || CaptureClassification.IsInsideNameOf(node))
-                return false;
-            if (node.Parent is MemberAccessExpressionSyntax member && member.Name == node)
-                return false;
-            if (node.Parent is MemberBindingExpressionSyntax binding && binding.Name == node)
-                return false;
-            if (node.Parent is NameEqualsSyntax)
-                return false;
-
-            // Type contexts: typeof(T), sizeof(T), default(T), new T(), (T)x,
-            // x as T, x is T u, T[] — a name in these positions denotes a type.
-            if (node.Parent is TypeOfExpressionSyntax
-                or SizeOfExpressionSyntax
-                or DefaultExpressionSyntax
-                or ArrayTypeSyntax
-                or GenericNameSyntax
-                or QualifiedNameSyntax
-                or TypeArgumentListSyntax
-                or DeclarationPatternSyntax)
-            {
-                return false;
-            }
-
-            if (node.Parent is CastExpressionSyntax cast && cast.Type == node)
-                return false;
-            if (node.Parent is ObjectCreationExpressionSyntax creation && creation.Type == node)
-                return false;
-            if (node.Parent is BinaryExpressionSyntax binary
-                && (binary.IsKind(SyntaxKind.IsExpression) || binary.IsKind(SyntaxKind.AsExpression))
-                && binary.Right == node)
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        /// <summary>Positions that are ordinary variable accesses (read or write).</summary>
-        private static bool IsVariableAccessPosition(IdentifierNameSyntax node)
         {
             if (node.Parent is NameColonSyntax || CaptureClassification.IsInsideNameOf(node))
                 return false;

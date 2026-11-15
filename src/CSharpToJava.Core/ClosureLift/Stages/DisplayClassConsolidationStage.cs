@@ -134,6 +134,7 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
                     Signature = pending.Signature,
                     ReceivedLambda = receivedLambda,
                     FieldAccessByName = pending.FieldAccessByName,
+                    ConstantByName = pending.ConstantByName,
                     CollapseByInstanceField = pending.CollapseByInstanceField,
                     InstanceMemberNames = pending.InstanceMemberNames,
                     CapturesThis = pending.CapturesThis,

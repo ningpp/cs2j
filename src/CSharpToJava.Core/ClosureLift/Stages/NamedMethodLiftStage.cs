@@ -59,7 +59,7 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
         // nested planned lambda inside an outer body can be substituted with
         // its own explicit delegate construction at emit time (D8).
         var memberOrdinal = new Dictionary<string, int>(StringComparer.Ordinal);
-        var pending = new List<(StaticLambdaPlan Plan, ResolvedLambdaSignature Signature, LambdaExpressionSyntax ReceivedLambda, TypeDeclarationSyntax ReceivedHost, IReadOnlyList<ParameterSlot> ParameterSlots, LiftedTypeParameterSet TypeParameters)>();
+        var pending = new List<(StaticLambdaPlan Plan, ResolvedLambdaSignature Signature, LambdaExpressionSyntax ReceivedLambda, TypeDeclarationSyntax ReceivedHost, IReadOnlyDictionary<string, string> ConstantByName, IReadOnlyList<ParameterSlot> ParameterSlots, LiftedTypeParameterSet TypeParameters)>();
 
         foreach (var site in sites)
         {
@@ -114,7 +114,10 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
                 TypeArguments: typeParameters.TypeArguments.Count == 0 ? null : typeParameters.TypeArguments);
 
             var receivedHost = receivedTypeByModelType[site.HostType];
-            pending.Add((plan, signature, receivedLambda, receivedHost, parameterSlots, typeParameters));
+            // 外层 const 局部不被捕获（零捕获才走静态路径），迁出的方法体里必须
+            // 按值内联，否则新位置解析不到该名字（CS0103）。语义模型在 model 树上。
+            var constantByName = ConstantInlining.CollectByName(model, site.Lambda);
+            pending.Add((plan, signature, receivedLambda, receivedHost, constantByName, parameterSlots, typeParameters));
         }
 
         if (pending.Count == 0)
@@ -132,11 +135,11 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
         var plans = new List<StaticLambdaPlan>();
         var methodsByReceivedHost = new Dictionary<TypeDeclarationSyntax, List<MethodDeclarationSyntax>>();
 
-        foreach (var (plan, signature, receivedLambda, receivedHost, parameterSlots, typeParameters) in pending)
+        foreach (var (plan, signature, receivedLambda, receivedHost, constantByName, parameterSlots, typeParameters) in pending)
         {
             var method = StaticLambdaHandler.BuildMethod(
-                plan.MethodName, signature, receivedLambda, planByPosition, parameterSlots,
-                typeParameters.Parameters);
+                plan.MethodName, signature, receivedLambda, planByPosition, constantByName,
+                parameterSlots, typeParameters.Parameters);
             var built = plan with { Method = method };
             plans.Add(built);
             planByPosition[(built.ReceivedSpanStart, built.SiteRawKind)] = built;

@@ -30,6 +30,7 @@ internal static class StaticLambdaHandler
         ResolvedLambdaSignature signature,
         LambdaExpressionSyntax lambda,
         IReadOnlyDictionary<(int Start, int Kind), StaticLambdaPlan> plans,
+        IReadOnlyDictionary<string, string> constantByName,
         IReadOnlyList<ParameterSlot> parameterSlots,
         IReadOnlyList<LiftedTypeParameter> typeParameters)
     {
@@ -49,7 +50,7 @@ internal static class StaticLambdaHandler
             ? SyntaxFactory.ParseTypeName(type)
             : SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword));
 
-        var substituter = new NestedSiteSubstituter(plans);
+        var substituter = new NestedSiteSubstituter(plans, constantByName);
 
         MethodDeclarationSyntax declaration;
         if (lambda is ParenthesizedLambdaExpressionSyntax { Block: { } parenthesizedBlock })
@@ -118,10 +119,25 @@ internal static class StaticLambdaHandler
     private sealed class NestedSiteSubstituter : CSharpSyntaxRewriter
     {
         private readonly IReadOnlyDictionary<(int Start, int Kind), StaticLambdaPlan> _plans;
+        private readonly IReadOnlyDictionary<string, string> _constantByName;
 
-        public NestedSiteSubstituter(IReadOnlyDictionary<(int Start, int Kind), StaticLambdaPlan> plans)
+        public NestedSiteSubstituter(
+            IReadOnlyDictionary<(int Start, int Kind), StaticLambdaPlan> plans,
+            IReadOnlyDictionary<string, string> constantByName)
         {
             _plans = plans;
+            _constantByName = constantByName;
+        }
+
+        /// <summary>
+        /// 外层 `const` 局部不是捕获，迁出的方法里名字已不可见：按值内联成字面量。
+        /// </summary>
+        public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
+        {
+            if (ConstantInlining.TryInline(node, _constantByName, out var constant))
+                return constant;
+
+            return base.VisitIdentifierName(node);
         }
 
         public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node)
