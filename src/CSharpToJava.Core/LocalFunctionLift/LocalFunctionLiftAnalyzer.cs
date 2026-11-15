@@ -882,6 +882,11 @@ internal sealed class LocalFunctionLiftAnalyzer
         switch (symbol)
         {
             case IParameterSymbol parameter:
+                // out 形参在 ref-safety 规则里隐式 scoped（ScopedKind 不为 None），
+                // 但那是语言内部的调用方约束；提升后按普通 ref 形参传递即可
+                // （`ref p` / `scoped ref T` 两种形态都可编译），不写显式修饰符。
+                if (parameter.RefKind == RefKind.Out)
+                    return false;
                 if (parameter.ScopedKind != ScopedKind.None)
                     return true;
                 return parameter.DeclaringSyntaxReferences
@@ -1764,12 +1769,30 @@ internal sealed class LocalFunctionLiftAnalyzer
         }
         if (sym is IParameterSymbol param)
         {
-            if (param.RefKind is RefKind.In or RefKind.Out)
+            if (param.RefKind is RefKind.In)
+                return false;
+            // out 形参可以走 `ref p`：重写器在类级方法/构造函数体开头补
+            // `p = default(T);`，保证所有调用点的 ref 实参满足确定赋值。
+            if (param.RefKind is RefKind.Out && !CanSeedOutParameter(param))
                 return false;
         }
 
         return true;
     }
+
+    /// <summary>
+    /// out 形参能否以 <c>ref p</c> 实参传入。源里 out 形参只在方法体内按路径赋值，
+    /// <c>ref</c> 实参却要求调用点明确赋值：提升时在包含它的类级方法/构造函数
+    /// 体开头插一条 <c>p = default(T);</c>（每个参数最多一条）即可。out 形参必须
+    /// 在正常返回前赋值、异常路径上调用方拿不到值，因此补默认值不改变可观察语义。
+    /// 只有类级方法/构造函数有可插入的语句体；局部函数的 out 形参（嵌套提升）
+    /// 本轮不处理。
+    /// </summary>
+    private static bool CanSeedOutParameter(IParameterSymbol parameter)
+        => parameter.ContainingSymbol is IMethodSymbol
+        {
+            MethodKind: MethodKind.Ordinary or MethodKind.Constructor,
+        };
 
     private static string GetRefCaptureUnavailableReason(LiftPlan plan, CapturePlan cap)
     {
@@ -1799,7 +1822,13 @@ internal sealed class LocalFunctionLiftAnalyzer
             if (param.RefKind is RefKind.In)
                 return $"parameter '{cap.OriginalName}' is 'in'";
             if (param.RefKind is RefKind.Out)
-                return $"parameter '{cap.OriginalName}' is 'out'";
+                return param.ContainingSymbol is IMethodSymbol
+                {
+                    MethodKind: MethodKind.Ordinary or MethodKind.Constructor,
+                }
+                    ? $"parameter '{cap.OriginalName}' is 'out'"
+                    : $"parameter '{cap.OriginalName}' is 'out' of a local function; only " +
+                        "out parameters of class-level methods/constructors can be seeded";
         }
         return "ref not available";
     }

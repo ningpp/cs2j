@@ -1897,6 +1897,132 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
+    // out 形参被提升后的局部函数写入：捕获改为 `ref T` 形参、调用点传 `ref p`。
+    // ref 实参要求调用点明确赋值，因此在包含该 out 形参的类级方法/构造函数
+    // 体开头补 `p = default(T);`（每个形参最多一条）。out 形参必须在正常返回前
+    // 赋值、异常路径上调用方拿不到值，补默认值不改变可观察语义。
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void OutParameterWriteCapture_IsLiftedWithRef()
+    {
+        var src = """
+        class C {
+            void M(out int p, int v) {
+                p = 0;
+                Local(v);
+                void Local(int x) { p = x; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains("private void local(ref int _cs2j_cap_p, int x)", result.OutputCode);
+        Assert.Contains("local(ref p, v)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void OutParameterWriteCapture_CallBeforeAssignment_IsSeeded()
+    {
+        var src = """
+        class C {
+            void M(out int p, int v) {
+                Local(v);
+                p = 1;
+                void Local(int x) { p = x; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Contains("p = default(int);", result.OutputCode);
+        Assert.Contains("local(ref p, v)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void OutParameterWriteCapture_TwoLocals_SeedsOnce()
+    {
+        var src = """
+        class C {
+            void M(out int p, int v) {
+                A(v);
+                B(v);
+                p = 0;
+                void A(int x) { p = x; }
+                void B(int x) { p = x + 1; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Equal(2, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(1, CountOccurrences(result.OutputCode, "p = default(int);"));
+        Assert.Contains("a(ref p, v)", result.OutputCode);
+        Assert.Contains("b(ref p, v)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>
+    /// 写入 <c>in</c> 形参在源里本身就是非法的（CS8332），本 pass 保持保守跳过，
+    /// 不产出无法编译的提升代码。
+    /// </summary>
+    [Fact]
+    public void InParameterWriteCapture_StillUnsupported()
+    {
+        var src = """
+        class C {
+            void M(in int p, int v) {
+                Local(v);
+                void Local(int x) { p = x; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Reason == LocalFunctionSkipReason.RefCaptureUnavailable
+            && d.Message.Contains("is 'in'", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// out 形参属于嵌套的局部函数（不是类级方法/构造函数）时没有可插入语句体的
+    /// 宿主，本轮不处理：保留原局部函数并给出精确诊断，防止把 out 捕获扩大成
+    /// 无法补齐确定赋值的提升。
+    /// </summary>
+    [Fact]
+    public void OutParameterOfLocalFunction_IsSkipped()
+    {
+        var src = """
+        class C {
+            void M() {
+                Run(out int value);
+                void Run(out int value) {
+                    value = 1;
+                    void Inner() { value = 2; }
+                }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Reason == LocalFunctionSkipReason.RefCaptureUnavailable
+            && d.Message.Contains("'out' of a local function", StringComparison.Ordinal));
+    }
+
+    // -----------------------------------------------------------------------
     // 局部函数名在条件编译区（本次分析编译未启用该符号）里被引用：提升方法保留
     // 原名，使启用/禁用两种符号配置下的引用都解析到同一个方法（cs-text p05 的
     // #if DEBUG nameof(TryFindRawFixedSets)）。

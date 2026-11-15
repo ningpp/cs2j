@@ -47,6 +47,13 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
     private readonly HashSet<ISymbol> _seededSymbols =
         new(SymbolEqualityComparer.Default);
     /// <summary>
+    /// 被提升后的方法以 <c>ref</c> 形参写入的 out 形参：包含它的类级方法/构造函数
+    /// 的语句体开头补 <c>p = default(T);</c>，使所有调用点传 <c>ref p</c> 时满足
+    /// 确定赋值（CS0165）。每个形参最多一条。
+    /// </summary>
+    private readonly Dictionary<IMethodSymbol, List<(string Name, TypeSyntax Type)>>
+        _seededOutParameters = new(SymbolEqualityComparer.Default);
+    /// <summary>
     /// 正在为其生成提升方法体的 plan；仅在 BuildMethodDeclaration 遍历函数体时为非 null。
     /// 用于按符号改写捕获引用（避免同名形参/局部被误改）。
     /// </summary>
@@ -108,6 +115,11 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
                 {
                     _holderSymbols[capture.Symbol] = capture.HolderElementTypeDisplay;
                 }
+                else if (capture.ByRef
+                    && capture.Symbol is IParameterSymbol { RefKind: RefKind.Out } outParameter)
+                {
+                    RegisterOutParameterSeed(outParameter);
+                }
                 else if (capture.IsWritten && NeedsDefaultInitializer(capture.Symbol))
                 {
                     _seededSymbols.Add(capture.Symbol);
@@ -124,6 +136,80 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
                 renames.Add(rename);
             }
         }
+    }
+
+    /// <summary>
+    /// 登记一个需要补默认值的 out 形参（同一形参被多个提升函数写入时只登记一次）。
+    /// 类型优先沿用声明处的类型语法（同一文件、同一 using 上下文，解析结果一致），
+    /// 语义不可用时退回完全限定显示。
+    /// </summary>
+    private void RegisterOutParameterSeed(IParameterSymbol parameter)
+    {
+        if (parameter.ContainingSymbol is not IMethodSymbol method)
+            return;
+        if (!_seededOutParameters.TryGetValue(method, out var seeds))
+        {
+            seeds = new List<(string Name, TypeSyntax Type)>();
+            _seededOutParameters[method] = seeds;
+        }
+        if (seeds.Any(seed => string.Equals(seed.Name, parameter.Name, StringComparison.Ordinal)))
+            return;
+
+        var declaredType = parameter.DeclaringSyntaxReferences
+            .Select(static reference => reference.GetSyntax())
+            .OfType<ParameterSyntax>()
+            .Select(static syntax => syntax.Type)
+            .FirstOrDefault(static type => type != null);
+        var type = (declaredType ?? SyntaxFactory.ParseTypeName(
+                parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)))
+            .WithoutTrivia();
+        seeds.Add((parameter.Name, type));
+    }
+
+    /// <summary>
+    /// 类级方法/构造函数的语句体开头补 out 形参的默认赋值。只在包含被
+    /// <c>ref</c> 捕获的 out 形参时触发（见 <see cref="RegisterOutParameterSeed"/>）。
+    /// </summary>
+    public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
+    {
+        var visited = (MethodDeclarationSyntax?)base.VisitMethodDeclaration(node);
+        return SeedOutParameters(node, visited);
+    }
+
+    /// <inheritdoc cref="VisitMethodDeclaration"/>
+    public override SyntaxNode? VisitConstructorDeclaration(ConstructorDeclarationSyntax node)
+    {
+        var visited = (ConstructorDeclarationSyntax?)base.VisitConstructorDeclaration(node);
+        return SeedOutParameters(node, visited);
+    }
+
+    private BaseMethodDeclarationSyntax? SeedOutParameters(
+        BaseMethodDeclarationSyntax node,
+        BaseMethodDeclarationSyntax? visited)
+    {
+        if (visited?.Body == null || _seededOutParameters.Count == 0)
+            return visited;
+
+        if (_model.GetDeclaredSymbol(node) is not IMethodSymbol method
+            || !_seededOutParameters.TryGetValue(method, out var seeds)
+            || seeds.Count == 0)
+        {
+            return visited;
+        }
+
+        var statements = new List<StatementSyntax>(seeds.Count + visited.Body.Statements.Count);
+        foreach (var (name, type) in seeds)
+        {
+            statements.Add(SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    SyntaxFactory.IdentifierName(name),
+                    SyntaxFactory.DefaultExpression(type))));
+        }
+        statements.AddRange(visited.Body.Statements);
+
+        Changed = true;
+        return visited.WithBody(visited.Body.WithStatements(SyntaxFactory.List(statements)));
     }
 
     /// <summary>
