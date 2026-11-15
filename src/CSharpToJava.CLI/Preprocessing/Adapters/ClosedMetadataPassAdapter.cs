@@ -33,6 +33,12 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
     private ClosedMetadataOverrides? _overrides;
 
     /// <summary>
+    /// True when <see cref="OnTreePreparedAsync"/> saw a generic-deepen output tree
+    /// (single-pass replay), which satisfies the CS2J1205 chain dependency.
+    /// </summary>
+    private bool _sourceTreeIsGenericDeepened;
+
+    /// <summary>
     /// Directories (absolute, source-tree rooted — the spine compilation parses
     /// source-rooted paths) of injected cs2j support library projects present in
     /// the current tree. Closed constructions declared there are owned like
@@ -41,12 +47,27 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
     private IReadOnlyList<string> _infrastructureDirectories = Array.Empty<string>();
 
     /// <summary>
+    /// Absolute source files actually compiled by an injected cs2j support project
+    /// (explicit <c>&lt;Compile Include&gt;</c> items can point outside the project
+    /// directory). Closed constructions declared in these files are owned like
+    /// framework closures (discovery-site project).
+    /// </summary>
+    private readonly HashSet<string> _infrastructureFiles = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// D6 ownership fallback map: project directory → project identity (the source
     /// tree's absolute <c>*.csproj</c> path). The collector resolves a source file's
     /// owning project by walking up to the nearest entry, so a closed construction's
     /// source-pinned ownership file can be checked for argument visibility.
     /// </summary>
     private readonly Dictionary<string, string> _projectByDirectory = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Source file → owning project identity, built from each project's actual
+    /// <c>Compile</c> item set. Covers shared/generated files linked in from outside
+    /// the project directory, which <see cref="_projectByDirectory"/> cannot attribute.
+    /// </summary>
+    private readonly Dictionary<string, string> _projectByCompiledFile = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Project identity → source projects it can name directly or transitively.</summary>
     private readonly Dictionary<string, HashSet<string>> _visibleProjectsByProject = new(StringComparer.OrdinalIgnoreCase);
@@ -72,18 +93,63 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
 
     public override Task OnTreePreparedAsync(PassTreeContext tree)
     {
-        _infrastructureDirectories = tree.Layout.ProjectFiles
+        var infrastructureProjects = tree.Layout.ProjectFiles
             .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
                 && IsInjectedSupportLibraryProject(file))
             .Select(file => Path.GetFullPath(Path.IsPathRooted(file)
                 ? file
                 : Path.Combine(tree.SourceRoot, file)))
+            .ToList();
+
+        _infrastructureDirectories = infrastructureProjects
             .Select(projectPath => Path.GetDirectoryName(projectPath)!)
             .ToList();
 
+        // Support-library sources also live outside the project directory: passes
+        // link shared/generated files (e.g. `..\_Cs2jTupleTypes.Cs2jPrelude.cs`)
+        // into the support project via <Compile Include>. Directory containment
+        // alone would classify such a declaration as a user project and make the
+        // registration owner the support project, which cannot even name the
+        // user-side type arguments. Classify by actual compile membership.
+        _infrastructureFiles.Clear();
+        foreach (var projectPath in infrastructureProjects)
+        {
+            var compiled = ProjectCompileSet.ComputeCompiledFiles(projectPath, tree.SourceRoot);
+            if (compiled is null)
+            {
+                continue;
+            }
+
+            _infrastructureFiles.UnionWith(compiled);
+        }
+
         BuildProjectVisibility(tree);
+        _sourceTreeIsGenericDeepened = IsGenericDeepenTree(tree);
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Provenance of the input tree for the single-pass workflow: the pass chain is
+    /// routinely run one pass at a time over the previous pass' intermediate tree,
+    /// so a source root that is a generic-deepen output already carries the final
+    /// C02 symbol shapes the registration reads. The intermediate directory name is
+    /// the chain-wide provenance marker; the C02 holder files are the content-level
+    /// equivalent for renamed copies.
+    /// </summary>
+    private static bool IsGenericDeepenTree(PassTreeContext tree)
+    {
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(tree.SourceRoot));
+        if (string.Equals(
+                Path.GetFileName(root),
+                GenericDeepenPassAdapter.IntermediateDirectoryName,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return Directory.Exists(root)
+            && Directory.EnumerateFiles(root, "_Cs2jGenericHolders.*.cs", SearchOption.TopDirectoryOnly).Any();
     }
 
     /// <summary>
@@ -96,6 +162,7 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
     private void BuildProjectVisibility(PassTreeContext tree)
     {
         _projectByDirectory.Clear();
+        _projectByCompiledFile.Clear();
         _visibleProjectsByProject.Clear();
 
         var sourceProjects = tree.Layout.ProjectFiles
@@ -112,6 +179,22 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
                 tree.IntermediateRoot, Path.GetRelativePath(tree.SourceRoot, sourceProject));
             intermediateBySource[sourceProject] = intermediateProject;
             _projectByDirectory[NormalizeDirectory(Path.GetDirectoryName(intermediateProject)!)] = sourceProject;
+
+            // Pass-generated files live at the tree root and are pulled into a
+            // project via <Compile Include="..\..\file.cs">. Their directory says
+            // nothing about the owning project, so map the actual compile set
+            // (ownership falls back to the discovery site when that project cannot
+            // name the closure's arguments).
+            var compiled = ProjectCompileSet.ComputeCompiledFiles(sourceProject, tree.SourceRoot);
+            if (compiled is null)
+            {
+                continue;
+            }
+
+            foreach (var compiledFile in compiled)
+            {
+                _projectByCompiledFile.TryAdd(Path.GetFullPath(compiledFile), sourceProject);
+            }
         }
 
         foreach (var (sourceProject, intermediateProject) in intermediateBySource)
@@ -158,7 +241,13 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
             return null;
         }
 
-        var directory = Path.GetDirectoryName(Path.GetFullPath(filePath));
+        var fullPath = Path.GetFullPath(filePath);
+        if (_projectByCompiledFile.TryGetValue(fullPath, out var compiledOwner))
+        {
+            return compiledOwner;
+        }
+
+        var directory = Path.GetDirectoryName(fullPath);
         while (directory is not null)
         {
             var normalized = NormalizeDirectory(directory);
@@ -198,12 +287,17 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
 
     private bool IsInfrastructureSource(string sourceFilePath)
     {
+        var fullPath = Path.GetFullPath(sourceFilePath);
+        if (_infrastructureFiles.Contains(fullPath))
+        {
+            return true;
+        }
+
         if (_infrastructureDirectories.Count == 0)
         {
             return false;
         }
 
-        var fullPath = Path.GetFullPath(sourceFilePath);
         return _infrastructureDirectories.Any(directory =>
             fullPath.StartsWith(directory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
             || fullPath.StartsWith(directory + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
@@ -265,8 +359,11 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
         // Chain hard dependency (design §4.4): registration must read the final
         // post-C02 symbol shapes, so generic-deepen has to be enabled in the
         // same run — otherwise fail loudly with CS2J1205 instead of silently
-        // registering against intermediate shapes.
-        if (_options.EnabledPassIds is not { } enabledIds || !enabledIds.Contains(PassIds.GenericDeepen))
+        // registering against intermediate shapes. A tree that already is a
+        // generic-deepen output (single-pass replay over the previous pass'
+        // intermediate tree) satisfies the dependency.
+        if (_options.EnabledPassIds is not { } enabledIds
+            || (!enabledIds.Contains(PassIds.GenericDeepen) && !_sourceTreeIsGenericDeepened))
         {
             _diagnostics.Add(new ClosedMetadataDiagnostic(
                 ClosedMetadataSeverity.Error,

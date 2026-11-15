@@ -57,11 +57,14 @@ public sealed class ClosedMetadataPreprocessor
     /// </summary>
     public ClosedMetadataFileResult? RewriteFile(SemanticModel model, string? selfHolderName = null)
     {
-        ArgumentNullException.ThrowIfNull(_compilation);
+        // No analysis means the chain-position gate rejected the run: stay a clean
+        // byte-level copy instead of failing the per-file rewrite phase.
         if (HolderNameResolver is null || _analysis.ClosedTypes.Count == 0)
         {
             return null;
         }
+
+        ArgumentNullException.ThrowIfNull(_compilation);
 
         var surfaces = _surfaces ?? _options.ResolveConsumerSurfaces();
         var linker = new ClosedMetadataConsumptionLinker(
