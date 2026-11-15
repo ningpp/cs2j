@@ -81,11 +81,12 @@ internal sealed class LocalFunctionLiftAnalyzer
         var holderSymbols = CollectHolderCaptureSymbols(plans, bySymbol);
         ApplyHolderCaptures(plans, holderSymbols);
 
+        var activePlans = plans.Where(p => !p.Skipped).ToList();
         foreach (var plan in plans)
         {
             if (plan.Skipped)
                 continue;
-            CheckPostPropagationGates(plan, bySymbol);
+            CheckPostPropagationGates(plan, bySymbol, activePlans);
         }
 
         // Gate #12: References skipped local functions.
@@ -98,44 +99,121 @@ internal sealed class LocalFunctionLiftAnalyzer
     }
 
     /// <summary>
-    /// 同一宿主类型内重名局部函数且调用点绑定失败时整组保守跳过。
-    /// 重写器在符号缺失时按名字回退到唯一 plan；重名会让所有未绑定调用点
-    /// 指向同一个 plan（真实 SDK：GetDefaultSimpleConverters 与
-    /// GetDictionaryKeyConverters 都声明局部函数 Add，整树编译把
-    /// regular-expressions 工程的 global using System.ComponentModel 泄漏进
-    /// json 文件，使 new BooleanConverter() 二义 → Add(...) 绑定失败，18 个
-    /// Dictionary 调用被错误改写成 ConcurrentDictionary 版本 → CS1503）。
+    /// 同一宿主类型内的重名局部函数：不再因为「存在未绑定调用点」整组跳过。
+    /// C# 的局部函数遵循词法作用域——不同方法/语句容器里的同名声明彼此不可见，
+    /// 任何调用点只能看到其最内层语句容器里的那一个（同容器内则是重载）。
+    /// 这里用共享解析器逐条预校验未绑定引用：只有解析器（词法作用域 + 重载消歧）
+    /// 确实无法归属的引用，才会让其最内层作用域里的 plan 保留原样并给出诊断；
+    /// 其余 plan 正常提升。
     /// </summary>
     private void CheckDuplicateNamesWithUnboundCallSites(
         CompilationUnitSyntax root, List<LiftPlan> plans)
     {
-        foreach (var group in plans
-                     .Where(p => !p.Skipped)
+        var activePlans = plans.Where(p => !p.Skipped).ToList();
+        var bySymbol = activePlans
+            .Where(p => p.Symbol != null)
+            .ToDictionary(p => p.Symbol!, p => p, SymbolEqualityComparer.Default);
+
+        foreach (var group in activePlans
                      .GroupBy(p => (Host: p.HostType, Name: p.Node.Identifier.Text)))
         {
             if (group.Count() < 2)
-            {
                 continue;
-            }
 
             var name = group.Key.Name;
-            var hasUnbound = root.DescendantNodes()
-                .OfType<InvocationExpressionSyntax>()
-                .Any(invocation => invocation.Expression is IdentifierNameSyntax id
-                    && string.Equals(id.Identifier.Text, name, StringComparison.Ordinal)
-                    && _model.GetSymbolInfo(invocation).Symbol == null);
-            if (!hasUnbound)
+            var plansInGroup = group.ToList();
+            var unresolved = new List<SyntaxNode>();
+            foreach (var reference in EnumerateUnboundReferences(root, name))
             {
-                continue;
+                var resolved = LocalFunctionCallSiteResolver.Resolve(
+                    reference, name, activePlans, _model, bySymbol);
+                if (resolved == null)
+                    unresolved.Add(reference);
             }
 
-            foreach (var plan in group)
+            if (unresolved.Count == 0)
+                continue;
+
+            foreach (var plan in plansInGroup)
             {
+                if (!unresolved.Any(reference => IsInInnermostScope(reference, plan, activePlans)))
+                    continue;
+
                 Skip(plan, LocalFunctionSkipReason.AmbiguousName,
-                    "another local function with the same name exists in this type and a call site " +
-                    "does not bind; the name-based fallback would target the wrong overload");
+                    "a call site cannot be uniquely attributed by lexical scope and overload " +
+                    "resolution; the name-based fallback would target the wrong overload");
             }
         }
+    }
+
+    /// <summary>
+    /// 名字匹配且符号绑定失败的调用/方法组引用节点。排除命名实参名与成员访问的
+    /// Name 部分（那些不是本作用域的局部函数引用）。
+    /// </summary>
+    private IEnumerable<SyntaxNode> EnumerateUnboundReferences(SyntaxNode root, string name)
+    {
+        foreach (var node in root.DescendantNodes())
+        {
+            string? nodeName = node switch
+            {
+                InvocationExpressionSyntax { Expression: IdentifierNameSyntax id } => id.Identifier.Text,
+                InvocationExpressionSyntax { Expression: GenericNameSyntax gn } => gn.Identifier.Text,
+                IdentifierNameSyntax id => id.Identifier.Text,
+                GenericNameSyntax gn => gn.Identifier.Text,
+                _ => null,
+            };
+            if (!string.Equals(nodeName, name, StringComparison.Ordinal))
+                continue;
+
+            if (node.Parent is NameColonSyntax)
+                continue;
+            if (node.Parent is MemberAccessExpressionSyntax memberAccess
+                && memberAccess.Name == node)
+                continue;
+
+            if (_model.GetSymbolInfo(node).Symbol != null)
+                continue;
+
+            yield return node;
+        }
+    }
+
+    /// <summary>
+    /// 引用是否落在 plan 的「最内层同名语句容器」内：从引用向上遇到的第一个
+    /// 含同名局部函数声明的语句容器，就是 C# 遮蔽规则下的唯一候选容器。
+    /// </summary>
+    private static bool IsInInnermostScope(
+        SyntaxNode reference,
+        LiftPlan plan,
+        IReadOnlyList<LiftPlan> activePlans)
+    {
+        var name = plan.Node.Identifier.Text;
+        var ancestors = new HashSet<SyntaxNode>();
+        for (var current = reference.Parent; current != null; current = current.Parent)
+            ancestors.Add(current);
+
+        // 找出引用可见范围内最深的同名声明容器。
+        SyntaxNode? innermost = null;
+        var innermostDepth = -1;
+        foreach (var candidate in activePlans)
+        {
+            if (!string.Equals(candidate.Node.Identifier.Text, name, StringComparison.Ordinal))
+                continue;
+            var container = candidate.Node.Parent;
+            if (container == null || !ancestors.Contains(container))
+                continue;
+
+            var depth = 0;
+            for (var current = container; current != null; current = current.Parent)
+                depth++;
+            if (depth > innermostDepth)
+            {
+                innermost = container;
+                innermostDepth = depth;
+            }
+        }
+
+        return innermost != null && ReferenceEquals(plan.Node.Parent, innermost);
     }
 
     /// <summary>
@@ -993,6 +1071,7 @@ internal sealed class LocalFunctionLiftAnalyzer
     {
         var bySymbol = plans.Where(p => p.Symbol != null)
             .ToDictionary(p => p.Symbol!, p => p, SymbolEqualityComparer.Default);
+        var activePlans = plans.Where(p => !p.Skipped).ToList();
 
         bool changed = true;
         while (changed)
@@ -1009,15 +1088,12 @@ internal sealed class LocalFunctionLiftAnalyzer
 
                 foreach (var reference in EnumerateLocalFunctionReferences(body))
                 {
-                    var calleeSymbol = _model.GetSymbolInfo(reference).Symbol;
-                    if (calleeSymbol is not IMethodSymbol { MethodKind: MethodKind.LocalFunction } callee)
-                        continue;
-                    // 显式类型实参的方法组引用绑定到构造泛型方法（Inner<int>），
-                    // plan 按声明符号（原定义）索引。
-                    if (!bySymbol.TryGetValue(callee, out var calleePlan)
-                        && !bySymbol.TryGetValue(callee.OriginalDefinition, out calleePlan))
-                        continue;
-                    if (calleePlan.Skipped)
+                    // 绑定失败的引用也要按词法作用域归属到 callee，否则 callee 的
+                    // 捕获不会传播到 caller，提升后 caller 方法体里出现未声明名字
+                    // （CS0103）。
+                    var calleePlan = LocalFunctionCallSiteResolver.Resolve(
+                        reference, reference.Identifier.Text, activePlans, _model, bySymbol);
+                    if (calleePlan == null || calleePlan.Skipped)
                         continue;
 
                     foreach (var capture in calleePlan.Captures)
@@ -1088,7 +1164,9 @@ internal sealed class LocalFunctionLiftAnalyzer
     }
 
     private void CheckPostPropagationGates(
-        LiftPlan plan, IReadOnlyDictionary<ISymbol, LiftPlan> bySymbol)
+        LiftPlan plan,
+        IReadOnlyDictionary<ISymbol, LiftPlan> bySymbol,
+        IReadOnlyList<LiftPlan> activePlans)
     {
         // 写入型捕获提升为 ref 形参后，调用点的实参必须确定赋值（CS0165）。
         // 原局部函数允许「局部声明时不初始化、只在其函数体内赋值」
@@ -1129,7 +1207,7 @@ internal sealed class LocalFunctionLiftAnalyzer
         // 写入型捕获若必须以 ref 形参传递，就不能出现在 lambda 内（CS1628）。
         // 这类捕获已在上一步尽量改用 StrongBox holder；只有 holder 不可表达
         // （如 ref struct / 指针 / 参数捕获等）时才保留原局部函数。
-        var offending = FindLambdaExposedWrittenCaptures(plan, bySymbol)
+        var offending = FindLambdaExposedWrittenCaptures(plan, bySymbol, activePlans)
             .FirstOrDefault(static c => !c.UseHolder);
         if (offending != null)
         {
@@ -1150,7 +1228,8 @@ internal sealed class LocalFunctionLiftAnalyzer
         var refLocalCapture = plan.Captures.FirstOrDefault(static c =>
             !c.UseHolder && IsRefLocalCapture(c.Symbol));
         if (refLocalCapture != null
-            && HasRefLocalCaptureArgumentInsideLambda(plan, refLocalCapture.Symbol))
+            && HasRefLocalCaptureArgumentInsideLambda(
+                plan, refLocalCapture.Symbol, activePlans, bySymbol))
         {
             Skip(plan, LocalFunctionSkipReason.RefCaptureInNestedLambda,
                 $"ref local capture '{refLocalCapture.OriginalName}' is used by a call site " +
@@ -1165,7 +1244,11 @@ internal sealed class LocalFunctionLiftAnalyzer
     /// 引用会被重写器展开成带 ref 实参的合成 lambda，同样算命中。ref 局部本身与
     /// 引用位于同一个 lambda 内时合法（那时它是该 lambda 的局部变量）。
     /// </summary>
-    private bool HasRefLocalCaptureArgumentInsideLambda(LiftPlan plan, ISymbol symbol)
+    private bool HasRefLocalCaptureArgumentInsideLambda(
+        LiftPlan plan,
+        ISymbol symbol,
+        IReadOnlyList<LiftPlan> activePlans,
+        IReadOnlyDictionary<ISymbol, LiftPlan> bySymbol)
     {
         var scope = plan.Node.Parent;
         if (scope == null)
@@ -1173,11 +1256,10 @@ internal sealed class LocalFunctionLiftAnalyzer
 
         foreach (var reference in EnumerateLocalFunctionReferences(scope))
         {
-            var referenced = _model.GetSymbolInfo(reference).Symbol;
-            if (referenced is not IMethodSymbol method)
-                continue;
-            if (!SymbolEqualityComparer.Default.Equals(method, plan.Symbol)
-                && !SymbolEqualityComparer.Default.Equals(method.OriginalDefinition, plan.Symbol))
+            // 绑定失败的引用按词法作用域归属；归属不到 plan 的引用不属于本调用点。
+            var referenced = LocalFunctionCallSiteResolver.Resolve(
+                reference, reference.Identifier.Text, activePlans, _model, bySymbol);
+            if (!ReferenceEquals(referenced, plan))
                 continue;
 
             var isInvocationTarget = reference.Parent is InvocationExpressionSyntax invocation
@@ -1212,7 +1294,9 @@ internal sealed class LocalFunctionLiftAnalyzer
     /// 与捕获收集一致，不下降进更深层的局部函数声明（它们各自有独立的 LiftPlan）。
     /// </summary>
     private List<CapturePlan> FindLambdaExposedWrittenCaptures(
-        LiftPlan plan, IReadOnlyDictionary<ISymbol, LiftPlan> bySymbol)
+        LiftPlan plan,
+        IReadOnlyDictionary<ISymbol, LiftPlan> bySymbol,
+        IReadOnlyList<LiftPlan> activePlans)
     {
         var result = new List<CapturePlan>();
         var body = (SyntaxNode?)plan.Node.Body ?? plan.Node.ExpressionBody;
@@ -1234,9 +1318,11 @@ internal sealed class LocalFunctionLiftAnalyzer
             var insideLambda = IsInsideAnonymousFunction(reference, body);
             var symbol = _model.GetSymbolInfo(reference).Symbol;
 
-            if (symbol is IMethodSymbol { MethodKind: MethodKind.LocalFunction } callee
-                && (bySymbol.TryGetValue(callee, out var calleePlan)
-                    || bySymbol.TryGetValue(callee.OriginalDefinition, out calleePlan)))
+            // 绑定失败的同名引用也按词法作用域归属到 callee，否则「未绑定 callee
+            // 的写入型捕获经方法组 / lambda 暴露」会漏检，产出 CS1628/CS8175。
+            var calleePlan = LocalFunctionCallSiteResolver.Resolve(
+                reference, reference.Identifier.Text, activePlans, _model, bySymbol);
+            if (calleePlan != null && !calleePlan.Skipped)
             {
                 var calleeWritten = calleePlan.Captures
                     .Where(static c => c.IsWritten || IsRefLocalCapture(c.Symbol))
@@ -1274,6 +1360,7 @@ internal sealed class LocalFunctionLiftAnalyzer
     private HashSet<ISymbol> CollectHolderCaptureSymbols(
         List<LiftPlan> plans, IReadOnlyDictionary<ISymbol, LiftPlan> bySymbol)
     {
+        var activePlans = plans.Where(p => !p.Skipped).ToList();
         var holders = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
         foreach (var plan in plans)
         {
@@ -1292,7 +1379,7 @@ internal sealed class LocalFunctionLiftAnalyzer
                 }
             }
 
-            foreach (var capture in FindLambdaExposedWrittenCaptures(plan, bySymbol))
+            foreach (var capture in FindLambdaExposedWrittenCaptures(plan, bySymbol, activePlans))
             {
                 if (CanUseHolderCapture(capture))
                     holders.Add(capture.Symbol);
@@ -1447,6 +1534,9 @@ internal sealed class LocalFunctionLiftAnalyzer
             plans.Where(p => p.Skipped && p.Symbol != null)
                  .Select(p => p.Symbol!),
             SymbolEqualityComparer.Default);
+        var bySymbol = plans
+            .Where(p => p.Symbol != null)
+            .ToDictionary(p => p.Symbol!, p => p, SymbolEqualityComparer.Default);
 
         bool changed = true;
         while (changed)
@@ -1464,10 +1554,21 @@ internal sealed class LocalFunctionLiftAnalyzer
                 foreach (var reference in EnumerateLocalFunctionReferences(body))
                 {
                     var symbol = _model.GetSymbolInfo(reference).Symbol;
-                    if (symbol != null
-                        && (skippedSymbols.Contains(symbol)
-                            || (symbol is IMethodSymbol method
-                                && skippedSymbols.Contains(method.OriginalDefinition))))
+                    var referencesSkipped = symbol != null
+                        ? skippedSymbols.Contains(symbol)
+                          || (symbol is IMethodSymbol method
+                              && skippedSymbols.Contains(method.OriginalDefinition))
+                        // 绑定失败的引用按词法作用域归属（含已跳过 plan），
+                        // 否则提升后的 caller 仍调用一个保留下来的局部函数 → CS0103。
+                        : LocalFunctionCallSiteResolver.Resolve(
+                              reference,
+                              reference.Identifier.Text,
+                              plans,
+                              _model,
+                              bySymbol,
+                              includeSkipped: true) is { Skipped: true };
+
+                    if (referencesSkipped)
                     {
                         Skip(plan, LocalFunctionSkipReason.ReferencesSkippedLocalFunction,
                             $"references skipped local function '{reference.Identifier.Text}'");

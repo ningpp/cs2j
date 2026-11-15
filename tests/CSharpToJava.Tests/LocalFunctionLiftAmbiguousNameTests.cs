@@ -1,19 +1,19 @@
 using CSharpToJava.Core.LocalFunctionLift;
-using CSharpToJava.Core.Pipeline;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// C05 局部函数提升：同一宿主类型内重名局部函数 + 调用点符号绑定失败时，
-/// 不能按名字回退（会把不同签名的局部函数张冠李戴）。真实 SDK：json 的
-/// JsonSerializerOptions 在两个方法里都声明局部函数 Add（Dictionary /
-/// ConcurrentDictionary 捕获）；整树编译把 regular-expressions 工程的
-/// global using System.ComponentModel 泄漏进 json 文件，使
-/// new BooleanConverter() 二义（CS0104），Add(...) 重载解析失败，18 个
-/// Dictionary 调用被改写为 ConcurrentDictionary 版本 → build CS1503。
-/// 规则：整组保守跳过，保留局部函数与调用点原样。
+/// C05 局部函数提升：同一宿主类型内重名局部函数 + 调用点符号绑定失败。
+/// 旧策略是整组保守跳过；C# 的局部函数遵循词法作用域，不同方法/语句容器里的
+/// 同名声明彼此不可见，调用点只会看到其最内层语句容器里的那一个（同容器则是
+/// 重载）。因此未绑定调用点可以按词法作用域 + 重载消歧唯一解析，全部提升。
+/// 真实 SDK：json 的 JsonSerializerOptions 在两个方法里都声明局部函数 Add
+/// （Dictionary / ConcurrentDictionary 捕获）；整树编译把 regular-expressions
+/// 工程的 global using System.ComponentModel 泄漏进 json 文件，使
+/// new BooleanConverter() 二义（CS0104）、Add(...) 绑定失败。
 /// </summary>
 public class LocalFunctionLiftAmbiguousNameTests
 {
@@ -54,11 +54,104 @@ public class LocalFunctionLiftAmbiguousNameTests
         }
         """;
 
+    private const string SameBlockOverloadSource = """
+        using System.Collections.Generic;
+        using Demo.Converters;
+
+        namespace Demo
+        {
+            public class Overloads
+            {
+                public static Dictionary<System.Type, object> M()
+                {
+                    var map = new Dictionary<System.Type, object>();
+                    void Add(object converter) => map[converter.GetType()] = converter;
+                    void Add(object key, object value) => map[key.GetType()] = value;
+
+                    Add(new BooleanConverter());
+                    Add(new BooleanConverter(), 42);
+                    return map;
+                }
+            }
+        }
+
+        namespace Demo.Converters
+        {
+            public class BooleanConverter { }
+        }
+        """;
+
+    private const string RecursiveSource = """
+        using System.Collections.Generic;
+        using Demo.Converters;
+
+        namespace Demo
+        {
+            public class Recursive
+            {
+                public static void M()
+                {
+                    var seen = new List<object>();
+                    void Add(object converter)
+                    {
+                        seen.Add(converter);
+                        Add(new BooleanConverter());
+                    }
+
+                    Add(new BooleanConverter());
+                }
+            }
+        }
+
+        namespace Demo.Converters
+        {
+            public class BooleanConverter { }
+        }
+        """;
+
+    private const string MethodGroupSource = """
+        using System;
+        using System.Collections.Generic;
+        using Demo.Converters;
+
+        namespace Demo
+        {
+            public class MethodGroups
+            {
+                public static Action<object> M()
+                {
+                    var first = new List<object>();
+                    void Add(object converter) => first.Add(converter);
+                    Action<object> action = Add;
+                    Add(new BooleanConverter());
+                    return action;
+                }
+
+                public static Action<object> N()
+                {
+                    var second = new List<object>();
+                    void Add(object converter) => second.Add(converter);
+                    Action<object> action = Add;
+                    Add(new BooleanConverter());
+                    return action;
+                }
+            }
+        }
+
+        namespace Demo.Converters
+        {
+            public class BooleanConverter { }
+        }
+        """;
+
     private static LocalFunctionLiftResult Lift(string? leakSource)
+        => Lift(MainSource, leakSource);
+
+    private static LocalFunctionLiftResult Lift(string source, string? leakSource)
     {
         var trees = new List<SyntaxTree>
         {
-            CSharpSyntaxTree.ParseText(MainSource, ParseOptions, path: "main.cs"),
+            CSharpSyntaxTree.ParseText(source, ParseOptions, path: "main.cs"),
         };
         if (leakSource != null)
         {
@@ -73,7 +166,7 @@ public class LocalFunctionLiftAmbiguousNameTests
         var mainTree = trees[0];
 
         return new LocalFunctionLiftPreprocessor().Preprocess(
-            MainSource, compilation.GetSemanticModel(mainTree));
+            source, compilation.GetSemanticModel(mainTree));
     }
 
     [Fact]
@@ -82,6 +175,7 @@ public class LocalFunctionLiftAmbiguousNameTests
         var result = Lift(null);
 
         Assert.True(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
         Assert.Contains("add(simple, new BooleanConverter())", result.OutputCode,
             StringComparison.Ordinal);
         Assert.Contains("add2(concurrent, new BooleanConverter())", result.OutputCode,
@@ -89,18 +183,114 @@ public class LocalFunctionLiftAmbiguousNameTests
     }
 
     [Fact]
-    public void Unbound_Duplicate_Name_Call_Sites_Skip_Whole_Group()
+    public void Unbound_Duplicate_Name_Call_Sites_Lift_By_Lexical_Scope()
     {
         // 另一个工程的 global using 泄漏进同一整树编译 → BooleanConverter 二义。
         var result = Lift("global using System.ComponentModel;");
 
-        Assert.False(result.Changed);
-        Assert.Equal(MainSource, result.OutputCode);
-
-        var ambiguous = result.Diagnostics
-            .Where(d => d.Reason == LocalFunctionSkipReason.AmbiguousName)
-            .ToList();
-        Assert.Equal(2, ambiguous.Count);
-        Assert.Equal(2, result.Statistics.LocalFunctionsSkipped);
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("add(simple, new BooleanConverter())", result.OutputCode,
+            StringComparison.Ordinal);
+        Assert.Contains("add2(concurrent, new BooleanConverter())", result.OutputCode,
+            StringComparison.Ordinal);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
     }
+
+    [Fact]
+    public void Unbound_SameBlockOverloads_Resolve_By_Arity()
+    {
+        var result = Lift(SameBlockOverloadSource, "global using System.ComponentModel;");
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("add(map, new BooleanConverter())", result.OutputCode,
+            StringComparison.Ordinal);
+        Assert.Contains("add2(map, new BooleanConverter(), 42)", result.OutputCode,
+            StringComparison.Ordinal);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Unbound_RecursiveCall_Resolves_To_Self()
+    {
+        var result = Lift(RecursiveSource, "global using System.ComponentModel;");
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("add(seen, new BooleanConverter())", result.OutputCode,
+            StringComparison.Ordinal);
+        Assert.Contains("add(_cs2j_cap_seen, new BooleanConverter())", result.OutputCode,
+            StringComparison.Ordinal);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Unbound_MethodGroupReference_DuplicateNames_Resolves_By_Scope()
+    {
+        var result = Lift(MethodGroupSource, "global using System.ComponentModel;");
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("add(first, new BooleanConverter())", result.OutputCode,
+            StringComparison.Ordinal);
+        Assert.Contains("add2(second, new BooleanConverter())", result.OutputCode,
+            StringComparison.Ordinal);
+        // 方法组引用带捕获 → 合成 lambda，调用目标按词法作用域选对 plan。
+        Assert.Contains("add(first, __cs2jArg0)", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("add2(second, __cs2jArg0)", result.OutputCode, StringComparison.Ordinal);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Unbound_Duplicate_Names_Residual_Is_Zero()
+    {
+        var result = Lift("global using System.ComponentModel;");
+
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        var root = CSharpSyntaxTree.ParseText(
+            result.OutputCode, new CSharpParseOptions(LanguageVersion.Latest)).GetRoot();
+        Assert.Empty(root.DescendantNodes().OfType<LocalFunctionStatementSyntax>());
+    }
+
+    private static void AssertNoLocalFunctions(string code)
+    {
+        var root = CSharpSyntaxTree.ParseText(code, ParseOptions).GetRoot();
+        Assert.Empty(root.DescendantNodes().OfType<LocalFunctionStatementSyntax>());
+    }
+
+    private static void AssertCompiles(string code)
+    {
+        var tree = CSharpSyntaxTree.ParseText(code, ParseOptions);
+        var compilation = CSharpCompilation.Create(
+            "local-fn-ambiguous-output",
+            new[] { tree },
+            CompileReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var errors = compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        Assert.True(errors.Count == 0,
+            "Output should compile without errors. Errors:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    private static readonly MetadataReference[] CompileReferences =
+    {
+        MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+        MetadataReference.CreateFromFile(
+            typeof(System.Collections.Concurrent.ConcurrentDictionary<,>).Assembly.Location),
+        MetadataReference.CreateFromFile(
+            System.IO.Path.Combine(
+                System.IO.Path.GetDirectoryName(typeof(object).Assembly.Location)!,
+                "System.Runtime.dll")),
+    };
 }

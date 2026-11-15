@@ -20,9 +20,10 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
     private readonly LocalFunctionLiftStatistics _stats;
 
     private readonly Dictionary<ISymbol, LiftPlan> _symbolToPlan;
-    private readonly Dictionary<string, LiftPlan> _nameToPlan;
-    /// <summary>同名的非跳过 plan 多于一个：名字回退无法确定目标，必须保守不改写。</summary>
-    private readonly HashSet<string> _ambiguousNames;
+    /// <summary>非跳过 plan，按源名分组；同名重载各有独立条目，禁止「最后一个赢」。</summary>
+    private readonly Dictionary<string, List<LiftPlan>> _plansByName;
+    /// <summary>非跳过 plan 的平铺列表（共享解析器的候选集）。</summary>
+    private readonly List<LiftPlan> _activePlans;
     private readonly Dictionary<TypeDeclarationSyntax, List<(LiftPlan Plan, MethodDeclarationSyntax Method)>> _methodsToInsert;
     private readonly Dictionary<LiftPlan, List<int>> _callSitePositions = new();
     private readonly Dictionary<SyntaxTree, ConditionalDirectiveLayout> _conditionalLayouts = new();
@@ -82,20 +83,19 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         _options = options;
         _stats = stats;
         _symbolToPlan = new Dictionary<ISymbol, LiftPlan>(SymbolEqualityComparer.Default);
-        _nameToPlan = new Dictionary<string, LiftPlan>(StringComparer.Ordinal);
-        _ambiguousNames = plans
-            .Where(p => !p.Skipped)
+        _activePlans = plans.Where(p => !p.Skipped).ToList();
+        _plansByName = _activePlans
             .GroupBy(p => p.Node.Identifier.Text, StringComparer.Ordinal)
-            .Where(g => g.Count() > 1)
-            .Select(g => g.Key)
-            .ToHashSet(StringComparer.Ordinal);
+            .ToDictionary(
+                static group => group.Key,
+                static group => group.ToList(),
+                StringComparer.Ordinal);
         _methodsToInsert = new Dictionary<TypeDeclarationSyntax, List<(LiftPlan Plan, MethodDeclarationSyntax Method)>>();
 
-        foreach (var plan in plans.Where(p => !p.Skipped))
+        foreach (var plan in _activePlans)
         {
             if (plan.Symbol != null)
                 _symbolToPlan[plan.Symbol] = plan;
-            _nameToPlan[plan.Node.Identifier.Text] = plan;
             foreach (var capture in plan.Captures)
             {
                 if (capture.UseHolder && capture.HolderElementTypeDisplay != null)
@@ -286,13 +286,21 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             var symbol = node is InvocationExpressionSyntax invocation
                 ? _model.GetSymbolInfo(invocation).Symbol
                 : _model.GetSymbolInfo(node).Symbol;
-            if (symbol is not IMethodSymbol method)
+            // 符号缺失（整树合并编译导致的绑定失败）时同样要按词法作用域归属到
+            // 本 plan；否则条件编译插入点会漏算这些未绑定调用点，方法可能被插进
+            // 某个 #if 分支而调用点看不到它（CS0103）。
+            var resolved = symbol != null
+                ? (SymbolEqualityComparer.Default.Equals(symbol, plan.Symbol)
+                    || (symbol is IMethodSymbol method
+                        && SymbolEqualityComparer.Default.Equals(
+                            method.OriginalDefinition, plan.Symbol))
+                    ? plan
+                    : null)
+                : LocalFunctionCallSiteResolver.Resolve(
+                    node, name, _activePlans, _model, _symbolToPlan);
+            if (!ReferenceEquals(resolved, plan))
                 continue;
-            if (SymbolEqualityComparer.Default.Equals(method, plan.Symbol)
-                || SymbolEqualityComparer.Default.Equals(method.OriginalDefinition, plan.Symbol))
-            {
-                positions.Add(node.SpanStart);
-            }
+            positions.Add(node.SpanStart);
         }
 
         return positions.ToList();
@@ -676,9 +684,8 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         // original declaration still in the tree — exactly the strict residual
         // failure shape V-09 caught on rt10 (JsonElement.DeepEquals). Record
         // the plan; the preprocessor rolls the whole file back when non-empty.
-        if (_nameToPlan.TryGetValue(node.Identifier.Text, out var plan)
-            && !plan.Skipped
-            && ReferenceEquals(plan.Node, node)
+        if (_plansByName.TryGetValue(node.Identifier.Text, out var plansWithName)
+            && plansWithName.FirstOrDefault(plan => ReferenceEquals(plan.Node, node)) is { } plan
             && FindRemovableStatementContainer(node) is not (BlockSyntax or SwitchSectionSyntax))
         {
             _unremovablePlans.Add(plan);
@@ -724,39 +731,11 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
         if (visited.Expression is IdentifierNameSyntax id)
         {
-            var symbol = _model.GetSymbolInfo(node).Symbol;
-            if (symbol != null && _symbolToPlan.TryGetValue(symbol, out var p))
-            {
-                plan = p;
-            }
-            else if (symbol is IMethodSymbol method
-                     && !method.Equals(method.OriginalDefinition, SymbolEqualityComparer.Default)
-                     && _symbolToPlan.TryGetValue(method.OriginalDefinition, out var p2))
-            {
-                plan = p2;
-            }
-            else if (symbol == null && _nameToPlan.TryGetValue(id.Identifier.Text, out var p3))
-            {
-                plan = p3;
-            }
+            plan = ResolvePlan(node, id.Identifier.Text);
         }
         else if (visited.Expression is GenericNameSyntax gn)
         {
-            var symbol = _model.GetSymbolInfo(node).Symbol;
-            if (symbol != null && _symbolToPlan.TryGetValue(symbol, out var p))
-            {
-                plan = p;
-            }
-            else if (symbol is IMethodSymbol method
-                     && !method.Equals(method.OriginalDefinition, SymbolEqualityComparer.Default)
-                     && _symbolToPlan.TryGetValue(method.OriginalDefinition, out var p2))
-            {
-                plan = p2;
-            }
-            else if (symbol == null && _nameToPlan.TryGetValue(gn.Identifier.Text, out var p3))
-            {
-                plan = p3;
-            }
+            plan = ResolvePlan(node, gn.Identifier.Text);
         }
 
         if (plan == null)
@@ -1034,22 +1013,7 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             return SyntaxFactory.ParseExpression(constant.LiteralText).WithTriviaFrom(node);
         }
 
-        LiftPlan? plan = null;
-
-        if (symbol != null && _symbolToPlan.TryGetValue(symbol, out var p1))
-        {
-            plan = p1;
-        }
-        else if (symbol is IMethodSymbol method
-                 && !method.Equals(method.OriginalDefinition, SymbolEqualityComparer.Default)
-                 && _symbolToPlan.TryGetValue(method.OriginalDefinition, out var p2))
-        {
-            plan = p2;
-        }
-        else if (symbol == null && _nameToPlan.TryGetValue(node.Identifier.Text, out var p3))
-        {
-            plan = p3;
-        }
+        var plan = ResolvePlan(node, node.Identifier.Text);
 
         if (plan == null)
             return base.VisitIdentifierName(node);
@@ -1096,27 +1060,13 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
-    /// 解析一个局部函数引用位置对应的 plan：先按符号（含构造泛型的 OriginalDefinition
-    /// 回退），符号缺失时按名字回退——同名多个 plan 时不做猜测。
+    /// 解析一个局部函数引用位置对应的 plan：已绑定符号优先，绑定失败时交给共享
+    /// 解析器（候选符号 → 词法作用域 → 重载消歧）。同名多个 plan 时不再按名字
+    /// 取最后一个，解析不出唯一结果就保留原样。
     /// </summary>
     private LiftPlan? ResolvePlan(SyntaxNode node, string name)
-    {
-        var symbol = _model.GetSymbolInfo(node).Symbol;
-        if (symbol != null && _symbolToPlan.TryGetValue(symbol, out var bySymbol))
-            return bySymbol;
-
-        if (symbol is IMethodSymbol method
-            && !method.Equals(method.OriginalDefinition, SymbolEqualityComparer.Default)
-            && _symbolToPlan.TryGetValue(method.OriginalDefinition, out var byDefinition))
-            return byDefinition;
-
-        if (symbol == null
-            && !_ambiguousNames.Contains(name)
-            && _nameToPlan.TryGetValue(name, out var byName))
-            return byName;
-
-        return null;
-    }
+        => LocalFunctionCallSiteResolver.Resolve(
+            node, name, _activePlans, _model, _symbolToPlan);
 
     /// <summary>
     /// <c>Gen&lt;int&gt;</c> 形式的方法组 / 委托转换引用：调用目标（<c>Gen&lt;int&gt;(...)</c>）
