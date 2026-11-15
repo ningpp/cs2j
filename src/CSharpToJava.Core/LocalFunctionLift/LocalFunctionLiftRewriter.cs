@@ -1565,8 +1565,13 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             modifierTokens.Add(SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword));
         var modifiers = SyntaxFactory.TokenList(modifierTokens);
 
-        var returnType = localFn.ReturnType ?? SyntaxFactory.PredefinedType(
-            SyntaxFactory.Token(SyntaxKind.VoidKeyword));
+        // 局部函数没有修饰符/特性时，ReturnType 的首 token 就是局部函数的首 token，
+        // 同一份 leading trivia 同时挂在 localFn 与 ReturnType 上。直接复用 ReturnType
+        // 会让注释重复（private 之前一次、返回类型之前一次），并把 private 挤到单独一行；
+        // 返回类型只保留类型本身，trivia 统一由方法级 leading trivia 承担。
+        var returnTypeTrivia = localFn.ReturnType?.GetLeadingTrivia() ?? default;
+        var returnType = localFn.ReturnType?.WithoutLeadingTrivia()
+            ?? SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword));
 
         var typeParams = BuildTypeParameterList(plan);
         var constraints = BuildConstraintClauses(plan);
@@ -1625,6 +1630,14 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         }
 
         var leadingTrivia = localFn.GetLeadingTrivia();
+        // 有修饰符/特性时，修饰符与返回类型之间的注释只挂在 ReturnType 上，
+        // 不在局部函数整体的 leading trivia 里；去掉 ReturnType 的 trivia 后要并回来，
+        // 否则注释丢失。无修饰符/特性时两者是同一份，不能再追加。
+        if ((localFn.AttributeLists.Count > 0 || localFn.Modifiers.Count > 0)
+            && returnTypeTrivia.Count > 0)
+        {
+            leadingTrivia = leadingTrivia.AddRange(returnTypeTrivia);
+        }
 
         // 声明点位于 checked/unchecked 区域：提升方法体整体包一层同名块。该区域对
         // 算术溢出的影响（编译期常量溢出诊断与运行期 OverflowException）由同名嵌套块

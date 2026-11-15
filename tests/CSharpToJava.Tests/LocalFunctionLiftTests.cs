@@ -177,6 +177,54 @@ public class LocalFunctionLiftTests
     }
 
     [Fact]
+    public void Lift_LeadingComment_AppearsOnce()
+    {
+        // 局部函数的 leading trivia 同时挂在 localFn 与 ReturnType 的首 token 上；
+        // 提升时必须只保留一份，否则注释会出现在 private 之前与返回类型之前，
+        // 并把 private 挤到单独一行。
+        var src = """
+        class C {
+            int M(int x) {
+                return Convert(x);
+                // convert the value
+                /// <summary>Converts a value.</summary>
+                int Convert(int v) => v;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(1, CountOccurrences(result.OutputCode, "// convert the value"));
+        Assert.Equal(1, CountOccurrences(result.OutputCode, "/// <summary>Converts a value.</summary>"));
+        Assert.Matches(@"private[ \t]+int[ \t]+convert\(", result.OutputCode);
+        Assert.DoesNotMatch(@"private[ \t]*\r?\n", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Lift_NoLeadingTrivia_NoBlankArtifact()
+    {
+        var src = """
+        class C {
+            int M(int x) {
+                return Value(x);
+                int Value(int v) { return v + 1; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Matches(@"private[ \t]+int[ \t]+value\(", result.OutputCode);
+        Assert.DoesNotMatch(@"private[ \t]*\r?\n", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
     public void Body_ExpressionBody_NonVoid_ConvertedToReturnBlock()
     {
         var src = """
