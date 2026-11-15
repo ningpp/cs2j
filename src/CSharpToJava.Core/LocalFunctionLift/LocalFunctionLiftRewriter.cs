@@ -1792,10 +1792,10 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             : cap.TypeDisplay;
 
         // scoped 捕获形参必须保留 scoped：否则把 scoped 变量传给非 scoped 形参
-        // 会被判定为可能逃逸（CS8352）。与 ref 互斥（scoped 写入捕获已在分析阶段
-        // 按 ref 不可用跳过，不会走到这里）。
+        // 会被判定为可能逃逸（CS8352）。scoped 的 ref 局部捕获提升为
+        // `scoped ref T` / `scoped in T`，与源的 scoped 契约一致。
         var modifiers = new List<SyntaxToken>();
-        if (cap.IsScoped && !cap.ByRef && !cap.ByIn)
+        if (cap.IsScoped)
             modifiers.Add(SyntaxFactory.Token(SyntaxKind.ScopedKeyword));
         if (cap.ByRef)
             modifiers.Add(SyntaxFactory.Token(SyntaxKind.RefKeyword));

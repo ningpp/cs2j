@@ -843,7 +843,9 @@ internal sealed class LocalFunctionLiftAnalyzer
     /// 不能区分 `ref T` 与 `T`）：
     /// <list type="bullet">
     /// <item><c>ref T x</c> → <c>ref T</c> 形参（读、写都精确等价）；</item>
-    /// <item><c>ref readonly T x</c> → <c>in T</c> 形参（只读，源本身也不能写）。</item>
+    /// <item><c>ref readonly T x</c> → <c>in T</c> 形参（只读，源本身也不能写）；</item>
+    /// <item><c>scoped ref T x</c> → <c>scoped ref T</c> 形参（不逃逸契约与源一致）；</item>
+    /// <item><c>scoped ref readonly T x</c> → <c>scoped in T</c> 形参（同上，只读）。</item>
     /// </list>
     /// 两处的捕获路径（语义可用 / 类型退回声明语法）必须产出同一形态。
     /// </summary>
@@ -1735,10 +1737,12 @@ internal sealed class LocalFunctionLiftAnalyzer
 
     private static bool CanUseRefCapture(LiftPlan plan, CapturePlan cap)
     {
-        // scoped 捕获不能改成 ref 形参：`scoped ref` 形参会让调用方的 scoped
-        // 变量以 ref 形式暴露给被调用方（安全上下文逃逸），而丢掉 scoped 的
-        // `ref` 形参同样会让调用点 CS8352。该形态不可表达，保守跳过。
-        if (cap.IsScoped)
+        // scoped 的 *ref 局部* 捕获可以精确保留契约：形参写成 `scoped ref T` /
+        // `scoped in T`，调用点的 `ref rx` / `in rx` 合法（scoped 形参承诺不逃逸，
+        // 与源变量的 scoped 声明一致）。其它 scoped 捕获（值变量/形参）没有等价
+        // 形态：形参一旦是 ref 就得丢掉 scoped → 调用点把 scoped 变量传给非 scoped
+        // 形参（CS8352）；保留 scoped 又无法回写。这类捕获保守跳过。
+        if (cap.IsScoped && !IsRefLocalCapture(cap.Symbol))
             return false;
 
         // async/迭代器提升方法的写入型捕获优先改走 StrongBox holder；只有 holder
@@ -1770,9 +1774,9 @@ internal sealed class LocalFunctionLiftAnalyzer
     private static string GetRefCaptureUnavailableReason(LiftPlan plan, CapturePlan cap)
     {
         if (cap.IsScoped)
-            return $"capture '{cap.OriginalName}' is declared 'scoped'; a ref capture parameter " +
-                "would expose the scoped value to the callee (and 'scoped ref' is not expressible " +
-                "here)";
+            return $"capture '{cap.OriginalName}' is declared 'scoped' but is not a ref local; " +
+                "a ref capture parameter would drop the scoped contract (the call site would be " +
+                "CS8352) and a by-value parameter cannot write back";
         // 以下 async/迭代器原因仅在该捕获无法改写为 StrongBox holder 时才会产生
         // （可 holder 的写入型捕获已由 CollectHolderCaptureSymbols 提前接管）。
         if (plan.Node.Modifiers.Any(m => m.IsKind(SyntaxKind.AsyncKeyword)))
@@ -1975,16 +1979,11 @@ internal sealed class LocalFunctionLiftAnalyzer
             return false;
 
         // ref 局部捕获：`ref T` → `ref T` 形参、`ref readonly T` → `in T` 形参，
-        // 与源语义等价（C# 的局部函数本来就以 ref/in 形参携带这类捕获）。
-        // 例外仍按不支持跳过：
-        // - scoped ref 局部：`scoped ref` 形参无法表达（调用点 CS8352），
-        //   丢掉 scoped 同样不安全；
-        // - 元素类型本身不可拼写（匿名类型等）。
+        // `scoped ref T` → `scoped ref T`、`scoped ref readonly T` → `scoped in T`
+        // 形参，与源语义/不逃逸契约等价（见 CanUseRefCapture）。只剩元素类型本身
+        // 不可拼写（匿名类型等）按不支持跳过。
         if (IsRefLocalCapture(cap.Symbol))
-        {
-            return cap.IsScoped
-                || CaptureClassification.IsUnsupportedCaptureKind(cap.TypeDisplay);
-        }
+            return CaptureClassification.IsUnsupportedCaptureKind(cap.TypeDisplay);
 
         return CaptureClassification.IsUnsupportedCaptureKind(cap.TypeDisplay);
     }

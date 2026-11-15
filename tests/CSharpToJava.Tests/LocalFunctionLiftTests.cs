@@ -567,18 +567,75 @@ public class LocalFunctionLiftTests
     }
 
     /// <summary>
-    /// <c>scoped ref</c> 局部：提升成 <c>ref</c>/<c>scoped ref</c> 形参都无法表达
-    /// （调用点 CS8352），保持保守跳过。
+    /// <c>scoped ref</c> 局部：提升为 <c>scoped ref T</c> 形参，调用点传 <c>ref rx</c>。
+    /// scoped 形参承诺不逃逸，与源变量的 scoped 契约一致，读写都精确等价。
     /// </summary>
     [Fact]
-    public void ScopedRefLocalCapture_StillSkipped()
+    public void ScopedRefLocalCapture_IsLiftedWithScopedRefParameter()
+    {
+        var src = """
+        class C {
+            int M() {
+                int x = 0;
+                scoped ref int rx = ref x;
+                Use();
+                return x;
+                void Use() { rx = 1; }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("scoped ref int _cs2j_cap_rx", result.OutputCode);
+        Assert.Contains("use(ref rx)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>
+    /// <c>scoped ref readonly</c> 局部：提升为 <c>scoped in T</c> 形参（只读），
+    /// 调用点传 <c>in rx</c>。
+    /// </summary>
+    [Fact]
+    public void ScopedRefReadOnlyLocalCapture_IsLifted()
+    {
+        var src = """
+        class C {
+            int M() {
+                int x = 42;
+                scoped ref readonly int rx = ref x;
+                Use();
+                return x;
+                void Use() { System.Console.WriteLine(rx); }
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("scoped in int _cs2j_cap_rx", result.OutputCode);
+        Assert.Contains("use(in rx)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    /// <summary>
+    /// 调用点在 lambda 内：提升后的 <c>use(ref rx)</c> 在那里非法（CS8175），
+    /// 保留原局部函数并给出诊断。
+    /// </summary>
+    [Fact]
+    public void ScopedRefLocalCapture_CallSiteInsideLambda_IsSkipped()
     {
         var src = """
         class C {
             void M() {
                 int x = 0;
                 scoped ref int rx = ref x;
-                Use();
+                System.Action a = () => { Use(); };
+                a();
                 void Use() { rx = 1; }
             }
         }
@@ -587,9 +644,10 @@ public class LocalFunctionLiftTests
 
         Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
         var diagnostic = Assert.Single(result.Diagnostics,
-            d => d.Reason == LocalFunctionSkipReason.UnsupportedCaptureType);
+            d => d.Reason == LocalFunctionSkipReason.RefCaptureInNestedLambda);
         Assert.Contains("'rx'", diagnostic.Message);
         Assert.Contains("void Use()", result.OutputCode);
+        Assert.Contains("Use();", result.OutputCode);
     }
 
     [Fact]
