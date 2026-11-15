@@ -81,6 +81,58 @@ public class LocalFunctionLiftAmbiguousNameTests
         }
         """;
 
+    private const string SameBlockTypedOverloadSource = """
+        using System.Collections.Generic;
+        using Demo.Converters;
+
+        namespace Demo
+        {
+            public class TypedOverloads
+            {
+                public static List<object> M()
+                {
+                    var map = new List<object>();
+                    void Add(object key, object value) => map.Add(key);
+                    void Add(object key, string value) => map.Add(value);
+
+                    Add(new BooleanConverter(), "text");
+                    return map;
+                }
+            }
+        }
+
+        namespace Demo.Converters
+        {
+            public class BooleanConverter { }
+        }
+        """;
+
+    private const string SameBlockAllErrorArgumentsSource = """
+        using System.Collections.Generic;
+        using Demo.Converters;
+
+        namespace Demo
+        {
+            public class UnknownOverloads
+            {
+                public static List<object> M()
+                {
+                    var map = new List<object>();
+                    void Add(object converter) => map.Add(converter);
+                    void Add(string converter) => map.Add(converter);
+
+                    Add(new BooleanConverter());
+                    return map;
+                }
+            }
+        }
+
+        namespace Demo.Converters
+        {
+            public class BooleanConverter { }
+        }
+        """;
+
     private const string RecursiveSource = """
         using System.Collections.Generic;
         using Demo.Converters;
@@ -211,6 +263,38 @@ public class LocalFunctionLiftAmbiguousNameTests
             StringComparison.Ordinal);
         Assert.Contains("add2(map, new BooleanConverter(), 42)", result.OutputCode,
             StringComparison.Ordinal);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Unbound_SameBlockOverloads_Resolve_By_ArgumentTypes()
+    {
+        // 唯一的联合实参类型错误（BooleanConverter 二义），但第二个实参 "text" 的
+        // 类型已知：C# 的重载择优会选中 (object, string)。解析器必须用实参类型
+        // 补足这个证据，而不是因为第一个实参类型不可用就整组跳过。
+        var result = Lift(SameBlockTypedOverloadSource, "global using System.ComponentModel;");
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("add2(map, new BooleanConverter(), \"text\")", result.OutputCode,
+            StringComparison.Ordinal);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Unbound_SameBlockOverloads_AllErrorArguments_FallBackWithoutResidual()
+    {
+        // 所有实参类型都不可用（唯一的实参由二义类型构造）：解析器没有类型证据，
+        // 只能回到 Roslyn 的候选（它就是要求「不新增残留」的既有行为）。
+        // 关键契约：不因为类型证据缺失而跳过，residual 仍为 0。
+        var result = Lift(SameBlockAllErrorArgumentsSource, "global using System.ComponentModel;");
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
         AssertNoLocalFunctions(result.OutputCode);
         AssertCompiles(result.OutputCode);
     }

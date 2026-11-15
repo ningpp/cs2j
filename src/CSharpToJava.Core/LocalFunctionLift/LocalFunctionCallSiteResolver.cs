@@ -79,10 +79,20 @@ internal static class LocalFunctionCallSiteResolver
         }
 
         if (candidateCount == 1)
+        {
+            // OverloadResolutionFailure 的候选列表并不保证完整：Roslyn 往往只列出
+            // 「第一个」重载（实测 `Add(error, "text")` 只给出 Add(object, object)），
+            // 而实参里可能还有类型完好的实参足以选出真正更好的重载。同一作用域内
+            // 存在多个同名重载时，先用类型证据再消歧一次；拿不到唯一结论时才回到
+            // Roslyn 的候选（保持既有行为，不因为分析编译的错误类型新增跳过）。
+            var scoped = ResolveByLexicalScope(reference, name, plans, includeSkipped, model);
+            if (scoped != null && !ReferenceEquals(scoped, candidate))
+                return scoped;
             return candidate;
+        }
 
         // c. 词法作用域 + 重载消歧。
-        return ResolveByLexicalScope(reference, name, plans, includeSkipped);
+        return ResolveByLexicalScope(reference, name, plans, includeSkipped, model);
     }
 
     /// <summary>
@@ -93,7 +103,8 @@ internal static class LocalFunctionCallSiteResolver
         SyntaxNode reference,
         string name,
         IReadOnlyList<LiftPlan> plans,
-        bool includeSkipped)
+        bool includeSkipped,
+        SemanticModel model)
     {
         var invocation = FindInvocation(reference);
         for (var ancestor = reference.Parent; ancestor != null; ancestor = ancestor.Parent)
@@ -120,7 +131,7 @@ internal static class LocalFunctionCallSiteResolver
 
             // 最近的同名语句容器：C# 遮蔽规则决定外层同名声明不可见，
             // 若本层重载无法唯一确定，只能返回 null（不向外层误配）。
-            return DisambiguateByArguments(inScope, invocation);
+            return DisambiguateByArguments(inScope, invocation, model);
         }
 
         return null;
@@ -129,12 +140,14 @@ internal static class LocalFunctionCallSiteResolver
     /// <summary>
     /// 同一语句容器内的重载消歧：
     /// 1) 必填参数个数 ≤ 实参个数 ≤ 全部参数个数（params 兼容），且 ref-kind / 命名实参匹配；
-    /// 2) 仍多个时优先「非 params 且参数个数相等」；
-    /// 3) 仍多个返回 null。
+    /// 2) 用类型可用的实参做重载择优（实参类型与形参类型逐一比较，仅接受唯一更优者）；
+    /// 3) 仍多个时优先「非 params 且参数个数相等」；
+    /// 4) 仍多个返回 null。
     /// </summary>
     private static LiftPlan? DisambiguateByArguments(
         IReadOnlyList<LiftPlan> candidates,
-        InvocationExpressionSyntax? invocation)
+        InvocationExpressionSyntax? invocation,
+        SemanticModel model)
     {
         if (invocation == null)
             return null;
@@ -152,6 +165,10 @@ internal static class LocalFunctionCallSiteResolver
         if (matching.Count == 0)
             return null;
 
+        var typed = DisambiguateByArgumentTypes(matching, arguments, model);
+        if (typed != null)
+            return typed;
+
         LiftPlan? exact = null;
         var exactCount = 0;
         foreach (var plan in matching)
@@ -165,6 +182,153 @@ internal static class LocalFunctionCallSiteResolver
         }
 
         return exactCount == 1 ? exact : null;
+    }
+
+    /// <summary>
+    /// 用「类型可用」的实参做重载择优：对每个候选逐个比较实参类型与形参类型，
+    /// 只有恰好一个候选在所有可比实参上都是恒等转换时才返回它，否则返回 null
+    /// （无证据，不猜）。类型不可用的实参（ErrorType、null/default 字面量、
+    /// lambda、方法组、ref/out 实参、动态或类型参数）一律不参与比较。
+    ///
+    /// 语义依据：可比实参上的恒等转换是 C# 重载择优的「更优转换」的最强证据。
+    /// 若源工程能编译，另一个候选不可能在这些实参上同样更优；因此唯一恒等候选
+    /// 就是真实编译器会选中的重载。分析编译里由 global using 泄漏造成的错误
+    /// 类型只影响不可比实参，不参与判断。
+    /// </summary>
+    private static LiftPlan? DisambiguateByArgumentTypes(
+        IReadOnlyList<LiftPlan> candidates,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        SemanticModel model)
+    {
+        // 命名实参 / params / 可选参数会打乱「第 i 个实参对应第 i 个形参」的
+        // 直接映射；这些形态一律交给后面的保守规则。
+        if (arguments.Any(static a => a.NameColon != null))
+            return null;
+
+        var parameterTypes = new List<List<IParameterSymbol>>(candidates.Count);
+        foreach (var plan in candidates)
+        {
+            var parameters = plan.Node.ParameterList?.Parameters;
+            if (parameters == null
+                || parameters.Value.Count != arguments.Count
+                || HasParams(plan.Node)
+                || parameters.Value.Any(static p => p.Default != null))
+            {
+                return null;
+            }
+
+            var symbols = new List<IParameterSymbol>(parameters.Value.Count);
+            foreach (var parameter in parameters.Value)
+            {
+                if (model.GetDeclaredSymbol(parameter) is not IParameterSymbol symbol)
+                    return null;
+
+                // 形参类型本身不可用（ErrorType / 未构造的泛型形参）时，转换判定会
+                // 失真；直接放弃类型消歧，回到既有规则。
+                if (symbol.Type.TypeKind == TypeKind.Error || ContainsTypeParameter(symbol.Type))
+                    return null;
+                symbols.Add(symbol);
+            }
+            parameterTypes.Add(symbols);
+        }
+
+        var comparable = new List<int>(arguments.Count);
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (!IsComparableArgument(arguments[i], model))
+                continue;
+            comparable.Add(i);
+        }
+
+        if (comparable.Count == 0)
+            return null;
+
+        // 先排除「无法隐式接受某个可比实参」的候选；只剩一个时它也是唯一可用的。
+        var applicable = new List<int>(candidates.Count);
+        for (var candidateIndex = 0; candidateIndex < candidates.Count; candidateIndex++)
+        {
+            var acceptsAll = true;
+            foreach (var argumentIndex in comparable)
+            {
+                var conversion = model.ClassifyConversion(
+                    arguments[argumentIndex].Expression,
+                    parameterTypes[candidateIndex][argumentIndex].Type);
+                if (!conversion.IsImplicit)
+                {
+                    acceptsAll = false;
+                    break;
+                }
+            }
+
+            if (acceptsAll)
+                applicable.Add(candidateIndex);
+        }
+
+        if (applicable.Count == 0)
+            return null;
+        if (applicable.Count == 1)
+            return candidates[applicable[0]];
+
+        var unique = -1;
+        foreach (var candidateIndex in applicable)
+        {
+            var allIdentity = true;
+            foreach (var argumentIndex in comparable)
+            {
+                var argumentType = model.GetTypeInfo(
+                    arguments[argumentIndex].Expression).Type;
+                if (argumentType == null
+                    || !SymbolEqualityComparer.Default.Equals(
+                        argumentType,
+                        parameterTypes[candidateIndex][argumentIndex].Type))
+                {
+                    allIdentity = false;
+                    break;
+                }
+            }
+
+            if (!allIdentity)
+                continue;
+            if (unique >= 0)
+                return null;
+            unique = candidateIndex;
+        }
+
+        return unique >= 0 ? candidates[unique] : null;
+    }
+
+    /// <summary>
+    /// 实参类型是否可用于重载择优：必须是有确定类型、非错误类型、非动态、
+    /// 非类型参数的普通表达式，且不是 ref/out/in 实参。
+    /// </summary>
+    private static bool IsComparableArgument(ArgumentSyntax argument, SemanticModel model)
+    {
+        if (!argument.RefKindKeyword.IsKind(SyntaxKind.None))
+            return false;
+
+        var type = model.GetTypeInfo(argument.Expression).Type;
+        return type != null
+            && type.TypeKind != TypeKind.Error
+            && type.TypeKind != TypeKind.Dynamic
+            && type is not ITypeParameterSymbol;
+    }
+
+    /// <summary>类型（含数组元素、指针目标、泛型实参）是否含未构造的类型形参。</summary>
+    private static bool ContainsTypeParameter(ITypeSymbol type)
+    {
+        switch (type)
+        {
+            case ITypeParameterSymbol:
+                return true;
+            case IArrayTypeSymbol array:
+                return ContainsTypeParameter(array.ElementType);
+            case IPointerTypeSymbol pointer:
+                return ContainsTypeParameter(pointer.PointedAtType);
+            case INamedTypeSymbol named:
+                return named.TypeArguments.Any(ContainsTypeParameter);
+            default:
+                return false;
+        }
     }
 
     /// <summary>局部函数签名能否接受这组实参（数目、params、ref-kind、命名实参）。</summary>
