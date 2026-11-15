@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.Formatting;
 using Microsoft.CodeAnalysis.Text;
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
 using CSharpToJava.Core.ExpressionDesugar.Interpolations;
+using CSharpToJava.Core.ExpressionDesugar.StaticAbstractCompanion;
 
 namespace CSharpToJava.Core.ExpressionDesugar;
 
@@ -56,7 +57,8 @@ public sealed class ExpressionDesugarPreprocessor
     public ExpressionDesugarResult Preprocess(
         string sourceCode,
         SemanticModel? semanticModel = null,
-        ExpressionDesugarOptions? options = null)
+        ExpressionDesugarOptions? options = null,
+        StaticAbstractCompanionPlan? companionPlan = null)
     {
         options ??= new ExpressionDesugarOptions();
         var stats = new ExpressionDesugarStatistics { FilesScanned = 1 };
@@ -65,6 +67,37 @@ public sealed class ExpressionDesugarPreprocessor
         var root = semanticModel != null
             ? (CompilationUnitSyntax)semanticModel.SyntaxTree.GetRoot()
             : (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(sourceCode).GetRoot();
+
+        // C52 companion lowering runs before every rule: the guard then sees a
+        // tree with no static abstract/virtual interface members and no
+        // type-parameter dispatches, so neither CS2J0585 nor a later
+        // member-desugar rejection can fire for a lowered interface.
+        var originalRoot = root;
+        var companionChanged = false;
+        if (semanticModel != null && companionPlan is { IsEmpty: false })
+        {
+            var companion = StaticAbstractCompanionRewriter.Rewrite(
+                root,
+                semanticModel,
+                companionPlan,
+                semanticModel.SyntaxTree.FilePath);
+            if (companion.Changed)
+            {
+                var parseOptions = (CSharpParseOptions)semanticModel.SyntaxTree.Options;
+                var newTree = CSharpSyntaxTree.ParseText(
+                    companion.Code,
+                    parseOptions,
+                    semanticModel.SyntaxTree.FilePath,
+                    semanticModel.SyntaxTree.Encoding);
+                var newCompilation = semanticModel.Compilation.ReplaceSyntaxTree(
+                    semanticModel.SyntaxTree, newTree);
+                root = (CompilationUnitSyntax)newTree.GetRoot();
+                semanticModel = newCompilation.GetSemanticModel(newTree);
+                companionChanged = true;
+                stats.StaticAbstractCompanion.FilesChanged = 1;
+                stats.StaticAbstractCompanion.CallSitesRewritten = companion.CallSitesRewritten;
+            }
+        }
 
         // ONE shared traversal feeds every rule's cheap gate; the individual
         // rules used to each walk the whole tree (up to five node walks plus a
@@ -79,7 +112,7 @@ public sealed class ExpressionDesugarPreprocessor
         var interpolationActive = activeRules
             .Any(static rule => rule.Id == "Interpolations");
 
-        if (activeRules.Count == 0)
+        if (activeRules.Count == 0 && !companionChanged)
         {
             stats.FilesSkippedClean = 1;
             stats.CollectionExpr.FilesSkippedClean = 1;
@@ -161,7 +194,7 @@ public sealed class ExpressionDesugarPreprocessor
                 allAnnotations[pair.Key] = pair.Value;
         }
 
-        if (rewriteCount == 0 && plans.All(static plan => !plan.HasDeferredSites))
+        if (rewriteCount == 0 && !companionChanged && plans.All(static plan => !plan.HasDeferredSites))
         {
             // Dirty syntax but every site is diagnostic-only/intentionally
             // untouched (e.g. CE-GUARD-only files or all-warning skips): keep
@@ -241,7 +274,7 @@ public sealed class ExpressionDesugarPreprocessor
         // are shared node instances (ReplaceNode reuses them), so this diff walk
         // is linear in the number of nodes.
         var changedSpans = new List<TextSpan>();
-        CollectChangedSpans(root, currentRoot, changedSpans);
+        CollectChangedSpans(originalRoot, currentRoot, changedSpans);
 
         string code;
         if (changedSpans.Count == 0)

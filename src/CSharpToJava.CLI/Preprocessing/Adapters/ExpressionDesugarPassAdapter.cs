@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
+using CSharpToJava.Core.ExpressionDesugar.StaticAbstractCompanion;
 using CSharpToJava.Core.ExpressionDesugar.Initializers;
 using CSharpToJava.Core.ExpressionDesugar.Interpolations;
 using CSharpToJava.Core.ExpressionDesugar.NullConditional;
@@ -67,6 +68,13 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
 
     /// <summary>C23 whole-tree gate result; null when the C23 rule is disabled.</summary>
     private InterpolationTreeGateResult? _interpolationGateResult;
+
+    /// <summary>
+    /// C52 whole-tree companion plan, built once from the runner's merged
+    /// compilation. Empty when the input has no static abstract/virtual
+    /// interface members.
+    /// </summary>
+    private StaticAbstractCompanionPlan _companionPlan = StaticAbstractCompanionPlan.Empty;
 
     public ExpressionDesugarPassAdapter(
         ExpressionDesugarOptions options,
@@ -195,7 +203,7 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
     public override Task<PassFilePureResult> RewriteFilePureAsync(PassFileContext context)
     {
         var result = _preprocessor.Preprocess(
-            context.SourceCode, context.SemanticModel, _options);
+            context.SourceCode, context.SemanticModel, _options, _companionPlan);
         PassFileRewrite? rewrite = result.Changed
             ? new PassFileRewrite
             {
@@ -209,6 +217,34 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
             Rewrite = rewrite,
             PassState = result,
         });
+    }
+
+    /// <summary>
+    /// C52: the merged runner compilation is the authoritative whole-tree view
+    /// (all projects, additional global-usings trees included), so the companion
+    /// plan discovers every interface/implementor/call site once before the
+    /// per-file spine runs.
+    /// </summary>
+    public override Task CompilationReadyAsync(CSharpCompilation compilation)
+    {
+        _companionPlan = StaticAbstractCompanionPlanBuilder.Build(compilation);
+        _statistics.StaticAbstractCompanion.MergeFrom(_companionPlan.Statistics);
+
+        foreach (var diagnostic in _companionPlan.Diagnostics)
+        {
+            _diagnostics.Add(new ExpressionDesugarDiagnostic(
+                diagnostic.Severity switch
+                {
+                    StaticAbstractCompanionSeverity.Info => ExpressionDesugarSeverity.Info,
+                    StaticAbstractCompanionSeverity.Warning => ExpressionDesugarSeverity.Warning,
+                    _ => ExpressionDesugarSeverity.Error,
+                },
+                diagnostic.Code,
+                diagnostic.Message,
+                diagnostic.FilePath));
+        }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -557,6 +593,11 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
         // until the NullConditional subsection is present.
         if (_options.NullConditional is not null)
             line += "; " + BuildNullConditionalSummarySegment();
+
+        // C52 additive segment: present only when the input actually contained
+        // static abstract/virtual interface members.
+        if (_statistics.StaticAbstractCompanion.InterfacesFound > 0)
+            line += "; companion: " + _statistics.StaticAbstractCompanion.FormatSummary();
 
         return line;
     }

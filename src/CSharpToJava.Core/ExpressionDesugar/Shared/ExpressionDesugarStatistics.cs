@@ -2,6 +2,7 @@ using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
 using CSharpToJava.Core.ExpressionDesugar.Initializers;
 using CSharpToJava.Core.ExpressionDesugar.Interpolations;
 using CSharpToJava.Core.ExpressionDesugar.NullConditional;
+using CSharpToJava.Core.ExpressionDesugar.StaticAbstractCompanion;
 
 namespace CSharpToJava.Core.ExpressionDesugar;
 
@@ -45,6 +46,9 @@ public sealed class ExpressionDesugarStatistics
     /// <summary>C35 null-conditional read-side section.</summary>
     public NullConditionalStatistics NullConditional { get; } = new();
 
+    /// <summary>C52 static abstract/virtual interface companion lowering section.</summary>
+    public StaticAbstractCompanionStatistics StaticAbstractCompanion { get; } = new();
+
     /// <summary>Merges a per-file result into an accumulating run total.</summary>
     public void MergeFrom(ExpressionDesugarStatistics other)
     {
@@ -60,5 +64,6 @@ public sealed class ExpressionDesugarStatistics
         CollectionExpr.MergeFrom(other.CollectionExpr);
         Initializers.MergeFrom(other.Initializers);
         NullConditional.MergeFrom(other.NullConditional);
+        StaticAbstractCompanion.MergeFrom(other.StaticAbstractCompanion);
     }
 }
