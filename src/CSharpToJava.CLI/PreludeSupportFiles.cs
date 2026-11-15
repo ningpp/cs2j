@@ -45,10 +45,18 @@ internal static class PreludeSupportFiles
             Path.Combine(destinationDirectory, "Cs2jResource.cs"),
             GetResourceLoaderFileContent(),
             new System.Text.UTF8Encoding(false));
-        await File.WriteAllTextAsync(
-            Path.Combine(destinationDirectory, "Cs2jPrelude.csproj"),
-            GetProjectFileContent(),
-            new System.Text.UTF8Encoding(false));
+
+        // 项目文件会被链上后续 pass 原地改写（注入 _Cs2jTupleTypes 的 Compile 项、
+        // 对其它支撑库的 ProjectReference、以及 TFM 收窄）。再次释放时若整文件覆盖，
+        // 这些增补会丢失，引用方随即报 CS0234/CS0400。仅在缺失时释放。
+        var projectFilePath = Path.Combine(destinationDirectory, "Cs2jPrelude.csproj");
+        if (!File.Exists(projectFilePath))
+        {
+            await File.WriteAllTextAsync(
+                projectFilePath,
+                GetProjectFileContent(),
+                new System.Text.UTF8Encoding(false));
+        }
     }
 
     private static string ReadResource(string resourceName)

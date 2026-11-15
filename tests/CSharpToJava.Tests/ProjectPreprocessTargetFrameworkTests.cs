@@ -314,6 +314,30 @@ public sealed class ProjectPreprocessTargetFrameworkTests : IDisposable
     }
 
     [Fact]
+    public async Task PreludeRelease_PreservesProjectFileAugmentationsFromEarlierPasses()
+    {
+        var libDirectory = Path.Combine(_tempRoot, "intermediate", "Cs2jPrelude");
+        Directory.CreateDirectory(libDirectory);
+        var projectFile = Path.Combine(libDirectory, "Cs2jPrelude.csproj");
+        var augmented = """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>netstandard2.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <Compile Include="..\_Cs2jTupleTypes.Cs2jPrelude.cs" Link="_Cs2jTupleTypes.Cs2jPrelude.cs" />
+              </ItemGroup>
+            </Project>
+            """;
+        File.WriteAllText(projectFile, augmented);
+
+        await PreludeSupportFiles.ReleaseAsync(libDirectory);
+
+        Assert.Equal(augmented, File.ReadAllText(projectFile));
+        Assert.True(File.Exists(Path.Combine(libDirectory, "CsPrelude.cs")));
+    }
+
+    [Fact]
     public void SupportLibraries_PreludeAndUnsignedMath_MultiTargetNetstandard20()
     {
         Assert.Contains(
