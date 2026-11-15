@@ -352,7 +352,9 @@ internal static class PassChainFactory
                 sourceRoot: config.SourceRoot),
 
             PassIds.LocalFunctionLift => new LocalFunctionLiftPassAdapter(
-                new CoreLocalFunctionLiftOptions(),
+                // 接口宿主默认开启：DIM（C# 8+）体内的局部函数提升为该接口的
+                // private 方法；语言版本不足时分析器仍会跳过并给出诊断。
+                new CoreLocalFunctionLiftOptions(AllowInterfaceHost: true),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,

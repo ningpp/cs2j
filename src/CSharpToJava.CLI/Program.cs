@@ -6328,7 +6328,7 @@ class LocalFunctionLiftOptions
     [Option("allow-ref-in-async", Default = false,
         HelpText = "Obsolete no-op (kept for CLI compatibility; async write captures use StrongBox holders)")]
     public bool AllowRefInAsync { get; set; }
-    [Option("allow-interface-host", Default = false, HelpText = "Relax gate #4 for interface host types")]
+    [Option("allow-interface-host", Default = true, HelpText = "Lift local functions inside default interface method bodies to private interface methods (C# 8+); set to false to keep skipping interface hosts")]
     public bool AllowInterfaceHost { get; set; }
 
     [Option("no-filter-projects", Default = false,

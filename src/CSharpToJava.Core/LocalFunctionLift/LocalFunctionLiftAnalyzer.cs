@@ -357,10 +357,29 @@ internal sealed class LocalFunctionLiftAnalyzer
             plan.HostType = hostType;
 
             // Gate #4: Interface host
-            if (hostType is InterfaceDeclarationSyntax && !_options.AllowInterfaceHost)
+            // 接口里的局部函数只可能位于默认接口方法（DIM，C# 8+）体内。提升后的
+            // 方法以 `private` 修饰符落回同一接口声明：C# 8 起接口允许带体的私有
+            // 实例方法，调用点（DIM 体内）可以看到它。
+            if (hostType is InterfaceDeclarationSyntax)
             {
-                Skip(plan, LocalFunctionSkipReason.InterfaceHost, "host type is an interface");
-                return plan;
+                if (!_options.AllowInterfaceHost)
+                {
+                    Skip(plan, LocalFunctionSkipReason.InterfaceHost, "host type is an interface");
+                    return plan;
+                }
+
+                // 语言版本守卫：接口方法体本身要求 C# 8+。项目以更低版本解析时，
+                // 提升出的 private 接口方法（带体）也不合法，必须保持原样并给出
+                // 精确诊断，而不是生成必然编译失败的代码。
+                var languageVersion = GetLanguageVersion();
+                if (!SupportsInterfaceMethodBody(languageVersion))
+                {
+                    Skip(plan, LocalFunctionSkipReason.InterfaceHost,
+                        $"interface method bodies require C# 8 or later, but the project parses with " +
+                        $"LanguageVersion {languageVersion}; the lifted private interface method would " +
+                        "not be legal");
+                    return plan;
+                }
             }
         }
 
@@ -531,6 +550,26 @@ internal sealed class LocalFunctionLiftAnalyzer
             $"Skipped local function '{plan.Node.Identifier.Text}': {message}",
             null, line, reason));
     }
+
+    /// <summary>
+    /// 本次分析所使用的 C# 语言版本。语法树不是 C# 树（不应发生）时按
+    /// <see cref="LanguageVersion.Default"/> 处理，即「最新主版本」。
+    /// </summary>
+    private LanguageVersion GetLanguageVersion()
+        => (_model.SyntaxTree.Options as CSharpParseOptions)?.LanguageVersion
+            ?? LanguageVersion.Default;
+
+    /// <summary>
+    /// 接口方法体（默认接口方法、静态/私有带体方法）自 C# 8 起才合法。
+    /// <see cref="LanguageVersion.Default"/> / <see cref="LanguageVersion.Latest"/> /
+    /// <see cref="LanguageVersion.Preview"/> 都映射到最新主版本，视为支持。
+    /// </summary>
+    private static bool SupportsInterfaceMethodBody(LanguageVersion version)
+        => version switch
+        {
+            LanguageVersion.Default or LanguageVersion.Latest or LanguageVersion.Preview => true,
+            _ => version >= LanguageVersion.CSharp8,
+        };
 
     private static TypeDeclarationSyntax? FindHostType(LocalFunctionStatementSyntax localFn)
     {

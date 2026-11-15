@@ -2628,6 +2628,142 @@ public class LocalFunctionLiftTests
     }
 
     // -----------------------------------------------------------------------
+    // Interface host (default interface methods, C# 8+)
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void InterfaceHost_DefaultOption_IsLifted()
+    {
+        var src = """
+        interface ICalculator {
+            int Compute(int x) {
+                return Twice(x);
+                int Twice(int v) => v * 2;
+            }
+        }
+        """;
+        var result = Preprocess(
+            src,
+            new CSharpParseOptions(LanguageVersion.Latest),
+            new CoreLocalFunctionLiftOptions(AllowInterfaceHost: true));
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("private int twice(int v)", result.OutputCode);
+        Assert.Contains("twice(x)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void InterfaceHost_OptionDisabled_IsSkipped()
+    {
+        var src = """
+        interface ICalculator {
+            int Compute(int x) {
+                return Twice(x);
+                int Twice(int v) => v * 2;
+            }
+        }
+        """;
+        var result = Preprocess(src, new CSharpParseOptions(LanguageVersion.Latest));
+
+        Assert.False(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains(result.Diagnostics, d => d.Reason == LocalFunctionSkipReason.InterfaceHost);
+    }
+
+    [Fact]
+    public void InterfaceHost_LowLanguageVersion_IsSkipped()
+    {
+        // C# 7.3 无法表达带体的接口方法：接口方法体本身是语义错误，但语法树仍可
+        // 解析出 DIM 里的局部函数，正好用来锁定 Gate #4 的语言版本守卫。
+        var src = """
+        interface ICalculator {
+            int Compute(int x) {
+                return Twice(x);
+                int Twice(int v) => v * 2;
+            }
+        }
+        """;
+        var result = Preprocess(
+            src,
+            new CSharpParseOptions(LanguageVersion.CSharp7_3),
+            new CoreLocalFunctionLiftOptions(AllowInterfaceHost: true));
+
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
+        var diagnostic = Assert.Single(result.Diagnostics,
+            d => d.Reason == LocalFunctionSkipReason.InterfaceHost);
+        Assert.Contains("C# 8", diagnostic.Message);
+        Assert.Equal(src, result.OutputCode);
+    }
+
+    [Fact]
+    public void InterfaceHost_WithCapture_UsesParameters()
+    {
+        var src = """
+        interface ICalculator {
+            int Base { get; }
+            int Compute(int x) {
+                int Scale(int v) => v * x;
+                return Scale(2);
+            }
+        }
+        """;
+        var result = Preprocess(
+            src,
+            new CSharpParseOptions(LanguageVersion.Latest),
+            new CoreLocalFunctionLiftOptions(AllowInterfaceHost: true));
+
+        Assert.True(result.Changed);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.Contains("private int scale(int _cs2j_cap_x, int v)", result.OutputCode);
+        Assert.Contains("scale(x, 2)", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void InterfaceHost_PartialInterface_InsertsIntoDeclaringPart()
+    {
+        var src = """
+        partial interface ICalculator {
+            int Compute(int x) {
+                return Twice(x);
+                int Twice(int v) => v * 2;
+            }
+        }
+
+        partial interface ICalculator {
+            int Other { get; }
+        }
+        """;
+        var result = Preprocess(
+            src,
+            new CSharpParseOptions(LanguageVersion.Latest),
+            new CoreLocalFunctionLiftOptions(AllowInterfaceHost: true));
+
+        Assert.True(result.Changed);
+        AssertNoLocalFunctions(result.OutputCode);
+        AssertCompiles(result.OutputCode);
+
+        var root = CSharpSyntaxTree.ParseText(result.OutputCode).GetRoot();
+        var parts = root.DescendantNodes().OfType<InterfaceDeclarationSyntax>().ToList();
+        Assert.Equal(2, parts.Count);
+        var declaringPart = Assert.Single(parts, part =>
+            part.Members.OfType<MethodDeclarationSyntax>()
+                .Any(m => m.Identifier.Text == "Compute"));
+        Assert.Contains(declaringPart.Members.OfType<MethodDeclarationSyntax>(),
+            m => m.Identifier.Text == "twice");
+        var otherPart = Assert.Single(parts, part => part != declaringPart);
+        Assert.DoesNotContain(otherPart.Members.OfType<MethodDeclarationSyntax>(),
+            m => m.Identifier.Text == "twice");
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 
@@ -2694,6 +2830,24 @@ public class LocalFunctionLiftTests
                 OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
         var preprocessor = new LocalFunctionLiftPreprocessor();
         return preprocessor.Preprocess(source, compilation.GetSemanticModel(tree));
+    }
+
+    private static LocalFunctionLiftResult Preprocess(
+        string source, CSharpParseOptions parseOptions)
+        => Preprocess(source, parseOptions, new CoreLocalFunctionLiftOptions());
+
+    private static LocalFunctionLiftResult Preprocess(
+        string source, CSharpParseOptions parseOptions, CoreLocalFunctionLiftOptions liftOptions)
+    {
+        var tree = CSharpSyntaxTree.ParseText(source, parseOptions);
+        var compilation = CSharpCompilation.Create("local-fn-test",
+            new[] { tree },
+            References,
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var preprocessor = new LocalFunctionLiftPreprocessor();
+        return preprocessor.Preprocess(
+            source, compilation.GetSemanticModel(tree), liftOptions);
     }
 
     private static readonly MetadataReference[] References =
