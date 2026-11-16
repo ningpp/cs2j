@@ -10086,6 +10086,31 @@
         },
         {
             "type": "System.Type",
+            "method": "IsArray",
+            "javaMethod": "TypeHelper.getIsArray"
+        },
+        {
+            "type": "System.Type",
+            "method": "IsEnum",
+            "javaMethod": "TypeHelper.getIsEnum"
+        },
+        {
+            "type": "System.Type",
+            "method": "IsInterface",
+            "javaMethod": "TypeHelper.getIsInterface"
+        },
+        {
+            "type": "System.Type",
+            "method": "IsPrimitive",
+            "javaMethod": "TypeHelper.getIsPrimitive"
+        },
+        {
+            "type": "System.Type",
+            "method": "IsSealed",
+            "javaMethod": "TypeHelper.getIsSealed"
+        },
+        {
+            "type": "System.Type",
             "method": "GetArrayRank",
             "javaMethod": "TypeHelper.getArrayRank"
         },
