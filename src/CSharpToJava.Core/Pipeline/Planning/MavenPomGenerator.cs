@@ -178,8 +178,16 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
     {
         if (dependencies.Count == 0) return string.Empty;
 
+        // 工作区内部模块必须排在外部依赖（尤其是 compat）前面：compat jar 里带有
+        // `dotnet.text.regularexpressions.Regex`、`dotnet.system.Uri` 等兜底桩类，
+        // 与真实转换模块同 FQN。Maven 按声明顺序构造 javac classpath，先出现者胜出；
+        // 若 compat 在前，真实模块的成员（如 Regex.matches(String,int)）会被桩类遮住。
+        var ordered = dependencies
+            .OrderByDescending(dep => dep.IsInternal)
+            .ToList();
+
         var sb = new StringBuilder();
-        foreach (var dep in dependencies)
+        foreach (var dep in ordered)
         {
             sb.AppendLine($@"        <dependency>
             <groupId>{dep.GroupId}</groupId>
