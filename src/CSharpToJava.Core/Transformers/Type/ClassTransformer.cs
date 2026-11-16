@@ -425,7 +425,7 @@ public class ClassTransformer : ITypeTransformer
         var jtp = new JavaTypeParameter(symbol.Name);
         foreach (var c in symbol.ConstraintTypes)
         {
-            var bound = context.MapType(c);
+            var bound = MapConstraintType(c, context);
             if (!string.IsNullOrEmpty(bound) && bound != "Object") jtp.Bounds.Add(bound);
         }
         return jtp;
@@ -482,6 +482,11 @@ public class ClassTransformer : ITypeTransformer
     /// </summary>
     private static string MapConstraintType(ITypeSymbol type, ConversionContext context)
     {
+        // `where T : Enum` 在 Java 无法保留：转换器把显式值的 C# 枚举发成普通
+        // final 值类（伪枚举），它不是 java.lang.Enum 的子类，Java 的
+        // `T extends Enum` 会在转换器实例化时抛 ClassCastException。
+        if (type.SpecialType == SpecialType.System_Enum)
+            return "Object";
         if (type is INamedTypeSymbol { TypeArguments.Length: 1 } named
             && named.OriginalDefinition.MetadataName == "ICollection`1"
             && named.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic")

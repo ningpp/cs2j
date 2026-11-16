@@ -39,14 +39,14 @@ public class EnumTransformer : ITypeTransformer
 
         var members = GetOrderedMembers(enumSymbol, enumDecl);
         var valueEnum = IsValueEnum(enumSymbol, members);
-        var storage = StorageTypeName(enumSymbol?.EnumUnderlyingType?.SpecialType
-            ?? SpecialType.System_Int32);
+        var underlying = enumSymbol?.EnumUnderlyingType?.SpecialType ?? SpecialType.System_Int32;
+        var storage = StorageTypeName(underlying);
 
         // C# value enums can hold values that are not declared members (flags
         // combinations, (E)0x7FFF casts). A Java enum cannot materialize those,
         // so value enums are emitted as an immutable value class instead.
         if (valueEnum)
-            return BuildValueEnumClass(enumDecl, members, storage, javaEnum.LeadingComment);
+            return BuildValueEnumClass(enumDecl, members, storage, underlying, javaEnum.LeadingComment);
 
         foreach (var (name, _) in members)
             javaEnum.Values.Add(name);
@@ -64,6 +64,7 @@ public class EnumTransformer : ITypeTransformer
         EnumDeclarationSyntax enumDecl,
         IReadOnlyList<(string Name, object Value)> members,
         string storage,
+        SpecialType underlying,
         string? leadingComment)
     {
         var name = enumDecl.Identifier.Text;
@@ -158,6 +159,13 @@ public class EnumTransformer : ITypeTransformer
         javaClass.Methods.Add(new JavaMethodDeclaration
         {
             Modifiers = JavaModifiers.Public | JavaModifiers.Static,
+            ReturnType = "io.github.ningpp.compat.TypeCode",
+            Name = "getUnderlyingTypeCode",
+            Body = $"return io.github.ningpp.compat.TypeCode.{UnderlyingTypeCodeName(underlying)};"
+        });
+        javaClass.Methods.Add(new JavaMethodDeclaration
+        {
+            Modifiers = JavaModifiers.Public | JavaModifiers.Static,
             ReturnType = name + "[]",
             Name = "values",
             Body = "return __cs2jValues.clone();"
@@ -226,6 +234,26 @@ public class EnumTransformer : ITypeTransformer
         SpecialType.System_Int64 or SpecialType.System_UInt64 => "long",
         SpecialType.System_Char => "char",
         _ => "int"
+    };
+
+    /// <summary>
+    /// compat TypeCode constant name for a C# enum's underlying type, emitted as
+    /// the value-enum class's getUnderlyingTypeCode() marker so Java-side
+    /// Type.GetTypeCode() matches C# (byte/sbyte/uint/ulong are otherwise
+    /// indistinguishable from their Java storage primitive).
+    /// </summary>
+    public static string UnderlyingTypeCodeName(SpecialType underlying) => underlying switch
+    {
+        SpecialType.System_SByte => "SByte",
+        SpecialType.System_Byte => "Byte",
+        SpecialType.System_Int16 => "Int16",
+        SpecialType.System_UInt16 => "UInt16",
+        SpecialType.System_Int32 => "Int32",
+        SpecialType.System_UInt32 => "UInt32",
+        SpecialType.System_Int64 => "Int64",
+        SpecialType.System_UInt64 => "UInt64",
+        SpecialType.System_Char => "Char",
+        _ => "Int32"
     };
 
     /// <summary>

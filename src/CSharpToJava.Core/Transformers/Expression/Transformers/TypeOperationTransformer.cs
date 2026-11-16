@@ -744,6 +744,9 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             or SpecialType.System_Int32
             or SpecialType.System_Int64
             or SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_UInt32
+            or SpecialType.System_UInt64
             or SpecialType.System_SByte
             or SpecialType.System_Byte
             or SpecialType.System_Char
@@ -1255,15 +1258,24 @@ public class TypeOperationTransformer : IIRExpressionTransformer
 
         foreach (var parameter in method.Parameters)
         {
-            if (parameter.RefKind != RefKind.None
-                || parameter.Type is not ITypeParameterSymbol parameterType
-                || !SymbolEqualityComparer.Default.Equals(parameterType, typeParameter))
-            {
-                continue;
-            }
             var javaName = ConversionContext.EscapeJavaKeyword(parameter.Name);
             var fallback = ConversionContext.GetClassLiteral(bound, context);
-            return $"({javaName} == null ? {fallback} : {javaName}.getClass())";
+            if (parameter.RefKind == RefKind.None
+                && parameter.Type is ITypeParameterSymbol parameterType
+                && SymbolEqualityComparer.Default.Equals(parameterType, typeParameter))
+            {
+                return $"({javaName} == null ? {fallback} : {javaName}.getClass())";
+            }
+            // `where T : Enum` 域内只有枚举类型，方法收到的 object 实参就是该枚
+            // 举值（C# 侧断言 typeof(T).IsInstanceOfType(value)）；静态泛型方法
+            // 没有实例链可反查闭类型，只能从实参运行时类型取 token（真实链
+            // EnumConverter<T>.ConvertToUInt64 的 TypeCode switch）。
+            if (parameter.RefKind == RefKind.None
+                && parameter.Type.SpecialType == SpecialType.System_Object
+                && bound.SpecialType == SpecialType.System_Enum)
+            {
+                return $"({javaName} == null ? {fallback} : {javaName}.getClass())";
+            }
         }
         return null;
     }

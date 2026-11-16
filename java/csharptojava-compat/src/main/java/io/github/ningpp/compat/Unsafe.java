@@ -74,13 +74,24 @@ public class Unsafe {
 
     @SuppressWarnings("unchecked")
     public static <T> T as(Object value) {
-        if (value instanceof Enum<?> e) {
+        // Ref-lowered operands arrive wrapped: Unsafe.As<TFrom, TTo>(ref value)
+        // reads the holder's value, not the holder itself.
+        Object raw = value instanceof ObjectHolder<?> holder ? holder.value : value;
+        if (raw instanceof Enum<?> e) {
             try {
                 return (T) EnumHelper.readEnumValue(e);
             } catch (ReflectiveOperationException ignored) {
             }
         }
-        return (T) value;
+        // Converter-generated value enums are plain final classes; their numeric
+        // underlying value is what Unsafe.As<T, TTo>(ref value) reinterprets.
+        if (raw != null && !(raw instanceof Number) && TypeHelper.getIsEnum(raw.getClass())) {
+            try {
+                return (T) EnumHelper.readEnumValue(raw);
+            } catch (ReflectiveOperationException ignored) {
+            }
+        }
+        return (T) raw;
     }
 
     /**

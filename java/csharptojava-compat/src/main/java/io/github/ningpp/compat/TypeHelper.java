@@ -22,18 +22,17 @@ public final class TypeHelper {
         if (type == null) {
             return TypeCode.Empty;
         }
+        // The converter emits getUnderlyingTypeCode() on every converted enum
+        // (Java enum or value-enum class) so the exact C# backing type survives.
+        try {
+            java.lang.reflect.Method marker = type.getMethod("getUnderlyingTypeCode");
+            return (TypeCode) marker.invoke(null);
+        } catch (ReflectiveOperationException ignored) {
+            // Hand-written enums/carriers have no marker; infer below.
+        }
         if (type.isEnum()) {
             // Converted C# enums are Java enums with an int/long "value" field;
             // Type.GetTypeCode(enumType) reports the underlying numeric type.
-            // The converter emits getUnderlyingTypeCode() on enums with explicit
-            // values so unsigned backing types (UInt32/UInt64) survive — a Java
-            // long value field alone cannot distinguish Int64 from UInt64.
-            try {
-                java.lang.reflect.Method marker = type.getMethod("getUnderlyingTypeCode");
-                return (TypeCode) marker.invoke(null);
-            } catch (ReflectiveOperationException ignored) {
-                // Fall back to field-type inference below (hand-written enums).
-            }
             try {
                 java.lang.reflect.Field valueField = type.getDeclaredField("value");
                 if (valueField.getType() == long.class) {
@@ -43,6 +42,33 @@ public final class TypeHelper {
                 // Default to Int32 below.
             }
             return TypeCode.Int32;
+        }
+        // Converter-generated value enums are plain final classes with a static
+        // values() array and a getValue() accessor; their storage primitive is the
+        // C# backing domain.
+        try {
+            java.lang.reflect.Method values = type.getMethod("values");
+            if (values.getReturnType().isArray()
+                && values.getReturnType().getComponentType() == type) {
+                Class<?> storage = type.getMethod("getValue").getReturnType();
+                if (storage == byte.class) {
+                    return TypeCode.Byte;
+                }
+                if (storage == short.class) {
+                    return TypeCode.Int16;
+                }
+                if (storage == int.class) {
+                    return TypeCode.Int32;
+                }
+                if (storage == long.class) {
+                    return TypeCode.Int64;
+                }
+                if (storage == char.class) {
+                    return TypeCode.Char;
+                }
+            }
+        } catch (NoSuchMethodException ignored) {
+            // Not a value-enum carrier.
         }
         if (type == boolean.class || type == Boolean.class) {
             return TypeCode.Boolean;
@@ -156,10 +182,13 @@ public final class TypeHelper {
     private static Class<?> dynamicallyClosedTypeArgument(
             Object instance, Class<?> declaringType, int index) {
         // 声明类型可能只是基类：转换器以具体类闭合（EnumConverter<T> : JsonConverter<T>），
-        // 而 typeof(T) 的 declaringType 是基类 JsonConverter。先按实例自身类查，
-        // 再按声明类查（两者都可能被 MakeGenericType 注册）。
+        // 而 typeof(T) 的 declaringType 是基类 JsonConverter。实例类自身的类型实参只
+        // 在沿泛型父类链正好映射到 declaringType 的同位置参数时才可用；否则索引会
+        // 落到实例类自己的参数上（KeyValuePairConverter<TKey,TValue> 的 index 0 是
+        // TKey，而非 JsonConverter<KeyValuePair<TKey,TValue>> 的转换类型）。
         java.util.Map<Class<?>, Class<?>[]> constructing = CONSTRUCTING_TOKENS.get();
-        Class<?> token = typeArgumentAt(constructing.get(instance.getClass()), index);
+        Class<?> token = ownTokenForDeclaringArgument(
+            constructing.get(instance.getClass()), instance.getClass(), declaringType, index);
         if (token == null) {
             token = typeArgumentAt(constructing.get(declaringType), index);
         }
@@ -170,8 +199,33 @@ public final class TypeHelper {
         if (perInstance == null) {
             return null;
         }
-        token = typeArgumentAt(perInstance.get(instance.getClass()), index);
+        token = ownTokenForDeclaringArgument(
+            perInstance.get(instance.getClass()), instance.getClass(), declaringType, index);
         return token != null ? token : typeArgumentAt(perInstance.get(declaringType), index);
+    }
+
+    /**
+     * Maps the type arguments registered for a constructed class onto a declaring
+     * base class's type argument: only an identity path (the base argument is the
+     * class's own type variable) yields a token from {@code ownTokens}.
+     */
+    private static Class<?> ownTokenForDeclaringArgument(
+            Class<?>[] ownTokens, Class<?> concreteType, Class<?> declaringType, int index) {
+        if (ownTokens == null || ownTokens.length == 0) {
+            return null;
+        }
+        java.lang.reflect.Type expression =
+            resolveTypeArgumentExpression(concreteType, declaringType, index, new java.util.HashMap<>());
+        if (!(expression instanceof java.lang.reflect.TypeVariable<?> variable)) {
+            return null;
+        }
+        java.lang.reflect.TypeVariable<?>[] parameters = concreteType.getTypeParameters();
+        for (int i = 0; i < parameters.length && i < ownTokens.length; i++) {
+            if (parameters[i].getName().equals(variable.getName())) {
+                return ownTokens[i];
+            }
+        }
+        return null;
     }
 
     private static Class<?> typeArgumentAt(Class<?>[] typeArguments, int index) {
@@ -2002,7 +2056,28 @@ public final class TypeHelper {
     }
 
     public static boolean getIsEnum(Class<?> type) {
-        return type != null && type.isEnum();
+        if (type == null) {
+            return false;
+        }
+        if (type.isEnum()) {
+            return true;
+        }
+        // C# enums with explicit non-sequential values are emitted as final classes
+        // exposing the enum surface (values()/name()/ordinal()/getValue()); C#
+        // treats them as enum types for converter selection.
+        try {
+            java.lang.reflect.Method values = type.getMethod("values");
+            if (!values.getReturnType().isArray()
+                || values.getReturnType().getComponentType() != type) {
+                return false;
+            }
+            type.getMethod("getValue");
+            type.getMethod("name");
+            type.getMethod("ordinal");
+            return true;
+        } catch (NoSuchMethodException ignored) {
+            return false;
+        }
     }
 
     public static boolean getIsPrimitive(Class<?> type) {
@@ -3002,6 +3077,29 @@ public final class TypeHelper {
             Class<?> declaringType,
             int index,
             java.util.Map<java.lang.reflect.TypeVariable<?>, java.lang.reflect.Type> bindings) {
+        java.lang.reflect.Type argument =
+            resolveTypeArgumentExpression(type, declaringType, index, bindings);
+        if (argument instanceof Class<?> token) {
+            return token;
+        }
+        // A constructed generic base argument (JsonConverter<KeyValuePair<K,V>>)
+        // has no Class token of its own; the Java carrier is the raw class.
+        if (argument instanceof java.lang.reflect.ParameterizedType closedArgument
+            && closedArgument.getRawType() instanceof Class<?> rawArgument) {
+            return rawArgument;
+        }
+        return null;
+    }
+
+    /**
+     * Walks the generic superclass chain and returns the declaring type's argument
+     * expression (a Class, a TypeVariable of {@code type}, or a ParameterizedType).
+     */
+    private static java.lang.reflect.Type resolveTypeArgumentExpression(
+            Class<?> type,
+            Class<?> declaringType,
+            int index,
+            java.util.Map<java.lang.reflect.TypeVariable<?>, java.lang.reflect.Type> bindings) {
         if (type == null || type == Object.class || type == declaringType) {
             return null;
         }
@@ -3014,9 +3112,7 @@ public final class TypeHelper {
                 resolved[i] = substitute(arguments[i], bindings);
             }
             if (raw == declaringType) {
-                return index >= 0 && index < resolved.length && resolved[index] instanceof Class<?> token
-                        ? token
-                        : null;
+                return index >= 0 && index < resolved.length ? resolved[index] : null;
             }
             java.lang.reflect.TypeVariable<?>[] variables = raw.getTypeParameters();
             java.util.Map<java.lang.reflect.TypeVariable<?>, java.lang.reflect.Type> next =
@@ -3024,10 +3120,10 @@ public final class TypeHelper {
             for (int i = 0; i < variables.length && i < resolved.length; i++) {
                 next.put(variables[i], resolved[i]);
             }
-            return resolveTypeArgument(raw, declaringType, index, next);
+            return resolveTypeArgumentExpression(raw, declaringType, index, next);
         }
         if (superType instanceof Class<?> rawSuper) {
-            return resolveTypeArgument(rawSuper, declaringType, index, bindings);
+            return resolveTypeArgumentExpression(rawSuper, declaringType, index, bindings);
         }
         return null;
     }

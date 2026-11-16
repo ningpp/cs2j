@@ -632,13 +632,23 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             {
                 return false;
             }
-            wrapped = $"(({context.MapType(resultType)}) ({rendered}))";
+            wrapped = $"(({UnsafeAsStorageType(resultType.SpecialType)}) ({rendered}))";
             return true;
         }
 
         var target = symbol.TypeArguments[1];
-        if (target is ITypeParameterSymbol)
+        if (target is ITypeParameterSymbol typeParameter)
         {
+            // Unsafe.As<TFrom, T>(ref numeric) reinterprets the bits as the enum T:
+            // Java must materialize the enum constant from the numeric value using
+            // the closed-type token in scope (EnumConverter's read path).
+            if (typeParameter.ConstraintTypes.Any(t => t.SpecialType == SpecialType.System_Enum)
+                && TryFindAnchorLocal(invocation, typeParameter.Name, out var anchorName))
+            {
+                context.AddImport("io.github.ningpp.compat.EnumHelper");
+                wrapped = $"(({context.MapType(target)}) (Object) EnumHelper.toObject({anchorName}, ((Number) ({rendered})).longValue()))";
+                return true;
+            }
             wrapped = $"(({context.MapType(target)}) (Object) ({rendered}))";
             return true;
         }
@@ -650,11 +660,46 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             or SpecialType.System_UInt64
             or SpecialType.System_Single or SpecialType.System_Double)
         {
-            wrapped = $"(({context.MapType(target)}) ({rendered}))";
+            wrapped = $"(({UnsafeAsStorageType(target.SpecialType)}) ({rendered}))";
             return true;
         }
         return false;
     }
+
+    /// <summary>
+    /// True when the generic-deepen token local for <paramref name="typeParameterName"/>
+    /// is declared in the enclosing executable scope.
+    /// </summary>
+    private static bool TryFindAnchorLocal(SyntaxNode site, string typeParameterName, out string anchorName)
+    {
+        var name = "__cs2j_token_" + typeParameterName;
+        anchorName = name;
+        var scope = site.Ancestors().FirstOrDefault(a => a is
+            MemberDeclarationSyntax or LocalFunctionStatementSyntax or LambdaExpressionSyntax);
+        return scope != null
+            && scope.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                .Any(v => v.Identifier.Text == name);
+    }
+
+    /// <summary>
+    /// Java storage carrier of an <c>Unsafe.As&lt;TFrom, TTo&gt;</c> result. The
+    /// C# type's mapped form can widen unsigned/narrow types (byte→int,
+    /// ushort→int), but the runtime value comes from the source's own storage
+    /// (a byte-backed enum's getValue() is a Byte); unboxing must use the C#
+    /// storage primitive, not the widened mapping.
+    /// </summary>
+    private static string UnsafeAsStorageType(SpecialType target) => target switch
+    {
+        SpecialType.System_Byte or SpecialType.System_SByte => "byte",
+        SpecialType.System_Int16 or SpecialType.System_UInt16 => "short",
+        SpecialType.System_UInt32 or SpecialType.System_Int32 => "int",
+        SpecialType.System_UInt64 or SpecialType.System_Int64 => "long",
+        SpecialType.System_Char => "char",
+        SpecialType.System_Boolean => "boolean",
+        SpecialType.System_Single => "float",
+        SpecialType.System_Double => "double",
+        _ => "int"
+    };
 
     /// <summary>
     /// C# {@code MemoryMarshal.Read&lt;T&gt;(span)} needs the runtime class token in

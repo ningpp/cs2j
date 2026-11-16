@@ -62,7 +62,35 @@ public class EnumHelper {
 
     /** Mirrors System.Enum.IsDefined(Type, Object) where Object is an enum constant of the same type. */
     public static boolean isDefined(Class<?> enumType, Object value) {
-        if (enumType == null || !enumType.isEnum() || value == null) {
+        if (enumType == null || value == null) {
+            return false;
+        }
+        if (!enumType.isEnum()) {
+            // Converter-generated value enums are plain classes; match their constants.
+            if (!isPseudoEnumShape(enumType)) {
+                return false;
+            }
+            if (enumType.isInstance(value)) {
+                return !isSyntheticUnmapped(value);
+            }
+            if (value instanceof Number number) {
+                long val = number.longValue();
+                for (Object constant : constantsOrEmpty(enumType)) {
+                    if (isSyntheticUnmapped(constant)) continue;
+                    try {
+                        Object raw = readEnumValue(constant);
+                        if (raw instanceof Number num && num.longValue() == val) {
+                            return true;
+                        }
+                    } catch (ReflectiveOperationException ignored) {
+                        // Hand-written carrier without getValue(): no numeric match.
+                    }
+                }
+                return false;
+            }
+            if (value instanceof String text) {
+                return isPseudoEnumNameDefined(enumType, text);
+            }
             return false;
         }
         if (value instanceof Enum<?> enumValue) {
@@ -79,7 +107,7 @@ public class EnumHelper {
             for (Object constant : enumType.getEnumConstants()) {
                 if (isSyntheticUnmapped(constant)) continue;
                 try {
-                    Object raw = readEnumValue((Enum<?>) constant);
+                    Object raw = readEnumValue(constant);
                     if (raw instanceof Number num && num.longValue() == val) {
                         return true;
                     }
@@ -99,7 +127,18 @@ public class EnumHelper {
     }
     @SuppressWarnings("unchecked")
     public static <T> boolean tryParse(String name, boolean ignoreCase, ObjectHolder<T> result, Class<?> enumClass) {
-        if (name == null || enumClass == null || !enumClass.isEnum()) {
+        if (name == null || enumClass == null) {
+            return false;
+        }
+        if (!enumClass.isEnum()) {
+            for (Object constant : constantsOrEmpty(enumClass)) {
+                String constName = constantName(constant);
+                if (constName == null || "_UNMAPPED".equals(constName)) continue;
+                if (ignoreCase ? constName.equalsIgnoreCase(name) : constName.equals(name)) {
+                    result.value = (T) constant;
+                    return true;
+                }
+            }
             return false;
         }
         for (T constant : (T[]) enumClass.getEnumConstants()) {
@@ -126,7 +165,16 @@ public class EnumHelper {
         if (!ignoreCase) {
             return parse(enumType, name);
         }
-        if (name == null || enumType == null || !enumType.isEnum()) {
+        if (name == null || enumType == null) {
+            throw new IllegalArgumentException("No enum constant: " + name);
+        }
+        if (!enumType.isEnum()) {
+            for (Object constant : constantsOrEmpty(enumType)) {
+                String constName = constantName(constant);
+                if (constName != null && constName.equalsIgnoreCase(name)) {
+                    return constant;
+                }
+            }
             throw new IllegalArgumentException("No enum constant: " + name);
         }
         for (Object constant : enumType.getEnumConstants()) {
@@ -200,19 +248,41 @@ public class EnumHelper {
         if (enumType == null) {
             throw new IllegalArgumentException("Type must be an enum: null");
         }
+        Object[] values = constantsOrEmpty(enumType);
+        if (values.length > 0 || isPseudoEnumShape(enumType)) {
+            return values;
+        }
+        throw new IllegalArgumentException("Type must be an enum: " + enumType);
+    }
+
+    /** Constant objects of a Java enum or of a converter-generated pseudo-enum; empty otherwise. */
+    private static Object[] constantsOrEmpty(Class<?> enumType) {
+        if (enumType == null) {
+            return new Object[0];
+        }
         if (enumType.isEnum()) {
             return enumType.getEnumConstants();
         }
         try {
             Object[] values = (Object[]) enumType.getMethod("values").invoke(null);
-            if (values != null) {
-                return values;
-            }
+            return values == null ? new Object[0] : values;
         } catch (ReflectiveOperationException | RuntimeException ignored) {
-            // Not a converter-generated enum shape: report the same argument error
-            // as the Java-enum-only overloads.
+            return new Object[0];
         }
-        throw new IllegalArgumentException("Type must be an enum: " + enumType);
+    }
+
+    /** True when the class exposes the converter's value-enum shape (values()/name()/getValue()). */
+    private static boolean isPseudoEnumShape(Class<?> enumType) {
+        if (enumType == null || enumType.isEnum()) {
+            return enumType != null;
+        }
+        try {
+            enumType.getMethod("values");
+            enumType.getMethod("getValue");
+            return true;
+        } catch (NoSuchMethodException ignored) {
+            return false;
+        }
     }
 
     /** Constant name of a Java enum constant or a converter-generated pseudo-enum constant. */
@@ -256,7 +326,7 @@ public class EnumHelper {
      * Reads a converter-generated enum constant's underlying value, tolerating enum
      * classes that are not public (see {@link #invokeOpened}).
      */
-    static Object readEnumValue(Enum<?> constant) throws ReflectiveOperationException {
+    static Object readEnumValue(Object constant) throws ReflectiveOperationException {
         return invokeOpened(constant.getClass().getMethod("getValue"), constant);
     }
 
@@ -284,8 +354,25 @@ public class EnumHelper {
                 if (raw instanceof Number number) {
                     return number.longValue();
                 }
+            } catch (NoSuchMethodException e) {
+                // Ordinal-backed converted enums hold no explicit value field:
+                // (long)enumConstant is the declaration index.
+                return enumValue.ordinal();
             } catch (ReflectiveOperationException e) {
                 throw new ClassCastException("Cannot cast " + enumValue.getClass().getName() + " to a numeric value");
+            }
+        }
+        // Converter-generated value enums are plain final classes (not Java enums)
+        // that expose their underlying numeric value through getValue(); C# unboxes
+        // them like any other enum constant.
+        if (value != null) {
+            try {
+                Object raw = invokeOpened(value.getClass().getMethod("getValue"), value);
+                if (raw instanceof Number number) {
+                    return number.longValue();
+                }
+            } catch (ReflectiveOperationException ignored) {
+                // Not a value-enum carrier; report the unified cast failure below.
             }
         }
         throw new ClassCastException("Cannot cast " + (value == null ? "null" : value.getClass().getName()) + " to a numeric value");
@@ -304,8 +391,8 @@ public class EnumHelper {
 
     @SuppressWarnings("unchecked")
     public static Object toObject(Class<?> enumType, long value) {
-        if (enumType == null || !enumType.isEnum()) {
-            throw new IllegalArgumentException("Type must be an enum: " + enumType);
+        if (enumType == null) {
+            throw new IllegalArgumentException("Type must be an enum: null");
         }
         // Enum.ToObject in C# performs an unchecked conversion of the value to the
         // enum's underlying type (e.g. ToObject(typeof(ushortEnum), 65536) -> 0).
@@ -323,9 +410,29 @@ public class EnumHelper {
             java.lang.reflect.Method fromValue = enumType.getMethod("fromValue", long.class);
             return invokeOpened(fromValue, null, truncated);
         } catch (NoSuchMethodException e) {
-            // Fall back to ordinal matching for hand-written enums.
+            // Value enums whose Java storage is byte/short expose fromValue(byte) etc.
         } catch (ReflectiveOperationException e) {
             throw new IllegalArgumentException("Invalid enum value: " + value, e);
+        }
+        java.lang.reflect.Method narrowFromValue = findFromValue(enumType);
+        if (narrowFromValue != null) {
+            try {
+                return invokeOpened(narrowFromValue, null,
+                    narrowFromValue.getParameterTypes()[0] == byte.class
+                        ? (Object) (byte) truncated
+                        : narrowFromValue.getParameterTypes()[0] == short.class
+                            ? (Object) (short) truncated
+                            : narrowFromValue.getParameterTypes()[0] == char.class
+                                ? (Object) (char) truncated
+                                : (Object) (int) truncated);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalArgumentException("Invalid enum value: " + value, e);
+            }
+        }
+        if (!enumType.isEnum()) {
+            // Converter-emitted value enums always expose fromValue(); a class
+            // without it is not an enum and has no ordinal domain.
+            throw new IllegalArgumentException("Type must be an enum: " + enumType);
         }
         Object[] constants = enumType.getEnumConstants();
         int ordinal = (int) truncated;
@@ -333,6 +440,22 @@ public class EnumHelper {
             throw new IllegalArgumentException("Invalid enum ordinal: " + ordinal);
         }
         return constants[ordinal];
+    }
+
+    /** The single-argument static fromValue(...) of a converter-generated value enum, if any. */
+    private static java.lang.reflect.Method findFromValue(Class<?> enumType) {
+        for (java.lang.reflect.Method method : enumType.getMethods()) {
+            if (!"fromValue".equals(method.getName())
+                || !java.lang.reflect.Modifier.isStatic(method.getModifiers())
+                || method.getParameterCount() != 1) {
+                continue;
+            }
+            Class<?> parameter = method.getParameterTypes()[0];
+            if (parameter.isPrimitive() && parameter != boolean.class) {
+                return method;
+            }
+        }
+        return null;
     }
 
     private static final class EnumWidth {
@@ -370,12 +493,12 @@ public class EnumHelper {
         boolean has255 = false, has65535 = false, hasNegOne = false, hasZero = false;
         boolean hasByteMinMax = false, hasShortMinMax = false, hasIntMinMax = false, hasLongMinMax = false;
         boolean hasGetValue = false;
-        for (Object c : enumType.getEnumConstants()) {
+        for (Object c : constantsOrEmpty(enumType)) {
             if (isSyntheticUnmapped(c)) {
                 continue;
             }
             try {
-                Object raw = readEnumValue((Enum<?>) c);
+                Object raw = readEnumValue(c);
                 hasGetValue = true;
                 if (raw instanceof Number number) {
                     long v = number.longValue();
@@ -447,7 +570,7 @@ public class EnumHelper {
      * in C# (lost by the converter, which only emits Java enum constants).
      */
     public static TypeCode getUnderlyingTypeCode(Class<?> enumType) {
-        if (enumType == null || !enumType.isEnum()) {
+        if (enumType == null || !(enumType.isEnum() || isPseudoEnumShape(enumType))) {
             return TypeCode.Int32;
         }
         EnumWidth w = scanEnumWidth(enumType);
