@@ -291,6 +291,17 @@ public class EnumHelper {
         throw new ClassCastException("Cannot cast " + (value == null ? "null" : value.getClass().getName()) + " to a numeric value");
     }
 
+    /**
+     * Unboxes an Object to a char: C# allows unboxing a boxed char directly, while
+     * the numeric path (EnumHelper.toInt32) rejects java.lang.Character.
+     */
+    public static char toChar(Object value) {
+        if (value instanceof Character character) {
+            return character.charValue();
+        }
+        return (char) toInt32(value);
+    }
+
     @SuppressWarnings("unchecked")
     public static Object toObject(Class<?> enumType, long value) {
         if (enumType == null || !enumType.isEnum()) {

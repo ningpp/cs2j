@@ -583,8 +583,9 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 context.AddImport("io.github.ningpp.compat.EnumHelper");
                 return $"(int)(EnumHelper.toInt64({expression}) & 0xFFFFFFFFL)";
             case SpecialType.System_Char:
+                // C# 允许把装箱 char 直接解箱成 char；toInt32 不接受 Character。
                 context.AddImport("io.github.ningpp.compat.EnumHelper");
-                return $"((char) EnumHelper.toInt32({expression}))";
+                return $"EnumHelper.toChar({expression})";
             default:
                 return null;
         }
