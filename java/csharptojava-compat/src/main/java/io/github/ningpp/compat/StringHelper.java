@@ -883,6 +883,7 @@ public class StringHelper {
     private static String charArrayToRegex(char[] chars) {
         if (chars == null || chars.length == 0) return "";
         StringBuilder sb = new StringBuilder();
+        sb.append('[');
         for (char c : chars) {
             if (c == '\\' || c == '^' || c == '-' || c == ']' || c == '[') {
                 sb.append('\\');
