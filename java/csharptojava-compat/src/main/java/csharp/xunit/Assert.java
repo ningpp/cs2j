@@ -332,9 +332,43 @@ public final class Assert {
     public static void equal(Object expected, Object actual) {
         if (!objectsEqual(expected, actual)) {
             throw new AssertionError("Assert.equal() failure: Values differ\n"
-                + "Expected: " + expected + "\n"
-                + "Actual: " + actual);
+                + "Expected: " + renderValue(expected) + "\n"
+                + "Actual: " + renderValue(actual));
         }
+    }
+
+    /** Renders arrays by content; Object.toString only prints the identity hash. */
+    private static String renderValue(Object value) {
+        if (value != null && value.getClass().isArray()) {
+            if (value instanceof Object[] objects) {
+                return Arrays.deepToString(objects);
+            }
+            if (value instanceof byte[] bytes) {
+                return Arrays.toString(bytes);
+            }
+            if (value instanceof int[] ints) {
+                return Arrays.toString(ints);
+            }
+            if (value instanceof long[] longs) {
+                return Arrays.toString(longs);
+            }
+            if (value instanceof short[] shorts) {
+                return Arrays.toString(shorts);
+            }
+            if (value instanceof char[] chars) {
+                return Arrays.toString(chars);
+            }
+            if (value instanceof boolean[] bools) {
+                return Arrays.toString(bools);
+            }
+            if (value instanceof float[] floats) {
+                return Arrays.toString(floats);
+            }
+            if (value instanceof double[] doubles) {
+                return Arrays.toString(doubles);
+            }
+        }
+        return String.valueOf(value);
     }
 
     public static <T> void equal(T expected, T actual, java.util.function.BiPredicate<T, T> comparer) {
@@ -1333,10 +1367,19 @@ public final class Assert {
         if (a != null && b != null && a instanceof Iterable<?> && b instanceof Iterable<?>) {
             return iterablesEqual((Iterable<?>) a, (Iterable<?>) b);
         }
-        // C# structs (JsonWriterOptions, JsonReaderOptions, JsonSerializerOptions,
+        // C# structs (JsonWriterOptions, JsonReaderOptions, JsonReaderState,
         // ...) have VALUE equality, but the converted Java classes often rely on
-        // Object.equals identity. When neither side overrides equals, fall back to
-        // the rendered representation (the generated toString mirrors the struct).
+        // Object.equals identity. Field-wise comparison for the converter's
+        // value-type markers mirrors ValueType.Equals.
+        if (a != null && b != null
+            && a.getClass() == b.getClass()
+            && !OverridesEquals(a.getClass())
+            && (a.getClass().isAnnotationPresent(io.github.ningpp.compat.CompatValueType.class)
+                || a instanceof io.github.ningpp.compat.Cs2jStructMarker)) {
+            return structFieldsEqual(a, b, 0);
+        }
+        // C# structs fall back to the rendered representation when the generated
+        // class carries no comparable fields.
         if (a != null && b != null
             && a.getClass() == b.getClass()
             && !OverridesEquals(a.getClass())
@@ -1344,6 +1387,31 @@ public final class Assert {
             return true;
         }
         return false;
+    }
+
+    /** Field-wise comparison of two converted C# structs (C# ValueType.Equals). */
+    private static boolean structFieldsEqual(Object a, Object b, int depth) {
+        if (depth > 8) {
+            return Objects.equals(a, b);
+        }
+        for (Class<?> type = a.getClass(); type != null && type != Object.class;
+             type = type.getSuperclass()) {
+            for (java.lang.reflect.Field field : type.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())
+                    || field.isSynthetic()) {
+                    continue;
+                }
+                try {
+                    field.setAccessible(true);
+                    if (!objectsEqual(field.get(a), field.get(b))) {
+                        return false;
+                    }
+                } catch (ReflectiveOperationException | RuntimeException ignored) {
+                    return Objects.equals(a, b);
+                }
+            }
+        }
+        return true;
     }
 
     private static boolean OverridesEquals(Class<?> type) {
