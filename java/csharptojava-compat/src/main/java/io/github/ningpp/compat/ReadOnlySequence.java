@@ -234,21 +234,47 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
 
     /** Mirrors ReadOnlySequence&lt;T&gt;.Slice(SequencePosition, SequencePosition) — single-segment pass-through. */
     public ReadOnlySequence<T> slice(SequencePosition start, SequencePosition end) {
-        long s = start != null && start.getObject() == this ? start.getInteger() : 0;
-        long e = end != null && end.getObject() == this ? end.getInteger() : length;
+        long s = localOffset(start, 0);
+        long e = localOffset(end, length);
         return slice(s, Math.max(e - s, 0));
     }
 
     /** Mirrors ReadOnlySequence&lt;T&gt;.Slice(SequencePosition). */
     public ReadOnlySequence<T> slice(SequencePosition start) {
-        long s = start != null && start.getObject() == this ? start.getInteger() : 0;
+        long s = localOffset(start, 0);
         return slice(s, Math.max(length - s, 0));
     }
 
     /** Mirrors ReadOnlySequence&lt;T&gt;.Slice(int, SequencePosition). */
     public ReadOnlySequence<T> slice(int start, SequencePosition end) {
-        long e = end != null && end.getObject() == this ? end.getInteger() : length;
+        long e = localOffset(end, length);
         return slice(start, Math.max(e - start, 0));
+    }
+
+    /**
+     * Converts a position into this sequence's local offset. A position taken from a
+     * slice of the same backing data (C#'s reader returns the position of its input
+     * slice, and callers slice the outer sequence with it) carries the slice's own
+     * coordinate system; rebase it so slicing stays correct.
+     */
+    private long localOffset(SequencePosition position, long fallback) {
+        if (position == null) {
+            return fallback;
+        }
+        Object owner = position.getObject();
+        if (owner == this) {
+            return position.getInteger();
+        }
+        if (owner instanceof ReadOnlySequence<?> other) {
+            if (other.data == null) {
+                // default/empty sequence position: C# treats it as offset 0
+                return position.getInteger();
+            }
+            if (other.data == this.data) {
+                return (long) other.start + position.getInteger() - this.start;
+            }
+        }
+        return fallback;
     }
 
     /**
