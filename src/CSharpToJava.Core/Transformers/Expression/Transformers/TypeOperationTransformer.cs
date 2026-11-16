@@ -572,6 +572,10 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 context.AddImport("io.github.ningpp.compat.EnumHelper");
                 return $"(((int) EnumHelper.toInt32({expression})) & 0xFFFF)";
             case SpecialType.System_Byte:
+                // C# byte 的 Java 载体是 int（0..255）；装箱解箱后必须掩码，落到
+                // Java byte 会既改变装箱类型（Byte 而非 Integer）又会截断 >127 的值。
+                context.AddImport("io.github.ningpp.compat.EnumHelper");
+                return $"(EnumHelper.toInt32({expression}) & 0xFF)";
             case SpecialType.System_SByte:
                 context.AddImport("io.github.ningpp.compat.EnumHelper");
                 return $"((byte) EnumHelper.toInt32({expression}))";
