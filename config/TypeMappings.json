@@ -7520,6 +7520,11 @@
             "javaMethod": "TypeHelper.isSubclassOf"
         },
         {
+            "type": "System.Type",
+            "method": "IsAssignableFrom",
+            "javaMethod": "TypeHelper.isAssignableFrom"
+        },
+        {
             "type": "Cs2jByRef.ByRef",
             "method": "get_Value",
             "javaMethod": "getValue",

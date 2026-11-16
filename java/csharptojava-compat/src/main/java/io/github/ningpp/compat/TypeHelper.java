@@ -2038,6 +2038,9 @@ public final class TypeHelper {
         if (baseType == CSharpGenericIterable.class && type != null && type.isArray()) {
             return true;
         }
+        if (type != null && type.isArray() && arrayImplementsCollectionInterface(baseType)) {
+            return true;
+        }
         // A C# type that merely IMPLEMENTS IDictionary<K,V> (the SDK test suite declares
         // extension-data wrappers like GenericIDictionaryWrapperPrivateConstructor<string, object>)
         // can be ported as a class implementing only the non-generic compat dictionary interface.
@@ -3056,6 +3059,22 @@ public final class TypeHelper {
             return false;
         }
         return base.isAssignableFrom(type);
+    }
+
+    /**
+     * Mirrors {@code Type.IsAssignableFrom(Type)} for single-dimensional arrays:
+     * the C# runtime gives every array the whole collection interface family,
+     * while Java arrays implement none of the compat interfaces.
+     */
+    private static boolean arrayImplementsCollectionInterface(Class<?> baseType) {
+        return baseType == CSharpIterable.class
+                || baseType == CSharpGenericIterable.class
+                || baseType == CSharpCollection.class
+                || baseType == CSharpICollection.class
+                || baseType == CSharpIList.class
+                || baseType == CSharpGenericIList.class
+                || baseType == CSharpReadOnlyCollection.class
+                || baseType == CSharpReadOnlyList.class;
     }
 
     /**
