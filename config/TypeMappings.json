@@ -4399,6 +4399,13 @@
             ]
         },
         {
+            "csharp": "System.Reflection.CustomAttributeTypedArgument",
+            "java": "CustomAttributeTypedArgument",
+            "imports": [
+                "io.github.ningpp.compat.CustomAttributeTypedArgument"
+            ]
+        },
+        {
             "csharp": "System.Reflection.PropertyInfo",
             "java": "PropertyInfo",
             "imports": [
