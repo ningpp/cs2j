@@ -81,5 +81,14 @@ public class TextReader implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception { inner.close(); }
+    public void close() {
+        // C# TextReader.Dispose is not checked-throwing; the generated Java call
+        // sites (e.g. ParsingState.CloseInput) call close() directly, so narrow
+        // the AutoCloseable signature to an unchecked failure.
+        try {
+            inner.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

@@ -962,6 +962,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
                 var argumentText = string.Join(", ", arguments.Select(a => a.ToInlineString()));
 
+                // System.IDisposable.Dispose() → AutoCloseable.close() 带 throws Exception，
+                // 接收者静态类型恰为接口时调用点无法收窄，改走 compat 的 unchecked 桥。
+                if (TryRenderDisposableInterfaceDispose(
+                        invocation, memberAccess, receiverText, context, out var disposeCall))
+                {
+                    return new JavaRawExpression(disposeCall);
+                }
+
                 // extension-methods pass 会保守跳过部分 reduced 扩展调用（真实链：
                 // 闭包提升后的 `state.Item1.AsSpan(2)` / `.ToLower(span, culture)`）。
                 // MemoryExtensions 的这些方法在 Java 侧只有 compat 静态形态，必须
@@ -1926,6 +1934,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var receiver = TransformReceiver(
                     UnwrapErasedInterfaceCast(node, memberAccess, context)
                         ?? UnwrapExplicitDisposeCast(memberAccess, context), context);
+
+                // 与 TransformToIR 中的同名规则一致：receiver 形态的
+                // System.IDisposable.Dispose（接收者静态类型为接口）走 compat 的
+                // unchecked close 桥，避免 javac 的未报告异常错误。
+                if (TryRenderDisposableInterfaceDispose(
+                        node, memberAccess, receiver, context, out var disposeCall))
+                {
+                    return disposeCall;
+                }
 
                 // 与 TransformToIR 中的同名规则一致：receiver 形态的
                 // System.MemoryExtensions 扩展调用（AsSpan/ToLower/ToUpper）在
@@ -6257,6 +6274,53 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return false;
         }
 
+        return true;
+    }
+
+    /// <summary>
+    /// <c>IDisposable.Dispose()</c> 的调用点：C# 没有受检异常，Java 的
+    /// <c>AutoCloseable.close()</c> 声明 <c>throws Exception</c>。当接收者静态类型
+    /// 恰为 <c>System.IDisposable</c>（局部/字段/参数，而不是具体类型或强转）时，
+    /// 调用点无法像具体类那样收窄签名，改发 compat 的 unchecked 桥
+    /// <c>DisposableHelper.dispose(receiver)</c>。
+    /// 显式的 <c>((IDisposable)x).Dispose()</c> 仍走既有解包路径：具体类型会有
+    /// 不收窄异常的 <c>close()</c> 覆写。
+    /// </summary>
+    private static bool TryRenderDisposableInterfaceDispose(
+        InvocationExpressionSyntax invocation,
+        MemberAccessExpressionSyntax memberAccess,
+        string receiverText,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+        if (memberAccess.Name.Identifier.Text != "Dispose")
+        {
+            return false;
+        }
+
+        if (context.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+            || method.ContainingType?.SpecialType != SpecialType.System_IDisposable)
+        {
+            return false;
+        }
+
+        var receiverExpr = memberAccess.Expression;
+        while (receiverExpr is ParenthesizedExpressionSyntax parens)
+        {
+            receiverExpr = parens.Expression;
+        }
+        if (receiverExpr is CastExpressionSyntax cast && IsDisposableCastType(cast, context))
+        {
+            return false;
+        }
+        if (context.GetTypeInfo(receiverExpr).Type?.SpecialType != SpecialType.System_IDisposable)
+        {
+            return false;
+        }
+
+        context.AddImport("io.github.ningpp.compat.DisposableHelper");
+        rendered = $"DisposableHelper.dispose({receiverText})";
         return true;
     }
 
