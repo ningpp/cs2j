@@ -138,6 +138,36 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                 candidates.Add(candidateMethod);
             }
 
+            // 过载解析失败时 Roslyn 会连带报出**元数不同**的同名重载（真实链
+            // Regex.Run 的 6 参重载与 5 参泛型重载并存）：这类候选永远不可能绑定
+            // 到本次调用，留在集合里会让共享形状校验因参数个数不等直接失败，进而
+            // 让已提升声明的调用点保留 `ref`（CS1615）。先按实参个数收敛候选集，
+            // 再交给形状校验；剩下的候选仍要彼此同意每个 byref 位置。
+            var argumentCount = inv.ArgumentList.Arguments.Count;
+            candidates = candidates
+                .Where(method => method.Parameters.Length == argumentCount
+                    && !method.Parameters.Any(parameter => parameter.IsParams))
+                .ToList();
+            if (candidates.Count == 0)
+            {
+                return false;
+            }
+
+            // 只有一个候选时，命名实参（`reuseMatchObject: true`）不构成歧义来源：
+            // 按名字把 byref 实参映射到形参即可。多候选时位置映射可能因重排而不同，
+            // 仍交给共享形状校验（它会拒绝含命名实参的调用）。
+            if (candidates.Count == 1
+                && inv.ArgumentList.Arguments.Any(argument => argument.NameColon != null))
+            {
+                if (!SingleCandidateCarriesByRefShape(inv, candidates[0]))
+                {
+                    return false;
+                }
+
+                methods = candidates;
+                return true;
+            }
+
             if (!RefArgumentShapeAgrees(inv, candidates))
             {
                 return false;
@@ -257,6 +287,58 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         }
 
         methods = candidates;
+        return true;
+    }
+
+    /// <summary>
+    /// True when every byref argument of <paramref name="inv"/> maps (positionally,
+    /// or by NAME when the argument is written <c>name: value</c>) onto a parameter
+    /// of <paramref name="candidate"/> with the same ref kind. Used only when the
+    /// merged solution model reports a single applicable target: the shared shape
+    /// check cannot read named arguments, because with several candidates the
+    /// position→parameter mapping may differ per candidate.
+    /// </summary>
+    private static bool SingleCandidateCarriesByRefShape(
+        InvocationExpressionSyntax inv,
+        IMethodSymbol candidate)
+    {
+        var arguments = inv.ArgumentList.Arguments;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            var argument = arguments[i];
+            var parameterIndex = i;
+            if (argument.NameColon is { } nameColon)
+            {
+                parameterIndex = -1;
+                for (var p = 0; p < candidate.Parameters.Length; p++)
+                {
+                    if (candidate.Parameters[p].Name == nameColon.Name.Identifier.Text)
+                    {
+                        parameterIndex = p;
+                        break;
+                    }
+                }
+            }
+
+            if (parameterIndex < 0 || parameterIndex >= candidate.Parameters.Length)
+            {
+                return false;
+            }
+
+            var isRef = argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword);
+            var isOut = argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword);
+            if (!isRef && !isOut)
+            {
+                continue;
+            }
+
+            var expectedKind = isOut ? RefKind.Out : RefKind.Ref;
+            if (candidate.Parameters[parameterIndex].RefKind != expectedKind)
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 
