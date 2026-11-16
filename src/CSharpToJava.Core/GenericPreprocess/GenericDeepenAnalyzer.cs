@@ -1939,14 +1939,7 @@ public sealed class GenericDeepenAnalyzer
             {
                 var argument = generic.TypeArgumentList.Arguments[param.Ordinal];
                 var argumentType = model.GetTypeInfo(argument).Type ?? model.GetSymbolInfo(argument).Symbol as ITypeSymbol;
-                // A bare type parameter spells fine here: the rewritten call reads
-                // `typeof(T)` at this very site, where T is in scope, so the Java side
-                // resolves it through the enclosing anchor (instance generic type) or a
-                // threaded token parameter. Composite types that merely contain a type
-                // parameter (List<T>, T[]) have no usable token spelling and keep the
-                // anchor path.
-                if (argumentType == null
-                    || (argumentType is not ITypeParameterSymbol && ContainsTypeParameter(argumentType)))
+                if (argumentType == null || ContainsTypeParameter(argumentType))
                 {
                     _diagnostics.Add(new GenericDeepenDiagnostic(
                         GenericDeepenSeverity.Info, GenericDeepenRule.Anchor, GenericDeepenCodes.Info,
