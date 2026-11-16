@@ -1524,15 +1524,59 @@ public class TypeMappingService
     }
 
     /// <summary>
+    /// <summary>
     /// Returns true when the type is defined in the C# project source being converted
-    /// (as opposed to a referenced BCL/assembly type). When a config type mapping
-    /// targets a type that the project also defines in source (e.g.
-    /// System.Collections.Generic.ValueListBuilder`1), the compat import must be
-    /// skipped so the project's own converted class is used instead of being
-    /// shadowed by the single-type compat import.
+    /// and actually reaches the Java output (as opposed to a referenced BCL/assembly
+    /// type). When a config type mapping targets a type that the project also defines
+    /// in source (e.g. System.Collections.Generic.ValueListBuilder`1), the compat
+    /// import must be skipped so the project's own converted class is used instead of
+    /// being shadowed by the single-type compat import.
+    /// <para>
+    /// cs2j 注入的支撑库（Cs2jPrelude / Cs2jArray / Cs2jRefOutIn / Cs2jUnsignedMath）
+    /// 虽然参与整树编译，但从不进入 Java 转换：它们必须按“外部类型”处理，否则
+    /// 映射结果与 C# 简名相同的条目（Cs2jStructMarker → compat Cs2jStructMarker）
+    /// 会跳过 compat 导入，产出 javac 找不到符号的 implements 子句。
+    /// </para>
     /// </summary>
     private static bool IsDefinedInSource(ITypeSymbol typeSymbol)
-        => typeSymbol.Locations.Any(static loc => loc.IsInSource);
+        => typeSymbol.Locations.Any(static loc => loc.IsInSource)
+           && !IsDeclaredInSupportLibrary(typeSymbol);
+
+    private static readonly string[] SupportLibraryNames =
+    [
+        "Cs2jPrelude",
+        "Cs2jArray",
+        "Cs2jRefOutIn",
+        "Cs2jUnsignedMath",
+    ];
+
+    private static bool IsDeclaredInSupportLibrary(ITypeSymbol typeSymbol)
+    {
+        // 支撑库源码被释放为独立工程（程序集名 = 保留目录名）；先按程序集名判定。
+        if (typeSymbol.ContainingAssembly?.Name is { Length: > 0 } assemblyName
+            && SupportLibraryNames.Contains(assemblyName, StringComparer.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // 兜底：声明位置在保留的支撑库目录下（程序集名被宿主工程覆盖的布局）。
+        foreach (var location in typeSymbol.Locations)
+        {
+            if (!location.IsInSource || location.SourceTree?.FilePath is not { Length: > 0 } path)
+                continue;
+
+            var directory = Path.GetDirectoryName(path);
+            while (!string.IsNullOrEmpty(directory))
+            {
+                var name = Path.GetFileName(directory);
+                if (SupportLibraryNames.Contains(name, StringComparer.OrdinalIgnoreCase))
+                    return true;
+                directory = Path.GetDirectoryName(directory);
+            }
+        }
+
+        return false;
+    }
 
     public void AddImportsForTypePublic(string csharpType) => AddImportsForType(csharpType);
 
