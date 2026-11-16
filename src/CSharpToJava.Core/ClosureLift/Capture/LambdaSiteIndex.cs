@@ -221,6 +221,15 @@ internal static class LambdaSiteIndex
             }
 
             var symbol = model.GetSymbolInfo(name).Symbol;
+
+            // 合并整树编译里，不同工程可以声明同名同命名空间的类型（每个工程
+            // 单独编译时合法）。此时该类型的成员引用绑定为 CS0229 歧义，
+            // GetSymbolInfo 返回 null —— 无法判断是不是隐式 this 成员，静态
+            // 提升会把 this 成员引用搬进静态方法（CS0120）。这类文件保留
+            // lambda 原形即可，不做提升（fail-clean）。
+            if (symbol == null && IsAmbiguousReference(model, name))
+                return false;
+
             switch (symbol)
             {
                 // 4. Reference to a local function — the lifted method cannot call it.
@@ -285,6 +294,21 @@ internal static class LambdaSiteIndex
             => (SyntaxNode?)simple.Block ?? simple.ExpressionBody,
         _ => null,
     };
+
+    /// <summary>
+    /// True when <paramref name="name"/> failed to bind because the reference is
+    /// ambiguous (<c>CS0229</c> member ambiguity / <c>CS0104</c> type ambiguity)
+    /// rather than merely unresolved. A whole-tree compilation merges every
+    /// project, and separate projects may legally declare the same type name in
+    /// the same namespace; inside such a type every member lookup turns
+    /// ambiguous, so the capture analysis cannot classify an identifier as an
+    /// instance member. Ambiguity therefore always blocks the static path —
+    /// lifting would move a `this` member into a static method (CS0120).
+    /// </summary>
+    private static bool IsAmbiguousReference(SemanticModel model, ExpressionSyntax name)
+        => model.GetDiagnostics(name.Span).Any(d =>
+            d.Severity == DiagnosticSeverity.Error
+            && d.Id is "CS0229" or "CS0104");
 
     /// <summary>
     /// Naming anchor (D9: Cs2jLambda_&lt;HostMember&gt;_&lt;k&gt;). Same spelling rules
