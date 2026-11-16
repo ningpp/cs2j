@@ -1825,7 +1825,7 @@ public sealed class GenericDeepenAnalyzer
             // A closure inside the method anchoring the same parameter would capture
             // the injected token through a display class; keep the anchor path there.
             var candidateNames = candidates.Select(candidate => candidate.Name).ToHashSet(StringComparer.Ordinal);
-            if (_closureNeeds.Values.Any(set => set.Any(p => candidateNames.Contains(p.Name)))) continue;
+            if (ClosureInsideNeedsAny(declaration, candidateNames)) continue;
 
             // Forwarding a threaded parameter to a hoisted callee needs the anchor at
             // the call site (the hoisted invocation spells the token); keep it.
@@ -1867,6 +1867,24 @@ public sealed class GenericDeepenAnalyzer
         _methodTokens.Sort((a, b) => string.CompareOrdinal(a.FilePath, b.FilePath) != 0
             ? string.CompareOrdinal(a.FilePath, b.FilePath)
             : a.Declaration.SpanStart.CompareTo(b.Declaration.SpanStart));
+    }
+
+    /// <summary>
+    /// Whether a closure nested INSIDE this declaration needs one of the token
+    /// parameters about to be threaded. Closures elsewhere in the compilation that
+    /// merely share the type-parameter name are irrelevant — matching by name
+    /// globally blocked nearly every generic method whose parameter is called
+    /// <c>T</c>.
+    /// </summary>
+    private bool ClosureInsideNeedsAny(SyntaxNode declaration, HashSet<string> candidateNames)
+    {
+        foreach (var (closure, needs) in _closureNeeds)
+        {
+            if (!closure.Ancestors().Contains(declaration)) continue;
+            if (needs.Any(need => candidateNames.Contains(need.Name))) return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -1921,7 +1939,14 @@ public sealed class GenericDeepenAnalyzer
             {
                 var argument = generic.TypeArgumentList.Arguments[param.Ordinal];
                 var argumentType = model.GetTypeInfo(argument).Type ?? model.GetSymbolInfo(argument).Symbol as ITypeSymbol;
-                if (argumentType == null || ContainsTypeParameter(argumentType))
+                // A bare type parameter spells fine here: the rewritten call reads
+                // `typeof(T)` at this very site, where T is in scope, so the Java side
+                // resolves it through the enclosing anchor (instance generic type) or a
+                // threaded token parameter. Composite types that merely contain a type
+                // parameter (List<T>, T[]) have no usable token spelling and keep the
+                // anchor path.
+                if (argumentType == null
+                    || (argumentType is not ITypeParameterSymbol && ContainsTypeParameter(argumentType)))
                 {
                     _diagnostics.Add(new GenericDeepenDiagnostic(
                         GenericDeepenSeverity.Info, GenericDeepenRule.Anchor, GenericDeepenCodes.Info,
