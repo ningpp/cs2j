@@ -310,6 +310,10 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
         var projectFiles = layout.ProjectFiles
             .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
             .Where(file => !SupportedProjectFiltering.IsUnderExcludedProject(file, exclusionInfo))
+            // cs2j 支撑库（Cs2jPrelude 等）不进入 Java 转换：把它们选成公共定义者会让
+            // Java 侧只看到 `Cs2jTuples.TupleT0T1` 的引用而没有任何对应类
+            // （Cs2jPrelude 没有 Java 模块）。排除后共享形状回退为各使用方自带一份。
+            .Where(file => !SupportProjectIdentity.IsSupportLibraryProject(file))
             .ToList();
 
         // 项目 → 该项目编译的源文件集合、需要哪些形状。
