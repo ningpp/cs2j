@@ -1279,6 +1279,14 @@ public class StringHelper {
                 if (useStringConversion) {
                     converted[i] = b ? "True" : "False";
                 }
+            } else if (converted[i] instanceof Class<?> clazz) {
+                // C# string.Format("{0}", typeof(X)) renders Type.ToString() — the C#
+                // full name (with generic arguments). java.lang.Class.toString() prints
+                // "interface io.github.ningpp.compat.CSharpIList" instead, which broke
+                // every message the SDK asserts on.
+                if (useStringConversion) {
+                    converted[i] = TypeHelper.getCsTypeName(clazz);
+                }
             } else if (converted[i] instanceof Double d) {
                 if (useStringConversion) {
                     // C#'s string.Format("{0}", 30.0) renders the value with .NET's invariant
