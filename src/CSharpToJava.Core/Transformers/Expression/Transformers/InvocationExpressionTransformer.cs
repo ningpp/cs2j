@@ -962,6 +962,17 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 }
                 var argumentText = string.Join(", ", arguments.Select(a => a.ToInlineString()));
 
+                // extension-methods pass 会保守跳过部分 reduced 扩展调用（真实链：
+                // 闭包提升后的 `state.Item1.AsSpan(2)` / `.ToLower(span, culture)`）。
+                // MemoryExtensions 的这些方法在 Java 侧只有 compat 静态形态，必须
+                // 按静态调用发射，否则 javac 在 __P0/ReadOnlySpan 上找不到符号。
+                if (TryRenderReducedMemoryExtensionsCall(
+                        invocation, memberAccess, receiverText, argumentText, context,
+                        out var memoryExtensionsCall))
+                {
+                    return new JavaRawExpression(memoryExtensionsCall);
+                }
+
                 // Semantic precision overrides before the arity-based method mapping.
                 if (TryRenderStringComparisonEquals(invocation, memberAccess, receiverText, argumentText, context, out var equalsCall))
                 {
@@ -1915,6 +1926,15 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var receiver = TransformReceiver(
                     UnwrapErasedInterfaceCast(node, memberAccess, context)
                         ?? UnwrapExplicitDisposeCast(memberAccess, context), context);
+
+                // 与 TransformToIR 中的同名规则一致：receiver 形态的
+                // System.MemoryExtensions 扩展调用（AsSpan/ToLower/ToUpper）在
+                // Java 侧只有 compat 静态形态。
+                if (TryRenderReducedMemoryExtensionsCall(
+                        node, memberAccess, receiver, arguments, context, out var memoryExtensionsCall))
+                {
+                    return memoryExtensionsCall;
+                }
 
                 // C# selects IEnumerator<KeyValuePair<K,V>> GetEnumerator when the
                 // receiver's static type is IReadOnlyDictionary<K,V>/IDictionary<K,V>/
@@ -6237,6 +6257,86 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return false;
         }
 
+        return true;
+    }
+
+    /// <summary>
+    /// 渲染仍是 receiver 形态的 <c>System.MemoryExtensions</c> 扩展调用为 compat
+    /// 静态形态：<c>x.AsSpan(a)</c> → <c>MemoryExtensions.asSpan(x, a)</c>。
+    /// C# 侧 extension-methods pass 正常会把这类调用改写成静态调用；被它保守
+    /// 跳过（或在其之后才由 closure-lift 生成的）站点只剩 receiver 形态，而
+    /// Java 的 compat 类型只提供静态方法，不转换就会在接收者类型上找不到符号。
+    /// 符号可能因整树合并模型未绑定而缺失，故按语法名 + 接收者静态类型判定。
+    /// </summary>
+    private static bool TryRenderReducedMemoryExtensionsCall(
+        InvocationExpressionSyntax invocation,
+        MemberAccessExpressionSyntax memberAccess,
+        string receiverText,
+        string argumentText,
+        ConversionContext context,
+        out string rendered)
+    {
+        rendered = string.Empty;
+
+        // 只处理 compat MemoryExtensions 上确实存在的 span 门面方法。
+        // ToLower/ToUpper 只接管 (Span<char> destination, CultureInfo) 这个
+        // MemoryExtensions 重载；String.ToLower(CultureInfo) 由既有的
+        // StringHelper 分支处理（compat 没有单参静态形态）。
+        var name = memberAccess.Name.Identifier.Text;
+        string javaName;
+        switch (name)
+        {
+            case "AsSpan":
+                javaName = "asSpan";
+                break;
+            case "ToLower":
+                javaName = "toLowerCase";
+                break;
+            case "ToUpper":
+                javaName = "toUpperCase";
+                break;
+            default:
+                return false;
+        }
+        if (name != "AsSpan" && invocation.ArgumentList.Arguments.Count != 2)
+        {
+            return false;
+        }
+
+        // 已绑定时必须是 System.MemoryExtensions 的 reduced 扩展；绑定到其它
+        // 用户类型同名方法的调用不能被改写。
+        if (context.GetSymbolInfo(invocation).Symbol is IMethodSymbol bound
+            && (bound.MethodKind != MethodKind.ReducedExtension
+                || bound.ReducedFrom?.ContainingType?.ToDisplayString() != "System.MemoryExtensions"))
+        {
+            return false;
+        }
+
+        var receiverType = context.GetTypeInfo(memberAccess.Expression).Type;
+        var isStringReceiver = receiverType?.SpecialType == SpecialType.System_String;
+        var isSpanLike = receiverType is INamedTypeSymbol { TypeArguments.Length: 1 } named
+            && named.ContainingNamespace?.ToDisplayString() == "System"
+            && named.Name is "Span" or "ReadOnlySpan";
+        // compat 没有 asSpan(Span<T>) 形态，AsSpan 只对 string 接收者发射。
+        if (name == "AsSpan" ? !isStringReceiver : !isStringReceiver && !isSpanLike)
+        {
+            return false;
+        }
+
+        context.AddImport("io.github.ningpp.compat.MemoryExtensions");
+        if (!isStringReceiver)
+        {
+            // 接收者已是 Span/ReadOnlySpan<T>：compat 静态方法直接接受。
+        }
+        else if (name != "AsSpan")
+        {
+            // string.ToLower(destination, culture) 的接收者需要先物化为字符跨度。
+            receiverText = $"MemoryExtensions.asSpan({receiverText})";
+        }
+        var arguments = argumentText.Length == 0
+            ? receiverText
+            : $"{receiverText}, {argumentText}";
+        rendered = $"MemoryExtensions.{javaName}({arguments})";
         return true;
     }
 
