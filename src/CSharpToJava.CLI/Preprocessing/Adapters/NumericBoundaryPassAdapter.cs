@@ -27,7 +27,7 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
     private readonly NumericBoundaryStatistics _statistics = new();
     private readonly List<string> _rewrittenSourceFiles = new();
 
-    private List<string> _ownReleaseDirectories = new();
+    private IReadOnlyList<string> _ownReleaseDirectories = Array.Empty<string>();
     private IReadOnlyDictionary<string, bool> _checkForOverflowMap =
         new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
@@ -78,7 +78,9 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
 
     public override Task OnTreePreparedAsync(PassTreeContext tree)
     {
-        _ownReleaseDirectories = FindOwnReleaseLibDirectories(tree.SourceRoot);
+        // 支撑库源码是 prelude 本体，任何 pass 都不改写（改写会要求支撑库互相
+        // 引用 → MSB4006 restore 环），因此跳过全部已释放支撑库目录。
+        _ownReleaseDirectories = SupportProjectIdentity.FindReleasedSupportDirectories(tree.SourceRoot);
         _checkForOverflowMap = NumericBoundaryAnalyzer.ParseCheckForOverflowUnderflow(
             tree.Layout.ProjectFiles.Where(file =>
                 file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)));

@@ -14,6 +14,89 @@ namespace CSharpToJava.CLI.Preprocessing;
 /// </summary>
 internal static class SupportProjectIdentity
 {
+    /// <summary>
+    /// 各 pass 独立释放的支撑库项目文件名（保留名）。支撑库是彼此的 peer：
+    /// 它们由不同 pass 分别注入，若互相写入 ProjectReference，多 pass 链就会
+    /// 形成 A→B→A 的 MSB4006 restore 环（Cs2jPrelude↔Cs2jUnsignedMath）。
+    /// </summary>
+    private static readonly string[] SupportProjectFileNames =
+    [
+        Cs2jPreludeProject.ProjectFileName,
+        Cs2jArrayProject.ProjectFileName,
+        Cs2jRefOutInProject.ProjectFileName,
+        Cs2jUnsignedMathProject.ProjectFileName,
+    ];
+
+    /// <summary>
+    /// True when <paramref name="projectFilePath"/> is one of the cs2j support
+    /// library projects. Injection helpers use it to keep the libraries
+    /// reference-free peers (a cross reference is a restore cycle in the chain).
+    /// </summary>
+    public static bool IsSupportLibraryProject(string? projectFilePath)
+    {
+        if (string.IsNullOrEmpty(projectFilePath))
+        {
+            return false;
+        }
+
+        var fileName = Path.GetFileName(projectFilePath);
+        return SupportProjectFileNames.Any(
+            name => string.Equals(name, fileName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// 每个支撑库的释放目录名 + 其 csproj 内容（身份校验用）。支撑库源码是
+    /// prelude 运行时本体，任何 pass 都不得改写：改写会引入对另一个支撑库
+    /// helper 的调用，从而要求注入 ProjectReference，而支撑库互相引用即是
+    /// A→B→A 的 MSB4006 restore 环（Cs2jPrelude↔Cs2jUnsignedMath）。
+    /// </summary>
+    private static readonly (string DirectoryName, string ProjectFileName, Func<string> ReadProjectContent)[] SupportLibraries =
+    [
+        (PreludeSupportFiles.LibDirectoryName,
+         Cs2jPreludeProject.ProjectFileName,
+         PreludeSupportFiles.GetProjectFileContent),
+        (ArrayHelperSupportFiles.LibDirectoryName,
+         Cs2jArrayProject.ProjectFileName,
+         ArrayHelperSupportFiles.GetProjectFileContent),
+        (RefOutInSupportFiles.LibDirectoryName,
+         Cs2jRefOutInProject.ProjectFileName,
+         RefOutInSupportFiles.GetProjectFileContent),
+        (UnsignedMathSupportFiles.LibDirectoryName,
+         Cs2jUnsignedMathProject.ProjectFileName,
+         UnsignedMathSupportFiles.GetProjectFileContent),
+    ];
+
+    /// <summary>
+    /// Every cs2j support library physically present (and identity-matched) under
+    /// <paramref name="sourceRoot"/>. Passes use the result as their "verbatim,
+    /// never rewritten" set: the libraries are symbol sources for the C# build,
+    /// not conversion input.
+    /// </summary>
+    public static IReadOnlyList<string> FindReleasedSupportDirectories(string sourceRoot)
+    {
+        var options = new EnumerationOptions
+        {
+            IgnoreInaccessible = true,
+            RecurseSubdirectories = true,
+            MatchCasing = MatchCasing.CaseInsensitive,
+        };
+
+        var result = new List<string>();
+        foreach (var (directoryName, projectFileName, readProjectContent) in SupportLibraries)
+        {
+            foreach (var directory in Directory.EnumerateDirectories(sourceRoot, directoryName, options))
+            {
+                var projectFile = Path.Combine(directory, projectFileName);
+                if (IsOwnReleaseCopy(projectFile, readProjectContent()))
+                {
+                    result.Add(Path.GetFullPath(directory));
+                }
+            }
+        }
+
+        return result;
+    }
+
     public static bool IsOwnReleaseCopy(string projectFilePath, string expectedProjectContent)
     {
         try

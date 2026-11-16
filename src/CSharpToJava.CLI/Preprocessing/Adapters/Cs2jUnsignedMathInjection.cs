@@ -136,6 +136,12 @@ internal static class Cs2jUnsignedMathInjection
             return;
         }
 
+        // 支撑库是彼此的 peer：交叉注入会让多 pass 链形成 A→B→A 的 restore 环。
+        if (SupportProjectIdentity.IsSupportLibraryProject(projectFilePath))
+        {
+            return;
+        }
+
         XDocument document;
         try
         {

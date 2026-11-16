@@ -684,6 +684,13 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
             return;
         }
 
+        // 支撑库是彼此的 peer：交叉注入 ProjectReference 会让多 pass 链形成
+        // A→B→A 的 MSB4006 restore 环，故支撑库项目不接收任何支撑库引用。
+        if (SupportProjectIdentity.IsSupportLibraryProject(projectFilePath))
+        {
+            return;
+        }
+
         System.Xml.Linq.XDocument document;
         try
         {

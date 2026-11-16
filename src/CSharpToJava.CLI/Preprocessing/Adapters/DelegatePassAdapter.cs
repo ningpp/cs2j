@@ -210,7 +210,9 @@ internal sealed class DelegatePassAdapter : ProjectPassAdapter
         IReadOnlyList<string> rewrittenFiles,
         ProjectGraph? projectGraph)
     {
-        var ownReleaseDirectories = FindOwnReleaseLibDirectories(layout.SourceRoot);
+        // 支撑库源码是 prelude 本体，任何 pass 都不改写（改写会要求支撑库互相
+        // 引用 → MSB4006 restore 环），因此跳过全部已释放支撑库目录。
+        var ownReleaseDirectories = SupportProjectIdentity.FindReleasedSupportDirectories(layout.SourceRoot);
         var hostDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var file in rewrittenFiles)
@@ -321,6 +323,10 @@ internal sealed class DelegatePassAdapter : ProjectPassAdapter
         // the reference would create a self-reference (and an MSB4006 restore
         // cycle) whenever the input tree already ships the support project.
         if (PathsEqual(projectFilePath, libProjectPath))
+            return;
+
+        // 支撑库是彼此的 peer：交叉注入会让多 pass 链形成 A→B→A 的 restore 环。
+        if (SupportProjectIdentity.IsSupportLibraryProject(projectFilePath))
             return;
 
         XDocument document;

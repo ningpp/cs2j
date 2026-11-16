@@ -22,7 +22,7 @@ internal sealed class UnsignedPassAdapter : ProjectPassAdapter
     private readonly List<UnsignedTypeRewriterDiagnostic> _diagnostics = new();
     private readonly UnsignedTypeRewriterStatistics _statistics = new();
     private readonly List<string> _rewrittenSourceFiles = new();
-    private List<string> _ownReleaseDirectories = new();
+    private IReadOnlyList<string> _ownReleaseDirectories = Array.Empty<string>();
 
     public UnsignedPassAdapter(
         UnsignedTypeRewriterOptions options,
@@ -63,7 +63,9 @@ internal sealed class UnsignedPassAdapter : ProjectPassAdapter
 
     public override Task OnTreePreparedAsync(PassTreeContext tree)
     {
-        _ownReleaseDirectories = Cs2jUnsignedMathInjection.FindOwnReleaseLibDirectories(tree.SourceRoot);
+        // 支撑库源码是 prelude 本体，任何 pass 都不改写（改写会要求支撑库互相
+        // 引用 → MSB4006 restore 环），因此跳过全部已释放支撑库目录。
+        _ownReleaseDirectories = SupportProjectIdentity.FindReleasedSupportDirectories(tree.SourceRoot);
         return Task.CompletedTask;
     }
 

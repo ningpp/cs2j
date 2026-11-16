@@ -25,7 +25,7 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
     private readonly List<RefOutInRewriterDiagnostic> _diagnostics = new();
     private readonly RefOutInRewriterStatistics _statistics = new();
     private readonly List<string> _rewrittenSourceFiles = new();
-    private List<string> _ownReleaseDirectories = new();
+    private IReadOnlyList<string> _ownReleaseDirectories = Array.Empty<string>();
     private string? _buildLogSummary;
     private string? _testLogSummary;
     private readonly Dictionary<string, string> _finalOutputs = new(StringComparer.Ordinal);
@@ -80,7 +80,9 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
 
     public override Task OnTreePreparedAsync(PassTreeContext tree)
     {
-        _ownReleaseDirectories = FindOwnReleaseLibDirectories(tree.SourceRoot);
+        // 支撑库源码是 prelude 本体，任何 pass 都不改写（改写会要求支撑库互相
+        // 引用 → MSB4006 restore 环），因此跳过全部已释放支撑库目录。
+        _ownReleaseDirectories = SupportProjectIdentity.FindReleasedSupportDirectories(tree.SourceRoot);
         return Task.CompletedTask;
     }
 
@@ -447,6 +449,9 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
         // the reference would create a self-reference (and an MSB4006 restore
         // cycle) whenever the input tree already ships the support project.
         if (PathsEqual(projectFilePath, libProjectPath)) return;
+
+        // 支撑库是彼此的 peer：交叉注入会让多 pass 链形成 A→B→A 的 restore 环。
+        if (SupportProjectIdentity.IsSupportLibraryProject(projectFilePath)) return;
 
         XDocument document;
         try { document = XDocument.Load(projectFilePath, LoadOptions.PreserveWhitespace); }
