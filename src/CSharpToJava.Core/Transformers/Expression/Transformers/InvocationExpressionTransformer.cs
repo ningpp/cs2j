@@ -4944,6 +4944,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     context.AddImport("io.github.ningpp.compat.MathHelper");
                     rendered = $"MathHelper.formatRoundTrip({receiver})";
                 }
+                else if (boxed is "Boolean")
+                {
+                    // C# bool.ToString() 是 "True"/"False"（首字母大写），
+                    // java.lang.Boolean.toString 给 "true"/"false"。
+                    rendered = $"({receiver} ? \"True\" : \"False\")";
+                }
                 else
                 {
                     rendered = $"{boxed}.toString({receiver})";
