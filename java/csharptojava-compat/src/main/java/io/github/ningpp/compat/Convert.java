@@ -292,7 +292,30 @@ return toDecimal(value);
         if (value instanceof Double || value instanceof Float) {
             return MathHelper.formatRoundTrip(value);
         }
+        // C# object.ToString() falls back to the type's full name; Java's
+        // Object.toString() appends an identity hash ("Type@1b6d3586"), so types
+        // without an override must report the name instead.
+        if (!(value instanceof Enum) && !overridesToString(value.getClass())) {
+            return TypeHelper.getFullName(value.getClass());
+        }
         return value.toString();
+    }
+
+    private static final java.util.Map<Class<?>, Boolean> OVERRIDES_TO_STRING =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static boolean overridesToString(Class<?> type) {
+        return OVERRIDES_TO_STRING.computeIfAbsent(type, key -> {
+            for (Class<?> current = key; current != null && current != Object.class; current = current.getSuperclass()) {
+                try {
+                    current.getDeclaredMethod("toString");
+                    return true;
+                } catch (NoSuchMethodException ignored) {
+                    // keep walking up the hierarchy
+                }
+            }
+            return false;
+        });
     }
 
     /** Mirrors C# Convert.ToString(Object, IFormatProvider) — invariant provider. */
