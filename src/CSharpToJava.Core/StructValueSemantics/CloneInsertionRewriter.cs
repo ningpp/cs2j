@@ -123,16 +123,14 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
             AnnotateThisAssignments(plan, AddAnnotation);
         }
 
-        // shim 注入点（主声明文件的类型声明）与站点锚点一次性标注/改写，
+        // shim 注入点（每个同名声明文件的类型声明）与站点锚点一次性标注/改写，
         // ReplaceNodes 支持嵌套节点（嵌套 struct、struct 声明内含站点）。
         var shimDeclarations = new Dictionary<TypeDeclarationSyntax, ClonePlan>();
         foreach (var plan in _activePlans)
         {
-            if (!string.Equals(plan.PrimaryDeclarationFile, _filePath, StringComparison.OrdinalIgnoreCase))
-                continue;
             if (plan.GeneratedCopyConstructor == null && plan.GeneratedCloneMethod == null)
                 continue;
-            if (FindPrimaryDeclaration(plan) is { } declaration)
+            foreach (var declaration in FindDeclarationsInFile(plan))
                 shimDeclarations[declaration] = plan;
         }
 
@@ -984,16 +982,23 @@ internal sealed partial class CloneInsertionRewriter : CSharpSyntaxRewriter
 
     // ── shim 注入 ──
 
-    private TypeDeclarationSyntax? FindPrimaryDeclaration(ClonePlan plan)
+    /// <summary>
+    /// 本文件中该计划需要注入 shim 的全部类型声明。同名 struct 在整树合并编译里
+    /// 可能有多份源声明（元组 struct 按工程各生成一份），每一份都要注入，否则
+    /// 未注入副本所在工程编译时报 CS1061。
+    /// </summary>
+    private IEnumerable<TypeDeclarationSyntax> FindDeclarationsInFile(ClonePlan plan)
     {
-        foreach (var reference in plan.Symbol.DeclaringSyntaxReferences)
+        foreach (var symbol in plan.DeclarationSymbols)
         {
-            if (!string.Equals(reference.SyntaxTree.FilePath, _filePath, StringComparison.OrdinalIgnoreCase))
-                continue;
-            if (reference.GetSyntax().FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } declaration)
-                return declaration;
+            foreach (var reference in symbol.DeclaringSyntaxReferences)
+            {
+                if (!string.Equals(reference.SyntaxTree.FilePath, _filePath, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (reference.GetSyntax().FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } declaration)
+                    yield return declaration;
+            }
         }
-        return null;
     }
 
     private static TypeDeclarationSyntax InjectShimMembers(TypeDeclarationSyntax declaration, ClonePlan plan)

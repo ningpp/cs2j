@@ -119,6 +119,7 @@ internal static partial class StructValueSemanticsAnalyzer
                 .FirstOrDefault(r => r.GetSyntax()
                     is Microsoft.CodeAnalysis.CSharp.Syntax.BaseTypeDeclarationSyntax);
             plan.PrimaryDeclarationFile = primaryRef?.SyntaxTree.FilePath;
+            plan.DeclarationSymbols.Add(definition);
 
             if (options.SkipQualifiedNames.Contains(qn))
             {
@@ -135,6 +136,10 @@ internal static partial class StructValueSemanticsAnalyzer
             analysis.PlansBySymbol[definition] = plan;
             analysis.PlanSet.Plans.Add(plan);
         }
+
+        // 同一完全限定名的多份源声明（元组 struct 按工程各生成一份）合并为一个
+        // 计划，并把 shim 注入点扩到每一份声明（见 MergeDuplicateDeclarations）。
+        MergeDuplicateDeclarations(analysis);
 
         // 确定性排序（符号完全限定名），站点枚举/回退顺序可复现。
         analysis.PlanSet.Plans.Sort((a, b) =>
@@ -181,6 +186,15 @@ internal static partial class StructValueSemanticsAnalyzer
             if (excludedPlanIds.Contains(plan.Id)) continue;
             if (plan.PrimaryDeclarationFile != null)
                 plan.TouchedFiles.Add(plan.PrimaryDeclarationFile);
+            // 同名多份声明（见 MergeDuplicateDeclarations）：每一份都会被注入 shim，
+            // 回退面必须覆盖全部声明文件。
+            foreach (var symbol in plan.DeclarationSymbols)
+            {
+                foreach (var reference in symbol.DeclaringSyntaxReferences)
+                {
+                    plan.TouchedFiles.Add(reference.SyntaxTree.FilePath);
+                }
+            }
             foreach (var site in plan.Sites)
             {
                 plan.TouchedFiles.Add(site.FilePath);
@@ -227,6 +241,43 @@ internal static partial class StructValueSemanticsAnalyzer
                     break;
             }
         }
+    }
+
+    /// <summary>
+    /// 合并同一元数据名的多份源声明。整树合并编译里不同工程可以各自生成一份同名
+    /// struct（元组 struct 由 tuple pass 按工程分发），它们是彼此独立的符号：若各自
+    /// 建计划，值流站点只会绑定其中一个符号，shim 也只注入一份声明，其余工程的副本
+    /// 缺 Clone → CS1061（真实链 Cs2jTuples.TupleT0T1T2T3）。这里把同名符号收敛到
+    /// 一个计划，shim 注入点覆盖全部声明。
+    /// </summary>
+    private static void MergeDuplicateDeclarations(StructValueSemanticsAnalysis analysis)
+    {
+        var canonicalByKey = new Dictionary<string, ClonePlan>(StringComparer.Ordinal);
+        var merged = new List<ClonePlan>(analysis.PlanSet.Plans.Count);
+        foreach (var plan in analysis.PlanSet.Plans)
+        {
+            var key = (plan.Symbol.ContainingNamespace?.ToDisplayString() ?? string.Empty)
+                + ":" + plan.Symbol.MetadataName;
+            if (!canonicalByKey.TryGetValue(key, out var canonical))
+            {
+                canonicalByKey[key] = plan;
+                merged.Add(plan);
+                continue;
+            }
+
+            foreach (var symbol in plan.DeclarationSymbols)
+            {
+                if (!canonical.DeclarationSymbols.Contains(symbol, SymbolEqualityComparer.Default))
+                {
+                    canonical.DeclarationSymbols.Add(symbol);
+                }
+
+                analysis.PlansBySymbol[symbol] = canonical;
+            }
+        }
+
+        analysis.PlanSet.Plans.Clear();
+        analysis.PlanSet.Plans.AddRange(merged);
     }
 
     /// <summary>

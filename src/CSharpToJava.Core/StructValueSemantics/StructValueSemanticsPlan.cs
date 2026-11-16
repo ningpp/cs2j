@@ -173,6 +173,13 @@ internal sealed class ClonePlan
     /// <summary>shim 注入的主声明部件文件（partial 时取首个源声明）。</summary>
     public string? PrimaryDeclarationFile { get; set; }
 
+    /// <summary>
+    /// 同一完全限定名的全部源声明符号。整树合并编译里，同名 struct 可能有多份
+    /// 独立声明（元组 struct 按工程各生成一份）：shim 必须注入到每一份声明，
+    /// 否则没有注入的工程编译该副本时报 CS1061。
+    /// </summary>
+    public List<INamedTypeSymbol> DeclarationSymbols { get; } = new();
+
     /// <summary>合成的拷贝构造（已存在合规拷贝构造时为 null）。</summary>
     public ConstructorDeclarationSyntax? GeneratedCopyConstructor { get; set; }
 
