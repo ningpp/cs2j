@@ -1036,10 +1036,37 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             // type-only pattern plus a hoisted cast declaration; C#9 `x is T` also
             // parses here for qualified types. Same reified form as the binary `is`.
             TypePatternSyntax tp => $"{e} instanceof {Rt(Map(tp.Type, c))}",
+            // `x is { } t` — the untyped, empty-property recursive pattern whose
+            // only effect is "non-null test plus bind the value to t". The
+            // null-coalescing / null-conditional preprocessor deliberately emits
+            // this shape to evaluate a side-effecting operand once. Java 16+
+            // recursive instanceof carries the same semantics; the erased host
+            // class of the operand's static type is the instanceof target.
+            RecursivePatternSyntax
+            {
+                Type: null,
+                PropertyPatternClause.Subpatterns.Count: 0,
+                Designation: SingleVariableDesignationSyntax d
+            } => NonNullDeclarationPattern(e, n.Expression, d, c),
             ConstantPatternSyntax { Expression: LiteralExpressionSyntax l } when l.IsKind(SyntaxKind.NullLiteralExpression) => $"{e} == null",
             DiscardPatternSyntax => "true",
             _ => "/* TODO: unsupported pattern */ true"
         };
+    }
+    private static string NonNullDeclarationPattern(
+        string e, ExpressionSyntax operand, SingleVariableDesignationSyntax d, ConversionContext c)
+    {
+        if ((int)c.Options.TargetJavaVersion < 16)
+            return "/* TODO: unsupported pattern */ true";
+        // Reified target: the operand's static type with generic arguments
+        // erased (`CSharpGenericIterable<EdgeGeometry>` → `CSharpGenericIterable`);
+        // null for unresolved/type-parameter/primitive operands where an
+        // instanceof pattern cannot be written.
+        var patternType = RuntimeClassName(c.GetTypeInfo(operand).Type, c);
+        if (patternType is null)
+            return "/* TODO: unsupported pattern */ true";
+        var v = ConversionContext.EscapeJavaKeyword(d.Identifier.ValueText);
+        return $"{e} instanceof {patternType} {v}";
     }
     private static string DeclPattern(string e, DeclarationPatternSyntax d, ConversionContext c)
     {
