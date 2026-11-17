@@ -480,6 +480,34 @@ public class MethodTransformer : IMemberTransformer
         JavaMethodDeclaration jm, AssignmentExpressionSyntax assignment, ConversionContext ctx)
     {
         var facade = ExpressionTransformerFacade.Instance;
+        // 丢弃目标 `_` 不是真实存储（`_` 也不是合法 Java 标识符）：赋值表达式的值
+        // 就是右值，只需把右值求值一次并作为返回值，不回读左值（否则产出未声明的
+        // `_Value`）。
+        if (assignment.Left is IdentifierNameSyntax { Identifier.ValueText: "_" })
+        {
+            var right = facade.Transform(assignment.Right, ctx).TrimEnd(';');
+            var pre = ctx.HasPendingPreStatements
+                ? ctx.DrainPreStatements().ToList()
+                : new List<string>();
+            var blockLines = pre.Select(s => s.TrimEnd(';') + ";").ToList();
+            if (jm.ReturnType == "void")
+            {
+                blockLines.Add(right + ";");
+            }
+            else
+            {
+                if (ctx.IsInAsyncContext)
+                {
+                    ctx.AddImport("java.util.concurrent.CompletableFuture");
+                    right = $"CompletableFuture.completedFuture({right})";
+                }
+                blockLines.Add($"return {right};");
+            }
+            jm.Body = string.Join("\n", blockLines);
+            jm.IsBodyExpression = false;
+            return;
+        }
+
         var statement = facade.Transform(assignment, ctx).TrimEnd(';');
         var preBefore = ctx.HasPendingPreStatements ? ctx.DrainPreStatements().ToList() : new List<string>();
         // 赋值表达式的值 = 赋入值：按值位置重读左值（属性 → getX()）。
