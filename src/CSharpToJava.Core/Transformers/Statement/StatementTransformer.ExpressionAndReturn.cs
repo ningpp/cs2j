@@ -348,7 +348,7 @@ public partial class StatementTransformer
         // return type (the compat entry is declared Object-returning) so member
         // access on the result resolves.
         if (retType != null
-            && expr.TrimStart().StartsWith("JsonConvert.deserializeObject(", StringComparison.Ordinal))
+            && JsonDeserializeRewrite.IsJsonDeserializeObjectCall(expr))
         {
             if (JsonDeserializeRewrite.TryRewriteTypedJsonDeserialize(expr, retType, ctx) is { } typedJson)
                 expr = typedJson;

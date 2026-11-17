@@ -34,7 +34,11 @@ internal static class JsonDeserializeRewrite
         if (targetType is ITypeParameterSymbol or IErrorTypeSymbol) return null;
 
         const string prefix = "JsonConvert.deserializeObject(";
-        var text = rendered.Trim();
+        // 泛型调用点（类型令牌重载）会先给结果补原始 cast：
+        // ((CSharpList<T>) (CSharpList) JsonConvert.deserializeObject(...))。
+        // 先剥掉这些前置/包裹 cast，再解析括号与 JSON 实参；改写结果不再带 cast，
+        // 由调用方按目标类型补。
+        var text = StripLeadingCasts(rendered.Trim());
         if (!text.StartsWith(prefix, StringComparison.Ordinal)) return null;
         var close = FindMatchingParenthesis(text, prefix.Length - 1);
         if (close != text.Length - 1) return null;
@@ -59,6 +63,80 @@ internal static class JsonDeserializeRewrite
     }
 
     /// <summary>
+    /// True when the rendered value is a <c>JsonConvert.deserializeObject(...)</c>
+    /// call, possibly wrapped in the raw/parameterized casts the generic call site
+    /// emits (e.g. <c>((CSharpList&lt;T&gt;) (CSharpList) ...)</c>). Slots use this
+    /// instead of a bare <c>StartsWith</c> so the typed rewrite still runs.
+    /// </summary>
+    internal static bool IsJsonDeserializeObjectCall(string rendered)
+        => StripLeadingCasts(rendered.Trim())
+            .StartsWith("JsonConvert.deserializeObject(", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Strips optional leading/whole-expression casts of the form <c>(Type) expr</c>
+    /// or <c>(Type) (RawType) expr</c> emitted by the generic call site, returning
+    /// the operand text. Only parenthesized runs that look like a Java type name
+    /// are treated as casts, so ordinary parenthesized expressions are left alone.
+    /// </summary>
+    private static string StripLeadingCasts(string text)
+    {
+        while (text.Length > 2 && text[0] == '(')
+        {
+            var close = FindMatchingParenthesis(text, 0);
+            if (close < 0) return text;
+            var inner = text.Substring(1, close - 1);
+            if (close == text.Length - 1)
+            {
+                // 整个表达式被一对括号包住（外层 cast 的右括号即表达式末尾）。
+                text = inner.Trim();
+                continue;
+            }
+            if (!LooksLikeJavaTypeName(inner)) return text;
+            var rest = text[(close + 1)..];
+            if (rest.Length == 0 || !char.IsWhiteSpace(rest[0])) return text;
+            text = rest.TrimStart();
+        }
+        return text;
+    }
+
+    /// <summary>
+    /// 粗判括号内的文本是否为 Java 类型名（标识符、点分名、泛型实参、数组/通配
+    /// 符）。含运算符、引号、括号等非类型字符时返回 false，避免把普通表达式误当
+    /// 成前置 cast。
+    /// </summary>
+    private static bool LooksLikeJavaTypeName(string text)
+    {
+        if (text.Length == 0) return false;
+        if (!(char.IsLetter(text[0]) || text[0] is '_' or '$')) return false;
+        var angles = 0;
+        var squares = 0;
+        foreach (var c in text)
+        {
+            if (char.IsLetterOrDigit(c) || c is '_' or '$' or '.' or '?' or ',' or ' ') continue;
+            switch (c)
+            {
+                case '<':
+                    angles++;
+                    break;
+                case '>':
+                    if (angles == 0) return false;
+                    angles--;
+                    break;
+                case '[':
+                    squares++;
+                    break;
+                case ']':
+                    if (squares == 0) return false;
+                    squares--;
+                    break;
+                default:
+                    return false;
+            }
+        }
+        return angles == 0 && squares == 0;
+    }
+
+    /// <summary>
     /// Re-types a value written into an assignment slot (field / property / simple
     /// local). Mirrors the local-declaration and return handling: a direct
     /// <c>JsonConvert.deserializeObject(...)</c> goes through the typed compat entry
@@ -74,7 +152,7 @@ internal static class JsonDeserializeRewrite
         if (ctx.SemanticModel == null || targetType == null) return null;
         if (targetType is ITypeParameterSymbol or IErrorTypeSymbol) return null;
 
-        if (rendered.TrimStart().StartsWith("JsonConvert.deserializeObject(", StringComparison.Ordinal))
+        if (IsJsonDeserializeObjectCall(rendered))
         {
             // Only concrete class/array targets and List-family slots (mapped to
             // CSharpList) can carry the typed result as-is; other collection

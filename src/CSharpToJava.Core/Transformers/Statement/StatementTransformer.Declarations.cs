@@ -90,7 +90,7 @@ public partial class StatementTransformer
                 // JsonConvert.DeserializeObject<T> erases its type argument in Java;
                 // route the call through the typed compat entry and restore the
                 // declared local type so member access resolves.
-                if (initExprText.TrimStart().StartsWith("JsonConvert.deserializeObject(", StringComparison.Ordinal))
+                if (JsonDeserializeRewrite.IsJsonDeserializeObjectCall(initExprText))
                 {
                     if (JsonDeserializeRewrite.TryRewriteTypedJsonDeserialize(initExprText, localType, context) is { } typedJson)
                         initExprText = typedJson;
