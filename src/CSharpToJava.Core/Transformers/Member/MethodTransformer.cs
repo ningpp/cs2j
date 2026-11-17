@@ -1612,9 +1612,15 @@ public class MethodTransformer : IMemberTransformer
         if (symbol.ExplicitInterfaceImplementations.Length > 0)
             return;
 
-        var signature = ErasedSignature(method.Parameters, symbol);
+        // A class type parameter is erased to Object in Java, but emitted parameter
+        // types are rendered with the C# name (__P0/__P1). Normalize the same set of
+        // names on the emitted side; otherwise get_graph(__P0) and get_Graph(__P1)
+        // look like different signatures and both emit Graph(__Px) (javac 名称冲突).
+        var erasedTypeParameters = CollectTypeParameterNames(symbol.ContainingType);
+        var signature = ErasedSignature(method.Parameters, symbol, erasedTypeParameters);
         var colliding = javaClass.Methods.FirstOrDefault(m =>
-            m.Name == method.Name && ErasedSignature(m.Parameters, null) == signature);
+            m.Name == method.Name
+            && ErasedSignature(m.Parameters, null, erasedTypeParameters) == signature);
         if (colliding == null)
             return;
         // Property accessors keep their bean name: the mechanical dedup drops the
@@ -1664,7 +1670,26 @@ public class MethodTransformer : IMemberTransformer
         context.RegisterErasureConflictMethodName(symbol, method.Name);
     }
 
-    private static string ErasedSignature(IEnumerable<JavaParameter> parameters, IMethodSymbol? symbol)
+    /// <summary>
+    /// Java names of the type parameters visible from <paramref name="type"/> (its own
+    /// and its base types'). Emitted parameter types keep the C# name, so these are
+    /// compared as Object to mirror Java erasure.
+    /// </summary>
+    private static HashSet<string> CollectTypeParameterNames(INamedTypeSymbol? type)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            foreach (var parameter in current.TypeParameters)
+                names.Add(ConversionContext.EscapeJavaKeyword(parameter.Name));
+        }
+        return names;
+    }
+
+    private static string ErasedSignature(
+        IEnumerable<JavaParameter> parameters,
+        IMethodSymbol? symbol,
+        IReadOnlySet<string>? erasedTypeParameters = null)
     {
         int index = 0;
         return string.Join(",", parameters.Select(p =>
@@ -1680,7 +1705,12 @@ public class MethodTransformer : IMemberTransformer
             index++;
             var type = p.Type;
             var angle = type.IndexOf('<');
-            return angle >= 0 ? type[..angle].TrimEnd() : type;
+            var erased = angle >= 0 ? type[..angle].TrimEnd() : type;
+            // Same erasure for the containing type's parameters (get_graph(__P0) vs
+            // get_Graph(__P1) must be detected as one Java signature).
+            return erasedTypeParameters != null && erasedTypeParameters.Contains(erased)
+                ? "Object"
+                : erased;
         }));
     }
 
