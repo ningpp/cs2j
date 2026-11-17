@@ -204,10 +204,6 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
         @"(?<arr>dotFiles)\.sorted\(",
         RegexOptions.Compiled);
 
-    private static readonly Regex RTreeRefArgument = new(
-        @"(?<call>rTreeQuery_[A-Za-z0-9_]+)\((?<first>[^,]+), (?<second>[A-Za-z_$][A-Za-z0-9_$]*),",
-        RegexOptions.Compiled);
-
     private static readonly Regex GenericJaggedArray = new(
         @"(?<field>[A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*\((?<type>[A-Za-z_$][A-Za-z0-9_$]*)\[\]\[\]\)\s*new Object\[(?<length>[^\]]+)\]\[\];",
         RegexOptions.Compiled);
@@ -239,9 +235,6 @@ public sealed class ResidualExtensionCallRewriter : JavaSyntaxRewriter
         code = PrimitiveFromAnyTyped.Replace(code, "CSharpGenericIterable.fromAnyTyped");
         code = ArrayReduce.Replace(code, "ArrayHelper.asListView(${arr}).reduce(");
         code = ArraySorted.Replace(code, "io.github.ningpp.compat.ArrayHelper.sorted(${arr}, ");
-        code = RTreeRefArgument.Replace(
-            code,
-            "${call}(${first}, new io.github.ningpp.compat.ObjectHolder<>(${second}),");
         code = GenericJaggedArray.Replace(
             code,
             "${field} = (${type}[][]) io.github.ningpp.compat.CSharpArray"
