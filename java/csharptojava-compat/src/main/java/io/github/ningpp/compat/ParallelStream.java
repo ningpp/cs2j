@@ -49,4 +49,17 @@ public class ParallelStream {
                                    java.util.function.Consumer<T> body) {
         forEach(source, null, body);
     }
+
+    /**
+     * C# Parallel.Invoke(params Action[]). Executed sequentially, matching the
+     * single-threaded emulation used by the other methods here.
+     */
+    public static void invoke(Runnable... actions) {
+        if (actions == null) {
+            return;
+        }
+        for (Runnable action : actions) {
+            action.run();
+        }
+    }
 }
