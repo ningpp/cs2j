@@ -44,6 +44,11 @@ public final class Regex {
         return pattern.split(input == null ? "" : input);
     }
 
+    /** C# Regex.Split(string input, string pattern). */
+    public static String[] split(String input, String pattern) {
+        return new Regex(pattern).split(input);
+    }
+
     /** C# Regex.Unescape. */
     public static String unescape(String value) {
         return value == null ? null : java.util.regex.Pattern.compile("\\\\.").matcher(value)
