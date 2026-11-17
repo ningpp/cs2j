@@ -1137,8 +1137,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         ? receiverText
                         : BuildStreamReceiver(receiverText, memberAccess.Expression, context);
                     return new JavaRawExpression(WrapPrimitiveArrayUnbox(
-                        $"{toArrayStream}.toArray("
-                        + BuildToArrayFactory(element, toArrayElement) + ")",
+                        BuildToArrayExpression(toArrayStream, element, toArrayElement),
                         context.GetTypeInfo(invocation).Type, context));
                 }
 
@@ -2166,8 +2165,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                         ? receiver
                         : BuildStreamReceiver(receiver, memberAccess.Expression, context);
                     return WrapPrimitiveArrayUnbox(
-                        $"{toArrayStream}.toArray("
-                        + BuildToArrayFactory(element, irToArrayElement) + ")",
+                        BuildToArrayExpression(toArrayStream, element, irToArrayElement),
                         context.GetTypeInfo(node).Type, context);
                 }
 
@@ -4175,8 +4173,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             var element = arrayType != null
                 ? BoxPrimitive(context.MapType(arrayType.ElementType))
                 : "Object";
-            var materialized = $"{arrayStream}.toArray("
-                + BuildToArrayFactory(element, arrayType?.ElementType) + ")";
+            var materialized = BuildToArrayExpression(arrayStream, element, arrayType?.ElementType);
             rendered = arrayType != null
                 ? WrapPrimitiveArrayUnbox(materialized, context.GetTypeInfo(invocation).Type, context)
                 : materialized;
@@ -6055,8 +6052,31 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return $"size -> ({element}[]) new Object[size]";
         var angle = element.IndexOf('<');
         if (angle > 0)
-            return $"size -> ({element}[]) new {element[..angle]}[size]";
+        {
+            // 泛型元素用原始组件类型的数组构造器方法引用：方法引用是精确表达式，
+            // A 可本地确定为原始 X，不像 `size -> (X<...>[]) new X[size]` 那样
+            // 只能靠目标类型推断（见 BuildToArrayExpression 的重载歧义说明）。
+            return $"{element[..angle]}[]::new";
+        }
         return $"{element}[]::new";
+    }
+
+    /// <summary>
+    /// 渲染 `<c>stream.toArray(factory)</c>`，并在元素是泛型具名类型时对整体
+    /// 加参数化数组强转。`toArray(IntFunction&lt;A[]&gt;)` 的 lambda 实参是
+    /// target-typed 多态表达式，A 只能由目标类型推断；当 ToArray 结果又作为实参
+    /// 传给 `params` 重载（如 CreateGraph(int, TupleT0T1&lt;int,int&gt;[] 内部
+    /// 转调 CreateGraph(int, TupleT0T1T2T3T4T5&lt;...&gt;[])）时，javac 会对两个候选
+    /// 分别推断 A，得到互相冲突的上限，报“对 createGraph 的引用不明确 /
+    /// 推论变量 A 具有不兼容的上限”。先强转成目标参数化数组可让实参类型成为
+    /// manifest 类型，切断推断变量向重载解析的传播；运行时行为不变。
+    /// </summary>
+    private static string BuildToArrayExpression(string stream, string element, ITypeSymbol? elementSymbol)
+    {
+        var call = $"{stream}.toArray({BuildToArrayFactory(element, elementSymbol)})";
+        if (elementSymbol is not ITypeParameterSymbol && element.IndexOf('<') > 0)
+            return $"({element}[]) {call}";
+        return call;
     }
 
     private static string WrapSortKeySelectorTextWithWitness(
