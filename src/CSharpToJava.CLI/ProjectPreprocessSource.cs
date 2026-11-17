@@ -1543,6 +1543,49 @@ internal static class ProjectPreprocessSource
         return null;
     }
 
+    /// <summary>
+    /// Projects of the conversion entry graph (the solution / project given on
+    /// the command line plus its project references). Conditional-directive
+    /// symbol resolution is restricted to this set: projects that merely live
+    /// below the same source root but are not part of the conversion must not
+    /// influence which branch of a shared file is kept. Returns null when the
+    /// entry has no project graph (plain directory conversion) so resolution
+    /// keeps its whole-tree behavior.
+    /// </summary>
+    internal static IReadOnlyCollection<string>? ResolveOwnerProjectScope(
+        string? entryPath,
+        bool verbose)
+    {
+        if (string.IsNullOrWhiteSpace(entryPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var layout = ResolveLayout(entryPath);
+            var graph = TryLoadProjectGraph(layout, verbose);
+            if (graph == null)
+            {
+                return null;
+            }
+
+            return graph.ProjectsInTopologicalOrder
+                .Select(project => Path.GetFullPath(project.ProjectFilePath))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            if (verbose)
+            {
+                Console.Error.WriteLine(
+                    $"Warning: could not resolve the conversion project scope: {ex.Message}");
+            }
+
+            return null;
+        }
+    }
+
     internal static string GetCommonRoot(IEnumerable<string> paths)
     {
         var normalized = paths

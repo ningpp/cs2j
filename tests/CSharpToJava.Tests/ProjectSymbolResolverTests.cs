@@ -461,6 +461,56 @@ public sealed class ProjectSymbolResolverTests : IDisposable
         Assert.Empty(result.Warnings);
     }
 
+    [Fact]
+    public void SharedFile_OwnerOutsideConversionScope_DoesNotPreserveDirectives()
+    {
+        const string code = """
+            #if SHARPKIT
+            class SharpKitOnly {}
+            #else
+            class DesktopOnly {}
+            #endif
+            """;
+        var file = WriteFile("MSAGL/Core/RBTree.cs", code);
+        WriteFile("MSAGL/AutomaticGraphLayout.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+            </Project>
+            """);
+        WriteFile("MsaglSharpkit/MsaglSharpKit.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                <DefineConstants>SHARPKIT</DefineConstants>
+              </PropertyGroup>
+              <ItemGroup><Compile Include="../MSAGL/Core/RBTree.cs" /></ItemGroup>
+            </Project>
+            """);
+
+        // Whole-tree resolution sees both owners and preserves the directives.
+        var unscoped = ProjectSymbolResolver.ResolveForFile(
+            file, sourceRoot: _root, sourceCode: code);
+        Assert.True(unscoped.PreserveDirectives);
+
+        // The conversion entry only contains AutomaticGraphLayout.csproj, so the
+        // linked compile item of the sibling project must not block the strip.
+        var scoped = ProjectSymbolResolver.ResolveForFile(
+            file,
+            sourceRoot: _root,
+            sourceCode: code,
+            projectScope: [Path.Combine(_root, "MSAGL", "AutomaticGraphLayout.csproj")]);
+
+        Assert.False(scoped.PreserveDirectives);
+        Assert.Empty(scoped.Warnings);
+
+        var stripped = new ConditionalDirectiveStripper().Strip(
+            code,
+            new ConditionalDirectiveStripOptions { Symbols = scoped.Symbols });
+        Assert.Contains("class DesktopOnly", stripped.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("SharpKitOnly", stripped.OutputCode, StringComparison.Ordinal);
+    }
+
     private static IReadOnlyList<string> Synthesize(string tfm)
     {
         var symbols = new List<string>();

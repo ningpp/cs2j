@@ -17,6 +17,13 @@ internal sealed class LexicalNormalizePassAdapter : ProjectPassAdapter
     private readonly IReadOnlyCollection<string>? _compatNamespacePrefixes;
     private readonly string? _sourceRoot;
 
+    /// <summary>
+    /// Projects of the conversion entry graph; must match the scope the
+    /// conditional pass used so the LN-3 downgrade decision sees the same
+    /// owners (a file stripped by that pass never reaches this check).
+    /// </summary>
+    private readonly Lazy<IReadOnlyCollection<string>?> _ownerProjectScope;
+
     private readonly List<string> _diagnostics = new();
     private readonly List<(GlobalUsingRecord Record, string RelativePath, int Line)> _globalUsings = new();
 
@@ -47,6 +54,9 @@ internal sealed class LexicalNormalizePassAdapter : ProjectPassAdapter
         _filterUnsupportedProjects = filterUnsupportedProjects;
         _compatNamespacePrefixes = compatNamespacePrefixes;
         _sourceRoot = sourceRoot;
+        _ownerProjectScope = new Lazy<IReadOnlyCollection<string>?>(
+            () => ProjectPreprocessSource.ResolveOwnerProjectScope(_sourceRoot, verbose),
+            LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     public override PassDescriptor Descriptor =>
@@ -97,7 +107,8 @@ internal sealed class LexicalNormalizePassAdapter : ProjectPassAdapter
                 context.SourceFilePath,
                 configuration: "Release",
                 sourceRoot: _sourceRoot,
-                sourceCode: context.SourceCode);
+                sourceCode: context.SourceCode,
+                projectScope: _ownerProjectScope.Value);
         }
 
         var preservedDirectives = resolvedSymbols?.PreserveDirectives == true;

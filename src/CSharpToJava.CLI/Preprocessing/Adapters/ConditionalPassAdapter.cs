@@ -20,6 +20,15 @@ internal sealed class ConditionalPassAdapter : ProjectPassAdapter
     private readonly bool _removeRegions;
     private readonly string? _sourceRoot;
 
+    /// <summary>
+    /// Projects of the conversion entry graph. Shared files are common in this
+    /// tree (MsaglSharpKit-style projects link sources from their sibling
+    /// project directories), and a project outside the entry solution must not
+    /// preserve directives for a file this conversion strips and rewrites.
+    /// Resolved once per pass; null keeps the whole-tree behavior.
+    /// </summary>
+    private readonly Lazy<IReadOnlyCollection<string>?> _ownerProjectScope;
+
     private readonly List<string> _diagnostics = new();
 
     /// <summary>
@@ -51,6 +60,9 @@ internal sealed class ConditionalPassAdapter : ProjectPassAdapter
         _tfm = tfm;
         _removeRegions = removeRegions;
         _sourceRoot = sourceRoot;
+        _ownerProjectScope = new Lazy<IReadOnlyCollection<string>?>(
+            () => ProjectPreprocessSource.ResolveOwnerProjectScope(_sourceRoot, verbose),
+            LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     public override PassDescriptor Descriptor => PassCatalog.ImplementedById(PassIds.Conditional);
@@ -108,7 +120,8 @@ internal sealed class ConditionalPassAdapter : ProjectPassAdapter
             resolvedTfm: resolvedTfm,
             sourceRoot: _sourceRoot,
             projectTfmResolver: ResolveTfmForProject,
-            sourceCode: context.SourceCode);
+            sourceCode: context.SourceCode,
+            projectScope: _ownerProjectScope.Value);
 
         var diagnosticLines = new List<string>(symbols.Warnings.Count);
         foreach (var warning in symbols.Warnings)

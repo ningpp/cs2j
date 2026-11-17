@@ -23,7 +23,8 @@ public static class ProjectSymbolResolver
         string? resolvedTfm = null,
         string? sourceRoot = null,
         Func<string, string?>? projectTfmResolver = null,
-        string? sourceCode = null)
+        string? sourceCode = null,
+        IReadOnlyCollection<string>? projectScope = null)
     {
         // Shared source files are compiled by several projects with different
         // DefineConstants. Stripping them once with a single symbol set picks
@@ -44,7 +45,8 @@ public static class ProjectSymbolResolver
             IsSameOrBelow(Path.GetFullPath(filePath), Path.GetFullPath(treeRoot)))
         {
             return ResolveForTreeOwners(
-                filePath, treeRoot, configuration, tfm, extraDefines, resolvedTfm, projectTfmResolver, sourceCode);
+                filePath, treeRoot, configuration, tfm, extraDefines, resolvedTfm,
+                projectTfmResolver, sourceCode, projectScope);
         }
 
         return ResolveForProject(
@@ -59,9 +61,10 @@ public static class ProjectSymbolResolver
         IEnumerable<string>? extraDefines,
         string? resolvedTfm,
         Func<string, string?>? projectTfmResolver,
-        string? sourceCode)
+        string? sourceCode,
+        IReadOnlyCollection<string>? projectScope)
     {
-        var index = ProjectCompileIndex.ForRoot(sourceRoot, configuration);
+        var index = ProjectCompileIndex.ForRoot(sourceRoot, configuration, projectScope);
         if (index.ProjectCount == 0)
         {
             // No project tree at all: preserve the historical behavior (loose
@@ -808,7 +811,11 @@ public static class ProjectSymbolResolver
 /// sources are linked into projects with explicit <c>Compile Include</c> items
 /// (and into SDK projects through the default item glob), so deciding "which
 /// project compiles this file" requires the whole tree, not the nearest csproj.
-/// Built once per (root, configuration) and cached for the preprocessing run.
+/// Built once per (root, configuration, project scope) and cached for the
+/// preprocessing run. A non-null scope restricts attribution to the projects of
+/// the conversion entry graph (solution + project references), so unrelated
+/// sibling projects below the same root cannot preserve directives for a file
+/// they will never convert or compile.
 /// </summary>
 internal sealed class ProjectCompileIndex
 {
@@ -817,7 +824,10 @@ internal sealed class ProjectCompileIndex
 
     private readonly List<IndexedCompileProject> _projects;
 
-    public static ProjectCompileIndex ForRoot(string root, string configuration)
+    public static ProjectCompileIndex ForRoot(
+        string root,
+        string configuration,
+        IReadOnlyCollection<string>? projectScope = null)
     {
         var fullRoot = Path.GetFullPath(root);
         if (File.Exists(fullRoot))
@@ -826,12 +836,32 @@ internal sealed class ProjectCompileIndex
         }
 
         var key = fullRoot + "\0" + configuration;
-        return Cache.GetOrAdd(key, _ => new ProjectCompileIndex(fullRoot, configuration));
+        if (projectScope is { Count: > 0 })
+        {
+            // The conversion entry (solution / project graph) may not cover the
+            // whole source tree: sibling projects that merely live below the
+            // same root are never converted, so their compile items must not
+            // vote when resolving a shared file's preprocessor symbols.
+            key += "\0" + string.Join(
+                "\0",
+                projectScope
+                    .Select(project => ProjectSymbolResolver.NormalizePath(Path.GetFullPath(project)))
+                    .OrderBy(project => project, StringComparer.OrdinalIgnoreCase));
+        }
+
+        return Cache.GetOrAdd(key, _ => new ProjectCompileIndex(fullRoot, configuration, projectScope));
     }
 
-    private ProjectCompileIndex(string root, string configuration)
+    private ProjectCompileIndex(
+        string root,
+        string configuration,
+        IReadOnlyCollection<string>? projectScope)
     {
+        HashSet<string>? scope = projectScope is { Count: > 0 }
+            ? new HashSet<string>(projectScope.Select(Path.GetFullPath), StringComparer.OrdinalIgnoreCase)
+            : null;
         _projects = EnumerateProjectFiles(root)
+            .Where(project => scope == null || scope.Contains(project))
             .Select(project => IndexedCompileProject.TryLoad(project, configuration))
             .Where(project => project != null)
             .Select(project => project!)
