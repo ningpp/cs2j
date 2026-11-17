@@ -277,6 +277,25 @@ public partial class StatementTransformer
             {
                 return mappedGenericTuple;
             }
+            // Cs2jTuples tuple structs (`TupleT0T1<int[], double[][]>`): javac may
+            // infer `var` as the raw `TupleT0T1` when the returning method is
+            // compiled in another file of the same batch, degrading `ItemN` to
+            // Object. The explicit mapped type provides the assignment target and
+            // keeps the parameterized element types; the tuple name/shape check
+            // keeps unrelated `Tuple…`-prefixed business types on `var`.
+            if (first != null
+                && (context.GetDeclaredSymbol(first) as ILocalSymbol)?.Type is INamedTypeSymbol
+                {
+                    TypeArguments.Length: > 0,
+                    ContainingNamespace: { } tupleStructNamespace
+                } tupleStructLocal
+                && tupleStructLocal.Name.StartsWith("Tuple", StringComparison.Ordinal)
+                && tupleStructNamespace.ToDisplayString() != "System"
+                && context.MapType(tupleStructLocal) is { } mappedTupleStruct
+                && IsParameterizedTupleTypeName(mappedTupleStruct))
+            {
+                return mappedTupleStruct;
+            }
             return "var";
         }
 
@@ -310,6 +329,23 @@ public partial class StatementTransformer
     /// only case where a Java side must restate the substituted type because
     /// <c>var</c> cannot infer a generic method's type parameter from the call.
     /// </summary>
+    /// <summary>
+    /// True when the mapped type is a parameterized tuple type
+    /// (<c>TupleT0T1&lt;…&gt;</c> / <c>Some.Package.TupleT0T1&lt;…&gt;</c>), i.e. the
+    /// mapped simple name starts with <c>Tuple</c> and a type argument list follows.
+    /// </summary>
+    private static bool IsParameterizedTupleTypeName(string mappedType)
+    {
+        var open = mappedType.IndexOf('<');
+        if (open <= 0)
+            return false;
+        var simpleName = mappedType.Substring(0, open);
+        var lastDot = simpleName.LastIndexOf('.');
+        if (lastDot >= 0)
+            simpleName = simpleName.Substring(lastDot + 1);
+        return simpleName.StartsWith("Tuple", StringComparison.Ordinal);
+    }
+
     private static bool HasExplicitGenericTypeArguments(InvocationExpressionSyntax invocation)
         => invocation.Expression switch
         {
