@@ -207,7 +207,9 @@ public final class TypeHelper {
     /**
      * Maps the type arguments registered for a constructed class onto a declaring
      * base class's type argument: only an identity path (the base argument is the
-     * class's own type variable) yields a token from {@code ownTokens}.
+     * class's own type variable) yields a token from {@code ownTokens}. A
+     * non-generic concrete class has no own type variable to map through, so its
+     * recorded arguments are positional.
      */
     private static Class<?> ownTokenForDeclaringArgument(
             Class<?>[] ownTokens, Class<?> concreteType, Class<?> declaringType, int index) {
@@ -217,7 +219,13 @@ public final class TypeHelper {
         java.lang.reflect.Type expression =
             resolveTypeArgumentExpression(concreteType, declaringType, index, new java.util.HashMap<>());
         if (!(expression instanceof java.lang.reflect.TypeVariable<?> variable)) {
-            return null;
+            // 非泛型具体类没有自己的类型参数，MakeGenericType 为它登记的实参只能按
+            // 声明类型的位置解读（用具体子类闭合基类实参）。泛型类则不能这样做：
+            // 声明实参固定（JsonConverter<object>）或本身是构造类型
+            // （JsonConverter<KeyValuePair<K,V>>）时，位置索引会落到其他实参上。
+            return concreteType.getTypeParameters().length == 0
+                ? typeArgumentAt(ownTokens, index)
+                : null;
         }
         java.lang.reflect.TypeVariable<?>[] parameters = concreteType.getTypeParameters();
         for (int i = 0; i < parameters.length && i < ownTokens.length; i++) {
