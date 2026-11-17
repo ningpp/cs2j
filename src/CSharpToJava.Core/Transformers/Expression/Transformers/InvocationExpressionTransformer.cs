@@ -1639,7 +1639,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         ExpressionSyntax argumentExpression,
         ConversionContext context)
     {
-        var containing = method?.ContainingType;
+        // Only an instance write targets the slot (ByRef<T>.setValue(value) and
+        // friends). A static factory such as Create(T[] array, int index) takes
+        // the index — not a slot value — as its extra argument, so boxing it by
+        // the slot type emits an invalid create(double[], Double).
+        if (method is not { IsStatic: false })
+            return transformed;
+
+        var containing = method.ContainingType;
         if (containing == null || containing.TypeArguments.Length != 1)
             return transformed;
 
