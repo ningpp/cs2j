@@ -340,9 +340,9 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         var visited = (ConversionOperatorDeclarationSyntax)base.VisitConversionOperatorDeclaration(node)!;
         if (visited.Body == null && visited.ExpressionBody != null)
         {
-            var @return = SyntaxFactory.ReturnStatement(visited.ExpressionBody.Expression);
+            var statement = ReturnOrThrow(visited.ExpressionBody.Expression);
             visited = visited
-                .WithBody(SyntaxFactory.Block(@return))
+                .WithBody(SyntaxFactory.Block(statement))
                 .WithExpressionBody(null)
                 .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
         }
@@ -387,9 +387,9 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         OperatorDeclarationSyntax declaration)
     {
         if (declaration.Body != null || declaration.ExpressionBody == null) return declaration;
-        var @return = SyntaxFactory.ReturnStatement(declaration.ExpressionBody.Expression);
+        var statement = ReturnOrThrow(declaration.ExpressionBody.Expression);
         return declaration
-            .WithBody(SyntaxFactory.Block(@return))
+            .WithBody(SyntaxFactory.Block(statement))
             .WithExpressionBody(null)
             .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
     }
@@ -406,13 +406,22 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         if (accessor.Body != null || accessor.ExpressionBody == null) return accessor;
         var expression = accessor.ExpressionBody.Expression;
         StatementSyntax statement = accessor.Keyword.IsKind(SyntaxKind.GetKeyword)
-            ? SyntaxFactory.ReturnStatement(expression)
+            ? ReturnOrThrow(expression)
             : SyntaxFactory.ExpressionStatement(expression);
         return accessor
             .WithBody(SyntaxFactory.Block(statement))
             .WithExpressionBody(null)
             .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
     }
+
+    /// <summary>
+    /// Wrapping an expression body into a block cannot use <c>return throw ...</c>
+    /// (CS8115): a throw expression is a statement on its own.
+    /// </summary>
+    private static StatementSyntax ReturnOrThrow(ExpressionSyntax expression)
+        => expression is ThrowExpressionSyntax thrown
+            ? SyntaxFactory.ThrowStatement(thrown.Expression)
+            : SyntaxFactory.ReturnStatement(expression);
 
     // ---- GD-CTORARR: constructor token parameters for new T[] allocations ----
 
