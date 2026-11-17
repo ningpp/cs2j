@@ -613,7 +613,11 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         {
             c.AddImport("io.github.ningpp.compat.ArrayHelper");
             var classLiteral = ConversionContext.GetClassLiteral(elemSymbol, c);
-            return $"ArrayHelper.filledValueArray({classLiteral}, {fillLength})";
+            var filled = $"ArrayHelper.filledValueArray({classLiteral}, {fillLength})";
+            // 参数化元素类型必须把实参带回表达式，否则调用点是 var 时推断成 raw
+            // 数组，元素成员退化为 Object（TupleT0T1.Item2 → Object，赋给 Node 不兼容）。
+            // 非泛型元素保持原样，避免无谓的 unchecked 提示。
+            return elem.IndexOf('<') > 0 ? $"({elem}[]) {filled}" : filled;
         }
         var gen = elem.IndexOf('<');
         // 大嵌入字节数组降位 base64（见 ArrayBody）后是自包含表达式，没有
